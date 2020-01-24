@@ -19,9 +19,17 @@ Module modOpenGL
     Public Main_Context As Integer
 
     Public Sub resize_glControl_main()
-        Dim c = frmMain.glControl_main
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
     End Sub
+
+    Public Sub resize_glControl_utility()
+        Dim position As New Point(frmMain.ClientSize.Width - 320, frmMain.ClientSize.Height - 320)
+        frmMain.glControl_utility.Location = position
+        frmMain.glControl_utility.Width = 320
+        frmMain.glControl_utility.Height = 320
+        GL.Viewport(0, 0, frmMain.glControl_utility.ClientSize.Width, frmMain.glControl_utility.ClientSize.Height)
+    End Sub
+
     Public Sub Main_prospectiveView()
         resize_glControl_main()
         projectionMatrix = Matrix4.CreatePerspectiveFieldOfView( _
@@ -32,13 +40,18 @@ Module modOpenGL
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadMatrix(projectionMatrix)
     End Sub
-    Public Sub Main_ortho()
+    Public Sub Main_ortho_main()
         resize_glControl_main()
         projectionMatrix = Matrix4.Identity
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadIdentity()
         GL.Ortho(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, 300.0F, -300.0F)
-        'GL.LoadIdentity()
-
+    End Sub
+    Public Sub Main_ortho_utility()
+        resize_glControl_utility()
+        projectionMatrix = Matrix4.Identity
+        GL.MatrixMode(MatrixMode.Projection)
+        GL.LoadIdentity()
+        GL.Ortho(0.0F, frmMain.glControl_utility.Width, -frmMain.glControl_utility.Height, 0.0F, 300.0F, -300.0F)
     End Sub
 End Module

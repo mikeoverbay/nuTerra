@@ -4,7 +4,7 @@ Imports System.Math
 Imports System
 Imports System.Globalization
 Imports System.Threading
-
+Imports System.Windows
 Imports OpenTK.GLControl
 Imports OpenTK
 Imports OpenTK.Platform.Windows
@@ -16,6 +16,7 @@ Imports Utilities = OpenTK.Platform.Utilities
 
 Public Class frmMain
     Private refresh_thread As New Thread(AddressOf updater)
+
 #Region "From Events"
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
@@ -37,6 +38,10 @@ Public Class frmMain
         Thread.CurrentThread.CurrentCulture = nonInvariantCulture
         '-----------------------------------------------------------------------------------------
         Me.KeyPreview = True    'So I catch keyboard before despatching it
+        '-----------------------------------------------------------------------------------------
+
+
+        glControl_main.MakeCurrent()
         '-----------------------------------------------------------------------------------------
 
         Me.Show()
@@ -65,6 +70,8 @@ Public Class frmMain
 
 #End Region
 
+#Region "Screen position and update"
+
     Private Sub launch_update_thread()
         refresh_thread.Priority = ThreadPriority.Highest
         refresh_thread.IsBackground = True
@@ -81,7 +88,7 @@ Public Class frmMain
         End While
     End Sub
     Private Delegate Sub update_screen_delegate()
-    Private lockdrawing As New Object
+
     Public Sub update_screen()
         Try
             If Me.InvokeRequired And _STARTED Then
@@ -95,5 +102,37 @@ Public Class frmMain
 
         End Try
     End Sub
+#End Region
 
+#Region "glControl_main events"
+
+    Private Sub glControl_main_MouseDown(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDown
+        If e.Button = Forms.MouseButtons.Right Then
+            MOVE_CAM_Z = True
+        End If
+        If e.Button = Forms.MouseButtons.Middle Then
+            MOVE_MOD = True
+            M_DOWN = True
+        End If
+        If e.Button = Forms.MouseButtons.Left Then
+            M_DOWN = True
+        End If
+    End Sub
+
+    Private Sub glControl_main_MouseEnter(sender As Object, e As EventArgs) Handles glControl_main.MouseEnter
+
+    End Sub
+
+    Private Sub glControl_main_MouseUp(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseUp
+
+    End Sub
+
+    Private Sub glControl_main_Load(sender As Object, e As EventArgs) Handles glControl_main.Load
+    End Sub
+
+#End Region
+
+    Private Sub glControl_utility_Load(sender As Object, e As EventArgs) Handles glControl_utility.Load
+
+    End Sub
 End Class

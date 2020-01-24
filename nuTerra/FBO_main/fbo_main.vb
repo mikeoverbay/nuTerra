@@ -22,11 +22,20 @@ Module FBO_main
         Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture As Integer
         Private Shared oldWidth As Integer = 1
         Private Shared oldHeigth As Integer = 1
+
         Private Shared attach_Color_Normal_GMF_Depth() As Integer = { _
                                             FramebufferAttachment.ColorAttachment0, _
                                             FramebufferAttachment.ColorAttachment1, _
                                             FramebufferAttachment.ColorAttachment2, _
-                                            FramebufferAttachment.ColorAttachment3}
+                                            FramebufferAttachment.ColorAttachment3 _
+                                            }
+        Public Shared attach_Color() As Integer = { _
+                                            FramebufferAttachment.ColorAttachment0 _
+                                            }
+        Public Shared attach_Normal() As Integer = { _
+                                            FramebufferAttachment.ColorAttachment1 _
+                                            }
+
 
         Public Shared Sub FBO_Initialize()
             SyncMutex.WaitOne()
@@ -37,19 +46,14 @@ Module FBO_main
 
             If oldWidth <> SCR_WIDTH And oldHeigth <> SCR_HEIGHT Then
                 delete_textures_and_fbo()
-
-
                 create_textures()
-
                 If Not create_fbo() Then
-                    MsgBox("Failed to create main FBO" + vbCrLf + "I must down!", MsgBoxStyle.Exclamation, "We're Screwed!")
+                    MsgBox("Failed to create main FBO" + vbCrLf + "I must shut down!", MsgBoxStyle.Exclamation, "We're Screwed!")
                     End
                 End If
-
                 'set new size
                 oldWidth = SCR_WIDTH
                 oldHeigth = SCR_HEIGHT
-
             End If
             SyncMutex.ReleaseMutex()
         End Sub
@@ -74,6 +78,7 @@ Module FBO_main
                 GL.DeleteRenderbuffer(depthBufferTexture)
             End If
         End Sub
+
         Public Shared Sub create_textures()
             ' gColor ------------------------------------------------------------------------------------------
             '4 color int : RGB and alpha
@@ -102,7 +107,7 @@ Module FBO_main
             Dim er2 = GL.GetError
             gDepth = GL.GenTexture
             GL.BindTexture(TextureTarget.Texture2D, gDepth)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R32f, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgb, PixelType.Float, Nothing)
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R32f, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Red, PixelType.Float, Nothing)
             GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
@@ -138,29 +143,22 @@ Module FBO_main
             GL.FramebufferRenderbuffer(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.DepthAttachment, RenderbufferTarget.Renderbuffer, depthBufferTexture)
             Dim er1 = GL.GetError
             'attach our render buffer textures.
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, gColor, 1)
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, gNormal, 1)
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment2, gGMF, 1)
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment3, gDepth, 1)
-            Dim er2 = GL.GetError
-
-            'attach the textures for complete test.
-            GL.DrawBuffers(4, attach_Color_Normal_GMF_Depth)
+            attach_CNGD()
             Dim FBOHealth = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
 
             If FBOHealth <> FramebufferStatus.FramebufferComplete Then
                 Return False
             End If
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO)
 
+            'set buffer target to default.
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
 
-            Return True ' all good :)
+            Return True ' No errors! all is good! :)
         End Function
 
         Public Shared Sub get_glControl_main_size(ByRef w As Integer, ByRef h As Integer)
             'returns the size of the render control
-            'We must ensure that the window size is divisible by 2.
-
+            'We must ensure that the window size is divisible by 2. GL doesn't like odd sized textures!
             frmMain.glControl_main.Width = frmMain.ClientSize.Width
             frmMain.glControl_main.Height = frmMain.ClientSize.Height - frmMain.MainMenuStrip.Height
             frmMain.glControl_main.Location = New System.Drawing.Point(0, frmMain.MainMenuStrip.Height + 1)
@@ -171,6 +169,25 @@ Module FBO_main
             frmMain.glControl_main.Width = w
             frmMain.glControl_main.Height = h
             Return
+        End Sub
+
+        Public Shared Sub attach_CNGD()
+            'attach our render buffer textures.
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, gColor, 1)
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, gNormal, 1)
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment2, gGMF, 1)
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment3, gDepth, 1)
+            GL.DrawBuffers(4, attach_Color_Normal_GMF_Depth)
+        End Sub
+
+        Public Shared Sub attach_C()
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, gColor, 1)
+            GL.DrawBuffers(1, attach_Color)
+        End Sub
+
+        Public Shared Sub attach_N()
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, gNormal, 1)
+            GL.DrawBuffers(1, attach_Normal)
         End Sub
 
     End Class
