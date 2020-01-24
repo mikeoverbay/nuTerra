@@ -53,7 +53,9 @@ Public Class frmMain
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
         If _STARTED Then
-            FBOm.FBO_Initialize()
+            If Not Me.WindowState = FormWindowState.Minimized Then
+                FBOm.FBO_Initialize()
+            End If
         End If
     End Sub
 
@@ -97,7 +99,6 @@ Public Class frmMain
     End Sub
 
     Private Sub Delay_timer_Tick(sender As Object, e As EventArgs) Handles Delay_timer.Tick
-
         launch_update_thread()
         Delay_timer.Enabled = False
         Delay_timer.Dispose()
