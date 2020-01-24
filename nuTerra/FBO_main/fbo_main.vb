@@ -11,32 +11,31 @@ Imports Config = OpenTK.Configuration
 Imports Utilities = OpenTK.Platform.Utilities
 
 Module FBO_main
-    Public FBOm As New FBOm_
     Public mainFBO As Integer = 0
 
     ''' <summary>
     ''' Creates the main rendering FBO
     ''' </summary>
     ''' <remarks></remarks>
-    Public Class FBOm_
-        Public SCR_WIDTH, SCR_HEIGHT As Int32
-        Public gColor, gNormal, gGMF, gDepth, depthBufferTexture As Integer
-        Private oldWidth As Integer = 1
-        Private oldHeigth As Integer = 1
-        Private attach_Color_Normal_GMF_Depth() As Integer = { _
+    Public NotInheritable Class FBOm
+        Public Shared SCR_WIDTH, SCR_HEIGHT As Int32
+        Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture As Integer
+        Private Shared oldWidth As Integer = 1
+        Private Shared oldHeigth As Integer = 1
+        Private Shared attach_Color_Normal_GMF_Depth() As Integer = { _
                                             FramebufferAttachment.ColorAttachment0, _
                                             FramebufferAttachment.ColorAttachment1, _
                                             FramebufferAttachment.ColorAttachment2, _
                                             FramebufferAttachment.ColorAttachment3}
 
-        Public Sub FBO_Initialize()
-            SynchMutex.WaitOne()
+        Public Shared Sub FBO_Initialize()
+            SyncMutex.WaitOne()
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
             ' Stop changing the size becuase of excessive window resize calls.
             get_glControl_main_size(SCR_WIDTH, SCR_HEIGHT)
 
-            If Me.oldWidth <> Me.SCR_WIDTH And Me.oldHeigth <> Me.SCR_HEIGHT Then
+            If oldWidth <> SCR_WIDTH And oldHeigth <> SCR_HEIGHT Then
                 delete_textures_and_fbo()
 
 
@@ -48,13 +47,13 @@ Module FBO_main
                 End If
 
                 'set new size
-                Me.oldWidth = Me.SCR_WIDTH
-                Me.oldHeigth = Me.SCR_HEIGHT
+                oldWidth = SCR_WIDTH
+                oldHeigth = SCR_HEIGHT
 
             End If
-            SynchMutex.ReleaseMutex()
+            SyncMutex.ReleaseMutex()
         End Sub
-        Public Sub delete_textures_and_fbo()
+        Public Shared Sub delete_textures_and_fbo()
             'as the name says
             If gColor > 0 Then
                 GL.DeleteTexture(gColor)
@@ -75,13 +74,13 @@ Module FBO_main
                 GL.DeleteRenderbuffer(depthBufferTexture)
             End If
         End Sub
-        Public Sub create_textures()
+        Public Shared Sub create_textures()
             ' gColor ------------------------------------------------------------------------------------------
             '4 color int : RGB and alpha
             Dim er0 = GL.GetError
             gColor = GL.GenTexture
             GL.BindTexture(TextureTarget.Texture2D, gColor)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, Me.SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Bgra, PixelType.UnsignedInt, Nothing)
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Bgra, PixelType.UnsignedInt, Nothing)
             GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
@@ -92,7 +91,7 @@ Module FBO_main
             Dim er1 = GL.GetError
             gNormal = GL.GenTexture
             GL.BindTexture(TextureTarget.Texture2D, gNormal)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, Me.SCR_WIDTH, Me.SCR_HEIGHT, 0, PixelFormat.Rgba, PixelType.UnsignedInt, Nothing)
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgba, PixelType.UnsignedInt, Nothing)
             GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
@@ -124,7 +123,7 @@ Module FBO_main
 
         End Sub
 
-        Public Function create_fbo() As Boolean
+        Public Shared Function create_fbo() As Boolean
             Threading.Thread.Sleep(50) ' give rendering a chance to stop.
 
             'creat the FBO
@@ -135,7 +134,7 @@ Module FBO_main
             'create the FBOs depth buffer
             depthBufferTexture = GL.GenRenderbuffer
             GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, depthBufferTexture)
-            GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.DepthComponent32, Me.SCR_WIDTH, Me.SCR_HEIGHT)
+            GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.DepthComponent32, SCR_WIDTH, SCR_HEIGHT)
             GL.FramebufferRenderbuffer(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.DepthAttachment, RenderbufferTarget.Renderbuffer, depthBufferTexture)
             Dim er1 = GL.GetError
             'attach our render buffer textures.
@@ -158,7 +157,7 @@ Module FBO_main
             Return True ' all good :)
         End Function
 
-        Public Sub get_glControl_main_size(ByRef w As Integer, ByRef h As Integer)
+        Public Shared Sub get_glControl_main_size(ByRef w As Integer, ByRef h As Integer)
             'returns the size of the render control
             'We must ensure that the window size is divisible by 2.
 

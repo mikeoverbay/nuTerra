@@ -87,9 +87,9 @@ Public Class frmMain
             If Me.InvokeRequired And _STARTED Then
                 Me.Invoke(New update_screen_delegate(AddressOf update_screen))
             Else
-                SynchMutex.WaitOne()
+                SyncMutex.WaitOne()
                 draw_scene()
-                SynchMutex.ReleaseMutex()
+                SyncMutex.ReleaseMutex()
             End If
         Catch ex As Exception
 

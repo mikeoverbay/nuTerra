@@ -68,7 +68,7 @@ Public Class frmEditFrag
             File.WriteAllText(g_app_path, geo_tb.Text)
         End If
 
-        SynchMutex.WaitOne()   'disable rendering
+        SyncMutex.WaitOne()   'disable rendering
 
         Dim fs As String
         Dim vs As String
@@ -86,7 +86,7 @@ Public Class frmEditFrag
         reset_focus()
         recompile_bt.Enabled = True
 
-        SynchMutex.ReleaseMutex()   'Enable rendering
+        SyncMutex.ReleaseMutex()   'Enable rendering
 
     End Sub
 
