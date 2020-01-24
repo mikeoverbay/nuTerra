@@ -24,14 +24,12 @@ Partial Class frmMain
     'Do not modify it using the code editor.
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
-        Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
-        Me.glControl_main = New OpenTK.GLControl(New OpenTK.Graphics.GraphicsMode(New ColorFormat(8, 8, 8, 8), 24))
+        Me.glControl_main = New OpenTK.GLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_settings = New System.Windows.Forms.ToolStripMenuItem()
-        Me.Delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.frmMainMenu.SuspendLayout()
         Me.SuspendLayout()
         '
@@ -72,10 +70,6 @@ Partial Class frmMain
         Me.m_settings.Size = New System.Drawing.Size(61, 20)
         Me.m_settings.Text = "Settings"
         '
-        'Delay_timer
-        '
-        Me.Delay_timer.Interval = 200
-        '
         'frmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -100,6 +94,5 @@ Partial Class frmMain
     Friend WithEvents m_file As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_help As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_settings As System.Windows.Forms.ToolStripMenuItem
-    Friend WithEvents Delay_timer As System.Windows.Forms.Timer
 
 End Class

@@ -31,24 +31,22 @@ Public Class frmMain
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
         '-----------------------------------------------------------------------------------------
-        'so numbers work in any nation this app is running.
+        'So numbers work in any nation I'm running in.
         Dim nonInvariantCulture As CultureInfo = New CultureInfo("en-US")
         nonInvariantCulture.NumberFormat.NumberDecimalSeparator = "."
         Thread.CurrentThread.CurrentCulture = nonInvariantCulture
         '-----------------------------------------------------------------------------------------
-        Me.KeyPreview = True    'so I catch keyboard before despatching it
+        Me.KeyPreview = True    'So I catch keyboard before despatching it
         '-----------------------------------------------------------------------------------------
 
-        'Dim winInfo = glControl_main.WindowInfo
-        'glControl_main.Context.MakeCurrent(winInfo)
         Me.Show()
         FBOm.FBO_Initialize()
 
         '-----------------------------------------------------------------------------------------
         build_shaders()
         '-----------------------------------------------------------------------------------------
-        _STARTED = True ' we are ready to run
-        Delay_timer.Start() ' starts screen updates
+        _STARTED = True ' I'm ready to run!
+        launch_update_thread()
     End Sub
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
@@ -98,9 +96,4 @@ Public Class frmMain
         End Try
     End Sub
 
-    Private Sub Delay_timer_Tick(sender As Object, e As EventArgs) Handles Delay_timer.Tick
-        launch_update_thread()
-        Delay_timer.Enabled = False
-        Delay_timer.Dispose()
-    End Sub
 End Class
