@@ -10,7 +10,7 @@ Imports OpenTK.Graphics.OpenGL
 Imports Config = OpenTK.Configuration
 Imports Utilities = OpenTK.Platform.Utilities
 
-Module fbo_main
+Module FBO_main
     Public FBOm As New FBOm_
     Public mainFBO As Integer = 0
 
@@ -30,10 +30,10 @@ Module fbo_main
                                             FramebufferAttachment.ColorAttachment3}
 
         Public Sub FBO_Initialize()
-
+            SynchMutex.WaitOne()
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
-            ' stop changing the size becuase of excessive window resize calls.
+            ' Stop changing the size becuase of excessive window resize calls.
             get_glControl_main_size(SCR_WIDTH, SCR_HEIGHT)
 
             If Me.oldWidth <> Me.SCR_WIDTH And Me.oldHeigth <> Me.SCR_HEIGHT Then
@@ -52,6 +52,7 @@ Module fbo_main
                 Me.oldHeigth = Me.SCR_HEIGHT
 
             End If
+            SynchMutex.ReleaseMutex()
         End Sub
         Public Sub delete_textures_and_fbo()
             'as the name says
@@ -124,7 +125,6 @@ Module fbo_main
         End Sub
 
         Public Function create_fbo() As Boolean
-            _STOPGL = True 'stop rendering
             Threading.Thread.Sleep(50) ' give rendering a chance to stop.
 
             'creat the FBO
@@ -154,7 +154,6 @@ Module fbo_main
             End If
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO)
 
-            _STOPGL = False  'start rendering again
 
             Return True ' all good :)
         End Function

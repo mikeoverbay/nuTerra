@@ -85,11 +85,11 @@ Public Class frmMain
     Public Sub update_screen()
         Try
             If Me.InvokeRequired And _STARTED Then
-                SyncLock lockdrawing
-                    Me.Invoke(New update_screen_delegate(AddressOf update_screen))
-                End SyncLock
+                Me.Invoke(New update_screen_delegate(AddressOf update_screen))
             Else
+                SynchMutex.WaitOne()
                 draw_scene()
+                SynchMutex.ReleaseMutex()
             End If
         Catch ex As Exception
 

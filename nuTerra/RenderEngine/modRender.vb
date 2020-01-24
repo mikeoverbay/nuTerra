@@ -16,7 +16,6 @@ Module modRender
     Public PI As Single = 3.14159274F
     Public angle As Single = 0
     Public Sub draw_scene()
-        If _STOPGL Then Return
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
         frmMain.glControl_main.MakeCurrent()

@@ -68,7 +68,7 @@ Public Class frmEditFrag
             File.WriteAllText(g_app_path, geo_tb.Text)
         End If
 
-        _STOPGL = True  'disable rendering
+        SynchMutex.WaitOne()   'disable rendering
 
         Dim fs As String
         Dim vs As String
@@ -83,11 +83,10 @@ Public Class frmEditFrag
             .shader_id = id
         End With
         set_shader_variables() ' update uniform addresses
-        _STOPGL = False
-        draw_scene()
-        draw_scene()
         reset_focus()
         recompile_bt.Enabled = True
+
+        SynchMutex.ReleaseMutex()   'Enable rendering
 
     End Sub
 
