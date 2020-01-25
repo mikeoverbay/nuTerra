@@ -309,13 +309,15 @@ Public Class frmMain
 
             GL.Enable(EnableCap.Texture2D)
             GL.GenTextures(1, image_id)
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+            GL.BindTexture(TextureTarget.Texture2D, image_id)
+
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
 
             GL.BindTexture(TextureTarget.Texture2D, 0)
             Il.ilBindImage(0)
