@@ -113,6 +113,7 @@
       <DependentUpon>frmMain.vb</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="ModelLoader\modXfile.vb" />
     <Compile Include="Modules\modGlobalVars.vb" />
     <Compile Include="Modules\modXfileLoader.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
@@ -178,6 +179,10 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
+    <None Include="Resources\compass.x" />
+    <None Include="Resources\dial.x">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\basic_fragment.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -186,7 +191,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="ModelLoader\" />
     <Folder Include="Space.bin\" />
     <Folder Include="TextureEngine\" />
   </ItemGroup>

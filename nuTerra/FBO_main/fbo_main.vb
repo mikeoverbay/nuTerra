@@ -38,7 +38,7 @@ Module FBO_main
 
 
         Public Shared Sub FBO_Initialize()
-            SyncMutex.WaitOne()
+            SYNCMUTEX.WaitOne()
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
             ' Stop changing the size becuase of excessive window resize calls.
@@ -55,7 +55,7 @@ Module FBO_main
                 oldWidth = SCR_WIDTH
                 oldHeigth = SCR_HEIGHT
             End If
-            SyncMutex.ReleaseMutex()
+            SYNCMUTEX.ReleaseMutex()
         End Sub
         Public Shared Sub delete_textures_and_fbo()
             'as the name says

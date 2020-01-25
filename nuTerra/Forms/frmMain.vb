@@ -39,7 +39,7 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         Me.KeyPreview = True    'So I catch keyboard before despatching it
         '-----------------------------------------------------------------------------------------
-
+        glControl_utility.MakeCurrent()
 
         glControl_main.MakeCurrent()
         '-----------------------------------------------------------------------------------------
@@ -50,10 +50,20 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         build_shaders()
         '-----------------------------------------------------------------------------------------
+        load_assets()
+        '-----------------------------------------------------------------------------------------
+        'set camara start up position
+        VIEW_RADIUS = -30.0
+        CAM_X_ANGLE = PI / 4
+        CAM_Y_ANGLE = -PI / 4
+        '-----------------------------------------------------------------------------------------
         _STARTED = True ' I'm ready to run!
         launch_update_thread()
     End Sub
-
+    Private Sub load_assets()
+        Dim su = Application.StartupPath
+        get_X_model(su + "\resources\dial.x")
+    End Sub
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
         If _STARTED Then
             If Not Me.WindowState = FormWindowState.Minimized Then
@@ -87,26 +97,62 @@ Public Class frmMain
             Thread.Sleep(1)
         End While
     End Sub
+
+    ''' <summary>
+    ''' cross thread Delegate
+    ''' </summary>
+    ''' <remarks></remarks>
     Private Delegate Sub update_screen_delegate()
 
+    ''' <summary>
+    ''' Used to call functions outside update thread.
+    ''' </summary>
+    ''' <remarks></remarks>
     Public Sub update_screen()
         Try
             If Me.InvokeRequired And _STARTED Then
                 Me.Invoke(New update_screen_delegate(AddressOf update_screen))
             Else
-                SyncMutex.WaitOne()
+                check_postion_for_update()
+                SYNCMUTEX.WaitOne()
                 draw_scene()
-                SyncMutex.ReleaseMutex()
+                SYNCMUTEX.ReleaseMutex()
             End If
         Catch ex As Exception
 
         End Try
     End Sub
 #End Region
-
+    ''' <summary>
+    ''' This is called by the update thread to see
+    ''' if anything about the camera view has changed.
+    ''' </summary>
+    ''' <remarks></remarks>
+    Private Sub check_postion_for_update()
+        If LOOK_AT_X <> U_LOOK_AT_X Then
+            U_LOOK_AT_X = LOOK_AT_X
+        End If
+        If LOOK_AT_Y <> U_LOOK_AT_Y Then
+            U_LOOK_AT_Y = LOOK_AT_Y
+        End If
+        If LOOK_AT_Z <> U_LOOK_AT_Z Then
+            U_LOOK_AT_Z = LOOK_AT_Z
+        End If
+        If CAM_X_ANGLE <> U_CAM_X_ANGLE Then
+            U_CAM_X_ANGLE = CAM_X_ANGLE
+        End If
+        If CAM_Y_ANGLE <> U_CAM_Y_ANGLE Then
+            U_CAM_Y_ANGLE = CAM_Y_ANGLE
+        End If
+        If VIEW_RADIUS <> U_VIEW_RADIUS Then
+            U_VIEW_RADIUS = VIEW_RADIUS
+        End If
+    End Sub
 #Region "glControl_main events"
 
     Private Sub glControl_main_MouseDown(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDown
+        MOUSE.X = e.X
+        MOUSE.Y = e.Y
         If e.Button = Forms.MouseButtons.Right Then
             MOVE_CAM_Z = True
         End If
@@ -124,15 +170,117 @@ Public Class frmMain
     End Sub
 
     Private Sub glControl_main_MouseUp(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseUp
+        M_DOWN = False
+        MOVE_CAM_Z = False
+        MOVE_MOD = False
 
     End Sub
 
-    Private Sub glControl_main_Load(sender As Object, e As EventArgs) Handles glControl_main.Load
+    Private Sub glControl_main_MouseMove(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseMove
+        M_MOUSE.X = e.X
+        M_MOUSE.Y = e.Y
+
+        'If check_menu_select() Then ' check if we are over a button
+        '    Return
+        'End If
+        Dim dead As Integer = 5
+        Dim t As Single
+        Dim M_Speed As Single = MOUSE_SPEED_GLOBAL
+        Dim ms As Single = 0.2F * view_radius ' distance away changes speed.. THIS WORKS WELL!
+        If M_DOWN Then
+            If e.X > (MOUSE.X + dead) Then
+                If e.X - MOUSE.X > 100 Then t = (1.0F * M_Speed)
+            Else : t = CSng(Sin((e.X - MOUSE.X) / 100)) * M_Speed
+                If Not Z_MOVE Then
+                    If MOVE_MOD Then ' check for modifying flag
+                        LOOK_AT_X -= ((t * ms) * (Cos(CAM_X_ANGLE)))
+                        LOOK_AT_Z -= ((t * ms) * (-Sin(CAM_X_ANGLE)))
+                    Else
+                        CAM_X_ANGLE -= t
+                    End If
+                    If CAM_X_ANGLE > (2 * PI) Then CAM_X_ANGLE -= (2 * PI)
+                    MOUSE.X = e.X
+                End If
+            End If
+            If e.X < (MOUSE.X - dead) Then
+                If MOUSE.X - e.X > 100 Then t = (M_Speed)
+            Else : t = CSng(Sin((MOUSE.X - e.X) / 100)) * M_Speed
+                If Not Z_MOVE Then
+                    If MOVE_MOD Then ' check for modifying flag
+                        LOOK_AT_X += ((t * ms) * (Cos(CAM_X_ANGLE)))
+                        LOOK_AT_Z += ((t * ms) * (-Sin(CAM_X_ANGLE)))
+                    Else
+                        CAM_X_ANGLE += t
+                    End If
+                    If CAM_X_ANGLE < 0 Then CAM_X_ANGLE += (2 * PI)
+                    MOUSE.X = e.X
+                End If
+            End If
+            ' ------- Y moves ----------------------------------
+            If e.Y > (MOUSE.Y + dead) Then
+                If e.Y - MOUSE.Y > 100 Then t = (M_Speed)
+            Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * M_Speed
+                If Z_MOVE Then
+                    LOOK_AT_Y -= (t * ms)
+                Else
+                    If MOVE_MOD Then ' check for modifying flag
+                        LOOK_AT_Z -= ((t * ms) * (Cos(CAM_X_ANGLE)))
+                        LOOK_AT_X -= ((t * ms) * (Sin(CAM_X_ANGLE)))
+                    Else
+                        CAM_Y_ANGLE -= t
+                    End If
+                    If CAM_Y_ANGLE < -PI / 2.0 Then CAM_Y_ANGLE = -PI / 2.0 + 0.001
+                End If
+                MOUSE.Y = e.Y
+            End If
+            If e.Y < (MOUSE.Y - dead) Then
+                If MOUSE.Y - e.Y > 100 Then t = (M_Speed)
+            Else : t = CSng(Sin((MOUSE.Y - e.Y) / 100)) * M_Speed
+                If Z_MOVE Then
+                    LOOK_AT_Y += (t * ms)
+                Else
+                    If MOVE_MOD Then ' check for modifying flag
+                        LOOK_AT_Z += ((t * ms) * (Cos(CAM_X_ANGLE)))
+                        LOOK_AT_X += ((t * ms) * (Sin(CAM_X_ANGLE)))
+                    Else
+                        CAM_Y_ANGLE += t
+                    End If
+                    If CAM_Y_ANGLE > 1.3 Then CAM_Y_ANGLE = 1.3
+                End If
+                MOUSE.Y = e.Y
+            End If
+            'draw_scene()
+            'Debug.WriteLine(Cam_X_angle.ToString("0.000") + " " + Cam_Y_angle.ToString("0.000"))
+            Return
+        End If
+        If MOVE_CAM_Z Then
+            If e.Y > (MOUSE.Y + dead) Then
+                If e.Y - MOUSE.Y > 100 Then t = (10)
+            Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * 12 * MOUSE_SPEED_GLOBAL
+                view_radius += (t * (view_radius * 0.2))    ' zoom is factored in to Cam radius
+                If view_radius < -80.0 Then
+                    view_radius = -80.0
+                End If
+                MOUSE.Y = e.Y
+            End If
+            If e.Y < (MOUSE.Y - dead) Then
+                If MOUSE.Y - e.Y > 100 Then t = (10)
+            Else : t = CSng(Sin((MOUSE.Y - e.Y) / 100)) * 12 * MOUSE_SPEED_GLOBAL
+                view_radius -= (t * (view_radius * 0.2))    ' zoom is factored in to Cam radius
+                If view_radius > -0.01 Then view_radius = -0.01
+                MOUSE.Y = e.Y
+            End If
+            If view_radius > -0.1 Then view_radius = -0.1
+            'draw_scene()
+            Return
+        End If
+        MOUSE.X = e.X
+        MOUSE.Y = e.Y
+
     End Sub
 
 #End Region
 
-    Private Sub glControl_utility_Load(sender As Object, e As EventArgs) Handles glControl_utility.Load
 
-    End Sub
+
 End Class

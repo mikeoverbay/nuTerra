@@ -13,8 +13,6 @@ Imports Utilities = OpenTK.Platform.Utilities
 
 Module modOpenGL
     Public FieldOfView As Single = 60.0F
-    Private projectionMatrix As Matrix4
-    Private modelViewMatrix As Matrix4
 
     Public Main_Context As Integer
 
@@ -32,24 +30,24 @@ Module modOpenGL
 
     Public Sub Main_prospectiveView()
         resize_glControl_main()
-        projectionMatrix = Matrix4.CreatePerspectiveFieldOfView( _
+        PROJECTIONMATRIX = Matrix4.CreatePerspectiveFieldOfView( _
                                    CSng(Math.PI) * (FieldOfView / 180.0F), _
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height), _
                                    1.0F, 500.0F)
 
         GL.MatrixMode(MatrixMode.Projection)
-        GL.LoadMatrix(projectionMatrix)
+        GL.LoadMatrix(PROJECTIONMATRIX)
     End Sub
     Public Sub Main_ortho_main()
         resize_glControl_main()
-        projectionMatrix = Matrix4.Identity
+        PROJECTIONMATRIX = Matrix4.Identity
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadIdentity()
         GL.Ortho(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, 300.0F, -300.0F)
     End Sub
     Public Sub Main_ortho_utility()
         resize_glControl_utility()
-        projectionMatrix = Matrix4.Identity
+        PROJECTIONMATRIX = Matrix4.Identity
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadIdentity()
         GL.Ortho(0.0F, frmMain.glControl_utility.Width, -frmMain.glControl_utility.Height, 0.0F, 300.0F, -300.0F)

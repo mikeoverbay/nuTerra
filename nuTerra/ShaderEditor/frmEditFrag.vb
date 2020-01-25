@@ -68,7 +68,7 @@ Public Class frmEditFrag
             File.WriteAllText(g_app_path, geo_tb.Text)
         End If
 
-        SyncMutex.WaitOne()   'disable rendering
+        SYNCMUTEX.WaitOne()   'disable rendering
 
         Dim fs As String
         Dim vs As String
@@ -86,7 +86,7 @@ Public Class frmEditFrag
         reset_focus()
         recompile_bt.Enabled = True
 
-        SyncMutex.ReleaseMutex()   'Enable rendering
+        SYNCMUTEX.ReleaseMutex()   'Enable rendering
 
     End Sub
 
@@ -200,7 +200,7 @@ Public Class frmEditFrag
                     s = geo_tb.SelectedText.ToString
                 End If
         End Select
- 
+
         If s.Length = 0 Then Return
         'www.opengl.org%2Fsdk%2Fdocs%2Fman%2Fhtml%2Fclamp.xhtml
         Dim s2 As String = "https://www.google.com/?gws_rd=ssl#q=" + s
