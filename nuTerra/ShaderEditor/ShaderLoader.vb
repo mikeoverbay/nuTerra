@@ -58,28 +58,8 @@ Module ShaderLoader
     Public GL_TRUE As Integer = 1
     Public GL_FALSE As Integer = 0
 
-    Public Function get_GL_error_string(ByVal e As Integer) As String
-        Select Case True
-            Case e = &H500
-                Return "GL_INVALID_ENUM"
-            Case e = &H501
-                Return "GL_INVALID_VALUE"
-            Case e = &H502
-                Return "GL_INVALID_OPERATION"
-            Case e = &H503
-                Return "GL_STACK_OVERFLOW"
-            Case &H504
-                Return "GL_STACK_UNDERFLOW"
-            Case &H505
-                Return "GL_OUT_OF_MEMORY"
-            Case &H506
-                Return "GL_INVALID_FRAMEBUFFER_OPERATION"
-            Case &H507
-                Return "GL_CONTEXT_LOST"
-            Case &H8031
-                Return "GL_TABLE_TOO_LARGE1"
-        End Select
-        Return "Unknown Error"
+Public Function get_GL_error_string(ByVal e As ErrorCode) As String
+        Return [Enum].GetName(GetType(ErrorCode), e)
     End Function
 
     Public Sub build_shaders()
@@ -287,7 +267,11 @@ Module ShaderLoader
         End If
 
         'no idea how to get link status in OpenTK :(
-
+        GL.GetProgram(shader, GetProgramParameterName.LinkStatus, status_code)
+        If Not status_code = GL_TRUE Then
+            GL.DeleteShader(fragmentObject)
+            gl_error(name + " Would not link!" + vbCrLf + info.ToString)
+        End If
         'delete shader objects
         GL.DeleteShader(fragmentObject)
         GL.GetShader(fragmentObject, ShaderParameter.CompileStatus, status_code)

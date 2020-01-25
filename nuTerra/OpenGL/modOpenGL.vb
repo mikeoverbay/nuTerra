@@ -39,18 +39,47 @@ Module modOpenGL
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadMatrix(PROJECTIONMATRIX)
     End Sub
-    Public Sub Main_ortho_main()
+    Public Sub Ortho_main()
         resize_glControl_main()
         PROJECTIONMATRIX = Matrix4.Identity
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadIdentity()
         GL.Ortho(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, 300.0F, -300.0F)
     End Sub
-    Public Sub Main_ortho_utility()
+    Public Sub Ortho_utility()
         resize_glControl_utility()
         PROJECTIONMATRIX = Matrix4.Identity
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadIdentity()
         GL.Ortho(0.0F, frmMain.glControl_utility.Width, -frmMain.glControl_utility.Height, 0.0F, 300.0F, -300.0F)
     End Sub
+
+    Public Sub set_prespective_view()
+        Dim sin_x, cos_x, cos_y, sin_y As Single
+        Dim cam_x, cam_y, cam_z As Single
+
+        sin_x = Sin(U_CAM_X_ANGLE)
+        cos_x = Cos(U_CAM_X_ANGLE)
+        cos_y = Cos(U_CAM_Y_ANGLE)
+        sin_y = Sin(U_CAM_Y_ANGLE)
+        cam_y = Sin(U_CAM_Y_ANGLE) * VIEW_RADIUS
+        cam_x = (sin_x - (1 - cos_y) * sin_x) * VIEW_RADIUS
+        cam_z = (cos_x - (1 - cos_y) * cos_x) * VIEW_RADIUS
+
+        CAM_POSITION.X = cam_x + U_LOOK_AT_X
+        CAM_POSITION.Y = cam_y + U_LOOK_AT_Y
+        CAM_POSITION.Z = cam_z + U_LOOK_AT_Z
+
+        Dim target As Vector3 = New Vector3(U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z)
+        Dim position As Vector3 = New Vector3(CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
+        Dim up As Vector3 = Vector3.UnitY
+
+        Main_prospectiveView()
+
+        MODELVIEWMATRIX = Matrix4.LookAt(position, target, up)
+        GL.MatrixMode(MatrixMode.Modelview)
+        GL.LoadMatrix(MODELVIEWMATRIX)
+
+    End Sub
+
 End Module
