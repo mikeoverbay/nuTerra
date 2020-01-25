@@ -69,7 +69,7 @@ Public Class frmEditFrag
         End If
 
         SYNCMUTEX.WaitOne()   'disable rendering
-
+        Me.TopMost = False
         Dim fs As String
         Dim vs As String
         Dim gs As String
@@ -85,6 +85,7 @@ Public Class frmEditFrag
         set_shader_variables() ' update uniform addresses
         reset_focus()
         recompile_bt.Enabled = True
+        Me.TopMost = True
 
         SYNCMUTEX.ReleaseMutex()   'Enable rendering
 
