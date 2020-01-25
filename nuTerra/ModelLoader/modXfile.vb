@@ -52,12 +52,9 @@ Module modXfile
 
     Public Function get_X_model(file_ As String) As Integer
         'reads single object directX ASCII file.
-        ' IN: path and name of file to load
-        ' OUT: VBO ID.
         'At some point this will load multi model files.
         '##################################################
-        'there is code in here to save as a binary file!!!!
-        'use it to compress the x-files to much smaller sizes.. 1/6th as big and much faster loading
+
         Dim start_locations(1) As UInteger
         Dim obj_count As Integer = get_start_locations(start_locations, file_)
         If obj_count < 0 Then
@@ -94,9 +91,9 @@ Module modXfile
             txt = s.ReadLine
             brk = txt.Split(";")
             brk = brk(1).Split(",")
-            indices(i).c = CInt(brk(0)) ' flip winding
-            indices(i).b = CInt(brk(1))
-            indices(i).a = CInt(brk(2))
+            indices(i).c = CUShort(brk(0)) ' flip winding
+            indices(i).b = CUShort(brk(1))
+            indices(i).a = CUShort(brk(2))
         Next
         ' get normals----------------------------------------
         s.Close()

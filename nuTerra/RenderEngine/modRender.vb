@@ -17,9 +17,8 @@ Module modRender
     Public angle1, angle2 As Single
     Public Sub draw_scene()
 
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
-
-
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) ' Use default buffer
+        FBOm.attach_C()
         '-------------------------------------------------------
         '1st glControl
 
@@ -43,7 +42,7 @@ Module modRender
             GL.Vertex3(0.0F, 0.0F, 0.0F)
             GL.Vertex3(x, 0.0F, y)
             GL.End()
-            angle1 += 0.000001
+            angle1 += 0.000005
             If angle1 > PI * 2 / 40 Then
                 angle1 = 0
             End If
@@ -52,11 +51,17 @@ Module modRender
 
         GL.Enable(EnableCap.DepthTest)
         GL.Disable(EnableCap.Lighting)
+        GL.Disable(EnableCap.CullFace)
+
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
+        '------------------------------------------------
         GL.UseProgram(shader_list.basic_shader) '<---- Shader Bind
         '------------------------------------------------
-        '------------------------------------------------
+        'GL.Enable(EnableCap.Texture2D)
+        GL.Uniform1(basic_text_id, 0)
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindTexture(TextureTarget.Texture2D, dial_face_ID) '<---------- Texture Bind
         'draw VBO IBO
         GL.PushMatrix()
         GL.Scale(0.1F, 0.1F, 0.1F)
@@ -97,11 +102,7 @@ Module modRender
         Dim HEIGHT = 30.0F
 
 
-        GL.Uniform1(basic_text_id, 0)
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, dial_face_ID) '<---------- Texture Bind
 
-        GL.Enable(EnableCap.Texture2D)
 
         GL.Begin(PrimitiveType.Quads)
 

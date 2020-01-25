@@ -2,6 +2,7 @@
 
 Imports System.Math
 Imports System
+Imports System.IO
 Imports System.Globalization
 Imports System.Threading
 Imports System.Windows
@@ -287,17 +288,17 @@ Public Class frmMain
 
 #End Region
 
-    Private Function load_png_from_file(ByRef fs As String)
-        'Dim s As String = ""
-        's = Gl.glGetError
-        Dim image_id As Integer = -1
-        'Dim app_local As String = Application.StartupPath.ToString
-
+    Private Function load_png_from_file(ByRef fn As String)
+        If Not File.Exists(fn) Then
+            MsgBox("Can't find :" + fn, MsgBoxStyle.Exclamation, "Oh my!")
+            Return Nothing
+        End If
+        Dim image_id As Integer
         Dim texID As UInt32
-        texID = Ilu.iluGenImage() ' /* Generation of one image name */
-        Il.ilBindImage(texID) '; /* Binding of image name */
-        Dim success = Il.ilGetError
-        Il.ilLoad(Il.IL_PNG, fs)
+        texID = Ilu.iluGenImage()
+        Il.ilBindImage(texID)
+        Dim success = 0
+        Il.ilLoad(Il.IL_PNG, fn)
         success = Il.ilGetError
         If success = Il.IL_NO_ERROR Then
             'Ilu.iluFlipImage()
@@ -307,22 +308,24 @@ Public Class frmMain
 
             Dim OK As Boolean = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
-            GL.Enable(EnableCap.Texture2D)
             GL.GenTextures(1, image_id)
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+            GL.Enable(EnableCap.Texture2D)
+            GL.BindTexture(TextureTarget.Texture2D, image_id)
+
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
-
+            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+            Dim er = GL.GetError
             GL.BindTexture(TextureTarget.Texture2D, 0)
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)
             Return image_id
         Else
-            Stop
+            MsgBox("Failed to load :" + fn, MsgBoxStyle.Exclamation, "Shit!!")
         End If
         Return Nothing
     End Function
