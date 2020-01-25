@@ -10,7 +10,7 @@ Imports OpenTK
 Imports OpenTK.Platform.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-
+Imports Tao.DevIl
 Imports Config = OpenTK.Configuration
 Imports Utilities = OpenTK.Platform.Utilities
 
@@ -39,8 +39,6 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         Me.KeyPreview = True    'So I catch keyboard before despatching it
         '-----------------------------------------------------------------------------------------
-        glControl_utility.MakeCurrent()
-
         glControl_main.MakeCurrent()
         '-----------------------------------------------------------------------------------------
 
@@ -48,7 +46,11 @@ Public Class frmMain
         FBOm.FBO_Initialize()
 
         '-----------------------------------------------------------------------------------------
+        Il.ilInit()
+        Ilu.iluInit()
+        '-----------------------------------------------------------------------------------------
         build_shaders()
+        set_shader_variables()
         '-----------------------------------------------------------------------------------------
         load_assets()
         '-----------------------------------------------------------------------------------------
@@ -60,10 +62,8 @@ Public Class frmMain
         _STARTED = True ' I'm ready to run!
         launch_update_thread()
     End Sub
-    Private Sub load_assets()
-        Dim su = Application.StartupPath
-        get_X_model(su + "\resources\dial.x")
-    End Sub
+
+
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
         If _STARTED Then
             If Not Me.WindowState = FormWindowState.Minimized Then
@@ -79,6 +79,12 @@ Public Class frmMain
     End Sub
 
 #End Region
+
+    Private Sub load_assets()
+        Dim su = Application.StartupPath
+        get_X_model(su + "\resources\dial.x")
+        dial_face_ID = load_png_from_file(Application.StartupPath + "\resources\linear_face.png")
+    End Sub
 
 #Region "Screen position and update"
 
@@ -281,6 +287,43 @@ Public Class frmMain
 
 #End Region
 
+    Private Function load_png_from_file(ByRef fs As String)
+        'Dim s As String = ""
+        's = Gl.glGetError
+        Dim image_id As Integer = -1
+        'Dim app_local As String = Application.StartupPath.ToString
 
+        Dim texID As UInt32
+        texID = Ilu.iluGenImage() ' /* Generation of one image name */
+        Il.ilBindImage(texID) '; /* Binding of image name */
+        Dim success = Il.ilGetError
+        Il.ilLoad(Il.IL_PNG, fs)
+        success = Il.ilGetError
+        If success = Il.IL_NO_ERROR Then
+            'Ilu.iluFlipImage()
+            Ilu.iluMirror()
+            Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
+            Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
 
+            Dim OK As Boolean = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
+
+            GL.Enable(EnableCap.Texture2D)
+            GL.GenTextures(1, image_id)
+            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+
+            GL.BindTexture(TextureTarget.Texture2D, 0)
+            Il.ilBindImage(0)
+            Ilu.iluDeleteImage(texID)
+            Return image_id
+        Else
+            Stop
+        End If
+        Return Nothing
+    End Function
 End Class

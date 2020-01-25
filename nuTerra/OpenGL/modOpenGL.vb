@@ -21,10 +21,11 @@ Module modOpenGL
     End Sub
 
     Public Sub resize_glControl_utility()
-        Dim position As New Point(frmMain.ClientSize.Width - 320, frmMain.ClientSize.Height - 320)
+        Dim size As Integer = 180
+        Dim position As New Point(frmMain.ClientSize.Width - size, frmMain.ClientSize.Height - size)
         frmMain.glControl_utility.Location = position
-        frmMain.glControl_utility.Width = 320
-        frmMain.glControl_utility.Height = 320
+        frmMain.glControl_utility.Width = size
+        frmMain.glControl_utility.Height = size
         GL.Viewport(0, 0, frmMain.glControl_utility.ClientSize.Width, frmMain.glControl_utility.ClientSize.Height)
     End Sub
 

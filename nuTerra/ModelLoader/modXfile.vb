@@ -13,6 +13,7 @@ Imports Config = OpenTK.Configuration
 Imports Utilities = OpenTK.Platform.Utilities
 
 Module modXfile
+    Public dial_face_ID As Integer
     Public VBO As Integer
     Public IBO As Integer
 
@@ -46,7 +47,7 @@ Module modXfile
         Public x, y As Single
     End Structure
     Public Structure _indice
-        Public a, b, c As Integer
+        Public a, b, c As UShort
     End Structure
 
     Public Function get_X_model(file_ As String) As Integer
@@ -93,9 +94,9 @@ Module modXfile
             txt = s.ReadLine
             brk = txt.Split(";")
             brk = brk(1).Split(",")
-            indices(i).a = CInt(brk(0))
+            indices(i).c = CInt(brk(0)) ' flip winding
             indices(i).b = CInt(brk(1))
-            indices(i).c = CInt(brk(2))
+            indices(i).a = CInt(brk(2))
         Next
         ' get normals----------------------------------------
         s.Close()
@@ -136,7 +137,7 @@ Module modXfile
         Next
 
         'build vertex list for VBO
-        ReDim vbuff(vertice_count * 32)
+        ReDim vbuff(vertice_count - 1)
 
         For i = 0 To vertice_count - 1
             vbuff(i).v = vertices(i)
@@ -151,12 +152,12 @@ Module modXfile
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
 
-        GL.BufferData(BufferTarget.ArrayBuffer, (vertice_count - 1) * 32, vertices, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (vbuff.Length) * 32, vbuff, BufferUsageHint.StaticDraw)
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
-        GL.BufferData(BufferTarget.ElementArrayBuffer, (indice_count - 1) * 12, indices, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ElementArrayBuffer, (indice_count) * 6, indices, BufferUsageHint.StaticDraw)
 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
         Dim er1 = GL.GetError
 

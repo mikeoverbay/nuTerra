@@ -85,8 +85,7 @@ Module FBO_main
             Dim er0 = GL.GetError
             gColor = GL.GenTexture
             GL.BindTexture(TextureTarget.Texture2D, gColor)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Bgra, PixelType.UnsignedInt, Nothing)
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgba, PixelType.UnsignedByte, Nothing)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
@@ -96,8 +95,7 @@ Module FBO_main
             Dim er1 = GL.GetError
             gNormal = GL.GenTexture
             GL.BindTexture(TextureTarget.Texture2D, gNormal)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgba, PixelType.UnsignedInt, Nothing)
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgba, PixelType.UnsignedByte, Nothing)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
@@ -108,7 +106,6 @@ Module FBO_main
             gDepth = GL.GenTexture
             GL.BindTexture(TextureTarget.Texture2D, gDepth)
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R32f, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Red, PixelType.Float, Nothing)
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
@@ -118,8 +115,7 @@ Module FBO_main
             Dim er3 = GL.GetError
             gGMF = GL.GenTexture
             GL.BindTexture(TextureTarget.Texture2D, gGMF)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgb, PixelType.UnsignedInt, Nothing)
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgb, PixelType.UnsignedByte, Nothing)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
@@ -129,7 +125,6 @@ Module FBO_main
         End Sub
 
         Public Shared Function create_fbo() As Boolean
-            Threading.Thread.Sleep(50) ' give rendering a chance to stop.
 
             'creat the FBO
             mainFBO = GL.GenFramebuffer
@@ -173,10 +168,10 @@ Module FBO_main
 
         Public Shared Sub attach_CNGD()
             'attach our render buffer textures.
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, gColor, 1)
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, gNormal, 1)
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment2, gGMF, 1)
-            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment3, gDepth, 1)
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, gColor, 0)
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, gNormal, 0)
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment2, gGMF, 0)
+            GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment3, gDepth, 0)
             GL.DrawBuffers(4, attach_Color_Normal_GMF_Depth)
         End Sub
 

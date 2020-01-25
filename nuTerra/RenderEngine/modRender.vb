@@ -30,7 +30,10 @@ Module modRender
         GL.ClearColor(Color.DarkBlue)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
 
-        GL.UseProgram(shader_list.basic_shader)
+
+        '------------------------------------------------
+        '------------------------------------------------
+        'basic test pattern
         Dim x, y As Single
         For k = 0 To PI * 2.0F Step (PI * 2 / 40.0F)
             Dim j = angle1
@@ -45,13 +48,22 @@ Module modRender
                 angle1 = 0
             End If
         Next
+        GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode, TextureEnvMode.Replace)
 
-        GL.PolygonMode(MaterialFace.Front, PolygonMode.Line)
+        GL.Enable(EnableCap.DepthTest)
+        GL.Disable(EnableCap.Lighting)
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
+        GL.UseProgram(shader_list.basic_shader) '<---- Shader Bind
+        '------------------------------------------------
+        '------------------------------------------------
+        'draw VBO IBO
         GL.PushMatrix()
-        GL.Scale(0.1F, 1.0F, 0.1F)
+        GL.Scale(0.1F, 0.1F, 0.1F)
+
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
+
 
         GL.EnableClientState(ArrayCap.VertexArray)
         GL.EnableClientState(ArrayCap.NormalArray)
@@ -60,12 +72,13 @@ Module modRender
 
 
         GL.VertexPointer(3, VertexPointerType.Float, 32, 0)
-        GL.VertexPointer(3, VertexPointerType.Float, 32, 12)
-        GL.VertexPointer(2, VertexPointerType.Float, 32, 24)
+        GL.NormalPointer(NormalPointerType.Float, 32, 12)
+        GL.TexCoordPointer(2, TexCoordPointerType.Float, 32, 24)
 
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
 
-        'GL.DrawArrays(PrimitiveType.Triangles, 0, indices.Length - 1)
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 9)
+        GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
+
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
@@ -74,13 +87,45 @@ Module modRender
         GL.DisableClientState(ArrayCap.NormalArray)
         GL.EnableClientState(ArrayCap.TextureCoordArray)
         GL.DisableClientState(ArrayCap.IndexArray)
+
         GL.PopMatrix()
+        '------------------------------------------------
+        '------------------------------------------------
+
+        'direct mode quad
+        Dim WIDTH = 30.0F
+        Dim HEIGHT = 30.0F
+
+
+        GL.Uniform1(basic_text_id, 0)
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindTexture(TextureTarget.Texture2D, dial_face_ID) '<---------- Texture Bind
+
+        GL.Enable(EnableCap.Texture2D)
+
+        GL.Begin(PrimitiveType.Quads)
+
+        GL.TexCoord2(0.0F, 1.0F)
+        GL.Vertex3(-WIDTH / 2, -0.1F, HEIGHT / 2)
+
+        GL.TexCoord2(1.0F, 1.0F)
+        GL.Vertex3(WIDTH / 2, -0.1F, HEIGHT / 2)
+
+        GL.TexCoord2(1.0F, 0.0F)
+        GL.Vertex3(WIDTH / 2, -0.1F, -HEIGHT / 2)
+
+        GL.TexCoord2(0.0F, 0.0F)
+        GL.Vertex3(-WIDTH / 2, -0.1F, -HEIGHT / 2)
+        GL.End()
+
+        GL.BindTexture(TextureTarget.Texture2D, 0) '<---- texture unbind
+
         frmMain.glControl_main.SwapBuffers()
 
 
-        frmMain.glControl_utility.Visible = False
-#If 0 Then
-       '-------------------------------------------------------
+#If 1 Then
+        '-------------------------------------------------------
+        frmMain.glControl_utility.Visible = True
         '2nd glControl
         frmMain.glControl_utility.MakeCurrent()
         Main_ortho_utility()
@@ -104,9 +149,9 @@ Module modRender
                 angle2 = 0
             End If
         Next
-        GL.UseProgram(0)
         frmMain.glControl_utility.SwapBuffers()
 #End If
+        GL.UseProgram(0)
 
     End Sub
     Public Sub set_prespective_view()

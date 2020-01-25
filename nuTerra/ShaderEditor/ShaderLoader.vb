@@ -46,8 +46,14 @@ Module ShaderLoader
     Public Class Shader_list_
         Public basic_shader As Integer
     End Class
-    Public Sub set_shader_variables()
 
+    '----------------------------------------------------------------------------
+    Public basic_text_id As Integer
+    Private Sub set_basic_varaibles()
+        basic_text_id = GL.GetUniformLocation(shader_list.basic_shader, "colorMap")
+    End Sub
+    Public Sub set_shader_variables()
+        set_basic_varaibles()
     End Sub
     Public GL_TRUE As Integer = 1
     Public GL_FALSE As Integer = 0
