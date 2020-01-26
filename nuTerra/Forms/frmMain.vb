@@ -302,7 +302,7 @@ Public Class frmMain
         success = Il.ilGetError
         If success = Il.IL_NO_ERROR Then
             'Ilu.iluFlipImage()
-            Ilu.iluMirror()
+            'Ilu.iluMirror()
             Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
             Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
 

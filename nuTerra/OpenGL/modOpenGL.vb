@@ -44,14 +44,18 @@ Module modOpenGL
         PROJECTIONMATRIX = Matrix4.Identity
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadIdentity()
-        GL.Ortho(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, 300.0F, -300.0F)
+        GL.Ortho(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
+        GL.MatrixMode(MatrixMode.Modelview)
+        GL.LoadIdentity()
     End Sub
     Public Sub Ortho_utility()
         resize_glControl_utility()
         PROJECTIONMATRIX = Matrix4.Identity
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadIdentity()
-        GL.Ortho(0.0F, frmMain.glControl_utility.Width, -frmMain.glControl_utility.Height, 0.0F, 300.0F, -300.0F)
+        GL.Ortho(0.0F, frmMain.glControl_utility.Width, -frmMain.glControl_utility.Height, 0.0F, -300.0F, 300.0F)
+        GL.MatrixMode(MatrixMode.Modelview)
+        GL.LoadIdentity()
     End Sub
 
     Public Sub set_prespective_view()

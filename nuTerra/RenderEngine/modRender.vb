@@ -16,7 +16,7 @@ Module modRender
     Public PI As Single = 3.14159274F
     Public angle1, angle2 As Single
     Public Sub draw_scene()
-
+        Dim cx, cy As Single
         frmMain.glControl_main.MakeCurrent()
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) ' Use default buffer
@@ -126,9 +126,10 @@ Module modRender
         'frmMain.glControl_main.SwapBuffers()
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
+        frmMain.glControl_utility.Visible = False
 
+#If 0 Then
         frmMain.glControl_utility.Visible = True
-#If 1 Then
         '-------------------------------------------------------
         '2nd glControl
         frmMain.glControl_utility.MakeCurrent()
@@ -138,8 +139,8 @@ Module modRender
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
 
 
-        Dim cx = frmMain.glControl_utility.Width / 2
-        Dim cy = -frmMain.glControl_utility.Height / 2
+        cx = frmMain.glControl_utility.Width / 2
+        cy = -frmMain.glControl_utility.Height / 2
         For k = 0 To PI * 2.0F Step (PI * 2 / 40.0F)
             Dim j = angle2
             GL.Begin(PrimitiveType.Lines)
@@ -159,13 +160,12 @@ Module modRender
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
         Ortho_main()
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
         GL.Disable(EnableCap.DepthTest)
         GL.Enable(EnableCap.Texture2D)
-        'GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
-        GL.BindTexture(TextureTarget.Texture2D, dial_face_ID)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
+        'GL.BindTexture(TextureTarget.Texture2D, dial_face_ID)
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
         GL.Disable(EnableCap.Texture2D)
         GL.BindTexture(TextureTarget.Texture2D, 0)
@@ -193,23 +193,24 @@ Module modRender
     Private Sub draw_main_Quad(ByRef w As Integer, ByRef h As Integer)
         GL.Begin(PrimitiveType.Quads)
         'G_Buffer.getsize(w, h)
-        '  CW...
-        '  1 ------ 2
+        '  CCW...
+        '  1 ------ 4
         '  |        |
         '  |        |
-        '  4 ------ 3
+        '  2 ------ 3
         '
-        GL.TexCoord2(0.0F, 1.0F)
+        GL.TexCoord2(0.0F, 0.0F)
         GL.Vertex2(0.0F, 0.0F)
 
-        GL.TexCoord2(1.0F, 1.0F)
-        GL.Vertex2(w, 0.0F)
+        GL.TexCoord2(0.0F, 1.0F)
+        GL.Vertex2(0, -h)
 
-        GL.TexCoord2(1.0F, 0.0F)
+        GL.TexCoord2(1.0F, 1.0F)
         GL.Vertex2(w, -h)
 
-        GL.TexCoord2(0.0F, 0.0F)
-        GL.Vertex2(0.0F, -h)
+        GL.TexCoord2(1.0F, 0.0F)
+        GL.Vertex2(w, 0.0F)
         GL.End()
+
     End Sub
 End Module
