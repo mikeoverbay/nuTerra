@@ -82,6 +82,8 @@ Public Class frmMain
 #End Region
 
     Private Sub load_assets()
+        'setup text renderer
+
         Dim su = Application.StartupPath
         get_X_model(su + "\resources\dial.x")
         dial_face_ID = load_png_from_file(Application.StartupPath + "\resources\linear_face.png")

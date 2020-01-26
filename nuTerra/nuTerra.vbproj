@@ -136,6 +136,7 @@
     </Compile>
     <Compile Include="OpenGL\modOpenGL.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
+    <Compile Include="RenderEngine\textRender.vb" />
     <Compile Include="ShaderEditor\frmEditFrag.designer.vb">
       <DependentUpon>frmEditFrag.vb</DependentUpon>
     </Compile>

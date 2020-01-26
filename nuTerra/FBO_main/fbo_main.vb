@@ -43,7 +43,7 @@ Module FBO_main
             ' Stop changing the size becuase of excessive window resize calls.
             get_glControl_main_size(SCR_WIDTH, SCR_HEIGHT)
 
-            If oldWidth <> SCR_WIDTH And oldHeigth <> SCR_HEIGHT Then
+            If oldWidth <> SCR_WIDTH Or oldHeigth <> SCR_HEIGHT Then
                 delete_textures_and_fbo()
 
                 GL.Enable(EnableCap.Texture2D)
@@ -57,6 +57,8 @@ Module FBO_main
                 'set new size
                 oldWidth = SCR_WIDTH
                 oldHeigth = SCR_HEIGHT
+                'reset the size of the text header on the page
+                textRender.DrawText.TextRenderer(SCR_WIDTH, 20)
             End If
             SYNCMUTEX.ReleaseMutex()
         End Sub
