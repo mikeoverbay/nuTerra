@@ -153,8 +153,11 @@ Module modRender
 #End If
 
         GL.UseProgram(0)
-        '--------------------------------------
-        'This has to happen while the mainFBO is bound
+        '===========================================================================
+        '===========================================================================
+        'Draws a full screen quad to render FBO textures.
+        '===========================================================================
+        '===========================================================================
 
         'We can now switch to the default hardware buffer.
         frmMain.glControl_main.MakeCurrent()
@@ -173,7 +176,6 @@ Module modRender
         '===========================================================================
         ' test our deferred shader
         '===========================================================================
-        'Draws a full screen quad to render FBO textures.
 
 #If 1 Then '<------ set this to 0 to just light the boxes and test their transforms
         GL.UseProgram(shader_list.Deferred_shader)
