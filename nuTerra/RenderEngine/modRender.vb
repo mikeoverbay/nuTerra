@@ -92,7 +92,7 @@ Module modRender
         'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
         '
-        'Draw everything now that its all bound and the states are set.
+        'repeat drawing the elements now that the states are set..
         For i = 0 To 999 ' draw 1,000 boxes
             Dim ox = box_positions(i).x
             Dim oy = box_positions(i).y
@@ -154,7 +154,6 @@ Module modRender
 
         GL.UseProgram(0)
         '--------------------------------------
-        'Copy buffers depth to the gDepth texture
         'This has to happen while the mainFBO is bound
 
         'We can now switch to the default hardware buffer.
