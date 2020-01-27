@@ -17,13 +17,17 @@ Imports Utilities = OpenTK.Platform.Utilities
 
 Public Class frmMain
     Private refresh_thread As New Thread(AddressOf updater)
-
+    Private u_timer As New Stopwatch
 #Region "From Events"
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
         Select Case True
             Case e.KeyCode = Keys.E
                 frmEditFrag.Show()
+            Case e.KeyCode = Keys.L
+                m_light_settings.PerformClick()
+            Case e.KeyCode = Keys.R
+                make_randum_locations()
         End Select
     End Sub
 
@@ -51,14 +55,16 @@ Public Class frmMain
         Ilu.iluInit()
         '-----------------------------------------------------------------------------------------
         build_shaders()
-        set_shader_variables()
+        set_uniform_variables()
         '-----------------------------------------------------------------------------------------
         load_assets()
         '-----------------------------------------------------------------------------------------
         'set camara start up position
-        VIEW_RADIUS = -30.0
+        VIEW_RADIUS = -1000.0
         CAM_X_ANGLE = PI / 4
         CAM_Y_ANGLE = -PI / 4
+        '-----------------------------------------------------------------------------------------
+        set_light_pos() ' Set initial light position and get radius and angle.
         '-----------------------------------------------------------------------------------------
         _STARTED = True ' I'm ready to run!
         launch_update_thread()
@@ -83,15 +89,19 @@ Public Class frmMain
 
     Private Sub load_assets()
         'setup text renderer
-
-        Dim su = Application.StartupPath
-        get_X_model(su + "\resources\dial.x")
+        make_randum_locations() ' randum box locals
+        Dim sp = Application.StartupPath
+        get_X_model(sp + "\resources\cube.x")
         dial_face_ID = load_png_from_file(Application.StartupPath + "\resources\linear_face.png")
+        color_id = load_dds_from_file(sp + "\resources\PBS_Rock_05_AM.dds")
+        normal_id = load_dds_from_file(sp + "\resources\PBS_Rock_05_NM.dds")
+        gmm_id = load_dds_from_file(sp + "\resources\PBS_Rock_05_GMM.dds")
     End Sub
 
 #Region "Screen position and update"
 
     Private Sub launch_update_thread()
+        u_timer.start()
         refresh_thread.Priority = ThreadPriority.Highest
         refresh_thread.IsBackground = True
         refresh_thread.Name = "refresh_thread"
@@ -102,6 +112,13 @@ Public Class frmMain
     Private Sub updater()
 
         While _STARTED
+            If u_timer.ElapsedMilliseconds > 60 Then
+                LIGHT_ORBIT_ANGLE += 0.03
+                If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
+                LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                u_timer.Restart()
+            End If
             update_screen()
             Thread.Sleep(1)
         End While
@@ -188,7 +205,7 @@ Public Class frmMain
     Private Sub glControl_main_MouseMove(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseMove
         M_MOUSE.X = e.X
         M_MOUSE.Y = e.Y
-
+        Dim max_zoom_out As Single = -1600.0F 'must be negitive
         'If check_menu_select() Then ' check if we are over a button
         '    Return
         'End If
@@ -267,8 +284,8 @@ Public Class frmMain
                 If e.Y - MOUSE.Y > 100 Then t = (10)
             Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * 12 * MOUSE_SPEED_GLOBAL
                 view_radius += (t * (view_radius * 0.2))    ' zoom is factored in to Cam radius
-                If view_radius < -80.0 Then
-                    view_radius = -80.0
+                If VIEW_RADIUS < max_zoom_out Then
+                    VIEW_RADIUS = max_zoom_out
                 End If
                 MOUSE.Y = e.Y
             End If
@@ -331,4 +348,49 @@ Public Class frmMain
         End If
         Return Nothing
     End Function
+    Private Function load_dds_from_file(ByRef fn As String)
+        If Not File.Exists(fn) Then
+            MsgBox("Can't find :" + fn, MsgBoxStyle.Exclamation, "Oh my!")
+            Return Nothing
+        End If
+        Dim image_id As Integer
+        Dim texID As UInt32
+        texID = Ilu.iluGenImage()
+        Il.ilBindImage(texID)
+        Dim success = 0
+        Il.ilLoad(Il.IL_DDS, fn)
+        success = Il.ilGetError
+        If success = Il.IL_NO_ERROR Then
+            'Ilu.iluFlipImage()
+            'Ilu.iluMirror()
+            Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
+            Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
+
+            Dim OK As Boolean = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
+
+            GL.GenTextures(1, image_id)
+            GL.Enable(EnableCap.Texture2D)
+            GL.BindTexture(TextureTarget.Texture2D, image_id)
+
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+
+            GL.BindTexture(TextureTarget.Texture2D, 0)
+            Il.ilBindImage(0)
+            Ilu.iluDeleteImage(texID)
+            Return image_id
+        Else
+            MsgBox("Failed to load :" + fn, MsgBoxStyle.Exclamation, "Shit!!")
+        End If
+        Return Nothing
+    End Function
+
+    Private Sub m_light_settings_Click(sender As Object, e As EventArgs) Handles m_light_settings.Click
+        frmLighting.Show()
+    End Sub
 End Class

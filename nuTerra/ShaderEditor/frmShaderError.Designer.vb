@@ -34,18 +34,20 @@ Partial Class frmShaderError
         Me.er_tb.Location = New System.Drawing.Point(0, 0)
         Me.er_tb.Multiline = True
         Me.er_tb.Name = "er_tb"
-        Me.er_tb.Size = New System.Drawing.Size(493, 222)
+        Me.er_tb.ScrollBars = System.Windows.Forms.ScrollBars.Vertical
+        Me.er_tb.Size = New System.Drawing.Size(311, 288)
         Me.er_tb.TabIndex = 0
         '
         'frmShaderError
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(493, 222)
+        Me.ClientSize = New System.Drawing.Size(311, 288)
         Me.Controls.Add(Me.er_tb)
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
         Me.Name = "frmShaderError"
         Me.Text = "frmShaderError"
+        Me.TopMost = True
         Me.ResumeLayout(False)
         Me.PerformLayout()
 

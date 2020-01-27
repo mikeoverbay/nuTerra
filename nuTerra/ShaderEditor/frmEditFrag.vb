@@ -82,7 +82,7 @@ Public Class frmEditFrag
             .set_call_id(id)
             .shader_id = id
         End With
-        set_shader_variables() ' update uniform addresses
+        set_uniform_variables() ' update uniform addresses
         reset_focus()
         recompile_bt.Enabled = True
         Me.TopMost = True

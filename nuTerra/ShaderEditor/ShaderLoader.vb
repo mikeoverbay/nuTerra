@@ -44,24 +44,81 @@ Module ShaderLoader
 
     Public shader_list As New Shader_list_
     Public Class Shader_list_
+        'Keep these in alphabetic order :)
         Public basic_shader As Integer
+        Public Deferred_shader As Integer
+        Public gWriter_shader As Integer
+
     End Class
+
+    'template to copy and add new uniforms
+    '----------------------------------------------------------------------------
+    Public template_text_id As Integer
+    Private Sub set_template_varaibles()
+        template_text_id = GL.GetUniformLocation(Nothing, "colorMap")
+    End Sub
+    '----------------------------------------------------------------------------
 
     '----------------------------------------------------------------------------
     Public basic_text_id As Integer
     Private Sub set_basic_varaibles()
         basic_text_id = GL.GetUniformLocation(shader_list.basic_shader, "colorMap")
     End Sub
-    Public Sub set_shader_variables()
-        set_basic_varaibles()
+    '----------------------------------------------------------------------------
+
+    '----------------------------------------------------------------------------
+    Public gWriter_textureMap_id, gWriter_normalMap_id, gWriter_GMF_id, gWriter_ModelMatrix As Integer
+    Public gWriter_ProjectionMatrix_id As Integer
+    Private Sub set_gWriter_varaibles()
+        gWriter_textureMap_id = GL.GetUniformLocation(shader_list.gWriter_shader, "colorMap")
+        gWriter_normalMap_id = GL.GetUniformLocation(shader_list.gWriter_shader, "normalMap")
+        gWriter_GMF_id = GL.GetUniformLocation(shader_list.gWriter_shader, "GMF_Map")
+        gWriter_ModelMatrix = GL.GetUniformLocation(shader_list.gWriter_shader, "ModelMatrix")
+        gWriter_ProjectionMatrix_id = GL.GetUniformLocation(shader_list.gWriter_shader, "ProjectionMatrix")
     End Sub
+    '----------------------------------------------------------------------------
+
+    '----------------------------------------------------------------------------
+    Public deferred_gColor_id, deferred_gNormal_id, deferred_gGMF_id As Integer
+    Public deferred_gDepth_id, deferred_lightPos, deferred_ModelMatrix As Integer
+    Public deferred_ProjectionMatrix As Integer
+    Private Sub set_deferred_varaibles()
+        deferred_gColor_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gColor")
+        deferred_gNormal_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gNormal")
+        deferred_gGMF_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gGMF")
+        deferred_gDepth_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gDepth")
+
+        deferred_lightPos = GL.GetUniformLocation(shader_list.Deferred_shader, "LightPos")
+        deferred_ModelMatrix = GL.GetUniformLocation(shader_list.Deferred_shader, "ModelMatrix")
+        deferred_ProjectionMatrix = GL.GetUniformLocation(shader_list.Deferred_shader, "ProjectionMatrix")
+
+    End Sub
+    '----------------------------------------------------------------------------
+
+    ''' <summary>
+    ''' This sub calls all the subs to set each shaders uniforms.
+    ''' </summary>
+    ''' <remarks></remarks>
+    Public Sub set_uniform_variables()
+        'Keep these in alphabetic order :)
+        set_basic_varaibles()
+        set_deferred_varaibles()
+        set_gWriter_varaibles()
+    End Sub
+
+
     Public GL_TRUE As Integer = 1
     Public GL_FALSE As Integer = 0
 
 Public Function get_GL_error_string(ByVal e As ErrorCode) As String
         Return [Enum].GetName(GetType(ErrorCode), e)
     End Function
-
+#Region "Compiler code"
+    ''' <summary>
+    ''' Finds the shaders in the folder and
+    ''' calls the assemble_shader fucntion to build them
+    ''' </summary>
+    ''' <remarks></remarks>
     Public Sub build_shaders()
         'I'm tired of all the work every time I add a shader.
         'So... Im going to automate the process.. Hey.. its a computer for fucks sake!
@@ -307,4 +364,6 @@ Public Function get_GL_error_string(ByVal e As ErrorCode) As String
         frmShaderError.er_tb.SelectionLength = 0
         frmShaderError.er_tb.SelectionStart = 0
     End Sub
+
+#End Region
 End Module

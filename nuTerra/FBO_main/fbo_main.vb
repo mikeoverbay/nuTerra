@@ -23,11 +23,14 @@ Module FBO_main
         Private Shared oldWidth As Integer = 1
         Private Shared oldHeigth As Integer = 1
 
-        Private Shared attach_Color_Normal_GMF_Depth() As Integer = { _
+        Private Shared attach_Color_Normal_GMF() As Integer = { _
                                             FramebufferAttachment.ColorAttachment0, _
                                             FramebufferAttachment.ColorAttachment1, _
-                                            FramebufferAttachment.ColorAttachment2, _
-                                            FramebufferAttachment.ColorAttachment3 _
+                                            FramebufferAttachment.ColorAttachment2 _
+                                            }
+        Private Shared attach_Color_Normal() As Integer = { _
+                                            FramebufferAttachment.ColorAttachment0, _
+                                            FramebufferAttachment.ColorAttachment1 _
                                             }
         Public Shared attach_Color() As Integer = { _
                                             FramebufferAttachment.ColorAttachment0 _
@@ -93,8 +96,8 @@ Module FBO_main
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             ' gNormal ------------------------------------------------------------------------------------------
             '4 color int : normal in RGB : Height in A
             Dim er1 = GL.GetError
@@ -103,19 +106,9 @@ Module FBO_main
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             ' gGM_Flag ------------------------------------------------------------------------------------------
-            '24 bit float
-            Dim er2 = GL.GetError
-            gDepth = GL.GenTexture
-            GL.BindTexture(TextureTarget.Texture2D, gDepth)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R32f, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Red, PixelType.Float, IntPtr.Zero)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-            ' gDepth ------------------------------------------------------------------------------------------
             '3 color int : GM in RG : Flag in b 
             Dim er3 = GL.GetError
             gGMF = GL.GenTexture
@@ -123,9 +116,20 @@ Module FBO_main
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             Dim er4 = GL.GetError
+            ' gDepth ------------------------------------------------------------------------------------------
+            'DepthComponent32
+            Dim er2 = GL.GetError
+            gDepth = GL.GenTexture
+            GL.BindTexture(TextureTarget.Texture2D, gDepth)
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.DepthComponent, PixelType.UnsignedInt, IntPtr.Zero)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
+            Dim er20 = GL.GetError
         End Sub
 
         Public Shared Function create_fbo() As Boolean
@@ -135,21 +139,16 @@ Module FBO_main
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO)
             Dim er0 = GL.GetError
 
-            'create the FBOs depth buffer
-            depthBufferTexture = GL.GenRenderbuffer
-            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, depthBufferTexture)
-            GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.DepthComponent32, SCR_WIDTH, SCR_HEIGHT)
-            GL.FramebufferRenderbuffer(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.DepthAttachment, RenderbufferTarget.Renderbuffer, depthBufferTexture)
-            Dim er1 = GL.GetError
+
             'attach our render buffer textures.
 
             GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, gColor, 0)
-            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D, gNormal, 0)
-            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D, gGMF, 0)
-            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment3, TextureTarget.Texture2D, gDepth, 0)
+            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D, gNormal, 0)
+            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment3, TextureTarget.Texture2D, gGMF, 0)
+            GL.Ext.FramebufferTexture2D(FramebufferTarget.FramebufferExt, FramebufferAttachment.DepthAttachmentExt, TextureTarget.Texture2D, gDepth, 0)
 
 
-            attach_CNGD()
+            attach_CNG()
             Dim FBOHealth = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
 
             If FBOHealth <> FramebufferStatus.FramebufferComplete Then
@@ -177,9 +176,13 @@ Module FBO_main
             Return
         End Sub
 
-        Public Shared Sub attach_CNGD()
+        Public Shared Sub attach_CNG()
             'attach our render buffer textures.
-            GL.DrawBuffers(4, attach_Color_Normal_GMF_Depth)
+            GL.DrawBuffers(4, attach_Color_Normal_GMF)
+        End Sub
+        Public Shared Sub attach_CN()
+            'attach our render buffer textures.
+            GL.DrawBuffers(3, attach_Color_Normal)
         End Sub
 
         Public Shared Sub attach_C()
@@ -190,6 +193,16 @@ Module FBO_main
             GL.DrawBuffers(1, attach_Normal)
         End Sub
 
+        Public Shared Sub blit_depth_to_depth_texture()
+            'Dim e1 = GL.GetError
+            GL.ActiveTexture(TextureUnit.Texture0)
+            GL.BindTexture(TextureTarget.Texture2D, gDepth)
+            GL.CopyTexImage2D(TextureTarget.Texture2D, 0, InternalFormat.DepthComponent24Arb, 0, 0, SCR_WIDTH, SCR_WIDTH, 0)
+            Dim e2 = GL.GetError
+            Dim s = get_GL_error_string(e2)
+            GL.BindTexture(TextureTarget.Texture2D, 0)
+
+        End Sub
     End Class
 
 

@@ -1,6 +1,6 @@
-﻿//Basic Shader for testing shit
-#version 330 compatibility
+﻿//comment here
 
+#version 330 compatibility
 layout (location = 0) out vec4 gColor;
 
 uniform sampler2D colorMap;

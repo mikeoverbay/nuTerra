@@ -25,12 +25,13 @@ Partial Class frmMain
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
-        Me.glControl_main = New OpenTK.GLControl(New OpenTK.Graphics.GraphicsMode(New ColorFormat(8, 8, 8, 8), 32))
-        Me.glControl_utility = New OpenTK.GLControl(New OpenTK.Graphics.GraphicsMode(New ColorFormat(8, 8, 8, 8), 8))
+        Me.glControl_main = New OpenTK.GLControl()
+        Me.glControl_utility = New OpenTK.GLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_settings = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_light_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         Me.SuspendLayout()
         '
@@ -43,9 +44,19 @@ Partial Class frmMain
         Me.glControl_main.TabIndex = 0
         Me.glControl_main.VSync = False
         '
+        'glControl_utility
+        '
+        Me.glControl_utility.Anchor = System.Windows.Forms.AnchorStyles.None
+        Me.glControl_utility.BackColor = System.Drawing.Color.Blue
+        Me.glControl_utility.Location = New System.Drawing.Point(336, 27)
+        Me.glControl_utility.Name = "glControl_utility"
+        Me.glControl_utility.Size = New System.Drawing.Size(347, 394)
+        Me.glControl_utility.TabIndex = 0
+        Me.glControl_utility.VSync = False
+        '
         'frmMainMenu
         '
-        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_help, Me.m_settings})
+        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_help, Me.m_settings, Me.m_light_settings})
         Me.frmMainMenu.Location = New System.Drawing.Point(0, 0)
         Me.frmMainMenu.Name = "frmMainMenu"
         Me.frmMainMenu.Size = New System.Drawing.Size(686, 24)
@@ -71,15 +82,11 @@ Partial Class frmMain
         Me.m_settings.Size = New System.Drawing.Size(61, 20)
         Me.m_settings.Text = "Settings"
         '
-        'glControl_utility
+        'm_light_settings
         '
-        Me.glControl_utility.Anchor = System.Windows.Forms.AnchorStyles.None
-        Me.glControl_utility.BackColor = System.Drawing.Color.Blue
-        Me.glControl_utility.Location = New System.Drawing.Point(336, 27)
-        Me.glControl_utility.Name = "glControl_utility"
-        Me.glControl_utility.Size = New System.Drawing.Size(347, 394)
-        Me.glControl_utility.TabIndex = 0
-        Me.glControl_utility.VSync = False
+        Me.m_light_settings.Name = "m_light_settings"
+        Me.m_light_settings.Size = New System.Drawing.Size(91, 20)
+        Me.m_light_settings.Text = "Light Settings"
         '
         'frmMain
         '
@@ -107,5 +114,6 @@ Partial Class frmMain
     Friend WithEvents m_help As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_settings As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents glControl_utility As OpenTK.GLControl
+    Friend WithEvents m_light_settings As System.Windows.Forms.ToolStripMenuItem
 
 End Class

@@ -20,13 +20,13 @@ Module modRender
         frmMain.glControl_main.MakeCurrent()
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) ' Use default buffer
-        FBOm.attach_C()
+        FBOm.attach_CNG()
         '-------------------------------------------------------
         '1st glControl
 
         set_prespective_view() ' <-- sets camera and prespective view
 
-        GL.ClearColor(Color.DarkBlue)
+        GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
 
 
@@ -35,43 +35,41 @@ Module modRender
         'GL States
         GL.Enable(EnableCap.DepthTest)
         GL.Disable(EnableCap.Lighting)
-        GL.Disable(EnableCap.CullFace)
+        GL.Enable(EnableCap.CullFace)
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         '------------------------------------------------
         '------------------------------------------------
-        'basic test pattern
-        Dim x, y As Single
-        For k = 0 To PI * 2.0F Step (PI * 2 / 40.0F)
-            Dim j = angle1
-            GL.Begin(PrimitiveType.Lines)
-            x = Cos(k + j) * 15.0F
-            y = Sin(k + j) * 15.0F
-            GL.Vertex3(0.0F, 0.0F, 0.0F)
-            GL.Vertex3(x, 0.0F, y)
-            GL.End()
-            angle1 += 0.000005
-            If angle1 > PI * 2 / 40 Then
-                angle1 = 0
-            End If
-        Next
+
         GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode, TextureEnvMode.Replace)
 
 
+        'FBOm.attach_CNG()
 
         '------------------------------------------------
-        GL.UseProgram(shader_list.basic_shader) '<------------------------------- Shader Bind
+        GL.Disable(EnableCap.Blend)
+        GL.UseProgram(shader_list.gWriter_shader) '<------------------------------- Shader Bind
+        'GL.UseProgram(shader_list.basic_shader) '<------------------------------- Shader Bind
         '------------------------------------------------
         'GL.Enable(EnableCap.Texture2D)
-        GL.Uniform1(basic_text_id, 0)
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, dial_face_ID) '<------------------------------- Texture Bind
+        GL.Uniform1(gWriter_textureMap_id, 0)
+        GL.Uniform1(gWriter_normalMap_id, 1)
+        GL.Uniform1(gWriter_GMF_id, 2)
+
+        GL.ActiveTexture(TextureUnit.Texture0 + 0)
+        GL.BindTexture(TextureTarget.Texture2D, color_id) '<------------------------------- Texture Bind
+        GL.ActiveTexture(TextureUnit.Texture0 + 1)
+        GL.BindTexture(TextureTarget.Texture2D, normal_id)
+        GL.ActiveTexture(TextureUnit.Texture0 + 2)
+        GL.BindTexture(TextureTarget.Texture2D, gmm_id)
 
         '------------------------------------------------
         'Draw Test VBO
         '------------------------------------------------
-        GL.PushMatrix()
-        GL.Scale(0.1F, 0.1F, 0.1F)
-        '
+        Dim rn As New Random
+        Dim scale_ As Single = 18.0
+        'GL.Scale(scale_, scale_, scale_)
+        Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
+        'GL.Scale(scale_, scale_, scale_)
         'Bind the main Array of data. This one uses packed data as:
         'Vertex : 3 floats
         'normal : 3 floats
@@ -95,7 +93,23 @@ Module modRender
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
         '
         'Draw everything now that its all bound and the states are set.
-        GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
+        For i = 0 To 999 ' draw 1,000 boxes
+            Dim ox = box_positions(i).x
+            Dim oy = box_positions(i).y
+            Dim oz = box_positions(i).z
+            'GL.PushMatrix()
+            'GL.Translate(ox, oy, oz)
+            Dim model = Matrix4.CreateTranslation(ox, oy, oz)
+
+            model = model * sMat
+            Dim mvp = model * MODELVIEWMATRIX * PROJECTIONMATRIX
+
+            GL.UniformMatrix4(gWriter_ModelMatrix, False, model * MODELVIEWMATRIX)
+            GL.UniformMatrix4(gWriter_ProjectionMatrix_id, False, mvp)
+
+            GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
+            'GL.PopMatrix()
+        Next
         '
         ' Unbind everything. 
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
@@ -106,10 +120,15 @@ Module modRender
         GL.EnableClientState(ArrayCap.TextureCoordArray)
         GL.DisableClientState(ArrayCap.IndexArray)
         '
-        GL.PopMatrix()
         '------------------------------------------------
         'End Test VBO draw.
         '------------------------------------------------
+        'unbind textures!
+        unbind_textures(2) ' unbind all the used texture slots\
+
+
+
+#If 0 Then
 
         'direct mode quad also just for testing.
         Dim WIDTH = 30.0F
@@ -131,14 +150,112 @@ Module modRender
         GL.End()
 
         GL.BindTexture(TextureTarget.Texture2D, 0) '<------------------------------- texture unbind
+#End If
+
+        GL.UseProgram(0)
+        '--------------------------------------
+        'Copy buffers depth to the gDepth texture
+        'This has to happen while the mainFBO is bound
+
+        'We can now switch to the default hardware buffer.
+        frmMain.glControl_main.MakeCurrent()
+        ' Use default buffer
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+        'ortho for the win
+        Ortho_main()
+
+        'house keeping
+        GL.Disable(EnableCap.Blend)
+        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+        GL.Disable(EnableCap.DepthTest)
+
+        GL.Enable(EnableCap.Texture2D)
+
+        '===========================================================================
+        ' test our deferred shader
+        '===========================================================================
+        'Draws a full screen quad to render FBO textures.
+
+#If 1 Then '<------ set this to 0 to just light the boxes and test their transforms
+        GL.UseProgram(shader_list.Deferred_shader)
+#Else
+        GL.UseProgram(shader_list.basic_shader)
+#End If
+
+        'set up uniforms
+        GL.Uniform1(deferred_gColor_id, 0)
+        GL.Uniform1(deferred_gNormal_id, 1)
+        GL.Uniform1(deferred_gGMF_id, 2) ' ignore this for now
+        GL.Uniform1(deferred_gDepth_id, 3) ' ignore this for now
+        GL.UniformMatrix4(deferred_ModelMatrix, True, MODELVIEWMATRIX)
+        GL.UniformMatrix4(deferred_ProjectionMatrix, False, MODELVIEWMATRIX * PROJECTIONMATRIX)
+        'GL.Uniform3(deferred_view_pos, CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
+        Dim r, b, g As Single
+        r = LIGHT_POS(0)
+        g = LIGHT_POS(1)
+        b = LIGHT_POS(2)
+        GL.Uniform3(deferred_lightPos, LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2))
+
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
+
+        GL.ActiveTexture(TextureUnit.Texture1)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gNormal)
+
+        GL.ActiveTexture(TextureUnit.Texture2)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gGMF)
+
+        GL.ActiveTexture(TextureUnit.Texture3)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
+
+
+
+
+        draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
+
+        unbind_textures(3) ' unbind all the used texture slots
 
         GL.UseProgram(0)
 
+        ''GL.BindTexture(TextureTarget.Texture2D, dial_face_ID)
+        'draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
+        'GL.Disable(EnableCap.Texture2D)
+        'GL.BindTexture(TextureTarget.Texture2D, 0)
+
+        ' test render some text to see if it works
+        Dim position = PointF.Empty
+        'textRender.DrawText.TextRenderer(100, 100) '<--- reset when the FBO changes size!
+        textRender.DrawText.clear(Color.FromArgb(0, 0, 0, 255))
+        Dim ti = TimeOfDay.TimeOfDay
+        Dim pos_str As String = " Light Position X,Y: " + LIGHT_POS(0).ToString("00.0000") + "," + LIGHT_POS(2).ToString("00.000")
+        textRender.DrawText.DrawString("Current Time:" + ti.ToString + pos_str, mono, Brushes.White, position)
+
+        GL.Enable(EnableCap.Texture2D)
+        GL.Enable(EnableCap.AlphaTest)
+        GL.AlphaFunc(AlphaFunction.Equal, 1.0)
+        GL.Color4(1.0F, 1.0F, 1.0F, 0.0F)
+
+        GL.BindTexture(TextureTarget.Texture2D, textRender.DrawText.Gettexture)
+        GL.Begin(PrimitiveType.Quads)
+        Dim he As Integer = 20
+        GL.TexCoord2(0.0F, 1.0F) : GL.Vertex2(0.0F, -he)
+        GL.TexCoord2(1.0F, 1.0F) : GL.Vertex2(FBOm.SCR_WIDTH, -he)
+        GL.TexCoord2(1.0F, 0.0F) : GL.Vertex2(FBOm.SCR_WIDTH, 0.0F)
+        GL.TexCoord2(0.0F, 0.0F) : GL.Vertex2(0.0F, 0.0F)
+
+        GL.End()
+        GL.Disable(EnableCap.Texture2D)
+
+
+
+        frmMain.glControl_main.SwapBuffers()
 
 #If 0 Then
         frmMain.glControl_utility.Visible = True
         '-------------------------------------------------------
         '2nd glControl
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
+
         frmMain.glControl_utility.MakeCurrent()
         Ortho_utility()
 
@@ -162,48 +279,23 @@ Module modRender
             End If
         Next
         frmMain.glControl_utility.SwapBuffers()
-#End If
-        frmMain.glControl_main.MakeCurrent()
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
-
-        Ortho_main()
-
-        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
-        GL.Disable(EnableCap.DepthTest)
-        GL.Enable(EnableCap.Texture2D)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
-        'GL.BindTexture(TextureTarget.Texture2D, dial_face_ID)
-        draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
-        GL.Disable(EnableCap.Texture2D)
-        GL.BindTexture(TextureTarget.Texture2D, 0)
-
-        ' test render some text to see if it works
-        Dim position = PointF.Empty
-        'textRender.DrawText.TextRenderer(100, 100) '<--- reset when the FBO changes size!
-        textRender.DrawText.clear(Color.FromArgb(0, 0, 0, 0))
-        Dim ti = TimeOfDay.TimeOfDay
-        textRender.DrawText.DrawString("Current Time:" + ti.ToString, mono, Brushes.White, position)
+#Else
         frmMain.glControl_utility.Visible = False
-        GL.Enable(EnableCap.Texture2D)
-        GL.Enable(EnableCap.Blend)
-        GL.Color4(1.0F, 1.0F, 1.0F, 0.0F)
-        GL.BindTexture(TextureTarget.Texture2D, textRender.DrawText.Gettexture)
-        GL.Begin(PrimitiveType.Quads)
-        Dim he As Integer = 20
-        GL.TexCoord2(0.0F, 1.0F) : GL.Vertex2(0.0F, -he)
-        GL.TexCoord2(1.0F, 1.0F) : GL.Vertex2(FBOm.SCR_WIDTH, -he)
-        GL.TexCoord2(1.0F, 0.0F) : GL.Vertex2(FBOm.SCR_WIDTH, 0.0F)
-        GL.TexCoord2(0.0F, 0.0F) : GL.Vertex2(0.0F, 0.0F)
-
-        GL.End()
-        GL.Disable(EnableCap.Texture2D)
-
-
-
-        frmMain.glControl_main.SwapBuffers()
-
+#End If
     End Sub
 
+    ''' <summary>
+    ''' Unbinds textures from last used to zero
+    ''' </summary>
+    ''' <param name="start"></param>
+    ''' <remarks></remarks>
+    Private Sub unbind_textures(ByVal start As Integer)
+        'doing this backwards leaves TEXTURE0 active :)
+        For i = start To 0 Step -1
+            GL.ActiveTexture(TextureUnit.Texture0 + i)
+            GL.BindTexture(TextureTarget.Texture2D, 0)
+        Next
+    End Sub
     Private Sub draw_main_Quad(ByRef w As Integer, ByRef h As Integer)
         GL.Begin(PrimitiveType.Quads)
         'G_Buffer.getsize(w, h)

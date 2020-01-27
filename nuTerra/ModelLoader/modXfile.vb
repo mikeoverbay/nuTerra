@@ -76,7 +76,7 @@ Module modXfile
             vertices(i) = New vec3
             txt = s.ReadLine
             brk = txt.Split(";")
-            vertices(i).x = -CSng(brk(0))
+            vertices(i).x = CSng(brk(0))
             vertices(i).y = CSng(brk(1))
             vertices(i).z = CSng(brk(2))
         Next
@@ -110,7 +110,7 @@ Module modXfile
             normals(i) = New vec3
             txt = s.ReadLine
             brk = txt.Split(";")
-            normals(i).x = -CSng(brk(0))
+            normals(i).x = CSng(brk(0))
             normals(i).y = CSng(brk(1))
             normals(i).z = CSng(brk(2))
         Next
