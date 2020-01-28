@@ -46,9 +46,9 @@ Module ShaderLoader
     Public Class Shader_list_
         'Keep these in alphabetic order :)
         Public basic_shader As Integer
+        Public colorOnly_shader As Integer
         Public Deferred_shader As Integer
         Public gWriter_shader As Integer
-
     End Class
 
     'template to copy and add new uniforms
@@ -67,6 +67,34 @@ Module ShaderLoader
     '----------------------------------------------------------------------------
 
     '----------------------------------------------------------------------------
+    Public colorOnly_color_id, colorOnly_ModelMatrix_id, colorOnly_PrjMatrix_id As Integer
+    Private Sub colorOnly_varaibles()
+        colorOnly_color_id = GL.GetUniformLocation(shader_list.colorOnly_shader, "color")
+        colorOnly_ModelMatrix_id = GL.GetUniformLocation(shader_list.colorOnly_shader, "ModelMatrix")
+        colorOnly_PrjMatrix_id = GL.GetUniformLocation(shader_list.colorOnly_shader, "ProjectionMatrix")
+    End Sub
+    '----------------------------------------------------------------------------
+
+    '----------------------------------------------------------------------------
+    Public deferred_gColor_id, deferred_gNormal_id, deferred_gGMF_id As Integer
+    Public deferred_gDepth_id, deferred_lightPos, deferred_ModelMatrix As Integer
+    Public deferred_ProjectionMatrix, deferred_ViewPort As Integer
+    Private Sub set_deferred_varaibles()
+        deferred_gColor_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gColor")
+        deferred_gNormal_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gNormal")
+        deferred_gGMF_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gGMF")
+        deferred_gDepth_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gDepth")
+
+        deferred_lightPos = GL.GetUniformLocation(shader_list.Deferred_shader, "LightPos")
+        deferred_ModelMatrix = GL.GetUniformLocation(shader_list.Deferred_shader, "ModelMatrix")
+        deferred_ProjectionMatrix = GL.GetUniformLocation(shader_list.Deferred_shader, "ProjectionMatrix")
+        deferred_ViewPort = GL.GetUniformLocation(shader_list.Deferred_shader, "ProjectionMatrix")
+        deferred_ViewPort = GL.GetUniformLocation(shader_list.Deferred_shader, "viewport")
+
+    End Sub
+    '----------------------------------------------------------------------------\
+
+    '----------------------------------------------------------------------------
     Public gWriter_textureMap_id, gWriter_normalMap_id, gWriter_GMF_id, gWriter_ModelMatrix As Integer
     Public gWriter_ProjectionMatrix_id As Integer
     Private Sub set_gWriter_varaibles()
@@ -78,22 +106,6 @@ Module ShaderLoader
     End Sub
     '----------------------------------------------------------------------------
 
-    '----------------------------------------------------------------------------
-    Public deferred_gColor_id, deferred_gNormal_id, deferred_gGMF_id As Integer
-    Public deferred_gDepth_id, deferred_lightPos, deferred_ModelMatrix As Integer
-    Public deferred_ProjectionMatrix As Integer
-    Private Sub set_deferred_varaibles()
-        deferred_gColor_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gColor")
-        deferred_gNormal_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gNormal")
-        deferred_gGMF_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gGMF")
-        deferred_gDepth_id = GL.GetUniformLocation(shader_list.Deferred_shader, "gDepth")
-
-        deferred_lightPos = GL.GetUniformLocation(shader_list.Deferred_shader, "LightPos")
-        deferred_ModelMatrix = GL.GetUniformLocation(shader_list.Deferred_shader, "ModelMatrix")
-        deferred_ProjectionMatrix = GL.GetUniformLocation(shader_list.Deferred_shader, "ProjectionMatrix")
-
-    End Sub
-    '----------------------------------------------------------------------------
 
     ''' <summary>
     ''' This sub calls all the subs to set each shaders uniforms.
@@ -102,6 +114,7 @@ Module ShaderLoader
     Public Sub set_uniform_variables()
         'Keep these in alphabetic order :)
         set_basic_varaibles()
+        colorOnly_varaibles()
         set_deferred_varaibles()
         set_gWriter_varaibles()
     End Sub

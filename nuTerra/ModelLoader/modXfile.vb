@@ -91,9 +91,9 @@ Module modXfile
             txt = s.ReadLine
             brk = txt.Split(";")
             brk = brk(1).Split(",")
-            indices(i).c = CUShort(brk(0)) ' flip winding
+            indices(i).c = CUShort(brk(2)) ' flip winding
             indices(i).b = CUShort(brk(1))
-            indices(i).a = CUShort(brk(2))
+            indices(i).a = CUShort(brk(0))
         Next
         ' get normals----------------------------------------
         s.Close()

@@ -14,7 +14,7 @@ void main(void)
 {
     UV = gl_MultiTexCoord0.xy;
 
-    Vertex_Normal = mat3(inverse(gl_NormalMatrix)) * gl_Normal;
+    Vertex_Normal = mat3( transpose(inverse(ModelMatrix) ) ) * gl_Normal;
     v_Position = vec3(ModelMatrix * gl_Vertex);
 
     gl_Position = ProjectionMatrix * gl_Vertex;

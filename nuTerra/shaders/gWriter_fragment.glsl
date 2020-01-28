@@ -3,9 +3,8 @@
 //
 #version 330 compatibility
 layout (location = 0) out vec4 gColor;
-layout (location = 1) out vec4 gPosition;
-layout (location = 2) out vec4 gNormal;
-layout (location = 3) out vec3 gGMF;
+layout (location = 1) out vec3 gNormal;
+layout (location = 2) out vec3 gGMF;
 
 uniform sampler2D colorMap;
 uniform sampler2D normalMap;
@@ -14,9 +13,6 @@ uniform sampler2D GMF_Map;
 in vec2 UV;
 in vec3 Vertex_Normal;
 in vec3 v_Position;
-
-// fucntions ///////////////////////////////////////////////////
-// http://www.thetenthplanet.de/archives/1180
 
 vec3 getNormal()
 {
@@ -32,10 +28,9 @@ vec3 getNormal()
     vec3 b = normalize(cross(ng, t));
     mat3 tbn = mat3(t, b, ng);
     vec3 n = ng;
-    n.xy = texture2D(normalMap, UV).ag*2.0-1.0;
-    n.z = sqrt(1.0 - (n.x*n.x)+(n.y*n.y));
-	n.x*= -1.0;
-    n = tbn * normalize(n.xzy);
+    n = texture2D(normalMap, UV).rgb*2.0-1.0;
+    //n.x*=-1.0;
+    n = normalize(tbn * n);
     return n;
 }
 ////////////////////////////////////////////////////////////////
@@ -45,10 +40,7 @@ void main(void)
 gColor = texture2D(colorMap, UV);
 gColor.a = 1.0;
 
-gPosition.rgb = v_Position.xyz;
-
-gNormal.xyz = getNormal()*0.5+0.5;
-gNormal.w = 0.5; // specular in gNormal's w
+gNormal.xyz = getNormal();
 
 gGMF.rg = texture2D(GMF_Map, UV).rg;
 gGMF.b = texture2D(normalMap, UV).a; // not all decal maps have height info in alpha.

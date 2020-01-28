@@ -13,6 +13,8 @@ Imports Utilities = OpenTK.Platform.Utilities
 
 Module modOpenGL
 
+
+
     Public box_positions(4999) As vec3
     Public FieldOfView As Single = 60.0F
 
@@ -20,13 +22,16 @@ Module modOpenGL
     Public Sub make_randum_locations()
         Dim rn As New Random
         For i = 0 To 4999
-            box_positions(i).x = (rn.NextDouble - 0.5) * 100.0F
-            box_positions(i).y = (rn.NextDouble - 0.5) * 0.0F
-            box_positions(i).z = (rn.NextDouble - 0.5) * 100.0F
+            box_positions(i).x = (rn.NextDouble - 0.5) * 2000.0F
+            box_positions(i).y = (rn.NextDouble - 0.5) * 2000.0F
+            box_positions(i).z = (rn.NextDouble - 0.5) * 2000.0F
         Next
     End Sub
     Public Sub resize_glControl_main()
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
+        VIEW_PORT(0) = frmMain.glControl_main.ClientSize.Width
+        VIEW_PORT(1) = frmMain.glControl_main.ClientSize.Height
+
     End Sub
 
     Public Sub resize_glControl_utility()
@@ -43,7 +48,7 @@ Module modOpenGL
         PROJECTIONMATRIX = Matrix4.CreatePerspectiveFieldOfView( _
                                    CSng(Math.PI) * (FieldOfView / 180.0F), _
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height), _
-                                   0.5F, 2500.0F)
+                                   0.5F, 5000.0F)
 
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadMatrix(PROJECTIONMATRIX)
@@ -53,9 +58,13 @@ Module modOpenGL
         'PROJECTIONMATRIX = Matrix4.Identity
         GL.MatrixMode(MatrixMode.Projection)
         GL.LoadIdentity()
-        GL.Ortho(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
+        'GL.Ortho(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
+        Dim orMatrix = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
+        GL.LoadMatrix(orMatrix)
         GL.MatrixMode(MatrixMode.Modelview)
         GL.LoadIdentity()
+        'PROJECTIONMATRIX = MODELVIEWMATRIX * orMatrix
+
     End Sub
     Public Sub Ortho_utility()
         resize_glControl_utility()
@@ -96,9 +105,9 @@ Module modOpenGL
     End Sub
 
     Public Sub set_light_pos()
-        LIGHT_POS(0) = 150.0F
-        LIGHT_POS(1) = 30.0F
-        LIGHT_POS(2) = 150.0F
+        LIGHT_POS(0) = 400.0F
+        LIGHT_POS(1) = 50.0F
+        LIGHT_POS(2) = 400.0F
         LIGHT_RADIUS = Sqrt(LIGHT_POS(0) ^ 2 + LIGHT_POS(2) ^ 2)
         LIGHT_ORBIT_ANGLE = Atan2(LIGHT_RADIUS / LIGHT_POS(2), LIGHT_RADIUS / LIGHT_POS(1))
     End Sub

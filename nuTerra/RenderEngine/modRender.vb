@@ -40,7 +40,18 @@ Module modRender
         '------------------------------------------------
         '------------------------------------------------
 
+
         GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode, TextureEnvMode.Replace)
+        '------------------------------------------------
+        '------------------------------------------------
+        'Draw temp light positon.
+        FBOm.attach_CN()
+        Dim v As New vec3
+        v.x = LIGHT_POS(0) : v.y = LIGHT_POS(1) : v.z = LIGHT_POS(2)
+        draw_one_damn_moon(v)
+        '------------------------------------------------
+        '------------------------------------------------
+        FBOm.attach_CNG()
 
 
         'FBOm.attach_CNG()
@@ -65,11 +76,6 @@ Module modRender
         '------------------------------------------------
         'Draw Test VBO
         '------------------------------------------------
-        Dim rn As New Random
-        Dim scale_ As Single = 18.0
-        'GL.Scale(scale_, scale_, scale_)
-        Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
-        'GL.Scale(scale_, scale_, scale_)
         'Bind the main Array of data. This one uses packed data as:
         'Vertex : 3 floats
         'normal : 3 floats
@@ -93,22 +99,24 @@ Module modRender
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
         '
         'repeat drawing the elements now that the states are set..
-        For i = 0 To 999 ' draw 1,000 boxes
+        For i = 0 To 4999 ' draw 1,000 boxes
             Dim ox = box_positions(i).x
             Dim oy = box_positions(i).y
             Dim oz = box_positions(i).z
-            'GL.PushMatrix()
-            'GL.Translate(ox, oy, oz)
+
             Dim model = Matrix4.CreateTranslation(ox, oy, oz)
 
-            model = model * sMat
-            Dim mvp = model * MODELVIEWMATRIX * PROJECTIONMATRIX
+            Dim scale_ As Single = 20.0
+            Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
+            ' model = model * sMat
+            'Dim MVPM = MODELVIEWMATRIX * model * PROJECTIONMATRIX
+            Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
-            GL.UniformMatrix4(gWriter_ModelMatrix, False, model * MODELVIEWMATRIX)
-            GL.UniformMatrix4(gWriter_ProjectionMatrix_id, False, mvp)
+            GL.UniformMatrix4(gWriter_ModelMatrix, False, sMat * model * MODELVIEWMATRIX)
+            GL.UniformMatrix4(gWriter_ProjectionMatrix_id, False, MVPM)
 
             GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
-            'GL.PopMatrix()
+
         Next
         '
         ' Unbind everything. 
@@ -188,14 +196,11 @@ Module modRender
         GL.Uniform1(deferred_gNormal_id, 1)
         GL.Uniform1(deferred_gGMF_id, 2) ' ignore this for now
         GL.Uniform1(deferred_gDepth_id, 3) ' ignore this for now
-        GL.UniformMatrix4(deferred_ModelMatrix, True, MODELVIEWMATRIX)
-        GL.UniformMatrix4(deferred_ProjectionMatrix, False, MODELVIEWMATRIX * PROJECTIONMATRIX)
-        'GL.Uniform3(deferred_view_pos, CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
-        Dim r, b, g As Single
-        r = LIGHT_POS(0)
-        g = LIGHT_POS(1)
-        b = LIGHT_POS(2)
+        GL.UniformMatrix4(deferred_ModelMatrix, False, MODELVIEWMATRIX)
+        GL.UniformMatrix4(deferred_ProjectionMatrix, False, PROJECTIONMATRIX)
+
         GL.Uniform3(deferred_lightPos, LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2))
+        GL.Uniform2(deferred_ViewPort, VIEW_PORT(0), VIEW_PORT(1))
 
         GL.ActiveTexture(TextureUnit.Texture0)
         GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
@@ -318,6 +323,50 @@ Module modRender
         GL.TexCoord2(1.0F, 1.0F)
         GL.Vertex2(w, 0.0F)
         GL.End()
+
+    End Sub
+    Private Sub draw_one_damn_moon(ByVal location As vec3)
+
+        GL.Disable(EnableCap.Texture2D)
+        GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
+        'Enable the data element types in the VBO (vertex, normal ... ).
+        GL.EnableClientState(ArrayCap.VertexArray)
+        GL.EnableClientState(ArrayCap.NormalArray)
+        GL.EnableClientState(ArrayCap.TextureCoordArray)
+        GL.EnableClientState(ArrayCap.IndexArray)
+        '
+        'We assign each element to the slots (gl_Normal, gl_Vertex, gl_textCoord) to the array data par ts.
+        'The last 2 values are Stide and )ffset to start of next element.
+        GL.VertexPointer(3, VertexPointerType.Float, 32, 0)         ' 3 floats next is at --> 12 
+        GL.NormalPointer(NormalPointerType.Float, 32, 12)           ' 3 floats --> next is at 24
+        GL.TexCoordPointer(2, TexCoordPointerType.Float, 32, 24)    ' 2 floats --> None after
+        '
+        'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
+        '
+        'repeat drawing the elements now that the states are set..
+        Dim model = Matrix4.CreateTranslation(location.x, location.y, location.z)
+        Dim scale_ As Single = 32.0
+        Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
+        model = model * sMat
+        Dim MVPM = model * MODELVIEWMATRIX * PROJECTIONMATRIX
+
+        GL.UseProgram(shader_list.colorOnly_shader)
+        GL.Uniform3(colorOnly_color_id, 1.0, 0.0, 0.0)
+        GL.UniformMatrix4(colorOnly_ModelMatrix_id, False, model * MODELVIEWMATRIX)
+        GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
+
+        GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
+        GL.UseProgram(0)
+
+        ' Unbind everything. 
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
+        'Disable states
+        GL.DisableClientState(ArrayCap.VertexArray)
+        GL.DisableClientState(ArrayCap.NormalArray)
+        GL.EnableClientState(ArrayCap.TextureCoordArray)
+        GL.DisableClientState(ArrayCap.IndexArray)
 
     End Sub
 End Module

@@ -11,6 +11,7 @@ Module modGlobalVars
     Public LIGHT_POS(3) As Single
     Public LIGHT_RADIUS As Single ' Used when orbiting the light
     Public LIGHT_ORBIT_ANGLE As Single ' Used when orbiting the light
+    Public PAUSE_ORBIT As Boolean
     '---------------------
     Public MAP_NAME_NO_PATH As String = ""
     Public MAP_LOADED As Boolean = False 'Rendering/settings clause
@@ -25,9 +26,12 @@ Module modGlobalVars
     Public LOOK_AT_X, LOOK_AT_Y, LOOK_AT_Z As Single
     Public U_VIEW_RADIUS, U_CAM_X_ANGLE, U_CAM_Y_ANGLE As Single
     Public U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z As Single
-    Public MOUSE_SPEED_GLOBAL As Single = 0.5
+    Public MOUSE_SPEED_GLOBAL As Single = 0.8
     Public CAM_POSITION As Vector3
     '---------------------
     Public PROJECTIONMATRIX As New Matrix4
     Public MODELVIEWMATRIX As New Matrix4
+    Public VIEW_PORT(1) As Single
+    '---------------------
+
 End Module

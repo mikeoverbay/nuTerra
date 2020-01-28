@@ -31,7 +31,7 @@ Module FBO_main
         Private Shared attach_Color_Normal() As Integer = { _
                                             FramebufferAttachment.ColorAttachment0, _
                                             FramebufferAttachment.ColorAttachment1 _
-                                            }
+                                           }
         Public Shared attach_Color() As Integer = { _
                                             FramebufferAttachment.ColorAttachment0 _
                                             }
@@ -103,7 +103,7 @@ Module FBO_main
             Dim er1 = GL.GetError
             gNormal = GL.GenTexture
             GL.BindTexture(TextureTarget.Texture2D, gNormal)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero)
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb16f, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.Rgb, PixelType.Float, IntPtr.Zero)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -143,8 +143,8 @@ Module FBO_main
             'attach our render buffer textures.
 
             GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, gColor, 0)
-            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D, gNormal, 0)
-            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment3, TextureTarget.Texture2D, gGMF, 0)
+            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D, gNormal, 0)
+            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D, gGMF, 0)
             GL.Ext.FramebufferTexture2D(FramebufferTarget.FramebufferExt, FramebufferAttachment.DepthAttachmentExt, TextureTarget.Texture2D, gDepth, 0)
 
 
@@ -178,11 +178,11 @@ Module FBO_main
 
         Public Shared Sub attach_CNG()
             'attach our render buffer textures.
-            GL.DrawBuffers(4, attach_Color_Normal_GMF)
+            GL.DrawBuffers(3, attach_Color_Normal_GMF)
         End Sub
         Public Shared Sub attach_CN()
             'attach our render buffer textures.
-            GL.DrawBuffers(3, attach_Color_Normal)
+            GL.DrawBuffers(2, attach_Color_Normal)
         End Sub
 
         Public Shared Sub attach_C()
