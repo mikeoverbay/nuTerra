@@ -1,8 +1,5 @@
-﻿//
-// Deferred lighting fragment shader.
-//
-
-#version 330 compatibility
+﻿// Deferred lighting fragment shader.
+#version 430 compatibility
 
 out vec4 outColor;
 

@@ -1,7 +1,6 @@
-﻿//
-//gWriter fragment Shader. We will use this as a template for other shaders
-//
-#version 330 compatibility
+﻿// gWriter fragment Shader. We will use this as a template for other shaders
+#version 430 compatibility
+
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
@@ -36,12 +35,12 @@ vec3 getNormal()
 ////////////////////////////////////////////////////////////////
 void main(void)
 {
-// easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
-gColor = texture2D(colorMap, UV);
-gColor.a = 1.0;
+    // easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
+    gColor = texture(colorMap, UV);
+    gColor.a = 1.0;
 
-gNormal.xyz = getNormal();
+    gNormal.xyz = getNormal();
 
-gGMF.rg = texture2D(GMF_Map, UV).rg;
-gGMF.b = texture2D(normalMap, UV).a; // not all decal maps have height info in alpha.
+    gGMF.rg = texture(GMF_Map, UV).rg;
+    gGMF.b = texture(normalMap, UV).a; // not all decal maps have height info in alpha.
 }

@@ -1,9 +1,5 @@
-﻿//
-//Deferred lighting vertex shader.
-//
-
-#version 130
-#extension GL_ARB_gpu_shader5 : enable
+﻿// Deferred lighting vertex shader.
+#version 430 compatibility
 
 uniform mat4 ModelMatrix;
 uniform mat4 ProjectionMatrix;
@@ -14,8 +10,8 @@ out mat4 ModelMatrixInv;
 
 void main(void)
 {
-  UV = gl_MultiTexCoord0.xy;
-  gl_Position = ftransform();
-  projMatrixInv = inverse(ProjectionMatrix);
-  ModelMatrixInv = inverse(ModelMatrix);
+	UV = gl_MultiTexCoord0.xy;
+	gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;
+	projMatrixInv = inverse(ProjectionMatrix);
+	ModelMatrixInv = inverse(ModelMatrix);
 }
