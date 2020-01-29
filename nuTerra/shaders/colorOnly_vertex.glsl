@@ -1,14 +1,11 @@
-﻿//
-//colorOnly_vertex. Only writes a color to the gColor texture
-//
-#version 130
-#extension GL_ARB_gpu_shader5 : enable
+﻿// colorOnly_vertex. Only writes a color to the gColor texture
+#version 430 compatibility
+
 uniform mat4 ModelMatrix;
 uniform mat4 ProjectionMatrix;
 
 out vec2 UV;
 out vec3 Vertex_Normal;
-
 
 void main(void)
 {

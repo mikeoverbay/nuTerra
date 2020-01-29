@@ -1,14 +1,14 @@
-﻿//Basic Shader for testing shit
-
-#version 130
+﻿// Basic Shader for testing shit
+#version 430 compatibility
 
 out vec4 color;
-varying vec2 UV;
+out vec2 UV;
 out vec3 n;
+
 void main(void)
 {
   UV = gl_MultiTexCoord0.xy;
   n = gl_Normal;
-  gl_Position = ftransform();
+  gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;
   color = gl_Color;
 }

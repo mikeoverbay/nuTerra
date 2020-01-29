@@ -1,4 +1,5 @@
 ﻿Imports OpenTK.Graphics
+Imports OpenTK.Graphics.OpenGL
 
 <Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()> _
 Partial Class frmMain
@@ -25,8 +26,15 @@ Partial Class frmMain
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
+#If DEBUG Then
+        Dim mode = New GraphicsMode()
+        Dim flags = GraphicsContextFlags.Debug ' Or GraphicsContextFlags.ForwardCompatible
+        Me.glControl_main = New OpenTK.GLControl(mode, 4, 3, flags)
+        Me.glControl_utility = New OpenTK.GLControl(mode, 4, 3, flags)
+#Else
         Me.glControl_main = New OpenTK.GLControl()
         Me.glControl_utility = New OpenTK.GLControl()
+#End If
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()

@@ -1,14 +1,10 @@
-﻿
-
+﻿Imports System.Runtime.InteropServices
 Imports System.Math
 Imports System
 Imports OpenTK
 Imports OpenTK.Platform.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-
-Imports Config = OpenTK.Configuration
-Imports Utilities = OpenTK.Platform.Utilities
 
 
 Module modOpenGL
@@ -110,5 +106,23 @@ Module modOpenGL
         LIGHT_POS(2) = 400.0F
         LIGHT_RADIUS = Sqrt(LIGHT_POS(0) ^ 2 + LIGHT_POS(2) ^ 2)
         LIGHT_ORBIT_ANGLE = Atan2(LIGHT_RADIUS / LIGHT_POS(2), LIGHT_RADIUS / LIGHT_POS(1))
+    End Sub
+
+    Public Sub DebugOutputCallback(source As DebugSource,
+                                   type As DebugType,
+                                   id As UInteger,
+                                   severity As DebugSeverity,
+                                   length As Integer,
+                                   messagePtr As IntPtr,
+                                   userParam As IntPtr)
+        Dim message = Marshal.PtrToStringAnsi(messagePtr)
+        Debug.Print(message)
+    End Sub
+
+    Public Sub SetupDebugOutputCallback()
+        GL.Enable(EnableCap.DebugOutput)
+        GL.Enable(EnableCap.DebugOutputSynchronous)
+        GL.DebugMessageCallback(New DebugProc(AddressOf DebugOutputCallback), IntPtr.Zero)
+        GL.DebugMessageControl(DebugSourceControl.DontCare, DebugTypeControl.DebugTypeError, DebugSeverityControl.DontCare, 0, 0, True)
     End Sub
 End Module

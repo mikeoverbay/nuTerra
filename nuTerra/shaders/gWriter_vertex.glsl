@@ -1,8 +1,6 @@
-﻿//
-//gWriter vertex Shader. We will use this as a template for other shaders
-//
-#version 130
-#extension GL_ARB_gpu_shader5 : enable
+﻿// gWriter vertex Shader. We will use this as a template for other shaders
+#version 430 compatibility
+
 uniform mat4 ModelMatrix;
 uniform mat4 ProjectionMatrix;
 
