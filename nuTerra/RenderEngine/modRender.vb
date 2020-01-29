@@ -37,6 +37,7 @@ Module modRender
         GL.Disable(EnableCap.Lighting)
         GL.Enable(EnableCap.CullFace)
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+        GL.Disable(EnableCap.Blend)
         '------------------------------------------------
         '------------------------------------------------
 
@@ -57,7 +58,6 @@ Module modRender
         'FBOm.attach_CNG()
 
         '------------------------------------------------
-        GL.Disable(EnableCap.Blend)
         GL.UseProgram(shader_list.gWriter_shader) '<------------------------------- Shader Bind
         'GL.UseProgram(shader_list.basic_shader) '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -65,6 +65,8 @@ Module modRender
         GL.Uniform1(gWriter_textureMap_id, 0)
         GL.Uniform1(gWriter_normalMap_id, 1)
         GL.Uniform1(gWriter_GMF_id, 2)
+
+        GL.Uniform1(gWriter_nMap_type, N_MAP_TYPE)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
         GL.BindTexture(TextureTarget.Texture2D, color_id) '<------------------------------- Texture Bind
@@ -99,7 +101,7 @@ Module modRender
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
         '
         'repeat drawing the elements now that the states are set..
-        For i = 0 To 4999 ' draw 1,000 boxes
+        For i = 0 To 999 ' draw 1,000 boxes
             Dim ox = box_positions(i).x
             Dim oy = box_positions(i).y
             Dim oz = box_positions(i).z
@@ -108,8 +110,6 @@ Module modRender
 
             Dim scale_ As Single = 20.0
             Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
-            ' model = model * sMat
-            'Dim MVPM = MODELVIEWMATRIX * model * PROJECTIONMATRIX
             Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
             GL.UniformMatrix4(gWriter_ModelMatrix, False, sMat * model * MODELVIEWMATRIX)
@@ -327,7 +327,7 @@ Module modRender
     End Sub
     Private Sub draw_one_damn_moon(ByVal location As vec3)
 
-        GL.Disable(EnableCap.Texture2D)
+
         GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
         'Enable the data element types in the VBO (vertex, normal ... ).
         GL.EnableClientState(ArrayCap.VertexArray)
@@ -346,14 +346,16 @@ Module modRender
         '
         'repeat drawing the elements now that the states are set..
         Dim model = Matrix4.CreateTranslation(location.x, location.y, location.z)
-        Dim scale_ As Single = 32.0
+
+        Dim scale_ As Single = 60.0
         Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
-        model = model * sMat
-        Dim MVPM = model * MODELVIEWMATRIX * PROJECTIONMATRIX
+
+        Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
         GL.UseProgram(shader_list.colorOnly_shader)
-        GL.Uniform3(colorOnly_color_id, 1.0, 0.0, 0.0)
-        GL.UniformMatrix4(colorOnly_ModelMatrix_id, False, model * MODELVIEWMATRIX)
+
+        GL.Uniform3(colorOnly_color_id, 1.0F, 0.0F, 0.0F)
+        GL.UniformMatrix4(colorOnly_ModelMatrix_id, False, sMat * model * MODELVIEWMATRIX)
         GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
 
         GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)

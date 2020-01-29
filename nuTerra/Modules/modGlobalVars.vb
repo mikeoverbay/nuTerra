@@ -7,11 +7,13 @@ Module modGlobalVars
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer
     '---------------------
+    Public N_MAP_TYPE As Integer
     '---------------------
     Public LIGHT_POS(3) As Single
     Public LIGHT_RADIUS As Single ' Used when orbiting the light
     Public LIGHT_ORBIT_ANGLE As Single ' Used when orbiting the light
     Public PAUSE_ORBIT As Boolean
+    Public LIGHT_SPEED As Single = 0.02F
     '---------------------
     Public MAP_NAME_NO_PATH As String = ""
     Public MAP_LOADED As Boolean = False 'Rendering/settings clause

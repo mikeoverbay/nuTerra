@@ -65,7 +65,7 @@ void main (void)
     vec3 N = normalize(texture2D(gNormal,UV).xyz);
 
     vec3 L = normalize(LightPosModelView-Position.xyz);
-    float abm = 0.25;
+    float abm = 0.55;
     vec4 final_color = vec4(abm, abm, abm, 1.0) * tex01_color;
     vec4 Ambient = final_color;
     float dist = length(LightPosModelView - Position);

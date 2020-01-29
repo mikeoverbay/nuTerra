@@ -96,13 +96,14 @@ Module ShaderLoader
 
     '----------------------------------------------------------------------------
     Public gWriter_textureMap_id, gWriter_normalMap_id, gWriter_GMF_id, gWriter_ModelMatrix As Integer
-    Public gWriter_ProjectionMatrix_id As Integer
+    Public gWriter_ProjectionMatrix_id, gWriter_nMap_type As Integer
     Private Sub set_gWriter_varaibles()
         gWriter_textureMap_id = GL.GetUniformLocation(shader_list.gWriter_shader, "colorMap")
         gWriter_normalMap_id = GL.GetUniformLocation(shader_list.gWriter_shader, "normalMap")
         gWriter_GMF_id = GL.GetUniformLocation(shader_list.gWriter_shader, "GMF_Map")
         gWriter_ModelMatrix = GL.GetUniformLocation(shader_list.gWriter_shader, "ModelMatrix")
         gWriter_ProjectionMatrix_id = GL.GetUniformLocation(shader_list.gWriter_shader, "ProjectionMatrix")
+        gWriter_nMap_type = GL.GetUniformLocation(shader_list.gWriter_shader, "nMap_type")
     End Sub
     '----------------------------------------------------------------------------
 

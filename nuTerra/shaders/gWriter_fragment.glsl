@@ -10,6 +10,8 @@ uniform sampler2D colorMap;
 uniform sampler2D normalMap;
 uniform sampler2D GMF_Map;
 
+uniform int nMap_type;
+
 in vec2 UV;
 in vec3 Vertex_Normal;
 in vec3 v_Position;
@@ -27,9 +29,18 @@ vec3 getNormal()
     t = normalize(t - ng * dot(ng, t));
     vec3 b = normalize(cross(ng, t));
     mat3 tbn = mat3(t, b, ng);
-    vec3 n = ng;
-    n = texture2D(normalMap, UV).rgb*2.0-1.0;
-    //n.x*=-1.0;
+    vec3 n;
+	// GA or RGB maps?
+    if (nMap_type == 1 ) {
+	//GA map
+    // We much clamp and max these to -1.0 to 1.0 to stop artifacts!
+    n.xy = clamp(texture2D(normalMap, UV).ag*2.0-1.0, -1.0 ,1.0);
+    n.y = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
+    n.xyz = n.xzy;
+    }else{
+	//RGB map
+    n = texture2D(normalMap, UV).rgb*2.0-1.0;   
+    }
     n = normalize(tbn * n);
     return n;
 }

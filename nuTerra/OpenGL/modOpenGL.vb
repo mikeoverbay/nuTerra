@@ -106,7 +106,7 @@ Module modOpenGL
 
     Public Sub set_light_pos()
         LIGHT_POS(0) = 400.0F
-        LIGHT_POS(1) = 50.0F
+        LIGHT_POS(1) = 450.0F
         LIGHT_POS(2) = 400.0F
         LIGHT_RADIUS = Sqrt(LIGHT_POS(0) ^ 2 + LIGHT_POS(2) ^ 2)
         LIGHT_ORBIT_ANGLE = Atan2(LIGHT_RADIUS / LIGHT_POS(2), LIGHT_RADIUS / LIGHT_POS(1))

@@ -107,17 +107,19 @@ Public Class frmMain
 
         '---------------------------------------------------------
         'load a test model
-#If 0 Then
+#If 1 Then
         get_X_model(sp + "\resources\moon.x")
         color_id = load_image_from_file(sp + "\resources\phobosmirror.png")
         normal_id = load_image_from_file(sp + "\resources\phobosmirror_NORM.png")
         gmm_id = load_image_from_file(sp + "\resources\phobosmirror_NORM.png")
+        N_MAP_TYPE = 0
 #Else
 
         get_X_model(sp + "\resources\cube.x")
         color_id = load_image_from_file(sp + "\resources\PBS_Rock_05_AM.dds")
         normal_id = load_image_from_file(sp + "\resources\PBS_Rock_05_NM.dds")
         gmm_id = load_image_from_file(sp + "\resources\PBS_Rock_05_GMM.dds")
+        N_MAP_TYPE = 1
 #End If
         '---------------------------------------------------------
 
@@ -137,11 +139,12 @@ Public Class frmMain
     Private Sub updater()
 
         While _STARTED
-            If u_timer.ElapsedMilliseconds > 60 Then
+            If u_timer.ElapsedMilliseconds > 5 Then
                 If Not PAUSE_ORBIT Then
-                    LIGHT_ORBIT_ANGLE += 0.03
+                    LIGHT_ORBIT_ANGLE += LIGHT_SPEED
                     If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
                     LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                    LIGHT_POS(1) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
                     LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
                 End If
                 u_timer.Restart()
