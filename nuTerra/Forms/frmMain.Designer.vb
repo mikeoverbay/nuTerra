@@ -26,20 +26,14 @@ Partial Class frmMain
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
-#If DEBUG Then
-        Dim mode = New GraphicsMode()
-        Dim flags = GraphicsContextFlags.Debug ' Or GraphicsContextFlags.ForwardCompatible
-        Me.glControl_main = New OpenTK.GLControl(mode, 4, 3, flags)
-        Me.glControl_utility = New OpenTK.GLControl(mode, 4, 3, flags)
-#Else
         Me.glControl_main = New OpenTK.GLControl()
         Me.glControl_utility = New OpenTK.GLControl()
-#End If
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_light_settings = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_gbuffer_viewer = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         Me.SuspendLayout()
         '
@@ -64,7 +58,7 @@ Partial Class frmMain
         '
         'frmMainMenu
         '
-        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_help, Me.m_settings, Me.m_light_settings})
+        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_help, Me.m_settings, Me.m_light_settings, Me.m_gbuffer_viewer})
         Me.frmMainMenu.Location = New System.Drawing.Point(0, 0)
         Me.frmMainMenu.Name = "frmMainMenu"
         Me.frmMainMenu.Size = New System.Drawing.Size(686, 24)
@@ -96,6 +90,12 @@ Partial Class frmMain
         Me.m_light_settings.Size = New System.Drawing.Size(91, 20)
         Me.m_light_settings.Text = "Light Settings"
         '
+        'm_gbuffer_viewer
+        '
+        Me.m_gbuffer_viewer.Name = "m_gbuffer_viewer"
+        Me.m_gbuffer_viewer.Size = New System.Drawing.Size(97, 20)
+        Me.m_gbuffer_viewer.Text = "Gbuffer Viewer"
+        '
         'frmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -123,5 +123,6 @@ Partial Class frmMain
     Friend WithEvents m_settings As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents glControl_utility As OpenTK.GLControl
     Friend WithEvents m_light_settings As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents m_gbuffer_viewer As System.Windows.Forms.ToolStripMenuItem
 
 End Class

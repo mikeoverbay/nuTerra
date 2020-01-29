@@ -49,6 +49,8 @@ Module ShaderLoader
         Public colorOnly_shader As Integer
         Public Deferred_shader As Integer
         Public gWriter_shader As Integer
+        Public normalOffset_shader As Integer
+        Public toLinear_shader As Integer
     End Class
 
     'template to copy and add new uniforms
@@ -68,7 +70,7 @@ Module ShaderLoader
 
     '----------------------------------------------------------------------------
     Public colorOnly_color_id, colorOnly_ModelMatrix_id, colorOnly_PrjMatrix_id As Integer
-    Private Sub colorOnly_varaibles()
+    Private Sub set_colorOnly_varaibles()
         colorOnly_color_id = GL.GetUniformLocation(shader_list.colorOnly_shader, "color")
         colorOnly_ModelMatrix_id = GL.GetUniformLocation(shader_list.colorOnly_shader, "ModelMatrix")
         colorOnly_PrjMatrix_id = GL.GetUniformLocation(shader_list.colorOnly_shader, "ProjectionMatrix")
@@ -107,6 +109,20 @@ Module ShaderLoader
     End Sub
     '----------------------------------------------------------------------------
 
+    '----------------------------------------------------------------------------
+    Public normalOffset_text_id As Integer
+    Private Sub set_normalOffset_varaibles()
+        normalOffset_text_id = GL.GetUniformLocation(shader_list.normalOffset_shader, "normalMap")
+    End Sub
+    '----------------------------------------------------------------------------
+
+    '----------------------------------------------------------------------------
+    Public toLinear_text_id As Integer
+    Private Sub set_toLinear_varaibles()
+        toLinear_text_id = GL.GetUniformLocation(shader_list.toLinear_shader, "depthMap")
+    End Sub
+    '----------------------------------------------------------------------------
+
 
     ''' <summary>
     ''' This sub calls all the subs to set each shaders uniforms.
@@ -115,9 +131,11 @@ Module ShaderLoader
     Public Sub set_uniform_variables()
         'Keep these in alphabetic order :)
         set_basic_varaibles()
-        colorOnly_varaibles()
+        set_colorOnly_varaibles()
         set_deferred_varaibles()
         set_gWriter_varaibles()
+        set_normalOffset_varaibles()
+        set_toLinear_varaibles()
     End Sub
 
 

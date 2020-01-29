@@ -84,24 +84,24 @@ Module modRender
         'UV Coords : 2 floats
         'A total of 8 floats or.. 32 bytes so the stride is 32.
         '
-        GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
-        'Enable the data element types in the VBO (vertex, normal ... ).
-        GL.EnableClientState(ArrayCap.VertexArray)
-        GL.EnableClientState(ArrayCap.NormalArray)
-        GL.EnableClientState(ArrayCap.TextureCoordArray)
-        GL.EnableClientState(ArrayCap.IndexArray)
-        '
-        'We assign each element to the slots (gl_Normal, gl_Vertex, gl_textCoord) to the array data par ts.
-        'The last 2 values are Stide and )ffset to start of next element.
-        GL.VertexPointer(3, VertexPointerType.Float, 32, 0)         ' 3 floats next is at --> 12 
-        GL.NormalPointer(NormalPointerType.Float, 32, 12)           ' 3 floats --> next is at 24
-        GL.TexCoordPointer(2, TexCoordPointerType.Float, 32, 24)    ' 2 floats --> None after
-        '
-        'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
-        '
-        'repeat drawing the elements now that the states are set..
         For i = 0 To 999 ' draw 1,000 boxes
+            GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
+            'Enable the data element types in the VBO (vertex, normal ... ).
+            GL.EnableClientState(ArrayCap.VertexArray)
+            GL.EnableClientState(ArrayCap.NormalArray)
+            GL.EnableClientState(ArrayCap.TextureCoordArray)
+            GL.EnableClientState(ArrayCap.IndexArray)
+            '
+            'We assign each element to the slots (gl_Normal, gl_Vertex, gl_textCoord) to the array data par ts.
+            'The last 2 values are Stide and )ffset to start of next element.
+            GL.VertexPointer(3, VertexPointerType.Float, 32, 0)         ' 3 floats next is at --> 12 
+            GL.NormalPointer(NormalPointerType.Float, 32, 12)           ' 3 floats --> next is at 24
+            GL.TexCoordPointer(2, TexCoordPointerType.Float, 32, 24)    ' 2 floats --> None after
+            '
+            'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
+            '
+            'repeat drawing the elements now that the states are set..
             Dim ox = box_positions(i).x
             Dim oy = box_positions(i).y
             Dim oz = box_positions(i).z
@@ -117,16 +117,16 @@ Module modRender
 
             GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
 
+            '
+            ' Unbind everything. 
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
+            'Disable states
+            GL.DisableClientState(ArrayCap.VertexArray)
+            GL.DisableClientState(ArrayCap.NormalArray)
+            GL.EnableClientState(ArrayCap.TextureCoordArray)
+            GL.DisableClientState(ArrayCap.IndexArray)
         Next
-        '
-        ' Unbind everything. 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
-        'Disable states
-        GL.DisableClientState(ArrayCap.VertexArray)
-        GL.DisableClientState(ArrayCap.NormalArray)
-        GL.EnableClientState(ArrayCap.TextureCoordArray)
-        GL.DisableClientState(ArrayCap.IndexArray)
         '
         '------------------------------------------------
         'End Test VBO draw.
@@ -255,7 +255,9 @@ Module modRender
 
 
         frmMain.glControl_main.SwapBuffers()
-
+        If frmGbufferViewer.Visible Then
+            frmGbufferViewer.update_screen()
+        End If
 #If 0 Then
         frmMain.glControl_utility.Visible = True
         '-------------------------------------------------------

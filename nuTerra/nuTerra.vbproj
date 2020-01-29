@@ -137,6 +137,12 @@
       <DependentUpon>frmMain.vb</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\frmGbufferViewer.Designer.vb">
+      <DependentUpon>frmGbufferViewer.vb</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\frmGbufferViewer.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ModelLoader\modXfile.vb" />
     <Compile Include="Modules\modGlobalVars.vb" />
     <Compile Include="Modules\modXfileLoader.vb" />
@@ -179,6 +185,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmMain.resx">
       <DependentUpon>frmMain.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\frmGbufferViewer.resx">
+      <DependentUpon>frmGbufferViewer.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="My Project\Resources.resx">
       <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
@@ -224,6 +233,12 @@
     <None Include="shaders\colorOnly_vertex.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\normalOffset_fragment.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\normalOffset_vertex.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Templates\Template_fragment.glsl" />
     <None Include="shaders\Templates\Template_vertex.glsl" />
     <None Include="shaders\basic_fragment.glsl">
@@ -242,6 +257,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\gWriter_fragment.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\toLinear_fragment.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\toLinear_vertex.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

@@ -60,10 +60,6 @@ Public Class frmMain
         glControl_main.MakeCurrent()
         '-----------------------------------------------------------------------------------------
 
-#If DEBUG Then
-        SetupDebugOutputCallback()
-#End If
-
         Me.Show()
         FBOm.FBO_Initialize()
 
@@ -344,5 +340,9 @@ Public Class frmMain
 
     Private Sub m_light_settings_Click(sender As Object, e As EventArgs) Handles m_light_settings.Click
         frmLighting.Show()
+    End Sub
+
+    Private Sub m_gbuffer_viewer_Click(sender As Object, e As EventArgs) Handles m_gbuffer_viewer.Click
+        frmGbufferViewer.Visible = True
     End Sub
 End Class
