@@ -25,8 +25,8 @@ in mat4 ModelMatrixInv;
 
 float linearDepth(float depthSample)
 {
-    float f = 2500.0;
-    float n = 0.5;
+    float f = 5000.0;
+    float n = 1.0;
     
     //depthSample = 2.0 * depthSample - 1.0;
     //float zLinear = 2.0 * zNear * zFar / (zFar + zNear - depthSample * (zFar - zNear));

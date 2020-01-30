@@ -50,6 +50,11 @@ Public Class frmMain
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
         '-----------------------------------------------------------------------------------------
+        Me.Show()
+        '-----------------------------------------------------------------------------------------
+        ' we dont want menu events while the app is initializing :)
+        MainMenuStrip.Enabled = False
+        '-----------------------------------------------------------------------------------------
         'So numbers work in any nation I'm running in.
         Dim nonInvariantCulture As CultureInfo = New CultureInfo("en-US")
         nonInvariantCulture.NumberFormat.NumberDecimalSeparator = "."
@@ -57,12 +62,29 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         Me.KeyPreview = True    'So I catch keyboard before despatching it
         '-----------------------------------------------------------------------------------------
+        'This timer allows the form to become visible before we initialize everything
+        'It is disposed after its done its job.
+        startup_delay_timer.Start()
+    End Sub
+
+    Private Sub post_frmMain_loaded()
+        '-----------------------------------------------------------------------------------------
         glControl_main.MakeCurrent()
         '-----------------------------------------------------------------------------------------
-
-        Me.Show()
+        'need a work area on users disc
+        TEMP_STORAGE = Path.GetTempPath + "nuTerra"
+        If Not Directory.Exists(TEMP_STORAGE) Then
+            Directory.CreateDirectory(TEMP_STORAGE)
+        End If
+        '-----------------------------------------------------------------------------------------
+        'Check if the game path is set
+        If Not Directory.Exists(My.Settings.GamePath + "\res") Then
+            MsgBox("Path to game is not set!" + vbCrLf + _
+                    "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
+            m_set_game_path.PerformClick()
+        End If
+        '-----------------------------------------------------------------------------------------
         FBOm.FBO_Initialize()
-
         '-----------------------------------------------------------------------------------------
         Il.ilInit()
         Ilu.iluInit()
@@ -72,15 +94,28 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         load_assets()
         '-----------------------------------------------------------------------------------------
-        'set camara start up position
+        'Set camara start up position. This is mostly for testing.
         VIEW_RADIUS = -1000.0
         CAM_X_ANGLE = PI / 4
         CAM_Y_ANGLE = -PI / 4
         '-----------------------------------------------------------------------------------------
         set_light_pos() ' Set initial light position and get radius and angle.
         '-----------------------------------------------------------------------------------------
-        _STARTED = True ' I'm ready to run!
+        'Everything is setup/loaded to show the main window.
+        'Dipose of the no longer used Panel1
+        Panel1.Visible = False
+        Me.Controls.Remove(Panel1)
+        Panel1.Dispose()
+        glControl_main.BringToFront()
+        GC.Collect() 'Start a clean up of disposed items
+        '-----------------------------------------------------------------------------------------
+        'we are reading for user input so lets eable the menu\
+        MainMenuStrip.Enabled = True
+        '-----------------------------------------------------------------------------------------
+        _STARTED = True ' I'm ready for update loops!
+        '-----------------------------------------------------------------------------------------
         launch_update_thread()
+        '-----------------------------------------------------------------------------------------
     End Sub
 
 
@@ -98,6 +133,40 @@ Public Class frmMain
         End If
     End Sub
 
+    Private Sub startup_delay_timer_Tick(sender As Object, e As EventArgs) Handles startup_delay_timer.Tick
+        startup_delay_timer.Enabled = False
+        post_frmMain_loaded()
+    End Sub
+
+#End Region
+
+#Region "FrmMain menu events"
+
+    Private Sub m_light_settings_Click(sender As Object, e As EventArgs) Handles m_light_settings.Click
+        frmLighting.Show()
+    End Sub
+
+    Private Sub m_gbuffer_viewer_Click(sender As Object, e As EventArgs) Handles m_gbuffer_viewer.Click
+        frmGbufferViewer.Visible = True
+    End Sub
+
+    Private Sub m_set_game_path_Click(sender As Object, e As EventArgs) Handles m_set_game_path.Click
+try_again:
+        If FolderBrowserDialog1.ShowDialog = Forms.DialogResult.OK Then
+            My.Settings.GamePath = FolderBrowserDialog1.SelectedPath
+            If Not Directory.Exists(My.Settings.GamePath + "\res") Then
+                MsgBox("Wrong Folder Path!" + vbCrLf + _
+                       "You need to point at the World_of_Tanks folder!", _
+                        MsgBoxStyle.Exclamation, "Wrong Path!")
+                GoTo try_again
+            End If
+        End If
+    End Sub
+
+    Private Sub m_help_Click(sender As Object, e As EventArgs) Handles m_help.Click
+        Dim p = Application.StartupPath + "\HTML\index.html"
+        Process.Start(p)
+    End Sub
 #End Region
 
     Private Sub load_assets()
@@ -133,6 +202,9 @@ Public Class frmMain
         refresh_thread.IsBackground = True
         refresh_thread.Name = "refresh_thread"
         refresh_thread.Start()
+
+        'We wont use this timaer again so lets remove it from memory
+        startup_delay_timer.Dispose()
     End Sub
 
 
@@ -337,12 +409,4 @@ Public Class frmMain
 
 #End Region
 
-
-    Private Sub m_light_settings_Click(sender As Object, e As EventArgs) Handles m_light_settings.Click
-        frmLighting.Show()
-    End Sub
-
-    Private Sub m_gbuffer_viewer_Click(sender As Object, e As EventArgs) Handles m_gbuffer_viewer.Click
-        frmGbufferViewer.Visible = True
-    End Sub
 End Class

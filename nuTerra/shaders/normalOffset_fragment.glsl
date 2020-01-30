@@ -1,4 +1,4 @@
-﻿#version 330 compatibility
+﻿#version 430 compatibility
 out vec4 fragColor;
 uniform sampler2D normalMap;
 in vec2 texcoord;

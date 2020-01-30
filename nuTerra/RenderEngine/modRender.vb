@@ -52,6 +52,22 @@ Module modRender
         draw_one_damn_moon(v)
         '------------------------------------------------
         '------------------------------------------------
+        'Draw the cross hair if we are moving the look_at location
+        If MOVE_MOD Or Z_MOVE Then
+            If MOVE_MOD And Not Z_MOVE Then
+                frmMain.glControl_main.Cursor = Cursors.SizeAll
+            End If
+            If Z_MOVE Then
+                frmMain.glControl_main.Cursor = Cursors.SizeNS
+            End If
+            FBOm.attach_C()
+            draw_cross_hair()
+        Else
+            frmMain.glControl_main.Cursor = Cursors.Default
+
+        End If
+        '------------------------------------------------
+        '------------------------------------------------
         FBOm.attach_CNG()
 
 
@@ -84,24 +100,24 @@ Module modRender
         'UV Coords : 2 floats
         'A total of 8 floats or.. 32 bytes so the stride is 32.
         '
+        GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
+        'Enable the data element types in the VBO (vertex, normal ... ).
+        GL.EnableClientState(ArrayCap.VertexArray)
+        GL.EnableClientState(ArrayCap.NormalArray)
+        GL.EnableClientState(ArrayCap.TextureCoordArray)
+        GL.EnableClientState(ArrayCap.IndexArray)
+        '
+        'We assign each element to the slots (gl_Normal, gl_Vertex, gl_textCoord) to the array data parts.
+        'The last 2 values are Stide and )ffset to start of next element.
+        GL.VertexPointer(3, VertexPointerType.Float, 32, 0)         ' 3 floats next is at --> 12 
+        GL.NormalPointer(NormalPointerType.Float, 32, 12)           ' 3 floats --> next is at 24
+        GL.TexCoordPointer(2, TexCoordPointerType.Float, 32, 24)    ' 2 floats --> None after
+        '
+        'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
+        '
+        'repeat drawing the elements now that the states are set..
         For i = 0 To 999 ' draw 1,000 boxes
-            GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
-            'Enable the data element types in the VBO (vertex, normal ... ).
-            GL.EnableClientState(ArrayCap.VertexArray)
-            GL.EnableClientState(ArrayCap.NormalArray)
-            GL.EnableClientState(ArrayCap.TextureCoordArray)
-            GL.EnableClientState(ArrayCap.IndexArray)
-            '
-            'We assign each element to the slots (gl_Normal, gl_Vertex, gl_textCoord) to the array data par ts.
-            'The last 2 values are Stide and )ffset to start of next element.
-            GL.VertexPointer(3, VertexPointerType.Float, 32, 0)         ' 3 floats next is at --> 12 
-            GL.NormalPointer(NormalPointerType.Float, 32, 12)           ' 3 floats --> next is at 24
-            GL.TexCoordPointer(2, TexCoordPointerType.Float, 32, 24)    ' 2 floats --> None after
-            '
-            'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
-            '
-            'repeat drawing the elements now that the states are set..
             Dim ox = box_positions(i).x
             Dim oy = box_positions(i).y
             Dim oz = box_positions(i).z
@@ -115,24 +131,25 @@ Module modRender
             GL.UniformMatrix4(gWriter_ModelMatrix, False, sMat * model * MODELVIEWMATRIX)
             GL.UniformMatrix4(gWriter_ProjectionMatrix_id, False, MVPM)
 
-            GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
 
-            '
-            ' Unbind everything. 
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
-            'Disable states
-            GL.DisableClientState(ArrayCap.VertexArray)
-            GL.DisableClientState(ArrayCap.NormalArray)
-            GL.EnableClientState(ArrayCap.TextureCoordArray)
-            GL.DisableClientState(ArrayCap.IndexArray)
+            GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
         Next
+
+        '
+        ' Unbind everything. 
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
+        'Disable states
+        GL.DisableClientState(ArrayCap.VertexArray)
+        GL.DisableClientState(ArrayCap.NormalArray)
+        GL.EnableClientState(ArrayCap.TextureCoordArray)
+        GL.DisableClientState(ArrayCap.IndexArray)
         '
         '------------------------------------------------
         'End Test VBO draw.
         '------------------------------------------------
         'unbind textures!
-        unbind_textures(2) ' unbind all the used texture slots\
+        unbind_textures(2) ' unbind all the used texture slots
 
 
 
@@ -233,7 +250,7 @@ Module modRender
         'textRender.DrawText.TextRenderer(100, 100) '<--- reset when the FBO changes size!
         textRender.DrawText.clear(Color.FromArgb(0, 0, 0, 255))
         Dim ti = TimeOfDay.TimeOfDay
-        Dim pos_str As String = " Light Position X,Y: " + LIGHT_POS(0).ToString("00.0000") + "," + LIGHT_POS(2).ToString("00.000")
+        Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         textRender.DrawText.DrawString("Current Time:" + ti.ToString + pos_str, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Texture2D)
@@ -372,5 +389,21 @@ Module modRender
         GL.EnableClientState(ArrayCap.TextureCoordArray)
         GL.DisableClientState(ArrayCap.IndexArray)
 
+    End Sub
+    Private Sub draw_cross_hair()
+        'I wasnt going to use direct mode but for now, this is simple
+        Dim l As Single = 1000.0F
+        GL.Color4(1.0F, 1.0F, 1.0F, 1.0F)
+        GL.Begin(PrimitiveType.Lines)
+        'left right
+        GL.Vertex3(U_LOOK_AT_X - l, U_LOOK_AT_Y, U_LOOK_AT_Z)
+        GL.Vertex3(U_LOOK_AT_X + l, U_LOOK_AT_Y, U_LOOK_AT_Z)
+        'forward back
+        GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z - l)
+        GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z + l)
+        'up down
+        GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y + l, U_LOOK_AT_Z)
+        GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y - l, U_LOOK_AT_Z)
+        GL.End()
     End Sub
 End Module

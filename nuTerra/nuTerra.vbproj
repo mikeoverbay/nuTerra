@@ -145,6 +145,8 @@
     </Compile>
     <Compile Include="ModelLoader\modXfile.vb" />
     <Compile Include="Modules\modGlobalVars.vb" />
+    <Compile Include="Modules\modMatrix.vb" />
+    <Compile Include="Modules\modTypeStructures.vb" />
     <Compile Include="Modules\modXfileLoader.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="My Project\Application.Designer.vb">
@@ -177,6 +179,10 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="ShaderEditor\ShaderLoader.vb" />
+    <Compile Include="Space.bin\modSpaceBin.vb" />
+    <Compile Include="Space.bin\modSpaceBinFunctions.vb" />
+    <Compile Include="Space.bin\modSpacedBinVars.vb" />
+    <Compile Include="MapLoader\LoadMap.vb" />
     <Compile Include="TextureEngine\TextureLoaders.vb" />
   </ItemGroup>
   <ItemGroup>
@@ -266,14 +272,15 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Space.bin\" />
-  </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
     <None Include="Resources\question.png" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="DevIL.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="HTML\index.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="ILU.dll">
@@ -301,6 +308,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\phobosmirror_NORM.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\startup_banner.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

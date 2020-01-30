@@ -35,5 +35,9 @@ Module modGlobalVars
     Public MODELVIEWMATRIX As New Matrix4
     Public VIEW_PORT(1) As Single
     '---------------------
+    Public TEMP_STORAGE As String
+    '---------------------
+    Public WATER_LINE As Single
+    '---------------------
 
 End Module

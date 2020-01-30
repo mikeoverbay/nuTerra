@@ -9,8 +9,6 @@ Imports OpenTK.Graphics.OpenGL
 
 Module modOpenGL
 
-
-
     Public box_positions(4999) As vec3
     Public FieldOfView As Single = 60.0F
 
