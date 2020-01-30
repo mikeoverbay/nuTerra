@@ -1,9 +1,9 @@
-# NuTerra - To boldly code where no one has gone before!
+## NuTerra - To boldly code where no code has gone before!
 
-## This is the home of nuTerra where all the work will be done to rewrite Terra using New OpenGL techniques.
+### This is the home of nuTerra where all the work will be done to rewrite Terra using New OpenGL techniques.
 
-### Update log... 1/30/2020
-Added code to change the cursor icon when the shift (move x,z) and ctrl (move z) are pressed.
+#### Update log... 1/30/2020
+Added code to change the cursor icon when the shift (move X, Z) and ctrl (move Y) are pressed.</br>
 Added game path setting menu item and the code to check it is set correctly at start up and set it if not.</br>
 Added code to show a startup message (ant the graphic for it) in the frmMain's window.</br>
 This is done by placing a panel control over the glControls until the initialization is complete at which point, the panel is disposed.<br>
