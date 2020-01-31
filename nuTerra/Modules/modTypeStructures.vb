@@ -60,4 +60,6 @@ Module modTypeStructures
         Public hole As Single
     End Structure
 
+    Public triangle_holder As New mappedFile_
+
 End Module

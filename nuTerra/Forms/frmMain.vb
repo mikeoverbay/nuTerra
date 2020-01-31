@@ -18,7 +18,14 @@ Imports Utilities = OpenTK.Platform.Utilities
 Public Class frmMain
     Private refresh_thread As New Thread(AddressOf updater)
     Private u_timer As New Stopwatch
-#Region "From Events"
+#Region "Form Events"
+
+    Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
+        _STARTED = False
+        SYNCMUTEX.WaitOne()
+        refresh_thread.Abort()
+        'Need to add code to close down opengl and delete the resources.
+    End Sub
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
         Select Case True
@@ -69,8 +76,6 @@ Public Class frmMain
 
     Private Sub post_frmMain_loaded()
         '-----------------------------------------------------------------------------------------
-        glControl_main.MakeCurrent()
-        '-----------------------------------------------------------------------------------------
         'need a work area on users disc
         TEMP_STORAGE = Path.GetTempPath + "nuTerra"
         If Not Directory.Exists(TEMP_STORAGE) Then
@@ -83,6 +88,9 @@ Public Class frmMain
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
             m_set_game_path.PerformClick()
         End If
+        GAME_PATH = My.Settings.GamePath + "\res\packages\"
+        '-----------------------------------------------------------------------------------------
+        glControl_main.MakeCurrent()
         '-----------------------------------------------------------------------------------------
         FBOm.FBO_Initialize()
         '-----------------------------------------------------------------------------------------
@@ -109,7 +117,22 @@ Public Class frmMain
         glControl_main.BringToFront()
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
-        'we are reading for user input so lets eable the menu\
+        'Loads the textures for the map selection routines
+        make_map_pick_buttons()
+        '-----------------------------------------------------------------------------------------
+        'Make a texture for rendering text on map pic textures
+        DrawMapPickText.TextRenderer(120, 72)
+        '-----------------------------------------------------------------------------------------
+        'This gets the first texture ID after the static IDs
+        'ALL STATIC TEXTURES NEED TO BE LOADED BEFORE THIS IS CALLED!!!
+        get_start_ID_for_texture_Deletion()
+        '-----------------------------------------------------------------------------------------
+        'open up our huge virual memory file for storage.
+        '(map size * map size)*((64 * 64) * 6 vertex per quad)
+        triangle_holder.open((20 * 20) * (4096 * 6))
+        '-----------------------------------------------------------------------------------------
+
+        'we are ready for user input so lets enable the menu
         MainMenuStrip.Enabled = True
         '-----------------------------------------------------------------------------------------
         _STARTED = True ' I'm ready for update loops!
@@ -117,7 +140,6 @@ Public Class frmMain
         launch_update_thread()
         '-----------------------------------------------------------------------------------------
     End Sub
-
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
         If _STARTED Then
@@ -131,6 +153,8 @@ Public Class frmMain
         If _STARTED Then
             FBOm.FBO_Initialize()
         End If
+        Dim s = Me.Size
+
     End Sub
 
     Private Sub startup_delay_timer_Tick(sender As Object, e As EventArgs) Handles startup_delay_timer.Tick
@@ -148,6 +172,20 @@ Public Class frmMain
 
     Private Sub m_gbuffer_viewer_Click(sender As Object, e As EventArgs) Handles m_gbuffer_viewer.Click
         frmGbufferViewer.Visible = True
+    End Sub
+
+    Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
+        'SYNCMUTEX.WaitOne()
+
+        'FBOm.attach_C()
+        glControl_main.MakeCurrent()
+
+        SHOW_MAPS = True
+        SELECTED_MAP_HIT = 0
+        'gl_pick_map(0, 0)
+        'gl_pick_map(0, 0)
+
+        'SYNCMUTEX.ReleaseMutex()
     End Sub
 
     Private Sub m_set_game_path_Click(sender As Object, e As EventArgs) Handles m_set_game_path.Click
@@ -178,16 +216,16 @@ try_again:
         'load a test model
 #If 1 Then
         get_X_model(sp + "\resources\moon.x")
-        color_id = load_image_from_file(sp + "\resources\phobosmirror.png")
-        normal_id = load_image_from_file(sp + "\resources\phobosmirror_NORM.png")
-        gmm_id = load_image_from_file(sp + "\resources\phobosmirror_NORM.png")
+        color_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror.png", True, False)
+        normal_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)
+        gmm_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)
         N_MAP_TYPE = 0
 #Else
 
         get_X_model(sp + "\resources\cube.x")
-        color_id = load_image_from_file(sp + "\resources\PBS_Rock_05_AM.dds")
-        normal_id = load_image_from_file(sp + "\resources\PBS_Rock_05_NM.dds")
-        gmm_id = load_image_from_file(sp + "\resources\PBS_Rock_05_GMM.dds")
+        color_id = load_image_from_file(Il.IL_DDS, sp + "\resources\PBS_Rock_05_AM.dds", True, False)
+        normal_id = load_image_from_file(Il.IL_DDS, sp + "\resources\PBS_Rock_05_NM.dds", True, False)
+        gmm_id = load_image_from_file(Il.IL_DDS, sp + "\resources\PBS_Rock_05_GMM.dds", True, False)
         N_MAP_TYPE = 1
 #End If
         '---------------------------------------------------------
@@ -197,12 +235,13 @@ try_again:
 #Region "Screen position and update"
 
     Private Sub launch_update_thread()
-        u_timer.start()
+
+        u_timer.Start()
         refresh_thread.Priority = ThreadPriority.Highest
         refresh_thread.IsBackground = True
         refresh_thread.Name = "refresh_thread"
         refresh_thread.Start()
-
+        SHOW_MAPS = True
         'We wont use this timaer again so lets remove it from memory
         startup_delay_timer.Dispose()
     End Sub
@@ -279,6 +318,27 @@ try_again:
 #Region "glControl_main events"
 
     Private Sub glControl_main_MouseDown(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDown
+        If BLOCK_MOUSE Then Return
+
+        If SHOW_MAPS Then
+            If e.Button = Forms.MouseButtons.Left Then
+
+                If SELECTED_MAP_HIT = 0 And MAP_LOADED Then
+                    SHOW_MAPS = False
+                    Application.DoEvents()
+                    Return
+                Else
+                    Dim dx = SELECTED_MAP_HIT - 1 'deal with posible false hit
+                    If dx < 0 Then Return
+                    BLOCK_MOUSE = True
+                    FINISH_MAPS = True
+                    MOUSE.X = 0
+                    MOUSE.Y = 0
+
+                    Return
+                End If
+            End If
+        End If
         MOUSE.X = e.X
         MOUSE.Y = e.Y
         If e.Button = Forms.MouseButtons.Right Then
@@ -305,6 +365,7 @@ try_again:
     End Sub
 
     Private Sub glControl_main_MouseMove(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseMove
+        If BLOCK_MOUSE Then Return
         M_MOUSE.X = e.X
         M_MOUSE.Y = e.Y
         Dim max_zoom_out As Single = -3500.0F 'must be negitive

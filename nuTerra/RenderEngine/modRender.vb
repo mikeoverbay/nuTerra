@@ -16,8 +16,12 @@ Module modRender
     Public PI As Single = 3.14159274F
     Public angle1, angle2 As Single
     Public Sub draw_scene()
-        Dim cx, cy As Single
         frmMain.glControl_main.MakeCurrent()
+
+        If SHOW_MAPS Then
+            gl_pick_map(MOUSE.X, MOUSE.Y)
+            Return
+        End If
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) ' Use default buffer
         FBOm.attach_CNG()
@@ -117,14 +121,14 @@ Module modRender
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
         '
         'repeat drawing the elements now that the states are set..
-        For i = 0 To 999 ' draw 1,000 boxes
+        For i = 0 To 1999 ' draw 1,000 boxes
             Dim ox = box_positions(i).x
             Dim oy = box_positions(i).y
             Dim oz = box_positions(i).z
 
             Dim model = Matrix4.CreateTranslation(ox, oy, oz)
 
-            Dim scale_ As Single = 20.0
+            Dim scale_ As Single = 70.0
             Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
             Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
@@ -137,47 +141,19 @@ Module modRender
 
         '
         ' Unbind everything. 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
         'Disable states
         GL.DisableClientState(ArrayCap.VertexArray)
         GL.DisableClientState(ArrayCap.NormalArray)
         GL.EnableClientState(ArrayCap.TextureCoordArray)
         GL.DisableClientState(ArrayCap.IndexArray)
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         '
         '------------------------------------------------
         'End Test VBO draw.
         '------------------------------------------------
-        'unbind textures!
-        unbind_textures(2) ' unbind all the used texture slots
-
-
-
-#If 0 Then
-
-        'direct mode quad also just for testing.
-        Dim WIDTH = 30.0F
-        Dim HEIGHT = 30.0F
-
-        GL.Begin(PrimitiveType.Quads)
-
-        GL.TexCoord2(0.0F, 1.0F)
-        GL.Vertex3(-WIDTH / 2, -0.1F, HEIGHT / 2)
-
-        GL.TexCoord2(1.0F, 1.0F)
-        GL.Vertex3(WIDTH / 2, -0.1F, HEIGHT / 2)
-
-        GL.TexCoord2(1.0F, 0.0F)
-        GL.Vertex3(WIDTH / 2, -0.1F, -HEIGHT / 2)
-
-        GL.TexCoord2(0.0F, 0.0F)
-        GL.Vertex3(-WIDTH / 2, -0.1F, -HEIGHT / 2)
-        GL.End()
-
-        GL.BindTexture(TextureTarget.Texture2D, 0) '<------------------------------- texture unbind
-#End If
-
         GL.UseProgram(0)
+        unbind_textures(2) ' unbind all the used texture slots
         '===========================================================================
         '===========================================================================
         'Draws a full screen quad to render FBO textures.
@@ -185,15 +161,17 @@ Module modRender
         '===========================================================================
 
         'We can now switch to the default hardware buffer.
-        frmMain.glControl_main.MakeCurrent()
-        ' Use default buffer
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+        'frmMain.glControl_main.MakeCurrent()
+        ' Use default buffer
         'ortho for the win
         Ortho_main()
 
         'house keeping
         GL.Disable(EnableCap.Blend)
+
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+
         GL.Disable(EnableCap.DepthTest)
 
         GL.Enable(EnableCap.Texture2D)
@@ -240,25 +218,20 @@ Module modRender
 
         GL.UseProgram(0)
 
-        ''GL.BindTexture(TextureTarget.Texture2D, dial_face_ID)
-        'draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
-        'GL.Disable(EnableCap.Texture2D)
-        'GL.BindTexture(TextureTarget.Texture2D, 0)
-
         ' test render some text to see if it works
         Dim position = PointF.Empty
         'textRender.DrawText.TextRenderer(100, 100) '<--- reset when the FBO changes size!
-        textRender.DrawText.clear(Color.FromArgb(0, 0, 0, 255))
+        DrawText.clear(Color.FromArgb(0, 0, 0, 255))
         Dim ti = TimeOfDay.TimeOfDay
         Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
-        textRender.DrawText.DrawString("Current Time:" + ti.ToString + pos_str, mono, Brushes.White, position)
+        DrawText.DrawString("Current Time:" + ti.ToString + pos_str, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Texture2D)
         GL.Enable(EnableCap.AlphaTest)
         GL.AlphaFunc(AlphaFunction.Equal, 1.0)
         GL.Color4(1.0F, 1.0F, 1.0F, 0.0F)
 
-        GL.BindTexture(TextureTarget.Texture2D, textRender.DrawText.Gettexture)
+        GL.BindTexture(TextureTarget.Texture2D, DrawText.Gettexture)
         GL.Begin(PrimitiveType.Quads)
         Dim he As Integer = 20
         GL.TexCoord2(0.0F, 1.0F) : GL.Vertex2(0.0F, -he)
@@ -272,6 +245,8 @@ Module modRender
 
 
         frmMain.glControl_main.SwapBuffers()
+
+        'draw_maps()
         If frmGbufferViewer.Visible Then
             frmGbufferViewer.update_screen()
         End If
@@ -323,7 +298,6 @@ Module modRender
     End Sub
     Private Sub draw_main_Quad(ByRef w As Integer, ByRef h As Integer)
         GL.Begin(PrimitiveType.Quads)
-        'G_Buffer.getsize(w, h)
         '  CCW...
         '  1 ------ 4
         '  |        |

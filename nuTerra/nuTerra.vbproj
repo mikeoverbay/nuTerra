@@ -88,6 +88,12 @@
       <HintPath>..\packages\FCTB.2.16.24\lib\FastColoredTextBox.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Ionic.Zip">
+      <HintPath>.\Ionic.Zip.dll</HintPath>
+    </Reference>
+    <Reference Include="Ionic.Zlib">
+      <HintPath>.\Ionic.Zlib.dll</HintPath>
+    </Reference>
     <Reference Include="OpenTK, Version=3.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
       <HintPath>..\packages\OpenTK.3.1.0\lib\net20\OpenTK.dll</HintPath>
       <Private>True</Private>
@@ -100,6 +106,9 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Web.Services" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Core" />
@@ -123,6 +132,14 @@
     <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DataSet1.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>DataSet1.xsd</DependentUpon>
+    </Compile>
+    <Compile Include="DataSet1.vb">
+      <DependentUpon>DataSet1.xsd</DependentUpon>
+    </Compile>
     <Compile Include="FBO_main\FBO_main.vb" />
     <Compile Include="Forms\frmLighting.designer.vb">
       <DependentUpon>frmLighting.vb</DependentUpon>
@@ -143,6 +160,8 @@
     <Compile Include="Forms\frmGbufferViewer.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="MapLoader\MapSelectionFunctions.vb" />
+    <Compile Include="MapLoader\ModTriangleHolderClass.vb" />
     <Compile Include="ModelLoader\modXfile.vb" />
     <Compile Include="Modules\modGlobalVars.vb" />
     <Compile Include="Modules\modMatrix.vb" />
@@ -182,7 +201,7 @@
     <Compile Include="Space.bin\modSpaceBin.vb" />
     <Compile Include="Space.bin\modSpaceBinFunctions.vb" />
     <Compile Include="Space.bin\modSpacedBinVars.vb" />
-    <Compile Include="MapLoader\LoadMap.vb" />
+    <Compile Include="MapLoader\MapLoader.vb" />
     <Compile Include="TextureEngine\TextureLoaders.vb" />
   </ItemGroup>
   <ItemGroup>
@@ -209,6 +228,17 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <None Include="DataSet1.xsc">
+      <DependentUpon>DataSet1.xsd</DependentUpon>
+    </None>
+    <None Include="DataSet1.xsd">
+      <SubType>Designer</SubType>
+      <Generator>MSDataSetGenerator</Generator>
+      <LastGenOutput>DataSet1.Designer.vb</LastGenOutput>
+    </None>
+    <None Include="DataSet1.xss">
+      <DependentUpon>DataSet1.xsd</DependentUpon>
+    </None>
     <None Include="My Project\Application.myapp">
       <Generator>MyApplicationCodeGenerator</Generator>
       <LastGenOutput>Application.Designer.vb</LastGenOutput>
@@ -290,6 +320,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="light_settings\readme.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="map_list.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\linear_face.png">

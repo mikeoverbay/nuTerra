@@ -61,7 +61,8 @@ Module FBO_main
                 oldWidth = SCR_WIDTH
                 oldHeigth = SCR_HEIGHT
                 'reset the size of the text header on the page
-                textRender.DrawText.TextRenderer(SCR_WIDTH, 20)
+                DrawText.TextRenderer(SCR_WIDTH, 20)
+
             End If
             SYNCMUTEX.ReleaseMutex()
         End Sub

@@ -13,7 +13,7 @@ Module modGlobalVars
     Public LIGHT_RADIUS As Single ' Used when orbiting the light
     Public LIGHT_ORBIT_ANGLE As Single ' Used when orbiting the light
     Public PAUSE_ORBIT As Boolean
-    Public LIGHT_SPEED As Single = 0.02F
+    Public LIGHT_SPEED As Single = 0.01F
     '---------------------
     Public MAP_NAME_NO_PATH As String = ""
     Public MAP_LOADED As Boolean = False 'Rendering/settings clause
@@ -22,6 +22,7 @@ Module modGlobalVars
     '---------------------
     Public SYNCMUTEX As New Mutex ' used to stop rendering during FBO and shader rebuilds
     '---------------------
+    'mouse camera related
     Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE As Boolean ' mouse control booleans
     Public M_MOUSE, MOUSE As New Point
     Public VIEW_RADIUS, CAM_X_ANGLE, CAM_Y_ANGLE As Single
@@ -35,7 +36,17 @@ Module modGlobalVars
     Public MODELVIEWMATRIX As New Matrix4
     Public VIEW_PORT(1) As Single
     '---------------------
+    'Map related
     Public TEMP_STORAGE As String
+    Public GAME_PATH As String
+    Public FIRST_UNUSED_TEXTURE As Integer
+    Public DUMMY_TEXTURE_ID As Integer
+    Public MAP_SELECT_BACKGROUND_ID As Integer
+    Public SHOW_MAPS = False
+    Public SELECTED_MAP_HIT = 0
+    Public BLOCK_MOUSE As Boolean
+    Public FINISH_MAPS As Boolean
+    Public TEXT_OVERLAY_MAP_PICK As Integer
     '---------------------
     Public WATER_LINE As Single
     '---------------------

@@ -1,0 +1,94 @@
+﻿<?xml version="1.0"?>
+<doc>
+<assembly>
+<name>
+DotZLib
+</name>
+</assembly>
+<members>
+<member name="T:DelSole.DotZLibCompressor.NativeMethods">
+	<summary>
+ Calls unmanaged APIs exposed by the ZLib.dll compression library
+ </summary>
+	<remarks></remarks>
+</member><member name="P:DelSole.DotZLibCompressor.DotZLib.OriginalSize">
+	<summary>
+ Returns data's uncompressed size
+ </summary>
+	<value></value>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="P:DelSole.DotZLibCompressor.DotZLib.CompressedSize">
+	<summary>
+ Returns data's compressed size
+ </summary>
+	<value></value>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="P:DelSole.DotZLibCompressor.DotZLib.IsZLibInstalled">
+	<summary>
+ Checks whenever ZLIB.DLL is installed in the System directory. Returns True or False
+ </summary>
+	<value></value>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="M:DelSole.DotZLibCompressor.DotZLib.CompressBytes(System.Byte[]@,System.Byte[]@)">
+	<summary>
+ Compresses the specified bytes' array
+ </summary>
+	<param name="Data"></param>
+	<param name="TempBuffer"></param>
+	<remarks></remarks>
+</member><member name="M:DelSole.DotZLibCompressor.DotZLib.DeCompressBytes(System.Byte[]@,System.Int32,System.Byte[]@)">
+	<summary>
+ Decompresses the specified bytes array
+ </summary>
+	<param name="Data"></param>
+	<param name="Origsize"></param>
+	<param name="TempBuffer"></param>
+	<remarks></remarks>
+</member><member name="M:DelSole.DotZLibCompressor.DotZLib.Compress(System.String,System.String)">
+	<summary>
+ Compresses the specified file. If an error occurs, a ZLibCompressException is thrown
+ </summary>
+	<param name="source"></param>
+	<param name="target"></param>
+	<remarks></remarks>
+</member><member name="M:DelSole.DotZLibCompressor.DotZLib.Decompress(System.String,System.String)">
+	<summary>
+ Decompresses the specified file. If an error occurs, a ZLibDecompressException is thrown
+ </summary>
+	<param name="compressedFile"></param>
+	<param name="decompressedFile"></param>
+	<remarks></remarks>
+</member><member name="T:DelSole.DotZLibCompressor.DotZLib">
+	<summary>
+ Exposes methods and properties to store and retrieve compressed data
+ </summary>
+	<remarks></remarks>
+</member><member name="T:DelSole.DotZLibCompressor.ZLibCompressException">
+	<summary>
+ Throws an exception if any error occurs while compressing data
+ </summary>
+	<remarks></remarks>
+</member><member name="T:DelSole.DotZLibCompressor.ZLibDecompressException">
+	<summary>
+ Throws an exception if any error occurs while decompressing data
+ </summary>
+	<remarks></remarks>
+</member><member name="P:My.Resources.Resources.ResourceManager">
+	<summary>
+  Returns the cached ResourceManager instance used by this class.
+</summary>
+</member><member name="P:My.Resources.Resources.Culture">
+	<summary>
+  Overrides the current thread's CurrentUICulture property for all
+  resource lookups using this strongly typed resource class.
+</summary>
+</member><member name="T:My.Resources.Resources">
+	<summary>
+  A strongly-typed resource class, for looking up localized strings, etc.
+</summary>
+</member>
+</members>
+</doc>

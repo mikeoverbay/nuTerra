@@ -2,6 +2,17 @@
 
 ### This is the home of nuTerra where all the work will be done to rewrite Terra using New OpenGL techniques.
 
+#### Update log... 1/31/2020
+Added a menu item "Load Map" that returns the app to the mouse over map selection screen.</br>
+Added the mouse over map selection code. And Text over the icons.</br>
+I had to turn the DrawText in to a structure and create multiple references to deal with text rendered on different sized textures.</br>
+Added the huge memory mapped virtual file for storage of the terrain mesh while doing normalizion and other work. This might change!</br>
+Added a datatable to store the info of already loaded textures. This is easier and much faster than having a bunch of arrays.</br>
+I made the stream texture loader much more robust so I don't have to have 3-4 loaders for the texture settings.</br>
+Added in Ionic Zip wrapper.</br>
+Removed junk out of the render routine. General code clean up.
+
+
 #### Update log... 1/30/2020
 Added code to change the cursor icon when the shift (move X, Z) and ctrl (move Y) are pressed.</br>
 Added a cross hair for navigation.</br>

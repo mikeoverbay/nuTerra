@@ -31,11 +31,12 @@ Partial Class frmMain
         Me.glControl_utility = New OpenTK.GLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_load_map = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_settings = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_set_game_path = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_light_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_gbuffer_viewer = New System.Windows.Forms.ToolStripMenuItem()
-        Me.m_set_game_path = New System.Windows.Forms.ToolStripMenuItem()
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.FolderBrowserDialog1 = New System.Windows.Forms.FolderBrowserDialog()
@@ -55,7 +56,7 @@ Partial Class frmMain
         '
         Me.glControl_utility.Anchor = System.Windows.Forms.AnchorStyles.None
         Me.glControl_utility.BackColor = System.Drawing.Color.Blue
-        Me.glControl_utility.Location = New System.Drawing.Point(336, 27)
+        Me.glControl_utility.Location = New System.Drawing.Point(471, 101)
         Me.glControl_utility.Name = "glControl_utility"
         Me.glControl_utility.Size = New System.Drawing.Size(167, 223)
         Me.glControl_utility.TabIndex = 0
@@ -66,47 +67,64 @@ Partial Class frmMain
         Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_help, Me.m_settings, Me.m_light_settings, Me.m_gbuffer_viewer})
         Me.frmMainMenu.Location = New System.Drawing.Point(0, 0)
         Me.frmMainMenu.Name = "frmMainMenu"
-        Me.frmMainMenu.Size = New System.Drawing.Size(686, 24)
+        Me.frmMainMenu.Size = New System.Drawing.Size(956, 24)
         Me.frmMainMenu.TabIndex = 1
         Me.frmMainMenu.Text = "MenuStrip1"
         '
         'm_file
         '
+        Me.m_file.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.m_file.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_load_map})
+        Me.m_file.ForeColor = System.Drawing.Color.Black
         Me.m_file.Name = "m_file"
         Me.m_file.Size = New System.Drawing.Size(37, 20)
         Me.m_file.Text = "File"
         '
+        'm_load_map
+        '
+        Me.m_load_map.Name = "m_load_map"
+        Me.m_load_map.Size = New System.Drawing.Size(127, 22)
+        Me.m_load_map.Text = "Load Map"
+        '
         'm_help
         '
         Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
         Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
         Me.m_help.Name = "m_help"
         Me.m_help.Size = New System.Drawing.Size(28, 20)
         '
         'm_settings
         '
+        Me.m_settings.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
         Me.m_settings.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_set_game_path})
+        Me.m_settings.ForeColor = System.Drawing.Color.Black
         Me.m_settings.Name = "m_settings"
         Me.m_settings.Size = New System.Drawing.Size(61, 20)
         Me.m_settings.Text = "Settings"
         '
+        'm_set_game_path
+        '
+        Me.m_set_game_path.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.m_set_game_path.Name = "m_set_game_path"
+        Me.m_set_game_path.Size = New System.Drawing.Size(321, 22)
+        Me.m_set_game_path.Text = "Set Game Path (world_of_tanks folder location)"
+        '
         'm_light_settings
         '
+        Me.m_light_settings.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.m_light_settings.ForeColor = System.Drawing.Color.Black
         Me.m_light_settings.Name = "m_light_settings"
         Me.m_light_settings.Size = New System.Drawing.Size(91, 20)
         Me.m_light_settings.Text = "Light Settings"
         '
         'm_gbuffer_viewer
         '
+        Me.m_gbuffer_viewer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.m_gbuffer_viewer.ForeColor = System.Drawing.Color.Black
         Me.m_gbuffer_viewer.Name = "m_gbuffer_viewer"
         Me.m_gbuffer_viewer.Size = New System.Drawing.Size(97, 20)
         Me.m_gbuffer_viewer.Text = "Gbuffer Viewer"
-        '
-        'm_set_game_path
-        '
-        Me.m_set_game_path.Name = "m_set_game_path"
-        Me.m_set_game_path.Size = New System.Drawing.Size(321, 22)
-        Me.m_set_game_path.Text = "Set Game Path (world_of_tanks folder location)"
         '
         'Panel1
         '
@@ -115,7 +133,7 @@ Partial Class frmMain
         Me.Panel1.Dock = System.Windows.Forms.DockStyle.Fill
         Me.Panel1.Location = New System.Drawing.Point(0, 24)
         Me.Panel1.Name = "Panel1"
-        Me.Panel1.Size = New System.Drawing.Size(686, 401)
+        Me.Panel1.Size = New System.Drawing.Size(956, 549)
         Me.Panel1.TabIndex = 2
         '
         'startup_delay_timer
@@ -127,7 +145,7 @@ Partial Class frmMain
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.Black
-        Me.ClientSize = New System.Drawing.Size(686, 425)
+        Me.ClientSize = New System.Drawing.Size(956, 573)
         Me.Controls.Add(Me.Panel1)
         Me.Controls.Add(Me.glControl_utility)
         Me.Controls.Add(Me.glControl_main)
@@ -136,6 +154,7 @@ Partial Class frmMain
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
         Me.MainMenuStrip = Me.frmMainMenu
         Me.Name = "frmMain"
+        Me.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
         Me.Text = "nuTerra"
         Me.frmMainMenu.ResumeLayout(False)
         Me.frmMainMenu.PerformLayout()
@@ -155,5 +174,6 @@ Partial Class frmMain
     Friend WithEvents Panel1 As System.Windows.Forms.Panel
     Friend WithEvents startup_delay_timer As System.Windows.Forms.Timer
     Friend WithEvents FolderBrowserDialog1 As System.Windows.Forms.FolderBrowserDialog
+    Friend WithEvents m_load_map As System.Windows.Forms.ToolStripMenuItem
 
 End Class
