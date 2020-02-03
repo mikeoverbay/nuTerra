@@ -6,7 +6,6 @@ layout (location = 1) out vec3 gNormal;
 
 uniform vec3 color;
 
-in vec2 UV;
 in vec3 Vertex_Normal;
 
 void main(void)

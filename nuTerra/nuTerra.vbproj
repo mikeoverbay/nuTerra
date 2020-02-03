@@ -91,9 +91,6 @@
     <Reference Include="Ionic.Zip">
       <HintPath>.\Ionic.Zip.dll</HintPath>
     </Reference>
-    <Reference Include="Ionic.Zlib">
-      <HintPath>.\Ionic.Zlib.dll</HintPath>
-    </Reference>
     <Reference Include="OpenTK, Version=3.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
       <HintPath>..\packages\OpenTK.3.1.0\lib\net20\OpenTK.dll</HintPath>
       <Private>True</Private>
@@ -104,11 +101,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
-    <Reference Include="System.IO.Compression" />
-    <Reference Include="System.IO.Compression.FileSystem" />
-    <Reference Include="System.Web.Services" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Core" />
@@ -132,6 +125,10 @@
     <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BW_XML_reader\packed_section.vb" />
+    <Compile Include="BW_XML_reader\primitive_.vb" />
+    <Compile Include="BW_XML_reader\primitive_file.vb" />
+    <Compile Include="BW_XML_reader\vis_main.vb" />
     <Compile Include="DataSet1.Designer.vb">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -139,6 +136,11 @@
     </Compile>
     <Compile Include="DataSet1.vb">
       <DependentUpon>DataSet1.xsd</DependentUpon>
+    </Compile>
+    <Compile Include="DataSet2.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>DataSet2.xsd</DependentUpon>
     </Compile>
     <Compile Include="FBO_main\FBO_main.vb" />
     <Compile Include="Forms\frmLighting.designer.vb">
@@ -160,9 +162,17 @@
     <Compile Include="Forms\frmGbufferViewer.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="MapLoader\frmLoadOptions.designer.vb">
+      <DependentUpon>frmLoadOptions.vb</DependentUpon>
+    </Compile>
+    <Compile Include="MapLoader\frmLoadOptions.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="MapLoader\MapSelectionFunctions.vb" />
     <Compile Include="MapLoader\ModTriangleHolderClass.vb" />
+    <Compile Include="ModelLoader\modUtilities.vb" />
     <Compile Include="ModelLoader\modXfile.vb" />
+    <Compile Include="ModelLoader\PrimitiveLoader.vb" />
     <Compile Include="Modules\modGlobalVars.vb" />
     <Compile Include="Modules\modMatrix.vb" />
     <Compile Include="Modules\modTypeStructures.vb" />
@@ -203,6 +213,7 @@
     <Compile Include="Space.bin\modSpacedBinVars.vb" />
     <Compile Include="MapLoader\MapLoader.vb" />
     <Compile Include="TextureEngine\TextureLoaders.vb" />
+    <Compile Include="TextureEngine\VisualTextureGetter.vb" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Forms\frmLighting.resx">
@@ -213,6 +224,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmGbufferViewer.resx">
       <DependentUpon>frmGbufferViewer.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MapLoader\frmLoadOptions.resx">
+      <DependentUpon>frmLoadOptions.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="My Project\Resources.resx">
       <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
@@ -238,6 +252,17 @@
     </None>
     <None Include="DataSet1.xss">
       <DependentUpon>DataSet1.xsd</DependentUpon>
+    </None>
+    <None Include="DataSet2.xsc">
+      <DependentUpon>DataSet2.xsd</DependentUpon>
+    </None>
+    <None Include="DataSet2.xsd">
+      <SubType>Designer</SubType>
+      <Generator>MSDataSetGenerator</Generator>
+      <LastGenOutput>DataSet2.Designer.vb</LastGenOutput>
+    </None>
+    <None Include="DataSet2.xss">
+      <DependentUpon>DataSet2.xsd</DependentUpon>
     </None>
     <None Include="My Project\Application.myapp">
       <Generator>MyApplicationCodeGenerator</Generator>
@@ -267,6 +292,18 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\colorOnly_vertex.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\testList_fragment.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\MDL_fragment.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\testList_vertex.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\MDL_vertex.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\normalOffset_fragment.glsl">
@@ -307,6 +344,12 @@
     <None Include="Resources\question.png" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="data\map_list.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\TheItemList.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="DevIL.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -320,9 +363,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="light_settings\readme.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="map_list.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\linear_face.png">

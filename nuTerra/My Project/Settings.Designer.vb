@@ -209,6 +209,90 @@ Namespace My
                 Me("Specular_level") = value
             End Set
         End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property load_terrain() As Boolean
+            Get
+                Return CType(Me("load_terrain"),Boolean)
+            End Get
+            Set
+                Me("load_terrain") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property load_trees() As Boolean
+            Get
+                Return CType(Me("load_trees"),Boolean)
+            End Get
+            Set
+                Me("load_trees") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property load_models() As Boolean
+            Get
+                Return CType(Me("load_models"),Boolean)
+            End Get
+            Set
+                Me("load_models") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property load_decals() As Boolean
+            Get
+                Return CType(Me("load_decals"),Boolean)
+            End Get
+            Set
+                Me("load_decals") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property load_water() As Boolean
+            Get
+                Return CType(Me("load_water"),Boolean)
+            End Get
+            Set
+                Me("load_water") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property load_bases() As Boolean
+            Get
+                Return CType(Me("load_bases"),Boolean)
+            End Get
+            Set
+                Me("load_bases") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property load_sky() As Boolean
+            Get
+                Return CType(Me("load_sky"),Boolean)
+            End Get
+            Set
+                Me("load_sky") = value
+            End Set
+        End Property
     End Class
 End Namespace
 

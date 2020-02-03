@@ -148,6 +148,7 @@ Module modXfile
         IBO = GL.GenBuffer
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
+        'GL.BindVertexArray(VBO)
 
         GL.BufferData(BufferTarget.ArrayBuffer, (vbuff.Length) * 32, vbuff, BufferUsageHint.StaticDraw)
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
@@ -156,7 +157,9 @@ Module modXfile
         GL.BufferData(BufferTarget.ElementArrayBuffer, (indice_count) * 6, indices, BufferUsageHint.StaticDraw)
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         Dim er1 = GL.GetError
+        GL.BindVertexArray(0)
 
         Return 0
     End Function

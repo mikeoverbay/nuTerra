@@ -10,17 +10,15 @@ Module modGlobalVars
     Public N_MAP_TYPE As Integer
     '---------------------
     Public LIGHT_POS(3) As Single
-    Public LIGHT_RADIUS As Single ' Used when orbiting the light
-    Public LIGHT_ORBIT_ANGLE As Single ' Used when orbiting the light
+    Public LIGHT_RADIUS As Single 'Used when orbiting the light
+    Public LIGHT_ORBIT_ANGLE As Single 'Used when orbiting the light
     Public PAUSE_ORBIT As Boolean
     Public LIGHT_SPEED As Single = 0.01F
     '---------------------
-    Public MAP_NAME_NO_PATH As String = ""
-    Public MAP_LOADED As Boolean = False 'Rendering/settings clause
     '---------------------
-    Public _STARTED As Boolean ' signals initialization is complete
+    Public _STARTED As Boolean 'Signals UI initialization is complete
     '---------------------
-    Public SYNCMUTEX As New Mutex ' used to stop rendering during FBO and shader rebuilds
+    Public SYNCMUTEX As New Mutex 'Used to stop rendering during FBO and shader rebuilds
     '---------------------
     'mouse camera related
     Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE As Boolean ' mouse control booleans
@@ -37,16 +35,39 @@ Module modGlobalVars
     Public VIEW_PORT(1) As Single
     '---------------------
     'Map related
-    Public TEMP_STORAGE As String
-    Public GAME_PATH As String
-    Public FIRST_UNUSED_TEXTURE As Integer
-    Public DUMMY_TEXTURE_ID As Integer
-    Public MAP_SELECT_BACKGROUND_ID As Integer
-    Public SHOW_MAPS = False
-    Public SELECTED_MAP_HIT = 0
-    Public BLOCK_MOUSE As Boolean
-    Public FINISH_MAPS As Boolean
-    Public TEXT_OVERLAY_MAP_PICK As Integer
+    Public MAP_NAME_NO_PATH As String = ""
+    Public MAP_LOADED As Boolean = False 'Rendering/settings clause
+    Public TEMP_STORAGE As String 'Work are on users SSD/HDD
+    Public GAME_PATH As String 'Points directly to "world_of_tanks\res\packages\"
+    Public FIRST_UNUSED_TEXTURE As Integer 'Used for deltion of textures. holds starting texture
+    Public DUMMY_TEXTURE_ID As Integer 'texture id 
+    Public MAP_SELECT_BACKGROUND_ID As Integer 'texture id 
+    Public TEXT_OVERLAY_MAP_PICK As Integer 'texture id for text on icons
+    '
+    Public SHOW_MAPS = False 'pick menu flag
+    Public SELECTED_MAP_HIT = 0 'pick menu flag
+    Public BLOCK_MOUSE As Boolean 'pick menu flag
+    Public FINISH_MAPS As Boolean 'pick menu flag
+    Public USE_HD_TEXTURES As Boolean = True 'Lets the map loader know if we want to try and find HD textures.
+    Public HD_EXISTS As Boolean 'Flag that the user has HD files in the packages folder.
+    '
+    'Draw Enable Flags. Items wont be rendered if these are False
+    Public TERRAIN_LOADED As Boolean
+    Public TREES_LOADED As Boolean
+    Public DECALS_LOADED As Boolean
+    Public MODELS_LOADED As Boolean
+    Public BASES_LOADED As Boolean
+    Public SKY_LOADED As Boolean
+    Public WATER_LOADED As Boolean
+    'Block loading flags. They are used for skipping loading of data.
+
+    Public TERRAIN_BLOCK_LOADING As Boolean
+    Public TREES_BLOCK_LOADING As Boolean
+    Public DECALS_BLOCK_LOADING As Boolean
+    Public MODELS_BLOCK_LOADING As Boolean
+    Public BASES_BLOCK_LOADING As Boolean
+    Public SKY_BLOCK_LOADING As Boolean
+    Public WATER_BLOCK_LOADING As Boolean
     '---------------------
     Public WATER_LINE As Single
     '---------------------

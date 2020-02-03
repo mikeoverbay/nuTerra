@@ -12,12 +12,12 @@ Imports OpenTK.Platform.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
-Imports Config = OpenTK.Configuration
-Imports Utilities = OpenTK.Platform.Utilities
+'Imports Config = OpenTK.Configuration
+'Imports Utilities = OpenTK.Platform.Utilities
 
 Public Class frmMain
     Private refresh_thread As New Thread(AddressOf updater)
-    Private u_timer As New Stopwatch
+    Private gametimer As New System.Diagnostics.Stopwatch
 #Region "Form Events"
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
@@ -102,6 +102,9 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         load_assets()
         '-----------------------------------------------------------------------------------------
+        'Loads the list of destroyed object types.
+        load_destructibles()
+        '-----------------------------------------------------------------------------------------
         'Set camara start up position. This is mostly for testing.
         VIEW_RADIUS = -1000.0
         CAM_X_ANGLE = PI / 4
@@ -131,7 +134,13 @@ Public Class frmMain
         '(map size * map size)*((64 * 64) * 6 vertex per quad)
         triangle_holder.open((20 * 20) * (4096 * 6))
         '-----------------------------------------------------------------------------------------
-
+        'Must load and hide frmLighting to access its functions.
+        frmLighting.TopMost = False
+        frmLighting.SendToBack()
+        frmLighting.Show()
+        frmLighting.Visible = False
+        frmLighting.TopMost = True
+        '-----------------------------------------------------------------------------------------
         'we are ready for user input so lets enable the menu
         MainMenuStrip.Enabled = True
         '-----------------------------------------------------------------------------------------
@@ -139,6 +148,8 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         launch_update_thread()
         '-----------------------------------------------------------------------------------------
+        'This is temporary to speed up debuging
+        load_map("19_monastery.pkg")
     End Sub
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
@@ -167,28 +178,19 @@ Public Class frmMain
 #Region "FrmMain menu events"
 
     Private Sub m_light_settings_Click(sender As Object, e As EventArgs) Handles m_light_settings.Click
+        'Opens light setting window
         frmLighting.Show()
     End Sub
 
-    Private Sub m_gbuffer_viewer_Click(sender As Object, e As EventArgs) Handles m_gbuffer_viewer.Click
-        frmGbufferViewer.Visible = True
-    End Sub
-
     Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
-        'SYNCMUTEX.WaitOne()
-
-        'FBOm.attach_C()
+        'Runs Map picking code.
         glControl_main.MakeCurrent()
-
         SHOW_MAPS = True
         SELECTED_MAP_HIT = 0
-        'gl_pick_map(0, 0)
-        'gl_pick_map(0, 0)
-
-        'SYNCMUTEX.ReleaseMutex()
     End Sub
 
     Private Sub m_set_game_path_Click(sender As Object, e As EventArgs) Handles m_set_game_path.Click
+        'Sets the game path folder
 try_again:
         If FolderBrowserDialog1.ShowDialog = Forms.DialogResult.OK Then
             My.Settings.GamePath = FolderBrowserDialog1.SelectedPath
@@ -202,9 +204,35 @@ try_again:
     End Sub
 
     Private Sub m_help_Click(sender As Object, e As EventArgs) Handles m_help.Click
+        'Opens the index.HTML help/info file in the users default web browser.
         Dim p = Application.StartupPath + "\HTML\index.html"
         Process.Start(p)
     End Sub
+
+    Private Sub m_show_gbuffer_Click(sender As Object, e As EventArgs) Handles m_show_gbuffer.Click
+        'Shows the Gbuffer Viwer.
+        frmGbufferViewer.Visible = True
+    End Sub
+
+    Private Sub m_block_loading_Click(sender As Object, e As EventArgs) Handles m_block_loading.Click
+        'Opens the window to chose what to block from loading.
+        frmLoadOptions.Visible = True
+    End Sub
+
+    Private Sub m_shut_down_Click(sender As Object, e As EventArgs) Handles m_shut_down.Click
+        'Closes the app.
+        Me.Close()
+    End Sub
+
+    Private Sub m_developer_mode_Click(sender As Object, e As EventArgs) Handles m_developer_mode.Click
+        'Makes the developer menu visible.
+        If m_developer.Visible Then
+            m_developer.Visible = False
+        Else
+            m_developer.Visible = True
+        End If
+    End Sub
+
 #End Region
 
     Private Sub load_assets()
@@ -212,6 +240,9 @@ try_again:
         make_randum_locations() ' randum box locals
         Dim sp = Application.StartupPath
 
+        '---------------------------------------------------------
+        'load the xml list of all item locations
+        load_lookup_xml()
         '---------------------------------------------------------
         'load a test model
 #If 1 Then
@@ -236,13 +267,13 @@ try_again:
 
     Private Sub launch_update_thread()
 
-        u_timer.Start()
+        gametimer.Start()
         refresh_thread.Priority = ThreadPriority.Highest
         refresh_thread.IsBackground = True
         refresh_thread.Name = "refresh_thread"
         refresh_thread.Start()
-        SHOW_MAPS = True
-        'We wont use this timaer again so lets remove it from memory
+        'SHOW_MAPS = True
+        'We wont use this timer again so lets remove it from memory
         startup_delay_timer.Dispose()
     End Sub
 
@@ -250,7 +281,7 @@ try_again:
     Private Sub updater()
 
         While _STARTED
-            If u_timer.ElapsedMilliseconds > 5 Then
+            If gametimer.ElapsedMilliseconds > 5 Then
                 If Not PAUSE_ORBIT Then
                     LIGHT_ORBIT_ANGLE += LIGHT_SPEED
                     If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
@@ -258,7 +289,7 @@ try_again:
                     LIGHT_POS(1) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
                     LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
                 End If
-                u_timer.Restart()
+                gametimer.Restart()
             End If
             update_screen()
             Thread.Sleep(3)
@@ -290,11 +321,13 @@ try_again:
         End Try
     End Sub
 #End Region
+
     ''' <summary>
     ''' This is called by the update thread to see
     ''' if anything about the camera view has changed.
     ''' </summary>
     ''' <remarks></remarks>
+    ''' 
     Private Sub check_postion_for_update()
         If LOOK_AT_X <> U_LOOK_AT_X Then
             U_LOOK_AT_X = LOOK_AT_X
@@ -315,6 +348,7 @@ try_again:
             U_VIEW_RADIUS = VIEW_RADIUS
         End If
     End Sub
+
 #Region "glControl_main events"
 
     Private Sub glControl_main_MouseDown(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDown

@@ -40,7 +40,7 @@ Module modRender
         GL.Enable(EnableCap.DepthTest)
         GL.Disable(EnableCap.Lighting)
         GL.Enable(EnableCap.CullFace)
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+        GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
         GL.Disable(EnableCap.Blend)
         '------------------------------------------------
         '------------------------------------------------
@@ -53,7 +53,8 @@ Module modRender
         FBOm.attach_CN()
         Dim v As New vec3
         v.x = LIGHT_POS(0) : v.y = LIGHT_POS(1) : v.z = LIGHT_POS(2)
-        draw_one_damn_moon(v)
+        'unremming this screws up the VertexAttribPointers 
+        'draw_one_damn_moon(v)
         '------------------------------------------------
         '------------------------------------------------
         'Draw the cross hair if we are moving the look_at location
@@ -75,13 +76,11 @@ Module modRender
         FBOm.attach_CNG()
 
 
-        'FBOm.attach_CNG()
-
+#If 0 Then
+        'test sphear or box
         '------------------------------------------------
         GL.UseProgram(shader_list.gWriter_shader) '<------------------------------- Shader Bind
-        'GL.UseProgram(shader_list.basic_shader) '<------------------------------- Shader Bind
         '------------------------------------------------
-        'GL.Enable(EnableCap.Texture2D)
         GL.Uniform1(gWriter_textureMap_id, 0)
         GL.Uniform1(gWriter_normalMap_id, 1)
         GL.Uniform1(gWriter_GMF_id, 2)
@@ -105,30 +104,26 @@ Module modRender
         'A total of 8 floats or.. 32 bytes so the stride is 32.
         '
         GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
-        'Enable the data element types in the VBO (vertex, normal ... ).
-        GL.EnableClientState(ArrayCap.VertexArray)
-        GL.EnableClientState(ArrayCap.NormalArray)
-        GL.EnableClientState(ArrayCap.TextureCoordArray)
-        GL.EnableClientState(ArrayCap.IndexArray)
-        '
-        'We assign each element to the slots (gl_Normal, gl_Vertex, gl_textCoord) to the array data parts.
-        'The last 2 values are Stide and )ffset to start of next element.
-        GL.VertexPointer(3, VertexPointerType.Float, 32, 0)         ' 3 floats next is at --> 12 
-        GL.NormalPointer(NormalPointerType.Float, 32, 12)           ' 3 floats --> next is at 24
-        GL.TexCoordPointer(2, TexCoordPointerType.Float, 32, 24)    ' 2 floats --> None after
-        '
-        'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
+
+        GL.EnableVertexAttribArray(0)
+        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 32, 0)
+        GL.EnableVertexAttribArray(1)
+        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 32, 12)
+        GL.EnableVertexAttribArray(2)
+        GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 32, 24)
+
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
+        'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
         '
         'repeat drawing the elements now that the states are set..
-        For i = 0 To 1999 ' draw 1,000 boxes
+        For i = 0 To 150 ' draw 1,000 boxes
             Dim ox = box_positions(i).x
             Dim oy = box_positions(i).y
             Dim oz = box_positions(i).z
 
             Dim model = Matrix4.CreateTranslation(ox, oy, oz)
 
-            Dim scale_ As Single = 70.0
+            Dim scale_ As Single = 40.0
             Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
             Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
@@ -142,11 +137,8 @@ Module modRender
         '
         ' Unbind everything. 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
-        'Disable states
-        GL.DisableClientState(ArrayCap.VertexArray)
-        GL.DisableClientState(ArrayCap.NormalArray)
-        GL.EnableClientState(ArrayCap.TextureCoordArray)
-        GL.DisableClientState(ArrayCap.IndexArray)
+
+
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         '
         '------------------------------------------------
@@ -154,6 +146,131 @@ Module modRender
         '------------------------------------------------
         GL.UseProgram(0)
         unbind_textures(2) ' unbind all the used texture slots
+#End If
+
+#If 0 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
+        '===========================================================================
+        '===========================================================================
+        'draw the test MDL model using VAO
+        '------------------------------------------------
+        GL.UseProgram(shader_list.MDL_shader) '<------------------------------- Shader Bind
+        '------------------------------------------------
+        GL.Uniform1(MDL_textureMap_id, 0)
+        GL.Uniform1(MDL_normalMap_id, 1)
+        GL.Uniform1(MDL_GMF_id, 2)
+
+        GL.Uniform1(MDL_nMap_type, N_MAP_TYPE)
+
+        GL.ActiveTexture(TextureUnit.Texture0 + 0)
+        GL.BindTexture(TextureTarget.Texture2D, color_id) '<------------------------------- Texture Bind
+        GL.ActiveTexture(TextureUnit.Texture0 + 1)
+        GL.BindTexture(TextureTarget.Texture2D, normal_id)
+        GL.ActiveTexture(TextureUnit.Texture0 + 2)
+        GL.BindTexture(TextureTarget.Texture2D, gmm_id)
+
+        Dim er1 = GL.GetError
+
+        GL.BindVertexArray(mdl(0).mdl_VAO)
+
+
+        For z = 0 To 50 ' draw 1,000 boxes
+            Dim ox = box_positions(z).x
+            Dim oy = box_positions(z).y
+            Dim oz = box_positions(z).z
+
+            Dim model = Matrix4.CreateTranslation(ox, oy, oz)
+
+            Dim scale_ As Single = 3.0
+            Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
+            Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
+
+            GL.UniformMatrix4(MDL_ModelMatrix, False, sMat * model * MODELVIEWMATRIX)
+            GL.UniformMatrix4(MDL_ProjectionMatrix_id, False, MVPM)
+
+            For i = 0 To mdl(0).primitive_count - 1
+                If mdl(0).USHORTS Then
+                    GL.DrawElements(PrimitiveType.Triangles, _
+                                                 (mdl(0).entries(i).numIndices), _
+                                         DrawElementsType.UnsignedShort, mdl(0).index_buffer16((mdl(0).entries(i).startIndex)))
+                Else
+                    GL.DrawElements(PrimitiveType.Triangles, _
+                                                    (mdl(0).entries(i).numIndices), _
+                                            DrawElementsType.UnsignedInt, mdl(0).index_buffer32((mdl(0).entries(i).startIndex)))
+
+                End If
+
+            Next
+            'GL.DrawElements(PrimitiveType.Triangles, 3, DrawElementsType.UnsignedShort, mdl(0).index_buffer16)
+
+
+
+            Dim er = GL.GetError
+        Next
+        GL.BindVertexArray(mdl(0).mdl_VAO)
+
+        GL.UseProgram(0)
+        unbind_textures(2) ' unbind all the used texture slots
+
+#Else
+        '===========================================================================
+        '===========================================================================
+        'draw the test display lists
+        '------------------------------------------------
+        GL.UseProgram(shader_list.testList_shader) '<------------------------------- Shader Bind
+        '------------------------------------------------
+        GL.Uniform1(MDL_textureMap_id, 0)
+        GL.Uniform1(MDL_normalMap_id, 1)
+        GL.Uniform1(MDL_GMF_id, 2)
+
+        GL.Uniform1(MDL_nMap_type, N_MAP_TYPE)
+
+        GL.ActiveTexture(TextureUnit.Texture0 + 0)
+        GL.BindTexture(TextureTarget.Texture2D, color_id) '<------------------------------- Texture Bind
+        GL.ActiveTexture(TextureUnit.Texture0 + 1)
+        GL.BindTexture(TextureTarget.Texture2D, normal_id)
+        GL.ActiveTexture(TextureUnit.Texture0 + 2)
+        GL.BindTexture(TextureTarget.Texture2D, gmm_id)
+
+        Dim er1 = GL.GetError
+
+        For z = 1 To 50
+            Dim ox = box_positions(z).x
+            Dim oy = box_positions(z).y
+            Dim oz = box_positions(z).z
+
+            Dim model = Matrix4.CreateTranslation(ox, oy, oz)
+
+            Dim scale_ As Single = 3.0
+            Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
+            Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
+
+            GL.UniformMatrix4(MDL_ModelMatrix, False, sMat * model * MODELVIEWMATRIX)
+            GL.UniformMatrix4(MDL_ProjectionMatrix_id, False, MVPM)
+
+            For i = 0 To mdl(0).primitive_count - 1
+
+                GL.CallList(mdl(0).entries(i).list_id)
+            Next
+
+
+
+            Dim er = GL.GetError
+        Next
+
+        GL.UseProgram(0)
+        unbind_textures(2) ' unbind all the used texture slots
+
+#End If
+
+
+
+
+
+
+
+
+
+
         '===========================================================================
         '===========================================================================
         'Draws a full screen quad to render FBO textures.
@@ -321,18 +438,23 @@ Module modRender
     Private Sub draw_one_damn_moon(ByVal location As vec3)
 
 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
+        'GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
+        GL.BindVertexArray(VBO)
+
         'Enable the data element types in the VBO (vertex, normal ... ).
-        GL.EnableClientState(ArrayCap.VertexArray)
-        GL.EnableClientState(ArrayCap.NormalArray)
-        GL.EnableClientState(ArrayCap.TextureCoordArray)
-        GL.EnableClientState(ArrayCap.IndexArray)
+        'GL.EnableClientState(ArrayCap.VertexArray)
+        'GL.EnableClientState(ArrayCap.NormalArray)
+        'GL.EnableClientState(ArrayCap.TextureCoordArray)
+        'GL.EnableClientState(ArrayCap.IndexArray)
         '
-        'We assign each element to the slots (gl_Normal, gl_Vertex, gl_textCoord) to the array data par ts.
-        'The last 2 values are Stide and )ffset to start of next element.
-        GL.VertexPointer(3, VertexPointerType.Float, 32, 0)         ' 3 floats next is at --> 12 
-        GL.NormalPointer(NormalPointerType.Float, 32, 12)           ' 3 floats --> next is at 24
-        GL.TexCoordPointer(2, TexCoordPointerType.Float, 32, 24)    ' 2 floats --> None after
+        'We assign each element to the slots (0, 1, 2).
+        'The last 2 values are Stide and offset to start of next element.
+        GL.EnableVertexAttribArray(0)
+        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 32, 0)
+        GL.EnableVertexAttribArray(0)
+        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 32, 12)
+        GL.EnableVertexAttribArray(0)
+        GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 32, 24)
         '
         'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
@@ -355,14 +477,10 @@ Module modRender
         GL.UseProgram(0)
 
         ' Unbind everything. 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
+        'GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
+        GL.BindVertexArray(0)
         'Disable states
-        GL.DisableClientState(ArrayCap.VertexArray)
-        GL.DisableClientState(ArrayCap.NormalArray)
-        GL.EnableClientState(ArrayCap.TextureCoordArray)
-        GL.DisableClientState(ArrayCap.IndexArray)
-
     End Sub
     Private Sub draw_cross_hair()
         'I wasnt going to use direct mode but for now, this is simple

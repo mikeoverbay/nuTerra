@@ -1,4 +1,4 @@
-﻿Imports OpenTK.Graphics
+﻿'Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 
 <Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()> _
@@ -36,10 +36,16 @@ Partial Class frmMain
         Me.m_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_set_game_path = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_light_settings = New System.Windows.Forms.ToolStripMenuItem()
-        Me.m_gbuffer_viewer = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_developer = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_block_loading = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_show_gbuffer = New System.Windows.Forms.ToolStripMenuItem()
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.FolderBrowserDialog1 = New System.Windows.Forms.FolderBrowserDialog()
+        Me.m_developer_mode = New System.Windows.Forms.ToolStripMenuItem()
+        Me.ToolStripSeparator1 = New System.Windows.Forms.ToolStripSeparator()
+        Me.ToolStripSeparator2 = New System.Windows.Forms.ToolStripSeparator()
+        Me.m_shut_down = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         Me.SuspendLayout()
         '
@@ -64,7 +70,7 @@ Partial Class frmMain
         '
         'frmMainMenu
         '
-        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_help, Me.m_settings, Me.m_light_settings, Me.m_gbuffer_viewer})
+        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_help, Me.m_settings, Me.m_light_settings, Me.m_developer})
         Me.frmMainMenu.Location = New System.Drawing.Point(0, 0)
         Me.frmMainMenu.Name = "frmMainMenu"
         Me.frmMainMenu.Size = New System.Drawing.Size(956, 24)
@@ -74,7 +80,7 @@ Partial Class frmMain
         'm_file
         '
         Me.m_file.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_file.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_load_map})
+        Me.m_file.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_load_map, Me.ToolStripSeparator1, Me.m_developer_mode, Me.ToolStripSeparator2, Me.m_shut_down})
         Me.m_file.ForeColor = System.Drawing.Color.Black
         Me.m_file.Name = "m_file"
         Me.m_file.Size = New System.Drawing.Size(37, 20)
@@ -83,7 +89,7 @@ Partial Class frmMain
         'm_load_map
         '
         Me.m_load_map.Name = "m_load_map"
-        Me.m_load_map.Size = New System.Drawing.Size(127, 22)
+        Me.m_load_map.Size = New System.Drawing.Size(161, 22)
         Me.m_load_map.Text = "Load Map"
         '
         'm_help
@@ -118,13 +124,28 @@ Partial Class frmMain
         Me.m_light_settings.Size = New System.Drawing.Size(91, 20)
         Me.m_light_settings.Text = "Light Settings"
         '
-        'm_gbuffer_viewer
+        'm_developer
         '
-        Me.m_gbuffer_viewer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_gbuffer_viewer.ForeColor = System.Drawing.Color.Black
-        Me.m_gbuffer_viewer.Name = "m_gbuffer_viewer"
-        Me.m_gbuffer_viewer.Size = New System.Drawing.Size(97, 20)
-        Me.m_gbuffer_viewer.Text = "Gbuffer Viewer"
+        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_block_loading, Me.m_show_gbuffer})
+        Me.m_developer.ForeColor = System.Drawing.Color.Black
+        Me.m_developer.Name = "m_developer"
+        Me.m_developer.Size = New System.Drawing.Size(102, 20)
+        Me.m_developer.Text = "Developer Tools"
+        Me.m_developer.Visible = False
+        '
+        'm_block_loading
+        '
+        Me.m_block_loading.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.m_block_loading.Name = "m_block_loading"
+        Me.m_block_loading.Size = New System.Drawing.Size(195, 22)
+        Me.m_block_loading.Text = "Block Loading of Types"
+        '
+        'm_show_gbuffer
+        '
+        Me.m_show_gbuffer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.m_show_gbuffer.Name = "m_show_gbuffer"
+        Me.m_show_gbuffer.Size = New System.Drawing.Size(195, 22)
+        Me.m_show_gbuffer.Text = "Show Gbuffer Textures"
         '
         'Panel1
         '
@@ -140,6 +161,28 @@ Partial Class frmMain
         '
         Me.startup_delay_timer.Interval = 1000
         '
+        'm_developer_mode
+        '
+        Me.m_developer_mode.Name = "m_developer_mode"
+        Me.m_developer_mode.Size = New System.Drawing.Size(161, 22)
+        Me.m_developer_mode.Text = "Developer Mode"
+        '
+        'ToolStripSeparator1
+        '
+        Me.ToolStripSeparator1.Name = "ToolStripSeparator1"
+        Me.ToolStripSeparator1.Size = New System.Drawing.Size(158, 6)
+        '
+        'ToolStripSeparator2
+        '
+        Me.ToolStripSeparator2.Name = "ToolStripSeparator2"
+        Me.ToolStripSeparator2.Size = New System.Drawing.Size(158, 6)
+        '
+        'm_shut_down
+        '
+        Me.m_shut_down.Name = "m_shut_down"
+        Me.m_shut_down.Size = New System.Drawing.Size(161, 22)
+        Me.m_shut_down.Text = "Shut Me Down"
+        '
         'frmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -150,7 +193,7 @@ Partial Class frmMain
         Me.Controls.Add(Me.glControl_utility)
         Me.Controls.Add(Me.glControl_main)
         Me.Controls.Add(Me.frmMainMenu)
-        Me.ForeColor = System.Drawing.Color.White
+        Me.ForeColor = System.Drawing.Color.Black
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
         Me.MainMenuStrip = Me.frmMainMenu
         Me.Name = "frmMain"
@@ -169,11 +212,17 @@ Partial Class frmMain
     Friend WithEvents m_settings As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents glControl_utility As OpenTK.GLControl
     Friend WithEvents m_light_settings As System.Windows.Forms.ToolStripMenuItem
-    Friend WithEvents m_gbuffer_viewer As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_set_game_path As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents Panel1 As System.Windows.Forms.Panel
     Friend WithEvents startup_delay_timer As System.Windows.Forms.Timer
     Friend WithEvents FolderBrowserDialog1 As System.Windows.Forms.FolderBrowserDialog
     Friend WithEvents m_load_map As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents m_developer As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents m_block_loading As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents m_show_gbuffer As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents ToolStripSeparator1 As System.Windows.Forms.ToolStripSeparator
+    Friend WithEvents m_developer_mode As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents ToolStripSeparator2 As System.Windows.Forms.ToolStripSeparator
+    Friend WithEvents m_shut_down As System.Windows.Forms.ToolStripMenuItem
 
 End Class

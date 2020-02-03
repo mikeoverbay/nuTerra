@@ -3,7 +3,7 @@
 Public Class frmLighting
     Public lighting_terrain_texture, lighting_ambient, lighting_fog_level, gray_level As Single
     Public lighting_specular_level, gamma_level As Single
-    Private Sub save_light_settings()
+    Public Sub save_light_settings()
         If Not MAP_LOADED Then
             Return
         End If
@@ -36,7 +36,7 @@ Public Class frmLighting
         End Try
 
     End Sub
-    Private Function get_light_settings() As Boolean
+    Public Function get_light_settings() As Boolean
 
         If File.Exists(Application.StartupPath + "/light_settings/" + MAP_NAME_NO_PATH + ".light") Then
 

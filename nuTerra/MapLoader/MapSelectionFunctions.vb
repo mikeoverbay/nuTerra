@@ -36,7 +36,7 @@ Module MapSelectionFunctions
 
         DUMMY_TEXTURE_ID = make_dummy_texture()
 
-        Dim f = System.IO.File.ReadAllLines(Application.StartupPath.ToString + "\map_list.txt")
+        Dim f = System.IO.File.ReadAllLines(Application.StartupPath.ToString + "\data\map_list.txt")
         Dim cnt As Integer = 0
         For Each fi In f
             If fi.Contains("#") Then

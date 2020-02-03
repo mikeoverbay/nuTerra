@@ -1,0 +1,71 @@
+﻿# ==========================================================
+#  This is a comment line.
+#  Any line containting # will be ignored
+#  The format for this is:
+#  Image Name:Map ingame name
+#  The program will replace .png with .pkg to load the map
+#  The png images come from .pgk gui.pkg  path: maps/icons/map/
+# ==========================================================
+# Not all maps are here.. Some Epics are missing for now
+# ==========================================================
+19_monastery.png:Abby
+31_airfield.png:Air Field
+18_cliff.png:Cliff
+29_el_hallouf.png:El Hallouf
+59_asia_great_wall.png:Empores's Border
+06_ensk.png:Ensk
+13_erlenberg.png:Erlenberg
+36_fishing_bay.png:Fisherman's Bay
+33_fjord.png:Fjords
+95_lost_city_ctf.png:Ghost Town
+115_sweden.png:Glacier
+45_north_america.png:Highway
+04_himmelsdorf.png:Himmelsdorf
+01_karelia.png:Karelia
+83_kharkiv.png:Kharkov
+217_er_alaska.png:Klnodike Grand
+07_lakeville.png:Lakeville
+44_north_america.png:Live Oaks
+02_malinovka.png:Malinovka
+38_mannerheim_line.png:Arctic Region
+10_hills.png:Mines
+90_minsk.png:Minsk
+37_caucasus.png:Mountain Pass
+11_murovanka.png:Murovanka
+101_dday.png:Overlord
+112_eiffel_tower_ctf.png:Paris
+114_czech.png:Pilsen
+05_prohorovka.png:Prokhorovka
+03_campania_big.png:Province
+34_Redshire.png:Redshire
+08_ruinberg.png:Ruinberg
+28_desert.png:Sand River
+47_canada_a.png:Serene Coast
+14_siegfried_line.png:Siegfried Line
+35_steppes.png:Steppes
+99_poland.png:Studzianki
+63_Tundra.png:Tundra
+23_westfeld.png:Westfield
+17_munchen.png:Widepark
+# ==========================================================
+# Removed maps are below. Not a complete list.
+# ==========================================================
+# 00_tank_tutorial.png:Tank Tutorial
+# 15_komarin.png:Komarin
+# 22_slough.png:Swamp
+# 39_crimea.png:South Coast <-- this map has been removed completely
+# 43_north_america.png:NorthWest <-- this map has been removed completely
+# 51_asia.png:Dragon Ridge
+# 53_japan.png:Hidden Village
+# 60_asia_miao.png:Pearl River
+# 73_asia_korea.png:Sacred Valley
+# 84_winter.png:Windstorm
+# 85_winter.png:Severogorsk
+# 86_himmelsdorf_winter.png:Winter Himmelsdorf
+# 87_ruinberg_on_fire.png:Ruinberg on Fire
+# 92_stalingrad.png:Stalingrad
+# 100_thepit.png:Mittengard
+# 103_ruinberg_winter.png:Winterberg
+# 212_epic_random_valley.png:Epic Random
+# 109_battlecity_ny.png:Battle City
+# ==========================================================
