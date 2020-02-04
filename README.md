@@ -2,6 +2,14 @@
 
 ### This is the home of nuTerra where all the work will be done to rewrite Terra using New OpenGL techniques.
 
+#### Update log.. 2/4/2020
+Found the issue with the VAO. Buffer over run. I set the size of the buffers too small by one.</br>
+Fixed a bug in loading textures.</br>
+Added a model and its textures for testing.</br>
+Added a FPS counter, render time clock and total triangles rendered count to the text.</br>
+Changed the range of the light from 1,000 to 2,000.</br>
+I'm still trying to find out why the VBO is loosing its attribute bindings.</br>
+
 #### Update Log... 2/3/2020
 Added code to load primitives models.</br>
 Added test code to load and render VAO and Display lists.</br>

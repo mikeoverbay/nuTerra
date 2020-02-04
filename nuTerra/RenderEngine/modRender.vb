@@ -16,6 +16,9 @@ Module modRender
     Public PI As Single = 3.14159274F
     Public angle1, angle2 As Single
     Public Sub draw_scene()
+
+        FRAME_TIMER.Restart()
+
         frmMain.glControl_main.MakeCurrent()
 
         If SHOW_MAPS Then
@@ -76,79 +79,7 @@ Module modRender
         FBOm.attach_CNG()
 
 
-#If 0 Then
-        'test sphear or box
-        '------------------------------------------------
-        GL.UseProgram(shader_list.gWriter_shader) '<------------------------------- Shader Bind
-        '------------------------------------------------
-        GL.Uniform1(gWriter_textureMap_id, 0)
-        GL.Uniform1(gWriter_normalMap_id, 1)
-        GL.Uniform1(gWriter_GMF_id, 2)
-
-        GL.Uniform1(gWriter_nMap_type, N_MAP_TYPE)
-
-        GL.ActiveTexture(TextureUnit.Texture0 + 0)
-        GL.BindTexture(TextureTarget.Texture2D, color_id) '<------------------------------- Texture Bind
-        GL.ActiveTexture(TextureUnit.Texture0 + 1)
-        GL.BindTexture(TextureTarget.Texture2D, normal_id)
-        GL.ActiveTexture(TextureUnit.Texture0 + 2)
-        GL.BindTexture(TextureTarget.Texture2D, gmm_id)
-
-        '------------------------------------------------
-        'Draw Test VBO
-        '------------------------------------------------
-        'Bind the main Array of data. This one uses packed data as:
-        'Vertex : 3 floats
-        'normal : 3 floats
-        'UV Coords : 2 floats
-        'A total of 8 floats or.. 32 bytes so the stride is 32.
-        '
-        GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
-
-        GL.EnableVertexAttribArray(0)
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 32, 0)
-        GL.EnableVertexAttribArray(1)
-        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 32, 12)
-        GL.EnableVertexAttribArray(2)
-        GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 32, 24)
-
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
-        'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
-        '
-        'repeat drawing the elements now that the states are set..
-        For i = 0 To 150 ' draw 1,000 boxes
-            Dim ox = box_positions(i).x
-            Dim oy = box_positions(i).y
-            Dim oz = box_positions(i).z
-
-            Dim model = Matrix4.CreateTranslation(ox, oy, oz)
-
-            Dim scale_ As Single = 40.0
-            Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
-            Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
-
-            GL.UniformMatrix4(gWriter_ModelMatrix, False, sMat * model * MODELVIEWMATRIX)
-            GL.UniformMatrix4(gWriter_ProjectionMatrix_id, False, MVPM)
-
-
-            GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
-        Next
-
-        '
-        ' Unbind everything. 
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
-
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
-        '
-        '------------------------------------------------
-        'End Test VBO draw.
-        '------------------------------------------------
-        GL.UseProgram(0)
-        unbind_textures(2) ' unbind all the used texture slots
-#End If
-
-#If 0 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
+#If 1 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
         '===========================================================================
         '===========================================================================
         'draw the test MDL model using VAO
@@ -162,25 +93,24 @@ Module modRender
         GL.Uniform1(MDL_nMap_type, N_MAP_TYPE)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
-        GL.BindTexture(TextureTarget.Texture2D, color_id) '<------------------------------- Texture Bind
+        GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<------------------------------- Texture Bind
         GL.ActiveTexture(TextureUnit.Texture0 + 1)
-        GL.BindTexture(TextureTarget.Texture2D, normal_id)
+        GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
-        GL.BindTexture(TextureTarget.Texture2D, gmm_id)
+        GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
         Dim er1 = GL.GetError
 
         GL.BindVertexArray(mdl(0).mdl_VAO)
 
-
-        For z = 0 To 50 ' draw 1,000 boxes
+        For z = 0 To LOOP_COUNT  'set in modGlobalVars.vb
             Dim ox = box_positions(z).x
             Dim oy = box_positions(z).y
             Dim oz = box_positions(z).z
 
             Dim model = Matrix4.CreateTranslation(ox, oy, oz)
 
-            Dim scale_ As Single = 3.0
+            Dim scale_ As Single = 5.0
             Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
             Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
@@ -190,19 +120,15 @@ Module modRender
             For i = 0 To mdl(0).primitive_count - 1
                 If mdl(0).USHORTS Then
                     GL.DrawElements(PrimitiveType.Triangles, _
-                                                 (mdl(0).entries(i).numIndices), _
-                                         DrawElementsType.UnsignedShort, mdl(0).index_buffer16((mdl(0).entries(i).startIndex)))
+                                    (mdl(0).entries(i).numIndices), _
+                                    DrawElementsType.UnsignedShort, mdl(0).index_buffer16((mdl(0).entries(i).startIndex)))
                 Else
                     GL.DrawElements(PrimitiveType.Triangles, _
-                                                    (mdl(0).entries(i).numIndices), _
-                                            DrawElementsType.UnsignedInt, mdl(0).index_buffer32((mdl(0).entries(i).startIndex)))
-
+                                    (mdl(0).entries(i).numIndices), _
+                                    DrawElementsType.UnsignedInt, mdl(0).index_buffer32((mdl(0).entries(i).startIndex)))
                 End If
 
             Next
-            'GL.DrawElements(PrimitiveType.Triangles, 3, DrawElementsType.UnsignedShort, mdl(0).index_buffer16)
-
-
 
             Dim er = GL.GetError
         Next
@@ -225,22 +151,22 @@ Module modRender
         GL.Uniform1(MDL_nMap_type, N_MAP_TYPE)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
-        GL.BindTexture(TextureTarget.Texture2D, color_id) '<------------------------------- Texture Bind
+        GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<------------------------------- Texture Bind
         GL.ActiveTexture(TextureUnit.Texture0 + 1)
-        GL.BindTexture(TextureTarget.Texture2D, normal_id)
+        GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
-        GL.BindTexture(TextureTarget.Texture2D, gmm_id)
+        GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
         Dim er1 = GL.GetError
 
-        For z = 1 To 50
+        For z = 1 To 150
             Dim ox = box_positions(z).x
             Dim oy = box_positions(z).y
             Dim oz = box_positions(z).z
 
             Dim model = Matrix4.CreateTranslation(ox, oy, oz)
 
-            Dim scale_ As Single = 3.0
+            Dim scale_ As Single = 5.0
             Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
             Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
@@ -261,16 +187,6 @@ Module modRender
         unbind_textures(2) ' unbind all the used texture slots
 
 #End If
-
-
-
-
-
-
-
-
-
-
         '===========================================================================
         '===========================================================================
         'Draws a full screen quad to render FBO textures.
@@ -279,8 +195,7 @@ Module modRender
 
         'We can now switch to the default hardware buffer.
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
-        'frmMain.glControl_main.MakeCurrent()
-        ' Use default buffer
+
         'ortho for the win
         Ortho_main()
 
@@ -294,14 +209,10 @@ Module modRender
         GL.Enable(EnableCap.Texture2D)
 
         '===========================================================================
-        ' test our deferred shader
+        ' Test our deferred shader =================================================
         '===========================================================================
 
-#If 1 Then '<------ set this to 0 to just light the boxes and test their transforms
         GL.UseProgram(shader_list.Deferred_shader)
-#Else
-        GL.UseProgram(shader_list.basic_shader)
-#End If
 
         'set up uniforms
         GL.Uniform1(deferred_gColor_id, 0)
@@ -340,8 +251,16 @@ Module modRender
         'textRender.DrawText.TextRenderer(100, 100) '<--- reset when the FBO changes size!
         DrawText.clear(Color.FromArgb(0, 0, 0, 255))
         Dim ti = TimeOfDay.TimeOfDay
+        Dim tr = total_triangles_drawn * LOOP_COUNT
+
         Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
-        DrawText.DrawString("Current Time:" + ti.ToString + pos_str, mono, Brushes.White, position)
+        Dim tri_count As String = "  Triangles drawn per frame :" + tr.ToString
+
+        Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
+        Dim elapsed_str As String = "  Draw time in Milliseconds :" + elapsed.ToString
+
+        Dim fps As String = "FPS:" + FPS_TIME.ToString
+        DrawText.DrawString("FPS:" + fps + tri_count + elapsed_str, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Texture2D)
         GL.Enable(EnableCap.AlphaTest)
@@ -362,6 +281,7 @@ Module modRender
 
 
         frmMain.glControl_main.SwapBuffers()
+        FPS_COUNTER += 1
 
         'draw_maps()
         If frmGbufferViewer.Visible Then

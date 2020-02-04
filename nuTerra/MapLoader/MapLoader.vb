@@ -17,6 +17,7 @@ Module MapLoader
     Public sand_box_part_2_hd As ZipFile
 
     Public MAP_package As ZipFile
+    Public MAP_package_HD As ZipFile
 
     Public DATA_TABLE As New DataTable("items")
     Public skyDomeName As String = ""
@@ -43,16 +44,20 @@ Module MapLoader
         DATA_TABLE.ReadXml(Application.StartupPath + "\data\TheItemList.xml")
     End Sub
     Public Function search_pkgs(ByVal filename As String) As ZipEntry
-        Dim entry As ZipEntry
+        Dim entry As ZipEntry = Nothing
         If HD_EXISTS And USE_HD_TEXTURES Then
             'look in HD shared package files
-            entry = shared_part_1_hd(filename)
+            'check map pkg first
+            entry = MAP_package_HD(filename)
             If entry Is Nothing Then
-                entry = shared_part_2_hd(filename)
+                entry = shared_part_1_hd(filename)
                 If entry Is Nothing Then
-                    entry = sand_box_part_1_hd(filename)
+                    entry = shared_part_2_hd(filename)
                     If entry Is Nothing Then
-                        entry = sand_box_part_2_hd(filename)
+                        entry = sand_box_part_1_hd(filename)
+                        If entry Is Nothing Then
+                            entry = sand_box_part_2_hd(filename)
+                        End If
                     End If
                 End If
             End If
@@ -61,6 +66,7 @@ Module MapLoader
             End If
         End If
         'look in SD shared package files
+        'check map pkg first
         entry = MAP_package(filename)
         If entry Is Nothing Then
             entry = shared_part_1(filename)
@@ -127,6 +133,7 @@ Module MapLoader
             HD_EXISTS = False
         End If
         If HD_EXISTS Then
+            MAP_package_HD = ZipFile.Read(GAME_PATH + MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg"))
             shared_part_1_hd = New ZipFile
             shared_part_2_hd = New ZipFile
             sand_box_part_1_hd = New ZipFile
@@ -184,7 +191,7 @@ Module MapLoader
         Dim ABS_NAME = MAP_NAME_NO_PATH.Replace(".pkg", "")
         'First we need to remove the loaded data.
         remove_map_data()
-
+        total_triangles_drawn = 0
         'get the light settings for this map.
         frmLighting.get_light_settings()
 
@@ -205,14 +212,21 @@ Module MapLoader
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------
+        N_MAP_TYPE = 1 ' has to be set for the ANM Green alpha normal maps.
+        '---------------------------------------------------------
+        m_color_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_AM.dds")
+        m_normal_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_ANM.dds")
+        m_gmm_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_GMM.dds")
+        get_primitive("content/Buildings/bld_19_04_Ampitheratre/normal/lod0/bld_19_04_Ampitheratre.model", mdl)
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------
         'test load a model
-        get_primitive("content/Buildings/hd_bld_EU_013_RailroadStation/normal/lod0/hd_bld_EU_013_RailroadStation_02.model", mdl)
+        'get_primitive("content/Buildings/hd_bld_EU_013_RailroadStation/normal/lod0/hd_bld_EU_013_RailroadStation_02.model", mdl)
         'get_primitive("content/MilitaryEnvironment/hd_mle_SU_005_Mi24A/normal/lod0/hd_mle_SU_005_Mi24A_02.model", mdl)
         'get_primitive("content/Buildings/bld_19_02_Monastery/normal/lod0/bld_19_02_Monastery_05_Chapel.model", mdl)
         Return
+
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------

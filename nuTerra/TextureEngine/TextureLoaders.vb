@@ -10,7 +10,7 @@ Imports OpenTK
 Imports OpenTK.Platform.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-
+Imports Ionic.Zip
 Imports Config = OpenTK.Configuration
 Imports Utilities = OpenTK.Platform.Utilities
 
@@ -47,15 +47,41 @@ Module TextureLoaders
         GL.Finish() 'We must make sure we are done deleting!!!
     End Sub
 
+    Public Function find_and_load_texture_from_pkgs(ByRef fn As String) As Integer
+        fn = fn.Replace("\", "/") ' fix path issue
+        'finds and loads and returns the GL texture ID.
+        Dim id = image_exists(fn)
+        If id > 0 Then Return id
+        Dim entry As ZipEntry = search_pkgs(fn)
+        If entry IsNot Nothing Then
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+            'we want mips and linear filtering
+            id = load_image_from_stream(Il.IL_DDS, ms, fn, True, False)
+            Return id
+        End If
+        Return -1 ' Didn't find it, return -1
+    End Function
+
+    Public Function find_and_load_UI_texture_from_pkgs(ByRef fn As String) As Integer
+        'finds and loads and returns the GL texture ID.
+        Dim id = image_exists(fn)
+        If id > 0 Then Return id
+        Dim entry As ZipEntry = search_pkgs(GAME_PATH + fn)
+        If entry IsNot Nothing Then
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+            'we do not want mips and linear filtering
+            Return load_image_from_stream(Il.IL_DDS, ms, fn, False, True)
+        End If
+        Return -1 ' Didn't find it, return -1
+    End Function
+
     Public Function load_image_from_stream(ByRef imageType As Integer, ByRef ms As MemoryStream, ByRef fn As String, ByRef MIPS As Boolean, ByRef NEAREST As Boolean)
         'imageType = il.IL_imageType : ms As MemoryStream : filename as string : Create Mipmaps if True : NEAREST = True / LINEAR if False
-        'File name is needed to check if this file has been loaded already
+        'File name is needed to add to our list of loaded textures
 
-        'Check if this image has already been loaded.
-        Dim image_id = image_exists(fn)
-        If image_id > -1 Then
-            Return image_id
-        End If
+        Dim image_id As Integer
 
         ms.Position = 0
 
@@ -75,29 +101,36 @@ Module TextureLoaders
             Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
 
             Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
-            'success = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
+            Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
             GL.GenTextures(1, image_id)
             GL.Enable(EnableCap.Texture2D)
             GL.BindTexture(TextureTarget.Texture2D, image_id)
 
-
+            Dim maxAniso As Single
+            GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
+            GL.TexParameter(TextureTarget.Texture2D, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
             If NEAREST And Not MIPS Then
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If Not NEAREST And Not MIPS Then
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If MIPS Then
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, _
+                          OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+            If MIPS Then
+                GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+            End If
+            Dim er = GL.GetError
             GL.BindTexture(TextureTarget.Texture2D, 0)
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)
@@ -150,15 +183,15 @@ Module TextureLoaders
 
             If NEAREST And Not MIPS Then
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If Not NEAREST And Not MIPS Then
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If MIPS Then
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
@@ -196,7 +229,7 @@ Module TextureLoaders
         GL.BindTexture(TextureTarget.Texture2D, dummy)
 
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Nearest)
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 

@@ -148,7 +148,7 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         launch_update_thread()
         '-----------------------------------------------------------------------------------------
-        'This is temporary to speed up debuging
+        'This is temporary to speed up debugging
         load_map("19_monastery.pkg")
     End Sub
 
@@ -259,8 +259,6 @@ try_again:
         gmm_id = load_image_from_file(Il.IL_DDS, sp + "\resources\PBS_Rock_05_GMM.dds", True, False)
         N_MAP_TYPE = 1
 #End If
-        '---------------------------------------------------------
-
     End Sub
 
 #Region "Screen position and update"
@@ -281,18 +279,20 @@ try_again:
     Private Sub updater()
 
         While _STARTED
-            If gametimer.ElapsedMilliseconds > 5 Then
-                If Not PAUSE_ORBIT Then
-                    LIGHT_ORBIT_ANGLE += LIGHT_SPEED
-                    If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
-                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                    LIGHT_POS(1) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                End If
+            If Not PAUSE_ORBIT Then
+                LIGHT_ORBIT_ANGLE += LIGHT_SPEED
+                If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
+                LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                'LIGHT_POS(1) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+            End If
+            If gametimer.ElapsedMilliseconds > 1000 Then
                 gametimer.Restart()
+                FPS_TIME = FPS_COUNTER
+                FPS_COUNTER = 0
             End If
             update_screen()
-            Thread.Sleep(3)
+            Thread.Sleep(3) ' hog all the time :)
         End While
     End Sub
 

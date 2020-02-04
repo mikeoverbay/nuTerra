@@ -75,15 +75,11 @@ dontaddthis:
             Dim ms As New MemoryStream
             entry.Extract(ms)
             MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry.FileName, False, True)
-
         End Using
-        'GC.Collect()
     End Sub
 
     Public Sub gl_pick_map(ByVal x As Integer, ByVal y As Integer)
 
-
-        'frmMain.glControl_main.MakeCurrent()
         DrawMapPickText.TextRenderer(120, 72)
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
@@ -182,8 +178,6 @@ dontaddthis:
     Public Sub draw_maps()
 
         If Not _STARTED Then Return
-        ' If Not SHOW_MAPS Then Return
-        'gl_busy = True
 
         GL.ClearColor(0.0, 0.0, 0.0, 0.0F)
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
@@ -203,7 +197,6 @@ dontaddthis:
         End If
         GL.FrontFace(FrontFaceDirection.Ccw)
         GL.BindTexture(TextureTarget.Texture2D, MAP_SELECT_BACKGROUND_ID)
-
 
         GL.Begin(PrimitiveType.Quads)
 

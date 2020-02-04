@@ -29,10 +29,13 @@ Module PrimitiveLoader
     End Structure
 
     Public Function get_primitive(ByRef filename As String, ByRef mdl() As base_model_holder_) As String
+        'Loads a model from the pcakages. It will attempt to locate it in all packages.
+
+        filename = filename.Replace("\", "/") ' fix any path issues
 
         Dim thefile = filename.Replace("model", "visual_processed")
 
-
+        'search everywhere!
         Dim entry As Ionic.Zip.ZipEntry = search_pkgs(filename)
         If entry Is Nothing Then
             MsgBox("Can't find " + filename, MsgBoxStyle.Exclamation, "shit!")
@@ -110,7 +113,7 @@ Module PrimitiveLoader
         ms.Position = ms.Length - 4
         Dim table_start = br.ReadUInt32
 
-        'point as start of table
+        'point at start of table
         ms.Position = ms.Length - 4 - table_start
         Dim dummy As UInt32
         For i = 0 To 99
@@ -140,7 +143,6 @@ Module PrimitiveLoader
                 section(i).name = na
                 If InStr(na, "vertices") > 0 Then
                     sub_groups += 1
-
                 End If
 
                 If InStr(na, "colour") > 0 Then
@@ -157,10 +159,11 @@ Module PrimitiveLoader
                 na = ""
             Else
                 ReDim Preserve section(i)
-                number_of_groups = i
                 Exit For
             End If
-        Next
+
+        Next 'keep reading until we run out of file to read
+
         ReDim mdl(sub_groups - 1) ' <---------------------------------------
 
 
@@ -176,7 +179,10 @@ Module PrimitiveLoader
         Dim ind_length As UInt32 = 0
         Dim vert_start As UInt32 = 0
         Dim vert_length As UInt32 = 0
-
+        'Fun Fact 1.. Only animated models have multiple groups with parts in each group.
+        'Fun Fact 2.. Animated models have the winding order backwards of the vertices.
+        'This code does not deal with reversing the winding order of aminated models yet.
+        'All others are one group with all parts in that group.
         While sub_groups > 0
 
             cur_sub = gp_pointer - sub_groups
@@ -191,6 +197,7 @@ Module PrimitiveLoader
             sub_groups -= 1 ' take one off.. if there is one, this results in zero and collects only one model set
 
             Dim indi_scale As UInt32
+            'We have to loop and look at each entry because they are not always in the same order.
             For i = 0 To section.Length - 1
                 If InStr(section(i).name, "indices") > 0 Then
                     If last_ind_pos < (section(i).location + 1) Then
@@ -198,13 +205,13 @@ Module PrimitiveLoader
                         ind_length = section(i).size - 76
                         ind_start = section(i).location + 4
                         ms.Position = ind_start
+                        'read text block
                         For z = 0 To 63
                             cr = br.ReadByte
                             If cr = 0 Then dr = True
                             If cr > 30 And cr <= 123 Then
                                 If Not dr Then
                                     na = na & Chr(cr)
-
                                 End If
                             End If
                         Next
@@ -235,6 +242,8 @@ Module PrimitiveLoader
                             pGroups(z).nPrimitives_ = br.ReadUInt32
                             pGroups(z).startVertex_ = br.ReadUInt32
                             pGroups(z).nVertices_ = br.ReadUInt32
+                            'update triangle count
+                            total_triangles_drawn += pGroups(z).nPrimitives_
                         Next
 
                         ms.Position = cp 'restore position
@@ -291,13 +300,14 @@ Module PrimitiveLoader
                     End If
                 End If
             Next
-            'need to check if indices are before the vertices.. if so we need to do some off setting
+
             Dim vt_ms As New MemoryStream(vertex_data)
             Dim vt_br As New BinaryReader(vt_ms)
 
-            Dim uv2_ms As New MemoryStream(uv2_data) ' not all primitives use this
+            Dim uv2_ms As New MemoryStream(uv2_data) ' not all primitives have UV2 blocks
             Dim uv2_br As New BinaryReader(uv2_ms)
 
+            'this is old code that I wont remove until I'm sure it isn't needed!
             Dim lucky_72 As UInt32 = 72
             If Not got_subs Then
                 If ind_start < vert_start Then
@@ -330,13 +340,13 @@ Module PrimitiveLoader
             Next
             vh.header_text = na
             '-------------------------------
-            ' get stride of each vertex element
             Dim BPVT_mode As Boolean = False
             Dim realNormals As Boolean = False
 
             mdl(cur_sub).has_tangent = 0
 
             Dim stride As Integer = 0
+            ' get stride and flags of each vertex element
             If vh.header_text = "xyznuv" Then
                 stride = 32
                 realNormals = True
@@ -377,7 +387,7 @@ Module PrimitiveLoader
                 mdl(cur_sub).element_count = 5 + mdl(cur_sub).has_uv2
                 mdl(cur_sub).has_tangent = 1
             End If
-  
+
             If BPVT_mode Then
                 vt_br.BaseStream.Position = 132 'move to where count is located
             End If
@@ -416,8 +426,8 @@ Module PrimitiveLoader
                     '
                     'uv2 if it exist
                     If mdl(cur_sub).has_uv2 = 1 Then
-                        mdl(cur_sub).uv2_buffer(running).x = uv2_br.ReadSingle
-                        mdl(cur_sub).uv2_buffer(running).y = uv2_br.ReadSingle
+                        mdl(cur_sub).UV2_buffer(running).x = uv2_br.ReadSingle
+                        mdl(cur_sub).UV2_buffer(running).y = uv2_br.ReadSingle
                     End If
                     '-----------------------------------------------------------------------
                     'vertex

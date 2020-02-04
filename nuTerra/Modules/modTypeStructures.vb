@@ -196,12 +196,13 @@ Module modTypeStructures
 
     Public Structure entries_
         'If I remember from Tank Exporter..
-        'There are cases where some components have no UV2 stream.
+        'There are cases where some components have no UV2 stream but others do.
         'We need this flag for building the VBO and signaling the shader.
         'We use a Integer because it can be passed directly to the shader.
         Public has_uv2 As Integer
         '------------------------------------
         'length and size of each primitive component
+        'startIndex and numIndices is scaled in load_primtive.
         Public numIndices As Int32
         Public UnumIndices As UInt32
         Public numVertices As UInt32
@@ -241,6 +242,7 @@ Module modTypeStructures
 
     Public Sub build_model_VAO(ByRef m As base_model_holder_)
         Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
+
         'Gen VBO id
         GL.GenVertexArrays(1, m.mdl_VAO)
         'm.IBO = GL.GenBuffer
@@ -258,32 +260,32 @@ Module modTypeStructures
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(VERTEX_VB))
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 0, 0)
         GL.EnableVertexAttribArray(0)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length - 1) * SizeOf(GetType(vect3)), m.Vertex_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.Vertex_buffer, BufferUsageHint.StaticDraw)
 
         'normal
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(NORMAL_VB))
         GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 0, 0)
         GL.EnableVertexAttribArray(1)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length - 1) * SizeOf(GetType(vect3)), m.Normal_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.Normal_buffer, BufferUsageHint.StaticDraw)
 
         'UV1
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(UV1_VB))
         GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 0, 0)
         GL.EnableVertexAttribArray(2)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length - 1) * SizeOf(GetType(vect2)), m.UV1_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect2)), m.UV1_buffer, BufferUsageHint.StaticDraw)
 
         If m.has_tangent = 1 Then
             'Tangent
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(TANGENT_VB))
             GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(3)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length - 1) * SizeOf(GetType(vect3)), m.tangent_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.tangent_buffer, BufferUsageHint.StaticDraw)
 
             'biNormal
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(BINORMAL_VB))
             GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(4)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length - 1) * SizeOf(GetType(vect3)), m.biNormal_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.biNormal_buffer, BufferUsageHint.StaticDraw)
         End If
 
         If m.has_uv2 = 1 Then
@@ -291,7 +293,7 @@ Module modTypeStructures
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(INDEX_BUFFER))
             GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(5)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length - 1) * SizeOf(GetType(vect2)), m.UV2_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect2)), m.UV2_buffer, BufferUsageHint.StaticDraw)
 
         End If
         Dim er = GL.GetError
@@ -330,27 +332,33 @@ Module modTypeStructures
                     p.z = m.index_buffer32(k).z
                 End If
                 '1
-                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.x).x, m.UV1_buffer(p.x).y)
                 GL.Normal3(m.Normal_buffer(p.x).x, m.Normal_buffer(p.x).y, m.Normal_buffer(p.x).z)
+                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.x).x, m.UV1_buffer(p.x).y)
                 GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.x).x, m.tangent_buffer(p.x).y, m.tangent_buffer(p.x).z)
                 GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.x).x, m.biNormal_buffer(p.x).y, m.biNormal_buffer(p.x).z)
-                GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.x).x, m.UV2_buffer(p.x).y)
+                If m.has_uv2 = 1 Then
+                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.x).x, m.UV2_buffer(p.x).y)
+                End If
                 GL.Vertex3(m.Vertex_buffer(p.x).x, m.Vertex_buffer(p.x).y, m.Vertex_buffer(p.x).z)
 
                 '1
-                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.y).x, m.UV1_buffer(p.y).y)
                 GL.Normal3(m.Normal_buffer(p.y).x, m.Normal_buffer(p.y).y, m.Normal_buffer(p.y).z)
+                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.y).x, m.UV1_buffer(p.y).y)
                 GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.y).x, m.tangent_buffer(p.y).y, m.tangent_buffer(p.y).z)
                 GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.y).x, m.biNormal_buffer(p.y).y, m.biNormal_buffer(p.y).z)
-                GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.y).x, m.UV2_buffer(p.y).y)
+                If m.has_uv2 = 1 Then
+                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.y).x, m.UV2_buffer(p.y).y)
+                End If
                 GL.Vertex3(m.Vertex_buffer(p.y).x, m.Vertex_buffer(p.y).y, m.Vertex_buffer(p.y).z)
 
                 '1
-                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.z).x, m.UV1_buffer(p.z).y)
                 GL.Normal3(m.Normal_buffer(p.z).x, m.Normal_buffer(p.z).y, m.Normal_buffer(p.z).z)
+                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.z).x, m.UV1_buffer(p.z).y)
                 GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.z).x, m.tangent_buffer(p.z).y, m.tangent_buffer(p.z).z)
                 GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.z).x, m.biNormal_buffer(p.z).y, m.biNormal_buffer(p.z).z)
-                GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.z).x, m.UV2_buffer(p.z).y)
+                If m.has_uv2 = 1 Then
+                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.z).x, m.UV2_buffer(p.z).y)
+                End If
                 GL.Vertex3(m.Vertex_buffer(p.z).x, m.Vertex_buffer(p.z).y, m.Vertex_buffer(p.z).z)
 
             Next

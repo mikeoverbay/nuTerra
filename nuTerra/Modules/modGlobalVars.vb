@@ -6,6 +6,13 @@ Module modGlobalVars
     '---------------------
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer
+    Public m_color_id, m_normal_id, m_gmm_id As Integer
+    '---------------------
+    'Render related
+    Public FRAME_TIMER As New Stopwatch
+    Public LOOP_COUNT As Integer = 150
+    Public FPS_COUNTER As Integer
+    Public FPS_TIME As Integer
     '---------------------
     Public N_MAP_TYPE As Integer
     '---------------------
@@ -15,6 +22,7 @@ Module modGlobalVars
     Public PAUSE_ORBIT As Boolean
     Public LIGHT_SPEED As Single = 0.01F
     '---------------------
+    Public total_triangles_drawn As UInt32
     '---------------------
     Public _STARTED As Boolean 'Signals UI initialization is complete
     '---------------------
@@ -59,8 +67,8 @@ Module modGlobalVars
     Public BASES_LOADED As Boolean
     Public SKY_LOADED As Boolean
     Public WATER_LOADED As Boolean
-    'Block loading flags. They are used for skipping loading of data.
 
+    'Block loading flags. They are used for skipping loading of data.
     Public TERRAIN_BLOCK_LOADING As Boolean
     Public TREES_BLOCK_LOADING As Boolean
     Public DECALS_BLOCK_LOADING As Boolean
