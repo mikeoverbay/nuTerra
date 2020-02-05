@@ -32,6 +32,7 @@ Module MapLoader
     Public shadowMapSize As Integer = 64
     Public blendMapsize As Integer = 256
 
+    ' Just for loading a model to test.
     Public mdl(0) As base_model_holder_
 
 
@@ -284,11 +285,12 @@ Module MapLoader
         'first, we clear out the previous map data
         Return True
     End Function
+
     Public Sub remove_map_data()
         'Used to delete all images and display lists.
 
         'remove map loaded textures
-        Dim LAST_TEXTURE = GL.GenTexture - 1 'get last texture created.
+        Dim LAST_TEXTURE = GL.GenTexture  'get last texture created.
         Dim t_count = FIRST_UNUSED_TEXTURE - LAST_TEXTURE
         GL.DeleteTextures(t_count, FIRST_UNUSED_TEXTURE)
         GL.Finish() ' make sure we are done before moving on

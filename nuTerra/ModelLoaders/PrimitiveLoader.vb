@@ -1,7 +1,8 @@
 ﻿Imports System
 Imports System.Math
 Imports System.IO
-'Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Graphics.OpenGL
+Imports System.Runtime.InteropServices.Marshal
 
 Module PrimitiveLoader
     Public Structure section_info
@@ -50,15 +51,24 @@ Module PrimitiveLoader
         openXml_stream(ms, Path.GetFileNameWithoutExtension(thefile))
         Dim nodeFullName = get_full_visual_name() + ".visual_processed"
         entry = search_pkgs(nodeFullName)
-        ms = New MemoryStream
-        entry.Extract(ms)
-        openXml_stream(ms, Path.GetFileNameWithoutExtension(nodeFullName))
-        filename = nodeFullName.Replace(".visual_processed", ".primitives_processed")
-        Dim success = load_primitive(filename, mdl)
-        Return True
+        If entry IsNot Nothing Then
+            ms = New MemoryStream
+            entry.Extract(ms)
+            openXml_stream(ms, Path.GetFileNameWithoutExtension(nodeFullName))
+            ms.Dispose()
+            filename = nodeFullName.Replace(".visual_processed", ".primitives_processed")
+            Dim success = load_primitive(filename, mdl)
+            Return True
+        End If
+
+        MsgBox("Failed to find:" + filename, MsgBoxStyle.Exclamation, "Well shit!!")
+        Return False
     End Function
 
     Private Function get_full_visual_name() As String
+        'We load the model file and get the name of the visual from with in it.
+        'We have to do this because some model files contain differently named visuals.
+        'If it isn't done this way, we could render the wrong primitive!
         Dim tex1_pos = InStr(1, TheXML_String, "<nodefullVisual>") + "<nodefullVisual>".Length
         If Not tex1_pos = "<nodefullVisual>".Length Then
             Dim tex1_Epos = InStr(tex1_pos, TheXML_String, "</nodefullVisual>")
@@ -76,7 +86,6 @@ Module PrimitiveLoader
 
         Dim name = Path.GetFileNameWithoutExtension(filename)
         Dim fPath = Path.GetDirectoryName(filename) + "\"
-        'create our three file names.
 
         Dim runner As UInt32 = 0
         Dim sub_groups As Integer = 0
@@ -201,10 +210,10 @@ Module PrimitiveLoader
             For i = 0 To section.Length - 1
                 If InStr(section(i).name, "indices") > 0 Then
                     If last_ind_pos < (section(i).location + 1) Then
-                        'list = uint16 pointers. list2 = uint32 pointers
                         ind_length = section(i).size - 76
                         ind_start = section(i).location + 4
                         ms.Position = ind_start
+                        last_ind_pos = ind_start + 3 'Needed for when there are mulitple groups of components
                         'read text block
                         For z = 0 To 63
                             cr = br.ReadByte
@@ -215,11 +224,12 @@ Module PrimitiveLoader
                                 End If
                             End If
                         Next
+                        'list = uint16 pointers. list32 = uint32 pointers
                         If na.Contains("list32") Then
-                            indi_scale = 4
+                            indi_scale = 4 '32 bit pointers
                             mdl(cur_sub).USHORTS = False
                         Else
-                            indi_scale = 2
+                            indi_scale = 2 ' 16 bit pointers
                             mdl(cur_sub).USHORTS = True
                         End If
 
@@ -273,7 +283,7 @@ Module PrimitiveLoader
                     If last_vert_pos < (section(i).location + 1) Then
                         vert_length = section(i).size
                         vert_start = section(i).location
-                        last_vert_pos = vert_start + 3
+                        last_vert_pos = vert_start + 3 'Needed for when there are mulitple groups of components
                         ms.Position = vert_start
                         ReDim vertex_data(vert_length)
                         vertex_data = br.ReadBytes(vert_length)
@@ -291,7 +301,7 @@ Module PrimitiveLoader
                     If last_uv_pos < (section(i).location + 1) Then
                         uv2_length = section(i).size
                         uv2_start = section(i).location
-                        last_uv_pos = uv2_start + 3
+                        last_uv_pos = uv2_start + 3 'Needed for when there are mulitple groups of components
                         ms.Position = uv2_start
                         ReDim uv2_data(uv2_length - 1)
                         uv2_data = br.ReadBytes(uv2_length)
@@ -325,6 +335,7 @@ Module PrimitiveLoader
             End If
             '-------------------------------------
             '-------------------------------------
+            'Get vertex type header and total vertex count.
             Dim vh As VerticesHeader
             dr = False
             na = ""
@@ -334,7 +345,6 @@ Module PrimitiveLoader
                 If cr > 64 And cr <= 123 Then
                     If Not dr Then
                         na = na & Chr(cr)
-
                     End If
                 End If
             Next
@@ -402,14 +412,14 @@ Module PrimitiveLoader
             ReDim mdl(0).UV1_buffer(vh.nVertice_count - 1)
             ReDim mdl(0).tangent_buffer(vh.nVertice_count - 1)
             ReDim mdl(0).biNormal_buffer(vh.nVertice_count - 1)
+
             If mdl(cur_sub).has_uv2 Then
                 ReDim mdl(0).UV2_buffer(vh.nVertice_count - 1)
             End If
 
-            mdl(cur_sub).vertex_count = vh.nVertice_count
             mdl(cur_sub).indice_count = vh.nVertice_count
             mdl(cur_sub).indice_size = indi_scale
-            mdl(cur_sub).vertex_stride = stride
+
             Dim running As Integer = 0 'Continuous pointer in to the buffers
 
             For i = 0 To mdl(cur_sub).primitive_count - 1
@@ -488,11 +498,9 @@ Module PrimitiveLoader
 
     End Function
     Private Function unpackNormal_8_8_8(ByVal packed As UInt32) As vect3
-        'Console.WriteLine(packed.ToString("x"))
+
         Dim pkz, pky, pkx As Int32
-        'Dim sample As Byte
         pkx = CLng(packed) And &HFF Xor 127
-        'sample = packed And &HFF
         pky = CLng(packed >> 8) And &HFF Xor 127
         pkz = CLng(packed >> 16) And &HFF Xor 127
 
@@ -504,7 +512,6 @@ Module PrimitiveLoader
         If x > 127 Then
             x = -128 + (x - 128)
         End If
-        'lookup(CInt(x + 127)) = sample
 
         If y > 127 Then
             y = -128 + (y - 128)
@@ -553,5 +560,139 @@ Module PrimitiveLoader
         p.z = (p.z / len)
         Return p
     End Function
+
+    Dim VERTEX_VB As Integer = 1
+    Dim NORMAL_VB As Integer = 2
+    Dim UV1_VB As Integer = 3
+    Dim TANGENT_VB As Integer = 4
+    Dim BINORMAL_VB As Integer = 5
+    Dim UV2_VB As Integer = 6
+    Dim INDEX_BUFFER As Integer = 0
+
+
+    Public Sub build_model_VAO(ByRef m As base_model_holder_)
+        Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
+
+        'Gen VBO id
+        GL.GenVertexArrays(1, m.mdl_VAO)
+        'm.IBO = GL.GenBuffer
+
+        'GL.BindVertexArray(m.mdl_VAO)
+        GL.BindVertexArray(m.mdl_VAO)
+
+        ReDim m.mBuffers(m.element_count)
+        GL.GenBuffers(m.element_count + 1, m.mBuffers)
+
+
+        Dim er0 = GL.GetError
+
+        'vertex
+        GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(VERTEX_VB))
+        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 0, 0)
+        GL.EnableVertexAttribArray(0)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.Vertex_buffer, BufferUsageHint.StaticDraw)
+
+        'normal
+        GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(NORMAL_VB))
+        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 0, 0)
+        GL.EnableVertexAttribArray(1)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.Normal_buffer, BufferUsageHint.StaticDraw)
+
+        'UV1
+        GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(UV1_VB))
+        GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 0, 0)
+        GL.EnableVertexAttribArray(2)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect2)), m.UV1_buffer, BufferUsageHint.StaticDraw)
+
+        If m.has_tangent = 1 Then
+            'Tangent
+            GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(TANGENT_VB))
+            GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, 0, 0)
+            GL.EnableVertexAttribArray(3)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.tangent_buffer, BufferUsageHint.StaticDraw)
+
+            'biNormal
+            GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(BINORMAL_VB))
+            GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, 0, 0)
+            GL.EnableVertexAttribArray(4)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.biNormal_buffer, BufferUsageHint.StaticDraw)
+        End If
+
+        If m.has_uv2 = 1 Then
+            'UV1
+            GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(INDEX_BUFFER))
+            GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, 0, 0)
+            GL.EnableVertexAttribArray(5)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect2)), m.UV2_buffer, BufferUsageHint.StaticDraw)
+
+        End If
+        Dim er = GL.GetError
+
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, m.mBuffers(INDEX_BUFFER))
+        If m.USHORTS Then
+            GL.BufferData(BufferTarget.ElementArrayBuffer, m.indice_count * SizeOf(GetType(vect3_16)), m.index_buffer16, BufferUsageHint.StaticDraw)
+        Else
+            GL.BufferData(BufferTarget.ElementArrayBuffer, m.indice_count * SizeOf(GetType(vect3_32)), m.index_buffer32, BufferUsageHint.StaticDraw)
+        End If
+
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
+        GL.BindVertexArray(m.mdl_VAO)
+
+        'm.flush()
+
+    End Sub
+
+    Public Sub build_test_lists(ByRef m As base_model_holder_)
+        For i = 0 To m.primitive_count - 1
+            m.entries(i).list_id = GL.GenLists(1)
+            GL.NewList(m.entries(i).list_id, ListMode.Compile)
+
+            Dim p As vect3_32
+            GL.Begin(PrimitiveType.Triangles)
+            For k = m.entries(i).startIndex To (m.entries(i).numIndices / 3 - 1) + m.entries(i).startIndex
+                If m.USHORTS Then
+                    p.x = m.index_buffer16(k).x
+                    p.y = m.index_buffer16(k).y
+                    p.z = m.index_buffer16(k).z
+                Else
+                    p.x = m.index_buffer32(k).x
+                    p.y = m.index_buffer32(k).y
+                    p.z = m.index_buffer32(k).z
+                End If
+                '1
+                GL.Normal3(m.Normal_buffer(p.x).x, m.Normal_buffer(p.x).y, m.Normal_buffer(p.x).z)
+                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.x).x, m.UV1_buffer(p.x).y)
+                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.x).x, m.tangent_buffer(p.x).y, m.tangent_buffer(p.x).z)
+                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.x).x, m.biNormal_buffer(p.x).y, m.biNormal_buffer(p.x).z)
+                If m.has_uv2 = 1 Then
+                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.x).x, m.UV2_buffer(p.x).y)
+                End If
+                GL.Vertex3(m.Vertex_buffer(p.x).x, m.Vertex_buffer(p.x).y, m.Vertex_buffer(p.x).z)
+
+                '1
+                GL.Normal3(m.Normal_buffer(p.y).x, m.Normal_buffer(p.y).y, m.Normal_buffer(p.y).z)
+                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.y).x, m.UV1_buffer(p.y).y)
+                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.y).x, m.tangent_buffer(p.y).y, m.tangent_buffer(p.y).z)
+                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.y).x, m.biNormal_buffer(p.y).y, m.biNormal_buffer(p.y).z)
+                If m.has_uv2 = 1 Then
+                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.y).x, m.UV2_buffer(p.y).y)
+                End If
+                GL.Vertex3(m.Vertex_buffer(p.y).x, m.Vertex_buffer(p.y).y, m.Vertex_buffer(p.y).z)
+
+                '1
+                GL.Normal3(m.Normal_buffer(p.z).x, m.Normal_buffer(p.z).y, m.Normal_buffer(p.z).z)
+                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.z).x, m.UV1_buffer(p.z).y)
+                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.z).x, m.tangent_buffer(p.z).y, m.tangent_buffer(p.z).z)
+                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.z).x, m.biNormal_buffer(p.z).y, m.biNormal_buffer(p.z).z)
+                If m.has_uv2 = 1 Then
+                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.z).x, m.UV2_buffer(p.z).y)
+                End If
+                GL.Vertex3(m.Vertex_buffer(p.z).x, m.Vertex_buffer(p.z).y, m.Vertex_buffer(p.z).z)
+
+            Next
+            GL.End()
+            GL.EndList()
+        Next
+    End Sub
 
 End Module

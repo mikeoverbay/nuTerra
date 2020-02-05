@@ -345,6 +345,7 @@ Module modRender
             GL.BindTexture(TextureTarget.Texture2D, 0)
         Next
     End Sub
+
     Private Sub draw_main_Quad(ByRef w As Integer, ByRef h As Integer)
         GL.Begin(PrimitiveType.Quads)
         '  CCW...
@@ -368,9 +369,6 @@ Module modRender
 
     End Sub
     Private Sub draw_one_damn_moon(ByVal location As vec3)
-
-
-
         '
         'repeat drawing the elements now that the states are set..
         Dim model = Matrix4.CreateTranslation(location.x, location.y, location.z)
@@ -392,8 +390,7 @@ Module modRender
         GL.UseProgram(0)
 
         GL.BindVertexArray(0)
-        'GL.BindVertexArray(0)
-        'Disable states
+
     End Sub
     Private Sub draw_cross_hair()
         Dim scale_ As Single = 60.0
@@ -408,6 +405,7 @@ Module modRender
 
         'I wasnt going to use direct mode but for now, this is simple
         Dim l As Single = 1000.0F
+
         GL.Color4(1.0F, 1.0F, 1.0F, 1.0F)
         GL.Begin(PrimitiveType.Lines)
         'left right
@@ -420,7 +418,6 @@ Module modRender
         GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y + l, U_LOOK_AT_Z)
         GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y - l, U_LOOK_AT_Z)
         GL.End()
-
         GL.UseProgram(0)
     End Sub
 End Module
