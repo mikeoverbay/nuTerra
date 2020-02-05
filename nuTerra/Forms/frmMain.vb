@@ -250,7 +250,7 @@ try_again:
         '---------------------------------------------------------
         'load a test model
 #If 1 Then
-        get_X_model(sp + "\resources\moon.x")
+        get_X_model(sp + "\resources\moon.x", MOON)
         color_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror.png", True, False)
         normal_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)
         gmm_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)

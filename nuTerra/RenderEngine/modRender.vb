@@ -26,10 +26,9 @@ Module modRender
             Return
         End If
 
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) ' Use default buffer
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) ' Use FBO_main buffer
         FBOm.attach_CNG()
         '-------------------------------------------------------
-        '1st glControl
 
         set_prespective_view() ' <-- sets camera and prespective view
 
@@ -307,6 +306,7 @@ Module modRender
         GL.ClearColor(0.2F, 0.2F, 0.2F, 1.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
 
+        Dim cx, cy, x, y As Single
 
         cx = frmMain.glControl_utility.Width / 2
         cy = -frmMain.glControl_utility.Height / 2
@@ -366,26 +366,7 @@ Module modRender
     Private Sub draw_one_damn_moon(ByVal location As vec3)
 
 
-        'GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
-        GL.BindVertexArray(VBO)
 
-        'Enable the data element types in the VBO (vertex, normal ... ).
-        'GL.EnableClientState(ArrayCap.VertexArray)
-        'GL.EnableClientState(ArrayCap.NormalArray)
-        'GL.EnableClientState(ArrayCap.TextureCoordArray)
-        'GL.EnableClientState(ArrayCap.IndexArray)
-        '
-        'We assign each element to the slots (0, 1, 2).
-        'The last 2 values are Stide and offset to start of next element.
-        GL.EnableVertexAttribArray(0)
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 32, 0)
-        GL.EnableVertexAttribArray(0)
-        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 32, 12)
-        GL.EnableVertexAttribArray(0)
-        GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 32, 24)
-        '
-        'WE bind the ElementArrayBuffer. This is where the indexing in to the VBO is stored.
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
         '
         'repeat drawing the elements now that the states are set..
         Dim model = Matrix4.CreateTranslation(location.x, location.y, location.z)
@@ -401,13 +382,12 @@ Module modRender
         GL.UniformMatrix4(colorOnly_ModelMatrix_id, False, sMat * model * MODELVIEWMATRIX)
         GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
 
+        GL.BindVertexArray(MOON.mdl_VAO)
         GL.DrawElements(PrimitiveType.Triangles, (indices.Length) * 3, DrawElementsType.UnsignedShort, 0)
         GL.UseProgram(0)
 
-        ' Unbind everything. 
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
-        'GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         GL.BindVertexArray(0)
+        'GL.BindVertexArray(0)
         'Disable states
     End Sub
     Private Sub draw_cross_hair()

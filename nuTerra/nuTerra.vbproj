@@ -170,9 +170,9 @@
     </Compile>
     <Compile Include="MapLoader\MapSelectionFunctions.vb" />
     <Compile Include="MapLoader\ModTriangleHolderClass.vb" />
-    <Compile Include="ModelLoader\modUtilities.vb" />
-    <Compile Include="ModelLoader\modXfile.vb" />
-    <Compile Include="ModelLoader\PrimitiveLoader.vb" />
+    <Compile Include="ModelLoaders\modUtilities.vb" />
+    <Compile Include="ModelLoaders\modXfile.vb" />
+    <Compile Include="ModelLoaders\PrimitiveLoader.vb" />
     <Compile Include="Modules\modGlobalVars.vb" />
     <Compile Include="Modules\modMatrix.vb" />
     <Compile Include="Modules\modTypeStructures.vb" />

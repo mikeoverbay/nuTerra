@@ -13,6 +13,7 @@ Module modGlobalVars
     Public LOOP_COUNT As Integer = 150
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer
+    Public MOON As base_model_holder_
     '---------------------
     Public N_MAP_TYPE As Integer
     '---------------------

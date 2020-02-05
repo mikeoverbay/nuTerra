@@ -50,7 +50,7 @@ Module modXfile
         Public a, b, c As UShort
     End Structure
 
-    Public Function get_X_model(file_ As String) As Integer
+    Public Function get_X_model(file_ As String, ByRef mdl As base_model_holder_) As Integer
         'reads single object directX ASCII file.
         'At some point this will load multi model files.
         '##################################################
@@ -143,23 +143,29 @@ Module modXfile
         Next
         'At this point, we have all the data to make the mesh
         Dim er = GL.GetError
-        'Gen VBO id
-        VBO = GL.GenBuffer
-        IBO = GL.GenBuffer
 
+        'Gen VAO id
+        GL.GenVertexArrays(1, mdl.mdl_VAO)
+        GL.BindVertexArray(mdl.mdl_VAO)
+
+        VBO = GL.GenBuffer ' vertex buffer
         GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
-        'GL.BindVertexArray(VBO)
-
         GL.BufferData(BufferTarget.ArrayBuffer, (vbuff.Length) * 32, vbuff, BufferUsageHint.StaticDraw)
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
+        GL.EnableVertexAttribArray(0)
+        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 32, 0)
+        GL.EnableVertexAttribArray(0)
+        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 32, 12)
+        GL.EnableVertexAttribArray(0)
+        GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 32, 24)
 
+        IBO = GL.GenBuffer
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
         GL.BufferData(BufferTarget.ElementArrayBuffer, (indice_count) * 6, indices, BufferUsageHint.StaticDraw)
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
-        Dim er1 = GL.GetError
         GL.BindVertexArray(0)
+
+        Dim er1 = GL.GetError
 
         Return 0
     End Function
