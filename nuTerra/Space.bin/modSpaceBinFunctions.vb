@@ -112,15 +112,27 @@ Module modSpaceBinFunctions
         entry_cnt = br.ReadUInt32
 
         ReDim cBWSG.primitive_entries(entry_cnt - 1)
+
+        ReDim MAP_MODELS(entry_cnt - 1)
+
         For k = 0 To entry_cnt - 1
+            MAP_MODELS(k) = New base_model_holder_
             cBWSG.primitive_entries(k) = New cBWSG_.primitive_entries_
             cBWSG.primitive_entries(k).str_key1 = br.ReadUInt32
-            cBWSG.primitive_entries(k).start_idx = br.ReadUInt32
-            cBWSG.primitive_entries(k).end_idx = br.ReadUInt32
+            cBWSG.primitive_entries(k).start_idx = br.ReadUInt32 ' points at primitive data list
+            cBWSG.primitive_entries(k).end_idx = br.ReadUInt32 ' points at primitive data list
             cBWSG.primitive_entries(k).vertex_count = br.ReadUInt32
             cBWSG.primitive_entries(k).str_key2 = br.ReadUInt32
             cBWSG.primitive_entries(k).model = find_str_BWSG(cBWSG.primitive_entries(k).str_key1)
             cBWSG.primitive_entries(k).vertex_type = find_str_BWSG(cBWSG.primitive_entries(k).str_key2)
+            MAP_MODELS(k).primitive_name = cBWSG.primitive_entries(k).model
+            MAP_MODELS(k).sb_vertex_count = cBWSG.primitive_entries(k).vertex_count
+            MAP_MODELS(k).sb_vertex_type = cBWSG.primitive_entries(k).vertex_type
+            MAP_MODELS(k).sb_start_index = cBWSG.primitive_entries(k).start_idx
+            MAP_MODELS(k).sb_end_index = cBWSG.primitive_entries(k).end_idx
+            'make space for the components
+            MAP_MODELS(k).sp_table_size = MAP_MODELS(k).sb_end_index - MAP_MODELS(k).sb_end_index
+            ReDim MAP_MODELS(k).entries(MAP_MODELS(k).sp_table_size)
         Next
 
         '----------------------------------------------------------------------
@@ -136,6 +148,7 @@ Module modSpaceBinFunctions
             cBWSG.primitive_data_list(k).chuckDataBlockLength = br.ReadInt32
             cBWSG.primitive_data_list(k).chuckDataBlockIndex = br.ReadUInt32
             cBWSG.primitive_data_list(k).chuckDataOffset = br.ReadUInt32
+
         Next
 
         '----------------------------------------------------------------------
@@ -178,6 +191,33 @@ Module modSpaceBinFunctions
                 File.WriteAllBytes(path_, cBWSG.primitive_data_list(i).data)
             End If
 
+        Next
+
+        For i = 0 To MAP_MODELS.Length - 1
+            For j = MAP_MODELS(i).sb_start_index To MAP_MODELS(i).sb_end_index - 1
+                Dim v_type = cBWSG.primitive_data_list(j).block_type
+                Dim start_ = cBWSG.primitive_data_list(j).chuckDataOffset
+                Dim length_ = cBWSG.primitive_data_list(j).chuckDataBlockLength
+                Dim chunkIndx = cBWSG.primitive_data_list(j).chuckDataBlockIndex
+                Select Case True
+                    'v_types
+                    ' 0   = Vertex
+                    ' 10  = UV2
+                    ' 11 = color We ignore this.
+                    '
+                    Case v_type = 0 ' vertex data
+                        ReDim MAP_MODELS(i).sb_vertex_data(length_ - 1)
+                        For z = 0 To length_ - 1
+                            MAP_MODELS(i).sb_vertex_data(z) = cBWSG.cBWSG_VertexDataChunks(chunkIndx).data(z + start_)
+                        Next
+                    Case v_type = 10
+                        ReDim MAP_MODELS(i).sp_uv2_data(length_ - 1)
+                        For z = 0 To length_ - 1
+                            MAP_MODELS(i).sp_uv2_data(z) = cBWSG.cBWSG_VertexDataChunks(chunkIndx).data(z + start_)
+                        Next
+
+                End Select
+            Next
         Next
         Return True
     End Function

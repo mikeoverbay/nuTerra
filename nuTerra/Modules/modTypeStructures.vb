@@ -124,6 +124,8 @@ Module modTypeStructures
     Public Structure base_model_holder_
 
         '------------------------------------------------
+        Public primitive_name As String
+        '------------------------------------------------
         'VAO and render flags
         Public has_uv2 As Integer
         Public has_tangent As Integer
@@ -140,6 +142,18 @@ Module modTypeStructures
 
         Public indice_count As Integer
         Public indice_size As Integer
+
+        Public sb_vertex_count As UInteger
+        Public sb_start_index As UInteger
+        Public sb_end_index As UInteger
+        Public sb_vertex_type As String
+        Public sp_vertex_stride As UInteger
+        Public sp_block_type As Integer
+        Public sp_table_size As Integer
+        ' storage
+        Public sb_vertex_data() As Byte
+        Public sp_indi_data() As Byte
+        Public sp_uv2_data() As Byte
 
         'buffer Ids
         Public mdl_VAO As Integer

@@ -77,7 +77,7 @@ Public Class frmMain
     Private Sub post_frmMain_loaded()
         '-----------------------------------------------------------------------------------------
         'need a work area on users disc
-        TEMP_STORAGE = Path.GetTempPath + "nuTerra"
+        TEMP_STORAGE = Path.GetTempPath + "nuTerra\"
         If Not Directory.Exists(TEMP_STORAGE) Then
             Directory.CreateDirectory(TEMP_STORAGE)
         End If
@@ -117,7 +117,7 @@ Public Class frmMain
         set_light_pos() ' Set initial light position and get radius and angle.
         '-----------------------------------------------------------------------------------------
         'Everything is setup/loaded to show the main window.
-        'Dipose of the no longer used Panel1
+        'Dispose of the no longer used Panel1
         Panel1.Visible = False
         Me.Controls.Remove(Panel1)
         Panel1.Dispose()
@@ -125,7 +125,10 @@ Public Class frmMain
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
         'Loads the textures for the map selection routines
+        '!!!!! This is disabled to speed up testing for now!
+#If 0 Then
         make_map_pick_buttons()
+#End If
         '-----------------------------------------------------------------------------------------
         'Make a texture for rendering text on map pic textures
         DrawMapPickText.TextRenderer(120, 72)
@@ -187,6 +190,10 @@ Public Class frmMain
     End Sub
 
     Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
+        'we are disabling this to speed up debugging of space.bin
+#If 1 Then
+        Return
+#End If
         'Runs Map picking code.
         glControl_main.MakeCurrent()
         SHOW_MAPS = True
@@ -238,7 +245,10 @@ try_again:
     End Sub
 
 #End Region
-
+    ''' <summary>
+    ''' Loads all assets nuTerra uses.
+    ''' </summary>
+    ''' <remarks></remarks>
     Private Sub load_assets()
         'setup text renderer
         make_randum_locations() ' randum box locals
@@ -267,8 +277,14 @@ try_again:
 
 #Region "Screen position and update"
 
+    ''' <summary>
+    ''' Sets up and starts the main render thread
+    ''' </summary>
+    ''' <remarks>
+    ''' Also starts the gametimer stopwatch and
+    ''' disposed the startup_delay timer.
+    ''' </remarks>
     Private Sub launch_update_thread()
-
         gametimer.Start()
         refresh_thread.Priority = ThreadPriority.Highest
         refresh_thread.IsBackground = True
@@ -279,7 +295,10 @@ try_again:
         startup_delay_timer.Dispose()
     End Sub
 
-
+    ''' <summary>
+    ''' The main render draw loop thread.
+    ''' </summary>
+    ''' <remarks></remarks>
     Private Sub updater()
 
         While _STARTED

@@ -43,14 +43,14 @@ Module modSpaceBin
             old_pos = br.BaseStream.Position
 
         Next
-        If True Then
+        If False Then
             If Not Directory.Exists("C:\!_bin_data\") Then
                 Directory.CreateDirectory("C:\!_bin_data\")
             End If
             File.WriteAllText("C:\!_bin_data\headers.txt", sb.ToString)
         End If
 
-        If True Then
+        If False Then
             If Not Directory.Exists("C:\!_bin_data\") Then
                 Directory.CreateDirectory("C:\!_bin_data\")
             End If
