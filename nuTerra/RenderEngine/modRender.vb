@@ -78,7 +78,7 @@ Module modRender
         FBOm.attach_CNG()
 
 
-#If 0 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
+#If 1 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
         '===========================================================================
         '===========================================================================
         'draw the test MDL model using VAO
@@ -164,7 +164,7 @@ Module modRender
 
         Dim er1 = GL.GetError
 
-        For z = 1 To 150
+        For z = 1 To LOOP_COUNT
             Dim ox = box_positions(z).x
             Dim oy = box_positions(z).y
             Dim oz = box_positions(z).z
@@ -388,7 +388,7 @@ Module modRender
 
         GL.BindVertexArray(MOON.mdl_VAO)
 
-        GL.DrawElements(PrimitiveType.Triangles, (MOON.indice_count * 3) - 1, DrawElementsType.UnsignedShort, MOON.index_buffer16)
+        GL.DrawElements(PrimitiveType.Triangles, (MOON.indice_count * 3), DrawElementsType.UnsignedShort, MOON.index_buffer16)
         GL.UseProgram(0)
 
         GL.BindVertexArray(0)

@@ -10,7 +10,7 @@ Module modGlobalVars
     '---------------------
     'Render related
     Public FRAME_TIMER As New Stopwatch
-    Public LOOP_COUNT As Integer = 150
+    Public LOOP_COUNT As Integer = 250
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer
     Public MOON As base_model_holder_
