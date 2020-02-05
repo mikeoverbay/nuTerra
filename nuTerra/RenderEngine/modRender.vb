@@ -52,7 +52,7 @@ Module modRender
         '------------------------------------------------
         '------------------------------------------------
         'Draw temp light positon.
-        FBOm.attach_CN()
+        FBOm.attach_C()
         Dim v As New vec3
         v.x = LIGHT_POS(0) : v.y = LIGHT_POS(1) : v.z = LIGHT_POS(2)
         'unremming this screws up the VertexAttribPointers 
@@ -78,7 +78,7 @@ Module modRender
         FBOm.attach_CNG()
 
 
-#If 1 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
+#If 0 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
         '===========================================================================
         '===========================================================================
         'draw the test MDL model using VAO
@@ -89,7 +89,7 @@ Module modRender
         GL.Uniform1(MDL_normalMap_id, 1)
         GL.Uniform1(MDL_GMF_id, 2)
 
-        GL.Uniform1(MDL_nMap_type, N_MAP_TYPE)
+        GL.Uniform1(MDL_nMap_type_id, N_MAP_TYPE)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
         GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<------------------------------- Texture Bind
@@ -112,14 +112,14 @@ Module modRender
             Dim scale_ As Single = 5.0
             Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
             Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
-            GL.UniformMatrix4(MDL_modelMatrix, False, sMat * model * MODELVIEWMATRIX)
-            GL.UniformMatrix4(MDL_modelViewProjection, False, MVPM)
+            GL.UniformMatrix4(MDL_modelMatrix_id, False, sMat * model * MODELVIEWMATRIX)
+            GL.UniformMatrix4(MDL_modelViewProjection_id, False, MVPM)
 
             ' need an inverse of the modelmatrix
             Dim MVM = sMat * model * MODELVIEWMATRIX
             Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
 
-            GL.UniformMatrix3(MDL_modelNormalMatrix, True, normalMatrix)
+            GL.UniformMatrix3(MDL_modelNormalMatrix_id, True, normalMatrix)
 
 
             For i = 0 To mdl(0).primitive_count - 1
@@ -153,7 +153,7 @@ Module modRender
         GL.Uniform1(testList_normalMap_id, 1)
         GL.Uniform1(testList_GMF_id, 2)
 
-        GL.Uniform1(testList_nMap_type, N_MAP_TYPE)
+        GL.Uniform1(testList_nMap_type_id, N_MAP_TYPE)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
         GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<------------------------------- Texture Bind
@@ -175,13 +175,13 @@ Module modRender
             Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
             Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
-            GL.UniformMatrix4(testList_modelMatrix, False, sMat * model * MODELVIEWMATRIX)
-            GL.UniformMatrix4(testList_modelViewProjection, False, MVPM)
+            GL.UniformMatrix4(testList_modelMatrix_id, False, sMat * model * MODELVIEWMATRIX)
+            GL.UniformMatrix4(testList_modelViewProjection_id, False, MVPM)
 
             ' need an inverse of the modelmatrix
             Dim MVM = sMat * model * MODELVIEWMATRIX
             Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
-            GL.UniformMatrix3(testList_modelNormalMatrix, True, normalMatrix)
+            GL.UniformMatrix3(testList_modelNormalMatrix_id, True, normalMatrix)
 
 
             For i = 0 To mdl(0).primitive_count - 1
@@ -271,7 +271,7 @@ Module modRender
         Dim elapsed_str As String = "  Draw time in Milliseconds :" + elapsed.ToString
 
         Dim fps As String = "FPS:" + FPS_TIME.ToString
-        DrawText.DrawString("FPS:" + fps + tri_count + elapsed_str, mono, Brushes.White, position)
+        DrawText.DrawString(fps + tri_count + elapsed_str, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Texture2D)
         GL.Enable(EnableCap.AlphaTest)
@@ -383,11 +383,11 @@ Module modRender
         GL.UseProgram(shader_list.colorOnly_shader)
 
         GL.Uniform3(colorOnly_color_id, 1.0F, 0.0F, 0.0F)
-        GL.UniformMatrix4(colorOnly_ModelMatrix_id, False, sMat * model * MODELVIEWMATRIX)
+
         GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
 
         GL.BindVertexArray(MOON.mdl_VAO)
-        'GL.DrawElements(PrimitiveType.Triangles, (MOON.indice_count * 3) - 1, DrawElementsType.UnsignedShort, MOON.index_buffer16)
+
         GL.DrawElements(PrimitiveType.Triangles, (MOON.indice_count * 3) - 1, DrawElementsType.UnsignedShort, MOON.index_buffer16)
         GL.UseProgram(0)
 
@@ -396,6 +396,16 @@ Module modRender
         'Disable states
     End Sub
     Private Sub draw_cross_hair()
+        Dim scale_ As Single = 60.0
+        Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
+
+        Dim MVPM = MODELVIEWMATRIX * PROJECTIONMATRIX
+
+        GL.UseProgram(shader_list.colorOnly_shader)
+
+        GL.Uniform3(colorOnly_color_id, 1.0F, 1.0F, 1.0F)
+        GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
+
         'I wasnt going to use direct mode but for now, this is simple
         Dim l As Single = 1000.0F
         GL.Color4(1.0F, 1.0F, 1.0F, 1.0F)
@@ -410,5 +420,7 @@ Module modRender
         GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y + l, U_LOOK_AT_Z)
         GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y - l, U_LOOK_AT_Z)
         GL.End()
+
+        GL.UseProgram(0)
     End Sub
 End Module

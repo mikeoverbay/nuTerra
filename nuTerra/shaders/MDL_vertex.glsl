@@ -26,9 +26,11 @@ void main(void)
     worldPosition = vec3(modelMatrix * vec4(vertexPosition, 1.0));
 
     vec3 worldNormal =  modelNormalMatrix  * vertexNormal;
+	vec3 worldTangent = modelNormalMatrix  * vertexTangent;
+	vec3 worldbiNormal = modelNormalMatrix  * vertexBinormal;
 
     // ?
-    TBN = mat3( normalize(vertexTangent), normalize(vertexBinormal), normalize(worldNormal));
+    TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
     gl_Position = modelViewProjection * vec4(vertexPosition, 1.0);

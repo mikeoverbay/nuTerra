@@ -399,7 +399,6 @@ try_again:
         M_DOWN = False
         MOVE_CAM_Z = False
         MOVE_MOD = False
-
     End Sub
 
     Private Sub glControl_main_MouseMove(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseMove

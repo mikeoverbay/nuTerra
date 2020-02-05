@@ -99,24 +99,24 @@ Module ShaderLoader
     '----------------------------------------------------------------------------\
 
     '----------------------------------------------------------------------------
-    Public gWriter_textureMap_id, gWriter_normalMap_id, gWriter_GMF_id, gWriter_ModelMatrix As Integer
-    Public gWriter_WorldNormal As Integer
-    Public gWriter_ProjectionMatrix_id, gWriter_nMap_type As Integer
+    Public gWriter_textureMap_id, gWriter_normalMap_id, gWriter_GMF_id, gWriter_ModelMatrix_id As Integer
+    Public gWriter_WorldNormal_id As Integer
+    Public gWriter_ProjectionMatrix_id, gWriter_nMap_type_id As Integer
     Private Sub set_gWriter_varaibles()
         gWriter_textureMap_id = GL.GetUniformLocation(shader_list.gWriter_shader, "colorMap")
         gWriter_normalMap_id = GL.GetUniformLocation(shader_list.gWriter_shader, "normalMap")
         gWriter_GMF_id = GL.GetUniformLocation(shader_list.gWriter_shader, "GMF_Map")
-        gWriter_ModelMatrix = GL.GetUniformLocation(shader_list.gWriter_shader, "ModelMatrix")
+        gWriter_ModelMatrix_id = GL.GetUniformLocation(shader_list.gWriter_shader, "ModelMatrix")
         gWriter_ProjectionMatrix_id = GL.GetUniformLocation(shader_list.gWriter_shader, "ProjectionMatrix")
-        gWriter_WorldNormal = GL.GetUniformLocation(shader_list.gWriter_shader, "modelNormalMatrix")
-        gWriter_nMap_type = GL.GetUniformLocation(shader_list.gWriter_shader, "nMap_type")
+        gWriter_WorldNormal_id = GL.GetUniformLocation(shader_list.gWriter_shader, "modelNormalMatrix")
+        gWriter_nMap_type_id = GL.GetUniformLocation(shader_list.gWriter_shader, "nMap_type")
     End Sub
     '----------------------------------------------------------------------------
 
     '----------------------------------------------------------------------------
     Public MDL_textureMap_id, MDL_normalMap_id, MDL_GMF_id As Integer
-    Public MDL_modelMatrix, MDL_modelNormalMatrix, MDL_modelViewProjection As Integer
-    Public MDL_nMap_type As Integer
+    Public MDL_modelMatrix_id, MDL_modelNormalMatrix_id, MDL_modelViewProjection_id As Integer
+    Public MDL_nMap_type_id As Integer
     Public MDL_attribute_names() = {"vertexPosition", "vertexNormal", "vertexTexCoord1", "vertexTangent", "vertexBinormal", "vertexTexCoord2"}
     Public MDL_attribute_locations(MDL_attribute_names.Length - 1) As Integer
     Private Sub set_MDL_varaibles()
@@ -126,16 +126,16 @@ Module ShaderLoader
         MDL_textureMap_id = GL.GetUniformLocation(shader_list.MDL_shader, "colorMap")
         MDL_normalMap_id = GL.GetUniformLocation(shader_list.MDL_shader, "normalMap")
         MDL_GMF_id = GL.GetUniformLocation(shader_list.MDL_shader, "GMF_Map")
-        MDL_ModelMatrix = GL.GetUniformLocation(shader_list.MDL_shader, "modelMatrix")
-        MDL_modelNormalMatrix = GL.GetUniformLocation(shader_list.MDL_shader, "modelNormalMatrix")
-        MDL_modelViewProjection = GL.GetUniformLocation(shader_list.MDL_shader, "modelViewProjection")
-        MDL_nMap_type = GL.GetUniformLocation(shader_list.MDL_shader, "nMap_type")
+        MDL_modelMatrix_id = GL.GetUniformLocation(shader_list.MDL_shader, "modelMatrix")
+        MDL_modelNormalMatrix_id = GL.GetUniformLocation(shader_list.MDL_shader, "modelNormalMatrix")
+        MDL_modelViewProjection_id = GL.GetUniformLocation(shader_list.MDL_shader, "modelViewProjection")
+        MDL_nMap_type_id = GL.GetUniformLocation(shader_list.MDL_shader, "nMap_type")
     End Sub
     '----------------------------------------------------------------------------
 
     Public testList_textureMap_id, testList_normalMap_id, testList_GMF_id As Integer
-    Public testList_modelMatrix, testList_modelNormalMatrix, testList_modelViewProjection As Integer
-    Public testList_nMap_type, testList_has_uv2 As Integer
+    Public testList_modelMatrix_id, testList_modelNormalMatrix_id, testList_modelViewProjection_id As Integer
+    Public testList_nMap_type_id, testList_has_uv2_id As Integer
     'Public testList_attribute_names() = {"vertex_in", "normal_in", "uv1_in", "tangent_in", "Binormal_in", "uv2_in"}
     'Public testList_attribute_locations(testList_attribute_names.Length - 1)
     Private Sub set_testList_varaibles()
@@ -145,11 +145,11 @@ Module ShaderLoader
         testList_textureMap_id = GL.GetUniformLocation(shader_list.testList_shader, "colorMap")
         testList_normalMap_id = GL.GetUniformLocation(shader_list.testList_shader, "normalMap")
         testList_GMF_id = GL.GetUniformLocation(shader_list.testList_shader, "GMF_Map")
-        testList_modelMatrix = GL.GetUniformLocation(shader_list.testList_shader, "modelMatrix")
-        testList_modelNormalMatrix = GL.GetUniformLocation(shader_list.testList_shader, "modelNormalMatrix")
-        testList_modelViewProjection = GL.GetUniformLocation(shader_list.testList_shader, "modelViewProjection")
-        testList_nMap_type = GL.GetUniformLocation(shader_list.testList_shader, "nMap_type")
-        testList_has_uv2 = GL.GetUniformLocation(shader_list.testList_shader, "has_uv2")
+        testList_modelMatrix_id = GL.GetUniformLocation(shader_list.testList_shader, "modelMatrix")
+        testList_modelNormalMatrix_id = GL.GetUniformLocation(shader_list.testList_shader, "modelNormalMatrix")
+        testList_modelViewProjection_id = GL.GetUniformLocation(shader_list.testList_shader, "modelViewProjection")
+        testList_nMap_type_id = GL.GetUniformLocation(shader_list.testList_shader, "nMap_type")
+        testList_has_uv2_id = GL.GetUniformLocation(shader_list.testList_shader, "has_uv2")
     End Sub
     '----------------------------------------------------------------------------
 
