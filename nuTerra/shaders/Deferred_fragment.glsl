@@ -38,11 +38,11 @@ float linearDepth(float depthSample)
 
 void main (void)
 {
-    float depth = texture2D(gDepth, UV).x*2.0-1.0;
+    float depth = texture(gDepth, UV).x*2.0-1.0;
 
-	// viewport <---This is the render target size, i.e. what you feed into glViewport
-	//--------------------------------------------------------------------
-	// Get the world position from the depth buffer and screen poition.
+    // viewport <---This is the render target size, i.e. what you feed into glViewport
+    //--------------------------------------------------------------------
+    // Get the world position from the depth buffer and screen poition.
     vec2 screen;
     screen.x = ( gl_FragCoord.x / viewport.x ) * 2.0-1.0;
     screen.y = ( gl_FragCoord.y / viewport.y ) * 2.0-1.0;
@@ -51,11 +51,11 @@ void main (void)
     WorldPos.xyz /= WorldPos.w;
 
     vec3 Position = WorldPos.xyz ;
-	//--------------------------------------------------------------------
+    //--------------------------------------------------------------------
     if (depth == 1.0) discard;// nothing there
 
 
-    vec4 tex01_color  = texture2D(gColor, UV);
+    vec4 tex01_color = texture(gColor, UV);
 
     vec3 LightPosModelView = vec3(ModelMatrix * vec4(LightPos.xyz,1.0));
 
@@ -63,7 +63,7 @@ void main (void)
     vec3 vd = normalize(-Position);//view direction
     vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
-    vec3 N = normalize(texture2D(gNormal,UV).xyz);
+    vec3 N = normalize(texture(gNormal,UV).xyz);
 
     float abm = 0.55;
     vec4 final_color = vec4(abm, abm, abm, 1.0) * tex01_color;
@@ -76,7 +76,7 @@ void main (void)
     //only light whats in range
     if (dist < cutoff) {
 
-			float lambertTerm = max(dot(N, L),0.0);
+		    float lambertTerm = max(dot(N, L),0.0);
             final_color.xyz += max(lambertTerm * tex01_color.xyz*color.xyz,0.0)*3.0;;
 
             vec3 halfwayDir = normalize(L + vd);
@@ -89,12 +89,12 @@ void main (void)
         
     }
     float d = linearDepth(depth);
-	//-------------------------------------------------------------------
-	// test crap..
+    //-------------------------------------------------------------------
+    // test crap..
     //final_color.xyz = final_color.xyz*0.01+d;
     //final_color.xyz = tex01_color.xyz*0.01+(Position);
     //final_color.xyz = tex01_color.xyz*0.1+N*0.5+0.5;
-	//-------------------------------------------------------------------
+    //-------------------------------------------------------------------
     outColor =  final_color;//+color*0.2;
     outColor.a = 1.0;
 }

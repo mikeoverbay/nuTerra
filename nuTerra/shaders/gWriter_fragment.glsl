@@ -1,5 +1,5 @@
 ﻿// gWriter fragment Shader. We will use this as a template for other shaders
-#version 430 compatibility
+#version 430 core
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
@@ -29,16 +29,16 @@ vec3 getNormal()
     vec3 b = normalize(cross(ng, t));
     mat3 tbn = mat3(t, b, ng);
     vec3 n;
-	// GA or RGB maps?
+    // GA or RGB maps?
     if (nMap_type == 1 ) {
-	//GA map
-    // We much clamp and max these to -1.0 to 1.0 to stop artifacts!
-    n.xy = clamp(texture2D(normalMap, UV).ag*2.0-1.0, -1.0 ,1.0);
-    n.y = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
-    n.xyz = n.xzy;
-    }else{
-	//RGB map
-    n = texture2D(normalMap, UV).rgb*2.0-1.0;   
+        // GA map
+        // We much clamp and max these to -1.0 to 1.0 to stop artifacts!
+        n.xy = clamp(texture(normalMap, UV).ag * 2.0 - 1.0, -1.0, 1.0);
+        n.y = max(sqrt(1.0 - (n.x * n.x + n.y * n.y)), 0.0);
+        n.xyz = n.xzy;
+    } else {
+        //RGB map
+        n = texture(normalMap, UV).rgb * 2.0 - 1.0;   
     }
     n = normalize(tbn * n);
     return n;

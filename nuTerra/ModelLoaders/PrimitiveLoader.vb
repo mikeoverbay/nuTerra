@@ -573,11 +573,10 @@ Module PrimitiveLoader
     Public Sub build_model_VAO(ByRef m As base_model_holder_)
         Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
 
-        'Gen VBO id
+        'Gen VAO id
         GL.GenVertexArrays(1, m.mdl_VAO)
         'm.IBO = GL.GenBuffer
 
-        'GL.BindVertexArray(m.mdl_VAO)
         GL.BindVertexArray(m.mdl_VAO)
 
         ReDim m.mBuffers(m.element_count)
@@ -624,7 +623,6 @@ Module PrimitiveLoader
             GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(5)
             GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect2)), m.UV2_buffer, BufferUsageHint.StaticDraw)
-
         End If
         Dim er = GL.GetError
 
@@ -636,7 +634,7 @@ Module PrimitiveLoader
         End If
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
-        GL.BindVertexArray(m.mdl_VAO)
+        GL.BindVertexArray(0)
 
         'm.flush()
 
