@@ -2,7 +2,9 @@
 
     Dim model_bump_loaded As Boolean
 
-
+    '============================================================
+    ' I will get this info from the space.bin if posible! ==================
+    '============================================================
     Public Function this_is_uncrushed(ByRef modID As UInt32, ByRef peice As Integer) As Boolean
         'redoing this.. old way sucks!!!
         Dim primStart As Integer = InStr(TheXML_String, "tiveGroup>" + peice.ToString)

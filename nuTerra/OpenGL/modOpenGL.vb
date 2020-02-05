@@ -28,13 +28,14 @@ Module modOpenGL
 
     End Sub
 
-    Public Sub resize_glControl_utility()
-        Dim size As Integer = 180
-        Dim position As New Point(frmMain.ClientSize.Width - size, frmMain.ClientSize.Height - size)
-        frmMain.glControl_utility.Location = position
-        frmMain.glControl_utility.Width = size
-        frmMain.glControl_utility.Height = size
-        GL.Viewport(0, 0, frmMain.glControl_utility.ClientSize.Width, frmMain.glControl_utility.ClientSize.Height)
+    Public Sub resize_glControl_MiniMap(ByVal square_size As Integer)
+        'puts this at the bottom right corner of the main window.
+        'It needs be resizable just like the game.
+        Dim position As New Point(frmMain.ClientSize.Width - square_size, frmMain.ClientSize.Height - square_size)
+        frmMain.glControl_MiniMap.Location = position
+        frmMain.glControl_MiniMap.Width = square_size
+        frmMain.glControl_MiniMap.Height = square_size
+        GL.Viewport(0, 0, frmMain.glControl_MiniMap.ClientSize.Width, frmMain.glControl_MiniMap.ClientSize.Height)
     End Sub
 
     Public Sub Ortho_main()
@@ -42,6 +43,15 @@ Module modOpenGL
         GL.MatrixMode(MatrixMode.Projection)
         Dim orMatrix = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
         GL.LoadMatrix(orMatrix)
+        GL.MatrixMode(MatrixMode.Modelview)
+        GL.LoadIdentity()
+    End Sub
+    Public Sub Ortho_MiniMap(ByVal square_size As Integer)
+        resize_glControl_MiniMap(square_size)
+        PROJECTIONMATRIX = Matrix4.Identity
+        GL.MatrixMode(MatrixMode.Projection)
+        GL.LoadIdentity()
+        GL.Ortho(0.0F, frmMain.glControl_MiniMap.Width, -frmMain.glControl_MiniMap.Height, 0.0F, -300.0F, 300.0F)
         GL.MatrixMode(MatrixMode.Modelview)
         GL.LoadIdentity()
     End Sub

@@ -80,8 +80,8 @@ Module modRender
 
 #If 1 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
         '===========================================================================
+        'draw the test MDL model using VAO =========================================
         '===========================================================================
-        'draw the test MDL model using VAO
         '------------------------------------------------
         GL.UseProgram(shader_list.MDL_shader) '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -92,7 +92,7 @@ Module modRender
         GL.Uniform1(MDL_nMap_type_id, N_MAP_TYPE)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
-        GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<------------------------------- Texture Bind
+        GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<----------------- Texture Bind
         GL.ActiveTexture(TextureUnit.Texture0 + 1)
         GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
@@ -141,8 +141,8 @@ Module modRender
 
 #Else
         '===========================================================================
+        'draw the test display lists ===============================================
         '===========================================================================
-        'draw the test display lists
         '------------------------------------------------
         GL.UseProgram(shader_list.testList_shader) '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -153,7 +153,7 @@ Module modRender
         GL.Uniform1(testList_nMap_type_id, N_MAP_TYPE)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
-        GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<------------------------------- Texture Bind
+        GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<---------------------- Texture Bind
         GL.ActiveTexture(TextureUnit.Texture0 + 1)
         GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
@@ -197,7 +197,7 @@ Module modRender
 #End If
         '===========================================================================
         '===========================================================================
-        'Draws a full screen quad to render FBO textures.
+        'Draws a full screen quad to render FBO textures. ==========================
         '===========================================================================
         '===========================================================================
 
@@ -254,14 +254,17 @@ Module modRender
 
         GL.UseProgram(0)
 
-        ' test render some text to see if it works
+        '===========================================================================
+        ' Text Rendering ===========================================================
+        '===========================================================================
+
         Dim position = PointF.Empty
-        'textRender.DrawText.TextRenderer(100, 100) '<--- reset when the FBO changes size!
         DrawText.clear(Color.FromArgb(0, 0, 0, 255))
-        Dim ti = TimeOfDay.TimeOfDay
+
         Dim tr = total_triangles_drawn * LOOP_COUNT
 
-        Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
+        'save this.. we may want to use it for debug with a different source for the values.
+        'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim tri_count As String = "  Triangles drawn per frame :" + tr.ToString
 
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
@@ -287,44 +290,48 @@ Module modRender
 
         GL.Disable(EnableCap.AlphaTest)
         GL.Disable(EnableCap.Texture2D)
+        '===========================================================================
+        ' Text Rendering End =======================================================
+        '===========================================================================
 
-        frmMain.glControl_main.SwapBuffers()
+        frmMain.glControl_main.SwapBuffers() '<---------------------- Buffer Swap
         FPS_COUNTER += 1
 
         'draw_maps()
         If frmGbufferViewer.Visible Then
             frmGbufferViewer.update_screen()
         End If
-#If 0 Then
-        frmMain.glControl_utility.Visible = True
+#If 1 Then
+        frmMain.glControl_MiniMap.Visible = True
+        frmMain.glControl_MiniMap.BringToFront()
         '-------------------------------------------------------
         '2nd glControl
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
+        Dim size As Integer = 100
+        frmMain.glControl_MiniMap.MakeCurrent()
+        Ortho_MiniMap(size) ' <--- set size of the square in lower right corner.
 
-        frmMain.glControl_utility.MakeCurrent()
-        Ortho_utility()
-
-        GL.ClearColor(0.2F, 0.2F, 0.2F, 1.0F)
+        GL.ClearColor(0.5F, 0.2F, 0.2F, 1.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
 
         Dim cx, cy, x, y As Single
 
-        cx = frmMain.glControl_utility.Width / 2
-        cy = -frmMain.glControl_utility.Height / 2
+        cx = frmMain.glControl_MiniMap.Width / 2
+        cy = -frmMain.glControl_MiniMap.Height / 2
         For k = 0 To PI * 2.0F Step (PI * 2 / 40.0F)
             Dim j = angle2
             GL.Begin(PrimitiveType.Lines)
-            x = Cos(k + j) * 150.0F + cx
-            y = Sin(k + j) * 150.0F + cy
+            x = Cos(k + j) * size / 2 + cx
+            y = Sin(k + j) * size / 2 + cy
             GL.Vertex2(cx, cy)
             GL.Vertex2(x, y)
             GL.End()
-            angle2 += 0.00001
+            angle2 += 0.0001
             If angle2 > PI * 2 / 40 Then
                 angle2 = 0
             End If
         Next
-        frmMain.glControl_utility.SwapBuffers()
+        frmMain.glControl_MiniMap.SwapBuffers()
 #Else
         frmMain.glControl_utility.Visible = False
 #End If

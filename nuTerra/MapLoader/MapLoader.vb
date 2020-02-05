@@ -6,34 +6,38 @@ Imports Ionic.Zip
 
 Module MapLoader
     'putting these GLobals here because they are tightly related to MapLoader
-    Public shared_part_1 As ZipFile
-    Public shared_part_2 As ZipFile
-    Public sand_box_part_1 As ZipFile
-    Public sand_box_part_2 As ZipFile
+    Public SHARED_PART_1 As ZipFile
+    Public SHARED_PART_2 As ZipFile
+    Public SAND_BOX_PART_1 As ZipFile
+    Public SAND_BOX_PART_2 As ZipFile
 
-    Public shared_part_1_hd As ZipFile
-    Public shared_part_2_hd As ZipFile
-    Public sand_box_part_1_hd As ZipFile
-    Public sand_box_part_2_hd As ZipFile
+    Public SHARED_PART_1_HD As ZipFile
+    Public SHARED_PART_2_HD As ZipFile
+    Public SAND_BOX_PART_1_HD As ZipFile
+    Public SAND_BOX_PART_2_HD As ZipFile
 
-    Public MAP_package As ZipFile
-    Public MAP_package_HD As ZipFile
+    Public MAP_PACKAGE As ZipFile
+    Public MAP_PACKAGE_HD As ZipFile
 
     'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
     Public PKG_DATA_TABLE As New DataTable("items")
 
     Public DESTRUCTABLE_DATA_TABLE As DataTable
-    Public skyDomeName As String = ""
+    Public SKYDOMENAME As String = ""
 
     Dim contents As New List(Of String)
 
-    Public lodMapSize As Integer = 256
-    Public aoMapSize As Integer = 256
-    Public heightMapSize As Integer = 64
-    Public normalMapSize As Integer = 256
-    Public holeMapSize As Integer = 64
-    Public shadowMapSize As Integer = 64
-    Public blendMapsize As Integer = 256
+    Public LODMAPSIZE As Integer = 256
+    Public AOMAPSIZE As Integer = 256
+    Public HEIGHTMAPSIZE As Integer = 64
+    Public NORMALMAPSIZE As Integer = 256
+    Public HOLEMAPSIZE As Integer = 64
+    Public SHADOWMAPSIZE As Integer = 64
+    Public BLENDMAPSIZE As Integer = 256
+
+    '-----------------------------------
+    'This stores all models used on a map
+    Public MAP_MODELS(1) As base_model_holder_
 
     ' Just for loading a model to test.
     Public mdl(0) As base_model_holder_
@@ -52,15 +56,15 @@ Module MapLoader
         If HD_EXISTS And USE_HD_TEXTURES Then
             'look in HD shared package files
             'check map pkg first
-            entry = MAP_package_HD(filename)
+            entry = MAP_PACKAGE_HD(filename)
             If entry Is Nothing Then
-                entry = shared_part_1_hd(filename)
+                entry = SHARED_PART_1_HD(filename)
                 If entry Is Nothing Then
-                    entry = shared_part_2_hd(filename)
+                    entry = SHARED_PART_2_HD(filename)
                     If entry Is Nothing Then
-                        entry = sand_box_part_1_hd(filename)
+                        entry = SAND_BOX_PART_1_HD(filename)
                         If entry Is Nothing Then
-                            entry = sand_box_part_2_hd(filename)
+                            entry = SAND_BOX_PART_2_HD(filename)
                         End If
                     End If
                 End If
@@ -71,15 +75,15 @@ Module MapLoader
         End If
         'look in SD shared package files
         'check map pkg first
-        entry = MAP_package(filename)
+        entry = MAP_PACKAGE(filename)
         If entry Is Nothing Then
-            entry = shared_part_1(filename)
+            entry = SHARED_PART_1(filename)
             If entry Is Nothing Then
-                entry = shared_part_2(filename)
+                entry = SHARED_PART_2(filename)
                 If entry Is Nothing Then
-                    entry = sand_box_part_1(filename)
+                    entry = SAND_BOX_PART_1(filename)
                     If entry Is Nothing Then
-                        entry = sand_box_part_2(filename)
+                        entry = SAND_BOX_PART_2(filename)
                     End If
                 End If
             End If
@@ -137,48 +141,48 @@ Module MapLoader
             HD_EXISTS = False
         End If
         If HD_EXISTS Then
-            MAP_package_HD = ZipFile.Read(GAME_PATH + MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg"))
-            shared_part_1_hd = New ZipFile
-            shared_part_2_hd = New ZipFile
-            sand_box_part_1_hd = New ZipFile
-            sand_box_part_2_hd = New ZipFile
+            MAP_PACKAGE_HD = ZipFile.Read(GAME_PATH + MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg"))
+            SHARED_PART_1_HD = New ZipFile
+            SHARED_PART_2_HD = New ZipFile
+            SAND_BOX_PART_1_HD = New ZipFile
+            SAND_BOX_PART_2_HD = New ZipFile
 
-            shared_part_1_hd = ZipFile.Read(GAME_PATH + "shared_content_hd-part1.pkg")
-            shared_part_2_hd = ZipFile.Read(GAME_PATH + "shared_content_hd-part2.pkg")
-            sand_box_part_1_hd = ZipFile.Read(GAME_PATH + "shared_content_sandbox_hd-part1.pkg")
-            sand_box_part_2_hd = ZipFile.Read(GAME_PATH + "shared_content_sandbox_hd-part2.pkg")
+            SHARED_PART_1_HD = ZipFile.Read(GAME_PATH + "shared_content_hd-part1.pkg")
+            SHARED_PART_2_HD = ZipFile.Read(GAME_PATH + "shared_content_hd-part2.pkg")
+            SAND_BOX_PART_1_HD = ZipFile.Read(GAME_PATH + "shared_content_sandbox_hd-part1.pkg")
+            SAND_BOX_PART_2_HD = ZipFile.Read(GAME_PATH + "shared_content_sandbox_hd-part2.pkg")
         End If
         'open map pkg file
-        MAP_package = New ZipFile
-        MAP_package = ZipFile.Read(GAME_PATH + MAP_NAME_NO_PATH)
+        MAP_PACKAGE = New ZipFile
+        MAP_PACKAGE = ZipFile.Read(GAME_PATH + MAP_NAME_NO_PATH)
 
-        shared_part_1 = New ZipFile
-        shared_part_2 = New ZipFile
-        sand_box_part_1 = New ZipFile
-        sand_box_part_2 = New ZipFile
+        SHARED_PART_1 = New ZipFile
+        SHARED_PART_2 = New ZipFile
+        SAND_BOX_PART_1 = New ZipFile
+        SAND_BOX_PART_2 = New ZipFile
 
-        shared_part_1 = ZipFile.Read(GAME_PATH + "shared_content-part1.pkg")
-        shared_part_2 = ZipFile.Read(GAME_PATH + "shared_content-part2.pkg")
-        sand_box_part_1 = ZipFile.Read(GAME_PATH + "shared_content_sandbox-part1.pkg")
-        sand_box_part_2 = ZipFile.Read(GAME_PATH + "shared_content_sandbox-part2.pkg")
+        SHARED_PART_1 = ZipFile.Read(GAME_PATH + "shared_content-part1.pkg")
+        SHARED_PART_2 = ZipFile.Read(GAME_PATH + "shared_content-part2.pkg")
+        SAND_BOX_PART_1 = ZipFile.Read(GAME_PATH + "shared_content_sandbox-part1.pkg")
+        SAND_BOX_PART_2 = ZipFile.Read(GAME_PATH + "shared_content_sandbox-part2.pkg")
 
     End Sub
 
     Public Sub close_shared_packages()
         'Disposes of the loaded packages.
         If HD_EXISTS Then
-            shared_part_1_hd.Dispose()
-            shared_part_2_hd.Dispose()
-            sand_box_part_1_hd.Dispose()
-            sand_box_part_2_hd.Dispose()
+            SHARED_PART_1_HD.Dispose()
+            SHARED_PART_2_HD.Dispose()
+            SAND_BOX_PART_1_HD.Dispose()
+            SAND_BOX_PART_2_HD.Dispose()
         End If
 
-        MAP_package.Dispose()
+        MAP_PACKAGE.Dispose()
 
-        shared_part_1.Dispose()
-        shared_part_2.Dispose()
-        sand_box_part_1.Dispose()
-        sand_box_part_1.Dispose()
+        SHARED_PART_1.Dispose()
+        SHARED_PART_2.Dispose()
+        SAND_BOX_PART_1.Dispose()
+        SAND_BOX_PART_1.Dispose()
 
         'Tell the grabage collector to clean up
         GC.Collect()
@@ -250,14 +254,14 @@ Module MapLoader
         '------------------------------------------------------------------------------------------------
         'Get a list of all items in the MAP_package
         Dim cnt As Integer = 0
-        For Each e As ZipEntry In MAP_package
+        For Each e As ZipEntry In MAP_PACKAGE
             contents.Add(e.FileName)
             cnt += 1
             Application.DoEvents()
         Next
         '------------------------------------------------------------------------------------------------
         ' get settings xml.. this sets map sizes and such
-        Dim st As Ionic.Zip.ZipEntry = MAP_package("spaces/" & ABS_NAME & "/space.settings")
+        Dim st As Ionic.Zip.ZipEntry = MAP_PACKAGE("spaces/" & ABS_NAME & "/space.settings")
         Dim settings As New MemoryStream
         st.Extract(settings)
         openXml_stream(settings, ABS_NAME)
@@ -269,7 +273,7 @@ Module MapLoader
 
     Private Function get_spaceBin(ByVal ABS_NAME As String) As Boolean
         Dim space_bin_file As Ionic.Zip.ZipEntry = _
-            MAP_package("spaces/" & ABS_NAME & "/space.bin")
+            MAP_PACKAGE("spaces/" & ABS_NAME & "/space.bin")
         If space_bin_file IsNot Nothing Then
             ' This is all new code -------------------
             space_bin_file.Extract(TEMP_STORAGE, ExtractExistingFileAction.OverwriteSilently)
@@ -299,6 +303,12 @@ Module MapLoader
         GL.DeleteTextures(t_count, FIRST_UNUSED_TEXTURE)
         GL.Finish() ' make sure we are done before moving on
 
+        For i = 0 To MAP_MODELS.Length - 1
+            GL.DeleteBuffer(MAP_MODELS(i).mdl_VAO)
+            MAP_MODELS(i).flush()
+            ReDim MAP_MODELS(i).index_buffer16(0)
+            ReDim MAP_MODELS(i).index_buffer32(0)
+        Next
     End Sub
 
 
