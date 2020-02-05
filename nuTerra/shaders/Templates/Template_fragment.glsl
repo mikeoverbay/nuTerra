@@ -4,7 +4,8 @@
 layout (location = 0) out vec4 gColor;
 
 uniform sampler2D colorMap;
-varying  vec2 UV;
+
+in vec2 UV;
 in vec4 color;
 in vec3 n;
 

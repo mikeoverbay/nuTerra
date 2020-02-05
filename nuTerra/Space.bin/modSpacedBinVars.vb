@@ -37,7 +37,7 @@ Module modSpacedBinVars
         Public matrix() As Single
         Public good As Boolean
         Public offset As vect4
-        Public priority As Integer
+        Public priority As UInt32
         Public influence As Integer
         Public texture_matrix() As Single
         Public lbl As vect3
@@ -162,7 +162,7 @@ Module modSpacedBinVars
 
         't5
         Public Structure animation_tbl_
-            Public is_animation As Int32
+            Public is_animation As UInt32
             'If this is <> &hFFFFFFFF, its a skined animation model
         End Structure
 

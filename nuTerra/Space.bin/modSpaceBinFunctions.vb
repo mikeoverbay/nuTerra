@@ -341,6 +341,7 @@ skip_unknown1:
             Next
 
         Catch ex As Exception
+            Debug.Print(ex.ToString)
             Return False
         End Try
 
@@ -376,6 +377,7 @@ skip_unknown1:
             Next
 
         Catch ex As Exception
+            Debug.Print(ex.ToString)
             Return False
         End Try
 
@@ -534,7 +536,7 @@ skip_unknown1:
 
             Dim z = 0
         Catch ex As Exception
-
+            Debug.Print(ex.ToString)
         End Try
 
         Return True
@@ -648,6 +650,7 @@ skip_unknown1:
             Next
 
         Catch ex As Exception
+            Debug.Print(ex.ToString)
             Return False
         End Try
         Return True
@@ -687,6 +690,7 @@ skip_unknown1:
             Next
 
         Catch ex As Exception
+            Debug.Print(ex.ToString)
             Return False
         End Try
         Return True
@@ -901,6 +905,7 @@ ignore_this2:
             Next
 
         Catch ex As Exception
+            Debug.Print(ex.ToString)
             Return False
         End Try
         Return True

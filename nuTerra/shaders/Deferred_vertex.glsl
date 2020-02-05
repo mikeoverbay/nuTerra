@@ -11,7 +11,7 @@ out mat4 ModelMatrixInv;
 void main(void)
 {
 	UV = gl_MultiTexCoord0.xy;
-	gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;
+	gl_Position = ProjectionMatrix * ModelMatrix * gl_Vertex;
 	projMatrixInv = inverse(ProjectionMatrix);
 	ModelMatrixInv = inverse(ModelMatrix);
 }

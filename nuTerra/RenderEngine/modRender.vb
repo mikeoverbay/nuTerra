@@ -204,9 +204,6 @@ Module modRender
         'We can now switch to the default hardware buffer.
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
 
-        'ortho for the win
-        Ortho_main()
-
         'house keeping
         GL.Disable(EnableCap.Blend)
 
@@ -227,6 +224,10 @@ Module modRender
         GL.Uniform1(deferred_gNormal_id, 1)
         GL.Uniform1(deferred_gGMF_id, 2) ' ignore this for now
         GL.Uniform1(deferred_gDepth_id, 3) ' ignore this for now
+
+        'ortho for the win
+        Ortho_main()
+
         GL.UniformMatrix4(deferred_ModelMatrix, False, MODELVIEWMATRIX)
         GL.UniformMatrix4(deferred_ProjectionMatrix, False, PROJECTIONMATRIX)
 
@@ -246,8 +247,6 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
 
 
-
-
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
 
         unbind_textures(3) ' unbind all the used texture slots
@@ -261,17 +260,13 @@ Module modRender
         Dim position = PointF.Empty
         DrawText.clear(Color.FromArgb(0, 0, 0, 255))
 
-        Dim tr = total_triangles_drawn * LOOP_COUNT
 
         'save this.. we may want to use it for debug with a different source for the values.
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
-        Dim tri_count As String = "  Triangles drawn per frame :" + tr.ToString
-
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
-        Dim elapsed_str As String = "  Draw time in Milliseconds :" + elapsed.ToString
-
-        Dim fps As String = "FPS:" + FPS_TIME.ToString
-        DrawText.DrawString(fps + tri_count + elapsed_str, mono, Brushes.White, position)
+        Dim tr = total_triangles_drawn * LOOP_COUNT
+        Dim txt = String.Format("FPS: {0} | Triangles drawn per frame: {1} | Draw time in Milliseconds: {2}", FPS_TIME, tr, elapsed)
+        DrawText.DrawString(txt, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Texture2D)
         GL.Enable(EnableCap.AlphaTest)

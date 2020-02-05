@@ -25,7 +25,6 @@ Module modOpenGL
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
         VIEW_PORT(0) = frmMain.glControl_main.ClientSize.Width
         VIEW_PORT(1) = frmMain.glControl_main.ClientSize.Height
-
     End Sub
 
     Public Sub resize_glControl_MiniMap(ByVal square_size As Integer)
@@ -40,18 +39,24 @@ Module modOpenGL
 
     Public Sub Ortho_main()
         resize_glControl_main()
+        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
+        MODELVIEWMATRIX = Matrix4.Identity
+
+        'Set Legacy
         GL.MatrixMode(MatrixMode.Projection)
-        Dim orMatrix = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
-        GL.LoadMatrix(orMatrix)
+        GL.LoadMatrix(PROJECTIONMATRIX)
         GL.MatrixMode(MatrixMode.Modelview)
         GL.LoadIdentity()
     End Sub
+
     Public Sub Ortho_MiniMap(ByVal square_size As Integer)
         resize_glControl_MiniMap(square_size)
-        PROJECTIONMATRIX = Matrix4.Identity
+        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_MiniMap.Width, -frmMain.glControl_MiniMap.Height, 0.0F, -300.0F, 300.0F)
+        MODELVIEWMATRIX = Matrix4.Identity
+
+        'Set Legacy
         GL.MatrixMode(MatrixMode.Projection)
-        GL.LoadIdentity()
-        GL.Ortho(0.0F, frmMain.glControl_MiniMap.Width, -frmMain.glControl_MiniMap.Height, 0.0F, -300.0F, 300.0F)
+        GL.LoadMatrix(PROJECTIONMATRIX)
         GL.MatrixMode(MatrixMode.Modelview)
         GL.LoadIdentity()
     End Sub
