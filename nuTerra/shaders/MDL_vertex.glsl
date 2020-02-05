@@ -14,7 +14,6 @@ uniform mat4 modelViewProjection;
 
 out vec2 UV;
 out vec2 UV2;
-out vec3 worldNormal;
 out vec3 worldPosition;
 out mat3 TBN;
 
@@ -25,10 +24,11 @@ void main(void)
 
     // Transform position & normal to world space
     worldPosition = vec3(modelMatrix * vec4(vertexPosition, 1.0));
-    worldNormal = normalize(modelNormalMatrix * vertexNormal);
+
+    vec3 worldNormal =  modelNormalMatrix  * vertexNormal;
 
     // ?
-    TBN = mat3( normalize(vertexTangent), normalize(vertexBinormal), normalize(vertexNormal));
+    TBN = mat3( normalize(vertexTangent), normalize(vertexBinormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
     gl_Position = modelViewProjection * vec4(vertexPosition, 1.0);

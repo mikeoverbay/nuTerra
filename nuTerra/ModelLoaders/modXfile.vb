@@ -86,6 +86,8 @@ Module modXfile
         Dim indice_count As Int32 = 0
         indice_count = CInt(brk(0))
         ReDim indices(indice_count - 1)
+        ReDim mdl.index_buffer16(indice_count - 1)
+
         For i = 0 To indice_count - 1
             indices(i) = New _indice
             txt = s.ReadLine
@@ -94,6 +96,9 @@ Module modXfile
             indices(i).c = CUShort(brk(2)) ' flip winding
             indices(i).b = CUShort(brk(1))
             indices(i).a = CUShort(brk(0))
+            mdl.index_buffer16(i).x = indices(i).c
+            mdl.index_buffer16(i).y = indices(i).b
+            mdl.index_buffer16(i).z = indices(i).a
         Next
         ' get normals----------------------------------------
         s.Close()
@@ -145,11 +150,12 @@ Module modXfile
         Dim er = GL.GetError
 
         'Gen VAO id
+        ReDim mdl.mBuffers(2)
         GL.GenVertexArrays(1, mdl.mdl_VAO)
         GL.BindVertexArray(mdl.mdl_VAO)
+        GL.GenBuffers(2, mdl.mBuffers)
 
-        VBO = GL.GenBuffer ' vertex buffer
-        GL.BindBuffer(BufferTarget.ArrayBuffer, VBO)
+        GL.BindBuffer(BufferTarget.ArrayBuffer, mdl.mBuffers(1))
         GL.BufferData(BufferTarget.ArrayBuffer, (vbuff.Length) * 32, vbuff, BufferUsageHint.StaticDraw)
         GL.EnableVertexAttribArray(0)
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 32, 0)
@@ -158,12 +164,13 @@ Module modXfile
         GL.EnableVertexAttribArray(0)
         GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 32, 24)
 
-        IBO = GL.GenBuffer
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBO)
-        GL.BufferData(BufferTarget.ElementArrayBuffer, (indice_count) * 6, indices, BufferUsageHint.StaticDraw)
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, mdl.mBuffers(0))
+        GL.BufferData(BufferTarget.ElementArrayBuffer, (mdl.indice_count) * 6, mdl.index_buffer16, BufferUsageHint.StaticDraw)
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
         GL.BindVertexArray(0)
+
+        mdl.indice_count = indice_count
 
         Dim er1 = GL.GetError
 

@@ -93,7 +93,7 @@ Public Class frmMain
         glControl_main.MakeCurrent()
         '-----------------------------------------------------------------------------------------
 #If DEBUG Then
-        SetupDebugOutputCallback()
+        'SetupDebugOutputCallback()
 #End If
         '-----------------------------------------------------------------------------------------
         FBOm.FBO_Initialize()

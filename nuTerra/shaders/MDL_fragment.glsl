@@ -13,7 +13,6 @@ uniform int nMap_type;
 
 in vec2 UV;
 in vec2 UV2;
-in vec3 worldNormal;
 in vec3 worldPosition;
 in mat3 TBN;
 
