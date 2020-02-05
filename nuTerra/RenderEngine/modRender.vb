@@ -101,6 +101,9 @@ Module modRender
 
         Dim er1 = GL.GetError
 
+        Dim scale_ As Single = 5.0
+        Dim sMat = Matrix4.CreateScale(scale_)
+
         GL.BindVertexArray(mdl(0).mdl_VAO)
 
         For z = 0 To LOOP_COUNT  'set in modGlobalVars.vb
@@ -110,21 +113,23 @@ Module modRender
 
             Dim model = Matrix4.CreateTranslation(ox, oy, oz)
 
-            Dim scale_ As Single = 5.0
-            Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
-            Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
+            Dim modelMatrix = sMat * model * MODELVIEWMATRIX
+            GL.UniformMatrix4(MDL_modelMatrix, False, modelMatrix)
 
-            GL.UniformMatrix4(MDL_ModelMatrix, False, sMat * model * MODELVIEWMATRIX)
-            GL.UniformMatrix4(MDL_ProjectionMatrix_id, False, MVPM)
+            Dim modelNormalMatrix = New Matrix3(Matrix4.Transpose(Matrix4.Invert(modelMatrix)))
+            GL.UniformMatrix3(MDL_modelNormalMatrix, False, modelNormalMatrix)
+
+            Dim modelViewProjection = modelMatrix * PROJECTIONMATRIX
+            GL.UniformMatrix4(MDL_modelViewProjection, False, modelViewProjection)
 
             For i = 0 To mdl(0).primitive_count - 1
                 If mdl(0).USHORTS Then
-                    GL.DrawElements(PrimitiveType.Triangles, _
-                                    (mdl(0).entries(i).numIndices), _
+                    GL.DrawElements(PrimitiveType.Triangles,
+                                    (mdl(0).entries(i).numIndices),
                                     DrawElementsType.UnsignedShort, mdl(0).index_buffer16((mdl(0).entries(i).startIndex)))
                 Else
-                    GL.DrawElements(PrimitiveType.Triangles, _
-                                    (mdl(0).entries(i).numIndices), _
+                    GL.DrawElements(PrimitiveType.Triangles,
+                                    (mdl(0).entries(i).numIndices),
                                     DrawElementsType.UnsignedInt, mdl(0).index_buffer32((mdl(0).entries(i).startIndex)))
                 End If
 
@@ -132,7 +137,6 @@ Module modRender
 
             Dim er = GL.GetError
         Next
-        GL.BindVertexArray(mdl(0).mdl_VAO)
 
         GL.UseProgram(0)
         unbind_textures(2) ' unbind all the used texture slots
@@ -144,11 +148,12 @@ Module modRender
         '------------------------------------------------
         GL.UseProgram(shader_list.testList_shader) '<------------------------------- Shader Bind
         '------------------------------------------------
-        GL.Uniform1(MDL_textureMap_id, 0)
-        GL.Uniform1(MDL_normalMap_id, 1)
-        GL.Uniform1(MDL_GMF_id, 2)
+        GL.Uniform1(testList_textureMap_id, 0)
+        GL.Uniform1(testList_normalMap_id, 1)
+        GL.Uniform1(testList_GMF_id, 2)
 
-        GL.Uniform1(MDL_nMap_type, N_MAP_TYPE)
+        GL.Uniform1(testList_nMap_type, N_MAP_TYPE)
+        GL.Uniform1(testList_has_uv2, mdl(0).has_uv2)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
         GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<------------------------------- Texture Bind
@@ -159,6 +164,9 @@ Module modRender
 
         Dim er1 = GL.GetError
 
+        Dim scale_ As Single = 5.0
+        Dim sMat = Matrix4.CreateScale(scale_)
+
         For z = 1 To 150
             Dim ox = box_positions(z).x
             Dim oy = box_positions(z).y
@@ -166,19 +174,18 @@ Module modRender
 
             Dim model = Matrix4.CreateTranslation(ox, oy, oz)
 
-            Dim scale_ As Single = 5.0
-            Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
-            Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
+            Dim modelMatrix = sMat * model * MODELVIEWMATRIX
+            GL.UniformMatrix4(testList_modelMatrix, False, modelMatrix)
 
-            GL.UniformMatrix4(MDL_ModelMatrix, False, sMat * model * MODELVIEWMATRIX)
-            GL.UniformMatrix4(MDL_ProjectionMatrix_id, False, MVPM)
+            Dim modelNormalMatrix = New Matrix3(Matrix4.Transpose(Matrix4.Invert(modelMatrix)))
+            GL.UniformMatrix3(testList_modelNormalMatrix, False, modelNormalMatrix)
+
+            Dim modelViewProjection = modelMatrix * PROJECTIONMATRIX
+            GL.UniformMatrix4(testList_modelViewProjection, False, modelViewProjection)
 
             For i = 0 To mdl(0).primitive_count - 1
-
                 GL.CallList(mdl(0).entries(i).list_id)
             Next
-
-
 
             Dim er = GL.GetError
         Next
@@ -259,7 +266,7 @@ Module modRender
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
         Dim elapsed_str As String = "  Draw time in Milliseconds :" + elapsed.ToString
 
-        Dim fps As String = "FPS:" + FPS_TIME.ToString
+        Dim fps As String = FPS_TIME.ToString
         DrawText.DrawString("FPS:" + fps + tri_count + elapsed_str, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Texture2D)
@@ -276,6 +283,7 @@ Module modRender
         GL.TexCoord2(0.0F, 0.0F) : GL.Vertex2(0.0F, 0.0F)
 
         GL.End()
+        GL.Disable(EnableCap.AlphaTest)
         GL.Disable(EnableCap.Texture2D)
 
 
