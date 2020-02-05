@@ -3,7 +3,7 @@
 Module modSpacedBinVars
 #Region "Structures"
 
-    Public Model_Matrix_list() As model_matrix_list_
+    Public MODEL_MATRIX_LIST() As model_matrix_list_
     Public Structure model_matrix_list_
         Public primitive_name As String
         Public matrix() As Single
@@ -103,9 +103,9 @@ Module modSpacedBinVars
         Public Structure primitive_data_list_
             Public block_type As UInt32
             Public vertex_stride As UInt32
-            Public chuckDataBlockLength As UInt32
-            Public chuckDataBlockIndex As UInt32
-            Public chuckDataOffset As UInt32
+            Public chunkDataBlockLength As UInt32
+            Public chunkDataBlockIndex As UInt32
+            Public chunkDataOffset As UInt32
             Public data() As Byte
         End Structure
 
@@ -154,7 +154,7 @@ Module modSpacedBinVars
 
         't4
         Public Structure model_index_
-            Public BSMO_index As UInt32
+            Public BSMO_MODEL_INDEX As UInt32
             Public BSMO_extras As UInt32
             'If BSMO_extras = 1 It's an important model.
             'If 0 its an extra detailing model thats not really needed.
@@ -233,7 +233,7 @@ Module modSpacedBinVars
 #Region "BSMO"
     Public cBSMO As cBSMO_
     Public Structure cBSMO_
-        Public tbl_1() As tbl_1_
+        Public render_item_ranges() As tbl_1_
         Public tbl_2() As tbl_2_
         Public model_entries() As model_entries_ 'tbl_3
         Public material_kind() As material_kind_ 'tbl_4
@@ -265,8 +265,8 @@ Module modSpacedBinVars
             Public min_BB As vect3
             Public max_BB As vect3
             Public Model_String_key As UInt32
-            Public model_material_kind_begin As UInt32
-            Public model_material_kind_end As UInt32
+            Public model_material_kind_begin As Int32
+            Public model_material_kind_end As Int32
             Public model_name As String
         End Structure
 

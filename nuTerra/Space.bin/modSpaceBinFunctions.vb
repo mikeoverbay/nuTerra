@@ -112,11 +112,7 @@ Module modSpaceBinFunctions
         entry_cnt = br.ReadUInt32
 
         ReDim cBWSG.primitive_entries(entry_cnt - 1)
-
-        ReDim MAP_MODELS(entry_cnt - 1)
-
         For k = 0 To entry_cnt - 1
-            MAP_MODELS(k) = New base_model_holder_
             cBWSG.primitive_entries(k) = New cBWSG_.primitive_entries_
             cBWSG.primitive_entries(k).str_key1 = br.ReadUInt32
             cBWSG.primitive_entries(k).start_idx = br.ReadUInt32 ' points at primitive data list
@@ -125,14 +121,6 @@ Module modSpaceBinFunctions
             cBWSG.primitive_entries(k).str_key2 = br.ReadUInt32
             cBWSG.primitive_entries(k).model = find_str_BWSG(cBWSG.primitive_entries(k).str_key1)
             cBWSG.primitive_entries(k).vertex_type = find_str_BWSG(cBWSG.primitive_entries(k).str_key2)
-            MAP_MODELS(k).primitive_name = cBWSG.primitive_entries(k).model
-            MAP_MODELS(k).sb_vertex_count = cBWSG.primitive_entries(k).vertex_count
-            MAP_MODELS(k).sb_vertex_type = cBWSG.primitive_entries(k).vertex_type
-            MAP_MODELS(k).sb_start_index = cBWSG.primitive_entries(k).start_idx
-            MAP_MODELS(k).sb_end_index = cBWSG.primitive_entries(k).end_idx
-            'make space for the components
-            MAP_MODELS(k).sp_table_size = MAP_MODELS(k).sb_end_index - MAP_MODELS(k).sb_end_index
-            ReDim MAP_MODELS(k).entries(MAP_MODELS(k).sp_table_size)
         Next
 
         '----------------------------------------------------------------------
@@ -145,9 +133,9 @@ Module modSpaceBinFunctions
             cBWSG.primitive_data_list(k) = New cBWSG_.primitive_data_list_
             cBWSG.primitive_data_list(k).block_type = br.ReadUInt32
             cBWSG.primitive_data_list(k).vertex_stride = br.ReadUInt32
-            cBWSG.primitive_data_list(k).chuckDataBlockLength = br.ReadInt32
-            cBWSG.primitive_data_list(k).chuckDataBlockIndex = br.ReadUInt32
-            cBWSG.primitive_data_list(k).chuckDataOffset = br.ReadUInt32
+            cBWSG.primitive_data_list(k).chunkDataBlockLength = br.ReadInt32
+            cBWSG.primitive_data_list(k).chunkDataBlockIndex = br.ReadUInt32
+            cBWSG.primitive_data_list(k).chunkDataOffset = br.ReadUInt32
 
         Next
 
@@ -174,9 +162,9 @@ Module modSpaceBinFunctions
         Dim byt As Byte
         Dim running As Long = 0
         For i = 0 To cBWSG.primitive_data_list.Length - 1
-            Dim l = cBWSG.primitive_data_list(i).chuckDataBlockLength
-            Dim o = cBWSG.primitive_data_list(i).chuckDataOffset
-            Dim ind = cBWSG.primitive_data_list(i).chuckDataBlockIndex
+            Dim l = cBWSG.primitive_data_list(i).chunkDataBlockLength
+            Dim o = cBWSG.primitive_data_list(i).chunkDataOffset
+            Dim ind = cBWSG.primitive_data_list(i).chunkDataBlockIndex
             ReDim cBWSG.primitive_data_list(i).data(l - 1)
             running += l
             For k = 0 To l - 1
@@ -193,32 +181,6 @@ Module modSpaceBinFunctions
 
         Next
 
-        For i = 0 To MAP_MODELS.Length - 1
-            For j = MAP_MODELS(i).sb_start_index To MAP_MODELS(i).sb_end_index - 1
-                Dim v_type = cBWSG.primitive_data_list(j).block_type
-                Dim start_ = cBWSG.primitive_data_list(j).chuckDataOffset
-                Dim length_ = cBWSG.primitive_data_list(j).chuckDataBlockLength
-                Dim chunkIndx = cBWSG.primitive_data_list(j).chuckDataBlockIndex
-                Select Case True
-                    'v_types
-                    ' 0   = Vertex
-                    ' 10  = UV2
-                    ' 11 = color We ignore this.
-                    '
-                    Case v_type = 0 ' vertex data
-                        ReDim MAP_MODELS(i).sb_vertex_data(length_ - 1)
-                        For z = 0 To length_ - 1
-                            MAP_MODELS(i).sb_vertex_data(z) = cBWSG.cBWSG_VertexDataChunks(chunkIndx).data(z + start_)
-                        Next
-                    Case v_type = 10
-                        ReDim MAP_MODELS(i).sp_uv2_data(length_ - 1)
-                        For z = 0 To length_ - 1
-                            MAP_MODELS(i).sp_uv2_data(z) = cBWSG.cBWSG_VertexDataChunks(chunkIndx).data(z + start_)
-                        Next
-
-                End Select
-            Next
-        Next
         Return True
     End Function
 
@@ -264,7 +226,7 @@ Module modSpaceBinFunctions
             tl = br.ReadUInt32 ' number of entries in this table
             ReDim cBSMI.model_BSMO_indexes(tl - 1)
             For k = 0 To tl - 1
-                cBSMI.model_BSMO_indexes(k).BSMO_index = br.ReadUInt32
+                cBSMI.model_BSMO_indexes(k).BSMO_MODEL_INDEX = br.ReadUInt32
                 cBSMI.model_BSMO_indexes(k).BSMO_extras = br.ReadUInt32 'if this matches the model index, its a building on the map that can be destoryed/damaged.
             Next
             '--------------------------------------------------------------
@@ -274,7 +236,7 @@ Module modSpaceBinFunctions
             tl = br.ReadUInt32 ' number of entries in this table
             ReDim cBSMI.animation_tbl(tl - 1)
             For k = 0 To tl - 1
-                cBSMI.animation_tbl(k).is_animation = br.ReadUInt32
+                cBSMI.animation_tbl(k).is_animation = br.ReadInt32
             Next
             '--------------------------------------------------------------
 
@@ -393,10 +355,10 @@ skip_unknown1:
 
             Dim ds = br.ReadUInt32 'data size per entry in bytes
             Dim tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.tbl_1(tl - 1)
+            ReDim cBSMO.render_item_ranges(tl - 1)
             For k = 0 To tl - 1 'not sure these are even named right
-                cBSMO.tbl_1(k).lod_start = br.ReadUInt32
-                cBSMO.tbl_1(k).lod_end = br.ReadUInt32
+                cBSMO.render_item_ranges(k).lod_start = br.ReadUInt32
+                cBSMO.render_item_ranges(k).lod_end = br.ReadUInt32
             Next
             '--------------------------------------------------------
 
@@ -423,8 +385,8 @@ skip_unknown1:
                 cBSMO.model_entries(k).max_BB.z = br.ReadSingle
 
                 cBSMO.model_entries(k).Model_String_key = br.ReadUInt32
-                cBSMO.model_entries(k).model_material_kind_begin = br.ReadUInt32
-                cBSMO.model_entries(k).model_material_kind_end = br.ReadUInt32
+                cBSMO.model_entries(k).model_material_kind_begin = br.ReadInt32
+                cBSMO.model_entries(k).model_material_kind_end = br.ReadInt32
                 cBSMO.model_entries(k).model_name = find_str_BWST(cBSMO.model_entries(k).Model_String_key)
             Next
             '--------------------------------------------------------
@@ -538,7 +500,10 @@ skip_unknown1:
         Catch ex As Exception
             Debug.Print(ex.ToString)
         End Try
-
+        For i = 0 To MAP_MODELS.Length - 1
+            'MAP_MODELS(i).sp_render_set_begin = cBSMO.lodRenderItem(cBSMO.render_item_ranges(i).lod_start).render_set_begin
+            'MAP_MODELS(i).sp_render_set_end = cBSMO.lodRenderItem(cBSMO.render_item_ranges(i).lod_start).render_set_end
+        Next
         Return True
     End Function
 
@@ -832,7 +797,7 @@ read3_only:
                 cWGSD.decalEntries(k).gmmMapkey = br.ReadUInt32
                 cWGSD.decalEntries(k).extrakey = br.ReadUInt32
 
-                Dim priority = br.ReadUInt32
+                Dim priority = br.ReadInt32
 
                 cWGSD.decalEntries(k).flags = br.ReadUInt16
                 decal_matrix_list(k).flags = cWGSD.decalEntries(k).flags

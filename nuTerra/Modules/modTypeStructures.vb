@@ -133,6 +133,8 @@ Module modTypeStructures
 
         Public is_building As Boolean ' used with decals
 
+        '------------------------------------------------
+        'These are in the MODEL_MATRIX_LIST and wont be used here.
         Public BB() As vect3 'Used for frustrum culling
         Public culled As Boolean 'Draw if not true
         '------------------------------------------------
@@ -147,9 +149,13 @@ Module modTypeStructures
         Public sb_start_index As UInteger
         Public sb_end_index As UInteger
         Public sb_vertex_type As String
-        Public sp_vertex_stride As UInteger
-        Public sp_block_type As Integer
-        Public sp_table_size As Integer
+        Public sb_vertex_stride As UInteger
+        Public sb_block_type As Integer
+        Public sb_table_size As Integer
+        Public sb_render_set_begin As Integer
+        Public sb_render_set_end As Integer
+        Public sb_model_material_begin As Integer
+        Public sb_model_material_end As Integer
         ' storage
         Public sb_vertex_data() As Byte
         Public sp_indi_data() As Byte

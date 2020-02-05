@@ -276,7 +276,9 @@ Module MapLoader
             MAP_PACKAGE("spaces/" & ABS_NAME & "/space.bin")
         If space_bin_file IsNot Nothing Then
             ' This is all new code -------------------
-            space_bin_file.Extract(TEMP_STORAGE, ExtractExistingFileAction.OverwriteSilently)
+
+            'space_bin_file.Extract(TEMP_STORAGE, ExtractExistingFileAction.OverwriteSilently)
+
             If Not ReadSpaceBinData(space_bin_file.FileName) Then
                 space_bin_file = Nothing
                 MsgBox("Error decoding Space.bin", MsgBoxStyle.Exclamation, "File Error...")
