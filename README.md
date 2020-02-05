@@ -2,6 +2,11 @@
 
 ### This is the home of nuTerra where all the work will be done to rewrite Terra using New OpenGL techniques.
 
+#### Update log.. 2/5/2020
+All transforms take place in shaders now.</br>
+The base_model_holder_ structure is ready to be loaded from the space.bin data. I need to add code to extract the visual information and place it in each component of each model.</br>
+Code is looking better and more orginized thanks to Maxim and the work he has done. Also he fixed the AMD issue with the shaders.</br>
+
 #### Update log.. 2/4/2020
 Found the issue with the VAO. Buffer over run. I set the size of the buffers too small by one.</br>
 Fixed a bug in loading textures.</br>
