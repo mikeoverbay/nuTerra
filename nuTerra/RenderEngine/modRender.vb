@@ -78,7 +78,7 @@ Module modRender
         FBOm.attach_CNG()
 
 
-#If 1 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
+#If 0 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
         '===========================================================================
         '===========================================================================
         'draw the test MDL model using VAO
