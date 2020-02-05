@@ -112,10 +112,11 @@ Module ShaderLoader
     '----------------------------------------------------------------------------
 
     '----------------------------------------------------------------------------
-    Public MDL_textureMap_id, MDL_normalMap_id, MDL_GMF_id, MDL_ModelMatrix As Integer
-    Public MDL_ProjectionMatrix_id, MDL_nMap_type As Integer
-    Public MDL_attribute_names() = {"vertex_in", "normal_in", "uv1_in", "tangent_in", "Binormal_in", "uv2_in"}
-    Public MDL_attribute_locations(MDL_attribute_names.Length - 1)
+    Public MDL_textureMap_id, MDL_normalMap_id, MDL_GMF_id As Integer
+    Public MDL_modelMatrix, MDL_modelNormalMatrix, MDL_modelViewProjection As Integer
+    Public MDL_nMap_type As Integer
+    Public MDL_attribute_names() = {"vertexPosition", "vertexNormal", "vertexTexCoord1", "vertexTangent", "vertexBinormal", "vertexTexCoord2"}
+    Public MDL_attribute_locations(MDL_attribute_names.Length - 1) As Integer
     Private Sub set_MDL_varaibles()
         For i = 0 To MDL_attribute_names.Length - 1
             MDL_attribute_locations(i) = GL.GetAttribLocation(shader_list.MDL_shader, MDL_attribute_names(i))
@@ -123,28 +124,30 @@ Module ShaderLoader
         MDL_textureMap_id = GL.GetUniformLocation(shader_list.MDL_shader, "colorMap")
         MDL_normalMap_id = GL.GetUniformLocation(shader_list.MDL_shader, "normalMap")
         MDL_GMF_id = GL.GetUniformLocation(shader_list.MDL_shader, "GMF_Map")
-        MDL_ModelMatrix = GL.GetUniformLocation(shader_list.MDL_shader, "ModelMatrix")
-        MDL_ProjectionMatrix_id = GL.GetUniformLocation(shader_list.MDL_shader, "ProjectionMatrix")
+        MDL_ModelMatrix = GL.GetUniformLocation(shader_list.MDL_shader, "modelMatrix")
+        MDL_modelNormalMatrix = GL.GetUniformLocation(shader_list.MDL_shader, "modelNormalMatrix")
+        MDL_modelViewProjection = GL.GetUniformLocation(shader_list.MDL_shader, "modelViewProjection")
         MDL_nMap_type = GL.GetUniformLocation(shader_list.MDL_shader, "nMap_type")
-
     End Sub
     '----------------------------------------------------------------------------
 
-    Public testList_textureMap_id, testList_normalMap_id, testList_GMF_id, testList_ModelMatrix As Integer
-    Public testList_ProjectionMatrix_id, testList_nMap_type As Integer
-    Public testList_attribute_names() = {"vertex_in", "normal_in", "uv1_in", "tangent_in", "Binormal_in", "uv2_in"}
-    Public testList_attribute_locations(testList_attribute_names.Length - 1)
+    Public testList_textureMap_id, testList_normalMap_id, testList_GMF_id As Integer
+    Public testList_modelMatrix, testList_modelNormalMatrix, testList_modelViewProjection As Integer
+    Public testList_nMap_type, testList_has_uv2 As Integer
+    'Public testList_attribute_names() = {"vertex_in", "normal_in", "uv1_in", "tangent_in", "Binormal_in", "uv2_in"}
+    'Public testList_attribute_locations(testList_attribute_names.Length - 1)
     Private Sub set_testList_varaibles()
-        For i = 0 To testList_attribute_names.Length - 1
-            testList_attribute_locations(i) = GL.GetAttribLocation(shader_list.testList_shader, testList_attribute_names(i))
-        Next
+        'For i = 0 To testList_attribute_names.Length - 1
+        '    testList_attribute_locations(i) = GL.GetAttribLocation(shader_list.testList_shader, testList_attribute_names(i))
+        'Next
         testList_textureMap_id = GL.GetUniformLocation(shader_list.testList_shader, "colorMap")
         testList_normalMap_id = GL.GetUniformLocation(shader_list.testList_shader, "normalMap")
         testList_GMF_id = GL.GetUniformLocation(shader_list.testList_shader, "GMF_Map")
-        testList_ModelMatrix = GL.GetUniformLocation(shader_list.testList_shader, "ModelMatrix")
-        testList_ProjectionMatrix_id = GL.GetUniformLocation(shader_list.testList_shader, "ProjectionMatrix")
+        testList_modelMatrix = GL.GetUniformLocation(shader_list.testList_shader, "modelMatrix")
+        testList_modelNormalMatrix = GL.GetUniformLocation(shader_list.testList_shader, "modelNormalMatrix")
+        testList_modelViewProjection = GL.GetUniformLocation(shader_list.testList_shader, "modelViewProjection")
         testList_nMap_type = GL.GetUniformLocation(shader_list.testList_shader, "nMap_type")
-
+        testList_has_uv2 = GL.GetUniformLocation(shader_list.testList_shader, "has_uv2")
     End Sub
     '----------------------------------------------------------------------------
 
@@ -379,8 +382,13 @@ Public Function get_GL_error_string(ByVal e As ErrorCode) As String
         End If
         GL.AttachShader(shader, vertexObject)
 
-        'link program
+        ' link program
         GL.LinkProgram(shader)
+
+        GL.GetProgram(shader, GetProgramParameterName.LinkStatus, status_code)
+        If status_code = GL_FALSE Then
+            gl_error(name + " Would not link!" + vbCrLf + info.ToString)
+        End If
 
         ' detach shader objects
         GL.DetachShader(shader, fragmentObject)
@@ -396,21 +404,12 @@ Public Function get_GL_error_string(ByVal e As ErrorCode) As String
             MsgBox("Function: " + ms + vbCrLf + "Error! " + s, MsgBoxStyle.Exclamation, "OpenGL Issue")
         End If
 
-        'no idea how to get link status in OpenTK :(
-        GL.GetProgram(shader, GetProgramParameterName.LinkStatus, status_code)
-        If Not status_code = GL_TRUE Then
-            GL.DeleteShader(fragmentObject)
-            gl_error(name + " Would not link!" + vbCrLf + info.ToString)
-        End If
         'delete shader objects
         GL.DeleteShader(fragmentObject)
-        GL.GetShader(fragmentObject, ShaderParameter.CompileStatus, status_code)
         If has_geo Then
             GL.DeleteShader(geoObject)
-            GL.GetShader(geoObject, ShaderParameter.CompileStatus, status_code)
         End If
         GL.DeleteShader(vertexObject)
-        GL.GetShader(vertexObject, ShaderParameter.CompileStatus, status_code)
         e = GL.GetError
         If e <> 0 Then
             'aways throws a error after deletion even though the status shows them as deleted.. ????

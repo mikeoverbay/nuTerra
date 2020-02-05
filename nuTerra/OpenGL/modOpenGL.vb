@@ -37,35 +37,11 @@ Module modOpenGL
         GL.Viewport(0, 0, frmMain.glControl_utility.ClientSize.Width, frmMain.glControl_utility.ClientSize.Height)
     End Sub
 
-    Public Sub Main_prospectiveView()
-        resize_glControl_main()
-        PROJECTIONMATRIX = Matrix4.CreatePerspectiveFieldOfView( _
-                                   CSng(Math.PI) * (FieldOfView / 180.0F), _
-                                   frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height), _
-                                   0.5F, 5000.0F)
-
-        GL.MatrixMode(MatrixMode.Projection)
-        GL.LoadMatrix(PROJECTIONMATRIX)
-    End Sub
     Public Sub Ortho_main()
         resize_glControl_main()
-        'PROJECTIONMATRIX = Matrix4.Identity
         GL.MatrixMode(MatrixMode.Projection)
-        GL.LoadIdentity()
-        'GL.Ortho(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
         Dim orMatrix = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
         GL.LoadMatrix(orMatrix)
-        GL.MatrixMode(MatrixMode.Modelview)
-        GL.LoadIdentity()
-        'PROJECTIONMATRIX = MODELVIEWMATRIX * orMatrix
-
-    End Sub
-    Public Sub Ortho_utility()
-        resize_glControl_utility()
-        PROJECTIONMATRIX = Matrix4.Identity
-        GL.MatrixMode(MatrixMode.Projection)
-        GL.LoadIdentity()
-        GL.Ortho(0.0F, frmMain.glControl_utility.Width, -frmMain.glControl_utility.Height, 0.0F, -300.0F, 300.0F)
         GL.MatrixMode(MatrixMode.Modelview)
         GL.LoadIdentity()
     End Sub
@@ -78,7 +54,7 @@ Module modOpenGL
         cos_x = Cos(U_CAM_X_ANGLE)
         cos_y = Cos(U_CAM_Y_ANGLE)
         sin_y = Sin(U_CAM_Y_ANGLE)
-        cam_y = Sin(U_CAM_Y_ANGLE) * VIEW_RADIUS
+        cam_y = sin_y * VIEW_RADIUS
         cam_x = (sin_x - (1 - cos_y) * sin_x) * VIEW_RADIUS
         cam_z = (cos_x - (1 - cos_y) * cos_x) * VIEW_RADIUS
 
@@ -90,12 +66,12 @@ Module modOpenGL
         Dim position As Vector3 = New Vector3(CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
         Dim up As Vector3 = Vector3.UnitY
 
-        Main_prospectiveView()
+        PROJECTIONMATRIX = Matrix4.CreatePerspectiveFieldOfView(
+                                   CSng(Math.PI) * (FieldOfView / 180.0F),
+                                   frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
+                                   0.5F, 5000.0F)
 
         MODELVIEWMATRIX = Matrix4.LookAt(position, target, up)
-        GL.MatrixMode(MatrixMode.Modelview)
-        GL.LoadMatrix(MODELVIEWMATRIX)
-
     End Sub
 
     Public Sub set_light_pos()
@@ -114,7 +90,7 @@ Module modOpenGL
                                    messagePtr As IntPtr,
                                    userParam As IntPtr)
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
-        Debug.Print(message)
+        Debug.Print("OpenGL error #{0}: {1}", id, message)
     End Sub
 
     Public Sub SetupDebugOutputCallback()
