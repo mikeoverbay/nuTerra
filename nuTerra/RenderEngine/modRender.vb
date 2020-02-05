@@ -110,34 +110,31 @@ Module modRender
             Dim model = Matrix4.CreateTranslation(ox, oy, oz)
 
             Dim scale_ As Single = 5.0
-            Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
-            Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
-            GL.UniformMatrix4(MDL_modelMatrix_id, False, sMat * model * MODELVIEWMATRIX)
-            GL.UniformMatrix4(MDL_modelViewProjection_id, False, MVPM)
+            Dim sMat = Matrix4.CreateScale(scale_)
 
             ' need an inverse of the modelmatrix
             Dim MVM = sMat * model * MODELVIEWMATRIX
             Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
 
-            GL.UniformMatrix3(MDL_modelNormalMatrix_id, True, normalMatrix)
+            Dim MVPM = MVM * PROJECTIONMATRIX
 
+            GL.UniformMatrix4(MDL_modelMatrix_id, False, MVM)
+            GL.UniformMatrix3(MDL_modelNormalMatrix_id, True, normalMatrix)
+            GL.UniformMatrix4(MDL_modelViewProjection_id, False, MVPM)
 
             For i = 0 To mdl(0).primitive_count - 1
                 If mdl(0).USHORTS Then
-                    GL.DrawElements(PrimitiveType.Triangles, _
-                                    (mdl(0).entries(i).numIndices), _
+                    GL.DrawElements(PrimitiveType.Triangles,
+                                    (mdl(0).entries(i).numIndices),
                                     DrawElementsType.UnsignedShort, mdl(0).index_buffer16((mdl(0).entries(i).startIndex)))
                 Else
-                    GL.DrawElements(PrimitiveType.Triangles, _
-                                    (mdl(0).entries(i).numIndices), _
+                    GL.DrawElements(PrimitiveType.Triangles,
+                                    (mdl(0).entries(i).numIndices),
                                     DrawElementsType.UnsignedInt, mdl(0).index_buffer32((mdl(0).entries(i).startIndex)))
                 End If
-
             Next
-
-            Dim er = GL.GetError
         Next
-        GL.BindVertexArray(mdl(0).mdl_VAO)
+        GL.BindVertexArray(0)
 
         GL.UseProgram(0)
         unbind_textures(2) ' unbind all the used texture slots
@@ -287,9 +284,9 @@ Module modRender
         GL.TexCoord2(0.0F, 0.0F) : GL.Vertex2(0.0F, 0.0F)
 
         GL.End()
+
+        GL.Disable(EnableCap.AlphaTest)
         GL.Disable(EnableCap.Texture2D)
-
-
 
         frmMain.glControl_main.SwapBuffers()
         FPS_COUNTER += 1
@@ -346,7 +343,7 @@ Module modRender
         Next
     End Sub
 
-    Private Sub draw_main_Quad(ByRef w As Integer, ByRef h As Integer)
+    Private Sub draw_main_Quad(w As Integer, h As Integer)
         GL.Begin(PrimitiveType.Quads)
         '  CCW...
         '  1 ------ 4
@@ -366,15 +363,14 @@ Module modRender
         GL.TexCoord2(1.0F, 1.0F)
         GL.Vertex2(w, 0.0F)
         GL.End()
-
     End Sub
+
     Private Sub draw_one_damn_moon(ByVal location As vec3)
-        '
         'repeat drawing the elements now that the states are set..
         Dim model = Matrix4.CreateTranslation(location.x, location.y, location.z)
 
         Dim scale_ As Single = 60.0
-        Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
+        Dim sMat = Matrix4.CreateScale(scale_)
 
         Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
@@ -387,10 +383,9 @@ Module modRender
         GL.BindVertexArray(MOON.mdl_VAO)
 
         GL.DrawElements(PrimitiveType.Triangles, (MOON.indice_count * 3), DrawElementsType.UnsignedShort, MOON.index_buffer16)
-        GL.UseProgram(0)
 
         GL.BindVertexArray(0)
-
+        GL.UseProgram(0)
     End Sub
     Private Sub draw_cross_hair()
         Dim scale_ As Single = 60.0
