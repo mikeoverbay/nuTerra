@@ -32,17 +32,30 @@ Module modUtilities
                   filename = fname_.Field(Of String)("filename"), _
                   mat = mat.Field(Of String)("matName_Text")
 
-        dest_buildings.filename = New List(Of String)
-        dest_buildings.matName = New List(Of String)
+        DESTRUCTABLE_DATA_TABLE = New DataTable("destructibles")
+        DESTRUCTABLE_DATA_TABLE.Columns.Add("filename", System.Type.GetType("System.String"))
+        DESTRUCTABLE_DATA_TABLE.Columns.Add("mat_name", System.Type.GetType("System.String"))
+
         For Each it In q
             If it.mat IsNot Nothing Then
-
-                If InStr(it.filename, "bld_Construc") = 0 Then
-                    dest_buildings.filename.Add(it.filename.Replace("model", "visual").ToLower)
-                    dest_buildings.matName.Add(it.mat.ToLower)
-                End If
+                Dim row = DESTRUCTABLE_DATA_TABLE.NewRow
+                row(0) = it.filename.Replace("model", "visual").ToLower
+                row(1) = it.mat.Replace("model", "visual").ToLower
+                DESTRUCTABLE_DATA_TABLE.Rows.Add(row)
             End If
         Next
         '---------------------------------------
     End Sub
+
+    Public Function can_this_be_broken(ByVal s As String) As Boolean
+
+        Dim q = From d In DESTRUCTABLE_DATA_TABLE.AsEnumerable
+                Where d.Field(Of String)("filename") = s
+                Select dname = d.Field(Of String)("mat_name")
+
+        If q.Count > 0 Then
+            Return False 'we do not want to ignore this one.
+        End If
+        Return True ' not on list so probably dont want to draw it?
+    End Function
 End Module

@@ -19,7 +19,10 @@ Module MapLoader
     Public MAP_package As ZipFile
     Public MAP_package_HD As ZipFile
 
-    Public DATA_TABLE As New DataTable("items")
+    'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
+    Public PKG_DATA_TABLE As New DataTable("items")
+
+    Public DESTRUCTABLE_DATA_TABLE As DataTable
     Public skyDomeName As String = ""
 
     Dim contents As New List(Of String)
@@ -39,10 +42,10 @@ Module MapLoader
 #Region "utility functions"
 
     Public Sub load_lookup_xml()
-        DATA_TABLE.Clear()
-        DATA_TABLE.Columns.Add("filename", GetType(String))
-        DATA_TABLE.Columns.Add("package", GetType(String))
-        DATA_TABLE.ReadXml(Application.StartupPath + "\data\TheItemList.xml")
+        PKG_DATA_TABLE.Clear()
+        PKG_DATA_TABLE.Columns.Add("filename", GetType(String))
+        PKG_DATA_TABLE.Columns.Add("package", GetType(String))
+        PKG_DATA_TABLE.ReadXml(Application.StartupPath + "\data\TheItemList.xml")
     End Sub
     Public Function search_pkgs(ByVal filename As String) As ZipEntry
         Dim entry As ZipEntry = Nothing
@@ -99,11 +102,11 @@ Module MapLoader
     End Function
 
     Public Function search_xml(ByVal filename) As String
-        'Searches the DATA_TABLE xml item to get the package its located in.
+        'Searches the PKG_DATA_TABLE xml item to get the package its located in.
         If filename.Length = 0 Then
             Return ""
         End If
-        Dim q = From d In DATA_TABLE.AsEnumerable _
+        Dim q = From d In PKG_DATA_TABLE.AsEnumerable _
                 Where d.Field(Of String)("filename").ToLower.Contains(filename.ToLower) _
                 Select _
                 pkg = d.Field(Of String)("package"), _
@@ -207,6 +210,7 @@ Module MapLoader
         '------------------------------------------------------------------------------------------------
         'we need to load the packages. This also opens the Map pkg we selected.
         open_packages()
+
         '
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------

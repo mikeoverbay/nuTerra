@@ -65,13 +65,8 @@
             Return True
         End If
         fn = fn.Replace("_processed", "")
-        If dest_buildings.filename.Contains(fn) Then
-            Dim indx = dest_buildings.filename.IndexOf(fn)
-            If material.ToLower.Contains(dest_buildings.matName(indx)) Then
-                Return False
-            End If
-            Return True
-        End If
+
+        Return can_this_be_broken(material)
 
         Return False
     End Function

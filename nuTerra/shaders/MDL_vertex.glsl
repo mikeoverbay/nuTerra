@@ -19,17 +19,18 @@ out mat3 TBN;
 
 void main(void)
 {
-    UV = vertexTexCoord1;
+    UV =  vertexTexCoord1;
     UV2 = vertexTexCoord2;
 
     // Transform position & normal to world space
     worldPosition = vec3(modelMatrix * vec4(vertexPosition, 1.0));
 
-    vec3 worldNormal =  modelNormalMatrix  * vertexNormal;
+	// Tangent, biNormal and Normal must be trasformed by the normal Matrix.
 	vec3 worldTangent = modelNormalMatrix  * vertexTangent;
 	vec3 worldbiNormal = modelNormalMatrix  * vertexBinormal;
+    vec3 worldNormal =  modelNormalMatrix  * vertexNormal;
 
-    // ?
+    // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
     TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates

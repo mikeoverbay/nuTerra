@@ -116,15 +116,14 @@ Module modTypeStructures
         Public alphaTestEnable As Integer
     End Structure
 
-    Public dest_buildings As destructibles
     Public Structure destructibles
         Public filename As List(Of String)
         Public matName As List(Of String)
     End Structure
 
     Public Structure base_model_holder_
-        Public element_count As Integer
 
+        '------------------------------------------------
         'VAO and render flags
         Public has_uv2 As Integer
         Public has_tangent As Integer
@@ -134,15 +133,19 @@ Module modTypeStructures
 
         Public BB() As vect3 'Used for frustrum culling
         Public culled As Boolean 'Draw if not true
+        '------------------------------------------------
 
         'used to create VBO
-        Public indice_count As Int32
+        Public element_count As Integer ' how many buffers will be created
+
+        Public indice_count As Integer
         Public indice_size As Integer
 
-        Public mdl_VAO As Integer
         'buffer Ids
+        Public mdl_VAO As Integer
         Public mBuffers() As Integer
 
+        '------------------------------------------------
         'Storage
         Public Vertex_buffer() As vect3
         Public Normal_buffer() As vect3
@@ -154,7 +157,8 @@ Module modTypeStructures
         Public index_buffer16() As vect3_16
         Public index_buffer32() As vect3_32
 
-        'list of indic sizes and offsets
+        'list of indice sizes, offsets,
+        'texture IDs.. render settings... so on
         Public entries() As entries_
 
         'number if model components.
@@ -204,21 +208,41 @@ Module modTypeStructures
         '5 = atlas glass
         '------------------------------------
         'texture ids
-        Public AM As Integer
-        Public ANM As Integer
-        Public GMM As Integer
-        Public atlas_BLEND As Integer
-        Public atlas_MAO As Integer
-        Public atlas_GBMT As Integer
-        Public atlas_AM As Integer
-        Public dirtmap As Integer
+        Public diffuseMap As Integer
+        Public diffuseMap2 As Integer
+        Public normalMap As Integer
+        Public metallicGlossMap As Integer
+        Public atlasBlend As Integer
+        Public atlasMetallicAO As Integer
+        Public atlasNormalGlossSpec As Integer
+        Public atlasAlbedoHeight As Integer
+        Public dirtMap As Integer
         '------------------------------------
         'values
         Public alphaReference As Integer
+        Public g_tintColor As vect4
+        Public g_tile0Tint As vect4
+        Public g_tile1Tint As vect4
+        Public g_tile2Tint As vect4
+        Public g_dirtParams As vect4
+        Public g_dirtColor As vect4
+        Public g_atlasSizes As vect4
+        Public g_atlasIndexes As vect4
+        Public g_vertexColorMode As Integer
+        Public g_vertexAnimationParams As vect4
+        Public g_fakeShadowsParams As vect4 '<-- interesting
+        '- render params
+        Public FX_shader As String
+        Public identifier As String
+        Public groupID As Integer
         '------------------------------------
         'booleans
         Public doubleSided As Integer
         Public alphaEnable As Integer
+        Public TexAddressMode As Integer
+        Public dynamicobject As Integer
+        Public g_enableAO As Integer
+        Public g_useNormalPackDXT1 As Integer ' If this is true, this uses the old RGB normal maps;
         '------------------------------------
 
     End Structure
