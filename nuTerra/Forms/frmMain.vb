@@ -153,10 +153,15 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         _STARTED = True ' I'm ready for update loops!
         '-----------------------------------------------------------------------------------------
-        launch_update_thread()
         '-----------------------------------------------------------------------------------------
         'This is temporary to speed up debugging
         load_map("19_monastery.pkg")
+        '-----------------------------------------------------------------------------------------
+        '-----------------------------------------------------------------------------------------
+        '-----------------------------------------------------------------------------------------
+        launch_update_thread()
+        '-----------------------------------------------------------------------------------------
+
     End Sub
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
@@ -306,7 +311,7 @@ try_again:
                 LIGHT_ORBIT_ANGLE += LIGHT_SPEED
                 If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
                 LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                'LIGHT_POS(1) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                LIGHT_POS(1) = 300.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
                 LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
             End If
             If gametimer.ElapsedMilliseconds > 1000 Then

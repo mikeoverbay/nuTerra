@@ -1,4 +1,5 @@
 ﻿Imports System.Math
+Imports OpenTK
 Module modMatrix
     Public Function rotate_only(ByVal v As vect3, ByVal m() As Single) As vect3
         Dim vo As vect3
@@ -7,15 +8,16 @@ Module modMatrix
         vo.z = (m(2) * v.x) + (m(6) * v.y) + (m(10) * v.z)
         Return vo
     End Function
-    Public Function translate_to(ByVal v As vect3, ByVal m() As Single) As vect3
+    Public Function translate_to(ByVal v As vect3, ByVal m As matrix4) As vect3
         Dim vo As vect3
-        vo.x = (m(0) * v.x) + (m(4) * v.y) + (m(8) * v.z)
-        vo.y = (m(1) * v.x) + (m(5) * v.y) + (m(9) * v.z)
-        vo.z = (m(2) * v.x) + (m(6) * v.y) + (m(10) * v.z)
 
-        vo.x += m(12)
-        vo.y += m(13)
-        vo.z += m(14)
+        vo.x = (m.M11 * v.x) + (m.M21 * v.y) + (m.M31 * v.z)
+        vo.y = (m.M12 * v.x) + (m.M22 * v.y) + (m.M32 * v.z)
+        vo.z = (m.M13 * v.x) + (m.M23 * v.y) + (m.M33 * v.z)
+
+        vo.x += m.M14
+        vo.y += m.M24
+        vo.z += m.M34
         Return vo
     End Function
     Public Function translate_only(ByVal v As vect3, ByVal m() As Single) As vect3

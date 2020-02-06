@@ -42,7 +42,7 @@ Module FBO_main
 
         Public Shared Sub FBO_Initialize()
             SYNCMUTEX.WaitOne()
-
+            frmMain.glControl_main.MakeCurrent()
             ' Stop changing the size becuase of excessive window resize calls.
             get_glControl_main_size(SCR_WIDTH, SCR_HEIGHT)
 

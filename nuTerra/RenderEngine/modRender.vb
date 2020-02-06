@@ -78,7 +78,7 @@ Module modRender
         FBOm.attach_CNG()
 
 
-#If 1 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
+#If 0 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
         '===========================================================================
         'draw the test MDL model using VAO =========================================
         '===========================================================================
@@ -98,43 +98,46 @@ Module modRender
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
+
         Dim er1 = GL.GetError
 
-        GL.BindVertexArray(mdl(0).mdl_VAO)
+        For z = 0 To MODEL_MATRIX_LIST.Length - 2
 
-        For z = 0 To LOOP_COUNT  'set in modGlobalVars.vb
-            Dim ox = box_positions(z).x
-            Dim oy = box_positions(z).y
-            Dim oz = box_positions(z).z
 
-            Dim model = Matrix4.CreateTranslation(ox, oy, oz)
+            Dim idx = MODEL_MATRIX_LIST(z).model_index
+            If MAP_MODELS(idx).mdl(0).primitive_name IsNot Nothing Then
 
-            Dim scale_ As Single = 5.0
-            Dim sMat = Matrix4.CreateScale(scale_)
 
-            ' need an inverse of the modelmatrix
-            Dim MVM = sMat * model * MODELVIEWMATRIX
-            Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
+                Dim model = MODEL_MATRIX_LIST(z).matrix
+                'model = Matrix4.Identity
 
-            Dim MVPM = MVM * PROJECTIONMATRIX
+                Dim MVPM = model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
-            GL.UniformMatrix4(MDL_modelMatrix_id, False, MVM)
-            GL.UniformMatrix3(MDL_modelNormalMatrix_id, True, normalMatrix)
-            GL.UniformMatrix4(MDL_modelViewProjection_id, False, MVPM)
+                GL.UniformMatrix4(testList_modelMatrix_id, False, model * MODELVIEWMATRIX)
+                GL.UniformMatrix4(testList_modelViewProjection_id, False, MVPM)
 
-            For i = 0 To mdl(0).primitive_count - 1
-                If mdl(0).USHORTS Then
-                    GL.DrawElements(PrimitiveType.Triangles,
-                                    (mdl(0).entries(i).numIndices),
-                                    DrawElementsType.UnsignedShort, mdl(0).index_buffer16((mdl(0).entries(i).startIndex)))
-                Else
-                    GL.DrawElements(PrimitiveType.Triangles,
-                                    (mdl(0).entries(i).numIndices),
-                                    DrawElementsType.UnsignedInt, mdl(0).index_buffer32((mdl(0).entries(i).startIndex)))
-                End If
-            Next
+                ' need an inverse of the modelmatrix
+                Dim MVM = model * MODELVIEWMATRIX
+                Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
+                GL.UniformMatrix3(testList_modelNormalMatrix_id, True, normalMatrix)
+
+                GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO) ' <--- 2 hours to figure out this was out side the loop and using the same VAO!!
+
+                For i = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
+                    If MAP_MODELS(idx).mdl(0).USHORTS Then
+                        GL.DrawElements(PrimitiveType.Triangles,
+                                        (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
+                                        DrawElementsType.UnsignedShort, MAP_MODELS(idx).mdl(0).index_buffer16((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
+                    Else
+                        GL.DrawElements(PrimitiveType.Triangles,
+                                        (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
+                                        DrawElementsType.UnsignedInt, MAP_MODELS(idx).mdl(0).index_buffer32((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
+                    End If
+                Next
+                GL.BindVertexArray(0)
+            End If
+
         Next
-        GL.BindVertexArray(0)
 
         GL.UseProgram(0)
         unbind_textures(2) ' unbind all the used texture slots
@@ -161,33 +164,31 @@ Module modRender
 
         Dim er1 = GL.GetError
 
-        For z = 1 To LOOP_COUNT
-            Dim ox = box_positions(z).x
-            Dim oy = box_positions(z).y
-            Dim oz = box_positions(z).z
+        For z = 0 To MODEL_MATRIX_LIST.Length - 2
+            Dim idx = MODEL_MATRIX_LIST(z).model_index
+            If MAP_MODELS(idx).mdl(0).primitive_name IsNot Nothing Then
 
-            Dim model = Matrix4.CreateTranslation(ox, oy, oz)
+                Dim model = MODEL_MATRIX_LIST(z).matrix
+                'model = Matrix4.Identity
 
-            Dim scale_ As Single = 5.0
-            Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
-            Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
+                Dim MVPM = model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
-            GL.UniformMatrix4(testList_modelMatrix_id, False, sMat * model * MODELVIEWMATRIX)
-            GL.UniformMatrix4(testList_modelViewProjection_id, False, MVPM)
+                GL.UniformMatrix4(testList_modelMatrix_id, False, model * MODELVIEWMATRIX)
+                GL.UniformMatrix4(testList_modelViewProjection_id, False, MVPM)
 
-            ' need an inverse of the modelmatrix
-            Dim MVM = sMat * model * MODELVIEWMATRIX
-            Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
-            GL.UniformMatrix3(testList_modelNormalMatrix_id, True, normalMatrix)
+                ' need an inverse of the modelmatrix
+                Dim MVM = model * MODELVIEWMATRIX
+                Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
+                GL.UniformMatrix3(testList_modelNormalMatrix_id, True, normalMatrix)
 
 
-            For i = 0 To mdl(0).primitive_count - 1
-
-                GL.CallList(mdl(0).entries(i).list_id)
-            Next
+                For j = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
+                    GL.CallList(MAP_MODELS(idx).mdl(0).entries(j).list_id)
+                Next
 
 
 
+            End If
             Dim er = GL.GetError
         Next
 
@@ -328,7 +329,7 @@ Module modRender
         Next
         frmMain.glControl_MiniMap.SwapBuffers()
 #Else
-        frmMain.glControl_utility.Visible = False
+        frmMain.glControl_MiniMap.Visible = False
 #End If
     End Sub
 
@@ -371,14 +372,14 @@ Module modRender
         'repeat drawing the elements now that the states are set..
         Dim model = Matrix4.CreateTranslation(location.x, location.y, location.z)
 
-        Dim scale_ As Single = 60.0
+        Dim scale_ As Single = 30.0
         Dim sMat = Matrix4.CreateScale(scale_)
 
         Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
         GL.UseProgram(shader_list.colorOnly_shader)
 
-        GL.Uniform3(colorOnly_color_id, 1.0F, 0.0F, 0.0F)
+        GL.Uniform3(colorOnly_color_id, 1.0F, 1.0F, 0.0F)
 
         GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
 

@@ -1,12 +1,13 @@
 ﻿Imports System.Text
-
+Imports OpenTK
 Module modSpacedBinVars
 #Region "Structures"
 
     Public MODEL_MATRIX_LIST() As model_matrix_list_
     Public Structure model_matrix_list_
         Public primitive_name As String
-        Public matrix() As Single
+        Public model_index As Integer
+        Public matrix As Matrix4
         Public mask As Boolean
         Public BB_Min As vect3
         Public BB_Max As vect3
@@ -37,7 +38,7 @@ Module modSpacedBinVars
         Public matrix() As Single
         Public good As Boolean
         Public offset As vect4
-        Public priority As UInt32
+        Public priority As Int32
         Public influence As Integer
         Public texture_matrix() As Single
         Public lbl As vect3
@@ -131,7 +132,7 @@ Module modSpacedBinVars
     Public cBSMI As cBSMI_
 
     Public Structure cBSMI_
-        Public matrix_list() As matrix_
+        Public matrix_list() As matrix4
         Public tbl_2() As tbl_2_
         Public vis_mask() As vis_mask_
         Public model_BSMO_indexes() As model_index_
@@ -162,7 +163,7 @@ Module modSpacedBinVars
 
         't5
         Public Structure animation_tbl_
-            Public is_animation As UInt32
+            Public is_animation As Int32
             'If this is <> &hFFFFFFFF, its a skined animation model
         End Structure
 
@@ -337,11 +338,12 @@ Module modSpacedBinVars
         Public ShaderPropertyVectorItem() As ShaderPropertyVectorItem_
 
         Public Structure MaterialItem_
-            Public effectIndex As UInt32
+            Public effectIndex As Int32
             Public shaderPropBegin As UInt32
             Public shaderPropEnd As UInt32
             Public BWST_str_key As UInt32
             Public identifier As String
+            Public FX_string As String
         End Structure
 
         Public Structure FXStringKey_

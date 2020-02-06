@@ -37,10 +37,12 @@ Module MapLoader
 
     '-----------------------------------
     'This stores all models used on a map
-    Public MAP_MODELS(1) As base_model_holder_
-
+    Public MAP_MODELS(1) As mdl_
+    Public Structure mdl_
+        Public mdl() As base_model_holder_
+    End Structure
     ' Just for loading a model to test.
-    Public mdl(0) As base_model_holder_
+    Public mdl() As base_model_holder_
 
 
 #Region "utility functions"
@@ -94,7 +96,8 @@ Module MapLoader
         'We still have not found it so lets search the XML datatable.
         Dim pn = search_xml(filename)
         If pn = "" Then
-            Stop ' didnt find it
+            'Stop ' didnt find it
+            Return Nothing
         End If
         Using zip As ZipFile = ZipFile.Read(GAME_PATH + pn)
             entry = zip(filename)
@@ -223,10 +226,12 @@ Module MapLoader
         '------------------------------------------------------------------------------------------------
         N_MAP_TYPE = 1 ' has to be set for the ANM Green alpha normal maps.
         '---------------------------------------------------------
+        ReDim mdl(1)
+        mdl(0) = New base_model_holder_
         m_color_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_AM.dds")
         m_normal_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_ANM.dds")
         m_gmm_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_GMM.dds")
-        get_primitive("content/Buildings/bld_19_04_Ampitheratre/normal/lod0/bld_19_04_Ampitheratre.model", mdl)
+        'get_primitive("content/Buildings/bld_19_04_Ampitheratre/normal/lod0/bld_19_04_Ampitheratre.model", mdl)
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------
@@ -252,7 +257,20 @@ Module MapLoader
             Return
         End If
         '------------------------------------------------------------------------------------------------
+        For i = 0 To MAP_MODELS.Length - 1
+            If MAP_MODELS(i).mdl(0).primitive_name IsNot Nothing Then
+
+                Dim good = get_primitive(MAP_MODELS(i).mdl(0).primitive_name.Replace("primitives", "model"), MAP_MODELS(i).mdl)
+            End If
+
+        Next
         'Get a list of all items in the MAP_package
+        '=======================================================
+        'Stop Here for now =====================================
+        '=======================================================
+        Return
+
+
         Dim cnt As Integer = 0
         For Each e As ZipEntry In MAP_PACKAGE
             contents.Add(e.FileName)
@@ -304,13 +322,21 @@ Module MapLoader
         Dim t_count = FIRST_UNUSED_TEXTURE - LAST_TEXTURE
         GL.DeleteTextures(t_count, FIRST_UNUSED_TEXTURE)
         GL.Finish() ' make sure we are done before moving on
+        Try
 
-        For i = 0 To MAP_MODELS.Length - 1
-            GL.DeleteBuffer(MAP_MODELS(i).mdl_VAO)
-            MAP_MODELS(i).flush()
-            ReDim MAP_MODELS(i).index_buffer16(0)
-            ReDim MAP_MODELS(i).index_buffer32(0)
-        Next
+
+            For i = 0 To MAP_MODELS.Length - 1
+                If MAP_MODELS(i).mdl IsNot Nothing Then
+                    GL.DeleteBuffer(MAP_MODELS(i).mdl(0).mdl_VAO)
+                    MAP_MODELS(i).mdl(0).flush()
+                    ReDim MAP_MODELS(i).mdl(0).index_buffer16(0)
+                    ReDim MAP_MODELS(i).mdl(0).index_buffer32(0)
+
+                End If
+            Next
+        Catch ex As Exception
+
+        End Try
     End Sub
 
 

@@ -29,7 +29,8 @@ Module PrimitiveLoader
         Public nVertice_count As UInt32
     End Structure
 
-    Public Function get_primitive(ByRef filename As String, ByRef mdl() As base_model_holder_) As String
+    Public fup_counter As Integer = 0
+    Public Function get_primitive(ByRef filename As String, ByRef mdl() As base_model_holder_) As Boolean
         'Loads a model from the pcakages. It will attempt to locate it in all packages.
 
         filename = filename.Replace("\", "/") ' fix any path issues
@@ -39,7 +40,7 @@ Module PrimitiveLoader
         'search everywhere!
         Dim entry As Ionic.Zip.ZipEntry = search_pkgs(filename)
         If entry Is Nothing Then
-            MsgBox("Can't find " + filename, MsgBoxStyle.Exclamation, "shit!")
+            'MsgBox("Can't find " + filename, MsgBoxStyle.Exclamation, "shit!")
             Return False
         End If
 
@@ -57,7 +58,9 @@ Module PrimitiveLoader
             openXml_stream(ms, Path.GetFileNameWithoutExtension(nodeFullName))
             ms.Dispose()
             filename = nodeFullName.Replace(".visual_processed", ".primitives_processed")
-            Dim success = load_primitive(filename, mdl)
+
+            Dim success = load_primitive(filename, mdl) '<-------- Load Model
+
             Return True
         End If
 
@@ -124,6 +127,7 @@ Module PrimitiveLoader
 
         'point at start of table
         ms.Position = ms.Length - 4 - table_start
+
         Dim dummy As UInt32
         For i = 0 To 99
             If ms.Position < ms.Length - 4 Then
@@ -173,8 +177,9 @@ Module PrimitiveLoader
 
         Next 'keep reading until we run out of file to read
 
-        ReDim mdl(sub_groups - 1) ' <---------------------------------------
-
+        If sub_groups > 1 Then
+            Stop
+        End If
 
         Dim got_subs As Boolean = False
         Dim gp_pointer As Integer
@@ -195,7 +200,7 @@ Module PrimitiveLoader
         While sub_groups > 0
 
             cur_sub = gp_pointer - sub_groups
-            mdl(cur_sub) = New base_model_holder_
+            'mdl(cur_sub) = New base_model_holder_
             mdl(cur_sub).has_uv2 = 0
 
             Dim uv2_data(0) As Byte
@@ -206,6 +211,9 @@ Module PrimitiveLoader
             sub_groups -= 1 ' take one off.. if there is one, this results in zero and collects only one model set
 
             Dim indi_scale As UInt32
+
+            'If fup_counter = 14 Then Stop '<--------------------------------- break on
+
             'We have to loop and look at each entry because they are not always in the same order.
             For i = 0 To section.Length - 1
                 If InStr(section(i).name, "indices") > 0 Then
@@ -238,7 +246,9 @@ Module PrimitiveLoader
                         ih.nInd_groups = br.ReadUInt32
                         '-------------------------------------
                         ReDim pGroups(ih.nInd_groups - 1)
-                        ReDim mdl(cur_sub).entries(ih.nInd_groups - 1)
+
+                        ReDim Preserve mdl(cur_sub).entries(ih.nInd_groups - 1)
+
                         mdl(cur_sub).primitive_count = ih.nInd_groups
                         '-------------------------------------
 
@@ -258,6 +268,8 @@ Module PrimitiveLoader
 
                         ms.Position = cp 'restore position
                         'We flip the winding order because of directX to Opengl 
+                        mdl(cur_sub).indice_count = (ih.nIndices_ / 3) - 1
+
                         If mdl(cur_sub).USHORTS Then
                             ReDim mdl(cur_sub).index_buffer16((ih.nIndices_ / 3) - 1)
                             For k = 0 To (ih.nIndices_ / 3) - 1
@@ -352,7 +364,7 @@ Module PrimitiveLoader
             '-------------------------------
             Dim BPVT_mode As Boolean = False
             Dim realNormals As Boolean = False
-
+            Dim hasIdx As Boolean = False
             mdl(cur_sub).has_tangent = 0
 
             Dim stride As Integer = 0
@@ -374,17 +386,20 @@ Module PrimitiveLoader
                 stride = 37
                 mdl(cur_sub).element_count = 5 + mdl(cur_sub).has_uv2
                 mdl(cur_sub).has_tangent = 1
+                hasIdx = True
             End If
             If vh.header_text = "BPVTxyznuviiiww" Then
                 BPVT_mode = True
                 stride = 32
                 mdl(cur_sub).element_count = 4 + mdl(cur_sub).has_uv2
+                hasIdx = True
             End If
             If vh.header_text = "BPVTxyznuviiiwwtb" Then
                 BPVT_mode = True
                 stride = 40
                 mdl(cur_sub).element_count = 5 + mdl(cur_sub).has_uv2
                 mdl(cur_sub).has_tangent = 1
+                hasIdx = True
             End If
             If vh.header_text = "xyznuvtb" Then
                 stride = 32
@@ -404,6 +419,7 @@ Module PrimitiveLoader
 
             vh.nVertice_count = vt_br.ReadUInt32 ' read total count of vertcies
 
+            'should be in same offset in both buffers.
             uv2_ms.Position = vt_ms.Position
             Dim v3 As vect3
             '---------------------------
@@ -417,13 +433,14 @@ Module PrimitiveLoader
                 ReDim mdl(0).UV2_buffer(vh.nVertice_count - 1)
             End If
 
-            mdl(cur_sub).indice_count = vh.nVertice_count
+            'mdl(cur_sub).indice_count = vh.nVertice_count' <--- WRONG.. They are NOT the same size!!!
+
             mdl(cur_sub).indice_size = indi_scale
 
             Dim running As Integer = 0 'Continuous pointer in to the buffers
 
             For i = 0 To mdl(cur_sub).primitive_count - 1
-                mdl(cur_sub).entries(i) = New entries_
+                'mdl(cur_sub).entries(i) = New entries_
 
                 mdl(cur_sub).entries(i).startIndex = pGroups(i).startIndex_ / 3
                 mdl(cur_sub).entries(i).numIndices = pGroups(i).nPrimitives_ * 3 'draw 3 verts per triangle
@@ -435,6 +452,11 @@ Module PrimitiveLoader
                     'We have to flip the sign of X on all vertex values because of DirectX to OpenGL
                     '
                     'uv2 if it exist
+
+                    'If mdl(cur_sub).entries(i).identifier.Contains("d_") Then
+                    '    mdl(cur_sub).entries(i).draw = False
+                    'End If
+
                     If mdl(cur_sub).has_uv2 = 1 Then
                         mdl(cur_sub).UV2_buffer(running).x = uv2_br.ReadSingle
                         mdl(cur_sub).UV2_buffer(running).y = uv2_br.ReadSingle
@@ -462,15 +484,21 @@ Module PrimitiveLoader
                     mdl(cur_sub).UV1_buffer(running).x = vt_br.ReadSingle
                     mdl(cur_sub).UV1_buffer(running).y = vt_br.ReadSingle
                     '-----------------------------------------------------------------------
+                    'if this vertex has index junk, skip it.
+                    'no tangent and bitangent on BPVTxyznuviiiww type vertex
+                    'If hasIdx Then
+                    '    vt_ms.Position += 8
+
+                    'End If
                     If vh.header_text = "BPVTxyznuviiiww" Then
                         vt_ms.Position += 8
 
-                        'no tangent and bitangent on BPVTxyznuviiiww type vertex
                     Else
                         If stride = 37 Or stride = 40 Then
                             vt_ms.Position += 8
                         End If
                     End If
+                    '-----------------------------------------------------------------------
 
                     If mdl(cur_sub).has_tangent = 1 Then
                         'tangents
@@ -488,7 +516,13 @@ Module PrimitiveLoader
                     running += 1
                 Next
             Next
-            build_model_VAO(mdl(cur_sub)) 'builds the VAO
+            Try
+
+                build_model_VAO(mdl(cur_sub)) 'builds the VAO
+            Catch ex As Exception
+
+            End Try
+            fup_counter += 1
             build_test_lists(mdl(cur_sub)) 'builds test display lists
 
         End While ' end of outside sub_groups loop
@@ -572,6 +606,7 @@ Module PrimitiveLoader
 
     Public Sub build_model_VAO(ByRef m As base_model_holder_)
         Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
+        GL.Finish()
 
         'Gen VAO id
         GL.GenVertexArrays(1, m.mdl_VAO)
@@ -619,12 +654,11 @@ Module PrimitiveLoader
 
         If m.has_uv2 = 1 Then
             'UV1
-            GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(INDEX_BUFFER))
+            GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(UV2_VB))
             GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(5)
             GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect2)), m.UV2_buffer, BufferUsageHint.StaticDraw)
         End If
-        Dim er = GL.GetError
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, m.mBuffers(INDEX_BUFFER))
         If m.USHORTS Then
@@ -632,10 +666,11 @@ Module PrimitiveLoader
         Else
             GL.BufferData(BufferTarget.ElementArrayBuffer, m.indice_count * SizeOf(GetType(vect3_32)), m.index_buffer32, BufferUsageHint.StaticDraw)
         End If
+        Dim er = GL.GetError
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
         GL.BindVertexArray(0)
-
+        GL.Finish()
         'm.flush()
 
     End Sub

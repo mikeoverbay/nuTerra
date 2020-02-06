@@ -14,7 +14,6 @@ uniform int has_uv2;
 
 in vec2 UV;
 in vec2 UV2;
-in vec3 v_Position;
 in mat3 TBN;
 
 vec3 getNormal()

@@ -195,10 +195,49 @@ Module modSpaceBinFunctions
             'get matrix table
             ReDim cBSMI.matrix_list(tl - 1)
             For k = 0 To tl - 1
-                ReDim cBSMI.matrix_list(k).matrix(15)
-                For i = 0 To 15
-                    cBSMI.matrix_list(k).matrix(i) = br.ReadSingle
-                Next
+                'read in row order
+                cBSMI.matrix_list(k).M11 = br.ReadSingle
+                cBSMI.matrix_list(k).M12 = br.ReadSingle
+                cBSMI.matrix_list(k).M13 = br.ReadSingle
+                cBSMI.matrix_list(k).M14 = br.ReadSingle
+
+                cBSMI.matrix_list(k).M21 = br.ReadSingle
+                cBSMI.matrix_list(k).M22 = br.ReadSingle
+                cBSMI.matrix_list(k).M23 = br.ReadSingle
+                cBSMI.matrix_list(k).M24 = br.ReadSingle
+
+                cBSMI.matrix_list(k).M31 = br.ReadSingle
+                cBSMI.matrix_list(k).M32 = br.ReadSingle
+                cBSMI.matrix_list(k).M33 = br.ReadSingle
+                cBSMI.matrix_list(k).M34 = br.ReadSingle
+
+                cBSMI.matrix_list(k).M41 = br.ReadSingle
+                cBSMI.matrix_list(k).M42 = br.ReadSingle
+                cBSMI.matrix_list(k).M43 = br.ReadSingle
+                cBSMI.matrix_list(k).M44 = br.ReadSingle
+
+                '+++++++++++++++++++++++++++++++++++++++++
+
+                'cBSMI.matrix_list(k).M11 = br.ReadSingle
+                'cBSMI.matrix_list(k).M21 = br.ReadSingle
+                'cBSMI.matrix_list(k).M31 = br.ReadSingle
+                'cBSMI.matrix_list(k).M41 = br.ReadSingle
+
+                'cBSMI.matrix_list(k).M12 = br.ReadSingle
+                'cBSMI.matrix_list(k).M22 = br.ReadSingle
+                'cBSMI.matrix_list(k).M32 = br.ReadSingle
+                'cBSMI.matrix_list(k).M42 = br.ReadSingle
+
+                'cBSMI.matrix_list(k).M13 = br.ReadSingle
+                'cBSMI.matrix_list(k).M23 = br.ReadSingle
+                'cBSMI.matrix_list(k).M33 = br.ReadSingle
+                'cBSMI.matrix_list(k).M43 = br.ReadSingle
+
+                'cBSMI.matrix_list(k).M14 = br.ReadSingle
+                'cBSMI.matrix_list(k).M24 = br.ReadSingle
+                'cBSMI.matrix_list(k).M34 = br.ReadSingle
+                'cBSMI.matrix_list(k).M44 = br.ReadSingle
+
             Next
             '--------------------------------------------------------------
 
@@ -519,7 +558,7 @@ skip_unknown1:
 
             ReDim cBSMA.MaterialItem(tl - 1)
             For k = 0 To tl - 1
-                cBSMA.MaterialItem(k).effectIndex = br.ReadUInt32
+                cBSMA.MaterialItem(k).effectIndex = br.ReadInt32
                 cBSMA.MaterialItem(k).shaderPropBegin = br.ReadUInt32
                 cBSMA.MaterialItem(k).shaderPropEnd = br.ReadUInt32
                 cBSMA.MaterialItem(k).BWST_str_key = br.ReadUInt32
@@ -537,6 +576,7 @@ skip_unknown1:
             Next
             '----------------------------------------------------------
 
+
             ds = br.ReadUInt32 'data size per entry in bytes
             tl = br.ReadUInt32 ' number of entries in this table
 
@@ -548,6 +588,31 @@ skip_unknown1:
                 'ket the property name
                 cBSMA.ShaderPropertyItem(k).property_name_string = find_str_BWST(cBSMA.ShaderPropertyItem(k).bwst_key)
                 '.bwst_key_or_value either points as a string or is a value depending on .property_type
+            Next
+            ds = br.ReadUInt32 'data size per entry in bytes
+            tl = br.ReadUInt32 ' number of entries in this table
+
+            ReDim cBSMA.ShaderPropertyMatrixItem(tl - 1)
+            For k = 0 To tl - 1
+                ReDim cBSMA.ShaderPropertyMatrixItem(k).matrix(15)
+                For i = 0 To 15
+                    cBSMA.ShaderPropertyMatrixItem(k).matrix(i) = br.ReadSingle
+                Next
+            Next
+            '----------------------------------------------------------
+
+            ds = br.ReadUInt32 'data size per entry in bytes
+            tl = br.ReadUInt32 ' number of entries in this table
+
+            ReDim cBSMA.ShaderPropertyVectorItem(tl - 1)
+            For k = 0 To tl - 1
+                cBSMA.ShaderPropertyVectorItem(k).vector4.x = br.ReadSingle
+                cBSMA.ShaderPropertyVectorItem(k).vector4.y = br.ReadSingle
+                cBSMA.ShaderPropertyVectorItem(k).vector4.z = br.ReadSingle
+                cBSMA.ShaderPropertyVectorItem(k).vector4.w = br.ReadSingle
+            Next
+            For k = 0 To cBSMA.ShaderPropertyItem.Length - 1
+
                 'property types (.property_type)
                 '0 = ?
                 '1 = boolean, bwst_key_or_value = 1 if true, 0 if false
@@ -574,13 +639,15 @@ skip_unknown1:
                         cBSMA.ShaderPropertyItem(k).val_float = BitConverter.ToSingle(floatVals, 0)
 
                         Exit Select
-
+                    Case cBSMA.ShaderPropertyItem(k).property_type = 4
+                        Stop
                     Case cBSMA.ShaderPropertyItem(k).property_type = 3
                         cBSMA.ShaderPropertyItem(k).val_int = cBSMA.ShaderPropertyItem(k).bwst_key_or_value
                         Exit Select
 
                     Case cBSMA.ShaderPropertyItem(k).property_type = 5
-                        Dim indx = cBSMA.ShaderPropertyItem(k).bwst_key_or_value * 4
+                        Dim indx = cBSMA.ShaderPropertyItem(k).bwst_key_or_value
+                        cBSMA.ShaderPropertyItem(k).val_vec4 = cBSMA.ShaderPropertyVectorItem(indx).vector4
                         Exit Select
 
                     Case cBSMA.ShaderPropertyItem(k).property_type = 6
@@ -589,31 +656,15 @@ skip_unknown1:
 
                 End Select
             Next
-            '----------------------------------------------------------
-
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-
-            ReDim cBSMA.ShaderPropertyMatrixItem(tl - 1)
-            For k = 0 To tl - 1
-                ReDim cBSMA.ShaderPropertyMatrixItem(k).matrix(15)
-                For i = 0 To 15
-                    cBSMA.ShaderPropertyMatrixItem(k).matrix(i) = br.ReadSingle
-                Next
-            Next
-            '----------------------------------------------------------
-
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-
-            ReDim cBSMA.ShaderPropertyVectorItem(tl - 1)
-            For k = 0 To tl - 1
-                cBSMA.ShaderPropertyVectorItem(k).vector4.x = br.ReadSingle
-                cBSMA.ShaderPropertyVectorItem(k).vector4.y = br.ReadSingle
-                cBSMA.ShaderPropertyVectorItem(k).vector4.z = br.ReadSingle
-                cBSMA.ShaderPropertyVectorItem(k).vector4.w = br.ReadSingle
+            For k = 0 To cBSMA.MaterialItem.Length - 1
+                If cBSMA.MaterialItem(k).effectIndex > -1 Then ' some have no shaders?
+                    cBSMA.MaterialItem(k).FX_string = cBSMA.FXStringKey(cBSMA.MaterialItem(k).effectIndex).FX_string
+                Else
+                    cBSMA.MaterialItem(k).FX_string = "NONE!"
+                End If
             Next
 
+            '----------------------------------------------------------
         Catch ex As Exception
             Debug.Print(ex.ToString)
             Return False
@@ -956,7 +1007,14 @@ ignore_this2:
     End Function
 
 #Region "string look up routines"
-
+    Private Function find_str_FX(ByVal key As UInt32) As String
+        For z = 0 To cBSMA.FXStringKey.Length - 1
+            If key = cBSMA.FXStringKey(z).FX_str_key Then
+                Return cBSMA.FXStringKey(z).FX_string(z)
+            End If
+        Next
+        Return "ERROR!"
+    End Function
     Private Function find_str_BWST(ByVal key As UInt32) As String
         For z = 0 To cBWST.strs.Length - 1
             If key = cBWST.keys(z) Then

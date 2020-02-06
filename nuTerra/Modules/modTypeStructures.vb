@@ -152,8 +152,8 @@ Module modTypeStructures
         Public sb_vertex_stride As UInteger
         Public sb_block_type As Integer
         Public sb_table_size As Integer
-        Public sb_render_set_begin As Integer
-        Public sb_render_set_end As Integer
+        Public sb_LOD_set_start As Integer
+        Public sb_LOD_set_end As Integer
         Public sb_model_material_begin As Integer
         Public sb_model_material_end As Integer
         ' storage
@@ -218,6 +218,8 @@ Module modTypeStructures
         '------------------------------------
         Public list_id As Integer
         '------------------------------------
+        Public draw As Boolean
+        '------------------------------------
 
         Public ShaderType As Integer
         'shader types
@@ -227,18 +229,30 @@ Module modTypeStructures
         '4 = atlas
         '5 = atlas glass
         '------------------------------------
+        'texture string names from space.bin
+        Public diffuseMap As String
+        Public diffuseMap2 As String
+        Public normalMap As String
+        Public metallicGlossMap As String
+        Public atlasBlend As String
+        Public atlasMetallicAO As String
+        Public atlasNormalGlossSpec As String
+        Public atlasAlbedoHeight As String
+        Public dirtMap As String
+        Public globalTex As String
         'texture ids
-        Public diffuseMap As Integer
-        Public diffuseMap2 As Integer
-        Public normalMap As Integer
-        Public metallicGlossMap As Integer
-        Public atlasBlend As Integer
-        Public atlasMetallicAO As Integer
-        Public atlasNormalGlossSpec As Integer
-        Public atlasAlbedoHeight As Integer
-        Public dirtMap As Integer
+        Public diffuseMap_id As Integer
+        Public diffuseMap2_id As Integer
+        Public normalMap_id As Integer
+        Public metallicGlossMap_id As Integer
+        Public atlasBlend_id As Integer
+        Public atlasMetallicAO_id As Integer
+        Public atlasNormalGlossSpec_id As Integer
+        Public atlasAlbedoHeight_id As Integer
+        Public dirtMap_id As Integer
+        Public globalTex_id As Integer
         '------------------------------------
-        'values
+        'values from space.bin
         Public alphaReference As Integer
         Public g_tintColor As vect4
         Public g_tile0Tint As vect4
@@ -251,12 +265,12 @@ Module modTypeStructures
         Public g_vertexColorMode As Integer
         Public g_vertexAnimationParams As vect4
         Public g_fakeShadowsParams As vect4 '<-- interesting
-        '- render params
+        '- render params from space.bin
         Public FX_shader As String
         Public identifier As String
         Public groupID As Integer
         '------------------------------------
-        'booleans
+        'booleans from space.bin
         Public doubleSided As Integer
         Public alphaEnable As Integer
         Public TexAddressMode As Integer
