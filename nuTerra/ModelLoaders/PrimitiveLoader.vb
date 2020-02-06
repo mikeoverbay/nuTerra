@@ -30,6 +30,7 @@ Module PrimitiveLoader
     End Structure
 
     Public fup_counter As Integer = 0
+
     Public Function get_primitive(ByRef filename As String, ByRef mdl() As base_model_holder_) As Boolean
         'Loads a model from the pcakages. It will attempt to locate it in all packages.
 
@@ -87,8 +88,16 @@ Module PrimitiveLoader
 
     Public Function load_primitive(ByRef filename As String, ByRef mdl() As base_model_holder_) As Boolean
 
+        'see if this is a junk model we dont want
+        If mdl(0).junk Then
+            Return True
+        End If
+
         Dim name = Path.GetFileNameWithoutExtension(filename)
         Dim fPath = Path.GetDirectoryName(filename) + "\"
+
+        TOTAL_TRIANGLES_DRAWN_MODEL = 0
+
 
         Dim runner As UInt32 = 0
         Dim sub_groups As Integer = 0
@@ -187,7 +196,7 @@ Module PrimitiveLoader
         gp_pointer = sub_groups
         If sub_groups > 1 Then
             got_subs = True
-            'Stop
+            Stop
         End If
         Dim ind_start As UInt32 = 0
         Dim ind_length As UInt32 = 0
@@ -249,7 +258,9 @@ Module PrimitiveLoader
 
                         ReDim Preserve mdl(cur_sub).entries(ih.nInd_groups - 1)
 
-                        mdl(cur_sub).primitive_count = ih.nInd_groups
+                        'This probable needs to not be set here
+                        'and use the count from the space.bin data if and when I get it figured out!
+                        mdl(cur_sub).primitive_count = ih.nInd_groups '<----------- count setting
                         '-------------------------------------
 
                         Dim cp = ms.Position 'save position
@@ -263,7 +274,7 @@ Module PrimitiveLoader
                             pGroups(z).startVertex_ = br.ReadUInt32
                             pGroups(z).nVertices_ = br.ReadUInt32
                             'update triangle count
-                            total_triangles_drawn += pGroups(z).nPrimitives_
+                            TOTAL_TRIANGLES_DRAWN_MODEL += pGroups(z).nPrimitives_
                         Next
 
                         ms.Position = cp 'restore position
@@ -526,6 +537,7 @@ Module PrimitiveLoader
             build_test_lists(mdl(cur_sub)) 'builds test display lists
 
         End While ' end of outside sub_groups loop
+        mdl(cur_sub).POLY_COUNT = TOTAL_TRIANGLES_DRAWN_MODEL
         ms.Close()
 
         Return True

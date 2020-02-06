@@ -23,7 +23,8 @@ Module modGlobalVars
     Public PAUSE_ORBIT As Boolean
     Public LIGHT_SPEED As Single = 0.01F
     '---------------------
-    Public total_triangles_drawn As UInt32
+    Public TOTAL_TRIANGLES_DRAWN As UInt32
+    Public TOTAL_TRIANGLES_DRAWN_MODEL As UInt32
     '---------------------
     Public _STARTED As Boolean 'Signals UI initialization is complete
     '---------------------

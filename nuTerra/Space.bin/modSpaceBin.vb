@@ -171,6 +171,10 @@ Module modSpaceBin
 
                 .sb_model_material_begin = cBSMO.model_entries(k).model_material_kind_begin
                 .sb_model_material_end = cBSMO.model_entries(k).model_material_kind_end
+                If .sb_model_material_begin < 0 Then ' no drawable item.. light prob or sound location?
+                    MAP_MODELS(k).mdl(0).junk = True
+                    GoTo ignore_this_one
+                End If
                 'get lod set pointers for this model
                 Dim lod0 = .sb_LOD_set_start
 
@@ -179,15 +183,20 @@ Module modSpaceBin
                 'Used to index in to lodRenderItems
                 Dim r_set_begin, r_set_end As Integer
 
+                Dim mat_kind_index = cBSMO.material_kind(.sb_model_material_begin).mat_index
+                Dim shader_prop_start = cBSMA.MaterialItem(mat_kind_index).shaderPropBegin
+                Dim shader_prop_end = cBSMA.MaterialItem(mat_kind_index).shaderPropEnd
+
                 r_set_begin = cBSMO.lodRenderItem(L_start).render_set_begin
                 r_set_end = cBSMO.lodRenderItem(L_end).render_set_end
 
-                L_start = cBSMO.render_item_ranges(k).lod_start
-                L_end = cBSMO.render_item_ranges(k).lod_end
+                'L_start = cBSMO.render_item_ranges(k).lod_start
+                'L_end = cBSMO.render_item_ranges(k).lod_end
 
-                Dim component_cnt = r_set_end - r_set_begin
-                If component_cnt > 4 Then
-                    'Stop
+                'this is all wrong.. we don't want LODs! We Want the total primitiveGroups!
+                Dim component_cnt = shader_prop_end - shader_prop_start
+                If .primitive_name.ToLower.Contains("vhouse_05") Then
+                    Stop
                 End If
                 ReDim .entries(component_cnt)
                 .primitive_count = component_cnt + 1
@@ -195,10 +204,10 @@ Module modSpaceBin
                 For z = 0 To component_cnt
                     .entries(z) = New entries_
                     Dim mat_index = cBSMO.renderItem(z)
-                    .entries(z).identifier = cBSMA.MaterialItem(z).identifier
-                    .entries(z).FX_shader = cBSMA.MaterialItem(z).FX_string
-                    Dim l_cnt = cBSMA.MaterialItem(z).shaderPropEnd - cBSMA.MaterialItem(z).shaderPropBegin
-                    For j = cBSMA.MaterialItem(z).shaderPropBegin To cBSMA.MaterialItem(z).shaderPropEnd - 1
+                    .entries(z).identifier = cBSMA.MaterialItem(z + shader_prop_start).identifier
+                    .entries(z).FX_shader = cBSMA.MaterialItem(z + shader_prop_start).FX_string
+                    'Dim l_cnt = cBSMA.MaterialItem(z + shader_prop_start).shaderPropEnd - cBSMA.MaterialItem(z + shader_prop_start).shaderPropBegin
+                    For j = cBSMA.MaterialItem(mat_kind_index).shaderPropBegin To cBSMA.MaterialItem(mat_kind_index).shaderPropEnd - 1
                         'I so wish I knew of a better way
 
                         Select Case cBSMA.ShaderPropertyItem(j).property_name_string
@@ -269,7 +278,7 @@ Module modSpaceBin
                     Next
                 Next
 
-
+ignore_this_one:
             End With
 
         Next

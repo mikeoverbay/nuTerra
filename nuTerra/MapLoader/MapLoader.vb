@@ -264,6 +264,13 @@ Module MapLoader
             End If
 
         Next
+        ' get the total triangles drawn
+        'There may only be 300 models but they are drawn over and over with different transforms
+        TOTAL_TRIANGLES_DRAWN = 0
+        For i = 0 To MODEL_MATRIX_LIST.Length - 1
+            Dim idx = MODEL_MATRIX_LIST(i).model_index
+            TOTAL_TRIANGLES_DRAWN += MAP_MODELS(idx).mdl(0).POLY_COUNT
+        Next
         'Get a list of all items in the MAP_package
         '=======================================================
         'Stop Here for now =====================================
@@ -294,9 +301,16 @@ Module MapLoader
             MAP_PACKAGE("spaces/" & ABS_NAME & "/space.bin")
         If space_bin_file IsNot Nothing Then
             ' This is all new code -------------------
+            Try
 
-            'space_bin_file.Extract(TEMP_STORAGE, ExtractExistingFileAction.OverwriteSilently)
+                If File.Exists(TEMP_STORAGE + space_bin_file.FileName) Then
+                    File.Delete(TEMP_STORAGE + space_bin_file.FileName)
+                End If
+                space_bin_file.Extract(TEMP_STORAGE, ExtractExistingFileAction.OverwriteSilently)
 
+            Catch ex As Exception
+
+            End Try
             If Not ReadSpaceBinData(space_bin_file.FileName) Then
                 space_bin_file = Nothing
                 MsgBox("Error decoding Space.bin", MsgBoxStyle.Exclamation, "File Error...")

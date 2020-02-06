@@ -293,7 +293,7 @@ Module modSpacedBinVars
         Public Structure lod_range_
             'These are the square of the actual range
             '(x*x) + (y*y) + (z*z) - Camera to item distance
-            Public lod_range As Single
+            Public range As Single
         End Structure
 
         Public Structure lodRenderItem_
@@ -339,8 +339,8 @@ Module modSpacedBinVars
 
         Public Structure MaterialItem_
             Public effectIndex As Int32
-            Public shaderPropBegin As UInt32
-            Public shaderPropEnd As UInt32
+            Public shaderPropBegin As Int32
+            Public shaderPropEnd As Int32
             Public BWST_str_key As UInt32
             Public identifier As String
             Public FX_string As String

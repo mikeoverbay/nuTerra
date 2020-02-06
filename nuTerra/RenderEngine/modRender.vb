@@ -105,8 +105,7 @@ Module modRender
 
 
             Dim idx = MODEL_MATRIX_LIST(z).model_index
-            If MAP_MODELS(idx).mdl(0).primitive_name IsNot Nothing Then
-
+            If Not MAP_MODELS(idx).mdl(0).junk Then
 
                 Dim model = MODEL_MATRIX_LIST(z).matrix
                 'model = Matrix4.Identity
@@ -166,7 +165,8 @@ Module modRender
 
         For z = 0 To MODEL_MATRIX_LIST.Length - 2
             Dim idx = MODEL_MATRIX_LIST(z).model_index
-            If MAP_MODELS(idx).mdl(0).primitive_name IsNot Nothing Then
+
+            If Not MAP_MODELS(idx).mdl(0).junk Then
 
                 Dim model = MODEL_MATRIX_LIST(z).matrix
                 'model = Matrix4.Identity
@@ -184,9 +184,8 @@ Module modRender
 
                 For j = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
                     GL.CallList(MAP_MODELS(idx).mdl(0).entries(j).list_id)
+
                 Next
-
-
 
             End If
             Dim er = GL.GetError

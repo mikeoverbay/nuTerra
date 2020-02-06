@@ -479,7 +479,7 @@ skip_unknown1:
             tl = br.ReadUInt32 ' number of entries in this table
             ReDim cBSMO.lod_range(tl - 1)
             For k = 0 To tl - 1
-                cBSMO.lod_range(k).lod_range = br.ReadSingle
+                cBSMO.lod_range(k).range = br.ReadSingle
             Next
             '--------------------------------------------------------
 
@@ -539,10 +539,7 @@ skip_unknown1:
         Catch ex As Exception
             Debug.Print(ex.ToString)
         End Try
-        For i = 0 To MAP_MODELS.Length - 1
-            'MAP_MODELS(i).sp_render_set_begin = cBSMO.lodRenderItem(cBSMO.render_item_ranges(i).lod_start).render_set_begin
-            'MAP_MODELS(i).sp_render_set_end = cBSMO.lodRenderItem(cBSMO.render_item_ranges(i).lod_start).render_set_end
-        Next
+
         Return True
     End Function
 
@@ -559,8 +556,8 @@ skip_unknown1:
             ReDim cBSMA.MaterialItem(tl - 1)
             For k = 0 To tl - 1
                 cBSMA.MaterialItem(k).effectIndex = br.ReadInt32
-                cBSMA.MaterialItem(k).shaderPropBegin = br.ReadUInt32
-                cBSMA.MaterialItem(k).shaderPropEnd = br.ReadUInt32
+                cBSMA.MaterialItem(k).shaderPropBegin = br.ReadInt32
+                cBSMA.MaterialItem(k).shaderPropEnd = br.ReadInt32
                 cBSMA.MaterialItem(k).BWST_str_key = br.ReadUInt32
                 cBSMA.MaterialItem(k).identifier = find_str_BWST(cBSMA.MaterialItem(k).BWST_str_key)
             Next
