@@ -269,7 +269,11 @@ Module MapLoader
         TOTAL_TRIANGLES_DRAWN = 0
         For i = 0 To MODEL_MATRIX_LIST.Length - 1
             Dim idx = MODEL_MATRIX_LIST(i).model_index
-            TOTAL_TRIANGLES_DRAWN += MAP_MODELS(idx).mdl(0).POLY_COUNT
+
+            If Not MAP_MODELS(idx).mdl(0).junk Then
+                TOTAL_TRIANGLES_DRAWN += MAP_MODELS(idx).mdl(0).POLY_COUNT
+            End If
+
         Next
         'Get a list of all items in the MAP_package
         '=======================================================

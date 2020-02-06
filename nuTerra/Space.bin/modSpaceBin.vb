@@ -194,9 +194,10 @@ Module modSpaceBin
                 'L_end = cBSMO.render_item_ranges(k).lod_end
 
                 'this is all wrong.. we don't want LODs! We Want the total primitiveGroups!
+                'I can NOT figure out how to get the list of all the primitivegroups!!
                 Dim component_cnt = shader_prop_end - shader_prop_start
                 If .primitive_name.ToLower.Contains("vhouse_05") Then
-                    Stop
+                    'Stop
                 End If
                 ReDim .entries(component_cnt)
                 .primitive_count = component_cnt + 1
