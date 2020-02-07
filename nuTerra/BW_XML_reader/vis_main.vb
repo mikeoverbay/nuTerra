@@ -1,9 +1,7 @@
 ﻿Imports System.IO
-Imports System.Math
 Imports System.Text
 Imports System.Xml
 Imports Ionic.Zip
-Imports OpenTK
 
 Module vis_main
     Public xmldataset As New DataSet

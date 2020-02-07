@@ -1,47 +1,16 @@
-﻿Imports System.Math
-Imports OpenTK
+﻿Imports OpenTK
+
 Module modMatrix
-    Public Function rotate_only(ByVal v As Vector3, ByVal m() As Single) As Vector3
-        Dim vo As Vector3
-        vo.x = (m(0) * v.X) + (m(4) * v.Y) + (m(8) * v.Z)
-        vo.y = (m(1) * v.X) + (m(5) * v.Y) + (m(9) * v.Z)
-        vo.z = (m(2) * v.X) + (m(6) * v.Y) + (m(10) * v.Z)
-        Return vo
-    End Function
-    Public Function translate_to(ByVal v As Vector3, ByVal m As Matrix4) As Vector3
+    Public Function translate_to(ByRef v As Vector3, ByRef m As Matrix4) As Vector3
         Dim vo As Vector3
 
-        vo.x = (m.M11 * v.X) + (m.M21 * v.Y) + (m.M31 * v.Z)
-        vo.y = (m.M12 * v.X) + (m.M22 * v.Y) + (m.M32 * v.Z)
-        vo.z = (m.M13 * v.X) + (m.M23 * v.Y) + (m.M33 * v.Z)
+        vo.X = (m.M11 * v.X) + (m.M21 * v.Y) + (m.M31 * v.Z)
+        vo.Y = (m.M12 * v.X) + (m.M22 * v.Y) + (m.M32 * v.Z)
+        vo.Z = (m.M13 * v.X) + (m.M23 * v.Y) + (m.M33 * v.Z)
 
-        vo.x += m.M14
-        vo.y += m.M24
-        vo.z += m.M34
-        Return vo
-    End Function
-    Public Function translate_only(ByVal v As Vector3, ByVal m() As Single) As Vector3
-        Dim vo As Vector3
-        vo.x += m(12)
-        vo.y += m(13)
-        vo.z += m(14)
-        Return vo
-    End Function
-    Private Function transform(ByRef m() As Single, ByVal v As vertex_data, ByRef scale As Single, ByRef k As Integer) As vertex_data
-        Dim vo As vertex_data
-        v.x *= scale
-        v.y *= scale
-        vo.x = (m(0) * v.x) + (m(4) * v.y) + (m(8) * v.z)
-        vo.y = (m(1) * v.x) + (m(5) * v.y) + (m(9) * v.z)
-        vo.z = (m(2) * v.x) + (m(6) * v.y) + (m(10) * v.z)
-
-        vo.u = v.u
-        vo.v = v.v * -1.0
-
-        vo.x += m(12)
-        vo.y += m(13)
-        vo.z += m(14)
-
+        vo.X += m.M14
+        vo.Y += m.M24
+        vo.Z += m.M34
         Return vo
     End Function
 
@@ -69,8 +38,5 @@ Module modMatrix
         For i = 0 To 7
             mm.BB(i) = translate_to(mm.BB(i), mm.matrix)
         Next
-
     End Sub
-
-
 End Module

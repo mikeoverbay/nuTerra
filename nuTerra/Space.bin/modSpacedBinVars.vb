@@ -565,8 +565,8 @@ Module modSpacedBinVars
         Public MaterialItem() As MaterialItem_
         Public FXStringKey() As FXStringKey_
         Public ShaderPropertyItem() As ShaderPropertyItem_
-        Public ShaderPropertyMatrixItem() As matrix_
-        Public ShaderPropertyVectorItem() As ShaderPropertyVectorItem_
+        Public ShaderPropertyMatrixItem As Matrix4()
+        Public ShaderPropertyVectorItem As Vector4()
 
         Public Structure MaterialItem_
             Public effectIndex As Int32
@@ -594,11 +594,6 @@ Module modSpacedBinVars
             Public val_vec4 As Vector4
             Public vec4_indx As UInt32
         End Structure
-
-        Public Structure ShaderPropertyVectorItem_
-            Public vector4 As Vector4
-        End Structure
-
 
     End Structure
 #End Region

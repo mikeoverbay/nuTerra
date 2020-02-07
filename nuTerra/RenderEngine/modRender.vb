@@ -1,16 +1,6 @@
 ﻿Imports System.Math
-Imports System
-Imports System.Globalization
-Imports System.Threading
-
-Imports OpenTK.GLControl
 Imports OpenTK
-Imports OpenTK.Platform.Windows
-Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-
-Imports Config = OpenTK.Configuration
-Imports Utilities = OpenTK.Platform.Utilities
 
 Module modRender
     Public PI As Single = 3.14159274F
@@ -53,7 +43,7 @@ Module modRender
         '------------------------------------------------
         'Draw temp light positon.
         FBOm.attach_C()
-        Dim v As New vec3
+        Dim v As New Vector3
         v.x = LIGHT_POS(0) : v.y = LIGHT_POS(1) : v.z = LIGHT_POS(2)
         'unremming this screws up the VertexAttribPointers 
         draw_one_damn_moon(v)
@@ -362,9 +352,9 @@ Module modRender
         GL.End()
     End Sub
 
-    Private Sub draw_one_damn_moon(ByVal location As vec3)
+    Private Sub draw_one_damn_moon(ByVal location As Vector3)
         'repeat drawing the elements now that the states are set..
-        Dim model = Matrix4.CreateTranslation(location.x, location.y, location.z)
+        Dim model = Matrix4.CreateTranslation(location.X, location.Y, location.Z)
 
         Dim scale_ As Single = 30.0
         Dim sMat = Matrix4.CreateScale(scale_)

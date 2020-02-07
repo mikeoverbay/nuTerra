@@ -215,9 +215,10 @@ Module modSpaceBinFunctions
 
             ReDim cBSMA.ShaderPropertyMatrixItem(tl - 1)
             For k = 0 To tl - 1
-                ReDim cBSMA.ShaderPropertyMatrixItem(k).matrix(15)
-                For i = 0 To 15
-                    cBSMA.ShaderPropertyMatrixItem(k).matrix(i) = br.ReadSingle
+                For i = 0 To 3
+                    For j = 0 To 3
+                        cBSMA.ShaderPropertyMatrixItem(k)(i, j) = br.ReadSingle
+                    Next
                 Next
             Next
             '----------------------------------------------------------
@@ -227,10 +228,10 @@ Module modSpaceBinFunctions
 
             ReDim cBSMA.ShaderPropertyVectorItem(tl - 1)
             For k = 0 To tl - 1
-                cBSMA.ShaderPropertyVectorItem(k).vector4.x = br.ReadSingle
-                cBSMA.ShaderPropertyVectorItem(k).vector4.y = br.ReadSingle
-                cBSMA.ShaderPropertyVectorItem(k).vector4.z = br.ReadSingle
-                cBSMA.ShaderPropertyVectorItem(k).vector4.w = br.ReadSingle
+                cBSMA.ShaderPropertyVectorItem(k).X = br.ReadSingle
+                cBSMA.ShaderPropertyVectorItem(k).Y = br.ReadSingle
+                cBSMA.ShaderPropertyVectorItem(k).Z = br.ReadSingle
+                cBSMA.ShaderPropertyVectorItem(k).W = br.ReadSingle
             Next
             For k = 0 To cBSMA.ShaderPropertyItem.Length - 1
 
@@ -268,7 +269,7 @@ Module modSpaceBinFunctions
 
                     Case cBSMA.ShaderPropertyItem(k).property_type = 5
                         Dim indx = cBSMA.ShaderPropertyItem(k).bwst_key_or_value
-                        cBSMA.ShaderPropertyItem(k).val_vec4 = cBSMA.ShaderPropertyVectorItem(indx).vector4
+                        cBSMA.ShaderPropertyItem(k).val_vec4 = cBSMA.ShaderPropertyVectorItem(indx)
                         Exit Select
 
                     Case cBSMA.ShaderPropertyItem(k).property_type = 6

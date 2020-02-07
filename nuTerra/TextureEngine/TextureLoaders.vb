@@ -1,18 +1,9 @@
-﻿
-Imports System.Math
-Imports System.Windows
-Imports System
+﻿Imports System.Drawing.Imaging
 Imports System.IO
-Imports Tao.DevIl
-Imports System.Drawing.Imaging
-Imports System.Drawing
-Imports OpenTK
-Imports OpenTK.Platform.Windows
+Imports Ionic.Zip
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-Imports Ionic.Zip
-Imports Config = OpenTK.Configuration
-Imports Utilities = OpenTK.Platform.Utilities
+Imports Tao.DevIl
 
 Module TextureLoaders
 
@@ -221,7 +212,7 @@ Module TextureLoaders
         Dim dummy As Integer
         dummy = GL.GenTexture
         Dim b As New Bitmap(2, 2, Imaging.PixelFormat.Format32bppArgb)
-        Dim g As Graphics = Graphics.FromImage(b)
+        Dim g As Drawing.Graphics = Drawing.Graphics.FromImage(b)
         g.Clear(Color.Black)
         Dim bitmapData = b.LockBits(New Rectangle(0, 0, 2, _
                              2), Imaging.ImageLockMode.ReadOnly, Imaging.PixelFormat.Format32bppArgb)
@@ -239,7 +230,6 @@ Module TextureLoaders
         GL.BindTexture(TextureTarget.Texture2D, 0)
         b.Dispose()
         g.Dispose()
-        GC.Collect()
         Return dummy
     End Function
 
@@ -295,8 +285,8 @@ Module TextureLoaders
                 Return Nothing
             Else
                 ' Create the bitmap.
-                Dim Bitmapi = New System.Drawing.Bitmap(width, height, Imaging.PixelFormat.Format32bppArgb)
-                Dim rect As Rectangle = New Rectangle(0, 0, width, height)
+                Dim Bitmapi As New Drawing.Bitmap(width, height, Imaging.PixelFormat.Format32bppArgb)
+                Dim rect As New Rectangle(0, 0, width, height)
 
                 ' Store the DevIL image data into the bitmap.
                 Dim bitmapData As BitmapData = Bitmapi.LockBits(rect, ImageLockMode.WriteOnly, Imaging.PixelFormat.Format32bppArgb)

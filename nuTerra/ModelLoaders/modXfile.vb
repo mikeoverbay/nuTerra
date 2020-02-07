@@ -1,16 +1,6 @@
-﻿Imports System.Math
-Imports System
-Imports System.Globalization
-Imports System.Threading
-Imports System.Windows
-Imports OpenTK.GLControl
+﻿Imports System.IO
 Imports OpenTK
-Imports OpenTK.Platform.Windows
-Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-Imports System.IO
-Imports Config = OpenTK.Configuration
-Imports Utilities = OpenTK.Platform.Utilities
 
 Module modXfile
     Public dial_face_ID As Integer
@@ -18,9 +8,9 @@ Module modXfile
     Public IBO As Integer
 
     Public vbuff() As _vertex
-    Public vertices() As vec3
-    Public normals() As vec3
-    Public uvs() As vec2
+    Public vertices() As Vector3
+    Public normals() As Vector3
+    Public uvs() As Vector2
     Public indices() As _indice
     Public Structure model_
         Public componet() As componet_
@@ -35,17 +25,11 @@ Module modXfile
         Public normal_ID As Integer
     End Structure
     Public Structure _vertex
-        Public v As vec3
-        Public n As vec3
-        Public uv As vec2
+        Public v As Vector3
+        Public n As Vector3
+        Public uv As Vector2
     End Structure
 
-    Public Structure vec3
-        Public x, y, z As Single
-    End Structure
-    Public Structure vec2
-        Public x, y As Single
-    End Structure
     Public Structure _indice
         Public a, b, c As UShort
     End Structure
@@ -73,12 +57,11 @@ Module modXfile
         Dim vertice_count = CInt(brk(0))
         ReDim vertices(vertice_count - 1)
         For i = 0 To vertice_count - 1
-            vertices(i) = New vec3
             txt = s.ReadLine
             brk = txt.Split(";")
-            vertices(i).x = CSng(brk(0))
-            vertices(i).y = CSng(brk(1))
-            vertices(i).z = CSng(brk(2))
+            vertices(i).X = CSng(brk(0))
+            vertices(i).Y = CSng(brk(1))
+            vertices(i).Z = CSng(brk(2))
         Next
         txt = s.ReadLine ' this should be a blank line
         txt = s.ReadLine ' this should be the indice count for the vertices
@@ -112,12 +95,11 @@ Module modXfile
         normal_count = CInt(brk(0))
         ReDim normals(normal_count - 1)
         For i = 0 To normal_count - 1
-            normals(i) = New vec3
             txt = s.ReadLine
             brk = txt.Split(";")
-            normals(i).x = CSng(brk(0))
-            normals(i).y = CSng(brk(1))
-            normals(i).z = CSng(brk(2))
+            normals(i).X = CSng(brk(0))
+            normals(i).Y = CSng(brk(1))
+            normals(i).Z = CSng(brk(2))
         Next
         s.Close()
         s = New StreamReader(file_)
@@ -131,11 +113,10 @@ Module modXfile
         txt_coord_cnt = CInt(brk(0))
         ReDim uvs(txt_coord_cnt - 1)
         For i = 0 To txt_coord_cnt - 1
-            uvs(i) = New vec2
             txt = s.ReadLine
             brk = txt.Split(";")
-            uvs(i).x = CSng(brk(0))
-            uvs(i).y = CSng(brk(1))
+            uvs(i).X = CSng(brk(0))
+            uvs(i).Y = CSng(brk(1))
         Next
 
         'build vertex list for VBO

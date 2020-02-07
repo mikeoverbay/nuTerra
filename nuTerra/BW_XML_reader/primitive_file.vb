@@ -1,7 +1,4 @@
-﻿Imports System
-Imports System.Collections.Generic
-Imports System.Text
-Imports System.IO
+﻿Imports System.IO
 Imports System.Xml
 
 Public Class Primitive_File

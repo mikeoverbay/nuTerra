@@ -1,7 +1,6 @@
-﻿
-Imports System.IO
-Imports OpenTK.Graphics.OpenGL
+﻿Imports System.IO
 Imports Ionic.Zip
+Imports OpenTK.Graphics.OpenGL
 
 
 Module MapLoader

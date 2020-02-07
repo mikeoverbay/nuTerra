@@ -1,6 +1,4 @@
-﻿
-Imports System.IO
-Imports System.IO.MemoryMappedFiles
+﻿Imports System.IO.MemoryMappedFiles
 Imports System.Runtime.InteropServices
 Imports System.Security
 Imports System.Security.Permissions

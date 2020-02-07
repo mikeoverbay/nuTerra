@@ -1,11 +1,7 @@
-﻿#Region "imports"
-Imports System
-Imports System.Text
-Imports System.String
-Imports System.IO
-Imports OpenTK
+﻿Imports System.IO
 Imports OpenTK.Graphics.OpenGL
-#End Region
+
+
 Module ShaderLoader
 
 #Region "shader_storage"

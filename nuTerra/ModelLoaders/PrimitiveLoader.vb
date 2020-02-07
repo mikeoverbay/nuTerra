@@ -1,9 +1,8 @@
-﻿Imports System
+﻿Imports System.IO
 Imports System.Math
-Imports System.IO
-Imports OpenTK.Graphics.OpenGL
 Imports System.Runtime.InteropServices.Marshal
 Imports OpenTK
+Imports OpenTK.Graphics.OpenGL
 
 Module PrimitiveLoader
     Public Structure section_info

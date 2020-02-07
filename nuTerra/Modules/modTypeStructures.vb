@@ -8,6 +8,7 @@ Module modTypeStructures
         Public y As UInt16
         Public z As UInt16
     End Structure
+
     Public Structure vect3_32
         Public x As UInt32
         Public y As UInt32
@@ -27,22 +28,8 @@ Module modTypeStructures
         Public orientation As Single
         Public type As String
         Public IsWater As Boolean
-        Public foam_id As Integer
-        Public lbl As Vector3
-        Public lbr As Vector3
-        Public ltl As Vector3
-        Public ltr As Vector3
-        Public rbl As Vector3
-        Public rbr As Vector3
-        Public rtl As Vector3
-        Public rtr As Vector3
-        Public BB() As Vector3
-        Public matrix() As Single
     End Structure
-    '--------------------------------------------------------
-    Public Structure matrix_
-        Public matrix() As Single
-    End Structure
+
     '--------------------------------------------------------
     Public Structure vertex_data
         Public x As Single
@@ -64,16 +51,16 @@ Module modTypeStructures
     Public Models As model_
     Public Structure model_
         Public Model_list() As String
-        Public models() As primitive
-        Public matrix() As matrix_
-        Public model_count As UInt32
+        Public models As primitive()
     End Structure
+
     Public Structure primitive
         Public _count As Integer
         Public componets() As Model_Section
         Public isBuilding As Boolean 'Used to render buildings only on first pass. Its decal rendering logic.
         Public visible As Boolean
     End Structure
+
     Public Structure Model_Section
         Public callList_ID As Int32
         ' Public indices() As Integer
@@ -171,12 +158,12 @@ Module modTypeStructures
 
         Public Sub flush()
             'free the memory
-            ReDim Me.Vertex_buffer(0)
-            ReDim Me.Normal_buffer(0)
-            ReDim Me.UV1_buffer(0)
-            ReDim Me.tangent_buffer(0)
-            ReDim Me.biNormal_buffer(0)
-            ReDim Me.UV2_buffer(0)
+            Vertex_buffer = Nothing
+            Normal_buffer = Nothing
+            UV1_buffer = Nothing
+            tangent_buffer = Nothing
+            biNormal_buffer = Nothing
+            UV2_buffer = Nothing
 
             'ReDim Me.index_buffer16(0)
             'ReDim Me.index_buffer32(0)
@@ -248,7 +235,7 @@ Module modTypeStructures
         Public g_atlasSizes As Vector4
         Public g_atlasIndexes As Vector4
         Public g_vertexColorMode As Integer
-        Public g_vertexAnimationParams As OpenTK.Vector4
+        Public g_vertexAnimationParams As Vector4
         Public g_fakeShadowsParams As Vector4 '<-- interesting
         '- render params from space.bin
         Public FX_shader As String

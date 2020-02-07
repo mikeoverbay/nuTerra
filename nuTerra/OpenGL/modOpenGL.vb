@@ -1,15 +1,12 @@
-﻿Imports System.Runtime.InteropServices
-Imports System.Math
-Imports System
+﻿Imports System.Math
+Imports System.Runtime.InteropServices
 Imports OpenTK
-Imports OpenTK.Platform.Windows
-Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 
 
 Module modOpenGL
 
-    Public box_positions(4999) As vec3
+    Public box_positions(4999) As Vector3
     Public FieldOfView As Single = 60.0F
 
     Public Main_Context As Integer

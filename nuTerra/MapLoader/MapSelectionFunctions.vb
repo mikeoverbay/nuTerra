@@ -1,10 +1,7 @@
-﻿'Imports System.IO.Compression
-Imports System.IO
-Imports System.Math
-Imports Tao.DevIl
-Imports OpenTK.Graphics.OpenGL
-Imports Ionic.Zlib
+﻿Imports System.IO
 Imports Ionic.Zip
+Imports OpenTK.Graphics.OpenGL
+Imports Tao.DevIl
 
 Module MapSelectionFunctions
 

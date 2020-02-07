@@ -1,19 +1,4 @@
-﻿#Region "imports"
-
-Imports System.Math
-Imports System
-Imports System.Globalization
-Imports System.Threading
-
-Imports OpenTK.GLControl
-Imports OpenTK
-Imports OpenTK.Platform.Windows
-Imports OpenTK.Graphics
-Imports OpenTK.Graphics.OpenGL
-
-Imports Config = OpenTK.Configuration
-Imports Utilities = OpenTK.Platform.Utilities
-#End Region
+﻿Imports OpenTK.Graphics.OpenGL
 
 Module textRender
 

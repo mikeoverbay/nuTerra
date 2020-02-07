@@ -1,5 +1,6 @@
 ﻿Imports System.Threading
 Imports OpenTK
+
 Module modGlobalVars
     'Define these in CAP TEXT
 
