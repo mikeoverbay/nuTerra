@@ -197,38 +197,14 @@ Module modSpaceBinFunctions
     End Function
 
     Public Function get_WTbl(tbl As Integer, br As BinaryReader)
-
         Try
-            'set stream reader to point at this chunk
+            ' set stream reader to point at this chunk
             br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-            cWtbl = New cWtbl_
-
-            Dim ds = br.ReadUInt32 'data size per entry in bytes
-            Dim tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cWtbl.tbl_1(tl - 1)
-            For k = 0 To tl - 1
-                cWtbl.tbl_1(k).s1 = br.ReadSingle
-                cWtbl.tbl_1(k).s2 = br.ReadSingle
-                cWtbl.tbl_1(k).s3 = br.ReadSingle
-            Next
-            '------------------------------------------------------------
-
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cWtbl.tbl_2(tl - 1)
-            For k = 0 To tl - 1
-                cWtbl.tbl_2(k).flag1 = br.ReadUInt32
-                cWtbl.tbl_2(k).flag2 = br.ReadUInt32
-                cWtbl.tbl_2(k).flag3 = br.ReadUInt32
-                cWtbl.tbl_2(k).flag4 = br.ReadUInt32
-                cWtbl.tbl_2(k).flag5 = br.ReadUInt32
-            Next
-
+            cWtbl = New cWtbl_(br)
         Catch ex As Exception
             Debug.Print(ex.ToString)
             Return False
         End Try
-
         Return True
     End Function
 
@@ -246,8 +222,7 @@ Module modSpaceBinFunctions
 
     Public Function get_BSMA(tbl As Integer, br As BinaryReader)
         Try
-
-            'set stream reader to point at this chunk
+            ' set stream reader to point at this chunk
             br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
             cBSMA = New cBSMA_
 

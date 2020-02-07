@@ -297,24 +297,14 @@ Module modSpacedBinVars
 
 #End Region
 
-#Region "Wtbl"
+#Region "WTbl"
     Public cWtbl As cWtbl_
     Public Structure cWtbl_
-        Public tbl_1() As tbl_1_
-        Public tbl_2() As tbl_2_
+        Public benchmark_locations As BWArray(Of Vector3)
 
-        Public Structure tbl_1_
-            Public s1 As Single
-            Public s2 As Single
-            Public s3 As Single
-        End Structure
-        Public Structure tbl_2_
-            Public flag1 As UInt32
-            Public flag2 As UInt32
-            Public flag3 As UInt32
-            Public flag4 As UInt32
-            Public flag5 As UInt32
-        End Structure
+        Public Sub New(br As BinaryReader)
+            benchmark_locations = New BWArray(Of Vector3)(br)
+        End Sub
     End Structure
 #End Region
 
