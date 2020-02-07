@@ -70,8 +70,8 @@ Module modSpaceBinFunctions
             cBWSG.primitive_entries(k).end_idx = br.ReadUInt32 ' points at primitive data list
             cBWSG.primitive_entries(k).vertex_count = br.ReadUInt32
             cBWSG.primitive_entries(k).str_key2 = br.ReadUInt32
-            cBWSG.primitive_entries(k).model = find_str_BWSG(cBWSG.primitive_entries(k).str_key1)
-            cBWSG.primitive_entries(k).vertex_type = find_str_BWSG(cBWSG.primitive_entries(k).str_key2)
+            cBWSG.primitive_entries(k).model = cBWSG.find_str(cBWSG.primitive_entries(k).str_key1)
+            cBWSG.primitive_entries(k).vertex_type = cBWSG.find_str(cBWSG.primitive_entries(k).str_key2)
         Next
 
         '----------------------------------------------------------------------
@@ -537,27 +537,5 @@ ignore_this2:
         End Try
         Return True
     End Function
-
-#Region "string look up routines"
-    Private Function find_str_FX(ByVal key As UInt32) As String
-        For z = 0 To cBSMA.FXStringKey.Length - 1
-            If key = cBSMA.FXStringKey(z).FX_str_key Then
-                Return cBSMA.FXStringKey(z).FX_string(z)
-            End If
-        Next
-        Return "ERROR!"
-    End Function
-
-    Private Function find_str_BWSG(ByVal key As UInt32) As String
-        For z = 0 To cBWSG.strs.Length - 1
-            If key = cBWSG.keys(z) Then
-                'Console.WriteLine("key: " + key.ToString("x8").ToUpper + vbCrLf)
-                Return cBWSG.strs(z)
-            End If
-        Next
-        Return "ERROR!"
-    End Function
-
-#End Region
 
 End Module

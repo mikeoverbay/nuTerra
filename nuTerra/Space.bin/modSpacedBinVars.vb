@@ -202,7 +202,15 @@ Module modSpacedBinVars
             Public data() As Byte
         End Structure
 
-
+        Public Function find_str(key As UInt32) As String
+            Dim index As Integer = Array.BinarySearch(keys, key)
+            If index >= 0 Then
+                Return strs(index)
+            Else
+                Debug.Fail("String in BWSG not found!", key.ToString)
+                Return Nothing
+            End If
+        End Function
     End Structure
 #End Region
 
