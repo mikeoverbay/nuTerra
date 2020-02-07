@@ -1,81 +1,32 @@
 ﻿Imports System.IO
-Imports System.Windows.Forms
-Imports System.Math
-Imports System.String
 Imports System.Text
 
 Module modSpaceBinFunctions
-
-    Public Function get_BSGD(tbl As Integer, br As BinaryReader) As Boolean
-
+    Public Function get_BSGD(ByRef bsgdHeader As SectionHeader, br As BinaryReader) As Boolean
         Try
-            'set stream reader to point at this chunk
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-
-            cBSGD = New cBSGD_
-            cBSGD.data = br.ReadBytes(space_bin_Chunk_table(tbl).chunk_length)
+            cBSGD = New cBSGD_(bsgdHeader, br)
         Catch ex As Exception
             Return False
         End Try
         Return True
     End Function
 
-    Public Function get_BWST(tbl As Integer, br As BinaryReader) As Boolean
-
-        'set stream reader to point at this chunk
-        br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-
-        cBWST = New cBWST_
-
-        Dim debug_strings As New StringBuilder
-        '----------------------------------------------------------------------
+    Public Function get_BWST(ByRef bwstHeader As SectionHeader, br As BinaryReader) As Boolean
         Try
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-
-            Dim d_length = br.ReadUInt32
-            Dim entry_cnt = br.ReadUInt32
-            ReDim cBWST.strs(entry_cnt)
-            ReDim cBWST.keys(entry_cnt)
-            Dim old_pos = br.BaseStream.Position
-            Dim start_offset As Long = space_bin_Chunk_table(tbl).chunk_Start + (d_length * entry_cnt) + 12
-            For k = 0 To entry_cnt - 1
-                br.BaseStream.Position = old_pos
-                cBWST.keys(k) = br.ReadUInt32
-                Dim offset = br.ReadUInt32
-                Dim length = br.ReadUInt32
-                old_pos = br.BaseStream.Position
-                'move to strings locations and read it
-                br.BaseStream.Position = offset + start_offset
-                Dim ds() = br.ReadBytes(length)
-                cBWST.strs(k) = System.Text.Encoding.UTF8.GetString(ds, 0, length)
-                '------------------------------------------------------------
-                'For debug/help at sorting things out
-                Dim hexCharArray = BitConverter.GetBytes(cBWST.keys(k))
-                Dim hexStringReversed = BitConverter.ToString(hexCharArray)
-                debug_strings.AppendLine(hexStringReversed.Replace("-", "") + " : " + cBWST.strs(k))
-                '------------------------------------------------------------
-            Next
+            cBWST = New cBWST_(bwstHeader, br)
         Catch ex As Exception
+            Debug.Print(ex.ToString)
             Return False
         End Try
-
-        If False Then 'If true save the string data for debug/help
-            If Not Directory.Exists("C:\!_bin_data\") Then
-                Directory.CreateDirectory("C:\!_bin_data\")
-            End If
-            File.WriteAllText("C:\!_bin_data\BWST_strings.txt", debug_strings.ToString)
-        End If
-        debug_strings.Length = 0
-        GC.Collect()
         Return True
-
     End Function
 
-    Public Function get_BWSG(tbl As Integer, br As BinaryReader) As Boolean
+    Public Function get_BWSG(ByRef bwsgHeader As SectionHeader, br As BinaryReader) As Boolean
+        Return True
         Dim debug_strings As New StringBuilder
 
         'set stream reader to point at this chunk
-        br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
+        br.BaseStream.Position = bwsgHeader.offset
 
         cBWSG = New cBWSG_
         '----------------------------------------------------------------------
@@ -85,7 +36,7 @@ Module modSpaceBinFunctions
         ReDim cBWSG.strs(entry_cnt)
         ReDim cBWSG.keys(entry_cnt)
         Dim old_pos = br.BaseStream.Position
-        Dim start_offset As Long = space_bin_Chunk_table(tbl).chunk_Start + (d_length * entry_cnt) + 12
+        Dim start_offset As Long = bwsgHeader.offset + (d_length * entry_cnt) + 12
         For k = 0 To entry_cnt - 1
             br.BaseStream.Position = old_pos
             cBWSG.keys(k) = br.ReadUInt32
@@ -101,7 +52,7 @@ Module modSpaceBinFunctions
             'For debug/help at sorting things out
             Dim hexCharArray = BitConverter.GetBytes(cBWSG.keys(k))
             Dim hexStringReversed = BitConverter.ToString(hexCharArray)
-            debug_strings.AppendLine(hexStringReversed.Replace("-", "") + _
+            debug_strings.AppendLine(hexStringReversed.Replace("-", "") +
                                      " : " + cBWSG.strs(k))
             '------------------------------------------------------------
         Next
@@ -149,6 +100,7 @@ Module modSpaceBinFunctions
             cBWSG.cBWSG_VertexDataChunks(k) = New cBWSG_.raw_data_
             cBWSG.cBWSG_VertexDataChunks(k).data_size = br.ReadUInt32
         Next
+
         Dim cBSGD_ms As New MemoryStream(cBSGD.data)
         Dim cBSGD_br As New BinaryReader(cBSGD_ms)
 
@@ -156,6 +108,8 @@ Module modSpaceBinFunctions
             ReDim cBWSG.cBWSG_VertexDataChunks(k).data(cBWSG.cBWSG_VertexDataChunks(k).data_size - 1)
             cBWSG.cBWSG_VertexDataChunks(k).data = cBSGD_br.ReadBytes(cBWSG.cBWSG_VertexDataChunks(k).data_size)
         Next
+
+        cBSGD_br.Close()
         cBSGD_ms.Close()
 
         '----------------------------------------------------------------------
@@ -184,11 +138,9 @@ Module modSpaceBinFunctions
         Return True
     End Function
 
-    Public Function get_BSMI(tbl As Integer, br As BinaryReader) As Boolean
+    Public Function get_BSMI(ByRef bsmiHeader As SectionHeader, br As BinaryReader) As Boolean
         Try
-            ' set stream reader to point at this chunk
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-            cBSMI = New cBSMI_(br)
+            cBSMI = New cBSMI_(bsmiHeader, br)
         Catch ex As Exception
             Debug.Print(ex.ToString)
             Return False
@@ -196,11 +148,9 @@ Module modSpaceBinFunctions
         Return True
     End Function
 
-    Public Function get_WTbl(tbl As Integer, br As BinaryReader)
+    Public Function get_WTbl(ByRef wtblHeader As SectionHeader, br As BinaryReader)
         Try
-            ' set stream reader to point at this chunk
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-            cWtbl = New cWtbl_(br)
+            cWtbl = New cWtbl_(wtblHeader, br)
         Catch ex As Exception
             Debug.Print(ex.ToString)
             Return False
@@ -208,11 +158,9 @@ Module modSpaceBinFunctions
         Return True
     End Function
 
-    Public Function get_BSMO(tbl As Integer, br As BinaryReader)
+    Public Function get_BSMO(ByRef bsmoHeader As SectionHeader, br As BinaryReader)
         Try
-            ' set stream reader to point at this chunk
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-            cBSMO = New cBSMO_(br)
+            cBSMO = New cBSMO_(bsmoHeader, br)
         Catch ex As Exception
             Debug.Print(ex.ToString)
             Return False
@@ -220,10 +168,10 @@ Module modSpaceBinFunctions
         Return True
     End Function
 
-    Public Function get_BSMA(tbl As Integer, br As BinaryReader)
+    Public Function get_BSMA(ByRef bsmaHeader As SectionHeader, br As BinaryReader)
         Try
             ' set stream reader to point at this chunk
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
+            br.BaseStream.Position = bsmaHeader.offset
             cBSMA = New cBSMA_
 
             Dim ds = br.ReadUInt32 'data size per entry in bytes
@@ -345,39 +293,9 @@ Module modSpaceBinFunctions
         Return True
     End Function
 
-    Public Function get_BWAL(tbl As Integer, br As BinaryReader)
-        Dim ns() = {"ASSET_TYPE_UNKNOWN_TYPE", "ASSET_TYPE_DATASECTION", "ASSET_TYPE_TEXTURE", "ASSET_TYPE_EFFECT", "ASSET_TYPE_PRIMITIVE", "ASSET_TYPE_VISUAL", "ASSET_TYPE_MODEL"}
-        Dim models, textures, primitives, visuals, effects, unknown, datasections As UInt32
+    Public Function get_BWAL(ByRef bwalHeader As SectionHeader, br As BinaryReader)
         Try
-            cBWAL = New cBWAL_
-            'set stream reader to point at this chunk
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-
-            Dim ds = br.ReadUInt32 'data size per entry in bytes
-            Dim tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBWAL.assetList(tl - 1)
-            For k = 0 To tl - 1
-                cBWAL.assetList(k).AssetType = br.ReadUInt32
-                cBWAL.assetList(k).EntryID = br.ReadUInt32
-                cBWAL.assetList(k).string_name = ns(cBWAL.assetList(k).AssetType)
-                Select Case True
-                    Case cBWAL.assetList(k).AssetType = 0
-                        unknown += 1
-                    Case cBWAL.assetList(k).AssetType = 1
-                        datasections += 1
-                    Case cBWAL.assetList(k).AssetType = 2
-                        textures += 1
-                    Case cBWAL.assetList(k).AssetType = 3
-                        effects += 1
-                    Case cBWAL.assetList(k).AssetType = 4
-                        primitives += 1
-                    Case cBWAL.assetList(k).AssetType = 5
-                        visuals += 1
-                    Case cBWAL.assetList(k).AssetType = 6
-                        models += 1
-                End Select
-            Next
-
+            cBWAL = New cBWAL_(bwalHeader, br)
         Catch ex As Exception
             Debug.Print(ex.ToString)
             Return False
@@ -385,12 +303,12 @@ Module modSpaceBinFunctions
         Return True
     End Function
 
-    Public Function get_WGSD(tbl As Integer, br As BinaryReader)
+    Public Function get_WGSD(ByRef wgsdHeader As SectionHeader, br As BinaryReader)
         'get the decal lists
         Try
             cWGSD = New cWGSD_
             'set stream reader to point at this chunk
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
+            br.BaseStream.Position = wgsdHeader.offset
 
             Dim ty = br.ReadUInt32() 'type?
             Dim vr = br.ReadUInt32() 'version?
@@ -600,80 +518,21 @@ ignore_this2:
         Return True
     End Function
 
-    Public Function get_SPTR(tbl As Integer, br As BinaryReader)
+    Public Function get_SpTr(ByRef sptrHeader As SectionHeader, br As BinaryReader)
         Try
-            cSPTR = New cSPTR_
-            'set stream reader to point at this chunk
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-
-            Dim ds = br.ReadUInt32 'data size per entry in bytes
-            Dim tl = br.ReadUInt32 ' number of entries in this table
-
-            ReDim speedtree_matrix_list(tl - 1)
-            ReDim cSPTR.Stree(tl - 1)
-
-            For k = 0 To tl - 1
-                speedtree_matrix_list(k) = New speedtree_matrix_list_
-                ReDim speedtree_matrix_list(k).matrix(16)
-                ReDim cSPTR.Stree(k).Matrix(16)
-                For i = 0 To 15
-                    speedtree_matrix_list(k).matrix(i) = br.ReadSingle
-                    cSPTR.Stree(k).Matrix(i) = speedtree_matrix_list(k).matrix(i)
-                Next
-
-                cSPTR.Stree(k).key = br.ReadUInt32
-                cSPTR.Stree(k).e1 = br.ReadUInt32
-                cSPTR.Stree(k).e2 = br.ReadUInt32
-                cSPTR.Stree(k).e3 = br.ReadUInt32
-
-                speedtree_matrix_list(k).tree_name = cBWST.find_str(cSPTR.Stree(k).key)
-
-            Next
+            cSpTr = New cSpTr_(sptrHeader, br)
         Catch ex As Exception
+            Debug.Print(ex.ToString)
             Return False
         End Try
         Return True
     End Function
 
-    Public Function get_BWWa(tbl As Integer, br As BinaryReader)
+    Public Function get_BWWa(ByRef bwwaHeader As SectionHeader, br As BinaryReader)
         Try
-            cBWWa = New cBWWa_
-            'set stream reader to point at this chunk
-            br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-
-            Dim ds = br.ReadUInt32 'data size per entry in bytes
-            Dim tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBWWa.bwwa_t1(1)
-            cBWWa.bwwa_t1(0) = New cBWWa_.cbwwa_t1_
-            If tl = 0 Then
-                'no water
-                water.IsWater = False
-                Return True
-            End If
-            Try
-                Dim l, r As vect3
-                l.x = br.ReadSingle
-                l.y = br.ReadSingle
-                l.z = br.ReadSingle
-
-                r.x = br.ReadSingle
-                r.y = br.ReadSingle
-                r.z = br.ReadSingle
-
-                cBWWa.bwwa_t1(0).position.x = -(l.x + r.x) / 2.0!
-                cBWWa.bwwa_t1(0).position.y = l.y
-                cBWWa.bwwa_t1(0).position.z = (l.z + r.z) / 2.0!
-                cBWWa.bwwa_t1(0).width = Abs(l.x) + Abs(r.x)
-                cBWWa.bwwa_t1(0).plane = l.y
-                cBWWa.bwwa_t1(0).height = Abs(l.z) + Abs(r.z)
-                water.IsWater = True
-                WATER_LINE = cBWWa.bwwa_t1(0).position.y
-            Catch ex As Exception
-                water.IsWater = False
-                WATER_LINE = -500.0
-            End Try
-
+            cBWWa = New cBWWa_(bwwaHeader, br)
         Catch ex As Exception
+            Debug.Print(ex.ToString)
             Return False
         End Try
         Return True
@@ -694,15 +553,6 @@ ignore_this2:
             If key = cBWSG.keys(z) Then
                 'Console.WriteLine("key: " + key.ToString("x8").ToUpper + vbCrLf)
                 Return cBWSG.strs(z)
-            End If
-        Next
-        Return "ERROR!"
-    End Function
-    Private Function find_str_SpTr(ByVal key As UInt32) As String
-        For z = 0 To cSPTR.Stree.Length - 1
-            If key = cSPTR.Stree(z).key Then
-                'Console.WriteLine("key: " + key.ToString("x8").ToUpper + vbCrLf)
-                Return cSPTR.Stree(z).Tree_name
             End If
         Next
         Return "ERROR!"

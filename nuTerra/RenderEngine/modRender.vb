@@ -169,26 +169,21 @@ Module modRender
             If Not MAP_MODELS(idx).mdl(0).junk Then
 
                 Dim model = MODEL_MATRIX_LIST(z).matrix
-                'model = Matrix4.Identity
 
-                Dim MVPM = model * MODELVIEWMATRIX * PROJECTIONMATRIX
+                Dim MVM = model * MODELVIEWMATRIX
+                Dim MVPM = MVM * PROJECTIONMATRIX
 
-                GL.UniformMatrix4(testList_modelMatrix_id, False, model * MODELVIEWMATRIX)
+                GL.UniformMatrix4(testList_modelMatrix_id, False, MVM)
                 GL.UniformMatrix4(testList_modelViewProjection_id, False, MVPM)
 
                 ' need an inverse of the modelmatrix
-                Dim MVM = model * MODELVIEWMATRIX
                 Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
                 GL.UniformMatrix3(testList_modelNormalMatrix_id, True, normalMatrix)
 
-
                 For j = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
                     GL.CallList(MAP_MODELS(idx).mdl(0).entries(j).list_id)
-
                 Next
-
             End If
-            Dim er = GL.GetError
         Next
 
         GL.UseProgram(0)

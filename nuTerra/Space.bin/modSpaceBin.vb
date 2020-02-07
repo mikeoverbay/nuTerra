@@ -1,22 +1,15 @@
 ﻿
-#Region "imports"
 Imports System.IO
-Imports System.Windows.Forms
-Imports System.Math
-Imports System.String
 Imports System.Text
-Imports OpenTK
-#End Region
 
 Module modSpaceBin
-    Public space_bin_Chunk_table() As space_chunks_
-    Public Structure space_chunks_
+    Public space_bin_Chunk_table As SectionHeader()
+    Public Structure SectionHeader
         Public chunk_name As String
-        Public type As Int32
-        Public chunk_Start As Long
-        Public chunk_length As Long
+        Public version As Int32
+        Public offset As Int64
+        Public length As Int64
     End Structure
-
 
     Public Function ReadSpaceBinData(ByRef p As String) As Boolean
         If Not File.Exists(TEMP_STORAGE + p) Then
@@ -28,22 +21,20 @@ Module modSpaceBin
         f.Position = &H14
         Dim table_size = br.ReadInt32
         ReDim space_bin_Chunk_table(table_size - 1)
+
         'read each entry in the header table
-        Dim old_pos = br.BaseStream.Position
         For t_cnt = 0 To table_size - 1
-            old_pos = br.BaseStream.Position
-            Dim ds() = br.ReadBytes(4)
-            space_bin_Chunk_table(t_cnt).chunk_name = System.Text.Encoding.UTF8.GetString(ds, 0, 4)
+            Dim ds = br.ReadBytes(4)
+            space_bin_Chunk_table(t_cnt).chunk_name = System.Text.Encoding.ASCII.GetString(ds, 0, 4)
 
             Debug.WriteLine(space_bin_Chunk_table(t_cnt).chunk_name)
             sb.Append("Case header = " + """" + space_bin_Chunk_table(t_cnt).chunk_name + """" + vbCrLf)
 
-            space_bin_Chunk_table(t_cnt).type = br.ReadInt32
-            space_bin_Chunk_table(t_cnt).chunk_Start = br.ReadInt64
-            space_bin_Chunk_table(t_cnt).chunk_length = br.ReadInt64
-            old_pos = br.BaseStream.Position
-
+            space_bin_Chunk_table(t_cnt).version = br.ReadInt32
+            space_bin_Chunk_table(t_cnt).offset = br.ReadInt64
+            space_bin_Chunk_table(t_cnt).length = br.ReadInt64
         Next
+
         If False Then
             If Not Directory.Exists("C:\!_bin_data\") Then
                 Directory.CreateDirectory("C:\!_bin_data\")
@@ -56,111 +47,118 @@ Module modSpaceBin
                 Directory.CreateDirectory("C:\!_bin_data\")
             End If
             For i = 0 To space_bin_Chunk_table.Length - 1
-                br.BaseStream.Position = space_bin_Chunk_table(i).chunk_Start
-                Dim d = br.ReadBytes(space_bin_Chunk_table(i).chunk_length)
+                br.BaseStream.Position = space_bin_Chunk_table(i).offset
+                Dim d = br.ReadBytes(space_bin_Chunk_table(i).length)
                 File.WriteAllBytes("C:\!_bin_data\" + MAP_NAME_NO_PATH + "_" + space_bin_Chunk_table(i).chunk_name + ".bin", d)
             Next
         End If
-        'we mush grab this data first!
-        For t_cnt = 0 To table_size - 1
-            Dim header As String = space_bin_Chunk_table(t_cnt).chunk_name
-            Select Case True
-                Case header = "BSGD"
-                    If Not get_BSGD(t_cnt, br) Then
-                        MsgBox("BSGD decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-            End Select
+
+        ' we mush grab this data first!
+        For Each header As SectionHeader In space_bin_Chunk_table
+            If header.chunk_name = "BSGD" Then
+                If Not get_BSGD(header, br) Then
+                    MsgBox("BSGD decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                    Return False
+                End If
+                Exit For
+            End If
         Next
 
         '----------------------------------------------------------------------------------
         'Now we will grab the game data we need.
-        For t_cnt = 0 To table_size - 1
-            Dim header As String = space_bin_Chunk_table(t_cnt).chunk_name
-            Select Case True
-                Case header = "BWST"
-                    If Not get_BWST(t_cnt, br) Then
+        For Each header As SectionHeader In space_bin_Chunk_table
+            Select Case header.chunk_name
+                Case "BWST"
+                    If Not get_BWST(header, br) Then
                         MsgBox("BWST decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-                Case header = "BWAL"
-                    If Not get_BWAL(t_cnt, br) Then
+                Case "BWAL"
+                    If Not get_BWAL(header, br) Then
                         MsgBox("BWAL decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-                Case header = "BWCS"
-                Case header = "BWSG"
-                    If Not get_BWSG(t_cnt, br) Then
+                Case "BWCS"
+                Case "BWSG"
+                    If Not get_BWSG(header, br) Then
                         MsgBox("BWSG decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-                Case header = "BWS2"
-                Case header = "BSG2"
-                Case header = "BWT2"
-                Case header = "BSMI"
-                    If Not get_BSMI(t_cnt, br) Then
+                Case "BWS2"
+                Case "BSG2"
+                Case "BWT2"
+                Case "BSMI"
+                    If Not get_BSMI(header, br) Then
                         MsgBox("BSMI decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-                Case header = "BSMO"
-                    If Not get_BSMO(t_cnt, br) Then
+                Case "BSMO"
+                    If Not get_BSMO(header, br) Then
                         MsgBox("BSMO decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-
-                Case header = "BSMA"
-                    If Not get_BSMA(t_cnt, br) Then
+                Case "BSMA"
+                    If Not get_BSMA(header, br) Then
                         MsgBox("BSMA decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-                Case header = "SpTr"
-                    If Not get_SPTR(t_cnt, br) Then
-                        MsgBox("SPTR decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                Case "SpTr"
+                    If Not get_SpTr(header, br) Then
+                        MsgBox("SpTr decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-                Case header = "WGSD"
-                    If Not get_WGSD(t_cnt, br) Then
+                Case "WGSD"
+                    If Not get_WGSD(header, br) Then
                         MsgBox("WGSD decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-                Case header = "WTCP"
-                Case header = "BWWa"
-                    If Not get_BWWa(t_cnt, br) Then
+                Case "WTCP"
+                Case "BWWa"
+                    If Not get_BWWa(header, br) Then
                         MsgBox("BWWa decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-                Case header = "BWEP"
-                Case header = "WGCO"
-                Case header = "BWPs"
-                Case header = "CENT"
-                Case header = "UDOS"
-                Case header = "WGDE"
-                Case header = "BWLC"
-                Case header = "WTau"
-                Case header = "WTbl"
-                    If Not get_WTbl(t_cnt, br) Then
-                        MsgBox("Wtbl decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                Case "BWEP"
+                Case "WGCO"
+                Case "BWPs"
+                Case "CENT"
+                Case "UDOS"
+                Case "WGDE"
+                Case "BWLC"
+                Case "WTau"
+                Case "WTbl"
+                    If Not get_WTbl(header, br) Then
+                        MsgBox("WTbl decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
-                Case header = "WGSH"
-                Case header = "WGMM"
+                Case "WGSH"
+                Case "WGMM"
             End Select
         Next
+
+        'Clear headers
+        space_bin_Chunk_table = Nothing
+
+        br.Close()
+        f.Close()
+
+        br = Nothing
+        f = Nothing
+
         '----------------------------------------------------------------------------------
         'build the model information
-        ReDim MAP_MODELS(cBSMO.models_colliders.data.Length - 1)
-        For k = 0 To cBSMO.models_colliders.data.Length - 1
+        ReDim MAP_MODELS(cBSMO.models_colliders.count - 1)
+        For k = 0 To cBSMO.models_colliders.count - 1
             MAP_MODELS(k) = New mdl_
             ReDim MAP_MODELS(k).mdl(1)
             MAP_MODELS(k).mdl(0) = New base_model_holder_
@@ -180,19 +178,10 @@ Module modSpaceBin
                 Dim lod0 = .sb_LOD_set_start
 
                 Dim entry_count = MAP_MODELS(k).mdl(0).sb_model_material_end - MAP_MODELS(k).mdl(0).sb_model_material_begin
-                Dim L_start, L_end As Integer
-                'Used to index in to lodRenderItems
-                Dim r_set_begin, r_set_end As UInteger
 
                 Dim mat_kind_index = cBSMO.bsp_material_kinds.data(.sb_model_material_begin).material_index
                 Dim shader_prop_start = cBSMA.MaterialItem(mat_kind_index).shaderPropBegin
                 Dim shader_prop_end = cBSMA.MaterialItem(mat_kind_index).shaderPropEnd
-
-                r_set_begin = cBSMO.lod_renders.data(L_start).render_set_begin
-                r_set_end = cBSMO.lod_renders.data(L_end).render_set_end
-
-                'L_start = cBSMO.render_item_ranges(k).lod_start
-                'L_end = cBSMO.render_item_ranges(k).lod_end
 
                 'this is all wrong.. we don't want LODs! We Want the total primitiveGroups!
                 'I can NOT figure out how to get the list of all the primitivegroups!!
@@ -200,11 +189,11 @@ Module modSpaceBin
                 If .primitive_name.ToLower.Contains("vhouse_05") Then
                     'Stop
                 End If
+
                 ReDim .entries(component_cnt)
                 .primitive_count = component_cnt + 1
                 Dim run_cnt As Integer = 0
                 For z = 0 To component_cnt
-                    .entries(z) = New entries_
                     Dim mat_index = cBSMO.renders.data(z)
                     .entries(z).identifier = cBSMA.MaterialItem(z + shader_prop_start).identifier
                     .entries(z).FX_shader = cBSMA.MaterialItem(z + shader_prop_start).FX_string
@@ -379,6 +368,19 @@ ignore_this_one:
             End If
 
         Next
+
+        'Clear Sections
+        cBSGD = Nothing
+        cBWST = Nothing
+        cBWSG = Nothing
+        cBSMI = Nothing
+        cWTbl = Nothing
+        cBSMO = Nothing
+        cBSMA = Nothing
+        cBWAL = Nothing
+        cWGSD = Nothing
+        cSpTr = Nothing
+        cBWWa = Nothing
 
         Return True
     End Function

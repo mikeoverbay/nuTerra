@@ -1,20 +1,8 @@
-﻿Imports OpenTK.Graphics.OpenGL
-Imports System.Runtime.InteropServices.Marshal
+﻿Imports OpenTK
+
 Module modTypeStructures
     '--------------------------------------------------------
 
-    Public Structure vect4
-        Public x As Single
-        Public y As Single
-        Public z As Single
-        Public w As Single
-    End Structure
-
-    Public Structure vect3
-        Public x As Single
-        Public y As Single
-        Public z As Single
-    End Structure
     Public Structure vect3_16
         Public x As UInt16
         Public y As UInt16
@@ -26,10 +14,6 @@ Module modTypeStructures
         Public z As UInt32
     End Structure
 
-    Public Structure vect2
-        Public x As Single
-        Public y As Single
-    End Structure
     '--------------------------------------------------------
     Public water As New water_model_
     Public Structure water_model_
@@ -38,21 +22,21 @@ Module modTypeStructures
         Public textureID As Integer
         Public normalID As Integer
         Public aspect As Single
-        Public size_ As vect3
-        Public position As vect3
+        Public size_ As Vector3
+        Public position As Vector3
         Public orientation As Single
         Public type As String
         Public IsWater As Boolean
         Public foam_id As Integer
-        Public lbl As vect3
-        Public lbr As vect3
-        Public ltl As vect3
-        Public ltr As vect3
-        Public rbl As vect3
-        Public rbr As vect3
-        Public rtl As vect3
-        Public rtr As vect3
-        Public BB() As vect3
+        Public lbl As Vector3
+        Public lbr As Vector3
+        Public ltl As Vector3
+        Public ltr As Vector3
+        Public rbl As Vector3
+        Public rbr As Vector3
+        Public rtl As Vector3
+        Public rtr As Vector3
+        Public BB() As Vector3
         Public matrix() As Single
     End Structure
     '--------------------------------------------------------
@@ -70,8 +54,8 @@ Module modTypeStructures
         Public ny As Single
         Public nz As Single
         Public map As Integer
-        Public t As vect3
-        Public bt As vect3
+        Public t As Vector3
+        Public bt As Vector3
         Public hole As Single
     End Structure
 
@@ -93,12 +77,12 @@ Module modTypeStructures
     Public Structure Model_Section
         Public callList_ID As Int32
         ' Public indices() As Integer
-        Public vertices() As vect3
-        Public normals() As vect3
-        Public tangents() As vect3
-        Public binormals() As vect3
-        Public UVs() As vect2
-        Public UV2s() As vect2
+        Public vertices() As Vector3
+        Public normals() As Vector3
+        Public tangents() As Vector3
+        Public binormals() As Vector3
+        Public UVs() As Vector2
+        Public UV2s() As Vector2
         Public name As String
         'for texture mapping
         Public color_id As Int32
@@ -136,7 +120,7 @@ Module modTypeStructures
         Public junk As Boolean
         '------------------------------------------------
         'These are in the MODEL_MATRIX_LIST and wont be used here.
-        Public BB() As vect3 'Used for frustrum culling
+        Public BB() As Vector3 'Used for frustrum culling
         Public culled As Boolean 'Draw if not true
         '------------------------------------------------
 
@@ -168,12 +152,12 @@ Module modTypeStructures
 
         '------------------------------------------------
         'Storage
-        Public Vertex_buffer() As vect3
-        Public Normal_buffer() As vect3
-        Public UV1_buffer() As vec2
-        Public tangent_buffer() As vect3
-        Public biNormal_buffer() As vect3
-        Public UV2_buffer() As vec2
+        Public Vertex_buffer() As Vector3
+        Public Normal_buffer() As Vector3
+        Public UV1_buffer() As Vector2
+        Public tangent_buffer() As Vector3
+        Public biNormal_buffer() As Vector3
+        Public UV2_buffer() As Vector2
 
         Public index_buffer16() As vect3_16
         Public index_buffer32() As vect3_32
@@ -255,17 +239,17 @@ Module modTypeStructures
         '------------------------------------
         'values from space.bin
         Public alphaReference As Integer
-        Public g_tintColor As vect4
-        Public g_tile0Tint As vect4
-        Public g_tile1Tint As vect4
-        Public g_tile2Tint As vect4
-        Public g_dirtParams As vect4
-        Public g_dirtColor As vect4
-        Public g_atlasSizes As vect4
-        Public g_atlasIndexes As vect4
+        Public g_tintColor As Vector4
+        Public g_tile0Tint As Vector4
+        Public g_tile1Tint As Vector4
+        Public g_tile2Tint As Vector4
+        Public g_dirtParams As Vector4
+        Public g_dirtColor As Vector4
+        Public g_atlasSizes As Vector4
+        Public g_atlasIndexes As Vector4
         Public g_vertexColorMode As Integer
-        Public g_vertexAnimationParams As vect4
-        Public g_fakeShadowsParams As vect4 '<-- interesting
+        Public g_vertexAnimationParams As OpenTK.Vector4
+        Public g_fakeShadowsParams As Vector4 '<-- interesting
         '- render params from space.bin
         Public FX_shader As String
         Public identifier As String

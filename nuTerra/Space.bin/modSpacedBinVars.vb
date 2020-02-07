@@ -24,15 +24,12 @@ Module modSpacedBinVars
 
             ReDim data(count - 1)
 
-            Dim handle As GCHandle
-            Dim buffer As Byte()
-
+            Dim buffer = br.ReadBytes(size * count)
+            Dim handle = GCHandle.Alloc(buffer, GCHandleType.Pinned)
             For i = 0 To count - 1
-                buffer = br.ReadBytes(size)
-                handle = GCHandle.Alloc(buffer, GCHandleType.Pinned)
-                data(i) = Marshal.PtrToStructure(handle.AddrOfPinnedObject(), GetType(t))
-                handle.Free()
+                data(i) = Marshal.PtrToStructure(Marshal.UnsafeAddrOfPinnedArrayElement(buffer, i * size), GetType(t))
             Next
+            handle.Free()
         End Sub
     End Class
 
@@ -52,11 +49,6 @@ Module modSpacedBinVars
         Public exclude_list() As Integer
     End Structure
 
-    Public speedtree_matrix_list() As speedtree_matrix_list_
-    Public Structure speedtree_matrix_list_
-        Public tree_name As String
-        Public matrix() As Single
-    End Structure
     Public decal_matrix_list() As decal_matrix_list_
     Public Structure decal_matrix_list_
         Public u_wrap As Single
@@ -72,19 +64,19 @@ Module modSpacedBinVars
         Public decal_extra As String
         Public matrix() As Single
         Public good As Boolean
-        Public offset As vect4
+        Public offset As OpenTK.Vector4
         Public priority As Int32
         Public influence As Integer
         Public texture_matrix() As Single
-        Public lbl As vect3
-        Public lbr As vect3
-        Public ltl As vect3
-        Public ltr As vect3
-        Public rbl As vect3
-        Public rbr As vect3
-        Public rtl As vect3
-        Public rtr As vect3
-        Public BB() As vect3
+        Public lbl As Vector3
+        Public lbr As Vector3
+        Public ltl As Vector3
+        Public ltr As Vector3
+        Public rbl As Vector3
+        Public rbr As Vector3
+        Public rtl As Vector3
+        Public rtr As Vector3
+        Public BB() As Vector3
         Public visible As Boolean
         Public flags As UInteger
         Public cull_method As Integer
@@ -98,9 +90,21 @@ Module modSpacedBinVars
 #Region "BSGD"
     Public cBSGD As cBSGD_
     Public Structure cBSGD_
-        'This data contains chunks of vertex creation data
-        'Chunk size is stored in cBWSG tbl 3
-        Public data() As Byte
+        '''<summary>
+        '''This data contains chunks of vertex creation data
+        '''Chunk size is stored in cBWSG tbl 3
+        '''</summary>
+        Public data As Byte()
+
+        Public Sub New(bsgdHeader As SectionHeader, br As BinaryReader)
+            ' set stream reader to point at this chunk
+            br.BaseStream.Position = bsgdHeader.offset
+
+            ' Check version in header
+            Debug.Assert(bsgdHeader.version = 2)
+
+            data = br.ReadBytes(bsgdHeader.length)
+        End Sub
     End Structure
 #End Region
 
@@ -111,10 +115,39 @@ Module modSpacedBinVars
         Public keys As UInt32()
         Public strs As String()
 
+        Public Sub New(bwstHeader As SectionHeader, br As BinaryReader)
+            ' set stream reader to point at this chunk
+            br.BaseStream.Position = bwstHeader.offset
+
+            ' Check version in header
+            Debug.Assert(bwstHeader.version = 2)
+
+            Dim d_length = br.ReadUInt32
+            Dim entry_cnt = br.ReadUInt32
+
+            ReDim strs(entry_cnt)
+            ReDim keys(entry_cnt)
+
+            Dim old_pos = br.BaseStream.Position
+            Dim start_offset As Long = bwstHeader.offset + (d_length * entry_cnt) + 12
+
+            For k = 0 To entry_cnt - 1
+                br.BaseStream.Position = old_pos
+                keys(k) = br.ReadUInt32
+                Dim offset = br.ReadUInt32
+                Dim length = br.ReadUInt32
+                old_pos = br.BaseStream.Position
+                'move to strings locations and read it
+                br.BaseStream.Position = offset + start_offset
+                Dim bs = br.ReadBytes(length)
+                strs(k) = Encoding.ASCII.GetString(bs)
+            Next
+        End Sub
+
         Public Function find_str(key As UInt32) As String
-            Dim index As Integer = Array.BinarySearch(cBWST.keys, key)
+            Dim index As Integer = Array.BinarySearch(keys, key)
             If index >= 0 Then
-                Return cBWST.strs(index)
+                Return strs(index)
             Else
                 Debug.Fail("String in BWST not found!", key.ToString)
                 Return Nothing
@@ -188,7 +221,13 @@ Module modSpacedBinVars
         Public tbl_9 As BWArray(Of tbl_9_)
         Public tbl_10 As BWArray(Of tbl_10_)
 
-        Public Sub New(br As BinaryReader)
+        Public Sub New(ByRef bsmiHeader As SectionHeader, br As BinaryReader)
+            ' set stream reader to point at this chunk
+            br.BaseStream.Position = bsmiHeader.offset
+
+            ' Check version in header
+            Debug.Assert(bsmiHeader.version = 3)
+
             transforms = New BWArray(Of Matrix4)(br)
             chunk_models = New BWArray(Of ChunkModel_v1_0_0)(br)
             visibility_masks = New BWArray(Of vis_mask_)(br)
@@ -312,11 +351,17 @@ Module modSpacedBinVars
 #End Region
 
 #Region "WTbl"
-    Public cWtbl As cWtbl_
-    Public Structure cWtbl_
+    Public cWTbl As cWTbl_
+    Public Structure cWTbl_
         Public benchmark_locations As BWArray(Of Vector3)
 
-        Public Sub New(br As BinaryReader)
+        Public Sub New(ByRef wtblHeader As SectionHeader, br As BinaryReader)
+            ' set stream reader to point at this chunk
+            br.BaseStream.Position = wtblHeader.offset
+
+            ' Check version in header
+            Debug.Assert(wtblHeader.version = 0)
+
             benchmark_locations = New BWArray(Of Vector3)(br)
         End Sub
     End Structure
@@ -344,7 +389,13 @@ Module modSpacedBinVars
         ' TODO: 16_8
         ' TODO: vertices_data_sizes
 
-        Public Sub New(br As BinaryReader)
+        Public Sub New(ByRef bsmoHeader As SectionHeader, br As BinaryReader)
+            ' set stream reader to point at this chunk
+            br.BaseStream.Position = bsmoHeader.offset
+
+            ' Check version in header
+            Debug.Assert(bsmoHeader.version = 2)
+
             ' FIXME: Find a shorter way
             models_loddings = New BWArray(Of ModelLoddingItem_v0_9_12)(br)
             tbl_2 = New BWArray(Of tbl_2_)(br)
@@ -418,8 +469,8 @@ Module modSpacedBinVars
 
         <StructLayout(LayoutKind.Sequential)>
         Public Structure BoundingBox
-            Public min_BB As vect3
-            Public max_BB As vect3
+            Public min_BB As Vector3
+            Public max_BB As Vector3
         End Structure
 
         <StructLayout(LayoutKind.Sequential)>
@@ -532,12 +583,12 @@ Module modSpacedBinVars
             Public val_boolean As Boolean
             Public val_float As Single
             Public val_int As Integer
-            Public val_vec4 As vect4
+            Public val_vec4 As Vector4
             Public vec4_indx As UInt32
         End Structure
 
         Public Structure ShaderPropertyVectorItem_
-            Public vector4 As vect4
+            Public vector4 As Vector4
         End Structure
 
 
@@ -550,15 +601,39 @@ Module modSpacedBinVars
     Public Structure cBWAL_
         Public assetList() As assetList_
 
+        Public Sub New(ByRef bwalHeader As SectionHeader, br As BinaryReader)
+            ' set stream reader to point at this chunk
+            br.BaseStream.Position = bwalHeader.offset
+
+            ' Check version in header
+            Debug.Assert(bwalHeader.version = 2)
+
+            Dim ds = br.ReadUInt32 'data size per entry in bytes
+            Dim tl = br.ReadUInt32 ' number of entries in this table
+
+            ReDim assetList(tl - 1)
+            For k = 0 To tl - 1
+                assetList(k).AssetType = br.ReadUInt32
+                assetList(k).EntryID = br.ReadUInt32
+            Next
+        End Sub
+
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure assetList_
             Public AssetType As UInt32
             Public EntryID As UInt32
-            Public string_name As String
+
+            ReadOnly Property string_name As String
+                Get
+                    Dim ns() = {"ASSET_TYPE_UNKNOWN_TYPE", "ASSET_TYPE_DATASECTION", "ASSET_TYPE_TEXTURE", "ASSET_TYPE_EFFECT", "ASSET_TYPE_PRIMITIVE", "ASSET_TYPE_VISUAL", "ASSET_TYPE_MODEL"}
+                    Return ns(AssetType)
+                End Get
+            End Property
         End Structure
     End Structure
 #End Region
 
-#Region "BWSD"
+#Region "WGSD"
     'Decal entries
     Public cWGSD As cWGSD_
     Public Structure cWGSD_
@@ -601,17 +676,33 @@ Module modSpacedBinVars
 
 #Region "SpTr"
     'speed tree table
-    Public cSPTR As cSPTR_
-    Public Structure cSPTR_
-        Public Stree() As cStree_
+    Public cSpTr As cSpTr_
+    Public Structure cSpTr_
+        Public Stree As BWArray(Of cStree_)
 
+        Public Sub New(ByRef sptrHeader As SectionHeader, br As BinaryReader)
+            ' set stream reader to point at this chunk
+            br.BaseStream.Position = sptrHeader.offset
+
+            ' Check version in header
+            Debug.Assert(sptrHeader.version = 3)
+
+            Stree = New BWArray(Of cStree_)(br)
+        End Sub
+
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure cStree_
-            Public key As UInt32
-            Public e1 As UInt32
-            Public e2 As UInt32
-            Public e3 As UInt32 ' no idea what the e1-e3 are for yet
-            Public Tree_name As String
-            Public Matrix() As Single
+            Public transform As Matrix4
+            Public spt_fnv As UInt32
+            Public seed As UInt32
+            Public flags As UInt32
+            Public visibility_mask As UInt32
+
+            ReadOnly Property tree_name As String
+                Get
+                    Return cBWST.find_str(spt_fnv)
+                End Get
+            End Property
         End Structure
     End Structure
 
@@ -621,8 +712,54 @@ Module modSpacedBinVars
     Public cBWWa As cBWWa_
     Public Structure cBWWa_
         Public bwwa_t1() As cbwwa_t1_
+
+        Public Sub New(ByRef bwwaHeader As SectionHeader, br As BinaryReader)
+            'set stream reader to point at this chunk
+            br.BaseStream.Position = bwwaHeader.offset
+
+            ' Check version in header
+            Debug.Assert(bwwaHeader.version = 2)
+
+            Dim ds = br.ReadUInt32 'data size per entry in bytes
+            Dim tl = br.ReadUInt32 ' number of entries in this table
+
+            If tl = 0 Then
+                'no water
+                water.IsWater = False
+                Return
+            End If
+
+            ReDim bwwa_t1(0)
+
+            Try
+                Dim bbox_min, bbox_max As Vector3
+                bbox_min.X = br.ReadSingle
+                bbox_min.Y = br.ReadSingle
+                bbox_min.Z = br.ReadSingle
+
+                bbox_max.X = br.ReadSingle
+                bbox_max.Y = br.ReadSingle
+                bbox_max.Z = br.ReadSingle
+
+                bwwa_t1(0).position.X = -(bbox_min.X + bbox_max.X) / 2.0!
+                bwwa_t1(0).position.Y = bbox_min.Y
+                bwwa_t1(0).position.Z = (bbox_min.Z + bbox_max.Z) / 2.0!
+
+                bwwa_t1(0).width = Math.Abs(bbox_min.X) + Math.Abs(bbox_max.X)
+                bwwa_t1(0).plane = bbox_min.Y
+                bwwa_t1(0).height = Math.Abs(bbox_min.Z) + Math.Abs(bbox_max.Z)
+
+                water.IsWater = True
+                WATER_LINE = bwwa_t1(0).position.Y
+            Catch ex As Exception
+                'FIXME!
+                water.IsWater = False
+                WATER_LINE = -500.0
+            End Try
+        End Sub
+
         Public Structure cbwwa_t1_
-            Public position As vect3
+            Public position As Vector3
             Public width As Single
             Public height As Single
             Public plane As Single

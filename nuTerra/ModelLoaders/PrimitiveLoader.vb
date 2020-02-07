@@ -3,6 +3,7 @@ Imports System.Math
 Imports System.IO
 Imports OpenTK.Graphics.OpenGL
 Imports System.Runtime.InteropServices.Marshal
+Imports OpenTK
 
 Module PrimitiveLoader
     Public Structure section_info
@@ -432,7 +433,7 @@ Module PrimitiveLoader
 
             'should be in same offset in both buffers.
             uv2_ms.Position = vt_ms.Position
-            Dim v3 As vect3
+            Dim v3 As Vector3
             '---------------------------
             ReDim mdl(0).Vertex_buffer(vh.nVertice_count - 1)
             ReDim mdl(0).Normal_buffer(vh.nVertice_count - 1)
@@ -469,31 +470,31 @@ Module PrimitiveLoader
                     'End If
 
                     If mdl(cur_sub).has_uv2 = 1 Then
-                        mdl(cur_sub).UV2_buffer(running).x = uv2_br.ReadSingle
-                        mdl(cur_sub).UV2_buffer(running).y = uv2_br.ReadSingle
+                        mdl(cur_sub).UV2_buffer(running).X = uv2_br.ReadSingle
+                        mdl(cur_sub).UV2_buffer(running).Y = uv2_br.ReadSingle
                     End If
                     '-----------------------------------------------------------------------
                     'vertex
-                    mdl(cur_sub).Vertex_buffer(running).x = -vt_br.ReadSingle
-                    mdl(cur_sub).Vertex_buffer(running).y = vt_br.ReadSingle
-                    mdl(cur_sub).Vertex_buffer(running).z = vt_br.ReadSingle
+                    mdl(cur_sub).Vertex_buffer(running).X = -vt_br.ReadSingle
+                    mdl(cur_sub).Vertex_buffer(running).Y = vt_br.ReadSingle
+                    mdl(cur_sub).Vertex_buffer(running).Z = vt_br.ReadSingle
                     '-----------------------------------------------------------------------
                     'normal
                     If realNormals Then
-                        mdl(cur_sub).Normal_buffer(running).x = -vt_br.ReadSingle
-                        mdl(cur_sub).Normal_buffer(running).y = vt_br.ReadSingle
-                        mdl(cur_sub).Normal_buffer(running).z = vt_br.ReadSingle
+                        mdl(cur_sub).Normal_buffer(running).X = -vt_br.ReadSingle
+                        mdl(cur_sub).Normal_buffer(running).Y = vt_br.ReadSingle
+                        mdl(cur_sub).Normal_buffer(running).Z = vt_br.ReadSingle
                     Else
                         v3 = unpackNormal_8_8_8(vt_br.ReadUInt32)   ' unpack normals
-                        mdl(cur_sub).Normal_buffer(running).x = -v3.x
-                        mdl(cur_sub).Normal_buffer(running).y = v3.y
-                        mdl(cur_sub).Normal_buffer(running).z = v3.z
+                        mdl(cur_sub).Normal_buffer(running).X = -v3.x
+                        mdl(cur_sub).Normal_buffer(running).Y = v3.y
+                        mdl(cur_sub).Normal_buffer(running).Z = v3.z
                     End If
 
                     '-----------------------------------------------------------------------
                     'uv 1
-                    mdl(cur_sub).UV1_buffer(running).x = vt_br.ReadSingle
-                    mdl(cur_sub).UV1_buffer(running).y = vt_br.ReadSingle
+                    mdl(cur_sub).UV1_buffer(running).X = vt_br.ReadSingle
+                    mdl(cur_sub).UV1_buffer(running).Y = vt_br.ReadSingle
                     '-----------------------------------------------------------------------
                     'if this vertex has index junk, skip it.
                     'no tangent and bitangent on BPVTxyznuviiiww type vertex
@@ -514,14 +515,14 @@ Module PrimitiveLoader
                     If mdl(cur_sub).has_tangent = 1 Then
                         'tangents
                         v3 = unpackNormal(vt_br.ReadUInt32)
-                        mdl(cur_sub).tangent_buffer(running).x = -v3.x
-                        mdl(cur_sub).tangent_buffer(running).y = v3.y
-                        mdl(cur_sub).tangent_buffer(running).z = v3.z
+                        mdl(cur_sub).tangent_buffer(running).X = -v3.x
+                        mdl(cur_sub).tangent_buffer(running).Y = v3.y
+                        mdl(cur_sub).tangent_buffer(running).Z = v3.z
                         'biNormals
                         v3 = unpackNormal(vt_br.ReadUInt32)
-                        mdl(cur_sub).biNormal_buffer(running).x = -v3.x
-                        mdl(cur_sub).biNormal_buffer(running).y = v3.y
-                        mdl(cur_sub).biNormal_buffer(running).z = v3.z
+                        mdl(cur_sub).biNormal_buffer(running).X = -v3.x
+                        mdl(cur_sub).biNormal_buffer(running).Y = v3.y
+                        mdl(cur_sub).biNormal_buffer(running).Z = v3.z
                     End If
                     '-----------------------------------------------------------------------
                     running += 1
@@ -543,7 +544,7 @@ Module PrimitiveLoader
         Return True
 
     End Function
-    Private Function unpackNormal_8_8_8(ByVal packed As UInt32) As vect3
+    Private Function unpackNormal_8_8_8(ByVal packed As UInt32) As Vector3
 
         Dim pkz, pky, pkx As Int32
         pkx = CLng(packed) And &HFF Xor 127
@@ -554,7 +555,7 @@ Module PrimitiveLoader
         Dim y As Single = (pky)
         Dim z As Single = (pkz)
 
-        Dim p As New vect3
+        Dim p As New Vector3
         If x > 127 Then
             x = -128 + (x - 128)
         End If
@@ -580,7 +581,7 @@ Module PrimitiveLoader
         Return p
     End Function
 
-    Public Function unpackNormal(ByVal packed As UInt32)
+    Public Function unpackNormal(ByVal packed As UInt32) As Vector3
         Dim pkz, pky, pkx As Int32
         pkz = packed And &HFFC00000
         pky = packed And &H4FF800
@@ -589,7 +590,7 @@ Module PrimitiveLoader
         Dim z As Int32 = pkz >> 22
         Dim y As Int32 = (pky << 10L) >> 21
         Dim x As Int32 = (pkx << 21L) >> 21
-        Dim p As New vect3
+        Dim p As New Vector3
         p.x = CSng(x) / 1023.0! '* -1.0!
 
         p.x = CSng(x) / 1023.0!
@@ -636,32 +637,32 @@ Module PrimitiveLoader
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(VERTEX_VB))
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 0, 0)
         GL.EnableVertexAttribArray(0)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.Vertex_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector3)), m.Vertex_buffer, BufferUsageHint.StaticDraw)
 
         'normal
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(NORMAL_VB))
         GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 0, 0)
         GL.EnableVertexAttribArray(1)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.Normal_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector3)), m.Normal_buffer, BufferUsageHint.StaticDraw)
 
         'UV1
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(UV1_VB))
         GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 0, 0)
         GL.EnableVertexAttribArray(2)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect2)), m.UV1_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector2)), m.UV1_buffer, BufferUsageHint.StaticDraw)
 
         If m.has_tangent = 1 Then
             'Tangent
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(TANGENT_VB))
             GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(3)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.tangent_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector3)), m.tangent_buffer, BufferUsageHint.StaticDraw)
 
             'biNormal
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(BINORMAL_VB))
             GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(4)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect3)), m.biNormal_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector3)), m.biNormal_buffer, BufferUsageHint.StaticDraw)
         End If
 
         If m.has_uv2 = 1 Then
@@ -669,7 +670,7 @@ Module PrimitiveLoader
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(UV2_VB))
             GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(5)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(vect2)), m.UV2_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector2)), m.UV2_buffer, BufferUsageHint.StaticDraw)
         End If
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, m.mBuffers(INDEX_BUFFER))
@@ -705,34 +706,34 @@ Module PrimitiveLoader
                     p.z = m.index_buffer32(k).z
                 End If
                 '1
-                GL.Normal3(m.Normal_buffer(p.x).x, m.Normal_buffer(p.x).y, m.Normal_buffer(p.x).z)
-                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.x).x, m.UV1_buffer(p.x).y)
-                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.x).x, m.tangent_buffer(p.x).y, m.tangent_buffer(p.x).z)
-                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.x).x, m.biNormal_buffer(p.x).y, m.biNormal_buffer(p.x).z)
+                GL.Normal3(m.Normal_buffer(p.x).X, m.Normal_buffer(p.x).Y, m.Normal_buffer(p.x).Z)
+                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.x).X, m.UV1_buffer(p.x).Y)
+                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.x).X, m.tangent_buffer(p.x).Y, m.tangent_buffer(p.x).Z)
+                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.x).X, m.biNormal_buffer(p.x).Y, m.biNormal_buffer(p.x).Z)
                 If m.has_uv2 = 1 Then
-                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.x).x, m.UV2_buffer(p.x).y)
+                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.x).X, m.UV2_buffer(p.x).Y)
                 End If
-                GL.Vertex3(m.Vertex_buffer(p.x).x, m.Vertex_buffer(p.x).y, m.Vertex_buffer(p.x).z)
+                GL.Vertex3(m.Vertex_buffer(p.x).X, m.Vertex_buffer(p.x).Y, m.Vertex_buffer(p.x).Z)
 
                 '1
-                GL.Normal3(m.Normal_buffer(p.y).x, m.Normal_buffer(p.y).y, m.Normal_buffer(p.y).z)
-                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.y).x, m.UV1_buffer(p.y).y)
-                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.y).x, m.tangent_buffer(p.y).y, m.tangent_buffer(p.y).z)
-                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.y).x, m.biNormal_buffer(p.y).y, m.biNormal_buffer(p.y).z)
+                GL.Normal3(m.Normal_buffer(p.y).X, m.Normal_buffer(p.y).Y, m.Normal_buffer(p.y).Z)
+                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.y).X, m.UV1_buffer(p.y).Y)
+                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.y).X, m.tangent_buffer(p.y).Y, m.tangent_buffer(p.y).Z)
+                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.y).X, m.biNormal_buffer(p.y).Y, m.biNormal_buffer(p.y).Z)
                 If m.has_uv2 = 1 Then
-                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.y).x, m.UV2_buffer(p.y).y)
+                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.y).X, m.UV2_buffer(p.y).Y)
                 End If
-                GL.Vertex3(m.Vertex_buffer(p.y).x, m.Vertex_buffer(p.y).y, m.Vertex_buffer(p.y).z)
+                GL.Vertex3(m.Vertex_buffer(p.y).X, m.Vertex_buffer(p.y).Y, m.Vertex_buffer(p.y).Z)
 
                 '1
-                GL.Normal3(m.Normal_buffer(p.z).x, m.Normal_buffer(p.z).y, m.Normal_buffer(p.z).z)
-                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.z).x, m.UV1_buffer(p.z).y)
-                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.z).x, m.tangent_buffer(p.z).y, m.tangent_buffer(p.z).z)
-                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.z).x, m.biNormal_buffer(p.z).y, m.biNormal_buffer(p.z).z)
+                GL.Normal3(m.Normal_buffer(p.z).X, m.Normal_buffer(p.z).Y, m.Normal_buffer(p.z).Z)
+                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.z).X, m.UV1_buffer(p.z).Y)
+                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.z).X, m.tangent_buffer(p.z).Y, m.tangent_buffer(p.z).Z)
+                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.z).X, m.biNormal_buffer(p.z).Y, m.biNormal_buffer(p.z).Z)
                 If m.has_uv2 = 1 Then
-                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.z).x, m.UV2_buffer(p.z).y)
+                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.z).X, m.UV2_buffer(p.z).Y)
                 End If
-                GL.Vertex3(m.Vertex_buffer(p.z).x, m.Vertex_buffer(p.z).y, m.Vertex_buffer(p.z).z)
+                GL.Vertex3(m.Vertex_buffer(p.z).X, m.Vertex_buffer(p.z).Y, m.Vertex_buffer(p.z).Z)
 
             Next
             GL.End()

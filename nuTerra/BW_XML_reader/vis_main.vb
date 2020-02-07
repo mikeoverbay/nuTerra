@@ -1,17 +1,9 @@
-﻿Imports System
+﻿Imports System.IO
 Imports System.Math
-Imports System.Collections.Generic
-Imports System.Collections
-Imports System.ComponentModel
-Imports System.Data
-Imports System.Drawing
-Imports System.Linq
 Imports System.Text
-Imports System.Windows.Forms
-Imports System.IO
-Imports System.Runtime.CompilerServices
 Imports System.Xml
 Imports Ionic.Zip
+Imports OpenTK
 
 Module vis_main
     Public xmldataset As New DataSet
@@ -23,8 +15,6 @@ Module vis_main
     Public PF As New Primitive_File()
     Public xDoc As New XmlDocument
     Public ReadOnly Binary_Header As Int32 = &H42A14E65
-
-
 
     Private Function FormatXml(ByVal sUnformattedXml As String) As String
         'load unformatted xml into a dom
@@ -290,14 +280,14 @@ Module vis_main
         Models.models(0).componets(0) = New Model_Section
         Models.Model_list(0) = skyDomeName
 	End Sub
-	Private Function normalize(ByVal v As vect3) As vect3
-		Dim ul As Single = Sqrt((v.x ^ 2) + (v.y ^ 2) + (v.z ^ 2))
-		If ul < 0.0000001 Then Return v
-		v.x /= ul
-		v.y /= ul
-		v.z /= ul
-		Return v
-	End Function
+    Private Function normalize(ByVal v As Vector3) As Vector3
+        Dim ul As Single = Sqrt((v.x ^ 2) + (v.y ^ 2) + (v.z ^ 2))
+        If ul < 0.0000001 Then Return v
+        v.x /= ul
+        v.y /= ul
+        v.z /= ul
+        Return v
+    End Function
 
     Public Function TransformXML(ByVal xmlString As String, ByVal xlsString As String) As MemoryStream
         Dim memStream As MemoryStream = Nothing
