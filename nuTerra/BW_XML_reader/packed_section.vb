@@ -1,24 +1,9 @@
-﻿Imports System
-Imports System.Collections.Generic
+﻿Imports System.IO
 Imports System.Text
-Imports System.IO
 Imports System.Xml
-'Imports wottools
-
 
 Public Class Packed_Section
-    Public Shared ReadOnly Packed_Header As Int32 = &H62A14E45
-    Public Shared ReadOnly intToBase64 As Char() = New Char() {"A"c, "B"c, "C"c, "D"c, "E"c, "F"c, _
-     "G"c, "H"c, "I"c, "J"c, "K"c, "L"c, _
-     "M"c, "N"c, "O"c, "P"c, "Q"c, "R"c, _
-     "S"c, "T"c, "U"c, "V"c, "W"c, "X"c, _
-     "Y"c, "Z"c, "a"c, "b"c, "c"c, "d"c, _
-     "e"c, "f"c, "g"c, "h"c, "i"c, "j"c, _
-     "k"c, "l"c, "m"c, "n"c, "o"c, "p"c, _
-     "q"c, "r"c, "s"c, "t"c, "u"c, "v"c, _
-     "w"c, "x"c, "y"c, "z"c, "0"c, "1"c, _
-     "2"c, "3"c, "4"c, "5"c, "6"c, "7"c, _
-     "8"c, "9"c, "+"c, "/"c}
+    Public Shared ReadOnly Packed_Header As UInt32 = &H62A14E45UI
     Public Const MAX_LENGTH As Integer = 256
 
     Public Class DataDescriptor
@@ -49,7 +34,7 @@ Public Class Packed_Section
         Public ReadOnly nameIndex As Integer
         Public ReadOnly dataDescriptor As DataDescriptor
 
-        Public Sub New(ByVal nameIndex As Integer, ByVal dataDescriptor As DataDescriptor)
+        Public Sub New(nameIndex As Integer, dataDescriptor As DataDescriptor)
             Me.nameIndex = nameIndex
             Me.dataDescriptor = dataDescriptor
         End Sub
@@ -64,11 +49,9 @@ Public Class Packed_Section
         End Function
     End Class
 
-    Public Function readStringTillZero(ByVal reader As BinaryReader) As String
+    Public Function readStringTillZero(reader As BinaryReader) As String
         Dim work As Char() = New Char(MAX_LENGTH - 1) {}
-
         Dim i As Integer = 0
-
         Dim c As Char = reader.ReadChar()
         While c <> Convert.ToChar(&H0)
             work(System.Math.Max(System.Threading.Interlocked.Increment(i), i - 1)) = c
@@ -82,7 +65,7 @@ Public Class Packed_Section
 
     End Function
 
-    Public Function readDictionary(ByVal reader As BinaryReader) As List(Of String)
+    Public Function readDictionary(reader As BinaryReader) As List(Of String)
         Dim dictionary As New List(Of String)()
         Dim counter As Integer = 0
         Dim text As String = readStringTillZero(reader)
@@ -95,54 +78,39 @@ Public Class Packed_Section
         Return dictionary
     End Function
 
-    Public Function readLittleEndianShort(ByVal reader As BinaryReader) As Integer
-        Dim LittleEndianShort As Integer = reader.ReadInt16()
-        Return LittleEndianShort
-    End Function
-
-    Public Function readLittleEndianInt(ByVal reader As BinaryReader) As Integer
-        Dim LittleEndianInt As Integer = reader.ReadInt32()
-        Return LittleEndianInt
-    End Function
-    Public Function readLittleEndianlong(ByVal reader As BinaryReader) As Long
-        Dim LittleEndianlong As Int64 = reader.ReadInt64()
-        Return LittleEndianlong
-    End Function
-
-    Public Function readDataDescriptor(ByVal reader As BinaryReader) As DataDescriptor
-        Dim selfEndAndType As Integer = readLittleEndianInt(reader)
+    Public Function readDataDescriptor(reader As BinaryReader) As DataDescriptor
+        Dim selfEndAndType As Integer = reader.ReadInt32()
         Return New DataDescriptor(selfEndAndType And &HFFFFFFF, selfEndAndType >> 28, CInt(reader.BaseStream.Position))
     End Function
 
-    Public Function readElementDescriptors(ByVal reader As BinaryReader, ByVal number As Integer) As ElementDescriptor()
+    Public Function readElementDescriptors(reader As BinaryReader, number As Integer) As ElementDescriptor()
         Dim elements As ElementDescriptor() = New ElementDescriptor(number - 1) {}
         For i As Integer = 0 To number - 1
-            Dim nameIndex As Integer = readLittleEndianShort(reader)
+            Dim nameIndex As Integer = reader.ReadInt16()
             Dim dataDescriptor As DataDescriptor = readDataDescriptor(reader)
             elements(i) = New ElementDescriptor(nameIndex, dataDescriptor)
         Next
         Return elements
     End Function
 
-    Public Function readString(ByVal reader As BinaryReader, ByVal lengthInBytes As Integer) As String
+    Public Function readString(reader As BinaryReader, lengthInBytes As Integer) As String
         Dim rString As New String(reader.ReadChars(lengthInBytes), 0, lengthInBytes)
-
         Return rString
     End Function
 
-    Public Function readNumber(ByVal reader As BinaryReader, ByVal lengthInBytes As Integer) As String
-        Dim Number As String = ""
+    Public Function readNumber(reader As BinaryReader, lengthInBytes As Integer) As String
+        Dim Number As String
         Select Case lengthInBytes
             Case 1
-                Number = Convert.ToString(reader.ReadSByte())
+                Number = reader.ReadSByte().ToString()
                 Exit Select
             Case 2
-                Number = Convert.ToString(readLittleEndianShort(reader))
+                Number = reader.ReadInt16().ToString()
                 Exit Select
             Case 4
-                Number = Convert.ToString(readLittleEndianInt(reader))
+                Number = reader.ReadInt32().ToString()
             Case 8
-                Number = Convert.ToString(readLittleEndianlong(reader))
+                Number = reader.ReadInt64().ToString()
                 Exit Select
             Case Else
                 Number = "0"
@@ -152,12 +120,7 @@ Public Class Packed_Section
 
     End Function
 
-    Public Function readLittleEndianFloat(ByVal reader As BinaryReader) As Single
-        Dim LittleEndianFloat As Single = reader.ReadSingle()
-        Return LittleEndianFloat
-    End Function
-
-    Public Function readFloats(ByVal reader As BinaryReader, ByVal lengthInBytes As Integer) As String
+    Public Function readFloats(reader As BinaryReader, lengthInBytes As Integer) As String
         Dim n As Integer = lengthInBytes / 4
 
         Dim sb As New StringBuilder()
@@ -166,14 +129,14 @@ Public Class Packed_Section
             If i <> 0 Then
                 sb.Append(" ")
             End If
-            Dim rFloat As Single = readLittleEndianFloat(reader)
+            Dim rFloat As Single = reader.ReadSingle()
             sb.Append(rFloat.ToString("0.000000"))
         Next
         Return sb.ToString()
     End Function
 
 
-    Public Function readBoolean(ByVal reader As BinaryReader, ByVal lengthInBytes As Integer) As Boolean
+    Public Function readBoolean(reader As BinaryReader, lengthInBytes As Integer) As Boolean
         Dim bool As Boolean = lengthInBytes = 1
         If bool Then
             If reader.ReadSByte() <> 1 Then
@@ -184,52 +147,12 @@ Public Class Packed_Section
         Return bool
     End Function
 
-    Private Shared Function byteArrayToBase64(ByVal a As SByte()) As String
-        Dim aLen As Integer = a.Length
-        Dim numFullGroups As Integer = aLen / 3
-        Dim numBytesInPartialGroup As Integer = aLen - 3 * numFullGroups
-        Dim resultLen As Integer = 4 * ((aLen + 2) / 3)
-        Dim result As New StringBuilder(resultLen)
-
-        Dim inCursor As Integer = -1
-        For i As Integer = 0 To numFullGroups - 1
-            Dim byte0 As Integer = a(System.Math.Max(System.Threading.Interlocked.Increment(inCursor), inCursor - 1)) And &HFF
-            inCursor = inCursor
-            Dim byte1 As Integer = a(System.Math.Max(System.Threading.Interlocked.Increment(inCursor), inCursor - 1)) And &HFF
-            inCursor = inCursor
-            Dim byte2 As Integer = a(System.Math.Max(System.Threading.Interlocked.Increment(inCursor), inCursor - 2)) And &HFF
-            result.Append(intToBase64(byte0 >> 2))
-            result.Append(intToBase64((byte0 << 4) And &H3F Or (byte1 >> 4)))
-            result.Append(intToBase64((byte1 << 2) And &H3F Or (byte2 >> 6)))
-            result.Append(intToBase64(byte2 And &H3F))
-        Next
-
-        If numBytesInPartialGroup <> 0 Then
-            Dim byte0 As Integer = a(System.Math.Max(System.Threading.Interlocked.Increment(inCursor), inCursor - 1)) And &HFF
-            result.Append(intToBase64(byte0 >> 2))
-            If numBytesInPartialGroup = 1 Then
-                result.Append(intToBase64((byte0 << 4) And &H3F))
-                result.Append("==")
-            Else
-                Dim byte1 As Integer = a(System.Math.Max(System.Threading.Interlocked.Increment(inCursor), inCursor - 1)) And &HFF
-                result.Append(intToBase64((byte0 << 4) And &H3F Or (byte1 >> 4)))
-                result.Append(intToBase64((byte1 << 2) And &H3F))
-                result.Append("="c)
-            End If
-        End If
-
-        Return result.ToString()
+    Public Function readBase64(ByVal reader As BinaryReader, lengthInBytes As Integer) As String
+        Dim bytes = reader.ReadBytes(lengthInBytes)
+        Return Convert.ToBase64String(bytes)
     End Function
 
-    Public Function readBase64(ByVal reader As BinaryReader, ByVal lengthInBytes As Integer) As String
-        Dim bytes As SByte() = New SByte(lengthInBytes - 1) {}
-        For i As Integer = 0 To lengthInBytes - 1
-            bytes(i) = reader.ReadSByte()
-        Next
-        Return byteArrayToBase64(bytes)
-    End Function
-
-    Public Function readAndToHex(ByVal reader As BinaryReader, ByVal lengthInBytes As Integer) As String
+    Public Function readAndToHex(reader As BinaryReader, lengthInBytes As Integer) As String
         Dim bytes As SByte() = New SByte(lengthInBytes - 1) {}
         For i As Integer = 0 To lengthInBytes - 1
             bytes(i) = reader.ReadSByte()
@@ -245,7 +168,7 @@ Public Class Packed_Section
         Return sb.ToString()
     End Function
 
-    Public Function readData(ByVal reader As BinaryReader, ByVal dictionary As List(Of String), ByVal element As XmlNode, ByVal xDoc As XmlDocument, ByVal offset As Integer, ByVal dataDescriptor As DataDescriptor) As Integer
+    Public Function readData(reader As BinaryReader, ByRef dictionary As List(Of String), ByRef element As XmlNode, ByRef xDoc As XmlDocument, offset As Integer, ByRef dataDescriptor As DataDescriptor) As Integer
         Dim lengthInBytes As Integer = dataDescriptor.[end] - offset
         If dataDescriptor.type = &H0 Then
             ' Element                
@@ -297,8 +220,8 @@ Public Class Packed_Section
         Return dataDescriptor.[end]
     End Function
 
-    Public Sub readElement(ByVal reader As BinaryReader, ByVal element As XmlNode, ByVal xDoc As XmlDocument, ByVal dictionary As List(Of String))
-        Dim childrenNmber As Integer = readLittleEndianShort(reader)
+    Public Sub readElement(reader As BinaryReader, ByRef element As XmlNode, ByRef xDoc As XmlDocument, ByRef dictionary As List(Of String))
+        Dim childrenNmber As Integer = reader.ReadInt16()
         Dim selfDataDescriptor As DataDescriptor = readDataDescriptor(reader)
         Dim children As ElementDescriptor() = readElementDescriptors(reader, childrenNmber)
 

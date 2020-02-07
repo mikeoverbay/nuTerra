@@ -14,9 +14,9 @@ Module vis_main
     Public PS As New Packed_Section()
     Public PF As New Primitive_File()
     Public xDoc As New XmlDocument
-    Public ReadOnly Binary_Header As Int32 = &H42A14E65
+    Public ReadOnly Binary_Header As UInt32 = &H42A14E65UI
 
-    Private Function FormatXml(ByVal sUnformattedXml As String) As String
+    Private Function FormatXml(sUnformattedXml As String) As String
         'load unformatted xml into a dom
         Dim ts As String = sUnformattedXml.Replace("><", ">" + vbCrLf + "<")
         sUnformattedXml = ts
@@ -60,7 +60,7 @@ Module vis_main
         Return sb.ToString()
     End Function
 
-    Public Sub DecodePackedFile(ByVal reader As BinaryReader)
+    Public Sub DecodePackedFile(reader As BinaryReader)
         reader.ReadSByte()
         Dim dictionary As List(Of String) = PS.readDictionary(reader)
 
@@ -144,7 +144,7 @@ Module vis_main
             xmldataset.ReadXml(fileS)
 
         Catch ex As Exception
-            MsgBox("File: " + GAME_PATH + MAP_NAME_NO_PATH + " XML arena deff will not load." + vbCrLf + _
+            MsgBox("File: " + GAME_PATH + MAP_NAME_NO_PATH + " XML arena deff will not load." + vbCrLf +
                       "Please report this bug.", MsgBoxStyle.Exclamation, "packed XML file Error...")
         End Try
 
@@ -156,7 +156,7 @@ Module vis_main
 
     End Sub
 
-    Public Sub ReadPrimitiveFile(ByVal file As String)
+    Public Sub ReadPrimitiveFile(file As String)
         Dim F As New FileStream(file, FileMode.Open, FileAccess.Read)
         Dim reader As New BinaryReader(F)
 
@@ -181,7 +181,7 @@ Module vis_main
         End While
         PackedFileName = "map_" & PackedFileName_in.ToLower()
         Dim reader As New BinaryReader(f)
-        Dim head As Int32 = reader.ReadInt32()
+        Dim head As UInt32 = reader.ReadUInt32()
         If head = Packed_Section.Packed_Header Then
             DecodePackedFile(reader)
         ElseIf head = Binary_Header Then
@@ -196,10 +196,10 @@ Module vis_main
         Return True
     End Function
 
-    Public Sub getMapSizes(ByVal abs_name As String)
+    Public Sub getMapSizes(abs_name As String)
         'Dim terrain As New DataTable
         Dim ms As New MemoryStream
-        Dim f As ZipEntry = MAP_package("spaces\" + abs_name + "\environments\environments.xml")
+        Dim f As ZipEntry = MAP_PACKAGE("spaces\" + abs_name + "\environments\environments.xml")
         If f IsNot Nothing Then
             f.Extract(ms)
             openXml_stream(ms, abs_name)
@@ -211,7 +211,7 @@ Module vis_main
         Dim q = From row In te Select ename = row.Field(Of String)("environment")
 
         Dim e_path = "spaces\" + abs_name + "\environments\" + q(0).Replace(".", "-") + "\skyDome\skyBox.model"
-        skyDomeName = e_path.Replace("\", "/")
+        SKYDOMENAME = e_path.Replace("\", "/")
         'terrain = ds.Tables("terrain").Copy
         'f = active_pkg(e_path + "\environment.xml")
         'If f IsNot Nothing Then
@@ -272,7 +272,7 @@ Module vis_main
         te.Dispose()
     End Sub
 
-	Public Sub setupthedome()
+    Public Sub setupthedome()
         ReDim Preserve Models.models(1)
         Models.models(0) = New primitive
         ReDim Preserve Models.models(1)
@@ -280,16 +280,8 @@ Module vis_main
         Models.models(0).componets(0) = New Model_Section
         Models.Model_list(0) = skyDomeName
 	End Sub
-    Private Function normalize(ByVal v As Vector3) As Vector3
-        Dim ul As Single = Sqrt((v.x ^ 2) + (v.y ^ 2) + (v.z ^ 2))
-        If ul < 0.0000001 Then Return v
-        v.x /= ul
-        v.y /= ul
-        v.z /= ul
-        Return v
-    End Function
 
-    Public Function TransformXML(ByVal xmlString As String, ByVal xlsString As String) As MemoryStream
+    Public Function TransformXML(xmlString As String, xlsString As String) As MemoryStream
         Dim memStream As MemoryStream = Nothing
         Try
             ' Create a xml-document from the sent-in xml-string
