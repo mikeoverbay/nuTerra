@@ -206,21 +206,21 @@ Module modSpacedBinVars
         Public Structure ChunkModel_v1_0_0
             Public flags As UInt64
 
-            ReadOnly Property casts_shadow As Boolean
+            ReadOnly Property flag_casts_shadow As Boolean
                 Get
                     ' TODO: find correct mask
                     Return flags And 1
                 End Get
             End Property
 
-            ReadOnly Property casts_local_shadow As Boolean
+            ReadOnly Property flag_casts_local_shadow As Boolean
                 Get
                     ' TODO: find correct mask
                     Return flags And 1
                 End Get
             End Property
 
-            ReadOnly Property has_animations As Boolean
+            ReadOnly Property flag_has_animations As Boolean
                 Get
                     ' TODO: find correct mask
                     Return flags And 1
@@ -254,13 +254,27 @@ Module modSpacedBinVars
         <StructLayout(LayoutKind.Sequential)>
         Public Structure animation_info_
             Public model_index As UInt32
-            Public seq_resource_key As UInt32
-            Public clip_name_key As UInt32
-            Public auto_start As UInt32
-            Public loop_cnt As UInt32
+            Public seq_res_fnv As UInt32
+            Public clip_name_fnv As UInt32
+            Public flags As UInt32
+            Public loop_count As Int32
             Public speed As Single
             Public delay As Single
             Public unknown As Single
+
+            ReadOnly Property flag_auto_start As Boolean
+                Get
+                    ' TODO: find correct mask
+                    Return flags And 1
+                End Get
+            End Property
+
+            ReadOnly Property flag_loop As Boolean
+                Get
+                    ' TODO: find correct mask
+                    Return flags And 1
+                End Get
+            End Property
         End Structure
 
         't7
