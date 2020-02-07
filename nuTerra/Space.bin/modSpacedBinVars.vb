@@ -1,6 +1,41 @@
-﻿Imports System.Text
+﻿Imports System.IO
+Imports System.Runtime.InteropServices
+Imports System.Text
 Imports OpenTK
+
 Module modSpacedBinVars
+
+    Public Class BWArray(Of t)
+        Public size As UInt32 ' data size per entry in bytes
+        Public count As UInt32 ' number of entries in this table
+        Public data As t()
+
+        Public Sub New(br As BinaryReader)
+            size = br.ReadUInt32() ' item size in bytes
+            count = br.ReadUInt32() ' number of items
+
+            ' Check item size
+            Debug.Assert(Marshal.SizeOf(GetType(t)) = size)
+
+            If count = 0 Then
+                ' No items
+                Return
+            End If
+
+            ReDim data(count - 1)
+
+            Dim handle As GCHandle
+            Dim buffer As Byte()
+
+            For i = 0 To count - 1
+                buffer = br.ReadBytes(size)
+                handle = GCHandle.Alloc(buffer, GCHandleType.Pinned)
+                data(i) = Marshal.PtrToStructure(handle.AddrOfPinnedObject(), GetType(t))
+                handle.Free()
+            Next
+        End Sub
+    End Class
+
 #Region "Structures"
 
     Public MODEL_MATRIX_LIST() As model_matrix_list_
@@ -9,9 +44,9 @@ Module modSpacedBinVars
         Public model_index As Integer
         Public matrix As Matrix4
         Public mask As Boolean
-        Public BB_Min As vect3
-        Public BB_Max As vect3
-        Public BB() As vect3
+        Public BB_Min As Vector3
+        Public BB_Max As Vector3
+        Public BB() As Vector3
         Public exclude As Boolean
         Public destructible As Boolean
         Public exclude_list() As Integer
@@ -73,8 +108,18 @@ Module modSpacedBinVars
     Public cBWST As cBWST_
     Public Structure cBWST_
         'Storage for all the strings
-        Public keys() As UInt32
-        Public strs() As String
+        Public keys As UInt32()
+        Public strs As String()
+
+        Public Function find_str(key As UInt32) As String
+            Dim index As Integer = Array.BinarySearch(cBWST.keys, key)
+            If index >= 0 Then
+                Return cBWST.strs(index)
+            Else
+                Debug.Fail("String in BWST not found!", key.ToString)
+                Return Nothing
+            End If
+        End Function
     End Structure
 #End Region
 
@@ -132,7 +177,7 @@ Module modSpacedBinVars
     Public cBSMI As cBSMI_
 
     Public Structure cBSMI_
-        Public matrix_list() As matrix4
+        Public matrix_list() As Matrix4
         Public tbl_2() As tbl_2_
         Public vis_mask() As vis_mask_
         Public model_BSMO_indexes() As model_index_
@@ -234,97 +279,178 @@ Module modSpacedBinVars
 #Region "BSMO"
     Public cBSMO As cBSMO_
     Public Structure cBSMO_
-        Public render_item_ranges() As tbl_1_
-        Public tbl_2() As tbl_2_
-        Public model_entries() As model_entries_ 'tbl_3
-        Public material_kind() As material_kind_ 'tbl_4
-        Public model_visibility_bb() As model_visibility_bb_ 'tbl_5
-        Public tbl_6() As tbl_6_
-        Public tbl_7() As tbl_7_
-        Public lod_range() As lod_range_ 'tbl_8
-        Public lodRenderItem() As lodRenderItem_ 'tbl 9
-        Public renderItem() As renderItem_ 'tbl 10
-        Public tbl_11() As tbl_11_
-        Public NodeItem() As NodeItem_ 'tbl_12
+        Public models_loddings As BWArray(Of ModelLoddingItem_v0_9_12)
+        Public tbl_2 As BWArray(Of tbl_2_)
+        Public models_colliders As BWArray(Of ModelColliderItem_v0_9_12)
+        Public bsp_material_kinds As BWArray(Of BSPMaterialKindItem_v0_9_12)
+        Public models_visibility_bounds As BWArray(Of BoundingBox)
+        Public tbl_6 As BWArray(Of tbl_6_)
+        Public tbl_7 As BWArray(Of tbl_7_)
+        Public lod_loddings As BWArray(Of lod_range_)
+        Public lod_renders As BWArray(Of LODRenderItem_v0_9_12)
+        Public renders As BWArray(Of RenderItem_v0_9_12)
+        Public node_affectors1 As BWArray(Of tbl_11_)
+        Public visual_nodes As BWArray(Of NodeItem_v1_0_0)
+        ' TODO: wsmo_4
+        ' TODO: wsmo_2
+        ' TODO: wsmo_3
+        ' TODO: havok_info
+        ' TODO: 16_8
+        ' TODO: vertices_data_sizes
 
+        Public Sub New(br As BinaryReader)
+            ' FIXME: Find a shorter way
+            models_loddings = New BWArray(Of ModelLoddingItem_v0_9_12)(br)
+            tbl_2 = New BWArray(Of tbl_2_)(br)
+            models_colliders = New BWArray(Of ModelColliderItem_v0_9_12)(br)
+            bsp_material_kinds = New BWArray(Of BSPMaterialKindItem_v0_9_12)(br)
+            models_visibility_bounds = New BWArray(Of BoundingBox)(br)
+            tbl_6 = New BWArray(Of tbl_6_)(br)
+            tbl_7 = New BWArray(Of tbl_7_)(br)
+            lod_loddings = New BWArray(Of lod_range_)(br)
+            lod_renders = New BWArray(Of LODRenderItem_v0_9_12)(br)
+            renders = New BWArray(Of RenderItem_v0_9_12)(br)
+            node_affectors1 = New BWArray(Of tbl_11_)(br)
+            visual_nodes = New BWArray(Of NodeItem_v1_0_0)(br)
+        End Sub
 
-        Public Structure tbl_1_ '???
-            Public lod_start As UInt32
+        '''<summary>
+        '''Contains the list of LODs for this model.
+        '''</summary>
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure ModelLoddingItem_v0_9_12
+            Public lod_begin As UInt32
             Public lod_end As UInt32
         End Structure
 
-        Public Structure tbl_2_ '???
+        '''<summary>
+        '''???
+        '''</summary>
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure tbl_2_
             Public unknown As UInt32
         End Structure
 
-        Public Structure tbl_3_ '???
-            Public index1 As UInt32
-            Public index2 As UInt32
+        '''<summary>
+        '''Contains the collision data for this model such as bounds and bsp.
+        '''</summary>
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure ModelColliderItem_v0_9_12
+            Public collision_bounds_min As Vector3
+            Public collision_bounds_max As Vector3
+            Public bsp_section_name_fnv As UInt32
+            Public bsp_material_kind_begin As UInt32
+            Public bsp_material_kind_end As UInt32
+
+            ReadOnly Property primitive_name As String
+                Get
+                    If bsp_section_name_fnv = 0 Then
+                        Return Nothing
+                    End If
+                    Return cBWST.find_str(bsp_section_name_fnv)
+                End Get
+            End Property
+
+            ReadOnly Property model_name As String
+                Get
+                    If bsp_section_name_fnv = 0 Then
+                        Return Nothing
+                    End If
+                    Return cBWST.find_str(bsp_section_name_fnv).Replace(".primitives", ".model")
+                End Get
+            End Property
         End Structure
 
-        Public Structure model_entries_
-            Public min_BB As vect3
-            Public max_BB As vect3
-            Public Model_String_key As UInt32
-            Public model_material_kind_begin As Int32
-            Public model_material_kind_end As Int32
-            Public model_name As String
-        End Structure
-
-        Public Structure material_kind_
-            Public mat_index As UInt32
+        '''<summary>
+        '''Contains data for bsp material linkage and flags
+        '''</summary>
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure BSPMaterialKindItem_v0_9_12
+            Public material_index As UInt32
             Public flags As UInt32
         End Structure
 
-        Public Structure model_visibility_bb_
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure BoundingBox
             Public min_BB As vect3
             Public max_BB As vect3
         End Structure
 
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure tbl_6_ '??? not even sure of data size
             Public index1 As UInt32
             Public index2 As UInt32
         End Structure
 
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure tbl_7_ '???
             Public index1 As UInt32
         End Structure
 
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure lod_range_
             'These are the square of the actual range
             '(x*x) + (y*y) + (z*z) - Camera to item distance
             Public range As Single
         End Structure
 
-        Public Structure lodRenderItem_
+        '''<summary>
+        '''Contains the render sets to draw for this lod
+        '''</summary>
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure LODRenderItem_v0_9_12
             Public render_set_begin As UInt32
             Public render_set_end As UInt32
         End Structure
 
-        Public Structure renderItem_
-            Public node_start As UInt32
+        '''<summary>
+        '''Contains the data for rendering a model segment, including nodes, material,
+        '''primitives, verts And draw flags.
+        '''</summary>
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure RenderItem_v0_9_12
+            Public node_begin As UInt32
             Public node_end As UInt32
-            Public mat_index As UInt32
+            Public material_index As UInt32
             Public primtive_index As UInt32
-            Public vert_string_key As UInt32
-            Public indi_string_key As UInt32
+            Public verts_name_fnv As UInt32
+            Public prims_name_fnv As UInt32
             Public is_skinned As UInt32
-            Public vert_name As String
-            Public indi_name As String
-            Public pad_31
+
+            ReadOnly Property vert_name As String
+                Get
+                    Return cBWST.find_str(verts_name_fnv)
+                End Get
+            End Property
+
+            ReadOnly Property indi_name As String
+                Get
+                    Return cBWST.find_str(prims_name_fnv)
+                End Get
+            End Property
         End Structure
 
-        Public Structure tbl_11_ '???
+        '''<summary>
+        '''Contains a relative index To a node that affects this render Set,
+        '''so we can have sequential access
+        '''</summary>
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure tbl_11_
             Public index1 As UInt32
         End Structure
 
-        Public Structure NodeItem_ '???
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure NodeItem_v1_0_0
             Public parent_index As UInt32
-            Public matrix() As Single
-            Public identifier_string_key As UInt32
-            Public identifier_name As String
-        End Structure
+            Public matrix As Matrix4
+            Public identifier_fnv As UInt32
 
+            ReadOnly Property identifier_name As String
+                Get
+                    Return cBWST.find_str(identifier_fnv)
+                End Get
+            End Property
+        End Structure
     End Structure
 #End Region
 

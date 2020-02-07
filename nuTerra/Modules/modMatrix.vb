@@ -1,27 +1,27 @@
 ﻿Imports System.Math
 Imports OpenTK
 Module modMatrix
-    Public Function rotate_only(ByVal v As vect3, ByVal m() As Single) As vect3
-        Dim vo As vect3
-        vo.x = (m(0) * v.x) + (m(4) * v.y) + (m(8) * v.z)
-        vo.y = (m(1) * v.x) + (m(5) * v.y) + (m(9) * v.z)
-        vo.z = (m(2) * v.x) + (m(6) * v.y) + (m(10) * v.z)
+    Public Function rotate_only(ByVal v As Vector3, ByVal m() As Single) As Vector3
+        Dim vo As Vector3
+        vo.x = (m(0) * v.X) + (m(4) * v.Y) + (m(8) * v.Z)
+        vo.y = (m(1) * v.X) + (m(5) * v.Y) + (m(9) * v.Z)
+        vo.z = (m(2) * v.X) + (m(6) * v.Y) + (m(10) * v.Z)
         Return vo
     End Function
-    Public Function translate_to(ByVal v As vect3, ByVal m As matrix4) As vect3
-        Dim vo As vect3
+    Public Function translate_to(ByVal v As Vector3, ByVal m As Matrix4) As Vector3
+        Dim vo As Vector3
 
-        vo.x = (m.M11 * v.x) + (m.M21 * v.y) + (m.M31 * v.z)
-        vo.y = (m.M12 * v.x) + (m.M22 * v.y) + (m.M32 * v.z)
-        vo.z = (m.M13 * v.x) + (m.M23 * v.y) + (m.M33 * v.z)
+        vo.x = (m.M11 * v.X) + (m.M21 * v.Y) + (m.M31 * v.Z)
+        vo.y = (m.M12 * v.X) + (m.M22 * v.Y) + (m.M32 * v.Z)
+        vo.z = (m.M13 * v.X) + (m.M23 * v.Y) + (m.M33 * v.Z)
 
         vo.x += m.M14
         vo.y += m.M24
         vo.z += m.M34
         Return vo
     End Function
-    Public Function translate_only(ByVal v As vect3, ByVal m() As Single) As vect3
-        Dim vo As vect3
+    Public Function translate_only(ByVal v As Vector3, ByVal m() As Single) As Vector3
+        Dim vo As Vector3
         vo.x += m(12)
         vo.y += m(13)
         vo.z += m(14)
@@ -47,7 +47,7 @@ Module modMatrix
 
     Public Sub get_translated_bb_model(ByRef mm As model_matrix_list_)
         'creates a transformed bounding box for screen clipping.
-        Dim v1, v2, v3, v4, v5, v6, v7, v8 As vect3
+        Dim v1, v2, v3, v4, v5, v6, v7, v8 As Vector3
         v1.z = mm.BB_Max.z : v2.z = mm.BB_Max.z : v3.z = mm.BB_Max.z : v4.z = mm.BB_Max.z
         v5.z = mm.BB_Min.z : v6.z = mm.BB_Min.z : v7.z = mm.BB_Min.z : v8.z = mm.BB_Min.z
 

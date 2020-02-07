@@ -109,14 +109,14 @@ Module modSpaceBin
                     Exit Select
                 Case header = "BSMO"
                     If Not get_BSMO(t_cnt, br) Then
-                        MsgBox("BSMO) decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                        MsgBox("BSMO decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
 
                 Case header = "BSMA"
                     If Not get_BSMA(t_cnt, br) Then
-                        MsgBox("BSMA) decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                        MsgBox("BSMA decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
                         Return False
                     End If
                     Exit Select
@@ -159,36 +159,37 @@ Module modSpaceBin
         Next
         '----------------------------------------------------------------------------------
         'build the model information
-        ReDim MAP_MODELS(cBSMO.model_entries.Length - 1)
-        For k = 0 To cBSMO.model_entries.Length - 1
+        ReDim MAP_MODELS(cBSMO.models_colliders.data.Length - 1)
+        For k = 0 To cBSMO.models_colliders.data.Length - 1
             MAP_MODELS(k) = New mdl_
             ReDim MAP_MODELS(k).mdl(1)
             MAP_MODELS(k).mdl(0) = New base_model_holder_
 
-            MAP_MODELS(k).mdl(0).primitive_name = cBSMO.model_entries(k).model_name
+            MAP_MODELS(k).mdl(0).primitive_name = cBSMO.models_colliders.data(k).primitive_name
 
             With MAP_MODELS(k).mdl(0)
+                .sb_model_material_begin = cBSMO.models_colliders.data(k).bsp_material_kind_begin
+                .sb_model_material_end = cBSMO.models_colliders.data(k).bsp_material_kind_end
 
-                .sb_model_material_begin = cBSMO.model_entries(k).model_material_kind_begin
-                .sb_model_material_end = cBSMO.model_entries(k).model_material_kind_end
-                If .sb_model_material_begin < 0 Then ' no drawable item.. light prob or sound location?
+                If .sb_model_material_begin = &HFFFFFFFFUI Then ' no drawable item.. light prob or sound location?
                     MAP_MODELS(k).mdl(0).junk = True
                     GoTo ignore_this_one
                 End If
+
                 'get lod set pointers for this model
                 Dim lod0 = .sb_LOD_set_start
 
                 Dim entry_count = MAP_MODELS(k).mdl(0).sb_model_material_end - MAP_MODELS(k).mdl(0).sb_model_material_begin
                 Dim L_start, L_end As Integer
                 'Used to index in to lodRenderItems
-                Dim r_set_begin, r_set_end As Integer
+                Dim r_set_begin, r_set_end As UInteger
 
-                Dim mat_kind_index = cBSMO.material_kind(.sb_model_material_begin).mat_index
+                Dim mat_kind_index = cBSMO.bsp_material_kinds.data(.sb_model_material_begin).material_index
                 Dim shader_prop_start = cBSMA.MaterialItem(mat_kind_index).shaderPropBegin
                 Dim shader_prop_end = cBSMA.MaterialItem(mat_kind_index).shaderPropEnd
 
-                r_set_begin = cBSMO.lodRenderItem(L_start).render_set_begin
-                r_set_end = cBSMO.lodRenderItem(L_end).render_set_end
+                r_set_begin = cBSMO.lod_renders.data(L_start).render_set_begin
+                r_set_end = cBSMO.lod_renders.data(L_end).render_set_end
 
                 'L_start = cBSMO.render_item_ranges(k).lod_start
                 'L_end = cBSMO.render_item_ranges(k).lod_end
@@ -204,7 +205,7 @@ Module modSpaceBin
                 Dim run_cnt As Integer = 0
                 For z = 0 To component_cnt
                     .entries(z) = New entries_
-                    Dim mat_index = cBSMO.renderItem(z)
+                    Dim mat_index = cBSMO.renders.data(z)
                     .entries(z).identifier = cBSMA.MaterialItem(z + shader_prop_start).identifier
                     .entries(z).FX_shader = cBSMA.MaterialItem(z + shader_prop_start).FX_string
                     'Dim l_cnt = cBSMA.MaterialItem(z + shader_prop_start).shaderPropEnd - cBSMA.MaterialItem(z + shader_prop_start).shaderPropBegin
@@ -328,12 +329,7 @@ ignore_this_one:
                 max_id = BSMO_MODEL_INDEX
             End If
 
-            Dim primitive_name = ""
-            If cBSMO.model_entries(BSMO_MODEL_INDEX).model_name IsNot Nothing Then
-                primitive_name = cBSMO.model_entries(BSMO_MODEL_INDEX).model_name.Replace("primitives", "model")
-            End If
-            cBSMO.model_entries(BSMO_MODEL_INDEX).model_name.Replace("primitives", "model")
-            MODEL_MATRIX_LIST(k).primitive_name = primitive_name
+            MODEL_MATRIX_LIST(k).primitive_name = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).model_name
 
             MODEL_MATRIX_LIST(k).matrix = cBSMI.matrix_list(k)
             'MODEL_MATRIX_LIST(k).matrix.M21 *= -1.0
@@ -349,8 +345,8 @@ ignore_this_one:
             MODEL_MATRIX_LIST(k).matrix.M41 *= -1.0
 
             MODEL_MATRIX_LIST(k).mask = False
-            MODEL_MATRIX_LIST(k).BB_Min = cBSMO.model_entries(BSMO_MODEL_INDEX).min_BB
-            MODEL_MATRIX_LIST(k).BB_Max = cBSMO.model_entries(BSMO_MODEL_INDEX).max_BB
+            MODEL_MATRIX_LIST(k).BB_Min = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).collision_bounds_min
+            MODEL_MATRIX_LIST(k).BB_Max = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).collision_bounds_max
 
             'create model culling box
             ReDim MODEL_MATRIX_LIST(k).BB(8)

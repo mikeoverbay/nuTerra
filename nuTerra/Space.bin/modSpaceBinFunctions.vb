@@ -386,160 +386,14 @@ skip_unknown1:
     End Function
 
     Public Function get_BSMO(tbl As Integer, br As BinaryReader)
-
         Try
-            'set stream reader to point at this chunk
+            ' set stream reader to point at this chunk
             br.BaseStream.Position = space_bin_Chunk_table(tbl).chunk_Start
-            cBSMO = New cBSMO_
-
-            Dim ds = br.ReadUInt32 'data size per entry in bytes
-            Dim tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.render_item_ranges(tl - 1)
-            For k = 0 To tl - 1 'not sure these are even named right
-                cBSMO.render_item_ranges(k).lod_start = br.ReadUInt32
-                cBSMO.render_item_ranges(k).lod_end = br.ReadUInt32
-            Next
-            '--------------------------------------------------------
-
-            'tbl_2
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.tbl_2(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.tbl_2(k).unknown = br.ReadUInt32
-            Next
-            '--------------------------------------------------------
-
-            'model_entries tbl_3
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.model_entries(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.model_entries(k).min_BB.x = -br.ReadSingle 'make negitive because of GL rendering!
-                cBSMO.model_entries(k).min_BB.y = br.ReadSingle
-                cBSMO.model_entries(k).min_BB.z = br.ReadSingle
-
-                cBSMO.model_entries(k).max_BB.x = -br.ReadSingle
-                cBSMO.model_entries(k).max_BB.y = br.ReadSingle
-                cBSMO.model_entries(k).max_BB.z = br.ReadSingle
-
-                cBSMO.model_entries(k).Model_String_key = br.ReadUInt32
-                cBSMO.model_entries(k).model_material_kind_begin = br.ReadInt32
-                cBSMO.model_entries(k).model_material_kind_end = br.ReadInt32
-                cBSMO.model_entries(k).model_name = find_str_BWST(cBSMO.model_entries(k).Model_String_key)
-            Next
-            '--------------------------------------------------------
-
-            'material_kind tbl_4
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.material_kind(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.material_kind(k).mat_index = br.ReadUInt32
-                cBSMO.material_kind(k).flags = br.ReadUInt32
-            Next
-            '--------------------------------------------------------
-
-            'model_visibility_bb tbl_5
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.model_visibility_bb(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.model_visibility_bb(k).min_BB.x = -br.ReadSingle 'make negitive because of GL rendering!
-                cBSMO.model_visibility_bb(k).min_BB.y = br.ReadSingle
-                cBSMO.model_visibility_bb(k).min_BB.z = br.ReadSingle
-
-                cBSMO.model_visibility_bb(k).max_BB.x = -br.ReadSingle 'make negitive because of GL rendering!
-                cBSMO.model_visibility_bb(k).max_BB.y = br.ReadSingle
-                cBSMO.model_visibility_bb(k).max_BB.z = br.ReadSingle
-            Next
-            '--------------------------------------------------------
-
-            'tbl_6
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.tbl_6(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.tbl_6(k).index1 = br.ReadUInt32
-                cBSMO.tbl_6(k).index2 = br.ReadUInt32
-            Next
-            '--------------------------------------------------------
-
-            'tbl_7
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.tbl_7(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.tbl_7(k).index1 = br.ReadUInt32
-            Next
-            '--------------------------------------------------------
-
-            'tbl_8
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.lod_range(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.lod_range(k).range = br.ReadSingle
-            Next
-            '--------------------------------------------------------
-
-            'lodRenderItem tbl_9
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.lodRenderItem(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.lodRenderItem(k).render_set_begin = br.ReadUInt32
-                cBSMO.lodRenderItem(k).render_set_end = br.ReadUInt32
-
-            Next
-            '--------------------------------------------------------
-
-            'renderItem tbl_10
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.renderItem(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.renderItem(k).node_start = br.ReadUInt32
-                cBSMO.renderItem(k).node_end = br.ReadUInt32
-                cBSMO.renderItem(k).mat_index = br.ReadUInt32
-                cBSMO.renderItem(k).primtive_index = br.ReadUInt32
-                cBSMO.renderItem(k).vert_string_key = br.ReadUInt32
-                cBSMO.renderItem(k).indi_string_key = br.ReadUInt32
-                cBSMO.renderItem(k).is_skinned = br.ReadUInt32
-                cBSMO.renderItem(k).vert_name = find_str_BWST(cBSMO.renderItem(k).vert_string_key)
-                cBSMO.renderItem(k).indi_name = find_str_BWST(cBSMO.renderItem(k).indi_string_key)
-                'cBSMO.renderItem (k).pad_31 <-- hmmmm
-            Next
-            '--------------------------------------------------------
-
-            'tbl_11
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.tbl_11(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.tbl_11(k).index1 = br.ReadUInt32
-            Next
-            '--------------------------------------------------------
-
-            'NodeItem tbl_12
-            ds = br.ReadUInt32 'data size per entry in bytes
-            tl = br.ReadUInt32 ' number of entries in this table
-            ReDim cBSMO.NodeItem(tl - 1)
-            For k = 0 To tl - 1
-                cBSMO.NodeItem(k).parent_index = br.ReadUInt32
-                ReDim cBSMO.NodeItem(k).matrix(15)
-                For i = 0 To 15
-                    cBSMO.NodeItem(k).matrix(i) = br.ReadSingle
-                Next
-                cBSMO.NodeItem(k).identifier_string_key = br.ReadUInt32
-                cBSMO.NodeItem(k).identifier_name = find_str_BWST(cBSMO.NodeItem(k).identifier_string_key)
-            Next
-
-            Dim z = 0
+            cBSMO = New cBSMO_(br)
         Catch ex As Exception
             Debug.Print(ex.ToString)
+            Return False
         End Try
-
         Return True
     End Function
 
@@ -559,7 +413,7 @@ skip_unknown1:
                 cBSMA.MaterialItem(k).shaderPropBegin = br.ReadInt32
                 cBSMA.MaterialItem(k).shaderPropEnd = br.ReadInt32
                 cBSMA.MaterialItem(k).BWST_str_key = br.ReadUInt32
-                cBSMA.MaterialItem(k).identifier = find_str_BWST(cBSMA.MaterialItem(k).BWST_str_key)
+                cBSMA.MaterialItem(k).identifier = cBWST.find_str(cBSMA.MaterialItem(k).BWST_str_key)
             Next
             '----------------------------------------------------------
 
@@ -569,7 +423,7 @@ skip_unknown1:
             ReDim cBSMA.FXStringKey(tl - 1)
             For k = 0 To tl - 1
                 cBSMA.FXStringKey(k).FX_str_key = br.ReadUInt32
-                cBSMA.FXStringKey(k).FX_string = find_str_BWST(cBSMA.FXStringKey(k).FX_str_key)
+                cBSMA.FXStringKey(k).FX_string = cBWST.find_str(cBSMA.FXStringKey(k).FX_str_key)
             Next
             '----------------------------------------------------------
 
@@ -583,7 +437,7 @@ skip_unknown1:
                 cBSMA.ShaderPropertyItem(k).property_type = br.ReadUInt32
                 cBSMA.ShaderPropertyItem(k).bwst_key_or_value = br.ReadUInt32
                 'ket the property name
-                cBSMA.ShaderPropertyItem(k).property_name_string = find_str_BWST(cBSMA.ShaderPropertyItem(k).bwst_key)
+                cBSMA.ShaderPropertyItem(k).property_name_string = cBWST.find_str(cBSMA.ShaderPropertyItem(k).bwst_key)
                 '.bwst_key_or_value either points as a string or is a value depending on .property_type
             Next
             ds = br.ReadUInt32 'data size per entry in bytes
@@ -648,7 +502,7 @@ skip_unknown1:
                         Exit Select
 
                     Case cBSMA.ShaderPropertyItem(k).property_type = 6
-                        cBSMA.ShaderPropertyItem(k).property_value_string = find_str_BWST(cBSMA.ShaderPropertyItem(k).bwst_key_or_value)
+                        cBSMA.ShaderPropertyItem(k).property_value_string = cBWST.find_str(cBSMA.ShaderPropertyItem(k).bwst_key_or_value)
                         Exit Select
 
                 End Select
@@ -784,10 +638,10 @@ skip_unknown1:
                     GoTo ignore_this
                 End If
                 'now we can get the strings from the keys.
-                cWGSD.decalEntries(k).diffuseMap = find_str_BWST(cWGSD.decalEntries(k).diffuseMapKey)
-                cWGSD.decalEntries(k).normalMap = find_str_BWST(cWGSD.decalEntries(k).normalMapKey)
-                cWGSD.decalEntries(k).gmmMap = find_str_BWST(cWGSD.decalEntries(k).gmmMapkey)
-                cWGSD.decalEntries(k).extraMap = find_str_BWST(cWGSD.decalEntries(k).extrakey)
+                cWGSD.decalEntries(k).diffuseMap = cBWST.find_str(cWGSD.decalEntries(k).diffuseMapKey)
+                cWGSD.decalEntries(k).normalMap = cBWST.find_str(cWGSD.decalEntries(k).normalMapKey)
+                cWGSD.decalEntries(k).gmmMap = cBWST.find_str(cWGSD.decalEntries(k).gmmMapkey)
+                cWGSD.decalEntries(k).extraMap = cBWST.find_str(cWGSD.decalEntries(k).extrakey)
                 'this is a temp hack
                 If cWGSD.decalEntries(k).extraMap <> "" Then
                     cWGSD.decalEntries(k).diffuseMap = cWGSD.decalEntries(k).extraMap
@@ -882,10 +736,10 @@ read3_only:
                 decal_matrix_list(k).is_parallax = True
 
                 'now we can get the strings from the keys.
-                cWGSD.decalEntries(k).diffuseMap = find_str_BWST(cWGSD.decalEntries(k).diffuseMapKey)
-                cWGSD.decalEntries(k).normalMap = find_str_BWST(cWGSD.decalEntries(k).normalMapKey)
-                cWGSD.decalEntries(k).gmmMap = find_str_BWST(cWGSD.decalEntries(k).gmmMapkey)
-                cWGSD.decalEntries(k).extraMap = find_str_BWST(cWGSD.decalEntries(k).extrakey)
+                cWGSD.decalEntries(k).diffuseMap = cBWST.find_str(cWGSD.decalEntries(k).diffuseMapKey)
+                cWGSD.decalEntries(k).normalMap = cBWST.find_str(cWGSD.decalEntries(k).normalMapKey)
+                cWGSD.decalEntries(k).gmmMap = cBWST.find_str(cWGSD.decalEntries(k).gmmMapkey)
+                cWGSD.decalEntries(k).extraMap = cBWST.find_str(cWGSD.decalEntries(k).extrakey)
                 'this is a temp hack
                 If cWGSD.decalEntries(k).extraMap <> "" Then
                     GoTo ignore_this2
@@ -950,7 +804,7 @@ ignore_this2:
                 cSPTR.Stree(k).e2 = br.ReadUInt32
                 cSPTR.Stree(k).e3 = br.ReadUInt32
 
-                speedtree_matrix_list(k).tree_name = find_str_BWST(cSPTR.Stree(k).key)
+                speedtree_matrix_list(k).tree_name = cBWST.find_str(cSPTR.Stree(k).key)
 
             Next
         Catch ex As Exception
@@ -1012,15 +866,7 @@ ignore_this2:
         Next
         Return "ERROR!"
     End Function
-    Private Function find_str_BWST(ByVal key As UInt32) As String
-        For z = 0 To cBWST.strs.Length - 1
-            If key = cBWST.keys(z) Then
-                'Console.WriteLine("key: " + key.ToString("x8").ToUpper + " " + BWST.entries(z).str + vbCrLf)
-                Return cBWST.strs(z)
-            End If
-        Next
-        Return "ERROR!"
-    End Function
+
     Private Function find_str_BWSG(ByVal key As UInt32) As String
         For z = 0 To cBWSG.strs.Length - 1
             If key = cBWSG.keys(z) Then

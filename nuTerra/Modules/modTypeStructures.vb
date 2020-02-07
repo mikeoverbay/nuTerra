@@ -155,8 +155,8 @@ Module modTypeStructures
         Public sb_table_size As Integer
         Public sb_LOD_set_start As Integer
         Public sb_LOD_set_end As Integer
-        Public sb_model_material_begin As Integer
-        Public sb_model_material_end As Integer
+        Public sb_model_material_begin As UInt32
+        Public sb_model_material_end As UInt32
         ' storage
         Public sb_vertex_data() As Byte
         Public sp_indi_data() As Byte

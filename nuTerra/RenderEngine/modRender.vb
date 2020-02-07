@@ -264,7 +264,7 @@ Module modRender
         'save this.. we may want to use it for debug with a different source for the values.
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
-        Dim tr = total_triangles_drawn * LOOP_COUNT
+        Dim tr = TOTAL_TRIANGLES_DRAWN * LOOP_COUNT
         Dim txt = String.Format("FPS: {0} | Triangles drawn per frame: {1} | Draw time in Milliseconds: {2}", FPS_TIME, tr, elapsed)
         DrawText.DrawString(txt, mono, Brushes.White, position)
 
