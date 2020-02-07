@@ -144,29 +144,18 @@ Module MapLoader
         End If
         If HD_EXISTS Then
             MAP_PACKAGE_HD = ZipFile.Read(GAME_PATH + MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg"))
-            SHARED_PART_1_HD = New ZipFile
-            SHARED_PART_2_HD = New ZipFile
-            SAND_BOX_PART_1_HD = New ZipFile
-            SAND_BOX_PART_2_HD = New ZipFile
-
-            SHARED_PART_1_HD = ZipFile.Read(GAME_PATH + "shared_content_hd-part1.pkg")
-            SHARED_PART_2_HD = ZipFile.Read(GAME_PATH + "shared_content_hd-part2.pkg")
-            SAND_BOX_PART_1_HD = ZipFile.Read(GAME_PATH + "shared_content_sandbox_hd-part1.pkg")
-            SAND_BOX_PART_2_HD = ZipFile.Read(GAME_PATH + "shared_content_sandbox_hd-part2.pkg")
+            SHARED_PART_1_HD = New ZipFile(GAME_PATH + "shared_content_hd-part1.pkg")
+            SHARED_PART_2_HD = New ZipFile(GAME_PATH + "shared_content_hd-part2.pkg")
+            SAND_BOX_PART_1_HD = New ZipFile(GAME_PATH + "shared_content_sandbox_hd-part1.pkg")
+            SAND_BOX_PART_2_HD = New ZipFile(GAME_PATH + "shared_content_sandbox_hd-part2.pkg")
         End If
         'open map pkg file
-        MAP_PACKAGE = New ZipFile
-        MAP_PACKAGE = ZipFile.Read(GAME_PATH + MAP_NAME_NO_PATH)
+        MAP_PACKAGE = New ZipFile(GAME_PATH + MAP_NAME_NO_PATH)
 
-        SHARED_PART_1 = New ZipFile
-        SHARED_PART_2 = New ZipFile
-        SAND_BOX_PART_1 = New ZipFile
-        SAND_BOX_PART_2 = New ZipFile
-
-        SHARED_PART_1 = ZipFile.Read(GAME_PATH + "shared_content-part1.pkg")
-        SHARED_PART_2 = ZipFile.Read(GAME_PATH + "shared_content-part2.pkg")
-        SAND_BOX_PART_1 = ZipFile.Read(GAME_PATH + "shared_content_sandbox-part1.pkg")
-        SAND_BOX_PART_2 = ZipFile.Read(GAME_PATH + "shared_content_sandbox-part2.pkg")
+        SHARED_PART_1 = New ZipFile(GAME_PATH + "shared_content-part1.pkg")
+        SHARED_PART_2 = New ZipFile(GAME_PATH + "shared_content-part2.pkg")
+        SAND_BOX_PART_1 = New ZipFile(GAME_PATH + "shared_content_sandbox-part1.pkg")
+        SAND_BOX_PART_2 = New ZipFile(GAME_PATH + "shared_content_sandbox-part2.pkg")
 
     End Sub
 
@@ -177,14 +166,24 @@ Module MapLoader
             SHARED_PART_2_HD.Dispose()
             SAND_BOX_PART_1_HD.Dispose()
             SAND_BOX_PART_2_HD.Dispose()
+
+            SHARED_PART_1_HD = Nothing
+            SHARED_PART_2_HD = Nothing
+            SAND_BOX_PART_1_HD = Nothing
+            SAND_BOX_PART_2_HD = Nothing
         End If
 
         MAP_PACKAGE.Dispose()
-
         SHARED_PART_1.Dispose()
         SHARED_PART_2.Dispose()
         SAND_BOX_PART_1.Dispose()
-        SAND_BOX_PART_1.Dispose()
+        SAND_BOX_PART_2.Dispose()
+
+        MAP_PACKAGE = Nothing
+        SHARED_PART_1 = Nothing
+        SHARED_PART_2 = Nothing
+        SAND_BOX_PART_1 = Nothing
+        SAND_BOX_PART_2 = Nothing
 
         'Tell the grabage collector to clean up
         GC.Collect()
@@ -278,9 +277,8 @@ Module MapLoader
         '=======================================================
         'Stop Here for now =====================================
         '=======================================================
-        Return
 
-
+#If 0 Then
         Dim cnt As Integer = 0
         For Each e As ZipEntry In MAP_PACKAGE
             contents.Add(e.FileName)
@@ -296,7 +294,10 @@ Module MapLoader
 
         getMapSizes(ABS_NAME) ' this also gets the skydome full path
         '------------------------------------------------------------------------------------------------
+#End If
 
+        ' close packages
+        close_shared_packages()
     End Sub
 
     Private Function get_spaceBin(ByVal ABS_NAME As String) As Boolean
