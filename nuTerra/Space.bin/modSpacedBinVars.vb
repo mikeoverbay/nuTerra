@@ -177,28 +177,65 @@ Module modSpacedBinVars
     Public cBSMI As cBSMI_
 
     Public Structure cBSMI_
-        Public matrix_list() As Matrix4
-        Public tbl_2() As tbl_2_
-        Public vis_mask() As vis_mask_
-        Public model_BSMO_indexes() As model_index_
-        Public animation_tbl() As animation_tbl_
-        Public animation_info() As animation_info_
-        Public tbl_7() As tbl_7_
-        Public skined_tbl() As skined_tbl_
-        Public tbl_9() As tbl_9_
-        Public tbl_10() As tbl_10_
+        Public transforms As BWArray(Of Matrix4)
+        Public chunk_models As BWArray(Of ChunkModel_v1_0_0)
+        Public visibility_masks As BWArray(Of vis_mask_)
+        Public model_BSMO_indexes As BWArray(Of model_index_)
+        Public animation_tbl As BWArray(Of animation_tbl_)
+        Public animation_info As BWArray(Of animation_info_)
+        Public tbl_7 As BWArray(Of tbl_7_)
+        Public skined_tbl As BWArray(Of skined_tbl_)
+        Public tbl_9 As BWArray(Of tbl_9_)
+        Public tbl_10 As BWArray(Of tbl_10_)
+
+        Public Sub New(br As BinaryReader)
+            transforms = New BWArray(Of Matrix4)(br)
+            chunk_models = New BWArray(Of ChunkModel_v1_0_0)(br)
+            visibility_masks = New BWArray(Of vis_mask_)(br)
+            model_BSMO_indexes = New BWArray(Of model_index_)(br)
+            animation_tbl = New BWArray(Of animation_tbl_)(br)
+            animation_info = New BWArray(Of animation_info_)(br)
+            tbl_7 = New BWArray(Of tbl_7_)(br)
+            skined_tbl = New BWArray(Of skined_tbl_)(br)
+            tbl_9 = New BWArray(Of tbl_9_)(br)
+            tbl_10 = New BWArray(Of tbl_10_)(br)
+        End Sub
+
         't2
-        Public Structure tbl_2_
-            Public index1 As Int32 '?
-            Public index2 As Int32 '?
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure ChunkModel_v1_0_0
+            Public flags As UInt64
+
+            ReadOnly Property casts_shadow As Boolean
+                Get
+                    ' TODO: find correct mask
+                    Return flags And 1
+                End Get
+            End Property
+
+            ReadOnly Property casts_local_shadow As Boolean
+                Get
+                    ' TODO: find correct mask
+                    Return flags And 1
+                End Get
+            End Property
+
+            ReadOnly Property has_animations As Boolean
+                Get
+                    ' TODO: find correct mask
+                    Return flags And 1
+                End Get
+            End Property
         End Structure
 
         't3
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure vis_mask_
-            Public mask As Int32
+            Public mask As UInt32
         End Structure
 
         't4
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure model_index_
             Public BSMO_MODEL_INDEX As UInt32
             Public BSMO_extras As UInt32
@@ -207,12 +244,14 @@ Module modSpacedBinVars
         End Structure
 
         't5
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure animation_tbl_
-            Public is_animation As Int32
-            'If this is <> &hFFFFFFFF, its a skined animation model
+            Public is_animation As UInt32
+            'If this is <> &hFFFFFFFFUI, its a skined animation model
         End Structure
 
         't6
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure animation_info_
             Public model_index As UInt32
             Public seq_resource_key As UInt32
@@ -225,12 +264,13 @@ Module modSpacedBinVars
         End Structure
 
         't7
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure tbl_7_
             Public unknown1 As UInt32
-            Public unknown2 As UInt32
         End Structure
 
         't8
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure skined_tbl_
             Public index1 As UInt32
             Public index2 As UInt32
@@ -238,11 +278,13 @@ Module modSpacedBinVars
         End Structure
 
         't9
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure tbl_9_
             Public index1 As UInt32
         End Structure
 
         '10
+        <StructLayout(LayoutKind.Sequential)>
         Public Structure tbl_10_
             'five singles. No idea what they are for.
             Public s1 As Single

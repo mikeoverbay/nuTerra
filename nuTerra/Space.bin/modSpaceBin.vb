@@ -318,11 +318,11 @@ ignore_this_one:
         Next
 #End If
         Dim max_id As Integer
-        ReDim MODEL_MATRIX_LIST(cBSMI.tbl_2.Length - 1)
+        ReDim MODEL_MATRIX_LIST(cBSMI.chunk_models.count - 1)
         Dim cnt As Integer = 0
-        For k = 0 To cBSMI.model_BSMO_indexes.Length - 1
+        For k = 0 To cBSMI.model_BSMO_indexes.count - 1
             MODEL_MATRIX_LIST(k) = New model_matrix_list_
-            Dim BSMO_MODEL_INDEX = cBSMI.model_BSMO_indexes(k).BSMO_MODEL_INDEX
+            Dim BSMO_MODEL_INDEX = cBSMI.model_BSMO_indexes.data(k).BSMO_MODEL_INDEX
 
             MODEL_MATRIX_LIST(k).model_index = BSMO_MODEL_INDEX
             If BSMO_MODEL_INDEX > max_id Then
@@ -331,7 +331,7 @@ ignore_this_one:
 
             MODEL_MATRIX_LIST(k).primitive_name = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).model_name
 
-            MODEL_MATRIX_LIST(k).matrix = cBSMI.matrix_list(k)
+            MODEL_MATRIX_LIST(k).matrix = cBSMI.transforms.data(k)
             'MODEL_MATRIX_LIST(k).matrix.M21 *= -1.0
             'MODEL_MATRIX_LIST(k).matrix.M31 *= -1.0
             'MODEL_MATRIX_LIST(k).matrix.M12 *= -1.0
@@ -357,10 +357,10 @@ ignore_this_one:
         ' remove models that we dont want on the map
         Dim mc As Int32 = 0
         Dim HQ As Integer = 1
-        Dim tm(cBSMI.model_BSMO_indexes.Length - 1) As model_matrix_list_
-        For i = 0 To cBSMI.model_BSMO_indexes.Length - 1
-            If cBSMI.model_BSMO_indexes(i).BSMO_extras = HQ Then
-                If cBSMI.vis_mask(i).mask = &HFFFFFFFF Then 'visibility mask
+        Dim tm(cBSMI.model_BSMO_indexes.count - 1) As model_matrix_list_
+        For i = 0 To cBSMI.model_BSMO_indexes.count - 1
+            If cBSMI.model_BSMO_indexes.data(i).BSMO_extras = HQ Then
+                If cBSMI.visibility_masks.data(i).mask = &HFFFFFFFFUI Then 'visibility mask
                     tm(mc) = New model_matrix_list_
                     tm(mc) = MODEL_MATRIX_LIST(i)
                     mc += 1
