@@ -51,7 +51,7 @@ Module modRender
         'Draw temp light positon.
         FBOm.attach_C()
         Dim v As New Vector3
-        v.x = LIGHT_POS(0) : v.y = LIGHT_POS(1) : v.z = LIGHT_POS(2)
+        v.X = LIGHT_POS(0) : v.Y = LIGHT_POS(1) : v.Z = LIGHT_POS(2)
         'unremming this screws up the VertexAttribPointers 
         draw_one_damn_moon(v)
         '------------------------------------------------
@@ -116,11 +116,13 @@ Module modRender
                 Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
                 GL.UniformMatrix3(MDL_modelNormalMatrix_id, True, normalMatrix)
 
-                GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO) ' <--- 2 hours to figure out this was out side the loop and using the same VAO!!
+                GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
 
                 Dim er0 = GL.GetError
-                Dim er1 = GL.GetError
                 For i = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
+                    'GL.CallList(MAP_MODELS(idx).mdl(0).entries(i).list_id)
+
+
                     If MAP_MODELS(idx).mdl(0).USHORTS Then
                         GL.DrawElements(PrimitiveType.Triangles,
                                         (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
@@ -130,6 +132,7 @@ Module modRender
                                         (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
                                         DrawElementsType.UnsignedInt, MAP_MODELS(idx).mdl(0).index_buffer32((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
                     End If
+
                     Dim er2 = GL.GetError
                 Next
                 GL.BindVertexArray(0)

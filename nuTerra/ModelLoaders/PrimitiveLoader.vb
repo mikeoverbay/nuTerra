@@ -149,7 +149,6 @@ Module PrimitiveLoader
                 Dim m = section(i).size Mod 4
                 If m > 0 Then
                     runner += 4 - m
-
                 End If
                 'read 16 bytes of unused junk
                 dummy = br.ReadUInt32
@@ -186,9 +185,7 @@ Module PrimitiveLoader
 
         Next 'keep reading until we run out of file to read
 
-        If sub_groups > 1 Then
-            Stop
-        End If
+
 
         Dim got_subs As Boolean = False
         Dim gp_pointer As Integer
@@ -196,7 +193,7 @@ Module PrimitiveLoader
         gp_pointer = sub_groups
         If sub_groups > 1 Then
             got_subs = True
-            Stop
+            'Stop
         End If
         Dim ind_start As UInt32 = 0
         Dim ind_length As UInt32 = 0
@@ -209,6 +206,7 @@ Module PrimitiveLoader
         While sub_groups > 0
 
             cur_sub = gp_pointer - sub_groups
+            ReDim Preserve mdl(cur_sub)
             'mdl(cur_sub) = New base_model_holder_
             mdl(cur_sub).has_uv2 = 0
 
@@ -228,10 +226,14 @@ Module PrimitiveLoader
                 If InStr(section(i).name, "indices") > 0 Then
                     If last_ind_pos < (section(i).location + 1) Then
                         ind_length = section(i).size - 76
-                        ind_start = section(i).location + 4
+                        ind_start = section(i).location
+                        If cur_sub = 0 Then
+                            ind_start += 4
+                        End If
                         ms.Position = ind_start
                         last_ind_pos = ind_start + 3 'Needed for when there are mulitple groups of components
                         'read text block
+                        na = ""
                         For z = 0 To 63
                             cr = br.ReadByte
                             If cr = 0 Then dr = True
@@ -434,11 +436,11 @@ Module PrimitiveLoader
             uv2_ms.Position = vt_ms.Position
             Dim v3 As Vector3
             '---------------------------
-            ReDim mdl(0).Vertex_buffer(vh.nVertice_count - 1)
-            ReDim mdl(0).Normal_buffer(vh.nVertice_count - 1)
-            ReDim mdl(0).UV1_buffer(vh.nVertice_count - 1)
-            ReDim mdl(0).tangent_buffer(vh.nVertice_count - 1)
-            ReDim mdl(0).biNormal_buffer(vh.nVertice_count - 1)
+            ReDim mdl(cur_sub).Vertex_buffer(vh.nVertice_count - 1)
+            ReDim mdl(cur_sub).Normal_buffer(vh.nVertice_count - 1)
+            ReDim mdl(cur_sub).UV1_buffer(vh.nVertice_count - 1)
+            ReDim mdl(cur_sub).tangent_buffer(vh.nVertice_count - 1)
+            ReDim mdl(cur_sub).biNormal_buffer(vh.nVertice_count - 1)
 
             If mdl(cur_sub).has_uv2 Then
                 ReDim mdl(0).UV2_buffer(vh.nVertice_count - 1)
@@ -497,24 +499,24 @@ Module PrimitiveLoader
                     '-----------------------------------------------------------------------
                     'if this vertex has index junk, skip it.
                     'no tangent and bitangent on BPVTxyznuviiiww type vertex
-                    'If hasIdx Then
-                    '    vt_ms.Position += 8
-
-                    'End If
-                    If vh.header_text = "BPVTxyznuviiiww" Then
+                    If hasIdx Then
                         vt_ms.Position += 8
 
-                    Else
-                        If stride = 37 Or stride = 40 Then
-                            vt_ms.Position += 8
-                        End If
                     End If
+                    'If vh.header_text = "BPVTxyznuviiiww" Then
+                    '    vt_ms.Position += 8
+
+                    'Else
+                    '    If stride = 37 Or stride = 40 Then
+                    '        vt_ms.Position += 8
+                    '    End If
+                    'End If
                     '-----------------------------------------------------------------------
 
                     If mdl(cur_sub).has_tangent = 1 Then
                         'tangents
                         v3 = unpackNormal(vt_br.ReadUInt32)
-                        mdl(cur_sub).tangent_buffer(running).X = -v3.x
+                        mdl(cur_sub).tangent_buffer(running).X = -v3.X
                         mdl(cur_sub).tangent_buffer(running).Y = v3.y
                         mdl(cur_sub).tangent_buffer(running).Z = v3.z
                         'biNormals
@@ -683,9 +685,29 @@ Module PrimitiveLoader
         GL.BindVertexArray(0)
         GL.Finish()
         'm.flush()
-
+        'build_vao_lists(m)
     End Sub
 
+    Public Sub build_vao_lists(ByRef m As base_model_holder_)
+        For i = 1 To m.primitive_count - 1
+
+            m.entries(i).list_id = GL.GenLists(1)
+            GL.NewList(m.entries(i).list_id, ListMode.Compile)
+
+            If m.USHORTS Then
+                GL.DrawElements(PrimitiveType.Triangles,
+                                m.entries(i).numIndices,
+                                DrawElementsType.UnsignedShort, m.index_buffer16((m.entries(i).startIndex)))
+            Else
+                GL.DrawElements(PrimitiveType.Triangles,
+                                m.entries(i).numIndices,
+                                DrawElementsType.UnsignedInt, m.index_buffer32((m.entries(i).startIndex)))
+            End If
+            GL.EndList()
+            GL.Finish 
+        Next
+
+    End Sub
     Public Sub build_test_lists(ByRef m As base_model_holder_)
         For i = 0 To m.primitive_count - 1
             m.entries(i).list_id = GL.GenLists(1)
