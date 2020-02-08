@@ -1,7 +1,6 @@
 ﻿Imports System.IO
 Imports OpenTK.Graphics.OpenGL
 
-
 Module ShaderLoader
 
 #Region "shader_storage"
@@ -184,7 +183,7 @@ Module ShaderLoader
     Public GL_TRUE As Integer = 1
     Public GL_FALSE As Integer = 0
 
-Public Function get_GL_error_string(ByVal e As ErrorCode) As String
+    Public Function get_GL_error_string(ByVal e As ErrorCode) As String
         Return [Enum].GetName(GetType(ErrorCode), e)
     End Function
 #Region "Compiler code"
@@ -333,16 +332,17 @@ Public Function get_GL_error_string(ByVal e As ErrorCode) As String
                 Dim ms As String = System.Reflection.MethodBase.GetCurrentMethod().Name
                 MsgBox("Function: " + ms + vbCrLf + "Error! " + s, MsgBoxStyle.Exclamation, "OpenGL Issue")
             End If
-            If name.Contains("raytrace") Then
 
-                GL.Ext.ProgramParameter(shader, AssemblyProgramParameterArb.GeometryInputType, All.Triangles)
-                GL.Ext.ProgramParameter(shader, AssemblyProgramParameterArb.GeometryOutputType, All.LineStrip)
-                GL.Ext.ProgramParameter(shader, AssemblyProgramParameterArb.GeometryVerticesOut, 6)
+            If name.Contains("raytrace") Then
+                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryInputType, ProgramParameterName), All.Triangles)
+                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryOutputType, ProgramParameterName), All.LineStrip)
+                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryVerticesOut, ProgramParameterName), 6)
             End If
+
             If name.Contains("normal") Then
-                GL.Ext.ProgramParameter(shader, AssemblyProgramParameterArb.GeometryInputType, All.Triangles)
-                GL.Ext.ProgramParameter(shader, AssemblyProgramParameterArb.GeometryOutputType, All.LineStrip)
-                GL.Ext.ProgramParameter(shader, AssemblyProgramParameterArb.GeometryVerticesOut, 18)
+                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryInputType, ProgramParameterName), All.Triangles)
+                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryOutputType, ProgramParameterName), All.LineStrip)
+                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryVerticesOut, ProgramParameterName), 18)
             End If
 
             e = GL.GetError
