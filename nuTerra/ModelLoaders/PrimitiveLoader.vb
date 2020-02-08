@@ -573,7 +573,7 @@ Module PrimitiveLoader
         'avoid division by 0
         If len = 0.0F Then len = 1.0F
         'len = 1.0
-        'reduce to unit size
+        'reduce to unit size (Normalize)
         p.x = -(p.x / len)
         p.y = -(p.y / len)
         p.z = -(p.z / len)
@@ -590,9 +590,7 @@ Module PrimitiveLoader
         Dim y As Int32 = (pky << 10L) >> 21
         Dim x As Int32 = (pkx << 21L) >> 21
         Dim p As New Vector3
-        p.x = CSng(x) / 1023.0! '* -1.0!
-
-        p.x = CSng(x) / 1023.0!
+        p.X = CSng(x) / 1023.0!
         p.y = CSng(y) / 1023.0!
         p.z = CSng(z) / 511.0!
         Dim len As Single = Sqrt((p.x ^ 2) + (p.y ^ 2) + (p.z ^ 2))
@@ -600,7 +598,7 @@ Module PrimitiveLoader
         'avoid division by 0
         If len = 0.0F Then len = 1.0F
 
-        'reduce to unit size
+        'reduce to unit size (normalize)
         p.x = (p.x / len)
         p.y = (p.y / len)
         p.z = (p.z / len)
@@ -622,7 +620,6 @@ Module PrimitiveLoader
 
         'Gen VAO id
         GL.GenVertexArrays(1, m.mdl_VAO)
-        'm.IBO = GL.GenBuffer
 
         GL.BindVertexArray(m.mdl_VAO)
 

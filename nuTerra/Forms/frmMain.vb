@@ -155,12 +155,12 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         '-----------------------------------------------------------------------------------------
         'This is temporary to speed up debugging
-        load_map("19_monastery.pkg")
         '-----------------------------------------------------------------------------------------
         '-----------------------------------------------------------------------------------------
         '-----------------------------------------------------------------------------------------
         launch_update_thread()
         '-----------------------------------------------------------------------------------------
+        load_map("19_monastery.pkg")
 
     End Sub
 
@@ -201,7 +201,7 @@ Public Class frmMain
 #End If
         'Runs Map picking code.
         glControl_main.MakeCurrent()
-        SHOW_MAPS = True
+        SHOW_MAPS_SCREEN = True
         SELECTED_MAP_HIT = 0
     End Sub
 
@@ -256,19 +256,27 @@ try_again:
     ''' <remarks></remarks>
     Private Sub load_assets()
         'setup text renderer
-        make_randum_locations() ' randum box locals
         Dim sp = Application.StartupPath
 
         '---------------------------------------------------------
         'load the xml list of all item locations
         load_lookup_xml()
         '---------------------------------------------------------
+        nuTERRA_BG_IMAGE =
+            load_image_from_file(Il.IL_PNG,
+            sp + "\resources\earth.png", False, True)
+        '---------------------------------------------------------
+        '---------------------------------------------------------
+
+
+        'test junk. ----------------------------------------------
+        make_randum_locations() ' randum box locals
         'load a test model
 #If 1 Then
         get_X_model(sp + "\resources\moon.x", MOON)
-        color_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror.png", True, False)
-        normal_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)
-        gmm_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)
+        'color_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror.png", True, False)
+        'normal_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)
+        'gmm_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)
         N_MAP_TYPE = 0
 #Else
 
@@ -320,7 +328,7 @@ try_again:
                 FPS_COUNTER = 0
             End If
             update_screen()
-            Thread.Sleep(3) ' hog all the time :)
+            Thread.Sleep(HOG_TIME) ' hog all the time :)
         End While
     End Sub
 
@@ -382,11 +390,11 @@ try_again:
     Private Sub glControl_main_MouseDown(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDown
         If BLOCK_MOUSE Then Return
 
-        If SHOW_MAPS Then
+        If SHOW_MAPS_SCREEN Then
             If e.Button = Forms.MouseButtons.Left Then
 
                 If SELECTED_MAP_HIT = 0 And MAP_LOADED Then
-                    SHOW_MAPS = False
+                    SHOW_MAPS_SCREEN = False
                     Application.DoEvents()
                     Return
                 Else

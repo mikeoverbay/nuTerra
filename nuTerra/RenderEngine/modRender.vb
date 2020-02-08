@@ -11,8 +11,14 @@ Module modRender
 
         frmMain.glControl_main.MakeCurrent()
 
-        If SHOW_MAPS Then
+        If SHOW_MAPS_SCREEN Then
             gl_pick_map(MOUSE.X, MOUSE.Y)
+            HOG_TIME = 16
+            Return
+        End If
+        If SHOW_LOADING_SCREEN Then
+            draw_loading_screen()
+            HOG_TIME = 16
             Return
         End If
 
@@ -89,7 +95,6 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
 
-        Dim er1 = GL.GetError
 
         For z = 0 To MODEL_MATRIX_LIST.Length - 2
 
@@ -102,16 +107,18 @@ Module modRender
 
                 Dim MVPM = model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
-                GL.UniformMatrix4(testList_modelMatrix_id, False, model * MODELVIEWMATRIX)
-                GL.UniformMatrix4(testList_modelViewProjection_id, False, MVPM)
+                GL.UniformMatrix4(MDL_modelMatrix_id, False, model * MODELVIEWMATRIX)
+                GL.UniformMatrix4(MDL_modelViewProjection_id, False, MVPM)
 
                 ' need an inverse of the modelmatrix
                 Dim MVM = model * MODELVIEWMATRIX
                 Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
-                GL.UniformMatrix3(testList_modelNormalMatrix_id, True, normalMatrix)
+                GL.UniformMatrix3(MDL_modelNormalMatrix_id, True, normalMatrix)
 
                 GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO) ' <--- 2 hours to figure out this was out side the loop and using the same VAO!!
 
+                Dim er0 = GL.GetError
+                Dim er1 = GL.GetError
                 For i = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
                     If MAP_MODELS(idx).mdl(0).USHORTS Then
                         GL.DrawElements(PrimitiveType.Triangles,
@@ -122,6 +129,7 @@ Module modRender
                                         (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
                                         DrawElementsType.UnsignedInt, MAP_MODELS(idx).mdl(0).index_buffer32((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
                     End If
+                    Dim er2 = GL.GetError
                 Next
                 GL.BindVertexArray(0)
             End If

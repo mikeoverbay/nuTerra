@@ -3,7 +3,7 @@ Imports Ionic.Zip
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 
-Module MapSelectionFunctions
+Module MapMenuScreen
 
 #Region "structurs/vars"
 
@@ -409,7 +409,7 @@ skip:
             Next
             If no_stragglers Then
                 FINISH_MAPS = False
-                SHOW_MAPS = False
+                SHOW_MAPS_SCREEN = False
                 BLOCK_MOUSE = False
                 'open_pkg(load_map_name)
             End If

@@ -168,7 +168,8 @@
     <Compile Include="MapLoader\frmLoadOptions.vb">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="MapLoader\MapSelectionFunctions.vb" />
+    <Compile Include="RenderEngine\LoadingScreen.vb" />
+    <Compile Include="RenderEngine\MapMenuScreen.vb" />
     <Compile Include="MapLoader\ModTriangleHolderClass.vb" />
     <Compile Include="ModelLoaders\modUtilities.vb" />
     <Compile Include="ModelLoaders\modXfile.vb" />
@@ -363,6 +364,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="light_settings\readme.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\earth.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\linear_face.png">

@@ -16,7 +16,14 @@ Module modGlobalVars
     Public FPS_TIME As Integer
     Public MOON As base_model_holder_
     '---------------------
-    Public N_MAP_TYPE As Integer
+    'sleep time for upedate thread.
+    'lower draws faster but kills apps responsiveness
+    Public HOG_TIME As Integer = 3
+    '---------------------
+    'load screen background image
+    Public nuTERRA_BG_IMAGE As Integer
+    '---------------------
+    Public N_MAP_TYPE As Integer '<------------- temp value
     '---------------------
     Public LIGHT_POS(3) As Single
     Public LIGHT_RADIUS As Single 'Used when orbiting the light
@@ -55,7 +62,8 @@ Module modGlobalVars
     Public MAP_SELECT_BACKGROUND_ID As Integer 'texture id 
     Public TEXT_OVERLAY_MAP_PICK As Integer 'texture id for text on icons
     '
-    Public SHOW_MAPS = False 'pick menu flag
+    Public SHOW_MAPS_SCREEN As Boolean = False 'show pick menu screen
+    Public SHOW_LOADING_SCREEN As Boolean = False 'show loading screen flag
     Public SELECTED_MAP_HIT = 0 'pick menu flag
     Public BLOCK_MOUSE As Boolean 'pick menu flag
     Public FINISH_MAPS As Boolean 'pick menu flag

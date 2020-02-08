@@ -194,13 +194,15 @@ Module MapLoader
 #End Region
 
     Public Sub load_map(ByVal package_name As String)
+        SHOW_MAPS_SCREEN = False
+        SHOW_LOADING_SCREEN = True
         'For now, we are going to hard wire this name
         'and call this at startup so skip having to select a menu
         MAP_NAME_NO_PATH = package_name
         Dim ABS_NAME = MAP_NAME_NO_PATH.Replace(".pkg", "")
         'First we need to remove the loaded data.
         remove_map_data()
-        total_triangles_drawn = 0
+        TOTAL_TRIANGLES_DRAWN = 0
         'get the light settings for this map.
         frmLighting.get_light_settings()
 
@@ -255,9 +257,14 @@ Module MapLoader
             Return
         End If
         '------------------------------------------------------------------------------------------------
-        For i = 0 To MAP_MODELS.Length - 1
-            If MAP_MODELS(i).mdl(0).primitive_name IsNot Nothing Then
+        ' Setup Bar graph
+        BG_TEXT = "Loading Models..."
+        BG_MAX_VALUE = MAP_MODELS.Length - 1
 
+        For i = 0 To MAP_MODELS.Length - 1
+            BG_VALUE = i
+            If MAP_MODELS(i).mdl(0).primitive_name IsNot Nothing Then
+                Application.DoEvents() '<-- Give some time to this app's UI
                 Dim good = get_primitive(MAP_MODELS(i).mdl(0).primitive_name.Replace("primitives", "model"), MAP_MODELS(i).mdl)
             End If
 
@@ -295,6 +302,7 @@ Module MapLoader
         getMapSizes(ABS_NAME) ' this also gets the skydome full path
         '------------------------------------------------------------------------------------------------
 #End If
+        SHOW_LOADING_SCREEN = False
 
         ' close packages
         close_shared_packages()

@@ -74,7 +74,11 @@ Module modTypeStructures
         '------------------------------------------------
 
         'used to create VBO
-        Public element_count As Integer ' how many buffers will be created
+        'how many parallel buffers will be created
+        Public element_count As Integer
+
+        'number if model components
+        Public primitive_count As Integer
 
         Public indice_count As Integer
         Public indice_size As Integer
@@ -115,8 +119,6 @@ Module modTypeStructures
         'texture IDs.. render settings... so on
         Public entries() As entries_
 
-        'number if model components.
-        Public primitive_count As Integer
 
         Public Sub flush()
             'free the memory
