@@ -11,6 +11,7 @@ Module modRender
 
         frmMain.glControl_main.MakeCurrent()
 
+        HOG_TIME = 3
         If SHOW_MAPS_SCREEN Then
             gl_pick_map(MOUSE.X, MOUSE.Y)
             HOG_TIME = 16
