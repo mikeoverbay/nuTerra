@@ -271,12 +271,7 @@ Module vis_main
     End Sub
 
     Public Sub setupthedome()
-        ReDim Preserve Models.models(1)
-        Models.models(0) = New primitive
-        ReDim Preserve Models.models(1)
-        ReDim Preserve Models.models(0).componets(1)
-        Models.models(0).componets(0) = New Model_Section
-        Models.Model_list(0) = skyDomeName
+        'Will be reworked
 	End Sub
 
     Public Function TransformXML(xmlString As String, xlsString As String) As MemoryStream

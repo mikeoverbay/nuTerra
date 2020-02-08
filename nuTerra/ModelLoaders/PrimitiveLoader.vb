@@ -269,10 +269,10 @@ Module PrimitiveLoader
                         ms.Position += nOffset 'The component table is at the end of the indicies list.
                         'read the tables
                         For z = 0 To ih.nInd_groups - 1
-                            pGroups(z).startIndex_ = br.ReadUInt32
-                            pGroups(z).nPrimitives_ = br.ReadUInt32
-                            pGroups(z).startVertex_ = br.ReadUInt32
-                            pGroups(z).nVertices_ = br.ReadUInt32
+                            pGroups(z).startIndex_ = br.ReadUInt32 '  <-- Offset in to indices list
+                            pGroups(z).nPrimitives_ = br.ReadUInt32 ' <-- This is the triangle count
+                            pGroups(z).startVertex_ = br.ReadUInt32 ' <-- Offset in to Vertex list
+                            pGroups(z).nVertices_ = br.ReadUInt32 '   <-- Number of vertices consumed
                             'update triangle count
                             TOTAL_TRIANGLES_DRAWN_MODEL += pGroups(z).nPrimitives_
                         Next
@@ -617,8 +617,8 @@ Module PrimitiveLoader
 
 
     Public Sub build_model_VAO(ByRef m As base_model_holder_)
+
         Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
-        GL.Finish()
 
         'Gen VAO id
         GL.GenVertexArrays(1, m.mdl_VAO)
@@ -629,6 +629,8 @@ Module PrimitiveLoader
         ReDim m.mBuffers(m.element_count)
         GL.GenBuffers(m.element_count + 1, m.mBuffers)
 
+        Dim v3_size = SizeOf(GetType(Vector3))
+        Dim v2_size = SizeOf(GetType(Vector2))
 
         Dim er0 = GL.GetError
 
@@ -636,32 +638,32 @@ Module PrimitiveLoader
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(VERTEX_VB))
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 0, 0)
         GL.EnableVertexAttribArray(0)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector3)), m.Vertex_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * v3_size, m.Vertex_buffer, BufferUsageHint.StaticDraw)
 
         'normal
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(NORMAL_VB))
         GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 0, 0)
         GL.EnableVertexAttribArray(1)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector3)), m.Normal_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * v3_size, m.Normal_buffer, BufferUsageHint.StaticDraw)
 
         'UV1
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(UV1_VB))
         GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 0, 0)
         GL.EnableVertexAttribArray(2)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector2)), m.UV1_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * v2_size, m.UV1_buffer, BufferUsageHint.StaticDraw)
 
         If m.has_tangent = 1 Then
             'Tangent
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(TANGENT_VB))
             GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(3)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector3)), m.tangent_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * v3_size, m.tangent_buffer, BufferUsageHint.StaticDraw)
 
             'biNormal
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(BINORMAL_VB))
             GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(4)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector3)), m.biNormal_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * v3_size, m.biNormal_buffer, BufferUsageHint.StaticDraw)
         End If
 
         If m.has_uv2 = 1 Then
@@ -669,7 +671,7 @@ Module PrimitiveLoader
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(UV2_VB))
             GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, 0, 0)
             GL.EnableVertexAttribArray(5)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * SizeOf(GetType(Vector2)), m.UV2_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * v2_size, m.UV2_buffer, BufferUsageHint.StaticDraw)
         End If
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, m.mBuffers(INDEX_BUFFER))

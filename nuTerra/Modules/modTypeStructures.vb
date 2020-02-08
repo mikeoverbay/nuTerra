@@ -48,44 +48,6 @@ Module modTypeStructures
 
     Public triangle_holder As New mappedFile_
 
-    Public Models As model_
-    Public Structure model_
-        Public Model_list() As String
-        Public models As primitive()
-    End Structure
-
-    Public Structure primitive
-        Public _count As Integer
-        Public componets() As Model_Section
-        Public isBuilding As Boolean 'Used to render buildings only on first pass. Its decal rendering logic.
-        Public visible As Boolean
-    End Structure
-
-    Public Structure Model_Section
-        Public callList_ID As Int32
-        ' Public indices() As Integer
-        Public vertices() As Vector3
-        Public normals() As Vector3
-        Public tangents() As Vector3
-        Public binormals() As Vector3
-        Public UVs() As Vector2
-        Public UV2s() As Vector2
-        Public name As String
-        'for texture mapping
-        Public color_id As Int32
-        Public normal_Id As Int32
-        Public color2_Id As Integer
-        Public _count As UInt32
-        Public multi_textured As Boolean
-        Public alpha_only As Boolean
-        Public bumped As Boolean
-        Public GAmap As Boolean
-        Public color2_name As String
-        Public color_name As String
-        Public normal_name As String
-        Public alphaRef As Integer
-        Public alphaTestEnable As Integer
-    End Structure
 
     Public Structure destructibles
         Public filename As List(Of String)
