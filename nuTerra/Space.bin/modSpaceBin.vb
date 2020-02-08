@@ -2,157 +2,141 @@
 Imports System.Text
 
 Module modSpaceBin
-    Public space_bin_Chunk_table As SectionHeader()
+    Public sectionHeaders As Dictionary(Of String, SectionHeader)
     Public Structure SectionHeader
-        Public chunk_name As String
+        Public magic As String
         Public version As Int32
         Public offset As Int64
         Public length As Int64
+
+        Public Sub New(br As BinaryReader)
+            magic = br.ReadChars(4)
+            version = br.ReadInt32
+            offset = br.ReadInt64
+            length = br.ReadInt64
+        End Sub
     End Structure
 
-    Public Function ReadSpaceBinData(ByRef p As String) As Boolean
+    Public Function ReadSpaceBinData(p As String) As Boolean
         If Not File.Exists(TEMP_STORAGE + p) Then
-            Return False
+            GoTo Failed
         End If
-        Dim sb As New StringBuilder
+
         Dim f = File.OpenRead(TEMP_STORAGE + p)
-        Dim br As New BinaryReader(f)
-        f.Position = &H14
-        Dim table_size = br.ReadInt32
-        ReDim space_bin_Chunk_table(table_size - 1)
 
-        'read each entry in the header table
-        For t_cnt = 0 To table_size - 1
-            Dim ds = br.ReadBytes(4)
-            space_bin_Chunk_table(t_cnt).chunk_name = System.Text.Encoding.ASCII.GetString(ds, 0, 4)
+        Using br As New BinaryReader(f, Encoding.ASCII)
+            br.BaseStream.Position = &H14
+            Dim table_size = br.ReadInt32
 
-            Debug.WriteLine(space_bin_Chunk_table(t_cnt).chunk_name)
-            sb.Append("Case header = " + """" + space_bin_Chunk_table(t_cnt).chunk_name + """" + vbCrLf)
+            sectionHeaders = New Dictionary(Of String, SectionHeader)
 
-            space_bin_Chunk_table(t_cnt).version = br.ReadInt32
-            space_bin_Chunk_table(t_cnt).offset = br.ReadInt64
-            space_bin_Chunk_table(t_cnt).length = br.ReadInt64
-        Next
-
-        If False Then
-            If Not Directory.Exists("C:\!_bin_data\") Then
-                Directory.CreateDirectory("C:\!_bin_data\")
-            End If
-            File.WriteAllText("C:\!_bin_data\headers.txt", sb.ToString)
-        End If
-
-        If False Then
-            If Not Directory.Exists("C:\!_bin_data\") Then
-                Directory.CreateDirectory("C:\!_bin_data\")
-            End If
-            For i = 0 To space_bin_Chunk_table.Length - 1
-                br.BaseStream.Position = space_bin_Chunk_table(i).offset
-                Dim d = br.ReadBytes(space_bin_Chunk_table(i).length)
-                File.WriteAllBytes("C:\!_bin_data\" + MAP_NAME_NO_PATH + "_" + space_bin_Chunk_table(i).chunk_name + ".bin", d)
+            ' read each entry in the header table
+            For i = 0 To table_size - 1
+                Dim header As New SectionHeader(br)
+                sectionHeaders.Add(header.magic, header)
             Next
-        End If
 
-        ' we mush grab this data first!
-        For Each header As SectionHeader In space_bin_Chunk_table
-            If header.chunk_name = "BSGD" Then
-                If Not get_BSGD(header, br) Then
-                    MsgBox("BSGD decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                    Return False
-                End If
-                Exit For
-            End If
-        Next
+            Try
+                ' we must grab this data first!
+                cBSGD = New cBSGD_(sectionHeaders("BSGD"), br)
+            Catch ex As Exception
+                MsgBox("BSGD decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
 
-        '----------------------------------------------------------------------------------
-        'Now we will grab the game data we need.
-        For Each header As SectionHeader In space_bin_Chunk_table
-            Select Case header.chunk_name
-                Case "BWST"
-                    If Not get_BWST(header, br) Then
-                        MsgBox("BWST decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "BWAL"
-                    If Not get_BWAL(header, br) Then
-                        MsgBox("BWAL decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "BWCS"
-                Case "BWSG"
-                    If Not get_BWSG(header, br) Then
-                        MsgBox("BWSG decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "BWS2"
-                Case "BSG2"
-                Case "BWT2"
-                Case "BSMI"
-                    If Not get_BSMI(header, br) Then
-                        MsgBox("BSMI decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "BSMO"
-                    If Not get_BSMO(header, br) Then
-                        MsgBox("BSMO decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "BSMA"
-                    If Not get_BSMA(header, br) Then
-                        MsgBox("BSMA decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "SpTr"
-                    If Not get_SpTr(header, br) Then
-                        MsgBox("SpTr decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "WGSD"
-                    If Not get_WGSD(header, br) Then
-                        MsgBox("WGSD decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "WTCP"
-                Case "BWWa"
-                    If Not get_BWWa(header, br) Then
-                        MsgBox("BWWa decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "BWEP"
-                Case "WGCO"
-                Case "BWPs"
-                Case "CENT"
-                Case "UDOS"
-                Case "WGDE"
-                Case "BWLC"
-                Case "WTau"
-                Case "WTbl"
-                    If Not get_WTbl(header, br) Then
-                        MsgBox("WTbl decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
-                        Return False
-                    End If
-                    Exit Select
-                Case "WGSH"
-                Case "WGMM"
-            End Select
-        Next
+            '------------------------------------------------------------------
+            ' Now we will grab the game data we need.
+            '------------------------------------------------------------------
 
-        'Clear headers
-        space_bin_Chunk_table = Nothing
+            Try
+                cBWST = New cBWST_(sectionHeaders("BWST"), br)
+            Catch ex As Exception
+                MsgBox("BWST decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
 
-        br.Close()
+            Try
+                cBWAL = New cBWAL_(sectionHeaders("BWAL"), br)
+            Catch ex As Exception
+                MsgBox("BWAL decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
+
+            Try
+                get_BWSG(sectionHeaders("BWSG"), br)
+            Catch ex As Exception
+                MsgBox("BWSG decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
+
+            Try
+                cBSMI = New cBSMI_(sectionHeaders("BSMI"), br)
+            Catch ex As Exception
+                MsgBox("BSMI decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
+
+            Try
+                cBSMO = New cBSMO_(sectionHeaders("BSMO"), br)
+            Catch ex As Exception
+                MsgBox("BSMO decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
+
+            Try
+                get_BSMA(sectionHeaders("BSMA"), br)
+            Catch ex As Exception
+                MsgBox("BSMA decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
+
+            Try
+                cSpTr = New cSpTr_(sectionHeaders("SpTr"), br)
+            Catch ex As Exception
+                MsgBox("SpTr decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
+
+            Try
+                get_WGSD(sectionHeaders("WGSD"), br)
+            Catch ex As Exception
+                MsgBox("WGSD decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
+
+            Try
+                cBWWa = New cBWWa_(sectionHeaders("BWWa"), br)
+            Catch ex As Exception
+                MsgBox("BWWa decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
+
+            Try
+                cWTbl = New cWTbl_(sectionHeaders("WTbl"), br)
+            Catch ex As Exception
+                MsgBox("WTbl decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                GoTo Failed
+            End Try
+
+            'Unimplemented sections:
+            'BWCS
+            'BWS2
+            'BSG2
+            'BWT2
+            'WTCP
+            'BWEP
+            'WGCO
+            'BWPs
+            'CENT
+            'UDOS
+            'WGDE
+            'BWLC
+            'WTau
+            'WGSH
+            'WGMM
+        End Using
+
         f.Close()
-
-        br = Nothing
-        f = Nothing
 
         '----------------------------------------------------------------------------------
         'build the model information
@@ -365,8 +349,17 @@ ignore_this_one:
             If MODEL_MATRIX_LIST(i).exclude = True Then
                 'Debug.WriteLine(i.ToString("0000") + " : " + Model_Matrix_list(i).primitive_name)
             End If
-
         Next
+
+        ReadSpaceBinData = True
+        GoTo CleanUp
+
+Failed:
+        ReadSpaceBinData = False
+
+CleanUp:
+        'Clear headers
+        sectionHeaders = Nothing
 
         'Clear Sections
         cBSGD = Nothing
@@ -380,7 +373,5 @@ ignore_this_one:
         cWGSD = Nothing
         cSpTr = Nothing
         cBWWa = Nothing
-
-        Return True
     End Function
 End Module

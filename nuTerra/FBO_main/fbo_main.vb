@@ -6,7 +6,6 @@ Module FBO_main
     ''' <summary>
     ''' Creates the main rendering FBO
     ''' </summary>
-    ''' <remarks></remarks>
     Public NotInheritable Class FBOm
         Public Shared SCR_WIDTH, SCR_HEIGHT As Int32
         Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture As Integer

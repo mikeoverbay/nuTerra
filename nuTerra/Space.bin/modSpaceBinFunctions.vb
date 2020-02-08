@@ -11,15 +11,6 @@ Module modSpaceBinFunctions
         Return True
     End Function
 
-    Public Function get_BWST(ByRef bwstHeader As SectionHeader, br As BinaryReader) As Boolean
-        Try
-            cBWST = New cBWST_(bwstHeader, br)
-        Catch ex As Exception
-            Debug.Print(ex.ToString)
-            Return False
-        End Try
-        Return True
-    End Function
 
     Public Function get_BWSG(ByRef bwsgHeader As SectionHeader, br As BinaryReader) As Boolean
         Return True
@@ -138,35 +129,6 @@ Module modSpaceBinFunctions
         Return True
     End Function
 
-    Public Function get_BSMI(ByRef bsmiHeader As SectionHeader, br As BinaryReader) As Boolean
-        Try
-            cBSMI = New cBSMI_(bsmiHeader, br)
-        Catch ex As Exception
-            Debug.Print(ex.ToString)
-            Return False
-        End Try
-        Return True
-    End Function
-
-    Public Function get_WTbl(ByRef wtblHeader As SectionHeader, br As BinaryReader)
-        Try
-            cWtbl = New cWtbl_(wtblHeader, br)
-        Catch ex As Exception
-            Debug.Print(ex.ToString)
-            Return False
-        End Try
-        Return True
-    End Function
-
-    Public Function get_BSMO(ByRef bsmoHeader As SectionHeader, br As BinaryReader)
-        Try
-            cBSMO = New cBSMO_(bsmoHeader, br)
-        Catch ex As Exception
-            Debug.Print(ex.ToString)
-            Return False
-        End Try
-        Return True
-    End Function
 
     Public Function get_BSMA(ByRef bsmaHeader As SectionHeader, br As BinaryReader)
         Try
@@ -294,15 +256,6 @@ Module modSpaceBinFunctions
         Return True
     End Function
 
-    Public Function get_BWAL(ByRef bwalHeader As SectionHeader, br As BinaryReader)
-        Try
-            cBWAL = New cBWAL_(bwalHeader, br)
-        Catch ex As Exception
-            Debug.Print(ex.ToString)
-            Return False
-        End Try
-        Return True
-    End Function
 
     Public Function get_WGSD(ByRef wgsdHeader As SectionHeader, br As BinaryReader)
         'get the decal lists
@@ -358,10 +311,10 @@ Module modSpaceBinFunctions
                 cWGSD.decalEntries(k).off_z = br.ReadSingle
                 cWGSD.decalEntries(k).off_w = br.ReadSingle
 
-                decal_matrix_list(k).offset.z = cWGSD.decalEntries(k).off_x
-                decal_matrix_list(k).offset.y = cWGSD.decalEntries(k).off_y
-                decal_matrix_list(k).offset.z = cWGSD.decalEntries(k).off_z
-                decal_matrix_list(k).offset.w = cWGSD.decalEntries(k).off_w
+                decal_matrix_list(k).offset.Z = cWGSD.decalEntries(k).off_x
+                decal_matrix_list(k).offset.Y = cWGSD.decalEntries(k).off_y
+                decal_matrix_list(k).offset.Z = cWGSD.decalEntries(k).off_z
+                decal_matrix_list(k).offset.W = cWGSD.decalEntries(k).off_w
 
                 cWGSD.decalEntries(k).uv_wrapping_u = br.ReadSingle
                 cWGSD.decalEntries(k).uv_wrapping_v = br.ReadSingle
@@ -450,10 +403,10 @@ read3_only:
                 cWGSD.decalEntries(k).off_z = br.ReadSingle
                 cWGSD.decalEntries(k).off_w = br.ReadSingle
 
-                decal_matrix_list(k).offset.z = cWGSD.decalEntries(k).off_x
-                decal_matrix_list(k).offset.y = cWGSD.decalEntries(k).off_y
-                decal_matrix_list(k).offset.z = cWGSD.decalEntries(k).off_z
-                decal_matrix_list(k).offset.w = cWGSD.decalEntries(k).off_w
+                decal_matrix_list(k).offset.Z = cWGSD.decalEntries(k).off_x
+                decal_matrix_list(k).offset.Y = cWGSD.decalEntries(k).off_y
+                decal_matrix_list(k).offset.Z = cWGSD.decalEntries(k).off_z
+                decal_matrix_list(k).offset.W = cWGSD.decalEntries(k).off_w
 
                 cWGSD.decalEntries(k).uv_wrapping_u = br.ReadSingle
                 cWGSD.decalEntries(k).uv_wrapping_v = br.ReadSingle
@@ -512,26 +465,6 @@ ignore_this2:
 
             Next
 
-        Catch ex As Exception
-            Debug.Print(ex.ToString)
-            Return False
-        End Try
-        Return True
-    End Function
-
-    Public Function get_SpTr(ByRef sptrHeader As SectionHeader, br As BinaryReader)
-        Try
-            cSpTr = New cSpTr_(sptrHeader, br)
-        Catch ex As Exception
-            Debug.Print(ex.ToString)
-            Return False
-        End Try
-        Return True
-    End Function
-
-    Public Function get_BWWa(ByRef bwwaHeader As SectionHeader, br As BinaryReader)
-        Try
-            cBWWa = New cBWWa_(bwwaHeader, br)
         Catch ex As Exception
             Debug.Print(ex.ToString)
             Return False

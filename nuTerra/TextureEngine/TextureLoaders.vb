@@ -19,8 +19,8 @@ Module TextureLoaders
     End Sub
 
     Public Function image_exists(ByVal fn As String) As Integer
-        Dim q = From d In imgTbl.AsEnumerable _
-                Where d.Field(Of String)("Name") = fn _
+        Dim q = From d In imgTbl.AsEnumerable
+                Where d.Field(Of String)("Name") = fn
                 Select id = d.Field(Of Integer)("Id")
         If q.Count > 0 Then
             Return q(0)
@@ -116,7 +116,7 @@ Module TextureLoaders
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, _
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
                           OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
             If MIPS Then
                 GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
@@ -214,7 +214,7 @@ Module TextureLoaders
         Dim b As New Bitmap(2, 2, Imaging.PixelFormat.Format32bppArgb)
         Dim g As Drawing.Graphics = Drawing.Graphics.FromImage(b)
         g.Clear(Color.Black)
-        Dim bitmapData = b.LockBits(New Rectangle(0, 0, 2, _
+        Dim bitmapData = b.LockBits(New Rectangle(0, 0, 2,
                              2), Imaging.ImageLockMode.ReadOnly, Imaging.PixelFormat.Format32bppArgb)
 
         GL.BindTexture(TextureTarget.Texture2D, dummy)
