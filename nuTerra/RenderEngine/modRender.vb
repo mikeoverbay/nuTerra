@@ -47,15 +47,11 @@ Module modRender
         '------------------------------------------------
         'GL States
         GL.Enable(EnableCap.DepthTest)
-        GL.Disable(EnableCap.Lighting)
         GL.Enable(EnableCap.CullFace)
-        GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
         GL.Disable(EnableCap.Blend)
         '------------------------------------------------
         '------------------------------------------------
 
-
-        GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode, TextureEnvMode.Replace)
         '------------------------------------------------
         '------------------------------------------------
         'Draw temp light positon.
