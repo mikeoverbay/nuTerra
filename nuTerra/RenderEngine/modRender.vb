@@ -1,4 +1,5 @@
 ﻿Imports System.Math
+Imports System.Runtime.InteropServices.Marshal
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
@@ -105,48 +106,38 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
 
-
         For z = 0 To MODEL_MATRIX_LIST.Length - 2
-
-
             Dim idx = MODEL_MATRIX_LIST(z).model_index
-            If Not MAP_MODELS(idx).mdl(0).junk And Not MODEL_MATRIX_LIST(z).Culled Then
+            Dim model = MAP_MODELS(idx).mdl(0)
 
-
-                'Add to total triangles drawn
-                TOTAL_TRIANGLES_DRAWN += MAP_MODELS(idx).mdl(0).POLY_COUNT
-
-                GL.UniformMatrix4(MDL_modelMatrix_id, False, MODEL_MATRIX_LIST(z).matrix * MODELVIEWMATRIX)
-
-                Dim MVPM = MODEL_MATRIX_LIST(z).matrix * MODELVIEWMATRIX * PROJECTIONMATRIX
-                GL.UniformMatrix4(MDL_modelViewProjection_id, False, MVPM)
+            If Not model.junk And Not MODEL_MATRIX_LIST(z).Culled Then
+                TOTAL_TRIANGLES_DRAWN += model.POLY_COUNT
+                Dim modelMatrix = MODEL_MATRIX_LIST(z).matrix
 
                 ' need an inverse of the modelmatrix
-                Dim MVM = MODEL_MATRIX_LIST(z).matrix * MODELVIEWMATRIX
+                Dim MVM = modelMatrix * MODELVIEWMATRIX
+                Dim MVPM = MVM * PROJECTIONMATRIX
                 Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
-                GL.UniformMatrix3(MDL_modelNormalMatrix_id, False, normalMatrix)
 
-                GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
+                GL.UniformMatrix4(MDL_modelMatrix_id, False, MVM)
+                GL.UniformMatrix4(MDL_modelViewProjection_id, False, MVPM)
+                GL.UniformMatrix3(MDL_modelNormalMatrix_id, True, normalMatrix)
 
-                Dim er0 = GL.GetError
-                For i = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
+                Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
+                Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
 
-                    If MAP_MODELS(idx).mdl(0).USHORTS Then
-                        GL.DrawElements(PrimitiveType.Triangles,
-                                        (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
-                                        DrawElementsType.UnsignedShort, MAP_MODELS(idx).mdl(0).index_buffer16((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
-                    Else
-                        GL.DrawElements(PrimitiveType.Triangles,
-                                        (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
-                                        DrawElementsType.UnsignedInt, MAP_MODELS(idx).mdl(0).index_buffer32((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
-                    End If
-
-                    Dim er2 = GL.GetError
+                GL.BindVertexArray(model.mdl_VAO)
+                For i = 0 To model.primitive_count - 1
+                    Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
+                    GL.DrawElements(PrimitiveType.Triangles,
+                                    model.entries(i).numIndices,
+                                    triType,
+                                    offset)
                 Next
-                GL.BindVertexArray(0)
             End If
-
         Next
+
+        GL.BindVertexArray(0)
 
         GL.UseProgram(0)
         unbind_textures(2) ' unbind all the used texture slots

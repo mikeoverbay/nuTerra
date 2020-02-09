@@ -281,7 +281,7 @@ Module PrimitiveLoader
 
                         ms.Position = cp 'restore position
                         'We flip the winding order because of directX to Opengl 
-                        mdl(cur_sub).indice_count = (ih.nIndices_ / 3) - 1
+                        mdl(cur_sub).indice_count = (ih.nIndices_ / 3)
 
                         If mdl(cur_sub).USHORTS Then
                             ReDim mdl(cur_sub).index_buffer16((ih.nIndices_ / 3) - 1)
@@ -681,7 +681,6 @@ Module PrimitiveLoader
         End If
         Dim er = GL.GetError
 
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
         GL.BindVertexArray(0)
         GL.Finish()
         'm.flush()
