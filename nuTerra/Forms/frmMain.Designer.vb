@@ -28,10 +28,9 @@ Partial Class frmMain
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
 
-        Dim mode = New GraphicsMode()
         Dim flags = GraphicsContextFlags.Debug ' Or GraphicsContextFlags.ForwardCompatible
 
-        Me.glControl_main = New OpenTK.GLControl(mode, 4, 3, flags)
+        Me.glControl_main = New OpenTK.GLControl(GraphicsMode.Default, 4, 3, flags)
         Me.glControl_MiniMap = New OpenTK.GLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()

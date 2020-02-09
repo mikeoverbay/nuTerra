@@ -46,6 +46,7 @@ Module ShaderLoader
         Public colorOnly_shader As Integer
         Public Deferred_shader As Integer
         Public gWriter_shader As Integer
+        Public image2d_shader As Integer
         Public MDL_shader As Integer
         Public normal_shader As Integer
         Public normalOffset_shader As Integer
@@ -69,10 +70,9 @@ Module ShaderLoader
     '----------------------------------------------------------------------------
 
     '----------------------------------------------------------------------------
-    Public colorOnly_color_id, colorOnly_ModelMatrix_id, colorOnly_PrjMatrix_id As Integer
+    Public colorOnly_color_id, colorOnly_PrjMatrix_id As Integer
     Private Sub set_colorOnly_varaibles()
         colorOnly_color_id = GL.GetUniformLocation(shader_list.colorOnly_shader, "color")
-        colorOnly_ModelMatrix_id = GL.GetUniformLocation(shader_list.colorOnly_shader, "ModelMatrix")
         colorOnly_PrjMatrix_id = GL.GetUniformLocation(shader_list.colorOnly_shader, "ProjectionMatrix")
     End Sub
     '----------------------------------------------------------------------------
@@ -108,6 +108,14 @@ Module ShaderLoader
         gWriter_ProjectionMatrix_id = GL.GetUniformLocation(shader_list.gWriter_shader, "ProjectionMatrix")
         gWriter_WorldNormal_id = GL.GetUniformLocation(shader_list.gWriter_shader, "modelNormalMatrix")
         gWriter_nMap_type_id = GL.GetUniformLocation(shader_list.gWriter_shader, "nMap_type")
+    End Sub
+    '----------------------------------------------------------------------------
+
+    '----------------------------------------------------------------------------
+    Public image2d_imageMap_id, image2d_ProjectionMatrix_id As Integer
+    Private Sub set_image2d_varaibles()
+        image2d_imageMap_id = GL.GetUniformLocation(shader_list.image2d_shader, "imageMap")
+        image2d_ProjectionMatrix_id = GL.GetUniformLocation(shader_list.image2d_shader, "ProjectionMatrix")
     End Sub
     '----------------------------------------------------------------------------
 
@@ -186,6 +194,7 @@ Module ShaderLoader
         set_colorOnly_varaibles()
         set_deferred_varaibles()
         set_gWriter_varaibles()
+        set_image2d_varaibles()
         set_MDL_varaibles()
         set_normal_varaibles()
         set_normalOffset_varaibles()

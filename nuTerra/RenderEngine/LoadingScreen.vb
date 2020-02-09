@@ -1,17 +1,5 @@
-﻿#Region "Imports"
-Imports System.Math
-Imports System
-Imports System.IO
-Imports System.Globalization
-Imports System.Threading
-Imports System.Windows
-Imports OpenTK.GLControl
-Imports OpenTK
-Imports OpenTK.Platform.Windows
-Imports OpenTK.Graphics
+﻿Imports System.Runtime.InteropServices.Marshal
 Imports OpenTK.Graphics.OpenGL
-Imports Tao.DevIl
-#End Region
 
 
 Module LoadingScreen
@@ -38,57 +26,43 @@ Module LoadingScreen
         Dim w_MaxValue = frmMain.glControl_main.ClientRectangle.Width / BG_MAX_VALUE
         Dim w_Valuev = (BG_VALUE / BG_MAX_VALUE) * (ww)
 
-        'GL States
-        GL.Disable(EnableCap.DepthTest)
-        GL.Disable(EnableCap.Lighting)
-        GL.Disable(EnableCap.CullFace)
-        GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
-        GL.Disable(EnableCap.Blend)
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-        GL.ActiveTexture(TextureUnit.Texture0)
-
-        'clear the buffer
+        ' Clear the color buffer
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
-        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+        GL.Clear(ClearBufferMask.ColorBufferBit)
 
-        '==============================================
-        'Draw Terra Image =============================
-        '==============================================
-        GL.Enable(EnableCap.Texture2D)
-        Dim SP, EP As PointF
         Dim ls = (1920.0F - ww) / 2.0F
-        SP.X = -ls : SP.Y = 0.0F
-        EP.X = -ls + 1920.0F : EP.Y = 1080.0F
-        GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
-        GL.BindTexture(TextureTarget.Texture2D, nuTERRA_BG_IMAGE)
-        draw_rectangle(SP, EP)
 
-        '==============================================
-        'Draw Text ====================================
-        '==============================================
-        GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
+        ' Draw Terra Image
+        draw_image_rectangle(New PointF(-ls, 0.0F),
+                             New PointF(-ls + 1920.0F, 1080.0F),
+                             nuTERRA_BG_IMAGE)
+
+        ' Draw 'Loading Models...' text
         draw_text()
-        'unbind texture
-        GL.BindTexture(TextureTarget.Texture2D, 0)
-        GL.Disable(EnableCap.Texture2D)
+
         '==============================================
         'Draw Bargraph ================================
         '==============================================
-        GL.Color4(1.0F, 1.0F, 1.0F, 1.0F)
 
-        GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
+        Dim SP As New PointF
+        Dim EP As New PointF
+
         Dim w = BG_MAX_VALUE
         Dim h = 20.0
         SP.X = 0.0F : SP.Y = 10.0F
         EP.X = frmMain.glControl_main.ClientRectangle.Width : EP.Y = 30
         EP.X = w_Valuev : EP.Y = 30
-        draw_rectangle(SP, EP)
 
-        'Make it so!
+        GL.Color3(1.0F, 1.0F, 1.0F)
+        draw_rectangle_LEGACY(SP, EP)
+
+        ' Make it so!
         frmMain.glControl_main.SwapBuffers()
-
     End Sub
-    Private Sub draw_rectangle(ByVal SP As PointF, ByVal EP As PointF)
+
+    Private Sub draw_rectangle_LEGACY(ByVal SP As PointF, ByVal EP As PointF)
+        GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         GL.Begin(PrimitiveType.Quads)
         '  CCW...
         '  1 ------ 4
@@ -108,25 +82,99 @@ Module LoadingScreen
         GL.TexCoord2(1.0F, 1.0F)
         GL.Vertex2(EP.X, -SP.Y)
         GL.End()
-
     End Sub
+
+    Private Sub draw_image_rectangle(ByVal SP As PointF, ByVal EP As PointF, ByVal image As Integer)
+        '  CCW...
+        '  1 ------ 4
+        '  |        |
+        '  |        |
+        '  2 ------ 3
+        '
+
+        Dim rectVao As Integer
+        GL.GenVertexArrays(1, rectVao)
+        GL.BindVertexArray(rectVao)
+
+        Dim rectBuffers(1) As Integer
+        GL.GenBuffers(2, rectBuffers)
+
+        Dim vertices As Single() = {
+            SP.X, -SP.Y,
+            SP.X, -EP.Y,
+            EP.X, -EP.Y,
+            EP.X, -SP.Y
+            }
+
+        Dim textCoords As Single() = {
+            0.0F, 1.0F,
+            0.0F, 0.0F,
+            1.0F, 0.0F,
+            1.0F, 1.0F
+            }
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, rectBuffers(0))
+        GL.BufferData(BufferTarget.ArrayBuffer,
+                      vertices.Length * SizeOf(GetType(Single)),
+                      vertices,
+                      BufferUsageHint.StaticDraw)
+
+        ' vertices
+        GL.VertexAttribPointer(0,
+                               2,
+                               VertexAttribPointerType.Float,
+                               False,
+                               0,
+                               0)
+        GL.EnableVertexAttribArray(0)
+
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, rectBuffers(1))
+        GL.BufferData(BufferTarget.ArrayBuffer,
+                      textCoords.Length * SizeOf(GetType(Single)),
+                      textCoords,
+                      BufferUsageHint.StaticDraw)
+
+        ' texcoords
+        GL.VertexAttribPointer(1,
+                               2,
+                               VertexAttribPointerType.Float,
+                               False,
+                               0,
+                               0)
+        GL.EnableVertexAttribArray(1)
+
+
+        GL.UseProgram(shader_list.image2d_shader)
+
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindTexture(TextureTarget.Texture2D, image)
+        GL.Uniform1(image2d_imageMap_id, 0)
+
+        GL.UniformMatrix4(image2d_ProjectionMatrix_id, False, PROJECTIONMATRIX)
+
+        GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4)
+
+        'unbind texture
+        GL.BindTexture(TextureTarget.Texture2D, 0)
+
+        GL.UseProgram(0)
+
+        GL.BindVertexArray(0)
+
+        GL.DeleteVertexArrays(1, rectVao)
+        GL.DeleteBuffers(2, rectBuffers)
+    End Sub
+
     Private Sub draw_text()
-
-        GL.Enable(EnableCap.AlphaTest)
-        GL.AlphaFunc(AlphaFunction.Equal, 1.0)
-
-        Dim position = PointF.Empty
         DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
-        DrawMapPickText.DrawString(BG_TEXT, mono, Brushes.White, position)
+        DrawMapPickText.DrawString(BG_TEXT, mono, Brushes.White, PointF.Empty)
 
-        GL.BindTexture(TextureTarget.Texture2D, DrawMapPickText.Gettexture)
-        GL.Begin(PrimitiveType.Quads)
-        GL.TexCoord2(0.0F, 1.0F) : GL.Vertex2(0.0F, -60)
-        GL.TexCoord2(1.0F, 1.0F) : GL.Vertex2(300, -60)
-        GL.TexCoord2(1.0F, 0.0F) : GL.Vertex2(300, -30.0F)
-        GL.TexCoord2(0.0F, 0.0F) : GL.Vertex2(0.0F, -30.0F)
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
-        GL.End()
+        draw_image_rectangle(New PointF(0, 60), New PointF(300, 30), DrawMapPickText.Gettexture)
 
+        GL.Disable(EnableCap.Blend)
     End Sub
 End Module

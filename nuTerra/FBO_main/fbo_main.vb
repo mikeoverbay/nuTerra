@@ -38,14 +38,12 @@ Module FBO_main
             If oldWidth <> SCR_WIDTH Or oldHeigth <> SCR_HEIGHT Then
                 delete_textures_and_fbo()
 
-                GL.Enable(EnableCap.Texture2D)
                 create_textures()
 
                 If Not create_fbo() Then
                     MsgBox("Failed to create main FBO" + vbCrLf + "I must shut down!", MsgBoxStyle.Exclamation, "We're Screwed!")
                     End
                 End If
-                GL.Disable(EnableCap.Texture2D)
                 'set new size
                 oldWidth = SCR_WIDTH
                 oldHeigth = SCR_HEIGHT

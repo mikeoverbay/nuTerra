@@ -95,7 +95,6 @@ Module TextureLoaders
             Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
             GL.GenTextures(1, image_id)
-            GL.Enable(EnableCap.Texture2D)
             GL.BindTexture(TextureTarget.Texture2D, image_id)
 
             Dim maxAniso As Single
@@ -169,7 +168,6 @@ Module TextureLoaders
             Dim OK As Boolean = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
             GL.GenTextures(1, image_id)
-            GL.Enable(EnableCap.Texture2D)
             GL.BindTexture(TextureTarget.Texture2D, image_id)
 
             If NEAREST And Not MIPS Then
@@ -260,8 +258,6 @@ Module TextureLoaders
             If make_id Then
 
                 image_id = GL.GenTexture
-                GL.Enable(EnableCap.Texture2D)
-
                 GL.BindTexture(TextureTarget.Texture2D, image_id)
 
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
