@@ -154,7 +154,9 @@ Module FBO_main
         Public Shared Sub get_glControl_main_size(ByRef w As Integer, ByRef h As Integer)
             'returns the size of the render control
             'We must ensure that the window size is divisible by 2. GL doesn't like odd sized textures!
-            'This has to be done this way because of the menu. Just docking the control in fill causes problems.
+
+            'This has to be done this way because of the menu and even size buffer textures.
+            'Just docking the control in fill causes problems.
             frmMain.glControl_main.Width = frmMain.ClientSize.Width
             frmMain.glControl_main.Height = frmMain.ClientSize.Height - frmMain.MainMenuStrip.Height
             frmMain.glControl_main.Location = New System.Drawing.Point(0, frmMain.MainMenuStrip.Height + 1)
