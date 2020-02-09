@@ -18,9 +18,7 @@ Public Class frmEditFrag
     Private v_app_path As String
     Private g_app_path As String
     Private shader_index As Integer
-    Private Declare Function SendMessage Lib "user32" Alias "SendMessageA" (ByVal _
- hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, _
- lParam As Object) As Long
+
     Const EM_SETTABSTOPS = &HCB
     Private focused_form As New Control
     Dim TealStyle As TextStyle = New TextStyle(Brushes.LightBlue, Nothing, FontStyle.Regular)
@@ -50,8 +48,8 @@ Public Class frmEditFrag
         vert_tb.AcceptsTab = True
         geo_tb.AcceptsTab = True
         frag_tb.AcceptsTab = True
-        For i = 0 To shaders.shader.Length - 1
-            CB1.Items.Add(shaders.shader(i).shader_name)
+        For i = 0 To shaders.Count - 1
+            CB1.Items.Add(shaders(i).name)
         Next
 
         recompile_bt.Enabled = False
@@ -64,25 +62,15 @@ Public Class frmEditFrag
         recompile_bt.Enabled = False
         File.WriteAllText(v_app_path, vert_tb.Text)
         File.WriteAllText(f_app_path, frag_tb.Text)
-        If shaders.shader(shader_index).has_geo Then
+        If shaders(shader_index).has_geo Then
             File.WriteAllText(g_app_path, geo_tb.Text)
         End If
 
         SYNCMUTEX.WaitOne()   'disable rendering
         Me.TopMost = False
-        Dim fs As String
-        Dim vs As String
-        Dim gs As String
 
-        With shaders.shader(shader_index)
-            vs = .vertex
-            fs = .fragment
-            gs = .geo
-            Dim id = assemble_shader(vs, gs, fs, .shader_id, .shader_name, .has_geo)
-            .set_call_id(id)
-            .shader_id = id
-        End With
-        set_uniform_variables() ' update uniform addresses
+        shaders(shader_index).UpdateShader()
+
         reset_focus()
         recompile_bt.Enabled = True
         Me.TopMost = True
@@ -95,13 +83,13 @@ Public Class frmEditFrag
         Dim shader As String = CB1.Items(CB1.SelectedIndex)
         Me.Text = "Shader Editor: " + shader
         shader_index = CB1.SelectedIndex
-        f_app_path = shaders.shader(shader_index).fragment
-        v_app_path = shaders.shader(shader_index).vertex
-        g_app_path = shaders.shader(shader_index).geo
+        f_app_path = shaders(shader_index).fragment
+        v_app_path = shaders(shader_index).vertex
+        g_app_path = shaders(shader_index).geo
 
         vert_tb.Text = File.ReadAllText(v_app_path)
         frag_tb.Text = File.ReadAllText(f_app_path)
-        If shaders.shader(shader_index).has_geo Then
+        If shaders(shader_index).has_geo Then
             geo_tb.Enabled = True
             geo_tb.Text = File.ReadAllText(g_app_path)
         Else

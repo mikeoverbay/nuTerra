@@ -79,19 +79,16 @@ Module modRender
         '------------------------------------------------
         FBOm.attach_CNG()
 
-
-#If 1 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
         '===========================================================================
         'draw the test MDL model using VAO =========================================
         '===========================================================================
         '------------------------------------------------
-        GL.UseProgram(shader_list.MDL_shader) '<------------------------------- Shader Bind
+        modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
-        GL.Uniform1(MDL_textureMap_id, 0)
-        GL.Uniform1(MDL_normalMap_id, 1)
-        GL.Uniform1(MDL_GMF_id, 2)
-
-        GL.Uniform1(MDL_nMap_type_id, N_MAP_TYPE)
+        GL.Uniform1(modelShader("colorMap"), 0)
+        GL.Uniform1(modelShader("normalMap"), 1)
+        GL.Uniform1(modelShader("GMF_Map"), 2)
+        GL.Uniform1(modelShader("nMap_type"), N_MAP_TYPE)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
         GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<----------------- Texture Bind
@@ -114,9 +111,9 @@ Module modRender
                 ' need an inverse of the modelmatrix
                 Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
 
-                GL.UniformMatrix4(MDL_modelMatrix_id, False, MVM)
-                GL.UniformMatrix4(MDL_modelViewProjection_id, False, MVPM)
-                GL.UniformMatrix3(MDL_modelNormalMatrix_id, True, normalMatrix)
+                GL.UniformMatrix4(modelShader("modelMatrix"), False, MVM)
+                GL.UniformMatrix4(modelShader("modelViewProjection"), False, MVPM)
+                GL.UniformMatrix3(modelShader("modelNormalMatrix"), True, normalMatrix)
 
                 Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                 Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
@@ -134,7 +131,7 @@ Module modRender
 
         GL.BindVertexArray(0)
 
-        GL.UseProgram(0)
+        modelShader.StopUse()
         unbind_textures(2) ' unbind all the used texture slots
 
 
@@ -142,7 +139,7 @@ Module modRender
         If NORMAL_DISPLAY_MODE > 0 Then
             FBOm.attach_C()
 
-            GL.UseProgram(shader_list.normal_shader)
+            normalShader.Use()
 
             For z = 0 To MODEL_INDEX_LIST.Length - 2
                 Dim idx = MODEL_INDEX_LIST(z).model_index
@@ -154,10 +151,10 @@ Module modRender
                     Dim MVM = modelMatrix * MODELVIEWMATRIX
                     Dim MVPM = MVM * PROJECTIONMATRIX
 
-                    GL.UniformMatrix4(normal_modelViewProjection_id, False, MVPM)
+                    GL.UniformMatrix4(normalShader("modelViewProjection"), False, MVPM)
 
-                    GL.Uniform1(normal_length_id, 0.2F)
-                    GL.Uniform1(normal_mode_id, NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
+                    GL.Uniform1(normalShader("length"), 0.2F)
+                    GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
 
                     GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
 
@@ -177,62 +174,11 @@ Module modRender
 
             Next
             GL.BindVertexArray(0)
+            normalShader.StopUse()
 
         End If
 
 
-#Else
-        '===========================================================================
-        'draw the test display lists ===============================================
-        '===========================================================================
-        '------------------------------------------------
-        GL.UseProgram(shader_list.testList_shader) '<------------------------------- Shader Bind
-        '------------------------------------------------
-        GL.Uniform1(testList_textureMap_id, 0)
-        GL.Uniform1(testList_normalMap_id, 1)
-        GL.Uniform1(testList_GMF_id, 2)
-
-        GL.Uniform1(testList_nMap_type_id, N_MAP_TYPE)
-
-        GL.ActiveTexture(TextureUnit.Texture0 + 0)
-        GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<---------------------- Texture Bind
-        GL.ActiveTexture(TextureUnit.Texture0 + 1)
-        GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
-        GL.ActiveTexture(TextureUnit.Texture0 + 2)
-        GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
-
-        Dim er1 = GL.GetError
-
-        For z = 0 To MODEL_INDEX_LIST.Length - 2
-            Dim idx = MODEL_INDEX_LIST(z).model_index
-
-            'Add to total triangles drawn
-            TOTAL_TRIANGLES_DRAWN += MAP_MODELS(idx).mdl(0).POLY_COUNT
-
-            If Not MAP_MODELS(idx).mdl(0).junk And Not MODEL_INDEX_LIST(z).Culled Then
-
-                Dim model = MODEL_INDEX_LIST(z).matrix
-
-                Dim MVM = model * MODELVIEWMATRIX
-                Dim MVPM = MVM * PROJECTIONMATRIX
-
-                GL.UniformMatrix4(testList_modelMatrix_id, False, MVM)
-                GL.UniformMatrix4(testList_modelViewProjection_id, False, MVPM)
-
-                ' need an inverse of the modelmatrix
-                Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
-                GL.UniformMatrix3(testList_modelNormalMatrix_id, True, normalMatrix)
-
-                For j = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
-                    GL.CallList(MAP_MODELS(idx).mdl(0).entries(j).list_id)
-                Next
-            End If
-        Next
-
-        GL.UseProgram(0)
-        unbind_textures(2) ' unbind all the used texture slots
-
-#End If
         '===========================================================================
         '===========================================================================
         'Draws a full screen quad to render FBO textures. ==========================
@@ -253,22 +199,21 @@ Module modRender
         ' Test our deferred shader =================================================
         '===========================================================================
 
-        GL.UseProgram(shader_list.Deferred_shader)
+        deferredShader.Use()
 
         'set up uniforms
-        GL.Uniform1(deferred_gColor_id, 0)
-        GL.Uniform1(deferred_gNormal_id, 1)
-        GL.Uniform1(deferred_gGMF_id, 2) ' ignore this for now
-        GL.Uniform1(deferred_gDepth_id, 3) ' ignore this for now
+        GL.Uniform1(deferredShader("gColor"), 0)
+        GL.Uniform1(deferredShader("gNormal"), 1)
+        GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
+        GL.Uniform1(deferredShader("gDepth"), 3) ' ignore this for now
 
         'ortho for the win
         Ortho_main()
 
-        GL.UniformMatrix4(deferred_ModelMatrix, False, MODELVIEWMATRIX)
-        GL.UniformMatrix4(deferred_ProjectionMatrix, False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
-        GL.Uniform3(deferred_lightPos, LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2))
-        GL.Uniform2(deferred_ViewPort, VIEW_PORT(0), VIEW_PORT(1))
+        GL.Uniform3(deferredShader("LightPos"), LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2))
+        GL.Uniform2(deferredShader("viewport"), VIEW_PORT(0), VIEW_PORT(1))
 
         GL.ActiveTexture(TextureUnit.Texture0)
         GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
@@ -287,7 +232,7 @@ Module modRender
 
         unbind_textures(3) ' unbind all the used texture slots
 
-        GL.UseProgram(0)
+        deferredShader.StopUse()
 
         '===========================================================================
         ' Text Rendering ===========================================================
@@ -465,29 +410,30 @@ Module modRender
 
         Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
 
-        GL.UseProgram(shader_list.colorOnly_shader)
+        colorOnlyShader.Use()
 
-        GL.Uniform3(colorOnly_color_id, 1.0F, 1.0F, 0.0F)
+        GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
 
-        GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
+        GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
 
         GL.BindVertexArray(MOON.mdl_VAO)
 
         GL.DrawElements(PrimitiveType.Triangles, (MOON.indice_count * 3), DrawElementsType.UnsignedShort, MOON.index_buffer16)
 
         GL.BindVertexArray(0)
-        GL.UseProgram(0)
+        colorOnlyShader.StopUse()
     End Sub
+
     Private Sub draw_cross_hair()
         Dim scale_ As Single = 60.0
         Dim sMat = Matrix4.CreateScale(scale_, scale_, scale_)
 
         Dim MVPM = MODELVIEWMATRIX * PROJECTIONMATRIX
 
-        GL.UseProgram(shader_list.colorOnly_shader)
+        colorOnlyShader.Use()
 
-        GL.Uniform3(colorOnly_color_id, 1.0F, 1.0F, 1.0F)
-        GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
+        GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 1.0F)
+        GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
 
         'I wasnt going to use direct mode but for now, this is simple
         Dim l As Single = 1000.0F
@@ -504,6 +450,7 @@ Module modRender
         GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y + l, U_LOOK_AT_Z)
         GL.Vertex3(U_LOOK_AT_X, U_LOOK_AT_Y - l, U_LOOK_AT_Z)
         GL.End()
-        GL.UseProgram(0)
+
+        colorOnlyShader.StopUse()
     End Sub
 End Module

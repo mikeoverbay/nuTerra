@@ -148,20 +148,20 @@ Module modOpenGL
         GL.EnableVertexAttribArray(1)
 
 
-        GL.UseProgram(shader_list.image2d_shader)
+        image2dShader.Use()
 
         GL.ActiveTexture(TextureUnit.Texture0)
         GL.BindTexture(TextureTarget.Texture2D, image)
-        GL.Uniform1(image2d_imageMap_id, 0)
 
-        GL.UniformMatrix4(image2d_ProjectionMatrix_id, False, PROJECTIONMATRIX)
+        GL.Uniform1(image2dShader("imageMap"), 0)
+        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
         GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4)
 
         'unbind texture
         GL.BindTexture(TextureTarget.Texture2D, 0)
 
-        GL.UseProgram(0)
+        image2dShader.StopUse()
 
         GL.BindVertexArray(0)
 
@@ -186,4 +186,12 @@ Module modOpenGL
         GL.DebugMessageCallback(New DebugProc(AddressOf DebugOutputCallback), IntPtr.Zero)
         GL.DebugMessageControl(DebugSourceControl.DontCare, DebugTypeControl.DebugTypeError, DebugSeverityControl.DontCare, 0, 0, True)
     End Sub
+
+
+    Public GL_TRUE As Integer = 1
+    Public GL_FALSE As Integer = 0
+
+    Public Function get_GL_error_string(ByVal e As ErrorCode) As String
+        Return [Enum].GetName(GetType(ErrorCode), e)
+    End Function
 End Module

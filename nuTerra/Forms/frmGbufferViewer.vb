@@ -66,20 +66,19 @@ Public Class frmGbufferViewer
         GL.Disable(EnableCap.Blend)
         Select Case image_id
             Case 1
-                GL.UseProgram(shader_list.toLinear_shader)
-                GL.Uniform1(toLinear_text_id, 0)
+                toLinearShader.Use()
+                GL.Uniform1(toLinearShader("depthMap"), 0)
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
             Case 2
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
             Case 3
                 'GL.BindTexture(TextureTarget.Texture2D, gPosition)
             Case 4
-                GL.UseProgram(shader_list.normalOffset_shader)
-                GL.Uniform1(normalOffset_text_id, 0)
+                normalOffsetShader.Use()
+                GL.Uniform1(normalOffsetShader("normalMap"), 0)
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gNormal)
             Case 5
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gGMF)
-
         End Select
 
         GL.GetTexLevelParameter(TextureTarget.Texture2D, 0, GetTextureParameter.TextureWidth, width)
@@ -104,7 +103,13 @@ Public Class frmGbufferViewer
         GL.End()
 
         GL.BindTexture(TextureTarget.Texture2D, 0)
-        GL.UseProgram(0)
+
+        Select Case image_id
+            Case 1
+                toLinearShader.StopUse()
+            Case 4
+                normalOffsetShader.StopUse()
+        End Select
 
         GLC.SwapBuffers()  ' swap back to front
 

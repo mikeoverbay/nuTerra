@@ -8,7 +8,6 @@ uniform sampler2D gNormal;
 uniform sampler2D gGMF;
 uniform sampler2D gDepth;
 
-uniform mat4 ModelMatrix;
 uniform mat4 ProjectionMatrix;
 
 uniform vec3 LightPos;
@@ -19,7 +18,6 @@ in vec3 CameraPos;
 in vec2 UV;
 
 in mat4 projMatrixInv;
-in mat4 ModelMatrixInv;
 
 // Functions ///////////////////////////////////////
 
@@ -57,7 +55,7 @@ void main (void)
 
     vec4 tex01_color = texture(gColor, UV);
 
-    vec3 LightPosModelView = vec3(ModelMatrix * vec4(LightPos.xyz,1.0));
+    vec3 LightPosModelView = LightPos.xyz;
 
     //lighting caculations
     vec3 vd = normalize(-Position);//view direction

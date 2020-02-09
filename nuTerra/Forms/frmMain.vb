@@ -119,7 +119,6 @@ Public Class frmMain
         Ilu.iluInit()
         '-----------------------------------------------------------------------------------------
         build_shaders()
-        set_uniform_variables()
         '-----------------------------------------------------------------------------------------
         load_assets()
         '-----------------------------------------------------------------------------------------
@@ -361,20 +360,15 @@ try_again:
     ''' <summary>
     ''' Used to call functions outside update thread.
     ''' </summary>
-    ''' <remarks></remarks>
     Public Sub update_screen()
-        Try
-            If Me.InvokeRequired And _STARTED Then
-                Me.Invoke(New update_screen_delegate(AddressOf update_screen))
-            Else
-                check_postion_for_update()
-                SYNCMUTEX.WaitOne()
-                draw_scene()
-                SYNCMUTEX.ReleaseMutex()
-            End If
-        Catch ex As Exception
-
-        End Try
+        If Me.InvokeRequired And _STARTED Then
+            Me.Invoke(New update_screen_delegate(AddressOf update_screen))
+        Else
+            check_postion_for_update()
+            SYNCMUTEX.WaitOne()
+            draw_scene()
+            SYNCMUTEX.ReleaseMutex()
+        End If
     End Sub
 #End Region
 
