@@ -33,60 +33,6 @@ Module modSpacedBinVars
         End Sub
     End Class
 
-#Region "Structures"
-
-    Public MODEL_MATRIX_LIST() As model_matrix_list_
-    Public Structure model_matrix_list_
-        Public primitive_name As String
-        Public model_index As Integer
-        Public matrix As Matrix4
-        Public mask As Boolean
-        Public BB_Min As Vector3
-        Public BB_Max As Vector3
-        Public BB() As Vector3
-        Public exclude As Boolean
-        Public destructible As Boolean
-        Public exclude_list() As Integer
-        Public Culled As Boolean
-    End Structure
-
-    Public decal_matrix_list() As decal_matrix_list_
-    Public Structure decal_matrix_list_
-        Public u_wrap As Single
-        Public v_wrap As Single
-        Public decal_data() As vertex_data
-        Public texture_id As Integer
-        Public normal_id As Integer
-        Public gmm_id As Integer
-        Public display_id As Integer
-        Public decal_texture As String
-        Public decal_normal As String
-        Public decal_gmm As String
-        Public decal_extra As String
-        Public matrix() As Single
-        Public good As Boolean
-        Public offset As OpenTK.Vector4
-        Public priority As Int32
-        Public influence As Integer
-        Public texture_matrix() As Single
-        Public lbl As Vector3
-        Public lbr As Vector3
-        Public ltl As Vector3
-        Public ltr As Vector3
-        Public rbl As Vector3
-        Public rbr As Vector3
-        Public rtl As Vector3
-        Public rtr As Vector3
-        Public BB() As Vector3
-        Public visible As Boolean
-        Public flags As UInteger
-        Public cull_method As Integer
-        Public is_parallax As Boolean
-        Public is_wet As Boolean
-
-
-    End Structure
-#End Region
 
 #Region "BSGD"
     Public cBSGD As cBSGD_

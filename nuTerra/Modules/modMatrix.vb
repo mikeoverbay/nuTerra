@@ -14,17 +14,17 @@ Module modMatrix
         Return vo
     End Function
 
-    Public Sub get_translated_bb_model(ByRef mm As model_matrix_list_)
+    Public Sub get_translated_bb_model(ByRef mm As MODEL_INDEX_LIST_)
         'creates a transformed bounding box for screen clipping.
         Dim v1, v2, v3, v4, v5, v6, v7, v8 As Vector3
-        v1.z = mm.BB_Max.z : v2.z = mm.BB_Max.z : v3.z = mm.BB_Max.z : v4.z = mm.BB_Max.z
-        v5.z = mm.BB_Min.z : v6.z = mm.BB_Min.z : v7.z = mm.BB_Min.z : v8.z = mm.BB_Min.z
+        v1.Z = mm.BB_Max.Z : v2.Z = mm.BB_Max.Z : v3.Z = mm.BB_Max.Z : v4.Z = mm.BB_Max.Z
+        v5.Z = mm.BB_Min.Z : v6.Z = mm.BB_Min.Z : v7.Z = mm.BB_Min.Z : v8.Z = mm.BB_Min.Z
 
-        v1.x = mm.BB_Min.x : v6.x = mm.BB_Min.x : v7.x = mm.BB_Min.x : v4.x = mm.BB_Min.x
-        v5.x = mm.BB_Max.x : v8.x = mm.BB_Max.x : v3.x = mm.BB_Max.x : v2.x = mm.BB_Max.x
+        v1.X = mm.BB_Min.X : v6.X = mm.BB_Min.X : v7.X = mm.BB_Min.X : v4.X = mm.BB_Min.X
+        v5.X = mm.BB_Max.X : v8.X = mm.BB_Max.X : v3.X = mm.BB_Max.X : v2.X = mm.BB_Max.X
 
-        v4.y = mm.BB_Max.y : v7.y = mm.BB_Max.y : v8.y = mm.BB_Max.y : v3.y = mm.BB_Max.y
-        v6.y = mm.BB_Min.y : v5.y = mm.BB_Min.y : v1.y = mm.BB_Min.y : v2.y = mm.BB_Min.y
+        v4.Y = mm.BB_Max.Y : v7.Y = mm.BB_Max.Y : v8.Y = mm.BB_Max.Y : v3.Y = mm.BB_Max.Y
+        v6.Y = mm.BB_Min.Y : v5.Y = mm.BB_Min.Y : v1.Y = mm.BB_Min.Y : v2.Y = mm.BB_Min.Y
 
         mm.BB(0) = v1
         mm.BB(1) = v2

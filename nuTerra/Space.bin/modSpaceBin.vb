@@ -305,62 +305,62 @@ ignore_this_one:
         Next
 #End If
         Dim max_id As Integer
-        ReDim MODEL_MATRIX_LIST(cBSMI.chunk_models.count - 1)
+        ReDim MODEL_INDEX_LIST(cBSMI.chunk_models.count - 1)
         Dim cnt As Integer = 0
         For k = 0 To cBSMI.model_BSMO_indexes.count - 1
             Dim BSMO_MODEL_INDEX = cBSMI.model_BSMO_indexes.data(k).BSMO_MODEL_INDEX
 
-            MODEL_MATRIX_LIST(k).model_index = BSMO_MODEL_INDEX
+            MODEL_INDEX_LIST(k).model_index = BSMO_MODEL_INDEX
             If BSMO_MODEL_INDEX > max_id Then
                 max_id = BSMO_MODEL_INDEX
             End If
 
-            MODEL_MATRIX_LIST(k).primitive_name = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).model_name
+            MODEL_INDEX_LIST(k).primitive_name = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).model_name
 
-            MODEL_MATRIX_LIST(k).matrix = cBSMI.transforms.data(k)
-            'MODEL_MATRIX_LIST(k).matrix.M21 *= -1.0
-            'MODEL_MATRIX_LIST(k).matrix.M31 *= -1.0
-            'MODEL_MATRIX_LIST(k).matrix.M12 *= -1.0
-            'MODEL_MATRIX_LIST(k).matrix.M13 *= -1.0
-            'MODEL_MATRIX_LIST(k).matrix.M14 *= -1.0
+            MODEL_INDEX_LIST(k).matrix = cBSMI.transforms.data(k)
+            'MODEL_INDEX_LIST(k).matrix.M21 *= -1.0
+            'MODEL_INDEX_LIST(k).matrix.M31 *= -1.0
+            'MODEL_INDEX_LIST(k).matrix.M12 *= -1.0
+            'MODEL_INDEX_LIST(k).matrix.M13 *= -1.0
+            'MODEL_INDEX_LIST(k).matrix.M14 *= -1.0
 
-            MODEL_MATRIX_LIST(k).matrix.M12 *= -1.0
-            MODEL_MATRIX_LIST(k).matrix.M13 *= -1.0
-            MODEL_MATRIX_LIST(k).matrix.M21 *= -1.0
-            MODEL_MATRIX_LIST(k).matrix.M31 *= -1.0
-            MODEL_MATRIX_LIST(k).matrix.M41 *= -1.0
+            MODEL_INDEX_LIST(k).matrix.M12 *= -1.0
+            MODEL_INDEX_LIST(k).matrix.M13 *= -1.0
+            MODEL_INDEX_LIST(k).matrix.M21 *= -1.0
+            MODEL_INDEX_LIST(k).matrix.M31 *= -1.0
+            MODEL_INDEX_LIST(k).matrix.M41 *= -1.0
 
-            MODEL_MATRIX_LIST(k).mask = False
-            MODEL_MATRIX_LIST(k).BB_Min = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).collision_bounds_min
-            MODEL_MATRIX_LIST(k).BB_Max = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).collision_bounds_max
+            MODEL_INDEX_LIST(k).mask = False
+            MODEL_INDEX_LIST(k).BB_Min = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).collision_bounds_min
+            MODEL_INDEX_LIST(k).BB_Max = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).collision_bounds_max
 
             'create model culling box
-            ReDim MODEL_MATRIX_LIST(k).BB(8)
-            get_translated_bb_model(MODEL_MATRIX_LIST(k))
+            ReDim MODEL_INDEX_LIST(k).BB(8)
+            get_translated_bb_model(MODEL_INDEX_LIST(k))
 
         Next
         '----------------------------------------------------------------------------------
         ' remove models that we dont want on the map
         Dim mc As Int32 = 0
         Dim HQ As Integer = 1
-        Dim tm(cBSMI.model_BSMO_indexes.count - 1) As model_matrix_list_
+        Dim tm(cBSMI.model_BSMO_indexes.count - 1) As MODEL_INDEX_LIST_
         For i = 0 To cBSMI.model_BSMO_indexes.count - 1
             If cBSMI.model_BSMO_indexes.data(i).BSMO_extras = HQ Then
                 If cBSMI.visibility_masks.data(i).mask = &HFFFFFFFFUI Then 'visibility mask
-                    tm(mc) = MODEL_MATRIX_LIST(i)
+                    tm(mc) = MODEL_INDEX_LIST(i)
                     mc += 1
                 Else
-                    'Debug.WriteLine(i.ToString("00000") + ":" + cBSMI.bsmi_t7(i).v_mask.ToString("x") + ":" + Path.GetFileNameWithoutExtension(Model_Matrix_list(i).primitive_name))
+                    'Debug.WriteLine(i.ToString("00000") + ":" + cBSMI.bsmi_t7(i).v_mask.ToString("x") + ":" + Path.GetFileNameWithoutExtension(MODEL_INDEX_LIST(i).primitive_name))
                 End If
             End If
         Next
         ReDim Preserve tm(mc)
-        ReDim MODEL_MATRIX_LIST(mc)
-        'pack the Model_Matrix_list to used models.
+        ReDim MODEL_INDEX_LIST(mc)
+        'pack the MODEL_INDEX_LIST to used models.
         For i = 0 To mc
-            MODEL_MATRIX_LIST(i) = tm(i)
-            If MODEL_MATRIX_LIST(i).exclude = True Then
-                'Debug.WriteLine(i.ToString("0000") + " : " + Model_Matrix_list(i).primitive_name)
+            MODEL_INDEX_LIST(i) = tm(i)
+            If MODEL_INDEX_LIST(i).exclude = True Then
+                'Debug.WriteLine(i.ToString("0000") + " : " + MODEL_INDEX_LIST(i).primitive_name)
             End If
         Next
 

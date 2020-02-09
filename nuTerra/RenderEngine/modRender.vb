@@ -101,14 +101,14 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
 
-        For z = 0 To MODEL_MATRIX_LIST.Length - 2
-            Dim idx = MODEL_MATRIX_LIST(z).model_index
+        For z = 0 To MODEL_INDEX_LIST.Length - 2
+            Dim idx = MODEL_INDEX_LIST(z).model_index
             Dim model = MAP_MODELS(idx).mdl(0)
 
-            If Not model.junk And Not MODEL_MATRIX_LIST(z).Culled Then
+            If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
                 TOTAL_TRIANGLES_DRAWN += model.POLY_COUNT
 
-                Dim modelMatrix = MODEL_MATRIX_LIST(z).matrix
+                Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
                 Dim MVM = modelMatrix * MODELVIEWMATRIX
                 Dim MVPM = MVM * PROJECTIONMATRIX
                 ' need an inverse of the modelmatrix
@@ -144,13 +144,13 @@ Module modRender
 
             GL.UseProgram(shader_list.normal_shader)
 
-            For z = 0 To MODEL_MATRIX_LIST.Length - 2
-                Dim idx = MODEL_MATRIX_LIST(z).model_index
+            For z = 0 To MODEL_INDEX_LIST.Length - 2
+                Dim idx = MODEL_INDEX_LIST(z).model_index
                 Dim model = MAP_MODELS(idx).mdl(0)
 
-                If Not model.junk And Not MODEL_MATRIX_LIST(z).Culled Then
+                If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
 
-                    Dim modelMatrix = MODEL_MATRIX_LIST(z).matrix
+                    Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
                     Dim MVM = modelMatrix * MODELVIEWMATRIX
                     Dim MVPM = MVM * PROJECTIONMATRIX
 
@@ -201,15 +201,15 @@ Module modRender
 
         Dim er1 = GL.GetError
 
-        For z = 0 To MODEL_MATRIX_LIST.Length - 2
-            Dim idx = MODEL_MATRIX_LIST(z).model_index
+        For z = 0 To MODEL_INDEX_LIST.Length - 2
+            Dim idx = MODEL_INDEX_LIST(z).model_index
 
             'Add to total triangles drawn
             TOTAL_TRIANGLES_DRAWN += MAP_MODELS(idx).mdl(0).POLY_COUNT
 
-            If Not MAP_MODELS(idx).mdl(0).junk And Not MODEL_MATRIX_LIST(z).Culled Then
+            If Not MAP_MODELS(idx).mdl(0).junk And Not MODEL_INDEX_LIST(z).Culled Then
 
-                Dim model = MODEL_MATRIX_LIST(z).matrix
+                Dim model = MODEL_INDEX_LIST(z).matrix
 
                 Dim MVM = model * MODELVIEWMATRIX
                 Dim MVPM = MVM * PROJECTIONMATRIX

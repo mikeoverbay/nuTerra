@@ -1,6 +1,67 @@
 ﻿Imports OpenTK
 
 Module modTypeStructures
+
+#Region "MODEL_INDEX_LIST"
+
+    Public MODEL_INDEX_LIST() As MODEL_INDEX_LIST_
+    Public Structure MODEL_INDEX_LIST_
+        Public primitive_name As String
+        Public model_index As Integer
+        Public matrix As Matrix4
+        Public mask As Boolean
+        Public BB_Min As Vector3
+        Public BB_Max As Vector3
+        Public BB() As Vector3
+        Public exclude As Boolean
+        Public destructible As Boolean
+        Public exclude_list() As Integer
+        Public Culled As Boolean
+    End Structure
+
+#End Region
+
+#Region "DECAL_INDEX_LIST"
+
+    Public DECAL_INDEX_LIST() As DECAL_INDEX_LIST_
+    Public Structure DECAL_INDEX_LIST_
+        Public u_wrap As Single
+        Public v_wrap As Single
+        Public decal_data() As vertex_data
+        Public texture_id As Integer
+        Public normal_id As Integer
+        Public gmm_id As Integer
+        Public display_id As Integer
+        Public decal_texture As String
+        Public decal_normal As String
+        Public decal_gmm As String
+        Public decal_extra As String
+        Public matrix() As Single
+        Public good As Boolean
+        Public offset As OpenTK.Vector4
+        Public priority As Int32
+        Public influence As Integer
+        Public texture_matrix() As Single
+        Public lbl As Vector3
+        Public lbr As Vector3
+        Public ltl As Vector3
+        Public ltr As Vector3
+        Public rbl As Vector3
+        Public rbr As Vector3
+        Public rtl As Vector3
+        Public rtr As Vector3
+        Public BB() As Vector3
+        Public visible As Boolean
+        Public flags As UInteger
+        Public cull_method As Integer
+        Public is_parallax As Boolean
+        Public is_wet As Boolean
+    End Structure
+
+#End Region
+
+    '--------------------------------------------------------
+    Public triangle_holder As New mappedFile_
     '--------------------------------------------------------
 
     Public Structure vect3_16
@@ -16,6 +77,14 @@ Module modTypeStructures
     End Structure
 
     '--------------------------------------------------------
+    Public Structure destructibles
+        Public filename As List(Of String)
+        Public matName As List(Of String)
+    End Structure
+    '--------------------------------------------------------
+
+#Region "Water_model"
+
     Public water As New water_model_
     Public Structure water_model_
         Public displayID_cube As Integer
@@ -30,8 +99,11 @@ Module modTypeStructures
         Public IsWater As Boolean
     End Structure
 
-    '--------------------------------------------------------
-    Public Structure vertex_data
+#End Region
+
+#Region "vertex_data_"
+
+    Public Structure vertex_data_
         Public x As Single
         Public y As Single
         Public z As Single
@@ -46,13 +118,11 @@ Module modTypeStructures
         Public hole As Single
     End Structure
 
-    Public triangle_holder As New mappedFile_
+#End Region
 
 
-    Public Structure destructibles
-        Public filename As List(Of String)
-        Public matName As List(Of String)
-    End Structure
+
+#Region "base_Model_holder_"
 
     Public Structure base_model_holder_
 
@@ -68,7 +138,7 @@ Module modTypeStructures
         Public POLY_COUNT As UInteger
         Public junk As Boolean
         '------------------------------------------------
-        'These are in the MODEL_MATRIX_LIST and wont be used here.
+        'These are in the MODEL_INDEX_LIST and wont be used here.
         Public BB() As Vector3 'Used for frustrum culling
         '------------------------------------------------
 
@@ -215,6 +285,7 @@ Module modTypeStructures
         '------------------------------------
 
     End Structure
+#End Region
 
 
 End Module

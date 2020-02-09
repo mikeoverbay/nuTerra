@@ -34,16 +34,16 @@ Module modFrustum
 
     Public Sub check_decals_visible()
         'If Not m_decals_ And Not decals_loaded Then Return
-        'For i = 0 To decal_matrix_list.Length - 1
-        '    If decal_matrix_list(i).good Then
-        '        'decal_matrix_list(i).visible = CubeInFrustum(decal_matrix_list(i).BB)
-        '        Dim l1 = Abs(eyeX - decal_matrix_list(i).matrix(12))
-        '        Dim l2 = Abs(eyeZ - decal_matrix_list(i).matrix(14))
+        'For i = 0 To DECAL_INDEX_LIST.Length - 1
+        '    If DECAL_INDEX_LIST(i).good Then
+        '        'DECAL_INDEX_LIST(i).visible = CubeInFrustum(DECAL_INDEX_LIST(i).BB)
+        '        Dim l1 = Abs(eyeX - DECAL_INDEX_LIST(i).matrix(12))
+        '        Dim l2 = Abs(eyeZ - DECAL_INDEX_LIST(i).matrix(14))
         '        Dim d = l1 ^ 2 + l2 ^ 2
         '        If d > 160000 Then
-        '            decal_matrix_list(i).visible = False
+        '            DECAL_INDEX_LIST(i).visible = False
         '        Else
-        '            decal_matrix_list(i).visible = CubeInFrustum(decal_matrix_list(i).BB)
+        '            DECAL_INDEX_LIST(i).visible = CubeInFrustum(DECAL_INDEX_LIST(i).BB)
         '        End If
 
         '    End If
@@ -51,10 +51,10 @@ Module modFrustum
     End Sub
     Public Sub check_models_visible()
         If Not MODELS_BLOCK_LOADING And Not MODELS_LOADED Then Return
-        For m As UInt32 = 0 To MODEL_MATRIX_LIST.Length - 2
-            Dim idx = MODEL_MATRIX_LIST(m).model_index
+        For m As UInt32 = 0 To MODEL_INDEX_LIST.Length - 2
+            Dim idx = MODEL_INDEX_LIST(m).model_index
             If Not MAP_MODELS(idx).mdl(0).junk Then
-                MODEL_MATRIX_LIST(m).Culled = CubeInFrustum(MODEL_MATRIX_LIST(m).BB)
+                MODEL_INDEX_LIST(m).Culled = CubeInFrustum(MODEL_INDEX_LIST(m).BB)
             End If
 
         Next
@@ -159,10 +159,13 @@ Module modFrustum
         frustum(5, 3) /= t
         'tb1.text = ""
         'Return
+#If 1 Then
+
         Dim str As String = ""
         For i = 0 To 5
             str += frustum(i, 0).ToString("000.0000") + "   " + frustum(i, 1).ToString("000.0000") + "   " + frustum(i, 2).ToString("000.0000") + "   " + frustum(i, 3).ToString("000.0000") + vbCrLf
         Next
+#End If
 
 
     End Sub
