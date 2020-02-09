@@ -303,26 +303,18 @@ Module modRender
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
         Dim tr = TOTAL_TRIANGLES_DRAWN * LOOP_COUNT
-        Dim txt = String.Format("Culled:" + CULLED_COUNT.ToString + " FPS: {0} | Triangles drawn per frame: {1} | Draw time in Milliseconds: {2}", FPS_TIME, tr, elapsed)
+        Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", CULLED_COUNT, FPS_TIME, tr, elapsed)
         DrawText.DrawString(txt, mono, Brushes.White, position)
 
-        GL.Enable(EnableCap.Texture2D)
-        GL.Enable(EnableCap.AlphaTest)
-        GL.AlphaFunc(AlphaFunction.Equal, 1.0)
-        GL.Color4(1.0F, 1.0F, 1.0F, 0.0F)
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
-        GL.BindTexture(TextureTarget.Texture2D, DrawText.Gettexture)
-        GL.Begin(PrimitiveType.Quads)
         Dim he As Integer = 20
-        GL.TexCoord2(0.0F, 1.0F) : GL.Vertex2(0.0F, -he)
-        GL.TexCoord2(1.0F, 1.0F) : GL.Vertex2(FBOm.SCR_WIDTH, -he)
-        GL.TexCoord2(1.0F, 0.0F) : GL.Vertex2(FBOm.SCR_WIDTH, 0.0F)
-        GL.TexCoord2(0.0F, 0.0F) : GL.Vertex2(0.0F, 0.0F)
+        draw_image_rectangle(New PointF(0, he), New PointF(FBOm.SCR_WIDTH, 0), DrawText.Gettexture)
 
-        GL.End()
+        GL.Disable(EnableCap.Blend)
 
-        GL.Disable(EnableCap.AlphaTest)
-        GL.Disable(EnableCap.Texture2D)
+
         '===========================================================================
         ' Text Rendering End =======================================================
         '===========================================================================

@@ -1,5 +1,4 @@
-﻿Imports System.Runtime.InteropServices.Marshal
-Imports OpenTK.Graphics.OpenGL
+﻿Imports OpenTK.Graphics.OpenGL
 
 
 Module LoadingScreen
@@ -82,88 +81,6 @@ Module LoadingScreen
         GL.TexCoord2(1.0F, 1.0F)
         GL.Vertex2(EP.X, -SP.Y)
         GL.End()
-    End Sub
-
-    Private Sub draw_image_rectangle(ByVal SP As PointF, ByVal EP As PointF, ByVal image As Integer)
-        '  CCW...
-        '  1 ------ 4
-        '  |        |
-        '  |        |
-        '  2 ------ 3
-        '
-
-        Dim rectVao As Integer
-        GL.GenVertexArrays(1, rectVao)
-        GL.BindVertexArray(rectVao)
-
-        Dim rectBuffers(1) As Integer
-        GL.GenBuffers(2, rectBuffers)
-
-        Dim vertices As Single() = {
-            SP.X, -SP.Y,
-            SP.X, -EP.Y,
-            EP.X, -EP.Y,
-            EP.X, -SP.Y
-            }
-
-        Dim textCoords As Single() = {
-            0.0F, 1.0F,
-            0.0F, 0.0F,
-            1.0F, 0.0F,
-            1.0F, 1.0F
-            }
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, rectBuffers(0))
-        GL.BufferData(BufferTarget.ArrayBuffer,
-                      vertices.Length * SizeOf(GetType(Single)),
-                      vertices,
-                      BufferUsageHint.StaticDraw)
-
-        ' vertices
-        GL.VertexAttribPointer(0,
-                               2,
-                               VertexAttribPointerType.Float,
-                               False,
-                               0,
-                               0)
-        GL.EnableVertexAttribArray(0)
-
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, rectBuffers(1))
-        GL.BufferData(BufferTarget.ArrayBuffer,
-                      textCoords.Length * SizeOf(GetType(Single)),
-                      textCoords,
-                      BufferUsageHint.StaticDraw)
-
-        ' texcoords
-        GL.VertexAttribPointer(1,
-                               2,
-                               VertexAttribPointerType.Float,
-                               False,
-                               0,
-                               0)
-        GL.EnableVertexAttribArray(1)
-
-
-        GL.UseProgram(shader_list.image2d_shader)
-
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, image)
-        GL.Uniform1(image2d_imageMap_id, 0)
-
-        GL.UniformMatrix4(image2d_ProjectionMatrix_id, False, PROJECTIONMATRIX)
-
-        GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4)
-
-        'unbind texture
-        GL.BindTexture(TextureTarget.Texture2D, 0)
-
-        GL.UseProgram(0)
-
-        GL.BindVertexArray(0)
-
-        GL.DeleteVertexArrays(1, rectVao)
-        GL.DeleteBuffers(2, rectBuffers)
     End Sub
 
     Private Sub draw_text()
