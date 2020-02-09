@@ -383,7 +383,7 @@ Module modRender
         Next
     End Sub
 
-    Private Sub draw_main_Quad(w As Integer, h As Integer)
+    Private Sub draw_main_Quad_LEGACY(w As Integer, h As Integer)
         GL.Begin(PrimitiveType.Quads)
         '  CCW...
         '  1 ------ 4
@@ -403,6 +403,67 @@ Module modRender
         GL.TexCoord2(1.0F, 1.0F)
         GL.Vertex2(w, 0.0F)
         GL.End()
+    End Sub
+
+    Private Sub draw_main_Quad(w As Integer, h As Integer)
+        Dim rectVao As Integer
+        GL.GenVertexArrays(1, rectVao)
+        GL.BindVertexArray(rectVao)
+
+        Dim rectBuffers(1) As Integer
+        GL.GenBuffers(2, rectBuffers)
+
+        Dim vertices As Single() = {
+            0.0F, 0.0F,
+            0.0F, -h,
+            w, -h,
+            w, 0.0F
+            }
+
+        Dim textCoords As Single() = {
+            0.0F, 1.0F,
+            0.0F, 0.0F,
+            1.0F, 0.0F,
+            1.0F, 1.0F
+            }
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, rectBuffers(0))
+        GL.BufferData(BufferTarget.ArrayBuffer,
+                      vertices.Length * SizeOf(GetType(Single)),
+                      vertices,
+                      BufferUsageHint.StaticDraw)
+
+        ' vertices
+        GL.VertexAttribPointer(0,
+                               2,
+                               VertexAttribPointerType.Float,
+                               False,
+                               0,
+                               0)
+        GL.EnableVertexAttribArray(0)
+
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, rectBuffers(1))
+        GL.BufferData(BufferTarget.ArrayBuffer,
+                      textCoords.Length * SizeOf(GetType(Single)),
+                      textCoords,
+                      BufferUsageHint.StaticDraw)
+
+        ' texcoords
+        GL.VertexAttribPointer(1,
+                               2,
+                               VertexAttribPointerType.Float,
+                               False,
+                               0,
+                               0)
+        GL.EnableVertexAttribArray(1)
+
+        GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4)
+
+        GL.BindVertexArray(0)
+
+        GL.DeleteVertexArrays(1, rectVao)
+        GL.DeleteBuffers(2, rectBuffers)
     End Sub
 
     Private Sub draw_one_damn_moon(ByVal location As Vector3)
