@@ -78,7 +78,6 @@ Module modRender
             draw_cross_hair()
         Else
             frmMain.glControl_main.Cursor = Cursors.Default
-
         End If
         '------------------------------------------------
         '------------------------------------------------
@@ -112,11 +111,11 @@ Module modRender
 
             If Not model.junk And Not MODEL_MATRIX_LIST(z).Culled Then
                 TOTAL_TRIANGLES_DRAWN += model.POLY_COUNT
-                Dim modelMatrix = MODEL_MATRIX_LIST(z).matrix
 
-                ' need an inverse of the modelmatrix
+                Dim modelMatrix = MODEL_MATRIX_LIST(z).matrix
                 Dim MVM = modelMatrix * MODELVIEWMATRIX
                 Dim MVPM = MVM * PROJECTIONMATRIX
+                ' need an inverse of the modelmatrix
                 Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
 
                 GL.UniformMatrix4(MDL_modelMatrix_id, False, MVM)
@@ -150,35 +149,38 @@ Module modRender
             GL.UseProgram(shader_list.normal_shader)
 
             For z = 0 To MODEL_MATRIX_LIST.Length - 2
-
                 Dim idx = MODEL_MATRIX_LIST(z).model_index
+                Dim model = MAP_MODELS(idx).mdl(0)
 
-                If Not MAP_MODELS(idx).mdl(0).junk And Not MODEL_MATRIX_LIST(z).Culled Then
+                If Not model.junk And Not MODEL_MATRIX_LIST(z).Culled Then
 
-                    Dim MVPM = MODEL_MATRIX_LIST(z).matrix * MODELVIEWMATRIX * PROJECTIONMATRIX
+                    Dim modelMatrix = MODEL_MATRIX_LIST(z).matrix
+                    Dim MVM = modelMatrix * MODELVIEWMATRIX
+                    Dim MVPM = MVM * PROJECTIONMATRIX
+
                     GL.UniformMatrix4(normal_modelViewProjection_id, False, MVPM)
 
                     GL.Uniform1(normal_length_id, 0.2F)
-                    GL.Uniform1(normal_mode_id, NORMAL_DISPLAY_MODE)
+                    GL.Uniform1(normal_mode_id, NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
 
                     GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
 
                     Dim er0 = GL.GetError
-                    For i = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
-                        If MAP_MODELS(idx).mdl(0).USHORTS Then
-                            GL.DrawElements(PrimitiveType.Triangles,
-                                            (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
-                                            DrawElementsType.UnsignedShort, MAP_MODELS(idx).mdl(0).index_buffer16((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
-                        Else
-                            GL.DrawElements(PrimitiveType.Triangles,
-                                            (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
-                                            DrawElementsType.UnsignedInt, MAP_MODELS(idx).mdl(0).index_buffer32((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
-                        End If
+                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
+                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
+
+                    GL.BindVertexArray(model.mdl_VAO)
+                    For i = 0 To model.primitive_count - 1
+                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
+                        GL.DrawElements(PrimitiveType.Triangles,
+                                        model.entries(i).numIndices,
+                                        triType,
+                                        offset)
                     Next
-                    GL.BindVertexArray(0)
                 End If
 
             Next
+            GL.BindVertexArray(0)
 
         End If
 #Else

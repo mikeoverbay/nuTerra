@@ -6,18 +6,9 @@ Imports OpenTK.Graphics.OpenGL
 
 Module modOpenGL
 
-    Public box_positions(4999) As Vector3
     Public FieldOfView As Single = 60.0F
 
     Public Main_Context As Integer
-    Public Sub make_randum_locations()
-        Dim rn As New Random
-        For i = 0 To 4999
-            box_positions(i).x = (rn.NextDouble - 0.5) * 2000.0F
-            box_positions(i).y = (rn.NextDouble - 0.5) * 2000.0F
-            box_positions(i).z = (rn.NextDouble - 0.5) * 2000.0F
-        Next
-    End Sub
     Public Sub resize_glControl_main()
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
         VIEW_PORT(0) = frmMain.glControl_main.ClientSize.Width

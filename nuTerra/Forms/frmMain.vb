@@ -1,15 +1,8 @@
-﻿
-
-Imports System.Math
-Imports System
+﻿Imports System.Globalization
 Imports System.IO
-Imports System.Globalization
+Imports System.Math
 Imports System.Threading
 Imports System.Windows
-Imports OpenTK.GLControl
-Imports OpenTK
-Imports OpenTK.Platform.Windows
-Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 'Imports Config = OpenTK.Configuration
@@ -41,10 +34,6 @@ Public Class frmMain
                 If NORMAL_DISPLAY_MODE > 2 Then
                     NORMAL_DISPLAY_MODE = 0
                 End If
-
-            Case e.KeyCode = Keys.R
-                make_randum_locations()
-
 
             Case e.KeyCode = Keys.ControlKey
                 Z_MOVE = True
@@ -88,6 +77,27 @@ Public Class frmMain
 
     Private Sub post_frmMain_loaded()
         '-----------------------------------------------------------------------------------------
+        glControl_main.MakeCurrent()
+
+        'Check context:
+        Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
+        Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
+        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 3) Then
+            MsgBox("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
+            Application.Exit()
+        End If
+
+#If DEBUG Then
+        Debug.Print("Vendor: {0}", GL.GetString(StringName.Vendor))
+        Debug.Print("Renderer: {0}", GL.GetString(StringName.Renderer))
+        Debug.Print("Version: {0}", GL.GetString(StringName.Version))
+        Debug.Print("ShadingLanguageVersion: {0}", GL.GetString(StringName.ShadingLanguageVersion))
+        If GL.GetString(StringName.Version).Contains("Debug Context") Then
+            If (GL.GetString(StringName.Extensions).Contains("GL_ARB_debug_output")) Then
+                SetupDebugOutputCallback()
+            End If
+        End If
+#End If      '-----------------------------------------------------------------------------------------
         'need a work area on users disc
         TEMP_STORAGE = Path.GetTempPath + "nuTerra\"
         If Not Directory.Exists(TEMP_STORAGE) Then
@@ -101,12 +111,7 @@ Public Class frmMain
             m_set_game_path.PerformClick()
         End If
         GAME_PATH = My.Settings.GamePath + "\res\packages\"
-        '-----------------------------------------------------------------------------------------
-        glControl_main.MakeCurrent()
-        '-----------------------------------------------------------------------------------------
-#If DEBUG Then
-        'SetupDebugOutputCallback()
-#End If
+
         '-----------------------------------------------------------------------------------------
         FBOm.FBO_Initialize()
         '-----------------------------------------------------------------------------------------
@@ -287,8 +292,6 @@ try_again:
 
 
         'test junk. ----------------------------------------------
-        make_randum_locations() ' randum box locals
-        'load a test model
 #If 1 Then
         get_X_model(sp + "\resources\moon.x", MOON)
         'color_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror.png", True, False)

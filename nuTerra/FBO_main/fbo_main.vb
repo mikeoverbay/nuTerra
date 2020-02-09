@@ -12,20 +12,20 @@ Module FBO_main
         Private Shared oldWidth As Integer = 1
         Private Shared oldHeigth As Integer = 1
 
-        Private Shared attach_Color_Normal_GMF() As Integer = { _
-                                            FramebufferAttachment.ColorAttachment0, _
-                                            FramebufferAttachment.ColorAttachment1, _
-                                            FramebufferAttachment.ColorAttachment2 _
+        Private Shared attach_Color_Normal_GMF() As Integer = {
+                                            FramebufferAttachment.ColorAttachment0,
+                                            FramebufferAttachment.ColorAttachment1,
+                                            FramebufferAttachment.ColorAttachment2
                                             }
-        Private Shared attach_Color_Normal() As Integer = { _
-                                            FramebufferAttachment.ColorAttachment0, _
-                                            FramebufferAttachment.ColorAttachment1 _
+        Private Shared attach_Color_Normal() As Integer = {
+                                            FramebufferAttachment.ColorAttachment0,
+                                            FramebufferAttachment.ColorAttachment1
                                            }
-        Public Shared attach_Color() As Integer = { _
-                                            FramebufferAttachment.ColorAttachment0 _
+        Public Shared attach_Color() As Integer = {
+                                            FramebufferAttachment.ColorAttachment0
                                             }
-        Public Shared attach_Normal() As Integer = { _
-                                            FramebufferAttachment.ColorAttachment1 _
+        Public Shared attach_Normal() As Integer = {
+                                            FramebufferAttachment.ColorAttachment1
                                             }
 
 
@@ -110,11 +110,11 @@ Module FBO_main
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             Dim er4 = GL.GetError
             ' gDepth ------------------------------------------------------------------------------------------
-            'DepthComponent32
+            'DepthComponent24
             Dim er2 = GL.GetError
             gDepth = GL.GenTexture
             GL.BindTexture(TextureTarget.Texture2D, gDepth)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.DepthComponent, PixelType.UnsignedInt, IntPtr.Zero)
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent24, SCR_WIDTH, SCR_HEIGHT, 0, PixelFormat.DepthComponent, PixelType.UnsignedInt, IntPtr.Zero)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -135,7 +135,7 @@ Module FBO_main
             GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, gColor, 0)
             GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D, gNormal, 0)
             GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D, gGMF, 0)
-            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachmentExt, TextureTarget.Texture2D, gDepth, 0)
+            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, gDepth, 0)
 
 
             attach_CNG()
@@ -154,9 +154,11 @@ Module FBO_main
         Public Shared Sub get_glControl_main_size(ByRef w As Integer, ByRef h As Integer)
             'returns the size of the render control
             'We must ensure that the window size is divisible by 2. GL doesn't like odd sized textures!
+            'This has to be done this way because of the menu. Just docking the control in fill causes problems.
             frmMain.glControl_main.Width = frmMain.ClientSize.Width
             frmMain.glControl_main.Height = frmMain.ClientSize.Height - frmMain.MainMenuStrip.Height
             frmMain.glControl_main.Location = New System.Drawing.Point(0, frmMain.MainMenuStrip.Height + 1)
+
             Dim w1 = frmMain.glControl_main.Width
             Dim h1 = frmMain.glControl_main.Height
             w = w1 + (w1 Mod 2)
@@ -181,17 +183,6 @@ Module FBO_main
 
         Public Shared Sub attach_N()
             GL.DrawBuffers(1, attach_Normal)
-        End Sub
-
-        Public Shared Sub blit_depth_to_depth_texture()
-            'Dim e1 = GL.GetError
-            GL.ActiveTexture(TextureUnit.Texture0)
-            GL.BindTexture(TextureTarget.Texture2D, gDepth)
-            GL.CopyTexImage2D(TextureTarget.Texture2D, 0, InternalFormat.DepthComponent24Arb, 0, 0, SCR_WIDTH, SCR_WIDTH, 0)
-            Dim e2 = GL.GetError
-            Dim s = get_GL_error_string(e2)
-            GL.BindTexture(TextureTarget.Texture2D, 0)
-
         End Sub
     End Class
 
