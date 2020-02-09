@@ -27,7 +27,7 @@ Module modTypeStructures
     Public Structure DECAL_INDEX_LIST_
         Public u_wrap As Single
         Public v_wrap As Single
-        Public decal_data() As vertex_data
+        Public decal_data() As vertex_data_
         Public texture_id As Integer
         Public normal_id As Integer
         Public gmm_id As Integer

@@ -24,13 +24,13 @@ Module ModTriangleHolderClass
             End Get
         End Property
 
-        Public Property v(ByVal index As Integer) As vertex_data
+        Public Property v(ByVal index As Integer) As vertex_data_
 
             Get
                 accessor.Read(index * Me.vdsize, Me.vd)
                 Return Me.vd.v
             End Get
-            Set(value As vertex_data)
+            Set(value As vertex_data_)
                 accessor.Read(index * Me.vdsize, Me.vd)
                 Me.vd.v = value
                 accessor.Write(index * Me.vdsize, Me.vd)
@@ -64,7 +64,7 @@ Module ModTriangleHolderClass
     End Class
 
     Public Structure t_holder_
-        Dim v As vertex_data
+        Dim v As vertex_data_
         Dim mesh_location As Integer
     End Structure
 
