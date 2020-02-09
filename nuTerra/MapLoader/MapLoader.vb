@@ -267,19 +267,8 @@ Module MapLoader
                 Application.DoEvents() '<-- Give some time to this app's UI
                 Dim good = get_primitive(MAP_MODELS(i).mdl(0).primitive_name.Replace("primitives", "model"), MAP_MODELS(i).mdl)
             End If
-
         Next
-        ' get the total triangles drawn
-        'There may only be 300 models but they are drawn over and over with different transforms
-        TOTAL_TRIANGLES_DRAWN = 0
-        For i = 0 To MODEL_MATRIX_LIST.Length - 1
-            Dim idx = MODEL_MATRIX_LIST(i).model_index
-
-            If Not MAP_MODELS(idx).mdl(0).junk Then
-                TOTAL_TRIANGLES_DRAWN += MAP_MODELS(idx).mdl(0).POLY_COUNT
-            End If
-
-        Next
+        MODELS_LOADED = True
         'Get a list of all items in the MAP_package
         '=======================================================
         'Stop Here for now =====================================

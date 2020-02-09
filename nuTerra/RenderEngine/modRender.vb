@@ -23,11 +23,20 @@ Module modRender
             Return
         End If
 
+        TOTAL_TRIANGLES_DRAWN = 0
+
+
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) ' Use FBO_main buffer
         FBOm.attach_CNG()
         '-------------------------------------------------------
 
         set_prespective_view() ' <-- sets camera and prespective view
+        'after camera is set
+        CULLED_COUNT = 0
+        ExtractFrustum()
+        If MODELS_LOADED Then
+            check_models_visible()
+        End If
 
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
@@ -75,7 +84,7 @@ Module modRender
         FBOm.attach_CNG()
 
 
-#If 0 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
+#If 1 Then '<----- set to 1 to draw using VAO DrawElements. 0 to draw using display lists
         '===========================================================================
         'draw the test MDL model using VAO =========================================
         '===========================================================================
@@ -101,27 +110,26 @@ Module modRender
 
 
             Dim idx = MODEL_MATRIX_LIST(z).model_index
-            If Not MAP_MODELS(idx).mdl(0).junk Then
+            If Not MAP_MODELS(idx).mdl(0).junk And Not MODEL_MATRIX_LIST(z).Culled Then
 
-                Dim model = MODEL_MATRIX_LIST(z).matrix
-                'model = Matrix4.Identity
 
-                Dim MVPM = model * MODELVIEWMATRIX * PROJECTIONMATRIX
+                'Add to total triangles drawn
+                TOTAL_TRIANGLES_DRAWN += MAP_MODELS(idx).mdl(0).POLY_COUNT
 
-                GL.UniformMatrix4(MDL_modelMatrix_id, False, model * MODELVIEWMATRIX)
+                GL.UniformMatrix4(MDL_modelMatrix_id, False, MODEL_MATRIX_LIST(z).matrix * MODELVIEWMATRIX)
+
+                Dim MVPM = MODEL_MATRIX_LIST(z).matrix * MODELVIEWMATRIX * PROJECTIONMATRIX
                 GL.UniformMatrix4(MDL_modelViewProjection_id, False, MVPM)
 
                 ' need an inverse of the modelmatrix
-                Dim MVM = model * MODELVIEWMATRIX
+                Dim MVM = MODEL_MATRIX_LIST(z).matrix * MODELVIEWMATRIX
                 Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
-                GL.UniformMatrix3(MDL_modelNormalMatrix_id, True, normalMatrix)
+                GL.UniformMatrix3(MDL_modelNormalMatrix_id, False, normalMatrix)
 
                 GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
 
                 Dim er0 = GL.GetError
                 For i = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
-                    'GL.CallList(MAP_MODELS(idx).mdl(0).entries(i).list_id)
-
 
                     If MAP_MODELS(idx).mdl(0).USHORTS Then
                         GL.DrawElements(PrimitiveType.Triangles,
@@ -143,6 +151,45 @@ Module modRender
         GL.UseProgram(0)
         unbind_textures(2) ' unbind all the used texture slots
 
+
+
+        If NORMAL_DISPLAY_MODE > 0 Then
+            FBOm.attach_C()
+
+            GL.UseProgram(shader_list.normal_shader)
+
+            For z = 0 To MODEL_MATRIX_LIST.Length - 2
+
+                Dim idx = MODEL_MATRIX_LIST(z).model_index
+
+                If Not MAP_MODELS(idx).mdl(0).junk And Not MODEL_MATRIX_LIST(z).Culled Then
+
+                    Dim MVPM = MODEL_MATRIX_LIST(z).matrix * MODELVIEWMATRIX * PROJECTIONMATRIX
+                    GL.UniformMatrix4(normal_modelViewProjection_id, False, MVPM)
+
+                    GL.Uniform1(normal_length_id, 0.2F)
+                    GL.Uniform1(normal_mode_id, NORMAL_DISPLAY_MODE)
+
+                    GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
+
+                    Dim er0 = GL.GetError
+                    For i = 0 To MAP_MODELS(idx).mdl(0).primitive_count - 1
+                        If MAP_MODELS(idx).mdl(0).USHORTS Then
+                            GL.DrawElements(PrimitiveType.Triangles,
+                                            (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
+                                            DrawElementsType.UnsignedShort, MAP_MODELS(idx).mdl(0).index_buffer16((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
+                        Else
+                            GL.DrawElements(PrimitiveType.Triangles,
+                                            (MAP_MODELS(idx).mdl(0).entries(i).numIndices),
+                                            DrawElementsType.UnsignedInt, MAP_MODELS(idx).mdl(0).index_buffer32((MAP_MODELS(idx).mdl(0).entries(i).startIndex)))
+                        End If
+                    Next
+                    GL.BindVertexArray(0)
+                End If
+
+            Next
+
+        End If
 #Else
         '===========================================================================
         'draw the test display lists ===============================================
@@ -168,7 +215,10 @@ Module modRender
         For z = 0 To MODEL_MATRIX_LIST.Length - 2
             Dim idx = MODEL_MATRIX_LIST(z).model_index
 
-            If Not MAP_MODELS(idx).mdl(0).junk Then
+            'Add to total triangles drawn
+            TOTAL_TRIANGLES_DRAWN += MAP_MODELS(idx).mdl(0).POLY_COUNT
+
+            If Not MAP_MODELS(idx).mdl(0).junk And Not MODEL_MATRIX_LIST(z).Culled Then
 
                 Dim model = MODEL_MATRIX_LIST(z).matrix
 
@@ -262,7 +312,7 @@ Module modRender
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
         Dim tr = TOTAL_TRIANGLES_DRAWN * LOOP_COUNT
-        Dim txt = String.Format("FPS: {0} | Triangles drawn per frame: {1} | Draw time in Milliseconds: {2}", FPS_TIME, tr, elapsed)
+        Dim txt = String.Format("Culled:" + CULLED_COUNT.ToString + " FPS: {0} | Triangles drawn per frame: {1} | Draw time in Milliseconds: {2}", FPS_TIME, tr, elapsed)
         DrawText.DrawString(txt, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Texture2D)

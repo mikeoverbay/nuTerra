@@ -536,7 +536,7 @@ Module PrimitiveLoader
 
             End Try
             fup_counter += 1
-            build_test_lists(mdl(cur_sub)) 'builds test display lists
+            'build_test_lists(mdl(cur_sub)) 'builds test display lists
 
         End While ' end of outside sub_groups loop
         mdl(cur_sub).POLY_COUNT = TOTAL_TRIANGLES_DRAWN_MODEL

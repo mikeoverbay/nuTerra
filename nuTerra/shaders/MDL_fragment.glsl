@@ -21,7 +21,7 @@ vec3 getNormal()
     vec3 n;
     if (nMap_type == 1 ) {
         // GA map
-        // We much clamp and max these to -1.0 to 1.0 to stop artifacts!
+        // We must clamp and max these to -1.0 to 1.0 to stop artifacts!
         n.xy = clamp(texture(normalMap, UV).ag*2.0-1.0, -1.0 ,1.0);
         n.y = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
         n.xyz = n.xzy;

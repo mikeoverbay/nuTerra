@@ -29,24 +29,36 @@ Public Class frmMain
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
         Select Case True
+
             Case e.KeyCode = Keys.E
                 frmEditFrag.Show()
+
             Case e.KeyCode = Keys.L
                 m_light_settings.PerformClick()
+
+            Case e.KeyCode = Keys.N
+                NORMAL_DISPLAY_MODE += 1
+                If NORMAL_DISPLAY_MODE > 2 Then
+                    NORMAL_DISPLAY_MODE = 0
+                End If
+
             Case e.KeyCode = Keys.R
                 make_randum_locations()
 
 
             Case e.KeyCode = Keys.ControlKey
                 Z_MOVE = True
+
             Case e.KeyCode = Keys.ShiftKey
                 MOVE_MOD = True
+
             Case e.KeyCode = Keys.Space
                 If PAUSE_ORBIT Then
                     PAUSE_ORBIT = False
                 Else
                     PAUSE_ORBIT = True
                 End If
+
         End Select
     End Sub
 

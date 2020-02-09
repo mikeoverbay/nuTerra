@@ -37,6 +37,8 @@ Module ShaderLoader
     End Structure
 #End Region
 
+#Region "Shader Uniforms"
+
     Public shader_list As New Shader_list_
     Public Class Shader_list_
         'Keep these in alphabetic order :)
@@ -45,6 +47,7 @@ Module ShaderLoader
         Public Deferred_shader As Integer
         Public gWriter_shader As Integer
         Public MDL_shader As Integer
+        Public normal_shader As Integer
         Public normalOffset_shader As Integer
         Public testList_shader As Integer
         Public toLinear_shader As Integer
@@ -128,6 +131,7 @@ Module ShaderLoader
     End Sub
     '----------------------------------------------------------------------------
 
+    '----------------------------------------------------------------------------
     Public testList_textureMap_id, testList_normalMap_id, testList_GMF_id As Integer
     Public testList_modelMatrix_id, testList_modelNormalMatrix_id, testList_modelViewProjection_id As Integer
     Public testList_nMap_type_id, testList_has_uv2_id As Integer
@@ -145,6 +149,15 @@ Module ShaderLoader
         testList_modelViewProjection_id = GL.GetUniformLocation(shader_list.testList_shader, "modelViewProjection")
         testList_nMap_type_id = GL.GetUniformLocation(shader_list.testList_shader, "nMap_type")
         testList_has_uv2_id = GL.GetUniformLocation(shader_list.testList_shader, "has_uv2")
+    End Sub
+    '----------------------------------------------------------------------------
+
+    '----------------------------------------------------------------------------
+    Public normal_modelViewProjection_id, normal_mode_id, normal_length_id As Integer
+    Private Sub set_normal_varaibles()
+        normal_modelViewProjection_id = GL.GetUniformLocation(shader_list.normal_shader, "modelViewProjection")
+        normal_mode_id = GL.GetUniformLocation(shader_list.normal_shader, "mode")
+        normal_length_id = GL.GetUniformLocation(shader_list.normal_shader, "l_length")
     End Sub
     '----------------------------------------------------------------------------
 
@@ -174,11 +187,13 @@ Module ShaderLoader
         set_deferred_varaibles()
         set_gWriter_varaibles()
         set_MDL_varaibles()
+        set_normal_varaibles()
         set_normalOffset_varaibles()
         set_testList_varaibles()
         set_toLinear_varaibles()
     End Sub
 
+#End Region
 
     Public GL_TRUE As Integer = 1
     Public GL_FALSE As Integer = 0
@@ -247,6 +262,7 @@ Module ShaderLoader
         Next
 
     End Sub
+
     Public Function assemble_shader(v As String, g As String, f As String, ByRef shader As Integer, ByRef name As String, ByRef has_geo As Boolean) As Integer
         Dim vs(1) As String
         Dim gs(1) As String
@@ -334,15 +350,15 @@ Module ShaderLoader
             End If
 
             If name.Contains("raytrace") Then
-                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryInputType, ProgramParameterName), All.Triangles)
-                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryOutputType, ProgramParameterName), All.LineStrip)
-                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryVerticesOut, ProgramParameterName), 6)
+                GL.Ext.ProgramParameter(shader, DirectCast(ExtGeometryShader4.GeometryInputTypeExt, AssemblyProgramParameterArb), All.Triangles)
+                GL.Ext.ProgramParameter(shader, DirectCast(ExtGeometryShader4.GeometryOutputTypeExt, AssemblyProgramParameterArb), All.LineStrip)
+                GL.Ext.ProgramParameter(shader, DirectCast(ExtGeometryShader4.GeometryVerticesOutExt, AssemblyProgramParameterArb), 6)
             End If
 
             If name.Contains("normal") Then
-                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryInputType, ProgramParameterName), All.Triangles)
-                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryOutputType, ProgramParameterName), All.LineStrip)
-                GL.ProgramParameter(shader, DirectCast(ProgramParameter.GeometryVerticesOut, ProgramParameterName), 18)
+                GL.Ext.ProgramParameter(shader, DirectCast(ExtGeometryShader4.GeometryInputTypeExt, AssemblyProgramParameterArb), All.Triangles)
+                GL.Ext.ProgramParameter(shader, DirectCast(ExtGeometryShader4.GeometryOutputTypeExt, AssemblyProgramParameterArb), All.LineStrip)
+                GL.Ext.ProgramParameter(shader, DirectCast(ExtGeometryShader4.GeometryVerticesOutExt, AssemblyProgramParameterArb), 18)
             End If
 
             e = GL.GetError

@@ -47,6 +47,7 @@ Module modSpacedBinVars
         Public exclude As Boolean
         Public destructible As Boolean
         Public exclude_list() As Integer
+        Public Culled As Boolean
     End Structure
 
     Public decal_matrix_list() As decal_matrix_list_

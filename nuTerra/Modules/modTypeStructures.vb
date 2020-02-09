@@ -65,12 +65,11 @@ Module modTypeStructures
         Public USHORTS As Boolean 'If true, indices are Uint16, other wise unit32
 
         Public is_building As Boolean ' used with decals
-        Public POLY_COUNT As Integer
+        Public POLY_COUNT As UInteger
         Public junk As Boolean
         '------------------------------------------------
         'These are in the MODEL_MATRIX_LIST and wont be used here.
         Public BB() As Vector3 'Used for frustrum culling
-        Public culled As Boolean 'Draw if not true
         '------------------------------------------------
 
         'used to create VBO

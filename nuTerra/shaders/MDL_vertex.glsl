@@ -29,6 +29,8 @@ void main(void)
 	vec3 worldTangent = modelNormalMatrix  * vertexTangent;
 	vec3 worldbiNormal = modelNormalMatrix  * vertexBinormal;
     vec3 worldNormal =  modelNormalMatrix  * vertexNormal;
+	worldTangent  = normalize(worldTangent-dot(worldNormal,worldTangent)*worldNormal);
+    worldbiNormal = normalize(worldbiNormal-dot(worldNormal,worldbiNormal)*worldNormal);
 
     // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
     TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));

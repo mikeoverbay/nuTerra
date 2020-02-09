@@ -10,6 +10,7 @@ Module modGlobalVars
     Public m_color_id, m_normal_id, m_gmm_id As Integer
     '---------------------
     'Render related
+    Public NORMAL_DISPLAY_MODE As Integer ' None, by vertex, by face
     Public FRAME_TIMER As New Stopwatch
     Public LOOP_COUNT As Integer = 200
     Public FPS_COUNTER As Integer

@@ -194,6 +194,7 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <Compile Include="OpenGL\modOpenGL.vb" />
+    <Compile Include="RenderEngine\modFrustum.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
     <Compile Include="ShaderEditor\frmEditFrag.designer.vb">
@@ -293,6 +294,15 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\colorOnly_vertex.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\normal_fragment.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\normal_geo.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\normal_vertex.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\testList_fragment.glsl">

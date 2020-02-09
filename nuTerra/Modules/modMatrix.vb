@@ -4,13 +4,13 @@ Module modMatrix
     Public Function translate_to(ByRef v As Vector3, ByRef m As Matrix4) As Vector3
         Dim vo As Vector3
 
-        vo.X = (m.M11 * v.X) + (m.M21 * v.Y) + (m.M31 * v.Z)
-        vo.Y = (m.M12 * v.X) + (m.M22 * v.Y) + (m.M32 * v.Z)
-        vo.Z = (m.M13 * v.X) + (m.M23 * v.Y) + (m.M33 * v.Z)
+        vo.X = (m.M11 * v.X) + (m.M12 * v.Y) + (m.M13 * v.Z)
+        vo.Y = (m.M21 * v.X) + (m.M22 * v.Y) + (m.M23 * v.Z)
+        vo.Z = (m.M31 * v.X) + (m.M32 * v.Y) + (m.M33 * v.Z)
 
-        vo.X += m.M14
-        vo.Y += m.M24
-        vo.Z += m.M34
+        vo.X += m.M41
+        vo.Y += m.M42
+        vo.Z += m.M43
         Return vo
     End Function
 
