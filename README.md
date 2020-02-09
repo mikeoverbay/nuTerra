@@ -2,6 +2,9 @@
 
 ### This is the home of nuTerra where all the work will be done to rewrite Terra using New OpenGL techniques.
 
+#### Update log.. 2/9/2020
+Added frustrum culling for the models. the VAO is rendering fast. Maxim has cleaned up and removed the code and simplified some functions.</br>
+
 #### Update log.. 2/5/2020
 All transforms take place in shaders now.</br>
 The base_model_holder_ structure is ready to be loaded from the space.bin data. I need to add code to extract the visual information and place it in each component of each model.</br>
