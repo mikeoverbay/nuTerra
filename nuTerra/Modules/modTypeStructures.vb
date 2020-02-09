@@ -137,11 +137,8 @@ Module modTypeStructures
         Public is_building As Boolean ' used with decals
         Public POLY_COUNT As UInteger
         Public junk As Boolean
-        '------------------------------------------------
-        'These are in the MODEL_INDEX_LIST and wont be used here.
-        Public BB() As Vector3 'Used for frustrum culling
-        '------------------------------------------------
 
+        '------------------------------------------------
         'used to create VBO
         'how many parallel buffers will be created
         Public element_count As Integer
