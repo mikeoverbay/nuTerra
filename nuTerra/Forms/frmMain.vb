@@ -21,27 +21,33 @@ Public Class frmMain
     End Sub
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
-        Select Case True
+        Select Case e.KeyCode
+            Case Keys.D1
+                If WIRE_MODELS Then
+                    WIRE_MODELS = False
+                Else
+                    WIRE_MODELS = True
+                End If
 
-            Case e.KeyCode = Keys.E
+            Case Keys.E
                 frmEditFrag.Show()
 
-            Case e.KeyCode = Keys.L
+            Case Keys.L
                 m_light_settings.PerformClick()
 
-            Case e.KeyCode = Keys.N
+            Case Keys.N
                 NORMAL_DISPLAY_MODE += 1
                 If NORMAL_DISPLAY_MODE > 2 Then
                     NORMAL_DISPLAY_MODE = 0
                 End If
 
-            Case e.KeyCode = Keys.ControlKey
+            Case Keys.ControlKey
                 Z_MOVE = True
 
-            Case e.KeyCode = Keys.ShiftKey
+            Case Keys.ShiftKey
                 MOVE_MOD = True
 
-            Case e.KeyCode = Keys.Space
+            Case Keys.Space
                 If PAUSE_ORBIT Then
                     PAUSE_ORBIT = False
                 Else

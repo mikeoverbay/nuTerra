@@ -16,6 +16,11 @@ Module modGlobalVars
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer
     Public MOON As base_model_holder_
+    'wire flags
+    Public WIRE_MODELS As Boolean
+    Public WIRE_DECALS As Boolean
+    Public WIRE_TERRAIN As Boolean
+
     '---------------------
     'sleep time for upedate thread.
     'lower draws faster but kills apps responsiveness

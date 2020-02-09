@@ -49,6 +49,7 @@ Module modRender
         GL.Enable(EnableCap.DepthTest)
         GL.Enable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
+        GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
         '------------------------------------------------
         '------------------------------------------------
 
@@ -82,6 +83,11 @@ Module modRender
         '===========================================================================
         'draw the test MDL model using VAO =========================================
         '===========================================================================
+        'SOLID FILL
+        If WIRE_MODELS Then
+            GL.PolygonOffset(1, 1)
+            GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
+        End If
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -90,13 +96,13 @@ Module modRender
         GL.Uniform1(modelShader("GMF_Map"), 2)
         GL.Uniform1(modelShader("nMap_type"), N_MAP_TYPE)
 
+
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
         GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<----------------- Texture Bind
         GL.ActiveTexture(TextureUnit.Texture0 + 1)
         GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
-
 
         For z = 0 To MODEL_INDEX_LIST.Length - 2
             Dim idx = MODEL_INDEX_LIST(z).model_index
@@ -134,8 +140,51 @@ Module modRender
         modelShader.StopUse()
         unbind_textures(2) ' unbind all the used texture slots
 
+        '===========================================================================
+        ' WIRE OVERLAY =============================================================
+        '===========================================================================
+        If WIRE_MODELS Then
+            FBOm.attach_C()
 
+            GL.Disable(EnableCap.PolygonOffsetFill)
+            GL.PolygonMode(MaterialFace.Front, PolygonMode.Line)
 
+            GL.UseProgram(shader_list.colorOnly_shader)
+
+            GL.Uniform3(colorOnly_color_id, 1.0F, 1.0F, 0.0F)
+
+            For z = 0 To MODEL_INDEX_LIST.Length - 2
+                Dim idx = MODEL_INDEX_LIST(z).model_index
+                Dim model = MAP_MODELS(idx).mdl(0)
+
+                If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
+
+                    Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
+                    Dim MVM = modelMatrix * MODELVIEWMATRIX
+                    Dim MVPM = MVM * PROJECTIONMATRIX
+                    GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
+
+                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
+                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
+
+                    GL.BindVertexArray(model.mdl_VAO)
+                    For i = 0 To model.primitive_count - 1
+                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
+                        GL.DrawElements(PrimitiveType.Triangles,
+                                        model.entries(i).numIndices,
+                                        triType,
+                                        offset)
+                    Next
+
+                End If
+
+            Next
+            GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
+        End If
+
+        '===========================================================================
+        ' TBN VISUALIZER ===========================================================
+        '===========================================================================
         If NORMAL_DISPLAY_MODE > 0 Then
             FBOm.attach_C()
 

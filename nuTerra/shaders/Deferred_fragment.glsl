@@ -57,7 +57,7 @@ void main (void)
 
     vec3 LightPosModelView = LightPos.xyz;
 
-    //lighting caculations
+    //lighting calculations
     vec3 vd = normalize(-Position);//view direction
     vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 

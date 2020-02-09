@@ -398,6 +398,12 @@
     <Content Include="Resources\phobosmirror_NORM.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\Ref_colorMap.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Ref_normalMap.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\startup_banner.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

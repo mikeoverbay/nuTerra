@@ -193,7 +193,7 @@ Module PrimitiveLoader
         gp_pointer = sub_groups
         If sub_groups > 1 Then
             got_subs = True
-            'Stop
+            Stop
         End If
         Dim ind_start As UInt32 = 0
         Dim ind_length As UInt32 = 0
@@ -454,7 +454,7 @@ Module PrimitiveLoader
 
             For i = 0 To mdl(cur_sub).primitive_count - 1
                 'mdl(cur_sub).entries(i) = New entries_
-
+                'If mdl(cur_sub).entries(i).identifier.Contains("wall_0") Then mdl(cur_sub).junk = True
                 mdl(cur_sub).entries(i).startIndex = pGroups(i).startIndex_ / 3
                 mdl(cur_sub).entries(i).numIndices = pGroups(i).nPrimitives_ * 3 'draw 3 verts per triangle
                 mdl(cur_sub).entries(i).startVertex = pGroups(i).startVertex_
@@ -515,12 +515,12 @@ Module PrimitiveLoader
 
                     If mdl(cur_sub).has_tangent = 1 Then
                         'tangents
-                        v3 = unpackNormal(vt_br.ReadUInt32)
+                        v3 = unpackNormal_8_8_8(vt_br.ReadUInt32)
                         mdl(cur_sub).tangent_buffer(running).X = -v3.X
                         mdl(cur_sub).tangent_buffer(running).Y = v3.y
                         mdl(cur_sub).tangent_buffer(running).Z = v3.z
                         'biNormals
-                        v3 = unpackNormal(vt_br.ReadUInt32)
+                        v3 = unpackNormal_8_8_8(vt_br.ReadUInt32)
                         mdl(cur_sub).biNormal_buffer(running).X = -v3.x
                         mdl(cur_sub).biNormal_buffer(running).Y = v3.y
                         mdl(cur_sub).biNormal_buffer(running).Z = v3.z
