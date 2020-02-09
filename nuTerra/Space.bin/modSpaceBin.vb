@@ -17,6 +17,11 @@ Module modSpaceBin
         End Sub
     End Structure
 
+    Private Sub ShowDecodeFailedMessage(ex As Exception, magic As String)
+        Debug.Print(ex.ToString)
+        MsgBox(String.Format("{0} decode Failed", magic), MsgBoxStyle.Exclamation, "Oh NO!!")
+    End Sub
+
     Public Function ReadSpaceBinData(p As String) As Boolean
         If Not File.Exists(TEMP_STORAGE + p) Then
             GoTo Failed
@@ -40,7 +45,7 @@ Module modSpaceBin
                 ' we must grab this data first!
                 cBSGD = New cBSGD_(sectionHeaders("BSGD"), br)
             Catch ex As Exception
-                MsgBox("BSGD decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "BSGD")
                 GoTo Failed
             End Try
 
@@ -51,70 +56,70 @@ Module modSpaceBin
             Try
                 cBWST = New cBWST_(sectionHeaders("BWST"), br)
             Catch ex As Exception
-                MsgBox("BWST decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "BWST")
                 GoTo Failed
             End Try
 
             Try
                 cBWAL = New cBWAL_(sectionHeaders("BWAL"), br)
             Catch ex As Exception
-                MsgBox("BWAL decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "BWAL")
                 GoTo Failed
             End Try
 
             Try
                 get_BWSG(sectionHeaders("BWSG"), br)
             Catch ex As Exception
-                MsgBox("BWSG decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "BWSG")
                 GoTo Failed
             End Try
 
             Try
                 cBSMI = New cBSMI_(sectionHeaders("BSMI"), br)
             Catch ex As Exception
-                MsgBox("BSMI decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "BSMI")
                 GoTo Failed
             End Try
 
             Try
                 cBSMO = New cBSMO_(sectionHeaders("BSMO"), br)
             Catch ex As Exception
-                MsgBox("BSMO decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "BSMO")
                 GoTo Failed
             End Try
 
             Try
                 get_BSMA(sectionHeaders("BSMA"), br)
             Catch ex As Exception
-                MsgBox("BSMA decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "BSMA")
                 GoTo Failed
             End Try
 
             Try
                 cSpTr = New cSpTr_(sectionHeaders("SpTr"), br)
             Catch ex As Exception
-                MsgBox("SpTr decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "SpTr")
                 GoTo Failed
             End Try
 
             Try
                 get_WGSD(sectionHeaders("WGSD"), br)
             Catch ex As Exception
-                MsgBox("WGSD decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "WGSD")
                 GoTo Failed
             End Try
 
             Try
                 cBWWa = New cBWWa_(sectionHeaders("BWWa"), br)
             Catch ex As Exception
-                MsgBox("BWWa decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "BWWa")
                 GoTo Failed
             End Try
 
             Try
                 cWTbl = New cWTbl_(sectionHeaders("WTbl"), br)
             Catch ex As Exception
-                MsgBox("WTbl decode Failed", MsgBoxStyle.Exclamation, "Oh NO!!")
+                ShowDecodeFailedMessage(ex, "WTbl")
                 GoTo Failed
             End Try
 
@@ -142,9 +147,7 @@ Module modSpaceBin
         'build the model information
         ReDim MAP_MODELS(cBSMO.models_colliders.count - 1)
         For k = 0 To cBSMO.models_colliders.count - 1
-            MAP_MODELS(k) = New mdl_
             ReDim MAP_MODELS(k).mdl(1)
-            MAP_MODELS(k).mdl(0) = New base_model_holder_
 
             MAP_MODELS(k).mdl(0).primitive_name = cBSMO.models_colliders.data(k).primitive_name
 
@@ -166,6 +169,13 @@ Module modSpaceBin
                 Dim shader_prop_start = cBSMA.MaterialItem(mat_kind_index).shaderPropBegin
                 Dim shader_prop_end = cBSMA.MaterialItem(mat_kind_index).shaderPropEnd
 
+                ' Hack for now
+                If shader_prop_start = &HFFFFFFFFUI Then
+                    Debug.Print("shader_prop_start = &HFFFFFFFFUI")
+                    MAP_MODELS(k).mdl(0).junk = True
+                    GoTo ignore_this_one
+                End If
+
                 'this is all wrong.. we don't want LODs! We Want the total primitiveGroups!
                 'I can NOT figure out how to get the list of all the primitivegroups!!
                 Dim component_cnt = shader_prop_end - shader_prop_start
@@ -176,10 +186,15 @@ Module modSpaceBin
                 ReDim .entries(component_cnt)
                 .primitive_count = component_cnt + 1
                 Dim run_cnt As Integer = 0
-                For z = 0 To component_cnt
+                For z As UInteger = 0 To component_cnt
                     Dim mat_index = cBSMO.renders.data(z)
                     .entries(z).identifier = cBSMA.MaterialItem(z + shader_prop_start).identifier
-                    .entries(z).FX_shader = cBSMA.MaterialItem(z + shader_prop_start).FX_string
+
+                    If .entries(z).identifier Is Nothing Then
+                        Continue For
+                    End If
+
+                    .entries(z).FX_shader = cBSMA.FXStringKey(cBSMA.MaterialItem(z + shader_prop_start).effectIndex).FX_string
                     'Dim l_cnt = cBSMA.MaterialItem(z + shader_prop_start).shaderPropEnd - cBSMA.MaterialItem(z + shader_prop_start).shaderPropBegin
                     For j = cBSMA.MaterialItem(mat_kind_index).shaderPropBegin To cBSMA.MaterialItem(mat_kind_index).shaderPropEnd - 1
                         'I so wish I knew of a better way
@@ -293,7 +308,6 @@ ignore_this_one:
         ReDim MODEL_MATRIX_LIST(cBSMI.chunk_models.count - 1)
         Dim cnt As Integer = 0
         For k = 0 To cBSMI.model_BSMO_indexes.count - 1
-            MODEL_MATRIX_LIST(k) = New model_matrix_list_
             Dim BSMO_MODEL_INDEX = cBSMI.model_BSMO_indexes.data(k).BSMO_MODEL_INDEX
 
             MODEL_MATRIX_LIST(k).model_index = BSMO_MODEL_INDEX
@@ -333,7 +347,6 @@ ignore_this_one:
         For i = 0 To cBSMI.model_BSMO_indexes.count - 1
             If cBSMI.model_BSMO_indexes.data(i).BSMO_extras = HQ Then
                 If cBSMI.visibility_masks.data(i).mask = &HFFFFFFFFUI Then 'visibility mask
-                    tm(mc) = New model_matrix_list_
                     tm(mc) = MODEL_MATRIX_LIST(i)
                     mc += 1
                 Else

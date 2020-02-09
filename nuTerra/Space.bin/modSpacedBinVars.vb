@@ -230,7 +230,7 @@ Module modSpacedBinVars
         Public tbl_9 As BWArray(Of tbl_9_)
         Public tbl_10 As BWArray(Of tbl_10_)
 
-        Public Sub New(ByRef bsmiHeader As SectionHeader, br As BinaryReader)
+        Public Sub New(bsmiHeader As SectionHeader, br As BinaryReader)
             ' set stream reader to point at this chunk
             br.BaseStream.Position = bsmiHeader.offset
 
@@ -364,7 +364,7 @@ Module modSpacedBinVars
     Public Structure cWTbl_
         Public benchmark_locations As BWArray(Of Vector3)
 
-        Public Sub New(ByRef wtblHeader As SectionHeader, br As BinaryReader)
+        Public Sub New(wtblHeader As SectionHeader, br As BinaryReader)
             ' set stream reader to point at this chunk
             br.BaseStream.Position = wtblHeader.offset
 
@@ -398,7 +398,7 @@ Module modSpacedBinVars
         ' TODO: 16_8
         ' TODO: vertices_data_sizes
 
-        Public Sub New(ByRef bsmoHeader As SectionHeader, br As BinaryReader)
+        Public Sub New(bsmoHeader As SectionHeader, br As BinaryReader)
             ' set stream reader to point at this chunk
             br.BaseStream.Position = bsmoHeader.offset
 
@@ -570,12 +570,11 @@ Module modSpacedBinVars
         Public ShaderPropertyVectorItem As Vector4()
 
         Public Structure MaterialItem_
-            Public effectIndex As Int32
-            Public shaderPropBegin As Int32
-            Public shaderPropEnd As Int32
+            Public effectIndex As UInt32
+            Public shaderPropBegin As UInt32
+            Public shaderPropEnd As UInt32
             Public BWST_str_key As UInt32
             Public identifier As String
-            Public FX_string As String
         End Structure
 
         Public Structure FXStringKey_
@@ -605,7 +604,7 @@ Module modSpacedBinVars
     Public Structure cBWAL_
         Public assetList() As assetList_
 
-        Public Sub New(ByRef bwalHeader As SectionHeader, br As BinaryReader)
+        Public Sub New(bwalHeader As SectionHeader, br As BinaryReader)
             ' set stream reader to point at this chunk
             br.BaseStream.Position = bwalHeader.offset
 
@@ -684,7 +683,7 @@ Module modSpacedBinVars
     Public Structure cSpTr_
         Public Stree As BWArray(Of cStree_)
 
-        Public Sub New(ByRef sptrHeader As SectionHeader, br As BinaryReader)
+        Public Sub New(sptrHeader As SectionHeader, br As BinaryReader)
             ' set stream reader to point at this chunk
             br.BaseStream.Position = sptrHeader.offset
 
@@ -717,7 +716,7 @@ Module modSpacedBinVars
     Public Structure cBWWa_
         Public bwwa_t1() As cbwwa_t1_
 
-        Public Sub New(ByRef bwwaHeader As SectionHeader, br As BinaryReader)
+        Public Sub New(bwwaHeader As SectionHeader, br As BinaryReader)
             'set stream reader to point at this chunk
             br.BaseStream.Position = bwwaHeader.offset
 
