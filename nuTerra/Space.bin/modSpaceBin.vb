@@ -318,12 +318,8 @@ ignore_this_one:
             MODEL_INDEX_LIST(k).primitive_name = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).model_name
 
             MODEL_INDEX_LIST(k).matrix = cBSMI.transforms.data(k)
-            'MODEL_INDEX_LIST(k).matrix.M21 *= -1.0
-            'MODEL_INDEX_LIST(k).matrix.M31 *= -1.0
-            'MODEL_INDEX_LIST(k).matrix.M12 *= -1.0
-            'MODEL_INDEX_LIST(k).matrix.M13 *= -1.0
-            'MODEL_INDEX_LIST(k).matrix.M14 *= -1.0
 
+            'Flip some row values to convert from DirectX to Opengl
             MODEL_INDEX_LIST(k).matrix.M12 *= -1.0
             MODEL_INDEX_LIST(k).matrix.M13 *= -1.0
             MODEL_INDEX_LIST(k).matrix.M21 *= -1.0
@@ -334,9 +330,12 @@ ignore_this_one:
             MODEL_INDEX_LIST(k).BB_Min = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).collision_bounds_min
             MODEL_INDEX_LIST(k).BB_Max = cBSMO.models_colliders.data(BSMO_MODEL_INDEX).collision_bounds_max
 
+            'The X has to be flipped jsut like the vertices of any model.
+            MODEL_INDEX_LIST(k).BB_Min.X *= -1.0F
+            MODEL_INDEX_LIST(k).BB_Max.X *= -1.0F
             'create model culling box
             ReDim MODEL_INDEX_LIST(k).BB(8)
-            get_translated_bb_model(MODEL_INDEX_LIST(k))
+            Transform_BB(MODEL_INDEX_LIST(k))
 
         Next
         '----------------------------------------------------------------------------------

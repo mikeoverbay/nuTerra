@@ -6,6 +6,11 @@ Module modTypeStructures
 
     Public MODEL_INDEX_LIST() As MODEL_INDEX_LIST_
     Public Structure MODEL_INDEX_LIST_
+        '------------------------------------------------
+        'temp var to hold BB display buffer
+        Public BB_VBO As Integer
+        Public ta() As Vector3
+        '------------------------------------------------
         Public primitive_name As String
         Public model_index As Integer
         Public matrix As Matrix4
@@ -161,9 +166,9 @@ Module modTypeStructures
         Public sb_model_material_begin As UInt32
         Public sb_model_material_end As UInt32
         ' storage
-        Public sb_vertex_data() As Byte
-        Public sp_indi_data() As Byte
-        Public sp_uv2_data() As Byte
+        'Public sb_vertex_data() As Byte
+        'Public sb_indi_data() As Byte
+        'Public sb_uv2_data() As Byte
 
         'buffer Ids
         Public mdl_VAO As Integer

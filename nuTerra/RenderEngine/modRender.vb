@@ -179,6 +179,8 @@ Module modRender
             GL.BindVertexArray(0)
 
         End If
+
+
 #Else
         '===========================================================================
         'draw the test display lists ===============================================

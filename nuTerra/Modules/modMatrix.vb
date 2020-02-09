@@ -1,12 +1,10 @@
-﻿Imports OpenTK
-
+﻿Imports OpenTK.Graphics.OpenGL4
+Imports OpenTK
 Module modMatrix
-    Public Function translate_to(ByRef v As Vector3, ByRef m As Matrix4) As Vector3
+    Public Function Transform_vertex_by_Matrix4(ByRef v As Vector3, ByRef m As Matrix4) As Vector3
+        Dim mm = New Matrix3(m)
         Dim vo As Vector3
-
-        vo.X = (m.M11 * v.X) + (m.M12 * v.Y) + (m.M13 * v.Z)
-        vo.Y = (m.M21 * v.X) + (m.M22 * v.Y) + (m.M23 * v.Z)
-        vo.Z = (m.M31 * v.X) + (m.M32 * v.Y) + (m.M33 * v.Z)
+        vo = Vector3.Transform(mm, v)
 
         vo.X += m.M41
         vo.Y += m.M42
@@ -14,7 +12,7 @@ Module modMatrix
         Return vo
     End Function
 
-    Public Sub get_translated_bb_model(ByRef mm As MODEL_INDEX_LIST_)
+    Public Sub Transform_BB(ByRef mm As MODEL_INDEX_LIST_)
         'creates a transformed bounding box for screen clipping.
         Dim v1, v2, v3, v4, v5, v6, v7, v8 As Vector3
         v1.Z = mm.BB_Max.Z : v2.Z = mm.BB_Max.Z : v3.Z = mm.BB_Max.Z : v4.Z = mm.BB_Max.Z
@@ -26,6 +24,7 @@ Module modMatrix
         v4.Y = mm.BB_Max.Y : v7.Y = mm.BB_Max.Y : v8.Y = mm.BB_Max.Y : v3.Y = mm.BB_Max.Y
         v6.Y = mm.BB_Min.Y : v5.Y = mm.BB_Min.Y : v1.Y = mm.BB_Min.Y : v2.Y = mm.BB_Min.Y
 
+
         mm.BB(0) = v1
         mm.BB(1) = v2
         mm.BB(2) = v3
@@ -36,7 +35,15 @@ Module modMatrix
         mm.BB(7) = v8
 
         For i = 0 To 7
-            mm.BB(i) = translate_to(mm.BB(i), mm.matrix)
+            mm.BB(i) = Transform_vertex_by_Matrix4(mm.BB(i), mm.matrix)
         Next
+
+        '--------------------------------------------------
+        'Temp to debug Culling problems
+        'LEAVE THIS FOR FOR WHEN OTHER ITEMS ARE ADDED LIKE DECALS, TERRAIN AND TREES. WE MIGHT NEED IT!
+        'mm.ta = {mm.BB(0), mm.BB(1), mm.BB(2), mm.BB(3), mm.BB(0), mm.BB(4), mm.BB(5), mm.BB(6), mm.BB(7), mm.BB(4)}
+        '--------------------------------------------------
+
+
     End Sub
 End Module
