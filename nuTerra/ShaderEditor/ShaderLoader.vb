@@ -63,6 +63,7 @@ Module ShaderLoader
         End Sub
 
         Sub UpdateShader()
+            uniforms = New Dictionary(Of String, Integer)
             loaded = False
             is_used = False
 
@@ -82,17 +83,11 @@ Module ShaderLoader
                 Return
             End If
 
-            Dim maxActiveUniformLen As Integer
             Dim numActiveUniforms As Integer
-
-            GL.GetProgram(program, GetProgramParameterName.ActiveUniformMaxLength, maxActiveUniformLen)
             GL.GetProgram(program, GetProgramParameterName.ActiveUniforms, numActiveUniforms)
 
-            Me.uniforms = New Dictionary(Of String, Integer)
             For i = 0 To numActiveUniforms - 1
-                Dim uniformNameLen As Integer
-                Dim uniformName As String = ""
-                GL.GetActiveUniformName(program, i, maxActiveUniformLen, uniformNameLen, uniformName)
+                Dim uniformName As String = GL.GetActiveUniformName(program, i)
                 If uniformName.StartsWith("gl_") Then
                     ' Skip internal glsl uniforms
                     Continue For
@@ -165,8 +160,6 @@ Module ShaderLoader
 
     Public Function assemble_shader(v As String, g As String, f As String, name As String, has_geo As Boolean) As Integer
         Dim status_code As Integer
-        Dim info As String = ""
-        Dim infoLen As Integer
 
         Dim program As Integer = GL.CreateProgram()
         If program = 0 Then
@@ -183,10 +176,10 @@ Module ShaderLoader
 
         GL.CompileShader(vertexObject)
 
-        GL.GetShaderInfoLog(vertexObject, 8192, infoLen, info)
+        ' Get & check status after compile
         GL.GetShader(vertexObject, ShaderParameter.CompileStatus, status_code)
-
         If status_code = 0 Then
+            Dim info = GL.GetShaderInfoLog(vertexObject)
             GL.DeleteShader(vertexObject)
             GL.DeleteProgram(program)
             gl_error(name + "_vertex didn't compile!" + vbCrLf + info.ToString)
@@ -202,10 +195,11 @@ Module ShaderLoader
         End Using
 
         GL.CompileShader(fragmentObject)
-        GL.GetShaderInfoLog(fragmentObject, 8192, infoLen, info)
-        GL.GetShader(fragmentObject, ShaderParameter.CompileStatus, status_code)
 
+        ' Get & check status after compile
+        GL.GetShader(fragmentObject, ShaderParameter.CompileStatus, status_code)
         If status_code = 0 Then
+            Dim info = GL.GetShaderInfoLog(fragmentObject)
             GL.DeleteShader(vertexObject)
             GL.DeleteShader(fragmentObject)
             GL.DeleteProgram(program)
@@ -225,10 +219,10 @@ Module ShaderLoader
 
             GL.CompileShader(geomObject)
 
-            GL.GetShaderInfoLog(geomObject, 8192, infoLen, info)
+            ' Get & check status after compile
             GL.GetShader(geomObject, ShaderParameter.CompileStatus, status_code)
-
             If status_code = 0 Then
+                Dim info = GL.GetShaderInfoLog(geomObject)
                 GL.DeleteShader(vertexObject)
                 GL.DeleteShader(fragmentObject)
                 GL.DeleteShader(geomObject)
@@ -260,8 +254,10 @@ Module ShaderLoader
         ' link program
         GL.LinkProgram(program)
 
+        ' Get & check status after link
         GL.GetProgram(program, GetProgramParameterName.LinkStatus, status_code)
-        If status_code = GL_FALSE Then
+        If status_code = 0 Then
+            Dim info = GL.GetProgramInfoLog(program)
             gl_error(name + " Would not link!" + vbCrLf + info.ToString)
         End If
 
