@@ -517,13 +517,13 @@ Module PrimitiveLoader
                         'tangents
                         v3 = unpackNormal_8_8_8(vt_br.ReadUInt32)
                         mdl(cur_sub).tangent_buffer(running).X = -v3.X
-                        mdl(cur_sub).tangent_buffer(running).Y = v3.y
-                        mdl(cur_sub).tangent_buffer(running).Z = v3.z
+                        mdl(cur_sub).tangent_buffer(running).Y = v3.Y
+                        mdl(cur_sub).tangent_buffer(running).Z = v3.Z
                         'biNormals
                         v3 = unpackNormal_8_8_8(vt_br.ReadUInt32)
-                        mdl(cur_sub).biNormal_buffer(running).X = -v3.x
-                        mdl(cur_sub).biNormal_buffer(running).Y = v3.y
-                        mdl(cur_sub).biNormal_buffer(running).Z = v3.z
+                        mdl(cur_sub).biNormal_buffer(running).X = -v3.X
+                        mdl(cur_sub).biNormal_buffer(running).Y = v3.Y
+                        mdl(cur_sub).biNormal_buffer(running).Z = v3.Z
                     End If
                     '-----------------------------------------------------------------------
                     running += 1

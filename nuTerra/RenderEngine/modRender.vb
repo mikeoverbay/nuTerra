@@ -149,9 +149,10 @@ Module modRender
             GL.Disable(EnableCap.PolygonOffsetFill)
             GL.PolygonMode(MaterialFace.Front, PolygonMode.Line)
 
-            GL.UseProgram(shader_list.colorOnly_shader)
+            colorOnlyShader.Use()
 
-            GL.Uniform3(colorOnly_color_id, 1.0F, 1.0F, 0.0F)
+            GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
+
 
             For z = 0 To MODEL_INDEX_LIST.Length - 2
                 Dim idx = MODEL_INDEX_LIST(z).model_index
@@ -162,7 +163,7 @@ Module modRender
                     Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
                     Dim MVM = modelMatrix * MODELVIEWMATRIX
                     Dim MVPM = MVM * PROJECTIONMATRIX
-                    GL.UniformMatrix4(colorOnly_PrjMatrix_id, False, MVPM)
+                    GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
 
                     Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                     Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
