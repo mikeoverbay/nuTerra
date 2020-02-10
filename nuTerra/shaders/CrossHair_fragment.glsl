@@ -12,7 +12,7 @@ in vec2 UV;
 
 void main(void){
 
-	vec4 color = texture(colorMap,UV * 5.0);
+	vec4 color = texture(colorMap, UV * 5.0);
 	gColor = color * shade;
-
+	gColor.xy = UV.xy;
 }

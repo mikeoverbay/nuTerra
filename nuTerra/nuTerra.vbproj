@@ -411,12 +411,6 @@
     <Content Include="Resources\PBS_Rock_05_NM.dds">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Resources\phobosmirror.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\phobosmirror_NORM.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="Resources\Ref_colorMap.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

@@ -29,12 +29,10 @@ Module ObjectRenderers
 
     Public Sub draw_cross_hair()
 
-        Dim position = Matrix4.CreateTranslation(U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z)
-
-
 
         CrossHairShader.Use()
 
+        Dim position = Matrix4.CreateTranslation(U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z)
         Dim MVPM = position * MODELVIEWMATRIX * PROJECTIONMATRIX
         GL.UniformMatrix4(CrossHairShader("ProjectionMatrix"), False, MVPM)
 
@@ -42,7 +40,7 @@ Module ObjectRenderers
 
         GL.ActiveTexture(TextureUnit.Texture0)
         GL.BindTexture(TextureTarget.Texture2D, CROSS_HAIR_TEXTURE)
-        GL.Uniform4(CrossHairShader("shade"), 1.0F, 0.0F, 0.0F, 1.0F)
+        GL.Uniform4(CrossHairShader("shade"), 1.0F, 1.0F, 1.0F, 1.0F)
 
         GL.BindVertexArray(CROSS_HAIR.mdl_VAO)
 
