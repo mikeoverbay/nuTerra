@@ -8,11 +8,15 @@ Module modRender
     Public angle1, angle2 As Single
     Public Sub draw_scene()
 
+        '===========================================================================
+        'house keeping
         FRAME_TIMER.Restart()
+        TOTAL_TRIANGLES_DRAWN = 0
+        '===========================================================================
 
         frmMain.glControl_main.MakeCurrent()
-
-        HOG_TIME = 5
+        '===========================================================================
+        HOG_TIME = 5 ' <- this probably needs to be set lower when we are done. 3?
         If SHOW_MAPS_SCREEN Then
             gl_pick_map(MOUSE.X, MOUSE.Y)
             HOG_TIME = 16
@@ -23,65 +27,101 @@ Module modRender
             HOG_TIME = 16
             Return
         End If
+        '===========================================================================
 
-        TOTAL_TRIANGLES_DRAWN = 0
+        '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) '================
+        '===========================================================================
 
+        '===========================================================================
+        set_prespective_view() ' <-- sets camera and prespective view ==============
+        '===========================================================================
 
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) ' Use FBO_main buffer
-        FBOm.attach_CNGP()
-        '-------------------------------------------------------
-
-        set_prespective_view() ' <-- sets camera and prespective view
-        'after camera is set
-        CULLED_COUNT = 0
-        ExtractFrustum()
+        '===========================================================================
+        CULLED_COUNT = 0 'User Info
+        ExtractFrustum() 'Has to be done every new frame. Camara is dynamic
         If MODELS_LOADED Then
             check_models_visible()
         End If
+        '===========================================================================
 
+        '===========================================================================
+        FBOm.attach_CNGP() 'clear ALL gTextures!
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+        '===========================================================================
 
-
-        '------------------------------------------------
-        '------------------------------------------------
+        '===========================================================================
         'GL States
         GL.Enable(EnableCap.DepthTest)
         GL.Enable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
-        '------------------------------------------------
-        '------------------------------------------------
+        '===========================================================================
 
-        '------------------------------------------------
-        '------------------------------------------------
-        'Draw temp light positon.
-        FBOm.attach_C()
-        Dim v As New Vector3
-        v.X = LIGHT_POS(0) : v.Y = LIGHT_POS(1) : v.Z = LIGHT_POS(2)
-        'unremming this screws up the VertexAttribPointers 
-        draw_one_damn_moon(v)
-        '------------------------------------------------
-        '------------------------------------------------
-        'Draw the cross hair if we are moving the look_at location
-        If MOVE_MOD Or Z_MOVE Then
-            If MOVE_MOD And Not Z_MOVE Then
-                frmMain.glControl_main.Cursor = Cursors.SizeAll
-            End If
-            If Z_MOVE Then
-                frmMain.glControl_main.Cursor = Cursors.SizeNS
-            End If
-            FBOm.attach_C()
-            draw_cross_hair()
-        Else
-            frmMain.glControl_main.Cursor = Cursors.Default
-        End If
-        '------------------------------------------------
-        '------------------------------------------------
+        '===========================================================================
+        Draw_Light_Orb() '==========================================================
+        '===========================================================================
+
+        '===========================================================================
+        draw_cross_hair() '========================================================
+        '===========================================================================
+
         FBOm.attach_CNGP()
 
+        If MODELS_LOADED Then
+            '===========================================================================
+            draw_models() '=============================================================
+            '===========================================================================
+
+            '===========================================================================
+            draw_wire_overlay() '=======================================================
+            '===========================================================================
+
+            '===========================================================================
+            draw_TBN_Visualizer() '=====================================================
+            '===========================================================================
+        End If
+
         '===========================================================================
-        'draw the test MDL model using VAO =========================================
+        '================== Deferred Rendering, HUD and MINI MAP ===================
         '===========================================================================
+
+        'We can now switch to the default hardware buffer.
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+
+        'house keeping
+        '===========================================================================
+        GL.Disable(EnableCap.CullFace)
+        GL.Disable(EnableCap.Blend)
+        GL.Disable(EnableCap.DepthTest)
+        GL.Clear(ClearBufferMask.ColorBufferBit)
+        '===========================================================================
+
+        '===========================================================================
+        render_deferred_buffers() '=================================================
+        '===========================================================================
+
+        '===========================================================================
+        render_HUD() '==============================================================
+        '===========================================================================
+
+        '===========================================================================
+        frmMain.glControl_main.SwapBuffers() '======================================
+        '===========================================================================
+
+        '===========================================================================
+        draw_mini_map() '===========================================================
+        '===========================================================================
+
+        If frmGbufferViewer.Visible Then
+            frmGbufferViewer.update_screen()
+        End If
+
+        FPS_COUNTER += 1
+
+    End Sub
+
+    Private Sub draw_models()
         'SOLID FILL
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             GL.PolygonOffset(1, 1)
@@ -139,109 +179,10 @@ Module modRender
         modelShader.StopUse()
         unbind_textures(2) ' unbind all the used texture slots
 
-        '===========================================================================
-        ' WIRE OVERLAY =============================================================
-        '===========================================================================
-        If WIRE_MODELS Then
-            FBOm.attach_C()
-            GL.Disable(EnableCap.PolygonOffsetFill)
 
-            wireframeShader.Use()
+    End Sub
 
-            GL.Uniform3(wireframeShader("color"), 1.0F, 1.0F, 0.0F)
-
-            For z = 0 To MODEL_INDEX_LIST.Length - 2
-                Dim idx = MODEL_INDEX_LIST(z).model_index
-                Dim model = MAP_MODELS(idx).mdl(0)
-
-                If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
-
-                    Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
-                    Dim MVM = modelMatrix * MODELVIEWMATRIX
-                    Dim MVPM = MVM * PROJECTIONMATRIX
-                    GL.UniformMatrix4(wireframeShader("modelMatrix"), False, MVM)
-                    GL.UniformMatrix4(wireframeShader("modelViewProjection"), False, MVPM)
-
-                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
-
-                    GL.BindVertexArray(model.mdl_VAO)
-                    For i = 0 To model.primitive_count - 1
-                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
-                        GL.DrawElements(PrimitiveType.Triangles,
-                                        model.entries(i).numIndices,
-                                        triType,
-                                        offset)
-                    Next
-
-                End If
-
-            Next
-            wireframeShader.StopUse()
-        End If
-
-        '===========================================================================
-        ' TBN VISUALIZER ===========================================================
-        '===========================================================================
-        If NORMAL_DISPLAY_MODE > 0 Then
-            FBOm.attach_C()
-            GL.Disable(EnableCap.PolygonOffsetFill)
-
-            normalShader.Use()
-
-            For z = 0 To MODEL_INDEX_LIST.Length - 2
-                Dim idx = MODEL_INDEX_LIST(z).model_index
-                Dim model = MAP_MODELS(idx).mdl(0)
-
-                If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
-
-                    Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
-                    Dim MVM = modelMatrix * MODELVIEWMATRIX
-                    Dim MVPM = MVM * PROJECTIONMATRIX
-
-                    GL.UniformMatrix4(normalShader("MVPM"), False, MVPM)
-
-                    GL.Uniform1(normalShader("prj_length"), 0.1F)
-                    GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
-
-                    GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
-
-                    Dim er0 = GL.GetError
-                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
-
-                    GL.BindVertexArray(model.mdl_VAO)
-                    For i = 0 To model.primitive_count - 1
-                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
-                        GL.DrawElements(PrimitiveType.Triangles,
-                                        model.entries(i).numIndices,
-                                        triType,
-                                        offset)
-                    Next
-                End If
-
-            Next
-            GL.BindVertexArray(0)
-            normalShader.StopUse()
-        End If
-
-
-        '===========================================================================
-        '===========================================================================
-        'Draws a full screen quad to render FBO textures. ==========================
-        '===========================================================================
-        '===========================================================================
-
-        'We can now switch to the default hardware buffer.
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
-
-        'house keeping
-        GL.Disable(EnableCap.CullFace)
-        GL.Disable(EnableCap.Blend)
-        GL.Disable(EnableCap.DepthTest)
-
-        GL.Clear(ClearBufferMask.ColorBufferBit)
-
+    Private Sub render_deferred_buffers()
         '===========================================================================
         ' Test our deferred shader =================================================
         '===========================================================================
@@ -286,6 +227,12 @@ Module modRender
 
         deferredShader.StopUse()
 
+    End Sub
+
+    ''' <summary>
+    ''' renders all 2D things in ortho mode
+    ''' </summary>
+    Private Sub render_HUD()
         '===========================================================================
         ' Text Rendering ===========================================================
         '===========================================================================
@@ -297,6 +244,7 @@ Module modRender
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
         Dim tr = TOTAL_TRIANGLES_DRAWN * LOOP_COUNT
+
         Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", CULLED_COUNT, FPS_TIME, tr, elapsed)
         DrawText.DrawString(txt, mono, Brushes.White, position)
 
@@ -311,13 +259,9 @@ Module modRender
         ' Text Rendering End =======================================================
         '===========================================================================
 
-        frmMain.glControl_main.SwapBuffers() '<---------------------- Buffer Swap
-        FPS_COUNTER += 1
+    End Sub
 
-        'draw_maps()
-        If frmGbufferViewer.Visible Then
-            frmGbufferViewer.update_screen()
-        End If
+    Private Sub draw_mini_map()
 #If 1 Then
         frmMain.glControl_MiniMap.Visible = True
         frmMain.glControl_MiniMap.BringToFront()
@@ -354,11 +298,145 @@ Module modRender
 #End If
     End Sub
 
+    Private Sub draw_wire_overlay()
+
+        If WIRE_MODELS Then
+
+            FBOm.attach_C()
+
+            GL.Disable(EnableCap.PolygonOffsetFill)
+            GL.PolygonMode(MaterialFace.Front, PolygonMode.Line)
+
+            colorOnlyShader.Use()
+
+            GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
+
+
+            For z = 0 To MODEL_INDEX_LIST.Length - 2
+                Dim idx = MODEL_INDEX_LIST(z).model_index
+                Dim model = MAP_MODELS(idx).mdl(0)
+
+                If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
+
+                    Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
+                    Dim MVM = modelMatrix * MODELVIEWMATRIX
+                    Dim MVPM = MVM * PROJECTIONMATRIX
+                    GL.UniformMatrix4(colorOnlyShader("ModelMatrix"), False, MVM)
+                    GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
+
+                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
+                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
+
+                    GL.BindVertexArray(model.mdl_VAO)
+                    For i = 0 To model.primitive_count - 1
+                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
+                        GL.DrawElements(PrimitiveType.Triangles,
+                                        model.entries(i).numIndices,
+                                        triType,
+                                        offset)
+                    Next
+
+                End If
+
+            Next
+            colorOnlyShader.StopUse()
+            GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
+        End If
+
+    End Sub
+
+    Private Sub draw_TBN_Visualizer()
+        If NORMAL_DISPLAY_MODE > 0 Then
+            FBOm.attach_C()
+            GL.Disable(EnableCap.PolygonOffsetFill)
+
+            normalShader.Use()
+
+            For z = 0 To MODEL_INDEX_LIST.Length - 2
+                Dim idx = MODEL_INDEX_LIST(z).model_index
+                Dim model = MAP_MODELS(idx).mdl(0)
+
+                If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
+
+                    Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
+                    Dim MVM = modelMatrix * MODELVIEWMATRIX
+                    Dim MVPM = MVM * PROJECTIONMATRIX
+
+                    GL.UniformMatrix4(normalShader("MVPM"), False, MVPM)
+
+                    GL.Uniform1(normalShader("prj_length"), 0.1F)
+                    GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
+
+                    GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
+
+                    Dim er0 = GL.GetError
+                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
+                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
+
+                    GL.BindVertexArray(model.mdl_VAO)
+                    For i = 0 To model.primitive_count - 1
+                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
+                        GL.DrawElements(PrimitiveType.Triangles,
+                                        model.entries(i).numIndices,
+                                        triType,
+                                        offset)
+                    Next
+                End If
+
+            Next
+            GL.BindVertexArray(0)
+            normalShader.StopUse()
+
+        End If
+
+    End Sub
+
+    Private Sub Draw_Light_Orb()
+        'Dont draw if not told to
+        If Not frmMain.m_show_light_pos.Checked Then
+            Return
+        End If
+        FBOm.attach_C()
+
+        Dim model = Matrix4.CreateTranslation(LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
+
+        Dim scale_ As Single = 30.0
+        Dim sMat = Matrix4.CreateScale(scale_)
+
+        Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
+        colorOnlyShader.Use()
+
+        GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
+
+        GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
+
+        GL.BindVertexArray(MOON.mdl_VAO)
+
+        GL.DrawElements(PrimitiveType.Triangles, (MOON.indice_count * 3), DrawElementsType.UnsignedShort, MOON.index_buffer16)
+
+        GL.BindVertexArray(0)
+
+        colorOnlyShader.StopUse()
+    End Sub
+
+    Private Sub draw_cross_hair()
+        If MOVE_MOD Or Z_MOVE Then
+            If MOVE_MOD And Not Z_MOVE Then
+                frmMain.glControl_main.Cursor = Cursors.SizeAll
+            End If
+            If Z_MOVE Then
+                frmMain.glControl_main.Cursor = Cursors.SizeNS
+            End If
+            FBOm.attach_C()
+            draw_cross_hair()
+        Else
+            frmMain.glControl_main.Cursor = Cursors.Default
+        End If
+
+    End Sub
     ''' <summary>
     ''' Unbinds textures from last used to zero
     ''' </summary>
-    ''' <param name="start"></param>
-    ''' <remarks></remarks>
     Private Sub unbind_textures(ByVal start As Integer)
         'doing this backwards leaves TEXTURE0 active :)
         For i = start To 0 Step -1

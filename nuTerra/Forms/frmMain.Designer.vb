@@ -35,10 +35,15 @@ Partial Class frmMain
 #End If
 
         Me.glControl_main = New OpenTK.GLControl(GraphicsMode.Default, 4, 3, flags)
+
         Me.glControl_MiniMap = New OpenTK.GLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_load_map = New System.Windows.Forms.ToolStripMenuItem()
+        Me.ToolStripSeparator1 = New System.Windows.Forms.ToolStripSeparator()
+        Me.m_developer_mode = New System.Windows.Forms.ToolStripMenuItem()
+        Me.ToolStripSeparator2 = New System.Windows.Forms.ToolStripSeparator()
+        Me.m_shut_down = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_set_game_path = New System.Windows.Forms.ToolStripMenuItem()
@@ -49,10 +54,8 @@ Partial Class frmMain
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.FolderBrowserDialog1 = New System.Windows.Forms.FolderBrowserDialog()
-        Me.m_developer_mode = New System.Windows.Forms.ToolStripMenuItem()
-        Me.ToolStripSeparator1 = New System.Windows.Forms.ToolStripSeparator()
-        Me.ToolStripSeparator2 = New System.Windows.Forms.ToolStripSeparator()
-        Me.m_shut_down = New System.Windows.Forms.ToolStripMenuItem()
+        Me.ToolStripSeparator3 = New System.Windows.Forms.ToolStripSeparator()
+        Me.m_show_light_pos = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         Me.SuspendLayout()
         '
@@ -65,12 +68,12 @@ Partial Class frmMain
         Me.glControl_main.TabIndex = 0
         Me.glControl_main.VSync = False
         '
-        'glControl_utility
+        'glControl_MiniMap
         '
         Me.glControl_MiniMap.Anchor = System.Windows.Forms.AnchorStyles.None
         Me.glControl_MiniMap.BackColor = System.Drawing.Color.Blue
         Me.glControl_MiniMap.Location = New System.Drawing.Point(471, 101)
-        Me.glControl_MiniMap.Name = "glControl_utility"
+        Me.glControl_MiniMap.Name = "glControl_MiniMap"
         Me.glControl_MiniMap.Size = New System.Drawing.Size(167, 223)
         Me.glControl_MiniMap.TabIndex = 0
         Me.glControl_MiniMap.VSync = False
@@ -99,6 +102,28 @@ Partial Class frmMain
         Me.m_load_map.Size = New System.Drawing.Size(161, 22)
         Me.m_load_map.Text = "Load Map"
         '
+        'ToolStripSeparator1
+        '
+        Me.ToolStripSeparator1.Name = "ToolStripSeparator1"
+        Me.ToolStripSeparator1.Size = New System.Drawing.Size(158, 6)
+        '
+        'm_developer_mode
+        '
+        Me.m_developer_mode.Name = "m_developer_mode"
+        Me.m_developer_mode.Size = New System.Drawing.Size(161, 22)
+        Me.m_developer_mode.Text = "Developer Mode"
+        '
+        'ToolStripSeparator2
+        '
+        Me.ToolStripSeparator2.Name = "ToolStripSeparator2"
+        Me.ToolStripSeparator2.Size = New System.Drawing.Size(158, 6)
+        '
+        'm_shut_down
+        '
+        Me.m_shut_down.Name = "m_shut_down"
+        Me.m_shut_down.Size = New System.Drawing.Size(161, 22)
+        Me.m_shut_down.Text = "Shut Me Down"
+        '
         'm_help
         '
         Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
@@ -110,7 +135,7 @@ Partial Class frmMain
         'm_settings
         '
         Me.m_settings.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_settings.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_set_game_path})
+        Me.m_settings.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_set_game_path, Me.ToolStripSeparator3, Me.m_show_light_pos})
         Me.m_settings.ForeColor = System.Drawing.Color.Black
         Me.m_settings.Name = "m_settings"
         Me.m_settings.Size = New System.Drawing.Size(61, 20)
@@ -168,27 +193,19 @@ Partial Class frmMain
         '
         Me.startup_delay_timer.Interval = 1000
         '
-        'm_developer_mode
+        'ToolStripSeparator3
         '
-        Me.m_developer_mode.Name = "m_developer_mode"
-        Me.m_developer_mode.Size = New System.Drawing.Size(161, 22)
-        Me.m_developer_mode.Text = "Developer Mode"
+        Me.ToolStripSeparator3.Name = "ToolStripSeparator3"
+        Me.ToolStripSeparator3.Size = New System.Drawing.Size(318, 6)
         '
-        'ToolStripSeparator1
+        'm_show_light_pos
         '
-        Me.ToolStripSeparator1.Name = "ToolStripSeparator1"
-        Me.ToolStripSeparator1.Size = New System.Drawing.Size(158, 6)
-        '
-        'ToolStripSeparator2
-        '
-        Me.ToolStripSeparator2.Name = "ToolStripSeparator2"
-        Me.ToolStripSeparator2.Size = New System.Drawing.Size(158, 6)
-        '
-        'm_shut_down
-        '
-        Me.m_shut_down.Name = "m_shut_down"
-        Me.m_shut_down.Size = New System.Drawing.Size(161, 22)
-        Me.m_shut_down.Text = "Shut Me Down"
+        Me.m_show_light_pos.Checked = True
+        Me.m_show_light_pos.CheckOnClick = True
+        Me.m_show_light_pos.CheckState = System.Windows.Forms.CheckState.Checked
+        Me.m_show_light_pos.Name = "m_show_light_pos"
+        Me.m_show_light_pos.Size = New System.Drawing.Size(321, 22)
+        Me.m_show_light_pos.Text = "Show Light Position"
         '
         'frmMain
         '
@@ -231,5 +248,7 @@ Partial Class frmMain
     Friend WithEvents m_developer_mode As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripSeparator2 As System.Windows.Forms.ToolStripSeparator
     Friend WithEvents m_shut_down As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents ToolStripSeparator3 As System.Windows.Forms.ToolStripSeparator
+    Friend WithEvents m_show_light_pos As System.Windows.Forms.ToolStripMenuItem
 
 End Class

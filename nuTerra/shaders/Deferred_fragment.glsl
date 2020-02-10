@@ -13,6 +13,10 @@ uniform mat4 ProjectionMatrix;
 
 uniform vec3 LightPos;
 
+uniform float AMBIENT;
+uniform float BRIGHTNESS;
+uniform float SPECULAR;
+
 in vec3 CameraPos;
 in vec2 UV;
 
@@ -20,13 +24,11 @@ in mat4 projMatrixInv;
 
 // Functions ///////////////////////////////////////
 
+// this is for making sure we actually are getting the depth.
 float linearDepth(float depthSample)
 {
     float f = 5000.0;
     float n = 1.0;
-    
-    //depthSample = 2.0 * depthSample - 1.0;
-    //float zLinear = 2.0 * zNear * zFar / (zFar + zNear - depthSample * (zFar - zNear));
     return  (2.0 * n) / (f + n - depthSample * (f - n));
 }
 

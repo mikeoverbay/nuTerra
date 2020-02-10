@@ -5,26 +5,9 @@ Imports OpenTK.Graphics.OpenGL
 
 Module ObjectRenderers
 
-    Public Sub draw_one_damn_moon(ByVal location As Vector3)
+    Public Sub draw_the_light(ByVal location As Vector3)
 
-        Dim model = Matrix4.CreateTranslation(location.X, location.Y, location.Z)
 
-        Dim scale_ As Single = 30.0
-        Dim sMat = Matrix4.CreateScale(scale_)
-
-        Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
-        colorOnlyShader.Use()
-
-        GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
-
-        GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
-
-        GL.BindVertexArray(MOON.mdl_VAO)
-
-        GL.DrawElements(PrimitiveType.Triangles, (MOON.indice_count * 3), DrawElementsType.UnsignedShort, MOON.index_buffer16)
-
-        GL.BindVertexArray(0)
-        colorOnlyShader.StopUse()
     End Sub
 
     Public Sub draw_cross_hair()
