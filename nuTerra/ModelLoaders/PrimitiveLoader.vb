@@ -588,7 +588,7 @@ Module PrimitiveLoader
         If len = 0.0F Then len = 1.0F
         'len = 1.0
         'reduce to unit size
-        p.X = (p.X / len)
+        p.X = -(p.X / len)
         p.Y = -(p.Y / len)
         p.Z = -(p.Z / len)
         Return p
