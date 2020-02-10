@@ -28,7 +28,7 @@ Partial Class frmMain
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
 
-#If 0 Then '<------ set to 1 to enable core profile
+#If 1 Then '<------ set to 0 to disable core profile
         Dim flags = GraphicsContextFlags.Debug Or GraphicsContextFlags.ForwardCompatible
 #Else
         Dim flags = GraphicsContextFlags.Debug

@@ -128,6 +128,7 @@ Module ShaderLoader
     Public normalShader As Shader
     Public normalOffsetShader As Shader
     Public toLinearShader As Shader
+    Public wireframeShader As Shader
 
 #End Region
 
@@ -149,6 +150,7 @@ Module ShaderLoader
         normalShader = New Shader("normal")
         normalOffsetShader = New Shader("normalOffset")
         toLinearShader = New Shader("toLinear")
+        wireframeShader = New Shader("wireframe")
 
         shaders = New List(Of Shader)
         shaders.Add(image2dShader)
@@ -162,6 +164,7 @@ Module ShaderLoader
         shaders.Add(normalShader)
         shaders.Add(normalOffsetShader)
         shaders.Add(toLinearShader)
+        shaders.Add(wireframeShader)
     End Sub
 
     Public Function assemble_shader(v As String, g As String, f As String, name As String, has_geo As Boolean) As Integer

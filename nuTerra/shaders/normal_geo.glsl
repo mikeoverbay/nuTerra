@@ -10,15 +10,15 @@ uniform mat4 MVPM;
 in vec3 n[3];
 in vec3 t[3];
 in vec3 b[3];
-out vec4 color;
 
+out vec4 color;
 
 void main()
 {
     vec4 sumV;
     vec4 sumN;
     if (mode == 1) {
-        sumV = (gl_in[0].gl_Position + gl_in[1].gl_Position +gl_in[2].gl_Position ) / 3.0;
+        sumV = (gl_in[0].gl_Position + gl_in[1].gl_Position + gl_in[2].gl_Position ) / 3.0;
 
         //Normal
             color = vec4(1.0,0.0,0.0,1.0);
@@ -48,11 +48,11 @@ void main()
             EmitVertex();
             EndPrimitive();
     }
-    else
-    {
+    else {
+        int i;
         // normal
         color = vec4(1.0,0.0,0.0,1.0);
-        for(int i = 0; i < gl_in.length; ++i)
+        for(i = 0; i < gl_in.length(); i++)
         {
             gl_Position = MVPM * gl_in[i].gl_Position;
             EmitVertex();
@@ -62,7 +62,7 @@ void main()
         }
         // Tangent
         color = vec4(0.0,1.0,0.0,1.0);
-        for(int i = 0; i < gl_in.length; ++i)
+        for(i = 0; i < gl_in.length(); i++)
         {
             gl_Position = MVPM * gl_in[i].gl_Position;
             EmitVertex();
@@ -72,7 +72,7 @@ void main()
         }
         // biTangent
             color = vec4(0.0,0.0,1.0,1.0);
-        for(int i = 0; i < gl_in.length; ++i)
+        for(i = 0; i < gl_in.length(); i++)
         {
             gl_Position = MVPM * gl_in[i].gl_Position;
             EmitVertex();

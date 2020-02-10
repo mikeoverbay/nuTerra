@@ -144,14 +144,11 @@ Module modRender
         '===========================================================================
         If WIRE_MODELS Then
             FBOm.attach_C()
-
             GL.Disable(EnableCap.PolygonOffsetFill)
-            GL.PolygonMode(MaterialFace.Front, PolygonMode.Line)
 
-            colorOnlyShader.Use()
+            wireframeShader.Use()
 
-            GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
-
+            GL.Uniform3(wireframeShader("color"), 1.0F, 1.0F, 0.0F)
 
             For z = 0 To MODEL_INDEX_LIST.Length - 2
                 Dim idx = MODEL_INDEX_LIST(z).model_index
@@ -162,8 +159,8 @@ Module modRender
                     Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
                     Dim MVM = modelMatrix * MODELVIEWMATRIX
                     Dim MVPM = MVM * PROJECTIONMATRIX
-                    GL.UniformMatrix4(colorOnlyShader("ModelMatrix"), False, MVM)
-                    GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
+                    GL.UniformMatrix4(wireframeShader("modelMatrix"), False, MVM)
+                    GL.UniformMatrix4(wireframeShader("modelViewProjection"), False, MVPM)
 
                     Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                     Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
@@ -180,9 +177,7 @@ Module modRender
                 End If
 
             Next
-            GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
-
-            colorOnlyShader.StopUse()
+            wireframeShader.StopUse()
         End If
 
         '===========================================================================
@@ -228,7 +223,6 @@ Module modRender
             Next
             GL.BindVertexArray(0)
             normalShader.StopUse()
-
         End If
 
 
