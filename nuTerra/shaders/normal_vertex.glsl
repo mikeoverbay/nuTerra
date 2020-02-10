@@ -8,7 +8,6 @@ layout(location = 3) in vec3 vertexTangent;
 layout(location = 4) in vec3 vertexBinormal;
 layout(location = 5) in vec2 vertexTexCoord2;
 
-
 out vec3 n;      
 out vec3 t;      
 out vec3 b;      

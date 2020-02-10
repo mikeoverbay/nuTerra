@@ -548,9 +548,7 @@ Module PrimitiveLoader
 
     Private Function unpackNormal_8_8_8(packed As UInt32) As Vector3
         Dim pkz, pky, pkx As Int32
-        'Dim sample As Byte
         pkx = CLng(packed) And &HFF Xor 127
-        'sample = packed And &HFF
         pky = CLng(packed >> 8) And &HFF Xor 127
         pkz = CLng(packed >> 16) And &HFF Xor 127
 
@@ -562,26 +560,24 @@ Module PrimitiveLoader
         If x > 127 Then
             x = -128 + (x - 128)
         End If
-        'lookup(CInt(x + 127)) = sample
-
         If y > 127 Then
             y = -128 + (y - 128)
         End If
         If z > 127 Then
             z = -128 + (z - 128)
         End If
-        p.x = CSng(x) / 127
-        p.y = CSng(y) / 127
-        p.z = CSng(z) / 127
-        Dim len As Single = Sqrt((p.x ^ 2) + (p.y ^ 2) + (p.z ^ 2))
+        p.X = CSng(x) / 127
+        p.Y = CSng(y) / 127
+        p.Z = CSng(z) / 127
+        Dim len As Single = Sqrt((p.X ^ 2) + (p.Y ^ 2) + (p.Z ^ 2))
 
         'avoid division by 0
         If len = 0.0F Then len = 1.0F
         'len = 1.0
         'reduce to unit size
-        p.x = -(p.x / len)
-        p.y = -(p.y / len)
-        p.z = -(p.z / len)
+        p.X = (p.X / len)
+        p.Y = -(p.Y / len)
+        p.Z = -(p.Z / len)
         Return p
     End Function
 

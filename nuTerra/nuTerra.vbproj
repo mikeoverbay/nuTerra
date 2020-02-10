@@ -197,6 +197,7 @@
     <Compile Include="OpenGL\modOpenGL.vb" />
     <Compile Include="RenderEngine\modFrustum.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
+    <Compile Include="RenderEngine\ObjectRenderers.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
     <Compile Include="ShaderEditor\frmEditFrag.designer.vb">
       <DependentUpon>frmEditFrag.vb</DependentUpon>
@@ -282,6 +283,9 @@
     </None>
     <None Include="packages.config" />
     <None Include="Resources\compass.x" />
+    <None Include="Resources\cross_hair.x">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="Resources\cube.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -289,6 +293,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="Resources\moon.x">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\CrossHair_fragment.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\CrossHair_vertex.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\image2d_fragment.glsl">
@@ -375,6 +385,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="light_settings\readme.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\cross_hair_texture.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\earth.png">

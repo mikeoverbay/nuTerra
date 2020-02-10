@@ -119,6 +119,7 @@ Module ShaderLoader
 
     'Public basicShader As Shader
     Public colorOnlyShader As Shader
+    Public CrossHairShader As Shader
     Public deferredShader As Shader
     Public gWriterShader As Shader
     Public image2dShader As Shader
@@ -138,6 +139,7 @@ Module ShaderLoader
     Public Sub build_shaders()
         'basicShader = New Shader("basic")
         colorOnlyShader = New Shader("colorOnly")
+        CrossHairShader = New Shader("CrossHair")
         deferredShader = New Shader("deferred")
         gWriterShader = New Shader("gWriter")
         image2dShader = New Shader("image2d")
@@ -149,6 +151,7 @@ Module ShaderLoader
         shaders = New List(Of Shader)
         'shaders.Add(basicShader)
         shaders.Add(colorOnlyShader)
+        shaders.Add(CrossHairShader)
         shaders.Add(deferredShader)
         shaders.Add(gWriterShader)
         shaders.Add(image2dShader)

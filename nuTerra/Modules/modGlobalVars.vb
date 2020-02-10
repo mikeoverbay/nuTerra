@@ -4,46 +4,48 @@ Imports OpenTK
 Module modGlobalVars
     'Define these in CAP TEXT
 
-    '---------------------
+    '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer
     Public m_color_id, m_normal_id, m_gmm_id As Integer
-    '---------------------
+    '============================================================
     'Render related
     Public NORMAL_DISPLAY_MODE As Integer ' None, by vertex, by face
     Public FRAME_TIMER As New Stopwatch
     Public LOOP_COUNT As Integer = 200
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer
-    Public MOON As base_model_holder_
     'wire flags
     Public WIRE_MODELS As Boolean
     Public WIRE_DECALS As Boolean
     Public WIRE_TERRAIN As Boolean
-
-    '---------------------
+    'models
+    Public CROSS_HAIR As base_model_holder_
+    Public CROSS_HAIR_TEXTURE As Integer
+    Public MOON As base_model_holder_
+    '============================================================
     'sleep time for upedate thread.
     'lower draws faster but kills apps responsiveness
     Public HOG_TIME As Integer = 3
-    '---------------------
+    '============================================================
     'load screen background image
     Public nuTERRA_BG_IMAGE As Integer
-    '---------------------
+    '============================================================
     Public N_MAP_TYPE As Integer '<------------- temp value
-    '---------------------
+    '============================================================
     Public LIGHT_POS(3) As Single
     Public LIGHT_RADIUS As Single 'Used when orbiting the light
     Public LIGHT_ORBIT_ANGLE As Single 'Used when orbiting the light
     Public PAUSE_ORBIT As Boolean
     Public LIGHT_SPEED As Single = 0.01F
-    '---------------------
+    '============================================================
     Public TOTAL_TRIANGLES_DRAWN As UInt32
     Public TOTAL_TRIANGLES_DRAWN_MODEL As UInt32
-    '---------------------
+    '============================================================
     Public _STARTED As Boolean 'Signals UI initialization is complete
-    '---------------------
+    '============================================================
     Public SYNCMUTEX As New Mutex 'Used to stop rendering during FBO and shader rebuilds
-    '---------------------
+    '============================================================
     'mouse camera related
     Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE As Boolean ' mouse control booleans
     Public M_MOUSE, MOUSE As New Point
@@ -53,11 +55,11 @@ Module modGlobalVars
     Public U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z As Single
     Public MOUSE_SPEED_GLOBAL As Single = 0.8
     Public CAM_POSITION As Vector3
-    '---------------------
+    '============================================================
     Public PROJECTIONMATRIX As New Matrix4
     Public MODELVIEWMATRIX As New Matrix4
     Public VIEW_PORT(1) As Single
-    '---------------------
+    '============================================================
     'Map related
     Public MAP_NAME_NO_PATH As String = ""
     Public MAP_LOADED As Boolean = False 'Rendering/settings clause
