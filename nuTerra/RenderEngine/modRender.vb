@@ -181,6 +181,8 @@ Module modRender
 
             Next
             GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
+
+            colorOnlyShader.StopUse()
         End If
 
         '===========================================================================
