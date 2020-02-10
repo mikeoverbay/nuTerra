@@ -471,38 +471,49 @@ Module PrimitiveLoader
                     'End If
 
                     If mdl(cur_sub).has_uv2 = 1 Then
-                        mdl(cur_sub).UV2_buffer(running).X = uv2_br.ReadSingle
-                        mdl(cur_sub).UV2_buffer(running).Y = uv2_br.ReadSingle
-                    End If
-                    '-----------------------------------------------------------------------
-                    'vertex
-                    mdl(cur_sub).Vertex_buffer(running).X = -vt_br.ReadSingle
-                    mdl(cur_sub).Vertex_buffer(running).Y = vt_br.ReadSingle
-                    mdl(cur_sub).Vertex_buffer(running).Z = vt_br.ReadSingle
-                    '-----------------------------------------------------------------------
-                    'normal
-                    If realNormals Then
-                        mdl(cur_sub).Normal_buffer(running).X = -vt_br.ReadSingle
-                        mdl(cur_sub).Normal_buffer(running).Y = vt_br.ReadSingle
-                        mdl(cur_sub).Normal_buffer(running).Z = vt_br.ReadSingle
-                    Else
-                        v3 = unpackNormal_8_8_8(vt_br.ReadUInt32)   ' unpack normals
-                        mdl(cur_sub).Normal_buffer(running).X = -v3.X
-                        mdl(cur_sub).Normal_buffer(running).Y = v3.Y
-                        mdl(cur_sub).Normal_buffer(running).Z = v3.Z
+                        With mdl(cur_sub).UV2_buffer(running)
+                            .X = uv2_br.ReadSingle
+                            .Y = uv2_br.ReadSingle
+                        End With
                     End If
 
                     '-----------------------------------------------------------------------
+                    'vertex
+                    With mdl(cur_sub).Vertex_buffer(running)
+                        .X = -vt_br.ReadSingle
+                        .Y = vt_br.ReadSingle
+                        .Z = vt_br.ReadSingle
+                    End With
+
+                    '-----------------------------------------------------------------------
+                    'normal
+                    With mdl(cur_sub).Normal_buffer(running)
+                        If realNormals Then
+                            .X = -vt_br.ReadSingle
+                            .Y = vt_br.ReadSingle
+                            .Z = vt_br.ReadSingle
+                        Else
+                            v3 = unpackNormal_8_8_8(vt_br.ReadUInt32) ' unpack normals
+                            .X = -v3.X
+                            .Y = v3.Y
+                            .Z = v3.Z
+                        End If
+                    End With
+
+                    '-----------------------------------------------------------------------
                     'uv 1
-                    mdl(cur_sub).UV1_buffer(running).X = vt_br.ReadSingle
-                    mdl(cur_sub).UV1_buffer(running).Y = vt_br.ReadSingle
+                    With mdl(cur_sub).UV1_buffer(running)
+                        .X = vt_br.ReadSingle
+                        .Y = vt_br.ReadSingle
+                    End With
+
                     '-----------------------------------------------------------------------
                     'if this vertex has index junk, skip it.
                     'no tangent and bitangent on BPVTxyznuviiiww type vertex
                     If hasIdx Then
                         vt_ms.Position += 8
-
                     End If
+
                     'If vh.header_text = "BPVTxyznuviiiww" Then
                     '    vt_ms.Position += 8
 
@@ -516,27 +527,29 @@ Module PrimitiveLoader
                     If mdl(cur_sub).has_tangent = 1 Then
                         'tangents
                         v3 = unpackNormal_8_8_8(vt_br.ReadUInt32)
-                        mdl(cur_sub).tangent_buffer(running).X = -v3.X
-                        mdl(cur_sub).tangent_buffer(running).Y = v3.Y
-                        mdl(cur_sub).tangent_buffer(running).Z = v3.Z
+                        With mdl(cur_sub).tangent_buffer(running)
+                            .X = -v3.X
+                            .Y = v3.Y
+                            .Z = v3.Z
+                        End With
+
                         'biNormals
                         v3 = unpackNormal_8_8_8(vt_br.ReadUInt32)
-                        mdl(cur_sub).biNormal_buffer(running).X = -v3.X
-                        mdl(cur_sub).biNormal_buffer(running).Y = v3.Y
-                        mdl(cur_sub).biNormal_buffer(running).Z = v3.Z
+                        With mdl(cur_sub).biNormal_buffer(running)
+                            .X = -v3.X
+                            .Y = v3.Y
+                            .Z = v3.Z
+                        End With
                     End If
                     '-----------------------------------------------------------------------
                     running += 1
                 Next
             Next
-            Try
 
-                build_model_VAO(mdl(cur_sub)) 'builds the VAO
-            Catch ex As Exception
+            'builds the VAO
+            build_model_VAO(mdl(cur_sub))
 
-            End Try
             fup_counter += 1
-            'build_test_lists(mdl(cur_sub)) 'builds test display lists
 
         End While ' end of outside sub_groups loop
         mdl(cur_sub).POLY_COUNT = TOTAL_TRIANGLES_DRAWN_MODEL
@@ -683,80 +696,6 @@ Module PrimitiveLoader
         GL.BindVertexArray(0)
         GL.Finish()
         'm.flush()
-        'build_vao_lists(m)
-    End Sub
-
-    Public Sub build_vao_lists(ByRef m As base_model_holder_)
-        For i = 1 To m.primitive_count - 1
-
-            m.entries(i).list_id = GL.GenLists(1)
-            GL.NewList(m.entries(i).list_id, ListMode.Compile)
-
-            If m.USHORTS Then
-                GL.DrawElements(PrimitiveType.Triangles,
-                                m.entries(i).numIndices,
-                                DrawElementsType.UnsignedShort, m.index_buffer16((m.entries(i).startIndex)))
-            Else
-                GL.DrawElements(PrimitiveType.Triangles,
-                                m.entries(i).numIndices,
-                                DrawElementsType.UnsignedInt, m.index_buffer32((m.entries(i).startIndex)))
-            End If
-            GL.EndList()
-            GL.Finish()
-        Next
-
-    End Sub
-    Public Sub build_test_lists(ByRef m As base_model_holder_)
-        For i = 0 To m.primitive_count - 1
-            m.entries(i).list_id = GL.GenLists(1)
-            GL.NewList(m.entries(i).list_id, ListMode.Compile)
-
-            Dim p As vect3_32
-            GL.Begin(PrimitiveType.Triangles)
-            For k = m.entries(i).startIndex To (m.entries(i).numIndices / 3 - 1) + m.entries(i).startIndex
-                If m.USHORTS Then
-                    p.x = m.index_buffer16(k).x
-                    p.y = m.index_buffer16(k).y
-                    p.z = m.index_buffer16(k).z
-                Else
-                    p.x = m.index_buffer32(k).x
-                    p.y = m.index_buffer32(k).y
-                    p.z = m.index_buffer32(k).z
-                End If
-                '1
-                GL.Normal3(m.Normal_buffer(p.x).X, m.Normal_buffer(p.x).Y, m.Normal_buffer(p.x).Z)
-                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.x).X, m.UV1_buffer(p.x).Y)
-                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.x).X, m.tangent_buffer(p.x).Y, m.tangent_buffer(p.x).Z)
-                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.x).X, m.biNormal_buffer(p.x).Y, m.biNormal_buffer(p.x).Z)
-                If m.has_uv2 = 1 Then
-                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.x).X, m.UV2_buffer(p.x).Y)
-                End If
-                GL.Vertex3(m.Vertex_buffer(p.x).X, m.Vertex_buffer(p.x).Y, m.Vertex_buffer(p.x).Z)
-
-                '1
-                GL.Normal3(m.Normal_buffer(p.y).X, m.Normal_buffer(p.y).Y, m.Normal_buffer(p.y).Z)
-                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.y).X, m.UV1_buffer(p.y).Y)
-                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.y).X, m.tangent_buffer(p.y).Y, m.tangent_buffer(p.y).Z)
-                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.y).X, m.biNormal_buffer(p.y).Y, m.biNormal_buffer(p.y).Z)
-                If m.has_uv2 = 1 Then
-                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.y).X, m.UV2_buffer(p.y).Y)
-                End If
-                GL.Vertex3(m.Vertex_buffer(p.y).X, m.Vertex_buffer(p.y).Y, m.Vertex_buffer(p.y).Z)
-
-                '1
-                GL.Normal3(m.Normal_buffer(p.z).X, m.Normal_buffer(p.z).Y, m.Normal_buffer(p.z).Z)
-                GL.MultiTexCoord2(TextureUnit.Texture0, m.UV1_buffer(p.z).X, m.UV1_buffer(p.z).Y)
-                GL.MultiTexCoord3(TextureUnit.Texture1, m.tangent_buffer(p.z).X, m.tangent_buffer(p.z).Y, m.tangent_buffer(p.z).Z)
-                GL.MultiTexCoord3(TextureUnit.Texture2, m.biNormal_buffer(p.z).X, m.biNormal_buffer(p.z).Y, m.biNormal_buffer(p.z).Z)
-                If m.has_uv2 = 1 Then
-                    GL.MultiTexCoord2(TextureUnit.Texture3, m.UV2_buffer(p.z).X, m.UV2_buffer(p.z).Y)
-                End If
-                GL.Vertex3(m.Vertex_buffer(p.z).X, m.Vertex_buffer(p.z).Y, m.Vertex_buffer(p.z).Z)
-
-            Next
-            GL.End()
-            GL.EndList()
-        Next
     End Sub
 
 End Module

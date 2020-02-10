@@ -24,7 +24,7 @@ Module ShaderLoader
                     'Stop ' For debugging
                 End If
                 If Not is_used Then
-                    Stop ' For debugging
+                    'Stop ' For debugging
                 End If
 #End If
                 If Not uniforms.ContainsKey(uniformName) Then
@@ -117,12 +117,13 @@ Module ShaderLoader
 
     Public shaders As List(Of Shader)
 
+    Public image2dShader As Shader
+    Public rect2dShader As Shader
     'Public basicShader As Shader
     Public colorOnlyShader As Shader
     Public CrossHairShader As Shader
     Public deferredShader As Shader
     Public gWriterShader As Shader
-    Public image2dShader As Shader
     Public modelShader As Shader
     Public normalShader As Shader
     Public normalOffsetShader As Shader
@@ -137,24 +138,26 @@ Module ShaderLoader
     ''' </summary>
     ''' <remarks></remarks>
     Public Sub build_shaders()
+        image2dShader = New Shader("image2d")
+        rect2dShader = New Shader("rect2d")
         'basicShader = New Shader("basic")
         colorOnlyShader = New Shader("colorOnly")
         CrossHairShader = New Shader("CrossHair")
         deferredShader = New Shader("deferred")
         gWriterShader = New Shader("gWriter")
-        image2dShader = New Shader("image2d")
         modelShader = New Shader("MDL")
         normalShader = New Shader("normal")
         normalOffsetShader = New Shader("normalOffset")
         toLinearShader = New Shader("toLinear")
 
         shaders = New List(Of Shader)
+        shaders.Add(image2dShader)
+        shaders.Add(rect2dShader)
         'shaders.Add(basicShader)
         shaders.Add(colorOnlyShader)
         shaders.Add(CrossHairShader)
         shaders.Add(deferredShader)
         shaders.Add(gWriterShader)
-        shaders.Add(image2dShader)
         shaders.Add(modelShader)
         shaders.Add(normalShader)
         shaders.Add(normalOffsetShader)

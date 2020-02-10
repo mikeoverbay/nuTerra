@@ -49,7 +49,6 @@ Module modRender
         GL.Enable(EnableCap.DepthTest)
         GL.Enable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
-        GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
         '------------------------------------------------
         '------------------------------------------------
 
@@ -243,11 +242,11 @@ Module modRender
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
 
         'house keeping
+        GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
-
-        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
-
         GL.Disable(EnableCap.DepthTest)
+
+        GL.Clear(ClearBufferMask.ColorBufferBit)
 
         '===========================================================================
         ' Test our deferred shader =================================================
@@ -298,7 +297,6 @@ Module modRender
         Dim position = PointF.Empty
         DrawText.clear(Color.FromArgb(0, 0, 0, 255))
 
-
         'save this.. we may want to use it for debug with a different source for the values.
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
@@ -309,11 +307,9 @@ Module modRender
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
-        Dim he As Integer = 20
-        draw_image_rectangle(New PointF(0, he), New PointF(FBOm.SCR_WIDTH, 0), DrawText.Gettexture)
+        draw_image_rectangle(New RectangleF(0, 0, FBOm.SCR_WIDTH, 20), DrawText.Gettexture)
 
         GL.Disable(EnableCap.Blend)
-
 
         '===========================================================================
         ' Text Rendering End =======================================================
@@ -375,87 +371,11 @@ Module modRender
         Next
     End Sub
 
-    Private Sub draw_main_Quad_LEGACY(w As Integer, h As Integer)
-        GL.Begin(PrimitiveType.Quads)
-        '  CCW...
-        '  1 ------ 4
-        '  |        |
-        '  |        |
-        '  2 ------ 3
-        '
-        GL.TexCoord2(0.0F, 1.0F)
-        GL.Vertex2(0.0F, 0.0F)
-
-        GL.TexCoord2(0.0F, 0.0F)
-        GL.Vertex2(0, -h)
-
-        GL.TexCoord2(1.0F, 0.0F)
-        GL.Vertex2(w, -h)
-
-        GL.TexCoord2(1.0F, 1.0F)
-        GL.Vertex2(w, 0.0F)
-        GL.End()
-    End Sub
-
     Private Sub draw_main_Quad(w As Integer, h As Integer)
-        Dim rectVao As Integer
-        GL.GenVertexArrays(1, rectVao)
-        GL.BindVertexArray(rectVao)
-
-        Dim rectBuffers(1) As Integer
-        GL.GenBuffers(2, rectBuffers)
-
-        Dim vertices As Single() = {
-            0.0F, 0.0F,
-            0.0F, -h,
-            w, -h,
-            w, 0.0F
-            }
-
-        Dim textCoords As Single() = {
-            0.0F, 1.0F,
-            0.0F, 0.0F,
-            1.0F, 0.0F,
-            1.0F, 1.0F
-            }
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, rectBuffers(0))
-        GL.BufferData(BufferTarget.ArrayBuffer,
-                      vertices.Length * SizeOf(GetType(Single)),
-                      vertices,
-                      BufferUsageHint.StaticDraw)
-
-        ' vertices
-        GL.VertexAttribPointer(0,
-                               2,
-                               VertexAttribPointerType.Float,
-                               False,
-                               0,
-                               0)
-        GL.EnableVertexAttribArray(0)
-
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, rectBuffers(1))
-        GL.BufferData(BufferTarget.ArrayBuffer,
-                      textCoords.Length * SizeOf(GetType(Single)),
-                      textCoords,
-                      BufferUsageHint.StaticDraw)
-
-        ' texcoords
-        GL.VertexAttribPointer(1,
-                               2,
-                               VertexAttribPointerType.Float,
-                               False,
-                               0,
-                               0)
-        GL.EnableVertexAttribArray(1)
-
-        GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4)
-
+        GL.Uniform4(deferredShader("rect"), 0.0F, CSng(-h), CSng(w), 0.0F)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
         GL.BindVertexArray(0)
-
-        GL.DeleteVertexArrays(1, rectVao)
-        GL.DeleteBuffers(2, rectBuffers)
     End Sub
 
 End Module

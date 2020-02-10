@@ -1,4 +1,5 @@
-﻿Imports OpenTK.Graphics.OpenGL
+﻿Imports OpenTK.Graphics
+Imports OpenTK.Graphics.OpenGL
 
 
 Module LoadingScreen
@@ -22,7 +23,6 @@ Module LoadingScreen
         Ortho_main()
         Dim ww = frmMain.glControl_main.ClientRectangle.Width
         'calculate scaling
-        Dim w_MaxValue = frmMain.glControl_main.ClientRectangle.Width / BG_MAX_VALUE
         Dim w_Valuev = (BG_VALUE / BG_MAX_VALUE) * (ww)
 
         ' Clear the color buffer
@@ -32,55 +32,18 @@ Module LoadingScreen
         Dim ls = (1920.0F - ww) / 2.0F
 
         ' Draw Terra Image
-        draw_image_rectangle(New PointF(-ls, 0.0F),
-                             New PointF(-ls + 1920.0F, 1080.0F),
+        draw_image_rectangle(New RectangleF(-ls, 0, 1920, 1080),
                              nuTERRA_BG_IMAGE)
 
         ' Draw 'Loading Models...' text
         draw_text()
 
-        '==============================================
-        'Draw Bargraph ================================
-        '==============================================
-
-        Dim SP As New PointF
-        Dim EP As New PointF
-
-        Dim w = BG_MAX_VALUE
-        Dim h = 20.0
-        SP.X = 0.0F : SP.Y = 10.0F
-        EP.X = frmMain.glControl_main.ClientRectangle.Width : EP.Y = 30
-        EP.X = w_Valuev : EP.Y = 30
-
-        GL.Color3(1.0F, 1.0F, 1.0F)
-        draw_rectangle_LEGACY(SP, EP)
+        'Draw Bargraph
+        draw_color_rectangle(New RectangleF(0.0F, 10.0F, w_Valuev, 20),
+                             New Color4(1.0F, 1.0F, 1.0F, 1.0F))
 
         ' Make it so!
         frmMain.glControl_main.SwapBuffers()
-    End Sub
-
-    Private Sub draw_rectangle_LEGACY(ByVal SP As PointF, ByVal EP As PointF)
-        GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-        GL.Begin(PrimitiveType.Quads)
-        '  CCW...
-        '  1 ------ 4
-        '  |        |
-        '  |        |
-        '  2 ------ 3
-        '
-        GL.TexCoord2(0.0F, 1.0F)
-        GL.Vertex2(SP.X, -SP.Y)
-
-        GL.TexCoord2(0.0F, 0.0F)
-        GL.Vertex2(SP.X, -EP.Y)
-
-        GL.TexCoord2(1.0F, 0.0F)
-        GL.Vertex2(EP.X, -EP.Y)
-
-        GL.TexCoord2(1.0F, 1.0F)
-        GL.Vertex2(EP.X, -SP.Y)
-        GL.End()
     End Sub
 
     Private Sub draw_text()
@@ -90,7 +53,7 @@ Module LoadingScreen
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
-        draw_image_rectangle(New PointF(0, 60), New PointF(300, 30), DrawMapPickText.Gettexture)
+        draw_image_rectangle(New RectangleF(0, 30, 300, 30), DrawMapPickText.Gettexture)
 
         GL.Disable(EnableCap.Blend)
     End Sub
