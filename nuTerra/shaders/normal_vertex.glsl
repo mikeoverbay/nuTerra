@@ -11,7 +11,6 @@ layout(location = 5) in vec2 vertexTexCoord2;
 out vec3 n;      
 out vec3 t;      
 out vec3 b;      
-
 void main(void)
 {
     // Calculate vertex position in clip coordinates

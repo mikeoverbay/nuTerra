@@ -21,7 +21,7 @@ Module ShaderLoader
             Get
 #If DEBUG Then
                 If Not loaded Then
-                    Stop ' For debugging
+                    'Stop ' For debugging
                 End If
                 If Not is_used Then
                     Stop ' For debugging
@@ -39,10 +39,10 @@ Module ShaderLoader
         Sub Use()
 #If DEBUG Then
             If Not loaded Then
-                Stop ' For debugging
+                'Stop ' For debugging
             End If
             If is_used Then
-                Stop ' For debugging
+                'Stop ' For debugging
             End If
             is_used = True
 #End If
@@ -52,7 +52,7 @@ Module ShaderLoader
         Sub StopUse()
 #If DEBUG Then
             If Not loaded Then
-                Stop ' For debugging
+                'Stop ' For debugging
             End If
             If Not is_used Then
                 Stop ' For debugging

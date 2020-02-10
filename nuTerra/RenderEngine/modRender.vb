@@ -28,7 +28,7 @@ Module modRender
 
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) ' Use FBO_main buffer
-        FBOm.attach_CNG()
+        FBOm.attach_CNGP()
         '-------------------------------------------------------
 
         set_prespective_view() ' <-- sets camera and prespective view
@@ -56,7 +56,7 @@ Module modRender
         '------------------------------------------------
         '------------------------------------------------
         'Draw temp light positon.
-        FBOm.attach_C()
+        FBOm.attach_CP()
         Dim v As New Vector3
         v.X = LIGHT_POS(0) : v.Y = LIGHT_POS(1) : v.Z = LIGHT_POS(2)
         'unremming this screws up the VertexAttribPointers 
@@ -71,14 +71,14 @@ Module modRender
             If Z_MOVE Then
                 frmMain.glControl_main.Cursor = Cursors.SizeNS
             End If
-            FBOm.attach_C()
+            FBOm.attach_CP()
             draw_cross_hair()
         Else
             frmMain.glControl_main.Cursor = Cursors.Default
         End If
         '------------------------------------------------
         '------------------------------------------------
-        FBOm.attach_CNG()
+        FBOm.attach_CNGP()
 
         '===========================================================================
         'draw the test MDL model using VAO =========================================
@@ -144,7 +144,7 @@ Module modRender
         ' WIRE OVERLAY =============================================================
         '===========================================================================
         If WIRE_MODELS Then
-            FBOm.attach_C()
+            FBOm.attach_CP()
 
             GL.Disable(EnableCap.PolygonOffsetFill)
             GL.PolygonMode(MaterialFace.Front, PolygonMode.Line)
@@ -163,6 +163,7 @@ Module modRender
                     Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
                     Dim MVM = modelMatrix * MODELVIEWMATRIX
                     Dim MVPM = MVM * PROJECTIONMATRIX
+                    GL.UniformMatrix4(colorOnlyShader("ModelMatrix"), False, MVM)
                     GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
 
                     Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
@@ -189,7 +190,7 @@ Module modRender
         ' TBN VISUALIZER ===========================================================
         '===========================================================================
         If NORMAL_DISPLAY_MODE > 0 Then
-            FBOm.attach_C()
+            FBOm.attach_CP()
 
             normalShader.Use()
 
@@ -256,8 +257,9 @@ Module modRender
         'set up uniforms
         GL.Uniform1(deferredShader("gColor"), 0)
         GL.Uniform1(deferredShader("gNormal"), 1)
-        GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
-        GL.Uniform1(deferredShader("gDepth"), 3) ' ignore this for now
+        'GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
+        GL.Uniform1(deferredShader("gPosition"), 3)
+        GL.Uniform1(deferredShader("gDepth"), 4)
 
         'ortho for the win
         Ortho_main()
@@ -265,7 +267,6 @@ Module modRender
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
         GL.Uniform3(deferredShader("LightPos"), LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2))
-        GL.Uniform2(deferredShader("viewport"), VIEW_PORT(0), VIEW_PORT(1))
 
         GL.ActiveTexture(TextureUnit.Texture0)
         GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
@@ -277,6 +278,9 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, FBOm.gGMF)
 
         GL.ActiveTexture(TextureUnit.Texture3)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gPosition)
+
+        GL.ActiveTexture(TextureUnit.Texture4)
         GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
 
 
@@ -461,12 +465,14 @@ Module modRender
         Dim sMat = Matrix4.CreateScale(scale_)
 
         Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
+        Dim MVM = sMat * model * MODELVIEWMATRIX
 
         colorOnlyShader.Use()
 
         GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
 
         GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
+        GL.UniformMatrix4(colorOnlyShader("ModelMatrix"), False, MVM)
 
         GL.BindVertexArray(MOON.mdl_VAO)
 

@@ -6,13 +6,12 @@ out vec4 outColor;
 uniform sampler2D gColor;
 uniform sampler2D gNormal;
 uniform sampler2D gGMF;
+uniform sampler2D gPosition;
 uniform sampler2D gDepth;
 
 uniform mat4 ProjectionMatrix;
 
 uniform vec3 LightPos;
-
-uniform vec2 viewport;
 
 in vec3 CameraPos;
 in vec2 UV;
@@ -38,22 +37,13 @@ void main (void)
 {
     float depth = texture(gDepth, UV).x*2.0-1.0;
 
-    // viewport <---This is the render target size, i.e. what you feed into glViewport
-    //--------------------------------------------------------------------
-    // Get the world position from the depth buffer and screen poition.
-    vec2 screen;
-    screen.x = ( gl_FragCoord.x / viewport.x ) * 2.0-1.0;
-    screen.y = ( gl_FragCoord.y / viewport.y ) * 2.0-1.0;
-       
-    vec4 WorldPos = projMatrixInv * vec4( screen.x, screen.y, depth, 1.0);
-    WorldPos.xyz /= WorldPos.w;
-
-    vec3 Position = WorldPos.xyz ;
     //--------------------------------------------------------------------
     if (depth == 1.0) discard;// nothing there
 
 
-    vec4 tex01_color = texture(gColor, UV);
+    vec3 Position = texture(gPosition, UV).xyz;
+
+	vec4 tex01_color = texture(gColor, UV);
 
     vec3 LightPosModelView = LightPos.xyz;
 
@@ -90,7 +80,7 @@ void main (void)
     //-------------------------------------------------------------------
     // test crap..
     //final_color.xyz = final_color.xyz*0.01+d;
-    //final_color.xyz = tex01_color.xyz*0.01+(Position);
+    //final_color.xyz = final_color.xyz*0.01+(Position);
     //final_color.xyz = tex01_color.xyz*0.1+N*0.5+0.5;
     //-------------------------------------------------------------------
     outColor =  final_color;//+color*0.2;

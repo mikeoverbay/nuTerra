@@ -4,6 +4,7 @@
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
+layout (location = 3) out vec3 gPosition;
 
 uniform sampler2D colorMap;
 uniform sampler2D normalMap;
@@ -43,4 +44,6 @@ void main(void)
 
     gGMF.rg = texture(GMF_Map, UV2).rg;
     gGMF.b = texture(normalMap, UV).a; // not all decal maps have height info in alpha.
+
+	gPosition = worldPosition;
 }

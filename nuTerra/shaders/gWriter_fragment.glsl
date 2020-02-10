@@ -4,6 +4,7 @@
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
+layout (location = 3) out vec3 gPosition;
 
 uniform sampler2D colorMap;
 uniform sampler2D normalMap;
@@ -13,13 +14,13 @@ uniform int nMap_type;
 
 in vec2 UV;
 in vec3 Vertex_Normal;
-in vec3 v_Position;
+in vec3 worldPosition;
 
 vec3 getNormal()
 {
     // Retrieve the tangent space matrix
-    vec3 pos_dx = dFdx(v_Position);
-    vec3 pos_dy = dFdy(v_Position);
+    vec3 pos_dx = dFdx(worldPosition);
+    vec3 pos_dy = dFdy(worldPosition);
     vec3 tex_dx = dFdx(vec3(UV, 0.0));
     vec3 tex_dy = dFdy(vec3(UV, 0.0));
     vec3 t = (tex_dy.t * pos_dx - tex_dx.t * pos_dy) / (tex_dx.s * tex_dy.t - tex_dy.s * tex_dx.t);
@@ -54,4 +55,6 @@ void main(void)
 
     gGMF.rg = texture(GMF_Map, UV).rg;
     gGMF.b = texture(normalMap, UV).a; // not all decal maps have height info in alpha.
+
+	gPosition = worldPosition;
 }
