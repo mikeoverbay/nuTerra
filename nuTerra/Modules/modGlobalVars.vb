@@ -33,7 +33,7 @@ Module modGlobalVars
     '============================================================
     Public N_MAP_TYPE As Integer '<------------- temp value
     '============================================================
-    Public LIGHT_POS(3) As Single
+    Public LIGHT_POS As Vector3
     Public LIGHT_RADIUS As Single 'Used when orbiting the light
     Public LIGHT_ORBIT_ANGLE As Single 'Used when orbiting the light
     Public PAUSE_ORBIT As Boolean

@@ -6,5 +6,5 @@ in vec2 texCoord;
 
 void main(void)
 {
-	fragColor = texture(imageMap, texCoord);
+    fragColor = texture(imageMap, texCoord);
 }
