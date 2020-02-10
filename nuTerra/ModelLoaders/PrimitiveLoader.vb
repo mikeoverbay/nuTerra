@@ -487,9 +487,9 @@ Module PrimitiveLoader
                         mdl(cur_sub).Normal_buffer(running).Z = vt_br.ReadSingle
                     Else
                         v3 = unpackNormal_8_8_8(vt_br.ReadUInt32)   ' unpack normals
-                        mdl(cur_sub).Normal_buffer(running).X = -v3.x
-                        mdl(cur_sub).Normal_buffer(running).Y = v3.y
-                        mdl(cur_sub).Normal_buffer(running).Z = v3.z
+                        mdl(cur_sub).Normal_buffer(running).X = -v3.X
+                        mdl(cur_sub).Normal_buffer(running).Y = v3.Y
+                        mdl(cur_sub).Normal_buffer(running).Z = v3.Z
                     End If
 
                     '-----------------------------------------------------------------------
@@ -545,41 +545,16 @@ Module PrimitiveLoader
         Return True
 
     End Function
-    Private Function unpackNormal_8_8_8(ByVal packed As UInt32) As Vector3
 
-        Dim pkz, pky, pkx As Int32
-        pkx = CLng(packed) And &HFF Xor 127
-        pky = CLng(packed >> 8) And &HFF Xor 127
-        pkz = CLng(packed >> 16) And &HFF Xor 127
-
-        Dim x As Single = (pkx)
-        Dim y As Single = (pky)
-        Dim z As Single = (pkz)
-
-        Dim p As New Vector3
-        If x > 127 Then
-            x = -128 + (x - 128)
-        End If
-
-        If y > 127 Then
-            y = -128 + (y - 128)
-        End If
-        If z > 127 Then
-            z = -128 + (z - 128)
-        End If
-        p.x = CSng(x) / 127
-        p.y = CSng(y) / 127
-        p.z = CSng(z) / 127
-        Dim len As Single = Sqrt((p.x ^ 2) + (p.y ^ 2) + (p.z ^ 2))
-
-        'avoid division by 0
-        If len = 0.0F Then len = 1.0F
-        'len = 1.0
-        'reduce to unit size (Normalize)
-        p.x = -(p.x / len)
-        p.y = -(p.y / len)
-        p.z = -(p.z / len)
-        Return p
+    Private Function unpackNormal_8_8_8(packed As UInt32) As Vector3
+        Dim bytes As Byte() = BitConverter.GetBytes(packed)
+        Dim unp As New Vector3 With {
+            .X = If(bytes(0) > 127, bytes(0) - 256, bytes(0)),
+            .Y = If(bytes(1) > 127, bytes(1) - 256, bytes(1)),
+            .Z = If(bytes(2) > 127, bytes(2) - 256, bytes(2))
+        }
+        unp.Normalize()
+        Return unp
     End Function
 
     Public Function unpackNormal(ByVal packed As UInt32) As Vector3
@@ -593,17 +568,17 @@ Module PrimitiveLoader
         Dim x As Int32 = (pkx << 21L) >> 21
         Dim p As New Vector3
         p.X = CSng(x) / 1023.0!
-        p.y = CSng(y) / 1023.0!
-        p.z = CSng(z) / 511.0!
-        Dim len As Single = Sqrt((p.x ^ 2) + (p.y ^ 2) + (p.z ^ 2))
+        p.Y = CSng(y) / 1023.0!
+        p.Z = CSng(z) / 511.0!
+        Dim len As Single = Sqrt((p.X ^ 2) + (p.Y ^ 2) + (p.Z ^ 2))
 
         'avoid division by 0
         If len = 0.0F Then len = 1.0F
 
         'reduce to unit size (normalize)
-        p.x = (p.x / len)
-        p.y = (p.y / len)
-        p.z = (p.z / len)
+        p.X = (p.X / len)
+        p.Y = (p.Y / len)
+        p.Z = (p.Z / len)
         Return p
     End Function
 
@@ -703,7 +678,7 @@ Module PrimitiveLoader
                                 DrawElementsType.UnsignedInt, m.index_buffer32((m.entries(i).startIndex)))
             End If
             GL.EndList()
-            GL.Finish 
+            GL.Finish()
         Next
 
     End Sub
