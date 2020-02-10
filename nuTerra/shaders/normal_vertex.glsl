@@ -11,11 +11,15 @@ layout(location = 5) in vec2 vertexTexCoord2;
 out vec3 n;      
 out vec3 t;      
 out vec3 b;      
+out vec4 GLPOSITION;
+out vec4 VERTICES;
 
 void main(void)
 {
     // Calculate vertex position in clip coordinates
+    VERTICES = vec4(vertexPosition, 1.0);
     gl_Position = vec4(vertexPosition, 1.0);
+    GLPOSITION = gl_Position;
     n           = normalize(vertexNormal);
     t           = normalize(vertexTangent);
     b           = normalize(vertexBinormal);
