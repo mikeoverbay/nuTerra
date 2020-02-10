@@ -547,14 +547,42 @@ Module PrimitiveLoader
     End Function
 
     Private Function unpackNormal_8_8_8(packed As UInt32) As Vector3
-        Dim bytes As Byte() = BitConverter.GetBytes(packed)
-        Dim unp As New Vector3 With {
-            .X = If(bytes(0) > 127, bytes(0) - 256, bytes(0)),
-            .Y = If(bytes(1) > 127, bytes(1) - 256, bytes(1)),
-            .Z = If(bytes(2) > 127, bytes(2) - 256, bytes(2))
-        }
-        unp.Normalize()
-        Return unp
+        Dim pkz, pky, pkx As Int32
+        'Dim sample As Byte
+        pkx = CLng(packed) And &HFF Xor 127
+        'sample = packed And &HFF
+        pky = CLng(packed >> 8) And &HFF Xor 127
+        pkz = CLng(packed >> 16) And &HFF Xor 127
+
+        Dim x As Single = (pkx)
+        Dim y As Single = (pky)
+        Dim z As Single = (pkz)
+
+        Dim p As New Vector3
+        If x > 127 Then
+            x = -128 + (x - 128)
+        End If
+        'lookup(CInt(x + 127)) = sample
+
+        If y > 127 Then
+            y = -128 + (y - 128)
+        End If
+        If z > 127 Then
+            z = -128 + (z - 128)
+        End If
+        p.x = CSng(x) / 127
+        p.y = CSng(y) / 127
+        p.z = CSng(z) / 127
+        Dim len As Single = Sqrt((p.x ^ 2) + (p.y ^ 2) + (p.z ^ 2))
+
+        'avoid division by 0
+        If len = 0.0F Then len = 1.0F
+        'len = 1.0
+        'reduce to unit size
+        p.x = -(p.x / len)
+        p.y = -(p.y / len)
+        p.z = -(p.z / len)
+        Return p
     End Function
 
     Public Function unpackNormal(ByVal packed As UInt32) As Vector3

@@ -8,7 +8,6 @@ layout(location = 3) in vec3 vertexTangent;
 layout(location = 4) in vec3 vertexBinormal;
 layout(location = 5) in vec2 vertexTexCoord2;
 
-uniform mat4 modelViewProjection;
 
 out vec3 n;      
 out vec3 t;      
@@ -17,7 +16,7 @@ out vec3 b;
 void main(void)
 {
     // Calculate vertex position in clip coordinates
-    gl_Position = modelViewProjection * vec4(vertexPosition, 1.0);
+    gl_Position = vec4(vertexPosition, 1.0);
     n           = normalize(vertexNormal);
     t           = normalize(vertexTangent);
     b           = normalize(vertexBinormal);

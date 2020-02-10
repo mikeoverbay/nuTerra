@@ -24,8 +24,7 @@ Module FBO_main
                                             FramebufferAttachment.ColorAttachment3
                                             }
         Public Shared attach_Color() As Integer = {
-                                            FramebufferAttachment.ColorAttachment0,
-                                            FramebufferAttachment.ColorAttachment3
+                                            FramebufferAttachment.ColorAttachment0
                                             }
         Public Shared attach_Normal() As Integer = {
                                             FramebufferAttachment.ColorAttachment1
@@ -196,8 +195,8 @@ Module FBO_main
             GL.DrawBuffers(3, attach_Color_Normal)
         End Sub
 
-        Public Shared Sub attach_CP()
-            GL.DrawBuffers(2, attach_Color)
+        Public Shared Sub attach_C()
+            GL.DrawBuffers(1, attach_Color)
         End Sub
 
         Public Shared Sub attach_N()

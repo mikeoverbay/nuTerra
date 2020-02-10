@@ -12,7 +12,7 @@ Module modRender
 
         frmMain.glControl_main.MakeCurrent()
 
-        HOG_TIME = 3
+        HOG_TIME = 5
         If SHOW_MAPS_SCREEN Then
             gl_pick_map(MOUSE.X, MOUSE.Y)
             HOG_TIME = 16
@@ -56,7 +56,7 @@ Module modRender
         '------------------------------------------------
         '------------------------------------------------
         'Draw temp light positon.
-        FBOm.attach_CP()
+        FBOm.attach_C()
         Dim v As New Vector3
         v.X = LIGHT_POS(0) : v.Y = LIGHT_POS(1) : v.Z = LIGHT_POS(2)
         'unremming this screws up the VertexAttribPointers 
@@ -71,7 +71,7 @@ Module modRender
             If Z_MOVE Then
                 frmMain.glControl_main.Cursor = Cursors.SizeNS
             End If
-            FBOm.attach_CP()
+            FBOm.attach_C()
             draw_cross_hair()
         Else
             frmMain.glControl_main.Cursor = Cursors.Default
@@ -84,7 +84,7 @@ Module modRender
         'draw the test MDL model using VAO =========================================
         '===========================================================================
         'SOLID FILL
-        If WIRE_MODELS Then
+        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             GL.PolygonOffset(1, 1)
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
@@ -144,7 +144,7 @@ Module modRender
         ' WIRE OVERLAY =============================================================
         '===========================================================================
         If WIRE_MODELS Then
-            FBOm.attach_CP()
+            FBOm.attach_C()
 
             GL.Disable(EnableCap.PolygonOffsetFill)
             GL.PolygonMode(MaterialFace.Front, PolygonMode.Line)
@@ -190,7 +190,8 @@ Module modRender
         ' TBN VISUALIZER ===========================================================
         '===========================================================================
         If NORMAL_DISPLAY_MODE > 0 Then
-            FBOm.attach_CP()
+            FBOm.attach_C()
+            GL.Disable(EnableCap.PolygonOffsetFill)
 
             normalShader.Use()
 
@@ -204,9 +205,9 @@ Module modRender
                     Dim MVM = modelMatrix * MODELVIEWMATRIX
                     Dim MVPM = MVM * PROJECTIONMATRIX
 
-                    GL.UniformMatrix4(normalShader("modelViewProjection"), False, MVPM)
+                    GL.UniformMatrix4(normalShader("MVPM"), False, MVPM)
 
-                    GL.Uniform1(normalShader("length"), 0.2F)
+                    GL.Uniform1(normalShader("prj_length"), 0.1F)
                     GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
 
                     GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
@@ -465,14 +466,12 @@ Module modRender
         Dim sMat = Matrix4.CreateScale(scale_)
 
         Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
-        Dim MVM = sMat * model * MODELVIEWMATRIX
 
         colorOnlyShader.Use()
 
         GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
 
         GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
-        GL.UniformMatrix4(colorOnlyShader("ModelMatrix"), False, MVM)
 
         GL.BindVertexArray(MOON.mdl_VAO)
 
