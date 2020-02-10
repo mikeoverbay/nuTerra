@@ -1,4 +1,4 @@
-﻿#version 430 compatibility
+﻿#version 430 core
 
 layout (location = 0) out vec4 gColor;
 
