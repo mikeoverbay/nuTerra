@@ -266,7 +266,9 @@ Module modRender
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
-        GL.Uniform3(deferredShader("LightPos"), LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2))
+        Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, MODELVIEWMATRIX_Saved)
+
+        GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
 
         GL.ActiveTexture(TextureUnit.Texture0)
         GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)

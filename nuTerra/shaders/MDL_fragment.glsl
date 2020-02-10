@@ -17,6 +17,7 @@ in vec2 UV2;
 in vec3 worldPosition;
 in mat3 TBN;
 
+in vec3 normal;//temp fro debuging lighting
 vec3 getNormal()
 {
     vec3 n;
@@ -40,8 +41,8 @@ void main(void)
     gColor = texture(colorMap, UV);
     gColor.a = 1.0;
 
-    gNormal.xyz = getNormal();
-
+    //gNormal.xyz = getNormal();
+	gNormal = normal;
     gGMF.rg = texture(GMF_Map, UV2).rg;
     gGMF.b = texture(normalMap, UV).a; // not all decal maps have height info in alpha.
 

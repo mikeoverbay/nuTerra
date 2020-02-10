@@ -58,6 +58,7 @@ Module modGlobalVars
     '============================================================
     Public PROJECTIONMATRIX As New Matrix4
     Public MODELVIEWMATRIX As New Matrix4
+    Public MODELVIEWMATRIX_Saved As Matrix4
     Public VIEW_PORT(1) As Single
     '============================================================
     'Map related

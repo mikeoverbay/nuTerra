@@ -59,7 +59,7 @@ void main (void)
 
     float dist = length(LightPosModelView - Position);
     float cutoff = 2000.0;
-    vec4 color = vec4(1.0, 0.4, 0.4, 1.0);
+    vec4 color = vec4(0.5, 0.5, 0.6, 1.0);
     float specular;
     //only light whats in range
     if (dist < cutoff) {

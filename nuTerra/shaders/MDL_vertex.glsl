@@ -16,6 +16,7 @@ out vec2 UV;
 out vec2 UV2;
 out vec3 worldPosition;
 out mat3 TBN;
+out vec3 normal;
 
 void main(void)
 {
@@ -31,6 +32,8 @@ void main(void)
     vec3 worldNormal =  modelNormalMatrix * vertexNormal;
     worldTangent  = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
     worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
+
+	normal = worldNormal;// temp for lightitng debug
 
     // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
     TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));

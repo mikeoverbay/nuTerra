@@ -71,12 +71,13 @@ Module modOpenGL
                                    0.5F, 5000.0F)
 
         MODELVIEWMATRIX = Matrix4.LookAt(position, target, up)
+        MODELVIEWMATRIX_Saved = MODELVIEWMATRIX
     End Sub
 
     Public Sub set_light_pos()
-        LIGHT_POS(0) = 700.0F
-        LIGHT_POS(1) = 0.0F
-        LIGHT_POS(2) = 700.0F
+        LIGHT_POS(0) = 400.0F
+        LIGHT_POS(1) = 200.0F
+        LIGHT_POS(2) = 400.0F
         LIGHT_RADIUS = Sqrt(LIGHT_POS(0) ^ 2 + LIGHT_POS(2) ^ 2)
         LIGHT_ORBIT_ANGLE = Atan2(LIGHT_RADIUS / LIGHT_POS(2), LIGHT_RADIUS / LIGHT_POS(1))
     End Sub

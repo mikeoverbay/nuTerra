@@ -350,7 +350,7 @@ try_again:
                 LIGHT_ORBIT_ANGLE += LIGHT_SPEED
                 If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
                 LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                LIGHT_POS(1) = 300.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
                 LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
             End If
             If gametimer.ElapsedMilliseconds > 1000 Then
