@@ -10,8 +10,6 @@ uniform mat4 MVPM;
 in vec3 n[3];
 in vec3 t[3];
 in vec3 b[3];
-in vec4 GLPOSITION[3];
-in vec4 VERTICES[3];
 out vec4 color;
 
 
@@ -20,7 +18,7 @@ void main()
     vec4 sumV;
     vec4 sumN;
     if (mode == 1) {
-        sumV = (GLPOSITION[0] + GLPOSITION[1] + GLPOSITION[2] ) / 3.0;
+        sumV = (gl_in[0].gl_Position + gl_in[1].gl_Position +gl_in[2].gl_Position ) / 3.0;
 
         //Normal
             color = vec4(1.0,0.0,0.0,1.0);
@@ -54,31 +52,31 @@ void main()
     {
         // normal
         color = vec4(1.0,0.0,0.0,1.0);
-        for(int i = 0; i < VERTICES.length; ++i)
+        for(int i = 0; i < gl_in.length; ++i)
         {
-            gl_Position = MVPM * GLPOSITION[i];
+            gl_Position = MVPM * gl_in[i].gl_Position;
             EmitVertex();
-            gl_Position = MVPM * (GLPOSITION[i] + (vec4(n[i], 0) * prj_length));
+            gl_Position = MVPM * (gl_in[i].gl_Position + (vec4(n[i], 0) * prj_length));
             EmitVertex();
             EndPrimitive();
         }
         // Tangent
         color = vec4(0.0,1.0,0.0,1.0);
-        for(int i = 0; i < VERTICES.length; ++i)
+        for(int i = 0; i < gl_in.length; ++i)
         {
-            gl_Position = MVPM * GLPOSITION[i];
+            gl_Position = MVPM * gl_in[i].gl_Position;
             EmitVertex();
-            gl_Position = MVPM * (GLPOSITION[i] + (vec4(t[i], 0) * prj_length));
+            gl_Position = MVPM * (gl_in[i].gl_Position + (vec4(t[i], 0) * prj_length));
             EmitVertex();
             EndPrimitive();
         }
         // biTangent
             color = vec4(0.0,0.0,1.0,1.0);
-        for(int i = 0; i < VERTICES.length; ++i)
+        for(int i = 0; i < gl_in.length; ++i)
         {
-            gl_Position = MVPM * GLPOSITION[i];
+            gl_Position = MVPM * gl_in[i].gl_Position;
             EmitVertex();
-            gl_Position = MVPM * (GLPOSITION[i] + (vec4(b[i], 0) * prj_length));
+            gl_Position = MVPM * (gl_in[i].gl_Position + (vec4(b[i], 0) * prj_length));
             EmitVertex();
             EndPrimitive();
         }
