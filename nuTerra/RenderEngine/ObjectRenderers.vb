@@ -24,11 +24,10 @@ Module ObjectRenderers
         GL.Uniform4(CrossHairShader("shade"), 1.0F, 1.0F, 1.0F, 1.0F)
 
         GL.BindVertexArray(CROSS_HAIR.mdl_VAO)
-
         GL.DrawElements(PrimitiveType.Triangles,
                         CROSS_HAIR.indice_count * 3,
                         DrawElementsType.UnsignedShort,
-                        CROSS_HAIR.index_buffer16) ' <- Must be 0 instead of CROSS_HAIR.index_buffer16
+                        0)
 
         GL.BindVertexArray(0)
         CrossHairShader.StopUse()

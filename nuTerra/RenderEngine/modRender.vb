@@ -61,7 +61,7 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        draw_cross_hair() '========================================================
+        draw_cross_hair() '=========================================================
         '===========================================================================
 
         FBOm.attach_CNGP()
@@ -74,7 +74,7 @@ Module modRender
             '===========================================================================
 
             '===========================================================================
-            draw_overlays() '=====================================================
+            draw_overlays() '===========================================================
             '===========================================================================
 
             GL.Disable(EnableCap.CullFace)
@@ -360,9 +360,10 @@ Module modRender
         GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
 
         GL.BindVertexArray(MOON.mdl_VAO)
-
-        GL.DrawElements(PrimitiveType.Triangles, (MOON.indice_count * 3), DrawElementsType.UnsignedShort, MOON.index_buffer16)
-
+        GL.DrawElements(PrimitiveType.Triangles,
+                        MOON.indice_count * 3,
+                        DrawElementsType.UnsignedShort,
+                        0)
         GL.BindVertexArray(0)
 
         colorOnlyShader.StopUse()

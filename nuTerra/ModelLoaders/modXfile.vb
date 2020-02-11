@@ -130,6 +130,8 @@ Module modXfile
         'At this point, we have all the data to make the mesh
         Dim er = GL.GetError
 
+        mdl.indice_count = indice_count
+
         'Gen VAO id
         GL.GenVertexArrays(1, mdl.mdl_VAO)
         GL.BindVertexArray(mdl.mdl_VAO)
@@ -148,12 +150,13 @@ Module modXfile
         GL.BufferData(BufferTarget.ArrayBuffer, (vbuff.Length) * 32, vbuff, BufferUsageHint.StaticDraw)
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, mdl.mBuffers(0))
-        GL.BufferData(BufferTarget.ElementArrayBuffer, (mdl.indice_count) * 6, mdl.index_buffer16, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ElementArrayBuffer,
+                      mdl.indice_count * 6,
+                      mdl.index_buffer16,
+                      BufferUsageHint.StaticDraw)
 
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0) ' <-- Need to remove this call
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         GL.BindVertexArray(0)
-
-        mdl.indice_count = indice_count
 
         Dim er1 = GL.GetError
 
