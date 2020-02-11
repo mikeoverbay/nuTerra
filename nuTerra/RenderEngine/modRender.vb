@@ -143,13 +143,18 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
-        Dim sanitiy_check As Integer = 0
+
+        Dim sanitiy_check As Integer = 0 ' if all is good, this will equal the length of MATRIX_INDEX_LIST
+
         For bc = 0 To MODEL_BATCH_LIST.Length - 1
+
+            'We would bind our textures here
+            'and draw all the models that use them.
 
             For z = 0 To MODEL_BATCH_LIST(bc).count
                 sanitiy_check += 1
-                Dim MM_IDX = MODEL_BATCH_LIST(bc).MAP_MODEL_INDEX_LIST(z)
-                Dim MAT_IDX = MODEL_BATCH_LIST(bc).MATRIX_INDEX_LIST(z)
+                Dim MM_IDX = MODEL_BATCH_LIST(bc).MAP_MODEL_INDEX ' <-- points at the MAP_MODEL
+                Dim MAT_IDX = MODEL_BATCH_LIST(bc).MATRIX_INDEX_LIST(z) '   <-- Points at the matrix for that model
 
                 Dim model = MAP_MODELS(MM_IDX).mdl(0)
 

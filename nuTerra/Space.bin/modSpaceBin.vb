@@ -396,11 +396,10 @@ CleanUp:
         Array.Sort(MODEL_INDEX_LIST) 'sort our list by model_index
         ReDim MODEL_BATCH_LIST(1000)
         MODEL_BATCH_LIST(0) = New MODEL_BATCH_LIST_
-        ReDim MODEL_BATCH_LIST(0).MAP_MODEL_INDEX_LIST(MaxEstimate) ' initlize first cell
         ReDim MODEL_BATCH_LIST(0).MATRIX_INDEX_LIST(MaxEstimate) ' initlize first cell
 
         'We need to set the very first model_index in our batch
-        MODEL_BATCH_LIST(0).MAP_MODEL_INDEX_LIST(0) = MODEL_INDEX_LIST(0).model_index
+        MODEL_BATCH_LIST(0).MAP_MODEL_INDEX = MODEL_INDEX_LIST(0).model_index
         MODEL_BATCH_LIST(0).MATRIX_INDEX_LIST(0) = 0
 
         Dim b_pntr, i_pntr As Integer
@@ -408,27 +407,24 @@ CleanUp:
             Dim id = MODEL_INDEX_LIST(i).model_index
             'if the next one matches, add it to this batch
             If id = MODEL_INDEX_LIST(i + 1).model_index Then
-                MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(i_pntr + 1) = MODEL_INDEX_LIST(i + 1).model_index
+                MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX = MODEL_INDEX_LIST(i + 1).model_index
                 MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(i_pntr + 1) = i + 1
                 i_pntr += 1
             Else
                 'If it does not, store the count of this model_index and
                 'redim the size and grab the next id that is new
-                ReDim Preserve MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(i_pntr)
                 ReDim Preserve MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(i_pntr)
                 MODEL_BATCH_LIST(b_pntr).count = i_pntr ' save count
                 b_pntr += 1 ' next batch
                 sanity_check += i_pntr + 1
                 i_pntr = 0 ' reset the cnt
-                ReDim MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(MaxEstimate) ' reserve lots a room
-                ReDim  MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(MaxEstimate) ' reserve lots a room
-                MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(0) = MODEL_INDEX_LIST(i + 1).model_index ' initialize first entry
-                MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(0) = i + 1
+                ReDim MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(MaxEstimate) ' reserve lots a room
+                MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(0) = i + 1 ' initialize first entry
+                MODEL_BATCH_LIST(0).MAP_MODEL_INDEX = MODEL_INDEX_LIST(i + 1).model_index
 
                 If i + 1 = MODEL_INDEX_LIST.Length - 1 Then
                     MODEL_BATCH_LIST(b_pntr).count = i_pntr ' save count
-                    ReDim Preserve MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(i_pntr) 'redim size
-                    ReDim Preserve MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(i_pntr)
+                    ReDim Preserve MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(i_pntr) 'redim size
                     Exit For ' so we dont over run the MODEL_INDEX_LIST
 
                 End If

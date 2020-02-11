@@ -40,7 +40,7 @@ Module modTypeStructures
     Public MODEL_BATCH_LIST() As MODEL_BATCH_LIST_
 
     Public Structure MODEL_BATCH_LIST_
-        Public MAP_MODEL_INDEX_LIST() As Integer
+        Public MAP_MODEL_INDEX As Integer
         Public MATRIX_INDEX_LIST() As UInteger
         Public count As Integer
     End Structure
