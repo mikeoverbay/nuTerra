@@ -5,7 +5,7 @@ Module modTypeStructures
 #Region "MODEL_INDEX_LIST"
 
     Public MODEL_INDEX_LIST() As MODEL_INDEX_LIST_
-    Public Structure MODEL_INDEX_LIST_
+    Public Structure MODEL_INDEX_LIST_ : Implements IComparable(Of MODEL_INDEX_LIST_)
         '------------------------------------------------
         'temp var to hold BB display buffer
         Public BB_VBO As Integer
@@ -22,6 +22,27 @@ Module modTypeStructures
         Public destructible As Boolean
         Public exclude_list() As Integer
         Public Culled As Boolean
+        Public batched As Boolean
+        Public Function CompareTo(ByVal other As MODEL_INDEX_LIST_) As Integer Implements System.IComparable(Of MODEL_INDEX_LIST_).CompareTo
+            Try
+                Return Me.model_index.CompareTo(other.model_index)
+
+            Catch ex As Exception
+                Return 0
+            End Try
+        End Function
+    End Structure
+
+#End Region
+
+#Region "Model_Batch_list"
+
+    Public MODEL_BATCH_LIST() As MODEL_BATCH_LIST_
+
+    Public Structure MODEL_BATCH_LIST_
+        Public MAP_MODEL_INDEX_LIST() As Integer
+        Public MATRIX_INDEX_LIST() As UInteger
+        Public count As Integer
     End Structure
 
 #End Region

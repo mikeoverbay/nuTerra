@@ -305,7 +305,7 @@ ignore_this_one:
         Next
 #End If
         Dim max_id As Integer
-        ReDim MODEL_INDEX_LIST(cBSMI.chunk_models.count - 1)
+        ReDim MODEL_INDEX_LIST(cBSMI.model_BSMO_indexes.count - 1)
         Dim cnt As Integer = 0
         For k = 0 To cBSMI.model_BSMO_indexes.count - 1
             Dim BSMO_MODEL_INDEX = cBSMI.model_BSMO_indexes.data(k).BSMO_MODEL_INDEX
@@ -353,10 +353,13 @@ ignore_this_one:
                 End If
             End If
         Next
-        ReDim Preserve tm(mc)
-        ReDim MODEL_INDEX_LIST(mc)
+        ReDim Preserve tm(mc - 1)
+        ReDim MODEL_INDEX_LIST(mc - 1)
         'pack the MODEL_INDEX_LIST to used models.
-        For i = 0 To mc
+        For i = 0 To mc - 1
+            If tm(i).BB Is Nothing Then
+                Stop
+            End If
             MODEL_INDEX_LIST(i) = tm(i)
             If MODEL_INDEX_LIST(i).exclude = True Then
                 'Debug.WriteLine(i.ToString("0000") + " : " + MODEL_INDEX_LIST(i).primitive_name)
@@ -385,5 +388,54 @@ CleanUp:
         cWGSD = Nothing
         cSpTr = Nothing
         cBWWa = Nothing
+        '====================================================
+        ' Sort and batch the models for instanced drawing
+        '====================================================
+        Dim MaxEstimate As Integer = 300 ' Most we expect of any one model Id
+        Dim sanity_check As Integer = 1
+        Array.Sort(MODEL_INDEX_LIST) 'sort our list by model_index
+        ReDim MODEL_BATCH_LIST(1000)
+        MODEL_BATCH_LIST(0) = New MODEL_BATCH_LIST_
+        ReDim MODEL_BATCH_LIST(0).MAP_MODEL_INDEX_LIST(MaxEstimate) ' initlize first cell
+        ReDim MODEL_BATCH_LIST(0).MATRIX_INDEX_LIST(MaxEstimate) ' initlize first cell
+
+        'We need to set the very first model_index in our batch
+        MODEL_BATCH_LIST(0).MAP_MODEL_INDEX_LIST(0) = MODEL_INDEX_LIST(0).model_index
+        MODEL_BATCH_LIST(0).MATRIX_INDEX_LIST(0) = 0
+
+        Dim b_pntr, i_pntr As Integer
+        For i = 0 To MODEL_INDEX_LIST.Length - 2
+            Dim id = MODEL_INDEX_LIST(i).model_index
+            'if the next one matches, add it to this batch
+            If id = MODEL_INDEX_LIST(i + 1).model_index Then
+                MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(i_pntr + 1) = MODEL_INDEX_LIST(i + 1).model_index
+                MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(i_pntr + 1) = i + 1
+                i_pntr += 1
+            Else
+                'If it does not, store the count of this model_index and
+                'redim the size and grab the next id that is new
+                ReDim Preserve MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(i_pntr)
+                ReDim Preserve MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(i_pntr)
+                MODEL_BATCH_LIST(b_pntr).count = i_pntr ' save count
+                b_pntr += 1 ' next batch
+                sanity_check += i_pntr + 1
+                i_pntr = 0 ' reset the cnt
+                ReDim MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(MaxEstimate) ' reserve lots a room
+                ReDim  MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(MaxEstimate) ' reserve lots a room
+                MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(0) = MODEL_INDEX_LIST(i + 1).model_index ' initialize first entry
+                MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(0) = i + 1
+
+                If i + 1 = MODEL_INDEX_LIST.Length - 1 Then
+                    MODEL_BATCH_LIST(b_pntr).count = i_pntr ' save count
+                    ReDim Preserve MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX_LIST(i_pntr) 'redim size
+                    ReDim Preserve MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(i_pntr)
+                    Exit For ' so we dont over run the MODEL_INDEX_LIST
+
+                End If
+            End If
+        Next
+        ReDim Preserve MODEL_BATCH_LIST(b_pntr) 'resize the batch to batches count.
+
+
     End Function
 End Module

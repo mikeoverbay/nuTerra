@@ -143,36 +143,42 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
+        Dim sanitiy_check As Integer = 0
+        For bc = 0 To MODEL_BATCH_LIST.Length - 1
 
-        For z = 0 To MODEL_INDEX_LIST.Length - 2
-            Dim idx = MODEL_INDEX_LIST(z).model_index
-            Dim model = MAP_MODELS(idx).mdl(0)
+            For z = 0 To MODEL_BATCH_LIST(bc).count
+                sanitiy_check += 1
+                Dim MM_IDX = MODEL_BATCH_LIST(bc).MAP_MODEL_INDEX_LIST(z)
+                Dim MAT_IDX = MODEL_BATCH_LIST(bc).MATRIX_INDEX_LIST(z)
 
-            If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
-                TOTAL_TRIANGLES_DRAWN += model.POLY_COUNT
+                Dim model = MAP_MODELS(MM_IDX).mdl(0)
 
-                Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
-                Dim MVM = modelMatrix * MODELVIEWMATRIX
-                Dim MVPM = MVM * PROJECTIONMATRIX
-                ' need an inverse of the modelmatrix
-                Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
+                If Not model.junk And Not MODEL_INDEX_LIST(MAT_IDX).Culled Then
+                    TOTAL_TRIANGLES_DRAWN += model.POLY_COUNT
 
-                GL.UniformMatrix4(modelShader("modelMatrix"), False, MVM)
-                GL.UniformMatrix4(modelShader("modelViewProjection"), False, MVPM)
-                GL.UniformMatrix3(modelShader("modelNormalMatrix"), True, normalMatrix)
+                    Dim modelMatrix = MODEL_INDEX_LIST(MAT_IDX).matrix
+                    Dim MVM = modelMatrix * MODELVIEWMATRIX
+                    Dim MVPM = MVM * PROJECTIONMATRIX
+                    ' need an inverse of the modelmatrix
+                    Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
 
-                Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
+                    GL.UniformMatrix4(modelShader("modelMatrix"), False, MVM)
+                    GL.UniformMatrix4(modelShader("modelViewProjection"), False, MVPM)
+                    GL.UniformMatrix3(modelShader("modelNormalMatrix"), True, normalMatrix)
 
-                GL.BindVertexArray(model.mdl_VAO)
-                For i = 0 To model.primitive_count - 1
-                    Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
-                    GL.DrawElements(PrimitiveType.Triangles,
-                                    model.entries(i).numIndices,
-                                    triType,
-                                    offset)
-                Next
-            End If
+                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
+                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
+
+                    GL.BindVertexArray(model.mdl_VAO)
+                    For i = 0 To model.primitive_count - 1
+                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
+                        GL.DrawElements(PrimitiveType.Triangles,
+                                        model.entries(i).numIndices,
+                                        triType,
+                                        offset)
+                    Next
+                End If
+            Next
         Next
 
         GL.BindVertexArray(0)
