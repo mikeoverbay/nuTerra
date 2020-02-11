@@ -41,8 +41,7 @@ void main(void)
     gColor = texture(colorMap, UV);
     gColor.a = 1.0;
 
-    //gNormal.xyz = getNormal();
-	gNormal = normal;
+    gNormal.xyz = getNormal();
     gGMF.rg = texture(GMF_Map, UV2).rg;
     gGMF.b = texture(normalMap, UV).a; // not all decal maps have height info in alpha.
 

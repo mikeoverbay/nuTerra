@@ -4,7 +4,7 @@
 #  The format for this is:
 #  Image Name:Map ingame name
 #  The program will replace .png with .pkg to load the map
-#  The png images come from .pgk gui.pkg  path: maps/icons/map/
+#  The png images come from gui.pkg  path: gui/maps/icons/map/
 # ==========================================================
 # Not all maps are here.. Some Epics are missing for now
 # ==========================================================
@@ -12,7 +12,7 @@
 31_airfield.png:Air Field
 18_cliff.png:Cliff
 29_el_hallouf.png:El Hallouf
-59_asia_great_wall.png:Empores's Border
+59_asia_great_wall.png:Emperor's Border
 06_ensk.png:Ensk
 13_erlenberg.png:Erlenberg
 36_fishing_bay.png:Fisherman's Bay
@@ -27,7 +27,7 @@
 07_lakeville.png:Lakeville
 44_north_america.png:Live Oaks
 02_malinovka.png:Malinovka
-38_mannerheim_line.png:Arctic Region
+38_mannerheim_line.png:Mannerheim Line
 10_hills.png:Mines
 90_minsk.png:Minsk
 37_caucasus.png:Mountain Pass

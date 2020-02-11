@@ -10,7 +10,8 @@ Imports Tao.DevIl
 
 Public Class frmMain
     Private refresh_thread As New Thread(AddressOf updater)
-    Private gametimer As New System.Diagnostics.Stopwatch
+    Private fps_timer As New System.Diagnostics.Stopwatch
+    Private game_clock As New System.Diagnostics.Stopwatch
 #Region "Form Events"
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
@@ -329,7 +330,8 @@ try_again:
     ''' disposed the startup_delay timer.
     ''' </remarks>
     Private Sub launch_update_thread()
-        gametimer.Start()
+        fps_timer.Start()
+        game_clock.Start()
         refresh_thread.Priority = ThreadPriority.Highest
         refresh_thread.IsBackground = True
         refresh_thread.Name = "refresh_thread"
@@ -344,20 +346,35 @@ try_again:
     ''' </summary>
     ''' <remarks></remarks>
     Private Sub updater()
-
+        Dim trigger As Boolean = False
         While _STARTED
-            If Not PAUSE_ORBIT Then
-                LIGHT_ORBIT_ANGLE += LIGHT_SPEED
-                If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
-                LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+            If game_clock.ElapsedMilliseconds > 33 Then '30 fps animation
+                trigger = True
             End If
-            If gametimer.ElapsedMilliseconds > 1000 Then
-                gametimer.Restart()
+            If trigger Then
+                If Not PAUSE_ORBIT Then
+                    LIGHT_ORBIT_ANGLE += LIGHT_SPEED
+                    If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
+                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                    LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                End If
+                CROSS_HAIR_TIME += 0.02
+                If CROSS_HAIR_TIME > 1.0F Then
+                    CROSS_HAIR_TIME = 0.0F
+                End If
+                'trigger is true so we reset the clock and start it over.
+                game_clock.Restart()
+                trigger = False
+            End If
+
+            If fps_timer.ElapsedMilliseconds > 1000 Then
+                fps_timer.Restart()
                 FPS_TIME = FPS_COUNTER
                 FPS_COUNTER = 0
             End If
+
+
             update_screen()
             Thread.Sleep(HOG_TIME) ' hog all the time :)
         End While

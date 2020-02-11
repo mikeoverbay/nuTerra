@@ -22,6 +22,7 @@ Module modGlobalVars
     'models
     Public CROSS_HAIR As base_model_holder_
     Public CROSS_HAIR_TEXTURE As Integer
+    Public CROSS_HAIR_TIME As Single = 0.0F ' animation time 0-1
     Public MOON As base_model_holder_
     '============================================================
     'sleep time for upedate thread.
@@ -37,7 +38,7 @@ Module modGlobalVars
     Public LIGHT_RADIUS As Single 'Used when orbiting the light
     Public LIGHT_ORBIT_ANGLE As Single 'Used when orbiting the light
     Public PAUSE_ORBIT As Boolean
-    Public LIGHT_SPEED As Single = 0.01F
+    Public LIGHT_SPEED As Single = 0.02F
     '============================================================
     Public TOTAL_TRIANGLES_DRAWN As UInt32
     Public TOTAL_TRIANGLES_DRAWN_MODEL As UInt32

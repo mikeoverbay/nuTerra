@@ -22,6 +22,7 @@ Module ObjectRenderers
         GL.ActiveTexture(TextureUnit.Texture0)
         GL.BindTexture(TextureTarget.Texture2D, CROSS_HAIR_TEXTURE)
         GL.Uniform4(CrossHairShader("shade"), 1.0F, 1.0F, 1.0F, 1.0F)
+        GL.Uniform1(CrossHairShader("time"), CROSS_HAIR_TIME) 'animation
 
         GL.BindVertexArray(CROSS_HAIR.mdl_VAO)
         GL.DrawElements(PrimitiveType.Triangles,

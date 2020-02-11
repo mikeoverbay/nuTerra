@@ -229,7 +229,7 @@ Module MapLoader
         ReDim mdl(1)
         'mdl(0) = New base_model_holder_
         'm_color_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_AM.dds")
-        'm_normal_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_ANM.dds")
+        m_normal_id = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
         m_gmm_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_GMM.dds")
         'get_primitive("content/Buildings/bld_19_04_Ampitheratre/normal/lod0/bld_19_04_Ampitheratre.model", mdl)
         '------------------------------------------------------------------------------------------------
@@ -245,7 +245,7 @@ Module MapLoader
         '------------------------------------------------------------------------------------------------
         '------------------------------------------------------------------------------------------------
         m_color_id = load_image_from_file(Il.IL_PNG, Application.StartupPath + "\resources\ref_colorMap.png", True, False)
-        m_normal_id = load_image_from_file(Il.IL_PNG, Application.StartupPath + "\resources\ref_normalMap.png", True, False)
+        'm_normal_id = load_image_from_file(Il.IL_PNG, Application.StartupPath + "\resources\ref_normalMap.png", True, False)
 
         'Open the space.bin file. If it fails, it closes all packages and lets the use know.
         If Not get_spaceBin(ABS_NAME) Then
