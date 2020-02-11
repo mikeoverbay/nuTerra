@@ -1,6 +1,18 @@
 ﻿Imports System.IO
+Imports System.Runtime.CompilerServices
 
 Module modUtilities
+
+    ' Allows us to split by strings. Not just characters.
+    <Extension()> _
+    Public Function Split(ByVal input As String, _
+                          ByVal ParamArray delimiter As String()) As String()
+        Return input.Split(delimiter, StringSplitOptions.None)
+        Dim a(0) As String
+        a(0) = input
+        Return a
+    End Function
+
     Public Sub load_destructibles()
         Dim script_pkg As Ionic.Zip.ZipFile = Nothing
         Dim ms As New MemoryStream

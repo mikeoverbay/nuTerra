@@ -64,6 +64,7 @@ Module vis_main
 
         Dim xmlroot As XmlNode = xDoc.CreateNode(XmlNodeType.Element, PackedFileName, "")
         xDoc.OuterXml.Replace("><", ">" + vbCrLf + "<")
+        xDoc.OuterXml.Replace(">" + vbLf + "<", ">" + vbCrLf + "<")
 
 
         PS.readElement(reader, xmlroot, xDoc, dictionary)
@@ -129,14 +130,14 @@ Module vis_main
         fileS.Position = 0
         TheXML_String = fbr.ReadChars(fileS.Length)
 
-        Dim da_arry = TheXML_String.Split(New String() {"<primitiveGroup>0<material>"}, StringSplitOptions.None)
-        Dim ts As String = ""
-        If da_arry.Length > 2 Then
-            For i = 0 To da_arry.Length - 2
-                ts += da_arry(i) + "<primitiveGroup>" + i.ToString + "<material>"
-            Next
-            TheXML_String = ts + da_arry(da_arry.Length - 1)
-        End If
+        TheXML_String = TheXML_String.Replace("<primitiveGroup> ", "<primitiveGroup>")
+        For i = 90 To 0 Step -1
+            Dim ast = TheXML_String.Replace("<primitiveGroup>" + i.ToString, "<primitiveGroup>" + ControlChars.CrLf.ToCharArray() + "<PG_ID>" + i.ToString + "</PG_ID>")
+            TheXML_String = ast
+        Next
+        TheXML_String = TheXML_String.Replace("><", ">" + vbCrLf + "<")
+        TheXML_String = TheXML_String.Replace(">" + vbLf + "<", ">" + vbCrLf + "<")
+
         fileS.Position = 0
         Try
             xmldataset.ReadXml(fileS)

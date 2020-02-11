@@ -189,11 +189,11 @@ Public Class frmMain
         launch_update_thread()
         '-----------------------------------------------------------------------------------------
         'load_map("19_monastery.pkg")
-        'load_map("08_ruinberg.pkg")
+        load_map("08_ruinberg.pkg")
         'load_map("14_siegfried_line.pkg")
         'load_map("29_el_hallouf.pkg")
         'load_map("31_airfield.pkg")
-        load_map("112_eiffel_tower_ctf.pkg")
+        'load_map("112_eiffel_tower_ctf.pkg")
 
     End Sub
 

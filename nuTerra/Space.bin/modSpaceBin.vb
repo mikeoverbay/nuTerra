@@ -180,7 +180,7 @@ Module modSpaceBin
                 'I can NOT figure out how to get the list of all the primitivegroups!!
                 Dim component_cnt = shader_prop_end - shader_prop_start
                 If .primitive_name.ToLower.Contains("vhouse_05") Then
-                    Stop
+                    'Stop
                 End If
 
                 ReDim .entries(component_cnt)
@@ -391,7 +391,7 @@ CleanUp:
         '====================================================
         ' Sort and batch the models for instanced drawing
         '====================================================
-        Dim MaxEstimate As Integer = 300 ' Most we expect of any one model Id
+        Dim MaxEstimate As Integer = 1000 ' Most we expect of any one model Id
         Dim sanity_check As Integer = 1
         Array.Sort(MODEL_INDEX_LIST) 'sort our list by model_index
         ReDim MODEL_BATCH_LIST(1000)
@@ -420,7 +420,7 @@ CleanUp:
                 i_pntr = 0 ' reset the cnt
                 ReDim MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(MaxEstimate) ' reserve lots a room
                 MODEL_BATCH_LIST(b_pntr).MATRIX_INDEX_LIST(0) = i + 1 ' initialize first entry
-                MODEL_BATCH_LIST(0).MAP_MODEL_INDEX = MODEL_INDEX_LIST(i + 1).model_index
+                MODEL_BATCH_LIST(b_pntr).MAP_MODEL_INDEX = MODEL_INDEX_LIST(i + 1).model_index
 
                 If i + 1 = MODEL_INDEX_LIST.Length - 1 Then
                     MODEL_BATCH_LIST(b_pntr).count = i_pntr ' save count
