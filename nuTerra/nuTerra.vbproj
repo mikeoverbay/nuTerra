@@ -295,15 +295,6 @@
     <None Include="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\wireframe_geo.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\wireframe_fragment.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\wireframe_vertex.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="shaders\CrossHair_fragment.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

@@ -54,8 +54,6 @@ Module modRender
         '===========================================================================
         'GL States
         GL.Enable(EnableCap.DepthTest)
-        GL.Enable(EnableCap.CullFace)
-        GL.Disable(EnableCap.Blend)
         '===========================================================================
 
         '===========================================================================
@@ -69,17 +67,17 @@ Module modRender
         FBOm.attach_CNGP()
 
         If MODELS_LOADED Then
+            GL.Enable(EnableCap.CullFace)
+
             '===========================================================================
             draw_models() '=============================================================
             '===========================================================================
 
             '===========================================================================
-            draw_wire_overlay() '=======================================================
+            draw_overlays() '=====================================================
             '===========================================================================
 
-            '===========================================================================
-            draw_TBN_Visualizer() '=====================================================
-            '===========================================================================
+            GL.Disable(EnableCap.CullFace)
         End If
 
         '===========================================================================
@@ -91,8 +89,6 @@ Module modRender
 
         'house keeping
         '===========================================================================
-        GL.Disable(EnableCap.CullFace)
-        GL.Disable(EnableCap.Blend)
         GL.Disable(EnableCap.DepthTest)
         GL.Clear(ClearBufferMask.ColorBufferBit)
         '===========================================================================
@@ -179,7 +175,10 @@ Module modRender
         modelShader.StopUse()
         unbind_textures(2) ' unbind all the used texture slots
 
-
+        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
+            GL.PolygonOffset(1, 1)
+            GL.Disable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
+        End If
     End Sub
 
     Private Sub render_deferred_buffers()
@@ -226,7 +225,6 @@ Module modRender
         unbind_textures(3) ' unbind all the used texture slots
 
         deferredShader.StopUse()
-
     End Sub
 
     ''' <summary>
@@ -273,7 +271,8 @@ Module modRender
         Ortho_MiniMap(size) ' <--- set size of the square in lower right corner.
 
         GL.ClearColor(0.5F, 0.2F, 0.2F, 1.0F)
-        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+        GL.Clear(ClearBufferMask.ColorBufferBit)
+        GL.Disable(EnableCap.DepthTest)
 
         Dim cx, cy, x, y As Single
 
@@ -298,57 +297,9 @@ Module modRender
 #End If
     End Sub
 
-    Private Sub draw_wire_overlay()
-
-        If WIRE_MODELS Then
-
+    Private Sub draw_overlays()
+        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             FBOm.attach_C()
-
-            GL.Disable(EnableCap.PolygonOffsetFill)
-            GL.PolygonMode(MaterialFace.Front, PolygonMode.Line)
-
-            colorOnlyShader.Use()
-
-            GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
-
-
-            For z = 0 To MODEL_INDEX_LIST.Length - 2
-                Dim idx = MODEL_INDEX_LIST(z).model_index
-                Dim model = MAP_MODELS(idx).mdl(0)
-
-                If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
-
-                    Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
-                    Dim MVM = modelMatrix * MODELVIEWMATRIX
-                    Dim MVPM = MVM * PROJECTIONMATRIX
-                    GL.UniformMatrix4(colorOnlyShader("ModelMatrix"), False, MVM)
-                    GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
-
-                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
-
-                    GL.BindVertexArray(model.mdl_VAO)
-                    For i = 0 To model.primitive_count - 1
-                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
-                        GL.DrawElements(PrimitiveType.Triangles,
-                                        model.entries(i).numIndices,
-                                        triType,
-                                        offset)
-                    Next
-
-                End If
-
-            Next
-            colorOnlyShader.StopUse()
-            GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
-        End If
-
-    End Sub
-
-    Private Sub draw_TBN_Visualizer()
-        If NORMAL_DISPLAY_MODE > 0 Then
-            FBOm.attach_C()
-            GL.Disable(EnableCap.PolygonOffsetFill)
 
             normalShader.Use()
 
@@ -358,14 +309,14 @@ Module modRender
 
                 If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
 
-                    Dim modelMatrix = MODEL_INDEX_LIST(z).matrix
-                    Dim MVM = modelMatrix * MODELVIEWMATRIX
-                    Dim MVPM = MVM * PROJECTIONMATRIX
+                    Dim modelView = MODEL_INDEX_LIST(z).matrix * MODELVIEWMATRIX
 
-                    GL.UniformMatrix4(normalShader("MVPM"), False, MVPM)
+                    GL.UniformMatrix4(normalShader("modelView"), False, modelView)
+                    GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
 
                     GL.Uniform1(normalShader("prj_length"), 0.1F)
                     GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
+                    GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
 
                     GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
 
@@ -386,9 +337,7 @@ Module modRender
             Next
             GL.BindVertexArray(0)
             normalShader.StopUse()
-
         End If
-
     End Sub
 
     Private Sub Draw_Light_Orb()
@@ -428,7 +377,7 @@ Module modRender
                 frmMain.glControl_main.Cursor = Cursors.SizeNS
             End If
             FBOm.attach_C()
-            draw_cross_hair()
+            ObjectRenderers.draw_cross_hair()
         Else
             frmMain.glControl_main.Cursor = Cursors.Default
         End If

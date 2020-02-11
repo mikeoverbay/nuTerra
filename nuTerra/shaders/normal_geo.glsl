@@ -1,84 +1,88 @@
 ﻿#version 430 core
 
 layout (triangles) in;
-layout (line_strip, max_vertices = 18) out;
+layout (line_strip, max_vertices = 21) out;
 
+uniform bool show_wireframe;
 uniform int mode;
 uniform float prj_length;
-uniform mat4 MVPM;
 
-in vec3 n[3];
-in vec3 t[3];
-in vec3 b[3];
+in vec3 n[];
+in vec3 t[];
+in vec3 b[];
 
 out vec4 color;
 
 void main()
 {
-    vec4 sumV;
-    vec4 sumN;
+    int i;
     if (mode == 1) {
-        sumV = (gl_in[0].gl_Position + gl_in[1].gl_Position + gl_in[2].gl_Position ) / 3.0;
+        vec4 sumV = (gl_in[0].gl_Position + gl_in[1].gl_Position + gl_in[2].gl_Position ) / 3.0f;
+        vec3 sumN;
 
-        //Normal
-            color = vec4(1.0,0.0,0.0,1.0);
-            sumN.xyz = (n[0].xyz + n[1].xyz + n[2].xyz) / 3.0;
-            sumN.w = 0.0;
-            gl_Position = MVPM * sumV;
-            EmitVertex();
-            gl_Position = MVPM * (sumV + (sumN * prj_length));
-            EmitVertex();
-            EndPrimitive();
-        //Tangent
-            color = vec4(0.0,1.0,0.0,1.0);
-            sumN.xyz = (t[0].xyz + t[1].xyz + t[2].xyz) / 3.0;
-            sumN.w = 0.0;
-            gl_Position = MVPM * sumV;
-            EmitVertex();
-            gl_Position = MVPM * (sumV + (sumN * prj_length));
-            EmitVertex();
-            EndPrimitive();
+        // Normal
+        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        sumN = (n[0] + n[1] + n[2]) / 3.0f;
+        gl_Position = sumV;
+        EmitVertex();
+        gl_Position = sumV + vec4(sumN * prj_length, 0.0f);
+        EmitVertex();
+        EndPrimitive();
+
+        // Tangent
+        color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        sumN = (t[0] + t[1] + t[2]) / 3.0f;
+        gl_Position = sumV;
+        EmitVertex();
+        gl_Position = sumV + vec4(sumN * prj_length, 0.0f);
+        EmitVertex();
+        EndPrimitive();
+
         //biTangent
-            color = vec4(0.0,0.0,1.0,1.0);
-            sumN.xyz = (b[0].xyz + b[1].xyz + b[2].xyz) / 3.0;
-            sumN.w = 0.0;
-            gl_Position = MVPM * sumV;
-            EmitVertex();
-            gl_Position = MVPM * (sumV + (sumN * prj_length));
-            EmitVertex();
-            EndPrimitive();
+        color = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+        sumN = (b[0] + b[1] + b[2]) / 3.0f;
+        gl_Position = sumV;
+        EmitVertex();
+        gl_Position = sumV + vec4(sumN * prj_length, 0.0f);
+        EmitVertex();
+        EndPrimitive();
     }
-    else {
-        int i;
+    else if (mode == 2) {
         // normal
-        color = vec4(1.0,0.0,0.0,1.0);
-        for(i = 0; i < gl_in.length(); i++)
-        {
-            gl_Position = MVPM * gl_in[i].gl_Position;
+        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        for(i = 0; i < gl_in.length(); i++) {
+            gl_Position = gl_in[i].gl_Position;
             EmitVertex();
-            gl_Position = MVPM * (gl_in[i].gl_Position + (vec4(n[i], 0) * prj_length));
+            gl_Position = gl_in[i].gl_Position + vec4(n[i] * prj_length, 0.0f);
             EmitVertex();
             EndPrimitive();
         }
         // Tangent
-        color = vec4(0.0,1.0,0.0,1.0);
-        for(i = 0; i < gl_in.length(); i++)
-        {
-            gl_Position = MVPM * gl_in[i].gl_Position;
+        color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        for(i = 0; i < gl_in.length(); i++) {
+            gl_Position = gl_in[i].gl_Position;
             EmitVertex();
-            gl_Position = MVPM * (gl_in[i].gl_Position + (vec4(t[i], 0) * prj_length));
+            gl_Position = gl_in[i].gl_Position + vec4(t[i] * prj_length, 0.0f);
             EmitVertex();
             EndPrimitive();
         }
         // biTangent
-            color = vec4(0.0,0.0,1.0,1.0);
-        for(i = 0; i < gl_in.length(); i++)
-        {
-            gl_Position = MVPM * gl_in[i].gl_Position;
+        color = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+        for(i = 0; i < gl_in.length(); i++) {
+            gl_Position = gl_in[i].gl_Position;
             EmitVertex();
-            gl_Position = MVPM * (gl_in[i].gl_Position + (vec4(b[i], 0) * prj_length));
+            gl_Position = gl_in[i].gl_Position + vec4(b[i] * prj_length, 0.0f);
             EmitVertex();
             EndPrimitive();
         }
-    } // mode
-} //
+    }
+
+    if (show_wireframe) {
+        color = vec4(1.0f, 1.0f, 0.0f, 1.0f);
+        for (i = 0; i < gl_in.length(); i++) {
+            gl_Position = gl_in[i].gl_Position;
+            EmitVertex();
+        }
+        EndPrimitive();
+    }
+}

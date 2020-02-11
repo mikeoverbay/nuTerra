@@ -131,28 +131,26 @@ Module modXfile
         Dim er = GL.GetError
 
         'Gen VAO id
-
         GL.GenVertexArrays(1, mdl.mdl_VAO)
         GL.BindVertexArray(mdl.mdl_VAO)
 
-        ReDim mdl.mBuffers(2)
+        ReDim mdl.mBuffers(1)
         GL.GenBuffers(2, mdl.mBuffers)
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, mdl.mBuffers(1))
-
-        GL.EnableVertexAttribArray(0)
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 32, 0)
         GL.EnableVertexAttribArray(0)
         GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 32, 12)
-        GL.EnableVertexAttribArray(0)
+        GL.EnableVertexAttribArray(1)
         GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 32, 24)
+        GL.EnableVertexAttribArray(2)
 
         GL.BufferData(BufferTarget.ArrayBuffer, (vbuff.Length) * 32, vbuff, BufferUsageHint.StaticDraw)
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, mdl.mBuffers(0))
         GL.BufferData(BufferTarget.ElementArrayBuffer, (mdl.indice_count) * 6, mdl.index_buffer16, BufferUsageHint.StaticDraw)
 
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0)
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0) ' <-- Need to remove this call
         GL.BindVertexArray(0)
 
         mdl.indice_count = indice_count

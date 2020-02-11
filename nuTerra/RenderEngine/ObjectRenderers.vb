@@ -11,8 +11,6 @@ Module ObjectRenderers
     End Sub
 
     Public Sub draw_cross_hair()
-
-
         CrossHairShader.Use()
 
         Dim position = Matrix4.CreateTranslation(U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z)
@@ -27,13 +25,17 @@ Module ObjectRenderers
 
         GL.BindVertexArray(CROSS_HAIR.mdl_VAO)
 
-        GL.DrawElements(PrimitiveType.Triangles, (CROSS_HAIR.indice_count * 3), DrawElementsType.UnsignedShort, CROSS_HAIR.index_buffer16)
+        GL.DrawElements(PrimitiveType.Triangles,
+                        CROSS_HAIR.indice_count * 3,
+                        DrawElementsType.UnsignedShort,
+                        CROSS_HAIR.index_buffer16) ' <- Must be 0 instead of CROSS_HAIR.index_buffer16
 
         GL.BindVertexArray(0)
+        CrossHairShader.StopUse()
 
         GL.BindTexture(TextureTarget.Texture2D, 0)
+        'Stop
 
-        CrossHairShader.StopUse()
     End Sub
 
 
