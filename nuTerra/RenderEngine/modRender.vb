@@ -9,6 +9,11 @@ Module modRender
     Public Sub draw_scene()
 
         '===========================================================================
+        ' FLAG INFO
+        ' 0  = No shading
+        ' 8  = model
+        ' more as they are added
+        '===========================================================================
         'house keeping
         FRAME_TIMER.Restart()
         TOTAL_TRIANGLES_DRAWN = 0
@@ -195,6 +200,12 @@ Module modRender
         GL.Uniform1(deferredShader("gPosition"), 3)
         GL.Uniform1(deferredShader("gDepth"), 4)
 
+        'Lighting settings
+        GL.Uniform1(deferredShader("AMBIENT"), frmLighting.lighting_ambient)
+        GL.Uniform1(deferredShader("BRIGHTNESS"), frmLighting.lighting_terrain_texture)
+        GL.Uniform1(deferredShader("SPECULAR"), frmLighting.lighting_specular_level)
+        GL.Uniform1(deferredShader("GRAY_LEVEL"), frmLighting.lighting_gray_level)
+        GL.Uniform1(deferredShader("GAMMA_LEVEL"), frmLighting.lighting_gamma_level)
         'ortho for the win
         Ortho_main()
 
@@ -222,7 +233,7 @@ Module modRender
 
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
 
-        unbind_textures(3) ' unbind all the used texture slots
+        unbind_textures(4) ' unbind all the used texture slots
 
         deferredShader.StopUse()
     End Sub
@@ -299,7 +310,7 @@ Module modRender
 
     Private Sub draw_overlays()
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
-            FBOm.attach_C()
+            FBOm.attach_CF()
 
             normalShader.Use()
 
@@ -345,7 +356,7 @@ Module modRender
         If Not frmMain.m_show_light_pos.Checked Then
             Return
         End If
-        FBOm.attach_C()
+        FBOm.attach_CF()
 
         Dim model = Matrix4.CreateTranslation(LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
 
@@ -377,7 +388,7 @@ Module modRender
             If Z_MOVE Then
                 frmMain.glControl_main.Cursor = Cursors.SizeNS
             End If
-            FBOm.attach_C()
+            FBOm.attach_CF()
             ObjectRenderers.draw_cross_hair()
         Else
             frmMain.glControl_main.Cursor = Cursors.Default

@@ -1,8 +1,8 @@
 ﻿Imports System.IO
 
 Public Class frmLighting
-    Public lighting_terrain_texture, lighting_ambient, lighting_fog_level, gray_level As Single
-    Public lighting_specular_level, gamma_level As Single
+    Public lighting_terrain_texture, lighting_ambient, lighting_fog_level, lighting_gray_level As Single
+    Public lighting_specular_level, lighting_gamma_level As Single
     Public Sub save_light_settings()
         If Not MAP_LOADED Then
             Return
@@ -61,8 +61,8 @@ Public Class frmLighting
             lighting_ambient = s_terrain_ambient.Value / 300.0!
             lighting_fog_level = s_fog_level.Value / 10000.0! ' yes 10,000
             lighting_specular_level = s_specular_level.Value / 100.0!
-            gamma_level = (s_gamma.Value / 100) * 1.0!
-            gray_level = 1.0 - (s_gray_level.Value / 100)
+            lighting_gamma_level = (s_gamma.Value / 100) * 1.0!
+            lighting_gray_level = 1.0 - (s_gray_level.Value / 100)
             b_reader.Dispose()
             f.Close()
             Return True
@@ -71,8 +71,8 @@ Public Class frmLighting
             lighting_ambient = s_terrain_ambient.Value / 300.0!
             lighting_fog_level = s_fog_level.Value / 10000.0! ' yes 10,000
             lighting_specular_level = s_specular_level.Value / 100.0!
-            gamma_level = (s_gamma.Value / 100) * 1.0!
-            gray_level = 1.0 - (s_gray_level.Value / 100)
+            lighting_gamma_level = (s_gamma.Value / 100) * 1.0!
+            lighting_gray_level = 1.0 - (s_gray_level.Value / 100)
             Return False
 
         End If
@@ -162,7 +162,7 @@ Public Class frmLighting
     Private Sub s_gamma_Scroll(sender As Object, e As EventArgs) Handles s_gamma.Scroll
         If Not _STARTED Then Return
         My.Settings.s_gamma = s_gamma.Value
-        gamma_level = (s_gamma.Value / 100) * 1.0!
+        lighting_gamma_level = (s_gamma.Value / 100) * 1.0!
         'frmMain.need_screen_update()
     End Sub
 
@@ -173,7 +173,7 @@ Public Class frmLighting
     Private Sub s_gray_level_Scroll(sender As Object, e As EventArgs) Handles s_gray_level.Scroll
         If Not _STARTED Then Return
         My.Settings.s_gray_level = s_gray_level.Value
-        gray_level = 1.0 - (s_gray_level.Value / 100)
+        lighting_gray_level = 1.0 - (s_gray_level.Value / 100)
         'frmMain.need_screen_update()
     End Sub
 End Class

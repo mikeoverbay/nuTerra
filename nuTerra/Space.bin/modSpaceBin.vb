@@ -180,7 +180,7 @@ Module modSpaceBin
                 'I can NOT figure out how to get the list of all the primitivegroups!!
                 Dim component_cnt = shader_prop_end - shader_prop_start
                 If .primitive_name.ToLower.Contains("vhouse_05") Then
-                    'Stop
+                    Stop
                 End If
 
                 ReDim .entries(component_cnt)

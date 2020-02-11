@@ -11,7 +11,10 @@ Module FBO_main
         Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition As Integer
         Private Shared oldWidth As Integer = 1
         Private Shared oldHeigth As Integer = 1
-
+        ' color    = 0
+        ' normal   = 1
+        ' GMM      = 3
+        ' Position = 4
         Private Shared attach_Color_Normal_GMF() As Integer = {
                                             FramebufferAttachment.ColorAttachment0,
                                             FramebufferAttachment.ColorAttachment1,
@@ -25,6 +28,10 @@ Module FBO_main
                                             }
         Public Shared attach_Color() As Integer = {
                                             FramebufferAttachment.ColorAttachment0
+                                            }
+        Public Shared attach_Color_GMF() As Integer = {
+                                            FramebufferAttachment.ColorAttachment0,
+                                            FramebufferAttachment.ColorAttachment2
                                             }
         Public Shared attach_Normal() As Integer = {
                                             FramebufferAttachment.ColorAttachment1
@@ -197,6 +204,9 @@ Module FBO_main
 
         Public Shared Sub attach_C()
             GL.DrawBuffers(1, attach_Color)
+        End Sub
+        Public Shared Sub attach_CF()
+            GL.DrawBuffers(2, attach_Color_GMF)
         End Sub
 
         Public Shared Sub attach_N()
