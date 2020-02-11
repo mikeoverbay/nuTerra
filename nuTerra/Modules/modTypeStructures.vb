@@ -198,10 +198,10 @@ Module modTypeStructures
         '------------------------------------------------
         'Storage
         Public Vertex_buffer() As Vector3
-        Public Normal_buffer() As Vector3
+        Public Normal_buffer() As Vector4h
         Public UV1_buffer() As Vector2
-        Public tangent_buffer() As Vector3
-        Public biNormal_buffer() As Vector3
+        Public tangent_buffer() As Vector4h
+        Public biNormal_buffer() As Vector4h
         Public UV2_buffer() As Vector2
 
         Public index_buffer16() As vect3_16

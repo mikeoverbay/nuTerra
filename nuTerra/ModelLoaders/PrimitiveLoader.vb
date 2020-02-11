@@ -653,9 +653,12 @@ Module PrimitiveLoader
 
         'normal
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(NORMAL_VB))
-        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, 0, 0)
+        GL.VertexAttribPointer(1, 4, VertexAttribPointerType.HalfFloat, False, 0, 0)
         GL.EnableVertexAttribArray(1)
-        GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * v3_size, m.Normal_buffer, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer,
+                      m.Normal_buffer.Length * SizeOf(GetType(Vector4h)),
+                      m.Normal_buffer,
+                      BufferUsageHint.StaticDraw)
 
         'UV1
         GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(UV1_VB))
@@ -666,15 +669,21 @@ Module PrimitiveLoader
         If m.has_tangent = 1 Then
             'Tangent
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(TANGENT_VB))
-            GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, 0, 0)
+            GL.VertexAttribPointer(3, 4, VertexAttribPointerType.HalfFloat, False, 0, 0)
             GL.EnableVertexAttribArray(3)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * v3_size, m.tangent_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer,
+                          m.Vertex_buffer.Length * SizeOf(GetType(Vector4h)),
+                          m.tangent_buffer,
+                          BufferUsageHint.StaticDraw)
 
             'biNormal
             GL.BindBuffer(BufferTarget.ArrayBuffer, m.mBuffers(BINORMAL_VB))
-            GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, 0, 0)
+            GL.VertexAttribPointer(4, 4, VertexAttribPointerType.HalfFloat, False, 0, 0)
             GL.EnableVertexAttribArray(4)
-            GL.BufferData(BufferTarget.ArrayBuffer, (m.Vertex_buffer.Length) * v3_size, m.biNormal_buffer, BufferUsageHint.StaticDraw)
+            GL.BufferData(BufferTarget.ArrayBuffer,
+                          m.Vertex_buffer.Length * SizeOf(GetType(Vector4h)),
+                          m.biNormal_buffer,
+                          BufferUsageHint.StaticDraw)
         End If
 
         If m.has_uv2 = 1 Then

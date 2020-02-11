@@ -2,10 +2,10 @@
 #version 430 core
 
 layout(location = 0) in vec3 vertexPosition;
-layout(location = 1) in vec3 vertexNormal;
+layout(location = 1) in vec4 vertexNormal;
 layout(location = 2) in vec2 vertexTexCoord1;
-layout(location = 3) in vec3 vertexTangent;
-layout(location = 4) in vec3 vertexBinormal;
+layout(location = 3) in vec4 vertexTangent;
+layout(location = 4) in vec4 vertexBinormal;
 layout(location = 5) in vec2 vertexTexCoord2;
 
 uniform mat4 modelMatrix;
@@ -27,9 +27,9 @@ void main(void)
     worldPosition = vec3(modelMatrix * vec4(vertexPosition, 1.0));
 
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
-    vec3 worldTangent = modelNormalMatrix * vertexTangent;
-    vec3 worldbiNormal = modelNormalMatrix * vertexBinormal;
-    vec3 worldNormal =  modelNormalMatrix * vertexNormal;
+    vec3 worldTangent = modelNormalMatrix * vertexTangent.xyz;
+    vec3 worldbiNormal = modelNormalMatrix * vertexBinormal.xyz;
+    vec3 worldNormal =  modelNormalMatrix * vertexNormal.xyz;
     worldTangent  = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
     worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
 
