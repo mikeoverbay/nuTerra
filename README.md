@@ -2,6 +2,11 @@
 
 ### This is the home of nuTerra where all the work will be done to rewrite Terra using New OpenGL techniques.
 
+### Update log.. 2/10/2020
+App is now 100% 4.3+ CORE. All rendering is done using FBOs or VAOs. All transforms happen in code or shader code.
+All this is Maxim's work.</br>
+I added 3D cross hair. Fixed the Deferred lighting. Added back in a gPosition FBO render texture. Fixed bugs and improved code readability.
+
 #### Update log.. 2/9/2020
 Added frustrum culling for the models. the VAO is rendering fast. Maxim has cleaned up and removed the code and simplified some functions.</br>
 
