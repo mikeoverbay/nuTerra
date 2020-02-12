@@ -11,6 +11,8 @@ uniform sampler2D normalMap;
 uniform sampler2D GMF_Map;
 
 uniform int nMap_type;
+uniform int alphaEnable;
+uniform int alphaReference;
 
 in vec2 UV;
 in vec2 UV2;
@@ -18,6 +20,8 @@ in vec3 worldPosition;
 in mat3 TBN;
 
 in vec3 normal;//temp fro debuging lighting
+
+
 vec3 getNormal()
 {
     vec3 n;
@@ -37,6 +41,14 @@ vec3 getNormal()
 
 void main(void)
 {
+
+    if (alphaEnable == 1){
+        float a = texture(normalMap, UV).r;
+        float aRef = float(alphaReference)/255.0;
+        if (aRef > a) {
+            discard;
+        }
+    }
     // easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
     gColor = texture(colorMap, UV);
     gColor.a = 1.0;
@@ -45,5 +57,5 @@ void main(void)
     gGMF.rg = texture(GMF_Map, UV2).rg;
     gGMF.b = 8.0/255.0;
 
-	gPosition = worldPosition;
+    gPosition = worldPosition;
 }

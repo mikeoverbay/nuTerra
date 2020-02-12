@@ -182,6 +182,10 @@ Module modRender
 
                         If Not model.entries(i).draw Then ' we should sort and remove undrawn shit and save GPU mem
 
+                            GL.Uniform1(modelShader("alphaEnable"), model.entries(i).alphaEnable)
+                            GL.Uniform1(modelShader("alphaReference"), model.entries(i).alphaReference)
+
+
                             GL.ActiveTexture(TextureUnit.Texture0 + 0)
                             GL.BindTexture(TextureTarget.Texture2D, model.entries(i).diffuseMap_id) '<----------------- Texture Bind
                             GL.ActiveTexture(TextureUnit.Texture0 + 1)

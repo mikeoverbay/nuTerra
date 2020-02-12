@@ -257,6 +257,18 @@ Module VisualTextureGetter
             End If
         End If
         '
+        in_pos = InStr(1, thestring, "alphaTestEnable")
+        If in_pos > 0 Then
+            Dim tex1_pos = InStr(in_pos, thestring, "<Bool>") + "<Bool>".Length
+            Dim tex1_Epos = InStr(in_pos, thestring, "</Bool>")
+            Dim newS As String = ""
+            newS = Mid(thestring, tex1_pos, tex1_Epos - tex1_pos).Replace("/", "\")
+            If newS = "true" Then
+                m.alphaEnable = 1
+            Else
+                m.alphaEnable = 0
+            End If
+        End If
         in_pos = InStr(1, thestring, "alphaEnable")
         If in_pos > 0 Then
             Dim tex1_pos = InStr(in_pos, thestring, "<Bool>") + "<Bool>".Length
