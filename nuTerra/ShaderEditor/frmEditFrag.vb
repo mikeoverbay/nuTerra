@@ -198,5 +198,40 @@ Public Class frmEditFrag
         reset_focus()
     End Sub
 
+    'vetext editor
+    Private Sub ToolStripMenuItem1_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem1.Click
+        vert_tb.Cut()
+    End Sub
 
+    Private Sub ToolStripMenuItem2_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem2.Click
+        vert_tb.Copy()
+    End Sub
+
+    Private Sub ToolStripMenuItem3_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem3.Click
+        vert_tb.Paste()
+    End Sub
+    'fragment
+    Private Sub ToolStripMenuItem4_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem4.Click
+        frag_tb.Cut()
+    End Sub
+
+    Private Sub ToolStripMenuItem5_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem5.Click
+        frag_tb.Copy()
+    End Sub
+
+    Private Sub ToolStripMenuItem6_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem6.Click
+        frag_tb.Paste()
+    End Sub
+
+    Private Sub ToolStripMenuItem7_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem7.Click
+        geo_tb.Cut()
+    End Sub
+
+    Private Sub ToolStripMenuItem8_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem8.Click
+        geo_tb.Copy()
+    End Sub
+
+    Private Sub ToolStripMenuItem9_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem9.Click
+        geo_tb.Paste()
+    End Sub
 End Class

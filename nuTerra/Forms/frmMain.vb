@@ -303,7 +303,8 @@ try_again:
         'load_map("31_airfield.pkg")
         load_map("112_eiffel_tower_ctf.pkg")
         ShowText("loaded Map 112_eiffel_tower_ctf.pkg")
-
+        ShowTextAppend("This is a happy line")
+        ShowTextAppend("But this line is happier!")
     End Sub
     '=================================================================================
 
