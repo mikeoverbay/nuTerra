@@ -302,9 +302,6 @@ try_again:
         'load_map("29_el_hallouf.pkg")
         'load_map("31_airfield.pkg")
         load_map("112_eiffel_tower_ctf.pkg")
-        ShowText("loaded Map 112_eiffel_tower_ctf.pkg")
-        ShowTextAppend("This is a happy line")
-        ShowTextAppend("But this line is happier!")
     End Sub
     '=================================================================================
 
@@ -448,10 +445,12 @@ try_again:
         End If
         If CAM_Y_ANGLE <> U_CAM_Y_ANGLE Then
             If CAM_Y_ANGLE > 1.3 Then
-                CAM_Y_ANGLE = 1.3
+                U_CAM_Y_ANGLE = 1.3
+                CAM_Y_ANGLE = U_CAM_Y_ANGLE
             End If
             If CAM_Y_ANGLE < -halfPI Then
-                CAM_Y_ANGLE = -halfPI
+                U_CAM_Y_ANGLE = -halfPI + 0.001
+                CAM_Y_ANGLE = U_CAM_Y_ANGLE
             End If
             U_CAM_Y_ANGLE = CAM_Y_ANGLE
         End If
@@ -565,7 +564,7 @@ try_again:
                             CAM_Y_ANGLE -= t
                         End If
                     End If
-                    If CAM_Y_ANGLE < -PI / 2.0 Then CAM_Y_ANGLE = -PI / 2.0 + 0.001
+                    'If CAM_Y_ANGLE < -PI / 2.0 Then CAM_Y_ANGLE = -PI / 2.0 + 0.001
                 End If
                 MOUSE.Y = e.Y
             End If
@@ -586,7 +585,7 @@ try_again:
                         End If
 
                     End If
-                    If CAM_Y_ANGLE > 1.3 Then CAM_Y_ANGLE = 1.3
+                    'If CAM_Y_ANGLE > 1.3 Then CAM_Y_ANGLE = 1.3
                 End If
                 MOUSE.Y = e.Y
             End If
