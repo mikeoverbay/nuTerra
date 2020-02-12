@@ -7,9 +7,12 @@ Module modUtilities
         frmShowText.Show()
         frmShowText.FastColoredTextBox1.Text = text
     End Sub
+
     Public Sub ShowTextAppend(ByVal text As String)
         frmShowText.Show()
-        frmShowText.FastColoredTextBox1.Text += text
+        frmShowText.FastColoredTextBox1.Text =
+            frmShowText.FastColoredTextBox1.Text + vbCrLf +
+            text
     End Sub
 
     Public Sub LogThis(ByVal entry As String)
