@@ -160,6 +160,7 @@ Module modRender
                 Dim model = MAP_MODELS(MM_IDX).mdl(0)
 
                 If Not model.junk And Not MODEL_INDEX_LIST(MAT_IDX).Culled Then
+
                     TOTAL_TRIANGLES_DRAWN += model.POLY_COUNT
 
                     Dim modelMatrix = MODEL_INDEX_LIST(MAT_IDX).matrix
@@ -176,11 +177,26 @@ Module modRender
                     Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
 
                     GL.BindVertexArray(model.mdl_VAO)
+
                     For i = 0 To model.primitive_count - 1
-                        GL.DrawElements(PrimitiveType.Triangles,
-                                        model.entries(i).numIndices,
-                                        triType,
-                                        model.entries(i).startIndex * triSize)
+
+                        If Not model.entries(i).draw Then ' we should sort and remove undrawn shit and save GPU mem
+
+                            GL.ActiveTexture(TextureUnit.Texture0 + 0)
+                            GL.BindTexture(TextureTarget.Texture2D, model.entries(i).diffuseMap_id) '<----------------- Texture Bind
+                            GL.ActiveTexture(TextureUnit.Texture0 + 1)
+                            GL.BindTexture(TextureTarget.Texture2D, model.entries(i).normalMap_id)
+                            GL.ActiveTexture(TextureUnit.Texture0 + 2)
+                            GL.BindTexture(TextureTarget.Texture2D, model.entries(i).metallicGlossMap_id)
+
+
+                            Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
+                            GL.DrawElements(PrimitiveType.Triangles,
+                                            model.entries(i).numIndices,
+                                            triType,
+                                            offset)
+                        End If
+
                     Next
                 End If
             Next

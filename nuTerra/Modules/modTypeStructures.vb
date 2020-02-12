@@ -282,6 +282,8 @@ Module modTypeStructures
         '------------------------------------
         'values from space.bin
         Public alphaReference As Integer
+        Public TexAddressMode As Integer
+        Public g_vertexColorMode As Integer
         Public g_tintColor As Vector4
         Public g_tile0Tint As Vector4
         Public g_tile1Tint As Vector4
@@ -290,7 +292,6 @@ Module modTypeStructures
         Public g_dirtColor As Vector4
         Public g_atlasSizes As Vector4
         Public g_atlasIndexes As Vector4
-        Public g_vertexColorMode As Integer
         Public g_vertexAnimationParams As Vector4
         Public g_fakeShadowsParams As Vector4 '<-- interesting
         '- render params from space.bin
@@ -301,7 +302,6 @@ Module modTypeStructures
         'booleans from space.bin
         Public doubleSided As Integer
         Public alphaEnable As Integer
-        Public TexAddressMode As Integer
         Public dynamicobject As Integer
         Public g_enableAO As Integer
         Public g_useNormalPackDXT1 As Integer ' If this is true, this uses the old RGB normal maps;

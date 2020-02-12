@@ -19,6 +19,8 @@ Module TextureLoaders
     End Sub
 
     Public Function image_exists(ByVal fn As String) As Integer
+        'search datatable for the textures name.
+        'If its found, return the texture's GL id.
         Dim q = From d In imgTbl.AsEnumerable
                 Where d.Field(Of String)("Name") = fn
                 Select id = d.Field(Of Integer)("Id")
@@ -41,8 +43,11 @@ Module TextureLoaders
     Public Function find_and_load_texture_from_pkgs(ByRef fn As String) As Integer
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
-        Dim id = image_exists(fn)
-        If id > 0 Then Return id
+
+        Dim id = image_exists(fn) 'check if this has been loaded.
+        If id > 0 Then
+            Return id
+        End If
         Dim entry As ZipEntry = search_pkgs(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream

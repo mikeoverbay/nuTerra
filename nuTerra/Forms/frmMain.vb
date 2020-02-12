@@ -152,9 +152,11 @@ Public Class frmMain
         glControl_main.BringToFront()
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
+        get_destructibles()
+        '-----------------------------------------------------------------------------------------
         'Loads the textures for the map selection routines
         '!!!!! This is disabled to speed up testing for now!
-#If 0 Then
+#If 1 Then
         make_map_pick_buttons()
 #End If
         '-----------------------------------------------------------------------------------------
@@ -182,18 +184,18 @@ Public Class frmMain
         _STARTED = True ' I'm ready for update loops!
         '-----------------------------------------------------------------------------------------
         '-----------------------------------------------------------------------------------------
-        'This is temporary to speed up debugging
-        '-----------------------------------------------------------------------------------------
-        '-----------------------------------------------------------------------------------------
         '-----------------------------------------------------------------------------------------
         launch_update_thread()
         '-----------------------------------------------------------------------------------------
+        '-----------------------------------------------------------------------------------------
+        'This is temporary to speed up debugging
+        '-----------------------------------------------------------------------------------------
         'load_map("19_monastery.pkg")
-        load_map("08_ruinberg.pkg")
+        'load_map("08_ruinberg.pkg")
         'load_map("14_siegfried_line.pkg")
         'load_map("29_el_hallouf.pkg")
         'load_map("31_airfield.pkg")
-        'load_map("112_eiffel_tower_ctf.pkg")
+        load_map("112_eiffel_tower_ctf.pkg")
 
     End Sub
 

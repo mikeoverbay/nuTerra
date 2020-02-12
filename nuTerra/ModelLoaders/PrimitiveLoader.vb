@@ -5,6 +5,11 @@ Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
 Module PrimitiveLoader
+    Public visual_sections() As visual_sections_
+    Public Structure visual_sections_
+        Public p_group() As String
+    End Structure
+
     Public Structure section_info
         Public name As String
         Public location As UInt32
@@ -56,7 +61,32 @@ Module PrimitiveLoader
         If entry IsNot Nothing Then
             ms = New MemoryStream
             entry.Extract(ms)
+            'get visual
             openXml_stream(ms, Path.GetFileNameWithoutExtension(nodeFullName))
+            Dim vs = TheXML_String.Split("<renderSet>")
+            If filename.Contains("Foch") Then
+                'Stop
+            End If
+            Dim vs_size = vs.Length
+            ReDim visual_sections(vs_size - 1)
+            For i = 1 To vs_size - 1
+                visual_sections(vs_size - 1) = New visual_sections_
+                Dim svd = vs(i).Split("</material>")
+                ReDim visual_sections(i - 1).p_group(svd.Length - 1)
+                For k = 0 To svd.Length - 1
+                    visual_sections(i - 1).p_group(k) = svd(k).Replace("</property>" + vbCrLf, "")
+                    Dim m_split = visual_sections(i - 1).p_group(k).Split(vbCrLf)
+                    Dim ts As String = ""
+                    For z = 0 To m_split.Length - 1
+                        If m_split(z).Contains("property") Or
+                            m_split(z).Contains("identifier") Or
+                            m_split(z).Contains("fx") Then
+                            ts += m_split(z) + vbCrLf
+                        End If
+                    Next
+                    visual_sections(i - 1).p_group(k) = ts
+                Next
+            Next
             ms.Dispose()
             filename = nodeFullName.Replace(".visual_processed", ".primitives_processed")
 
@@ -275,8 +305,6 @@ Module PrimitiveLoader
                             pGroups(z).nPrimitives_ = br.ReadUInt32 ' <-- This is the triangle count
                             pGroups(z).startVertex_ = br.ReadUInt32 ' <-- Offset in to Vertex list
                             pGroups(z).nVertices_ = br.ReadUInt32 '   <-- Number of vertices consumed
-                            'update triangle count
-                            TOTAL_TRIANGLES_DRAWN_MODEL += pGroups(z).nPrimitives_
                         Next
 
                         ms.Position = cp 'restore position
@@ -450,16 +478,30 @@ Module PrimitiveLoader
 
             mdl(cur_sub).indice_size = indi_scale
 
-            Dim running As Integer = 0 'Continuous pointer in to the buffers
+            Dim running As Integer = 0 'Continuous accumulator pointer in to the buffers
+
+            Dim block_removed As Boolean
 
             For i = 0 To mdl(cur_sub).primitive_count - 1
-                'mdl(cur_sub).entries(i) = New entries_
-                'If mdl(cur_sub).entries(i).identifier.Contains("wall_0") Then mdl(cur_sub).junk = True
+
+                'We are getting the textures and the indentifier here
+                'to check if this comonent is drawn.
+                'if the identifier tells up its not draw, we will skip
+                'creating the VAO for this component.
+                'To make up for the lost vertcies, we need to offset the indcies pointer by
+                'this skipped component. See ELSE at end!!
+                '
+                get_textures_and_settings(mdl(cur_sub).entries(i), i, cur_sub, filename)
+
                 mdl(cur_sub).entries(i).startIndex = pGroups(i).startIndex_ / 3
                 mdl(cur_sub).entries(i).numIndices = pGroups(i).nPrimitives_ * 3 'draw 3 verts per triangle
                 mdl(cur_sub).entries(i).startVertex = pGroups(i).startVertex_
                 mdl(cur_sub).entries(i).numVertices = pGroups(i).nVertices_
 
+                If Not mdl(cur_sub).entries(i).draw Then
+                    'Update only if these are acually drawn!
+                    TOTAL_TRIANGLES_DRAWN_MODEL += pGroups(i).nPrimitives_
+                End If
                 For z = mdl(cur_sub).entries(i).startVertex To mdl(cur_sub).entries(i).startVertex + (mdl(cur_sub).entries(i).numVertices - 1)
                     '-----------------------------------------------------------------------
                     'We have to flip the sign of X on all vertex values because of DirectX to OpenGL
@@ -543,17 +585,18 @@ Module PrimitiveLoader
                     End If
                     '-----------------------------------------------------------------------
                     running += 1
-                Next
-            Next
+                Next 'next vertexelse
 
+            Next 'next component
             'builds the VAO
             build_model_VAO(mdl(cur_sub))
             mdl(cur_sub).flush()
 
             fup_counter += 1
 
+            mdl(cur_sub).POLY_COUNT = TOTAL_TRIANGLES_DRAWN_MODEL
+
         End While ' end of outside sub_groups loop
-        mdl(cur_sub).POLY_COUNT = TOTAL_TRIANGLES_DRAWN_MODEL
         ms.Close()
 
         Return True

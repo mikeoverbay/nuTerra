@@ -190,8 +190,6 @@ Module vis_main
             End If
         End If
         reader.Close()
-        f.Close()
-        f.Dispose()
         Return True
     End Function
 
