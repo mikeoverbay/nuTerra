@@ -193,7 +193,7 @@ Module PrimitiveLoader
         gp_pointer = sub_groups
         If sub_groups > 1 Then
             got_subs = True
-            Stop
+            'Stop
         End If
         Dim ind_start As UInt32 = 0
         Dim ind_length As UInt32 = 0
@@ -548,6 +548,7 @@ Module PrimitiveLoader
 
             'builds the VAO
             build_model_VAO(mdl(cur_sub))
+            mdl(cur_sub).flush()
 
             fup_counter += 1
 
@@ -704,7 +705,6 @@ Module PrimitiveLoader
 
         GL.BindVertexArray(0)
         GL.Finish()
-        'm.flush()
     End Sub
 
 End Module

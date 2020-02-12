@@ -221,8 +221,8 @@ Module modTypeStructures
             biNormal_buffer = Nothing
             UV2_buffer = Nothing
 
-            'ReDim Me.index_buffer16(0)
-            'ReDim Me.index_buffer32(0)
+            index_buffer16 = Nothing
+            index_buffer32 = Nothing
         End Sub
 
     End Structure

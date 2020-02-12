@@ -158,6 +158,8 @@ Module modXfile
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         GL.BindVertexArray(0)
 
+        mdl.flush()
+
         Dim er1 = GL.GetError
 
         Return 0

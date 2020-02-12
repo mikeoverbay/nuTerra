@@ -78,11 +78,11 @@ Module modRender
             draw_models() '=============================================================
             '===========================================================================
 
+            GL.Disable(EnableCap.CullFace)
+
             '===========================================================================
             draw_overlays() '===========================================================
             '===========================================================================
-
-            GL.Disable(EnableCap.CullFace)
         End If
 
         '===========================================================================
@@ -177,11 +177,10 @@ Module modRender
 
                     GL.BindVertexArray(model.mdl_VAO)
                     For i = 0 To model.primitive_count - 1
-                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
                         GL.DrawElements(PrimitiveType.Triangles,
                                         model.entries(i).numIndices,
                                         triType,
-                                        offset)
+                                        model.entries(i).startIndex * triSize)
                     Next
                 End If
             Next
