@@ -40,7 +40,7 @@ Module modGlobalVars
     Public LIGHT_POS As Vector3
     Public LIGHT_RADIUS As Single 'Used when orbiting the light
     Public LIGHT_ORBIT_ANGLE As Single 'Used when orbiting the light
-    Public PAUSE_ORBIT As Boolean
+    Public PAUSE_ORBIT As Boolean = True
     Public LIGHT_SPEED As Single = 0.02F
     '============================================================
     Public TOTAL_TRIANGLES_DRAWN As UInt32
