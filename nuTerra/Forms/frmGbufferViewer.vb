@@ -68,6 +68,8 @@ Public Class frmGbufferViewer
             Case 1
                 toLinearShader.Use()
                 GL.Uniform1(toLinearShader("depthMap"), 0)
+                GL.Uniform1(toLinearShader("far"), PRESPECTIVE_FAR)
+                GL.Uniform1(toLinearShader("near"), PRESPECTIVE_NEAR)
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
             Case 2
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)

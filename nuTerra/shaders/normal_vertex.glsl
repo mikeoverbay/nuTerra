@@ -1,4 +1,4 @@
-﻿// Normal shader .. shows the normal,tangent and biNormal vectors
+﻿// Normal shader .. shows the normal,tangent and biNormal vectors and wire overlay
 #version 430 core
 
 layout(location = 0) in vec3 vertexPosition;
@@ -25,7 +25,7 @@ void main(void)
     n = normalize(vec3(projection * vec4(normalMatrix * vertexNormal.xyz, 0.0f)));
     t = normalize(vec3(projection * vec4(normalMatrix * vertexTangent.xyz, 0.0f)));
     b = normalize(vec3(projection * vec4(normalMatrix * vertexBinormal.xyz, 0.0f)));
-
-    // t           = normalize(t-dot(n,t)*n);
-    // b           = normalize(b-dot(n,b)*n);
+    //Make angles perpendicular
+    t           = t-dot(n,t)*n;
+    b           = b-dot(n,b)*n;
 }

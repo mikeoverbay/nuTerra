@@ -433,6 +433,7 @@ try_again:
     ''' <remarks></remarks>
     ''' 
     Private Sub check_postion_for_update()
+        Dim halfPI = PI * 0.5F
         If LOOK_AT_X <> U_LOOK_AT_X Then
             U_LOOK_AT_X = LOOK_AT_X
         End If
@@ -446,6 +447,12 @@ try_again:
             U_CAM_X_ANGLE = CAM_X_ANGLE
         End If
         If CAM_Y_ANGLE <> U_CAM_Y_ANGLE Then
+            If CAM_Y_ANGLE > 1.3 Then
+                CAM_Y_ANGLE = 1.3
+            End If
+            If CAM_Y_ANGLE < -halfPI Then
+                CAM_Y_ANGLE = -halfPI
+            End If
             U_CAM_Y_ANGLE = CAM_Y_ANGLE
         End If
         If VIEW_RADIUS <> U_VIEW_RADIUS Then
@@ -505,7 +512,6 @@ try_again:
         If BLOCK_MOUSE Then Return
         M_MOUSE.X = e.X
         M_MOUSE.Y = e.Y
-        Dim max_zoom_out As Single = -3500.0F 'must be negitive
         'If check_menu_select() Then ' check if we are over a button
         '    Return
         'End If
@@ -553,7 +559,11 @@ try_again:
                         LOOK_AT_Z -= ((t * ms) * (Cos(CAM_X_ANGLE)))
                         LOOK_AT_X -= ((t * ms) * (Sin(CAM_X_ANGLE)))
                     Else
-                        CAM_Y_ANGLE -= t
+                        If CAM_Y_ANGLE - t < -PI / 2.0 Then
+                            CAM_Y_ANGLE = -PI / 2.0 + 0.001
+                        Else
+                            CAM_Y_ANGLE -= t
+                        End If
                     End If
                     If CAM_Y_ANGLE < -PI / 2.0 Then CAM_Y_ANGLE = -PI / 2.0 + 0.001
                 End If
@@ -569,7 +579,12 @@ try_again:
                         LOOK_AT_Z += ((t * ms) * (Cos(CAM_X_ANGLE)))
                         LOOK_AT_X += ((t * ms) * (Sin(CAM_X_ANGLE)))
                     Else
-                        CAM_Y_ANGLE += t
+                        If CAM_Y_ANGLE + t > 1.3 Then
+                            CAM_Y_ANGLE = 1.3
+                        Else
+                            CAM_Y_ANGLE += t
+                        End If
+
                     End If
                     If CAM_Y_ANGLE > 1.3 Then CAM_Y_ANGLE = 1.3
                 End If

@@ -125,7 +125,7 @@ Module modRender
     Private Sub draw_models()
         'SOLID FILL
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
-            GL.PolygonOffset(1, 1)
+            GL.PolygonOffset(1.2, 0.2)
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
         '------------------------------------------------
@@ -147,10 +147,6 @@ Module modRender
         Dim sanitiy_check As Integer = 0 ' if all is good, this should equal the length of MATRIX_INDEX_LIST
 
         For bc = 0 To MODEL_BATCH_LIST.Length - 1
-
-            Dim texture_set = MODEL_BATCH_LIST(bc).MAP_MODEL_INDEX ' use it to get the textures for this model?
-            'We would bind our textures here
-            'and draw all the models that use them.
 
             For z = 0 To MODEL_BATCH_LIST(bc).count
                 sanitiy_check += 1
@@ -212,7 +208,6 @@ Module modRender
         unbind_textures(2) ' unbind all the used texture slots
 
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
-            GL.PolygonOffset(1, 1)
             GL.Disable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
     End Sub
@@ -345,37 +340,45 @@ Module modRender
 
             normalShader.Use()
 
-            For z = 0 To MODEL_INDEX_LIST.Length - 2
-                Dim idx = MODEL_INDEX_LIST(z).model_index
-                Dim model = MAP_MODELS(idx).mdl(0)
+            For bc = 0 To MODEL_BATCH_LIST.Length - 1
 
-                If Not model.junk And Not MODEL_INDEX_LIST(z).Culled Then
+                For z = 0 To MODEL_BATCH_LIST(bc).count
 
-                    Dim modelView = MODEL_INDEX_LIST(z).matrix * MODELVIEWMATRIX
+                    Dim MM_IDX = MODEL_BATCH_LIST(bc).MAP_MODEL_INDEX '       <-- points at the MAP_MODEL
+                    Dim MAT_IDX = MODEL_BATCH_LIST(bc).MATRIX_INDEX_LIST(z) ' <-- Points at the matrix for each copy of that MAP_MODEL
 
-                    GL.UniformMatrix4(normalShader("modelView"), False, modelView)
-                    GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
+                    Dim model = MAP_MODELS(MM_IDX).mdl(0)
 
-                    GL.Uniform1(normalShader("prj_length"), 0.1F)
-                    GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
-                    GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
+                    If Not model.junk And Not MODEL_INDEX_LIST(MAT_IDX).Culled Then
 
-                    GL.BindVertexArray(MAP_MODELS(idx).mdl(0).mdl_VAO)
+                        TOTAL_TRIANGLES_DRAWN += model.POLY_COUNT
 
-                    Dim er0 = GL.GetError
-                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
+                        Dim modelView = MODEL_INDEX_LIST(MAT_IDX).matrix * MODELVIEWMATRIX
 
-                    GL.BindVertexArray(model.mdl_VAO)
-                    For i = 0 To model.primitive_count - 1
-                        Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
-                        GL.DrawElements(PrimitiveType.Triangles,
-                                        model.entries(i).numIndices,
-                                        triType,
-                                        offset)
-                    Next
-                End If
+                        GL.UniformMatrix4(normalShader("modelView"), False, modelView)
+                        GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
 
+                        GL.Uniform1(normalShader("prj_length"), 0.1F)
+                        GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
+                        GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
+
+                        Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
+                        Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
+
+                        GL.BindVertexArray(model.mdl_VAO)
+
+                        For i = 0 To model.primitive_count - 1
+
+                            If Not model.entries(i).draw Then
+                                Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
+                                GL.DrawElements(PrimitiveType.Triangles,
+                                                model.entries(i).numIndices,
+                                                triType,
+                                                offset)
+                            End If
+                        Next
+                    End If
+                Next
             Next
             GL.BindVertexArray(0)
             normalShader.StopUse()

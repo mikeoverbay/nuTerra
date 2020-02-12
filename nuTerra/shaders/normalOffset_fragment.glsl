@@ -1,4 +1,6 @@
-﻿#version 430 compatibility
+﻿// Normal shader .. shows the normal,tangent and biNormal vectors and wire overlay
+
+#version 430 compatibility
 
 layout (location = 0) out vec4 gColor;
 

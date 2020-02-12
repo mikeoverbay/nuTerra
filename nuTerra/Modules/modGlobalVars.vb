@@ -59,11 +59,14 @@ Module modGlobalVars
     Public U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z As Single
     Public MOUSE_SPEED_GLOBAL As Single = 0.8
     Public CAM_POSITION As Vector3
+    Public MAX_ZOOM_OUT As Single = -2000.0F 'must be negitive
     '============================================================
     Public PROJECTIONMATRIX As New Matrix4
     Public MODELVIEWMATRIX As New Matrix4
     Public MODELVIEWMATRIX_Saved As Matrix4
     Public VIEW_PORT(1) As Single
+    Public PRESPECTIVE_NEAR As Single = 0.5F
+    Public PRESPECTIVE_FAR As Single = 3000.0F
     '============================================================
     'Map related
     Public MAP_NAME_NO_PATH As String = ""

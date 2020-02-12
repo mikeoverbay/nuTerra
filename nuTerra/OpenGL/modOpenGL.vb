@@ -68,7 +68,7 @@ Module modOpenGL
         PROJECTIONMATRIX = Matrix4.CreatePerspectiveFieldOfView(
                                    CSng(Math.PI) * (FieldOfView / 180.0F),
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
-                                   0.5F, 5000.0F)
+                                   PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
 
         MODELVIEWMATRIX = Matrix4.LookAt(position, target, up)
         MODELVIEWMATRIX_Saved = MODELVIEWMATRIX

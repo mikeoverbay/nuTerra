@@ -3,12 +3,16 @@
 #version 430 compatibility
 
 uniform sampler2D depthMap;
+
+uniform float near;
+uniform float far;
+
 in vec2 texCoord;
 
 float linearDepth(float depthSample)
 {
-    float f = 5000.0;
-    float n = 1.0;
+    float f = far;
+    float n = near;
     
     return  (2.0 * n) / (f + n - depthSample * (f - n));
 }

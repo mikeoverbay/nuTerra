@@ -1,4 +1,6 @@
-﻿#version 430 compatibility
+﻿// Normal shader .. shows the normal,tangent and biNormal vectors and wire overlay
+
+#version 430 compatibility
 
 out vec2 texcoord;
 void main(void)
