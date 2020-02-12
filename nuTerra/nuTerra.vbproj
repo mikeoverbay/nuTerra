@@ -162,6 +162,12 @@
     <Compile Include="Forms\frmGbufferViewer.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\frmShowText.Designer.vb">
+      <DependentUpon>frmShowText.vb</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\frmShowText.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="MapLoader\frmLoadOptions.designer.vb">
       <DependentUpon>frmLoadOptions.vb</DependentUpon>
     </Compile>
@@ -228,6 +234,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmGbufferViewer.resx">
       <DependentUpon>frmGbufferViewer.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\frmShowText.resx">
+      <DependentUpon>frmShowText.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="MapLoader\frmLoadOptions.resx">
       <DependentUpon>frmLoadOptions.vb</DependentUpon>

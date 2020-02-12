@@ -3,6 +3,17 @@ Imports System.Runtime.CompilerServices
 
 Module modUtilities
 
+    Public Sub ShowText(ByVal text As String)
+        frmShowText.Show()
+        frmShowText.FastColoredTextBox1.Text = text
+    End Sub
+
+    Public Sub LogThis(ByVal entry As String)
+        'Writes to the log and immediately saves it.
+        nuTerra_LOG.AppendLine(entry)
+        File.WriteAllText(TEMP_STORAGE + "nuTerra_Log.txt", nuTerra_LOG.ToString)
+    End Sub
+
     ' Allows us to split by strings. Not just characters.
     <Extension()> _
     Public Function Split(ByVal input As String, _

@@ -55,7 +55,7 @@ void main(void)
 
     gNormal.xyz = getNormal();
     gGMF.rg = texture(GMF_Map, UV2).rg;
-    gGMF.b = 8.0/255.0;
+    gGMF.b = 64.0/255.0;
 
     gPosition = worldPosition;
 }

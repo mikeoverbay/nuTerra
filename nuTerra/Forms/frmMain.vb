@@ -12,6 +12,7 @@ Public Class frmMain
     Private refresh_thread As New Thread(AddressOf updater)
     Private fps_timer As New System.Diagnostics.Stopwatch
     Private game_clock As New System.Diagnostics.Stopwatch
+    Private launch_timer As New System.Diagnostics.Stopwatch
 #Region "Form Events"
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
@@ -82,122 +83,6 @@ Public Class frmMain
         startup_delay_timer.Start()
     End Sub
 
-    Private Sub post_frmMain_loaded()
-        '-----------------------------------------------------------------------------------------
-        glControl_main.MakeCurrent()
-
-        'Check context:
-        Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
-        Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
-        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 3) Then
-            MsgBox("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
-            Application.Exit()
-        End If
-
-#If DEBUG Then
-        Debug.Print("Vendor: {0}", GL.GetString(StringName.Vendor))
-        Debug.Print("Renderer: {0}", GL.GetString(StringName.Renderer))
-        Debug.Print("Version: {0}", GL.GetString(StringName.Version))
-        Debug.Print("ShadingLanguageVersion: {0}", GL.GetString(StringName.ShadingLanguageVersion))
-        If GL.GetString(StringName.Version).Contains("Debug Context") Then
-            If (GL.GetString(StringName.Extensions).Contains("GL_ARB_debug_output")) Then
-                SetupDebugOutputCallback()
-            End If
-        End If
-#End If      '-----------------------------------------------------------------------------------------
-        'need a work area on users disc
-        TEMP_STORAGE = Path.GetTempPath + "nuTerra\"
-        If Not Directory.Exists(TEMP_STORAGE) Then
-            Directory.CreateDirectory(TEMP_STORAGE)
-        End If
-        '-----------------------------------------------------------------------------------------
-        'Check if the game path is set
-        If Not Directory.Exists(My.Settings.GamePath + "\res") Then
-            MsgBox("Path to game is not set!" + vbCrLf + _
-                    "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
-            m_set_game_path.PerformClick()
-        End If
-        GAME_PATH = My.Settings.GamePath + "\res\packages\"
-
-        '-----------------------------------------------------------------------------------------
-        ' Create default VAO
-        GL.CreateVertexArrays(1, defaultVao)
-        '-----------------------------------------------------------------------------------------
-
-        '-----------------------------------------------------------------------------------------
-        FBOm.FBO_Initialize()
-        '-----------------------------------------------------------------------------------------
-        Il.ilInit()
-        Ilu.iluInit()
-        '-----------------------------------------------------------------------------------------
-        build_shaders()
-        '-----------------------------------------------------------------------------------------
-        load_assets()
-        '-----------------------------------------------------------------------------------------
-        'Loads the list of destroyed object types.
-        load_destructibles()
-        '-----------------------------------------------------------------------------------------
-        'Set camara start up position. This is mostly for testing.
-        VIEW_RADIUS = -1000.0
-        CAM_X_ANGLE = PI / 4
-        CAM_Y_ANGLE = -PI / 4
-        '-----------------------------------------------------------------------------------------
-        set_light_pos() ' Set initial light position and get radius and angle.
-        '-----------------------------------------------------------------------------------------
-        'Everything is setup/loaded to show the main window.
-        'Dispose of the no longer used Panel1
-        Panel1.Visible = False
-        Me.Controls.Remove(Panel1)
-        Panel1.Dispose()
-        glControl_main.BringToFront()
-        GC.Collect() 'Start a clean up of disposed items
-        '-----------------------------------------------------------------------------------------
-        get_destructibles()
-        '-----------------------------------------------------------------------------------------
-        'Loads the textures for the map selection routines
-        '!!!!! This is disabled to speed up testing for now!
-#If 1 Then
-        make_map_pick_buttons()
-#End If
-        '-----------------------------------------------------------------------------------------
-        'Make a texture for rendering text on map pic textures
-        DrawMapPickText.TextRenderer(120, 72)
-        '-----------------------------------------------------------------------------------------
-        'This gets the first texture ID after the static IDs
-        'ALL STATIC TEXTURES NEED TO BE LOADED BEFORE THIS IS CALLED!!!
-        get_start_ID_for_texture_Deletion()
-        '-----------------------------------------------------------------------------------------
-        'open up our huge virual memory file for storage.
-        '(map size * map size)*((64 * 64) * 6 vertex per quad)
-        triangle_holder.open((20 * 20) * (4096 * 6))
-        '-----------------------------------------------------------------------------------------
-        'Must load and hide frmLighting to access its functions.
-        frmLighting.TopMost = False
-        frmLighting.SendToBack()
-        frmLighting.Show()
-        frmLighting.Visible = False
-        frmLighting.TopMost = True
-        '-----------------------------------------------------------------------------------------
-        'we are ready for user input so lets enable the menu
-        MainMenuStrip.Enabled = True
-        '-----------------------------------------------------------------------------------------
-        _STARTED = True ' I'm ready for update loops!
-        '-----------------------------------------------------------------------------------------
-        '-----------------------------------------------------------------------------------------
-        '-----------------------------------------------------------------------------------------
-        launch_update_thread()
-        '-----------------------------------------------------------------------------------------
-        '-----------------------------------------------------------------------------------------
-        'This is temporary to speed up debugging
-        '-----------------------------------------------------------------------------------------
-        'load_map("19_monastery.pkg")
-        'load_map("08_ruinberg.pkg")
-        'load_map("14_siegfried_line.pkg")
-        'load_map("29_el_hallouf.pkg")
-        'load_map("31_airfield.pkg")
-        load_map("112_eiffel_tower_ctf.pkg")
-
-    End Sub
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
         If _STARTED Then
@@ -284,7 +169,144 @@ try_again:
         End If
     End Sub
 
+    Private Sub m_Log_File_Click(sender As Object, e As EventArgs) Handles m_Log_File.Click
+        frmShowText.Show()
+        frmShowText.FastColoredTextBox1.Text = File.ReadAllText(TEMP_STORAGE + "nuTerra_log.txt")
+    End Sub
+
 #End Region
+
+    '=================================================================================
+    Private Sub post_frmMain_loaded()
+        '-----------------------------------------------------------------------------------------
+        launch_timer.Restart() 'log eplase times
+        '-----------------------------------------------------------------------------------------
+        glControl_main.MakeCurrent()
+
+        'Check context:
+        Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
+        Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
+        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 3) Then
+            MsgBox("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
+            LogThis("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
+            Application.Exit()
+        End If
+
+#If DEBUG Then
+        Debug.Print("Vendor: {0}", GL.GetString(StringName.Vendor))
+        Debug.Print("Renderer: {0}", GL.GetString(StringName.Renderer))
+        Debug.Print("Version: {0}", GL.GetString(StringName.Version))
+        Debug.Print("ShadingLanguageVersion: {0}", GL.GetString(StringName.ShadingLanguageVersion))
+        If GL.GetString(StringName.Version).Contains("Debug Context") Then
+            If (GL.GetString(StringName.Extensions).Contains("GL_ARB_debug_output")) Then
+                SetupDebugOutputCallback()
+            End If
+        End If
+#End If      '-----------------------------------------------------------------------------------------
+        'need a work area on users disc
+        TEMP_STORAGE = Path.GetTempPath + "nuTerra\"
+        If Not Directory.Exists(TEMP_STORAGE) Then
+            Directory.CreateDirectory(TEMP_STORAGE)
+        End If
+        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
+                "Temp storage is located at : " + TEMP_STORAGE)
+        '-----------------------------------------------------------------------------------------
+        'Check if the game path is set
+        If Not Directory.Exists(My.Settings.GamePath + "\res") Then
+            MsgBox("Path to game is not set!" + vbCrLf + _
+                    "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
+            m_set_game_path.PerformClick()
+        End If
+        GAME_PATH = My.Settings.GamePath + "\res\packages\"
+        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
+                "Game Path : " + GAME_PATH)
+        '-----------------------------------------------------------------------------------------
+        ' Create default VAO
+        GL.CreateVertexArrays(1, defaultVao)
+        '-----------------------------------------------------------------------------------------
+
+        '-----------------------------------------------------------------------------------------
+        FBOm.FBO_Initialize()
+        '-----------------------------------------------------------------------------------------
+        Il.ilInit()
+        Ilu.iluInit()
+        '-----------------------------------------------------------------------------------------
+        build_shaders()
+        '-----------------------------------------------------------------------------------------
+        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
+                "FBO created. DevIL initialized. Shaders Build")
+        '-----------------------------------------------------------------------------------------
+        load_assets()
+        '-----------------------------------------------------------------------------------------
+        'Loads the list of destroyed object types.
+        load_destructibles()
+        '-----------------------------------------------------------------------------------------
+        'Set camara start up position. This is mostly for testing.
+        VIEW_RADIUS = -1000.0
+        CAM_X_ANGLE = PI / 4
+        CAM_Y_ANGLE = -PI / 4
+        '-----------------------------------------------------------------------------------------
+        set_light_pos() ' Set initial light position and get radius and angle.
+        '-----------------------------------------------------------------------------------------
+        'Everything is setup/loaded to show the main window.
+        'Dispose of the no longer used Panel1
+        Panel1.Visible = False
+        Me.Controls.Remove(Panel1)
+        Panel1.Dispose()
+        glControl_main.BringToFront()
+        GC.Collect() 'Start a clean up of disposed items
+        '-----------------------------------------------------------------------------------------
+        'Loads the textures for the map selection routines
+        '!!!!! This is disabled to speed up testing for now!
+#If 1 Then
+        make_map_pick_buttons()
+#End If
+        '-----------------------------------------------------------------------------------------
+        'Make a texture for rendering text on map pic textures
+        DrawMapPickText.TextRenderer(120, 72)
+        '-----------------------------------------------------------------------------------------
+        'This gets the first texture ID after the static IDs
+        'ALL STATIC TEXTURES NEED TO BE LOADED BEFORE THIS IS CALLED!!!
+        get_start_ID_for_texture_Deletion()
+        '-----------------------------------------------------------------------------------------
+        'open up our huge virual memory file for storage.
+        '(map size * map size)*((64 * 64) * 6 vertex per quad)
+        triangle_holder.open((20 * 20) * (4096 * 6))
+        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
+                "Virtual File Created")
+        '-----------------------------------------------------------------------------------------
+        'Must load and hide frmLighting to access its functions.
+        frmLighting.TopMost = False
+        frmLighting.SendToBack()
+        frmLighting.Show()
+        frmLighting.Visible = False
+        frmLighting.TopMost = True
+        '-----------------------------------------------------------------------------------------
+        'we are ready for user input so lets enable the menu
+        MainMenuStrip.Enabled = True
+        '-----------------------------------------------------------------------------------------
+        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
+                "Starting Update Thread")
+        _STARTED = True ' I'm ready for update loops!
+        '-----------------------------------------------------------------------------------------
+        '-----------------------------------------------------------------------------------------
+        '-----------------------------------------------------------------------------------------
+        launch_update_thread()
+        '-----------------------------------------------------------------------------------------
+        '-----------------------------------------------------------------------------------------
+        'This is temporary to speed up debugging
+        '-----------------------------------------------------------------------------------------
+        'load_map("19_monastery.pkg")
+        'load_map("08_ruinberg.pkg")
+        'load_map("14_siegfried_line.pkg")
+        'load_map("29_el_hallouf.pkg")
+        'load_map("31_airfield.pkg")
+        load_map("112_eiffel_tower_ctf.pkg")
+        ShowText("loaded Map 112_eiffel_tower_ctf.pkg")
+
+    End Sub
+    '=================================================================================
+
     ''' <summary>
     ''' Loads all assets nuTerra uses.
     ''' </summary>

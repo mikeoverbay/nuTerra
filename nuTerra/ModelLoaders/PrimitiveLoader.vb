@@ -55,6 +55,7 @@ Module PrimitiveLoader
 
         'Get the .model file in to TheXML_String
         'We have to get the nodeFullName entry because it might point to a different visual than the name.
+
         openXml_stream(ms, Path.GetFileNameWithoutExtension(thefile))
         Dim nodeFullName = get_full_visual_name() + ".visual_processed"
         entry = search_pkgs(nodeFullName)
@@ -63,23 +64,26 @@ Module PrimitiveLoader
             entry.Extract(ms)
             'get visual
             openXml_stream(ms, Path.GetFileNameWithoutExtension(nodeFullName))
+            'split it by render set
             Dim vs = TheXML_String.Split("<renderSet>")
             If filename.Contains("Foch") Then
                 'Stop
             End If
             Dim vs_size = vs.Length
+            'make room for the strings. More than one render set = multiple vertex groups.
             ReDim visual_sections(vs_size - 1)
             For i = 1 To vs_size - 1
                 visual_sections(vs_size - 1) = New visual_sections_
                 Dim svd = vs(i).Split("</material>")
                 ReDim visual_sections(i - 1).p_group(svd.Length - 1)
+                'clean up the pieces so searhing is faster
                 For k = 0 To svd.Length - 1
                     visual_sections(i - 1).p_group(k) = svd(k).Replace("</property>" + vbCrLf, "")
                     Dim m_split = visual_sections(i - 1).p_group(k).Split(vbCrLf)
                     Dim ts As String = ""
                     For z = 0 To m_split.Length - 1
-                        If m_split(z).Contains("property") Or
-                            m_split(z).Contains("identifier") Or
+                        If m_split(z).Contains("proper") Or
+                            m_split(z).Contains("identif") Or
                             m_split(z).Contains("fx") Then
                             ts += m_split(z) + vbCrLf
                         End If
@@ -88,14 +92,17 @@ Module PrimitiveLoader
                 Next
             Next
             ms.Dispose()
+
+            'Rename and load the primitive_processed
             filename = nodeFullName.Replace(".visual_processed", ".primitives_processed")
 
-            Dim success = load_primitive(filename, mdl) '<-------- Load Model
-
-            Return True
+            If load_primitive(filename, mdl) Then '<-------- Load Model
+                Return True
+            End If
         End If
 
         MsgBox("Failed to find:" + filename, MsgBoxStyle.Exclamation, "Well shit!!")
+
         Return False
     End Function
 

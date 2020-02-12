@@ -1,9 +1,12 @@
 ﻿Imports System.Threading
 Imports OpenTK
+Imports System.Text
 
 Module modGlobalVars
     'Define these in CAP TEXT
 
+    '============================================================
+    Public nuTerra_LOG As New StringBuilder ' for logging
     '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer
