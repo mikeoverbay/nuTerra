@@ -7,6 +7,10 @@ Module modUtilities
         frmShowText.Show()
         frmShowText.FastColoredTextBox1.Text = text
     End Sub
+    Public Sub ShowTextAppend(ByVal text As String)
+        frmShowText.Show()
+        frmShowText.FastColoredTextBox1.Text += text
+    End Sub
 
     Public Sub LogThis(ByVal entry As String)
         'Writes to the log and immediately saves it.
