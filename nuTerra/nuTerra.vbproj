@@ -304,75 +304,73 @@
     <None Include="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\CrossHair_fragment.glsl">
+    <None Include="shaders\CrossHair.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\CrossHair_vertex.glsl">
+    <None Include="shaders\CrossHair.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\rect2d_fragment.glsl">
+    <None Include="shaders\cull.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\image2d_fragment.glsl">
+    <None Include="shaders\cull.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\colorOnly_fragment.glsl">
+    <None Include="shaders\rect2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\image2d_vertex.glsl">
+    <None Include="shaders\image2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\rect2d_vertex.glsl">
+    <None Include="shaders\colorOnly.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\colorOnly_vertex.glsl">
+    <None Include="shaders\image2d.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normal_fragment.glsl">
+    <None Include="shaders\rect2d.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normal_geo.glsl">
+    <None Include="shaders\colorOnly.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normal_vertex.glsl">
+    <None Include="shaders\normal.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\MDL_fragment.glsl">
+    <None Include="shaders\normal.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\MDL_vertex.glsl">
+    <None Include="shaders\normal.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normalOffset_fragment.glsl">
+    <None Include="shaders\model.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normalOffset_vertex.glsl">
+    <None Include="shaders\model.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Templates\Template_fragment.glsl" />
-    <None Include="shaders\Templates\Template_vertex.glsl" />
-    <None Include="shaders\basic_fragment.glsl">
+    <None Include="shaders\normalOffset.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\basic_vertex.glsl">
+    <None Include="shaders\normalOffset.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\deferred_fragment.glsl">
+    <None Include="shaders\deferred.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\deferred_vertex.glsl">
+    <None Include="shaders\deferred.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\gWriter_vertex.glsl">
+    <None Include="shaders\gWriter.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\gWriter_fragment.glsl">
+    <None Include="shaders\gWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\toLinear_fragment.glsl">
+    <None Include="shaders\toLinear.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\toLinear_vertex.glsl">
+    <None Include="shaders\toLinear.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

@@ -62,7 +62,7 @@ Public Class frmEditFrag
         recompile_bt.Enabled = False
         File.WriteAllText(v_app_path, vert_tb.Text)
         File.WriteAllText(f_app_path, frag_tb.Text)
-        If shaders(shader_index).has_geo Then
+        If shaders(shader_index).geo IsNot Nothing Then
             File.WriteAllText(g_app_path, geo_tb.Text)
         End If
 
@@ -83,17 +83,23 @@ Public Class frmEditFrag
         Dim shader As String = CB1.Items(CB1.SelectedIndex)
         Me.Text = "Shader Editor: " + shader
         shader_index = CB1.SelectedIndex
-        f_app_path = shaders(shader_index).fragment
         v_app_path = shaders(shader_index).vertex
         g_app_path = shaders(shader_index).geo
+        f_app_path = shaders(shader_index).fragment
 
         vert_tb.Text = File.ReadAllText(v_app_path)
-        frag_tb.Text = File.ReadAllText(f_app_path)
-        If shaders(shader_index).has_geo Then
+        If shaders(shader_index).fragment IsNot Nothing Then
+            frag_tb.Enabled = True
+            frag_tb.Text = File.ReadAllText(f_app_path)
+        Else
+            frag_tb.Text = "NO FRAG PROGRAM"
+            frag_tb.Enabled = False
+        End If
+        If shaders(shader_index).geo IsNot Nothing Then
             geo_tb.Enabled = True
             geo_tb.Text = File.ReadAllText(g_app_path)
         Else
-            geo_tb.Text = "NO GEO PROGRAM"
+            geo_tb.Text = "NO GEOM PROGRAM"
             geo_tb.Enabled = False
         End If
         recompile_bt.Enabled = True

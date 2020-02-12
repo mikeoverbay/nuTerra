@@ -12,7 +12,6 @@ Module ShaderLoader
         Private uniforms As Dictionary(Of String, Integer)
 
         Public name As String
-        Public has_geo As Boolean
         Public fragment As String
         Public vertex As String
         Public geo As String
@@ -76,7 +75,7 @@ Module ShaderLoader
                 GL.Finish()
             End If
 
-            program = assemble_shader(vertex, geo, fragment, name, has_geo)
+            program = assemble_shader(vertex, geo, fragment, name)
 
             If program = 0 Then
                 ' Stop ' For debugging
@@ -102,13 +101,21 @@ Module ShaderLoader
             is_used = False
             loaded = False
 
-            vertex = String.Format("{0}\shaders\{1}_vertex.glsl", Application.StartupPath, name)
-            fragment = String.Format("{0}\shaders\{1}_fragment.glsl", Application.StartupPath, name)
-            geo = String.Format("{0}\shaders\{1}_geo.glsl", Application.StartupPath, name)
-
-            Me.has_geo = File.Exists(geo)
-            If Not File.Exists(vertex) Or Not File.Exists(fragment) Then
+            vertex = String.Format("{0}\shaders\{1}.vert", Application.StartupPath, name)
+            If Not File.Exists(vertex) Then
+                MsgBox(String.Format("vertex shader '{0}' not found!", vertex))
+                Application.Exit()
                 Return
+            End If
+
+            geo = String.Format("{0}\shaders\{1}.geom", Application.StartupPath, name)
+            If Not File.Exists(geo) Then
+                geo = Nothing
+            End If
+
+            fragment = String.Format("{0}\shaders\{1}.frag", Application.StartupPath, name)
+            If Not File.Exists(fragment) Then
+                fragment = Nothing
             End If
 
             UpdateShader()
@@ -119,7 +126,7 @@ Module ShaderLoader
 
     Public image2dShader As Shader
     Public rect2dShader As Shader
-    'Public basicShader As Shader
+    Public cullShader As Shader
     Public colorOnlyShader As Shader
     Public CrossHairShader As Shader
     Public deferredShader As Shader
@@ -140,12 +147,12 @@ Module ShaderLoader
     Public Sub build_shaders()
         image2dShader = New Shader("image2d")
         rect2dShader = New Shader("rect2d")
-        'basicShader = New Shader("basic")
+        cullShader = New Shader("cull")
         colorOnlyShader = New Shader("colorOnly")
         CrossHairShader = New Shader("CrossHair")
         deferredShader = New Shader("deferred")
         gWriterShader = New Shader("gWriter")
-        modelShader = New Shader("MDL")
+        modelShader = New Shader("model")
         normalShader = New Shader("normal")
         normalOffsetShader = New Shader("normalOffset")
         toLinearShader = New Shader("toLinear")
@@ -153,7 +160,7 @@ Module ShaderLoader
         shaders = New List(Of Shader)
         shaders.Add(image2dShader)
         shaders.Add(rect2dShader)
-        'shaders.Add(basicShader)
+        shaders.Add(cullShader)
         shaders.Add(colorOnlyShader)
         shaders.Add(CrossHairShader)
         shaders.Add(deferredShader)
@@ -164,7 +171,10 @@ Module ShaderLoader
         shaders.Add(toLinearShader)
     End Sub
 
-    Public Function assemble_shader(v As String, g As String, f As String, name As String, has_geo As Boolean) As Integer
+    Public Function assemble_shader(v As String,
+                                    g As String,
+                                    f As String,
+                                    name As String) As Integer
         Dim status_code As Integer
 
         Dim program As Integer = GL.CreateProgram()
@@ -193,29 +203,32 @@ Module ShaderLoader
         End If
 
         ' Compile fragment shader
-        Dim fragmentObject As Integer = GL.CreateShader(ShaderType.FragmentShader)
+        Dim fragmentObject As Integer = 0
+        If f IsNot Nothing Then
+            fragmentObject = GL.CreateShader(ShaderType.FragmentShader)
 
-        Using fs_s As New StreamReader(f)
-            Dim fs As String = fs_s.ReadToEnd
-            GL.ShaderSource(fragmentObject, fs)
-        End Using
+            Using fs_s As New StreamReader(f)
+                Dim fs As String = fs_s.ReadToEnd
+                GL.ShaderSource(fragmentObject, fs)
+            End Using
 
-        GL.CompileShader(fragmentObject)
+            GL.CompileShader(fragmentObject)
 
-        ' Get & check status after compile
-        GL.GetShader(fragmentObject, ShaderParameter.CompileStatus, status_code)
-        If status_code = 0 Then
-            Dim info = GL.GetShaderInfoLog(fragmentObject)
-            GL.DeleteShader(vertexObject)
-            GL.DeleteShader(fragmentObject)
-            GL.DeleteProgram(program)
-            gl_error(name + "_fragment didn't compile!" + vbCrLf + info.ToString)
-            Return 0
+            ' Get & check status after compile
+            GL.GetShader(fragmentObject, ShaderParameter.CompileStatus, status_code)
+            If status_code = 0 Then
+                Dim info = GL.GetShaderInfoLog(fragmentObject)
+                GL.DeleteShader(vertexObject)
+                GL.DeleteShader(fragmentObject)
+                GL.DeleteProgram(program)
+                gl_error(name + "_fragment didn't compile!" + vbCrLf + info.ToString)
+                Return 0
+            End If
         End If
 
         ' Compile geom shader
-        Dim geomObject As Integer
-        If has_geo Then
+        Dim geomObject As Integer = 0
+        If g IsNot Nothing Then
             geomObject = GL.CreateShader(ShaderType.GeometryShader)
 
             Using gs_s As New StreamReader(g)
@@ -251,11 +264,13 @@ Module ShaderLoader
         End If
 
         ' attach shader objects
-        GL.AttachShader(program, fragmentObject)
-        If has_geo Then
+        GL.AttachShader(program, vertexObject)
+        If geomObject Then
             GL.AttachShader(program, geomObject)
         End If
-        GL.AttachShader(program, vertexObject)
+        If fragmentObject Then
+            GL.AttachShader(program, fragmentObject)
+        End If
 
         ' link program
         GL.LinkProgram(program)
@@ -268,18 +283,22 @@ Module ShaderLoader
         End If
 
         ' detach shader objects
-        GL.DetachShader(program, fragmentObject)
-        If has_geo Then
+        GL.DetachShader(program, vertexObject)
+        If geomObject Then
             GL.DetachShader(program, geomObject)
         End If
-        GL.DetachShader(program, vertexObject)
+        If fragmentObject Then
+            GL.DetachShader(program, fragmentObject)
+        End If
 
         ' delete shader objects
-        GL.DeleteShader(fragmentObject)
-        If has_geo Then
+        GL.DeleteShader(vertexObject)
+        If geomObject Then
             GL.DeleteShader(geomObject)
         End If
-        GL.DeleteShader(vertexObject)
+        If fragmentObject Then
+            GL.DeleteShader(fragmentObject)
+        End If
 
         Return program
     End Function
