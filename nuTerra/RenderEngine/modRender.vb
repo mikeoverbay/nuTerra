@@ -44,16 +44,29 @@ Module modRender
 
         '===========================================================================
 
-        ' start culling phase by bounding the GPU program
-        ' cullShader.Use()
+#If 0 Then ' TODO: gpu culling
+        cullShader.Use()
 
-        ' disable rasterization as we don't need it
-        ' GL.Enable(EnableCap.RasterizerDiscard)
+        GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
 
-        ' TODO: gpu culling
+        GL.Enable(EnableCap.RasterizerDiscard)
 
-        ' GL.Disable(EnableCap.RasterizerDiscard)
-        ' cullShader.StopUse()
+        For Each batch In MODEL_BATCH_LIST
+            Dim model = MAP_MODELS(batch.model_id).mdl
+
+            GL.BindVertexArray(model.render_sets(0).mdl_VAO)
+
+            GL.BeginTransformFeedback(TransformFeedbackPrimitiveType.Points)
+            GL.BeginQuery(QueryTarget.PrimitivesGenerated, batch.culledQuery)
+            GL.DrawArrays(PrimitiveType.Points, 0, batch.count)
+            GL.EndQuery(QueryTarget.PrimitivesGenerated)
+            GL.EndTransformFeedback()
+        Next
+
+        GL.Disable(EnableCap.RasterizerDiscard)
+        cullShader.StopUse()
+#End If
 
         '===========================================================================
 
@@ -79,13 +92,9 @@ Module modRender
         FBOm.attach_CNGP()
 
         If MODELS_LOADED Then
-            GL.Enable(EnableCap.CullFace)
-
             '===========================================================================
             draw_models() '=============================================================
             '===========================================================================
-
-            GL.Disable(EnableCap.CullFace)
 
             '===========================================================================
             draw_overlays() '===========================================================
@@ -153,6 +162,8 @@ Module modRender
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
+        GL.Enable(EnableCap.CullFace)
+
         For Each batch In MODEL_BATCH_LIST
             Dim model = MAP_MODELS(batch.model_id).mdl
 
@@ -167,7 +178,7 @@ Module modRender
 
                 'Stop
                 Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                For Each primGroup In renderSet.primitiveGroups
+                For Each primGroup In renderSet.primitiveGroups.Values
                     'setup materials here
 
                     GL.BindVertexArray(renderSet.mdl_VAO)
@@ -179,6 +190,8 @@ Module modRender
                 Next
             Next
         Next
+
+        GL.Disable(EnableCap.CullFace)
 
         modelShader.StopUse()
         unbind_textures(2) ' unbind all the used texture slots
@@ -337,7 +350,7 @@ Module modRender
 
                     GL.BindVertexArray(renderSet.mdl_VAO)
                     Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                    For Each primGroup In renderSet.primitiveGroups
+                    For Each primGroup In renderSet.primitiveGroups.Values
                         GL.DrawElementsInstanced(PrimitiveType.Triangles,
                                                  primGroup.nPrimitives * 3,
                                                  triType,

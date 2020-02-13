@@ -1,15 +1,12 @@
 // based on http://rastergrid.com/blog/2010/02/instance-culling-using-geometry-shaders/
-
 #version 430 core
 
-uniform transform {
-   mat4 ModelViewMatrix;
-   mat4 ProjectionMatrix;
-} Transform;
+layout(location = 6) in vec4 InstancePosition;
+
+mat4 view;
+mat4 projection;
 
 uniform vec3 ObjectExtent;
-
-in vec4 InstancePosition;
 
 out vec4 OrigPosition;
 flat out int objectVisible;
@@ -19,7 +16,7 @@ void main(void) {
    OrigPosition = InstancePosition;
    
    /* calculate modelview projection matrix */
-   mat4 MVP = Transform.ProjectionMatrix * Transform.ModelViewMatrix;
+   mat4 MVP = projection * view;
    
    /* create the bounding box of the object */
    vec4 BoundingBox[8];

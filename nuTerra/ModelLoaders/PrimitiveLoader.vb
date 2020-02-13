@@ -15,6 +15,9 @@ Module PrimitiveLoader
         Public nPrimitives As Integer
         Public startVertex As Integer
         Public nVertices As Integer
+
+        Public fx As String
+        Public props As Dictionary(Of String, Object)
     End Class
 
     Public Function get_primitive(ByRef mdl As base_model_holder_) As Boolean
@@ -22,7 +25,8 @@ Module PrimitiveLoader
             Return True
         End If
 
-        Dim filename = mdl.primitive_name.Replace(".primitives", ".primitives_processed")
+        Dim filename = mdl.render_sets(0).prims_name.Replace(".primitives", ".primitives_processed")
+        filename = filename.Substring(0, filename.LastIndexOf("/"c)) ' remove "/indices" at the end
 
         ' search everywhere!
 
@@ -75,15 +79,13 @@ Module PrimitiveLoader
 
             ' Get sections name
             Dim sec_name = br.ReadChars(sec_name_len)
-            Dim sec_split_name = New String(sec_name).Split(".")
-            Dim sec_str_name = sec_split_name(sec_split_name.Length - 1)
             ' Skip pad characters
             Dim l = sec_name_len Mod 4
             If l > 0 Then
                 br.BaseStream.Position += 4 - l
             End If
 
-            binSections(sec_str_name) = section
+            binSections(sec_name) = section
         End While
 
 
@@ -123,7 +125,7 @@ Module PrimitiveLoader
         Dim numIndices = br.ReadUInt32
         Dim numPrimGroups = br.ReadUInt32
 
-        renderSet.primitiveGroups = New List(Of PrimitiveGroup)
+        'renderSet.primitiveGroups = New Dictionary(Of Integer, PrimitiveGroup)
 
         ' save current stream position
         Dim savedPos = br.BaseStream.Position
@@ -133,13 +135,15 @@ Module PrimitiveLoader
 
         ' read the tables
         For z = 0 To numPrimGroups - 1
-            Dim pGroup As New PrimitiveGroup With {
-                .startIndex = br.ReadInt32,
-                .nPrimitives = br.ReadInt32,
-                .startVertex = br.ReadInt32,
+            If Not renderSet.primitiveGroups.ContainsKey(z) Then
+                renderSet.primitiveGroups(z) = New PrimitiveGroup
+            End If
+            With renderSet.primitiveGroups(z)
+                .startIndex = br.ReadInt32
+                .nPrimitives = br.ReadInt32
+                .startVertex = br.ReadInt32
                 .nVertices = br.ReadInt32
-                }
-            renderSet.primitiveGroups.Add(pGroup)
+            End With
         Next
 
         ' restore position
@@ -251,7 +255,7 @@ Module PrimitiveLoader
 
         Dim running As Integer = 0 'Continuous accumulator pointer in to the buffers
 
-        For Each primGroup In renderSet.primitiveGroups
+        For Each primGroup In renderSet.primitiveGroups.Values
             For z = primGroup.startVertex To primGroup.startVertex + primGroup.nVertices - 1
                 '-----------------------------------------------------------------------
                 'We have to flip the sign of X on all vertex values because of DirectX to OpenGL
@@ -311,9 +315,9 @@ Module PrimitiveLoader
                     End With
                 End If
 
-                    running += 1
-                Next
+                running += 1
             Next
+        Next
 
 
     End Sub

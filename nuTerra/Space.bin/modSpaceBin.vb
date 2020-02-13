@@ -149,13 +149,6 @@ Module modSpaceBin
         For k = 0 To cBSMO.models_colliders.count - 1
             With MAP_MODELS(k)
                 .mdl = New base_model_holder_
-                .mdl.primitive_name = cBSMO.models_colliders.data(k).primitive_name
-
-                If .mdl.primitive_name Is Nothing Then
-                    .mdl.junk = True
-                    Continue For
-                End If
-
                 .visibilitiBounds = cBSMO.models_visibility_bounds.data(k)
 
                 Dim lod0_offset = cBSMO.models_loddings.data(k).lod_begin
@@ -164,18 +157,31 @@ Module modSpaceBin
                 Dim lod0_render_set_end = cBSMO.lod_renders.data(lod0_offset).render_set_end
 
                 Dim num_render_sets = lod0_render_set_end - lod0_render_set_begin + 1
+                Debug.Assert(num_render_sets > 0)
 
-                ReDim .mdl.render_sets(num_render_sets - 1)
-
+                ' Createing renderSets
+                .mdl.render_sets = New List(Of RenderSetEntry)
+                Dim dict As New Dictionary(Of String, Integer)
                 For z As UInteger = 0 To num_render_sets - 1
-                    .mdl.render_sets(z) = New RenderSetEntry
-                    '.mdl.render_sets(z).identifier = cBSMA.MaterialItem(z + shader_prop_start).identifier
+                    Dim renderItem = cBSMO.renders.data(lod0_render_set_begin + z)
+                    Dim verts_name = cBWST.find_str(renderItem.verts_name_fnv)
+                    Dim prims_name = cBWST.find_str(renderItem.prims_name_fnv)
 
-                    .mdl.render_sets(z).verts_name = cBWST.find_str(cBSMO.renders.data(z).verts_name_fnv)
-                    .mdl.render_sets(z).prims_name = cBWST.find_str(cBSMO.renders.data(z).prims_name_fnv)
+                    Dim pGroup As New PrimitiveGroup
+                    apply_material_for_pgroup(pGroup, renderItem.material_index)
 
-                    '.mdl.render_sets(z).FX_shader = cBSMA.FXStringKey(cBSMA.MaterialItem(z + shader_prop_start).effectIndex).FX_string
-                    'Dim l_cnt = cBSMA.MaterialItem(z + shader_prop_start).shaderPropEnd - cBSMA.MaterialItem(z + shader_prop_start).shaderPropBegin
+                    If Not dict.ContainsKey(verts_name) Then
+                        Dim rs As New RenderSetEntry With {
+                            .verts_name = verts_name,
+                            .prims_name = prims_name,
+                            .primitiveGroups = New Dictionary(Of Integer, PrimitiveGroup)
+                        }
+                        rs.primitiveGroups(renderItem.primtive_index) = pGroup
+                        dict(verts_name) = .mdl.render_sets.Count
+                        .mdl.render_sets.Add(rs)
+                    Else
+                        .mdl.render_sets(dict(verts_name)).primitiveGroups(renderItem.primtive_index) = pGroup
+                    End If
                 Next
             End With
         Next
@@ -251,4 +257,53 @@ CleanUp:
 
         'Stop
     End Function
+
+    Private Sub apply_material_for_pgroup(pGroup As PrimitiveGroup, material_id As Integer)
+        Dim item = cBSMA.MaterialItem(material_id)
+
+        If item.shaderPropBegin = &HFFFFFFFFUI Then
+            Return
+        End If
+
+        If item.effectIndex = &HFFFFFFFFUI Then
+            Return
+        End If
+
+        pGroup.props = New Dictionary(Of String, Object)
+        pGroup.fx = cBSMA.FXStringKey(item.effectIndex).FX_string
+        For i = item.shaderPropBegin To item.shaderPropEnd
+            Select Case cBSMA.ShaderPropertyItem(i).property_type
+                Case 1
+                    ' Bool
+                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_boolean
+
+                Case 2
+                    ' Float
+                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_float
+
+                Case 3
+                    ' Int
+                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_int
+
+                Case 4
+                    ' ?
+                    Debug.Assert(False)
+
+                Case 5
+                    ' Vector4
+                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_vec4
+
+                Case 6
+                    ' Texture
+                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).property_value_string
+
+                Case Else
+                    Debug.Assert(False)
+
+            End Select
+
+        Next
+
+    End Sub
+
 End Module

@@ -186,8 +186,7 @@ Module modTypeStructures
 
         'list of indice sizes, offsets,
         'texture IDs.. render settings... so on
-        Public render_sets() As RenderSetEntry
-
+        Public render_sets As List(Of RenderSetEntry)
 
         Public Sub flush()
             'free the memory
@@ -230,7 +229,7 @@ Module modTypeStructures
         ' 2 or 4
         Public indexSize As Integer
 
-        Public primitiveGroups As List(Of PrimitiveGroup)
+        Public primitiveGroups As Dictionary(Of Integer, PrimitiveGroup)
 
         Public no_draw As Boolean
     End Class
