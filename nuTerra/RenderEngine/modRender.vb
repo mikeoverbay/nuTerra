@@ -341,7 +341,7 @@ Module modRender
                         GL.DrawElementsInstanced(PrimitiveType.Triangles,
                                                  primGroup.nPrimitives * 3,
                                                  triType,
-                                                 primGroup.startIndex * renderSet.indexSize,
+                                                 New IntPtr(primGroup.startIndex * renderSet.indexSize),
                                                  batch.count)
                     Next
                 Next
