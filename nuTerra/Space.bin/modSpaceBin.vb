@@ -222,8 +222,8 @@ CleanUp:
         '====================================================
         ' Sort and batch the models for instanced drawing
         '====================================================
-
         Array.Sort(MODEL_INDEX_LIST) 'sort our list by model_index
+
 
         MODEL_BATCH_LIST = New List(Of ModelBatch)
 

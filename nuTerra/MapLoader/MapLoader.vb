@@ -117,7 +117,7 @@ Module MapLoader
             Return ""
         End If
         Dim q = From d In PKG_DATA_TABLE.AsEnumerable _
-                Where d.Field(Of String)("filename").ToLower.Contains(filename.ToLower) _
+                Where d.Field(Of String)("filename").Contains(filename) _
                 Select _
                 pkg = d.Field(Of String)("package"), _
                 file = d.Field(Of String)("filename")

@@ -1,23 +1,65 @@
 ﻿Imports System.IO
 Imports Ionic.Zip
 Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Graphics
+Imports OpenTK
 Imports Tao.DevIl
-
 Module MapMenuScreen
 
 #Region "structurs/vars"
 
-
+    Public img_grow_speed As Single = 0.02
+    Public img_shrink_speed As Single = 0.005
     Public map_texture_ids(0) As Integer
 
-    Public loadmaplist() As map_item_
+    Public MapPickList() As map_item_
     Public Structure map_item_ : Implements IComparable(Of map_item_)
+        Public lt As Vector2
+        Public lb As Vector2
+        Public rt As Vector2
+        Public rb As Vector2
+
         Public name As String
         Public realname As String
-        Public size As Single
-        Public grow_shrink As Boolean
-        Public direction As Single
-        Public delay_time As Integer
+
+        Public unit_size As Boolean
+        Public scale As Single
+        Public max_scale As Single
+        Public min_scale As Single
+        Public selected As Boolean
+        Public location As Vector2
+
+        Public Sub grow_shrink()
+            Dim lt_ As New Vector2(-60.0F, 36.0F)
+            Dim rb_ As New Vector2(120.0F, -72.0F)
+
+            If Me.selected And Not FINISH_MAPS Then
+                If Not img_grow_speed + scale >= max_scale Then
+                    scale += img_grow_speed
+                    unit_size = False
+                End If
+            Else
+                If Not scale - img_shrink_speed <= min_scale Then
+                    scale -= img_shrink_speed
+                    unit_size = False
+                Else
+                    unit_size = True
+                End If
+            End If
+
+            Me.lt = (scale * lt_) + Me.location
+            Me.rb = rb_ * scale
+
+        End Sub
+        Public Sub draw_box(ByVal textId As Integer)
+            Dim rect As New Rectangle(Me.lt.X, -lt.Y, rb.X, -rb.Y)
+            draw_image_rectangle(rect, textId)
+        End Sub
+        Public Sub draw_pick_box(ByVal color_ As Color4)
+            Dim rect As New Rectangle(Me.lt.X, -Me.lt.Y, Me.rb.X, -Me.rb.Y)
+            draw_color_rectangle(rect, color_)
+        End Sub
+
         Public Function CompareTo(ByVal other As map_item_) As Integer Implements System.IComparable(Of map_item_).CompareTo
             Try
                 Return Me.realname.CompareTo(other.realname)
@@ -27,6 +69,7 @@ Module MapMenuScreen
             End Try
         End Function
     End Structure
+
 #End Region
 
     Public Sub make_map_pick_buttons()
@@ -39,22 +82,25 @@ Module MapMenuScreen
             If fi.Contains("#") Then
                 GoTo dontaddthis
             End If
-            ReDim Preserve loadmaplist(cnt + 1)
-            loadmaplist(cnt) = New map_item_
-            loadmaplist(cnt).name = fi
+            ReDim Preserve MapPickList(cnt + 1)
+            MapPickList(cnt) = New map_item_
+            MapPickList(cnt).name = fi
+            MapPickList(cnt).max_scale = 1.25F
+            MapPickList(cnt).min_scale = 1.0F
+            MapPickList(cnt).scale = 1.0F
             Dim a = fi.Split(":")
-            loadmaplist(cnt).realname = a(1).Replace("Winter ", "Wtr ")
+            MapPickList(cnt).realname = a(1).Replace("Winter ", "Wtr ")
             cnt += 1
 dontaddthis:
         Next
-        ReDim Preserve loadmaplist(cnt - 1)
+        ReDim Preserve MapPickList(cnt - 1)
 
-        Array.Sort(loadmaplist)
+        Array.Sort(MapPickList)
         Application.DoEvents()
 
         Using Zip As ZipFile = Ionic.Zip.ZipFile.Read(GAME_PATH & "gui.pkg")
             cnt = 0
-            For Each thing In loadmaplist
+            For Each thing In MapPickList
                 Dim itm = thing.name
                 If Not itm.Contains("#") Then
                     Dim ar = itm.Split(":")
@@ -92,6 +138,9 @@ dontaddthis:
 
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         draw_maps()
+        If SHOW_LOADING_SCREEN Then 'for when the draw_maps returns after starting the map_loader
+            Return
+        End If
         draw_pick_map()
 
 
@@ -105,7 +154,9 @@ dontaddthis:
         Dim hit = pixel(2)
         If hit > 0 Then
             SELECTED_MAP_HIT = hit
-            'tb1.Text = loadmaplist(hit - 1).realname
+            Dim ta = MapPickList(hit - 1).name.Split(":")
+            MAP_NAME_NO_PATH = ta(0).Replace(".png", ".pkg")
+            'tb1.Text = MapPickList(hit - 1).realname
             Application.DoEvents()
         Else
             SELECTED_MAP_HIT = 0
@@ -121,53 +172,21 @@ dontaddthis:
 
         GL.Disable(EnableCap.Texture2D)
 
-        Dim w = frmMain.glControl_main.ClientSize.Width
-        Dim h = frmMain.glControl_main.ClientSize.Height
-        If w = 0 Then
-            Return
-        End If
-        Dim ms_x As Single = 120
-        Dim ms_y As Single = -72
-        Dim space_x As Single = 15
 
-        Dim w_cnt As Single = 7 'Floor(w / (ms_x + space_x))
-        Dim space_cnt As Single = (w_cnt - 1) * space_x
-        Dim border As Single = (w - ((w_cnt * ms_x) + space_cnt)) / 2
         Dim map As Byte = 0
-        Dim v_cnt = (map_texture_ids.Length - 1) / w_cnt
-        If (v_cnt * (ms_x + space_x)) + (border * 2) < w Then
-            v_cnt -= 1
-        End If
-        Dim v_pos As Integer = 0
-        Dim vi, hi As Single
 
-        vi = -30
+        While map < map_texture_ids.Length
 
-        GL.Begin(PrimitiveType.Quads)
-        While True
-            If frmMain.glControl_main.Width = 0 Then
-                Exit While
+            If SELECTED_MAP_HIT - 1 = map Then
+                MapPickList(map).selected = True
+            Else
+                MapPickList(map).selected = False
             End If
-            For i = 0 To w_cnt - 1
-                map += 1
-                GL.Color4(CByte(map), CByte(map), CByte(map), CByte(255))
-                If map = map_texture_ids.Length Then
-                    Exit While
-                End If
-                hi = border + (i * (ms_x + space_x))
-
-                GL.Vertex3(hi, vi + ms_y, 0.0)
-
-                GL.Vertex3(hi + ms_x, vi + ms_y, 0.0)
-
-                GL.Vertex3(hi + ms_x, vi, 0.0)
-
-                GL.Vertex3(hi, vi, 0.0)
-
-            Next
-            vi += -space_x + ms_y
+            MapPickList(map).grow_shrink()
+            Dim color_ As New Color4(CByte(map + 80), CByte(map + 1), CByte(map + 1), CByte(255))
+            MapPickList(map).draw_pick_box(color_)
+            map += 1
         End While
-        GL.End()
         'frmMain.glControl_main.SwapBuffers()
 
     End Sub
@@ -182,7 +201,7 @@ dontaddthis:
         GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode, TextureEnvMode.Replace)
         GL.AlphaFunc(AlphaFunction.Equal, 1.0)
         GL.ActiveTexture(TextureUnit.Texture0)
-        Dim tex = DrawMapPickText.Gettexture
+
 
         GL.Enable(EnableCap.Texture2D)
         GL.Color4(0.0, 0.0, 0.0, 1.0)
@@ -193,24 +212,16 @@ dontaddthis:
             Return
         End If
         GL.FrontFace(FrontFaceDirection.Ccw)
-        GL.BindTexture(TextureTarget.Texture2D, MAP_SELECT_BACKGROUND_ID)
 
-        GL.Begin(PrimitiveType.Quads)
+        Dim rect As New RectangleF(0, 0, w, h)
 
-        GL.TexCoord2(0.0F, -1.0F)
-        GL.Vertex2(0.0F, 0.0F)
+        GL.Disable(EnableCap.AlphaTest)
+        Dim position As New PointF(0, 0)
 
-        GL.TexCoord2(0, 0.0F)
-        GL.Vertex2(0.0F, -h)
 
-        GL.TexCoord2(1, 0.0F)
-        GL.Vertex2(w, -h)
+        draw_image_rectangle(rect, MAP_SELECT_BACKGROUND_ID)
 
-        GL.TexCoord2(1, -1.0F)
-        GL.Vertex2(w, 0.0F)
-        GL.End()
-        GL.BindTexture(TextureTarget.Texture2D, 0)
-
+        'DrawMapPickText.TextRenderer(120, 72)
 
         Dim ms_x As Single = 120
         Dim ms_y As Single = -72
@@ -225,185 +236,49 @@ dontaddthis:
             v_cnt -= 1
         End If
         Dim v_pos As Integer = 0
-        Dim vi, hi, sz As Single
-        For i = 0 To map_texture_ids.Length - 2
-            If loadmaplist(i).grow_shrink Then
-                loadmaplist(i).delay_time += 1
-                If loadmaplist(i).delay_time = 1 Then
-                    loadmaplist(i).delay_time = 0
-                    If loadmaplist(i).size = 0 Or loadmaplist(i).size = 20 Then
-                        loadmaplist(i).grow_shrink = False
-                    Else
-                        loadmaplist(i).size += loadmaplist(i).direction
-                    End If
-                End If
-            End If
-        Next
-        vi = -30
-        While map < map_texture_ids.Length - 2
+        Dim vi, hi As Single
+        vi = 15
+        While map < map_texture_ids.Length - 1
             If w = 0 Then
                 Exit While
             End If
             For i = 0 To w_cnt - 1
-                If map + 1 = map_texture_ids.Length Then
+                If map = map_texture_ids.Length Then
                     Exit While
                 End If
                 hi = border + (i * (ms_x + space_x))
-                GL.BindTexture(TextureTarget.Texture2D, map_texture_ids(map))
-                GL.Color3(1.0, 1.0, 1.0)
-                If SELECTED_MAP_HIT > 0 And map = SELECTED_MAP_HIT - 1 Then
-                    loadmaplist(map).grow_shrink = False
-                    GoTo dont_draw
+
+                MapPickList(map).location = New Vector2(hi + 60.0F, vi + ms_y)
+
+                If SELECTED_MAP_HIT - 1 = map Then
+                    MapPickList(map).selected = True
                 Else
-                    loadmaplist(map).direction = -0.25
-                    If loadmaplist(map).size > 0.5 Then
-                        loadmaplist(map).grow_shrink = True
-                        loadmaplist(map).direction = -0.25
-                        If loadmaplist(map).size = 20 Then
-                            loadmaplist(map).size = 19.75
-                        End If
-                    End If
-
+                    MapPickList(map).selected = False
                 End If
-                sz = loadmaplist(map).size
-
-                GL.Begin(PrimitiveType.Quads)
-                GL.TexCoord2(0, 1)
-                GL.Vertex2(-sz + hi, -sz + vi + ms_y)
-
-                GL.TexCoord2(1, 1)
-                GL.Vertex2(sz + hi + ms_x, -sz + vi + ms_y)
-
-                GL.TexCoord2(1, 0)
-                GL.Vertex2(sz + hi + ms_x, sz + vi)
-
-                GL.TexCoord2(0, 0)
-                GL.Vertex2(-sz + hi, sz + vi)
-                GL.End()
-
+                MapPickList(map).grow_shrink()
+                MapPickList(map).draw_box(map_texture_ids(map))
                 'draw text overlay
-                GL.Enable(EnableCap.AlphaTest)
-                Dim position As New PointF(0, 0)
                 DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
-                DrawMapPickText.DrawString(loadmaplist(map).realname, monoSmall, Brushes.Black, position)
-                tex = DrawMapPickText.Gettexture
-                GL.BindTexture(TextureTarget.Texture2D, tex)
-
-                GL.Begin(PrimitiveType.Quads)
-                GL.TexCoord2(0, 1)
-                GL.Vertex2(-sz + hi, -sz + vi + ms_y)
-
-                GL.TexCoord2(1, 1)
-                GL.Vertex2(sz + hi + ms_x, -sz + vi + ms_y)
-
-                GL.TexCoord2(1, 0)
-                GL.Vertex2(sz + hi + ms_x, sz + vi)
-
-                GL.TexCoord2(0, 0)
-                GL.Vertex2(-sz + hi, sz + vi)
-
-                GL.End()
-                GL.Disable(EnableCap.AlphaTest)
-
-                Dim cs As Single = loadmaplist(map).size / 40.0!
-                'glutPrintBox(-sz + hi, -sz + vi + ms_y, loadmaplist(map).realname, 0.5 + cs, 0.5 + cs, 0.5, 1.0)
-
-dont_draw:
-
-                map += 1
-            Next
-            vi += -space_x + ms_y
-        End While
-        GL.BindTexture(TextureTarget.Texture2D, 0)
-        vi = -30
-        map = 0
-        While map < map_texture_ids.Length - 2
-            If w = 0 Then
-                Exit While
-            End If
-            For i = 0 To w_cnt - 1
-                If map + 1 = map_texture_ids.Length Then
-                    Exit While
-                End If
-                hi = border + (i * (ms_x + space_x))
-                GL.BindTexture(TextureTarget.Texture2D, map_texture_ids(map))
-                GL.Color3(1.0, 1.0, 1.0)
-                If SELECTED_MAP_HIT > 0 And map = SELECTED_MAP_HIT - 1 Then
-                    Dim selm = SELECTED_MAP_HIT - 1
-                    If loadmaplist(selm).size < 20 And Not loadmaplist(selm).grow_shrink Then
-                        loadmaplist(selm).grow_shrink = True
-                        loadmaplist(selm).direction = 1.0
-                        If loadmaplist(selm).size < 1.0 Then
-                            loadmaplist(selm).size = 1.0
-                        End If
-                    End If
-                Else
-                    GoTo skip
-                End If
-                sz = loadmaplist(map).size
-
-                GL.Begin(PrimitiveType.Quads)
-                GL.TexCoord2(0, 1)
-                GL.Vertex2(-sz + hi, -sz + vi + ms_y)
-
-                GL.TexCoord2(1, 1)
-                GL.Vertex2(sz + hi + ms_x, -sz + vi + ms_y)
-
-                GL.TexCoord2(1, 0)
-                GL.Vertex2(sz + hi + ms_x, sz + vi)
-
-                GL.TexCoord2(0, 0)
-                GL.Vertex2(-sz + hi, sz + vi)
-
-                GL.End()
-
-                'draw text overlay
-                GL.Enable(EnableCap.AlphaTest)
-                Dim position As New PointF(0, 0)
-                DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
-                DrawMapPickText.DrawString(loadmaplist(map).realname, monoSmall, Brushes.Black, position)
-                tex = DrawMapPickText.Gettexture
-                GL.BindTexture(TextureTarget.Texture2D, tex)
-
-                GL.Begin(PrimitiveType.Quads)
-                GL.TexCoord2(0, 1)
-                GL.Vertex2(-sz + hi, -sz + vi + ms_y)
-
-                GL.TexCoord2(1, 1)
-                GL.Vertex2(sz + hi + ms_x, -sz + vi + ms_y)
-
-                GL.TexCoord2(1, 0)
-                GL.Vertex2(sz + hi + ms_x, sz + vi)
-
-                GL.TexCoord2(0, 0)
-                GL.Vertex2(-sz + hi, sz + vi)
-
-                GL.End()
-                GL.Disable(EnableCap.AlphaTest)
-                Dim cs As Single = loadmaplist(map).size / 40.0!
-                'glutPrintBox(-sz + hi, -sz + vi + ms_y, loadmaplist(map).realname, 0.5 + cs, 0.5 + cs, 0.5, 1.0)
-
-skip:
+                DrawMapPickText.DrawString(MapPickList(map).realname, monoSmall, Brushes.Black, position)
+                GL.Enable(EnableCap.Blend)
+                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+                Dim tex = DrawMapPickText.Gettexture
+                MapPickList(map).draw_box(tex)
                 map += 1
             Next
             vi += -space_x + ms_y
         End While
         GL.BindTexture(TextureTarget.Texture2D, 0)
 
-        GL.Disable(EnableCap.Texture2D)
-        'If selected_map_hit > 0 Then
-        '    glutPrintBox(mouse.X, -mouse.Y, loadmaplist(selected_map_hit - 1).realname, 1.0, 1.0, 1.0, 1.0)
-
-        'End If
-
-        frmMain.glControl_main.SwapBuffers()
 
         'this checks to see if there are any images drawn oversize
         Application.DoEvents()
+        frmMain.glControl_main.SwapBuffers()
+
         If FINISH_MAPS Then
             Dim no_stragglers As Boolean = True
-            For i = 0 To loadmaplist.Length - 2
-                If loadmaplist(i).size > 0.0 Then
+            For i = 0 To MapPickList.Length - 2
+                If Not MapPickList(i).unit_size Then
                     no_stragglers = False
                 End If
             Next
@@ -411,7 +286,8 @@ skip:
                 FINISH_MAPS = False
                 SHOW_MAPS_SCREEN = False
                 BLOCK_MOUSE = False
-                'open_pkg(load_map_name)
+                SHOW_LOADING_SCREEN = True
+                frmMain.map_loader.Enabled = True
             End If
         End If
 

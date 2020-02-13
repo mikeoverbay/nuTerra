@@ -42,7 +42,11 @@ Partial Class frmMain
         Me.ToolStripSeparator1 = New System.Windows.Forms.ToolStripSeparator()
         Me.m_developer_mode = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripSeparator2 = New System.Windows.Forms.ToolStripSeparator()
+        Me.m_Log_File = New System.Windows.Forms.ToolStripMenuItem()
+        Me.ToolStripSeparator4 = New System.Windows.Forms.ToolStripSeparator()
+        Me.ToolStripSeparator5 = New System.Windows.Forms.ToolStripSeparator()
         Me.m_shut_down = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_set_game_path = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripSeparator3 = New System.Windows.Forms.ToolStripSeparator()
@@ -53,11 +57,8 @@ Partial Class frmMain
         Me.m_show_gbuffer = New System.Windows.Forms.ToolStripMenuItem()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.FolderBrowserDialog1 = New System.Windows.Forms.FolderBrowserDialog()
-        Me.ToolStripSeparator4 = New System.Windows.Forms.ToolStripSeparator()
-        Me.ToolStripSeparator5 = New System.Windows.Forms.ToolStripSeparator()
-        Me.m_Log_File = New System.Windows.Forms.ToolStripMenuItem()
         Me.Panel1 = New System.Windows.Forms.Panel()
-        Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
+        Me.map_loader = New System.Windows.Forms.Timer(Me.components)
         Me.frmMainMenu.SuspendLayout()
         Me.SuspendLayout()
         '
@@ -123,12 +124,37 @@ Partial Class frmMain
         Me.ToolStripSeparator2.Name = "ToolStripSeparator2"
         Me.ToolStripSeparator2.Size = New System.Drawing.Size(158, 6)
         '
+        'm_Log_File
+        '
+        Me.m_Log_File.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.m_Log_File.Name = "m_Log_File"
+        Me.m_Log_File.Size = New System.Drawing.Size(161, 22)
+        Me.m_Log_File.Text = "Log File"
+        '
+        'ToolStripSeparator4
+        '
+        Me.ToolStripSeparator4.Name = "ToolStripSeparator4"
+        Me.ToolStripSeparator4.Size = New System.Drawing.Size(158, 6)
+        '
+        'ToolStripSeparator5
+        '
+        Me.ToolStripSeparator5.Name = "ToolStripSeparator5"
+        Me.ToolStripSeparator5.Size = New System.Drawing.Size(158, 6)
+        '
         'm_shut_down
         '
         Me.m_shut_down.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
         Me.m_shut_down.Name = "m_shut_down"
         Me.m_shut_down.Size = New System.Drawing.Size(161, 22)
         Me.m_shut_down.Text = "Shut Me Down"
+        '
+        'm_help
+        '
+        Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
+        Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
+        Me.m_help.Name = "m_help"
+        Me.m_help.Size = New System.Drawing.Size(13, 20)
         '
         'm_settings
         '
@@ -197,23 +223,6 @@ Partial Class frmMain
         '
         Me.startup_delay_timer.Interval = 1000
         '
-        'ToolStripSeparator4
-        '
-        Me.ToolStripSeparator4.Name = "ToolStripSeparator4"
-        Me.ToolStripSeparator4.Size = New System.Drawing.Size(158, 6)
-        '
-        'ToolStripSeparator5
-        '
-        Me.ToolStripSeparator5.Name = "ToolStripSeparator5"
-        Me.ToolStripSeparator5.Size = New System.Drawing.Size(158, 6)
-        '
-        'm_Log_File
-        '
-        Me.m_Log_File.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_Log_File.Name = "m_Log_File"
-        Me.m_Log_File.Size = New System.Drawing.Size(161, 22)
-        Me.m_Log_File.Text = "Log File"
-        '
         'Panel1
         '
         Me.Panel1.BackgroundImage = CType(resources.GetObject("Panel1.BackgroundImage"), System.Drawing.Image)
@@ -224,13 +233,9 @@ Partial Class frmMain
         Me.Panel1.Size = New System.Drawing.Size(956, 549)
         Me.Panel1.TabIndex = 2
         '
-        'm_help
+        'map_loader
         '
-        Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
-        Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
-        Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
-        Me.m_help.Name = "m_help"
-        Me.m_help.Size = New System.Drawing.Size(13, 20)
+        Me.map_loader.Interval = 30
         '
         'frmMain
         '
@@ -278,5 +283,6 @@ Partial Class frmMain
     Friend WithEvents m_Log_File As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripSeparator4 As System.Windows.Forms.ToolStripSeparator
     Friend WithEvents ToolStripSeparator5 As System.Windows.Forms.ToolStripSeparator
+    Friend WithEvents map_loader As System.Windows.Forms.Timer
 
 End Class

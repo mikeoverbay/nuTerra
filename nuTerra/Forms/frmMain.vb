@@ -117,7 +117,7 @@ Public Class frmMain
     Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
         'we are disabling this to speed up debugging of space.bin
 #If 1 Then
-        Return
+        'Return
 #End If
         'Runs Map picking code.
         glControl_main.MakeCurrent()
@@ -234,7 +234,7 @@ try_again:
         build_shaders()
         '-----------------------------------------------------------------------------------------
         LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
-                "FBO created. DevIL initialized. Shaders Build")
+                "FBO created. DevIL initialized. Shaders Built")
         '-----------------------------------------------------------------------------------------
         load_assets()
         '-----------------------------------------------------------------------------------------
@@ -258,9 +258,7 @@ try_again:
         '-----------------------------------------------------------------------------------------
         'Loads the textures for the map selection routines
         '!!!!! This is disabled to speed up testing for now!
-#If 1 Then
         make_map_pick_buttons()
-#End If
         '-----------------------------------------------------------------------------------------
         'Make a texture for rendering text on map pic textures
         DrawMapPickText.TextRenderer(120, 72)
@@ -301,7 +299,7 @@ try_again:
         'load_map("14_siegfried_line.pkg")
         'load_map("29_el_hallouf.pkg")
         'load_map("31_airfield.pkg")
-        load_map("112_eiffel_tower_ctf.pkg")
+        'load_map("112_eiffel_tower_ctf.pkg")
     End Sub
     '=================================================================================
 
@@ -361,7 +359,7 @@ try_again:
         refresh_thread.IsBackground = True
         refresh_thread.Name = "refresh_thread"
         refresh_thread.Start()
-        'SHOW_MAPS_SCREEN = True '<---- Un-rem to show map menu at startup.
+        SHOW_MAPS_SCREEN = True '<---- Un-rem to show map menu at startup.
         'We wont use this timer again so lets remove it from memory
         startup_delay_timer.Dispose()
     End Sub
@@ -624,4 +622,9 @@ try_again:
 
 #End Region
 
+
+    Private Sub map_loader_Tick(sender As Object, e As EventArgs) Handles map_loader.Tick
+        map_loader.Enabled = False
+        load_map(MAP_NAME_NO_PATH)
+    End Sub
 End Class

@@ -43,7 +43,8 @@ Module TextureLoaders
     Public Function find_and_load_texture_from_pkgs(ByRef fn As String) As Integer
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
-
+        fn = fn.Replace(".png", ".dds")
+        fn = fn.Replace(".atlas", ".atlas_processed")
         Dim id = image_exists(fn) 'check if this has been loaded.
         If id > 0 Then
             Return id
@@ -276,7 +277,7 @@ Module TextureLoaders
                 GL.BindTexture(TextureTarget.Texture2D, 0)
                 Il.ilBindImage(0)
                 'ilu.iludeleteimage(texID)
-                ReDim Preserve map_texture_ids(index + 1)
+                ReDim Preserve map_texture_ids(index)
                 map_texture_ids(index) = image_id
 
                 GL.BindTexture(TextureTarget.Texture2D, 0)
