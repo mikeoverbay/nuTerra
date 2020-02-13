@@ -14,7 +14,7 @@ Module ObjectRenderers
         CrossHairShader.Use()
 
         Dim position = Matrix4.CreateTranslation(U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z)
-        Dim MVPM = position * MODELVIEWMATRIX * PROJECTIONMATRIX
+        Dim MVPM = position * VIEWMATRIX * PROJECTIONMATRIX
         GL.UniformMatrix4(CrossHairShader("ProjectionMatrix"), False, MVPM)
 
         GL.Uniform1(CrossHairShader("colorMap"), 0)

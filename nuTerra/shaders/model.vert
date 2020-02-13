@@ -7,10 +7,10 @@ layout(location = 2) in vec2 vertexTexCoord1;
 layout(location = 3) in vec4 vertexTangent;
 layout(location = 4) in vec4 vertexBinormal;
 layout(location = 5) in vec2 vertexTexCoord2;
+layout(location = 6) in mat4 instanceMatrix;
 
-uniform mat4 modelMatrix;
-uniform mat3 modelNormalMatrix;
-uniform mat4 modelViewProjection;
+uniform mat4 view;
+uniform mat4 projection;
 
 out vec2 UV;
 out vec2 UV2;
@@ -24,13 +24,15 @@ void main(void)
     UV2 = vertexTexCoord2;
 
     // Transform position & normal to world space
-    worldPosition = vec3(modelMatrix * vec4(vertexPosition, 1.0));
+    worldPosition = vec3(instanceMatrix * vec4(vertexPosition, 1.0));
+
+    mat3 normalMatrix = mat3(transpose(inverse(view * instanceMatrix)));
 
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
-    vec3 worldTangent = modelNormalMatrix * vertexTangent.xyz;
-    vec3 worldbiNormal = modelNormalMatrix * vertexBinormal.xyz;
-    vec3 worldNormal =  modelNormalMatrix * vertexNormal.xyz;
-    worldTangent  = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
+    vec3 worldTangent = normalMatrix * vertexTangent.xyz;
+    vec3 worldbiNormal = normalMatrix * vertexBinormal.xyz;
+    vec3 worldNormal = normalMatrix * vertexNormal.xyz;
+    worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
     worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
 
 	normal = worldNormal;// temp for lightitng debug
@@ -39,5 +41,5 @@ void main(void)
     TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
-    gl_Position = modelViewProjection * vec4(vertexPosition, 1.0);
+    gl_Position = projection * view * instanceMatrix * vec4(vertexPosition, 1.0f);
 }

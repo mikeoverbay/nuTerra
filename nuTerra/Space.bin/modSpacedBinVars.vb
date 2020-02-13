@@ -329,7 +329,7 @@ Module modSpacedBinVars
         Public tbl_2 As BWArray(Of tbl_2_)
         Public models_colliders As BWArray(Of ModelColliderItem_v0_9_12)
         Public bsp_material_kinds As BWArray(Of BSPMaterialKindItem_v0_9_12)
-        Public models_visibility_bounds As BWArray(Of BoundingBox)
+        Public models_visibility_bounds As BWArray(Of Matrix3x2)
         Public tbl_6 As BWArray(Of tbl_6_)
         Public tbl_7 As BWArray(Of tbl_7_)
         Public lod_loddings As BWArray(Of lod_range_)
@@ -356,7 +356,7 @@ Module modSpacedBinVars
             tbl_2 = New BWArray(Of tbl_2_)(br)
             models_colliders = New BWArray(Of ModelColliderItem_v0_9_12)(br)
             bsp_material_kinds = New BWArray(Of BSPMaterialKindItem_v0_9_12)(br)
-            models_visibility_bounds = New BWArray(Of BoundingBox)(br)
+            models_visibility_bounds = New BWArray(Of Matrix3x2)(br)
             tbl_6 = New BWArray(Of tbl_6_)(br)
             tbl_7 = New BWArray(Of tbl_7_)(br)
             lod_loddings = New BWArray(Of lod_range_)(br)
@@ -423,12 +423,6 @@ Module modSpacedBinVars
         End Structure
 
         <StructLayout(LayoutKind.Sequential)>
-        Public Structure BoundingBox
-            Public min_BB As Vector3
-            Public max_BB As Vector3
-        End Structure
-
-        <StructLayout(LayoutKind.Sequential)>
         Public Structure tbl_6_ '??? not even sure of data size
             Public index1 As UInt32
             Public index2 As UInt32
@@ -468,18 +462,6 @@ Module modSpacedBinVars
             Public verts_name_fnv As UInt32
             Public prims_name_fnv As UInt32
             Public is_skinned As UInt32
-
-            ReadOnly Property vert_name As String
-                Get
-                    Return cBWST.find_str(verts_name_fnv)
-                End Get
-            End Property
-
-            ReadOnly Property indi_name As String
-                Get
-                    Return cBWST.find_str(prims_name_fnv)
-                End Get
-            End Property
         End Structure
 
         '''<summary>

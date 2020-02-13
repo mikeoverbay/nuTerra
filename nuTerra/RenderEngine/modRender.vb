@@ -43,11 +43,18 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        CULLED_COUNT = 0 'User Info
-        ExtractFrustum() 'Has to be done every new frame. Camara is dynamic
-        If MODELS_LOADED Then
-            check_models_visible()
-        End If
+
+        ' start culling phase by bounding the GPU program
+        ' cullShader.Use()
+
+        ' disable rasterization as we don't need it
+        ' GL.Enable(EnableCap.RasterizerDiscard)
+
+        ' TODO: gpu culling
+
+        ' GL.Disable(EnableCap.RasterizerDiscard)
+        ' cullShader.StopUse()
+
         '===========================================================================
 
         '===========================================================================
@@ -111,7 +118,7 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        draw_mini_map() '===========================================================
+        'draw_mini_map() '===========================================================
         '===========================================================================
 
         If frmGbufferViewer.Visible Then
@@ -136,6 +143,8 @@ Module modRender
         GL.Uniform1(modelShader("GMF_Map"), 2)
         GL.Uniform1(modelShader("nMap_type"), N_MAP_TYPE)
 
+        GL.UniformMatrix4(modelShader("projection"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(modelShader("view"), False, VIEWMATRIX)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
         GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<----------------- Texture Bind
@@ -144,65 +153,32 @@ Module modRender
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
-        Dim sanitiy_check As Integer = 0 ' if all is good, this should equal the length of MATRIX_INDEX_LIST
+        For Each batch In MODEL_BATCH_LIST
+            Dim model = MAP_MODELS(batch.model_id).mdl
 
-        For bc = 0 To MODEL_BATCH_LIST.Length - 1
+            If model.junk Then
+                Continue For
+            End If
 
-            For z = 0 To MODEL_BATCH_LIST(bc).count
-                sanitiy_check += 1
-                Dim MM_IDX = MODEL_BATCH_LIST(bc).MAP_MODEL_INDEX '       <-- points at the MAP_MODEL
-                Dim MAT_IDX = MODEL_BATCH_LIST(bc).MATRIX_INDEX_LIST(z) ' <-- Points at the matrix for each copy of that MAP_MODEL
-
-                Dim model = MAP_MODELS(MM_IDX).mdl(0)
-
-                If Not model.junk And Not MODEL_INDEX_LIST(MAT_IDX).Culled Then
-
-                    TOTAL_TRIANGLES_DRAWN += model.POLY_COUNT
-
-                    Dim modelMatrix = MODEL_INDEX_LIST(MAT_IDX).matrix
-                    Dim MVM = modelMatrix * MODELVIEWMATRIX
-                    Dim MVPM = MVM * PROJECTIONMATRIX
-                    ' need an inverse of the modelmatrix
-                    Dim normalMatrix As New Matrix3(Matrix4.Invert(MVM))
-
-                    GL.UniformMatrix4(modelShader("modelMatrix"), False, MVM)
-                    GL.UniformMatrix4(modelShader("modelViewProjection"), False, MVPM)
-                    GL.UniformMatrix3(modelShader("modelNormalMatrix"), True, normalMatrix)
-
-                    Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                    Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
-
-                    GL.BindVertexArray(model.mdl_VAO)
-
-                    For i = 0 To model.primitive_count - 1
-
-                        If Not model.entries(i).draw Then ' we should sort and remove undrawn shit and save GPU mem
-
-                            GL.Uniform1(modelShader("alphaEnable"), model.entries(i).alphaEnable)
-                            GL.Uniform1(modelShader("alphaReference"), model.entries(i).alphaReference)
-
-
-                            GL.ActiveTexture(TextureUnit.Texture0 + 0)
-                            GL.BindTexture(TextureTarget.Texture2D, model.entries(i).diffuseMap_id) '<----------------- Texture Bind
-                            GL.ActiveTexture(TextureUnit.Texture0 + 1)
-                            GL.BindTexture(TextureTarget.Texture2D, model.entries(i).normalMap_id)
-                            GL.ActiveTexture(TextureUnit.Texture0 + 2)
-                            GL.BindTexture(TextureTarget.Texture2D, model.entries(i).metallicGlossMap_id)
-
-
-                            Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
-                            GL.DrawElements(PrimitiveType.Triangles,
-                                            model.entries(i).numIndices,
-                                            triType,
-                                            offset)
-                        End If
-
-                    Next
+            For Each renderSet In model.render_sets
+                If renderSet.no_draw Then
+                    Continue For
                 End If
+
+                'Stop
+                Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
+                For Each primGroup In renderSet.primitiveGroups
+                    'setup materials here
+
+                    GL.BindVertexArray(renderSet.mdl_VAO)
+                    GL.DrawElementsInstanced(PrimitiveType.Triangles,
+                                             primGroup.nPrimitives * 3,
+                                             triType,
+                                             New IntPtr(primGroup.startIndex * renderSet.indexSize),
+                                             batch.count)
+                Next
             Next
         Next
-
-        GL.BindVertexArray(0)
 
         modelShader.StopUse()
         unbind_textures(2) ' unbind all the used texture slots
@@ -280,7 +256,7 @@ Module modRender
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
         Dim tr = TOTAL_TRIANGLES_DRAWN * LOOP_COUNT
 
-        Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", CULLED_COUNT, FPS_TIME, tr, elapsed)
+        Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", 0, FPS_TIME, tr, elapsed)
         DrawText.DrawString(txt, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Blend)
@@ -340,47 +316,36 @@ Module modRender
 
             normalShader.Use()
 
-            For bc = 0 To MODEL_BATCH_LIST.Length - 1
+            GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
+            GL.UniformMatrix4(normalShader("view"), False, VIEWMATRIX)
 
-                For z = 0 To MODEL_BATCH_LIST(bc).count
+            GL.Uniform1(normalShader("prj_length"), 0.1F)
+            GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
+            GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
 
-                    Dim MM_IDX = MODEL_BATCH_LIST(bc).MAP_MODEL_INDEX '       <-- points at the MAP_MODEL
-                    Dim MAT_IDX = MODEL_BATCH_LIST(bc).MATRIX_INDEX_LIST(z) ' <-- Points at the matrix for each copy of that MAP_MODEL
+            For Each batch In MODEL_BATCH_LIST
+                Dim model = MAP_MODELS(batch.model_id).mdl
 
-                    Dim model = MAP_MODELS(MM_IDX).mdl(0)
+                If model.junk Then
+                    Continue For
+                End If
 
-                    If Not model.junk And Not MODEL_INDEX_LIST(MAT_IDX).Culled Then
-
-                        TOTAL_TRIANGLES_DRAWN += model.POLY_COUNT
-
-                        Dim modelView = MODEL_INDEX_LIST(MAT_IDX).matrix * MODELVIEWMATRIX
-
-                        GL.UniformMatrix4(normalShader("modelView"), False, modelView)
-                        GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
-
-                        GL.Uniform1(normalShader("prj_length"), 0.1F)
-                        GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) '0 none, 1 by face, 2 by vertex
-                        GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
-
-                        Dim triType = If(model.USHORTS, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                        Dim triSize = If(model.USHORTS, SizeOf(GetType(vect3_16)), SizeOf(GetType(vect3_32)))
-
-                        GL.BindVertexArray(model.mdl_VAO)
-
-                        For i = 0 To model.primitive_count - 1
-
-                            If Not model.entries(i).draw Then
-                                Dim offset As New IntPtr(model.entries(i).startIndex * triSize)
-                                GL.DrawElements(PrimitiveType.Triangles,
-                                                model.entries(i).numIndices,
-                                                triType,
-                                                offset)
-                            End If
-                        Next
+                For Each renderSet In model.render_sets
+                    If renderSet.no_draw Then
+                        Continue For
                     End If
+
+                    GL.BindVertexArray(renderSet.mdl_VAO)
+                    Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
+                    For Each primGroup In renderSet.primitiveGroups
+                        GL.DrawElementsInstanced(PrimitiveType.Triangles,
+                                                 primGroup.nPrimitives * 3,
+                                                 triType,
+                                                 primGroup.startIndex * renderSet.indexSize,
+                                                 batch.count)
+                    Next
                 Next
             Next
-            GL.BindVertexArray(0)
             normalShader.StopUse()
         End If
     End Sub
@@ -397,7 +362,7 @@ Module modRender
         Dim scale_ As Single = 30.0
         Dim sMat = Matrix4.CreateScale(scale_)
 
-        Dim MVPM = sMat * model * MODELVIEWMATRIX * PROJECTIONMATRIX
+        Dim MVPM = sMat * model * VIEWMATRIX * PROJECTIONMATRIX
         colorOnlyShader.Use()
 
         GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)

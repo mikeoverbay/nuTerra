@@ -1,5 +1,7 @@
 ﻿Imports System.IO
+Imports System.Runtime.InteropServices.Marshal
 Imports Ionic.Zip
+Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 
@@ -38,8 +40,10 @@ Module MapLoader
     'This stores all models used on a map
     Public MAP_MODELS(1) As mdl_
     Public Structure mdl_
-        Public mdl() As base_model_holder_
+        Public mdl As base_model_holder_
+        Public visibilitiBounds As Matrix3x2
     End Structure
+
     ' Just for loading a model to test.
     Public mdl() As base_model_holder_
 
@@ -252,18 +256,66 @@ Module MapLoader
             MsgBox("Failed to load Space.Bin from the map package.", MsgBoxStyle.Exclamation, "Space.bin!")
             Return
         End If
-        '------------------------------------------------------------------------------------------------
+
+        '----------------------------------------------------------------
         ' Setup Bar graph
         BG_TEXT = "Loading Models..."
         BG_MAX_VALUE = MAP_MODELS.Length - 1
 
         For i = 0 To MAP_MODELS.Length - 1
             BG_VALUE = i
-            If MAP_MODELS(i).mdl(0).primitive_name IsNot Nothing Then
+            If Not MAP_MODELS(i).mdl.junk Then
                 Application.DoEvents() '<-- Give some time to this app's UI
-                Dim good = get_primitive(MAP_MODELS(i).mdl(0).primitive_name.Replace("primitives", "model"), MAP_MODELS(i).mdl)
+                Dim good = get_primitive(MAP_MODELS(i).mdl)
             End If
         Next
+
+        '----------------------------------------------------------------
+        ' setup instances
+        For Each batch In MODEL_BATCH_LIST
+            Dim model = MAP_MODELS(batch.model_id).mdl
+
+            If model.junk Then
+                Continue For
+            End If
+
+            Dim modelMatrices(batch.count - 1) As Matrix4
+            For i = 0 To batch.count - 1
+                modelMatrices(i) = MODEL_INDEX_LIST(batch.offset + i).matrix
+            Next
+
+            Dim buffer As Integer
+            GL.GenBuffers(1, buffer)
+            GL.BindBuffer(BufferTarget.ArrayBuffer, buffer)
+            GL.BufferData(BufferTarget.ArrayBuffer,
+                          batch.count * SizeOf(GetType(Matrix4)),
+                          modelMatrices, BufferUsageHint.StaticDraw)
+
+            For Each renderSet In model.render_sets
+                If renderSet.no_draw Then
+                    Continue For
+                End If
+
+                GL.BindVertexArray(renderSet.mdl_VAO)
+
+                GL.EnableVertexAttribArray(6)
+                GL.VertexAttribPointer(6, 4, VertexAttribPointerType.Float, False, 4 * 16, 0 * 16)
+                GL.EnableVertexAttribArray(7)
+                GL.VertexAttribPointer(7, 4, VertexAttribPointerType.Float, False, 4 * 16, 1 * 16)
+                GL.EnableVertexAttribArray(8)
+                GL.VertexAttribPointer(8, 4, VertexAttribPointerType.Float, False, 4 * 16, 2 * 16)
+                GL.EnableVertexAttribArray(9)
+                GL.VertexAttribPointer(9, 4, VertexAttribPointerType.Float, False, 4 * 16, 3 * 16)
+
+                GL.VertexAttribDivisor(6, 1)
+                GL.VertexAttribDivisor(7, 1)
+                GL.VertexAttribDivisor(8, 1)
+                GL.VertexAttribDivisor(9, 1)
+
+                GL.BindVertexArray(0)
+            Next
+        Next
+
         MODELS_LOADED = True
         'Get a list of all items in the MAP_package
         '=======================================================
@@ -333,21 +385,12 @@ Module MapLoader
         Dim t_count = FIRST_UNUSED_TEXTURE - LAST_TEXTURE
         GL.DeleteTextures(t_count, FIRST_UNUSED_TEXTURE)
         GL.Finish() ' make sure we are done before moving on
-        Try
 
-
-            For i = 0 To MAP_MODELS.Length - 1
-                If MAP_MODELS(i).mdl IsNot Nothing Then
-                    GL.DeleteBuffer(MAP_MODELS(i).mdl(0).mdl_VAO)
-                    MAP_MODELS(i).mdl(0).flush()
-                    ReDim MAP_MODELS(i).mdl(0).index_buffer16(0)
-                    ReDim MAP_MODELS(i).mdl(0).index_buffer32(0)
-
-                End If
-            Next
-        Catch ex As Exception
-
-        End Try
+        For i = 0 To MAP_MODELS.Length - 1
+            If MAP_MODELS(i).mdl IsNot Nothing Then
+                GL.DeleteBuffer(MAP_MODELS(i).mdl.mdl_VAO)
+            End If
+        Next
     End Sub
 
 

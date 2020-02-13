@@ -30,13 +30,13 @@ Module modOpenGL
     Public Sub Ortho_main()
         resize_glControl_main()
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
-        MODELVIEWMATRIX = Matrix4.Identity
+        VIEWMATRIX = Matrix4.Identity
     End Sub
 
     Public Sub Ortho_MiniMap(ByVal square_size As Integer)
         resize_glControl_MiniMap(square_size)
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_MiniMap.Width, -frmMain.glControl_MiniMap.Height, 0.0F, -300.0F, 300.0F)
-        MODELVIEWMATRIX = Matrix4.Identity
+        VIEWMATRIX = Matrix4.Identity
 
         'Set Legacy
         GL.MatrixMode(MatrixMode.Projection)
@@ -70,8 +70,8 @@ Module modOpenGL
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
                                    PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
 
-        MODELVIEWMATRIX = Matrix4.LookAt(position, target, up)
-        MODELVIEWMATRIX_Saved = MODELVIEWMATRIX
+        VIEWMATRIX = Matrix4.LookAt(position, target, up)
+        MODELVIEWMATRIX_Saved = VIEWMATRIX
     End Sub
 
     Public Sub set_light_pos()

@@ -41,7 +41,6 @@ vec3 getNormal()
 
 void main(void)
 {
-
     if (alphaEnable == 1){
         float a = texture(normalMap, UV).r;
         float aRef = float(alphaReference)/255.0;

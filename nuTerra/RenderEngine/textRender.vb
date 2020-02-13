@@ -13,7 +13,6 @@ Module textRender
         Private gfx As System.Drawing.Graphics
         Private texture_ As Integer
         Private dirty_region As Rectangle
-        Private disposed As Boolean
 
         Public Sub TextRenderer(ByVal width As Integer, ByVal height As Integer)
             If width = 0 Then

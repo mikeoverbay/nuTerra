@@ -69,7 +69,8 @@ Module modXfile
         Dim indice_count As Int32 = 0
         indice_count = CInt(brk(0))
         ReDim indices(indice_count - 1)
-        ReDim mdl.index_buffer16(indice_count - 1)
+
+        Dim index_buffer16(indice_count - 1) As vect3_16
 
         For i = 0 To indice_count - 1
             indices(i) = New _indice
@@ -79,9 +80,9 @@ Module modXfile
             indices(i).c = CUShort(brk(2)) ' flip winding
             indices(i).b = CUShort(brk(1))
             indices(i).a = CUShort(brk(0))
-            mdl.index_buffer16(i).x = indices(i).c
-            mdl.index_buffer16(i).y = indices(i).b
-            mdl.index_buffer16(i).z = indices(i).a
+            index_buffer16(i).x = indices(i).c
+            index_buffer16(i).y = indices(i).b
+            index_buffer16(i).z = indices(i).a
         Next
         ' get normals----------------------------------------
         s.Close()
@@ -152,13 +153,13 @@ Module modXfile
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, mdl.mBuffers(0))
         GL.BufferData(BufferTarget.ElementArrayBuffer,
                       mdl.indice_count * 6,
-                      mdl.index_buffer16,
+                      index_buffer16,
                       BufferUsageHint.StaticDraw)
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         GL.BindVertexArray(0)
 
-        mdl.flush()
+        'dl.flush()
 
         Dim er1 = GL.GetError
 

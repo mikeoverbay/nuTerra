@@ -27,7 +27,14 @@ Partial Class frmMain
     Private Sub InitializeComponent()
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
-        Me.glControl_main = New OpenTK.GLControl()
+
+#If 1 Then '<------ set to 0 to disable core profile
+        Dim flags = GraphicsContextFlags.Debug Or GraphicsContextFlags.ForwardCompatible
+#Else
+        Dim flags = GraphicsContextFlags.Debug
+#End If
+
+        Me.glControl_main = New OpenTK.GLControl(GraphicsMode.Default, 4, 3, flags)
         Me.glControl_MiniMap = New OpenTK.GLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()

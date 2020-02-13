@@ -201,7 +201,6 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <Compile Include="OpenGL\modOpenGL.vb" />
-    <Compile Include="RenderEngine\modFrustum.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\ObjectRenderers.vb" />
     <Compile Include="RenderEngine\textRender.vb" />

@@ -326,6 +326,9 @@ try_again:
 
         'test junk. ----------------------------------------------
 #If 1 Then
+        MOON = New base_model_holder_()
+        CROSS_HAIR = New base_model_holder_()
+
         get_X_model(sp + "\resources\moon.x", MOON)
         get_X_model(sp + "\resources\cross_hair.x", CROSS_HAIR)
         CROSS_HAIR_TEXTURE = load_image_from_file(Il.IL_PNG, sp + "\resources\cross_hair_texture.png", True, False)

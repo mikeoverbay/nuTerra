@@ -62,7 +62,7 @@ Module modGlobalVars
     Public MAX_ZOOM_OUT As Single = -2000.0F 'must be negitive
     '============================================================
     Public PROJECTIONMATRIX As New Matrix4
-    Public MODELVIEWMATRIX As New Matrix4
+    Public VIEWMATRIX As New Matrix4
     Public MODELVIEWMATRIX_Saved As Matrix4
     Public VIEW_PORT(1) As Single
     Public PRESPECTIVE_NEAR As Single = 0.5F

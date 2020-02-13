@@ -6,30 +6,10 @@ Module modTypeStructures
 
     Public MODEL_INDEX_LIST() As MODEL_INDEX_LIST_
     Public Structure MODEL_INDEX_LIST_ : Implements IComparable(Of MODEL_INDEX_LIST_)
-        '------------------------------------------------
-        'temp var to hold BB display buffer
-        Public BB_VBO As Integer
-        Public ta() As Vector3
-        '------------------------------------------------
-        Public primitive_name As String
         Public model_index As Integer
         Public matrix As Matrix4
-        Public mask As Boolean
-        Public BB_Min As Vector3
-        Public BB_Max As Vector3
-        Public BB() As Vector3
-        Public exclude As Boolean
-        Public destructible As Boolean
-        Public exclude_list() As Integer
-        Public Culled As Boolean
-        Public batched As Boolean
         Public Function CompareTo(ByVal other As MODEL_INDEX_LIST_) As Integer Implements System.IComparable(Of MODEL_INDEX_LIST_).CompareTo
-            Try
-                Return Me.model_index.CompareTo(other.model_index)
-
-            Catch ex As Exception
-                Return 0
-            End Try
+            Return Me.model_index.CompareTo(other.model_index)
         End Function
     End Structure
 
@@ -37,13 +17,12 @@ Module modTypeStructures
 
 #Region "Model_Batch_list"
 
-    Public MODEL_BATCH_LIST() As MODEL_BATCH_LIST_
-
-    Public Structure MODEL_BATCH_LIST_
-        Public MAP_MODEL_INDEX As Integer
-        Public MATRIX_INDEX_LIST() As UInteger
+    Public MODEL_BATCH_LIST As List(Of ModelBatch)
+    Public Class ModelBatch
+        Public model_id As Integer
+        Public offset As Integer
         Public count As Integer
-    End Structure
+    End Class
 
 #End Region
 
@@ -150,14 +129,13 @@ Module modTypeStructures
 
 #Region "base_Model_holder_"
 
-    Public Structure base_model_holder_
+    Public Class base_model_holder_
 
         '------------------------------------------------
         Public primitive_name As String
         '------------------------------------------------
         'VAO and render flags
         Public has_uv2 As Integer
-        Public has_tangent As Integer
         Public USHORTS As Boolean 'If true, indices are Uint16, other wise unit32
 
         Public is_building As Boolean ' used with decals
@@ -168,6 +146,8 @@ Module modTypeStructures
         'used to create VBO
         'how many parallel buffers will be created
         Public element_count As Integer
+
+        Public has_tangent As Integer
 
         'number if model components
         Public primitive_count As Integer
@@ -204,12 +184,9 @@ Module modTypeStructures
         Public biNormal_buffer() As Vector4h
         Public UV2_buffer() As Vector2
 
-        Public index_buffer16() As vect3_16
-        Public index_buffer32() As vect3_32
-
         'list of indice sizes, offsets,
         'texture IDs.. render settings... so on
-        Public entries() As entries_
+        Public render_sets() As RenderSetEntry
 
 
         Public Sub flush()
@@ -220,94 +197,43 @@ Module modTypeStructures
             tangent_buffer = Nothing
             biNormal_buffer = Nothing
             UV2_buffer = Nothing
-
-            index_buffer16 = Nothing
-            index_buffer32 = Nothing
         End Sub
 
-    End Structure
+    End Class
 
+    Public Class BuffersStorage
+        ' triangle buffers
+        Public index_buffer16() As vect3_16
+        Public index_buffer32() As vect3_32
 
-    Public Structure entries_
-        'If I remember from Tank Exporter..
-        'There are cases where some components of the same model
-        'have no UV2 stream but others do.
-        'We need this flag for building the VBO and signaling the shader.
-        'We use a Integer because it can be passed directly to the shader.
-        Public has_uv2 As Integer
-        '------------------------------------
-        'length and size of each primitive component
-        'startIndex and numIndices is scaled in load_primtive.
-        Public numIndices As Int32
-        Public UnumIndices As UInt32
-        Public numVertices As UInt32
-        Public startVertex As Int32
-        Public startIndex As Int32
-        '------------------------------------
-        Public list_id As Integer
-        '------------------------------------
-        Public draw As Boolean
-        '------------------------------------
+        ' vertex storage
+        Public vertexBuffer() As Vector3
+        Public normalBuffer() As Vector4h
+        Public uvBuffer() As Vector2
+        Public tangentBuffer() As Vector4h
+        Public binormalBuffer() As Vector4h
+    End Class
 
-        Public ShaderType As Integer
-        'shader types
-        '1 = color only
-        '2 = color normal
-        '3 = color normal gmm
-        '4 = atlas
-        '5 = atlas glass
-        '------------------------------------
-        'texture string names from space.bin
-        Public diffuseMap As String
-        Public diffuseMap2 As String
-        Public normalMap As String
-        Public metallicGlossMap As String
-        Public atlasBlend As String
-        Public atlasMetallicAO As String
-        Public atlasNormalGlossSpec As String
-        Public atlasAlbedoHeight As String
-        Public dirtMap As String
-        Public globalTex As String
-        'texture ids
-        Public diffuseMap_id As Integer
-        Public diffuseMap2_id As Integer
-        Public normalMap_id As Integer
-        Public metallicGlossMap_id As Integer
-        Public atlasBlend_id As Integer
-        Public atlasMetallicAO_id As Integer
-        Public atlasNormalGlossSpec_id As Integer
-        Public atlasAlbedoHeight_id As Integer
-        Public dirtMap_id As Integer
-        Public globalTex_id As Integer
-        '------------------------------------
-        'values from space.bin
-        Public alphaReference As Integer
-        Public TexAddressMode As Integer
-        Public g_vertexColorMode As Integer
-        Public g_tintColor As Vector4
-        Public g_tile0Tint As Vector4
-        Public g_tile1Tint As Vector4
-        Public g_tile2Tint As Vector4
-        Public g_dirtParams As Vector4
-        Public g_dirtColor As Vector4
-        Public g_atlasSizes As Vector4
-        Public g_atlasIndexes As Vector4
-        Public g_vertexAnimationParams As Vector4
-        Public g_fakeShadowsParams As Vector4 '<-- interesting
-        '- render params from space.bin
-        Public FX_shader As String
-        Public identifier As String
-        Public groupID As Integer
-        '------------------------------------
-        'booleans from space.bin
-        Public doubleSided As Integer
-        Public alphaEnable As Integer
-        Public dynamicobject As Integer
-        Public g_enableAO As Integer
-        Public g_useNormalPackDXT1 As Integer ' If this is true, this uses the old RGB normal maps;
-        '------------------------------------
+    Public Class RenderSetEntry
+        Public mdl_VAO As Integer
 
-    End Structure
+        Public verts_name As String
+        Public prims_name As String
+
+        '------------------------------------------------
+        'used to create VBO
+        'how many parallel buffers will be created
+        Public element_count As Integer
+
+        Public has_tangent As Boolean
+
+        ' 2 or 4
+        Public indexSize As Integer
+
+        Public primitiveGroups As List(Of PrimitiveGroup)
+
+        Public no_draw As Boolean
+    End Class
 #End Region
 
 
