@@ -361,7 +361,7 @@ try_again:
         refresh_thread.IsBackground = True
         refresh_thread.Name = "refresh_thread"
         refresh_thread.Start()
-        'SHOW_MAPS = True
+        'SHOW_MAPS_SCREEN = True '<---- Un-rem to show map menu at startup.
         'We wont use this timer again so lets remove it from memory
         startup_delay_timer.Dispose()
     End Sub

@@ -25,6 +25,7 @@ Module PrimitiveLoader
         Dim filename = mdl.primitive_name.Replace(".primitives", ".primitives_processed")
 
         ' search everywhere!
+
         Dim entry As Ionic.Zip.ZipEntry = search_pkgs(filename)
         If entry Is Nothing Then
             MsgBox("Can't find " + filename, MsgBoxStyle.Exclamation, "shit!")
@@ -84,9 +85,11 @@ Module PrimitiveLoader
             binSections(sec_name) = section
         End While
 
+
         For Each renderSet In mdl.render_sets
             Dim vertsSectionName = renderSet.verts_name.Substring(renderSet.verts_name.LastIndexOf("/"c) + 1)
             Dim primsSectionName = renderSet.prims_name.Substring(renderSet.prims_name.LastIndexOf("/"c) + 1)
+
 
             Dim buffers As New BuffersStorage
             load_primitives_indices(br, renderSet, binSections(primsSectionName), buffers)
@@ -130,10 +133,10 @@ Module PrimitiveLoader
         ' read the tables
         For z = 0 To numPrimGroups - 1
             Dim pGroup As New PrimitiveGroup With {
-                .startIndex = br.ReadInt32, '  <-- Offset in to indices list
-                .nPrimitives = br.ReadInt32, ' <-- This is the triangle count
-                .startVertex = br.ReadInt32, ' <-- Offset in to Vertex list
-                .nVertices = br.ReadInt32 '   <-- Number of vertices consumed
+                .startIndex = br.ReadInt32,
+                .nPrimitives = br.ReadInt32,
+                .startVertex = br.ReadInt32,
+                .nVertices = br.ReadInt32
                 }
             renderSet.primitiveGroups.Add(pGroup)
         Next
@@ -231,6 +234,7 @@ Module PrimitiveLoader
             br.BaseStream.Position += 68 ' move to where count is located
         End If
 
+
         Dim numVertices = br.ReadUInt32 ' read total count of vertcies
         Debug.Assert(numVertices > 2)
 
@@ -306,9 +310,10 @@ Module PrimitiveLoader
                     End With
                 End If
 
-                running += 1
+                    running += 1
+                Next
             Next
-        Next
+
 
     End Sub
 
