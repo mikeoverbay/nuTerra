@@ -60,7 +60,6 @@ Public Class frmGbufferViewer
 
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         GL.Disable(EnableCap.DepthTest)
-        GL.Enable(EnableCap.Texture2D)
         GL.ActiveTexture(TextureUnit.Texture0)
         'select image and shader by selected radio button
         GL.Disable(EnableCap.Blend)

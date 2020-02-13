@@ -129,7 +129,6 @@ dontaddthis:
         Ortho_main()
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
 
-        GL.Disable(EnableCap.Lighting)
         GL.Disable(EnableCap.Blend)
         GL.Disable(EnableCap.DepthTest)
 
@@ -170,9 +169,6 @@ dontaddthis:
 
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
-        GL.Disable(EnableCap.Texture2D)
-
-
         Dim map As Byte = 0
 
         While map < map_texture_ids.Length
@@ -195,16 +191,11 @@ dontaddthis:
 
         If Not _STARTED Then Return
 
-        GL.ClearColor(0.0, 0.0, 0.0, 0.0F)
-        GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
+        GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
+        GL.Clear(ClearBufferMask.ColorBufferBit)
 
-        GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode, TextureEnvMode.Replace)
-        GL.AlphaFunc(AlphaFunction.Equal, 1.0)
+        'GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode, TextureEnvMode.Replace)
         GL.ActiveTexture(TextureUnit.Texture0)
-
-
-        GL.Enable(EnableCap.Texture2D)
-        GL.Color4(0.0, 0.0, 0.0, 1.0)
 
         Dim w = frmMain.glControl_main.Width
         Dim h = frmMain.glControl_main.Height
@@ -215,10 +206,11 @@ dontaddthis:
 
         Dim rect As New RectangleF(0, 0, w, h)
 
-        GL.Disable(EnableCap.AlphaTest)
         Dim position As New PointF(0, 0)
 
 
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
         draw_image_rectangle(rect, MAP_SELECT_BACKGROUND_ID)
 
         'DrawMapPickText.TextRenderer(120, 72)
@@ -260,8 +252,7 @@ dontaddthis:
                 'draw text overlay
                 DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
                 DrawMapPickText.DrawString(MapPickList(map).realname, monoSmall, Brushes.Black, position)
-                GL.Enable(EnableCap.Blend)
-                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+
                 Dim tex = DrawMapPickText.Gettexture
                 MapPickList(map).draw_box(tex)
                 map += 1
@@ -269,10 +260,10 @@ dontaddthis:
             vi += -space_x + ms_y
         End While
         GL.BindTexture(TextureTarget.Texture2D, 0)
-
+        GL.Disable(EnableCap.Blend)
 
         'this checks to see if there are any images drawn oversize
-        Application.DoEvents()
+        'Application.DoEvents()
         frmMain.glControl_main.SwapBuffers()
 
         If FINISH_MAPS Then
