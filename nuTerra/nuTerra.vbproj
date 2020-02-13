@@ -312,20 +312,7 @@
     </None>
     <None Include="shaders\cull.geom">
     </None>
-    <None Include="shaders\QUADdrawer.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\QUADdrawer.geom">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-<<<<<<< HEAD
-    <None Include="shaders\QUADdrawer_vertex.glsl">
-=======
-    <None Include="shaders\QUADdrawer.vert">
->>>>>>> Improved map loading screen.
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\cull.vert">
+     <None Include="shaders\cull.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\rect2d.frag">
