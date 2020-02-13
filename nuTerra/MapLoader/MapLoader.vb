@@ -19,7 +19,7 @@ Module MapLoader
 
     Public MAP_PACKAGE As ZipFile
     Public MAP_PACKAGE_HD As ZipFile
-
+    Public MAP_PARTICLES As ZipFile
     'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
     Public PKG_DATA_TABLE As New DataTable("items")
 
@@ -89,6 +89,9 @@ Module MapLoader
                     entry = SAND_BOX_PART_1(filename)
                     If entry Is Nothing Then
                         entry = SAND_BOX_PART_2(filename)
+                        If entry Is Nothing Then
+                            entry = MAP_PARTICLES(filename)
+                        End If
                     End If
                 End If
             End If
@@ -161,6 +164,7 @@ Module MapLoader
         SAND_BOX_PART_1 = New ZipFile(GAME_PATH + "shared_content_sandbox-part1.pkg")
         SAND_BOX_PART_2 = New ZipFile(GAME_PATH + "shared_content_sandbox-part2.pkg")
 
+        MAP_PARTICLES = New ZipFile(GAME_PATH + "particles.pkg")
     End Sub
 
     Public Sub close_shared_packages()

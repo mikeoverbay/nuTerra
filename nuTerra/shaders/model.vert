@@ -24,7 +24,7 @@ void main(void)
     UV2 = vertexTexCoord2;
 
     // Transform position & normal to world space
-    worldPosition = vec3(instanceMatrix * vec4(vertexPosition, 1.0));
+    worldPosition = vec3(view * instanceMatrix * vec4(vertexPosition, 1.0));
 
     mat3 normalMatrix = mat3(transpose(inverse(view * instanceMatrix)));
 

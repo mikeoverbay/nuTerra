@@ -75,14 +75,15 @@ Module PrimitiveLoader
 
             ' Get sections name
             Dim sec_name = br.ReadChars(sec_name_len)
-
+            Dim sec_split_name = New String(sec_name).Split(".")
+            Dim sec_str_name = sec_split_name(sec_split_name.Length - 1)
             ' Skip pad characters
             Dim l = sec_name_len Mod 4
             If l > 0 Then
                 br.BaseStream.Position += 4 - l
             End If
 
-            binSections(sec_name) = section
+            binSections(sec_str_name) = section
         End While
 
 
