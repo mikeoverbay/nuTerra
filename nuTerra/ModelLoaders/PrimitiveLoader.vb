@@ -144,28 +144,30 @@ Module PrimitiveLoader
                 .startVertex = br.ReadInt32
                 .nVertices = br.ReadInt32
             End With
+            renderSet.primitiveGroups.Add(pGroup)
+            TOTAL_TRIANGLES_DRAWN_MODEL += pGroup.nPrimitives
         Next
 
-        ' restore position
-        br.BaseStream.Position = savedPos
+            ' restore position
+            br.BaseStream.Position = savedPos
 
 
-        'We flip the winding order because of directX to Opengl 
-        If renderSet.indexSize = 2 Then
-            ReDim buffers.index_buffer16((numIndices / 3) - 1)
-            For k = 0 To buffers.index_buffer16.Length - 1
-                buffers.index_buffer16(k).y = br.ReadUInt16
-                buffers.index_buffer16(k).x = br.ReadUInt16
-                buffers.index_buffer16(k).z = br.ReadUInt16
-            Next
-        Else
-            ReDim buffers.index_buffer32((numIndices / 3) - 1)
-            For k = 0 To buffers.index_buffer32.Length - 1
-                buffers.index_buffer32(k).y = br.ReadUInt32
-                buffers.index_buffer32(k).x = br.ReadUInt32
-                buffers.index_buffer32(k).z = br.ReadUInt32
-            Next
-        End If
+            'We flip the winding order because of directX to Opengl 
+            If renderSet.indexSize = 2 Then
+                ReDim buffers.index_buffer16((numIndices / 3) - 1)
+                For k = 0 To buffers.index_buffer16.Length - 1
+                    buffers.index_buffer16(k).y = br.ReadUInt16
+                    buffers.index_buffer16(k).x = br.ReadUInt16
+                    buffers.index_buffer16(k).z = br.ReadUInt16
+                Next
+            Else
+                ReDim buffers.index_buffer32((numIndices / 3) - 1)
+                For k = 0 To buffers.index_buffer32.Length - 1
+                    buffers.index_buffer32(k).y = br.ReadUInt32
+                    buffers.index_buffer32(k).x = br.ReadUInt32
+                    buffers.index_buffer32(k).z = br.ReadUInt32
+                Next
+            End If
     End Sub
 
 

@@ -16,7 +16,6 @@ Module modRender
         '===========================================================================
         'house keeping
         FRAME_TIMER.Restart()
-        TOTAL_TRIANGLES_DRAWN = 0
         '===========================================================================
 
         frmMain.glControl_main.MakeCurrent()
@@ -163,6 +162,7 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
         GL.Enable(EnableCap.CullFace)
+        TOTAL_TRIANGLES_DRAWN = 0
 
         For Each batch In MODEL_BATCH_LIST
             Dim model = MAP_MODELS(batch.model_id).mdl
@@ -179,18 +179,20 @@ Module modRender
                 'Stop
                 Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                 For Each primGroup In renderSet.primitiveGroups.Values
-                    'setup materials here
+                    For Each primGroup In renderSet.primitiveGroups
+                        TOTAL_TRIANGLES_DRAWN += primGroup.nPrimitives * batch.count
+                        'setup materials here
 
-                    GL.BindVertexArray(renderSet.mdl_VAO)
-                    GL.DrawElementsInstanced(PrimitiveType.Triangles,
-                                             primGroup.nPrimitives * 3,
-                                             triType,
-                                             New IntPtr(primGroup.startIndex * renderSet.indexSize),
-                                             batch.count)
+                        GL.BindVertexArray(renderSet.mdl_VAO)
+                        GL.DrawElementsInstanced(PrimitiveType.Triangles,
+                                                 primGroup.nPrimitives * 3,
+                                                 triType,
+                                                 New IntPtr(primGroup.startIndex * renderSet.indexSize),
+                                                 batch.count)
+                    Next
                 Next
             Next
         Next
-
         GL.Disable(EnableCap.CullFace)
 
         modelShader.StopUse()
@@ -267,7 +269,7 @@ Module modRender
         'save this.. we may want to use it for debug with a different source for the values.
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
-        Dim tr = TOTAL_TRIANGLES_DRAWN * LOOP_COUNT
+        Dim tr = TOTAL_TRIANGLES_DRAWN
 
         Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", 0, FPS_TIME, tr, elapsed)
         DrawText.DrawString(txt, mono, Brushes.White, position)
@@ -325,6 +327,7 @@ Module modRender
 
     Private Sub draw_overlays()
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
             FBOm.attach_CF()
 
             normalShader.Use()
@@ -360,6 +363,7 @@ Module modRender
                 Next
             Next
             normalShader.StopUse()
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         End If
     End Sub
 
