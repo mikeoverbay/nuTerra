@@ -22,6 +22,10 @@ Module modTypeStructures
         Public model_id As Integer
         Public offset As Integer
         Public count As Integer
+
+        Public culledQuery As Integer
+        Public cullVA As Integer
+        Public instanceDataBO As Integer
     End Class
 
 #End Region

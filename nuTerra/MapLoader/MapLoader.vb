@@ -293,9 +293,8 @@ Module MapLoader
                 modelMatrices(i) = MODEL_INDEX_LIST(batch.offset + i).matrix
             Next
 
-            Dim buffer As Integer
-            GL.GenBuffers(1, buffer)
-            GL.BindBuffer(BufferTarget.ArrayBuffer, buffer)
+            GL.GenBuffers(1, batch.instanceDataBO)
+            GL.BindBuffer(BufferTarget.ArrayBuffer, batch.instanceDataBO)
             GL.BufferData(BufferTarget.ArrayBuffer,
                           batch.count * SizeOf(GetType(Matrix4)),
                           modelMatrices, BufferUsageHint.StaticDraw)
@@ -391,8 +390,9 @@ Module MapLoader
 
         'remove map loaded textures
         Dim LAST_TEXTURE = GL.GenTexture  'get last texture created.
-        Dim t_count = FIRST_UNUSED_TEXTURE - LAST_TEXTURE
+        Dim t_count = LAST_TEXTURE - FIRST_UNUSED_TEXTURE
         GL.DeleteTextures(t_count, FIRST_UNUSED_TEXTURE)
+
         GL.Finish() ' make sure we are done before moving on
 
         For i = 0 To MAP_MODELS.Length - 1

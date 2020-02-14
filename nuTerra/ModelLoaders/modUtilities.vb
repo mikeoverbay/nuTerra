@@ -3,28 +3,32 @@ Imports System.Runtime.CompilerServices
 
 Module modUtilities
 
-    Public Sub ShowText(ByVal text As String)
+    Public Sub ShowText(text As String)
         frmShowText.Show()
         frmShowText.FastColoredTextBox1.Text = text
     End Sub
 
-    Public Sub ShowTextAppend(ByVal text As String)
+    Public Sub ShowTextAppend(text As String)
         frmShowText.Show()
         frmShowText.FastColoredTextBox1.Text =
             frmShowText.FastColoredTextBox1.Text + vbCrLf +
             text
     End Sub
 
-    Public Sub LogThis(ByVal entry As String)
+    Public Sub LogThis(entry As String)
+#If DEBUG Then
+        Debug.Print(entry)
+#End If
+
         'Writes to the log and immediately saves it.
         nuTerra_LOG.AppendLine(entry)
         File.WriteAllText(TEMP_STORAGE + "nuTerra_Log.txt", nuTerra_LOG.ToString)
     End Sub
 
     ' Allows us to split by strings. Not just characters.
-    <Extension()> _
-    Public Function Split(ByVal input As String, _
-                          ByVal ParamArray delimiter As String()) As String()
+    <Extension()>
+    Public Function Split(ByVal input As String,
+                          ParamArray delimiter As String()) As String()
         Return input.Split(delimiter, StringSplitOptions.None)
         Dim a(0) As String
         a(0) = input
@@ -76,7 +80,7 @@ Module modUtilities
         '---------------------------------------
     End Sub
 
-    Public Function can_this_be_broken(ByVal s As String) As Boolean
+    Public Function can_this_be_broken(s As String) As Boolean
 
         Dim q = From d In DESTRUCTABLE_DATA_TABLE.AsEnumerable
                 Where d.Field(Of String)("filename") = s

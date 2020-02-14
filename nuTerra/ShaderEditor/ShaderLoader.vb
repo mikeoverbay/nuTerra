@@ -273,6 +273,12 @@ Module ShaderLoader
             GL.AttachShader(program, fragmentObject)
         End If
 
+        If name = "cull" Then
+            ' bind output varyings
+            Dim vars() = {"objectVisible"}
+            GL.TransformFeedbackVaryings(program, 1, vars, TransformFeedbackMode.SeparateAttribs)
+        End If
+
         ' link program
         GL.LinkProgram(program)
 

@@ -61,6 +61,8 @@ Module modRender
             GL.DrawArrays(PrimitiveType.Points, 0, batch.count)
             GL.EndQuery(QueryTarget.PrimitivesGenerated)
             GL.EndTransformFeedback()
+
+            GL.Flush()
         Next
 
         GL.Disable(EnableCap.RasterizerDiscard)
@@ -176,20 +178,19 @@ Module modRender
                     Continue For
                 End If
 
-                'Stop
+                Debug.Assert(renderSet.primitiveGroups.Count > 0)
+
+                GL.BindVertexArray(renderSet.mdl_VAO)
                 Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                 For Each primGroup In renderSet.primitiveGroups.Values
-                    'For Each primGroup In renderSet.primitiveGroups
                     TOTAL_TRIANGLES_DRAWN += primGroup.nPrimitives * batch.count
                     'setup materials here
 
-                    GL.BindVertexArray(renderSet.mdl_VAO)
                     GL.DrawElementsInstanced(PrimitiveType.Triangles,
                                              primGroup.nPrimitives * 3,
                                              triType,
                                              New IntPtr(primGroup.startIndex * renderSet.indexSize),
                                              batch.count)
-                    'Next
                 Next
             Next
         Next
@@ -393,7 +394,7 @@ Module modRender
                         MOON.indice_count * 3,
                         DrawElementsType.UnsignedShort,
                         0)
-        GL.BindVertexArray(0)
+        ' GL.BindVertexArray(0)
 
         colorOnlyShader.StopUse()
     End Sub
@@ -428,7 +429,7 @@ Module modRender
         GL.Uniform4(deferredShader("rect"), 0.0F, CSng(-h), CSng(w), 0.0F)
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-        GL.BindVertexArray(0)
+        ' GL.BindVertexArray(0)
     End Sub
 
 End Module

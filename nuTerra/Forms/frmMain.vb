@@ -188,15 +188,15 @@ try_again:
         Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
         If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 3) Then
             MsgBox("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
-            LogThis("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
             Application.Exit()
         End If
 
+        LogThis(String.Format("Vendor: {0}", GL.GetString(StringName.Vendor)))
+        LogThis(String.Format("Renderer: {0}", GL.GetString(StringName.Renderer)))
+        LogThis(String.Format("Version: {0}", GL.GetString(StringName.Version)))
+        LogThis(String.Format("GLSL Version: {0}", GL.GetString(StringName.ShadingLanguageVersion)))
+
 #If DEBUG Then
-        Debug.Print("Vendor: {0}", GL.GetString(StringName.Vendor))
-        Debug.Print("Renderer: {0}", GL.GetString(StringName.Renderer))
-        Debug.Print("Version: {0}", GL.GetString(StringName.Version))
-        Debug.Print("ShadingLanguageVersion: {0}", GL.GetString(StringName.ShadingLanguageVersion))
         If GL.GetString(StringName.Version).Contains("Debug Context") Then
             If (GL.GetString(StringName.Extensions).Contains("GL_ARB_debug_output")) Then
                 SetupDebugOutputCallback()
@@ -295,7 +295,6 @@ try_again:
     ''' <summary>
     ''' Loads all assets nuTerra uses.
     ''' </summary>
-    ''' <remarks></remarks>
     Private Sub load_assets()
         'setup text renderer
         Dim sp = Application.StartupPath
@@ -309,9 +308,7 @@ try_again:
         'Make a texture for rendering text on map pic textures
         DrawMapPickText.TextRenderer(120, 72)
         '-----------------------------------------------------------------------------------------
-        'This gets the first texture ID after the static IDs
-        'ALL STATIC TEXTURES NEED TO BE LOADED BEFORE THIS IS CALLED!!!
-        get_start_ID_for_texture_Deletion()
+
         '---------------------------------------------------------
         'load the xml list of all item locations
         load_lookup_xml()
@@ -326,6 +323,9 @@ try_again:
             sp + "\resources\progress_bar.png", False, True)
         '---------------------------------------------------------
 
+        'This gets the first texture ID after the static IDs
+        'ALL STATIC TEXTURES NEED TO BE LOADED BEFORE THIS IS CALLED!!!
+        get_start_ID_for_texture_Deletion()
 
         'test junk. ----------------------------------------------
         MOON = New base_model_holder_()

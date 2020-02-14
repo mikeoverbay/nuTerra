@@ -95,7 +95,7 @@ Module modOpenGL
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-        GL.BindVertexArray(0)
+        'GL.BindVertexArray(0)
 
         rect2dShader.StopUse()
     End Sub
@@ -116,7 +116,7 @@ Module modOpenGL
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-        GL.BindVertexArray(0)
+        'GL.BindVertexArray(0)
 
         image2dShader.StopUse()
         'unbind texture
@@ -132,7 +132,7 @@ Module modOpenGL
                                    messagePtr As IntPtr,
                                    userParam As IntPtr)
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
-        Debug.Print("OpenGL error #{0}: {1}", id, message)
+        LogThis(String.Format("OpenGL error #{0}: {1}", id, message))
     End Sub
 
     Public Sub SetupDebugOutputCallback()
