@@ -273,6 +273,10 @@ CleanUp:
         pGroup.fx = cBSMA.FXStringKey(item.effectIndex).FX_string
         For i = item.shaderPropBegin To item.shaderPropEnd
             Select Case cBSMA.ShaderPropertyItem(i).property_type
+
+                Case 0 ' special case for volumetrics.
+                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_int
+
                 Case 1
                     ' Bool
                     pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_boolean
