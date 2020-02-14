@@ -20,7 +20,7 @@ Module modRender
 
         frmMain.glControl_main.MakeCurrent()
         '===========================================================================
-        HOG_TIME = 5 ' <- this probably needs to be set lower when we are done. 3?
+        HOG_TIME = 20 ' <- this probably needs to be set lower when we are done. 3?
         If SHOW_MAPS_SCREEN Then
             gl_pick_map(MOUSE.X, MOUSE.Y)
             HOG_TIME = 16
@@ -179,17 +179,17 @@ Module modRender
                 'Stop
                 Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                 For Each primGroup In renderSet.primitiveGroups.Values
-                    For Each primGroup In renderSet.primitiveGroups
-                        TOTAL_TRIANGLES_DRAWN += primGroup.nPrimitives * batch.count
-                        'setup materials here
+                    'For Each primGroup In renderSet.primitiveGroups
+                    TOTAL_TRIANGLES_DRAWN += primGroup.nPrimitives * batch.count
+                    'setup materials here
 
-                        GL.BindVertexArray(renderSet.mdl_VAO)
-                        GL.DrawElementsInstanced(PrimitiveType.Triangles,
-                                                 primGroup.nPrimitives * 3,
-                                                 triType,
-                                                 New IntPtr(primGroup.startIndex * renderSet.indexSize),
-                                                 batch.count)
-                    Next
+                    GL.BindVertexArray(renderSet.mdl_VAO)
+                    GL.DrawElementsInstanced(PrimitiveType.Triangles,
+                                             primGroup.nPrimitives * 3,
+                                             triType,
+                                             New IntPtr(primGroup.startIndex * renderSet.indexSize),
+                                             batch.count)
+                    'Next
                 Next
             Next
         Next
@@ -202,7 +202,7 @@ Module modRender
             GL.Disable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
     End Sub
-
+    Dim temp_timer As New Stopwatch
     Private Sub render_deferred_buffers()
         '===========================================================================
         ' Test our deferred shader =================================================
@@ -259,6 +259,7 @@ Module modRender
     ''' renders all 2D things in ortho mode
     ''' </summary>
     Private Sub render_HUD()
+        temp_timer.Restart()
         '===========================================================================
         ' Text Rendering ===========================================================
         '===========================================================================
@@ -280,7 +281,8 @@ Module modRender
         draw_image_rectangle(New RectangleF(0, 0, FBOm.SCR_WIDTH, 20), DrawText.Gettexture)
 
         GL.Disable(EnableCap.Blend)
-
+        Dim temp_time = temp_timer.ElapsedMilliseconds
+        Dim aa As Integer = 0
         '===========================================================================
         ' Text Rendering End =======================================================
         '===========================================================================

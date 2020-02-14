@@ -60,16 +60,42 @@ Module TextureLoaders
         Return -1 ' Didn't find it, return -1
     End Function
 
+    Public Function load_image_from_gui_pkg(ByVal fn As String)
+        Dim entry = GUI_PACKAGE(fn)
+        If entry Is Nothing Then
+            MsgBox("Unable to find " + fn, MsgBoxStyle.Exclamation, "Shit!!")
+            Return -1
+        End If
+        Dim ms As New MemoryStream
+        entry.Extract(ms)
+        If fn.Contains(".png") Then
+            Return load_image_from_stream(Il.IL_PNG, ms, fn, False, True)
+        End If
+        If fn.Contains(".dds") Then
+            Return load_image_from_stream(Il.IL_DDS, ms, fn, False, True)
+        End If
+        MsgBox("file Type?" + fn, MsgBoxStyle.Exclamation, "Shit!!")
+        Return -1
+    End Function
+
+
+
     Public Function find_and_load_UI_texture_from_pkgs(ByRef fn As String) As Integer
+        'This will NOT replace PNG with DDS in the file name.
         'finds and loads and returns the GL texture ID.
         Dim id = image_exists(fn)
         If id > 0 Then Return id
-        Dim entry As ZipEntry = search_pkgs(GAME_PATH + fn)
+        Dim entry As ZipEntry = search_pkgs(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
             'we do not want mips and linear filtering
-            Return load_image_from_stream(Il.IL_DDS, ms, fn, False, True)
+            If fn.Contains(".dds") Then
+                Return load_image_from_stream(Il.IL_DDS, ms, fn, False, True)
+            End If
+            If fn.Contains(".png") Then
+                Return load_image_from_stream(Il.IL_PNG, ms, fn, False, True)
+            End If
         End If
         Return -1 ' Didn't find it, return -1
     End Function

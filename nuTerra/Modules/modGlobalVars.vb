@@ -27,6 +27,7 @@ Module modGlobalVars
     Public CROSS_HAIR_TEXTURE As Integer
     Public CROSS_HAIR_TIME As Single = 0.0F ' animation time 0-1
     Public MOON As base_model_holder_
+    Public Progress_bar_image_ID As Integer
     '============================================================
     'sleep time for upedate thread.
     'lower draws faster but kills apps responsiveness

@@ -39,9 +39,11 @@ Module LoadingScreen
         draw_text()
 
         'Draw Bargraph
-        draw_color_rectangle(New RectangleF(0.0F, 10.0F, w_Valuev, 20),
-                             New Color4(1.0F, 1.0F, 1.0F, 1.0F))
+        GL.Enable(EnableCap.Blend)
+        draw_image_rectangle(New RectangleF(0.0F, 10.0F, w_Valuev, 20),
+                             Progress_bar_image_ID)
 
+        GL.Disable(EnableCap.Blend)
         ' Make it so!
         frmMain.glControl_main.SwapBuffers()
     End Sub

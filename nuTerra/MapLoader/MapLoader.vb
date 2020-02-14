@@ -20,6 +20,7 @@ Module MapLoader
     Public MAP_PACKAGE As ZipFile
     Public MAP_PACKAGE_HD As ZipFile
     Public MAP_PARTICLES As ZipFile
+    Public GUI_PACKAGE As ZipFile
     'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
     Public PKG_DATA_TABLE As New DataTable("items")
 
@@ -56,6 +57,7 @@ Module MapLoader
         PKG_DATA_TABLE.Columns.Add("package", GetType(String))
         PKG_DATA_TABLE.ReadXml(Application.StartupPath + "\data\TheItemList.xml")
     End Sub
+
     Public Function search_pkgs(ByVal filename As String) As ZipEntry
         Dim entry As ZipEntry = Nothing
         If HD_EXISTS And USE_HD_TEXTURES Then
@@ -202,7 +204,10 @@ Module MapLoader
 #End Region
 
     Public Sub load_map(ByVal package_name As String)
+
         SHOW_MAPS_SCREEN = False
+        BG_MAX_VALUE = 0
+
         SHOW_LOADING_SCREEN = True
         'For now, we are going to hard wire this name
         'and call this at startup so skip having to select a menu

@@ -55,6 +55,10 @@ Module MapMenuScreen
             Dim rect As New Rectangle(Me.lt.X, -lt.Y, rb.X, -rb.Y)
             draw_image_rectangle(rect, textId)
         End Sub
+        Public Sub draw_text(ByVal textId As Integer)
+            Dim rect As New Rectangle(Me.lt.X, -lt.Y, 120, 72)
+            draw_image_rectangle(rect, textId)
+        End Sub
         Public Sub draw_pick_box(ByVal color_ As Color4)
             Dim rect As New Rectangle(Me.lt.X, -Me.lt.Y, Me.rb.X, -Me.rb.Y)
             draw_color_rectangle(rect, color_)
@@ -98,27 +102,23 @@ dontaddthis:
         Array.Sort(MapPickList)
         Application.DoEvents()
 
-        Using Zip As ZipFile = Ionic.Zip.ZipFile.Read(GAME_PATH & "gui.pkg")
-            cnt = 0
-            For Each thing In MapPickList
-                Dim itm = thing.name
-                If Not itm.Contains("#") Then
-                    Dim ar = itm.Split(":")
-                    Dim entry As ZipEntry = Zip("gui/maps/icons/map/small/" + ar(0))
-                    Dim ms As New MemoryStream
-                    entry.Extract(ms)
-                    'True = hard wired to save in map_texture_ids(cnt)
-                    get_tank_image(ms, cnt, True)
-                    cnt += 1
-                End If
-            Next
-        End Using
-        Using Zip As ZipFile = Ionic.Zip.ZipFile.Read(GAME_PATH & "gui.pkg")
-            Dim entry As ZipEntry = Zip("gui/maps/bg.png")
-            Dim ms As New MemoryStream
-            entry.Extract(ms)
-            MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry.FileName, False, True)
-        End Using
+        cnt = 0
+        For Each thing In MapPickList
+            Dim itm = thing.name
+            If Not itm.Contains("#") Then
+                Dim ar = itm.Split(":")
+                Dim entry As ZipEntry = GUI_PACKAGE("gui/maps/icons/map/stats/" + ar(0))
+                Dim ms2 = New MemoryStream
+                entry.Extract(ms2)
+                'True = hard wired to save in map_texture_ids(cnt)
+                get_tank_image(ms2, cnt, True)
+                cnt += 1
+            End If
+        Next
+        Dim entry2 As ZipEntry = GUI_PACKAGE("gui/maps/bg.png")
+        Dim ms As New MemoryStream
+        entry2.Extract(ms)
+        MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
     End Sub
 
     Public Sub gl_pick_map(ByVal x As Integer, ByVal y As Integer)
@@ -251,10 +251,10 @@ dontaddthis:
                 MapPickList(map).draw_box(map_texture_ids(map))
                 'draw text overlay
                 DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
-                DrawMapPickText.DrawString(MapPickList(map).realname, monoSmall, Brushes.Black, position)
+                DrawMapPickText.DrawString(MapPickList(map).realname, lucid_console, Brushes.Blue, position)
 
                 Dim tex = DrawMapPickText.Gettexture
-                MapPickList(map).draw_box(tex)
+                MapPickList(map).draw_text(tex)
                 map += 1
             Next
             vi += -space_x + ms_y
@@ -277,6 +277,7 @@ dontaddthis:
                 FINISH_MAPS = False
                 SHOW_MAPS_SCREEN = False
                 BLOCK_MOUSE = False
+                BG_VALUE = 0 'reset bar graph
                 SHOW_LOADING_SCREEN = True
                 frmMain.map_loader.Enabled = True
             End If

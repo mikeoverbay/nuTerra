@@ -295,9 +295,6 @@
     <None Include="Resources\cross_hair.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="Resources\cube.x">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="Resources\dial.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -312,7 +309,7 @@
     </None>
     <None Include="shaders\cull.geom">
     </None>
-     <None Include="shaders\cull.vert">
+    <None Include="shaders\cull.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\rect2d.frag">
@@ -408,13 +405,7 @@
     <Content Include="Resources\linear_face.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Resources\PBS_Rock_05_AM.dds">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\PBS_Rock_05_GMM.dds">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\PBS_Rock_05_NM.dds">
+    <Content Include="Resources\progress_bar.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Ref_colorMap.png">

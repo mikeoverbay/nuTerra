@@ -256,17 +256,6 @@ try_again:
         glControl_main.BringToFront()
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
-        'Loads the textures for the map selection routines
-        '!!!!! This is disabled to speed up testing for now!
-        make_map_pick_buttons()
-        '-----------------------------------------------------------------------------------------
-        'Make a texture for rendering text on map pic textures
-        DrawMapPickText.TextRenderer(120, 72)
-        '-----------------------------------------------------------------------------------------
-        'This gets the first texture ID after the static IDs
-        'ALL STATIC TEXTURES NEED TO BE LOADED BEFORE THIS IS CALLED!!!
-        get_start_ID_for_texture_Deletion()
-        '-----------------------------------------------------------------------------------------
         'open up our huge virual memory file for storage.
         '(map size * map size)*((64 * 64) * 6 vertex per quad)
         triangle_holder.open((20 * 20) * (4096 * 6))
@@ -310,7 +299,19 @@ try_again:
     Private Sub load_assets()
         'setup text renderer
         Dim sp = Application.StartupPath
-
+        '-----------------------------------------------------------------------------------------
+        'needed to load image elements
+        GUI_PACKAGE = New Ionic.Zip.ZipFile(GAME_PATH + "gui.pkg")
+        '---------------------------------------------------------
+        'Loads the textures for the map selection routines
+        make_map_pick_buttons()
+        '-----------------------------------------------------------------------------------------
+        'Make a texture for rendering text on map pic textures
+        DrawMapPickText.TextRenderer(120, 72)
+        '-----------------------------------------------------------------------------------------
+        'This gets the first texture ID after the static IDs
+        'ALL STATIC TEXTURES NEED TO BE LOADED BEFORE THIS IS CALLED!!!
+        get_start_ID_for_texture_Deletion()
         '---------------------------------------------------------
         'load the xml list of all item locations
         load_lookup_xml()
@@ -319,28 +320,21 @@ try_again:
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\earth.png", False, True)
         '---------------------------------------------------------
+        'load progress bar gradient image from the GUI package.
+        Progress_bar_image_ID =
+            load_image_from_file(Il.IL_PNG,
+            sp + "\resources\progress_bar.png", False, True)
         '---------------------------------------------------------
 
 
         'test junk. ----------------------------------------------
-#If 1 Then
         MOON = New base_model_holder_()
         CROSS_HAIR = New base_model_holder_()
 
         get_X_model(sp + "\resources\moon.x", MOON)
         get_X_model(sp + "\resources\cross_hair.x", CROSS_HAIR)
         CROSS_HAIR_TEXTURE = load_image_from_file(Il.IL_PNG, sp + "\resources\cross_hair_texture.png", True, False)
-        'normal_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)
-        'gmm_id = load_image_from_file(Il.IL_PNG, sp + "\resources\phobosmirror_NORM.png", True, False)
-        N_MAP_TYPE = 0
-#Else
 
-        get_X_model(sp + "\resources\cube.x")
-        color_id = load_image_from_file(Il.IL_DDS, sp + "\resources\PBS_Rock_05_AM.dds", True, False)
-        normal_id = load_image_from_file(Il.IL_DDS, sp + "\resources\PBS_Rock_05_NM.dds", True, False)
-        gmm_id = load_image_from_file(Il.IL_DDS, sp + "\resources\PBS_Rock_05_GMM.dds", True, False)
-        N_MAP_TYPE = 1
-#End If
     End Sub
 
 #Region "Screen position and update"
@@ -416,8 +410,8 @@ try_again:
         If Me.InvokeRequired And _STARTED Then
             Me.Invoke(New update_screen_delegate(AddressOf update_screen))
         Else
-            check_postion_for_update()
             SYNCMUTEX.WaitOne()
+            check_postion_for_update()
             draw_scene()
             SYNCMUTEX.ReleaseMutex()
         End If

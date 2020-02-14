@@ -144,8 +144,8 @@ Module PrimitiveLoader
                 .startVertex = br.ReadInt32
                 .nVertices = br.ReadInt32
             End With
-            renderSet.primitiveGroups.Add(pGroup)
-            TOTAL_TRIANGLES_DRAWN_MODEL += pGroup.nPrimitives
+            'renderSet.primitiveGroups.Add(pGroup)
+            TOTAL_TRIANGLES_DRAWN_MODEL += renderSet.primitiveGroups(z).nPrimitives
         Next
 
             ' restore position

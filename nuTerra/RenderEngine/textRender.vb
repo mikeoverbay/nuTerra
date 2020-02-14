@@ -1,13 +1,15 @@
 ﻿Imports OpenTK.Graphics.OpenGL
 
 Module textRender
-
+    'Public f_family = New FontFamily("Lucide Console")
+    Public lucid_console As New Font("Lucide Console", 14, FontStyle.Bold, GraphicsUnit.Pixel)
     Public serif As New Font(FontFamily.GenericSerif, 12)
     Public sans As New Font(FontFamily.GenericSansSerif, 12)
     Public mono As New Font(FontFamily.GenericMonospace, 12)
     Public monoSmall As New Font(FontFamily.GenericMonospace, 9.5)
     Public DrawText As New DrawText_
     Public DrawMapPickText As New DrawText_
+
     Public Structure DrawText_
         Private bmp As Bitmap
         Private gfx As System.Drawing.Graphics
@@ -28,7 +30,7 @@ Module textRender
             Me.gfx = Nothing
             Me.bmp = New Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb)
             Me.gfx = System.Drawing.Graphics.FromImage(Me.bmp)
-            Me.gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit
+            Me.gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias
             If Me.texture_ > 0 Then
                 GL.DeleteTexture(Me.texture_)
             End If
