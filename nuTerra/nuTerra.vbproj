@@ -308,6 +308,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\cull.geom">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\cull.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

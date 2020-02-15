@@ -43,18 +43,20 @@ Module modRender
 
         '===========================================================================
 
-#If 0 Then ' TODO: gpu culling
+#If 1 Then ' TODO: gpu culling
         cullShader.Use()
 
         GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
         GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
 
+        ' TODO: pass visbox here
+        GL.Uniform3(cullShader("ObjectExtent"), 0.1F, 0.1F, 0.1F)
+
         GL.Enable(EnableCap.RasterizerDiscard)
 
         For Each batch In MODEL_BATCH_LIST
-            Dim model = MAP_MODELS(batch.model_id).mdl
-
-            GL.BindVertexArray(model.render_sets(0).mdl_VAO)
+            GL.BindBufferBase(BufferRangeTarget.TransformFeedbackBuffer, 0, batch.culledInstanceDataBO)
+            GL.BindVertexArray(batch.cullVA)
 
             GL.BeginTransformFeedback(TransformFeedbackPrimitiveType.Points)
             GL.BeginQuery(QueryTarget.PrimitivesGenerated, batch.culledQuery)
@@ -165,6 +167,7 @@ Module modRender
 
         GL.Enable(EnableCap.CullFace)
         TOTAL_TRIANGLES_DRAWN = 0
+        PRIMS_CULLED = 0
 
         For Each batch In MODEL_BATCH_LIST
             Dim model = MAP_MODELS(batch.model_id).mdl
@@ -178,19 +181,29 @@ Module modRender
                     Continue For
                 End If
 
-                Debug.Assert(renderSet.primitiveGroups.Count > 0)
+                'Debug.Assert(renderSet.primitiveGroups.Count > 0)
+
+                GL.GetQueryObject(batch.culledQuery, GetQueryObjectParam.QueryResult, batch.visibleCount)
+                'Debug.Assert(batch.visibleCount <= batch.count)
+
+                PRIMS_CULLED += batch.count - batch.visibleCount
+
+                If batch.visibleCount = 0 Then
+                    Continue For
+                End If
 
                 GL.BindVertexArray(renderSet.mdl_VAO)
+
                 Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                 For Each primGroup In renderSet.primitiveGroups.Values
-                    TOTAL_TRIANGLES_DRAWN += primGroup.nPrimitives * batch.count
+                    TOTAL_TRIANGLES_DRAWN += primGroup.nPrimitives * batch.visibleCount
                     'setup materials here
 
                     GL.DrawElementsInstanced(PrimitiveType.Triangles,
                                              primGroup.nPrimitives * 3,
                                              triType,
                                              New IntPtr(primGroup.startIndex * renderSet.indexSize),
-                                             batch.count)
+                                             batch.visibleCount)
                 Next
             Next
         Next
@@ -273,7 +286,7 @@ Module modRender
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
         Dim tr = TOTAL_TRIANGLES_DRAWN
 
-        Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", 0, FPS_TIME, tr, elapsed)
+        Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", PRIMS_CULLED, FPS_TIME, tr, elapsed)
         DrawText.DrawString(txt, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Blend)
@@ -354,6 +367,10 @@ Module modRender
                         Continue For
                     End If
 
+                    If batch.visibleCount = 0 Then
+                        Continue For
+                    End If
+
                     GL.BindVertexArray(renderSet.mdl_VAO)
                     Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                     For Each primGroup In renderSet.primitiveGroups.Values
@@ -361,7 +378,7 @@ Module modRender
                                                  primGroup.nPrimitives * 3,
                                                  triType,
                                                  New IntPtr(primGroup.startIndex * renderSet.indexSize),
-                                                 batch.count)
+                                                 batch.visibleCount)
                     Next
                 Next
             Next

@@ -26,6 +26,8 @@ Module modTypeStructures
         Public culledQuery As Integer
         Public cullVA As Integer
         Public instanceDataBO As Integer
+        Public culledInstanceDataBO As Integer
+        Public visibleCount As Integer
     End Class
 
 #End Region

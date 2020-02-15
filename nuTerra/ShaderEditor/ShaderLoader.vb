@@ -274,9 +274,8 @@ Module ShaderLoader
         End If
 
         If name = "cull" Then
-            ' bind output varyings
-            Dim vars() = {"objectVisible"}
-            GL.TransformFeedbackVaryings(program, 1, vars, TransformFeedbackMode.SeparateAttribs)
+            Dim vars() = {"CulledPosition"}
+            GL.TransformFeedbackVaryings(program, 1, vars, TransformFeedbackMode.InterleavedAttribs)
         End If
 
         ' link program

@@ -197,8 +197,10 @@ try_again:
         LogThis(String.Format("GLSL Version: {0}", GL.GetString(StringName.ShadingLanguageVersion)))
 
 #If DEBUG Then
-        If GL.GetString(StringName.Version).Contains("Debug Context") Then
-            If (GL.GetString(StringName.Extensions).Contains("GL_ARB_debug_output")) Then
+        Dim extensios = GL.GetString(StringName.Extensions)
+        If extensios.Contains("GL_KHR_debug") And extensios.Contains("GL_ARB_debug_output") Then
+            If GL.GetInteger(GetPName.ContextFlags) And ContextFlagMask.ContextFlagDebugBit Then
+                LogThis("Setup Debug Output Callback")
                 SetupDebugOutputCallback()
             End If
         End If

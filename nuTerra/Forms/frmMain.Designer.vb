@@ -28,10 +28,10 @@ Partial Class frmMain
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
 
-#If 1 Then '<------ set to 0 to disable core profile
-        Dim flags = GraphicsContextFlags.Debug Or GraphicsContextFlags.ForwardCompatible
+#If DEBUG Then
+        Dim flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
 #Else
-        Dim flags = GraphicsContextFlags.Debug
+        Dim flags = GraphicsContextFlags.ForwardCompatible
 #End If
 
         Me.glControl_main = New OpenTK.GLControl(GraphicsMode.Default, 4, 3, flags)
