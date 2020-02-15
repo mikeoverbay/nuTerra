@@ -28,35 +28,44 @@ Partial Class frmEditFrag
         Me.TabControl1 = New System.Windows.Forms.TabControl()
         Me.TabPage1 = New System.Windows.Forms.TabPage()
         Me.vert_tb = New FastColoredTextBoxNS.FastColoredTextBox()
-        Me.TabPage2 = New System.Windows.Forms.TabPage()
-        Me.frag_tb = New FastColoredTextBoxNS.FastColoredTextBox()
-        Me.TabPage3 = New System.Windows.Forms.TabPage()
-        Me.geo_tb = New FastColoredTextBoxNS.FastColoredTextBox()
-        Me.CB1 = New System.Windows.Forms.ComboBox()
-        Me.Label1 = New System.Windows.Forms.Label()
-        Me.search_btn = New System.Windows.Forms.Button()
         Me.vertex_context_menustrip = New System.Windows.Forms.ContextMenuStrip(Me.components)
-        Me.fragment_context_menustrip = New System.Windows.Forms.ContextMenuStrip(Me.components)
-        Me.geo_context_menustrip = New System.Windows.Forms.ContextMenuStrip(Me.components)
         Me.ToolStripMenuItem1 = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripMenuItem2 = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripMenuItem3 = New System.Windows.Forms.ToolStripMenuItem()
+        Me.TabPage2 = New System.Windows.Forms.TabPage()
+        Me.frag_tb = New FastColoredTextBoxNS.FastColoredTextBox()
+        Me.fragment_context_menustrip = New System.Windows.Forms.ContextMenuStrip(Me.components)
         Me.ToolStripMenuItem4 = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripMenuItem5 = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripMenuItem6 = New System.Windows.Forms.ToolStripMenuItem()
+        Me.TabPage3 = New System.Windows.Forms.TabPage()
+        Me.geo_tb = New FastColoredTextBoxNS.FastColoredTextBox()
+        Me.geo_context_menustrip = New System.Windows.Forms.ContextMenuStrip(Me.components)
         Me.ToolStripMenuItem7 = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripMenuItem8 = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripMenuItem9 = New System.Windows.Forms.ToolStripMenuItem()
+        Me.TabPage4 = New System.Windows.Forms.TabPage()
+        Me.compute_tb = New FastColoredTextBoxNS.FastColoredTextBox()
+        Me.CB1 = New System.Windows.Forms.ComboBox()
+        Me.Label1 = New System.Windows.Forms.Label()
+        Me.search_btn = New System.Windows.Forms.Button()
+        Me.compute_context_menustrip = New System.Windows.Forms.ContextMenuStrip(Me.components)
+        Me.ToolStripMenuItem10 = New System.Windows.Forms.ToolStripMenuItem()
+        Me.ToolStripMenuItem11 = New System.Windows.Forms.ToolStripMenuItem()
+        Me.ToolStripMenuItem12 = New System.Windows.Forms.ToolStripMenuItem()
         Me.TabControl1.SuspendLayout()
         Me.TabPage1.SuspendLayout()
         CType(Me.vert_tb, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.vertex_context_menustrip.SuspendLayout()
         Me.TabPage2.SuspendLayout()
         CType(Me.frag_tb, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.fragment_context_menustrip.SuspendLayout()
         Me.TabPage3.SuspendLayout()
         CType(Me.geo_tb, System.ComponentModel.ISupportInitialize).BeginInit()
-        Me.vertex_context_menustrip.SuspendLayout()
-        Me.fragment_context_menustrip.SuspendLayout()
         Me.geo_context_menustrip.SuspendLayout()
+        Me.TabPage4.SuspendLayout()
+        CType(Me.compute_tb, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.compute_context_menustrip.SuspendLayout()
         Me.SuspendLayout()
         '
         'recompile_bt
@@ -77,6 +86,7 @@ Partial Class frmEditFrag
         Me.TabControl1.Controls.Add(Me.TabPage1)
         Me.TabControl1.Controls.Add(Me.TabPage2)
         Me.TabControl1.Controls.Add(Me.TabPage3)
+        Me.TabControl1.Controls.Add(Me.TabPage4)
         Me.TabControl1.Location = New System.Drawing.Point(1, 0)
         Me.TabControl1.Name = "TabControl1"
         Me.TabControl1.Padding = New System.Drawing.Point(3, 3)
@@ -123,6 +133,33 @@ Partial Class frmEditFrag
         Me.vert_tb.TabIndex = 1
         Me.vert_tb.Zoom = 100
         '
+        'vertex_context_menustrip
+        '
+        Me.vertex_context_menustrip.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem1, Me.ToolStripMenuItem2, Me.ToolStripMenuItem3})
+        Me.vertex_context_menustrip.Name = "vertex_context_menustrip"
+        Me.vertex_context_menustrip.Size = New System.Drawing.Size(103, 70)
+        '
+        'ToolStripMenuItem1
+        '
+        Me.ToolStripMenuItem1.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.ToolStripMenuItem1.Name = "ToolStripMenuItem1"
+        Me.ToolStripMenuItem1.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem1.Text = "Cut"
+        '
+        'ToolStripMenuItem2
+        '
+        Me.ToolStripMenuItem2.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.ToolStripMenuItem2.Name = "ToolStripMenuItem2"
+        Me.ToolStripMenuItem2.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem2.Text = "Copy"
+        '
+        'ToolStripMenuItem3
+        '
+        Me.ToolStripMenuItem3.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.ToolStripMenuItem3.Name = "ToolStripMenuItem3"
+        Me.ToolStripMenuItem3.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem3.Text = "Paste"
+        '
         'TabPage2
         '
         Me.TabPage2.Controls.Add(Me.frag_tb)
@@ -140,7 +177,7 @@ Partial Class frmEditFrag
         Me.frag_tb.AutoIndent = False
         Me.frag_tb.AutoIndentChars = False
         Me.frag_tb.AutoIndentExistingLines = False
-        Me.frag_tb.AutoScrollMinSize = New System.Drawing.Size(27, 14)
+        Me.frag_tb.AutoScrollMinSize = New System.Drawing.Size(2, 14)
         Me.frag_tb.BackBrush = Nothing
         Me.frag_tb.BackColor = System.Drawing.Color.Black
         Me.frag_tb.CaretColor = System.Drawing.Color.White
@@ -162,6 +199,30 @@ Partial Class frmEditFrag
         Me.frag_tb.TabIndex = 0
         Me.frag_tb.Zoom = 100
         '
+        'fragment_context_menustrip
+        '
+        Me.fragment_context_menustrip.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem4, Me.ToolStripMenuItem5, Me.ToolStripMenuItem6})
+        Me.fragment_context_menustrip.Name = "vertex_context_menustrip"
+        Me.fragment_context_menustrip.Size = New System.Drawing.Size(103, 70)
+        '
+        'ToolStripMenuItem4
+        '
+        Me.ToolStripMenuItem4.Name = "ToolStripMenuItem4"
+        Me.ToolStripMenuItem4.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem4.Text = "Cut"
+        '
+        'ToolStripMenuItem5
+        '
+        Me.ToolStripMenuItem5.Name = "ToolStripMenuItem5"
+        Me.ToolStripMenuItem5.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem5.Text = "Copy"
+        '
+        'ToolStripMenuItem6
+        '
+        Me.ToolStripMenuItem6.Name = "ToolStripMenuItem6"
+        Me.ToolStripMenuItem6.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem6.Text = "Paste"
+        '
         'TabPage3
         '
         Me.TabPage3.Controls.Add(Me.geo_tb)
@@ -178,7 +239,7 @@ Partial Class frmEditFrag
         Me.geo_tb.AutoIndent = False
         Me.geo_tb.AutoIndentChars = False
         Me.geo_tb.AutoIndentExistingLines = False
-        Me.geo_tb.AutoScrollMinSize = New System.Drawing.Size(27, 14)
+        Me.geo_tb.AutoScrollMinSize = New System.Drawing.Size(2, 14)
         Me.geo_tb.BackBrush = Nothing
         Me.geo_tb.BackColor = System.Drawing.Color.Black
         Me.geo_tb.CaretColor = System.Drawing.Color.White
@@ -199,6 +260,68 @@ Partial Class frmEditFrag
         Me.geo_tb.Size = New System.Drawing.Size(647, 559)
         Me.geo_tb.TabIndex = 1
         Me.geo_tb.Zoom = 100
+        '
+        'geo_context_menustrip
+        '
+        Me.geo_context_menustrip.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem7, Me.ToolStripMenuItem8, Me.ToolStripMenuItem9})
+        Me.geo_context_menustrip.Name = "vertex_context_menustrip"
+        Me.geo_context_menustrip.Size = New System.Drawing.Size(103, 70)
+        '
+        'ToolStripMenuItem7
+        '
+        Me.ToolStripMenuItem7.Name = "ToolStripMenuItem7"
+        Me.ToolStripMenuItem7.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem7.Text = "Cut"
+        '
+        'ToolStripMenuItem8
+        '
+        Me.ToolStripMenuItem8.Name = "ToolStripMenuItem8"
+        Me.ToolStripMenuItem8.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem8.Text = "Copy"
+        '
+        'ToolStripMenuItem9
+        '
+        Me.ToolStripMenuItem9.Name = "ToolStripMenuItem9"
+        Me.ToolStripMenuItem9.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem9.Text = "Paste"
+        '
+        'TabPage4
+        '
+        Me.TabPage4.Controls.Add(Me.compute_tb)
+        Me.TabPage4.Location = New System.Drawing.Point(4, 22)
+        Me.TabPage4.Name = "TabPage4"
+        Me.TabPage4.Size = New System.Drawing.Size(647, 559)
+        Me.TabPage4.TabIndex = 3
+        Me.TabPage4.Text = "Compute Program"
+        Me.TabPage4.UseVisualStyleBackColor = True
+        '
+        'compute_tb
+        '
+        Me.compute_tb.AutoCompleteBracketsList = New Char() {Global.Microsoft.VisualBasic.ChrW(40), Global.Microsoft.VisualBasic.ChrW(41), Global.Microsoft.VisualBasic.ChrW(123), Global.Microsoft.VisualBasic.ChrW(125), Global.Microsoft.VisualBasic.ChrW(91), Global.Microsoft.VisualBasic.ChrW(93), Global.Microsoft.VisualBasic.ChrW(34), Global.Microsoft.VisualBasic.ChrW(34), Global.Microsoft.VisualBasic.ChrW(39), Global.Microsoft.VisualBasic.ChrW(39)}
+        Me.compute_tb.AutoIndent = False
+        Me.compute_tb.AutoIndentChars = False
+        Me.compute_tb.AutoIndentExistingLines = False
+        Me.compute_tb.AutoScrollMinSize = New System.Drawing.Size(27, 14)
+        Me.compute_tb.BackBrush = Nothing
+        Me.compute_tb.BackColor = System.Drawing.Color.Black
+        Me.compute_tb.CaretColor = System.Drawing.Color.White
+        Me.compute_tb.CharHeight = 14
+        Me.compute_tb.CharWidth = 8
+        Me.compute_tb.ContextMenuStrip = Me.compute_context_menustrip
+        Me.compute_tb.Cursor = System.Windows.Forms.Cursors.IBeam
+        Me.compute_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
+        Me.compute_tb.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.compute_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
+        Me.compute_tb.ForeColor = System.Drawing.Color.White
+        Me.compute_tb.IsReplaceMode = False
+        Me.compute_tb.Location = New System.Drawing.Point(0, 0)
+        Me.compute_tb.Name = "compute_tb"
+        Me.compute_tb.Paddings = New System.Windows.Forms.Padding(0)
+        Me.compute_tb.SelectionColor = System.Drawing.Color.FromArgb(CType(CType(60, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(255, Byte), Integer))
+        Me.compute_tb.ServiceColors = CType(resources.GetObject("compute_tb.ServiceColors"), FastColoredTextBoxNS.ServiceColors)
+        Me.compute_tb.Size = New System.Drawing.Size(647, 559)
+        Me.compute_tb.TabIndex = 2
+        Me.compute_tb.Zoom = 100
         '
         'CB1
         '
@@ -229,80 +352,29 @@ Partial Class frmEditFrag
         Me.search_btn.Text = "Search"
         Me.search_btn.UseVisualStyleBackColor = True
         '
-        'vertex_context_menustrip
+        'compute_context_menustrip
         '
-        Me.vertex_context_menustrip.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem1, Me.ToolStripMenuItem2, Me.ToolStripMenuItem3})
-        Me.vertex_context_menustrip.Name = "vertex_context_menustrip"
-        Me.vertex_context_menustrip.Size = New System.Drawing.Size(103, 70)
+        Me.compute_context_menustrip.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem10, Me.ToolStripMenuItem11, Me.ToolStripMenuItem12})
+        Me.compute_context_menustrip.Name = "vertex_context_menustrip"
+        Me.compute_context_menustrip.Size = New System.Drawing.Size(153, 92)
         '
-        'fragment_context_menustrip
+        'ToolStripMenuItem10
         '
-        Me.fragment_context_menustrip.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem4, Me.ToolStripMenuItem5, Me.ToolStripMenuItem6})
-        Me.fragment_context_menustrip.Name = "vertex_context_menustrip"
-        Me.fragment_context_menustrip.Size = New System.Drawing.Size(103, 70)
+        Me.ToolStripMenuItem10.Name = "ToolStripMenuItem10"
+        Me.ToolStripMenuItem10.Size = New System.Drawing.Size(152, 22)
+        Me.ToolStripMenuItem10.Text = "Cut"
         '
-        'geo_context_menustrip
+        'ToolStripMenuItem11
         '
-        Me.geo_context_menustrip.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem7, Me.ToolStripMenuItem8, Me.ToolStripMenuItem9})
-        Me.geo_context_menustrip.Name = "vertex_context_menustrip"
-        Me.geo_context_menustrip.Size = New System.Drawing.Size(153, 92)
+        Me.ToolStripMenuItem11.Name = "ToolStripMenuItem11"
+        Me.ToolStripMenuItem11.Size = New System.Drawing.Size(152, 22)
+        Me.ToolStripMenuItem11.Text = "Copy"
         '
-        'ToolStripMenuItem1
+        'ToolStripMenuItem12
         '
-        Me.ToolStripMenuItem1.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.ToolStripMenuItem1.Name = "ToolStripMenuItem1"
-        Me.ToolStripMenuItem1.Size = New System.Drawing.Size(102, 22)
-        Me.ToolStripMenuItem1.Text = "Cut"
-        '
-        'ToolStripMenuItem2
-        '
-        Me.ToolStripMenuItem2.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.ToolStripMenuItem2.Name = "ToolStripMenuItem2"
-        Me.ToolStripMenuItem2.Size = New System.Drawing.Size(102, 22)
-        Me.ToolStripMenuItem2.Text = "Copy"
-        '
-        'ToolStripMenuItem3
-        '
-        Me.ToolStripMenuItem3.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.ToolStripMenuItem3.Name = "ToolStripMenuItem3"
-        Me.ToolStripMenuItem3.Size = New System.Drawing.Size(102, 22)
-        Me.ToolStripMenuItem3.Text = "Paste"
-        '
-        'ToolStripMenuItem4
-        '
-        Me.ToolStripMenuItem4.Name = "ToolStripMenuItem4"
-        Me.ToolStripMenuItem4.Size = New System.Drawing.Size(102, 22)
-        Me.ToolStripMenuItem4.Text = "Cut"
-        '
-        'ToolStripMenuItem5
-        '
-        Me.ToolStripMenuItem5.Name = "ToolStripMenuItem5"
-        Me.ToolStripMenuItem5.Size = New System.Drawing.Size(102, 22)
-        Me.ToolStripMenuItem5.Text = "Copy"
-        '
-        'ToolStripMenuItem6
-        '
-        Me.ToolStripMenuItem6.Name = "ToolStripMenuItem6"
-        Me.ToolStripMenuItem6.Size = New System.Drawing.Size(102, 22)
-        Me.ToolStripMenuItem6.Text = "Paste"
-        '
-        'ToolStripMenuItem7
-        '
-        Me.ToolStripMenuItem7.Name = "ToolStripMenuItem7"
-        Me.ToolStripMenuItem7.Size = New System.Drawing.Size(152, 22)
-        Me.ToolStripMenuItem7.Text = "Cut"
-        '
-        'ToolStripMenuItem8
-        '
-        Me.ToolStripMenuItem8.Name = "ToolStripMenuItem8"
-        Me.ToolStripMenuItem8.Size = New System.Drawing.Size(152, 22)
-        Me.ToolStripMenuItem8.Text = "Copy"
-        '
-        'ToolStripMenuItem9
-        '
-        Me.ToolStripMenuItem9.Name = "ToolStripMenuItem9"
-        Me.ToolStripMenuItem9.Size = New System.Drawing.Size(152, 22)
-        Me.ToolStripMenuItem9.Text = "Paste"
+        Me.ToolStripMenuItem12.Name = "ToolStripMenuItem12"
+        Me.ToolStripMenuItem12.Size = New System.Drawing.Size(152, 22)
+        Me.ToolStripMenuItem12.Text = "Paste"
         '
         'frmEditFrag
         '
@@ -322,13 +394,16 @@ Partial Class frmEditFrag
         Me.TabControl1.ResumeLayout(False)
         Me.TabPage1.ResumeLayout(False)
         CType(Me.vert_tb, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.vertex_context_menustrip.ResumeLayout(False)
         Me.TabPage2.ResumeLayout(False)
         CType(Me.frag_tb, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.fragment_context_menustrip.ResumeLayout(False)
         Me.TabPage3.ResumeLayout(False)
         CType(Me.geo_tb, System.ComponentModel.ISupportInitialize).EndInit()
-        Me.vertex_context_menustrip.ResumeLayout(False)
-        Me.fragment_context_menustrip.ResumeLayout(False)
         Me.geo_context_menustrip.ResumeLayout(False)
+        Me.TabPage4.ResumeLayout(False)
+        CType(Me.compute_tb, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.compute_context_menustrip.ResumeLayout(False)
         Me.ResumeLayout(False)
         Me.PerformLayout
 
@@ -356,4 +431,10 @@ End Sub
     Friend WithEvents ToolStripMenuItem7 As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripMenuItem8 As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripMenuItem9 As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents TabPage4 As System.Windows.Forms.TabPage
+    Friend WithEvents compute_tb As FastColoredTextBoxNS.FastColoredTextBox
+    Friend WithEvents compute_context_menustrip As System.Windows.Forms.ContextMenuStrip
+    Friend WithEvents ToolStripMenuItem10 As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents ToolStripMenuItem11 As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents ToolStripMenuItem12 As System.Windows.Forms.ToolStripMenuItem
 End Class

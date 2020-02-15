@@ -17,6 +17,7 @@ Public Class frmEditFrag
     Private f_app_path As String
     Private v_app_path As String
     Private g_app_path As String
+    Private c_app_path As String
     Private shader_index As Integer
 
     Const EM_SETTABSTOPS = &HCB
@@ -48,6 +49,8 @@ Public Class frmEditFrag
         vert_tb.AcceptsTab = True
         geo_tb.AcceptsTab = True
         frag_tb.AcceptsTab = True
+        compute_tb.AcceptsTab = True
+
         For i = 0 To shaders.Count - 1
             CB1.Items.Add(shaders(i).name)
         Next
@@ -59,11 +62,18 @@ Public Class frmEditFrag
         '	SendMessage(tb.Handle, EM_SETTABSTOPS, 1, 4)
     End Sub
     Private Sub recompile_bt_Click(sender As Object, e As EventArgs) Handles recompile_bt.Click
+
         recompile_bt.Enabled = False
+
         File.WriteAllText(v_app_path, vert_tb.Text)
         File.WriteAllText(f_app_path, frag_tb.Text)
+
         If shaders(shader_index).geo IsNot Nothing Then
             File.WriteAllText(g_app_path, geo_tb.Text)
+        End If
+
+        If shaders(shader_index).compute IsNot Nothing Then
+            File.WriteAllText(g_app_path, compute_tb.Text)
         End If
 
         SYNCMUTEX.WaitOne()   'disable rendering
@@ -86,8 +96,10 @@ Public Class frmEditFrag
         v_app_path = shaders(shader_index).vertex
         g_app_path = shaders(shader_index).geo
         f_app_path = shaders(shader_index).fragment
+        c_app_path = shaders(shader_index).compute
 
         vert_tb.Text = File.ReadAllText(v_app_path)
+
         If shaders(shader_index).fragment IsNot Nothing Then
             frag_tb.Enabled = True
             frag_tb.Text = File.ReadAllText(f_app_path)
@@ -95,6 +107,7 @@ Public Class frmEditFrag
             frag_tb.Text = "NO FRAG PROGRAM"
             frag_tb.Enabled = False
         End If
+
         If shaders(shader_index).geo IsNot Nothing Then
             geo_tb.Enabled = True
             geo_tb.Text = File.ReadAllText(g_app_path)
@@ -102,6 +115,15 @@ Public Class frmEditFrag
             geo_tb.Text = "NO GEOM PROGRAM"
             geo_tb.Enabled = False
         End If
+
+        If shaders(shader_index).compute IsNot Nothing Then
+            compute_tb.Enabled = True
+            compute_tb.Text = File.ReadAllText(c_app_path)
+        Else
+            compute_tb.Text = "NO COMPUTE PROGRAM"
+            compute_tb.Enabled = False
+        End If
+
         recompile_bt.Enabled = True
     End Sub
 
@@ -121,6 +143,10 @@ Public Class frmEditFrag
 
     Private Sub geo_tb_GotFocus(sender As Object, e As EventArgs) Handles geo_tb.GotFocus
         focused_form = geo_tb
+    End Sub
+
+    Private Sub compute_tb_GotFocus(sender As Object, e As EventArgs) Handles compute_tb.GotFocus
+        focused_form = compute_tb
     End Sub
 
     Private Sub frag_tb_TextChanged(sender As Object, e As FastColoredTextBoxNS.TextChangedEventArgs) Handles frag_tb.TextChanged
@@ -239,5 +265,17 @@ Public Class frmEditFrag
 
     Private Sub ToolStripMenuItem9_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem9.Click
         geo_tb.Paste()
+    End Sub
+
+    Private Sub ToolStripMenuItem10_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem10.Click
+        compute_tb.Cut()
+    End Sub
+
+    Private Sub ToolStripMenuItem11_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem11.Click
+        compute_tb.Copy()
+    End Sub
+
+    Private Sub ToolStripMenuItem12_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem12.Click
+        compute_tb.Paste()
     End Sub
 End Class

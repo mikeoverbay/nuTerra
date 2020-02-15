@@ -15,6 +15,7 @@ Module ShaderLoader
         Public fragment As String
         Public vertex As String
         Public geo As String
+        Public compute As String
 
         Default ReadOnly Property Item(uniformName As String) As Integer
             Get
@@ -75,7 +76,7 @@ Module ShaderLoader
                 GL.Finish()
             End If
 
-            program = assemble_shader(vertex, geo, fragment, name)
+            program = assemble_shader(vertex, geo, compute, fragment, name)
 
             If program = 0 Then
                 ' Stop ' For debugging
@@ -172,6 +173,7 @@ Module ShaderLoader
 
     Public Function assemble_shader(v As String,
                                     g As String,
+                                    c As String,
                                     f As String,
                                     name As String) As Integer
         Dim status_code As Integer
@@ -263,12 +265,43 @@ Module ShaderLoader
             End If
 
         End If
+        ' Compile Compute shader
+        Dim computeObject As Integer = 0
+        If c IsNot Nothing Then
+            computeObject = GL.CreateShader(ShaderType.ComputeShader)
 
+            Using cs_s As New StreamReader(c)
+                Dim cs As String = cs_s.ReadToEnd()
+                GL.ShaderSource(computeObject, cs)
+            End Using
+
+            GL.CompileShader(computeObject)
+
+            ' Get & check status after compile
+            GL.GetShader(computeObject, ShaderParameter.CompileStatus, status_code)
+            If status_code = 0 Then
+                Dim info = GL.GetShaderInfoLog(computeObject)
+                GL.DeleteShader(vertexObject)
+                GL.DeleteShader(fragmentObject)
+                GL.DeleteShader(geomObject)
+                GL.DeleteShader(computeObject)
+                GL.DeleteProgram(program)
+                gl_error(name + "_compute didn't compile!" + vbCrLf + info.ToString)
+                Return 0
+            End If
+
+        End If
         ' attach shader objects
         GL.AttachShader(program, vertexObject)
+
         If geomObject Then
             GL.AttachShader(program, geomObject)
         End If
+
+        If computeObject Then
+            GL.AttachShader(program, computeObject)
+        End If
+
         If fragmentObject Then
             GL.AttachShader(program, fragmentObject)
         End If
