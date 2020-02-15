@@ -98,7 +98,13 @@ Public Class frmEditFrag
         f_app_path = shaders(shader_index).fragment
         c_app_path = shaders(shader_index).compute
 
-        vert_tb.Text = File.ReadAllText(v_app_path)
+        If shaders(shader_index).vertex IsNot Nothing Then
+            vert_tb.Enabled = True
+            vert_tb.Text = File.ReadAllText(v_app_path)
+        Else
+            vert_tb.Enabled = False
+            vert_tb.Text = "NO VERTEX PROGRAM"
+        End If
 
         If shaders(shader_index).fragment IsNot Nothing Then
             frag_tb.Enabled = True

@@ -118,6 +118,11 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
+        render_test_compute() '=================================================
+        '===========================================================================
+
+
+        '===========================================================================
         render_deferred_buffers() '=================================================
         '===========================================================================
 
@@ -133,11 +138,29 @@ Module modRender
         'draw_mini_map() '===========================================================
         '===========================================================================
 
+
+
+
         If frmGbufferViewer.Visible Then
             frmGbufferViewer.update_screen()
         End If
 
         FPS_COUNTER += 1
+
+    End Sub
+    Private Sub render_test_compute()
+        Dim w, h As Integer
+        FBOm.get_glControl_main_size(w, h)
+
+        testShader.Use()
+        GL.DispatchCompute(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, 1)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
+
+        GL.MemoryBarrier(MemoryBarrierFlags.ShaderImageAccessBarrierBit)
+
+        draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
+        GL.BindTexture(TextureTarget.Texture2D, 0)
+        testShader.StopUse()
 
     End Sub
 
@@ -216,7 +239,9 @@ Module modRender
             GL.Disable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
     End Sub
+
     Dim temp_timer As New Stopwatch
+
     Private Sub render_deferred_buffers()
         '===========================================================================
         ' Test our deferred shader =================================================

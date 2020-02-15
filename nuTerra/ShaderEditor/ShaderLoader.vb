@@ -5,6 +5,7 @@ Module ShaderLoader
 
     Public SHADER_PATHS() As String
 #Region "shader_storage"
+
     Private Function get_shader(ByRef name As String) As String
         For Each n In SHADER_PATHS
             If n.Contains(name) Then
@@ -13,6 +14,7 @@ Module ShaderLoader
         Next
         Return ""
     End Function
+
     Public Class Shader
         Private is_used As Boolean
         Private loaded As Boolean
@@ -109,32 +111,34 @@ Module ShaderLoader
             Me.name = name
             is_used = False
             loaded = False
-            Dim failed As Boolean
+            Dim failed_1, failed_2, failed_3, failed_4 As Boolean
             vertex = get_shader(String.Format("{0}.vert", name))
             If Not File.Exists(vertex) Then
-                failed = True
+                failed_1 = True
                 vertex = Nothing
             End If
 
             geo = get_shader(String.Format("{0}.geom", name))
             If Not File.Exists(geo) Then
-                failed = True
+                failed_2 = True
                 geo = Nothing
             End If
 
             compute = get_shader(String.Format("{0}.comp", name))
             If Not File.Exists(compute) Then
-                failed = True
+                failed_3 = True
                 compute = Nothing
             End If
 
             fragment = get_shader(String.Format("{0}.frag", name))
             If Not File.Exists(fragment) Then
-                failed = True
+                failed_4 = True
                 fragment = Nothing
             End If
-            If failed Then
-                MsgBox(name + "was not found.", MsgBoxStyle.Exclamation, "Oh No!!")
+
+            'check if our shader was found
+            If failed_1 And failed_2 And failed_3 And failed_4 Then
+                MsgBox(name + " was not found.", MsgBoxStyle.Exclamation, "Oh No!!")
                 Return
             End If
             UpdateShader()
@@ -153,6 +157,7 @@ Module ShaderLoader
     Public modelShader As Shader
     Public normalShader As Shader
     Public normalOffsetShader As Shader
+    Public testShader As Shader
     Public toLinearShader As Shader
 #End Region
 
@@ -173,6 +178,7 @@ Module ShaderLoader
         modelShader = New Shader("model")
         normalShader = New Shader("normal")
         normalOffsetShader = New Shader("normalOffset")
+        testShader = New Shader("test")
         toLinearShader = New Shader("toLinear")
 
         shaders = New List(Of Shader)
@@ -186,6 +192,7 @@ Module ShaderLoader
         shaders.Add(modelShader)
         shaders.Add(normalShader)
         shaders.Add(normalOffsetShader)
+        shaders.Add(testShader)
         shaders.Add(toLinearShader)
     End Sub
 

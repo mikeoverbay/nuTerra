@@ -301,6 +301,9 @@
     <None Include="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Trials\test.comp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\User_GUI\CrossHair.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -331,13 +334,13 @@
     <None Include="shaders\Model_shaders\colorOnly.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\debug\normal.frag">
+    <None Include="shaders\Developer\normal.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\debug\normal.geom">
+    <None Include="shaders\Developer\normal.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\debug\normal.vert">
+    <None Include="shaders\Developer\normal.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Model_shaders\model.frag">
@@ -346,10 +349,10 @@
     <None Include="shaders\Model_shaders\model.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\debug\normalOffset.frag">
+    <None Include="shaders\Developer\normalOffset.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\debug\normalOffset.vert">
+    <None Include="shaders\Developer\normalOffset.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Final_render\deferred.frag">
@@ -364,10 +367,10 @@
     <None Include="shaders\Model_shaders\gWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\debug\toLinear.frag">
+    <None Include="shaders\Developer\toLinear.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\debug\toLinear.vert">
+    <None Include="shaders\Developer\toLinear.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
