@@ -326,6 +326,9 @@ Module ShaderLoader
         If geomObject Then
             GL.DetachShader(program, geomObject)
         End If
+        If computeObject Then
+            GL.DetachShader(program, computeObject)
+        End If
         If fragmentObject Then
             GL.DetachShader(program, fragmentObject)
         End If
@@ -334,6 +337,9 @@ Module ShaderLoader
         GL.DeleteShader(vertexObject)
         If geomObject Then
             GL.DeleteShader(geomObject)
+        End If
+        If computeObject Then
+            GL.DeleteShader(computeObject)
         End If
         If fragmentObject Then
             GL.DeleteShader(fragmentObject)
