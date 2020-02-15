@@ -301,34 +301,34 @@
     <None Include="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\CrossHair.frag">
+    <None Include="shaders\User_GUI\CrossHair.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\CrossHair.vert">
+    <None Include="shaders\User_GUI\CrossHair.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\cull.geom">
+    <None Include="shaders\Model_shaders\cull.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\cull.vert">
+    <None Include="shaders\Model_shaders\cull.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\rect2d.frag">
+    <None Include="shaders\Utility\rect2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\image2d.frag">
+    <None Include="shaders\Utility\image2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\colorOnly.frag">
+    <None Include="shaders\Model_shaders\colorOnly.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\image2d.vert">
+    <None Include="shaders\Utility\image2d.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\rect2d.vert">
+    <None Include="shaders\Utility\rect2d.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\colorOnly.vert">
+    <None Include="shaders\Model_shaders\colorOnly.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\debug\normal.frag">
@@ -340,34 +340,34 @@
     <None Include="shaders\debug\normal.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\model.frag">
+    <None Include="shaders\Model_shaders\model.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\model.vert">
+    <None Include="shaders\Model_shaders\model.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normalOffset.frag">
+    <None Include="shaders\debug\normalOffset.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normalOffset.vert">
+    <None Include="shaders\debug\normalOffset.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\deferred.frag">
+    <None Include="shaders\Final_render\deferred.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\deferred.vert">
+    <None Include="shaders\Final_render\deferred.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\gWriter.vert">
+    <None Include="shaders\Model_shaders\gWriter.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\gWriter.frag">
+    <None Include="shaders\Model_shaders\gWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\toLinear.frag">
+    <None Include="shaders\debug\toLinear.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\toLinear.vert">
+    <None Include="shaders\debug\toLinear.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
