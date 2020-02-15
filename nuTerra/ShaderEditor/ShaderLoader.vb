@@ -109,29 +109,34 @@ Module ShaderLoader
             Me.name = name
             is_used = False
             loaded = False
-
+            Dim failed As Boolean
             vertex = get_shader(String.Format("{0}.vert", name))
             If Not File.Exists(vertex) Then
-                MsgBox(String.Format("vertex shader '{0}' not found!", vertex))
-                Application.Exit()
-                Return
+                failed = True
+                vertex = Nothing
             End If
 
             geo = get_shader(String.Format("{0}.geom", name))
             If Not File.Exists(geo) Then
+                failed = True
                 geo = Nothing
             End If
 
             compute = get_shader(String.Format("{0}.comp", name))
             If Not File.Exists(compute) Then
+                failed = True
                 compute = Nothing
             End If
 
             fragment = get_shader(String.Format("{0}.frag", name))
             If Not File.Exists(fragment) Then
+                failed = True
                 fragment = Nothing
             End If
-
+            If failed Then
+                MsgBox(name + "was not found.", MsgBoxStyle.Exclamation, "Oh No!!")
+                Return
+            End If
             UpdateShader()
         End Sub
     End Class
@@ -197,23 +202,27 @@ Module ShaderLoader
         End If
 
         ' Compile vertex shader
-        Dim vertexObject As Integer = GL.CreateShader(ShaderType.VertexShader)
+        Dim vertexObject As Integer = 0
+        If v IsNot Nothing Then
 
-        Using vs_s As New StreamReader(v)
-            Dim vs As String = vs_s.ReadToEnd()
-            GL.ShaderSource(vertexObject, vs)
-        End Using
+            vertexObject = GL.CreateShader(ShaderType.VertexShader)
 
-        GL.CompileShader(vertexObject)
+            Using vs_s As New StreamReader(v)
+                Dim vs As String = vs_s.ReadToEnd()
+                GL.ShaderSource(vertexObject, vs)
+            End Using
 
-        ' Get & check status after compile
-        GL.GetShader(vertexObject, ShaderParameter.CompileStatus, status_code)
-        If status_code = 0 Then
-            Dim info = GL.GetShaderInfoLog(vertexObject)
-            GL.DeleteShader(vertexObject)
-            GL.DeleteProgram(program)
-            gl_error(name + "_vertex didn't compile!" + vbCrLf + info.ToString)
-            Return 0
+            GL.CompileShader(vertexObject)
+
+            ' Get & check status after compile
+            GL.GetShader(vertexObject, ShaderParameter.CompileStatus, status_code)
+            If status_code = 0 Then
+                Dim info = GL.GetShaderInfoLog(vertexObject)
+                GL.DeleteShader(vertexObject)
+                GL.DeleteProgram(program)
+                gl_error(name + "_vertex didn't compile!" + vbCrLf + info.ToString)
+                Return 0
+            End If
         End If
 
         ' Compile fragment shader
@@ -305,7 +314,9 @@ Module ShaderLoader
 
         End If
         ' attach shader objects
-        GL.AttachShader(program, vertexObject)
+        If vertexObject Then
+            GL.AttachShader(program, vertexObject)
+        End If
 
         If geomObject Then
             GL.AttachShader(program, geomObject)
@@ -335,7 +346,9 @@ Module ShaderLoader
         End If
 
         ' detach shader objects
-        GL.DetachShader(program, vertexObject)
+        If vertexObject Then
+            GL.DetachShader(program, vertexObject)
+        End If
         If geomObject Then
             GL.DetachShader(program, geomObject)
         End If
@@ -347,7 +360,9 @@ Module ShaderLoader
         End If
 
         ' delete shader objects
-        GL.DeleteShader(vertexObject)
+        If vertexObject Then
+            GL.DeleteShader(vertexObject)
+        End If
         If geomObject Then
             GL.DeleteShader(geomObject)
         End If
