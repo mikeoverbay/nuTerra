@@ -331,13 +331,13 @@
     <None Include="shaders\colorOnly.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normal.frag">
+    <None Include="shaders\debug\normal.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normal.geom">
+    <None Include="shaders\debug\normal.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\normal.vert">
+    <None Include="shaders\debug\normal.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\model.frag">

@@ -3,8 +3,16 @@ Imports OpenTK.Graphics.OpenGL
 
 Module ShaderLoader
 
+    Public SHADER_PATHS() As String
 #Region "shader_storage"
-
+    Private Function get_shader(ByRef name As String) As String
+        For Each n In SHADER_PATHS
+            If n.Contains(name) Then
+                Return n
+            End If
+        Next
+        Return ""
+    End Function
     Public Class Shader
         Private is_used As Boolean
         Private loaded As Boolean
@@ -102,19 +110,24 @@ Module ShaderLoader
             is_used = False
             loaded = False
 
-            vertex = String.Format("{0}\shaders\{1}.vert", Application.StartupPath, name)
+            vertex = get_shader(String.Format("{0}.vert", name))
             If Not File.Exists(vertex) Then
                 MsgBox(String.Format("vertex shader '{0}' not found!", vertex))
                 Application.Exit()
                 Return
             End If
 
-            geo = String.Format("{0}\shaders\{1}.geom", Application.StartupPath, name)
+            geo = get_shader(String.Format("{0}.geom", name))
             If Not File.Exists(geo) Then
                 geo = Nothing
             End If
 
-            fragment = String.Format("{0}\shaders\{1}.frag", Application.StartupPath, name)
+            compute = get_shader(String.Format("{0}.comp", name))
+            If Not File.Exists(compute) Then
+                compute = Nothing
+            End If
+
+            fragment = get_shader(String.Format("{0}.frag", name))
             If Not File.Exists(fragment) Then
                 fragment = Nothing
             End If

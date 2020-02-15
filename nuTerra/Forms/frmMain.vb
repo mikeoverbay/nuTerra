@@ -78,6 +78,10 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         Me.KeyPreview = True    'So I catch keyboard before despatching it
         '-----------------------------------------------------------------------------------------
+        'get director of all shader files
+        SHADER_PATHS = Directory.GetFiles(Application.StartupPath + "\shaders\", "*.*", SearchOption.AllDirectories)
+        '-----------------------------------------------------------------------------------------
+
         'This timer allows the form to become visible before we initialize everything
         'It is disposed after its done its job.
         startup_delay_timer.Start()
@@ -226,8 +230,6 @@ try_again:
         ' Create default VAO
         GL.CreateVertexArrays(1, defaultVao)
         '-----------------------------------------------------------------------------------------
-
-        '-----------------------------------------------------------------------------------------
         FBOm.FBO_Initialize()
         '-----------------------------------------------------------------------------------------
         Il.ilInit()
@@ -242,7 +244,6 @@ try_again:
         '-----------------------------------------------------------------------------------------
         'Loads the list of destroyed object types.
         load_destructibles()
-        '-----------------------------------------------------------------------------------------
         'Set camara start up position. This is mostly for testing.
         VIEW_RADIUS = -1000.0
         CAM_X_ANGLE = PI / 4
