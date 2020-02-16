@@ -123,6 +123,8 @@ Module modRender
         '===========================================================================
 
 
+        Ortho_main()
+
         '===========================================================================
         render_test_compute() '=================================================
         '===========================================================================
@@ -148,6 +150,7 @@ Module modRender
         FPS_COUNTER += 1
 
     End Sub
+
     Private Sub render_test_compute()
 
         Dim maxComputeWorkGroupCount As Integer
@@ -159,17 +162,14 @@ Module modRender
         Dim er0 = GL.GetError
 
         testShader.Use()
-        GL.BindImageTexture(0, TEST_TEXTURE_ID, 0, False, 0, TextureAccess.WriteOnly, SizedInternalFormat.Rgba32f)
         GL.DispatchCompute(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, 1)
+        testShader.StopUse()
 
         GL.MemoryBarrier(MemoryBarrierFlags.ShaderImageAccessBarrierBit)
         Dim er1 = GL.GetError
 
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, TEST_TEXTURE_ID)
-        draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
-        GL.BindTexture(TextureTarget.Texture2D, 0)
-        testShader.StopUse()
+        draw_image_rectangle(New RectangleF(0.0F, 0.0F, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT),
+                             TEST_TEXTURE_ID)
 
         Dim er3 = GL.GetError
 

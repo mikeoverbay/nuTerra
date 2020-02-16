@@ -337,15 +337,15 @@ Module TextureLoaders
         If TEST_TEXTURE_ID > 0 Then
             GL.DeleteTexture(TEST_TEXTURE_ID)
         End If
-        TEST_TEXTURE_ID = GL.GenTexture
-        GL.Enable(EnableCap.Texture2D)
+
+        GL.GenTextures(1, TEST_TEXTURE_ID)
         GL.BindTexture(TextureTarget.Texture2D, TEST_TEXTURE_ID)
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
         GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba32f, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, 0, OpenGL.PixelFormat.Rgba, PixelType.Float, IntPtr.Zero)
-
+        GL.BindImageTexture(0, TEST_TEXTURE_ID, 0, False, 0, TextureAccess.WriteOnly, SizedInternalFormat.Rgba32f)
 
     End Sub
 End Module
