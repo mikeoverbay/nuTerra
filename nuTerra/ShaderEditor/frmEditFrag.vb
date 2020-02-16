@@ -65,15 +65,20 @@ Public Class frmEditFrag
 
         recompile_bt.Enabled = False
 
-        File.WriteAllText(v_app_path, vert_tb.Text)
-        File.WriteAllText(f_app_path, frag_tb.Text)
+        If shaders(shader_index).vertex IsNot Nothing Then
+            File.WriteAllText(v_app_path, vert_tb.Text)
+        End If
+
+        If shaders(shader_index).fragment IsNot Nothing Then
+            File.WriteAllText(f_app_path, frag_tb.Text)
+        End If
 
         If shaders(shader_index).geo IsNot Nothing Then
             File.WriteAllText(g_app_path, geo_tb.Text)
         End If
 
         If shaders(shader_index).compute IsNot Nothing Then
-            File.WriteAllText(g_app_path, compute_tb.Text)
+            File.WriteAllText(c_app_path, compute_tb.Text)
         End If
 
         SYNCMUTEX.WaitOne()   'disable rendering

@@ -118,13 +118,14 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        render_test_compute() '=================================================
-        '===========================================================================
-
-
-        '===========================================================================
         render_deferred_buffers() '=================================================
         '===========================================================================
+
+
+        '===========================================================================
+        'render_test_compute() '=================================================
+        '===========================================================================
+
 
         '===========================================================================
         render_HUD() '==============================================================
@@ -153,11 +154,13 @@ Module modRender
         FBOm.get_glControl_main_size(w, h)
 
         testShader.Use()
-        GL.DispatchCompute(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, 1)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
+
+        GL.DispatchCompute(FBOm.SCR_WIDTH, -FBOm.SCR_HEIGHT, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.ShaderImageAccessBarrierBit)
 
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gNormal)
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
         GL.BindTexture(TextureTarget.Texture2D, 0)
         testShader.StopUse()
