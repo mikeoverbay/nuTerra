@@ -93,6 +93,7 @@ Module modRender
         '===========================================================================
 
         FBOm.attach_CNGP()
+        Dim er0 = GL.GetError
 
         If MODELS_LOADED Then
             '===========================================================================
@@ -118,12 +119,12 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        render_deferred_buffers() '=================================================
+        'render_deferred_buffers() '=================================================
         '===========================================================================
 
 
         '===========================================================================
-        'render_test_compute() '=================================================
+        render_test_compute() '=================================================
         '===========================================================================
 
 
@@ -140,8 +141,6 @@ Module modRender
         '===========================================================================
 
 
-
-
         If frmGbufferViewer.Visible Then
             frmGbufferViewer.update_screen()
         End If
@@ -150,20 +149,29 @@ Module modRender
 
     End Sub
     Private Sub render_test_compute()
-        Dim w, h As Integer
-        FBOm.get_glControl_main_size(w, h)
+
+        Dim maxComputeWorkGroupCount As Integer
+        Dim maxComputeWorkGroupsize As Integer
+
+        GL.GetInteger(DirectCast(All.MaxComputeWorkGroupCount, GetIndexedPName), 0, maxComputeWorkGroupCount)
+        GL.GetInteger(DirectCast(All.MaxComputeWorkGroupSize, GetIndexedPName), 0, maxComputeWorkGroupsize)
+
+        Dim er0 = GL.GetError
 
         testShader.Use()
-
-        GL.DispatchCompute(FBOm.SCR_WIDTH, -FBOm.SCR_HEIGHT, 1)
+        GL.BindImageTexture(0, TEST_TEXTURE_ID, 0, False, 0, TextureAccess.WriteOnly, SizedInternalFormat.Rgba32f)
+        GL.DispatchCompute(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.ShaderImageAccessBarrierBit)
+        Dim er1 = GL.GetError
 
         GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gNormal)
+        GL.BindTexture(TextureTarget.Texture2D, TEST_TEXTURE_ID)
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
         GL.BindTexture(TextureTarget.Texture2D, 0)
         testShader.StopUse()
+
+        Dim er3 = GL.GetError
 
     End Sub
 

@@ -4,7 +4,7 @@ Imports System.Text
 
 Module modGlobalVars
     'Define these in CAP TEXT
-
+    Public TEST_TEXTURE_ID As Integer
     '============================================================
     Public nuTerra_LOG As New StringBuilder ' for logging
     '============================================================
