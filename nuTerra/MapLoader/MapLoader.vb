@@ -317,15 +317,6 @@ Module MapLoader
                           batch.count * SizeOf(GetType(Matrix4)),
                           IntPtr.Zero, BufferUsageHint.DynamicCopy)
 
-            GL.EnableVertexAttribArray(4)
-            GL.VertexAttribPointer(4, 4, VertexAttribPointerType.Float, False, 4 * 16, 0 * 16)
-            GL.EnableVertexAttribArray(5)
-            GL.VertexAttribPointer(5, 4, VertexAttribPointerType.Float, False, 4 * 16, 1 * 16)
-            GL.EnableVertexAttribArray(6)
-            GL.VertexAttribPointer(6, 4, VertexAttribPointerType.Float, False, 4 * 16, 2 * 16)
-            GL.EnableVertexAttribArray(7)
-            GL.VertexAttribPointer(7, 4, VertexAttribPointerType.Float, False, 4 * 16, 3 * 16)
-
             GL.GenQueries(1, batch.culledQuery)
 
             For Each renderSet In model.render_sets

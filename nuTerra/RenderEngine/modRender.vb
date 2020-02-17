@@ -42,35 +42,7 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-
-#If 1 Then ' TODO: gpu culling
-        cullShader.Use()
-
-        GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
-
-        ' TODO: pass visbox here
-        GL.Uniform3(cullShader("ObjectExtent"), 0.1F, 0.1F, 0.1F)
-
-        GL.Enable(EnableCap.RasterizerDiscard)
-
-        For Each batch In MODEL_BATCH_LIST
-            GL.BindBufferBase(BufferRangeTarget.TransformFeedbackBuffer, 0, batch.culledInstanceDataBO)
-            GL.BindVertexArray(batch.cullVA)
-
-            GL.BeginTransformFeedback(TransformFeedbackPrimitiveType.Points)
-            GL.BeginQuery(QueryTarget.PrimitivesGenerated, batch.culledQuery)
-            GL.DrawArrays(PrimitiveType.Points, 0, batch.count)
-            GL.EndQuery(QueryTarget.PrimitivesGenerated)
-            GL.EndTransformFeedback()
-
-            GL.Flush()
-        Next
-
-        GL.Disable(EnableCap.RasterizerDiscard)
-        cullShader.StopUse()
-#End If
-
+        frustum_cull()
         '===========================================================================
 
         '===========================================================================
@@ -118,15 +90,15 @@ Module modRender
         GL.Clear(ClearBufferMask.ColorBufferBit)
         '===========================================================================
 
-        '===========================================================================
-        'render_deferred_buffers() '=================================================
-        '===========================================================================
-
-
         Ortho_main()
 
         '===========================================================================
-        render_test_compute() '=================================================
+        render_deferred_buffers() '=================================================
+        '===========================================================================
+
+
+        '===========================================================================
+        'render_test_compute() '=================================================
         '===========================================================================
 
 
@@ -149,6 +121,34 @@ Module modRender
 
         FPS_COUNTER += 1
 
+    End Sub
+
+    Private Sub frustum_cull()
+        cullShader.Use()
+
+        GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
+
+        ' TODO: pass visbox here
+        GL.Uniform3(cullShader("ObjectExtent"), 0.5F, 0.5F, 0.5F)
+
+        GL.Enable(EnableCap.RasterizerDiscard)
+
+        For Each batch In MODEL_BATCH_LIST
+            GL.BindBufferBase(BufferRangeTarget.TransformFeedbackBuffer, 0, batch.culledInstanceDataBO)
+            GL.BindVertexArray(batch.cullVA)
+
+            GL.BeginTransformFeedback(TransformFeedbackPrimitiveType.Points)
+            GL.BeginQuery(QueryTarget.PrimitivesGenerated, batch.culledQuery)
+            GL.DrawArrays(PrimitiveType.Points, 0, batch.count)
+            GL.EndQuery(QueryTarget.PrimitivesGenerated)
+            GL.EndTransformFeedback()
+
+            GL.Flush()
+        Next
+
+        GL.Disable(EnableCap.RasterizerDiscard)
+        cullShader.StopUse()
     End Sub
 
     Private Sub render_test_compute()
@@ -273,8 +273,6 @@ Module modRender
         GL.Uniform1(deferredShader("SPECULAR"), frmLighting.lighting_specular_level)
         GL.Uniform1(deferredShader("GRAY_LEVEL"), frmLighting.lighting_gray_level)
         GL.Uniform1(deferredShader("GAMMA_LEVEL"), frmLighting.lighting_gamma_level)
-        'ortho for the win
-        Ortho_main()
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
