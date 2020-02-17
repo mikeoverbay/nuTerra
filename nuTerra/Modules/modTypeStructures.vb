@@ -3,6 +3,9 @@
 Module modTypeStructures
 
 #Region "MODEL_INDEX_LIST"
+    Public Structure boundingBox_
+        Public BB() As Vector3
+    End Structure
 
     Public MODEL_INDEX_LIST() As MODEL_INDEX_LIST_
     Public Structure MODEL_INDEX_LIST_ : Implements IComparable(Of MODEL_INDEX_LIST_)
@@ -32,6 +35,7 @@ Module modTypeStructures
         Public cullVA As Integer
         Public instanceDataBO As Integer
         Public culledInstanceDataBO As Integer
+        Public BoundingBoxInstanceDataBO As Integer
         Public visibleCount As Integer
     End Class
 

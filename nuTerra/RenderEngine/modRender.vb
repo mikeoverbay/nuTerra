@@ -45,16 +45,25 @@ Module modRender
         '===========================================================================
         Dim er3 = GL.GetError
 
+        '===========================================================================
+
+        '===========================================================================
+        FBOm.attach_CNGP() 'clear ALL gTextures!
+        GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
+        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+        '===========================================================================
+
 #If 1 Then ' TODO: gpu culling
+        FBOm.attach_CF()
         cullShader.Use()
 
         GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
         GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
 
         ' TODO: pass visbox here
-        GL.Uniform3(cullShader("ObjectExtent"), 0.1F, 0.1F, 0.1F)
+        'GL.Uniform3(cullShader("ObjectExtent"), 0.1F, 0.1F, 0.1F)
 
-        GL.Enable(EnableCap.RasterizerDiscard)
+        'GL.Enable(EnableCap.RasterizerDiscard)
 
         For Each batch In MODEL_BATCH_LIST
             GL.BindBufferBase(BufferRangeTarget.TransformFeedbackBuffer, 0, batch.culledInstanceDataBO)
@@ -69,17 +78,10 @@ Module modRender
             GL.Flush()
         Next
 
-        GL.Disable(EnableCap.RasterizerDiscard)
+        'GL.Disable(EnableCap.RasterizerDiscard)
         cullShader.StopUse()
 #End If
 
-        '===========================================================================
-
-        '===========================================================================
-        FBOm.attach_CNGP() 'clear ALL gTextures!
-        GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
-        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
-        '===========================================================================
 
         '===========================================================================
         'GL States
@@ -110,7 +112,7 @@ Module modRender
 
         FBOm.attach_CF()
         '===========================================================================
-        render_BBs() '=================================================
+        'render_BBs() '=================================================
         '===========================================================================
         Dim er1 = GL.GetError
 
@@ -163,7 +165,7 @@ Module modRender
 
         colorOnlyShader.Use()
         GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
-        GL.UniformMatrix4(colorOnlyShader("projection"), False, VIEWMATRIX * PROJECTIONMATRIX)
+        GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, VIEWMATRIX * PROJECTIONMATRIX)
         For Each b In MODEL_INDEX_LIST
             GL.BindVertexArray(b.VAO)
             GL.DrawArrays(PrimitiveType.LineStrip, 0, 8)

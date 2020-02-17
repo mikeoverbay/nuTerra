@@ -306,12 +306,16 @@ Module MapLoader
             End If
 
             Dim modelMatrices(batch.count - 1) As Matrix4
+            Dim BBs(batch.count - 1) As boundingBox_
             For i = 0 To batch.count - 1
                 modelMatrices(i) = MODEL_INDEX_LIST(batch.offset + i).matrix
+                BBs(i).BB = MODEL_INDEX_LIST(batch.offset + i).BB ' we are going to try and shader this VBO
             Next
 
             GL.GenVertexArrays(1, batch.cullVA)
             GL.BindVertexArray(batch.cullVA)
+
+
 
             GL.GenBuffers(1, batch.instanceDataBO)
             GL.BindBuffer(BufferTarget.ArrayBuffer, batch.instanceDataBO)
@@ -342,6 +346,31 @@ Module MapLoader
             GL.VertexAttribPointer(6, 4, VertexAttribPointerType.Float, False, 4 * 16, 2 * 16)
             GL.EnableVertexAttribArray(7)
             GL.VertexAttribPointer(7, 4, VertexAttribPointerType.Float, False, 4 * 16, 3 * 16)
+
+            GL.GenBuffers(1, batch.BoundingBoxInstanceDataBO)
+            GL.BindBuffer(BufferTarget.ArrayBuffer, batch.BoundingBoxInstanceDataBO)
+            GL.BufferData(BufferTarget.ArrayBuffer,
+              batch.count * SizeOf(GetType(boundingBox_)) * 8,
+              BBs, BufferUsageHint.StaticDraw)
+            'setup layouts
+            GL.EnableVertexAttribArray(8)
+            GL.VertexAttribPointer(8, 3, VertexAttribPointerType.Float, False, 3 * 12, 0 * 12) 'corner 1
+            GL.EnableVertexAttribArray(8)
+            GL.VertexAttribPointer(8, 3, VertexAttribPointerType.Float, False, 3 * 12, 1 * 12)
+            GL.EnableVertexAttribArray(9)
+            GL.VertexAttribPointer(9, 3, VertexAttribPointerType.Float, False, 3 * 12, 2 * 12)
+            GL.EnableVertexAttribArray(10)
+            GL.VertexAttribPointer(10, 3, VertexAttribPointerType.Float, False, 3 * 12, 3 * 12)
+            GL.EnableVertexAttribArray(11)
+            GL.VertexAttribPointer(11, 3, VertexAttribPointerType.Float, False, 3 * 12, 4 * 12)
+            GL.EnableVertexAttribArray(12)
+            GL.VertexAttribPointer(12, 3, VertexAttribPointerType.Float, False, 3 * 12, 5 * 12)
+            GL.EnableVertexAttribArray(13)
+            GL.VertexAttribPointer(13, 3, VertexAttribPointerType.Float, False, 3 * 12, 6 * 12)
+            GL.EnableVertexAttribArray(14)
+            GL.VertexAttribPointer(14, 3, VertexAttribPointerType.Float, False, 3 * 12, 7 * 12)
+            GL.EnableVertexAttribArray(15)
+            GL.VertexAttribPointer(15, 3, VertexAttribPointerType.Float, False, 3 * 12, 8 * 12) 'corner 8
 
             GL.GenQueries(1, batch.culledQuery)
 

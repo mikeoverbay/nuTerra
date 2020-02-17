@@ -301,6 +301,9 @@
     <None Include="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Model_shaders\cull.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Trials\test.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

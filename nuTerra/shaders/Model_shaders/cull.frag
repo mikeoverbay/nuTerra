@@ -1,0 +1,15 @@
+// gWriter fragment Shader. We will use this as a template for other shaders
+#version 430 core
+
+layout (location = 0) out vec4 gColor;
+layout (location = 2) out vec4 gGMF;
+
+uniform vec3 color;
+
+void main(void)
+{
+	// easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
+	gColor.xyz = vec3(1.0, 0.0 ,0.0);
+	gColor.a = 1.0;
+	gGMF = vec4(0.0);
+}
