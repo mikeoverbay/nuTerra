@@ -5,7 +5,6 @@ layout (location = 0) out vec4 gColor;
 layout (location = 2) out vec4 gGMF;
 
 uniform vec3 color;
-in vec3 worldPosition;
 
 void main(void)
 {

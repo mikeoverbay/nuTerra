@@ -279,7 +279,24 @@ Module MapLoader
             End If
         Next
 
-        '----------------------------------------------------------------
+        '================================================================
+        'Make BB preview VAO
+        For i = 0 To MODEL_INDEX_LIST.Length - 1
+
+            GL.GenVertexArrays(1, MODEL_INDEX_LIST(i).VAO)
+            GL.BindVertexArray(MODEL_INDEX_LIST(i).VAO)
+
+            GL.GenBuffers(1, MODEL_INDEX_LIST(i).VB)
+            GL.BindBuffer(BufferTarget.ArrayBuffer, MODEL_INDEX_LIST(i).VB)
+
+            GL.BufferData(BufferTarget.ArrayBuffer, MODEL_INDEX_LIST(i).BB.Length * SizeOf(GetType(Vector3)), MODEL_INDEX_LIST(i).BB, BufferUsageHint.StaticDraw)
+            GL.EnableVertexAttribArray(0)
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, SizeOf(GetType(Vector3)), 0)
+            GL.BindVertexArray(0)
+        Next
+        '================================================================
+
+        '================================================================
         ' setup instances
         For Each batch In MODEL_BATCH_LIST
             Dim model = MAP_MODELS(batch.model_id).mdl
@@ -353,6 +370,7 @@ Module MapLoader
                 GL.BindVertexArray(0)
             Next
         Next
+        '================================================================
 
         MODELS_LOADED = True
         'Get a list of all items in the MAP_package
