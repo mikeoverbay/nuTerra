@@ -208,7 +208,8 @@ try_again:
                 SetupDebugOutputCallback()
             End If
         End If
-#End If      '-----------------------------------------------------------------------------------------
+#End If
+        '-----------------------------------------------------------------------------------------
         'need a work area on users disc
         TEMP_STORAGE = Path.GetTempPath + "nuTerra\"
         If Not Directory.Exists(TEMP_STORAGE) Then
@@ -223,34 +224,37 @@ try_again:
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
             m_set_game_path.PerformClick()
         End If
+
         GAME_PATH = My.Settings.GamePath + "\res\packages\"
-        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
-                "Game Path : " + GAME_PATH)
-        '-----------------------------------------------------------------------------------------
+        LogThis(String.Format("{0}ms Packages Path: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), GAME_PATH))
+
         ' Create default VAO
         GL.CreateVertexArrays(1, defaultVao)
-        '-----------------------------------------------------------------------------------------
+
         FBOm.FBO_Initialize()
-        '-----------------------------------------------------------------------------------------
+        LogThis(String.Format("{0}ms FBO Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+
         Il.ilInit()
         Ilu.iluInit()
-        '-----------------------------------------------------------------------------------------
+        LogThis(String.Format("{0}ms DevIL Initialized.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+
         build_shaders()
-        '-----------------------------------------------------------------------------------------
-        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
-                "FBO created. DevIL initialized. Shaders Built")
-        '-----------------------------------------------------------------------------------------
+        LogThis(String.Format("{0}ms Shaders Built.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+
         load_assets()
-        '-----------------------------------------------------------------------------------------
+        LogThis(String.Format("{0}ms Assets Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+
         'Loads the list of destroyed object types.
         load_destructibles()
+        LogThis(String.Format("{0}ms Destructibles Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+
         'Set camara start up position. This is mostly for testing.
         VIEW_RADIUS = -1000.0
         CAM_X_ANGLE = PI / 4
         CAM_Y_ANGLE = -PI / 4
-        '-----------------------------------------------------------------------------------------
-        set_light_pos() ' Set initial light position and get radius and angle.
-        '-----------------------------------------------------------------------------------------
+        ' Set initial light position and get radius and angle.
+        set_light_pos()
+
         'Everything is setup/loaded to show the main window.
         'Dispose of the no longer used Panel1
         Panel1.Visible = False
