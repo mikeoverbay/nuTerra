@@ -200,18 +200,6 @@ Module modSpaceBin
             MODEL_INDEX_LIST(k).matrix.M21 *= -1.0
             MODEL_INDEX_LIST(k).matrix.M31 *= -1.0
             MODEL_INDEX_LIST(k).matrix.M41 *= -1.0
-
-            MODEL_INDEX_LIST(k).BB_Min = cBSMO.models_colliders.data(bsmo_id).collision_bounds_min
-            MODEL_INDEX_LIST(k).BB_Max = cBSMO.models_colliders.data(bsmo_id).collision_bounds_max
-
-            'DirectX to Opengl axis sign swap
-            MODEL_INDEX_LIST(k).BB_Min.X *= -1
-            MODEL_INDEX_LIST(k).BB_Max.X *= -1
-
-            'create model culling box
-            ReDim MODEL_INDEX_LIST(k).BB(7)
-            Transform_BB(MODEL_INDEX_LIST(k))
-
         Next
 
         ReadSpaceBinData = True

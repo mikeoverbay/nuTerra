@@ -17,7 +17,6 @@ Module modRender
         'house keeping
         FRAME_TIMER.Restart()
         '===========================================================================
-        Dim er4 = GL.GetError
 
         frmMain.glControl_main.MakeCurrent()
         '===========================================================================
@@ -43,7 +42,6 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        Dim er3 = GL.GetError
 
 #If 1 Then ' TODO: gpu culling
         cullShader.Use()
@@ -85,9 +83,7 @@ Module modRender
         'GL States
         GL.Enable(EnableCap.DepthTest)
         '===========================================================================
-        Dim er0 = GL.GetError
 
-        FBOm.attach_CF()
         '===========================================================================
         Draw_Light_Orb() '==========================================================
         '===========================================================================
@@ -97,6 +93,7 @@ Module modRender
         '===========================================================================
 
         FBOm.attach_CNGP()
+        Dim er0 = GL.GetError
 
         If MODELS_LOADED Then
             '===========================================================================
@@ -107,13 +104,6 @@ Module modRender
             draw_overlays() '===========================================================
             '===========================================================================
         End If
-
-        FBOm.attach_CF()
-        '===========================================================================
-        render_BBs() '=================================================
-        '===========================================================================
-        Dim er1 = GL.GetError
-
 
         '===========================================================================
         '================== Deferred Rendering, HUD and MINI MAP ===================
@@ -126,16 +116,17 @@ Module modRender
         '===========================================================================
         GL.Disable(EnableCap.DepthTest)
         GL.Clear(ClearBufferMask.ColorBufferBit)
+        '===========================================================================
+
+        '===========================================================================
+        'render_deferred_buffers() '=================================================
+        '===========================================================================
+
+
         Ortho_main()
-        '===========================================================================
 
         '===========================================================================
-        render_deferred_buffers() '=================================================
-        '===========================================================================
-
-
-        '===========================================================================
-        'render_test_compute() '=================================================
+        render_test_compute() '=================================================
         '===========================================================================
 
 
@@ -159,18 +150,7 @@ Module modRender
         FPS_COUNTER += 1
 
     End Sub
-    Private Sub render_BBs()
 
-        colorOnlyShader.Use()
-        GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
-        GL.UniformMatrix4(colorOnlyShader("projection"), False, VIEWMATRIX * PROJECTIONMATRIX)
-        For Each b In MODEL_INDEX_LIST
-            GL.BindVertexArray(b.VAO)
-            GL.DrawArrays(PrimitiveType.LineStrip, 0, 8)
-        Next
-        colorOnlyShader.StopUse()
-
-    End Sub
     Private Sub render_test_compute()
 
         Dim maxComputeWorkGroupCount As Integer
@@ -293,6 +273,8 @@ Module modRender
         GL.Uniform1(deferredShader("SPECULAR"), frmLighting.lighting_specular_level)
         GL.Uniform1(deferredShader("GRAY_LEVEL"), frmLighting.lighting_gray_level)
         GL.Uniform1(deferredShader("GAMMA_LEVEL"), frmLighting.lighting_gamma_level)
+        'ortho for the win
+        Ortho_main()
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 

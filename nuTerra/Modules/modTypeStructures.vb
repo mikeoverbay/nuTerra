@@ -8,11 +8,6 @@ Module modTypeStructures
     Public Structure MODEL_INDEX_LIST_ : Implements IComparable(Of MODEL_INDEX_LIST_)
         Public model_index As Integer
         Public matrix As Matrix4
-        Public BB_Max As Vector3
-        Public BB_Min As Vector3
-        Public BB() As Vector3
-        Public VAO As Integer
-        Public VB As Integer
         Public Function CompareTo(ByVal other As MODEL_INDEX_LIST_) As Integer Implements System.IComparable(Of MODEL_INDEX_LIST_).CompareTo
             Return Me.model_index.CompareTo(other.model_index)
         End Function
