@@ -3,18 +3,10 @@
 
 layout(location = 0) in mat4 InstancePosition;
 
-layout (location = 8)  in vec3 corner_1;
-layout (location = 9)  in vec3 corner_2;
-layout (location = 10) in vec3 corner_3;
-layout (location = 11) in vec3 corner_4;
-layout (location = 12) in vec3 corner_5;
-layout (location = 13) in vec3 corner_6;
-layout (location = 14) in vec3 corner_7;
-layout (location = 15) in vec3 corner_8;
-
 uniform mat4 view;
 uniform mat4 projection;
 
+uniform vec3 ObjectExtent;
 
 out mat4 OrigPosition;
 flat out int objectVisible;
@@ -28,14 +20,14 @@ void main(void)
 
     /* create the bounding box of the object */
     vec4 BoundingBox[8];
-    BoundingBox[0] = MVP * ( InstancePosition[3] + vec4( corner_1.x, corner_1.y, corner_1.z, 1.0) );
-    BoundingBox[1] = MVP * ( InstancePosition[3] + vec4( corner_2.x, corner_2.y, corner_2.z, 1.0) );
-    BoundingBox[2] = MVP * ( InstancePosition[3] + vec4( corner_3.x, corner_3.y, corner_3.z, 1.0) );
-    BoundingBox[3] = MVP * ( InstancePosition[3] + vec4( corner_4.x, corner_4.y, corner_4.z, 1.0) );
-    BoundingBox[4] = MVP * ( InstancePosition[3] + vec4( corner_5.x, corner_5.y, corner_5.z, 1.0) );
-    BoundingBox[5] = MVP * ( InstancePosition[3] + vec4( corner_6.x, corner_6.y, corner_6.z, 1.0) );
-    BoundingBox[6] = MVP * ( InstancePosition[3] + vec4( corner_7.x, corner_7.y, corner_7.z, 1.0) );
-    BoundingBox[7] = MVP * ( InstancePosition[3] + vec4( corner_8.x, corner_8.y, corner_8.z, 1.0) );
+    BoundingBox[0] = MVP * ( InstancePosition[3] + vec4( ObjectExtent.x, ObjectExtent.y, ObjectExtent.z, 1.0) );
+    BoundingBox[1] = MVP * ( InstancePosition[3] + vec4(-ObjectExtent.x, ObjectExtent.y, ObjectExtent.z, 1.0) );
+    BoundingBox[2] = MVP * ( InstancePosition[3] + vec4( ObjectExtent.x,-ObjectExtent.y, ObjectExtent.z, 1.0) );
+    BoundingBox[3] = MVP * ( InstancePosition[3] + vec4(-ObjectExtent.x,-ObjectExtent.y, ObjectExtent.z, 1.0) );
+    BoundingBox[4] = MVP * ( InstancePosition[3] + vec4( ObjectExtent.x, ObjectExtent.y,-ObjectExtent.z, 1.0) );
+    BoundingBox[5] = MVP * ( InstancePosition[3] + vec4(-ObjectExtent.x, ObjectExtent.y,-ObjectExtent.z, 1.0) );
+    BoundingBox[6] = MVP * ( InstancePosition[3] + vec4( ObjectExtent.x,-ObjectExtent.y,-ObjectExtent.z, 1.0) );
+    BoundingBox[7] = MVP * ( InstancePosition[3] + vec4(-ObjectExtent.x,-ObjectExtent.y,-ObjectExtent.z, 1.0) );
 
     /* check how the bounding box resides regarding to the view frustum */
     int outOfBound[6] = int[6]( 0, 0, 0, 0, 0, 0 );
@@ -59,7 +51,7 @@ void main(void)
             inFrustum = false;
         }
     }
-	gl_Position = BoundingBox[0];
+
     //objectVisible = gl_VertexID == 0 ? 1 : 0; // For debugging
     objectVisible = inFrustum ? 1 : 0;
 }
