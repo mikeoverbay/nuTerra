@@ -175,6 +175,7 @@
     <Compile Include="MapLoader\frmLoadOptions.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="MapLoader\TerrainBuilder.vb" />
     <Compile Include="Modules\Saved_testing_shit.vb" />
     <Compile Include="RenderEngine\LoadingScreen.vb" />
     <Compile Include="RenderEngine\MapMenuScreen.vb" />

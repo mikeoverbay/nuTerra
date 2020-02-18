@@ -111,7 +111,7 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        'draw_mini_map() '===========================================================
+        draw_mini_map() '===========================================================
         '===========================================================================
 
 
@@ -338,41 +338,37 @@ Module modRender
     End Sub
 
     Private Sub draw_mini_map()
-#If 1 Then
+        'check if we have the mini map loaded.
+        If theMap.MINI_MAP_ID = 0 Then
+            frmMain.glControl_MiniMap.Visible = False
+            Return
+        End If
         frmMain.glControl_MiniMap.Visible = True
         frmMain.glControl_MiniMap.BringToFront()
         '-------------------------------------------------------
         '2nd glControl
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
-        Dim size As Integer = 100
-        frmMain.glControl_MiniMap.MakeCurrent()
-        Ortho_MiniMap(size) ' <--- set size of the square in lower right corner.
 
-        GL.ClearColor(0.5F, 0.2F, 0.2F, 1.0F)
-        GL.Clear(ClearBufferMask.ColorBufferBit)
+
+        ' Animate map growth
+        If MINI_MAP_SIZE <> MINI_MAP_NEW_SIZE Then
+            If MINI_MAP_SIZE < MINI_MAP_NEW_SIZE Then
+                MINI_MAP_SIZE += 1
+            Else
+                MINI_MAP_SIZE -= 1
+            End If
+        End If
+
+        frmMain.glControl_MiniMap.MakeCurrent()
+
+        Ortho_MiniMap(MINI_MAP_SIZE) ' <--- set size of the square in lower right corner.
+
         GL.Disable(EnableCap.DepthTest)
 
-        Dim cx, cy, x, y As Single
+        draw_image_rectangle(New RectangleF(0.0F, 0.0F, MINI_MAP_SIZE, MINI_MAP_SIZE),
+                             theMap.MINI_MAP_ID)
 
-        cx = frmMain.glControl_MiniMap.Width / 2
-        cy = -frmMain.glControl_MiniMap.Height / 2
-        For k = 0 To PI * 2.0F Step (PI * 2 / 40.0F)
-            Dim j = angle2
-            GL.Begin(PrimitiveType.Lines)
-            x = Cos(k + j) * size / 2 + cx
-            y = Sin(k + j) * size / 2 + cy
-            GL.Vertex2(cx, cy)
-            GL.Vertex2(x, y)
-            GL.End()
-            angle2 += 0.0001
-            If angle2 > PI * 2 / 40 Then
-                angle2 = 0
-            End If
-        Next
         frmMain.glControl_MiniMap.SwapBuffers()
-#Else
-        frmMain.glControl_MiniMap.Visible = False
-#End If
     End Sub
 
     Private Sub draw_overlays()

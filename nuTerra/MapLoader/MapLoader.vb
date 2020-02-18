@@ -213,11 +213,17 @@ Module MapLoader
         'and call this at startup so skip having to select a menu
         MAP_NAME_NO_PATH = package_name
         Dim ABS_NAME = MAP_NAME_NO_PATH.Replace(".pkg", "")
+
         'First we need to remove the loaded data.
-        remove_map_data()
+        '===============================================================
+        remove_map_data() '=============================================
+        '===============================================================
+        'House Keeping
         TOTAL_TRIANGLES_DRAWN = 0
-        'get the light settings for this map.
+
         frmLighting.get_light_settings()
+        '===============================================================
+        'get the light settings for this map.
 
         'Set draw enable flags
         TERRAIN_LOADED = False
@@ -347,6 +353,7 @@ Module MapLoader
 
         MODELS_LOADED = True
         'Get a list of all items in the MAP_package
+        Create_Terrain()
         '=======================================================
         'Stop Here for now =====================================
         '=======================================================
@@ -421,6 +428,10 @@ Module MapLoader
                 GL.DeleteBuffer(MAP_MODELS(i).mdl.mdl_VAO)
             End If
         Next
+
+        theMap.MINI_MAP_ID = 0
+        theMap.chunks = Nothing
+
     End Sub
 
 

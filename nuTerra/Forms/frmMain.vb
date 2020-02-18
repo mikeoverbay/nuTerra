@@ -24,13 +24,31 @@ Public Class frmMain
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
         Select Case e.KeyCode
+            '-------------------------------
+            'mini map size
+            Case Keys.Oemplus
+                If MINI_MAP_NEW_SIZE < 320 Then
+                    MINI_MAP_NEW_SIZE += 20
+                End If
+            Case Keys.OemMinus
+                If MINI_MAP_NEW_SIZE > 100 Then
+                    MINI_MAP_NEW_SIZE -= 20
+                End If
+                '-------------------------------
+                'wire modes
             Case Keys.D1
                 If WIRE_MODELS Then
                     WIRE_MODELS = False
                 Else
                     WIRE_MODELS = True
                 End If
-
+            Case Keys.D2
+                If WIRE_TERRAIN Then
+                    WIRE_TERRAIN = False
+                Else
+                    WIRE_TERRAIN = True
+                End If
+                '-------------------------------
             Case Keys.E
                 frmEditFrag.Show()
 

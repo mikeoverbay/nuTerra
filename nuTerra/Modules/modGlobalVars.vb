@@ -71,6 +71,8 @@ Module modGlobalVars
     Public PRESPECTIVE_FAR As Single = 3000.0F
     '============================================================
     'Map related
+    Public MINI_MAP_SIZE As Integer = 240
+    Public MINI_MAP_NEW_SIZE As Integer = 240
     Public MAP_NAME_NO_PATH As String = ""
     Public MAP_LOADED As Boolean = False 'Rendering/settings clause
     Public TEMP_STORAGE As String 'Work are on users SSD/HDD
