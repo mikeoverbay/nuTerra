@@ -23,16 +23,25 @@ Public Class frmMain
     End Sub
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
+
+        Dim max_size As Single = 640
+
         Select Case e.KeyCode
             '-------------------------------
             'mini map size
             Case Keys.Oemplus
-                If MINI_MAP_NEW_SIZE < 320 Then
-                    MINI_MAP_NEW_SIZE += 20
+                If MINI_MAP_NEW_SIZE = MINI_MAP_SIZE Then
+                    If MINI_MAP_NEW_SIZE < max_size Then
+                        MINI_MAP_NEW_SIZE += 40
+                        FBOmini.FBO_Initialize(MINI_MAP_NEW_SIZE)
+                    End If
                 End If
             Case Keys.OemMinus
-                If MINI_MAP_NEW_SIZE > 100 Then
-                    MINI_MAP_NEW_SIZE -= 20
+                If MINI_MAP_NEW_SIZE = MINI_MAP_SIZE Then
+                    If MINI_MAP_NEW_SIZE > 100 Then
+                        MINI_MAP_NEW_SIZE -= 40
+                        FBOmini.FBO_Initialize(MINI_MAP_NEW_SIZE)
+                    End If
                 End If
                 '-------------------------------
                 'wire modes
@@ -250,7 +259,10 @@ try_again:
         GL.CreateVertexArrays(1, defaultVao)
 
         FBOm.FBO_Initialize()
-        LogThis(String.Format("{0}ms FBO Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+        LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+
+        FBOmini.FBO_Initialize(240) '<- default start up size
+        LogThis(String.Format("{0}ms FBO Mini Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
         Il.ilInit()
         Ilu.iluInit()

@@ -66,7 +66,6 @@ Module modGlobalVars
     Public PROJECTIONMATRIX As New Matrix4
     Public VIEWMATRIX As New Matrix4
     Public MODELVIEWMATRIX_Saved As Matrix4
-    Public VIEW_PORT(1) As Single
     Public PRESPECTIVE_NEAR As Single = 0.5F
     Public PRESPECTIVE_FAR As Single = 3000.0F
     '============================================================
@@ -100,15 +99,18 @@ Module modGlobalVars
     Public WATER_LOADED As Boolean
 
     'Block loading flags. They are used for skipping loading of data.
-    Public TERRAIN_BLOCK_LOADING As Boolean
-    Public TREES_BLOCK_LOADING As Boolean
-    Public DECALS_BLOCK_LOADING As Boolean
-    Public MODELS_BLOCK_LOADING As Boolean
-    Public BASES_BLOCK_LOADING As Boolean
-    Public SKY_BLOCK_LOADING As Boolean
-    Public WATER_BLOCK_LOADING As Boolean
+    Public BLOCK_TERRAIN_LOADING As Boolean
+    Public BLOCK_TREES_LOADING As Boolean
+    Public BLOCK_DECALS_LOADING As Boolean
+    Public BLOCK_MODELS_LOADING As Boolean = False
+    Public BLOCK_BASES_LOADING As Boolean
+    Public BLOCK_SKY_LOADING As Boolean
+    Public BLOCK_WATER_LOADING As Boolean
     '---------------------
     Public WATER_LINE As Single
     '---------------------
-
+    Public TEAM_1 As Vector3
+    Public TEAM_2 As Vector3
+    Public MAP_BB_UR As Vector2
+    Public MAP_BB_BL As Vector2
 End Module

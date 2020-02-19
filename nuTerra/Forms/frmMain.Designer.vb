@@ -27,15 +27,7 @@ Partial Class frmMain
     Private Sub InitializeComponent()
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
-
-#If DEBUG Then
-        Dim flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
-#Else
-        Dim flags = GraphicsContextFlags.ForwardCompatible
-#End If
-
-        Me.glControl_main = New OpenTK.GLControl(GraphicsMode.Default, 4, 3, flags)
-        Me.glControl_MiniMap = New OpenTK.GLControl()
+        Me.glControl_main = New OpenTK.GLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_load_map = New System.Windows.Forms.ToolStripMenuItem()
@@ -70,16 +62,6 @@ Partial Class frmMain
         Me.glControl_main.Size = New System.Drawing.Size(147, 142)
         Me.glControl_main.TabIndex = 0
         Me.glControl_main.VSync = False
-        '
-        'glControl_MiniMap
-        '
-        Me.glControl_MiniMap.Anchor = System.Windows.Forms.AnchorStyles.None
-        Me.glControl_MiniMap.BackColor = System.Drawing.Color.Blue
-        Me.glControl_MiniMap.Location = New System.Drawing.Point(471, 101)
-        Me.glControl_MiniMap.Name = "glControl_MiniMap"
-        Me.glControl_MiniMap.Size = New System.Drawing.Size(167, 223)
-        Me.glControl_MiniMap.TabIndex = 0
-        Me.glControl_MiniMap.VSync = False
         '
         'frmMainMenu
         '
@@ -244,7 +226,6 @@ Partial Class frmMain
         Me.BackColor = System.Drawing.Color.Black
         Me.ClientSize = New System.Drawing.Size(956, 573)
         Me.Controls.Add(Me.Panel1)
-        Me.Controls.Add(Me.glControl_MiniMap)
         Me.Controls.Add(Me.glControl_main)
         Me.Controls.Add(Me.frmMainMenu)
         Me.ForeColor = System.Drawing.Color.Black
@@ -264,7 +245,6 @@ Partial Class frmMain
     Friend WithEvents m_file As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_help As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_settings As System.Windows.Forms.ToolStripMenuItem
-    Friend WithEvents glControl_MiniMap As OpenTK.GLControl
     Friend WithEvents m_light_settings As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_set_game_path As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents Panel1 As System.Windows.Forms.Panel

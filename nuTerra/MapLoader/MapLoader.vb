@@ -273,87 +273,94 @@ Module MapLoader
         End If
 
         '----------------------------------------------------------------
-        ' Setup Bar graph
-        BG_TEXT = "Loading Models..."
-        BG_MAX_VALUE = MAP_MODELS.Length - 1
+        If Not BLOCK_MODELS_LOADING Then ' <--located in modGlobalVars.vb 
 
-        For i = 0 To MAP_MODELS.Length - 1
-            BG_VALUE = i
-            If Not MAP_MODELS(i).mdl.junk Then
-                Application.DoEvents() '<-- Give some time to this app's UI
-                Dim good = get_primitive(MAP_MODELS(i).mdl)
-            End If
-        Next
+            ' Setup Bar graph
+            BG_TEXT = "Loading Models..."
+            BG_MAX_VALUE = MAP_MODELS.Length - 1
 
-        '----------------------------------------------------------------
-        ' setup instances
-        For Each batch In MODEL_BATCH_LIST
-            Dim model = MAP_MODELS(batch.model_id).mdl
-
-            If model.junk Then
-                Continue For
-            End If
-
-            Dim modelMatrices(batch.count - 1) As Matrix4
-            For i = 0 To batch.count - 1
-                modelMatrices(i) = MODEL_INDEX_LIST(batch.offset + i).matrix
+            For i = 0 To MAP_MODELS.Length - 1
+                BG_VALUE = i
+                If Not MAP_MODELS(i).mdl.junk Then
+                    Application.DoEvents() '<-- Give some time to this app's UI
+                    Dim good = get_primitive(MAP_MODELS(i).mdl)
+                End If
             Next
 
-            GL.GenVertexArrays(1, batch.cullVA)
-            GL.BindVertexArray(batch.cullVA)
+            '----------------------------------------------------------------
+            ' setup instances
+            For Each batch In MODEL_BATCH_LIST
+                Dim model = MAP_MODELS(batch.model_id).mdl
 
-            GL.GenBuffers(1, batch.instanceDataBO)
-            GL.BindBuffer(BufferTarget.ArrayBuffer, batch.instanceDataBO)
-            GL.BufferData(BufferTarget.ArrayBuffer,
-                          batch.count * SizeOf(GetType(Matrix4)),
-                          modelMatrices, BufferUsageHint.StaticDraw)
-
-            GL.EnableVertexAttribArray(0)
-            GL.VertexAttribPointer(0, 4, VertexAttribPointerType.Float, False, 4 * 16, 0 * 16)
-            GL.EnableVertexAttribArray(1)
-            GL.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, False, 4 * 16, 1 * 16)
-            GL.EnableVertexAttribArray(2)
-            GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, False, 4 * 16, 2 * 16)
-            GL.EnableVertexAttribArray(3)
-            GL.VertexAttribPointer(3, 4, VertexAttribPointerType.Float, False, 4 * 16, 3 * 16)
-
-            GL.GenBuffers(1, batch.culledInstanceDataBO)
-            GL.BindBuffer(BufferTarget.ArrayBuffer, batch.culledInstanceDataBO)
-            GL.BufferData(BufferTarget.ArrayBuffer,
-                          batch.count * SizeOf(GetType(Matrix4)),
-                          IntPtr.Zero, BufferUsageHint.DynamicCopy)
-
-            GL.GenQueries(1, batch.culledQuery)
-
-            For Each renderSet In model.render_sets
-                If renderSet.no_draw Then
+                If model.junk Then
                     Continue For
                 End If
 
-                GL.BindVertexArray(renderSet.mdl_VAO)
+                Dim modelMatrices(batch.count - 1) As Matrix4
+                For i = 0 To batch.count - 1
+                    modelMatrices(i) = MODEL_INDEX_LIST(batch.offset + i).matrix
+                Next
+
+                GL.GenVertexArrays(1, batch.cullVA)
+                GL.BindVertexArray(batch.cullVA)
+
+                GL.GenBuffers(1, batch.instanceDataBO)
+                GL.BindBuffer(BufferTarget.ArrayBuffer, batch.instanceDataBO)
+                GL.BufferData(BufferTarget.ArrayBuffer,
+                              batch.count * SizeOf(GetType(Matrix4)),
+                              modelMatrices, BufferUsageHint.StaticDraw)
+
+                GL.EnableVertexAttribArray(0)
+                GL.VertexAttribPointer(0, 4, VertexAttribPointerType.Float, False, 4 * 16, 0 * 16)
+                GL.EnableVertexAttribArray(1)
+                GL.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, False, 4 * 16, 1 * 16)
+                GL.EnableVertexAttribArray(2)
+                GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, False, 4 * 16, 2 * 16)
+                GL.EnableVertexAttribArray(3)
+                GL.VertexAttribPointer(3, 4, VertexAttribPointerType.Float, False, 4 * 16, 3 * 16)
+
+                GL.GenBuffers(1, batch.culledInstanceDataBO)
                 GL.BindBuffer(BufferTarget.ArrayBuffer, batch.culledInstanceDataBO)
+                GL.BufferData(BufferTarget.ArrayBuffer,
+                              batch.count * SizeOf(GetType(Matrix4)),
+                              IntPtr.Zero, BufferUsageHint.DynamicCopy)
 
-                GL.EnableVertexAttribArray(6)
-                GL.VertexAttribPointer(6, 4, VertexAttribPointerType.Float, False, 4 * 16, 0 * 16)
-                GL.EnableVertexAttribArray(7)
-                GL.VertexAttribPointer(7, 4, VertexAttribPointerType.Float, False, 4 * 16, 1 * 16)
-                GL.EnableVertexAttribArray(8)
-                GL.VertexAttribPointer(8, 4, VertexAttribPointerType.Float, False, 4 * 16, 2 * 16)
-                GL.EnableVertexAttribArray(9)
-                GL.VertexAttribPointer(9, 4, VertexAttribPointerType.Float, False, 4 * 16, 3 * 16)
+                GL.GenQueries(1, batch.culledQuery)
 
-                GL.VertexAttribDivisor(6, 1)
-                GL.VertexAttribDivisor(7, 1)
-                GL.VertexAttribDivisor(8, 1)
-                GL.VertexAttribDivisor(9, 1)
+                For Each renderSet In model.render_sets
+                    If renderSet.no_draw Then
+                        Continue For
+                    End If
 
-                GL.BindVertexArray(0)
+                    GL.BindVertexArray(renderSet.mdl_VAO)
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, batch.culledInstanceDataBO)
+
+                    GL.EnableVertexAttribArray(6)
+                    GL.VertexAttribPointer(6, 4, VertexAttribPointerType.Float, False, 4 * 16, 0 * 16)
+                    GL.EnableVertexAttribArray(7)
+                    GL.VertexAttribPointer(7, 4, VertexAttribPointerType.Float, False, 4 * 16, 1 * 16)
+                    GL.EnableVertexAttribArray(8)
+                    GL.VertexAttribPointer(8, 4, VertexAttribPointerType.Float, False, 4 * 16, 2 * 16)
+                    GL.EnableVertexAttribArray(9)
+                    GL.VertexAttribPointer(9, 4, VertexAttribPointerType.Float, False, 4 * 16, 3 * 16)
+
+                    GL.VertexAttribDivisor(6, 1)
+                    GL.VertexAttribDivisor(7, 1)
+                    GL.VertexAttribDivisor(8, 1)
+                    GL.VertexAttribDivisor(9, 1)
+
+                    GL.BindVertexArray(0)
+                Next
             Next
-        Next
 
-        MODELS_LOADED = True
+            MODELS_LOADED = True
+        End If ' block BLOCK_MODELS_LOADING laoded
+
         'Get a list of all items in the MAP_package
+
         Create_Terrain()
+
+
         '=======================================================
         'Stop Here for now =====================================
         '=======================================================

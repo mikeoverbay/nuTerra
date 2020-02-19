@@ -26,14 +26,14 @@ Module FBO_main
                                             FramebufferAttachment.ColorAttachment1,
                                             FramebufferAttachment.ColorAttachment3
                                             }
-        Public Shared attach_Color() As Integer = {
+        Private Shared attach_Color() As Integer = {
                                             FramebufferAttachment.ColorAttachment0
                                             }
-        Public Shared attach_Color_GMF() As Integer = {
+        Private Shared attach_Color_GMF() As Integer = {
                                             FramebufferAttachment.ColorAttachment0,
                                             FramebufferAttachment.ColorAttachment2
                                             }
-        Public Shared attach_Normal() As Integer = {
+        Private Shared attach_Normal() As Integer = {
                                             FramebufferAttachment.ColorAttachment1
                                             }
 

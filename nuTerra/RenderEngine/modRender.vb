@@ -107,13 +107,12 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        frmMain.glControl_main.SwapBuffers() '======================================
-        '===========================================================================
-
-        '===========================================================================
         draw_mini_map() '===========================================================
         '===========================================================================
 
+        '===========================================================================
+        frmMain.glControl_main.SwapBuffers() '======================================
+        '===========================================================================
 
         If frmGbufferViewer.Visible Then
             frmGbufferViewer.update_screen()
@@ -340,35 +339,67 @@ Module modRender
     Private Sub draw_mini_map()
         'check if we have the mini map loaded.
         If theMap.MINI_MAP_ID = 0 Then
-            frmMain.glControl_MiniMap.Visible = False
             Return
         End If
-        frmMain.glControl_MiniMap.Visible = True
-        frmMain.glControl_MiniMap.BringToFront()
-        '-------------------------------------------------------
-        '2nd glControl
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
-
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.DepthTest)
 
         ' Animate map growth
         If MINI_MAP_SIZE <> MINI_MAP_NEW_SIZE Then
             If MINI_MAP_SIZE < MINI_MAP_NEW_SIZE Then
-                MINI_MAP_SIZE += 1
+                MINI_MAP_SIZE += 5
             Else
-                MINI_MAP_SIZE -= 1
+                MINI_MAP_SIZE -= 5
             End If
+            FBOmini.FBO_Initialize(MINI_MAP_SIZE)
         End If
 
-        frmMain.glControl_MiniMap.MakeCurrent()
+        '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
+        '===========================================================================
 
-        Ortho_MiniMap(MINI_MAP_SIZE) ' <--- set size of the square in lower right corner.
+        Ortho_MiniMap(MINI_MAP_SIZE)
 
-        GL.Disable(EnableCap.DepthTest)
+        GL.ClearColor(0.0, 0.0, 0.5, 0.0)
+        GL.Clear(ClearBufferMask.ColorBufferBit)
+        Draw_mini()
 
-        draw_image_rectangle(New RectangleF(0.0F, 0.0F, MINI_MAP_SIZE, MINI_MAP_SIZE),
-                             theMap.MINI_MAP_ID)
+        '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
+        '===========================================================================
+        Ortho_main()
+        Dim size = frmMain.glControl_main.Size
 
-        frmMain.glControl_MiniMap.SwapBuffers()
+        draw_image_rectangle(New RectangleF(size.Width - MINI_MAP_SIZE, size.Height - MINI_MAP_SIZE,
+                                            MINI_MAP_SIZE, MINI_MAP_SIZE),
+                                            FBOmini.gColor)
+
+
+
+        GL.DepthMask(True)
+
+    End Sub
+    Private Sub Draw_mini()
+
+        Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
+        Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
+        draw_image_rectangle(New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y,
+                                           MAP_BB_UR.X, MAP_BB_BL.Y),
+                                            theMap.MINI_MAP_ID)
+
+        'draw_image_rectangle(New RectangleF(-50.0F, -50.0F,
+        '                                    50.0F, 50.0F),
+        '                                    theMap.MINI_MAP_ID)
+        '======================================================
+        For x = MAP_BB_BL.X To MAP_BB_UR.X Step 100.0F
+            For y = MAP_BB_BL.Y To MAP_BB_UR.Y Step 100.0F
+                Dim pos As New RectangleF(x, y, x + 30.0F, y + 30.0F)
+                'draw_color_rectangle(pos, Graphics.Color4.Coral)
+            Next
+
+        Next
+        'Draw all the shit on top of this image
+
     End Sub
 
     Private Sub draw_overlays()

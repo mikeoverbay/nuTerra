@@ -143,7 +143,8 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>DataSet2.xsd</DependentUpon>
     </Compile>
-    <Compile Include="FBO_main\FBO_main.vb" />
+    <Compile Include="FBOs\FBO_MiniMap.vb" />
+    <Compile Include="FBOs\FBO_main.vb" />
     <Compile Include="Forms\frmLighting.designer.vb">
       <DependentUpon>frmLighting.vb</DependentUpon>
     </Compile>

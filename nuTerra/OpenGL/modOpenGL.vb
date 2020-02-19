@@ -11,38 +11,18 @@ Module modOpenGL
     Public FieldOfView As Single = 60.0F
 
     Public Main_Context As Integer
-    Public Sub resize_glControl_main()
-        GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
-        VIEW_PORT(0) = frmMain.glControl_main.ClientSize.Width
-        VIEW_PORT(1) = frmMain.glControl_main.ClientSize.Height
-    End Sub
 
-    Public Sub resize_glControl_MiniMap(ByVal square_size As Integer)
-        'puts this at the bottom right corner of the main window.
-        'It needs be resizable just like the game.
-        Dim position As New Point(frmMain.ClientSize.Width - square_size, frmMain.ClientSize.Height - square_size)
-        frmMain.glControl_MiniMap.Location = position
-        frmMain.glControl_MiniMap.Width = square_size
-        frmMain.glControl_MiniMap.Height = square_size
-        GL.Viewport(0, 0, frmMain.glControl_MiniMap.ClientSize.Width, frmMain.glControl_MiniMap.ClientSize.Height)
-    End Sub
 
     Public Sub Ortho_main()
-        resize_glControl_main()
+        GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
         VIEWMATRIX = Matrix4.Identity
     End Sub
 
     Public Sub Ortho_MiniMap(ByVal square_size As Integer)
-        resize_glControl_MiniMap(square_size)
-        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_MiniMap.Width, -frmMain.glControl_MiniMap.Height, 0.0F, -300.0F, 300.0F)
+        GL.Viewport(0, 0, square_size, square_size)
+        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(MAP_BB_BL.X, MAP_BB_UR.X, MAP_BB_BL.Y, MAP_BB_UR.Y, -300.0F, 300.0F)
         VIEWMATRIX = Matrix4.Identity
-
-        'Set Legacy
-        GL.MatrixMode(MatrixMode.Projection)
-        GL.LoadMatrix(PROJECTIONMATRIX)
-        GL.MatrixMode(MatrixMode.Modelview)
-        GL.LoadIdentity()
     End Sub
 
     Public Sub set_prespective_view()
