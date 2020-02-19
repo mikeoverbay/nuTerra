@@ -75,6 +75,13 @@ Module modSpaceBin
             End Try
 
             Try
+                cBWT2 = New cBWT2_(sectionHeaders("BWT2"), br)
+            Catch ex As Exception
+                ShowDecodeFailedMessage(ex, "BWT2")
+                GoTo Failed
+            End Try
+
+            Try
                 cBSMI = New cBSMI_(sectionHeaders("BSMI"), br)
             Catch ex As Exception
                 ShowDecodeFailedMessage(ex, "BSMI")
@@ -127,7 +134,6 @@ Module modSpaceBin
             'BWCS
             'BWS2
             'BSG2
-            'BWT2
             'WTCP
             'BWEP
             'WGCO
@@ -216,6 +222,7 @@ CleanUp:
         cBSGD = Nothing
         cBWST = Nothing
         cBWSG = Nothing
+        cBWT2 = Nothing
         cBSMI = Nothing
         cWTbl = Nothing
         cBSMO = Nothing

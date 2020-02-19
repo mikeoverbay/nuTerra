@@ -161,6 +161,90 @@ Module modSpacedBinVars
     End Structure
 #End Region
 
+#Region "BWT2"
+    Public cBWT2 As cBWT2_
+    Public Structure cBWT2_
+        Public settings As TerrainSettings1_v0_9_20
+        Public cdatas As BWArray(Of ChunkTerrain_v0_9_12)
+        Public _3 As BWArray(Of Int32)
+        ' Public settings2 As TerrainSettings2_v1_6_1
+        ' Public lod_distances As BWArray(Of Single) ' terrain/lodInfo/lodDistances
+        ' Public _6 As BWArray(Of 2 x Int32)
+        ' Public cascades As BWArray(Of OutlandCascade_v1_0_0) ' outland/cascade
+        ' Public tiles_fnv As BWArray(Of UInt32) ' outland/tiles
+
+        Public Sub New(bwt2Header As SectionHeader, br As BinaryReader)
+            ' set stream reader to point at this chunk
+            br.BaseStream.Position = bwt2Header.offset
+
+            ' Check version in header
+            Debug.Assert(bwt2Header.version = 3)
+
+            settings = New TerrainSettings1_v0_9_20(br)
+            cdatas = New BWArray(Of ChunkTerrain_v0_9_12)(br)
+            _3 = New BWArray(Of Integer)(br)
+            ' TODO
+        End Sub
+
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure TerrainSettings1_v0_9_20
+            Public chunk_size As Single ' space.settings/chunkSize or 100.0 by default
+            Public bounds_minX As Int32 ' space.settings/bounds
+            Public bounds_maxX As Int32 ' space.settings/bounds
+            Public bounds_minY As Int32 ' space.settings/bounds
+            Public bounds_maxY As Int32 ' space.settings/bounds
+            Public normal_map_fnv As UInt32
+            Public global_map_fnv As UInt32 ' global_AM.dds, maybe tintTexture - global terrain albedo map
+            Public noise_texture_fnv As UInt32 ' noiseTexture
+
+            Public Sub New(br As BinaryReader)
+                Dim size = br.ReadUInt32()
+                Debug.Assert(Marshal.SizeOf(Me) = size)
+
+                chunk_size = br.ReadSingle()
+                bounds_minX = br.ReadInt32()
+                bounds_maxX = br.ReadInt32()
+                bounds_minY = br.ReadInt32()
+                bounds_maxY = br.ReadInt32()
+                normal_map_fnv = br.ReadUInt32()
+                global_map_fnv = br.ReadUInt32()
+                noise_texture_fnv = br.ReadUInt32()
+            End Sub
+
+            ReadOnly Property normal_map As String
+                Get
+                    Return cBWST.find_str(normal_map_fnv)
+                End Get
+            End Property
+
+            ReadOnly Property global_map As String
+                Get
+                    Return cBWST.find_str(global_map_fnv)
+                End Get
+            End Property
+
+            ReadOnly Property noise_texture As String
+                Get
+                    Return cBWST.find_str(noise_texture_fnv)
+                End Get
+            End Property
+        End Structure
+
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure ChunkTerrain_v0_9_12
+            Public resource_fnv As UInt32
+            Public loc_x As Int16
+            Public loc_y As Int16
+
+            ReadOnly Property resource As String
+                Get
+                    Return cBWST.find_str(resource_fnv)
+                End Get
+            End Property
+        End Structure
+    End Structure
+#End Region
+
 #Region "BSMI"
     Public cBSMI As cBSMI_
 
