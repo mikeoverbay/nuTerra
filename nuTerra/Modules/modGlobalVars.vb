@@ -99,13 +99,13 @@ Module modGlobalVars
     Public WATER_LOADED As Boolean
 
     'Block loading flags. They are used for skipping loading of data.
-    Public BLOCK_TERRAIN_LOADING As Boolean
-    Public BLOCK_TREES_LOADING As Boolean
-    Public BLOCK_DECALS_LOADING As Boolean
-    Public BLOCK_MODELS_LOADING As Boolean = False
-    Public BLOCK_BASES_LOADING As Boolean
-    Public BLOCK_SKY_LOADING As Boolean
-    Public BLOCK_WATER_LOADING As Boolean
+    Public DONT_BLOCK_TERRAIN As Boolean
+    Public DONT_BLOCK_TREES As Boolean
+    Public DONT_BLOCK_DECALS As Boolean
+    Public DONT_BLOCK_MODELS As Boolean = False
+    Public DONT_BLOCK_BASES As Boolean
+    Public DONT_BLOCK_SKY As Boolean
+    Public DONT_BLOCK_WATER As Boolean
     '---------------------
     Public WATER_LINE As Single
     '---------------------

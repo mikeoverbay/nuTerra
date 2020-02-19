@@ -205,6 +205,7 @@ Module MapLoader
 
     Public Sub load_map(ByVal package_name As String)
 
+
         SHOW_MAPS_SCREEN = False
         BG_MAX_VALUE = 0
 
@@ -221,10 +222,12 @@ Module MapLoader
         'House Keeping
         TOTAL_TRIANGLES_DRAWN = 0
 
-        frmLighting.get_light_settings()
         '===============================================================
         'get the light settings for this map.
+        frmLighting.get_light_settings()
+        '===============================================================
 
+        '===============================================================
         'Set draw enable flags
         TERRAIN_LOADED = False
         TREES_LOADED = False
@@ -233,47 +236,42 @@ Module MapLoader
         BASES_LOADED = False
         SKY_LOADED = False
         WATER_LOADED = False
-        '------------------------------------------------------------------------------------------------
+        '===============================================================
+
+        '===============================================================
+        'Get block state of things we want to block loading to speed things up for testing/debugging
+        DONT_BLOCK_BASES = My.Settings.load_bases
+        DONT_BLOCK_DECALS = My.Settings.load_decals
+        DONT_BLOCK_MODELS = My.Settings.load_models
+        DONT_BLOCK_SKY = My.Settings.load_sky
+        DONT_BLOCK_TERRAIN = My.Settings.load_terrain
+        DONT_BLOCK_TREES = My.Settings.load_trees
+        DONT_BLOCK_WATER = My.Settings.load_water
+        '===============================================================
+
+        '===============================================================
         'we need to load the packages. This also opens the Map pkg we selected.
         open_packages()
+        '===============================================================
 
-        '
-        '------------------------------------------------------------------------------------------------
-        '------------------------------------------------------------------------------------------------
-        '------------------------------------------------------------------------------------------------
-        '------------------------------------------------------------------------------------------------
-        '------------------------------------------------------------------------------------------------
+        '===============================================================
+        'load test textures
         N_MAP_TYPE = 1 ' has to be set for the ANM Green alpha normal maps.
-        '---------------------------------------------------------
-        ReDim mdl(1)
-        'mdl(0) = New base_model_holder_
-        'm_color_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_AM.dds")
         m_normal_id = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
-        m_gmm_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_GMM.dds")
-        'get_primitive("content/Buildings/bld_19_04_Ampitheratre/normal/lod0/bld_19_04_Ampitheratre.model", mdl)
-        '------------------------------------------------------------------------------------------------
-        '------------------------------------------------------------------------------------------------
-        '------------------------------------------------------------------------------------------------
-        'test load a model
-        'get_primitive("content/Buildings/hd_bld_EU_013_RailroadStation/normal/lod0/hd_bld_EU_013_RailroadStation_02.model", mdl)
-        'get_primitive("content/MilitaryEnvironment/hd_mle_SU_005_Mi24A/normal/lod0/hd_mle_SU_005_Mi24A_02.model", mdl)
-        'get_primitive("content/Buildings/bld_19_02_Monastery/normal/lod0/bld_19_02_Monastery_05_Chapel.model", mdl)
-        'Return
-
-        '------------------------------------------------------------------------------------------------
-        '------------------------------------------------------------------------------------------------
-        '------------------------------------------------------------------------------------------------
         m_color_id = load_image_from_file(Il.IL_PNG, Application.StartupPath + "\resources\ref_colorMap.png", True, False)
-        'm_normal_id = load_image_from_file(Il.IL_PNG, Application.StartupPath + "\resources\ref_normalMap.png", True, False)
+        m_gmm_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_GMM.dds")
+        '===============================================================
 
-        'Open the space.bin file. If it fails, it closes all packages and lets the use know.
+        '===============================================================
+        'Open the space.bin file. If it fails, it closes all packages and lets the user know.
         If Not get_spaceBin(ABS_NAME) Then
             MsgBox("Failed to load Space.Bin from the map package.", MsgBoxStyle.Exclamation, "Space.bin!")
             Return
         End If
+        '===============================================================
 
-        '----------------------------------------------------------------
-        If Not BLOCK_MODELS_LOADING Then ' <--located in modGlobalVars.vb 
+        '===============================================================
+        If DONT_BLOCK_MODELS Then
 
             ' Setup Bar graph
             BG_TEXT = "Loading Models..."
@@ -354,34 +352,23 @@ Module MapLoader
             Next
 
             MODELS_LOADED = True
-        End If ' block BLOCK_MODELS_LOADING laoded
+        End If ' block DONT_BLOCK_MODELS laoded
+        '===============================================================
 
-        'Get a list of all items in the MAP_package
-
-        Create_Terrain()
+        '===============================================================
+        'As it says.. create the terrain
+        If DONT_BLOCK_TERRAIN Then
+            Create_Terrain()
+            'TO DO and there is lots
+        End If 'DONT_BLOCK_TERRAIN
+        '===============================================================
 
 
         '=======================================================
         'Stop Here for now =====================================
         '=======================================================
 
-#If 0 Then
-        Dim cnt As Integer = 0
-        For Each e As ZipEntry In MAP_PACKAGE
-            contents.Add(e.FileName)
-            cnt += 1
-            Application.DoEvents()
-        Next
-        '------------------------------------------------------------------------------------------------
-        ' get settings xml.. this sets map sizes and such
-        Dim st As Ionic.Zip.ZipEntry = MAP_PACKAGE("spaces/" & ABS_NAME & "/space.settings")
-        Dim settings As New MemoryStream
-        st.Extract(settings)
-        openXml_stream(settings, ABS_NAME)
 
-        getMapSizes(ABS_NAME) ' this also gets the skydome full path
-        '------------------------------------------------------------------------------------------------
-#End If
         SHOW_LOADING_SCREEN = False
 
         ' close packages
