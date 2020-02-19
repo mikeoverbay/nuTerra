@@ -412,14 +412,14 @@ Module MapLoader
     Public Sub remove_map_data()
         'Used to delete all images and display lists.
 
-        'remove loaded textures
+        'Remove map related textures. Keep Static Textures!
         For Each row In imgTbl
             If row.Id > FIRST_UNUSED_TEXTURE Then
                 GL.DeleteTexture(row.Id)
                 GL.Finish() ' make sure we are done before moving on
             End If
         Next
-        'Clear texture cache
+        'Clear texture cache so we dont returned non-existent textures.
         imgTbl.Clear()
 
         For i = 0 To MAP_MODELS.Length - 1
