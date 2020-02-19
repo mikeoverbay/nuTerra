@@ -431,13 +431,13 @@ Module modRender
             m_size.Right,
             -m_size.Bottom)
 
-        GL.Uniform2(MiniMapRingsShader("center"), TEAM_1.X, TEAM_1.Z)
+        GL.Uniform2(MiniMapRingsShader("center"), -TEAM_2.X, TEAM_2.Z)
         GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.DarkRed)
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-        GL.Uniform2(MiniMapRingsShader("center"), TEAM_2.X, TEAM_2.Z)
+        GL.Uniform2(MiniMapRingsShader("center"), -TEAM_1.X, TEAM_1.Z)
         GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.DarkGreen)
 
         GL.BindVertexArray(defaultVao)
