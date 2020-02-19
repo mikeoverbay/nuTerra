@@ -38,6 +38,14 @@ Module TerrainBuilder
         mm.Extract(mss)
         theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, mm.FileName, False, False)
         mss.Dispose()
+        '==========================================================
+        'getting mini map team cons here
+
+        TEAM_1_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_1.png")
+        TEAM_2_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
+
+        '==========================================================
+
 
         Dim chunks(15 * 15) As chunk_ 'I don't expect any maps larger than 225 chunks
         Dim cnt As Integer = 0

@@ -77,8 +77,9 @@ Module MapMenuScreen
 #End Region
 
     Public Sub make_map_pick_buttons()
-
+        '==========================================================
         DUMMY_TEXTURE_ID = make_dummy_texture()
+        '==========================================================
 
         Dim f = System.IO.File.ReadAllLines(Application.StartupPath.ToString + "\data\map_list.txt")
         Dim cnt As Integer = 0

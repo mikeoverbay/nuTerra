@@ -116,4 +116,6 @@ Module modGlobalVars
     Public TEAM_2 As Vector3
     Public MAP_BB_UR As Vector2
     Public MAP_BB_BL As Vector2
+    Public TEAM_1_ICON_ID As Integer
+    Public TEAM_2_ICON_ID As Integer
 End Module

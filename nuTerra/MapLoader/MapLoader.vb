@@ -101,6 +101,11 @@ Module MapLoader
         If entry IsNot Nothing Then
             Return entry
         End If
+
+        entry = GUI_PACKAGE(filename)
+        If entry IsNot Nothing Then
+            Return entry
+        End If
         'We still have not found it so lets search the XML datatable.
         Dim pn = search_xml(filename)
         If pn = "" Then
@@ -372,6 +377,8 @@ Module MapLoader
 
         MAP_LOADED = True
         SHOW_LOADING_SCREEN = False
+
+        'Maintains constant grow shrink regardless of frame rate.
 
         ' close packages
         close_shared_packages()

@@ -342,9 +342,6 @@ try_again:
         'Loads the textures for the map selection routines
         make_map_pick_buttons()
         '-----------------------------------------------------------------------------------------
-        'Make a texture for rendering text on map pic textures
-        DrawMapPickText.TextRenderer(120, 72)
-        '-----------------------------------------------------------------------------------------
 
         '---------------------------------------------------------
         'load the xml list of all item locations
@@ -370,7 +367,8 @@ try_again:
 
         get_X_model(sp + "\resources\moon.x", MOON)
         get_X_model(sp + "\resources\cross_hair.x", CROSS_HAIR)
-        CROSS_HAIR_TEXTURE = load_image_from_file(Il.IL_PNG, sp + "\resources\cross_hair_texture.png", True, False)
+        CROSS_HAIR_TEXTURE = load_image_from_file(Il.IL_PNG, sp +
+                             "\resources\cross_hair_texture.png", True, False)
 
     End Sub
 
@@ -406,6 +404,7 @@ try_again:
                 trigger = True
             End If
             If trigger Then
+
                 If Not PAUSE_ORBIT Then
                     LIGHT_ORBIT_ANGLE += LIGHT_SPEED
                     If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2

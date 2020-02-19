@@ -347,11 +347,12 @@ Module modRender
         GL.Disable(EnableCap.DepthTest)
 
         ' Animate map growth
+        'need to control this so it is not affected by frame rate!
         If MINI_MAP_SIZE <> MINI_MAP_NEW_SIZE Then
             If MINI_MAP_SIZE < MINI_MAP_NEW_SIZE Then
-                MINI_MAP_SIZE += 5
+                MINI_MAP_SIZE += 10
             Else
-                MINI_MAP_SIZE -= 5
+                MINI_MAP_SIZE -= 10
             End If
             FBOmini.FBO_Initialize(MINI_MAP_SIZE)
         End If
@@ -390,7 +391,11 @@ Module modRender
 
         '======================================================
         draw_base_rings()
-         '======================================================
+        '======================================================
+
+        '======================================================
+        draw_base_ids()
+        '======================================================
 
         '======================================================
         draw_grids_lines()
@@ -402,10 +407,53 @@ Module modRender
 
     End Sub
 
+    Private Sub draw_base_ids()
+
+        GL.Enable(EnableCap.Blend) 'transparent Icons
+
+        'need to scale with the map
+        Dim i_size = 30.0F
+
+        Dim pos_t1 As New RectangleF(TEAM_1.X - i_size, -TEAM_1.Z - i_size, i_size * 2, i_size * 2)
+        Dim pos_t2 As New RectangleF(TEAM_2.X - i_size, -TEAM_2.Z - i_size, i_size * 2, i_size * 2)
+
+        image2dShader.Use()
+
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.Uniform1(image2dShader("imageMap"), 0)
+
+        'Icon 1
+        GL.BindTexture(TextureTarget.Texture2D, TEAM_1_ICON_ID)
+        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform4(image2dShader("rect"),
+            pos_t1.Left,
+            pos_t1.Top,
+            pos_t1.Right,
+            pos_t1.Bottom)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        'Icon 2
+        GL.BindTexture(TextureTarget.Texture2D, TEAM_2_ICON_ID)
+        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform4(image2dShader("rect"),
+            pos_t2.Left,
+            pos_t2.Top,
+            pos_t2.Right,
+            pos_t2.Bottom)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        'Reset
+        GL.BindTexture(TextureTarget.Texture2D, 0)
+        image2dShader.StopUse()
+        GL.Disable(EnableCap.Blend)
+
+    End Sub
     Private Sub draw_minimap_texture()
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
-        draw_image_rectangle(New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y,
+        draw_image_rectangle(New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y + 0.5,
                                            w, -h),
                                             theMap.MINI_MAP_ID)
     End Sub
