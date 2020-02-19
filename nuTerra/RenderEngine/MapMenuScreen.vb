@@ -52,11 +52,11 @@ Module MapMenuScreen
 
         End Sub
         Public Sub draw_box(ByVal textId As Integer)
-            Dim rect As New Rectangle(Me.lt.X, -lt.Y, rb.X, -rb.Y)
+            Dim rect As New Rectangle(Me.lt.X, -Me.lt.Y + 20, Me.rb.X, -Me.rb.Y - 10)
             draw_image_rectangle(rect, textId)
         End Sub
         Public Sub draw_text(ByVal textId As Integer)
-            Dim rect As New Rectangle(Me.lt.X, -lt.Y, 120, 72)
+            Dim rect As New Rectangle(Me.lt.X, -Me.lt.Y, 120, 20)
             draw_image_rectangle(rect, textId)
         End Sub
         Public Sub draw_pick_box(ByVal color_ As Color4)
@@ -89,7 +89,7 @@ Module MapMenuScreen
             ReDim Preserve MapPickList(cnt + 1)
             MapPickList(cnt) = New map_item_
             MapPickList(cnt).name = fi
-            MapPickList(cnt).max_scale = 1.25F
+            MapPickList(cnt).max_scale = 1.5F
             MapPickList(cnt).min_scale = 1.0F
             MapPickList(cnt).scale = 1.0F
             Dim a = fi.Split(":")
@@ -123,7 +123,7 @@ dontaddthis:
 
     Public Sub gl_pick_map(ByVal x As Integer, ByVal y As Integer)
 
-        DrawMapPickText.TextRenderer(120, 72)
+        DrawMapPickText.TextRenderer(120, 20)
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
         Ortho_main()
@@ -251,7 +251,16 @@ dontaddthis:
                 MapPickList(map).draw_box(map_texture_ids(map))
                 'draw text overlay
                 DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
-                DrawMapPickText.DrawString(MapPickList(map).realname, lucid_console, Brushes.Blue, position)
+
+                Dim d = (MapPickList(map).scale - 1.0F) / 0.5F
+                Dim gray = Color.Gray
+                Dim colour = Color.FromArgb(0, CInt(d * 127), CInt(d * 127), CInt(d * 127))
+                Dim colourBase = Color.FromArgb(gray.A + colour.A,
+                                                gray.R + colour.R,
+                                                gray.G + colour.G,
+                                                gray.B - colour.B)
+                Dim brush_ = New SolidBrush(colourBase)
+                DrawMapPickText.DrawString(MapPickList(map).realname, lucid_console, brush_, position)
 
                 Dim tex = DrawMapPickText.Gettexture
                 MapPickList(map).draw_text(tex)
@@ -259,6 +268,50 @@ dontaddthis:
             Next
             vi += -space_x + ms_y
         End While
+        map = 0
+        vi = 15
+        While map < map_texture_ids.Length - 1
+            If w = 0 Then
+                Exit While
+            End If
+            For i = 0 To w_cnt - 1
+
+                If map = map_texture_ids.Length Then
+                    Exit While
+                End If
+                hi = border + (i * (ms_x + space_x))
+
+                MapPickList(map).location = New Vector2(hi + 60.0F, vi + ms_y)
+
+                If SELECTED_MAP_HIT - 1 = map Then
+                    MapPickList(map).selected = True
+                Else
+                    MapPickList(map).selected = False
+                End If
+
+                If MapPickList(map).scale > 1.05 Then ' need to draw the selected map box on top of all others
+                    MapPickList(map).draw_box(map_texture_ids(map))
+                    'draw text overlay
+                    DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
+
+                    Dim d = (MapPickList(map).scale - 1.0F) / 0.5F
+                    Dim gray = Color.Gray
+                    Dim colour = Color.FromArgb(0, CInt(d * 127), CInt(d * 127), CInt(d * 127))
+                    Dim colourBase = Color.FromArgb(gray.A + colour.A,
+                                                    gray.R + colour.R,
+                                                    gray.G + colour.G,
+                                                    gray.B - colour.B)
+                    Dim brush_ = New SolidBrush(colourBase)
+                    DrawMapPickText.DrawString(MapPickList(map).realname, lucid_console, brush_, position)
+
+                    Dim tex = DrawMapPickText.Gettexture
+                    MapPickList(map).draw_text(tex)
+                End If
+                map += 1
+            Next
+            vi += -space_x + ms_y
+        End While
+
         GL.BindTexture(TextureTarget.Texture2D, 0)
         GL.Disable(EnableCap.Blend)
 

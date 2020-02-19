@@ -48,7 +48,7 @@ Module textRender
             Me.dirty_region = New Rectangle(0, 0, Me.bmp.Width, Me.bmp.Height)
         End Sub
         Public Sub DrawString(ByVal text As String, ByRef font As Font, ByRef brush As Brush, ByRef point As PointF)
-
+            Me.gfx.Clear(Color.FromArgb(125, 0, 0, 0))
             Me.gfx.DrawString(text, font, brush, point)
             Dim size = Me.gfx.MeasureString(text, font)
             Me.dirty_region = Rectangle.Round(RectangleF.Union(Me.dirty_region, New RectangleF(point, size)))
