@@ -2,7 +2,7 @@
 
 uniform mat4 ProjectionMatrix;
 uniform vec4 rect;
-in vec4 maxmin;
+
 out vec2 texCoord;
 
 void main(void)
@@ -12,21 +12,23 @@ void main(void)
 
     if (gl_VertexID == 0) {
         co = rect.xw;
-        uv = vec2(0.0f, 1.0f);
+        uv = rect.xw;
     }
     else if (gl_VertexID == 1) {
         co = rect.xy;
-        uv = vec2(0.0f, 0.0f);
+        uv = rect.xy;
     }
     else if (gl_VertexID == 2) {
         co = rect.zw;
-        uv = vec2(1.0f, 1.0f);
+        uv = rect.zw;
     }
     else {
         co = rect.zy;
-        uv = vec2(1.0f, 0.0f);
+        uv = rect.zy;
     }
 
     gl_Position = ProjectionMatrix * vec4(co, 0.0f, 1.0f);
-    texCoord = uv;
+	texCoord = uv;
+
 }
+

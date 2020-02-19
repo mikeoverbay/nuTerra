@@ -155,6 +155,7 @@ Module ShaderLoader
     Public CrossHairShader As Shader
     Public deferredShader As Shader
     Public gWriterShader As Shader
+    Public MiniMapRingsShader As Shader
     Public modelShader As Shader
     Public normalShader As Shader
     Public normalOffsetShader As Shader
@@ -177,6 +178,7 @@ Module ShaderLoader
         CrossHairShader = New Shader("CrossHair")
         deferredShader = New Shader("deferred")
         gWriterShader = New Shader("gWriter")
+        MiniMapRingsShader = New Shader("MiniMapRings")
         modelShader = New Shader("model")
         normalShader = New Shader("normal")
         normalOffsetShader = New Shader("normalOffset")
@@ -192,6 +194,7 @@ Module ShaderLoader
         shaders.Add(CrossHairShader)
         shaders.Add(deferredShader)
         shaders.Add(gWriterShader)
+        shaders.Add(MiniMapRingsShader)
         shaders.Add(modelShader)
         shaders.Add(normalShader)
         shaders.Add(normalOffsetShader)

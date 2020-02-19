@@ -383,18 +383,73 @@ Module modRender
     End Sub
     Private Sub Draw_mini()
 
+        '======================================================
+        'Draw all the shit on top of this image
+        draw_minimap_texture()
+        '======================================================
+
+        '======================================================
+        draw_base_rings()
+         '======================================================
+
+        '======================================================
+        draw_grids_lines()
+        '======================================================
+
+        '======================================================
+        get_world_Position_In_Minimap_Window(M_POS)
+        '======================================================
+
+    End Sub
+
+    Private Sub draw_minimap_texture()
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
         draw_image_rectangle(New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y,
                                            w, -h),
                                             theMap.MINI_MAP_ID)
+    End Sub
 
-        'draw_image_rectangle(New RectangleF(-50.0F, -50.0F,
-        '                                    50.0F, 50.0F),
-        '                                    theMap.MINI_MAP_ID)
-        '======================================================
-        'need simple line drawing shader Maxim!
+    Private Sub draw_base_rings()
+        Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
+        Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
+        'draw base rings
+        MiniMapRingsShader.Use()
+        'constants
+        Dim er0 = GL.GetError
+        GL.UniformMatrix4(MiniMapRingsShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform1(MiniMapRingsShader("radius"), 50.0F)
+        GL.Uniform1(MiniMapRingsShader("thickness"), 2.0F)
+        Dim er3 = GL.GetError
+
+        Dim m_size = New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y, w, -h)
+
+        Dim er1 = GL.GetError
+        GL.Uniform4(MiniMapRingsShader("rect"),
+            m_size.Left,
+            -m_size.Top,
+            m_size.Right,
+            -m_size.Bottom)
+
+        GL.Uniform2(MiniMapRingsShader("center"), TEAM_1.X, TEAM_1.Z)
+        GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.DarkRed)
+
         GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        GL.Uniform2(MiniMapRingsShader("center"), TEAM_2.X, TEAM_2.Z)
+        GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.DarkGreen)
+
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        MiniMapRingsShader.StopUse()
+
+    End Sub
+
+    Private Sub draw_grids_lines()
+        Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
+        Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
         GL.Enable(EnableCap.Blend) 'so the lines are not so bold
         coloredline2dShader.Use()
 
@@ -424,23 +479,18 @@ Module modRender
             GL.BindVertexArray(defaultVao)
             GL.DrawArrays(PrimitiveType.Lines, 0, 2)
         Next
-        coloredline2dShader.StopUse()
-        'Draw all the shit on top of this image
-        If get_world_Position_In_Minimap_Window(M_POS) Then
-            'Dim ass = 1.0
-        End If
         GL.Disable(EnableCap.Blend)
+        coloredline2dShader.StopUse()
 
     End Sub
-
-    Private Function get_world_Position_In_Minimap_Window(ByRef pos As Vector2) As Boolean
+    Private Sub get_world_Position_In_Minimap_Window(ByRef pos As Vector2)
         MINI_MOUSE_CAPTURED = False
 
         Dim left = FBOm.SCR_WIDTH - MINI_MAP_SIZE
         Dim top = FBOm.SCR_HEIGHT - MINI_MAP_SIZE
         'Are we over the minimap?
-        If M_MOUSE.X < left Then Return False
-        If M_MOUSE.Y < top Then Return False
+        If M_MOUSE.X < left Then Return
+        If M_MOUSE.Y < top Then Return
 
         pos.X = ((M_MOUSE.X - left) / MINI_MAP_SIZE) * 2.0 - 1.0
         pos.Y = ((M_MOUSE.Y - top) / MINI_MAP_SIZE) * 2.0 - 1.0
@@ -455,8 +505,8 @@ Module modRender
         Else
             MINI_WORLD_MOUSE_POSITION.Y = pos.Y * MAP_BB_BL.Y
         End If
-        Return True
-    End Function
+        Return
+    End Sub
 
 
 
