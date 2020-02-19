@@ -32,26 +32,16 @@ Module TerrainBuilder
 
         get_team_locations_and_field_BB(ABS_NAME)
 
-
-
+        'get minimap
+        Dim mm = MAP_PACKAGE("spaces/" + ABS_NAME + "/mmap.dds")
+        Dim mss As New MemoryStream
+        mm.Extract(mss)
+        theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, mm.FileName, False, False)
+        mss.Dispose()
 
         Dim chunks(15 * 15) As chunk_ 'I don't expect any maps larger than 225 chunks
         Dim cnt As Integer = 0
         For Each entry In MAP_PACKAGE.Entries
-
-            'find mini_map
-            If entry.FileName.Contains("mmap.dds") Then
-                Dim ms As New MemoryStream
-                entry.Extract(ms)
-                theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, ms, entry.FileName, False, False)
-            End If
-
-            'find the maps settings
-            If entry.FileName.Contains("mmap.dds") Then
-                Dim ms As New MemoryStream
-                entry.Extract(ms)
-                theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, ms, entry.FileName, False, False)
-            End If
 
             'find cdata chunks
             If entry.FileName.Contains("cdata") Then
@@ -110,7 +100,7 @@ Module TerrainBuilder
     Private Sub getSkyDome(ByVal abs_name As String)
         'Dim terrain As New DataTable
         Dim ms As New MemoryStream
-        Dim f As ZipEntry = MAP_PACKAGE("spaces\" + abs_name + "\environments\environments.xml")
+        Dim f As ZipEntry = MAP_PACKAGE("spaces/" + abs_name + "/environments/environments.xml")
         If f IsNot Nothing Then
             f.Extract(ms)
             openXml_stream(ms, abs_name)
@@ -121,7 +111,7 @@ Module TerrainBuilder
         Dim te As DataTable = ds.Tables("map_" + abs_name)
         Dim q = From row In te Select ename = row.Field(Of String)("environment")
 
-        Dim e_path = "spaces\" + abs_name + "\environments\" + q(0).Replace(".", "-") + "\skyDome\skyBox.model"
+        Dim e_path = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/skyDome/skyBox.model"
         SKYDOMENAME = e_path.Replace("\", "/")
   
 

@@ -8,7 +8,7 @@ Imports Tao.DevIl
 
 Module TextureLoaders
 
-    Private imgTbl As New DataSet1.ImageTableDataTable
+    Public imgTbl As New DataSet1.ImageTableDataTable
 
 #Region "imgTbl routines"
 
@@ -132,7 +132,6 @@ Module TextureLoaders
 
             Dim maxAniso As Single
             GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
-            GL.TexParameter(TextureTarget.Texture2D, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
             If NEAREST And Not MIPS Then
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
@@ -144,6 +143,7 @@ Module TextureLoaders
             If MIPS Then
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+                GL.TexParameter(TextureTarget.Texture2D, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
             End If
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)

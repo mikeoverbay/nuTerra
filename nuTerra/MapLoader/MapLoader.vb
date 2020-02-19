@@ -188,12 +188,14 @@ Module MapLoader
         SHARED_PART_2.Dispose()
         SAND_BOX_PART_1.Dispose()
         SAND_BOX_PART_2.Dispose()
+        MAP_PARTICLES.Dispose()
 
         MAP_PACKAGE = Nothing
         SHARED_PART_1 = Nothing
         SHARED_PART_2 = Nothing
         SAND_BOX_PART_1 = Nothing
         SAND_BOX_PART_2 = Nothing
+        MAP_PARTICLES = Nothing
 
         'Tell the grabage collector to clean up
         GC.Collect()
@@ -205,7 +207,7 @@ Module MapLoader
 
     Public Sub load_map(ByVal package_name As String)
 
-
+        MAP_LOADED = False
         SHOW_MAPS_SCREEN = False
         BG_MAX_VALUE = 0
 
@@ -368,7 +370,7 @@ Module MapLoader
         'Stop Here for now =====================================
         '=======================================================
 
-
+        MAP_LOADED = True
         SHOW_LOADING_SCREEN = False
 
         ' close packages
@@ -410,12 +412,15 @@ Module MapLoader
     Public Sub remove_map_data()
         'Used to delete all images and display lists.
 
-        'remove map loaded textures
-        Dim LAST_TEXTURE = GL.GenTexture  'get last texture created.
-        Dim t_count = LAST_TEXTURE - FIRST_UNUSED_TEXTURE
-        GL.DeleteTextures(t_count, FIRST_UNUSED_TEXTURE)
-
-        GL.Finish() ' make sure we are done before moving on
+        'remove loaded textures
+        For Each row In imgTbl
+            If row.Id > FIRST_UNUSED_TEXTURE Then
+                GL.DeleteTexture(row.Id)
+                GL.Finish() ' make sure we are done before moving on
+            End If
+        Next
+        'Clear texture cache
+        imgTbl.Clear()
 
         For i = 0 To MAP_MODELS.Length - 1
             If MAP_MODELS(i).mdl IsNot Nothing Then
