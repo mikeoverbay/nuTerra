@@ -460,7 +460,7 @@ Module modRender
         GL.UniformMatrix4(coloredline2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(coloredline2dShader("color"), co)
         For x = MAP_BB_BL.X To MAP_BB_UR.X - 100.0F Step 100.0F
-            Dim pos As New RectangleF(x - 5.78, MAP_BB_BL.Y - 0.078, 1, h)
+            Dim pos As New RectangleF(x - 0.78, MAP_BB_BL.Y, 0.0F, h)
             GL.Uniform4(coloredline2dShader("rect"),
                         pos.Left,
                         -pos.Top,
@@ -470,7 +470,7 @@ Module modRender
             GL.DrawArrays(PrimitiveType.Lines, 0, 2)
         Next
         For y = MAP_BB_BL.Y To MAP_BB_UR.Y - 100 Step 100.0F
-            Dim pos As New RectangleF(MAP_BB_BL.X - 5.78, y, w, 1.0F)
+            Dim pos As New RectangleF(MAP_BB_BL.X - 0.78, y, w, 0.0F)
             GL.Uniform4(coloredline2dShader("rect"),
                         pos.Left,
                         -pos.Top,
