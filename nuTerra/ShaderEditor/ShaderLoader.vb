@@ -150,6 +150,7 @@ Module ShaderLoader
     Public image2dShader As Shader
     Public rect2dShader As Shader
     Public cullShader As Shader
+    Public coloredline2dShader As Shader
     Public colorOnlyShader As Shader
     Public CrossHairShader As Shader
     Public deferredShader As Shader
@@ -171,6 +172,7 @@ Module ShaderLoader
         image2dShader = New Shader("image2d")
         rect2dShader = New Shader("rect2d")
         cullShader = New Shader("cull")
+        coloredline2dShader = New Shader("coloredLine2d")
         colorOnlyShader = New Shader("colorOnly")
         CrossHairShader = New Shader("CrossHair")
         deferredShader = New Shader("deferred")
@@ -185,6 +187,7 @@ Module ShaderLoader
         shaders.Add(image2dShader)
         shaders.Add(rect2dShader)
         shaders.Add(cullShader)
+        shaders.Add(coloredline2dShader)
         shaders.Add(colorOnlyShader)
         shaders.Add(CrossHairShader)
         shaders.Add(deferredShader)

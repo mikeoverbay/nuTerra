@@ -318,6 +318,12 @@
     <None Include="shaders\Model_shaders\cull.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Utility\coloredLine2d.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Utility\coloredLine2d.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Utility\rect2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

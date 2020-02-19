@@ -394,17 +394,43 @@ Module modRender
         '                                    theMap.MINI_MAP_ID)
         '======================================================
         'need simple line drawing shader Maxim!
-        For x = MAP_BB_BL.X To MAP_BB_UR.X Step 100.0F
-            For y = MAP_BB_BL.Y To MAP_BB_UR.Y Step 100.0F
-                Dim pos As New RectangleF(x - 5.78, y - 0.78, 10.0F, 10.0F)
-                draw_color_rectangle(pos, Graphics.Color4.Coral)
-            Next
+        GL.BindVertexArray(defaultVao)
+        GL.Enable(EnableCap.Blend) 'so the lines are not so bold
+        coloredline2dShader.Use()
 
+        Dim co As OpenTK.Graphics.Color4
+        co = OpenTK.Graphics.Color4.GhostWhite
+        co.A = 0.5F
+
+        GL.UniformMatrix4(coloredline2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform4(coloredline2dShader("color"), co)
+        For x = MAP_BB_BL.X To MAP_BB_UR.X - 100.0F Step 100.0F
+            Dim pos As New RectangleF(x - 5.78, MAP_BB_BL.Y - 0.078, 1, h)
+            GL.Uniform4(coloredline2dShader("rect"),
+                        pos.Left,
+                        -pos.Top,
+                        pos.Right,
+                        -pos.Bottom)
+
+            GL.DrawArrays(PrimitiveType.Lines, 0, 2)
         Next
+        For y = MAP_BB_BL.Y To MAP_BB_UR.Y - 100 Step 100.0F
+            Dim pos As New RectangleF(MAP_BB_BL.X - 5.78, y, w, 1.0F)
+            GL.Uniform4(coloredline2dShader("rect"),
+                        pos.Left,
+                        -pos.Top,
+                        pos.Right,
+                        -pos.Bottom)
+            GL.BindVertexArray(defaultVao)
+            GL.DrawArrays(PrimitiveType.Lines, 0, 2)
+        Next
+        coloredline2dShader.StopUse()
         'Draw all the shit on top of this image
         If get_world_Position_In_Minimap_Window(M_POS) Then
             'Dim ass = 1.0
         End If
+        GL.Disable(EnableCap.Blend)
+
     End Sub
 
     Private Function get_world_Position_In_Minimap_Window(ByRef pos As Vector2) As Boolean
