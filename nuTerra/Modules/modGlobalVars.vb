@@ -5,6 +5,7 @@ Imports System.Text
 Module modGlobalVars
     'Define these in CAP TEXT
     Public TEST_TEXTURE_ID As Integer
+    Public M_POS As Vector2
     '============================================================
     Public nuTerra_LOG As New StringBuilder ' for logging
     '============================================================
@@ -27,7 +28,9 @@ Module modGlobalVars
     Public CROSS_HAIR_TEXTURE As Integer
     Public CROSS_HAIR_TIME As Single = 0.0F ' animation time 0-1
     Public MOON As base_model_holder_
-    Public Progress_bar_image_ID As Integer
+    Public PROGRESS_BAR_IMAGE_ID As Integer
+    Public MINI_WORLD_MOUSE_POSITION As Vector2
+    Public MINI_MOUSE_CAPTURED As Boolean
     '============================================================
     'sleep time for upedate thread.
     'lower draws faster but kills apps responsiveness

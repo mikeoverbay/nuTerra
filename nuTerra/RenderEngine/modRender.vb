@@ -320,6 +320,8 @@ Module modRender
         Dim tr = TOTAL_TRIANGLES_DRAWN
 
         Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", PRIMS_CULLED, FPS_TIME, tr, elapsed)
+        'debug shit
+        txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
         DrawText.DrawString(txt, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Blend)
@@ -384,23 +386,53 @@ Module modRender
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
         draw_image_rectangle(New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y,
-                                           MAP_BB_UR.X, MAP_BB_BL.Y),
+                                           w, -h),
                                             theMap.MINI_MAP_ID)
 
         'draw_image_rectangle(New RectangleF(-50.0F, -50.0F,
         '                                    50.0F, 50.0F),
         '                                    theMap.MINI_MAP_ID)
         '======================================================
+        'need simple line drawing shader Maxim!
         For x = MAP_BB_BL.X To MAP_BB_UR.X Step 100.0F
             For y = MAP_BB_BL.Y To MAP_BB_UR.Y Step 100.0F
-                Dim pos As New RectangleF(x, y, x + 30.0F, y + 30.0F)
-                'draw_color_rectangle(pos, Graphics.Color4.Coral)
+                Dim pos As New RectangleF(x - 5.78, y - 0.78, 10.0F, 10.0F)
+                draw_color_rectangle(pos, Graphics.Color4.Coral)
             Next
 
         Next
         'Draw all the shit on top of this image
-
+        If get_world_Position_In_Minimap_Window(M_POS) Then
+            'Dim ass = 1.0
+        End If
     End Sub
+
+    Private Function get_world_Position_In_Minimap_Window(ByRef pos As Vector2) As Boolean
+        MINI_MOUSE_CAPTURED = False
+
+        Dim left = FBOm.SCR_WIDTH - MINI_MAP_SIZE
+        Dim top = FBOm.SCR_HEIGHT - MINI_MAP_SIZE
+        'Are we over the minimap?
+        If M_MOUSE.X < left Then Return False
+        If M_MOUSE.Y < top Then Return False
+
+        pos.X = ((M_MOUSE.X - left) / MINI_MAP_SIZE) * 2.0 - 1.0
+        pos.Y = ((M_MOUSE.Y - top) / MINI_MAP_SIZE) * 2.0 - 1.0
+        MINI_MOUSE_CAPTURED = True
+        If pos.X <= 0.0F Then
+            MINI_WORLD_MOUSE_POSITION.X = -pos.X * MAP_BB_UR.X
+        Else
+            MINI_WORLD_MOUSE_POSITION.X = pos.X * MAP_BB_BL.X
+        End If
+        If pos.Y >= 0.0F Then
+            MINI_WORLD_MOUSE_POSITION.Y = -pos.Y * MAP_BB_UR.Y
+        Else
+            MINI_WORLD_MOUSE_POSITION.Y = pos.Y * MAP_BB_BL.Y
+        End If
+        Return True
+    End Function
+
+
 
     Private Sub draw_overlays()
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then

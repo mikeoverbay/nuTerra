@@ -496,6 +496,12 @@ try_again:
     Private Sub glControl_main_MouseDown(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDown
         If BLOCK_MOUSE Then Return
 
+        If MINI_MOUSE_CAPTURED Then
+            'User clicked on the mini so lets move to that locations in world space
+            LOOK_AT_X = MINI_WORLD_MOUSE_POSITION.X
+            LOOK_AT_Z = MINI_WORLD_MOUSE_POSITION.Y
+        End If
+
         If SHOW_MAPS_SCREEN Then
             If e.Button = Forms.MouseButtons.Left Then
 
