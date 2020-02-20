@@ -2,7 +2,8 @@
 // used to linearize depth textures to linear colors.
 #version 430 compatibility
 
-uniform sampler2D depthMap;
+out vec4 fragColor;
+uniform sampler2D imageMap;
 
 uniform float near;
 uniform float far;
@@ -19,6 +20,6 @@ float linearDepth(float depthSample)
 
 void main()
 {
-    float r = linearDepth(texture2D(depthMap, texCoord).r);
-    gl_FragColor = vec4(vec3(1.0 - r), 1.0);
+    float r = linearDepth(texture2D(imageMap, texCoord).r);
+    fragColor = vec4(vec3(1.0 - r), 1.0);
 }

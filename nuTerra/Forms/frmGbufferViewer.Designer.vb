@@ -143,7 +143,7 @@ Partial Class frmGbufferViewer
         '
         Me.b_flags.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_flags.ForeColor = System.Drawing.Color.Black
-        Me.b_flags.Location = New System.Drawing.Point(239, 14)
+        Me.b_flags.Location = New System.Drawing.Point(315, 14)
         Me.b_flags.Name = "b_flags"
         Me.b_flags.Size = New System.Drawing.Size(70, 23)
         Me.b_flags.TabIndex = 4
@@ -156,7 +156,7 @@ Partial Class frmGbufferViewer
         '
         Me.b_normal.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_normal.ForeColor = System.Drawing.Color.Black
-        Me.b_normal.Location = New System.Drawing.Point(163, 14)
+        Me.b_normal.Location = New System.Drawing.Point(239, 14)
         Me.b_normal.Name = "b_normal"
         Me.b_normal.Size = New System.Drawing.Size(70, 23)
         Me.b_normal.TabIndex = 3
@@ -169,7 +169,7 @@ Partial Class frmGbufferViewer
         '
         Me.b_position.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_position.ForeColor = System.Drawing.Color.Black
-        Me.b_position.Location = New System.Drawing.Point(315, 14)
+        Me.b_position.Location = New System.Drawing.Point(163, 14)
         Me.b_position.Name = "b_position"
         Me.b_position.Size = New System.Drawing.Size(70, 23)
         Me.b_position.TabIndex = 2

@@ -2,7 +2,6 @@
 
 uniform mat4 ProjectionMatrix;
 uniform vec4 rect;
-in vec4 maxmin;
 out vec2 texCoord;
 
 void main(void)
