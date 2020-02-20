@@ -155,7 +155,7 @@ Module modSpaceBin
         For k = 0 To cBSMO.models_colliders.count - 1
             With MAP_MODELS(k)
                 .mdl = New base_model_holder_
-                .visibilitiBounds = cBSMO.models_visibility_bounds.data(k)
+                .visibilityBounds = cBSMO.models_visibility_bounds.data(k)
 
                 Dim lod0_offset = cBSMO.models_loddings.data(k).lod_begin
 

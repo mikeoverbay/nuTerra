@@ -168,17 +168,15 @@ Partial Class frmGbufferViewer
         'b_position
         '
         Me.b_position.Appearance = System.Windows.Forms.Appearance.Button
-        Me.b_position.Enabled = False
         Me.b_position.ForeColor = System.Drawing.Color.Black
-        Me.b_position.Location = New System.Drawing.Point(374, 12)
+        Me.b_position.Location = New System.Drawing.Point(315, 14)
         Me.b_position.Name = "b_position"
         Me.b_position.Size = New System.Drawing.Size(70, 23)
         Me.b_position.TabIndex = 2
         Me.b_position.Tag = "3"
-        Me.b_position.Text = "Unused"
+        Me.b_position.Text = "Position"
         Me.b_position.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
         Me.b_position.UseVisualStyleBackColor = True
-        Me.b_position.Visible = False
         '
         'b_color
         '

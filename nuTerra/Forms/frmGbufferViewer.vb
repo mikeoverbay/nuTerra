@@ -73,7 +73,7 @@ Public Class frmGbufferViewer
             Case 2
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
             Case 3
-                'GL.BindTexture(TextureTarget.Texture2D, gPosition)
+                GL.BindTexture(TextureTarget.Texture2D, FBOm.gPosition)
             Case 4
                 normalOffsetShader.Use()
                 GL.Uniform1(normalOffsetShader("normalMap"), 0)

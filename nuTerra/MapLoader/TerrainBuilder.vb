@@ -10,6 +10,9 @@ Module TerrainBuilder
         Public Shared chunks = Nothing
         Public Shared MINI_MAP_ID As Integer
 
+        Public Shared skybox_mdl As New base_model_holder_
+        Public Shared Sky_Texture_Id As Integer
+        Public Shared skybox_path As String
     End Class
     Public Structure chunk_
         Public name As String
@@ -31,7 +34,7 @@ Module TerrainBuilder
         'Get the settings for this map
 
         get_team_locations_and_field_BB(ABS_NAME)
-
+        get_Sky_Dome(ABS_NAME)
         'get minimap
         Dim mm = MAP_PACKAGE("spaces/" + ABS_NAME + "/mmap.dds")
         Dim mss As New MemoryStream
@@ -105,7 +108,7 @@ Module TerrainBuilder
 
     End Sub
 
-    Private Sub getSkyDome(ByVal abs_name As String)
+    Private Sub get_Sky_Dome(ByVal abs_name As String)
         'Dim terrain As New DataTable
         Dim ms As New MemoryStream
         Dim f As ZipEntry = MAP_PACKAGE("spaces/" + abs_name + "/environments/environments.xml")
@@ -119,14 +122,40 @@ Module TerrainBuilder
         Dim te As DataTable = ds.Tables("map_" + abs_name)
         Dim q = From row In te Select ename = row.Field(Of String)("environment")
 
-        Dim e_path = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/skyDome/skyBox.model"
-        SKYDOMENAME = e_path.Replace("\", "/")
-  
+        theMap.skybox_path = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/skyDome/forward/skyBox.visual_processed"
+        theMap.skybox_mdl = New base_model_holder_
+        get_X_model(Application.StartupPath + "\resources\skyDome.x", theMap.skybox_mdl)
 
+        Dim entry = MAP_PACKAGE(theMap.skybox_path)
+        If entry Is Nothing Then
+            MsgBox("Cant find sky box visual_processed", MsgBoxStyle.Exclamation, "Oh no!")
+            Return
+        End If
+        ms = New MemoryStream
+        entry.Extract(ms)
+        openXml_stream(ms, Path.GetFileName(theMap.skybox_path))
+        theMap.Sky_Texture_Id = get_diffuse_texture_id_from_visual()
+        If theMap.Sky_Texture_Id = -1 Then
+            MsgBox("could not find Sky Box Texture", MsgBoxStyle.Exclamation, "Shit!")
+        End If
+        'clean up
+        ms.Dispose()
         ds.Dispose()
         te.Dispose()
     End Sub
 
+    Public Function get_diffuse_texture_id_from_visual() As Integer
+        Dim theString = TheXML_String
+        Dim in_pos = InStr(1, theString, "diffuseMap")
+        If in_pos > 0 Then
+            Dim tex1_pos = InStr(in_pos, theString, "<Texture>") + "<Texture>".Length
+            Dim tex1_Epos = InStr(in_pos, theString, "</Texture>")
+            Dim newS As String = ""
+            newS = Mid(theString, tex1_pos, tex1_Epos - tex1_pos).Replace("/", "\")
+            Return find_and_load_texture_from_pkgs(newS)
+        End If
+        Return -1
+    End Function
     Private Function get_team_locations_and_field_BB(ByRef name As String) As Boolean
         Dim ar = name.Split(".")
         Dim script_pkg = Ionic.Zip.ZipFile.Read(GAME_PATH & "scripts.pkg")

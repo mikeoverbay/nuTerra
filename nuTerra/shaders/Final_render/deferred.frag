@@ -47,7 +47,7 @@ void main (void)
 {
     float depth = texture(gDepth, UV).x*2.0-1.0;
 
-    if (depth == 1.0) discard;// nothing there
+    //if (depth == 1.0) discard;// nothing there
 
     int FLAG = int( texture(gGMF, UV).b * 255.0);
     // Writen as a float in shaders as f = Flag_value/255.0
@@ -55,7 +55,7 @@ void main (void)
     //
     // If FLAG = 0 we want NO shading done to the color.
     // Just output gColor to outColor;
-    if (FLAG != 0 ) {
+    if (FLAG != 0) {
     // FLAG VALUES WILL BE DECIDED AS WE NEED THEM BUT..
     // ZERO = JUST PASS THE COLOR TO OUTPUT
 

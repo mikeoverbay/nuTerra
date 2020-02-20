@@ -159,6 +159,7 @@ Module ShaderLoader
     Public modelShader As Shader
     Public normalShader As Shader
     Public normalOffsetShader As Shader
+    Public SkyDomeShader As Shader
     Public testShader As Shader
     Public toLinearShader As Shader
 #End Region
@@ -182,6 +183,7 @@ Module ShaderLoader
         modelShader = New Shader("model")
         normalShader = New Shader("normal")
         normalOffsetShader = New Shader("normalOffset")
+        SkyDomeShader = New Shader("skyDome")
         testShader = New Shader("test")
         toLinearShader = New Shader("toLinear")
 
@@ -198,6 +200,7 @@ Module ShaderLoader
         shaders.Add(modelShader)
         shaders.Add(normalShader)
         shaders.Add(normalOffsetShader)
+        shaders.Add(SkyDomeShader)
         shaders.Add(testShader)
         shaders.Add(toLinearShader)
     End Sub

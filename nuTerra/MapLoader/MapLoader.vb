@@ -25,7 +25,6 @@ Module MapLoader
     Public PKG_DATA_TABLE As New DataTable("items")
 
     Public DESTRUCTABLE_DATA_TABLE As DataTable
-    Public SKYDOMENAME As String = ""
 
     Dim contents As New List(Of String)
 
@@ -42,7 +41,7 @@ Module MapLoader
     Public MAP_MODELS(1) As mdl_
     Public Structure mdl_
         Public mdl As base_model_holder_
-        Public visibilitiBounds As Matrix3x2
+        Public visibilityBounds As Matrix3x2
     End Structure
 
     ' Just for loading a model to test.

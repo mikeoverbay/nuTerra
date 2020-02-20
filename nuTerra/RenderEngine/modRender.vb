@@ -12,6 +12,7 @@ Module modRender
         ' FLAG INFO
         ' 0  = No shading
         ' 64  = model 
+        ' 255 = sky dome. We will want to control brightness
         ' more as they are added
         '===========================================================================
         'house keeping
@@ -49,6 +50,10 @@ Module modRender
         FBOm.attach_CNGP() 'clear ALL gTextures!
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+        '===========================================================================
+
+        '===========================================================================
+        Draw_SkyDome() '
         '===========================================================================
 
         '===========================================================================
@@ -338,6 +343,8 @@ Module modRender
 
     End Sub
 
+#Region "miniMap"
+
     Private Sub draw_mini_map()
         'check if we have the mini map loaded.
         If theMap.MINI_MAP_ID = 0 Then
@@ -450,6 +457,7 @@ Module modRender
         GL.Disable(EnableCap.Blend)
 
     End Sub
+
     Private Sub draw_minimap_texture()
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
@@ -555,8 +563,34 @@ Module modRender
         End If
         Return
     End Sub
+#End Region
 
+    Private Sub Draw_SkyDome()
 
+        GL.DepthMask(False)
+        FBOm.attach_CF()
+        SkyDomeShader.Use()
+        GL.FrontFace(FrontFaceDirection.Cw)
+        Dim model = Matrix4.CreateTranslation(CAM_POSITION.X, CAM_POSITION.Y + 3, CAM_POSITION.Z)
+        GL.UniformMatrix4(SkyDomeShader("model"), False, model)
+        GL.UniformMatrix4(SkyDomeShader("view"), False, VIEWMATRIX)
+        GL.UniformMatrix4(SkyDomeShader("projection"), False, PROJECTIONMATRIX)
+        GL.Uniform1(SkyDomeShader("imageMap"), 0)
+
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindTexture(TextureTarget.Texture2D, theMap.Sky_Texture_Id)
+
+        GL.BindVertexArray(theMap.skybox_mdl.mdl_VAO)
+        GL.DrawElements(PrimitiveType.Triangles,
+                        theMap.skybox_mdl.indice_count * 3,
+                        DrawElementsType.UnsignedShort,
+                        0)
+        SkyDomeShader.StopUse()
+        GL.BindTexture(TextureTarget.Texture2D, 0)
+        GL.FrontFace(FrontFaceDirection.Ccw)
+        GL.DepthMask(True)
+
+    End Sub
 
     Private Sub draw_overlays()
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
