@@ -389,7 +389,7 @@ try_again:
     ''' </summary>
     ''' <remarks>
     ''' Also starts the gametimer stopwatch and
-    ''' disposed the startup_delay timer.
+    ''' disposes the startup_delay timer.
     ''' </remarks>
     Private Sub launch_update_thread()
         fps_timer.Start()
@@ -402,44 +402,48 @@ try_again:
 
     Private Sub closed_loop_updater()
         Dim trigger As Boolean = False
+        Dim Time_before, Time_after As Long
 
         While _STARTED
 
-
-
-            If game_clock.ElapsedMilliseconds > 33 Then '30 fps animation
-                trigger = True
+            '==============================================================
+            If Not PAUSE_ORBIT Then
+                LIGHT_ORBIT_ANGLE += (DELTA_TIME * 0.5)
+                If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
+                LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
             End If
-            If trigger Then
-
-                If Not PAUSE_ORBIT Then
-                    LIGHT_ORBIT_ANGLE += LIGHT_SPEED
-                    If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
-                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                    LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                End If
-                CROSS_HAIR_TIME += 0.02
-                If CROSS_HAIR_TIME > 1.0F Then
-                    CROSS_HAIR_TIME = 0.0F
-                End If
-                'trigger is true so we reset the clock and start it over.
-                game_clock.Restart()
-                trigger = False
+            CROSS_HAIR_TIME += (DELTA_TIME * 0.02)
+            If CROSS_HAIR_TIME > 1.0F Then
+                CROSS_HAIR_TIME = 0.0F
             End If
+            '==============================================================
 
+            '==============================================================
             If fps_timer.ElapsedMilliseconds > 1000 Then
                 fps_timer.Restart()
                 FPS_TIME = FPS_COUNTER
                 FPS_COUNTER = 0
             End If
+            '==============================================================
 
 
+            '==============================================================
             check_postion_for_update()
             draw_scene()
             Application.DoEvents()
+            '==============================================================
+
+            '==============================================================
+            Time_after = game_clock.ElapsedTicks
+            DELTA_TIME = CSng((Time_after - Time_before) / Stopwatch.Frequency)
+            game_clock.Restart()
+            Time_before = game_clock.ElapsedTicks
+            '==============================================================
         End While
     End Sub
+
     Private Sub check_postion_for_update()
         Dim halfPI = PI * 0.5F
         If LOOK_AT_X <> U_LOOK_AT_X Then

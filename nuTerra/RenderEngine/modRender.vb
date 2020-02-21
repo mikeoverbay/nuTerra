@@ -354,38 +354,49 @@ Module modRender
 
         ' Animate map growth
         'need to control this so it is not affected by frame rate!
+        Dim s = CInt(150 * DELTA_TIME)
         If MINI_MAP_SIZE <> MINI_MAP_NEW_SIZE Then
             If MINI_MAP_SIZE < MINI_MAP_NEW_SIZE Then
-                MINI_MAP_SIZE += 10
+                MINI_MAP_SIZE += s
+                If MINI_MAP_SIZE > MINI_MAP_NEW_SIZE Then
+                    MINI_MAP_SIZE = MINI_MAP_NEW_SIZE
+                End If
             Else
-                MINI_MAP_SIZE -= 10
+                If MINI_MAP_SIZE > MINI_MAP_NEW_SIZE Then
+                    MINI_MAP_SIZE -= s
+                    If MINI_MAP_SIZE < MINI_MAP_NEW_SIZE Then
+                        MINI_MAP_SIZE = MINI_MAP_NEW_SIZE
+                    End If
+                End If
             End If
+            'sized changed so we must resize the FBOmini
             FBOmini.FBO_Initialize(MINI_MAP_SIZE)
+        Else
         End If
 
-        '===========================================================================
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
-        '===========================================================================
+            '===========================================================================
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
+            '===========================================================================
 
-        Ortho_MiniMap(MINI_MAP_SIZE)
+            Ortho_MiniMap(MINI_MAP_SIZE)
 
-        GL.ClearColor(0.0, 0.0, 0.5, 0.0)
-        GL.Clear(ClearBufferMask.ColorBufferBit)
-        Draw_mini()
+            GL.ClearColor(0.0, 0.0, 0.5, 0.0)
+            GL.Clear(ClearBufferMask.ColorBufferBit)
+            Draw_mini()
 
-        '===========================================================================
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
-        '===========================================================================
-        Ortho_main()
-        Dim size = frmMain.glControl_main.Size
+            '===========================================================================
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
+            '===========================================================================
+            Ortho_main()
+            Dim size = frmMain.glControl_main.Size
 
-        draw_image_rectangle(New RectangleF(size.Width - MINI_MAP_SIZE, size.Height - MINI_MAP_SIZE,
-                                            MINI_MAP_SIZE, MINI_MAP_SIZE),
-                                            FBOmini.gColor)
+            draw_image_rectangle(New RectangleF(size.Width - MINI_MAP_SIZE, size.Height - MINI_MAP_SIZE,
+                                                MINI_MAP_SIZE, MINI_MAP_SIZE),
+                                                FBOmini.gColor)
 
 
 
-        GL.DepthMask(True)
+            GL.DepthMask(True)
 
     End Sub
     Private Sub Draw_mini()

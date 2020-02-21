@@ -165,7 +165,7 @@ Module modSpaceBin
                 Dim num_render_sets = lod0_render_set_end - lod0_render_set_begin + 1
                 Debug.Assert(num_render_sets > 0)
 
-                ' Createing renderSets
+                ' Creating renderSets
                 .mdl.render_sets = New List(Of RenderSetEntry)
                 Dim dict As New Dictionary(Of String, Integer)
                 For z As UInteger = 0 To num_render_sets - 1

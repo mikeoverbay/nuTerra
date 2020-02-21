@@ -8,8 +8,8 @@ Module MapMenuScreen
 
 #Region "structurs/vars"
 
-    Public img_grow_speed As Single = 0.02
-    Public img_shrink_speed As Single = 0.005
+    Public img_grow_speed As Single = 1.5
+    Public img_shrink_speed As Single = 0.5
     Public map_texture_ids(0) As Integer
 
     Public MapPickList() As map_item_
@@ -34,15 +34,18 @@ Module MapMenuScreen
             Dim rb_ As New Vector2(120.0F, -72.0F)
 
             If Me.selected And Not FINISH_MAPS Then
-                If Not img_grow_speed + scale >= max_scale Then
-                    scale += img_grow_speed
-                    unit_size = False
-                End If
-            Else
-                If Not scale - img_shrink_speed <= min_scale Then
-                    scale -= img_shrink_speed
+                If Not (img_grow_speed * DELTA_TIME) + scale >= max_scale Then
+                    scale += (img_grow_speed * DELTA_TIME)
                     unit_size = False
                 Else
+                    scale = max_scale
+                End If
+            Else
+                If Not scale - (img_shrink_speed * DELTA_TIME) <= min_scale Then
+                    scale -= (img_shrink_speed * DELTA_TIME)
+                    unit_size = False
+                Else
+                    scale = min_scale
                     unit_size = True
                 End If
             End If
