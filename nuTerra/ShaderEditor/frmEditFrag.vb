@@ -81,7 +81,6 @@ Public Class frmEditFrag
             File.WriteAllText(c_app_path, compute_tb.Text)
         End If
 
-        SYNCMUTEX.WaitOne()   'disable rendering
         Me.TopMost = False
 
         shaders(shader_index).UpdateShader()
@@ -89,8 +88,6 @@ Public Class frmEditFrag
         reset_focus()
         recompile_bt.Enabled = True
         Me.TopMost = True
-
-        SYNCMUTEX.ReleaseMutex()   'Enable rendering
 
     End Sub
 

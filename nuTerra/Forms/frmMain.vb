@@ -16,7 +16,6 @@ Public Class frmMain
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         _STARTED = False
-        'SYNCMUTEX.WaitOne()
         'Need to add code to close down opengl and delete the resources.
     End Sub
 
@@ -112,19 +111,32 @@ Public Class frmMain
         startup_delay_timer.Start()
     End Sub
 
+    Private Sub frmMain_MouseDown(sender As Object, e As MouseEventArgs) Handles Me.MouseDown
+    End Sub
+
+    Public Sub resize_fbo_main()
+        Dim ww, hh As Integer
+        FBOm.get_glControl_size(ww, hh)
+        If hh <> FBOm.SCR_WIDTH Or ww <> FBOm.SCR_HEIGHT Then
+            If Not Me.WindowState = FormWindowState.Minimized Then
+                FBOm.FBO_Initialize()
+            End If
+        End If
+
+    End Sub
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
-        'If _STARTED Then
-        '    If Not Me.WindowState = FormWindowState.Minimized Then
-        '        FBOm.FBO_Initialize()
-        '    End If
-        'End If
+        If _STARTED Then
+            resize_fbo_main()
+            draw_scene()
+        End If
     End Sub
 
     Private Sub frmMain_ResizeEnd(sender As Object, e As EventArgs) Handles Me.ResizeEnd
-        'If _STARTED Then
-        '    FBOm.FBO_Initialize()
-        'End If
+        If _STARTED Then
+            resize_fbo_main()
+            draw_scene()
+        End If
         'Dim s = Me.Size
 
     End Sub
@@ -373,7 +385,7 @@ try_again:
 #Region "Screen position and update"
 
     ''' <summary>
-    ''' Sets up and starts the main render thread
+    ''' Sets up and starts the main render loop
     ''' </summary>
     ''' <remarks>
     ''' Also starts the gametimer stopwatch and
@@ -387,18 +399,13 @@ try_again:
         startup_delay_timer.Dispose()
         closed_loop_updater()
     End Sub
+
     Private Sub closed_loop_updater()
         Dim trigger As Boolean = False
-        Dim w, h As Integer
 
         While _STARTED
-            FBOm.get_glControl_size(w, h)
 
-            If h <> FBOm.SCR_WIDTH Or w <> FBOm.SCR_HEIGHT Then
-                If Not Me.WindowState = FormWindowState.Minimized Then
-                    FBOm.FBO_Initialize()
-                End If
-            End If
+
 
             If game_clock.ElapsedMilliseconds > 33 Then '30 fps animation
                 trigger = True
@@ -428,80 +435,11 @@ try_again:
             End If
 
 
-            SYNCMUTEX.WaitOne()
             check_postion_for_update()
             draw_scene()
-            SYNCMUTEX.ReleaseMutex()
             Application.DoEvents()
         End While
     End Sub
-    ''' <summary>
-    ''' The main render draw loop thread.
-    ''' </summary>
-    ''' <remarks></remarks>
-    Private Sub updater()
-        Dim trigger As Boolean = False
-        While _STARTED
-            If game_clock.ElapsedMilliseconds > 33 Then '30 fps animation
-                trigger = True
-            End If
-            If trigger Then
-
-                If Not PAUSE_ORBIT Then
-                    LIGHT_ORBIT_ANGLE += LIGHT_SPEED
-                    If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
-                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                    LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                End If
-                CROSS_HAIR_TIME += 0.02
-                If CROSS_HAIR_TIME > 1.0F Then
-                    CROSS_HAIR_TIME = 0.0F
-                End If
-                'trigger is true so we reset the clock and start it over.
-                game_clock.Restart()
-                trigger = False
-            End If
-
-            If fps_timer.ElapsedMilliseconds > 1000 Then
-                fps_timer.Restart()
-                FPS_TIME = FPS_COUNTER
-                FPS_COUNTER = 0
-            End If
-
-
-            update_screen()
-            Thread.Sleep(HOG_TIME) ' hog all the time :)
-        End While
-    End Sub
-
-    ''' <summary>
-    ''' cross thread Delegate
-    ''' </summary>
-    ''' <remarks></remarks>
-    Private Delegate Sub update_screen_delegate()
-
-    ''' <summary>
-    ''' Used to call functions outside update thread.
-    ''' </summary>
-    Public Sub update_screen()
-        If Me.InvokeRequired And _STARTED Then
-            Me.Invoke(New update_screen_delegate(AddressOf update_screen))
-        Else
-            SYNCMUTEX.WaitOne()
-            check_postion_for_update()
-            draw_scene()
-            SYNCMUTEX.ReleaseMutex()
-        End If
-    End Sub
-#End Region
-
-    ''' <summary>
-    ''' This is called by the update thread to see
-    ''' if anything about the camera view has changed.
-    ''' </summary>
-    ''' <remarks></remarks>
-    ''' 
     Private Sub check_postion_for_update()
         Dim halfPI = PI * 0.5F
         If LOOK_AT_X <> U_LOOK_AT_X Then
@@ -531,10 +469,15 @@ try_again:
             U_VIEW_RADIUS = VIEW_RADIUS
         End If
     End Sub
+#End Region
+
+
 
 #Region "glControl_main events"
 
     Private Sub glControl_main_MouseDown(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDown
+
+
         If BLOCK_MOUSE Then Return
 
         If MINI_MOUSE_CAPTURED Then

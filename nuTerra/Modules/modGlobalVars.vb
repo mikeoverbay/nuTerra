@@ -52,9 +52,7 @@ Module modGlobalVars
     Public TOTAL_TRIANGLES_DRAWN_MODEL As UInt32
     '============================================================
     Public _STARTED As Boolean 'Signals UI initialization is complete
-    '============================================================
-    Public SYNCMUTEX As New Mutex 'Used to stop rendering during FBO and shader rebuilds
-    '============================================================
+  
     'mouse camera related
     Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE As Boolean ' mouse control booleans
     Public M_MOUSE, MOUSE As New Point

@@ -18,7 +18,6 @@ Module FBO_MiniMap
 
         Public Shared Sub FBO_Initialize(ByVal size As Integer)
             mini_size = size
-            SYNCMUTEX.WaitOne()
             frmMain.glControl_main.MakeCurrent()
 
             ' Stop changing the size becuase of excessive window resize calls.
@@ -37,7 +36,6 @@ Module FBO_MiniMap
                 'reset the size of the text header on the page
 
             End If
-            SYNCMUTEX.ReleaseMutex()
         End Sub
         Public Shared Sub delete_textures_and_fbo()
             'as the name says

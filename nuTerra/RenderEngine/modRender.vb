@@ -7,7 +7,6 @@ Module modRender
     Public PI As Single = 3.14159274F
     Public angle1, angle2 As Single
     Public Sub draw_scene()
-
         '===========================================================================
         ' FLAG INFO
         ' 0  = No shading
