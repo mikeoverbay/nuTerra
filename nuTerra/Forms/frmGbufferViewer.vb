@@ -12,7 +12,7 @@ Public Class frmGbufferViewer
     Private image_scale As Single = 0.25
     Private image_id As Integer = -1
     Dim PROJECTIONMATRIX_GLC As Matrix4
-
+    Dim GLC_VA As Integer
     Private Sub frmTestView_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         Me.Hide()
         e.Cancel = True ' if we close this form, we lose the event handlers added at load time!!
@@ -30,6 +30,9 @@ Public Class frmGbufferViewer
         AddHandler b_normal.CheckedChanged, AddressOf image_changed
         AddHandler b_flags.CheckedChanged, AddressOf image_changed
         image_id = CInt(b_depth.Tag)
+
+        GLC.MakeCurrent()
+        GL.GenVertexArrays(1, GLC_VA)
         update_screen()
 
     End Sub
@@ -48,7 +51,7 @@ Public Class frmGbufferViewer
         PROJECTIONMATRIX_GLC = Matrix4.CreateOrthographicOffCenter(0.0F, GLC.ClientSize.Width, -GLC.ClientSize.Height, 0.0F, -300.0F, 300.0F)
     End Sub
     Public Sub update_screen()
-        'If Not MAP_LOADED Then Return
+
         GLC.MakeCurrent()
         Dim width, height As Integer
         set_viewPort()
@@ -73,6 +76,10 @@ Public Class frmGbufferViewer
         width *= image_scale
         height *= image_scale
 
+        Dim er = GL.GetError
+        GL.BindVertexArray(GLC_VA)
+        Dim er2 = GL.GetError
+
         Select Case image_id
             Case 1
                 toLinearShader.Use()
@@ -91,51 +98,44 @@ Public Class frmGbufferViewer
                             rect.Right,
                             -rect.Bottom)
 
-                GL.BindVertexArray(defaultVao)
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
-                GL.BindTexture(TextureTarget.Texture2D, 0)
 
                 toLinearShader.StopUse()
 
             Case 2
-                image2dShader.Use()
+                image2dFlipShader.Use()
 
-                GL.Uniform1(image2dShader("imageMap"), 0)
-                GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+                GL.Uniform1(image2dFlipShader("imageMap"), 0)
+                GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
                 Dim rect As New RectangleF(0, 0, width, height)
-                GL.Uniform4(image2dShader("rect"),
+                GL.Uniform4(image2dFlipShader("rect"),
                             rect.Left,
                             -rect.Top,
                             rect.Right,
                             -rect.Bottom)
 
-                GL.BindVertexArray(defaultVao)
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-                GL.BindTexture(TextureTarget.Texture2D, 0)
-                image2dShader.StopUse()
+                image2dFlipShader.StopUse()
 
             Case 3
-                image2dShader.Use()
+                image2dFlipShader.Use()
 
-                GL.Uniform1(image2dShader("imageMap"), 0)
-                GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+                GL.Uniform1(image2dFlipShader("imageMap"), 0)
+                GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gPosition)
 
                 Dim rect As New RectangleF(0, 0, width, height)
-                GL.Uniform4(image2dShader("rect"),
+                GL.Uniform4(image2dFlipShader("rect"),
                             rect.Left,
                             -rect.Top,
                             rect.Right,
                             -rect.Bottom)
 
-                GL.BindVertexArray(defaultVao)
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-                GL.BindTexture(TextureTarget.Texture2D, 0)
-                image2dShader.StopUse()
+                image2dFlipShader.StopUse()
 
             Case 4
                 normalOffsetShader.Use()
@@ -150,40 +150,37 @@ Public Class frmGbufferViewer
                             rect.Right,
                             -rect.Bottom)
 
-                Dim er1 = GL.GetError
-                GL.BindVertexArray(defaultVao)
-                Dim er3 = GL.GetError
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-                GL.BindTexture(TextureTarget.Texture2D, 0)
-                Dim cat = 1
-            Case 5
-                image2dShader.Use()
+                normalOffsetShader.StopUse()
 
-                GL.Uniform1(image2dShader("imageMap"), 0)
-                GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+            Case 5
+                image2dFlipShader.Use()
+
+                GL.Uniform1(image2dFlipShader("imageMap"), 0)
+                GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
                 GL.BindTexture(TextureTarget.Texture2D, FBOm.gGMF)
 
                 Dim rect As New RectangleF(0, 0, width, height)
-                GL.Uniform4(image2dShader("rect"),
+                GL.Uniform4(image2dFlipShader("rect"),
                             rect.Left,
                             -rect.Top,
                             rect.Right,
                             -rect.Bottom)
 
-                GL.BindVertexArray(defaultVao)
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-                GL.BindTexture(TextureTarget.Texture2D, 0)
-
-                image2dShader.StopUse()
+                image2dFlipShader.StopUse()
 
         End Select
+        GL.BindTexture(TextureTarget.Texture2D, 0)
 
         GLC.SwapBuffers()  ' swap back to front
 
         'switch back to main context
         frmMain.glControl_main.MakeCurrent()
+        GL.BindVertexArray(defaultVao)
+
     End Sub
     Private Sub frmTestView_Resize(sender As Object, e As EventArgs) Handles Me.Resize
         update_screen()

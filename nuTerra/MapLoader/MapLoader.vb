@@ -289,6 +289,7 @@ Module MapLoader
                     Application.DoEvents() '<-- Give some time to this app's UI
                     Dim good = get_primitive(MAP_MODELS(i).mdl)
                 End If
+                draw_scene()
             Next
 
             '----------------------------------------------------------------

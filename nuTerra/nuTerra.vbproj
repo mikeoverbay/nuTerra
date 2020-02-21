@@ -339,6 +339,12 @@
     <None Include="shaders\Utility\coloredLine2d.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Utility\image2dFlip.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Utility\image2dFlip.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Utility\rect2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

@@ -9,7 +9,6 @@ Imports Tao.DevIl
 'Imports Utilities = OpenTK.Platform.Utilities
 
 Public Class frmMain
-    Private refresh_thread As New Thread(AddressOf updater)
     Private fps_timer As New System.Diagnostics.Stopwatch
     Private game_clock As New System.Diagnostics.Stopwatch
     Private launch_timer As New System.Diagnostics.Stopwatch
@@ -17,8 +16,7 @@ Public Class frmMain
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         _STARTED = False
-        SYNCMUTEX.WaitOne()
-        refresh_thread.Abort()
+        'SYNCMUTEX.WaitOne()
         'Need to add code to close down opengl and delete the resources.
     End Sub
 
@@ -116,18 +114,18 @@ Public Class frmMain
 
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
-        If _STARTED Then
-            If Not Me.WindowState = FormWindowState.Minimized Then
-                FBOm.FBO_Initialize()
-            End If
-        End If
+        'If _STARTED Then
+        '    If Not Me.WindowState = FormWindowState.Minimized Then
+        '        FBOm.FBO_Initialize()
+        '    End If
+        'End If
     End Sub
 
     Private Sub frmMain_ResizeEnd(sender As Object, e As EventArgs) Handles Me.ResizeEnd
-        If _STARTED Then
-            FBOm.FBO_Initialize()
-        End If
-        Dim s = Me.Size
+        'If _STARTED Then
+        '    FBOm.FBO_Initialize()
+        'End If
+        'Dim s = Me.Size
 
     End Sub
 
@@ -384,15 +382,59 @@ try_again:
     Private Sub launch_update_thread()
         fps_timer.Start()
         game_clock.Start()
-        refresh_thread.Priority = ThreadPriority.Highest
-        refresh_thread.IsBackground = True
-        refresh_thread.Name = "refresh_thread"
-        refresh_thread.Start()
         SHOW_MAPS_SCREEN = True '<---- Un-rem to show map menu at startup.
         'We wont use this timer again so lets remove it from memory
         startup_delay_timer.Dispose()
+        closed_loop_updater()
     End Sub
+    Private Sub closed_loop_updater()
+        Dim trigger As Boolean = False
+        Dim w, h As Integer
 
+        While _STARTED
+            FBOm.get_glControl_size(w, h)
+
+            If h <> FBOm.SCR_WIDTH Or w <> FBOm.SCR_HEIGHT Then
+                If Not Me.WindowState = FormWindowState.Minimized Then
+                    FBOm.FBO_Initialize()
+                End If
+            End If
+
+            If game_clock.ElapsedMilliseconds > 33 Then '30 fps animation
+                trigger = True
+            End If
+            If trigger Then
+
+                If Not PAUSE_ORBIT Then
+                    LIGHT_ORBIT_ANGLE += LIGHT_SPEED
+                    If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
+                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                    LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                End If
+                CROSS_HAIR_TIME += 0.02
+                If CROSS_HAIR_TIME > 1.0F Then
+                    CROSS_HAIR_TIME = 0.0F
+                End If
+                'trigger is true so we reset the clock and start it over.
+                game_clock.Restart()
+                trigger = False
+            End If
+
+            If fps_timer.ElapsedMilliseconds > 1000 Then
+                fps_timer.Restart()
+                FPS_TIME = FPS_COUNTER
+                FPS_COUNTER = 0
+            End If
+
+
+            SYNCMUTEX.WaitOne()
+            check_postion_for_update()
+            draw_scene()
+            SYNCMUTEX.ReleaseMutex()
+            Application.DoEvents()
+        End While
+    End Sub
     ''' <summary>
     ''' The main render draw loop thread.
     ''' </summary>

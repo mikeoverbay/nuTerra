@@ -148,6 +148,7 @@ Module ShaderLoader
     Public shaders As List(Of Shader)
 
     Public image2dShader As Shader
+    Public image2dFlipShader As Shader
     Public rect2dShader As Shader
     Public cullShader As Shader
     Public coloredline2dShader As Shader
@@ -172,6 +173,7 @@ Module ShaderLoader
     ''' <remarks></remarks>
     Public Sub build_shaders()
         image2dShader = New Shader("image2d")
+        image2dFlipShader = New Shader("image2dFlip")
         rect2dShader = New Shader("rect2d")
         cullShader = New Shader("cull")
         coloredline2dShader = New Shader("coloredLine2d")
@@ -189,6 +191,7 @@ Module ShaderLoader
 
         shaders = New List(Of Shader)
         shaders.Add(image2dShader)
+        shaders.Add(image2dFlipShader)
         shaders.Add(rect2dShader)
         shaders.Add(cullShader)
         shaders.Add(coloredline2dShader)

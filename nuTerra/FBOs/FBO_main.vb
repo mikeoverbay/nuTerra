@@ -9,8 +9,8 @@ Module FBO_main
     Public NotInheritable Class FBOm
         Public Shared SCR_WIDTH, SCR_HEIGHT As Int32
         Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition As Integer
-        Private Shared oldWidth As Integer = 1
-        Private Shared oldHeigth As Integer = 1
+        Public Shared oldWidth As Integer = 1
+        Public Shared oldHeigth As Integer = 1
         ' color    = 0
         ' normal   = 1
         ' GMM      = 3
@@ -193,7 +193,10 @@ Module FBO_main
             frmMain.glControl_main.Height = h
             Return
         End Sub
-
+        Public Shared Sub get_glControl_size(ByRef w As Integer, ByRef h As Integer)
+            w = frmMain.glControl_main.Width
+            h = frmMain.glControl_main.Height
+        End Sub
         Public Shared Sub attach_CNGP()
             'attach our render buffer textures.
             GL.DrawBuffers(4, attach_Color_Normal_GMF)
