@@ -2,12 +2,47 @@
 Imports Ionic.Zip
 Imports Tao.DevIl
 Imports System.Xml
+Imports OpenTK
 
 Module TerrainBuilder
     '=======================================================================
     'move this to Modules/modTypeStructures.vb when we are done debugging
+    Public topRight As New vertex_data
+    Public topleft As New vertex_data
+    Public bottomRight As New vertex_data
+    Public bottomleft As New vertex_data
+    Public Structure vertex_data
+        Public vert As Vector3
+        Public uv As Vector2
+        Public norm As Vector3
+        Public hole As Single
+    End Structure
+    Public Structure grid_sec
+        Public bmap As System.Drawing.Bitmap
+        Public calllist_Id As Int32
+        Public normMapID As Int32
+        Public HZ_normMapID As Int32
+        Public colorMapId As Int32
+        Public HZ_colorMapID As Int32
+        Public dominateId As Int32
+        Public location As vector3
+        Public heights(,) As Single
+        Public holes(,) As Single
+        Public heights_avg As Single
+        Public seamCallId As Integer
+        Public has_holes As Integer
+        Public BB_Max As Vector3
+        Public BB_Min As Vector3
+        Public BB() As Vector3
+        Public visible As Boolean
+    End Structure
+
+
     Public NotInheritable Class theMap
-        Public Shared chunks = Nothing
+        Public Shared chunks() As chunk_
+        Public Shared v_data() As terain_V_data_
+        Public Shared render_set() As chunk_render_data_
+
         Public Shared MINI_MAP_ID As Integer
 
         Public Shared skybox_mdl As New base_model_holder_
@@ -15,7 +50,6 @@ Module TerrainBuilder
         Public Shared skybox_path As String
     End Class
     Public Structure chunk_
-        Public name As String
         Public cdata() As Byte
         Public heights_data() As Byte
         Public blend_textures_data() As Byte
@@ -23,11 +57,43 @@ Module TerrainBuilder
         Public holes_data() As Byte
         Public layers_data() As Byte
         Public normals_data() As Byte
+
+        Public location As Vector2
+        Public has_holes As Boolean
+        Public name As String
+    End Structure
+    Public Structure terain_V_data_
+        Public holes(,) As Single
+        Public heights(,) As Single
+        Public avg_heights As Single
+        Public normals(,) As Vector3
+        Public max_height As Single
+        Public min_height As Single
+        Public BB_Max As Vector3
+        Public BB_Min As Vector3
+        Public BB() As Vector3
+    End Structure
+    Public Structure chunk_render_data_
+        Public mBuffers() As Integer
+        Public VAO As Integer
+        Public matrix As Matrix4
+        ' Texture IDs and such below
     End Structure
     '=======================================================================
     Public Sub Create_Terrain()
+
         get_all_chunk_file_data()
+
+        For I = 0 To theMap.chunks.Length - 1
+            get_location(theMap.chunks(I))
+            get_holes(theMap.chunks(I), theMap.v_data(I))
+            get_heights(theMap.chunks(I), theMap.v_data(I))
+            get_normals(theMap.chunks(I), theMap.v_data(I))
+            get_mesh(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
+        Next
+
     End Sub
+
     Public Sub get_all_chunk_file_data()
         'Reads and stores the contents of each cdata_processed
         Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
@@ -42,32 +108,39 @@ Module TerrainBuilder
         theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, mm.FileName, False, False)
         mss.Dispose()
         '==========================================================
-        'getting mini map team cons here
+        'getting mini map team icons here
 
         TEAM_1_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_1.png")
         TEAM_2_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
 
         '==========================================================
+        'I don't expect any maps larger than 225 chunks
+        Dim Expected_max_chunk_count As Integer = 15 * 15
+        ReDim theMap.chunks(Expected_max_chunk_count)
+        ReDim theMap.v_data(Expected_max_chunk_count)
+        ReDim theMap.render_set(Expected_max_chunk_count)
 
-
-        Dim chunks(15 * 15) As chunk_ 'I don't expect any maps larger than 225 chunks
         Dim cnt As Integer = 0
         For Each entry In MAP_PACKAGE.Entries
 
             'find cdata chunks
             If entry.FileName.Contains("cdata") Then
+                '-- make room
+                theMap.v_data(cnt) = New terain_V_data_
+                theMap.chunks(cnt) = New chunk_
+                theMap.render_set(cnt) = New chunk_render_data_
 
-                chunks(cnt).name = Path.GetFileNameWithoutExtension(entry.FileName)
+                theMap.chunks(cnt).name = Path.GetFileNameWithoutExtension(entry.FileName)
 
                 Dim ms As New MemoryStream
                 entry.Extract(ms)
 
-                ReDim chunks(cnt).cdata(ms.Length)
+                ReDim theMap.chunks(cnt).cdata(ms.Length)
                 ms.Position = 0
                 Dim br As New BinaryReader(ms)
-                chunks(cnt).cdata = br.ReadBytes(ms.Length)
+                theMap.chunks(cnt).cdata = br.ReadBytes(ms.Length)
 
-                Dim cms As New MemoryStream(chunks(cnt).cdata)
+                Dim cms As New MemoryStream(theMap.chunks(cnt).cdata)
                 cms.Position = 0
                 Using t2 As Ionic.Zip.ZipFile = Ionic.Zip.ZipFile.Read(cms)
 
@@ -75,36 +148,61 @@ Module TerrainBuilder
                     br = New BinaryReader(stream)
 
                     Dim blend = t2("terrain2/blend_textures")
+                    stream = New MemoryStream
                     blend.Extract(stream)
                     stream.Position = 0
-                    chunks(cnt).blend_textures_data = br.ReadBytes(stream.Length)
+                    theMap.chunks(cnt).blend_textures_data = br.ReadBytes(stream.Length)
 
                     Dim dominate = t2("terrain2/dominanttextures")
+                    stream = New MemoryStream
                     dominate.Extract(stream)
                     stream.Position = 0
-                    chunks(cnt).dominateTestures_data = br.ReadBytes(stream.Length)
+                    br = New BinaryReader(stream)
+                    theMap.chunks(cnt).dominateTestures_data = br.ReadBytes(stream.Length)
 
                     Dim heights = t2("terrain2/heights")
+                    stream = New MemoryStream
                     heights.Extract(stream)
                     stream.Position = 0
-                    chunks(cnt).heights_data = br.ReadBytes(stream.Length)
+                    br = New BinaryReader(stream)
+                    theMap.chunks(cnt).heights_data = br.ReadBytes(stream.Length)
 
                     Dim layers = t2("terrain2/layers")
+                    stream = New MemoryStream
                     layers.Extract(stream)
                     stream.Position = 0
-                    chunks(cnt).layers_data = br.ReadBytes(stream.Length)
+                    br = New BinaryReader(stream)
+                    theMap.chunks(cnt).layers_data = br.ReadBytes(stream.Length)
 
                     Dim normals = t2("terrain2/normals")
+                    stream = New MemoryStream
                     normals.Extract(stream)
                     stream.Position = 0
-                    chunks(cnt).normals_data = br.ReadBytes(stream.Length)
+                    br = New BinaryReader(stream)
+                    theMap.chunks(cnt).normals_data = br.ReadBytes(stream.Length)
+
+                    Dim holes = t2("terrain2/holes")
+                    If holes IsNot Nothing Then
+                        theMap.chunks(cnt).has_holes = True
+                        stream = New MemoryStream
+                        holes.Extract(stream)
+                        stream.Position = 0
+                        br = New BinaryReader(stream)
+                        theMap.chunks(cnt).holes_data = br.ReadBytes(stream.Length)
+                    Else
+                        theMap.chunks(cnt).has_holes = False
+                    End If
                 End Using
-                chunks(cnt).cdata = Nothing ' Free up memory
+                theMap.chunks(cnt).cdata = Nothing ' Free up memory now that its processed
+
                 cnt += 1
 
             End If
         Next
-        ReDim Preserve chunks(cnt - 1)
+
+        ReDim Preserve theMap.chunks(cnt - 1)
+        ReDim Preserve theMap.v_data(cnt - 1)
+        ReDim Preserve theMap.render_set(cnt - 1)
 
     End Sub
 
@@ -216,5 +314,6 @@ Module TerrainBuilder
         'Stop
         Return True
     End Function
+
 
 End Module

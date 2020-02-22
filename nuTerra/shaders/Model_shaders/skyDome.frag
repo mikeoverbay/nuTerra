@@ -10,5 +10,5 @@ in vec2 texCoord;
 void main(void)
 {
     gColor = texture(imageMap, texCoord);
-    gGMF = vec3(0.0, 0.0, 0.0 ); //First to render and we want no lighting
+    gGMF = vec3(0.0, 0.0, 1.0 ); //First to render and we want no lighting
 }

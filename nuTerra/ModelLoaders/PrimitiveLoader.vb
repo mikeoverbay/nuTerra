@@ -324,7 +324,7 @@ Module PrimitiveLoader
 
     End Sub
 
-    Private Function unpackNormal_8_8_8(packed As UInt32) As Vector3
+    Public Function unpackNormal_8_8_8(packed As UInt32) As Vector3
         Dim pkz, pky, pkx As Int32
         pkx = CLng(packed) And &HFF Xor 127
         pky = CLng(packed >> 8) And &HFF Xor 127

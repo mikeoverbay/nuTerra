@@ -15,7 +15,7 @@ void main(void)
     }
     else if (gl_VertexID == 1) {
         co = rect.xy;
-        uv = vec2(0.0f, 2.0f);
+        uv = vec2(0.0f, 1.0f);
     }
     else if (gl_VertexID == 2) {
         co = rect.zw;

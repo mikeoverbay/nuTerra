@@ -54,11 +54,13 @@ void main (void)
     // or just 0.0 to mask any shading.
     //
     // If FLAG = 0 we want NO shading done to the color.
+	// Models = 64
+	// Dome = 255
     // Just output gColor to outColor;
-    if (FLAG != 0) {
+    if (FLAG != 000) {
     // FLAG VALUES WILL BE DECIDED AS WE NEED THEM BUT..
     // ZERO = JUST PASS THE COLOR TO OUTPUT
-
+	if (FLAG != 255) {
     vec3 Position = texture(gPosition, UV).xyz;
 
     vec4 color_in = texture(gColor, UV);
@@ -108,9 +110,14 @@ void main (void)
     outColor =  correct(final_color,4.0);
     outColor.a = 1.0;
     /*===================================================================*/
-    // if flag != 0
+	 //if flag != 128
+		}else{
+	    outColor = texture(gColor, UV) * BRIGHTNESS;
+		}
+     // if flag != 0
     }else{
     outColor = texture(gColor, UV);
-    outColor.a = 1.0;
     }
+
+    outColor.a = 1.0;
 }

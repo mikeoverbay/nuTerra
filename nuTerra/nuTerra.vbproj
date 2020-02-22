@@ -99,6 +99,9 @@
       <HintPath>..\packages\OpenTK.GLControl.3.1.0\lib\net20\OpenTK.GLControl.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Pngcs">
+      <HintPath>.\Pngcs.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Deployment" />
@@ -170,6 +173,7 @@
     <Compile Include="Forms\frmShowText.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="MapLoader\ChunkFunctions.vb" />
     <Compile Include="MapLoader\frmLoadOptions.designer.vb">
       <DependentUpon>frmLoadOptions.vb</DependentUpon>
     </Compile>
@@ -318,6 +322,12 @@
     <None Include="shaders\Model_shaders\skyDome.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Terrain_shaders\Terrain.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\Terrain.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Trials\test.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -420,6 +430,9 @@
     <Content Include="HTML\index.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="ICSharpCode.SharpZipLib.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="ILU.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -427,6 +440,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="light_settings\readme.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Pngcs.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\cross_hair_texture.png">

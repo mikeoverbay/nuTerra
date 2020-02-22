@@ -366,6 +366,7 @@ Module MapLoader
         'As it says.. create the terrain
         If DONT_BLOCK_TERRAIN Then
             Create_Terrain()
+            TERRAIN_LOADED = True
             'TO DO and there is lots
         End If 'DONT_BLOCK_TERRAIN
         '===============================================================

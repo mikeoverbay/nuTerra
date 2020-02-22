@@ -384,13 +384,6 @@ try_again:
 
 #Region "Screen position and update"
 
-    ''' <summary>
-    ''' Sets up and starts the main render loop
-    ''' </summary>
-    ''' <remarks>
-    ''' Also starts the gametimer stopwatch and
-    ''' disposes the startup_delay timer.
-    ''' </remarks>
     Private Sub launch_update_thread()
         fps_timer.Start()
         game_clock.Start()
@@ -414,7 +407,7 @@ try_again:
                 LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
                 LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
             End If
-            CROSS_HAIR_TIME += (DELTA_TIME * 0.02)
+            CROSS_HAIR_TIME += (DELTA_TIME * 0.5)
             If CROSS_HAIR_TIME > 1.0F Then
                 CROSS_HAIR_TIME = 0.0F
             End If
@@ -428,7 +421,6 @@ try_again:
             End If
             '==============================================================
 
-
             '==============================================================
             check_postion_for_update()
             draw_scene()
@@ -436,6 +428,7 @@ try_again:
             '==============================================================
 
             '==============================================================
+            'DELTA_TIME is elpased decimal seconds time. IE: 0.0003 seconds
             Time_after = game_clock.ElapsedTicks
             DELTA_TIME = CSng((Time_after - Time_before) / Stopwatch.Frequency)
             game_clock.Restart()
