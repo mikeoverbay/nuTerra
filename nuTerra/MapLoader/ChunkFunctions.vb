@@ -40,50 +40,28 @@ Module ChunkFunctions
                 topleft.vert.Z = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
-                topleft.norm = pack_2_10_10_10(v_data.normals((i), (j)))
-                If chunk.has_holes Then
-                    topleft.hole = v_data.holes(i, j)
-                Else
-                    topleft.hole = 0.0F
-                End If
+                topleft.norm = pack_2_10_10_10(v_data.normals((i), (j)), If(chunk.has_holes, v_data.holes(i, j), 0))
 
                 topRight.vert.X = (i + 1) - w_
                 topRight.vert.Y = v_data.heights((i + 1), (j))
                 topRight.vert.Z = (j) - h_
                 topRight.uv.X = (i + 1) * uvScale
                 topRight.uv.Y = (j) * uvScale
-                topRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j)))
-                If chunk.has_holes Then
-                    topRight.hole = v_data.holes(i, j)
-                Else
-                    topRight.hole = 0.0F
-                End If
-
+                topRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j)), If(chunk.has_holes, v_data.holes(i, j), 0))
 
                 bottomRight.vert.X = (i + 1) - w_
                 bottomRight.vert.Y = v_data.heights((i + 1), (j + 1))
                 bottomRight.vert.Z = (j + 1) - h_
                 bottomRight.uv.X = (i + 1) * uvScale
                 bottomRight.uv.Y = (j + 1) * uvScale
-                bottomRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j + 1)))
-                If chunk.has_holes Then
-                    bottomRight.hole = v_data.holes(i, j)
-                Else
-                    bottomRight.hole = 0.0F
-                End If
-
+                bottomRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j + 1)), If(chunk.has_holes, v_data.holes(i, j), 0))
 
                 bottomleft.vert.X = (i) - w_
                 bottomleft.vert.Y = v_data.heights((i), (j + 1))
                 bottomleft.vert.Z = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
-                bottomleft.norm = pack_2_10_10_10(v_data.normals((i), (j + 1)))
-                If chunk.has_holes Then
-                    bottomleft.hole = v_data.holes(i, j)
-                Else
-                    bottomleft.hole = 0.0F
-                End If
+                bottomleft.norm = pack_2_10_10_10(v_data.normals((i), (j + 1)), If(chunk.has_holes, v_data.holes(i, j), 0))
 
                 ' TL --------- TR
                 '  |         . |
@@ -148,12 +126,6 @@ Module ChunkFunctions
                                VertexAttribPointerType.Int2101010Rev,
                                True, vertex_data_size, 20)
         GL.EnableVertexAttribArray(2)
-
-        ' holes
-        GL.VertexAttribPointer(3, 1,
-                               VertexAttribPointerType.Float,
-                               False, vertex_data_size, 24)
-        GL.EnableVertexAttribArray(3)
 
         GL.BufferData(BufferTarget.ArrayBuffer,
                       v_buff.Length * vertex_data_size,

@@ -15,8 +15,8 @@ Module TerrainBuilder
         Public vert As Vector3
         Public uv As Vector2
         Public norm As UInt32
-        Public hole As Single
     End Structure
+
     Public Structure grid_sec
         Public bmap As System.Drawing.Bitmap
         Public calllist_Id As Int32
@@ -25,7 +25,7 @@ Module TerrainBuilder
         Public colorMapId As Int32
         Public HZ_colorMapID As Int32
         Public dominateId As Int32
-        Public location As vector3
+        Public location As Vector3
         Public heights(,) As Single
         Public holes(,) As Single
         Public heights_avg As Single
@@ -62,8 +62,9 @@ Module TerrainBuilder
         Public has_holes As Boolean
         Public name As String
     End Structure
+
     Public Structure terain_V_data_
-        Public holes(,) As Single
+        Public holes(,) As UInt32
         Public heights(,) As Single
         Public avg_heights As Single
         Public normals(,) As Vector3
@@ -73,6 +74,7 @@ Module TerrainBuilder
         Public BB_Min As Vector3
         Public BB() As Vector3
     End Structure
+
     Public Structure chunk_render_data_
         Public mBuffers() As Integer
         Public VAO As Integer

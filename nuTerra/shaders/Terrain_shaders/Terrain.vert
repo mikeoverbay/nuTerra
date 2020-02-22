@@ -3,8 +3,7 @@
 
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec2 vertexTexCoord;
-layout(location = 2) in vec3 vertexNormal;
-layout(location = 3) in float hole;
+layout(location = 2) in vec4 vertexNormal;
 
 
 uniform mat4 model;
@@ -19,7 +18,7 @@ flat out float is_hole;
 void main(void)
 {
     UV =  vertexTexCoord;
-	is_hole = hole;
+	is_hole = vertexNormal.w;
 
 	worldPosition = vec3(view * model * vec4(vertexPosition, 1.0));
 
