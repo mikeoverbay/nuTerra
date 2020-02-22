@@ -11,8 +11,6 @@ uniform sampler2D normalMap;
 uniform sampler2D GMF_Map;
 
 uniform int nMap_type;
-uniform int alphaEnable;
-uniform int alphaReference;
 
 in vec3 worldPosition;
 in vec2 UV;

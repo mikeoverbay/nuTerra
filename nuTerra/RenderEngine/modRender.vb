@@ -198,7 +198,6 @@ Module modRender
         GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
 
         GL.UniformMatrix4(TerrainShader("projection"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(TerrainShader("view"), False, VIEWMATRIX)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
         GL.BindTexture(TextureTarget.Texture2D, theMap.MINI_MAP_ID) '<----------------- Texture Bind
@@ -210,7 +209,9 @@ Module modRender
         GL.Enable(EnableCap.CullFace)
 
         For i = 0 To theMap.render_set.Length - 1
-            GL.UniformMatrix4(TerrainShader("model"), False, theMap.render_set(i).matrix)
+            Dim viewModel = theMap.render_set(i).matrix * VIEWMATRIX
+            GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
+            GL.UniformMatrix3(TerrainShader("normalMatrix"), True, New Matrix3(viewModel))
 
             GL.BindVertexArray(theMap.render_set(i).VAO)
             GL.DrawArrays(PrimitiveType.Triangles, 0, 64 * 64 * 6)
@@ -622,15 +623,11 @@ Module modRender
 #End Region
 
     Private Sub Draw_SkyDome()
-
-        GL.DepthMask(False)
         FBOm.attach_CF()
         SkyDomeShader.Use()
-        GL.FrontFace(FrontFaceDirection.Cw)
+        GL.Enable(EnableCap.CullFace)
         Dim model = Matrix4.CreateTranslation(CAM_POSITION.X, CAM_POSITION.Y + 3, CAM_POSITION.Z)
-        GL.UniformMatrix4(SkyDomeShader("model"), False, model)
-        GL.UniformMatrix4(SkyDomeShader("view"), False, VIEWMATRIX)
-        GL.UniformMatrix4(SkyDomeShader("projection"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(SkyDomeShader("mvp"), False, model * VIEWMATRIX * PROJECTIONMATRIX)
         GL.Uniform1(SkyDomeShader("imageMap"), 0)
 
         GL.ActiveTexture(TextureUnit.Texture0)
@@ -643,9 +640,7 @@ Module modRender
                         0)
         SkyDomeShader.StopUse()
         GL.BindTexture(TextureTarget.Texture2D, 0)
-        GL.FrontFace(FrontFaceDirection.Ccw)
-        GL.DepthMask(True)
-
+        GL.Disable(EnableCap.CullFace)
     End Sub
 
     Private Sub draw_overlays()
