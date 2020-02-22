@@ -27,7 +27,7 @@ Module modSpacedBinVars
             Dim buffer = br.ReadBytes(size * count)
             Dim handle = GCHandle.Alloc(buffer, GCHandleType.Pinned)
             For i = 0 To count - 1
-                data(i) = Marshal.PtrToStructure(Marshal.UnsafeAddrOfPinnedArrayElement(buffer, i * size), GetType(t))
+                data(i) = Marshal.PtrToStructure(Marshal.UnsafeAddrOfPinnedArrayElement(buffer, CType(i * size, Integer)), GetType(t))
             Next
             handle.Free()
         End Sub

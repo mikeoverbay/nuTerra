@@ -14,7 +14,7 @@ Module TerrainBuilder
     Public Structure vertex_data
         Public vert As Vector3
         Public uv As Vector2
-        Public norm As Vector3
+        Public norm As UInt32
         Public hole As Single
     End Structure
     Public Structure grid_sec

@@ -104,7 +104,23 @@ Module modOpenGL
 
     End Sub
 
-    Public Sub DebugOutputCallback(source As DebugSource,
+    Private Function quantize(x As Single) As UInt32
+        Dim qx As Int32 = MathHelper.Clamp(CType(x * 511.0F, Int32), -511, 511)
+        If qx < 0 Then
+            Return 512 Or CType(-1 * qx, UInt32)
+        Else
+            Return qx
+        End If
+    End Function
+
+    Public Function pack_2_10_10_10(unpacked As Vector3) As UInt32
+        Dim packed_x As UInt32 = quantize(unpacked.X)
+        Dim packed_y As UInt32 = quantize(unpacked.Y)
+        Dim packed_z As UInt32 = quantize(unpacked.Z)
+        Return packed_x Or (packed_y << 10) Or (packed_z << 20)
+    End Function
+
+    Private Sub DebugOutputCallback(source As DebugSource,
                                    type As DebugType,
                                    id As UInteger,
                                    severity As DebugSeverity,

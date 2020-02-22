@@ -239,6 +239,10 @@ try_again:
 
 #If DEBUG Then
         Dim extensios = GL.GetString(StringName.Extensions)
+
+        ' Just check
+        Debug.Assert(extensios.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
+
         If extensios.Contains("GL_KHR_debug") And extensios.Contains("GL_ARB_debug_output") Then
             If GL.GetInteger(GetPName.ContextFlags) And ContextFlagMask.ContextFlagDebugBit Then
                 LogThis("Setup Debug Output Callback")

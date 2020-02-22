@@ -1,18 +1,13 @@
-﻿#Region "Imports"
-Imports System
-Imports System.IO
-Imports Ionic.Zip
-Imports Tao.DevIl
-Imports System.Xml
-Imports Ionic
-Imports OpenTK.Graphics.OpenGL4
-Imports OpenTK
+﻿Imports System.IO
+Imports System.Runtime.InteropServices
 Imports Hjg.Pngcs
-Imports Hjg.Pngcs.Chunks
+Imports Ionic
+Imports OpenTK
+Imports OpenTK.Graphics.OpenGL4
 
-#End Region
 
 Module ChunkFunctions
+    Private vertex_data_size As Integer = Marshal.SizeOf(GetType(vertex_data))
 
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
@@ -45,9 +40,7 @@ Module ChunkFunctions
                 topleft.vert.Z = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
-                topleft.norm.X = v_data.normals((i), (j)).X
-                topleft.norm.Y = v_data.normals((i), (j)).Y
-                topleft.norm.Z = v_data.normals((i), (j)).Z
+                topleft.norm = pack_2_10_10_10(v_data.normals((i), (j)))
                 If chunk.has_holes Then
                     topleft.hole = v_data.holes(i, j)
                 Else
@@ -59,9 +52,7 @@ Module ChunkFunctions
                 topRight.vert.Z = (j) - h_
                 topRight.uv.X = (i + 1) * uvScale
                 topRight.uv.Y = (j) * uvScale
-                topRight.norm.X = v_data.normals((i + 1), (j)).X
-                topRight.norm.Y = v_data.normals((i + 1), (j)).Y
-                topRight.norm.Z = v_data.normals((i + 1), (j)).Z
+                topRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j)))
                 If chunk.has_holes Then
                     topRight.hole = v_data.holes(i, j)
                 Else
@@ -74,9 +65,7 @@ Module ChunkFunctions
                 bottomRight.vert.Z = (j + 1) - h_
                 bottomRight.uv.X = (i + 1) * uvScale
                 bottomRight.uv.Y = (j + 1) * uvScale
-                bottomRight.norm.X = v_data.normals((i + 1), (j + 1)).X
-                bottomRight.norm.Y = v_data.normals((i + 1), (j + 1)).Y
-                bottomRight.norm.Z = v_data.normals((i + 1), (j + 1)).Z
+                bottomRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j + 1)))
                 If chunk.has_holes Then
                     bottomRight.hole = v_data.holes(i, j)
                 Else
@@ -89,9 +78,7 @@ Module ChunkFunctions
                 bottomleft.vert.Z = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
-                bottomleft.norm.X = v_data.normals((i), (j + 1)).X
-                bottomleft.norm.Y = v_data.normals((i), (j + 1)).Y
-                bottomleft.norm.Z = v_data.normals((i), (j + 1)).Z
+                bottomleft.norm = pack_2_10_10_10(v_data.normals((i), (j + 1)))
                 If chunk.has_holes Then
                     bottomleft.hole = v_data.holes(i, j)
                 Else
@@ -128,11 +115,13 @@ Module ChunkFunctions
                 cnt += 6
             Next
         Next
+
         'we can remove 2 vertices by adding a indices list!
         Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
-        If max_vertex_elements < (v_buff.Length) * 36 Then
+        If max_vertex_elements < v_buff.Length * vertex_data_size Then
             Stop ' not room for this big a vertex buffer
         End If
+
         'Gen VAO id
         GL.GenVertexArrays(1, r_set.VAO)
         GL.BindVertexArray(r_set.VAO)
@@ -141,26 +130,36 @@ Module ChunkFunctions
         GL.GenBuffers(1, r_set.mBuffers)
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(0))
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 36, 0)
+
+        ' pos
+        GL.VertexAttribPointer(0, 3,
+                               VertexAttribPointerType.Float,
+                               False, vertex_data_size, 0)
         GL.EnableVertexAttribArray(0)
-        GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, False, 36, 12)
+
+        ' uv
+        GL.VertexAttribPointer(1, 2,
+                               VertexAttribPointerType.Float,
+                               False, vertex_data_size, 12)
         GL.EnableVertexAttribArray(1)
-        GL.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, False, 36, 20)
+
+        ' normals
+        GL.VertexAttribPointer(2, 4,
+                               VertexAttribPointerType.Int2101010Rev,
+                               True, vertex_data_size, 20)
         GL.EnableVertexAttribArray(2)
-        GL.VertexAttribPointer(3, 1, VertexAttribPointerType.Float, False, 36, 32)
+
+        ' holes
+        GL.VertexAttribPointer(3, 1,
+                               VertexAttribPointerType.Float,
+                               False, vertex_data_size, 24)
         GL.EnableVertexAttribArray(3)
 
-        GL.BufferData(BufferTarget.ArrayBuffer, (v_buff.Length) * 36, v_buff, BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ArrayBuffer,
+                      v_buff.Length * vertex_data_size,
+                      v_buff, BufferUsageHint.StaticDraw)
 
-        'GL.BindBuffer(BufferTarget.ElementArrayBuffer, mdl.mBuffers(0))
-        'GL.BufferData(BufferTarget.ElementArrayBuffer,
-        '              mdl.indice_count * 6,
-        '              index_buffer16,
-        '              BufferUsageHint.StaticDraw)
-
-        'GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
         GL.BindVertexArray(0)
-
     End Sub
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)
@@ -233,7 +232,7 @@ Module ChunkFunctions
 
         r.Position = 0
         ReDim v.BB(15)
-        Dim f = New BinaryReader(r)
+        Dim f As New BinaryReader(r)
         Dim magic = f.ReadUInt32()
         Dim h_width = f.ReadUInt32
         Dim h_height = f.ReadUInt32
@@ -273,7 +272,7 @@ Module ChunkFunctions
         End Using
         Dim quantized As Single
 
-        Dim ms As MemoryStream = New MemoryStream(data, False)
+        Dim ms As New MemoryStream(data, False)
         Dim br As New BinaryReader(ms)
         Dim sv, ev As Integer
         Dim ty As Integer
@@ -350,7 +349,7 @@ Module ChunkFunctions
         Dim i As UInt32 = 0
         Dim s As New MemoryStream(c.normals_data)
         s.Position = 0
-        Dim br = New BinaryReader(s)
+        Dim br As New BinaryReader(s)
         Dim cols As Integer = 0
         Dim x, y As UInt32
         'Try
@@ -424,8 +423,6 @@ Module ChunkFunctions
         Catch ex As Exception
 
         End Try
-
-
     End Sub
 
     Private Sub get_translated_bb_terrain(ByRef BB() As Vector3, ByRef c As terain_V_data_)

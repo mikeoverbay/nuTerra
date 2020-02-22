@@ -42,9 +42,11 @@ Module modRender
         set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
-        '===========================================================================
-        frustum_cull()
-        '===========================================================================
+        If MODELS_LOADED Then
+            '=======================================================================
+            frustum_cull()
+            '=======================================================================
+        End If
 
         '===========================================================================
         FBOm.attach_CNGP() 'clear ALL gTextures!
@@ -204,12 +206,18 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
+
+        GL.Enable(EnableCap.CullFace)
+
         For i = 0 To theMap.render_set.Length - 1
             GL.UniformMatrix4(TerrainShader("model"), False, theMap.render_set(i).matrix)
 
             GL.BindVertexArray(theMap.render_set(i).VAO)
             GL.DrawArrays(PrimitiveType.Triangles, 0, 64 * 64 * 6)
         Next
+
+        GL.Disable(EnableCap.CullFace)
+
         TerrainShader.StopUse()
         unbind_textures(2)
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
