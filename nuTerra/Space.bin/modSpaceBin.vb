@@ -220,9 +220,9 @@ CleanUp:
 
         'Clear Sections
         cBSGD = Nothing
-        cBWST = Nothing
+        'cBWST = Nothing
         cBWSG = Nothing
-        cBWT2 = Nothing
+        'cBWT2 = Nothing
         cBSMI = Nothing
         cWTbl = Nothing
         cBSMO = Nothing

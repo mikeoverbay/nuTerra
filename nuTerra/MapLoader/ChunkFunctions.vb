@@ -249,9 +249,9 @@ Module ChunkFunctions
         Dim sv, ev As Integer
         Dim ty As Integer
         If mapsize < 64 Then
-            'ReDim bmp_data(64, 64)
+            ReDim v.heights(64, 64)
             Dim div = 64 / (mapsize - 5)
-            ReDim v.heights(63, 63)
+            ReDim v.heights(64, 64)
             HEIGHTMAPSIZE = 64
             For j As UInt32 = 2 To mapsize - 4
                 For i As UInt32 = 2 To mapsize - 4
@@ -261,7 +261,6 @@ Module ChunkFunctions
                     For xp = (i - 2) * div To (((i + 1) - 2) * div)
                         Dim ii = (i - 2) * div
                         Dim xval As Single = (ev - sv) * ((xp - ii) / div)
-                        'bmp_data(64 - xp, (j - 2) * div) = (xval + sv) * 0.001
                         v.heights(64 - xp, (j - 2) * div) = (xval + sv) * 0.001
                         ty = xp
 
@@ -270,14 +269,11 @@ Module ChunkFunctions
                         For yp = (j - 2) * div To (((j + 1) - 2) * div)
                             Dim jj = (j - 2) * div
                             Dim yval As Single = (ev - sv) * ((yp - jj) / div)
-                            'bmp_data(64 - xp, yp) = (yval + sv) * 0.001
                             v.heights(64 - xp, yp) = (yval + sv) * 0.001
                         Next
                     Next
-                    ' Debug.Write(qtized & vbCrLf)
                 Next
             Next
-
         Else
 
             'ReDim bmp_data(HEIGHTMAPSIZE, HEIGHTMAPSIZE)
@@ -337,23 +333,47 @@ Module ChunkFunctions
         End If
 
         ReDim v.normals(63, 63)
-        Dim nBuff(x * y) As Byte
-        Dim stride = x
-        nBuff = br.ReadBytes(nBuff.Length - 1)
-        Dim b_stream As New MemoryStream(nBuff)
-        Dim b_reader As New BinaryReader(b_stream)
+        'Dim nBuff(x * y) As Byte
+        'Dim stride = x
+        'nBuff = br.ReadBytes(nBuff.Length - 1)
+        'Dim b_stream As New MemoryStream(nBuff)
+        'Dim b_reader As New BinaryReader(b_stream)
         cnt = 0
-        For j As Integer = 0 To 63
-            For k As Integer = 0 To 63
-                'b_stream.Position = j * stride + k
-                Dim n As Vector3 = unpack16(b_reader.ReadUInt16)
-                Dim n2 As Vector3 = unpack16(b_reader.ReadUInt16)
-                v.normals(k, j).X = n.X
-                v.normals(k, j).Y = n.Y
-                v.normals(k, j).Z = n.Z
+        If x = 256 Then
+            For j As Integer = 0 To 63
+                For k As Integer = 0 To 63
+                    Dim n As Vector3 = unpack16(br.ReadUInt16)
+                    br.ReadUInt16() 'read off un-used
+                    v.normals(k, j) = n
+                Next
             Next
-            'Debug.Write(vbCrLf)
-        Next
+        End If
+        If x = 128 Then
+            For j As Integer = 0 To 63
+                For k As Integer = 0 To 63
+                    Dim n As Vector3 = unpack16(br.ReadUInt16)
+                    v.normals(k, j) = n
+                Next
+            Next
+        End If
+        If x = 16 Then
+            For j As Integer = 0 To 63 Step 8
+                For k As Integer = 0 To 63 Step 8
+                    Dim n As Vector3 = unpack16(br.ReadUInt16)
+                    For i = 0 To 7
+                        v.normals(k + 0, j + i) = n
+                        v.normals(k + 1, j + i) = n
+                        v.normals(k + 2, j + i) = n
+                        v.normals(k + 3, j + i) = n
+                        v.normals(k + 4, j + i) = n
+                        v.normals(k + 5, j + i) = n
+                        v.normals(k + 6, j + i) = n
+                        v.normals(k + 7, j + i) = n
+                    Next i
+                Next k
+            Next j
+        End If
+
         s.Close()
         s.Dispose()
 

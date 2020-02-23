@@ -196,18 +196,17 @@ Module modRender
         TerrainShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
         GL.Uniform1(TerrainShader("colorMap"), 0)
-        'GL.Uniform1(TerrainShader("normalMap"), 1)
-        GL.Uniform1(TerrainShader("GMF_Map"), 1)
-        'GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
+        GL.Uniform1(TerrainShader("normalMap"), 1)
+        GL.Uniform1(TerrainShader("GMF_Map"), 2)
+        GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
 
         GL.UniformMatrix4(TerrainShader("projection"), False, PROJECTIONMATRIX)
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
-        'GL.BindTexture(TextureTarget.Texture2D, theMap.MINI_MAP_ID) '<----------------- Texture Bind
         GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<----------------- Texture Bind
-        'GL.ActiveTexture(TextureUnit.Texture0 + 1)
-        'GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 1)
+        GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
+        GL.ActiveTexture(TextureUnit.Texture0 + 2)
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
         GL.Enable(EnableCap.CullFace)
@@ -223,7 +222,7 @@ Module modRender
         GL.Disable(EnableCap.CullFace)
 
         TerrainShader.StopUse()
-        unbind_textures(1)
+        unbind_textures(2)
 
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             GL.Disable(EnableCap.PolygonOffsetFill)

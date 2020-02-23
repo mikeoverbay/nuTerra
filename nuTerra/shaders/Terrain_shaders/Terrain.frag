@@ -12,11 +12,29 @@ uniform sampler2D GMF_Map;
 
 uniform int nMap_type;
 
+in mat3 TBN;
 in vec3 worldPosition;
 in vec2 UV;
 in vec3 normal;//temp fro debuging lighting
 flat in float is_hole;
 
+
+vec3 getNormal()
+{
+    vec3 n;
+    if (nMap_type == 1 ) {
+        // GA map
+        // We must clamp and max these to -1.0 to 1.0 to stop artifacts!
+        n.xy = clamp(texture(normalMap, UV).ag*2.0-1.0, -1.0 ,1.0);
+        n.y = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
+        n.xyz = n.xzy;
+    } else {
+        // RGB map
+        n = texture(normalMap, UV).rgb*2.0-1.0;
+    }
+    n = normalize(TBN * n);
+    return n;
+}
 //very basic for now
 void main(void)
 {
@@ -26,7 +44,7 @@ void main(void)
     gColor = texture(colorMap, UV);
     gColor.a = 1.0;
 
-    gNormal.xyz = normal;
+    gNormal.xyz = getNormal();
     gGMF.rg = texture(GMF_Map, UV).rg;
     gGMF.b = 128.0/255.0;
 

@@ -48,6 +48,16 @@ Module TerrainBuilder
         Public Shared skybox_mdl As New base_model_holder_
         Public Shared Sky_Texture_Id As Integer
         Public Shared skybox_path As String
+
+        Public Shared chunk_size As Single ' space.settings/chunkSize or 100.0 by default
+        Public Shared bounds_minX As Int32 ' space.settings/bounds
+        Public Shared bounds_maxX As Int32 ' space.settings/bounds
+        Public Shared bounds_minY As Int32 ' space.settings/bounds
+        Public Shared bounds_maxY As Int32 ' space.settings/bounds
+        Public Shared normal_map As String
+        Public Shared global_map As String ' global_AM.dds
+        Public Shared noise_texture As String ' noiseTexture
+
     End Class
     Public Structure chunk_
         Public cdata() As Byte
@@ -123,17 +133,34 @@ Module TerrainBuilder
         ReDim theMap.render_set(Expected_max_chunk_count)
 
         Dim cnt As Integer = 0
-        For Each entry In MAP_PACKAGE.Entries
+        With cBWT2.settings
+            theMap.chunk_size = .chunk_size
+            theMap.bounds_maxX = .bounds_maxX
+            theMap.bounds_maxY = .bounds_maxY
+            theMap.bounds_minX = .bounds_minX
+            theMap.bounds_minY = .bounds_minY
 
-            'find cdata chunks
-            If entry.FileName.Contains("cdata") Then
+            theMap.global_map = .global_map
+            theMap.normal_map = .normal_map
+            theMap.noise_texture = .noise_texture
+        End With
+        For i = 0 To cBWT2.cdatas.count - 1
+            With cBWT2.cdatas.data(i)
+                Dim chunk_name As String = .resource
+                Dim loc_x = .loc_x
+                Dim loc_y = .loc_y
+
+
                 '-- make room
                 theMap.v_data(cnt) = New terain_V_data_
                 theMap.chunks(cnt) = New chunk_
                 theMap.render_set(cnt) = New chunk_render_data_
 
-                theMap.chunks(cnt).name = Path.GetFileNameWithoutExtension(entry.FileName)
+                Dim s = Left(chunk_name, chunk_name.IndexOf("/"))
 
+                theMap.chunks(cnt).name = s
+
+                Dim entry = MAP_PACKAGE("spaces/" + ABS_NAME + "/" + s)
                 Dim ms As New MemoryStream
                 entry.Extract(ms)
 
@@ -199,8 +226,10 @@ Module TerrainBuilder
 
                 cnt += 1
 
-            End If
+            End With
         Next
+        cBWT2 = Nothing
+        cBWST = Nothing
 
         ReDim Preserve theMap.chunks(cnt - 1)
         ReDim Preserve theMap.v_data(cnt - 1)
