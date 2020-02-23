@@ -239,20 +239,19 @@ try_again:
 
 #If DEBUG Then
         Dim n, i As Integer
-        Dim extensios As String = ""
+        Dim extensions As New List(Of String)
         GL.GetInteger(GetPName.NumExtensions, n)
         For i = 0 To n
-            extensios += GL.GetString(StringNameIndexed.Extensions, i) + vbCrLf
+            extensions.Add(GL.GetString(StringNameIndexed.Extensions, i))
         Next
-        'Dim extensios = GL.GetString(StringName.Extensions)
 
         ' Just check
-        Debug.Assert(extensios.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
+        Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
 
-        If extensios.Contains("GL_KHR_debug") And extensios.Contains("GL_ARB_debug_output") Then
+        If extensions.Contains("GL_KHR_debug") And extensions.Contains("GL_ARB_debug_output") Then
             If GL.GetInteger(GetPName.ContextFlags) And ContextFlagMask.ContextFlagDebugBit Then
                 LogThis("Setup Debug Output Callback")
-                'SetupDebugOutputCallback() '<--- Causing collected delegate error!
+                SetupDebugOutputCallback()
             End If
         End If
 #End If

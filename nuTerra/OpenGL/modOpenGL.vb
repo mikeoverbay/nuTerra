@@ -120,7 +120,8 @@ Module modOpenGL
         Return packed_x Or (packed_y << 10) Or (packed_z << 20) Or (w << 30)
     End Function
 
-    Public Sub DebugOutputCallback(source As DebugSource,
+    Private debugOutputCallbackProc As DebugProc
+    Private Sub DebugOutputCallback(source As DebugSource,
                                    type As DebugType,
                                    id As UInteger,
                                    severity As DebugSeverity,
@@ -134,7 +135,8 @@ Module modOpenGL
     Public Sub SetupDebugOutputCallback()
         GL.Enable(EnableCap.DebugOutput)
         GL.Enable(EnableCap.DebugOutputSynchronous)
-        GL.DebugMessageCallback(New DebugProc(AddressOf DebugOutputCallback), IntPtr.Zero)
+        debugOutputCallbackProc = New DebugProc(AddressOf DebugOutputCallback)
+        GL.DebugMessageCallback(debugOutputCallbackProc, IntPtr.Zero)
         GL.DebugMessageControl(DebugSourceControl.DontCare, DebugTypeControl.DebugTypeError, DebugSeverityControl.DontCare, 0, 0, True)
     End Sub
 
