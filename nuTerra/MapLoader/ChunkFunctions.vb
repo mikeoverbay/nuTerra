@@ -362,12 +362,12 @@ Module ChunkFunctions
     Private Function unpack16(ByVal u16 As UInt16)
         Dim X = CSng((u16 And &HFF00) >> 8) / 255
         Dim Z = CSng(u16 And &HFF) / 255
-        'Dim divisor = 255.9F / 2.0F
-        'Dim subtractor = 1.0
-        'X = (X / divisor) - subtractor
-        'Z = (Z / divisor) - subtractor
-        X = X * 2.0F - 1.0F
-        Z = Z * 2.0F - 1.0F
+        Dim divisor = 255.9F / 2.0F
+        Dim subtractor = 1.0
+        X = (X / divisor) - subtractor
+        Z = (Z / divisor) - subtractor
+        'X = X * 2.0F - 1.0F
+        'Z = Z * 2.0F - 1.0F
         Dim Y As Single = Math.Sqrt(1.0 - (X * X - Z * Z))
         Dim v As New Vector3(X, Y, Z)
         Return v
