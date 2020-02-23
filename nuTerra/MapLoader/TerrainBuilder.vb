@@ -12,7 +12,8 @@ Module TerrainBuilder
     Public bottomRight As New vertex_data
     Public bottomleft As New vertex_data
     Public Structure vertex_data
-        Public vert As Vector3
+        Public vert As Vector2
+        Public H As Single
         Public uv As Vector2
         Public norm As UInt32
     End Structure
@@ -57,7 +58,8 @@ Module TerrainBuilder
         Public Shared normal_map As String
         Public Shared global_map As String ' global_AM.dds
         Public Shared noise_texture As String ' noiseTexture
-
+        '------------------------
+        Public Shared vertex_vBuffer_id As Integer
     End Class
     Public Structure chunk_
         Public cdata() As Byte

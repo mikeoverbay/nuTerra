@@ -7,7 +7,6 @@ Imports OpenTK.Graphics.OpenGL4
 
 
 Module ChunkFunctions
-    Private vertex_data_size As Integer = Marshal.SizeOf(GetType(vertex_data))
 
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
@@ -18,8 +17,13 @@ Module ChunkFunctions
         v_data.BB_Min.Z = chunk.location.Y - 50
         get_translated_bb_terrain(v_data.BB, v_data)
         r_set.matrix = Matrix4.CreateTranslation(chunk.location.X, 0.0F, chunk.location.Y)
+
         '(64 * 64 * 6) - 1  = 24575
-        Dim v_buff(24575) As vertex_data
+        Dim v_buff_XZ(24575) As Vector2
+        Dim v_buff_Y(24575) As Single
+        Dim n_buff(24575) As UInt32
+        Dim uv_buff(24575) As Vector2
+
         Dim middle As New Vector3
         Dim w As UInt32 = HEIGHTMAPSIZE 'bmp_w
         Dim h As UInt32 = HEIGHTMAPSIZE 'bmp_h
@@ -36,29 +40,29 @@ Module ChunkFunctions
                 middle.Z += (v_data.heights((i), (j)))
 
                 topleft.vert.X = (i) - w_
-                topleft.vert.Y = v_data.heights((i), (j))
-                topleft.vert.Z = (j) - h_
+                topleft.H = v_data.heights((i), (j))
+                topleft.vert.Y = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
                 topleft.norm = pack_2_10_10_10(v_data.normals((i), (j)), If(chunk.has_holes, v_data.holes(i, j), 0))
 
                 topRight.vert.X = (i + 1) - w_
-                topRight.vert.Y = v_data.heights((i + 1), (j))
-                topRight.vert.Z = (j) - h_
+                topRight.H = v_data.heights((i + 1), (j))
+                topRight.vert.Y = (j) - h_
                 topRight.uv.X = (i + 1) * uvScale
                 topRight.uv.Y = (j) * uvScale
                 topRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j)), If(chunk.has_holes, v_data.holes(i, j), 0))
 
                 bottomRight.vert.X = (i + 1) - w_
-                bottomRight.vert.Y = v_data.heights((i + 1), (j + 1))
-                bottomRight.vert.Z = (j + 1) - h_
+                bottomRight.H = v_data.heights((i + 1), (j + 1))
+                bottomRight.vert.Y = (j + 1) - h_
                 bottomRight.uv.X = (i + 1) * uvScale
                 bottomRight.uv.Y = (j + 1) * uvScale
                 bottomRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j + 1)), If(chunk.has_holes, v_data.holes(i, j), 0))
 
                 bottomleft.vert.X = (i) - w_
-                bottomleft.vert.Y = v_data.heights((i), (j + 1))
-                bottomleft.vert.Z = (j + 1) - h_
+                bottomleft.H = v_data.heights((i), (j + 1))
+                bottomleft.vert.Y = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
                 bottomleft.norm = pack_2_10_10_10(v_data.normals((i), (j + 1)), If(chunk.has_holes, v_data.holes(i, j), 0))
@@ -72,64 +76,121 @@ Module ChunkFunctions
                 '  BL -------- BR
 
                 bottomleft.vert.X *= scale
-                bottomleft.vert.Z *= scale
+                bottomleft.vert.Y *= scale
 
                 bottomRight.vert.X *= scale
-                bottomRight.vert.Z *= scale
+                bottomRight.vert.Y *= scale
 
                 topleft.vert.X *= scale
-                topleft.vert.Z *= scale
+                topleft.vert.Y *= scale
 
                 topRight.vert.X *= scale
-                topRight.vert.Z *= scale
+                topRight.vert.Y *= scale
+                'tri 1 ------------------------------------
+                v_buff_XZ(cnt + 0) = bottomleft.vert
+                v_buff_XZ(cnt + 1) = topRight.vert
+                v_buff_XZ(cnt + 2) = topleft.vert
 
-                v_buff(cnt + 0) = bottomleft
-                v_buff(cnt + 1) = topRight
-                v_buff(cnt + 2) = topleft
+                v_buff_Y(cnt + 0) = bottomleft.H
+                v_buff_Y(cnt + 2) = topRight.H
+                v_buff_Y(cnt + 3) = topleft.H
 
-                v_buff(cnt + 3) = bottomleft
-                v_buff(cnt + 4) = bottomRight
-                v_buff(cnt + 5) = topRight
+                n_buff(cnt + 0) = bottomleft.norm
+                n_buff(cnt + 1) = topRight.norm
+                n_buff(cnt + 2) = topleft.norm
+
+                uv_buff(cnt + 0) = bottomleft.uv
+                uv_buff(cnt + 1) = topRight.uv
+                uv_buff(cnt + 2) = topleft.uv
+
+                'tri 2 ------------------------------------
+                v_buff_XZ(cnt + 3) = bottomleft.vert
+                v_buff_XZ(cnt + 4) = bottomRight.vert
+                v_buff_XZ(cnt + 5) = topRight.vert
+
+                v_buff_Y(cnt + 3) = bottomleft.H
+                v_buff_Y(cnt + 4) = bottomRight.H
+                v_buff_Y(cnt + 5) = topRight.H
+
+                n_buff(cnt + 3) = bottomleft.norm
+                n_buff(cnt + 4) = bottomRight.norm
+                n_buff(cnt + 5) = topRight.norm
+
+                uv_buff(cnt + 0) = bottomleft.uv
+                uv_buff(cnt + 1) = bottomRight.uv
+                uv_buff(cnt + 2) = topRight.uv
+
                 cnt += 6
             Next
         Next
-
+        Dim fill_buff As Boolean = False
         'we can remove 2 vertices by adding a indices list!
         Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
-        If max_vertex_elements < v_buff.Length * vertex_data_size Then
-            Stop ' not room for this big a vertex buffer
-        End If
 
         'Gen VAO id
         GL.GenVertexArrays(1, r_set.VAO)
         GL.BindVertexArray(r_set.VAO)
 
-        ReDim r_set.mBuffers(1)
-        GL.GenBuffers(1, r_set.mBuffers)
+        ReDim r_set.mBuffers(2)
 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(0))
+        ' If the reused buffer is not defined, we need to do so.
+        If theMap.vertex_vBuffer_id = 0 Then
+            GL.GenBuffers(1, theMap.vertex_vBuffer_id)
+            fill_buff = True
+        End If
 
-        ' pos
-        GL.VertexAttribPointer(0, 3,
+        GL.GenBuffers(3, r_set.mBuffers)
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.vertex_vBuffer_id)
+
+        ' BindBuffer XZ ==================================================================
+        'if the reused vertex_vBuffer_id is not defined, we need to fill the buffer
+        If fill_buff Then
+            GL.BufferData(BufferTarget.ArrayBuffer,
+                          v_buff_XZ.Length * 8,
+                          v_buff_XZ, BufferUsageHint.StaticDraw)
+        End If
+        GL.VertexAttribPointer(0, 2,
                                VertexAttribPointerType.Float,
-                               False, vertex_data_size, 0)
+                               False, 8, 0)
         GL.EnableVertexAttribArray(0)
 
-        ' uv
-        GL.VertexAttribPointer(1, 2,
-                               VertexAttribPointerType.Float,
-                               False, vertex_data_size, 12)
+
+        ' POSITION Y ==================================================================
+        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(0))
+        GL.BufferData(BufferTarget.ArrayBuffer,
+              v_buff_Y.Length * 4,
+              v_buff_Y, BufferUsageHint.StaticDraw)
+
+        GL.VertexAttribPointer(1, 1,
+                            VertexAttribPointerType.Float,
+                            False, 4, 0)
         GL.EnableVertexAttribArray(1)
 
-        ' normals
-        GL.VertexAttribPointer(2, 4,
-                               VertexAttribPointerType.Int2101010Rev,
-                               True, vertex_data_size, 20)
+        ' UV ==================================================================
+        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(1))
+        GL.BufferData(BufferTarget.ArrayBuffer,
+              uv_buff.Length * 8,
+              uv_buff, BufferUsageHint.StaticDraw)
+
+        GL.VertexAttribPointer(2, 2,
+                            VertexAttribPointerType.Float,
+                            False, 8, 0)
         GL.EnableVertexAttribArray(2)
 
+
+        ' NORMALS ==================================================================
+        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(2))
+
         GL.BufferData(BufferTarget.ArrayBuffer,
-                      v_buff.Length * vertex_data_size,
-                      v_buff, BufferUsageHint.StaticDraw)
+              n_buff.Length * 4,
+              n_buff, BufferUsageHint.StaticDraw)
+
+        GL.VertexAttribPointer(3, 4,
+                               VertexAttribPointerType.Int2101010Rev,
+                               True, 4, 0)
+        GL.EnableVertexAttribArray(3)
+
 
         GL.BindVertexArray(0)
     End Sub
@@ -276,19 +337,17 @@ Module ChunkFunctions
             Next
         Else
 
-            'ReDim bmp_data(HEIGHTMAPSIZE, HEIGHTMAPSIZE)
             ReDim v.heights(HEIGHTMAPSIZE, HEIGHTMAPSIZE)
             For j As UInt32 = 3 To mapsize - 3
                 For i As UInt32 = 3 To mapsize - 3
                     ms.Position = (i * 4) + (j * mapsize * 4)
                     Dim tc = br.ReadInt32
                     quantized = tc * 0.001
-                    ' Debug.Write(qtized & vbCrLf)
-                    'bmp_data(mapsize - i - 3, j - 3) = qtized
                     v.heights(mapsize - i - 3, j - 3) = quantized
                 Next
             Next
         End If
+
         Dim avg, y_max, y_min As Single
         For j As UInt32 = 0 To HEIGHTMAPSIZE - 1
             For i As UInt32 = 0 To HEIGHTMAPSIZE - 1
@@ -309,8 +368,7 @@ Module ChunkFunctions
     End Sub
 
     Public Sub get_normals(ByRef c As chunk_, ByRef v As terain_V_data_)
-        'This sub is no longer used.
-        'I will leave it so others can see how the terrain normals are stored.
+
         Dim data((HEIGHTMAPSIZE * HEIGHTMAPSIZE * 2) + HEIGHTMAPSIZE) As SByte
         ReDim Preserve v.normals(HEIGHTMAPSIZE - 1, HEIGHTMAPSIZE - 1)
         Dim cnt As UInt32 = 0
@@ -328,16 +386,9 @@ Module ChunkFunctions
         x = br.ReadUInt16
         y = br.ReadUInt16
         Dim unknown = br.ReadUInt32
-        If x * y <> 65536 Then
-            'MsgBox("Odd lodNormals file!!!", MsgBoxStyle.Exclamation, "Well Shit...")
-        End If
 
         ReDim v.normals(63, 63)
-        'Dim nBuff(x * y) As Byte
-        'Dim stride = x
-        'nBuff = br.ReadBytes(nBuff.Length - 1)
-        'Dim b_stream As New MemoryStream(nBuff)
-        'Dim b_reader As New BinaryReader(b_stream)
+
         cnt = 0
         If x = 256 Then
             For j As Integer = 0 To 63
@@ -355,6 +406,32 @@ Module ChunkFunctions
                     v.normals(k, j) = n
                 Next
             Next
+        End If
+        If x = 64 Then
+            For j As Integer = 0 To 63 Step 2
+                For k As Integer = 0 To 63 Step 2
+                    Dim n As Vector3 = unpack16(br.ReadUInt16)
+                    v.normals(k, j) = n
+                    For i = 0 To 1
+                        v.normals(k + 0, j + i) = n
+                        v.normals(k + 1, j + i) = n
+                    Next i
+                Next k
+            Next j
+        End If
+        If x = 32 Then
+            For j As Integer = 0 To 63 Step 2
+                For k As Integer = 0 To 63 Step 2
+                    Dim n As Vector3 = unpack16(br.ReadUInt16)
+                    v.normals(k, j) = n
+                    For i = 0 To 3
+                        v.normals(k + 0, j + i) = n
+                        v.normals(k + 1, j + i) = n
+                        v.normals(k + 2, j + i) = n
+                        v.normals(k + 3, j + i) = n
+                    Next i
+                Next k
+            Next j
         End If
         If x = 16 Then
             For j As Integer = 0 To 63 Step 8
