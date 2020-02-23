@@ -332,18 +332,22 @@ Module ChunkFunctions
         x = br.ReadUInt16
         y = br.ReadUInt16
         Dim unknown = br.ReadUInt32
-
         If x * y <> 65536 Then
-            MsgBox("Odd lodNormals file!!!", MsgBoxStyle.Exclamation, "Well Shit...")
+            'MsgBox("Odd lodNormals file!!!", MsgBoxStyle.Exclamation, "Well Shit...")
         End If
 
         ReDim v.normals(63, 63)
-
+        Dim nBuff(x * y) As Byte
+        Dim stride = x
+        nBuff = br.ReadBytes(nBuff.Length - 1)
+        Dim b_stream As New MemoryStream(nBuff)
+        Dim b_reader As New BinaryReader(b_stream)
         cnt = 0
         For j As Integer = 0 To 63
             For k As Integer = 0 To 63
-
-                Dim n As Vector3 = unpackNormal_8_8_8(br.ReadUInt32)
+                'b_stream.Position = j * stride + k
+                Dim n As Vector3 = unpack16(b_reader.ReadUInt16)
+                Dim n2 As Vector3 = unpack16(b_reader.ReadUInt16)
                 v.normals(k, j).X = n.X
                 v.normals(k, j).Y = n.Y
                 v.normals(k, j).Z = n.Z
@@ -355,7 +359,19 @@ Module ChunkFunctions
 
         Return
     End Sub
-
+    Private Function unpack16(ByVal u16 As UInt16)
+        Dim X = CSng((u16 And &HFF00) >> 8) / 255
+        Dim Z = CSng(u16 And &HFF) / 255
+        'Dim divisor = 255.9F / 2.0F
+        'Dim subtractor = 1.0
+        'X = (X / divisor) - subtractor
+        'Z = (Z / divisor) - subtractor
+        X = X * 2.0F - 1.0F
+        Z = Z * 2.0F - 1.0F
+        Dim Y As Single = Math.Sqrt(1.0 - (X * X - Z * Z))
+        Dim v As New Vector3(X, Y, Z)
+        Return v
+    End Function
     Public Sub get_location(ByRef c As chunk_)
         'Creates the mapBoard array and figures out where each chunk is
         'located based on its name. 

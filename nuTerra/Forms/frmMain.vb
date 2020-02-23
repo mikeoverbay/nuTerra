@@ -238,7 +238,13 @@ try_again:
         LogThis(String.Format("GLSL Version: {0}", GL.GetString(StringName.ShadingLanguageVersion)))
 
 #If DEBUG Then
-        Dim extensios = GL.GetString(StringName.Extensions)
+        Dim n, i As Integer
+        Dim extensios As String = ""
+        GL.GetInteger(GetPName.NumExtensions, n)
+        For i = 0 To n
+            extensios += GL.GetString(StringNameIndexed.Extensions, i) + vbCrLf
+        Next
+        'Dim extensios = GL.GetString(StringName.Extensions)
 
         ' Just check
         Debug.Assert(extensios.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
@@ -246,7 +252,7 @@ try_again:
         If extensios.Contains("GL_KHR_debug") And extensios.Contains("GL_ARB_debug_output") Then
             If GL.GetInteger(GetPName.ContextFlags) And ContextFlagMask.ContextFlagDebugBit Then
                 LogThis("Setup Debug Output Callback")
-                SetupDebugOutputCallback()
+                'SetupDebugOutputCallback() '<--- Causing collected delegate error!
             End If
         End If
 #End If

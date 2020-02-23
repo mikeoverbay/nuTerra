@@ -120,7 +120,7 @@ Module modOpenGL
         Return packed_x Or (packed_y << 10) Or (packed_z << 20) Or (w << 30)
     End Function
 
-    Private Sub DebugOutputCallback(source As DebugSource,
+    Public Sub DebugOutputCallback(source As DebugSource,
                                    type As DebugType,
                                    id As UInteger,
                                    severity As DebugSeverity,

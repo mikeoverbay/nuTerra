@@ -328,6 +328,15 @@
     <None Include="shaders\Terrain_shaders\Terrain.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Terrain_shaders\TerrainNormals.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\TerrainNormals.geom">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\TerrainNormals.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Trials\test.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
