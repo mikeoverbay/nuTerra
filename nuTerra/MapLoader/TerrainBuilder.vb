@@ -99,13 +99,18 @@ Module TerrainBuilder
     Public Sub Create_Terrain()
 
         get_all_chunk_file_data()
-
+        BG_TEXT = "Loading Terrain..."
+        BG_MAX_VALUE = theMap.chunks.Length - 1
+        BG_VALUE = 0
         For I = 0 To theMap.chunks.Length - 1
             get_location(theMap.chunks(I))
             get_holes(theMap.chunks(I), theMap.v_data(I))
             get_heights(theMap.chunks(I), theMap.v_data(I))
             get_normals(theMap.chunks(I), theMap.v_data(I))
             get_mesh(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
+            BG_VALUE = I
+            draw_scene()
+            Application.DoEvents()
         Next
 
     End Sub

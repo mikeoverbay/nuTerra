@@ -12,7 +12,6 @@ uniform mat4 projection;
 
 out vec3 n;
 
-
 void main(void)
 {
 	vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);

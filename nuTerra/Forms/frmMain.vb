@@ -16,7 +16,7 @@ Public Class frmMain
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         _STARTED = False
-        'Need to add code to close down opengl and delete the resources.
+        remove_map_data()
     End Sub
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
@@ -375,11 +375,6 @@ try_again:
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\progress_bar.png", False, True)
         '---------------------------------------------------------
-
-        'This gets the first texture ID after the static IDs
-        'ALL STATIC TEXTURES NEED TO BE LOADED BEFORE THIS IS CALLED!!!
-        get_start_ID_for_texture_Deletion()
-
         'test junk. ----------------------------------------------
         MOON = New base_model_holder_()
         CROSS_HAIR = New base_model_holder_()
@@ -388,6 +383,11 @@ try_again:
         get_X_model(sp + "\resources\cross_hair.x", CROSS_HAIR)
         CROSS_HAIR_TEXTURE = load_image_from_file(Il.IL_PNG, sp +
                              "\resources\cross_hair_texture.png", True, False)
+
+
+        'This gets the first GL texture, vertex array and vertex buffer IDs after the static IDs
+        'ALL STATIC ITEMS NEED TO BE LOADED BEFORE THIS IS CALLED!!!
+        get_start_ID_for_Components_Deletion()
 
     End Sub
 

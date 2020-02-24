@@ -427,17 +427,32 @@ Module MapLoader
                 GL.Finish() ' make sure we are done before moving on
             End If
         Next
-        'Clear texture cache so we dont returned non-existent textures.
-        imgTbl.Clear()
 
-        For i = 0 To MAP_MODELS.Length - 1
-            If MAP_MODELS(i).mdl IsNot Nothing Then
-                GL.DeleteBuffer(MAP_MODELS(i).mdl.mdl_VAO)
-            End If
+        'delete VBOs
+        Dim Lvb As Integer
+        GL.GenBuffers(1, Lvb)
+        For i = FIRST_UNUSED_V_BUFFER To Lvb
+            GL.DeleteBuffer(i)
         Next
+        GL.Finish() ' make sure we are done before moving on
+
+        'delete VAOs
+        Dim Lvbo As Integer
+        GL.GenVertexArrays(1, Lvbo)
+        For i = FIRST_UNUSED_VB_OBJECT To Lvbo
+            GL.DeleteVertexArray(i)
+        Next
+        GL.Finish() ' make sure we are done before moving on
 
         theMap.MINI_MAP_ID = 0
         theMap.chunks = Nothing
+
+        GC.Collect()
+        GC.WaitForFullGCComplete()
+
+        'Clear texture cache so we dont returned non-existent textures.
+        imgTbl.Clear()
+
 
     End Sub
 

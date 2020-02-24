@@ -79,6 +79,8 @@ Module modGlobalVars
     Public TEMP_STORAGE As String 'Work are on users SSD/HDD
     Public GAME_PATH As String 'Points directly to "world_of_tanks\res\packages\"
     Public FIRST_UNUSED_TEXTURE As Integer 'Used for deltion of textures. holds starting texture
+    Public FIRST_UNUSED_VB_OBJECT As Integer 'Used for deltion of VBO
+    Public FIRST_UNUSED_V_BUFFER As Integer 'Used for deltion of V Bufffers
     Public DUMMY_TEXTURE_ID As Integer 'texture id 
     Public MAP_SELECT_BACKGROUND_ID As Integer 'texture id 
     Public TEXT_OVERLAY_MAP_PICK As Integer 'texture id for text on icons

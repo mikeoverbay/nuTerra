@@ -33,12 +33,22 @@ Module TextureLoaders
 
 #End Region
 
-    Public Sub get_start_ID_for_texture_Deletion()
+    Public Sub get_start_ID_for_Components_Deletion()
         'Finds the first texture Id after the static IDs we want to keep.
         'It is used to delete all map/decal/model related texture Ids.
         FIRST_UNUSED_TEXTURE = GL.GenTexture
         GL.DeleteTexture(FIRST_UNUSED_TEXTURE)
         GL.Finish() 'We must make sure we are done deleting!!!
+
+        FIRST_UNUSED_VB_OBJECT = GL.GenVertexArray()
+        GL.DeleteVertexArray(FIRST_UNUSED_VB_OBJECT)
+        GL.Finish() 'We must make sure we are done deleting!!!
+
+        FIRST_UNUSED_V_BUFFER = GL.GenBuffer()
+        GL.DeleteBuffer(FIRST_UNUSED_V_BUFFER)
+        GL.Finish() 'We must make sure we are done deleting!!!
+
+
     End Sub
 
     Public Function find_and_load_texture_from_pkgs(ByRef fn As String) As Integer

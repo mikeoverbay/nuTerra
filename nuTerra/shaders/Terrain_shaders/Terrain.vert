@@ -5,6 +5,7 @@ layout(location = 0) in vec2 vertexXZ;
 layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
 layout(location = 3) in vec4 vertexNormal;
+layout(location = 4) in int vertexhole;
 
 uniform mat4 viewModel;
 uniform mat4 projection;
@@ -13,16 +14,14 @@ uniform mat3 normalMatrix;
 out mat3 TBN;
 out vec3 worldPosition;
 out vec2 UV;
-
 flat out float is_hole;
 
 void main(void)
 {
     UV =  vertexTexCoord;
-    is_hole = vertexNormal.w;
+    is_hole = vertexhole;
 
 	vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
-
     vec3 tangent;
 
     vec3 c1 = cross(vertexNormal.xyz, vec3(0.0, 0.0, 1.0));

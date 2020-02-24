@@ -218,9 +218,12 @@ Module modRender
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
 
             GL.BindVertexArray(theMap.render_set(i).VAO)
+            'GL.DrawElements(PrimitiveType.Triangles,
+            '                4096 * 6,
+            '                DrawElementsType.UnsignedShort, 0)
             GL.DrawElements(PrimitiveType.Triangles,
-                            4096 * 6,
-                            DrawElementsType.UnsignedShort, 0)
+                23814,
+                DrawElementsType.UnsignedShort, 0)
 
         Next
 
@@ -247,9 +250,12 @@ Module modRender
                 Dim model = theMap.render_set(i).matrix
                 GL.UniformMatrix4(TerrainNormals("model"), False, model)
                 GL.BindVertexArray(theMap.render_set(i).VAO)
+                'GL.DrawElements(PrimitiveType.Triangles,
+                '                4096 * 6,
+                '                DrawElementsType.UnsignedShort, 0)
                 GL.DrawElements(PrimitiveType.Triangles,
-                                4096 * 6,
-                                DrawElementsType.UnsignedShort, 0)
+                        23814,
+                        DrawElementsType.UnsignedShort, 0)
             Next
 
 

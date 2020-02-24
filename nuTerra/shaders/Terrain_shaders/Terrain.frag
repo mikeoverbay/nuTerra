@@ -18,7 +18,6 @@ in vec2 UV;
 in vec3 normal;//temp fro debuging lighting
 flat in float is_hole;
 
-
 vec3 getNormal()
 {
     vec3 n;

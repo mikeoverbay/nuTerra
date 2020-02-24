@@ -24,6 +24,7 @@ Module ChunkFunctions
         Dim v_buff_Y(4095) As Single
         Dim n_buff(4095) As UInt32
         Dim uv_buff(4095) As Vector2
+        Dim holes_buff(4095) As UInt32
         Dim indicies(7937) As vect3_16
         Dim w As UInt32 = HEIGHTMAPSIZE 'bmp_w
         Dim h As UInt32 = HEIGHTMAPSIZE 'bmp_h
@@ -55,7 +56,7 @@ Module ChunkFunctions
                 topleft.vert.Y = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
-                topleft.norm = pack_2_10_10_10(v_data.normals((i), (j)), If(chunk.has_holes, v_data.holes(i, j), 0))
+                topleft.norm = pack_2_10_10_10(v_data.normals((i), (j)), 0)
 
                 bottomleft.vert.X = (i) - w_
                 bottomleft.H = v_data.heights((i), (j + 1))
@@ -94,7 +95,9 @@ Module ChunkFunctions
                 uv_buff(i + ((j + 1) * stride)) = bottomleft.uv
                 uv_buff(i + ((j + 0) * stride)) = topleft.uv
 
-
+                'debug
+                holes_buff(i + ((j + 0) * stride)) = v_data.holes(i, j)
+                holes_buff(i + ((j + 1) * stride)) = v_data.holes(i, j)
             Next
         Next
         Dim fill_buff As Boolean = False
@@ -105,7 +108,7 @@ Module ChunkFunctions
         GL.GenVertexArrays(1, r_set.VAO)
         GL.BindVertexArray(r_set.VAO)
 
-        ReDim r_set.mBuffers(3)
+        ReDim r_set.mBuffers(4)
 
         ' If the reused buffer is not defined, we need to do so.
         If theMap.vertex_vBuffer_id = 0 Then
@@ -113,7 +116,7 @@ Module ChunkFunctions
             fill_buff = True
         End If
 
-        GL.GenBuffers(4, r_set.mBuffers)
+        GL.GenBuffers(5, r_set.mBuffers)
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.vertex_vBuffer_id)
 
@@ -165,6 +168,18 @@ Module ChunkFunctions
                                True, 4, 0)
         GL.EnableVertexAttribArray(3)
 
+        ' COLOR for Debug ==================================================================
+        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(4))
+
+        GL.BufferData(BufferTarget.ArrayBuffer,
+              holes_buff.Length * 4,
+              holes_buff, BufferUsageHint.StaticDraw)
+
+        GL.VertexAttribPointer(4, 1,
+                               VertexAttribPointerType.Float,
+                               True, 4, 0)
+        GL.EnableVertexAttribArray(4)
+
         ' INDICES ==================================================================
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, r_set.mBuffers(0))
         GL.BufferData(BufferTarget.ElementArrayBuffer,
@@ -179,6 +194,8 @@ Module ChunkFunctions
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)
 
         'Unpacks and creates hole data
+        ReDim v.holes(63, 63)
+
         If Not c.has_holes Then
             Return
         End If
@@ -223,7 +240,7 @@ Module ChunkFunctions
 
         'This will be used in a UV coord to discard
         'areas in the map to speed up rendering
-        ReDim v.holes((stride * 8) - 1, (h * 2) - 1)
+        'ReDim v.holes(63, 63)
 
         For z1 = 0 To (h * 2) - 1
             For x1 = 0 To (stride) - 1
@@ -374,8 +391,8 @@ Module ChunkFunctions
         If x = 256 Then
             For j As Integer = 0 To 63
                 For k As Integer = 0 To 63
-                    Dim n As Vector3 = unpack16(br.ReadUInt16)
                     br.ReadUInt16() 'read off un-used
+                    Dim n As Vector3 = unpack16(br.ReadUInt16)
                     v.normals(k, j) = n
                 Next
             Next
@@ -401,8 +418,8 @@ Module ChunkFunctions
             Next j
         End If
         If x = 32 Then
-            For j As Integer = 0 To 63 Step 2
-                For k As Integer = 0 To 63 Step 2
+            For j As Integer = 0 To 63 Step 4
+                For k As Integer = 0 To 63 Step 4
                     Dim n As Vector3 = unpack16(br.ReadUInt16)
                     v.normals(k, j) = n
                     For i = 0 To 3
@@ -438,16 +455,19 @@ Module ChunkFunctions
         Return
     End Sub
     Private Function unpack16(ByVal u16 As UInt16)
-        Dim X = CSng((u16 And &HFF00) >> 8) / 255
-        Dim Z = CSng(u16 And &HFF) / 255
+        Dim b = BitConverter.GetBytes(u16)
+        Dim X = b(0)
+        Dim Z = b(1)
         Dim divisor = 255.9F / 2.0F
         Dim subtractor = 1.0
-        X = (X / divisor) - subtractor
-        Z = (Z / divisor) - subtractor
-        'X = X * 2.0F - 1.0F
-        'Z = Z * 2.0F - 1.0F
-        Dim Y As Single = Math.Sqrt(1.0 - (X * X - Z * Z))
-        Dim v As New Vector3(X, Y, Z)
+        'Xs = (X / divisor) - subtractor
+        'Zs = (Z / divisor) - subtractor
+        Dim Xs = (X / 255) * 2.0 - 1.0
+        Dim Zs = (Z / 255) * 2.0 - 1.0
+        Dim Y As Single = Math.Sqrt(1.0 - (Xs * Xs - Zs * Zs))
+        'nothing is working so lets jsut return a Y up normal
+        Dim v As New Vector3(0.0, 1.0, 0.0)
+        v.Normalize()
         Return v
     End Function
     Public Sub get_location(ByRef c As chunk_)
