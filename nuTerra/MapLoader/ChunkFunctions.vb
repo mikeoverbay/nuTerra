@@ -92,8 +92,8 @@ Module ChunkFunctions
                 v_buff_XZ(cnt + 2) = topleft.vert
 
                 v_buff_Y(cnt + 0) = bottomleft.H
-                v_buff_Y(cnt + 2) = topRight.H
-                v_buff_Y(cnt + 3) = topleft.H
+                v_buff_Y(cnt + 1) = topRight.H
+                v_buff_Y(cnt + 2) = topleft.H
 
                 n_buff(cnt + 0) = bottomleft.norm
                 n_buff(cnt + 1) = topRight.norm
@@ -116,9 +116,9 @@ Module ChunkFunctions
                 n_buff(cnt + 4) = bottomRight.norm
                 n_buff(cnt + 5) = topRight.norm
 
-                uv_buff(cnt + 0) = bottomleft.uv
-                uv_buff(cnt + 1) = bottomRight.uv
-                uv_buff(cnt + 2) = topRight.uv
+                uv_buff(cnt + 3) = bottomleft.uv
+                uv_buff(cnt + 4) = bottomRight.uv
+                uv_buff(cnt + 5) = topRight.uv
 
                 cnt += 6
             Next
