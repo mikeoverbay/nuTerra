@@ -63,7 +63,7 @@ Module ChunkFunctions
                 bottomleft.vert.Y = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
-                bottomleft.norm = pack_2_10_10_10(v_data.normals((i), (j + 1)), If(chunk.has_holes, v_data.holes(i, j), 0))
+                bottomleft.norm = pack_2_10_10_10(v_data.normals((i), (j + 1)), 0)
 
                 '         I
                 '  TL --------- TR
@@ -96,32 +96,30 @@ Module ChunkFunctions
                 uv_buff(i + ((j + 0) * stride)) = topleft.uv
 
                 'debug
-                holes_buff(i + ((j + 0) * stride)) = v_data.holes(i, j)
                 holes_buff(i + ((j + 1) * stride)) = v_data.holes(i, j)
+                holes_buff(i + ((j + 0) * stride)) = v_data.holes(i, j)
             Next
         Next
         Dim fill_buff As Boolean = False
 
         Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
 
-        'Gen VAO id
+        ' SETUP ==================================================================
+        'Gen VAO and VBO Ids
         GL.GenVertexArrays(1, r_set.VAO)
         GL.BindVertexArray(r_set.VAO)
-
         ReDim r_set.mBuffers(4)
+        GL.GenBuffers(5, r_set.mBuffers)
 
-        ' If the reused buffer is not defined, we need to do so.
+        ' If the shared buffer is not defined, we need to do so.
         If theMap.vertex_vBuffer_id = 0 Then
             GL.GenBuffers(1, theMap.vertex_vBuffer_id)
             fill_buff = True
         End If
 
-        GL.GenBuffers(5, r_set.mBuffers)
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.vertex_vBuffer_id)
-
         ' VERTEX XZ ==================================================================
-        'if the reused vertex_vBuffer_id is not defined, we need to fill the buffer
+        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.vertex_vBuffer_id)
+        'if the shared buffer is not defined, we need to fill the buffer now
         If fill_buff Then
             GL.BufferData(BufferTarget.ArrayBuffer,
                           v_buff_XZ.Length * 8,
@@ -131,7 +129,6 @@ Module ChunkFunctions
                                VertexAttribPointerType.Float,
                                False, 8, 0)
         GL.EnableVertexAttribArray(0)
-
 
         ' POSITION Y ==================================================================
         GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(1))
@@ -155,7 +152,6 @@ Module ChunkFunctions
                             False, 8, 0)
         GL.EnableVertexAttribArray(2)
 
-
         ' NORMALS ==================================================================
         GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(3))
 
@@ -168,7 +164,7 @@ Module ChunkFunctions
                                True, 4, 0)
         GL.EnableVertexAttribArray(3)
 
-        ' COLOR for Debug ==================================================================
+        ' HOLES ==================================================================
         GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(4))
 
         GL.BufferData(BufferTarget.ArrayBuffer,
@@ -186,7 +182,6 @@ Module ChunkFunctions
                           indicies.Length * 6,
                           indicies,
                           BufferUsageHint.StaticDraw)
-
 
         GL.BindVertexArray(0)
     End Sub
@@ -234,22 +229,22 @@ Module ChunkFunctions
 
         p_rd.Read(data, 0, w * h)
 
-        Dim stride = (w / 2)
-        Dim dbuff((stride * 8) * (h * 2) * 4) As Byte ' make room
+        Dim stride = 8
         count = 0
 
-        'This will be used in a UV coord to discard
-        'areas in the map to speed up rendering
-        'ReDim v.holes(63, 63)
-
-        For z1 = 0 To (h * 2) - 1
-            For x1 = 0 To (stride) - 1
-                Dim val = data((z1 * stride) + x1)
+        'This will be used to punch holes
+        'in the map to speed up rendering and allow for sub terrain items.
+        'Each bit in the 8 bit grey scale 8 bit image is a hole.
+        'We must bit shift >> 1 to get each value.
+        For z1 = 0 To 63
+            For x1 = 0 To 7
+                Dim val = data(count)
                 For q = 0 To 7
                     Dim b = (1 And (val >> q))
                     If b > 0 Then b = 1
-                    v.holes(63 - ((x1 * 8) + q), z1) = b
+                    v.holes(63 - (x1 * 8 + q), z1) = b
                 Next
+                count += 1
             Next
         Next
         c.holes_data = Nothing 'free memory
@@ -358,6 +353,7 @@ Module ChunkFunctions
                 End If
             Next
         Next
+        c.heights_data = Nothing
         v.avg_heights = avg / (HEIGHTMAPSIZE ^ 2)
         br.Close()
         ms.Close()
@@ -448,7 +444,7 @@ Module ChunkFunctions
                 Next k
             Next j
         End If
-
+        c.normals_data = Nothing
         s.Close()
         s.Dispose()
 
