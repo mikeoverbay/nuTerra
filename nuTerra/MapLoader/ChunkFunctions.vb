@@ -18,26 +18,37 @@ Module ChunkFunctions
         get_translated_bb_terrain(v_data.BB, v_data)
         r_set.matrix = Matrix4.CreateTranslation(chunk.location.X, 0.0F, chunk.location.Y)
 
-        '(64 * 64 * 6) - 1  = 24575
-        Dim v_buff_XZ(24575) As Vector2
-        Dim v_buff_Y(24575) As Single
-        Dim n_buff(24575) As UInt32
-        Dim uv_buff(24575) As Vector2
-
-        Dim middle As New Vector3
+        ' 63 * 63 * 2  = 7938 indi count
+        ' 64 * 64      = 4096 vert count
+        Dim v_buff_XZ(4095) As Vector2
+        Dim v_buff_Y(4095) As Single
+        Dim n_buff(4095) As UInt32
+        Dim uv_buff(4095) As Vector2
+        Dim indicies(7937) As vect3_16
         Dim w As UInt32 = HEIGHTMAPSIZE 'bmp_w
         Dim h As UInt32 = HEIGHTMAPSIZE 'bmp_h
         Dim uvScale = (1.0# / 64.0#)
         Dim w_ = w / 2.0#
         Dim h_ = h / 2.0#
         Dim scale = 100.0 / (64.0#)
+        Dim stride = 64
         Dim cnt As UInt32 = 0
-        For j = 0 To w - 2
-            For i = 0 To h - 2
+        For j = 0 To 62
+            For i = 0 To 62
+                indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
+                indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
+                indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
 
-                middle.X += (i - w_)
-                middle.Y += (j - h_)
-                middle.Z += (v_data.heights((i), (j)))
+                indicies(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
+                indicies(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
+                indicies(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
+                cnt += 2
+            Next
+        Next
+
+        cnt = 0
+        For j = 0 To 62 Step 2
+            For i = 0 To 63
 
                 topleft.vert.X = (i) - w_
                 topleft.H = v_data.heights((i), (j))
@@ -46,20 +57,6 @@ Module ChunkFunctions
                 topleft.uv.Y = (j) * uvScale
                 topleft.norm = pack_2_10_10_10(v_data.normals((i), (j)), If(chunk.has_holes, v_data.holes(i, j), 0))
 
-                topRight.vert.X = (i + 1) - w_
-                topRight.H = v_data.heights((i + 1), (j))
-                topRight.vert.Y = (j) - h_
-                topRight.uv.X = (i + 1) * uvScale
-                topRight.uv.Y = (j) * uvScale
-                topRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j)), If(chunk.has_holes, v_data.holes(i, j), 0))
-
-                bottomRight.vert.X = (i + 1) - w_
-                bottomRight.H = v_data.heights((i + 1), (j + 1))
-                bottomRight.vert.Y = (j + 1) - h_
-                bottomRight.uv.X = (i + 1) * uvScale
-                bottomRight.uv.Y = (j + 1) * uvScale
-                bottomRight.norm = pack_2_10_10_10(v_data.normals((i + 1), (j + 1)), If(chunk.has_holes, v_data.holes(i, j), 0))
-
                 bottomleft.vert.X = (i) - w_
                 bottomleft.H = v_data.heights((i), (j + 1))
                 bottomleft.vert.Y = (j + 1) - h_
@@ -67,71 +64,48 @@ Module ChunkFunctions
                 bottomleft.uv.Y = (j + 1) * uvScale
                 bottomleft.norm = pack_2_10_10_10(v_data.normals((i), (j + 1)), If(chunk.has_holes, v_data.holes(i, j), 0))
 
-                ' TL --------- TR
-                '  |         . |
-                '  |       .   |
-                '  |     .     |
-                '  |   .       |
-                '  | .         |
-                '  BL -------- BR
-
-                bottomleft.vert.X *= scale
-                bottomleft.vert.Y *= scale
-
-                bottomRight.vert.X *= scale
-                bottomRight.vert.Y *= scale
+                '         I
+                '  TL --------- TR
+                '   |         . |
+                '   |       .   |
+                ' J |     .     | J
+                '   |   .       |
+                '   | .         |
+                '   BL -------- BR
+                '         I
 
                 topleft.vert.X *= scale
                 topleft.vert.Y *= scale
 
-                topRight.vert.X *= scale
-                topRight.vert.Y *= scale
-                'tri 1 ------------------------------------
-                v_buff_XZ(cnt + 0) = bottomleft.vert
-                v_buff_XZ(cnt + 1) = topRight.vert
-                v_buff_XZ(cnt + 2) = topleft.vert
+                bottomleft.vert.X *= scale
+                bottomleft.vert.Y *= scale
 
-                v_buff_Y(cnt + 0) = bottomleft.H
-                v_buff_Y(cnt + 1) = topRight.H
-                v_buff_Y(cnt + 2) = topleft.H
 
-                n_buff(cnt + 0) = bottomleft.norm
-                n_buff(cnt + 1) = topRight.norm
-                n_buff(cnt + 2) = topleft.norm
+                ' Fill the arrays
+                v_buff_XZ(i + ((j + 1) * stride)) = bottomleft.vert
+                v_buff_XZ(i + ((j + 0) * stride)) = topleft.vert
 
-                uv_buff(cnt + 0) = bottomleft.uv
-                uv_buff(cnt + 1) = topRight.uv
-                uv_buff(cnt + 2) = topleft.uv
+                v_buff_Y(i + ((j + 1) * stride)) = bottomleft.H
+                v_buff_Y(i + ((j + 0) * stride)) = topleft.H
 
-                'tri 2 ------------------------------------
-                v_buff_XZ(cnt + 3) = bottomleft.vert
-                v_buff_XZ(cnt + 4) = bottomRight.vert
-                v_buff_XZ(cnt + 5) = topRight.vert
+                n_buff(i + ((j + 1) * stride)) = bottomleft.norm
+                n_buff(i + ((j + 0) * stride)) = topleft.norm
 
-                v_buff_Y(cnt + 3) = bottomleft.H
-                v_buff_Y(cnt + 4) = bottomRight.H
-                v_buff_Y(cnt + 5) = topRight.H
+                uv_buff(i + ((j + 1) * stride)) = bottomleft.uv
+                uv_buff(i + ((j + 0) * stride)) = topleft.uv
 
-                n_buff(cnt + 3) = bottomleft.norm
-                n_buff(cnt + 4) = bottomRight.norm
-                n_buff(cnt + 5) = topRight.norm
 
-                uv_buff(cnt + 3) = bottomleft.uv
-                uv_buff(cnt + 4) = bottomRight.uv
-                uv_buff(cnt + 5) = topRight.uv
-
-                cnt += 6
             Next
         Next
         Dim fill_buff As Boolean = False
-        'we can remove 2 vertices by adding a indices list!
+
         Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
 
         'Gen VAO id
         GL.GenVertexArrays(1, r_set.VAO)
         GL.BindVertexArray(r_set.VAO)
 
-        ReDim r_set.mBuffers(2)
+        ReDim r_set.mBuffers(3)
 
         ' If the reused buffer is not defined, we need to do so.
         If theMap.vertex_vBuffer_id = 0 Then
@@ -139,11 +113,11 @@ Module ChunkFunctions
             fill_buff = True
         End If
 
-        GL.GenBuffers(3, r_set.mBuffers)
+        GL.GenBuffers(4, r_set.mBuffers)
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.vertex_vBuffer_id)
 
-        ' BindBuffer XZ ==================================================================
+        ' VERTEX XZ ==================================================================
         'if the reused vertex_vBuffer_id is not defined, we need to fill the buffer
         If fill_buff Then
             GL.BufferData(BufferTarget.ArrayBuffer,
@@ -157,7 +131,7 @@ Module ChunkFunctions
 
 
         ' POSITION Y ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(0))
+        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(1))
         GL.BufferData(BufferTarget.ArrayBuffer,
               v_buff_Y.Length * 4,
               v_buff_Y, BufferUsageHint.StaticDraw)
@@ -168,7 +142,7 @@ Module ChunkFunctions
         GL.EnableVertexAttribArray(1)
 
         ' UV ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(1))
+        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(2))
         GL.BufferData(BufferTarget.ArrayBuffer,
               uv_buff.Length * 8,
               uv_buff, BufferUsageHint.StaticDraw)
@@ -180,7 +154,7 @@ Module ChunkFunctions
 
 
         ' NORMALS ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(2))
+        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(3))
 
         GL.BufferData(BufferTarget.ArrayBuffer,
               n_buff.Length * 4,
@@ -190,6 +164,13 @@ Module ChunkFunctions
                                VertexAttribPointerType.Int2101010Rev,
                                True, 4, 0)
         GL.EnableVertexAttribArray(3)
+
+        ' INDICES ==================================================================
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, r_set.mBuffers(0))
+        GL.BufferData(BufferTarget.ElementArrayBuffer,
+                          indicies.Length * 6,
+                          indicies,
+                          BufferUsageHint.StaticDraw)
 
 
         GL.BindVertexArray(0)

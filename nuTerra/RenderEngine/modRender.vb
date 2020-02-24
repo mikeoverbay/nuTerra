@@ -204,6 +204,7 @@ Module modRender
 
         GL.ActiveTexture(TextureUnit.Texture0 + 0)
         GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<----------------- Texture Bind
+        'GL.BindTexture(TextureTarget.Texture2D, theMap.MINI_MAP_ID) '<----------------- Texture Bind
         GL.ActiveTexture(TextureUnit.Texture0 + 1)
         GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
@@ -215,8 +216,12 @@ Module modRender
             Dim viewModel = theMap.render_set(i).matrix * VIEWMATRIX
             GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
+
             GL.BindVertexArray(theMap.render_set(i).VAO)
-            GL.DrawArrays(PrimitiveType.Triangles, 0, 64 * 64 * 6)
+            GL.DrawElements(PrimitiveType.Triangles,
+                            4096 * 6,
+                            DrawElementsType.UnsignedShort, 0)
+
         Next
 
         GL.Disable(EnableCap.CullFace)
@@ -231,7 +236,7 @@ Module modRender
             FBOm.attach_CF()
             TerrainNormals.Use()
 
-            GL.Uniform1(TerrainNormals("prj_length"), 0.5F)
+            GL.Uniform1(TerrainNormals("prj_length"), 0.75F)
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_MODELS))
 
@@ -242,7 +247,9 @@ Module modRender
                 Dim model = theMap.render_set(i).matrix
                 GL.UniformMatrix4(TerrainNormals("model"), False, model)
                 GL.BindVertexArray(theMap.render_set(i).VAO)
-                GL.DrawArrays(PrimitiveType.Triangles, 0, 64 * 64 * 6)
+                GL.DrawElements(PrimitiveType.Triangles,
+                                4096 * 6,
+                                DrawElementsType.UnsignedShort, 0)
             Next
 
 

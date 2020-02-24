@@ -38,7 +38,7 @@ vec3 getNormal()
 //very basic for now
 void main(void)
 {
-    if (is_hole == 1.0) discard;
+    if (is_hole == 1.0) discard; // early discard to avoid wasting draw time.
 
     // easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
     gColor = texture(colorMap, UV);

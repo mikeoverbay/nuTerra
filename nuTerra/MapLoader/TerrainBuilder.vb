@@ -60,6 +60,8 @@ Module TerrainBuilder
         Public Shared noise_texture As String ' noiseTexture
         '------------------------
         Public Shared vertex_vBuffer_id As Integer
+        Public Shared indices_count As Integer = 7938 * 3
+
     End Class
     Public Structure chunk_
         Public cdata() As Byte

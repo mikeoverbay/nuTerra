@@ -21,7 +21,7 @@ void main(void)
     UV =  vertexTexCoord;
     is_hole = vertexNormal.w;
 
-	vec3 vertexPosition = vec3(vertexXZ.x, vertexY,vertexXZ.y);
+	vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
 
     vec3 tangent;
 
