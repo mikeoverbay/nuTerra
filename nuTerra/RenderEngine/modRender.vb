@@ -218,14 +218,17 @@ Module modRender
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
 
             GL.BindVertexArray(theMap.render_set(i).VAO)
-            'GL.DrawElements(PrimitiveType.Triangles,
-            '                4096 * 6,
-            '                DrawElementsType.UnsignedShort, 0)
             GL.DrawElements(PrimitiveType.Triangles,
                 23814,
                 DrawElementsType.UnsignedShort, 0)
 
         Next
+        Dim viewM = Matrix4.Identity * VIEWMATRIX
+        GL.UniformMatrix4(TerrainShader("viewModel"), False, viewM)
+        GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewM)))
+
+        GL.BindVertexArray(theMap.seam_VBO_id)
+        GL.DrawArrays(PrimitiveType.Triangles, 0, theMap.seam_tri_count)
 
         GL.Disable(EnableCap.CullFace)
 

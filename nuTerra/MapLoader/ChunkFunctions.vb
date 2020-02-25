@@ -466,16 +466,11 @@ Module ChunkFunctions
         v.Normalize()
         Return v
     End Function
-    Public Sub get_location(ByRef c As chunk_)
-        'Creates the mapBoard array and figures out where each chunk is
-        'located based on its name. 
-        Dim x, y As Integer
-        'Dim mod_ = (Sqrt(maplist.Length - 1)) And 1
-        'Dim offset As Integer = Sqrt(maplist.Length - 1) / 2
-        'If JUST_MAP_NAME.Contains("101_") Then
-        '    mod_ = 0
-        'End If
+
+    Public Sub get_location(ByRef c As chunk_, ByVal map_id As Integer)
         'This routine gets the maps location in the world grid from its name
+        Dim x, y As Integer
+
         Dim a = c.name.ToCharArray
         If a(0) = "f" Then
             If AscW(a(3)) < 97 Then a(3) = ChrW(AscW(a(3)) + 39)
@@ -500,8 +495,12 @@ Module ChunkFunctions
             End If
         End If
         Try
-            'mapBoard(x + offset + mod_, y + offset + mod_) = map
-            'mapBoard(x + offset + mod_, y + offset) = map
+            mapBoard(x + 15, y + 15).map_id = map_id
+            mapBoard(x + 15, y + 15).location.X = c.location.X
+            mapBoard(x + 15, y + 15).location.Y = c.location.Y
+            mapBoard(x + 15, y + 15).abs_location.X = x
+            mapBoard(x + 15, y + 15).abs_location.X = y
+            mapBoard(x + 15, y + 15).occupied = True
         Catch ex As Exception
 
         End Try
@@ -531,6 +530,326 @@ Module ChunkFunctions
         End With
 
 
+    End Sub
+
+    Public Sub seam_map()
+        Dim scale As Double = 100.0# / (64.0#)
+        Dim uvinc As Double = 1.0# / 64.0#
+        Dim u_start As Double = uvinc * 63.0#
+        Dim almost1 As Double = 1.0
+
+        Dim v_start As Double = u_start
+        Dim v_end As Double = 1.0
+        Dim y_pos As Integer = 0
+        Dim x_pos As Integer = 0
+        Dim yu, yl, xu, xl As Single
+        Dim tl, bl, tr, br, cur_x, cur_y As Single
+        Dim tl_n, tr_n, bl_n, br_n As UInt32
+        Dim mmx, mmy As Single
+        Dim mcolumn As Integer = 0
+        Dim buff(1500000) As vertex_data
+        Dim v_cnt As Integer = 0
+        For mbX = 0 To 29 '+ mod_
+            For mbY = 0 To 29 '+ mod_
+                mmy = mbY
+                If mbY = 0 Then
+                    'GoTo endx
+                End If
+                ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+                If mapBoard(mbX, mbY).occupied Then
+                    yu = mapBoard(mbX, mbY).location.Y + 50
+                    yl = yu - (1.0# * scale)
+                    x_pos = 0.0#
+                    mmx = mbX
+
+                    If Not mapBoard(mbX, mbY + 1).occupied Then
+                        GoTo endx
+                    End If
+                    u_start = 0
+                    'Debug.WriteLine(mapBoard(mmx, mmy))
+                    'Debug.WriteLine(mapBoard(mmx + 1, mmy))
+                    For x1 = mapBoard(mbX, mbY).location.X - 50 To _
+                                                mapBoard(mbX, mbY).location.X + 50 - (scale * 2) Step 1 * scale
+                        'pack_2_10_10_10(v_data.normals((i), (j + 1)), 0)
+                        tl = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(x_pos, 0)
+                        tl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY + 1).map_id).normals(x_pos, 0))
+
+                        tr = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(x_pos + 1, 0)
+                        tr_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY + 1).map_id).normals(x_pos + 1, 0))
+
+                        bl = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos, 63)
+                        bl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(x_pos, 63))
+
+                        br = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos + 1, 63)
+                        br_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(x_pos + 1, 63))
+
+                        theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos, 64) = tl
+
+                        topleft.vert.X = x1
+                        topleft.vert.Y = yu
+                        topleft.H = tl
+                        topleft.norm = tl_n
+                        topleft.uv.X = u_start
+                        topleft.uv.Y = almost1
+
+                        bottomleft.vert.X = x1
+                        bottomleft.vert.Y = yl
+                        bottomleft.H = bl
+                        bottomleft.norm = bl_n
+                        bottomleft.uv.X = u_start
+                        bottomleft.uv.Y = almost1 - uvinc
+
+                        topRight.vert.X = x1 + scale
+                        topRight.vert.Y = yu
+                        topRight.H = tr
+                        topRight.norm = tr_n
+                        topRight.uv.X = u_start + uvinc
+                        topRight.uv.Y = almost1
+
+                        bottomRight.vert.X = x1 + scale
+                        bottomRight.vert.Y = yl
+                        bottomRight.H = br
+                        bottomRight.norm = br_n
+                        bottomRight.uv.X = u_start + uvinc
+                        bottomRight.uv.Y = almost1 - uvinc
+
+                        'store in buffer
+                        buff(v_cnt) = bottomleft : v_cnt += 1
+                        buff(v_cnt) = topleft : v_cnt += 1
+                        buff(v_cnt) = topRight : v_cnt += 1
+
+                        buff(v_cnt) = bottomleft : v_cnt += 1
+                        buff(v_cnt) = topRight : v_cnt += 1
+                        buff(v_cnt) = bottomRight : v_cnt += 1
+
+                        u_start += uvinc
+                        x_pos += 1
+                        cur_x = x1
+                    Next
+                    If Not mapBoard(mbX + 1, mbY).occupied Then
+                        GoTo endx
+                    End If
+                    'this part does the one corner we can't loop in to
+                    tl = theMap.v_data(mapBoard(mmx, mmy).map_id).heights(63, 63)
+                    tl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx, mmy).map_id).normals(63, 63))
+
+                    tr = theMap.v_data(mapBoard(mmx + 1, mmy).map_id).heights(0, 63)
+                    tr_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx + 1, mmy).map_id).normals(0, 63))
+
+                    bl = theMap.v_data(mapBoard(mmx, mmy + 1).map_id).heights(63, 0)
+                    bl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx, mmy + 1).map_id).normals(63, 0))
+
+                    br = theMap.v_data(mapBoard(mmx + 1, mmy + 1).map_id).heights(0, 0)
+                    br_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx + 1, mmy + 1).map_id).normals(0, 0))
+
+                    'these 3 positions was a pain to sort out :)
+                    theMap.v_data(mapBoard(mmx, mmy).map_id).heights(64, 64) = br 'ok
+                    theMap.v_data(mapBoard(mmx, mmy).map_id).heights(63, 64) = bl 'ok
+                    theMap.v_data(mapBoard(mmx, mmy).map_id).heights(64, 63) = tr 'ok
+
+                    topleft.vert.X = cur_x + scale
+                    topleft.vert.Y = yl
+                    topleft.H = tl
+                    topleft.norm = tl_n
+                    topleft.uv.X = almost1 - uvinc
+                    topleft.uv.Y = almost1 - uvinc
+                    topleft.hole = theMap.v_data(mapBoard(mmx, mmy).map_id).holes(63, 63)
+
+                    topRight.vert.X = cur_x + (scale * 2)
+                    topRight.vert.Y = yl
+                    topRight.H = tr
+                    topRight.norm = tr_n
+                    topRight.uv.X = almost1
+                    topRight.uv.Y = almost1 - uvinc
+                    topRight.hole = theMap.v_data(mapBoard(mmx, mmy).map_id).holes(0, 63)
+
+                    bottomleft.vert.X = cur_x + scale
+                    bottomleft.vert.Y = yu
+                    bottomleft.H = bl
+                    bottomleft.norm = bl_n
+                    bottomleft.uv.X = almost1 - uvinc
+                    bottomleft.uv.Y = almost1
+                    bottomleft.hole = theMap.v_data(mapBoard(mmx, mmy).map_id).holes(63, 0)
+
+                    bottomRight.vert.X = cur_x + (scale * 2)
+                    bottomRight.vert.Y = yu
+                    bottomRight.H = br
+                    bottomRight.norm = br_n
+                    bottomRight.uv.X = almost1
+                    bottomRight.uv.Y = almost1
+                    bottomRight.hole = theMap.v_data(mapBoard(mmx, mmy).map_id).holes(0, 0)
+
+                    'store in buffer
+                    buff(v_cnt) = topRight : v_cnt += 1
+                    buff(v_cnt) = topleft : v_cnt += 1
+                    buff(v_cnt) = bottomleft : v_cnt += 1
+
+                    buff(v_cnt) = bottomleft : v_cnt += 1
+                    buff(v_cnt) = bottomRight : v_cnt += 1
+                    buff(v_cnt) = topRight : v_cnt += 1
+
+endx:
+                    If Not mapBoard(mmx, mbY).occupied Then
+                        GoTo endy
+                    End If
+                    If Not mapBoard(mmx + 1, mbY).occupied Then
+                        mcolumn += 1
+                        GoTo endy
+                    End If
+
+                    xu = mapBoard(mbX, mbY).location.X + 50
+                    xl = xu - (1 * scale)
+                    cur_y = 0
+                    y_pos = 0
+                    v_start = 0
+
+                    For y1 = mapBoard(mmx, mbY).location.Y - 50 To _
+                              mapBoard(mmx, mbY).location.Y + 50 - (scale * 2) Step 1 * scale
+
+                        tl = theMap.v_data(mapBoard(mmx, mbY).map_id).heights(63, y_pos + 1)
+                        tl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx, mbY).map_id).normals(63, y_pos + 1))
+
+                        tr = theMap.v_data(mapBoard(mmx + 1, mbY).map_id).heights(0, y_pos + 1)
+                        tr_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx + 1, mbY).map_id).normals(0, y_pos + 1))
+
+                        bl = theMap.v_data(mapBoard(mmx, mbY).map_id).heights(63, y_pos)
+                        bl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx, mbY).map_id).normals(63, y_pos))
+
+                        br = theMap.v_data(mapBoard(mmx + 1, mbY).map_id).heights(0, y_pos)
+                        br_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx + 1, mbY).map_id).normals(0, y_pos))
+
+                        theMap.v_data(mapBoard(mmx, mbY).map_id).heights(64, y_pos) = br
+
+                        topleft.vert.X = xl
+                        topleft.vert.Y = y1 + scale
+                        topleft.H = tl
+                        topleft.norm = tl_n
+                        topleft.uv.X = almost1 - uvinc
+                        topleft.uv.Y = v_start + uvinc
+
+                        bottomleft.vert.X = xl
+                        bottomleft.vert.Y = y1
+                        bottomleft.H = bl
+                        bottomleft.norm = bl_n
+                        bottomleft.uv.X = almost1 - uvinc
+                        bottomleft.uv.Y = v_start
+
+                        topRight.vert.X = xu
+                        topRight.vert.Y = y1 + scale
+                        topRight.H = tr
+                        topRight.norm = tr_n
+                        topRight.uv.X = almost1
+                        topRight.uv.Y = v_start + uvinc
+
+                        bottomRight.vert.X = xu
+                        bottomRight.vert.Y = y1
+                        bottomRight.H = br
+                        bottomRight.norm = br_n
+                        bottomRight.uv.X = almost1
+                        bottomRight.uv.Y = v_start
+
+                        'store in buffer
+                        buff(v_cnt) = bottomleft : v_cnt += 1
+                        buff(v_cnt) = topleft : v_cnt += 1
+                        buff(v_cnt) = topRight : v_cnt += 1
+
+                        buff(v_cnt) = bottomleft : v_cnt += 1
+                        buff(v_cnt) = topRight : v_cnt += 1
+                        buff(v_cnt) = bottomRight : v_cnt += 1
+                        v_start += uvinc
+                        y_pos += 1
+                        cur_y = y1
+
+
+                    Next
+                End If
+Endy:
+            Next
+        Next
+        ReDim Preserve buff(v_cnt - 1)
+
+        Dim v_buff_XZ(v_cnt - 1) As Vector2
+        Dim holes_buff(v_cnt - 1) As Single
+        Dim uv_buff(v_cnt - 1) As Vector2
+        Dim n_buff(v_cnt - 1) As UInt32
+        Dim v_buff_Y(v_cnt - 1) As Single
+
+        For i = 0 To v_cnt - 1
+            v_buff_XZ(i) = buff(i).vert
+            v_buff_Y(i) = buff(i).H
+            holes_buff(i) = buff(i).hole
+            uv_buff(i) = buff(i).uv
+            n_buff(i) = buff(i).norm
+        Next
+        theMap.seam_tri_count = v_cnt * 6
+        ' SETUP ==================================================================
+        'Gen VAO and VBO Ids
+        GL.GenVertexArrays(1, theMap.seam_VBO_id)
+        GL.BindVertexArray(theMap.seam_VBO_id)
+        ReDim theMap.mBuffers(4)
+        GL.GenBuffers(5, theMap.mBuffers)
+
+
+        ' VERTEX XZ ==================================================================
+        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(0))
+        'if the shared buffer is not defined, we need to fill the buffer now
+        GL.BufferData(BufferTarget.ArrayBuffer,
+                          v_buff_XZ.Length * 8,
+                          v_buff_XZ, BufferUsageHint.StaticDraw)
+        GL.VertexAttribPointer(0, 2,
+                               VertexAttribPointerType.Float,
+                               False, 8, 0)
+        GL.EnableVertexAttribArray(0)
+
+        ' POSITION Y ==================================================================
+        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(1))
+        GL.BufferData(BufferTarget.ArrayBuffer,
+              v_buff_Y.Length * 4,
+              v_buff_Y, BufferUsageHint.StaticDraw)
+
+        GL.VertexAttribPointer(1, 1,
+                            VertexAttribPointerType.Float,
+                            False, 4, 0)
+        GL.EnableVertexAttribArray(1)
+
+        ' UV ==================================================================
+        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(2))
+        GL.BufferData(BufferTarget.ArrayBuffer,
+              uv_buff.Length * 8,
+              uv_buff, BufferUsageHint.StaticDraw)
+
+        GL.VertexAttribPointer(2, 2,
+                            VertexAttribPointerType.Float,
+                            False, 8, 0)
+        GL.EnableVertexAttribArray(2)
+
+        ' NORMALS ==================================================================
+        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(3))
+
+        GL.BufferData(BufferTarget.ArrayBuffer,
+              n_buff.Length * 4,
+              n_buff, BufferUsageHint.StaticDraw)
+
+        GL.VertexAttribPointer(3, 4,
+                               VertexAttribPointerType.Int2101010Rev,
+                               True, 4, 0)
+        GL.EnableVertexAttribArray(3)
+
+        ' HOLES ==================================================================
+        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(4))
+
+        GL.BufferData(BufferTarget.ArrayBuffer,
+              holes_buff.Length * 4,
+              holes_buff, BufferUsageHint.StaticDraw)
+
+        GL.VertexAttribPointer(4, 1,
+                               VertexAttribPointerType.Float,
+                               True, 4, 0)
+        GL.EnableVertexAttribArray(4)
+
+
+
+        GL.BindVertexArray(0)
     End Sub
 
 End Module

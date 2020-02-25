@@ -7,6 +7,14 @@ Imports OpenTK
 Module TerrainBuilder
     '=======================================================================
     'move this to Modules/modTypeStructures.vb when we are done debugging
+    Public mapBoard(30, 30) As map_entry_
+    Public Structure map_entry_
+        Public location As Vector2
+        Public map_id As Integer
+        Public abs_location As Point
+        Public occupied As Boolean
+    End Structure
+
     Public topRight As New vertex_data
     Public topleft As New vertex_data
     Public bottomRight As New vertex_data
@@ -16,6 +24,7 @@ Module TerrainBuilder
         Public H As Single
         Public uv As Vector2
         Public norm As UInt32
+        Public hole As UInteger
     End Structure
 
     Public Structure grid_sec
@@ -43,25 +52,28 @@ Module TerrainBuilder
         Public Shared chunks() As chunk_
         Public Shared v_data() As terain_V_data_
         Public Shared render_set() As chunk_render_data_
-
+        '------------------------
         Public Shared MINI_MAP_ID As Integer
-
         Public Shared skybox_mdl As New base_model_holder_
         Public Shared Sky_Texture_Id As Integer
         Public Shared skybox_path As String
-
+        '------------------------
         Public Shared chunk_size As Single ' space.settings/chunkSize or 100.0 by default
-        Public Shared bounds_minX As Int32 ' space.settings/bounds
-        Public Shared bounds_maxX As Int32 ' space.settings/bounds
-        Public Shared bounds_minY As Int32 ' space.settings/bounds
-        Public Shared bounds_maxY As Int32 ' space.settings/bounds
+        Public Shared bounds_minX As Int32 ' play area bounds?
+        Public Shared bounds_maxX As Int32 '
+        Public Shared bounds_minY As Int32 '
+        Public Shared bounds_maxY As Int32 '
+        '------------------------
         Public Shared normal_map As String
         Public Shared global_map As String ' global_AM.dds
         Public Shared noise_texture As String ' noiseTexture
         '------------------------
         Public Shared vertex_vBuffer_id As Integer
         Public Shared indices_count As Integer = 7938 * 3
-
+        '------------------------
+        Public Shared seam_VBO_id As Integer
+        Public Shared mBuffers() As Integer
+        Public Shared seam_tri_count As Integer
     End Class
     Public Structure chunk_
         Public cdata() As Byte
@@ -97,13 +109,14 @@ Module TerrainBuilder
     End Structure
     '=======================================================================
     Public Sub Create_Terrain()
+        ReDim mapBoard(30, 30) 'clear it
 
         get_all_chunk_file_data()
         BG_TEXT = "Loading Terrain..."
         BG_MAX_VALUE = theMap.chunks.Length - 1
         BG_VALUE = 0
         For I = 0 To theMap.chunks.Length - 1
-            get_location(theMap.chunks(I))
+            get_location(theMap.chunks(I), I)
             get_holes(theMap.chunks(I), theMap.v_data(I))
             get_heights(theMap.chunks(I), theMap.v_data(I))
             get_normals(theMap.chunks(I), theMap.v_data(I))
@@ -112,7 +125,7 @@ Module TerrainBuilder
             draw_scene()
             Application.DoEvents()
         Next
-
+        seam_map()
     End Sub
 
     Public Sub get_all_chunk_file_data()
@@ -294,6 +307,7 @@ Module TerrainBuilder
         End If
         Return -1
     End Function
+
     Private Function get_team_locations_and_field_BB(ByRef name As String) As Boolean
         Dim ar = name.Split(".")
         Dim script_pkg = Ionic.Zip.ZipFile.Read(GAME_PATH & "scripts.pkg")

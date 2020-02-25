@@ -89,8 +89,6 @@ Module TextureLoaders
         Return -1
     End Function
 
-
-
     Public Function find_and_load_UI_texture_from_pkgs(ByRef fn As String) As Integer
         'This will NOT replace PNG with DDS in the file name.
         'finds and loads and returns the GL texture ID.
