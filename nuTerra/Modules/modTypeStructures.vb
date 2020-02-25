@@ -36,8 +36,7 @@ Module modTypeStructures
 
     Public DECAL_INDEX_LIST() As DECAL_INDEX_LIST_
     Public Structure DECAL_INDEX_LIST_
-        Public u_wrap As Single
-        Public v_wrap As Single
+        Public uv_wrapping As Vector2
         Public decal_data() As vertex_data_
         Public texture_id As Integer
         Public normal_id As Integer
@@ -47,9 +46,9 @@ Module modTypeStructures
         Public decal_normal As String
         Public decal_gmm As String
         Public decal_extra As String
-        Public matrix() As Single
+        Public matrix As Matrix4
         Public good As Boolean
-        Public offset As OpenTK.Vector4
+        Public offsets As Vector4
         Public priority As Int32
         Public influence As Integer
         Public texture_matrix() As Single
@@ -61,9 +60,8 @@ Module modTypeStructures
         Public rbr As Vector3
         Public rtl As Vector3
         Public rtr As Vector3
-        Public BB() As Vector3
+        Public BB As Matrix3x2
         Public visible As Boolean
-        Public flags As UInteger
         Public cull_method As Integer
         Public is_parallax As Boolean
         Public is_wet As Boolean

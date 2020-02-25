@@ -655,34 +655,27 @@ Module modSpacedBinVars
         Public decalEntries() As DecalEntries_
         Public Structure DecalEntries_
             Public v1, v2 As UInt32
-            Public accuracyType As Byte
-            Public matrix() As Single
-            Public diffuseMapKey As UInt32
-            Public normalMapKey As UInt32
-            Public gmmMapkey As UInt32
-            Public extrakey As UInt32
+            Public accurate As Byte
+            Public transform As Matrix4
+            Public diff_tex_fnv As UInt32
+            Public bump_tex_fnv As UInt32
+            Public hm_tex_fnv As UInt32
+            Public add_tex_fnv As UInt32
             '
-            Public flags As UInt16
+            Public priority As UInt32
+            Public influenceType As Byte
+            Public materialType As Byte
             '
-            Public off_x As Single
-            Public off_y As Single
-            Public off_z As Single
-            Public off_w As Single
+            Public offsets As Vector4
             '
-            Public uv_wrapping_u As Single
-            Public uv_wrapping_v As Single
-            Public visibilityMask As UInt32
+            Public uv_wrapping As Vector2
+            Public visibility_mask As UInt32
 
-            'these 3 only exist in type 3 decals
+            ' these 3 only exist in type 3 decals
             Public tiles_fade As Single
             Public parallax_offset As Single
             Public parallax_amplitude As Single
-            '---------------------------
-            Public diffuseMap As String
-            Public normalMap As String
-            Public gmmMap As String
-            Public extraMap As String
-            '---------------------------
+
             Public s1, s2, s3 As String
         End Structure
 

@@ -256,87 +256,64 @@ Module modSpaceBinFunctions
         Dim ds = br.ReadUInt32 'data size per entry in bytes
         ReDim cWGSD.decalEntries(tl - 1)
         ReDim DECAL_INDEX_LIST(tl - 1)
-        For k = 0 To tl - 1
-            DECAL_INDEX_LIST(k) = New DECAL_INDEX_LIST_
-            ReDim cWGSD.decalEntries(k).matrix(15)
-            ReDim DECAL_INDEX_LIST(k).matrix(15)
 
+        For k = 0 To tl - 1
             cWGSD.decalEntries(k).v1 = br.ReadUInt32
             cWGSD.decalEntries(k).v2 = br.ReadUInt32
 
-            cWGSD.decalEntries(k).accuracyType = br.ReadByte
-            For i = 0 To 15
-                cWGSD.decalEntries(k).matrix(i) = br.ReadSingle
-                DECAL_INDEX_LIST(k).matrix(i) = cWGSD.decalEntries(k).matrix(i)
+            cWGSD.decalEntries(k).accurate = br.ReadByte
+
+            For i = 0 To 3
+                For j = 0 To 3
+                    cWGSD.decalEntries(k).transform(i, j) = br.ReadSingle
+                Next
             Next
-            'get the texture names
-            cWGSD.decalEntries(k).diffuseMapKey = br.ReadUInt32
-            cWGSD.decalEntries(k).normalMapKey = br.ReadUInt32
-            cWGSD.decalEntries(k).gmmMapkey = br.ReadUInt32
-            cWGSD.decalEntries(k).extrakey = br.ReadUInt32
 
-            Dim priority = br.ReadUInt32
-            cWGSD.decalEntries(k).flags = br.ReadUInt16
-            DECAL_INDEX_LIST(k).flags = cWGSD.decalEntries(k).flags
+            ' get the texture names
+            cWGSD.decalEntries(k).diff_tex_fnv = br.ReadUInt32
+            cWGSD.decalEntries(k).bump_tex_fnv = br.ReadUInt32
+            cWGSD.decalEntries(k).hm_tex_fnv = br.ReadUInt32
+            cWGSD.decalEntries(k).add_tex_fnv = br.ReadUInt32
 
-            cWGSD.decalEntries(k).off_x = br.ReadSingle
-            cWGSD.decalEntries(k).off_y = br.ReadSingle
-            cWGSD.decalEntries(k).off_z = br.ReadSingle
-            cWGSD.decalEntries(k).off_w = br.ReadSingle
+            cWGSD.decalEntries(k).priority = br.ReadUInt32
+            cWGSD.decalEntries(k).influenceType = br.ReadByte
+            cWGSD.decalEntries(k).materialType = br.ReadByte
 
-            DECAL_INDEX_LIST(k).offset.Z = cWGSD.decalEntries(k).off_x
-            DECAL_INDEX_LIST(k).offset.Y = cWGSD.decalEntries(k).off_y
-            DECAL_INDEX_LIST(k).offset.Z = cWGSD.decalEntries(k).off_z
-            DECAL_INDEX_LIST(k).offset.W = cWGSD.decalEntries(k).off_w
+            cWGSD.decalEntries(k).offsets.X = br.ReadSingle
+            cWGSD.decalEntries(k).offsets.Y = br.ReadSingle
+            cWGSD.decalEntries(k).offsets.Z = br.ReadSingle
+            cWGSD.decalEntries(k).offsets.W = br.ReadSingle
 
-            cWGSD.decalEntries(k).uv_wrapping_u = br.ReadSingle
-            cWGSD.decalEntries(k).uv_wrapping_v = br.ReadSingle
+            cWGSD.decalEntries(k).uv_wrapping.X = br.ReadSingle
+            cWGSD.decalEntries(k).uv_wrapping.Y = br.ReadSingle
 
-            DECAL_INDEX_LIST(k).u_wrap = cWGSD.decalEntries(k).uv_wrapping_u
-            DECAL_INDEX_LIST(k).v_wrap = cWGSD.decalEntries(k).uv_wrapping_v
+            cWGSD.decalEntries(k).visibility_mask = br.ReadUInt32
+            cWGSD.decalEntries(k).tiles_fade = br.ReadSingle
 
-            cWGSD.decalEntries(k).visibilityMask = br.ReadUInt32 'always 0xFFFFFFFF?
-            Dim un = br.ReadUInt32
-            If cWGSD.decalEntries(k).visibilityMask <> 4294967295 Then
-                'Stop
-                'Debug.WriteLine(k.ToString + ":" + WGSD.Table_Entries(k).visibilityMask.ToString("00000000000"))
-            End If
-            If cWGSD.decalEntries(k).visibilityMask <> 4294967295 Then
-                GoTo ignore_this
-            End If
-            'now we can get the strings from the keys.
-            cWGSD.decalEntries(k).diffuseMap = cBWST.find_str(cWGSD.decalEntries(k).diffuseMapKey)
-            cWGSD.decalEntries(k).normalMap = cBWST.find_str(cWGSD.decalEntries(k).normalMapKey)
-            cWGSD.decalEntries(k).gmmMap = cBWST.find_str(cWGSD.decalEntries(k).gmmMapkey)
-            cWGSD.decalEntries(k).extraMap = cBWST.find_str(cWGSD.decalEntries(k).extrakey)
-            'this is a temp hack
-            If cWGSD.decalEntries(k).extraMap <> "" Then
-                cWGSD.decalEntries(k).diffuseMap = cWGSD.decalEntries(k).extraMap
-                cWGSD.decalEntries(k).normalMap = cWGSD.decalEntries(k).extraMap
-                GoTo ignore_this
-                If True Then
-                    'some sorta special enviroment map
-                    Debug.WriteLine(cWGSD.decalEntries(k).diffuseMap)
-                End If
-            End If
-            DECAL_INDEX_LIST(k).decal_texture = cWGSD.decalEntries(k).diffuseMap
-            '' the normal map for Stone_06 does not exist in the pkg files!!
+
+            DECAL_INDEX_LIST(k).matrix = cWGSD.decalEntries(k).transform
+            DECAL_INDEX_LIST(k).offsets = cWGSD.decalEntries(k).offsets
+            DECAL_INDEX_LIST(k).uv_wrapping = cWGSD.decalEntries(k).uv_wrapping
+
+            ' now we can get the strings from the keys.
+            DECAL_INDEX_LIST(k).decal_texture = cBWST.find_str(cWGSD.decalEntries(k).diff_tex_fnv)
+
+            ' the normal map for Stone_06 does not exist in the pkg files!!
             If DECAL_INDEX_LIST(k).decal_texture.Contains("Stone06.") Then
-                cWGSD.decalEntries(k).normalMap = "Stone06_NM.dds"
+                DECAL_INDEX_LIST(k).decal_normal = "Stone06_NM.dds"
+            Else
+                DECAL_INDEX_LIST(k).decal_normal = cBWST.find_str(cWGSD.decalEntries(k).bump_tex_fnv)
             End If
-            DECAL_INDEX_LIST(k).decal_normal = cWGSD.decalEntries(k).normalMap
-            DECAL_INDEX_LIST(k).decal_gmm = cWGSD.decalEntries(k).gmmMap
-            DECAL_INDEX_LIST(k).decal_extra = cWGSD.decalEntries(k).extraMap
-ignore_this:
-            DECAL_INDEX_LIST(k).influence = cWGSD.decalEntries(k).flags 'CInt((WGSD.Table_Entries(k).flags And &HFF00) / 256)
+
+            DECAL_INDEX_LIST(k).decal_gmm = cBWST.find_str(cWGSD.decalEntries(k).hm_tex_fnv)
+            DECAL_INDEX_LIST(k).decal_extra = cBWST.find_str(cWGSD.decalEntries(k).add_tex_fnv)
+
+            DECAL_INDEX_LIST(k).influence = cWGSD.decalEntries(k).influenceType
             If DECAL_INDEX_LIST(k).influence = 6 Then
                 DECAL_INDEX_LIST(k).influence = 2
             End If
 
-            DECAL_INDEX_LIST(k).priority = priority '(WGSD.Table_Entries(k).flags And &HFF)
-            Dim d_type As Integer = (cWGSD.decalEntries(k).flags And &HF0000) / 65536
-
-
+            DECAL_INDEX_LIST(k).priority = cWGSD.decalEntries(k).priority
         Next
         Dim type = br.ReadUInt32
         '===================================================================================
@@ -348,94 +325,65 @@ read3_only:
         ReDim Preserve cWGSD.decalEntries(tl + cnt2 + -1)
         '2nd group
         For k = tl To (tl + cnt2) - 1
-            DECAL_INDEX_LIST(k) = New DECAL_INDEX_LIST_
-            ReDim cWGSD.decalEntries(k).matrix(15)
-            ReDim DECAL_INDEX_LIST(k).matrix(15)
-
             cWGSD.decalEntries(k).v1 = br.ReadUInt32
             cWGSD.decalEntries(k).v2 = br.ReadUInt32
 
-            cWGSD.decalEntries(k).accuracyType = br.ReadByte
-            For i = 0 To 15
-                cWGSD.decalEntries(k).matrix(i) = br.ReadSingle
-                DECAL_INDEX_LIST(k).matrix(i) = cWGSD.decalEntries(k).matrix(i)
+            cWGSD.decalEntries(k).accurate = br.ReadByte
+
+            For i = 0 To 3
+                For j = 0 To 3
+                    cWGSD.decalEntries(k).transform(i, j) = br.ReadSingle
+                Next
             Next
-            'get the texture names
-            cWGSD.decalEntries(k).diffuseMapKey = br.ReadUInt32
-            cWGSD.decalEntries(k).normalMapKey = br.ReadUInt32
-            cWGSD.decalEntries(k).gmmMapkey = br.ReadUInt32
-            cWGSD.decalEntries(k).extrakey = br.ReadUInt32
 
-            Dim priority = br.ReadInt32
+            ' get the texture names
+            cWGSD.decalEntries(k).diff_tex_fnv = br.ReadUInt32
+            cWGSD.decalEntries(k).bump_tex_fnv = br.ReadUInt32
+            cWGSD.decalEntries(k).hm_tex_fnv = br.ReadUInt32
+            cWGSD.decalEntries(k).add_tex_fnv = br.ReadUInt32
 
-            cWGSD.decalEntries(k).flags = br.ReadUInt16
-            DECAL_INDEX_LIST(k).flags = cWGSD.decalEntries(k).flags
+            cWGSD.decalEntries(k).priority = br.ReadUInt32
+            cWGSD.decalEntries(k).influenceType = br.ReadByte
+            cWGSD.decalEntries(k).materialType = br.ReadByte
 
-            cWGSD.decalEntries(k).off_x = br.ReadSingle
-            cWGSD.decalEntries(k).off_y = br.ReadSingle
-            cWGSD.decalEntries(k).off_z = br.ReadSingle
-            cWGSD.decalEntries(k).off_w = br.ReadSingle
+            cWGSD.decalEntries(k).offsets.X = br.ReadSingle
+            cWGSD.decalEntries(k).offsets.Y = br.ReadSingle
+            cWGSD.decalEntries(k).offsets.Z = br.ReadSingle
+            cWGSD.decalEntries(k).offsets.W = br.ReadSingle
 
-            DECAL_INDEX_LIST(k).offset.Z = cWGSD.decalEntries(k).off_x
-            DECAL_INDEX_LIST(k).offset.Y = cWGSD.decalEntries(k).off_y
-            DECAL_INDEX_LIST(k).offset.Z = cWGSD.decalEntries(k).off_z
-            DECAL_INDEX_LIST(k).offset.W = cWGSD.decalEntries(k).off_w
+            cWGSD.decalEntries(k).uv_wrapping.X = br.ReadSingle
+            cWGSD.decalEntries(k).uv_wrapping.Y = br.ReadSingle
 
-            cWGSD.decalEntries(k).uv_wrapping_u = br.ReadSingle
-            cWGSD.decalEntries(k).uv_wrapping_v = br.ReadSingle
-
-            DECAL_INDEX_LIST(k).u_wrap = cWGSD.decalEntries(k).uv_wrapping_u
-            DECAL_INDEX_LIST(k).v_wrap = cWGSD.decalEntries(k).uv_wrapping_v
-
-            cWGSD.decalEntries(k).visibilityMask = br.ReadUInt32 'always 0xFFFFFFFF?
-
-            If cWGSD.decalEntries(k).visibilityMask <> 4294967295 Then
-                'Stop
-                'Debug.WriteLine(k.ToString + ":" + WGSD.Table_Entries(k).visibilityMask.ToString("00000000000"))
-            End If
-            If cWGSD.decalEntries(k).visibilityMask <> 4294967295 Then
-                GoTo ignore_this2
-            End If
-            'these 3 are only in type 3 decals!
+            cWGSD.decalEntries(k).visibility_mask = br.ReadUInt32
             cWGSD.decalEntries(k).tiles_fade = br.ReadSingle
+
+            'these 2 are only in type 3 decals!
             cWGSD.decalEntries(k).parallax_offset = br.ReadSingle
             cWGSD.decalEntries(k).parallax_amplitude = br.ReadSingle
+
             DECAL_INDEX_LIST(k).is_parallax = True
 
-            'now we can get the strings from the keys.
-            cWGSD.decalEntries(k).diffuseMap = cBWST.find_str(cWGSD.decalEntries(k).diffuseMapKey)
-            cWGSD.decalEntries(k).normalMap = cBWST.find_str(cWGSD.decalEntries(k).normalMapKey)
-            cWGSD.decalEntries(k).gmmMap = cBWST.find_str(cWGSD.decalEntries(k).gmmMapkey)
-            cWGSD.decalEntries(k).extraMap = cBWST.find_str(cWGSD.decalEntries(k).extrakey)
-            'this is a temp hack
-            If cWGSD.decalEntries(k).extraMap <> "" Then
-                GoTo ignore_this2
-                cWGSD.decalEntries(k).diffuseMap = cWGSD.decalEntries(k).extraMap
-                cWGSD.decalEntries(k).normalMap = cWGSD.decalEntries(k).extraMap
-                DECAL_INDEX_LIST(k).is_wet = True
-                If True Then
-                    'some sorta special enviroment map
-                    Debug.WriteLine(cWGSD.decalEntries(k).diffuseMap)
-                End If
-            End If
-            DECAL_INDEX_LIST(k).decal_texture = cWGSD.decalEntries(k).diffuseMap
-            '' the normal map for Stone_06 does not exist in the pkg files!!
+            DECAL_INDEX_LIST(k).matrix = cWGSD.decalEntries(k).transform
+
+            ' now we can get the strings from the keys.
+            DECAL_INDEX_LIST(k).decal_texture = cBWST.find_str(cWGSD.decalEntries(k).diff_tex_fnv)
+
+            ' HACK: the normal map for Stone_06 does not exist in the pkg files!!
             If DECAL_INDEX_LIST(k).decal_texture.Contains("Stone06.") Then
-                cWGSD.decalEntries(k).normalMap = "Stone06_NM.dds"
+                DECAL_INDEX_LIST(k).decal_normal = "Stone06_NM.dds"
+            Else
+                DECAL_INDEX_LIST(k).decal_normal = cBWST.find_str(cWGSD.decalEntries(k).bump_tex_fnv)
             End If
-            DECAL_INDEX_LIST(k).decal_normal = cWGSD.decalEntries(k).normalMap
-            DECAL_INDEX_LIST(k).decal_gmm = cWGSD.decalEntries(k).gmmMap
-            DECAL_INDEX_LIST(k).decal_extra = cWGSD.decalEntries(k).extraMap
-ignore_this2:
-            DECAL_INDEX_LIST(k).influence = cWGSD.decalEntries(k).flags 'CInt((WGSD.Table_Entries(k).flags And &HFF00) / 256)
+
+            DECAL_INDEX_LIST(k).decal_gmm = cBWST.find_str(cWGSD.decalEntries(k).hm_tex_fnv)
+            DECAL_INDEX_LIST(k).decal_extra = cBWST.find_str(cWGSD.decalEntries(k).add_tex_fnv)
+
+            DECAL_INDEX_LIST(k).influence = cWGSD.decalEntries(k).influenceType
             If DECAL_INDEX_LIST(k).influence = 6 Then
                 DECAL_INDEX_LIST(k).influence = 2
             End If
 
-            DECAL_INDEX_LIST(k).priority = priority '(WGSD.Table_Entries(k).flags And &HFF)
-            Dim d_type As Integer = (cWGSD.decalEntries(k).flags And &HF0000) / 65536
-
-
+            DECAL_INDEX_LIST(k).priority = cWGSD.decalEntries(k).priority
         Next
     End Sub
 
