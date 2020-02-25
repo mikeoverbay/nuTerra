@@ -238,10 +238,9 @@ try_again:
         LogThis(String.Format("GLSL Version: {0}", GL.GetString(StringName.ShadingLanguageVersion)))
 
 #If DEBUG Then
-        Dim n, i As Integer
         Dim extensions As New List(Of String)
-        GL.GetInteger(GetPName.NumExtensions, n)
-        For i = 0 To n
+        Dim numExt As Integer = GL.GetInteger(GetPName.NumExtensions)
+        For i = 0 To numExt - 1
             extensions.Add(GL.GetString(StringNameIndexed.Extensions, i))
         Next
 
