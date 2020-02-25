@@ -212,23 +212,33 @@ Module modRender
 
         GL.Enable(EnableCap.CullFace)
 
+        'Must have this Identity to use the terrain shader.
+        'Seams are in world space already but that will be changed
+        Dim viewM = Matrix4.Identity * VIEWMATRIX
+
         For i = 0 To theMap.render_set.Length - 1
             Dim viewModel = theMap.render_set(i).matrix * VIEWMATRIX
             GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
 
+            GL.Uniform1(TerrainShader("id_color"), CSng(i)) ' <-- debug
+
+            'draw chunk
             GL.BindVertexArray(theMap.render_set(i).VAO)
             GL.DrawElements(PrimitiveType.Triangles,
                 23814,
                 DrawElementsType.UnsignedShort, 0)
 
+            If theMap.render_set(i).S_VAO > 0 Then
+                'draw map seam.
+                GL.UniformMatrix4(TerrainShader("viewModel"), False, viewM)
+                GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewM)))
+                GL.BindVertexArray(theMap.render_set(i).S_VAO)
+                GL.DrawArrays(PrimitiveType.Triangles, 0, theMap.render_set(i).S_tri_count)
+            End If
         Next
-        Dim viewM = Matrix4.Identity * VIEWMATRIX
-        GL.UniformMatrix4(TerrainShader("viewModel"), False, viewM)
-        GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewM)))
 
-        GL.BindVertexArray(theMap.seam_VBO_id)
-        GL.DrawArrays(PrimitiveType.Triangles, 0, theMap.seam_tri_count)
+
 
         GL.Disable(EnableCap.CullFace)
 
@@ -253,13 +263,14 @@ Module modRender
                 Dim model = theMap.render_set(i).matrix
                 GL.UniformMatrix4(TerrainNormals("model"), False, model)
                 GL.BindVertexArray(theMap.render_set(i).VAO)
-                'GL.DrawElements(PrimitiveType.Triangles,
-                '                4096 * 6,
-                '                DrawElementsType.UnsignedShort, 0)
+
+                'draw chunk wire
                 GL.DrawElements(PrimitiveType.Triangles,
                         23814,
                         DrawElementsType.UnsignedShort, 0)
+
             Next
+
 
 
             TerrainNormals.StopUse()

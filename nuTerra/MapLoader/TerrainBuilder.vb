@@ -7,7 +7,7 @@ Imports OpenTK
 Module TerrainBuilder
     '=======================================================================
     'move this to Modules/modTypeStructures.vb when we are done debugging
-    Public mapBoard(30, 30) As map_entry_
+    Public mapBoard(20, 20) As map_entry_
     Public Structure map_entry_
         Public location As Vector2
         Public map_id As Integer
@@ -71,9 +71,7 @@ Module TerrainBuilder
         Public Shared vertex_vBuffer_id As Integer
         Public Shared indices_count As Integer = 7938 * 3
         '------------------------
-        Public Shared seam_VBO_id As Integer
-        Public Shared mBuffers() As Integer
-        Public Shared seam_tri_count As Integer
+
     End Class
     Public Structure chunk_
         Public cdata() As Byte
@@ -105,16 +103,27 @@ Module TerrainBuilder
         Public mBuffers() As Integer
         Public VAO As Integer
         Public matrix As Matrix4
+        '-------------------------------
+        Public S_mBuffers() As Integer
+        Public S_VAO As Integer
+        Public S_matrix As Matrix4
+        Public S_tri_count As Integer
+        '-------------------------------
         ' Texture IDs and such below
     End Structure
     '=======================================================================
     Public Sub Create_Terrain()
-        ReDim mapBoard(30, 30) 'clear it
+        ReDim mapBoard(20, 20) 'clear it
 
         get_all_chunk_file_data()
         BG_TEXT = "Loading Terrain..."
         BG_MAX_VALUE = theMap.chunks.Length - 1
         BG_VALUE = 0
+        set_map_bs()
+        For I = 0 To theMap.chunks.Length - 1
+            get_location_corner(theMap.chunks(I))
+        Next
+
         For I = 0 To theMap.chunks.Length - 1
             get_location(theMap.chunks(I), I)
             get_holes(theMap.chunks(I), theMap.v_data(I))

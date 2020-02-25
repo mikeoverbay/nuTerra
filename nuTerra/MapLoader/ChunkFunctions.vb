@@ -466,6 +466,49 @@ Module ChunkFunctions
         v.Normalize()
         Return v
     End Function
+    Dim b_x_min As Integer
+    Dim b_x_max As Integer
+    Dim b_y_min As Integer
+    Dim b_y_max As Integer
+    Public Sub set_map_bs()
+        b_x_max = -10000
+        b_x_min = 10000
+        b_y_max = -10000
+        b_y_min = 10000
+    End Sub
+    Public Sub get_location_corner(ByRef c As chunk_)
+        'This routine gets the maps location in the world grid from its name
+        Dim x, y As Integer
+
+        Dim a = c.name.ToCharArray
+        If a(0) = "f" Then
+            If AscW(a(3)) < 97 Then a(3) = ChrW(AscW(a(3)) + 39)
+            x = AscW("f") - AscW(a(3))  '+ 1
+            c.location.X = ((AscW("f") - AscW(a(3))) * 100.0) + 50.0
+        Else
+            If a(0) = "0" Then
+                x = AscW(a(3)) - AscW("0") + 1
+                c.location.X = ((AscW(a(3)) - AscW("0")) * -100.0) - 50.0
+                x *= -1
+            End If
+        End If
+        If a(4) = "f" Then
+            If AscW(a(7)) < 97 Then a(7) = ChrW(AscW(a(7)) + 39)
+            y = AscW("f") - AscW(a(7))  '+ 1
+            c.location.Y = ((AscW("f") - AscW(a(7))) * -100.0) - 50
+            y *= -1
+        Else
+            If a(4) = "0" Then
+                y = AscW(a(7)) - AscW("0") + 1
+                c.location.Y = ((AscW(a(7)) - AscW("0")) * 100.0) + 50
+            End If
+        End If
+        If b_x_min > x Then b_x_min = x
+        If b_x_max < x Then b_x_max = x
+        If b_y_min > y Then b_y_min = y
+        If b_y_max < y Then b_y_max = y
+
+    End Sub
 
     Public Sub get_location(ByRef c As chunk_, ByVal map_id As Integer)
         'This routine gets the maps location in the world grid from its name
@@ -494,16 +537,14 @@ Module ChunkFunctions
                 c.location.Y = ((AscW(a(7)) - AscW("0")) * 100.0) + 50
             End If
         End If
-        Try
-            mapBoard(x + 15, y + 15).map_id = map_id
-            mapBoard(x + 15, y + 15).location.X = c.location.X
-            mapBoard(x + 15, y + 15).location.Y = c.location.Y
-            mapBoard(x + 15, y + 15).abs_location.X = x
-            mapBoard(x + 15, y + 15).abs_location.X = y
-            mapBoard(x + 15, y + 15).occupied = True
-        Catch ex As Exception
 
-        End Try
+        mapBoard(x + 10, y + 10).map_id = map_id
+        mapBoard(x + 10, y + 10).location.X = c.location.X
+        mapBoard(x + 10, y + 10).location.Y = c.location.Y
+        mapBoard(x + 10, y + 10).abs_location.X = x
+        mapBoard(x + 10, y + 10).abs_location.X = y
+        mapBoard(x + 10, y + 10).occupied = True
+
     End Sub
 
     Private Sub get_translated_bb_terrain(ByRef BB() As Vector3, ByRef c As terain_V_data_)
@@ -545,29 +586,33 @@ Module ChunkFunctions
         Dim yu, yl, xu, xl As Single
         Dim tl, bl, tr, br, cur_x, cur_y As Single
         Dim tl_n, tr_n, bl_n, br_n As UInt32
-        Dim mmx, mmy As Single
-        Dim mcolumn As Integer = 0
-        Dim buff(1500000) As vertex_data
         Dim v_cnt As Integer = 0
-        For mbX = 0 To 29 '+ mod_
-            For mbY = 0 To 29 '+ mod_
-                mmy = mbY
-                If mbY = 0 Then
-                    'GoTo endx
-                End If
+        Dim buff(2) As vertex_data
+        Dim debug_string As String = ""
+
+        BG_TEXT = "Creating Map Seams"
+        BG_VALUE = 0
+        BG_MAX_VALUE = 20 * 20
+        Dim processed_count = 0
+        For mbX = 0 To 19
+
+            For mbY = 0 To 19
+                BG_VALUE = processed_count
+                processed_count += 1
                 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
                 If mapBoard(mbX, mbY).occupied Then
+                    ReDim buff(762) ' Max size.. some will be 1/2 this size
+                    v_cnt = 0
+
                     yu = mapBoard(mbX, mbY).location.Y + 50
                     yl = yu - (1.0# * scale)
                     x_pos = 0.0#
-                    mmx = mbX
 
                     If Not mapBoard(mbX, mbY + 1).occupied Then
                         GoTo endx
                     End If
                     u_start = 0
-                    'Debug.WriteLine(mapBoard(mmx, mmy))
-                    'Debug.WriteLine(mapBoard(mmx + 1, mmy))
+                    'top Seam
                     For x1 = mapBoard(mbX, mbY).location.X - 50 To _
                                                 mapBoard(mbX, mbY).location.X + 50 - (scale * 2) Step 1 * scale
                         'pack_2_10_10_10(v_data.normals((i), (j + 1)), 0)
@@ -629,23 +674,28 @@ Module ChunkFunctions
                     If Not mapBoard(mbX + 1, mbY).occupied Then
                         GoTo endx
                     End If
+                    If Not mapBoard(mbX, mbY + 1).occupied Then
+                        GoTo endx
+                    End If
+
+                    'Corner
                     'this part does the one corner we can't loop in to
-                    tl = theMap.v_data(mapBoard(mmx, mmy).map_id).heights(63, 63)
-                    tl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx, mmy).map_id).normals(63, 63))
+                    tl = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, 63)
+                    tl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(63, 63))
 
-                    tr = theMap.v_data(mapBoard(mmx + 1, mmy).map_id).heights(0, 63)
-                    tr_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx + 1, mmy).map_id).normals(0, 63))
+                    tr = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, 63)
+                    tr_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX + 1, mbY).map_id).normals(0, 63))
 
-                    bl = theMap.v_data(mapBoard(mmx, mmy + 1).map_id).heights(63, 0)
-                    bl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx, mmy + 1).map_id).normals(63, 0))
+                    bl = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(63, 0)
+                    bl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY + 1).map_id).normals(63, 0))
 
-                    br = theMap.v_data(mapBoard(mmx + 1, mmy + 1).map_id).heights(0, 0)
-                    br_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx + 1, mmy + 1).map_id).normals(0, 0))
+                    br = theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).heights(0, 0)
+                    br_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).normals(0, 0))
 
                     'these 3 positions was a pain to sort out :)
-                    theMap.v_data(mapBoard(mmx, mmy).map_id).heights(64, 64) = br 'ok
-                    theMap.v_data(mapBoard(mmx, mmy).map_id).heights(63, 64) = bl 'ok
-                    theMap.v_data(mapBoard(mmx, mmy).map_id).heights(64, 63) = tr 'ok
+                    theMap.v_data(mapBoard(mbX, mbY).map_id).heights(64, 64) = br 'ok
+                    theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, 64) = bl 'ok
+                    theMap.v_data(mapBoard(mbX, mbY).map_id).heights(64, 63) = tr 'ok
 
                     topleft.vert.X = cur_x + scale
                     topleft.vert.Y = yl
@@ -653,7 +703,7 @@ Module ChunkFunctions
                     topleft.norm = tl_n
                     topleft.uv.X = almost1 - uvinc
                     topleft.uv.Y = almost1 - uvinc
-                    topleft.hole = theMap.v_data(mapBoard(mmx, mmy).map_id).holes(63, 63)
+                    topleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, 63)
 
                     topRight.vert.X = cur_x + (scale * 2)
                     topRight.vert.Y = yl
@@ -661,7 +711,7 @@ Module ChunkFunctions
                     topRight.norm = tr_n
                     topRight.uv.X = almost1
                     topRight.uv.Y = almost1 - uvinc
-                    topRight.hole = theMap.v_data(mapBoard(mmx, mmy).map_id).holes(0, 63)
+                    topRight.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(0, 63)
 
                     bottomleft.vert.X = cur_x + scale
                     bottomleft.vert.Y = yu
@@ -669,7 +719,7 @@ Module ChunkFunctions
                     bottomleft.norm = bl_n
                     bottomleft.uv.X = almost1 - uvinc
                     bottomleft.uv.Y = almost1
-                    bottomleft.hole = theMap.v_data(mapBoard(mmx, mmy).map_id).holes(63, 0)
+                    bottomleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, 0)
 
                     bottomRight.vert.X = cur_x + (scale * 2)
                     bottomRight.vert.Y = yu
@@ -677,7 +727,7 @@ Module ChunkFunctions
                     bottomRight.norm = br_n
                     bottomRight.uv.X = almost1
                     bottomRight.uv.Y = almost1
-                    bottomRight.hole = theMap.v_data(mapBoard(mmx, mmy).map_id).holes(0, 0)
+                    bottomRight.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(0, 0)
 
                     'store in buffer
                     buff(v_cnt) = topRight : v_cnt += 1
@@ -689,11 +739,8 @@ Module ChunkFunctions
                     buff(v_cnt) = topRight : v_cnt += 1
 
 endx:
-                    If Not mapBoard(mmx, mbY).occupied Then
-                        GoTo endy
-                    End If
-                    If Not mapBoard(mmx + 1, mbY).occupied Then
-                        mcolumn += 1
+
+                    If Not mapBoard(mbX + 1, mbY).occupied Then
                         GoTo endy
                     End If
 
@@ -702,23 +749,23 @@ endx:
                     cur_y = 0
                     y_pos = 0
                     v_start = 0
+                    'right seam
+                    For y1 = mapBoard(mbX, mbY).location.Y - 50 To _
+                              mapBoard(mbX, mbY).location.Y + 50 - (scale * 2) Step 1 * scale
 
-                    For y1 = mapBoard(mmx, mbY).location.Y - 50 To _
-                              mapBoard(mmx, mbY).location.Y + 50 - (scale * 2) Step 1 * scale
+                        tl = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, y_pos + 1)
+                        tl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(63, y_pos + 1))
 
-                        tl = theMap.v_data(mapBoard(mmx, mbY).map_id).heights(63, y_pos + 1)
-                        tl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx, mbY).map_id).normals(63, y_pos + 1))
+                        tr = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, y_pos + 1)
+                        tr_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX + 1, mbY).map_id).normals(0, y_pos + 1))
 
-                        tr = theMap.v_data(mapBoard(mmx + 1, mbY).map_id).heights(0, y_pos + 1)
-                        tr_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx + 1, mbY).map_id).normals(0, y_pos + 1))
+                        bl = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, y_pos)
+                        bl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(63, y_pos))
 
-                        bl = theMap.v_data(mapBoard(mmx, mbY).map_id).heights(63, y_pos)
-                        bl_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx, mbY).map_id).normals(63, y_pos))
+                        br = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, y_pos)
+                        br_n = pack_2_10_10_10(theMap.v_data(mapBoard(mbX + 1, mbY).map_id).normals(0, y_pos))
 
-                        br = theMap.v_data(mapBoard(mmx + 1, mbY).map_id).heights(0, y_pos)
-                        br_n = pack_2_10_10_10(theMap.v_data(mapBoard(mmx + 1, mbY).map_id).normals(0, y_pos))
-
-                        theMap.v_data(mapBoard(mmx, mbY).map_id).heights(64, y_pos) = br
+                        theMap.v_data(mapBoard(mbX, mbY).map_id).heights(64, y_pos) = br
 
                         topleft.vert.X = xl
                         topleft.vert.Y = y1 + scale
@@ -760,96 +807,119 @@ endx:
                         y_pos += 1
                         cur_y = y1
 
-
                     Next
+                    '================================================================
+                    '================================================================
+                    '================================================================
+                    'Create VBO
+                    Dim MAP_ID = mapBoard(mbX, mbY).map_id - 1
+
+                    Debug.Write(MAP_ID.ToString + "")
+
+                    Dim v_buff_XZ(v_cnt - 1) As Vector2
+                    Dim holes_buff(v_cnt - 1) As Single
+                    Dim uv_buff(v_cnt - 1) As Vector2
+                    Dim n_buff(v_cnt - 1) As UInt32
+                    Dim v_buff_Y(v_cnt - 1) As Single
+
+                    For i = 0 To v_cnt - 1
+                        v_buff_XZ(i) = buff(i).vert
+                        v_buff_Y(i) = buff(i).H
+                        holes_buff(i) = buff(i).hole
+                        uv_buff(i) = buff(i).uv
+                        n_buff(i) = buff(i).norm
+                    Next
+
+                    theMap.render_set(MAP_ID).S_tri_count = (v_cnt - 1) * 6
+                    ' SETUP ==================================================================
+                    'Gen VAO and VBO Ids
+                    GL.GenVertexArrays(1, theMap.render_set(MAP_ID).S_VAO)
+                    GL.BindVertexArray(theMap.render_set(MAP_ID).S_VAO)
+                    ReDim theMap.render_set(MAP_ID).mBuffers(4)
+                    GL.GenBuffers(5, theMap.render_set(MAP_ID).mBuffers)
+
+
+                    ' VERTEX XZ ==================================================================
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(0))
+                    'if the shared buffer is not defined, we need to fill the buffer now
+                    GL.BufferData(BufferTarget.ArrayBuffer,
+                                      v_buff_XZ.Length * 8,
+                                      v_buff_XZ, BufferUsageHint.StaticDraw)
+                    GL.VertexAttribPointer(0, 2,
+                                           VertexAttribPointerType.Float,
+                                           False, 8, 0)
+                    GL.EnableVertexAttribArray(0)
+
+                    ' POSITION Y ==================================================================
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(1))
+                    GL.BufferData(BufferTarget.ArrayBuffer,
+                          v_buff_Y.Length * 4,
+                          v_buff_Y, BufferUsageHint.StaticDraw)
+
+                    GL.VertexAttribPointer(1, 1,
+                                        VertexAttribPointerType.Float,
+                                        False, 4, 0)
+                    GL.EnableVertexAttribArray(1)
+
+                    ' UV ==================================================================
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(2))
+                    GL.BufferData(BufferTarget.ArrayBuffer,
+                          uv_buff.Length * 8,
+                          uv_buff, BufferUsageHint.StaticDraw)
+
+                    GL.VertexAttribPointer(2, 2,
+                                        VertexAttribPointerType.Float,
+                                        False, 8, 0)
+                    GL.EnableVertexAttribArray(2)
+
+                    ' NORMALS ==================================================================
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(3))
+
+                    GL.BufferData(BufferTarget.ArrayBuffer,
+                          n_buff.Length * 4,
+                          n_buff, BufferUsageHint.StaticDraw)
+
+                    GL.VertexAttribPointer(3, 4,
+                                           VertexAttribPointerType.Int2101010Rev,
+                                           True, 4, 0)
+                    GL.EnableVertexAttribArray(3)
+
+                    ' HOLES ==================================================================
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(4))
+
+                    GL.BufferData(BufferTarget.ArrayBuffer,
+                          holes_buff.Length * 4,
+                          holes_buff, BufferUsageHint.StaticDraw)
+
+                    GL.VertexAttribPointer(4, 1,
+                                           VertexAttribPointerType.Float,
+                                           True, 4, 0)
+                    GL.EnableVertexAttribArray(4)
+
+                    GL.BindVertexArray(0)
+                    '================================================================
+                    '================================================================
+                    '================================================================
                 End If
 Endy:
+                draw_scene()
+            Next 'mbY
+        Next 'mbX
+
+        'debug ascii mapping
+        debug_string += "   : "
+        For i = 0 To 19
+            debug_string += i.ToString("00") + ": "
+        Next
+        debug_string += vbCrLf
+        For i = 0 To 19
+            debug_string += i.ToString("00") + " : "
+            For j = 0 To 19
+                debug_string += mapBoard(j, i).map_id.ToString("000") + " "
             Next
+            debug_string += vbCrLf
         Next
-        ReDim Preserve buff(v_cnt - 1)
 
-        Dim v_buff_XZ(v_cnt - 1) As Vector2
-        Dim holes_buff(v_cnt - 1) As Single
-        Dim uv_buff(v_cnt - 1) As Vector2
-        Dim n_buff(v_cnt - 1) As UInt32
-        Dim v_buff_Y(v_cnt - 1) As Single
-
-        For i = 0 To v_cnt - 1
-            v_buff_XZ(i) = buff(i).vert
-            v_buff_Y(i) = buff(i).H
-            holes_buff(i) = buff(i).hole
-            uv_buff(i) = buff(i).uv
-            n_buff(i) = buff(i).norm
-        Next
-        theMap.seam_tri_count = v_cnt * 6
-        ' SETUP ==================================================================
-        'Gen VAO and VBO Ids
-        GL.GenVertexArrays(1, theMap.seam_VBO_id)
-        GL.BindVertexArray(theMap.seam_VBO_id)
-        ReDim theMap.mBuffers(4)
-        GL.GenBuffers(5, theMap.mBuffers)
-
-
-        ' VERTEX XZ ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(0))
-        'if the shared buffer is not defined, we need to fill the buffer now
-        GL.BufferData(BufferTarget.ArrayBuffer,
-                          v_buff_XZ.Length * 8,
-                          v_buff_XZ, BufferUsageHint.StaticDraw)
-        GL.VertexAttribPointer(0, 2,
-                               VertexAttribPointerType.Float,
-                               False, 8, 0)
-        GL.EnableVertexAttribArray(0)
-
-        ' POSITION Y ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(1))
-        GL.BufferData(BufferTarget.ArrayBuffer,
-              v_buff_Y.Length * 4,
-              v_buff_Y, BufferUsageHint.StaticDraw)
-
-        GL.VertexAttribPointer(1, 1,
-                            VertexAttribPointerType.Float,
-                            False, 4, 0)
-        GL.EnableVertexAttribArray(1)
-
-        ' UV ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(2))
-        GL.BufferData(BufferTarget.ArrayBuffer,
-              uv_buff.Length * 8,
-              uv_buff, BufferUsageHint.StaticDraw)
-
-        GL.VertexAttribPointer(2, 2,
-                            VertexAttribPointerType.Float,
-                            False, 8, 0)
-        GL.EnableVertexAttribArray(2)
-
-        ' NORMALS ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(3))
-
-        GL.BufferData(BufferTarget.ArrayBuffer,
-              n_buff.Length * 4,
-              n_buff, BufferUsageHint.StaticDraw)
-
-        GL.VertexAttribPointer(3, 4,
-                               VertexAttribPointerType.Int2101010Rev,
-                               True, 4, 0)
-        GL.EnableVertexAttribArray(3)
-
-        ' HOLES ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.mBuffers(4))
-
-        GL.BufferData(BufferTarget.ArrayBuffer,
-              holes_buff.Length * 4,
-              holes_buff, BufferUsageHint.StaticDraw)
-
-        GL.VertexAttribPointer(4, 1,
-                               VertexAttribPointerType.Float,
-                               True, 4, 0)
-        GL.EnableVertexAttribArray(4)
-
-
-
-        GL.BindVertexArray(0)
     End Sub
 
 End Module
