@@ -4,10 +4,20 @@ Imports Hjg.Pngcs
 Imports Ionic
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL4
-
+Imports System.Math
+Imports System.Windows.Media.Media3D
+Imports System.Windows.Media.Media3D.Vector3D
 
 Module ChunkFunctions
-
+    Dim b_x_min As Integer
+    Dim b_x_max As Integer
+    Dim b_y_min As Integer
+    Dim b_y_max As Integer
+    Public tl_, tr_, br_, bl_ As System.Windows.Media.Media3D.Vector3D
+    Public T_1, T_2, T_3, T_4 As System.Windows.Media.Media3D.Vector3D
+    Public Cursor_point As System.Windows.Media.Media3D.Vector3D
+    Public surface_normal As System.Windows.Media.Media3D.Vector3D
+    Public CURSOR_Y As Single
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
         'good place as any to set bounding box
@@ -452,10 +462,6 @@ Module ChunkFunctions
         v.Normalize()
         Return v
     End Function
-    Dim b_x_min As Integer
-    Dim b_x_max As Integer
-    Dim b_y_min As Integer
-    Dim b_y_max As Integer
     Public Sub set_map_bs()
         b_x_max = -10000
         b_x_min = 10000
@@ -605,7 +611,8 @@ Module ChunkFunctions
                     For x1 = mapBoard(mbX, mbY).location.X - 50 To _
                                                 mapBoard(mbX, mbY).location.X + 50 - (scale * 2) Step 1 * scale
 
-                        theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos, 64) = tl
+                        theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos, 64) =
+                                    theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(x_pos, 0)
 
                         topleft.vert.X = x1
                         topleft.vert.Y = yu
@@ -871,5 +878,218 @@ Endy:
         'Next
 
     End Sub
+
+    Public Function get_Y_at_XZ(ByVal Lx As Double, ByVal Lz As Double) As Single
+        'If Not maploaded Then Return 100.0\
+        If Not MAP_LOADED Then
+            Return 0
+        End If
+        If mapBoard Is Nothing Then Return 0.0F
+        Dim tlx As Single = 100.0 / 64.0
+        Dim tly As Single = 100.0 / 64.0
+        Dim ts As Single = 64.0 / 100.0
+        Dim tl, tr, br, bl, w As System.Windows.Media.Media3D.Vector3D
+        Dim xvp, yvp As Integer
+        Dim ryp, rxp As Single
+        'Dim mod_ = (MAP_SIDE_LENGTH) And 1
+        For xo = 0 To 19
+            For yo = 0 To 19
+                If mapBoard(xo, yo).occupied Then
+
+                    Dim px = mapBoard(xo, yo).location.X
+                    If px - 50 < Lx And px + 50 >= Lx Then
+                        xvp = xo
+                        'Dim pz = mapBoard(xo, yo).location.Y
+                        'If pz - 50 < Lz And pz + 50 >= Lz Then
+                        '    yvp = yo
+                        '    GoTo exit2
+                        'End If
+                        GoTo exit1
+                    End If
+                End If
+            Next
+        Next
+exit1:
+        For xo = 0 To 19
+            For yo = 0 To 19
+                If mapBoard(xo, yo).occupied Then
+                    Dim pz = mapBoard(xo, yo).location.Y
+                    If pz - 50 < Lz And pz + 50 >= Lz Then
+                        yvp = yo
+                        GoTo exit2
+                    End If
+                End If
+            Next
+        Next
+exit2:
+
+        'If maploaded Then
+        '    Debug.Write("XP:" + xvp.ToString + "  ZP:" + yvp.ToString + vbCrLf)
+        'End If
+        'Dim msqrt = (MAP_SIDE_LENGTH / 2)
+
+        Dim map = mapBoard(xvp, yvp).map_id
+        'If maplist.Length - 1 < map Then
+        '    Return eyeY
+        'End If
+        'If maplist(map).heights Is Nothing Then
+        '    Return Z_Cursor
+        'End If
+
+        Dim vxp As Double = ((((Lx) / 100)) - Truncate((Truncate(Lx) / 100))) * 64.0
+        Dim tx As Int32 = Round(Truncate(Lx / 100))
+        Dim tz As Int32 = Round(Truncate(Lz / 100))
+        If Lx < 0 Then
+            tx += -1
+        End If
+        If Lz < 0 Then
+            tz += -1
+        End If
+        Dim tx1 = (tx * 100)
+        Dim tz1 = (tz * 100)
+
+        Dim vyp As Double = ((((Lz) / 100)) - Truncate((Truncate(Lz) / 100))) * 64.0
+
+        If vyp < 0.0 Then
+            vyp = 64.0 + vyp
+        End If
+        If vxp < 0 Then
+            vxp = 64.0 + vxp
+
+        End If
+        vxp = Round(vxp, 12)
+        vyp = Round(vyp, 12)
+        rxp = (Floor(vxp))
+        rxp *= tlx
+        ryp = Floor(vyp)
+        ryp *= tlx
+        'rxp = 64 + rxp
+        w.X = (vxp * tlx)
+        w.Y = (vyp * tlx)
+        'vaid.x = w.X + maplist(map).location.x - 50.0
+        'vaid.y = w.Y + maplist(map).location.y - 50.0
+        Dim HX, HY, OX, OY As Integer
+        HX = Floor(vxp)
+        OX = 1
+        HY = Floor(vyp)
+        OY = 1
+        'd_hx = HX
+        'd_hy = HY
+        Dim altitude As Single = 0.0
+        'Try
+        'look_point_Y = cp
+        'w.Z = 1.0 'dont need this but who cares?
+        If HX + OX > 64 Then
+            Return 0
+        End If
+        tl.X = rxp
+        tl.Y = ryp
+        tl.Z = theMap.v_data(map).heights(HX, HY)
+
+        tr.X = rxp + tlx
+        tr.Y = ryp
+        tr.Z = theMap.v_data(map).heights(HX + OX, HY)
+
+        br.X = rxp + tlx
+        br.Y = ryp + tlx
+        br.Z = theMap.v_data(map).heights(HX + OX, HY + OY)
+
+        bl.X = rxp
+        bl.Y = ryp + tlx
+        bl.Z = theMap.v_data(map).heights(HX, HY + OY)
+
+        tr_ = tr
+        br_ = br
+        tl_ = tl
+        bl_ = bl
+
+        tr_.X += tx1
+        br_.X += tx1
+        tl_.X += tx1
+        bl_.X += tx1
+
+        tr_.Y += tz1
+        br_.Y += tz1
+        tl_.Y += tz1
+        bl_.Y += tz1
+
+        'for drawing the red square on the terrain
+        T_1.X = tr.X + theMap.chunks(map).location.X - 50
+        T_1.Y = tr.Y + theMap.chunks(map).location.Y - 50
+        T_1.Z = tr.Z
+
+        T_2.X = tl.X + theMap.chunks(map).location.X - 50
+        T_2.Y = tl.Y + theMap.chunks(map).location.Y - 50
+        T_2.Z = tl.Z
+
+        T_3.X = br.X + theMap.chunks(map).location.X - 50
+        T_3.Y = br.Y + theMap.chunks(map).location.Y - 50
+        T_3.Z = br.Z
+
+        T_4.X = bl.X + theMap.chunks(map).location.X - 50
+        T_4.Y = bl.Y + theMap.chunks(map).location.Y - 50
+        T_4.Z = bl.Z
+
+        Dim agl = Atan2(w.Y - tr.Y, w.X - tr.X)
+        If agl <= PI * 0.75 Then
+            altitude = find_altitude(tr, bl, br, w)
+            Return altitude
+        End If
+        If agl > PI * 0.75 Then
+            altitude = find_altitude(tr, tl, bl, w)
+            Return altitude
+        End If
+        'tb1.Update()
+domath:
+        Return altitude
+
+        'Catch ex As Exception
+
+        'End Try
+
+    End Function
+    Public Sub flipYZ(ByRef v As System.Windows.Media.Media3D.Vector3D)
+        Dim t As Single
+        t = v.Y
+        v.Y = v.Z
+        v.Z = t
+    End Sub
+
+    Private Function find_altitude(ByVal p As System.Windows.Media.Media3D.Vector3D,
+                                   ByVal q As System.Windows.Media.Media3D.Vector3D,
+                                   ByVal r As System.Windows.Media.Media3D.Vector3D,
+                                   ByVal f As System.Windows.Media.Media3D.Vector3D) As Double
+        'This finds the height on the face of a triangle at point f.x, f.z
+        flipYZ(p)
+        flipYZ(q)
+        flipYZ(r)
+        flipYZ(f)
+
+        Cursor_point.X = f.X
+        Cursor_point.Z = f.Z
+        'It returns that value as a double
+
+        Dim nc As System.Windows.Media.Media3D.Vector3D
+        nc = CrossProduct(p - r, q - r)
+        nc.Normalize()
+
+        If p.Z = q.Z And q.Z = r.Z Then
+            Return r.Y
+        End If
+        surface_normal.x = -nc.X
+        surface_normal.y = -nc.Z
+        surface_normal.z = -nc.Y
+        'nc *= -1.0
+        Dim k As Double
+        k = (nc.X * (f.X - p.X)) + (nc.Z * (f.Z - q.Z))
+
+        Dim y = ((k) / -nc.Y) + p.Y
+
+        Cursor_point.Y = y
+        Dim vx As System.Windows.Media.Media3D.Vector3D = r - f
+        Dim vy = ((nc.Z * vx.Z) + (nc.X * vx.X)) / nc.Y
+        y = r.Y + vy
+        Return y
+    End Function
 
 End Module

@@ -12,8 +12,9 @@ Module ObjectRenderers
 
     Public Sub draw_cross_hair()
         CrossHairShader.Use()
+        Dim LOOK_Y = CURSOR_Y + U_LOOK_AT_Y
 
-        Dim position = Matrix4.CreateTranslation(U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z)
+        Dim position = Matrix4.CreateTranslation(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
         Dim MVPM = position * VIEWMATRIX * PROJECTIONMATRIX
         GL.UniformMatrix4(CrossHairShader("ProjectionMatrix"), False, MVPM)
 

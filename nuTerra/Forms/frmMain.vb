@@ -474,6 +474,9 @@ try_again:
         If VIEW_RADIUS <> U_VIEW_RADIUS Then
             U_VIEW_RADIUS = VIEW_RADIUS
         End If
+
+        CURSOR_Y = get_Y_at_XZ(U_LOOK_AT_X, U_LOOK_AT_Z)
+
     End Sub
 #End Region
 

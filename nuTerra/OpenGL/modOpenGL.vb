@@ -37,11 +37,13 @@ Module modOpenGL
         cam_x = cos_y * sin_x * VIEW_RADIUS
         cam_z = cos_y * cos_x * VIEW_RADIUS
 
+        Dim LOOK_Y = CURSOR_Y + U_LOOK_AT_Y
         CAM_POSITION.X = cam_x + U_LOOK_AT_X
-        CAM_POSITION.Y = cam_y + U_LOOK_AT_Y
+        CAM_POSITION.Y = cam_y + LOOK_Y
         CAM_POSITION.Z = cam_z + U_LOOK_AT_Z
 
-        Dim target As New Vector3(U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z)
+
+        Dim target As New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
         Dim position As New Vector3(CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
         Dim up As Vector3 = Vector3.UnitY
 
