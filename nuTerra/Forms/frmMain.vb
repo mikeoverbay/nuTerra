@@ -445,7 +445,7 @@ try_again:
         End While
     End Sub
 
-    Private Sub check_postion_for_update()
+    Public Sub check_postion_for_update()
         Dim halfPI = PI * 0.5F
         If LOOK_AT_X <> U_LOOK_AT_X Then
             U_LOOK_AT_X = LOOK_AT_X

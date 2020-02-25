@@ -252,7 +252,7 @@ Module modRender
             FBOm.attach_CF()
             TerrainNormals.Use()
 
-            GL.Uniform1(TerrainNormals("prj_length"), 0.75F)
+            GL.Uniform1(TerrainNormals("prj_length"), 1.0F)
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_MODELS))
 

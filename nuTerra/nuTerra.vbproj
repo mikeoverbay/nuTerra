@@ -323,6 +323,12 @@
     <None Include="shaders\Model_shaders\skyDome.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Terrain_shaders\RingProject.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\RingProject.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Terrain_shaders\Terrain.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

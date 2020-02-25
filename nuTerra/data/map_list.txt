@@ -23,7 +23,7 @@
 04_himmelsdorf.png:Himmelsdorf
 01_karelia.png:Karelia
 83_kharkiv.png:Kharkov
-217_er_alaska.png:Klnodike Grand
+217_er_alaska.png:Klondike Grand
 07_lakeville.png:Lakeville
 44_north_america.png:Live Oaks
 02_malinovka.png:Malinovka

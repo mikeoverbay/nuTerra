@@ -20,7 +20,7 @@ void main()
         vec3 sumN;
 
         // Normal
-        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
         sumN = (n[0] + n[1] + n[2]) / 3.0f;
         gl_Position = sumV;
         EmitVertex();

@@ -378,6 +378,9 @@ Module MapLoader
 
         MAP_LOADED = True
         SHOW_LOADING_SCREEN = False
+        LOOK_AT_X = 0.001
+        LOOK_AT_Z = 0.001
+        frmMain.check_postion_for_update() ' need to initialize crusor altitude
 
         'Maintains constant grow shrink regardless of frame rate.
 

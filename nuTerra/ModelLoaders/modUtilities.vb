@@ -1,7 +1,10 @@
 ﻿Imports System.IO
 Imports System.Runtime.CompilerServices
+Imports OpenTK.Graphics.OpenGL4
+Imports OpenTK
 
 Module modUtilities
+    Public CUBE_VAO As Integer
 
     Public Sub ShowText(text As String)
         frmShowText.Show()
@@ -91,4 +94,51 @@ Module modUtilities
         End If
         Return True ' not on list so probably dont want to draw it?
     End Function
+
+
+    Public Sub make_cube()
+        Dim verts() As Single = {
+                -0.5F, 0.5F, 0.5,
+                0.5F, 0.5F, 0.5,
+                0.5F, 0.5F, -0.5F,
+                -0.5F, 0.5F, -0.5F,
+                -0.5F, -0.5F, 0.5,
+                0.5F, -0.5F, 0.5,
+                0.5F, -0.5F, -0.5F,
+                -0.5F, -0.5F, -0.5F
+                }
+        Dim indis() As UInt16 = {
+                2, 1, 0,
+                3, 2, 0,
+                7, 4, 5,
+                6, 7, 4,
+                6, 5, 1,
+                2, 6, 1,
+                1, 4, 5,
+                0, 1, 5,
+                7, 2, 3,
+                6, 7, 3,
+                3, 0, 4,
+                7, 3, 4
+                }
+        GL.GenVertexArrays(1, CUBE_VAO)
+        GL.BindVertexArray(CUBE_VAO)
+        Dim vbo = GL.GenBuffer
+        Dim veo = GL.GenBuffer
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo)
+
+        GL.BufferData(BufferTarget.ArrayBuffer,
+                  verts.Length * 12,
+                  verts, BufferUsageHint.StaticDraw)
+        GL.VertexAttribPointer(0, 3,
+                               VertexAttribPointerType.Float,
+                               False, 12, 0)
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, veo)
+        GL.BufferData(BufferTarget.ElementArrayBuffer, indis.Length * 6, indis, BufferUsageHint.DynamicDraw)
+
+        GL.BindVertexArray(0)
+
+    End Sub
 End Module
