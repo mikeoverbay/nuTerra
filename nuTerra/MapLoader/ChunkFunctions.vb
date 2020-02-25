@@ -594,11 +594,13 @@ Module ChunkFunctions
         BG_VALUE = 0
         BG_MAX_VALUE = 20 * 20
         Dim processed_count = 0
+        Dim Valid_data As Boolean
         For mbX = 0 To 19
 
             For mbY = 0 To 19
                 BG_VALUE = processed_count
                 processed_count += 1
+                Valid_data = False
                 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
                 If mapBoard(mbX, mbY).occupied Then
                     ReDim buff(762) ' Max size.. some will be 1/2 this size
@@ -611,6 +613,7 @@ Module ChunkFunctions
                     If Not mapBoard(mbX, mbY + 1).occupied Then
                         GoTo endx
                     End If
+                    Valid_data = True
                     u_start = 0
                     'top Seam
                     For x1 = mapBoard(mbX, mbY).location.X - 50 To _
@@ -674,9 +677,8 @@ Module ChunkFunctions
                     If Not mapBoard(mbX + 1, mbY).occupied Then
                         GoTo endx
                     End If
-                    If Not mapBoard(mbX, mbY + 1).occupied Then
-                        GoTo endx
-                    End If
+
+                    Valid_data = True
 
                     'Corner
                     'this part does the one corner we can't loop in to
@@ -744,6 +746,8 @@ endx:
                         GoTo endy
                     End If
 
+                    Valid_data = True
+
                     xu = mapBoard(mbX, mbY).location.X + 50
                     xl = xu - (1 * scale)
                     cur_y = 0
@@ -808,100 +812,103 @@ endx:
                         cur_y = y1
 
                     Next
-                    '================================================================
-                    '================================================================
-                    '================================================================
-                    'Create VBO
-                    Dim MAP_ID = mapBoard(mbX, mbY).map_id - 1
-
-                    Debug.Write(MAP_ID.ToString + "")
-
-                    Dim v_buff_XZ(v_cnt - 1) As Vector2
-                    Dim holes_buff(v_cnt - 1) As Single
-                    Dim uv_buff(v_cnt - 1) As Vector2
-                    Dim n_buff(v_cnt - 1) As UInt32
-                    Dim v_buff_Y(v_cnt - 1) As Single
-
-                    For i = 0 To v_cnt - 1
-                        v_buff_XZ(i) = buff(i).vert
-                        v_buff_Y(i) = buff(i).H
-                        holes_buff(i) = buff(i).hole
-                        uv_buff(i) = buff(i).uv
-                        n_buff(i) = buff(i).norm
-                    Next
-
-                    theMap.render_set(MAP_ID).S_tri_count = (v_cnt - 1) * 6
-                    ' SETUP ==================================================================
-                    'Gen VAO and VBO Ids
-                    GL.GenVertexArrays(1, theMap.render_set(MAP_ID).S_VAO)
-                    GL.BindVertexArray(theMap.render_set(MAP_ID).S_VAO)
-                    ReDim theMap.render_set(MAP_ID).mBuffers(4)
-                    GL.GenBuffers(5, theMap.render_set(MAP_ID).mBuffers)
-
-
-                    ' VERTEX XZ ==================================================================
-                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(0))
-                    'if the shared buffer is not defined, we need to fill the buffer now
-                    GL.BufferData(BufferTarget.ArrayBuffer,
-                                      v_buff_XZ.Length * 8,
-                                      v_buff_XZ, BufferUsageHint.StaticDraw)
-                    GL.VertexAttribPointer(0, 2,
-                                           VertexAttribPointerType.Float,
-                                           False, 8, 0)
-                    GL.EnableVertexAttribArray(0)
-
-                    ' POSITION Y ==================================================================
-                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(1))
-                    GL.BufferData(BufferTarget.ArrayBuffer,
-                          v_buff_Y.Length * 4,
-                          v_buff_Y, BufferUsageHint.StaticDraw)
-
-                    GL.VertexAttribPointer(1, 1,
-                                        VertexAttribPointerType.Float,
-                                        False, 4, 0)
-                    GL.EnableVertexAttribArray(1)
-
-                    ' UV ==================================================================
-                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(2))
-                    GL.BufferData(BufferTarget.ArrayBuffer,
-                          uv_buff.Length * 8,
-                          uv_buff, BufferUsageHint.StaticDraw)
-
-                    GL.VertexAttribPointer(2, 2,
-                                        VertexAttribPointerType.Float,
-                                        False, 8, 0)
-                    GL.EnableVertexAttribArray(2)
-
-                    ' NORMALS ==================================================================
-                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(3))
-
-                    GL.BufferData(BufferTarget.ArrayBuffer,
-                          n_buff.Length * 4,
-                          n_buff, BufferUsageHint.StaticDraw)
-
-                    GL.VertexAttribPointer(3, 4,
-                                           VertexAttribPointerType.Int2101010Rev,
-                                           True, 4, 0)
-                    GL.EnableVertexAttribArray(3)
-
-                    ' HOLES ==================================================================
-                    GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(4))
-
-                    GL.BufferData(BufferTarget.ArrayBuffer,
-                          holes_buff.Length * 4,
-                          holes_buff, BufferUsageHint.StaticDraw)
-
-                    GL.VertexAttribPointer(4, 1,
-                                           VertexAttribPointerType.Float,
-                                           True, 4, 0)
-                    GL.EnableVertexAttribArray(4)
-
-                    GL.BindVertexArray(0)
-                    '================================================================
-                    '================================================================
-                    '================================================================
-                End If
 Endy:
+                    If Valid_data Then
+                        'Create this VAO ONLY if a seam was created!
+                        '================================================================
+                        '================================================================
+                        '================================================================
+                        'Create VBO
+                        Dim MAP_ID = mapBoard(mbX, mbY).map_id
+
+                        Debug.Write(MAP_ID.ToString + "")
+
+                        Dim v_buff_XZ(v_cnt - 1) As Vector2
+                        Dim holes_buff(v_cnt - 1) As Single
+                        Dim uv_buff(v_cnt - 1) As Vector2
+                        Dim n_buff(v_cnt - 1) As UInt32
+                        Dim v_buff_Y(v_cnt - 1) As Single
+
+                        For i = 0 To v_cnt - 1
+                            v_buff_XZ(i) = buff(i).vert
+                            v_buff_Y(i) = buff(i).H
+                            holes_buff(i) = buff(i).hole
+                            uv_buff(i) = buff(i).uv
+                            n_buff(i) = buff(i).norm
+                        Next
+
+                        theMap.render_set(MAP_ID).S_tri_count = (v_cnt - 1) * 6
+                        ' SETUP ==================================================================
+                        'Gen VAO and VBO Ids
+                        GL.GenVertexArrays(1, theMap.render_set(MAP_ID).S_VAO)
+                        GL.BindVertexArray(theMap.render_set(MAP_ID).S_VAO)
+                        ReDim theMap.render_set(MAP_ID).mBuffers(4)
+                        GL.GenBuffers(5, theMap.render_set(MAP_ID).mBuffers)
+
+
+                        ' VERTEX XZ ==================================================================
+                        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(0))
+                        'if the shared buffer is not defined, we need to fill the buffer now
+                        GL.BufferData(BufferTarget.ArrayBuffer,
+                                          v_buff_XZ.Length * 8,
+                                          v_buff_XZ, BufferUsageHint.StaticDraw)
+                        GL.VertexAttribPointer(0, 2,
+                                               VertexAttribPointerType.Float,
+                                               False, 8, 0)
+                        GL.EnableVertexAttribArray(0)
+
+                        ' POSITION Y ==================================================================
+                        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(1))
+                        GL.BufferData(BufferTarget.ArrayBuffer,
+                              v_buff_Y.Length * 4,
+                              v_buff_Y, BufferUsageHint.StaticDraw)
+
+                        GL.VertexAttribPointer(1, 1,
+                                            VertexAttribPointerType.Float,
+                                            False, 4, 0)
+                        GL.EnableVertexAttribArray(1)
+
+                        ' UV ==================================================================
+                        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(2))
+                        GL.BufferData(BufferTarget.ArrayBuffer,
+                              uv_buff.Length * 8,
+                              uv_buff, BufferUsageHint.StaticDraw)
+
+                        GL.VertexAttribPointer(2, 2,
+                                            VertexAttribPointerType.Float,
+                                            False, 8, 0)
+                        GL.EnableVertexAttribArray(2)
+
+                        ' NORMALS ==================================================================
+                        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(3))
+
+                        GL.BufferData(BufferTarget.ArrayBuffer,
+                              n_buff.Length * 4,
+                              n_buff, BufferUsageHint.StaticDraw)
+
+                        GL.VertexAttribPointer(3, 4,
+                                               VertexAttribPointerType.Int2101010Rev,
+                                               True, 4, 0)
+                        GL.EnableVertexAttribArray(3)
+
+                        ' HOLES ==================================================================
+                        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(4))
+
+                        GL.BufferData(BufferTarget.ArrayBuffer,
+                              holes_buff.Length * 4,
+                              holes_buff, BufferUsageHint.StaticDraw)
+
+                        GL.VertexAttribPointer(4, 1,
+                                               VertexAttribPointerType.Float,
+                                               True, 4, 0)
+                        GL.EnableVertexAttribArray(4)
+
+                        GL.BindVertexArray(0)
+                        '================================================================
+                        '================================================================
+                        '================================================================
+                    End If
+                End If
                 draw_scene()
             Next 'mbY
         Next 'mbX

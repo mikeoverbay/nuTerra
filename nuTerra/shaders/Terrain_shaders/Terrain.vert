@@ -10,17 +10,17 @@ layout(location = 4) in int vertexhole;
 uniform mat4 viewModel;
 uniform mat4 projection;
 uniform mat3 normalMatrix;
-uniform float id_color;
+
 out mat3 TBN;
 out vec3 worldPosition;
 out vec2 UV;
 flat out float is_hole;
-flat out float color;
+
 void main(void)
 {
     UV =  vertexTexCoord;
     is_hole = vertexhole;
-    color = id_color/255.0;
+
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     vec3 tangent;
 

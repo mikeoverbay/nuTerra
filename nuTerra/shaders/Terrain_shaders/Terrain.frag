@@ -17,7 +17,6 @@ in vec3 worldPosition;
 in vec2 UV;
 in vec3 normal;//temp fro debuging lighting
 flat in float is_hole;
-flat in float color;
 vec3 getNormal()
 {
     vec3 n;
@@ -40,8 +39,7 @@ void main(void)
     if (is_hole == 1.0) discard; // early discard to avoid wasting draw time.
 
     // easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
-    gColor = texture(colorMap, UV)*0.001;
-    gColor.rg = vec2(color);
+    gColor = texture(colorMap, UV);
     gColor.a = 1.0;
 
     gNormal.xyz = getNormal();
