@@ -24,7 +24,6 @@ Module TerrainBuilder
         Public H As Single
         Public uv As Vector2
         Public norm As UInt32
-        Public hole As UInteger
     End Structure
 
     Public Structure grid_sec
