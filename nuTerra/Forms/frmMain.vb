@@ -374,6 +374,10 @@ try_again:
         CURSOR_TEXTURE_ID = load_image_from_file(Il.IL_PNG,
             sp + "\resources\Cursor.png", True, False)
         '---------------------------------------------------------
+        'MiniMap position/direction img
+        DIRECTION_TEXTURE_ID = load_image_from_file(Il.IL_PNG,
+            sp + "\resources\direction.png", True, False)
+        '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
         PROGRESS_BAR_IMAGE_ID =
             load_image_from_file(Il.IL_PNG,

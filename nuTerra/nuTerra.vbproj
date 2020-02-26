@@ -323,6 +323,12 @@
     <None Include="shaders\Model_shaders\skyDome.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Terrain_shaders\BaseRingProjector.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\BaseRingProjector.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Terrain_shaders\DecalProject.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -465,6 +471,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Cursor.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\direction.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\earth.png">

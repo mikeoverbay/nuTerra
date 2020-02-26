@@ -102,7 +102,6 @@ Module PrimitiveLoader
         Next
     End Sub
 
-
     Public Sub load_primitives_indices(br As BinaryReader,
                                        ByRef renderSet As RenderSetEntry,
                                        ByRef sectionInfo As BinarySectionInfo,

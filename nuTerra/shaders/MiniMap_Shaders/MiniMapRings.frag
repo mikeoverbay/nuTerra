@@ -17,11 +17,9 @@ void main(void)
   uv += center.xy;
 
   float dist =  sqrt(dot(uv, uv));
-  bool lessthan = dist > radius+thickness;
-  bool greaterthan = dist < radius-thickness;
-  if(lessthan || greaterthan){
-    discard;
-    }else{
-    fragColor = color;
-    }
+
+  float t = 1.0 + smoothstep(radius, radius+thickness, dist) 
+                - smoothstep(radius-thickness, radius, dist);
+  fragColor.a = 1.0-t;
+  fragColor.xyz = color.xyz;
 }

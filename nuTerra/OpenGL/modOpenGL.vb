@@ -114,7 +114,10 @@ Module modOpenGL
             Return qx
         End If
     End Function
-
+    Public Function do_nothing(ByRef n As Vector4h, w As UInt32) As Vector4h
+        n.W = CSng(w)
+        Return n
+    End Function
     Public Function pack_2_10_10_10(unpacked As Vector3, Optional w As UInt32 = 0) As UInt32
         Dim packed_x As UInt32 = pack_10(unpacked.X)
         Dim packed_y As UInt32 = pack_10(unpacked.Y)

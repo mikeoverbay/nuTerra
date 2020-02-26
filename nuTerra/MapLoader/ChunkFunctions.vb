@@ -666,8 +666,10 @@ Module ChunkFunctions
                     'these 3 positions was a pain to sort out :)
                     theMap.v_data(mapBoard(mbX, mbY).map_id).heights(64, 64) =
                         theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).heights(0, 0) 'ok
+
                     theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, 64) =
                         theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(63, 0) 'ok
+
                     theMap.v_data(mapBoard(mbX, mbY).map_id).heights(64, 63) =
                         theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, 63) 'ok
 

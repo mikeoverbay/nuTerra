@@ -146,7 +146,7 @@ Module ShaderLoader
     End Class
 
     Public shaders As List(Of Shader)
-
+    Public BaseRingProjector As Shader
     Public cullShader As Shader
     Public coloredline2dShader As Shader
     Public colorOnlyShader As Shader
@@ -175,6 +175,7 @@ Module ShaderLoader
     ''' </summary>
     ''' <remarks></remarks>
     Public Sub build_shaders()
+        BaseRingProjector = New Shader("BaseRingProjector")
         cullShader = New Shader("cull")
         coloredline2dShader = New Shader("coloredLine2d")
         colorOnlyShader = New Shader("colorOnly")
@@ -196,6 +197,7 @@ Module ShaderLoader
         toLinearShader = New Shader("toLinear")
 
         shaders = New List(Of Shader)
+        shaders.Add(BaseRingProjector)
         shaders.Add(cullShader)
         shaders.Add(coloredline2dShader)
         shaders.Add(colorOnlyShader)

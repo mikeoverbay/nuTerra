@@ -69,66 +69,80 @@ Module modRender
         FBOm.attach_CNGP()
 
         If TERRAIN_LOADED Then
-            '===========================================================================
-            draw_terrain() '============================================================
-            '===========================================================================
+            '=======================================================================
+            draw_terrain() '========================================================
+            '=======================================================================
         End If
 
         If MODELS_LOADED Then
-            '===========================================================================
-            draw_models() '=============================================================
-            '===========================================================================
+            '=======================================================================
+            draw_models() '=========================================================
+            '=======================================================================
 
-            '===========================================================================
-            draw_overlays() '===========================================================
-            '===========================================================================
+            '=======================================================================
+            draw_overlays() '=======================================================
+            '=======================================================================
         End If
 
+        'setup for projection before drawing
+        FBOm.attach_C_no_Depth()
+        GL.DepthMask(True)
+        GL.FrontFace(FrontFaceDirection.Cw)
+        GL.Enable(EnableCap.Blend)
+        GL.Disable(EnableCap.CullFace)
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         '===========================================================================
         draw_map_cursor() '=========================================================
         '===========================================================================
 
         '===========================================================================
+        draw_terrain_base_rings() '=================================================
+        '===========================================================================
+        'restore settings after projected objects are drawn
+        GL.Disable(EnableCap.Blend)
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.CullFace)
+        FBOm.attach_Depth()
+        GL.FrontFace(FrontFaceDirection.Ccw)
+
+        '===========================================================================
         draw_cross_hair() '=========================================================
         '===========================================================================
 
-
-        '===============================================================================
-        '================== Deferred Rendering, HUD and MINI MAP =======================
-        '===============================================================================
+        '===========================================================================
+        '================== Deferred Rendering, HUD and MINI MAP ===================
+        '===========================================================================
 
         'We can now switch to the default hardware buffer.
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
 
         'house keeping
-        '===============================================================================
+        '===========================================================================
         GL.Disable(EnableCap.DepthTest)
         GL.Clear(ClearBufferMask.ColorBufferBit)
-        '===============================================================================
+        '===========================================================================
 
         Ortho_main()
 
-        '===============================================================================
-        render_deferred_buffers() '=====================================================
-        '===============================================================================
+        '===========================================================================
+        render_deferred_buffers() '=================================================
+        '===========================================================================
 
+        '===========================================================================
+        'render_test_compute() '====================================================
+        '===========================================================================
 
-        '===============================================================================
-        'render_test_compute() '========================================================
-        '===============================================================================
+        '===========================================================================
+        render_HUD() '==============================================================
+        '===========================================================================
 
+        '===========================================================================
+        draw_mini_map() '===========================================================
+        '===========================================================================
 
-        '===============================================================================
-        render_HUD() '==================================================================
-        '===============================================================================
-
-        '===============================================================================
-        draw_mini_map() '===============================================================
-        '===============================================================================
-
-        '===============================================================================
-        frmMain.glControl_main.SwapBuffers() '==========================================
-        '===============================================================================
+        '===========================================================================
+        frmMain.glControl_main.SwapBuffers() '======================================
+        '===========================================================================
 
         If frmGbufferViewer.Visible Then
             frmGbufferViewer.update_screen()
@@ -191,7 +205,7 @@ Module modRender
     End Sub
 
     Private Sub draw_terrain()
-        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
+        If WIRE_MODELS Or WIRE_TERRAIN Or NORMAL_DISPLAY_MODE > 0 Then
             GL.PolygonOffset(1.2, 0.2)
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
@@ -247,7 +261,7 @@ Module modRender
         TerrainShader.StopUse()
         unbind_textures(2)
 
-        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
+        If WIRE_TERRAIN Then
             GL.Disable(EnableCap.PolygonOffsetFill)
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
@@ -256,7 +270,7 @@ Module modRender
 
             GL.Uniform1(TerrainNormals("prj_length"), 1.0F)
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
-            GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_MODELS))
+            GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
 
             GL.UniformMatrix4(TerrainNormals("projection"), False, PROJECTIONMATRIX)
             GL.UniformMatrix4(TerrainNormals("view"), False, VIEWMATRIX)
@@ -372,7 +386,7 @@ Module modRender
         GL.Uniform1(deferredShader("gNormal"), 1)
         GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
         GL.Uniform1(deferredShader("gPosition"), 3)
-        GL.Uniform1(deferredShader("gDepth"), 4)
+        'GL.Uniform1(deferredShader("gDepth"), 4)
 
         'Lighting settings
         GL.Uniform1(deferredShader("AMBIENT"), frmLighting.lighting_ambient)
@@ -400,7 +414,7 @@ Module modRender
         GL.BindTexture(TextureTarget.Texture2D, FBOm.gPosition)
 
         GL.ActiveTexture(TextureUnit.Texture4)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
+        'GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
 
 
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
@@ -510,6 +524,8 @@ Module modRender
         draw_minimap_texture()
         '======================================================
 
+        GL.Enable(EnableCap.Blend)
+
         '======================================================
         draw_base_rings()
         '======================================================
@@ -523,6 +539,12 @@ Module modRender
         '======================================================
 
         '======================================================
+        draw_position()
+        '======================================================
+
+        GL.Disable(EnableCap.Blend)
+
+        '======================================================
         get_world_Position_In_Minimap_Window(M_POS)
         '======================================================
 
@@ -530,7 +552,6 @@ Module modRender
 
     Private Sub draw_base_ids()
 
-        GL.Enable(EnableCap.Blend) 'transparent Icons
 
         'need to scale with the map
         Dim i_size = 30.0F
@@ -568,7 +589,6 @@ Module modRender
         'Reset
         GL.BindTexture(TextureTarget.Texture2D, 0)
         image2dShader.StopUse()
-        GL.Disable(EnableCap.Blend)
 
     End Sub
 
@@ -589,7 +609,7 @@ Module modRender
         Dim er0 = GL.GetError
         GL.UniformMatrix4(MiniMapRingsShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(MiniMapRingsShader("radius"), 50.0F)
-        GL.Uniform1(MiniMapRingsShader("thickness"), 2.0F)
+        GL.Uniform1(MiniMapRingsShader("thickness"), 2.5F)
         Dim er3 = GL.GetError
 
         Dim m_size = New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y, w, -h)
@@ -617,10 +637,68 @@ Module modRender
 
     End Sub
 
-    Private Sub draw_grids_lines()
+    Private Sub draw_position()
+
+        image2dShader.Use()
+
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.Uniform1(image2dShader("imageMap"), 0)
+        Dim i_size = 32
+        Dim pos As New RectangleF(-i_size, -i_size, i_size * 2, i_size * 2)
+
+        Dim model_X = Matrix4.CreateTranslation(-U_LOOK_AT_X, -U_LOOK_AT_Z, 0.0F)
+        Dim model_R = Matrix4.CreateRotationZ(-U_CAM_X_ANGLE)
+        Dim modelMatrix = model_R * model_X
+
+        GL.BindTexture(TextureTarget.Texture2D, DIRECTION_TEXTURE_ID)
+        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, modelMatrix * PROJECTIONMATRIX)
+        GL.Uniform4(image2dShader("rect"),
+            pos.Left,
+            pos.Top,
+            pos.Right,
+            pos.Bottom)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        image2dShader.StopUse()
+
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
-        GL.Enable(EnableCap.Blend) 'so the lines are not so bold
+
+        'draw ring around pointer 
+        MiniMapRingsShader.Use()
+        'constants
+        Dim er0 = GL.GetError
+        GL.UniformMatrix4(MiniMapRingsShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform1(MiniMapRingsShader("radius"), 40.0F)
+        GL.Uniform1(MiniMapRingsShader("thickness"), 3.0F)
+        Dim er3 = GL.GetError
+
+        Dim m_size = New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y, w, -h)
+
+        Dim er1 = GL.GetError
+        GL.Uniform4(MiniMapRingsShader("rect"),
+            m_size.Left,
+            -m_size.Top,
+            m_size.Right,
+            -m_size.Bottom)
+
+        GL.Uniform2(MiniMapRingsShader("center"), U_LOOK_AT_X, U_LOOK_AT_Z)
+        GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.White)
+
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+
+        MiniMapRingsShader.StopUse()
+
+    End Sub
+
+    Private Sub draw_grids_lines()
+
+        Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
+        Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
+
         coloredline2dShader.Use()
 
         Dim co As OpenTK.Graphics.Color4
@@ -649,10 +727,11 @@ Module modRender
             GL.BindVertexArray(defaultVao)
             GL.DrawArrays(PrimitiveType.Lines, 0, 2)
         Next
-        GL.Disable(EnableCap.Blend)
+
         coloredline2dShader.StopUse()
 
     End Sub
+
     Private Sub get_world_Position_In_Minimap_Window(ByRef pos As Vector2)
         MINI_MOUSE_CAPTURED = False
 
@@ -780,18 +859,7 @@ Module modRender
 
     Private Sub draw_map_cursor()
 
-        FBOm.attach_C_no_Depth()
-        GL.DepthMask(True)
         DecalProject.Use()
-
-        ' Draw inside out so the box doesn't vanish if we move in side it.
-        GL.FrontFace(FrontFaceDirection.Cw)
-
-        ' Blend works if you ONLY have color attached. No other textures including depth can be attached.
-        GL.Enable(EnableCap.Blend)
-        ' render back side
-        GL.Disable(EnableCap.CullFace)
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
 
         GL.Uniform3(DecalProject("color_in"), 0.4F, 0.3F, 0.3F)
@@ -827,13 +895,10 @@ Module modRender
         DecalProject.StopUse()
         unbind_textures(2)
 
-        GL.Disable(EnableCap.Blend)
-        GL.DepthMask(False)
-        GL.Disable(EnableCap.CullFace)
-        FBOm.attach_Depth()
-        GL.FrontFace(FrontFaceDirection.Ccw)
+
 
     End Sub
+
     Private Sub draw_cross_hair()
         If MOVE_MOD Or Z_MOVE Then
             If MOVE_MOD And Not Z_MOVE Then
@@ -851,6 +916,50 @@ Module modRender
 
 
     End Sub
+
+    Private Sub draw_terrain_base_rings()
+
+
+
+        FBOm.attach_C_no_Depth()
+
+        BaseRingProjector.Use()
+
+        GL.Uniform1(BaseRingProjector("depthMap"), 0)
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
+        'constants
+        GL.UniformMatrix4(BaseRingProjector("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(BaseRingProjector("ViewMatrix"), False, VIEWMATRIX)
+        GL.Uniform1(BaseRingProjector("radius"), 50.0F)
+        GL.Uniform1(BaseRingProjector("thickness"), 2.0F)
+        Dim rotate = Matrix4.CreateRotationX(1.570796)
+        Dim scale = Matrix4.CreateScale(100.0F, 100.0F, 100.0F)
+
+        ' base 1 ring
+        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
+        GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
+        GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Green)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.Triangles, 0, 36)
+
+        'base 2 ring
+        model_X = Matrix4.CreateTranslation(-TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
+        GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
+        GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Red)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.Triangles, 0, 36)
+
+        BaseRingProjector.StopUse()
+        GL.BindTexture(TextureTarget.Texture2D, 0)
+
+
+    End Sub
+
     ''' <summary>
     ''' Unbinds textures from last used to zero
     ''' </summary>
