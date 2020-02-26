@@ -1,23 +1,21 @@
 ﻿Imports System.IO
-Imports System.Runtime.InteropServices
+Imports System.Math
 Imports Hjg.Pngcs
 Imports Ionic
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL4
-Imports System.Math
-Imports System.Windows.Media.Media3D
-Imports System.Windows.Media.Media3D.Vector3D
 
 Module ChunkFunctions
     Dim b_x_min As Integer
     Dim b_x_max As Integer
     Dim b_y_min As Integer
     Dim b_y_max As Integer
-    Public tl_, tr_, br_, bl_ As System.Windows.Media.Media3D.Vector3D
-    Public T_1, T_2, T_3, T_4 As System.Windows.Media.Media3D.Vector3D
-    Public Cursor_point As System.Windows.Media.Media3D.Vector3D
-    Public surface_normal As System.Windows.Media.Media3D.Vector3D
+    Public tl_, tr_, br_, bl_ As Vector3
+    Public T_1, T_2, T_3, T_4 As Vector3
+    Public Cursor_point As Vector3
+    Public surface_normal As Vector3
     Public CURSOR_Y As Single
+
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
         'good place as any to set bounding box
@@ -888,7 +886,7 @@ Endy:
         Dim tlx As Single = 100.0 / 64.0
         Dim tly As Single = 100.0 / 64.0
         Dim ts As Single = 64.0 / 100.0
-        Dim tl, tr, br, bl, w As System.Windows.Media.Media3D.Vector3D
+        Dim tl, tr, br, bl, w As Vector3
         Dim xvp, yvp As Integer
         Dim ryp, rxp As Single
         'Dim mod_ = (MAP_SIDE_LENGTH) And 1
@@ -1048,37 +1046,29 @@ domath:
         'End Try
 
     End Function
-    Public Sub flipYZ(ByRef v As System.Windows.Media.Media3D.Vector3D)
-        Dim t As Single
-        t = v.Y
-        v.Y = v.Z
-        v.Z = t
-    End Sub
 
-    Private Function find_altitude(ByVal p As System.Windows.Media.Media3D.Vector3D,
-                                   ByVal q As System.Windows.Media.Media3D.Vector3D,
-                                   ByVal r As System.Windows.Media.Media3D.Vector3D,
-                                   ByVal f As System.Windows.Media.Media3D.Vector3D) As Double
+    Private Function find_altitude(ByVal p As Vector3,
+                                   ByVal q As Vector3,
+                                   ByVal r As Vector3,
+                                   ByVal f As Vector3) As Double
         'This finds the height on the face of a triangle at point f.x, f.z
-        flipYZ(p)
-        flipYZ(q)
-        flipYZ(r)
-        flipYZ(f)
+        p = p.Xzy ' flip yz
+        q = q.Xzy ' flip yz
+        r = r.Xzy ' flip yz
+        f = f.Xzy ' flip yz
 
         Cursor_point.X = f.X
         Cursor_point.Z = f.Z
         'It returns that value as a double
 
-        Dim nc As System.Windows.Media.Media3D.Vector3D
-        nc = CrossProduct(p - r, q - r)
-        nc.Normalize()
+        Dim nc As Vector3 = Vector3.Cross(p - r, q - r).Normalized()
 
         If p.Z = q.Z And q.Z = r.Z Then
             Return r.Y
         End If
-        surface_normal.x = -nc.X
-        surface_normal.y = -nc.Z
-        surface_normal.z = -nc.Y
+        surface_normal.X = -nc.X
+        surface_normal.Y = -nc.Z
+        surface_normal.Z = -nc.Y
         'nc *= -1.0
         Dim k As Double
         k = (nc.X * (f.X - p.X)) + (nc.Z * (f.Z - q.Z))
@@ -1086,7 +1076,7 @@ domath:
         Dim y = ((k) / -nc.Y) + p.Y
 
         Cursor_point.Y = y
-        Dim vx As System.Windows.Media.Media3D.Vector3D = r - f
+        Dim vx As Vector3 = r - f
         Dim vy = ((nc.Z * vx.Z) + (nc.X * vx.X)) / nc.Y
         y = r.Y + vy
         Return y
