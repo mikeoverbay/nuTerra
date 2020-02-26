@@ -108,10 +108,10 @@ Module modUtilities
                 -0.5F, -0.5F, -0.5F
                 }
         Dim indis() As UInt16 = {
-                2, 1, 0,
-                3, 2, 0,
-                7, 4, 5,
-                6, 7, 4,
+                0, 1, 2,
+                0, 2, 3,
+                5, 4, 7,
+                5, 7, 6,
                 6, 5, 1,
                 2, 6, 1,
                 1, 4, 5,
@@ -121,10 +121,16 @@ Module modUtilities
                 3, 0, 4,
                 7, 3, 4
                 }
-        GL.GenVertexArrays(1, CUBE_VAO)
-        GL.BindVertexArray(CUBE_VAO)
+
         Dim vbo = GL.GenBuffer
         Dim veo = GL.GenBuffer
+
+        GL.GenVertexArrays(1, CUBE_VAO)
+        Dim er = GL.GetError
+        GL.BindVertexArray(CUBE_VAO)
+
+        GL.GenBuffers(1, vbo)
+        GL.GenBuffers(1, veo)
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo)
 
@@ -134,11 +140,13 @@ Module modUtilities
         GL.VertexAttribPointer(0, 3,
                                VertexAttribPointerType.Float,
                                False, 12, 0)
+        GL.EnableVertexAttribArray(0)
 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, veo)
-        GL.BufferData(BufferTarget.ElementArrayBuffer, indis.Length * 6, indis, BufferUsageHint.DynamicDraw)
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, veo)
+        Dim er1 = GL.GetError
+        GL.BufferData(BufferTarget.ElementArrayBuffer, indis.Length * 2, indis, BufferUsageHint.DynamicDraw)
+        Dim er3 = GL.GetError
 
         GL.BindVertexArray(0)
-
     End Sub
 End Module

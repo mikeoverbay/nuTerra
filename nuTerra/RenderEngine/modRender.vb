@@ -221,8 +221,6 @@ Module modRender
             GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
 
-            GL.Uniform1(TerrainShader("id_color"), CSng(i)) ' <-- debug
-
             'draw chunk
             GL.BindVertexArray(theMap.render_set(i).VAO)
             GL.DrawElements(PrimitiveType.Triangles,
@@ -678,6 +676,7 @@ Module modRender
 #End Region
 
     Private Sub Draw_SkyDome()
+        If Not TERRAIN_LOADED Then Return
         FBOm.attach_CF()
         SkyDomeShader.Use()
         GL.Enable(EnableCap.CullFace)
@@ -788,6 +787,22 @@ Module modRender
         Else
             frmMain.glControl_main.Cursor = Cursors.Default
         End If
+        '==============================================================
+        'draw ring at cursor
+        colorOnlyShader.Use()
+        GL.Enable(EnableCap.CullFace)
+        Dim model = Matrix4.CreateScale(5.0F, 5.0F, 5.0F)
+        GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, model * VIEWMATRIX * PROJECTIONMATRIX)
+        GL.UniformMatrix4(colorOnlyShader("ModelMatrix"), False, model * VIEWMATRIX)
+
+        GL.Uniform3(colorOnlyShader("color"), 0.5F, 0.5F, 1.0F)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawElements(BeginMode.Triangles, 12, DrawElementsType.UnsignedShort, 0)
+
+        colorOnlyShader.StopUse()
+        GL.Disable(EnableCap.CullFace)
+
 
     End Sub
     ''' <summary>

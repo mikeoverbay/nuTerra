@@ -37,10 +37,6 @@ Module ObjectRenderers
         GL.BindTexture(TextureTarget.Texture2D, 0)
         'Stop
 
-        '==============================================================
-        'draw ring at cursor
-
-
     End Sub
 
 

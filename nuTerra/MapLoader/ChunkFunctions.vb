@@ -881,7 +881,7 @@ Endy:
 
     Public Function get_Y_at_XZ(ByVal Lx As Double, ByVal Lz As Double) As Single
         'If Not maploaded Then Return 100.0\
-        If Not MAP_LOADED Then
+        If Not MAP_LOADED Or Not TERRAIN_LOADED Then
             Return 0
         End If
         If mapBoard Is Nothing Then Return 0.0F
