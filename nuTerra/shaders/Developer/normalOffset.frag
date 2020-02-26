@@ -6,7 +6,7 @@ in vec2 texCoord;
 
 void main(void)
 {
-    vec3 n = normalize(texture(imageMap, texCoord).xyz*0.5+0.5);
-    if ( n == vec3(0.0) ) discard;
-    fragColor.xyz = normalize(n);
+    vec3 n = normalize(texture(imageMap, texCoord).xyz);
+    if ( length(n) < .01 ) discard;
+    fragColor.xyz = normalize(n*0.5+0.5);
 }

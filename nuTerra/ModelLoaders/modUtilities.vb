@@ -98,39 +98,52 @@ Module modUtilities
 
     Public Sub make_cube()
         Dim verts() As Single = {
-                -0.5F, 0.5F, 0.5,
-                0.5F, 0.5F, 0.5,
-                0.5F, 0.5F, -0.5F,
-                -0.5F, 0.5F, -0.5F,
-                -0.5F, -0.5F, 0.5,
-                0.5F, -0.5F, 0.5,
-                0.5F, -0.5F, -0.5F,
-                -0.5F, -0.5F, -0.5F
-                }
-        Dim indis() As UInt16 = {
-                0, 1, 2,
-                0, 2, 3,
-                5, 4, 7,
-                5, 7, 6,
-                6, 5, 1,
-                2, 6, 1,
-                1, 4, 5,
-                0, 1, 5,
-                7, 2, 3,
-                6, 7, 3,
-                3, 0, 4,
-                7, 3, 4
+                    0.5, 0.5, -0.5,
+                    0.5, 0.5, 0.5,
+                    0.5, -0.5, -0.5,
+                    0.5, -0.5, 0.5,
+                    0.5, -0.5, -0.5,
+                    0.5, 0.5, 0.5,
+                    -0.5, 0.5, 0.5,
+                    -0.5, 0.5, -0.5,
+                    -0.5, -0.5, 0.5,
+                    -0.5, -0.5, -0.5,
+                    -0.5, -0.5, 0.5,
+                    -0.5, 0.5, -0.5,
+                    0.5, -0.5, 0.5,
+                    0.5, 0.5, 0.5,
+                    -0.5, -0.5, 0.5,
+                    -0.5, 0.5, 0.5,
+                    -0.5, -0.5, 0.5,
+                    0.5, 0.5, 0.5,
+                    0.5, 0.5, -0.5,
+                    0.5, -0.5, -0.5,
+                    -0.5, 0.5, -0.5,
+                    -0.5, -0.5, -0.5,
+                    -0.5, 0.5, -0.5,
+                    0.5, -0.5, -0.5,
+                    0.5, 0.5, -0.5,
+                    -0.5, 0.5, -0.5,
+                    0.5, 0.5, 0.5,
+                    -0.5, 0.5, 0.5,
+                    0.5, 0.5, 0.5,
+                    -0.5, 0.5, -0.5,
+                    -0.5, -0.5, -0.5,
+                    0.5, -0.5, -0.5,
+                    -0.5, -0.5, 0.5,
+                    0.5, -0.5, 0.5,
+                    -0.5, -0.5, 0.5,
+                    0.5, -0.5, -0.5
                 }
 
+
         Dim vbo = GL.GenBuffer
-        Dim veo = GL.GenBuffer
 
         GL.GenVertexArrays(1, CUBE_VAO)
         Dim er = GL.GetError
         GL.BindVertexArray(CUBE_VAO)
 
         GL.GenBuffers(1, vbo)
-        GL.GenBuffers(1, veo)
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo)
 
@@ -141,11 +154,6 @@ Module modUtilities
                                VertexAttribPointerType.Float,
                                False, 12, 0)
         GL.EnableVertexAttribArray(0)
-
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, veo)
-        Dim er1 = GL.GetError
-        GL.BufferData(BufferTarget.ElementArrayBuffer, indis.Length * 2, indis, BufferUsageHint.DynamicDraw)
-        Dim er3 = GL.GetError
 
         GL.BindVertexArray(0)
     End Sub

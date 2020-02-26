@@ -365,12 +365,17 @@ try_again:
         'load the xml list of all item locations
         load_lookup_xml()
         '---------------------------------------------------------
+        'loading screen image
         nuTERRA_BG_IMAGE =
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\earth.png", False, True)
         '---------------------------------------------------------
+        'cursor texture
+        CURSOR_TEXTURE_ID = load_image_from_file(Il.IL_PNG,
+            sp + "\resources\Cursor.png", True, False)
+        '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
-        Progress_bar_image_ID =
+        PROGRESS_BAR_IMAGE_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\progress_bar.png", False, True)
         '---------------------------------------------------------

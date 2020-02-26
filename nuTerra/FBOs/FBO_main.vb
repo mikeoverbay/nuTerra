@@ -207,6 +207,14 @@ Module FBO_main
         Public Shared Sub attach_C()
             GL.DrawBuffers(1, attach_Color)
         End Sub
+        Public Shared Sub attach_C_no_Depth()
+            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, 0, 0)
+            GL.DrawBuffers(1, attach_Color)
+            Dim er = GL.GetError
+        End Sub
+        Public Shared Sub attach_Depth()
+            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, gDepth, 0)
+        End Sub
         Public Shared Sub attach_CF()
             GL.DrawBuffers(2, attach_Color_GMF)
         End Sub

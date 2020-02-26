@@ -27,6 +27,7 @@ Module modGlobalVars
     'models
     Public CROSS_HAIR As base_model_holder_
     Public CROSS_HAIR_TEXTURE As Integer
+    Public CURSOR_TEXTURE_ID As Integer
     Public CROSS_HAIR_TIME As Single = 0.0F ' animation time 0-1
     Public MOON As base_model_holder_
     Public PROGRESS_BAR_IMAGE_ID As Integer

@@ -66,11 +66,6 @@ Module modRender
         '===========================================================================
         Draw_Light_Orb() '==========================================================
         '===========================================================================
-
-        '===========================================================================
-        draw_cross_hair() '=========================================================
-        '===========================================================================
-
         FBOm.attach_CNGP()
 
         If TERRAIN_LOADED Then
@@ -88,6 +83,15 @@ Module modRender
             draw_overlays() '===========================================================
             '===========================================================================
         End If
+
+        '===========================================================================
+        draw_map_cursor() '=========================================================
+        '===========================================================================
+
+        '===========================================================================
+        draw_cross_hair() '=========================================================
+        '===========================================================================
+
 
         '===============================================================================
         '================== Deferred Rendering, HUD and MINI MAP =======================
@@ -366,7 +370,7 @@ Module modRender
         'set up uniforms
         GL.Uniform1(deferredShader("gColor"), 0)
         GL.Uniform1(deferredShader("gNormal"), 1)
-        'GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
+        GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
         GL.Uniform1(deferredShader("gPosition"), 3)
         GL.Uniform1(deferredShader("gDepth"), 4)
 
@@ -677,7 +681,7 @@ Module modRender
 
     Private Sub Draw_SkyDome()
         If Not TERRAIN_LOADED Then Return
-        FBOm.attach_CF()
+        FBOm.attach_CNGP()
         SkyDomeShader.Use()
         GL.Enable(EnableCap.CullFace)
         Dim model = Matrix4.CreateTranslation(CAM_POSITION.X, CAM_POSITION.Y + 3, CAM_POSITION.Z)
@@ -774,6 +778,55 @@ Module modRender
         colorOnlyShader.StopUse()
     End Sub
 
+    Private Sub draw_map_cursor()
+
+        FBOm.attach_C_no_Depth()
+        GL.DepthMask(True)
+        DecalProject.Use()
+        GL.FrontFace(FrontFaceDirection.Cw)
+        GL.Enable(EnableCap.Blend)
+        GL.Disable(EnableCap.CullFace)
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
+
+        GL.Uniform3(DecalProject("color_in"), 0.4F, 0.3F, 0.3F)
+
+        GL.Uniform1(DecalProject("depthMap"), 0)
+        GL.Uniform1(DecalProject("gFlag"), 1)
+        GL.Uniform1(DecalProject("colorMap"), 2)
+
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
+
+        GL.ActiveTexture(TextureUnit.Texture1)
+        GL.BindTexture(TextureTarget.Texture2D, FBOm.gGMF)
+
+        GL.ActiveTexture(TextureUnit.Texture2)
+        GL.BindTexture(TextureTarget.Texture2D, CURSOR_TEXTURE_ID)
+
+        'track the terrain at Y
+        Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
+        Dim model_S = Matrix4.CreateScale(25.0F, 50.0F, 25.0F)
+        Dim rotate = Matrix4.CreateRotationX(1.570796)
+        GL.Enable(EnableCap.CullFace)
+
+        GL.UniformMatrix4(DecalProject("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(DecalProject("ViewMatrix"), False, VIEWMATRIX)
+        GL.UniformMatrix4(DecalProject("DecalMatrix"), False, rotate * model_S * model_X)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.Triangles, 0, 36)
+
+        DecalProject.StopUse()
+        unbind_textures(2)
+
+        GL.Disable(EnableCap.Blend)
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.CullFace)
+        FBOm.attach_Depth()
+        GL.FrontFace(FrontFaceDirection.Ccw)
+
+    End Sub
     Private Sub draw_cross_hair()
         If MOVE_MOD Or Z_MOVE Then
             If MOVE_MOD And Not Z_MOVE Then
@@ -788,20 +841,6 @@ Module modRender
             frmMain.glControl_main.Cursor = Cursors.Default
         End If
         '==============================================================
-        'draw ring at cursor
-        colorOnlyShader.Use()
-        GL.Enable(EnableCap.CullFace)
-        Dim model = Matrix4.CreateScale(5.0F, 5.0F, 5.0F)
-        GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, model * VIEWMATRIX * PROJECTIONMATRIX)
-        GL.UniformMatrix4(colorOnlyShader("ModelMatrix"), False, model * VIEWMATRIX)
-
-        GL.Uniform3(colorOnlyShader("color"), 0.5F, 0.5F, 1.0F)
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawElements(BeginMode.Triangles, 12, DrawElementsType.UnsignedShort, 0)
-
-        colorOnlyShader.StopUse()
-        GL.Disable(EnableCap.CullFace)
 
 
     End Sub

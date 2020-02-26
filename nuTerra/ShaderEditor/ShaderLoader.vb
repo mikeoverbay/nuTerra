@@ -151,6 +151,7 @@ Module ShaderLoader
     Public coloredline2dShader As Shader
     Public colorOnlyShader As Shader
     Public CrossHairShader As Shader
+    Public DecalProject As Shader
     Public deferredShader As Shader
     Public gWriterShader As Shader
     Public image2dFlipShader As Shader
@@ -178,6 +179,7 @@ Module ShaderLoader
         coloredline2dShader = New Shader("coloredLine2d")
         colorOnlyShader = New Shader("colorOnly")
         CrossHairShader = New Shader("CrossHair")
+        DecalProject = New Shader("DecalProject")
         deferredShader = New Shader("deferred")
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")
@@ -198,6 +200,7 @@ Module ShaderLoader
         shaders.Add(coloredline2dShader)
         shaders.Add(colorOnlyShader)
         shaders.Add(CrossHairShader)
+        shaders.Add(DecalProject)
         shaders.Add(deferredShader)
         shaders.Add(image2dFlipShader)
         shaders.Add(image2dShader)

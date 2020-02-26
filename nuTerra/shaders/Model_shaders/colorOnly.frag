@@ -2,7 +2,7 @@
 #version 430 core
 
 layout (location = 0) out vec4 gColor;
-layout (location = 2) out vec4 gGMF;
+layout (location = 1) out vec4 gGMF;
 
 uniform vec3 color;
 in vec3 worldPosition;
