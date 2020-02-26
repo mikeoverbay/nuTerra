@@ -783,8 +783,13 @@ Module modRender
         FBOm.attach_C_no_Depth()
         GL.DepthMask(True)
         DecalProject.Use()
+
+        ' Draw inside out so the box doesn't vanish if we move in side it.
         GL.FrontFace(FrontFaceDirection.Cw)
+
+        ' Blend works if you ONLY have color attached. No other textures including depth can be attached.
         GL.Enable(EnableCap.Blend)
+        ' render back side
         GL.Disable(EnableCap.CullFace)
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
@@ -804,9 +809,11 @@ Module modRender
         GL.ActiveTexture(TextureUnit.Texture2)
         GL.BindTexture(TextureTarget.Texture2D, CURSOR_TEXTURE_ID)
 
-        'track the terrain at Y
+        ' Track the terrain at Y
         Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
         Dim model_S = Matrix4.CreateScale(25.0F, 50.0F, 25.0F)
+
+        ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
         Dim rotate = Matrix4.CreateRotationX(1.570796)
         GL.Enable(EnableCap.CullFace)
 
