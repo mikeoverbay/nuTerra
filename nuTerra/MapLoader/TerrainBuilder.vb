@@ -5,14 +5,6 @@ Imports System.Xml
 Imports OpenTK
 
 Module TerrainBuilder
-    '=======================================================================
-    'move this to Modules/modTypeStructures.vb when we are done debugging
-    Public DDS_HEADER() As Byte
-    Public DDS_HEADER_16() As Byte
-    Public DDS_HEADER_32() As Byte
-    Public DDS_HEADER_64() As Byte
-    Public DDS_HEADER_128() As Byte
-
     Public mapBoard(20, 20) As map_entry_
     Public Structure map_entry_
         Public location As Vector2
@@ -119,13 +111,6 @@ Module TerrainBuilder
     End Structure
     '=======================================================================
     Public Sub Create_Terrain()
-        'We need to read the DDS header to load the normals
-        DDS_HEADER = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header.bin")
-        DDS_HEADER_16 = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header_16.bin")
-        DDS_HEADER_32 = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header_32.bin")
-        DDS_HEADER_64 = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header_64.bin")
-        DDS_HEADER_128 = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header_128.bin")
-
         ReDim mapBoard(20, 20) 'clear it
 
         get_all_chunk_file_data()

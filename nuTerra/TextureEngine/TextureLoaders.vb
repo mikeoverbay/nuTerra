@@ -1,7 +1,6 @@
 ﻿Imports System.Drawing.Imaging
 Imports System.IO
 Imports Ionic.Zip
-Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
@@ -107,6 +106,30 @@ Module TextureLoaders
             End If
         End If
         Return -1 ' Didn't find it, return -1
+    End Function
+
+    Public Function load_t2_normals_from_stream(br As BinaryReader, fn As String, w As UInt32, h As UInt32) As Integer
+        Dim image_id = GL.GenTexture()
+        GL.BindTexture(TextureTarget.Texture2D, image_id)
+
+        GL.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureBaseLevel, 0)
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
+        Dim data = br.ReadBytes(w * h)
+        GL.CompressedTexImage2D(TextureTarget.Texture2D, 0, InternalFormat.CompressedRgbaS3tcDxt5Ext, w, h, 0, w * h, data)
+
+        'GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMaxLevel, 0)
+        GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+
+        GL.BindTexture(TextureTarget.Texture2D, 0)
+
+        add_image(fn, image_id)
+
+        Return image_id
     End Function
 
     Public Function load_image_from_stream(ByRef imageType As Integer, ByRef ms As MemoryStream, ByRef fn As String, ByRef MIPS As Boolean, ByRef NEAREST As Boolean) As Integer

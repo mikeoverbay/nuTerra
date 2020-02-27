@@ -3,8 +3,7 @@ Imports System.Math
 Imports Hjg.Pngcs
 Imports Ionic
 Imports OpenTK
-Imports OpenTK.Graphics.OpenGL4
-Imports Tao.DevIl
+Imports OpenTK.Graphics.OpenGL
 
 Module ChunkFunctions
     Dim b_x_min As Integer
@@ -364,71 +363,24 @@ Module ChunkFunctions
 
 
     Public Sub get_normals(ByRef c As chunk_, ByRef v As terain_V_data_,
-                           ByRef render_set As chunk_render_data_, ByVal map As Integer)
+                           ByRef render_set As chunk_render_data_, map As Integer)
         normal_load_count += 1
-        'Dim data((HEIGHTMAPSIZE * HEIGHTMAPSIZE * 2) + HEIGHTMAPSIZE) As SByte
-        'ReDim Preserve v.normals(HEIGHTMAPSIZE - 1, HEIGHTMAPSIZE - 1)
-        Dim cnt As UInt32 = 0
-        Dim i As UInt32 = 0
-        Dim s As New MemoryStream(c.normals_data)
-        s.Position = 0
-        Dim br As New BinaryReader(s)
-        Dim cols As Integer = 0
-        Dim x, y As UInt32
-        'Try
-        s.Position = 0
 
-        Dim header = br.ReadUInt32
-        Dim version = br.ReadUInt32
-        x = br.ReadUInt16
-        y = br.ReadUInt16
-        Dim unknown = br.ReadUInt32
+        Using br As New BinaryReader(New MemoryStream(c.normals_data))
+            Dim header = br.ReadUInt32
+            Dim version = br.ReadUInt32
+            Dim x As UInt32 = br.ReadUInt16
+            Dim y As UInt32 = br.ReadUInt16
+            Dim unknown = br.ReadUInt32
 
-        ReDim v.normals(63, 63)
+            ' Just check
+            Debug.Assert(header = 7172718) ' nrm
+            Debug.Assert(version = 2)
 
-        'make room for the data
-        Dim DDSdata(0) As Byte
-        'Copy the header based on size.
-        If x = 16 Then
-            ReDim DDSdata((x * y) + DDS_HEADER_16.Length)
-            DDS_HEADER_16.CopyTo(DDSdata, 0)
-        End If
-        If x = 32 Then
-            ReDim DDSdata((x * y) + DDS_HEADER_32.Length)
-            DDS_HEADER_32.CopyTo(DDSdata, 0)
+            render_set.TerrainNormals_id = load_t2_normals_from_stream(br, "t2_normal_map", x, y)
+        End Using
 
-        End If
-        If x = 64 Then
-            ReDim DDSdata((x * y) + DDS_HEADER_64.Length)
-            DDS_HEADER_64.CopyTo(DDSdata, 0)
-
-        End If
-        If x = 128 Then
-            ReDim DDSdata((x * y * 4) + DDS_HEADER_128.Length)
-            DDS_HEADER_128.CopyTo(DDSdata, 0)
-        End If
-
-        If x = 256 Then
-            ReDim DDSdata((x * y * 4) + DDS_HEADER.Length)
-            DDS_HEADER.CopyTo(DDSdata, 0)
-
-        End If
-
-        Dim dds_ms As New MemoryStream(DDSdata)
-        Dim bw As New BinaryWriter(dds_ms)
-
-        dds_ms.Position = 128 'move to end of DDS header and copy data.
-        For i = 0 To (x * y) - 1
-            Dim b = br.ReadByte
-            bw.Write(b)
-        Next
-        render_set.TerrainNormals_id = load_image_from_stream(Il.IL_DDS, dds_ms, "t2_normal_map", True, False)
-        dds_ms.Close()
-        s.Close()
-        dds_ms.Dispose()
-        s.Dispose()
         Dim name = theMap.chunks(map).name
-        Return
     End Sub
 
     Public Sub set_map_bs()
