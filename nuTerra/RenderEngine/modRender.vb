@@ -210,6 +210,8 @@ Module modRender
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
 
+        GL.Enable(EnableCap.CullFace)
+
         '------------------------------------------------
         TerrainShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -229,9 +231,7 @@ Module modRender
         GL.ActiveTexture(TextureUnit.Texture0 + 2)
         GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
 
-        GL.Enable(EnableCap.CullFace)
-
-        'Must have this Identity to use the terrain shader.
+        'Must have this Identity to use the terrain normal view shader.
         'Seams are in world space already but that will be changed
         Dim viewM = Matrix4.Identity * VIEWMATRIX
 
@@ -257,20 +257,23 @@ Module modRender
             End If
         Next
 
-
+        TerrainShader.StopUse()
 
         GL.Disable(EnableCap.CullFace)
 
-        TerrainShader.StopUse()
         unbind_textures(3)
 
         If WIRE_TERRAIN Then
+
             GL.Disable(EnableCap.PolygonOffsetFill)
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
             FBOm.attach_CF()
+
             TerrainNormals.Use()
+
             GL.ActiveTexture(TextureUnit.Texture0)
+
             GL.Uniform1(TerrainNormals("t_normalMap"), 0)
 
             GL.Uniform1(TerrainNormals("prj_length"), 1.0F)
@@ -285,7 +288,9 @@ Module modRender
                 GL.BindTexture(TextureTarget.Texture2D, theMap.render_set(i).TerrainNormals_id)
 
                 Dim model = theMap.render_set(i).matrix
+
                 GL.UniformMatrix4(TerrainNormals("model"), False, model)
+
                 GL.BindVertexArray(theMap.render_set(i).VAO)
 
                 'draw chunk wire
@@ -295,9 +300,8 @@ Module modRender
 
             Next
 
-
-
             TerrainNormals.StopUse()
+
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
 

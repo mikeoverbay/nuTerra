@@ -8,6 +8,10 @@ Module TerrainBuilder
     '=======================================================================
     'move this to Modules/modTypeStructures.vb when we are done debugging
     Public DDS_HEADER() As Byte
+    Public DDS_HEADER_16() As Byte
+    Public DDS_HEADER_32() As Byte
+    Public DDS_HEADER_64() As Byte
+    Public DDS_HEADER_128() As Byte
 
     Public mapBoard(20, 20) As map_entry_
     Public Structure map_entry_
@@ -117,6 +121,11 @@ Module TerrainBuilder
     Public Sub Create_Terrain()
         'We need to read the DDS header to load the normals
         DDS_HEADER = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header.bin")
+        DDS_HEADER_16 = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header_16.bin")
+        DDS_HEADER_32 = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header_32.bin")
+        DDS_HEADER_64 = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header_64.bin")
+        DDS_HEADER_128 = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header_128.bin")
+
         ReDim mapBoard(20, 20) 'clear it
 
         get_all_chunk_file_data()
@@ -132,12 +141,13 @@ Module TerrainBuilder
             get_location(theMap.chunks(I), I)
             get_holes(theMap.chunks(I), theMap.v_data(I))
             get_heights(theMap.chunks(I), theMap.v_data(I))
-            get_normals(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
+            get_normals(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I), I)
             get_mesh(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
             BG_VALUE = I
             draw_scene()
             Application.DoEvents()
         Next
+        Dim x = normal_load_count
         seam_map()
     End Sub
 

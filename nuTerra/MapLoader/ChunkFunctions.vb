@@ -16,6 +16,7 @@ Module ChunkFunctions
     Public Cursor_point As Vector3
     Public surface_normal As Vector3
     Public CURSOR_Y As Single
+    Public normal_load_count As Integer
 
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
@@ -226,22 +227,27 @@ Module ChunkFunctions
 
         Dim stride = 8
         count = 0
+        If w = 8 Then ' nothing so retrun empty hole array
+            ps.Dispose()
+            ms.Dispose()
+            Return
 
+        End If
         'This will be used to punch holes
         'in the map to speed up rendering and allow for sub terrain items.
         'Each bit in the 8 bit grey scale 8 bit image is a hole.
         'We must bit shift >> 1 to get each value.
-        For z1 = 0 To 63
-            For x1 = 0 To 7
-                Dim val = data(count)
+        For z1 = 0 To (h * 2) - 1
+            For x1 = 0 To (stride) - 1
+                Dim val = data((z1 * stride) + x1)
                 For q = 0 To 7
                     Dim b = (1 And (val >> q))
                     If b > 0 Then b = 1
-                    v.holes(63 - (x1 * 8 + q), z1) = b
+                    v.holes(63 - ((x1 * 8) + q), z1) = b
                 Next
-                count += 1
             Next
         Next
+
         c.holes_data = Nothing 'free memory
         ps.Dispose()
         ms.Dispose()
@@ -356,10 +362,12 @@ Module ChunkFunctions
         'End If
     End Sub
 
-    Public Sub get_normals(ByRef c As chunk_, ByRef v As terain_V_data_, ByRef render_set As chunk_render_data_)
 
-        Dim data((HEIGHTMAPSIZE * HEIGHTMAPSIZE * 2) + HEIGHTMAPSIZE) As SByte
-        ReDim Preserve v.normals(HEIGHTMAPSIZE - 1, HEIGHTMAPSIZE - 1)
+    Public Sub get_normals(ByRef c As chunk_, ByRef v As terain_V_data_,
+                           ByRef render_set As chunk_render_data_, ByVal map As Integer)
+        normal_load_count += 1
+        'Dim data((HEIGHTMAPSIZE * HEIGHTMAPSIZE * 2) + HEIGHTMAPSIZE) As SByte
+        'ReDim Preserve v.normals(HEIGHTMAPSIZE - 1, HEIGHTMAPSIZE - 1)
         Dim cnt As UInt32 = 0
         Dim i As UInt32 = 0
         Dim s As New MemoryStream(c.normals_data)
@@ -377,18 +385,39 @@ Module ChunkFunctions
         Dim unknown = br.ReadUInt32
 
         ReDim v.normals(63, 63)
+
         'make room for the data
-        Dim DDSdata((x * y * 4) + DDS_HEADER.Length) As Byte
-        DDS_HEADER.CopyTo(DDSdata, 0)
-        Dim dds_ms As New MemoryStream(DDS_HEADER)
+        Dim DDSdata(0) As Byte
+        'Copy the header based on size.
+        If x = 16 Then
+            ReDim DDSdata((x * y) + DDS_HEADER_16.Length)
+            DDS_HEADER_16.CopyTo(DDSdata, 0)
+        End If
+        If x = 32 Then
+            ReDim DDSdata((x * y) + DDS_HEADER_32.Length)
+            DDS_HEADER_32.CopyTo(DDSdata, 0)
+
+        End If
+        If x = 64 Then
+            ReDim DDSdata((x * y) + DDS_HEADER_64.Length)
+            DDS_HEADER_64.CopyTo(DDSdata, 0)
+
+        End If
+        If x = 128 Then
+            ReDim DDSdata((x * y * 4) + DDS_HEADER_128.Length)
+            DDS_HEADER_128.CopyTo(DDSdata, 0)
+        End If
+
+        If x = 256 Then
+            ReDim DDSdata((x * y * 4) + DDS_HEADER.Length)
+            DDS_HEADER.CopyTo(DDSdata, 0)
+
+        End If
+
+        Dim dds_ms As New MemoryStream(DDSdata)
         Dim bw As New BinaryWriter(dds_ms)
-        dds_ms.Position = 12
-        'change size of the dds file to match the data size.
-        bw.Write(CInt(x))
-        bw.Write(CInt(y))
-        dds_ms = New MemoryStream(DDSdata)
-        bw = New BinaryWriter(dds_ms)
-        dds_ms.Position = 128
+
+        dds_ms.Position = 128 'move to end of DDS header and copy data.
         For i = 0 To (x * y) - 1
             Dim b = br.ReadByte
             bw.Write(b)
@@ -398,6 +427,7 @@ Module ChunkFunctions
         s.Close()
         dds_ms.Dispose()
         s.Dispose()
+        Dim name = theMap.chunks(map).name
         Return
     End Sub
 

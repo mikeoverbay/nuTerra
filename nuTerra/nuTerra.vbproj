@@ -287,6 +287,18 @@
     <None Include="data\DDS_Header.bin">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="data\DDS_header_128.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="data\DDS_Header_16.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="data\DDS_Header_32.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="data\DDS_Header_64.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="My Project\Application.myapp">
       <Generator>MyApplicationCodeGenerator</Generator>
       <LastGenOutput>Application.Designer.vb</LastGenOutput>
