@@ -7,6 +7,8 @@ Imports OpenTK
 Module TerrainBuilder
     '=======================================================================
     'move this to Modules/modTypeStructures.vb when we are done debugging
+    Public DDS_HEADER() As Byte
+
     Public mapBoard(20, 20) As map_entry_
     Public Structure map_entry_
         Public location As Vector2
@@ -23,7 +25,7 @@ Module TerrainBuilder
         Public vert As Vector2
         Public H As Single
         Public uv As Vector2
-        Public norm As UInt32
+        Public hole As UInt32
     End Structure
 
     Public Structure grid_sec
@@ -109,9 +111,12 @@ Module TerrainBuilder
         Public S_tri_count As Integer
         '-------------------------------
         ' Texture IDs and such below
+        Public TerrainNormals_id As Integer
     End Structure
     '=======================================================================
     Public Sub Create_Terrain()
+        'We need to read the DDS header to load the normals
+        DDS_HEADER = File.ReadAllBytes(Application.StartupPath + "\data\DDS_Header.bin")
         ReDim mapBoard(20, 20) 'clear it
 
         get_all_chunk_file_data()
@@ -127,7 +132,7 @@ Module TerrainBuilder
             get_location(theMap.chunks(I), I)
             get_holes(theMap.chunks(I), theMap.v_data(I))
             get_heights(theMap.chunks(I), theMap.v_data(I))
-            get_normals(theMap.chunks(I), theMap.v_data(I))
+            get_normals(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
             get_mesh(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
             BG_VALUE = I
             draw_scene()

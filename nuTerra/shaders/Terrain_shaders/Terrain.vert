@@ -4,12 +4,12 @@
 layout(location = 0) in vec2 vertexXZ;
 layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
-layout(location = 3) in vec4 vertexNormal;
+layout(location = 3) in uint holes;
 
 uniform mat4 viewModel;
 uniform mat4 projection;
 uniform mat3 normalMatrix;
-
+uniform sampler2D t_normalMap;
 out mat3 TBN;
 out vec3 worldPosition;
 out vec2 UV;
@@ -18,8 +18,18 @@ flat out uint is_hole;
 void main(void)
 {
     UV =  vertexTexCoord;
-    is_hole = uint(vertexNormal.w);
+    is_hole = holes;
+    vec3 n;
+    vec2 uv = UV;
+    uv.y*= -1.0;
+    n.xy = texture(t_normalMap,-uv).ag;
 
+    n.xy = clamp(n.xy * 2.0 - 1.0, -1.0, 1.0);
+
+    n.z = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
+
+    vec3 vertexNormal = normalize(n.xzy);
+    vertexNormal.x *= -1.0;
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     vec3 tangent;
 

@@ -4,6 +4,7 @@ Imports Hjg.Pngcs
 Imports Ionic
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL4
+Imports Tao.DevIl
 
 Module ChunkFunctions
     Dim b_x_min As Integer
@@ -30,7 +31,7 @@ Module ChunkFunctions
         ' 64 * 64      = 4096 vert count
         Dim v_buff_XZ(4095) As Vector2
         Dim v_buff_Y(4095) As Single
-        Dim n_buff(4095) As UInt32
+        Dim h_buff(4095) As UInt32
         Dim uv_buff(4095) As Vector2
         Dim indicies(7937) As vect3_16
         Dim w As UInt32 = HEIGHTMAPSIZE 'bmp_w
@@ -63,14 +64,14 @@ Module ChunkFunctions
                 topleft.vert.Y = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
-                topleft.norm = pack_2_10_10_10(v_data.normals((i), (j)), v_data.holes(i, j))
+                topleft.hole = v_data.holes(i, j)
 
                 bottomleft.vert.X = (i) - w_
                 bottomleft.H = v_data.heights((i), (j + 1))
                 bottomleft.vert.Y = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
-                bottomleft.norm = pack_2_10_10_10(v_data.normals((i), (j + 1)), v_data.holes(i, j + 1))
+                bottomleft.hole = v_data.holes(i, j + 1)
 
                 '         I
                 '  TL --------- TR
@@ -96,8 +97,8 @@ Module ChunkFunctions
                 v_buff_Y(i + ((j + 1) * stride)) = bottomleft.H
                 v_buff_Y(i + ((j + 0) * stride)) = topleft.H
 
-                n_buff(i + ((j + 1) * stride)) = bottomleft.norm
-                n_buff(i + ((j + 0) * stride)) = topleft.norm
+                h_buff(i + ((j + 1) * stride)) = bottomleft.hole
+                h_buff(i + ((j + 0) * stride)) = topleft.hole
 
                 uv_buff(i + ((j + 1) * stride)) = bottomleft.uv
                 uv_buff(i + ((j + 0) * stride)) = topleft.uv
@@ -160,11 +161,11 @@ Module ChunkFunctions
         GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(3))
 
         GL.BufferData(BufferTarget.ArrayBuffer,
-              n_buff.Length * 4,
-              n_buff, BufferUsageHint.StaticDraw)
+              h_buff.Length * 4,
+              h_buff, BufferUsageHint.StaticDraw)
 
         GL.VertexAttribPointer(3, 4,
-                               VertexAttribPointerType.Int2101010Rev,
+                               VertexAttribPointerType.UnsignedInt,
                                True, 4, 0)
         GL.EnableVertexAttribArray(3)
 
@@ -355,7 +356,7 @@ Module ChunkFunctions
         'End If
     End Sub
 
-    Public Sub get_normals(ByRef c As chunk_, ByRef v As terain_V_data_)
+    Public Sub get_normals(ByRef c As chunk_, ByRef v As terain_V_data_, ByRef render_set As chunk_render_data_)
 
         Dim data((HEIGHTMAPSIZE * HEIGHTMAPSIZE * 2) + HEIGHTMAPSIZE) As SByte
         ReDim Preserve v.normals(HEIGHTMAPSIZE - 1, HEIGHTMAPSIZE - 1)
@@ -376,96 +377,37 @@ Module ChunkFunctions
         Dim unknown = br.ReadUInt32
 
         ReDim v.normals(63, 63)
-
-        cnt = 0
-        If x = 256 Then
-            For j As Integer = 0 To 63
-                For k As Integer = 0 To 63
-                    br.ReadUInt16() 'read off un-used
-                    Dim n As Vector3 = unpack16(br.ReadUInt16)
-                    v.normals(k, j) = n
-                Next
-            Next
-        End If
-        If x = 128 Then
-            For j As Integer = 0 To 63
-                For k As Integer = 0 To 63
-                    Dim n As Vector3 = unpack16(br.ReadUInt16)
-                    v.normals(k, j) = n
-                Next
-            Next
-        End If
-        If x = 64 Then
-            For j As Integer = 0 To 63 Step 2
-                For k As Integer = 0 To 63 Step 2
-                    Dim n As Vector3 = unpack16(br.ReadUInt16)
-                    v.normals(k, j) = n
-                    For i = 0 To 1
-                        v.normals(k + 0, j + i) = n
-                        v.normals(k + 1, j + i) = n
-                    Next i
-                Next k
-            Next j
-        End If
-        If x = 32 Then
-            For j As Integer = 0 To 63 Step 4
-                For k As Integer = 0 To 63 Step 4
-                    Dim n As Vector3 = unpack16(br.ReadUInt16)
-                    v.normals(k, j) = n
-                    For i = 0 To 3
-                        v.normals(k + 0, j + i) = n
-                        v.normals(k + 1, j + i) = n
-                        v.normals(k + 2, j + i) = n
-                        v.normals(k + 3, j + i) = n
-                    Next i
-                Next k
-            Next j
-        End If
-        If x = 16 Then
-            For j As Integer = 0 To 63 Step 8
-                For k As Integer = 0 To 63 Step 8
-                    Dim n As Vector3 = unpack16(br.ReadUInt16)
-                    For i = 0 To 7
-                        v.normals(k + 0, j + i) = n
-                        v.normals(k + 1, j + i) = n
-                        v.normals(k + 2, j + i) = n
-                        v.normals(k + 3, j + i) = n
-                        v.normals(k + 4, j + i) = n
-                        v.normals(k + 5, j + i) = n
-                        v.normals(k + 6, j + i) = n
-                        v.normals(k + 7, j + i) = n
-                    Next i
-                Next k
-            Next j
-        End If
-        c.normals_data = Nothing
+        'make room for the data
+        Dim DDSdata((x * y * 4) + DDS_HEADER.Length) As Byte
+        DDS_HEADER.CopyTo(DDSdata, 0)
+        Dim dds_ms As New MemoryStream(DDS_HEADER)
+        Dim bw As New BinaryWriter(dds_ms)
+        dds_ms.Position = 12
+        'change size of the dds file to match the data size.
+        bw.Write(CInt(x))
+        bw.Write(CInt(y))
+        dds_ms = New MemoryStream(DDSdata)
+        bw = New BinaryWriter(dds_ms)
+        dds_ms.Position = 128
+        For i = 0 To (x * y) - 1
+            Dim b = br.ReadByte
+            bw.Write(b)
+        Next
+        render_set.TerrainNormals_id = load_image_from_stream(Il.IL_DDS, dds_ms, "t2_normal_map", True, False)
+        dds_ms.Close()
         s.Close()
+        dds_ms.Dispose()
         s.Dispose()
-
         Return
     End Sub
-    Private Function unpack16(ByVal u16 As UInt16)
-        Dim b = BitConverter.GetBytes(u16)
-        Dim X = b(0)
-        Dim Z = b(1)
-        Dim divisor = 255.9F / 2.0F
-        Dim subtractor = 1.0
-        'Xs = (X / divisor) - subtractor
-        'Zs = (Z / divisor) - subtractor
-        Dim Xs = (X / 255) * 2.0 - 1.0
-        Dim Zs = (Z / 255) * 2.0 - 1.0
-        Dim Y As Single = Math.Sqrt(1.0 - (Xs * Xs - Zs * Zs))
-        'nothing is working so lets jsut return a Y up normal
-        Dim v As New Vector3(0.0, 1.0, 0.0)
-        v.Normalize()
-        Return v
-    End Function
+
     Public Sub set_map_bs()
         b_x_max = -10000
         b_x_min = 10000
         b_y_max = -10000
         b_y_min = 10000
     End Sub
+
     Public Sub get_location_corner(ByRef c As chunk_)
         'This routine gets the maps location in the world grid from its name
         Dim x, y As Integer
@@ -615,32 +557,28 @@ Module ChunkFunctions
                         topleft.vert.X = x1
                         topleft.vert.Y = yu
                         topleft.H = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(x_pos, 0)
-                        topleft.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY + 1).map_id).normals(x_pos, 0),
-                                               theMap.v_data(mapBoard(mbX, mbY + 1).map_id).holes(x_pos, 0))
+                        topleft.hole = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).holes(x_pos, 0)
                         topleft.uv.X = u_start
                         topleft.uv.Y = almost1
 
                         bottomleft.vert.X = x1
                         bottomleft.vert.Y = yl
                         bottomleft.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos, 63)
-                        bottomleft.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(x_pos, 63),
-                                               theMap.v_data(mapBoard(mbX, mbY).map_id).holes(x_pos, 63))
+                        bottomleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(x_pos, 63)
                         bottomleft.uv.X = u_start
                         bottomleft.uv.Y = almost1 - uvinc
 
                         topRight.vert.X = x1 + scale
                         topRight.vert.Y = yu
                         topRight.H = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(x_pos + 1, 0)
-                        topRight.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY + 1).map_id).normals(x_pos + 1, 0),
-                                               theMap.v_data(mapBoard(mbX, mbY + 1).map_id).holes(x_pos + 1, 0))
+                        topRight.hole = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).holes(x_pos + 1, 0)
                         topRight.uv.X = u_start + uvinc
                         topRight.uv.Y = almost1
 
                         bottomRight.vert.X = x1 + scale
                         bottomRight.vert.Y = yl
                         bottomRight.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos + 1, 63)
-                        bottomRight.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(x_pos + 1, 63),
-                                               theMap.v_data(mapBoard(mbX, mbY).map_id).holes(x_pos + 1, 63))
+                        bottomRight.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(x_pos + 1, 63)
                         bottomRight.uv.X = u_start + uvinc
                         bottomRight.uv.Y = almost1 - uvinc
 
@@ -676,32 +614,28 @@ Module ChunkFunctions
                     topleft.vert.X = cur_x + scale
                     topleft.vert.Y = yl
                     topleft.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, 63)
-                    topleft.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(63, 63),
-                                           theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, 63))
+                    topleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, 63)
                     topleft.uv.X = almost1 - uvinc
                     topleft.uv.Y = almost1 - uvinc
 
                     topRight.vert.X = cur_x + (scale * 2)
                     topRight.vert.Y = yl
                     topRight.H = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, 63)
-                    topRight.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX + 1, mbY).map_id).normals(0, 63),
-                                           theMap.v_data(mapBoard(mbX + 1, mbY).map_id).holes(0, 63))
+                    topRight.hole = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).holes(0, 63)
                     topRight.uv.X = almost1
                     topRight.uv.Y = almost1 - uvinc
 
                     bottomleft.vert.X = cur_x + scale
                     bottomleft.vert.Y = yu
                     bottomleft.H = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(63, 0)
-                    bottomleft.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY + 1).map_id).normals(63, 0),
-                                           theMap.v_data(mapBoard(mbX, mbY + 1).map_id).holes(63, 0))
+                    bottomleft.hole = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).holes(63, 0)
                     bottomleft.uv.X = almost1 - uvinc
                     bottomleft.uv.Y = almost1
 
                     bottomRight.vert.X = cur_x + (scale * 2)
                     bottomRight.vert.Y = yu
                     bottomRight.H = theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).heights(0, 0)
-                    bottomRight.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).normals(0, 0),
-                                           theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).holes(0, 0))
+                    bottomRight.hole = theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).holes(0, 0)
                     bottomRight.uv.X = almost1
                     bottomRight.uv.Y = almost1
 
@@ -735,32 +669,28 @@ endx:
                         topleft.vert.X = xl
                         topleft.vert.Y = y1 + scale
                         topleft.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, y_pos + 1)
-                        topleft.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(63, y_pos + 1),
-                                               theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, y_pos + 1))
+                        topleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, y_pos + 1)
                         topleft.uv.X = almost1 - uvinc
                         topleft.uv.Y = v_start + uvinc
 
                         bottomleft.vert.X = xl
                         bottomleft.vert.Y = y1
                         bottomleft.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, y_pos)
-                        bottomleft.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX, mbY).map_id).normals(63, y_pos),
-                                               theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, y_pos))
+                        bottomleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, y_pos)
                         bottomleft.uv.X = almost1 - uvinc
                         bottomleft.uv.Y = v_start
 
                         topRight.vert.X = xu
                         topRight.vert.Y = y1 + scale
                         topRight.H = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, y_pos + 1)
-                        topRight.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX + 1, mbY).map_id).normals(0, y_pos + 1),
-                                               theMap.v_data(mapBoard(mbX + 1, mbY).map_id).holes(0, y_pos + 1))
+                        topRight.hole = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).holes(0, y_pos + 1)
                         topRight.uv.X = almost1
                         topRight.uv.Y = v_start + uvinc
 
                         bottomRight.vert.X = xu
                         bottomRight.vert.Y = y1
                         bottomRight.H = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, y_pos)
-                        bottomRight.norm = pack_2_10_10_10(theMap.v_data(mapBoard(mbX + 1, mbY).map_id).normals(0, y_pos),
-                                               theMap.v_data(mapBoard(mbX + 1, mbY).map_id).holes(0, y_pos))
+                        bottomRight.hole = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).holes(0, y_pos)
                         bottomRight.uv.X = almost1
                         bottomRight.uv.Y = v_start
 
@@ -788,14 +718,14 @@ Endy:
 
                         Dim v_buff_XZ(v_cnt - 1) As Vector2
                         Dim uv_buff(v_cnt - 1) As Vector2
-                        Dim n_buff(v_cnt - 1) As UInt32
+                        Dim h_buff(v_cnt - 1) As UInt32
                         Dim v_buff_Y(v_cnt - 1) As Single
 
                         For i = 0 To v_cnt - 1
                             v_buff_XZ(i) = buff(i).vert
                             v_buff_Y(i) = buff(i).H
                             uv_buff(i) = buff(i).uv
-                            n_buff(i) = buff(i).norm
+                            h_buff(i) = buff(i).hole
                         Next
 
                         theMap.render_set(MAP_ID).S_tri_count = (v_cnt - 1) * 6
@@ -844,11 +774,11 @@ Endy:
                         GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(3))
 
                         GL.BufferData(BufferTarget.ArrayBuffer,
-                              n_buff.Length * 4,
-                              n_buff, BufferUsageHint.StaticDraw)
+                              h_buff.Length * 4,
+                              h_buff, BufferUsageHint.StaticDraw)
 
                         GL.VertexAttribPointer(3, 4,
-                                               VertexAttribPointerType.Int2101010Rev,
+                                               VertexAttribPointerType.UnsignedInt,
                                                True, 4, 0)
                         GL.EnableVertexAttribArray(3)
 

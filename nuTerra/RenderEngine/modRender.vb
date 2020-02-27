@@ -205,7 +205,7 @@ Module modRender
     End Sub
 
     Private Sub draw_terrain()
-        If WIRE_MODELS Or WIRE_TERRAIN Or NORMAL_DISPLAY_MODE > 0 Then
+        If WIRE_TERRAIN Then
             GL.PolygonOffset(1.2, 0.2)
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
@@ -216,6 +216,7 @@ Module modRender
         GL.Uniform1(TerrainShader("colorMap"), 0)
         GL.Uniform1(TerrainShader("normalMap"), 1)
         GL.Uniform1(TerrainShader("GMF_Map"), 2)
+        GL.Uniform1(TerrainShader("t_normalMap"), 3)
         GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
 
         GL.UniformMatrix4(TerrainShader("projection"), False, PROJECTIONMATRIX)
@@ -239,6 +240,8 @@ Module modRender
             GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
 
+            GL.ActiveTexture(TextureUnit.Texture0 + 3)
+            GL.BindTexture(TextureTarget.Texture2D, theMap.render_set(i).TerrainNormals_id)
             'draw chunk
             GL.BindVertexArray(theMap.render_set(i).VAO)
             GL.DrawElements(PrimitiveType.Triangles,
@@ -259,7 +262,7 @@ Module modRender
         GL.Disable(EnableCap.CullFace)
 
         TerrainShader.StopUse()
-        unbind_textures(2)
+        unbind_textures(3)
 
         If WIRE_TERRAIN Then
             GL.Disable(EnableCap.PolygonOffsetFill)
@@ -267,6 +270,8 @@ Module modRender
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
             FBOm.attach_CF()
             TerrainNormals.Use()
+            GL.ActiveTexture(TextureUnit.Texture0)
+            GL.Uniform1(TerrainNormals("t_normalMap"), 0)
 
             GL.Uniform1(TerrainNormals("prj_length"), 1.0F)
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
@@ -276,6 +281,9 @@ Module modRender
             GL.UniformMatrix4(TerrainNormals("view"), False, VIEWMATRIX)
 
             For i = 0 To theMap.render_set.Length - 1
+
+                GL.BindTexture(TextureTarget.Texture2D, theMap.render_set(i).TerrainNormals_id)
+
                 Dim model = theMap.render_set(i).matrix
                 GL.UniformMatrix4(TerrainNormals("model"), False, model)
                 GL.BindVertexArray(theMap.render_set(i).VAO)
@@ -298,6 +306,7 @@ Module modRender
 
     Private Sub draw_models()
         'SOLID FILL
+        FBOm.attach_CNGP()
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             GL.PolygonOffset(1.2, 0.2)
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
@@ -781,7 +790,7 @@ Module modRender
     End Sub
 
     Private Sub draw_overlays()
-        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
+        If WIRE_MODELS Then
             GL.Disable(EnableCap.PolygonOffsetFill)
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
@@ -858,6 +867,8 @@ Module modRender
     End Sub
 
     Private Sub draw_map_cursor()
+
+        If Not SHOW_CURSOR Then Return
 
         DecalProject.Use()
 

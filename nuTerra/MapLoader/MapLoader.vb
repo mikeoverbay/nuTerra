@@ -215,6 +215,8 @@ Module MapLoader
         SHOW_MAPS_SCREEN = False
         BG_MAX_VALUE = 0
 
+        SHOW_CURSOR = True
+
         SHOW_LOADING_SCREEN = True
         'For now, we are going to hard wire this name
         'and call this at startup so skip having to select a menu

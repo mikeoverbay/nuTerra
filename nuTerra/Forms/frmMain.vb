@@ -54,6 +54,12 @@ Public Class frmMain
                 Else
                     WIRE_TERRAIN = True
                 End If
+            Case Keys.F1
+                If SHOW_CURSOR Then
+                    SHOW_CURSOR = False
+                Else
+                    SHOW_CURSOR = True
+                End If
                 '-------------------------------
             Case Keys.E
                 frmEditFrag.Show()
