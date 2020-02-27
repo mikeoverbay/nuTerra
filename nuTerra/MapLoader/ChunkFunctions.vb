@@ -165,9 +165,9 @@ Module ChunkFunctions
               h_buff.Length * 4,
               h_buff, BufferUsageHint.StaticDraw)
 
-        GL.VertexAttribPointer(3, 4,
+        GL.VertexAttribPointer(3, 1,
                                VertexAttribPointerType.UnsignedInt,
-                               True, 4, 0)
+                               False, 4, 0)
         GL.EnableVertexAttribArray(3)
 
 
@@ -807,9 +807,9 @@ Endy:
                               h_buff.Length * 4,
                               h_buff, BufferUsageHint.StaticDraw)
 
-                        GL.VertexAttribPointer(3, 4,
+                        GL.VertexAttribPointer(3, 1,
                                                VertexAttribPointerType.UnsignedInt,
-                                               True, 4, 0)
+                                               False, 4, 0)
                         GL.EnableVertexAttribArray(3)
 
 
