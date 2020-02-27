@@ -21,8 +21,8 @@ void main(void)
     is_hole = holes;
     vec3 n;
     vec2 uv = UV;
-    uv.y*= -1.0;
-    n.xy = texture(t_normalMap,-uv).ag;
+    
+    n.xy = texture(t_normalMap,uv).ag;
 
     n.xy = clamp(n.xy * 2.0 - 1.0, -1.0, 1.0);
 
