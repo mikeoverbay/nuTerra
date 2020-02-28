@@ -927,7 +927,6 @@ Module modRender
     Private Sub draw_terrain_base_rings()
 
 
-
         FBOm.attach_C_no_Depth()
 
         BaseRingProjector.Use()
@@ -941,10 +940,10 @@ Module modRender
         GL.Uniform1(BaseRingProjector("radius"), 50.0F)
         GL.Uniform1(BaseRingProjector("thickness"), 2.0F)
         Dim rotate = Matrix4.CreateRotationX(1.570796)
-        Dim scale = Matrix4.CreateScale(100.0F, 100.0F, 100.0F)
+        Dim scale = Matrix4.CreateScale(100.0F, 25.0F, 100.0F)
 
         ' base 1 ring
-        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
+        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
         GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
         GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
         GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Green)
@@ -953,7 +952,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.Triangles, 0, 36)
 
         'base 2 ring
-        model_X = Matrix4.CreateTranslation(-TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
+        model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
         GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
         GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
         GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Red)

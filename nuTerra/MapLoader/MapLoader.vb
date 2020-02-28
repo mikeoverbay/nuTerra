@@ -379,6 +379,15 @@ Module MapLoader
         '=======================================================
 
         MAP_LOADED = True
+
+        '===============================================================
+        'We need to get the Y location of the rings and stop drawing overly tall cubes.
+        'It only needs to happen once!
+        T1_Y = get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)
+        T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
+        '===============================================================
+
+
         SHOW_LOADING_SCREEN = False
         LOOK_AT_X = 0.001
         LOOK_AT_Z = 0.001

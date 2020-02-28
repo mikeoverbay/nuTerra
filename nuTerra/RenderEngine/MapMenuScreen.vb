@@ -70,13 +70,11 @@ Module MapMenuScreen
         Public Function CompareTo(ByVal other As map_item_) As Integer Implements System.IComparable(Of map_item_).CompareTo
             Try
                 Return Me.realname.CompareTo(other.realname)
-
             Catch ex As Exception
                 Return 0
             End Try
         End Function
     End Structure
-
 #End Region
 
     Public Sub make_map_pick_buttons()
@@ -187,18 +185,17 @@ dontaddthis:
             MapPickList(map).draw_pick_box(color_)
             map += 1
         End While
-        'frmMain.glControl_main.SwapBuffers()
 
     End Sub
 
     Public Sub draw_maps()
 
+        'in case the form is closed while pick map is the current screen
         If Not _STARTED Then Return
 
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         GL.Clear(ClearBufferMask.ColorBufferBit)
 
-        'GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode, TextureEnvMode.Replace)
         GL.ActiveTexture(TextureUnit.Texture0)
 
         Dim w = frmMain.glControl_main.Width
@@ -216,8 +213,6 @@ dontaddthis:
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
         draw_image_rectangle(rect, MAP_SELECT_BACKGROUND_ID)
-
-        'DrawMapPickText.TextRenderer(120, 72)
 
         Dim ms_x As Single = 120
         Dim ms_y As Single = -72
@@ -319,10 +314,10 @@ dontaddthis:
         GL.BindTexture(TextureTarget.Texture2D, 0)
         GL.Disable(EnableCap.Blend)
 
-        'this checks to see if there are any images drawn oversize
-        'Application.DoEvents()
+        'make it visible
         frmMain.glControl_main.SwapBuffers()
 
+        'this checks to see if there are any images drawn oversize
         If FINISH_MAPS Then
             Dim no_stragglers As Boolean = True
             For i = 0 To MapPickList.Length - 2

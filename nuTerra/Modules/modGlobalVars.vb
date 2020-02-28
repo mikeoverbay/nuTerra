@@ -14,6 +14,8 @@ Module modGlobalVars
     Public m_color_id, m_normal_id, m_gmm_id As Integer
     '============================================================
     'Render related
+    Public T1_Y As Single
+    Public T2_Y As Single
     Public DELTA_TIME As Single
     Public NORMAL_DISPLAY_MODE As Integer ' 0 None, 1 by vertex, 2 by face
     Public FRAME_TIMER As New Stopwatch
