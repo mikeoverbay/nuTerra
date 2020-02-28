@@ -16,7 +16,7 @@ out vec3 n;
 
 void main(void)
 {
-    vec2 uv = vertexTexCoord;
+    vec2 uv = vertexTexCoord; 
     uv.y*= -1.0;
 
     vec4 norm;

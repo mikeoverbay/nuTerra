@@ -1,10 +1,10 @@
-﻿// gWriter vertex Shader. We will use this as a template for other shaders
+﻿
 #version 430 core
 
 layout(location = 0) in vec2 vertexXZ;
 layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
-layout(location = 3) in uint holes;
+layout(location = 3) in uint holes; 
 
 uniform mat4 viewModel;
 uniform mat4 projection;
@@ -21,15 +21,21 @@ void main(void)
     is_hole = holes;
     vec3 n;
     vec2 uv = UV;
-    uv.y*= -1.0;
-    n.xy = texture(t_normalMap,-uv).ag;
+
+    uv.x = 1.0-uv.x;
+
+    float off = 1.0/256.0;
+    float scale = 1.0 - 2.0 * off;
+    uv *= scale;
+    uv += off;
+    n.xy = texture(t_normalMap,uv).ag;
 
     n.xy = clamp(n.xy * 2.0 - 1.0, -1.0, 1.0);
 
     n.z = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
 
     vec3 vertexNormal = normalize(n.xzy);
-    vertexNormal.x *= -1.0;
+    vertexNormal.x*= -1.0;
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     vec3 tangent;
 

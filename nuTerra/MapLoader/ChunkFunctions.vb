@@ -11,7 +11,6 @@ Module ChunkFunctions
     Dim b_y_min As Integer
     Dim b_y_max As Integer
     Public tl_, tr_, br_, bl_ As Vector3
-    Public T_1, T_2, T_3, T_4 As Vector3
     Public Cursor_point As Vector3
     Public surface_normal As Vector3
     Public CURSOR_Y As Single
@@ -29,21 +28,23 @@ Module ChunkFunctions
 
         ' 63 * 63 * 2  = 7938 indi count
         ' 64 * 64      = 4096 vert count
-        Dim v_buff_XZ(4095) As Vector2
-        Dim v_buff_Y(4095) As Single
-        Dim h_buff(4095) As UInt32
-        Dim uv_buff(4095) As Vector2
-        Dim indicies(7937) As vect3_16
-        Dim w As UInt32 = HEIGHTMAPSIZE 'bmp_w
-        Dim h As UInt32 = HEIGHTMAPSIZE 'bmp_h
+        Dim b_size = 65 * 65
+        Dim v_buff_XZ(b_size) As Vector2
+        Dim v_buff_Y(b_size) As Single
+        Dim h_buff(b_size) As UInt32
+        Dim uv_buff(b_size) As Vector2
+        'Dim indicies(7937) As vect3_16
+        Dim indicies(8191) As vect3_16
+        Dim w As Double = HEIGHTMAPSIZE + 1  'bmp_w
+        Dim h As Double = HEIGHTMAPSIZE + 1  'bmp_h
         Dim uvScale = (1.0# / 64.0#)
         Dim w_ = w / 2.0#
         Dim h_ = h / 2.0#
         Dim scale = 100.0 / (64.0#)
-        Dim stride = 64
+        Dim stride = 65
         Dim cnt As UInt32 = 0
-        For j = 0 To 62
-            For i = 0 To 62
+        For j = 0 To 63
+            For i = 0 To 63
                 indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
                 indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
                 indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
@@ -56,22 +57,22 @@ Module ChunkFunctions
         Next
 
         cnt = 0
-        For j = 0 To 62 Step 2
-            For i = 0 To 63
+        For j = 0 To 63 Step 1
+            For i = 0 To 64
 
                 topleft.vert.X = (i) - w_
-                topleft.H = v_data.heights((i), (j))
+                topleft.H = v_data.heights((i + 3), (j + 2))
                 topleft.vert.Y = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
-                topleft.hole = v_data.holes(i, j)
+                'topleft.hole = v_data.holes(i, j)
 
                 bottomleft.vert.X = (i) - w_
-                bottomleft.H = v_data.heights((i), (j + 1))
+                bottomleft.H = v_data.heights((i + 3), (j + 3))
                 bottomleft.vert.Y = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
-                bottomleft.hole = v_data.holes(i, j + 1)
+                'bottomleft.hole = v_data.holes(i, j + 1)
 
                 '         I
                 '  TL --------- TR
@@ -157,7 +158,7 @@ Module ChunkFunctions
                             False, 8, 0)
         GL.EnableVertexAttribArray(2)
 
-        ' NORMALS ==================================================================
+        ' NORMALS ================================================================== 
         GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(3))
 
         GL.BufferData(BufferTarget.ArrayBuffer,
@@ -180,6 +181,7 @@ Module ChunkFunctions
 
         GL.BindVertexArray(0)
     End Sub
+
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)
 
@@ -330,13 +332,13 @@ Module ChunkFunctions
             Next
         Else
 
-            ReDim v.heights(HEIGHTMAPSIZE, HEIGHTMAPSIZE)
-            For j As UInt32 = 3 To mapsize - 3
-                For i As UInt32 = 3 To mapsize - 3
+            ReDim v.heights(69, 69)
+            For j As UInt32 = 0 To mapsize - 1
+                For i As UInt32 = 0 To mapsize - 1
                     ms.Position = (i * 4) + (j * mapsize * 4)
                     Dim tc = br.ReadInt32
                     quantized = tc * 0.001
-                    v.heights(mapsize - i - 3, j - 3) = quantized
+                    v.heights(mapsize - i, j) = quantized
                 Next
             Next
         End If
@@ -361,7 +363,6 @@ Module ChunkFunctions
         'End If
     End Sub
 
-
     Public Sub get_normals(ByRef c As chunk_, ByRef v As terain_V_data_,
                            ByRef render_set As chunk_render_data_, map As Integer)
         normal_load_count += 1
@@ -376,6 +377,7 @@ Module ChunkFunctions
             ' Just check
             Debug.Assert(header = 7172718) ' nrm
             Debug.Assert(version = 2)
+            Dim buffer(x * y) As Byte
 
             render_set.TerrainNormals_id = load_t2_normals_from_stream(br, "t2_normal_map", x, y)
         End Using
@@ -487,323 +489,19 @@ Module ChunkFunctions
 
     End Sub
 
-    Public Sub seam_map()
-        Dim scale As Double = 100.0# / (64.0#)
-        Dim uvinc As Double = 1.0# / 64.0#
-        Dim u_start As Double = uvinc * 63.0#
-        Dim almost1 As Double = 1.0
-
-        Dim v_start As Double = u_start
-        Dim v_end As Double = 1.0
-        Dim y_pos As Integer = 0
-        Dim x_pos As Integer = 0
-        Dim yu, yl, xu, xl As Single
-        Dim tl, bl, tr, br, cur_x, cur_y As Single
-        Dim v_cnt As Integer = 0
-        Dim buff(2) As vertex_data
-        'Dim debug_string As String = ""
-
-        BG_TEXT = "Creating Map Seams"
-        BG_VALUE = 0
-        BG_MAX_VALUE = 20 * 20
-        Dim processed_count = 0
-        Dim Valid_data As Boolean
-        For mbX = 0 To 19
-
-            For mbY = 0 To 19
-                BG_VALUE = processed_count
-                processed_count += 1
-                Valid_data = False
-                ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-                If mapBoard(mbX, mbY).occupied Then
-                    ReDim buff(762) ' Max size.. some will be 1/2 this size
-                    v_cnt = 0
-
-                    yu = mapBoard(mbX, mbY).location.Y + 50
-                    yl = yu - (1.0# * scale)
-                    x_pos = 0.0#
-
-                    If Not mapBoard(mbX, mbY + 1).occupied Then
-                        GoTo endx
-                    End If
-                    Valid_data = True
-                    u_start = 0
-
-                    'HORIZONTAL SEAM
-                    For x1 = mapBoard(mbX, mbY).location.X - 50 To _
-                                                mapBoard(mbX, mbY).location.X + 50 - (scale * 2) Step 1 * scale
-
-                        theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos, 64) =
-                                    theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(x_pos, 0)
-
-                        topleft.vert.X = x1
-                        topleft.vert.Y = yu
-                        topleft.H = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(x_pos, 0)
-                        topleft.hole = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).holes(x_pos, 0)
-                        topleft.uv.X = u_start
-                        topleft.uv.Y = almost1
-
-                        bottomleft.vert.X = x1
-                        bottomleft.vert.Y = yl
-                        bottomleft.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos, 63)
-                        bottomleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(x_pos, 63)
-                        bottomleft.uv.X = u_start
-                        bottomleft.uv.Y = almost1 - uvinc
-
-                        topRight.vert.X = x1 + scale
-                        topRight.vert.Y = yu
-                        topRight.H = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(x_pos + 1, 0)
-                        topRight.hole = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).holes(x_pos + 1, 0)
-                        topRight.uv.X = u_start + uvinc
-                        topRight.uv.Y = almost1
-
-                        bottomRight.vert.X = x1 + scale
-                        bottomRight.vert.Y = yl
-                        bottomRight.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(x_pos + 1, 63)
-                        bottomRight.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(x_pos + 1, 63)
-                        bottomRight.uv.X = u_start + uvinc
-                        bottomRight.uv.Y = almost1 - uvinc
-
-                        'store in buffer
-                        buff(v_cnt) = bottomleft : v_cnt += 1
-                        buff(v_cnt) = topleft : v_cnt += 1
-                        buff(v_cnt) = topRight : v_cnt += 1
-
-                        buff(v_cnt) = bottomleft : v_cnt += 1
-                        buff(v_cnt) = topRight : v_cnt += 1
-                        buff(v_cnt) = bottomRight : v_cnt += 1
-
-                        u_start += uvinc
-                        x_pos += 1
-                        cur_x = x1
-                    Next
-                    If Not mapBoard(mbX + 1, mbY).occupied Then
-                        GoTo endx
-                    End If
-                    Valid_data = True
-
-                    'CORNER
-                    'these 3 positions was a pain to sort out :)
-                    theMap.v_data(mapBoard(mbX, mbY).map_id).heights(64, 64) =
-                        theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).heights(0, 0) 'ok
-
-                    theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, 64) =
-                        theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(63, 0) 'ok
-
-                    theMap.v_data(mapBoard(mbX, mbY).map_id).heights(64, 63) =
-                        theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, 63) 'ok
-
-                    topleft.vert.X = cur_x + scale
-                    topleft.vert.Y = yl
-                    topleft.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, 63)
-                    topleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, 63)
-                    topleft.uv.X = almost1 - uvinc
-                    topleft.uv.Y = almost1 - uvinc
-
-                    topRight.vert.X = cur_x + (scale * 2)
-                    topRight.vert.Y = yl
-                    topRight.H = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, 63)
-                    topRight.hole = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).holes(0, 63)
-                    topRight.uv.X = almost1
-                    topRight.uv.Y = almost1 - uvinc
-
-                    bottomleft.vert.X = cur_x + scale
-                    bottomleft.vert.Y = yu
-                    bottomleft.H = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).heights(63, 0)
-                    bottomleft.hole = theMap.v_data(mapBoard(mbX, mbY + 1).map_id).holes(63, 0)
-                    bottomleft.uv.X = almost1 - uvinc
-                    bottomleft.uv.Y = almost1
-
-                    bottomRight.vert.X = cur_x + (scale * 2)
-                    bottomRight.vert.Y = yu
-                    bottomRight.H = theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).heights(0, 0)
-                    bottomRight.hole = theMap.v_data(mapBoard(mbX + 1, mbY + 1).map_id).holes(0, 0)
-                    bottomRight.uv.X = almost1
-                    bottomRight.uv.Y = almost1
-
-                    'store in buffer
-                    buff(v_cnt) = topRight : v_cnt += 1
-                    buff(v_cnt) = topleft : v_cnt += 1
-                    buff(v_cnt) = bottomleft : v_cnt += 1
-
-                    buff(v_cnt) = bottomleft : v_cnt += 1
-                    buff(v_cnt) = bottomRight : v_cnt += 1
-                    buff(v_cnt) = topRight : v_cnt += 1
-endx:
-                    If Not mapBoard(mbX + 1, mbY).occupied Then
-                        GoTo endy
-                    End If
-
-                    Valid_data = True
-
-                    xu = mapBoard(mbX, mbY).location.X + 50
-                    xl = xu - (1 * scale)
-                    cur_y = 0
-                    y_pos = 0
-                    v_start = 0
-                    'VERTICAL SEAM
-                    For y1 = mapBoard(mbX, mbY).location.Y - 50 To _
-                              mapBoard(mbX, mbY).location.Y + 50 - (scale * 2) Step 1 * scale
-
-                        theMap.v_data(mapBoard(mbX, mbY).map_id).heights(64, y_pos) =
-                                theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, y_pos + 1)
-
-                        topleft.vert.X = xl
-                        topleft.vert.Y = y1 + scale
-                        topleft.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, y_pos + 1)
-                        topleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, y_pos + 1)
-                        topleft.uv.X = almost1 - uvinc
-                        topleft.uv.Y = v_start + uvinc
-
-                        bottomleft.vert.X = xl
-                        bottomleft.vert.Y = y1
-                        bottomleft.H = theMap.v_data(mapBoard(mbX, mbY).map_id).heights(63, y_pos)
-                        bottomleft.hole = theMap.v_data(mapBoard(mbX, mbY).map_id).holes(63, y_pos)
-                        bottomleft.uv.X = almost1 - uvinc
-                        bottomleft.uv.Y = v_start
-
-                        topRight.vert.X = xu
-                        topRight.vert.Y = y1 + scale
-                        topRight.H = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, y_pos + 1)
-                        topRight.hole = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).holes(0, y_pos + 1)
-                        topRight.uv.X = almost1
-                        topRight.uv.Y = v_start + uvinc
-
-                        bottomRight.vert.X = xu
-                        bottomRight.vert.Y = y1
-                        bottomRight.H = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).heights(0, y_pos)
-                        bottomRight.hole = theMap.v_data(mapBoard(mbX + 1, mbY).map_id).holes(0, y_pos)
-                        bottomRight.uv.X = almost1
-                        bottomRight.uv.Y = v_start
-
-                        'store in buffer
-                        buff(v_cnt) = bottomleft : v_cnt += 1
-                        buff(v_cnt) = topleft : v_cnt += 1
-                        buff(v_cnt) = topRight : v_cnt += 1
-
-                        buff(v_cnt) = bottomleft : v_cnt += 1
-                        buff(v_cnt) = topRight : v_cnt += 1
-                        buff(v_cnt) = bottomRight : v_cnt += 1
-                        v_start += uvinc
-                        y_pos += 1
-                        cur_y = y1
-
-                    Next
-Endy:
-                    If Valid_data Then
-                        'Create this VAO ONLY if a seam was created!
-                        '================================================================
-                        '================================================================
-                        '================================================================
-                        'Create VBO
-                        Dim MAP_ID = mapBoard(mbX, mbY).map_id
-
-                        Dim v_buff_XZ(v_cnt - 1) As Vector2
-                        Dim uv_buff(v_cnt - 1) As Vector2
-                        Dim h_buff(v_cnt - 1) As UInt32
-                        Dim v_buff_Y(v_cnt - 1) As Single
-
-                        For i = 0 To v_cnt - 1
-                            v_buff_XZ(i) = buff(i).vert
-                            v_buff_Y(i) = buff(i).H
-                            uv_buff(i) = buff(i).uv
-                            h_buff(i) = buff(i).hole
-                        Next
-
-                        theMap.render_set(MAP_ID).S_tri_count = (v_cnt - 1) * 6
-                        ' SETUP ==================================================================
-                        'Gen VAO and VBO Ids
-                        GL.GenVertexArrays(1, theMap.render_set(MAP_ID).S_VAO)
-                        GL.BindVertexArray(theMap.render_set(MAP_ID).S_VAO)
-                        ReDim theMap.render_set(MAP_ID).mBuffers(3)
-                        GL.GenBuffers(4, theMap.render_set(MAP_ID).mBuffers)
-
-
-                        ' VERTEX XZ ==================================================================
-                        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(0))
-                        'if the shared buffer is not defined, we need to fill the buffer now
-                        GL.BufferData(BufferTarget.ArrayBuffer,
-                                          v_buff_XZ.Length * 8,
-                                          v_buff_XZ, BufferUsageHint.StaticDraw)
-                        GL.VertexAttribPointer(0, 2,
-                                               VertexAttribPointerType.Float,
-                                               False, 8, 0)
-                        GL.EnableVertexAttribArray(0)
-
-                        ' POSITION Y ==================================================================
-                        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(1))
-                        GL.BufferData(BufferTarget.ArrayBuffer,
-                              v_buff_Y.Length * 4,
-                              v_buff_Y, BufferUsageHint.StaticDraw)
-
-                        GL.VertexAttribPointer(1, 1,
-                                            VertexAttribPointerType.Float,
-                                            False, 4, 0)
-                        GL.EnableVertexAttribArray(1)
-
-                        ' UV ==================================================================
-                        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(2))
-                        GL.BufferData(BufferTarget.ArrayBuffer,
-                              uv_buff.Length * 8,
-                              uv_buff, BufferUsageHint.StaticDraw)
-
-                        GL.VertexAttribPointer(2, 2,
-                                            VertexAttribPointerType.Float,
-                                            False, 8, 0)
-                        GL.EnableVertexAttribArray(2)
-
-                        ' NORMALS ==================================================================
-                        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.render_set(MAP_ID).mBuffers(3))
-
-                        GL.BufferData(BufferTarget.ArrayBuffer,
-                              h_buff.Length * 4,
-                              h_buff, BufferUsageHint.StaticDraw)
-
-                        GL.VertexAttribPointer(3, 1,
-                                               VertexAttribPointerType.UnsignedInt,
-                                               False, 4, 0)
-                        GL.EnableVertexAttribArray(3)
-
-
-                        GL.BindVertexArray(0)
-                        '================================================================
-                        '================================================================
-                        '================================================================
-                    End If
-                End If
-                draw_scene()
-            Next 'mbY
-        Next 'mbX
-
-        'debug ascii mapping
-        'debug_string += "   : "
-        'For i = 0 To 19
-        '    debug_string += i.ToString("00") + ": "
-        'Next
-        'debug_string += vbCrLf
-        'For i = 0 To 19
-        '    debug_string += i.ToString("00") + " : "
-        '    For j = 0 To 19
-        '        debug_string += mapBoard(j, i).map_id.ToString("000") + " "
-        '    Next
-        '    debug_string += vbCrLf
-        'Next
-
-    End Sub
-
     Public Function get_Y_at_XZ(ByVal Lx As Double, ByVal Lz As Double) As Single
         'If Not maploaded Then Return 100.0\
         If Not MAP_LOADED Or Not TERRAIN_LOADED Then
             Return 0
         End If
         If mapBoard Is Nothing Then Return 0.0F
-        Dim tlx As Single = 100.0 / 64.0
-        Dim tly As Single = 100.0 / 64.0
-        Dim ts As Single = 64.0 / 100.0
+        Dim tlx As Single = 100.0 / 65.0
+        Dim tly As Single = 100.0 / 65.0
+        Dim ts As Single = 65.0 / 100.0
         Dim tl, tr, br, bl, w As Vector3
         Dim xvp, yvp As Integer
         Dim ryp, rxp As Single
-        'Dim mod_ = (MAP_SIDE_LENGTH) And 1
+
         For xo = 0 To 19
             For yo = 0 To 19
                 If mapBoard(xo, yo).occupied Then
@@ -811,11 +509,11 @@ Endy:
                     Dim px = mapBoard(xo, yo).location.X
                     If px - 50 < Lx And px + 50 >= Lx Then
                         xvp = xo
-                        'Dim pz = mapBoard(xo, yo).location.Y
-                        'If pz - 50 < Lz And pz + 50 >= Lz Then
-                        '    yvp = yo
-                        '    GoTo exit2
-                        'End If
+                        Dim pz = mapBoard(xo, yo).location.Y
+                        If pz - 50 < Lz And pz + 50 >= Lz Then
+                            yvp = yo
+                            GoTo exit2
+                        End If
                         GoTo exit1
                     End If
                 End If
@@ -835,20 +533,9 @@ exit1:
         Next
 exit2:
 
-        'If maploaded Then
-        '    Debug.Write("XP:" + xvp.ToString + "  ZP:" + yvp.ToString + vbCrLf)
-        'End If
-        'Dim msqrt = (MAP_SIDE_LENGTH / 2)
-
         Dim map = mapBoard(xvp, yvp).map_id
-        'If maplist.Length - 1 < map Then
-        '    Return eyeY
-        'End If
-        'If maplist(map).heights Is Nothing Then
-        '    Return Z_Cursor
-        'End If
 
-        Dim vxp As Double = ((((Lx) / 100)) - Truncate((Truncate(Lx) / 100))) * 64.0
+        Dim vxp As Double = ((((Lx) / 100)) - Truncate((Truncate(Lx) / 100))) * 65.0
         Dim tx As Int32 = Round(Truncate(Lx / 100))
         Dim tz As Int32 = Round(Truncate(Lz / 100))
         If Lx < 0 Then
@@ -860,13 +547,13 @@ exit2:
         Dim tx1 = (tx * 100)
         Dim tz1 = (tz * 100)
 
-        Dim vyp As Double = ((((Lz) / 100)) - Truncate((Truncate(Lz) / 100))) * 64.0
+        Dim vyp As Double = ((((Lz) / 100)) - Truncate((Truncate(Lz) / 100))) * 65.0
 
         If vyp < 0.0 Then
-            vyp = 64.0 + vyp
+            vyp = 65.0 + vyp
         End If
         If vxp < 0 Then
-            vxp = 64.0 + vxp
+            vxp = 65.0 + vxp
 
         End If
         vxp = Round(vxp, 12)
@@ -875,27 +562,25 @@ exit2:
         rxp *= tlx
         ryp = Floor(vyp)
         ryp *= tlx
-        'rxp = 64 + rxp
+
         w.X = (vxp * tlx)
         w.Y = (vyp * tlx)
-        'vaid.x = w.X + maplist(map).location.x - 50.0
-        'vaid.y = w.Y + maplist(map).location.y - 50.0
+
         Dim HX, HY, OX, OY As Integer
         HX = Floor(vxp)
         OX = 1
         HY = Floor(vyp)
         OY = 1
-        'd_hx = HX
-        'd_hy = HY
+
         Dim altitude As Single = 0.0
-        'Try
-        'look_point_Y = cp
-        'w.Z = 1.0 'dont need this but who cares?
-        If HX + OX > 64 Then
+
+        If HX + OX > 65 Then
             Return 0
         End If
         tl.X = rxp
         tl.Y = ryp
+        HX += 3
+        HY += 2
         tl.Z = theMap.v_data(map).heights(HX, HY)
 
         tr.X = rxp + tlx
@@ -925,22 +610,6 @@ exit2:
         tl_.Y += tz1
         bl_.Y += tz1
 
-        'for drawing the red square on the terrain
-        T_1.X = tr.X + theMap.chunks(map).location.X - 50
-        T_1.Y = tr.Y + theMap.chunks(map).location.Y - 50
-        T_1.Z = tr.Z
-
-        T_2.X = tl.X + theMap.chunks(map).location.X - 50
-        T_2.Y = tl.Y + theMap.chunks(map).location.Y - 50
-        T_2.Z = tl.Z
-
-        T_3.X = br.X + theMap.chunks(map).location.X - 50
-        T_3.Y = br.Y + theMap.chunks(map).location.Y - 50
-        T_3.Z = br.Z
-
-        T_4.X = bl.X + theMap.chunks(map).location.X - 50
-        T_4.Y = bl.Y + theMap.chunks(map).location.Y - 50
-        T_4.Z = bl.Z
 
         Dim agl = Atan2(w.Y - tr.Y, w.X - tr.X)
         If agl <= PI * 0.75 Then
@@ -951,13 +620,10 @@ exit2:
             altitude = find_altitude(tr, tl, bl, w)
             Return altitude
         End If
-        'tb1.Update()
 domath:
         Return altitude
 
-        'Catch ex As Exception
 
-        'End Try
 
     End Function
 
