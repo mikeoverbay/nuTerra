@@ -101,11 +101,7 @@ Module TerrainBuilder
         Public VAO As Integer
         Public matrix As Matrix4
         '-------------------------------
-        Public S_mBuffers() As Integer
-        Public S_VAO As Integer
-        Public S_matrix As Matrix4
-        Public S_tri_count As Integer
-        '-------------------------------
+
         ' Texture IDs and such below
         Public TerrainNormals_id As Integer
     End Structure
@@ -133,7 +129,6 @@ Module TerrainBuilder
             Application.DoEvents()
         Next
         Dim x = normal_load_count
-        seam_map()
     End Sub
 
     Public Sub get_all_chunk_file_data()

@@ -245,16 +245,9 @@ Module modRender
             'draw chunk
             GL.BindVertexArray(theMap.render_set(i).VAO)
             GL.DrawElements(PrimitiveType.Triangles,
-                23814,
+                24576,
                 DrawElementsType.UnsignedShort, 0)
 
-            If theMap.render_set(i).S_VAO > 0 Then
-                'draw map seam.
-                GL.UniformMatrix4(TerrainShader("viewModel"), False, viewM)
-                GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewM)))
-                GL.BindVertexArray(theMap.render_set(i).S_VAO)
-                GL.DrawArrays(PrimitiveType.Triangles, 0, theMap.render_set(i).S_tri_count)
-            End If
         Next
 
         TerrainShader.StopUse()
@@ -295,7 +288,7 @@ Module modRender
 
                 'draw chunk wire
                 GL.DrawElements(PrimitiveType.Triangles,
-                        23814,
+                        24576,
                         DrawElementsType.UnsignedShort, 0)
 
             Next
