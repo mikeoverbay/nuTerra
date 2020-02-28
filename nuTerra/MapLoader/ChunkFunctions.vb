@@ -43,18 +43,22 @@ Module ChunkFunctions
         Dim scale = 100.0 / (64.0#)
         Dim stride = 65
         Dim cnt As UInt32 = 0
-        For j = 0 To 63
-            For i = 0 To 63
-                indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
-                indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
-                indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
 
-                indicies(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
-                indicies(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
-                indicies(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
-                cnt += 2
+        'we do not need to do this more than one time!
+        If theMap.vertex_vBuffer_id = 0 Then
+            For j = 0 To 63
+                For i = 0 To 63
+                    indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
+                    indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
+                    indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
+
+                    indicies(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
+                    indicies(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
+                    indicies(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
+                    cnt += 2
+                Next
             Next
-        Next
+        End If
 
         cnt = 0
         For j = 0 To 63 Step 1
@@ -106,6 +110,7 @@ Module ChunkFunctions
 
             Next
         Next
+        TOTAL_TRIANGLES_DRAWN += 8192 ' number of triangles per chunk
         Dim fill_buff As Boolean = False
 
         Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
@@ -120,6 +125,7 @@ Module ChunkFunctions
         ' If the shared buffer is not defined, we need to do so.
         If theMap.vertex_vBuffer_id = 0 Then
             GL.GenBuffers(1, theMap.vertex_vBuffer_id)
+            GL.GenBuffers(1, theMap.vertex_iBuffer_id)
             fill_buff = True
         End If
 
@@ -173,11 +179,13 @@ Module ChunkFunctions
 
 
         ' INDICES ==================================================================
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, r_set.mBuffers(0))
-        GL.BufferData(BufferTarget.ElementArrayBuffer,
-                          indicies.Length * 6,
-                          indicies,
-                          BufferUsageHint.StaticDraw)
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, theMap.vertex_iBuffer_id)
+        If fill_buff Then
+            GL.BufferData(BufferTarget.ElementArrayBuffer,
+                              indicies.Length * 6,
+                              indicies,
+                              BufferUsageHint.StaticDraw)
+        End If
 
         GL.BindVertexArray(0)
     End Sub
@@ -379,7 +387,7 @@ Module ChunkFunctions
             Debug.Assert(version = 2)
             Dim buffer(x * y) As Byte
 
-            render_set.TerrainNormals_id = load_t2_normals_from_stream(br, "t2_normal_map", x, y)
+            render_set.TerrainNormals_id = load_t2_normals_from_stream(br, x, y)
         End Using
 
         Dim name = theMap.chunks(map).name

@@ -108,7 +108,7 @@ Module TextureLoaders
         Return -1 ' Didn't find it, return -1
     End Function
 
-    Public Function load_t2_normals_from_stream(br As BinaryReader, fn As String, w As UInt32, h As UInt32) As Integer
+    Public Function load_t2_normals_from_stream(br As BinaryReader, w As UInt32, h As UInt32) As Integer
         Dim image_id = GL.GenTexture()
         GL.BindTexture(TextureTarget.Texture2D, image_id)
 
@@ -126,8 +126,6 @@ Module TextureLoaders
         GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
 
         GL.BindTexture(TextureTarget.Texture2D, 0)
-
-        add_image(fn, image_id)
 
         Return image_id
     End Function

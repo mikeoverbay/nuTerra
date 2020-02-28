@@ -86,7 +86,7 @@ Module modRender
 
         'setup for projection before drawing
         FBOm.attach_C_no_Depth()
-        GL.DepthMask(True)
+        GL.DepthMask(False)
         GL.FrontFace(FrontFaceDirection.Cw)
         GL.Enable(EnableCap.Blend)
         GL.Disable(EnableCap.CullFace)
@@ -100,7 +100,7 @@ Module modRender
         '===========================================================================
         'restore settings after projected objects are drawn
         GL.Disable(EnableCap.Blend)
-        GL.DepthMask(False)
+        GL.DepthMask(True)
         GL.Disable(EnableCap.CullFace)
         FBOm.attach_Depth()
         GL.FrontFace(FrontFaceDirection.Ccw)
@@ -247,7 +247,6 @@ Module modRender
             GL.DrawElements(PrimitiveType.Triangles,
                 24576,
                 DrawElementsType.UnsignedShort, 0)
-
         Next
 
         TerrainShader.StopUse()
