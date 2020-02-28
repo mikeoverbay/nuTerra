@@ -746,18 +746,21 @@ Module modRender
         If M_MOUSE.X < left Then Return
         If M_MOUSE.Y < top Then Return
 
+
+        Dim x_off = (MAP_BB_UR.X + MAP_BB_BL.X) * 0.5
+        Dim y_off = (MAP_BB_UR.Y + MAP_BB_BL.Y) * 0.5
         pos.X = ((M_MOUSE.X - left) / MINI_MAP_SIZE) * 2.0 - 1.0
         pos.Y = ((M_MOUSE.Y - top) / MINI_MAP_SIZE) * 2.0 - 1.0
         MINI_MOUSE_CAPTURED = True
         If pos.X <= 0.0F Then
-            MINI_WORLD_MOUSE_POSITION.X = -pos.X * MAP_BB_UR.X
+            MINI_WORLD_MOUSE_POSITION.X = (-pos.X * (MAP_BB_UR.X - x_off)) - x_off
         Else
-            MINI_WORLD_MOUSE_POSITION.X = pos.X * MAP_BB_BL.X
+            MINI_WORLD_MOUSE_POSITION.X = (pos.X * (MAP_BB_BL.X - x_off)) - x_off
         End If
         If pos.Y >= 0.0F Then
-            MINI_WORLD_MOUSE_POSITION.Y = -pos.Y * MAP_BB_UR.Y
+            MINI_WORLD_MOUSE_POSITION.Y = (-pos.Y * MAP_BB_UR.Y) - y_off
         Else
-            MINI_WORLD_MOUSE_POSITION.Y = pos.Y * MAP_BB_BL.Y
+            MINI_WORLD_MOUSE_POSITION.Y = (pos.Y * MAP_BB_BL.Y) - y_off
         End If
         Return
     End Sub

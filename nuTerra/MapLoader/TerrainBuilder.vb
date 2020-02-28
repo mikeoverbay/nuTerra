@@ -139,6 +139,7 @@ Module TerrainBuilder
 
         get_team_locations_and_field_BB(ABS_NAME)
         get_Sky_Dome(ABS_NAME)
+        '==========================================================
         'get minimap
         Dim mm = MAP_PACKAGE("spaces/" + ABS_NAME + "/mmap.dds")
         Dim mss As New MemoryStream
@@ -365,10 +366,10 @@ Module TerrainBuilder
 
         End If
         ' I dont remeber why I did this but I will find out.. Probably the seaming.
-        MAP_BB_BL.X -= 0.78
-        MAP_BB_BL.Y -= 0.78
-        MAP_BB_UR.X -= 0.78
-        MAP_BB_UR.Y -= 0.78
+        'MAP_BB_BL.X -= 0.78
+        'MAP_BB_BL.Y -= 0.78
+        'MAP_BB_UR.X -= 0.78
+        'MAP_BB_UR.Y -= 0.78
         'Stop
         Return True
     End Function
