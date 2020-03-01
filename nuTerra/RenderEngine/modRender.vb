@@ -507,19 +507,19 @@ Module modRender
         GL.Enable(EnableCap.Blend)
 
         '======================================================
-        draw_base_rings()
+        draw_mini_base_rings()
         '======================================================
 
         '======================================================
-        draw_base_ids()
+        draw_mini_base_ids()
         '======================================================
 
         '======================================================
-        draw_grids_lines()
+        draw_mini_grids_lines()
         '======================================================
 
         '======================================================
-        draw_position()
+        draw_mini_position()
         '======================================================
 
         GL.Disable(EnableCap.Blend)
@@ -530,7 +530,15 @@ Module modRender
 
     End Sub
 
-    Private Sub draw_base_ids()
+    Private Sub draw_minimap_texture()
+        Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
+        Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
+        draw_image_rectangle(New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y + 0.5,
+                                           w, -h),
+                                            theMap.MINI_MAP_ID)
+    End Sub
+
+    Private Sub draw_mini_base_ids()
 
 
         'need to scale with the map
@@ -571,15 +579,8 @@ Module modRender
 
     End Sub
 
-    Private Sub draw_minimap_texture()
-        Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
-        Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
-        draw_image_rectangle(New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y + 0.5,
-                                           w, -h),
-                                            theMap.MINI_MAP_ID)
-    End Sub
 
-    Private Sub draw_base_rings()
+    Private Sub draw_mini_base_rings()
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
         'draw base rings
@@ -616,7 +617,7 @@ Module modRender
 
     End Sub
 
-    Private Sub draw_position()
+    Private Sub draw_mini_position()
 
         image2dShader.Use()
 
@@ -672,7 +673,7 @@ Module modRender
 
     End Sub
 
-    Private Sub draw_grids_lines()
+    Private Sub draw_mini_grids_lines()
 
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
