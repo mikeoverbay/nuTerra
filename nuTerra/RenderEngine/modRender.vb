@@ -228,7 +228,6 @@ Module modRender
         GL.BindTextureUnit(2, m_gmm_id)
 
         'Must have this Identity to use the terrain normal view shader.
-        'Seams are in world space already but that will be changed
         Dim viewM = Matrix4.Identity * VIEWMATRIX
 
         For i = 0 To theMap.render_set.Length - 1
