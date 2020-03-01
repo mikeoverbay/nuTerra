@@ -68,8 +68,6 @@ Module modGlobalVars
     '============================================================
     Public PROJECTIONMATRIX As New Matrix4
     Public VIEWMATRIX As New Matrix4
-    Public MINI_PROJECTIONMATRIX As New Matrix4
-    Public MINI_VIEWMATRIX As New Matrix4
     Public MODELVIEWMATRIX_Saved As Matrix4
     Public PRESPECTIVE_NEAR As Single = 0.5F
     Public PRESPECTIVE_FAR As Single = 3000.0F

@@ -20,8 +20,8 @@ Module modMatrix
         vec.Z = 0
         vec.W = 1.0F
 
-        Dim viewInv As Matrix4 = Matrix4.Invert(MINI_VIEWMATRIX)
-        Dim projInv As Matrix4 = Matrix4.Invert(MINI_PROJECTIONMATRIX)
+        Dim viewInv As Matrix4 = Matrix4.Invert(VIEWMATRIX)
+        Dim projInv As Matrix4 = Matrix4.Invert(PROJECTIONMATRIX)
 
         Vector4.Transform(vec, projInv, vec)
         Vector4.Transform(vec, viewInv, vec)

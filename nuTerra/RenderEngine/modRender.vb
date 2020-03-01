@@ -11,7 +11,7 @@ Module modRender
         ' FLAG INFO
         ' 0  = No shading
         ' 64  = model 
-        ' 128  = model 
+        ' 
         ' 255 = sky dome. We will want to control brightness
         ' more as they are added
         '===========================================================================
@@ -531,8 +531,8 @@ Module modRender
     Private Sub draw_minimap_texture()
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
-        draw_image_rectangle(New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y + 0.5,
-                                           w, -h),
+        draw_image_rectangle(New RectangleF(MAP_BB_UR.X, MAP_BB_UR.Y,
+                                           -w, -h),
                                             theMap.MINI_MAP_ID)
     End Sub
 
@@ -542,8 +542,8 @@ Module modRender
         'need to scale with the map
         Dim i_size = 30.0F
 
-        Dim pos_t1 As New RectangleF(TEAM_1.X - i_size, -TEAM_1.Z - i_size, i_size * 2, i_size * 2)
-        Dim pos_t2 As New RectangleF(TEAM_2.X - i_size, -TEAM_2.Z - i_size, i_size * 2, i_size * 2)
+        Dim pos_t1 As New RectangleF(-TEAM_1.X + i_size, -TEAM_1.Z - i_size, -i_size * 2, i_size * 2)
+        Dim pos_t2 As New RectangleF(-TEAM_2.X + i_size, -TEAM_2.Z - i_size, -i_size * 2, i_size * 2)
 
         image2dShader.Use()
 
@@ -588,24 +588,22 @@ Module modRender
         GL.UniformMatrix4(MiniMapRingsShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(MiniMapRingsShader("radius"), 50.0F)
         GL.Uniform1(MiniMapRingsShader("thickness"), 2.5F)
-        Dim er3 = GL.GetError
 
-        Dim m_size = New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y, w, -h)
+        Dim m_size = New RectangleF(MAP_BB_UR.X, MAP_BB_UR.Y, -w, -h)
 
-        Dim er1 = GL.GetError
         GL.Uniform4(MiniMapRingsShader("rect"),
             m_size.Left,
             -m_size.Top,
             m_size.Right,
             -m_size.Bottom)
 
-        GL.Uniform2(MiniMapRingsShader("center"), -TEAM_2.X, TEAM_2.Z)
+        GL.Uniform2(MiniMapRingsShader("center"), TEAM_2.X, TEAM_2.Z)
         GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.DarkRed)
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-        GL.Uniform2(MiniMapRingsShader("center"), -TEAM_1.X, TEAM_1.Z)
+        GL.Uniform2(MiniMapRingsShader("center"), TEAM_1.X, TEAM_1.Z)
         GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.DarkGreen)
 
         GL.BindVertexArray(defaultVao)
@@ -623,8 +621,8 @@ Module modRender
         Dim i_size = 32
         Dim pos As New RectangleF(-i_size, -i_size, i_size * 2, i_size * 2)
 
-        Dim model_X = Matrix4.CreateTranslation(-U_LOOK_AT_X, -U_LOOK_AT_Z, 0.0F)
-        Dim model_R = Matrix4.CreateRotationZ(-U_CAM_X_ANGLE)
+        Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, -U_LOOK_AT_Z, 0.0F)
+        Dim model_R = Matrix4.CreateRotationZ(U_CAM_X_ANGLE)
         Dim modelMatrix = model_R * model_X
 
         GL.BindTextureUnit(0, DIRECTION_TEXTURE_ID)
@@ -651,7 +649,7 @@ Module modRender
         GL.Uniform1(MiniMapRingsShader("thickness"), 3.0F)
         Dim er3 = GL.GetError
 
-        Dim m_size = New RectangleF(MAP_BB_BL.X, MAP_BB_UR.Y, w, -h)
+        Dim m_size = New RectangleF(MAP_BB_UR.X, MAP_BB_UR.Y, -w, -h)
 
         Dim er1 = GL.GetError
         GL.Uniform4(MiniMapRingsShader("rect"),
@@ -660,7 +658,7 @@ Module modRender
             m_size.Right,
             -m_size.Bottom)
 
-        GL.Uniform2(MiniMapRingsShader("center"), U_LOOK_AT_X, U_LOOK_AT_Z)
+        GL.Uniform2(MiniMapRingsShader("center"), -U_LOOK_AT_X, U_LOOK_AT_Z)
         GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.White)
 
         GL.BindVertexArray(defaultVao)
@@ -719,21 +717,13 @@ Module modRender
         If M_MOUSE.Y < top Then Return
 
 
-        Dim x_off = (MAP_BB_UR.X + MAP_BB_BL.X) * 0.5
-        Dim y_off = (MAP_BB_UR.Y + MAP_BB_BL.Y) * 0.5
         pos.X = ((M_MOUSE.X - left) / MINI_MAP_SIZE) * 2.0 - 1.0
         pos.Y = ((M_MOUSE.Y - top) / MINI_MAP_SIZE) * 2.0 - 1.0
+        Dim pos_v = New Vector4(pos.X, pos.Y, 0.0F, 0.0F)
+        Dim world = UnProject(pos_v)
+        MINI_WORLD_MOUSE_POSITION.X = world.X
+        MINI_WORLD_MOUSE_POSITION.Y = -world.Y
         MINI_MOUSE_CAPTURED = True
-        If pos.X <= 0.0F Then
-            MINI_WORLD_MOUSE_POSITION.X = (-pos.X * (MAP_BB_UR.X - x_off)) - x_off
-        Else
-            MINI_WORLD_MOUSE_POSITION.X = (pos.X * (MAP_BB_BL.X - x_off)) - x_off
-        End If
-        If pos.Y >= 0.0F Then
-            MINI_WORLD_MOUSE_POSITION.Y = (-pos.Y * MAP_BB_UR.Y) - y_off
-        Else
-            MINI_WORLD_MOUSE_POSITION.Y = (pos.Y * MAP_BB_BL.Y) - y_off
-        End If
         Return
     End Sub
 #End Region
