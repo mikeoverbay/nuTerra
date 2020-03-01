@@ -37,10 +37,6 @@ Module modGlobalVars
     Public MINI_WORLD_MOUSE_POSITION As Vector2
     Public MINI_MOUSE_CAPTURED As Boolean
     '============================================================
-    'sleep time for upedate thread.
-    'lower draws faster but kills apps responsiveness
-    Public HOG_TIME As Integer = 3
-    '============================================================
     'load screen background image
     Public nuTERRA_BG_IMAGE As Integer
     '============================================================

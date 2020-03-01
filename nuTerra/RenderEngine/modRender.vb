@@ -21,15 +21,12 @@ Module modRender
 
         frmMain.glControl_main.MakeCurrent()
         '===========================================================================
-        HOG_TIME = 20 ' <- this probably needs to be set lower when we are done. 3?
         If SHOW_MAPS_SCREEN Then
             gl_pick_map(MOUSE.X, MOUSE.Y)
-            HOG_TIME = 16
             Return
         End If
         If SHOW_LOADING_SCREEN Then
             draw_loading_screen()
-            HOG_TIME = 16
             Return
         End If
         '===========================================================================
@@ -137,6 +134,7 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
+        'This has to be called last. It changes the PROJECTMATRIX and VIEWMATRIX
         draw_mini_map() '===========================================================
         '===========================================================================
 
