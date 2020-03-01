@@ -51,6 +51,8 @@ Module TerrainBuilder
         Public Shared render_set() As chunk_render_data_
         '------------------------
         Public Shared MINI_MAP_ID As Integer
+        Public Shared GLOBAL_AM_ID As Integer
+
         Public Shared skybox_mdl As New base_model_holder_
         Public Shared Sky_Texture_Id As Integer
         Public Shared skybox_path As String
@@ -146,6 +148,12 @@ Module TerrainBuilder
         mm.Extract(mss)
         theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, mm.FileName, False, False)
         mss.Dispose()
+        'get minimap
+        Dim gmm = MAP_PACKAGE("spaces/" + ABS_NAME + "/global_am.dds")
+        Dim gmss As New MemoryStream
+        gmm.Extract(gmss)
+        theMap.GLOBAL_AM_ID = load_image_from_stream(Il.IL_DDS, gmss, gmm.FileName, False, False)
+        gmss.Dispose()
         '==========================================================
         'getting mini map team icons here
 

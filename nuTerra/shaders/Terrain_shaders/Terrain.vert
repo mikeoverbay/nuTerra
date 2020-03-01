@@ -12,7 +12,6 @@ uniform mat3 normalMatrix;
 uniform sampler2D t_normalMap;
 uniform vec2 me_location;
 uniform vec2 map_size;
-uniform vec2 map_offset;
 
 out mat3 TBN;
 out vec3 worldPosition;
@@ -26,12 +25,10 @@ void main(void)
     vec2 uv_g;
     vec2 scaled = UV / map_size;
     vec2 m_s = vec2(1.0)/map_size;
-    vec2 off_scaled = vec2(map_offset/map_size);
 
     uv_g.x = ((( (me_location.x )-50.0)/100.0) *m_s.x) + 0.5 ;
     uv_g.y = ((( (me_location.y )-50.0)/100.0) *m_s.y) + 0.5 ;
     Global_UV = scaled + uv_g;
-    Global_UV -= off_scaled;
     Global_UV.xy = 1.0 - Global_UV.xy;
     
     is_hole = holes;

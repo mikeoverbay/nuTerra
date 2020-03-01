@@ -11,6 +11,9 @@ uniform sampler2D normalMap;
 uniform sampler2D GMF_Map;
 uniform int nMap_type;
 
+uniform vec2 map_size;
+uniform vec2 map_pos;
+
 in mat3 TBN;
 in vec3 worldPosition;
 in vec2 UV;

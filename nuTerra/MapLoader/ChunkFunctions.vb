@@ -406,7 +406,8 @@ Module ChunkFunctions
         If b_x_max < x Then b_x_max = x
         If b_y_min > y Then b_y_min = y
         If b_y_max < y Then b_y_max = y
-
+        MAP_SIZE.X = b_x_max - b_x_min
+        MAP_SIZE.Y = b_y_max - b_y_min
     End Sub
 
     Public Sub get_location(ByRef c As chunk_, ByVal map_id As Integer)

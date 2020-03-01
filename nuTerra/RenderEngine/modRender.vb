@@ -218,10 +218,11 @@ Module modRender
         GL.Uniform1(TerrainShader("GMF_Map"), 2)
         GL.Uniform1(TerrainShader("t_normalMap"), 3)
         GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
+        GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X, MAP_SIZE.Y)
 
         GL.UniformMatrix4(TerrainShader("projection"), False, PROJECTIONMATRIX)
 
-        GL.BindTextureUnit(0, m_color_id) '<----------------- Texture Bind
+        GL.BindTextureUnit(0, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
         GL.BindTextureUnit(1, m_normal_id)
         GL.BindTextureUnit(2, m_gmm_id)
 
@@ -232,8 +233,9 @@ Module modRender
             Dim viewModel = theMap.render_set(i).matrix * VIEWMATRIX
             GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
-
+            GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
             GL.BindTextureUnit(3, theMap.render_set(i).TerrainNormals_id)
+
             'draw chunk
             GL.BindVertexArray(theMap.render_set(i).VAO)
             GL.DrawElements(PrimitiveType.Triangles,
@@ -405,6 +407,7 @@ Module modRender
     ''' <summary>
     ''' renders all 2D things in ortho mode
     ''' </summary>
+    ''' 
     Private Sub render_HUD()
         temp_timer.Restart()
         '===========================================================================

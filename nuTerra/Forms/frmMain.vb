@@ -87,13 +87,13 @@ Public Class frmMain
                 End If
 
             Case Keys.A
-                WASD_VECTOR.X = -100
+                WASD_VECTOR.X = -1
             Case Keys.D
-                WASD_VECTOR.X = 100
+                WASD_VECTOR.X = 1
             Case Keys.W
-                WASD_VECTOR.X = 100
+                WASD_VECTOR.Y = -1
             Case Keys.S
-                WASD_VECTOR.X = -100
+                WASD_VECTOR.Y = 1
 
         End Select
     End Sub
@@ -102,9 +102,13 @@ Public Class frmMain
         Z_MOVE = False
         MOVE_MOD = False
         Select Case e.KeyCode
-            Case Keys.A, Keys.D
+            Case Keys.A
                 WASD_VECTOR.X = 0
-            Case Keys.W, Keys.S
+            Case Keys.D
+                WASD_VECTOR.X = 0
+            Case Keys.W
+                WASD_VECTOR.Y = 0
+            Case Keys.S
                 WASD_VECTOR.Y = 0
         End Select
     End Sub
@@ -441,16 +445,26 @@ try_again:
     Private Sub WASD_movement()
         If WASD_VECTOR.X <> 0 Or WASD_VECTOR.Y <> 0 Then
             WASD_SPEED += DELTA_TIME
-            If WASD_SPEED > 0.25 Then
+            If WASD_SPEED > 0.025 Then
                 WASD_SPEED = 0
-                Dim ms As Single = 0.2F * VIEW_RADIUS ' distance away changes speed.. THIS WORKS WELL!
-                Dim t = WASD_VECTOR.X * ms * 0.05
-                LOOK_AT_X -= ((t * ms) * (Cos(CAM_X_ANGLE)))
-                LOOK_AT_Z -= ((t * ms) * (-Sin(CAM_X_ANGLE)))
+                Dim MAX = -200.0
+                If MAX < VIEW_RADIUS Then
+                    MAX = VIEW_RADIUS
+                End If
+                Dim ms As Single = 0.2F * MAX ' distance away changes speed.. THIS WORKS WELL!
+                Dim t = WASD_VECTOR.X * ms * 0.003
 
-                t = WASD_VECTOR.Y * ms * 0.05
-                LOOK_AT_X += ((t * ms) * (Cos(CAM_X_ANGLE)))
-                LOOK_AT_Z += ((t * ms) * (-Sin(CAM_X_ANGLE)))
+                If WASD_VECTOR.X <> 0 Then
+                    LOOK_AT_X -= ((t * ms) * (Cos(CAM_X_ANGLE)))
+                    LOOK_AT_Z -= ((t * ms) * (-Sin(CAM_X_ANGLE)))
+                End If
+
+                t = WASD_VECTOR.Y * ms * 0.003
+
+                If WASD_VECTOR.Y <> 0 Then
+                    LOOK_AT_Z -= ((t * ms) * (Cos(CAM_X_ANGLE)))
+                    LOOK_AT_X -= ((t * ms) * (Sin(CAM_X_ANGLE)))
+                End If
 
             End If
         End If
@@ -461,6 +475,7 @@ try_again:
 
         While _STARTED
 
+            WASD_movement()
             '==============================================================
             If Not PAUSE_ORBIT Then
                 LIGHT_ORBIT_ANGLE += (DELTA_TIME * 0.5)
