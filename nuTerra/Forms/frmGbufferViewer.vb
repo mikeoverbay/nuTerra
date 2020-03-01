@@ -32,9 +32,8 @@ Public Class frmGbufferViewer
         image_id = CInt(b_depth.Tag)
 
         GLC.MakeCurrent()
-        GL.GenVertexArrays(1, GLC_VA)
+        GL.CreateVertexArrays(1, GLC_VA)
         update_screen()
-
     End Sub
 
 
@@ -61,14 +60,12 @@ Public Class frmGbufferViewer
 
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         GL.Disable(EnableCap.DepthTest)
-        GL.ActiveTexture(TextureUnit.Texture0)
         'select image and shader by selected radio button
         GL.Disable(EnableCap.Blend)
         'all gBuffer textures are the same size. so we can do this now
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
 
-        GL.GetTexLevelParameter(TextureTarget.Texture2D, 0, GetTextureParameter.TextureWidth, width)
-        GL.GetTexLevelParameter(TextureTarget.Texture2D, 0, GetTextureParameter.TextureHeight, height)
+        GL.GetTextureLevelParameter(FBOm.gColor, 0, GetTextureParameter.TextureWidth, width)
+        GL.GetTextureLevelParameter(FBOm.gColor, 0, GetTextureParameter.TextureHeight, height)
 
         h_label.Text = "Height:" + height.ToString("0000")
         w_label.Text = "Width:" + width.ToString("0000")
@@ -84,12 +81,11 @@ Public Class frmGbufferViewer
             Case 1
                 toLinearShader.Use()
 
+                GL.BindTextureUnit(0, FBOm.gDepth)
                 GL.Uniform1(toLinearShader("imageMap"), 0)
                 GL.Uniform1(toLinearShader("far"), PRESPECTIVE_FAR)
                 GL.Uniform1(toLinearShader("near"), PRESPECTIVE_NEAR)
-                GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
                 GL.UniformMatrix4(toLinearShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-
 
                 Dim rect As New RectangleF(0, 0, width, height)
                 GL.Uniform4(toLinearShader("rect"),
@@ -105,9 +101,9 @@ Public Class frmGbufferViewer
             Case 2
                 image2dFlipShader.Use()
 
+                GL.BindTextureUnit(0, FBOm.gColor)
                 GL.Uniform1(image2dFlipShader("imageMap"), 0)
                 GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-                GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
                 Dim rect As New RectangleF(0, 0, width, height)
                 GL.Uniform4(image2dFlipShader("rect"),
                             rect.Left,
@@ -122,9 +118,9 @@ Public Class frmGbufferViewer
             Case 3
                 image2dFlipShader.Use()
 
+                GL.BindTextureUnit(0, FBOm.gPosition)
                 GL.Uniform1(image2dFlipShader("imageMap"), 0)
                 GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-                GL.BindTexture(TextureTarget.Texture2D, FBOm.gPosition)
 
                 Dim rect As New RectangleF(0, 0, width, height)
                 GL.Uniform4(image2dFlipShader("rect"),
@@ -139,9 +135,9 @@ Public Class frmGbufferViewer
 
             Case 4
                 normalOffsetShader.Use()
+                GL.BindTextureUnit(0, FBOm.gNormal)
                 GL.Uniform1(normalOffsetShader("imageMap"), 0)
                 GL.UniformMatrix4(normalOffsetShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-                GL.BindTexture(TextureTarget.Texture2D, FBOm.gNormal)
 
                 Dim rect As New RectangleF(0, 0, width, height)
                 GL.Uniform4(normalOffsetShader("rect"),
@@ -157,9 +153,9 @@ Public Class frmGbufferViewer
             Case 5
                 image2dFlipShader.Use()
 
+                GL.BindTextureUnit(0, FBOm.gGMF)
                 GL.Uniform1(image2dFlipShader("imageMap"), 0)
                 GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-                GL.BindTexture(TextureTarget.Texture2D, FBOm.gGMF)
 
                 Dim rect As New RectangleF(0, 0, width, height)
                 GL.Uniform4(image2dFlipShader("rect"),
@@ -173,14 +169,13 @@ Public Class frmGbufferViewer
                 image2dFlipShader.StopUse()
 
         End Select
-        GL.BindTexture(TextureTarget.Texture2D, 0)
+        GL.BindTextureUnit(0, 0)
 
         GLC.SwapBuffers()  ' swap back to front
 
         'switch back to main context
         frmMain.glControl_main.MakeCurrent()
-        GL.BindVertexArray(defaultVao)
-
+        'GL.BindVertexArray(defaultVao)
     End Sub
     Private Sub frmTestView_Resize(sender As Object, e As EventArgs) Handles Me.Resize
         update_screen()

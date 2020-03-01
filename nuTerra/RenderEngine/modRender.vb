@@ -223,13 +223,9 @@ Module modRender
 
         GL.UniformMatrix4(TerrainShader("projection"), False, PROJECTIONMATRIX)
 
-        GL.ActiveTexture(TextureUnit.Texture0 + 0)
-        GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<----------------- Texture Bind
-        'GL.BindTexture(TextureTarget.Texture2D, theMap.MINI_MAP_ID) '<----------------- Texture Bind
-        GL.ActiveTexture(TextureUnit.Texture0 + 1)
-        GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
-        GL.ActiveTexture(TextureUnit.Texture0 + 2)
-        GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
+        GL.BindTextureUnit(0, m_color_id) '<----------------- Texture Bind
+        GL.BindTextureUnit(1, m_normal_id)
+        GL.BindTextureUnit(2, m_gmm_id)
 
         'Must have this Identity to use the terrain normal view shader.
         'Seams are in world space already but that will be changed
@@ -240,8 +236,7 @@ Module modRender
             GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
 
-            GL.ActiveTexture(TextureUnit.Texture0 + 3)
-            GL.BindTexture(TextureTarget.Texture2D, theMap.render_set(i).TerrainNormals_id)
+            GL.BindTextureUnit(3, theMap.render_set(i).TerrainNormals_id)
             'draw chunk
             GL.BindVertexArray(theMap.render_set(i).VAO)
             GL.DrawElements(PrimitiveType.Triangles,
@@ -264,8 +259,6 @@ Module modRender
 
             TerrainNormals.Use()
 
-            GL.ActiveTexture(TextureUnit.Texture0)
-
             GL.Uniform1(TerrainNormals("t_normalMap"), 0)
 
             GL.Uniform1(TerrainNormals("prj_length"), 1.0F)
@@ -276,8 +269,7 @@ Module modRender
             GL.UniformMatrix4(TerrainNormals("view"), False, VIEWMATRIX)
 
             For i = 0 To theMap.render_set.Length - 1
-
-                GL.BindTexture(TextureTarget.Texture2D, theMap.render_set(i).TerrainNormals_id)
+                GL.BindTextureUnit(0, theMap.render_set(i).TerrainNormals_id)
 
                 Dim model = theMap.render_set(i).matrix
 
@@ -318,12 +310,9 @@ Module modRender
         GL.UniformMatrix4(modelShader("projection"), False, PROJECTIONMATRIX)
         GL.UniformMatrix4(modelShader("view"), False, VIEWMATRIX)
 
-        GL.ActiveTexture(TextureUnit.Texture0 + 0)
-        GL.BindTexture(TextureTarget.Texture2D, m_color_id) '<----------------- Texture Bind
-        GL.ActiveTexture(TextureUnit.Texture0 + 1)
-        GL.BindTexture(TextureTarget.Texture2D, m_normal_id)
-        GL.ActiveTexture(TextureUnit.Texture0 + 2)
-        GL.BindTexture(TextureTarget.Texture2D, m_gmm_id)
+        GL.BindTextureUnit(0, m_color_id)
+        GL.BindTextureUnit(1, m_normal_id)
+        GL.BindTextureUnit(2, m_gmm_id)
 
         GL.Enable(EnableCap.CullFace)
         TOTAL_TRIANGLES_DRAWN = 0
@@ -406,21 +395,11 @@ Module modRender
 
         GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
 
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gColor)
-
-        GL.ActiveTexture(TextureUnit.Texture1)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gNormal)
-
-        GL.ActiveTexture(TextureUnit.Texture2)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gGMF)
-
-        GL.ActiveTexture(TextureUnit.Texture3)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gPosition)
-
-        GL.ActiveTexture(TextureUnit.Texture4)
-        'GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
-
+        GL.BindTextureUnit(0, FBOm.gColor)
+        GL.BindTextureUnit(1, FBOm.gNormal)
+        GL.BindTextureUnit(2, FBOm.gGMF)
+        GL.BindTextureUnit(3, FBOm.gPosition)
+        ' GL.BindTextureUnit(4, FBOm.gDepth)
 
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
 
@@ -497,29 +476,29 @@ Module modRender
         Else
         End If
 
-            '===========================================================================
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
-            '===========================================================================
+        '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
+        '===========================================================================
 
-            Ortho_MiniMap(MINI_MAP_SIZE)
+        Ortho_MiniMap(MINI_MAP_SIZE)
 
-            GL.ClearColor(0.0, 0.0, 0.5, 0.0)
-            GL.Clear(ClearBufferMask.ColorBufferBit)
-            Draw_mini()
+        GL.ClearColor(0.0, 0.0, 0.5, 0.0)
+        GL.Clear(ClearBufferMask.ColorBufferBit)
+        Draw_mini()
 
-            '===========================================================================
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
-            '===========================================================================
-            Ortho_main()
-            Dim size = frmMain.glControl_main.Size
+        '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
+        '===========================================================================
+        Ortho_main()
+        Dim size = frmMain.glControl_main.Size
 
-            draw_image_rectangle(New RectangleF(size.Width - MINI_MAP_SIZE, size.Height - MINI_MAP_SIZE,
+        draw_image_rectangle(New RectangleF(size.Width - MINI_MAP_SIZE, size.Height - MINI_MAP_SIZE,
                                                 MINI_MAP_SIZE, MINI_MAP_SIZE),
                                                 FBOmini.gColor)
 
 
 
-            GL.DepthMask(True)
+        GL.DepthMask(True)
 
     End Sub
     Private Sub Draw_mini()
@@ -566,11 +545,10 @@ Module modRender
 
         image2dShader.Use()
 
-        GL.ActiveTexture(TextureUnit.Texture0)
         GL.Uniform1(image2dShader("imageMap"), 0)
 
         'Icon 1
-        GL.BindTexture(TextureTarget.Texture2D, TEAM_1_ICON_ID)
+        GL.BindTextureUnit(0, TEAM_1_ICON_ID)
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(image2dShader("rect"),
             pos_t1.Left,
@@ -581,7 +559,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         'Icon 2
-        GL.BindTexture(TextureTarget.Texture2D, TEAM_2_ICON_ID)
+        GL.BindTextureUnit(0, TEAM_2_ICON_ID)
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(image2dShader("rect"),
             pos_t2.Left,
@@ -592,7 +570,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         'Reset
-        GL.BindTexture(TextureTarget.Texture2D, 0)
+        GL.BindTextureUnit(0, 0)
         image2dShader.StopUse()
 
     End Sub
@@ -646,7 +624,6 @@ Module modRender
 
         image2dShader.Use()
 
-        GL.ActiveTexture(TextureUnit.Texture0)
         GL.Uniform1(image2dShader("imageMap"), 0)
         Dim i_size = 32
         Dim pos As New RectangleF(-i_size, -i_size, i_size * 2, i_size * 2)
@@ -655,7 +632,7 @@ Module modRender
         Dim model_R = Matrix4.CreateRotationZ(-U_CAM_X_ANGLE)
         Dim modelMatrix = model_R * model_X
 
-        GL.BindTexture(TextureTarget.Texture2D, DIRECTION_TEXTURE_ID)
+        GL.BindTextureUnit(0, DIRECTION_TEXTURE_ID)
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, modelMatrix * PROJECTIONMATRIX)
         GL.Uniform4(image2dShader("rect"),
             pos.Left,
@@ -775,8 +752,7 @@ Module modRender
         GL.UniformMatrix4(SkyDomeShader("mvp"), False, model * VIEWMATRIX * PROJECTIONMATRIX)
         GL.Uniform1(SkyDomeShader("imageMap"), 0)
 
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, theMap.Sky_Texture_Id)
+        GL.BindTextureUnit(0, theMap.Sky_Texture_Id)
 
         GL.BindVertexArray(theMap.skybox_mdl.mdl_VAO)
         GL.DrawElements(PrimitiveType.Triangles,
@@ -784,7 +760,7 @@ Module modRender
                         DrawElementsType.UnsignedShort,
                         0)
         SkyDomeShader.StopUse()
-        GL.BindTexture(TextureTarget.Texture2D, 0)
+        GL.BindTextureUnit(0, 0)
         GL.Disable(EnableCap.CullFace)
     End Sub
 
@@ -878,14 +854,9 @@ Module modRender
         GL.Uniform1(DecalProject("gFlag"), 1)
         GL.Uniform1(DecalProject("colorMap"), 2)
 
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
-
-        GL.ActiveTexture(TextureUnit.Texture1)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gGMF)
-
-        GL.ActiveTexture(TextureUnit.Texture2)
-        GL.BindTexture(TextureTarget.Texture2D, CURSOR_TEXTURE_ID)
+        GL.BindTextureUnit(0, FBOm.gDepth)
+        GL.BindTextureUnit(1, FBOm.gGMF)
+        GL.BindTextureUnit(2, CURSOR_TEXTURE_ID)
 
         ' Track the terrain at Y
         Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
@@ -904,9 +875,6 @@ Module modRender
 
         DecalProject.StopUse()
         unbind_textures(2)
-
-
-
     End Sub
 
     Private Sub draw_cross_hair()
@@ -929,14 +897,13 @@ Module modRender
 
     Private Sub draw_terrain_base_rings()
 
-
         FBOm.attach_C_no_Depth()
 
         BaseRingProjector.Use()
 
         GL.Uniform1(BaseRingProjector("depthMap"), 0)
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, FBOm.gDepth)
+        GL.BindTextureUnit(0, FBOm.gDepth)
+
         'constants
         GL.UniformMatrix4(BaseRingProjector("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.UniformMatrix4(BaseRingProjector("ViewMatrix"), False, VIEWMATRIX)
@@ -964,7 +931,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.Triangles, 0, 36)
 
         BaseRingProjector.StopUse()
-        GL.BindTexture(TextureTarget.Texture2D, 0)
+        GL.BindTextureUnit(0, 0)
 
 
     End Sub
@@ -975,8 +942,7 @@ Module modRender
     Private Sub unbind_textures(ByVal start As Integer)
         'doing this backwards leaves TEXTURE0 active :)
         For i = start To 0 Step -1
-            GL.ActiveTexture(TextureUnit.Texture0 + i)
-            GL.BindTexture(TextureTarget.Texture2D, 0)
+            GL.BindTextureUnit(i, 0)
         Next
     End Sub
 

@@ -396,7 +396,7 @@ Module PrimitiveLoader
         ' Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
 
         ' Gen VAO id
-        GL.GenVertexArrays(1, renderSet.mdl_VAO)
+        GL.CreateVertexArrays(1, renderSet.mdl_VAO)
         GL.BindVertexArray(renderSet.mdl_VAO)
 
         Dim mBuffers(renderSet.element_count) As Integer

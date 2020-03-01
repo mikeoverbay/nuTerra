@@ -11,11 +11,6 @@ Module FBO_MiniMap
         Private Shared old_mini_size As Integer = 1
         Public Shared gColor As Integer
 
-        Private Shared attach_Color() As Integer = {
-                                    FramebufferAttachment.ColorAttachment0
-                                    }
-
-
         Public Shared Sub FBO_Initialize(ByVal size As Integer)
             mini_size = size
             frmMain.glControl_main.MakeCurrent()
@@ -52,48 +47,28 @@ Module FBO_MiniMap
         Public Shared Sub create_textures()
             ' gColor ------------------------------------------------------------------------------------------
             '4 color int : RGB and alpha
-            Dim er0 = GL.GetError
-            gColor = GL.GenTexture
-            GL.BindTexture(TextureTarget.Texture2D, gColor)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, mini_size, mini_size, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-
+            GL.CreateTextures(TextureTarget.Texture2D, 1, gColor)
+            GL.TextureParameter(gColor, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+            GL.TextureParameter(gColor, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            GL.TextureParameter(gColor, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            GL.TextureParameter(gColor, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
+            GL.TextureStorage2D(gColor, 1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), mini_size, mini_size)
         End Sub
 
         Public Shared Function create_fbo() As Boolean
-
-            'creat the FBO
-            miniFBO = GL.GenFramebuffer
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO)
-            Dim er0 = GL.GetError
-
-
+            GL.CreateFramebuffers(1, miniFBO)
             'attach our render buffer textures.
 
-            GL.FramebufferTexture2D(FramebufferTarget.DrawFramebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, gColor, 0)
+            GL.NamedFramebufferTexture(miniFBO, FramebufferAttachment.ColorAttachment0, gColor, 0)
 
-            attach_C()
-
-            Dim FBOHealth = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
+            Dim FBOHealth = GL.CheckNamedFramebufferStatus(miniFBO, FramebufferTarget.Framebuffer)
 
             If FBOHealth <> FramebufferStatus.FramebufferComplete Then
                 Return False
             End If
 
-            'set buffer target to default.
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
-
             Return True ' No errors! all is good! :)
         End Function
-
-
-        Public Shared Sub attach_C()
-            GL.DrawBuffers(1, attach_Color)
-        End Sub
-
     End Class
 
 

@@ -25,7 +25,7 @@ Module modUtilities
 
         'Writes to the log and immediately saves it.
         nuTerra_LOG.AppendLine(entry)
-        File.WriteAllText(TEMP_STORAGE + "nuTerra_Log.txt", nuTerra_LOG.ToString)
+        File.WriteAllText(Path.Combine(TEMP_STORAGE, "nuTerra_Log.txt"), nuTerra_LOG.ToString)
     End Sub
 
     ' Allows us to split by strings. Not just characters.
@@ -42,7 +42,7 @@ Module modUtilities
         Dim script_pkg As Ionic.Zip.ZipFile = Nothing
         Dim ms As New MemoryStream
         Try
-            script_pkg = Ionic.Zip.ZipFile.Read(GAME_PATH & "scripts.pkg")
+            script_pkg = Ionic.Zip.ZipFile.Read(Path.Combine(GAME_PATH, "scripts.pkg"))
             Dim script As Ionic.Zip.ZipEntry = script_pkg("scripts\destructibles.xml")
             script.Extract(ms)
             ms.Position = 0
@@ -139,12 +139,10 @@ Module modUtilities
 
         Dim vbo = GL.GenBuffer
 
-        GL.GenVertexArrays(1, CUBE_VAO)
-        Dim er = GL.GetError
+        GL.CreateVertexArrays(1, CUBE_VAO)
         GL.BindVertexArray(CUBE_VAO)
 
-        GL.GenBuffers(1, vbo)
-
+        GL.CreateBuffers(1, vbo)
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo)
 
         GL.BufferData(BufferTarget.ArrayBuffer,

@@ -218,7 +218,7 @@ try_again:
 
     Private Sub m_Log_File_Click(sender As Object, e As EventArgs) Handles m_Log_File.Click
         frmShowText.Show()
-        frmShowText.FastColoredTextBox1.Text = File.ReadAllText(TEMP_STORAGE + "nuTerra_log.txt")
+        frmShowText.FastColoredTextBox1.Text = File.ReadAllText(Path.Combine(TEMP_STORAGE, "nuTerra_log.txt"))
     End Sub
 
 #End Region
@@ -238,12 +238,19 @@ try_again:
             Application.Exit()
         End If
 
+        '-----------------------------------------------------------------------------------------
+        'need a work area on users disc
+        TEMP_STORAGE = Path.Combine(Path.GetTempPath, "nuTerra")
+        If Not Directory.Exists(TEMP_STORAGE) Then
+            Directory.CreateDirectory(TEMP_STORAGE)
+        End If
+        LogThis(String.Format("{0}ms Temp storage is located at: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), TEMP_STORAGE))
+
         LogThis(String.Format("Vendor: {0}", GL.GetString(StringName.Vendor)))
         LogThis(String.Format("Renderer: {0}", GL.GetString(StringName.Renderer)))
         LogThis(String.Format("Version: {0}", GL.GetString(StringName.Version)))
         LogThis(String.Format("GLSL Version: {0}", GL.GetString(StringName.ShadingLanguageVersion)))
 
-#If DEBUG Then
         Dim extensions As New List(Of String)
         Dim numExt As Integer = GL.GetInteger(GetPName.NumExtensions)
         For i = 0 To numExt - 1
@@ -252,31 +259,32 @@ try_again:
 
         ' Just check
         Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
+        Debug.Assert(extensions.Contains("GL_ARB_direct_state_access"))
+        Debug.Assert(extensions.Contains("GL_ARB_clip_control"))
 
-        If extensions.Contains("GL_KHR_debug") And extensions.Contains("GL_ARB_debug_output") Then
-            If GL.GetInteger(GetPName.ContextFlags) And ContextFlagMask.ContextFlagDebugBit Then
-                LogThis("Setup Debug Output Callback")
-                SetupDebugOutputCallback()
-            End If
+#If DEBUG Then
+        ' Just check
+        Debug.Assert(extensions.Contains("GL_KHR_debug"))
+        Debug.Assert(extensions.Contains("GL_ARB_debug_output"))
+
+        If GL.GetInteger(GetPName.ContextFlags) And ContextFlagMask.ContextFlagDebugBit Then
+            LogThis("Setup Debug Output Callback")
+            SetupDebugOutputCallback()
         End If
 #End If
-        '-----------------------------------------------------------------------------------------
-        'need a work area on users disc
-        TEMP_STORAGE = Path.GetTempPath + "nuTerra\"
-        If Not Directory.Exists(TEMP_STORAGE) Then
-            Directory.CreateDirectory(TEMP_STORAGE)
-        End If
-        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
-                "Temp storage is located at : " + TEMP_STORAGE)
+
+        ' FIXME: use 0 -> 1 as in DX
+        GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.NegativeOneToOne)
+
         '-----------------------------------------------------------------------------------------
         'Check if the game path is set
-        If Not Directory.Exists(My.Settings.GamePath + "\res") Then
-            MsgBox("Path to game is not set!" + vbCrLf + _
+        If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
+            MsgBox("Path to game is not set!" + vbCrLf +
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
             m_set_game_path.PerformClick()
         End If
 
-        GAME_PATH = My.Settings.GamePath + "\res\packages\"
+        GAME_PATH = Path.Combine(My.Settings.GamePath, "res", "packages")
         LogThis(String.Format("{0}ms Packages Path: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), GAME_PATH))
 
         ' Create default VAO
@@ -361,7 +369,7 @@ try_again:
         Dim sp = Application.StartupPath
         '-----------------------------------------------------------------------------------------
         'needed to load image elements
-        GUI_PACKAGE = New Ionic.Zip.ZipFile(GAME_PATH + "gui.pkg")
+        GUI_PACKAGE = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui.pkg"))
         '---------------------------------------------------------
         'Loads the textures for the map selection routines
         make_map_pick_buttons()

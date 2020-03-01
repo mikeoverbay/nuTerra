@@ -34,13 +34,11 @@ Module textRender
             If Me.texture_ > 0 Then
                 GL.DeleteTexture(Me.texture_)
             End If
-            Me.texture_ = GL.GenTexture
-            GL.BindTexture(TextureTarget.Texture2D, Me.texture_)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            GL.TexImage2D(TextureTarget.Texture2D, 0, _
-                          PixelInternalFormat.Rgba, width, height, 0, _
-                          PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero)
+            GL.CreateTextures(TextureTarget.Texture2D, 1, Me.texture_)
+
+            GL.TextureParameter(Me.texture_, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            GL.TextureParameter(Me.texture_, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            GL.TextureStorage2D(Me.texture_, 1, SizedInternalFormat.Rgba8, width, height)
         End Sub
 
         Public Sub clear(ByRef color As Color)
@@ -70,10 +68,8 @@ Module textRender
                 Dim Data = Me.bmp.LockBits(Me.dirty_region, _
                         System.Drawing.Imaging.ImageLockMode.ReadOnly, _
                         System.Drawing.Imaging.PixelFormat.Format32bppArgb)
-
-                GL.BindTexture(TextureTarget.Texture2D, Me.texture_)
-                GL.TexSubImage2D(TextureTarget.Texture2D, 0, _
-                        Me.dirty_region.X, Me.dirty_region.Y, Me.dirty_region.Width, Me.dirty_region.Height, _
+                GL.TextureSubImage2D(Me.texture_, 0,
+                        Me.dirty_region.X, Me.dirty_region.Y, Me.dirty_region.Width, Me.dirty_region.Height,
                         PixelFormat.Bgra, PixelType.UnsignedByte, Data.Scan0)
                 Me.bmp.UnlockBits(Data)
                 Me.dirty_region = Rectangle.Empty

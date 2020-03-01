@@ -85,9 +85,7 @@ Module modOpenGL
     Public Sub draw_image_rectangle(rect As RectangleF, image As Integer)
         image2dShader.Use()
 
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, image)
-
+        GL.BindTextureUnit(0, image)
         GL.Uniform1(image2dShader("imageMap"), 0)
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(image2dShader("rect"),
@@ -102,7 +100,7 @@ Module modOpenGL
 
         image2dShader.StopUse()
         'unbind texture
-        GL.BindTexture(TextureTarget.Texture2D, 0)
+        GL.BindTextureUnit(0, 0)
 
     End Sub
 

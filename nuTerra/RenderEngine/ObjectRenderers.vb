@@ -18,10 +18,9 @@ Module ObjectRenderers
         Dim MVPM = position * VIEWMATRIX * PROJECTIONMATRIX
         GL.UniformMatrix4(CrossHairShader("ProjectionMatrix"), False, MVPM)
 
+        GL.BindTextureUnit(0, CROSS_HAIR_TEXTURE)
         GL.Uniform1(CrossHairShader("colorMap"), 0)
 
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, CROSS_HAIR_TEXTURE)
         GL.Uniform4(CrossHairShader("shade"), 1.0F, 1.0F, 1.0F, 1.0F)
         GL.Uniform1(CrossHairShader("time"), CROSS_HAIR_TIME) 'animation
 
@@ -31,12 +30,10 @@ Module ObjectRenderers
                         DrawElementsType.UnsignedShort,
                         0)
 
-        GL.BindVertexArray(0)
+        'GL.BindVertexArray(0)
         CrossHairShader.StopUse()
 
-        GL.BindTexture(TextureTarget.Texture2D, 0)
-        'Stop
-
+        GL.BindTextureUnit(0, 0)
     End Sub
 
 

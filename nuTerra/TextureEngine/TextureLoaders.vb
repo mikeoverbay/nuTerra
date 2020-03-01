@@ -108,24 +108,24 @@ Module TextureLoaders
         Return -1 ' Didn't find it, return -1
     End Function
 
-    Public Function load_t2_normals_from_stream(br As BinaryReader, w As UInt32, h As UInt32) As Integer
-        Dim image_id = GL.GenTexture()
-        GL.BindTexture(TextureTarget.Texture2D, image_id)
+    Public Function load_t2_normals_from_stream(br As BinaryReader, w As Integer, h As Integer) As Integer
+        Dim image_id As Integer
 
-        GL.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureBaseLevel, 0)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+        GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
+        GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
+        GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
 
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.MirroredRepeat)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.MirroredRepeat)
+        GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.MirroredRepeat)
+        GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.MirroredRepeat)
 
         Dim data = br.ReadBytes(w * h)
-        GL.CompressedTexImage2D(TextureTarget.Texture2D, 0, InternalFormat.CompressedRgbaS3tcDxt5Ext, w, h, 0, w * h, data)
+        Dim sizedFormat = DirectCast(InternalFormat.CompressedRgbaS3tcDxt5Ext, SizedInternalFormat)
+        Dim pixelFormat = DirectCast(InternalFormat.CompressedRgbaS3tcDxt5Ext, OpenGL.PixelFormat)
+        GL.TextureStorage2D(image_id, 2, sizedFormat, w, h)
+        GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, w, h, pixelFormat, w * h, data)
 
-        'GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMaxLevel, 0)
-        GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
-
-        GL.BindTexture(TextureTarget.Texture2D, 0)
+        GL.GenerateTextureMipmap(image_id)
 
         Return image_id
     End Function
@@ -156,34 +156,33 @@ Module TextureLoaders
             Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
             Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
-            GL.GenTextures(1, image_id)
-            GL.BindTexture(TextureTarget.Texture2D, image_id)
+            GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
 
             Dim maxAniso As Single
             GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
             If NEAREST And Not MIPS Then
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If Not NEAREST And Not MIPS Then
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If MIPS Then
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+                GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
             End If
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
-                          OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+            GL.TextureStorage2D(image_id, If(MIPS, 4, 1), SizedInternalFormat.Rgba8, width, height)
+            GL.TextureSubImage2D(image_id, 0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+
             If MIPS Then
-                GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+                GL.GenerateTextureMipmap(image_id)
             End If
-            Dim er = GL.GetError
-            GL.BindTexture(TextureTarget.Texture2D, 0)
+
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)
 
@@ -229,31 +228,30 @@ Module TextureLoaders
 
             Dim OK As Boolean = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
-            GL.GenTextures(1, image_id)
-            GL.BindTexture(TextureTarget.Texture2D, image_id)
+            GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
 
             If NEAREST And Not MIPS Then
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If Not NEAREST And Not MIPS Then
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If MIPS Then
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+            GL.TextureStorage2D(image_id, If(MIPS, 4, 1), SizedInternalFormat.Rgba8, width, height)
+            GL.TextureSubImage2D(image_id, 0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
 
             If MIPS Then
-                GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+                GL.GenerateTextureMipmap(image_id)
             End If
 
-            GL.BindTexture(TextureTarget.Texture2D, 0)
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)
 
@@ -270,24 +268,23 @@ Module TextureLoaders
     Public Function make_dummy_texture() As Integer
         'Used to attach to shaders that must have a texture but it doesn't exist such as GMM maps.
         Dim dummy As Integer
-        dummy = GL.GenTexture
         Dim b As New Bitmap(2, 2, Imaging.PixelFormat.Format32bppArgb)
         Dim g As Drawing.Graphics = Drawing.Graphics.FromImage(b)
         g.Clear(Color.Black)
         Dim bitmapData = b.LockBits(New Rectangle(0, 0, 2,
                              2), Imaging.ImageLockMode.ReadOnly, Imaging.PixelFormat.Format32bppArgb)
 
-        GL.BindTexture(TextureTarget.Texture2D, dummy)
+        GL.CreateTextures(TextureTarget.Texture2D, 1, dummy)
 
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+        GL.TextureParameter(dummy, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        GL.TextureParameter(dummy, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        GL.TextureParameter(dummy, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+        GL.TextureParameter(dummy, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, b.Width, b.Height, 0, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, bitmapData.Scan0)
+        GL.TextureStorage2D(dummy, 1, SizedInternalFormat.Rgba8, b.Width, b.Height)
+        GL.TextureSubImage2D(dummy, 0, 0, 0, b.Width, b.Height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, bitmapData.Scan0)
 
         b.UnlockBits(bitmapData) ' Unlock The Pixel Data From Memory
-        GL.BindTexture(TextureTarget.Texture2D, 0)
         b.Dispose()
         g.Dispose()
         Return dummy
@@ -315,28 +312,26 @@ Module TextureLoaders
             'Ilu.iluMirror()
             Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
             Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
-            Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
+            Il.ilConvertImage(Il.IL_BGR, Il.IL_UNSIGNED_BYTE)
 
             If make_id Then
+                GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
 
-                image_id = GL.GenTexture
-                GL.BindTexture(TextureTarget.Texture2D, image_id)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+                GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+                GL.TextureStorage2D(image_id, 2, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
+                GL.TextureSubImage2D(image_id, 0, 0, 0, width, height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, Il.ilGetData())
 
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
-                'GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+                GL.GenerateTextureMipmap(image_id)
 
-                GL.BindTexture(TextureTarget.Texture2D, 0)
                 Il.ilBindImage(0)
                 'ilu.iludeleteimage(texID)
                 ReDim Preserve map_texture_ids(index)
                 map_texture_ids(index) = image_id
 
-                GL.BindTexture(TextureTarget.Texture2D, 0)
                 Il.ilBindImage(0)
                 Ilu.iluDeleteImage(texID)
                 GL.Finish()
@@ -367,14 +362,13 @@ Module TextureLoaders
             GL.DeleteTexture(TEST_TEXTURE_ID)
         End If
 
-        GL.GenTextures(1, TEST_TEXTURE_ID)
-        GL.BindTexture(TextureTarget.Texture2D, TEST_TEXTURE_ID)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba32f, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, 0, OpenGL.PixelFormat.Rgba, PixelType.Float, IntPtr.Zero)
-        GL.BindImageTexture(0, TEST_TEXTURE_ID, 0, False, 0, TextureAccess.WriteOnly, SizedInternalFormat.Rgba32f)
+        GL.CreateTextures(TextureTarget.Texture2D, 1, TEST_TEXTURE_ID)
 
+        GL.TextureParameter(TEST_TEXTURE_ID, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+        GL.TextureParameter(TEST_TEXTURE_ID, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        GL.TextureParameter(TEST_TEXTURE_ID, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+        GL.TextureParameter(TEST_TEXTURE_ID, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
+        GL.TextureStorage2D(TEST_TEXTURE_ID, 1, SizedInternalFormat.Rgba32f, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
+        GL.BindImageTexture(0, TEST_TEXTURE_ID, 0, False, 0, TextureAccess.WriteOnly, SizedInternalFormat.Rgba32f)
     End Sub
 End Module

@@ -134,7 +134,7 @@ Module modXfile
         mdl.indice_count = indice_count
 
         'Gen VAO id
-        GL.GenVertexArrays(1, mdl.mdl_VAO)
+        GL.CreateVertexArrays(1, mdl.mdl_VAO)
         GL.BindVertexArray(mdl.mdl_VAO)
 
         ReDim mdl.mBuffers(1)

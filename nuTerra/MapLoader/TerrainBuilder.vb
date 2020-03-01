@@ -187,7 +187,7 @@ Module TerrainBuilder
 
                 theMap.chunks(cnt).name = s
 
-                Dim entry = MAP_PACKAGE("spaces/" + ABS_NAME + "/" + s)
+                Dim entry = MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, s))
                 Dim ms As New MemoryStream
                 entry.Extract(ms)
 
@@ -315,7 +315,7 @@ Module TerrainBuilder
 
     Private Function get_team_locations_and_field_BB(ByRef name As String) As Boolean
         Dim ar = name.Split(".")
-        Dim script_pkg = Ionic.Zip.ZipFile.Read(GAME_PATH & "scripts.pkg")
+        Dim script_pkg = Ionic.Zip.ZipFile.Read(Path.Combine(GAME_PATH, "scripts.pkg"))
         Dim script As Ionic.Zip.ZipEntry = script_pkg("scripts\arena_defs\" & name & ".xml")
 
         Dim ms As New MemoryStream

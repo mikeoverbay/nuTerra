@@ -23,11 +23,11 @@ Module modSpaceBin
     End Sub
 
     Public Function ReadSpaceBinData(p As String) As Boolean
-        If Not File.Exists(TEMP_STORAGE + p) Then
+        If Not File.Exists(Path.Combine(TEMP_STORAGE, p)) Then
             GoTo Failed
         End If
 
-        Dim f = File.OpenRead(TEMP_STORAGE + p)
+        Dim f = File.OpenRead(Path.Combine(TEMP_STORAGE, p))
 
         Using br As New BinaryReader(f, Encoding.ASCII)
             br.BaseStream.Position = &H14

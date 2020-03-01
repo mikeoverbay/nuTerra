@@ -117,7 +117,7 @@ Module ChunkFunctions
 
         ' SETUP ==================================================================
         'Gen VAO and VBO Ids
-        GL.GenVertexArrays(1, r_set.VAO)
+        GL.CreateVertexArrays(1, r_set.VAO)
         GL.BindVertexArray(r_set.VAO)
         ReDim r_set.mBuffers(3)
         GL.GenBuffers(4, r_set.mBuffers)

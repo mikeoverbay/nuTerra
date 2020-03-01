@@ -111,7 +111,7 @@ Module MapLoader
             'Stop ' didnt find it
             Return Nothing
         End If
-        Using zip As ZipFile = ZipFile.Read(GAME_PATH + pn)
+        Using zip As ZipFile = ZipFile.Read(Path.Combine(GAME_PATH, pn))
             entry = zip(filename)
             If entry Is Nothing Then
                 Return Nothing
@@ -125,10 +125,10 @@ Module MapLoader
         If filename.Length = 0 Then
             Return ""
         End If
-        Dim q = From d In PKG_DATA_TABLE.AsEnumerable _
-                Where d.Field(Of String)("filename").Contains(filename) _
-                Select _
-                pkg = d.Field(Of String)("package"), _
+        Dim q = From d In PKG_DATA_TABLE.AsEnumerable
+                Where d.Field(Of String)("filename").Contains(filename)
+                Select
+                pkg = d.Field(Of String)("package"),
                 file = d.Field(Of String)("filename")
 
         If q.Count = 0 Then
@@ -150,27 +150,27 @@ Module MapLoader
         'Can we put these in virtual memory files? Is there a reason?
 
         'Check if there is HD content on the users disc.
-        If File.Exists(GAME_PATH + "shared_content_hd-part1.pkg") Then
+        If File.Exists(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg")) Then
             HD_EXISTS = True
         Else
             HD_EXISTS = False
         End If
         If HD_EXISTS Then
-            MAP_PACKAGE_HD = ZipFile.Read(GAME_PATH + MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg"))
-            SHARED_PART_1_HD = New ZipFile(GAME_PATH + "shared_content_hd-part1.pkg")
-            SHARED_PART_2_HD = New ZipFile(GAME_PATH + "shared_content_hd-part2.pkg")
-            SAND_BOX_PART_1_HD = New ZipFile(GAME_PATH + "shared_content_sandbox_hd-part1.pkg")
-            SAND_BOX_PART_2_HD = New ZipFile(GAME_PATH + "shared_content_sandbox_hd-part2.pkg")
+            MAP_PACKAGE_HD = ZipFile.Read(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg")))
+            SHARED_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg"))
+            SHARED_PART_2_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_hd-part2.pkg"))
+            SAND_BOX_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part1.pkg"))
+            SAND_BOX_PART_2_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part2.pkg"))
         End If
         'open map pkg file
-        MAP_PACKAGE = New ZipFile(GAME_PATH + MAP_NAME_NO_PATH)
+        MAP_PACKAGE = New ZipFile(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH))
 
-        SHARED_PART_1 = New ZipFile(GAME_PATH + "shared_content-part1.pkg")
-        SHARED_PART_2 = New ZipFile(GAME_PATH + "shared_content-part2.pkg")
-        SAND_BOX_PART_1 = New ZipFile(GAME_PATH + "shared_content_sandbox-part1.pkg")
-        SAND_BOX_PART_2 = New ZipFile(GAME_PATH + "shared_content_sandbox-part2.pkg")
+        SHARED_PART_1 = New ZipFile(Path.Combine(GAME_PATH, "shared_content-part1.pkg"))
+        SHARED_PART_2 = New ZipFile(Path.Combine(GAME_PATH, "shared_content-part2.pkg"))
+        SAND_BOX_PART_1 = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox-part1.pkg"))
+        SAND_BOX_PART_2 = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox-part2.pkg"))
 
-        MAP_PARTICLES = New ZipFile(GAME_PATH + "particles.pkg")
+        MAP_PARTICLES = New ZipFile(Path.Combine(GAME_PATH, "particles.pkg"))
     End Sub
 
     Public Sub close_shared_packages()
@@ -308,7 +308,7 @@ Module MapLoader
                     modelMatrices(i) = MODEL_INDEX_LIST(batch.offset + i).matrix
                 Next
 
-                GL.GenVertexArrays(1, batch.cullVA)
+                GL.CreateVertexArrays(1, batch.cullVA)
                 GL.BindVertexArray(batch.cullVA)
 
                 GL.GenBuffers(1, batch.instanceDataBO)
@@ -332,7 +332,7 @@ Module MapLoader
                               batch.count * SizeOf(GetType(Matrix4)),
                               IntPtr.Zero, BufferUsageHint.DynamicCopy)
 
-                GL.GenQueries(1, batch.culledQuery)
+                GL.CreateQueries(QueryTarget.PrimitivesGenerated, 1, batch.culledQuery)
 
                 For Each renderSet In model.render_sets
                     If renderSet.no_draw Then
@@ -400,14 +400,14 @@ Module MapLoader
     End Sub
 
     Private Function get_spaceBin(ByVal ABS_NAME As String) As Boolean
-        Dim space_bin_file As Ionic.Zip.ZipEntry = _
-            MAP_PACKAGE("spaces/" & ABS_NAME & "/space.bin")
+        Dim space_bin_file As Ionic.Zip.ZipEntry =
+            MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, "space.bin"))
         If space_bin_file IsNot Nothing Then
             ' This is all new code -------------------
             Try
 
-                If File.Exists(TEMP_STORAGE + space_bin_file.FileName) Then
-                    File.Delete(TEMP_STORAGE + space_bin_file.FileName)
+                If File.Exists(Path.Combine(TEMP_STORAGE, space_bin_file.FileName)) Then
+                    File.Delete(Path.Combine(TEMP_STORAGE, space_bin_file.FileName))
                 End If
                 space_bin_file.Extract(TEMP_STORAGE, ExtractExistingFileAction.OverwriteSilently)
 

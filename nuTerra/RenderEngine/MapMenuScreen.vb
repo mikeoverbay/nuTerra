@@ -196,8 +196,6 @@ dontaddthis:
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         GL.Clear(ClearBufferMask.ColorBufferBit)
 
-        GL.ActiveTexture(TextureUnit.Texture0)
-
         Dim w = frmMain.glControl_main.Width
         Dim h = frmMain.glControl_main.Height
         If w = 0 Then
@@ -311,7 +309,6 @@ dontaddthis:
             vi += -space_x + ms_y
         End While
 
-        GL.BindTexture(TextureTarget.Texture2D, 0)
         GL.Disable(EnableCap.Blend)
 
         'make it visible
