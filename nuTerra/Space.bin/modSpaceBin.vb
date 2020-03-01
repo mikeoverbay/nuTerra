@@ -149,27 +149,52 @@ Module modSpaceBin
 
         f.Close()
 
+
+        Dim destroyed_model_ids As New List(Of Integer)
+        For k = 0 To cBSMO.model_info_items.count - 1
+            Dim modelInfo = cBSMO.model_info_items.data(k)
+            Select Case modelInfo.type
+                Case 0
+                    ' Static, doing nothing
+                Case 1
+                    ' Falling, doing nothing
+                Case 2
+                    ' Fragile
+                    Dim fragile_info = cBSMO.fragile_model_info_items.data(modelInfo.info_index)
+                    If fragile_info.destroyed_model_index <> &HFFFFFFFFUI Then
+                        destroyed_model_ids.Add(fragile_info.destroyed_model_index)
+                    End If
+                Case Else
+                    Debug.Assert(False, modelInfo.type.ToString)
+            End Select
+        Next
+
         '----------------------------------------------------------------------------------
         'build the model information
         ReDim MAP_MODELS(cBSMO.models_colliders.count - 1)
         For k = 0 To cBSMO.models_colliders.count - 1
             With MAP_MODELS(k)
                 .mdl = New base_model_holder_
+
                 .visibilityBounds = cBSMO.models_visibility_bounds.data(k)
 
                 Dim lod0_offset = cBSMO.models_loddings.data(k).lod_begin
+                Dim lodx_offset = cBSMO.models_loddings.data(k).lod_end
 
-                Dim lod0_render_set_begin = cBSMO.lod_renders.data(lod0_offset).render_set_begin
-                Dim lod0_render_set_end = cBSMO.lod_renders.data(lod0_offset).render_set_end
+                ' Set lod0 as default
+                Dim lod_offset = Math.Min(lod0_offset + 0, lodx_offset)
 
-                Dim num_render_sets = lod0_render_set_end - lod0_render_set_begin + 1
+                Dim lod_render_set_begin = cBSMO.lod_renders.data(lod_offset).render_set_begin
+                Dim lod_render_set_end = cBSMO.lod_renders.data(lod_offset).render_set_end
+
+                Dim num_render_sets = lod_render_set_end - lod_render_set_begin + 1
                 Debug.Assert(num_render_sets > 0)
 
                 ' Creating renderSets
                 .mdl.render_sets = New List(Of RenderSetEntry)
                 Dim dict As New Dictionary(Of String, Integer)
                 For z As UInteger = 0 To num_render_sets - 1
-                    Dim renderItem = cBSMO.renders.data(lod0_render_set_begin + z)
+                    Dim renderItem = cBSMO.renders.data(lod_render_set_begin + z)
                     Dim verts_name = cBWST.find_str(renderItem.verts_name_fnv)
                     Dim prims_name = cBWST.find_str(renderItem.prims_name_fnv)
 
@@ -197,6 +222,11 @@ Module modSpaceBin
 
         For k = 0 To cBSMI.model_BSMO_indexes.count - 1
             Dim bsmo_id = cBSMI.model_BSMO_indexes.data(k).BSMO_MODEL_INDEX
+
+            If destroyed_model_ids.Contains(bsmo_id) Then
+                Debug.Assert(False)
+            End If
+
             MODEL_INDEX_LIST(k).model_index = bsmo_id
             MODEL_INDEX_LIST(k).matrix = cBSMI.transforms.data(k)
 
@@ -253,6 +283,11 @@ CleanUp:
 
         Dim offset As Integer = 0
         For Each it In tmpDict
+            If MAP_MODELS(it.Key).mdl.junk Then
+                offset += it.Value
+                Continue For
+            End If
+
             Dim batch As New ModelBatch With {
                 .model_id = it.Key,
                 .count = it.Value,
@@ -261,8 +296,6 @@ CleanUp:
             MODEL_BATCH_LIST.Add(batch)
             offset += it.Value
         Next
-
-        'Stop
     End Function
 
     Private Sub apply_material_for_pgroup(pGroup As PrimitiveGroup, material_id As Integer)

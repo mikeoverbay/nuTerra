@@ -414,13 +414,16 @@ Module modSpacedBinVars
         Public models_colliders As BWArray(Of ModelColliderItem_v0_9_12)
         Public bsp_material_kinds As BWArray(Of BSPMaterialKindItem_v0_9_12)
         Public models_visibility_bounds As BWArray(Of Matrix3x2)
-        Public tbl_6 As BWArray(Of tbl_6_)
-        Public tbl_7 As BWArray(Of tbl_7_)
+        Public model_info_items As BWArray(Of WoTModelInfoItem_v0_9_12)
+        Public model_sound_items As BWArray(Of UInt32)
         Public lod_loddings As BWArray(Of lod_range_)
         Public lod_renders As BWArray(Of LODRenderItem_v0_9_12)
         Public renders As BWArray(Of RenderItem_v0_9_12)
         Public node_affectors1 As BWArray(Of tbl_11_)
         Public visual_nodes As BWArray(Of NodeItem_v1_0_0)
+        Public model_hardpoint_items As BWArray(Of Matrix4)
+        Public falling_model_info_items As BWArray(Of WoTFallingModelInfoItem_v1_0_0)
+        Public fragile_model_info_items As BWArray(Of WoTFragileModelInfoItem_v1_0_0)
         ' TODO: wsmo_4
         ' TODO: wsmo_2
         ' TODO: wsmo_3
@@ -441,13 +444,16 @@ Module modSpacedBinVars
             models_colliders = New BWArray(Of ModelColliderItem_v0_9_12)(br)
             bsp_material_kinds = New BWArray(Of BSPMaterialKindItem_v0_9_12)(br)
             models_visibility_bounds = New BWArray(Of Matrix3x2)(br)
-            tbl_6 = New BWArray(Of tbl_6_)(br)
-            tbl_7 = New BWArray(Of tbl_7_)(br)
+            model_info_items = New BWArray(Of WoTModelInfoItem_v0_9_12)(br)
+            model_sound_items = New BWArray(Of UInt32)(br)
             lod_loddings = New BWArray(Of lod_range_)(br)
             lod_renders = New BWArray(Of LODRenderItem_v0_9_12)(br)
             renders = New BWArray(Of RenderItem_v0_9_12)(br)
             node_affectors1 = New BWArray(Of tbl_11_)(br)
             visual_nodes = New BWArray(Of NodeItem_v1_0_0)(br)
+            model_hardpoint_items = New BWArray(Of Matrix4)(br)
+            falling_model_info_items = New BWArray(Of WoTFallingModelInfoItem_v1_0_0)(br)
+            fragile_model_info_items = New BWArray(Of WoTFragileModelInfoItem_v1_0_0)(br)
         End Sub
 
         '''<summary>
@@ -506,15 +512,14 @@ Module modSpacedBinVars
             Public flags As UInt32
         End Structure
 
+        '''<summary>
+        '''Contains information on the type of WoT model (Static, Falling,
+        '''Fragile, Structure) And an index to associated data for that.
+        '''</summary>
         <StructLayout(LayoutKind.Sequential)>
-        Public Structure tbl_6_ '??? not even sure of data size
-            Public index1 As UInt32
-            Public index2 As UInt32
-        End Structure
-
-        <StructLayout(LayoutKind.Sequential)>
-        Public Structure tbl_7_ '???
-            Public index1 As UInt32
+        Public Structure WoTModelInfoItem_v0_9_12
+            Public type As UInt32
+            Public info_index As UInt32
         End Structure
 
         <StructLayout(LayoutKind.Sequential)>
@@ -568,6 +573,35 @@ Module modSpacedBinVars
                     Return cBWST.find_str(identifier_fnv)
                 End Get
             End Property
+        End Structure
+
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure WoTFallingModelInfoItem_v1_0_0
+            Public lifetime_effect_fnv As UInt32
+            Public fracture_effect_fnv As UInt32
+            Public touchdown_effect_fnv As UInt32
+            Public unknown As Single
+            Public effect_scale As Single
+            Public physic_params_1 As Single
+            Public physic_params_2 As Single
+            Public physic_params_3 As Single
+            Public physic_params_4 As Single
+            Public physic_params_5 As Single
+            Public physic_params_6 As Single
+            Public physic_params_7 As Single
+        End Structure
+
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure WoTFragileModelInfoItem_v1_0_0
+            Public lifetime_effect_fnv As UInt32
+            Public effect_fnv As UInt32
+            Public decay_effect_fnv As UInt32
+            Public hit_effect_fnv As Single
+            Public _4 As Single
+            Public effect_scale As Single
+            Public hardpoint_index As UInt32
+            Public destroyed_model_index As UInt32
+            Public entry_type As UInt32
         End Structure
     End Structure
 #End Region
