@@ -9,12 +9,12 @@ layout (location = 3) out vec3 gPosition;
 uniform sampler2D colorMap;
 uniform sampler2D normalMap;
 uniform sampler2D GMF_Map;
-
 uniform int nMap_type;
 
 in mat3 TBN;
 in vec3 worldPosition;
 in vec2 UV;
+in vec2 Global_UV;
 in vec3 normal;//temp fro debuging lighting
 flat in uint is_hole;
 vec3 getNormal()
@@ -39,7 +39,7 @@ void main(void)
     if (is_hole > 0) discard; // early discard to avoid wasting draw time.
 
     // easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
-    gColor = texture(colorMap, UV);
+    gColor = texture(colorMap, Global_UV);
     gColor.a = 1.0;
 
     gNormal.xyz = getNormal();

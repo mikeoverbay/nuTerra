@@ -14,4 +14,26 @@ Module modMatrix
 
     Public Sub Transform_BB(ByRef mm As MODEL_INDEX_LIST_)
     End Sub
+
+    Public Function UnProject(ByRef vec As Vector4) As Vector4
+
+        vec.Z = 0
+        vec.W = 1.0F
+
+        Dim viewInv As Matrix4 = Matrix4.Invert(MINI_VIEWMATRIX)
+        Dim projInv As Matrix4 = Matrix4.Invert(MINI_PROJECTIONMATRIX)
+
+        Vector4.Transform(vec, projInv, vec)
+        Vector4.Transform(vec, viewInv, vec)
+
+        If vec.W > Single.Epsilon OrElse vec.W < Single.Epsilon Then
+            vec.X /= vec.W
+            vec.Y /= vec.W
+            vec.Z /= vec.W
+        End If
+
+        Return vec
+    End Function
+
+
 End Module
