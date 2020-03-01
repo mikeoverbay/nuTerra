@@ -366,7 +366,7 @@ Module ShaderLoader
         End If
 
         If name = "cull" Then
-            Dim vars() = {"CulledPosition"}
+            Dim vars() = {"CulledModelView"}
             GL.TransformFeedbackVaryings(program, 1, vars, TransformFeedbackMode.InterleavedAttribs)
         End If
 

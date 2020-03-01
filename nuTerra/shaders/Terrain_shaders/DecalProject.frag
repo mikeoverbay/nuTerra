@@ -37,7 +37,7 @@ void main(){
     // Calculate UVs
     vec2 UV = postProjToScreen(positionSS);
     /*==================================================*/
-      int flag = int(texture2D(gFlag, UV.xy).r * 255);
+      int flag = int(texture(gFlag, UV.xy).r * 255);
      if (flag == 64)  { discard;}
 
      //if (flag == 96) { discard;}
@@ -46,7 +46,7 @@ void main(){
        
     /*==================================================*/
     // sample the Depth from the Depthsampler
-    float Depth = texture2D(depthMap, UV).x * 2.0 - 1.0;
+    float Depth = texture(depthMap, UV).x;
 
     // Calculate Worldposition by recreating it out of the coordinates and depth-sample
     vec4 ScreenPosition;
@@ -69,7 +69,7 @@ void main(){
     WorldPosition.xy += 0.5;
     WorldPosition.y *= 1.0;
 
-    vec4 color = texture2D(colorMap, WorldPosition.xy);
+    vec4 color = texture(colorMap, WorldPosition.xy);
 	color.xyz += color_in;
     if (color.a < 0.05) { discard; }
     gColor = color;

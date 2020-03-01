@@ -22,7 +22,7 @@ vec2 postProjToScreen(vec4 position)
 void main (void)
 {
     vec2 UV = postProjToScreen(positionSS);
-    float Depth = texture(depthMap, UV).x * 2.0 - 1.0;
+    float Depth = texture(depthMap, UV).x;
 
     // Calculate Worldposition by recreating it out of the coordinates and depth-sample
     vec4 ScreenPosition;

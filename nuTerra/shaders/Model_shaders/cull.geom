@@ -7,13 +7,13 @@ layout(points, max_vertices = 1) out;
 in mat4 OrigPosition[1];
 flat in int objectVisible[1];
 
-out mat4 CulledPosition;
+out mat4 CulledModelView;
 
 void main()
 {
     if ( objectVisible[0] == 1 )
     {
-        CulledPosition = OrigPosition[0];
+        CulledModelView = OrigPosition[0];
         EmitVertex();
         EndPrimitive();
     }

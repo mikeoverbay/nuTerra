@@ -45,7 +45,7 @@ vec4 correct(in vec4 hdrColor, in float exposure){
 
 void main (void)
 {
-    float depth = texture(gDepth, UV).x*2.0-1.0;
+    float depth = texture(gDepth, UV).x;
 
     //if (depth == 1.0) discard;// nothing there
 

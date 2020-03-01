@@ -13,8 +13,6 @@ flat out int objectVisible;
 
 void main(void)
 {
-    OrigPosition = InstancePosition;
-
     /* calculate modelview projection matrix */
     mat4 MVP = projection * view;
 
@@ -53,5 +51,8 @@ void main(void)
     }
 
     //objectVisible = gl_VertexID == 0 ? 1 : 0; // For debugging
-    objectVisible = inFrustum ? 1 : 0;
+    if (inFrustum) {
+        objectVisible = 1;
+        OrigPosition = view * InstancePosition;
+    }
 }

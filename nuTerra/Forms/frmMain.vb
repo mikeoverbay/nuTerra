@@ -257,7 +257,7 @@ try_again:
             extensions.Add(GL.GetString(StringNameIndexed.Extensions, i))
         Next
 
-        ' Just check
+        ' Requied extensions
         Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
         Debug.Assert(extensions.Contains("GL_ARB_direct_state_access"))
         Debug.Assert(extensions.Contains("GL_ARB_clip_control"))
@@ -273,8 +273,8 @@ try_again:
         End If
 #End If
 
-        ' FIXME: use 0 -> 1 as in DX
-        GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.NegativeOneToOne)
+        ' Set depth to [0..1] range instead of [-1..1]
+        GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.ZeroToOne)
 
         '-----------------------------------------------------------------------------------------
         'Check if the game path is set

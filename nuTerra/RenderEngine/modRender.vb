@@ -302,17 +302,15 @@ Module modRender
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
+        GL.BindTextureUnit(0, m_color_id)
         GL.Uniform1(modelShader("colorMap"), 0)
+        GL.BindTextureUnit(1, m_normal_id)
         GL.Uniform1(modelShader("normalMap"), 1)
+        GL.BindTextureUnit(2, m_gmm_id)
         GL.Uniform1(modelShader("GMF_Map"), 2)
         GL.Uniform1(modelShader("nMap_type"), N_MAP_TYPE)
 
         GL.UniformMatrix4(modelShader("projection"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(modelShader("view"), False, VIEWMATRIX)
-
-        GL.BindTextureUnit(0, m_color_id)
-        GL.BindTextureUnit(1, m_normal_id)
-        GL.BindTextureUnit(2, m_gmm_id)
 
         GL.Enable(EnableCap.CullFace)
         TOTAL_TRIANGLES_DRAWN = 0
@@ -376,10 +374,15 @@ Module modRender
         deferredShader.Use()
 
         'set up uniforms
+        GL.BindTextureUnit(0, FBOm.gColor)
         GL.Uniform1(deferredShader("gColor"), 0)
+        GL.BindTextureUnit(1, FBOm.gNormal)
         GL.Uniform1(deferredShader("gNormal"), 1)
+        GL.BindTextureUnit(2, FBOm.gGMF)
         GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
+        GL.BindTextureUnit(3, FBOm.gPosition)
         GL.Uniform1(deferredShader("gPosition"), 3)
+        ' GL.BindTextureUnit(4, FBOm.gDepth)
         'GL.Uniform1(deferredShader("gDepth"), 4)
 
         'Lighting settings
@@ -394,12 +397,6 @@ Module modRender
         Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, MODELVIEWMATRIX_Saved)
 
         GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
-
-        GL.BindTextureUnit(0, FBOm.gColor)
-        GL.BindTextureUnit(1, FBOm.gNormal)
-        GL.BindTextureUnit(2, FBOm.gGMF)
-        GL.BindTextureUnit(3, FBOm.gPosition)
-        ' GL.BindTextureUnit(4, FBOm.gDepth)
 
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
 
@@ -774,7 +771,6 @@ Module modRender
             normalShader.Use()
 
             GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
-            GL.UniformMatrix4(normalShader("view"), False, VIEWMATRIX)
 
             GL.Uniform1(normalShader("prj_length"), 0.1F)
             GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex

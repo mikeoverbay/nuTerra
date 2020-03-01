@@ -1,6 +1,6 @@
 ﻿// toLinear_fragment.gsls
 // used to linearize depth textures to linear colors.
-#version 430 compatibility
+#version 430 core
 
 out vec4 fragColor;
 uniform sampler2D imageMap;
@@ -20,6 +20,6 @@ float linearDepth(float depthSample)
 
 void main()
 {
-    float r = linearDepth(texture2D(imageMap, texCoord).r);
+    float r = linearDepth(texture(imageMap, texCoord).r);
     fragColor = vec4(vec3(1.0 - r), 1.0);
 }
