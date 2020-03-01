@@ -113,81 +113,56 @@ Module ChunkFunctions
         TOTAL_TRIANGLES_DRAWN += 8192 ' number of triangles per chunk
         Dim fill_buff As Boolean = False
 
-        Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
-
         ' SETUP ==================================================================
         'Gen VAO and VBO Ids
         GL.CreateVertexArrays(1, r_set.VAO)
-        GL.BindVertexArray(r_set.VAO)
-        ReDim r_set.mBuffers(3)
-        GL.GenBuffers(4, r_set.mBuffers)
+        ReDim r_set.mBuffers(2)
+        GL.CreateBuffers(3, r_set.mBuffers)
 
         ' If the shared buffer is not defined, we need to do so.
         If theMap.vertex_vBuffer_id = 0 Then
-            GL.GenBuffers(1, theMap.vertex_vBuffer_id)
-            GL.GenBuffers(1, theMap.vertex_iBuffer_id)
-            fill_buff = True
+            GL.CreateBuffers(1, theMap.vertex_vBuffer_id)
+            GL.CreateBuffers(1, theMap.vertex_iBuffer_id)
+
+            'if the shared buffer is not defined, we need to fill the buffer now
+            GL.NamedBufferData(theMap.vertex_iBuffer_id, indicies.Length * 6, indicies, BufferUsageHint.StaticDraw)
+            GL.NamedBufferData(theMap.vertex_vBuffer_id, v_buff_XZ.Length * 8, v_buff_XZ, BufferUsageHint.StaticDraw)
         End If
 
         ' VERTEX XZ ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, theMap.vertex_vBuffer_id)
-        'if the shared buffer is not defined, we need to fill the buffer now
         If fill_buff Then
-            GL.BufferData(BufferTarget.ArrayBuffer,
-                          v_buff_XZ.Length * 8,
-                          v_buff_XZ, BufferUsageHint.StaticDraw)
         End If
-        GL.VertexAttribPointer(0, 2,
-                               VertexAttribPointerType.Float,
-                               False, 8, 0)
-        GL.EnableVertexAttribArray(0)
+        GL.VertexArrayVertexBuffer(r_set.VAO, 0, theMap.vertex_vBuffer_id, IntPtr.Zero, 8)
+        GL.VertexArrayAttribFormat(r_set.VAO, 0, 2, VertexAttribType.Float, False, 0)
+        GL.VertexArrayAttribBinding(r_set.VAO, 0, 0)
+        GL.EnableVertexArrayAttrib(r_set.VAO, 0)
 
         ' POSITION Y ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(1))
-        GL.BufferData(BufferTarget.ArrayBuffer,
-              v_buff_Y.Length * 4,
-              v_buff_Y, BufferUsageHint.StaticDraw)
+        GL.NamedBufferData(r_set.mBuffers(0), v_buff_Y.Length * 4, v_buff_Y, BufferUsageHint.StaticDraw)
 
-        GL.VertexAttribPointer(1, 1,
-                            VertexAttribPointerType.Float,
-                            False, 4, 0)
-        GL.EnableVertexAttribArray(1)
+        GL.VertexArrayVertexBuffer(r_set.VAO, 1, r_set.mBuffers(0), IntPtr.Zero, 4)
+        GL.VertexArrayAttribFormat(r_set.VAO, 1, 1, VertexAttribType.Float, False, 0)
+        GL.VertexArrayAttribBinding(r_set.VAO, 1, 1)
+        GL.EnableVertexArrayAttrib(r_set.VAO, 1)
 
         ' UV ==================================================================
-        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(2))
-        GL.BufferData(BufferTarget.ArrayBuffer,
-              uv_buff.Length * 8,
-              uv_buff, BufferUsageHint.StaticDraw)
+        GL.NamedBufferData(r_set.mBuffers(1), uv_buff.Length * 8, uv_buff, BufferUsageHint.StaticDraw)
 
-        GL.VertexAttribPointer(2, 2,
-                            VertexAttribPointerType.Float,
-                            False, 8, 0)
-        GL.EnableVertexAttribArray(2)
+        GL.VertexArrayVertexBuffer(r_set.VAO, 2, r_set.mBuffers(1), IntPtr.Zero, 8)
+        GL.VertexArrayAttribFormat(r_set.VAO, 2, 2, VertexAttribType.Float, False, 0)
+        GL.VertexArrayAttribBinding(r_set.VAO, 2, 2)
+        GL.EnableVertexArrayAttrib(r_set.VAO, 2)
 
         ' NORMALS ================================================================== 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, r_set.mBuffers(3))
+        GL.NamedBufferData(r_set.mBuffers(2), h_buff.Length * 4, h_buff, BufferUsageHint.StaticDraw)
 
-        GL.BufferData(BufferTarget.ArrayBuffer,
-              h_buff.Length * 4,
-              h_buff, BufferUsageHint.StaticDraw)
-
-        GL.VertexAttribPointer(3, 1,
-                               VertexAttribPointerType.UnsignedInt,
-                               False, 4, 0)
-        GL.EnableVertexAttribArray(3)
-
-
+        GL.VertexArrayVertexBuffer(r_set.VAO, 3, r_set.mBuffers(2), IntPtr.Zero, 4)
+        GL.VertexArrayAttribFormat(r_set.VAO, 3, 1, VertexAttribType.UnsignedInt, False, 0)
+        GL.VertexArrayAttribBinding(r_set.VAO, 3, 3)
+        GL.EnableVertexArrayAttrib(r_set.VAO, 3)
 
         ' INDICES ==================================================================
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, theMap.vertex_iBuffer_id)
-        If fill_buff Then
-            GL.BufferData(BufferTarget.ElementArrayBuffer,
-                              indicies.Length * 6,
-                              indicies,
-                              BufferUsageHint.StaticDraw)
-        End If
-
-        GL.BindVertexArray(0)
+        GL.VertexArrayElementBuffer(r_set.VAO, theMap.vertex_iBuffer_id)
     End Sub
 
 

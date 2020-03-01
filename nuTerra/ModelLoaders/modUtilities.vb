@@ -1,7 +1,6 @@
 ﻿Imports System.IO
 Imports System.Runtime.CompilerServices
 Imports OpenTK.Graphics.OpenGL4
-Imports OpenTK
 
 Module modUtilities
     Public CUBE_VAO As Integer
@@ -137,22 +136,17 @@ Module modUtilities
                 }
 
 
-        Dim vbo = GL.GenBuffer
+        Dim vbo As Integer
 
         GL.CreateVertexArrays(1, CUBE_VAO)
-        GL.BindVertexArray(CUBE_VAO)
 
         GL.CreateBuffers(1, vbo)
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo)
 
-        GL.BufferData(BufferTarget.ArrayBuffer,
-                  verts.Length * 12,
-                  verts, BufferUsageHint.StaticDraw)
-        GL.VertexAttribPointer(0, 3,
-                               VertexAttribPointerType.Float,
-                               False, 12, 0)
-        GL.EnableVertexAttribArray(0)
+        GL.NamedBufferData(vbo, verts.Length * 12, verts, BufferUsageHint.StaticDraw)
 
-        GL.BindVertexArray(0)
+        GL.VertexArrayVertexBuffer(CUBE_VAO, 0, vbo, IntPtr.Zero, 12)
+        GL.VertexArrayAttribFormat(CUBE_VAO, 0, 3, VertexAttribType.Float, False, 0)
+        GL.EnableVertexArrayAttrib(CUBE_VAO, 0)
     End Sub
 End Module

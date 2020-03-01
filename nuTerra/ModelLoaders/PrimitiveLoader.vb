@@ -400,7 +400,7 @@ Module PrimitiveLoader
         GL.BindVertexArray(renderSet.mdl_VAO)
 
         Dim mBuffers(renderSet.element_count) As Integer
-        GL.GenBuffers(renderSet.element_count + 1, mBuffers)
+        GL.CreateBuffers(renderSet.element_count + 1, mBuffers)
 
         Dim v3_size = SizeOf(GetType(Vector3))
         Dim v2_size = SizeOf(GetType(Vector2))

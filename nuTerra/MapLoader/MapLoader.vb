@@ -309,28 +309,26 @@ Module MapLoader
                 Next
 
                 GL.CreateVertexArrays(1, batch.cullVA)
-                GL.BindVertexArray(batch.cullVA)
+                GL.CreateBuffers(1, batch.instanceDataBO)
 
-                GL.GenBuffers(1, batch.instanceDataBO)
-                GL.BindBuffer(BufferTarget.ArrayBuffer, batch.instanceDataBO)
-                GL.BufferData(BufferTarget.ArrayBuffer,
-                              batch.count * SizeOf(GetType(Matrix4)),
-                              modelMatrices, BufferUsageHint.StaticDraw)
+                GL.NamedBufferData(batch.instanceDataBO, batch.count * SizeOf(GetType(Matrix4)), modelMatrices, BufferUsageHint.StaticDraw)
+                GL.VertexArrayVertexBuffer(batch.cullVA, 0, batch.instanceDataBO, New IntPtr(0 * 16), 4 * 16)
+                GL.VertexArrayVertexBuffer(batch.cullVA, 1, batch.instanceDataBO, New IntPtr(1 * 16), 4 * 16)
+                GL.VertexArrayVertexBuffer(batch.cullVA, 2, batch.instanceDataBO, New IntPtr(2 * 16), 4 * 16)
+                GL.VertexArrayVertexBuffer(batch.cullVA, 3, batch.instanceDataBO, New IntPtr(3 * 16), 4 * 16)
 
-                GL.EnableVertexAttribArray(0)
-                GL.VertexAttribPointer(0, 4, VertexAttribPointerType.Float, False, 4 * 16, 0 * 16)
-                GL.EnableVertexAttribArray(1)
-                GL.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, False, 4 * 16, 1 * 16)
-                GL.EnableVertexAttribArray(2)
-                GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, False, 4 * 16, 2 * 16)
-                GL.EnableVertexAttribArray(3)
-                GL.VertexAttribPointer(3, 4, VertexAttribPointerType.Float, False, 4 * 16, 3 * 16)
+                GL.VertexArrayAttribFormat(batch.cullVA, 0, 4, VertexAttribType.Float, False, 0)
+                GL.VertexArrayAttribFormat(batch.cullVA, 1, 4, VertexAttribType.Float, False, 0)
+                GL.VertexArrayAttribFormat(batch.cullVA, 2, 4, VertexAttribType.Float, False, 0)
+                GL.VertexArrayAttribFormat(batch.cullVA, 3, 4, VertexAttribType.Float, False, 0)
 
-                GL.GenBuffers(1, batch.culledInstanceDataBO)
-                GL.BindBuffer(BufferTarget.ArrayBuffer, batch.culledInstanceDataBO)
-                GL.BufferData(BufferTarget.ArrayBuffer,
-                              batch.count * SizeOf(GetType(Matrix4)),
-                              IntPtr.Zero, BufferUsageHint.DynamicCopy)
+                GL.EnableVertexArrayAttrib(batch.cullVA, 0)
+                GL.EnableVertexArrayAttrib(batch.cullVA, 1)
+                GL.EnableVertexArrayAttrib(batch.cullVA, 2)
+                GL.EnableVertexArrayAttrib(batch.cullVA, 3)
+
+                GL.CreateBuffers(1, batch.culledInstanceDataBO)
+                GL.NamedBufferData(batch.culledInstanceDataBO, batch.count * SizeOf(GetType(Matrix4)), IntPtr.Zero, BufferUsageHint.DynamicCopy)
 
                 GL.CreateQueries(QueryTarget.PrimitivesGenerated, 1, batch.culledQuery)
 
@@ -339,24 +337,25 @@ Module MapLoader
                         Continue For
                     End If
 
-                    GL.BindVertexArray(renderSet.mdl_VAO)
-                    GL.BindBuffer(BufferTarget.ArrayBuffer, batch.culledInstanceDataBO)
+                    GL.VertexArrayVertexBuffer(renderSet.mdl_VAO, 6, batch.culledInstanceDataBO, New IntPtr(0 * 16), 4 * 16)
+                    GL.VertexArrayVertexBuffer(renderSet.mdl_VAO, 7, batch.culledInstanceDataBO, New IntPtr(1 * 16), 4 * 16)
+                    GL.VertexArrayVertexBuffer(renderSet.mdl_VAO, 8, batch.culledInstanceDataBO, New IntPtr(2 * 16), 4 * 16)
+                    GL.VertexArrayVertexBuffer(renderSet.mdl_VAO, 9, batch.culledInstanceDataBO, New IntPtr(3 * 16), 4 * 16)
 
-                    GL.EnableVertexAttribArray(6)
-                    GL.VertexAttribPointer(6, 4, VertexAttribPointerType.Float, False, 4 * 16, 0 * 16)
-                    GL.EnableVertexAttribArray(7)
-                    GL.VertexAttribPointer(7, 4, VertexAttribPointerType.Float, False, 4 * 16, 1 * 16)
-                    GL.EnableVertexAttribArray(8)
-                    GL.VertexAttribPointer(8, 4, VertexAttribPointerType.Float, False, 4 * 16, 2 * 16)
-                    GL.EnableVertexAttribArray(9)
-                    GL.VertexAttribPointer(9, 4, VertexAttribPointerType.Float, False, 4 * 16, 3 * 16)
+                    GL.VertexArrayAttribFormat(renderSet.mdl_VAO, 6, 4, VertexAttribType.Float, False, 0)
+                    GL.VertexArrayAttribFormat(renderSet.mdl_VAO, 7, 4, VertexAttribType.Float, False, 0)
+                    GL.VertexArrayAttribFormat(renderSet.mdl_VAO, 8, 4, VertexAttribType.Float, False, 0)
+                    GL.VertexArrayAttribFormat(renderSet.mdl_VAO, 9, 4, VertexAttribType.Float, False, 0)
 
-                    GL.VertexAttribDivisor(6, 1)
-                    GL.VertexAttribDivisor(7, 1)
-                    GL.VertexAttribDivisor(8, 1)
-                    GL.VertexAttribDivisor(9, 1)
+                    GL.EnableVertexArrayAttrib(renderSet.mdl_VAO, 6)
+                    GL.EnableVertexArrayAttrib(renderSet.mdl_VAO, 7)
+                    GL.EnableVertexArrayAttrib(renderSet.mdl_VAO, 8)
+                    GL.EnableVertexArrayAttrib(renderSet.mdl_VAO, 9)
 
-                    GL.BindVertexArray(0)
+                    GL.VertexArrayBindingDivisor(renderSet.mdl_VAO, 6, 1)
+                    GL.VertexArrayBindingDivisor(renderSet.mdl_VAO, 7, 1)
+                    GL.VertexArrayBindingDivisor(renderSet.mdl_VAO, 8, 1)
+                    GL.VertexArrayBindingDivisor(renderSet.mdl_VAO, 9, 1)
                 Next
             Next
 

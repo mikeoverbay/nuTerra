@@ -138,7 +138,7 @@ Module modXfile
         GL.BindVertexArray(mdl.mdl_VAO)
 
         ReDim mdl.mBuffers(1)
-        GL.GenBuffers(2, mdl.mBuffers)
+        GL.CreateBuffers(2, mdl.mBuffers)
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, mdl.mBuffers(1))
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 32, 0)
@@ -148,15 +148,12 @@ Module modXfile
         GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 32, 24)
         GL.EnableVertexAttribArray(2)
 
-        GL.BufferData(BufferTarget.ArrayBuffer, (vbuff.Length) * 32, vbuff, BufferUsageHint.StaticDraw)
+        GL.NamedBufferData(mdl.mBuffers(1), (vbuff.Length) * 32, vbuff, BufferUsageHint.StaticDraw)
 
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, mdl.mBuffers(0))
-        GL.BufferData(BufferTarget.ElementArrayBuffer,
-                      mdl.indice_count * 6,
-                      index_buffer16,
-                      BufferUsageHint.StaticDraw)
+        GL.NamedBufferData(mdl.mBuffers(0), mdl.indice_count * 6, index_buffer16, BufferUsageHint.StaticDraw)
 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0)
+        GL.VertexArrayElementBuffer(mdl.mdl_VAO, mdl.mBuffers(0))
+
         GL.BindVertexArray(0)
 
         'dl.flush()
