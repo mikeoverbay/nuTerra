@@ -218,7 +218,7 @@ Module modRender
         GL.Uniform1(TerrainShader("GMF_Map"), 2)
         GL.Uniform1(TerrainShader("t_normalMap"), 3)
         GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
-        GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X, MAP_SIZE.Y)
+        GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
 
         GL.UniformMatrix4(TerrainShader("projection"), False, PROJECTIONMATRIX)
 
