@@ -55,7 +55,10 @@ Module modGlobalVars
     Public _STARTED As Boolean 'Signals UI initialization is complete
   
     'mouse camera related
-    Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE As Boolean ' mouse control booleans
+    Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE, M_SPIN As Boolean ' mouse control booleans
+    Public WASD As Boolean
+    Public WASD_SPEED As Single = 0
+    Public WASD_VECTOR As Point
     Public M_MOUSE, MOUSE As New Point
     Public VIEW_RADIUS, CAM_X_ANGLE, CAM_Y_ANGLE As Single
     Public LOOK_AT_X, LOOK_AT_Y, LOOK_AT_Z As Single

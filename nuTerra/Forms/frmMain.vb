@@ -86,12 +86,27 @@ Public Class frmMain
                     PAUSE_ORBIT = True
                 End If
 
+            Case Keys.A
+                WASD_VECTOR.X = -100
+            Case Keys.D
+                WASD_VECTOR.X = 100
+            Case Keys.W
+                WASD_VECTOR.X = 100
+            Case Keys.S
+                WASD_VECTOR.X = -100
+
         End Select
     End Sub
 
     Private Sub frmMain_KeyUp(sender As Object, e As KeyEventArgs) Handles Me.KeyUp
         Z_MOVE = False
         MOVE_MOD = False
+        Select Case e.KeyCode
+            Case Keys.A, Keys.D
+                WASD_VECTOR.X = 0
+            Case Keys.W, Keys.S
+                WASD_VECTOR.Y = 0
+        End Select
     End Sub
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
@@ -423,7 +438,23 @@ try_again:
         startup_delay_timer.Dispose()
         closed_loop_updater()
     End Sub
+    Private Sub WASD_movement()
+        If WASD_VECTOR.X <> 0 Or WASD_VECTOR.Y <> 0 Then
+            WASD_SPEED += DELTA_TIME
+            If WASD_SPEED > 0.25 Then
+                WASD_SPEED = 0
+                Dim ms As Single = 0.2F * VIEW_RADIUS ' distance away changes speed.. THIS WORKS WELL!
+                Dim t = WASD_VECTOR.X * ms * 0.05
+                LOOK_AT_X -= ((t * ms) * (Cos(CAM_X_ANGLE)))
+                LOOK_AT_Z -= ((t * ms) * (-Sin(CAM_X_ANGLE)))
 
+                t = WASD_VECTOR.Y * ms * 0.05
+                LOOK_AT_X += ((t * ms) * (Cos(CAM_X_ANGLE)))
+                LOOK_AT_Z += ((t * ms) * (-Sin(CAM_X_ANGLE)))
+
+            End If
+        End If
+    End Sub
     Private Sub closed_loop_updater()
         Dim trigger As Boolean = False
         Dim Time_before, Time_after As Long
