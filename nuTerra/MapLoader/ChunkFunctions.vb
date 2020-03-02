@@ -375,40 +375,6 @@ Module ChunkFunctions
         b_y_min = 10000
     End Sub
 
-    Public Sub get_location_corner(ByRef c As chunk_)
-        'This routine gets the maps location in the world grid from its name
-        Dim x, y As Integer
-
-        Dim a = c.name.ToCharArray
-        If a(0) = "f" Then
-            If AscW(a(3)) < 97 Then a(3) = ChrW(AscW(a(3)) + 39)
-            x = AscW("f") - AscW(a(3))  '+ 1
-            c.location.X = ((AscW("f") - AscW(a(3))) * 100.0) + 50.0
-        Else
-            If a(0) = "0" Then
-                x = AscW(a(3)) - AscW("0") + 1
-                c.location.X = ((AscW(a(3)) - AscW("0")) * -100.0) - 50.0
-                x *= -1
-            End If
-        End If
-        If a(4) = "f" Then
-            If AscW(a(7)) < 97 Then a(7) = ChrW(AscW(a(7)) + 39)
-            y = AscW("f") - AscW(a(7))  '+ 1
-            c.location.Y = ((AscW("f") - AscW(a(7))) * -100.0) - 50
-            y *= -1
-        Else
-            If a(4) = "0" Then
-                y = AscW(a(7)) - AscW("0") + 1
-                c.location.Y = ((AscW(a(7)) - AscW("0")) * 100.0) + 50
-            End If
-        End If
-        If b_x_min > x Then b_x_min = x
-        If b_x_max < x Then b_x_max = x
-        If b_y_min > y Then b_y_min = y
-        If b_y_max < y Then b_y_max = y
-        MAP_SIZE.X = b_x_max - b_x_min
-        MAP_SIZE.Y = b_y_max - b_y_min
-    End Sub
 
     Public Sub get_location(ByRef c As chunk_, ByVal map_id As Integer)
         'This routine gets the maps location in the world grid from its name
@@ -444,6 +410,13 @@ Module ChunkFunctions
         mapBoard(x + 10, y + 10).abs_location.X = x
         mapBoard(x + 10, y + 10).abs_location.X = y
         mapBoard(x + 10, y + 10).occupied = True
+
+        If b_x_min > x Then b_x_min = x
+        If b_x_max < x Then b_x_max = x
+        If b_y_min > y Then b_y_min = y
+        If b_y_max < y Then b_y_max = y
+        MAP_SIZE.X = b_x_max - b_x_min
+        MAP_SIZE.Y = b_y_max - b_y_min
 
     End Sub
 

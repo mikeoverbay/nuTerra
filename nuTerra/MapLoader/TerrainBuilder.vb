@@ -117,9 +117,9 @@ Module TerrainBuilder
         BG_MAX_VALUE = theMap.chunks.Length - 1
         BG_VALUE = 0
         set_map_bs()
-        For I = 0 To theMap.chunks.Length - 1
-            get_location_corner(theMap.chunks(I))
-        Next
+        'For I = 0 To theMap.chunks.Length - 1
+        '    get_location_corner(theMap.chunks(I))
+        'Next
 
         For I = 0 To theMap.chunks.Length - 1
             get_location(theMap.chunks(I), I)
