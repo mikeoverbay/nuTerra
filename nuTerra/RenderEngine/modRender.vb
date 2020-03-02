@@ -348,6 +348,10 @@ Module modRender
 
                 Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                 For Each primGroup In renderSet.primitiveGroups.Values
+                    If primGroup.no_draw Then
+                        Continue For
+                    End If
+
                     TOTAL_TRIANGLES_DRAWN += primGroup.nPrimitives * batch.visibleCount
                     'setup materials here
 
@@ -827,6 +831,10 @@ Module modRender
                     GL.BindVertexArray(renderSet.mdl_VAO)
                     Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
                     For Each primGroup In renderSet.primitiveGroups.Values
+                        If primGroup.no_draw Then
+                            Continue For
+                        End If
+
                         GL.DrawElementsInstanced(PrimitiveType.Triangles,
                                                  primGroup.nPrimitives * 3,
                                                  triType,

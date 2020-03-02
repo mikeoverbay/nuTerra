@@ -16,6 +16,7 @@ Module PrimitiveLoader
         Public startVertex As Integer
         Public nVertices As Integer
 
+        Public no_draw As Boolean
         Public fx As String
         Public props As Dictionary(Of String, Object)
     End Class
@@ -124,8 +125,6 @@ Module PrimitiveLoader
         Dim numIndices = br.ReadUInt32
         Dim numPrimGroups = br.ReadUInt32
 
-        'renderSet.primitiveGroups = New Dictionary(Of Integer, PrimitiveGroup)
-
         ' save current stream position
         Dim savedPos = br.BaseStream.Position
 
@@ -136,6 +135,7 @@ Module PrimitiveLoader
         For z = 0 To numPrimGroups - 1
             If Not renderSet.primitiveGroups.ContainsKey(z) Then
                 renderSet.primitiveGroups(z) = New PrimitiveGroup
+                renderSet.primitiveGroups(z).no_draw = True
             End If
             With renderSet.primitiveGroups(z)
                 .startIndex = br.ReadInt32
@@ -143,30 +143,29 @@ Module PrimitiveLoader
                 .startVertex = br.ReadInt32
                 .nVertices = br.ReadInt32
             End With
-            'renderSet.primitiveGroups.Add(pGroup)
             TOTAL_TRIANGLES_DRAWN_MODEL += renderSet.primitiveGroups(z).nPrimitives
         Next
 
-            ' restore position
-            br.BaseStream.Position = savedPos
+        ' restore position
+        br.BaseStream.Position = savedPos
 
 
-            'We flip the winding order because of directX to Opengl 
-            If renderSet.indexSize = 2 Then
-                ReDim buffers.index_buffer16((numIndices / 3) - 1)
-                For k = 0 To buffers.index_buffer16.Length - 1
-                    buffers.index_buffer16(k).y = br.ReadUInt16
-                    buffers.index_buffer16(k).x = br.ReadUInt16
-                    buffers.index_buffer16(k).z = br.ReadUInt16
-                Next
-            Else
-                ReDim buffers.index_buffer32((numIndices / 3) - 1)
-                For k = 0 To buffers.index_buffer32.Length - 1
-                    buffers.index_buffer32(k).y = br.ReadUInt32
-                    buffers.index_buffer32(k).x = br.ReadUInt32
-                    buffers.index_buffer32(k).z = br.ReadUInt32
-                Next
-            End If
+        'We flip the winding order because of directX to Opengl 
+        If renderSet.indexSize = 2 Then
+            ReDim buffers.index_buffer16((numIndices / 3) - 1)
+            For k = 0 To buffers.index_buffer16.Length - 1
+                buffers.index_buffer16(k).y = br.ReadUInt16
+                buffers.index_buffer16(k).x = br.ReadUInt16
+                buffers.index_buffer16(k).z = br.ReadUInt16
+            Next
+        Else
+            ReDim buffers.index_buffer32((numIndices / 3) - 1)
+            For k = 0 To buffers.index_buffer32.Length - 1
+                buffers.index_buffer32(k).y = br.ReadUInt32
+                buffers.index_buffer32(k).x = br.ReadUInt32
+                buffers.index_buffer32(k).z = br.ReadUInt32
+            Next
+        End If
     End Sub
 
 
