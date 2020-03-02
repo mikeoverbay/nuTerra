@@ -32,11 +32,11 @@ if (show_grid==1){
     {
     if (V.y+0.25 >= bb_bl.y && V.y+01.28 <= bb_tr.y)
     {
-        if (mod(int(V.x*(g_size)), int(g_size*100.0)) == 0.0){
+        if (mod(int(V.x*(g_size*0.01)), int(g_size)) == 0.0){
             gColor = vec4(0.75,0.75,0.0,0.95);
             flag = 1;
         }
-        if (mod(int(V.y*(g_size)), int(g_size*100.0)) == 0.0){
+        if (mod(int(V.y*(g_size*0.01)), int(g_size)) == 0.0){
             gColor = vec4(0.75,0.75,0.0,0.95);
             flag = 1;
         }

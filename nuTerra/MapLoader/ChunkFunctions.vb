@@ -290,30 +290,19 @@ Module ChunkFunctions
         Dim sv, ev As Integer
         Dim ty As Integer
         HEIGHTMAPSIZE = mapsize
-        If mapsize < 64 Then
 
-            ReDim v.heights(mapsize, mapsize)
-            For j As UInt32 = 0 To mapsize - 1
-                For i As UInt32 = 0 To mapsize - 1
-                    ms.Position = (i * 4) + (j * mapsize * 4)
-                    Dim tc = br.ReadInt32
-                    quantized = tc * 0.001
-                    v.heights(mapsize - i, j) = quantized
-                Next
+
+        ReDim v.heights(mapsize, mapsize)
+        For j As UInt32 = 0 To mapsize - 1
+            For i As UInt32 = 0 To mapsize - 1
+                ms.Position = (i * 4) + (j * mapsize * 4)
+                Dim tc = br.ReadInt32
+                quantized = tc * 0.001
+                v.heights(mapsize - i, j) = quantized
             Next
-        Else
+        Next
 
-            ReDim v.heights(mapsize, mapsize)
-            For j As UInt32 = 0 To mapsize - 1
-                For i As UInt32 = 0 To mapsize - 1
-                    ms.Position = (i * 4) + (j * mapsize * 4)
-                    Dim tc = br.ReadInt32
-                    quantized = tc * 0.001
-                    v.heights(mapsize - i, j) = quantized
-                Next
-            Next
-        End If
-
+        'need to find a use for this :)
         Dim avg, y_max, y_min As Single
         For j As UInt32 = 0 To mapsize - 1
             For i As UInt32 = 0 To mapsize - 1
