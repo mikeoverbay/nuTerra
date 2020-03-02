@@ -15,7 +15,6 @@ Module ChunkFunctions
     Public surface_normal As Vector3
     Public CURSOR_Y As Single
     Public normal_load_count As Integer
-
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
         'good place as any to set bounding box
@@ -61,18 +60,21 @@ Module ChunkFunctions
         End If
 
         cnt = 0
+        Dim hScaler = 1.0
+        If HEIGHTMAPSIZE < 64 Then
+            hScaler = 0.5
+        End If
         For j = 0 To 63 Step 1
             For i = 0 To 64
-
                 topleft.vert.X = (i) - w_
-                topleft.H = v_data.heights((i + 3), (j + 2))
+                topleft.H = v_data.heights(((i * hScaler) + 3), ((j * hScaler) + 2))
                 topleft.vert.Y = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
                 'topleft.hole = v_data.holes(i, j)
 
                 bottomleft.vert.X = (i) - w_
-                bottomleft.H = v_data.heights((i + 3), (j + 3))
+                bottomleft.H = v_data.heights(((i * hScaler) + 3), ((j * hScaler) + 3))
                 bottomleft.vert.Y = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
@@ -287,35 +289,21 @@ Module ChunkFunctions
         Dim br As New BinaryReader(ms)
         Dim sv, ev As Integer
         Dim ty As Integer
+        HEIGHTMAPSIZE = mapsize
         If mapsize < 64 Then
-            ReDim v.heights(64, 64)
-            Dim div = 64 / (mapsize - 5)
-            ReDim v.heights(64, 64)
-            HEIGHTMAPSIZE = 64
-            For j As UInt32 = 2 To mapsize - 4
-                For i As UInt32 = 2 To mapsize - 4
-                    ms.Position = (i * 4) + (j * mapsize * 4)
-                    sv = br.ReadInt32
-                    ev = br.ReadInt32
-                    For xp = (i - 2) * div To (((i + 1) - 2) * div)
-                        Dim ii = (i - 2) * div
-                        Dim xval As Single = (ev - sv) * ((xp - ii) / div)
-                        v.heights(64 - xp, (j - 2) * div) = (xval + sv) * 0.001
-                        ty = xp
 
-                        ms.Position = (i * 4) + ((j + 1) * mapsize * 4)
-                        ev = br.ReadInt32
-                        For yp = (j - 2) * div To (((j + 1) - 2) * div)
-                            Dim jj = (j - 2) * div
-                            Dim yval As Single = (ev - sv) * ((yp - jj) / div)
-                            v.heights(64 - xp, yp) = (yval + sv) * 0.001
-                        Next
-                    Next
+            ReDim v.heights(mapsize, mapsize)
+            For j As UInt32 = 0 To mapsize - 1
+                For i As UInt32 = 0 To mapsize - 1
+                    ms.Position = (i * 4) + (j * mapsize * 4)
+                    Dim tc = br.ReadInt32
+                    quantized = tc * 0.001
+                    v.heights(mapsize - i, j) = quantized
                 Next
             Next
         Else
 
-            ReDim v.heights(69, 69)
+            ReDim v.heights(mapsize, mapsize)
             For j As UInt32 = 0 To mapsize - 1
                 For i As UInt32 = 0 To mapsize - 1
                     ms.Position = (i * 4) + (j * mapsize * 4)
@@ -327,8 +315,8 @@ Module ChunkFunctions
         End If
 
         Dim avg, y_max, y_min As Single
-        For j As UInt32 = 0 To HEIGHTMAPSIZE - 1
-            For i As UInt32 = 0 To HEIGHTMAPSIZE - 1
+        For j As UInt32 = 0 To mapsize - 1
+            For i As UInt32 = 0 To mapsize - 1
                 avg += v.heights(i, j)
                 If v.heights(i, j) < y_min Then
                     y_min = v.heights(i, j)
@@ -528,7 +516,9 @@ exit2:
         OX = 1
         HY = Floor(vyp)
         OY = 1
-
+        If HEIGHTMAPSIZE < 64 Then
+            HX *= 0.5 : HY *= 0.5
+        End If
         Dim altitude As Single = 0.0
 
         If HX + OX > 65 Then
