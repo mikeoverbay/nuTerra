@@ -366,6 +366,15 @@ Module MapLoader
         '===============================================================
         'As it says.. create the terrain
         If DONT_BLOCK_TERRAIN Then
+            PLAYER_FIELD_CELL_SIZE = 100.0F
+            Select Case True
+                Case ABS_NAME.Contains("himmel")
+                    PLAYER_FIELD_CELL_SIZE = 80.0F
+                    Exit Select
+                Case ABS_NAME.Contains("ensk")
+                    PLAYER_FIELD_CELL_SIZE = 80.0F
+                    Exit Select
+            End Select
             Create_Terrain()
             TERRAIN_LOADED = True
             'TO DO and there is lots

@@ -6,10 +6,10 @@ Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
 Module ChunkFunctions
-    Dim b_x_min As Integer
-    Dim b_x_max As Integer
-    Dim b_y_min As Integer
-    Dim b_y_max As Integer
+    Public b_x_min As Integer
+    Public b_x_max As Integer
+    Public b_y_min As Integer
+    Public b_y_max As Integer
     Public tl_, tr_, br_, bl_ As Vector3
     Public Cursor_point As Vector3
     Public surface_normal As Vector3

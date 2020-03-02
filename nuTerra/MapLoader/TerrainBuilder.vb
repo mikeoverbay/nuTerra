@@ -116,7 +116,7 @@ Module TerrainBuilder
         BG_TEXT = "Loading Terrain..."
         BG_MAX_VALUE = theMap.chunks.Length - 1
         BG_VALUE = 0
-        set_map_bs()
+        set_map_bs() 'presets max min values
         For I = 0 To theMap.chunks.Length - 1
             get_location(theMap.chunks(I), I)
             get_holes(theMap.chunks(I), theMap.v_data(I))

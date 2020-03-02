@@ -311,6 +311,12 @@
     <None Include="Resources\skyDome.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Developer\TerrainGrids.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Developer\TerrainGrids.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\MiniMap_Shaders\MiniMapRings.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -341,13 +347,13 @@
     <None Include="shaders\Terrain_shaders\Terrain.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\TerrainNormals.vert">
+    <None Include="shaders\Developer\TerrainNormals.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\TerrainNormals.geom">
+    <None Include="shaders\Developer\TerrainNormals.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\TerrainNormals.frag">
+    <None Include="shaders\Developer\TerrainNormals.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Trials\test.comp">

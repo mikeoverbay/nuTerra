@@ -163,6 +163,7 @@ Module ShaderLoader
     Public rect2dShader As Shader
     Public SkyDomeShader As Shader
     Public testShader As Shader
+    Public TerrainGrids As Shader
     Public TerrainNormals As Shader
     Public TerrainShader As Shader
     Public toLinearShader As Shader
@@ -175,6 +176,7 @@ Module ShaderLoader
     ''' </summary>
     ''' <remarks></remarks>
     Public Sub build_shaders()
+        'Try and keep these in alphabetical order 
         BaseRingProjector = New Shader("BaseRingProjector")
         cullShader = New Shader("cull")
         coloredline2dShader = New Shader("coloredLine2d")
@@ -192,6 +194,7 @@ Module ShaderLoader
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")
         testShader = New Shader("test")
+        TerrainGrids = New Shader("TerrainGrids")
         TerrainNormals = New Shader("TerrainNormals")
         TerrainShader = New Shader("Terrain")
         toLinearShader = New Shader("toLinear")
@@ -214,6 +217,7 @@ Module ShaderLoader
         shaders.Add(rect2dShader)
         shaders.Add(SkyDomeShader)
         shaders.Add(testShader)
+        shaders.Add(TerrainGrids)
         shaders.Add(TerrainNormals)
         shaders.Add(TerrainShader)
         shaders.Add(toLinearShader)

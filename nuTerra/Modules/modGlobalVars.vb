@@ -26,6 +26,10 @@ Module modGlobalVars
     Public WIRE_MODELS As Boolean
     Public WIRE_DECALS As Boolean
     Public WIRE_TERRAIN As Boolean
+    'grid display
+    Public SHOW_CHUNKS As Integer
+    Public SHOW_GRID As Integer
+    Public SHOW_BORDER As Integer
     'models
     Public CROSS_HAIR As base_model_holder_
     Public CROSS_HAIR_TEXTURE As Integer
@@ -76,6 +80,7 @@ Module modGlobalVars
     Public PRESPECTIVE_FAR As Single = 3000.0F
     '============================================================
     'Map related
+    Public PLAYER_FIELD_CELL_SIZE As Single
     Public MAP_SIZE As Vector2
     Public MINI_MAP_SIZE As Integer = 240
     Public MINI_MAP_NEW_SIZE As Integer = 240

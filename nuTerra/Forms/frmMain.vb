@@ -61,11 +61,35 @@ Public Class frmMain
                     SHOW_CURSOR = True
                 End If
                 '-------------------------------
+                'grid display
+            Case Keys.F5
+                If SHOW_CHUNKS = 0 Then
+                    SHOW_CHUNKS = 1
+                Else
+                    SHOW_CHUNKS = 0
+                End If
+            Case Keys.F6
+                If SHOW_GRID = 0 Then
+                    SHOW_GRID = 1
+                Else
+                    SHOW_GRID = 0
+                End If
+            Case Keys.F7
+                If SHOW_BORDER = 0 Then
+                    SHOW_BORDER = 1
+                Else
+                    SHOW_BORDER = 0
+                End If
+                '-------------------------------
             Case Keys.E
                 frmEditFrag.Show()
 
             Case Keys.L
-                m_light_settings.PerformClick()
+                If Not frmLighting.Visible Then
+                    m_light_settings.PerformClick()
+                Else
+                    frmLighting.Visible = False
+                End If
 
             Case Keys.N
                 NORMAL_DISPLAY_MODE += 1

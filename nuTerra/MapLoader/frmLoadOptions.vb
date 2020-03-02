@@ -76,4 +76,8 @@
         My.Settings.Save()
         Me.Hide()
     End Sub
+
+    Private Sub frmLoadOptions_VisibleChanged(sender As Object, e As EventArgs) Handles Me.VisibleChanged
+        Me.Location = frmMain.Location
+    End Sub
 End Class

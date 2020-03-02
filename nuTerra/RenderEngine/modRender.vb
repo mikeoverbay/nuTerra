@@ -4,8 +4,10 @@ Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
 Module modRender
+    Dim temp_timer As New Stopwatch
     Public PI As Single = 3.14159274F
     Public angle1, angle2 As Single
+
     Public Sub draw_scene()
         '===========================================================================
         ' FLAG INFO
@@ -41,7 +43,7 @@ Module modRender
 
         If MODELS_LOADED Then
             '=======================================================================
-            frustum_cull()
+            frustum_cull() '========================================================
             '=======================================================================
         End If
 
@@ -52,7 +54,7 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        Draw_SkyDome() '
+        Draw_SkyDome() '============================================================
         '===========================================================================
 
         '===========================================================================
@@ -80,6 +82,10 @@ Module modRender
             draw_overlays() '=======================================================
             '=======================================================================
         End If
+        '===========================================================================
+        'After terrin colors =======================================================
+        draw_terrain_grids() '======================================================
+        '===========================================================================
 
         'setup for projection before drawing
         FBOm.attach_C_no_Depth()
@@ -363,8 +369,41 @@ Module modRender
         End If
     End Sub
 
-    Dim temp_timer As New Stopwatch
+    Private Sub draw_terrain_grids()
+        If (SHOW_BORDER + SHOW_CHUNKS + SHOW_GRID) = 0 Then
+            Return
+        End If
 
+        FBOm.attach_CF()
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.DepthTest)
+        TerrainGrids.Use()
+        GL.Uniform2(TerrainGrids("bb_tr"), MAP_BB_UR.X, MAP_BB_UR.Y)
+        GL.Uniform2(TerrainGrids("bb_bl"), MAP_BB_BL.X, MAP_BB_BL.Y)
+        GL.Uniform1(TerrainGrids("g_size"), PLAYER_FIELD_CELL_SIZE)
+
+        GL.Uniform1(TerrainGrids("show_border"), SHOW_BORDER)
+        GL.Uniform1(TerrainGrids("show_chunks"), SHOW_CHUNKS)
+        GL.Uniform1(TerrainGrids("show_grid"), SHOW_GRID)
+
+        GL.UniformMatrix4(TerrainGrids("projection"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(TerrainGrids("view"), False, VIEWMATRIX)
+
+        For i = 0 To theMap.render_set.Length - 1
+            GL.UniformMatrix4(TerrainGrids("model"), False, theMap.render_set(i).matrix)
+
+            'draw chunk
+            GL.BindVertexArray(theMap.render_set(i).VAO)
+            GL.DrawElements(PrimitiveType.Triangles,
+                24576,
+                DrawElementsType.UnsignedShort, 0)
+        Next
+        TerrainGrids.StopUse()
+
+        GL.DepthMask(True)
+        GL.Enable(EnableCap.DepthTest)
+
+    End Sub
     Private Sub render_deferred_buffers()
         '===========================================================================
         ' Test our deferred shader =================================================
