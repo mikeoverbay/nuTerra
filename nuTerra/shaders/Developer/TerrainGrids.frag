@@ -22,7 +22,7 @@ void main (void)
 if (show_chunks==1){
     if (uv.x < 0.005 || uv.x > 0.995 || uv.y < 0.005 || uv.y > 0.995)
     {
-        gColor = vec4(0.2,0.2,0.2,0.8);
+        gColor = vec4(0.9,0.9,0.9,0.8);
         flag = 1;
     }
 }//show chunks
