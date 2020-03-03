@@ -67,8 +67,8 @@ Module ChunkFunctions
         If HEIGHTMAPSIZE < 64 Then
             hScaler = 0.5
         End If
-        For j = 0 To 63 Step 1
-            For i = 0 To 64
+        For j As Single = 0 To 63 Step 1
+            For i As Single = 0 To 64
                 topleft.vert.X = (i) - w_
                 topleft.H = v_data.heights((i * hScaler) + 3, (j * hScaler) + 2)
                 v_data.heightsTBL(i + 3, j + 2) = bottomleft.H
@@ -512,7 +512,7 @@ exit2:
         HY = Floor(vyp)
         OY = 1
         If HEIGHTMAPSIZE < 64 Then
-            'HX *= 0.5 : HY *= 0.5
+            HX *= 0.5 : HY *= 0.5
         End If
         Dim altitude As Single = 0.0
 
@@ -523,19 +523,19 @@ exit2:
         tl.Y = ryp
         HX += 3
         HY += 2
-        tl.Z = theMap.v_data(map).heightsTBL(HX, HY)
+        tl.Z = theMap.v_data(map).heights(HX, HY)
 
         tr.X = rxp + tlx
         tr.Y = ryp
-        tr.Z = theMap.v_data(map).heightsTBL(HX + OX, HY)
+        tr.Z = theMap.v_data(map).heights(HX + OX, HY)
 
         br.X = rxp + tlx
         br.Y = ryp + tlx
-        br.Z = theMap.v_data(map).heightsTBL(HX + OX, HY + OY)
+        br.Z = theMap.v_data(map).heights(HX + OX, HY + OY)
 
         bl.X = rxp
         bl.Y = ryp + tlx
-        bl.Z = theMap.v_data(map).heightsTBL(HX, HY + OY)
+        bl.Z = theMap.v_data(map).heights(HX, HY + OY)
 
         tr_ = tr
         br_ = br
