@@ -220,23 +220,25 @@ Module modSpaceBin
         ReDim MODEL_INDEX_LIST(cBSMI.model_BSMO_indexes.count - 1)
         Dim cnt As Integer = 0
 
+        Dim j = 0
         For k = 0 To cBSMI.model_BSMO_indexes.count - 1
-            Dim bsmo_id = cBSMI.model_BSMO_indexes.data(k).BSMO_MODEL_INDEX
-
-            If destroyed_model_ids.Contains(bsmo_id) Then
-                Debug.Assert(False)
+            If Not cBSMI.visibility_masks.data(k).mask.HasFlag(VisbilityFlags.CAPTURE_THE_FLAG) Then
+                Continue For
             End If
 
-            MODEL_INDEX_LIST(k).model_index = bsmo_id
-            MODEL_INDEX_LIST(k).matrix = cBSMI.transforms.data(k)
+            Dim bsmo_id = cBSMI.model_BSMO_indexes.data(k).BSMO_MODEL_INDEX
+            MODEL_INDEX_LIST(j).model_index = bsmo_id
+            MODEL_INDEX_LIST(j).matrix = cBSMI.transforms.data(k)
 
             'Flip some row values to convert from DirectX to Opengl
-            MODEL_INDEX_LIST(k).matrix.M12 *= -1.0
-            MODEL_INDEX_LIST(k).matrix.M13 *= -1.0
-            MODEL_INDEX_LIST(k).matrix.M21 *= -1.0
-            MODEL_INDEX_LIST(k).matrix.M31 *= -1.0
-            MODEL_INDEX_LIST(k).matrix.M41 *= -1.0
+            MODEL_INDEX_LIST(j).matrix.M12 *= -1.0
+            MODEL_INDEX_LIST(j).matrix.M13 *= -1.0
+            MODEL_INDEX_LIST(j).matrix.M21 *= -1.0
+            MODEL_INDEX_LIST(j).matrix.M31 *= -1.0
+            MODEL_INDEX_LIST(j).matrix.M41 *= -1.0
+            j += 1
         Next
+        Array.Resize(MODEL_INDEX_LIST, j - 1)
 
         ReadSpaceBinData = True
         GoTo CleanUp
@@ -272,7 +274,7 @@ CleanUp:
 
         Dim tmpDict As New Dictionary(Of Integer, Integer)
 
-        For i = 0 To MODEL_INDEX_LIST.Length - 2
+        For i = 0 To MODEL_INDEX_LIST.Length - 1
             Dim id = MODEL_INDEX_LIST(i).model_index
             If tmpDict.ContainsKey(id) Then
                 tmpDict(id) += 1

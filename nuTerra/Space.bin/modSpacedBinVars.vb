@@ -4,6 +4,24 @@ Imports System.Text
 Imports OpenTK
 
 Module modSpacedBinVars
+    <Flags()> Public Enum VisbilityFlags As UInt32
+        CAPTURE_THE_FLAG = 1 << 0
+        DOMINATION = 1 << 1
+        ASSAULT = 1 << 2
+        NATIONS = 1 << 3
+        CAPTURE_THE_FLAG_2 = 1 << 4
+        DOMINATION_2 = 1 << 5
+        ASSAULT_2 = 1 << 6
+        FALLOUT_BOMB = 1 << 7
+        FALLOUT_2_FLAG = 1 << 8
+        FALLOUT_3 = 1 << 9
+        FALLOUT_4 = 1 << 10
+        CAPTURE_THE_FLAG_30_VS_30 = 1 << 11
+        DOMINATION_30_VS_30 = 1 << 12
+        SANDBOX = 1 << 13
+        BOOTCAMP = 1 << 14
+        VISIBLE_FOR_OBSERVER = 1 << 15
+    End Enum
 
     Public Class BWArray(Of t)
         Public size As UInt32 ' data size per entry in bytes
@@ -306,13 +324,11 @@ Module modSpacedBinVars
             End Property
         End Structure
 
-        't3
         <StructLayout(LayoutKind.Sequential)>
         Public Structure vis_mask_
-            Public mask As UInt32
+            Public mask As VisbilityFlags
         End Structure
 
-        't4
         <StructLayout(LayoutKind.Sequential)>
         Public Structure model_index_
             Public BSMO_MODEL_INDEX As UInt32
