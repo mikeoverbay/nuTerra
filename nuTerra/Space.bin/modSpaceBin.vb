@@ -302,10 +302,12 @@ CleanUp:
         Dim item = cBSMA.MaterialItem(material_id)
 
         If item.shaderPropBegin = &HFFFFFFFFUI Then
+            pGroup.no_draw = True
             Return
         End If
 
         If item.effectIndex = &HFFFFFFFFUI Then
+            pGroup.no_draw = True
             Return
         End If
 
