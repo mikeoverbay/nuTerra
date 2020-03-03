@@ -6,10 +6,10 @@ Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
 Module ChunkFunctions
-    Public b_x_min As Integer
-    Public b_x_max As Integer
-    Public b_y_min As Integer
-    Public b_y_max As Integer
+    Public b_x_min As Single
+    Public b_x_max As Single
+    Public b_y_min As Single
+    Public b_y_max As Single
     Public tl_, tr_, br_, bl_ As Vector3
     Public Cursor_point As Vector3
     Public surface_normal As Vector3

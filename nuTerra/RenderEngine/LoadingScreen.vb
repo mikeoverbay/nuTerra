@@ -46,6 +46,7 @@ Module LoadingScreen
         GL.Disable(EnableCap.Blend)
         ' Make it so!
         frmMain.glControl_main.SwapBuffers()
+        GL.Flush()
     End Sub
 
     Private Sub draw_text()

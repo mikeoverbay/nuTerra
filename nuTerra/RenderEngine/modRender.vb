@@ -73,6 +73,11 @@ Module modRender
             '=======================================================================
         End If
 
+        '===========================================================================
+        draw_terrain_grids() '======================================================
+        '===========================================================================
+
+
         If MODELS_LOADED Then
             '=======================================================================
             draw_models() '=========================================================
@@ -82,10 +87,6 @@ Module modRender
             draw_overlays() '=======================================================
             '=======================================================================
         End If
-        '===========================================================================
-        'After terrin colors =======================================================
-        draw_terrain_grids() '======================================================
-        '===========================================================================
 
         'setup for projection before drawing
         FBOm.attach_C_no_Depth()
@@ -225,6 +226,7 @@ Module modRender
         GL.Uniform1(TerrainShader("t_normalMap"), 3)
         GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
+        GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
 
         GL.UniformMatrix4(TerrainShader("projection"), False, PROJECTIONMATRIX)
 
@@ -408,6 +410,7 @@ Module modRender
         GL.Enable(EnableCap.DepthTest)
 
     End Sub
+
     Private Sub render_deferred_buffers()
         '===========================================================================
         ' Test our deferred shader =================================================

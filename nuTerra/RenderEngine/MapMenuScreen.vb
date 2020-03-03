@@ -157,7 +157,6 @@ dontaddthis:
             SELECTED_MAP_HIT = hit
             Dim ta = MapPickList(hit - 1).name.Split(":")
             MAP_NAME_NO_PATH = ta(0).Replace(".png", ".pkg")
-            frmMain.Text = "NuTerra : " + MapPickList(hit - 1).realname
             Application.DoEvents()
         Else
             SELECTED_MAP_HIT = 0

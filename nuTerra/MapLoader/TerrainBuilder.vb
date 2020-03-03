@@ -150,6 +150,7 @@ Module TerrainBuilder
         gmm.Extract(gmss)
         theMap.GLOBAL_AM_ID = load_image_from_stream(Il.IL_DDS, gmss, gmm.FileName, False, False)
         gmss.Dispose()
+        GC.Collect()
         '==========================================================
         'getting mini map team icons here
 

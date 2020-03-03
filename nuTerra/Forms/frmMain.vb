@@ -596,6 +596,8 @@ try_again:
                     Return
                 Else
                     Dim dx = SELECTED_MAP_HIT - 1 'deal with posible false hit
+                    Me.Text = "NuTerra : " + MapPickList(SELECTED_MAP_HIT - 1).realname
+
                     If dx < 0 Then Return
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
