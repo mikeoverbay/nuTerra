@@ -27,7 +27,6 @@ Module ChunkFunctions
         get_translated_bb_terrain(v_data.BB, v_data)
         r_set.matrix = Matrix4.CreateTranslation(chunk.location.X, 0.0F, chunk.location.Y)
 
-        ReDim v_data.heightsTBL(69, 69)
         ' 63 * 63 * 2  = 7938 indi count
         ' 64 * 64      = 4096 vert count
         Dim b_size = 65 * 65
@@ -65,21 +64,19 @@ Module ChunkFunctions
         cnt = 0
         Dim hScaler = 1.0
         If HEIGHTMAPSIZE < 64 Then
-            hScaler = 0.5
+            hScaler = 0.5f
         End If
-        For j As Single = 0 To 63 Step 1
+        For j As Single = 0 To 63
             For i As Single = 0 To 64
                 topleft.vert.X = (i) - w_
-                topleft.H = v_data.heights((i * hScaler) + 3, (j * hScaler) + 2)
-                v_data.heightsTBL(i + 3, j + 2) = bottomleft.H
+                topleft.H = v_data.heightsTBL((i + 3), (j + 2))
                 topleft.vert.Y = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
                 'topleft.hole = v_data.holes(i, j)
 
                 bottomleft.vert.X = (i) - w_
-                bottomleft.H = v_data.heights((i * hScaler) + 3, (j * hScaler) + 3)
-                v_data.heightsTBL(i + 3, j + 3) = bottomleft.H
+                bottomleft.H = v_data.heightsTBL((i + 3), (j + 3))
                 bottomleft.vert.Y = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
@@ -266,7 +263,7 @@ Module ChunkFunctions
 
 
         Dim mapsize As UInt32
-        Dim data(HEIGHTMAPSIZE * HEIGHTMAPSIZE * 4) As Byte
+        Dim data(h_width * h_height * 4) As Byte
         Dim cnt As UInt32 = 0
         Using r
             r.Position = 36 'skip bigworld header stuff
@@ -297,6 +294,7 @@ Module ChunkFunctions
         HEIGHTMAPSIZE = mapsize
 
 
+        ReDim v.heightsTBL(69, 69)
         ReDim v.heights(mapsize, mapsize)
         For j As UInt32 = 0 To mapsize - 1
             For i As UInt32 = 0 To mapsize - 1
@@ -304,8 +302,35 @@ Module ChunkFunctions
                 Dim tc = br.ReadInt32
                 quantized = tc * 0.001
                 v.heights(mapsize - i, j) = quantized
+                v.heightsTBL(mapsize - i, j) = quantized
             Next
         Next
+
+        'going to average the hights if there is only 37 x 37
+        If mapsize < 69 Then
+            For j = 0 To 36
+                For i = 0 To 37
+                    v.heights(j, i) = v.heights(j + 1, i)
+                Next
+            Next
+            Dim xx, yy As Integer
+            xx = 0 : yy = 0
+            For j = 1 To 68
+                xx = 0
+                For i = 0 To 68
+                    Dim aa = v.heights(i * 0.5 + 0, j * 0.5 + 0)
+                    Dim bb = v.heights(i * 0.5 + 1, j * 0.5 + 0)
+
+                    Dim cc = v.heights(i * 0.5 + 0, j * 0.5 + 1)
+                    Dim dd = v.heights(i * 0.5 + 1, j * 0.5 + 1)
+
+                    v.heightsTBL(xx, yy) = (aa + bb + cc + dd) / 4.0F
+                    xx += 1
+                Next
+                yy += 1
+            Next
+        End If
+
 
         'need to find a use for this :)
         Dim avg, y_max, y_min As Single
@@ -440,8 +465,10 @@ Module ChunkFunctions
         Dim tl, tr, br, bl, w As Vector3
         Dim xvp, yvp As Integer
         Dim ryp, rxp As Single
-        'Lx += 4.61528462
-        'Lz += 4.61528462
+
+        'not sure why we need this offset
+        Lx += 0.01
+        Lz += 0.01
 
         For xo = 0 To 19
             For yo = 0 To 19
@@ -512,7 +539,6 @@ exit2:
         HY = Floor(vyp)
         OY = 1
         If HEIGHTMAPSIZE < 64 Then
-            HX *= 0.5 : HY *= 0.5
         End If
         Dim altitude As Single = 0.0
 
@@ -523,19 +549,19 @@ exit2:
         tl.Y = ryp
         HX += 3
         HY += 2
-        tl.Z = theMap.v_data(map).heights(HX, HY)
+        tl.Z = theMap.v_data(map).heightsTBL(HX, HY)
 
         tr.X = rxp + tlx
         tr.Y = ryp
-        tr.Z = theMap.v_data(map).heights(HX + OX, HY)
+        tr.Z = theMap.v_data(map).heightsTBL(HX + OX, HY)
 
         br.X = rxp + tlx
         br.Y = ryp + tlx
-        br.Z = theMap.v_data(map).heights(HX + OX, HY + OY)
+        br.Z = theMap.v_data(map).heightsTBL(HX + OX, HY + OY)
 
         bl.X = rxp
         bl.Y = ryp + tlx
-        bl.Z = theMap.v_data(map).heights(HX, HY + OY)
+        bl.Z = theMap.v_data(map).heightsTBL(HX, HY + OY)
 
         tr_ = tr
         br_ = br
