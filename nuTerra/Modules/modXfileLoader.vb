@@ -1,3 +1,0 @@
-﻿Module modXfileLoader
-
-End Module

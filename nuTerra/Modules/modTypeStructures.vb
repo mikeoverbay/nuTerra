@@ -69,9 +69,6 @@ Module modTypeStructures
 
 #End Region
 
-    '--------------------------------------------------------
-    Public triangle_holder As New mappedFile_
-    '--------------------------------------------------------
 
     Public Structure vect3_16
         Public x As UInt16

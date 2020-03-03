@@ -368,12 +368,6 @@ try_again:
         glControl_main.BringToFront()
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
-        'open up our huge virual memory file for storage.
-        '(map size * map size)*((64 * 64) * 6 vertex per quad)
-        triangle_holder.open((20 * 20) * (4096 * 6))
-        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
-                "Virtual File Created")
-        '-----------------------------------------------------------------------------------------
         'Must load and hide frmLighting to access its functions.
         frmLighting.TopMost = False
         frmLighting.SendToBack()
@@ -571,7 +565,6 @@ try_again:
 
     End Sub
 #End Region
-
 
 
 #Region "glControl_main events"
