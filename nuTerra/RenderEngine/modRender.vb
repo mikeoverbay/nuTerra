@@ -471,6 +471,7 @@ Module modRender
         Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", PRIMS_CULLED, FPS_TIME, tr, elapsed)
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
+        txt = String.Format("HX {0} : HY {1}", HX, HY)
         DrawText.DrawString(txt, mono, Brushes.White, position)
 
         GL.Enable(EnableCap.Blend)

@@ -26,17 +26,17 @@ if (show_chunks==1){
         flag = 1;
     }
 }//show chunks
-vec2 Vv = V + 5.0;
+
 if (show_grid==1){
-    if (V.x+5.2 >= bb_bl.x && V.x+4.17 <= bb_tr.x)
+    if (V.x+1.28 >= bb_bl.x && V.x+0.28 <= bb_tr.x)
     {
-    if (V.y+5.2>= bb_bl.y && V.y+4.17 <= bb_tr.y)
+    if (V.y+1.28>= bb_bl.y && V.y+0.28 <= bb_tr.y)
     {
-        if (mod(int(Vv.x*(g_size * 0.01)), int(g_size)) == 0.0){
-            gColor = vec4(0.95,0.95,0.0,0.95);
+        if (mod(int(V.x*g_size*0.01), int(g_size)) == 0.0){
+             gColor = vec4(0.95,0.95,0.0,0.95);
             flag = 1;
         }
-        if (mod(int(Vv.y*(g_size * 0.01)), int(g_size)) == 0.0){
+        if (mod(int(V.y*g_size*0.01), int(g_size)) == 0.0){
             gColor = vec4(0.95,0.95,0.0,0.95);
             flag = 1;
         }
@@ -46,23 +46,23 @@ if (show_grid==1){
 
 if(show_border==1){
     //X border
-    if (V.y +4.17 < bb_tr.y && V.y+5.2 > bb_bl.y){
-        if (V.x +4.17 < bb_bl.x && V.x +5.2 > bb_bl.x){
+    if (V.y +0.28 < bb_tr.y && V.y+1.28 > bb_bl.y){
+        if (V.x +0.28 < bb_bl.x && V.x +1.28 > bb_bl.x){
                 gColor = vec4(1.0,0.0,0.0,0.95);
                 flag = 1;
         }
-        if (V.x +4.17 < bb_tr.x && V.x+5.2 > bb_tr.x){
+        if (V.x +0.28 < bb_tr.x && V.x+1.28 > bb_tr.x){
                 gColor = vec4(1.0,0.0,0.0,0.95);
                 flag = 1;
         }
     }
     //Y border
-    if (V.x +4.17 < bb_tr.x && V.x+5.2 > bb_bl.x){
-        if (V.y +4.17 < bb_bl.y && V.y+5.2 > bb_bl.y){
+    if (V.x +0.28 < bb_tr.x && V.x+1.28 > bb_bl.x){
+        if (V.y +0.28 < bb_bl.y && V.y+1.28 > bb_bl.y){
                 gColor = vec4(1.0,0.0,0.0,0.95);
                 flag = 1;
         }
-        if (V.y +4.17 < bb_tr.y && V.y+5.2 > bb_tr.y){
+        if (V.y +0.28 < bb_tr.y && V.y+1.28 > bb_tr.y){
                gColor = vec4(1.0,0.0,0.0,0.95);
                 flag = 1;
         }

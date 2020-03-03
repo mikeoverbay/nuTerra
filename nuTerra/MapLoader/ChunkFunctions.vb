@@ -15,6 +15,8 @@ Module ChunkFunctions
     Public surface_normal As Vector3
     Public CURSOR_Y As Single
     Public normal_load_count As Integer
+    Public HX, HY, OX, OY As Integer
+
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
         'good place as any to set bounding box
@@ -25,6 +27,7 @@ Module ChunkFunctions
         get_translated_bb_terrain(v_data.BB, v_data)
         r_set.matrix = Matrix4.CreateTranslation(chunk.location.X, 0.0F, chunk.location.Y)
 
+        ReDim v_data.heightsTBL(69, 69)
         ' 63 * 63 * 2  = 7938 indi count
         ' 64 * 64      = 4096 vert count
         Dim b_size = 65 * 65
@@ -34,8 +37,8 @@ Module ChunkFunctions
         Dim uv_buff(b_size) As Vector2
         'Dim indicies(7937) As vect3_16
         Dim indicies(8191) As vect3_16
-        Dim w As Double = HEIGHTMAPSIZE + 1  'bmp_w
-        Dim h As Double = HEIGHTMAPSIZE + 1  'bmp_h
+        Dim w As Double = 64 + 1  'bmp_w
+        Dim h As Double = 64 + 1  'bmp_h
         Dim uvScale = (1.0# / 64.0#)
         Dim w_ = w / 2.0#
         Dim h_ = h / 2.0#
@@ -67,14 +70,16 @@ Module ChunkFunctions
         For j = 0 To 63 Step 1
             For i = 0 To 64
                 topleft.vert.X = (i) - w_
-                topleft.H = v_data.heights(((i * hScaler) + 3), ((j * hScaler) + 2))
+                topleft.H = v_data.heights((i * hScaler) + 3, (j * hScaler) + 2)
+                v_data.heightsTBL(i + 3, j + 2) = bottomleft.H
                 topleft.vert.Y = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
                 'topleft.hole = v_data.holes(i, j)
 
                 bottomleft.vert.X = (i) - w_
-                bottomleft.H = v_data.heights(((i * hScaler) + 3), ((j * hScaler) + 3))
+                bottomleft.H = v_data.heights((i * hScaler) + 3, (j * hScaler) + 3)
+                v_data.heightsTBL(i + 3, j + 3) = bottomleft.H
                 bottomleft.vert.Y = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
@@ -435,6 +440,8 @@ Module ChunkFunctions
         Dim tl, tr, br, bl, w As Vector3
         Dim xvp, yvp As Integer
         Dim ryp, rxp As Single
+        'Lx += 4.61528462
+        'Lz += 4.61528462
 
         For xo = 0 To 19
             For yo = 0 To 19
@@ -468,8 +475,8 @@ exit1:
 exit2:
 
         Dim map = mapBoard(xvp, yvp).map_id
-
         Dim vxp As Double = ((((Lx) / 100)) - Truncate((Truncate(Lx) / 100))) * 65.0
+
         Dim tx As Int32 = Round(Truncate(Lx / 100))
         Dim tz As Int32 = Round(Truncate(Lz / 100))
         If Lx < 0 Then
@@ -500,13 +507,12 @@ exit2:
         w.X = (vxp * tlx)
         w.Y = (vyp * tlx)
 
-        Dim HX, HY, OX, OY As Integer
         HX = Floor(vxp)
         OX = 1
         HY = Floor(vyp)
         OY = 1
         If HEIGHTMAPSIZE < 64 Then
-            HX *= 0.5 : HY *= 0.5
+            'HX *= 0.5 : HY *= 0.5
         End If
         Dim altitude As Single = 0.0
 
@@ -517,19 +523,19 @@ exit2:
         tl.Y = ryp
         HX += 3
         HY += 2
-        tl.Z = theMap.v_data(map).heights(HX, HY)
+        tl.Z = theMap.v_data(map).heightsTBL(HX, HY)
 
         tr.X = rxp + tlx
         tr.Y = ryp
-        tr.Z = theMap.v_data(map).heights(HX + OX, HY)
+        tr.Z = theMap.v_data(map).heightsTBL(HX + OX, HY)
 
         br.X = rxp + tlx
         br.Y = ryp + tlx
-        br.Z = theMap.v_data(map).heights(HX + OX, HY + OY)
+        br.Z = theMap.v_data(map).heightsTBL(HX + OX, HY + OY)
 
         bl.X = rxp
         bl.Y = ryp + tlx
-        bl.Z = theMap.v_data(map).heights(HX, HY + OY)
+        bl.Z = theMap.v_data(map).heightsTBL(HX, HY + OY)
 
         tr_ = tr
         br_ = br

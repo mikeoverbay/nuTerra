@@ -90,6 +90,7 @@ Module TerrainBuilder
     Public Structure terain_V_data_
         Public holes(,) As UInt32
         Public heights(,) As Single
+        Public heightsTBL(,) As Single
         Public avg_heights As Single
         Public normals(,) As Vector3
         Public max_height As Single
