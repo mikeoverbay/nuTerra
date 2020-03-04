@@ -34,7 +34,10 @@ Partial Class frmMain
         Dim flags = GraphicsContextFlags.ForwardCompatible
 #End If
 
-        Me.glControl_main = New OpenTK.GLControl(GraphicsMode.Default, 4, 3, flags)
+        ' Disable depth buffer
+        Dim mode = New GraphicsMode(ColorFormat.Empty, 0)
+
+        Me.glControl_main = New OpenTK.GLControl(mode, 4, 3, flags)
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_load_map = New System.Windows.Forms.ToolStripMenuItem()
