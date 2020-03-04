@@ -34,7 +34,6 @@ Module ChunkFunctions
         Dim v_buff_Y(b_size) As Single
         Dim h_buff(b_size) As UInt32
         Dim uv_buff(b_size) As Vector2
-        'Dim indicies(7937) As vect3_16
         Dim indicies(8191) As vect3_16
         Dim w As Double = 64 + 1  'bmp_w
         Dim h As Double = 64 + 1  'bmp_h
@@ -45,26 +44,26 @@ Module ChunkFunctions
         Dim stride = 65
         Dim cnt As UInt32 = 0
 
-        'we do not need to do this more than one time!
-        If theMap.vertex_vBuffer_id = 0 Then
-            For j = 0 To 63
-                For i = 0 To 63
-                    indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
-                    indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
-                    indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
+        'we need this for creating normals!
+        'If theMap.vertex_vBuffer_id = 0 Then
+        For j = 0 To 63
+            For i = 0 To 63
+                indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
+                indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
+                indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
 
-                    indicies(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
-                    indicies(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
-                    indicies(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
-                    cnt += 2
-                Next
+                indicies(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
+                indicies(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
+                indicies(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
+                cnt += 2
             Next
-        End If
+        Next
+        'End If
 
         cnt = 0
         Dim hScaler = 1.0
         If HEIGHTMAPSIZE < 64 Then
-            hScaler = 0.5f
+            hScaler = 0.5F
         End If
         For j As Single = 0 To 63
             For i As Single = 0 To 64
@@ -115,9 +114,17 @@ Module ChunkFunctions
             Next
         Next
         TOTAL_TRIANGLES_DRAWN += 8192 ' number of triangles per chunk
-        Dim fill_buff As Boolean = False
+
+        '=========================================================================
+        'Test to see if we can produce usable smoothed normals using IQ's method
+        ' https://www.iquilezles.org/www/articles/normals/normals.htm
+        Dim n_buff(65 * 65) As Vector3
+        make_normals(indicies, v_buff_XZ, v_buff_Y, n_buff)
+        '=========================================================================
 
         ' SETUP ==================================================================
+        Dim fill_buff As Boolean = False
+
         'Gen VAO and VBO Ids
         GL.CreateVertexArrays(1, r_set.VAO)
         ReDim r_set.mBuffers(2)
@@ -158,10 +165,10 @@ Module ChunkFunctions
         GL.EnableVertexArrayAttrib(r_set.VAO, 2)
 
         ' NORMALS ================================================================== 
-        GL.NamedBufferData(r_set.mBuffers(2), h_buff.Length * 4, h_buff, BufferUsageHint.StaticDraw)
+        GL.NamedBufferData(r_set.mBuffers(2), n_buff.Length * 12, n_buff, BufferUsageHint.StaticDraw)
 
-        GL.VertexArrayVertexBuffer(r_set.VAO, 3, r_set.mBuffers(2), IntPtr.Zero, 4)
-        GL.VertexArrayAttribFormat(r_set.VAO, 3, 1, VertexAttribType.UnsignedInt, False, 0)
+        GL.VertexArrayVertexBuffer(r_set.VAO, 3, r_set.mBuffers(2), IntPtr.Zero, 12)
+        GL.VertexArrayAttribFormat(r_set.VAO, 3, 3, VertexAttribType.Float, False, 0)
         GL.VertexArrayAttribBinding(r_set.VAO, 3, 3)
         GL.EnableVertexArrayAttrib(r_set.VAO, 3)
 
@@ -169,6 +176,26 @@ Module ChunkFunctions
         GL.VertexArrayElementBuffer(r_set.VAO, theMap.vertex_iBuffer_id)
     End Sub
 
+    Private Sub make_normals(ByRef indi() As vect3_16, ByRef XY() As Vector2, ByRef Z() As Single, ByRef OUT() As Vector3)
+
+        For i = 0 To indi.Length - 1
+            Dim ia As UInt16 = indi(i).z
+            Dim ib As UInt16 = indi(i).y
+            Dim ic As UInt16 = indi(i).x
+
+            Dim e1, e2 As Vector3
+
+            e1.Xz = XY(ia) - XY(ib)
+            e1.Y = Z(ia) - Z(ib)
+            e2.Xz = XY(ic) - XY(ib)
+            e2.Y = Z(ic) - Z(ib)
+            Dim no = Vector3.Cross(e1, e2)
+            'We will normalize in the shader per IQ's recommendation.
+            OUT(ia) += no
+            OUT(ib) += no
+            OUT(ic) += no
+        Next
+    End Sub
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)
 
@@ -289,8 +316,6 @@ Module ChunkFunctions
 
         Dim ms As New MemoryStream(data, False)
         Dim br As New BinaryReader(ms)
-        Dim sv, ev As Integer
-        Dim ty As Integer
         HEIGHTMAPSIZE = mapsize
 
 
@@ -307,6 +332,8 @@ Module ChunkFunctions
         Next
 
         'going to average the hights if there is only 37 x 37
+        'DO NOT TOUCH THIS CODE MIKE!!!
+        'We must shift the column to the left to allow for averaging.
         If mapsize < 69 Then
             For j = 0 To 36
                 For i = 0 To 37
@@ -454,7 +481,7 @@ Module ChunkFunctions
     End Sub
 
     Public Function get_Y_at_XZ(ByVal Lx As Double, ByVal Lz As Double) As Single
-        'If Not maploaded Then Return 100.0\
+
         If Not MAP_LOADED Or Not TERRAIN_LOADED Then
             Return 0
         End If

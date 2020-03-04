@@ -4,7 +4,7 @@
 layout(location = 0) in vec2 vertexXZ;
 layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
-layout(location = 3) in uint holes; 
+layout(location = 3) in vec3 norm; 
 
 uniform mat4 viewModel;
 uniform mat4 projection;
@@ -33,7 +33,7 @@ void main(void)
     Global_UV = scaled + uv_g;
     Global_UV.xy = 1.0 - Global_UV.xy;
     
-    is_hole = holes;
+    is_hole = 0;
 
     vec3 n;
     vec2 uv = UV;
@@ -46,8 +46,10 @@ void main(void)
 
     n.z = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
 
-    vec3 vertexNormal = normalize(n.xzy);
-    vertexNormal.x*= -1.0;
+    n = norm;
+
+    vec3 vertexNormal = normalize(n.xyz);
+    //vertexNormal.x*= -1.0;
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     vec3 tangent;
 

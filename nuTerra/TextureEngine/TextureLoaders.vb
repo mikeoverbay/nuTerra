@@ -186,7 +186,8 @@ Module TextureLoaders
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)
 
-            'this image was not found on the list so we must add it.
+            If fn.Length = 0 Then Return image_id '<- so we can load with out saving in the cache.
+            'Other wise, add it to the cache.
             add_image(fn, image_id)
 
             Return image_id
