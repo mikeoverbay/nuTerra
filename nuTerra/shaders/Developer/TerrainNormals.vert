@@ -10,8 +10,6 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-uniform sampler2D t_normalMap;
-
 out vec3 n;
 
 void main(void)
@@ -21,11 +19,9 @@ void main(void)
 
 
     vec3 vertexNormal = normalize(norm.xyz);
-    //vertexNormal.x *= -1.0;
 
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     
-
     // Calculate vertex position in clip coordinates
     gl_Position = projection * view * model * vec4(vertexPosition, 1.0);
 

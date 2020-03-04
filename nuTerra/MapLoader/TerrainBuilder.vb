@@ -69,6 +69,7 @@ Module TerrainBuilder
         '------------------------
         Public Shared vertex_vBuffer_id As Integer
         Public Shared vertex_iBuffer_id As Integer
+        Public Shared vertex_uvBuffer_id As Integer
         Public Shared indices_count As Integer = 7938 * 3
         '------------------------
 
@@ -83,6 +84,8 @@ Module TerrainBuilder
         Public normals_data() As Byte
 
         Public location As Vector2
+        Public mBoard_x As Int16
+        Public mBoard_y As Int16
         Public has_holes As Boolean
         Public name As String
     End Structure
@@ -98,6 +101,15 @@ Module TerrainBuilder
         Public BB_Max As Vector3
         Public BB_Min As Vector3
         Public BB() As Vector3
+
+        Dim v_buff_XZ() As Vector2
+        Dim v_buff_Y() As Single
+        Dim indicies() As vect3_16
+
+        Public h_buff() As UInt32
+        Public uv_buff() As Vector2
+        Public n_buff() As Vector3
+
     End Structure
 
     Public Structure chunk_render_data_
@@ -107,7 +119,6 @@ Module TerrainBuilder
         '-------------------------------
 
         ' Texture IDs and such below
-        Public TerrainNormals_id As Integer
     End Structure
     '=======================================================================
     Public Sub Create_Terrain()
@@ -122,20 +133,27 @@ Module TerrainBuilder
             get_location(theMap.chunks(I), I)
             get_holes(theMap.chunks(I), theMap.v_data(I))
             get_heights(theMap.chunks(I), theMap.v_data(I))
-            get_normals(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I), I)
             get_mesh(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
             BG_VALUE = I
             draw_scene()
             Application.DoEvents()
         Next
-        Dim x = normal_load_count
+
+        For i = 0 To theMap.chunks.Length - 1
+            smooth_edges(i)
+        Next
+
+        For i = 0 To theMap.chunks.Length - 1
+            build_Terrain_VAO(i)
+        Next
     End Sub
 
     Public Sub get_all_chunk_file_data()
         'Reads and stores the contents of each cdata_processed
         Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
-        'Get the settings for this map
 
+        '==========================================================
+        'Get the settings for this map
         get_team_locations_and_field_BB(ABS_NAME)
         get_Sky_Dome(ABS_NAME)
         '==========================================================
@@ -152,13 +170,13 @@ Module TerrainBuilder
         theMap.GLOBAL_AM_ID = load_image_from_stream(Il.IL_DDS, gmss, gmm.FileName, False, False)
         gmss.Dispose()
         GC.Collect()
+
         '==========================================================
         'getting mini map team icons here
-
         TEAM_1_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_1.png")
         TEAM_2_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
-
         '==========================================================
+
         'I don't expect any maps larger than 225 chunks
         Dim Expected_max_chunk_count As Integer = 20 * 20
         ReDim theMap.chunks(Expected_max_chunk_count)
@@ -182,7 +200,6 @@ Module TerrainBuilder
                 Dim chunk_name As String = .resource
                 Dim loc_x = .loc_x
                 Dim loc_y = .loc_y
-
 
                 '-- make room
                 theMap.v_data(cnt) = New terain_V_data_

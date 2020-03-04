@@ -14,9 +14,8 @@ Module ChunkFunctions
     Public Cursor_point As Vector3
     Public surface_normal As Vector3
     Public CURSOR_Y As Single
-    Public normal_load_count As Integer
     Public HX, HY, OX, OY As Integer
-
+    Dim hole_size As Integer
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
         'good place as any to set bounding box
@@ -30,11 +29,14 @@ Module ChunkFunctions
         ' 63 * 63 * 2  = 7938 indi count
         ' 64 * 64      = 4096 vert count
         Dim b_size = 65 * 65
-        Dim v_buff_XZ(b_size) As Vector2
-        Dim v_buff_Y(b_size) As Single
-        Dim h_buff(b_size) As UInt32
-        Dim uv_buff(b_size) As Vector2
-        Dim indicies(8191) As vect3_16
+
+        ReDim v_data.v_buff_XZ(b_size)
+        ReDim v_data.v_buff_Y(b_size)
+        ReDim v_data.h_buff(b_size)
+        ReDim v_data.uv_buff(b_size)
+        ReDim v_data.n_buff(65 * 65)
+        ReDim v_data.indicies(8191)
+
         Dim w As Double = 64 + 1  'bmp_w
         Dim h As Double = 64 + 1  'bmp_h
         Dim uvScale = (1.0# / 64.0#)
@@ -48,13 +50,13 @@ Module ChunkFunctions
         'If theMap.vertex_vBuffer_id = 0 Then
         For j = 0 To 63
             For i = 0 To 63
-                indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
-                indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
-                indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
+                v_data.indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
+                v_data.indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
+                v_data.indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
 
-                indicies(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
-                indicies(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
-                indicies(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
+                v_data.indicies(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
+                v_data.indicies(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
+                v_data.indicies(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
                 cnt += 2
             Next
         Next
@@ -72,14 +74,14 @@ Module ChunkFunctions
                 topleft.vert.Y = (j) - h_
                 topleft.uv.X = (i) * uvScale
                 topleft.uv.Y = (j) * uvScale
-                'topleft.hole = v_data.holes(i, j)
+                topleft.hole = v_data.holes(topleft.uv.X * hole_size, topleft.uv.Y * hole_size)
 
                 bottomleft.vert.X = (i) - w_
                 bottomleft.H = v_data.heightsTBL((i + 3), (j + 3))
                 bottomleft.vert.Y = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
-                'bottomleft.hole = v_data.holes(i, j + 1)
+                topleft.hole = v_data.holes(topleft.uv.X * hole_size, topleft.uv.Y * hole_size)
 
                 '         I
                 '  TL --------- TR
@@ -99,85 +101,35 @@ Module ChunkFunctions
 
 
                 ' Fill the arrays
-                v_buff_XZ(i + ((j + 1) * stride)) = bottomleft.vert
-                v_buff_XZ(i + ((j + 0) * stride)) = topleft.vert
+                v_data.v_buff_XZ(i + ((j + 1) * stride)) = bottomleft.vert
+                v_data.v_buff_XZ(i + ((j + 0) * stride)) = topleft.vert
 
-                v_buff_Y(i + ((j + 1) * stride)) = bottomleft.H
-                v_buff_Y(i + ((j + 0) * stride)) = topleft.H
+                v_data.v_buff_Y(i + ((j + 1) * stride)) = bottomleft.H
+                v_data.v_buff_Y(i + ((j + 0) * stride)) = topleft.H
 
-                h_buff(i + ((j + 1) * stride)) = bottomleft.hole
-                h_buff(i + ((j + 0) * stride)) = topleft.hole
+                v_data.h_buff(i + ((j + 1) * stride)) = bottomleft.hole
+                v_data.h_buff(i + ((j + 0) * stride)) = topleft.hole
 
-                uv_buff(i + ((j + 1) * stride)) = bottomleft.uv
-                uv_buff(i + ((j + 0) * stride)) = topleft.uv
+                v_data.uv_buff(i + ((j + 1) * stride)) = bottomleft.uv
+                v_data.uv_buff(i + ((j + 0) * stride)) = topleft.uv
 
             Next
         Next
+
+        'needs to be moved to culling
         TOTAL_TRIANGLES_DRAWN += 8192 ' number of triangles per chunk
 
         '=========================================================================
-        'Test to see if we can produce usable smoothed normals using IQ's method
-        ' https://www.iquilezles.org/www/articles/normals/normals.htm
-        Dim n_buff(65 * 65) As Vector3
-        make_normals(indicies, v_buff_XZ, v_buff_Y, n_buff)
+        'From : https://www.iquilezles.org/www/articles/normals/normals.htm
+        'Greate smoothed normals using IQ's method
+        make_normals(v_data.indicies, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff)
         '=========================================================================
 
-        ' SETUP ==================================================================
-        Dim fill_buff As Boolean = False
 
-        'Gen VAO and VBO Ids
-        GL.CreateVertexArrays(1, r_set.VAO)
-        ReDim r_set.mBuffers(2)
-        GL.CreateBuffers(3, r_set.mBuffers)
-
-        ' If the shared buffer is not defined, we need to do so.
-        If theMap.vertex_vBuffer_id = 0 Then
-            GL.CreateBuffers(1, theMap.vertex_vBuffer_id)
-            GL.CreateBuffers(1, theMap.vertex_iBuffer_id)
-
-            'if the shared buffer is not defined, we need to fill the buffer now
-            GL.NamedBufferData(theMap.vertex_iBuffer_id, indicies.Length * 6, indicies, BufferUsageHint.StaticDraw)
-            GL.NamedBufferData(theMap.vertex_vBuffer_id, v_buff_XZ.Length * 8, v_buff_XZ, BufferUsageHint.StaticDraw)
-        End If
-
-        ' VERTEX XZ ==================================================================
-        If fill_buff Then
-        End If
-        GL.VertexArrayVertexBuffer(r_set.VAO, 0, theMap.vertex_vBuffer_id, IntPtr.Zero, 8)
-        GL.VertexArrayAttribFormat(r_set.VAO, 0, 2, VertexAttribType.Float, False, 0)
-        GL.VertexArrayAttribBinding(r_set.VAO, 0, 0)
-        GL.EnableVertexArrayAttrib(r_set.VAO, 0)
-
-        ' POSITION Y ==================================================================
-        GL.NamedBufferData(r_set.mBuffers(0), v_buff_Y.Length * 4, v_buff_Y, BufferUsageHint.StaticDraw)
-
-        GL.VertexArrayVertexBuffer(r_set.VAO, 1, r_set.mBuffers(0), IntPtr.Zero, 4)
-        GL.VertexArrayAttribFormat(r_set.VAO, 1, 1, VertexAttribType.Float, False, 0)
-        GL.VertexArrayAttribBinding(r_set.VAO, 1, 1)
-        GL.EnableVertexArrayAttrib(r_set.VAO, 1)
-
-        ' UV ==================================================================
-        GL.NamedBufferData(r_set.mBuffers(1), uv_buff.Length * 8, uv_buff, BufferUsageHint.StaticDraw)
-
-        GL.VertexArrayVertexBuffer(r_set.VAO, 2, r_set.mBuffers(1), IntPtr.Zero, 8)
-        GL.VertexArrayAttribFormat(r_set.VAO, 2, 2, VertexAttribType.Float, False, 0)
-        GL.VertexArrayAttribBinding(r_set.VAO, 2, 2)
-        GL.EnableVertexArrayAttrib(r_set.VAO, 2)
-
-        ' NORMALS ================================================================== 
-        GL.NamedBufferData(r_set.mBuffers(2), n_buff.Length * 12, n_buff, BufferUsageHint.StaticDraw)
-
-        GL.VertexArrayVertexBuffer(r_set.VAO, 3, r_set.mBuffers(2), IntPtr.Zero, 12)
-        GL.VertexArrayAttribFormat(r_set.VAO, 3, 3, VertexAttribType.Float, False, 0)
-        GL.VertexArrayAttribBinding(r_set.VAO, 3, 3)
-        GL.EnableVertexArrayAttrib(r_set.VAO, 3)
-
-        ' INDICES ==================================================================
-        GL.VertexArrayElementBuffer(r_set.VAO, theMap.vertex_iBuffer_id)
     End Sub
 
     Private Sub make_normals(ByRef indi() As vect3_16, ByRef XY() As Vector2, ByRef Z() As Single, ByRef OUT() As Vector3)
-
+        'generate and smooth normals. Amazing code by IQ.
         For i = 0 To indi.Length - 1
             Dim ia As UInt16 = indi(i).z
             Dim ib As UInt16 = indi(i).y
@@ -197,10 +149,141 @@ Module ChunkFunctions
         Next
     End Sub
 
+    Public Sub smooth_edges(ByVal Idx As Integer)
+
+        Dim v1, v2, v3, v4 As Vector3
+        With theMap.v_data(Idx)
+
+            Dim mbX = theMap.chunks(Idx).mBoard_x
+            Dim mbY = theMap.chunks(Idx).mBoard_y
+
+            'corner
+            If mapBoard(mbX + 1, mbY - 1).occupied Then
+                Dim tr = mapBoard(mbX + 1, mbY - 1).map_id
+                Dim tl = mapBoard(mbX, mbY - 1).map_id
+                Dim br = mapBoard(mbX + 1, mbY).map_id
+
+                Dim me_ = 64
+                Dim you_tr = 64 * 65
+                Dim you_tl = 65 * 65 - 1
+                Dim you_br = 0
+                v1 = theMap.v_data(tr).n_buff(you_tr)
+                v2 = theMap.v_data(tl).n_buff(you_tl)
+                v3 = theMap.v_data(br).n_buff(you_br)
+                v4 = .n_buff(me_) '<-- me
+                v1 = (v1 + v2 + v3 + v4) / 4.0F
+                theMap.v_data(tr).n_buff(you_tr) = v1
+                theMap.v_data(tl).n_buff(you_tl) = v1
+                theMap.v_data(br).n_buff(you_br) = v1
+                .n_buff(me_) = v1
+            End If
+
+            'top edge
+            If mapBoard(mbX, mbY - 1).occupied Then
+                Dim other = mapBoard(mbX, mbY - 1).map_id
+                For x = 0 To 64
+                    v1 = .n_buff(x) '<-- me
+                    v2 = theMap.v_data(other).n_buff(x + (65 * 64))
+                    v1 = (v1 + v2) / 2.0F
+                    .n_buff(x) = v1
+                    theMap.v_data(other).n_buff(x + (65 * 64)) = v1
+                Next
+            End If
+            'front edge
+            If mapBoard(mbX + 1, mbY).occupied Then
+                Dim other = mapBoard(mbX + 1, mbY).map_id
+                For y = 0 To 64
+                    Dim me_ = y * 65 + 64
+                    Dim you_ = y * 65
+                    v1 = .n_buff(me_) '<-- me
+                    v2 = theMap.v_data(other).n_buff(you_)
+                    v1 = (v1 + v2) / 2.0F
+                    .n_buff(me_) = v1
+                    theMap.v_data(other).n_buff(you_) = v1
+                Next
+            End If
+
+        End With
+
+
+    End Sub
+
+    Public Sub build_Terrain_VAO(ByVal i As Integer)
+        ' SETUP ==================================================================
+        With theMap.v_data(i)
+
+            'Gen VAO and VBO Ids
+            GL.CreateVertexArrays(1, theMap.render_set(i).VAO)
+            ReDim theMap.render_set(i).mBuffers(2)
+            GL.CreateBuffers(3, theMap.render_set(i).mBuffers)
+
+            ' If the shared buffer is not defined, we need to do so.
+            If theMap.vertex_vBuffer_id = 0 Then
+                GL.CreateBuffers(1, theMap.vertex_vBuffer_id)
+                GL.CreateBuffers(1, theMap.vertex_iBuffer_id)
+                GL.CreateBuffers(1, theMap.vertex_uvBuffer_id)
+
+                'if the shared buffer is not defined, we need to fill the buffer now
+                GL.NamedBufferData(theMap.vertex_iBuffer_id, .indicies.Length * 6, .indicies, BufferUsageHint.StaticDraw)
+                GL.NamedBufferData(theMap.vertex_vBuffer_id, .v_buff_XZ.Length * 8, .v_buff_XZ, BufferUsageHint.StaticDraw)
+                GL.NamedBufferData(theMap.vertex_uvBuffer_id, .uv_buff.Length * 8, .uv_buff, BufferUsageHint.StaticDraw)
+            End If
+
+            ' VERTEX XZ ==================================================================
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 0, theMap.vertex_vBuffer_id, IntPtr.Zero, 8)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 0, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 0, 0)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 0)
+
+            ' POSITION Y ==================================================================
+            GL.NamedBufferData(theMap.render_set(i).mBuffers(0), .v_buff_Y.Length * 4, .v_buff_Y, BufferUsageHint.StaticDraw)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 1, theMap.render_set(i).mBuffers(0), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 1, 1, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 1, 1)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 1)
+
+            ' UV ==================================================================
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 2, theMap.vertex_uvBuffer_id, IntPtr.Zero, 8)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 2, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 2, 2)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 2)
+
+            ' NORMALS ================================================================== 
+            GL.NamedBufferData(theMap.render_set(i).mBuffers(1), .n_buff.Length * 12, .n_buff, BufferUsageHint.StaticDraw)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 3, theMap.render_set(i).mBuffers(1), IntPtr.Zero, 12)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 3, 3, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 3, 3)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 3)
+
+            ' holes ================================================================== 
+            GL.NamedBufferData(theMap.render_set(i).mBuffers(2), .h_buff.Length * 4, .h_buff, BufferUsageHint.StaticDraw)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 4, theMap.render_set(i).mBuffers(2), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 4, 1, VertexAttribType.UnsignedInt, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 4, 4)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 4)
+
+            ' INDICES ==================================================================
+            GL.VertexArrayElementBuffer(theMap.render_set(i).VAO, theMap.vertex_iBuffer_id)
+
+            .indicies = Nothing
+            .v_buff_XZ = Nothing
+            .uv_buff = Nothing
+            .v_buff_Y = Nothing
+            .n_buff = Nothing
+            .h_buff = Nothing
+
+        End With
+    End Sub
+
+
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)
 
         'Unpacks and creates hole data
         ReDim v.holes(63, 63)
+        hole_size = 63
 
         If Not c.has_holes Then
             Return
@@ -237,17 +320,17 @@ Module ChunkFunctions
         Dim h As UInt32 = p_rd.ReadUInt32 / 2
         Dim version As UInt32 = p_rd.ReadUInt32
         Dim data(w * h) As Byte
-
         p_rd.Read(data, 0, w * h)
 
         Dim stride = 8
         count = 0
-        If w = 8 Then ' nothing so retrun empty hole array
+        If w = 8 Then ' nothing so return empty hole array
             ps.Dispose()
             ms.Dispose()
             Return
 
         End If
+        hole_size = h * 2 - 1
         'This will be used to punch holes
         'in the map to speed up rendering and allow for sub terrain items.
         'Each bit in the 8 bit grey scale 8 bit image is a hole.
@@ -380,27 +463,6 @@ Module ChunkFunctions
         'End If
     End Sub
 
-    Public Sub get_normals(ByRef c As chunk_, ByRef v As terain_V_data_,
-                           ByRef render_set As chunk_render_data_, map As Integer)
-        normal_load_count += 1
-
-        Using br As New BinaryReader(New MemoryStream(c.normals_data))
-            Dim header = br.ReadUInt32
-            Dim version = br.ReadUInt32
-            Dim x As UInt32 = br.ReadUInt16
-            Dim y As UInt32 = br.ReadUInt16
-            Dim unknown = br.ReadUInt32
-
-            ' Just check
-            Debug.Assert(header = 7172718) ' nrm
-            Debug.Assert(version = 2)
-            Dim buffer(x * y) As Byte
-
-            render_set.TerrainNormals_id = load_t2_normals_from_stream(br, x, y)
-        End Using
-
-        Dim name = theMap.chunks(map).name
-    End Sub
 
     Public Sub set_map_bs()
         b_x_max = -10000
@@ -437,6 +499,8 @@ Module ChunkFunctions
                 c.location.Y = ((AscW(a(7)) - AscW("0")) * 100.0) + 50
             End If
         End If
+        c.mBoard_x = x + 10
+        c.mBoard_y = y + 10
 
         mapBoard(x + 10, y + 10).map_id = map_id
         mapBoard(x + 10, y + 10).location.X = c.location.X

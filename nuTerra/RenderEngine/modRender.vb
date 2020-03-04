@@ -223,7 +223,6 @@ Module modRender
         GL.Uniform1(TerrainShader("colorMap"), 0)
         GL.Uniform1(TerrainShader("normalMap"), 1)
         GL.Uniform1(TerrainShader("GMF_Map"), 2)
-        GL.Uniform1(TerrainShader("t_normalMap"), 3)
         GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
@@ -242,7 +241,6 @@ Module modRender
             GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
             GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
-            GL.BindTextureUnit(3, theMap.render_set(i).TerrainNormals_id)
 
             'draw chunk
             GL.BindVertexArray(theMap.render_set(i).VAO)
@@ -255,7 +253,7 @@ Module modRender
 
         GL.Disable(EnableCap.CullFace)
 
-        unbind_textures(3)
+        unbind_textures(2)
 
         If WIRE_TERRAIN Then
 
@@ -266,7 +264,6 @@ Module modRender
 
             TerrainNormals.Use()
 
-            GL.Uniform1(TerrainNormals("t_normalMap"), 0)
 
             GL.Uniform1(TerrainNormals("prj_length"), 1.0F)
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
@@ -276,7 +273,6 @@ Module modRender
             GL.UniformMatrix4(TerrainNormals("view"), False, VIEWMATRIX)
 
             For i = 0 To theMap.render_set.Length - 1
-                GL.BindTextureUnit(0, theMap.render_set(i).TerrainNormals_id)
 
                 Dim model = theMap.render_set(i).matrix
 

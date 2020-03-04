@@ -215,7 +215,7 @@ Module MapLoader
         SHOW_MAPS_SCREEN = False
         BG_MAX_VALUE = 0
 
-        SHOW_CURSOR = True
+        'SHOW_CURSOR = True
 
         SHOW_LOADING_SCREEN = True
         'For now, we are going to hard wire this name
@@ -397,8 +397,8 @@ Module MapLoader
 
 
         SHOW_LOADING_SCREEN = False
-        LOOK_AT_X = 0.001
-        LOOK_AT_Z = 0.001
+        'LOOK_AT_X = 0.001
+        'LOOK_AT_Z = 0.001
         frmMain.check_postion_for_update() ' need to initialize crusor altitude
 
         'Maintains constant grow shrink regardless of frame rate.

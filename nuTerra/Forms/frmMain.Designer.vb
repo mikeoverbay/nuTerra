@@ -29,7 +29,7 @@ Partial Class frmMain
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
 
 #If DEBUG Then
-        Dim flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
+        Dim flags = GraphicsContextFlags.ForwardCompatible ' Or GraphicsContextFlags.Debug
 #Else
         Dim flags = GraphicsContextFlags.ForwardCompatible
 #End If
