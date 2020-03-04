@@ -12,6 +12,9 @@ Public Class frmMain
     Private fps_timer As New System.Diagnostics.Stopwatch
     Private game_clock As New System.Diagnostics.Stopwatch
     Private launch_timer As New System.Diagnostics.Stopwatch
+
+    Dim MINIMIZED As Boolean
+
 #Region "Form Events"
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
@@ -185,6 +188,11 @@ Public Class frmMain
         If _STARTED Then
             resize_fbo_main()
             draw_scene()
+        End If
+        If Me.WindowState = FormWindowState.Minimized Then
+            MINIMIZED = True
+        Else
+            MINIMIZED = False
         End If
         'Dim s = Me.Size
 
@@ -493,42 +501,48 @@ try_again:
 
         While _STARTED
 
-            WASD_movement()
-            '==============================================================
-            If Not PAUSE_ORBIT Then
-                LIGHT_ORBIT_ANGLE += (DELTA_TIME * 0.5)
-                If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
-                LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-            End If
-            CROSS_HAIR_TIME += (DELTA_TIME * 0.5)
-            If CROSS_HAIR_TIME > 1.0F Then
-                CROSS_HAIR_TIME = 0.0F
-            End If
-            '==============================================================
+            If MINIMIZED Then
+                Application.DoEvents()
+                Thread.Sleep(10)
+            Else
 
-            '==============================================================
-            If fps_timer.ElapsedMilliseconds > 1000 Then
-                fps_timer.Restart()
-                FPS_TIME = FPS_COUNTER
-                FPS_COUNTER = 0
+                WASD_movement()
+                '==============================================================
+                If Not PAUSE_ORBIT Then
+                    LIGHT_ORBIT_ANGLE += (DELTA_TIME * 0.5)
+                    If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
+                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                    LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                End If
+                CROSS_HAIR_TIME += (DELTA_TIME * 0.5)
+                If CROSS_HAIR_TIME > 1.0F Then
+                    CROSS_HAIR_TIME = 0.0F
+                End If
+                '==============================================================
+
+                '==============================================================
+                If fps_timer.ElapsedMilliseconds > 1000 Then
+                    fps_timer.Restart()
+                    FPS_TIME = FPS_COUNTER
+                    FPS_COUNTER = 0
+                End If
+                '==============================================================
+
+                '==============================================================
+                check_postion_for_update()
+                draw_scene()
+                Application.DoEvents()
+                '==============================================================
+
+                '==============================================================
+                'DELTA_TIME is elpased decimal seconds time. IE: 0.0003 seconds
+                Time_after = game_clock.ElapsedTicks
+                DELTA_TIME = CSng((Time_after - Time_before) / Stopwatch.Frequency)
+                game_clock.Restart()
+                Time_before = game_clock.ElapsedTicks
+                '==============================================================
             End If
-            '==============================================================
-
-            '==============================================================
-            check_postion_for_update()
-            draw_scene()
-            Application.DoEvents()
-            '==============================================================
-
-            '==============================================================
-            'DELTA_TIME is elpased decimal seconds time. IE: 0.0003 seconds
-            Time_after = game_clock.ElapsedTicks
-            DELTA_TIME = CSng((Time_after - Time_before) / Stopwatch.Frequency)
-            game_clock.Restart()
-            Time_before = game_clock.ElapsedTicks
-            '==============================================================
         End While
     End Sub
 
