@@ -105,18 +105,17 @@ Module modOpenGL
     End Sub
 
     Private Function pack_10(x As Single) As UInt32
-        Dim qx As Int32 = MathHelper.Clamp(CType(x * 511.0F, Int32), -511, 511)
+        Dim qx As Int32 = MathHelper.Clamp(CType(x * 511.0F, Int32), -512, 511)
         If qx < 0 Then
-            Return 512 Or CType(-1 * qx, UInt32)
+            Return (1 << 9) Or ((CType(-1 - qx, UInt32) Xor ((1 << 9) - 1)))
         Else
             Return qx
         End If
     End Function
-    Public Function do_nothing(ByRef n As Vector4h, w As UInt32) As Vector4h
-        n.W = CSng(w)
-        Return n
-    End Function
+
     Public Function pack_2_10_10_10(unpacked As Vector3, Optional w As UInt32 = 0) As UInt32
+        unpacked.NormalizeFast()
+
         Dim packed_x As UInt32 = pack_10(unpacked.X)
         Dim packed_y As UInt32 = pack_10(unpacked.Y)
         Dim packed_z As UInt32 = pack_10(unpacked.Z)

@@ -229,8 +229,8 @@ try_again:
         If FolderBrowserDialog1.ShowDialog = Forms.DialogResult.OK Then
             My.Settings.GamePath = FolderBrowserDialog1.SelectedPath
             If Not Directory.Exists(My.Settings.GamePath + "\res") Then
-                MsgBox("Wrong Folder Path!" + vbCrLf + _
-                       "You need to point at the World_of_Tanks folder!", _
+                MsgBox("Wrong Folder Path!" + vbCrLf +
+                       "You need to point at the World_of_Tanks folder!",
                         MsgBoxStyle.Exclamation, "Wrong Path!")
                 GoTo try_again
             End If

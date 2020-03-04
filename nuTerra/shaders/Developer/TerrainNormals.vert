@@ -4,7 +4,7 @@
 layout(location = 0) in vec2 vertexXZ;
 layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
-layout(location = 3) in vec3 norm;
+layout(location = 3) in vec4 norm;
 
 uniform mat4 model;
 uniform mat4 view;

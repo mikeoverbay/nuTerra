@@ -142,7 +142,6 @@ Module ChunkFunctions
             e2.Xz = XY(ic) - XY(ib)
             e2.Y = Z(ic) - Z(ib)
             Dim no = Vector3.Cross(e1, e2)
-            'We will normalize in the shader per IQ's recommendation.
             OUT(ia) += no
             OUT(ib) += no
             OUT(ic) += no
@@ -214,8 +213,8 @@ Module ChunkFunctions
 
             'Gen VAO and VBO Ids
             GL.CreateVertexArrays(1, theMap.render_set(i).VAO)
-            ReDim theMap.render_set(i).mBuffers(2)
-            GL.CreateBuffers(3, theMap.render_set(i).mBuffers)
+            ReDim theMap.render_set(i).mBuffers(1)
+            GL.CreateBuffers(2, theMap.render_set(i).mBuffers)
 
             ' If the shared buffer is not defined, we need to do so.
             If theMap.vertex_vBuffer_id = 0 Then
@@ -249,21 +248,20 @@ Module ChunkFunctions
             GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 2, 2)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 2)
 
-            ' NORMALS ================================================================== 
-            GL.NamedBufferData(theMap.render_set(i).mBuffers(1), .n_buff.Length * 12, .n_buff, BufferUsageHint.StaticDraw)
+            Debug.Assert(.n_buff.Length = .h_buff.Length)
 
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 3, theMap.render_set(i).mBuffers(1), IntPtr.Zero, 12)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 3, 3, VertexAttribType.Float, False, 0)
+            Dim packed(.n_buff.Length - 1) As UInteger
+            For j = 0 To .n_buff.Length - 1
+                packed(j) = pack_2_10_10_10(.n_buff(j), .h_buff(j))
+            Next
+
+            ' NORMALS AND HOLES ======================================================== 
+            GL.NamedBufferData(theMap.render_set(i).mBuffers(1), packed.Length * 4, packed, BufferUsageHint.StaticDraw)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 3, theMap.render_set(i).mBuffers(1), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 3, 4, VertexAttribType.Int2101010Rev, True, 0)
             GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 3, 3)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 3)
-
-            ' holes ================================================================== 
-            GL.NamedBufferData(theMap.render_set(i).mBuffers(2), .h_buff.Length * 4, .h_buff, BufferUsageHint.StaticDraw)
-
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 4, theMap.render_set(i).mBuffers(2), IntPtr.Zero, 4)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 4, 1, VertexAttribType.UnsignedInt, False, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 4, 4)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 4)
 
             ' INDICES ==================================================================
             GL.VertexArrayElementBuffer(theMap.render_set(i).VAO, theMap.vertex_iBuffer_id)
