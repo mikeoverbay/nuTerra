@@ -4,7 +4,7 @@
 layout(location = 0) in vec2 vertexXZ;
 layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
-layout(location = 3) in vec4 norm;
+layout(location = 3) in vec4 vertexNormal;
 
 uniform mat4 viewModel;
 uniform mat4 projection;
@@ -32,27 +32,26 @@ void main(void)
     Global_UV = scaled + uv_g;
     Global_UV.xy = 1.0 - Global_UV.xy;
     
-    is_hole = (norm.w == 1.0f) ? 1 : 0;
+    is_hole = (vertexNormal.w == 1.0f) ? 1 : 0;
 
 
-    vec3 vertexNormal = normalize(norm.xyz);
-    //vertexNormal.x*= -1.0;
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     vec3 tangent;
 
+	// NOTE: vertexNormal is already normalized in the VBO.
     vec3 c1 = cross(vertexNormal.xyz, vec3(0.0, 0.0, 1.0));
     vec3 c2 = cross(vertexNormal.xyz, vec3(0.0, 1.0, 0.0));
 
     if( length(c1) > length(c2) )
         {
-            tangent = normalize(c1);
+            tangent = c1;
         }
         else
         {
-            tangent = normalize(c2);
+            tangent = c2;
         }
 
-    tangent = normalize(tangent - dot(vertexNormal.xyz, tangent) * vertexNormal.xyz);
+    tangent = tangent - dot(vertexNormal.xyz, tangent) * vertexNormal.xyz;
 
     vec3 bitangent = cross(tangent, vertexNormal.xyz);
 

@@ -114,7 +114,7 @@ Module modOpenGL
     End Function
 
     Public Function pack_2_10_10_10(unpacked As Vector3, Optional w As UInt32 = 0) As UInt32
-        unpacked.Normalize() 'Fast()
+        unpacked.Normalize()
 
         Dim packed_x As UInt32 = pack_10(unpacked.X)
         Dim packed_y As UInt32 = pack_10(unpacked.Y)

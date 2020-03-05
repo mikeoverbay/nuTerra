@@ -105,7 +105,7 @@ Module FBO_main
             GL.TextureParameter(gNormal, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gNormal, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             GL.TextureParameter(gNormal, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            GL.TextureStorage2D(gNormal, 1, DirectCast(InternalFormat.R11fG11fB10f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            GL.TextureStorage2D(gNormal, 1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gGM_Flag ------------------------------------------------------------------------------------------
             ' 3 color int : GM in RG : Flag in b
