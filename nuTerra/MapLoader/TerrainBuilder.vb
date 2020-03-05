@@ -161,13 +161,15 @@ Module TerrainBuilder
         Dim mm = MAP_PACKAGE("spaces/" + ABS_NAME + "/mmap.dds")
         Dim mss As New MemoryStream
         mm.Extract(mss)
-        theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, mm.FileName, False, False)
+        theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, "", False, False)
         mss.Dispose()
-        'get minimap
+        GC.Collect()
+        GC.WaitForFullGCComplete()
+        'get global_am
         Dim gmm = MAP_PACKAGE("spaces/" + ABS_NAME + "/global_am.dds")
         Dim gmss As New MemoryStream
         gmm.Extract(gmss)
-        theMap.GLOBAL_AM_ID = load_image_from_stream(Il.IL_DDS, gmss, gmm.FileName, False, False)
+        theMap.GLOBAL_AM_ID = load_image_from_stream(Il.IL_DDS, gmss, "", False, False)
         gmss.Dispose()
         GC.Collect()
 

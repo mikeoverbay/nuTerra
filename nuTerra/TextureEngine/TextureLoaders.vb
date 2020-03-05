@@ -190,6 +190,13 @@ Module TextureLoaders
             'Other wise, add it to the cache.
             add_image(fn, image_id)
 
+            Dim glerror As OpenTK.Graphics.OpenGL.ErrorCode = GL.GetError
+            If glerror > 0 Then
+
+                get_GL_error_string(glerror)
+                MsgBox(get_GL_error_string(glerror), MsgBoxStyle.Exclamation, "GL Error")
+
+            End If
             Return image_id
         Else
             MsgBox("Failed to load @ load_image_from_stream", MsgBoxStyle.Exclamation, "Shit!!")
@@ -334,7 +341,6 @@ Module TextureLoaders
                 GL.GenerateTextureMipmap(image_id)
 
                 Il.ilBindImage(0)
-                'ilu.iludeleteimage(texID)
                 ReDim Preserve map_texture_ids(index)
                 map_texture_ids(index) = image_id
 

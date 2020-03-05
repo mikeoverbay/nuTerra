@@ -59,7 +59,7 @@ Module FBO_main
                 DrawText.TextRenderer(SCR_WIDTH, 20)
 
             End If
-            make_test_texture()
+            'make_test_texture()
         End Sub
 
         Public Shared Sub delete_textures_and_fbo()
