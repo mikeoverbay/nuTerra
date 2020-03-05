@@ -291,7 +291,7 @@ Module TextureLoaders
         Return dummy
     End Function
 
-    Public Function get_tank_image(ByVal ms As MemoryStream, ByVal index As Integer, ByVal make_id As Boolean) As Bitmap
+    Public Function get_tank_image(ByVal ms As MemoryStream, ByVal index As Integer, ByVal make_id As Boolean, ByVal scale As Single) As Bitmap
         'all these should be unique textures.. No need to check if they already have been loaded.
 
         'Dim s As String = ""
@@ -310,10 +310,15 @@ Module TextureLoaders
         success = Il.ilGetError
         If success = Il.IL_NO_ERROR Then
             'Ilu.iluFlipImage()
-            'Ilu.iluMirror()
+
             Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
             Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
+            width = Math.Floor(width * scale) + 2
+            height = Math.Floor(height * scale)
+            Ilu.iluScale(width, height, 1)
+
             Il.ilConvertImage(Il.IL_BGR, Il.IL_UNSIGNED_BYTE)
+
 
             If make_id Then
                 GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)

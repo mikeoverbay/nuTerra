@@ -113,7 +113,7 @@ dontaddthis:
                 Dim ms2 = New MemoryStream
                 entry.Extract(ms2)
                 'True = hard wired to save in map_texture_ids(cnt)
-                get_tank_image(ms2, cnt, True)
+                get_tank_image(ms2, cnt, True, 0.5)
                 cnt += 1
             End If
         Next
