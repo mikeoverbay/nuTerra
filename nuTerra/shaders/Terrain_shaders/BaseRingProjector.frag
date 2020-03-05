@@ -34,13 +34,11 @@ void main (void)
     WorldPosition.xyz /= WorldPosition.w;
 
     float rs = length(WorldPosition.xz - ring_center.xz);
-    if (rs <= radius) {
-        if (rs >= radius - thickness){
-            gColor = color;
-            } else {
-            discard;
-            }
-    }else{
+    float t = 1.0+ smoothstep(radius, radius+thickness, rs) 
+                  - smoothstep(radius-thickness, radius, rs);
+    gColor = color;
+    gColor.a = 1.0-t;
+    if (gColor.a <0.0) {
     discard;
     }
 }

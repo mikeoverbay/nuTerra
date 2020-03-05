@@ -83,7 +83,7 @@ Module modRender
         GL.DepthMask(False)
         GL.FrontFace(FrontFaceDirection.Cw)
         GL.Enable(EnableCap.Blend)
-        GL.Disable(EnableCap.CullFace)
+        GL.Enable(EnableCap.CullFace)
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         '===========================================================================
         draw_map_cursor() '=========================================================
@@ -729,7 +729,7 @@ Module modRender
         GL.UniformMatrix4(coloredline2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(coloredline2dShader("color"), co)
         'vertical lines
-        For x = MAP_BB_BL.X To MAP_BB_UR.X Step 100.0F
+        For x = MAP_BB_BL.X + 100.0F To MAP_BB_UR.X - 100.0F Step 100.0F
             Dim pos As New RectangleF(x - 0.5, MAP_BB_BL.Y, 0.0F, h)
             GL.Uniform4(coloredline2dShader("rect"),
                         pos.Left,
@@ -740,7 +740,7 @@ Module modRender
             GL.DrawArrays(PrimitiveType.Lines, 0, 2)
         Next
         'horizonal lines
-        For y = MAP_BB_BL.Y To MAP_BB_UR.Y Step 100.0F
+        For y = MAP_BB_BL.Y + 100.0F To MAP_BB_UR.Y - 100.0F Step 100.0F
             Dim pos As New RectangleF(MAP_BB_BL.X - 0.5, y, w, 0.0F)
             GL.Uniform4(coloredline2dShader("rect"),
                         pos.Left,
@@ -946,7 +946,7 @@ Module modRender
         GL.Uniform1(BaseRingProjector("radius"), 50.0F)
         GL.Uniform1(BaseRingProjector("thickness"), 2.0F)
         Dim rotate = Matrix4.CreateRotationX(1.570796)
-        Dim scale = Matrix4.CreateScale(100.0F, 25.0F, 100.0F)
+        Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
 
         ' base 1 ring
         Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)

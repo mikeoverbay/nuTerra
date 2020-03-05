@@ -324,6 +324,13 @@ try_again:
             SetupDebugOutputCallback()
         End If
 #End If
+        '-----------------------------------------------------------------------------------------
+        'Any relevant info the user could use.
+        Dim maxTexSize As Integer
+        GL.GetInteger(GetPName.MaxTextureSize, maxTexSize)
+        LogThis(String.Format("Max Texture Size = {0}", maxTexSize))
+        '-----------------------------------------------------------------------------------------
+
 
         ' Set depth to [0..1] range instead of [-1..1]
         GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.ZeroToOne)
@@ -451,8 +458,6 @@ try_again:
         get_X_model(sp + "\resources\cross_hair.x", CROSS_HAIR)
         CROSS_HAIR_TEXTURE = load_image_from_file(Il.IL_PNG, sp +
                              "\resources\cross_hair_texture.png", True, False)
-
-
         'This gets the first GL texture, vertex array and vertex buffer IDs after the static IDs
         'ALL STATIC ITEMS NEED TO BE LOADED BEFORE THIS IS CALLED!!!
         get_start_ID_for_Components_Deletion()
