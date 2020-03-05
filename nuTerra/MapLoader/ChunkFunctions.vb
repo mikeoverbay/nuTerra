@@ -26,15 +26,15 @@ Module ChunkFunctions
         get_translated_bb_terrain(v_data.BB, v_data)
         r_set.matrix = Matrix4.CreateTranslation(chunk.location.X, 0.0F, chunk.location.Y)
 
-        ' 63 * 63 * 2  = 7938 indi count
-        ' 64 * 64      = 4096 vert count
-        Dim b_size = 65 * 65
+        ' 64 * 64 * 2  = 8192 indi count
+        ' 65 * 65      = 4096 vert count
+        Dim b_size = 65 * 65 - 1
 
         ReDim v_data.v_buff_XZ(b_size)
         ReDim v_data.v_buff_Y(b_size)
         ReDim v_data.h_buff(b_size)
         ReDim v_data.uv_buff(b_size)
-        ReDim v_data.n_buff(65 * 65)
+        ReDim v_data.n_buff(b_size)
         ReDim v_data.indicies(8191)
 
         Dim w As Double = 64 + 1  'bmp_w
@@ -121,7 +121,7 @@ Module ChunkFunctions
 
         '=========================================================================
         'From : https://www.iquilezles.org/www/articles/normals/normals.htm
-        'Greate smoothed normals using IQ's method
+        'Create smoothed normals using IQ's method
         make_normals(v_data.indicies, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff)
         '=========================================================================
 

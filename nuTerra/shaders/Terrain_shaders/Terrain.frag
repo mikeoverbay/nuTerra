@@ -18,7 +18,7 @@ in mat3 TBN;
 in vec3 worldPosition;
 in vec2 UV;
 in vec2 Global_UV;
-in vec3 normal;//temp fro debuging lighting
+in vec3 normal;//temp for debuging lighting
 flat in uint is_hole;
 vec3 getNormal()
 {

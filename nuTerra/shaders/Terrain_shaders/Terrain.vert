@@ -35,7 +35,7 @@ void main(void)
     is_hole = (norm.w == 1.0f) ? 1 : 0;
 
 
-    vec3 vertexNormal = norm.xyz;
+    vec3 vertexNormal = normalize(norm.xyz);
     //vertexNormal.x*= -1.0;
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     vec3 tangent;
