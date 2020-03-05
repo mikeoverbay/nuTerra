@@ -310,10 +310,11 @@ try_again:
 
         ' Requied extensions
         Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
+        Debug.Assert(extensions.Contains("GL_ARB_multi_draw_indirect"))
         Debug.Assert(extensions.Contains("GL_ARB_direct_state_access"))
         Debug.Assert(extensions.Contains("GL_ARB_clip_control"))
 
-        '#If DEBUG Then
+#If DEBUG Or RELEASE Then
         ' Just check
         Debug.Assert(extensions.Contains("GL_KHR_debug"))
         Debug.Assert(extensions.Contains("GL_ARB_debug_output"))
@@ -322,7 +323,7 @@ try_again:
             LogThis("Setup Debug Output Callback")
             SetupDebugOutputCallback()
         End If
-        '#End If
+#End If
 
         ' Set depth to [0..1] range instead of [-1..1]
         GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.ZeroToOne)

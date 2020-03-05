@@ -139,7 +139,7 @@ Module modOpenGL
         GL.Enable(EnableCap.DebugOutputSynchronous)
         debugOutputCallbackProc = New DebugProc(AddressOf DebugOutputCallback)
         GL.DebugMessageCallback(debugOutputCallbackProc, IntPtr.Zero)
-        GL.DebugMessageControl(DebugSourceControl.DontCare, DebugTypeControl.DebugTypeError, DebugSeverityControl.DontCare, 0, 0, True)
+        GL.DebugMessageControl(DebugSourceControl.DontCare, DebugTypeControl.DebugTypeError, DebugSeverityControl.DebugSeverityHigh, 0, 0, True)
     End Sub
 
     Public Function get_GL_error_string(ByVal e As ErrorCode) As String
