@@ -182,17 +182,17 @@ Public Class frmMain
             resize_fbo_main()
             draw_scene()
         End If
+        If Me.WindowState = FormWindowState.Minimized Then
+            MINIMIZED = True
+        Else
+            MINIMIZED = False
+        End If
     End Sub
 
     Private Sub frmMain_ResizeEnd(sender As Object, e As EventArgs) Handles Me.ResizeEnd
         If _STARTED Then
             resize_fbo_main()
             draw_scene()
-        End If
-        If Me.WindowState = FormWindowState.Minimized Then
-            MINIMIZED = True
-        Else
-            MINIMIZED = False
         End If
         'Dim s = Me.Size
 
@@ -603,7 +603,12 @@ try_again:
                     Return
                 Else
                     Dim dx = SELECTED_MAP_HIT - 1 'deal with posible false hit
-                    Me.Text = "NuTerra : " + MapPickList(SELECTED_MAP_HIT - 1).realname
+                    Try
+                        Me.Text = "NuTerra : " + MapPickList(SELECTED_MAP_HIT - 1).realname
+
+                    Catch ex As Exception
+
+                    End Try
 
                     If dx < 0 Then Return
                     BLOCK_MOUSE = True
