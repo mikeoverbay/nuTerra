@@ -552,7 +552,7 @@ Module modRender
         For xp = cx To cx + MINI_MAP_SIZE Step step_s
             GL.Uniform1(miniLegends("index"), index)
 
-            Dim rect As New RectangleF(xp + (step_s / 2.5F), cy, 20.0F, 10.0F)
+            Dim rect As New RectangleF(xp + (step_s / 2.0F) - 8, cy - 12, 16.0F, 12.0F)
             GL.Uniform4(miniLegends("rect"),
                         rect.Left,
                         -rect.Top,
@@ -574,7 +574,7 @@ Module modRender
         For yp = cy To cy + MINI_MAP_SIZE Step step_s
             GL.Uniform1(miniLegends("index"), index)
 
-            Dim rect As New RectangleF(cx, yp + (step_s / 4.0F), 8.0F, 14.0F)
+            Dim rect As New RectangleF(cx - 9, yp + (step_s / 2) - 7, 8.0F, 14.0F)
             GL.Uniform4(miniLegends("rect"),
                         rect.Left,
                         -rect.Top,
