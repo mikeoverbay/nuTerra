@@ -3,6 +3,7 @@
 uniform mat4 ProjectionMatrix;
 uniform vec4 rect;
 uniform float index;
+uniform float divisor;
 uniform int col_row;
 out vec2 texCoord;
 
@@ -30,7 +31,7 @@ void main(void)
 
     gl_Position = ProjectionMatrix * vec4(co, 0.0f, 1.0f);
 
-    vec2 scale = vec2(1.0f/16.0f);
+    vec2 scale = vec2(1.0f/divisor);
     vec2 uvs = uv*scale + vec2(scale * index)-0.001;
     if ( col_row == 0 ){
     uvs.x = uv.x;

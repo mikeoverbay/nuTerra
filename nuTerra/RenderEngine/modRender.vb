@@ -537,12 +537,45 @@ Module modRender
                                                 MINI_MAP_SIZE, MINI_MAP_SIZE),
                                                 FBOmini.gColor)
 
+        '=======================================================================
+        'draw mini map legends
+        '=======================================================================
+        'setup
         GL.Enable(EnableCap.Blend)
         miniLegends.Use()
         GL.Uniform1(miniLegends("imageMap"), 0)
         GL.UniformMatrix4(miniLegends("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform1(miniLegends("divisor"), 1.0F) 'tile factor
+        GL.Uniform1(miniLegends("index"), 0)
+
+        '=======================================================================
+        'draw horz trim
+        GL.BindTextureUnit(0, MINI_TRIM_HORZ_ID)
+        Dim rect As New RectangleF(cx - 12, cy - 12, 640 + 12, 16.0F)
+        GL.Uniform4(miniLegends("rect"),
+                  rect.Left,
+                  -rect.Top,
+                  rect.Right,
+                  -rect.Bottom)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        'draw vert trim
+        GL.BindTextureUnit(0, MINI_TRIM_VERT_ID)
+        rect = New RectangleF(cx - 12, cy - 12, 16.0F, 640 + 12.0F)
+        GL.Uniform4(miniLegends("rect"),
+                 rect.Left,
+                 -rect.Top,
+                 rect.Right,
+                 -rect.Bottom)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        '=======================================================================
 
         'row
+        '=======================================================================
+        GL.Uniform1(miniLegends("divisor"), 16.0F) 'tile factor
+
         GL.Uniform1(miniLegends("col_row"), 1) 'draw row
         GL.BindTextureUnit(0, MINI_NUMBERS_ID)
 
@@ -552,7 +585,7 @@ Module modRender
         For xp = cx To cx + MINI_MAP_SIZE Step step_s
             GL.Uniform1(miniLegends("index"), index)
 
-            Dim rect As New RectangleF(xp + (step_s / 2.0F) - 8, cy - 12, 16.0F, 12.0F)
+            rect = New RectangleF(xp + (step_s / 2.0F) - 8, cy - 11, 16.0F, 10.0F)
             GL.Uniform4(miniLegends("rect"),
                         rect.Left,
                         -rect.Top,
@@ -564,8 +597,9 @@ Module modRender
             index += 1.0F
             Application.DoEvents()
         Next
-        index = 0
         'column
+        '=======================================================================
+        index = 0
         GL.Uniform1(miniLegends("col_row"), 0) 'draw row
         GL.BindTextureUnit(0, MINI_LETTERS_ID)
 
@@ -574,7 +608,7 @@ Module modRender
         For yp = cy To cy + MINI_MAP_SIZE Step step_s
             GL.Uniform1(miniLegends("index"), index)
 
-            Dim rect As New RectangleF(cx - 9, yp + (step_s / 2) - 7, 8.0F, 14.0F)
+            rect = New RectangleF(cx - 9, yp + (step_s / 2) - 6, 8.0F, 12.0F)
             GL.Uniform4(miniLegends("rect"),
                         rect.Left,
                         -rect.Top,
@@ -588,6 +622,7 @@ Module modRender
         Next
 
         miniLegends.StopUse()
+        GL.BindTextureUnit(0, 0)
         GL.DepthMask(True)
         GL.Disable(EnableCap.Blend)
 

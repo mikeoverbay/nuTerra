@@ -529,6 +529,12 @@
     <Content Include="Resources\mini_numbers.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\mini_trim_horz.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\mini_trim_vert.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\progress_bar.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

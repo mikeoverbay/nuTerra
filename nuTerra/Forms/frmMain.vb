@@ -453,6 +453,14 @@ try_again:
         MINI_NUMBERS_ID = load_image_from_file(Il.IL_PNG,
             sp + "\resources\mini_numbers.png", False, False)
         '---------------------------------------------------------
+        'MiniMap vert trim
+        MINI_TRIM_VERT_ID = load_image_from_file(Il.IL_PNG,
+            sp + "\resources\mini_trim_vert.png", False, False)
+        '---------------------------------------------------------
+        'MiniMap horz trim
+        MINI_TRIM_HORZ_ID = load_image_from_file(Il.IL_PNG,
+            sp + "\resources\mini_trim_horz.png", False, False)
+        '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
         PROGRESS_BAR_IMAGE_ID =
             load_image_from_file(Il.IL_PNG,

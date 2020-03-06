@@ -42,6 +42,8 @@ Module modGlobalVars
     Public MINI_MOUSE_CAPTURED As Boolean
     Public MINI_NUMBERS_ID As Integer
     Public MINI_LETTERS_ID As Integer
+    Public MINI_TRIM_VERT_ID As Integer
+    Public MINI_TRIM_HORZ_ID As Integer
     '============================================================
     'load screen background image
     Public nuTERRA_BG_IMAGE As Integer
