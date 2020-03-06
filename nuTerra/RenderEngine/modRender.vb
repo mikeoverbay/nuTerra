@@ -546,7 +546,7 @@ Module modRender
         GL.Uniform1(miniLegends("imageMap"), 0)
         GL.UniformMatrix4(miniLegends("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(miniLegends("divisor"), 1.0F) 'tile factor
-        GL.Uniform1(miniLegends("index"), 0)
+        GL.Uniform1(miniLegends("index"), 0.0F)
 
         '=======================================================================
         'draw horz trim

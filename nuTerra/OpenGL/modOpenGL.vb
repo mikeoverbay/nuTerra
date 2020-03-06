@@ -130,6 +130,9 @@ Module modOpenGL
                                    length As Integer,
                                    messagePtr As IntPtr,
                                    userParam As IntPtr)
+        If id = 131185 Then
+            Return
+        End If
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
         LogThis(String.Format("OpenGL error #{0}: {1}", id, message))
     End Sub
@@ -139,7 +142,7 @@ Module modOpenGL
         GL.Enable(EnableCap.DebugOutputSynchronous)
         debugOutputCallbackProc = New DebugProc(AddressOf DebugOutputCallback)
         GL.DebugMessageCallback(debugOutputCallbackProc, IntPtr.Zero)
-        GL.DebugMessageControl(DebugSourceControl.DontCare, DebugTypeControl.DebugTypeError, DebugSeverityControl.DebugSeverityHigh, 0, 0, True)
+        GL.DebugMessageControl(DebugSourceControl.DontCare, DebugTypeControl.DebugTypeError, DebugSeverityControl.DontCare, 0, 0, True)
     End Sub
 
     Public Function get_GL_error_string(ByVal e As ErrorCode) As String
