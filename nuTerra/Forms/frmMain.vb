@@ -445,6 +445,14 @@ try_again:
         DIRECTION_TEXTURE_ID = load_image_from_file(Il.IL_PNG,
             sp + "\resources\direction.png", True, False)
         '---------------------------------------------------------
+        'MiniMap Letter Legends
+        MINI_LETTERS_ID = load_image_from_file(Il.IL_PNG,
+            sp + "\resources\mini_letters.png", False, False)
+        '---------------------------------------------------------
+        'MiniMap Number Legends
+        MINI_NUMBERS_ID = load_image_from_file(Il.IL_PNG,
+            sp + "\resources\mini_numbers.png", False, False)
+        '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
         PROGRESS_BAR_IMAGE_ID =
             load_image_from_file(Il.IL_PNG,

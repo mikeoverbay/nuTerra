@@ -55,15 +55,33 @@ Module MapMenuScreen
 
         End Sub
         Public Sub draw_box(ByVal textId As Integer)
-            Dim rect As New Rectangle(Me.lt.X, -Me.lt.Y + 20, Me.rb.X, -Me.rb.Y - 10)
+            Dim L As Integer
+            If lt.X < 0 Then
+                L = -lt.X
+            Else
+                L = 0
+            End If
+            Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y + 20, Me.rb.X, -Me.rb.Y - 10)
             draw_image_rectangle(rect, textId)
         End Sub
         Public Sub draw_text(ByVal textId As Integer)
-            Dim rect As New Rectangle(Me.lt.X, -Me.lt.Y, 120, 20)
+            Dim L As Integer
+            If lt.X < 0 Then
+                L = -lt.X
+            Else
+                L = 0
+            End If
+            Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y, 120, 20)
             draw_image_rectangle(rect, textId)
         End Sub
         Public Sub draw_pick_box(ByVal color_ As Color4)
-            Dim rect As New Rectangle(Me.lt.X, -Me.lt.Y, Me.rb.X, -Me.rb.Y)
+            Dim L As Integer
+            If lt.X < 0 Then
+                L = -lt.X
+            Else
+                L = 0
+            End If
+            Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y, Me.rb.X, -Me.rb.Y)
             draw_color_rectangle(rect, color_)
         End Sub
 

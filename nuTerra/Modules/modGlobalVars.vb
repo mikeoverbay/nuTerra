@@ -40,6 +40,8 @@ Module modGlobalVars
     Public PROGRESS_BAR_IMAGE_ID As Integer
     Public MINI_WORLD_MOUSE_POSITION As Vector2
     Public MINI_MOUSE_CAPTURED As Boolean
+    Public MINI_NUMBERS_ID As Integer
+    Public MINI_LETTERS_ID As Integer
     '============================================================
     'load screen background image
     Public nuTERRA_BG_IMAGE As Integer
@@ -129,4 +131,5 @@ Module modGlobalVars
     Public MAP_BB_BL As Vector2
     Public TEAM_1_ICON_ID As Integer
     Public TEAM_2_ICON_ID As Integer
+
 End Module

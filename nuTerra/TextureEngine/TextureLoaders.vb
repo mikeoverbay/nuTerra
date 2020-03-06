@@ -138,15 +138,20 @@ Module TextureLoaders
 
         ms.Position = 0
 
-        Dim texID As UInt32
-        Dim textIn(ms.Length) As Byte
-        ms.Read(textIn, 0, ms.Length)
+        GC.Collect()
+        GC.WaitForFullGCComplete()
 
+        Dim imgStore(ms.Length) As Byte
+        ms.Read(imgStore, 0, ms.Length)
+
+        Dim texID As UInt32
         texID = Ilu.iluGenImage()
         Il.ilBindImage(texID)
+
         Dim success = Il.ilGetError
-        Il.ilLoadL(imageType, textIn, textIn.Length)
+        Il.ilLoadL(imageType, imgStore, ms.Length)
         success = Il.ilGetError
+
         If success = Il.IL_NO_ERROR Then
             'Ilu.iluFlipImage()
             'Ilu.iluMirror()

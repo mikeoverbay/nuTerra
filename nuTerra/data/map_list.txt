@@ -6,7 +6,7 @@
 #  The program will replace .png with .pkg to load the map
 #  The png images come from gui.pkg  path: gui/maps/icons/map/
 # ==========================================================
-# Not all maps are here.. Some Epics are missing for now
+#  Not all maps are here.. Some Epics are missing for now
 # ==========================================================
 19_monastery.png:Abbey
 31_airfield.png:Air Field
@@ -17,6 +17,7 @@
 13_erlenberg.png:Erlenberg
 36_fishing_bay.png:Fisherman's Bay
 33_fjord.png:Fjords
+#212_epic_random_valley.png:Hinterland
 95_lost_city_ctf.png:Ghost Town
 115_sweden.png:Glacier
 45_north_america.png:Highway

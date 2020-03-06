@@ -531,13 +531,63 @@ Module modRender
         '===========================================================================
         Ortho_main()
         Dim size = frmMain.glControl_main.Size
-
-        draw_image_rectangle(New RectangleF(size.Width - MINI_MAP_SIZE, size.Height - MINI_MAP_SIZE,
+        Dim cx = size.Width - MINI_MAP_SIZE
+        Dim cy = size.Height - MINI_MAP_SIZE
+        draw_image_rectangle(New RectangleF(cx, cy,
                                                 MINI_MAP_SIZE, MINI_MAP_SIZE),
                                                 FBOmini.gColor)
 
+        GL.Enable(EnableCap.Blend)
+        miniLegends.Use()
+        GL.Uniform1(miniLegends("imageMap"), 0)
+        GL.UniformMatrix4(miniLegends("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
+        'row
+        GL.Uniform1(miniLegends("col_row"), 1) 'draw row
+        GL.BindTextureUnit(0, MINI_NUMBERS_ID)
 
+        Dim index! = 0
+        Dim cnt! = (MAP_BB_UR.X - MAP_BB_BL.X) / 100.0F
+        Dim step_s! = MINI_MAP_SIZE / cnt
+        For xp = cx To cx + MINI_MAP_SIZE Step step_s
+            GL.Uniform1(miniLegends("index"), index)
+
+            Dim rect As New RectangleF(xp + (step_s / 2.5F), cy, 20.0F, 10.0F)
+            GL.Uniform4(miniLegends("rect"),
+                        rect.Left,
+                        -rect.Top,
+                        rect.Right,
+                        -rect.Bottom)
+
+            GL.BindVertexArray(defaultVao)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+            index += 1.0F
+            Application.DoEvents()
+        Next
+        index = 0
+        'column
+        GL.Uniform1(miniLegends("col_row"), 0) 'draw row
+        GL.BindTextureUnit(0, MINI_LETTERS_ID)
+
+        cnt! = (MAP_BB_UR.Y - MAP_BB_BL.Y) / 100.0F
+        step_s! = MINI_MAP_SIZE / cnt
+        For yp = cy To cy + MINI_MAP_SIZE Step step_s
+            GL.Uniform1(miniLegends("index"), index)
+
+            Dim rect As New RectangleF(cx, yp + (step_s / 4.0F), 8.0F, 14.0F)
+            GL.Uniform4(miniLegends("rect"),
+                        rect.Left,
+                        -rect.Top,
+                        rect.Right,
+                        -rect.Bottom)
+
+            GL.BindVertexArray(defaultVao)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+            index += 1.0F
+            Application.DoEvents()
+        Next
+
+        miniLegends.StopUse()
         GL.DepthMask(True)
 
     End Sub

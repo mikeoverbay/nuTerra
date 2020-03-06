@@ -65,7 +65,7 @@ Module ShaderLoader
                 'Stop ' For debugging
             End If
             If Not is_used Then
-                Stop ' For debugging
+                'Stop ' For debugging
             End If
             is_used = False
 #End If
@@ -156,6 +156,7 @@ Module ShaderLoader
     Public gWriterShader As Shader
     Public image2dFlipShader As Shader
     Public image2dShader As Shader
+    Public miniLegends As Shader
     Public MiniMapRingsShader As Shader
     Public modelShader As Shader
     Public normalShader As Shader
@@ -187,6 +188,7 @@ Module ShaderLoader
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")
         gWriterShader = New Shader("gWriter")
+        miniLegends = New Shader("miniLegends")
         MiniMapRingsShader = New Shader("MiniMapRings")
         modelShader = New Shader("model")
         normalShader = New Shader("normal")
@@ -210,6 +212,7 @@ Module ShaderLoader
         shaders.Add(image2dFlipShader)
         shaders.Add(image2dShader)
         shaders.Add(gWriterShader)
+        shaders.Add(miniLegends)
         shaders.Add(MiniMapRingsShader)
         shaders.Add(modelShader)
         shaders.Add(normalShader)
