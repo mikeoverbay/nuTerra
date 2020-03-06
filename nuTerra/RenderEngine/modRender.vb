@@ -589,6 +589,7 @@ Module modRender
 
         miniLegends.StopUse()
         GL.DepthMask(True)
+        GL.Disable(EnableCap.Blend)
 
     End Sub
     Private Sub Draw_mini()
