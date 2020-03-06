@@ -27,17 +27,7 @@ Partial Class frmMain
     Private Sub InitializeComponent()
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
-
-#If DEBUG Or RELEASE Then
-        Dim flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
-#Else
-        Dim flags = GraphicsContextFlags.ForwardCompatible
-#End If
-
-        ' Disable depth buffer
-        Dim mode = New GraphicsMode(ColorFormat.Empty, 0)
-
-        Me.glControl_main = New OpenTK.GLControl(mode, 4, 3, flags)
+        Me.glControl_main = New OpenTK.GLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_load_map = New System.Windows.Forms.ToolStripMenuItem()
@@ -75,8 +65,7 @@ Partial Class frmMain
         '
         'frmMainMenu
         '
-        Me.frmMainMenu.ImageScalingSize = New System.Drawing.Size(1, 16)
-        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_help, Me.m_settings, Me.m_light_settings, Me.m_developer})
+        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_settings, Me.m_light_settings, Me.m_developer, Me.m_help})
         Me.frmMainMenu.Location = New System.Drawing.Point(0, 0)
         Me.frmMainMenu.Name = "frmMainMenu"
         Me.frmMainMenu.Size = New System.Drawing.Size(956, 24)
@@ -143,10 +132,13 @@ Partial Class frmMain
         'm_help
         '
         Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center
         Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
         Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
+        Me.m_help.ImageTransparentColor = System.Drawing.Color.Transparent
         Me.m_help.Name = "m_help"
-        Me.m_help.Size = New System.Drawing.Size(13, 20)
+        Me.m_help.Size = New System.Drawing.Size(28, 20)
+        Me.m_help.TextImageRelation = System.Windows.Forms.TextImageRelation.Overlay
         '
         'm_settings
         '
