@@ -620,7 +620,7 @@ Module modRender
             index += 1.0F
             Application.DoEvents()
         Next
-
+        Dim er1 = GL.GetError
         miniLegends.StopUse()
         GL.BindTextureUnit(0, 0)
         GL.DepthMask(True)

@@ -147,7 +147,7 @@ Module TextureLoaders
         Dim texID As UInt32
         texID = Ilu.iluGenImage()
         Il.ilBindImage(texID)
-
+        Dim er0 = GL.GetError
         Dim success = Il.ilGetError
         Il.ilLoadL(imageType, imgStore, ms.Length)
         success = Il.ilGetError
