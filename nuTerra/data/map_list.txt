@@ -8,11 +8,11 @@
 # ==========================================================
 # Not all maps are here.. Some Epics are missing for now
 # ==========================================================
-19_monastery.png:Abby
+19_monastery.png:Abbey
 31_airfield.png:Air Field
 18_cliff.png:Cliff
 29_el_hallouf.png:El Hallouf
-59_asia_great_wall.png:Emperor's Border
+59_asia_great_wall.png:Empire's Border
 06_ensk.png:Ensk
 13_erlenberg.png:Erlenberg
 36_fishing_bay.png:Fisherman's Bay
