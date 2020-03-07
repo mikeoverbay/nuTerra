@@ -361,7 +361,7 @@ Module TerrainBuilder
         Dim bb_ur As String = bb.Rows(0).Item(1)
         If s1.Length = 1 Then
             s1 = t1.Rows(1).Item(2)
-            s2 = t1.Rows(1).Item(2)
+            s2 = t2.Rows(1).Item(2)
         End If
         t.Dispose()
         t1.Dispose()
@@ -391,16 +391,7 @@ Module TerrainBuilder
 
         End If
 
-        'Silly hack for Klondike's base locations being the same.
-        If MAP_NAME_NO_PATH.Contains("217_er_alaska") Then
-            TEAM_2 *= -1
-        End If
-        ' I dont remeber why I did this but I will find out.. Probably the seaming.
-        'MAP_BB_BL.X -= 0.78
-        'MAP_BB_BL.Y -= 0.78
-        'MAP_BB_UR.X -= 0.78
-        'MAP_BB_UR.Y -= 0.78
-        'Stop
+
         Return True
     End Function
 
