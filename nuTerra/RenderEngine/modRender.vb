@@ -574,14 +574,14 @@ Module modRender
 
         'row
         '=======================================================================
-        GL.Uniform1(miniLegends("divisor"), 16.0F) 'tile factor
+        GL.Uniform1(miniLegends("divisor"), 10.0F) 'tile factor
 
         GL.Uniform1(miniLegends("col_row"), 1) 'draw row
         GL.BindTextureUnit(0, MINI_NUMBERS_ID)
 
         Dim index! = 0
-        Dim cnt! = (MAP_BB_UR.X - MAP_BB_BL.X) / 100.0F
-        Dim step_s! = MINI_MAP_SIZE / cnt
+        Dim cnt! = 10.0F
+        Dim step_s! = MINI_MAP_SIZE / 10.0F
         For xp = cx To cx + MINI_MAP_SIZE Step step_s
             GL.Uniform1(miniLegends("index"), index)
 
@@ -603,8 +603,8 @@ Module modRender
         GL.Uniform1(miniLegends("col_row"), 0) 'draw row
         GL.BindTextureUnit(0, MINI_LETTERS_ID)
 
-        cnt! = (MAP_BB_UR.Y - MAP_BB_BL.Y) / 100.0F
-        step_s! = MINI_MAP_SIZE / cnt
+        cnt! = 10.0F
+        step_s! = MINI_MAP_SIZE / 10.0F
         For yp = cy To cy + MINI_MAP_SIZE Step step_s
             GL.Uniform1(miniLegends("index"), index)
 
@@ -814,7 +814,9 @@ Module modRender
         GL.UniformMatrix4(coloredline2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(coloredline2dShader("color"), co)
         'vertical lines
-        For x = MAP_BB_BL.X + 100.0F To MAP_BB_UR.X - 100.0F Step 100.0F
+        Dim step_size! = w / 10
+
+        For x = MAP_BB_BL.X + step_size! To MAP_BB_UR.X - step_size! Step step_size!
             Dim pos As New RectangleF(x - 0.5, MAP_BB_BL.Y, 0.0F, h)
             GL.Uniform4(coloredline2dShader("rect"),
                         pos.Left,
@@ -825,7 +827,7 @@ Module modRender
             GL.DrawArrays(PrimitiveType.Lines, 0, 2)
         Next
         'horizonal lines
-        For y = MAP_BB_BL.Y + 100.0F To MAP_BB_UR.Y - 100.0F Step 100.0F
+        For y = MAP_BB_BL.Y + step_size! To MAP_BB_UR.Y - step_size! Step step_size!
             Dim pos As New RectangleF(MAP_BB_BL.X - 0.5, y, w, 0.0F)
             GL.Uniform4(coloredline2dShader("rect"),
                         pos.Left,
