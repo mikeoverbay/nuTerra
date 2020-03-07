@@ -390,6 +390,11 @@ Module TerrainBuilder
             MAP_BB_UR.Y *= mmscale
 
         End If
+
+        'Silly hack for Klondike's base locations being the same.
+        If MAP_NAME_NO_PATH.Contains("217_er_alaska") Then
+            TEAM_2 *= -1
+        End If
         ' I dont remeber why I did this but I will find out.. Probably the seaming.
         'MAP_BB_BL.X -= 0.78
         'MAP_BB_BL.Y -= 0.78
