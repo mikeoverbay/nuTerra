@@ -620,7 +620,6 @@ Module modRender
             index += 1.0F
             Application.DoEvents()
         Next
-        Dim er1 = GL.GetError
         miniLegends.StopUse()
         GL.BindTextureUnit(0, 0)
         GL.DepthMask(True)
@@ -867,7 +866,7 @@ Module modRender
         FBOm.attach_CNGP()
         SkyDomeShader.Use()
         GL.Enable(EnableCap.CullFace)
-        Dim model = Matrix4.CreateTranslation(CAM_POSITION.X, CAM_POSITION.Y + 3, CAM_POSITION.Z)
+        Dim model = Matrix4.CreateTranslation(CAM_POSITION.X, CAM_POSITION.Y + 0, CAM_POSITION.Z)
         GL.UniformMatrix4(SkyDomeShader("mvp"), False, model * VIEWMATRIX * PROJECTIONMATRIX)
         GL.Uniform1(SkyDomeShader("imageMap"), 0)
 
