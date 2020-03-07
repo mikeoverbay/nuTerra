@@ -366,17 +366,10 @@ Module MapLoader
         '===============================================================
         'As it says.. create the terrain
         If DONT_BLOCK_TERRAIN Then
-            PLAYER_FIELD_CELL_SIZE = 100.0F
-            Select Case True
-                Case ABS_NAME.Contains("himmel")
-                    PLAYER_FIELD_CELL_SIZE = 80.0F
-                    Exit Select
-                Case ABS_NAME.Contains("ensk")
-                    PLAYER_FIELD_CELL_SIZE = 80.0F
-                    Exit Select
-            End Select
+
             Create_Terrain()
             TERRAIN_LOADED = True
+            PLAYER_FIELD_CELL_SIZE = Math.Abs(MAP_BB_BL.X - MAP_BB_UR.X) / 10.0F
             'TO DO and there is lots
         End If 'DONT_BLOCK_TERRAIN
         '===============================================================
