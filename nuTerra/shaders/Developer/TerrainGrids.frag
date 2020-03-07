@@ -28,9 +28,9 @@ if (show_chunks==1){
 }//show chunks
 
 if (show_grid==1){
-    if (V.x+1.28 >= bb_bl.x && V.x+0.28 <= bb_tr.x)
+    if (V.x+0.38 >= bb_bl.x && V.x+0.38 <= bb_tr.x)
     {
-    if (V.y+1.28>= bb_bl.y && V.y+0.28 <= bb_tr.y)
+    if (V.y+0.38>= bb_bl.y && V.y+0.38 <= bb_tr.y)
     {
         if (fract(V.x/g_size+0.013) < 0.013){
              gColor = vec4(0.95,0.95,0.0,0.95);
