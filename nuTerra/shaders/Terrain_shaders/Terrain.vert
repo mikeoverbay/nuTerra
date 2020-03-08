@@ -13,6 +13,14 @@ uniform vec2 me_location;
 uniform vec2 map_size;
 uniform vec2 map_center;
 
+uniform vec3 cam_position;
+
+uniform int layer_mask;
+
+out vec4 mask_1;
+out vec4 mask_2;
+out vec4 Vertex;
+out float ln;
 out mat3 TBN;
 out vec3 worldPosition;
 out vec2 UV;
@@ -21,7 +29,9 @@ flat out uint is_hole;
 
 void main(void)
 {
-    UV =  vertexTexCoord;
+
+
+     UV =  vertexTexCoord;
     vec2 uv_g;
     vec2 scaled = UV / map_size;
     vec2 m_s = vec2(1.0)/map_size;
@@ -36,9 +46,10 @@ void main(void)
 
 
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
-    vec3 tangent;
+    Vertex = vec4(vertexXZ.x, vertexY, vertexXZ.y, 1.0);
 
-	// NOTE: vertexNormal is already normalized in the VBO.
+    vec3 tangent;
+    // NOTE: vertexNormal is already normalized in the VBO.
     vec3 c1 = cross(vertexNormal.xyz, vec3(0.0, 0.0, 1.0));
     vec3 c2 = cross(vertexNormal.xyz, vec3(0.0, 1.0, 0.0));
 
@@ -71,4 +82,23 @@ void main(void)
 
     // Calculate vertex position in clip coordinates
     gl_Position = projection * viewModel * vec4(vertexPosition, 1.0f);
+    vec3 point = vec3(viewModel * vec4(vertexPosition, 1.0f));
+    // Create the mask.  Used to cancel ant transform of tex_color;\
+    float on = 1.0;
+    float off = 0.0;
+    mask_1 = vec4(1.0 ,1.0 ,1.0 ,1.0);
+    mask_2 = vec4(1.0 ,1.0 ,1.0 ,1.0);
+    if ( layer_mask > 128 ) mask_2.r = 0.0; 
+    if ( layer_mask > 64 ) mask_2.g = 0.0;
+    if ( layer_mask > 32 ) mask_2.b = 0.0;
+    if ( layer_mask > 16 ) mask_2.a = 0.0;
+    if ( layer_mask > 8  ) mask_1.r = 0.0;
+    if ( layer_mask > 4  ) mask_1.g = 0.0;
+    if ( layer_mask > 2  ) mask_1.b = 0.0;
+    if ( layer_mask >= 1  ) mask_1.a = 0.0; // this should always be set
+
+    // This is the cut off distance for bumpping the surface.
+    ln = distance(point.xyz,cam_position.xyz);
+    if (ln<500.0) { ln = sin((1.0 - ln/500.0) * 1.5708);} //Creates sine curve.
+    else {ln = 0.0;}
 }

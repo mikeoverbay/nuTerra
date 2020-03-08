@@ -220,27 +220,130 @@ Module modRender
         '------------------------------------------------
         TerrainShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
-        GL.Uniform1(TerrainShader("colorMap"), 0)
-        GL.Uniform1(TerrainShader("normalMap"), 1)
-        GL.Uniform1(TerrainShader("GMF_Map"), 2)
+
+        'shit load of textures to bind
+        GL.Uniform1(TerrainShader("layer_1T1"), 0)
+        GL.Uniform1(TerrainShader("layer_2T1"), 1)
+        GL.Uniform1(TerrainShader("layer_3T1"), 2)
+        GL.Uniform1(TerrainShader("layer_4T1"), 3)
+
+        GL.Uniform1(TerrainShader("layer_1T2"), 4)
+        GL.Uniform1(TerrainShader("layer_2T2"), 5)
+        GL.Uniform1(TerrainShader("layer_3T2"), 6)
+        GL.Uniform1(TerrainShader("layer_4T2"), 7)
+
+        GL.Uniform1(TerrainShader("n_layer_1T1"), 8)
+        GL.Uniform1(TerrainShader("n_layer_2T1"), 9)
+        GL.Uniform1(TerrainShader("n_layer_3T1"), 10)
+        GL.Uniform1(TerrainShader("n_layer_4T1"), 11)
+
+        GL.Uniform1(TerrainShader("n_layer_1T2"), 12)
+        GL.Uniform1(TerrainShader("n_layer_2T2"), 13)
+        GL.Uniform1(TerrainShader("n_layer_3T2"), 14)
+        GL.Uniform1(TerrainShader("n_layer_4T2"), 15)
+
+
+        GL.Uniform1(TerrainShader("mixtexture1"), 16)
+        GL.Uniform1(TerrainShader("mixtexture2"), 17)
+        GL.Uniform1(TerrainShader("mixtexture3"), 18)
+        GL.Uniform1(TerrainShader("mixtexture4"), 19)
+
+
+        GL.Uniform1(TerrainShader("colorMap"), 20)
+        GL.Uniform1(TerrainShader("normalMap"), 21)
+
+        GL.BindTextureUnit(20, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
+        GL.BindTextureUnit(21, m_normal_id)
+
+
         GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
+        GL.Uniform3(TerrainShader("cam_position"), CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
 
         GL.UniformMatrix4(TerrainShader("projection"), False, PROJECTIONMATRIX)
-
-        GL.BindTextureUnit(0, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
-        GL.BindTextureUnit(1, m_normal_id)
-        GL.BindTextureUnit(2, m_gmm_id)
-
-        'Must have this Identity to use the terrain normal view shader.
-        Dim viewM = Matrix4.Identity * VIEWMATRIX
-
+        Dim u, v As Vector4
         For i = 0 To theMap.render_set.Length - 1
             Dim viewModel = theMap.render_set(i).matrix * VIEWMATRIX
             GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
             GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
+
+            'bind all the data for this chunk
+            With theMap.render_set(i)
+                'AM maps
+                GL.BindTextureUnit(0, .TexLayers(0).AM_id1)
+                GL.BindTextureUnit(1, .TexLayers(1).AM_id1)
+                GL.BindTextureUnit(2, .TexLayers(2).AM_id1)
+                GL.BindTextureUnit(3, .TexLayers(3).AM_id1)
+
+                GL.BindTextureUnit(4, .TexLayers(0).AM_id2)
+                GL.BindTextureUnit(5, .TexLayers(1).AM_id2)
+                GL.BindTextureUnit(6, .TexLayers(2).AM_id2)
+                GL.BindTextureUnit(7, .TexLayers(3).AM_id2)
+                'NM maps
+                GL.BindTextureUnit(8, .TexLayers(0).NM_id1)
+                GL.BindTextureUnit(9, .TexLayers(1).NM_id1)
+                GL.BindTextureUnit(10, .TexLayers(2).NM_id1)
+                GL.BindTextureUnit(11, .TexLayers(3).NM_id1)
+
+                GL.BindTextureUnit(12, .TexLayers(0).NM_id2)
+                GL.BindTextureUnit(13, .TexLayers(1).NM_id2)
+                GL.BindTextureUnit(14, .TexLayers(2).NM_id2)
+                GL.BindTextureUnit(15, .TexLayers(3).NM_id2)
+                'bind blend textures
+                GL.BindTextureUnit(16, .TexLayers(0).Blend_id)
+                GL.BindTextureUnit(17, .TexLayers(1).Blend_id)
+                GL.BindTextureUnit(18, .TexLayers(2).Blend_id)
+                GL.BindTextureUnit(19, .TexLayers(3).Blend_id)
+                'bind transforms
+                'tex 0
+                u = .TexLayers(0).uP1
+                GL.Uniform4(TerrainShader("layer0UT1"), u.X, u.Y, u.Z, u.W)
+                u = .TexLayers(0).uP2
+                GL.Uniform4(TerrainShader("layer0UT2"), u.X, u.Y, u.Z, u.W)
+
+                v = .TexLayers(0).vP1
+                GL.Uniform4(TerrainShader("layer0VT1"), v.X, v.Y, v.Z, v.W)
+                v = .TexLayers(0).vP2
+                GL.Uniform4(TerrainShader("layer0VT2"), v.X, v.Y, v.Z, v.W)
+
+                'tex 1
+                u = .TexLayers(1).uP1
+                GL.Uniform4(TerrainShader("layer1UT1"), u.X, u.Y, u.Z, u.W)
+                u = .TexLayers(1).uP2
+                GL.Uniform4(TerrainShader("layer1UT2"), u.X, u.Y, u.Z, u.W)
+
+                v = .TexLayers(1).vP1
+                GL.Uniform4(TerrainShader("layer1VT1"), v.X, v.Y, v.Z, v.W)
+                v = .TexLayers(1).vP2
+                GL.Uniform4(TerrainShader("layer1VT2"), v.X, v.Y, v.Z, v.W)
+
+                'tex 2
+                u = .TexLayers(2).uP1
+                GL.Uniform4(TerrainShader("layer2UT1"), u.X, u.Y, u.Z, u.W)
+                u = .TexLayers(2).uP2
+                GL.Uniform4(TerrainShader("layer2UT2"), u.X, u.Y, u.Z, u.W)
+
+                v = .TexLayers(2).vP1
+                GL.Uniform4(TerrainShader("layer2VT1"), v.X, v.Y, v.Z, v.W)
+                v = .TexLayers(2).vP2
+                GL.Uniform4(TerrainShader("layer2VT2"), v.X, v.Y, v.Z, v.W)
+
+                'tex 3
+                u = .TexLayers(3).uP1
+                GL.Uniform4(TerrainShader("layer3UT1"), u.X, u.Y, u.Z, u.W)
+                u = .TexLayers(3).uP2
+                GL.Uniform4(TerrainShader("layer3UT2"), u.X, u.Y, u.Z, u.W)
+
+                v = .TexLayers(3).vP1
+                GL.Uniform4(TerrainShader("layer3VT1"), v.X, v.Y, v.Z, v.W)
+                v = .TexLayers(3).vP2
+                GL.Uniform4(TerrainShader("layer3VT2"), v.X, v.Y, v.Z, v.W)
+
+                GL.Uniform1(TerrainShader("layer_mask"), .layers_mask)
+            End With
+
 
             'draw chunk
             GL.BindVertexArray(theMap.render_set(i).VAO)
@@ -256,6 +359,10 @@ Module modRender
         unbind_textures(2)
 
         If WIRE_TERRAIN Then
+
+
+            'Must have this Identity to use the terrain normal view shader.
+            Dim viewM = Matrix4.Identity * VIEWMATRIX
 
             GL.Disable(EnableCap.PolygonOffsetFill)
 

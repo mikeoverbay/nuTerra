@@ -461,14 +461,12 @@ Module ChunkFunctions
         'End If
     End Sub
 
-
     Public Sub set_map_bs()
         b_x_max = -10000
         b_x_min = 10000
         b_y_max = -10000
         b_y_min = 10000
     End Sub
-
 
     Public Sub get_location(ByRef c As chunk_, ByVal map_id As Integer)
         'This routine gets the maps location in the world grid from its name

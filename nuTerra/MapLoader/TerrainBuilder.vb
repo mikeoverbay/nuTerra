@@ -5,6 +5,9 @@ Imports System.Xml
 Imports OpenTK
 
 Module TerrainBuilder
+
+#Region "Terrain Storage"
+
     Public mapBoard(20, 20) As map_entry_
     Public Structure map_entry_
         Public location As Vector2
@@ -117,9 +120,43 @@ Module TerrainBuilder
         Public VAO As Integer
         Public matrix As Matrix4
         '-------------------------------
-
         ' Texture IDs and such below
+        Public TexLayers() As ids_
+        Public layer As layer_render_info_
+        Public b_x_size, b_y_size As Integer
+        Public layers_mask As Integer
+        Public layer_count As Integer
     End Structure
+    Public Structure ids_
+        Public Blend_id As Integer
+        Public AM_name1, NM_name1 As String
+        Public AM_id1, NM_id1 As Integer
+        Public AM_name2, NM_name2 As String
+        Public AM_id2, NM_id2 As Integer
+        Public uP1, uP2, vP1, vP2 As Vector4
+    End Structure
+    Public Structure layer_render_info_
+        Public used_on() As UInt32
+        Public render_info() As layer_render_info_entry_
+    End Structure
+    Public Structure layer_render_info_entry_
+        Public texture_name As String
+        Public width As Integer
+        Public height As Integer
+        Public count As Integer
+        Public u As Vector4
+        Public v As Vector4
+        Public flags As UInt32
+        Dim v1 As Vector3 ' unknown?
+        Public r1 As Vector4
+        Public r2 As Vector4
+        Public scale As Vector4
+    End Structure
+    Public Structure imageData
+        Public data() As Byte
+    End Structure
+#End Region
+
     '=======================================================================
     Public Sub Create_Terrain()
         ReDim mapBoard(20, 20) 'clear it
@@ -139,15 +176,36 @@ Module TerrainBuilder
             Application.DoEvents()
         Next
 
+        BG_VALUE = 0
+        BG_TEXT = "Smoothing Terrain Normals..."
         For i = 0 To theMap.chunks.Length - 1
             smooth_edges(i)
+            BG_VALUE = i
+            draw_scene()
+            Application.DoEvents()
         Next
 
+        BG_VALUE = 0
+        BG_TEXT = "Reading Terrain Texture data..."
+        For i = 0 To theMap.chunks.Length - 1
+            get_layers(i)
+            BG_VALUE = i
+            draw_scene()
+            Application.DoEvents()
+        Next
+
+        'we need to find a way to package the terrains texture info so we can use instance rendering
+        BG_VALUE = 0
+        BG_TEXT = "Building render VAOs..."
         For i = 0 To theMap.chunks.Length - 1
             build_Terrain_VAO(i)
+            BG_VALUE = i
+            draw_scene()
+            Application.DoEvents()
         Next
     End Sub
 
+    '=======================================================================
     Public Sub get_all_chunk_file_data()
         'Reads and stores the contents of each cdata_processed
         Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
@@ -232,6 +290,7 @@ Module TerrainBuilder
                     stream = New MemoryStream
                     blend.Extract(stream)
                     stream.Position = 0
+                    br = New BinaryReader(stream)
                     theMap.chunks(cnt).blend_textures_data = br.ReadBytes(stream.Length)
 
                     Dim dominate = t2("terrain2/dominanttextures")
@@ -255,12 +314,12 @@ Module TerrainBuilder
                     br = New BinaryReader(stream)
                     theMap.chunks(cnt).layers_data = br.ReadBytes(stream.Length)
 
-                    Dim normals = t2("terrain2/normals")
-                    stream = New MemoryStream
-                    normals.Extract(stream)
-                    stream.Position = 0
-                    br = New BinaryReader(stream)
-                    theMap.chunks(cnt).normals_data = br.ReadBytes(stream.Length)
+                    'Dim normals = t2("terrain2/normals")
+                    'stream = New MemoryStream
+                    'normals.Extract(stream)
+                    'stream.Position = 0
+                    'br = New BinaryReader(stream)
+                    'theMap.chunks(cnt).normals_data = br.ReadBytes(stream.Length)
 
                     Dim holes = t2("terrain2/holes")
                     If holes IsNot Nothing Then

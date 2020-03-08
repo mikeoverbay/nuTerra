@@ -11,7 +11,7 @@ Module TextureLoaders
 
 #Region "imgTbl routines"
 
-    Private Sub add_image(fn As String, id As Integer)
+    Public Sub add_image(fn As String, id As Integer)
         Dim r = imgTbl.NewRow
         r("Name") = fn
         r("ID") = id
@@ -99,7 +99,7 @@ Module TextureLoaders
             entry.Extract(ms)
             'we do not want mips and linear filtering
             If fn.Contains(".dds") Then
-                Return load_image_from_stream(Il.IL_DDS, ms, fn, False, True)
+                Return load_dds_image_from_stream(ms, fn)
             End If
             If fn.Contains(".png") Then
                 Return load_image_from_stream(Il.IL_PNG, ms, fn, False, True)
@@ -108,7 +108,7 @@ Module TextureLoaders
         Return -1 ' Didn't find it, return -1
     End Function
 
-    Public Function load_t2_normals_from_stream(br As BinaryReader, w As Integer, h As Integer) As Integer
+    Public Function load_t2_texture_from_stream(br As BinaryReader, w As Integer, h As Integer) As Integer
         Dim image_id As Integer
 
         GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
