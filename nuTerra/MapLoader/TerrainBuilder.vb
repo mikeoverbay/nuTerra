@@ -133,7 +133,8 @@ Module TerrainBuilder
         Public AM_id1, NM_id1 As Integer
         Public AM_name2, NM_name2 As String
         Public AM_id2, NM_id2 As Integer
-        Public uP1, uP2, vP1, vP2 As Vector4
+        Public uP1, uP2, vP1, vP2 As Graphics.Color4
+        Public color1, color2 As Graphics.Color4
     End Structure
     Public Structure layer_render_info_
         Public used_on() As UInt32
@@ -144,13 +145,13 @@ Module TerrainBuilder
         Public width As Integer
         Public height As Integer
         Public count As Integer
-        Public u As Vector4
-        Public v As Vector4
+        Public u As Graphics.Color4
+        Public v As Graphics.Color4
         Public flags As UInt32
-        Dim v1 As Vector3 ' unknown?
-        Public r1 As Vector4
-        Public r2 As Vector4
-        Public scale As Vector4
+        Dim v1 As Graphics.Color4 ' unknown?
+        Public r1 As Graphics.Color4
+        Public r2 As Graphics.Color4
+        Public scale As Graphics.Color4
     End Structure
     Public Structure imageData
         Public data() As Byte

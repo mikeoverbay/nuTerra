@@ -82,7 +82,7 @@ void main(void)
 
     // Calculate vertex position in clip coordinates
     gl_Position = projection * viewModel * vec4(vertexPosition, 1.0f);
-    vec3 point = vec3(viewModel * vec4(vertexPosition, 1.0f));
+    vec3 point = vec3(viewModel * vec4(vertexXZ.x, cam_position.y, vertexXZ.y, 1.0f));
     // Create the mask.  Used to cancel ant transform of tex_color;\
     float on = 1.0;
     float off = 0.0;
@@ -98,7 +98,9 @@ void main(void)
     if ( layer_mask >= 1  ) mask_1.a = 0.0; // this should always be set
 
     // This is the cut off distance for bumpping the surface.
-    ln = distance(point.xyz,cam_position.xyz);
-    if (ln<500.0) { ln = sin((1.0 - ln/500.0) * 1.5708);} //Creates sine curve.
+    vec3 cp = cam_position;
+    //cp.x*= -1.0;
+    ln = distance( point.xyz,cp.xyz );
+    if (ln<200.0) { ln = 1.0 - ln/200.0;} //Creates sine curve.
     else {ln = 0.0;}
 }

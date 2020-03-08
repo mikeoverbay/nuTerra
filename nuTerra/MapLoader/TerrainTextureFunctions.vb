@@ -115,38 +115,38 @@ Module TerrainTextureFunctions
                 .layer.render_info(i).height = br.ReadUInt32
                 .layer.render_info(i).count = br.ReadUInt32
 
-                .layer.render_info(i).u.X = br.ReadSingle
-                .layer.render_info(i).u.Y = br.ReadSingle
-                .layer.render_info(i).u.Z = br.ReadSingle
-                .layer.render_info(i).u.W = br.ReadSingle
+                .layer.render_info(i).u.R = br.ReadSingle
+                .layer.render_info(i).u.G = br.ReadSingle
+                .layer.render_info(i).u.B = br.ReadSingle
+                .layer.render_info(i).u.A = br.ReadSingle
 
-                .layer.render_info(i).v.X = br.ReadSingle
-                .layer.render_info(i).v.Y = br.ReadSingle
-                .layer.render_info(i).v.Z = br.ReadSingle
-                .layer.render_info(i).v.W = br.ReadSingle
+                .layer.render_info(i).v.R = br.ReadSingle
+                .layer.render_info(i).v.G = br.ReadSingle
+                .layer.render_info(i).v.B = br.ReadSingle
+                .layer.render_info(i).v.A = br.ReadSingle
 
                 .layer.render_info(i).flags = br.ReadUInt32
 
                 'not sure about these 3
-                .layer.render_info(i).v1.X = br.ReadSingle
-                .layer.render_info(i).v1.Y = br.ReadSingle
-                .layer.render_info(i).v1.Z = br.ReadSingle
+                .layer.render_info(i).v1.r = br.ReadSingle
+                .layer.render_info(i).v1.g = br.ReadSingle
+                .layer.render_info(i).v1.b = br.ReadSingle
 
-                .layer.render_info(i).r1.X = br.ReadSingle
-                .layer.render_info(i).r1.Y = br.ReadSingle
-                .layer.render_info(i).r1.Z = br.ReadSingle
-                .layer.render_info(i).r1.W = br.ReadSingle
+                .layer.render_info(i).r1.R = br.ReadSingle
+                .layer.render_info(i).r1.G = br.ReadSingle
+                .layer.render_info(i).r1.B = br.ReadSingle
+                .layer.render_info(i).r1.A = br.ReadSingle
 
-                .layer.render_info(i).r2.X = br.ReadSingle
-                .layer.render_info(i).r2.Y = br.ReadSingle
-                .layer.render_info(i).r2.Z = br.ReadSingle
-                .layer.render_info(i).r2.W = br.ReadSingle
+                .layer.render_info(i).r2.R = br.ReadSingle
+                .layer.render_info(i).r2.G = br.ReadSingle
+                .layer.render_info(i).r2.B = br.ReadSingle
+                .layer.render_info(i).r2.A = br.ReadSingle
 
                 'not sure about these
-                .layer.render_info(i).scale.X = br.ReadSingle
-                .layer.render_info(i).scale.Y = br.ReadSingle
-                .layer.render_info(i).scale.Z = br.ReadSingle
-                .layer.render_info(i).scale.W = br.ReadSingle
+                .layer.render_info(i).scale.R = br.ReadSingle
+                .layer.render_info(i).scale.G = br.ReadSingle
+                .layer.render_info(i).scale.B = br.ReadSingle
+                .layer.render_info(i).scale.A = br.ReadSingle
 
                 Dim bs = br.ReadUInt32
                 Dim d = br.ReadBytes(bs)
@@ -208,8 +208,10 @@ Module TerrainTextureFunctions
                     .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt).v
+                    .TexLayers(i).color1 = .layer.render_info(cur_layer_info_pnt).scale
                     .TexLayers(i).uP2 = .layer.render_info(cur_layer_info_pnt + 1).u
                     .TexLayers(i).vP2 = .layer.render_info(cur_layer_info_pnt + 1).v
+                    .TexLayers(i).color2 = .layer.render_info(cur_layer_info_pnt + 1).scale
                     cur_layer_info_pnt += 2
                     'Select Case i
                     '    Case 1

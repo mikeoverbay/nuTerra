@@ -298,50 +298,37 @@ Module modRender
                 GL.BindTextureUnit(19, .TexLayers(3).Blend_id)
                 'bind transforms
                 'tex 0
-                u = .TexLayers(0).uP1
-                GL.Uniform4(TerrainShader("layer0UT1"), u.X, u.Y, u.Z, u.W)
-                u = .TexLayers(0).uP2
-                GL.Uniform4(TerrainShader("layer0UT2"), u.X, u.Y, u.Z, u.W)
+                GL.Uniform4(TerrainShader("layer0UT1"), .TexLayers(0).uP1)
+                GL.Uniform4(TerrainShader("layer0UT2"), .TexLayers(0).uP2)
 
-                v = .TexLayers(0).vP1
-                GL.Uniform4(TerrainShader("layer0VT1"), v.X, v.Y, v.Z, v.W)
-                v = .TexLayers(0).vP2
-                GL.Uniform4(TerrainShader("layer0VT2"), v.X, v.Y, v.Z, v.W)
+                GL.Uniform4(TerrainShader("layer0VT1"), .TexLayers(0).vP1)
+                GL.Uniform4(TerrainShader("layer0VT2"), .TexLayers(0).vP2)
 
                 'tex 1
-                u = .TexLayers(1).uP1
-                GL.Uniform4(TerrainShader("layer1UT1"), u.X, u.Y, u.Z, u.W)
-                u = .TexLayers(1).uP2
-                GL.Uniform4(TerrainShader("layer1UT2"), u.X, u.Y, u.Z, u.W)
+                GL.Uniform4(TerrainShader("layer1UT1"), .TexLayers(1).uP1)
+                GL.Uniform4(TerrainShader("layer1UT2"), .TexLayers(1).uP2)
 
-                v = .TexLayers(1).vP1
-                GL.Uniform4(TerrainShader("layer1VT1"), v.X, v.Y, v.Z, v.W)
-                v = .TexLayers(1).vP2
-                GL.Uniform4(TerrainShader("layer1VT2"), v.X, v.Y, v.Z, v.W)
+                GL.Uniform4(TerrainShader("layer1VT1"), .TexLayers(1).vP1)
+                GL.Uniform4(TerrainShader("layer1VT2"), .TexLayers(1).vP2)
 
                 'tex 2
-                u = .TexLayers(2).uP1
-                GL.Uniform4(TerrainShader("layer2UT1"), u.X, u.Y, u.Z, u.W)
-                u = .TexLayers(2).uP2
-                GL.Uniform4(TerrainShader("layer2UT2"), u.X, u.Y, u.Z, u.W)
+                GL.Uniform4(TerrainShader("layer2UT1"), .TexLayers(2).uP1)
+                GL.Uniform4(TerrainShader("layer2UT2"), .TexLayers(2).uP2)
 
-                v = .TexLayers(2).vP1
-                GL.Uniform4(TerrainShader("layer2VT1"), v.X, v.Y, v.Z, v.W)
-                v = .TexLayers(2).vP2
-                GL.Uniform4(TerrainShader("layer2VT2"), v.X, v.Y, v.Z, v.W)
+                GL.Uniform4(TerrainShader("layer2VT1"), .TexLayers(2).vP1)
+                GL.Uniform4(TerrainShader("layer2VT2"), .TexLayers(2).vP2)
 
                 'tex 3
-                u = .TexLayers(3).uP1
-                GL.Uniform4(TerrainShader("layer3UT1"), u.X, u.Y, u.Z, u.W)
-                u = .TexLayers(3).uP2
-                GL.Uniform4(TerrainShader("layer3UT2"), u.X, u.Y, u.Z, u.W)
+                GL.Uniform4(TerrainShader("layer3UT1"), .TexLayers(3).uP1)
+                GL.Uniform4(TerrainShader("layer3UT2"), .TexLayers(3).uP2)
 
-                v = .TexLayers(3).vP1
-                GL.Uniform4(TerrainShader("layer3VT1"), v.X, v.Y, v.Z, v.W)
-                v = .TexLayers(3).vP2
-                GL.Uniform4(TerrainShader("layer3VT2"), v.X, v.Y, v.Z, v.W)
+                GL.Uniform4(TerrainShader("layer3VT1"), .TexLayers(3).vP1)
+                GL.Uniform4(TerrainShader("layer3VT2"), .TexLayers(3).vP2)
 
                 GL.Uniform1(TerrainShader("layer_mask"), .layers_mask)
+
+
+
             End With
 
 

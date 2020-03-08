@@ -184,12 +184,14 @@ Module TextureLoaders
             ms.Position = 128
 
             GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
+            Dim maxAniso As Single
+            GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
 
             If mipMapCount = 0 Then
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
                 GL.TextureStorage2D(image_id, 1, format, width, height)
@@ -198,6 +200,7 @@ Module TextureLoaders
                 Dim data = br.ReadBytes(size)
                 GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, width, height, DirectCast(format, OpenGL.PixelFormat), size, data)
             Else
+                GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)

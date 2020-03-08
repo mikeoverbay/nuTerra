@@ -52,6 +52,16 @@ uniform vec4 layer1VT2;
 uniform vec4 layer2VT2;
 uniform vec4 layer3VT2;
 
+uniform vec4 color_1;
+uniform vec4 color_2;
+uniform vec4 color_3;
+uniform vec4 color_4;
+
+uniform vec4 color_5;
+uniform vec4 color_6;
+uniform vec4 color_7;
+uniform vec4 color_8;
+
 uniform sampler2D colorMap;
 uniform sampler2D normalMap;
 
@@ -101,7 +111,7 @@ vec4 getNormal()
 void main(void)
 {
 
-    if (is_hole > 0) discard; // Early discard to avoid wasting draw time.
+    //if (is_hole > 0) discard; // Early discard to avoid wasting draw time.
 
     vec4 t1, t2, t3, t4;
     vec4 t1_2, t2_2, t3_2, t4_2;
@@ -123,38 +133,38 @@ void main(void)
     t4 = texture2D(layer_4T1, -tv4 + 0.5 );
 
 
-    n4 = texture2D(n_layer_4T1, -tv4 + .5);
+    n4 = texture2D(n_layer_4T1, -tv4 + 0.5);
     //
     tv4_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
-    t4_2 = texture2D(layer_4T2, -tv4_2 + .5);
-    n4_2 = texture2D(n_layer_4T2, -tv4_2 + .5);
+    t4_2 = texture2D(layer_4T2, -tv4_2 + 0.5);
+    n4_2 = texture2D(n_layer_4T2, -tv4_2 + 0.5);
 
     // layer 3 ---------------------------------------------
     tv3 = vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex));
-    t3 = texture2D(layer_3T1, -tv3 + .5);
-    n3 = texture2D(n_layer_3T1, -tv3 + .5);
+    t3 = texture2D(layer_3T1, -tv3 + 0.5);
+    n3 = texture2D(n_layer_3T1, -tv3 + 0.5);
     //
     tv3_2 = vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex));
-    t3_2 = texture2D(layer_3T2, -tv3_2 + .5);
-    n3_2 = texture2D(n_layer_3T2, -tv3_2 + .5);
+    t3_2 = texture2D(layer_3T2, -tv3_2 + 0.5);
+    n3_2 = texture2D(n_layer_3T2, -tv3_2 + 0.5);
 
     // layer 2 ---------------------------------------------
     tv2 = vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex));
-    t2 = texture2D(layer_2T1, -tv2 + .5);
-    n2 = texture2D(n_layer_2T1, -tv2 + .5);
+    t2 = texture2D(layer_2T1, -tv2 + 0.5);
+    n2 = texture2D(n_layer_2T1, -tv2 + 0.5);
     //
     tv2_2 = vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex));
-    t2_2 = texture2D(layer_2T2, -tv2_2 + .5);
-    n2_2 = texture2D(n_layer_2T2, -tv2_2 + .5);
+    t2_2 = texture2D(layer_2T2, -tv2_2 + 0.5);
+    n2_2 = texture2D(n_layer_2T2, -tv2_2 + 0.5);
 
     // layer 1 ---------------------------------------------
     tv1 = vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex));
-    t1 = texture2D(layer_1T1, -tv1 + .5);
-    n1 = texture2D(n_layer_1T1, -tv1 + .5);
+    t1 = texture2D(layer_1T1, -tv1 + 0.5);
+    n1 = texture2D(n_layer_1T1, -tv1 + 0.5);
     //
     tv1_2 = vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex));
-    t1_2 = texture2D(layer_1T2, -tv1_2 + .5);
-    n1_2 = texture2D(n_layer_1T2, -tv1_2 + .5);
+    t1_2 = texture2D(layer_1T2, -tv1_2 + 0.5);
+    n1_2 = texture2D(n_layer_1T2, -tv1_2 + 0.5);
     //
 
      
@@ -181,17 +191,17 @@ void main(void)
     //Now we mix our color
     vec4 base = vec4(0.0);  
 
-    base += t4 * MixLevel4.r ;
-    base += t4_2 * MixLevel4.g ;
+    base += t4 * MixLevel4.r;
+    base += t4_2 * MixLevel4.g;
 
     base += t3 * MixLevel3.r ;
-    base += t3_2 * MixLevel3.g ;
+    base += t3_2 * MixLevel3.g;
 
-    base += t2 * MixLevel2.r ;
-    base += t2_2 * MixLevel2.g ;
+    base += t2 * MixLevel2.r;
+    base += t2_2 * MixLevel2.g;
 
-    base += t1 * MixLevel1.r ;
-    base += t1_2 * MixLevel1.g ;
+    base += t1 * MixLevel1.r;
+    base += t1_2 * MixLevel1.g;
    
 
 
@@ -225,7 +235,8 @@ void main(void)
     //-------------------------------------------------------------
 
     //It just looks better with the noise normal
-    vec4 out_n = getNormal();
+    vec4 n_tex = getNormal();
+    vec4 out_n = vec4(0.0);
 
     out_n = add_norms(out_n, mix(n1, empty, mask_1.a));
     out_n = add_norms(out_n, mix(n1_2, empty, mask_1.b));
@@ -239,7 +250,8 @@ void main(void)
     //This blends between low and highrez by distance
 
     //DISABLED UNTIL WE SORT THE REST OUT!
-    base.rgb = mix(texture2D(colorMap, Global_UV).rgb, base.rgb, ln*2.0) ;
+    base.rgb = mix(texture2D(colorMap, Global_UV).rgb, base.rgb*0.1, ln) ;
+    out_n = mix(n_tex, out_n, ln) ;
 
     gColor = base;
     gColor.a = 1.0;
