@@ -31,6 +31,7 @@ Module TerrainTextureFunctions
         get_layer_textures(map)
     End Sub
 
+
     Private Sub get_layer_textures(ByVal map As Integer)
         'It is important to fill blank IDs with the dummy texture
         'so the shader has VALID data even if its empty data.
@@ -85,6 +86,8 @@ Module TerrainTextureFunctions
         End With
 
     End Sub
+
+
     Public Function Get_layer_texture_data(ByVal map As Integer) As Boolean
 
         cur_layer_info_pnt = 0
@@ -228,6 +231,8 @@ Module TerrainTextureFunctions
 
         Return True
     End Function
+
+
     Public Function find_and_trim(ByRef fn As String) As Integer
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
@@ -241,12 +246,13 @@ Module TerrainTextureFunctions
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
-            'we want mips and linear filtering
+            'CHANGE THIS TO crop_DDS to use code below.
             id = load_dds_image_from_stream(ms, fn)
             Return id
         End If
         Return -1 ' Didn't find it, return -1
     End Function
+
     Private Function crop_DDS(ByVal type As Integer, ByRef ms As MemoryStream, ByRef fn As String)
         Dim image_id As Integer
 
