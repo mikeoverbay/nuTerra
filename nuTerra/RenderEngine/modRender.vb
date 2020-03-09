@@ -326,6 +326,19 @@ Module modRender
                 GL.Uniform4(TerrainShader("layer3VT1"), .TexLayers(3).vP1)
                 GL.Uniform4(TerrainShader("layer3VT2"), .TexLayers(3).vP2)
 
+                'normalMap type. 1= AG : 0 = RGB
+                GL.Uniform1(TerrainShader("nm_type_1"), .TexLayers(0).nm_type_a)
+                GL.Uniform1(TerrainShader("nm_type_2"), .TexLayers(0).nm_type_b)
+
+                GL.Uniform1(TerrainShader("nm_type_3"), .TexLayers(1).nm_type_a)
+                GL.Uniform1(TerrainShader("nm_type_4"), .TexLayers(1).nm_type_b)
+
+                GL.Uniform1(TerrainShader("nm_type_5"), .TexLayers(2).nm_type_a)
+                GL.Uniform1(TerrainShader("nm_type_6"), .TexLayers(2).nm_type_b)
+
+                GL.Uniform1(TerrainShader("nm_type_7"), .TexLayers(3).nm_type_a)
+                GL.Uniform1(TerrainShader("nm_type_8"), .TexLayers(3).nm_type_b)
+
             End With
 
 

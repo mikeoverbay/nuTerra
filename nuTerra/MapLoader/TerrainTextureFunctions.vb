@@ -168,21 +168,25 @@ Module TerrainTextureFunctions
 
                     .TexLayers(i).AM_name1 = Encoding.UTF8.GetString(d, 0, d.Length)
                     .TexLayers(i).NM_name1 = .TexLayers(i).AM_name1.Replace("AM.dds", "NM.dds")
-
+                    If .TexLayers(i).NM_name1.Contains("PBS") Then
+                        .TexLayers(i).nm_type_a = 1
+                    End If
                     If tex_cnt > 1 Then
                         bs = br2.ReadUInt32
                         d = br2.ReadBytes(bs)
 
                         .TexLayers(i).AM_name2 = Encoding.UTF8.GetString(d, 0, d.Length)
                         .TexLayers(i).NM_name2 = .TexLayers(i).AM_name2.Replace("AM.dds", "NM.dds")
+                        If .TexLayers(i).NM_name2.Contains("PBS") Then
+                            .TexLayers(i).nm_type_b = 1
+                        End If
                     End If
                     .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt).v
-                    .TexLayers(i).color1 = .layer.render_info(cur_layer_info_pnt).scale
+
                     .TexLayers(i).uP2 = .layer.render_info(cur_layer_info_pnt + 1).u
                     .TexLayers(i).vP2 = .layer.render_info(cur_layer_info_pnt + 1).v
-                    .TexLayers(i).color2 = .layer.render_info(cur_layer_info_pnt + 1).scale
 
                     cur_layer_info_pnt += 2
                     .layer_count += 1
@@ -234,7 +238,7 @@ Module TerrainTextureFunctions
         Dim texID As UInt32
         texID = Ilu.iluGenImage()
         Il.ilBindImage(texID)
-        Dim er0 = GL.GetError
+
         Dim success = Il.ilGetError
         Il.ilLoadL(Il.IL_DDS, imgStore, ms.Length)
         success = Il.ilGetError
@@ -271,20 +275,11 @@ Module TerrainTextureFunctions
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)
 
-            If fn.Length = 0 Then Return image_id '<- so we can load with out saving in the cache.
-            'Other wise, add it to the cache.
             add_image(fn, image_id)
 
-            Dim glerror As OpenTK.Graphics.OpenGL.ErrorCode = GL.GetError
-            If glerror > 0 Then
-
-                get_GL_error_string(glerror)
-                MsgBox(get_GL_error_string(glerror), MsgBoxStyle.Exclamation, "GL Error")
-
-            End If
             Return image_id
         Else
-            MsgBox("Failed to load @ load_image_from_stream", MsgBoxStyle.Exclamation, "Shit!!")
+            MsgBox("Failed to load @ crop_DDS", MsgBoxStyle.Exclamation, "Shit!!")
         End If
         Return Nothing
 

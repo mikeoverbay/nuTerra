@@ -52,15 +52,15 @@ uniform vec4 layer1VT2;
 uniform vec4 layer2VT2;
 uniform vec4 layer3VT2;
 
-uniform vec4 color_1;
-uniform vec4 color_2;
-uniform vec4 color_3;
-uniform vec4 color_4;
+uniform int nm_type_1;
+uniform int nm_type_2;
+uniform int nm_type_3;
+uniform int nm_type_4;
 
-uniform vec4 color_5;
-uniform vec4 color_6;
-uniform vec4 color_7;
-uniform vec4 color_8;
+uniform int nm_type_5;
+uniform int nm_type_6;
+uniform int nm_type_7;
+uniform int nm_type_8;
 
 uniform sampler2D colorMap;
 uniform sampler2D normalMap;
@@ -87,6 +87,7 @@ vec4 add_norms (in vec4 n1 , in vec4 n2){
     n1.xyz += n2.xyz;
     return (n1);   
 }
+//-------------------------------------------------------------
 vec4 getNormal()
 {
     vec3 n;
@@ -94,14 +95,23 @@ vec4 getNormal()
         // GA map
         // We must clamp and max these to -1.0 to 1.0 to stop artifacts!
         n.xy = clamp(texture(normalMap, UV).ag*2.0-1.0, -1.0 ,1.0);
-        n.y = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
-        n.xyz = n.xzy;
+        n.z = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
+        //n.xyz = n.xzy;
+        //n.x*= -1.0;
     } else {
         // RGB map
         n = texture(normalMap, UV).rgb*2.0-1.0;
     }
     n = normalize(TBN * n);
     return vec4(n,1.0);
+}
+//-------------------------------------------------------------
+vec4 convertNormal(vec4 norm){
+        vec3 n;
+        n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);
+        n.z = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
+        //n.xyz = n.xzy;
+        return vec4(n,1.0);
 }
 /*===========================================================*/
 
@@ -127,43 +137,48 @@ void main(void)
     mix_coords.x = 1.0 - mix_coords.x;
 
     tv4 = vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex));
-
     t4 = texture2D(layer_4T1, -tv4 + 0.5 );
-
-
     n4 = texture2D(n_layer_4T1, -tv4 + 0.5);
+    if (nm_type_7 == 1) n4 = convertNormal(n4);
     //
     tv4_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
     t4_2 = texture2D(layer_4T2, -tv4_2 + 0.5);
     n4_2 = texture2D(n_layer_4T2, -tv4_2 + 0.5);
+    if (nm_type_8 == 1) n4_2 = convertNormal(n4_2);
 
     // layer 3 ---------------------------------------------
     tv3 = vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex));
     t3 = texture2D(layer_3T1, -tv3 + 0.5);
     n3 = texture2D(n_layer_3T1, -tv3 + 0.5);
-    //
+    if (nm_type_5 == 1) n3 = convertNormal(n3);
+  //
     tv3_2 = vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex));
     t3_2 = texture2D(layer_3T2, -tv3_2 + 0.5);
     n3_2 = texture2D(n_layer_3T2, -tv3_2 + 0.5);
+    if (nm_type_6 == 1) n3_2 = convertNormal(n3_2);
 
     // layer 2 ---------------------------------------------
     tv2 = vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex));
     t2 = texture2D(layer_2T1, -tv2 + 0.5);
     n2 = texture2D(n_layer_2T1, -tv2 + 0.5);
+    if (nm_type_3 == 1) n2 = convertNormal(n2);
     //
     tv2_2 = vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex));
     t2_2 = texture2D(layer_2T2, -tv2_2 + 0.5);
     n2_2 = texture2D(n_layer_2T2, -tv2_2 + 0.5);
+    if (nm_type_4 == 1) n2_2 = convertNormal(n2_2);
 
     // layer 1 ---------------------------------------------
     tv1 = vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex));
     t1 = texture2D(layer_1T1, -tv1 + 0.5);
     n1 = texture2D(n_layer_1T1, -tv1 + 0.5);
+    if (nm_type_1 == 1) n1 = convertNormal(n1);
     //
     tv1_2 = vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex));
     t1_2 = texture2D(layer_1T2, -tv1_2 + 0.5);
     n1_2 = texture2D(n_layer_1T2, -tv1_2 + 0.5);
-    //
+    if (nm_type_2 == 1) n1_2 = convertNormal(n1_2);
+   //
 
      
     MixLevel1.rg = texture2D(mixtexture1, mix_coords.xy).ag;

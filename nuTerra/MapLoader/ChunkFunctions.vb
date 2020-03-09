@@ -276,7 +276,6 @@ Module ChunkFunctions
         End With
     End Sub
 
-
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)
 
         'Unpacks and creates hole data
