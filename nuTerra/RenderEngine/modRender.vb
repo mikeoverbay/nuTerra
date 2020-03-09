@@ -148,9 +148,10 @@ Module modRender
         '===========================================================================
         If _STARTED Then frmMain.glControl_main.SwapBuffers() '=====================
         '===========================================================================
-
-        If frmGbufferViewer.Visible Then
-            frmGbufferViewer.update_screen()
+        If frmGbufferViewer IsNot Nothing Then
+            If frmGbufferViewer.Visible Then
+                frmGbufferViewer.update_screen()
+            End If
         End If
 
         FPS_COUNTER += 1
@@ -327,17 +328,17 @@ Module modRender
                 GL.Uniform4(TerrainShader("layer3VT2"), .TexLayers(3).vP2)
 
                 'normalMap type. 1= AG : 0 = RGB
-                GL.Uniform1(TerrainShader("nm_type_1"), .TexLayers(0).nm_type_a)
-                GL.Uniform1(TerrainShader("nm_type_2"), .TexLayers(0).nm_type_b)
+                GL.Uniform1(TerrainShader("used_1"), .TexLayers(0).used_a)
+                GL.Uniform1(TerrainShader("used_2"), .TexLayers(0).used_b)
 
-                GL.Uniform1(TerrainShader("nm_type_3"), .TexLayers(1).nm_type_a)
-                GL.Uniform1(TerrainShader("nm_type_4"), .TexLayers(1).nm_type_b)
+                GL.Uniform1(TerrainShader("used_3"), .TexLayers(1).used_a)
+                GL.Uniform1(TerrainShader("used_4"), .TexLayers(1).used_b)
 
-                GL.Uniform1(TerrainShader("nm_type_5"), .TexLayers(2).nm_type_a)
-                GL.Uniform1(TerrainShader("nm_type_6"), .TexLayers(2).nm_type_b)
+                GL.Uniform1(TerrainShader("used_5"), .TexLayers(2).used_a)
+                GL.Uniform1(TerrainShader("used_6"), .TexLayers(2).used_b)
 
-                GL.Uniform1(TerrainShader("nm_type_7"), .TexLayers(3).nm_type_a)
-                GL.Uniform1(TerrainShader("nm_type_8"), .TexLayers(3).nm_type_b)
+                GL.Uniform1(TerrainShader("used_7"), .TexLayers(3).used_a)
+                GL.Uniform1(TerrainShader("used_8"), .TexLayers(3).used_b)
 
             End With
 

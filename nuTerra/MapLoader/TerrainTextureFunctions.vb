@@ -39,17 +39,20 @@ Module TerrainTextureFunctions
                 If .AM_name1 = "" Then
                     .AM_id1 = DUMMY_TEXTURE_ID
                     .NM_id1 = DUMMY_TEXTURE_ID
+                    .used_a = 0.0F
                 Else
                     .AM_id1 = find_and_trim(.AM_name1)
                     .NM_id1 = find_and_trim(.NM_name1)
+                    .used_a = 1.0F
                 End If
                 If .AM_name2 = "" Then
                     .AM_id2 = DUMMY_TEXTURE_ID
                     .NM_id2 = DUMMY_TEXTURE_ID
+                    .used_b = 0.0F
                 Else
                     .AM_id2 = find_and_trim(.AM_name2)
                     .NM_id2 = find_and_trim(.NM_name2)
-
+                    .used_b = 1.0F
                 End If
 
             End With
@@ -86,12 +89,12 @@ Module TerrainTextureFunctions
                 .layer.render_info(i).count = br.ReadUInt32
 
                 .layer.render_info(i).u.R = br.ReadSingle
-                .layer.render_info(i).u.G = br.ReadSingle
+                .layer.render_info(i).u.G = -br.ReadSingle
                 .layer.render_info(i).u.B = br.ReadSingle
                 .layer.render_info(i).u.A = br.ReadSingle
 
                 .layer.render_info(i).v.R = br.ReadSingle
-                .layer.render_info(i).v.G = br.ReadSingle
+                .layer.render_info(i).v.G = -br.ReadSingle
                 .layer.render_info(i).v.B = br.ReadSingle
                 .layer.render_info(i).v.A = br.ReadSingle
 
@@ -168,18 +171,12 @@ Module TerrainTextureFunctions
 
                     .TexLayers(i).AM_name1 = Encoding.UTF8.GetString(d, 0, d.Length)
                     .TexLayers(i).NM_name1 = .TexLayers(i).AM_name1.Replace("AM.dds", "NM.dds")
-                    If .TexLayers(i).NM_name1.Contains("PBS") Then
-                        .TexLayers(i).nm_type_a = 1
-                    End If
                     If tex_cnt > 1 Then
                         bs = br2.ReadUInt32
                         d = br2.ReadBytes(bs)
 
                         .TexLayers(i).AM_name2 = Encoding.UTF8.GetString(d, 0, d.Length)
                         .TexLayers(i).NM_name2 = .TexLayers(i).AM_name2.Replace("AM.dds", "NM.dds")
-                        If .TexLayers(i).NM_name2.Contains("PBS") Then
-                            .TexLayers(i).nm_type_b = 1
-                        End If
                     End If
                     .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt).u
@@ -201,10 +198,7 @@ Module TerrainTextureFunctions
 
 
     Public Function find_and_trim(ByRef fn As String) As Integer
-        fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
-        fn = fn.Replace(".png", ".dds")
-        fn = fn.Replace(".atlas", ".atlas_processed")
         Dim id = image_exists(fn) 'check if this has been loaded.
         If id > 0 Then
             Return id

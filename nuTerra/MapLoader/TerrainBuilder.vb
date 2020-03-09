@@ -133,7 +133,7 @@ Module TerrainBuilder
         Public AM_name2, NM_name2 As String
         Public AM_id2, NM_id2 As Integer
         Public uP1, uP2, vP1, vP2 As Graphics.Color4
-        Public nm_type_a, nm_type_b As Integer
+        Public used_a, used_b As Single
     End Structure
     Public Structure layer_render_info_
         Public used_on() As UInt32

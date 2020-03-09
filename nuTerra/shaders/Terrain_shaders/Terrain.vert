@@ -43,6 +43,7 @@ void main(void)
     
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     Vertex = vec4(vertexPosition, 1.0);
+	
     //-------------------------------------------------------
     //Calculate tangent and biNormal
     vec3 tangent;
@@ -78,7 +79,7 @@ void main(void)
     vec3 point = vec3(modelMatrix * Vertex);
     ln = distance( point.xyz,cam_position.xyz );
 	float start = 100.0;
-    if (ln < start + 400.0) { ln = 1.0 - (ln-start)/400.0;} //Creates sine curve.
+    if (ln < start + 300.0) { ln = 1.0 - (ln-start)/300.0;} //Creates sine curve.
     else {ln = 0.0;}
 
 }
