@@ -247,7 +247,7 @@ void main(void)
     //This blends between low and highrez by distance
 
     //DISABLED UNTIL WE SORT THE REST OUT!
-    base.rgb = mix(texture2D(colorMap, Global_UV).rgb, base.rgb*1.1, ln) ;
+    base.rgb = mix(texture2D(colorMap, Global_UV).rgb, base.rgb*0.8, ln) ;
     out_n = mix(n_tex, out_n, ln) ;
 
     gColor = base;

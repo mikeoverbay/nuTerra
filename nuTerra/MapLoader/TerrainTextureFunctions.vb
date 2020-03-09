@@ -210,111 +210,84 @@ Module TerrainTextureFunctions
             Dim ms As New MemoryStream
             entry.Extract(ms)
             'CHANGE THIS TO crop_DDS to use code below.
-            id = load_dds_image_from_stream(ms, fn)
-            'id = crop_DDS(ms, fn)
+            'id = load_dds_image_from_stream(ms, fn)
+            id = crop_DDS(ms, fn)
             Return id
         End If
         Return -1 ' Didn't find it, return -1
     End Function
 
     Private Function crop_DDS(ByRef ms As MemoryStream, ByRef fn As String) As Integer
+         'File name is needed to add to our list of loaded textures
+
+
         Dim image_id As Integer
 
         ms.Position = 0
-        Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
-            Debug.Assert(br.ReadChars(4) = "DDS ") ' file_code
-            Debug.Assert(br.ReadUInt32() = 124) ' size of the header
-            br.ReadUInt32() ' flags
-            Dim height = br.ReadInt32()
-            Dim width = br.ReadInt32()
-            br.ReadUInt32() ' pitchOrLinearSize
-            br.ReadUInt32() ' depth
-            Dim mipMapCount = br.ReadInt32()
-            br.ReadBytes(44) ' reserved1
-            br.ReadUInt32() ' Size
-            br.ReadUInt32() ' Flags
-            Dim FourCC = br.ReadChars(4)
-            br.ReadUInt32() ' RGBBitCount
-            br.ReadUInt32() ' RBitMask
-            br.ReadUInt32() ' GBitMask
-            br.ReadUInt32() ' BBitMask
-            br.ReadUInt32() ' ABitMask
-            Dim caps = br.ReadUInt32()
 
-            Select Case caps
-                Case &H1000
-                    Debug.Assert(mipMapCount = 0) ' Just Check
-                Case &H401008
-                    Debug.Assert(mipMapCount > 0) ' Just Check
-                Case Else
-                    Debug.Assert(False) ' Cubemap ?
-            End Select
+        GC.Collect()
+        GC.WaitForFullGCComplete()
 
-            Dim format As SizedInternalFormat
-            Dim blockSize As Integer
+        Dim imgStore(ms.Length) As Byte
+        ms.Read(imgStore, 0, ms.Length)
 
-            Select Case FourCC
-                Case "DXT1"
-                    format = InternalFormat.CompressedRgbaS3tcDxt1Ext
-                    blockSize = 8
-                Case "DXT3"
-                    format = InternalFormat.CompressedRgbaS3tcDxt3Ext
-                    blockSize = 16
-                Case "DXT5"
-                    format = InternalFormat.CompressedRgbaS3tcDxt5Ext
-                    blockSize = 16
-                Case Else ' DX10 ?
-                    Debug.Assert(False, FourCC)
-            End Select
+        Dim texID As UInt32
+        texID = Ilu.iluGenImage()
+        Il.ilBindImage(texID)
+        Dim er0 = GL.GetError
+        Dim success = Il.ilGetError
+        Il.ilLoadL(Il.IL_DDS, imgStore, ms.Length)
+        success = Il.ilGetError
 
-            ms.Position = 128
-            Dim size As Integer
+        If success = Il.IL_NO_ERROR Then
+            'Ilu.iluFlipImage()
+            'Ilu.iluMirror()
+            Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
+            Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
+            Dim ul = CInt(width * 0.0625)
+            Dim lr = CInt(width * 0.875)
+            Ilu.iluCrop(ul, ul, 0, lr, lr, 1)
+            Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
+            Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
+
             GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
-            Dim ULcorner = CInt(width * 0.0625F)
-            Dim BRcorner = CInt(width * 0.875F)
-            If mipMapCount = 0 Then
-                GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, 0)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-                GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-                GL.TextureStorage2D(image_id, 1, format, width, height)
 
-                size = ((width + 3) \ 4) * ((height + 3) \ 4) * blockSize
-                Dim data = br.ReadBytes(size)
-                GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, width, height, DirectCast(format, OpenGL.PixelFormat), size, data)
-            Else
-                size = ((width + 3) \ 4) * ((height + 3) \ 4) * blockSize
-                Dim data = br.ReadBytes(size)
-                GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-                GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-                GL.CompressedTextureSubImage2D(image_id, 0, ULcorner, ULcorner, BRcorner, BRcorner, DirectCast(format, OpenGL.PixelFormat), size, data)
+            Dim maxAniso As Single
+            GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
 
-                Dim w = width
-                Dim h = height
+            GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
 
-                'For i = 0 To mipMapCount - 1
-                '    If (w = 0 Or h = 0) Then
-                '        mipMapCount -= 1
-                '        Continue For
-                '    End If
+            GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
 
-                '    size = ((w + 3) \ 4) * ((h + 3) \ 4) * blockSize
-                '    data = br.ReadBytes(size)
-                '    GL.CompressedTextureSubImage2D(image_id, i, 0, 0, w, h, DirectCast(format, OpenGL.PixelFormat), size, data)
-                '    w /= 2
-                '    h /= 2
-                'Next
-                GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, 1)
+            GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
+            GL.TextureStorage2D(image_id, 6, SizedInternalFormat.Rgba8, CInt(width * 0.875), CInt(height * 0.875))
+            GL.TextureSubImage2D(image_id, 0, 0, 0, CInt(width * 0.875), CInt(height * 0.875), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+
+            GL.GenerateTextureMipmap(image_id)
+
+            Il.ilBindImage(0)
+            Ilu.iluDeleteImage(texID)
+
+            If fn.Length = 0 Then Return image_id '<- so we can load with out saving in the cache.
+            'Other wise, add it to the cache.
+            add_image(fn, image_id)
+
+            Dim glerror As OpenTK.Graphics.OpenGL.ErrorCode = GL.GetError
+            If glerror > 0 Then
+
+                get_GL_error_string(glerror)
+                MsgBox(get_GL_error_string(glerror), MsgBoxStyle.Exclamation, "GL Error")
+
             End If
-        End Using
+            Return image_id
+        Else
+            MsgBox("Failed to load @ load_image_from_stream", MsgBoxStyle.Exclamation, "Shit!!")
+        End If
+        Return Nothing
 
-        add_image(fn, image_id)
-        Return image_id
+
     End Function
 End Module

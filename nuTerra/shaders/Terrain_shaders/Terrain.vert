@@ -77,6 +77,8 @@ void main(void)
     // This is the cut off distance for bumpping the surface.
     vec3 point = vec3(modelMatrix * Vertex);
     ln = distance( point.xyz,cam_position.xyz );
-    if (ln<200.0) { ln = 1.0 - ln/200.0;} //Creates sine curve.
+	float start = 100.0;
+    if (ln < start + 400.0) { ln = 1.0 - (ln-start)/400.0;} //Creates sine curve.
     else {ln = 0.0;}
+
 }
