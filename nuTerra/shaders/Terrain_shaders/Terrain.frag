@@ -238,7 +238,7 @@ void main(void)
 
 
     //flip X axis. Everything is flipped on X including texture rotations.
-	/*
+    /*
     n1.x *= -1.0;
     n2.x *= -1.0;
     n3.x *= -1.0;
@@ -248,7 +248,7 @@ void main(void)
     n2_2.x *= -1.0;
     n3_2.x *= -1.0;
     n4_2.x *= -1.0;
-	*/
+    */
 
     // Transform normals by TBN. Clamp again using used_ values just to make sure.
     n4.rgb = (TBN * n4.rgb) * used_7;

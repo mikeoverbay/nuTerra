@@ -43,7 +43,8 @@ void main(void)
     
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     Vertex = vec4(vertexPosition, 1.0);
-	
+    Vertex.x *=-1.0;
+
     //-------------------------------------------------------
     //Calculate tangent and biNormal
     vec3 tangent;
