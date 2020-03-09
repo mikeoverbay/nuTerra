@@ -124,7 +124,6 @@ Module TerrainBuilder
         Public TexLayers() As ids_
         Public layer As layer_render_info_
         Public b_x_size, b_y_size As Integer
-        Public layers_mask As Integer
         Public layer_count As Integer
     End Structure
     Public Structure ids_
@@ -160,6 +159,9 @@ Module TerrainBuilder
 
     '=======================================================================
     Public Sub Create_Terrain()
+        'clear debug window
+        clear_output()
+
         ReDim mapBoard(20, 20) 'clear it
 
         get_all_chunk_file_data()

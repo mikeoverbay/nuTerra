@@ -18,7 +18,6 @@ Module TerrainTextureFunctions
 
         With theMap.render_set(map)
             ReDim .TexLayers(3)
-            .layers_mask = 0 'Controls mixing of the map blends
             .layer_count = 0 'How many layer sets are there
             .TexLayers(0).Blend_id = DUMMY_TEXTURE_ID
             .TexLayers(1).Blend_id = DUMMY_TEXTURE_ID
@@ -55,36 +54,7 @@ Module TerrainTextureFunctions
 
             End With
         Next
-        With theMap.render_set(map)
-
-            Dim mask As Integer = 0
-            If .TexLayers(0).AM_name1 <> "" Then
-                mask = mask Or 1
-            End If
-            If .TexLayers(0).AM_name2 <> "" Then
-                mask = mask Or 2
-            End If
-            If .TexLayers(1).AM_name1 <> "" Then
-                mask = mask Or 4
-            End If
-            If .TexLayers(1).AM_name2 <> "" Then
-                mask = mask Or 8
-            End If
-            If .TexLayers(2).AM_name1 <> "" Then
-                mask = mask Or 16
-            End If
-            If .TexLayers(2).AM_name2 <> "" Then
-                mask = mask Or 32
-            End If
-            If .TexLayers(3).AM_name1 <> "" Then
-                mask = mask Or 64
-            End If
-            If .TexLayers(3).AM_name2 <> "" Then
-                mask = mask Or 128
-            End If
-            .layers_mask = mask
-        End With
-
+     
     End Sub
 
 
@@ -157,8 +127,6 @@ Module TerrainTextureFunctions
             ms.Dispose()
             GC.Collect()
 
-
-
             Dim ms2 As New MemoryStream(theMap.chunks(map).blend_textures_data)
             ms2.Position = 0
             If map = 7 Then
@@ -178,7 +146,6 @@ Module TerrainTextureFunctions
                 .TexLayers(i) = New ids_
                 Dim len = sec_sizes(i)
                 If len > 0 Then
-                    '.imageData(i).data = br.ReadBytes(len) 'need to just processe the data and not make a buffer
 
                     Dim mgc = br2.ReadUInt32
                     Dim ver = br2.ReadUInt32
@@ -195,13 +162,17 @@ Module TerrainTextureFunctions
                     .TexLayers(i).AM_name2 = ""
                     .TexLayers(i).NM_name1 = ""
                     .TexLayers(i).NM_name2 = ""
+
                     Dim bs = br2.ReadUInt32
                     Dim d = br2.ReadBytes(bs)
+
                     .TexLayers(i).AM_name1 = Encoding.UTF8.GetString(d, 0, d.Length)
                     .TexLayers(i).NM_name1 = .TexLayers(i).AM_name1.Replace("AM.dds", "NM.dds")
+
                     If tex_cnt > 1 Then
                         bs = br2.ReadUInt32
                         d = br2.ReadBytes(bs)
+
                         .TexLayers(i).AM_name2 = Encoding.UTF8.GetString(d, 0, d.Length)
                         .TexLayers(i).NM_name2 = .TexLayers(i).AM_name2.Replace("AM.dds", "NM.dds")
                     End If
@@ -212,18 +183,8 @@ Module TerrainTextureFunctions
                     .TexLayers(i).uP2 = .layer.render_info(cur_layer_info_pnt + 1).u
                     .TexLayers(i).vP2 = .layer.render_info(cur_layer_info_pnt + 1).v
                     .TexLayers(i).color2 = .layer.render_info(cur_layer_info_pnt + 1).scale
-                    cur_layer_info_pnt += 2
-                    'Select Case i
-                    '    Case 1
-                    '        .layers_mask = .layers_mask Or 1
-                    '    Case 2
-                    '        .layers_mask = .layers_mask Or 2
-                    '    Case 3
-                    '        .layers_mask = .layers_mask Or 4
-                    '    Case 4
-                    '        .layers_mask = .layers_mask Or 8
 
-                    'End Select
+                    cur_layer_info_pnt += 2
                     .layer_count += 1
                 End If
             Next
@@ -250,12 +211,13 @@ Module TerrainTextureFunctions
             entry.Extract(ms)
             'CHANGE THIS TO crop_DDS to use code below.
             id = load_dds_image_from_stream(ms, fn)
+            'id = crop_DDS(ms, fn)
             Return id
         End If
         Return -1 ' Didn't find it, return -1
     End Function
 
-    Private Function crop_DDS(ByVal type As Integer, ByRef ms As MemoryStream, ByRef fn As String)
+    Private Function crop_DDS(ByRef ms As MemoryStream, ByRef fn As String) As Integer
         Dim image_id As Integer
 
         ms.Position = 0
@@ -321,7 +283,7 @@ Module TerrainTextureFunctions
 
                 size = ((width + 3) \ 4) * ((height + 3) \ 4) * blockSize
                 Dim data = br.ReadBytes(size)
-                GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, width, height, DirectCast(format, OpenGL.PixelFormat), Size, Data)
+                GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, width, height, DirectCast(format, OpenGL.PixelFormat), size, data)
             Else
                 size = ((width + 3) \ 4) * ((height + 3) \ 4) * blockSize
                 Dim data = br.ReadBytes(size)
@@ -336,19 +298,19 @@ Module TerrainTextureFunctions
                 Dim w = width
                 Dim h = height
 
-                For i = 0 To mipMapCount - 1
-                    If (w = 0 Or h = 0) Then
-                        mipMapCount -= 1
-                        Continue For
-                    End If
+                'For i = 0 To mipMapCount - 1
+                '    If (w = 0 Or h = 0) Then
+                '        mipMapCount -= 1
+                '        Continue For
+                '    End If
 
-                    size = ((w + 3) \ 4) * ((h + 3) \ 4) * blockSize
-                    data = br.ReadBytes(size)
-                    GL.CompressedTextureSubImage2D(image_id, i, 0, 0, w, h, DirectCast(format, OpenGL.PixelFormat), size, data)
-                    w /= 2
-                    h /= 2
-                Next
-                GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
+                '    size = ((w + 3) \ 4) * ((h + 3) \ 4) * blockSize
+                '    data = br.ReadBytes(size)
+                '    GL.CompressedTextureSubImage2D(image_id, i, 0, 0, w, h, DirectCast(format, OpenGL.PixelFormat), size, data)
+                '    w /= 2
+                '    h /= 2
+                'Next
+                GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, 1)
             End If
         End Using
 

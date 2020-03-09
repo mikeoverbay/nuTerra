@@ -1,8 +1,17 @@
 ﻿Imports System.Threading
 Imports OpenTK
 Imports System.Text
+Imports System.Runtime.InteropServices
 
 Module modGlobalVars
+
+    '=================================================================================
+    Public Sub clear_output()
+        Dim dte = Marshal.GetActiveObject("VisualStudio.DTE.12.0") 'change to version of visual studio
+        dte.ExecuteCommand("Edit.ClearOutputWindow")
+    End Sub
+    '=================================================================================
+
     'Define these in CAP TEXT
     Public TEST_TEXTURE_ID As Integer
     Public M_POS As Vector2
@@ -61,7 +70,7 @@ Module modGlobalVars
     Public TOTAL_TRIANGLES_DRAWN_MODEL As UInt32
     '============================================================
     Public _STARTED As Boolean 'Signals UI initialization is complete
-  
+
     'mouse camera related
     Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE, M_SPIN As Boolean ' mouse control booleans
     Public WASD As Boolean

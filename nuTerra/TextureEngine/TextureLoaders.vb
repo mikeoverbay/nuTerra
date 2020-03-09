@@ -16,6 +16,7 @@ Module TextureLoaders
         r("Name") = fn
         r("ID") = id
         imgTbl.Rows.Add(r)
+        Debug.WriteLine(fn)
     End Sub
 
     Public Function image_exists(ByVal fn As String) As Integer
@@ -92,7 +93,10 @@ Module TextureLoaders
         'This will NOT replace PNG with DDS in the file name.
         'finds and loads and returns the GL texture ID.
         Dim id = image_exists(fn)
-        If id > 0 Then Return id
+        If id > 0 Then
+            Return id
+
+        End If
         Dim entry As ZipEntry = search_pkgs(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
@@ -227,7 +231,7 @@ Module TextureLoaders
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
             End If
         End Using
-
+        If fn.Length = 0 Then Return image_id
         add_image(fn, image_id)
         Return image_id
     End Function
@@ -385,7 +389,8 @@ Module TextureLoaders
     End Function
 
     Public Function make_dummy_texture() As Integer
-        'Used to attach to shaders that must have a texture but it doesn't exist such as GMM maps.
+        'Used to attach to shaders that must have a texture but it doesn't
+        'like blend maps or terrain textures.
         Dim dummy As Integer
         Dim b As New Bitmap(2, 2, Imaging.PixelFormat.Format32bppArgb)
         Dim g As Drawing.Graphics = Drawing.Graphics.FromImage(b)

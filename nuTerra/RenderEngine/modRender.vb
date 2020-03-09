@@ -261,12 +261,13 @@ Module modRender
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
         GL.Uniform3(TerrainShader("cam_position"), CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
 
-        GL.UniformMatrix4(TerrainShader("projection"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(TerrainShader("projMatrix"), False, PROJECTIONMATRIX)
         Dim u, v As Vector4
         For i = 0 To theMap.render_set.Length - 1
-            Dim viewModel = theMap.render_set(i).matrix * VIEWMATRIX
-            GL.UniformMatrix4(TerrainShader("viewModel"), False, viewModel)
-            GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(viewModel)))
+            GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
+            GL.UniformMatrix4(TerrainShader("viewMatrix"), False, VIEWMATRIX)
+
+            GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix)))
             GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
 
             'bind all the data for this chunk
@@ -324,10 +325,6 @@ Module modRender
 
                 GL.Uniform4(TerrainShader("layer3VT1"), .TexLayers(3).vP1)
                 GL.Uniform4(TerrainShader("layer3VT2"), .TexLayers(3).vP2)
-
-                GL.Uniform1(TerrainShader("layer_mask"), .layers_mask)
-
-
 
             End With
 

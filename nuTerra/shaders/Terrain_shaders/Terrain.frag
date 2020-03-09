@@ -71,8 +71,6 @@ uniform vec2 map_size;
 uniform vec2 map_pos;
 
 in float ln;
-in vec4 mask_1;
-in vec4 mask_2;
 
 in mat3 TBN;
 in vec3 worldPosition;
@@ -177,17 +175,7 @@ void main(void)
 
     //mask out empty textures.
 
-    t1 = mix(t1, empty, mask_1.a);
-    t1_2 = mix(t1_2, empty, mask_1.b);
-    t2 = mix(t2, empty, mask_1.g);
-    t2_2 = mix(t2_2, empty, mask_1.r);
-
-    t3 = mix(t3, empty, mask_2.a);
-    t3_2 = mix(t3_2, empty, mask_2.b);
-    t4 = mix(t4, empty, mask_2.g);
-    t4_2 = mix(t4_2, empty, mask_2.r);
-
-
+    
     //Now we mix our color
     vec4 base = vec4(0.0);  
 
@@ -218,6 +206,15 @@ void main(void)
     n4.rgb = normalize(2.0 * n4.rgb - 1.0) * MixLevel4.r;
     n4_2.rgb = normalize(2.0 * n4_2.rgb - 1.0) * MixLevel4.g;
     //flip Y axis
+    n1.x *= -1.0;
+    n2.x *= -1.0;
+    n3.x *= -1.0;
+    n4.x *= -1.0;
+
+    n1_2.x *= -1.0;
+    n2_2.x *= -1.0;
+    n3_2.x *= -1.0;
+    n4_2.x *= -1.0;
 
 
     n1.rgb = (TBN * n1.rgb) * MixLevel1.r;
@@ -238,19 +235,19 @@ void main(void)
     vec4 n_tex = getNormal();
     vec4 out_n = vec4(0.0);
 
-    out_n = add_norms(out_n, mix(n1, empty, mask_1.a));
-    out_n = add_norms(out_n, mix(n1_2, empty, mask_1.b));
-    out_n = add_norms(out_n, mix(n2, empty, mask_1.g));
-    out_n = add_norms(out_n, mix(n2_2, empty, mask_1.r));
-    out_n = add_norms(out_n, mix(n3, empty, mask_2.a));
-    out_n = add_norms(out_n, mix(n3_2, empty, mask_2.b));
-    out_n = add_norms(out_n, mix(n4, empty, mask_2.g));
-    out_n = add_norms(out_n, mix(n4_2, empty, mask_2.r));
+    out_n = add_norms(out_n, n1);
+    out_n = add_norms(out_n, n1_2);
+    out_n = add_norms(out_n, n2);
+    out_n = add_norms(out_n, n2_2);
+    out_n = add_norms(out_n, n3);
+    out_n = add_norms(out_n, n3_2);
+    out_n = add_norms(out_n, n4);
+    out_n = add_norms(out_n, n4_2);
 
     //This blends between low and highrez by distance
 
     //DISABLED UNTIL WE SORT THE REST OUT!
-    base.rgb = mix(texture2D(colorMap, Global_UV).rgb, base.rgb*0.1, ln) ;
+    base.rgb = mix(texture2D(colorMap, Global_UV).rgb, base.rgb*1.1, ln) ;
     out_n = mix(n_tex, out_n, ln) ;
 
     gColor = base;
