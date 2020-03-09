@@ -77,7 +77,7 @@ void main(void)
     gl_Position = projMatrix * viewMatrix * modelMatrix * vec4(vertexPosition, 1.0f);
    
     // This is the cut off distance for bumpping the surface.
-    vec3 point = vec3(modelMatrix * Vertex);
+    vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
     ln = distance( point.xyz,cam_position.xyz );
 	float start = 100.0;
     if (ln < start + 300.0) { ln = 1.0 - (ln-start)/300.0;} //Creates sine curve.
