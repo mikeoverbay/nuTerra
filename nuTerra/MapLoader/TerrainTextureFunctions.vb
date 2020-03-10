@@ -1,4 +1,5 @@
 ﻿
+Imports System.Runtime.InteropServices
 Imports System
 Imports System.IO
 Imports System.Text
@@ -8,6 +9,7 @@ Imports System.Xml
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 Imports OpenTK.Graphics
+Imports Ionic
 Module TerrainTextureFunctions
     Dim cur_layer_info_pnt As Integer = 0
 
@@ -28,6 +30,9 @@ Module TerrainTextureFunctions
 
         'we have the data so lets get the textures.
         get_layer_textures(map)
+
+        'get dom... for what I have no idea.
+        get_dominate_texture(map)
     End Sub
 
 
@@ -89,12 +94,12 @@ Module TerrainTextureFunctions
                 .layer.render_info(i).count = br.ReadUInt32
 
                 .layer.render_info(i).u.R = br.ReadSingle
-                .layer.render_info(i).u.G = -br.ReadSingle
+                .layer.render_info(i).u.G = br.ReadSingle
                 .layer.render_info(i).u.B = br.ReadSingle
                 .layer.render_info(i).u.A = br.ReadSingle
 
                 .layer.render_info(i).v.R = br.ReadSingle
-                .layer.render_info(i).v.G = -br.ReadSingle
+                .layer.render_info(i).v.G = br.ReadSingle
                 .layer.render_info(i).v.B = br.ReadSingle
                 .layer.render_info(i).v.A = br.ReadSingle
 
@@ -203,6 +208,121 @@ Module TerrainTextureFunctions
         Return True
     End Function
 
+    Public Sub get_dominate_texture(ByVal map As Integer)
+
+        Dim enc As New System.Text.ASCIIEncoding
+
+        Dim ms As New MemoryStream(theMap.chunks(map).dominateTestures_data)
+        ms.Position = 0
+        Dim br As New BinaryReader(ms)
+
+        Dim magic1 = br.ReadInt32
+        Dim version = br.ReadInt32
+        'unzip the data
+        ms.Position = 0
+
+        magic1 = br.ReadUInt32
+        version = br.ReadUInt32
+
+        Dim number_of_textures As Integer = br.ReadUInt32
+        Dim texture_string_length As Integer = br.ReadUInt32
+
+        Dim d_width As Integer = br.ReadUInt32
+        Dim d_height As Integer = br.ReadUInt32
+        br.ReadUInt64()
+        ReDim theMap.render_set(map).dom_tex_list(number_of_textures)
+        Dim s_buff(texture_string_length) As Byte
+        For i = 0 To number_of_textures - 1
+            s_buff = br.ReadBytes(texture_string_length)
+            theMap.render_set(map).dom_tex_list(i) = enc.GetString(s_buff)
+        Next
+
+
+
+        Dim mg1 = br.ReadInt32
+        Dim mg2 = br.ReadInt32
+        Dim uncompressedsize = br.ReadInt32
+        Dim buff(65536) As Byte
+        Dim ps As New MemoryStream(buff)
+        Dim count As UInteger = 0
+        Dim total_read As Integer = 0
+        Dim p_w As New StreamWriter(ps)
+
+        Using Decompress As Zlib.ZlibStream = New Zlib.ZlibStream(ms, Zlib.CompressionMode.Decompress, False)
+            Decompress.BufferSize = 65536
+            Dim buffer(65536) As Byte
+            Dim numRead As Integer
+            numRead = Decompress.Read(buff, 0, buff.Length)
+            total_read = numRead 'debug
+
+        End Using
+
+        Dim p_rd As New BinaryReader(ps)
+        ReDim Preserve buff(total_read)
+        Dim c_buff((total_read) * 4) As Byte
+
+
+        For i = 0 To total_read - 1
+            c_buff((i * 4) + 0) = (buff(i) + 1 And 7) << 4
+            c_buff((i * 4) + 1) = (buff(i) + 1 And 7) << 4
+            c_buff((i * 4) + 2) = (buff(i) + 1 And 7) << 4
+            c_buff((i * 4) + 3) = 255
+        Next
+        'done with these so dispose of them.
+        p_rd.Close()
+        ps.Dispose()
+        br.Close()
+        br.Dispose()
+        ms.Dispose()
+
+        Dim h, w As Integer
+        w = d_width
+        h = d_height
+        Dim stride = (w / 2)
+        count = 0
+        'convert to 4 color data.
+
+        '------------------------------------------------------------------
+        'w = stride * 8 : h = h * 2
+        'need point in to dbuff color buffer array
+        Dim bufPtr As IntPtr = Marshal.AllocHGlobal(c_buff.Length - 1)
+        Marshal.Copy(c_buff, 0, bufPtr, c_buff.Length - 1) ' copy dbuff to pufPtr's memory
+        Dim texID = Ilu.iluGenImage() ' Generation of one image name
+        Il.ilBindImage(texID) ' Binding of image name 
+        Dim success = Il.ilGetError
+
+        Il.ilTexImage(w, h, 1, 4, Il.IL_RGBA, Il.IL_UNSIGNED_BYTE, bufPtr) ' Create new image from pufPtr's data
+        success = Il.ilGetError
+
+        Marshal.FreeHGlobal(bufPtr) ' free this up
+
+        If success = Il.IL_NO_ERROR Then
+            Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
+            Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
+            Dim f = Il.IL_FALSE
+            Dim t = Il.IL_TRUE
+            Ilu.iluMirror()
+
+            GL.CreateTextures(TextureTarget.Texture2D, 1, theMap.render_set(map).dom_texture_id)
+
+            GL.BindTexture(TextureTarget.Texture2D, theMap.render_set(map).dom_texture_id) ' bind the texture
+            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+
+            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
+            GL.TextureStorage2D(theMap.render_set(map).dom_texture_id, 1, SizedInternalFormat.Rgba8, width, height)
+            GL.TextureSubImage2D(theMap.render_set(map).dom_texture_id, 0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+
+            GL.BindTexture(TextureTarget.Texture2D, 0) ' bind the texture
+            Il.ilBindImage(0)
+            Ilu.iluDeleteImage(texID)
+            'Stop
+        Else
+            MsgBox("Error Dom Texture! Il Error" + success.ToString, MsgBoxStyle.Exclamation, "Well Shit...")
+        End If
+    End Sub
 
     Public Function find_and_trim(ByRef fn As String) As Integer
         'finds and loads and returns the GL texture ID.

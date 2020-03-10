@@ -16,7 +16,7 @@ Module TextureLoaders
         r("Name") = fn
         r("ID") = id
         imgTbl.Rows.Add(r)
-        Debug.WriteLine(fn)
+        'Debug.WriteLine(fn)
     End Sub
 
     Public Function image_exists(ByVal fn As String) As Integer

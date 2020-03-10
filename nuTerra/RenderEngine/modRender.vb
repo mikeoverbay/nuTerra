@@ -252,6 +252,7 @@ Module modRender
 
         GL.Uniform1(TerrainShader("colorMap"), 20)
         GL.Uniform1(TerrainShader("normalMap"), 21)
+        GL.Uniform1(TerrainShader("domTexture"), 22)
 
         GL.BindTextureUnit(20, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
         GL.BindTextureUnit(21, m_normal_id)
@@ -270,6 +271,10 @@ Module modRender
 
             GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix)))
             GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
+
+            'debug shit
+            GL.BindTextureUnit(22, theMap.render_set(i).dom_texture_id) '<----------------- Texture Bind
+
 
             'bind all the data for this chunk
             With theMap.render_set(i)

@@ -134,6 +134,8 @@ Module modOpenGL
             Return
         End If
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
+
+        Application.DoEvents()
         LogThis(String.Format("OpenGL error #{0}: {1}", id, message))
     End Sub
 

@@ -74,6 +74,7 @@ uniform int pbs_8;
 
 uniform sampler2D colorMap;
 uniform sampler2D normalMap;
+uniform sampler2D domTexture;
 
 uniform int nMap_type = 1;
 
@@ -300,7 +301,9 @@ void main(void)
     // This blends the layered colors/normals and the global_AM/normalMaps over distance.
     // The blend stats at 100 and ends at 400.
     // Replace ln with 1.0 to show only layered terrain.
+	vec4 dom = texture2D(domTexture,UV);
     base.rgb = mix(texture2D(colorMap, Global_UV).rgb, base.rgb, ln) ;
+    base.rgb = mix(dom.rgb, base.rgb, ln) ;
     out_n = mix(n_tex, out_n, ln) ;
 
     // The obvious

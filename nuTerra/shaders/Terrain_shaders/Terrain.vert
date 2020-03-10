@@ -42,8 +42,8 @@ void main(void)
     is_hole = (vertexNormal.w == 1.0f) ? 1 : 0;
     
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
-    Vertex = vec4(vertexPosition, 1.0);
-    Vertex.x *=-1.0;
+    Vertex = vec4(vertexPosition, 1.0) * 1.0;
+    Vertex.x *= -1.0;
 
     //-------------------------------------------------------
     //Calculate tangent and biNormal
@@ -79,8 +79,8 @@ void main(void)
     // This is the cut off distance for bumpping the surface.
     vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
     ln = distance( point.xyz,cam_position.xyz );
-	float start = 100.0;
-    if (ln < start + 300.0) { ln = 1.0 - (ln-start)/300.0;} //Creates sine curve.
+    float start = 50.0;
+    if (ln < start + 100.0) { ln = 1.0 - (ln-start)/100.0;} //Creates sine curve.
     else {ln = 0.0;}
 
 }
