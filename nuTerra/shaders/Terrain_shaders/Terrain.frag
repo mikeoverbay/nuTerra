@@ -210,7 +210,57 @@ void main(void)
     MixLevel3.rg = texture2D(mixtexture3, mix_coords.xy).ag;
     MixLevel4.rg = texture2D(mixtexture4, mix_coords.xy).ag;
    
+    vec2 tileUV = UV*1.75;
+    tileUV.xy *= -1.0;
+    tileUV.y -= 0.287;
+    //tileUV.x += 0.25;
+    int domVal = int(texture2D(domTexture,UV).r*255.0);
+
+    switch (domVal) {
+
+    case 0:
+    t1 = texture2D(layer_1T1, tileUV+0.5);
+    n1 = texture(n_layer_1T1, tileUV+0.5);
+    break;
+
+    case 1:
+    t1_2 = texture2D(layer_1T2, tileUV+0.5);
+    n1_2 = texture(n_layer_1T2, tileUV+0.5);
+    break;
+
+    case 2:
+    //t2.r = 1.0;
+    t2 = texture2D(layer_2T1, tileUV+0.5);
+    n2 = texture(n_layer_2T1, tileUV+0.5);
+    break; 
+
+    case 3:
+    t2_2 = texture2D(layer_2T2, tileUV+0.5);
+    n2_2 = texture(n_layer_2T2, tileUV+0.5);
+    break;
+
+    case 4:
+    t3 = texture2D(layer_3T1, tileUV+0.5);
+    n3 = texture(n_layer_3T1, tileUV+0.5);
+    break;
+
+    case 5:
+    t3_2 = texture2D(layer_3T2, tileUV+0.5);
+    n3_2 = texture(n_layer_3T2, tileUV+0.5);
+    break;
+
+    case 6:
+    t4 = texture2D(layer_4T1, tileUV+0.5);
+    n4 = texture(n_layer_4T1, tileUV+0.5);
+    break;
+
+    case 7:
+    t4_2 = texture2D(layer_4T2, tileUV+0.5);
+    n4_2 = texture(n_layer_4T2, tileUV+0.5);
+
+    break;
     
+    }
     vec4 base = vec4(0.0);  
     vec4 empty = vec4(0.0);
 
@@ -301,9 +351,9 @@ void main(void)
     // This blends the layered colors/normals and the global_AM/normalMaps over distance.
     // The blend stats at 100 and ends at 400.
     // Replace ln with 1.0 to show only layered terrain.
-	vec4 dom = texture2D(domTexture,UV);
+    vec4 dom = texture2D(domTexture,UV);
     base.rgb = mix(texture2D(colorMap, Global_UV).rgb, base.rgb, ln) ;
-    base.rgb = mix(dom.rgb, base.rgb, ln) ;
+    //base.rgb = mix(dom.rgb, base.rgb, ln) ;
     out_n = mix(n_tex, out_n, ln) ;
 
     // The obvious

@@ -261,12 +261,20 @@ Module TerrainTextureFunctions
         ReDim Preserve buff(total_read)
         Dim c_buff((total_read) * 4) As Byte
 
-
+        Dim bb As New StringBuilder
+        Dim cnt As Integer = 0
+        Dim cnt2 As Integer = 0
         For i = 0 To total_read - 1
-            c_buff((i * 4) + 0) = (buff(i) + 1 And 7) << 4
-            c_buff((i * 4) + 1) = (buff(i) + 1 And 7) << 4
-            c_buff((i * 4) + 2) = (buff(i) + 1 And 7) << 4
-            c_buff((i * 4) + 3) = 255
+            'bb.Append(buff(i).ToString)
+            c_buff(cnt + 0) = (buff(i) And 7) ' << 4
+            c_buff(cnt + 1) = 0 '(buff(i) + 1 And 7) << 4
+            c_buff(cnt + 2) = 0 '(buff(i) + 1 And 7) << 4
+            c_buff(cnt + 3) = 255
+            cnt += 4
+            cnt2 += 1
+            If cnt = 127 Then
+                'bb.Append(vbCrLf)
+            End If
         Next
         'done with these so dispose of them.
         p_rd.Close()
@@ -306,8 +314,8 @@ Module TerrainTextureFunctions
             GL.CreateTextures(TextureTarget.Texture2D, 1, theMap.render_set(map).dom_texture_id)
 
             GL.BindTexture(TextureTarget.Texture2D, theMap.render_set(map).dom_texture_id) ' bind the texture
-            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
 
             GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
