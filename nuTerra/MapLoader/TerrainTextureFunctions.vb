@@ -165,18 +165,25 @@ Module TerrainTextureFunctions
                     .TexLayers(i).AM_name2 = ""
                     .TexLayers(i).NM_name1 = ""
                     .TexLayers(i).NM_name2 = ""
-
+                    .TexLayers(i).PBS_a = 0
+                    .TexLayers(i).PBS_b = 0
                     Dim bs = br2.ReadUInt32
                     Dim d = br2.ReadBytes(bs)
 
                     .TexLayers(i).AM_name1 = Encoding.UTF8.GetString(d, 0, d.Length)
                     .TexLayers(i).NM_name1 = .TexLayers(i).AM_name1.Replace("AM.dds", "NM.dds")
+                    If .TexLayers(i).NM_name1.Contains("PBS") Then
+                        .TexLayers(i).PBS_a = 1
+                    End If
                     If tex_cnt > 1 Then
                         bs = br2.ReadUInt32
                         d = br2.ReadBytes(bs)
 
                         .TexLayers(i).AM_name2 = Encoding.UTF8.GetString(d, 0, d.Length)
                         .TexLayers(i).NM_name2 = .TexLayers(i).AM_name2.Replace("AM.dds", "NM.dds")
+                        If .TexLayers(i).NM_name2.Contains("PBS") Then
+                            .TexLayers(i).PBS_b = 1
+                        End If
                     End If
                     .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt).u

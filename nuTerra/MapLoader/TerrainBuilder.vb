@@ -134,6 +134,7 @@ Module TerrainBuilder
         Public AM_id2, NM_id2 As Integer
         Public uP1, uP2, vP1, vP2 As Graphics.Color4
         Public used_a, used_b As Single
+        Public PBS_a, PBS_b As Integer
     End Structure
     Public Structure layer_render_info_
         Public used_on() As UInt32

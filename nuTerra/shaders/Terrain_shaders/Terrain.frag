@@ -62,6 +62,16 @@ uniform float used_6;
 uniform float used_7;
 uniform float used_8;
 
+uniform int pbs_1;
+uniform int pbs_2;
+uniform int pbs_3;
+uniform int pbs_4;
+
+uniform int pbs_5;
+uniform int pbs_6;
+uniform int pbs_7;
+uniform int pbs_8;
+
 uniform sampler2D colorMap;
 uniform sampler2D normalMap;
 
@@ -108,12 +118,19 @@ vec4 getNormal()
 }
 //-------------------------------------------------------------
 // Converion from AG map to RGB vector.
-vec4 convertNormal(vec4 norm){
+vec4 convertNormal(vec4 norm, int pbs){
+//PBS GA map?
+if (pbs == 1)
+    {
         vec3 n;
         n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);
         n.z = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
-        n.x*= -1.0;
+        n.xyz = n.xzy;
         return vec4(n,1.0);
+    }else{
+
+        return norm;
+    }
 }
 /*===========================================================*/
 
@@ -142,48 +159,48 @@ void main(void)
     tv4 = vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex));
     t4 = texture2D(layer_4T1, -tv4 + 0.5 );
     n4 = texture2D(n_layer_4T1, -tv4 + 0.5);
-    n4 = convertNormal(n4);
+    n4 = convertNormal(n4, pbs_7)+layer3UT1;
     // 8
     tv4_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
     t4_2 = texture2D(layer_4T2, -tv4_2 + 0.5);
     n4_2 = texture2D(n_layer_4T2, -tv4_2 + 0.5);
-    n4_2 = convertNormal(n4_2);
+    n4_2 = convertNormal(n4_2, pbs_8)+layer3UT2;
 
     // layer 3 ---------------------------------------------
     // 5
     tv3 = vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex));
     t3 = texture2D(layer_3T1, -tv3 + 0.5);
     n3 = texture2D(n_layer_3T1, -tv3 + 0.5);
-    n3 = convertNormal(n3);
+    n3 = convertNormal(n3, pbs_5)+layer2UT1;
     // 6
     tv3_2 = vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex));
     t3_2 = texture2D(layer_3T2, -tv3_2 + 0.5);
     n3_2 = texture2D(n_layer_3T2, -tv3_2 + 0.5);
-    n3_2 = convertNormal(n3_2);
+    n3_2 = convertNormal(n3_2, pbs_6)+layer2UT2;
 
     // layer 2 ---------------------------------------------
     // 3
     tv2 = vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex));
     t2 = texture2D(layer_2T1, -tv2 + 0.5);
     n2 = texture2D(n_layer_2T1, -tv2 + 0.5);
-    n2 = convertNormal(n2);
+    n2 = convertNormal(n2, pbs_3)+layer1UT1;
     // 4
     tv2_2 = vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex));
     t2_2 = texture2D(layer_2T2, -tv2_2 + 0.5);
     n2_2 = texture2D(n_layer_2T2, -tv2_2 + 0.5);
-    n2_2 = convertNormal(n2_2);
+    n2_2 = convertNormal(n2_2, pbs_4)+layer1UT2;
 
     // layer 1 ---------------------------------------------
     // 1
     tv1 = vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex));
     t1 = texture2D(layer_1T1, -tv1 + 0.5);
     n1 = texture2D(n_layer_1T1, -tv1 + 0.5);
-    n1 = convertNormal(n1);
+    n1 = convertNormal(n1, pbs_1)+layer0UT1;
     // 2
     tv1_2 = vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex));
     t1_2 = texture2D(layer_1T2, -tv1_2 + 0.5);
     n1_2 = texture2D(n_layer_1T2, -tv1_2 + 0.5);
-    n1_2 = convertNormal(n1_2);
+    n1_2 = convertNormal(n1_2, pbs_2)+layer0UT2;
     //
    
     //Get the mix values from the mix textures 1-4 and move to vec2. 
@@ -238,7 +255,7 @@ void main(void)
 
 
     //flip X axis. Everything is flipped on X including texture rotations.
-    /*
+
     n1.x *= -1.0;
     n2.x *= -1.0;
     n3.x *= -1.0;
@@ -248,7 +265,7 @@ void main(void)
     n2_2.x *= -1.0;
     n3_2.x *= -1.0;
     n4_2.x *= -1.0;
-    */
+
 
     // Transform normals by TBN. Clamp again using used_ values just to make sure.
     n4.rgb = (TBN * n4.rgb) * used_7;

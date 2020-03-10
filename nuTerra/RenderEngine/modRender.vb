@@ -327,7 +327,7 @@ Module modRender
                 GL.Uniform4(TerrainShader("layer3VT1"), .TexLayers(3).vP1)
                 GL.Uniform4(TerrainShader("layer3VT2"), .TexLayers(3).vP2)
 
-                'normalMap type. 1= AG : 0 = RGB
+                'Used 1 = true, 0 = false
                 GL.Uniform1(TerrainShader("used_1"), .TexLayers(0).used_a)
                 GL.Uniform1(TerrainShader("used_2"), .TexLayers(0).used_b)
 
@@ -340,6 +340,18 @@ Module modRender
                 GL.Uniform1(TerrainShader("used_7"), .TexLayers(3).used_a)
                 GL.Uniform1(TerrainShader("used_8"), .TexLayers(3).used_b)
 
+                'normalMap type. 1= AG : 0 = RGB
+                GL.Uniform1(TerrainShader("PBS_1"), .TexLayers(0).PBS_a)
+                GL.Uniform1(TerrainShader("PBS_2"), .TexLayers(0).PBS_b)
+
+                GL.Uniform1(TerrainShader("PBS_3"), .TexLayers(1).PBS_a)
+                GL.Uniform1(TerrainShader("PBS_4"), .TexLayers(1).PBS_b)
+
+                GL.Uniform1(TerrainShader("PBS_5"), .TexLayers(2).PBS_a)
+                GL.Uniform1(TerrainShader("PBS_6"), .TexLayers(2).PBS_b)
+
+                GL.Uniform1(TerrainShader("PBS_7"), .TexLayers(3).PBS_a)
+                GL.Uniform1(TerrainShader("PBS_8"), .TexLayers(3).PBS_b)
             End With
 
 

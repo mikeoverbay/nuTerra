@@ -54,13 +54,13 @@ void main (void)
     // or just 0.0 to mask any shading.
     //
     // If FLAG = 0 we want NO shading done to the color.
-	// Models = 64
-	// Dome = 255
+    // Models = 64
+    // Dome = 255
     // Just output gColor to outColor;
     if (FLAG != 000) {
     // FLAG VALUES WILL BE DECIDED AS WE NEED THEM BUT..
     // ZERO = JUST PASS THE COLOR TO OUTPUT
-	if (FLAG != 255) {
+    if (FLAG != 255) {
     vec3 Position = texture(gPosition, UV).xyz;
 
     vec4 color_in = texture(gColor, UV);
@@ -74,20 +74,20 @@ void main (void)
     vec3 N = normalize(texture(gNormal,UV).xyz);
 
     vec4 final_color = vec4(0.5, 0.5, 0.5, 1.0) * color_in;
-    vec4 Ambient_level = color_in * vec4(AMBIENT);
+    vec4 Ambient_level = color_in * vec4(AMBIENT * 3.0);
 
     float dist = length(LightPosModelView - Position);
-    float cutoff = 2000.0;
+    float cutoff = 1000.0;
     vec4 color = vec4(0.5, 0.5, 0.5, 1.0);
     // Only light whats in range
     if (dist < cutoff) {
 
             float lambertTerm = max(dot(N, L),0.0);
-            final_color.xyz += max(lambertTerm * color_in.xyz*color.xyz,0.0)*3.0;;
+            final_color.xyz += max(lambertTerm * color_in.xyz*color.xyz,0.0);
 
             vec3 halfwayDir = normalize(L + vd);
 
-            final_color.xyz += pow(max(dot(N, halfwayDir), 0.0), 60.0) * SPECULAR;
+            final_color.xyz += pow(max(dot(N, halfwayDir), 0.0), 30.0) * SPECULAR * 0.5;
 
             // Fade to ambient over distance
             final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;
@@ -110,10 +110,10 @@ void main (void)
     outColor =  correct(final_color,4.0);
     outColor.a = 1.0;
     /*===================================================================*/
-	 //if flag != 128
-		}else{
-	    outColor = texture(gColor, UV) * BRIGHTNESS;
-		}
+     //if flag != 128
+        }else{
+        outColor = texture(gColor, UV) * BRIGHTNESS;
+        }
      // if flag != 0
     }else{
     outColor = texture(gColor, UV);
