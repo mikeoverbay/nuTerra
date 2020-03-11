@@ -1,14 +1,16 @@
-﻿Imports System.Threading
-Imports OpenTK
+﻿Imports System.Runtime.InteropServices
 Imports System.Text
-Imports System.Runtime.InteropServices
+Imports OpenTK
 
 Module modGlobalVars
 
     '=================================================================================
     Public Sub clear_output()
-        Dim dte = Marshal.GetActiveObject("VisualStudio.DTE.12.0") 'change to version of visual studio
-        dte.ExecuteCommand("Edit.ClearOutputWindow")
+        Try
+            Dim dte = Marshal.GetActiveObject("VisualStudio.DTE.12.0") 'change to version of visual studio
+            dte.ExecuteCommand("Edit.ClearOutputWindow")
+        Catch
+        End Try
     End Sub
     '=================================================================================
 

@@ -185,8 +185,8 @@ Module modSpacedBinVars
         Public settings As TerrainSettings1_v0_9_20
         Public cdatas As BWArray(Of ChunkTerrain_v0_9_12)
         Public _3 As BWArray(Of Int32)
-        ' Public settings2 As TerrainSettings2_v1_6_1
-        ' Public lod_distances As BWArray(Of Single) ' terrain/lodInfo/lodDistances
+        Public settings2 As TerrainSettings2_v1_6_1
+        Public lod_distances As BWArray(Of Single) ' terrain/lodInfo/lodDistances
         ' Public _6 As BWArray(Of 2 x Int32)
         ' Public cascades As BWArray(Of OutlandCascade_v1_0_0) ' outland/cascade
         ' Public tiles_fnv As BWArray(Of UInt32) ' outland/tiles
@@ -201,6 +201,8 @@ Module modSpacedBinVars
             settings = New TerrainSettings1_v0_9_20(br)
             cdatas = New BWArray(Of ChunkTerrain_v0_9_12)(br)
             _3 = New BWArray(Of Integer)(br)
+            settings2 = TerrainSettings2_v1_6_1.Create(br)
+            lod_distances = New BWArray(Of Single)(br)
             ' TODO
         End Sub
 
@@ -259,6 +261,46 @@ Module modSpacedBinVars
                     Return cBWST.find_str(resource_fnv)
                 End Get
             End Property
+        End Structure
+
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure TerrainSettings2_v1_6_1
+            Public terrain_version As UInt32      ' space.settings/terrain/version
+            Public flags As UInt32
+            Public height_map_size As UInt32      ' terrain/heightMapSize
+            Public normal_map_size As UInt32      ' terrain/normalMapSize
+            Public hole_map_size As UInt32        ' terrain/holeMapSize
+            Public shadow_map_size As UInt32      ' terrain/shadowMapSize
+            Public blend_map_size As UInt32       ' terrain/blendMapSize
+            Public lod_texture_distance As Single ' terrain/lodInfo/lodTextureDistance
+            Public macro_lod_start As Single      ' terrain/lodInfo/macroLODStart
+            Public unknown_1 As UInt32
+            Public start_bias As Single           ' terrain/lodInfo/startBias
+            Public end_bias As Single             ' terrain/lodInfo/endBias
+            Public direct_occlusion As Single     ' terrain/soundOcclusion/directOcclusion
+            Public reverb_occlusion As Single     ' terrain/soundOcclusion/reverbOcclusion
+            Public wrap_u As Single               ' terrain/detailNormal/wrapU
+            Public wrap_v As Single               ' terrain/detailNormal/wrapV
+            Public unknown_2 As UInt32
+            Public unknown_3 As Single
+            Public unknown_4 As Single
+            Public unknown_5 As Single
+            Public blend_macro_influence As Single  ' terrain/blendMacroInfluence
+            Public blend_global_threshold As Single ' terrain/blendGlobalThreshold
+            Public blend_height As Single           ' terrain/blendHeight
+            Public disabled_blend_height As Single  ' terrain/disabledBlendHeight
+            Public vt_lod_params As Vector4         ' terrain/VTLodParams
+            Public bounding_box As Vector4
+
+            Public Shared Function Create(br As BinaryReader) As TerrainSettings2_v1_6_1
+                Dim size = br.ReadUInt32()
+                Debug.Assert(Marshal.SizeOf(Create) = size)
+
+                Dim buffer = br.ReadBytes(size)
+                Dim handle = GCHandle.Alloc(buffer, GCHandleType.Pinned)
+                Create = Marshal.PtrToStructure(Marshal.UnsafeAddrOfPinnedArrayElement(buffer, 0), GetType(TerrainSettings2_v1_6_1))
+                handle.Free()
+            End Function
         End Structure
     End Structure
 #End Region
