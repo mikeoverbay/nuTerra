@@ -209,55 +209,53 @@ Module TerrainTextureFunctions
     End Function
 
     Public Sub get_dominate_texture(ByVal map As Integer)
-
-        Dim enc As New System.Text.ASCIIEncoding
-
         Dim ms As New MemoryStream(theMap.chunks(map).dominateTestures_data)
         ms.Position = 0
-        Dim br As New BinaryReader(ms)
+        Dim br As New BinaryReader(ms, Encoding.ASCII)
 
-        Dim magic1 = br.ReadInt32
-        Dim version = br.ReadInt32
-        'unzip the data
-        ms.Position = 0
+        Dim magic = br.ReadUInt32()
+        Dim version = br.ReadUInt32()
 
-        magic1 = br.ReadUInt32
-        version = br.ReadUInt32
+        Debug.Assert(magic = 7627117)
+        Debug.Assert(version = 1)
 
-        Dim number_of_textures As Integer = br.ReadUInt32
-        Dim texture_string_length As Integer = br.ReadUInt32
+        Dim number_of_textures As Integer = br.ReadUInt32()
+        Dim texture_string_length As Integer = br.ReadUInt32()
 
-        Dim d_width As Integer = br.ReadUInt32
-        Dim d_height As Integer = br.ReadUInt32
-        br.ReadUInt64()
+        Dim d_width As Integer = br.ReadUInt32()
+        Dim d_height As Integer = br.ReadUInt32()
+
+        ' skip 8 bytes
+        br.BaseStream.Position += 8
+
         ReDim theMap.render_set(map).dom_tex_list(number_of_textures)
-        Dim s_buff(texture_string_length) As Byte
         For i = 0 To number_of_textures - 1
-            s_buff = br.ReadBytes(texture_string_length)
-            theMap.render_set(map).dom_tex_list(i) = enc.GetString(s_buff)
+            Dim s_buff As Char() = br.ReadChars(texture_string_length)
+            Dim nullPos = Array.IndexOf(s_buff, CType(vbNullChar, Char))
+            If nullPos <> -1 Then
+                Array.Resize(s_buff, nullPos)
+            End If
+            theMap.render_set(map).dom_tex_list(i) = s_buff
         Next
 
+        Dim mg1 = br.ReadUInt32()
+        Dim mg2 = br.ReadUInt32()
 
+        Debug.Assert(mg1 = 2053730304)
+        Debug.Assert(mg2 = 1118801953)
 
-        Dim mg1 = br.ReadInt32
-        Dim mg2 = br.ReadInt32
-        Dim uncompressedsize = br.ReadInt32
+        Dim uncompressedsize = br.ReadInt32()
         Dim buff(65536) As Byte
-        Dim ps As New MemoryStream(buff)
-        Dim count As UInteger = 0
         Dim total_read As Integer = 0
-        Dim p_w As New StreamWriter(ps)
 
-        Using Decompress As Zlib.ZlibStream = New Zlib.ZlibStream(ms, Zlib.CompressionMode.Decompress, False)
+        Using Decompress As New Zlib.ZlibStream(ms, Zlib.CompressionMode.Decompress, False)
             Decompress.BufferSize = 65536
-            Dim buffer(65536) As Byte
             Dim numRead As Integer
             numRead = Decompress.Read(buff, 0, buff.Length)
             total_read = numRead 'debug
 
         End Using
 
-        Dim p_rd As New BinaryReader(ps)
         ReDim Preserve buff(total_read)
         Dim c_buff((total_read) * 4) As Byte
 
@@ -277,8 +275,7 @@ Module TerrainTextureFunctions
             End If
         Next
         'done with these so dispose of them.
-        p_rd.Close()
-        ps.Dispose()
+
         br.Close()
         br.Dispose()
         ms.Dispose()
@@ -287,7 +284,6 @@ Module TerrainTextureFunctions
         w = d_width
         h = d_height
         Dim stride = (w / 2)
-        count = 0
         'convert to 4 color data.
 
         '------------------------------------------------------------------
@@ -313,7 +309,6 @@ Module TerrainTextureFunctions
 
             GL.CreateTextures(TextureTarget.Texture2D, 1, theMap.render_set(map).dom_texture_id)
 
-            GL.BindTexture(TextureTarget.Texture2D, theMap.render_set(map).dom_texture_id) ' bind the texture
             GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
 
@@ -323,7 +318,6 @@ Module TerrainTextureFunctions
             GL.TextureStorage2D(theMap.render_set(map).dom_texture_id, 1, SizedInternalFormat.Rgba8, width, height)
             GL.TextureSubImage2D(theMap.render_set(map).dom_texture_id, 0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
 
-            GL.BindTexture(TextureTarget.Texture2D, 0) ' bind the texture
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)
             'Stop
