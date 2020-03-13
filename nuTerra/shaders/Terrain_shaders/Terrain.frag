@@ -72,14 +72,14 @@ uniform int pbs_6;
 uniform int pbs_7;
 uniform int pbs_8;
 
+
 uniform sampler2D colorMap;
 uniform sampler2D normalMap;
 uniform sampler2D domTexture;
 
 uniform int nMap_type = 1;
 
-uniform vec2 map_size;
-uniform vec2 map_pos;
+flat in int dom_id;
 
 in float ln;
 
@@ -129,7 +129,6 @@ if (pbs == 1)
         n.xyz = n.xzy;
         return vec4(n,1.0);
     }else{
-
         return norm;
     }
 }
@@ -153,120 +152,110 @@ void main(void)
 
     mix_coords = UV;
     mix_coords.x = 1.0 - mix_coords.x;
-
+    vec2 UVs = UV;
     // Rotate the AM and NM textures. The order here is not important but I am sticking to protocol.
     // Layer 4 ---------------------------------------------
     // 7
-    tv4 = vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex));
-    t4 = texture2D(layer_4T1, -tv4 + 0.5 );
-    n4 = texture2D(n_layer_4T1, -tv4 + 0.5);
+    tv4 = vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex));
+    t4 = texture(layer_4T1, -tv4 + 0.5 );
+    n4 = texture(n_layer_4T1, -tv4 + 0.5);
     n4 = convertNormal(n4, pbs_7)+layer3UT1;
     // 8
-    tv4_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
-    t4_2 = texture2D(layer_4T2, -tv4_2 + 0.5);
-    n4_2 = texture2D(n_layer_4T2, -tv4_2 + 0.5);
+    tv4_2 = vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex));
+    t4_2 = texture(layer_4T2, -tv4_2 + 0.5);
+    n4_2 = texture(n_layer_4T2, -tv4_2 + 0.5);
     n4_2 = convertNormal(n4_2, pbs_8)+layer3UT2;
 
     // layer 3 ---------------------------------------------
     // 5
-    tv3 = vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex));
-    t3 = texture2D(layer_3T1, -tv3 + 0.5);
-    n3 = texture2D(n_layer_3T1, -tv3 + 0.5);
-    n3 = convertNormal(n3, pbs_5)+layer2UT1;
+    tv3 = vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex));
+    t3 = texture(layer_3T1, -tv3 + 0.5);
+    n3 = texture(n_layer_3T1, -tv3 + 0.5);
+    n3 = convertNormal(n3, pbs_5)+layer3UT1;
     // 6
-    tv3_2 = vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex));
-    t3_2 = texture2D(layer_3T2, -tv3_2 + 0.5);
-    n3_2 = texture2D(n_layer_3T2, -tv3_2 + 0.5);
-    n3_2 = convertNormal(n3_2, pbs_6)+layer2UT2;
+    tv3_2 = vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex));
+    t3_2 = texture(layer_3T2, -tv3_2 + 0.5);
+    n3_2 = texture(n_layer_3T2, -tv3_2 + 0.5);
+    n3_2 = convertNormal(n3_2, pbs_6)+layer3UT2;
 
     // layer 2 ---------------------------------------------
     // 3
-    tv2 = vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex));
-    t2 = texture2D(layer_2T1, -tv2 + 0.5);
-    n2 = texture2D(n_layer_2T1, -tv2 + 0.5);
+    tv2 = vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex));
+    t2 = texture(layer_2T1, -tv2 + 0.5);
+    n2 = texture(n_layer_2T1, -tv2 + 0.5);
     n2 = convertNormal(n2, pbs_3)+layer1UT1;
     // 4
-    tv2_2 = vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex));
-    t2_2 = texture2D(layer_2T2, -tv2_2 + 0.5);
-    n2_2 = texture2D(n_layer_2T2, -tv2_2 + 0.5);
+    tv2_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
+    t2_2 = texture(layer_2T2, -tv2_2 + 0.5);
+    n2_2 = texture(n_layer_2T2, -tv2_2 + 0.5);
     n2_2 = convertNormal(n2_2, pbs_4)+layer1UT2;
 
     // layer 1 ---------------------------------------------
     // 1
     tv1 = vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex));
-    t1 = texture2D(layer_1T1, -tv1 + 0.5);
-    n1 = texture2D(n_layer_1T1, -tv1 + 0.5);
+    t1 = texture(layer_1T1, -tv1 + 0.5);
+    n1 = texture(n_layer_1T1, -tv1 + 0.5);
     n1 = convertNormal(n1, pbs_1)+layer0UT1;
     // 2
     tv1_2 = vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex));
-    t1_2 = texture2D(layer_1T2, -tv1_2 + 0.5);
-    n1_2 = texture2D(n_layer_1T2, -tv1_2 + 0.5);
+    t1_2 = texture(layer_1T2, -tv1_2 + 0.5);
+    n1_2 = texture(n_layer_1T2, -tv1_2 + 0.5);
     n1_2 = convertNormal(n1_2, pbs_2)+layer0UT2;
     //
    
+    // Hoping this works
+    UVs.x = 1.0 - UVs.x;
+
+    //switch (dom_id){
+    //case 1:
+    //      t1 = texture(layer_1T1, UVs + 0.5);
+    //      n1 = texture(n_layer_1T1, UVs + 0.5);
+    //      n1 = convertNormal(n1, pbs_1);
+    //case 2:
+    //      t1_2 = texture(layer_1T2, UVs + 0.5);
+    //      n1_2 = texture(n_layer_1T2, UVs + 0.5);
+    //      n1_2 = convertNormal(n1_2, pbs_2);
+    //case 3:
+    //      t2 = texture(layer_2T1, UVs + 0.5);
+    //      n2 = texture(n_layer_2T1, UVs + 0.5);
+    //      n2 = convertNormal(n2, pbs_3);
+    //case 4:
+    //      t2_2 = texture(layer_2T2, UVs + 0.5);
+    //      n2_2 = texture(n_layer_2T2, UVs + 0.5);
+    //      n2_2 = convertNormal(n2_2, pbs_4);
+    //case 5:
+    //      t3 = texture(layer_3T1, UVs + 0.5);
+    //      n3 = texture(n_layer_3T1, UVs + 0.5);
+    //      n3 = convertNormal(n3, pbs_5);
+    //case 6:
+    //      t3_2 = texture(layer_3T2, UVs + 0.5);
+    //      n3_2 = texture(n_layer_3T2, UVs + 0.5);
+    //      n3_2 = convertNormal(n3_2, pbs_6);
+    //case 7:
+    //      t4 = texture(layer_4T1, UVs + 0.5);
+    //      n4 = texture(n_layer_4T1, UVs + 0.5);
+    //      n4 = convertNormal(n4, pbs_7);
+    //case 8:
+    //      t4_2 = texture(layer_4T2, UVs + 0.5);
+    //      n4_2 = texture(n_layer_4T2, UVs + 0.5);
+    //      n4_2 = convertNormal(n4_2, pbs_8);
+    //}
+
+
     //Get the mix values from the mix textures 1-4 and move to vec2. 
-    MixLevel1.rg = texture2D(mixtexture1, mix_coords.xy).ag;
-    MixLevel2.rg = texture2D(mixtexture2, mix_coords.xy).ag;
-    MixLevel3.rg = texture2D(mixtexture3, mix_coords.xy).ag;
-    MixLevel4.rg = texture2D(mixtexture4, mix_coords.xy).ag;
+    MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
+    MixLevel2.rg = texture(mixtexture2, mix_coords.xy).ag;
+    MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
+    MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
    
-    vec2 tileUV = UV*1.75;
-    tileUV.xy *= -1.0;
-    tileUV.y -= 0.287;
-    //tileUV.x += 0.25;
-    int domVal = int(texture2D(domTexture,UV).r*255.0);
+    int domVal = int(texture(domTexture,UV).r*255.0)>>4;
 
-    switch (domVal) {
 
-    case 0:
-    t1 = texture2D(layer_1T1, tileUV+0.5);
-    n1 = texture(n_layer_1T1, tileUV+0.5);
-    break;
-
-    case 1:
-    t1_2 = texture2D(layer_1T2, tileUV+0.5);
-    n1_2 = texture(n_layer_1T2, tileUV+0.5);
-    break;
-
-    case 2:
-    //t2.r = 1.0;
-    t2 = texture2D(layer_2T1, tileUV+0.5);
-    n2 = texture(n_layer_2T1, tileUV+0.5);
-    break; 
-
-    case 3:
-    t2_2 = texture2D(layer_2T2, tileUV+0.5);
-    n2_2 = texture(n_layer_2T2, tileUV+0.5);
-    break;
-
-    case 4:
-    t3 = texture2D(layer_3T1, tileUV+0.5);
-    n3 = texture(n_layer_3T1, tileUV+0.5);
-    break;
-
-    case 5:
-    t3_2 = texture2D(layer_3T2, tileUV+0.5);
-    n3_2 = texture(n_layer_3T2, tileUV+0.5);
-    break;
-
-    case 6:
-    t4 = texture2D(layer_4T1, tileUV+0.5);
-    n4 = texture(n_layer_4T1, tileUV+0.5);
-    break;
-
-    case 7:
-    t4_2 = texture2D(layer_4T2, tileUV+0.5);
-    n4_2 = texture(n_layer_4T2, tileUV+0.5);
-
-    break;
-    
-    }
     vec4 base = vec4(0.0);  
     vec4 empty = vec4(0.0);
 
 
-    // used_1 to used_8 are either 0 or 1 if thise texture is used slot. Used to clamp 0.0, 1.0
-    // These are mixed from 8th to 1st to overwrite and unused data. Unknown if it's important.
+    // used_1 to used_8 are either 0 or 1 depending on if the slot is used. Used to clamp 0.0, 1.0
 
     // mix our textures in to base.
     // Mix group 4
@@ -349,13 +338,15 @@ void main(void)
     // This blends between low and highrez by distance
 
     // This blends the layered colors/normals and the global_AM/normalMaps over distance.
-    // The blend stats at 100 and ends at 400.
+    // The blend stats at 100 and ends at 400. This has been changed for debug
     // Replace ln with 1.0 to show only layered terrain.
-    vec4 dom = texture2D(domTexture,UV);
-    base.rgb = mix(texture2D(colorMap, Global_UV).rgb, base.rgb, ln) ;
+    vec4 dom = texture(domTexture,UV);
+    vec4 global = texture(colorMap, Global_UV);
+    global.a = 1.0;
+    base = mix(global, base, ln) ;
     //base.rgb = mix(dom.rgb, base.rgb, ln) ;
     out_n = mix(n_tex, out_n, ln) ;
-
+    //base.rgb *= global.rgb*global.a;
     // The obvious
     gColor = base;
     gColor.a = 1.0;

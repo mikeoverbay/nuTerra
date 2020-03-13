@@ -394,7 +394,7 @@ Module TextureLoaders
         Dim dummy As Integer
         Dim b As New Bitmap(2, 2, Imaging.PixelFormat.Format32bppArgb)
         Dim g As Drawing.Graphics = Drawing.Graphics.FromImage(b)
-        g.Clear(Color.Black)
+        g.Clear(Color.FromArgb(0, 0, 0, 0))
         Dim bitmapData = b.LockBits(New Rectangle(0, 0, 2,
                              2), Imaging.ImageLockMode.ReadOnly, Imaging.PixelFormat.Format32bppArgb)
 

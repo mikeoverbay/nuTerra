@@ -461,11 +461,18 @@ try_again:
         MINI_TRIM_HORZ_ID = load_image_from_file(Il.IL_PNG,
             sp + "\resources\mini_trim_horz.png", False, False)
         '---------------------------------------------------------
+        'Text Texture
+        testTexture_id = load_image_from_file(Il.IL_PNG,
+            sp + "\resources\TestTexture.png", False, False)
+        '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
         PROGRESS_BAR_IMAGE_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\progress_bar.png", False, True)
         '---------------------------------------------------------
+        'need to create this texture.
+        DrawMapPickText.TextRenderer(300, 30)
+
         'test junk. ----------------------------------------------
         MOON = New base_model_holder_()
         CROSS_HAIR = New base_model_holder_()

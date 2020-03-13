@@ -28,18 +28,60 @@ Module TerrainTextureFunctions
         End With
         Get_layer_texture_data(map) 'get all the data
 
+
         'we have the data so lets get the textures.
         get_layer_textures(map)
 
         'get dom... for what I have no idea.
+        Dim no_rotateu = New OpenTK.Graphics.Color4(0.025F, 0, 0, 0)
+        Dim no_rotatev = New OpenTK.Graphics.Color4(0, 0, 0.025F, 0)
         get_dominate_texture(map)
+        With theMap.render_set(map)
+
+            Dim dom = .dom_id
+            If dom And 1 > 0 Then
+                '.TexLayers(0).uP1 = no_rotateu
+                '.TexLayers(0).vP1 = no_rotatev
+            End If
+            If dom And 1 > 0 Then
+                '.TexLayers(0).uP2 = no_rotateu
+                '.TexLayers(0).vP2 = no_rotatev
+            End If
+            If dom And 2 > 0 Then
+                '.TexLayers(1).uP1 = no_rotateu
+                '.TexLayers(1).vP1 = no_rotatev
+            End If
+            If dom And 4 > 0 Then
+                '.TexLayers(1).uP2 = no_rotateu
+                '.TexLayers(1).vP2 = no_rotatev
+            End If
+
+            If dom And 8 > 0 Then
+                '.TexLayers(2).uP1 = no_rotateu
+                '.TexLayers(2).vP1 = no_rotatev
+            End If
+            If dom And 16 > 0 Then
+                '.TexLayers(2).uP2 = no_rotateu
+                '.TexLayers(2).vP2 = no_rotatev
+            End If
+
+            If dom And 32 > 0 Then
+                '.TexLayers(3).uP1 = no_rotateu
+                '.TexLayers(3).vP1 = no_rotatev
+            End If
+            If dom And 2 > 0 Then
+                '.TexLayers(3).uP2 = no_rotateu
+                '.TexLayers(3).vP2 = no_rotatev
+            End If
+        End With
+
     End Sub
 
 
     Private Sub get_layer_textures(ByVal map As Integer)
         'It is important to fill blank IDs with the dummy texture
-        'so the shader has VALID data even if its empty data.
-        For i = 0 To theMap.render_set(map).layer_count
+        'so the shader has VALID ID and nothing is added.
+        For i = 0 To 3
             With theMap.render_set(map).TexLayers(i)
                 If .AM_name1 = "" Then
                     .AM_id1 = DUMMY_TEXTURE_ID
@@ -47,6 +89,7 @@ Module TerrainTextureFunctions
                     .used_a = 0.0F
                 Else
                     .AM_id1 = find_and_trim(.AM_name1)
+                    '.AM_id1 = testTexture_id
                     .NM_id1 = find_and_trim(.NM_name1)
                     .used_a = 1.0F
                 End If
@@ -56,6 +99,7 @@ Module TerrainTextureFunctions
                     .used_b = 0.0F
                 Else
                     .AM_id2 = find_and_trim(.AM_name2)
+                    '.AM_id2 = testTexture_id
                     .NM_id2 = find_and_trim(.NM_name2)
                     .used_b = 1.0F
                 End If
@@ -91,8 +135,10 @@ Module TerrainTextureFunctions
                 br.ReadUInt32() 'magic
                 .layer.render_info(i).width = br.ReadUInt32
                 .layer.render_info(i).height = br.ReadUInt32
-                .layer.render_info(i).count = br.ReadUInt32
+                .layer.render_info(i).count = br.ReadUInt32 ' always 8
+                If .layer.render_info(i).count <> 8 Then Stop
 
+                'texture projection transforms
                 .layer.render_info(i).u.R = br.ReadSingle
                 .layer.render_info(i).u.G = br.ReadSingle
                 .layer.render_info(i).u.B = br.ReadSingle
@@ -103,9 +149,10 @@ Module TerrainTextureFunctions
                 .layer.render_info(i).v.B = br.ReadSingle
                 .layer.render_info(i).v.A = br.ReadSingle
 
-                .layer.render_info(i).flags = br.ReadUInt32
+                .layer.render_info(i).flags = br.ReadUInt32 'always 59
+                If .layer.render_info(i).flags <> 59 Then Stop
 
-                'not sure about these 3
+                'not sure about these 3' Atlas offsets?
                 .layer.render_info(i).v1.r = br.ReadSingle
                 .layer.render_info(i).v1.g = br.ReadSingle
                 .layer.render_info(i).v1.b = br.ReadSingle
@@ -135,22 +182,23 @@ Module TerrainTextureFunctions
             ms.Dispose()
             GC.Collect()
 
+            '---------------------------------------------------------------------
+            'lets get the textures and blend texture.
+            '---------------------------------------------------------------------
             Dim ms2 As New MemoryStream(theMap.chunks(map).blend_textures_data)
             ms2.Position = 0
-            If map = 7 Then
-                'Stop
-            End If
+
             Dim br2 As New BinaryReader(ms2)
 
             Dim magic2 = br2.ReadUInt32()
             Dim section_cnt = br2.ReadUInt32
             section_cnt = 4
-            Dim sec_sizes(section_cnt - 1) As UInt32
-            For i = 0 To section_cnt - 1
+            Dim sec_sizes(3) As UInt32
+            For i = 0 To 3
                 sec_sizes(i) = br2.ReadUInt32
             Next
             ReDim .TexLayers(section_cnt)
-            For i = 0 To section_cnt - 1
+            For i = 0 To 3
                 .TexLayers(i) = New ids_
                 Dim len = sec_sizes(i)
                 If len > 0 Then
@@ -190,12 +238,16 @@ Module TerrainTextureFunctions
                             .TexLayers(i).PBS_b = 1
                         End If
                     End If
+                    'load blend texture
                     .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
+
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt).v
+                    .TexLayers(i).scale_a = .layer.render_info(cur_layer_info_pnt).scale
 
                     .TexLayers(i).uP2 = .layer.render_info(cur_layer_info_pnt + 1).u
                     .TexLayers(i).vP2 = .layer.render_info(cur_layer_info_pnt + 1).v
+                    .TexLayers(i).scale_b = .layer.render_info(cur_layer_info_pnt + 1).scale
 
                     cur_layer_info_pnt += 2
                     .layer_count += 1
@@ -245,6 +297,7 @@ Module TerrainTextureFunctions
         Debug.Assert(mg2 = 1118801953)
 
         Dim uncompressedsize = br.ReadInt32()
+
         Dim buff(65536) As Byte
         Dim total_read As Integer = 0
 
@@ -252,28 +305,34 @@ Module TerrainTextureFunctions
             Decompress.BufferSize = 65536
             Dim numRead As Integer
             numRead = Decompress.Read(buff, 0, buff.Length)
-            total_read = numRead 'debug
-
+            total_read = numRead
         End Using
 
         ReDim Preserve buff(total_read)
         Dim c_buff((total_read) * 4) As Byte
 
-        Dim bb As New StringBuilder
         Dim cnt As Integer = 0
         Dim cnt2 As Integer = 0
+        'only one channel matters but lets make it grey to visualize.
+        'Dim sb As New StringBuilder
+        'sb.Length = 0
+        Dim dom_id As Integer = 0
         For i = 0 To total_read - 1
-            'bb.Append(buff(i).ToString)
-            c_buff(cnt + 0) = (buff(i) And 7) ' << 4
-            c_buff(cnt + 1) = 0 '(buff(i) + 1 And 7) << 4
-            c_buff(cnt + 2) = 0 '(buff(i) + 1 And 7) << 4
+            'sb.Append(buff(i).ToString + " ")
+            dom_id = dom_id Or buff(i)
+            c_buff(cnt + 0) = (buff(i) And 7) << 4
+            c_buff(cnt + 1) = (buff(i) And 7) << 4
+            c_buff(cnt + 2) = (buff(i) And 7) << 4
             c_buff(cnt + 3) = 255
             cnt += 4
-            cnt2 += 1
-            If cnt = 127 Then
-                'bb.Append(vbCrLf)
-            End If
+            'cnt2 += 1
+            'If cnt2 = 128 Then
+            '    sb.Append(vbCrLf)
+            '    cnt2 = 0
+            'End If
         Next
+        theMap.render_set(map).dom_id = dom_id
+        'File.WriteAllText("c:\!_bin_data\!dom_" + map.ToString("000") + ".txt", sb.ToString)
         'done with these so dispose of them.
 
         br.Close()
@@ -284,9 +343,9 @@ Module TerrainTextureFunctions
         w = d_width
         h = d_height
         Dim stride = (w / 2)
-        'convert to 4 color data.
 
         '------------------------------------------------------------------
+        'convert to 4 color data.
         'w = stride * 8 : h = h * 2
         'need point in to dbuff color buffer array
         Dim bufPtr As IntPtr = Marshal.AllocHGlobal(c_buff.Length - 1)
@@ -295,7 +354,7 @@ Module TerrainTextureFunctions
         Il.ilBindImage(texID) ' Binding of image name 
         Dim success = Il.ilGetError
 
-        Il.ilTexImage(w, h, 1, 4, Il.IL_RGBA, Il.IL_UNSIGNED_BYTE, bufPtr) ' Create new image from pufPtr's data
+        Il.ilTexImage(w, h, 1, 4, Il.IL_RGBA, Il.IL_UNSIGNED_BYTE, bufPtr) ' Create new image from bufPtr's data
         success = Il.ilGetError
 
         Marshal.FreeHGlobal(bufPtr) ' free this up
@@ -320,15 +379,14 @@ Module TerrainTextureFunctions
 
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)
-            'Stop
         Else
-            MsgBox("Error Dom Texture! Il Error" + success.ToString, MsgBoxStyle.Exclamation, "Well Shit...")
+            MsgBox("Error Dom Texture! Il Error " + success.ToString, MsgBoxStyle.Exclamation, "Well Shit...")
         End If
     End Sub
 
     Public Function find_and_trim(ByRef fn As String) As Integer
         'finds and loads and returns the GL texture ID.
-        Dim id = image_exists(fn) 'check if this has been loaded.
+        Dim id = image_exists(fn) 'Check if this has been loaded already.
         If id > 0 Then
             Return id
         End If
@@ -341,7 +399,7 @@ Module TerrainTextureFunctions
             id = crop_DDS(ms, fn)
             Return id
         End If
-        Return -1 ' Didn't find it, return -1
+        Return -1
     End Function
 
     Private Function crop_DDS(ByRef ms As MemoryStream, ByRef fn As String) As Integer

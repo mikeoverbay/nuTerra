@@ -127,6 +127,7 @@ Module TerrainBuilder
         Public layer_count As Integer
         Public dom_texture_id As Integer
         Public dom_tex_list() As String
+        Public dom_id As Integer
     End Structure
     Public Structure ids_
         Public Blend_id As Integer
@@ -137,6 +138,7 @@ Module TerrainBuilder
         Public uP1, uP2, vP1, vP2 As Graphics.Color4
         Public used_a, used_b As Single
         Public PBS_a, PBS_b As Integer
+        Public scale_a, scale_b As Graphics.Color4
     End Structure
     Public Structure layer_render_info_
         Public used_on() As UInt32

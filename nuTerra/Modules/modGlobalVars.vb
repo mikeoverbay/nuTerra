@@ -55,6 +55,7 @@ Module modGlobalVars
     Public MINI_LETTERS_ID As Integer
     Public MINI_TRIM_VERT_ID As Integer
     Public MINI_TRIM_HORZ_ID As Integer
+    Public testTexture_id As Integer 'debug
     '============================================================
     'load screen background image
     Public nuTERRA_BG_IMAGE As Integer

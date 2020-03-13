@@ -133,6 +133,12 @@ Module modOpenGL
         If id = 131185 Then
             Return
         End If
+        If id = 1281 Then
+            Return
+        End If
+        If id = 1282 Then
+            Return
+        End If
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
 
         Application.DoEvents()

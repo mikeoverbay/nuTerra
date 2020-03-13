@@ -215,6 +215,11 @@ Module modRender
             GL.PolygonOffset(1.2, 0.2)
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
+        '==========================
+        'debug
+        FBOm.attach_C()
+        GL.Enable(EnableCap.Blend)
+        '==========================
 
         GL.Enable(EnableCap.CullFace)
 
@@ -357,6 +362,20 @@ Module modRender
 
                 GL.Uniform1(TerrainShader("PBS_7"), .TexLayers(3).PBS_a)
                 GL.Uniform1(TerrainShader("PBS_8"), .TexLayers(3).PBS_b)
+
+                'GL.Uniform4(TerrainShader("scale_1"), .TexLayers(0).scale_a)
+                'GL.Uniform4(TerrainShader("scale_2"), .TexLayers(0).scale_b)
+
+                'GL.Uniform4(TerrainShader("scale_3"), .TexLayers(1).scale_a)
+                'GL.Uniform4(TerrainShader("scale_4"), .TexLayers(1).scale_b)
+
+                'GL.Uniform4(TerrainShader("scale_5"), .TexLayers(2).scale_a)
+                'GL.Uniform4(TerrainShader("scale_6"), .TexLayers(2).scale_b)
+
+                'GL.Uniform4(TerrainShader("scale_7"), .TexLayers(3).scale_a)
+                'GL.Uniform4(TerrainShader("scale_8"), .TexLayers(3).scale_b)
+                GL.Uniform1(TerrainShader("dom"), .dom_id)
+
             End With
 
 
@@ -370,6 +389,7 @@ Module modRender
         TerrainShader.StopUse()
 
         GL.Disable(EnableCap.CullFace)
+        GL.Disable(EnableCap.Blend)
 
         unbind_textures(2)
 

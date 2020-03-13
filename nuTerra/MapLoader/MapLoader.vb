@@ -436,11 +436,10 @@ Module MapLoader
         'Used to delete all images and display lists.
 
         'Remove map related textures. Keep Static Textures!
-        For Each row In imgTbl
-            If row.Id > FIRST_UNUSED_TEXTURE Then
-                GL.DeleteTexture(row.Id)
-                GL.Finish() ' make sure we are done before moving on
-            End If
+        Dim img_id = GL.GenTexture
+        For i = FIRST_UNUSED_TEXTURE To img_id
+            GL.DeleteTexture(i)
+            GL.Finish() ' make sure we are done before moving on
         Next
 
         'delete VBOs
