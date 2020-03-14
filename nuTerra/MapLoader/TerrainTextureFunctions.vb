@@ -51,8 +51,8 @@ Module TerrainTextureFunctions
                 '.TexLayers(0).vP2 = no_rotatev
             End If
             If dom And 4 > 0 Then
-                .TexLayers(1).uP1 = no_rotateu
-                .TexLayers(1).vP1 = no_rotatev
+                '.TexLayers(1).uP1 = no_rotateu
+                '.TexLayers(1).vP1 = no_rotatev
             End If
             If dom = 3 Then
                 '.TexLayers(1).uP2 = no_rotateu
