@@ -259,6 +259,19 @@ Module modRender
         GL.Uniform1(TerrainShader("normalMap"), 21)
         GL.Uniform1(TerrainShader("domTexture"), 22)
 
+
+        GL.Uniform1(TerrainShader("tex_0"), 23)
+        GL.Uniform1(TerrainShader("tex_1"), 24)
+
+        GL.Uniform1(TerrainShader("tex_2"), 25)
+        GL.Uniform1(TerrainShader("tex_3"), 26)
+
+        GL.Uniform1(TerrainShader("tex_4"), 27)
+        GL.Uniform1(TerrainShader("tex_5"), 28)
+
+        GL.Uniform1(TerrainShader("tex_6"), 29)
+        GL.Uniform1(TerrainShader("tex_7"), 30)
+
         GL.BindTextureUnit(20, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
         GL.BindTextureUnit(21, m_normal_id)
 
@@ -337,6 +350,16 @@ Module modRender
                 GL.Uniform4(TerrainShader("layer3VT1"), .TexLayers(3).vP1)
                 GL.Uniform4(TerrainShader("layer3VT2"), .TexLayers(3).vP2)
 
+                'test textures so we cab see the mapping
+                GL.BindTextureUnit(23, TEST_IDS(0))
+                GL.BindTextureUnit(24, TEST_IDS(1))
+                GL.BindTextureUnit(25, TEST_IDS(2))
+                GL.BindTextureUnit(26, TEST_IDS(3))
+                GL.BindTextureUnit(27, TEST_IDS(4))
+                GL.BindTextureUnit(28, TEST_IDS(5))
+                GL.BindTextureUnit(29, TEST_IDS(6))
+                GL.BindTextureUnit(30, TEST_IDS(7))
+
                 'Used 1 = true, 0 = false
                 GL.Uniform1(TerrainShader("used_1"), .TexLayers(0).used_a)
                 GL.Uniform1(TerrainShader("used_2"), .TexLayers(0).used_b)
@@ -363,19 +386,6 @@ Module modRender
                 GL.Uniform1(TerrainShader("PBS_7"), .TexLayers(3).PBS_a)
                 GL.Uniform1(TerrainShader("PBS_8"), .TexLayers(3).PBS_b)
 
-                'GL.Uniform4(TerrainShader("scale_1"), .TexLayers(0).scale_a)
-                'GL.Uniform4(TerrainShader("scale_2"), .TexLayers(0).scale_b)
-
-                'GL.Uniform4(TerrainShader("scale_3"), .TexLayers(1).scale_a)
-                'GL.Uniform4(TerrainShader("scale_4"), .TexLayers(1).scale_b)
-
-                'GL.Uniform4(TerrainShader("scale_5"), .TexLayers(2).scale_a)
-                'GL.Uniform4(TerrainShader("scale_6"), .TexLayers(2).scale_b)
-
-                'GL.Uniform4(TerrainShader("scale_7"), .TexLayers(3).scale_a)
-                'GL.Uniform4(TerrainShader("scale_8"), .TexLayers(3).scale_b)
-                GL.Uniform1(TerrainShader("dom"), .dom_id)
-
             End With
 
 
@@ -391,7 +401,7 @@ Module modRender
         GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
 
-        unbind_textures(2)
+        unbind_textures(30)
 
         If WIRE_TERRAIN Then
 

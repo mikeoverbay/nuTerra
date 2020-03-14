@@ -16,6 +16,7 @@ Module modGlobalVars
 
     'Define these in CAP TEXT
     Public TEST_TEXTURE_ID As Integer
+    Public TEST_IDS(7) As Integer
     Public M_POS As Vector2
     '============================================================
     Public nuTerra_LOG As New StringBuilder ' for logging
@@ -55,7 +56,6 @@ Module modGlobalVars
     Public MINI_LETTERS_ID As Integer
     Public MINI_TRIM_VERT_ID As Integer
     Public MINI_TRIM_HORZ_ID As Integer
-    Public testTexture_id As Integer 'debug
     '============================================================
     'load screen background image
     Public nuTERRA_BG_IMAGE As Integer

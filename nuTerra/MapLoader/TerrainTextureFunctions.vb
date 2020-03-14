@@ -26,50 +26,53 @@ Module TerrainTextureFunctions
             .TexLayers(2).Blend_id = DUMMY_TEXTURE_ID
             .TexLayers(3).Blend_id = DUMMY_TEXTURE_ID
         End With
-        Get_layer_texture_data(map) 'get all the data
 
+        get_dominate_texture(map) ' get dom... for what I have no idea.
 
-        'we have the data so lets get the textures.
+        Get_layer_texture_data(map) ' get all the data
+
+        ' we have the data so lets get the textures.
         get_layer_textures(map)
 
-        'get dom... for what I have no idea.
+
         Dim no_rotateu = New OpenTK.Graphics.Color4(0.025F, 0, 0, 0)
         Dim no_rotatev = New OpenTK.Graphics.Color4(0, 0, 0.025F, 0)
-        get_dominate_texture(map)
         With theMap.render_set(map)
 
-            Dim dom = .dom_id
-            If dom And 1 > 0 Then
-                '.TexLayers(0).uP1 = no_rotateu
-                '.TexLayers(0).vP1 = no_rotatev
-            End If
-            If dom And 1 > 0 Then
+            Dim dom = .dom_id And &HF
+            Dim dom2 = .dom_id And &HF0
+            Debug.WriteLine(dom2.ToString("x") + " " + dom.ToString("x"))
+            If dom = 0 Then
                 '.TexLayers(0).uP2 = no_rotateu
                 '.TexLayers(0).vP2 = no_rotatev
             End If
-            If dom And 2 > 0 Then
-                '.TexLayers(1).uP1 = no_rotateu
-                '.TexLayers(1).vP1 = no_rotatev
+            If dom = 1 Then
+                '.TexLayers(0).uP2 = no_rotateu
+                '.TexLayers(0).vP2 = no_rotatev
             End If
             If dom And 4 > 0 Then
+                .TexLayers(1).uP1 = no_rotateu
+                .TexLayers(1).vP1 = no_rotatev
+            End If
+            If dom = 3 Then
                 '.TexLayers(1).uP2 = no_rotateu
                 '.TexLayers(1).vP2 = no_rotatev
             End If
 
-            If dom And 8 > 0 Then
+            If dom = 4 Then
                 '.TexLayers(2).uP1 = no_rotateu
                 '.TexLayers(2).vP1 = no_rotatev
             End If
-            If dom And 16 > 0 Then
+            If dom = 5 Then
                 '.TexLayers(2).uP2 = no_rotateu
                 '.TexLayers(2).vP2 = no_rotatev
             End If
 
-            If dom And 32 > 0 Then
+            If dom = 6 Then
                 '.TexLayers(3).uP1 = no_rotateu
                 '.TexLayers(3).vP1 = no_rotatev
             End If
-            If dom And 2 > 0 Then
+            If dom = 7 Then
                 '.TexLayers(3).uP2 = no_rotateu
                 '.TexLayers(3).vP2 = no_rotatev
             End If
@@ -106,7 +109,7 @@ Module TerrainTextureFunctions
 
             End With
         Next
-     
+
     End Sub
 
 
@@ -153,9 +156,9 @@ Module TerrainTextureFunctions
                 If .layer.render_info(i).flags <> 59 Then Stop
 
                 'not sure about these 3' Atlas offsets?
-                .layer.render_info(i).v1.r = br.ReadSingle
-                .layer.render_info(i).v1.g = br.ReadSingle
-                .layer.render_info(i).v1.b = br.ReadSingle
+                .layer.render_info(i).v1.R = br.ReadSingle
+                .layer.render_info(i).v1.G = br.ReadSingle
+                .layer.render_info(i).v1.B = br.ReadSingle
 
                 .layer.render_info(i).r1.R = br.ReadSingle
                 .layer.render_info(i).r1.G = br.ReadSingle
@@ -176,6 +179,7 @@ Module TerrainTextureFunctions
                 Dim bs = br.ReadUInt32
                 Dim d = br.ReadBytes(bs)
                 .layer.render_info(i).texture_name = Encoding.UTF8.GetString(d, 0, d.Length)
+
                 br.ReadByte()
 
             Next
@@ -241,10 +245,14 @@ Module TerrainTextureFunctions
                     'load blend texture
                     .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
 
+                    If .TexLayers(i).AM_name1 <> .dom_tex_list(cur_layer_info_pnt) Then
+                        Stop
+                    End If
+                    'layer part 1
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt).v
                     .TexLayers(i).scale_a = .layer.render_info(cur_layer_info_pnt).scale
-
+                    'layer part 2
                     .TexLayers(i).uP2 = .layer.render_info(cur_layer_info_pnt + 1).u
                     .TexLayers(i).vP2 = .layer.render_info(cur_layer_info_pnt + 1).v
                     .TexLayers(i).scale_b = .layer.render_info(cur_layer_info_pnt + 1).scale
@@ -280,7 +288,11 @@ Module TerrainTextureFunctions
         ' skip 8 bytes
         br.BaseStream.Position += 8
 
-        ReDim theMap.render_set(map).dom_tex_list(number_of_textures)
+
+        ReDim theMap.render_set(map).dom_tex_list(7)
+        For i = 0 To 7
+            theMap.render_set(map).dom_tex_list(i) = ""
+        Next
         For i = 0 To number_of_textures - 1
             Dim s_buff As Char() = br.ReadChars(texture_string_length)
             Dim nullPos = Array.IndexOf(s_buff, CType(vbNullChar, Char))
@@ -403,7 +415,7 @@ Module TerrainTextureFunctions
     End Function
 
     Private Function crop_DDS(ByRef ms As MemoryStream, ByRef fn As String) As Integer
-         'File name is needed to add to our list of loaded textures
+        'File name is needed to add to our list of loaded textures
 
 
         Dim image_id As Integer

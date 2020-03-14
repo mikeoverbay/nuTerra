@@ -31,6 +31,15 @@ uniform sampler2D mixtexture2;
 uniform sampler2D mixtexture3;
 uniform sampler2D mixtexture4;
 
+uniform sampler2D tex_0;
+uniform sampler2D tex_1;
+uniform sampler2D tex_2;
+uniform sampler2D tex_3;
+uniform sampler2D tex_4;
+uniform sampler2D tex_5;
+uniform sampler2D tex_6;
+uniform sampler2D tex_7;
+
 uniform vec4 layer0UT1;
 uniform vec4 layer1UT1;
 uniform vec4 layer2UT1;
@@ -79,8 +88,6 @@ uniform sampler2D domTexture;
 
 uniform int nMap_type = 1;
 
-flat in int dom_id;
-
 in float ln;
 
 in mat3 TBN;
@@ -96,7 +103,7 @@ flat in uint is_hole;
 // Used to add normals together. Could be better.
 vec4 add_norms (in vec4 n1 , in vec4 n2){
     n1.xyz += n2.xyz;
-    return (n1);   
+    return n1;   
 }
 //-------------------------------------------------------------
 // Conversion from AG to RGB normal depending on nMap_type.
@@ -155,91 +162,62 @@ void main(void)
     vec2 UVs = UV;
     // Rotate the AM and NM textures. The order here is not important but I am sticking to protocol.
     // Layer 4 ---------------------------------------------
-    // 7
-    tv4 = vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex));
+    // tex 6
+    tv4 = vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex));
     t4 = texture(layer_4T1, -tv4 + 0.5 );
+  	vec4 tex6 = texture(tex_6, -tv4 + 0.5);
     n4 = texture(n_layer_4T1, -tv4 + 0.5);
     n4 = convertNormal(n4, pbs_7)+layer3UT1;
-    // 8
-    tv4_2 = vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex));
+    // tex 7
+    tv4_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
     t4_2 = texture(layer_4T2, -tv4_2 + 0.5);
+   	vec4 tex7 = texture(tex_7, -tv4_2 + 0.5);
     n4_2 = texture(n_layer_4T2, -tv4_2 + 0.5);
     n4_2 = convertNormal(n4_2, pbs_8)+layer3UT2;
 
     // layer 3 ---------------------------------------------
-    // 5
-    tv3 = vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex));
+    // tex 4
+    tv3 = vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex));
     t3 = texture(layer_3T1, -tv3 + 0.5);
+ 	vec4 tex4 = texture(tex_4, -tv3 + 0.5);
     n3 = texture(n_layer_3T1, -tv3 + 0.5);
     n3 = convertNormal(n3, pbs_5)+layer3UT1;
-    // 6
-    tv3_2 = vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex));
+    // tex 5
+    tv3_2 = vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex));
     t3_2 = texture(layer_3T2, -tv3_2 + 0.5);
+ 	vec4 tex5 = texture(tex_5, -tv3_2 + 0.5);
     n3_2 = texture(n_layer_3T2, -tv3_2 + 0.5);
     n3_2 = convertNormal(n3_2, pbs_6)+layer3UT2;
 
     // layer 2 ---------------------------------------------
-    // 3
-    tv2 = vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex));
+    // tex 2
+    tv2 = vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex));
     t2 = texture(layer_2T1, -tv2 + 0.5);
+	vec4 tex2 = texture(tex_2, -tv2 + 0.5);
     n2 = texture(n_layer_2T1, -tv2 + 0.5);
     n2 = convertNormal(n2, pbs_3)+layer1UT1;
-    // 4
-    tv2_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
+    // tex 3
+    tv2_2 = vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex));
     t2_2 = texture(layer_2T2, -tv2_2 + 0.5);
+	vec4 tex3 = texture(tex_3, -tv2_2 + 0.5);
     n2_2 = texture(n_layer_2T2, -tv2_2 + 0.5);
     n2_2 = convertNormal(n2_2, pbs_4)+layer1UT2;
 
     // layer 1 ---------------------------------------------
-    // 1
+    // tex 0
     tv1 = vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex));
     t1 = texture(layer_1T1, -tv1 + 0.5);
+	vec4 tex0 = texture(tex_0, -tv1 + 0.5);
     n1 = texture(n_layer_1T1, -tv1 + 0.5);
     n1 = convertNormal(n1, pbs_1)+layer0UT1;
-    // 2
+    // tex 1
     tv1_2 = vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex));
     t1_2 = texture(layer_1T2, -tv1_2 + 0.5);
+  	vec4 tex1 = texture(tex_1, -tv1_2 + 0.5);
     n1_2 = texture(n_layer_1T2, -tv1_2 + 0.5);
     n1_2 = convertNormal(n1_2, pbs_2)+layer0UT2;
     //
    
-    // Hoping this works
-    UVs.x = 1.0 - UVs.x;
-
-    //switch (dom_id){
-    //case 1:
-    //      t1 = texture(layer_1T1, UVs + 0.5);
-    //      n1 = texture(n_layer_1T1, UVs + 0.5);
-    //      n1 = convertNormal(n1, pbs_1);
-    //case 2:
-    //      t1_2 = texture(layer_1T2, UVs + 0.5);
-    //      n1_2 = texture(n_layer_1T2, UVs + 0.5);
-    //      n1_2 = convertNormal(n1_2, pbs_2);
-    //case 3:
-    //      t2 = texture(layer_2T1, UVs + 0.5);
-    //      n2 = texture(n_layer_2T1, UVs + 0.5);
-    //      n2 = convertNormal(n2, pbs_3);
-    //case 4:
-    //      t2_2 = texture(layer_2T2, UVs + 0.5);
-    //      n2_2 = texture(n_layer_2T2, UVs + 0.5);
-    //      n2_2 = convertNormal(n2_2, pbs_4);
-    //case 5:
-    //      t3 = texture(layer_3T1, UVs + 0.5);
-    //      n3 = texture(n_layer_3T1, UVs + 0.5);
-    //      n3 = convertNormal(n3, pbs_5);
-    //case 6:
-    //      t3_2 = texture(layer_3T2, UVs + 0.5);
-    //      n3_2 = texture(n_layer_3T2, UVs + 0.5);
-    //      n3_2 = convertNormal(n3_2, pbs_6);
-    //case 7:
-    //      t4 = texture(layer_4T1, UVs + 0.5);
-    //      n4 = texture(n_layer_4T1, UVs + 0.5);
-    //      n4 = convertNormal(n4, pbs_7);
-    //case 8:
-    //      t4_2 = texture(layer_4T2, UVs + 0.5);
-    //      n4_2 = texture(n_layer_4T2, UVs + 0.5);
-    //      n4_2 = convertNormal(n4_2, pbs_8);
-    //}
 
 
     //Get the mix values from the mix textures 1-4 and move to vec2. 
@@ -254,25 +232,26 @@ void main(void)
     vec4 base = vec4(0.0);  
     vec4 empty = vec4(0.0);
 
+	
 
     // used_1 to used_8 are either 0 or 1 depending on if the slot is used. Used to clamp 0.0, 1.0
 
     // mix our textures in to base.
     // Mix group 4
-    base += t4 * MixLevel4.r * used_7;
-    base += t4_2 * MixLevel4.g * used_8;
+    base += t4 * tex6 * MixLevel4.r * used_7;
+    base += t4_2 * tex7 * MixLevel4.g * used_8;
 
     // Mix group 3
-    base += t3 * MixLevel3.r * used_5;
-    base += t3_2 * MixLevel3.g * used_6;
+    base += t3 * tex4 * MixLevel3.r * used_5;
+    base += t3_2 * tex5 * MixLevel3.g * used_6;
 
     // Mix group 2
-    base += t2 * MixLevel2.r * used_3;
-    base += t2_2 * MixLevel2.g * used_4;
+    base += t2 * tex2 * MixLevel2.r * used_3;
+    base += t2_2 * tex3 * MixLevel2.g * used_4;
 
     // Mix group 1
-    base += t1 * MixLevel1.r * used_1;
-    base += t1_2 * MixLevel1.g * used_2;
+    base += t1 * tex0 * MixLevel1.r * used_1;
+    base += t1_2 * tex1 * MixLevel1.g * used_2;
     
 
     //Get our normal maps. Same mixing and clamping as AM maps above

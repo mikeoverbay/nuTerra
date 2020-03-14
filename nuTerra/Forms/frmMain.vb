@@ -461,14 +461,17 @@ try_again:
         MINI_TRIM_HORZ_ID = load_image_from_file(Il.IL_PNG,
             sp + "\resources\mini_trim_horz.png", False, False)
         '---------------------------------------------------------
-        'Text Texture
-        testTexture_id = load_image_from_file(Il.IL_PNG,
-            sp + "\resources\TestTexture.png", False, False)
-        '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
         PROGRESS_BAR_IMAGE_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\progress_bar.png", False, True)
+        '---------------------------------------------------------
+        'Test Textures
+        For i = 0 To 7
+            TEST_IDS(i) =
+                load_image_from_file(Il.IL_PNG,
+                sp + "\resources\TestTextures\tex_" + i.ToString + ".png", True, False)
+        Next
         '---------------------------------------------------------
         'need to create this texture.
         DrawMapPickText.TextRenderer(300, 30)

@@ -6,8 +6,6 @@ layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
 layout(location = 3) in vec4 vertexNormal;
 
-uniform int dom;
-
 uniform mat4 modelMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projMatrix;
@@ -26,7 +24,6 @@ out vec3 worldPosition;
 out vec2 UV;
 out vec2 Global_UV;
 
-flat out int dom_id;
 flat out uint is_hole;
 
 void main(void)
@@ -48,19 +45,6 @@ void main(void)
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     Vertex = vec4(vertexPosition, 1.0) * 1.0;
     Vertex.x *= -1.0;
-
-    //Is there a faster way??????
-    //int dom = int(texture(domTexture,UV).r*255.0)>>4;
-    
-    if ((dom & 1  ) > 0) dom_id = 1;
-    if ((dom & 2  ) > 0) dom_id = 2;
-    if ((dom & 4  ) > 0) dom_id = 3;
-    if ((dom & 5  ) > 0) dom_id = 4;
-    if ((dom & 16 ) > 0) dom_id = 5;
-    if ((dom & 32 ) > 0) dom_id = 6;
-    if ((dom & 64 ) > 0) dom_id = 7;
-    if ((dom & 128) > 0) dom_id = 8;
-
 
     //-------------------------------------------------------
     //Calculate tangent and biNormal

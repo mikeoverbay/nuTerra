@@ -7,11 +7,9 @@ Imports Tao.DevIl
 Module MapMenuScreen
 
 #Region "structurs/vars"
-
+    Public map_texture_ids() As Integer
     Public img_grow_speed As Single = 1.5
     Public img_shrink_speed As Single = 0.5
-    Public map_texture_ids(0) As Integer
-
     Public MapPickList() As map_item_
     Public Structure map_item_ : Implements IComparable(Of map_item_)
         Public lt As Vector2
