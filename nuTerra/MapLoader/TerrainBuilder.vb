@@ -3,6 +3,7 @@ Imports Ionic.Zip
 Imports Tao.DevIl
 Imports System.Xml
 Imports OpenTK
+Imports System.Runtime.InteropServices
 
 Module TerrainBuilder
 
@@ -121,6 +122,7 @@ Module TerrainBuilder
         Public matrix As Matrix4
         '-------------------------------
         ' Texture IDs and such below
+        Public layersStd140_ubo As Integer
         Public TexLayers() As ids_
         Public layer As layer_render_info_
         Public b_x_size, b_y_size As Integer
@@ -129,16 +131,60 @@ Module TerrainBuilder
         Public dom_tex_list() As String
         Public dom_id As Integer
     End Structure
+
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure LayersStd140
+        Public layer0UT1 As Vector4
+        Public layer1UT1 As Vector4
+        Public layer2UT1 As Vector4
+        Public layer3UT1 As Vector4
+
+        Public layer0UT2 As Vector4
+        Public layer1UT2 As Vector4
+        Public layer2UT2 As Vector4
+        Public layer3UT2 As Vector4
+
+        Public layer0VT1 As Vector4
+        Public layer1VT1 As Vector4
+        Public layer2VT1 As Vector4
+        Public layer3VT1 As Vector4
+
+        Public layer0VT2 As Vector4
+        Public layer1VT2 As Vector4
+        Public layer2VT2 As Vector4
+        Public layer3VT2 As Vector4
+
+        Public used_1 As Single
+        Public used_2 As Single
+        Public used_3 As Single
+        Public used_4 As Single
+
+        Public used_5 As Single
+        Public used_6 As Single
+        Public used_7 As Single
+        Public used_8 As Single
+
+        Public pbs_1 As Integer
+        Public pbs_2 As Integer
+        Public pbs_3 As Integer
+        Public pbs_4 As Integer
+
+        Public pbs_5 As Integer
+        Public pbs_6 As Integer
+        Public pbs_7 As Integer
+        Public pbs_8 As Integer
+    End Structure
+
     Public Structure ids_
         Public Blend_id As Integer
         Public AM_name1, NM_name1 As String
         Public AM_id1, NM_id1 As Integer
         Public AM_name2, NM_name2 As String
         Public AM_id2, NM_id2 As Integer
-        Public uP1, uP2, vP1, vP2 As Graphics.Color4
+        Public uP1, uP2, vP1, vP2 As Vector4
         Public used_a, used_b As Single
         Public PBS_a, PBS_b As Integer
-        Public scale_a, scale_b As Graphics.Color4
+        Public scale_a, scale_b As Vector4
     End Structure
     Public Structure layer_render_info_
         Public used_on() As UInt32
@@ -149,13 +195,13 @@ Module TerrainBuilder
         Public width As Integer
         Public height As Integer
         Public count As Integer
-        Public u As Graphics.Color4
-        Public v As Graphics.Color4
+        Public u As Vector4
+        Public v As Vector4
         Public flags As UInt32
-        Dim v1 As Graphics.Color4 ' unknown?
-        Public r1 As Graphics.Color4
-        Public r2 As Graphics.Color4
-        Public scale As Graphics.Color4
+        Dim v1 As Vector4 ' unknown?
+        Public r1 As Vector4
+        Public r2 As Vector4
+        Public scale As Vector4
     End Structure
     Public Structure imageData
         Public data() As Byte

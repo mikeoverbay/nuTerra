@@ -41,7 +41,7 @@ Module TerrainTextureFunctions
 
             Dim dom = .dom_id And &HF
             Dim dom2 = .dom_id And &HF0
-            Debug.WriteLine(dom2.ToString("x") + " " + dom.ToString("x"))
+            ' Debug.WriteLine(dom2.ToString("x") + " " + dom.ToString("x"))
             If dom = 0 Then
                 '.TexLayers(0).uP2 = no_rotateu
                 '.TexLayers(0).vP2 = no_rotatev
@@ -80,7 +80,6 @@ Module TerrainTextureFunctions
 
     End Sub
 
-
     Private Sub get_layer_textures(ByVal map As Integer)
         'It is important to fill blank IDs with the dummy texture
         'so the shader has VALID ID and nothing is added.
@@ -110,6 +109,62 @@ Module TerrainTextureFunctions
             End With
         Next
 
+        ' fill ubo
+        With theMap.render_set(map)
+            Dim layersBuffer As New LayersStd140
+            layersBuffer.layer0UT1 = .TexLayers(0).uP1
+            layersBuffer.layer0UT2 = .TexLayers(0).uP2
+
+            layersBuffer.layer0VT1 = .TexLayers(0).vP1
+            layersBuffer.layer0VT2 = .TexLayers(0).vP2
+
+            layersBuffer.layer1UT1 = .TexLayers(1).uP1
+            layersBuffer.layer1UT2 = .TexLayers(1).uP2
+
+            layersBuffer.layer1VT1 = .TexLayers(1).vP1
+            layersBuffer.layer1VT2 = .TexLayers(1).vP2
+
+            layersBuffer.layer2UT1 = .TexLayers(2).uP1
+            layersBuffer.layer2UT2 = .TexLayers(2).uP2
+
+            layersBuffer.layer2VT1 = .TexLayers(2).vP1
+            layersBuffer.layer2VT2 = .TexLayers(2).vP2
+
+            layersBuffer.layer3UT1 = .TexLayers(3).uP1
+            layersBuffer.layer3UT2 = .TexLayers(3).uP2
+
+            layersBuffer.layer3VT1 = .TexLayers(3).vP1
+            layersBuffer.layer3VT2 = .TexLayers(3).vP2
+
+            ' Used 1 = true, 0 = false
+            layersBuffer.used_1 = .TexLayers(0).used_a
+            layersBuffer.used_2 = .TexLayers(0).used_b
+
+            layersBuffer.used_3 = .TexLayers(1).used_a
+            layersBuffer.used_4 = .TexLayers(1).used_b
+
+            layersBuffer.used_5 = .TexLayers(2).used_a
+            layersBuffer.used_6 = .TexLayers(2).used_b
+
+            layersBuffer.used_7 = .TexLayers(3).used_a
+            layersBuffer.used_8 = .TexLayers(3).used_b
+
+            ' normalMap type. 1= AG : 0 = RGB
+            layersBuffer.pbs_1 = .TexLayers(0).PBS_a
+            layersBuffer.pbs_2 = .TexLayers(0).PBS_b
+
+            layersBuffer.pbs_3 = .TexLayers(1).PBS_a
+            layersBuffer.pbs_4 = .TexLayers(1).PBS_b
+
+            layersBuffer.pbs_5 = .TexLayers(2).PBS_a
+            layersBuffer.pbs_6 = .TexLayers(2).PBS_b
+
+            layersBuffer.pbs_7 = .TexLayers(3).PBS_a
+            layersBuffer.pbs_8 = .TexLayers(3).PBS_b
+
+            GL.CreateBuffers(1, .layersStd140_ubo)
+            GL.NamedBufferData(.layersStd140_ubo, Marshal.SizeOf(layersBuffer), layersBuffer, BufferUsageHint.StaticDraw)
+        End With
     End Sub
 
 
@@ -142,39 +197,39 @@ Module TerrainTextureFunctions
                 If .layer.render_info(i).count <> 8 Then Stop
 
                 'texture projection transforms
-                .layer.render_info(i).u.R = br.ReadSingle
-                .layer.render_info(i).u.G = br.ReadSingle
-                .layer.render_info(i).u.B = br.ReadSingle
-                .layer.render_info(i).u.A = br.ReadSingle
+                .layer.render_info(i).u.X = br.ReadSingle
+                .layer.render_info(i).u.Y = br.ReadSingle
+                .layer.render_info(i).u.Z = br.ReadSingle
+                .layer.render_info(i).u.W = br.ReadSingle
 
-                .layer.render_info(i).v.R = br.ReadSingle
-                .layer.render_info(i).v.G = br.ReadSingle
-                .layer.render_info(i).v.B = br.ReadSingle
-                .layer.render_info(i).v.A = br.ReadSingle
+                .layer.render_info(i).v.X = br.ReadSingle
+                .layer.render_info(i).v.Y = br.ReadSingle
+                .layer.render_info(i).v.Z = br.ReadSingle
+                .layer.render_info(i).v.W = br.ReadSingle
 
                 .layer.render_info(i).flags = br.ReadUInt32 'always 59
                 If .layer.render_info(i).flags <> 59 Then Stop
 
                 'not sure about these 3' Atlas offsets?
-                .layer.render_info(i).v1.R = br.ReadSingle
-                .layer.render_info(i).v1.G = br.ReadSingle
-                .layer.render_info(i).v1.B = br.ReadSingle
+                .layer.render_info(i).v1.X = br.ReadSingle
+                .layer.render_info(i).v1.Y = br.ReadSingle
+                .layer.render_info(i).v1.Z = br.ReadSingle
 
-                .layer.render_info(i).r1.R = br.ReadSingle
-                .layer.render_info(i).r1.G = br.ReadSingle
-                .layer.render_info(i).r1.B = br.ReadSingle
-                .layer.render_info(i).r1.A = br.ReadSingle
+                .layer.render_info(i).r1.X = br.ReadSingle
+                .layer.render_info(i).r1.Y = br.ReadSingle
+                .layer.render_info(i).r1.Z = br.ReadSingle
+                .layer.render_info(i).r1.W = br.ReadSingle
 
-                .layer.render_info(i).r2.R = br.ReadSingle
-                .layer.render_info(i).r2.G = br.ReadSingle
-                .layer.render_info(i).r2.B = br.ReadSingle
-                .layer.render_info(i).r2.A = br.ReadSingle
+                .layer.render_info(i).r2.X = br.ReadSingle
+                .layer.render_info(i).r2.Y = br.ReadSingle
+                .layer.render_info(i).r2.Z = br.ReadSingle
+                .layer.render_info(i).r2.W = br.ReadSingle
 
                 'not sure about these
-                .layer.render_info(i).scale.R = br.ReadSingle
-                .layer.render_info(i).scale.G = br.ReadSingle
-                .layer.render_info(i).scale.B = br.ReadSingle
-                .layer.render_info(i).scale.A = br.ReadSingle
+                .layer.render_info(i).scale.X = br.ReadSingle
+                .layer.render_info(i).scale.Y = br.ReadSingle
+                .layer.render_info(i).scale.Z = br.ReadSingle
+                .layer.render_info(i).scale.W = br.ReadSingle
 
                 Dim bs = br.ReadUInt32
                 Dim d = br.ReadBytes(bs)
@@ -261,6 +316,7 @@ Module TerrainTextureFunctions
                     .layer_count += 1
                 End If
             Next
+
             ms2.Dispose()
             GC.Collect()
         End With

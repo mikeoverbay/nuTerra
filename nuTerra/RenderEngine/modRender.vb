@@ -282,7 +282,7 @@ Module modRender
         GL.Uniform3(TerrainShader("cam_position"), CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
 
         GL.UniformMatrix4(TerrainShader("projMatrix"), False, PROJECTIONMATRIX)
-        Dim u, v As Vector4
+
         For i = 0 To theMap.render_set.Length - 1
             GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
             GL.UniformMatrix4(TerrainShader("viewMatrix"), False, VIEWMATRIX)
@@ -293,9 +293,10 @@ Module modRender
             'debug shit
             GL.BindTextureUnit(22, theMap.render_set(i).dom_texture_id) '<----------------- Texture Bind
 
-
             'bind all the data for this chunk
             With theMap.render_set(i)
+                GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, .layersStd140_ubo)
+
                 'AM maps
                 GL.BindTextureUnit(0, .TexLayers(0).AM_id1)
                 GL.BindTextureUnit(1, .TexLayers(1).AM_id1)
@@ -321,34 +322,6 @@ Module modRender
                 GL.BindTextureUnit(17, .TexLayers(1).Blend_id)
                 GL.BindTextureUnit(18, .TexLayers(2).Blend_id)
                 GL.BindTextureUnit(19, .TexLayers(3).Blend_id)
-                'bind transforms
-                'tex 0
-                GL.Uniform4(TerrainShader("layer0UT1"), .TexLayers(0).uP1)
-                GL.Uniform4(TerrainShader("layer0UT2"), .TexLayers(0).uP2)
-
-                GL.Uniform4(TerrainShader("layer0VT1"), .TexLayers(0).vP1)
-                GL.Uniform4(TerrainShader("layer0VT2"), .TexLayers(0).vP2)
-
-                'tex 1
-                GL.Uniform4(TerrainShader("layer1UT1"), .TexLayers(1).uP1)
-                GL.Uniform4(TerrainShader("layer1UT2"), .TexLayers(1).uP2)
-
-                GL.Uniform4(TerrainShader("layer1VT1"), .TexLayers(1).vP1)
-                GL.Uniform4(TerrainShader("layer1VT2"), .TexLayers(1).vP2)
-
-                'tex 2
-                GL.Uniform4(TerrainShader("layer2UT1"), .TexLayers(2).uP1)
-                GL.Uniform4(TerrainShader("layer2UT2"), .TexLayers(2).uP2)
-
-                GL.Uniform4(TerrainShader("layer2VT1"), .TexLayers(2).vP1)
-                GL.Uniform4(TerrainShader("layer2VT2"), .TexLayers(2).vP2)
-
-                'tex 3
-                GL.Uniform4(TerrainShader("layer3UT1"), .TexLayers(3).uP1)
-                GL.Uniform4(TerrainShader("layer3UT2"), .TexLayers(3).uP2)
-
-                GL.Uniform4(TerrainShader("layer3VT1"), .TexLayers(3).vP1)
-                GL.Uniform4(TerrainShader("layer3VT2"), .TexLayers(3).vP2)
 
                 'test textures so we cab see the mapping
                 GL.BindTextureUnit(23, TEST_IDS(0))
@@ -359,32 +332,6 @@ Module modRender
                 GL.BindTextureUnit(28, TEST_IDS(5))
                 GL.BindTextureUnit(29, TEST_IDS(6))
                 GL.BindTextureUnit(30, TEST_IDS(7))
-
-                'Used 1 = true, 0 = false
-                GL.Uniform1(TerrainShader("used_1"), .TexLayers(0).used_a)
-                GL.Uniform1(TerrainShader("used_2"), .TexLayers(0).used_b)
-
-                GL.Uniform1(TerrainShader("used_3"), .TexLayers(1).used_a)
-                GL.Uniform1(TerrainShader("used_4"), .TexLayers(1).used_b)
-
-                GL.Uniform1(TerrainShader("used_5"), .TexLayers(2).used_a)
-                GL.Uniform1(TerrainShader("used_6"), .TexLayers(2).used_b)
-
-                GL.Uniform1(TerrainShader("used_7"), .TexLayers(3).used_a)
-                GL.Uniform1(TerrainShader("used_8"), .TexLayers(3).used_b)
-
-                'normalMap type. 1= AG : 0 = RGB
-                GL.Uniform1(TerrainShader("PBS_1"), .TexLayers(0).PBS_a)
-                GL.Uniform1(TerrainShader("PBS_2"), .TexLayers(0).PBS_b)
-
-                GL.Uniform1(TerrainShader("PBS_3"), .TexLayers(1).PBS_a)
-                GL.Uniform1(TerrainShader("PBS_4"), .TexLayers(1).PBS_b)
-
-                GL.Uniform1(TerrainShader("PBS_5"), .TexLayers(2).PBS_a)
-                GL.Uniform1(TerrainShader("PBS_6"), .TexLayers(2).PBS_b)
-
-                GL.Uniform1(TerrainShader("PBS_7"), .TexLayers(3).PBS_a)
-                GL.Uniform1(TerrainShader("PBS_8"), .TexLayers(3).PBS_b)
 
             End With
 
