@@ -81,7 +81,7 @@ void main(void)
     vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
     ln = distance( point.xyz,cam_position.xyz );
     float start = 50.0;
-    if (ln < start + 300.0) { ln = 1.0 - (ln-start)/300.0;} //Creates sine curve.
+    if (ln < start + 300.0) { ln = 1.0 - (ln-start)/300.0;} 
     else {ln = 0.0;}
 
 }

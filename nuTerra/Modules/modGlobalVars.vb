@@ -34,6 +34,8 @@ Module modGlobalVars
     Public LOOP_COUNT As Integer = 200
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer
+    'ascii characters
+    Public ASCII_ID As Integer
     'wire flags
     Public WIRE_MODELS As Boolean
     Public WIRE_DECALS As Boolean
@@ -42,6 +44,7 @@ Module modGlobalVars
     Public SHOW_CHUNKS As Integer
     Public SHOW_GRID As Integer
     Public SHOW_BORDER As Integer
+    Public SHOW_CHUNK_IDs As Integer
     'models
     Public CROSS_HAIR As base_model_holder_
     Public CROSS_HAIR_TEXTURE As Integer
@@ -91,7 +94,8 @@ Module modGlobalVars
     '============================================================
     Public PROJECTIONMATRIX As New Matrix4
     Public VIEWMATRIX As New Matrix4
-    Public MODELVIEWMATRIX_Saved As Matrix4
+    Public VIEWMATRIX_Saved As Matrix4
+    Public PROJECTIONMATRIX_Saved As Matrix4
     Public PRESPECTIVE_NEAR As Single = 0.5F
     Public PRESPECTIVE_FAR As Single = 3000.0F
     '============================================================

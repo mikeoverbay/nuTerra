@@ -35,5 +35,21 @@ Module modMatrix
         Return vec
     End Function
 
+    Public Function UnProject_Chunk(ByRef vec As Vector4, ByRef model As Matrix4) As Vector4
 
+        Dim pos As Vector4
+
+        Vector4.Transform(vec, model, pos)
+        Vector4.Transform(pos, VIEWMATRIX_Saved, pos)
+        Vector4.Transform(pos, PROJECTIONMATRIX_Saved, pos)
+
+        pos.X /= pos.W
+        pos.Y /= pos.W
+
+        pos.X = ((pos.X + 1.0F) * 0.5F) * FBOm.SCR_WIDTH
+        pos.Y = ((1.0 - pos.Y) * 0.5F) * FBOm.SCR_HEIGHT
+
+        Return pos
+
+    End Function
 End Module

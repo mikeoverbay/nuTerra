@@ -87,7 +87,8 @@ Module TerrainBuilder
         Public layers_data() As Byte
         Public normals_data() As Byte
 
-        Public location As Vector2
+        Public location As Vector4
+
         Public mBoard_x As Int16
         Public mBoard_y As Int16
         Public has_holes As Boolean
@@ -322,7 +323,7 @@ Module TerrainBuilder
 
                 Dim s = Left(chunk_name, chunk_name.IndexOf("/"))
 
-                theMap.chunks(cnt).name = s
+                theMap.chunks(cnt).name = Path.GetFileNameWithoutExtension(s)
 
                 Dim entry = MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, s))
                 Dim ms As New MemoryStream

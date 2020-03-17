@@ -42,6 +42,7 @@ Module TerrainTextureFunctions
             Dim dom = .dom_id And &HF
             Dim dom2 = .dom_id And &HF0
             ' Debug.WriteLine(dom2.ToString("x") + " " + dom.ToString("x"))
+
             If dom = 0 Then
                 '.TexLayers(0).uP2 = no_rotateu
                 '.TexLayers(0).vP2 = no_rotatev
@@ -91,7 +92,6 @@ Module TerrainTextureFunctions
                     .used_a = 0.0F
                 Else
                     .AM_id1 = find_and_trim(.AM_name1)
-                    '.AM_id1 = testTexture_id
                     .NM_id1 = find_and_trim(.NM_name1)
                     .used_a = 1.0F
                 End If
@@ -101,7 +101,6 @@ Module TerrainTextureFunctions
                     .used_b = 0.0F
                 Else
                     .AM_id2 = find_and_trim(.AM_name2)
-                    '.AM_id2 = testTexture_id
                     .NM_id2 = find_and_trim(.NM_name2)
                     .used_b = 1.0F
                 End If
@@ -188,6 +187,7 @@ Module TerrainTextureFunctions
             ReDim .layer.render_info(map_count)
 
             ReDim Preserve .layer.render_info(7)
+
             For i = 0 To map_count - 1
                 .layer.render_info(i) = New layer_render_info_entry_
                 br.ReadUInt32() 'magic
@@ -304,13 +304,21 @@ Module TerrainTextureFunctions
                         Stop
                     End If
                     'layer part 1
-                    .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt).u
-                    .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt).v
-                    .TexLayers(i).scale_a = .layer.render_info(cur_layer_info_pnt).scale
+                    'scaleX = .sqrt((a * a) + (c * c));
+                    'scaleY = sqrt((b * b) + (d * d));
+
+                    Dim u = .layer.render_info(cur_layer_info_pnt + 0).u
+                    Dim v = .layer.render_info(cur_layer_info_pnt + 0).v
+                    Dim scaleX = Math.Sqrt(u.X * u.X + u.Z * u.Z)
+                    Dim scaley = Math.Sqrt(v.X * v.X + v.Z * v.Z)
+                    Debug.WriteLine(scaleX.ToString + " ", scaley.ToString)
+                    .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt + 0).u
+                    .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt + 0).v
+                    '.TexLayers(i).scale_a = .layer.render_info(cur_layer_info_pnt + 0).scale
                     'layer part 2
                     .TexLayers(i).uP2 = .layer.render_info(cur_layer_info_pnt + 1).u
                     .TexLayers(i).vP2 = .layer.render_info(cur_layer_info_pnt + 1).v
-                    .TexLayers(i).scale_b = .layer.render_info(cur_layer_info_pnt + 1).scale
+                    '.TexLayers(i).scale_b = .layer.render_info(cur_layer_info_pnt + 1).scale
 
                     cur_layer_info_pnt += 2
                     .layer_count += 1

@@ -51,9 +51,9 @@ Module modOpenGL
                                    CSng(Math.PI) * (FieldOfView / 180.0F),
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
                                    PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
-
+        PROJECTIONMATRIX_Saved = PROJECTIONMATRIX
         VIEWMATRIX = Matrix4.LookAt(position, target, up)
-        MODELVIEWMATRIX_Saved = VIEWMATRIX
+        VIEWMATRIX_Saved = VIEWMATRIX
     End Sub
 
     Public Sub set_light_pos()

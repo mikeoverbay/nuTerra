@@ -63,10 +63,7 @@ Module ChunkFunctions
         'End If
 
         cnt = 0
-        Dim hScaler = 1.0
-        If HEIGHTMAPSIZE < 64 Then
-            hScaler = 0.5F
-        End If
+
         For j As Single = 0 To 63
             For i As Single = 0 To 64
                 topleft.vert.X = (i) - w_
@@ -115,7 +112,6 @@ Module ChunkFunctions
 
             Next
         Next
-
         'needs to be moved to culling
         TOTAL_TRIANGLES_DRAWN += 8192 ' number of triangles per chunk
 
@@ -441,8 +437,9 @@ Module ChunkFunctions
 
         'need to find a use for this :)
         Dim avg, y_max, y_min As Single
-        For j As UInt32 = 0 To mapsize - 1
-            For i As UInt32 = 0 To mapsize - 1
+        y_min = 1000.0F
+        For j As UInt32 = 1 To mapsize - 1
+            For i As UInt32 = 1 To mapsize - 1
                 avg += v.heights(i, j)
                 If v.heights(i, j) < y_min Then
                     y_min = v.heights(i, j)
@@ -453,7 +450,7 @@ Module ChunkFunctions
             Next
         Next
         c.heights_data = Nothing
-        v.avg_heights = avg / (HEIGHTMAPSIZE ^ 2)
+        v.avg_heights = (y_max + y_min) / 2.0F
         br.Close()
         ms.Close()
         ms.Dispose()

@@ -87,6 +87,13 @@ Public Class frmMain
             Case Keys.E
                 frmEditFrag.Show()
 
+            Case Keys.I
+                If SHOW_CHUNK_IDs Then
+                    SHOW_CHUNK_IDs = False
+                Else
+                    SHOW_CHUNK_IDs = True
+                End If
+
             Case Keys.L
                 If Not frmLighting.Visible Then
                     m_light_settings.PerformClick()
@@ -465,6 +472,11 @@ try_again:
         PROGRESS_BAR_IMAGE_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\progress_bar.png", False, True)
+        '---------------------------------------------------------
+        'load Ascii characters image.
+        ASCII_ID =
+            load_image_from_file(Il.IL_PNG,
+            sp + "\resources\ascii_characters.png", False, True)
         '---------------------------------------------------------
         'Test Textures
         For i = 0 To 7

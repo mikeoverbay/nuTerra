@@ -217,8 +217,8 @@ Module modRender
         End If
         '==========================
         'debug
-        FBOm.attach_C()
-        GL.Enable(EnableCap.Blend)
+        'FBOm.attach_C()
+        'GL.Enable(EnableCap.Blend)
         '==========================
 
         GL.Enable(EnableCap.CullFace)
@@ -323,7 +323,8 @@ Module modRender
                 GL.BindTextureUnit(18, .TexLayers(2).Blend_id)
                 GL.BindTextureUnit(19, .TexLayers(3).Blend_id)
 
-                'test textures so we cab see the mapping
+
+                'test textures so we can see the mapping
                 GL.BindTextureUnit(23, TEST_IDS(0))
                 GL.BindTextureUnit(24, TEST_IDS(1))
                 GL.BindTextureUnit(25, TEST_IDS(2))
@@ -534,7 +535,7 @@ Module modRender
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
-        Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, MODELVIEWMATRIX_Saved)
+        Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, VIEWMATRIX_Saved)
 
         GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
 
@@ -545,19 +546,32 @@ Module modRender
         deferredShader.StopUse()
     End Sub
 
+    Private Sub draw_terrain_ids()
+        For i = 0 To theMap.render_set.Length - 1
+
+            Dim v As Vector4
+            v.Y = theMap.v_data(i).avg_heights
+            v.W = 1.0
+
+            Dim sp = UnProject_Chunk(v, theMap.render_set(i).matrix)
+
+            If sp.Z > 0.0F Then
+                Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
+                draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True)
+            End If
+
+        Next
+    End Sub
+
     ''' <summary>
     ''' renders all 2D things in ortho mode
     ''' </summary>
     ''' 
     Private Sub render_HUD()
         temp_timer.Restart()
-        '===========================================================================
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+
         ' Text Rendering ===========================================================
-        '===========================================================================
-
-        Dim position = PointF.Empty
-        DrawText.clear(Color.FromArgb(0, 0, 0, 255))
-
         'save this.. we may want to use it for debug with a different source for the values.
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
@@ -567,18 +581,15 @@ Module modRender
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
         'txt = String.Format("HX {0} : HY {1}", HX, HY)
-        DrawText.DrawString(txt, mono, Brushes.White, position)
+        draw_text(txt, 5.0F, 5.0F, OpenTK.Graphics.Color4.Cyan, False)
 
-        GL.Enable(EnableCap.Blend)
-        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
-
-        draw_image_rectangle(New RectangleF(0, 0, FBOm.SCR_WIDTH, 20), DrawText.Gettexture)
-
-        GL.Disable(EnableCap.Blend)
         Dim temp_time = temp_timer.ElapsedMilliseconds
         Dim aa As Integer = 0
-        '===========================================================================
-        ' Text Rendering End =======================================================
+
+        ' Draw Terrain IDs =========================================================
+        If SHOW_CHUNK_IDs Then
+            draw_terrain_ids()
+        End If
         '===========================================================================
 
     End Sub
@@ -643,8 +654,9 @@ Module modRender
         GL.Enable(EnableCap.Blend)
         miniLegends.Use()
         GL.Uniform1(miniLegends("imageMap"), 0)
+        GL.Uniform4(miniLegends("color"), OpenTK.Graphics.Color4.White)
         GL.UniformMatrix4(miniLegends("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform1(miniLegends("divisor"), 1.0F) 'tile factor
+        GL.Uniform1(miniLegends("divisor"), 1.0F) 'atlas size
         GL.Uniform1(miniLegends("index"), 0.0F)
 
         '=======================================================================
@@ -673,7 +685,7 @@ Module modRender
 
         'row
         '=======================================================================
-        GL.Uniform1(miniLegends("divisor"), 10.0F) 'tile factor
+        GL.Uniform1(miniLegends("divisor"), 10.0F) 'atlas size
 
         GL.Uniform1(miniLegends("col_row"), 1) 'draw row
         GL.BindTextureUnit(0, MINI_NUMBERS_ID)
@@ -725,6 +737,7 @@ Module modRender
         GL.Disable(EnableCap.Blend)
 
     End Sub
+
     Private Sub Draw_mini()
 
         '======================================================
@@ -806,7 +819,6 @@ Module modRender
         image2dShader.StopUse()
 
     End Sub
-
 
     Private Sub draw_mini_base_rings()
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
@@ -1175,4 +1187,50 @@ Module modRender
         ' GL.BindVertexArray(0)
     End Sub
 
+    Public Sub draw_text(ByRef text As String,
+                         ByVal locX As Single,
+                         ByVal locY As Single,
+                         ByRef color As OpenTK.Graphics.Color4,
+                         ByRef center As Boolean)
+        'text, loc X, loc Y, color, Center text at X location.
+
+        '=======================================================================
+        'draw text at location.
+        '=======================================================================
+        'setup
+        GL.Enable(EnableCap.Blend)
+        miniLegends.Use()
+        GL.Uniform1(miniLegends("imageMap"), 0)
+        GL.UniformMatrix4(miniLegends("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform1(miniLegends("divisor"), 95.0F) 'atlas size
+        GL.BindTextureUnit(0, ASCII_ID)
+        GL.Uniform1(miniLegends("col_row"), 1) 'draw row
+        GL.Uniform4(miniLegends("color"), color)
+        '=======================================================================
+        'draw text
+        Dim cntr = 0
+        If center Then
+            cntr = text.Length * 10.0F / 2.0F
+        End If
+        Dim ar = text.ToArray
+        Dim cnt As Integer = 0
+        For Each l In ar
+            Dim idx = CSng(Asc(l) - 32)
+            Dim tp = (locX + cnt * 10.0) - cntr
+            GL.Uniform1(miniLegends("index"), idx)
+            Dim rect As New RectangleF(tp, locY, 10.0F, 15.0F)
+            GL.Uniform4(miniLegends("rect"),
+                      rect.Left,
+                      -rect.Top,
+                      rect.Right,
+                      -rect.Bottom)
+            GL.BindVertexArray(defaultVao)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+            cnt += 1
+        Next
+        GL.Disable(EnableCap.Blend)
+        miniLegends.StopUse()
+        GL.BindTextureUnit(0, 0)
+
+    End Sub
 End Module
