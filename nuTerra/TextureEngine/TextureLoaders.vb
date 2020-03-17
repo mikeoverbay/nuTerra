@@ -317,12 +317,9 @@ Module TextureLoaders
             MsgBox("Failed to load @ load_image_from_stream", MsgBoxStyle.Exclamation, "Shit!!")
         End If
         Return Nothing
-
-
-
     End Function
 
-    Public Function load_image_from_file(ByRef imageType As Integer, ByRef fn As String, ByRef MIPS As Boolean, ByRef NEAREST As Boolean)
+    Public Function load_image_from_file(imageType As Integer, fn As String, MIPS As Boolean, NEAREST As Boolean)
         'imageType = il.IL_imageType : File path/name : Create Mipmaps if True : NEAREST = True / LINEAR if False
 
         'Check if this image has already been loaded.
