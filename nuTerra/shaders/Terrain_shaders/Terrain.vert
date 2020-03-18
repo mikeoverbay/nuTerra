@@ -10,27 +10,27 @@ layout(std140, binding =1) uniform VertUniforms {
 mat4 modelView2;
 };
 
-layout(binding = 40) uniform mat4 modelMatrix;
-layout(binding = 41) uniform mat4 viewMatrix;
-layout(binding = 42) uniform mat4 projMatrix;
-layout(binding = 43) uniform mat4 normalMatrix;
+//layout(binding = 40) uniform mat4 modelMatrix;
+//layout(binding = 41) uniform mat4 viewMatrix;
+//layout(binding = 42) uniform mat4 projMatrix;
+//layout(binding = 43) uniform mat4 normalMatrix;
 
-layout(binding = 44) uniform vec2 me_location;
-layout(binding = 45) uniform vec2 map_size;
-layout(binding = 46) uniform vec2 map_center;
+//layout(binding = 44) uniform vec2 me_location;
+//layout(binding = 45) uniform vec2 map_size;
+//layout(binding = 46) uniform vec2 map_center;
 
-layout(binding = 47) uniform vec3 cam_position;
+//layout(binding = 47) uniform vec3 cam_position;
 
-//uniform mat4 modelMatrix;
-//uniform mat4 viewMatrix;
-//uniform mat4 projMatrix;
-//uniform mat3 normalMatrix;
+uniform mat4 modelMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 projMatrix;
+uniform mat3 normalMatrix;
 
-//uniform vec2 me_location;
-//uniform vec2 map_size;
-//uniform vec2 map_center;
+uniform vec2 me_location;
+uniform vec2 map_size;
+uniform vec2 map_center;
 
-//uniform vec3 cam_position;
+uniform vec3 cam_position;
 
 out vec4 Vertex;
 out float ln;
