@@ -101,7 +101,7 @@ vec4 convertNormal(vec4 norm){
         n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);
         n.z = max(sqrt(1.0 - (n.x*n.x - n.y *n.y)),0.0);
         return vec4(n,0.0);
-}// Converion from AG map to RGB vector.
+}
 
 /*===========================================================*/
 
@@ -131,14 +131,14 @@ void main(void)
     t4 = texture(layer_4T1, -tv4 + 0.5 );
     vec4 tex6 = texture(tex_6, -tv4 + 0.5);
     n4 = texture(n_layer_4T1, -tv4 + 0.5);
-    t4.rgb *= n4.b;
+    t4.rgb *= n4.b; // ambient occusion
     n4 = convertNormal(n4) + layer3UT1;
     // tex 7
     tv4_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
     t4_2 = texture(layer_4T2, -tv4_2 + 0.5);
     vec4 tex7 = texture(tex_7, -tv4_2 + 0.5);
     n4_2 = texture(n_layer_4T2, -tv4_2 + 0.5);
-    t4_2.rgb *= n4_2.b; // ambient occusion
+    t4_2.rgb *= n4_2.b;
     n4_2 = convertNormal(n4_2) + layer3UT2;
 
     // layer 3 ---------------------------------------------
@@ -197,14 +197,10 @@ void main(void)
     MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
-    //int domVal = int(texture(domTexture, UV).r * 255.0) >> 4;
-
-
     vec4 base = vec4(0.0);  
     vec4 empty = vec4(0.0);
 
-
-    // used_1 to used_8 are either 0 or 1 depending on if the slot is used. Used to clamp 0.0, 1.0
+    //uniforms used_1 thru used_8 are either 0 or 1 depending on if the slot is used. Used to clamp 0.0, 1.0
 
     // mix our textures in to base.
     // Mix group 4
@@ -227,20 +223,20 @@ void main(void)
     //Get our normal maps. Same mixing and clamping as AM maps above
 
     // Mix group 4
-    n4.rgb = TBN * normalize(2.0 * n4.rgb - 1.0) * MixLevel4.r * used_7;
-    n4_2.rgb = TBN * normalize(2.0 * n4_2.rgb - 1.0) * MixLevel4.g * used_8;
+    n4.rgb = TBN * normalize(n4.rgb) * MixLevel4.r * used_7;
+    n4_2.rgb = TBN * normalize(n4_2.rgb) * MixLevel4.g * used_8;
 
     // Mix group 3
-    n3.rgb = TBN * normalize(2.0 * n3.rgb - 1.0) * MixLevel3.r * used_5;
-    n3_2.rgb = TBN * normalize(2.0 * n3_2.rgb - 1.0) * MixLevel3.g * used_6;
+    n3.rgb = TBN * normalize(n3.rgb) * MixLevel3.r * used_5;
+    n3_2.rgb = TBN * normalize(n3_2.rgb) * MixLevel3.g * used_6;
 
     // Mix group 2
-    n2.rgb = TBN * normalize(2.0 * n2.rgb - 1.0) * MixLevel2.r * used_3;
-    n2_2.rgb = TBN * normalize(2.0 * n2_2.rgb - 1.0) * MixLevel2.g * used_4;
+    n2.rgb = TBN * normalize(n2.rgb) * MixLevel2.r * used_3;
+    n2_2.rgb = TBN * normalize(n2_2.rgb) * MixLevel2.g * used_4;
 
     // Mix group 1
-    n1.rgb = TBN * normalize(2.0 * n1.rgb - 1.0) * MixLevel1.r * used_1;
-    n1_2.rgb = TBN * normalize(2.0 * n1_2.rgb - 1.0) * MixLevel1.g * used_2;
+    n1.rgb = TBN * normalize(n1.rgb) * MixLevel1.r * used_1;
+    n1_2.rgb = TBN * normalize(n1_2.rgb) * MixLevel1.g * used_2;
 
 
     //flip X axis. Everything is flipped on X including texture rotations.
@@ -278,13 +274,14 @@ void main(void)
     // This blends the layered colors/normals and the global_AM/normalMaps over distance.
     // The blend stats at 100 and ends at 400. This has been changed for debug
     // Replace ln with 1.0 to show only layered terrain.
-    //vec4 dom = texture(domTexture, UV);
+
     vec4 global = texture(global_AM, Global_UV);
     global.a = 1.0;
+
     base = mix(global, base, ln);
-    //base.rgb = mix(dom.rgb, base.rgb, ln);
+
     out_n = mix(n_tex, out_n, ln) ;
-    //base.rgb *= global.rgb*global.a;
+
     // The obvious
     gColor = base;
     gColor.a = 1.0;
