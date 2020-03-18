@@ -18,7 +18,7 @@ Module ShaderLoader
     Public Class Shader
         Private is_used As Boolean
         Private loaded As Boolean
-        Private program As Integer
+        Public program As Integer
         Private uniforms As Dictionary(Of String, Integer)
 
         Public name As String

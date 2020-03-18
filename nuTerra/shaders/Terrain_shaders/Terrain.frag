@@ -6,7 +6,7 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
 layout (location = 3) out vec3 gPosition;
 
-layout (std140, binding = 0) uniform Layers {
+layout (std140, binding = 0 ) uniform Layers {
     vec4 layer0UT1;
     vec4 layer1UT1;
     vec4 layer2UT1;
@@ -45,45 +45,44 @@ layout (std140, binding = 0) uniform Layers {
     int   pbs_7;
     int   pbs_8;
 };
+layout(binding = 1 ) uniform sampler2D layer_1T1;
+layout(binding = 2 ) uniform sampler2D layer_2T1;
+layout(binding = 3 ) uniform sampler2D layer_3T1;
+layout(binding = 4 ) uniform sampler2D layer_4T1;
 
-uniform sampler2D layer_1T1;
-uniform sampler2D layer_2T1;
-uniform sampler2D layer_3T1;
-uniform sampler2D layer_4T1;
+layout(binding = 5 ) uniform sampler2D layer_1T2;
+layout(binding = 6 ) uniform sampler2D layer_2T2;
+layout(binding = 7 ) uniform sampler2D layer_3T2;
+layout(binding = 8 ) uniform sampler2D layer_4T2;
 
-uniform sampler2D layer_1T2;
-uniform sampler2D layer_2T2;
-uniform sampler2D layer_3T2;
-uniform sampler2D layer_4T2;
+layout(binding = 9 ) uniform sampler2D n_layer_1T1;
+layout(binding = 10) uniform sampler2D n_layer_2T1;
+layout(binding = 11) uniform sampler2D n_layer_3T1;
+layout(binding = 12) uniform sampler2D n_layer_4T1;
 
-uniform sampler2D n_layer_1T1;
-uniform sampler2D n_layer_2T1;
-uniform sampler2D n_layer_3T1;
-uniform sampler2D n_layer_4T1;
+layout(binding = 13) uniform sampler2D n_layer_1T2;
+layout(binding = 14) uniform sampler2D n_layer_2T2;
+layout(binding = 15) uniform sampler2D n_layer_3T2;
+layout(binding = 16) uniform sampler2D n_layer_4T2;
 
-uniform sampler2D n_layer_1T2;
-uniform sampler2D n_layer_2T2;
-uniform sampler2D n_layer_3T2;
-uniform sampler2D n_layer_4T2;
+layout(binding = 17) uniform sampler2D mixtexture1;
+layout(binding = 18) uniform sampler2D mixtexture2;
+layout(binding = 19) uniform sampler2D mixtexture3;
+layout(binding = 20) uniform sampler2D mixtexture4;
 
-uniform sampler2D mixtexture1;
-uniform sampler2D mixtexture2;
-uniform sampler2D mixtexture3;
-uniform sampler2D mixtexture4;
+layout(binding = 21) uniform sampler2D tex_0;
+layout(binding = 22) uniform sampler2D tex_1;
+layout(binding = 23) uniform sampler2D tex_2;
+layout(binding = 24) uniform sampler2D tex_3;
 
-uniform sampler2D tex_0;
-uniform sampler2D tex_1;
-uniform sampler2D tex_2;
-uniform sampler2D tex_3;
-uniform sampler2D tex_4;
-uniform sampler2D tex_5;
-uniform sampler2D tex_6;
-uniform sampler2D tex_7;
+layout(binding = 25) uniform sampler2D tex_4;
+layout(binding = 26) uniform sampler2D tex_5;
+layout(binding = 27) uniform sampler2D tex_6;
+layout(binding = 28) uniform sampler2D tex_7;
 
-
-uniform sampler2D colorMap;
-uniform sampler2D normalMap;
-uniform sampler2D domTexture;
+layout(binding = 29) uniform sampler2D global_AM;
+layout(binding = 30) uniform sampler2D normalMap;
+layout(binding = 31) uniform sampler2D domTexture;
 
 uniform int nMap_type = 1;
 
@@ -317,7 +316,7 @@ void main(void)
     // The blend stats at 100 and ends at 400. This has been changed for debug
     // Replace ln with 1.0 to show only layered terrain.
     vec4 dom = texture(domTexture, UV);
-    vec4 global = texture(colorMap, Global_UV);
+    vec4 global = texture(global_AM, Global_UV);
     global.a = 1.0;
     base = mix(global, base, ln);
     //base.rgb = mix(dom.rgb, base.rgb, ln);

@@ -222,68 +222,24 @@ Module modRender
         '==========================
 
         GL.Enable(EnableCap.CullFace)
-
+        clear_output()
         '------------------------------------------------
         TerrainShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
 
         'shit load of textures to bind
-        GL.Uniform1(TerrainShader("layer_1T1"), 0)
-        GL.Uniform1(TerrainShader("layer_2T1"), 1)
-        GL.Uniform1(TerrainShader("layer_3T1"), 2)
-        GL.Uniform1(TerrainShader("layer_4T1"), 3)
 
-        GL.Uniform1(TerrainShader("layer_1T2"), 4)
-        GL.Uniform1(TerrainShader("layer_2T2"), 5)
-        GL.Uniform1(TerrainShader("layer_3T2"), 6)
-        GL.Uniform1(TerrainShader("layer_4T2"), 7)
+        GL.BindTextureUnit(21, TEST_IDS(0))
+        GL.BindTextureUnit(22, TEST_IDS(1))
+        GL.BindTextureUnit(23, TEST_IDS(2))
+        GL.BindTextureUnit(24, TEST_IDS(3))
+        GL.BindTextureUnit(25, TEST_IDS(4))
+        GL.BindTextureUnit(26, TEST_IDS(5))
+        GL.BindTextureUnit(27, TEST_IDS(6))
+        GL.BindTextureUnit(28, TEST_IDS(7))
 
-        GL.Uniform1(TerrainShader("n_layer_1T1"), 8)
-        GL.Uniform1(TerrainShader("n_layer_2T1"), 9)
-        GL.Uniform1(TerrainShader("n_layer_3T1"), 10)
-        GL.Uniform1(TerrainShader("n_layer_4T1"), 11)
-
-        GL.Uniform1(TerrainShader("n_layer_1T2"), 12)
-        GL.Uniform1(TerrainShader("n_layer_2T2"), 13)
-        GL.Uniform1(TerrainShader("n_layer_3T2"), 14)
-        GL.Uniform1(TerrainShader("n_layer_4T2"), 15)
-
-
-        GL.Uniform1(TerrainShader("mixtexture1"), 16)
-        GL.Uniform1(TerrainShader("mixtexture2"), 17)
-        GL.Uniform1(TerrainShader("mixtexture3"), 18)
-        GL.Uniform1(TerrainShader("mixtexture4"), 19)
-
-
-        GL.Uniform1(TerrainShader("colorMap"), 20)
-        GL.Uniform1(TerrainShader("normalMap"), 21)
-        GL.Uniform1(TerrainShader("domTexture"), 22)
-
-
-        'test textures so we can see the mapping
-        GL.BindTextureUnit(23, TEST_IDS(0))
-        GL.BindTextureUnit(24, TEST_IDS(1))
-        GL.BindTextureUnit(25, TEST_IDS(2))
-        GL.BindTextureUnit(26, TEST_IDS(3))
-        GL.BindTextureUnit(27, TEST_IDS(4))
-        GL.BindTextureUnit(28, TEST_IDS(5))
-        GL.BindTextureUnit(29, TEST_IDS(6))
-        GL.BindTextureUnit(30, TEST_IDS(7))
-
-        GL.Uniform1(TerrainShader("tex_0"), 23)
-        GL.Uniform1(TerrainShader("tex_1"), 24)
-
-        GL.Uniform1(TerrainShader("tex_2"), 25)
-        GL.Uniform1(TerrainShader("tex_3"), 26)
-
-        GL.Uniform1(TerrainShader("tex_4"), 27)
-        GL.Uniform1(TerrainShader("tex_5"), 28)
-
-        GL.Uniform1(TerrainShader("tex_6"), 29)
-        GL.Uniform1(TerrainShader("tex_7"), 30)
-
-        GL.BindTextureUnit(20, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
-        GL.BindTextureUnit(21, m_normal_id)
+        GL.BindTextureUnit(29, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
+        GL.BindTextureUnit(30, m_normal_id)
 
         GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
@@ -292,6 +248,8 @@ Module modRender
 
         GL.UniformMatrix4(TerrainShader("projMatrix"), False, PROJECTIONMATRIX)
         GL.UniformMatrix4(TerrainShader("viewMatrix"), False, VIEWMATRIX)
+
+        'Dim max_binding As Integer = GL.GetInteger(GetPName.MaxUniformBufferBindings)
 
         For i = 0 To theMap.render_set.Length - 1
             GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
@@ -304,33 +262,33 @@ Module modRender
                 GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, .layersStd140_ubo)
 
                 'debug shit
-                GL.BindTextureUnit(22, .dom_texture_id) '<----------------- Texture Bind
+                GL.BindTextureUnit(31, .dom_texture_id) '<----------------- Texture Bind
 
                 'AM maps
-                GL.BindTextureUnit(0, .TexLayers(0).AM_id1)
-                GL.BindTextureUnit(1, .TexLayers(1).AM_id1)
-                GL.BindTextureUnit(2, .TexLayers(2).AM_id1)
-                GL.BindTextureUnit(3, .TexLayers(3).AM_id1)
+                GL.BindTextureUnit(1, .TexLayers(0).AM_id1)
+                GL.BindTextureUnit(2, .TexLayers(1).AM_id1)
+                GL.BindTextureUnit(3, .TexLayers(2).AM_id1)
+                GL.BindTextureUnit(4, .TexLayers(3).AM_id1)
 
-                GL.BindTextureUnit(4, .TexLayers(0).AM_id2)
-                GL.BindTextureUnit(5, .TexLayers(1).AM_id2)
-                GL.BindTextureUnit(6, .TexLayers(2).AM_id2)
-                GL.BindTextureUnit(7, .TexLayers(3).AM_id2)
+                GL.BindTextureUnit(5, .TexLayers(0).AM_id2)
+                GL.BindTextureUnit(6, .TexLayers(1).AM_id2)
+                GL.BindTextureUnit(7, .TexLayers(2).AM_id2)
+                GL.BindTextureUnit(8, .TexLayers(3).AM_id2)
                 'NM maps
-                GL.BindTextureUnit(8, .TexLayers(0).NM_id1)
-                GL.BindTextureUnit(9, .TexLayers(1).NM_id1)
-                GL.BindTextureUnit(10, .TexLayers(2).NM_id1)
-                GL.BindTextureUnit(11, .TexLayers(3).NM_id1)
+                GL.BindTextureUnit(9, .TexLayers(0).NM_id1)
+                GL.BindTextureUnit(10, .TexLayers(1).NM_id1)
+                GL.BindTextureUnit(11, .TexLayers(2).NM_id1)
+                GL.BindTextureUnit(12, .TexLayers(3).NM_id1)
 
-                GL.BindTextureUnit(12, .TexLayers(0).NM_id2)
-                GL.BindTextureUnit(13, .TexLayers(1).NM_id2)
-                GL.BindTextureUnit(14, .TexLayers(2).NM_id2)
-                GL.BindTextureUnit(15, .TexLayers(3).NM_id2)
+                GL.BindTextureUnit(13, .TexLayers(0).NM_id2)
+                GL.BindTextureUnit(14, .TexLayers(1).NM_id2)
+                GL.BindTextureUnit(15, .TexLayers(2).NM_id2)
+                GL.BindTextureUnit(16, .TexLayers(3).NM_id2)
                 'bind blend textures
-                GL.BindTextureUnit(16, .TexLayers(0).Blend_id)
-                GL.BindTextureUnit(17, .TexLayers(1).Blend_id)
-                GL.BindTextureUnit(18, .TexLayers(2).Blend_id)
-                GL.BindTextureUnit(19, .TexLayers(3).Blend_id)
+                GL.BindTextureUnit(17, .TexLayers(0).Blend_id)
+                GL.BindTextureUnit(18, .TexLayers(1).Blend_id)
+                GL.BindTextureUnit(19, .TexLayers(2).Blend_id)
+                GL.BindTextureUnit(20, .TexLayers(3).Blend_id)
 
                 'draw chunk
                 GL.BindVertexArray(.VAO)

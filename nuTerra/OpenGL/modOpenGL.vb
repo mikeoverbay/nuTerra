@@ -137,7 +137,7 @@ Module modOpenGL
             Return
         End If
         If id = 1282 Then
-            Return
+            'Return
         End If
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
 

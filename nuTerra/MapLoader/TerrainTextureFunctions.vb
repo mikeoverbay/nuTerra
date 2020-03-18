@@ -162,6 +162,7 @@ Module TerrainTextureFunctions
             layersBuffer.pbs_8 = .TexLayers(3).PBS_b
 
             GL.CreateBuffers(1, .layersStd140_ubo)
+            GL.BindBuffer(BufferTarget.UniformBuffer, .layersStd140_ubo)
             GL.NamedBufferData(.layersStd140_ubo, Marshal.SizeOf(layersBuffer), layersBuffer, BufferUsageHint.StaticDraw)
         End With
     End Sub
@@ -309,9 +310,9 @@ Module TerrainTextureFunctions
 
                     Dim u = .layer.render_info(cur_layer_info_pnt + 0).u
                     Dim v = .layer.render_info(cur_layer_info_pnt + 0).v
-                    Dim scaleX = Math.Sqrt(u.X * u.X + u.Z * u.Z)
-                    Dim scaley = Math.Sqrt(v.X * v.X + v.Z * v.Z)
-                    Debug.WriteLine(scaleX.ToString + " ", scaley.ToString)
+                    'Dim scaleX = Math.Sqrt(u.X * u.X + u.Z * u.Z)
+                    'Dim scaley = Math.Sqrt(v.X * v.X + v.Z * v.Z)
+                    'Debug.WriteLine(scaleX.ToString + " ", scaley.ToString)
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt + 0).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt + 0).v
                     '.TexLayers(i).scale_a = .layer.render_info(cur_layer_info_pnt + 0).scale
