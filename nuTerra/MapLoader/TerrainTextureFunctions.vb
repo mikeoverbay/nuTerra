@@ -148,19 +148,6 @@ Module TerrainTextureFunctions
             layersBuffer.used_7 = .TexLayers(3).used_a
             layersBuffer.used_8 = .TexLayers(3).used_b
 
-            ' normalMap type. 1= AG : 0 = RGB
-            layersBuffer.pbs_1 = .TexLayers(0).PBS_a
-            layersBuffer.pbs_2 = .TexLayers(0).PBS_b
-
-            layersBuffer.pbs_3 = .TexLayers(1).PBS_a
-            layersBuffer.pbs_4 = .TexLayers(1).PBS_b
-
-            layersBuffer.pbs_5 = .TexLayers(2).PBS_a
-            layersBuffer.pbs_6 = .TexLayers(2).PBS_b
-
-            layersBuffer.pbs_7 = .TexLayers(3).PBS_a
-            layersBuffer.pbs_8 = .TexLayers(3).PBS_b
-
             GL.CreateBuffers(1, .layersStd140_ubo)
             GL.BindBuffer(BufferTarget.UniformBuffer, .layersStd140_ubo)
             GL.NamedBufferData(.layersStd140_ubo, Marshal.SizeOf(layersBuffer), layersBuffer, BufferUsageHint.StaticDraw)
@@ -278,25 +265,19 @@ Module TerrainTextureFunctions
                     .TexLayers(i).AM_name2 = ""
                     .TexLayers(i).NM_name1 = ""
                     .TexLayers(i).NM_name2 = ""
-                    .TexLayers(i).PBS_a = 0
-                    .TexLayers(i).PBS_b = 0
                     Dim bs = br2.ReadUInt32
                     Dim d = br2.ReadBytes(bs)
 
                     .TexLayers(i).AM_name1 = Encoding.UTF8.GetString(d, 0, d.Length)
                     .TexLayers(i).NM_name1 = .TexLayers(i).AM_name1.Replace("AM.dds", "NM.dds")
-                    If .TexLayers(i).NM_name1.Contains("PBS") Then
-                        .TexLayers(i).PBS_a = 1
-                    End If
+
                     If tex_cnt > 1 Then
                         bs = br2.ReadUInt32
                         d = br2.ReadBytes(bs)
 
                         .TexLayers(i).AM_name2 = Encoding.UTF8.GetString(d, 0, d.Length)
                         .TexLayers(i).NM_name2 = .TexLayers(i).AM_name2.Replace("AM.dds", "NM.dds")
-                        If .TexLayers(i).NM_name2.Contains("PBS") Then
-                            .TexLayers(i).PBS_b = 1
-                        End If
+
                     End If
                     'load blend texture
                     .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)

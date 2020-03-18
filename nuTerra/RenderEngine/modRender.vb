@@ -241,8 +241,6 @@ Module modRender
         GL.BindTextureUnit(29, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
         GL.BindTextureUnit(30, m_normal_id)
 
-        GL.Uniform1(32, N_MAP_TYPE)
-
         GL.UniformMatrix4(5, False, VIEWMATRIX)
         GL.UniformMatrix4(6, False, PROJECTIONMATRIX)
 

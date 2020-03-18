@@ -36,14 +36,6 @@ layout (std140, binding = 0 ) uniform Layers {
     float used_7;
     float used_8;
 
-    int   pbs_1;
-    int   pbs_2;
-    int   pbs_3;
-    int   pbs_4;
-    int   pbs_5;
-    int   pbs_6;
-    int   pbs_7;
-    int   pbs_8;
 };
 layout(binding = 1 ) uniform sampler2D layer_1T1;
 layout(binding = 2 ) uniform sampler2D layer_2T1;
@@ -84,10 +76,8 @@ layout(binding = 29) uniform sampler2D global_AM;
 layout(binding = 30) uniform sampler2D normalMap;
 //layout(binding = 31) uniform sampler2D domTexture;
 
-layout(location = 32) uniform int nMap_type = 1;
 
 in float ln;
-
 in mat3 TBN;
 in vec3 worldPosition;
 in vec4 Vertex;
@@ -104,40 +94,22 @@ vec4 add_norms (in vec4 n1, in vec4 n2) {
     return n1;
 }
 //-------------------------------------------------------------
-// Conversion from AG to RGB normal depending on nMap_type.
-vec4 getNormal()
-{
-    vec3 n;
-    if (nMap_type == 1 ) {
-        // GA map
-        // We must clamp and max these to -1.0 to 1.0 to stop artifacts!
-        n.xy = clamp(texture(normalMap, UV).ag*2.0-1.0, -1.0 ,1.0);
-        n.z = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
-        //n.xyz = n.xzy;
-        n.x*= -1.0;
-    } else {
-        // RGB map
-        n = texture(normalMap, UV).rgb*2.0-1.0;
-    }
-    n = normalize(TBN * n);
-    return vec4(n,1.0);
-}
-//-------------------------------------------------------------
+
 // Converion from AG map to RGB vector.
-vec4 convertNormal(vec4 norm, int pbs){
-//PBS GA map?
-if (pbs == 1)
-    {
+vec4 convertNormal(vec4 norm){
+        vec3 n;
+        n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);
+        n.z = max(sqrt(1.0 - (n.x*n.x - n.y *n.y)),0.0);
+        //n.xyz = n.xzy;
+        //n.x*=-1.0;
+        return vec4(TBN*n,0.0);
+}// Converion from AG map to RGB vector.
+
+vec4 convertNormal2(vec4 norm){
         vec3 n;
         n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);
         n.z = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
-        //n.xyz = n.xzy;
-        n.y *= -1.0;
         return vec4(n,0.0);
-    }else{
-    //norm.x*=-1.0;
-        return norm;
-    }
 }
 /*===========================================================*/
 
@@ -167,13 +139,13 @@ void main(void)
     t4 = texture(layer_4T1, -tv4 + 0.5 );
     vec4 tex6 = texture(tex_6, -tv4 + 0.5);
     n4 = texture(n_layer_4T1, -tv4 + 0.5);
-    n4 = convertNormal(n4, pbs_7) + layer3VT1;
+    n4 = convertNormal(n4) + layer3UT1;
     // tex 7
     tv4_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
     t4_2 = texture(layer_4T2, -tv4_2 + 0.5);
     vec4 tex7 = texture(tex_7, -tv4_2 + 0.5);
     n4_2 = texture(n_layer_4T2, -tv4_2 + 0.5);
-    n4_2 = convertNormal(n4_2, pbs_8) + layer3VT2;
+    n4_2 = convertNormal(n4_2) + layer3UT2;
 
     // layer 3 ---------------------------------------------
     // tex 4
@@ -181,13 +153,13 @@ void main(void)
     t3 = texture(layer_3T1, -tv3 + 0.5);
     vec4 tex4 = texture(tex_4, -tv3 + 0.5);
     n3 = texture(n_layer_3T1, -tv3 + 0.5);
-    n3 = convertNormal(n3, pbs_5) + layer2VT1;
+    n3 = convertNormal(n3) + layer2UT1;
     // tex 5
     tv3_2 = vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex));
     t3_2 = texture(layer_3T2, -tv3_2 + 0.5);
     vec4 tex5 = texture(tex_5, -tv3_2 + 0.5);
     n3_2 = texture(n_layer_3T2, -tv3_2 + 0.5);
-    n3_2 = convertNormal(n3_2, pbs_6) + layer2VT2;
+    n3_2 = convertNormal(n3_2) + layer2UT2;
 
     // layer 2 ---------------------------------------------
     // tex 2
@@ -195,13 +167,13 @@ void main(void)
     t2 = texture(layer_2T1, -tv2 + 0.5);
     vec4 tex2 = texture(tex_2, -tv2 + 0.5);
     n2 = texture(n_layer_2T1, -tv2 + 0.5);
-    n2 = convertNormal(n2, pbs_3) + layer1VT1;
+    n2 = convertNormal(n2) + layer1UT1;
     // tex 3
     tv2_2 = vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex));
     t2_2 = texture(layer_2T2, -tv2_2 + 0.5);
     vec4 tex3 = texture(tex_3, -tv2_2 + 0.5);
     n2_2 = texture(n_layer_2T2, -tv2_2 + 0.5);
-    n2_2 = convertNormal(n2_2, pbs_4) + layer1VT2;
+    n2_2 = convertNormal(n2_2) + layer1UT2;
 
     // layer 1 ---------------------------------------------
     // tex 0
@@ -209,13 +181,13 @@ void main(void)
     t1 = texture(layer_1T1, -tv1 + 0.5);
     vec4 tex0 = texture(tex_0, -tv1 + 0.5);
     n1 = texture(n_layer_1T1, -tv1 + 0.5);
-    n1 = convertNormal(n1, pbs_1) + layer0VT1;
+    n1 = convertNormal(n1) + layer0UT1;
     // tex 1
     tv1_2 = vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex));
     t1_2 = texture(layer_1T2, -tv1_2 + 0.5);
     vec4 tex1 = texture(tex_1, -tv1_2 + 0.5);
     n1_2 = texture(n_layer_1T2, -tv1_2 + 0.5);
-    n1_2 = convertNormal(n1_2, pbs_2) + layer0VT2;
+    n1_2 = convertNormal(n1_2) + layer0UT2;
     //
 
 
@@ -283,24 +255,13 @@ void main(void)
     n3_2.x *= -1.0;
     n4_2.x *= -1.0;
 
-
-    // Transform normals by TBN. Clamp again using used_ values just to make sure.
-    n4.rgb = (TBN * n4.rgb) * used_7;
-    n4_2.rgb = (TBN * n4_2.rgb) * used_8;
-
-    n3.rgb = (TBN * n3.rgb) * used_5;
-    n3_2.rgb = (TBN * n3_2.rgb) * used_6;
-
-    n2.rgb = (TBN * n2.rgb) * used_3;
-    n2_2.rgb = (TBN * n2_2.rgb) * used_4;
-
-    n1.rgb = (TBN * n1.rgb) * used_1;
-    n1_2.rgb = (TBN * n1_2.rgb) * used_2;
-
     //-------------------------------------------------------------
 
     // This is needed to light the global_AM.
-    vec4 n_tex = getNormal();
+    vec4 g_nm = texture(normalMap, UV);
+    vec4 n_tex = vec4(0.0);
+    n_tex.xyz = normalize(TBN * vec3(convertNormal2(g_nm).xyz));
+    n_tex.x*=-1.0;
     vec4 out_n = vec4(0.0);
     // Add up our normal values.
     out_n = add_norms(out_n, n1);

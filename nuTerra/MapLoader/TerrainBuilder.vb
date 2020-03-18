@@ -165,15 +165,6 @@ Module TerrainBuilder
         Public used_7 As Single
         Public used_8 As Single
 
-        Public pbs_1 As Integer
-        Public pbs_2 As Integer
-        Public pbs_3 As Integer
-        Public pbs_4 As Integer
-
-        Public pbs_5 As Integer
-        Public pbs_6 As Integer
-        Public pbs_7 As Integer
-        Public pbs_8 As Integer
     End Structure
 
     Public Structure ids_
@@ -184,7 +175,6 @@ Module TerrainBuilder
         Public AM_id2, NM_id2 As Integer
         Public uP1, uP2, vP1, vP2 As Vector4
         Public used_a, used_b As Single
-        Public PBS_a, PBS_b As Integer
         Public scale_a, scale_b As Vector4
     End Structure
     Public Structure layer_render_info_

@@ -96,7 +96,7 @@ Module modGlobalVars
     Public VIEWMATRIX As New Matrix4
     Public VIEWMATRIX_Saved As Matrix4
     Public PROJECTIONMATRIX_Saved As Matrix4
-    Public PRESPECTIVE_NEAR As Single = 0.5F
+    Public PRESPECTIVE_NEAR As Single = 0.1F
     Public PRESPECTIVE_FAR As Single = 3000.0F
     '============================================================
     'Map related
