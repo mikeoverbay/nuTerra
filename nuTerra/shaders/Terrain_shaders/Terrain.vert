@@ -6,31 +6,17 @@ layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
 layout(location = 3) in vec4 vertexNormal;
 
-layout(std140, binding =1) uniform VertUniforms {
-mat4 modelView2;
-};
+//uniforms
+layout(location = 5) uniform mat4 viewMatrix;
+layout(location = 6) uniform mat4 projMatrix;
 
-//layout(binding = 40) uniform mat4 modelMatrix;
-//layout(binding = 41) uniform mat4 viewMatrix;
-//layout(binding = 42) uniform mat4 projMatrix;
-//layout(binding = 43) uniform mat4 normalMatrix;
+layout(location = 7) uniform vec2 map_size;
+layout(location = 8) uniform vec2 map_center;
+layout(location = 9) uniform vec3 cam_position;
 
-//layout(binding = 44) uniform vec2 me_location;
-//layout(binding = 45) uniform vec2 map_size;
-//layout(binding = 46) uniform vec2 map_center;
-
-//layout(binding = 47) uniform vec3 cam_position;
-
-uniform mat4 modelMatrix;
-uniform mat4 viewMatrix;
-uniform mat4 projMatrix;
-uniform mat3 normalMatrix;
-
-uniform vec2 me_location;
-uniform vec2 map_size;
-uniform vec2 map_center;
-
-uniform vec3 cam_position;
+layout(location = 10) uniform mat4 modelMatrix;
+layout(location = 11) uniform mat3 normalMatrix;
+layout(location = 12) uniform vec2 me_location;
 
 out vec4 Vertex;
 out float ln;
@@ -43,7 +29,6 @@ flat out uint is_hole;
 
 void main(void)
 {
-
 
      UV =  vertexTexCoord;
      // calculate tex coords for global_AM

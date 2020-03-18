@@ -241,28 +241,30 @@ Module modRender
         GL.BindTextureUnit(29, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
         GL.BindTextureUnit(30, m_normal_id)
 
-        GL.Uniform1(TerrainShader("nMap_type"), N_MAP_TYPE)
-        GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
-        GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
-        GL.Uniform3(TerrainShader("cam_position"), CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
+        GL.Uniform1(32, N_MAP_TYPE)
 
-        GL.UniformMatrix4(TerrainShader("projMatrix"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(TerrainShader("viewMatrix"), False, VIEWMATRIX)
+        GL.UniformMatrix4(5, False, VIEWMATRIX)
+        GL.UniformMatrix4(6, False, PROJECTIONMATRIX)
+
+        GL.Uniform2(7, MAP_SIZE.X + 1, MAP_SIZE.Y + 1) 'map_size
+        GL.Uniform2(8, -b_x_min, b_y_max) 'map_center
+        GL.Uniform3(9, CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
 
         'Dim max_binding As Integer = GL.GetInteger(GetPName.MaxUniformBufferBindings)
 
         For i = 0 To theMap.render_set.Length - 1
-            GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
 
-            GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix)))
-            GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
+            GL.UniformMatrix4(10, False, theMap.render_set(i).matrix) 'viewMatrix
+
+            GL.UniformMatrix3(11, True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
+            GL.Uniform2(12, theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
 
             'bind all the data for this chunk
             With theMap.render_set(i)
                 GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, .layersStd140_ubo)
 
                 'debug shit
-                GL.BindTextureUnit(31, .dom_texture_id) '<----------------- Texture Bind
+                'GL.BindTextureUnit(31, .dom_texture_id) '<----------------- Texture Bind
 
                 'AM maps
                 GL.BindTextureUnit(1, .TexLayers(0).AM_id1)
@@ -306,8 +308,6 @@ Module modRender
         unbind_textures(30)
 
         If WIRE_TERRAIN Then
-
-
             'Must have this Identity to use the terrain normal view shader.
             Dim viewM = Matrix4.Identity * VIEWMATRIX
 

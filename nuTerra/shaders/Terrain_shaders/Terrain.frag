@@ -82,9 +82,9 @@ layout(binding = 28) uniform sampler2D tex_7;
 
 layout(binding = 29) uniform sampler2D global_AM;
 layout(binding = 30) uniform sampler2D normalMap;
-layout(binding = 31) uniform sampler2D domTexture;
+//layout(binding = 31) uniform sampler2D domTexture;
 
-uniform int nMap_type = 1;
+layout(location = 32) uniform int nMap_type = 1;
 
 in float ln;
 
@@ -223,7 +223,7 @@ void main(void)
     MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
-    int domVal = int(texture(domTexture, UV).r * 255.0) >> 4;
+    //int domVal = int(texture(domTexture, UV).r * 255.0) >> 4;
 
 
     vec4 base = vec4(0.0);  
@@ -315,7 +315,7 @@ void main(void)
     // This blends the layered colors/normals and the global_AM/normalMaps over distance.
     // The blend stats at 100 and ends at 400. This has been changed for debug
     // Replace ln with 1.0 to show only layered terrain.
-    vec4 dom = texture(domTexture, UV);
+    //vec4 dom = texture(domTexture, UV);
     vec4 global = texture(global_AM, Global_UV);
     global.a = 1.0;
     base = mix(global, base, ln);
