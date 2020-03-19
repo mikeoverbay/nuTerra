@@ -297,15 +297,20 @@ void main(void)
     out_n = add_norms(out_n, n4);
     out_n = add_norms(out_n, n4_2);
 
+    
+    // Mix in the global_AM color using global_AM's alpha channel.
+    // I think this is used for wetness on the map.
+    vec4 global = texture(global_AM, Global_UV);
+    base.rgb = mix(base.rgb,global.rgb,global.a);
+    
     // This blends between low and highrez by distance
 
     // This blends the layered colors/normals and the global_AM/normalMaps over distance.
     // The blend stats at 100 and ends at 400. This has been changed for debug
     // Replace ln with 1.0 to show only layered terrain.
-
-    vec4 global = texture(global_AM, Global_UV);
+    
     global.a = 1.0;
-
+    
     base = mix(global, base, ln);
 
     out_n = mix(n_tex, out_n, ln) ;

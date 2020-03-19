@@ -814,4 +814,8 @@ try_again:
         map_loader.Enabled = False
         load_map(MAP_NAME_NO_PATH)
     End Sub
+
+    Private Sub m_screen_capture_Click(sender As Object, e As EventArgs) Handles m_screen_capture.Click
+        frmScreenCap.ShowDialog()
+    End Sub
 End Class

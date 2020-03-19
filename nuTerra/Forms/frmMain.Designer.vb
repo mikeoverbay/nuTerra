@@ -27,17 +27,7 @@ Partial Class frmMain
     Private Sub InitializeComponent()
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
-
-#If DEBUG Or RELEASE Then
-        Dim flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
-#Else
-        Dim flags = GraphicsContextFlags.ForwardCompatible
-#End If
-
-        ' Disable depth buffer
-        Dim mode = New GraphicsMode(ColorFormat.Empty, 0)
-
-        Me.glControl_main = New OpenTK.GLControl(mode, 4, 3, flags)
+        Me.glControl_main = New OpenTK.GLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_load_map = New System.Windows.Forms.ToolStripMenuItem()
@@ -48,7 +38,6 @@ Partial Class frmMain
         Me.ToolStripSeparator4 = New System.Windows.Forms.ToolStripSeparator()
         Me.ToolStripSeparator5 = New System.Windows.Forms.ToolStripSeparator()
         Me.m_shut_down = New System.Windows.Forms.ToolStripMenuItem()
-        Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_set_game_path = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripSeparator3 = New System.Windows.Forms.ToolStripSeparator()
@@ -57,10 +46,12 @@ Partial Class frmMain
         Me.m_developer = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_block_loading = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_show_gbuffer = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.FolderBrowserDialog1 = New System.Windows.Forms.FolderBrowserDialog()
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.map_loader = New System.Windows.Forms.Timer(Me.components)
+        Me.m_screen_capture = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         Me.SuspendLayout()
         '
@@ -75,7 +66,7 @@ Partial Class frmMain
         '
         'frmMainMenu
         '
-        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_settings, Me.m_light_settings, Me.m_developer, Me.m_help})
+        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_settings, Me.m_light_settings, Me.m_developer, Me.m_help, Me.m_screen_capture})
         Me.frmMainMenu.Location = New System.Drawing.Point(0, 0)
         Me.frmMainMenu.Name = "frmMainMenu"
         Me.frmMainMenu.Size = New System.Drawing.Size(956, 24)
@@ -138,17 +129,6 @@ Partial Class frmMain
         Me.m_shut_down.Name = "m_shut_down"
         Me.m_shut_down.Size = New System.Drawing.Size(161, 22)
         Me.m_shut_down.Text = "Shut Me Down"
-        '
-        'm_help
-        '
-        Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
-        Me.m_help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center
-        Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
-        Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
-        Me.m_help.ImageTransparentColor = System.Drawing.Color.Transparent
-        Me.m_help.Name = "m_help"
-        Me.m_help.Size = New System.Drawing.Size(28, 20)
-        Me.m_help.TextImageRelation = System.Windows.Forms.TextImageRelation.Overlay
         '
         'm_settings
         '
@@ -213,6 +193,17 @@ Partial Class frmMain
         Me.m_show_gbuffer.Size = New System.Drawing.Size(195, 22)
         Me.m_show_gbuffer.Text = "Show Gbuffer Textures"
         '
+        'm_help
+        '
+        Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center
+        Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
+        Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
+        Me.m_help.ImageTransparentColor = System.Drawing.Color.Transparent
+        Me.m_help.Name = "m_help"
+        Me.m_help.Size = New System.Drawing.Size(28, 20)
+        Me.m_help.TextImageRelation = System.Windows.Forms.TextImageRelation.Overlay
+        '
         'startup_delay_timer
         '
         Me.startup_delay_timer.Interval = 1000
@@ -230,6 +221,12 @@ Partial Class frmMain
         'map_loader
         '
         Me.map_loader.Interval = 30
+        '
+        'm_screen_capture
+        '
+        Me.m_screen_capture.Name = "m_screen_capture"
+        Me.m_screen_capture.Size = New System.Drawing.Size(99, 20)
+        Me.m_screen_capture.Text = "Screen Capture"
         '
         'frmMain
         '
@@ -276,5 +273,6 @@ Partial Class frmMain
     Friend WithEvents ToolStripSeparator4 As System.Windows.Forms.ToolStripSeparator
     Friend WithEvents ToolStripSeparator5 As System.Windows.Forms.ToolStripSeparator
     Friend WithEvents map_loader As System.Windows.Forms.Timer
+    Friend WithEvents m_screen_capture As System.Windows.Forms.ToolStripMenuItem
 
 End Class

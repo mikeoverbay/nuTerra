@@ -187,10 +187,10 @@ Module TerrainTextureFunctions
                 'texture projection transforms
                 .layer.render_info(i).u.X = br.ReadSingle
                 .layer.render_info(i).u.Y = br.ReadSingle
-                .layer.render_info(i).u.Z = br.ReadSingle
+                .layer.render_info(i).u.Z = -br.ReadSingle
                 .layer.render_info(i).u.W = br.ReadSingle
 
-                .layer.render_info(i).v.X = br.ReadSingle
+                .layer.render_info(i).v.X = -br.ReadSingle
                 .layer.render_info(i).v.Y = br.ReadSingle
                 .layer.render_info(i).v.Z = br.ReadSingle
                 .layer.render_info(i).v.W = br.ReadSingle
@@ -484,6 +484,7 @@ Module TerrainTextureFunctions
 
         If success = Il.IL_NO_ERROR Then
             'Ilu.iluFlipImage()
+            'Ilu.iluRotate(90.0F)
             'Ilu.iluMirror()
             Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
             Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
