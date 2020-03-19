@@ -126,17 +126,17 @@ void main(void)
     vec2 UVs = UV;
 
     // create UV projections
-    tv4 = -vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex)) + 0.5;
-    tv4_2 = -vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex)) + 0.5;
+    tv4 = -vec2(dot(-layer3UT1, Vertex), dot(-layer3VT1, Vertex)) ;
+    tv4_2 = -vec2(dot(-layer3UT2, Vertex), dot(-layer3VT2, Vertex)) ;
 
-    tv3 = -vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex)) + 0.5;
-    tv3_2 = -vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex)) + 0.5;
+    tv3 = -vec2(dot(-layer2UT1, Vertex), dot(-layer2VT1, Vertex)) ;
+    tv3_2 = -vec2(dot(-layer2UT2, Vertex), dot(-layer2VT2, Vertex)) ;
 
-    tv2 = -vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex)) + 0.5;
-    tv2_2 = -vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex)) + 0.5;
+    tv2 = -vec2(dot(-layer1UT1, Vertex), dot(-layer1VT1, Vertex));
+    tv2_2 = -vec2(dot(-layer1UT2, Vertex), dot(-layer1VT2, Vertex));
 
-    tv1 = -vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex)) + 0.5;
-    tv1_2 = -vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex)) + 0.5;
+    tv1 = -vec2(dot(-layer0UT1, Vertex), dot(-layer0VT1, Vertex)) ;
+    tv1_2 = -vec2(dot(-layer0UT2, Vertex), dot(-layer0VT2, Vertex)) ;
 
     // Get AM maps and Test Texture maps
     t4 = texture(layer_4T1, tv4 );
@@ -281,8 +281,7 @@ void main(void)
 
     //-------------------------------------------------------------
 
-    // This normalMap is needed to light the global_AM.
-	//It must be converted like the other NM maps.
+    // This is needed to light the global_AM.
     vec4 g_nm = texture(normalMap, UV);
     vec4 n_tex = vec4(0.0);
     n_tex.xyz = normalize(TBN * vec3(convertNormal(g_nm).xyz));
@@ -300,8 +299,8 @@ void main(void)
 
     // This blends between low and highrez by distance
 
-    // This blends the layered colors/normals with the global_AM/normalMaps over distance.
-	// If we don't need HQ texturing, why do it?
+    // This blends the layered colors/normals and the global_AM/normalMaps over distance.
+    // The blend stats at 100 and ends at 400. This has been changed for debug
     // Replace ln with 1.0 to show only layered terrain.
 
     vec4 global = texture(global_AM, Global_UV);
