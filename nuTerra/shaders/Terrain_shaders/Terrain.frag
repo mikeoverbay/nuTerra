@@ -74,9 +74,8 @@ layout(binding = 28) uniform sampler2D tex_7;
 
 layout(binding = 29) uniform sampler2D global_AM;
 layout(binding = 30) uniform sampler2D normalMap;
-//layout(binding = 31) uniform sampler2D domTexture;
 
-
+layout(location = 24) uniform int show_test;
 in float ln;
 in mat3 TBN;
 in vec3 worldPosition;
@@ -118,108 +117,137 @@ void main(void)
     vec3 PN1, PN2, PN3, PN4;
     vec2 tv4, tv4_2, tv3, tv3_2;
     vec2 tv2, tv2_2, tv1, tv1_2;
-
+    float aoc_0, aoc_1, aoc_2, aoc_3;
+    float  aoc_4, aoc_5, aoc_6, aoc_7;
     vec2 mix_coords;
 
     mix_coords = UV;
     mix_coords.x = 1.0 - mix_coords.x;
     vec2 UVs = UV;
-    // Rotate the AM and NM textures. The order here is not important but I am sticking to protocol.
-    // Layer 4 ---------------------------------------------
-    // tex 6
-    tv4 = vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex));
-    t4 = texture(layer_4T1, -tv4 + 0.5 );
-    vec4 tex6 = texture(tex_6, -tv4 + 0.5);
-    n4 = texture(n_layer_4T1, -tv4 + 0.5);
-    t4.rgb *= n4.b; // ambient occusion
+
+    // create UV projections
+    tv4 = -vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex)) + 0.5;
+    tv4_2 = -vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex)) + 0.5;
+
+    tv3 = -vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex)) + 0.5;
+    tv3_2 = -vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex)) + 0.5;
+
+    tv2 = -vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex)) + 0.5;
+    tv2_2 = -vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex)) + 0.5;
+
+    tv1 = -vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex)) + 0.5;
+    tv1_2 = -vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex)) + 0.5;
+
+    // Get AM maps and Test Texture maps
+    t4 = texture(layer_4T1, tv4 );
+    vec4 tex6 = texture(tex_6, tv4);
+
+    t4_2 = texture(layer_4T2, tv4_2);
+    vec4 tex7 = texture(tex_7, tv4_2);
+
+    t3 = texture(layer_3T1, tv3);
+    vec4 tex4 = texture(tex_4, tv3);
+
+    t3_2 = texture(layer_3T2, tv3_2);
+    vec4 tex5 = texture(tex_5, tv3_2);
+
+    t2 = texture(layer_2T1, tv2);
+    vec4 tex2 = texture(tex_2, tv2);
+
+    t2_2 = texture(layer_2T2, tv2_2);
+    vec4 tex3 = texture(tex_3, tv2_2);
+
+    t1 = texture(layer_1T1, tv1);
+    vec4 tex0 = texture(tex_0, tv1);
+ 
+    t1_2 = texture(layer_1T2, tv1_2);
+    vec4 tex1 = texture(tex_1, tv1_2);
+
+    // ambient occusion is in blue channel of the normal maps.
+    // Specular is in the red channel. Green and Alpha are normal values.
+    // We must get the Ambient Occlusion before converting so it isn't lost.
+
+    // Get and convert normal maps. Save ambient occlusion value.
+    n4 = texture(n_layer_4T1, tv4);
+    aoc_6 = n4.b;
     n4 = convertNormal(n4) + layer3UT1;
-    // tex 7
-    tv4_2 = vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex));
-    t4_2 = texture(layer_4T2, -tv4_2 + 0.5);
-    vec4 tex7 = texture(tex_7, -tv4_2 + 0.5);
-    n4_2 = texture(n_layer_4T2, -tv4_2 + 0.5);
-    t4_2.rgb *= n4_2.b;
+
+    n4_2 = texture(n_layer_4T2, tv4_2);
+    aoc_7 = n4_2.b;
     n4_2 = convertNormal(n4_2) + layer3UT2;
 
-    // layer 3 ---------------------------------------------
-    // tex 4
-    tv3 = vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex));
-    t3 = texture(layer_3T1, -tv3 + 0.5);
-    vec4 tex4 = texture(tex_4, -tv3 + 0.5);
-    n3 = texture(n_layer_3T1, -tv3 + 0.5);
-    t3.rgb *= n3.b;
+    n3 = texture(n_layer_3T1, tv3);
+    aoc_4 = n3.b;
     n3 = convertNormal(n3) + layer2UT1;
-    // tex 5
-    tv3_2 = vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex));
-    t3_2 = texture(layer_3T2, -tv3_2 + 0.5);
-    vec4 tex5 = texture(tex_5, -tv3_2 + 0.5);
-    n3_2 = texture(n_layer_3T2, -tv3_2 + 0.5);
-    t3_2.rgb *= n3_2.b;
+
+    n3_2 = texture(n_layer_3T2, tv3_2);
+    aoc_5 = n3_2.b;
     n3_2 = convertNormal(n3_2) + layer2UT2;
 
-    // layer 2 ---------------------------------------------
-    // tex 2
-    tv2 = vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex));
-    t2 = texture(layer_2T1, -tv2 + 0.5);
-    vec4 tex2 = texture(tex_2, -tv2 + 0.5);
-    n2 = texture(n_layer_2T1, -tv2 + 0.5);
-    t2.rgb *= n2.b;
+    n2 = texture(n_layer_2T1, tv2);
+    aoc_2 = n2.b;
     n2 = convertNormal(n2) + layer1UT1;
-    // tex 3
-    tv2_2 = vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex));
-    t2_2 = texture(layer_2T2, -tv2_2 + 0.5);
-    vec4 tex3 = texture(tex_3, -tv2_2 + 0.5);
-    n2_2 = texture(n_layer_2T2, -tv2_2 + 0.5);
-    t2_2.rgb *= n2_2.b;
+
+    n2_2 = texture(n_layer_2T2, tv2_2);
+    aoc_3 = n2_2.b;
     n2_2 = convertNormal(n2_2) + layer1UT2;
 
-    // layer 1 ---------------------------------------------
-    // tex 0
-    tv1 = vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex));
-    t1 = texture(layer_1T1, -tv1 + 0.5);
-    vec4 tex0 = texture(tex_0, -tv1 + 0.5);
-    n1 = texture(n_layer_1T1, -tv1 + 0.5);
-    t1.rgb *= n1.b;
+    n1 = texture(n_layer_1T1, tv1);
+    aoc_0 = n1.b;
     n1 = convertNormal(n1) + layer0UT1;
-    // tex 1
-    tv1_2 = vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex));
-    t1_2 = texture(layer_1T2, -tv1_2 + 0.5);
-    vec4 tex1 = texture(tex_1, -tv1_2 + 0.5);
-    n1_2 = texture(n_layer_1T2, -tv1_2 + 0.5);
-    t1_2.rgb *= n1_2.b;
+
+    n1_2 = texture(n_layer_1T2, tv1_2);
+    aoc_1 =  n1_2.b;
     n1_2 = convertNormal(n1_2) + layer0UT2;
-    //
-
-
+    
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
     MixLevel2.rg = texture(mixtexture2, mix_coords.xy).ag;
     MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
+    // Uniforms used_1 thru used_8 are either 0 or 1
+    // depending on if the slot is used.
+    // It is used to clamp unused values to 0 so
+    // they have no affect on shading.
+
+    // If we want to show the test textures, do it now.
+    if (show_test == 1){
+
+        t4 = t4 * tex6 * used_7;
+        t4_2 = t4_2 * tex7 * used_8;
+
+        t3 = t3 * tex4 * used_5;
+        t3_2 = t3_2 * tex5 * used_6;
+
+        t2 = t2 * tex2 * used_3;
+        t2_2 = t2_2 * tex3 * used_4;
+
+        t1 = t1 * tex0 * used_1;
+        t1_2 = t1_2 * tex1 * used_2;
+    }
+
     vec4 base = vec4(0.0);  
     vec4 empty = vec4(0.0);
 
-    //uniforms used_1 thru used_8 are either 0 or 1 depending on if the slot is used. Used to clamp 0.0, 1.0
-
-    // mix our textures in to base.
+    // Mix our textures in to base and
+    // apply Ambient Occlusion.
     // Mix group 4
-    base += t4 * tex6 * MixLevel4.r * used_7;
-    base += t4_2 * tex7 * MixLevel4.g * used_8;
+    base += t4 * aoc_6 * MixLevel4.r * used_7;
+    base += t4_2 * aoc_7 * MixLevel4.g * used_8;
 
     // Mix group 3
-    base += t3 * tex4 * MixLevel3.r * used_5;
-    base += t3_2 * tex5 * MixLevel3.g * used_6;
+    base += t3 * aoc_4 * MixLevel3.r * used_5;
+    base += t3_2 * aoc_5 * MixLevel3.g * used_6;
 
     // Mix group 2
-    base += t2 * tex2 * MixLevel2.r * used_3;
-    base += t2_2 * tex3 * MixLevel2.g * used_4;
+    base += t2 * aoc_2 * MixLevel2.r * used_3;
+    base += t2_2 * aoc_3 * MixLevel2.g * used_4;
 
     // Mix group 1
-    base += t1 * tex0 * MixLevel1.r * used_1;
-    base += t1_2 * tex1 * MixLevel1.g * used_2;
+    base += t1 * aoc_0 * MixLevel1.r * used_1;
+    base += t1_2 * aoc_1 * MixLevel1.g * used_2;
     
-
     //Get our normal maps. Same mixing and clamping as AM maps above
 
     // Mix group 4
@@ -253,7 +281,8 @@ void main(void)
 
     //-------------------------------------------------------------
 
-    // This is needed to light the global_AM.
+    // This normalMap is needed to light the global_AM.
+	//It must be converted like the other NM maps.
     vec4 g_nm = texture(normalMap, UV);
     vec4 n_tex = vec4(0.0);
     n_tex.xyz = normalize(TBN * vec3(convertNormal(g_nm).xyz));
@@ -271,8 +300,8 @@ void main(void)
 
     // This blends between low and highrez by distance
 
-    // This blends the layered colors/normals and the global_AM/normalMaps over distance.
-    // The blend stats at 100 and ends at 400. This has been changed for debug
+    // This blends the layered colors/normals with the global_AM/normalMaps over distance.
+	// If we don't need HQ texturing, why do it?
     // Replace ln with 1.0 to show only layered terrain.
 
     vec4 global = texture(global_AM, Global_UV);

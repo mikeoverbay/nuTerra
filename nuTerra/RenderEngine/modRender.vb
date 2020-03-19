@@ -248,6 +248,8 @@ Module modRender
         GL.Uniform2(8, -b_x_min, b_y_max) 'map_center
         GL.Uniform3(9, CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
 
+        GL.Uniform1(24, SHOW_TEST_TEXTURES) ' show_test
+
         'Dim max_binding As Integer = GL.GetInteger(GetPName.MaxUniformBufferBindings)
 
         For i = 0 To theMap.render_set.Length - 1

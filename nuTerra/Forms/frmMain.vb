@@ -107,6 +107,13 @@ Public Class frmMain
                     NORMAL_DISPLAY_MODE = 0
                 End If
 
+            Case Keys.T
+                If SHOW_TEST_TEXTURES = 1 Then
+                    SHOW_TEST_TEXTURES = 0
+                Else
+                    SHOW_TEST_TEXTURES = 1
+                End If
+
             Case Keys.ControlKey
                 Z_MOVE = True
 
