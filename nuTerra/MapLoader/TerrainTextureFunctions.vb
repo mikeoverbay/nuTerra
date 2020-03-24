@@ -35,50 +35,6 @@ Module TerrainTextureFunctions
         get_layer_textures(map)
 
 
-        Dim no_rotateu = New OpenTK.Graphics.Color4(0.025F, 0, 0, 0)
-        Dim no_rotatev = New OpenTK.Graphics.Color4(0, 0, 0.025F, 0)
-        With theMap.render_set(map)
-
-            Dim dom = .dom_id And &HF
-            Dim dom2 = .dom_id And &HF0
-            ' Debug.WriteLine(dom2.ToString("x") + " " + dom.ToString("x"))
-
-            If dom = 0 Then
-                '.TexLayers(0).uP2 = no_rotateu
-                '.TexLayers(0).vP2 = no_rotatev
-            End If
-            If dom = 1 Then
-                '.TexLayers(0).uP2 = no_rotateu
-                '.TexLayers(0).vP2 = no_rotatev
-            End If
-            If dom And 4 > 0 Then
-                '.TexLayers(1).uP1 = no_rotateu
-                '.TexLayers(1).vP1 = no_rotatev
-            End If
-            If dom = 3 Then
-                '.TexLayers(1).uP2 = no_rotateu
-                '.TexLayers(1).vP2 = no_rotatev
-            End If
-
-            If dom = 4 Then
-                '.TexLayers(2).uP1 = no_rotateu
-                '.TexLayers(2).vP1 = no_rotatev
-            End If
-            If dom = 5 Then
-                '.TexLayers(2).uP2 = no_rotateu
-                '.TexLayers(2).vP2 = no_rotatev
-            End If
-
-            If dom = 6 Then
-                '.TexLayers(3).uP1 = no_rotateu
-                '.TexLayers(3).vP1 = no_rotatev
-            End If
-            If dom = 7 Then
-                '.TexLayers(3).uP2 = no_rotateu
-                '.TexLayers(3).vP2 = no_rotatev
-            End If
-        End With
-
     End Sub
 
     Private Sub get_layer_textures(ByVal map As Integer)
@@ -232,6 +188,9 @@ Module TerrainTextureFunctions
             '---------------------------------------------------------------------
             'lets get the textures and blend texture.
             '---------------------------------------------------------------------
+
+            'Debug.WriteLine(map.ToString("000") + " -------------------------------------")
+
             Dim ms2 As New MemoryStream(theMap.chunks(map).blend_textures_data)
             ms2.Position = 0
 
@@ -265,6 +224,8 @@ Module TerrainTextureFunctions
                     .TexLayers(i).AM_name2 = ""
                     .TexLayers(i).NM_name1 = ""
                     .TexLayers(i).NM_name2 = ""
+
+                    'get first tex name
                     Dim bs = br2.ReadUInt32
                     Dim d = br2.ReadBytes(bs)
 
@@ -272,6 +233,7 @@ Module TerrainTextureFunctions
                     .TexLayers(i).NM_name1 = .TexLayers(i).AM_name1.Replace("AM.dds", "NM.dds")
 
                     If tex_cnt > 1 Then
+                        'get 2nd tex name if it exist
                         bs = br2.ReadUInt32
                         d = br2.ReadBytes(bs)
 
@@ -287,13 +249,23 @@ Module TerrainTextureFunctions
                     End If
                     'layer part 1
                     'scaleX = .sqrt((a * a) + (c * c));
-                    'scaleY = sqrt((b * b) + (d * d));
-
                     Dim u = .layer.render_info(cur_layer_info_pnt + 0).u
                     Dim v = .layer.render_info(cur_layer_info_pnt + 0).v
-                    'Dim scaleX = Math.Sqrt(u.X * u.X + u.Z * u.Z)
-                    'Dim scaley = Math.Sqrt(v.X * v.X + v.Z * v.Z)
+
+                    Dim scaleX = Math.Sqrt(u.X * u.X + u.Z * u.Z)
+                    Dim scaley = Math.Sqrt(v.X * v.X + v.Z * v.Z)
+                    'Debug.Write("(" + cur_layer_info_pnt.ToString + ") ")
                     'Debug.WriteLine(scaleX.ToString + " ", scaley.ToString)
+
+                    u = .layer.render_info(cur_layer_info_pnt + 0).u
+                    v = .layer.render_info(cur_layer_info_pnt + 0).v
+
+                    scaleX = Math.Sqrt(u.X * u.X + u.Z * u.Z)
+                    scaley = Math.Sqrt(v.X * v.X + v.Z * v.Z)
+                    'Debug.Write("(" + CInt(cur_layer_info_pnt + 1).ToString + ") ")
+                    'Debug.WriteLine(scaleX.ToString + " ", scaley.ToString)
+
+
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt + 0).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt + 0).v
                     '.TexLayers(i).scale_a = .layer.render_info(cur_layer_info_pnt + 0).scale

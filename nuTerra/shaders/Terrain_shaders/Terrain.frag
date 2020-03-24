@@ -126,17 +126,17 @@ void main(void)
     vec2 UVs = UV;
 
     // create UV projections
-    tv4 = -vec2(dot(-layer3UT1, Vertex), dot(-layer3VT1, Vertex)) ;
-    tv4_2 = -vec2(dot(-layer3UT2, Vertex), dot(-layer3VT2, Vertex)) ;
+    tv4 = -vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex))+0.5 ;
+    tv4_2 = -vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex))+0.5 ;
 
-    tv3 = -vec2(dot(-layer2UT1, Vertex), dot(-layer2VT1, Vertex)) ;
-    tv3_2 = -vec2(dot(-layer2UT2, Vertex), dot(-layer2VT2, Vertex)) ;
+    tv3 = -vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex))+0.5 ;
+    tv3_2 = -vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex))+0.5 ;
 
-    tv2 = -vec2(dot(-layer1UT1, Vertex), dot(-layer1VT1, Vertex));
-    tv2_2 = -vec2(dot(-layer1UT2, Vertex), dot(-layer1VT2, Vertex));
+    tv2 = -vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex))+0.5;
+    tv2_2 = -vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex))+0.5;
 
-    tv1 = -vec2(dot(-layer0UT1, Vertex), dot(-layer0VT1, Vertex)) ;
-    tv1_2 = -vec2(dot(-layer0UT2, Vertex), dot(-layer0VT2, Vertex)) ;
+    tv1 = -vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex))+0.5 ;
+    tv1_2 = -vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex))+0.5 ;
 
     // Get AM maps and Test Texture maps
     t4 = texture(layer_4T1, tv4 );
@@ -214,17 +214,17 @@ void main(void)
     // If we want to show the test textures, do it now.
     if (show_test == 1){
 
-        t4 = t4 * tex6 * used_7;
-        t4_2 = t4_2 * tex7 * used_8;
+        //t4 = t4 * tex6 * used_7;
+        //t4_2 = t4_2 * tex7 * used_8;
 
-        t3 = t3 * tex4 * used_5;
-        t3_2 = t3_2 * tex5 * used_6;
+        //t3 = t3 * tex4 * used_5;
+        //t3_2 = t3_2 * tex5 * used_6;
 
         t2 = t2 * tex2 * used_3;
-        t2_2 = t2_2 * tex3 * used_4;
+        //t2_2 = t2_2 * tex3 * used_4;
 
-        t1 = t1 * tex0 * used_1;
-        t1_2 = t1_2 * tex1 * used_2;
+        //t1 = t1 * tex0 * used_1;
+        //t1_2 = t1_2 * tex1 * used_2;
     }
 
     vec4 base = vec4(0.0);  

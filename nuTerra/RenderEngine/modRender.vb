@@ -7,7 +7,7 @@ Module modRender
     Dim temp_timer As New Stopwatch
     Public PI As Single = 3.14159274F
     Public angle1, angle2 As Single
-
+    Private cull_timer As New Stopwatch
     Public Sub draw_scene()
         '===========================================================================
         ' FLAG INFO
@@ -41,6 +41,16 @@ Module modRender
         set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
+        '===========================================================================
+        CULLED_COUNT = 0
+        cull_timer.Restart()
+        ExtractFrustum()
+        If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
+            cull_terrain()
+        End If
+        cull_timer.Stop()
+        '===========================================================================
+
         If MODELS_LOADED Then
             '=======================================================================
             frustum_cull() '========================================================
@@ -67,7 +77,7 @@ Module modRender
         '===========================================================================
         FBOm.attach_CNGP()
 
-        If TERRAIN_LOADED Then
+        If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             '=======================================================================
             draw_terrain() '========================================================
             '=======================================================================
@@ -222,7 +232,7 @@ Module modRender
         '==========================
 
         GL.Enable(EnableCap.CullFace)
-        clear_output()
+        'clear_output()
         '------------------------------------------------
         TerrainShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -253,51 +263,53 @@ Module modRender
         'Dim max_binding As Integer = GL.GetInteger(GetPName.MaxUniformBufferBindings)
 
         For i = 0 To theMap.render_set.Length - 1
+            If theMap.render_set(i).visible Then
 
-            GL.UniformMatrix4(10, False, theMap.render_set(i).matrix) 'viewMatrix
+                GL.UniformMatrix4(10, False, theMap.render_set(i).matrix) 'viewMatrix
 
-            GL.UniformMatrix3(11, True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
-            GL.Uniform2(12, theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
+                GL.UniformMatrix3(11, True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
+                GL.Uniform2(12, theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
 
-            'bind all the data for this chunk
-            With theMap.render_set(i)
-                GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, .layersStd140_ubo)
+                'bind all the data for this chunk
+                With theMap.render_set(i)
+                    GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, .layersStd140_ubo)
 
-                'debug shit
-                'GL.BindTextureUnit(31, .dom_texture_id) '<----------------- Texture Bind
+                    'debug shit
+                    'GL.BindTextureUnit(31, .dom_texture_id) '<----------------- Texture Bind
 
-                'AM maps
-                GL.BindTextureUnit(1, .TexLayers(0).AM_id1)
-                GL.BindTextureUnit(2, .TexLayers(1).AM_id1)
-                GL.BindTextureUnit(3, .TexLayers(2).AM_id1)
-                GL.BindTextureUnit(4, .TexLayers(3).AM_id1)
+                    'AM maps
+                    GL.BindTextureUnit(1, .TexLayers(0).AM_id1)
+                    GL.BindTextureUnit(2, .TexLayers(1).AM_id1)
+                    GL.BindTextureUnit(3, .TexLayers(2).AM_id1)
+                    GL.BindTextureUnit(4, .TexLayers(3).AM_id1)
 
-                GL.BindTextureUnit(5, .TexLayers(0).AM_id2)
-                GL.BindTextureUnit(6, .TexLayers(1).AM_id2)
-                GL.BindTextureUnit(7, .TexLayers(2).AM_id2)
-                GL.BindTextureUnit(8, .TexLayers(3).AM_id2)
-                'NM maps
-                GL.BindTextureUnit(9, .TexLayers(0).NM_id1)
-                GL.BindTextureUnit(10, .TexLayers(1).NM_id1)
-                GL.BindTextureUnit(11, .TexLayers(2).NM_id1)
-                GL.BindTextureUnit(12, .TexLayers(3).NM_id1)
+                    GL.BindTextureUnit(5, .TexLayers(0).AM_id2)
+                    GL.BindTextureUnit(6, .TexLayers(1).AM_id2)
+                    GL.BindTextureUnit(7, .TexLayers(2).AM_id2)
+                    GL.BindTextureUnit(8, .TexLayers(3).AM_id2)
+                    'NM maps
+                    GL.BindTextureUnit(9, .TexLayers(0).NM_id1)
+                    GL.BindTextureUnit(10, .TexLayers(1).NM_id1)
+                    GL.BindTextureUnit(11, .TexLayers(2).NM_id1)
+                    GL.BindTextureUnit(12, .TexLayers(3).NM_id1)
 
-                GL.BindTextureUnit(13, .TexLayers(0).NM_id2)
-                GL.BindTextureUnit(14, .TexLayers(1).NM_id2)
-                GL.BindTextureUnit(15, .TexLayers(2).NM_id2)
-                GL.BindTextureUnit(16, .TexLayers(3).NM_id2)
-                'bind blend textures
-                GL.BindTextureUnit(17, .TexLayers(0).Blend_id)
-                GL.BindTextureUnit(18, .TexLayers(1).Blend_id)
-                GL.BindTextureUnit(19, .TexLayers(2).Blend_id)
-                GL.BindTextureUnit(20, .TexLayers(3).Blend_id)
+                    GL.BindTextureUnit(13, .TexLayers(0).NM_id2)
+                    GL.BindTextureUnit(14, .TexLayers(1).NM_id2)
+                    GL.BindTextureUnit(15, .TexLayers(2).NM_id2)
+                    GL.BindTextureUnit(16, .TexLayers(3).NM_id2)
+                    'bind blend textures
+                    GL.BindTextureUnit(17, .TexLayers(0).Blend_id)
+                    GL.BindTextureUnit(18, .TexLayers(1).Blend_id)
+                    GL.BindTextureUnit(19, .TexLayers(2).Blend_id)
+                    GL.BindTextureUnit(20, .TexLayers(3).Blend_id)
 
-                'draw chunk
-                GL.BindVertexArray(.VAO)
-                GL.DrawElements(PrimitiveType.Triangles,
-                    24576,
-                    DrawElementsType.UnsignedShort, 0)
-            End With
+                    'draw chunk
+                    GL.BindVertexArray(.VAO)
+                    GL.DrawElements(PrimitiveType.Triangles,
+                        24576,
+                        DrawElementsType.UnsignedShort, 0)
+                End With
+            End If
         Next
 
         TerrainShader.StopUse()
@@ -328,17 +340,20 @@ Module modRender
 
             For i = 0 To theMap.render_set.Length - 1
 
-                Dim model = theMap.render_set(i).matrix
+                If theMap.render_set(i).visible Then
 
-                GL.UniformMatrix4(TerrainNormals("model"), False, model)
+                    Dim model = theMap.render_set(i).matrix
 
-                GL.BindVertexArray(theMap.render_set(i).VAO)
+                    GL.UniformMatrix4(TerrainNormals("model"), False, model)
 
-                'draw chunk wire
-                GL.DrawElements(PrimitiveType.Triangles,
-                        24576,
-                        DrawElementsType.UnsignedShort, 0)
+                    GL.BindVertexArray(theMap.render_set(i).VAO)
 
+                    'draw chunk wire
+                    GL.DrawElements(PrimitiveType.Triangles,
+                            24576,
+                            DrawElementsType.UnsignedShort, 0)
+
+                End If
             Next
 
             TerrainNormals.StopUse()
@@ -530,12 +545,14 @@ Module modRender
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
         Dim tr = TOTAL_TRIANGLES_DRAWN
-
-        Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", PRIMS_CULLED, FPS_TIME, tr, elapsed)
+        Dim cull_t = cull_timer.ElapsedMilliseconds
+        Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", CULLED_COUNT, FPS_TIME, tr, elapsed)
+        Dim txt2 = String.Format("Cull Time: {0}", cull_t)
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
         'txt = String.Format("HX {0} : HY {1}", HX, HY)
         draw_text(txt, 5.0F, 5.0F, OpenTK.Graphics.Color4.Cyan, False)
+        draw_text(txt2, 5.0F, 24.0F, OpenTK.Graphics.Color4.Cyan, False)
 
         Dim temp_time = temp_timer.ElapsedMilliseconds
         Dim aa As Integer = 0

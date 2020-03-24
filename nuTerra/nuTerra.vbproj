@@ -219,6 +219,7 @@
     </Compile>
     <Compile Include="MapLoader\TerrainBuilder.vb" />
     <Compile Include="MapLoader\TerrainTextureFunctions.vb" />
+    <Compile Include="Modules\modFrustum.vb" />
     <Compile Include="Modules\Saved_testing_shit.vb" />
     <Compile Include="RenderEngine\LoadingScreen.vb" />
     <Compile Include="RenderEngine\MapMenuScreen.vb" />
