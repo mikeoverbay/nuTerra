@@ -232,9 +232,63 @@ Module modRender
         '==========================
 
         GL.Enable(EnableCap.CullFace)
-        'clear_output()
+
+        '=======================================================================================
+        'First, find out what chunks are to be drawn as LQ global_AM texturing only.
+        '=======================================================================================
+        For i = 0 To theMap.render_set.Length - 1
+            Dim l1 = Abs(theMap.chunks(i).location.X - CAM_POSITION.X) 'x
+            Dim l2 = Abs(theMap.v_data(i).avg_heights - CAM_POSITION.Y) 'y
+            Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
+            Dim v As New Vector3(l1, l2, l3)
+            Dim l = v.Length
+            If l > 400.0F Then 'This value is the distance at which the chunk drawing is swapped.
+                theMap.render_set(i).LQ = True
+            Else
+                theMap.render_set(i).LQ = False
+            End If
+        Next
+
+        '=======================================================================================
+        'Draw visible LQ chunks
+        '=======================================================================================
         '------------------------------------------------
-        TerrainShader.Use()  '<------------------------------- Shader Bind
+        TerrainLQShader.Use()  '<------------ Shader Bind
+        '------------------------------------------------
+        ' Set this texture to 0 to test LQ/HQ transitions
+        GL.BindTextureUnit(0, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
+        GL.BindTextureUnit(1, m_normal_id)
+
+        GL.UniformMatrix4(5, False, VIEWMATRIX)
+        GL.UniformMatrix4(6, False, PROJECTIONMATRIX)
+
+        GL.Uniform2(7, MAP_SIZE.X + 1, MAP_SIZE.Y + 1) 'map_size
+        GL.Uniform2(8, -b_x_min, b_y_max) 'map_center
+        GL.Uniform3(9, CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
+
+        For i = 0 To theMap.render_set.Length - 1
+            If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
+
+                GL.UniformMatrix4(10, False, theMap.render_set(i).matrix) 'viewMatrix
+
+                GL.UniformMatrix3(11, True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
+                GL.Uniform2(12, theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
+
+                'draw chunk
+                GL.BindVertexArray(theMap.render_set(i).VAO)
+                GL.DrawElements(PrimitiveType.Triangles,
+                    24576,
+                    DrawElementsType.UnsignedShort, 0)
+            End If
+
+        Next
+        TerrainLQShader.StopUse()
+        unbind_textures(2)
+        '=======================================================================================
+        'draw visible HZ terrain
+        '=======================================================================================
+        '------------------------------------------------
+        TerrainShader.Use()  '<-------------- Shader Bind
         '------------------------------------------------
 
         'shit load of textures to bind
@@ -263,7 +317,7 @@ Module modRender
         'Dim max_binding As Integer = GL.GetInteger(GetPName.MaxUniformBufferBindings)
 
         For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible Then
+            If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
 
                 GL.UniformMatrix4(10, False, theMap.render_set(i).matrix) 'viewMatrix
 

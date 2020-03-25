@@ -1,4 +1,4 @@
-﻿// gWriter fragment Shader. We will use this as a template for other shaders
+﻿
 #version 430 core
 
 layout (location = 0) out vec4 gColor;
@@ -164,7 +164,7 @@ void main(void)
     vec4 tex1 = texture(tex_1, tv1_2);
 
     // ambient occusion is in blue channel of the normal maps.
-    // Specular is in the red channel. Green and Alpha are normal values.
+    // Specular OR Parallax is in the red channel. Green and Alpha are normal values.
     // We must get the Ambient Occlusion before converting so it isn't lost.
 
     // Get and convert normal maps. Save ambient occlusion value.

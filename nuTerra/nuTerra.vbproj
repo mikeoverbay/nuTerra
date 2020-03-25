@@ -387,6 +387,12 @@
     <None Include="shaders\Terrain_shaders\DecalProject.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Terrain_shaders\TerrainLQ.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\TerrainLQ.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Terrain_shaders\Terrain.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

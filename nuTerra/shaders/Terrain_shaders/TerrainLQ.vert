@@ -1,4 +1,4 @@
-﻿
+﻿//Low Quality Terrain
 #version 430 core
 
 layout(location = 0) in vec2 vertexXZ;
@@ -19,7 +19,6 @@ layout(location = 11) uniform mat3 normalMatrix;
 layout(location = 12) uniform vec2 me_location;
 
 out vec4 Vertex;
-out float ln;
 out mat3 TBN;
 out vec3 worldPosition;
 out vec2 UV;
@@ -77,11 +76,4 @@ void main(void)
     // Calculate vertex position in clip coordinates
     gl_Position = projMatrix * viewMatrix * modelMatrix * vec4(vertexPosition, 1.0f);
    
-    // This is the cut off distance for bumpping the surface.
-    vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
-    ln = distance( point.xyz,cam_position.xyz );
-    float start = 100.0;
-    if (ln < start + 200.0) { ln = 1.0 - (ln-start)/200.0;} 
-    else {ln = 0.0;}
-
 }

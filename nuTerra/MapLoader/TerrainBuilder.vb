@@ -131,7 +131,8 @@ Module TerrainBuilder
         Public dom_texture_id As Integer
         Public dom_tex_list() As String
         Public dom_id As Integer
-        Public visible As Boolean
+        Public visible As Boolean ' frustum clipped flag
+        Public LQ As Boolean 'draw global_am only flag
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>

@@ -77,7 +77,6 @@ Module modFrustum
 
         Dim clip As New Matrix4
         ' Combine the two matrices (multiply projection by modelview) 
-        clip = Matrix4.Mult(PROJECTIONMATRIX, VIEWMATRIX)
         clip = Matrix4.Mult(VIEWMATRIX, PROJECTIONMATRIX)
 
 
