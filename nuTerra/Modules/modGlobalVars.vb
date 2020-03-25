@@ -73,6 +73,7 @@ Module modGlobalVars
     Public LIGHT_SPEED As Single = 0.02F
     '============================================================
     Public TOTAL_TRIANGLES_DRAWN As UInt32
+    Public TERRAIN_TRIS_DRAWN As UInt32
     Public PRIMS_CULLED As UInt32
     Public TOTAL_TRIANGLES_DRAWN_MODEL As UInt32
     '============================================================

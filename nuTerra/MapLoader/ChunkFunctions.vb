@@ -113,7 +113,6 @@ Module ChunkFunctions
             Next
         Next
         'needs to be moved to culling
-        TOTAL_TRIANGLES_DRAWN += 8192 ' number of triangles per chunk
 
         '=========================================================================
         'From : https://www.iquilezles.org/www/articles/normals/normals.htm

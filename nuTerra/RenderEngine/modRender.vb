@@ -230,7 +230,7 @@ Module modRender
         'FBOm.attach_C()
         'GL.Enable(EnableCap.Blend)
         '==========================
-
+        TERRAIN_TRIS_DRAWN = 0
         GL.Enable(EnableCap.CullFace)
 
         '=======================================================================================
@@ -268,6 +268,7 @@ Module modRender
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
+                TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
 
                 GL.UniformMatrix4(10, False, theMap.render_set(i).matrix) 'viewMatrix
 
@@ -318,6 +319,7 @@ Module modRender
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
+                TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
 
                 GL.UniformMatrix4(10, False, theMap.render_set(i).matrix) 'viewMatrix
 
@@ -571,16 +573,18 @@ Module modRender
 
     Private Sub draw_terrain_ids()
         For i = 0 To theMap.render_set.Length - 1
+            If theMap.render_set(i).visible Then ' Dont do math on no-visible chunks
 
-            Dim v As Vector4
-            v.Y = theMap.v_data(i).avg_heights
-            v.W = 1.0
+                Dim v As Vector4
+                v.Y = theMap.v_data(i).avg_heights
+                v.W = 1.0
 
-            Dim sp = UnProject_Chunk(v, theMap.render_set(i).matrix)
+                Dim sp = UnProject_Chunk(v, theMap.render_set(i).matrix)
 
-            If sp.Z > 0.0F Then
-                Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
-                draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True)
+                If sp.Z > 0.0F Then
+                    Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
+                    draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True)
+                End If
             End If
 
         Next
@@ -590,6 +594,7 @@ Module modRender
     ''' renders all 2D things in ortho mode
     ''' </summary>
     ''' 
+
     Private Sub render_HUD()
         temp_timer.Restart()
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
@@ -598,7 +603,10 @@ Module modRender
         'save this.. we may want to use it for debug with a different source for the values.
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
-        Dim tr = TOTAL_TRIANGLES_DRAWN
+
+        'sum triangles drawn
+        Dim tr = TOTAL_TRIANGLES_DRAWN + TERRAIN_TRIS_DRAWN
+
         Dim cull_t = cull_timer.ElapsedMilliseconds
         Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", CULLED_COUNT, FPS_TIME, tr, elapsed)
         Dim txt2 = String.Format("Cull Time: {0}", cull_t)
