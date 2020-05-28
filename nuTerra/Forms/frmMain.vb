@@ -242,7 +242,7 @@ Public Class frmMain
 try_again:
         If FolderBrowserDialog1.ShowDialog = Forms.DialogResult.OK Then
             My.Settings.GamePath = FolderBrowserDialog1.SelectedPath
-            If Not Directory.Exists(My.Settings.GamePath + "\res") Then
+            If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
                 MsgBox("Wrong Folder Path!" + vbCrLf +
                        "You need to point at the World_of_Tanks folder!",
                         MsgBoxStyle.Exclamation, "Wrong Path!")
@@ -298,8 +298,8 @@ try_again:
         'Check context:
         Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
         Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
-        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 3) Then
-            MsgBox("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
+        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 5) Then
+            MsgBox("A graphics card and driver with support for OpenGL 4.5 or higher is required.")
             Application.Exit()
         End If
 
@@ -355,6 +355,12 @@ try_again:
             MsgBox("Path to game is not set!" + vbCrLf +
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
             m_set_game_path.PerformClick()
+
+            If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
+                MsgBox("This application will be closed because game was not found!")
+                Application.Exit()
+                Return
+            End If
         End If
 
         GAME_PATH = Path.Combine(My.Settings.GamePath, "res", "packages")

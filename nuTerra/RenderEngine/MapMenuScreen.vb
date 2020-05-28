@@ -1,8 +1,8 @@
 ﻿Imports System.IO
 Imports Ionic.Zip
-Imports OpenTK.Graphics.OpenGL
-Imports OpenTK.Graphics
 Imports OpenTK
+Imports OpenTK.Graphics
+Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 Module MapMenuScreen
 
