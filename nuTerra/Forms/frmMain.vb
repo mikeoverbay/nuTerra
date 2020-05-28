@@ -301,6 +301,7 @@ try_again:
         If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 5) Then
             MsgBox("A graphics card and driver with support for OpenGL 4.5 or higher is required.")
             Application.Exit()
+            Return
         End If
 
         '-----------------------------------------------------------------------------------------
