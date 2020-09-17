@@ -92,6 +92,7 @@ Module FBO_main
             ' gColor ------------------------------------------------------------------------------------------
             ' 4 color int : RGB and alpha
             GL.CreateTextures(TextureTarget.Texture2D, 1, gColor)
+            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gColor, -1, "tex_gColor")
             GL.TextureParameter(gColor, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gColor, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gColor, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -101,6 +102,7 @@ Module FBO_main
             ' gNormal ------------------------------------------------------------------------------------------
             ' 3 color 16f : normal in RGB
             GL.CreateTextures(TextureTarget.Texture2D, 1, gNormal)
+            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gNormal, -1, "tex_gNormal")
             GL.TextureParameter(gNormal, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gNormal, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gNormal, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -110,6 +112,7 @@ Module FBO_main
             ' gGM_Flag ------------------------------------------------------------------------------------------
             ' 3 color int : GM in RG : Flag in b
             GL.CreateTextures(TextureTarget.Texture2D, 1, gGMF)
+            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gGMF, -1, "tex_gGMF")
             GL.TextureParameter(gGMF, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gGMF, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gGMF, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -119,6 +122,7 @@ Module FBO_main
             ' gPosition ------------------------------------------------------------------------------------------
             ' RGB16F
             GL.CreateTextures(TextureTarget.Texture2D, 1, gPosition)
+            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gPosition, -1, "tex_gPosition")
             GL.TextureParameter(gPosition, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gPosition, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gPosition, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -128,6 +132,7 @@ Module FBO_main
             ' gDepth ------------------------------------------------------------------------------------------
             'DepthComponent24
             GL.CreateTextures(TextureTarget.Texture2D, 1, gDepth)
+            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gDepth, -1, "tex_gDepth")
             GL.TextureParameter(gDepth, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gDepth, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gDepth, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -137,6 +142,7 @@ Module FBO_main
 
         Public Shared Function create_fbo() As Boolean
             GL.CreateFramebuffers(1, mainFBO)
+            GL.ObjectLabel(ObjectLabelIdentifier.Framebuffer, mainFBO, -1, "mainFBO")
 
             ' attach our render buffer textures.
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment0, gColor, 0)

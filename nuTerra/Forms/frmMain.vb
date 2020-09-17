@@ -369,6 +369,7 @@ try_again:
 
         ' Create default VAO
         GL.CreateVertexArrays(1, defaultVao)
+        GL.ObjectLabel(ObjectLabelIdentifier.VertexArray, defaultVao, -1, "defaultVao")
 
         FBOm.FBO_Initialize()
         LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
@@ -443,7 +444,15 @@ try_again:
         Dim sp = Application.StartupPath
         '-----------------------------------------------------------------------------------------
         'needed to load image elements
-        GUI_PACKAGE = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui.pkg"))
+        If File.Exists(Path.Combine(GAME_PATH, "gui.pkg")) Then
+            'old WoT version
+            GUI_PACKAGE = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui.pkg"))
+        Else
+            'new WoT version ~v1.10
+            GUI_PACKAGE = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui-part1.pkg"))
+            GUI_PACKAGE_PART2 = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui-part2.pkg"))
+        End If
+
         '---------------------------------------------------------
         'Loads the textures for the map selection routines
         make_map_pick_buttons()

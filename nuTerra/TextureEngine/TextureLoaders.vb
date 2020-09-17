@@ -442,6 +442,7 @@ Module TextureLoaders
 
             If make_id Then
                 GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
+                GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-TANK-IMAGE-{0}", index))
 
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)

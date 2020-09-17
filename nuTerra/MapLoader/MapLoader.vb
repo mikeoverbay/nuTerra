@@ -21,12 +21,11 @@ Module MapLoader
     Public MAP_PACKAGE_HD As ZipFile
     Public MAP_PARTICLES As ZipFile
     Public GUI_PACKAGE As ZipFile
+    Public GUI_PACKAGE_PART2 As ZipFile
     'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
     Public PKG_DATA_TABLE As New DataTable("items")
 
     Public DESTRUCTABLE_DATA_TABLE As DataTable
-
-    Dim contents As New List(Of String)
 
     Public LODMAPSIZE As Integer = 256
     Public AOMAPSIZE As Integer = 256
