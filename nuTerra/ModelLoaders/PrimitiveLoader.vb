@@ -115,12 +115,7 @@ Module PrimitiveLoader
         Dim triTypeName As New String(br.ReadChars(64))
         triTypeName = triTypeName.Substring(0, triTypeName.IndexOf(vbNullChar))
 
-        If triTypeName = "list32" Then
-            renderSet.indexSize = 4
-        Else
-            Debug.Assert(triTypeName = "list")
-            renderSet.indexSize = 2
-        End If
+        Dim indexSize = If(triTypeName = "list32", 4, 2)
 
         Dim numIndices = br.ReadUInt32
         Dim numPrimGroups = br.ReadUInt32
@@ -129,13 +124,14 @@ Module PrimitiveLoader
         Dim savedPos = br.BaseStream.Position
 
         ' The component table is at the end of the indicies list.
-        br.BaseStream.Position += numIndices * renderSet.indexSize
+        br.BaseStream.Position += numIndices * indexSize
 
         ' read the tables
         For z = 0 To numPrimGroups - 1
             If Not renderSet.primitiveGroups.ContainsKey(z) Then
-                renderSet.primitiveGroups(z) = New PrimitiveGroup
-                renderSet.primitiveGroups(z).no_draw = True
+                renderSet.primitiveGroups(z) = New PrimitiveGroup With {
+                    .no_draw = True
+                }
             End If
             With renderSet.primitiveGroups(z)
                 .startIndex = br.ReadInt32
@@ -149,17 +145,15 @@ Module PrimitiveLoader
         ' restore position
         br.BaseStream.Position = savedPos
 
-
         'We flip the winding order because of directX to Opengl 
-        If renderSet.indexSize = 2 Then
-            ReDim buffers.index_buffer16((numIndices / 3) - 1)
-            For k = 0 To buffers.index_buffer16.Length - 1
-                buffers.index_buffer16(k).y = br.ReadUInt16
-                buffers.index_buffer16(k).x = br.ReadUInt16
-                buffers.index_buffer16(k).z = br.ReadUInt16
+        ReDim buffers.index_buffer32((numIndices / 3) - 1)
+        If indexSize = 2 Then
+            For k = 0 To buffers.index_buffer32.Length - 1
+                buffers.index_buffer32(k).y = br.ReadUInt16
+                buffers.index_buffer32(k).x = br.ReadUInt16
+                buffers.index_buffer32(k).z = br.ReadUInt16
             Next
         Else
-            ReDim buffers.index_buffer32((numIndices / 3) - 1)
             For k = 0 To buffers.index_buffer32.Length - 1
                 buffers.index_buffer32(k).y = br.ReadUInt32
                 buffers.index_buffer32(k).x = br.ReadUInt32
@@ -454,17 +448,10 @@ Module PrimitiveLoader
         End If
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, mBuffers(INDEX_BUFFER))
-        If renderSet.indexSize = 2 Then
-            GL.BufferData(BufferTarget.ElementArrayBuffer,
-                          buffers.index_buffer16.Length * SizeOf(GetType(vect3_16)),
-                          buffers.index_buffer16,
-                          BufferUsageHint.StaticDraw)
-        Else
-            GL.BufferData(BufferTarget.ElementArrayBuffer,
-                          buffers.index_buffer32.Length * SizeOf(GetType(vect3_32)),
-                          buffers.index_buffer32,
-                          BufferUsageHint.StaticDraw)
-        End If
+        GL.BufferData(BufferTarget.ElementArrayBuffer,
+                      buffers.index_buffer32.Length * SizeOf(GetType(vect3_32)),
+                      buffers.index_buffer32,
+                      BufferUsageHint.StaticDraw)
 
         GL.BindVertexArray(0)
     End Sub

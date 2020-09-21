@@ -25,8 +25,6 @@ Module MapLoader
     'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
     Public PKG_DATA_TABLE As New DataTable("items")
 
-    Public DESTRUCTABLE_DATA_TABLE As DataTable
-
     Public LODMAPSIZE As Integer = 256
     Public AOMAPSIZE As Integer = 256
     Public HEIGHTMAPSIZE As Integer = 64
@@ -42,10 +40,6 @@ Module MapLoader
         Public mdl As base_model_holder_
         Public visibilityBounds As Matrix3x2
     End Structure
-
-    ' Just for loading a model to test.
-    Public mdl() As base_model_holder_
-
 
 #Region "utility functions"
 
@@ -149,11 +143,7 @@ Module MapLoader
         'Can we put these in virtual memory files? Is there a reason?
 
         'Check if there is HD content on the users disc.
-        If File.Exists(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg")) Then
-            HD_EXISTS = True
-        Else
-            HD_EXISTS = False
-        End If
+        HD_EXISTS = File.Exists(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg"))
         If HD_EXISTS Then
             MAP_PACKAGE_HD = ZipFile.Read(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg")))
             SHARED_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg"))
@@ -161,6 +151,7 @@ Module MapLoader
             SAND_BOX_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part1.pkg"))
             SAND_BOX_PART_2_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part2.pkg"))
         End If
+
         'open map pkg file
         MAP_PACKAGE = New ZipFile(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH))
 

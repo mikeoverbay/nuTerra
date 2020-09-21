@@ -387,10 +387,6 @@ try_again:
         load_assets()
         LogThis(String.Format("{0}ms Assets Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
-        'Loads the list of destroyed object types.
-        load_destructibles()
-        LogThis(String.Format("{0}ms Destructibles Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
-
         'Set camara start up position. This is mostly for testing.
         VIEW_RADIUS = -1000.0
         CAM_X_ANGLE = PI / 4
@@ -511,14 +507,6 @@ try_again:
         'need to create this texture.
         DrawMapPickText.TextRenderer(300, 30)
 
-        'test junk. ----------------------------------------------
-        MOON = New base_model_holder_()
-        CROSS_HAIR = New base_model_holder_()
-
-        get_X_model(sp + "\resources\moon.x", MOON)
-        get_X_model(sp + "\resources\cross_hair.x", CROSS_HAIR)
-        CROSS_HAIR_TEXTURE = load_image_from_file(Il.IL_PNG, sp +
-                             "\resources\cross_hair_texture.png", True, False)
         'This gets the first GL texture, vertex array and vertex buffer IDs after the static IDs
         'ALL STATIC ITEMS NEED TO BE LOADED BEFORE THIS IS CALLED!!!
         get_start_ID_for_Components_Deletion()

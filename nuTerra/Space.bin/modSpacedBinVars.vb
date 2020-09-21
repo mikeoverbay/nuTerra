@@ -825,7 +825,6 @@ Module modSpacedBinVars
 
             If tl = 0 Then
                 'no water
-                water.IsWater = False
                 Return
             End If
 
@@ -849,11 +848,9 @@ Module modSpacedBinVars
                 bwwa_t1(0).plane = bbox_min.Y
                 bwwa_t1(0).height = Math.Abs(bbox_min.Z) + Math.Abs(bbox_max.Z)
 
-                water.IsWater = True
                 WATER_LINE = bwwa_t1(0).position.Y
             Catch ex As Exception
                 'FIXME!
-                water.IsWater = False
                 WATER_LINE = -500.0
             End Try
         End Sub

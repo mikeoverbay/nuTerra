@@ -82,30 +82,6 @@ Module modTypeStructures
         Public z As UInt32
     End Structure
 
-    '--------------------------------------------------------
-    Public Structure destructibles
-        Public filename As List(Of String)
-        Public matName As List(Of String)
-    End Structure
-    '--------------------------------------------------------
-
-#Region "Water_model"
-
-    Public water As New water_model_
-    Public Structure water_model_
-        Public displayID_cube As Integer
-        Public displayID_plane As Integer
-        Public textureID As Integer
-        Public normalID As Integer
-        Public aspect As Single
-        Public size_ As Vector3
-        Public position As Vector3
-        Public orientation As Single
-        Public type As String
-        Public IsWater As Boolean
-    End Structure
-
-#End Region
 
 #Region "vertex_data_"
 
@@ -127,83 +103,19 @@ Module modTypeStructures
 #End Region
 
 
-
 #Region "base_Model_holder_"
 
     Public Class base_model_holder_
-
-        '------------------------------------------------
         Public primitive_name As String
-        '------------------------------------------------
-        'VAO and render flags
-        Public has_uv2 As Integer
-        Public USHORTS As Boolean 'If true, indices are Uint16, other wise unit32
-
-        Public is_building As Boolean ' used with decals
-        Public POLY_COUNT As UInteger
         Public junk As Boolean
-
-        '------------------------------------------------
-        'used to create VBO
-        'how many parallel buffers will be created
-        Public element_count As Integer
-
-        Public has_tangent As Integer
-
-        'number if model components
-        Public primitive_count As Integer
-
-        Public indice_count As Integer
-        Public indice_size As Integer
-
-        Public sb_vertex_count As UInteger
-        Public sb_start_index As UInteger
-        Public sb_end_index As UInteger
-        Public sb_vertex_type As String
-        Public sb_vertex_stride As UInteger
-        Public sb_block_type As Integer
-        Public sb_table_size As Integer
-        Public sb_LOD_set_start As Integer
-        Public sb_LOD_set_end As Integer
-        Public sb_model_material_begin As UInt32
-        Public sb_model_material_end As UInt32
-        ' storage
-        'Public sb_vertex_data() As Byte
-        'Public sb_indi_data() As Byte
-        'Public sb_uv2_data() As Byte
-
-        'buffer Ids
-        Public mdl_VAO As Integer
-        Public mBuffers() As Integer
-
-        '------------------------------------------------
-        'Storage
-        Public Vertex_buffer() As Vector3
-        Public Normal_buffer() As Vector4h
-        Public UV1_buffer() As Vector2
-        Public tangent_buffer() As Vector4h
-        Public biNormal_buffer() As Vector4h
-        Public UV2_buffer() As Vector2
 
         'list of indice sizes, offsets,
         'texture IDs.. render settings... so on
         Public render_sets As List(Of RenderSetEntry)
-
-        Public Sub flush()
-            'free the memory
-            Vertex_buffer = Nothing
-            Normal_buffer = Nothing
-            UV1_buffer = Nothing
-            tangent_buffer = Nothing
-            biNormal_buffer = Nothing
-            UV2_buffer = Nothing
-        End Sub
-
     End Class
 
     Public Class BuffersStorage
         ' triangle buffers
-        Public index_buffer16() As vect3_16
         Public index_buffer32() As vect3_32
 
         ' vertex storage
@@ -226,9 +138,6 @@ Module modTypeStructures
         Public element_count As Integer
 
         Public has_tangent As Boolean
-
-        ' 2 or 4
-        Public indexSize As Integer
 
         Public primitiveGroups As Dictionary(Of Integer, PrimitiveGroup)
 

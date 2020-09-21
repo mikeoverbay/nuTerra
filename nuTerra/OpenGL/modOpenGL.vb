@@ -4,13 +4,11 @@ Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 
-
 Module modOpenGL
     Public defaultVao As Integer
     Public FieldOfView As Single = 60.0F
 
     Public Main_Context As Integer
-
 
     Public Sub Ortho_main()
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)

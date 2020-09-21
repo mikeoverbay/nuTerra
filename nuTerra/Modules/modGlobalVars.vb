@@ -15,7 +15,6 @@ Module modGlobalVars
     '=================================================================================
 
     'Define these in CAP TEXT
-    Public TEST_TEXTURE_ID As Integer
     Public TEST_IDS(7) As Integer
     Public M_POS As Vector2
     '============================================================
@@ -47,12 +46,9 @@ Module modGlobalVars
     Public SHOW_CHUNK_IDs As Integer
     Public SHOW_TEST_TEXTURES As Integer = 1 'show test textures on terrain flag. default ON.
     'models
-    Public CROSS_HAIR As base_model_holder_
-    Public CROSS_HAIR_TEXTURE As Integer
     Public CURSOR_TEXTURE_ID As Integer
     Public DIRECTION_TEXTURE_ID As Integer
     Public CROSS_HAIR_TIME As Single = 0.0F ' animation time 0-1
-    Public MOON As base_model_holder_
     Public PROGRESS_BAR_IMAGE_ID As Integer
     Public MINI_WORLD_MOUSE_POSITION As Vector2
     Public MINI_MOUSE_CAPTURED As Boolean

@@ -1,6 +1,4 @@
-﻿Imports OpenTK.Graphics
-Imports OpenTK.Graphics.OpenGL
-
+﻿Imports OpenTK.Graphics.OpenGL
 
 Module LoadingScreen
 #Region "Variables"
@@ -41,7 +39,7 @@ Module LoadingScreen
         'Draw Bargraph
         GL.Enable(EnableCap.Blend)
         draw_image_rectangle(New RectangleF(0.0F, 10.0F, w_Valuev, 20),
-                             Progress_bar_image_ID)
+                             PROGRESS_BAR_IMAGE_ID)
 
         GL.Disable(EnableCap.Blend)
         ' Make it so!
