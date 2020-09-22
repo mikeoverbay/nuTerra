@@ -150,7 +150,25 @@ Module modRender
     End Sub
 
     Private Sub frustum_cull()
-        'TODO
+        'Bind And clear atomic counter
+        GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, parametersBuffer)
+        GL.ClearNamedBufferSubData(parametersBuffer, PixelInternalFormat.R32ui, IntPtr.Zero, Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+
+        'Bind shader storage buffers
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, drawCandidatesBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, indirectBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, matricesBuffer)
+
+        cullShader.Use()
+
+        GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
+
+        GL.DispatchCompute(CInt(Math.Floor(indirectDrawCount / 16)), 1, 1)
+
+        GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
+
+        cullShader.StopUse()
     End Sub
 
     Private Sub draw_terrain()
@@ -374,8 +392,12 @@ Module modRender
         PRIMS_CULLED = 0
 
         GL.BindBuffer(BufferTarget.DrawIndirectBuffer, indirectBuffer)
+        GL.BindBuffer(DirectCast(33006, BufferTarget), parametersBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, matricesBuffer)
         GL.BindVertexArray(vertexArray)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, indirectDrawCount, Marshal.SizeOf(Of DrawElementsIndirectCommand))
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, indirectDrawCount, 0)
+
+        'Debug.Assert(False)
 
         GL.Disable(EnableCap.CullFace)
 

@@ -19,6 +19,18 @@ Module modOpenGL
         Dim baseInstance As UInt32
     End Structure
 
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure CandidateDraw
+        Dim visibilityBox1 As Vector3
+        Dim pad1 As UInt32
+        Dim visibilityBox2 As Vector3
+        Dim pad2 As UInt32
+        Dim count As UInt32
+        Dim firstIndex As UInt32
+        Dim baseVertex As UInt32
+        Dim pad3 As UInt32
+    End Structure
+
     Public Sub Ortho_main()
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)

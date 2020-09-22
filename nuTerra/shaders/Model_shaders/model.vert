@@ -1,10 +1,11 @@
 ﻿// gWriter vertex Shader. We will use this as a template for other shaders
-#version 430 core
+#version 450 core
+
+#extension GL_ARB_shader_draw_parameters : require
 
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec4 vertexNormal;
 layout(location = 2) in vec2 vertexTexCoord1;
-layout(location = 3) in int DrawID;
 
 layout(binding = 0, std140) readonly buffer MODEL_MATRIX_BLOCK
 {
@@ -25,7 +26,7 @@ void main(void)
     UV =  vertexTexCoord1;
     //UV2 = vertexTexCoord2;
 
-    mat4 instanceModelView = view * model_matrix[DrawID];
+    mat4 instanceModelView = view * model_matrix[gl_BaseInstance];
 
     // Transform position & normal to world space
     worldPosition = vec3(instanceModelView * vec4(vertexPosition, 1.0));

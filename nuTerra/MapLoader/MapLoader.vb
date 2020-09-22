@@ -37,8 +37,10 @@ Module MapLoader
     'This stores all models used on a map
     Public MAP_MODELS(1) As mdl_
     'GL-buffers
+    Public parametersBuffer As Integer
     Public matricesBuffer As Integer
     Public indirectDrawCount As Integer
+    Public drawCandidatesBuffer As Integer
     Public indirectBuffer As Integer
     Public vertsBuffer As Integer
     Public primsBuffer As Integer
@@ -46,7 +48,7 @@ Module MapLoader
 
     Public Structure mdl_
         Public mdl As base_model_holder_
-        Public visibilityBounds As Matrix3x2
+        Public visibilityBounds As Matrix2x3
     End Structure
 
 #Region "utility functions"
@@ -297,7 +299,6 @@ Module MapLoader
             Dim numMatrices = 0
             Dim numVerts = 0
             Dim numPrims = 0
-            Dim numDrawIDs = 0
             indirectDrawCount = 0
             For Each batch In MODEL_BATCH_LIST
                 Dim model = MAP_MODELS(batch.model_id).mdl
@@ -315,8 +316,7 @@ Module MapLoader
                         If primGroup.no_draw Then
                             Continue For
                         End If
-                        indirectDrawCount += 1
-                        numDrawIDs += batch.count
+                        indirectDrawCount += batch.count
                         skip = False
                     Next
                     numVerts += renderSet.buffers.vertexBuffer.Length
@@ -329,18 +329,15 @@ Module MapLoader
 
             '----------------------------------------------------------------
             ' setup instances
-            Dim drawCommands(indirectDrawCount - 1) As DrawElementsIndirectCommand
-            Dim DrawIDData(numDrawIDs - 1) As UInteger
+            Dim drawCommands(indirectDrawCount - 1) As CandidateDraw
             Dim vBuffer(numVerts - 1) As ModelVertex
             Dim iBuffer(numPrims - 1) As vect3_32
             Dim matrices(numMatrices - 1) As Matrix4
             Dim cmdId = 0
-            Dim DrawIDDataIterator = 0
             Dim vLast = 0
             Dim iLast = 0
             Dim mLast = 0
             Dim baseVert = 0
-            Dim indexOffset = 0
             For Each batch In MODEL_BATCH_LIST
                 Dim model = MAP_MODELS(batch.model_id).mdl
 
@@ -357,18 +354,17 @@ Module MapLoader
                         If primGroup.no_draw Then
                             Continue For
                         End If
-                        With drawCommands(cmdId)
-                            .count = primGroup.nPrimitives * 3
-                            .instanceCount = batch.count
-                            .firstIndex = iLast * 3 + primGroup.startIndex
-                            .baseVertex = baseVert
-                            .baseInstance = DrawIDDataIterator
-                        End With
                         For i = 0 To batch.count - 1
-                            DrawIDData(DrawIDDataIterator + i) = mLast + i
+                            With drawCommands(cmdId)
+                                .visibilityBox1 = MAP_MODELS(batch.model_id).visibilityBounds.Row0
+                                .visibilityBox2 = MAP_MODELS(batch.model_id).visibilityBounds.Row1
+                                .count = primGroup.nPrimitives * 3
+                                .firstIndex = iLast * 3 + primGroup.startIndex
+                                .baseVertex = baseVert
+                                .pad3 = mLast + i
+                            End With
+                            cmdId += 1
                         Next
-                        DrawIDDataIterator += batch.count
-                        cmdId += 1
                         skip = False
                     Next
 
@@ -392,22 +388,23 @@ Module MapLoader
                 End If
             Next
 
+            GL.CreateBuffers(1, parametersBuffer)
+            GL.NamedBufferStorage(parametersBuffer, 256, IntPtr.Zero, BufferStorageFlags.None)
+
+            GL.CreateBuffers(1, drawCandidatesBuffer)
+            GL.NamedBufferStorage(drawCandidatesBuffer, indirectDrawCount * Marshal.SizeOf(Of CandidateDraw), drawCommands, BufferStorageFlags.None)
+
             GL.CreateBuffers(1, indirectBuffer)
-            GL.NamedBufferData(indirectBuffer, drawCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), drawCommands, BufferUsageHint.StaticDraw)
+            GL.NamedBufferStorage(indirectBuffer, indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand), IntPtr.Zero, BufferStorageFlags.MapReadBit)
 
             GL.CreateBuffers(1, matricesBuffer)
-            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, matricesBuffer)
-            GL.NamedBufferData(matricesBuffer, matrices.Length * Marshal.SizeOf(Of Matrix4), matrices, BufferUsageHint.StaticDraw)
+            GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of Matrix4), matrices, BufferStorageFlags.MapReadBit)
 
             GL.CreateBuffers(1, vertsBuffer)
-            GL.NamedBufferData(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex), vBuffer, BufferUsageHint.StaticDraw)
+            GL.NamedBufferStorage(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex), vBuffer, BufferStorageFlags.MapReadBit)
 
             GL.CreateBuffers(1, primsBuffer)
-            GL.NamedBufferData(primsBuffer, iBuffer.Length * Marshal.SizeOf(Of vect3_32), iBuffer, BufferUsageHint.StaticDraw)
-
-            Dim drawIdBuffer As Integer
-            GL.CreateBuffers(1, drawIdBuffer)
-            GL.NamedBufferData(drawIdBuffer, DrawIDData.Length * Marshal.SizeOf(Of UInteger), DrawIDData, BufferUsageHint.StaticDraw)
+            GL.NamedBufferStorage(primsBuffer, iBuffer.Length * Marshal.SizeOf(Of vect3_32), iBuffer, BufferStorageFlags.MapReadBit)
 
             GL.CreateVertexArrays(1, vertexArray)
 
@@ -428,13 +425,6 @@ Module MapLoader
             GL.VertexArrayAttribFormat(vertexArray, 2, 2, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(vertexArray, 2, 2)
             GL.EnableVertexArrayAttrib(vertexArray, 2)
-
-            'draw_id
-            GL.VertexArrayVertexBuffer(vertexArray, 3, drawIdBuffer, IntPtr.Zero, Marshal.SizeOf(Of UInteger))
-            GL.VertexArrayAttribIFormat(vertexArray, 3, 1, VertexAttribType.UnsignedInt, 0)
-            GL.VertexArrayAttribBinding(vertexArray, 3, 3)
-            GL.EnableVertexArrayAttrib(vertexArray, 3)
-            GL.VertexArrayBindingDivisor(vertexArray, 3, 1)
 
             GL.VertexArrayElementBuffer(vertexArray, primsBuffer)
 

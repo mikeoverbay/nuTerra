@@ -402,19 +402,13 @@
     <None Include="shaders\Developer\TerrainNormals.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Trials\test.comp">
+    <None Include="shaders\Trials\cull.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\User_GUI\CrossHair.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\User_GUI\CrossHair.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\cull.geom">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\cull.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Utility\coloredLine2d.frag">
