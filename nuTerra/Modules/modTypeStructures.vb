@@ -1,4 +1,5 @@
-﻿Imports OpenTK
+﻿Imports System.Runtime.InteropServices
+Imports OpenTK
 
 Module modTypeStructures
 
@@ -22,11 +23,6 @@ Module modTypeStructures
         Public model_id As Integer
         Public offset As Integer
         Public count As Integer
-
-        Public culledQuery As Integer
-        Public cullVA As Integer
-        Public instanceDataBO As Integer
-        Public culledInstanceDataBO As Integer
         Public visibleCount As Integer
     End Class
 
@@ -70,12 +66,14 @@ Module modTypeStructures
 #End Region
 
 
+    <StructLayout(LayoutKind.Sequential)>
     Public Structure vect3_16
         Public x As UInt16
         Public y As UInt16
         Public z As UInt16
     End Structure
 
+    <StructLayout(LayoutKind.Sequential)>
     Public Structure vect3_32
         Public x As UInt32
         Public y As UInt32
@@ -114,20 +112,20 @@ Module modTypeStructures
         Public render_sets As List(Of RenderSetEntry)
     End Class
 
-    Public Class BuffersStorage
-        ' triangle buffers
-        Public index_buffer32() As vect3_32
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure ModelVertex
+        Public pos As Vector3
+        Public normal As Vector4h
+        Public uv As Vector2
+    End Structure
 
-        ' vertex storage
-        Public vertexBuffer() As Vector3
-        Public normalBuffer() As Vector4h
-        Public uvBuffer() As Vector2
-        Public tangentBuffer() As Vector4h
-        Public binormalBuffer() As Vector4h
+    Public Class BuffersStorage
+        Public index_buffer32() As vect3_32
+        Public vertexBuffer() As ModelVertex
     End Class
 
     Public Class RenderSetEntry
-        Public mdl_VAO As Integer
+        Public buffers As New BuffersStorage
 
         Public verts_name As String
         Public prims_name As String
@@ -136,6 +134,7 @@ Module modTypeStructures
         'used to create VBO
         'how many parallel buffers will be created
         Public element_count As Integer
+        Public numVertices As Integer
 
         Public has_tangent As Boolean
 

@@ -1,5 +1,5 @@
 ﻿Imports System.IO
-Imports System.Runtime.InteropServices.Marshal
+Imports System.Runtime.InteropServices
 Imports Ionic.Zip
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
@@ -36,6 +36,14 @@ Module MapLoader
     '-----------------------------------
     'This stores all models used on a map
     Public MAP_MODELS(1) As mdl_
+    'GL-buffers
+    Public matricesBuffer As Integer
+    Public indirectDrawCount As Integer
+    Public indirectBuffer As Integer
+    Public vertsBuffer As Integer
+    Public primsBuffer As Integer
+    Public vertexArray As Integer
+
     Public Structure mdl_
         Public mdl As base_model_holder_
         Public visibilityBounds As Matrix3x2
@@ -285,7 +293,12 @@ Module MapLoader
             Next
 
             '----------------------------------------------------------------
-            ' setup instances
+            ' calc instances
+            Dim numMatrices = 0
+            Dim numVerts = 0
+            Dim numPrims = 0
+            Dim numDrawIDs = 0
+            indirectDrawCount = 0
             For Each batch In MODEL_BATCH_LIST
                 Dim model = MAP_MODELS(batch.model_id).mdl
 
@@ -293,61 +306,137 @@ Module MapLoader
                     Continue For
                 End If
 
-                Dim modelMatrices(batch.count - 1) As Matrix4
-                For i = 0 To batch.count - 1
-                    modelMatrices(i) = MODEL_INDEX_LIST(batch.offset + i).matrix
-                Next
-
-                GL.CreateVertexArrays(1, batch.cullVA)
-                GL.CreateBuffers(1, batch.instanceDataBO)
-
-                GL.NamedBufferData(batch.instanceDataBO, batch.count * SizeOf(GetType(Matrix4)), modelMatrices, BufferUsageHint.StaticDraw)
-                GL.VertexArrayVertexBuffer(batch.cullVA, 0, batch.instanceDataBO, New IntPtr(0 * 16), 4 * 16)
-                GL.VertexArrayVertexBuffer(batch.cullVA, 1, batch.instanceDataBO, New IntPtr(1 * 16), 4 * 16)
-                GL.VertexArrayVertexBuffer(batch.cullVA, 2, batch.instanceDataBO, New IntPtr(2 * 16), 4 * 16)
-                GL.VertexArrayVertexBuffer(batch.cullVA, 3, batch.instanceDataBO, New IntPtr(3 * 16), 4 * 16)
-
-                GL.VertexArrayAttribFormat(batch.cullVA, 0, 4, VertexAttribType.Float, False, 0)
-                GL.VertexArrayAttribFormat(batch.cullVA, 1, 4, VertexAttribType.Float, False, 0)
-                GL.VertexArrayAttribFormat(batch.cullVA, 2, 4, VertexAttribType.Float, False, 0)
-                GL.VertexArrayAttribFormat(batch.cullVA, 3, 4, VertexAttribType.Float, False, 0)
-
-                GL.EnableVertexArrayAttrib(batch.cullVA, 0)
-                GL.EnableVertexArrayAttrib(batch.cullVA, 1)
-                GL.EnableVertexArrayAttrib(batch.cullVA, 2)
-                GL.EnableVertexArrayAttrib(batch.cullVA, 3)
-
-                GL.CreateBuffers(1, batch.culledInstanceDataBO)
-                GL.NamedBufferData(batch.culledInstanceDataBO, batch.count * SizeOf(GetType(Matrix4)), IntPtr.Zero, BufferUsageHint.DynamicCopy)
-
-                GL.CreateQueries(QueryTarget.PrimitivesGenerated, 1, batch.culledQuery)
-
+                Dim skip = True
                 For Each renderSet In model.render_sets
                     If renderSet.no_draw Then
                         Continue For
                     End If
-
-                    GL.VertexArrayVertexBuffer(renderSet.mdl_VAO, 6, batch.culledInstanceDataBO, New IntPtr(0 * 16), 4 * 16)
-                    GL.VertexArrayVertexBuffer(renderSet.mdl_VAO, 7, batch.culledInstanceDataBO, New IntPtr(1 * 16), 4 * 16)
-                    GL.VertexArrayVertexBuffer(renderSet.mdl_VAO, 8, batch.culledInstanceDataBO, New IntPtr(2 * 16), 4 * 16)
-                    GL.VertexArrayVertexBuffer(renderSet.mdl_VAO, 9, batch.culledInstanceDataBO, New IntPtr(3 * 16), 4 * 16)
-
-                    GL.VertexArrayAttribFormat(renderSet.mdl_VAO, 6, 4, VertexAttribType.Float, False, 0)
-                    GL.VertexArrayAttribFormat(renderSet.mdl_VAO, 7, 4, VertexAttribType.Float, False, 0)
-                    GL.VertexArrayAttribFormat(renderSet.mdl_VAO, 8, 4, VertexAttribType.Float, False, 0)
-                    GL.VertexArrayAttribFormat(renderSet.mdl_VAO, 9, 4, VertexAttribType.Float, False, 0)
-
-                    GL.EnableVertexArrayAttrib(renderSet.mdl_VAO, 6)
-                    GL.EnableVertexArrayAttrib(renderSet.mdl_VAO, 7)
-                    GL.EnableVertexArrayAttrib(renderSet.mdl_VAO, 8)
-                    GL.EnableVertexArrayAttrib(renderSet.mdl_VAO, 9)
-
-                    GL.VertexArrayBindingDivisor(renderSet.mdl_VAO, 6, 1)
-                    GL.VertexArrayBindingDivisor(renderSet.mdl_VAO, 7, 1)
-                    GL.VertexArrayBindingDivisor(renderSet.mdl_VAO, 8, 1)
-                    GL.VertexArrayBindingDivisor(renderSet.mdl_VAO, 9, 1)
+                    For Each primGroup In renderSet.primitiveGroups.Values
+                        If primGroup.no_draw Then
+                            Continue For
+                        End If
+                        indirectDrawCount += 1
+                        numDrawIDs += batch.count
+                        skip = False
+                    Next
+                    numVerts += renderSet.buffers.vertexBuffer.Length
+                    numPrims += renderSet.buffers.index_buffer32.Length
                 Next
+                If Not skip Then
+                    numMatrices += batch.count
+                End If
             Next
+
+            '----------------------------------------------------------------
+            ' setup instances
+            Dim drawCommands(indirectDrawCount - 1) As DrawElementsIndirectCommand
+            Dim DrawIDData(numDrawIDs - 1) As UInteger
+            Dim vBuffer(numVerts - 1) As ModelVertex
+            Dim iBuffer(numPrims - 1) As vect3_32
+            Dim matrices(numMatrices - 1) As Matrix4
+            Dim cmdId = 0
+            Dim DrawIDDataIterator = 0
+            Dim vLast = 0
+            Dim iLast = 0
+            Dim mLast = 0
+            Dim baseVert = 0
+            Dim indexOffset = 0
+            For Each batch In MODEL_BATCH_LIST
+                Dim model = MAP_MODELS(batch.model_id).mdl
+
+                If model.junk Then
+                    Continue For
+                End If
+
+                Dim skip = True
+                For Each renderSet In model.render_sets
+                    If renderSet.no_draw Then
+                        Continue For
+                    End If
+                    For Each primGroup In renderSet.primitiveGroups.Values
+                        If primGroup.no_draw Then
+                            Continue For
+                        End If
+                        With drawCommands(cmdId)
+                            .count = primGroup.nPrimitives * 3
+                            .instanceCount = batch.count
+                            .firstIndex = iLast * 3 + primGroup.startIndex
+                            .baseVertex = baseVert
+                            .baseInstance = DrawIDDataIterator
+                        End With
+                        For i = 0 To batch.count - 1
+                            DrawIDData(DrawIDDataIterator + i) = mLast + i
+                        Next
+                        DrawIDDataIterator += batch.count
+                        cmdId += 1
+                        skip = False
+                    Next
+
+                    baseVert += renderSet.numVertices
+
+                    renderSet.buffers.vertexBuffer.CopyTo(vBuffer, vLast)
+                    renderSet.buffers.index_buffer32.CopyTo(iBuffer, iLast)
+
+                    vLast += renderSet.buffers.vertexBuffer.Length
+                    iLast += renderSet.buffers.index_buffer32.Length
+
+                    Erase renderSet.buffers.vertexBuffer
+                    Erase renderSet.buffers.index_buffer32
+                Next
+
+                If Not skip Then
+                    For i = 0 To batch.count - 1
+                        matrices(mLast + i) = MODEL_INDEX_LIST(batch.offset + i).matrix
+                    Next
+                    mLast += batch.count
+                End If
+            Next
+
+            GL.CreateBuffers(1, indirectBuffer)
+            GL.NamedBufferData(indirectBuffer, drawCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), drawCommands, BufferUsageHint.StaticDraw)
+
+            GL.CreateBuffers(1, matricesBuffer)
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, matricesBuffer)
+            GL.NamedBufferData(matricesBuffer, matrices.Length * Marshal.SizeOf(Of Matrix4), matrices, BufferUsageHint.StaticDraw)
+
+            GL.CreateBuffers(1, vertsBuffer)
+            GL.NamedBufferData(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex), vBuffer, BufferUsageHint.StaticDraw)
+
+            GL.CreateBuffers(1, primsBuffer)
+            GL.NamedBufferData(primsBuffer, iBuffer.Length * Marshal.SizeOf(Of vect3_32), iBuffer, BufferUsageHint.StaticDraw)
+
+            Dim drawIdBuffer As Integer
+            GL.CreateBuffers(1, drawIdBuffer)
+            GL.NamedBufferData(drawIdBuffer, DrawIDData.Length * Marshal.SizeOf(Of UInteger), DrawIDData, BufferUsageHint.StaticDraw)
+
+            GL.CreateVertexArrays(1, vertexArray)
+
+            'pos
+            GL.VertexArrayVertexBuffer(vertexArray, 0, vertsBuffer, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(vertexArray, 0, 3, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(vertexArray, 0, 0)
+            GL.EnableVertexArrayAttrib(vertexArray, 0)
+
+            'normal
+            GL.VertexArrayVertexBuffer(vertexArray, 1, vertsBuffer, New IntPtr(12), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(vertexArray, 1, 4, VertexAttribType.HalfFloat, False, 0)
+            GL.VertexArrayAttribBinding(vertexArray, 1, 1)
+            GL.EnableVertexArrayAttrib(vertexArray, 1)
+
+            'uv
+            GL.VertexArrayVertexBuffer(vertexArray, 2, vertsBuffer, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(vertexArray, 2, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(vertexArray, 2, 2)
+            GL.EnableVertexArrayAttrib(vertexArray, 2)
+
+            'draw_id
+            GL.VertexArrayVertexBuffer(vertexArray, 3, drawIdBuffer, IntPtr.Zero, Marshal.SizeOf(Of UInteger))
+            GL.VertexArrayAttribIFormat(vertexArray, 3, 1, VertexAttribType.UnsignedInt, 0)
+            GL.VertexArrayAttribBinding(vertexArray, 3, 3)
+            GL.EnableVertexArrayAttrib(vertexArray, 3)
+            GL.VertexArrayBindingDivisor(vertexArray, 3, 1)
+
+            GL.VertexArrayElementBuffer(vertexArray, primsBuffer)
 
             MODELS_LOADED = True
         End If ' block DONT_BLOCK_MODELS laoded

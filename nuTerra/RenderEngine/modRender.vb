@@ -1,4 +1,5 @@
 ﻿Imports System.Math
+Imports System.Runtime.InteropServices
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
@@ -105,10 +106,6 @@ Module modRender
             '=======================================================================
             draw_models() '=========================================================
             '=======================================================================
-
-            '=======================================================================
-            draw_overlays() '=======================================================
-            '=======================================================================
         End If
 
         '===========================================================================
@@ -153,31 +150,7 @@ Module modRender
     End Sub
 
     Private Sub frustum_cull()
-        cullShader.Use()
-
-        GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
-
-        ' TODO: pass visbox here
-        GL.Uniform3(cullShader("ObjectExtent"), 0.5F, 0.5F, 0.5F)
-
-        GL.Enable(EnableCap.RasterizerDiscard)
-
-        For Each batch In MODEL_BATCH_LIST
-            GL.BindBufferBase(BufferRangeTarget.TransformFeedbackBuffer, 0, batch.culledInstanceDataBO)
-            GL.BindVertexArray(batch.cullVA)
-
-            GL.BeginTransformFeedback(TransformFeedbackPrimitiveType.Points)
-            GL.BeginQuery(QueryTarget.PrimitivesGenerated, batch.culledQuery)
-            GL.DrawArrays(PrimitiveType.Points, 0, batch.count)
-            GL.EndQuery(QueryTarget.PrimitivesGenerated)
-            GL.EndTransformFeedback()
-
-            GL.Flush()
-        Next
-
-        GL.Disable(EnableCap.RasterizerDiscard)
-        cullShader.StopUse()
+        'TODO
     End Sub
 
     Private Sub draw_terrain()
@@ -394,52 +367,16 @@ Module modRender
         GL.Uniform1(modelShader("nMap_type"), N_MAP_TYPE)
 
         GL.UniformMatrix4(modelShader("projection"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(modelShader("view"), False, VIEWMATRIX)
 
         GL.Enable(EnableCap.CullFace)
         TOTAL_TRIANGLES_DRAWN = 0
         PRIMS_CULLED = 0
 
-        For Each batch In MODEL_BATCH_LIST
-            Dim model = MAP_MODELS(batch.model_id).mdl
+        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, indirectBuffer)
+        GL.BindVertexArray(vertexArray)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, indirectDrawCount, Marshal.SizeOf(Of DrawElementsIndirectCommand))
 
-            If model.junk Then
-                Continue For
-            End If
-
-            For Each renderSet In model.render_sets
-                If renderSet.no_draw Then
-                    Continue For
-                End If
-
-                'Debug.Assert(renderSet.primitiveGroups.Count > 0)
-
-                GL.GetQueryObject(batch.culledQuery, GetQueryObjectParam.QueryResult, batch.visibleCount)
-                'Debug.Assert(batch.visibleCount <= batch.count)
-
-                PRIMS_CULLED += batch.count - batch.visibleCount
-
-                If batch.visibleCount = 0 Then
-                    Continue For
-                End If
-
-                GL.BindVertexArray(renderSet.mdl_VAO)
-
-                For Each primGroup In renderSet.primitiveGroups.Values
-                    If primGroup.no_draw Then
-                        Continue For
-                    End If
-
-                    TOTAL_TRIANGLES_DRAWN += primGroup.nPrimitives * batch.visibleCount
-                    'setup materials here
-
-                    GL.DrawElementsInstanced(PrimitiveType.Triangles,
-                                             primGroup.nPrimitives * 3,
-                                             DrawElementsType.UnsignedInt,
-                                             New IntPtr(primGroup.startIndex * 4),
-                                             batch.visibleCount)
-                Next
-            Next
-        Next
         GL.Disable(EnableCap.CullFace)
 
         modelShader.StopUse()
@@ -960,56 +897,6 @@ Module modRender
         Return
     End Sub
 #End Region
-
-    Private Sub draw_overlays()
-        If WIRE_MODELS Then
-            GL.Disable(EnableCap.PolygonOffsetFill)
-
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
-            FBOm.attach_CF()
-
-            normalShader.Use()
-
-            GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
-
-            GL.Uniform1(normalShader("prj_length"), 0.1F)
-            GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
-            GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
-
-            For Each batch In MODEL_BATCH_LIST
-                Dim model = MAP_MODELS(batch.model_id).mdl
-
-                If model.junk Then
-                    Continue For
-                End If
-
-                For Each renderSet In model.render_sets
-                    If renderSet.no_draw Then
-                        Continue For
-                    End If
-
-                    If batch.visibleCount = 0 Then
-                        Continue For
-                    End If
-
-                    GL.BindVertexArray(renderSet.mdl_VAO)
-                    For Each primGroup In renderSet.primitiveGroups.Values
-                        If primGroup.no_draw Then
-                            Continue For
-                        End If
-
-                        GL.DrawElementsInstanced(PrimitiveType.Triangles,
-                                                 primGroup.nPrimitives * 3,
-                                                 DrawElementsType.UnsignedInt,
-                                                 New IntPtr(primGroup.startIndex * 4),
-                                                 batch.visibleCount)
-                    Next
-                Next
-            Next
-            normalShader.StopUse()
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-        End If
-    End Sub
 
     Private Sub draw_map_cursor()
 
