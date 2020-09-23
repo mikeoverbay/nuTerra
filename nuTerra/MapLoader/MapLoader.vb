@@ -37,6 +37,7 @@ Module MapLoader
     'This stores all models used on a map
     Public MAP_MODELS(1) As mdl_
     'GL-buffers
+    Public textureHandleBuffer As Integer
     Public parametersBuffer As Integer
     Public matricesBuffer As Integer
     Public indirectDrawCount As Integer
@@ -330,6 +331,7 @@ Module MapLoader
             '----------------------------------------------------------------
             ' setup instances
             Dim drawCommands(indirectDrawCount - 1) As CandidateDraw
+            Dim materialMapping(indirectDrawCount - 1) As UInt32
             Dim vBuffer(numVerts - 1) As ModelVertex
             Dim iBuffer(numPrims - 1) As vect3_32
             Dim matrices(numMatrices - 1) As Matrix4
@@ -358,10 +360,11 @@ Module MapLoader
                             With drawCommands(cmdId)
                                 .visibilityBox1 = MAP_MODELS(batch.model_id).visibilityBounds.Row0
                                 .visibilityBox2 = MAP_MODELS(batch.model_id).visibilityBounds.Row1
+                                .material_id = primGroup.material_id
                                 .count = primGroup.nPrimitives * 3
                                 .firstIndex = iLast * 3 + primGroup.startIndex
                                 .baseVertex = baseVert
-                                .pad3 = mLast + i
+                                .baseInstance = mLast + i
                             End With
                             cmdId += 1
                         Next
@@ -428,9 +431,37 @@ Module MapLoader
 
             GL.VertexArrayElementBuffer(vertexArray, primsBuffer)
 
+            Dim tex_data(32 * 32 * 8 - 1) As Byte
+            For i = 0 To 31
+                For j = 0 To 31
+                    tex_data(i * 4 * 32 + j * 4) = (i Xor j) << 3
+                    tex_data(i * 4 * 32 + j * 4 + 1) = (i Xor j) << 3
+                    tex_data(i * 4 * 32 + j * 4 + 2) = (i Xor j) << 3
+                Next
+            Next
+
+            'Load materials
+            Dim materialsData(materials.Count - 1) As GLMaterial
+
+            For i = 0 To materials.Count - 1
+                Dim tex = 0
+                GL.CreateTextures(TextureTarget.Texture2D, 1, tex)
+                GL.TextureStorage2D(tex, 5, SizedInternalFormat.Rgba8, 16, 16)
+
+                GL.TextureSubImage2D(tex, 0, 0, 0, 16, 16, PixelFormat.Rgba, PixelType.UnsignedByte, tex_data)
+                GL.GenerateTextureMipmap(tex)
+
+                materialsData(i).colorMapHandle = GL.Arb.GetTextureHandle(tex)
+                GL.Arb.MakeTextureHandleResident(materialsData(i).colorMapHandle)
+            Next
+
+            GL.CreateBuffers(1, textureHandleBuffer)
+            GL.NamedBufferStorage(textureHandleBuffer, materialsData.Length * Marshal.SizeOf(Of GLMaterial), materialsData, BufferStorageFlags.None)
+
             MODELS_LOADED = True
         End If ' block DONT_BLOCK_MODELS laoded
         '===============================================================
+
 
         '===============================================================
         'As it says.. create the terrain

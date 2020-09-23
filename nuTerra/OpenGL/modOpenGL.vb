@@ -22,13 +22,22 @@ Module modOpenGL
     <StructLayout(LayoutKind.Sequential)>
     Public Structure CandidateDraw
         Dim visibilityBox1 As Vector3
-        Dim pad1 As UInt32
+        Dim reserved As UInt32
         Dim visibilityBox2 As Vector3
-        Dim pad2 As UInt32
+        Dim material_id As UInt32
         Dim count As UInt32
         Dim firstIndex As UInt32
         Dim baseVertex As UInt32
-        Dim pad3 As UInt32
+        Dim baseInstance As UInt32
+    End Structure
+
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure GLMaterial
+        Dim colorMapHandle As UInt64
+        Dim normalMapHandle As UInt64
+        Dim GMF_MapHandle As UInt64
+        Dim reserved1 As UInt32 'pad
+        Dim reserved2 As UInt32 'pad
     End Structure
 
     Public Sub Ortho_main()
