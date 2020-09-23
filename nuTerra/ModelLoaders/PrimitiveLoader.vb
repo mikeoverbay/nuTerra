@@ -10,15 +10,20 @@ Module PrimitiveLoader
         Public size As UInt32
     End Class
 
+    Structure Material
+        Public id As UInt32
+        Public fx As String
+        Public props As Dictionary(Of String, Object)
+    End Structure
+
     Class PrimitiveGroup
         Public startIndex As Integer
         Public nPrimitives As Integer
         Public startVertex As Integer
         Public nVertices As Integer
+        Public material_id As Integer
 
         Public no_draw As Boolean
-        Public fx As String
-        Public props As Dictionary(Of String, Object)
     End Class
 
     Public Function get_primitive(ByRef mdl As base_model_holder_) As Boolean

@@ -3,6 +3,8 @@ Imports System.Text
 
 Module modSpaceBin
     Public sectionHeaders As Dictionary(Of String, SectionHeader)
+    Public materials As Dictionary(Of UInt32, Material)
+
     Public Structure SectionHeader
         Public magic As String
         Public version As Int32
@@ -171,6 +173,7 @@ Module modSpaceBin
 
         '----------------------------------------------------------------------------------
         'build the model information
+        materials = New Dictionary(Of UInt32, Material)
         ReDim MAP_MODELS(cBSMO.models_colliders.count - 1)
         For k = 0 To cBSMO.models_colliders.count - 1
             With MAP_MODELS(k)
@@ -313,45 +316,52 @@ CleanUp:
             Return
         End If
 
-        pGroup.props = New Dictionary(Of String, Object)
-        pGroup.fx = cBSMA.FXStringKey(item.effectIndex).FX_string
-        For i = item.shaderPropBegin To item.shaderPropEnd
-            Select Case cBSMA.ShaderPropertyItem(i).property_type
+        If materials.ContainsKey(material_id) Then
+            pGroup.material_id = materials(material_id).id
+        Else
+            pGroup.material_id = materials.Count
+            Dim mat As New Material
+            mat.id = materials.Count
+            mat.props = New Dictionary(Of String, Object)
+            mat.fx = cBSMA.FXStringKey(item.effectIndex).FX_string
+            For i = item.shaderPropBegin To item.shaderPropEnd
+                Select Case cBSMA.ShaderPropertyItem(i).property_type
 
-                Case 0 ' special case for volumetrics.
-                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_int
+                    Case 0 ' special case for volumetrics.
+                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_int
 
-                Case 1
-                    ' Bool
-                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_boolean
+                    Case 1
+                        ' Bool
+                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_boolean
 
-                Case 2
-                    ' Float
-                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_float
+                    Case 2
+                        ' Float
+                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_float
 
-                Case 3
-                    ' Int
-                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_int
+                    Case 3
+                        ' Int
+                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_int
 
-                Case 4
-                    ' ?
-                    Debug.Assert(False)
+                    Case 4
+                        ' ?
+                        Debug.Assert(False)
 
-                Case 5
-                    ' Vector4
-                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_vec4
+                    Case 5
+                        ' Vector4
+                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_vec4
 
-                Case 6
-                    ' Texture
-                    pGroup.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).property_value_string
+                    Case 6
+                        ' Texture
+                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).property_value_string
 
-                Case Else
-                    Debug.Assert(False)
+                    Case Else
+                        Debug.Assert(False)
 
-            End Select
+                End Select
 
-        Next
-
+            Next
+            materials(material_id) = mat
+        End If
     End Sub
 
 End Module

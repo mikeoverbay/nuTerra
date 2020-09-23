@@ -1,53 +1,42 @@
 ﻿// gWriter fragment Shader. We will use this as a template for other shaders
 #version 450 core
 
+#extension GL_ARB_bindless_texture : require
+
+// Output
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
 layout (location = 3) out vec3 gPosition;
 
-uniform sampler2D colorMap;
-uniform sampler2D normalMap;
-uniform sampler2D GMF_Map;
-
-uniform int nMap_type;
-uniform int alphaEnable;
-uniform int alphaReference;
-
-in vec2 UV;
-in vec3 worldPosition;
-in mat3 TBN;
-
-in vec3 normal;//temp for debuging lighting
-
-vec3 getNormal()
+// Input from vertex shader
+in VS_OUT
 {
-    vec3 n;
-    if (nMap_type == 1 ) {
-        // GA map
-        // We must clamp and max these to -1.0 to 1.0 to stop artifacts!
-        n.xy = clamp(texture(normalMap, UV).ag*2.0-1.0, -1.0 ,1.0);
-        n.y = max(sqrt(1.0 - (n.x*n.x + n.y *n.y)),0.0);
-        n.xyz = n.xzy;
-    } else {
-        // RGB map
-        n = texture(normalMap, UV).rgb*2.0-1.0;
-    }
-    n = normalize(TBN * n);
-    return n;
-}
+    vec2 UV;
+    vec3 worldPosition;
+    mat3 TBN;
+    flat uint material_id;
+} fs_in;
+
+struct MaterialProperties
+{
+    sampler2D colorMap;
+    sampler2D normalMap;
+    sampler2D GMF_Map;
+    uint reserved1;
+    uint reserved2;
+};
+
+// Material block
+layout (binding = 2, std430) readonly buffer MATERIALS
+{
+    MaterialProperties material[];
+};
 
 void main(void)
 {
-    gColor = vec4(1.0, UV, 1.0);
+    const MaterialProperties thisMaterial = material[fs_in.material_id];
 
-    // easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
-    //gColor = texture(colorMap, UV);
-    gColor.a = 1.0;
- 
-    gNormal.xyz = getNormal();
-    // gGMF.rg = texture(GMF_Map, UV2).rg;
-    // gGMF.b = 64.0/255.0;
-
-    gPosition = worldPosition;
+    gColor = vec4(texture(thisMaterial.colorMap, fs_in.UV).rgb, 1.0);
+    gPosition = fs_in.worldPosition;
 }

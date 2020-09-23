@@ -399,6 +399,8 @@ Module modRender
         GL.BindBuffer(BufferTarget.DrawIndirectBuffer, indirectBuffer)
         GL.BindBuffer(DirectCast(33006, BufferTarget), parametersBuffer)
         GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, matricesBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, drawCandidatesBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, textureHandleBuffer)
         GL.BindVertexArray(vertexArray)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, indirectDrawCount, 0)
 
