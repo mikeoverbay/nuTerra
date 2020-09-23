@@ -2,13 +2,6 @@
 
 ### This is the home of nuTerra where all the work will be done to rewrite Terra using New OpenGL techniques.
 
-## Update log.. 3/30/2020
-This project is basiclly on hold. There are too many that have not been resolved.
-1. Scaling is wrong for the texture tiles.
-2. Blending is not correct.
-3. Terrain lighting is very close but not correct.
-4. Models rendering is stuck on fixing the culling.
-
 ### Update log.. 2/10/2020
 App is now 100% 4.3+ CORE. All rendering is done using FBOs or VAOs. All transforms happen in code or shader code.</br>
 All this is Maxim's work.</br>

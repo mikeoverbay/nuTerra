@@ -230,35 +230,23 @@ void main(void)
     vec4 base = vec4(0.0);  
     vec4 empty = vec4(0.0);
 
-    // Apply Ambient Occlusion.
-	t4.rgb = t4.rgb * aoc_6;
-	t4_2.rgb = t4_2.rgb * aoc_7;
-
-	t3.rgb = t3.rgb * aoc_4;
-	t3_2.rgb = t3_2.rgb * aoc_5;
-
-	t2.rgb = t2.rgb * aoc_2;
-	t2_2.rgb = t2_2.rgb * aoc_4;
-
-	t1.rgb = t1.rgb * aoc_0;
-	t1_2.rgb = t1_2.rgb * aoc_1;
-
-    // Mix our textures in to base.
+    // Mix our textures in to base and
+    // apply Ambient Occlusion.
     // Mix group 4
-    base += t4 * t4.a * MixLevel4.r * used_7;
-    base += t4_2 * t4_2.a * MixLevel4.g * used_8;
+    base += t4 * aoc_6 * MixLevel4.r * used_7;
+    base += t4_2 * aoc_7 * MixLevel4.g * used_8;
 
     // Mix group 3
-    base += t3 * t3.a * MixLevel3.r * used_5;
-    base += t3_2 * t3_2.a * MixLevel3.g * used_6;
+    base += t3 * aoc_4 * MixLevel3.r * used_5;
+    base += t3_2 * aoc_5 * MixLevel3.g * used_6;
 
     // Mix group 2
-    base += t2 * t2.a * MixLevel2.r * used_3;
-    base += t2_2 * t2_2.a * MixLevel2.g * used_4;
+    base += t2 * aoc_2 * MixLevel2.r * used_3;
+    base += t2_2 * aoc_3 * MixLevel2.g * used_4;
 
     // Mix group 1
-    base += t1 * t1.a * MixLevel1.r * used_1;
-    base += t1_2 * t1_2.a * MixLevel1.g * used_2;
+    base += t1 * aoc_0 * MixLevel1.r * used_1;
+    base += t1_2 * aoc_1 * MixLevel1.g * used_2;
     
     //Get our normal maps. Same mixing and clamping as AM maps above
 

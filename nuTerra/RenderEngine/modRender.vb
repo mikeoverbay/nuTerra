@@ -330,6 +330,9 @@ Module modRender
                 With theMap.render_set(i)
                     GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, .layersStd140_ubo)
 
+                    'debug shit
+                    'GL.BindTextureUnit(31, .dom_texture_id) '<----------------- Texture Bind
+
                     'AM maps
                     GL.BindTextureUnit(1, .TexLayers(0).AM_id1)
                     GL.BindTextureUnit(2, .TexLayers(1).AM_id1)
@@ -373,12 +376,13 @@ Module modRender
         unbind_textures(30)
 
         If WIRE_TERRAIN Then
-
-            FBOm.attach_CF()
+            'Must have this Identity to use the terrain normal view shader.
+            Dim viewM = Matrix4.Identity * VIEWMATRIX
 
             GL.Disable(EnableCap.PolygonOffsetFill)
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
+            FBOm.attach_CF()
 
             TerrainNormals.Use()
 
@@ -411,6 +415,7 @@ Module modRender
             TerrainNormals.StopUse()
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
 
         End If
     End Sub
