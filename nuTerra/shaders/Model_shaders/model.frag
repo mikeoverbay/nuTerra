@@ -1,5 +1,5 @@
 ﻿// gWriter fragment Shader. We will use this as a template for other shaders
-#version 430 core
+#version 450 core
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
@@ -15,12 +15,10 @@ uniform int alphaEnable;
 uniform int alphaReference;
 
 in vec2 UV;
-in vec2 UV2;
 in vec3 worldPosition;
 in mat3 TBN;
 
-in vec3 normal;//temp fro debuging lighting
-
+in vec3 normal;//temp for debuging lighting
 
 vec3 getNormal()
 {
@@ -41,20 +39,15 @@ vec3 getNormal()
 
 void main(void)
 {
-    if (alphaEnable == 1){
-        float a = texture(normalMap, UV).r;
-        float aRef = float(alphaReference)/255.0;
-        if (aRef > a) {
-            discard;
-        }
-    }
-    // easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
-    gColor = texture(colorMap, UV);
-    gColor.a = 1.0;
+    gColor = vec4(1.0, UV, 1.0);
 
+    // easy.. just transfer the values to the gBuffer Textures and calculate perturbed normal;
+    //gColor = texture(colorMap, UV);
+    gColor.a = 1.0;
+ 
     gNormal.xyz = getNormal();
-    gGMF.rg = texture(GMF_Map, UV2).rg;
-    gGMF.b = 64.0/255.0;
+    // gGMF.rg = texture(GMF_Map, UV2).rg;
+    // gGMF.b = 64.0/255.0;
 
     gPosition = worldPosition;
 }

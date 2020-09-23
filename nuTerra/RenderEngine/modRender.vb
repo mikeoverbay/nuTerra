@@ -1,5 +1,5 @@
 ﻿Imports System.Math
-Imports System.Runtime.InteropServices.Marshal
+Imports System.Runtime.InteropServices
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
@@ -64,17 +64,10 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        Draw_SkyDome() '============================================================
-        '===========================================================================
-
-        '===========================================================================
         'GL States 
         GL.Enable(EnableCap.DepthTest)
         '===========================================================================
 
-        '===========================================================================
-        Draw_Light_Orb() '==========================================================
-        '===========================================================================
         FBOm.attach_CNGP()
 
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
@@ -113,15 +106,7 @@ Module modRender
             '=======================================================================
             draw_models() '=========================================================
             '=======================================================================
-
-            '=======================================================================
-            draw_overlays() '=======================================================
-            '=======================================================================
         End If
-
-        '===========================================================================
-        draw_cross_hair() '=========================================================
-        '===========================================================================
 
         '===========================================================================
         '================== Deferred Rendering, HUD and MINI MAP ===================
@@ -140,10 +125,6 @@ Module modRender
 
         '===========================================================================
         render_deferred_buffers() '=================================================
-        '===========================================================================
-
-        '===========================================================================
-        'render_test_compute() '====================================================
         '===========================================================================
 
         '===========================================================================
@@ -169,55 +150,25 @@ Module modRender
     End Sub
 
     Private Sub frustum_cull()
+        'Bind And clear atomic counter
+        GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, parametersBuffer)
+        GL.ClearNamedBufferSubData(parametersBuffer, PixelInternalFormat.R32ui, IntPtr.Zero, Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+
+        'Bind shader storage buffers
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, drawCandidatesBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, indirectBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, matricesBuffer)
+
         cullShader.Use()
 
         GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
         GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
 
-        ' TODO: pass visbox here
-        GL.Uniform3(cullShader("ObjectExtent"), 0.5F, 0.5F, 0.5F)
+        GL.DispatchCompute(CInt(Math.Floor(indirectDrawCount / 16)), 1, 1)
 
-        GL.Enable(EnableCap.RasterizerDiscard)
+        GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 
-        For Each batch In MODEL_BATCH_LIST
-            GL.BindBufferBase(BufferRangeTarget.TransformFeedbackBuffer, 0, batch.culledInstanceDataBO)
-            GL.BindVertexArray(batch.cullVA)
-
-            GL.BeginTransformFeedback(TransformFeedbackPrimitiveType.Points)
-            GL.BeginQuery(QueryTarget.PrimitivesGenerated, batch.culledQuery)
-            GL.DrawArrays(PrimitiveType.Points, 0, batch.count)
-            GL.EndQuery(QueryTarget.PrimitivesGenerated)
-            GL.EndTransformFeedback()
-
-            GL.Flush()
-        Next
-
-        GL.Disable(EnableCap.RasterizerDiscard)
         cullShader.StopUse()
-    End Sub
-
-    Private Sub render_test_compute()
-
-        Dim maxComputeWorkGroupCount As Integer
-        Dim maxComputeWorkGroupsize As Integer
-
-        GL.GetInteger(DirectCast(All.MaxComputeWorkGroupCount, GetIndexedPName), 0, maxComputeWorkGroupCount)
-        GL.GetInteger(DirectCast(All.MaxComputeWorkGroupSize, GetIndexedPName), 0, maxComputeWorkGroupsize)
-
-        Dim er0 = GL.GetError
-
-        testShader.Use()
-        GL.DispatchCompute(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, 1)
-        testShader.StopUse()
-
-        GL.MemoryBarrier(MemoryBarrierFlags.ShaderImageAccessBarrierBit)
-        Dim er1 = GL.GetError
-
-        draw_image_rectangle(New RectangleF(0.0F, 0.0F, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT),
-                             TEST_TEXTURE_ID)
-
-        Dim er3 = GL.GetError
-
     End Sub
 
     Private Sub draw_terrain()
@@ -439,53 +390,20 @@ Module modRender
         GL.Uniform1(modelShader("nMap_type"), N_MAP_TYPE)
 
         GL.UniformMatrix4(modelShader("projection"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(modelShader("view"), False, VIEWMATRIX)
 
         GL.Enable(EnableCap.CullFace)
         TOTAL_TRIANGLES_DRAWN = 0
         PRIMS_CULLED = 0
 
-        For Each batch In MODEL_BATCH_LIST
-            Dim model = MAP_MODELS(batch.model_id).mdl
+        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, indirectBuffer)
+        GL.BindBuffer(DirectCast(33006, BufferTarget), parametersBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, matricesBuffer)
+        GL.BindVertexArray(vertexArray)
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, indirectDrawCount, 0)
 
-            If model.junk Then
-                Continue For
-            End If
+        'Debug.Assert(False)
 
-            For Each renderSet In model.render_sets
-                If renderSet.no_draw Then
-                    Continue For
-                End If
-
-                'Debug.Assert(renderSet.primitiveGroups.Count > 0)
-
-                GL.GetQueryObject(batch.culledQuery, GetQueryObjectParam.QueryResult, batch.visibleCount)
-                'Debug.Assert(batch.visibleCount <= batch.count)
-
-                PRIMS_CULLED += batch.count - batch.visibleCount
-
-                If batch.visibleCount = 0 Then
-                    Continue For
-                End If
-
-                GL.BindVertexArray(renderSet.mdl_VAO)
-
-                Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                For Each primGroup In renderSet.primitiveGroups.Values
-                    If primGroup.no_draw Then
-                        Continue For
-                    End If
-
-                    TOTAL_TRIANGLES_DRAWN += primGroup.nPrimitives * batch.visibleCount
-                    'setup materials here
-
-                    GL.DrawElementsInstanced(PrimitiveType.Triangles,
-                                             primGroup.nPrimitives * 3,
-                                             triType,
-                                             New IntPtr(primGroup.startIndex * renderSet.indexSize),
-                                             batch.visibleCount)
-                Next
-            Next
-        Next
         GL.Disable(EnableCap.CullFace)
 
         modelShader.StopUse()
@@ -1007,107 +925,6 @@ Module modRender
     End Sub
 #End Region
 
-    Private Sub Draw_SkyDome()
-        If Not TERRAIN_LOADED Then Return
-        FBOm.attach_CNGP()
-        SkyDomeShader.Use()
-        GL.Enable(EnableCap.CullFace)
-        Dim model = Matrix4.CreateTranslation(CAM_POSITION.X, CAM_POSITION.Y + 0, CAM_POSITION.Z)
-        GL.UniformMatrix4(SkyDomeShader("mvp"), False, model * VIEWMATRIX * PROJECTIONMATRIX)
-        GL.Uniform1(SkyDomeShader("imageMap"), 0)
-
-        GL.BindTextureUnit(0, theMap.Sky_Texture_Id)
-
-        GL.BindVertexArray(theMap.skybox_mdl.mdl_VAO)
-        GL.DrawElements(PrimitiveType.Triangles,
-                        theMap.skybox_mdl.indice_count * 3,
-                        DrawElementsType.UnsignedShort,
-                        0)
-        SkyDomeShader.StopUse()
-        GL.BindTextureUnit(0, 0)
-        GL.Disable(EnableCap.CullFace)
-    End Sub
-
-    Private Sub draw_overlays()
-        If WIRE_MODELS Then
-            GL.Disable(EnableCap.PolygonOffsetFill)
-
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
-            FBOm.attach_CF()
-
-            normalShader.Use()
-
-            GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
-
-            GL.Uniform1(normalShader("prj_length"), 0.1F)
-            GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
-            GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
-
-            For Each batch In MODEL_BATCH_LIST
-                Dim model = MAP_MODELS(batch.model_id).mdl
-
-                If model.junk Then
-                    Continue For
-                End If
-
-                For Each renderSet In model.render_sets
-                    If renderSet.no_draw Then
-                        Continue For
-                    End If
-
-                    If batch.visibleCount = 0 Then
-                        Continue For
-                    End If
-
-                    GL.BindVertexArray(renderSet.mdl_VAO)
-                    Dim triType = If(renderSet.indexSize = 2, DrawElementsType.UnsignedShort, DrawElementsType.UnsignedInt)
-                    For Each primGroup In renderSet.primitiveGroups.Values
-                        If primGroup.no_draw Then
-                            Continue For
-                        End If
-
-                        GL.DrawElementsInstanced(PrimitiveType.Triangles,
-                                                 primGroup.nPrimitives * 3,
-                                                 triType,
-                                                 New IntPtr(primGroup.startIndex * renderSet.indexSize),
-                                                 batch.visibleCount)
-                    Next
-                Next
-            Next
-            normalShader.StopUse()
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-        End If
-    End Sub
-
-    Private Sub Draw_Light_Orb()
-        'Dont draw if not told to
-        If Not frmMain.m_show_light_pos.Checked Then
-            Return
-        End If
-        FBOm.attach_CF()
-
-        Dim model = Matrix4.CreateTranslation(LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
-
-        Dim scale_ As Single = 30.0
-        Dim sMat = Matrix4.CreateScale(scale_)
-
-        Dim MVPM = sMat * model * VIEWMATRIX * PROJECTIONMATRIX
-        colorOnlyShader.Use()
-
-        GL.Uniform3(colorOnlyShader("color"), 1.0F, 1.0F, 0.0F)
-
-        GL.UniformMatrix4(colorOnlyShader("ProjectionMatrix"), False, MVPM)
-
-        GL.BindVertexArray(MOON.mdl_VAO)
-        GL.DrawElements(PrimitiveType.Triangles,
-                        MOON.indice_count * 3,
-                        DrawElementsType.UnsignedShort,
-                        0)
-        ' GL.BindVertexArray(0)
-
-        colorOnlyShader.StopUse()
-    End Sub
-
     Private Sub draw_map_cursor()
 
         If Not SHOW_CURSOR Then Return
@@ -1142,24 +959,6 @@ Module modRender
 
         DecalProject.StopUse()
         unbind_textures(2)
-    End Sub
-
-    Private Sub draw_cross_hair()
-        If MOVE_MOD Or Z_MOVE Then
-            If MOVE_MOD And Not Z_MOVE Then
-                frmMain.glControl_main.Cursor = Cursors.SizeAll
-            End If
-            If Z_MOVE Then
-                frmMain.glControl_main.Cursor = Cursors.SizeNS
-            End If
-            FBOm.attach_CF()
-            ObjectRenderers.draw_cross_hair()
-        Else
-            frmMain.glControl_main.Cursor = Cursors.Default
-        End If
-        '==============================================================
-
-
     End Sub
 
     Private Sub draw_terrain_base_rings()

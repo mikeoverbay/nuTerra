@@ -163,7 +163,6 @@ Module ShaderLoader
     Public normalOffsetShader As Shader
     Public rect2dShader As Shader
     Public SkyDomeShader As Shader
-    Public testShader As Shader
     Public TerrainGrids As Shader
     Public TerrainNormals As Shader
     Public TerrainShader As Shader
@@ -196,7 +195,6 @@ Module ShaderLoader
         normalOffsetShader = New Shader("normalOffset")
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")
-        testShader = New Shader("test")
         TerrainGrids = New Shader("TerrainGrids")
         TerrainNormals = New Shader("TerrainNormals")
         TerrainShader = New Shader("Terrain")
@@ -221,7 +219,6 @@ Module ShaderLoader
         shaders.Add(normalOffsetShader)
         shaders.Add(rect2dShader)
         shaders.Add(SkyDomeShader)
-        shaders.Add(testShader)
         shaders.Add(TerrainGrids)
         shaders.Add(TerrainNormals)
         shaders.Add(TerrainShader)
@@ -237,6 +234,8 @@ Module ShaderLoader
         Dim status_code As Integer
 
         Dim program As Integer = GL.CreateProgram()
+        GL.ObjectLabel(ObjectLabelIdentifier.Program, program, -1, "SHD-" + name)
+
         If program = 0 Then
             Return 0
         End If
@@ -246,6 +245,7 @@ Module ShaderLoader
         If v IsNot Nothing Then
 
             vertexObject = GL.CreateShader(ShaderType.VertexShader)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, vertexObject, -1, "SHD-VERT-" + name)
 
             Using vs_s As New StreamReader(v)
                 Dim vs As String = vs_s.ReadToEnd()
@@ -269,6 +269,7 @@ Module ShaderLoader
         Dim fragmentObject As Integer = 0
         If f IsNot Nothing Then
             fragmentObject = GL.CreateShader(ShaderType.FragmentShader)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, fragmentObject, -1, "SHD-FRAG-" + name)
 
             Using fs_s As New StreamReader(f)
                 Dim fs As String = fs_s.ReadToEnd
@@ -285,7 +286,7 @@ Module ShaderLoader
                 GL.DeleteShader(fragmentObject)
                 GL.DeleteProgram(program)
                 gl_error(name + "_fragment didn't compile!" + vbCrLf + info.ToString)
-                Return 0
+            Return 0
             End If
         End If
 
@@ -293,6 +294,7 @@ Module ShaderLoader
         Dim geomObject As Integer = 0
         If g IsNot Nothing Then
             geomObject = GL.CreateShader(ShaderType.GeometryShader)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, geomObject, -1, "SHD-GEOM-" + name)
 
             Using gs_s As New StreamReader(g)
                 Dim gs As String = gs_s.ReadToEnd()
@@ -336,6 +338,7 @@ Module ShaderLoader
         Dim computeObject As Integer = 0
         If c IsNot Nothing Then
             computeObject = GL.CreateShader(ShaderType.ComputeShader)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, computeObject, -1, "SHD-COMP-" + name)
 
             Using cs_s As New StreamReader(c)
                 Dim cs As String = cs_s.ReadToEnd()
@@ -373,11 +376,6 @@ Module ShaderLoader
 
         If fragmentObject Then
             GL.AttachShader(program, fragmentObject)
-        End If
-
-        If name = "cull" Then
-            Dim vars() = {"CulledModelView"}
-            GL.TransformFeedbackVaryings(program, 1, vars, TransformFeedbackMode.InterleavedAttribs)
         End If
 
         ' link program

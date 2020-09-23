@@ -11,7 +11,7 @@
     <AssemblyName>nuTerra</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <MyType>WindowsForms</MyType>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -121,13 +121,11 @@
     <Reference Include="Ionic.Zip">
       <HintPath>.\Ionic.Zip.dll</HintPath>
     </Reference>
-    <Reference Include="OpenTK, Version=3.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
-      <HintPath>..\packages\OpenTK.3.1.0\lib\net20\OpenTK.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="OpenTK, Version=3.2.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
+      <HintPath>..\packages\OpenTK.3.2\lib\net20\OpenTK.dll</HintPath>
     </Reference>
     <Reference Include="OpenTK.GLControl, Version=3.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
       <HintPath>..\packages\OpenTK.GLControl.3.1.0\lib\net20\OpenTK.GLControl.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="Pngcs">
       <HintPath>.\Pngcs.dll</HintPath>
@@ -220,11 +218,9 @@
     <Compile Include="MapLoader\TerrainBuilder.vb" />
     <Compile Include="MapLoader\TerrainTextureFunctions.vb" />
     <Compile Include="Modules\modFrustum.vb" />
-    <Compile Include="Modules\Saved_testing_shit.vb" />
     <Compile Include="RenderEngine\LoadingScreen.vb" />
     <Compile Include="RenderEngine\MapMenuScreen.vb" />
     <Compile Include="ModelLoaders\modUtilities.vb" />
-    <Compile Include="ModelLoaders\modXfile.vb" />
     <Compile Include="ModelLoaders\PrimitiveLoader.vb" />
     <Compile Include="Modules\modGlobalVars.vb" />
     <Compile Include="Modules\modMatrix.vb" />
@@ -233,6 +229,7 @@
     <Compile Include="My Project\Application.Designer.vb">
       <AutoGen>True</AutoGen>
       <DependentUpon>Application.myapp</DependentUpon>
+      <DesignTime>True</DesignTime>
     </Compile>
     <Compile Include="My Project\Resources.Designer.vb">
       <AutoGen>True</AutoGen>
@@ -246,7 +243,6 @@
     </Compile>
     <Compile Include="OpenGL\modOpenGL.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
-    <Compile Include="RenderEngine\ObjectRenderers.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
     <Compile Include="ShaderEditor\frmEditFrag.designer.vb">
       <DependentUpon>frmEditFrag.vb</DependentUpon>
@@ -266,7 +262,6 @@
     <Compile Include="Space.bin\modSpacedBinVars.vb" />
     <Compile Include="MapLoader\MapLoader.vb" />
     <Compile Include="TextureEngine\TextureLoaders.vb" />
-    <Compile Include="TextureEngine\VisualTextureGetter.vb" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Forms\frmLighting.resx">
@@ -334,9 +329,7 @@
       <LastGenOutput>Settings.Designer.vb</LastGenOutput>
     </None>
     <None Include="App.config" />
-    <None Include="OpenTK.dll.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <None Include="OpenTK.dll.config" />
     <None Include="packages.config" />
     <None Include="Resources\compass.x" />
     <None Include="Resources\cross_hair.x">
@@ -408,19 +401,13 @@
     <None Include="shaders\Developer\TerrainNormals.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Trials\test.comp">
+    <None Include="shaders\Trials\cull.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\User_GUI\CrossHair.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\User_GUI\CrossHair.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\cull.geom">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\cull.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Utility\coloredLine2d.frag">

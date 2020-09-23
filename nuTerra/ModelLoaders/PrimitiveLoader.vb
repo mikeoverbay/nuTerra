@@ -94,19 +94,14 @@ Module PrimitiveLoader
             Dim vertsSectionName = renderSet.verts_name.Substring(renderSet.verts_name.LastIndexOf("/"c) + 1)
             Dim primsSectionName = renderSet.prims_name.Substring(renderSet.prims_name.LastIndexOf("/"c) + 1)
 
-
-            Dim buffers As New BuffersStorage
-            load_primitives_indices(br, renderSet, binSections(primsSectionName), buffers)
-            load_primitives_vertices(br, renderSet, binSections(vertsSectionName), buffers)
-
-            build_renderset_VAO(renderSet, buffers)
+            load_primitives_indices(br, renderSet, binSections(primsSectionName))
+            load_primitives_vertices(br, renderSet, binSections(vertsSectionName))
         Next
     End Sub
 
     Public Sub load_primitives_indices(br As BinaryReader,
                                        ByRef renderSet As RenderSetEntry,
-                                       ByRef sectionInfo As BinarySectionInfo,
-                                       ByRef buffers As BuffersStorage)
+                                       ByRef sectionInfo As BinarySectionInfo)
         br.BaseStream.Position = sectionInfo.location
 
         ' "list" = UInt16 pointers
@@ -115,12 +110,7 @@ Module PrimitiveLoader
         Dim triTypeName As New String(br.ReadChars(64))
         triTypeName = triTypeName.Substring(0, triTypeName.IndexOf(vbNullChar))
 
-        If triTypeName = "list32" Then
-            renderSet.indexSize = 4
-        Else
-            Debug.Assert(triTypeName = "list")
-            renderSet.indexSize = 2
-        End If
+        Dim indexSize = If(triTypeName = "list32", 4, 2)
 
         Dim numIndices = br.ReadUInt32
         Dim numPrimGroups = br.ReadUInt32
@@ -129,13 +119,14 @@ Module PrimitiveLoader
         Dim savedPos = br.BaseStream.Position
 
         ' The component table is at the end of the indicies list.
-        br.BaseStream.Position += numIndices * renderSet.indexSize
+        br.BaseStream.Position += numIndices * indexSize
 
         ' read the tables
         For z = 0 To numPrimGroups - 1
             If Not renderSet.primitiveGroups.ContainsKey(z) Then
-                renderSet.primitiveGroups(z) = New PrimitiveGroup
-                renderSet.primitiveGroups(z).no_draw = True
+                renderSet.primitiveGroups(z) = New PrimitiveGroup With {
+                    .no_draw = True 'HACK!
+                }
             End If
             With renderSet.primitiveGroups(z)
                 .startIndex = br.ReadInt32
@@ -143,27 +134,28 @@ Module PrimitiveLoader
                 .startVertex = br.ReadInt32
                 .nVertices = br.ReadInt32
             End With
-            TOTAL_TRIANGLES_DRAWN_MODEL += renderSet.primitiveGroups(z).nPrimitives
         Next
 
         ' restore position
         br.BaseStream.Position = savedPos
 
-
         'We flip the winding order because of directX to Opengl 
-        If renderSet.indexSize = 2 Then
-            ReDim buffers.index_buffer16((numIndices / 3) - 1)
-            For k = 0 To buffers.index_buffer16.Length - 1
-                buffers.index_buffer16(k).y = br.ReadUInt16
-                buffers.index_buffer16(k).x = br.ReadUInt16
-                buffers.index_buffer16(k).z = br.ReadUInt16
+        ReDim renderSet.buffers.index_buffer32((numIndices / 3) - 1)
+        If indexSize = 2 Then
+            For k = 0 To renderSet.buffers.index_buffer32.Length - 1
+                With renderSet.buffers.index_buffer32(k)
+                    .y = br.ReadUInt16
+                    .x = br.ReadUInt16
+                    .z = br.ReadUInt16
+                End With
             Next
         Else
-            ReDim buffers.index_buffer32((numIndices / 3) - 1)
-            For k = 0 To buffers.index_buffer32.Length - 1
-                buffers.index_buffer32(k).y = br.ReadUInt32
-                buffers.index_buffer32(k).x = br.ReadUInt32
-                buffers.index_buffer32(k).z = br.ReadUInt32
+            For k = 0 To renderSet.buffers.index_buffer32.Length - 1
+                With renderSet.buffers.index_buffer32(k)
+                    .y = br.ReadUInt32
+                    .x = br.ReadUInt32
+                    .z = br.ReadUInt32
+                End With
             Next
         End If
     End Sub
@@ -171,8 +163,7 @@ Module PrimitiveLoader
 
     Public Sub load_primitives_vertices(br As BinaryReader,
                                         ByRef renderSet As RenderSetEntry,
-                                        ByRef sectionInfo As BinarySectionInfo,
-                                        ByRef buffers As BuffersStorage)
+                                        ByRef sectionInfo As BinarySectionInfo)
         br.BaseStream.Position = sectionInfo.location
 
         Dim vertTypeName As New String(br.ReadChars(64))
@@ -240,18 +231,12 @@ Module PrimitiveLoader
         End If
 
 
-        Dim numVertices = br.ReadUInt32 ' read total count of vertcies
-        Debug.Assert(numVertices > 2)
+        renderSet.numVertices = br.ReadUInt32 ' read total count of vertcies
+        Debug.Assert(renderSet.numVertices > 2)
 
         ' should be in same offset in both buffers.
         '---------------------------
-        ReDim buffers.vertexBuffer(numVertices - 1)
-        ReDim buffers.normalBuffer(numVertices - 1)
-        ReDim buffers.uvBuffer(numVertices - 1)
-        If renderSet.has_tangent Then
-            ReDim buffers.tangentBuffer(numVertices - 1)
-            ReDim buffers.binormalBuffer(numVertices - 1)
-        End If
+        ReDim renderSet.buffers.vertexBuffer(renderSet.numVertices - 1)
 
         Dim running As Integer = 0 'Continuous accumulator pointer in to the buffers
 
@@ -262,32 +247,22 @@ Module PrimitiveLoader
 
                 '-----------------------------------------------------------------------
                 'vertex
-                With buffers.vertexBuffer(running)
-                    .X = -br.ReadSingle
-                    .Y = br.ReadSingle
-                    .Z = br.ReadSingle
-                End With
-
-                '-----------------------------------------------------------------------
-                'normal
-                With buffers.normalBuffer(running)
+                With renderSet.buffers.vertexBuffer(running)
+                    .pos.X = -br.ReadSingle
+                    .pos.Y = br.ReadSingle
+                    .pos.Z = br.ReadSingle
                     If realNormals Then
-                        .X = -br.ReadSingle
-                        .Y = br.ReadSingle
-                        .Z = br.ReadSingle
+                        .normal.X = -br.ReadSingle
+                        .normal.Y = br.ReadSingle
+                        .normal.Z = br.ReadSingle
                     Else
                         Dim v3 = unpackNormal_8_8_8(br.ReadUInt32) ' unpack normals
-                        .X = -v3.X
-                        .Y = v3.Y
-                        .Z = v3.Z
+                        .normal.X = -v3.X
+                        .normal.Y = v3.Y
+                        .normal.Z = v3.Z
                     End If
-                End With
-
-                '-----------------------------------------------------------------------
-                'uv 1
-                With buffers.uvBuffer(running)
-                    .X = br.ReadSingle
-                    .Y = br.ReadSingle
+                    .uv.X = br.ReadSingle
+                    .uv.Y = br.ReadSingle
                 End With
 
                 '-----------------------------------------------------------------------
@@ -299,20 +274,7 @@ Module PrimitiveLoader
 
                 If renderSet.has_tangent Then
                     'tangents
-                    Dim v3 = unpackNormal_8_8_8(br.ReadUInt32)
-                    With buffers.tangentBuffer(running)
-                        .X = -v3.X
-                        .Y = v3.Y
-                        .Z = v3.Z
-                    End With
-
-                    'binormals
-                    v3 = unpackNormal_8_8_8(br.ReadUInt32)
-                    With buffers.binormalBuffer(running)
-                        .X = -v3.X
-                        .Y = v3.Y
-                        .Z = v3.Z
-                    End With
+                    br.BaseStream.Position += 8
                 End If
 
                 running += 1
@@ -381,92 +343,5 @@ Module PrimitiveLoader
         p.Z = (p.Z / len)
         Return p
     End Function
-
-    Dim INDEX_BUFFER As Integer = 0
-    Dim VERTEX_VB As Integer = 1
-    Dim NORMAL_VB As Integer = 2
-    Dim UV1_VB As Integer = 3
-    Dim TANGENT_VB As Integer = 4
-    Dim BINORMAL_VB As Integer = 5
-
-
-    Public Sub build_renderset_VAO(ByRef renderSet As RenderSetEntry,
-                                   ByRef buffers As BuffersStorage)
-        ' Dim max_vertex_elements = GL.GetInteger(GetPName.MaxElementsVertices)
-
-        ' Gen VAO id
-        GL.CreateVertexArrays(1, renderSet.mdl_VAO)
-        GL.BindVertexArray(renderSet.mdl_VAO)
-
-        Dim mBuffers(renderSet.element_count) As Integer
-        GL.CreateBuffers(renderSet.element_count + 1, mBuffers)
-
-        Dim v3_size = SizeOf(GetType(Vector3))
-        Dim v2_size = SizeOf(GetType(Vector2))
-
-        Dim er0 = GL.GetError
-
-        'vertex
-        GL.BindBuffer(BufferTarget.ArrayBuffer, mBuffers(VERTEX_VB))
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 0, 0)
-        GL.EnableVertexAttribArray(0)
-        GL.BufferData(BufferTarget.ArrayBuffer,
-                      buffers.vertexBuffer.Length * v3_size,
-                      buffers.vertexBuffer,
-                      BufferUsageHint.StaticDraw)
-
-        'normal
-        GL.BindBuffer(BufferTarget.ArrayBuffer, mBuffers(NORMAL_VB))
-        GL.VertexAttribPointer(1, 4, VertexAttribPointerType.HalfFloat, False, 0, 0)
-        GL.EnableVertexAttribArray(1)
-        GL.BufferData(BufferTarget.ArrayBuffer,
-                      buffers.normalBuffer.Length * SizeOf(GetType(Vector4h)),
-                      buffers.normalBuffer,
-                      BufferUsageHint.StaticDraw)
-
-        'UV1
-        GL.BindBuffer(BufferTarget.ArrayBuffer, mBuffers(UV1_VB))
-        GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, 0, 0)
-        GL.EnableVertexAttribArray(2)
-        GL.BufferData(BufferTarget.ArrayBuffer,
-                      buffers.uvBuffer.Length * v2_size,
-                      buffers.uvBuffer,
-                      BufferUsageHint.StaticDraw)
-
-        If renderSet.has_tangent Then
-            'Tangent
-            GL.BindBuffer(BufferTarget.ArrayBuffer, mBuffers(TANGENT_VB))
-            GL.VertexAttribPointer(3, 4, VertexAttribPointerType.HalfFloat, False, 0, 0)
-            GL.EnableVertexAttribArray(3)
-            GL.BufferData(BufferTarget.ArrayBuffer,
-                          buffers.tangentBuffer.Length * SizeOf(GetType(Vector4h)),
-                          buffers.tangentBuffer,
-                          BufferUsageHint.StaticDraw)
-
-            'Binormal
-            GL.BindBuffer(BufferTarget.ArrayBuffer, mBuffers(BINORMAL_VB))
-            GL.VertexAttribPointer(4, 4, VertexAttribPointerType.HalfFloat, False, 0, 0)
-            GL.EnableVertexAttribArray(4)
-            GL.BufferData(BufferTarget.ArrayBuffer,
-                          buffers.binormalBuffer.Length * SizeOf(GetType(Vector4h)),
-                          buffers.binormalBuffer,
-                          BufferUsageHint.StaticDraw)
-        End If
-
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, mBuffers(INDEX_BUFFER))
-        If renderSet.indexSize = 2 Then
-            GL.BufferData(BufferTarget.ElementArrayBuffer,
-                          buffers.index_buffer16.Length * SizeOf(GetType(vect3_16)),
-                          buffers.index_buffer16,
-                          BufferUsageHint.StaticDraw)
-        Else
-            GL.BufferData(BufferTarget.ElementArrayBuffer,
-                          buffers.index_buffer32.Length * SizeOf(GetType(vect3_32)),
-                          buffers.index_buffer32,
-                          BufferUsageHint.StaticDraw)
-        End If
-
-        GL.BindVertexArray(0)
-    End Sub
 
 End Module

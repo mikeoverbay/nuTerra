@@ -1,9 +1,7 @@
 ﻿Imports System.IO
-Imports Ionic.Zip
-Imports Tao.DevIl
-Imports System.Xml
-Imports OpenTK
 Imports System.Runtime.InteropServices
+Imports OpenTK
+Imports Tao.DevIl
 
 Module TerrainBuilder
 
@@ -260,7 +258,7 @@ Module TerrainBuilder
         '==========================================================
         'Get the settings for this map
         get_team_locations_and_field_BB(ABS_NAME)
-        get_Sky_Dome(ABS_NAME)
+
         '==========================================================
         'get minimap
         Dim mm = MAP_PACKAGE("spaces/" + ABS_NAME + "/mmap.dds")
@@ -393,42 +391,6 @@ Module TerrainBuilder
         ReDim Preserve theMap.v_data(cnt - 1)
         ReDim Preserve theMap.render_set(cnt - 1)
 
-    End Sub
-
-    Private Sub get_Sky_Dome(ByVal abs_name As String)
-        'Dim terrain As New DataTable
-        Dim ms As New MemoryStream
-        Dim f As ZipEntry = MAP_PACKAGE("spaces/" + abs_name + "/environments/environments.xml")
-        If f IsNot Nothing Then
-            f.Extract(ms)
-            openXml_stream(ms, abs_name)
-        Else
-
-        End If
-        Dim ds As DataSet = xmldataset.Copy
-        Dim te As DataTable = ds.Tables("map_" + abs_name)
-        Dim q = From row In te Select ename = row.Field(Of String)("environment")
-
-        theMap.skybox_path = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/skyDome/forward/skyBox.visual_processed"
-        theMap.skybox_mdl = New base_model_holder_
-        get_X_model(Application.StartupPath + "\resources\skyDome.x", theMap.skybox_mdl)
-
-        Dim entry = MAP_PACKAGE(theMap.skybox_path)
-        If entry Is Nothing Then
-            MsgBox("Cant find sky box visual_processed", MsgBoxStyle.Exclamation, "Oh no!")
-            Return
-        End If
-        ms = New MemoryStream
-        entry.Extract(ms)
-        openXml_stream(ms, Path.GetFileName(theMap.skybox_path))
-        theMap.Sky_Texture_Id = get_diffuse_texture_id_from_visual()
-        If theMap.Sky_Texture_Id = -1 Then
-            MsgBox("could not find Sky Box Texture", MsgBoxStyle.Exclamation, "Shit!")
-        End If
-        'clean up
-        ms.Dispose()
-        ds.Dispose()
-        te.Dispose()
     End Sub
 
     Public Function get_diffuse_texture_id_from_visual() As Integer

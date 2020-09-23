@@ -71,24 +71,6 @@ Module TextureLoaders
         Return -1 ' Didn't find it, return -1
     End Function
 
-    Public Function load_image_from_gui_pkg(ByVal fn As String)
-        Dim entry = GUI_PACKAGE(fn)
-        If entry Is Nothing Then
-            MsgBox("Unable to find " + fn, MsgBoxStyle.Exclamation, "Shit!!")
-            Return -1
-        End If
-        Dim ms As New MemoryStream
-        entry.Extract(ms)
-        If fn.Contains(".png") Then
-            Return load_image_from_stream(Il.IL_PNG, ms, fn, False, True)
-        End If
-        If fn.Contains(".dds") Then
-            Return load_image_from_stream(Il.IL_DDS, ms, fn, False, True)
-        End If
-        MsgBox("file Type?" + fn, MsgBoxStyle.Exclamation, "Shit!!")
-        Return -1
-    End Function
-
     Public Function find_and_load_UI_texture_from_pkgs(ByRef fn As String) As Integer
         'This will NOT replace PNG with DDS in the file name.
         'finds and loads and returns the GL texture ID.
@@ -442,6 +424,7 @@ Module TextureLoaders
 
             If make_id Then
                 GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
+                GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-TANK-IMAGE-{0}", index))
 
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
@@ -482,18 +465,4 @@ Module TextureLoaders
         Return Nothing
     End Function
 
-    Public Sub make_test_texture()
-        If TEST_TEXTURE_ID > 0 Then
-            GL.DeleteTexture(TEST_TEXTURE_ID)
-        End If
-
-        GL.CreateTextures(TextureTarget.Texture2D, 1, TEST_TEXTURE_ID)
-
-        GL.TextureParameter(TEST_TEXTURE_ID, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-        GL.TextureParameter(TEST_TEXTURE_ID, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-        GL.TextureParameter(TEST_TEXTURE_ID, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-        GL.TextureParameter(TEST_TEXTURE_ID, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-        GL.TextureStorage2D(TEST_TEXTURE_ID, 1, SizedInternalFormat.Rgba32f, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
-        GL.BindImageTexture(0, TEST_TEXTURE_ID, 0, False, 0, TextureAccess.WriteOnly, SizedInternalFormat.Rgba32f)
-    End Sub
 End Module

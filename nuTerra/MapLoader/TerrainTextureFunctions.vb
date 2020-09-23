@@ -1,15 +1,12 @@
-﻿
+﻿Imports System.IO
 Imports System.Runtime.InteropServices
-Imports System
-Imports System.IO
 Imports System.Text
-Imports Ionic.Zip
-Imports Tao.DevIl
-Imports System.Xml
-Imports OpenTK
-Imports OpenTK.Graphics.OpenGL
-Imports OpenTK.Graphics
 Imports Ionic
+Imports Ionic.Zip
+Imports OpenTK.Graphics
+Imports OpenTK.Graphics.OpenGL
+Imports Tao.DevIl
+
 Module TerrainTextureFunctions
     Dim cur_layer_info_pnt As Integer = 0
 

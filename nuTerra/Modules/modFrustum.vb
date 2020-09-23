@@ -1,11 +1,10 @@
-﻿
-Imports System.Math
+﻿Imports System.Math
 Imports OpenTK
+
 Module modFrustum
     Public frustum(6, 4) As Single
 
     Public CULLED_COUNT As Integer
-
 
     Public Sub cull_terrain()
         If DONT_BLOCK_TERRAIN And Not TERRAIN_LOADED Then Return
@@ -14,62 +13,8 @@ Module modFrustum
         Next
     End Sub
 
-    Public Sub check_road_decals_visible()
-        'If Not m_decals_ And Not decals_loaded Then Return
-        'For k = 0 To road_decals.Length - 1
-        '    For i = 0 To road_decals(k).road_decal_list.Length - 1
-        '        If road_decals(k).road_decal_list(i).good Then
-        '            Dim l1 = Abs(eyeX - road_decals(k).road_decal_list(i).matrix(12))
-        '            Dim l2 = Abs(eyeZ - road_decals(k).road_decal_list(i).matrix(14))
-        '            Dim d = l1 ^ 2 + l2 ^ 2
-        '            If d > 160000 Then
-        '                road_decals(k).road_decal_list(i).visible = False
-        '            Else
-        '                road_decals(k).road_decal_list(i).visible = CubeInFrustum(road_decals(k).road_decal_list(i).BB)
-        '            End If
-        '        End If
-        '    Next
-        'Next
-    End Sub
-
-    Public Sub check_decals_visible()
-        'If Not m_decals_ And Not decals_loaded Then Return
-        'For i = 0 To decal_matrix_list.Length - 1
-        '    If decal_matrix_list(i).good Then
-        '        'decal_matrix_list(i).visible = CubeInFrustum(decal_matrix_list(i).BB)
-        '        Dim l1 = Abs(eyeX - decal_matrix_list(i).matrix(12))
-        '        Dim l2 = Abs(eyeZ - decal_matrix_list(i).matrix(14))
-        '        Dim d = l1 ^ 2 + l2 ^ 2
-        '        If d > 160000 Then
-        '            decal_matrix_list(i).visible = False
-        '        Else
-        '            decal_matrix_list(i).visible = CubeInFrustum(decal_matrix_list(i).BB)
-        '        End If
-
-        '    End If
-        'Next
-    End Sub
-    Public Sub check_models_visible()
-        'If Not MODELS_BLOCK_LOADING And Not MODELS_LOADED Then Return
-        'For m As UInt32 = 0 To MODEL_MATRIX_LIST.Length - 2
-        '    Dim idx = MODEL_MATRIX_LIST(m).model_index
-        '    If Not MAP_MODELS(idx).mdl(0).junk Then
-        '        MODEL_MATRIX_LIST(m).Culled = CubeInFrustum(MODEL_MATRIX_LIST(m).BB)
-        '    End If
-
-        'Next
-    End Sub
-    Public Sub check_trees_visible()
-        'If Not m_trees_ And Not trees_loaded Then Return
-        'For t = 0 To treeCache.Length - 2
-        '    For tree As UInt32 = 0 To treeCache(t).tree_cnt - 1
-        '        treeCache(t).BB(tree).visible = CubeInFrustum(treeCache(t).BB(tree).BB)
-        '    Next
-        'Next
-    End Sub
-
     Public Sub ExtractFrustum()
-        culled_count = 0
+        CULLED_COUNT = 0
         Dim proj(16) As Single
         Dim modl(16) As Single
         Dim t As Single
@@ -172,28 +117,28 @@ Module modFrustum
             Return False
         End If
         For p = 0 To 5
-            If (frustum(p, 0) * (bb(0).x) + frustum(p, 1) * (bb(0).y) + frustum(p, 2) * (bb(0).z) + frustum(p, 3) > 0) Then
+            If (frustum(p, 0) * (bb(0).X) + frustum(p, 1) * (bb(0).Y) + frustum(p, 2) * (bb(0).Z) + frustum(p, 3) > 0) Then
                 Continue For
             End If
-            If (frustum(p, 0) * (bb(1).x) + frustum(p, 1) * (bb(1).y) + frustum(p, 2) * (bb(1).z) + frustum(p, 3) > 0) Then
+            If (frustum(p, 0) * (bb(1).X) + frustum(p, 1) * (bb(1).Y) + frustum(p, 2) * (bb(1).Z) + frustum(p, 3) > 0) Then
                 Continue For
             End If
-            If (frustum(p, 0) * (bb(2).x) + frustum(p, 1) * (bb(2).y) + frustum(p, 2) * (bb(2).z) + frustum(p, 3) > 0) Then
+            If (frustum(p, 0) * (bb(2).X) + frustum(p, 1) * (bb(2).Y) + frustum(p, 2) * (bb(2).Z) + frustum(p, 3) > 0) Then
                 Continue For
             End If
-            If (frustum(p, 0) * (bb(3).x) + frustum(p, 1) * (bb(3).y) + frustum(p, 2) * (bb(3).z) + frustum(p, 3) > 0) Then
+            If (frustum(p, 0) * (bb(3).X) + frustum(p, 1) * (bb(3).Y) + frustum(p, 2) * (bb(3).Z) + frustum(p, 3) > 0) Then
                 Continue For
             End If
-            If (frustum(p, 0) * (bb(4).x) + frustum(p, 1) * (bb(4).y) + frustum(p, 2) * (bb(4).z) + frustum(p, 3) > 0) Then
+            If (frustum(p, 0) * (bb(4).X) + frustum(p, 1) * (bb(4).Y) + frustum(p, 2) * (bb(4).Z) + frustum(p, 3) > 0) Then
                 Continue For
             End If
-            If (frustum(p, 0) * (bb(5).x) + frustum(p, 1) * (bb(5).y) + frustum(p, 2) * (bb(5).z) + frustum(p, 3) > 0) Then
+            If (frustum(p, 0) * (bb(5).X) + frustum(p, 1) * (bb(5).Y) + frustum(p, 2) * (bb(5).Z) + frustum(p, 3) > 0) Then
                 Continue For
             End If
-            If (frustum(p, 0) * (bb(6).x) + frustum(p, 1) * (bb(6).y) + frustum(p, 2) * (bb(6).z) + frustum(p, 3) > 0) Then
+            If (frustum(p, 0) * (bb(6).X) + frustum(p, 1) * (bb(6).Y) + frustum(p, 2) * (bb(6).Z) + frustum(p, 3) > 0) Then
                 Continue For
             End If
-            If (frustum(p, 0) * (bb(7).x) + frustum(p, 1) * (bb(7).y) + frustum(p, 2) * (bb(7).z) + frustum(p, 3) > 0) Then
+            If (frustum(p, 0) * (bb(7).X) + frustum(p, 1) * (bb(7).Y) + frustum(p, 2) * (bb(7).Z) + frustum(p, 3) > 0) Then
                 Continue For
             End If
             CULLED_COUNT += 1

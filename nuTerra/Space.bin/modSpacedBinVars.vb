@@ -471,7 +471,7 @@ Module modSpacedBinVars
         Public tbl_2 As BWArray(Of tbl_2_)
         Public models_colliders As BWArray(Of ModelColliderItem_v0_9_12)
         Public bsp_material_kinds As BWArray(Of BSPMaterialKindItem_v0_9_12)
-        Public models_visibility_bounds As BWArray(Of Matrix3x2)
+        Public models_visibility_bounds As BWArray(Of Matrix2x3)
         Public model_info_items As BWArray(Of WoTModelInfoItem_v0_9_12)
         Public model_sound_items As BWArray(Of UInt32)
         Public lod_loddings As BWArray(Of lod_range_)
@@ -501,7 +501,7 @@ Module modSpacedBinVars
             tbl_2 = New BWArray(Of tbl_2_)(br)
             models_colliders = New BWArray(Of ModelColliderItem_v0_9_12)(br)
             bsp_material_kinds = New BWArray(Of BSPMaterialKindItem_v0_9_12)(br)
-            models_visibility_bounds = New BWArray(Of Matrix3x2)(br)
+            models_visibility_bounds = New BWArray(Of Matrix2x3)(br)
             model_info_items = New BWArray(Of WoTModelInfoItem_v0_9_12)(br)
             model_sound_items = New BWArray(Of UInt32)(br)
             lod_loddings = New BWArray(Of lod_range_)(br)
@@ -825,7 +825,6 @@ Module modSpacedBinVars
 
             If tl = 0 Then
                 'no water
-                water.IsWater = False
                 Return
             End If
 
@@ -849,11 +848,9 @@ Module modSpacedBinVars
                 bwwa_t1(0).plane = bbox_min.Y
                 bwwa_t1(0).height = Math.Abs(bbox_min.Z) + Math.Abs(bbox_max.Z)
 
-                water.IsWater = True
                 WATER_LINE = bwwa_t1(0).position.Y
             Catch ex As Exception
                 'FIXME!
-                water.IsWater = False
                 WATER_LINE = -500.0
             End Try
         End Sub

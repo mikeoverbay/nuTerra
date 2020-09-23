@@ -242,7 +242,7 @@ Public Class frmMain
 try_again:
         If FolderBrowserDialog1.ShowDialog = Forms.DialogResult.OK Then
             My.Settings.GamePath = FolderBrowserDialog1.SelectedPath
-            If Not Directory.Exists(My.Settings.GamePath + "\res") Then
+            If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
                 MsgBox("Wrong Folder Path!" + vbCrLf +
                        "You need to point at the World_of_Tanks folder!",
                         MsgBoxStyle.Exclamation, "Wrong Path!")
@@ -298,9 +298,10 @@ try_again:
         'Check context:
         Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
         Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
-        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 3) Then
-            MsgBox("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
+        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 5) Then
+            MsgBox("A graphics card and driver with support for OpenGL 4.5 or higher is required.")
             Application.Exit()
+            Return
         End If
 
         '-----------------------------------------------------------------------------------------
@@ -355,6 +356,12 @@ try_again:
             MsgBox("Path to game is not set!" + vbCrLf +
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
             m_set_game_path.PerformClick()
+
+            If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
+                MsgBox("This application will be closed because game was not found!")
+                Application.Exit()
+                Return
+            End If
         End If
 
         GAME_PATH = Path.Combine(My.Settings.GamePath, "res", "packages")
@@ -362,6 +369,7 @@ try_again:
 
         ' Create default VAO
         GL.CreateVertexArrays(1, defaultVao)
+        GL.ObjectLabel(ObjectLabelIdentifier.VertexArray, defaultVao, -1, "defaultVao")
 
         FBOm.FBO_Initialize()
         LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
@@ -378,10 +386,6 @@ try_again:
 
         load_assets()
         LogThis(String.Format("{0}ms Assets Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
-
-        'Loads the list of destroyed object types.
-        load_destructibles()
-        LogThis(String.Format("{0}ms Destructibles Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
         'Set camara start up position. This is mostly for testing.
         VIEW_RADIUS = -1000.0
@@ -436,7 +440,15 @@ try_again:
         Dim sp = Application.StartupPath
         '-----------------------------------------------------------------------------------------
         'needed to load image elements
-        GUI_PACKAGE = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui.pkg"))
+        If File.Exists(Path.Combine(GAME_PATH, "gui.pkg")) Then
+            'old WoT version
+            GUI_PACKAGE = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui.pkg"))
+        Else
+            'new WoT version ~v1.10
+            GUI_PACKAGE = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui-part1.pkg"))
+            GUI_PACKAGE_PART2 = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui-part2.pkg"))
+        End If
+
         '---------------------------------------------------------
         'Loads the textures for the map selection routines
         make_map_pick_buttons()
@@ -495,14 +507,6 @@ try_again:
         'need to create this texture.
         DrawMapPickText.TextRenderer(300, 30)
 
-        'test junk. ----------------------------------------------
-        MOON = New base_model_holder_()
-        CROSS_HAIR = New base_model_holder_()
-
-        get_X_model(sp + "\resources\moon.x", MOON)
-        get_X_model(sp + "\resources\cross_hair.x", CROSS_HAIR)
-        CROSS_HAIR_TEXTURE = load_image_from_file(Il.IL_PNG, sp +
-                             "\resources\cross_hair_texture.png", True, False)
         'This gets the first GL texture, vertex array and vertex buffer IDs after the static IDs
         'ALL STATIC ITEMS NEED TO BE LOADED BEFORE THIS IS CALLED!!!
         get_start_ID_for_Components_Deletion()
