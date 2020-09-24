@@ -321,45 +321,85 @@ CleanUp:
         Else
             pGroup.material_id = materials.Count
             Dim mat As New Material
-            mat.id = materials.Count
-            mat.props = New Dictionary(Of String, Object)
-            mat.fx = cBSMA.FXStringKey(item.effectIndex).FX_string
+            mat.id = pGroup.material_id
+
+            Dim props As New Dictionary(Of String, Object)
+            Dim fx = cBSMA.FXStringKey(item.effectIndex).FX_string
+
             For i = item.shaderPropBegin To item.shaderPropEnd
-                Select Case cBSMA.ShaderPropertyItem(i).property_type
+                With cBSMA.ShaderPropertyItem(i)
+                    Select Case .property_type
+                        Case 0 ' special case for volumetrics.
+                            props(.property_name_string) = .val_int
 
-                    Case 0 ' special case for volumetrics.
-                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_int
+                        Case 1
+                            ' Bool
+                            props(.property_name_string) = .val_boolean
 
-                    Case 1
-                        ' Bool
-                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_boolean
+                        Case 2
+                            ' Float
+                            props(.property_name_string) = .val_float
 
-                    Case 2
-                        ' Float
-                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_float
+                        Case 3
+                            ' Int
+                            props(.property_name_string) = .val_int
 
-                    Case 3
-                        ' Int
-                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_int
+                        Case 4
+                            ' ?
+                            Stop
 
-                    Case 4
-                        ' ?
-                        Debug.Assert(False)
+                        Case 5
+                            ' Vector4
+                            props(.property_name_string) = .val_vec4
 
-                    Case 5
-                        ' Vector4
-                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).val_vec4
+                        Case 6
+                            ' Texture
+                            props(.property_name_string) = .property_value_string
 
-                    Case 6
-                        ' Texture
-                        mat.props(cBSMA.ShaderPropertyItem(i).property_name_string) = cBSMA.ShaderPropertyItem(i).property_value_string
-
-                    Case Else
-                        Debug.Assert(False)
-
-                End Select
-
+                        Case Else
+                            Stop
+                    End Select
+                End With
             Next
+
+            Select Case fx
+                Case "shaders/std_effects/PBS_ext.fx", "shaders/std_effects/PBS_ext_skinned.fx", "shaders/std_effects/PBS_ext_repaint.fx"
+                    mat.shader_type = ShaderTypes.FX_PBS_ext
+                    mat.diffuseMap = props("diffuseMap")
+                    mat.normalMap = props("normalMap")
+                    mat.metallicGlossMap = props("metallicGlossMap")
+
+                Case "shaders/std_effects/PBS_ext_dual.fx", "shaders/std_effects/PBS_ext_skinned_dual.fx"
+                    mat.shader_type = ShaderTypes.FX_PBS_ext_dual
+                    mat.diffuseMap = props("diffuseMap")
+                    mat.diffuseMap2 = props("diffuseMap2")
+                    mat.normalMap = props("normalMap")
+                    mat.metallicGlossMap = props("metallicGlossMap")
+
+                Case "shaders/std_effects/PBS_ext_detail.fx"
+                    mat.shader_type = ShaderTypes.FX_PBS_ext_detail
+                    mat.diffuseMap = props("diffuseMap")
+                    mat.normalMap = props("normalMap")
+                    mat.metallicGlossMap = props("metallicGlossMap")
+                    mat.g_detailMap = If(props.ContainsKey("g_detailMap"), props("g_detailMap"), Nothing)
+
+                Case "shaders/std_effects/PBS_tiled_atlas.fx", "shaders/std_effects/PBS_tiled_atlas_rigid_skinned.fx"
+                    mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas
+
+                Case "shaders/std_effects/PBS_tiled_atlas_global.fx"
+                    mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas_global
+
+                Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/normalmap_specmap.fx"
+                    mat.shader_type = ShaderTypes.FX_lightonly_alpha
+                    mat.diffuseMap = props("diffuseMap")
+
+                Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/std_effects/PBS_glass.fx"
+                    mat.shader_type = ShaderTypes.FX_unsupported
+
+                Case Else
+                    Stop
+            End Select
+
             materials(material_id) = mat
         End If
     End Sub

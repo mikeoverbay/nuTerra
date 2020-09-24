@@ -33,11 +33,14 @@ Module modOpenGL
 
     <StructLayout(LayoutKind.Sequential)>
     Public Structure GLMaterial
-        Dim colorMapHandle As UInt64
-        Dim normalMapHandle As UInt64
-        Dim GMF_MapHandle As UInt64
+        Dim map1Handle As UInt64
+        Dim map2Handle As UInt64
+        Dim map3Handle As UInt64
+        Dim map4Handle As UInt64
         Dim shader_type As UInt32
+        Dim reserved1 As UInt32 'pad
         Dim reserved2 As UInt32 'pad
+        Dim reserved3 As UInt32 'pad
     End Structure
 
     Public Sub Ortho_main()

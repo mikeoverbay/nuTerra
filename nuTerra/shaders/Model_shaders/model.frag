@@ -20,11 +20,12 @@ in VS_OUT
 
 struct MaterialProperties
 {
-    sampler2D colorMap;
-    sampler2D normalMap;
-    sampler2D GMF_Map;
+    sampler2D map1;
+    sampler2D map2;
+    sampler2D map3;
+    sampler2D map4;
+
     uint shader_type;
-    uint reserved2;
 };
 
 // Material block
@@ -53,7 +54,7 @@ void main(void)
         gColor = vec4(1.0, 0.0, 0.0, 1.0);
         break;
     case FX_PBS_ext_dual:
-        gColor = vec4(0.0, 1.0, 0.0, 1.0);
+        gColor = texture(thisMaterial.map1, fs_in.UV);
         break;
     case FX_PBS_ext_detail:
         gColor = vec4(0.0, 0.0, 1.0, 1.0);
@@ -74,5 +75,6 @@ void main(void)
         gColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
 
+    gColor.a = 1.0;
     gPosition = fs_in.worldPosition;
 }

@@ -10,10 +10,25 @@ Module PrimitiveLoader
         Public size As UInt32
     End Class
 
+    Public Enum ShaderTypes
+        FX_PBS_ext = 0
+        FX_PBS_ext_dual = 1
+        FX_PBS_ext_detail = 2
+        FX_PBS_tiled_atlas = 3
+        FX_PBS_tiled_atlas_global = 4
+        FX_lightonly_alpha = 5
+        FX_unsupported = 6
+    End Enum
+
     Structure Material
         Public id As UInt32
-        Public fx As String
-        Public props As Dictionary(Of String, Object)
+        Public shader_type As ShaderTypes
+
+        Public diffuseMap As String
+        Public diffuseMap2 As String
+        Public normalMap As String
+        Public metallicGlossMap As String
+        Public g_detailMap As String
     End Structure
 
     Class PrimitiveGroup

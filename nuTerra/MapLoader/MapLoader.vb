@@ -335,7 +335,6 @@ Module MapLoader
             '----------------------------------------------------------------
             ' setup instances
             Dim drawCommands(indirectDrawCount - 1) As CandidateDraw
-            Dim materialMapping(indirectDrawCount - 1) As UInt32
             Dim vBuffer(numVerts - 1) As ModelVertex
             Dim iBuffer(numPrims - 1) As vect3_32
             Dim matrices(numMatrices - 1) As Matrix4
@@ -479,79 +478,61 @@ Module MapLoader
         close_shared_packages()
     End Sub
 
-    Private Enum ShaderTypes
-        FX_PBS_ext = 0
-        FX_PBS_ext_dual = 1
-        FX_PBS_ext_detail = 2
-        FX_PBS_tiled_atlas = 3
-        FX_PBS_tiled_atlas_global = 4
-        FX_lightonly_alpha = 5
-        FX_unsupported = 6
-    End Enum
-
+    'Load materials
     Private Sub load_materials()
-        Dim tex_data(32 * 32 * 8 - 1) As Byte
-        For i = 0 To 31
-            For j = 0 To 31
-                tex_data(i * 4 * 32 + j * 4) = (i Xor j) << 3
-                tex_data(i * 4 * 32 + j * 4 + 1) = (i Xor j) << 3
-                tex_data(i * 4 * 32 + j * 4 + 2) = (i Xor j) << 3
-            Next
-        Next
-
-        'Load materials
-        Dim materialsData(materials.Count - 1) As GLMaterial
+        Dim diffuseMapPaths As New HashSet(Of String)
 
         For Each mat In materials.Values
-            Select Case mat.fx
-                Case "shaders/std_effects/PBS_ext.fx", "shaders/std_effects/PBS_ext_skinned.fx", "shaders/std_effects/PBS_ext_repaint.fx"
-                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_ext
-                    Dim diffuseMap = mat.props("diffuseMap")
-                    Dim normalMap = mat.props("normalMap")
-                    Dim metallicGlossMap = mat.props("metallicGlossMap")
-                    'Stop
-
-                Case "shaders/std_effects/PBS_ext_dual.fx"
-                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_ext_dual
-                    Dim diffuseMap = mat.props("diffuseMap")
-                    Dim diffuseMap2 = mat.props("diffuseMap2")
-                    Dim normalMap = mat.props("normalMap")
-                    Dim metallicGlossMap = mat.props("metallicGlossMap")
-                    'Stop
-
-                Case "shaders/std_effects/PBS_ext_detail.fx"
-                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_ext_detail
-                    Dim diffuseMap = mat.props("diffuseMap")
-                    Dim normalMap = mat.props("normalMap")
-                    Dim metallicGlossMap = mat.props("metallicGlossMap")
-                    'TODO: Dim g_detailMap = mat.props("g_detailMap")
-                    'Stop
-
-                Case "shaders/std_effects/PBS_tiled_atlas.fx", "shaders/std_effects/PBS_tiled_atlas_rigid_skinned.fx"
-                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_tiled_atlas
-                    'Stop
-
-                Case "shaders/std_effects/PBS_tiled_atlas_global.fx"
-                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_tiled_atlas_global
-                    'Stop
-
-                Case "shaders/std_effects/lightonly_alpha.fx"
-                    materialsData(mat.id).shader_type = ShaderTypes.FX_lightonly_alpha
-                    Dim diffuseMap = mat.props("diffuseMap")
-                    'Stop
-
-                Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/std_effects/PBS_glass.fx"
-                    materialsData(mat.id).shader_type = ShaderTypes.FX_unsupported
-                    'Stop
+            Select Case mat.shader_type
+                Case ShaderTypes.FX_PBS_ext, ShaderTypes.FX_PBS_ext_dual, ShaderTypes.FX_PBS_ext_detail, ShaderTypes.FX_lightonly_alpha
+                    diffuseMapPaths.Add(mat.diffuseMap)
 
                 Case Else
-                    Stop
+                    'TODO
             End Select
         Next
 
+        Dim diffuseMapHandles As New Dictionary(Of String, UInt64)
+        For Each diffuseMapPath In diffuseMapPaths
+            If Not diffuseMapPath.EndsWith(".dds") Then
+                Stop
+                Continue For
+            End If
+
+            Dim entry As ZipEntry = search_pkgs(diffuseMapPath)
+            If entry Is Nothing Then
+                Stop
+                Continue For
+            End If
+
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+
+            Dim tex = load_dds_image_from_stream(ms, diffuseMapPath)
+
+            Dim handle = GL.Arb.GetTextureHandle(tex)
+            GL.Arb.MakeTextureHandleResident(handle)
+
+            diffuseMapHandles(diffuseMapPath) = handle
+        Next
+
+        Dim materialsData(materials.Count - 1) As GLMaterial
+        For Each mat In materials.Values
+            With materialsData(mat.id)
+                .shader_type = mat.shader_type
+                Select Case mat.shader_type
+                    Case ShaderTypes.FX_PBS_ext, ShaderTypes.FX_PBS_ext_dual, ShaderTypes.FX_PBS_ext_detail, ShaderTypes.FX_lightonly_alpha
+                        .map1Handle = diffuseMapHandles(mat.diffuseMap)
+                    Case Else
+                        'TODO
+                End Select
+            End With
+        Next
+
+        materials = Nothing
+
         GL.CreateBuffers(1, textureHandleBuffer)
         GL.NamedBufferStorage(textureHandleBuffer, materialsData.Length * Marshal.SizeOf(Of GLMaterial), materialsData, BufferStorageFlags.None)
-
     End Sub
 
     Private Function get_spaceBin(ByVal ABS_NAME As String) As Boolean
