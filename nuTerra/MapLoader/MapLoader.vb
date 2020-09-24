@@ -109,6 +109,10 @@ Module MapLoader
         If entry IsNot Nothing Then
             Return entry
         End If
+        entry = GUI_PACKAGE_PART2(filename)
+        If entry IsNot Nothing Then
+            Return entry
+        End If
         'We still have not found it so lets search the XML datatable.
         Dim pn = search_xml(filename)
         If pn = "" Then

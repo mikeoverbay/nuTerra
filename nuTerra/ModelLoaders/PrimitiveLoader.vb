@@ -129,9 +129,8 @@ Module PrimitiveLoader
         ' read the tables
         For z = 0 To numPrimGroups - 1
             If Not renderSet.primitiveGroups.ContainsKey(z) Then
-                renderSet.primitiveGroups(z) = New PrimitiveGroup With {
-                    .no_draw = True 'HACK!
-                }
+                renderSet.primitiveGroups(z) = New PrimitiveGroup
+                renderSet.primitiveGroups(z).no_draw = True
             End If
             With renderSet.primitiveGroups(z)
                 .startIndex = br.ReadInt32
