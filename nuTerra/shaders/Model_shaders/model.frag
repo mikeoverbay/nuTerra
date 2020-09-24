@@ -23,7 +23,7 @@ struct MaterialProperties
     sampler2D colorMap;
     sampler2D normalMap;
     sampler2D GMF_Map;
-    uint reserved1;
+    uint shader_type;
     uint reserved2;
 };
 
@@ -33,10 +33,46 @@ layout (binding = 2, std430) readonly buffer MATERIALS
     MaterialProperties material[];
 };
 
+
+// Shader types
+#define FX_PBS_ext                0
+#define FX_PBS_ext_dual           1
+#define FX_PBS_ext_detail         2
+#define FX_PBS_tiled_atlas        3
+#define FX_PBS_tiled_atlas_global 4
+#define FX_lightonly_alpha        5
+#define FX_unsupported            6
+
+
 void main(void)
 {
     const MaterialProperties thisMaterial = material[fs_in.material_id];
 
-    gColor = vec4(texture(thisMaterial.colorMap, fs_in.UV).rgb, 1.0);
+    switch (thisMaterial.shader_type) {
+    case FX_PBS_ext:
+        gColor = vec4(1.0, 0.0, 0.0, 1.0);
+        break;
+    case FX_PBS_ext_dual:
+        gColor = vec4(0.0, 1.0, 0.0, 1.0);
+        break;
+    case FX_PBS_ext_detail:
+        gColor = vec4(0.0, 0.0, 1.0, 1.0);
+        break;
+    case FX_PBS_tiled_atlas:
+        gColor = vec4(1.0, 0.0, 1.0, 1.0);
+        break;
+    case FX_PBS_tiled_atlas_global:
+        gColor = vec4(1.0, 1.0, 0.0, 1.0);
+        break;
+    case FX_lightonly_alpha:
+        gColor = vec4(0.5, 0.5, 0.5, 1.0);
+        break;
+    case FX_unsupported:
+        gColor = vec4(1.0, 1.0, 1.0, 1.0);
+        break;
+    default:
+        gColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+
     gPosition = fs_in.worldPosition;
 }

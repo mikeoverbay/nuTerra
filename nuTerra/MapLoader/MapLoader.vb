@@ -435,32 +435,7 @@ Module MapLoader
 
             GL.VertexArrayElementBuffer(vertexArray, primsBuffer)
 
-            Dim tex_data(32 * 32 * 8 - 1) As Byte
-            For i = 0 To 31
-                For j = 0 To 31
-                    tex_data(i * 4 * 32 + j * 4) = (i Xor j) << 3
-                    tex_data(i * 4 * 32 + j * 4 + 1) = (i Xor j) << 3
-                    tex_data(i * 4 * 32 + j * 4 + 2) = (i Xor j) << 3
-                Next
-            Next
-
-            'Load materials
-            Dim materialsData(materials.Count - 1) As GLMaterial
-
-            For i = 0 To materials.Count - 1
-                Dim tex = 0
-                GL.CreateTextures(TextureTarget.Texture2D, 1, tex)
-                GL.TextureStorage2D(tex, 5, SizedInternalFormat.Rgba8, 16, 16)
-
-                GL.TextureSubImage2D(tex, 0, 0, 0, 16, 16, PixelFormat.Rgba, PixelType.UnsignedByte, tex_data)
-                GL.GenerateTextureMipmap(tex)
-
-                materialsData(i).colorMapHandle = GL.Arb.GetTextureHandle(tex)
-                GL.Arb.MakeTextureHandleResident(materialsData(i).colorMapHandle)
-            Next
-
-            GL.CreateBuffers(1, textureHandleBuffer)
-            GL.NamedBufferStorage(textureHandleBuffer, materialsData.Length * Marshal.SizeOf(Of GLMaterial), materialsData, BufferStorageFlags.None)
+            load_materials()
 
             MODELS_LOADED = True
         End If ' block DONT_BLOCK_MODELS laoded
@@ -502,6 +477,81 @@ Module MapLoader
 
         ' close packages
         close_shared_packages()
+    End Sub
+
+    Private Enum ShaderTypes
+        FX_PBS_ext = 0
+        FX_PBS_ext_dual = 1
+        FX_PBS_ext_detail = 2
+        FX_PBS_tiled_atlas = 3
+        FX_PBS_tiled_atlas_global = 4
+        FX_lightonly_alpha = 5
+        FX_unsupported = 6
+    End Enum
+
+    Private Sub load_materials()
+        Dim tex_data(32 * 32 * 8 - 1) As Byte
+        For i = 0 To 31
+            For j = 0 To 31
+                tex_data(i * 4 * 32 + j * 4) = (i Xor j) << 3
+                tex_data(i * 4 * 32 + j * 4 + 1) = (i Xor j) << 3
+                tex_data(i * 4 * 32 + j * 4 + 2) = (i Xor j) << 3
+            Next
+        Next
+
+        'Load materials
+        Dim materialsData(materials.Count - 1) As GLMaterial
+
+        For Each mat In materials.Values
+            Select Case mat.fx
+                Case "shaders/std_effects/PBS_ext.fx", "shaders/std_effects/PBS_ext_skinned.fx", "shaders/std_effects/PBS_ext_repaint.fx"
+                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_ext
+                    Dim diffuseMap = mat.props("diffuseMap")
+                    Dim normalMap = mat.props("normalMap")
+                    Dim metallicGlossMap = mat.props("metallicGlossMap")
+                    'Stop
+
+                Case "shaders/std_effects/PBS_ext_dual.fx"
+                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_ext_dual
+                    Dim diffuseMap = mat.props("diffuseMap")
+                    Dim diffuseMap2 = mat.props("diffuseMap2")
+                    Dim normalMap = mat.props("normalMap")
+                    Dim metallicGlossMap = mat.props("metallicGlossMap")
+                    'Stop
+
+                Case "shaders/std_effects/PBS_ext_detail.fx"
+                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_ext_detail
+                    Dim diffuseMap = mat.props("diffuseMap")
+                    Dim normalMap = mat.props("normalMap")
+                    Dim metallicGlossMap = mat.props("metallicGlossMap")
+                    'TODO: Dim g_detailMap = mat.props("g_detailMap")
+                    'Stop
+
+                Case "shaders/std_effects/PBS_tiled_atlas.fx", "shaders/std_effects/PBS_tiled_atlas_rigid_skinned.fx"
+                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_tiled_atlas
+                    'Stop
+
+                Case "shaders/std_effects/PBS_tiled_atlas_global.fx"
+                    materialsData(mat.id).shader_type = ShaderTypes.FX_PBS_tiled_atlas_global
+                    'Stop
+
+                Case "shaders/std_effects/lightonly_alpha.fx"
+                    materialsData(mat.id).shader_type = ShaderTypes.FX_lightonly_alpha
+                    Dim diffuseMap = mat.props("diffuseMap")
+                    'Stop
+
+                Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/std_effects/PBS_glass.fx"
+                    materialsData(mat.id).shader_type = ShaderTypes.FX_unsupported
+                    'Stop
+
+                Case Else
+                    Stop
+            End Select
+        Next
+
+        GL.CreateBuffers(1, textureHandleBuffer)
+        GL.NamedBufferStorage(textureHandleBuffer, materialsData.Length * Marshal.SizeOf(Of GLMaterial), materialsData, BufferStorageFlags.None)
+
     End Sub
 
     Private Function get_spaceBin(ByVal ABS_NAME As String) As Boolean

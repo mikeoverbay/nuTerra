@@ -36,7 +36,7 @@ Module modOpenGL
         Dim colorMapHandle As UInt64
         Dim normalMapHandle As UInt64
         Dim GMF_MapHandle As UInt64
-        Dim reserved1 As UInt32 'pad
+        Dim shader_type As UInt32
         Dim reserved2 As UInt32 'pad
     End Structure
 
