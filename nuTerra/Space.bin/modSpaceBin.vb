@@ -532,7 +532,7 @@ CleanUp:
                         .atlasNormalGlossSpec = props("atlasNormalGlossSpec")
                         .atlasMetallicAO = props("atlasMetallicAO")
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
-                        .g_atlasSizes = props("g_atlasSizes") ' (4, 4, 8, 4)
+                        .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(4, 4, 8, 4))
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas
                     mat.props = obj
