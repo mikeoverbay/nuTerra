@@ -1,5 +1,6 @@
 ﻿Imports System.IO
 Imports System.Text
+Imports OpenTK
 
 Module modSpaceBin
     Public sectionHeaders As Dictionary(Of String, SectionHeader)
@@ -530,7 +531,7 @@ CleanUp:
                         .atlasAlbedoHeight = props("atlasAlbedoHeight")
                         .atlasNormalGlossSpec = props("atlasNormalGlossSpec")
                         .atlasMetallicAO = props("atlasMetallicAO")
-                        .g_atlasIndexes = props("g_atlasIndexes")
+                        .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
                         .g_atlasSizes = props("g_atlasSizes") ' (4, 4, 8, 4)
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas
@@ -547,7 +548,7 @@ CleanUp:
                     mat.shader_type = ShaderTypes.FX_lightonly_alpha
                     mat.props = obj
 
-                Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/std_effects/PBS_glass.fx"
+                Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/std_effects/PBS_glass.fx", "shaders/custom/emissive.fx"
                     mat.shader_type = ShaderTypes.FX_unsupported
 
                 Case Else
