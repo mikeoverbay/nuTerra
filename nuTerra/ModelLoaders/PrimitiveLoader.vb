@@ -370,9 +370,10 @@ Module PrimitiveLoader
         Dim uv2_count = br.ReadUInt32()
         Debug.Assert(uv2_count = renderSet.buffers.vertexBuffer.Length)
 
+        ReDim renderSet.buffers.uv2(uv2_count - 1)
         For i = 0 To uv2_count - 1
-            renderSet.buffers.vertexBuffer(i).uv2.X = br.ReadSingle
-            renderSet.buffers.vertexBuffer(i).uv2.X = br.ReadSingle
+            renderSet.buffers.uv2(i).X = br.ReadSingle
+            renderSet.buffers.uv2(i).Y = br.ReadSingle
         Next
     End Sub
 

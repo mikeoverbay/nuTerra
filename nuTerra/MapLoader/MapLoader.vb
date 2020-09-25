@@ -44,6 +44,7 @@ Module MapLoader
     Public drawCandidatesBuffer As Integer
     Public indirectBuffer As Integer
     Public vertsBuffer As Integer
+    Public vertsUV2Buffer As Integer
     Public primsBuffer As Integer
     Public vertexArray As Integer
 
@@ -336,6 +337,7 @@ Module MapLoader
             ' setup instances
             Dim drawCommands(indirectDrawCount - 1) As CandidateDraw
             Dim vBuffer(numVerts - 1) As ModelVertex
+            Dim uv2Buffer(numVerts - 1) As Vector2
             Dim iBuffer(numPrims - 1) As vect3_32
             Dim matrices(numMatrices - 1) As Matrix4
             Dim cmdId = 0
@@ -379,6 +381,10 @@ Module MapLoader
 
                     renderSet.buffers.vertexBuffer.CopyTo(vBuffer, vLast)
                     renderSet.buffers.index_buffer32.CopyTo(iBuffer, iLast)
+                    If renderSet.buffers.uv2 IsNot Nothing Then
+                        renderSet.buffers.uv2.CopyTo(uv2Buffer, vLast)
+                        Erase renderSet.buffers.uv2
+                    End If
 
                     vLast += renderSet.buffers.vertexBuffer.Length
                     iLast += renderSet.buffers.index_buffer32.Length
@@ -400,18 +406,26 @@ Module MapLoader
 
             GL.CreateBuffers(1, drawCandidatesBuffer)
             GL.NamedBufferStorage(drawCandidatesBuffer, indirectDrawCount * Marshal.SizeOf(Of CandidateDraw), drawCommands, BufferStorageFlags.None)
+            Erase drawCommands
 
             GL.CreateBuffers(1, indirectBuffer)
             GL.NamedBufferStorage(indirectBuffer, indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand), IntPtr.Zero, BufferStorageFlags.None)
 
             GL.CreateBuffers(1, matricesBuffer)
             GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of Matrix4), matrices, BufferStorageFlags.None)
+            Erase matrices
 
             GL.CreateBuffers(1, vertsBuffer)
             GL.NamedBufferStorage(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex), vBuffer, BufferStorageFlags.None)
+            Erase vBuffer
+
+            GL.CreateBuffers(1, vertsUV2Buffer)
+            GL.NamedBufferStorage(vertsUV2Buffer, uv2Buffer.Length * Marshal.SizeOf(Of Vector2), uv2Buffer, BufferStorageFlags.None)
+            Erase uv2Buffer
 
             GL.CreateBuffers(1, primsBuffer)
             GL.NamedBufferStorage(primsBuffer, iBuffer.Length * Marshal.SizeOf(Of vect3_32), iBuffer, BufferStorageFlags.None)
+            Erase iBuffer
 
             GL.CreateVertexArrays(1, vertexArray)
 
@@ -446,7 +460,7 @@ Module MapLoader
             GL.EnableVertexArrayAttrib(vertexArray, 4)
 
             'uv2
-            GL.VertexArrayVertexBuffer(vertexArray, 5, vertsBuffer, New IntPtr(44), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayVertexBuffer(vertexArray, 5, vertsUV2Buffer, IntPtr.Zero, Marshal.SizeOf(Of Vector2))
             GL.VertexArrayAttribFormat(vertexArray, 5, 2, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(vertexArray, 5, 5)
             GL.EnableVertexArrayAttrib(vertexArray, 5)

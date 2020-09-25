@@ -119,12 +119,12 @@ Module modTypeStructures
         Public tangent As Vector4h
         Public binormal As Vector4h
         Public uv As Vector2
-        Public uv2 As Vector2
     End Structure
 
     Public Class BuffersStorage
         Public index_buffer32() As vect3_32
         Public vertexBuffer() As ModelVertex
+        Public uv2() As Vector2
     End Class
 
     Public Class RenderSetEntry
