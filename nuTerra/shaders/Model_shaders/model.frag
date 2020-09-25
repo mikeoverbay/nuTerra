@@ -75,7 +75,7 @@ void main(void)
         break;
 
     case FX_PBS_tiled_atlas:
-        gColor = vec4(1.0, 0.0, 1.0, 1.0);
+        gColor = texture(thisMaterial.maps[0], fs_in.UV);
         break;
 
     case FX_PBS_tiled_atlas_global:

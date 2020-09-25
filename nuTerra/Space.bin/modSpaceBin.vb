@@ -517,8 +517,10 @@ CleanUp:
                     Dim obj As New MaterialProps_PBS_tiled_atlas
                     With obj
                         .atlasAlbedoHeight = props("atlasAlbedoHeight")
+                        .atlasNormalGlossSpec = props("atlasNormalGlossSpec")
+                        .atlasMetallicAO = props("atlasMetallicAO")
                         .g_atlasIndexes = props("g_atlasIndexes")
-                        .g_atlasSizes = props("g_atlasSizes")
+                        .g_atlasSizes = props("g_atlasSizes") ' (4, 4, 8, 4)
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas
                     mat.props = obj

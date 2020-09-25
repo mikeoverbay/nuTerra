@@ -496,7 +496,7 @@ Module MapLoader
     'Load materials
     Private Sub load_materials()
         Dim texturePaths As New HashSet(Of String)
-        Dim atlasPaths As New HashSet(Of String)
+        Dim atlasPaths As New Dictionary(Of String, HashSet(Of Integer))
 
         For Each mat In materials.Values
             Select Case mat.shader_type
@@ -512,7 +512,20 @@ Module MapLoader
                     texturePaths.Add(mat.props.diffuseMap)
 
                 Case ShaderTypes.FX_PBS_tiled_atlas
-                    atlasPaths.Add(mat.props.atlasAlbedoHeight)
+                    If Not atlasPaths.ContainsKey(mat.props.atlasAlbedoHeight) Then
+                        atlasPaths(mat.props.atlasAlbedoHeight) = New HashSet(Of Integer)
+                    End If
+                    atlasPaths(mat.props.atlasAlbedoHeight).Add(mat.props.g_atlasIndexes.X)
+
+                    If Not atlasPaths.ContainsKey(mat.props.atlasNormalGlossSpec) Then
+                        atlasPaths(mat.props.atlasNormalGlossSpec) = New HashSet(Of Integer)
+                    End If
+                    atlasPaths(mat.props.atlasNormalGlossSpec).Add(mat.props.g_atlasIndexes.X)
+
+                    If Not atlasPaths.ContainsKey(mat.props.atlasMetallicAO) Then
+                        atlasPaths(mat.props.atlasMetallicAO) = New HashSet(Of Integer)
+                    End If
+                    atlasPaths(mat.props.atlasMetallicAO).Add(mat.props.g_atlasIndexes.X)
 
                 Case ShaderTypes.FX_lightonly_alpha
                     texturePaths.Add(mat.props.diffuseMap)
@@ -525,12 +538,12 @@ Module MapLoader
         'load atlases
         Dim atlasConfigs As New Dictionary(Of String, AtlasCfg)
         For Each atlasPath In atlasPaths
-            If Not atlasPath.EndsWith(".atlas") Then
+            If Not atlasPath.Key.EndsWith(".atlas") Then
                 Stop
                 Continue For
             End If
 
-            Dim entry As ZipEntry = search_pkgs(atlasPath + "_processed")
+            Dim entry As ZipEntry = search_pkgs(atlasPath.Key + "_processed")
             If entry Is Nothing Then
                 Stop
                 Continue For
@@ -556,6 +569,7 @@ Module MapLoader
                 br.BaseStream.Position += 4 'skip useless data
                 br.BaseStream.Position += dds_chunk_size 'skip dds data
 
+                Dim index = 0
                 While br.BaseStream.Position < br.BaseStream.Length - 1
                     Dim coords As New AtlasCoords
                     coords.x0 = br.ReadInt32
@@ -570,12 +584,19 @@ Module MapLoader
                         tmpChar = br.ReadChar
                     End While
 
-                    texturePaths.Add(coords.path.Replace(".png", ".dds"))
+                    coords.path = coords.path.Replace(".png", ".dds")
+
+                    'load only used textures
+                    If atlasPath.Value.Contains(index) Then
+                        texturePaths.Add(coords.path)
+                    End If
+
                     cfg.coords.Add(coords)
+                    index += 1
                 End While
             End Using
 
-            atlasConfigs(atlasPath) = cfg
+            atlasConfigs(atlasPath.Key) = cfg
         Next
 
         'load textures
@@ -629,7 +650,26 @@ Module MapLoader
                         .alphaTestEnable = mat.props.alphaTestEnable
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
-                        'Stop
+                        Dim indexes As Vector4 = mat.props.g_atlasIndexes
+                        Dim sizes As Vector4 = mat.props.g_atlasSizes
+
+                        Dim atlasAlbedoHeight = atlasConfigs(mat.props.atlasAlbedoHeight)
+                        Debug.Assert(atlasAlbedoHeight.coords.Count = sizes.X * sizes.Y)
+
+                        Dim atlasNormalGlossSpec = atlasConfigs(mat.props.atlasNormalGlossSpec)
+                        Debug.Assert(atlasNormalGlossSpec.coords.Count = sizes.X * sizes.Y)
+
+                        Dim atlasMetallicAO = atlasConfigs(mat.props.atlasMetallicAO)
+                        Debug.Assert(atlasMetallicAO.coords.Count = sizes.X * sizes.Y)
+
+                        Dim coords = atlasAlbedoHeight.coords(CInt(indexes.X))
+                        .map1Handle = textureHandles(coords.path)
+
+                        coords = atlasNormalGlossSpec.coords(CInt(indexes.X))
+                        .map2Handle = textureHandles(coords.path)
+
+                        coords = atlasMetallicAO.coords(CInt(indexes.X))
+                        .map3Handle = textureHandles(coords.path)
 
                     Case ShaderTypes.FX_lightonly_alpha
                         .map1Handle = textureHandles(mat.props.diffuseMap)
