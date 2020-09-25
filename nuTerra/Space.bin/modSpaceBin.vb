@@ -416,7 +416,13 @@ CleanUp:
                         "g_enableAO",
                         "g_vertexColorMode",
                         "g_enableTerrainBlending",
-                        "g_vertexAnimationParams"
+                        "g_vertexAnimationParams",
+                        "g_useTintColor",
+                        "g_tintColor",
+                        "g_enableTransmission",
+                        "texAddressMode",
+                        "dynamicObject",
+                        "selfIllumination"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
@@ -506,7 +512,9 @@ CleanUp:
                         "g_fakeShadowsParams",
                         "g_enableTerrainBlending",
                         "dynamicObject",
-                        "texAddressMode"
+                        "texAddressMode",
+                        "selfIllumination",
+                        "diffuseMap"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
