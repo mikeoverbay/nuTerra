@@ -479,9 +479,24 @@ Module MapLoader
         close_shared_packages()
     End Sub
 
+    Private Structure AtlasCoords
+        Dim x0 As UInt32
+        Dim x1 As UInt32
+        Dim y0 As UInt32
+        Dim y1 As UInt32
+        Dim path As String
+    End Structure
+
+    Private Structure AtlasCfg
+        Dim width As UInt32
+        Dim height As UInt32
+        Dim coords As List(Of AtlasCoords)
+    End Structure
+
     'Load materials
     Private Sub load_materials()
         Dim texturePaths As New HashSet(Of String)
+        Dim atlasPaths As New HashSet(Of String)
 
         For Each mat In materials.Values
             Select Case mat.shader_type
@@ -496,6 +511,9 @@ Module MapLoader
                 Case ShaderTypes.FX_PBS_ext_detail
                     texturePaths.Add(mat.props.diffuseMap)
 
+                Case ShaderTypes.FX_PBS_tiled_atlas
+                    atlasPaths.Add(mat.props.atlasAlbedoHeight)
+
                 Case ShaderTypes.FX_lightonly_alpha
                     texturePaths.Add(mat.props.diffuseMap)
 
@@ -504,6 +522,63 @@ Module MapLoader
             End Select
         Next
 
+        'load atlases
+        Dim atlasConfigs As New Dictionary(Of String, AtlasCfg)
+        For Each atlasPath In atlasPaths
+            If Not atlasPath.EndsWith(".atlas") Then
+                Stop
+                Continue For
+            End If
+
+            Dim entry As ZipEntry = search_pkgs(atlasPath + "_processed")
+            If entry Is Nothing Then
+                Stop
+                Continue For
+            End If
+
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+
+            Dim cfg As New AtlasCfg
+            cfg.coords = New List(Of AtlasCoords)
+
+            ms.Position = 0
+            Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
+                Dim version = br.ReadInt32
+                Debug.Assert(version = 1)
+
+                cfg.width = br.ReadInt32
+                cfg.height = br.ReadInt32
+
+                br.BaseStream.Position += 12 'skip useless data
+
+                Dim dds_chunk_size = br.ReadUInt32
+                br.BaseStream.Position += 4 'skip useless data
+                br.BaseStream.Position += dds_chunk_size 'skip dds data
+
+                While br.BaseStream.Position < br.BaseStream.Length - 1
+                    Dim coords As New AtlasCoords
+                    coords.x0 = br.ReadInt32
+                    coords.x1 = br.ReadInt32
+                    coords.y0 = br.ReadInt32
+                    coords.y1 = br.ReadInt32
+
+                    coords.path = ""
+                    Dim tmpChar = br.ReadChar
+                    While tmpChar <> vbNullChar
+                        coords.path += tmpChar
+                        tmpChar = br.ReadChar
+                    End While
+
+                    texturePaths.Add(coords.path.Replace(".png", ".dds"))
+                    cfg.coords.Add(coords)
+                End While
+            End Using
+
+            atlasConfigs(atlasPath) = cfg
+        Next
+
+        'load textures
         Dim textureHandles As New Dictionary(Of String, UInt64)
         For Each texturePath In texturePaths
             If Not texturePath.EndsWith(".dds") Then
@@ -552,6 +627,9 @@ Module MapLoader
                         .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
                         .alphaReference = mat.props.alphaReference / 255.0
                         .alphaTestEnable = mat.props.alphaTestEnable
+
+                    Case ShaderTypes.FX_PBS_tiled_atlas
+                        'Stop
 
                     Case ShaderTypes.FX_lightonly_alpha
                         .map1Handle = textureHandles(mat.props.diffuseMap)

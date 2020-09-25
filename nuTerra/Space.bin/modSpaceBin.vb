@@ -487,7 +487,41 @@ CleanUp:
                     mat.props = obj
 
                 Case "shaders/std_effects/PBS_tiled_atlas.fx", "shaders/std_effects/PBS_tiled_atlas_rigid_skinned.fx"
+                    Dim knownPropNames As New HashSet(Of String)({
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "g_atlasSizes",
+                        "g_atlasIndexes",
+                        "atlasNormalGlossSpec",
+                        "atlasMetallicAO",
+                        "atlasBlend",
+                        "atlasAlbedoHeight",
+                        "g_dirtParams",
+                        "g_dirtColor",
+                        "dirtMap",
+                        "g_tile0Tint",
+                        "g_tile1Tint",
+                        "g_tile2Tint",
+                        "g_fakeShadowsParams",
+                        "g_enableTerrainBlending",
+                        "dynamicObject",
+                        "texAddressMode"
+                    })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            Stop
+                        End If
+                    Next
+
+                    Dim obj As New MaterialProps_PBS_tiled_atlas
+                    With obj
+                        .atlasAlbedoHeight = props("atlasAlbedoHeight")
+                        .g_atlasIndexes = props("g_atlasIndexes")
+                        .g_atlasSizes = props("g_atlasSizes")
+                    End With
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas
+                    mat.props = obj
 
                 Case "shaders/std_effects/PBS_tiled_atlas_global.fx"
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas_global

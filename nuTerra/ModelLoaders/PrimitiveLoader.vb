@@ -52,6 +52,12 @@ Module PrimitiveLoader
         Public g_useNormalPackDXT1 As Boolean
     End Structure
 
+    Structure MaterialProps_PBS_tiled_atlas
+        Public atlasAlbedoHeight As String
+        Public g_atlasSizes As Vector4
+        Public g_atlasIndexes As Vector4
+    End Structure
+
     Structure MaterialProps_lightonly_alpha
         Public diffuseMap As String
     End Structure
