@@ -38,7 +38,9 @@ Module modOpenGL
         Dim map3Handle As UInt64
         Dim map4Handle As UInt64
         Dim shader_type As UInt32
-        Dim reserved1 As UInt32 'pad
+        Dim g_useNormalPackDXT1 As UInt32
+        Dim alphaReference As Single
+        Dim alphaTestEnable As UInt32
     End Structure
 
     Public Sub Ortho_main()

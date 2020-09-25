@@ -364,24 +364,127 @@ CleanUp:
 
             Select Case fx
                 Case "shaders/std_effects/PBS_ext.fx", "shaders/std_effects/PBS_ext_skinned.fx", "shaders/std_effects/PBS_ext_repaint.fx"
+                    Dim knownPropNames As New HashSet(Of String)({
+                        "diffuseMap",
+                        "normalMap",
+                        "metallicGlossMap",
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "g_useNormalPackDXT1",
+                        "g_enableTerrainBlending",
+                        "g_enableAO",
+                        "g_vertexAnimationParams",
+                        "g_vertexColorMode",
+                        "dynamicObject",
+                        "g_enableTransmission",
+                        "g_tintColor",
+                        "g_useTintColor",
+                        "texAddressMode",
+                        "selfIllumination",
+                        "applyOverlay"
+                    })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            Stop
+                        End If
+                    Next
+
+                    Dim obj As New MaterialProps_PBS_ext
+                    With obj
+                        .diffuseMap = props("diffuseMap")
+                        .normalMap = props("normalMap")
+                        .metallicGlossMap = props("metallicGlossMap")
+                        .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
+                        .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
+                        .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
+                        .g_useNormalPackDXT1 = If(props.ContainsKey("g_useNormalPackDXT1"), props("g_useNormalPackDXT1"), False)
+                    End With
                     mat.shader_type = ShaderTypes.FX_PBS_ext
-                    mat.diffuseMap = props("diffuseMap")
-                    mat.normalMap = props("normalMap")
-                    mat.metallicGlossMap = props("metallicGlossMap")
+                    mat.props = obj
 
                 Case "shaders/std_effects/PBS_ext_dual.fx", "shaders/std_effects/PBS_ext_skinned_dual.fx"
+                    Dim knownPropNames As New HashSet(Of String)({
+                        "diffuseMap",
+                        "diffuseMap2",
+                        "normalMap",
+                        "metallicGlossMap",
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "g_useNormalPackDXT1",
+                        "g_enableAO",
+                        "g_vertexColorMode",
+                        "g_enableTerrainBlending",
+                        "g_vertexAnimationParams"
+                    })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            Stop
+                        End If
+                    Next
+
+                    Dim obj As New MaterialProps_PBS_ext_dual
+                    With obj
+                        .diffuseMap = props("diffuseMap")
+                        .diffuseMap2 = props("diffuseMap2")
+                        .normalMap = props("normalMap")
+                        .metallicGlossMap = props("metallicGlossMap")
+                        .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
+                        .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
+                        .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
+                        .g_useNormalPackDXT1 = If(props.ContainsKey("g_useNormalPackDXT1"), props("g_useNormalPackDXT1"), False)
+                    End With
                     mat.shader_type = ShaderTypes.FX_PBS_ext_dual
-                    mat.diffuseMap = props("diffuseMap")
-                    mat.diffuseMap2 = props("diffuseMap2")
-                    mat.normalMap = props("normalMap")
-                    mat.metallicGlossMap = props("metallicGlossMap")
+                    mat.props = obj
 
                 Case "shaders/std_effects/PBS_ext_detail.fx"
+                    Dim knownPropNames As New HashSet(Of String)({
+                        "diffuseMap",
+                        "normalMap",
+                        "metallicGlossMap",
+                        "g_detailMap",
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "g_useNormalPackDXT1",
+                        "g_detailInfluences",
+                        "g_detailRejectTiling",
+                        "g_enableTerrainBlending",
+                        "g_useTintColor",
+                        "g_vertexColorMode",
+                        "dynamicObject",
+                        "g_enableTransmission",
+                        "g_vertexAnimationParams",
+                        "g_tintColor",
+                        "g_enableAO",
+                        "g_metalReject",
+                        "g_glossReject",
+                        "g_normalMapInfluence",
+                        "g_glossMapInfluence",
+                        "g_albedoMapInfluence",
+                        "g_tile",
+                        "texAddressMode"
+                    })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            Stop
+                        End If
+                    Next
+
+                    Dim obj As New MaterialProps_PBS_ext_detail
+                    With obj
+                        .diffuseMap = props("diffuseMap")
+                        .normalMap = props("normalMap")
+                        .metallicGlossMap = props("metallicGlossMap")
+                        .g_detailMap = If(props.ContainsKey("g_detailMap"), props("g_detailMap"), Nothing)
+                        .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
+                        .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
+                        .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
+                        .g_useNormalPackDXT1 = If(props.ContainsKey("g_useNormalPackDXT1"), props("g_useNormalPackDXT1"), False)
+                    End With
                     mat.shader_type = ShaderTypes.FX_PBS_ext_detail
-                    mat.diffuseMap = props("diffuseMap")
-                    mat.normalMap = props("normalMap")
-                    mat.metallicGlossMap = props("metallicGlossMap")
-                    mat.g_detailMap = If(props.ContainsKey("g_detailMap"), props("g_detailMap"), Nothing)
+                    mat.props = obj
 
                 Case "shaders/std_effects/PBS_tiled_atlas.fx", "shaders/std_effects/PBS_tiled_atlas_rigid_skinned.fx"
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas
@@ -390,8 +493,12 @@ CleanUp:
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas_global
 
                 Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/normalmap_specmap.fx"
+                    Dim obj As New MaterialProps_lightonly_alpha
+                    With obj
+                        .diffuseMap = props("diffuseMap")
+                    End With
                     mat.shader_type = ShaderTypes.FX_lightonly_alpha
-                    mat.diffuseMap = props("diffuseMap")
+                    mat.props = obj
 
                 Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/std_effects/PBS_glass.fx"
                     mat.shader_type = ShaderTypes.FX_unsupported

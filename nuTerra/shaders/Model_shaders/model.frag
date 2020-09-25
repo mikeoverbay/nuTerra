@@ -20,13 +20,11 @@ in VS_OUT
 
 struct MaterialProperties
 {
-    sampler2D map1;
-    sampler2D map2;
-    sampler2D map3;
-    sampler2D map4;
-
-    uint shader_type;
-    uint reserved;
+    sampler2D maps[4];        /* 0  .. 32 */
+    uint shader_type;         /* 32 .. 36 */
+    bool g_useNormalPackDXT1; /* 36 .. 40 */
+    float alphaReference;     /* 40 .. 44 */
+    bool alphaTestEnable;     /* 44 .. 48 */
 };
 
 // Material block
@@ -52,26 +50,46 @@ void main(void)
 
     switch (thisMaterial.shader_type) {
     case FX_PBS_ext:
-        gColor = texture(thisMaterial.map1, fs_in.UV);
+        gColor = texture(thisMaterial.maps[0], fs_in.UV);
+        vec3 normalBump;
+        float alphaCheck = gColor.a;
+        if (thisMaterial.g_useNormalPackDXT1) {
+		    normalBump = (texture(thisMaterial.maps[1], fs_in.UV).rgb * 2.0) - 1.0;
+	    } else {
+		    vec4 normal = texture(thisMaterial.maps[1], fs_in.UV);
+		    normalBump.xy = normal.ag * 2.0 - 1.0;
+		    normalBump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
+		    alphaCheck = normal.r;
+	    }
+	    if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
+		    discard;
+	    }
         break;
+
     case FX_PBS_ext_dual:
-        gColor = texture(thisMaterial.map1, fs_in.UV);
+        gColor = texture(thisMaterial.maps[0], fs_in.UV);
         break;
+
     case FX_PBS_ext_detail:
-        gColor = texture(thisMaterial.map1, fs_in.UV);
+        gColor = texture(thisMaterial.maps[0], fs_in.UV);
         break;
+
     case FX_PBS_tiled_atlas:
         gColor = vec4(1.0, 0.0, 1.0, 1.0);
         break;
+
     case FX_PBS_tiled_atlas_global:
         gColor = vec4(1.0, 1.0, 0.0, 1.0);
         break;
+
     case FX_lightonly_alpha:
-        gColor = texture(thisMaterial.map1, fs_in.UV);
+        gColor = texture(thisMaterial.maps[0], fs_in.UV);
         break;
+
     case FX_unsupported:
         gColor = vec4(1.0, 1.0, 1.0, 1.0);
         break;
+
     default:
         gColor = vec4(0.0, 0.0, 0.0, 1.0);
     }

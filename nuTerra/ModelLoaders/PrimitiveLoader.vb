@@ -20,15 +20,46 @@ Module PrimitiveLoader
         FX_unsupported = 7
     End Enum
 
-    Structure Material
-        Public id As UInt32
-        Public shader_type As ShaderTypes
+    Structure MaterialProps_PBS_ext
+        Public diffuseMap As String
+        Public normalMap As String
+        Public metallicGlossMap As String
+        Public alphaReference As Integer
+        Public alphaTestEnable As Boolean
+        Public doubleSided As Boolean
+        Public g_useNormalPackDXT1 As Boolean
+    End Structure
 
+    Structure MaterialProps_PBS_ext_dual
         Public diffuseMap As String
         Public diffuseMap2 As String
         Public normalMap As String
         Public metallicGlossMap As String
+        Public alphaReference As Integer
+        Public alphaTestEnable As Boolean
+        Public doubleSided As Boolean
+        Public g_useNormalPackDXT1 As Boolean
+    End Structure
+
+    Structure MaterialProps_PBS_ext_detail
+        Public diffuseMap As String
+        Public normalMap As String
+        Public metallicGlossMap As String
+        Public alphaReference As Integer
+        Public alphaTestEnable As Boolean
+        Public doubleSided As Boolean
         Public g_detailMap As String
+        Public g_useNormalPackDXT1 As Boolean
+    End Structure
+
+    Structure MaterialProps_lightonly_alpha
+        Public diffuseMap As String
+    End Structure
+
+    Structure Material
+        Public id As UInt32
+        Public shader_type As ShaderTypes
+        Public props As Object
     End Structure
 
     Class PrimitiveGroup

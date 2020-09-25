@@ -481,26 +481,37 @@ Module MapLoader
 
     'Load materials
     Private Sub load_materials()
-        Dim diffuseMapPaths As New HashSet(Of String)
+        Dim texturePaths As New HashSet(Of String)
 
         For Each mat In materials.Values
             Select Case mat.shader_type
-                Case ShaderTypes.FX_PBS_ext, ShaderTypes.FX_PBS_ext_dual, ShaderTypes.FX_PBS_ext_detail, ShaderTypes.FX_lightonly_alpha
-                    diffuseMapPaths.Add(mat.diffuseMap)
+                Case ShaderTypes.FX_PBS_ext
+                    texturePaths.Add(mat.props.diffuseMap)
+                    texturePaths.Add(mat.props.normalMap)
+                    texturePaths.Add(mat.props.metallicGlossMap)
+
+                Case ShaderTypes.FX_PBS_ext_dual
+                    texturePaths.Add(mat.props.diffuseMap)
+
+                Case ShaderTypes.FX_PBS_ext_detail
+                    texturePaths.Add(mat.props.diffuseMap)
+
+                Case ShaderTypes.FX_lightonly_alpha
+                    texturePaths.Add(mat.props.diffuseMap)
 
                 Case Else
-                    'TODO
+                    'Stop
             End Select
         Next
 
-        Dim diffuseMapHandles As New Dictionary(Of String, UInt64)
-        For Each diffuseMapPath In diffuseMapPaths
-            If Not diffuseMapPath.EndsWith(".dds") Then
+        Dim textureHandles As New Dictionary(Of String, UInt64)
+        For Each texturePath In texturePaths
+            If Not texturePath.EndsWith(".dds") Then
                 Stop
                 Continue For
             End If
 
-            Dim entry As ZipEntry = search_pkgs(diffuseMapPath)
+            Dim entry As ZipEntry = search_pkgs(texturePath)
             If entry Is Nothing Then
                 Stop
                 Continue For
@@ -509,12 +520,12 @@ Module MapLoader
             Dim ms As New MemoryStream
             entry.Extract(ms)
 
-            Dim tex = load_dds_image_from_stream(ms, diffuseMapPath)
+            Dim tex = load_dds_image_from_stream(ms, texturePath)
 
             Dim handle = GL.Arb.GetTextureHandle(tex)
             GL.Arb.MakeTextureHandleResident(handle)
 
-            diffuseMapHandles(diffuseMapPath) = handle
+            textureHandles(texturePath) = handle
         Next
 
         Dim materialsData(materials.Count - 1) As GLMaterial
@@ -522,10 +533,31 @@ Module MapLoader
             With materialsData(mat.id)
                 .shader_type = mat.shader_type
                 Select Case mat.shader_type
-                    Case ShaderTypes.FX_PBS_ext, ShaderTypes.FX_PBS_ext_dual, ShaderTypes.FX_PBS_ext_detail, ShaderTypes.FX_lightonly_alpha
-                        .map1Handle = diffuseMapHandles(mat.diffuseMap)
+                    Case ShaderTypes.FX_PBS_ext
+                        .map1Handle = textureHandles(mat.props.diffuseMap)
+                        .map2Handle = textureHandles(mat.props.normalMap)
+                        .map3Handle = textureHandles(mat.props.metallicGlossMap)
+                        .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
+                        .alphaReference = mat.props.alphaReference / 255.0
+                        .alphaTestEnable = mat.props.alphaTestEnable
+
+                    Case ShaderTypes.FX_PBS_ext_dual
+                        .map1Handle = textureHandles(mat.props.diffuseMap)
+                        .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
+                        .alphaReference = mat.props.alphaReference / 255.0
+                        .alphaTestEnable = mat.props.alphaTestEnable
+
+                    Case ShaderTypes.FX_PBS_ext_detail
+                        .map1Handle = textureHandles(mat.props.diffuseMap)
+                        .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
+                        .alphaReference = mat.props.alphaReference / 255.0
+                        .alphaTestEnable = mat.props.alphaTestEnable
+
+                    Case ShaderTypes.FX_lightonly_alpha
+                        .map1Handle = textureHandles(mat.props.diffuseMap)
+
                     Case Else
-                        'TODO
+                        'Stop
                 End Select
             End With
         Next
