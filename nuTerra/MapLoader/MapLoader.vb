@@ -433,6 +433,12 @@ Module MapLoader
             GL.VertexArrayAttribBinding(vertexArray, 2, 2)
             GL.EnableVertexArrayAttrib(vertexArray, 2)
 
+            'Tangent
+            GL.VertexArrayVertexBuffer(vertexArray, 3, vertsBuffer, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(vertexArray, 3, 4, VertexAttribType.HalfFloat, False, 0)
+            GL.VertexArrayAttribBinding(vertexArray, 3, 3)
+            GL.EnableVertexArrayAttrib(vertexArray, 3)
+
             GL.VertexArrayElementBuffer(vertexArray, primsBuffer)
 
             load_materials()

@@ -46,24 +46,26 @@ layout (binding = 2, std430) readonly buffer MATERIALS
 
 void main(void)
 {
+    vec3 normalBump;
+
     const MaterialProperties thisMaterial = material[fs_in.material_id];
 
     switch (thisMaterial.shader_type) {
     case FX_PBS_ext:
-        gColor = texture(thisMaterial.maps[0], fs_in.UV);
-        vec3 normalBump;
+        gColor = texture(thisMaterial.maps[0], fs_in.UV); // color
+        gGMF.rg = texture(thisMaterial.maps[2], fs_in.UV).rg; // gloss/metal
         float alphaCheck = gColor.a;
         if (thisMaterial.g_useNormalPackDXT1) {
-		    normalBump = (texture(thisMaterial.maps[1], fs_in.UV).rgb * 2.0) - 1.0;
-	    } else {
-		    vec4 normal = texture(thisMaterial.maps[1], fs_in.UV);
-		    normalBump.xy = normal.ag * 2.0 - 1.0;
-		    normalBump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
-		    alphaCheck = normal.r;
-	    }
-	    if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
-		    discard;
-	    }
+            normalBump = (texture(thisMaterial.maps[1], fs_in.UV).rgb * 2.0) - 1.0;
+        } else {
+            vec4 normal = texture(thisMaterial.maps[1], fs_in.UV);
+            normalBump.xy = normal.ag * 2.0 - 1.0;
+            normalBump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
+            alphaCheck = normal.r;
+        }
+        if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
+            discard;
+        }
         break;
 
     case FX_PBS_ext_dual:
@@ -96,4 +98,7 @@ void main(void)
 
     gColor.a = 1.0;
     gPosition = fs_in.worldPosition;
+    gNormal.xyz = fs_in.TBN * normalBump.xyz;
+    gGMF.b = float(64.0/255.0); // 64 = model flag
+
 }

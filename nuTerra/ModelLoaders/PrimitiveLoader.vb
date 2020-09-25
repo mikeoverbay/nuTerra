@@ -321,21 +321,26 @@ Module PrimitiveLoader
                     End If
                     .uv.X = br.ReadSingle
                     .uv.Y = br.ReadSingle
+
+                    '-----------------------------------------------------------------------
+                    'if this vertex has index junk, skip it.
+                    'no tangent and bitangent on BPVTxyznuviiiww type vertex
+                    If hasIdx Then
+                        br.BaseStream.Position += 8
+                    End If
+
+                    If renderSet.has_tangent Then
+                        'tangents
+                        Dim v3 = unpackNormal(br.ReadUInt32)
+                        .tangent.X = -v3.X
+                        .tangent.Y = v3.Y
+                        .tangent.Z = v3.Z
+                        br.BaseStream.Position += 4 'skip bitangent
+                    End If
+
+                    running += 1
+
                 End With
-
-                '-----------------------------------------------------------------------
-                'if this vertex has index junk, skip it.
-                'no tangent and bitangent on BPVTxyznuviiiww type vertex
-                If hasIdx Then
-                    br.BaseStream.Position += 8
-                End If
-
-                If renderSet.has_tangent Then
-                    'tangents
-                    br.BaseStream.Position += 8
-                End If
-
-                running += 1
             Next
         Next
 

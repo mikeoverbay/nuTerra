@@ -117,6 +117,7 @@ Module modTypeStructures
         Public pos As Vector3
         Public normal As Vector4h
         Public uv As Vector2
+        Public tangent As Vector4h
     End Structure
 
     Public Class BuffersStorage

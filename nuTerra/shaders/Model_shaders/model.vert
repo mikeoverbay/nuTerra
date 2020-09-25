@@ -6,6 +6,7 @@
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec4 vertexNormal;
 layout(location = 2) in vec2 vertexTexCoord1;
+layout(location = 3) in vec4 vertexTangent;
 
 struct CandidateDraw
 {
@@ -42,6 +43,7 @@ uniform mat4 view;
 
 void main(void)
 {
+
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
 
     vs_out.material_id = thisDraw.material_id;
@@ -51,6 +53,11 @@ void main(void)
 
     // Transform position & normal to world space
     vs_out.worldPosition = vec3(modelView * vec4(vertexPosition, 1.0f));
+    vec3 t = normalize((modelView * vec4(vertexTangent.xyz,0.0))).xyz;
+    vec3 b = normalize((modelView * vec4(cross(vertexNormal.xyz,vertexTangent.xyz),0.0))).xyz;
+    vec3 n = normalize((modelView * vec4(vertexNormal.xyz,0.0))).xyz;
+
+    vs_out.TBN = mat3(t,b,n);
 
     // Calculate vertex position in clip coordinates
     gl_Position = projection * modelView * vec4(vertexPosition, 1.0f);
