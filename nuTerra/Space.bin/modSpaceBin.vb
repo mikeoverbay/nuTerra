@@ -382,7 +382,10 @@ CleanUp:
                         "g_useTintColor",
                         "texAddressMode",
                         "selfIllumination",
-                        "applyOverlay"
+                        "applyOverlay",
+                        "g_repaintColor",
+                        "g_baseColor",
+                        "g_aging"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then

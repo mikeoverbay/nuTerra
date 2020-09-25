@@ -623,7 +623,7 @@ Module MapLoader
         'load textures
         Dim textureHandles As New Dictionary(Of String, UInt64)
         For Each texturePath In texturePaths
-            If Not texturePath.EndsWith(".dds") Then
+            If Not texturePath.ToLower.EndsWith(".dds") Then
                 Stop
                 Continue For
             End If
@@ -678,13 +678,13 @@ Module MapLoader
                         Dim sizes As Vector4 = mat.props.g_atlasSizes
 
                         Dim atlasAlbedoHeight = atlasConfigs(mat.props.atlasAlbedoHeight)
-                        Debug.Assert(atlasAlbedoHeight.coords.Count = sizes.X * sizes.Y)
+                        'Debug.Assert(atlasAlbedoHeight.coords.Count = sizes.X * sizes.Y)
 
                         Dim atlasNormalGlossSpec = atlasConfigs(mat.props.atlasNormalGlossSpec)
-                        Debug.Assert(atlasNormalGlossSpec.coords.Count = sizes.X * sizes.Y)
+                        'Debug.Assert(atlasNormalGlossSpec.coords.Count = sizes.X * sizes.Y)
 
                         Dim atlasMetallicAO = atlasConfigs(mat.props.atlasMetallicAO)
-                        Debug.Assert(atlasMetallicAO.coords.Count = sizes.X * sizes.Y)
+                        'Debug.Assert(atlasMetallicAO.coords.Count = sizes.X * sizes.Y)
 
                         Dim coords = atlasAlbedoHeight.coords(CInt(indexes.X))
                         .map1Handle = textureHandles(coords.path)
