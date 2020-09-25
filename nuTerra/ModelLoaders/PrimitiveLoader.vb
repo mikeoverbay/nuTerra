@@ -152,9 +152,15 @@ Module PrimitiveLoader
         For Each renderSet In mdl.render_sets
             Dim vertsSectionName = renderSet.verts_name.Substring(renderSet.verts_name.LastIndexOf("/"c) + 1)
             Dim primsSectionName = renderSet.prims_name.Substring(renderSet.prims_name.LastIndexOf("/"c) + 1)
-
             load_primitives_indices(br, renderSet, binSections(primsSectionName))
             load_primitives_vertices(br, renderSet, binSections(vertsSectionName))
+            For Each name In binSections.Keys
+                If name.Contains("uv2") Then
+                    Debug.Assert(name = "uv2")
+                    load_primitives_uv2(br, renderSet, binSections(name))
+                    Exit For
+                End If
+            Next
         Next
     End Sub
 
@@ -335,7 +341,10 @@ Module PrimitiveLoader
                         .tangent.X = -v3.X
                         .tangent.Y = v3.Y
                         .tangent.Z = v3.Z
-                        br.BaseStream.Position += 4 'skip bitangent
+                        v3 = unpackNormal(br.ReadUInt32)
+                        .binormal.X = -v3.X
+                        .binormal.Y = v3.Y
+                        .binormal.Z = v3.Z
                     End If
 
                     running += 1
@@ -343,8 +352,31 @@ Module PrimitiveLoader
                 End With
             Next
         Next
+    End Sub
 
+    Public Sub load_primitives_uv2(br As BinaryReader,
+                                   ByRef renderSet As RenderSetEntry,
+                                   ByRef sectionInfo As BinarySectionInfo)
+        br.BaseStream.Position = sectionInfo.location
 
+        Dim uv2_subname As New String(br.ReadChars(64))
+        uv2_subname = uv2_subname.Substring(0, uv2_subname.IndexOf(vbNullChar))
+        Debug.Assert(uv2_subname.StartsWith("BPVS"))
+
+        Dim unused = br.ReadUInt32()
+        Debug.Assert(unused = 0)
+
+        Dim uv2_format As New String(br.ReadChars(64))
+        uv2_format = uv2_format.Substring(0, uv2_format.IndexOf(vbNullChar))
+        Debug.Assert(uv2_format = "set3/uv2pc")
+
+        Dim uv2_count = br.ReadUInt32()
+        Debug.Assert(uv2_count = renderSet.buffers.vertexBuffer.Length)
+
+        For i = 0 To uv2_count - 1
+            renderSet.buffers.vertexBuffer(i).uv2.X = br.ReadSingle
+            renderSet.buffers.vertexBuffer(i).uv2.X = br.ReadSingle
+        Next
     End Sub
 
     Public Function unpackNormal_8_8_8(packed As UInt32) As Vector3

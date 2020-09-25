@@ -13,6 +13,7 @@ layout (location = 3) out vec3 gPosition;
 in VS_OUT
 {
     vec2 UV;
+    vec2 UV2;
     vec3 worldPosition;
     mat3 TBN;
     flat uint material_id;

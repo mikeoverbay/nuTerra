@@ -427,17 +427,29 @@ Module MapLoader
             GL.VertexArrayAttribBinding(vertexArray, 1, 1)
             GL.EnableVertexArrayAttrib(vertexArray, 1)
 
-            'uv
+            'tangent
             GL.VertexArrayVertexBuffer(vertexArray, 2, vertsBuffer, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(vertexArray, 2, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribFormat(vertexArray, 2, 4, VertexAttribType.HalfFloat, False, 0)
             GL.VertexArrayAttribBinding(vertexArray, 2, 2)
             GL.EnableVertexArrayAttrib(vertexArray, 2)
 
-            'Tangent
+            'binormal
             GL.VertexArrayVertexBuffer(vertexArray, 3, vertsBuffer, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
             GL.VertexArrayAttribFormat(vertexArray, 3, 4, VertexAttribType.HalfFloat, False, 0)
             GL.VertexArrayAttribBinding(vertexArray, 3, 3)
             GL.EnableVertexArrayAttrib(vertexArray, 3)
+
+            'uv
+            GL.VertexArrayVertexBuffer(vertexArray, 4, vertsBuffer, New IntPtr(36), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(vertexArray, 4, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(vertexArray, 4, 4)
+            GL.EnableVertexArrayAttrib(vertexArray, 4)
+
+            'uv2
+            GL.VertexArrayVertexBuffer(vertexArray, 5, vertsBuffer, New IntPtr(44), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(vertexArray, 5, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(vertexArray, 5, 5)
+            GL.EnableVertexArrayAttrib(vertexArray, 5)
 
             GL.VertexArrayElementBuffer(vertexArray, primsBuffer)
 

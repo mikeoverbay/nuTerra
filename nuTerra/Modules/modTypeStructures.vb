@@ -116,8 +116,10 @@ Module modTypeStructures
     Public Structure ModelVertex
         Public pos As Vector3
         Public normal As Vector4h
-        Public uv As Vector2
         Public tangent As Vector4h
+        Public binormal As Vector4h
+        Public uv As Vector2
+        Public uv2 As Vector2
     End Structure
 
     Public Class BuffersStorage
