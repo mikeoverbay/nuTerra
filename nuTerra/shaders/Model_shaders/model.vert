@@ -50,12 +50,14 @@ void main(void)
     vs_out.UV = vertexTexCoord1;
 
     mat4 modelView = view * model_matrix[thisDraw.model_id];
+    // TODO: mat3 normalMatrix = mat3(transpose(inverse(modelView)));
+    mat3 normalMatrix = mat3(modelView);
 
     // Transform position & normal to world space
     vs_out.worldPosition = vec3(modelView * vec4(vertexPosition, 1.0f));
-    vec3 t = normalize((modelView * vec4(vertexTangent.xyz,0.0))).xyz;
-    vec3 b = normalize((modelView * vec4(cross(vertexNormal.xyz,vertexTangent.xyz),0.0))).xyz;
-    vec3 n = normalize((modelView * vec4(vertexNormal.xyz,0.0))).xyz;
+    vec3 t = normalize(normalMatrix * vertexTangent.xyz);
+    vec3 b = normalize(normalMatrix * cross(vertexNormal.xyz, vertexTangent.xyz));
+    vec3 n = normalize(normalMatrix * vertexNormal.xyz);
 
     vs_out.TBN = mat3(t,b,n);
 

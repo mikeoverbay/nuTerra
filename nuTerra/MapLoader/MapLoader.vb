@@ -513,6 +513,9 @@ Module MapLoader
 
                 Case ShaderTypes.FX_PBS_ext_dual
                     texturePaths.Add(mat.props.diffuseMap)
+                    texturePaths.Add(mat.props.diffuseMap2)
+                    texturePaths.Add(mat.props.normalMap)
+                    texturePaths.Add(mat.props.metallicGlossMap)
 
                 Case ShaderTypes.FX_PBS_ext_detail
                     texturePaths.Add(mat.props.diffuseMap)
@@ -645,6 +648,9 @@ Module MapLoader
 
                     Case ShaderTypes.FX_PBS_ext_dual
                         .map1Handle = textureHandles(mat.props.diffuseMap)
+                        .map2Handle = textureHandles(mat.props.normalMap)
+                        .map3Handle = textureHandles(mat.props.metallicGlossMap)
+                        .map4Handle = textureHandles(mat.props.diffuseMap2)
                         .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
                         .alphaReference = mat.props.alphaReference / 255.0
                         .alphaTestEnable = mat.props.alphaTestEnable

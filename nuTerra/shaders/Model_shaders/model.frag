@@ -52,6 +52,7 @@ void main(void)
 
     switch (thisMaterial.shader_type) {
     case FX_PBS_ext:
+    case FX_PBS_ext_dual:
         gColor = texture(thisMaterial.maps[0], fs_in.UV); // color
         gGMF.rg = texture(thisMaterial.maps[2], fs_in.UV).rg; // gloss/metal
         float alphaCheck = gColor.a;
@@ -66,10 +67,6 @@ void main(void)
         if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
             discard;
         }
-        break;
-
-    case FX_PBS_ext_dual:
-        gColor = texture(thisMaterial.maps[0], fs_in.UV);
         break;
 
     case FX_PBS_ext_detail:
