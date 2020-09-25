@@ -5,7 +5,7 @@ layout (local_size_x = 16) in;
 struct CandidateDraw
 {
     vec3 bmin;
-    uint reserved; // pad
+    uint model_id;
     vec3 bmax;
     uint material_id;
     uint count;
@@ -83,7 +83,7 @@ bool frustumCullingTest(mat4 mvp, vec3 bmin, vec3 bmax)
 void main(void)
 {
     const CandidateDraw thisDraw = draw[gl_GlobalInvocationID.x];
-    const mat4 thisModelMatrix = model_matrix[thisDraw.baseInstance];
+    const mat4 thisModelMatrix = model_matrix[thisDraw.model_id];
     const mat4 MVP = projection * view * thisModelMatrix;
 
     if (frustumCullingTest(MVP, thisDraw.bmin, thisDraw.bmax)) {

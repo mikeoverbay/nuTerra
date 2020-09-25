@@ -677,8 +677,13 @@ Module modSpacedBinVars
             Public effectIndex As UInt32
             Public shaderPropBegin As UInt32
             Public shaderPropEnd As UInt32
-            Public BWST_str_key As UInt32
-            Public identifier As String
+            Public identifier_fnv As UInt32
+
+            ReadOnly Property identifier As String
+                Get
+                    Return cBWST.find_str(identifier_fnv)
+                End Get
+            End Property
         End Structure
 
         Public Structure FXStringKey_

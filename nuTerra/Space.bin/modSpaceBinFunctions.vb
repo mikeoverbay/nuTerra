@@ -133,7 +133,7 @@ Module modSpaceBinFunctions
             cBSMA.MaterialItem(k).effectIndex = br.ReadUInt32
             cBSMA.MaterialItem(k).shaderPropBegin = br.ReadUInt32
             cBSMA.MaterialItem(k).shaderPropEnd = br.ReadUInt32
-            cBSMA.MaterialItem(k).BWST_str_key = br.ReadUInt32
+            cBSMA.MaterialItem(k).identifier_fnv = br.ReadUInt32
         Next
         '----------------------------------------------------------
 

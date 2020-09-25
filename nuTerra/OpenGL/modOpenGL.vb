@@ -22,7 +22,7 @@ Module modOpenGL
     <StructLayout(LayoutKind.Sequential)>
     Public Structure CandidateDraw
         Dim visibilityBox1 As Vector3
-        Dim reserved As UInt32
+        Dim model_id As UInt32
         Dim visibilityBox2 As Vector3
         Dim material_id As UInt32
         Dim count As UInt32
@@ -39,8 +39,6 @@ Module modOpenGL
         Dim map4Handle As UInt64
         Dim shader_type As UInt32
         Dim reserved1 As UInt32 'pad
-        Dim reserved2 As UInt32 'pad
-        Dim reserved3 As UInt32 'pad
     End Structure
 
     Public Sub Ortho_main()

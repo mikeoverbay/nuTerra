@@ -362,12 +362,13 @@ Module MapLoader
                         For i = 0 To batch.count - 1
                             With drawCommands(cmdId)
                                 .visibilityBox1 = MAP_MODELS(batch.model_id).visibilityBounds.Row0
+                                .model_id = mLast + i
                                 .visibilityBox2 = MAP_MODELS(batch.model_id).visibilityBounds.Row1
                                 .material_id = primGroup.material_id
                                 .count = primGroup.nPrimitives * 3
                                 .firstIndex = iLast * 3 + primGroup.startIndex
                                 .baseVertex = baseVert
-                                .baseInstance = mLast + i
+                                .baseInstance = cmdId
                             End With
                             cmdId += 1
                         Next
@@ -401,16 +402,16 @@ Module MapLoader
             GL.NamedBufferStorage(drawCandidatesBuffer, indirectDrawCount * Marshal.SizeOf(Of CandidateDraw), drawCommands, BufferStorageFlags.None)
 
             GL.CreateBuffers(1, indirectBuffer)
-            GL.NamedBufferStorage(indirectBuffer, indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand), IntPtr.Zero, BufferStorageFlags.MapReadBit)
+            GL.NamedBufferStorage(indirectBuffer, indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand), IntPtr.Zero, BufferStorageFlags.None)
 
             GL.CreateBuffers(1, matricesBuffer)
-            GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of Matrix4), matrices, BufferStorageFlags.MapReadBit)
+            GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of Matrix4), matrices, BufferStorageFlags.None)
 
             GL.CreateBuffers(1, vertsBuffer)
-            GL.NamedBufferStorage(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex), vBuffer, BufferStorageFlags.MapReadBit)
+            GL.NamedBufferStorage(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex), vBuffer, BufferStorageFlags.None)
 
             GL.CreateBuffers(1, primsBuffer)
-            GL.NamedBufferStorage(primsBuffer, iBuffer.Length * Marshal.SizeOf(Of vect3_32), iBuffer, BufferStorageFlags.MapReadBit)
+            GL.NamedBufferStorage(primsBuffer, iBuffer.Length * Marshal.SizeOf(Of vect3_32), iBuffer, BufferStorageFlags.None)
 
             GL.CreateVertexArrays(1, vertexArray)
 

@@ -11,13 +11,13 @@ Module PrimitiveLoader
     End Class
 
     Public Enum ShaderTypes
-        FX_PBS_ext = 0
-        FX_PBS_ext_dual = 1
-        FX_PBS_ext_detail = 2
-        FX_PBS_tiled_atlas = 3
-        FX_PBS_tiled_atlas_global = 4
-        FX_lightonly_alpha = 5
-        FX_unsupported = 6
+        FX_PBS_ext = 1
+        FX_PBS_ext_dual = 2
+        FX_PBS_ext_detail = 3
+        FX_PBS_tiled_atlas = 4
+        FX_PBS_tiled_atlas_global = 5
+        FX_lightonly_alpha = 6
+        FX_unsupported = 7
     End Enum
 
     Structure Material

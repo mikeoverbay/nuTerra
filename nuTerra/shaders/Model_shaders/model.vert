@@ -10,7 +10,7 @@ layout(location = 2) in vec2 vertexTexCoord1;
 struct CandidateDraw
 {
     vec3 bmin;
-    uint reserved; // pad
+    uint model_id;
     vec3 bmax;
     uint material_id;
     uint count;
@@ -42,13 +42,15 @@ uniform mat4 view;
 
 void main(void)
 {
-    vs_out.material_id = draw[gl_BaseInstanceARB].material_id;
+    const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
+
+    vs_out.material_id = thisDraw.material_id;
     vs_out.UV = vertexTexCoord1;
 
-    mat4 modelView = view * model_matrix[gl_BaseInstanceARB];
+    mat4 modelView = view * model_matrix[thisDraw.model_id];
 
     // Transform position & normal to world space
-    vs_out.worldPosition = vec3(modelView * vec4(vertexPosition, 1.0));
+    vs_out.worldPosition = vec3(modelView * vec4(vertexPosition, 1.0f));
 
     // Calculate vertex position in clip coordinates
     gl_Position = projection * modelView * vec4(vertexPosition, 1.0f);
