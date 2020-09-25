@@ -692,8 +692,8 @@ Module MapLoader
                         coords = atlasNormalGlossSpec.coords(CInt(indexes.X))
                         .map2Handle = textureHandles(coords.path)
 
-                        coords = atlasMetallicAO.coords(CInt(indexes.X))
-                        .map3Handle = textureHandles(coords.path)
+                        'coords = atlasMetallicAO.coords(CInt(indexes.X))
+                        '.map3Handle = textureHandles(coords.path)
 
                     Case ShaderTypes.FX_lightonly_alpha
                         .map1Handle = textureHandles(mat.props.diffuseMap)

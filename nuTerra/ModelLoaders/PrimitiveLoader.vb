@@ -154,13 +154,10 @@ Module PrimitiveLoader
             Dim primsSectionName = renderSet.prims_name.Substring(renderSet.prims_name.LastIndexOf("/"c) + 1)
             load_primitives_indices(br, renderSet, binSections(primsSectionName))
             load_primitives_vertices(br, renderSet, binSections(vertsSectionName))
-            For Each name In binSections.Keys
-                If name.Contains("uv2") Then
-                    Debug.Assert(name = "uv2")
-                    load_primitives_uv2(br, renderSet, binSections(name))
-                    Exit For
-                End If
-            Next
+            Dim uv2SectionName = If(vertsSectionName.Contains("."), vertsSectionName.Split(".")(0) + ".uv2", "uv2")
+            If binSections.ContainsKey(uv2SectionName) Then
+                load_primitives_uv2(br, renderSet, binSections(uv2SectionName))
+            End If
         Next
     End Sub
 

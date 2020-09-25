@@ -540,7 +540,7 @@ CleanUp:
                 Case "shaders/std_effects/PBS_tiled_atlas_global.fx"
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas_global
 
-                Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/normalmap_specmap.fx"
+                Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx"
                     Dim obj As New MaterialProps_lightonly_alpha
                     With obj
                         .diffuseMap = props("diffuseMap")
