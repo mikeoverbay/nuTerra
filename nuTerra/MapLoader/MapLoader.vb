@@ -405,26 +405,26 @@ Module MapLoader
             GL.NamedBufferStorage(parametersBuffer, 256, IntPtr.Zero, BufferStorageFlags.None)
 
             GL.CreateBuffers(1, drawCandidatesBuffer)
-            GL.NamedBufferStorage(drawCandidatesBuffer, indirectDrawCount * Marshal.SizeOf(Of CandidateDraw), drawCommands, BufferStorageFlags.None)
+            GL.NamedBufferStorage(drawCandidatesBuffer, indirectDrawCount * Marshal.SizeOf(Of CandidateDraw)(), drawCommands, BufferStorageFlags.None)
             Erase drawCommands
 
             GL.CreateBuffers(1, indirectBuffer)
-            GL.NamedBufferStorage(indirectBuffer, indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand), IntPtr.Zero, BufferStorageFlags.None)
+            GL.NamedBufferStorage(indirectBuffer, indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand)(), IntPtr.Zero, BufferStorageFlags.None)
 
             GL.CreateBuffers(1, matricesBuffer)
-            GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of Matrix4), matrices, BufferStorageFlags.None)
+            GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of Matrix4)(), matrices, BufferStorageFlags.None)
             Erase matrices
 
             GL.CreateBuffers(1, vertsBuffer)
-            GL.NamedBufferStorage(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex), vBuffer, BufferStorageFlags.None)
+            GL.NamedBufferStorage(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex)(), vBuffer, BufferStorageFlags.None)
             Erase vBuffer
 
             GL.CreateBuffers(1, vertsUV2Buffer)
-            GL.NamedBufferStorage(vertsUV2Buffer, uv2Buffer.Length * Marshal.SizeOf(Of Vector2), uv2Buffer, BufferStorageFlags.None)
+            GL.NamedBufferStorage(vertsUV2Buffer, uv2Buffer.Length * Marshal.SizeOf(Of Vector2)(), uv2Buffer, BufferStorageFlags.None)
             Erase uv2Buffer
 
             GL.CreateBuffers(1, primsBuffer)
-            GL.NamedBufferStorage(primsBuffer, iBuffer.Length * Marshal.SizeOf(Of vect3_32), iBuffer, BufferStorageFlags.None)
+            GL.NamedBufferStorage(primsBuffer, iBuffer.Length * Marshal.SizeOf(Of vect3_32)(), iBuffer, BufferStorageFlags.None)
             Erase iBuffer
 
             GL.CreateVertexArrays(1, vertexArray)

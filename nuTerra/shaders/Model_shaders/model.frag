@@ -44,18 +44,16 @@ layout (binding = 2, std430) readonly buffer MATERIALS
 #define FX_lightonly_alpha        6
 #define FX_unsupported            7
 
-
-void main(void)
-{
+// ================================================================================
+// globals
+	const MaterialProperties thisMaterial = material[fs_in.material_id];
     vec3 normalBump;
+// ================================================================================
 
-    const MaterialProperties thisMaterial = material[fs_in.material_id];
-
-    switch (thisMaterial.shader_type) {
-    case FX_PBS_ext:
-    case FX_PBS_ext_dual:
-        gColor = texture(thisMaterial.maps[0], fs_in.UV); // color
-        gGMF.rg = texture(thisMaterial.maps[2], fs_in.UV).rg; // gloss/metal
+// ================================================================================
+// functions
+// ================================================================================
+void get_normal(){
         float alphaCheck = gColor.a;
         if (thisMaterial.g_useNormalPackDXT1) {
             normalBump = (texture(thisMaterial.maps[1], fs_in.UV).rgb * 2.0) - 1.0;
@@ -68,6 +66,22 @@ void main(void)
         if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
             discard;
         }
+		gNormal.xyz = fs_in.TBN * normalBump.xyz;
+	}
+// ================================================================================
+// Main start
+// ================================================================================
+
+void main(void)
+{
+	float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
+
+    switch (thisMaterial.shader_type) {
+    case FX_PBS_ext:
+    case FX_PBS_ext_dual:
+        gColor = texture(thisMaterial.maps[0], fs_in.UV); // color
+        gGMF.rg = texture(thisMaterial.maps[2], fs_in.UV).rg; // gloss/metal
+		get_normal();
         break;
 
     case FX_PBS_ext_detail:
@@ -84,6 +98,7 @@ void main(void)
 
     case FX_lightonly_alpha:
         gColor = texture(thisMaterial.maps[0], fs_in.UV);
+		gColor = vec4(1.0,1.0,1.0,1.0); // debug
         break;
 
     case FX_unsupported:
@@ -96,7 +111,6 @@ void main(void)
 
     gColor.a = 1.0;
     gPosition = fs_in.worldPosition;
-    gNormal.xyz = fs_in.TBN * normalBump.xyz;
-    gGMF.b = float(64.0/255.0); // 64 = model flag
+    gGMF.b = renderType; // 64 = PBS, 63 = light/bump
 
 }
