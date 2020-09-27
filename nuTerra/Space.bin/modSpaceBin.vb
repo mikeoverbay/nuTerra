@@ -444,6 +444,11 @@ CleanUp:
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
                         .g_useNormalPackDXT1 = If(props.ContainsKey("g_useNormalPackDXT1"), props("g_useNormalPackDXT1"), False)
+                        If props.ContainsKey("g_tintColor") Then
+                            If props("g_useTintColor") = "True" Then
+                                Stop
+                            End If
+                        End If
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_ext_dual
                     mat.props = obj
@@ -492,6 +497,9 @@ CleanUp:
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
                         .g_useNormalPackDXT1 = If(props.ContainsKey("g_useNormalPackDXT1"), props("g_useNormalPackDXT1"), False)
+                        .g_useTintColor = If(props.ContainsKey("g_useTintColor"), props("g_useTintColor"), False)
+                        .g_colorTint = If(props.ContainsKey("g_colorTint"), props("g_colorTint"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
+
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_ext_detail
                     mat.props = obj
@@ -532,8 +540,19 @@ CleanUp:
                         .atlasBlend = props("atlasBlend").ToLower
                         .atlasNormalGlossSpec = props("atlasNormalGlossSpec").ToLower
                         .atlasMetallicAO = props("atlasMetallicAO").ToLower
+
+                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap"), Nothing)
+                        .dirtColor = If(props.ContainsKey("dirtColor"), props("dirtColor"), New Vector4(1.0, 1.0, 1.0, 1.0))
+                        .dirtParams = If(props.ContainsKey("dirtParams"), props("dirtParams"), New Vector4(1.0, 1.0, 1.0, 1.0))
+
+
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
                         .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(4, 4, 8, 4))
+
+                        .g_tile0Tint = If(props.ContainsKey("g_tile0Tint"), props("g_tile0Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
+                        .g_tile1Tint = If(props.ContainsKey("g_tile1Tint"), props("g_tile1Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
+                        .g_tile2Tint = If(props.ContainsKey("g_tile2Tint"), props("g_tile2Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
+                        .g_tintColor = If(props.ContainsKey("g_tintColor"), props("g_tintColor"), New Vector4(1.0, 1.0, 1.0, 1.0))
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas
                     mat.props = obj
