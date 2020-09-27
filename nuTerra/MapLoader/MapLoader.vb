@@ -365,8 +365,10 @@ Module MapLoader
                         For i = 0 To batch.count - 1
                             With drawCommands(cmdId)
                                 .visibilityBox1 = MAP_MODELS(batch.model_id).visibilityBounds.Row0
+                                .visibilityBox1.X *= -1 'make negative because of GL rendering!
                                 .model_id = mLast + i
                                 .visibilityBox2 = MAP_MODELS(batch.model_id).visibilityBounds.Row1
+                                .visibilityBox2.X *= -1 'make negative because of GL rendering!
                                 .material_id = primGroup.material_id
                                 .count = primGroup.nPrimitives * 3
                                 .firstIndex = iLast * 3 + primGroup.startIndex
