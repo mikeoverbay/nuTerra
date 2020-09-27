@@ -396,9 +396,9 @@ CleanUp:
 
                     Dim obj As New MaterialProps_PBS_ext
                     With obj
-                        .diffuseMap = props("diffuseMap")
-                        .normalMap = props("normalMap")
-                        .metallicGlossMap = props("metallicGlossMap")
+                        .diffuseMap = props("diffuseMap").ToLower
+                        .normalMap = props("normalMap").ToLower
+                        .metallicGlossMap = props("metallicGlossMap").ToLower
                         .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
@@ -436,9 +436,9 @@ CleanUp:
 
                     Dim obj As New MaterialProps_PBS_ext_dual
                     With obj
-                        .diffuseMap = props("diffuseMap")
-                        .diffuseMap2 = props("diffuseMap2")
-                        .normalMap = props("normalMap")
+                        .diffuseMap = props("diffuseMap").ToLower
+                        .diffuseMap2 = props("diffuseMap2").ToLower
+                        .normalMap = props("normalMap").ToLower
                         .metallicGlossMap = props("metallicGlossMap")
                         .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
@@ -484,10 +484,10 @@ CleanUp:
 
                     Dim obj As New MaterialProps_PBS_ext_detail
                     With obj
-                        .diffuseMap = props("diffuseMap")
-                        .normalMap = props("normalMap")
-                        .metallicGlossMap = props("metallicGlossMap")
-                        .g_detailMap = If(props.ContainsKey("g_detailMap"), props("g_detailMap"), Nothing)
+                        .diffuseMap = props("diffuseMap").ToLower
+                        .normalMap = props("normalMap").ToLower
+                        .metallicGlossMap = props("metallicGlossMap").ToLower
+                        .g_detailMap = If(props.ContainsKey("g_detailMap"), props("g_detailMap").ToLower, Nothing)
                         .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
@@ -528,9 +528,10 @@ CleanUp:
 
                     Dim obj As New MaterialProps_PBS_tiled_atlas
                     With obj
-                        .atlasAlbedoHeight = props("atlasAlbedoHeight")
-                        .atlasNormalGlossSpec = props("atlasNormalGlossSpec")
-                        .atlasMetallicAO = props("atlasMetallicAO")
+                        .atlasAlbedoHeight = props("atlasAlbedoHeight").ToLower
+                        .atlasBlend = props("atlasBlend").ToLower
+                        .atlasNormalGlossSpec = props("atlasNormalGlossSpec").ToLower
+                        .atlasMetallicAO = props("atlasMetallicAO").ToLower
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
                         .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(4, 4, 8, 4))
                     End With
@@ -543,7 +544,7 @@ CleanUp:
                 Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx"
                     Dim obj As New MaterialProps_lightonly_alpha
                     With obj
-                        .diffuseMap = props("diffuseMap")
+                        .diffuseMap = props("diffuseMap").ToLower
                     End With
                     mat.shader_type = ShaderTypes.FX_lightonly_alpha
                     mat.props = obj

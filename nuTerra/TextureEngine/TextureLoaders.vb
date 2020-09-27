@@ -116,56 +116,88 @@ Module TextureLoaders
         Return image_id
     End Function
 
+    Public Class DDSHeader
+        Public height As Int32
+        Public width As Int32
+        Public mipMapCount As Int32
+        Public FourCC As String
+        Public caps As UInt32
+
+        ReadOnly Property gl_format As InternalFormat
+            Get
+                Select Case FourCC
+                    Case "DXT1"
+                        Return InternalFormat.CompressedRgbaS3tcDxt1Ext
+                    Case "DXT3"
+                        Return InternalFormat.CompressedRgbaS3tcDxt3Ext
+                    Case "DXT5"
+                        Return InternalFormat.CompressedRgbaS3tcDxt5Ext
+                    Case Else ' DX10 ?
+                        Stop
+                        Return -1
+                End Select
+            End Get
+        End Property
+
+        ReadOnly Property gl_block_size As Integer
+            Get
+                Select Case FourCC
+                    Case "DXT1"
+                        Return 8
+                    Case "DXT3"
+                        Return 16
+                    Case "DXT5"
+                        Return 16
+                    Case Else ' DX10 ?
+                        Stop
+                        Return -1
+                End Select
+            End Get
+        End Property
+    End Class
+
+    Public Function get_dds_header(br As BinaryReader) As DDSHeader
+        Dim header As New DDSHeader
+        Debug.Assert(br.ReadChars(4) = "DDS ") ' file_code
+        Debug.Assert(br.ReadUInt32() = 124) ' size of the header
+        br.ReadUInt32() ' flags
+        header.height = br.ReadInt32()
+        header.width = br.ReadInt32()
+        br.ReadUInt32() ' pitchOrLinearSize
+        br.ReadUInt32() ' depth
+        header.mipMapCount = br.ReadInt32()
+        br.ReadBytes(44) ' reserved1
+        br.ReadUInt32() ' Size
+        br.ReadUInt32() ' Flags
+        header.FourCC = br.ReadChars(4)
+        br.ReadUInt32() ' RGBBitCount
+        br.ReadUInt32() ' RBitMask
+        br.ReadUInt32() ' GBitMask
+        br.ReadUInt32() ' BBitMask
+        br.ReadUInt32() ' ABitMask
+        header.caps = br.ReadUInt32()
+        Return header
+    End Function
+
     ' Based on https://gist.github.com/tilkinsc/13191c0c1e5d6b25fbe79bbd2288a673
     Public Function load_dds_image_from_stream(ms As MemoryStream, fn As String) As Integer
         Dim image_id As Integer
 
         ms.Position = 0
         Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
-            Debug.Assert(br.ReadChars(4) = "DDS ") ' file_code
-            Debug.Assert(br.ReadUInt32() = 124) ' size of the header
-            br.ReadUInt32() ' flags
-            Dim height = br.ReadInt32()
-            Dim width = br.ReadInt32()
-            br.ReadUInt32() ' pitchOrLinearSize
-            br.ReadUInt32() ' depth
-            Dim mipMapCount = br.ReadInt32()
-            br.ReadBytes(44) ' reserved1
-            br.ReadUInt32() ' Size
-            br.ReadUInt32() ' Flags
-            Dim FourCC = br.ReadChars(4)
-            br.ReadUInt32() ' RGBBitCount
-            br.ReadUInt32() ' RBitMask
-            br.ReadUInt32() ' GBitMask
-            br.ReadUInt32() ' BBitMask
-            br.ReadUInt32() ' ABitMask
-            Dim caps = br.ReadUInt32()
+            Dim dds_header = get_dds_header(br)
 
-            Select Case caps
+            Select Case dds_header.caps
                 Case &H1000
-                    Debug.Assert(mipMapCount = 0) ' Just Check
+                    Debug.Assert(dds_header.mipMapCount = 0) ' Just Check
                 Case &H401008
-                    Debug.Assert(mipMapCount > 0) ' Just Check
+                    Debug.Assert(dds_header.mipMapCount > 0) ' Just Check
                 Case Else
                     Debug.Assert(False) ' Cubemap ?
             End Select
 
-            Dim format As SizedInternalFormat
-            Dim blockSize As Integer
-
-            Select Case FourCC
-                Case "DXT1"
-                    format = InternalFormat.CompressedRgbaS3tcDxt1Ext
-                    blockSize = 8
-                Case "DXT3"
-                    format = InternalFormat.CompressedRgbaS3tcDxt3Ext
-                    blockSize = 16
-                Case "DXT5"
-                    format = InternalFormat.CompressedRgbaS3tcDxt5Ext
-                    blockSize = 16
-                Case Else ' DX10 ?
-                    Debug.Assert(False, FourCC)
-            End Select
+            Dim format As SizedInternalFormat = dds_header.gl_format
+            Dim blockSize = dds_header.gl_block_size
 
             ms.Position = 128
 
@@ -173,32 +205,33 @@ Module TextureLoaders
             Dim maxAniso As Single
             GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
 
-            If mipMapCount = 0 Then
+            If dds_header.mipMapCount = 0 Then
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-                GL.TextureStorage2D(image_id, 1, format, width, height)
+                GL.TextureStorage2D(image_id, 1, format, dds_header.width, dds_header.height)
 
-                Dim size = ((width + 3) \ 4) * ((height + 3) \ 4) * blockSize
+                Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * blockSize
                 Dim data = br.ReadBytes(size)
-                GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, width, height, DirectCast(format, OpenGL.PixelFormat), size, data)
+                GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, dds_header.width, dds_header.height, DirectCast(format, OpenGL.PixelFormat), size, data)
             Else
                 GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-                GL.TextureStorage2D(image_id, mipMapCount, format, width, height)
+                GL.TextureStorage2D(image_id, dds_header.mipMapCount, format, dds_header.width, dds_header.height)
 
-                Dim w = width
-                Dim h = height
+                Dim w = dds_header.width
+                Dim h = dds_header.height
+                Dim mipMapCount = dds_header.mipMapCount
 
-                For i = 0 To mipMapCount - 1
+                For i = 0 To dds_header.mipMapCount - 1
                     If (w = 0 Or h = 0) Then
                         mipMapCount -= 1
                         Continue For

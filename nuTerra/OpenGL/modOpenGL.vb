@@ -41,6 +41,8 @@ Module modOpenGL
         Dim g_useNormalPackDXT1 As UInt32
         Dim alphaReference As Single
         Dim alphaTestEnable As UInt32
+        Dim g_atlasIndexes As Vector4
+        Dim g_atlasSizes As Vector4
     End Structure
 
     Public Sub Ortho_main()

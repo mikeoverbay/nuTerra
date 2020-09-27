@@ -26,6 +26,8 @@ struct MaterialProperties
     bool g_useNormalPackDXT1; /* 36 .. 40 */
     float alphaReference;     /* 40 .. 44 */
     bool alphaTestEnable;     /* 44 .. 48 */
+    vec4 g_atlasIndexes;      /* 48 .. 56 */
+    vec4 g_atlasSizes;        /* 56 .. 72 */
 };
 
 // Material block

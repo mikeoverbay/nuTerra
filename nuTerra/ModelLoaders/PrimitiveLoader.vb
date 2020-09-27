@@ -54,6 +54,7 @@ Module PrimitiveLoader
 
     Structure MaterialProps_PBS_tiled_atlas
         Public atlasAlbedoHeight As String
+        Public atlasBlend As String
         Public atlasNormalGlossSpec As String
         Public atlasMetallicAO As String
         Public g_atlasSizes As Vector4
