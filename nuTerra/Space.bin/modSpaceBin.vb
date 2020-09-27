@@ -428,7 +428,8 @@ CleanUp:
                         "g_enableTransmission",
                         "texAddressMode",
                         "dynamicObject",
-                        "selfIllumination"
+                        "selfIllumination",
+                        "applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
@@ -528,7 +529,8 @@ CleanUp:
                         "dynamicObject",
                         "texAddressMode",
                         "selfIllumination",
-                        "diffuseMap"
+                        "diffuseMap",
+                        "applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then

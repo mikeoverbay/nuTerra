@@ -44,6 +44,8 @@ Module modOpenGL
         Dim alphaTestEnable As UInt32
         Dim g_atlasIndexes As Vector4
         Dim g_atlasSizes As Vector4
+        Dim pad1 As UInt32
+        Dim pad2 As UInt32
         'Dim g_colorTint As Vector4
         'Dim g_useColorTint As UInt32
         'Dim dirtParams As Vector4
