@@ -147,6 +147,7 @@ Module ShaderLoader
 
     Public shaders As List(Of Shader)
     Public BaseRingProjector As Shader
+    Public boxShader As Shader
     Public cullShader As Shader
     Public coloredline2dShader As Shader
     Public colorOnlyShader As Shader
@@ -179,6 +180,7 @@ Module ShaderLoader
     Public Sub build_shaders()
         'Try and keep these in alphabetical order 
         BaseRingProjector = New Shader("BaseRingProjector")
+        boxShader = New Shader("box")
         cullShader = New Shader("cull")
         coloredline2dShader = New Shader("coloredLine2d")
         colorOnlyShader = New Shader("colorOnly")
@@ -203,6 +205,7 @@ Module ShaderLoader
 
         shaders = New List(Of Shader)
         shaders.Add(BaseRingProjector)
+        shaders.Add(boxShader)
         shaders.Add(cullShader)
         shaders.Add(coloredline2dShader)
         shaders.Add(colorOnlyShader)

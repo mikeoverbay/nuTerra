@@ -101,11 +101,15 @@ Public Class frmMain
                     frmLighting.Visible = False
                 End If
 
+            Case Keys.B
+                SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
+
             Case Keys.N
                 NORMAL_DISPLAY_MODE += 1
                 If NORMAL_DISPLAY_MODE > 2 Then
                     NORMAL_DISPLAY_MODE = 0
                 End If
+
 
             Case Keys.T
                 If SHOW_TEST_TEXTURES = 1 Then
