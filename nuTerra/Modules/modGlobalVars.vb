@@ -30,6 +30,7 @@ Module modGlobalVars
     Public DELTA_TIME As Single
     Public NORMAL_DISPLAY_MODE As Integer ' 0 None, 1 by vertex, 2 by face
     Public SHOW_BOUNDING_BOXES As Boolean
+    Public FREEZE_FRUSTUM As Boolean
     Public FRAME_TIMER As New Stopwatch
     Public LOOP_COUNT As Integer = 200
     Public FPS_COUNTER As Integer
@@ -93,6 +94,9 @@ Module modGlobalVars
     '============================================================
     Public PROJECTIONMATRIX As New Matrix4
     Public VIEWMATRIX As New Matrix4
+    Public MATRICES_FROZEN As Boolean
+    Public FROZEN_PROJECTIONMATRIX As Matrix4
+    Public FROZEN_VIEWMATRIX As Matrix4
     Public VIEWMATRIX_Saved As Matrix4
     Public PROJECTIONMATRIX_Saved As Matrix4
     Public PRESPECTIVE_NEAR As Single = 0.1F

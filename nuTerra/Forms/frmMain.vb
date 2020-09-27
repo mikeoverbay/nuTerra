@@ -104,6 +104,9 @@ Public Class frmMain
             Case Keys.B
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
 
+            Case Keys.F
+                FREEZE_FRUSTUM = FREEZE_FRUSTUM Xor True
+
             Case Keys.N
                 NORMAL_DISPLAY_MODE += 1
                 If NORMAL_DISPLAY_MODE > 2 Then

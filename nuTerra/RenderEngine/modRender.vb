@@ -160,8 +160,19 @@ Module modRender
 
         cullShader.Use()
 
-        GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
+        If FREEZE_FRUSTUM Then
+            If Not MATRICES_FROZEN Then
+                FROZEN_PROJECTIONMATRIX = PROJECTIONMATRIX
+                FROZEN_VIEWMATRIX = VIEWMATRIX
+                MATRICES_FROZEN = True
+            End If
+            GL.UniformMatrix4(cullShader("projection"), False, FROZEN_PROJECTIONMATRIX)
+            GL.UniformMatrix4(cullShader("view"), False, FROZEN_VIEWMATRIX)
+        Else
+            MATRICES_FROZEN = False
+            GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
+            GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
+        End If
 
         GL.DispatchCompute(CInt(Math.Floor(indirectDrawCount / 16)), 1, 1)
 
