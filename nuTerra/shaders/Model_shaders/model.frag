@@ -78,11 +78,17 @@ void get_normal()
 void main(void)
 {
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
-
+    thisMaterial.g_atlasSizes = vec4(1.0);
     switch (thisMaterial.shader_type) {
     case FX_PBS_ext:
+        gColor = texture(thisMaterial.maps[0], fs_in.UV); // color
+        gGMF.rg = texture(thisMaterial.maps[2], fs_in.UV).rg; // gloss/metal
+        get_normal();
+        break;
     case FX_PBS_ext_dual:
         gColor = texture(thisMaterial.maps[0], fs_in.UV); // color
+        gColor *= texture(thisMaterial.maps[3], fs_in.UV2); // color
+        gColor.rgb *= 1.5; // this will need to tweaking
         gGMF.rg = texture(thisMaterial.maps[2], fs_in.UV).rg; // gloss/metal
         get_normal();
         break;
@@ -101,7 +107,7 @@ void main(void)
 
     case FX_lightonly_alpha:
         // gColor = texture(thisMaterial.maps[0], fs_in.UV);
-        gColor = vec4(1.0,1.0,1.0,1.0); // debug
+        gColor = vec4(0.0,0.0,1.0,1.0); // debug
         break;
 
     case FX_unsupported:
