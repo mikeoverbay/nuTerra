@@ -37,12 +37,21 @@ Module modOpenGL
         Dim map2Handle As UInt64
         Dim map3Handle As UInt64
         Dim map4Handle As UInt64
+        Dim map5Handle As UInt64
         Dim shader_type As UInt32
         Dim g_useNormalPackDXT1 As UInt32
         Dim alphaReference As Single
         Dim alphaTestEnable As UInt32
         Dim g_atlasIndexes As Vector4
         Dim g_atlasSizes As Vector4
+        'Dim g_colorTint As Vector4
+        'Dim g_useColorTint As UInt32
+        'Dim dirtParams As Vector4
+        'Dim dirtColor As Vector4
+        'Dim g_tile0Tint As Vector4
+        'Dim g_tile1Tint As Vector4
+        'Dim g_tile2Tint As Vector4
+
     End Structure
 
     Public Sub Ortho_main()

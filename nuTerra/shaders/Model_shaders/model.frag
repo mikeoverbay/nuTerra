@@ -21,13 +21,20 @@ in VS_OUT
 
 struct MaterialProperties
 {
-    sampler2D maps[4];        /* 0  .. 32 */
-    uint shader_type;         /* 32 .. 36 */
-    bool g_useNormalPackDXT1; /* 36 .. 40 */
-    float alphaReference;     /* 40 .. 44 */
-    bool alphaTestEnable;     /* 44 .. 48 */
-    vec4 g_atlasIndexes;      /* 48 .. 56 */
-    vec4 g_atlasSizes;        /* 56 .. 72 */
+    sampler2D maps[5];        /* 0  .. 40 */
+    uint shader_type;         /* 40 .. 44 */
+    bool g_useNormalPackDXT1; /* 44 .. 48 */
+    float alphaReference;     /* 48 .. 52 */
+    bool alphaTestEnable;     /* 52 .. 56 */
+    vec4 g_atlasIndexes;      /* 56 .. 60 */
+    vec4 g_atlasSizes;        /* 60 .. 64 */
+	//vec4 g_colorTint;		  /* 64  .. 68 */
+	//bool g_useColorTint;	  /* 68  .. 72 */
+	//vec4 dirtParams;		  /* 72  .. 76 */
+	//vec4 dirtColor;	    	  /* 76  .. 80 */
+	//vec4 g_tile0Tint;		  /* 80  .. 84 */
+	//vec4 g_tile1Tint;		  /* 84  .. 88 */
+	//vec4 g_tile2Tint;		  /* 88  .. 92 */
 };
 
 // Material block
@@ -87,7 +94,7 @@ void main(void)
         break;
     case FX_PBS_ext_dual:
         gColor = texture(thisMaterial.maps[0], fs_in.UV); // color
-        gColor *= texture(thisMaterial.maps[3], fs_in.UV2); // color
+        gColor *= texture(thisMaterial.maps[3], fs_in.UV2); // color2
         gColor.rgb *= 1.5; // this will need to tweaking
         gGMF.rg = texture(thisMaterial.maps[2], fs_in.UV).rg; // gloss/metal
         get_normal();

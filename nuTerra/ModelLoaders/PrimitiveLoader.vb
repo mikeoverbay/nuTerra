@@ -28,6 +28,8 @@ Module PrimitiveLoader
         Public alphaTestEnable As Boolean
         Public doubleSided As Boolean
         Public g_useNormalPackDXT1 As Boolean
+        Public g_useTintColor As Boolean
+        Public g_colorTint As Vector4
     End Structure
 
     Structure MaterialProps_PBS_ext_dual
@@ -69,7 +71,7 @@ Module PrimitiveLoader
         Public g_tile0Tint As Vector4
         Public g_tile1Tint As Vector4
         Public g_tile2Tint As Vector4
-        Public g_tintColor As Vector4
+        'Public g_tintColor As Vector4
     End Structure
 
     Structure MaterialProps_lightonly_alpha

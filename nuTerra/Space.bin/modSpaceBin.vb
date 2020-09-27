@@ -403,6 +403,8 @@ CleanUp:
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
                         .g_useNormalPackDXT1 = If(props.ContainsKey("g_useNormalPackDXT1"), props("g_useNormalPackDXT1"), False)
+                        .g_useTintColor = If(props.ContainsKey("g_useTintColor"), props("g_useTintColor"), False)
+                        .g_colorTint = If(props.ContainsKey("g_colorTint"), props("g_colorTint"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_ext
                     mat.props = obj
@@ -541,7 +543,7 @@ CleanUp:
                         .atlasNormalGlossSpec = props("atlasNormalGlossSpec").ToLower
                         .atlasMetallicAO = props("atlasMetallicAO").ToLower
 
-                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap"), Nothing)
+                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap"), "unused")
                         .dirtColor = If(props.ContainsKey("dirtColor"), props("dirtColor"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .dirtParams = If(props.ContainsKey("dirtParams"), props("dirtParams"), New Vector4(1.0, 1.0, 1.0, 1.0))
 
@@ -552,7 +554,9 @@ CleanUp:
                         .g_tile0Tint = If(props.ContainsKey("g_tile0Tint"), props("g_tile0Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .g_tile1Tint = If(props.ContainsKey("g_tile1Tint"), props("g_tile1Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .g_tile2Tint = If(props.ContainsKey("g_tile2Tint"), props("g_tile2Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
-                        .g_tintColor = If(props.ContainsKey("g_tintColor"), props("g_tintColor"), New Vector4(1.0, 1.0, 1.0, 1.0))
+                        If props.ContainsKey("g_tintColor") Then
+                            Stop
+                        End If
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas
                     mat.props = obj

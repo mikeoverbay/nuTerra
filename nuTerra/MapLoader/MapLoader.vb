@@ -546,6 +546,8 @@ Module MapLoader
 
                 Case ShaderTypes.FX_PBS_ext_detail
                     texturePaths.Add(mat.props.diffuseMap)
+                    texturePaths.Add(mat.props.normalMap)
+                    texturePaths.Add(mat.props.metallicGlossMap)
 
                 Case ShaderTypes.FX_PBS_tiled_atlas
                     atlasPaths.Add(mat.props.atlasAlbedoHeight)
@@ -554,6 +556,7 @@ Module MapLoader
                     texturePaths.Add(mat.props.atlasBlend)
                     atlasPaths.Add(mat.props.atlasNormalGlossSpec)
                     atlasPaths.Add(mat.props.atlasMetallicAO)
+                    atlasPaths.Add(mat.props.dirtMap)
 
                 Case ShaderTypes.FX_lightonly_alpha
                     texturePaths.Add(mat.props.diffuseMap)
@@ -572,7 +575,7 @@ Module MapLoader
             End If
 
             If Not atlasPath.EndsWith(".atlas") Then
-                Stop
+                'Stop
                 Continue For
             End If
 
@@ -674,6 +677,8 @@ Module MapLoader
                         .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
                         .alphaReference = mat.props.alphaReference / 255.0
                         .alphaTestEnable = mat.props.alphaTestEnable
+                        '.g_colorTint = mat.props.g_colorTint
+                        '.g_useColorTint = mat.props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_ext_dual
                         .map1Handle = textureHandles(mat.props.diffuseMap)
@@ -683,20 +688,35 @@ Module MapLoader
                         .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
                         .alphaReference = mat.props.alphaReference / 255.0
                         .alphaTestEnable = mat.props.alphaTestEnable
+                        '.g_colorTint = mat.props.g_colorTint
+                        '.g_useColorTint = mat.props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_ext_detail
                         .map1Handle = textureHandles(mat.props.diffuseMap)
+                        .map2Handle = textureHandles(mat.props.normalMap)
+                        .map3Handle = textureHandles(mat.props.metallicGlossMap)
                         .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
                         .alphaReference = mat.props.alphaReference / 255.0
                         .alphaTestEnable = mat.props.alphaTestEnable
+                        '.g_colorTint = mat.props.g_colorTint
+                        '.g_useColorTint = mat.props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
-                        .g_atlasIndexes = mat.props.g_atlasIndexes
-                        .g_atlasSizes = mat.props.g_atlasSizes
                         .map1Handle = textureHandles(mat.props.atlasAlbedoHeight)
                         .map2Handle = textureHandles(mat.props.atlasBlend)
                         .map3Handle = textureHandles(mat.props.atlasNormalGlossSpec)
                         .map4Handle = textureHandles(mat.props.atlasMetallicAO)
+                        .g_atlasIndexes = mat.props.g_atlasIndexes
+                        .g_atlasSizes = mat.props.g_atlasSizes
+                        If mat.props.dirtMap <> "unused" Then
+                            '.map5Handle = textureHandles(mat.props.dirtMap)
+
+                        End If
+                        '.dirtColor = mat.props.dirtColor
+                        '.dirtParams = mat.props.dirtParams
+                        '.g_tile0Tint = mat.props.g_tile0Tint
+                        '.g_tile1Tint = mat.props.g_tile2Tint
+                        '.g_tile1Tint = mat.props.g_tile2Tint
 
                     Case ShaderTypes.FX_lightonly_alpha
                         .map1Handle = textureHandles(mat.props.diffuseMap)
