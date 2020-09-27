@@ -21,20 +21,20 @@ in VS_OUT
 
 struct MaterialProperties
 {
-    sampler2D maps[5];        /* 0  .. 40 */
-    uint shader_type;         /* 40 .. 44 */
-    bool g_useNormalPackDXT1; /* 44 .. 48 */
-    float alphaReference;     /* 48 .. 52 */
-    bool alphaTestEnable;     /* 52 .. 56 */
-    vec4 g_atlasIndexes;      /* 56 .. 60 */
-    vec4 g_atlasSizes;        /* 60 .. 64 */
-	vec4 g_colorTint;		  /* 64  .. 68 */
-	bool g_useColorTint;	  /* 68  .. 72 */
-	vec4 dirtParams;		  /* 72  .. 76 */
-	vec4 dirtColor;	    	  /* 76  .. 80 */
-	vec4 g_tile0Tint;		  /* 80  .. 84 */
-	vec4 g_tile1Tint;		  /* 84  .. 88 */
-	vec4 g_tile2Tint;		  /* 88  .. 92 */
+    vec4 g_atlasIndexes;      /* 0   .. 16 */
+    vec4 g_atlasSizes;        /* 16  .. 32 */
+    vec4 g_colorTint;         /* 32  .. 48 */
+    vec4 dirtParams;          /* 48  .. 64 */
+    vec4 dirtColor;           /* 64  .. 80 */
+    vec4 g_tile0Tint;         /* 80  .. 96 */
+    vec4 g_tile1Tint;         /* 96  .. 112 */
+    vec4 g_tile2Tint;         /* 112 .. 128 */
+    sampler2D maps[5];        /* 128 .. 168 */
+    uint shader_type;         /* 168 .. 172 */
+    bool g_useNormalPackDXT1; /* 172 .. 176 */
+    float alphaReference;     /* 176 .. 180 */
+    bool alphaTestEnable;     /* 180 .. 184 */
+    bool g_useColorTint;      /* 184 .. 188 */
 };
 
 // Material block

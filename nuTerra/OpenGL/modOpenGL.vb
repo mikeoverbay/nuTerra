@@ -33,6 +33,14 @@ Module modOpenGL
 
     <StructLayout(LayoutKind.Sequential)>
     Public Structure GLMaterial
+        Dim g_atlasIndexes As Vector4
+        Dim g_atlasSizes As Vector4
+        Dim g_colorTint As Vector4
+        Dim dirtParams As Vector4
+        Dim dirtColor As Vector4
+        Dim g_tile0Tint As Vector4
+        Dim g_tile1Tint As Vector4
+        Dim g_tile2Tint As Vector4
         Dim map1Handle As UInt64
         Dim map2Handle As UInt64
         Dim map3Handle As UInt64
@@ -42,15 +50,8 @@ Module modOpenGL
         Dim g_useNormalPackDXT1 As UInt32
         Dim alphaReference As Single
         Dim alphaTestEnable As UInt32
-        Dim g_atlasIndexes As Vector4
-        Dim g_atlasSizes As Vector4
-        Dim g_colorTint As Vector4
         Dim g_useColorTint As UInt32
-        Dim dirtParams As Vector4
-        Dim dirtColor As Vector4
-        Dim g_tile0Tint As Vector4
-        Dim g_tile1Tint As Vector4
-        Dim g_tile2Tint As Vector4
+        Dim pad As UInt32
     End Structure
 
     Public Sub Ortho_main()
