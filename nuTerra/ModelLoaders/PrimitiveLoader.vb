@@ -71,7 +71,6 @@ Module PrimitiveLoader
         Public g_tile0Tint As Vector4
         Public g_tile1Tint As Vector4
         Public g_tile2Tint As Vector4
-        'Public g_tintColor As Vector4
     End Structure
 
     Structure MaterialProps_lightonly_alpha

@@ -44,16 +44,13 @@ Module modOpenGL
         Dim alphaTestEnable As UInt32
         Dim g_atlasIndexes As Vector4
         Dim g_atlasSizes As Vector4
-        Dim pad1 As UInt32
-        Dim pad2 As UInt32
-        'Dim g_colorTint As Vector4
-        'Dim g_useColorTint As UInt32
-        'Dim dirtParams As Vector4
-        'Dim dirtColor As Vector4
-        'Dim g_tile0Tint As Vector4
-        'Dim g_tile1Tint As Vector4
-        'Dim g_tile2Tint As Vector4
-
+        Dim g_colorTint As Vector4
+        Dim g_useColorTint As UInt32
+        Dim dirtParams As Vector4
+        Dim dirtColor As Vector4
+        Dim g_tile0Tint As Vector4
+        Dim g_tile1Tint As Vector4
+        Dim g_tile2Tint As Vector4
     End Structure
 
     Public Sub Ortho_main()

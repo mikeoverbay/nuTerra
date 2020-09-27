@@ -28,13 +28,13 @@ struct MaterialProperties
     bool alphaTestEnable;     /* 52 .. 56 */
     vec4 g_atlasIndexes;      /* 56 .. 60 */
     vec4 g_atlasSizes;        /* 60 .. 64 */
-	//vec4 g_colorTint;		  /* 64  .. 68 */
-	//bool g_useColorTint;	  /* 68  .. 72 */
-	//vec4 dirtParams;		  /* 72  .. 76 */
-	//vec4 dirtColor;	    	  /* 76  .. 80 */
-	//vec4 g_tile0Tint;		  /* 80  .. 84 */
-	//vec4 g_tile1Tint;		  /* 84  .. 88 */
-	//vec4 g_tile2Tint;		  /* 88  .. 92 */
+	vec4 g_colorTint;		  /* 64  .. 68 */
+	bool g_useColorTint;	  /* 68  .. 72 */
+	vec4 dirtParams;		  /* 72  .. 76 */
+	vec4 dirtColor;	    	  /* 76  .. 80 */
+	vec4 g_tile0Tint;		  /* 80  .. 84 */
+	vec4 g_tile1Tint;		  /* 84  .. 88 */
+	vec4 g_tile2Tint;		  /* 88  .. 92 */
 };
 
 // Material block

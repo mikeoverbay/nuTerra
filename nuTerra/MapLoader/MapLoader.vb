@@ -677,8 +677,8 @@ Module MapLoader
                         .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
                         .alphaReference = mat.props.alphaReference / 255.0
                         .alphaTestEnable = mat.props.alphaTestEnable
-                        '.g_colorTint = mat.props.g_colorTint
-                        '.g_useColorTint = mat.props.g_useTintColor
+                        .g_colorTint = mat.props.g_colorTint
+                        .g_useColorTint = mat.props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_ext_dual
                         .map1Handle = textureHandles(mat.props.diffuseMap)
@@ -698,8 +698,8 @@ Module MapLoader
                         .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
                         .alphaReference = mat.props.alphaReference / 255.0
                         .alphaTestEnable = mat.props.alphaTestEnable
-                        '.g_colorTint = mat.props.g_colorTint
-                        '.g_useColorTint = mat.props.g_useTintColor
+                        .g_colorTint = mat.props.g_colorTint
+                        .g_useColorTint = mat.props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
                         .map1Handle = textureHandles(mat.props.atlasAlbedoHeight)
@@ -712,11 +712,11 @@ Module MapLoader
                             '.map5Handle = textureHandles(mat.props.dirtMap)
 
                         End If
-                        '.dirtColor = mat.props.dirtColor
-                        '.dirtParams = mat.props.dirtParams
-                        '.g_tile0Tint = mat.props.g_tile0Tint
-                        '.g_tile1Tint = mat.props.g_tile2Tint
-                        '.g_tile1Tint = mat.props.g_tile2Tint
+                        .dirtColor = mat.props.dirtColor
+                        .dirtParams = mat.props.dirtParams
+                        .g_tile0Tint = mat.props.g_tile0Tint
+                        .g_tile1Tint = mat.props.g_tile2Tint
+                        .g_tile1Tint = mat.props.g_tile2Tint
 
                     Case ShaderTypes.FX_lightonly_alpha
                         .map1Handle = textureHandles(mat.props.diffuseMap)
