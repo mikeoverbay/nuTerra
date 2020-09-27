@@ -414,12 +414,26 @@ Module modRender
         GL.BindVertexArray(vertexArray)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, indirectDrawCount, 0)
 
-        'Debug.Assert(False)
-
         GL.Disable(EnableCap.CullFace)
 
         modelShader.StopUse()
         unbind_textures(2) ' unbind all the used texture slots
+
+        If SHOW_BOUNDING_BOXES Then
+            GL.Disable(EnableCap.DepthTest)
+
+            boxShader.Use()
+            GL.UniformMatrix4(boxShader("projection"), False, PROJECTIONMATRIX)
+            GL.UniformMatrix4(boxShader("view"), False, VIEWMATRIX)
+
+            GL.BindTextureUnit(0, m_color_id)
+            GL.Uniform1(boxShader("colorMap"), 0)
+
+            GL.BindVertexArray(defaultVao)
+            GL.DrawArrays(PrimitiveType.Points, 0, indirectDrawCount)
+
+            boxShader.StopUse()
+        End If
 
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             GL.Disable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay

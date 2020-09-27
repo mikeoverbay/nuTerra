@@ -6,27 +6,33 @@ layout (line_strip, max_vertices = 24) out;
 uniform mat4 projection;
 uniform mat4 view;
 
-struct ModelInstance
+struct CandidateDraw
 {
-    mat4 model_matrix;
     vec3 bmin;
-    uint offset;
+    uint model_id;
     vec3 bmax;
+    uint material_id;
     uint count;
-    uint prim_groups_count;
-    uint reserved;
+    uint firstIndex;
+    uint baseVertex;
+    uint baseInstance;
 };
 
-layout (binding = 0, std430) readonly buffer MODEL_MATRIX_BLOCK
+layout (binding = 0, std140) readonly buffer MODEL_MATRIX_BLOCK
 {
-    ModelInstance model_matrix[];
+    mat4 model_matrix[];
+};
+
+layout (binding = 1, std430) readonly buffer CandidateDraws
+{
+    CandidateDraw draw[];
 };
 
 void main(void)
 {
-    const mat4 MVP = projection * view * model_matrix[gl_PrimitiveIDIn].model_matrix;
-    const vec3 bmin = model_matrix[gl_PrimitiveIDIn].bmin;
-    const vec3 bmax = model_matrix[gl_PrimitiveIDIn].bmax;
+    const mat4 MVP = projection * view * model_matrix[gl_PrimitiveIDIn];
+    const vec3 bmin = draw[gl_PrimitiveIDIn].bmin;
+    const vec3 bmax = draw[gl_PrimitiveIDIn].bmax;
 
     gl_Position = MVP * vec4(bmin, 1.0);
     EmitVertex();
@@ -79,12 +85,12 @@ void main(void)
     gl_Position = MVP * vec4(bmax, 1.0);
     EmitVertex();
 
-    gl_Position = MVP * vec4(bmax.x, bmax.y, bmin.z, 1.0);
+    gl_Position = MVP * vec4(bmax.xy, bmin.z, 1.0);
     EmitVertex();
 
     EndPrimitive(); // 7
 
-    gl_Position = MVP * vec4(bmax.x, bmax.y, bmin.z, 1.0);
+    gl_Position = MVP * vec4(bmax.xy, bmin.z, 1.0);
     EmitVertex();
 
     gl_Position = MVP * vec4(bmax.x, bmin.yz, 1.0);
