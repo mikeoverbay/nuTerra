@@ -62,6 +62,7 @@ Module PrimitiveLoader
         Public atlasNormalGlossSpec As String
         Public atlasMetallicAO As String
         Public dirtMap As String
+        Public globalTex As String
         Public dirtParams As Vector4
         Public dirtColor As Vector4
         Public g_atlasSizes As Vector4
@@ -69,6 +70,9 @@ Module PrimitiveLoader
         Public g_tile0Tint As Vector4
         Public g_tile1Tint As Vector4
         Public g_tile2Tint As Vector4
+        Public g_tileUVScale As Vector4
+        Public alphaReference As Integer
+        Public alphaTestEnable As Boolean
     End Structure
 
     Structure MaterialProps_PBS_atlas_global

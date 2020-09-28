@@ -58,7 +58,6 @@ layout (binding = 2, std430) readonly buffer MATERIALS
 // globals
 MaterialProperties thisMaterial = material[fs_in.material_id];
 vec3 normalBump;
-vec2 UV1, UV2, UV3, UV4, UV4_T, tile;
 const float PI = 3.14159265359;
 // ================================================================================
 
@@ -102,28 +101,33 @@ float mip_map_level(in vec2 texture_coordinate)
     return 0.5 * log2(delta_max_sqr); 
     return 5.0;
 }
-void get_atlas_uvs(void)
+void get_atlas_uvs(inout vec2 UV1,inout vec2 UV2,
+                   inout vec2 UV3,inout vec2 UV4, inout vec2 UV4_T)
 {
     vec2 tc = fs_in.TC1/round(thisMaterial.g_tileUVScale).xy;
     vec4 At_size = thisMaterial.g_atlasSizes;
-    vec4 image_size = thisMaterial.g_atlasSizes;
+
+    ivec2 isize = textureSize(thisMaterial.maps[0],0);
+    vec2 image_size;
+    image_size.x = float(isize.x); //to float. AMD hates using int values with floats.
+    image_size.y = float(isize.y);
 
     float uox = 0.0625;
     float uoy = 0.0625;
 
     float usx = 0.875;
     float usy = 0.875;
-    vec2 hpix = vec2(0.5/image_size.x,0.5/image_size.x);// / At_size.xy;
+    vec2 hpix = vec2(0.5/image_size.x,0.5/image_size.y);// / At_size.xy;
     vec2 offset = vec2(uox/At_size.x, uoy/At_size.y) + hpix;
 
     //common scale for UV1, UV2 and UV3
-    vec2 UVs;
     float scaleX = 1.0 / At_size.x;
     float scaleY = 1.0 / At_size.y;
+    vec2 UVs;
     UVs.x = fract(fs_in.TC1.x)*scaleX*usx; 
     UVs.y = fract(fs_in.TC1.y)*scaleY*usy;
     //============================================
-
+    vec2 tile;
     float index = thisMaterial.g_atlasIndexes.x;
     tile.y = floor(index/At_size.x);
     tile.x = index - tile.y * At_size.x;
@@ -165,7 +169,6 @@ void get_atlas_uvs(void)
 void main(void)
 {
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
-    thisMaterial.g_atlasSizes = vec4(1.0);
 
     switch (thisMaterial.shader_type) {
     case FX_PBS_ext:
@@ -192,6 +195,11 @@ void main(void)
         break;
 
     case FX_PBS_tiled_atlas:
+
+        vec2 UV1, UV2, UV3, UV4, UV4_T;
+        get_atlas_uvs(UV1, UV2, UV3, UV4, UV4_T);
+
+
         float mip = mip_map_level(fs_in.TC1*thisMaterial.g_atlasSizes.xy)*0.5;
         vec4 BLEND = texture2D(thisMaterial.maps[3],UV4);
 

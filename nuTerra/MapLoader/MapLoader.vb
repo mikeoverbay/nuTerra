@@ -732,6 +732,7 @@ Module MapLoader
                         .g_tile0Tint = mat.props.g_tile0Tint
                         .g_tile1Tint = mat.props.g_tile2Tint
                         .g_tile1Tint = mat.props.g_tile2Tint
+                        .g_tileUVScale = mat.props.g_tileUVScale
 
                     Case ShaderTypes.FX_PBS_tiled_atlas_global
                         .map1Handle = textureHandles(mat.props.atlasAlbedoHeight)
@@ -752,6 +753,7 @@ Module MapLoader
                         .g_tile0Tint = mat.props.g_tile0Tint
                         .g_tile1Tint = mat.props.g_tile2Tint
                         .g_tile1Tint = mat.props.g_tile2Tint
+                        .g_tileUVScale = mat.props.g_tileUVScale
 
                     Case ShaderTypes.FX_lightonly_alpha
                         .map1Handle = textureHandles(mat.props.diffuseMap)

@@ -555,6 +555,8 @@ CleanUp:
                         .g_tile0Tint = If(props.ContainsKey("g_tile0Tint"), props("g_tile0Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .g_tile1Tint = If(props.ContainsKey("g_tile1Tint"), props("g_tile1Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .g_tile2Tint = If(props.ContainsKey("g_tile2Tint"), props("g_tile2Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
+                        .g_tileUVScale = If(props.ContainsKey("g_tileUVScale"), props("g_tileUVScale"), New Vector4(1.0, 1.0, 1.0, 1.0))
+
                         If props.ContainsKey("g_tintColor") Then
                             Stop
                         End If
