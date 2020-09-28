@@ -117,6 +117,10 @@ void get_atlas_uvs(inout vec2 UV1,inout vec2 UV2,
 
     float usx = 0.875;
     float usy = 0.875;
+uox = 0.03215;
+uoy = 0.03215;
+usx = 0.9375;
+usy = 0.9375;
     vec2 hpix = vec2(0.5/image_size.x,0.5/image_size.y);// / At_size.xy;
     vec2 offset = vec2(uox/At_size.x, uoy/At_size.y) + hpix;
 
@@ -256,13 +260,14 @@ void main(void)
         vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
         bump.xy    = tb.xy;
         bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
-        gNormal = normalize(bump);
+        gNormal = normalize(fs_in.TBN * bump);
         break;
 
     case FX_PBS_tiled_atlas_global:
 
         get_atlas_uvs(UV1, UV2, UV3, UV4, UV4_T);
-
+        
+        vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
 
         mip = mip_map_level(fs_in.TC1*thisMaterial.g_atlasSizes.xy)*0.5;
         BLEND = texture2D(thisMaterial.maps[3],UV4);
@@ -305,7 +310,7 @@ void main(void)
         colorAM = mix(colorAM,DIRT, BLEND.b);
         colorAM *= BLEND.a;
         gColor = colorAM;
-
+        //gColor += globalTex;
         GBMT = GBMT_3;
         GBMT = mix(GBMT, GBMT_1, BLEND.r);
         GBMT = mix(GBMT, GBMT_2, BLEND.g);
@@ -318,9 +323,11 @@ void main(void)
         
         bump;
         tb = vec2(GBMT.ga * 2.0 - 1.0);
+        tb = vec2(globalTex.ga * 2.0 - 1.0);
         bump.xy    = tb.xy;
         bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
-        gNormal = normalize(bump);
+        gNormal = normalize(fs_in.TBN * bump);
+
         break;
 
     case FX_lightonly_alpha:
@@ -336,6 +343,7 @@ void main(void)
         gColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
 
+    gColor = correct(gColor,3.0,0.8);
     gColor.a = 1.0;
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType; // 64 = PBS, 63 = light/bump
