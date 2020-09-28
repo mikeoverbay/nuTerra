@@ -86,7 +86,7 @@ void main(void)
     const mat4 thisModelMatrix = model_matrix[thisDraw.model_id];
     const mat4 MVP = projection * view * thisModelMatrix;
 
-    if (frustumCullingTest(MVP, thisDraw.bmin, thisDraw.bmax)) {
+    if (frustumCullingTest(MVP, vec3(thisDraw.bmax.x, thisDraw.bmin.yz), vec3(thisDraw.bmin.x, thisDraw.bmax.yz))) {
         uint outDrawIndex = atomicCounterIncrement(commandCounter);
         command[outDrawIndex].count = thisDraw.count;
         command[outDrawIndex].instanceCount = 1;
