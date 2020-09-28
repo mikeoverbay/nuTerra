@@ -30,9 +30,10 @@ layout (binding = 1, std430) readonly buffer CandidateDraws
 
 void main(void)
 {
-    const mat4 MVP = projection * view * model_matrix[gl_PrimitiveIDIn];
-    const vec3 bmin = draw[gl_PrimitiveIDIn].bmin;
-    const vec3 bmax = draw[gl_PrimitiveIDIn].bmax;
+    const CandidateDraw thisDraw = draw[gl_PrimitiveIDIn];
+    const mat4 MVP = projection * view * model_matrix[thisDraw.model_id];
+    const vec3 bmin = thisDraw.bmin;
+    const vec3 bmax = thisDraw.bmax;
 
     gl_Position = MVP * vec4(bmin, 1.0);
     EmitVertex();
