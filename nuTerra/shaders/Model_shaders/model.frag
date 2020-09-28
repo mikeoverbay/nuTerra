@@ -29,13 +29,13 @@ struct MaterialProperties
     vec4 g_tile0Tint;         /* 80  .. 96 */
     vec4 g_tile1Tint;         /* 96  .. 112 */
     vec4 g_tile2Tint;         /* 112 .. 128 */
-    sampler2D maps[6];        /* 128 .. 168 */
-    uint shader_type;         /* 168 .. 172 */
-    bool g_useNormalPackDXT1; /* 172 .. 176 */
-    float alphaReference;     /* 176 .. 180 */
-    bool alphaTestEnable;     /* 180 .. 184 */
-    bool g_useColorTint;      /* 184 .. 188 */
-	vec4 g_tileUVScale;       /* 188 .. 192 */
+    vec4 g_tileUVScale;       /* 128 .. 144 */
+    sampler2D maps[6];        /* 144 .. 192 */
+    uint shader_type;         /* 192 .. 196 */
+    bool g_useNormalPackDXT1; /* 196 .. 200 */
+    float alphaReference;     /* 200 .. 204 */
+    bool alphaTestEnable;     /* 204 .. 208 */
+    bool g_useColorTint;      /* 208 .. 212 */
 };
 
 // Material block
@@ -87,13 +87,17 @@ void main(void)
 {
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
     thisMaterial.g_atlasSizes = vec4(1.0);
+
     switch (thisMaterial.shader_type) {
     case FX_PBS_ext:
         gColor = texture(thisMaterial.maps[0], fs_in.UV); // color
-		if (thisMaterial.g_useColorTint) gColor *= thisMaterial.g_colorTint;
+        if (thisMaterial.g_useColorTint) {
+            gColor *= thisMaterial.g_colorTint;
+        }
         gGMF.rg = texture(thisMaterial.maps[2], fs_in.UV).rg; // gloss/metal
         get_normal();
         break;
+
     case FX_PBS_ext_dual:
         gColor = texture(thisMaterial.maps[0], fs_in.UV); // color
         gColor *= texture(thisMaterial.maps[3], fs_in.UV2); // color2
@@ -104,7 +108,9 @@ void main(void)
 
     case FX_PBS_ext_detail:
         gColor = texture(thisMaterial.maps[0], fs_in.UV);
-		if (thisMaterial.g_useColorTint) gColor *= thisMaterial.g_colorTint;
+        if (thisMaterial.g_useColorTint) {
+            gColor *= thisMaterial.g_colorTint;
+        }
         gGMF.rg = texture(thisMaterial.maps[2], fs_in.UV).rg; // gloss/metal
         get_normal();
         break;

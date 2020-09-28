@@ -41,6 +41,7 @@ Module modOpenGL
         Dim g_tile0Tint As Vector4
         Dim g_tile1Tint As Vector4
         Dim g_tile2Tint As Vector4
+        Dim g_tileUVScale As Vector4
         Dim map1Handle As UInt64
         Dim map2Handle As UInt64
         Dim map3Handle As UInt64
@@ -52,9 +53,9 @@ Module modOpenGL
         Dim alphaReference As Single
         Dim alphaTestEnable As UInt32
         Dim g_useColorTint As UInt32
-        Dim g_tileUVScale As Vector4
         Dim pad1 As UInt32
         Dim pad2 As UInt32
+        Dim pad3 As UInt32
     End Structure
 
     Public Sub Ortho_main()

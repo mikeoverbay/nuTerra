@@ -435,6 +435,24 @@ Module modRender
             boxShader.StopUse()
         End If
 
+        If FREEZE_FRUSTUM Then
+            GL.Disable(EnableCap.DepthTest)
+            frustumShader.Use()
+
+            GL.UniformMatrix4(frustumShader("projection"), False, PROJECTIONMATRIX)
+            GL.UniformMatrix4(frustumShader("view"), False, VIEWMATRIX)
+            GL.UniformMatrix4(frustumShader("frozen_projection"), False, FROZEN_PROJECTIONMATRIX)
+            GL.UniformMatrix4(frustumShader("frozen_view"), False, FROZEN_VIEWMATRIX)
+
+            GL.BindTextureUnit(0, m_color_id)
+            GL.Uniform1(frustumShader("colorMap"), 0)
+
+            GL.BindVertexArray(defaultVao)
+            GL.DrawArrays(PrimitiveType.Points, 0, 1)
+
+            frustumShader.StopUse()
+        End If
+
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             GL.Disable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If

@@ -154,6 +154,7 @@ Module ShaderLoader
     Public CrossHairShader As Shader
     Public DecalProject As Shader
     Public deferredShader As Shader
+    Public frustumShader As Shader
     Public gWriterShader As Shader
     Public image2dFlipShader As Shader
     Public image2dShader As Shader
@@ -187,6 +188,7 @@ Module ShaderLoader
         CrossHairShader = New Shader("CrossHair")
         DecalProject = New Shader("DecalProject")
         deferredShader = New Shader("deferred")
+        frustumShader = New Shader("frustum")
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")
         gWriterShader = New Shader("gWriter")
@@ -212,6 +214,7 @@ Module ShaderLoader
         shaders.Add(CrossHairShader)
         shaders.Add(DecalProject)
         shaders.Add(deferredShader)
+        shaders.Add(frustumShader)
         shaders.Add(image2dFlipShader)
         shaders.Add(image2dShader)
         shaders.Add(gWriterShader)

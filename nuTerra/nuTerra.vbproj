@@ -353,6 +353,15 @@
     <None Include="shaders\Developer\box.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Developer\frustum.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Developer\frustum.geom">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Developer\frustum.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Developer\TerrainGrids.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
