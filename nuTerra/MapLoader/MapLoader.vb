@@ -716,9 +716,9 @@ Module MapLoader
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
                         .map1Handle = textureHandles(mat.props.atlasAlbedoHeight)
-                        .map2Handle = textureHandles(mat.props.atlasBlend)
-                        .map3Handle = textureHandles(mat.props.atlasNormalGlossSpec)
-                        .map4Handle = textureHandles(mat.props.atlasMetallicAO)
+                        .map2Handle = textureHandles(mat.props.atlasNormalGlossSpec)
+                        .map3Handle = textureHandles(mat.props.atlasMetallicAO)
+                        .map4Handle = textureHandles(mat.props.atlasBlend)
                         If mat.props.dirtMap <> "unused" Then
                             .map5Handle = textureHandles(mat.props.dirtMap)
                         End If
@@ -735,9 +735,9 @@ Module MapLoader
 
                     Case ShaderTypes.FX_PBS_tiled_atlas_global
                         .map1Handle = textureHandles(mat.props.atlasAlbedoHeight)
-                        .map2Handle = textureHandles(mat.props.atlasBlend)
-                        .map3Handle = textureHandles(mat.props.atlasNormalGlossSpec)
-                        .map4Handle = textureHandles(mat.props.atlasMetallicAO)
+                        .map2Handle = textureHandles(mat.props.atlasNormalGlossSpec)
+                        .map3Handle = textureHandles(mat.props.atlasMetallicAO)
+                        .map4Handle = textureHandles(mat.props.atlasBlend)
                         If mat.props.dirtMap <> "unused" Then
                             .map5Handle = textureHandles(mat.props.dirtMap)
                         End If

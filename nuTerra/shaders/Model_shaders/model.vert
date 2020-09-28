@@ -34,8 +34,8 @@ layout (binding = 1, std430) readonly buffer CandidateDraws
 
 out VS_OUT
 {
-    vec2 UV;
-    vec2 UV2;
+    vec2 TC1;
+    vec2 TC2;
     vec3 worldPosition;
     mat3 TBN;
     flat uint material_id;
@@ -50,8 +50,8 @@ void main(void)
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
 
     vs_out.material_id = thisDraw.material_id;
-    vs_out.UV = vertexTexCoord1;
-    vs_out.UV2 = vertexTexCoord2;
+    vs_out.TC1 = vertexTexCoord1;
+    vs_out.TC2 = vertexTexCoord2;
 
     mat4 modelView = view * model_matrix[thisDraw.model_id];
     // TODO: mat3 normalMatrix = mat3(transpose(inverse(modelView)));
