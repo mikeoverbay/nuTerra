@@ -41,8 +41,6 @@ Module PrimitiveLoader
         Public alphaTestEnable As Boolean
         Public doubleSided As Boolean
         Public g_useNormalPackDXT1 As Boolean
-        Public g_useTintColor As Boolean
-        Public g_colorTint As Vector4
     End Structure
 
     Structure MaterialProps_PBS_ext_detail
@@ -71,6 +69,23 @@ Module PrimitiveLoader
         Public g_tile0Tint As Vector4
         Public g_tile1Tint As Vector4
         Public g_tile2Tint As Vector4
+    End Structure
+
+    Structure MaterialProps_PBS_atlas_global
+        Public atlasAlbedoHeight As String
+        Public atlasBlend As String
+        Public atlasNormalGlossSpec As String
+        Public atlasMetallicAO As String
+        Public dirtMap As String
+        Public globalTex As String
+        Public dirtParams As Vector4
+        Public dirtColor As Vector4
+        Public g_atlasSizes As Vector4
+        Public g_atlasIndexes As Vector4
+        Public g_tile0Tint As Vector4
+        Public g_tile1Tint As Vector4
+        Public g_tile2Tint As Vector4
+        Public g_tileUVScale As Vector4
     End Structure
 
     Structure MaterialProps_lightonly_alpha

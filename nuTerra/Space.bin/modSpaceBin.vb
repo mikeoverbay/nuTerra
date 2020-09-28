@@ -447,7 +447,7 @@ CleanUp:
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
                         .g_useNormalPackDXT1 = If(props.ContainsKey("g_useNormalPackDXT1"), props("g_useNormalPackDXT1"), False)
-                        If props.ContainsKey("g_tintColor") Then
+                        If props.ContainsKey("g_useTintColor") Then
                             If props("g_useTintColor") = "True" Then
                                 Stop
                             End If
@@ -564,7 +564,66 @@ CleanUp:
                     mat.props = obj
 
                 Case "shaders/std_effects/PBS_tiled_atlas_global.fx"
+                    Dim knownPropNames As New HashSet(Of String)({
+                       "alphaReference",
+                       "alphaTestEnable",
+                       "doubleSided",
+                       "g_atlasSizes",
+                       "g_atlasIndexes",
+                       "atlasNormalGlossSpec",
+                       "atlasMetallicAO",
+                       "atlasBlend",
+                       "atlasAlbedoHeight",
+                       "g_dirtParams",
+                       "g_dirtColor",
+                       "dirtMap",
+                       "g_tile0Tint",
+                       "g_tile1Tint",
+                       "g_tile2Tint",
+                       "g_fakeShadowsParams",
+                       "g_enableTerrainBlending",
+                       "dynamicObject",
+                       "texAddressMode",
+                       "selfIllumination",
+                       "diffuseMap",
+                       "applyOverlay",
+                       "globalTex",
+                       "g_tileUVScale"
+                   })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            Stop
+                        End If
+                    Next
+
+                    Dim obj As New MaterialProps_PBS_atlas_global
+                    With obj
+                        .atlasAlbedoHeight = props("atlasAlbedoHeight").ToLower
+                        .atlasBlend = props("atlasBlend").ToLower
+                        .atlasNormalGlossSpec = props("atlasNormalGlossSpec").ToLower
+                        .atlasMetallicAO = props("atlasMetallicAO").ToLower
+                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap"), "unused")
+                        .globalTex = props("globalTex").ToLower
+
+                        .dirtColor = If(props.ContainsKey("dirtColor"), props("dirtColor"), New Vector4(1.0, 1.0, 1.0, 1.0))
+                        .dirtParams = If(props.ContainsKey("dirtParams"), props("dirtParams"), New Vector4(1.0, 1.0, 1.0, 1.0))
+
+
+                        .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
+                        .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(4, 4, 8, 4))
+
+                        .g_tile0Tint = If(props.ContainsKey("g_tile0Tint"), props("g_tile0Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
+                        .g_tile1Tint = If(props.ContainsKey("g_tile1Tint"), props("g_tile1Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
+                        .g_tile2Tint = If(props.ContainsKey("g_tile2Tint"), props("g_tile2Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
+
+                        .g_tileUVScale = If(props.ContainsKey("g_tileUVScale"), props("g_tileUVScale"), New Vector4(1.0, 1.0, 1.0, 1.0))
+
+                        If props.ContainsKey("g_tintColor") Then 'Just in case. Remove after serious testing!
+                            Stop
+                        End If
+                    End With
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas_global
+                    mat.props = obj
 
                 Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx"
                     Dim obj As New MaterialProps_lightonly_alpha
