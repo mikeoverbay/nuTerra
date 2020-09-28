@@ -322,6 +322,7 @@ void main(void)
         gGMF.g = MAO.r;
         
         bump;
+        GBMT = mix(globalTex, GBMT, 0.5);
         tb = vec2(GBMT.ga * 2.0 - 1.0);
         tb = vec2(globalTex.ga * 2.0 - 1.0);
         bump.xy    = tb.xy;
