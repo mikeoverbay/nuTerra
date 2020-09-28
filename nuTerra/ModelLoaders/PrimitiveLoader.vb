@@ -86,6 +86,8 @@ Module PrimitiveLoader
         Public g_tile1Tint As Vector4
         Public g_tile2Tint As Vector4
         Public g_tileUVScale As Vector4
+        Public alphaReference As Integer
+        Public alphaTestEnable As Boolean
     End Structure
 
     Structure MaterialProps_lightonly_alpha

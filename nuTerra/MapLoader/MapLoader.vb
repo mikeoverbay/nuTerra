@@ -560,6 +560,19 @@ Module MapLoader
                     atlasPaths.Add(mat.props.atlasMetallicAO)
                     atlasPaths.Add(mat.props.dirtMap)
 
+                Case ShaderTypes.FX_PBS_tiled_atlas_global
+                    atlasPaths.Add(mat.props.atlasAlbedoHeight)
+                    Debug.Assert(mat.props.atlasBlend.EndsWith(".png"))
+                    mat.props.atlasBlend = mat.props.atlasBlend.Replace(".png", ".dds") 'hack!!!
+                    texturePaths.Add(mat.props.atlasBlend)
+                    atlasPaths.Add(mat.props.atlasNormalGlossSpec)
+                    atlasPaths.Add(mat.props.atlasMetallicAO)
+                    atlasPaths.Add(mat.props.atlasAlbedoHeight)
+                    If mat.props.dirtMap <> "unused" Then
+                        texturePaths.Add(mat.props.dirtMap)
+                    End If
+                    texturePaths.Add(mat.props.globalTex)
+
                 Case ShaderTypes.FX_lightonly_alpha
                     texturePaths.Add(mat.props.diffuseMap)
 
