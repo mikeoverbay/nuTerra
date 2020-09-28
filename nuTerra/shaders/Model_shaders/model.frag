@@ -231,6 +231,9 @@ void main(void)
         BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
         BLEND = correct(BLEND,4.0,0.8);
         //============================================
+        colorAM_3.rgb *= colorAM_3.a;
+        colorAM_2.rgb *= colorAM_2.a;
+        colorAM_1.rgb *= colorAM_1.a;
          vec4 colorAM = colorAM_3;
               colorAM = mix(colorAM,colorAM_1, BLEND.r);
               colorAM = mix(colorAM,colorAM_2, BLEND.g);
@@ -291,6 +294,10 @@ void main(void)
         BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
         BLEND = correct(BLEND,4.0,0.8);
         //============================================
+        colorAM_3.rgb *= colorAM_3.a;
+        colorAM_2.rgb *= colorAM_2.a;
+        colorAM_1.rgb *= colorAM_1.a;
+
         colorAM = colorAM_3;
         colorAM = mix(colorAM,colorAM_1, BLEND.r);
         colorAM = mix(colorAM,colorAM_2, BLEND.g);
