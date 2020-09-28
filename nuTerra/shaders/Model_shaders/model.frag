@@ -169,11 +169,12 @@ void get_atlas_uvs(inout vec2 UV1,inout vec2 UV2,
 void main(void)
 {
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
+    vec2 UV1, UV2, UV3, UV4, UV4_T;
 
     switch (thisMaterial.shader_type) {
     case FX_PBS_ext:
         gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
-        if (thisMaterial.g_useColorTint) gColor *= thisMaterial.g_colorTint;
+        gColor *= thisMaterial.g_colorTint;
         gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
         get_normal();
         break;
@@ -181,6 +182,7 @@ void main(void)
     case FX_PBS_ext_dual:
         gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
         gColor *= texture(thisMaterial.maps[3], fs_in.TC2); // color2
+        gColor *= thisMaterial.g_colorTint;
         gColor.rgb *= 1.5; // this will need tweaking
         gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
         get_normal();
@@ -189,14 +191,13 @@ void main(void)
     case FX_PBS_ext_detail:
 
         gColor = texture(thisMaterial.maps[0], fs_in.TC1);
-        if (thisMaterial.g_useColorTint) gColor *= thisMaterial.g_colorTint;
+        gColor *= thisMaterial.g_colorTint;
         gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
         get_normal();
         break;
 
     case FX_PBS_tiled_atlas:
 
-        vec2 UV1, UV2, UV3, UV4, UV4_T;
         get_atlas_uvs(UV1, UV2, UV3, UV4, UV4_T);
 
 
@@ -253,12 +254,66 @@ void main(void)
         bump.xy    = tb.xy;
         bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
         gNormal = normalize(bump);
-
-
         break;
 
     case FX_PBS_tiled_atlas_global:
-        gColor = vec4(1.0, 1.0, 0.0, 1.0);
+
+        get_atlas_uvs(UV1, UV2, UV3, UV4, UV4_T);
+
+
+        mip = mip_map_level(fs_in.TC1*thisMaterial.g_atlasSizes.xy)*0.5;
+        BLEND = texture2D(thisMaterial.maps[3],UV4);
+
+        colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
+        GBMT_1 =    textureLod(thisMaterial.maps[1],UV1,mip);
+        MAO_1 =     textureLod(thisMaterial.maps[2],UV1,mip);
+
+        colorAM_2 = textureLod(thisMaterial.maps[0],UV2,mip) * thisMaterial.g_tile1Tint;
+        GBMT_2 =    textureLod(thisMaterial.maps[1],UV2,mip);
+        MAO_2 =     textureLod(thisMaterial.maps[2],UV2,mip);
+
+        colorAM_3 = textureLod(thisMaterial.maps[0],UV3,mip) * thisMaterial.g_tile2Tint;
+        GBMT_3 =    textureLod(thisMaterial.maps[1],UV3,mip);
+        MAO_3 =     textureLod(thisMaterial.maps[2],UV3,mip);
+
+        //need to sort this out!
+        dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
+        dirt_blend = thisMaterial.dirtParams.x;
+
+        DIRT = textureLod(thisMaterial.maps[4],UV4,mip);
+        DIRT.rgb *= thisMaterial.dirtColor.rgb;
+
+        //============================================
+        // Some 40 plus hours of trial and error to get this working.
+        // The mix texture has to be compressed down/squished.
+        BLEND.r = smoothstep(BLEND.r*colorAM_1.a,0.00,0.09);
+        BLEND.g = smoothstep(BLEND.g*colorAM_2.a,0.00,0.25);
+        BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
+        BLEND = correct(BLEND,4.0,0.8);
+        //============================================
+        colorAM = colorAM_3;
+        colorAM = mix(colorAM,colorAM_1, BLEND.r);
+        colorAM = mix(colorAM,colorAM_2, BLEND.g);
+
+        colorAM = mix(colorAM,DIRT, BLEND.b);
+        colorAM *= BLEND.a;
+        gColor = colorAM;
+
+        GBMT = GBMT_3;
+        GBMT = mix(GBMT, GBMT_1, BLEND.r);
+        GBMT = mix(GBMT, GBMT_2, BLEND.g);
+        gGMF.r = GBMT.r;
+  
+        MAO = MAO_3;
+        MAO = mix(MAO, MAO_1, BLEND.r);
+        MAO = mix(MAO, MAO_2, BLEND.g);
+        gGMF.g = MAO.r;
+        
+        bump;
+        tb = vec2(GBMT.ga * 2.0 - 1.0);
+        bump.xy    = tb.xy;
+        bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
+        gNormal = normalize(bump);
         break;
 
     case FX_lightonly_alpha:

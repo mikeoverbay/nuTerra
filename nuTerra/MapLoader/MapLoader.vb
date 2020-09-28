@@ -703,6 +703,9 @@ Module MapLoader
                         .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
                         .alphaReference = mat.props.alphaReference / 255.0
                         .alphaTestEnable = mat.props.alphaTestEnable
+                        .g_colorTint = mat.props.g_colorTint
+                        .g_useColorTint = mat.props.g_useTintColor
+
 
                     Case ShaderTypes.FX_PBS_ext_detail
                         .map1Handle = textureHandles(mat.props.diffuseMap)
@@ -731,7 +734,7 @@ Module MapLoader
                         .dirtParams = mat.props.dirtParams
                         .g_tile0Tint = mat.props.g_tile0Tint
                         .g_tile1Tint = mat.props.g_tile2Tint
-                        .g_tile1Tint = mat.props.g_tile2Tint
+                        .g_tile2Tint = mat.props.g_tile2Tint
                         .g_tileUVScale = mat.props.g_tileUVScale
 
                     Case ShaderTypes.FX_PBS_tiled_atlas_global
@@ -752,7 +755,7 @@ Module MapLoader
                         .dirtParams = mat.props.dirtParams
                         .g_tile0Tint = mat.props.g_tile0Tint
                         .g_tile1Tint = mat.props.g_tile2Tint
-                        .g_tile1Tint = mat.props.g_tile2Tint
+                        .g_tile2Tint = mat.props.g_tile2Tint
                         .g_tileUVScale = mat.props.g_tileUVScale
 
                     Case ShaderTypes.FX_lightonly_alpha

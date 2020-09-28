@@ -41,6 +41,8 @@ Module PrimitiveLoader
         Public alphaTestEnable As Boolean
         Public doubleSided As Boolean
         Public g_useNormalPackDXT1 As Boolean
+        Public g_useTintColor As Boolean
+        Public g_colorTint As Vector4
     End Structure
 
     Structure MaterialProps_PBS_ext_detail
