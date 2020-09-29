@@ -2,6 +2,8 @@
 
 ### This is the home of nuTerra where all the work will be done to rewrite Terra using New OpenGL techniques.
 
+### We are working on this again... Anyone that wants to work on this, please contact me!
+
 ### Update log.. 2/10/2020
 App is now 100% 4.3+ CORE. All rendering is done using FBOs or VAOs. All transforms happen in code or shader code.</br>
 All this is Maxim's work.</br>
