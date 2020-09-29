@@ -92,17 +92,17 @@ void get_normal()
 
 // ================================================================================
 // Atlas Functions
-float mip_map_level(in vec2 texture_coordinate)
+float mip_map_level(in vec2 iUV, in vec2 iTextureSize)
 {
-    vec2  dx_vtc        = dFdx(texture_coordinate);
-    vec2  dy_vtc        = dFdy(texture_coordinate);
-    float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
+    vec2  dx_vtc        = dFdx(iUV * iTextureSize.x);
+    vec2  dy_vtc        = dFdy(iUV * iTextureSize.y);
+    float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
     
-    return 0.5 * log2(delta_max_sqr); 
-    return 5.0;
+    return round(0.65 * log2(d)); 
 }
+
 void get_atlas_uvs(inout vec2 UV1,inout vec2 UV2,
-                   inout vec2 UV3,inout vec2 UV4, inout vec2 UV4_T)
+                   inout vec2 UV3,inout vec2 UV4)
 {
     vec2 tc = fs_in.TC1/round(thisMaterial.g_tileUVScale).xy;
     vec4 At_size = thisMaterial.g_atlasSizes;
@@ -162,8 +162,7 @@ usy = 0.9375;
 
     UV4.x = (fract(fs_in.TC2.x)*scaleX)+tile.x*scaleX;
     UV4.y = (fract(fs_in.TC2.y)*scaleY)+tile.y*scaleY;
-    UV4_T.x = (fract(tc.x)*scaleX)+tile.x;
-    UV4_T.y = (fract(tc.y)*scaleX)+tile.y;
+
 // ================================================================================
 
 }
@@ -173,7 +172,7 @@ usy = 0.9375;
 void main(void)
 {
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
-    vec2 UV1, UV2, UV3, UV4, UV4_T;
+    vec2 UV1, UV2, UV3, UV4;
 
     switch (thisMaterial.shader_type) {
     case FX_PBS_ext:
@@ -202,10 +201,11 @@ void main(void)
 
     case FX_PBS_tiled_atlas:
 
-        get_atlas_uvs(UV1, UV2, UV3, UV4, UV4_T);
+        get_atlas_uvs(UV1, UV2, UV3, UV4);
 
+        ivec2 isize = textureSize(thisMaterial.maps[0],0);
 
-        float mip = mip_map_level(fs_in.TC1*thisMaterial.g_atlasSizes.xy)*0.5;
+        float mip = mip_map_level(fs_in.TC2,isize);
         vec4 BLEND = texture2D(thisMaterial.maps[3],UV4);
 
         vec4 colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
@@ -260,16 +260,16 @@ void main(void)
         vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
         bump.xy    = tb.xy;
         bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
-        gNormal = normalize(fs_in.TBN * bump);
+        //gNormal = normalize(fs_in.TBN * bump);
         break;
 
     case FX_PBS_tiled_atlas_global:
 
-        get_atlas_uvs(UV1, UV2, UV3, UV4, UV4_T);
+        get_atlas_uvs(UV1, UV2, UV3, UV4);
         
         vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
 
-        mip = mip_map_level(fs_in.TC1*thisMaterial.g_atlasSizes.xy)*0.5;
+        mip = mip_map_level(fs_in.TC1,thisMaterial.g_atlasSizes.xy)*0.5;
         BLEND = texture2D(thisMaterial.maps[3],UV4);
 
         colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
@@ -344,7 +344,7 @@ void main(void)
         gColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
 
-    gColor = correct(gColor,3.0,0.8);
+    gColor = correct(gColor,2.0,0.8);
     gColor.a = 1.0;
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType; // 64 = PBS, 63 = light/bump
