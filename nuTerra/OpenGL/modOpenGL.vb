@@ -19,11 +19,17 @@ Module modOpenGL
         Dim baseInstance As UInt32
     End Structure
 
+    Public Structure ModelInstance
+        Dim matrix As Matrix4
+        Dim bmin As Vector3
+        Dim offset As UInt32
+        Dim bmax As Vector3
+        Dim count As UInt32
+    End Structure
+
     <StructLayout(LayoutKind.Sequential)>
     Public Structure CandidateDraw
-        Dim visibilityBox1 As Vector3
         Dim model_id As UInt32
-        Dim visibilityBox2 As Vector3
         Dim material_id As UInt32
         Dim count As UInt32
         Dim firstIndex As UInt32

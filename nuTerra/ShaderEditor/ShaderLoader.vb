@@ -2,6 +2,8 @@
 Imports OpenTK.Graphics.OpenGL
 
 Module ShaderLoader
+    Private incPaths() As String = {"/"}
+    Private incPathLengths() As Integer = {1}
 
     Public SHADER_PATHS() As String
 #Region "shader_storage"
@@ -179,6 +181,12 @@ Module ShaderLoader
     ''' </summary>
     ''' <remarks></remarks>
     Public Sub build_shaders()
+        If File.Exists("shaders\common.h") Then
+            Dim code = File.ReadAllText("shaders\common.h")
+            Dim name = "/common.h"
+            GL.Arb.NamedString(ArbShadingLanguageInclude.ShaderIncludeArb, name.Length, name, code.Length, code)
+        End If
+
         'Try and keep these in alphabetical order 
         BaseRingProjector = New Shader("BaseRingProjector")
         boxShader = New Shader("box")
@@ -258,7 +266,7 @@ Module ShaderLoader
                 GL.ShaderSource(vertexObject, vs)
             End Using
 
-            GL.CompileShader(vertexObject)
+            GL.Arb.CompileShaderInclude(vertexObject, incPaths.Length, incPaths, incPathLengths)
 
             ' Get & check status after compile
             GL.GetShader(vertexObject, ShaderParameter.CompileStatus, status_code)
@@ -282,7 +290,7 @@ Module ShaderLoader
                 GL.ShaderSource(fragmentObject, fs)
             End Using
 
-            GL.CompileShader(fragmentObject)
+            GL.Arb.CompileShaderInclude(fragmentObject, incPaths.Length, incPaths, incPathLengths)
 
             ' Get & check status after compile
             GL.GetShader(fragmentObject, ShaderParameter.CompileStatus, status_code)
@@ -292,7 +300,7 @@ Module ShaderLoader
                 GL.DeleteShader(fragmentObject)
                 GL.DeleteProgram(program)
                 gl_error(name + "_fragment didn't compile!" + vbCrLf + info.ToString)
-            Return 0
+                Return 0
             End If
         End If
 
@@ -307,7 +315,7 @@ Module ShaderLoader
                 GL.ShaderSource(geomObject, gs)
             End Using
 
-            GL.CompileShader(geomObject)
+            GL.Arb.CompileShaderInclude(geomObject, incPaths.Length, incPaths, incPathLengths)
 
             ' Get & check status after compile
             GL.GetShader(geomObject, ShaderParameter.CompileStatus, status_code)
@@ -351,7 +359,7 @@ Module ShaderLoader
                 GL.ShaderSource(computeObject, cs)
             End Using
 
-            GL.CompileShader(computeObject)
+            GL.Arb.CompileShaderInclude(computeObject, incPaths.Length, incPaths, incPathLengths)
 
             ' Get & check status after compile
             GL.GetShader(computeObject, ShaderParameter.CompileStatus, status_code)

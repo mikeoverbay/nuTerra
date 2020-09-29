@@ -41,6 +41,7 @@ Module MapLoader
     Public textureHandleBuffer As Integer
     Public parametersBuffer As Integer
     Public matricesBuffer As Integer
+    Public numModelInstances As Integer
     Public indirectDrawCount As Integer
     Public drawCandidatesBuffer As Integer
     Public indirectBuffer As Integer
@@ -303,7 +304,7 @@ Module MapLoader
 
             '----------------------------------------------------------------
             ' calc instances
-            Dim numMatrices = 0
+            numModelInstances = 0
             Dim numVerts = 0
             Dim numPrims = 0
             indirectDrawCount = 0
@@ -330,7 +331,7 @@ Module MapLoader
                     numPrims += renderSet.buffers.index_buffer32.Length
                 Next
                 If Not skip Then
-                    numMatrices += batch.count
+                    numModelInstances += batch.count
                 End If
             Next
 
@@ -340,7 +341,7 @@ Module MapLoader
             Dim vBuffer(numVerts - 1) As ModelVertex
             Dim uv2Buffer(numVerts - 1) As Vector2
             Dim iBuffer(numPrims - 1) As vect3_32
-            Dim matrices(numMatrices - 1) As Matrix4
+            Dim matrices(numModelInstances - 1) As ModelInstance
             Dim cmdId = 0
             Dim vLast = 0
             Dim iLast = 0
@@ -364,11 +365,7 @@ Module MapLoader
                         End If
                         For i = 0 To batch.count - 1
                             With drawCommands(cmdId)
-                                .visibilityBox1 = MAP_MODELS(batch.model_id).visibilityBounds.Row0
-                                .visibilityBox1.X *= -1 'make negative because of GL rendering!
                                 .model_id = mLast + i
-                                .visibilityBox2 = MAP_MODELS(batch.model_id).visibilityBounds.Row1
-                                .visibilityBox2.X *= -1 'make negative because of GL rendering!
                                 .material_id = primGroup.material_id
                                 .count = primGroup.nPrimitives * 3
                                 .firstIndex = iLast * 3 + primGroup.startIndex
@@ -398,7 +395,13 @@ Module MapLoader
 
                 If Not skip Then
                     For i = 0 To batch.count - 1
-                        matrices(mLast + i) = MODEL_INDEX_LIST(batch.offset + i).matrix
+                        With matrices(mLast + i)
+                            .matrix = MODEL_INDEX_LIST(batch.offset + i).matrix
+                            .bmin.X = -MAP_MODELS(batch.model_id).visibilityBounds.Row1.X 'make negative because of GL rendering!
+                            .bmin.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row0.Yz
+                            .bmax.X = -MAP_MODELS(batch.model_id).visibilityBounds.Row0.X 'make negative because of GL rendering!
+                            .bmax.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row1.Yz
+                        End With
                     Next
                     mLast += batch.count
                 End If
@@ -415,7 +418,7 @@ Module MapLoader
             GL.NamedBufferStorage(indirectBuffer, indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand)(), IntPtr.Zero, BufferStorageFlags.None)
 
             GL.CreateBuffers(1, matricesBuffer)
-            GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of Matrix4)(), matrices, BufferStorageFlags.None)
+            GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of ModelInstance)(), matrices, BufferStorageFlags.None)
             Erase matrices
 
             GL.CreateBuffers(1, vertsBuffer)

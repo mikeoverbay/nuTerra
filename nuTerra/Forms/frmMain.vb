@@ -332,9 +332,11 @@ try_again:
 
         ' Requied extensions
         Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
-        Debug.Assert(extensions.Contains("GL_ARB_multi_draw_indirect"))
-        Debug.Assert(extensions.Contains("GL_ARB_direct_state_access"))
-        Debug.Assert(extensions.Contains("GL_ARB_clip_control"))
+        Debug.Assert(extensions.Contains("GL_ARB_shading_language_include"))
+        Debug.Assert(extensions.Contains("GL_ARB_indirect_parameters"))
+        Debug.Assert(extensions.Contains("GL_ARB_multi_draw_indirect")) 'core since 4.3
+        Debug.Assert(extensions.Contains("GL_ARB_direct_state_access")) 'core since 4.5
+        Debug.Assert(extensions.Contains("GL_ARB_clip_control")) 'core since 4.5
 
 #If DEBUG Or RELEASE Then
         ' Just check

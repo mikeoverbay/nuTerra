@@ -1,26 +1,17 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shading_language_include : require
+#include "common.h"
+
 layout (points) in;
 layout (line_strip, max_vertices = 24) out;
 
 uniform mat4 projection;
 uniform mat4 view;
 
-struct CandidateDraw
+layout (binding = 0, std430) readonly buffer MODEL_MATRIX_BLOCK
 {
-    vec3 bmin;
-    uint model_id;
-    vec3 bmax;
-    uint material_id;
-    uint count;
-    uint firstIndex;
-    uint baseVertex;
-    uint baseInstance;
-};
-
-layout (binding = 0, std140) readonly buffer MODEL_MATRIX_BLOCK
-{
-    mat4 model_matrix[];
+    ModelInstance models[];
 };
 
 layout (binding = 1, std430) readonly buffer CandidateDraws
@@ -30,10 +21,11 @@ layout (binding = 1, std430) readonly buffer CandidateDraws
 
 void main(void)
 {
-    const CandidateDraw thisDraw = draw[gl_PrimitiveIDIn];
-    const mat4 MVP = projection * view * model_matrix[thisDraw.model_id];
-    const vec3 bmin = thisDraw.bmin;
-    const vec3 bmax = thisDraw.bmax;
+    const ModelInstance thisModel = models[gl_PrimitiveIDIn];
+
+    const mat4 MVP = projection * view * thisModel.matrix;
+    const vec3 bmin = thisModel.bmin;
+    const vec3 bmax = thisModel.bmax;
 
     gl_Position = MVP * vec4(bmin, 1.0);
     EmitVertex();

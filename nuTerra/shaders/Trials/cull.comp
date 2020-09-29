@@ -1,27 +1,10 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shading_language_include : require
+#include "common.h"
+
 layout (local_size_x = 16) in;
 
-struct CandidateDraw
-{
-    vec3 bmin;
-    uint model_id;
-    vec3 bmax;
-    uint material_id;
-    uint count;
-    uint firstIndex;
-    uint baseVertex;
-    uint baseInstance;
-};
-
-struct DrawElementsIndirectCommand
-{
-    uint count;
-    uint instanceCount;
-    uint firstIndex;
-    uint baseVertex;
-    uint baseInstance;
-};
 
 layout (binding = 0, std430) readonly buffer CandidateDraws
 {
@@ -33,9 +16,9 @@ layout (binding = 1, std430) writeonly buffer OutputDraws
     DrawElementsIndirectCommand command[];
 };
 
-layout(binding = 2, std140) readonly buffer MODEL_MATRIX_BLOCK
+layout(binding = 2, std430) readonly buffer MODEL_MATRIX_BLOCK
 {
-    mat4 model_matrix[];
+    ModelInstance models[];
 };
 
 layout (binding = 0, offset = 0) uniform atomic_uint commandCounter;
@@ -83,10 +66,10 @@ bool frustumCullingTest(mat4 mvp, vec3 bmin, vec3 bmax)
 void main(void)
 {
     const CandidateDraw thisDraw = draw[gl_GlobalInvocationID.x];
-    const mat4 thisModelMatrix = model_matrix[thisDraw.model_id];
-    const mat4 MVP = projection * view * thisModelMatrix;
+    const ModelInstance thisModel = models[thisDraw.model_id];
+    const mat4 MVP = projection * view * thisModel.matrix;
 
-    if (frustumCullingTest(MVP, vec3(thisDraw.bmax.x, thisDraw.bmin.yz), vec3(thisDraw.bmin.x, thisDraw.bmax.yz))) {
+    if (frustumCullingTest(MVP, thisModel.bmin, thisModel.bmax)) {
         uint outDrawIndex = atomicCounterIncrement(commandCounter);
         command[outDrawIndex].count = thisDraw.count;
         command[outDrawIndex].instanceCount = 1;

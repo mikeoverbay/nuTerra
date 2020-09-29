@@ -430,7 +430,7 @@ Module modRender
             GL.Uniform1(boxShader("colorMap"), 0)
 
             GL.BindVertexArray(defaultVao)
-            GL.DrawArrays(PrimitiveType.Points, 0, indirectDrawCount)
+            GL.DrawArrays(PrimitiveType.Points, 0, numModelInstances)
 
             boxShader.StopUse()
         End If
