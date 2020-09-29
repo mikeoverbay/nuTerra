@@ -44,22 +44,12 @@ layout (binding = 2, std430) readonly buffer MATERIALS
     MaterialProperties material[];
 };
 
-
-// Shader types
-#define FX_PBS_ext                1
-#define FX_PBS_ext_dual           2
-#define FX_PBS_ext_detail         3
-#define FX_PBS_tiled_atlas        4
-#define FX_PBS_tiled_atlas_global 5
-#define FX_lightonly_alpha        6
-#define FX_unsupported            7
-
 // ================================================================================
 // globals
-MaterialProperties thisMaterial = material[fs_in.material_id];
 vec3 normalBump;
 const float PI = 3.14159265359;
-// ================================================================================
+MaterialProperties thisMaterial = material[fs_in.material_id];
+
 
 // ================================================================================
 // functions
@@ -117,10 +107,10 @@ void get_atlas_uvs(inout vec2 UV1,inout vec2 UV2,
 
     float usx = 0.875;
     float usy = 0.875;
-uox = 0.03215;
-uoy = 0.03215;
-usx = 0.9375;
-usy = 0.9375;
+    uox = 0.03215;
+    uoy = 0.03215;
+    usx = 0.9375;
+    usy = 0.9375;
     vec2 hpix = vec2(0.5/image_size.x,0.5/image_size.y);// / At_size.xy;
     vec2 offset = vec2(uox/At_size.x, uoy/At_size.y) + hpix;
 
@@ -166,185 +156,207 @@ usy = 0.9375;
 // ================================================================================
 
 }
+
+// Subroutines
+subroutine void fn_entry();
+
+
+layout(index = 0) subroutine(fn_entry) void default_entry()
+{
+    gColor = vec4(1, 0, 0, 0);
+}
+
+
+layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
+{
+    gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
+    gColor *= thisMaterial.g_colorTint;
+    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+    get_normal();
+}
+
+
+layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
+{
+    gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
+    gColor *= texture(thisMaterial.maps[3], fs_in.TC2); // color2
+    gColor *= thisMaterial.g_colorTint;
+    gColor.rgb *= 1.5; // this will need tweaking
+    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+    get_normal();
+}
+
+
+layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
+{
+    gColor = texture(thisMaterial.maps[0], fs_in.TC1);
+    gColor *= thisMaterial.g_colorTint;
+    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+    get_normal();
+}
+
+
+layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
+{
+    vec2 UV1, UV2, UV3, UV4;
+    get_atlas_uvs(UV1, UV2, UV3, UV4);
+
+    ivec2 isize = textureSize(thisMaterial.maps[0],0);
+
+    float mip = mip_map_level(fs_in.TC2,isize);
+    vec4 BLEND = texture2D(thisMaterial.maps[3],UV4);
+
+    vec4 colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
+    vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],UV1,mip);
+    vec4 MAO_1 =     textureLod(thisMaterial.maps[2],UV1,mip);
+
+    vec4 colorAM_2 = textureLod(thisMaterial.maps[0],UV2,mip) * thisMaterial.g_tile1Tint;
+    vec4 GBMT_2 =    textureLod(thisMaterial.maps[1],UV2,mip);
+    vec4 MAO_2 =     textureLod(thisMaterial.maps[2],UV2,mip);
+
+    vec4 colorAM_3 = textureLod(thisMaterial.maps[0],UV3,mip) * thisMaterial.g_tile2Tint;
+    vec4 GBMT_3 =    textureLod(thisMaterial.maps[1],UV3,mip);
+    vec4 MAO_3 =     textureLod(thisMaterial.maps[2],UV3,mip);
+
+    //need to sort this out!
+    vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
+    float dirt_blend = thisMaterial.dirtParams.x;
+
+    vec4 DIRT = textureLod(thisMaterial.maps[4],UV4,mip);
+    DIRT.rgb *= thisMaterial.dirtColor.rgb;
+
+    //============================================
+    // Some 40 plus hours of trial and error to get this working.
+    // The mix texture has to be compressed down/squished.
+    BLEND.r = smoothstep(BLEND.r*colorAM_1.a,0.00,0.09);
+    BLEND.g = smoothstep(BLEND.g*colorAM_2.a,0.00,0.25);
+    BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
+    BLEND = correct(BLEND,4.0,0.8);
+    //============================================
+    //colorAM_3.rgb *= colorAM_3.a;
+    //colorAM_2.rgb *= colorAM_2.a;
+    //colorAM_1.rgb *= colorAM_1.a;
+    vec4 colorAM = colorAM_3;
+    colorAM = mix(colorAM,colorAM_1, BLEND.r);
+    colorAM = mix(colorAM,colorAM_2, BLEND.g);
+          
+    colorAM = mix(colorAM,DIRT, BLEND.b);
+    colorAM *= BLEND.a;
+    gColor = colorAM;
+
+    vec4 GBMT = GBMT_3;
+    GBMT = mix(GBMT, GBMT_1, BLEND.r);
+    GBMT = mix(GBMT, GBMT_2, BLEND.g);
+    gGMF.r = GBMT.r;
+  
+    vec4 MAO = MAO_3;
+    MAO = mix(MAO, MAO_1, BLEND.r);
+    MAO = mix(MAO, MAO_2, BLEND.g);
+    gGMF.g = MAO.r;
+        
+    vec3 bump;
+    vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
+    bump.xy    = tb.xy;
+    bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
+    //gNormal = normalize(fs_in.TBN * bump);
+}
+
+
+layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
+{
+    vec2 UV1, UV2, UV3, UV4;
+    get_atlas_uvs(UV1, UV2, UV3, UV4);
+        
+    vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
+
+    ivec2 isize = textureSize(thisMaterial.maps[0],0);
+
+    float mip = mip_map_level(fs_in.TC2,isize);
+    vec4 BLEND = texture2D(thisMaterial.maps[3],UV4);
+
+    vec4 colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
+    vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],UV1,mip);
+    vec4 MAO_1 =     textureLod(thisMaterial.maps[2],UV1,mip);
+
+    vec4 colorAM_2 = textureLod(thisMaterial.maps[0],UV2,mip) * thisMaterial.g_tile1Tint;
+    vec4 GBMT_2 =    textureLod(thisMaterial.maps[1],UV2,mip);
+    vec4 MAO_2 =     textureLod(thisMaterial.maps[2],UV2,mip);
+
+    vec4 colorAM_3 = textureLod(thisMaterial.maps[0],UV3,mip) * thisMaterial.g_tile2Tint;
+    vec4 GBMT_3 =    textureLod(thisMaterial.maps[1],UV3,mip);
+    vec4 MAO_3 =     textureLod(thisMaterial.maps[2],UV3,mip);
+
+    //need to sort this out!
+    vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
+    float dirt_blend = thisMaterial.dirtParams.x;
+
+    vec4 DIRT = textureLod(thisMaterial.maps[4],UV4,mip);
+    DIRT.rgb *= thisMaterial.dirtColor.rgb;
+
+    //============================================
+    // Some 40 plus hours of trial and error to get this working.
+    // The mix texture has to be compressed down/squished.
+    BLEND.r = smoothstep(BLEND.r*colorAM_1.a,0.00,0.09);
+    BLEND.g = smoothstep(BLEND.g*colorAM_2.a,0.00,0.25);
+    BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
+    BLEND = correct(BLEND,4.0,0.8);
+    //============================================
+    //colorAM_3.rgb *= colorAM_3.a;
+    //colorAM_2.rgb *= colorAM_2.a;
+    //colorAM_1.rgb *= colorAM_1.a;
+
+    vec4 colorAM = colorAM_3;
+    colorAM = mix(colorAM,colorAM_1, BLEND.r);
+    colorAM = mix(colorAM,colorAM_2, BLEND.g);
+
+    colorAM = mix(colorAM,DIRT, BLEND.b);
+    colorAM *= BLEND.a;
+    gColor = colorAM;
+    //gColor += globalTex;
+    vec4 GBMT = GBMT_3;
+    GBMT = mix(GBMT, GBMT_1, BLEND.r);
+    GBMT = mix(GBMT, GBMT_2, BLEND.g);
+    gGMF.r = GBMT.r;
+  
+    vec4 MAO = MAO_3;
+    MAO = mix(MAO, MAO_1, BLEND.r);
+    MAO = mix(MAO, MAO_2, BLEND.g);
+    gGMF.g = MAO.r;
+
+    vec3 bump;
+    GBMT = mix(globalTex, GBMT, 0.5);
+    vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
+    tb = vec2(globalTex.ga * 2.0 - 1.0);
+    bump.xy    = tb.xy;
+    bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
+    gNormal = normalize(fs_in.TBN * bump);
+}
+
+
+layout(index = 6) subroutine(fn_entry) void FX_lightonly_alpha_entry()
+{
+    // gColor = texture(thisMaterial.maps[0], fs_in.TC1);
+    gColor = vec4(0.0,0.0,1.0,1.0); // debug
+}
+
+
+layout(index = 7) subroutine(fn_entry) void FX_unsupported_entry()
+{
+    gColor = vec4(1.0, 1.0, 1.0, 1.0);
+}
+
+
+subroutine uniform fn_entry entries[8];
+
+
 // ================================================================================
 // Main start
 // ================================================================================
 void main(void)
 {
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
-    vec2 UV1, UV2, UV3, UV4;
 
-    switch (thisMaterial.shader_type) {
-    case FX_PBS_ext:
-        gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
-        gColor *= thisMaterial.g_colorTint;
-        gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
-        get_normal();
-        break;
-
-    case FX_PBS_ext_dual:
-        gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
-        gColor *= texture(thisMaterial.maps[3], fs_in.TC2); // color2
-        gColor *= thisMaterial.g_colorTint;
-        gColor.rgb *= 1.5; // this will need tweaking
-        gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
-        get_normal();
-        break;
-
-    case FX_PBS_ext_detail:
-
-        gColor = texture(thisMaterial.maps[0], fs_in.TC1);
-        gColor *= thisMaterial.g_colorTint;
-        gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
-        get_normal();
-        break;
-
-    case FX_PBS_tiled_atlas:
-
-        get_atlas_uvs(UV1, UV2, UV3, UV4);
-
-        ivec2 isize = textureSize(thisMaterial.maps[0],0);
-
-        float mip = mip_map_level(fs_in.TC2,isize);
-        vec4 BLEND = texture2D(thisMaterial.maps[3],UV4);
-
-        vec4 colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
-        vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],UV1,mip);
-        vec4 MAO_1 =     textureLod(thisMaterial.maps[2],UV1,mip);
-
-        vec4 colorAM_2 = textureLod(thisMaterial.maps[0],UV2,mip) * thisMaterial.g_tile1Tint;
-        vec4 GBMT_2 =    textureLod(thisMaterial.maps[1],UV2,mip);
-        vec4 MAO_2 =     textureLod(thisMaterial.maps[2],UV2,mip);
-
-        vec4 colorAM_3 = textureLod(thisMaterial.maps[0],UV3,mip) * thisMaterial.g_tile2Tint;
-        vec4 GBMT_3 =    textureLod(thisMaterial.maps[1],UV3,mip);
-        vec4 MAO_3 =     textureLod(thisMaterial.maps[2],UV3,mip);
-
-        //need to sort this out!
-        vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
-        float dirt_blend = thisMaterial.dirtParams.x;
-
-        vec4 DIRT = textureLod(thisMaterial.maps[4],UV4,mip);
-        DIRT.rgb *= thisMaterial.dirtColor.rgb;
-
-        //============================================
-        // Some 40 plus hours of trial and error to get this working.
-        // The mix texture has to be compressed down/squished.
-        BLEND.r = smoothstep(BLEND.r*colorAM_1.a,0.00,0.09);
-        BLEND.g = smoothstep(BLEND.g*colorAM_2.a,0.00,0.25);
-        BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
-        BLEND = correct(BLEND,4.0,0.8);
-        //============================================
-        //colorAM_3.rgb *= colorAM_3.a;
-        //colorAM_2.rgb *= colorAM_2.a;
-        //colorAM_1.rgb *= colorAM_1.a;
-         vec4 colorAM = colorAM_3;
-              colorAM = mix(colorAM,colorAM_1, BLEND.r);
-              colorAM = mix(colorAM,colorAM_2, BLEND.g);
-          
-              colorAM = mix(colorAM,DIRT, BLEND.b);
-              colorAM *= BLEND.a;
-        gColor = colorAM;
-
-        vec4 GBMT = GBMT_3;
-             GBMT = mix(GBMT, GBMT_1, BLEND.r);
-             GBMT = mix(GBMT, GBMT_2, BLEND.g);
-        gGMF.r = GBMT.r;
-  
-        vec4 MAO = MAO_3;
-             MAO = mix(MAO, MAO_1, BLEND.r);
-             MAO = mix(MAO, MAO_2, BLEND.g);
-        gGMF.g = MAO.r;
-        
-        vec3 bump;
-        vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
-        bump.xy    = tb.xy;
-        bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
-        //gNormal = normalize(fs_in.TBN * bump);
-        break;
-
-    case FX_PBS_tiled_atlas_global:
-
-        get_atlas_uvs(UV1, UV2, UV3, UV4);
-        
-        vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
-
-        isize = textureSize(thisMaterial.maps[0],0);
-
-        mip = mip_map_level(fs_in.TC2,isize);
-        BLEND = texture2D(thisMaterial.maps[3],UV4);
-
-        colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
-        GBMT_1 =    textureLod(thisMaterial.maps[1],UV1,mip);
-        MAO_1 =     textureLod(thisMaterial.maps[2],UV1,mip);
-
-        colorAM_2 = textureLod(thisMaterial.maps[0],UV2,mip) * thisMaterial.g_tile1Tint;
-        GBMT_2 =    textureLod(thisMaterial.maps[1],UV2,mip);
-        MAO_2 =     textureLod(thisMaterial.maps[2],UV2,mip);
-
-        colorAM_3 = textureLod(thisMaterial.maps[0],UV3,mip) * thisMaterial.g_tile2Tint;
-        GBMT_3 =    textureLod(thisMaterial.maps[1],UV3,mip);
-        MAO_3 =     textureLod(thisMaterial.maps[2],UV3,mip);
-
-        //need to sort this out!
-        dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
-        dirt_blend = thisMaterial.dirtParams.x;
-
-        DIRT = textureLod(thisMaterial.maps[4],UV4,mip);
-        DIRT.rgb *= thisMaterial.dirtColor.rgb;
-
-        //============================================
-        // Some 40 plus hours of trial and error to get this working.
-        // The mix texture has to be compressed down/squished.
-        BLEND.r = smoothstep(BLEND.r*colorAM_1.a,0.00,0.09);
-        BLEND.g = smoothstep(BLEND.g*colorAM_2.a,0.00,0.25);
-        BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
-        BLEND = correct(BLEND,4.0,0.8);
-        //============================================
-        //colorAM_3.rgb *= colorAM_3.a;
-        //colorAM_2.rgb *= colorAM_2.a;
-        //colorAM_1.rgb *= colorAM_1.a;
-
-        colorAM = colorAM_3;
-        colorAM = mix(colorAM,colorAM_1, BLEND.r);
-        colorAM = mix(colorAM,colorAM_2, BLEND.g);
-
-        colorAM = mix(colorAM,DIRT, BLEND.b);
-        colorAM *= BLEND.a;
-        gColor = colorAM;
-        //gColor += globalTex;
-        GBMT = GBMT_3;
-        GBMT = mix(GBMT, GBMT_1, BLEND.r);
-        GBMT = mix(GBMT, GBMT_2, BLEND.g);
-        gGMF.r = GBMT.r;
-  
-        MAO = MAO_3;
-        MAO = mix(MAO, MAO_1, BLEND.r);
-        MAO = mix(MAO, MAO_2, BLEND.g);
-        gGMF.g = MAO.r;
-        
-        bump;
-        GBMT = mix(globalTex, GBMT, 0.5);
-        tb = vec2(GBMT.ga * 2.0 - 1.0);
-        tb = vec2(globalTex.ga * 2.0 - 1.0);
-        bump.xy    = tb.xy;
-        bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
-        gNormal = normalize(fs_in.TBN * bump);
-
-        break;
-
-    case FX_lightonly_alpha:
-        // gColor = texture(thisMaterial.maps[0], fs_in.TC1);
-        gColor = vec4(0.0,0.0,1.0,1.0); // debug
-        break;
-
-    case FX_unsupported:
-        gColor = vec4(1.0, 1.0, 1.0, 1.0);
-        break;
-
-    default:
-        gColor = vec4(0.0, 0.0, 0.0, 1.0);
-    }
+    entries[thisMaterial.shader_type]();
 
     gColor = correct(gColor,2.0,0.8);
     gColor.a = 1.0;

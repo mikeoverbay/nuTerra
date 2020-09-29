@@ -399,6 +399,10 @@ Module modRender
         GL.Uniform1(modelShader("GMF_Map"), 2)
         GL.Uniform1(modelShader("nMap_type"), N_MAP_TYPE)
 
+        'assign subroutines
+        Dim indices = {0, 1, 2, 3, 4, 5, 6, 7}
+        GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
+
         GL.UniformMatrix4(modelShader("projection"), False, PROJECTIONMATRIX)
         GL.UniformMatrix4(modelShader("view"), False, VIEWMATRIX)
 
