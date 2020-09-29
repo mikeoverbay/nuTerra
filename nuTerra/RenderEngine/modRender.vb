@@ -48,7 +48,6 @@ Module modRender
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             cull_terrain()
         End If
-        cull_timer.Stop()
         '===========================================================================
 
         If MODELS_LOADED Then
@@ -56,6 +55,7 @@ Module modRender
             frustum_cull() '========================================================
             '=======================================================================
         End If
+        cull_timer.Stop()
 
         '===========================================================================
         FBOm.attach_CNGP() 'clear ALL gTextures!
@@ -174,7 +174,7 @@ Module modRender
             GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
         End If
 
-        GL.DispatchCompute(CInt(Math.Floor(indirectDrawCount / 16)), 1, 1)
+        GL.DispatchCompute(CInt(Math.Floor(numModelInstances / 16)), 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 

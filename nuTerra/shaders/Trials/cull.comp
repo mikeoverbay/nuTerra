@@ -65,16 +65,18 @@ bool frustumCullingTest(mat4 mvp, vec3 bmin, vec3 bmax)
 
 void main(void)
 {
-    const CandidateDraw thisDraw = draw[gl_GlobalInvocationID.x];
-    const ModelInstance thisModel = models[thisDraw.model_id];
+    const ModelInstance thisModel = models[gl_GlobalInvocationID.x];
     const mat4 MVP = projection * view * thisModel.matrix;
 
     if (frustumCullingTest(MVP, thisModel.bmin, thisModel.bmax)) {
-        uint outDrawIndex = atomicCounterIncrement(commandCounter);
-        command[outDrawIndex].count = thisDraw.count;
-        command[outDrawIndex].instanceCount = 1;
-        command[outDrawIndex].firstIndex = thisDraw.firstIndex;
-        command[outDrawIndex].baseVertex = thisDraw.baseVertex;
-        command[outDrawIndex].baseInstance = thisDraw.baseInstance;
+        for (int i = 0; i < thisModel.count; ++i) {
+            const CandidateDraw thisDraw = draw[thisModel.offset + i];
+            uint outDrawIndex = atomicCounterIncrement(commandCounter);
+            command[outDrawIndex].count = thisDraw.count;
+            command[outDrawIndex].instanceCount = 1;
+            command[outDrawIndex].firstIndex = thisDraw.firstIndex;
+            command[outDrawIndex].baseVertex = thisDraw.baseVertex;
+            command[outDrawIndex].baseInstance = thisDraw.baseInstance;
+        }
     }
 }

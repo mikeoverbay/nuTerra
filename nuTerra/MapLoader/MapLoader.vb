@@ -305,9 +305,9 @@ Module MapLoader
             '----------------------------------------------------------------
             ' calc instances
             numModelInstances = 0
+            indirectDrawCount = 0
             Dim numVerts = 0
             Dim numPrims = 0
-            indirectDrawCount = 0
             For Each batch In MODEL_BATCH_LIST
                 Dim model = MAP_MODELS(batch.model_id).mdl
 
@@ -355,6 +355,7 @@ Module MapLoader
                 End If
 
                 Dim skip = True
+                Dim savedCmdId = cmdId
                 For Each renderSet In model.render_sets
                     If renderSet.no_draw Then
                         Continue For
@@ -363,17 +364,15 @@ Module MapLoader
                         If primGroup.no_draw Then
                             Continue For
                         End If
-                        For i = 0 To batch.count - 1
-                            With drawCommands(cmdId)
-                                .model_id = mLast + i
-                                .material_id = primGroup.material_id
-                                .count = primGroup.nPrimitives * 3
-                                .firstIndex = iLast * 3 + primGroup.startIndex
-                                .baseVertex = baseVert
-                                .baseInstance = cmdId
-                            End With
-                            cmdId += 1
-                        Next
+                        With drawCommands(cmdId)
+                            .model_id = mLast
+                            .material_id = primGroup.material_id
+                            .count = primGroup.nPrimitives * 3
+                            .firstIndex = iLast * 3 + primGroup.startIndex
+                            .baseVertex = baseVert
+                            .baseInstance = cmdId
+                        End With
+                        cmdId += 1
                         skip = False
                     Next
 
@@ -394,6 +393,20 @@ Module MapLoader
                 Next
 
                 If Not skip Then
+                    Dim countPrimGroups = cmdId - savedCmdId
+                    For i = 1 To batch.count - 1
+                        For j = 0 To countPrimGroups - 1
+                            With drawCommands(cmdId)
+                                .model_id = mLast + i
+                                .material_id = drawCommands(savedCmdId + j).material_id
+                                .count = drawCommands(savedCmdId + j).count
+                                .firstIndex = drawCommands(savedCmdId + j).firstIndex
+                                .baseVertex = drawCommands(savedCmdId + j).baseVertex
+                                .baseInstance = cmdId
+                            End With
+                            cmdId += 1
+                        Next
+                    Next
                     For i = 0 To batch.count - 1
                         With matrices(mLast + i)
                             .matrix = MODEL_INDEX_LIST(batch.offset + i).matrix
@@ -401,6 +414,8 @@ Module MapLoader
                             .bmin.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row0.Yz
                             .bmax.X = -MAP_MODELS(batch.model_id).visibilityBounds.Row0.X 'make negative because of GL rendering!
                             .bmax.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row1.Yz
+                            .offset = savedCmdId + i * countPrimGroups
+                            .count = countPrimGroups
                         End With
                     Next
                     mLast += batch.count
