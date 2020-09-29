@@ -540,12 +540,6 @@ Module MapLoader
         Dim path As String
     End Structure
 
-    Private Structure AtlasCfg
-        Dim width As Int32
-        Dim height As Int32
-        Dim atlas_tex As Integer
-    End Structure
-
     'Load materials
     Private Sub load_materials()
         Dim texturePaths As New HashSet(Of String)
@@ -622,8 +616,12 @@ Module MapLoader
 
             Dim ms As New MemoryStream
             entry.Extract(ms)
-
             ms.Position = 0
+
+            Dim atlasParts As New List(Of AtlasCoords)
+            Dim uniqueX0 As New HashSet(Of Integer)
+            Dim uniqueY0 As New HashSet(Of Integer)
+
             Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
                 Dim version = br.ReadInt32
                 Debug.Assert(version = 1)
@@ -639,18 +637,7 @@ Module MapLoader
                 Debug.Assert(unused2 = 1)
 
                 Dim dds_chunk_size = br.ReadUInt64
-                Dim dds_header_pos = br.BaseStream.Position
-                Dim dds_header = get_dds_header(br)
-                ms.Position = dds_header_pos + 128
-
-                Dim atlas_tex As Integer
-                GL.CreateTextures(TextureTarget.Texture2D, 1, atlas_tex)
-                Debug.Assert(dds_header.mipMapCount = 0)
-                GL.TextureStorage2D(atlas_tex, 1, DirectCast(dds_header.gl_format, SizedInternalFormat), dds_header.width, dds_header.height)
-
-                Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * dds_header.gl_block_size
-                Dim data = br.ReadBytes(size)
-                GL.CompressedTextureSubImage2D(atlas_tex, 0, 0, 0, dds_header.width, dds_header.height, DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
+                ms.Position += dds_chunk_size
 
                 While br.BaseStream.Position < br.BaseStream.Length - 1
                     Dim coords As New AtlasCoords
@@ -658,6 +645,10 @@ Module MapLoader
                     coords.x1 = br.ReadInt32
                     coords.y0 = br.ReadInt32
                     coords.y1 = br.ReadInt32
+
+                    'hack for now
+                    uniqueX0.Add(coords.x0)
+                    uniqueY0.Add(coords.y0)
 
                     coords.path = ""
                     Dim tmpChar = br.ReadChar
@@ -667,13 +658,70 @@ Module MapLoader
                     End While
 
                     coords.path = coords.path.Replace(".png", ".dds")
+                    atlasParts.Add(coords)
                 End While
-
-                Dim handle = GL.Arb.GetTextureHandle(atlas_tex)
-                GL.Arb.MakeTextureHandleResident(handle)
-
-                textureHandles(atlasPath) = handle
             End Using
+
+            Dim atlas_tex As Integer
+            Dim dds_header_first As DDSHeader = Nothing
+            For i = 0 To uniqueY0.Count - 1
+                For j = 0 To uniqueX0.Count - 1
+                    If i * uniqueY0.Count + j >= atlasParts.Count Then
+                        Exit For
+                    End If
+
+                    Dim coords = atlasParts(i * uniqueY0.Count + j)
+                    Dim dds_entry As ZipEntry = search_pkgs(coords.path)
+                    If dds_entry Is Nothing Then
+                        Stop
+                        Continue For
+                    End If
+
+                    Dim dds_ms As New MemoryStream
+                    dds_entry.Extract(dds_ms)
+
+                    dds_ms.Position = 0
+                    Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
+                        Dim dds_header = get_dds_header(dds_br)
+                        dds_ms.Position = 128
+
+                        If dds_header_first Is Nothing Then
+                            dds_header_first = dds_header
+
+                            Dim fullWidth = uniqueX0.Count * dds_header.width
+                            Dim fullHeight = uniqueY0.Count * dds_header.height
+
+                            GL.CreateTextures(TextureTarget.Texture2D, 1, atlas_tex)
+                            GL.TextureStorage2D(atlas_tex, dds_header.mipMapCount, DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
+
+                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
+                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
+                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+                        Else
+                            Debug.Assert(dds_header_first.FourCC = dds_header.FourCC)
+                            Debug.Assert(dds_header_first.width = dds_header.width)
+                            Debug.Assert(dds_header_first.height = dds_header.height)
+                            Debug.Assert(dds_header_first.mipMapCount = dds_header.mipMapCount)
+                        End If
+
+                        Dim xoffset = j * dds_header.width
+                        Dim yoffset = i * dds_header.height
+
+                        Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * dds_header.gl_block_size
+                        Dim data = dds_br.ReadBytes(size)
+                        GL.CompressedTextureSubImage2D(atlas_tex, 0, xoffset, yoffset, dds_header.width, dds_header.height, DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
+                    End Using
+                Next
+            Next
+
+            GL.GenerateTextureMipmap(atlas_tex)
+            Dim handle = GL.Arb.GetTextureHandle(atlas_tex)
+            GL.Arb.MakeTextureHandleResident(handle)
+
+            textureHandles(atlasPath) = handle
         Next
 
         'load textures
