@@ -576,7 +576,9 @@ Module MapLoader
                     texturePaths.Add(mat.props.atlasBlend)
                     atlasPaths.Add(mat.props.atlasNormalGlossSpec)
                     atlasPaths.Add(mat.props.atlasMetallicAO)
-                    atlasPaths.Add(mat.props.dirtMap)
+                    If mat.props.dirtMap IsNot Nothing Then
+                        atlasPaths.Add(mat.props.dirtMap)
+                    End If
 
                 Case ShaderTypes.FX_PBS_tiled_atlas_global
                     atlasPaths.Add(mat.props.atlasAlbedoHeight)
@@ -586,7 +588,7 @@ Module MapLoader
                     atlasPaths.Add(mat.props.atlasNormalGlossSpec)
                     atlasPaths.Add(mat.props.atlasMetallicAO)
                     atlasPaths.Add(mat.props.atlasAlbedoHeight)
-                    If mat.props.dirtMap <> "unused" Then
+                    If mat.props.dirtMap IsNot Nothing Then
                         texturePaths.Add(mat.props.dirtMap)
                     End If
                     texturePaths.Add(mat.props.globalTex)
@@ -704,80 +706,85 @@ Module MapLoader
                 .shader_type = mat.shader_type
                 Select Case mat.shader_type
                     Case ShaderTypes.FX_PBS_ext
-                        .map1Handle = textureHandles(mat.props.diffuseMap)
-                        .map2Handle = textureHandles(mat.props.normalMap)
-                        .map3Handle = textureHandles(mat.props.metallicGlossMap)
-                        .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
-                        .alphaReference = mat.props.alphaReference / 255.0
-                        .alphaTestEnable = mat.props.alphaTestEnable
-                        .g_colorTint = mat.props.g_colorTint
-                        .g_useColorTint = mat.props.g_useTintColor
+                        Dim props As MaterialProps_PBS_ext = mat.props
+                        .map1Handle = textureHandles(props.diffuseMap)
+                        .map2Handle = textureHandles(props.normalMap)
+                        .map3Handle = textureHandles(props.metallicGlossMap)
+                        .g_useNormalPackDXT1 = props.g_useNormalPackDXT1
+                        .alphaReference = props.alphaReference / 255.0
+                        .alphaTestEnable = props.alphaTestEnable
+                        .g_colorTint = props.g_colorTint
+                        .g_useColorTint = props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_ext_dual
-                        .map1Handle = textureHandles(mat.props.diffuseMap)
-                        .map2Handle = textureHandles(mat.props.normalMap)
-                        .map3Handle = textureHandles(mat.props.metallicGlossMap)
-                        .map4Handle = textureHandles(mat.props.diffuseMap2)
-                        .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
-                        .alphaReference = mat.props.alphaReference / 255.0
-                        .alphaTestEnable = mat.props.alphaTestEnable
-                        .g_colorTint = mat.props.g_colorTint
-                        .g_useColorTint = mat.props.g_useTintColor
-
+                        Dim props As MaterialProps_PBS_ext_dual = mat.props
+                        .map1Handle = textureHandles(props.diffuseMap)
+                        .map2Handle = textureHandles(props.normalMap)
+                        .map3Handle = textureHandles(props.metallicGlossMap)
+                        .map4Handle = textureHandles(props.diffuseMap2)
+                        .g_useNormalPackDXT1 = props.g_useNormalPackDXT1
+                        .alphaReference = props.alphaReference / 255.0
+                        .alphaTestEnable = props.alphaTestEnable
+                        .g_colorTint = props.g_colorTint
+                        .g_useColorTint = props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_ext_detail
-                        .map1Handle = textureHandles(mat.props.diffuseMap)
-                        .map2Handle = textureHandles(mat.props.normalMap)
-                        .map3Handle = textureHandles(mat.props.metallicGlossMap)
-                        .g_useNormalPackDXT1 = mat.props.g_useNormalPackDXT1
-                        .alphaReference = mat.props.alphaReference / 255.0
-                        .alphaTestEnable = mat.props.alphaTestEnable
-                        .g_colorTint = mat.props.g_colorTint
-                        .g_useColorTint = mat.props.g_useTintColor
+                        Dim props As MaterialProps_PBS_ext_detail = mat.props
+                        .map1Handle = textureHandles(props.diffuseMap)
+                        .map2Handle = textureHandles(props.normalMap)
+                        .map3Handle = textureHandles(props.metallicGlossMap)
+                        .g_useNormalPackDXT1 = props.g_useNormalPackDXT1
+                        .alphaReference = props.alphaReference / 255.0
+                        .alphaTestEnable = props.alphaTestEnable
+                        .g_colorTint = props.g_colorTint
+                        .g_useColorTint = props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
-                        .map1Handle = textureHandles(mat.props.atlasAlbedoHeight)
-                        .map2Handle = textureHandles(mat.props.atlasNormalGlossSpec)
-                        .map3Handle = textureHandles(mat.props.atlasMetallicAO)
-                        .map4Handle = textureHandles(mat.props.atlasBlend)
-                        If mat.props.dirtMap <> "unused" Then
-                            .map5Handle = textureHandles(mat.props.dirtMap)
+                        Dim props As MaterialProps_PBS_tiled_atlas = mat.props
+                        .map1Handle = textureHandles(props.atlasAlbedoHeight)
+                        .map2Handle = textureHandles(props.atlasNormalGlossSpec)
+                        .map3Handle = textureHandles(props.atlasMetallicAO)
+                        .map4Handle = textureHandles(props.atlasBlend)
+                        If props.dirtMap IsNot Nothing Then
+                            .map5Handle = textureHandles(props.dirtMap)
                         End If
 
-                        '.alphaReference = mat.props.alphaReference / 255.0
+                        '.alphaReference = props.alphaReference / 255.0
                         '.alphaTestEnable = mat.props.alphaTestEnable
-                        .g_atlasIndexes = mat.props.g_atlasIndexes
-                        .g_atlasSizes = mat.props.g_atlasSizes
-                        .dirtColor = mat.props.dirtColor
-                        .dirtParams = mat.props.dirtParams
-                        .g_tile0Tint = mat.props.g_tile0Tint
-                        .g_tile1Tint = mat.props.g_tile2Tint
-                        .g_tile2Tint = mat.props.g_tile2Tint
-                        .g_tileUVScale = mat.props.g_tileUVScale
+                        .g_atlasIndexes = props.g_atlasIndexes
+                        .g_atlasSizes = props.g_atlasSizes
+                        .dirtColor = props.dirtColor
+                        .dirtParams = props.dirtParams
+                        .g_tile0Tint = props.g_tile0Tint
+                        .g_tile1Tint = props.g_tile2Tint
+                        .g_tile2Tint = props.g_tile2Tint
+                        .g_tileUVScale = props.g_tileUVScale
 
                     Case ShaderTypes.FX_PBS_tiled_atlas_global
-                        .map1Handle = textureHandles(mat.props.atlasAlbedoHeight)
-                        .map2Handle = textureHandles(mat.props.atlasNormalGlossSpec)
-                        .map3Handle = textureHandles(mat.props.atlasMetallicAO)
-                        .map4Handle = textureHandles(mat.props.atlasBlend)
-                        If mat.props.dirtMap <> "unused" Then
-                            .map5Handle = textureHandles(mat.props.dirtMap)
+                        Dim props As MaterialProps_PBS_atlas_global = mat.props
+                        .map1Handle = textureHandles(props.atlasAlbedoHeight)
+                        .map2Handle = textureHandles(props.atlasNormalGlossSpec)
+                        .map3Handle = textureHandles(props.atlasMetallicAO)
+                        .map4Handle = textureHandles(props.atlasBlend)
+                        If props.dirtMap IsNot Nothing Then
+                            .map5Handle = textureHandles(props.dirtMap)
                         End If
-                        .map6Handle = textureHandles(mat.props.globalTex)
+                        .map6Handle = textureHandles(props.globalTex)
 
-                        .alphaReference = mat.props.alphaReference / 255.0
-                        .alphaTestEnable = mat.props.alphaTestEnable
-                        .g_atlasIndexes = mat.props.g_atlasIndexes
-                        .g_atlasSizes = mat.props.g_atlasSizes
-                        .dirtColor = mat.props.dirtColor
-                        .dirtParams = mat.props.dirtParams
-                        .g_tile0Tint = mat.props.g_tile0Tint
-                        .g_tile1Tint = mat.props.g_tile2Tint
-                        .g_tile2Tint = mat.props.g_tile2Tint
-                        .g_tileUVScale = mat.props.g_tileUVScale
+                        .alphaReference = props.alphaReference / 255.0
+                        .alphaTestEnable = props.alphaTestEnable
+                        .g_atlasIndexes = props.g_atlasIndexes
+                        .g_atlasSizes = props.g_atlasSizes
+                        .dirtColor = props.dirtColor
+                        .dirtParams = props.dirtParams
+                        .g_tile0Tint = props.g_tile0Tint
+                        .g_tile1Tint = props.g_tile2Tint
+                        .g_tile2Tint = props.g_tile2Tint
+                        .g_tileUVScale = props.g_tileUVScale
 
                     Case ShaderTypes.FX_lightonly_alpha
-                        .map1Handle = textureHandles(mat.props.diffuseMap)
+                        Dim props As MaterialProps_lightonly_alpha = mat.props
+                        .map1Handle = textureHandles(props.diffuseMap)
 
                     Case Else
                         'Stop

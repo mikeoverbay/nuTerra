@@ -547,7 +547,7 @@ CleanUp:
                         .atlasNormalGlossSpec = props("atlasNormalGlossSpec").ToLower
                         .atlasMetallicAO = props("atlasMetallicAO").ToLower
 
-                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap"), "unused")
+                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap").ToLower, Nothing)
                         .dirtColor = If(props.ContainsKey("dirtColor"), props("dirtColor"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .dirtParams = If(props.ContainsKey("dirtParams"), props("dirtParams"), New Vector4(1.0, 1.0, 1.0, 1.0))
 
@@ -605,7 +605,7 @@ CleanUp:
                         .atlasBlend = props("atlasBlend").ToLower
                         .atlasNormalGlossSpec = props("atlasNormalGlossSpec").ToLower
                         .atlasMetallicAO = props("atlasMetallicAO").ToLower
-                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap"), "unused")
+                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap").ToLower, Nothing)
                         .globalTex = props("globalTex").ToLower
 
                         .dirtColor = If(props.ContainsKey("dirtColor"), props("dirtColor"), New Vector4(1.0, 1.0, 1.0, 1.0))
@@ -638,7 +638,7 @@ CleanUp:
                     mat.shader_type = ShaderTypes.FX_lightonly_alpha
                     mat.props = obj
 
-                Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/std_effects/PBS_glass.fx", "shaders/custom/emissive.fx"
+                Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/std_effects/PBS_glass.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx"
                     mat.shader_type = ShaderTypes.FX_unsupported
 
                 Case Else
