@@ -269,9 +269,9 @@ void main(void)
         
         vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
 
-        ivec2 isize = textureSize(thisMaterial.maps[0],0);
+        isize = textureSize(thisMaterial.maps[0],0);
 
-        float mip = mip_map_level(fs_in.TC2,isize);
+        mip = mip_map_level(fs_in.TC2,isize);
         BLEND = texture2D(thisMaterial.maps[3],UV4);
 
         colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
