@@ -107,10 +107,7 @@ void get_atlas_uvs(inout vec2 UV1,inout vec2 UV2,
 
     float usx = 0.875;
     float usy = 0.875;
-    uox = 0.03215;
-    uoy = 0.03215;
-    usx = 0.9375;
-    usy = 0.9375;
+
     vec2 hpix = vec2(0.5/image_size.x,0.5/image_size.y);// / At_size.xy;
     vec2 offset = vec2(uox/At_size.x, uoy/At_size.y) + hpix;
 
