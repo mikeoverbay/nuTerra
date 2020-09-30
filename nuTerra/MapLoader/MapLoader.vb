@@ -41,7 +41,10 @@ Module MapLoader
     Public textureHandleBuffer As Integer
     Public parametersBuffer As Integer
     Public matricesBuffer As Integer
+    Public modelRangesBuffer As Integer
+    Public modelInstanceMappingBuffer As Integer
     Public numModelInstances As Integer
+    Public numModels As Integer
     Public indirectDrawCount As Integer
     Public drawCandidatesBuffer As Integer
     Public indirectBuffer As Integer
@@ -306,6 +309,7 @@ Module MapLoader
             ' calc instances
             numModelInstances = 0
             indirectDrawCount = 0
+            numModels = 0
             Dim numVerts = 0
             Dim numPrims = 0
             For Each batch In MODEL_BATCH_LIST
@@ -324,7 +328,7 @@ Module MapLoader
                         If primGroup.no_draw Then
                             Continue For
                         End If
-                        indirectDrawCount += batch.count
+                        indirectDrawCount += 1
                         skip = False
                     Next
                     numVerts += renderSet.buffers.vertexBuffer.Length
@@ -332,6 +336,7 @@ Module MapLoader
                 Next
                 If Not skip Then
                     numModelInstances += batch.count
+                    numModels += 1
                 End If
             Next
 
@@ -342,6 +347,8 @@ Module MapLoader
             Dim uv2Buffer(numVerts - 1) As Vector2
             Dim iBuffer(numPrims - 1) As vect3_32
             Dim matrices(numModelInstances - 1) As ModelInstance
+            Dim modelRanges(numModels - 1) As ModelInstanceRange
+            Dim modelId = 0
             Dim cmdId = 0
             Dim vLast = 0
             Dim iLast = 0
@@ -393,20 +400,12 @@ Module MapLoader
                 Next
 
                 If Not skip Then
-                    Dim countPrimGroups = cmdId - savedCmdId
-                    For i = 1 To batch.count - 1
-                        For j = 0 To countPrimGroups - 1
-                            With drawCommands(cmdId)
-                                .model_id = mLast + i
-                                .material_id = drawCommands(savedCmdId + j).material_id
-                                .count = drawCommands(savedCmdId + j).count
-                                .firstIndex = drawCommands(savedCmdId + j).firstIndex
-                                .baseVertex = drawCommands(savedCmdId + j).baseVertex
-                                .baseInstance = cmdId
-                            End With
-                            cmdId += 1
-                        Next
-                    Next
+                    With modelRanges(modelId)
+                        .instance_offset = mLast
+                        .instance_count = batch.count
+                        .draw_offset = savedCmdId
+                        .draw_count = cmdId - savedCmdId
+                    End With
                     For i = 0 To batch.count - 1
                         With matrices(mLast + i)
                             .matrix = MODEL_INDEX_LIST(batch.offset + i).matrix
@@ -414,11 +413,12 @@ Module MapLoader
                             .bmin.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row0.Yz
                             .bmax.X = -MAP_MODELS(batch.model_id).visibilityBounds.Row0.X 'make negative because of GL rendering!
                             .bmax.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row1.Yz
-                            .offset = savedCmdId + i * countPrimGroups
-                            .count = countPrimGroups
+                            .offset = 0
+                            .count = 0
                         End With
                     Next
                     mLast += batch.count
+                    modelId += 1
                 End If
             Next
 
@@ -434,7 +434,17 @@ Module MapLoader
 
             GL.CreateBuffers(1, matricesBuffer)
             GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of ModelInstance)(), matrices, BufferStorageFlags.None)
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, matricesBuffer)
             Erase matrices
+
+            GL.CreateBuffers(1, modelRangesBuffer)
+            GL.NamedBufferStorage(modelRangesBuffer, modelRanges.Length * Marshal.SizeOf(Of ModelInstanceRange)(), modelRanges, BufferStorageFlags.None)
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 3, modelRangesBuffer)
+            Erase modelRanges
+
+            GL.CreateBuffers(1, modelInstanceMappingBuffer)
+            GL.NamedBufferStorage(modelInstanceMappingBuffer, numModelInstances * Marshal.SizeOf(Of UInt32)(), IntPtr.Zero, BufferStorageFlags.None)
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 4, modelInstanceMappingBuffer)
 
             GL.CreateBuffers(1, vertsBuffer)
             GL.NamedBufferStorage(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex)(), vBuffer, BufferStorageFlags.None)

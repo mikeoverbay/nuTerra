@@ -1,10 +1,18 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+#extension GL_ARB_shader_atomic_counter_ops : require
 #include "common.h"
 
 layout (local_size_x = 1) in;
 
+
+struct ModelInstanceRange {
+	uint instance_offset;
+	uint instance_count;
+	uint draw_offset;
+	uint draw_count;
+};
 
 layout (binding = 0, std430) readonly buffer CandidateDraws
 {
@@ -16,12 +24,23 @@ layout (binding = 1, std430) writeonly buffer OutputDraws
     DrawElementsIndirectCommand command[];
 };
 
-layout(binding = 2, std430) readonly buffer MODEL_MATRIX_BLOCK
+layout(binding = 2, std430) buffer MODEL_MATRIX_BLOCK
 {
     ModelInstance models[];
 };
 
+layout(binding = 3, std430) readonly buffer MODEL_RANGE_BLOCK
+{
+    ModelInstanceRange model_ranges[];
+};
+
+layout(binding = 4, std430) writeonly buffer MODEL_INSTANCE_MAPPING_BLOCK
+{
+    uint model_instance_mapping[];
+};
+
 layout (binding = 0, offset = 0) uniform atomic_uint commandCounter;
+layout (binding = 0, offset = 4) uniform atomic_uint baseInstanceCounter;
 
 uniform mat4 projection;
 uniform mat4 view;
@@ -65,18 +84,40 @@ bool frustumCullingTest(mat4 mvp, vec3 bmin, vec3 bmax)
 
 void main(void)
 {
-    const ModelInstance thisModel = models[gl_GlobalInvocationID.x];
-    const mat4 MVP = projection * view * thisModel.matrix;
+    const ModelInstanceRange range = model_ranges[gl_GlobalInvocationID.x];
 
-    if (frustumCullingTest(MVP, thisModel.bmin, thisModel.bmax)) {
-        for (int i = 0; i < thisModel.count; ++i) {
-            const CandidateDraw thisDraw = draw[thisModel.offset + i];
+    int instanceToDraw = 0;
+
+    for (int i = 0; i < range.instance_count; ++i) {
+        const ModelInstance thisModel = models[range.instance_offset + i];
+        const mat4 MVP = projection * view * thisModel.matrix;
+        if (true) {
+            ++instanceToDraw;
+            models[range.instance_offset + i].inFrustum = true;
+        } else {
+            models[range.instance_offset + i].inFrustum = false;
+        }
+    }
+
+    if (instanceToDraw > 0) {
+        uint baseInstance = atomicCounterAddARB(baseInstanceCounter, instanceToDraw);
+
+        int j = 0;
+        for (int i = 0; i < range.instance_count; ++i) {
+            if (models[range.instance_offset + i].inFrustum) {
+                model_instance_mapping[baseInstance + j] = range.instance_offset + i;
+                ++j;
+            }
+        }
+
+        for (int i = 0; i < range.draw_count; ++i) {
+            const CandidateDraw thisDraw = draw[range.draw_offset + i];
             uint outDrawIndex = atomicCounterIncrement(commandCounter);
             command[outDrawIndex].count = thisDraw.count;
-            command[outDrawIndex].instanceCount = 1;
+            command[outDrawIndex].instanceCount = instanceToDraw;
             command[outDrawIndex].firstIndex = thisDraw.firstIndex;
             command[outDrawIndex].baseVertex = thisDraw.baseVertex;
-            command[outDrawIndex].baseInstance = thisDraw.baseInstance;
+            command[outDrawIndex].baseInstance = baseInstance;
         }
     }
 }

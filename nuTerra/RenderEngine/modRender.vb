@@ -149,12 +149,14 @@ Module modRender
     Private Sub frustum_cull()
         'Bind And clear atomic counter
         GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, parametersBuffer)
-        GL.ClearNamedBufferSubData(parametersBuffer, PixelInternalFormat.R32ui, IntPtr.Zero, Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        GL.ClearNamedBufferSubData(parametersBuffer, PixelInternalFormat.R32ui, IntPtr.Zero, Marshal.SizeOf(Of UInt32) * 2, PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         'Bind shader storage buffers
         GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, drawCandidatesBuffer)
         GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, indirectBuffer)
         GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, matricesBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 3, modelRangesBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 4, modelInstanceMappingBuffer)
 
         cullShader.Use()
 
@@ -172,7 +174,7 @@ Module modRender
             GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
         End If
 
-        GL.DispatchCompute(numModelInstances, 1, 1)
+        GL.DispatchCompute(numModels, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 

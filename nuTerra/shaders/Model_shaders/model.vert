@@ -22,6 +22,11 @@ layout (binding = 1, std430) readonly buffer CandidateDraws
     CandidateDraw draw[];
 };
 
+layout(binding = 4, std430) readonly buffer MODEL_INSTANCE_MAPPING_BLOCK
+{
+    uint model_instance_mapping[];
+};
+
 out VS_OUT
 {
     vec2 TC1;
@@ -36,10 +41,11 @@ uniform mat4 view;
 
 void main(void)
 {
-    const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
-    const ModelInstance thisModel = models[thisDraw.model_id];
+    const uint model_id = model_instance_mapping[gl_BaseInstanceARB];
+    //const CandidateDraw thisDraw = draw[gl_DrawIDARB];
+    const ModelInstance thisModel = models[model_id];
 
-    vs_out.material_id = thisDraw.material_id;
+    vs_out.material_id = 0;
     vs_out.TC1 = vertexTexCoord1;
     vs_out.TC2 = vertexTexCoord2;
 

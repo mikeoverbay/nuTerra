@@ -331,6 +331,7 @@ try_again:
         Next
 
         ' Requied extensions
+        Debug.Assert(extensions.Contains("GL_ARB_shader_atomic_counter_ops")) 'core since 4.6
         Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
         Debug.Assert(extensions.Contains("GL_ARB_shading_language_include"))
         Debug.Assert(extensions.Contains("GL_ARB_indirect_parameters"))

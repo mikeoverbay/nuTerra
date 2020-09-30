@@ -38,6 +38,14 @@ Module modOpenGL
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
+    Public Structure ModelInstanceRange
+        Dim instance_offset As UInt32
+        Dim instance_count As UInt32
+        Dim draw_offset As UInt32
+        Dim draw_count As UInt32
+    End Structure
+
+    <StructLayout(LayoutKind.Sequential)>
     Public Structure GLMaterial
         Dim g_atlasIndexes As Vector4
         Dim g_atlasSizes As Vector4

@@ -22,7 +22,7 @@ struct ModelInstance
 {
     mat4 matrix;
     vec3 bmin;
-    uint offset;
+    bool inFrustum;
     vec3 bmax;
     uint count;
 };

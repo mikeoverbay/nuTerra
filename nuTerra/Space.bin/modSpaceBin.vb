@@ -484,7 +484,8 @@ CleanUp:
                         "g_glossMapInfluence",
                         "g_albedoMapInfluence",
                         "g_tile",
-                        "texAddressMode"
+                        "texAddressMode",
+                        "applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
