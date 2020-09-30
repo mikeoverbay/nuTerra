@@ -3,7 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 #include "common.h"
 
-layout (local_size_x = 16) in;
+layout (local_size_x = 1) in;
 
 
 layout (binding = 0, std430) readonly buffer CandidateDraws

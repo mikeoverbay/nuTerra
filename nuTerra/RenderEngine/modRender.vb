@@ -172,7 +172,7 @@ Module modRender
             GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
         End If
 
-        GL.DispatchCompute(CInt(Math.Floor(numModelInstances / 16)), 1, 1)
+        GL.DispatchCompute(numModelInstances, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 
