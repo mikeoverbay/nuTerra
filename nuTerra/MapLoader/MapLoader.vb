@@ -669,17 +669,25 @@ Module MapLoader
             Dim atlas_tex As Integer
             Dim fullWidth As Integer
             Dim fullHeight As Integer
-            Dim subSizeX, subSizeY As Integer
-            Dim old_w, old_h As Integer
+            Dim multiplierX, multiplierY As Single
             For i = 0 To (uniqueX0.Count + uniqueY0.Count) - 1
                 If i = atlasParts.Count Then
                     Exit For
                 End If
+
                 Dim coords = atlasParts(i)
-                Dim dds_entry As ZipEntry = search_pkgs(coords.path)
+
+                Dim dds_entry As ZipEntry = Nothing
+                If HD_EXISTS Then
+                    dds_entry = search_pkgs(coords.path.Replace(".dds", "_hd.dds"))
+                End If
+
                 If dds_entry Is Nothing Then
-                    Stop
-                    Continue For
+                    dds_entry = search_pkgs(coords.path)
+                    If dds_entry Is Nothing Then
+                        Stop
+                        Continue For
+                    End If
                 End If
 
                 Dim dds_ms As New MemoryStream
@@ -690,21 +698,17 @@ Module MapLoader
                     Dim dds_header = get_dds_header(dds_br)
                     dds_ms.Position = 128
 
-                    'sanity check
-                    old_w = uniqueX0.Count * (coords.x1 - coords.x0) ' gets size of atlas
-                    old_h = uniqueY0.Count * (coords.y1 - coords.y0)
-                    If Not HD_EXISTS Then
-                        old_w /= 2
-                        old_h /= 2
-                    End If
                     If i = 0 Then 'run once
 
-                        fullWidth = uniqueX0.Count * (coords.x1 - coords.x0) ' gets size of atlas
-                        fullHeight = uniqueY0.Count * (coords.y1 - coords.y0)
-                        dds_header.width = fullWidth ' update dds_head sizes
-                        dds_header.height = fullHeight
-                        subSizeX = coords.x1 - coords.x0
-                        subSizeY = coords.y1 - coords.y0
+                        ' gets size of atlas
+                        fullWidth = uniqueX0.Count * dds_header.width
+                        fullHeight = uniqueY0.Count * dds_header.height
+
+                        multiplierX = dds_header.width / (coords.x1 - coords.x0)
+                        multiplierY = dds_header.height / (coords.y1 - coords.y0)
+                        Debug.Assert(multiplierX = 0.5)
+                        Debug.Assert(multiplierY = 0.5)
+
                         GL.CreateTextures(TextureTarget.Texture2D, 1, atlas_tex)
                         GL.TextureStorage2D(atlas_tex, dds_header.mipMapCount, DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
 
@@ -714,32 +718,21 @@ Module MapLoader
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-                        If Not HD_EXISTS Then
-                            fullWidth /= 2
-                            fullHeight /= 2
-                            coords.x0 /= 2
-                            coords.y0 /= 2
-                            subSizeX /= 2
-                            subSizeY /= 2
-                        End If
                     End If
-                    'trap a odd sized sub images
-                    Debug.Assert(old_w = fullWidth)
-                    Debug.Assert(old_h = fullHeight)
 
-
-                    Dim size As Integer = dds_br.BaseStream.Length - 128
+                    Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * dds_header.gl_block_size
                     Dim data = dds_br.ReadBytes(size)
-                    Dim pt = dds_br.BaseStream.Position
 
-                    'coords.x0 and coords.y0 are the offsets in to the atlas
-                    'coords.x1 and coords.y1 are the end offsets in to the atlas. NOT WIDTH
-                    GL.CompressedTextureSubImage2D(atlas_tex, 0, coords.x0, coords.y0,
-                                                   subSizeX, subSizeY, DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
+                    Dim xoffset = CInt(coords.x0 * multiplierX)
+                    Dim yoffset = CInt(coords.y0 * multiplierY)
+
+                    GL.CompressedTextureSubImage2D(atlas_tex, 0, xoffset, yoffset,
+                                                   dds_header.width, dds_header.height, DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
 
                 End Using
             Next
-            'draw_test_iamge(fullWidth, fullHeight, atlas_tex) ' Dont draw anything :(
+            draw_test_iamge(fullWidth, fullHeight, atlas_tex) ' Dont draw anything :(
+            Stop
             GL.GenerateTextureMipmap(atlas_tex)
             Dim handle = GL.Arb.GetTextureHandle(atlas_tex)
             GL.Arb.MakeTextureHandleResident(handle)
