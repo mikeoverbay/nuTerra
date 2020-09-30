@@ -603,6 +603,10 @@ Module MapLoader
                 Continue For
             End If
 
+            If atlasPath.ToLower.Contains("EU_NewCity_01_atlas_AM") Then
+                Stop
+            End If
+
             If Not atlasPath.EndsWith(".atlas") Then
                 'Stop
                 Continue For
@@ -663,60 +667,70 @@ Module MapLoader
             End Using
 
             Dim atlas_tex As Integer
-            Dim dds_header_first As DDSHeader = Nothing
-            For i = 0 To uniqueY0.Count - 1
-                For j = 0 To uniqueX0.Count - 1
-                    If i * uniqueY0.Count + j >= atlasParts.Count Then
-                        Exit For
+            Dim fullWidth As Integer
+            Dim fullHeight As Integer
+            Dim subSizeX, subSizeY As Integer
+            Dim old_w, old_h As Integer
+            For i = 0 To (uniqueX0.Count + uniqueY0.Count) - 1
+                If i = atlasParts.Count Then
+                    Exit For
+                End If
+                Dim coords = atlasParts(i)
+                Dim dds_entry As ZipEntry = search_pkgs(coords.path)
+                If dds_entry Is Nothing Then
+                    Stop
+                    Continue For
+                End If
+
+                Dim dds_ms As New MemoryStream
+                dds_entry.Extract(dds_ms)
+
+                dds_ms.Position = 0
+                Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
+                    Dim dds_header = get_dds_header(dds_br)
+                    dds_ms.Position = 128
+
+                    'sanity check
+                    old_w = uniqueX0.Count * (coords.x1 - coords.x0) ' gets size of atlas
+                    old_h = uniqueY0.Count * (coords.y1 - coords.y0)
+
+                    If i = 0 Then 'run once
+
+                        fullWidth = uniqueX0.Count * (coords.x1 - coords.x0) ' gets size of atlas
+                        fullHeight = uniqueY0.Count * (coords.y1 - coords.y0)
+                        dds_header.width = fullWidth ' update dds_head sizes
+                        dds_header.height = fullHeight
+                        subSizeX = coords.x1 - coords.x0
+                        subSizeY = coords.y1 - coords.y0
+                        GL.CreateTextures(TextureTarget.Texture2D, 1, atlas_tex)
+                        GL.TextureStorage2D(atlas_tex, dds_header.mipMapCount, DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
+
+                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
+                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
+                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
                     End If
+                    'trap and odd sized sub images
+                    Debug.Assert(old_w = fullWidth)
+                    Debug.Assert(old_h = fullHeight)
 
-                    Dim coords = atlasParts(i * uniqueY0.Count + j)
-                    Dim dds_entry As ZipEntry = search_pkgs(coords.path)
-                    If dds_entry Is Nothing Then
-                        Stop
-                        Continue For
-                    End If
 
-                    Dim dds_ms As New MemoryStream
-                    dds_entry.Extract(dds_ms)
+                    Dim size As Integer = dds_br.BaseStream.Length - 128
+                    Dim data = dds_br.ReadBytes(size)
+                    Dim pt = dds_br.BaseStream.Position
+                    Dim loc_w = coords.x1 - coords.x0
+                    Dim loc_y = coords.y1 = coords.y1
 
-                    dds_ms.Position = 0
-                    Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
-                        Dim dds_header = get_dds_header(dds_br)
-                        dds_ms.Position = 128
+                    'coords.x0 and coords.y0 are the offsets in to the atlas
+                    'coords.x1 and coords.y1 are the end offsets in to the atlas. NOT WIDTH
 
-                        If dds_header_first Is Nothing Then
-                            dds_header_first = dds_header
+                    GL.CompressedTextureSubImage2D(atlas_tex, 0, coords.x0, coords.y0, subSizeX, subSizeY, DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
 
-                            Dim fullWidth = uniqueX0.Count * dds_header.width
-                            Dim fullHeight = uniqueY0.Count * dds_header.height
-
-                            GL.CreateTextures(TextureTarget.Texture2D, 1, atlas_tex)
-                            GL.TextureStorage2D(atlas_tex, dds_header.mipMapCount, DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
-
-                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
-                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
-                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-                            GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-                        Else
-                            Debug.Assert(dds_header_first.FourCC = dds_header.FourCC)
-                            Debug.Assert(dds_header_first.width = dds_header.width)
-                            Debug.Assert(dds_header_first.height = dds_header.height)
-                            Debug.Assert(dds_header_first.mipMapCount = dds_header.mipMapCount)
-                        End If
-
-                        Dim xoffset = j * dds_header.width
-                        Dim yoffset = i * dds_header.height
-
-                        Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * dds_header.gl_block_size
-                        Dim data = dds_br.ReadBytes(size)
-                        GL.CompressedTextureSubImage2D(atlas_tex, 0, xoffset, yoffset, dds_header.width, dds_header.height, DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
-                    End Using
-                Next
+                End Using
             Next
-
+            'draw_test_iamge(fullWidth, fullHeight, atlas_tex) ' Dont draw anything :(
             GL.GenerateTextureMipmap(atlas_tex)
             Dim handle = GL.Arb.GetTextureHandle(atlas_tex)
             GL.Arb.MakeTextureHandleResident(handle)
@@ -730,6 +744,7 @@ Module MapLoader
                 Stop
                 Continue For
             End If
+
 
             Dim entry As ZipEntry = search_pkgs(texturePath)
             If entry Is Nothing Then
@@ -843,7 +858,19 @@ Module MapLoader
         materials = Nothing
 
         GL.CreateBuffers(1, textureHandleBuffer)
-        GL.NamedBufferStorage(textureHandleBuffer, materialsData.Length * Marshal.SizeOf(Of GLMaterial), materialsData, BufferStorageFlags.None)
+        GL.NamedBufferStorage(textureHandleBuffer, materialsData.Length * Marshal.SizeOf(Of GLMaterial)(), materialsData, BufferStorageFlags.None)
+    End Sub
+    Private Sub draw_test_iamge(ByVal w As Integer, ByVal h As Integer, ByVal id As Integer)
+
+        Dim ww = frmMain.glControl_main.ClientRectangle.Width
+
+        Dim ls = (1920.0F - ww) / 2.0F
+
+        ' Draw Terra Image
+        draw_image_rectangle(New RectangleF(0, 0, 1920, 1080),
+                             id)
+
+        frmMain.glControl_main.SwapBuffers()
     End Sub
 
     Private Function get_spaceBin(ByVal ABS_NAME As String) As Boolean
