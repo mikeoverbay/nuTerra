@@ -96,6 +96,11 @@ Module ChunkFunctions
                 bottomleft.vert.X *= scale
                 bottomleft.vert.Y *= scale
 
+                topleft.vert.X += 0.793F
+                topleft.vert.Y += 0.793F
+
+                bottomleft.vert.X += 0.793F
+                bottomleft.vert.Y += 0.793F
 
                 ' Fill the arrays
                 v_data.v_buff_XZ(i + ((j + 1) * stride)) = bottomleft.vert

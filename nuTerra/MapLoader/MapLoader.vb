@@ -729,11 +729,11 @@ Module MapLoader
             Next
             GL.GenerateTextureMipmap(atlas_tex)
 
-            If atlasPath.ToLower.Contains("EU_NewCity_01_atlas_AM".ToLower) Then
-                'GL.Clear(ClearBufferMask.ColorBufferBit)
-                'draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
-                'Stop
-            End If
+            'If atlasPath.ToLower.Contains("EU_NewCity_01_atlas_AM".ToLower) Then
+            'GL.Clear(ClearBufferMask.ColorBufferBit)
+            'draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
+            'Stop
+            'End If
 
             Dim handle = GL.Arb.GetTextureHandle(atlas_tex)
             GL.Arb.MakeTextureHandleResident(handle)
