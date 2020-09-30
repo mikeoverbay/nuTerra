@@ -693,7 +693,10 @@ Module MapLoader
                     'sanity check
                     old_w = uniqueX0.Count * (coords.x1 - coords.x0) ' gets size of atlas
                     old_h = uniqueY0.Count * (coords.y1 - coords.y0)
-
+                    If Not HD_EXISTS Then
+                        old_w /= 2
+                        old_h /= 2
+                    End If
                     If i = 0 Then 'run once
 
                         fullWidth = uniqueX0.Count * (coords.x1 - coords.x0) ' gets size of atlas
@@ -711,8 +714,16 @@ Module MapLoader
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+                        If Not HD_EXISTS Then
+                            fullWidth /= 2
+                            fullHeight /= 2
+                            coords.x0 /= 2
+                            coords.y0 /= 2
+                            subSizeX /= 2
+                            subSizeY /= 2
+                        End If
                     End If
-                    'trap and odd sized sub images
+                    'trap a odd sized sub images
                     Debug.Assert(old_w = fullWidth)
                     Debug.Assert(old_h = fullHeight)
 
@@ -720,13 +731,11 @@ Module MapLoader
                     Dim size As Integer = dds_br.BaseStream.Length - 128
                     Dim data = dds_br.ReadBytes(size)
                     Dim pt = dds_br.BaseStream.Position
-                    Dim loc_w = coords.x1 - coords.x0
-                    Dim loc_y = coords.y1 = coords.y1
 
                     'coords.x0 and coords.y0 are the offsets in to the atlas
                     'coords.x1 and coords.y1 are the end offsets in to the atlas. NOT WIDTH
-
-                    GL.CompressedTextureSubImage2D(atlas_tex, 0, coords.x0, coords.y0, subSizeX, subSizeY, DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
+                    GL.CompressedTextureSubImage2D(atlas_tex, 0, coords.x0, coords.y0,
+                                                   subSizeX, subSizeY, DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
 
                 End Using
             Next
