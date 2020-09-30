@@ -603,10 +603,6 @@ Module MapLoader
                 Continue For
             End If
 
-            If atlasPath.ToLower.Contains("EU_NewCity_01_atlas_AM") Then
-                Stop
-            End If
-
             If Not atlasPath.EndsWith(".atlas") Then
                 'Stop
                 Continue For
@@ -670,7 +666,7 @@ Module MapLoader
             Dim fullWidth As Integer
             Dim fullHeight As Integer
             Dim multiplierX, multiplierY As Single
-            For i = 0 To (uniqueX0.Count + uniqueY0.Count) - 1
+            For i = 0 To (uniqueX0.Count * uniqueY0.Count) - 1
                 If i = atlasParts.Count Then
                     Exit For
                 End If
@@ -731,9 +727,14 @@ Module MapLoader
 
                 End Using
             Next
-            draw_test_iamge(fullWidth, fullHeight, atlas_tex) ' Dont draw anything :(
-            Stop
             GL.GenerateTextureMipmap(atlas_tex)
+
+            If atlasPath.ToLower.Contains("EU_NewCity_01_atlas_AM".ToLower) Then
+                'GL.Clear(ClearBufferMask.ColorBufferBit)
+                'draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
+                'Stop
+            End If
+
             Dim handle = GL.Arb.GetTextureHandle(atlas_tex)
             GL.Arb.MakeTextureHandleResident(handle)
 
@@ -869,8 +870,7 @@ Module MapLoader
         Dim ls = (1920.0F - ww) / 2.0F
 
         ' Draw Terra Image
-        draw_image_rectangle(New RectangleF(0, 0, 1920, 1080),
-                             id)
+        draw_image_rectangle(New RectangleF(0, 0, w, h), id)
 
         frmMain.glControl_main.SwapBuffers()
     End Sub
