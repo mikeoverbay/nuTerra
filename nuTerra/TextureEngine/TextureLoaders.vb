@@ -158,8 +158,10 @@ Module TextureLoaders
 
     Public Function get_dds_header(br As BinaryReader) As DDSHeader
         Dim header As New DDSHeader
-        Debug.Assert(br.ReadChars(4) = "DDS ") ' file_code
-        Debug.Assert(br.ReadUInt32() = 124) ' size of the header
+        Dim file_code = br.ReadChars(4)
+        Debug.Assert(file_code = "DDS ")
+        Dim header_size = br.ReadUInt32()
+        Debug.Assert(header_size = 124)
         br.ReadUInt32() ' flags
         header.height = br.ReadInt32()
         header.width = br.ReadInt32()

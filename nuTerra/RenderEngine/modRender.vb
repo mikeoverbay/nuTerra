@@ -44,8 +44,8 @@ Module modRender
         '===========================================================================
         CULLED_COUNT = 0
         cull_timer.Restart()
-        ExtractFrustum()
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
+            ExtractFrustum()
             cull_terrain()
         End If
         '===========================================================================
@@ -67,8 +67,6 @@ Module modRender
         'GL States 
         GL.Enable(EnableCap.DepthTest)
         '===========================================================================
-
-        FBOm.attach_CNGP()
 
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             '=======================================================================
@@ -391,13 +389,6 @@ Module modRender
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
-        GL.BindTextureUnit(0, m_color_id)
-        GL.Uniform1(modelShader("colorMap"), 0)
-        GL.BindTextureUnit(1, m_normal_id)
-        GL.Uniform1(modelShader("normalMap"), 1)
-        GL.BindTextureUnit(2, m_gmm_id)
-        GL.Uniform1(modelShader("GMF_Map"), 2)
-        GL.Uniform1(modelShader("nMap_type"), N_MAP_TYPE)
 
         'assign subroutines
         Dim indices = {0, 1, 2, 3, 4, 5, 6, 7}
@@ -421,7 +412,6 @@ Module modRender
         GL.Disable(EnableCap.CullFace)
 
         modelShader.StopUse()
-        unbind_textures(2) ' unbind all the used texture slots
 
         If SHOW_BOUNDING_BOXES Then
             GL.Disable(EnableCap.DepthTest)
@@ -429,9 +419,6 @@ Module modRender
             boxShader.Use()
             GL.UniformMatrix4(boxShader("projection"), False, PROJECTIONMATRIX)
             GL.UniformMatrix4(boxShader("view"), False, VIEWMATRIX)
-
-            GL.BindTextureUnit(0, m_color_id)
-            GL.Uniform1(boxShader("colorMap"), 0)
 
             GL.BindVertexArray(defaultVao)
             GL.DrawArrays(PrimitiveType.Points, 0, numModelInstances)
@@ -447,9 +434,6 @@ Module modRender
             GL.UniformMatrix4(frustumShader("view"), False, VIEWMATRIX)
             GL.UniformMatrix4(frustumShader("frozen_projection"), False, FROZEN_PROJECTIONMATRIX)
             GL.UniformMatrix4(frustumShader("frozen_view"), False, FROZEN_VIEWMATRIX)
-
-            GL.BindTextureUnit(0, m_color_id)
-            GL.Uniform1(frustumShader("colorMap"), 0)
 
             GL.BindVertexArray(defaultVao)
             GL.DrawArrays(PrimitiveType.Points, 0, 1)
