@@ -748,8 +748,14 @@ Module MapLoader
                 Continue For
             End If
 
+            Dim entry As ZipEntry = Nothing
+            If HD_EXISTS Then
+                entry = search_pkgs(texturePath.Replace(".dds", "_hd.dds"))
+            End If
+            If entry Is Nothing Then
+                entry = search_pkgs(texturePath)
 
-            Dim entry As ZipEntry = search_pkgs(texturePath)
+            End If
             If entry Is Nothing Then
                 Stop
                 Continue For
