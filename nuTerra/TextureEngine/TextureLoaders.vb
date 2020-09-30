@@ -120,11 +120,20 @@ Module TextureLoaders
         Public height As Int32
         Public width As Int32
         Public mipMapCount As Int32
+        Public flags As Int32
         Public FourCC As String
         Public caps As UInt32
 
+        ReadOnly Property is_uncompressed As Boolean
+            Get
+                Return (flags And &H40) <> 0
+            End Get
+        End Property
+
         ReadOnly Property gl_format As InternalFormat
             Get
+                Debug.Assert((flags And &H4) <> 0)
+
                 Select Case FourCC
                     Case "DXT1"
                         Return InternalFormat.CompressedRgbaS3tcDxt1Ext
@@ -141,6 +150,8 @@ Module TextureLoaders
 
         ReadOnly Property gl_block_size As Integer
             Get
+                Debug.Assert((flags And &H4) <> 0)
+
                 Select Case FourCC
                     Case "DXT1"
                         Return 8
@@ -170,7 +181,7 @@ Module TextureLoaders
         header.mipMapCount = br.ReadInt32()
         br.ReadBytes(44) ' reserved1
         br.ReadUInt32() ' Size
-        br.ReadUInt32() ' Flags
+        header.flags = br.ReadUInt32()
         header.FourCC = br.ReadChars(4)
         br.ReadUInt32() ' RGBBitCount
         br.ReadUInt32() ' RBitMask
