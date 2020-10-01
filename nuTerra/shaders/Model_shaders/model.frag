@@ -250,7 +250,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
     bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
-    //gNormal = normalize(fs_in.TBN * bump);
+    gNormal = normalize(fs_in.TBN * bump);
 }
 
 
@@ -293,9 +293,6 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
     BLEND = correct(BLEND,4.0,0.8);
     //============================================
-    //colorAM_3.rgb *= colorAM_3.a;
-    //colorAM_2.rgb *= colorAM_2.a;
-    //colorAM_1.rgb *= colorAM_1.a;
 
     vec4 colorAM = colorAM_3;
     colorAM = mix(colorAM,colorAM_1, BLEND.r);
@@ -304,7 +301,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     colorAM = mix(colorAM,DIRT, BLEND.b);
     colorAM *= BLEND.a;
     gColor = colorAM;
-    //gColor += globalTex;
+
     vec4 GBMT = GBMT_3;
     GBMT = mix(GBMT, GBMT_1, BLEND.r);
     GBMT = mix(GBMT, GBMT_2, BLEND.g);
@@ -324,22 +321,18 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     gNormal = normalize(fs_in.TBN * bump);
 }
 
-
 layout(index = 6) subroutine(fn_entry) void FX_lightonly_alpha_entry()
 {
     // gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor = vec4(0.0,0.0,1.0,1.0); // debug
 }
 
-
 layout(index = 7) subroutine(fn_entry) void FX_unsupported_entry()
 {
     gColor = vec4(1.0, 1.0, 1.0, 1.0);
 }
 
-
 subroutine uniform fn_entry entries[8];
-
 
 // ================================================================================
 // Main start
