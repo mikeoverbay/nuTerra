@@ -255,6 +255,8 @@ Module TerrainBuilder
         'Reads and stores the contents of each cdata_processed
         Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
 
+        GC.Collect()
+        GC.WaitForFullGCComplete()
         '==========================================================
         'Get the settings for this map
         get_team_locations_and_field_BB(ABS_NAME)
@@ -266,8 +268,6 @@ Module TerrainBuilder
         mm.Extract(mss)
         theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, "", False, False)
         mss.Dispose()
-        GC.Collect()
-        GC.WaitForFullGCComplete()
         'get global_am
         Dim gmm = MAP_PACKAGE("spaces/" + ABS_NAME + "/global_am.dds")
         Dim gmss As New MemoryStream

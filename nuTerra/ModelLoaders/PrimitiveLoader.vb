@@ -28,7 +28,7 @@ Module PrimitiveLoader
         Public alphaTestEnable As Boolean
         Public doubleSided As Boolean
         Public g_useNormalPackDXT1 As Boolean
-        Public g_useTintColor As Boolean
+        'Public g_useTintColor As Boolean
         Public g_colorTint As Vector4
     End Structure
 
@@ -41,7 +41,7 @@ Module PrimitiveLoader
         Public alphaTestEnable As Boolean
         Public doubleSided As Boolean
         Public g_useNormalPackDXT1 As Boolean
-        Public g_useTintColor As Boolean
+        'Public g_useTintColor As Boolean
         Public g_colorTint As Vector4
     End Structure
 
@@ -54,7 +54,7 @@ Module PrimitiveLoader
         Public doubleSided As Boolean
         Public g_detailMap As String
         Public g_useNormalPackDXT1 As Boolean
-        Public g_useTintColor As Boolean
+        'Public g_useTintColor As Boolean
         Public g_colorTint As Vector4
     End Structure
 

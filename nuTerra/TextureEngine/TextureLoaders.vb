@@ -200,14 +200,14 @@ Module TextureLoaders
         Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
             Dim dds_header = get_dds_header(br)
 
-            Select Case dds_header.caps
-                Case &H1000
-                    Debug.Assert(dds_header.mipMapCount = 0) ' Just Check
-                Case &H401008
-                    Debug.Assert(dds_header.mipMapCount > 0) ' Just Check
-                Case Else
-                    Debug.Assert(False) ' Cubemap ?
-            End Select
+            'Select Case dds_header.caps
+            '    Case &H1000
+            '        Debug.Assert(dds_header.mipMapCount = 0) ' Just Check
+            '    Case &H401008
+            '        Debug.Assert(dds_header.mipMapCount > 0) ' Just Check
+            '    Case Else
+            '        Debug.Assert(False) ' Cubemap ?
+            'End Select
 
             Dim format As SizedInternalFormat = dds_header.gl_format
             Dim blockSize = dds_header.gl_block_size

@@ -102,40 +102,37 @@ void get_atlas_uvs(inout vec2 UV1,inout vec2 UV2,
     image_size.x = float(isize.x); //to float. AMD hates using int values with floats.
     image_size.y = float(isize.y);
 
-    float uox = 0.0625;
-    float uoy = 0.0625;
+    float padSize = 0.0625;
+    float textArea = 0.875;
 
-    float usx = 0.875;
-    float usy = 0.875;
-
-    vec2 hpix = vec2(0.5/image_size.x,0.5/image_size.y);// / At_size.xy;
-    vec2 offset = vec2(uox/At_size.x, uoy/At_size.y) + hpix;
+    vec2 halfPixel = vec2(0.5/image_size.x,0.5/image_size.y); // 1/2 pixel offset;
+    vec2 offset = vec2(padSize/At_size.x, padSize/At_size.y) + halfPixel; // border offset scaled by atlas tile count
 
     //common scale for UV1, UV2 and UV3
-    float scaleX = 1.0 / At_size.x;
+    float scaleX = 1.0 / At_size.x;			// UV length of one tile with border.
     float scaleY = 1.0 / At_size.y;
     vec2 UVs;
-    UVs.x = fract(fs_in.TC1.x)*scaleX*usx; 
-    UVs.y = fract(fs_in.TC1.y)*scaleY*usy;
+    UVs.x = (fract(fs_in.TC1.x)*scaleX*textArea) + offset.x;	// UV length with out borders + offset
+    UVs.y = (fract(fs_in.TC1.y)*scaleY*textArea) + offset.x;
     //============================================
     vec2 tile;
     float index = thisMaterial.g_atlasIndexes.x;
-    tile.y = floor(index/At_size.x);
-    tile.x = index - tile.y * At_size.x;
-    UV1.x = UVs.x + offset.x + tile.x * scaleX;
-    UV1.y = UVs.y + offset.y + tile.y * scaleY;
+    tile.y = floor(index/At_size.x);		// gets tile loaction in y
+    tile.x = index - tile.y * At_size.x;	// gets tile location in x
+    UV1.x = UVs.x + tile.x * scaleX;        // 0.0625 to 0.875 + (loc X * UV with border).
+    UV1.y = UVs.y + tile.y * scaleY;        // 0.0625 to 0.875 + (loc Y * UV with border).
 
     index = thisMaterial.g_atlasIndexes.y;
     tile.y = floor(index/At_size.x);
     tile.x = index - tile.y * At_size.x;
-    UV2.x = UVs.x + offset.x + tile.x * scaleX;
-    UV2.y = UVs.y + offset.y + tile.y * scaleY;
+    UV2.x = UVs.x + tile.x * scaleX;
+    UV2.y = UVs.y + tile.y * scaleY;
 
     index = thisMaterial.g_atlasIndexes.z;
     tile.y = floor(index/At_size.x);
     tile.x = index - tile.y * At_size.x;
-    UV3.x = UVs.x + offset.x + tile.x * scaleX;
-    UV3.y = UVs.y + offset.y + tile.y * scaleY;
+    UV3.x = UVs.x + tile.x * scaleX;
+    UV3.y = UVs.y + tile.y * scaleY;
 
     //UV4 is used for blend.
     scaleX = 1.0 / At_size.z;
@@ -144,8 +141,6 @@ void get_atlas_uvs(inout vec2 UV1,inout vec2 UV2,
     index = thisMaterial.g_atlasIndexes.w;
     tile.y = floor(index/At_size.z);
     tile.x = index - tile.y * At_size.z;
-
-    offset = vec2(uox/At_size.z, uoy/At_size.w);
 
     UV4.x = (fract(fs_in.TC2.x)*scaleX)+tile.x*scaleX;
     UV4.y = (fract(fs_in.TC2.y)*scaleY)+tile.y*scaleY;

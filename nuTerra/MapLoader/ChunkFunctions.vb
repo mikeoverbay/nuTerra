@@ -99,6 +99,7 @@ Module ChunkFunctions
                 topleft.vert.X += 0.793F
                 topleft.vert.Y += 0.793F
 
+                'this offsets the terrain geo to align textures with models.
                 bottomleft.vert.X += 0.793F
                 bottomleft.vert.Y += 0.793F
 
@@ -117,7 +118,6 @@ Module ChunkFunctions
 
             Next
         Next
-        'needs to be moved to culling
 
         '=========================================================================
         'From : https://www.iquilezles.org/www/articles/normals/normals.htm

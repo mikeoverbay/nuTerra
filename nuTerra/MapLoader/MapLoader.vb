@@ -5,7 +5,7 @@ Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
-
+Imports System.Runtime
 Module MapLoader
     'putting these GLobals here because they are tightly related to MapLoader
     Public SHARED_PART_1 As ZipFile
@@ -702,8 +702,8 @@ Module MapLoader
 
                         multiplierX = dds_header.width / (coords.x1 - coords.x0)
                         multiplierY = dds_header.height / (coords.y1 - coords.y0)
-                        Debug.Assert(multiplierX = 0.5)
-                        Debug.Assert(multiplierY = 0.5)
+                        'Debug.Assert(multiplierX = 0.5)
+                        'Debug.Assert(multiplierY = 0.5)
 
                         GL.CreateTextures(TextureTarget.Texture2D, 1, atlas_tex)
                         GL.TextureStorage2D(atlas_tex, dds_header.mipMapCount, DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
@@ -786,7 +786,7 @@ Module MapLoader
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
-                        .g_useColorTint = props.g_useTintColor
+                        '.g_useColorTint = props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_ext_dual
                         Dim props As MaterialProps_PBS_ext_dual = mat.props
@@ -798,7 +798,7 @@ Module MapLoader
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
-                        .g_useColorTint = props.g_useTintColor
+                        '.g_useColorTint = props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_ext_detail
                         Dim props As MaterialProps_PBS_ext_detail = mat.props
@@ -809,7 +809,7 @@ Module MapLoader
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
-                        .g_useColorTint = props.g_useTintColor
+                        '.g_useColorTint = props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
                         Dim props As MaterialProps_PBS_tiled_atlas = mat.props
@@ -949,7 +949,8 @@ Module MapLoader
         'Clear texture cache so we dont returned non-existent textures.
         imgTbl.Clear()
 
-
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce
+        GC.Collect()
     End Sub
 
 
