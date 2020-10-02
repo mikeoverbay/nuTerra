@@ -715,7 +715,7 @@ Module MapLoader
 
                         GL.TextureParameter(atlas_tex, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
-                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, numLevels)
+                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, numLevels - 1)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
@@ -917,11 +917,15 @@ Module MapLoader
         'Used to delete all images and display lists.
 
         'Remove map related textures. Keep Static Textures!
-        Dim img_id = GL.GenTexture
+        Dim img_id = GL.GenTexture()
         For i = FIRST_UNUSED_TEXTURE To img_id
+            Dim imgHandle = GL.Arb.GetTextureHandle(i)
+            If GL.Arb.IsTextureHandleResident(imgHandle) Then
+                GL.Arb.MakeTextureHandleNonResident(imgHandle)
+            End If
             GL.DeleteTexture(i)
-            GL.Finish() ' make sure we are done before moving on
         Next
+        GL.Finish() ' make sure we are done before moving on
 
         'delete VBOs
         Dim Lvb As Integer

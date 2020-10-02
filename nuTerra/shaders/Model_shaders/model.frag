@@ -2,6 +2,8 @@
 #version 450 core
 
 #extension GL_ARB_bindless_texture : require
+#extension GL_ARB_shading_language_include : require
+#include "common.h"
 
 // Output
 layout (location = 0) out vec4 gColor;
@@ -19,23 +21,6 @@ in VS_OUT
     flat uint material_id;
 } fs_in;
 
-struct MaterialProperties
-{
-    vec4 g_atlasIndexes;      /* 0   .. 16 */
-    vec4 g_atlasSizes;        /* 16  .. 32 */
-    vec4 g_colorTint;         /* 32  .. 48 */
-    vec4 dirtParams;          /* 48  .. 64 */
-    vec4 dirtColor;           /* 64  .. 80 */
-    vec4 g_tile0Tint;         /* 80  .. 96 */
-    vec4 g_tile1Tint;         /* 96  .. 112 */
-    vec4 g_tile2Tint;         /* 112 .. 128 */
-    vec4 g_tileUVScale;       /* 128 .. 144 */
-    sampler2D maps[6];        /* 144 .. 192 */
-    uint shader_type;         /* 192 .. 196 */
-    bool g_useNormalPackDXT1; /* 196 .. 200 */
-    float alphaReference;     /* 200 .. 204 */
-    bool alphaTestEnable;     /* 204 .. 208 */
-};
 
 // Material block
 layout (binding = 2, std430) readonly buffer MATERIALS

@@ -1,6 +1,7 @@
 ﻿// gWriter vertex Shader. We will use this as a template for other shaders
 #version 460 core
 
+#extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shader_draw_parameters : require
 #extension GL_ARB_shading_language_include : require
 #include "common.h"
@@ -22,6 +23,12 @@ layout (binding = 1, std430) readonly buffer CandidateDraws
     CandidateDraw draw[];
 };
 
+// Material block
+layout (binding = 2, std430) readonly buffer MATERIALS
+{
+    MaterialProperties material[];
+};
+
 out VS_OUT
 {
     vec2 TC1;
@@ -38,6 +45,7 @@ void main(void)
 {
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
     const ModelInstance thisModel = models[thisDraw.model_id];
+    const MaterialProperties thisMaterial = material[thisDraw.material_id];
 
     vs_out.material_id = thisDraw.material_id;
     vs_out.TC1 = vertexTexCoord1;
