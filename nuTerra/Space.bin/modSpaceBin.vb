@@ -355,39 +355,49 @@ CleanUp:
 
                         Case 6
                             ' Texture
+                            'If .property_value_string.ToLower.Contains("dirt_pchurch_01_dm") Then
+                            '    Debug.WriteLine(.property_name_string)
+                            'End If
                             props(.property_name_string) = .property_value_string
-
+                            'There is probably a better place to do this
+                            'where it isnt checking every single texture!
+                            If props.ContainsKey("dirtMap") Then
+                                Dim s As String = props("dirtMap")
+                                If s.ToLower.Contains("dirt_pchurch_01_dm") Then
+                                    props("dirtMap") = Replace(s, "/Tiles/", "/00_Tiles/")
+                                    Debug.WriteLine(props("dirtMap"))
+                                End If
+                            End If
                         Case Else
                             Stop
                     End Select
                 End With
             Next
-
             Select Case fx
                 Case "shaders/std_effects/PBS_ext.fx", "shaders/std_effects/PBS_ext_skinned.fx", "shaders/std_effects/PBS_ext_repaint.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                        "diffuseMap",
-                        "normalMap",
-                        "metallicGlossMap",
-                        "alphaReference",
-                        "alphaTestEnable",
-                        "doubleSided",
-                        "g_useNormalPackDXT1",
-                        "g_enableTerrainBlending",
-                        "g_enableAO",
-                        "g_vertexAnimationParams",
-                        "g_vertexColorMode",
-                        "dynamicObject",
-                        "g_enableTransmission",
-                        "g_tintColor",
-                        "g_useTintColor",
-                        "texAddressMode",
-                        "selfIllumination",
-                        "applyOverlay",
-                        "g_repaintColor",
-                        "g_baseColor",
-                        "g_aging"
-                    })
+                    "diffuseMap",
+                    "normalMap",
+                    "metallicGlossMap",
+                    "alphaReference",
+                    "alphaTestEnable",
+                    "doubleSided",
+                    "g_useNormalPackDXT1",
+                    "g_enableTerrainBlending",
+                    "g_enableAO",
+                    "g_vertexAnimationParams",
+                    "g_vertexColorMode",
+                    "dynamicObject",
+                    "g_enableTransmission",
+                    "g_tintColor",
+                    "g_useTintColor",
+                    "texAddressMode",
+                    "selfIllumination",
+                    "applyOverlay",
+                    "g_repaintColor",
+                    "g_baseColor",
+                    "g_aging"
+                })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
@@ -411,26 +421,26 @@ CleanUp:
 
                 Case "shaders/std_effects/PBS_ext_dual.fx", "shaders/std_effects/PBS_ext_skinned_dual.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                        "diffuseMap",
-                        "diffuseMap2",
-                        "normalMap",
-                        "metallicGlossMap",
-                        "alphaReference",
-                        "alphaTestEnable",
-                        "doubleSided",
-                        "g_useNormalPackDXT1",
-                        "g_enableAO",
-                        "g_vertexColorMode",
-                        "g_enableTerrainBlending",
-                        "g_vertexAnimationParams",
-                        "g_useTintColor",
-                        "g_tintColor",
-                        "g_enableTransmission",
-                        "texAddressMode",
-                        "dynamicObject",
-                        "selfIllumination",
-                        "applyOverlay"
-                    })
+                    "diffuseMap",
+                    "diffuseMap2",
+                    "normalMap",
+                    "metallicGlossMap",
+                    "alphaReference",
+                    "alphaTestEnable",
+                    "doubleSided",
+                    "g_useNormalPackDXT1",
+                    "g_enableAO",
+                    "g_vertexColorMode",
+                    "g_enableTerrainBlending",
+                    "g_vertexAnimationParams",
+                    "g_useTintColor",
+                    "g_tintColor",
+                    "g_enableTransmission",
+                    "texAddressMode",
+                    "dynamicObject",
+                    "selfIllumination",
+                    "applyOverlay"
+                })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
@@ -460,33 +470,33 @@ CleanUp:
 
                 Case "shaders/std_effects/PBS_ext_detail.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                        "diffuseMap",
-                        "normalMap",
-                        "metallicGlossMap",
-                        "g_detailMap",
-                        "alphaReference",
-                        "alphaTestEnable",
-                        "doubleSided",
-                        "g_useNormalPackDXT1",
-                        "g_detailInfluences",
-                        "g_detailRejectTiling",
-                        "g_enableTerrainBlending",
-                        "g_useTintColor",
-                        "g_vertexColorMode",
-                        "dynamicObject",
-                        "g_enableTransmission",
-                        "g_vertexAnimationParams",
-                        "g_tintColor",
-                        "g_enableAO",
-                        "g_metalReject",
-                        "g_glossReject",
-                        "g_normalMapInfluence",
-                        "g_glossMapInfluence",
-                        "g_albedoMapInfluence",
-                        "g_tile",
-                        "texAddressMode",
-                         "applyOverlay"
-                    })
+                    "diffuseMap",
+                    "normalMap",
+                    "metallicGlossMap",
+                    "g_detailMap",
+                    "alphaReference",
+                    "alphaTestEnable",
+                    "doubleSided",
+                    "g_useNormalPackDXT1",
+                    "g_detailInfluences",
+                    "g_detailRejectTiling",
+                    "g_enableTerrainBlending",
+                    "g_useTintColor",
+                    "g_vertexColorMode",
+                    "dynamicObject",
+                    "g_enableTransmission",
+                    "g_vertexAnimationParams",
+                    "g_tintColor",
+                    "g_enableAO",
+                    "g_metalReject",
+                    "g_glossReject",
+                    "g_normalMapInfluence",
+                    "g_glossMapInfluence",
+                    "g_albedoMapInfluence",
+                    "g_tile",
+                    "texAddressMode",
+                     "applyOverlay"
+                })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
@@ -512,29 +522,29 @@ CleanUp:
 
                 Case "shaders/std_effects/PBS_tiled_atlas.fx", "shaders/std_effects/PBS_tiled_atlas_rigid_skinned.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                        "alphaReference",
-                        "alphaTestEnable",
-                        "doubleSided",
-                        "g_atlasSizes",
-                        "g_atlasIndexes",
-                        "atlasNormalGlossSpec",
-                        "atlasMetallicAO",
-                        "atlasBlend",
-                        "atlasAlbedoHeight",
-                        "g_dirtParams",
-                        "g_dirtColor",
-                        "dirtMap",
-                        "g_tile0Tint",
-                        "g_tile1Tint",
-                        "g_tile2Tint",
-                        "g_fakeShadowsParams",
-                        "g_enableTerrainBlending",
-                        "dynamicObject",
-                        "texAddressMode",
-                        "selfIllumination",
-                        "diffuseMap",
-                        "applyOverlay"
-                    })
+                    "alphaReference",
+                    "alphaTestEnable",
+                    "doubleSided",
+                    "g_atlasSizes",
+                    "g_atlasIndexes",
+                    "atlasNormalGlossSpec",
+                    "atlasMetallicAO",
+                    "atlasBlend",
+                    "atlasAlbedoHeight",
+                    "g_dirtParams",
+                    "g_dirtColor",
+                    "dirtMap",
+                    "g_tile0Tint",
+                    "g_tile1Tint",
+                    "g_tile2Tint",
+                    "g_fakeShadowsParams",
+                    "g_enableTerrainBlending",
+                    "dynamicObject",
+                    "texAddressMode",
+                    "selfIllumination",
+                    "diffuseMap",
+                    "applyOverlay"
+                })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
@@ -569,31 +579,31 @@ CleanUp:
 
                 Case "shaders/std_effects/PBS_tiled_atlas_global.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                       "alphaReference",
-                       "alphaTestEnable",
-                       "doubleSided",
-                       "g_atlasSizes",
-                       "g_atlasIndexes",
-                       "atlasNormalGlossSpec",
-                       "atlasMetallicAO",
-                       "atlasBlend",
-                       "atlasAlbedoHeight",
-                       "g_dirtParams",
-                       "g_dirtColor",
-                       "dirtMap",
-                       "g_tile0Tint",
-                       "g_tile1Tint",
-                       "g_tile2Tint",
-                       "g_fakeShadowsParams",
-                       "g_enableTerrainBlending",
-                       "dynamicObject",
-                       "texAddressMode",
-                       "selfIllumination",
-                       "diffuseMap",
-                       "applyOverlay",
-                       "globalTex",
-                       "g_tileUVScale"
-                   })
+                   "alphaReference",
+                   "alphaTestEnable",
+                   "doubleSided",
+                   "g_atlasSizes",
+                   "g_atlasIndexes",
+                   "atlasNormalGlossSpec",
+                   "atlasMetallicAO",
+                   "atlasBlend",
+                   "atlasAlbedoHeight",
+                   "g_dirtParams",
+                   "g_dirtColor",
+                   "dirtMap",
+                   "g_tile0Tint",
+                   "g_tile1Tint",
+                   "g_tile2Tint",
+                   "g_fakeShadowsParams",
+                   "g_enableTerrainBlending",
+                   "dynamicObject",
+                   "texAddressMode",
+                   "selfIllumination",
+                   "diffuseMap",
+                   "applyOverlay",
+                   "globalTex",
+                   "g_tileUVScale"
+               })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
@@ -647,7 +657,7 @@ CleanUp:
             End Select
 
             materials(material_id) = mat
-        End If
+            End If
     End Sub
 
 End Module
