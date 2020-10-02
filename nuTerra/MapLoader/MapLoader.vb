@@ -595,6 +595,8 @@ Module MapLoader
             End Select
         Next
 
+        Dim maxAniso As Single
+        GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
         'load atlases
         Dim textureHandles As New Dictionary(Of String, UInt64)
         For Each atlasPath In atlasPaths
@@ -711,6 +713,7 @@ Module MapLoader
                         GL.TextureStorage2D(atlas_tex, numLevels,
                                             DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
 
+                        GL.TextureParameter(atlas_tex, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, numLevels)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
