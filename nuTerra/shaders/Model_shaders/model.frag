@@ -35,7 +35,6 @@ struct MaterialProperties
     bool g_useNormalPackDXT1; /* 196 .. 200 */
     float alphaReference;     /* 200 .. 204 */
     bool alphaTestEnable;     /* 204 .. 208 */
-    bool g_useColorTint;      /* 208 .. 212 */
 };
 
 // Material block
@@ -77,15 +76,15 @@ void get_normal()
     if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
         discard;
     }
-    gNormal.xyz = fs_in.TBN * normalBump.xyz;
+    gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
 }
 
 // ================================================================================
 // Atlas Functions
-float mip_map_level(in vec2 iUV, in vec2 iTextureSize)
+float mip_map_level(in vec2 iUV, in ivec2 iTextureSize)
 {
-    vec2  dx_vtc        = dFdx(iUV * iTextureSize.x);
-    vec2  dy_vtc        = dFdy(iUV * iTextureSize.y);
+    vec2  dx_vtc        = dFdx(iUV * float(iTextureSize.x));
+    vec2  dy_vtc        = dFdy(iUV * float(iTextureSize.y));
     float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
     
     return round(0.65 * log2(d)); 
@@ -109,16 +108,16 @@ void get_atlas_uvs(inout vec2 UV1,inout vec2 UV2,
     vec2 offset = vec2(padSize/At_size.x, padSize/At_size.y) + halfPixel; // border offset scaled by atlas tile count
 
     //common scale for UV1, UV2 and UV3
-    float scaleX = 1.0 / At_size.x;			// UV length of one tile with border.
+    float scaleX = 1.0 / At_size.x;         // UV length of one tile with border.
     float scaleY = 1.0 / At_size.y;
     vec2 UVs;
-    UVs.x = (fract(fs_in.TC1.x)*scaleX*textArea) + offset.x;	// UV length with out borders + offset
+    UVs.x = (fract(fs_in.TC1.x)*scaleX*textArea) + offset.x;    // UV length with out borders + offset
     UVs.y = (fract(fs_in.TC1.y)*scaleY*textArea) + offset.x;
     //============================================
     vec2 tile;
     float index = thisMaterial.g_atlasIndexes.x;
-    tile.y = floor(index/At_size.x);		// gets tile loaction in y
-    tile.x = index - tile.y * At_size.x;	// gets tile location in x
+    tile.y = floor(index/At_size.x);        // gets tile loaction in y
+    tile.x = index - tile.y * At_size.x;    // gets tile location in x
     UV1.x = UVs.x + tile.x * scaleX;        // 0.0625 to 0.875 + (loc X * UV with border).
     UV1.y = UVs.y + tile.y * scaleY;        // 0.0625 to 0.875 + (loc Y * UV with border).
 
@@ -247,6 +246,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     gGMF.g = MAO.r;
         
     vec3 bump;
+    GBMT.ga = normalize(GBMT.ga);
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
     bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
@@ -314,6 +314,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 
     vec3 bump;
     GBMT = mix(globalTex, GBMT, 0.5);
+    GBMT.ga = normalize(GBMT.ga);
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     tb = vec2(globalTex.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;

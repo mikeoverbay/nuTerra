@@ -786,7 +786,6 @@ Module MapLoader
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
-                        '.g_useColorTint = props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_ext_dual
                         Dim props As MaterialProps_PBS_ext_dual = mat.props
@@ -798,7 +797,6 @@ Module MapLoader
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
-                        '.g_useColorTint = props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_ext_detail
                         Dim props As MaterialProps_PBS_ext_detail = mat.props
@@ -809,7 +807,6 @@ Module MapLoader
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
-                        '.g_useColorTint = props.g_useTintColor
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
                         Dim props As MaterialProps_PBS_tiled_atlas = mat.props
