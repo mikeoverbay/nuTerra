@@ -666,7 +666,8 @@ Module MapLoader
             Dim fullWidth As Integer
             Dim fullHeight As Integer
             Dim multiplierX, multiplierY As Single
-            For i = 0 To (uniqueX0.Count * uniqueY0.Count) - 1
+            Dim loop_count = (uniqueX0.Count * uniqueY0.Count) - 1
+            For i = 0 To loop_count
                 If i = atlasParts.Count Then
                     Exit For
                 End If
@@ -702,14 +703,16 @@ Module MapLoader
 
                         multiplierX = dds_header.width / (coords.x1 - coords.x0)
                         multiplierY = dds_header.height / (coords.y1 - coords.y0)
-                        'Debug.Assert(multiplierX = 0.5)
-                        'Debug.Assert(multiplierY = 0.5)
+
+                        'Calculate Max Mip Level based on width or height.. Which ever is larger.
+                        Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
 
                         GL.CreateTextures(TextureTarget.Texture2D, 1, atlas_tex)
-                        GL.TextureStorage2D(atlas_tex, dds_header.mipMapCount, DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
+                        GL.TextureStorage2D(atlas_tex, numLevels,
+                                            DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
 
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
-                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
+                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, numLevels)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
@@ -721,14 +724,11 @@ Module MapLoader
 
                     Dim xoffset = CInt(coords.x0 * multiplierX)
                     Dim yoffset = CInt(coords.y0 * multiplierY)
-
-                    GL.CompressedTextureSubImage2D(atlas_tex, 0, xoffset, yoffset,
-                                                   dds_header.width, dds_header.height, DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
-
+                    GL.CompressedTextureSubImage2D(atlas_tex, 0, xoffset, yoffset, dds_header.width, dds_header.height,
+                                                   DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
                 End Using
             Next
             GL.GenerateTextureMipmap(atlas_tex)
-
             'If atlasPath.ToLower.Contains("EU_NewCity_01_atlas_AM".ToLower) Then
             'GL.Clear(ClearBufferMask.ColorBufferBit)
             'draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)

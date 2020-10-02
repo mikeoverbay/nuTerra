@@ -81,10 +81,11 @@ void get_normal()
 
 // ================================================================================
 // Atlas Functions
-float mip_map_level(in vec2 iUV, in ivec2 iTextureSize)
+float mip_map_level(in vec2 iUV)
 {
-    vec2  dx_vtc        = dFdx(iUV * float(iTextureSize.x));
-    vec2  dy_vtc        = dFdy(iUV * float(iTextureSize.y));
+    ivec2 isize = textureSize(thisMaterial.maps[0],0);
+    vec2  dx_vtc        = dFdx(iUV * float(isize.x));
+    vec2  dy_vtc        = dFdy(iUV * float(isize.y));
     float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
     
     return round(0.65 * log2(d)); 
@@ -160,29 +161,32 @@ layout(index = 0) subroutine(fn_entry) void default_entry()
 
 layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
-    gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
+    float mip = mip_map_level(fs_in.TC2);
+    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
     gColor *= thisMaterial.g_colorTint;
-    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
     get_normal();
 }
 
 
 layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
 {
-    gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
-    gColor *= texture(thisMaterial.maps[3], fs_in.TC2); // color2
+    float mip = mip_map_level(fs_in.TC2);
+    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
+    gColor *= textureLod(thisMaterial.maps[3], fs_in.TC2, mip); // color2
     gColor *= thisMaterial.g_colorTint;
     gColor.rgb *= 1.5; // this will need tweaking
-    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
     get_normal();
 }
 
 
 layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
 {
-    gColor = texture(thisMaterial.maps[0], fs_in.TC1);
+    float mip = mip_map_level(fs_in.TC2);
+    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip);
     gColor *= thisMaterial.g_colorTint;
-    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
     get_normal();
 }
 
@@ -192,9 +196,8 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec2 UV1, UV2, UV3, UV4;
     get_atlas_uvs(UV1, UV2, UV3, UV4);
 
-    ivec2 isize = textureSize(thisMaterial.maps[0],0);
 
-    float mip = mip_map_level(fs_in.TC2,isize);
+    float mip = mip_map_level(fs_in.TC2);
     vec4 BLEND = texture2D(thisMaterial.maps[3],UV4);
 
     vec4 colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
@@ -224,9 +227,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
     BLEND = correct(BLEND,4.0,0.8);
     //============================================
-    //colorAM_3.rgb *= colorAM_3.a;
-    //colorAM_2.rgb *= colorAM_2.a;
-    //colorAM_1.rgb *= colorAM_1.a;
+
     vec4 colorAM = colorAM_3;
     colorAM = mix(colorAM,colorAM_1, BLEND.r);
     colorAM = mix(colorAM,colorAM_2, BLEND.g);
@@ -261,9 +262,8 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
         
     vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
 
-    ivec2 isize = textureSize(thisMaterial.maps[0],0);
 
-    float mip = mip_map_level(fs_in.TC2,isize);
+    float mip = mip_map_level(fs_in.TC2);
     vec4 BLEND = texture2D(thisMaterial.maps[3],UV4);
 
     vec4 colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;

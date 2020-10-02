@@ -164,6 +164,9 @@ Public Class frmMain
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
         '-----------------------------------------------------------------------------------------
         Me.Show()
+#If DEBUG Then
+        If Debugger.IsAttached = False Then Debugger.Launch()
+#End If
         '-----------------------------------------------------------------------------------------
         ' we dont want menu events while the app is initializing :)
         MainMenuStrip.Enabled = False
@@ -178,7 +181,7 @@ Public Class frmMain
         'get director of all shader files
         SHADER_PATHS = Directory.GetFiles(Application.StartupPath + "\shaders\", "*.*", SearchOption.AllDirectories)
         '-----------------------------------------------------------------------------------------
-
+        'System.Diagnostics.Debugger.Break()
         'This timer allows the form to become visible before we initialize everything
         'It is disposed after its done its job.
         startup_delay_timer.Start()
