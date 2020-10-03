@@ -133,8 +133,6 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec2 UVs;
     vec2 uv1,uv2,uv3,uv4;
 
-    vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
-
     vec2 zeroONE = vec2(fract(fs_in.TC1.x), fract(fs_in.TC1.y));
 
     UVs = zeroONE*fs_in.scale_123 + fs_in.offset_123;
