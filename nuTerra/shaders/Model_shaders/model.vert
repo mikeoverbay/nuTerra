@@ -40,6 +40,10 @@ out VS_OUT
     vec2 UV2;
     vec2 UV3;
     vec2 UV4;
+    vec2 scale_123;
+    vec2 scale_4;
+    vec2 offset_123;
+    vec2 offset_4;
 } vs_out;
 
 uniform mat4 projection;
@@ -85,42 +89,41 @@ void main(void)
 
     vec2 halfPixel = vec2(0.5/image_size.x,0.5/image_size.y); // 1/2 pixel offset;
     vec2 offset = vec2(padSize/At_size.x, padSize/At_size.y) + halfPixel; // border offset scaled by atlas tile count
-
+    vs_out.offset_123 = offset;
     //common scale for UV1, UV2 and UV3
-    float scaleX = 1.0 / At_size.x;         // UV length of one tile with border.
-    float scaleY = 1.0 / At_size.y;
+    vs_out.scale_123.x = 1.0 / At_size.x;         // UV length of one tile with border.
+    vs_out.scale_123.y = 1.0 / At_size.y;
     vec2 UVs;
-    UVs.x = (fract(vs_out.TC1.x)*scaleX*textArea) + offset.x;    // UV length with out borders + offset
-    UVs.y = (fract(vs_out.TC1.y)*scaleY*textArea) + offset.x;
     //============================================
     vec2 tile;
     float index = thisMaterial.g_atlasIndexes.x;
     tile.y = floor(index/At_size.x);        // gets tile loaction in y
     tile.x = index - tile.y * At_size.x;    // gets tile location in x
-    vs_out.UV1.x = UVs.x + tile.x * scaleX;        // 0.0625 to 0.875 + (loc X * UV with border).
-    vs_out.UV1.y = UVs.y + tile.y * scaleY;        // 0.0625 to 0.875 + (loc Y * UV with border).
+    vs_out.UV1.x = tile.x * vs_out.scale_123.x;        // 0.0625 to 0.875 + (loc X * UV with border).
+    vs_out.UV1.y = tile.y * vs_out.scale_123.y;        // 0.0625 to 0.875 + (loc Y * UV with border).
 
     index = thisMaterial.g_atlasIndexes.y;
     tile.y = floor(index/At_size.x);
     tile.x = index - tile.y * At_size.x;
-    vs_out.UV2.x = UVs.x + tile.x * scaleX;
-    vs_out.UV2.y = UVs.y + tile.y * scaleY;
+    vs_out.UV2.x = tile.x * vs_out.scale_123.x;
+    vs_out.UV2.y = tile.y * vs_out.scale_123.y;
 
     index = thisMaterial.g_atlasIndexes.z;
     tile.y = floor(index/At_size.x);
     tile.x = index - tile.y * At_size.x;
-    vs_out.UV3.x = UVs.x + tile.x * scaleX;
-    vs_out.UV3.y = UVs.y + tile.y * scaleY;
+    vs_out.UV3.x = tile.x * vs_out.scale_123.x;
+    vs_out.UV3.y = tile.y * vs_out.scale_123.y;
 
+    vs_out.scale_123 = vs_out.scale_123 * vec2(textArea);
     //UV4 is used for blend.
-    scaleX = 1.0 / At_size.z;
-    scaleY = 1.0 / At_size.w;
+    vs_out.scale_4.x = 1.0 / At_size.z;
+    vs_out.scale_4.y = 1.0 / At_size.w;
 
     index = thisMaterial.g_atlasIndexes.w;
     tile.y = floor(index/At_size.z);
     tile.x = index - tile.y * At_size.z;
 
-    vs_out.UV4.x = (fract(vs_out.TC2.x)*scaleX)+tile.x*scaleX;
-    vs_out.UV4.y = (fract(vs_out.TC2.y)*scaleY)+tile.y*scaleY;
+    vs_out.UV4.x = tile.x*vs_out.scale_4.x;
+    vs_out.UV4.y = tile.y*vs_out.scale_4.y;
 
 }

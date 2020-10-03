@@ -23,6 +23,11 @@ in VS_OUT
     vec2 UV2;
     vec2 UV3;
     vec2 UV4;
+    vec2 scale_123;
+    vec2 scale_4;
+    vec2 offset_123;
+    vec2 offset_4;
+
 } fs_in;
 
 
@@ -125,28 +130,42 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
 
 layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 {
+    vec2 UVs;
+    vec2 uv1,uv2,uv3,uv4;
 
+    vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
+
+    vec2 zeroONE = vec2(fract(fs_in.TC1.x), fract(fs_in.TC1.y));
+
+    UVs = zeroONE*fs_in.scale_123 + fs_in.offset_123;
+    uv1 = UVs + fs_in.UV1;
+    uv2 = UVs + fs_in.UV2;
+    uv3 = UVs + fs_in.UV3;
+
+    zeroONE = vec2(fract(fs_in.TC2.x), fract(fs_in.TC2.y));
+    UVs = zeroONE*fs_in.scale_4 + fs_in.offset_4;
+    uv4 = UVs + fs_in.UV4;
 
     float mip = mip_map_level(fs_in.TC2);
-    vec4 BLEND = texture2D(thisMaterial.maps[3],fs_in.UV4);
+    vec4 BLEND = texture2D(thisMaterial.maps[3],uv4);
 
-    vec4 colorAM_1 = textureLod(thisMaterial.maps[0],fs_in.UV1,mip) * thisMaterial.g_tile0Tint;
-    vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],fs_in.UV1,mip);
-    vec4 MAO_1 =     textureLod(thisMaterial.maps[2],fs_in.UV1,mip);
+    vec4 colorAM_1 = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
+    vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],uv1,mip);
+    vec4 MAO_1 =     textureLod(thisMaterial.maps[2],uv1,mip);
 
-    vec4 colorAM_2 = textureLod(thisMaterial.maps[0],fs_in.UV2,mip) * thisMaterial.g_tile1Tint;
-    vec4 GBMT_2 =    textureLod(thisMaterial.maps[1],fs_in.UV2,mip);
-    vec4 MAO_2 =     textureLod(thisMaterial.maps[2],fs_in.UV2,mip);
+    vec4 colorAM_2 = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
+    vec4 GBMT_2 =    textureLod(thisMaterial.maps[1],uv2,mip);
+    vec4 MAO_2 =     textureLod(thisMaterial.maps[2],uv2,mip);
 
-    vec4 colorAM_3 = textureLod(thisMaterial.maps[0],fs_in.UV3,mip) * thisMaterial.g_tile2Tint;
-    vec4 GBMT_3 =    textureLod(thisMaterial.maps[1],fs_in.UV3,mip);
-    vec4 MAO_3 =     textureLod(thisMaterial.maps[2],fs_in.UV3,mip);
+    vec4 colorAM_3 = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
+    vec4 GBMT_3 =    textureLod(thisMaterial.maps[1],uv3,mip);
+    vec4 MAO_3 =     textureLod(thisMaterial.maps[2],uv3,mip);
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
     float dirt_blend = thisMaterial.dirtParams.x;
 
-    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.UV4,mip);
+    vec4 DIRT = textureLod(thisMaterial.maps[4],uv4,mip);
     DIRT.rgb *= thisMaterial.dirtColor.rgb;
 
     //============================================
@@ -187,29 +206,42 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 
 layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 {
+    vec2 UVs;
+    vec2 uv1,uv2,uv3,uv4;
+
     vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
 
+    vec2 zeroONE = vec2(fract(fs_in.TC1.x), fract(fs_in.TC1.y));
+
+    UVs = zeroONE*fs_in.scale_123 + fs_in.offset_123;
+    uv1 = UVs + fs_in.UV1;
+    uv2 = UVs + fs_in.UV2;
+    uv3 = UVs + fs_in.UV3;
+
+    zeroONE = vec2(fract(fs_in.TC2.x), fract(fs_in.TC2.y));
+    UVs = zeroONE*fs_in.scale_4 + fs_in.offset_4;
+    uv4 = UVs + fs_in.UV4;
 
     float mip = mip_map_level(fs_in.TC2);
-    vec4 BLEND = texture2D(thisMaterial.maps[3],fs_in.UV4);
+    vec4 BLEND = texture2D(thisMaterial.maps[3],uv4);
 
-    vec4 colorAM_1 = textureLod(thisMaterial.maps[0],fs_in.UV1,mip) * thisMaterial.g_tile0Tint;
-    vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],fs_in.UV1,mip);
-    vec4 MAO_1 =     textureLod(thisMaterial.maps[2],fs_in.UV1,mip);
+    vec4 colorAM_1 = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
+    vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],uv1,mip);
+    vec4 MAO_1 =     textureLod(thisMaterial.maps[2],uv1,mip);
 
-    vec4 colorAM_2 = textureLod(thisMaterial.maps[0],fs_in.UV2,mip) * thisMaterial.g_tile1Tint;
-    vec4 GBMT_2 =    textureLod(thisMaterial.maps[1],fs_in.UV2,mip);
-    vec4 MAO_2 =     textureLod(thisMaterial.maps[2],fs_in.UV2,mip);
+    vec4 colorAM_2 = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
+    vec4 GBMT_2 =    textureLod(thisMaterial.maps[1],uv2,mip);
+    vec4 MAO_2 =     textureLod(thisMaterial.maps[2],uv2,mip);
 
-    vec4 colorAM_3 = textureLod(thisMaterial.maps[0],fs_in.UV3,mip) * thisMaterial.g_tile2Tint;
-    vec4 GBMT_3 =    textureLod(thisMaterial.maps[1],fs_in.UV3,mip);
-    vec4 MAO_3 =     textureLod(thisMaterial.maps[2],fs_in.UV3,mip);
+    vec4 colorAM_3 = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
+    vec4 GBMT_3 =    textureLod(thisMaterial.maps[1],uv3,mip);
+    vec4 MAO_3 =     textureLod(thisMaterial.maps[2],uv3,mip);
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
     float dirt_blend = thisMaterial.dirtParams.x;
 
-    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.UV4,mip);
+    vec4 DIRT = textureLod(thisMaterial.maps[4],uv4,mip);
     DIRT.rgb *= thisMaterial.dirtColor.rgb;
 
     //============================================
