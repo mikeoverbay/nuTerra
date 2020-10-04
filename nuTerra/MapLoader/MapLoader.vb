@@ -669,10 +669,7 @@ Module MapLoader
             Dim fullHeight As Integer
             Dim multiplierX, multiplierY As Single
             Dim loop_count = (uniqueX0.Count * uniqueY0.Count) - 1
-            For i = 0 To loop_count
-                If i = atlasParts.Count Then
-                    Exit For
-                End If
+            For i = 0 To loop_count - 1
 
                 Dim coords = atlasParts(i)
 
@@ -715,7 +712,7 @@ Module MapLoader
 
                         GL.TextureParameter(atlas_tex, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
-                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, numLevels - 1)
+                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, numLevels)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)

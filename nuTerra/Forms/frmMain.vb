@@ -5,6 +5,7 @@ Imports System.Threading
 Imports System.Windows
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
+
 'Imports Config = OpenTK.Configuration
 'Imports Utilities = OpenTK.Platform.Utilities
 
@@ -165,7 +166,9 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         Me.Show()
 #If DEBUG Then
-        If Debugger.IsAttached = False Then Debugger.Launch()
+        If Debugger.IsAttached = False Then
+            Debugger.Launch()
+        End If
 #End If
         '-----------------------------------------------------------------------------------------
         ' we dont want menu events while the app is initializing :)
@@ -181,7 +184,7 @@ Public Class frmMain
         'get director of all shader files
         SHADER_PATHS = Directory.GetFiles(Application.StartupPath + "\shaders\", "*.*", SearchOption.AllDirectories)
         '-----------------------------------------------------------------------------------------
-        'System.Diagnostics.Debugger.Break()
+        'Debugger.Break()
         'This timer allows the form to become visible before we initialize everything
         'It is disposed after its done its job.
         startup_delay_timer.Start()

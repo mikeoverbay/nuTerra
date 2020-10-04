@@ -88,7 +88,7 @@ void main(void)
     float textArea = 0.875;
 
     vec2 halfPixel = vec2(0.5/image_size.x,0.5/image_size.y); // 1/2 pixel offset;
-    vec2 offset = vec2(padSize/At_size.x, padSize/At_size.y) + halfPixel; // border offset scaled by atlas tile count
+    vec2 offset = vec2(padSize/At_size.x, padSize/At_size.y);// + halfPixel; // border offset scaled by atlas tile count
     vs_out.offset_123 = offset;
     //common scale for UV1, UV2 and UV3
     vs_out.scale_123.x = 1.0 / At_size.x;         // UV length of one tile with border.

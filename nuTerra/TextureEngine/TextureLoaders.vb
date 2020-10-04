@@ -194,8 +194,11 @@ Module TextureLoaders
 
     ' Based on https://gist.github.com/tilkinsc/13191c0c1e5d6b25fbe79bbd2288a673
     Public Function load_dds_image_from_stream(ms As MemoryStream, fn As String) As Integer
-        Dim image_id As Integer
-
+        'Check if this image has already been loaded.
+        Dim image_id = image_exists(fn)
+        If image_id > -1 Then
+            Return image_id
+        End If
         ms.Position = 0
         Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
             Dim dds_header = get_dds_header(br)
@@ -217,21 +220,26 @@ Module TextureLoaders
             GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
             Dim maxAniso As Single
             GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
+            Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
 
-            If dds_header.mipMapCount = 0 Then
+            If dds_header.mipMapCount = 1 Then
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, 0)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, numLevels)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-                GL.TextureStorage2D(image_id, 1, format, dds_header.width, dds_header.height)
+                GL.TextureStorage2D(image_id, numLevels, format, dds_header.width, dds_header.height)
 
                 Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * blockSize
                 Dim data = br.ReadBytes(size)
                 GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, dds_header.width, dds_header.height, DirectCast(format, OpenGL.PixelFormat), size, data)
+
+                'added 10/4/2020
+                GL.GenerateTextureMipmap(image_id)
+
             Else
-                GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
+                'GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
