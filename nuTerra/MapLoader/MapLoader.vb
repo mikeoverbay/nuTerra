@@ -705,6 +705,7 @@ Module MapLoader
                         Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
 
                         GL.CreateTextures(TextureTarget.Texture2D, 1, atlas_tex)
+                        GL.ObjectLabel(ObjectLabelIdentifier.Texture, atlas_tex, -1, String.Format("TEX-{0}", atlasPath))
                         GL.TextureStorage2D(atlas_tex, numLevels,
                                             DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
 

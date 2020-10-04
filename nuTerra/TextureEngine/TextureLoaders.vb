@@ -218,6 +218,8 @@ Module TextureLoaders
             ms.Position = 128
 
             GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
+            GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-{0}", fn))
+
             Dim maxAniso As Single
             GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
             Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
