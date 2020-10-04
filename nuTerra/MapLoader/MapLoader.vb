@@ -668,9 +668,7 @@ Module MapLoader
             Dim fullWidth As Integer
             Dim fullHeight As Integer
             Dim multiplierX, multiplierY As Single
-            Dim loop_count = (uniqueX0.Count * uniqueY0.Count) - 1
-            For i = 0 To loop_count - 1
-
+            For i = 0 To atlasParts.Count - 1
                 Dim coords = atlasParts(i)
 
                 Dim dds_entry As ZipEntry = Nothing
