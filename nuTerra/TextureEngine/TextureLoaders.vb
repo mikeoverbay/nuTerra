@@ -197,6 +197,7 @@ Module TextureLoaders
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
         If image_id > -1 Then
+            Debug.WriteLine(fn)
             Return image_id
         End If
         ms.Position = 0

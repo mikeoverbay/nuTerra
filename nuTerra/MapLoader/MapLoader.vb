@@ -746,6 +746,14 @@ Module MapLoader
                 Stop
                 Continue For
             End If
+            'dont load images that are already created!
+            Dim image_id = image_exists(texturePath)
+            If image_id > -1 Then
+                'Debug.WriteLine(texturePath)
+                Dim hndl = GL.Arb.GetTextureHandle(image_id)
+                textureHandles(texturePath) = hndl
+                Continue For
+            End If
 
             Dim entry As ZipEntry = Nothing
             If HD_EXISTS Then
