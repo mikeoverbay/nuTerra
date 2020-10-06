@@ -36,6 +36,7 @@ out VS_OUT
     vec3 worldPosition;
     mat3 TBN;
     flat uint material_id;
+    flat uint model_id;
     vec2 UV1;
     vec2 UV2;
     vec2 UV3;
@@ -56,6 +57,8 @@ void main(void)
     const MaterialProperties thisMaterial = material[thisDraw.material_id];
 
     vs_out.material_id = thisDraw.material_id;
+    vs_out.model_id = thisDraw.model_id;
+
     vs_out.TC1 = vertexTexCoord1;
     vs_out.TC2 = vertexTexCoord2;
 

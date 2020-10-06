@@ -8,18 +8,20 @@ Module FBO_main
     ''' </summary>
     Public NotInheritable Class FBOm
         Public Shared SCR_WIDTH, SCR_HEIGHT As Int32
-        Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition As Integer
+        Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition, gPick As Integer
         Public Shared oldWidth As Integer = 1
         Public Shared oldHeigth As Integer = 1
         ' color    = 0
         ' normal   = 1
-        ' GMM      = 3
-        ' Position = 4
+        ' GMM      = 2
+        ' Position = 3
+        ' Pick     = 4
         Private Shared attach_Color_Normal_GMF() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment0,
                                             FramebufferAttachment.ColorAttachment1,
                                             FramebufferAttachment.ColorAttachment2,
-                                            FramebufferAttachment.ColorAttachment3
+                                            FramebufferAttachment.ColorAttachment3,
+                                            FramebufferAttachment.ColorAttachment4
                                             }
         Private Shared attach_Color_Normal() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment0,
@@ -35,6 +37,9 @@ Module FBO_main
                                             }
         Private Shared attach_Normal() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment1
+                                            }
+        Private Shared attach_gPick() As DrawBuffersEnum = {
+                                            FramebufferAttachment.ColorAttachment4
                                             }
 
 
@@ -75,6 +80,9 @@ Module FBO_main
             End If
             If gDepth > 0 Then
                 GL.DeleteTexture(gDepth)
+            End If
+            If gPick > 0 Then
+                GL.DeleteTexture(gPick)
             End If
             If gPosition > 0 Then
                 GL.DeleteTexture(gPosition)
@@ -138,9 +146,24 @@ Module FBO_main
             GL.TextureParameter(gDepth, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             GL.TextureParameter(gDepth, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             GL.TextureStorage2D(gDepth, 1, DirectCast(PixelInternalFormat.DepthComponent24, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            ' gPick ------------------------------------------------------------------------------------------
+            'R16 uInt
+            GL.CreateTextures(TextureTarget.Texture2D, 1, gPick)
+            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gPick, -1, "gPick")
+            GL.TextureParameter(gPick, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            GL.TextureParameter(gPick, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            GL.TextureParameter(gPick, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            GL.TextureParameter(gPick, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
+            GL.TextureStorage2D(gPick, 1, DirectCast(InternalFormat.R32i, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+
         End Sub
 
         Public Shared Function create_fbo() As Boolean
+
+            Dim maxColorAttachments As Integer
+            GL.GetInteger(GetPName.MaxColorAttachments, maxColorAttachments)
+
+
             GL.CreateFramebuffers(1, mainFBO)
             GL.ObjectLabel(ObjectLabelIdentifier.Framebuffer, mainFBO, -1, "mainFBO")
 
@@ -150,13 +173,14 @@ Module FBO_main
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment2, gGMF, 0)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment3, gPosition, 0)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.DepthAttachment, gDepth, 0)
+            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment4, gPick, 0)
 
-            attach_CNGP()
             Dim FBOHealth = GL.CheckNamedFramebufferStatus(mainFBO, FramebufferTarget.Framebuffer)
 
             If FBOHealth <> FramebufferStatus.FramebufferComplete Then
                 Return False
             End If
+            attach_CNGP()
 
             Return True ' No errors! all is good! :)
         End Function
@@ -187,7 +211,7 @@ Module FBO_main
 
         Public Shared Sub attach_CNGP()
             'attach our render buffer textures.
-            GL.NamedFramebufferDrawBuffers(mainFBO, 4, attach_Color_Normal_GMF)
+            GL.NamedFramebufferDrawBuffers(mainFBO, 5, attach_Color_Normal_GMF)
         End Sub
 
         Public Shared Sub attach_CNP()
@@ -210,6 +234,10 @@ Module FBO_main
 
         Public Shared Sub attach_CF()
             GL.NamedFramebufferDrawBuffers(mainFBO, 2, attach_Color_GMF)
+        End Sub
+
+        Public Shared Sub attach_Pick()
+            GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_gPick)
         End Sub
 
         Public Shared Sub attach_N()

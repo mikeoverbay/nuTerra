@@ -10,6 +10,7 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
 layout (location = 3) out vec3 gPosition;
+layout (location = 4) out vec4 gPick;
 
 // Input from vertex shader
 in VS_OUT
@@ -19,6 +20,7 @@ in VS_OUT
     vec3 worldPosition;
     mat3 TBN;
     flat uint material_id;
+    flat uint model_id;
     vec2 UV1;
     vec2 UV2;
     vec2 UV3;
@@ -304,5 +306,9 @@ void main(void)
     gColor = correct(gColor,2.0,0.8);
     gColor.a = 1.0;
     gPosition = fs_in.worldPosition;
-    gGMF.b = renderType; // 64 = PBS, 63 = light/bump
+    gGMF.b = renderType;
+
+    gPick.r = int(fs_in.model_id );
+    //gPick.g = int(fs_in.model_id >> 8);
+
 }

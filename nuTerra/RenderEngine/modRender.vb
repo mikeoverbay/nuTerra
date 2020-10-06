@@ -117,6 +117,8 @@ Module modRender
         GL.Disable(EnableCap.DepthTest)
         GL.Clear(ClearBufferMask.ColorBufferBit)
         '===========================================================================
+        PickModel()
+        '===========================================================================
 
         Ortho_main()
 
@@ -565,6 +567,7 @@ Module modRender
         'txt = String.Format("HX {0} : HY {1}", HX, HY)
         draw_text(txt, 5.0F, 5.0F, OpenTK.Graphics.Color4.Cyan, False)
         draw_text(txt2, 5.0F, 24.0F, OpenTK.Graphics.Color4.Cyan, False)
+        draw_text(PICKED_STRING, 5.0F, 43.0F, OpenTK.Graphics.Color4.Yellow, False)
 
         Dim temp_time = temp_timer.ElapsedMilliseconds
         Dim aa As Integer = 0

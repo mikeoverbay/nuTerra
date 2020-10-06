@@ -102,6 +102,7 @@ Public Class frmGbufferViewer
                 image2dFlipShader.Use()
 
                 GL.BindTextureUnit(0, FBOm.gColor)
+                GL.BindTextureUnit(0, FBOm.gPick)
                 GL.Uniform1(image2dFlipShader("imageMap"), 0)
                 GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
                 Dim rect As New RectangleF(0, 0, width, height)

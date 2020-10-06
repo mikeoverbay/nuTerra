@@ -5,6 +5,10 @@ Imports OpenTK
 Module modGlobalVars
 
     '=================================================================================
+    'map pick Dictionary
+    Public PICK_DICTIONARY As New Dictionary(Of Int16, String)
+    Public PICKED_STRING As String = ""
+    '=================================================================================
     Public Sub clear_output()
         Try
             Dim dte = Marshal.GetActiveObject("VisualStudio.DTE.12.0") 'change to version of visual studio

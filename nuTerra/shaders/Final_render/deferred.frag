@@ -1,4 +1,4 @@
-﻿// Deferred lighting fragment shader.
+// Deferred lighting fragment shader.
 #version 430 core
 
 out vec4 outColor;
@@ -65,6 +65,8 @@ void main (void)
 
     vec4 color_in = texture(gColor, UV);
 
+    vec2 GM_in = texture(gGMF, UV).xy;
+        
     vec3 LightPosModelView = LightPos.xyz;
 
     // lighting calculations
@@ -72,13 +74,20 @@ void main (void)
     vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
     vec3 N = normalize(texture(gNormal,UV).xyz);
+    float POWER = 30.0;
+    if (FLAG == 64) {
 
+    POWER = GM_in.r *50.0;
+    color_in.rgb = mix(color_in.rgb * vec3(0.04), color_in.rgb,  GM_in.g * 3.0);
+
+    }
     vec4 final_color = vec4(0.5, 0.5, 0.5, 1.0) * color_in;
     vec4 Ambient_level = color_in * vec4(AMBIENT * 3.0);
 
     float dist = length(LightPosModelView - Position);
     float cutoff = 1000.0;
     vec4 color = vec4(0.5, 0.5, 0.5, 1.0);
+ 
     // Only light whats in range
     if (dist < cutoff) {
 
@@ -87,7 +96,7 @@ void main (void)
 
             vec3 halfwayDir = normalize(L + vd);
 
-            final_color.xyz += pow(max(dot(N, halfwayDir), 0.0), 30.0) * SPECULAR * 0.5;
+            final_color.xyz += pow(max(dot(N, halfwayDir), 0.0), POWER) * SPECULAR * 0.5;
 
             // Fade to ambient over distance
             final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;

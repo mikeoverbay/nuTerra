@@ -347,6 +347,7 @@ Module MapLoader
             Dim iLast = 0
             Dim mLast = 0
             Dim baseVert = 0
+            Dim Model_id_counter As Integer
             For Each batch In MODEL_BATCH_LIST
                 Dim model = MAP_MODELS(batch.model_id).mdl
 
@@ -356,6 +357,8 @@ Module MapLoader
 
                 Dim skip = True
                 Dim savedCmdId = cmdId
+
+
                 For Each renderSet In model.render_sets
                     If renderSet.no_draw Then
                         Continue For
@@ -420,6 +423,10 @@ Module MapLoader
                     Next
                     mLast += batch.count
                 End If
+                If Not skip Then
+                    PICK_DICTIONARY.Add(mLast, Path.GetDirectoryName(model.render_sets(0).verts_name))
+                End If
+                Model_id_counter += 1
             Next
 
             GL.CreateBuffers(1, parametersBuffer)
@@ -920,6 +927,7 @@ Module MapLoader
     Public Sub remove_map_data()
         'Used to delete all images and display lists.
 
+        PICK_DICTIONARY.Clear()
         'Remove map related textures. Keep Static Textures!
         Dim img_id = GL.GenTexture()
         For i = FIRST_UNUSED_TEXTURE To img_id
