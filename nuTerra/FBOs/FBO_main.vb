@@ -154,7 +154,7 @@ Module FBO_main
             GL.TextureParameter(gPick, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gPick, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             GL.TextureParameter(gPick, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            GL.TextureStorage2D(gPick, 1, DirectCast(InternalFormat.R32i, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            GL.TextureStorage2D(gPick, 1, SizedInternalFormat.R16ui, SCR_WIDTH, SCR_HEIGHT)
 
         End Sub
 

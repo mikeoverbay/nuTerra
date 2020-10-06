@@ -347,7 +347,6 @@ Module MapLoader
             Dim iLast = 0
             Dim mLast = 0
             Dim baseVert = 0
-            Dim Model_id_counter As Integer
             For Each batch In MODEL_BATCH_LIST
                 Dim model = MAP_MODELS(batch.model_id).mdl
 
@@ -420,13 +419,10 @@ Module MapLoader
                             .offset = savedCmdId + i * countPrimGroups
                             .count = countPrimGroups
                         End With
+                        PICK_DICTIONARY(mLast + i) = Path.GetDirectoryName(model.render_sets(0).verts_name)
                     Next
                     mLast += batch.count
                 End If
-                If Not skip Then
-                    PICK_DICTIONARY.Add(mLast, Path.GetDirectoryName(model.render_sets(0).verts_name))
-                End If
-                Model_id_counter += 1
             Next
 
             GL.CreateBuffers(1, parametersBuffer)

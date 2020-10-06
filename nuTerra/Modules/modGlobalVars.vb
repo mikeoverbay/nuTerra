@@ -6,7 +6,7 @@ Module modGlobalVars
 
     '=================================================================================
     'map pick Dictionary
-    Public PICK_DICTIONARY As New Dictionary(Of Int16, String)
+    Public PICK_DICTIONARY As New Dictionary(Of UInteger, String)
     Public PICKED_STRING As String = ""
     '=================================================================================
     Public Sub clear_output()

@@ -10,7 +10,7 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
 layout (location = 3) out vec3 gPosition;
-layout (location = 4) out vec4 gPick;
+layout (location = 4) out uint gPick;
 
 // Input from vertex shader
 in VS_OUT
@@ -308,7 +308,5 @@ void main(void)
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
 
-    gPick.r = int(fs_in.model_id );
-    //gPick.g = int(fs_in.model_id >> 8);
-
+    gPick = fs_in.model_id;
 }
