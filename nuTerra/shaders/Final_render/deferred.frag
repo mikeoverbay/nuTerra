@@ -74,11 +74,18 @@ void main (void)
     vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
     vec3 N = normalize(texture(gNormal,UV).xyz);
-    float POWER = 30.0;
+    float POWER;
+    float INTENSITY;
     if (FLAG == 64) {
-
-    POWER = GM_in.r *50.0;
-    color_in.rgb = mix(color_in.rgb * vec3(0.04), color_in.rgb,  GM_in.g * 3.0);
+    //---------------------------------------------
+    // Poor mans PBR :)
+    // how shinny this is
+    POWER = max(GM_in.r *60.0,5.0);
+    INTENSITY = max(GM_in.r*1.5 ,0.05);
+    // How metalic his is
+    color_in.rgb = mix(color_in.rgb * vec3(0.04),
+                       color_in.rgb, max(1.0-GM_in.g,0.04) );
+    //---------------------------------------------
 
     }
     vec4 final_color = vec4(0.5, 0.5, 0.5, 1.0) * color_in;
@@ -96,7 +103,7 @@ void main (void)
 
             vec3 halfwayDir = normalize(L + vd);
 
-            final_color.xyz += pow(max(dot(N, halfwayDir), 0.0), POWER) * SPECULAR * 0.5;
+            final_color.xyz += pow(max(dot(N, halfwayDir), 0.0), POWER) * SPECULAR * INTENSITY;
 
             // Fade to ambient over distance
             final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;

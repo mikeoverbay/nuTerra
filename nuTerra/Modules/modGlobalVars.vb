@@ -39,6 +39,7 @@ Module modGlobalVars
     Public LOOP_COUNT As Integer = 200
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer
+    Public PICK_MODELS As Boolean
     'ascii characters
     Public ASCII_ID As Integer
     'wire flags

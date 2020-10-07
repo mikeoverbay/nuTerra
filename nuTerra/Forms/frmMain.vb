@@ -47,53 +47,46 @@ Public Class frmMain
                 '-------------------------------
                 'wire modes
             Case Keys.D1
+                WIRE_MODELS = WIRE_MODELS Xor True
                 If WIRE_MODELS Then
                     WIRE_MODELS = False
                 Else
                     WIRE_MODELS = True
                 End If
+
             Case Keys.D2
                 If WIRE_TERRAIN Then
                     WIRE_TERRAIN = False
                 Else
                     WIRE_TERRAIN = True
                 End If
+
             Case Keys.F1
-                If SHOW_CURSOR Then
-                    SHOW_CURSOR = False
-                Else
-                    SHOW_CURSOR = True
-                End If
+                SHOW_CURSOR = SHOW_CURSOR Xor True
+
                 '-------------------------------
                 'grid display
             Case Keys.F5
-                If SHOW_CHUNKS = 0 Then
-                    SHOW_CHUNKS = 1
-                Else
-                    SHOW_CHUNKS = 0
-                End If
+                SHOW_CHUNKS = SHOW_CHUNKS Xor 1
+
             Case Keys.F6
-                If SHOW_GRID = 0 Then
-                    SHOW_GRID = 1
-                Else
-                    SHOW_GRID = 0
-                End If
+                SHOW_GRID = SHOW_GRID Xor 1
+
             Case Keys.F7
-                If SHOW_BORDER = 0 Then
-                    SHOW_BORDER = 1
-                Else
-                    SHOW_BORDER = 0
-                End If
+                SHOW_BORDER = SHOW_BORDER Xor 1
+
                 '-------------------------------
+            Case Keys.B
+                SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
+
             Case Keys.E
                 frmEditFrag.Show()
 
+            Case Keys.F
+                FREEZE_FRUSTUM = FREEZE_FRUSTUM Xor True
+
             Case Keys.I
-                If SHOW_CHUNK_IDs Then
-                    SHOW_CHUNK_IDs = False
-                Else
-                    SHOW_CHUNK_IDs = True
-                End If
+                SHOW_CHUNK_IDs = SHOW_CHUNK_IDs Xor True
 
             Case Keys.L
                 If Not frmLighting.Visible Then
@@ -102,26 +95,23 @@ Public Class frmMain
                     frmLighting.Visible = False
                 End If
 
-            Case Keys.B
-                SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
-
-            Case Keys.F
-                FREEZE_FRUSTUM = FREEZE_FRUSTUM Xor True
-
             Case Keys.N
                 NORMAL_DISPLAY_MODE += 1
                 If NORMAL_DISPLAY_MODE > 2 Then
                     NORMAL_DISPLAY_MODE = 0
                 End If
 
+            Case Keys.O
+                m_load_map.PerformClick()
+
+            Case Keys.P
+                PICK_MODELS = PICK_MODELS Xor True
 
             Case Keys.T
-                If SHOW_TEST_TEXTURES = 1 Then
-                    SHOW_TEST_TEXTURES = 0
-                Else
-                    SHOW_TEST_TEXTURES = 1
-                End If
+                SHOW_TEST_TEXTURES = SHOW_TEST_TEXTURES Xor 1
 
+                '-------------------------------
+                'Special Keys
             Case Keys.ControlKey
                 Z_MOVE = True
 
@@ -129,12 +119,10 @@ Public Class frmMain
                 MOVE_MOD = True
 
             Case Keys.Space
-                If PAUSE_ORBIT Then
-                    PAUSE_ORBIT = False
-                Else
-                    PAUSE_ORBIT = True
-                End If
+                PAUSE_ORBIT = PAUSE_ORBIT Xor True
 
+                 '-------------------------------
+               'Navigation
             Case Keys.A
                 WASD_VECTOR.X = -1
             Case Keys.D

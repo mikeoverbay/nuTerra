@@ -320,7 +320,7 @@ void main(void)
     gColor.a = 1.0;
 
     gNormal.xyz = normalize(out_n.xyz);
-    gGMF.rgb = vec3(0.0, 0.0, 128.0/255.0);
+    gGMF.rgb = vec3(0.1, 0.2, 128.0/255.0);
 
     gPosition = worldPosition;
 }

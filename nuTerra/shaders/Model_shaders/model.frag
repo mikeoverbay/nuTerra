@@ -84,14 +84,13 @@ float mip_map_level(in vec2 iUV)
     vec2  dy_vtc        = dFdy(iUV * float(isize.y));
     float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
     
-    return round(0.65 * log2(d)); 
+    return round(0.55 * log2(d)); 
 }
 
 
+// ================================================================================
 // Subroutines
 subroutine void fn_entry();
-
-
 layout(index = 0) subroutine(fn_entry) void default_entry()
 {
     gColor = vec4(1, 0, 0, 0);
@@ -100,7 +99,7 @@ layout(index = 0) subroutine(fn_entry) void default_entry()
 
 layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
-    float mip = mip_map_level(fs_in.TC2);
+    float mip = mip_map_level(fs_in.TC1);
     gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
     gColor *= thisMaterial.g_colorTint;
     gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
@@ -110,7 +109,7 @@ layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 
 layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
 {
-    float mip = mip_map_level(fs_in.TC2);
+    float mip = mip_map_level(fs_in.TC1);
     gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
     gColor *= textureLod(thisMaterial.maps[3], fs_in.TC2, mip); // color2
     gColor *= thisMaterial.g_colorTint;
@@ -122,7 +121,7 @@ layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
 
 layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
 {
-    float mip = mip_map_level(fs_in.TC2);
+    float mip = mip_map_level(fs_in.TC1);
     gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip);
     gColor *= thisMaterial.g_colorTint;
     gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
@@ -135,14 +134,14 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec2 UVs;
     vec2 uv1,uv2,uv3,uv4;
 
-    vec2 zeroONE = vec2(fract(fs_in.TC1.x), fract(fs_in.TC1.y));
+    vec2 zeroONE = vec2(fract(fs_in.TC1.x), fract(fs_in.TC1.y)); // 0.0 to 1.0 uv
 
     UVs = zeroONE*fs_in.scale_123 + fs_in.offset_123;
     uv1 = UVs + fs_in.UV1;
     uv2 = UVs + fs_in.UV2;
     uv3 = UVs + fs_in.UV3;
 
-    zeroONE = vec2(fract(fs_in.TC2.x), fract(fs_in.TC2.y));
+    zeroONE = vec2(fract(fs_in.TC2.x), fract(fs_in.TC2.y)); // 0.0 to 1.0 uv
     UVs = zeroONE*fs_in.scale_4 + fs_in.offset_4;
     uv4 = UVs + fs_in.UV4;
 
@@ -222,7 +221,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     UVs = zeroONE*fs_in.scale_4 + fs_in.offset_4;
     uv4 = UVs + fs_in.UV4;
 
-    float mip = mip_map_level(fs_in.TC2);
+    float mip = mip_map_level(fs_in.TC1);
     vec4 BLEND = texture2D(thisMaterial.maps[3],uv4);
 
     vec4 colorAM_1 = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
@@ -311,3 +310,4 @@ void main(void)
     gPick.r = fs_in.model_id + 1;
 
 }
+// ================================================================================
