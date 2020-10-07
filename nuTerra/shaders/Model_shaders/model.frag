@@ -308,5 +308,6 @@ void main(void)
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
 
-    gPick = fs_in.model_id;
+    gPick.r = fs_in.model_id + 1;
+
 }

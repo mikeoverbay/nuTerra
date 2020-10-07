@@ -154,8 +154,8 @@ Module FBO_main
             GL.TextureParameter(gPick, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gPick, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             GL.TextureParameter(gPick, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            GL.TextureStorage2D(gPick, 1, SizedInternalFormat.R16ui, SCR_WIDTH, SCR_HEIGHT)
-
+            GL.TextureStorage2D(gPick, 1, DirectCast(PixelInternalFormat.R16ui, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            Dim er = GL.GetError
         End Sub
 
         Public Shared Function create_fbo() As Boolean
