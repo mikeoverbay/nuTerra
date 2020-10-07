@@ -266,7 +266,7 @@ Module TerrainBuilder
         Dim mm = MAP_PACKAGE("spaces/" + ABS_NAME + "/mmap.dds")
         Dim mss As New MemoryStream
         mm.Extract(mss)
-        theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, "", False, False)
+        theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, "spaces/" + ABS_NAME + "/mmap.dds", False, False)
         mss.Dispose()
         'get global_am
         Dim gmm = MAP_PACKAGE("spaces/" + ABS_NAME + "/global_am.dds")

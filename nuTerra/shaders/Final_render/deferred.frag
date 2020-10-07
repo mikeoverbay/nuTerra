@@ -81,7 +81,7 @@ void main (void)
     // Poor mans PBR :)
     // how shinny this is
     POWER = max(GM_in.r *60.0,5.0);
-    INTENSITY = max(GM_in.r*1.5 ,0.05);
+    INTENSITY = max(GM_in.r ,0.0);
     // How metalic his is
     color_in.rgb = mix(color_in.rgb * vec3(0.04),
                        color_in.rgb, max(1.0-GM_in.g,0.04) );
@@ -103,7 +103,7 @@ void main (void)
 
             vec3 halfwayDir = normalize(L + vd);
 
-            final_color.xyz += pow(max(dot(N, halfwayDir), 0.0), POWER) * SPECULAR * INTENSITY;
+            final_color.xyz += max(pow(dot(N, halfwayDir), POWER ),0.0001) * SPECULAR * INTENSITY;
 
             // Fade to ambient over distance
             final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;

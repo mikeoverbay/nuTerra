@@ -214,17 +214,17 @@ void main(void)
     // If we want to show the test textures, do it now.
     if (show_test == 1){
 
-        //t4 = t4 * tex6 * used_7;
-        //t4_2 = t4_2 * tex7 * used_8;
+        t4 = t4 * tex6 * used_7;
+        t4_2 = t4_2 * tex7 * used_8;
 
-        //t3 = t3 * tex4 * used_5;
-        //t3_2 = t3_2 * tex5 * used_6;
+        t3 = t3 * tex4 * used_5;
+        t3_2 = t3_2 * tex5 * used_6;
 
         t2 = t2 * tex2 * used_3;
-        //t2_2 = t2_2 * tex3 * used_4;
+        t2_2 = t2_2 * tex3 * used_4;
 
-        //t1 = t1 * tex0 * used_1;
-        //t1_2 = t1_2 * tex1 * used_2;
+        t1 = t1 * tex0 * used_1;
+        t1_2 = t1_2 * tex1 * used_2;
     }
 
     vec4 base = vec4(0.0);  

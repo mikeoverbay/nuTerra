@@ -98,6 +98,9 @@ Module TextureLoaders
         Dim image_id As Integer
 
         GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
+
+        GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-{0}", "blend_Tex"))
+
         GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
         GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
@@ -200,6 +203,7 @@ Module TextureLoaders
             Debug.WriteLine(fn)
             Return image_id
         End If
+        Dim e1 = GL.GetError()
         ms.Position = 0
         Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
             Dim dds_header = get_dds_header(br)
@@ -220,12 +224,12 @@ Module TextureLoaders
 
             GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
             GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-{0}", fn))
-
+            'If image_id = 356 Then Stop
             Dim maxAniso As Single
             GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
             Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
 
-            If dds_header.mipMapCount = 1 Then
+            If dds_header.mipMapCount = 0 Or dds_header.mipMapCount = 1 Then
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, numLevels)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
@@ -270,6 +274,10 @@ Module TextureLoaders
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
             End If
         End Using
+        Dim e2 = GL.GetError()
+        If e2 > 0 Then
+            Stop
+        End If
         If fn.Length = 0 Then Return image_id
         add_image(fn, image_id)
         Return image_id
@@ -445,6 +453,8 @@ Module TextureLoaders
         GL.TextureSubImage2D(dummy, 0, 0, 0, b.Width, b.Height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, bitmapData.Scan0)
 
         b.UnlockBits(bitmapData) ' Unlock The Pixel Data From Memory
+        GL.ObjectLabel(ObjectLabelIdentifier.Texture, dummy, -1, String.Format("TEX-{0}", "Dummy_Texture"))
+
         b.Dispose()
         g.Dispose()
         Return dummy
