@@ -610,6 +610,7 @@ Module MapLoader
 
             If Not atlasPath.EndsWith(".atlas") Then
                 'Stop
+                texturePaths.Add(atlasPath)
                 Continue For
             End If
 
@@ -745,9 +746,11 @@ Module MapLoader
 
         'load textures
         For Each texturePath In texturePaths
+            Dim old_texturePath = texturePath
             If Not texturePath.EndsWith(".dds") Then
-                Stop
-                Continue For
+                'Stop
+                texturePath = texturePath.Replace(".png", ".dds") ' hack
+                'Continue For
             End If
             'dont load images that are already created!
             Dim image_id = image_exists(texturePath)
@@ -764,7 +767,6 @@ Module MapLoader
             End If
             If entry Is Nothing Then
                 entry = search_pkgs(texturePath)
-
             End If
             If entry Is Nothing Then
                 Stop
@@ -779,7 +781,7 @@ Module MapLoader
             Dim handle = GL.Arb.GetTextureHandle(tex)
             GL.Arb.MakeTextureHandleResident(handle)
 
-            textureHandles(texturePath) = handle
+            textureHandles(old_texturePath) = handle
         Next
 
         Dim materialsData(materials.Count - 1) As GLMaterial
