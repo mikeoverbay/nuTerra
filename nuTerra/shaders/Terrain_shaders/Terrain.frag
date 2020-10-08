@@ -5,6 +5,7 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
 layout (location = 3) out vec3 gPosition;
+layout (location = 4) out uint gPick;
 
 layout (std140, binding = 0 ) uniform Layers {
     vec4 layer0UT1;
@@ -314,4 +315,5 @@ void main(void)
     gGMF.rgb = vec3(global.a, 0.2, 128.0/255.0);
 
     gPosition = worldPosition;
+    gPick = 0;
 }
