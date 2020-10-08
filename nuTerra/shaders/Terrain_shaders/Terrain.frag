@@ -81,6 +81,9 @@ in mat3 TBN;
 in vec3 worldPosition;
 in vec4 Vertex;
 
+in vec2 tuv4, tuv4_2, tuv3, tuv3_2;
+in vec2 tuv2, tuv2_2, tuv1, tuv1_2;
+
 in vec2 UV;
 in vec2 Global_UV;
 in vec3 normal;//temp for debuging lighting
@@ -115,8 +118,6 @@ void main(void)
     vec4 n1_2, n2_2, n3_2, n4_2;
     vec2 MixLevel1, MixLevel2, MixLevel3, MixLevel4;
     vec3 PN1, PN2, PN3, PN4;
-    vec2 tv4, tv4_2, tv3, tv3_2;
-    vec2 tv2, tv2_2, tv1, tv1_2;
     float aoc_0, aoc_1, aoc_2, aoc_3;
     float  aoc_4, aoc_5, aoc_6, aoc_7;
     vec2 mix_coords;
@@ -126,77 +127,67 @@ void main(void)
     vec2 UVs = UV;
 
     // create UV projections
-    tv4 = -vec2(dot(-layer3UT1, Vertex), dot(layer3VT1, Vertex))+0.5 ;
-    tv4_2 = -vec2(dot(-layer3UT2, Vertex), dot(layer3VT2, Vertex))+0.5 ;
 
-    tv3 = -vec2(dot(-layer2UT1, Vertex), dot(layer2VT1, Vertex))+0.5 ;
-    tv3_2 = -vec2(dot(-layer2UT2, Vertex), dot(layer2VT2, Vertex))+0.5 ;
-
-    tv2 = -vec2(dot(-layer1UT1, Vertex), dot(layer1VT1, Vertex))+0.5;
-    tv2_2 = -vec2(dot(-layer1UT2, Vertex), dot(layer1VT2, Vertex))+0.5;
-
-    tv1 = -vec2(dot(-layer0UT1, Vertex), dot(layer0VT1, Vertex))+0.5 ;
-    tv1_2 = -vec2(dot(-layer0UT2, Vertex), dot(layer0VT2, Vertex))+0.5 ;
 
     // Get AM maps and Test Texture maps
-    t4 = texture(layer_4T1, tv4 );
-    vec4 tex6 = texture(tex_6, tv4);
+    t4 = texture(layer_4T1, tuv4 );
+    vec4 tex6 = texture(tex_6, tuv4);
 
-    t4_2 = texture(layer_4T2, tv4_2);
-    vec4 tex7 = texture(tex_7, tv4_2);
+    t4_2 = texture(layer_4T2, tuv4_2);
+    vec4 tex7 = texture(tex_7, tuv4_2);
 
-    t3 = texture(layer_3T1, tv3);
-    vec4 tex4 = texture(tex_4, tv3);
+    t3 = texture(layer_3T1, tuv3);
+    vec4 tex4 = texture(tex_4, tuv3);
 
-    t3_2 = texture(layer_3T2, tv3_2);
-    vec4 tex5 = texture(tex_5, tv3_2);
+    t3_2 = texture(layer_3T2, tuv3_2);
+    vec4 tex5 = texture(tex_5, tuv3_2);
 
-    t2 = texture(layer_2T1, tv2);
-    vec4 tex2 = texture(tex_2, tv2);
+    t2 = texture(layer_2T1, tuv2);
+    vec4 tex2 = texture(tex_2, tuv2);
 
-    t2_2 = texture(layer_2T2, tv2_2);
-    vec4 tex3 = texture(tex_3, tv2_2);
+    t2_2 = texture(layer_2T2, tuv2_2);
+    vec4 tex3 = texture(tex_3, tuv2_2);
 
-    t1 = texture(layer_1T1, tv1);
-    vec4 tex0 = texture(tex_0, tv1);
+    t1 = texture(layer_1T1, tuv1);
+    vec4 tex0 = texture(tex_0, tuv1);
  
-    t1_2 = texture(layer_1T2, tv1_2);
-    vec4 tex1 = texture(tex_1, tv1_2);
+    t1_2 = texture(layer_1T2, tuv1_2);
+    vec4 tex1 = texture(tex_1, tuv1_2);
 
     // ambient occusion is in blue channel of the normal maps.
     // Specular OR Parallax is in the red channel. Green and Alpha are normal values.
     // We must get the Ambient Occlusion before converting so it isn't lost.
 
     // Get and convert normal maps. Save ambient occlusion value.
-    n4 = texture(n_layer_4T1, tv4);
+    n4 = texture(n_layer_4T1, tuv4);
     aoc_6 = n4.b;
     n4 = convertNormal(n4) + layer3UT1;
 
-    n4_2 = texture(n_layer_4T2, tv4_2);
+    n4_2 = texture(n_layer_4T2, tuv4_2);
     aoc_7 = n4_2.b;
     n4_2 = convertNormal(n4_2) + layer3UT2;
 
-    n3 = texture(n_layer_3T1, tv3);
+    n3 = texture(n_layer_3T1, tuv3);
     aoc_4 = n3.b;
     n3 = convertNormal(n3) + layer2UT1;
 
-    n3_2 = texture(n_layer_3T2, tv3_2);
+    n3_2 = texture(n_layer_3T2, tuv3_2);
     aoc_5 = n3_2.b;
     n3_2 = convertNormal(n3_2) + layer2UT2;
 
-    n2 = texture(n_layer_2T1, tv2);
+    n2 = texture(n_layer_2T1, tuv2);
     aoc_2 = n2.b;
     n2 = convertNormal(n2) + layer1UT1;
 
-    n2_2 = texture(n_layer_2T2, tv2_2);
+    n2_2 = texture(n_layer_2T2, tuv2_2);
     aoc_3 = n2_2.b;
     n2_2 = convertNormal(n2_2) + layer1UT2;
 
-    n1 = texture(n_layer_1T1, tv1);
+    n1 = texture(n_layer_1T1, tuv1);
     aoc_0 = n1.b;
     n1 = convertNormal(n1) + layer0UT1;
 
-    n1_2 = texture(n_layer_1T2, tv1_2);
+    n1_2 = texture(n_layer_1T2, tuv1_2);
     aoc_1 =  n1_2.b;
     n1_2 = convertNormal(n1_2) + layer0UT2;
     
@@ -320,7 +311,7 @@ void main(void)
     gColor.a = 1.0;
 
     gNormal.xyz = normalize(out_n.xyz);
-    gGMF.rgb = vec3(0.1, 0.2, 128.0/255.0);
+    gGMF.rgb = vec3(global.a, 0.2, 128.0/255.0);
 
     gPosition = worldPosition;
 }

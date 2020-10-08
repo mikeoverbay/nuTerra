@@ -463,7 +463,7 @@ Module TerrainTextureFunctions
             Dim ul = CInt(width * 0.0625)
             Dim lr = CInt(width * 0.875)
 
-            If CROP Then
+            If False Then
                 Ilu.iluCrop(ul, ul, 0, lr, lr, 1)
             End If
 

@@ -18,10 +18,43 @@ layout(location = 10) uniform mat4 modelMatrix;
 layout(location = 11) uniform mat3 normalMatrix;
 layout(location = 12) uniform vec2 me_location;
 
+layout (std140, binding = 0 ) uniform Layers {
+    vec4 layer0UT1;
+    vec4 layer1UT1;
+    vec4 layer2UT1;
+    vec4 layer3UT1;
+
+    vec4 layer0UT2;
+    vec4 layer1UT2;
+    vec4 layer2UT2;
+    vec4 layer3UT2;
+
+    vec4 layer0VT1;
+    vec4 layer1VT1;
+    vec4 layer2VT1;
+    vec4 layer3VT1;
+
+    vec4 layer0VT2;
+    vec4 layer1VT2;
+    vec4 layer2VT2;
+    vec4 layer3VT2;
+
+    float used_1;
+    float used_2;
+    float used_3;
+    float used_4;
+    float used_5;
+    float used_6;
+    float used_7;
+    float used_8;
+    };
+
 out vec4 Vertex;
 out float ln;
 out mat3 TBN;
 out vec3 worldPosition;
+out vec2 tuv4, tuv4_2, tuv3, tuv3_2;
+out vec2 tuv2, tuv2_2, tuv1, tuv1_2;
 out vec2 UV;
 out vec2 Global_UV;
 
@@ -30,8 +63,8 @@ flat out uint is_hole;
 void main(void)
 {
 
-     UV =  vertexTexCoord;
-     // calculate tex coords for global_AM
+    UV =  vertexTexCoord;
+    // calculate tex coords for global_AM
     vec2 uv_g;
     vec2 scaled = UV / map_size;
     vec2 m_s = vec2(1.0)/map_size;
@@ -41,13 +74,31 @@ void main(void)
     Global_UV.xy = 1.0 - Global_UV.xy;
     
     is_hole = (vertexNormal.w == 1.0f) ? 1 : 0;
-    
+    //-------------------------------------------------------
+    // Calulate UVs for the texture layers
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     Vertex = vec4(vertexPosition, 1.0) * 1.0;
     Vertex.x *= -1.0;
+    vec4 sVert;
+    sVert.xyz = Vertex.xyz;// * vec3(0.875) + vec3(0.0625);
+    
+    //
+    tuv4 = -vec2(dot(-layer3UT1, sVert), dot(layer3VT1, sVert))+0.5 ;
+    tuv4_2 = -vec2(dot(-layer3UT2, sVert), dot(layer3VT2, sVert))+0.5 ;
+
+    tuv3 = -vec2(dot(-layer2UT1, sVert), dot(layer2VT1, sVert))+0.5 ;
+    tuv3_2 = -vec2(dot(-layer2UT2, sVert), dot(layer2VT2, sVert))+0.5 ;
+
+    tuv2 = -vec2(dot(-layer1UT1, sVert), dot(layer1VT1, sVert))+0.5;
+    tuv2_2 = -vec2(dot(-layer1UT2, sVert), dot(layer1VT2, sVert))+0.5;
+
+    tuv1 = -vec2(dot(-layer0UT1, sVert), dot(layer0VT1, sVert))+0.5 ;
+    tuv1_2 = -vec2(dot(-layer0UT2, sVert), dot(layer0VT2, sVert))+0.5 ;
+    //-------------------------------------------------------
 
     //-------------------------------------------------------
-    //Calculate tangent and biNormal
+    // Calculate tangent and biNormal
+    // We really need to calculate the tangent on the CPU
     vec3 tangent;
     // NOTE: vertexNormal is already normalized in the VBO.
     vec3 c1 = cross(vertexNormal.xyz, vec3(0.0, 0.0, 1.0));
@@ -58,8 +109,9 @@ void main(void)
         {   tangent = c2; }
     tangent = tangent - dot(vertexNormal.xyz, tangent) * vertexNormal.xyz;
     vec3 bitangent = cross(tangent, vertexNormal.xyz);
+    //-------------------------------------------------------
 
-    //vertex --> world pos
+    // vertex --> world pos
     worldPosition = vec3(viewMatrix * modelMatrix * vec4(vertexPosition, 1.0f));
 
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
@@ -67,7 +119,7 @@ void main(void)
     vec3 worldTangent = normalMatrix * tangent;
     vec3 worldbiNormal = normalMatrix * bitangent;
 
-    //make perpendicular
+    // make perpendicular
     worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
     worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
 
