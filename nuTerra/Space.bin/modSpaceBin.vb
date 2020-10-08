@@ -452,7 +452,7 @@ CleanUp:
                         .diffuseMap = props("diffuseMap").ToLower
                         .diffuseMap2 = props("diffuseMap2").ToLower
                         .normalMap = props("normalMap").ToLower
-                        .metallicGlossMap = props("metallicGlossMap")
+                        .metallicGlossMap = props("metallicGlossMap").ToLower
                         .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
