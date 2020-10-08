@@ -505,8 +505,12 @@
     <Content Include="DevIL.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="HTML\images\carbon.jpg" />
-    <Content Include="HTML\images\wot-logo1.png" />
+    <Content Include="HTML\images\carbon.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="HTML\images\wot-logo1.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="HTML\index.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
