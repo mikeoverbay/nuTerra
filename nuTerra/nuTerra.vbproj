@@ -323,6 +323,7 @@
     <None Include="App.config" />
     <None Include="OpenTK.dll.config" />
     <None Include="packages.config" />
+    <None Include="README.md" />
     <None Include="Resources\compass.x" />
     <None Include="Resources\cross_hair.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
