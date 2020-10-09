@@ -506,6 +506,13 @@ try_again:
                 load_image_from_file(Il.IL_PNG,
                 sp + "\resources\TestTextures\tex_" + i.ToString + ".png", True, False)
         Next
+        '---------------------------------------------------------        'Test Textures
+#If False Then
+        'This can be used to debug textureing
+        checkerTest =
+                load_image_from_file(Il.IL_PNG,
+                sp + "\resources\checkerboard.png", True, False)
+#End If
         '---------------------------------------------------------
         'need to create this texture.
         DrawMapPickText.TextRenderer(300, 30)

@@ -541,6 +541,9 @@
     <Content Include="Resources\ascii_characters.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\checkerBoard.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\cross_hair_texture.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

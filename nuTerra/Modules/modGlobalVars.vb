@@ -17,7 +17,7 @@ Module modGlobalVars
         End Try
     End Sub
     '=================================================================================
-
+    Public checkerTest As Integer
     'Define these in CAP TEXT
     Public TEST_IDS(7) As Integer
     Public M_POS As Vector2
