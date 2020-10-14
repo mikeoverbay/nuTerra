@@ -416,6 +416,26 @@ Module modRender
 
         modelShader.StopUse()
 
+        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
+            GL.Disable(EnableCap.PolygonOffsetFill)
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
+
+            FBOm.attach_CF()
+            normalShader.Use()
+
+            GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
+            GL.UniformMatrix4(normalShader("view"), False, VIEWMATRIX)
+            GL.Uniform1(normalShader("prj_length"), 0.1F)
+            GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
+            GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
+
+            GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, indirectDrawCount, 0)
+
+            normalShader.StopUse()
+
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+        End If
+
         If SHOW_BOUNDING_BOXES Then
             GL.Disable(EnableCap.DepthTest)
 
@@ -442,10 +462,6 @@ Module modRender
             GL.DrawArrays(PrimitiveType.Points, 0, 1)
 
             frustumShader.StopUse()
-        End If
-
-        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
-            GL.Disable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
     End Sub
 

@@ -48,18 +48,9 @@ Public Class frmMain
                 'wire modes
             Case Keys.D1
                 WIRE_MODELS = WIRE_MODELS Xor True
-                If WIRE_MODELS Then
-                    WIRE_MODELS = False
-                Else
-                    WIRE_MODELS = True
-                End If
 
             Case Keys.D2
-                If WIRE_TERRAIN Then
-                    WIRE_TERRAIN = False
-                Else
-                    WIRE_TERRAIN = True
-                End If
+                WIRE_TERRAIN = WIRE_TERRAIN Xor True
 
             Case Keys.F1
                 SHOW_CURSOR = SHOW_CURSOR Xor True
