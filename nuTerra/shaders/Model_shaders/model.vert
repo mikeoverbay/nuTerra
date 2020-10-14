@@ -64,10 +64,11 @@ void main(void)
 
     mat4 modelView = view * thisModel.matrix;
     // TODO: mat3 normalMatrix = mat3(transpose(inverse(modelView)));
-    mat3 normalMatrix = (mat3(view));
+    mat3 normalMatrix = (mat3(modelView));
 
     // Transform position & normal to world space
     vs_out.worldPosition = vec3(modelView * vec4(vertexPosition, 1.0f));
+
     vec3 t = normalize(normalMatrix * vertexTangent.xyz);
     vec3 b = normalize(normalMatrix * vertexBinormal.xyz);
     vec3 n = normalize(normalMatrix * vertexNormal.xyz);

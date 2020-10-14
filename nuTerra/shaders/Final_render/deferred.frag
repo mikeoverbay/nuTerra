@@ -83,8 +83,8 @@ void main (void)
     POWER = max(GM_in.r *60.0,5.0);
     INTENSITY = max(GM_in.r ,0.0);
     // How metalic his is
-    color_in.rgb = mix(color_in.rgb * vec3(0.04),
-                       color_in.rgb, max(1.0-GM_in.g,0.04) );
+    color_in.rgb = mix(color_in.rgb,
+                       color_in.rgb * vec3(0.04), max(GM_in.g*0.25,0.00) );
     //---------------------------------------------
 
     }

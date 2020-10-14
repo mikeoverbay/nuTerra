@@ -153,11 +153,6 @@ Public Class frmMain
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
         '-----------------------------------------------------------------------------------------
         Me.Show()
-#If DEBUG Then
-        If Debugger.IsAttached = False Then
-            Debugger.Launch()
-        End If
-#End If
         '-----------------------------------------------------------------------------------------
         ' we dont want menu events while the app is initializing :)
         MainMenuStrip.Enabled = False

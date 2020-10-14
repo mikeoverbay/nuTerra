@@ -85,6 +85,7 @@ Partial Class frmGbufferViewer
         'quater_scale
         '
         Me.quater_scale.Appearance = System.Windows.Forms.Appearance.Button
+        Me.quater_scale.Checked = True
         Me.quater_scale.ForeColor = System.Drawing.Color.Black
         Me.quater_scale.Location = New System.Drawing.Point(7, 77)
         Me.quater_scale.Name = "quater_scale"
@@ -98,7 +99,7 @@ Partial Class frmGbufferViewer
         'half_scale
         '
         Me.half_scale.Appearance = System.Windows.Forms.Appearance.Button
-        Me.half_scale.Checked = True
+        Me.half_scale.Checked = False
         Me.half_scale.ForeColor = System.Drawing.Color.Black
         Me.half_scale.Location = New System.Drawing.Point(7, 48)
         Me.half_scale.Name = "half_scale"
