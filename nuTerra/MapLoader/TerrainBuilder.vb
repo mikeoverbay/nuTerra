@@ -72,6 +72,7 @@ Module TerrainBuilder
         Public Shared vertex_vBuffer_id As Integer
         Public Shared vertex_iBuffer_id As Integer
         Public Shared vertex_uvBuffer_id As Integer
+        Public Shared vertex_TangentBuffer_id As Integer
         Public Shared indices_count As Integer = 7938 * 3
         '------------------------
 
@@ -112,6 +113,7 @@ Module TerrainBuilder
         Public h_buff() As UInt32
         Public uv_buff() As Vector2
         Public n_buff() As Vector3
+        Public t_buff() As Vector3
 
     End Structure
 

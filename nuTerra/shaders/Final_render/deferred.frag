@@ -76,7 +76,7 @@ void main (void)
     vec3 N = normalize(texture(gNormal,UV).xyz);
     float POWER;
     float INTENSITY;
-    if (FLAG == 64) {
+    if (FLAG == 64 || FLAG == 128) {
     //---------------------------------------------
     // Poor mans PBR :)
     // how shinny this is

@@ -35,6 +35,7 @@ Module ChunkFunctions
         ReDim v_data.h_buff(b_size)
         ReDim v_data.uv_buff(b_size)
         ReDim v_data.n_buff(b_size)
+        ReDim v_data.t_buff(b_size)
         ReDim v_data.indicies(8191)
 
         Dim w As Double = 64 + 1  'bmp_w
@@ -122,13 +123,13 @@ Module ChunkFunctions
         '=========================================================================
         'From : https://www.iquilezles.org/www/articles/normals/normals.htm
         'Create smoothed normals using IQ's method
-        make_normals(v_data.indicies, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff)
+        make_normals(v_data.indicies, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff, v_data.t_buff, v_data.uv_buff)
         '=========================================================================
 
 
     End Sub
 
-    Private Sub make_normals(ByRef indi() As vect3_16, ByRef XY() As Vector2, ByRef Z() As Single, ByRef OUT() As Vector3)
+    Private Sub make_normals(ByRef indi() As vect3_16, ByRef XY() As Vector2, ByRef Z() As Single, ByRef n_buff() As Vector3, ByRef t_buff() As Vector3, ByRef UV() As Vector2)
         'generate and smooth normals. Amazing code by IQ.
         For i = 0 To indi.Length - 1
             Dim ia As UInt16 = indi(i).z
@@ -142,9 +143,44 @@ Module ChunkFunctions
             e2.Xz = XY(ic) - XY(ib)
             e2.Y = Z(ic) - Z(ib)
             Dim no = Vector3.Cross(e1, e2)
-            OUT(ia) += no
-            OUT(ib) += no
-            OUT(ic) += no
+            n_buff(ia) += no
+            n_buff(ib) += no
+            n_buff(ic) += no
+        Next
+        For i = 0 To indi.Length - 1
+            Dim v0, V1, v2 As Vector3
+
+            Dim ia As UInt16 = indi(i).x
+            Dim ib As UInt16 = indi(i).y
+            Dim ic As UInt16 = indi(i).z
+
+            v0.Xz = XY(ia) : v0.Y = Z(ia)
+            V1.Xz = XY(ib) : V1.Y = Z(ib)
+            v2.Xz = XY(ic) : v2.Y = Z(ic)
+            'v0 += New Vector3(50.0, 0.0, 50.0)
+            'V1 += New Vector3(50.0, 0.0, 50.0)
+            'v2 += New Vector3(50.0, 0.0, 50.0)
+            Dim uv0 = UV(ia)
+            Dim uv1 = UV(ib)
+            Dim uv2 = UV(ic)
+
+            Dim deltaPos1 = V1 - v0
+            Dim deltaPos2 = v2 - v0
+            Dim deltaUV1 = uv1 - uv0
+            Dim deltaUV2 = uv2 - uv1
+
+            Dim r = 1.0F / (deltaUV1.X * deltaUV2.Y - deltaUV1.Y * deltaUV2.X)
+            Dim tangent As Vector3 = (deltaPos1 * deltaUV2.Y - deltaPos2 * deltaUV1.Y) * r
+
+            tangent.Normalize()
+
+            t_buff(ia) += tangent
+            t_buff(ib) += tangent
+            t_buff(ic) += tangent
+
+        Next
+        For i = 0 To t_buff.Length - 1
+            t_buff(i).Normalize()
         Next
     End Sub
 
@@ -175,6 +211,17 @@ Module ChunkFunctions
                 theMap.v_data(tl).n_buff(you_tl) = v1
                 theMap.v_data(br).n_buff(you_br) = v1
                 .n_buff(me_) = v1
+
+                v1 = theMap.v_data(tr).t_buff(you_tr)
+                v2 = theMap.v_data(tl).t_buff(you_tl)
+                v3 = theMap.v_data(br).t_buff(you_br)
+                v4 = .t_buff(me_) '<-- me
+                v1 = (v1 + v2 + v3 + v4) / 4.0F
+                theMap.v_data(tr).t_buff(you_tr) = v1
+                theMap.v_data(tl).t_buff(you_tl) = v1
+                theMap.v_data(br).t_buff(you_br) = v1
+                .t_buff(me_) = v1
+
             End If
 
             'top edge
@@ -182,10 +229,17 @@ Module ChunkFunctions
                 Dim other = mapBoard(mbX, mbY - 1).map_id
                 For x = 0 To 64
                     v1 = .n_buff(x) '<-- me
-                    v2 = theMap.v_data(other).n_buff(x + (65 * 64))
+                    v2 = theMap.v_data(other).t_buff(x + (65 * 64))
                     v1 = (v1 + v2) / 2.0F
                     .n_buff(x) = v1
-                    theMap.v_data(other).n_buff(x + (65 * 64)) = v1
+                    theMap.v_data(other).t_buff(x + (65 * 64)) = v1
+
+                    v1 = .t_buff(x) '<-- me
+                    v2 = theMap.v_data(other).t_buff(x + (65 * 64))
+                    v1 = (v1 + v2) / 2.0F
+                    .t_buff(x) = v1
+                    theMap.v_data(other).t_buff(x + (65 * 64)) = v1
+
                 Next
             End If
             'front edge
@@ -199,6 +253,13 @@ Module ChunkFunctions
                     v1 = (v1 + v2) / 2.0F
                     .n_buff(me_) = v1
                     theMap.v_data(other).n_buff(you_) = v1
+
+                    v1 = .t_buff(me_) '<-- me
+                    v2 = theMap.v_data(other).t_buff(you_)
+                    v1 = (v1 + v2) / 2.0F
+                    .t_buff(me_) = v1
+                    theMap.v_data(other).t_buff(you_) = v1
+
                 Next
             End If
 
@@ -213,8 +274,8 @@ Module ChunkFunctions
 
             'Gen VAO and VBO Ids
             GL.CreateVertexArrays(1, theMap.render_set(i).VAO)
-            ReDim theMap.render_set(i).mBuffers(1)
-            GL.CreateBuffers(2, theMap.render_set(i).mBuffers)
+            ReDim theMap.render_set(i).mBuffers(3)
+            GL.CreateBuffers(3, theMap.render_set(i).mBuffers)
 
             ' If the shared buffer is not defined, we need to do so.
             If theMap.vertex_vBuffer_id = 0 Then
@@ -262,6 +323,14 @@ Module ChunkFunctions
             GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 3, 4, VertexAttribType.Int2101010Rev, True, 0)
             GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 3, 3)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 3)
+
+            ' Tangents ========================================================
+            GL.NamedBufferData(theMap.render_set(i).mBuffers(2), .t_buff.Length * 12, .t_buff, BufferUsageHint.StaticDraw)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 4, theMap.render_set(i).mBuffers(2), IntPtr.Zero, 12)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 4, 3, VertexAttribType.Float, True, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 4, 4)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 4)
 
             ' INDICES ==================================================================
             GL.VertexArrayElementBuffer(theMap.render_set(i).VAO, theMap.vertex_iBuffer_id)

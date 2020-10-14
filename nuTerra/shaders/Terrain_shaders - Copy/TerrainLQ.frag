@@ -38,14 +38,14 @@ void main(void)
     vec4 g_nm = texture(normalMap, UV);
     vec4 n = vec4(0.0);
     n.xyz = normalize(TBN * vec3(convertNormal(g_nm).xyz));
-    //n.x*=-1.0;
+    n.x*=-1.0;
   
     // The obvious
     gColor = global;
     gColor.a = 1.0;
 
     gNormal.xyz = normalize(n.xyz);
-    gGMF.rgb = vec3(global.a+0.2, 0.0, 64.0/255.0);
+    gGMF.rgb = vec3(0.0, 0.0, 128.0/255.0);
 
     gPosition = worldPosition;
 }

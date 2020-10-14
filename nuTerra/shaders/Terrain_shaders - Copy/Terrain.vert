@@ -5,7 +5,6 @@ layout(location = 0) in vec2 vertexXZ;
 layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
 layout(location = 3) in vec4 vertexNormal;
-layout(location = 4) in vec3 vertexTangent;
 
 //uniforms
 layout(location = 5) uniform mat4 viewMatrix;
@@ -80,8 +79,8 @@ void main(void)
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     Vertex = vec4(vertexPosition, 1.0) * 1.0;
     Vertex.x *= -1.0;
-    vec4 sVert = Vertex;
-    //sVert = vec4(UV.x*100.0, 0.0, UV.y*100.0, 0.0);//Vertex.xyz;// * vec3(0.875) + vec3(0.0625);
+    vec4 sVert;
+    sVert.xyz = Vertex.xyz;// * vec3(0.875) + vec3(0.0625);
     
     //
     tuv4 = -vec2(dot(-layer3UT1, sVert), dot(layer3VT1, sVert))+0.5 ;
@@ -95,38 +94,30 @@ void main(void)
 
     tuv1 = -vec2(dot(-layer0UT1, sVert), dot(layer0VT1, sVert))+0.5 ;
     tuv1_2 = -vec2(dot(-layer0UT2, sVert), dot(layer0VT2, sVert))+0.5 ;
-
-
-    //-------------------------------------------------------
-    // clip border - dont work!
-//    tuv1 = (tuv1*0.875) + (tuv1*0.0625);
-//    tuv2 = (tuv2*0.875) + (tuv2*0.0625);
-//    tuv3 = (tuv3*0.875) + (tuv3*0.0625);
-//    tuv4 = (tuv4*0.875) + (tuv4*0.0625);
-//
-//    tuv1_2 = (tuv1_2*0.875) + (tuv1_2*0.0625);
-//    tuv2_2 = (tuv2_2*0.875) + (tuv2_2*0.0625);
-//    tuv3_2 = (tuv3_2*0.875) + (tuv3_2*0.0625);
-//    tuv4_2 = (tuv4_2*0.875) + (tuv4_2*0.0625);
     //-------------------------------------------------------
 
     //-------------------------------------------------------
-    // Calculate biNormal
-    vec3 VT, VB, VN ;
-    VN = normalize(vertexNormal.xyz);
-    VT = normalize(vertexTangent.xyz);
-
-    VT = VT - dot(VN, VT) * VN;
-    VB = cross(VT, VN);
+    // Calculate tangent and biNormal
+    // We really need to calculate the tangent on the CPU
+    vec3 tangent;
+    // NOTE: vertexNormal is already normalized in the VBO.
+    vec3 c1 = cross(vertexNormal.xyz, vec3(0.0, 0.0, 1.0));
+    vec3 c2 = cross(vertexNormal.xyz, vec3(0.0, 1.0, 0.0));
+    if( length(c1) > length(c2) )
+        {  tangent = c1;  }
+        else
+        {   tangent = c2; }
+    tangent = tangent - dot(vertexNormal.xyz, tangent) * vertexNormal.xyz;
+    vec3 bitangent = cross(tangent, vertexNormal.xyz);
     //-------------------------------------------------------
 
     // vertex --> world pos
     worldPosition = vec3(viewMatrix * modelMatrix * vec4(vertexPosition, 1.0f));
 
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
-    vec3 worldNormal = normalMatrix * VN;
-    vec3 worldTangent = normalMatrix * VT;
-    vec3 worldbiNormal = normalMatrix * VB;
+    vec3 worldNormal = normalMatrix * vertexNormal.xyz;
+    vec3 worldTangent = normalMatrix * tangent;
+    vec3 worldbiNormal = normalMatrix * bitangent;
 
     // make perpendicular
     worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);

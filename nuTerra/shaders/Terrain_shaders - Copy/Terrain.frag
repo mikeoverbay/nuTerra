@@ -131,7 +131,7 @@ void main(void)
 
 
     // Get AM maps and Test Texture maps
-    t4 = texture(layer_4T1, tuv4);
+    t4 = texture(layer_4T1, tuv4 );
     vec4 tex6 = texture(tex_6, tuv4);
 
     t4_2 = texture(layer_4T2, tuv4_2);
@@ -162,35 +162,35 @@ void main(void)
     // Get and convert normal maps. Save ambient occlusion value.
     n4 = texture(n_layer_4T1, tuv4);
     aoc_6 = n4.b;
-    n4 = convertNormal(n4) + layer3UT1;
+    n4 = convertNormal(n4);// + layer3UT1;
 
     n4_2 = texture(n_layer_4T2, tuv4_2);
     aoc_7 = n4_2.b;
-    n4_2 = convertNormal(n4_2) + layer3UT2;
+    n4_2 = convertNormal(n4_2);// + layer3UT2;
 
     n3 = texture(n_layer_3T1, tuv3);
     aoc_4 = n3.b;
-    n3 = convertNormal(n3) + layer2UT1;
+    n3 = convertNormal(n3);// + layer2UT1;
 
     n3_2 = texture(n_layer_3T2, tuv3_2);
     aoc_5 = n3_2.b;
-    n3_2 = convertNormal(n3_2) + layer2UT2;
+    n3_2 = convertNormal(n3_2);// + layer2UT2;
 
     n2 = texture(n_layer_2T1, tuv2);
     aoc_2 = n2.b;
-    n2 = convertNormal(n2) + layer1UT1;
+    n2 = convertNormal(n2);// + layer1UT1;
 
     n2_2 = texture(n_layer_2T2, tuv2_2);
     aoc_3 = n2_2.b;
-    n2_2 = convertNormal(n2_2) + layer1UT2;
+    n2_2 = convertNormal(n2_2);// + layer1UT2;
 
     n1 = texture(n_layer_1T1, tuv1);
     aoc_0 = n1.b;
-    n1 = convertNormal(n1) + layer0UT1;
+    n1 = convertNormal(n1);// + layer0UT1;
 
     n1_2 = texture(n_layer_1T2, tuv1_2);
     aoc_1 =  n1_2.b;
-    n1_2 = convertNormal(n1_2) + layer0UT2;
+    n1_2 = convertNormal(n1_2);// + layer0UT2;
     
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
@@ -205,15 +205,6 @@ void main(void)
 
     // If we want to show the test textures, do it now.
     if (show_test == 1){
-        float lv = 0.5;
-        t1 = (t1*0.1)+ vec4(lv);
-        t2 = (t2*0.1)+ vec4(lv);
-        t3 = (t3*0.1)+ vec4(lv);
-        t4 = (t4*0.1)+ vec4(lv);
-        t1_2 = (t1_2*0.1)+ vec4(lv);
-        t2_2 = (t2_2*0.1)+ vec4(lv);
-        t3_2 = (t3_2*0.1)+ vec4(lv);
-        t4_2 = (t4_2*0.1)+ vec4(lv);
 
         t4 = t4 * tex6 * used_7;
         t4_2 = t4_2 * tex7 * used_8;
@@ -270,15 +261,15 @@ void main(void)
 
     //flip X axis. Everything is flipped on X including texture rotations.
 
-    //n1.x *= -1.0;
-    //n2.x *= -1.0;
-    //n3.x *= -1.0;
-    //n4.x *= -1.0;
+    n1.x *= -1.0;
+    n2.x *= -1.0;
+    n3.x *= -1.0;
+    n4.x *= -1.0;
 
-    //n1_2.x *= -1.0;
-    //n2_2.x *= -1.0;
-    //n3_2.x *= -1.0;
-    //n4_2.x *= -1.0;
+    n1_2.x *= -1.0;
+    n2_2.x *= -1.0;
+    n3_2.x *= -1.0;
+    n4_2.x *= -1.0;
 
     //-------------------------------------------------------------
 
@@ -286,7 +277,7 @@ void main(void)
     vec4 g_nm = texture(normalMap, UV);
     vec4 n_tex = vec4(0.0);
     n_tex.xyz = normalize(TBN * vec3(convertNormal(g_nm).xyz));
-    //n_tex.x*=-1.0;
+    n_tex.x*=-1.0;
     vec4 out_n = vec4(0.0);
     // Add up our normal values.
     out_n = add_norms(out_n, n1);
@@ -310,8 +301,7 @@ void main(void)
     // The blend stats at 100 and ends at 400. This has been changed for debug
     // Replace ln with 1.0 to show only layered terrain.
     
-    //base = mix(base,vec4(MixLevel1.xy, 0.0 ,1.0), 0.4);
-
+    global.a = 1.0;
     
     base = mix(global, base, ln);
 
@@ -322,7 +312,7 @@ void main(void)
     gColor.a = 1.0;
 
     gNormal.xyz = normalize(out_n.xyz);
-    gGMF.rgb = vec3(global.a+0.2, 0.0, 64.0/255.0);
+    gGMF.rgb = vec3(0.5, 0.2, 128.0/255.0);
 
     gPosition = worldPosition;
     gPick = 0;
