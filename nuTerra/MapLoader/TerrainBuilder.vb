@@ -265,13 +265,13 @@ Module TerrainBuilder
 
         '==========================================================
         'get minimap
-        Dim mm = MAP_PACKAGE("spaces/" + ABS_NAME + "/mmap.dds")
+        Dim mm = Packages.MAP_PACKAGE("spaces/" + ABS_NAME + "/mmap.dds")
         Dim mss As New MemoryStream
         mm.Extract(mss)
         theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, "spaces/" + ABS_NAME + "/mmap.dds", False, False)
         mss.Dispose()
         'get global_am
-        Dim gmm = MAP_PACKAGE("spaces/" + ABS_NAME + "/global_am.dds")
+        Dim gmm = Packages.MAP_PACKAGE("spaces/" + ABS_NAME + "/global_am.dds")
         Dim gmss As New MemoryStream
         gmm.Extract(gmss)
         theMap.GLOBAL_AM_ID = load_image_from_stream(Il.IL_DDS, gmss, "", False, False)
@@ -317,7 +317,7 @@ Module TerrainBuilder
 
                 theMap.chunks(cnt).name = Path.GetFileNameWithoutExtension(s)
 
-                Dim entry = MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, s))
+                Dim entry = Packages.MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, s))
                 Dim ms As New MemoryStream
                 entry.Extract(ms)
 

@@ -1,30 +1,36 @@
 ﻿Imports System.IO
+Imports System.Runtime
 Imports System.Runtime.InteropServices
 Imports Ionic.Zip
 Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
-Imports System.Runtime
+
 Module MapLoader
-    'putting these GLobals here because they are tightly related to MapLoader
-    Public SHARED_PART_1 As ZipFile
-    Public SHARED_PART_2 As ZipFile
-    Public SAND_BOX_PART_1 As ZipFile
-    Public SAND_BOX_PART_2 As ZipFile
+    NotInheritable Class Packages
+        ''' <summary>
+        ''' WoT packages
+        ''' </summary>
+        Public Shared SHARED_PART_1 As ZipFile
+        Public Shared SHARED_PART_2 As ZipFile
+        Public Shared SAND_BOX_PART_1 As ZipFile
+        Public Shared SAND_BOX_PART_2 As ZipFile
 
-    Public SHARED_PART_1_HD As ZipFile
-    Public SHARED_PART_2_HD As ZipFile
-    Public SAND_BOX_PART_1_HD As ZipFile
-    Public SAND_BOX_PART_2_HD As ZipFile
+        Public Shared SHARED_PART_1_HD As ZipFile
+        Public Shared SHARED_PART_2_HD As ZipFile
+        Public Shared SAND_BOX_PART_1_HD As ZipFile
+        Public Shared SAND_BOX_PART_2_HD As ZipFile
 
-    Public MAP_PACKAGE As ZipFile
-    Public MAP_PACKAGE_HD As ZipFile
-    Public MAP_PARTICLES As ZipFile
-    Public GUI_PACKAGE As ZipFile
-    Public GUI_PACKAGE_PART2 As ZipFile
-    'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
-    Public PKG_DATA_TABLE As New DataTable("items")
+        Public Shared MAP_PACKAGE As ZipFile
+        Public Shared MAP_PACKAGE_HD As ZipFile
+        Public Shared MAP_PARTICLES As ZipFile
+        Public Shared GUI_PACKAGE As ZipFile
+        Public Shared GUI_PACKAGE_PART2 As ZipFile
+
+        'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
+        Public Shared PKG_DATA_TABLE As New DataTable("items")
+    End Class
 
     Public LODMAPSIZE As Integer = 256
     Public AOMAPSIZE As Integer = 256
@@ -36,19 +42,30 @@ Module MapLoader
 
     '-----------------------------------
     'This stores all models used on a map
-    Public MAP_MODELS(1) As mdl_
-    'GL-buffers
-    Public textureHandleBuffer As Integer
-    Public parametersBuffer As Integer
-    Public matricesBuffer As Integer
-    Public numModelInstances As Integer
-    Public indirectDrawCount As Integer
-    Public drawCandidatesBuffer As Integer
-    Public indirectBuffer As Integer
-    Public vertsBuffer As Integer
-    Public vertsUV2Buffer As Integer
-    Public primsBuffer As Integer
-    Public vertexArray As Integer
+    Public MAP_MODELS() As mdl_
+
+    NotInheritable Class MapGL
+        ''' <summary>
+        ''' OpenGL buffers used to draw all map models
+        ''' </summary>
+        NotInheritable Class Buffers
+            Public Shared materials As Integer
+            Public Shared parameters As Integer
+            Public Shared matrices As Integer
+            Public Shared drawCandidates As Integer
+            Public Shared verts As Integer
+            Public Shared vertsUV2 As Integer
+            Public Shared prims As Integer
+            Public Shared indirect As Integer
+        End Class
+
+        NotInheritable Class VertexArrays
+            Public Shared allMapModels As Integer
+        End Class
+
+        Public Shared numModelInstances As Integer
+        Public Shared indirectDrawCount As Integer
+    End Class
 
     Public Structure mdl_
         Public mdl As base_model_holder_
@@ -58,10 +75,10 @@ Module MapLoader
 #Region "utility functions"
 
     Public Sub load_lookup_xml()
-        PKG_DATA_TABLE.Clear()
-        PKG_DATA_TABLE.Columns.Add("filename", GetType(String))
-        PKG_DATA_TABLE.Columns.Add("package", GetType(String))
-        PKG_DATA_TABLE.ReadXml(Application.StartupPath + "\data\TheItemList.xml")
+        Packages.PKG_DATA_TABLE.Clear()
+        Packages.PKG_DATA_TABLE.Columns.Add("filename", GetType(String))
+        Packages.PKG_DATA_TABLE.Columns.Add("package", GetType(String))
+        Packages.PKG_DATA_TABLE.ReadXml(Application.StartupPath + "\data\TheItemList.xml")
     End Sub
 
     Public Function search_pkgs(ByVal filename As String) As ZipEntry
@@ -69,15 +86,15 @@ Module MapLoader
         If HD_EXISTS And USE_HD_TEXTURES Then
             'look in HD shared package files
             'check map pkg first
-            entry = MAP_PACKAGE_HD(filename)
+            entry = Packages.MAP_PACKAGE_HD(filename)
             If entry Is Nothing Then
-                entry = SHARED_PART_1_HD(filename)
+                entry = Packages.SHARED_PART_1_HD(filename)
                 If entry Is Nothing Then
-                    entry = SHARED_PART_2_HD(filename)
+                    entry = Packages.SHARED_PART_2_HD(filename)
                     If entry Is Nothing Then
-                        entry = SAND_BOX_PART_1_HD(filename)
+                        entry = Packages.SAND_BOX_PART_1_HD(filename)
                         If entry Is Nothing Then
-                            entry = SAND_BOX_PART_2_HD(filename)
+                            entry = Packages.SAND_BOX_PART_2_HD(filename)
                         End If
                     End If
                 End If
@@ -88,17 +105,17 @@ Module MapLoader
         End If
         'look in SD shared package files
         'check map pkg first
-        entry = MAP_PACKAGE(filename)
+        entry = Packages.MAP_PACKAGE(filename)
         If entry Is Nothing Then
-            entry = SHARED_PART_1(filename)
+            entry = Packages.SHARED_PART_1(filename)
             If entry Is Nothing Then
-                entry = SHARED_PART_2(filename)
+                entry = Packages.SHARED_PART_2(filename)
                 If entry Is Nothing Then
-                    entry = SAND_BOX_PART_1(filename)
+                    entry = Packages.SAND_BOX_PART_1(filename)
                     If entry Is Nothing Then
-                        entry = SAND_BOX_PART_2(filename)
+                        entry = Packages.SAND_BOX_PART_2(filename)
                         If entry Is Nothing Then
-                            entry = MAP_PARTICLES(filename)
+                            entry = Packages.MAP_PARTICLES(filename)
                         End If
                     End If
                 End If
@@ -108,11 +125,11 @@ Module MapLoader
             Return entry
         End If
 
-        entry = GUI_PACKAGE(filename)
+        entry = Packages.GUI_PACKAGE(filename)
         If entry IsNot Nothing Then
             Return entry
         End If
-        entry = GUI_PACKAGE_PART2(filename)
+        entry = Packages.GUI_PACKAGE_PART2(filename)
         If entry IsNot Nothing Then
             Return entry
         End If
@@ -136,7 +153,7 @@ Module MapLoader
         If filename.Length = 0 Then
             Return ""
         End If
-        Dim q = From d In PKG_DATA_TABLE.AsEnumerable
+        Dim q = From d In Packages.PKG_DATA_TABLE.AsEnumerable
                 Where d.Field(Of String)("filename").Contains(filename)
                 Select
                 pkg = d.Field(Of String)("package"),
@@ -163,51 +180,51 @@ Module MapLoader
         'Check if there is HD content on the users disc.
         HD_EXISTS = File.Exists(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg"))
         If HD_EXISTS Then
-            MAP_PACKAGE_HD = ZipFile.Read(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg")))
-            SHARED_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg"))
-            SHARED_PART_2_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_hd-part2.pkg"))
-            SAND_BOX_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part1.pkg"))
-            SAND_BOX_PART_2_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part2.pkg"))
+            Packages.MAP_PACKAGE_HD = ZipFile.Read(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg")))
+            Packages.SHARED_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg"))
+            Packages.SHARED_PART_2_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_hd-part2.pkg"))
+            Packages.SAND_BOX_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part1.pkg"))
+            Packages.SAND_BOX_PART_2_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part2.pkg"))
         End If
 
         'open map pkg file
-        MAP_PACKAGE = New ZipFile(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH))
+        Packages.MAP_PACKAGE = New ZipFile(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH))
 
-        SHARED_PART_1 = New ZipFile(Path.Combine(GAME_PATH, "shared_content-part1.pkg"))
-        SHARED_PART_2 = New ZipFile(Path.Combine(GAME_PATH, "shared_content-part2.pkg"))
-        SAND_BOX_PART_1 = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox-part1.pkg"))
-        SAND_BOX_PART_2 = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox-part2.pkg"))
+        Packages.SHARED_PART_1 = New ZipFile(Path.Combine(GAME_PATH, "shared_content-part1.pkg"))
+        Packages.SHARED_PART_2 = New ZipFile(Path.Combine(GAME_PATH, "shared_content-part2.pkg"))
+        Packages.SAND_BOX_PART_1 = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox-part1.pkg"))
+        Packages.SAND_BOX_PART_2 = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox-part2.pkg"))
 
-        MAP_PARTICLES = New ZipFile(Path.Combine(GAME_PATH, "particles.pkg"))
+        Packages.MAP_PARTICLES = New ZipFile(Path.Combine(GAME_PATH, "particles.pkg"))
     End Sub
 
     Public Sub close_shared_packages()
         'Disposes of the loaded packages.
         If HD_EXISTS Then
-            SHARED_PART_1_HD.Dispose()
-            SHARED_PART_2_HD.Dispose()
-            SAND_BOX_PART_1_HD.Dispose()
-            SAND_BOX_PART_2_HD.Dispose()
+            Packages.SHARED_PART_1_HD.Dispose()
+            Packages.SHARED_PART_2_HD.Dispose()
+            Packages.SAND_BOX_PART_1_HD.Dispose()
+            Packages.SAND_BOX_PART_2_HD.Dispose()
 
-            SHARED_PART_1_HD = Nothing
-            SHARED_PART_2_HD = Nothing
-            SAND_BOX_PART_1_HD = Nothing
-            SAND_BOX_PART_2_HD = Nothing
+            Packages.SHARED_PART_1_HD = Nothing
+            Packages.SHARED_PART_2_HD = Nothing
+            Packages.SAND_BOX_PART_1_HD = Nothing
+            Packages.SAND_BOX_PART_2_HD = Nothing
         End If
 
-        MAP_PACKAGE.Dispose()
-        SHARED_PART_1.Dispose()
-        SHARED_PART_2.Dispose()
-        SAND_BOX_PART_1.Dispose()
-        SAND_BOX_PART_2.Dispose()
-        MAP_PARTICLES.Dispose()
+        Packages.MAP_PACKAGE.Dispose()
+        Packages.SHARED_PART_1.Dispose()
+        Packages.SHARED_PART_2.Dispose()
+        Packages.SAND_BOX_PART_1.Dispose()
+        Packages.SAND_BOX_PART_2.Dispose()
+        Packages.MAP_PARTICLES.Dispose()
 
-        MAP_PACKAGE = Nothing
-        SHARED_PART_1 = Nothing
-        SHARED_PART_2 = Nothing
-        SAND_BOX_PART_1 = Nothing
-        SAND_BOX_PART_2 = Nothing
-        MAP_PARTICLES = Nothing
+        Packages.MAP_PACKAGE = Nothing
+        Packages.SHARED_PART_1 = Nothing
+        Packages.SHARED_PART_2 = Nothing
+        Packages.SAND_BOX_PART_1 = Nothing
+        Packages.SAND_BOX_PART_2 = Nothing
+        Packages.MAP_PARTICLES = Nothing
 
         'Tell the grabage collector to clean up
         GC.Collect()
@@ -304,8 +321,8 @@ Module MapLoader
 
             '----------------------------------------------------------------
             ' calc instances
-            numModelInstances = 0
-            indirectDrawCount = 0
+            MapGL.numModelInstances = 0
+            MapGL.indirectDrawCount = 0
             Dim numVerts = 0
             Dim numPrims = 0
             For Each batch In MODEL_BATCH_LIST
@@ -324,24 +341,24 @@ Module MapLoader
                         If primGroup.no_draw Then
                             Continue For
                         End If
-                        indirectDrawCount += batch.count
+                        MapGL.indirectDrawCount += batch.count
                         skip = False
                     Next
                     numVerts += renderSet.buffers.vertexBuffer.Length
                     numPrims += renderSet.buffers.index_buffer32.Length
                 Next
                 If Not skip Then
-                    numModelInstances += batch.count
+                    MapGL.numModelInstances += batch.count
                 End If
             Next
 
             '----------------------------------------------------------------
             ' setup instances
-            Dim drawCommands(indirectDrawCount - 1) As CandidateDraw
+            Dim drawCommands(MapGL.indirectDrawCount - 1) As CandidateDraw
             Dim vBuffer(numVerts - 1) As ModelVertex
             Dim uv2Buffer(numVerts - 1) As Vector2
             Dim iBuffer(numPrims - 1) As vect3_32
-            Dim matrices(numModelInstances - 1) As ModelInstance
+            Dim matrices(MapGL.numModelInstances - 1) As ModelInstance
             Dim cmdId = 0
             Dim vLast = 0
             Dim iLast = 0
@@ -425,71 +442,79 @@ Module MapLoader
                 End If
             Next
 
-            GL.CreateBuffers(1, parametersBuffer)
-            GL.NamedBufferStorage(parametersBuffer, 256, IntPtr.Zero, BufferStorageFlags.None)
+            GL.CreateBuffers(1, MapGL.Buffers.parameters)
+            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.parameters, -1, "parameters")
+            GL.NamedBufferStorage(MapGL.Buffers.parameters, 256, IntPtr.Zero, BufferStorageFlags.None)
 
-            GL.CreateBuffers(1, drawCandidatesBuffer)
-            GL.NamedBufferStorage(drawCandidatesBuffer, indirectDrawCount * Marshal.SizeOf(Of CandidateDraw)(), drawCommands, BufferStorageFlags.None)
+            GL.CreateBuffers(1, MapGL.Buffers.drawCandidates)
+            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.drawCandidates, -1, "drawCandidates")
+            GL.NamedBufferStorage(MapGL.Buffers.drawCandidates, MapGL.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw)(), drawCommands, BufferStorageFlags.None)
             Erase drawCommands
 
-            GL.CreateBuffers(1, indirectBuffer)
-            GL.NamedBufferStorage(indirectBuffer, indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand)(), IntPtr.Zero, BufferStorageFlags.None)
+            GL.CreateBuffers(1, MapGL.Buffers.indirect)
+            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, -1, "indirect")
+            GL.NamedBufferStorage(MapGL.Buffers.indirect, MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand)(), IntPtr.Zero, BufferStorageFlags.None)
 
-            GL.CreateBuffers(1, matricesBuffer)
-            GL.NamedBufferStorage(matricesBuffer, matrices.Length * Marshal.SizeOf(Of ModelInstance)(), matrices, BufferStorageFlags.None)
+            GL.CreateBuffers(1, MapGL.Buffers.matrices)
+            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, -1, "matrices")
+            GL.NamedBufferStorage(MapGL.Buffers.matrices, matrices.Length * Marshal.SizeOf(Of ModelInstance)(), matrices, BufferStorageFlags.None)
             Erase matrices
 
-            GL.CreateBuffers(1, vertsBuffer)
-            GL.NamedBufferStorage(vertsBuffer, vBuffer.Length * Marshal.SizeOf(Of ModelVertex)(), vBuffer, BufferStorageFlags.None)
+            GL.CreateBuffers(1, MapGL.Buffers.verts)
+            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.verts, -1, "verts")
+            GL.NamedBufferStorage(MapGL.Buffers.verts, vBuffer.Length * Marshal.SizeOf(Of ModelVertex)(), vBuffer, BufferStorageFlags.None)
             Erase vBuffer
 
-            GL.CreateBuffers(1, vertsUV2Buffer)
-            GL.NamedBufferStorage(vertsUV2Buffer, uv2Buffer.Length * Marshal.SizeOf(Of Vector2)(), uv2Buffer, BufferStorageFlags.None)
+            GL.CreateBuffers(1, MapGL.Buffers.vertsUV2)
+            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.vertsUV2, -1, "vertsUV2")
+            GL.NamedBufferStorage(MapGL.Buffers.vertsUV2, uv2Buffer.Length * Marshal.SizeOf(Of Vector2)(), uv2Buffer, BufferStorageFlags.None)
             Erase uv2Buffer
 
-            GL.CreateBuffers(1, primsBuffer)
-            GL.NamedBufferStorage(primsBuffer, iBuffer.Length * Marshal.SizeOf(Of vect3_32)(), iBuffer, BufferStorageFlags.None)
+            GL.CreateBuffers(1, MapGL.Buffers.prims)
+            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.prims, -1, "prims")
+            GL.NamedBufferStorage(MapGL.Buffers.prims, iBuffer.Length * Marshal.SizeOf(Of vect3_32)(), iBuffer, BufferStorageFlags.None)
             Erase iBuffer
 
-            GL.CreateVertexArrays(1, vertexArray)
+            GL.CreateVertexArrays(1, MapGL.VertexArrays.allMapModels)
+            GL.ObjectLabel(ObjectLabelIdentifier.VertexArray, MapGL.VertexArrays.allMapModels, -1, "allMapModels")
 
             'pos
-            GL.VertexArrayVertexBuffer(vertexArray, 0, vertsBuffer, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(vertexArray, 0, 3, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(vertexArray, 0, 0)
-            GL.EnableVertexArrayAttrib(vertexArray, 0)
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 0, MapGL.Buffers.verts, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 0, 3, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 0, 0)
+            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 0)
 
             'normal
-            GL.VertexArrayVertexBuffer(vertexArray, 1, vertsBuffer, New IntPtr(12), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(vertexArray, 1, 4, VertexAttribType.HalfFloat, False, 0)
-            GL.VertexArrayAttribBinding(vertexArray, 1, 1)
-            GL.EnableVertexArrayAttrib(vertexArray, 1)
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 1, MapGL.Buffers.verts, New IntPtr(12), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 1, 4, VertexAttribType.HalfFloat, False, 0)
+            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 1, 1)
+            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 1)
 
             'tangent
-            GL.VertexArrayVertexBuffer(vertexArray, 2, vertsBuffer, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(vertexArray, 2, 4, VertexAttribType.HalfFloat, False, 0)
-            GL.VertexArrayAttribBinding(vertexArray, 2, 2)
-            GL.EnableVertexArrayAttrib(vertexArray, 2)
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 2, MapGL.Buffers.verts, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 2, 4, VertexAttribType.HalfFloat, False, 0)
+            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 2, 2)
+            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 2)
 
             'binormal
-            GL.VertexArrayVertexBuffer(vertexArray, 3, vertsBuffer, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(vertexArray, 3, 4, VertexAttribType.HalfFloat, False, 0)
-            GL.VertexArrayAttribBinding(vertexArray, 3, 3)
-            GL.EnableVertexArrayAttrib(vertexArray, 3)
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 3, MapGL.Buffers.verts, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 3, 4, VertexAttribType.HalfFloat, False, 0)
+            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 3, 3)
+            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 3)
 
             'uv
-            GL.VertexArrayVertexBuffer(vertexArray, 4, vertsBuffer, New IntPtr(36), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(vertexArray, 4, 2, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(vertexArray, 4, 4)
-            GL.EnableVertexArrayAttrib(vertexArray, 4)
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 4, MapGL.Buffers.verts, New IntPtr(36), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 4, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 4, 4)
+            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 4)
 
             'uv2
-            GL.VertexArrayVertexBuffer(vertexArray, 5, vertsUV2Buffer, IntPtr.Zero, Marshal.SizeOf(Of Vector2))
-            GL.VertexArrayAttribFormat(vertexArray, 5, 2, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(vertexArray, 5, 5)
-            GL.EnableVertexArrayAttrib(vertexArray, 5)
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 5, MapGL.Buffers.vertsUV2, IntPtr.Zero, Marshal.SizeOf(Of Vector2))
+            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 5, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 5, 5)
+            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 5)
 
-            GL.VertexArrayElementBuffer(vertexArray, primsBuffer)
+            GL.VertexArrayElementBuffer(MapGL.VertexArrays.allMapModels, MapGL.Buffers.prims)
 
             load_materials()
 
@@ -875,8 +900,9 @@ Module MapLoader
 
         materials = Nothing
 
-        GL.CreateBuffers(1, textureHandleBuffer)
-        GL.NamedBufferStorage(textureHandleBuffer, materialsData.Length * Marshal.SizeOf(Of GLMaterial)(), materialsData, BufferStorageFlags.None)
+        GL.CreateBuffers(1, MapGL.Buffers.materials)
+        GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.materials, -1, "materials")
+        GL.NamedBufferStorage(MapGL.Buffers.materials, materialsData.Length * Marshal.SizeOf(Of GLMaterial)(), materialsData, BufferStorageFlags.None)
     End Sub
     Private Sub draw_test_iamge(ByVal w As Integer, ByVal h As Integer, ByVal id As Integer)
 
@@ -892,7 +918,7 @@ Module MapLoader
 
     Private Function get_spaceBin(ByVal ABS_NAME As String) As Boolean
         Dim space_bin_file As Ionic.Zip.ZipEntry =
-            MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, "space.bin"))
+            Packages.MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, "space.bin"))
         If space_bin_file IsNot Nothing Then
             ' This is all new code -------------------
             Try

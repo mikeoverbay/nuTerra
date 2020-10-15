@@ -151,13 +151,13 @@ Module modRender
 
     Private Sub frustum_cull()
         'Bind And clear atomic counter
-        GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, parametersBuffer)
-        GL.ClearNamedBufferSubData(parametersBuffer, PixelInternalFormat.R32ui, IntPtr.Zero, Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, MapGL.Buffers.parameters)
+        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters, PixelInternalFormat.R32ui, IntPtr.Zero, Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         'Bind shader storage buffers
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, drawCandidatesBuffer)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, indirectBuffer)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, matricesBuffer)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.drawCandidates)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, MapGL.Buffers.indirect)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, MapGL.Buffers.matrices)
 
         cullShader.Use()
 
@@ -175,7 +175,7 @@ Module modRender
             GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
         End If
 
-        GL.DispatchCompute(numModelInstances, 1, 1)
+        GL.DispatchCompute(MapGL.numModelInstances, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 
@@ -404,13 +404,13 @@ Module modRender
         TOTAL_TRIANGLES_DRAWN = 0
         PRIMS_CULLED = 0
 
-        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, indirectBuffer)
-        GL.BindBuffer(DirectCast(33006, BufferTarget), parametersBuffer)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, matricesBuffer)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, drawCandidatesBuffer)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, textureHandleBuffer)
-        GL.BindVertexArray(vertexArray)
-        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, indirectDrawCount, 0)
+        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
+        GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.matrices)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, MapGL.Buffers.drawCandidates)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, MapGL.Buffers.materials)
+        GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
         GL.Disable(EnableCap.CullFace)
 
@@ -429,7 +429,7 @@ Module modRender
             GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
 
-            GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, indirectDrawCount, 0)
+            GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
             normalShader.StopUse()
 
@@ -444,7 +444,7 @@ Module modRender
             GL.UniformMatrix4(boxShader("view"), False, VIEWMATRIX)
 
             GL.BindVertexArray(defaultVao)
-            GL.DrawArrays(PrimitiveType.Points, 0, numModelInstances)
+            GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numModelInstances)
 
             boxShader.StopUse()
         End If

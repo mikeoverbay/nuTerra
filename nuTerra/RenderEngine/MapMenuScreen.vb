@@ -125,9 +125,9 @@ Module MapMenuScreen
             Dim itm = thing.name
             If Not itm.Contains("#") Then
                 Dim ar = itm.Split(":")
-                Dim entry As ZipEntry = GUI_PACKAGE("gui/maps/icons/map/stats/" + ar(0))
-                If entry Is Nothing And GUI_PACKAGE_PART2 IsNot Nothing Then
-                    entry = GUI_PACKAGE_PART2("gui/maps/icons/map/stats/" + ar(0))
+                Dim entry As ZipEntry = Packages.GUI_PACKAGE("gui/maps/icons/map/stats/" + ar(0))
+                If entry Is Nothing And Packages.GUI_PACKAGE_PART2 IsNot Nothing Then
+                    entry = Packages.GUI_PACKAGE_PART2("gui/maps/icons/map/stats/" + ar(0))
                 End If
                 Dim ms2 = New MemoryStream
                 entry.Extract(ms2)
@@ -136,7 +136,7 @@ Module MapMenuScreen
                 cnt += 1
             End If
         Next
-        Dim entry2 As ZipEntry = GUI_PACKAGE("gui/maps/bg.png")
+        Dim entry2 As ZipEntry = Packages.GUI_PACKAGE("gui/maps/bg.png")
         Dim ms As New MemoryStream
         entry2.Extract(ms)
         MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
