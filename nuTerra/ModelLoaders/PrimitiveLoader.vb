@@ -370,11 +370,11 @@ Module PrimitiveLoader
 
                     If renderSet.has_tangent Then
                         'tangents
-                        Dim v3 = unpackNormal(br.ReadUInt32)
+                        Dim v3 = unpackNormal_8_8_8(br.ReadUInt32)
                         .tangent.X = -v3.X
                         .tangent.Y = v3.Y
                         .tangent.Z = v3.Z
-                        v3 = unpackNormal(br.ReadUInt32)
+                        v3 = unpackNormal_8_8_8(br.ReadUInt32)
                         .binormal.X = -v3.X
                         .binormal.Y = v3.Y
                         .binormal.Z = v3.Z

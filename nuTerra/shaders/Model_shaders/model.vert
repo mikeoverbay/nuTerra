@@ -63,8 +63,7 @@ void main(void)
     vs_out.TC2 = vertexTexCoord2;
 
     mat4 modelView = view * thisModel.matrix;
-    // TODO: mat3 normalMatrix = mat3(transpose(inverse(modelView)));
-    mat3 normalMatrix = (mat3(modelView));
+    mat3 normalMatrix = mat3(transpose(inverse(modelView)));
 
     // Transform position & normal to world space
     vs_out.worldPosition = vec3(modelView * vec4(vertexPosition, 1.0f));
