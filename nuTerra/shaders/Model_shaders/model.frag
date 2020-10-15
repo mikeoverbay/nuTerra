@@ -195,7 +195,6 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     gGMF.g = MAO.r;
         
     vec3 bump;
-    GBMT.ga = normalize(GBMT.ga);
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
     bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
@@ -221,7 +220,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     UVs = zeroONE*fs_in.scale_4 + fs_in.offset_4;
     uv4 = UVs + fs_in.UV4;
 
-    float mip = mip_map_level(fs_in.TC1);
+    float mip = mip_map_level(fs_in.TC2);
     vec4 BLEND = texture2D(thisMaterial.maps[3],uv4);
 
     vec4 colorAM_1 = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
@@ -271,10 +270,10 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     gGMF.g = MAO.r;
 
     vec3 bump;
-    GBMT = mix(globalTex, GBMT, 0.5);
-    GBMT.ga = normalize(GBMT.ga);
+
+    GBMT = mix(GBMT, globalTex, 0.5); // mix in the global NormalMap
+
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
-    tb = vec2(globalTex.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
     bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
     gNormal = normalize(fs_in.TBN * bump);

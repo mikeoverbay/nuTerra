@@ -20,6 +20,10 @@ Public Class frmMain
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         _STARTED = False
+        If frmGbufferViewer.Visible Then
+            frmGbufferViewer.Visible = False
+            frmGbufferViewer.Dispose()
+        End If
         remove_map_data()
     End Sub
 
@@ -145,6 +149,7 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         Me.Show()
         '-----------------------------------------------------------------------------------------
+
         ' we dont want menu events while the app is initializing :)
         MainMenuStrip.Enabled = False
         '-----------------------------------------------------------------------------------------

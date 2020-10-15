@@ -573,6 +573,7 @@ Module MapLoader
         Dim texturePaths As New HashSet(Of String)
         Dim atlasPaths As New HashSet(Of String)
 
+
         For Each mat In materials.Values
             Select Case mat.shader_type
                 Case ShaderTypes.FX_PBS_ext
@@ -623,9 +624,17 @@ Module MapLoader
             End Select
         Next
 
+        'load atlases
+        'Set bargraph up
+        BG_TEXT = "Loading Model Materials..."
+        BG_VALUE = 0
+        BG_MAX_VALUE = texturePaths.Count
+        draw_scene()
+
+
         Dim maxAniso As Single
         GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
-        'load atlases
+
         Dim textureHandles As New Dictionary(Of String, UInt64)
         For Each atlasPath In atlasPaths
             If atlasPath.EndsWith(".dds") Then
@@ -644,6 +653,10 @@ Module MapLoader
                 Stop
                 Continue For
             End If
+
+            'update bargraph
+            BG_VALUE += 1
+            draw_scene()
 
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -697,6 +710,7 @@ Module MapLoader
             Dim fullWidth As Integer
             Dim fullHeight As Integer
             Dim multiplierX, multiplierY As Single
+            Application.DoEvents() 'stop freezing the UI
             For i = 0 To atlasParts.Count - 1
                 Dim coords = atlasParts(i)
 
@@ -757,11 +771,11 @@ Module MapLoader
                 End Using
             Next
             GL.GenerateTextureMipmap(atlas_tex)
-            'If atlasPath.ToLower.Contains("EU_NewCity_01_atlas_AM".ToLower) Then
-            'GL.Clear(ClearBufferMask.ColorBufferBit)
-            'draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
-            'Stop
-            'End If
+            If atlasPath.ToLower.Contains("hd_env_EU_001_Cliff_rocks_atlas".ToLower) Then
+                GL.Clear(ClearBufferMask.ColorBufferBit)
+                draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
+                Stop
+            End If
 
             Dim handle = GL.Arb.GetTextureHandle(atlas_tex)
             GL.Arb.MakeTextureHandleResident(handle)
@@ -771,6 +785,7 @@ Module MapLoader
 
         'load textures
         For Each texturePath In texturePaths
+            Application.DoEvents() 'stop freezing the UI
             Dim old_texturePath = texturePath
             If Not texturePath.EndsWith(".dds") Then
                 'Stop
@@ -797,6 +812,10 @@ Module MapLoader
                 Stop
                 Continue For
             End If
+
+            'update bargraph
+            BG_VALUE += 1
+            draw_scene()
 
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -896,6 +915,8 @@ Module MapLoader
                         'Stop
                 End Select
             End With
+            Application.DoEvents() 'stop freezing the UI
+
         Next
 
         materials = Nothing
