@@ -203,7 +203,7 @@ Module modSpaceBin
                     Dim prims_name = cBWST.find_str(renderItem.prims_name_fnv)
 
                     Dim pGroup As New PrimitiveGroup
-                    apply_material_for_pgroup(pGroup, renderItem.material_index)
+                    apply_material_for_pgroup(pGroup, renderItem.material_index, Path.GetDirectoryName(verts_name))
 
                     If Not dict.ContainsKey(verts_name) Then
                         Dim rs As New RenderSetEntry With {
@@ -304,7 +304,7 @@ CleanUp:
         Next
     End Function
 
-    Private Sub apply_material_for_pgroup(pGroup As PrimitiveGroup, material_id As Integer)
+    Private Sub apply_material_for_pgroup(pGroup As PrimitiveGroup, material_id As Integer, ByVal model_name As String)
         Dim item = cBSMA.MaterialItem(material_id)
 
         If item.shaderPropBegin = &HFFFFFFFFUI Then
@@ -564,7 +564,17 @@ CleanUp:
 
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
 
-                        .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(4, 4, 8, 4))
+                        If Not props.ContainsKey("g_atlasSizes") Then
+                            'If .atlasBlend.ToLower.Contains("hd_envAF_033_Cliff_rocks_Atlas_Blend.png".ToLower) Then
+                            '    .g_atlasSizes = New Vector4(2, 2, 8, 1)
+                            '    GoTo got_it0
+                            'End If
+                            LogThis("tiled_atlas: Missing Atlas Size: " + props("atlasAlbedoHeight") + vbCrLf + "Model: " + model_name)
+
+                            .g_atlasSizes = New Vector4(4, 4, 8, 4) 'default
+                        End If
+
+got_it0:
 
                         .g_tile0Tint = If(props.ContainsKey("g_tile0Tint"), props("g_tile0Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .g_tile1Tint = If(props.ContainsKey("g_tile1Tint"), props("g_tile1Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
@@ -628,16 +638,43 @@ CleanUp:
 
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
 
-                        If Not props.ContainsKey("g_atlasSizes") Then
-                            LogThis("Missing Atlas Size: " + props("atlasAlbedoHeight"))
-                        End If
 
                         'hack! Must be a better way to store this when the atlas is created!
-                        If .atlasBlend.ToLower.Contains("hd_env_EU_001_Cliff_rocks_atlas".ToLower) Then
-                            .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(2, 2, 8, 1))
-                        Else
+                        If Not props.ContainsKey("g_atlasSizes") Then
+
+                            If model_name.Contains("hd_envAF_033_Cliff_rocks\normal\lod0\hd_envAF_033_Cliff_rock_02.primitives") Then
+                                .g_atlasSizes = New Vector4(2, 2, 8, 1)
+                                GoTo got_it
+                            End If
+                            If model_name.Contains("hd_envAF_033_Cliff_rocks\normal\lod0\hd_envAF_033_Cliff_rock_01.primitives") Then
+                                .g_atlasSizes = New Vector4(4, 4, 8, 1)
+                                GoTo got_it
+                            End If
+                            If model_name.Contains("hd_envAF_033_Cliff_rocks\normal\lod0\hd_envAF_033_Cliff_rock_03.primitives") Then
+                                .g_atlasSizes = New Vector4(4, 4, 8, 1)
+                                GoTo got_it
+                            End If
+                            If model_name.Contains("hd_envAF_033_Cliff_rocks\normal\lod0\hd_envAF_033_Cliff_rock_05.primitives") Then
+                                .g_atlasSizes = New Vector4(4, 4, 8, 1)
+                                GoTo got_it
+                            End If
+
+                            '-------------------------------------------------------------------------------------------------
+                            LogThis("atlas_global: Missing Atlas Size: " + props("atlasAlbedoHeight") +
+                                    vbCrLf + "Model: " + model_name)
+
+                            Dim zipfile = search_pkgs(model_name.Replace(".primitives", ".visual_processed").Replace("\", "/"))
+                            If zipfile IsNot Nothing Then
+                                Dim ms As New MemoryStream
+                                zipfile.Extract(ms)
+                                openXml_stream(ms, Path.GetFileName(model_name.Replace(".primitive", ".visual_processed")))
+                                LogThis("Visual -------------------------------------------")
+                                LogThis(TheXML_String + vbCrLf)
+                            End If
+                            '-------------------------------------------------------------------------------------------------
+                            .g_atlasSizes = New Vector4(4, 4, 8, 4) 'default
                         End If
-                        .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(4, 4, 8, 4))
+got_it:
                         .g_tile0Tint = If(props.ContainsKey("g_tile0Tint"), props("g_tile0Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .g_tile1Tint = If(props.ContainsKey("g_tile1Tint"), props("g_tile1Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .g_tile2Tint = If(props.ContainsKey("g_tile2Tint"), props("g_tile2Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
@@ -667,7 +704,7 @@ CleanUp:
             End Select
 
             materials(material_id) = mat
-            End If
+        End If
     End Sub
 
 End Module

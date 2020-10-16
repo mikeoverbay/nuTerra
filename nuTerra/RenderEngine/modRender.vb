@@ -425,7 +425,7 @@ Module modRender
 
             GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
             GL.UniformMatrix4(normalShader("view"), False, VIEWMATRIX)
-            GL.Uniform1(normalShader("prj_length"), 0.1F)
+            GL.Uniform1(normalShader("prj_length"), 0.3F)
             GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
 

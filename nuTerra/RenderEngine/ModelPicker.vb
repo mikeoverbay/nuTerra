@@ -11,7 +11,6 @@ Module ModelPicker
         GL.GetInteger(GetPName.Viewport, viewport)
         ' get pixel
         Dim pixel(1) As UInt16
-        GL.ReadBuffer(ReadBufferMode.Back)
         GL.NamedFramebufferReadBuffer(FBO_main.mainFBO, ReadBufferMode.ColorAttachment4)
         GL.ReadPixels(MOUSE.X, viewport(3) - MOUSE.Y, 1, 1, PixelFormat.RedInteger, PixelType.UnsignedInt, pixel)
         Dim index As UInt32 = pixel(0) ' + (pixel(1) * 255)
