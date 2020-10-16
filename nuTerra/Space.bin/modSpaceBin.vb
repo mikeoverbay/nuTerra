@@ -563,6 +563,7 @@ CleanUp:
                         .dirtParams = If(props.ContainsKey("dirtParams"), props("dirtParams"), New Vector4(1.0, 1.0, 1.0, 1.0))
 
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
+                        .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(0, 0, 0, 0))
 
                         If Not props.ContainsKey("g_atlasSizes") Then
                             'If .atlasBlend.ToLower.Contains("hd_envAF_033_Cliff_rocks_Atlas_Blend.png".ToLower) Then
@@ -637,8 +638,24 @@ got_it0:
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
 
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
+                        .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(0, 0, 0, 0))
 
+                        If Not props.ContainsKey("g_atlasIndexes") Then
+                            '-------------------------------------------------------------------------------------------------
+                            LogThis("atlas_global: Missing Atlas Size: " + props("atlasAlbedoHeight") +
+                                    vbCrLf + "Model: " + model_name)
 
+                            Dim zipfile = search_pkgs(model_name.Replace(".primitives", ".visual_processed").Replace("\", "/"))
+                            If zipfile IsNot Nothing Then
+                                Dim ms As New MemoryStream
+                                zipfile.Extract(ms)
+                                openXml_stream(ms, Path.GetFileName(model_name.Replace(".primitive", ".visual_processed")))
+                                LogThis("Visual -------------------------------------------")
+                                LogThis(TheXML_String + vbCrLf)
+                            End If
+                            '-------------------------------------------------------------------------------------------------
+
+                        End If
                         'hack! Must be a better way to store this when the atlas is created!
                         If Not props.ContainsKey("g_atlasSizes") Then
 
