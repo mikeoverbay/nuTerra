@@ -13,18 +13,18 @@ layout(location = 3) in vec4 vertexBinormal;
 layout(location = 4) in vec2 vertexTexCoord1;
 layout(location = 5) in vec2 vertexTexCoord2;
 
-layout (binding = 0, std430) readonly buffer MODEL_MATRIX_BLOCK
+layout (binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
 {
     ModelInstance models[];
 };
 
-layout (binding = 1, std430) readonly buffer CandidateDraws
+layout (binding = DRAW_CANDIDATES_BASE, std430) readonly buffer CandidateDraws
 {
     CandidateDraw draw[];
 };
 
 // Material block
-layout (binding = 2, std430) readonly buffer MATERIALS
+layout (binding = MATERIALS_BASE, std430) readonly buffer MATERIALS
 {
     MaterialProperties material[];
 };

@@ -34,7 +34,7 @@ in VS_OUT
 
 
 // Material block
-layout (binding = 2, std430) readonly buffer MATERIALS
+layout (binding = MATERIALS_BASE, std430) readonly buffer MATERIALS
 {
     MaterialProperties material[];
 };

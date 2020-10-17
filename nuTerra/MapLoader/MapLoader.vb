@@ -460,19 +460,23 @@ Module MapLoader
             GL.CreateBuffers(1, MapGL.Buffers.parameters)
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.parameters, -1, "parameters")
             GL.NamedBufferStorage(MapGL.Buffers.parameters, 256, IntPtr.Zero, BufferStorageFlags.None)
+            GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, MapGL.Buffers.parameters)
 
             GL.CreateBuffers(1, MapGL.Buffers.drawCandidates)
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.drawCandidates, -1, "drawCandidates")
             GL.NamedBufferStorage(MapGL.Buffers.drawCandidates, MapGL.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw)(), drawCommands, BufferStorageFlags.None)
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, MapGL.Buffers.drawCandidates)
             Erase drawCommands
 
             GL.CreateBuffers(1, MapGL.Buffers.indirect)
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, -1, "indirect")
             GL.NamedBufferStorage(MapGL.Buffers.indirect, MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand)(), IntPtr.Zero, BufferStorageFlags.None)
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, MapGL.Buffers.indirect)
 
             GL.CreateBuffers(1, MapGL.Buffers.matrices)
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, -1, "matrices")
             GL.NamedBufferStorage(MapGL.Buffers.matrices, matrices.Length * Marshal.SizeOf(Of ModelInstance)(), matrices, BufferStorageFlags.None)
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.matrices)
             Erase matrices
 
             GL.CreateVertexArrays(1, MapGL.VertexArrays.allMapModels)
@@ -926,7 +930,9 @@ Module MapLoader
         GL.CreateBuffers(1, MapGL.Buffers.materials)
         GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.materials, -1, "materials")
         GL.NamedBufferStorage(MapGL.Buffers.materials, materialsData.Length * Marshal.SizeOf(Of GLMaterial)(), materialsData, BufferStorageFlags.None)
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 3, MapGL.Buffers.materials)
     End Sub
+
     Private Sub draw_test_iamge(ByVal w As Integer, ByVal h As Integer, ByVal id As Integer)
 
         Dim ww = frmMain.glControl_main.ClientRectangle.Width

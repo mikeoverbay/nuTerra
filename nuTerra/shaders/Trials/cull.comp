@@ -6,22 +6,22 @@
 layout (local_size_x = 1) in;
 
 
-layout (binding = 0, std430) readonly buffer CandidateDraws
+layout (binding = DRAW_CANDIDATES_BASE, std430) readonly buffer CandidateDraws
 {
     CandidateDraw draw[];
 };
 
-layout (binding = 1, std430) writeonly buffer OutputDraws
+layout (binding = INDIRECT_BASE, std430) writeonly buffer OutputDraws
 {
     DrawElementsIndirectCommand command[];
 };
 
-layout(binding = 2, std430) readonly buffer MODEL_MATRIX_BLOCK
+layout(binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
 {
     ModelInstance models[];
 };
 
-layout (binding = 0, offset = 0) uniform atomic_uint commandCounter;
+layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
 
 uniform mat4 projection;
 uniform mat4 view;

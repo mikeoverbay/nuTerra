@@ -1,3 +1,8 @@
+#define PARAMETERS_BASE 0
+#define MATRICES_BASE 0
+#define DRAW_CANDIDATES_BASE 1
+#define INDIRECT_BASE 2
+#define MATERIALS_BASE 3
 
 struct CandidateDraw
 {

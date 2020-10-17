@@ -9,14 +9,9 @@ layout (line_strip, max_vertices = 24) out;
 uniform mat4 projection;
 uniform mat4 view;
 
-layout (binding = 0, std430) readonly buffer MODEL_MATRIX_BLOCK
+layout (binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
 {
     ModelInstance models[];
-};
-
-layout (binding = 1, std430) readonly buffer CandidateDraws
-{
-    CandidateDraw draw[];
 };
 
 void main(void)

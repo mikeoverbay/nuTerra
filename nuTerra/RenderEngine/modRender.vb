@@ -150,14 +150,8 @@ Module modRender
     End Sub
 
     Private Sub frustum_cull()
-        'Bind And clear atomic counter
-        GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, MapGL.Buffers.parameters)
+        'clear atomic counter
         GL.ClearNamedBufferSubData(MapGL.Buffers.parameters, PixelInternalFormat.R32ui, IntPtr.Zero, Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
-
-        'Bind shader storage buffers
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.drawCandidates)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, MapGL.Buffers.indirect)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, MapGL.Buffers.matrices)
 
         cullShader.Use()
 
@@ -406,9 +400,6 @@ Module modRender
 
         GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
         GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.matrices)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, MapGL.Buffers.drawCandidates)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, MapGL.Buffers.materials)
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
