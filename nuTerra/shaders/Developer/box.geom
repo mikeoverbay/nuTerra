@@ -6,8 +6,10 @@
 layout (points) in;
 layout (line_strip, max_vertices = 24) out;
 
-uniform mat4 projection;
-uniform mat4 view;
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+    mat4 view;
+    mat4 projection;
+};
 
 layout (binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
 {

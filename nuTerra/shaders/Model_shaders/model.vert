@@ -1,5 +1,5 @@
 ﻿// gWriter vertex Shader. We will use this as a template for other shaders
-#version 460 core
+#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shader_draw_parameters : require
@@ -18,7 +18,7 @@ layout (binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
     ModelInstance models[];
 };
 
-layout (binding = DRAW_CANDIDATES_BASE, std430) readonly buffer CandidateDraws
+layout (binding = DRAW_CANDIDATES_BASE, std430) readonly buffer DRAW_CANDIDATES
 {
     CandidateDraw draw[];
 };
@@ -27,6 +27,11 @@ layout (binding = DRAW_CANDIDATES_BASE, std430) readonly buffer CandidateDraws
 layout (binding = MATERIALS_BASE, std430) readonly buffer MATERIALS
 {
     MaterialProperties material[];
+};
+
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+    mat4 view;
+    mat4 projection;
 };
 
 out VS_OUT
@@ -46,9 +51,6 @@ out VS_OUT
     vec2 offset_123;
     vec2 offset_4;
 } vs_out;
-
-uniform mat4 projection;
-uniform mat4 view;
 
 void main(void)
 {

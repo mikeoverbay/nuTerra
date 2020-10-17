@@ -22,7 +22,7 @@ Module modFrustum
 
         Dim clip As New Matrix4
         ' Combine the two matrices (multiply projection by modelview) 
-        clip = Matrix4.Mult(VIEWMATRIX, PROJECTIONMATRIX)
+        clip = Matrix4.Mult(PerFrameData.view, PerFrameData.projection)
 
 
         ' Extract the numbers for the RIGHT plane 

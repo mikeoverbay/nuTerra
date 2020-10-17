@@ -41,6 +41,8 @@ Module modRender
         set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
+        GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 1, PerFrameDataBuffer)
+
         '===========================================================================
         CULLED_COUNT = 0
         cull_timer.Restart()
@@ -157,16 +159,16 @@ Module modRender
 
         If FREEZE_FRUSTUM Then
             If Not MATRICES_FROZEN Then
-                FROZEN_PROJECTIONMATRIX = PROJECTIONMATRIX
-                FROZEN_VIEWMATRIX = VIEWMATRIX
+                FROZEN_PROJECTIONMATRIX = PerFrameData.projection
+                FROZEN_VIEWMATRIX = PerFrameData.view
                 MATRICES_FROZEN = True
             End If
             GL.UniformMatrix4(cullShader("projection"), False, FROZEN_PROJECTIONMATRIX)
             GL.UniformMatrix4(cullShader("view"), False, FROZEN_VIEWMATRIX)
         Else
             MATRICES_FROZEN = False
-            GL.UniformMatrix4(cullShader("projection"), False, PROJECTIONMATRIX)
-            GL.UniformMatrix4(cullShader("view"), False, VIEWMATRIX)
+            GL.UniformMatrix4(cullShader("projection"), False, PerFrameData.projection)
+            GL.UniformMatrix4(cullShader("view"), False, PerFrameData.view)
         End If
 
         GL.DispatchCompute(MapGL.numModelInstances, 1, 1)
@@ -214,9 +216,6 @@ Module modRender
         ' Set this texture to 0 to test LQ/HQ transitions
         GL.BindTextureUnit(0, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
         GL.BindTextureUnit(1, m_normal_id)
-
-        GL.UniformMatrix4(5, False, VIEWMATRIX)
-        GL.UniformMatrix4(6, False, PROJECTIONMATRIX)
 
         GL.Uniform2(7, MAP_SIZE.X + 1, MAP_SIZE.Y + 1) 'map_size
         GL.Uniform2(8, -b_x_min, b_y_max) 'map_center
@@ -391,9 +390,6 @@ Module modRender
         Dim indices = {0, 1, 2, 3, 4, 5, 6, 7}
         GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
 
-        GL.UniformMatrix4(modelShader("projection"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(modelShader("view"), False, VIEWMATRIX)
-
         GL.Enable(EnableCap.CullFace)
         TOTAL_TRIANGLES_DRAWN = 0
         PRIMS_CULLED = 0
@@ -414,8 +410,6 @@ Module modRender
             FBOm.attach_CF()
             normalShader.Use()
 
-            GL.UniformMatrix4(normalShader("projection"), False, PROJECTIONMATRIX)
-            GL.UniformMatrix4(normalShader("view"), False, VIEWMATRIX)
             GL.Uniform1(normalShader("prj_length"), 0.3F)
             GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
@@ -431,8 +425,6 @@ Module modRender
             GL.Disable(EnableCap.DepthTest)
 
             boxShader.Use()
-            GL.UniformMatrix4(boxShader("projection"), False, PROJECTIONMATRIX)
-            GL.UniformMatrix4(boxShader("view"), False, VIEWMATRIX)
 
             GL.BindVertexArray(defaultVao)
             GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numModelInstances)
@@ -444,8 +436,6 @@ Module modRender
             GL.Disable(EnableCap.DepthTest)
             frustumShader.Use()
 
-            GL.UniformMatrix4(frustumShader("projection"), False, PROJECTIONMATRIX)
-            GL.UniformMatrix4(frustumShader("view"), False, VIEWMATRIX)
             GL.UniformMatrix4(frustumShader("frozen_projection"), False, FROZEN_PROJECTIONMATRIX)
             GL.UniformMatrix4(frustumShader("frozen_view"), False, FROZEN_VIEWMATRIX)
 

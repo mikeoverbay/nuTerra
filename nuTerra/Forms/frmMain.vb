@@ -1,6 +1,7 @@
 ﻿Imports System.Globalization
 Imports System.IO
 Imports System.Math
+Imports System.Runtime.InteropServices
 Imports System.Threading
 Imports System.Windows
 Imports OpenTK.Graphics.OpenGL
@@ -387,6 +388,10 @@ try_again:
         CAM_Y_ANGLE = -PI / 4
         ' Set initial light position and get radius and angle.
         set_light_pos()
+
+        GL.CreateBuffers(1, PerFrameDataBuffer)
+        GL.ObjectLabel(ObjectLabelIdentifier.Buffer, PerFrameDataBuffer, -1, "PerFrameData")
+        GL.NamedBufferStorage(PerFrameDataBuffer, Marshal.SizeOf(PerFrameData), IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
         'Everything is setup/loaded to show the main window.
         'Dispose of the no longer used Panel1

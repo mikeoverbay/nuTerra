@@ -1,12 +1,18 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shading_language_include : require
+#include "common.h"
+
 layout (points) in;
 layout (line_strip, max_vertices = 24) out;
 
 uniform mat4 frozen_projection;
 uniform mat4 frozen_view;
-uniform mat4 projection;
-uniform mat4 view;
+
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+    mat4 view;
+    mat4 projection;
+};
 
 const vec4 f[8] = vec4[8](
     // near

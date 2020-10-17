@@ -64,6 +64,14 @@ Module modOpenGL
         'Dim pad3 As UInt32
     End Structure
 
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure TPerFrameData
+        Public view As Matrix4
+        Public projection As Matrix4
+    End Structure
+    Public PerFrameData As New TPerFrameData
+    Public PerFrameDataBuffer As Integer
+
     Public Sub Ortho_main()
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
@@ -98,13 +106,14 @@ Module modOpenGL
         Dim position As New Vector3(CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
         Dim up As Vector3 = Vector3.UnitY
 
-        PROJECTIONMATRIX = Matrix4.CreatePerspectiveFieldOfView(
+        PerFrameData.projection = Matrix4.CreatePerspectiveFieldOfView(
                                    CSng(Math.PI) * (FieldOfView / 180.0F),
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
                                    PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
-        PROJECTIONMATRIX_Saved = PROJECTIONMATRIX
-        VIEWMATRIX = Matrix4.LookAt(position, target, up)
-        VIEWMATRIX_Saved = VIEWMATRIX
+        PROJECTIONMATRIX_Saved = PerFrameData.projection
+        PerFrameData.view = Matrix4.LookAt(position, target, up)
+        VIEWMATRIX_Saved = PerFrameData.view
+        GL.NamedBufferSubData(PerFrameDataBuffer, IntPtr.Zero, Marshal.SizeOf(PerFrameData), PerFrameData)
     End Sub
 
     Public Sub set_light_pos()

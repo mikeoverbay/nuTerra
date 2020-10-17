@@ -1,15 +1,13 @@
-﻿
-#version 430 core
+﻿#version 450 core
+
+#extension GL_ARB_shading_language_include : require
+#include "common.h"
 
 layout(location = 0) in vec2 vertexXZ;
 layout(location = 1) in float vertexY;
 layout(location = 2) in vec2 vertexTexCoord;
 layout(location = 3) in vec4 vertexNormal;
 layout(location = 4) in vec3 vertexTangent;
-
-//uniforms
-layout(location = 5) uniform mat4 viewMatrix;
-layout(location = 6) uniform mat4 projMatrix;
 
 layout(location = 7) uniform vec2 map_size;
 layout(location = 8) uniform vec2 map_center;
@@ -48,7 +46,12 @@ layout (std140, binding = 0 ) uniform Layers {
     float used_6;
     float used_7;
     float used_8;
-    };
+};
+
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+    mat4 view;
+    mat4 projection;
+};
 
 out vec4 Vertex;
 out float ln;
@@ -121,7 +124,7 @@ void main(void)
     //-------------------------------------------------------
 
     // vertex --> world pos
-    worldPosition = vec3(viewMatrix * modelMatrix * vec4(vertexPosition, 1.0f));
+    worldPosition = vec3(view * modelMatrix * vec4(vertexPosition, 1.0f));
 
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
     vec3 worldNormal = normalMatrix * VN;
@@ -136,7 +139,7 @@ void main(void)
     TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
-    gl_Position = projMatrix * viewMatrix * modelMatrix * vec4(vertexPosition, 1.0f);
+    gl_Position = projection * view * modelMatrix * vec4(vertexPosition, 1.0f);
    
     // This is the cut off distance for bumpping the surface.
     vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));

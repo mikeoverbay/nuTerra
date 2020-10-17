@@ -23,8 +23,8 @@ layout(binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
 
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
 
-uniform mat4 projection;
 uniform mat4 view;
+uniform mat4 projection;
 
 struct Frustum {
 	vec4 planes[6];
