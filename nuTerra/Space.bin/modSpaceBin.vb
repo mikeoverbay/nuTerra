@@ -563,14 +563,26 @@ CleanUp:
                         .dirtParams = If(props.ContainsKey("dirtParams"), props("dirtParams"), New Vector4(1.0, 1.0, 1.0, 1.0))
 
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
-                        .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(0, 0, 0, 0))
+                        .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(4, 4, 8, 4))
 
                         If Not props.ContainsKey("g_atlasSizes") Then
                             'If .atlasBlend.ToLower.Contains("hd_envAF_033_Cliff_rocks_Atlas_Blend.png".ToLower) Then
                             '    .g_atlasSizes = New Vector4(2, 2, 8, 1)
                             '    GoTo got_it0
                             'End If
-                            LogThis("tiled_atlas: Missing Atlas Size: " + props("atlasAlbedoHeight") + vbCrLf + "Model: " + model_name)
+                            ''-------------------------------------------------------------------------------------------------
+                            'LogThis("atlas_global: Missing Atlas Size: " + props("atlasAlbedoHeight") +
+                            '        vbCrLf + "Model: " + model_name)
+
+                            'Dim zipfile = search_pkgs(model_name.Replace(".primitives", ".visual_processed").Replace("\", "/"))
+                            'If zipfile IsNot Nothing Then
+                            '    Dim ms As New MemoryStream
+                            '    zipfile.Extract(ms)
+                            '    openXml_stream(ms, Path.GetFileName(model_name.Replace(".primitive", ".visual_processed")))
+                            '    LogThis("Visual -------------------------------------------")
+                            '    LogThis(TheXML_String + vbCrLf)
+                            'End If
+                            '-------------------------------------------------------------------------------------------------                            LogThis("tiled_atlas: Missing Atlas Size: " + props("atlasAlbedoHeight") + vbCrLf + "Model: " + model_name)
 
                             .g_atlasSizes = New Vector4(4, 4, 8, 4) 'default
                         End If
@@ -641,23 +653,29 @@ got_it0:
                         .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(0, 0, 0, 0))
 
                         If Not props.ContainsKey("g_atlasIndexes") Then
-                            '-------------------------------------------------------------------------------------------------
-                            LogThis("atlas_global: Missing Atlas Size: " + props("atlasAlbedoHeight") +
-                                    vbCrLf + "Model: " + model_name)
 
-                            Dim zipfile = search_pkgs(model_name.Replace(".primitives", ".visual_processed").Replace("\", "/"))
-                            If zipfile IsNot Nothing Then
-                                Dim ms As New MemoryStream
-                                zipfile.Extract(ms)
-                                openXml_stream(ms, Path.GetFileName(model_name.Replace(".primitive", ".visual_processed")))
-                                LogThis("Visual -------------------------------------------")
-                                LogThis(TheXML_String + vbCrLf)
-                            End If
-                            '-------------------------------------------------------------------------------------------------
 
                         End If
-                        'hack! Must be a better way to store this when the atlas is created!
+                        'hack! Must supply missing atlas sizes!
+
                         If Not props.ContainsKey("g_atlasSizes") Then
+                            'some entire folders use the same atlas sizes.
+                            'Some DONT.Every model must be checked that is missing atlas sizes.
+
+                            If model_name.Contains("hd_env_EU_001_Cliff_rocks\normal\") Then
+                                .g_atlasSizes = New Vector4(2, 2, 8, 1)
+                                GoTo got_it
+                            End If
+
+                            If model_name.Contains("hd_out_EU_002_Talus\normal\") Then
+                                .g_atlasSizes = New Vector4(2, 2, 8, 1)
+                                GoTo got_it
+                            End If
+
+                            If model_name.Contains("hd_env_EU_003_Cliff_rocks\normal\") Then
+                                .g_atlasSizes = New Vector4(2, 2, 8, 1)
+                                GoTo got_it
+                            End If
 
                             If model_name.Contains("hd_envAF_033_Cliff_rocks\normal\lod0\hd_envAF_033_Cliff_rock_02.primitives") Then
                                 .g_atlasSizes = New Vector4(2, 2, 8, 1)
