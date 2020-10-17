@@ -8,21 +8,6 @@ Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 
 Module MapLoader
-    <DllImport("msvcrt.dll", EntryPoint:="memcpy", CallingConvention:=CallingConvention.Cdecl)>
-    Private Sub CopyMemory(ByVal dest As IntPtr, ByVal src As IntPtr, ByVal count As Integer)
-    End Sub
-
-    Private Sub CopyManagedToUnmanaged(source As Array, destPtr As IntPtr, count As Integer)
-        Dim handle As GCHandle
-        Try
-            handle = GCHandle.Alloc(source, GCHandleType.Pinned)
-            Dim sourcePtr As IntPtr = handle.AddrOfPinnedObject()
-            CopyMemory(destPtr, sourcePtr, count)
-        Finally
-            If handle.IsAllocated = True Then handle.Free()
-        End Try
-    End Sub
-
     NotInheritable Class Packages
         ''' <summary>
         ''' WoT packages
@@ -377,18 +362,15 @@ Module MapLoader
 
             GL.CreateBuffers(1, MapGL.Buffers.verts)
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.verts, -1, "verts")
-            GL.NamedBufferStorage(MapGL.Buffers.verts, numVerts * vertex_size, IntPtr.Zero, BufferStorageFlags.MapWriteBit)
-            Dim vBufferPtr = GL.MapNamedBuffer(MapGL.Buffers.verts, BufferAccess.WriteOnly)
+            GL.NamedBufferStorage(MapGL.Buffers.verts, numVerts * vertex_size, IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
             GL.CreateBuffers(1, MapGL.Buffers.prims)
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.prims, -1, "prims")
-            GL.NamedBufferStorage(MapGL.Buffers.prims, numPrims * tri_size, IntPtr.Zero, BufferStorageFlags.MapWriteBit)
-            Dim iBufferPtr = GL.MapNamedBuffer(MapGL.Buffers.prims, BufferAccess.WriteOnly)
+            GL.NamedBufferStorage(MapGL.Buffers.prims, numPrims * tri_size, IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
             GL.CreateBuffers(1, MapGL.Buffers.vertsUV2)
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.vertsUV2, -1, "vertsUV2")
-            GL.NamedBufferStorage(MapGL.Buffers.vertsUV2, numVerts * uv2_size, IntPtr.Zero, BufferStorageFlags.MapWriteBit)
-            Dim uv2BufferPtr = GL.MapNamedBuffer(MapGL.Buffers.vertsUV2, BufferAccess.WriteOnly)
+            GL.NamedBufferStorage(MapGL.Buffers.vertsUV2, numVerts * uv2_size, IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
             Dim matrices(MapGL.numModelInstances - 1) As ModelInstance
             Dim cmdId = 0
@@ -429,11 +411,11 @@ Module MapLoader
 
                     baseVert += renderSet.numVertices
 
-                    CopyManagedToUnmanaged(renderSet.buffers.vertexBuffer, IntPtr.Add(vBufferPtr, vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size)
-                    CopyManagedToUnmanaged(renderSet.buffers.index_buffer32, IntPtr.Add(iBufferPtr, iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size)
+                    GL.NamedBufferSubData(MapGL.Buffers.verts, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
+                    GL.NamedBufferSubData(MapGL.Buffers.prims, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
 
                     If renderSet.buffers.uv2 IsNot Nothing Then
-                        CopyManagedToUnmanaged(renderSet.buffers.uv2, IntPtr.Add(uv2BufferPtr, vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size)
+                        GL.NamedBufferSubData(MapGL.Buffers.vertsUV2, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
                         Erase renderSet.buffers.uv2
                     End If
 
@@ -474,10 +456,6 @@ Module MapLoader
                     mLast += batch.count
                 End If
             Next
-
-            GL.UnmapNamedBuffer(MapGL.Buffers.verts)
-            GL.UnmapNamedBuffer(MapGL.Buffers.prims)
-            GL.UnmapNamedBuffer(MapGL.Buffers.vertsUV2)
 
             GL.CreateBuffers(1, MapGL.Buffers.parameters)
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.parameters, -1, "parameters")
