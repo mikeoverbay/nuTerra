@@ -78,9 +78,6 @@ Public Class frmMain
             Case Keys.E
                 frmEditFrag.Show()
 
-            Case Keys.F
-                FREEZE_FRUSTUM = FREEZE_FRUSTUM Xor True
-
             Case Keys.I
                 SHOW_CHUNK_IDs = SHOW_CHUNK_IDs Xor True
 
@@ -389,9 +386,9 @@ try_again:
         ' Set initial light position and get radius and angle.
         set_light_pos()
 
-        GL.CreateBuffers(1, PerFrameDataBuffer)
-        GL.ObjectLabel(ObjectLabelIdentifier.Buffer, PerFrameDataBuffer, -1, "PerFrameData")
-        GL.NamedBufferStorage(PerFrameDataBuffer, Marshal.SizeOf(PerFrameData), IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
+        GL.CreateBuffers(1, PerViewDataBuffer)
+        GL.ObjectLabel(ObjectLabelIdentifier.Buffer, PerViewDataBuffer, -1, "PerView")
+        GL.NamedBufferStorage(PerViewDataBuffer, Marshal.SizeOf(PerViewData), IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
         'Everything is setup/loaded to show the main window.
         'Dispose of the no longer used Panel1

@@ -6,9 +6,12 @@
 layout (points) in;
 layout (line_strip, max_vertices = 24) out;
 
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     mat4 view;
     mat4 projection;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraPos;
 };
 
 layout (binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
@@ -20,7 +23,7 @@ void main(void)
 {
     const ModelInstance thisModel = models[gl_PrimitiveIDIn];
 
-    const mat4 MVP = projection * view * thisModel.matrix;
+    const mat4 MVP = viewProj * thisModel.matrix;
     const vec3 bmin = thisModel.bmin;
     const vec3 bmax = thisModel.bmax;
 

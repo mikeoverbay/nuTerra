@@ -1,4 +1,4 @@
-﻿#version 430 core
+﻿#version 450 core
 
 uniform mat4 ProjectionMatrix;
 uniform vec4 rect;

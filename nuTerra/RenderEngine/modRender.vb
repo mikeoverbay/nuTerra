@@ -41,7 +41,7 @@ Module modRender
         set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
-        GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 1, PerFrameDataBuffer)
+        GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 1, PerViewDataBuffer)
 
         '===========================================================================
         CULLED_COUNT = 0
@@ -74,11 +74,9 @@ Module modRender
             '=======================================================================
             draw_terrain() '========================================================
             '=======================================================================
-            draw_terrain_grids() '==================================================
+            If (SHOW_BORDER + SHOW_CHUNKS + SHOW_GRID) > 0 Then draw_terrain_grids()
             '=======================================================================
         End If
-
-
 
         'setup for projection before drawing
         FBOm.attach_C_no_Depth()
@@ -88,7 +86,7 @@ Module modRender
         GL.Enable(EnableCap.CullFace)
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         '===========================================================================
-        draw_map_cursor() '=========================================================
+        If SHOW_CURSOR Then draw_map_cursor() '=========================================================
         '===========================================================================
 
         '===========================================================================
@@ -152,33 +150,25 @@ Module modRender
     End Sub
 
     Private Sub frustum_cull()
+        GL_PUSH_GROUP("frustum_cull")
+
         'clear atomic counter
         GL.ClearNamedBufferSubData(MapGL.Buffers.parameters, PixelInternalFormat.R32ui, IntPtr.Zero, Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         cullShader.Use()
-
-        If FREEZE_FRUSTUM Then
-            If Not MATRICES_FROZEN Then
-                FROZEN_PROJECTIONMATRIX = PerFrameData.projection
-                FROZEN_VIEWMATRIX = PerFrameData.view
-                MATRICES_FROZEN = True
-            End If
-            GL.UniformMatrix4(cullShader("projection"), False, FROZEN_PROJECTIONMATRIX)
-            GL.UniformMatrix4(cullShader("view"), False, FROZEN_VIEWMATRIX)
-        Else
-            MATRICES_FROZEN = False
-            GL.UniformMatrix4(cullShader("projection"), False, PerFrameData.projection)
-            GL.UniformMatrix4(cullShader("view"), False, PerFrameData.view)
-        End If
 
         GL.DispatchCompute(MapGL.numModelInstances, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 
         cullShader.StopUse()
+
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_terrain()
+        GL_PUSH_GROUP("draw_terrain")
+
         If WIRE_TERRAIN Then
             GL.PolygonOffset(1.2, 0.2)
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
@@ -217,18 +207,17 @@ Module modRender
         GL.BindTextureUnit(0, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
         GL.BindTextureUnit(1, m_normal_id)
 
-        GL.Uniform2(7, MAP_SIZE.X + 1, MAP_SIZE.Y + 1) 'map_size
-        GL.Uniform2(8, -b_x_min, b_y_max) 'map_center
-        GL.Uniform3(9, CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
+        GL.Uniform2(TerrainLQShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
+        GL.Uniform2(TerrainLQShader("map_center"), -b_x_min, b_y_max)
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
 
-                GL.UniformMatrix4(10, False, theMap.render_set(i).matrix) 'viewMatrix
+                GL.UniformMatrix4(10, False, theMap.render_set(i).matrix)
 
                 GL.UniformMatrix3(11, True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
-                GL.Uniform2(12, theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
+                GL.Uniform2(TerrainLQShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
 
                 'draw chunk
                 GL.BindVertexArray(theMap.render_set(i).VAO)
@@ -261,12 +250,8 @@ Module modRender
         GL.BindTextureUnit(29, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
         GL.BindTextureUnit(30, m_normal_id)
 
-        GL.UniformMatrix4(5, False, VIEWMATRIX)
-        GL.UniformMatrix4(6, False, PROJECTIONMATRIX)
-
-        GL.Uniform2(7, MAP_SIZE.X + 1, MAP_SIZE.Y + 1) 'map_size
-        GL.Uniform2(8, -b_x_min, b_y_max) 'map_center
-        GL.Uniform3(9, CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
+        GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
+        GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
 
         GL.Uniform1(24, SHOW_TEST_TEXTURES) ' show_test
 
@@ -276,7 +261,7 @@ Module modRender
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
 
-                GL.UniformMatrix4(10, False, theMap.render_set(i).matrix) 'viewMatrix
+                GL.UniformMatrix4(10, False, theMap.render_set(i).matrix)
 
                 GL.UniformMatrix3(11, True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
                 GL.Uniform2(12, theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
@@ -341,13 +326,9 @@ Module modRender
 
             TerrainNormals.Use()
 
-
             GL.Uniform1(TerrainNormals("prj_length"), 1.0F)
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
-
-            GL.UniformMatrix4(TerrainNormals("projection"), False, PROJECTIONMATRIX)
-            GL.UniformMatrix4(TerrainNormals("view"), False, VIEWMATRIX)
 
             For i = 0 To theMap.render_set.Length - 1
 
@@ -370,12 +351,14 @@ Module modRender
             TerrainNormals.StopUse()
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-
-
         End If
+
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_models()
+        GL_PUSH_GROUP("draw_models")
+
         'SOLID FILL
         FBOm.attach_CNGP()
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
@@ -432,24 +415,11 @@ Module modRender
             boxShader.StopUse()
         End If
 
-        If FREEZE_FRUSTUM Then
-            GL.Disable(EnableCap.DepthTest)
-            frustumShader.Use()
-
-            GL.UniformMatrix4(frustumShader("frozen_projection"), False, FROZEN_PROJECTIONMATRIX)
-            GL.UniformMatrix4(frustumShader("frozen_view"), False, FROZEN_VIEWMATRIX)
-
-            GL.BindVertexArray(defaultVao)
-            GL.DrawArrays(PrimitiveType.Points, 0, 1)
-
-            frustumShader.StopUse()
-        End If
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_terrain_grids()
-        If (SHOW_BORDER + SHOW_CHUNKS + SHOW_GRID) = 0 Then
-            Return
-        End If
+        GL_PUSH_GROUP("draw_terrain_grids")
 
         FBOm.attach_CF()
         GL.DepthMask(False)
@@ -462,9 +432,6 @@ Module modRender
         GL.Uniform1(TerrainGrids("show_border"), SHOW_BORDER)
         GL.Uniform1(TerrainGrids("show_chunks"), SHOW_CHUNKS)
         GL.Uniform1(TerrainGrids("show_grid"), SHOW_GRID)
-
-        GL.UniformMatrix4(TerrainGrids("projection"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(TerrainGrids("view"), False, VIEWMATRIX)
 
         For i = 0 To theMap.render_set.Length - 1
             GL.UniformMatrix4(TerrainGrids("model"), False, theMap.render_set(i).matrix)
@@ -480,9 +447,11 @@ Module modRender
         GL.DepthMask(True)
         GL.Enable(EnableCap.DepthTest)
 
+        GL_POP_GROUP()
     End Sub
 
     Private Sub render_deferred_buffers()
+        GL_PUSH_GROUP("render_deferred_buffers")
         '===========================================================================
         ' Test our deferred shader =================================================
         '===========================================================================
@@ -519,9 +488,13 @@ Module modRender
         unbind_textures(4) ' unbind all the used texture slots
 
         deferredShader.StopUse()
+
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_terrain_ids()
+        GL_PUSH_GROUP("draw_terrain_ids")
+
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible Then ' Dont do math on no-visible chunks
 
@@ -536,8 +509,9 @@ Module modRender
                     draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True)
                 End If
             End If
-
         Next
+
+        GL_POP_GROUP()
     End Sub
 
     ''' <summary>
@@ -546,6 +520,8 @@ Module modRender
     ''' 
 
     Private Sub render_HUD()
+        GL_PUSH_GROUP("render_HUD")
+
         temp_timer.Restart()
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
@@ -576,6 +552,7 @@ Module modRender
         End If
         '===========================================================================
 
+        GL_POP_GROUP()
     End Sub
 
 #Region "miniMap"
@@ -585,6 +562,9 @@ Module modRender
         If theMap.MINI_MAP_ID = 0 Then
             Return
         End If
+
+        GL_PUSH_GROUP("draw_mini_map")
+
         GL.DepthMask(False)
         GL.Disable(EnableCap.DepthTest)
 
@@ -720,9 +700,11 @@ Module modRender
         GL.DepthMask(True)
         GL.Disable(EnableCap.Blend)
 
+        GL_POP_GROUP()
     End Sub
 
     Private Sub Draw_mini()
+        GL_PUSH_GROUP("Draw_mini")
 
         '======================================================
         'Draw all the shit on top of this image
@@ -753,6 +735,7 @@ Module modRender
         get_world_Position_In_Minimap_Window(M_POS)
         '======================================================
 
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_minimap_texture()
@@ -764,7 +747,7 @@ Module modRender
     End Sub
 
     Private Sub draw_mini_base_ids()
-
+        GL_PUSH_GROUP("draw_mini_base_ids")
 
         'need to scale with the map
         Dim i_size = 30.0F
@@ -802,9 +785,12 @@ Module modRender
         GL.BindTextureUnit(0, 0)
         image2dShader.StopUse()
 
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_mini_base_rings()
+        GL_PUSH_GROUP("draw_mini_base_rings")
+
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
         'draw base rings
@@ -837,9 +823,11 @@ Module modRender
 
         MiniMapRingsShader.StopUse()
 
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_mini_position()
+        GL_PUSH_GROUP("draw_mini_position")
 
         image2dShader.Use()
 
@@ -893,9 +881,11 @@ Module modRender
 
         MiniMapRingsShader.StopUse()
 
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_mini_grids_lines()
+        GL_PUSH_GROUP("draw_mini_grids_lines")
 
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
@@ -935,6 +925,7 @@ Module modRender
 
         coloredline2dShader.StopUse()
 
+        GL_POP_GROUP()
     End Sub
 
     Private Sub get_world_Position_In_Minimap_Window(ByRef pos As Vector2)
@@ -959,11 +950,9 @@ Module modRender
 #End Region
 
     Private Sub draw_map_cursor()
-
-        If Not SHOW_CURSOR Then Return
+        GL_PUSH_GROUP("draw_map_cursor")
 
         DecalProject.Use()
-
 
         GL.Uniform3(DecalProject("color_in"), 0.4F, 0.3F, 0.3F)
 
@@ -983,8 +972,6 @@ Module modRender
         Dim rotate = Matrix4.CreateRotationX(1.570796)
         GL.Enable(EnableCap.CullFace)
 
-        GL.UniformMatrix4(DecalProject("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(DecalProject("ViewMatrix"), False, VIEWMATRIX)
         GL.UniformMatrix4(DecalProject("DecalMatrix"), False, rotate * model_S * model_X)
 
         GL.BindVertexArray(CUBE_VAO)
@@ -992,9 +979,12 @@ Module modRender
 
         DecalProject.StopUse()
         unbind_textures(2)
+
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_terrain_base_rings()
+        GL_PUSH_GROUP("draw_terrain_base_rings")
 
         FBOm.attach_C_no_Depth()
 
@@ -1004,8 +994,6 @@ Module modRender
         GL.BindTextureUnit(0, FBOm.gDepth)
 
         'constants
-        GL.UniformMatrix4(BaseRingProjector("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.UniformMatrix4(BaseRingProjector("ViewMatrix"), False, VIEWMATRIX)
         GL.Uniform1(BaseRingProjector("radius"), 50.0F)
         GL.Uniform1(BaseRingProjector("thickness"), 2.0F)
         Dim rotate = Matrix4.CreateRotationX(1.570796)
@@ -1032,7 +1020,7 @@ Module modRender
         BaseRingProjector.StopUse()
         GL.BindTextureUnit(0, 0)
 
-
+        GL_POP_GROUP()
     End Sub
 
     ''' <summary>

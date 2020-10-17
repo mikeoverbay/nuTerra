@@ -104,7 +104,7 @@ Module ShaderLoader
                     ' Skip internal glsl uniforms
                     Continue For
                 End If
-                Me.uniforms(uniformName) = i
+                Me.uniforms(uniformName) = GL.GetUniformLocation(program, uniformName)
             Next
             loaded = True
         End Sub

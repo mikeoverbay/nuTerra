@@ -48,9 +48,12 @@ layout (std140, binding = 0 ) uniform Layers {
     float used_8;
 };
 
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     mat4 view;
     mat4 projection;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraPos;
 };
 
 out vec4 Vertex;
@@ -139,7 +142,7 @@ void main(void)
     TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
-    gl_Position = projection * view * modelMatrix * vec4(vertexPosition, 1.0f);
+    gl_Position = viewProj * modelMatrix * vec4(vertexPosition, 1.0f);
    
     // This is the cut off distance for bumpping the surface.
     vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));

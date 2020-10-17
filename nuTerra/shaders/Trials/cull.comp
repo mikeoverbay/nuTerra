@@ -23,8 +23,13 @@ layout(binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
 
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
 
-uniform mat4 view;
-uniform mat4 projection;
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
+    mat4 view;
+    mat4 projection;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraPos;
+};
 
 struct Frustum {
 	vec4 planes[6];
@@ -66,7 +71,7 @@ bool frustumCullingTest(mat4 mvp, vec3 bmin, vec3 bmax)
 void main(void)
 {
     const ModelInstance thisModel = models[gl_GlobalInvocationID.x];
-    const mat4 MVP = projection * view * thisModel.matrix;
+    const mat4 MVP = viewProj * thisModel.matrix;
 
     if (frustumCullingTest(MVP, thisModel.bmin, thisModel.bmax)) {
         for (int i = 0; i < thisModel.count; ++i) {

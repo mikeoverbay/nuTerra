@@ -1,5 +1,5 @@
 ﻿// colorOnly_vertex. Only writes a color to the gColor texture
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec3 Vertex;
 

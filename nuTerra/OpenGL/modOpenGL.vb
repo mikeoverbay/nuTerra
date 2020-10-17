@@ -65,12 +65,15 @@ Module modOpenGL
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
-    Public Structure TPerFrameData
+    Public Structure TPerViewData
         Public view As Matrix4
         Public projection As Matrix4
+        Public viewProj As Matrix4
+        Public invViewProj As Matrix4
+        Public cameraPos As Vector3
     End Structure
-    Public PerFrameData As New TPerFrameData
-    Public PerFrameDataBuffer As Integer
+    Public PerViewData As New TPerViewData
+    Public PerViewDataBuffer As Integer
 
     Public Sub Ortho_main()
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
@@ -101,19 +104,19 @@ Module modOpenGL
         CAM_POSITION.Y = cam_y + LOOK_Y
         CAM_POSITION.Z = cam_z + U_LOOK_AT_Z
 
-
         Dim target As New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
-        Dim position As New Vector3(CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
-        Dim up As Vector3 = Vector3.UnitY
 
-        PerFrameData.projection = Matrix4.CreatePerspectiveFieldOfView(
+        PerViewData.projection = Matrix4.CreatePerspectiveFieldOfView(
                                    CSng(Math.PI) * (FieldOfView / 180.0F),
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
                                    PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
-        PROJECTIONMATRIX_Saved = PerFrameData.projection
-        PerFrameData.view = Matrix4.LookAt(position, target, up)
-        VIEWMATRIX_Saved = PerFrameData.view
-        GL.NamedBufferSubData(PerFrameDataBuffer, IntPtr.Zero, Marshal.SizeOf(PerFrameData), PerFrameData)
+        PROJECTIONMATRIX_Saved = PerViewData.projection
+        PerViewData.cameraPos = CAM_POSITION
+        PerViewData.view = Matrix4.LookAt(CAM_POSITION, target, Vector3.UnitY)
+        PerViewData.viewProj = PerViewData.view * PerViewData.projection
+        PerViewData.invViewProj = Matrix4.Invert(PerViewData.viewProj)
+        VIEWMATRIX_Saved = PerViewData.view
+        GL.NamedBufferSubData(PerViewDataBuffer, IntPtr.Zero, Marshal.SizeOf(PerViewData), PerViewData)
     End Sub
 
     Public Sub set_light_pos()
@@ -190,19 +193,31 @@ Module modOpenGL
                                    length As Integer,
                                    messagePtr As IntPtr,
                                    userParam As IntPtr)
-        If id = 131185 Then
-            Return
-        End If
-        If id = 1281 Then
-            Return
-        End If
-        If id = 1282 Then
-            'Return
-        End If
+        If source = DebugSource.DebugSourceApplication Then Return
+        If id = 131185 Then Return
+        If id = 1281 Then Return
+        'If id = 1282 Then Return
+
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
 
         Application.DoEvents()
         LogThis(String.Format("OpenGL error #{0}: {1}", id, message))
+    End Sub
+
+    Private stack_pos As Integer = 0
+    Public Sub GL_PUSH_GROUP(name As String)
+#If DEBUG Then
+        stack_pos += 1
+        GL.PushDebugGroup(DebugSourceExternal.DebugSourceApplication, stack_pos + 10, -1, name)
+#End If
+    End Sub
+
+    Public Sub GL_POP_GROUP()
+#If DEBUG Then
+        stack_pos -= 1
+        GL.PopDebugGroup()
+        If stack_pos < 0 Or stack_pos > 5 Then Stop
+#End If
     End Sub
 
     Public Sub SetupDebugOutputCallback()

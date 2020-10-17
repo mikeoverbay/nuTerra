@@ -9,9 +9,12 @@ layout (line_strip, max_vertices = 24) out;
 uniform mat4 frozen_projection;
 uniform mat4 frozen_view;
 
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     mat4 view;
     mat4 projection;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraPos;
 };
 
 const vec4 f[8] = vec4[8](
@@ -29,7 +32,6 @@ const vec4 f[8] = vec4[8](
 
 void main(void)
 {
-    mat4 viewProj = projection * view;
     mat4 inv = inverse(frozen_projection * frozen_view);
 
     vec4 v[8];

@@ -1,6 +1,6 @@
 ﻿// toLinear_fragment.gsls
 // used to linearize depth textures to linear colors.
-#version 430 core
+#version 450 core
 
 out vec4 fragColor;
 uniform sampler2D imageMap;

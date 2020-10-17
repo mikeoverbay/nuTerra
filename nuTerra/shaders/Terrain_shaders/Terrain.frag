@@ -35,8 +35,8 @@ layout (std140, binding = 0 ) uniform Layers {
     float used_6;
     float used_7;
     float used_8;
-
 };
+
 layout(binding = 1 ) uniform sampler2D layer_1T1;
 layout(binding = 2 ) uniform sampler2D layer_2T1;
 layout(binding = 3 ) uniform sampler2D layer_3T1;

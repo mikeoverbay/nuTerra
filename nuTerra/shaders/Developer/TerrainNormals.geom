@@ -1,4 +1,4 @@
-﻿#version 430 core
+﻿#version 450 core
 
 layout (triangles) in;
 layout (line_strip, max_vertices = 9) out;
@@ -8,7 +8,6 @@ uniform int mode;
 uniform float prj_length;
 
 in vec3 n[];
-
 
 out vec4 color;
 
@@ -27,8 +26,6 @@ void main()
         gl_Position = sumV + vec4(sumN * prj_length, 0.0f);
         EmitVertex();
         EndPrimitive();
-
-
     }
     else if (mode == 2) {
         // normal

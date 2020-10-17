@@ -29,9 +29,12 @@ layout (binding = MATERIALS_BASE, std430) readonly buffer MATERIALS
     MaterialProperties material[];
 };
 
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     mat4 view;
     mat4 projection;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraPos;
 };
 
 out VS_OUT

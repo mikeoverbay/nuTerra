@@ -1,5 +1,5 @@
 ﻿// Deferred lighting vertex shader.
-#version 430 core
+#version 450 core
 
 uniform vec4 rect;
 uniform mat4 ProjectionMatrix;

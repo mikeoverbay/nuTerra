@@ -23,9 +23,12 @@ layout (binding = DRAW_CANDIDATES_BASE, std430) readonly buffer CandidateDraws
     CandidateDraw draw[];
 };
 
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     mat4 view;
     mat4 projection;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraPos;
 };
 
 out VS_OUT
@@ -41,7 +44,7 @@ void main(void)
     const ModelInstance thisModel = models[thisDraw.model_id];
 
     // Calculate vertex position in clip coordinates
-    gl_Position = projection * view * thisModel.matrix * vec4(vertexPosition, 1.0);
+    gl_Position = viewProj * thisModel.matrix * vec4(vertexPosition, 1.0);
 
     // Should be mat3(transpose(inverse(view * thisModel.matrix))), but it's very slow
     mat3 normalMatrix = mat3(view * thisModel.matrix);

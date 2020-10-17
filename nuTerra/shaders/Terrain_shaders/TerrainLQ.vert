@@ -10,17 +10,19 @@ layout(location = 2) in vec2 vertexTexCoord;
 layout(location = 3) in vec4 vertexNormal;
 layout(location = 4) in vec3 vertexTangent;
 
-layout(location = 7) uniform vec2 map_size;
-layout(location = 8) uniform vec2 map_center;
-layout(location = 9) uniform vec3 cam_position;
+uniform vec2 map_size;
+uniform vec2 map_center;
 
 layout(location = 10) uniform mat4 modelMatrix;
 layout(location = 11) uniform mat3 normalMatrix;
-layout(location = 12) uniform vec2 me_location;
+uniform vec2 me_location;
 
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PER_FRAME_DATA {
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     mat4 view;
     mat4 projection;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraPos;
 };
 
 out vec4 Vertex;
@@ -76,6 +78,6 @@ void main(void)
     TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
-    gl_Position = projection * view * modelMatrix * vec4(vertexPosition, 1.0f);
+    gl_Position = viewProj * modelMatrix * vec4(vertexPosition, 1.0f);
    
 }

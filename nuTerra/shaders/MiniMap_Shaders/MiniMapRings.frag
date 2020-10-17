@@ -1,4 +1,4 @@
-﻿#version 430 core
+﻿#version 450 core
 
 uniform vec2 center;
 uniform float radius;

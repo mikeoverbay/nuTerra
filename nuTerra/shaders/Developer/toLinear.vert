@@ -1,6 +1,5 @@
-﻿
-// used to linearize depth textures to linear colors.
-#version 430 core
+﻿// used to linearize depth textures to linear colors.
+#version 450 core
 
 uniform mat4 ProjectionMatrix;
 uniform vec4 rect;
