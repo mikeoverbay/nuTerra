@@ -57,6 +57,7 @@ Module MapLoader
             Public Shared vertsUV2 As Integer
             Public Shared prims As Integer
             Public Shared indirect As Integer
+            Public Shared lods As Integer
         End Class
 
         NotInheritable Class VertexArrays
@@ -68,7 +69,7 @@ Module MapLoader
     End Class
 
     Public Structure mdl_
-        Public mdl As base_model_holder_
+        Public modelLods() As base_model_holder_
         Public visibilityBounds As Matrix2x3
     End Structure
 
@@ -312,10 +313,12 @@ Module MapLoader
 
             For i = 0 To MAP_MODELS.Length - 1
                 BG_VALUE = i
-                If Not MAP_MODELS(i).mdl.junk Then
-                    Application.DoEvents() '<-- Give some time to this app's UI
-                    Dim good = get_primitive(MAP_MODELS(i).mdl)
-                End If
+                For Each model In MAP_MODELS(i).modelLods
+                    If Not model.junk Then
+                        Application.DoEvents() '<-- Give some time to this app's UI
+                        Dim good = get_primitive(model)
+                    End If
+                Next
                 draw_scene()
             Next
 
@@ -325,31 +328,36 @@ Module MapLoader
             MapGL.indirectDrawCount = 0
             Dim numVerts = 0
             Dim numPrims = 0
+            Dim numLods = 0
             For Each batch In MODEL_BATCH_LIST
-                Dim model = MAP_MODELS(batch.model_id).mdl
+                For lod_id = 0 To MAP_MODELS(batch.model_id).modelLods.Count - 1
+                    Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
 
-                If model.junk Then
-                    Continue For
-                End If
-
-                Dim skip = True
-                For Each renderSet In model.render_sets
-                    If renderSet.no_draw Then
+                    If lod.junk Then
                         Continue For
                     End If
-                    For Each primGroup In renderSet.primitiveGroups.Values
-                        If primGroup.no_draw Then
+
+                    Dim skip = True
+                    For Each renderSet In lod.render_sets
+                        If renderSet.no_draw Then
                             Continue For
                         End If
-                        MapGL.indirectDrawCount += batch.count
-                        skip = False
+                        For Each primGroup In renderSet.primitiveGroups.Values
+                            If primGroup.no_draw Then
+                                Continue For
+                            End If
+                            MapGL.indirectDrawCount += batch.count
+                            skip = False
+                        Next
+                        numVerts += renderSet.buffers.vertexBuffer.Length
+                        numPrims += renderSet.buffers.index_buffer32.Length
                     Next
-                    numVerts += renderSet.buffers.vertexBuffer.Length
-                    numPrims += renderSet.buffers.index_buffer32.Length
+
+                    If skip Then Continue For
+
+                    numLods += batch.count
+                    If lod_id = 0 Then MapGL.numModelInstances += batch.count
                 Next
-                If Not skip Then
-                    MapGL.numModelInstances += batch.count
-                End If
             Next
 
             '----------------------------------------------------------------
@@ -373,88 +381,104 @@ Module MapLoader
             GL.NamedBufferStorage(MapGL.Buffers.vertsUV2, numVerts * uv2_size, IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
             Dim matrices(MapGL.numModelInstances - 1) As ModelInstance
+            Dim lods(numLods - 1) As ModelLoD
             Dim cmdId = 0
             Dim vLast = 0
             Dim iLast = 0
             Dim mLast = 0
+            Dim lodLast = 0
             Dim baseVert = 0
             For Each batch In MODEL_BATCH_LIST
-                Dim model = MAP_MODELS(batch.model_id).mdl
-
-                If model.junk Then
-                    Continue For
-                End If
-
                 Dim skip = True
-                Dim savedCmdId = cmdId
+                Dim savedLodOffset = lodLast
 
+                For lod_id = 0 To MAP_MODELS(batch.model_id).modelLods.Count - 1
+                    Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
 
-                For Each renderSet In model.render_sets
-                    If renderSet.no_draw Then
+                    If lod.junk Then
                         Continue For
                     End If
-                    For Each primGroup In renderSet.primitiveGroups.Values
-                        If primGroup.no_draw Then
+
+                    Dim savedCmdId = cmdId
+
+                    For Each renderSet In lod.render_sets
+                        If renderSet.no_draw Then
                             Continue For
                         End If
-                        With drawCommands(cmdId)
-                            .model_id = mLast
-                            .material_id = primGroup.material_id
-                            .count = primGroup.nPrimitives * 3
-                            .firstIndex = iLast * 3 + primGroup.startIndex
-                            .baseVertex = baseVert
-                            .baseInstance = cmdId
-                        End With
-                        cmdId += 1
-                        skip = False
-                    Next
-
-                    baseVert += renderSet.numVertices
-
-                    GL.NamedBufferSubData(MapGL.Buffers.verts, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
-                    GL.NamedBufferSubData(MapGL.Buffers.prims, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
-
-                    If renderSet.buffers.uv2 IsNot Nothing Then
-                        GL.NamedBufferSubData(MapGL.Buffers.vertsUV2, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
-                        Erase renderSet.buffers.uv2
-                    End If
-
-                    vLast += renderSet.buffers.vertexBuffer.Length
-                    iLast += renderSet.buffers.index_buffer32.Length
-
-                    Erase renderSet.buffers.vertexBuffer
-                    Erase renderSet.buffers.index_buffer32
-                Next
-
-                If Not skip Then
-                    Dim countPrimGroups = cmdId - savedCmdId
-                    For i = 1 To batch.count - 1
-                        For j = 0 To countPrimGroups - 1
+                        For Each primGroup In renderSet.primitiveGroups.Values
+                            If primGroup.no_draw Then
+                                Continue For
+                            End If
                             With drawCommands(cmdId)
-                                .model_id = mLast + i
-                                .material_id = drawCommands(savedCmdId + j).material_id
-                                .count = drawCommands(savedCmdId + j).count
-                                .firstIndex = drawCommands(savedCmdId + j).firstIndex
-                                .baseVertex = drawCommands(savedCmdId + j).baseVertex
+                                .model_id = mLast
+                                .material_id = primGroup.material_id
+                                .count = primGroup.nPrimitives * 3
+                                .firstIndex = iLast * 3 + primGroup.startIndex
+                                .baseVertex = baseVert
                                 .baseInstance = cmdId
                             End With
                             cmdId += 1
+                            skip = False
                         Next
+
+                        baseVert += renderSet.numVertices
+
+                        GL.NamedBufferSubData(MapGL.Buffers.verts, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
+                        GL.NamedBufferSubData(MapGL.Buffers.prims, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
+
+                        If renderSet.buffers.uv2 IsNot Nothing Then
+                            GL.NamedBufferSubData(MapGL.Buffers.vertsUV2, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
+                            Erase renderSet.buffers.uv2
+                        End If
+
+                        vLast += renderSet.buffers.vertexBuffer.Length
+                        iLast += renderSet.buffers.index_buffer32.Length
+
+                        Erase renderSet.buffers.vertexBuffer
+                        Erase renderSet.buffers.index_buffer32
                     Next
-                    For i = 0 To batch.count - 1
-                        With matrices(mLast + i)
-                            .matrix = MODEL_INDEX_LIST(batch.offset + i).matrix
-                            .bmin.X = -MAP_MODELS(batch.model_id).visibilityBounds.Row1.X 'make negative because of GL rendering!
-                            .bmin.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row0.Yz
-                            .bmax.X = -MAP_MODELS(batch.model_id).visibilityBounds.Row0.X 'make negative because of GL rendering!
-                            .bmax.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row1.Yz
-                            .offset = savedCmdId + i * countPrimGroups
-                            .count = countPrimGroups
-                        End With
-                        PICK_DICTIONARY(mLast + i) = Path.GetDirectoryName(model.render_sets(0).verts_name)
-                    Next
-                    mLast += batch.count
-                End If
+
+                    If Not skip Then
+                        Dim countPrimGroups = cmdId - savedCmdId
+                        For i = 1 To batch.count - 1
+                            For j = 0 To countPrimGroups - 1
+                                With drawCommands(cmdId)
+                                    .model_id = mLast + i
+                                    .material_id = drawCommands(savedCmdId + j).material_id
+                                    .count = drawCommands(savedCmdId + j).count
+                                    .firstIndex = drawCommands(savedCmdId + j).firstIndex
+                                    .baseVertex = drawCommands(savedCmdId + j).baseVertex
+                                    .baseInstance = cmdId
+                                End With
+                                cmdId += 1
+                            Next
+                        Next
+                        For i = 0 To batch.count - 1
+                            With lods(lodLast)
+                                .draw_offset = savedCmdId + i * countPrimGroups
+                                .draw_count = countPrimGroups
+                            End With
+                            lodLast += 1
+                        Next
+                    End If
+                Next
+
+                If skip Then Continue For
+
+                For i = 0 To batch.count - 1
+                    With matrices(mLast + i)
+                        .matrix = MODEL_INDEX_LIST(batch.offset + i).matrix
+                        .bmin.X = -MAP_MODELS(batch.model_id).visibilityBounds.Row1.X 'make negative because of GL rendering!
+                        .bmin.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row0.Yz
+                        .bmax.X = -MAP_MODELS(batch.model_id).visibilityBounds.Row0.X 'make negative because of GL rendering!
+                        .bmax.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row1.Yz
+                        .lod_offset = savedLodOffset + i
+                        .lod_count = MAP_MODELS(batch.model_id).modelLods.Count
+                        .batch_count = batch.count
+                    End With
+                    PICK_DICTIONARY(mLast + i) = Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
+                Next
+                mLast += batch.count
             Next
 
             GL.CreateBuffers(1, MapGL.Buffers.parameters)
@@ -478,6 +502,12 @@ Module MapLoader
             GL.NamedBufferStorage(MapGL.Buffers.matrices, matrices.Length * Marshal.SizeOf(Of ModelInstance)(), matrices, BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.matrices)
             Erase matrices
+
+            GL.CreateBuffers(1, MapGL.Buffers.lods)
+            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.lods, -1, "lods")
+            GL.NamedBufferStorage(MapGL.Buffers.lods, lods.Length * Marshal.SizeOf(Of ModelLoD)(), lods, BufferStorageFlags.None)
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 4, MapGL.Buffers.lods)
+            Erase lods
 
             GL.CreateVertexArrays(1, MapGL.VertexArrays.allMapModels)
             GL.ObjectLabel(ObjectLabelIdentifier.VertexArray, MapGL.VertexArrays.allMapModels, -1, "allMapModels")

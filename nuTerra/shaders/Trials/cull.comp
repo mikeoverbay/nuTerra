@@ -21,6 +21,11 @@ layout(binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
     ModelInstance models[];
 };
 
+layout(binding = LODS_BASE, std430) readonly buffer ModelLoDs
+{
+    ModelLoD lods[];
+};
+
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
 
 layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
@@ -74,8 +79,14 @@ void main(void)
     const mat4 MVP = viewProj * thisModel.matrix;
 
     if (frustumCullingTest(MVP, thisModel.bmin, thisModel.bmax)) {
-        for (int i = 0; i < thisModel.count; ++i) {
-            const CandidateDraw thisDraw = draw[thisModel.offset + i];
+        const vec4 cs_position = view * thisModel.matrix * vec4(0, 0, 0, 1);
+        const float distToCamera = -cs_position.z;
+
+        const uint lod_id = min(distToCamera < 30 ? 0 : 1, thisModel.lod_count - 1);
+        const ModelLoD lod = lods[thisModel.lod_offset + thisModel.batch_count * lod_id];
+
+        for (int i = 0; i < lod.draw_count; ++i) {
+            const CandidateDraw thisDraw = draw[lod.draw_offset + i];
             uint outDrawIndex = atomicCounterIncrement(commandCounter);
             command[outDrawIndex].count = thisDraw.count;
             command[outDrawIndex].instanceCount = 1;

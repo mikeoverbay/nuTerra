@@ -1,15 +1,20 @@
 #define PARAMETERS_BASE 0
+
+// Uniforms
+// 0 is reserved for terrain layer uniform
 #define PER_FRAME_DATA_BASE 1
 
+// SSBO
 #define MATRICES_BASE 0
 #define DRAW_CANDIDATES_BASE 1
 #define INDIRECT_BASE 2
 #define MATERIALS_BASE 3
+#define LODS_BASE 4
 
 struct CandidateDraw
 {
-    uint model_id;
-    uint material_id;
+    uint model_id; // points to ModelInstance
+    uint material_id; // points to MaterialProperties
     uint count;
     uint firstIndex;
     uint baseVertex;
@@ -29,9 +34,19 @@ struct ModelInstance
 {
     mat4 matrix;
     vec3 bmin;
-    uint offset;
+    uint lod_offset; // points to ModelLoD
     vec3 bmax;
-    uint count;
+    uint lod_count;
+    uint batch_count; // hack!!!
+    uint reserved1;
+    uint reserved2;
+    uint reserved3;
+};
+
+struct ModelLoD
+{
+    uint draw_offset;
+    uint draw_count;
 };
 
 struct MaterialProperties

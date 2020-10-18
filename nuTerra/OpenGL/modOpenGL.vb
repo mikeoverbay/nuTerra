@@ -32,12 +32,23 @@ Module modOpenGL
         Dim baseInstance As UInt32
     End Structure
 
+    <StructLayout(LayoutKind.Sequential)>
     Public Structure ModelInstance
         Dim matrix As Matrix4
         Dim bmin As Vector3
-        Dim offset As UInt32
+        Dim lod_offset As UInt32
         Dim bmax As Vector3
-        Dim count As UInt32
+        Dim lod_count As UInt32
+        Dim batch_count As UInt32 ' hack!!!
+        Dim reserverd1 As UInt32
+        Dim reserverd2 As UInt32
+        Dim reserverd3 As UInt32
+    End Structure
+
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure ModelLoD
+        Dim draw_offset As UInt32
+        Dim draw_count As UInt32
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>

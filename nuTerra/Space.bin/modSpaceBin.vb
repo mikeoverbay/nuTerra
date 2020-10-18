@@ -46,7 +46,7 @@ Module modSpaceBin
 
             Try
                 ' we must grab this data first!
-                cBSGD = New cBSGD_(sectionHeaders("BSGD"), br)
+                'cBSGD = New cBSGD_(sectionHeaders("BSGD"), br)
             Catch ex As Exception
                 ShowDecodeFailedMessage(ex, "BSGD")
                 GoTo Failed
@@ -64,7 +64,7 @@ Module modSpaceBin
             End Try
 
             Try
-                cBWAL = New cBWAL_(sectionHeaders("BWAL"), br)
+                'cBWAL = New cBWAL_(sectionHeaders("BWAL"), br)
             Catch ex As Exception
                 ShowDecodeFailedMessage(ex, "BWAL")
                 GoTo Failed
@@ -73,7 +73,7 @@ Module modSpaceBin
             Try
                 get_BWSG(sectionHeaders("BWSG"), br)
             Catch ex As Exception
-                ShowDecodeFailedMessage(ex, "BWSG")
+                'ShowDecodeFailedMessage(ex, "BWSG")
                 GoTo Failed
             End Try
 
@@ -127,7 +127,7 @@ Module modSpaceBin
             End Try
 
             Try
-                cWTbl = New cWTbl_(sectionHeaders("WTbl"), br)
+                'cWTbl = New cWTbl_(sectionHeaders("WTbl"), br)
             Catch ex As Exception
                 ShowDecodeFailedMessage(ex, "WTbl")
                 GoTo Failed
@@ -178,45 +178,49 @@ Module modSpaceBin
         ReDim MAP_MODELS(cBSMO.models_colliders.count - 1)
         For k = 0 To cBSMO.models_colliders.count - 1
             With MAP_MODELS(k)
-                .mdl = New base_model_holder_
-
-                .visibilityBounds = cBSMO.models_visibility_bounds.data(k)
-
                 Dim lod0_offset = cBSMO.models_loddings.data(k).lod_begin
                 Dim lodx_offset = cBSMO.models_loddings.data(k).lod_end
 
-                ' Set lod0 as default
-                Dim lod_offset = Math.Min(lod0_offset + 0, lodx_offset)
+                ' max lod count = 2 for now
+                Dim lod_count = Math.Min(2, lodx_offset - lod0_offset + 1)
 
-                Dim lod_render_set_begin = cBSMO.lod_renders.data(lod_offset).render_set_begin
-                Dim lod_render_set_end = cBSMO.lod_renders.data(lod_offset).render_set_end
+                ReDim .modelLods(lod_count - 1)
+                .visibilityBounds = cBSMO.models_visibility_bounds.data(k)
 
-                Dim num_render_sets = lod_render_set_end - lod_render_set_begin + 1
-                Debug.Assert(num_render_sets > 0)
+                For i = 0 To lod_count - 1
+                    .modelLods(i) = New base_model_holder_
+                    Dim lod_offset = lod0_offset + i
 
-                ' Creating renderSets
-                .mdl.render_sets = New List(Of RenderSetEntry)
-                Dim dict As New Dictionary(Of String, Integer)
-                For z As UInteger = 0 To num_render_sets - 1
-                    Dim renderItem = cBSMO.renders.data(lod_render_set_begin + z)
-                    Dim verts_name = cBWST.find_str(renderItem.verts_name_fnv)
-                    Dim prims_name = cBWST.find_str(renderItem.prims_name_fnv)
+                    Dim lod_render_set_begin = cBSMO.lod_renders.data(lod_offset).render_set_begin
+                    Dim lod_render_set_end = cBSMO.lod_renders.data(lod_offset).render_set_end
 
-                    Dim pGroup As New PrimitiveGroup
-                    apply_material_for_pgroup(pGroup, renderItem.material_index, Path.GetDirectoryName(verts_name))
+                    Dim num_render_sets = lod_render_set_end - lod_render_set_begin + 1
+                    Debug.Assert(num_render_sets > 0)
 
-                    If Not dict.ContainsKey(verts_name) Then
-                        Dim rs As New RenderSetEntry With {
-                            .verts_name = verts_name,
-                            .prims_name = prims_name,
-                            .primitiveGroups = New Dictionary(Of Integer, PrimitiveGroup)
-                        }
-                        rs.primitiveGroups(renderItem.primtive_index) = pGroup
-                        dict(verts_name) = .mdl.render_sets.Count
-                        .mdl.render_sets.Add(rs)
-                    Else
-                        .mdl.render_sets(dict(verts_name)).primitiveGroups(renderItem.primtive_index) = pGroup
-                    End If
+                    ' Creating renderSets
+                    .modelLods(i).render_sets = New List(Of RenderSetEntry)
+                    Dim dict As New Dictionary(Of String, Integer)
+                    For z As UInteger = 0 To num_render_sets - 1
+                        Dim renderItem = cBSMO.renders.data(lod_render_set_begin + z)
+                        Dim verts_name = cBWST.find_str(renderItem.verts_name_fnv)
+                        Dim prims_name = cBWST.find_str(renderItem.prims_name_fnv)
+
+                        Dim pGroup As New PrimitiveGroup
+                        apply_material_for_pgroup(pGroup, renderItem.material_index, Path.GetDirectoryName(verts_name))
+
+                        If Not dict.ContainsKey(verts_name) Then
+                            Dim rs As New RenderSetEntry With {
+                                .verts_name = verts_name,
+                                .prims_name = prims_name,
+                                .primitiveGroups = New Dictionary(Of Integer, PrimitiveGroup)
+                            }
+                            rs.primitiveGroups(renderItem.primtive_index) = pGroup
+                            dict(verts_name) = .modelLods(i).render_sets.Count
+                            .modelLods(i).render_sets.Add(rs)
+                        Else
+                            .modelLods(i).render_sets(dict(verts_name)).primitiveGroups(renderItem.primtive_index) = pGroup
+                        End If
+                    Next
                 Next
             End With
         Next
@@ -289,7 +293,7 @@ CleanUp:
 
         Dim offset As Integer = 0
         For Each it In tmpDict
-            If MAP_MODELS(it.Key).mdl.junk Then
+            If MAP_MODELS(it.Key).modelLods(0).junk Then
                 offset += it.Value
                 Continue For
             End If
@@ -376,28 +380,28 @@ CleanUp:
             Select Case fx
                 Case "shaders/std_effects/PBS_ext.fx", "shaders/std_effects/PBS_ext_skinned.fx", "shaders/std_effects/PBS_ext_repaint.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                    "diffuseMap",
-                    "normalMap",
-                    "metallicGlossMap",
-                    "alphaReference",
-                    "alphaTestEnable",
-                    "doubleSided",
-                    "g_useNormalPackDXT1",
-                    "g_enableTerrainBlending",
-                    "g_enableAO",
-                    "g_vertexAnimationParams",
-                    "g_vertexColorMode",
-                    "dynamicObject",
-                    "g_enableTransmission",
-                    "g_tintColor",
-                    "g_useTintColor",
-                    "texAddressMode",
-                    "selfIllumination",
-                    "applyOverlay",
-                    "g_repaintColor",
-                    "g_baseColor",
-                    "g_aging"
-                })
+                        "diffuseMap",
+                        "normalMap",
+                        "metallicGlossMap",
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "g_useNormalPackDXT1",
+                        "g_enableTerrainBlending",
+                        "g_enableAO",
+                        "g_vertexAnimationParams",
+                        "g_vertexColorMode",
+                        "dynamicObject",
+                        "g_enableTransmission",
+                        "g_tintColor",
+                        "g_useTintColor",
+                        "texAddressMode",
+                        "selfIllumination",
+                        "applyOverlay",
+                        "g_repaintColor",
+                        "g_baseColor",
+                        "g_aging"
+                    })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
@@ -421,26 +425,26 @@ CleanUp:
 
                 Case "shaders/std_effects/PBS_ext_dual.fx", "shaders/std_effects/PBS_ext_skinned_dual.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                    "diffuseMap",
-                    "diffuseMap2",
-                    "normalMap",
-                    "metallicGlossMap",
-                    "alphaReference",
-                    "alphaTestEnable",
-                    "doubleSided",
-                    "g_useNormalPackDXT1",
-                    "g_enableAO",
-                    "g_vertexColorMode",
-                    "g_enableTerrainBlending",
-                    "g_vertexAnimationParams",
-                    "g_useTintColor",
-                    "g_tintColor",
-                    "g_enableTransmission",
-                    "texAddressMode",
-                    "dynamicObject",
-                    "selfIllumination",
-                    "applyOverlay"
-                })
+                        "diffuseMap",
+                        "diffuseMap2",
+                        "normalMap",
+                        "metallicGlossMap",
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "g_useNormalPackDXT1",
+                        "g_enableAO",
+                        "g_vertexColorMode",
+                        "g_enableTerrainBlending",
+                        "g_vertexAnimationParams",
+                        "g_useTintColor",
+                        "g_tintColor",
+                        "g_enableTransmission",
+                        "texAddressMode",
+                        "dynamicObject",
+                        "selfIllumination",
+                        "applyOverlay"
+                    })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
@@ -470,33 +474,33 @@ CleanUp:
 
                 Case "shaders/std_effects/PBS_ext_detail.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                    "diffuseMap",
-                    "normalMap",
-                    "metallicGlossMap",
-                    "g_detailMap",
-                    "alphaReference",
-                    "alphaTestEnable",
-                    "doubleSided",
-                    "g_useNormalPackDXT1",
-                    "g_detailInfluences",
-                    "g_detailRejectTiling",
-                    "g_enableTerrainBlending",
-                    "g_useTintColor",
-                    "g_vertexColorMode",
-                    "dynamicObject",
-                    "g_enableTransmission",
-                    "g_vertexAnimationParams",
-                    "g_tintColor",
-                    "g_enableAO",
-                    "g_metalReject",
-                    "g_glossReject",
-                    "g_normalMapInfluence",
-                    "g_glossMapInfluence",
-                    "g_albedoMapInfluence",
-                    "g_tile",
-                    "texAddressMode",
-                     "applyOverlay"
-                })
+                        "diffuseMap",
+                        "normalMap",
+                        "metallicGlossMap",
+                        "g_detailMap",
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "g_useNormalPackDXT1",
+                        "g_detailInfluences",
+                        "g_detailRejectTiling",
+                        "g_enableTerrainBlending",
+                        "g_useTintColor",
+                        "g_vertexColorMode",
+                        "dynamicObject",
+                        "g_enableTransmission",
+                        "g_vertexAnimationParams",
+                        "g_tintColor",
+                        "g_enableAO",
+                        "g_metalReject",
+                        "g_glossReject",
+                        "g_normalMapInfluence",
+                        "g_glossMapInfluence",
+                        "g_albedoMapInfluence",
+                        "g_tile",
+                        "texAddressMode",
+                        "applyOverlay"
+                    })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
@@ -522,29 +526,29 @@ CleanUp:
 
                 Case "shaders/std_effects/PBS_tiled_atlas.fx", "shaders/std_effects/PBS_tiled_atlas_rigid_skinned.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                    "alphaReference",
-                    "alphaTestEnable",
-                    "doubleSided",
-                    "g_atlasSizes",
-                    "g_atlasIndexes",
-                    "atlasNormalGlossSpec",
-                    "atlasMetallicAO",
-                    "atlasBlend",
-                    "atlasAlbedoHeight",
-                    "g_dirtParams",
-                    "g_dirtColor",
-                    "dirtMap",
-                    "g_tile0Tint",
-                    "g_tile1Tint",
-                    "g_tile2Tint",
-                    "g_fakeShadowsParams",
-                    "g_enableTerrainBlending",
-                    "dynamicObject",
-                    "texAddressMode",
-                    "selfIllumination",
-                    "diffuseMap",
-                    "applyOverlay"
-                })
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "g_atlasSizes",
+                        "g_atlasIndexes",
+                        "atlasNormalGlossSpec",
+                        "atlasMetallicAO",
+                        "atlasBlend",
+                        "atlasAlbedoHeight",
+                        "g_dirtParams",
+                        "g_dirtColor",
+                        "dirtMap",
+                        "g_tile0Tint",
+                        "g_tile1Tint",
+                        "g_tile2Tint",
+                        "g_fakeShadowsParams",
+                        "g_enableTerrainBlending",
+                        "dynamicObject",
+                        "texAddressMode",
+                        "selfIllumination",
+                        "diffuseMap",
+                        "applyOverlay"
+                    })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
@@ -603,31 +607,31 @@ got_it0:
 
                 Case "shaders/std_effects/PBS_tiled_atlas_global.fx"
                     Dim knownPropNames As New HashSet(Of String)({
-                   "alphaReference",
-                   "alphaTestEnable",
-                   "doubleSided",
-                   "g_atlasSizes",
-                   "g_atlasIndexes",
-                   "atlasNormalGlossSpec",
-                   "atlasMetallicAO",
-                   "atlasBlend",
-                   "atlasAlbedoHeight",
-                   "g_dirtParams",
-                   "g_dirtColor",
-                   "dirtMap",
-                   "g_tile0Tint",
-                   "g_tile1Tint",
-                   "g_tile2Tint",
-                   "g_fakeShadowsParams",
-                   "g_enableTerrainBlending",
-                   "dynamicObject",
-                   "texAddressMode",
-                   "selfIllumination",
-                   "diffuseMap",
-                   "applyOverlay",
-                   "globalTex",
-                   "g_tileUVScale"
-               })
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "g_atlasSizes",
+                        "g_atlasIndexes",
+                        "atlasNormalGlossSpec",
+                        "atlasMetallicAO",
+                        "atlasBlend",
+                        "atlasAlbedoHeight",
+                        "g_dirtParams",
+                        "g_dirtColor",
+                        "dirtMap",
+                        "g_tile0Tint",
+                        "g_tile1Tint",
+                        "g_tile2Tint",
+                        "g_fakeShadowsParams",
+                        "g_enableTerrainBlending",
+                        "dynamicObject",
+                        "texAddressMode",
+                        "selfIllumination",
+                        "diffuseMap",
+                        "applyOverlay",
+                        "globalTex",
+                        "g_tileUVScale"
+                    })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
