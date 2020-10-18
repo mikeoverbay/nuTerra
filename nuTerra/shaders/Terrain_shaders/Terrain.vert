@@ -9,14 +9,6 @@ layout(location = 2) in vec2 vertexTexCoord;
 layout(location = 3) in vec4 vertexNormal;
 layout(location = 4) in vec3 vertexTangent;
 
-layout(location = 7) uniform vec2 map_size;
-layout(location = 8) uniform vec2 map_center;
-layout(location = 9) uniform vec3 cam_position;
-
-layout(location = 10) uniform mat4 modelMatrix;
-layout(location = 11) uniform mat3 normalMatrix;
-layout(location = 12) uniform vec2 me_location;
-
 layout (std140, binding = 0 ) uniform Layers {
     vec4 layer0UT1;
     vec4 layer1UT1;
@@ -56,51 +48,59 @@ layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     vec3 cameraPos;
 };
 
-out vec4 Vertex;
-out float ln;
-out mat3 TBN;
-out vec3 worldPosition;
-out vec2 tuv4, tuv4_2, tuv3, tuv3_2;
-out vec2 tuv2, tuv2_2, tuv1, tuv1_2;
-out vec2 UV;
-out vec2 Global_UV;
+uniform vec2 map_size;
+uniform vec2 map_center;
+uniform vec2 me_location;
 
-flat out uint is_hole;
+uniform mat4 modelMatrix;
+uniform mat3 normalMatrix;
+
+out VS_OUT {
+    mat3 TBN;
+    vec4 Vertex;
+    vec3 worldPosition;
+    vec2 tuv4, tuv4_2, tuv3, tuv3_2;
+    vec2 tuv2, tuv2_2, tuv1, tuv1_2;
+    vec2 UV;
+    vec2 Global_UV;
+    float ln;
+    //bool is_hole;
+} vs_out;
 
 void main(void)
 {
 
-    UV =  vertexTexCoord;
+    vs_out.UV =  vertexTexCoord;
     // calculate tex coords for global_AM
     vec2 uv_g;
-    vec2 scaled = UV / map_size;
+    vec2 scaled = vs_out.UV / map_size;
     vec2 m_s = vec2(1.0)/map_size;
     uv_g.x = ((( (me_location.x )-50.0)/100.0)+map_center.x) * m_s.x ;
     uv_g.y = ((( (me_location.y )-50.0)/100.0)-map_center.y) * m_s.y ;
-    Global_UV = scaled + uv_g;
-    Global_UV.xy = 1.0 - Global_UV.xy;
+    vs_out.Global_UV = scaled + uv_g;
+    vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
     
-    is_hole = (vertexNormal.w == 1.0f) ? 1 : 0;
+    //is_hole = (vertexNormal.w == 1.0f);
     //-------------------------------------------------------
     // Calulate UVs for the texture layers
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
-    Vertex = vec4(vertexPosition, 1.0) * 1.0;
-    Vertex.x *= -1.0;
-    vec4 sVert = Vertex;
+    vs_out.Vertex = vec4(vertexPosition, 1.0) * 1.0;
+    vs_out.Vertex.x *= -1.0;
+    vec4 sVert = vs_out.Vertex;
     //sVert = vec4(UV.x*100.0, 0.0, UV.y*100.0, 0.0);//Vertex.xyz;// * vec3(0.875) + vec3(0.0625);
     
     //
-    tuv4 = -vec2(dot(-layer3UT1, sVert), dot(layer3VT1, sVert))+0.5 ;
-    tuv4_2 = -vec2(dot(-layer3UT2, sVert), dot(layer3VT2, sVert))+0.5 ;
+    vs_out.tuv4 = -vec2(dot(-layer3UT1, sVert), dot(layer3VT1, sVert))+0.5 ;
+    vs_out.tuv4_2 = -vec2(dot(-layer3UT2, sVert), dot(layer3VT2, sVert))+0.5 ;
 
-    tuv3 = -vec2(dot(-layer2UT1, sVert), dot(layer2VT1, sVert))+0.5 ;
-    tuv3_2 = -vec2(dot(-layer2UT2, sVert), dot(layer2VT2, sVert))+0.5 ;
+    vs_out.tuv3 = -vec2(dot(-layer2UT1, sVert), dot(layer2VT1, sVert))+0.5 ;
+    vs_out.tuv3_2 = -vec2(dot(-layer2UT2, sVert), dot(layer2VT2, sVert))+0.5 ;
 
-    tuv2 = -vec2(dot(-layer1UT1, sVert), dot(layer1VT1, sVert))+0.5;
-    tuv2_2 = -vec2(dot(-layer1UT2, sVert), dot(layer1VT2, sVert))+0.5;
+    vs_out.tuv2 = -vec2(dot(-layer1UT1, sVert), dot(layer1VT1, sVert))+0.5;
+    vs_out.tuv2_2 = -vec2(dot(-layer1UT2, sVert), dot(layer1VT2, sVert))+0.5;
 
-    tuv1 = -vec2(dot(-layer0UT1, sVert), dot(layer0VT1, sVert))+0.5 ;
-    tuv1_2 = -vec2(dot(-layer0UT2, sVert), dot(layer0VT2, sVert))+0.5 ;
+    vs_out.tuv1 = -vec2(dot(-layer0UT1, sVert), dot(layer0VT1, sVert))+0.5 ;
+    vs_out.tuv1_2 = -vec2(dot(-layer0UT2, sVert), dot(layer0VT2, sVert))+0.5 ;
 
 
     //-------------------------------------------------------
@@ -127,7 +127,7 @@ void main(void)
     //-------------------------------------------------------
 
     // vertex --> world pos
-    worldPosition = vec3(view * modelMatrix * vec4(vertexPosition, 1.0f));
+    vs_out.worldPosition = vec3(view * modelMatrix * vec4(vertexPosition, 1.0f));
 
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
     vec3 worldNormal = normalMatrix * VN;
@@ -139,16 +139,16 @@ void main(void)
     worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
 
     // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
-    TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
+    vs_out.TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
     gl_Position = viewProj * modelMatrix * vec4(vertexPosition, 1.0f);
    
     // This is the cut off distance for bumpping the surface.
     vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
-    ln = distance( point.xyz,cam_position.xyz );
+    vs_out.ln = distance( point.xyz,cameraPos.xyz );
     float start = 100.0;
-    if (ln < start + 200.0) { ln = 1.0 - (ln-start)/200.0;} 
-    else {ln = 0.0;}
+    if (vs_out.ln < start + 200.0) { vs_out.ln = 1.0 - (vs_out.ln-start)/200.0;} 
+    else {vs_out.ln = 0.0;}
 
 }

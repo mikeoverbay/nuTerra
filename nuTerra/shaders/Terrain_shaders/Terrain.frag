@@ -76,18 +76,18 @@ layout(binding = 29) uniform sampler2D global_AM;
 layout(binding = 30) uniform sampler2D normalMap;
 
 layout(location = 24) uniform int show_test;
-in float ln;
-in mat3 TBN;
-in vec3 worldPosition;
-in vec4 Vertex;
 
-in vec2 tuv4, tuv4_2, tuv3, tuv3_2;
-in vec2 tuv2, tuv2_2, tuv1, tuv1_2;
-
-in vec2 UV;
-in vec2 Global_UV;
-in vec3 normal;//temp for debuging lighting
-flat in uint is_hole;
+in VS_OUT {
+    mat3 TBN;
+    vec4 Vertex;
+    vec3 worldPosition;
+    vec2 tuv4, tuv4_2, tuv3, tuv3_2;
+    vec2 tuv2, tuv2_2, tuv1, tuv1_2;
+    vec2 UV;
+    vec2 Global_UV;
+    float ln;
+    //bool is_hole;
+} fs_in;
 
 /*===========================================================*/
 // Used to add normals together. Could be better.
@@ -122,72 +122,72 @@ void main(void)
     float  aoc_4, aoc_5, aoc_6, aoc_7;
     vec2 mix_coords;
 
-    mix_coords = UV;
+    mix_coords = fs_in.UV;
     mix_coords.x = 1.0 - mix_coords.x;
-    vec2 UVs = UV;
+    vec2 UVs = fs_in.UV;
 
     // create UV projections
 
 
     // Get AM maps and Test Texture maps
-    t4 = texture(layer_4T1, tuv4);
-    vec4 tex6 = texture(tex_6, tuv4);
+    t4 = texture(layer_4T1, fs_in.tuv4);
+    vec4 tex6 = texture(tex_6, fs_in.tuv4);
 
-    t4_2 = texture(layer_4T2, tuv4_2);
-    vec4 tex7 = texture(tex_7, tuv4_2);
+    t4_2 = texture(layer_4T2, fs_in.tuv4_2);
+    vec4 tex7 = texture(tex_7, fs_in.tuv4_2);
 
-    t3 = texture(layer_3T1, tuv3);
-    vec4 tex4 = texture(tex_4, tuv3);
+    t3 = texture(layer_3T1, fs_in.tuv3);
+    vec4 tex4 = texture(tex_4, fs_in.tuv3);
 
-    t3_2 = texture(layer_3T2, tuv3_2);
-    vec4 tex5 = texture(tex_5, tuv3_2);
+    t3_2 = texture(layer_3T2, fs_in.tuv3_2);
+    vec4 tex5 = texture(tex_5, fs_in.tuv3_2);
 
-    t2 = texture(layer_2T1, tuv2);
-    vec4 tex2 = texture(tex_2, tuv2);
+    t2 = texture(layer_2T1, fs_in.tuv2);
+    vec4 tex2 = texture(tex_2, fs_in.tuv2);
 
-    t2_2 = texture(layer_2T2, tuv2_2);
-    vec4 tex3 = texture(tex_3, tuv2_2);
+    t2_2 = texture(layer_2T2, fs_in.tuv2_2);
+    vec4 tex3 = texture(tex_3, fs_in.tuv2_2);
 
-    t1 = texture(layer_1T1, tuv1);
-    vec4 tex0 = texture(tex_0, tuv1);
+    t1 = texture(layer_1T1, fs_in.tuv1);
+    vec4 tex0 = texture(tex_0, fs_in.tuv1);
  
-    t1_2 = texture(layer_1T2, tuv1_2);
-    vec4 tex1 = texture(tex_1, tuv1_2);
+    t1_2 = texture(layer_1T2, fs_in.tuv1_2);
+    vec4 tex1 = texture(tex_1, fs_in.tuv1_2);
 
     // ambient occusion is in blue channel of the normal maps.
     // Specular OR Parallax is in the red channel. Green and Alpha are normal values.
     // We must get the Ambient Occlusion before converting so it isn't lost.
 
     // Get and convert normal maps. Save ambient occlusion value.
-    n4 = texture(n_layer_4T1, tuv4);
+    n4 = texture(n_layer_4T1, fs_in.tuv4);
     aoc_6 = n4.b;
     n4 = convertNormal(n4) + layer3UT1;
 
-    n4_2 = texture(n_layer_4T2, tuv4_2);
+    n4_2 = texture(n_layer_4T2, fs_in.tuv4_2);
     aoc_7 = n4_2.b;
     n4_2 = convertNormal(n4_2) + layer3UT2;
 
-    n3 = texture(n_layer_3T1, tuv3);
+    n3 = texture(n_layer_3T1, fs_in.tuv3);
     aoc_4 = n3.b;
     n3 = convertNormal(n3) + layer2UT1;
 
-    n3_2 = texture(n_layer_3T2, tuv3_2);
+    n3_2 = texture(n_layer_3T2, fs_in.tuv3_2);
     aoc_5 = n3_2.b;
     n3_2 = convertNormal(n3_2) + layer2UT2;
 
-    n2 = texture(n_layer_2T1, tuv2);
+    n2 = texture(n_layer_2T1, fs_in.tuv2);
     aoc_2 = n2.b;
     n2 = convertNormal(n2) + layer1UT1;
 
-    n2_2 = texture(n_layer_2T2, tuv2_2);
+    n2_2 = texture(n_layer_2T2, fs_in.tuv2_2);
     aoc_3 = n2_2.b;
     n2_2 = convertNormal(n2_2) + layer1UT2;
 
-    n1 = texture(n_layer_1T1, tuv1);
+    n1 = texture(n_layer_1T1, fs_in.tuv1);
     aoc_0 = n1.b;
     n1 = convertNormal(n1) + layer0UT1;
 
-    n1_2 = texture(n_layer_1T2, tuv1_2);
+    n1_2 = texture(n_layer_1T2, fs_in.tuv1_2);
     aoc_1 =  n1_2.b;
     n1_2 = convertNormal(n1_2) + layer0UT2;
     
@@ -251,20 +251,20 @@ void main(void)
     //Get our normal maps. Same mixing and clamping as AM maps above
 
     // Mix group 4
-    n4.rgb = TBN * normalize(n4.rgb) * MixLevel4.r * used_7;
-    n4_2.rgb = TBN * normalize(n4_2.rgb) * MixLevel4.g * used_8;
+    n4.rgb = fs_in.TBN * normalize(n4.rgb) * MixLevel4.r * used_7;
+    n4_2.rgb = fs_in.TBN * normalize(n4_2.rgb) * MixLevel4.g * used_8;
 
     // Mix group 3
-    n3.rgb = TBN * normalize(n3.rgb) * MixLevel3.r * used_5;
-    n3_2.rgb = TBN * normalize(n3_2.rgb) * MixLevel3.g * used_6;
+    n3.rgb = fs_in.TBN * normalize(n3.rgb) * MixLevel3.r * used_5;
+    n3_2.rgb = fs_in.TBN * normalize(n3_2.rgb) * MixLevel3.g * used_6;
 
     // Mix group 2
-    n2.rgb = TBN * normalize(n2.rgb) * MixLevel2.r * used_3;
-    n2_2.rgb = TBN * normalize(n2_2.rgb) * MixLevel2.g * used_4;
+    n2.rgb = fs_in.TBN * normalize(n2.rgb) * MixLevel2.r * used_3;
+    n2_2.rgb = fs_in.TBN * normalize(n2_2.rgb) * MixLevel2.g * used_4;
 
     // Mix group 1
-    n1.rgb = TBN * normalize(n1.rgb) * MixLevel1.r * used_1;
-    n1_2.rgb = TBN * normalize(n1_2.rgb) * MixLevel1.g * used_2;
+    n1.rgb = fs_in.TBN * normalize(n1.rgb) * MixLevel1.r * used_1;
+    n1_2.rgb = fs_in.TBN * normalize(n1_2.rgb) * MixLevel1.g * used_2;
 
 
     //flip X axis. Everything is flipped on X including texture rotations.
@@ -282,9 +282,9 @@ void main(void)
     //-------------------------------------------------------------
 
     // This is needed to light the global_AM.
-    vec4 g_nm = texture(normalMap, UV);
+    vec4 g_nm = texture(normalMap, fs_in.UV);
     vec4 n_tex = vec4(0.0);
-    n_tex.xyz = normalize(TBN * vec3(convertNormal(g_nm).xyz));
+    n_tex.xyz = normalize(fs_in.TBN * vec3(convertNormal(g_nm).xyz));
     //n_tex.x*=-1.0;
     vec4 out_n = vec4(0.0);
     // Add up our normal values.
@@ -300,7 +300,7 @@ void main(void)
     
     // Mix in the global_AM color using global_AM's alpha channel.
     // I think this is used for wetness on the map.
-    vec4 global = texture(global_AM, Global_UV);
+    vec4 global = texture(global_AM, fs_in.Global_UV);
     base.rgb = mix(base.rgb,global.rgb,global.a);
     
     // This blends between low and highrez by distance
@@ -312,9 +312,9 @@ void main(void)
     //base = mix(base,vec4(MixLevel1.xy, 0.0 ,1.0), 0.4);
 
     
-    base = mix(global, base, ln);
+    base = mix(global, base, fs_in.ln);
 
-    out_n = mix(n_tex, out_n, ln) ;
+    out_n = mix(n_tex, out_n, fs_in.ln) ;
 
     // The obvious
     gColor = base;
@@ -323,6 +323,6 @@ void main(void)
     gNormal.xyz = normalize(out_n.xyz);
     gGMF.rgb = vec3(global.a+0.2, 0.0, 64.0/255.0);
 
-    gPosition = worldPosition;
+    gPosition = fs_in.worldPosition;
     gPick = 0;
 }

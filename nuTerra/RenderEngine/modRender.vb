@@ -253,7 +253,7 @@ Module modRender
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
 
-        GL.Uniform1(24, SHOW_TEST_TEXTURES) ' show_test
+        GL.Uniform1(TerrainShader("show_test"), SHOW_TEST_TEXTURES)
 
         'Dim max_binding As Integer = GL.GetInteger(GetPName.MaxUniformBufferBindings)
 
@@ -261,10 +261,10 @@ Module modRender
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
 
-                GL.UniformMatrix4(10, False, theMap.render_set(i).matrix)
+                GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
 
-                GL.UniformMatrix3(11, True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
-                GL.Uniform2(12, theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
+                GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
+                GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
 
                 'bind all the data for this chunk
                 With theMap.render_set(i)
