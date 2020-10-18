@@ -81,8 +81,9 @@ void main(void)
     if (frustumCullingTest(MVP, thisModel.bmin, thisModel.bmax)) {
         const vec4 cs_position = view * thisModel.matrix * vec4(0, 0, 0, 1);
         const float distToCamera = -cs_position.z;
+        const float radius = length(thisModel.bmax - thisModel.bmin) / 2.0f;
 
-        const uint lod_id = min(distToCamera < 30 ? 0 : 1, thisModel.lod_count - 1);
+        const uint lod_id = min(distToCamera < radius + 30 ? 0 : 1, thisModel.lod_count - 1);
         const ModelLoD lod = lods[thisModel.lod_offset + thisModel.batch_count * lod_id];
 
         for (int i = 0; i < lod.draw_count; ++i) {
