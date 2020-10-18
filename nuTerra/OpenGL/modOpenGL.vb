@@ -5,6 +5,19 @@ Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 
 Module modOpenGL
+    Public Class MyGLControl
+        Inherits GLControl
+
+        Public Sub New()
+#If DEBUG Then
+            MyBase.New(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug)
+#Else
+            MyBase.New(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, GraphicsContextFlags.ForwardCompatible)
+#End If
+        End Sub
+    End Class
+
+
     Public defaultVao As Integer
     Public FieldOfView As Single = 60.0F
 

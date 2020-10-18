@@ -28,16 +28,7 @@ Partial Class frmMain
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
 
-        'FIXME: move this code somewhere else
-#If DEBUG Then
-        Dim flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
-#Else
-        Dim flags = GraphicsContextFlags.ForwardCompatible
-#End If
-        ' Disable default depth buffer
-        Dim mode = New GraphicsMode(ColorFormat.Empty, 0)
-        Me.glControl_main = New OpenTK.GLControl(mode, 4, 5, flags)
-
+        Me.glControl_main = New MyGLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_load_map = New System.Windows.Forms.ToolStripMenuItem()
@@ -259,7 +250,7 @@ Partial Class frmMain
         Me.PerformLayout()
 
     End Sub
-    Friend WithEvents glControl_main As OpenTK.GLControl
+    Friend WithEvents glControl_main As MyGLControl
     Friend WithEvents frmMainMenu As System.Windows.Forms.MenuStrip
     Friend WithEvents m_file As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_help As System.Windows.Forms.ToolStripMenuItem
