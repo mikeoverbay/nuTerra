@@ -76,22 +76,22 @@ Module modRender
             '=======================================================================
             If (SHOW_BORDER + SHOW_CHUNKS + SHOW_GRID) > 0 Then draw_terrain_grids()
             '=======================================================================
+
+            'setup for projection before drawing
+            FBOm.attach_C_no_Depth()
+            GL.DepthMask(False)
+            GL.FrontFace(FrontFaceDirection.Cw)
+            GL.Enable(EnableCap.Blend)
+            GL.Enable(EnableCap.CullFace)
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+            '===========================================================================
+            If SHOW_CURSOR Then draw_map_cursor() '=====================================
+            '===========================================================================
+
+            '===========================================================================
+            draw_terrain_base_rings() '=================================================
+            '===========================================================================
         End If
-
-        'setup for projection before drawing
-        FBOm.attach_C_no_Depth()
-        GL.DepthMask(False)
-        GL.FrontFace(FrontFaceDirection.Cw)
-        GL.Enable(EnableCap.Blend)
-        GL.Enable(EnableCap.CullFace)
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-        '===========================================================================
-        If SHOW_CURSOR Then draw_map_cursor() '=========================================================
-        '===========================================================================
-
-        '===========================================================================
-        draw_terrain_base_rings() '=================================================
-        '===========================================================================
         'restore settings after projected objects are drawn
         GL.Disable(EnableCap.Blend)
         GL.DepthMask(True)
