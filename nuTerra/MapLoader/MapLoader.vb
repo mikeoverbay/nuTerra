@@ -416,6 +416,7 @@ Module MapLoader
                                 .firstIndex = iLast * 3 + primGroup.startIndex
                                 .baseVertex = baseVert
                                 .baseInstance = cmdId
+                                .lod_level = lod_id
                             End With
                             cmdId += 1
                             skip = False
@@ -449,6 +450,7 @@ Module MapLoader
                                     .firstIndex = drawCommands(savedCmdId + j).firstIndex
                                     .baseVertex = drawCommands(savedCmdId + j).baseVertex
                                     .baseInstance = cmdId
+                                    .lod_level = lod_id
                                 End With
                                 cmdId += 1
                             Next

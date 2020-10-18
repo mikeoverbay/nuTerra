@@ -19,6 +19,7 @@ struct CandidateDraw
     uint firstIndex;
     uint baseVertex;
     uint baseInstance;
+    uint lod_level;
 };
 
 struct DrawElementsIndirectCommand

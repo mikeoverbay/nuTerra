@@ -45,6 +45,7 @@ out VS_OUT
     mat3 TBN;
     flat uint material_id;
     flat uint model_id;
+    flat uint lod_level;
     vec2 UV1;
     vec2 UV2;
     vec2 UV3;
@@ -63,6 +64,7 @@ void main(void)
 
     vs_out.material_id = thisDraw.material_id;
     vs_out.model_id = thisDraw.model_id;
+    vs_out.lod_level = thisDraw.lod_level;
 
     vs_out.TC1 = vertexTexCoord1;
     vs_out.TC2 = vertexTexCoord2;

@@ -59,6 +59,7 @@ Module modOpenGL
         Dim firstIndex As UInt32
         Dim baseVertex As UInt32
         Dim baseInstance As UInt32
+        Dim lod_level As UInt32
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
