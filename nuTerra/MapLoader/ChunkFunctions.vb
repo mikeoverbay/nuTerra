@@ -143,6 +143,7 @@ Module ChunkFunctions
             e2.Xz = XY(ic) - XY(ib)
             e2.Y = Z(ic) - Z(ib)
             Dim no = Vector3.Cross(e1, e2)
+            no.Normalize()
             n_buff(ia) += no
             n_buff(ib) += no
             n_buff(ic) += no
@@ -150,9 +151,9 @@ Module ChunkFunctions
         For i = 0 To indi.Length - 1
             Dim v0, V1, v2 As Vector3
 
-            Dim ia As UInt16 = indi(i).x
+            Dim ia As UInt16 = indi(i).z
             Dim ib As UInt16 = indi(i).y
-            Dim ic As UInt16 = indi(i).z
+            Dim ic As UInt16 = indi(i).x
 
             v0.Xz = XY(ia) : v0.Y = Z(ia)
             V1.Xz = XY(ib) : V1.Y = Z(ib)
@@ -181,6 +182,7 @@ Module ChunkFunctions
         Next
         For i = 0 To t_buff.Length - 1
             t_buff(i).Normalize()
+            n_buff(i).Normalize()
         Next
     End Sub
 
@@ -228,17 +230,20 @@ Module ChunkFunctions
             If mapBoard(mbX, mbY - 1).occupied Then
                 Dim other = mapBoard(mbX, mbY - 1).map_id
                 For x = 0 To 64
-                    v1 = .n_buff(x) '<-- me
-                    v2 = theMap.v_data(other).t_buff(x + (65 * 64))
-                    v1 = (v1 + v2) / 2.0F
-                    .n_buff(x) = v1
-                    theMap.v_data(other).t_buff(x + (65 * 64)) = v1
+                    Dim me_ = x
+                    Dim you_ = x + (65 * 64)
 
-                    v1 = .t_buff(x) '<-- me
-                    v2 = theMap.v_data(other).t_buff(x + (65 * 64))
+                    v1 = .n_buff(me_) '<-- me
+                    v2 = theMap.v_data(other).n_buff(you_)
                     v1 = (v1 + v2) / 2.0F
-                    .t_buff(x) = v1
-                    theMap.v_data(other).t_buff(x + (65 * 64)) = v1
+                    .n_buff(me_) = v1
+                    theMap.v_data(other).n_buff(you_) = v1
+
+                    v1 = .t_buff(me_) '<-- me
+                    v2 = theMap.v_data(other).t_buff(you_)
+                    v1 = (v1 + v2) / 2.0
+                    .t_buff(me_) = v1
+                    theMap.v_data(other).t_buff(you_) = v1
 
                 Next
             End If
