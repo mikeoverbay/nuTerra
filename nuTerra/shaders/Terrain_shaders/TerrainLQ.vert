@@ -66,8 +66,6 @@ void main(void)
     // vertex --> world pos
     vs_out.worldPosition = vec3(view * modelMatrix * vec4(vertexPosition, 1.0f));
 
-    mat4 modelView = view ;
-    mat3 normalMatrix = mat3(transpose(inverse(modelView)));
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
     vec3 worldNormal = normalMatrix * VN;
     vec3 worldTangent = normalMatrix * VT;
