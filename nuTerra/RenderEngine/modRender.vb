@@ -156,7 +156,11 @@ Module modRender
 
         cullShader.Use()
 
-        GL.DispatchCompute(MapGL.numModelInstances, 1, 1)
+        GL.Uniform1(cullShader("numModelInstances"), MapGL.numModelInstances)
+
+        Dim workGroupSize = 16
+        Dim numGroups = (MapGL.numModelInstances + workGroupSize - 1) \ workGroupSize
+        GL.DispatchCompute(numGroups, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 

@@ -3,8 +3,9 @@
 #extension GL_ARB_shading_language_include : require
 #include "common.h"
 
-layout (local_size_x = 1) in;
+layout (local_size_x = 16) in;
 
+uniform int numModelInstances;
 
 layout (binding = DRAW_CANDIDATES_BASE, std430) readonly buffer CandidateDraws
 {
@@ -75,6 +76,8 @@ bool frustumCullingTest(mat4 mvp, vec3 bmin, vec3 bmax)
 
 void main(void)
 {
+    if (gl_GlobalInvocationID.x >= numModelInstances) return;
+
     const ModelInstance thisModel = models[gl_GlobalInvocationID.x];
     const mat4 MVP = viewProj * thisModel.matrix;
 
