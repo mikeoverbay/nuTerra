@@ -13,8 +13,8 @@ layout(location = 4) in vec3 vertexTangent;
 uniform vec2 map_size;
 uniform vec2 map_center;
 
-layout(location = 10) uniform mat4 modelMatrix;
-layout(location = 11) uniform mat3 normalMatrix;
+uniform mat4 modelMatrix;
+uniform mat3 normalMatrix;
 uniform vec2 me_location;
 
 layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {

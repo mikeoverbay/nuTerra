@@ -75,7 +75,7 @@ layout(binding = 28) uniform sampler2D tex_7;
 layout(binding = 29) uniform sampler2D global_AM;
 layout(binding = 30) uniform sampler2D normalMap;
 
-layout(location = 24) uniform int show_test;
+uniform int show_test;
 
 in VS_OUT {
     mat3 TBN;
