@@ -76,7 +76,6 @@ Module modRender
             '=======================================================================
             If (SHOW_BORDER + SHOW_CHUNKS + SHOW_GRID) > 0 Then draw_terrain_grids()
             '=======================================================================
-
             'setup for projection before drawing
             FBOm.attach_C_no_Depth()
             GL.DepthMask(False)
@@ -84,20 +83,20 @@ Module modRender
             GL.Enable(EnableCap.Blend)
             GL.Enable(EnableCap.CullFace)
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-            '===========================================================================
-            If SHOW_CURSOR Then draw_map_cursor() '=====================================
-            '===========================================================================
+            '=======================================================================
+            If SHOW_CURSOR Then draw_map_cursor() '=================================
+            '=======================================================================
 
-            '===========================================================================
-            draw_terrain_base_rings() '=================================================
-            '===========================================================================
+            '=======================================================================
+            draw_terrain_base_rings() '=============================================
+            '=======================================================================
+            'restore settings after projected objects are drawn
+            GL.Disable(EnableCap.Blend)
+            GL.DepthMask(True)
+            GL.Disable(EnableCap.CullFace)
+            FBOm.attach_Depth()
+            GL.FrontFace(FrontFaceDirection.Ccw)
         End If
-        'restore settings after projected objects are drawn
-        GL.Disable(EnableCap.Blend)
-        GL.DepthMask(True)
-        GL.Disable(EnableCap.CullFace)
-        FBOm.attach_Depth()
-        GL.FrontFace(FrontFaceDirection.Ccw)
 
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
             '=======================================================================
@@ -1051,6 +1050,8 @@ Module modRender
         'draw text at location.
         '=======================================================================
         'setup
+        If text Is Nothing Then Return
+
         GL.Enable(EnableCap.Blend)
         miniLegends.Use()
         GL.Uniform1(miniLegends("imageMap"), 0)

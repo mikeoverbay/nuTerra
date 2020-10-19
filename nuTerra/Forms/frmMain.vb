@@ -75,6 +75,9 @@ Public Class frmMain
             Case Keys.B
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
 
+            Case Keys.G
+                If MAP_LOADED Then frmGbufferViewer.Show()
+
             Case Keys.E
                 frmEditFrag.Show()
 
@@ -158,7 +161,7 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         Me.KeyPreview = True    'So I catch keyboard before despatching it
         '-----------------------------------------------------------------------------------------
-        'get director of all shader files
+        'get directory of all shader files
         SHADER_PATHS = Directory.GetFiles(Application.StartupPath + "\shaders\", "*.*", SearchOption.AllDirectories)
         '-----------------------------------------------------------------------------------------
         'Debugger.Break()
@@ -399,6 +402,7 @@ try_again:
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
         'Must load and hide frmLighting to access its functions.
+        frmLighting.StartPosition = FormStartPosition.CenterParent
         frmLighting.TopMost = False
         frmLighting.SendToBack()
         frmLighting.Show()

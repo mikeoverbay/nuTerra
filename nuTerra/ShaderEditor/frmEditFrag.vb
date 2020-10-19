@@ -52,7 +52,7 @@ Public Class frmEditFrag
         compute_tb.AcceptsTab = True
 
         For i = 0 To shaders.Count - 1
-            CB1.Items.Add(shaders(i).name)
+            CB1.Items.Add(shaders(i).program.ToString("00") + " : " + shaders(i).name)
         Next
 
         recompile_bt.Enabled = False
@@ -165,6 +165,9 @@ Public Class frmEditFrag
         CSharpSyntaxHighlight(vert_tb, e) 'custom highlighting
     End Sub
     Private Sub geo_tb_TextChanged(sender As Object, e As TextChangedEventArgs) Handles geo_tb.TextChanged
+        CSharpSyntaxHighlight(geo_tb, e) 'custom highlighting
+    End Sub
+    Private Sub compute_tb_TextChanged(sender As Object, e As TextChangedEventArgs) Handles compute_tb.TextChanged
         CSharpSyntaxHighlight(geo_tb, e) 'custom highlighting
     End Sub
 
@@ -286,4 +289,5 @@ Public Class frmEditFrag
     Private Sub ToolStripMenuItem12_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem12.Click
         compute_tb.Paste()
     End Sub
+
 End Class

@@ -203,9 +203,13 @@ Module TerrainBuilder
 
     '=======================================================================
     Public Sub Create_Terrain()
+        Dim SWT As New Stopwatch
+#If DEBUG Then
         'clear debug window
         clear_output()
+#End If
 
+        SWT.Start()
         ReDim mapBoard(20, 20) 'clear it
 
         get_all_chunk_file_data()
@@ -223,6 +227,9 @@ Module TerrainBuilder
             Application.DoEvents()
         Next
 
+        LogThis(String.Format("Load Terrain Data & build mesh: {0}", SWT.ElapsedMilliseconds.ToString))
+        SWT.Restart()
+
         BG_VALUE = 0
         BG_TEXT = "Smoothing Terrain Normals..."
         For i = 0 To theMap.chunks.Length - 1
@@ -231,6 +238,10 @@ Module TerrainBuilder
             draw_scene()
             Application.DoEvents()
         Next
+
+        LogThis(String.Format("Smooth Seams: {0}", SWT.ElapsedMilliseconds.ToString))
+        SWT.Restart()
+
 
         BG_VALUE = 0
         BG_TEXT = "Reading Terrain Texture data..."
@@ -241,6 +252,10 @@ Module TerrainBuilder
             Application.DoEvents()
         Next
 
+        LogThis(String.Format("Get Layers data and textures: {0}", SWT.ElapsedMilliseconds.ToString))
+        SWT.Restart()
+
+
         'we need to find a way to package the terrains texture info so we can use instance rendering
         BG_VALUE = 0
         BG_TEXT = "Building render VAOs..."
@@ -250,6 +265,9 @@ Module TerrainBuilder
             draw_scene()
             Application.DoEvents()
         Next
+        LogThis(String.Format("Build VAO: {0}", SWT.ElapsedMilliseconds.ToString))
+        SWT.Stop()
+
     End Sub
 
     '=======================================================================

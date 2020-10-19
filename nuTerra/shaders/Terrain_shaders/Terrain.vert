@@ -144,7 +144,7 @@ void main(void)
     // Calculate vertex position in clip coordinates
     gl_Position = viewProj * modelMatrix * vec4(vertexPosition, 1.0f);
    
-    // This is the cut off distance for bumpping the surface.
+    // This is the cut off distance for bumping the surface.
     vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
     vs_out.ln = distance( point.xyz,cameraPos.xyz );
     float start = 100.0;

@@ -34,7 +34,7 @@ Module LoadingScreen
                              nuTERRA_BG_IMAGE)
 
         ' Draw 'Loading Models...' text
-        draw_text()
+        draw_text(BG_TEXT, 5, 30, OpenTK.Graphics.Color4.White, False)
 
         'Draw Bargraph
         GL.Enable(EnableCap.Blend)
@@ -47,15 +47,4 @@ Module LoadingScreen
         GL.Flush()
     End Sub
 
-    Private Sub draw_text()
-        DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
-        DrawMapPickText.DrawString(BG_TEXT, mono, Brushes.White, PointF.Empty)
-
-        GL.Enable(EnableCap.Blend)
-        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
-
-        draw_image_rectangle(New RectangleF(0, 30, 300, 30), DrawMapPickText.Gettexture)
-
-        GL.Disable(EnableCap.Blend)
-    End Sub
 End Module

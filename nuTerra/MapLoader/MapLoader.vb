@@ -236,6 +236,8 @@ Module MapLoader
 #End Region
 
     Public Sub load_map(ByVal package_name As String)
+        'disable main menu
+        frmMain.MainMenuStrip.Enabled = False
 
         MAP_LOADED = False
         SHOW_MAPS_SCREEN = False
@@ -300,6 +302,8 @@ Module MapLoader
         'Open the space.bin file. If it fails, it closes all packages and lets the user know.
         If Not get_spaceBin(ABS_NAME) Then
             MsgBox("Failed to load Space.Bin from the map package.", MsgBoxStyle.Exclamation, "Space.bin!")
+            'Enabled main menu
+            frmMain.MainMenuStrip.Enabled = True
             Return
         End If
         '===============================================================
@@ -596,6 +600,10 @@ Module MapLoader
 
         ' close packages
         close_shared_packages()
+
+        'dEnable main menu
+        frmMain.MainMenuStrip.Enabled = True
+
     End Sub
 
     Private Structure AtlasCoords
@@ -1017,8 +1025,10 @@ Module MapLoader
         Dim img_id = GL.GenTexture()
         For i = FIRST_UNUSED_TEXTURE To img_id
             Dim imgHandle = GL.Arb.GetTextureHandle(i)
-            If GL.Arb.IsTextureHandleResident(imgHandle) Then
-                GL.Arb.MakeTextureHandleNonResident(imgHandle)
+            If imgHandle > 0 Then 'trap error
+                If GL.Arb.IsTextureHandleResident(imgHandle) Then
+                    GL.Arb.MakeTextureHandleNonResident(imgHandle)
+                End If
             End If
             GL.DeleteTexture(i)
         Next
