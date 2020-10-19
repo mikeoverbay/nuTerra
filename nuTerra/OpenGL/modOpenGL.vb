@@ -96,6 +96,8 @@ Module modOpenGL
         Public viewProj As Matrix4
         Public invViewProj As Matrix4
         Public cameraPos As Vector3
+        Private pad As UInt32 'reserved
+        Public resolution As Vector2
     End Structure
     Public PerViewData As New TPerViewData
     Public PerViewDataBuffer As Integer
@@ -139,6 +141,8 @@ Module modOpenGL
         PerViewData.view = Matrix4.LookAt(CAM_POSITION, target, Vector3.UnitY)
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
         PerViewData.invViewProj = Matrix4.Invert(PerViewData.viewProj)
+        PerViewData.resolution.X = frmMain.glControl_main.ClientSize.Width
+        PerViewData.resolution.Y = frmMain.glControl_main.ClientSize.Height
         GL.NamedBufferSubData(PerViewDataBuffer, IntPtr.Zero, Marshal.SizeOf(PerViewData), PerViewData)
     End Sub
 

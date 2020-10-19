@@ -17,11 +17,11 @@ layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     mat4 viewProj;
     mat4 invViewProj;
     vec3 cameraPos;
+    vec2 resolution;
 };
 
 in VS_OUT {
-    flat mat4 inverseModel;
-    vec4 positionSS; // clip-space position
+    flat mat4 invMVP;
 } fs_in;
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
@@ -33,52 +33,38 @@ void clip(vec3 v) {
     if (v.z > tr.z || v.z < bl.z ) discard;
 }
 
-vec2 postProjToScreen(vec4 position)
+void main()
 {
-    vec2 screenPos = position.xy / position.w;
-    return 0.5 * (vec2(screenPos.x, screenPos.y) + 1);
-}
-
-
-void main(){
     // Calculate UVs
-    vec2 UV = postProjToScreen(fs_in.positionSS);
+    vec2 uv = gl_FragCoord.xy / resolution;
+
     /*==================================================*/
-      int flag = int(texture(gFlag, UV.xy).r * 255);
-     if (flag == 64)  { discard;}
+    int flag = int(texture(gFlag, uv.xy).r * 255);
+    if (flag == 64) { discard; }
+    //if (flag == 96) { discard; }
+    //if (flag != 128) { discard; }
 
-     //if (flag == 96) { discard;}
-
-     //if (flag != 128)  { discard;}
-       
     /*==================================================*/
     // sample the Depth from the Depthsampler
-    float Depth = texture(depthMap, UV).x;
+    float depth = texture(depthMap, uv).x;
 
-    // Calculate Worldposition by recreating it out of the coordinates and depth-sample
-    vec4 ScreenPosition;
-    ScreenPosition.xy = UV * 2.0 - 1.0;
-    ScreenPosition.z = (Depth);
-    ScreenPosition.w = 1.0f;
+    // Calculate clip space by recreating it out of the coordinates and depth-sample
+    vec4 ScreenPosition = vec4(uv*2.0-1.0, depth, 1.0);
 
     // Transform position from screen space to world space
-    vec4 WorldPosition = invViewProj * ScreenPosition;
+    vec4 WorldPosition = fs_in.invMVP * ScreenPosition;
     WorldPosition.xyz /= WorldPosition.w;
     WorldPosition.w = 1.0f;
     // trasform to decal original and size.
     // 1 x 1 x 1
-    WorldPosition = fs_in.inverseModel * WorldPosition;
     clip (WorldPosition.xyz);
-
 
     /*==================================================*/
     //Get texture UVs
     WorldPosition.xy += 0.5;
-    WorldPosition.y *= 1.0;
 
     vec4 color = texture(colorMap, WorldPosition.xy);
 	color.xyz += color_in;
     if (color.a < 0.05) { discard; }
     gColor = color;
-
-    }
+}

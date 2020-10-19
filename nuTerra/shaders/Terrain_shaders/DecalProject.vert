@@ -14,17 +14,15 @@ layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     mat4 viewProj;
     mat4 invViewProj;
     vec3 cameraPos;
+    vec2 resolution;
 };
 
 out VS_OUT {
-    flat mat4 inverseModel;
-    vec4 positionSS;
+    flat mat4 invMVP;
 } vs_out;
 
 void main(void)
 {
     gl_Position = viewProj * DecalMatrix * vec4(vertexPosition.xyz, 1.0);
-
-    vs_out.positionSS = gl_Position;
-    vs_out.inverseModel = inverse(DecalMatrix);
+    vs_out.invMVP = inverse(viewProj * DecalMatrix);
 }
