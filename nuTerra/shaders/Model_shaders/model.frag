@@ -1,5 +1,4 @@
-﻿// gWriter fragment Shader. We will use this as a template for other shaders
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
@@ -11,6 +10,12 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
+
+// Material block
+layout (binding = MATERIALS_BASE, std430) readonly buffer MATERIALS
+{
+    MaterialProperties material[];
+};
 
 // Input from vertex shader
 in VS_OUT
@@ -30,15 +35,7 @@ in VS_OUT
     vec2 scale_4;
     vec2 offset_123;
     vec2 offset_4;
-
 } fs_in;
-
-
-// Material block
-layout (binding = MATERIALS_BASE, std430) readonly buffer MATERIALS
-{
-    MaterialProperties material[];
-};
 
 // ================================================================================
 // globals

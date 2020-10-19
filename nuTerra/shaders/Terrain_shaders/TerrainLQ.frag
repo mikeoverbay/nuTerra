@@ -9,14 +9,14 @@ layout (location = 3) out vec3 gPosition;
 layout(binding = 0) uniform sampler2D global_AM;
 layout(binding = 1) uniform sampler2D normalMap;
 
-in mat3 TBN;
-in vec3 worldPosition;
-in vec4 Vertex;
-
-in vec2 UV;
-in vec2 Global_UV;
-
-flat in uint is_hole;
+in VS_OUT {
+    vec4 Vertex;
+    mat3 TBN;
+    vec3 worldPosition;
+    vec2 UV;
+    vec2 Global_UV;
+    //flat bool is_hole;
+} fs_in;
 
 // Converion from AG map to RGB vector.
 vec4 convertNormal(vec4 norm){
@@ -31,13 +31,13 @@ vec4 convertNormal(vec4 norm){
 void main(void)
 {
     // Remmed so I dont go insane.
-    //if (is_hole > 0) discard; // Early discard to avoid wasting draw time.
+    //if (fs_in.is_hole) discard; // Early discard to avoid wasting draw time.
 
-    vec4 global = texture(global_AM, Global_UV);
+    vec4 global = texture(global_AM, fs_in.Global_UV);
     // This is needed to light the global_AM.
-    vec4 g_nm = texture(normalMap, UV);
+    vec4 g_nm = texture(normalMap, fs_in.UV);
     vec4 n = vec4(0.0);
-    n.xyz = normalize(TBN * vec3(convertNormal(g_nm).xyz));
+    n.xyz = normalize(fs_in.TBN * vec3(convertNormal(g_nm).xyz));
     //n.x*=-1.0;
   
     // The obvious
@@ -47,5 +47,5 @@ void main(void)
     gNormal.xyz = normalize(n.xyz);
     gGMF.rgb = vec3(global.a+0.2, 0.0, 64.0/255.0);
 
-    gPosition = worldPosition;
+    gPosition = fs_in.worldPosition;
 }

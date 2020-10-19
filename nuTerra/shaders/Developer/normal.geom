@@ -14,7 +14,9 @@ in VS_OUT
     vec3 b;
 } gs_in[];
 
-out vec4 color;
+out GS_OUT {
+    flat vec4 color;
+} gs_out;
 
 void main()
 {
@@ -24,7 +26,7 @@ void main()
         vec3 sumN;
 
         // Normal
-        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        gs_out.color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
         sumN = (gs_in[0].n + gs_in[1].n + gs_in[2].n) / 3.0f;
         gl_Position = sumV;
         EmitVertex();
@@ -33,7 +35,7 @@ void main()
         EndPrimitive();
 
         // Tangent
-        color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        gs_out.color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
         sumN = (gs_in[0].t + gs_in[1].t + gs_in[2].t) / 3.0f;
         gl_Position = sumV;
         EmitVertex();
@@ -42,7 +44,7 @@ void main()
         EndPrimitive();
 
         //biTangent
-        color = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+        gs_out.color = vec4(0.0f, 0.0f, 1.0f, 1.0f);
         sumN = (gs_in[0].b + gs_in[1].b + gs_in[2].b) / 3.0f;
         gl_Position = sumV;
         EmitVertex();
@@ -52,7 +54,7 @@ void main()
     }
     else if (mode == 2) {
         // normal
-        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        gs_out.color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
         for(i = 0; i < gl_in.length(); i++) {
             gl_Position = gl_in[i].gl_Position;
             EmitVertex();
@@ -61,7 +63,7 @@ void main()
             EndPrimitive();
         }
         // Tangent
-        color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        gs_out.color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
         for(i = 0; i < gl_in.length(); i++) {
             gl_Position = gl_in[i].gl_Position;
             EmitVertex();
@@ -70,7 +72,7 @@ void main()
             EndPrimitive();
         }
         // biTangent
-        color = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+        gs_out.color = vec4(0.0f, 0.0f, 1.0f, 1.0f);
         for(i = 0; i < gl_in.length(); i++) {
             gl_Position = gl_in[i].gl_Position;
             EmitVertex();
@@ -81,7 +83,7 @@ void main()
     }
 
     if (show_wireframe) {
-        color = vec4(1.0f, 1.0f, 0.0f, 1.0f);
+        gs_out.color = vec4(1.0f, 1.0f, 0.0f, 1.0f);
         for (i = 0; i < gl_in.length(); i++) {
             gl_Position = gl_in[i].gl_Position;
             EmitVertex();

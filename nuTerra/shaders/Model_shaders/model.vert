@@ -1,5 +1,4 @@
-﻿// gWriter vertex Shader. We will use this as a template for other shaders
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shader_draw_parameters : require
