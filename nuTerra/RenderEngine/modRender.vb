@@ -219,7 +219,7 @@ Module modRender
 
                 GL.UniformMatrix4(10, False, theMap.render_set(i).matrix)
 
-                GL.UniformMatrix3(11, True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
+                GL.UniformMatrix3(11, True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
                 GL.Uniform2(TerrainLQShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
 
                 'draw chunk
@@ -266,7 +266,7 @@ Module modRender
 
                 GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
 
-                GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(VIEWMATRIX * theMap.render_set(i).matrix))) 'NormalMatrix
+                GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
                 GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
 
                 'bind all the data for this chunk
@@ -319,9 +319,6 @@ Module modRender
         unbind_textures(30)
 
         If WIRE_TERRAIN Then
-            'Must have this Identity to use the terrain normal view shader.
-            Dim viewM = Matrix4.Identity * VIEWMATRIX
-
             GL.Disable(EnableCap.PolygonOffsetFill)
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
