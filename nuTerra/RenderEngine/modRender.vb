@@ -974,8 +974,8 @@ Module modRender
 
         GL.UniformMatrix4(DecalProject("DecalMatrix"), False, rotate * model_S * model_X)
 
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 36)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 12)
 
         DecalProject.StopUse()
         unbind_textures(2)
@@ -1005,8 +1005,8 @@ Module modRender
         GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
         GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Green)
 
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 36)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 12)
 
         'base 2 ring
         model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
@@ -1014,8 +1014,8 @@ Module modRender
         GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
         GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Red)
 
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 36)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 12)
 
         BaseRingProjector.StopUse()
         GL.BindTextureUnit(0, 0)

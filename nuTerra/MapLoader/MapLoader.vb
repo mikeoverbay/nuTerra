@@ -257,7 +257,7 @@ Module MapLoader
         '===============================================================
         'House Keeping
         TOTAL_TRIANGLES_DRAWN = 0
-        make_cube()
+
         '===============================================================
         'get the light settings for this map.
         frmLighting.get_light_settings()

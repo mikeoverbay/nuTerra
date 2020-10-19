@@ -1,26 +1,30 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shading_language_include : require
+#include "common.h"
+
 layout (location = 0) out vec4 gColor;
 
 uniform sampler2D depthMap;
-
-in mat4 inverseProject;
-in vec4 positionSS;
-
 uniform vec4 color;
 uniform vec3 ring_center;
 uniform float radius;
 uniform float thickness;
 
-vec2 postProjToScreen(vec4 position)
-    {
-    vec2 screenPos = position.xy / position.w;
-    return 0.5 * (vec2(screenPos.x, screenPos.y) + 1);
-    }
+layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
+    mat4 view;
+    mat4 projection;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraPos;
+    vec2 resolution;
+};
+
+in mat4 inverseProject;
 
 void main (void)
 {
-    vec2 UV = postProjToScreen(positionSS);
+    vec2 UV = gl_FragCoord.xy / resolution;
     float Depth = texture(depthMap, UV).x;
 
     // Calculate Worldposition by recreating it out of the coordinates and depth-sample
