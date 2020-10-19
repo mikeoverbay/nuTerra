@@ -479,7 +479,7 @@ Module modRender
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
-        Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, VIEWMATRIX_Saved)
+        Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, PerViewData.view)
 
         GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
 

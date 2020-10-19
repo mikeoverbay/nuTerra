@@ -135,12 +135,10 @@ Module modOpenGL
                                    CSng(Math.PI) * (FieldOfView / 180.0F),
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
                                    PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
-        PROJECTIONMATRIX_Saved = PerViewData.projection
         PerViewData.cameraPos = CAM_POSITION
         PerViewData.view = Matrix4.LookAt(CAM_POSITION, target, Vector3.UnitY)
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
         PerViewData.invViewProj = Matrix4.Invert(PerViewData.viewProj)
-        VIEWMATRIX_Saved = PerViewData.view
         GL.NamedBufferSubData(PerViewDataBuffer, IntPtr.Zero, Marshal.SizeOf(PerViewData), PerViewData)
     End Sub
 
