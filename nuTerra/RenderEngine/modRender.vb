@@ -63,6 +63,8 @@ Module modRender
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
         '===========================================================================
 
+        If TERRAIN_LOADED And DONT_BLOCK_SKY Then Draw_SkyDome()
+
         '===========================================================================
         'GL States 
         GL.Enable(EnableCap.DepthTest)
@@ -875,7 +877,6 @@ Module modRender
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-
         MiniMapRingsShader.StopUse()
 
         GL_POP_GROUP()
@@ -945,6 +946,27 @@ Module modRender
         Return
     End Sub
 #End Region
+
+    Private Sub Draw_SkyDome()
+        GL_PUSH_GROUP("Draw_SkyDome")
+
+        FBOm.attach_CNGP()
+
+        SkyDomeShader.Use()
+
+        GL.Enable(EnableCap.CullFace)
+
+        GL.BindTextureUnit(0, theMap.Sky_Texture_Id)
+
+        GL.BindVertexArray(theMap.skybox_mdl.vao)
+        GL.DrawElements(PrimitiveType.Triangles, theMap.skybox_mdl.indices_count * 3, DrawElementsType.UnsignedShort, 0)
+
+        SkyDomeShader.StopUse()
+        GL.BindTextureUnit(0, 0)
+        GL.Disable(EnableCap.CullFace)
+
+        GL_POP_GROUP()
+    End Sub
 
     Private Sub draw_map_cursor()
         GL_PUSH_GROUP("draw_map_cursor")

@@ -1,14 +1,17 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
+#include "common.h"
+
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 2) in vec2 vertexTexCoord1;
-
-uniform mat4 mvp;
 
 out vec2 texCoord;
 
 void main(void)
 {
     texCoord =  vertexTexCoord1;
-    gl_Position = mvp * vec4(vertexPosition, 1.0f);
+    gl_Position = projection * view * vec4(vertexPosition, 1.0f);
 }
