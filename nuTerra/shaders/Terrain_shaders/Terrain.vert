@@ -64,6 +64,7 @@ out VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
+    bool is_hole;
     //flat bool is_hole;
 } vs_out;
 
@@ -80,7 +81,7 @@ void main(void)
     vs_out.Global_UV = scaled + uv_g;
     vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
     
-    //is_hole = (vertexNormal.w == 1.0f);
+    vs_out.is_hole = (vertexNormal.w == 1.0f);
     //-------------------------------------------------------
     // Calulate UVs for the texture layers
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);

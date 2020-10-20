@@ -86,7 +86,7 @@ in VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
-    //flat bool is_hole;
+    flat bool is_hole;
 } fs_in;
 
 /*===========================================================*/
@@ -110,7 +110,7 @@ vec4 convertNormal(vec4 norm){
 void main(void)
 {
     // Remmed so I dont go insane.
-    //if (is_hole > 0) discard; // Early discard to avoid wasting draw time.
+    if (fs_in.is_hole) discard; // Early discard to avoid wasting draw time.
 
     vec4 t1, t2, t3, t4;
     vec4 t1_2, t2_2, t3_2, t4_2;
@@ -319,7 +319,7 @@ void main(void)
     // The obvious
     gColor = base;
     gColor.a = 1.0;
-
+    //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
     gNormal.xyz = normalize(out_n.xyz);
     gGMF.rgb = vec3(global.a+0.2, 0.0, 64.0/255.0);
 
