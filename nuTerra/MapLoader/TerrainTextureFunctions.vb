@@ -200,9 +200,8 @@ Module TerrainTextureFunctions
             For i = 0 To 3
                 sec_sizes(i) = br2.ReadUInt32
             Next
-            ReDim .TexLayers(section_cnt)
+            'ReDim .TexLayers(section_cnt)
             For i = 0 To 3
-                .TexLayers(i) = New ids_
                 Dim len = sec_sizes(i)
                 If len > 0 Then
 
