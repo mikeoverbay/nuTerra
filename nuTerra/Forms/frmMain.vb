@@ -366,6 +366,8 @@ try_again:
         GL.CreateVertexArrays(1, defaultVao)
         GL.ObjectLabel(ObjectLabelIdentifier.VertexArray, defaultVao, -1, "defaultVao")
 
+        make_cube()
+
         GL.CreateBuffers(1, PerViewDataBuffer)
         GL.ObjectLabel(ObjectLabelIdentifier.Buffer, PerViewDataBuffer, -1, "PerView")
         GL.NamedBufferStorage(PerViewDataBuffer, Marshal.SizeOf(PerViewData), IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
