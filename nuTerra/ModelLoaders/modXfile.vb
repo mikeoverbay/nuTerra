@@ -123,27 +123,30 @@ Module modXfile
         'Create VAO id
         GL.CreateVertexArrays(1, result.vao)
 
-        Dim mBuffers(1) As Integer
-        GL.CreateBuffers(2, mBuffers)
+        Dim mBuffer As Integer
+        GL.CreateBuffers(1, mBuffer)
 
-        GL.NamedBufferStorage(mBuffers(0), index_buffer16.Length * 6, index_buffer16, BufferStorageFlags.None)
-        GL.NamedBufferStorage(mBuffers(1), vbuff.Length * 32, vbuff, BufferStorageFlags.None)
+        Dim vbuff_offset = New IntPtr(index_buffer16.Length * 6)
+        GL.NamedBufferStorage(mBuffer, index_buffer16.Length * 6 + vbuff.Length * 32, IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
+        GL.NamedBufferSubData(mBuffer, IntPtr.Zero, index_buffer16.Length * 6, index_buffer16)
+        GL.NamedBufferSubData(mBuffer, vbuff_offset, vbuff.Length * 32, vbuff)
 
-        GL.VertexArrayVertexBuffer(result.vao, 0, mBuffers(1), IntPtr.Zero, 32)
-
+        GL.VertexArrayVertexBuffer(result.vao, 0, mBuffer, vbuff_offset, 32)
         GL.VertexArrayAttribFormat(result.vao, 0, 3, VertexAttribType.Float, False, 0)
         GL.VertexArrayAttribBinding(result.vao, 0, 0)
         GL.EnableVertexArrayAttrib(result.vao, 0)
 
+        GL.VertexArrayVertexBuffer(result.vao, 1, mBuffer, vbuff_offset, 32)
         GL.VertexArrayAttribFormat(result.vao, 1, 3, VertexAttribType.Float, False, 12)
         GL.VertexArrayAttribBinding(result.vao, 1, 1)
         GL.EnableVertexArrayAttrib(result.vao, 1)
 
+        GL.VertexArrayVertexBuffer(result.vao, 2, mBuffer, vbuff_offset, 32)
         GL.VertexArrayAttribFormat(result.vao, 2, 2, VertexAttribType.Float, False, 24)
         GL.VertexArrayAttribBinding(result.vao, 2, 2)
         GL.EnableVertexArrayAttrib(result.vao, 2)
 
-        GL.VertexArrayElementBuffer(result.vao, mBuffers(0))
+        GL.VertexArrayElementBuffer(result.vao, mBuffer)
         Return result
     End Function
 

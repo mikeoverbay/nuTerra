@@ -13,5 +13,12 @@ out vec2 texCoord;
 void main(void)
 {
     texCoord =  vertexTexCoord1;
-    gl_Position = projection * view * vec4(vertexPosition, 1.0f);
+
+    mat4 posMat = mat4(
+        vec4( 1.0, 0.0, 0.0, 0.0),
+        vec4( 0.0, 1.0, 0.0, 0.0),
+        vec4( 0.0, 0.0, 1.0, 0.0),
+        vec4( cameraPos, 1.0));
+
+    gl_Position = viewProj * posMat * vec4(vertexPosition, 1.0f);
 }
