@@ -499,6 +499,7 @@ CleanUp:
                         "g_albedoMapInfluence",
                         "g_tile",
                         "texAddressMode",
+                        "g_applyScreenSpaceMorphing",
                         "applyOverlay"
                     })
                     For Each name In props.Keys
