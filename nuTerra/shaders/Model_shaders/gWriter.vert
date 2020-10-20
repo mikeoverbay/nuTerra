@@ -1,5 +1,4 @@
-﻿// gWriter vertex Shader. We will use this as a template for other shaders
-#version 450 core
+﻿#version 450 core
 
 layout(location = 0) in vec3 vertex_in;
 layout(location = 1) in vec3 normal_in;

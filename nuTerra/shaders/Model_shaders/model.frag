@@ -2,6 +2,8 @@
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
+
+#define USE_MATERIALS_SSBO
 #include "common.h"
 
 // Output
@@ -10,12 +12,6 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
-
-// Material block
-layout (binding = MATERIALS_BASE, std430) readonly buffer MATERIALS
-{
-    MaterialProperties material[];
-};
 
 // Input from vertex shader
 in VS_OUT

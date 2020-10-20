@@ -1,9 +1,7 @@
-﻿//Terrian Chunk Markers..
-#version 450 core
+﻿#version 450 core
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gGMF;
-
 
 uniform vec2 bb_tr;
 uniform vec2 bb_bl;

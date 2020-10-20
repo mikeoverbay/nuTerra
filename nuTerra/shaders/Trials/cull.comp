@@ -1,41 +1,19 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
+#define USE_MODELINSTANCES_SSBO
+#define USE_CANDIDATE_DRAWS_SSBO
+#define USE_LODS_SSBO
+#define USE_INDIRECT_SSBO
 #include "common.h"
 
 layout (local_size_x = 16) in;
 
 uniform int numModelInstances;
 
-layout (binding = DRAW_CANDIDATES_BASE, std430) readonly buffer CandidateDraws
-{
-    CandidateDraw draw[];
-};
-
-layout (binding = INDIRECT_BASE, std430) writeonly buffer OutputDraws
-{
-    DrawElementsIndirectCommand command[];
-};
-
-layout(binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
-{
-    ModelInstance models[];
-};
-
-layout(binding = LODS_BASE, std430) readonly buffer ModelLoDs
-{
-    ModelLoD lods[];
-};
-
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
-
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
-    mat4 view;
-    mat4 projection;
-    mat4 viewProj;
-    mat4 invViewProj;
-    vec3 cameraPos;
-};
 
 struct Frustum {
 	vec4 planes[6];

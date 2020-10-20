@@ -1,4 +1,3 @@
-// Deferred lighting fragment shader.
 #version 450 core
 
 out vec4 outColor;

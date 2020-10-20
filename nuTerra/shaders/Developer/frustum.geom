@@ -1,6 +1,8 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
 #include "common.h"
 
 layout (points) in;
@@ -8,14 +10,6 @@ layout (line_strip, max_vertices = 24) out;
 
 uniform mat4 frozen_projection;
 uniform mat4 frozen_view;
-
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
-    mat4 view;
-    mat4 projection;
-    mat4 viewProj;
-    mat4 invViewProj;
-    vec3 cameraPos;
-};
 
 const vec4 f[8] = vec4[8](
     // near

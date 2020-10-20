@@ -1,8 +1,8 @@
 #define PARAMETERS_BASE 0
 
-// Uniforms
-// 0 is reserved for terrain layer uniform
-#define PER_FRAME_DATA_BASE 1
+// Uniforms Blocks
+#define TERRAIN_LAYERS_UBO_BASE 0
+#define PER_VIEW_UBO_BASE 1
 
 // SSBO
 #define MATRICES_BASE 0
@@ -67,3 +67,49 @@ struct MaterialProperties
     float alphaReference;     /* 200 .. 204 */
     bool alphaTestEnable;     /* 204 .. 208 */
 };
+
+#ifdef USE_PERVIEW_UBO
+layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
+    mat4 view;
+    mat4 projection;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraPos;
+    vec2 resolution;
+};
+#endif
+
+#ifdef USE_MODELINSTANCES_SSBO
+layout(binding = MATRICES_BASE, std430) readonly buffer ModelInstances
+{
+    ModelInstance models[];
+};
+#endif
+
+#ifdef USE_CANDIDATE_DRAWS_SSBO
+layout(binding = DRAW_CANDIDATES_BASE, std430) readonly buffer CandidateDraws
+{
+    CandidateDraw draw[];
+};
+#endif
+
+#ifdef USE_MATERIALS_SSBO
+layout(binding = MATERIALS_BASE, std430) readonly buffer Materials
+{
+    MaterialProperties material[];
+};
+#endif
+
+#ifdef USE_LODS_SSBO
+layout(binding = LODS_BASE, std430) readonly buffer ModelLoDs
+{
+    ModelLoD lods[];
+};
+#endif
+
+#ifdef USE_INDIRECT_SSBO
+layout(binding = INDIRECT_BASE, std430) writeonly buffer Indirect
+{
+    DrawElementsIndirectCommand command[];
+};
+#endif

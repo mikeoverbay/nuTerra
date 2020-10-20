@@ -1,5 +1,4 @@
-﻿// gWriter fragment Shader. We will use this as a template for other shaders
-#version 450 core
+﻿#version 450 core
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec4 gGMF;

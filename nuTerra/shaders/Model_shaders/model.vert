@@ -3,6 +3,11 @@
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shader_draw_parameters : require
 #extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
+#define USE_MODELINSTANCES_SSBO
+#define USE_CANDIDATE_DRAWS_SSBO
+#define USE_MATERIALS_SSBO
 #include "common.h"
 
 layout(location = 0) in vec3 vertexPosition;
@@ -11,30 +16,6 @@ layout(location = 2) in vec4 vertexTangent;
 layout(location = 3) in vec4 vertexBinormal;
 layout(location = 4) in vec2 vertexTexCoord1;
 layout(location = 5) in vec2 vertexTexCoord2;
-
-layout (binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
-{
-    ModelInstance models[];
-};
-
-layout (binding = DRAW_CANDIDATES_BASE, std430) readonly buffer DRAW_CANDIDATES
-{
-    CandidateDraw draw[];
-};
-
-// Material block
-layout (binding = MATERIALS_BASE, std430) readonly buffer MATERIALS
-{
-    MaterialProperties material[];
-};
-
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
-    mat4 view;
-    mat4 projection;
-    mat4 viewProj;
-    mat4 invViewProj;
-    vec3 cameraPos;
-};
 
 out VS_OUT
 {

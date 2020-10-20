@@ -1,7 +1,8 @@
-﻿//Decals color pass.
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
 #include "common.h"
 
 layout (location = 0) out vec4 gColor;
@@ -10,15 +11,6 @@ uniform sampler2D gFlag;
 uniform sampler2D depthMap;
 uniform sampler2D colorMap;
 uniform vec3 color_in;
-
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
-    mat4 view;
-    mat4 projection;
-    mat4 viewProj;
-    mat4 invViewProj;
-    vec3 cameraPos;
-    vec2 resolution;
-};
 
 in VS_OUT {
     flat mat4 invMVP;

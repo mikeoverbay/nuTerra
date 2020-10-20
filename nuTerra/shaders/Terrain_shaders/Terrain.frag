@@ -1,12 +1,15 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shading_language_include : require
+#include "common.h"
+
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
 
-layout (std140, binding = 0 ) uniform Layers {
+layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 layer0UT1;
     vec4 layer1UT1;
     vec4 layer2UT1;

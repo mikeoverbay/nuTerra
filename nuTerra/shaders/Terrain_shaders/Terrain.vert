@@ -1,6 +1,8 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
 #include "common.h"
 
 layout(location = 0) in vec2 vertexXZ;
@@ -9,7 +11,7 @@ layout(location = 2) in vec2 vertexTexCoord;
 layout(location = 3) in vec4 vertexNormal;
 layout(location = 4) in vec3 vertexTangent;
 
-layout (std140, binding = 0 ) uniform Layers {
+layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 layer0UT1;
     vec4 layer1UT1;
     vec4 layer2UT1;
@@ -40,18 +42,9 @@ layout (std140, binding = 0 ) uniform Layers {
     float used_8;
 };
 
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
-    mat4 view;
-    mat4 projection;
-    mat4 viewProj;
-    mat4 invViewProj;
-    vec3 cameraPos;
-};
-
 uniform vec2 map_size;
 uniform vec2 map_center;
 uniform vec2 me_location;
-
 uniform mat4 modelMatrix;
 uniform mat3 normalMatrix;
 

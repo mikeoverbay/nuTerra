@@ -1,23 +1,13 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
+#define USE_MODELINSTANCES_SSBO
 #include "common.h"
 
 layout (points) in;
 layout (line_strip, max_vertices = 24) out;
-
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
-    mat4 view;
-    mat4 projection;
-    mat4 viewProj;
-    mat4 invViewProj;
-    vec3 cameraPos;
-};
-
-layout (binding = MATRICES_BASE, std430) readonly buffer MODEL_MATRIX_BLOCK
-{
-    ModelInstance models[];
-};
 
 void main(void)
 {

@@ -1,7 +1,8 @@
-﻿//Low Quality Terrain
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
 #include "common.h"
 
 layout(location = 0) in vec2 vertexXZ;
@@ -12,18 +13,9 @@ layout(location = 4) in vec3 vertexTangent;
 
 uniform vec2 map_size;
 uniform vec2 map_center;
-
 uniform mat4 modelMatrix;
 uniform mat3 normalMatrix;
 uniform vec2 me_location;
-
-layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
-    mat4 view;
-    mat4 projection;
-    mat4 viewProj;
-    mat4 invViewProj;
-    vec3 cameraPos;
-};
 
 out VS_OUT {
     vec4 Vertex;
