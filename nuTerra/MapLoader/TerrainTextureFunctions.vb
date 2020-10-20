@@ -239,9 +239,9 @@ Module TerrainTextureFunctions
                     'load blend texture
                     .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
 
-                    If .TexLayers(i).AM_name1 <> .dom_tex_list(cur_layer_info_pnt) Then
-                        Stop
-                    End If
+                    'If .TexLayers(i).AM_name1 <> .dom_tex_list(cur_layer_info_pnt) Then
+                    '    Stop
+                    'End If
                     'layer part 1
                     'scaleX = .sqrt((a * a) + (c * c));
                     Dim u = .layer.render_info(cur_layer_info_pnt + 0).u
@@ -282,6 +282,11 @@ Module TerrainTextureFunctions
     End Function
 
     Public Sub get_dominate_texture(ByVal map As Integer)
+        'lets not waste time loading this!
+        theMap.render_set(map).dom_texture_id = DUMMY_TEXTURE_ID ' just because tho it isnt ever used
+        Return
+
+
         Dim ms As New MemoryStream(theMap.chunks(map).dominateTestures_data)
         ms.Position = 0
         Dim br As New BinaryReader(ms, Encoding.ASCII)

@@ -78,7 +78,6 @@ layout(binding = 28) uniform sampler2D tex_7;
 layout(binding = 29) uniform sampler2D global_AM;
 layout(binding = 30) uniform sampler2D normalMap;
 
-layout(binding = 31) uniform sampler2D domTexture;
 
 
 uniform int show_test;
@@ -317,9 +316,7 @@ void main(void)
     
     //base = mix(base,vec4(MixLevel1.xy, 0.0 ,1.0), 0.4);
 
-    vec3 dom = texture(domTexture,fs_in.UV).xyz;
-    base = base * 0.5;
-    base.rgb += dom;
+
     base = mix(global, base, fs_in.ln);
 
     out_n = mix(n_tex, out_n, fs_in.ln) ;

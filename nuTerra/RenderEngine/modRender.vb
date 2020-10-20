@@ -301,8 +301,6 @@ Module modRender
                     GL.BindTextureUnit(19, .TexLayers(2).Blend_id)
                     GL.BindTextureUnit(20, .TexLayers(3).Blend_id)
 
-                    GL.BindTextureUnit(31, .dom_texture_id)
-
                     'draw chunk
                     GL.BindVertexArray(.VAO)
                     GL.DrawElements(PrimitiveType.Triangles,
