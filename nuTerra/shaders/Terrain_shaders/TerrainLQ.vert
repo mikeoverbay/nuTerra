@@ -23,7 +23,6 @@ out VS_OUT {
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
-    flat bool is_hole;
 } vs_out;
 
 void main(void)
@@ -38,8 +37,6 @@ void main(void)
     uv_g.y = ((( (me_location.y )-50.0)/100.0)-map_center.y) * m_s.y ;
     vs_out.Global_UV = scaled + uv_g;
     vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
-    
-    vs_out.is_hole = (vertexNormal.w == 1.0f);
     
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     vs_out.Vertex = vec4(vertexPosition, 1.0) * 1.0;

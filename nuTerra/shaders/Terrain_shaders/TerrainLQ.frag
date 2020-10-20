@@ -15,7 +15,6 @@ in VS_OUT {
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
-    flat bool is_hole;
 } fs_in;
 
 // Converion from AG map to RGB vector.
@@ -30,9 +29,6 @@ vec4 convertNormal(vec4 norm){
 
 void main(void)
 {
-    // Remmed so I dont go insane.
-    if (fs_in.is_hole) discard; // Early discard to avoid wasting draw time.
-
     vec4 global = texture(global_AM, fs_in.Global_UV);
     // This is needed to light the global_AM.
     vec4 g_nm = texture(normalMap, fs_in.UV);

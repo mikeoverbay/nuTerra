@@ -91,7 +91,7 @@ in VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
-    flat bool is_hole;
+    flat float is_hole;
 } fs_in;
 
 /*===========================================================*/
@@ -114,8 +114,27 @@ vec4 convertNormal(vec4 norm){
 
 void main(void)
 {
-    // Remmed so I dont go insane.
-    if (fs_in.is_hole) discard; // Early discard to avoid wasting draw time.
+
+    //==============================================================
+    vec4 global = texture(global_AM, fs_in.Global_UV);
+    // This is needed to light the global_AM.
+    vec4 g_nm = texture(normalMap, fs_in.UV);
+    vec4 n_tex = vec4(0.0);
+    n_tex.xyz = normalize(fs_in.TBN * vec3(convertNormal(g_nm).xyz));
+    //Can we bail early?
+    if (fs_in.is_hole == 1.0)
+    {
+        gColor = global;
+        gColor.a = 1.0;
+        //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
+        gNormal.xyz = normalize(n_tex.xyz);
+        gGMF.rgb = vec3(global.a+0.2, 0.0, 64.0/255.0);
+
+        gPosition = fs_in.worldPosition;
+        gPick = 0;
+        return;
+    }
+    //==============================================================
 
     vec4 t1, t2, t3, t4;
     vec4 t1_2, t2_2, t3_2, t4_2;
@@ -286,10 +305,6 @@ void main(void)
 
     //-------------------------------------------------------------
 
-    // This is needed to light the global_AM.
-    vec4 g_nm = texture(normalMap, fs_in.UV);
-    vec4 n_tex = vec4(0.0);
-    n_tex.xyz = normalize(fs_in.TBN * vec3(convertNormal(g_nm).xyz));
     //n_tex.x*=-1.0;
     vec4 out_n = vec4(0.0);
     // Add up our normal values.
@@ -305,7 +320,7 @@ void main(void)
     
     // Mix in the global_AM color using global_AM's alpha channel.
     // I think this is used for wetness on the map.
-    vec4 global = texture(global_AM, fs_in.Global_UV);
+
     base.rgb = mix(base.rgb,global.rgb,global.a);
     
     // This blends between low and highrez by distance
