@@ -339,25 +339,26 @@ Module TerrainTextureFunctions
         Dim cnt As Integer = 0
         Dim cnt2 As Integer = 0
         'only one channel matters but lets make it grey to visualize.
-        'Dim sb As New StringBuilder
-        'sb.Length = 0
+        Dim sb As New StringBuilder
+        sb.Length = 0
         Dim dom_id As Integer = 0
         For i = 0 To total_read - 1
-            'sb.Append(buff(i).ToString + " ")
+            sb.Append(buff(i).ToString + " ")
             dom_id = dom_id Or buff(i)
-            c_buff(cnt + 0) = (buff(i) And 7) << 4
-            c_buff(cnt + 1) = (buff(i) And 7) << 4
-            c_buff(cnt + 2) = (buff(i) And 7) << 4
+            c_buff(cnt + 0) = (buff(i) And &HF) << 4
+            c_buff(cnt + 1) = (buff(i) And &HF0) ' << 4
+            c_buff(cnt + 2) = 0
             c_buff(cnt + 3) = 255
             cnt += 4
-            'cnt2 += 1
-            'If cnt2 = 128 Then
-            '    sb.Append(vbCrLf)
-            '    cnt2 = 0
-            'End If
+            cnt2 += 1
+            If cnt2 = 128 Then
+                sb.Append(vbCrLf)
+                cnt2 = 0
+            End If
         Next
         theMap.render_set(map).dom_id = dom_id
-        'File.WriteAllText("c:\!_bin_data\!dom_" + map.ToString("000") + ".txt", sb.ToString)
+        File.WriteAllText("c:\!_bin_data\!dom_" + map.ToString("000") + ".txt", sb.ToString)
+
         'done with these so dispose of them.
 
         br.Close()
