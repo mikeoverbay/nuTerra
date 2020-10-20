@@ -366,6 +366,11 @@ try_again:
         GL.CreateVertexArrays(1, defaultVao)
         GL.ObjectLabel(ObjectLabelIdentifier.VertexArray, defaultVao, -1, "defaultVao")
 
+        GL.CreateBuffers(1, PerViewDataBuffer)
+        GL.ObjectLabel(ObjectLabelIdentifier.Buffer, PerViewDataBuffer, -1, "PerView")
+        GL.NamedBufferStorage(PerViewDataBuffer, Marshal.SizeOf(PerViewData), IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
+        GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 1, PerViewDataBuffer)
+
         FBOm.FBO_Initialize()
         LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
@@ -388,10 +393,6 @@ try_again:
         CAM_Y_ANGLE = -PI / 4
         ' Set initial light position and get radius and angle.
         set_light_pos()
-
-        GL.CreateBuffers(1, PerViewDataBuffer)
-        GL.ObjectLabel(ObjectLabelIdentifier.Buffer, PerViewDataBuffer, -1, "PerView")
-        GL.NamedBufferStorage(PerViewDataBuffer, Marshal.SizeOf(PerViewData), IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
         'Everything is setup/loaded to show the main window.
         'Dispose of the no longer used Panel1

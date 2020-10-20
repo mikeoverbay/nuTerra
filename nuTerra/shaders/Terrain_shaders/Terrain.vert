@@ -64,8 +64,7 @@ out VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
-    bool is_hole;
-    //flat bool is_hole;
+    flat bool is_hole;
 } vs_out;
 
 void main(void)

@@ -279,7 +279,7 @@ Module ChunkFunctions
 
             'Gen VAO and VBO Ids
             GL.CreateVertexArrays(1, theMap.render_set(i).VAO)
-            ReDim theMap.render_set(i).mBuffers(3)
+            ReDim theMap.render_set(i).mBuffers(2)
             GL.CreateBuffers(3, theMap.render_set(i).mBuffers)
 
             ' If the shared buffer is not defined, we need to do so.
@@ -289,9 +289,9 @@ Module ChunkFunctions
                 GL.CreateBuffers(1, theMap.vertex_uvBuffer_id)
 
                 'if the shared buffer is not defined, we need to fill the buffer now
-                GL.NamedBufferData(theMap.vertex_iBuffer_id, .indicies.Length * 6, .indicies, BufferUsageHint.StaticDraw)
-                GL.NamedBufferData(theMap.vertex_vBuffer_id, .v_buff_XZ.Length * 8, .v_buff_XZ, BufferUsageHint.StaticDraw)
-                GL.NamedBufferData(theMap.vertex_uvBuffer_id, .uv_buff.Length * 8, .uv_buff, BufferUsageHint.StaticDraw)
+                GL.NamedBufferStorage(theMap.vertex_iBuffer_id, .indicies.Length * 6, .indicies, BufferStorageFlags.None)
+                GL.NamedBufferStorage(theMap.vertex_vBuffer_id, .v_buff_XZ.Length * 8, .v_buff_XZ, BufferStorageFlags.None)
+                GL.NamedBufferStorage(theMap.vertex_uvBuffer_id, .uv_buff.Length * 8, .uv_buff, BufferStorageFlags.None)
             End If
 
             ' VERTEX XZ ==================================================================
@@ -301,7 +301,7 @@ Module ChunkFunctions
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 0)
 
             ' POSITION Y ==================================================================
-            GL.NamedBufferData(theMap.render_set(i).mBuffers(0), .v_buff_Y.Length * 4, .v_buff_Y, BufferUsageHint.StaticDraw)
+            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(0), .v_buff_Y.Length * 4, .v_buff_Y, BufferStorageFlags.None)
 
             GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 1, theMap.render_set(i).mBuffers(0), IntPtr.Zero, 4)
             GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 1, 1, VertexAttribType.Float, False, 0)
@@ -322,7 +322,7 @@ Module ChunkFunctions
             Next
 
             ' NORMALS AND HOLES ======================================================== 
-            GL.NamedBufferData(theMap.render_set(i).mBuffers(1), packed.Length * 4, packed, BufferUsageHint.StaticDraw)
+            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(1), packed.Length * 4, packed, BufferStorageFlags.None)
 
             GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 3, theMap.render_set(i).mBuffers(1), IntPtr.Zero, 4)
             GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 3, 4, VertexAttribType.Int2101010Rev, True, 0)
@@ -330,7 +330,7 @@ Module ChunkFunctions
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 3)
 
             ' Tangents ========================================================
-            GL.NamedBufferData(theMap.render_set(i).mBuffers(2), .t_buff.Length * 12, .t_buff, BufferUsageHint.StaticDraw)
+            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(2), .t_buff.Length * 12, .t_buff, BufferStorageFlags.None)
 
             GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 4, theMap.render_set(i).mBuffers(2), IntPtr.Zero, 12)
             GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 4, 3, VertexAttribType.Float, True, 0)

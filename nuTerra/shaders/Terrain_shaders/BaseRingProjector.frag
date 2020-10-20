@@ -20,8 +20,6 @@ layout (binding = PER_FRAME_DATA_BASE, std140) uniform PerView {
     vec2 resolution;
 };
 
-in mat4 inverseProject;
-
 void main (void)
 {
     vec2 UV = gl_FragCoord.xy / resolution;
@@ -33,7 +31,7 @@ void main (void)
     ScreenPosition.z = (Depth);
     ScreenPosition.w = 1.0f;
     // Transform position from screen space to world space
-    vec4 WorldPosition = inverseProject * ScreenPosition ;
+    vec4 WorldPosition = invViewProj * ScreenPosition ;
     WorldPosition.xyz /= WorldPosition.w;
 
     float rs = length(WorldPosition.xz - ring_center.xz);

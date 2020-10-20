@@ -41,8 +41,6 @@ Module modRender
         set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
-        GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 1, PerViewDataBuffer)
-
         '===========================================================================
         CULLED_COUNT = 0
         cull_timer.Restart()
@@ -145,7 +143,6 @@ Module modRender
         End If
 
         FPS_COUNTER += 1
-
     End Sub
 
     Private Sub frustum_cull()
@@ -657,6 +654,7 @@ Module modRender
         Dim index! = 0
         Dim cnt! = 10.0F
         Dim step_s! = MINI_MAP_SIZE / 10.0F
+        GL.BindVertexArray(defaultVao)
         For xp = cx To cx + MINI_MAP_SIZE Step step_s
             GL.Uniform1(miniLegends("index"), index)
 
@@ -667,7 +665,6 @@ Module modRender
                         rect.Right,
                         -rect.Bottom)
 
-            GL.BindVertexArray(defaultVao)
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
             index += 1.0F
             Application.DoEvents()
@@ -680,6 +677,7 @@ Module modRender
 
         cnt! = 10.0F
         step_s! = MINI_MAP_SIZE / 10.0F
+        GL.BindVertexArray(defaultVao)
         For yp = cy To cy + MINI_MAP_SIZE Step step_s
             GL.Uniform1(miniLegends("index"), index)
 
@@ -690,7 +688,6 @@ Module modRender
                         rect.Right,
                         -rect.Bottom)
 
-            GL.BindVertexArray(defaultVao)
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
             index += 1.0F
             Application.DoEvents()
@@ -975,7 +972,7 @@ Module modRender
         GL.UniformMatrix4(DecalProject("DecalMatrix"), False, rotate * model_S * model_X)
 
         GL.BindVertexArray(defaultVao)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 12)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
         DecalProject.StopUse()
         unbind_textures(2)
@@ -1006,7 +1003,7 @@ Module modRender
         GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Green)
 
         GL.BindVertexArray(defaultVao)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 12)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
         'base 2 ring
         model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
@@ -1015,7 +1012,7 @@ Module modRender
         GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Red)
 
         GL.BindVertexArray(defaultVao)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 12)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
         BaseRingProjector.StopUse()
         GL.BindTextureUnit(0, 0)
@@ -1069,6 +1066,7 @@ Module modRender
         End If
         Dim ar = text.ToArray
         Dim cnt As Integer = 0
+        GL.BindVertexArray(defaultVao)
         For Each l In ar
             Dim idx = CSng(Asc(l) - 32)
             Dim tp = (locX + cnt * 10.0) - cntr
@@ -1079,7 +1077,6 @@ Module modRender
                       -rect.Top,
                       rect.Right,
                       -rect.Bottom)
-            GL.BindVertexArray(defaultVao)
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
             cnt += 1
         Next

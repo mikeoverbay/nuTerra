@@ -102,8 +102,7 @@ Module TerrainTextureFunctions
             layersBuffer.used_8 = .TexLayers(3).used_b
 
             GL.CreateBuffers(1, .layersStd140_ubo)
-            GL.BindBuffer(BufferTarget.UniformBuffer, .layersStd140_ubo)
-            GL.NamedBufferData(.layersStd140_ubo, Marshal.SizeOf(layersBuffer), layersBuffer, BufferUsageHint.StaticDraw)
+            GL.NamedBufferStorage(.layersStd140_ubo, Marshal.SizeOf(layersBuffer), layersBuffer, BufferStorageFlags.None)
         End With
     End Sub
 
