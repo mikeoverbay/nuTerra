@@ -1,7 +1,12 @@
 ﻿#version 450 core
+#extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
+#include "common.h"
 
 layout (location = 0) out vec4 gColor;
-layout (location = 1) out vec3 gGMF;
+
+uniform sampler2D gGMF;
 
 uniform vec2 bb_tr;
 uniform vec2 bb_bl;
@@ -14,6 +19,12 @@ in vec2 uv;
 in vec2 V;
 void main (void)
 {
+
+    // Calculate UVs
+    vec2 uv_ = gl_FragCoord.xy / resolution;
+    bool fg = texture(gGMF,uv_).b * 255.0 == 64.0;
+    if (fg) discard;
+
     int flag = 0;
 
 if (show_chunks==1){
@@ -67,5 +78,4 @@ if(show_border==1){
 
 }//show border
  if (flag == 0) {discard;}// nothing to draw so discard.
- gGMF = vec3(0.0);
 }// main

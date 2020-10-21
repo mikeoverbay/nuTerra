@@ -8,6 +8,7 @@
 layout (location = 0) out vec4 gColor;
 
 uniform sampler2D depthMap;
+uniform sampler2D gGMF;
 uniform vec4 color;
 uniform vec3 ring_center;
 uniform float radius;
@@ -17,6 +18,9 @@ void main (void)
 {
     vec2 UV = gl_FragCoord.xy / resolution;
     float Depth = texture(depthMap, UV).x;
+
+    bool flag = texture(gGMF, UV).b * 255.0 == 64.0;
+    if (flag) discard;
 
     // Calculate Worldposition by recreating it out of the coordinates and depth-sample
     vec4 ScreenPosition = vec4(UV*2.0-1.0, Depth, 1.0);

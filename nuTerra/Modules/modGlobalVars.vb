@@ -24,6 +24,10 @@ Module modGlobalVars
     '============================================================
     Public nuTerra_LOG As New StringBuilder ' for logging
     '============================================================
+    'Shading
+    Public SUNCOLOR As Vector3
+    Public AMBIENTSUNCOLOR As Vector3
+    '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer
     Public m_color_id, m_normal_id, m_gmm_id As Integer

@@ -441,8 +441,31 @@ Module TerrainBuilder
         If theMap.Sky_Texture_Id = -1 Then
             MsgBox("could not find Sky Box Texture", MsgBoxStyle.Exclamation, "Shit!")
         End If
-    End Sub
+        Dim envPath = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/environment.xml"
+        entry = Packages.MAP_PACKAGE(envPath)
+        If entry IsNot Nothing Then
+            ms = New MemoryStream
+            entry.Extract(ms)
+            openXml_stream(ms, Path.GetFileName(envPath))
+            Dim day_light As DataTable = xmldataset.Tables("day_night_cycle")
+            Dim q2 = From row In day_light Select
+            sunColor = row.Field(Of String)("sunLightColorForward"),
+            ambientSunColor = row.Field(Of String)("ambientColorForward")
 
+            SUNCOLOR = vector3_from_string(q2(0).sunColor)
+            AMBIENTSUNCOLOR = vector3_from_string(q2(0).ambientSunColor)
+
+        End If
+    End Sub
+    Private Function vector3_from_string(ByRef s As String) As Vector3
+        Dim v As New Vector3
+        's = s.Replace("  ", " ")
+        Dim a = s.Split(" ")
+        v.X = Convert.ToSingle(a(0))
+        v.Y = Convert.ToSingle(a(1))
+        v.Z = Convert.ToSingle(a(2))
+        Return v
+    End Function
     Public Function get_diffuse_texture_id_from_visual() As Integer
         Dim theString = TheXML_String
         Dim in_pos = InStr(1, theString, "diffuseMap")

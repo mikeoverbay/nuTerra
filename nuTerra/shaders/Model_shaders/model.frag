@@ -295,10 +295,8 @@ void main(void)
 
     entries[thisMaterial.shader_type]();
 
-    gColor = correct(gColor,2.0,0.8);
-
     // Just for debugging
-    gColor.r += fs_in.lod_level;
+    //gColor.r += fs_in.lod_level;
 
     gColor.a = 1.0;
     gPosition = fs_in.worldPosition;

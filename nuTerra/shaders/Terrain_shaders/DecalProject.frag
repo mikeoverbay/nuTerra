@@ -7,10 +7,10 @@
 
 layout (location = 0) out vec4 gColor;
 
-uniform sampler2D gFlag;
 uniform sampler2D depthMap;
 uniform sampler2D colorMap;
 uniform vec3 color_in;
+uniform sampler2D gGMF;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -31,8 +31,8 @@ void main()
     vec2 uv = gl_FragCoord.xy / resolution;
 
     /*==================================================*/
-    int flag = int(texture(gFlag, uv.xy).r * 255);
-    if (flag == 64) { discard; }
+    bool flag = texture(gGMF,uv).b*255.0 == 64.0;
+    if (flag) discard;
     //if (flag == 96) { discard; }
     //if (flag != 128) { discard; }
 

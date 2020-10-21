@@ -422,7 +422,7 @@ Module modRender
     Private Sub draw_terrain_grids()
         GL_PUSH_GROUP("draw_terrain_grids")
 
-        FBOm.attach_CF()
+        FBOm.attach_C_no_Depth()
         GL.DepthMask(False)
         GL.Disable(EnableCap.DepthTest)
         TerrainGrids.Use()
@@ -434,6 +434,11 @@ Module modRender
         GL.Uniform1(TerrainGrids("show_chunks"), SHOW_CHUNKS)
         GL.Uniform1(TerrainGrids("show_grid"), SHOW_GRID)
 
+        GL.Uniform1(TerrainGrids("gGMF"), 0)
+        GL.BindTextureUnit(0, FBOm.gGMF)
+
+
+
         For i = 0 To theMap.render_set.Length - 1
             GL.UniformMatrix4(TerrainGrids("model"), False, theMap.render_set(i).matrix)
 
@@ -444,6 +449,8 @@ Module modRender
                 DrawElementsType.UnsignedShort, 0)
         Next
         TerrainGrids.StopUse()
+
+        GL.BindTextureUnit(0, 0)
 
         GL.DepthMask(True)
         GL.Enable(EnableCap.DepthTest)
@@ -468,6 +475,10 @@ Module modRender
         GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
         GL.BindTextureUnit(3, FBOm.gPosition)
         GL.Uniform1(deferredShader("gPosition"), 3)
+
+        GL.Uniform3(deferredShader("sunColor"), SUNCOLOR.X, SUNCOLOR.Y, SUNCOLOR.Z)
+        GL.Uniform3(deferredShader("ambientColorForward"), AMBIENTSUNCOLOR.X, AMBIENTSUNCOLOR.Y, AMBIENTSUNCOLOR.Z)
+
         ' GL.BindTextureUnit(4, FBOm.gDepth)
         'GL.Uniform1(deferredShader("gDepth"), 4)
 
@@ -981,10 +992,12 @@ Module modRender
         GL.Uniform1(DecalProject("depthMap"), 0)
         GL.Uniform1(DecalProject("gFlag"), 1)
         GL.Uniform1(DecalProject("colorMap"), 2)
+        GL.Uniform1(DecalProject("gGMF"), 3)
 
         GL.BindTextureUnit(0, FBOm.gDepth)
         GL.BindTextureUnit(1, FBOm.gGMF)
         GL.BindTextureUnit(2, CURSOR_TEXTURE_ID)
+        GL.BindTextureUnit(3, FBOm.gGMF)
 
         ' Track the terrain at Y
         Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
@@ -1000,20 +1013,21 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
         DecalProject.StopUse()
-        unbind_textures(2)
+        unbind_textures(3)
 
         GL_POP_GROUP()
     End Sub
 
     Private Sub draw_terrain_base_rings()
-        GL_PUSH_GROUP("draw_terrain_base_rings")
 
-        FBOm.attach_C_no_Depth()
+        GL_PUSH_GROUP("draw_terrain_base_rings")
 
         BaseRingProjector.Use()
 
         GL.Uniform1(BaseRingProjector("depthMap"), 0)
+        GL.Uniform1(BaseRingProjector("gGMF"), 1)
         GL.BindTextureUnit(0, FBOm.gDepth)
+        GL.BindTextureUnit(1, FBOm.gGMF)
 
         'constants
         GL.Uniform1(BaseRingProjector("radius"), 50.0F)
@@ -1040,7 +1054,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
         BaseRingProjector.StopUse()
-        GL.BindTextureUnit(0, 0)
+        unbind_textures(2)
 
         GL_POP_GROUP()
     End Sub

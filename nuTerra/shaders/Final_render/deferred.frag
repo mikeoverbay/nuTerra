@@ -18,6 +18,9 @@ uniform float SPECULAR;
 uniform float GRAY_LEVEL;
 uniform float GAMMA_LEVEL;
 
+uniform vec3 ambientColorForward;
+uniform vec3 sunColor;
+
 in VS_OUT {
     vec2 UV;
 } fs_in;
@@ -31,13 +34,15 @@ float linearDepth(float depthSample)
     return  (2.0 * n) / (f + n - depthSample * (f - n));
 }
 // This helps to even out overall levels of brightness and adjusts gamma.
-vec4 correct(in vec4 hdrColor, in float exposure){  
+vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){  
     // Exposure tone mapping
     vec3 mapped = vec3(1.0) - exp(-hdrColor.rgb * exposure);
     // Gamma correction 
-    mapped.rgb = pow(mapped.rgb, vec3(1.0 / GAMMA_LEVEL));  
-    return vec4 (mapped, 1.0);
+    mapped.rgb = pow(mapped.rgb, vec3(1.0 / gamma_level));  
+    mapped.rgb = pow(mapped.rgb, vec3(1.0 / GAMMA_LEVEL*0.5));  
+    return vec4 (mapped, hdrColor.a);
 }
+
 /*===================================================================*/
 
 
@@ -86,11 +91,13 @@ void main (void)
                 //---------------------------------------------
 
             }
-            vec4 final_color = vec4(0.5, 0.5, 0.5, 1.0) * color_in;
+            vec4 final_color = vec4(0.25, 0.25, 0.25, 1.0) * color_in;
             vec4 Ambient_level = color_in * vec4(AMBIENT * 3.0);
 
+            Ambient_level.rgb *= ambientColorForward;
+
             float dist = length(LightPosModelView - Position);
-            float cutoff = 1000.0;
+            float cutoff = 2000.0;
             vec4 color = vec4(0.5, 0.5, 0.5, 1.0);
  
             // Only light whats in range
@@ -98,6 +105,7 @@ void main (void)
 
                 float lambertTerm = max(dot(N, L),0.0);
                 final_color.xyz += max(lambertTerm * color_in.xyz*color.xyz,0.0);
+                final_color.rgb *= sunColor;
 
                 vec3 halfwayDir = normalize(L + vd);
 
@@ -105,7 +113,6 @@ void main (void)
 
                 // Fade to ambient over distance
                 final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;
-
             } else {
                 final_color = Ambient_level * BRIGHTNESS;
             }
@@ -121,7 +128,7 @@ void main (void)
 
             /*===================================================================*/
             // Final Output
-            outColor =  correct(final_color,4.0);
+            outColor =  correct(final_color,0.9,1.2)*2.5;
             outColor.a = 1.0;
             /*===================================================================*/
         //if flag != 128
