@@ -7,7 +7,6 @@
 layout (location = 0) out vec4 gColor;
 
 uniform sampler2D gGMF;
-uniform sampler2D gDepth;
 
 uniform vec2 bb_tr;
 uniform vec2 bb_bl;
@@ -25,8 +24,6 @@ void main (void)
     vec2 uv_ = gl_FragCoord.xy / resolution;
     bool fg = texture(gGMF,uv_).b * 255.0 == 64.0;
     if (fg) discard;
-
-    if (gl_FragDepth > texture(gDepth,uv_).r) discard;
 
     int flag = 0;
 
