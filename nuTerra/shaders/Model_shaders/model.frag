@@ -52,13 +52,13 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
     return vec4 (mapped, hdrColor.a);
 }
 
-void get_normal()
+void get_normal(in float mip)
 {
     float alphaCheck = gColor.a;
     if (thisMaterial.g_useNormalPackDXT1) {
-        normalBump = (texture(thisMaterial.maps[1], fs_in.TC1).rgb * 2.0f) - 1.0f;
+        normalBump = (textureLod(thisMaterial.maps[1], fs_in.TC1, mip).rgb * 2.0f) - 1.0f;
     } else {
-        vec4 normal = texture(thisMaterial.maps[1], fs_in.TC1);
+        vec4 normal = textureLod(thisMaterial.maps[1], fs_in.TC1, mip);
         normalBump.xy = normal.ag * 2.0 - 1.0;
         normalBump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
         alphaCheck = normal.r;
@@ -94,10 +94,10 @@ layout(index = 0) subroutine(fn_entry) void default_entry()
 layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
     float mip = mip_map_level(fs_in.TC1);
-    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
-    gColor *= thisMaterial.g_colorTint;
-    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
-    get_normal();
+    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
+    //gColor *= thisMaterial.g_colorTint;
+    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, 0).rg; // gloss/metal
+    get_normal(0);
 }
 
 
@@ -109,17 +109,17 @@ layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
     gColor *= thisMaterial.g_colorTint;
     gColor.rgb *= 1.5; // this will need tweaking
     gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
-    get_normal();
+    get_normal(mip);
 }
 
 
 layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
 {
     float mip = mip_map_level(fs_in.TC1);
-    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip);
+    gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor *= thisMaterial.g_colorTint;
-    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
-    get_normal();
+    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+    get_normal(mip);
 }
 
 
@@ -302,9 +302,9 @@ void main(void)
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
 
-    if (fs_in.lod_level == 1)      { gColor.r = 1; }
-    else if (fs_in.lod_level == 2) { gColor.g = 1; }
-    else if (fs_in.lod_level == 3) { gColor.b = 1; }
+//    if (fs_in.lod_level == 1)      { gColor.r = 1; }
+//    else if (fs_in.lod_level == 2) { gColor.g = 1; }
+//    else if (fs_in.lod_level == 3) { gColor.b = 1; }
 
     gPick.r = fs_in.model_id + 1;
 

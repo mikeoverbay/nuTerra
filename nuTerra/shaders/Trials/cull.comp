@@ -65,9 +65,9 @@ void main(void)
         const float distToCamera = -cs_position.z - radius;
 
         const uint lod_id = min(
-            distToCamera < 45 ? 0 :
-            distToCamera < 150 ? 1 :
-            distToCamera < 350 ? 2 : 3, thisModel.lod_count - 1);
+            distToCamera < 50 ? 0 :
+            distToCamera < 100 ? 1 :
+            distToCamera < 300 ? 2 : 3, thisModel.lod_count - 1);
         const ModelLoD lod = lods[thisModel.lod_offset + thisModel.batch_count * lod_id];
 
         for (int i = 0; i < lod.draw_count; ++i) {

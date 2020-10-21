@@ -194,7 +194,7 @@ Module modRender
             Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
             Dim v As New Vector3(l1, l2, l3)
             Dim l = v.Length
-            If l > 400.0F Then 'This value is the distance at which the chunk drawing is swapped.
+            If l > 250.0F Then 'This value is the distance at which the chunk drawing is swapped.
                 theMap.render_set(i).LQ = True
             Else
                 theMap.render_set(i).LQ = False
@@ -545,7 +545,7 @@ Module modRender
         ' Text Rendering ===========================================================
         'save this.. we may want to use it for debug with a different source for the values.
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
-        GL.Finish()
+        'GL.Finish()
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
 
         'sum triangles drawn
