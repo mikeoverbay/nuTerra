@@ -988,19 +988,10 @@ Module MapLoader
     Private Function get_spaceBin(ByVal ABS_NAME As String) As Boolean
         Dim space_bin_file As Ionic.Zip.ZipEntry =
             Packages.MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, "space.bin"))
-        If space_bin_file IsNot Nothing Then
-            ' This is all new code -------------------
-            Try
-
-                If File.Exists(Path.Combine(TEMP_STORAGE, space_bin_file.FileName)) Then
-                    File.Delete(Path.Combine(TEMP_STORAGE, space_bin_file.FileName))
-                End If
-                space_bin_file.Extract(TEMP_STORAGE, ExtractExistingFileAction.OverwriteSilently)
-
-            Catch ex As Exception
-
-            End Try
-            If Not ReadSpaceBinData(space_bin_file.FileName) Then
+        Dim ms As New MemoryStream
+        space_bin_file.Extract(ms)
+        If ms IsNot Nothing Then
+            If Not ReadSpaceBinData(ms) Then
                 space_bin_file = Nothing
                 MsgBox("Error decoding Space.bin", MsgBoxStyle.Exclamation, "File Error...")
                 close_shared_packages()
@@ -1009,11 +1000,10 @@ Module MapLoader
             space_bin_file = Nothing
         Else
             space_bin_file = Nothing
-            MsgBox("Unable to load Space.bin", MsgBoxStyle.Exclamation, "File Error...")
+            MsgBox("Unable to load Space.bin from package", MsgBoxStyle.Exclamation, "File Error...")
             close_shared_packages()
             Return False
         End If
-        'first, we clear out the previous map data
         Return True
     End Function
 

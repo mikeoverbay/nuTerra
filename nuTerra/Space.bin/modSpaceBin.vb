@@ -25,14 +25,9 @@ Module modSpaceBin
         MsgBox(String.Format("{0} decode Failed", magic), MsgBoxStyle.Exclamation, "Oh NO!!")
     End Sub
 
-    Public Function ReadSpaceBinData(p As String) As Boolean
-        If Not File.Exists(Path.Combine(TEMP_STORAGE, p)) Then
-            GoTo Failed
-        End If
+    Public Function ReadSpaceBinData(ByRef ms As MemoryStream) As Boolean
 
-        Dim f = File.OpenRead(Path.Combine(TEMP_STORAGE, p))
-
-        Using br As New BinaryReader(f, Encoding.ASCII)
+        Using br As New BinaryReader(ms)
             br.BaseStream.Position = &H14
             Dim table_size = br.ReadInt32
 
@@ -43,14 +38,6 @@ Module modSpaceBin
                 Dim header As New SectionHeader(br)
                 sectionHeaders.Add(header.magic, header)
             Next
-
-            Try
-                ' we must grab this data first!
-                'cBSGD = New cBSGD_(sectionHeaders("BSGD"), br)
-            Catch ex As Exception
-                ShowDecodeFailedMessage(ex, "BSGD")
-                GoTo Failed
-            End Try
 
             '------------------------------------------------------------------
             ' Now we will grab the game data we need.
@@ -150,8 +137,7 @@ Module modSpaceBin
             'WGMM
         End Using
 
-        f.Close()
-
+        ms.Dispose()
 
         Dim destroyed_model_ids As New List(Of Integer)
         For k = 0 To cBSMO.model_info_items.count - 1

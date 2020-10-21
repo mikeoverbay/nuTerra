@@ -70,6 +70,13 @@ Module modRender
         GL.Enable(EnableCap.DepthTest)
         '===========================================================================
 
+
+        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            '=======================================================================
+            draw_models() '=========================================================
+            '=======================================================================
+        End If
+
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             '=======================================================================
             draw_terrain() '========================================================
@@ -98,11 +105,6 @@ Module modRender
             GL.FrontFace(FrontFaceDirection.Ccw)
         End If
 
-        If MODELS_LOADED And DONT_BLOCK_MODELS Then
-            '=======================================================================
-            draw_models() '=========================================================
-            '=======================================================================
-        End If
 
         '===========================================================================
         If PICK_MODELS And MODELS_LOADED Then PickModel()
@@ -527,6 +529,7 @@ Module modRender
         ' Text Rendering ===========================================================
         'save this.. we may want to use it for debug with a different source for the values.
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
+        GL.Finish()
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
 
         'sum triangles drawn
