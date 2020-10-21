@@ -425,7 +425,9 @@ Module modRender
         FBOm.attach_C_no_Depth()
         GL.DepthMask(False)
         GL.Disable(EnableCap.DepthTest)
+
         TerrainGrids.Use()
+
         GL.Uniform2(TerrainGrids("bb_tr"), MAP_BB_UR.X, MAP_BB_UR.Y)
         GL.Uniform2(TerrainGrids("bb_bl"), MAP_BB_BL.X, MAP_BB_BL.Y)
         GL.Uniform1(TerrainGrids("g_size"), PLAYER_FIELD_CELL_SIZE)
@@ -436,6 +438,8 @@ Module modRender
 
         GL.Uniform1(TerrainGrids("gGMF"), 0)
         GL.BindTextureUnit(0, FBOm.gGMF)
+        GL.Uniform1(TerrainGrids("gDepth"), 1)
+        GL.BindTextureUnit(1, FBOm.gDepth)
 
 
 
@@ -451,6 +455,7 @@ Module modRender
         TerrainGrids.StopUse()
 
         GL.BindTextureUnit(0, 0)
+        GL.BindTextureUnit(1, 0)
 
         GL.DepthMask(True)
         GL.Enable(EnableCap.DepthTest)
