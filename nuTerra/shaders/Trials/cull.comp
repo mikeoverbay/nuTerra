@@ -16,40 +16,40 @@ uniform int numModelInstances;
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
 
 struct Frustum {
-	vec4 planes[6];
+    vec4 planes[6];
 };
 
 void loadFrustum(out Frustum f, mat4 mvp)
 {
-	for (int i = 0; i < 3; ++i)
-	for (int j = 0; j < 2; ++j) {
-		f.planes[i*2+j].x = mvp[0][3] + (j == 0 ? mvp[0][i] : -mvp[0][i]);
-		f.planes[i*2+j].y = mvp[1][3] + (j == 0 ? mvp[1][i] : -mvp[1][i]);
-		f.planes[i*2+j].z = mvp[2][3] + (j == 0 ? mvp[2][i] : -mvp[2][i]);
-		f.planes[i*2+j].w = mvp[3][3] + (j == 0 ? mvp[3][i] : -mvp[3][i]);
-		f.planes[i*2+j]*= length(f.planes[i*2+j].xyz);
-	}
+    for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 2; ++j) {
+        f.planes[i*2+j].x = mvp[0][3] + (j == 0 ? mvp[0][i] : -mvp[0][i]);
+        f.planes[i*2+j].y = mvp[1][3] + (j == 0 ? mvp[1][i] : -mvp[1][i]);
+        f.planes[i*2+j].z = mvp[2][3] + (j == 0 ? mvp[2][i] : -mvp[2][i]);
+        f.planes[i*2+j].w = mvp[3][3] + (j == 0 ? mvp[3][i] : -mvp[3][i]);
+        f.planes[i*2+j]*= length(f.planes[i*2+j].xyz);
+    }
 }
 
 vec3 negativeVertex(vec3 bmin, vec3 bmax, vec3 n)
 {
-	bvec3 b = greaterThan(n, vec3(0));
-	return mix(bmin, bmax, b);
+    bvec3 b = greaterThan(n, vec3(0));
+    return mix(bmin, bmax, b);
 }
 
 bool frustumCullingTest(mat4 mvp, vec3 bmin, vec3 bmax)
 {
-	float a = 1.0f;
-	Frustum f;
+    float a = 1.0f;
+    Frustum f;
 
-	loadFrustum(f, mvp);
-	for (int i = 0; i < 6 && a >= 0.0f; ++i) {
-		vec3 n = negativeVertex(bmin, bmax, f.planes[i].xyz);
+    loadFrustum(f, mvp);
+    for (int i = 0; i < 6 && a >= 0.0f; ++i) {
+        vec3 n = negativeVertex(bmin, bmax, f.planes[i].xyz);
 
-		a = dot(vec4(n, 1.0f), f.planes[i]);
-	}
+        a = dot(vec4(n, 1.0f), f.planes[i]);
+    }
 
-	return (a >= 0.0);
+    return (a >= 0.0);
 }
 
 void main(void)
@@ -61,10 +61,13 @@ void main(void)
 
     if (frustumCullingTest(MVP, thisModel.bmin, thisModel.bmax)) {
         const vec4 cs_position = view * thisModel.matrix * vec4(0, 0, 0, 1);
-        const float distToCamera = -cs_position.z;
         const float radius = length(thisModel.bmax - thisModel.bmin) / 2.0f;
+        const float distToCamera = -cs_position.z - radius;
 
-        const uint lod_id = min(distToCamera < radius + 30 ? 0 : 1, thisModel.lod_count - 1);
+        const uint lod_id = min(
+            distToCamera < 45 ? 0 :
+            distToCamera < 150 ? 1 :
+            distToCamera < 350 ? 2 : 3, thisModel.lod_count - 1);
         const ModelLoD lod = lods[thisModel.lod_offset + thisModel.batch_count * lod_id];
 
         for (int i = 0; i < lod.draw_count; ++i) {

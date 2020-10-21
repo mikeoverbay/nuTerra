@@ -167,8 +167,17 @@ Module modSpaceBin
                 Dim lod0_offset = cBSMO.models_loddings.data(k).lod_begin
                 Dim lodx_offset = cBSMO.models_loddings.data(k).lod_end
 
-                ' max lod count = 2 for now
-                Dim lod_count = Math.Min(2, lodx_offset - lod0_offset + 1)
+                ' max lod count = 4 for now
+                Dim lod_count = Math.Min(4, lodx_offset - lod0_offset + 1)
+
+                For i = 0 To lod_count - 1
+                    Dim lod_offset = lod0_offset + i
+                    Dim lod_render_set_begin = cBSMO.lod_renders.data(lod_offset).render_set_begin
+                    Dim lod_render_set_end = cBSMO.lod_renders.data(lod_offset).render_set_end
+                    If lod_render_set_end < lod_render_set_begin Then
+                        lod_count -= 1
+                    End If
+                Next
 
                 ReDim .modelLods(lod_count - 1)
                 .visibilityBounds = cBSMO.models_visibility_bounds.data(k)
@@ -397,8 +406,8 @@ CleanUp:
                     Dim obj As New MaterialProps_PBS_ext
                     With obj
                         .diffuseMap = props("diffuseMap").ToLower
-                        .normalMap = props("normalMap").ToLower
-                        .metallicGlossMap = props("metallicGlossMap").ToLower
+                        .normalMap = If(props.ContainsKey("normalMap"), props("normalMap").ToLower, props("diffuseMap").ToLower) ' HACK
+                        .metallicGlossMap = If(props.ContainsKey("metallicGlossMap"), props("metallicGlossMap").ToLower, props("diffuseMap").ToLower) ' HACK: use system/maps/default_norms.dds ?
                         .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
