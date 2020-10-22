@@ -95,7 +95,7 @@ layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
     float mip = mip_map_level(fs_in.TC1);
     gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
-    //gColor *= thisMaterial.g_colorTint;
+    gColor *= thisMaterial.g_colorTint;
     gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, 0).rg; // gloss/metal
     get_normal(0);
 }

@@ -169,7 +169,7 @@ Module modSpaceBin
 
                 ' max lod count = 4 for now
                 Dim lod_count = Math.Min(4, lodx_offset - lod0_offset + 1)
-
+                If lod_count >= 3 Then lod_count -= 1
                 For i = 0 To lod_count - 1
                     Dim lod_offset = lod0_offset + i
                     Dim lod_render_set_begin = cBSMO.lod_renders.data(lod_offset).render_set_begin

@@ -97,13 +97,13 @@ void main (void)
             Ambient_level.rgb *= ambientColorForward;
 
             float dist = length(LightPosModelView - Position);
-            float cutoff = 2000.0;
-            vec4 color = vec4(0.5, 0.5, 0.5, 1.0);
+            float cutoff = 5000.0;
+            vec4 color = vec4(0.36, 0.36, 0.36, 1.0);
  
             // Only light whats in range
             if (dist < cutoff) {
 
-                float lambertTerm = max(dot(N, L),0.0);
+                float lambertTerm = pow(max(dot(N, L),0.0),0.5);
                 final_color.xyz += max(lambertTerm * color_in.xyz*color.xyz,0.0);
                 final_color.rgb *= sunColor;
 

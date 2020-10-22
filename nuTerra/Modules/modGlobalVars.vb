@@ -56,7 +56,7 @@ Module modGlobalVars
     Public SHOW_GRID As Integer
     Public SHOW_BORDER As Integer
     Public SHOW_CHUNK_IDs As Integer
-    Public SHOW_TEST_TEXTURES As Integer = 1 'show test textures on terrain flag. default ON.
+    Public SHOW_TEST_TEXTURES As Integer = 0 'show test textures on terrain flag. default Off.
     'models
     Public CURSOR_TEXTURE_ID As Integer
     Public DIRECTION_TEXTURE_ID As Integer

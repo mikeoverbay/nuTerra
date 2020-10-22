@@ -206,7 +206,7 @@ Module modRender
             Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
             Dim v As New Vector3(l1, l2, l3)
             Dim l = v.Length
-            If l > 250.0F Then 'This value is the distance at which the chunk drawing is swapped.
+            If l > 300.0F Then 'This value is the distance at which the chunk drawing is swapped.
                 theMap.render_set(i).LQ = True
             Else
                 theMap.render_set(i).LQ = False

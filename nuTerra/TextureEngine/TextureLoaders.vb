@@ -223,8 +223,8 @@ Module TextureLoaders
             GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
             GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-{0}", fn))
             'If image_id = 356 Then Stop
-            Dim maxAniso As Single
-            GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
+            Dim maxAniso As Single = 3.0F
+            'GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
             Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
 
             If dds_header.mipMapCount = 0 Or dds_header.mipMapCount = 1 Then

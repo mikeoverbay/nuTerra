@@ -798,7 +798,7 @@ Module MapLoader
                         GL.TextureStorage2D(atlas_tex, numLevels,
                                             DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
 
-                        GL.TextureParameter(atlas_tex, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
+                        GL.TextureParameter(atlas_tex, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 3)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, numLevels)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
