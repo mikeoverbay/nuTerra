@@ -671,6 +671,7 @@ Module modRender
         GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(TextRenderShader("divisor"), 1.0F) 'atlas size
         GL.Uniform1(TextRenderShader("index"), 0.0F)
+        GL.Uniform1(TextRenderShader("mask"), 0)
 
         '=======================================================================
         'draw horz trim
