@@ -34,7 +34,7 @@ Module LoadingScreen
                              nuTERRA_BG_IMAGE)
 
         ' Draw 'Loading Models...' text
-        draw_text(BG_TEXT, 5, 30, OpenTK.Graphics.Color4.White, False)
+        draw_text(BG_TEXT, 5, 30, OpenTK.Graphics.Color4.White, False, 0)
 
         'Draw Bargraph
         GL.Enable(EnableCap.Blend)

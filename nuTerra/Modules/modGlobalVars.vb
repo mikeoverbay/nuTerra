@@ -27,6 +27,8 @@ Module modGlobalVars
     'Shading
     Public SUNCOLOR As Vector3
     Public AMBIENTSUNCOLOR As Vector3
+    Public SSAA_enable As Boolean = True
+    Public SSAA_text As String = "SSAA On"
     '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer

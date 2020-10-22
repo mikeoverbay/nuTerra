@@ -114,18 +114,30 @@ Module modRender
         '================== Deferred Rendering, HUD and MINI MAP ===================
         '===========================================================================
 
-        'We can now switch to the default hardware buffer.
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
-
-        'house keeping
         '===========================================================================
-        GL.Disable(EnableCap.DepthTest)
-        GL.Clear(ClearBufferMask.ColorBufferBit)
 
         Ortho_main()
 
         '===========================================================================
-        render_deferred_buffers() '=================================================
+        'final render. Either direct to default or use SSAA process.
+        GL.Disable(EnableCap.DepthTest)
+        If SSAA_enable Then
+            'deferred render first pass to gAux_Color buffer.
+            FBOm.attach_AUX()
+            render_deferred_buffers()
+            '===========================================================================
+            'switch to default FBO and render SSAA'
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+            'house keeping
+            Ortho_main()
+            GL.ClearColor(0.5, 0.0, 0.0, 0.0)
+            GL.Clear(ClearBufferMask.ColorBufferBit)
+            perform_SSAA_Pass()
+
+        Else
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+            render_deferred_buffers()
+        End If
         '===========================================================================
 
         '===========================================================================
@@ -463,7 +475,6 @@ Module modRender
         '===========================================================================
         ' Test our deferred shader =================================================
         '===========================================================================
-
         deferredShader.Use()
 
         'set up uniforms
@@ -504,6 +515,29 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
+    Private Sub perform_SSAA_Pass()
+
+        GL_PUSH_GROUP("perform_SSAA_Pass")
+
+        SSAAShader.Use()
+        GL.UniformMatrix4(SSAAShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+
+        GL.Uniform2(SSAAShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
+
+        GL.Uniform1(SSAAShader("colorMap"), 0)
+        GL.BindTextureUnit(0, FBOm.gAUX_Color)
+
+        'draw full screen quad
+        GL.Uniform4(SSAAShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
+
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        SSAAShader.StopUse()
+        GL.BindTextureUnit(0, 0)
+
+        GL_POP_GROUP()
+    End Sub
     Private Sub draw_terrain_ids()
         GL_PUSH_GROUP("draw_terrain_ids")
 
@@ -518,7 +552,7 @@ Module modRender
 
                 If sp.Z > 0.0F Then
                     Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
-                    draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True)
+                    draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True, 1)
                 End If
             End If
         Next
@@ -552,10 +586,12 @@ Module modRender
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
         'txt = String.Format("HX {0} : HY {1}", HX, HY)
-        draw_text(txt, 5.0F, 5.0F, OpenTK.Graphics.Color4.Cyan, False)
-        draw_text(txt2, 5.0F, 24.0F, OpenTK.Graphics.Color4.Cyan, False)
-        draw_text(PICKED_STRING, 5.0F, 43.0F, OpenTK.Graphics.Color4.Yellow, False)
+        draw_text(txt, 5.0F, 5.0F, OpenTK.Graphics.Color4.Cyan, False, 1)
+        draw_text(txt2, 5.0F, 24.0F, OpenTK.Graphics.Color4.Cyan, False, 1)
+        draw_text(PICKED_STRING, 5.0F, 43.0F, OpenTK.Graphics.Color4.Yellow, False, 1)
 
+        'draw status of SSAA
+        draw_text(SSAA_text, FBOm.SCR_WIDTH - (MINI_MAP_SIZE / 2) + 5, FBOm.SCR_HEIGHT - MINI_MAP_SIZE - 30.0, OpenTK.Graphics.Color4.Yellow, True, 1)
         Dim temp_time = temp_timer.ElapsedMilliseconds
         Dim aa As Integer = 0
 
@@ -629,18 +665,18 @@ Module modRender
         '=======================================================================
         'setup
         GL.Enable(EnableCap.Blend)
-        miniLegends.Use()
-        GL.Uniform1(miniLegends("imageMap"), 0)
-        GL.Uniform4(miniLegends("color"), OpenTK.Graphics.Color4.White)
-        GL.UniformMatrix4(miniLegends("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform1(miniLegends("divisor"), 1.0F) 'atlas size
-        GL.Uniform1(miniLegends("index"), 0.0F)
+        TextRenderShader.Use()
+        GL.Uniform1(TextRenderShader("imageMap"), 0)
+        GL.Uniform4(TextRenderShader("color"), OpenTK.Graphics.Color4.White)
+        GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform1(TextRenderShader("divisor"), 1.0F) 'atlas size
+        GL.Uniform1(TextRenderShader("index"), 0.0F)
 
         '=======================================================================
         'draw horz trim
         GL.BindTextureUnit(0, MINI_TRIM_HORZ_ID)
         Dim rect As New RectangleF(cx - 12, cy - 12, 640 + 12, 16.0F)
-        GL.Uniform4(miniLegends("rect"),
+        GL.Uniform4(TextRenderShader("rect"),
                   rect.Left,
                   -rect.Top,
                   rect.Right,
@@ -651,7 +687,7 @@ Module modRender
         'draw vert trim
         GL.BindTextureUnit(0, MINI_TRIM_VERT_ID)
         rect = New RectangleF(cx - 12, cy - 12, 16.0F, 640 + 12.0F)
-        GL.Uniform4(miniLegends("rect"),
+        GL.Uniform4(TextRenderShader("rect"),
                  rect.Left,
                  -rect.Top,
                  rect.Right,
@@ -662,9 +698,9 @@ Module modRender
 
         'row
         '=======================================================================
-        GL.Uniform1(miniLegends("divisor"), 10.0F) 'atlas size
+        GL.Uniform1(TextRenderShader("divisor"), 10.0F) 'atlas size
 
-        GL.Uniform1(miniLegends("col_row"), 1) 'draw row
+        GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
         GL.BindTextureUnit(0, MINI_NUMBERS_ID)
 
         Dim index! = 0
@@ -672,10 +708,10 @@ Module modRender
         Dim step_s! = MINI_MAP_SIZE / 10.0F
         GL.BindVertexArray(defaultVao)
         For xp = cx To cx + MINI_MAP_SIZE Step step_s
-            GL.Uniform1(miniLegends("index"), index)
+            GL.Uniform1(TextRenderShader("index"), index)
 
             rect = New RectangleF(xp + (step_s / 2.0F) - 8, cy - 11, 16.0F, 10.0F)
-            GL.Uniform4(miniLegends("rect"),
+            GL.Uniform4(TextRenderShader("rect"),
                         rect.Left,
                         -rect.Top,
                         rect.Right,
@@ -688,17 +724,17 @@ Module modRender
         'column
         '=======================================================================
         index = 0
-        GL.Uniform1(miniLegends("col_row"), 0) 'draw row
+        GL.Uniform1(TextRenderShader("col_row"), 0) 'draw row
         GL.BindTextureUnit(0, MINI_LETTERS_ID)
 
         cnt! = 10.0F
         step_s! = MINI_MAP_SIZE / 10.0F
         GL.BindVertexArray(defaultVao)
         For yp = cy To cy + MINI_MAP_SIZE Step step_s
-            GL.Uniform1(miniLegends("index"), index)
+            GL.Uniform1(TextRenderShader("index"), index)
 
             rect = New RectangleF(cx - 9, yp + (step_s / 2) - 6, 8.0F, 12.0F)
-            GL.Uniform4(miniLegends("rect"),
+            GL.Uniform4(TextRenderShader("rect"),
                         rect.Left,
                         -rect.Top,
                         rect.Right,
@@ -708,7 +744,7 @@ Module modRender
             index += 1.0F
             Application.DoEvents()
         Next
-        miniLegends.StopUse()
+        TextRenderShader.StopUse()
         GL.BindTextureUnit(0, 0)
         GL.DepthMask(True)
         GL.Disable(EnableCap.Blend)
@@ -1080,7 +1116,8 @@ Module modRender
                          ByVal locX As Single,
                          ByVal locY As Single,
                          ByRef color As OpenTK.Graphics.Color4,
-                         ByRef center As Boolean)
+                         ByRef center As Boolean,
+                         ByRef mask As Integer)
         'text, loc X, loc Y, color, Center text at X location.
 
         '=======================================================================
@@ -1090,13 +1127,14 @@ Module modRender
         If text Is Nothing Then Return
 
         GL.Enable(EnableCap.Blend)
-        miniLegends.Use()
-        GL.Uniform1(miniLegends("imageMap"), 0)
-        GL.UniformMatrix4(miniLegends("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform1(miniLegends("divisor"), 95.0F) 'atlas size
+        TextRenderShader.Use()
+        GL.Uniform1(TextRenderShader("imageMap"), 0)
+        GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform1(TextRenderShader("divisor"), 95.0F) 'atlas size
         GL.BindTextureUnit(0, ASCII_ID)
-        GL.Uniform1(miniLegends("col_row"), 1) 'draw row
-        GL.Uniform4(miniLegends("color"), color)
+        GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
+        GL.Uniform4(TextRenderShader("color"), color)
+        GL.Uniform1(TextRenderShader("mask"), mask)
         '=======================================================================
         'draw text
         Dim cntr = 0
@@ -1109,9 +1147,9 @@ Module modRender
         For Each l In ar
             Dim idx = CSng(Asc(l) - 32)
             Dim tp = (locX + cnt * 10.0) - cntr
-            GL.Uniform1(miniLegends("index"), idx)
+            GL.Uniform1(TextRenderShader("index"), idx)
             Dim rect As New RectangleF(tp, locY, 10.0F, 15.0F)
-            GL.Uniform4(miniLegends("rect"),
+            GL.Uniform4(TextRenderShader("rect"),
                       rect.Left,
                       -rect.Top,
                       rect.Right,
@@ -1120,7 +1158,7 @@ Module modRender
             cnt += 1
         Next
         GL.Disable(EnableCap.Blend)
-        miniLegends.StopUse()
+        TextRenderShader.StopUse()
         GL.BindTextureUnit(0, 0)
 
     End Sub

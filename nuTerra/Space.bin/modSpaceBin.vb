@@ -565,6 +565,10 @@ CleanUp:
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
                         .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(4, 4, 8, 4))
 
+                        'Stupid hacks for missing or incorrect atlas sizes
+                        If model_name.Contains("hd_bld_UNI_005_Hangar\normal\") Then
+                            .g_atlasSizes = New Vector4(3, 2, 4, 4)
+                        End If
                         If Not props.ContainsKey("g_atlasSizes") Then
                             'If .atlasBlend.ToLower.Contains("hd_envAF_033_Cliff_rocks_Atlas_Blend.png".ToLower) Then
                             '    .g_atlasSizes = New Vector4(2, 2, 8, 1)

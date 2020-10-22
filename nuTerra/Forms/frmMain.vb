@@ -71,6 +71,13 @@ Public Class frmMain
             Case Keys.F7
                 SHOW_BORDER = SHOW_BORDER Xor 1
 
+            Case Keys.F8
+                SSAA_enable = SSAA_enable Xor True
+                If SSAA_enable Then
+                    SSAA_text = "SSAA On"
+                Else
+                    SSAA_text = "SSAA Off"
+                End If
                 '-------------------------------
             Case Keys.B
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
