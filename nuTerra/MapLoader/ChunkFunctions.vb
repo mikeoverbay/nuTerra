@@ -125,10 +125,10 @@ Module ChunkFunctions
 
                 ' Fill the morph arrays. We duplicate the vaules in 2 locations.
                 v_data.v_buff_XZ_morph(i + ((j + 0) * stride)) = bottomleft.vert
-                v_data.v_buff_XZ_morph(i + ((j + 0) * stride)) = topleft.vert
+                v_data.v_buff_XZ_morph(i + ((j + 1) * stride)) = topleft.vert
 
                 v_data.v_buff_Y_morph(i + ((j + 0) * stride)) = bottomleft.H
-                v_data.v_buff_Y_morph(i + ((j + 0) * stride)) = topleft.H
+                v_data.v_buff_Y_morph(i + ((j + 1) * stride)) = topleft.H
 
             Next
         Next
@@ -142,7 +142,21 @@ Module ChunkFunctions
 
     End Sub
 
-    Public Sub douplicate_1st_to_2nd(ByRef buff() As Vector3)
+    Public Sub douplicate_1st_to_2nd_sng(ByRef buff() As Single)
+        For x = 0 To 65 * 64 Step 65
+            For y = 0 To 63 Step 2
+                buff(y + x) = buff(y + x + 1)
+            Next
+        Next
+    End Sub
+    Public Sub douplicate_1st_to_2nd_vec2(ByRef buff() As Vector2)
+        For x = 0 To 65 * 64 Step 65
+            For y = 0 To 63 Step 2
+                buff(y + x) = buff(y + x + 1)
+            Next
+        Next
+    End Sub
+    Public Sub douplicate_1st_to_2nd_vec3(ByRef buff() As Vector3)
         For x = 0 To 65 * 64 Step 65
             For y = 0 To 63 Step 2
                 buff(y + x) = buff(y + x + 1)
@@ -249,10 +263,10 @@ Module ChunkFunctions
                 theMap.v_data(br).n_buff(you_br) = v1
                 .n_buff(me_) = v1
 
-                theMap.v_data(tr).n_buff(you_tr) = v1
-                theMap.v_data(tl).n_buff(you_tl) = v1
-                theMap.v_data(br).n_buff(you_br) = v1
-                .n_buff(me_) = v1
+                theMap.v_data(tr).n_buff_morph(you_tr) = v1
+                theMap.v_data(tl).n_buff_morph(you_tl) = v1
+                theMap.v_data(br).n_buff_morph(you_br) = v1
+                .n_buff_morph(me_) = v1
                 '====================================
                 v1 = theMap.v_data(tr).t_buff(you_tr)
                 v2 = theMap.v_data(tl).t_buff(you_tl)
@@ -264,10 +278,10 @@ Module ChunkFunctions
                 theMap.v_data(br).t_buff(you_br) = v1
                 .t_buff(me_) = v1
 
-                theMap.v_data(tr).t_buff(you_tr) = v1
-                theMap.v_data(tl).t_buff(you_tl) = v1
-                theMap.v_data(br).t_buff(you_br) = v1
-                .t_buff(me_) = v1
+                theMap.v_data(tr).t_buff_morph(you_tr) = v1
+                theMap.v_data(tl).t_buff_morph(you_tl) = v1
+                theMap.v_data(br).t_buff_morph(you_br) = v1
+                .t_buff_morph(me_) = v1
 
             End If
 

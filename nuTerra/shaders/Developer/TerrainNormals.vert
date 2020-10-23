@@ -26,8 +26,23 @@ out VS_OUT
 
 void main(void)
 {
-    vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
-    
+    //-------------------------------------------------------
+    vec3 vertexPosition = vec3( vertexXZ.x, vertexY, vertexXZ.y );
+    //-------------------------------------------------------
+
+    // This is the morph blend distance.
+    vec3 point = vec3(model * vec4(vertexPosition, 1.0));
+    float dist = distance( point.xyz,cameraPos.xyz );
+    float start_ = 50.0;
+    float end_ = 100.0;
+    if (dist < start_ + end_) { dist = 1.0 - (dist+start_)/end_;} 
+    else {dist = 0.0;}
+    //-------------------------------------------------------
+    //blend vertices
+    vertexPosition = vec3( mix(vertexPosition.x,vertexXZ_morph.x,dist),
+                                mix(vertexPosition.y,vertexY_morph,dist) ,
+                                mix(vertexPosition.z,vertexXZ_morph.y,dist));    
+
     // Calculate vertex position in clip coordinates
     gl_Position = viewProj * model * vec4(vertexPosition, 1.0);
 

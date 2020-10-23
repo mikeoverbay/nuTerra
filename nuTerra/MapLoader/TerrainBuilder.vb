@@ -250,8 +250,10 @@ Module TerrainBuilder
         '++++++++++++++++++++++++++++++++++++++++++++++++++++++
         'set 2nd values same as first.
         For i = 0 To theMap.chunks.Length - 1
-            douplicate_1st_to_2nd(theMap.v_data(i).n_buff_morph)
-            douplicate_1st_to_2nd(theMap.v_data(i).t_buff_morph)
+            douplicate_1st_to_2nd_vec2(theMap.v_data(i).v_buff_XZ_morph)
+            douplicate_1st_to_2nd_sng(theMap.v_data(i).v_buff_Y_morph)
+            douplicate_1st_to_2nd_vec3(theMap.v_data(i).n_buff_morph)
+            douplicate_1st_to_2nd_vec3(theMap.v_data(i).t_buff_morph)
             Application.DoEvents()
         Next
         '++++++++++++++++++++++++++++++++++++++++++++++++++++++
