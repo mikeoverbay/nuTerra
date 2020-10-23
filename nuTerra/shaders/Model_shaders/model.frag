@@ -93,11 +93,11 @@ layout(index = 0) subroutine(fn_entry) void default_entry()
 
 layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
-    float mip = mip_map_level(fs_in.TC1);
-    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
+    float mip = mip_map_level(fs_in.TC1)*0.8;
+    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
     gColor *= thisMaterial.g_colorTint;
-    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, 0).rg; // gloss/metal
-    get_normal(0);
+    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
+    get_normal(mip);
 }
 
 
@@ -143,15 +143,15 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec4 BLEND = texture2D(thisMaterial.maps[3],uv4);
 
     vec4 colorAM_1 = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
-    vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],uv1,mip);
+    vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],uv1,mip)*0.8;
     vec4 MAO_1 =     textureLod(thisMaterial.maps[2],uv1,mip);
 
     vec4 colorAM_2 = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
-    vec4 GBMT_2 =    textureLod(thisMaterial.maps[1],uv2,mip);
+    vec4 GBMT_2 =    textureLod(thisMaterial.maps[1],uv2,mip)*0.8;
     vec4 MAO_2 =     textureLod(thisMaterial.maps[2],uv2,mip);
 
     vec4 colorAM_3 = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
-    vec4 GBMT_3 =    textureLod(thisMaterial.maps[1],uv3,mip);
+    vec4 GBMT_3 =    textureLod(thisMaterial.maps[1],uv3,mip)*0.8;
     vec4 MAO_3 =     textureLod(thisMaterial.maps[2],uv3,mip);
 
     //need to sort this out!

@@ -70,6 +70,7 @@ Module TerrainBuilder
         Public Shared noise_texture As String ' noiseTexture
         '------------------------
         Public Shared vertex_vBuffer_id As Integer
+        Public Shared vertex_vBuffer_morph_id As Integer
         Public Shared vertex_iBuffer_id As Integer
         Public Shared vertex_uvBuffer_id As Integer
         Public Shared vertex_TangentBuffer_id As Integer
@@ -106,14 +107,22 @@ Module TerrainBuilder
         Public BB_Min As Vector3
         Public BB() As Vector3
 
-        Dim v_buff_XZ() As Vector2
-        Dim v_buff_Y() As Single
         Dim indicies() As vect3_16
+
+        Dim v_buff_XZ() As Vector2
+        Dim v_buff_XZ_morph() As Vector2
+
+        Dim v_buff_Y() As Single
+        Dim v_buff_Y_morph() As Single
 
         Public h_buff() As UInt32
         Public uv_buff() As Vector2
+
         Public n_buff() As Vector3
+        Public n_buff_morph() As Vector3
+
         Public t_buff() As Vector3
+        Public t_buff_morph() As Vector3
 
     End Structure
 
@@ -233,11 +242,19 @@ Module TerrainBuilder
         BG_VALUE = 0
         BG_TEXT = "Smoothing Terrain Normals..."
         For i = 0 To theMap.chunks.Length - 1
-            smooth_edges(i)
+            smooth_seams(i)
             BG_VALUE = i
             draw_scene()
             Application.DoEvents()
         Next
+        '++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        'set 2nd values same as first.
+        For i = 0 To theMap.chunks.Length - 1
+            douplicate_1st_to_2nd(theMap.v_data(i).n_buff_morph)
+            douplicate_1st_to_2nd(theMap.v_data(i).t_buff_morph)
+            Application.DoEvents()
+        Next
+        '++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         LogThis(String.Format("Smooth Seams: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Restart()

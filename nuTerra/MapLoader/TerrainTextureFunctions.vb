@@ -478,7 +478,7 @@ Module TerrainTextureFunctions
 
             GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-{0}", fn))
 
-            Dim maxAniso As Single = 3.0F
+            Dim maxAniso As Single = 4.0F
             'GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
 
             GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
@@ -489,11 +489,17 @@ Module TerrainTextureFunctions
             GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
+
+
             If CROP Then
-                GL.TextureStorage2D(image_id, 6, SizedInternalFormat.Rgba8, CInt(width * 0.875), CInt(height * 0.875))
+                Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(width * 0.875, height * 0.875), 2))
+
+                GL.TextureStorage2D(image_id, numLevels, SizedInternalFormat.Rgba8, CInt(width * 0.875), CInt(height * 0.875))
                 GL.TextureSubImage2D(image_id, 0, 0, 0, CInt(width * 0.875), CInt(height * 0.875), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
             Else
-                GL.TextureStorage2D(image_id, 6, SizedInternalFormat.Rgba8, CInt(width), CInt(height))
+                Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(width, height), 2))
+
+                GL.TextureStorage2D(image_id, numLevels, SizedInternalFormat.Rgba8, CInt(width), CInt(height))
                 GL.TextureSubImage2D(image_id, 0, 0, 0, CInt(width), CInt(height), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
             End If
 

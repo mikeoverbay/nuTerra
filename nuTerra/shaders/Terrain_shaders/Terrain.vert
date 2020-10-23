@@ -6,10 +6,14 @@
 #include "common.h"
 
 layout(location = 0) in vec2 vertexXZ;
-layout(location = 1) in float vertexY;
-layout(location = 2) in vec2 vertexTexCoord;
-layout(location = 3) in vec4 vertexNormal;
-layout(location = 4) in vec3 vertexTangent;
+layout(location = 1) in vec2 vertexXZ_morph;
+layout(location = 2) in float vertexY;
+layout(location = 3) in float vertexY_morph;
+layout(location = 4) in vec2 vertexTexCoord;
+layout(location = 5) in vec4 vertexNormal;
+layout(location = 6) in vec4 vertexNormal_morph;
+layout(location = 7) in vec3 vertexTangent;
+layout(location = 8) in vec3 vertexTangent_morph;
 
 layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 layer0UT1;
@@ -75,13 +79,27 @@ void main(void)
     
     vs_out.is_hole = vertexNormal.w ;
     //-------------------------------------------------------
-    // Calulate UVs for the texture layers
-    vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
+    vec3 vertexPosition = vec3( vertexXZ.x, vertexY, vertexXZ.y );
+    //-------------------------------------------------------
+
+    // This is the morph blend distance.
+    vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
+    float dist = distance( point.xyz,cameraPos.xyz );
+    float start_ = 50.0;
+    float end_ = 100.0;
+    if (dist < start_ + end_) { dist = 1.0 - (dist-start_)/end_;} 
+    else {dist = 0.0;}
+    //-------------------------------------------------------
+    vertexPosition = vec3( mix(vertexPosition.x,vertexXZ_morph.x,dist),
+                                mix(vertexPosition.y,vertexY_morph,dist) ,
+                                mix(vertexPosition.z,vertexXZ_morph.y,dist));
+
+     //-------------------------------------------------------
+   // Calulate UVs for the texture layers
+
     vs_out.Vertex = vec4(vertexPosition, 1.0) * 1.0;
     vs_out.Vertex.x *= -1.0;
     vec4 sVert = vs_out.Vertex;
-    //sVert = vec4(UV.x*100.0, 0.0, UV.y*100.0, 0.0);//Vertex.xyz;// * vec3(0.875) + vec3(0.0625);
-    
     //
     vs_out.tuv4 = -vec2(dot(-layer3UT1, sVert), dot(layer3VT1, sVert))+0.5 ;
     vs_out.tuv4_2 = -vec2(dot(-layer3UT2, sVert), dot(layer3VT2, sVert))+0.5 ;
@@ -94,26 +112,13 @@ void main(void)
 
     vs_out.tuv1 = -vec2(dot(-layer0UT1, sVert), dot(layer0VT1, sVert))+0.5 ;
     vs_out.tuv1_2 = -vec2(dot(-layer0UT2, sVert), dot(layer0VT2, sVert))+0.5 ;
-
-
-    //-------------------------------------------------------
-    // clip border - dont work!
-//    tuv1 = (tuv1*0.875) + (tuv1*0.0625);
-//    tuv2 = (tuv2*0.875) + (tuv2*0.0625);
-//    tuv3 = (tuv3*0.875) + (tuv3*0.0625);
-//    tuv4 = (tuv4*0.875) + (tuv4*0.0625);
-//
-//    tuv1_2 = (tuv1_2*0.875) + (tuv1_2*0.0625);
-//    tuv2_2 = (tuv2_2*0.875) + (tuv2_2*0.0625);
-//    tuv3_2 = (tuv3_2*0.875) + (tuv3_2*0.0625);
-//    tuv4_2 = (tuv4_2*0.875) + (tuv4_2*0.0625);
     //-------------------------------------------------------
 
     //-------------------------------------------------------
     // Calculate biNormal
     vec3 VT, VB, VN ;
-    VN = normalize(vertexNormal.xyz);
-    VT = normalize(vertexTangent.xyz);
+    VN = normalize(mix(vertexNormal.xyz, vertexNormal_morph.xyz, dist));
+    VT = normalize(mix(vertexTangent.xyz, vertexTangent_morph.xyz, dist));
 
     VT = VT - dot(VN, VT) * VN;
     VB = cross(VT, VN);
@@ -138,10 +143,11 @@ void main(void)
     gl_Position = viewProj * modelMatrix * vec4(vertexPosition, 1.0f);
    
     // This is the cut off distance for bumping the surface.
-    vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
+    point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
     vs_out.ln = distance( point.xyz,cameraPos.xyz );
     float start = 75.0;
-    if (vs_out.ln < start + 200.0) { vs_out.ln = 1.0 - (vs_out.ln-start)/200.0;} 
+    float end = 200.0;
+    if (vs_out.ln < start + end) { vs_out.ln = 1.0 - (vs_out.ln-start)/end;} 
     else {vs_out.ln = 0.0;}
 
 }
