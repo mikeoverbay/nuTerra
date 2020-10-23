@@ -148,9 +148,9 @@ Module ChunkFunctions
                 buff(y + x) = buff(y + x + 1)
             Next
         Next
-        For x = 1 To 65 * 63 Step 65 * 2
-            For y = 1 To 65
-                buff(y + x + 65) = buff(y + x)
+        For x = 65 To 65 * 63 Step 65 * 2
+            For y = 0 To 64
+                buff(y + x) = buff(y + x + 65)
             Next
         Next
     End Sub
@@ -160,11 +160,16 @@ Module ChunkFunctions
                 buff(y + x) = buff(y + x + 1)
             Next
         Next
-        For x = 1 To 65 * 63 Step 65 * 2
-            For y = 1 To 65
+        For x = 65 To 65 * 63 Step 65 * 2
+            For y = 0 To 64
                 buff(y + x + 65) = buff(y + x)
             Next
         Next
+        'For x = 0 To 65 * 63 Step 65 * 2
+        For y = 0 To 64
+            buff(y).Y = -50.0F
+        Next
+        'Next
     End Sub
     Public Sub douplicate_1st_to_2nd_vec3(ByRef buff() As Vector3)
         For x = 0 To 65 * 64 Step 65
@@ -172,9 +177,9 @@ Module ChunkFunctions
                 buff(y + x) = buff(y + x + 1)
             Next
         Next
-        For x = 1 To 65 * 63 Step 65 * 2
-            For y = 1 To 65
-                buff(y + x + 65) = buff(y + x)
+        For x = 65 To 65 * 63 Step 65 * 2
+            For y = 0 To 64
+                buff(y + x) = buff(y + x + 65)
             Next
         Next
     End Sub

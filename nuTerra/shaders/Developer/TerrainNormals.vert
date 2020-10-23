@@ -33,8 +33,8 @@ void main(void)
     // This is the morph blend distance.
     vec3 point = vec3(model * vec4(vertexPosition, 1.0));
     float dist = max(distance( point.xyz,cameraPos.xyz ), 0.0);
-    float start_ = 50.0;
-    float end_ = 100.0;
+    float start_ = 10.0;
+    float end_ = 50.0;
     if (dist  > start_)
     {
         if (dist < start_ + end_)
