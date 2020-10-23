@@ -338,7 +338,7 @@ Module ChunkFunctions
             'Gen VAO and VBO Ids
             GL.CreateVertexArrays(1, theMap.render_set(i).VAO)
             ReDim theMap.render_set(i).mBuffers(5)
-            GL.CreateBuffers(5, theMap.render_set(i).mBuffers)
+            GL.CreateBuffers(6, theMap.render_set(i).mBuffers)
 
             ' If the shared buffer is not defined, we need to do so.
             If theMap.vertex_vBuffer_id = 0 Then
@@ -429,8 +429,8 @@ Module ChunkFunctions
             Next
             GL.NamedBufferStorage(theMap.render_set(i).mBuffers(5), packed.Length * 4, packed, BufferStorageFlags.None)
 
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 8, theMap.render_set(i).mBuffers(5), IntPtr.Zero, 12)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 8, 4, VertexAttribType.Float, True, 0)
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 8, theMap.render_set(i).mBuffers(5), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 8, 4, VertexAttribType.Int2101010Rev, True, 0)
             GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 8, 8)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 8)
 
@@ -439,10 +439,15 @@ Module ChunkFunctions
 
             .indicies = Nothing
             .v_buff_XZ = Nothing
+            .v_buff_XZ_morph = Nothing
             .uv_buff = Nothing
             .v_buff_Y = Nothing
+            .v_buff_Y_morph = Nothing
             .n_buff = Nothing
+            .n_buff_morph = Nothing
             .h_buff = Nothing
+            .t_buff_morph = Nothing
+            .t_buff = Nothing
 
         End With
     End Sub

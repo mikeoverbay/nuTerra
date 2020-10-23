@@ -6,10 +6,14 @@
 #include "common.h"
 
 layout(location = 0) in vec2 vertexXZ;
-layout(location = 1) in float vertexY;
-layout(location = 2) in vec2 vertexTexCoord;
-layout(location = 3) in vec4 vertexNormal;
-layout(location = 4) in vec4 vertexTangent;
+layout(location = 1) in vec2 vertexXZ_morph;
+layout(location = 2) in float vertexY;
+layout(location = 3) in float vertexY_morph;
+layout(location = 4) in vec2 vertexTexCoord;
+layout(location = 5) in vec4 vertexNormal;
+layout(location = 6) in vec4 vertexNormal_morph;
+layout(location = 7) in vec4 vertexTangent;
+layout(location = 8) in vec4 vertexTangent_morph;
 
 uniform mat4 model;
 
