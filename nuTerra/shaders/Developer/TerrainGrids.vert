@@ -6,8 +6,8 @@
 #include "common.h"
 
 layout(location = 0) in vec2 vertexXZ;
-layout(location = 1) in float vertexY;
-layout(location = 2) in vec2 vertexTexCoord;
+layout(location = 2) in float vertexY;
+layout(location = 4) in vec2 vertexTexCoord;
 
 out vec2 uv;
 out vec2 V;
