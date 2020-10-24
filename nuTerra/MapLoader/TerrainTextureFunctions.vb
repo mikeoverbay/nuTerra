@@ -437,7 +437,6 @@ Module TerrainTextureFunctions
     Private Function crop_DDS(ByRef ms As MemoryStream, ByRef fn As String) As Integer
         'File name is needed to add to our list of loaded textures
 
-
         Dim image_id As Integer
 
         ms.Position = 0

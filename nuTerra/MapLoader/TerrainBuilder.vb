@@ -76,6 +76,13 @@ Module TerrainBuilder
         Public Shared vertex_TangentBuffer_id As Integer
         Public Shared indices_count As Integer = 7938 * 3
         '------------------------
+        'low q
+        Public Shared LQ_vertex_vBuffer_id As Integer
+        Public Shared LQ_vertex_iBuffer_id As Integer
+        Public Shared LQ_vertex_uvBuffer_id As Integer
+        Public Shared LQ_vertex_TangentBuffer_id As Integer
+        Public Shared LQ_indices_count As Integer = 7938 * 3
+        '------------------------
 
     End Class
     Public Structure chunk_
@@ -128,7 +135,9 @@ Module TerrainBuilder
 
     Public Structure chunk_render_data_
         Public mBuffers() As Integer
+        Public LQ_mBuffers() As Integer
         Public VAO As Integer
+        Public LQ_VAO As Integer
         Public matrix As Matrix4
         '-------------------------------
         ' Texture IDs and such below
@@ -282,6 +291,7 @@ Module TerrainBuilder
         BG_TEXT = "Building render VAOs..."
         For i = 0 To theMap.chunks.Length - 1
             build_Terrain_VAO(i)
+            build_Terrain_LQ_VAO(i)
             BG_VALUE = i
             draw_scene()
             Application.DoEvents()

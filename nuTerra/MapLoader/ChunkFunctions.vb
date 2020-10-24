@@ -124,11 +124,11 @@ Module ChunkFunctions
                 v_data.uv_buff(i + ((j + 0) * stride)) = topleft.uv
 
                 ' Fill the morph arrays. We duplicate the vaules in 2 locations.
-                v_data.v_buff_XZ_morph(i + ((j + 0) * stride)) = bottomleft.vert
-                v_data.v_buff_XZ_morph(i + ((j + 1) * stride)) = topleft.vert
+                v_data.v_buff_XZ_morph(i + ((j + 1) * stride)) = bottomleft.vert
+                v_data.v_buff_XZ_morph(i + ((j + 0) * stride)) = topleft.vert
 
-                v_data.v_buff_Y_morph(i + ((j + 0) * stride)) = bottomleft.H
-                v_data.v_buff_Y_morph(i + ((j + 1) * stride)) = topleft.H
+                v_data.v_buff_Y_morph(i + ((j + 1) * stride)) = bottomleft.H
+                v_data.v_buff_Y_morph(i + ((j + 0) * stride)) = topleft.H
 
             Next
         Next
@@ -143,18 +143,31 @@ Module ChunkFunctions
     End Sub
 
     Public Sub douplicate_1st_to_2nd_sng(ByRef buff() As Single)
+        Dim tb(65) As Single
+
+
+
         For x = 0 To 65 * 64 Step 65
             For y = 1 To 64 Step 2
                 buff(y + x) = buff(y + x + 1)
             Next
         Next
+        For y = 0 To 64
+            tb(y) = buff(y + 4160)
+        Next
         For x = 65 To 65 * 63 Step 65 * 2
             For y = 0 To 64
-                buff(y + x) = buff(y + x + 65)
+                buff(y + x + 65) = buff(y + x)
             Next
         Next
+        For y = 0 To 64
+            buff(y + 4095) = tb(y)
+            buff(y + 4160) = tb(y)
+        Next
+
     End Sub
     Public Sub douplicate_1st_to_2nd_vec2(ByRef buff() As Vector2)
+
         For x = 0 To 65 * 64 Step 65
             For y = 1 To 64 Step 2
                 buff(y + x) = buff(y + x + 1)
@@ -165,22 +178,28 @@ Module ChunkFunctions
                 buff(y + x + 65) = buff(y + x)
             Next
         Next
-        'For x = 0 To 65 * 63 Step 65 * 2
         For y = 0 To 64
-            buff(y).Y = -50.0F
+            buff(y).Y = -51.5384615
         Next
-        'Next
     End Sub
     Public Sub douplicate_1st_to_2nd_vec3(ByRef buff() As Vector3)
+        Dim tb(65) As Vector3
         For x = 0 To 65 * 64 Step 65
             For y = 1 To 64 Step 2
                 buff(y + x) = buff(y + x + 1)
             Next
         Next
+        For y = 0 To 64
+            tb(y) = buff(y + 4160)
+        Next
         For x = 65 To 65 * 63 Step 65 * 2
             For y = 0 To 64
-                buff(y + x) = buff(y + x + 65)
+                buff(y + x + 65) = buff(y + x)
             Next
+        Next
+        For y = 0 To 64
+            buff(y + 4095) = tb(y)
+            buff(y + 4160) = tb(y)
         Next
     End Sub
 
@@ -365,6 +384,180 @@ Module ChunkFunctions
 
     End Sub
 
+    Private Sub convert_low_z_sng(ByRef inBuff() As Single, ByRef OutBuff() As Single)
+        Dim c, r As Integer
+        For y = 0 To 65 * 63 Step 65 * 2
+            r = 0
+            For x = 0 To 64 Step 2
+                OutBuff(r + c) = inBuff(x + y)
+                r += 1
+            Next
+            OutBuff(r + c + 1) = inBuff(64 + y)
+            c += 33
+        Next
+        r = 1056
+        For i = 4094 To 4094 + 64 Step 2
+            OutBuff(r) = inBuff(i)
+            r += 1
+        Next
+    End Sub
+    Private Sub convert_low_z_vec2(ByRef inBuff() As Vector2, ByRef OutBuff() As Vector2)
+        Dim c, r As Integer
+        For y = 0 To 65 * 63 Step 65 * 2
+            r = 0
+            For x = 0 To 64 Step 2
+                OutBuff(r + c) = inBuff(x + y)
+                r += 1
+            Next
+            OutBuff(r + c + 1) = inBuff(64 + y)
+            c += 33
+        Next
+        r = 1056
+        For i = 4094 To 4094 + 64 Step 2
+            OutBuff(r) = inBuff(i)
+            r += 1
+        Next
+    End Sub
+    Private Sub create_LQ_indies(ByRef count As Integer, ByRef OutBuff() As vect3_16)
+        Dim cnt As Integer = 0
+        Dim stride As Integer = 33
+        For j = 0 To 32
+            For i = 0 To 32
+                OutBuff(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
+                OutBuff(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
+                OutBuff(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
+
+                OutBuff(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
+                OutBuff(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
+                OutBuff(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
+                cnt += 2
+            Next
+        Next
+        count = cnt
+        ReDim Preserve OutBuff(count)
+
+    End Sub
+    Private Sub convert_low_z_vec3(ByRef inBuff() As Vector3, ByRef OutBuff() As Vector3)
+        Dim c, r As Integer
+        For y = 0 To 65 * 63 Step 65 * 2
+            r = 0
+            For x = 0 To 64 Step 2
+                OutBuff(r + c) = inBuff(x + y)
+                r += 1
+            Next
+            OutBuff(r + c + 1) = inBuff(64 + y)
+            c += 33
+        Next
+        r = 1056
+        For i = 4094 To 4094 + 64 Step 2
+            OutBuff(r) = inBuff(i)
+            r += 1
+        Next
+    End Sub
+
+    Dim quater_size As Integer = (33 * 33) - 1
+    Dim indicies(2178) As vect3_16
+    Dim uv_buff(quater_size) As Vector2
+    Dim v_buff_XZ(quater_size) As Vector2
+
+    Public Sub build_Terrain_LQ_VAO(ByVal i As Integer)
+        ' ===== LW VAO Creator =====
+
+        ' SETUP ==================================================================
+
+        Dim v_buff_Y(quater_size) As Single
+        Dim normal(quater_size) As Vector3
+        Dim tangent(quater_size) As Vector3
+        Dim indie_count As Integer
+        If i = 0 Then 'only need to create these once!!!
+            create_LQ_indies(indie_count, indicies)
+            convert_low_z_vec2(theMap.v_data(i).v_buff_XZ_morph, v_buff_XZ)
+            convert_low_z_vec2(theMap.v_data(i).uv_buff, uv_buff) '<-- This may have issues!
+        End If
+
+        convert_low_z_sng(theMap.v_data(i).v_buff_Y_morph, v_buff_Y)
+        convert_low_z_vec3(theMap.v_data(i).n_buff_morph, normal)
+        convert_low_z_vec3(theMap.v_data(i).t_buff_morph, tangent)
+
+        '=========================================================================
+
+        With theMap.v_data(i)
+
+            'Gen VAO and VBO Ids
+            GL.CreateVertexArrays(1, theMap.render_set(i).LQ_VAO)
+            ReDim theMap.render_set(i).LQ_mBuffers(3)
+            GL.CreateBuffers(3, theMap.render_set(i).LQ_mBuffers)
+
+            ' If the shared buffer is not defined, we need to do so.
+            If theMap.LQ_vertex_vBuffer_id = 0 Then
+                GL.CreateBuffers(1, theMap.LQ_vertex_vBuffer_id)
+                GL.CreateBuffers(1, theMap.LQ_vertex_iBuffer_id)
+                GL.CreateBuffers(1, theMap.LQ_vertex_uvBuffer_id)
+
+                'if the shared buffer is not defined, we need to fill the buffer now
+                GL.NamedBufferStorage(theMap.LQ_vertex_iBuffer_id, indicies.Length * 6, indicies, BufferStorageFlags.None)
+                GL.NamedBufferStorage(theMap.LQ_vertex_vBuffer_id, v_buff_XZ.Length * 8, v_buff_XZ, BufferStorageFlags.None)
+                GL.NamedBufferStorage(theMap.LQ_vertex_uvBuffer_id, uv_buff.Length * 8, uv_buff, BufferStorageFlags.None)
+            End If
+
+            ' VERTEX XZ ==================================================================
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).LQ_VAO, 0, theMap.LQ_vertex_vBuffer_id, IntPtr.Zero, 8)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).LQ_VAO, 0, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).LQ_VAO, 0, 0)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).LQ_VAO, 0)
+
+            ' POSITION Y ==================================================================
+            GL.NamedBufferStorage(theMap.render_set(i).LQ_mBuffers(0), v_buff_Y.Length * 4, v_buff_Y, BufferStorageFlags.None)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).LQ_VAO, 1, theMap.render_set(i).LQ_mBuffers(0), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).LQ_VAO, 1, 1, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).LQ_VAO, 1, 1)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).LQ_VAO, 1)
+
+            ' UV ==================================================================
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).LQ_VAO, 2, theMap.LQ_vertex_uvBuffer_id, IntPtr.Zero, 8)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).LQ_VAO, 2, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).LQ_VAO, 2, 2)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).LQ_VAO, 2)
+
+
+            ' NORMALS AND HOLES ======================================================== 
+            Dim packed(normal.Length - 1) As UInteger
+            For j = 0 To normal.Length - 1
+                packed(j) = pack_2_10_10_10(normal(j), 0)
+            Next
+            GL.NamedBufferStorage(theMap.render_set(i).LQ_mBuffers(1), packed.Length * 4, packed, BufferStorageFlags.None)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).LQ_VAO, 3, theMap.render_set(i).LQ_mBuffers(1), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).LQ_VAO, 3, 4, VertexAttribType.Int2101010Rev, True, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).LQ_VAO, 3, 3)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).LQ_VAO, 3)
+
+            ' Tangents ========================================================
+            For j = 0 To tangent.Length - 1
+                packed(j) = pack_2_10_10_10(tangent(j), 0.0)
+            Next
+            GL.NamedBufferStorage(theMap.render_set(i).LQ_mBuffers(2), packed.Length * 4, packed, BufferStorageFlags.None)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).LQ_VAO, 4, theMap.render_set(i).LQ_mBuffers(2), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).LQ_VAO, 4, 4, VertexAttribType.Int2101010Rev, True, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).LQ_VAO, 4, 4)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).LQ_VAO, 4)
+
+            ' INDICES ==================================================================
+            GL.VertexArrayElementBuffer(theMap.render_set(i).LQ_VAO, theMap.LQ_vertex_iBuffer_id)
+
+
+
+            .indicies = Nothing
+            .v_buff_XZ_morph = Nothing
+            .v_buff_Y_morph = Nothing
+            .n_buff_morph = Nothing
+            .t_buff_morph = Nothing
+            .uv_buff = Nothing
+
+        End With
+    End Sub
     Public Sub build_Terrain_VAO(ByVal i As Integer)
         ' SETUP ==================================================================
         With theMap.v_data(i)
@@ -471,16 +664,10 @@ Module ChunkFunctions
             ' INDICES ==================================================================
             GL.VertexArrayElementBuffer(theMap.render_set(i).VAO, theMap.vertex_iBuffer_id)
 
-            .indicies = Nothing
             .v_buff_XZ = Nothing
-            .v_buff_XZ_morph = Nothing
-            .uv_buff = Nothing
             .v_buff_Y = Nothing
-            .v_buff_Y_morph = Nothing
             .n_buff = Nothing
-            .n_buff_morph = Nothing
             .h_buff = Nothing
-            .t_buff_morph = Nothing
             .t_buff = Nothing
 
         End With

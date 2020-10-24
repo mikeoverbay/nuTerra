@@ -336,7 +336,7 @@ void main(void)
 
     out_n = mix(n_tex, out_n, fs_in.ln) ;
 
-    discard;
+    //discard;
 
     // The obvious
     gColor = base;

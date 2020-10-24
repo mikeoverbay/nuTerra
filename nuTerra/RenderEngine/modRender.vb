@@ -228,7 +228,7 @@ Module modRender
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
-                TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
+                TERRAIN_TRIS_DRAWN += 2048 ' number of triangles per chunk
 
                 GL.UniformMatrix4(TerrainLQShader("modelMatrix"), False, theMap.render_set(i).matrix)
 
@@ -236,9 +236,9 @@ Module modRender
                 GL.Uniform2(TerrainLQShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
 
                 'draw chunk
-                GL.BindVertexArray(theMap.render_set(i).VAO)
+                GL.BindVertexArray(theMap.render_set(i).LQ_VAO)
                 GL.DrawElements(PrimitiveType.Triangles,
-                    24576,
+                    6144,
                     DrawElementsType.UnsignedShort, 0)
             End If
 
