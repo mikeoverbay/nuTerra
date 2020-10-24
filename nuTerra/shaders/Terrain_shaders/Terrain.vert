@@ -6,14 +6,13 @@
 #include "common.h"
 
 layout(location = 0) in vec2 vertexXZ;
-layout(location = 1) in vec2 vertexXZ_morph;
-layout(location = 2) in float vertexY;
-layout(location = 3) in float vertexY_morph;
-layout(location = 4) in vec2 vertexTexCoord;
-layout(location = 5) in vec4 vertexNormal;
+layout(location = 1) in float vertexY;
+layout(location = 2) in vec4 vertexNormal;
+layout(location = 3) in vec4 vertexTangent;
+layout(location = 4) in vec2 vertexXZ_morph;
+layout(location = 5) in float vertexY_morph;
 layout(location = 6) in vec4 vertexNormal_morph;
-layout(location = 7) in vec4 vertexTangent;
-layout(location = 8) in vec4 vertexTangent_morph;
+layout(location = 7) in vec4 vertexTangent_morph;
 
 layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 layer0UT1;
@@ -52,6 +51,10 @@ uniform vec2 me_location;
 uniform mat4 modelMatrix;
 uniform mat3 normalMatrix;
 
+uniform float morph_start;
+uniform float morph_end;
+
+
 out VS_OUT {
     mat3 TBN;
     vec4 Vertex;
@@ -66,18 +69,6 @@ out VS_OUT {
 
 void main(void)
 {
-
-    vs_out.UV =  vertexTexCoord;
-    // calculate tex coords for global_AM
-    vec2 uv_g;
-    vec2 scaled = vs_out.UV / map_size;
-    vec2 m_s = vec2(1.0)/map_size;
-    uv_g.x = ((( (me_location.x )-50.0)/100.0)+map_center.x) * m_s.x ;
-    uv_g.y = ((( (me_location.y )-50.0)/100.0)-map_center.y) * m_s.y ;
-    vs_out.Global_UV = scaled + uv_g;
-    vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
-    
-    vs_out.is_hole = vertexNormal.w ;
     //-------------------------------------------------------
     vec3 vertexPosition = vec3( vertexXZ.x, vertexY, vertexXZ.y );
     //-------------------------------------------------------
@@ -85,8 +76,8 @@ void main(void)
     // This is the morph blend distance.
     vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
     float dist = max(distance( point.xyz,cameraPos.xyz ), 0.0);
-    float start_ = 75.0;
-    float end_ = 150.0;
+    float start_ = morph_start;
+    float end_ = morph_end;
     if (dist  > start_)
     {
         if (dist < start_ + end_)
@@ -102,8 +93,23 @@ void main(void)
                                 mix(vertexPosition.y,vertexY_morph,dist) ,
                                 mix(vertexPosition.z,vertexXZ_morph.y,dist));
 
-     //-------------------------------------------------------
-   // Calulate UVs for the texture layers
+    //-------------------------------------------------------
+    //Calculate UV from Vertex Posotion
+    vec2 texCoord = (vertexPosition.xz + vec2(50.0,50.0)) / vec2(100.0,100.0);
+    vs_out.UV =  texCoord;
+    // calculate tex coords for global_AM
+    vec2 uv_g;
+    vec2 scaled = vs_out.UV / map_size;
+    vec2 m_s = vec2(1.0)/map_size;
+    uv_g.x = ((( (me_location.x )-50.0)/100.0)+map_center.x) * m_s.x ;
+    uv_g.y = ((( (me_location.y )-50.0)/100.0)-map_center.y) * m_s.y ;
+    vs_out.Global_UV = scaled + uv_g;
+    vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
+    //-------------------------------------------------------    
+    vs_out.is_hole = vertexNormal.w ;
+
+    //-------------------------------------------------------    
+    // Calulate UVs for the texture layers
 
     vs_out.Vertex = vec4(vertexPosition, 1.0) * 1.0;
     vs_out.Vertex.x *= -1.0;
@@ -152,10 +158,18 @@ void main(void)
    
     // This is the cut off distance for bumping the surface.
     point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
-    vs_out.ln = distance( point.xyz,cameraPos.xyz );
     float start = 75.0;
-    float end = 200.0;
-    if (vs_out.ln < start + end) { vs_out.ln = 1.0 - (vs_out.ln-start)/end;} 
-    else {vs_out.ln = 0.0;}
+    float end = 115.0;
+    vs_out.ln = distance( point.xyz,cameraPos.xyz );
+    if (vs_out.ln   > start)
+    {
+        if (vs_out.ln < start + end)
+        {
+            vs_out.ln = (vs_out.ln-start)/end;
+        }else{
+            vs_out.ln = 1.0;
+        }
+    } 
+    else {vs_out.ln  = 0.0;}
 
 }

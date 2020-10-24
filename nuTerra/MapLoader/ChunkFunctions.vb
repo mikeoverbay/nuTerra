@@ -16,6 +16,7 @@ Module ChunkFunctions
     Public CURSOR_Y As Single
     Public HX, HY, OX, OY As Integer
     Dim hole_size As Integer
+
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
         'good place as any to set bounding box
@@ -143,27 +144,18 @@ Module ChunkFunctions
     End Sub
 
     Public Sub douplicate_1st_to_2nd_sng(ByRef buff() As Single)
-        Dim tb(65) As Single
-
-
 
         For x = 0 To 65 * 64 Step 65
             For y = 1 To 64 Step 2
                 buff(y + x) = buff(y + x + 1)
             Next
         Next
-        For y = 0 To 64
-            tb(y) = buff(y + 4160)
-        Next
-        For x = 65 To 65 * 63 Step 65 * 2
-            For y = 0 To 64
-                buff(y + x + 65) = buff(y + x)
+        For x = 0 To 64
+            For y = 1 To 64 Step 2
+                buff(x + (y * 65)) = buff(x + (y * 65 + 65))
             Next
         Next
-        For y = 0 To 64
-            buff(y + 4095) = tb(y)
-            buff(y + 4160) = tb(y)
-        Next
+
 
     End Sub
     Public Sub douplicate_1st_to_2nd_vec2(ByRef buff() As Vector2)
@@ -173,33 +165,24 @@ Module ChunkFunctions
                 buff(y + x) = buff(y + x + 1)
             Next
         Next
-        For x = 65 To 65 * 63 Step 65 * 2
-            For y = 0 To 64
-                buff(y + x + 65) = buff(y + x)
+        For x = 0 To 64
+            For y = 1 To 64 Step 2
+                buff(x + (y * 65)) = buff(x + (y * 65 + 65))
             Next
         Next
-        For y = 0 To 64
-            buff(y).Y = -51.5384615
-        Next
+
     End Sub
     Public Sub douplicate_1st_to_2nd_vec3(ByRef buff() As Vector3)
-        Dim tb(65) As Vector3
+
         For x = 0 To 65 * 64 Step 65
             For y = 1 To 64 Step 2
                 buff(y + x) = buff(y + x + 1)
             Next
         Next
-        For y = 0 To 64
-            tb(y) = buff(y + 4160)
-        Next
-        For x = 65 To 65 * 63 Step 65 * 2
-            For y = 0 To 64
-                buff(y + x + 65) = buff(y + x)
+        For x = 0 To 64
+            For y = 1 To 64 Step 2
+                buff(x + (y * 65)) = buff(x + (y * 65 + 65))
             Next
-        Next
-        For y = 0 To 64
-            buff(y + 4095) = tb(y)
-            buff(y + 4160) = tb(y)
         Next
     End Sub
 
@@ -418,25 +401,25 @@ Module ChunkFunctions
             r += 1
         Next
     End Sub
-    Private Sub create_LQ_indies(ByRef count As Integer, ByRef OutBuff() As vect3_16)
+    Private Sub create_LQ_indies()
         Dim cnt As Integer = 0
         Dim stride As Integer = 33
-        For j = 0 To 32
-            For i = 0 To 32
-                OutBuff(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
-                OutBuff(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
-                OutBuff(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
+        For j = 0 To 31
+            For i = 0 To 31
+                indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
+                indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
+                indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
 
-                OutBuff(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
-                OutBuff(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
-                OutBuff(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
+                indicies(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
+                indicies(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
+                indicies(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
                 cnt += 2
             Next
         Next
-        count = cnt
-        ReDim Preserve OutBuff(count)
+        ReDim Preserve indicies(cnt - 1)
 
     End Sub
+
     Private Sub convert_low_z_vec3(ByRef inBuff() As Vector3, ByRef OutBuff() As Vector3)
         Dim c, r As Integer
         For y = 0 To 65 * 63 Step 65 * 2
@@ -470,9 +453,8 @@ Module ChunkFunctions
         Dim tangent(quater_size) As Vector3
         Dim indie_count As Integer
         If i = 0 Then 'only need to create these once!!!
-            create_LQ_indies(indie_count, indicies)
+            create_LQ_indies()
             convert_low_z_vec2(theMap.v_data(i).v_buff_XZ_morph, v_buff_XZ)
-            convert_low_z_vec2(theMap.v_data(i).uv_buff, uv_buff) '<-- This may have issues!
         End If
 
         convert_low_z_sng(theMap.v_data(i).v_buff_Y_morph, v_buff_Y)
@@ -492,12 +474,10 @@ Module ChunkFunctions
             If theMap.LQ_vertex_vBuffer_id = 0 Then
                 GL.CreateBuffers(1, theMap.LQ_vertex_vBuffer_id)
                 GL.CreateBuffers(1, theMap.LQ_vertex_iBuffer_id)
-                GL.CreateBuffers(1, theMap.LQ_vertex_uvBuffer_id)
 
                 'if the shared buffer is not defined, we need to fill the buffer now
                 GL.NamedBufferStorage(theMap.LQ_vertex_iBuffer_id, indicies.Length * 6, indicies, BufferStorageFlags.None)
                 GL.NamedBufferStorage(theMap.LQ_vertex_vBuffer_id, v_buff_XZ.Length * 8, v_buff_XZ, BufferStorageFlags.None)
-                GL.NamedBufferStorage(theMap.LQ_vertex_uvBuffer_id, uv_buff.Length * 8, uv_buff, BufferStorageFlags.None)
             End If
 
             ' VERTEX XZ ==================================================================
@@ -513,12 +493,6 @@ Module ChunkFunctions
             GL.VertexArrayAttribFormat(theMap.render_set(i).LQ_VAO, 1, 1, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(theMap.render_set(i).LQ_VAO, 1, 1)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).LQ_VAO, 1)
-
-            ' UV ==================================================================
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).LQ_VAO, 2, theMap.LQ_vertex_uvBuffer_id, IntPtr.Zero, 8)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).LQ_VAO, 2, 2, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).LQ_VAO, 2, 2)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).LQ_VAO, 2)
 
 
             ' NORMALS AND HOLES ======================================================== 
@@ -572,13 +546,11 @@ Module ChunkFunctions
                 GL.CreateBuffers(1, theMap.vertex_vBuffer_id)
                 GL.CreateBuffers(1, theMap.vertex_vBuffer_morph_id)
                 GL.CreateBuffers(1, theMap.vertex_iBuffer_id)
-                GL.CreateBuffers(1, theMap.vertex_uvBuffer_id)
 
                 'if the shared buffer is not defined, we need to fill the buffer now
                 GL.NamedBufferStorage(theMap.vertex_iBuffer_id, .indicies.Length * 6, .indicies, BufferStorageFlags.None)
                 GL.NamedBufferStorage(theMap.vertex_vBuffer_id, .v_buff_XZ.Length * 8, .v_buff_XZ, BufferStorageFlags.None)
                 GL.NamedBufferStorage(theMap.vertex_vBuffer_morph_id, .v_buff_XZ_morph.Length * 8, .v_buff_XZ_morph, BufferStorageFlags.None)
-                GL.NamedBufferStorage(theMap.vertex_uvBuffer_id, .uv_buff.Length * 8, .uv_buff, BufferStorageFlags.None)
             End If
 
             ' VERTEX XZ ==================================================================
@@ -586,45 +558,49 @@ Module ChunkFunctions
             GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 0, 2, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 0, 0)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 0)
-            ' VERTEX XZ Morph ============================================================
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 1, theMap.vertex_vBuffer_morph_id, IntPtr.Zero, 8)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 1, 2, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 1, 1)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 1)
 
             ' POSITION Y ==================================================================
             GL.NamedBufferStorage(theMap.render_set(i).mBuffers(0), .v_buff_Y.Length * 4, .v_buff_Y, BufferStorageFlags.None)
 
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 2, theMap.render_set(i).mBuffers(0), IntPtr.Zero, 4)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 2, 1, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 2, 2)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 2)
-
-            ' POSITION Y Morph =============================================================
-            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(1), .v_buff_Y_morph.Length * 4, .v_buff_Y_morph, BufferStorageFlags.None)
-
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 3, theMap.render_set(i).mBuffers(1), IntPtr.Zero, 4)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 3, 1, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 3, 3)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 3)
-
-            ' UV ==================================================================
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 4, theMap.vertex_uvBuffer_id, IntPtr.Zero, 8)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 4, 2, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 4, 4)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 4)
-
-            Debug.Assert(.n_buff.Length = .h_buff.Length)
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 1, theMap.render_set(i).mBuffers(0), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 1, 1, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 1, 1)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 1)
 
             ' NORMALS AND HOLES ======================================================== 
             Dim packed(.n_buff.Length - 1) As UInteger
             For j = 0 To .n_buff.Length - 1
                 packed(j) = pack_2_10_10_10(.n_buff(j), .h_buff(j))
             Next
+            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(1), packed.Length * 4, packed, BufferStorageFlags.None)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 2, theMap.render_set(i).mBuffers(1), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 2, 4, VertexAttribType.Int2101010Rev, True, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 2, 2)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 2)
+
+            ' Tangents ========================================================
+            For j = 0 To .n_buff.Length - 1
+                packed(j) = pack_2_10_10_10(.t_buff(j), 0.0)
+            Next
             GL.NamedBufferStorage(theMap.render_set(i).mBuffers(2), packed.Length * 4, packed, BufferStorageFlags.None)
 
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 5, theMap.render_set(i).mBuffers(2), IntPtr.Zero, 4)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 5, 4, VertexAttribType.Int2101010Rev, True, 0)
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 3, theMap.render_set(i).mBuffers(2), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 3, 4, VertexAttribType.Int2101010Rev, True, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 3, 3)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 3)
+
+            ' VERTEX XZ Morph ============================================================
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 4, theMap.vertex_vBuffer_morph_id, IntPtr.Zero, 8)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 4, 2, VertexAttribType.Float, False, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 4, 4)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 4)
+
+            ' POSITION Y Morph =============================================================
+            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(3), .v_buff_Y_morph.Length * 4, .v_buff_Y_morph, BufferStorageFlags.None)
+
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 5, theMap.render_set(i).mBuffers(3), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 5, 1, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 5, 5)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 5)
 
@@ -632,23 +608,12 @@ Module ChunkFunctions
             For j = 0 To .n_buff.Length - 1
                 packed(j) = pack_2_10_10_10(.n_buff_morph(j), 0.0)
             Next
-            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(3), packed.Length * 4, packed, BufferStorageFlags.None)
+            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(4), packed.Length * 4, packed, BufferStorageFlags.None)
 
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 6, theMap.render_set(i).mBuffers(3), IntPtr.Zero, 4)
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 6, theMap.render_set(i).mBuffers(4), IntPtr.Zero, 4)
             GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 6, 4, VertexAttribType.Int2101010Rev, True, 0)
             GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 6, 6)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 6)
-
-            ' Tangents ========================================================
-            For j = 0 To .n_buff.Length - 1
-                packed(j) = pack_2_10_10_10(.t_buff(j), 0.0)
-            Next
-            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(4), packed.Length * 4, packed, BufferStorageFlags.None)
-
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 7, theMap.render_set(i).mBuffers(4), IntPtr.Zero, 4)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 7, 4, VertexAttribType.Int2101010Rev, True, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 7, 7)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 7)
 
             ' Tangents morphs =================================================
             For j = 0 To .n_buff.Length - 1
@@ -656,10 +621,10 @@ Module ChunkFunctions
             Next
             GL.NamedBufferStorage(theMap.render_set(i).mBuffers(5), packed.Length * 4, packed, BufferStorageFlags.None)
 
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 8, theMap.render_set(i).mBuffers(5), IntPtr.Zero, 4)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 8, 4, VertexAttribType.Int2101010Rev, True, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 8, 8)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 8)
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 7, theMap.render_set(i).mBuffers(5), IntPtr.Zero, 4)
+            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 7, 4, VertexAttribType.Int2101010Rev, True, 0)
+            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 7, 7)
+            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 7)
 
             ' INDICES ==================================================================
             GL.VertexArrayElementBuffer(theMap.render_set(i).VAO, theMap.vertex_iBuffer_id)

@@ -35,6 +35,11 @@ Module modGlobalVars
     Public m_color_id, m_normal_id, m_gmm_id As Integer
     '============================================================
     'Render related
+    'morph settings
+
+    Public MORPH_START As Single
+    Public MORPH_END As Single
+
     Public T1_Y As Single
     Public T2_Y As Single
     Public DELTA_TIME As Single

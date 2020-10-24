@@ -6,8 +6,8 @@
 #include "common.h"
 
 layout(location = 0) in vec2 vertexXZ;
-layout(location = 2) in float vertexY;
-layout(location = 4) in vec2 vertexTexCoord;
+layout(location = 1) in float vertexY;
+
 
 out vec2 uv;
 out vec2 V;
@@ -21,5 +21,5 @@ void main(void)
 
     gl_Position = viewProj * Vertex;
 
-    uv = vertexTexCoord.xy;
+    uv = (vertexXZ + vec2(50.0)) / vec2(100.0);
 }

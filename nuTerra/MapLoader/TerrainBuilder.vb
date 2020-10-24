@@ -72,14 +72,12 @@ Module TerrainBuilder
         Public Shared vertex_vBuffer_id As Integer
         Public Shared vertex_vBuffer_morph_id As Integer
         Public Shared vertex_iBuffer_id As Integer
-        Public Shared vertex_uvBuffer_id As Integer
         Public Shared vertex_TangentBuffer_id As Integer
         Public Shared indices_count As Integer = 7938 * 3
         '------------------------
         'low q
         Public Shared LQ_vertex_vBuffer_id As Integer
         Public Shared LQ_vertex_iBuffer_id As Integer
-        Public Shared LQ_vertex_uvBuffer_id As Integer
         Public Shared LQ_vertex_TangentBuffer_id As Integer
         Public Shared LQ_indices_count As Integer = 7938 * 3
         '------------------------

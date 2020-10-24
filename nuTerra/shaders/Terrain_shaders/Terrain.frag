@@ -332,9 +332,9 @@ void main(void)
     //base = mix(base,vec4(MixLevel1.xy, 0.0 ,1.0), 0.4);
 
 
-    base = mix(global, base, fs_in.ln);
+    base = mix(base, global, fs_in.ln);
 
-    out_n = mix(n_tex, out_n, fs_in.ln) ;
+    out_n = mix(out_n, n_tex, fs_in.ln) ;
 
     //discard;
 

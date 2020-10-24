@@ -31,6 +31,12 @@ Module modRender
             draw_loading_screen()
             Return
         End If
+
+        '===========================================================================
+        'Morph settings. We will hard code these in globals once we know
+        'what they should be.
+        MORPH_START = 75
+        MORPH_END = 115
         '===========================================================================
 
         '===========================================================================
@@ -206,7 +212,7 @@ Module modRender
             Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
             Dim v As New Vector3(l1, l2, l3)
             Dim l = v.Length
-            If l > 300.0F Then 'This value is the distance at which the chunk drawing is swapped.
+            If l > 200.0F Then 'This value is the distance at which the chunk drawing is swapped.
                 theMap.render_set(i).LQ = True
             Else
                 theMap.render_set(i).LQ = False
@@ -271,6 +277,8 @@ Module modRender
 
         GL.Uniform1(TerrainShader("show_test"), SHOW_TEST_TEXTURES)
 
+        GL.Uniform1(TerrainShader("morph_start"), MORPH_START)
+        GL.Uniform1(TerrainShader("morph_end"), MORPH_END)
         'Dim max_binding As Integer = GL.GetInteger(GetPName.MaxUniformBufferBindings)
 
         For i = 0 To theMap.render_set.Length - 1
@@ -281,6 +289,7 @@ Module modRender
 
                 GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
                 GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
+
 
                 'bind all the data for this chunk
                 With theMap.render_set(i)
@@ -342,6 +351,8 @@ Module modRender
             GL.Uniform1(TerrainNormals("prj_length"), 0.5F)
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
+            GL.Uniform1(TerrainNormals("morph_start"), MORPH_START)
+            GL.Uniform1(TerrainNormals("morph_end"), MORPH_END)
 
             For i = 0 To theMap.render_set.Length - 1
 
