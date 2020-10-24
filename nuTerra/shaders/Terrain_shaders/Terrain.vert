@@ -159,7 +159,7 @@ void main(void)
     // This is the cut off distance for bumping the surface.
     point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
     float start = 75.0;
-    float end = 115.0;
+    float end = 100.0;
     vs_out.ln = distance( point.xyz,cameraPos.xyz );
     if (vs_out.ln   > start)
     {

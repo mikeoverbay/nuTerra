@@ -36,7 +36,7 @@ Module modRender
         'Morph settings. We will hard code these in globals once we know
         'what they should be.
         MORPH_START = 75
-        MORPH_END = 115
+        MORPH_END = 100
         '===========================================================================
 
         '===========================================================================
@@ -212,7 +212,7 @@ Module modRender
             Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
             Dim v As New Vector3(l1, l2, l3)
             Dim l = v.Length
-            If l > 200.0F Then 'This value is the distance at which the chunk drawing is swapped.
+            If l > 250.0F Then 'This value is the distance at which the chunk drawing is swapped.
                 theMap.render_set(i).LQ = True
             Else
                 theMap.render_set(i).LQ = False
