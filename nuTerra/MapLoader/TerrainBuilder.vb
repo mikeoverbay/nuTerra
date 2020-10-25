@@ -429,6 +429,8 @@ Module TerrainBuilder
         theMap.skybox_path = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/skyDome/forward/skyBox.visual_processed"
         theMap.skybox_mdl = get_X_model(Application.StartupPath + "\resources\skyDome.x")
 
+        CUBE_TEXTURE_PATH = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/probes/global/pmrem.dds"
+
         Dim entry = Packages.MAP_PACKAGE(theMap.skybox_path)
         If entry Is Nothing Then
             MsgBox("Cant find sky box visual_processed", MsgBoxStyle.Exclamation, "Oh no!")

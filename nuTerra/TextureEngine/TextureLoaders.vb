@@ -124,6 +124,7 @@ Module TextureLoaders
         Public flags As Int32
         Public FourCC As String
         Public caps As UInt32
+        Public caps2 As UInt32
 
         ReadOnly Property is_uncompressed As Boolean
             Get
@@ -190,6 +191,7 @@ Module TextureLoaders
         br.ReadUInt32() ' BBitMask
         br.ReadUInt32() ' ABitMask
         header.caps = br.ReadUInt32()
+        header.caps2 = br.ReadUInt32()
         Return header
     End Function
 

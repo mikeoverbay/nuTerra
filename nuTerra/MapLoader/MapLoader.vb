@@ -574,11 +574,10 @@ Module MapLoader
             'TO DO and there is lots
         End If 'DONT_BLOCK_TERRAIN
         '===============================================================
-
-
-        '=======================================================
-        'Stop Here for now =====================================
-        '=======================================================
+        'load cube map for PBS_ext lighting,
+        'It must happend after terrain load to get the path.
+        load_cube_and_cube_map()
+        '===============================================================
 
         MAP_LOADED = True
 
