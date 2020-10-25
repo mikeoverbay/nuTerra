@@ -151,6 +151,29 @@ Module TextureLoaders
             End Get
         End Property
 
+        ReadOnly Property faces As Integer
+            Get
+                Const CubemapPositiveXFlag = &H400
+                Const CubemapNegativeXFlag = &H800
+                Const CubemapPositiveYFlag = &H1000
+                Const CubemapNegativeYFlag = &H2000
+                Const CubemapPositiveZFlag = &H4000
+                Const CubemapNegativeZFlag = &H8000
+                Dim AllCubemapFaceFlags() = {
+                    CubemapPositiveXFlag, CubemapNegativeXFlag,
+                    CubemapPositiveYFlag, CubemapNegativeYFlag,
+                    CubemapPositiveZFlag, CubemapNegativeZFlag
+                }
+                Dim result = 0
+                For Each flag In AllCubemapFaceFlags
+                    If (caps2 And flag) = flag Then
+                        result += 1
+                    End If
+                Next
+                Return result
+            End Get
+        End Property
+
         ReadOnly Property gl_block_size As Integer
             Get
                 Debug.Assert((flags And &H4) <> 0)

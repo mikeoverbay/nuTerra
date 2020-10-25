@@ -5,23 +5,12 @@ Imports System.IO
 
 Module CubeMapLoader
     Public Sub load_cube_and_cube_map()
-
-        Dim TextureTargets() As Integer =
-            {
-               OpenGL.TextureTarget.TextureCubeMapNegativeX, OpenGL.TextureTarget.TextureCubeMapNegativeY,
-               OpenGL.TextureTarget.TextureCubeMapNegativeZ, OpenGL.TextureTarget.TextureCubeMapPositiveX,
-               OpenGL.TextureTarget.TextureCubeMapPositiveY, OpenGL.TextureTarget.TextureCubeMapPositiveZ
-            }
-
         Dim iPath As String = Application.StartupPath + "\resources\cube\cubemap_m00_c0"
 
-        GL.Enable(EnableCap.TextureCubeMap)
         If CUBE_TEXTURE_ID > 0 Then
             GL.DeleteTexture(CUBE_TEXTURE_ID)
             GL.Finish()
         End If
-        GL.GenTextures(1, CUBE_TEXTURE_ID)
-        GL.BindTexture(OpenGL.TextureTarget.TextureCubeMap, CUBE_TEXTURE_ID)
 
         'find our cube in teh maps package
 
@@ -33,27 +22,22 @@ Module CubeMapLoader
         Dim ms As New MemoryStream
         entry.Extract(ms)
 
-        Dim imgStore(ms.Length) As Byte
         load_dds_cubemap_from_stream(ms)
-
-
     End Sub
+
+    ' see https://github.com/fendevel/Guide-to-Modern-OpenGL-Functions#uploading-cube-maps
     Public Sub load_dds_cubemap_from_stream(ms As MemoryStream)
         'Check if this image has already been loaded.
-        GL.GenTextures(1, CUBE_TEXTURE_ID)
+        GL.CreateTextures(TextureTarget.TextureCubeMap, 1, CUBE_TEXTURE_ID)
 
         ms.Position = 0
         Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
             Dim dds_header = get_dds_header(br)
 
-            'Select Case dds_header.caps
-            '    Case &H1000
-            '        Debug.Assert(dds_header.mipMapCount = 0) ' Just Check
-            '    Case &H401008
-            '        Debug.Assert(dds_header.mipMapCount > 0) ' Just Check
-            '    Case Else
-            'End Select
-            Debug.Assert(dds_header.caps2 And &H200 - &H200) ' Cubemap ?
+            Debug.Assert((dds_header.caps2 And &H200) = &H200) ' Cubemap ?
+
+            Dim faces = dds_header.faces
+            Debug.Assert(faces = 6)
 
             Dim format As SizedInternalFormat = dds_header.gl_format
             Dim blockSize = dds_header.gl_block_size
@@ -70,28 +54,26 @@ Module CubeMapLoader
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            GL.TextureStorage3D(CUBE_TEXTURE_ID, dds_header.mipMapCount, format, dds_header.width, dds_header.height, 6)
-
+            GL.TextureStorage2D(CUBE_TEXTURE_ID, dds_header.mipMapCount, format, dds_header.width, dds_header.height)
 
             Dim e1 = GL.GetError()
             If e1 > 0 Then
                 Stop
             End If
 
-            Dim w = dds_header.width
-            Dim h = dds_header.height
             Dim mipMapCount = dds_header.mipMapCount
-            For d = 0 To dds_header.depth
+            For face = 0 To faces - 1
+                Dim w = dds_header.width
+                Dim h = dds_header.height
 
                 For i = 0 To dds_header.mipMapCount - 1
                     If (w = 0 Or h = 0) Then
-                        mipMapCount -= 1
                         Continue For
                     End If
 
                     Dim size = ((w + 3) \ 4) * ((h + 3) \ 4) * blockSize
                     Dim data = br.ReadBytes(size)
-                    GL.CompressedTextureSubImage3D(CUBE_TEXTURE_ID, i, 0, 0, 0, w, h, d, DirectCast(format, OpenGL.PixelFormat), size, data)
+                    GL.CompressedTextureSubImage3D(CUBE_TEXTURE_ID, i, 0, 0, face, w, h, 1, DirectCast(format, OpenGL.PixelFormat), size, data)
                     w /= 2
                     h /= 2
                 Next
