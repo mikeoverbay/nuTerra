@@ -2,6 +2,7 @@
 Imports System.Runtime.InteropServices
 Imports OpenTK
 Imports OpenTK.Graphics
+Imports OpenTK.Platform.Windows
 Imports OpenTK.Graphics.OpenGL
 
 Module modOpenGL
@@ -15,6 +16,12 @@ Module modOpenGL
         Dim firstIndex As UInt32
         Dim baseVertex As UInt32
         Dim baseInstance As UInt32
+    End Structure
+
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure DrawMeshTasksIndirectCommandNV
+        Dim count As UInt32
+        Dim first As UInt32
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
@@ -45,6 +52,7 @@ Module modOpenGL
         Dim baseVertex As UInt32
         Dim baseInstance As UInt32
         Dim lod_level As UInt32
+        Dim vertex_count As UInt32
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
@@ -242,4 +250,38 @@ Module modOpenGL
     Public Function get_GL_error_string(ByVal e As ErrorCode) As String
         Return [Enum].GetName(GetType(ErrorCode), e)
     End Function
+
+    ' =======================================
+    ' ===== EXPERIMENTAL NV MESH SHADER =====
+
+    <System.Security.SuppressUnmanagedCodeSecurity()>
+    <System.Runtime.InteropServices.DllImport("OPENGL32.DLL", EntryPoint:="wglGetProcAddress", ExactSpelling:=True, SetLastError:=True)>
+    Private Function GetProcAddress(lpszProc As String) As IntPtr
+    End Function
+
+    <UnmanagedFunctionPointer(CallingConvention.Winapi)>
+    Public Delegate Sub glDrawMeshTasksNVDelegate(first As UInt32, count As UInt32)
+    <UnmanagedFunctionPointer(CallingConvention.Winapi)>
+    Public Delegate Sub glDrawMeshTasksIndirectNVDelegate(indirect As IntPtr)
+    <UnmanagedFunctionPointer(CallingConvention.Winapi)>
+    Public Delegate Sub glMultiDrawMeshTasksIndirectNVDelegate(indirect As IntPtr, drawcount As UInt32, stride As UInt32)
+    <UnmanagedFunctionPointer(CallingConvention.Winapi)>
+    Public Delegate Sub glMultiDrawMeshTasksIndirectCountNVDelegate(indirect As IntPtr, drawcount As IntPtr, maxdrawcount As UInt32, stride As UInt32)
+
+    NotInheritable Class MYGL
+        Public Shared glDrawMeshTasksNV As glDrawMeshTasksNVDelegate
+        Public Shared glDrawMeshTasksIndirectNV As glDrawMeshTasksIndirectNVDelegate
+        Public Shared glMultiDrawMeshTasksIndirectNV As glMultiDrawMeshTasksIndirectNVDelegate
+        Public Shared glMultiDrawMeshTasksIndirectCountNV As glMultiDrawMeshTasksIndirectCountNVDelegate
+
+        Public Const MESH_SHADER_NV = &H9559
+        Public Const TASK_SHADER_NV = &H955A
+
+        Public Shared Sub init_nv_mesh_shader_bindings()
+            glDrawMeshTasksNV = Marshal.GetDelegateForFunctionPointer(GetProcAddress("glDrawMeshTasksNV"), GetType(glDrawMeshTasksNVDelegate))
+            glDrawMeshTasksIndirectNV = Marshal.GetDelegateForFunctionPointer(GetProcAddress("glDrawMeshTasksIndirectNV"), GetType(glDrawMeshTasksIndirectNVDelegate))
+            glMultiDrawMeshTasksIndirectNV = Marshal.GetDelegateForFunctionPointer(GetProcAddress("glMultiDrawMeshTasksIndirectNV"), GetType(glMultiDrawMeshTasksIndirectNVDelegate))
+            glMultiDrawMeshTasksIndirectCountNV = Marshal.GetDelegateForFunctionPointer(GetProcAddress("glMultiDrawMeshTasksIndirectCountNV"), GetType(glMultiDrawMeshTasksIndirectCountNVDelegate))
+        End Sub
+    End Class
 End Module

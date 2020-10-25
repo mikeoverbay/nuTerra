@@ -28,6 +28,8 @@ Module ShaderLoader
         Public vertex As String
         Public geo As String
         Public compute As String
+        Public mesh As String
+        Public task As String
 
         Default ReadOnly Property Item(uniformName As String) As Integer
             Get
@@ -88,7 +90,7 @@ Module ShaderLoader
                 GL.Finish()
             End If
 
-            program = assemble_shader(vertex, geo, compute, fragment, name)
+            program = assemble_shader(vertex, geo, compute, fragment, mesh, task, name)
 
             If program = 0 Then
                 ' Stop ' For debugging
@@ -113,39 +115,54 @@ Module ShaderLoader
             Me.name = name
             is_used = False
             loaded = False
-            Dim failed_1, failed_2, failed_3, failed_4 As Boolean
+            Dim failedCount As Integer
+
             vertex = get_shader(String.Format("{0}.vert", name))
             If Not File.Exists(vertex) Then
-                failed_1 = True
+                failedCount += 1
                 vertex = Nothing
             End If
 
             geo = get_shader(String.Format("{0}.geom", name))
             If Not File.Exists(geo) Then
-                failed_2 = True
+                failedCount += 1
                 geo = Nothing
             End If
 
             compute = get_shader(String.Format("{0}.comp", name))
             If Not File.Exists(compute) Then
-                failed_3 = True
+                failedCount += 1
                 compute = Nothing
             End If
 
             fragment = get_shader(String.Format("{0}.frag", name))
             If Not File.Exists(fragment) Then
-                failed_4 = True
+                failedCount += 1
                 fragment = Nothing
             End If
 
+            mesh = get_shader(String.Format("{0}.mesh", name))
+            If Not File.Exists(mesh) Then
+                failedCount += 1
+                mesh = Nothing
+            End If
+
+            task = get_shader(String.Format("{0}.task", name))
+            If Not File.Exists(task) Then
+                failedCount += 1
+                task = Nothing
+            End If
+
             'check if our shader was found
-            If failed_1 And failed_2 And failed_3 And failed_4 Then
+            If failedCount = 6 Then
                 MsgBox(name + " was not found.", MsgBoxStyle.Exclamation, "Oh No!!")
                 Return
             End If
             UpdateShader()
         End Sub
     End Class
+
+    Public demoShader As Shader
 
     Public shaders As List(Of Shader)
     Public BaseRingProjector As Shader
@@ -186,6 +203,10 @@ Module ShaderLoader
             Dim code = File.ReadAllText("shaders\common.h")
             Dim name = "/common.h"
             GL.Arb.NamedString(ArbShadingLanguageInclude.ShaderIncludeArb, name.Length, name, code.Length, code)
+        End If
+
+        If USE_NV_MESH_SHADER Then
+            demoShader = New Shader("demo")
         End If
 
         'Try and keep these in alphabetical order 
@@ -247,11 +268,13 @@ Module ShaderLoader
                                     g As String,
                                     c As String,
                                     f As String,
+                                    m As String,
+                                    t As String,
                                     name As String) As Integer
         Dim status_code As Integer
 
         Dim program As Integer = GL.CreateProgram()
-        GL.ObjectLabel(ObjectLabelIdentifier.Program, program, -1, "SHD-" + name)
+        GL.ObjectLabel(ObjectLabelIdentifier.Program, program, -1, name)
 
         If program = 0 Then
             Return 0
@@ -262,7 +285,7 @@ Module ShaderLoader
         If v IsNot Nothing Then
 
             vertexObject = GL.CreateShader(ShaderType.VertexShader)
-            GL.ObjectLabel(ObjectLabelIdentifier.Shader, vertexObject, -1, "SHD-VERT-" + name)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, vertexObject, -1, name)
 
             Using vs_s As New StreamReader(v)
                 Dim vs As String = vs_s.ReadToEnd()
@@ -277,7 +300,7 @@ Module ShaderLoader
                 Dim info = GL.GetShaderInfoLog(vertexObject)
                 GL.DeleteShader(vertexObject)
                 GL.DeleteProgram(program)
-                gl_error(name + "_vertex didn't compile!" + vbCrLf + info.ToString)
+                gl_error(name + ".vert didn't compile!" + vbCrLf + info.ToString)
                 Return 0
             End If
         End If
@@ -286,7 +309,7 @@ Module ShaderLoader
         Dim fragmentObject As Integer = 0
         If f IsNot Nothing Then
             fragmentObject = GL.CreateShader(ShaderType.FragmentShader)
-            GL.ObjectLabel(ObjectLabelIdentifier.Shader, fragmentObject, -1, "SHD-FRAG-" + name)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, fragmentObject, -1, name)
 
             Using fs_s As New StreamReader(f)
                 Dim fs As String = fs_s.ReadToEnd
@@ -302,7 +325,7 @@ Module ShaderLoader
                 GL.DeleteShader(vertexObject)
                 GL.DeleteShader(fragmentObject)
                 GL.DeleteProgram(program)
-                gl_error(name + "_fragment didn't compile!" + vbCrLf + info.ToString)
+                gl_error(name + ".frag didn't compile!" + vbCrLf + info.ToString)
                 Return 0
             End If
         End If
@@ -311,7 +334,7 @@ Module ShaderLoader
         Dim geomObject As Integer = 0
         If g IsNot Nothing Then
             geomObject = GL.CreateShader(ShaderType.GeometryShader)
-            GL.ObjectLabel(ObjectLabelIdentifier.Shader, geomObject, -1, "SHD-GEOM-" + name)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, geomObject, -1, name)
 
             Using gs_s As New StreamReader(g)
                 Dim gs As String = gs_s.ReadToEnd()
@@ -328,7 +351,7 @@ Module ShaderLoader
                 GL.DeleteShader(fragmentObject)
                 GL.DeleteShader(geomObject)
                 GL.DeleteProgram(program)
-                gl_error(name + "_geo didn't compile!" + vbCrLf + info.ToString)
+                gl_error(name + ".geom didn't compile!" + vbCrLf + info.ToString)
                 Return 0
             End If
 
@@ -355,7 +378,7 @@ Module ShaderLoader
         Dim computeObject As Integer = 0
         If c IsNot Nothing Then
             computeObject = GL.CreateShader(ShaderType.ComputeShader)
-            GL.ObjectLabel(ObjectLabelIdentifier.Shader, computeObject, -1, "SHD-COMP-" + name)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, computeObject, -1, name)
 
             Using cs_s As New StreamReader(c)
                 Dim cs As String = cs_s.ReadToEnd()
@@ -373,11 +396,58 @@ Module ShaderLoader
                 GL.DeleteShader(geomObject)
                 GL.DeleteShader(computeObject)
                 GL.DeleteProgram(program)
-                gl_error(name + "_compute didn't compile!" + vbCrLf + info.ToString)
+                gl_error(name + ".comp didn't compile!" + vbCrLf + info.ToString)
                 Return 0
             End If
-
         End If
+
+        Dim meshObject As Integer = 0
+        If m IsNot Nothing Then
+            meshObject = GL.CreateShader(MYGL.MESH_SHADER_NV)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, meshObject, -1, name)
+
+            GL.ShaderSource(meshObject, File.ReadAllText(m))
+            GL.Arb.CompileShaderInclude(meshObject, incPaths.Length, incPaths, incPathLengths)
+
+            ' Get & check status after compile
+            GL.GetShader(meshObject, ShaderParameter.CompileStatus, status_code)
+            If status_code = 0 Then
+                Dim info = GL.GetShaderInfoLog(meshObject)
+                GL.DeleteShader(vertexObject)
+                GL.DeleteShader(fragmentObject)
+                GL.DeleteShader(geomObject)
+                GL.DeleteShader(computeObject)
+                GL.DeleteShader(meshObject)
+                GL.DeleteProgram(program)
+                gl_error(name + ".mesh didn't compile!" + vbCrLf + info.ToString)
+                Return 0
+            End If
+        End If
+
+        Dim taskObject As Integer = 0
+        If t IsNot Nothing Then
+            taskObject = GL.CreateShader(MYGL.TASK_SHADER_NV)
+            GL.ObjectLabel(ObjectLabelIdentifier.Shader, taskObject, -1, name)
+
+            GL.ShaderSource(taskObject, File.ReadAllText(t))
+            GL.Arb.CompileShaderInclude(taskObject, incPaths.Length, incPaths, incPathLengths)
+
+            ' Get & check status after compile
+            GL.GetShader(taskObject, ShaderParameter.CompileStatus, status_code)
+            If status_code = 0 Then
+                Dim info = GL.GetShaderInfoLog(taskObject)
+                GL.DeleteShader(vertexObject)
+                GL.DeleteShader(fragmentObject)
+                GL.DeleteShader(geomObject)
+                GL.DeleteShader(computeObject)
+                GL.DeleteShader(meshObject)
+                GL.DeleteShader(taskObject)
+                GL.DeleteProgram(program)
+                gl_error(name + ".task didn't compile!" + vbCrLf + info.ToString)
+                Return 0
+            End If
+        End If
+
         ' attach shader objects
         If vertexObject Then
             GL.AttachShader(program, vertexObject)
@@ -393,6 +463,14 @@ Module ShaderLoader
 
         If fragmentObject Then
             GL.AttachShader(program, fragmentObject)
+        End If
+
+        If meshObject Then
+            GL.AttachShader(program, meshObject)
+        End If
+
+        If taskObject Then
+            GL.AttachShader(program, taskObject)
         End If
 
         ' link program
@@ -418,6 +496,12 @@ Module ShaderLoader
         If fragmentObject Then
             GL.DetachShader(program, fragmentObject)
         End If
+        If meshObject Then
+            GL.DetachShader(program, meshObject)
+        End If
+        If taskObject Then
+            GL.DetachShader(program, taskObject)
+        End If
 
         ' delete shader objects
         If vertexObject Then
@@ -431,6 +515,12 @@ Module ShaderLoader
         End If
         If fragmentObject Then
             GL.DeleteShader(fragmentObject)
+        End If
+        If meshObject Then
+            GL.DeleteShader(meshObject)
+        End If
+        If taskObject Then
+            GL.DeleteShader(taskObject)
         End If
 
         Return program

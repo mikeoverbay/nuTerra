@@ -1,0 +1,39 @@
+﻿#version 450
+
+#extension GL_NV_mesh_shader : require
+#extension GL_NV_gpu_shader5 : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
+#define USE_MODELINSTANCES_SSBO
+#define USE_CANDIDATE_DRAWS_SSBO
+#define USE_LODS_SSBO
+#define USE_INDIRECT_SSBO
+#include "common.h"
+
+layout(local_size_x=32) in;
+
+taskNV out Task {
+  uint      baseID;
+  uint8_t   subIDs[32];
+} OUT;
+
+void main()
+{
+    ModelInstance thisModel = models[gl_GlobalInvocationID.x];
+
+    bool render = true;
+
+    uvec4 vote = subgroupBallot(render);
+    uint  tasks = subgroupBallotBitCount(vote);
+    if (gl_LocalInvocationID.x == 0) {
+        gl_TaskCountNV = tasks;
+        OUT.baseID = gl_WorkGroupID.x * 32;
+    }
+
+    uint idxOffset = subgroupBallotExclusiveBitCount(vote);
+    if (render) {
+        OUT.subIDs[idxOffset] = uint8_t(gl_LocalInvocationID.x);
+    }
+}

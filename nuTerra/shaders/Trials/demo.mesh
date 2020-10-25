@@ -1,0 +1,57 @@
+﻿#version 450
+
+#extension GL_NV_mesh_shader : require
+#extension GL_NV_gpu_shader5 : enable
+#extension GL_ARB_shading_language_include : require
+ 
+#define USE_PERVIEW_UBO
+#define USE_MODELINSTANCES_SSBO
+#define USE_CANDIDATE_DRAWS_SSBO
+#define USE_MESH_SSBO
+#define USE_LODS_SSBO
+#include "common.h"
+
+taskNV in Task {
+  uint      baseID;
+  uint8_t   subIDs[32];
+} IN;
+ 
+layout(max_vertices=64, max_primitives=126) out;
+ 
+layout(triangles) out;
+ 
+out PerVertexData
+{
+    vec2 TC1;
+    vec2 TC2;
+    vec3 worldPosition;
+    mat3 TBN;
+    flat uint material_id;
+    flat uint model_id;
+    flat uint lod_level;
+    vec2 UV1;
+    vec2 UV2;
+    vec2 UV3;
+    vec2 UV4;
+    vec2 scale_123;
+    vec2 scale_4;
+    vec2 offset_123;
+    vec2 offset_4;
+} v_out[];
+
+void main()
+{
+    const uint model_id = IN.baseID + IN.subIDs[gl_WorkGroupID.x];
+    const ModelInstance thisModel = models[model_id];
+    const CandidateDraw thisDraw = draw[lods[thisModel.lod_offset].draw_offset];
+    
+    for (uint i = 0; i < thisDraw.vertex_count; i++) {
+        gl_MeshVerticesNV[i].gl_Position = vec4(verts[thisDraw.baseVertex + i].pos, 1);
+    }
+
+    for (uint i = 0; i < thisDraw.count * 3; i++) {
+        gl_PrimitiveIndicesNV[i] = prims[thisDraw.firstIndex + i];
+    }
+
+    gl_PrimitiveCountNV = thisDraw.count;
+}

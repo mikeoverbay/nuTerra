@@ -341,8 +341,6 @@ try_again:
             extensions.Add(GL.GetString(StringNameIndexed.Extensions, i))
         Next
 
-        USE_NV_MESH_SHADER = extensions.Contains("GL_NV_mesh_shader")
-
         ' Requied extensions
         Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
         Debug.Assert(extensions.Contains("GL_ARB_shading_language_include"))
@@ -385,6 +383,12 @@ try_again:
                 Application.Exit()
                 Return
             End If
+        End If
+
+        USE_NV_MESH_SHADER = extensions.Contains("GL_NV_mesh_shader")
+        If USE_NV_MESH_SHADER Then
+            LogThis("Init GL_NV_mesh_shader bindings")
+            MYGL.init_nv_mesh_shader_bindings()
         End If
 
         GAME_PATH = Path.Combine(My.Settings.GamePath, "res", "packages")

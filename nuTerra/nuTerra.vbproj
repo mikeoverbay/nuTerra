@@ -371,6 +371,15 @@
     <None Include="shaders\Developer\TerrainGrids.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Trials\demo.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Trials\demo.mesh">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Trials\demo.task">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Utility\TextRender.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

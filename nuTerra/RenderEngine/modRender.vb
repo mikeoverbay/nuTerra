@@ -161,6 +161,8 @@ Module modRender
     End Sub
 
     Private Sub frustum_cull()
+        If USE_NV_MESH_SHADER Then Return
+
         GL_PUSH_GROUP("frustum_cull")
 
         'clear atomic counter
@@ -377,24 +379,32 @@ Module modRender
             GL.PolygonOffset(1.2, 0.2)
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
-        '------------------------------------------------
-        modelShader.Use()  '<------------------------------- Shader Bind
-        '------------------------------------------------
-
-        'assign subroutines
-        Dim indices = {0, 1, 2, 3, 4, 5, 6, 7}
-        GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
 
         GL.Enable(EnableCap.CullFace)
 
-        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
-        GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
-        GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
-        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+        If USE_NV_MESH_SHADER Then
+            demoShader.Use()
+
+            GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
+            MYGL.glMultiDrawMeshTasksIndirectNV(IntPtr.Zero, MapGL.meshTasksCount, 0)
+
+            demoShader.StopUse()
+        Else
+            modelShader.Use()
+
+            'assign subroutines
+            Dim indices = {0, 1, 2, 3, 4, 5, 6, 7}
+            GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
+
+            GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
+            GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
+            GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+            GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+
+            modelShader.StopUse()
+        End If
 
         GL.Disable(EnableCap.CullFace)
-
-        modelShader.StopUse()
 
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             GL.Disable(EnableCap.PolygonOffsetFill)

@@ -20,6 +20,7 @@ struct CandidateDraw
     uint baseVertex;
     uint baseInstance;
     uint lod_level;
+    uint vertex_count;
 };
 
 struct DrawElementsIndirectCommand
@@ -111,5 +112,28 @@ layout(binding = LODS_BASE, std430) readonly buffer ModelLoDs
 layout(binding = INDIRECT_BASE, std430) writeonly buffer Indirect
 {
     DrawElementsIndirectCommand command[];
+};
+#endif
+
+#ifdef USE_MESH_SSBO
+struct MeshVertex
+{
+    vec3 pos;
+    uint normal;
+    uint tangent;
+    uint binormal;
+    vec2 uv;
+};
+layout(binding = 5, std430) readonly buffer MeshVertsBuffer
+{
+    MeshVertex verts[];
+};
+layout(binding = 6, std430) readonly buffer MeshVertsUV2Buffer
+{
+    vec2 vertsUV2[];
+};
+layout(binding = 7, std430) readonly buffer MeshPrimsBuffer
+{
+    uint prims[];
 };
 #endif
