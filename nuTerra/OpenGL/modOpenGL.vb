@@ -5,21 +5,8 @@ Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 
 Module modOpenGL
-    Public Class MyGLControl
-        Inherits GLControl
-
-        Public Sub New()
-#If DEBUG Then
-            MyBase.New(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug)
-#Else
-            MyBase.New(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, GraphicsContextFlags.ForwardCompatible)
-#End If
-        End Sub
-    End Class
-
-
     Public defaultVao As Integer
-    Public FieldOfView As Single = 60.0F
+    Public FieldOfView As Single = CSng(Math.PI) * (60 / 180.0F)
 
     Public Main_Context As Integer
 
@@ -134,7 +121,7 @@ Module modOpenGL
         Dim target As New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
 
         PerViewData.projection = Matrix4.CreatePerspectiveFieldOfView(
-                                   CSng(Math.PI) * (FieldOfView / 180.0F),
+                                   FieldOfView,
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
                                    PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
         PerViewData.cameraPos = CAM_POSITION

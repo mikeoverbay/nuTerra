@@ -1,12 +1,9 @@
-﻿Imports OpenTK.Graphics
-Imports OpenTK.Graphics.OpenGL
-
-<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()> _
+﻿<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()>
 Partial Class frmMain
     Inherits System.Windows.Forms.Form
 
     'Form overrides dispose to clean up the component list.
-    <System.Diagnostics.DebuggerNonUserCode()> _
+    <System.Diagnostics.DebuggerNonUserCode()>
     Protected Overrides Sub Dispose(ByVal disposing As Boolean)
         Try
             If disposing AndAlso components IsNot Nothing Then
@@ -23,12 +20,10 @@ Partial Class frmMain
     'NOTE: The following procedure is required by the Windows Form Designer
     'It can be modified using the Windows Form Designer.  
     'Do not modify it using the code editor.
-    <System.Diagnostics.DebuggerStepThrough()> _
+    <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmMain))
-
-        Me.glControl_main = New MyGLControl()
         Me.frmMainMenu = New System.Windows.Forms.MenuStrip()
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_load_map = New System.Windows.Forms.ToolStripMenuItem()
@@ -47,23 +42,15 @@ Partial Class frmMain
         Me.m_developer = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_block_loading = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_show_gbuffer = New System.Windows.Forms.ToolStripMenuItem()
-        Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_camera_options = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_screen_capture = New System.Windows.Forms.ToolStripMenuItem()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.FolderBrowserDialog1 = New System.Windows.Forms.FolderBrowserDialog()
-        Me.Panel1 = New System.Windows.Forms.Panel()
         Me.map_loader = New System.Windows.Forms.Timer(Me.components)
-        Me.m_screen_capture = New System.Windows.Forms.ToolStripMenuItem()
+        Me.Panel1 = New System.Windows.Forms.Panel()
+        Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         Me.SuspendLayout()
-        '
-        'glControl_main
-        '
-        Me.glControl_main.BackColor = System.Drawing.Color.Red
-        Me.glControl_main.Location = New System.Drawing.Point(28, 65)
-        Me.glControl_main.Name = "glControl_main"
-        Me.glControl_main.Size = New System.Drawing.Size(147, 142)
-        Me.glControl_main.TabIndex = 0
-        Me.glControl_main.VSync = False
         '
         'frmMainMenu
         '
@@ -173,7 +160,7 @@ Partial Class frmMain
         'm_developer
         '
         Me.m_developer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_block_loading, Me.m_show_gbuffer})
+        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_block_loading, Me.m_show_gbuffer, Me.m_camera_options})
         Me.m_developer.ForeColor = System.Drawing.Color.Black
         Me.m_developer.Name = "m_developer"
         Me.m_developer.Size = New System.Drawing.Size(102, 20)
@@ -194,20 +181,25 @@ Partial Class frmMain
         Me.m_show_gbuffer.Size = New System.Drawing.Size(195, 22)
         Me.m_show_gbuffer.Text = "Show Gbuffer Textures"
         '
-        'm_help
+        'm_camera_options
         '
-        Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
-        Me.m_help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center
-        Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
-        Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
-        Me.m_help.ImageTransparentColor = System.Drawing.Color.Transparent
-        Me.m_help.Name = "m_help"
-        Me.m_help.Size = New System.Drawing.Size(28, 20)
-        Me.m_help.TextImageRelation = System.Windows.Forms.TextImageRelation.Overlay
+        Me.m_camera_options.Name = "m_camera_options"
+        Me.m_camera_options.Size = New System.Drawing.Size(195, 22)
+        Me.m_camera_options.Text = "Camera Options"
+        '
+        'm_screen_capture
+        '
+        Me.m_screen_capture.Name = "m_screen_capture"
+        Me.m_screen_capture.Size = New System.Drawing.Size(99, 20)
+        Me.m_screen_capture.Text = "Screen Capture"
         '
         'startup_delay_timer
         '
         Me.startup_delay_timer.Interval = 1000
+        '
+        'map_loader
+        '
+        Me.map_loader.Interval = 30
         '
         'Panel1
         '
@@ -219,15 +211,16 @@ Partial Class frmMain
         Me.Panel1.Size = New System.Drawing.Size(956, 549)
         Me.Panel1.TabIndex = 2
         '
-        'map_loader
+        'm_help
         '
-        Me.map_loader.Interval = 30
-        '
-        'm_screen_capture
-        '
-        Me.m_screen_capture.Name = "m_screen_capture"
-        Me.m_screen_capture.Size = New System.Drawing.Size(99, 20)
-        Me.m_screen_capture.Text = "Screen Capture"
+        Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center
+        Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
+        Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
+        Me.m_help.ImageTransparentColor = System.Drawing.Color.Transparent
+        Me.m_help.Name = "m_help"
+        Me.m_help.Size = New System.Drawing.Size(28, 20)
+        Me.m_help.TextImageRelation = System.Windows.Forms.TextImageRelation.Overlay
         '
         'frmMain
         '
@@ -236,7 +229,6 @@ Partial Class frmMain
         Me.BackColor = System.Drawing.Color.Black
         Me.ClientSize = New System.Drawing.Size(956, 573)
         Me.Controls.Add(Me.Panel1)
-        Me.Controls.Add(Me.glControl_main)
         Me.Controls.Add(Me.frmMainMenu)
         Me.ForeColor = System.Drawing.Color.Black
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
@@ -250,7 +242,7 @@ Partial Class frmMain
         Me.PerformLayout()
 
     End Sub
-    Friend WithEvents glControl_main As MyGLControl
+    Friend WithEvents glControl_main As OpenTK.GLControl
     Friend WithEvents frmMainMenu As System.Windows.Forms.MenuStrip
     Friend WithEvents m_file As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_help As System.Windows.Forms.ToolStripMenuItem
@@ -275,5 +267,5 @@ Partial Class frmMain
     Friend WithEvents ToolStripSeparator5 As System.Windows.Forms.ToolStripSeparator
     Friend WithEvents map_loader As System.Windows.Forms.Timer
     Friend WithEvents m_screen_capture As System.Windows.Forms.ToolStripMenuItem
-
+    Friend WithEvents m_camera_options As ToolStripMenuItem
 End Class

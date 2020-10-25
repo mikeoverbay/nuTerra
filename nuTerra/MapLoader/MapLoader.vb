@@ -256,7 +256,6 @@ Module MapLoader
         remove_map_data() '=============================================
         '===============================================================
         'House Keeping
-        TOTAL_TRIANGLES_DRAWN = 0
 
         '===============================================================
         'get the light settings for this map.

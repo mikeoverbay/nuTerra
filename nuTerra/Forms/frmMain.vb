@@ -4,6 +4,7 @@ Imports System.Math
 Imports System.Runtime.InteropServices
 Imports System.Threading
 Imports System.Windows
+Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 
@@ -154,6 +155,23 @@ Public Class frmMain
     End Sub
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
+#If DEBUG Then
+        ' Set to True on Debug builds
+        Me.m_developer.Visible = True
+#End If
+
+        ' Init main gl-control
+        Dim flags As GraphicsContextFlags
+#If DEBUG Then
+        flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
+#Else
+        flags = GraphicsContextFlags.ForwardCompatible
+#End If
+
+        Me.glControl_main = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, flags)
+        Me.glControl_main.VSync = False
+        Me.Controls.Add(Me.glControl_main)
+
         '-----------------------------------------------------------------------------------------
         Me.Show()
         '-----------------------------------------------------------------------------------------
@@ -323,6 +341,8 @@ try_again:
             extensions.Add(GL.GetString(StringNameIndexed.Extensions, i))
         Next
 
+        USE_NV_MESH_SHADER = extensions.Contains("GL_NV_mesh_shader")
+
         ' Requied extensions
         Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
         Debug.Assert(extensions.Contains("GL_ARB_shading_language_include"))
@@ -331,7 +351,7 @@ try_again:
         Debug.Assert(extensions.Contains("GL_ARB_direct_state_access")) 'core since 4.5
         Debug.Assert(extensions.Contains("GL_ARB_clip_control")) 'core since 4.5
 
-#If DEBUG Or RELEASE Then
+#If DEBUG Then
         ' Just check
         Debug.Assert(extensions.Contains("GL_KHR_debug"))
         Debug.Assert(extensions.Contains("GL_ARB_debug_output"))
@@ -343,14 +363,15 @@ try_again:
 #End If
         '-----------------------------------------------------------------------------------------
         'Any relevant info the user could use.
-        Dim maxTexSize As Integer
-        GL.GetInteger(GetPName.MaxTextureSize, maxTexSize)
+        Dim maxTexSize = GL.GetInteger(GetPName.MaxTextureSize)
         LogThis(String.Format("Max Texture Size = {0}", maxTexSize))
         '-----------------------------------------------------------------------------------------
 
-
         ' Set depth to [0..1] range instead of [-1..1]
         GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.ZeroToOne)
+
+        ' Enable depth clamping
+        GL.Enable(EnableCap.DepthClamp)
 
         '-----------------------------------------------------------------------------------------
         'Check if the game path is set
@@ -830,7 +851,6 @@ try_again:
 
 #End Region
 
-
     Private Sub map_loader_Tick(sender As Object, e As EventArgs) Handles map_loader.Tick
         map_loader.Enabled = False
         load_map(MAP_NAME_NO_PATH)
@@ -838,5 +858,9 @@ try_again:
 
     Private Sub m_screen_capture_Click(sender As Object, e As EventArgs) Handles m_screen_capture.Click
         frmScreenCap.ShowDialog()
+    End Sub
+
+    Private Sub m_camera_options_Click(sender As Object, e As EventArgs) Handles m_camera_options.Click
+        frmCameraOptions.Visible = True
     End Sub
 End Class

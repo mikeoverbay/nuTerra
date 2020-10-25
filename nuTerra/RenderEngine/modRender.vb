@@ -70,7 +70,6 @@ Module modRender
         GL.Enable(EnableCap.DepthTest)
         '===========================================================================
 
-
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
             '=======================================================================
             draw_models() '=========================================================
@@ -387,8 +386,6 @@ Module modRender
         GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
 
         GL.Enable(EnableCap.CullFace)
-        TOTAL_TRIANGLES_DRAWN = 0
-        PRIMS_CULLED = 0
 
         GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
         GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
@@ -578,7 +575,7 @@ Module modRender
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
 
         'sum triangles drawn
-        Dim tr = TOTAL_TRIANGLES_DRAWN + TERRAIN_TRIS_DRAWN
+        Dim tr = TERRAIN_TRIS_DRAWN
 
         Dim cull_t = cull_timer.ElapsedMilliseconds
         Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", CULLED_COUNT, FPS_TIME, tr, elapsed)

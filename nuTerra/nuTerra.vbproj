@@ -179,6 +179,12 @@
     </Compile>
     <Compile Include="FBOs\FBO_MiniMap.vb" />
     <Compile Include="FBOs\FBO_main.vb" />
+    <Compile Include="Forms\frmCameraOptions.Designer.vb">
+      <DependentUpon>frmCameraOptions.vb</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\frmCameraOptions.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\frmLighting.designer.vb">
       <DependentUpon>frmLighting.vb</DependentUpon>
     </Compile>
@@ -211,10 +217,10 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="MapLoader\ChunkFunctions.vb" />
-    <Compile Include="MapLoader\frmLoadOptions.designer.vb">
+    <Compile Include="Forms\frmLoadOptions.designer.vb">
       <DependentUpon>frmLoadOptions.vb</DependentUpon>
     </Compile>
-    <Compile Include="MapLoader\frmLoadOptions.vb">
+    <Compile Include="Forms\frmLoadOptions.vb">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="MapLoader\TerrainBuilder.vb" />
@@ -248,16 +254,16 @@
     <Compile Include="RenderEngine\ModelPicker.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
-    <Compile Include="ShaderEditor\frmEditFrag.designer.vb">
+    <Compile Include="Forms\frmEditFrag.designer.vb">
       <DependentUpon>frmEditFrag.vb</DependentUpon>
     </Compile>
-    <Compile Include="ShaderEditor\frmEditFrag.vb">
+    <Compile Include="Forms\frmEditFrag.vb">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="ShaderEditor\frmShaderError.Designer.vb">
+    <Compile Include="Forms\frmShaderError.Designer.vb">
       <DependentUpon>frmShaderError.vb</DependentUpon>
     </Compile>
-    <Compile Include="ShaderEditor\frmShaderError.vb">
+    <Compile Include="Forms\frmShaderError.vb">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="ShaderEditor\ShaderLoader.vb" />
@@ -268,6 +274,9 @@
     <Compile Include="TextureEngine\TextureLoaders.vb" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Forms\frmCameraOptions.resx">
+      <DependentUpon>frmCameraOptions.vb</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmLighting.resx">
       <DependentUpon>frmLighting.vb</DependentUpon>
     </EmbeddedResource>
@@ -283,7 +292,7 @@
     <EmbeddedResource Include="Forms\frmShowText.resx">
       <DependentUpon>frmShowText.vb</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="MapLoader\frmLoadOptions.resx">
+    <EmbeddedResource Include="Forms\frmLoadOptions.resx">
       <DependentUpon>frmLoadOptions.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="My Project\Resources.resx">
@@ -292,10 +301,10 @@
       <CustomToolNamespace>My.Resources</CustomToolNamespace>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="ShaderEditor\frmEditFrag.resx">
+    <EmbeddedResource Include="Forms\frmEditFrag.resx">
       <DependentUpon>frmEditFrag.vb</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="ShaderEditor\frmShaderError.resx">
+    <EmbeddedResource Include="Forms\frmShaderError.resx">
       <DependentUpon>frmShaderError.vb</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>

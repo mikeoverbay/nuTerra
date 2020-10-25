@@ -24,6 +24,10 @@ Module modGlobalVars
     '============================================================
     Public nuTerra_LOG As New StringBuilder ' for logging
     '============================================================
+
+    ' https://www.khronos.org/registry/OpenGL/extensions/NV/NV_mesh_shader.txt
+    Public USE_NV_MESH_SHADER As Boolean
+
     'Shading
     Public SUNCOLOR As Vector3
     Public AMBIENTSUNCOLOR As Vector3
@@ -80,10 +84,7 @@ Module modGlobalVars
     Public PAUSE_ORBIT As Boolean = True
     Public LIGHT_SPEED As Single = 0.02F
     '============================================================
-    Public TOTAL_TRIANGLES_DRAWN As UInt32
     Public TERRAIN_TRIS_DRAWN As UInt32
-    Public PRIMS_CULLED As UInt32
-    Public TOTAL_TRIANGLES_DRAWN_MODEL As UInt32
     '============================================================
     Public _STARTED As Boolean 'Signals UI initialization is complete
 
