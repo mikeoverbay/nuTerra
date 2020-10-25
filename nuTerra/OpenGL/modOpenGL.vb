@@ -8,8 +8,6 @@ Module modOpenGL
     Public defaultVao As Integer
     Public FieldOfView As Single = CSng(Math.PI) * (60 / 180.0F)
 
-    Public Main_Context As Integer
-
     <StructLayout(LayoutKind.Sequential)>
     Public Structure DrawElementsIndirectCommand
         Dim count As UInt32
@@ -134,11 +132,11 @@ Module modOpenGL
     End Sub
 
     Public Sub set_light_pos()
-        LIGHT_POS(0) = 400.0F
-        LIGHT_POS(1) = 200.0F
-        LIGHT_POS(2) = 400.0F
-        LIGHT_RADIUS = Sqrt(LIGHT_POS(0) ^ 2 + LIGHT_POS(2) ^ 2)
-        LIGHT_ORBIT_ANGLE = Atan2(LIGHT_RADIUS / LIGHT_POS(2), LIGHT_RADIUS / LIGHT_POS(1))
+        LIGHT_POS.X = 400.0F
+        LIGHT_POS.Y = 200.0F
+        LIGHT_POS.Z = 400.0F
+        LIGHT_RADIUS = Sqrt(LIGHT_POS.X ^ 2 + LIGHT_POS.Z ^ 2)
+        LIGHT_ORBIT_ANGLE = Atan2(LIGHT_RADIUS / LIGHT_POS.Z, LIGHT_RADIUS / LIGHT_POS.Y)
     End Sub
 
     Public Sub draw_color_rectangle(rect As RectangleF, color As Color4)
@@ -219,19 +217,18 @@ Module modOpenGL
     End Sub
 
     Private stack_pos As Integer = 0
+
+    <Conditional("DEBUG")>
     Public Sub GL_PUSH_GROUP(name As String)
-#If DEBUG Then
         stack_pos += 1
         GL.PushDebugGroup(DebugSourceExternal.DebugSourceApplication, stack_pos + 10, -1, name)
-#End If
     End Sub
 
+    <Conditional("DEBUG")>
     Public Sub GL_POP_GROUP()
-#If DEBUG Then
         stack_pos -= 1
         GL.PopDebugGroup()
         If stack_pos < 0 Or stack_pos > 5 Then Stop
-#End If
     End Sub
 
     Public Sub SetupDebugOutputCallback()
