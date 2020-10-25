@@ -484,6 +484,9 @@ Module modRender
         GL.BindTextureUnit(3, FBOm.gPosition)
         GL.Uniform1(deferredShader("gPosition"), 3)
 
+        GL.Uniform1(deferredShader("cubeMap"), 4)
+        GL.BindTextureUnit(4, CUBE_TEXTURE_ID)
+
         GL.Uniform3(deferredShader("sunColor"), SUNCOLOR.X, SUNCOLOR.Y, SUNCOLOR.Z)
         GL.Uniform3(deferredShader("ambientColorForward"), AMBIENTSUNCOLOR.X, AMBIENTSUNCOLOR.Y, AMBIENTSUNCOLOR.Z)
 
@@ -505,7 +508,7 @@ Module modRender
 
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
 
-        unbind_textures(4) ' unbind all the used texture slots
+        unbind_textures(5) ' unbind all the used texture slots
 
         deferredShader.StopUse()
 

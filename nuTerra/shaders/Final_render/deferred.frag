@@ -7,6 +7,7 @@ uniform sampler2D gNormal;
 uniform sampler2D gGMF;
 uniform sampler2D gPosition;
 uniform sampler2D gDepth;
+uniform samplerCube cubeMap;
 
 uniform mat4 ProjectionMatrix;
 
@@ -99,7 +100,9 @@ void main (void)
             float dist = length(LightPosModelView - Position);
             float cutoff = 5000.0;
             vec4 color = vec4(0.36, 0.36, 0.36, 1.0);
- 
+
+            vec3 V = normalize(-Position);
+
             // Only light whats in range
             if (dist < cutoff) {
 
@@ -109,7 +112,16 @@ void main (void)
 
                 vec3 halfwayDir = normalize(L + vd);
 
-                final_color.xyz += max(pow(dot(N, halfwayDir), POWER ),0.0001) * SPECULAR * INTENSITY;
+                float spec = max(pow(dot(N, halfwayDir), POWER ),0.0001) * SPECULAR * INTENSITY;
+
+   
+                vec3 R = reflect(-V,N);
+                R.xz *= -1.0;
+                vec3 prefilteredColor = pow(textureLod(cubeMap, R,  GM_in.g *1).rgb,vec3(2.2));    
+                vec3 refection = prefilteredColor * spec;// * (1.0-GM_in.g );
+
+   
+                final_color.xyz += refection;
 
                 // Fade to ambient over distance
                 final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;

@@ -5,7 +5,6 @@ Imports System.IO
 
 Module CubeMapLoader
     Public Sub load_cube_and_cube_map()
-        Dim iPath As String = Application.StartupPath + "\resources\cube\cubemap_m00_c0"
 
         If CUBE_TEXTURE_ID > 0 Then
             GL.DeleteTexture(CUBE_TEXTURE_ID)
