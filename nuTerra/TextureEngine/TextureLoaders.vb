@@ -121,6 +121,7 @@ Module TextureLoaders
         Public height As Int32
         Public width As Int32
         Public mipMapCount As Int32
+        Public depth As Int32
         Public flags As Int32
         Public FourCC As String
         Public caps As UInt32
@@ -179,7 +180,7 @@ Module TextureLoaders
         header.height = br.ReadInt32()
         header.width = br.ReadInt32()
         br.ReadUInt32() ' pitchOrLinearSize
-        br.ReadUInt32() ' depth
+        header.depth = br.ReadUInt32() ' depth
         header.mipMapCount = br.ReadInt32()
         br.ReadBytes(44) ' reserved1
         br.ReadUInt32() ' Size

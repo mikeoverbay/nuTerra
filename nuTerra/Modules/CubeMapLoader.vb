@@ -69,23 +69,32 @@ Module CubeMapLoader
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-            GL.TextureStorage2D(CUBE_TEXTURE_ID, dds_header.mipMapCount, format, dds_header.width, dds_header.height)
+
+            GL.TextureStorage3D(CUBE_TEXTURE_ID, dds_header.mipMapCount, format, dds_header.width, dds_header.height, 6)
+
+
+            Dim e1 = GL.GetError()
+            If e1 > 0 Then
+                Stop
+            End If
 
             Dim w = dds_header.width
             Dim h = dds_header.height
             Dim mipMapCount = dds_header.mipMapCount
+            For d = 0 To dds_header.depth
 
-            For i = 0 To dds_header.mipMapCount - 1
-                If (w = 0 Or h = 0) Then
-                    mipMapCount -= 1
-                    Continue For
-                End If
+                For i = 0 To dds_header.mipMapCount - 1
+                    If (w = 0 Or h = 0) Then
+                        mipMapCount -= 1
+                        Continue For
+                    End If
 
-                Dim size = ((w + 3) \ 4) * ((h + 3) \ 4) * blockSize
-                Dim data = br.ReadBytes(size)
-                GL.CompressedTextureSubImage2D(CUBE_TEXTURE_ID, i, 0, 0, w, h, DirectCast(format, OpenGL.PixelFormat), size, data)
-                w /= 2
-                h /= 2
+                    Dim size = ((w + 3) \ 4) * ((h + 3) \ 4) * blockSize
+                    Dim data = br.ReadBytes(size)
+                    GL.CompressedTextureSubImage3D(CUBE_TEXTURE_ID, i, 0, 0, 0, w, h, d, DirectCast(format, OpenGL.PixelFormat), size, data)
+                    w /= 2
+                    h /= 2
+                Next
             Next
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
 
