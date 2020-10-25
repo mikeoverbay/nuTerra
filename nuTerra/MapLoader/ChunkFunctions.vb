@@ -379,7 +379,7 @@ Module ChunkFunctions
             c += 33
         Next
         r = 1056
-        For i = 4094 To 4094 + 64 Step 2
+        For i = 4095 To 4095 + 64 Step 2
             OutBuff(r) = inBuff(i)
             r += 1
         Next
@@ -396,7 +396,7 @@ Module ChunkFunctions
             c += 33
         Next
         r = 1056
-        For i = 4094 To 4094 + 64 Step 2
+        For i = 4095 To 4095 + 64 Step 2
             OutBuff(r) = inBuff(i)
             r += 1
         Next
@@ -432,7 +432,7 @@ Module ChunkFunctions
             c += 33
         Next
         r = 1056
-        For i = 4094 To 4094 + 64 Step 2
+        For i = 4095 To 4095 + 64 Step 2
             OutBuff(r) = inBuff(i)
             r += 1
         Next

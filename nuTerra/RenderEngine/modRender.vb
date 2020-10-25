@@ -35,8 +35,8 @@ Module modRender
         '===========================================================================
         'Morph settings. We will hard code these in globals once we know
         'what they should be.
-        MORPH_START = 75
-        MORPH_END = 100
+        MORPH_START = 50
+        MORPH_END = 80
         '===========================================================================
 
         '===========================================================================
@@ -212,7 +212,7 @@ Module modRender
             Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
             Dim v As New Vector3(l1, l2, l3)
             Dim l = v.Length
-            If l > 250.0F Then 'This value is the distance at which the chunk drawing is swapped.
+            If l > 200.0F Then 'This value is the distance at which the chunk drawing is swapped.
                 theMap.render_set(i).LQ = True
             Else
                 theMap.render_set(i).LQ = False
@@ -241,7 +241,7 @@ Module modRender
                 GL.UniformMatrix3(TerrainLQShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
                 GL.Uniform2(TerrainLQShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
 
-                'draw chunk
+                'draw 2048 * 3 vertices
                 GL.BindVertexArray(theMap.render_set(i).LQ_VAO)
                 GL.DrawElements(PrimitiveType.Triangles,
                     6144,
@@ -252,7 +252,7 @@ Module modRender
         TerrainLQShader.StopUse()
         unbind_textures(2)
         '=======================================================================================
-        'draw visible HZ terrain
+        'draw visible HQ terrain
         '=======================================================================================
         '------------------------------------------------
         TerrainShader.Use()  '<-------------- Shader Bind
@@ -324,7 +324,7 @@ Module modRender
                     GL.BindTextureUnit(19, .TexLayers(2).Blend_id)
                     GL.BindTextureUnit(20, .TexLayers(3).Blend_id)
 
-                    'draw chunk
+                    'draw 8192 * 3 vertices
                     GL.BindVertexArray(.VAO)
                     GL.DrawElements(PrimitiveType.Triangles,
                         24576,

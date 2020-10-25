@@ -1043,6 +1043,7 @@ Module MapLoader
         theMap.MINI_MAP_ID = 0
         theMap.chunks = Nothing
         theMap.vertex_vBuffer_id = 0
+        theMap.LQ_vertex_vBuffer_id = 0
 
         GC.Collect()
         GC.WaitForFullGCComplete()
