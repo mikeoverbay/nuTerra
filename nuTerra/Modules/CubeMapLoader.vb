@@ -34,7 +34,7 @@ Module CubeMapLoader
         entry.Extract(ms)
 
         Dim imgStore(ms.Length) As Byte
-        CUBE_TEXTURE_ID = load_dds_cubemap_from_stream(ms)
+        load_dds_cubemap_from_stream(ms)
 
 
     End Sub
