@@ -117,6 +117,7 @@ Module modRender
         '===========================================================================
 
         Ortho_main()
+        FBOm.attach_CNGP()
 
         '===========================================================================
         'final render. Either direct to default or use SSAA process.
@@ -393,7 +394,6 @@ Module modRender
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
-        'GL.Disable(EnableCap.CullFace)
 
         modelShader.StopUse()
 
@@ -411,7 +411,9 @@ Module modRender
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
         modelGlassShader.StopUse()
+
         GL.DepthMask(True)
+        GL.Disable(EnableCap.CullFace)
 
 
         FBOm.attach_CNGP()
