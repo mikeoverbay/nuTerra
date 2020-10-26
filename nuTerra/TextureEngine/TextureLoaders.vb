@@ -117,25 +117,43 @@ Module TextureLoaders
         Return image_id
     End Function
 
+    Public Enum DdsPixelFormatFlag
+        AlphaFlag = &H1
+        FourCCFlag = &H4
+        RGBFlag = &H40
+        RGBAFlag = RGBFlag Or AlphaFlag
+        YUVFlag = &H200
+        LuminanceFlag = &H20000
+    End Enum
+
     Public Class DDSHeader
         Public height As Int32
         Public width As Int32
         Public mipMapCount As Int32
         Public depth As Int32
-        Public flags As Int32
+        Public flags As DdsPixelFormatFlag
         Public FourCC As String
+        Public rgbBitCount As UInt32
+        Public redMask As UInt32
+        Public greenMask As UInt32
+        Public blueMask As UInt32
+        Public alphaMask As UInt32
         Public caps As UInt32
         Public caps2 As UInt32
 
         ReadOnly Property is_uncompressed As Boolean
             Get
-                Return (flags And &H40) <> 0
+                Return Not flags.HasFlag(DdsPixelFormatFlag.FourCCFlag)
             End Get
         End Property
 
         ReadOnly Property gl_format As InternalFormat
             Get
-                Debug.Assert((flags And &H4) <> 0)
+                If is_uncompressed Then
+                    Debug.Print("TODO: is_uncompressed")
+                    Stop
+                    Return -1
+                End If
 
                 Select Case FourCC
                     Case "DXT1"
@@ -209,11 +227,11 @@ Module TextureLoaders
         br.ReadUInt32() ' Size
         header.flags = br.ReadUInt32()
         header.FourCC = br.ReadChars(4)
-        br.ReadUInt32() ' RGBBitCount
-        br.ReadUInt32() ' RBitMask
-        br.ReadUInt32() ' GBitMask
-        br.ReadUInt32() ' BBitMask
-        br.ReadUInt32() ' ABitMask
+        header.rgbBitCount = br.ReadUInt32()
+        header.redMask = br.ReadUInt32()
+        header.greenMask = br.ReadUInt32()
+        header.blueMask = br.ReadUInt32()
+        header.alphaMask = br.ReadUInt32()
         header.caps = br.ReadUInt32()
         header.caps2 = br.ReadUInt32()
         Return header
