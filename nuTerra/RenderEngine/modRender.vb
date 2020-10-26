@@ -411,7 +411,6 @@ Module modRender
 
         modelGlassShader.StopUse()
 
-
         FBOm.attach_CNGP()
         GL.DepthMask(False)
 
@@ -426,7 +425,7 @@ Module modRender
             GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
 
-            GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+            GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(4), MapGL.indirectDrawCount, 0)
 
             normalShader.StopUse()
 
