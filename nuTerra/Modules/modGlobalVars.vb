@@ -11,7 +11,7 @@ Module modGlobalVars
     '=================================================================================
     Public Sub clear_output()
         Try
-            Dim dte = Marshal.GetActiveObject("VisualStudio.DTE.12.0") 'change to version of visual studio
+            Dim dte = Marshal.GetActiveObject("VisualStudio.DTE.17.0") 'change to version of visual studio
             dte.ExecuteCommand("Edit.ClearOutputWindow")
         Catch
         End Try

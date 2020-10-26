@@ -157,11 +157,13 @@ Module ShaderLoader
     Public DecalProject As Shader
     Public deferredShader As Shader
     Public frustumShader As Shader
+    Public glassPassShader As Shader
     Public gWriterShader As Shader
     Public image2dFlipShader As Shader
     Public image2dShader As Shader
     Public MiniMapRingsShader As Shader
     Public modelShader As Shader
+    Public modelGlassShader As Shader
     Public normalShader As Shader
     Public normalOffsetShader As Shader
     Public rect2dShader As Shader
@@ -200,10 +202,11 @@ Module ShaderLoader
         'unused: frustumShader = New Shader("frustum")
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")
+        glassPassShader = New Shader("glassPass")
         'unused: gWriterShader = New Shader("gWriter")
-        TextRenderShader = New Shader("TextRender")
         MiniMapRingsShader = New Shader("MiniMapRings")
         modelShader = New Shader("model")
+        modelGlassShader = New Shader("modelGlass")
         normalShader = New Shader("normal")
         normalOffsetShader = New Shader("normalOffset")
         rect2dShader = New Shader("rect2d")
@@ -213,6 +216,7 @@ Module ShaderLoader
         TerrainNormals = New Shader("TerrainNormals")
         TerrainShader = New Shader("Terrain")
         TerrainLQShader = New Shader("TerrainLQ")
+        TextRenderShader = New Shader("TextRender")
         toLinearShader = New Shader("toLinear")
 
         shaders = New List(Of Shader)
@@ -227,9 +231,11 @@ Module ShaderLoader
         'unused: shaders.Add(frustumShader)
         shaders.Add(image2dFlipShader)
         shaders.Add(image2dShader)
+        shaders.Add(glassPassShader)
         'unused: shaders.Add(gWriterShader)
         shaders.Add(MiniMapRingsShader)
         shaders.Add(modelShader)
+        shaders.Add(modelGlassShader)
         shaders.Add(normalShader)
         shaders.Add(normalOffsetShader)
         shaders.Add(rect2dShader)
@@ -239,8 +245,8 @@ Module ShaderLoader
         shaders.Add(TerrainNormals)
         shaders.Add(TerrainShader)
         shaders.Add(TerrainLQShader)
-        shaders.Add(toLinearShader)
         shaders.Add(TextRenderShader)
+        shaders.Add(toLinearShader)
     End Sub
 
     Public Function assemble_shader(v As String,

@@ -69,6 +69,7 @@ void get_normal(in float mip)
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
 }
 
+
 // ================================================================================
 // Atlas Functions
 float mip_map_level(in vec2 iUV)
@@ -94,10 +95,10 @@ layout(index = 0) subroutine(fn_entry) void default_entry()
 layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
     float mip = mip_map_level(fs_in.TC1);
-    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
+    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
     gColor *= thisMaterial.g_colorTint;
     gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, 0).rg; // gloss/metal
-    get_normal(0);
+    get_normal(mip);
 }
 
 
@@ -273,15 +274,21 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     gNormal = normalize(fs_in.TBN * bump);
 }
 
-layout(index = 6) subroutine(fn_entry) void FX_lightonly_alpha_entry()
+
+layout(index = 6) subroutine(fn_entry) void FX_PBS_glass()
 {
-    // gColor = texture(thisMaterial.maps[0], fs_in.TC1);
-    gColor = vec4(0.0,0.0,1.0,1.0); // debug
+    discard;
 }
 
-layout(index = 7) subroutine(fn_entry) void FX_unsupported_entry()
+layout(index = 7) subroutine(fn_entry) void FX_lightonly_alpha_entry()
 {
-    gColor = vec4(1.0, 1.0, 1.0, 1.0);
+    // gColor = texture(thisMaterial.maps[0], fs_in.TC1);
+    gColor = vec4(0.0,0.0,1.0,0.0); // debug
+}
+
+layout(index = 8) subroutine(fn_entry) void FX_unsupported_entry()
+{
+    gColor = vec4(1.0, 1.0, 1.0, 0.0);
 }
 
 subroutine uniform fn_entry entries[8];
@@ -295,13 +302,12 @@ void main(void)
 
     entries[thisMaterial.shader_type]();
 
-    // Just for debugging
-    //gColor.r += fs_in.lod_level;
-
     gColor.a = 1.0;
+
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
 
+// Just for debugging
 //    if (fs_in.lod_level == 1)      { gColor.r = 1; }
 //    else if (fs_in.lod_level == 2) { gColor.g = 1; }
 //    else if (fs_in.lod_level == 3) { gColor.b = 1; }

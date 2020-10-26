@@ -304,6 +304,7 @@ CleanUp:
     End Function
 
     Private Sub apply_material_for_pgroup(pGroup As PrimitiveGroup, material_id As Integer, ByVal model_name As String)
+
         Dim item = cBSMA.MaterialItem(material_id)
 
         If item.shaderPropBegin = &HFFFFFFFFUI Then
@@ -395,6 +396,8 @@ CleanUp:
                         "applyOverlay",
                         "g_repaintColor",
                         "g_baseColor",
+                        "dirtAlbedoMap",
+                        "glassMap",
                         "g_aging"
                     })
                     For Each name In props.Keys
@@ -727,6 +730,41 @@ got_it:
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas_global
                     mat.props = obj
 
+
+                Case "shaders/std_effects/PBS_glass.fx"
+                    Dim knownPropNames As New HashSet(Of String)({
+                        "dirtAlbedoMap",
+                        "normalMap",
+                        "glassMap",
+                        "alphaReference",
+                        "g_filterColor",
+                        "texAddressMode",
+                        "alphaTestEnable"
+                    })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            Stop
+                        End If
+                    Next
+                    Dim obj As New MaterialProps_PBS_glass
+                    With obj
+                        .dirtAlbedoMap = props("dirtAlbedoMap")
+                        .normalMap = props("normalMap")
+                        .glassMap = props("glassMap")
+
+                        If props.ContainsKey("alphaTestEnable") Then
+                            .alphaTestEnable = props("alphaTestEnable")
+                        End If
+                        If props.ContainsKey("alphaReference") Then
+                            .alphaTestEnable = props("alphaReference")
+                        End If
+                        .g_filterColor = If(props.ContainsKey("g_filterColor"), props("g_filterColor"), New Vector4(1.0, 1.0, 1.0, 0.0))
+                        .texAddressMode = If(props.ContainsKey("texAddressMode"), props("texAddressMode"), 0)
+                        If props.ContainsKey("texAddressMode") Then Debug.WriteLine("adressMode:" + props("texAddressMode").ToString)
+                    End With
+                    mat.props = obj
+                    mat.shader_type = ShaderTypes.FX_PBS_glass
+
                 Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx"
                     Dim obj As New MaterialProps_lightonly_alpha
                     With obj
@@ -735,7 +773,7 @@ got_it:
                     mat.shader_type = ShaderTypes.FX_lightonly_alpha
                     mat.props = obj
 
-                Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/std_effects/PBS_glass.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx"
+                Case "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx"
                     mat.shader_type = ShaderTypes.FX_unsupported
 
                 Case Else

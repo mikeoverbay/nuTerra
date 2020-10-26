@@ -36,6 +36,13 @@ Module FBO_main
                                             FramebufferAttachment.ColorAttachment4,
                                             FramebufferAttachment.ColorAttachment5
                                             }
+        Private Shared attach_Normal_GMF_aux() As DrawBuffersEnum = {
+                                            FramebufferAttachment.ColorAttachment1,
+                                            FramebufferAttachment.ColorAttachment2,
+                                            FramebufferAttachment.ColorAttachment3,
+                                            FramebufferAttachment.ColorAttachment4,
+                                            FramebufferAttachment.ColorAttachment5
+                                            }
         Private Shared attach_Color_Normal() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment0,
                                             FramebufferAttachment.ColorAttachment1,
@@ -55,6 +62,10 @@ Module FBO_main
                                             FramebufferAttachment.ColorAttachment4
                                             }
         Private Shared attach_gAux_Color() As DrawBuffersEnum = {
+                                            FramebufferAttachment.ColorAttachment5
+                                            }
+        Private Shared attach_gColor_and_gAux_Color() As DrawBuffersEnum = {
+                                            FramebufferAttachment.ColorAttachment0,
                                             FramebufferAttachment.ColorAttachment5
                                             }
 
@@ -246,7 +257,11 @@ Module FBO_main
 
         Public Shared Sub attach_CNGPA()
             'attach our render buffer textures.
-            GL.NamedFramebufferDrawBuffers(mainFBO, 6, attach_Color_Normal_GMF_Aux)
+            GL.NamedFramebufferDrawBuffers(mainFBO, 6, attach_Color_Normal_GMF_aux)
+        End Sub
+        Public Shared Sub attach_NGPA()
+            'attach our render buffer textures.
+            GL.NamedFramebufferDrawBuffers(mainFBO, 5, attach_Normal_GMF_aux)
         End Sub
 
         Public Shared Sub attach_CNP()
@@ -276,6 +291,10 @@ Module FBO_main
 
         Public Shared Sub attach_Pick()
             GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_gPick)
+        End Sub
+
+        Public Shared Sub attach_C_and_Aux()
+            GL.NamedFramebufferDrawBuffers(mainFBO, 2, attach_gColor_and_gAux_Color)
         End Sub
 
         Public Shared Sub attach_N()

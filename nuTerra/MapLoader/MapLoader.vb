@@ -659,6 +659,10 @@ Module MapLoader
                         texturePaths.Add(mat.props.dirtMap)
                     End If
                     texturePaths.Add(mat.props.globalTex)
+                Case ShaderTypes.FX_PBS_glass
+                    texturePaths.Add(mat.props.dirtAlbedoMap)
+                    texturePaths.Add(mat.props.normalMap)
+                    texturePaths.Add(mat.props.glassMap)
 
                 Case ShaderTypes.FX_lightonly_alpha
                     texturePaths.Add(mat.props.diffuseMap)
@@ -950,6 +954,18 @@ Module MapLoader
                         .g_tile1Tint = props.g_tile2Tint
                         .g_tile2Tint = props.g_tile2Tint
                         .g_tileUVScale = props.g_tileUVScale
+
+                    Case ShaderTypes.FX_PBS_glass
+                        Dim props As MaterialProps_PBS_glass = mat.props
+                        If props.dirtAlbedoMap IsNot Nothing Then
+                            .map1Handle = textureHandles(props.dirtAlbedoMap)
+                        End If
+                        .map2Handle = textureHandles(props.normalMap)
+                        .map3Handle = textureHandles(props.glassMap)
+                        .alphaReference = props.alphaReference / 255.0
+                        .alphaTestEnable = props.alphaTestEnable
+                        .g_colorTint = props.g_filterColor
+                        .g_useNormalPackDXT1 = props.texAddressMode
 
                     Case ShaderTypes.FX_lightonly_alpha
                         Dim props As MaterialProps_lightonly_alpha = mat.props

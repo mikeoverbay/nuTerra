@@ -16,8 +16,9 @@ Module PrimitiveLoader
         FX_PBS_ext_detail = 3
         FX_PBS_tiled_atlas = 4
         FX_PBS_tiled_atlas_global = 5
-        FX_lightonly_alpha = 6
-        FX_unsupported = 7
+        FX_PBS_glass = 6
+        FX_lightonly_alpha = 7
+        FX_unsupported = 8
     End Enum
 
     Structure MaterialProps_PBS_ext
@@ -96,6 +97,15 @@ Module PrimitiveLoader
         Public alphaTestEnable As Boolean
     End Structure
 
+    Structure MaterialProps_PBS_glass
+        Public dirtAlbedoMap As String
+        Public normalMap As String
+        Public glassMap As String
+        Public alphaTestEnable As Boolean
+        Public alphaReference As Integer
+        Public texAddressMode As UInteger
+        Public g_filterColor As Vector4
+    End Structure
     Structure MaterialProps_lightonly_alpha
         Public diffuseMap As String
     End Structure

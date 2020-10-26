@@ -58,7 +58,7 @@ Module modRender
         cull_timer.Stop()
 
         '===========================================================================
-        FBOm.attach_CNGP() 'clear ALL gTextures!
+        FBOm.attach_CNGPA() 'clear ALL gTextures!
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
         '===========================================================================
@@ -75,6 +75,7 @@ Module modRender
             draw_models() '=========================================================
             '=======================================================================
         End If
+        FBOm.attach_CNGP() 'clear ALL gTextures!
 
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             '=======================================================================
@@ -120,23 +121,23 @@ Module modRender
         '===========================================================================
         'final render. Either direct to default or use SSAA process.
         GL.Disable(EnableCap.DepthTest)
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
         If SSAA_enable Then
-            'deferred render first pass to gAux_Color buffer.
-            FBOm.attach_AUX()
+            GL.ClearColor(0.0, 0.5, 0.0, 0.0)
+            GL.Clear(ClearBufferMask.ColorBufferBit)
             render_deferred_buffers()
             '===========================================================================
-            'switch to default FBO and render SSAA'
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
             'house keeping
-            Ortho_main()
-            GL.ClearColor(0.5, 0.0, 0.0, 0.0)
-            GL.Clear(ClearBufferMask.ColorBufferBit)
             perform_SSAA_Pass()
+            'GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
 
         Else
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
             render_deferred_buffers()
         End If
+        '===========================================================================
+        'hopefully, this will look like glass :)
+        copy_default_to_gColor()
+        glassPass()
         '===========================================================================
 
         '===========================================================================
@@ -377,12 +378,12 @@ Module modRender
             GL.PolygonOffset(1.2, 0.2)
             GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
         End If
+        Dim indices = {0, 1, 2, 3, 4, 5, 6, 7}
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
 
         'assign subroutines
-        Dim indices = {0, 1, 2, 3, 4, 5, 6, 7}
         GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
 
         GL.Enable(EnableCap.CullFace)
@@ -392,9 +393,29 @@ Module modRender
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
-        GL.Disable(EnableCap.CullFace)
+        'GL.Disable(EnableCap.CullFace)
 
         modelShader.StopUse()
+
+        FBOm.attach_CNGPA()
+        GL.DepthMask(False)
+        '------------------------------------------------
+        modelGlassShader.Use()  '<------------------------------- Shader Bind
+        '------------------------------------------------
+        GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
+
+        'GL.Enable(EnableCap.CullFace)
+
+        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
+        GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
+        GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+
+        modelGlassShader.StopUse()
+        GL.DepthMask(True)
+
+
+        FBOm.attach_CNGP()
 
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             GL.Disable(EnableCap.PolygonOffsetFill)
@@ -515,9 +536,23 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
+    Private Sub copy_default_to_gColor()
+        GL.ReadBuffer(ReadBufferMode.Back)
+        GL.CopyTextureSubImage2D(FBOm.gColor, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
+    End Sub
     Private Sub perform_SSAA_Pass()
 
         GL_PUSH_GROUP("perform_SSAA_Pass")
+
+        'GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO)
+
+        'GL.ReadBuffer(ReadBufferMode.Back)
+        GL.GetError()
+        copy_default_to_gColor()
+        Dim e = GL.GetError
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+
+
 
         SSAAShader.Use()
         GL.UniformMatrix4(SSAAShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
@@ -525,7 +560,8 @@ Module modRender
         GL.Uniform2(SSAAShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
 
         GL.Uniform1(SSAAShader("colorMap"), 0)
-        GL.BindTextureUnit(0, FBOm.gAUX_Color)
+        GL.BindTextureUnit(0, FBOm.gColor)
+        'GL.BindTextureUnit(0, FBOm.gAUX_Color)
 
         'draw full screen quad
         GL.Uniform4(SSAAShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
@@ -537,6 +573,44 @@ Module modRender
         GL.BindTextureUnit(0, 0)
 
         GL_POP_GROUP()
+    End Sub
+
+
+
+    Private Sub glassPass()
+        GL_PUSH_GROUP("perform_GlassPass")
+
+        'GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO)
+
+        'GL.ReadBuffer(ReadBufferMode.Back)
+        GL.GetError()
+        copy_default_to_gColor()
+        Dim e = GL.GetError
+
+        glassPassShader.Use()
+        GL.UniformMatrix4(glassPassShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+
+        'GL.Uniform2(glassPassShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
+
+        GL.Uniform1(glassPassShader("colorMap"), 0)
+        GL.Uniform1(glassPassShader("glassMap"), 1)
+
+        GL.BindTextureUnit(0, FBOm.gColor)
+        GL.BindTextureUnit(1, FBOm.gAUX_Color)
+
+        'draw full screen quad
+        GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
+
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        glassPassShader.StopUse()
+        GL.BindTextureUnit(0, 0)
+        GL.BindTextureUnit(1, 0)
+
+        GL_POP_GROUP()
+
+
     End Sub
     Private Sub draw_terrain_ids()
         GL_PUSH_GROUP("draw_terrain_ids")

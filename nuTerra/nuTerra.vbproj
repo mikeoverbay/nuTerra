@@ -372,6 +372,15 @@
     <None Include="shaders\Developer\TerrainGrids.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Final_render\glassPass.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Model_shaders\modelGlass.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Model_shaders\modelGlass.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Utility\TextRender.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -627,6 +636,9 @@
     <Content Include="shaders\common.h">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Include="shaders\Final_render\glassPass.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.5">
