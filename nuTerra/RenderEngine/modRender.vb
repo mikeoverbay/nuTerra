@@ -402,7 +402,6 @@ Module modRender
         '------------------------------------------------
         modelGlassShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
-        GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
 
         'GL.Enable(EnableCap.CullFace)
 

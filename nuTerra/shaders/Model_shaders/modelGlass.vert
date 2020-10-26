@@ -52,6 +52,4 @@ void main(void)
 
     // Calculate vertex position in clip coordinates
     gl_Position = projection * modelView * vec4(vertexPosition, 1.0f);
-
-   
 }

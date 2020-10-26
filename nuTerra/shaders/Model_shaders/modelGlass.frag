@@ -51,67 +51,6 @@ void get_normal()
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
 }
 
-// Subroutines
-subroutine void fn_entry();
-layout(index = 0) subroutine(fn_entry) void default_entry()
-{
-    discard;
-}
-
-
-layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
-{
-    discard;
-}
-
-
-layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
-{
-    discard;
-}
-
-
-layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
-{
-    discard;
-}
-
-
-layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
-{
-    discard;
-}
-
-
-layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
-{
-    discard;
-}
-
-
-layout(index = 6) subroutine(fn_entry) void FX_PBS_glass()
-{
-    vec4 co = texture(thisMaterial.maps[0], fs_in.TC1); // color    vec4 co = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
-    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg;
-    co *= thisMaterial.g_colorTint;
-    gAux = co;
-    //gAux.rgb = vec3(co.a);
-    gAux.a = 0.55;
-    get_normal();
-}
-
-layout(index = 7) subroutine(fn_entry) void FX_lightonly_alpha_entry()
-{
-    discard;
-}
-
-layout(index = 8) subroutine(fn_entry) void FX_unsupported_entry()
-{
-    discard;
-}
-
-subroutine uniform fn_entry entries[8];
-
 // ================================================================================
 // Main start
 // ================================================================================
@@ -119,7 +58,17 @@ void main(void)
 {
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
 
-    entries[thisMaterial.shader_type]();
+    if (thisMaterial.shader_type != 6) {
+        discard;
+    }
+
+    vec4 co = texture(thisMaterial.maps[0], fs_in.TC1); // color    vec4 co = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
+    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg;
+    co *= thisMaterial.g_colorTint;
+    gAux = co;
+    //gAux.rgb = vec3(co.a);
+    gAux.a = 0.55;
+    get_normal();
 
     // Just for debugging
     //gColor.r += fs_in.lod_level;
