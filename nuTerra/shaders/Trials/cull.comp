@@ -1,12 +1,15 @@
 ﻿#version 450 core
 
+#extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
 #define USE_MODELINSTANCES_SSBO
 #define USE_CANDIDATE_DRAWS_SSBO
+#define USE_MATERIALS_SSBO
 #define USE_LODS_SSBO
 #define USE_INDIRECT_SSBO
+#define USE_INDIRECT_GLASS_SSBO
 #include "common.h"
 
 layout (local_size_x = 16) in;
@@ -14,6 +17,7 @@ layout (local_size_x = 16) in;
 uniform int numModelInstances;
 
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
+layout (binding = PARAMETERS_BASE, offset = 4) uniform atomic_uint commandGlassCounter;
 
 struct Frustum {
     vec4 planes[6];
@@ -72,12 +76,23 @@ void main(void)
 
         for (int i = 0; i < lod.draw_count; ++i) {
             const CandidateDraw thisDraw = draw[lod.draw_offset + i];
-            uint outDrawIndex = atomicCounterIncrement(commandCounter);
-            command[outDrawIndex].count = thisDraw.count;
-            command[outDrawIndex].instanceCount = 1;
-            command[outDrawIndex].firstIndex = thisDraw.firstIndex;
-            command[outDrawIndex].baseVertex = thisDraw.baseVertex;
-            command[outDrawIndex].baseInstance = thisDraw.baseInstance;
+
+            // use separate indirect buffer for glass-models
+            if (material[thisDraw.material_id].shader_type == 6) {
+                uint outDrawIndex = atomicCounterIncrement(commandGlassCounter);
+                command_glass[outDrawIndex].count = thisDraw.count;
+                command_glass[outDrawIndex].instanceCount = 1;
+                command_glass[outDrawIndex].firstIndex = thisDraw.firstIndex;
+                command_glass[outDrawIndex].baseVertex = thisDraw.baseVertex;
+                command_glass[outDrawIndex].baseInstance = thisDraw.baseInstance;
+            } else {
+                uint outDrawIndex = atomicCounterIncrement(commandCounter);
+                command[outDrawIndex].count = thisDraw.count;
+                command[outDrawIndex].instanceCount = 1;
+                command[outDrawIndex].firstIndex = thisDraw.firstIndex;
+                command[outDrawIndex].baseVertex = thisDraw.baseVertex;
+                command[outDrawIndex].baseInstance = thisDraw.baseInstance;
+            }
         }
     }
 }
