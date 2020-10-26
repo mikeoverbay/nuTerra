@@ -193,10 +193,6 @@ Module modRender
     Private Sub draw_terrain()
         GL_PUSH_GROUP("draw_terrain")
 
-        If WIRE_TERRAIN Then
-            GL.PolygonOffset(1.2, 0.2)
-            GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
-        End If
         '==========================
         'debug
         'FBOm.attach_C()
@@ -340,7 +336,6 @@ Module modRender
         unbind_textures(30)
 
         If WIRE_TERRAIN Then
-            GL.Disable(EnableCap.PolygonOffsetFill)
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
             FBOm.attach_CF()
@@ -382,10 +377,7 @@ Module modRender
 
         'SOLID FILL
         FBOm.attach_CNGP()
-        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
-            GL.PolygonOffset(1.2, 0.2)
-            GL.Enable(EnableCap.PolygonOffsetFill) '<-- Needed for wire overlay
-        End If
+
         Dim indices = {0, 1, 2, 3, 4, 5, 6, 7, 8}
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
@@ -422,7 +414,7 @@ Module modRender
         GL.DepthMask(False)
 
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
-            GL.Disable(EnableCap.PolygonOffsetFill)
+
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
 
             FBOm.attach_CF()
@@ -434,6 +426,10 @@ Module modRender
 
             GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(4), MapGL.indirectDrawCount, 0)
 
+            GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
+            GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
+            GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+            GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
             normalShader.StopUse()
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)

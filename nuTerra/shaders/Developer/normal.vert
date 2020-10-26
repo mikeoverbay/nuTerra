@@ -29,11 +29,13 @@ void main(void)
     const ModelInstance thisModel = models[thisDraw.model_id];
 
     // Calculate vertex position in clip coordinates
-    gl_Position = viewProj * thisModel.matrix * vec4(vertexPosition, 1.0);
+
+    vec3 offsetVertex;
+    offsetVertex = vertexPosition.xyz + (vertexNormal.xyz * 0.02);
+    gl_Position = viewProj * thisModel.matrix * vec4(offsetVertex, 1.0);
 
     // Should be mat3(transpose(inverse(view * thisModel.matrix))), but it's very slow
     mat3 normalMatrix = mat3(view * thisModel.matrix);
-
     vs_out.n = normalize(vec3(projection * vec4(normalMatrix * vertexNormal.xyz, 0.0f)));
     vs_out.t = normalize(vec3(projection * vec4(normalMatrix * vertexTangent.xyz, 0.0f)));
     vs_out.b = normalize(vec3(projection * vec4(normalMatrix * vertexBinormal.xyz, 0.0f)));

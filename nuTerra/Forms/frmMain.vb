@@ -241,7 +241,11 @@ Public Class frmMain
 
     Private Sub m_light_settings_Click(sender As Object, e As EventArgs) Handles m_light_settings.Click
         'Opens light setting window
-        frmLighting.Show()
+        If Not frmLighting.Visible Then
+            frmLighting.Show()
+        Else
+            frmLighting.Hide()
+        End If
     End Sub
 
     Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click

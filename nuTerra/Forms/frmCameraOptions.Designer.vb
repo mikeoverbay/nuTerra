@@ -100,13 +100,14 @@ Partial Class frmCameraOptions
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer))
-        Me.ClientSize = New System.Drawing.Size(232, 101)
+        Me.ClientSize = New System.Drawing.Size(180, 96)
         Me.Controls.Add(Me.Label3)
         Me.Controls.Add(Me.NumericUpDown3)
         Me.Controls.Add(Me.Label2)
         Me.Controls.Add(Me.NumericUpDown2)
         Me.Controls.Add(Me.Label1)
         Me.Controls.Add(Me.NumericUpDown1)
+        Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
         Me.Name = "frmCameraOptions"
         Me.Text = "Camera Options"
