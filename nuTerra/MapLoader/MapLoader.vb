@@ -57,6 +57,7 @@ Module MapLoader
             Public Shared vertsUV2 As Integer
             Public Shared prims As Integer
             Public Shared indirect As Integer
+            Public Shared indirect_glass As Integer
             Public Shared lods As Integer
         End Class
 
@@ -501,6 +502,11 @@ Module MapLoader
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, -1, "indirect")
             GL.NamedBufferStorage(MapGL.Buffers.indirect, MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand)(), IntPtr.Zero, BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, MapGL.Buffers.indirect)
+
+            GL.CreateBuffers(1, MapGL.Buffers.indirect_glass)
+            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect_glass, -1, "indirect_glass")
+            GL.NamedBufferStorage(MapGL.Buffers.indirect_glass, MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand)(), IntPtr.Zero, BufferStorageFlags.None)
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 5, MapGL.Buffers.indirect_glass)
 
             GL.CreateBuffers(1, MapGL.Buffers.matrices)
             GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, -1, "matrices")

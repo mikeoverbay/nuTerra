@@ -166,7 +166,7 @@ Module modRender
         GL_PUSH_GROUP("frustum_cull")
 
         'clear atomic counter
-        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters, PixelInternalFormat.R32ui, IntPtr.Zero, Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters, PixelInternalFormat.R32ui, IntPtr.Zero, 2 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         cullShader.Use()
 
@@ -405,10 +405,10 @@ Module modRender
 
         GL.Disable(EnableCap.CullFace)
 
-        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
+        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect_glass)
         GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
-        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(4), MapGL.indirectDrawCount, 0)
 
         modelGlassShader.StopUse()
 

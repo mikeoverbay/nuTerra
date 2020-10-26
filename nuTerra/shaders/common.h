@@ -10,6 +10,7 @@
 #define INDIRECT_BASE 2
 #define MATERIALS_BASE 3
 #define LODS_BASE 4
+#define INDIRECT_GLASS_BASE 5
 
 struct CandidateDraw
 {
@@ -112,5 +113,12 @@ layout(binding = LODS_BASE, std430) readonly buffer ModelLoDs
 layout(binding = INDIRECT_BASE, std430) writeonly buffer Indirect
 {
     DrawElementsIndirectCommand command[];
+};
+#endif
+
+#ifdef USE_INDIRECT_GLASS_SSBO
+layout(binding = INDIRECT_GLASS_BASE, std430) writeonly buffer IndirectGlass
+{
+    DrawElementsIndirectCommand command_glass[];
 };
 #endif
