@@ -761,6 +761,9 @@ got_it:
                         .g_filterColor = If(props.ContainsKey("g_filterColor"), props("g_filterColor"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .texAddressMode = If(props.ContainsKey("texAddressMode"), props("texAddressMode"), 0)
                         If props.ContainsKey("texAddressMode") Then Debug.WriteLine("adressMode:" + props("texAddressMode").ToString)
+                        If props.ContainsKey("texAddressMode") Then
+                            Debug.WriteLine(model_name)
+                        End If
                     End With
                     mat.props = obj
                     mat.shader_type = ShaderTypes.FX_PBS_glass

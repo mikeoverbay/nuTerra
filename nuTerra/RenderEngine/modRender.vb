@@ -398,7 +398,6 @@ Module modRender
         modelShader.StopUse()
 
         FBOm.attach_CNGPA()
-        GL.DepthMask(False)
         '------------------------------------------------
         modelGlassShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -412,11 +411,9 @@ Module modRender
 
         modelGlassShader.StopUse()
 
-        'GL.Enable(EnableCap.CullFace)
-        'GL.DepthMask(True)
-
 
         FBOm.attach_CNGP()
+        GL.DepthMask(False)
 
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
             GL.Disable(EnableCap.PolygonOffsetFill)
