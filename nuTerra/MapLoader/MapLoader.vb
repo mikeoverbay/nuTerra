@@ -965,7 +965,7 @@ Module MapLoader
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_filterColor
-                        '.g_useNormalPackDXT1 = props.texAddressMode
+                        .texAddressMode = props.texAddressMode
 
                     Case ShaderTypes.FX_lightonly_alpha
                         Dim props As MaterialProps_lightonly_alpha = mat.props
