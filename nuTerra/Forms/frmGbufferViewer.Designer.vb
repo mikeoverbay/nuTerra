@@ -27,7 +27,6 @@ Partial Class frmGbufferViewer
     Private Sub InitializeComponent()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmGbufferViewer))
         Me.Panel1 = New System.Windows.Forms.Panel()
-        Me.GLC = New OpenTK.GLControl()
         Me.GroupBox1 = New System.Windows.Forms.GroupBox()
         Me.quater_scale = New System.Windows.Forms.RadioButton()
         Me.half_scale = New System.Windows.Forms.RadioButton()
@@ -40,7 +39,7 @@ Partial Class frmGbufferViewer
         Me.b_depth = New System.Windows.Forms.RadioButton()
         Me.w_label = New System.Windows.Forms.Label()
         Me.h_label = New System.Windows.Forms.Label()
-        Me.Panel1.SuspendLayout()
+        Me.CheckedListBox1 = New System.Windows.Forms.CheckedListBox()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
@@ -51,22 +50,10 @@ Partial Class frmGbufferViewer
             Or System.Windows.Forms.AnchorStyles.Left) _
             Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Panel1.BackColor = System.Drawing.Color.Black
-        Me.Panel1.Controls.Add(Me.GLC)
         Me.Panel1.Location = New System.Drawing.Point(1, 0)
         Me.Panel1.Name = "Panel1"
         Me.Panel1.Size = New System.Drawing.Size(510, 375)
         Me.Panel1.TabIndex = 0
-        '
-        'GLC
-        '
-        Me.GLC.BackColor = System.Drawing.Color.Black
-        Me.GLC.Dock = System.Windows.Forms.DockStyle.Fill
-        Me.GLC.Location = New System.Drawing.Point(0, 0)
-        Me.GLC.Name = "GLC"
-        Me.GLC.Size = New System.Drawing.Size(510, 375)
-        Me.GLC.TabIndex = 0
-        Me.GLC.TabStop = False
-        Me.GLC.VSync = False
         '
         'GroupBox1
         '
@@ -91,6 +78,7 @@ Partial Class frmGbufferViewer
         Me.quater_scale.Name = "quater_scale"
         Me.quater_scale.Size = New System.Drawing.Size(45, 23)
         Me.quater_scale.TabIndex = 2
+        Me.quater_scale.TabStop = True
         Me.quater_scale.Tag = "0.25"
         Me.quater_scale.Text = "1/4"
         Me.quater_scale.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
@@ -99,7 +87,6 @@ Partial Class frmGbufferViewer
         'half_scale
         '
         Me.half_scale.Appearance = System.Windows.Forms.Appearance.Button
-        Me.half_scale.Checked = False
         Me.half_scale.ForeColor = System.Drawing.Color.Black
         Me.half_scale.Location = New System.Drawing.Point(7, 48)
         Me.half_scale.Name = "half_scale"
@@ -229,12 +216,24 @@ Partial Class frmGbufferViewer
         Me.h_label.TabIndex = 4
         Me.h_label.Text = "Height:"
         '
+        'CheckedListBox1
+        '
+        Me.CheckedListBox1.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.CheckedListBox1.BackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
+        Me.CheckedListBox1.FormattingEnabled = True
+        Me.CheckedListBox1.Items.AddRange(New Object() {"Red", "Green", "Blue", "Alpha"})
+        Me.CheckedListBox1.Location = New System.Drawing.Point(514, 308)
+        Me.CheckedListBox1.Name = "CheckedListBox1"
+        Me.CheckedListBox1.Size = New System.Drawing.Size(63, 64)
+        Me.CheckedListBox1.TabIndex = 5
+        '
         'frmGbufferViewer
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
         Me.ClientSize = New System.Drawing.Size(589, 422)
+        Me.Controls.Add(Me.CheckedListBox1)
         Me.Controls.Add(Me.h_label)
         Me.Controls.Add(Me.w_label)
         Me.Controls.Add(Me.GroupBox2)
@@ -245,7 +244,6 @@ Partial Class frmGbufferViewer
         Me.Name = "frmGbufferViewer"
         Me.Text = "G-Buffer Texture Viewer"
         Me.TopMost = True
-        Me.Panel1.ResumeLayout(False)
         Me.GroupBox1.ResumeLayout(False)
         Me.GroupBox2.ResumeLayout(False)
         Me.ResumeLayout(False)
@@ -266,4 +264,5 @@ Partial Class frmGbufferViewer
     Friend WithEvents b_position As System.Windows.Forms.RadioButton
     Friend WithEvents b_normal As System.Windows.Forms.RadioButton
     Friend WithEvents b_flags As System.Windows.Forms.RadioButton
+    Friend WithEvents CheckedListBox1 As CheckedListBox
 End Class
