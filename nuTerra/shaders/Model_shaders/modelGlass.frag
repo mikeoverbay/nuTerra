@@ -63,10 +63,10 @@ void main(void)
     }
 
     vec4 co = texture(thisMaterial.maps[0], fs_in.TC1); // color    vec4 co = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
-    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg;
+    //note swizzle here
+    gGMF.gr = texture(thisMaterial.maps[2], fs_in.TC1).rg;
     co *= thisMaterial.g_colorTint;
     gAux = co;
-    //gAux.rgb = vec3(co.a);
     gAux.a = 0.55;
     get_normal();
 
