@@ -152,6 +152,7 @@ Module ShaderLoader
     Public boxShader As Shader
     Public cullShader As Shader
     Public coloredline2dShader As Shader
+    Public colorMaskShader As Shader
     Public colorOnlyShader As Shader
     Public CrossHairShader As Shader
     Public DecalProject As Shader
@@ -195,6 +196,7 @@ Module ShaderLoader
         boxShader = New Shader("box")
         cullShader = New Shader("cull")
         coloredline2dShader = New Shader("coloredLine2d")
+        colorMaskShader = New Shader("ColorMask")
         'unused: colorOnlyShader = New Shader("colorOnly")
         'unused: CrossHairShader = New Shader("CrossHair")
         DecalProject = New Shader("DecalProject")
@@ -224,6 +226,7 @@ Module ShaderLoader
         shaders.Add(boxShader)
         shaders.Add(cullShader)
         shaders.Add(coloredline2dShader)
+        shaders.Add(colorMaskShader)
         'unused: shaders.Add(colorOnlyShader)
         'unused: shaders.Add(CrossHairShader)
         shaders.Add(DecalProject)

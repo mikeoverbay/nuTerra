@@ -348,6 +348,12 @@
     <None Include="Resources\skyDome.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\colorMaskShader\ColorMask.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\colorMaskShader\ColorMask.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Developer\box.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

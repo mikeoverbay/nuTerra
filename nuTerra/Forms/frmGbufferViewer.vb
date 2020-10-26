@@ -5,7 +5,8 @@ Imports OpenTK
 Imports OpenTK.Platform.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-
+Imports System.Runtime
+Imports System.Runtime.InteropServices
 
 
 Public Class frmGbufferViewer
@@ -13,6 +14,9 @@ Public Class frmGbufferViewer
     Private image_id As Integer = -1
     Dim PROJECTIONMATRIX_GLC As Matrix4
     Dim GLC_VA As Integer
+    Dim MASK As UInt32 = &HF
+    Dim maskList() As Integer = {1, 2, 4, 8}
+
     Private Sub frmTestView_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         Me.Hide()
         e.Cancel = True ' if we close this form, we lose the event handlers added at load time!!
@@ -34,7 +38,15 @@ Public Class frmGbufferViewer
         AddHandler b_position.CheckedChanged, AddressOf image_changed
         AddHandler b_normal.CheckedChanged, AddressOf image_changed
         AddHandler b_flags.CheckedChanged, AddressOf image_changed
-        image_id = CInt(b_depth.Tag)
+        AddHandler b_aux.CheckedChanged, AddressOf image_changed
+
+        image_id = CInt(b_color.Tag)
+
+        AddHandler r_cb.CheckedChanged, AddressOf change_mask
+        AddHandler g_cb.CheckedChanged, AddressOf change_mask
+        AddHandler b_cb.CheckedChanged, AddressOf change_mask
+        AddHandler a_cb.CheckedChanged, AddressOf change_mask
+
 
         GLC.MakeCurrent()
         GL.CreateVertexArrays(1, GLC_VA)
@@ -105,13 +117,18 @@ Public Class frmGbufferViewer
                 toLinearShader.StopUse()
 
             Case 2
-                image2dFlipShader.Use()
+                colorMaskShader.Use()
+
+                GL.Uniform1(colorMaskShader("colorMap"), 0)
+                GL.Uniform1(colorMaskShader("isNormal"), 0)
+                GL.Uniform1(colorMaskShader("mask"), MASK)
 
                 GL.BindTextureUnit(0, FBOm.gColor)
-                GL.Uniform1(image2dFlipShader("imageMap"), 0)
-                GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+
+                GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
                 Dim rect As New RectangleF(0, 0, width, height)
-                GL.Uniform4(image2dFlipShader("rect"),
+
+                GL.Uniform4(colorMaskShader("rect"),
                             rect.Left,
                             -rect.Top,
                             rect.Right,
@@ -119,17 +136,20 @@ Public Class frmGbufferViewer
 
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-                image2dFlipShader.StopUse()
+                colorMaskShader.StopUse()
 
             Case 3
-                image2dFlipShader.Use()
+                colorMaskShader.Use()
 
                 GL.BindTextureUnit(0, FBOm.gPosition)
-                GL.Uniform1(image2dFlipShader("imageMap"), 0)
-                GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+                GL.Uniform1(colorMaskShader("isNormal"), 0)
+                GL.Uniform1(colorMaskShader("mask"), MASK)
 
+                GL.Uniform1(colorMaskShader("colorMap"), 0)
+                GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
                 Dim rect As New RectangleF(0, 0, width, height)
-                GL.Uniform4(image2dFlipShader("rect"),
+
+                GL.Uniform4(colorMaskShader("rect"),
                             rect.Left,
                             -rect.Top,
                             rect.Right,
@@ -137,10 +157,13 @@ Public Class frmGbufferViewer
 
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-                image2dFlipShader.StopUse()
+                colorMaskShader.StopUse()
 
             Case 4
-                normalOffsetShader.Use()
+                colorMaskShader.Use()
+                GL.Uniform1(colorMaskShader("isNormal"), 1)
+                GL.Uniform1(colorMaskShader("mask"), MASK)
+
                 GL.BindTextureUnit(0, FBOm.gNormal)
                 GL.Uniform1(normalOffsetShader("imageMap"), 0)
                 GL.UniformMatrix4(normalOffsetShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
@@ -154,17 +177,20 @@ Public Class frmGbufferViewer
 
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-                normalOffsetShader.StopUse()
+                colorMaskShader.StopUse()
 
             Case 5
-                image2dFlipShader.Use()
+                colorMaskShader.Use()
 
                 GL.BindTextureUnit(0, FBOm.gGMF)
-                GL.Uniform1(image2dFlipShader("imageMap"), 0)
-                GL.UniformMatrix4(image2dFlipShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+                GL.Uniform1(colorMaskShader("isNormal"), 0)
+                GL.Uniform1(colorMaskShader("mask"), MASK)
 
+                GL.Uniform1(colorMaskShader("colorMap"), 0)
+                GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
                 Dim rect As New RectangleF(0, 0, width, height)
-                GL.Uniform4(image2dFlipShader("rect"),
+
+                GL.Uniform4(colorMaskShader("rect"),
                             rect.Left,
                             -rect.Top,
                             rect.Right,
@@ -172,7 +198,29 @@ Public Class frmGbufferViewer
 
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-                image2dFlipShader.StopUse()
+                colorMaskShader.StopUse()
+
+
+            Case 6
+                colorMaskShader.Use()
+
+                GL.BindTextureUnit(0, FBOm.gAUX_Color)
+                GL.Uniform1(colorMaskShader("isNormal"), 0)
+                GL.Uniform1(colorMaskShader("mask"), MASK)
+
+                GL.Uniform1(colorMaskShader("colorMap"), 0)
+                GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+                Dim rect As New RectangleF(0, 0, width, height)
+
+                GL.Uniform4(colorMaskShader("rect"),
+                                    rect.Left,
+                                    -rect.Top,
+                                    rect.Right,
+                                    -rect.Bottom)
+
+                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+                colorMaskShader.StopUse()
 
         End Select
         GL.BindTextureUnit(0, 0)
@@ -199,4 +247,11 @@ Public Class frmGbufferViewer
     Private Sub b_flags_CheckedChanged(sender As Object, e As EventArgs) Handles b_flags.CheckedChanged
         update_screen()
     End Sub
+
+    Private Sub change_mask(sender As Object, e As EventArgs)
+        Dim cb As CheckBox = DirectCast(sender, CheckBox)
+        MASK = MASK Xor maskList(CInt(cb.Tag))
+        Label1.Text = MASK.ToString("X")
+    End Sub
+
 End Class

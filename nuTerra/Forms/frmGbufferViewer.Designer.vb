@@ -39,7 +39,12 @@ Partial Class frmGbufferViewer
         Me.b_depth = New System.Windows.Forms.RadioButton()
         Me.w_label = New System.Windows.Forms.Label()
         Me.h_label = New System.Windows.Forms.Label()
-        Me.CheckedListBox1 = New System.Windows.Forms.CheckedListBox()
+        Me.r_cb = New System.Windows.Forms.CheckBox()
+        Me.g_cb = New System.Windows.Forms.CheckBox()
+        Me.b_cb = New System.Windows.Forms.CheckBox()
+        Me.a_cb = New System.Windows.Forms.CheckBox()
+        Me.Label1 = New System.Windows.Forms.Label()
+        Me.b_aux = New System.Windows.Forms.RadioButton()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
@@ -113,6 +118,7 @@ Partial Class frmGbufferViewer
         '
         'GroupBox2
         '
+        Me.GroupBox2.Controls.Add(Me.b_aux)
         Me.GroupBox2.Controls.Add(Me.b_flags)
         Me.GroupBox2.Controls.Add(Me.b_normal)
         Me.GroupBox2.Controls.Add(Me.b_position)
@@ -216,24 +222,105 @@ Partial Class frmGbufferViewer
         Me.h_label.TabIndex = 4
         Me.h_label.Text = "Height:"
         '
-        'CheckedListBox1
+        'r_cb
         '
-        Me.CheckedListBox1.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
-        Me.CheckedListBox1.BackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
-        Me.CheckedListBox1.FormattingEnabled = True
-        Me.CheckedListBox1.Items.AddRange(New Object() {"Red", "Green", "Blue", "Alpha"})
-        Me.CheckedListBox1.Location = New System.Drawing.Point(514, 308)
-        Me.CheckedListBox1.Name = "CheckedListBox1"
-        Me.CheckedListBox1.Size = New System.Drawing.Size(63, 64)
-        Me.CheckedListBox1.TabIndex = 5
+        Me.r_cb.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.r_cb.AutoSize = True
+        Me.r_cb.Checked = True
+        Me.r_cb.CheckState = System.Windows.Forms.CheckState.Checked
+        Me.r_cb.Font = New System.Drawing.Font("Microsoft Sans Serif", 11.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.r_cb.ForeColor = System.Drawing.Color.FromArgb(CType(CType(192, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(0, Byte), Integer))
+        Me.r_cb.Location = New System.Drawing.Point(518, 269)
+        Me.r_cb.Name = "r_cb"
+        Me.r_cb.Size = New System.Drawing.Size(39, 22)
+        Me.r_cb.TabIndex = 5
+        Me.r_cb.Tag = "0"
+        Me.r_cb.Text = "R"
+        Me.r_cb.UseVisualStyleBackColor = True
+        '
+        'g_cb
+        '
+        Me.g_cb.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.g_cb.AutoSize = True
+        Me.g_cb.Checked = True
+        Me.g_cb.CheckState = System.Windows.Forms.CheckState.Checked
+        Me.g_cb.Font = New System.Drawing.Font("Microsoft Sans Serif", 11.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.g_cb.ForeColor = System.Drawing.Color.FromArgb(CType(CType(0, Byte), Integer), CType(CType(192, Byte), Integer), CType(CType(0, Byte), Integer))
+        Me.g_cb.Location = New System.Drawing.Point(518, 297)
+        Me.g_cb.Name = "g_cb"
+        Me.g_cb.Size = New System.Drawing.Size(40, 22)
+        Me.g_cb.TabIndex = 7
+        Me.g_cb.Tag = "1"
+        Me.g_cb.Text = "G"
+        Me.g_cb.UseVisualStyleBackColor = True
+        '
+        'b_cb
+        '
+        Me.b_cb.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.b_cb.AutoSize = True
+        Me.b_cb.Checked = True
+        Me.b_cb.CheckState = System.Windows.Forms.CheckState.Checked
+        Me.b_cb.Font = New System.Drawing.Font("Microsoft Sans Serif", 11.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.b_cb.ForeColor = System.Drawing.Color.Blue
+        Me.b_cb.Location = New System.Drawing.Point(517, 325)
+        Me.b_cb.Name = "b_cb"
+        Me.b_cb.Size = New System.Drawing.Size(38, 22)
+        Me.b_cb.TabIndex = 8
+        Me.b_cb.Tag = "2"
+        Me.b_cb.Text = "B"
+        Me.b_cb.UseVisualStyleBackColor = True
+        '
+        'a_cb
+        '
+        Me.a_cb.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.a_cb.AutoSize = True
+        Me.a_cb.Checked = True
+        Me.a_cb.CheckState = System.Windows.Forms.CheckState.Checked
+        Me.a_cb.Font = New System.Drawing.Font("Microsoft Sans Serif", 11.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.a_cb.ForeColor = System.Drawing.Color.White
+        Me.a_cb.Location = New System.Drawing.Point(518, 353)
+        Me.a_cb.Name = "a_cb"
+        Me.a_cb.Size = New System.Drawing.Size(37, 22)
+        Me.a_cb.TabIndex = 9
+        Me.a_cb.Tag = "3"
+        Me.a_cb.Text = "A"
+        Me.a_cb.UseVisualStyleBackColor = True
+        '
+        'Label1
+        '
+        Me.Label1.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label1.AutoSize = True
+        Me.Label1.ForeColor = System.Drawing.SystemColors.ActiveCaption
+        Me.Label1.Location = New System.Drawing.Point(517, 253)
+        Me.Label1.Name = "Label1"
+        Me.Label1.Size = New System.Drawing.Size(16, 13)
+        Me.Label1.TabIndex = 10
+        Me.Label1.Text = "   "
+        '
+        'b_aux
+        '
+        Me.b_aux.Appearance = System.Windows.Forms.Appearance.Button
+        Me.b_aux.ForeColor = System.Drawing.Color.Black
+        Me.b_aux.Location = New System.Drawing.Point(391, 14)
+        Me.b_aux.Name = "b_aux"
+        Me.b_aux.Size = New System.Drawing.Size(70, 23)
+        Me.b_aux.TabIndex = 6
+        Me.b_aux.Tag = "6"
+        Me.b_aux.Text = "gAuxColor"
+        Me.b_aux.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        Me.b_aux.UseVisualStyleBackColor = True
         '
         'frmGbufferViewer
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
+        Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer))
         Me.ClientSize = New System.Drawing.Size(589, 422)
-        Me.Controls.Add(Me.CheckedListBox1)
+        Me.Controls.Add(Me.Label1)
+        Me.Controls.Add(Me.a_cb)
+        Me.Controls.Add(Me.b_cb)
+        Me.Controls.Add(Me.g_cb)
+        Me.Controls.Add(Me.r_cb)
         Me.Controls.Add(Me.h_label)
         Me.Controls.Add(Me.w_label)
         Me.Controls.Add(Me.GroupBox2)
@@ -264,5 +351,10 @@ Partial Class frmGbufferViewer
     Friend WithEvents b_position As System.Windows.Forms.RadioButton
     Friend WithEvents b_normal As System.Windows.Forms.RadioButton
     Friend WithEvents b_flags As System.Windows.Forms.RadioButton
-    Friend WithEvents CheckedListBox1 As CheckedListBox
+    Friend WithEvents r_cb As CheckBox
+    Friend WithEvents g_cb As CheckBox
+    Friend WithEvents b_cb As CheckBox
+    Friend WithEvents a_cb As CheckBox
+    Friend WithEvents Label1 As Label
+    Friend WithEvents b_aux As RadioButton
 End Class
