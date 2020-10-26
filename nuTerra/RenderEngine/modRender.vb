@@ -114,12 +114,19 @@ Module modRender
         '================== Deferred Rendering, HUD and MINI MAP ===================
         '===========================================================================
 
+
+        '===========================================================================
+        'Before we destory the gColor texture using it for other functions.
+        If frmGbufferViewer IsNot Nothing Then
+            If frmGbufferViewer.Visible And frmGbufferViewer.Viewer_Image_ID = 2 Then
+                frmGbufferViewer.update_screen()
+            End If
+        End If
         '===========================================================================
 
+        '===========================================================================
         Ortho_main()
         FBOm.attach_CNGP()
-
-        '===========================================================================
         'final render. Either direct to default or use SSAA process.
         GL.Disable(EnableCap.DepthTest)
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
@@ -154,7 +161,7 @@ Module modRender
         If _STARTED Then frmMain.glControl_main.SwapBuffers() '=====================
         '===========================================================================
         If frmGbufferViewer IsNot Nothing Then
-            If frmGbufferViewer.Visible Then
+            If frmGbufferViewer.Visible And frmGbufferViewer.Viewer_Image_ID <> 2 Then
                 frmGbufferViewer.update_screen()
             End If
         End If

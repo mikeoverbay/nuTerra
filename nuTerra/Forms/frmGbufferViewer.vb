@@ -11,7 +11,7 @@ Imports System.Runtime.InteropServices
 
 Public Class frmGbufferViewer
     Private image_scale As Single = 0.25
-    Private image_id As Integer = -1
+    Public Viewer_Image_ID As Integer = -1
     Dim PROJECTIONMATRIX_GLC As Matrix4
     Dim GLC_VA As Integer
     Dim MASK As UInt32 = &HF
@@ -40,7 +40,7 @@ Public Class frmGbufferViewer
         AddHandler b_flags.CheckedChanged, AddressOf image_changed
         AddHandler b_aux.CheckedChanged, AddressOf image_changed
 
-        image_id = CInt(b_color.Tag)
+        Viewer_Image_ID = CInt(b_color.Tag)
 
         AddHandler r_cb.CheckedChanged, AddressOf change_mask
         AddHandler g_cb.CheckedChanged, AddressOf change_mask
@@ -59,7 +59,7 @@ Public Class frmGbufferViewer
         update_screen()
     End Sub
     Private Sub image_changed(sender As Object, e As EventArgs)
-        image_id = CInt(sender.tag)
+        Viewer_Image_ID = CInt(sender.tag)
         update_screen()
     End Sub
     Private Sub set_viewPort()
@@ -95,7 +95,7 @@ Public Class frmGbufferViewer
         GL.BindVertexArray(GLC_VA)
         Dim er2 = GL.GetError
 
-        Select Case image_id
+        Select Case Viewer_Image_ID
             Case 1
                 toLinearShader.Use()
 
