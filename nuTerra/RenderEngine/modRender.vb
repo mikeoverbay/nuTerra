@@ -403,7 +403,7 @@ Module modRender
         modelGlassShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
 
-        'GL.Enable(EnableCap.CullFace)
+        GL.Disable(EnableCap.CullFace)
 
         GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
         GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
@@ -412,8 +412,8 @@ Module modRender
 
         modelGlassShader.StopUse()
 
-        GL.DepthMask(True)
-        GL.Disable(EnableCap.CullFace)
+        'GL.Enable(EnableCap.CullFace)
+        'GL.DepthMask(True)
 
 
         FBOm.attach_CNGP()

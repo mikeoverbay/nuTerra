@@ -68,9 +68,10 @@ Module modOpenGL
         Dim g_useNormalPackDXT1 As UInt32
         Dim alphaReference As Single
         Dim alphaTestEnable As UInt32
-        'Dim pad0 As UInt32
-        'Dim pad1 As UInt32
-        'Dim pad2 As UInt32
+        Dim texAdressMode As Integer
+        Dim pad0 As UInt32
+        Dim pad1 As UInt32
+        Dim pad2 As UInt32
         'Dim pad3 As UInt32
     End Structure
 

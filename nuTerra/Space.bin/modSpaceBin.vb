@@ -758,7 +758,7 @@ got_it:
                         If props.ContainsKey("alphaReference") Then
                             .alphaTestEnable = props("alphaReference")
                         End If
-                        .g_filterColor = If(props.ContainsKey("g_filterColor"), props("g_filterColor"), New Vector4(1.0, 1.0, 1.0, 0.0))
+                        .g_filterColor = If(props.ContainsKey("g_filterColor"), props("g_filterColor"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .texAddressMode = If(props.ContainsKey("texAddressMode"), props("texAddressMode"), 0)
                         If props.ContainsKey("texAddressMode") Then Debug.WriteLine("adressMode:" + props("texAddressMode").ToString)
                     End With

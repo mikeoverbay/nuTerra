@@ -66,6 +66,7 @@ struct MaterialProperties
     bool g_useNormalPackDXT1; /* 196 .. 200 */
     float alphaReference;     /* 200 .. 204 */
     bool alphaTestEnable;     /* 204 .. 208 */
+    int texAddressMode;       /* 208 .. 212 */
 };
 
 #ifdef USE_PERVIEW_UBO

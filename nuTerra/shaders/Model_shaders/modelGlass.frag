@@ -7,6 +7,7 @@
 #include "common.h"
 
 // Output
+layout (location = 0) out vec3 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gGMF;
 layout (location = 3) out vec3 gPosition;
@@ -36,15 +37,14 @@ MaterialProperties thisMaterial = material[fs_in.material_id];
 // ================================================================================
 void get_normal()
 {
-    float alphaCheck = 1.0;
-    if (thisMaterial.g_useNormalPackDXT1) {
-        normalBump = (texture(thisMaterial.maps[1], fs_in.TC1).rgb * 2.0f) - 1.0f;
-    } else {
+
+
         vec4 normal = texture(thisMaterial.maps[1], fs_in.TC1);
+        float alphaCheck = normal.r;      
         normalBump.xy = normal.ag * 2.0 - 1.0;
         normalBump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
         alphaCheck = normal.r;
-    }
+
     if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
         discard;
     }
@@ -65,13 +65,11 @@ void main(void)
     vec4 co = texture(thisMaterial.maps[0], fs_in.TC1); // color    vec4 co = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
     //note swizzle here
     gGMF.gr = texture(thisMaterial.maps[2], fs_in.TC1).rg;
-    co *= thisMaterial.g_colorTint;
+    co.rgb *= thisMaterial.g_colorTint.rgb;
     gAux = co;
-    gAux.a = 0.55;
+    gAux.a = co.a;
     get_normal();
 
-    // Just for debugging
-    //gColor.r += fs_in.lod_level;
 
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
