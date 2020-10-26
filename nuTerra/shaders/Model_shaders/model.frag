@@ -291,7 +291,7 @@ layout(index = 8) subroutine(fn_entry) void FX_unsupported_entry()
     gColor = vec4(1.0, 1.0, 1.0, 0.0);
 }
 
-subroutine uniform fn_entry entries[8];
+subroutine uniform fn_entry entries[9];
 
 // ================================================================================
 // Main start
