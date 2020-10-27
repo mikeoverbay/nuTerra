@@ -183,7 +183,7 @@ Module modRender
         GL.Uniform1(FF_BillboardShader("scale"), 10.0F)
         GL.BindTextureUnit(0, SUN_TEXTURE_ID)
 
-        GL.Uniform4(deferredShader("rect"), -0.5F, -0.5F, 0.5F, 0.5F)
+        GL.Uniform4(FF_BillboardShader("rect"), -0.5F, -0.5F, 0.5F, 0.5F)
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
