@@ -455,7 +455,7 @@ Module modRender
     Private Sub draw_terrain_grids()
         GL_PUSH_GROUP("draw_terrain_grids")
 
-        FBOm.attach_C_no_Depth()
+        FBOm.attach_C()
         'GL.DepthMask(False)
         GL.Enable(EnableCap.DepthTest)
         TerrainGrids.Use()

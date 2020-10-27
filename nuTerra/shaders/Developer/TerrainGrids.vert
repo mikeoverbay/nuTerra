@@ -16,7 +16,7 @@ uniform mat4 model;
 
 void main(void)
 {
-    vec4 Vertex = model * vec4(vertexXZ.x, vertexY, vertexXZ.y, 1.0);
+    vec4 Vertex = model * vec4(vertexXZ.x, vertexY+0.1, vertexXZ.y, 1.0);
     V = Vertex.xz;
 
     gl_Position = viewProj * Vertex;
