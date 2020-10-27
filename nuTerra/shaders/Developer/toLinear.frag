@@ -8,16 +8,17 @@ uniform float far;
 
 in vec2 texCoord;
 
-float linearDepth(float depthSample)
+float linearDepth()
 {
-    float f = far;
-    float n = near;
+    float zFar = far;
+    float zNear = near;
     
-    return  (2.0 * n) / (f + n - depthSample * (f - n));
+    float depth = texture(imageMap, texCoord).x;
+    return (2.0 * zNear) / (zFar + zNear - depth * (zFar - zNear));
 }
 
 void main()
 {
-    float r = linearDepth(texture(imageMap, texCoord).r);
-    fragColor = vec4(vec3(1.0 - r), 1.0);
+    float c = linearDepth();
+    fragColor = vec4(c, c, c, 1.0);
 }

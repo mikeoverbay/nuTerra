@@ -128,7 +128,7 @@ void main(void)
         gColor.a = 1.0;
         //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
         gNormal.xyz = normalize(n_tex.xyz);
-        gGMF.rgb = vec3(global.a+0.2, 0.0, 64.0/255.0);
+        gGMF.rgb = vec3(global.a+0.2, 0.0, 128.0/255.0);
 
         gPosition = fs_in.worldPosition;
         gPick = 0;

@@ -13,7 +13,7 @@ Module modRender
         ' FLAG INFO
         ' 0  = No shading
         ' 64  = model 
-        ' 
+        ' 128 = terrain
         ' 255 = sky dome. We will want to control brightness
         ' more as they are added
         '===========================================================================
@@ -134,10 +134,8 @@ Module modRender
             GL.ClearColor(0.0, 0.5, 0.0, 0.0)
             GL.Clear(ClearBufferMask.ColorBufferBit)
             render_deferred_buffers()
-            '===========================================================================
-            'house keeping
+            copy_default_to_gColor()
             perform_SSAA_Pass()
-            'GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
 
         Else
             render_deferred_buffers()
@@ -188,6 +186,11 @@ Module modRender
         cullShader.StopUse()
 
         GL_POP_GROUP()
+    End Sub
+
+    Private Sub copy_default_to_gColor()
+        GL.ReadBuffer(ReadBufferMode.Back)
+        GL.CopyTextureSubImage2D(FBOm.gColor, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
     End Sub
 
     Private Sub draw_terrain()
@@ -453,8 +456,8 @@ Module modRender
         GL_PUSH_GROUP("draw_terrain_grids")
 
         FBOm.attach_C_no_Depth()
-        GL.DepthMask(False)
-        GL.Disable(EnableCap.DepthTest)
+        'GL.DepthMask(False)
+        GL.Enable(EnableCap.DepthTest)
         TerrainGrids.Use()
         GL.Uniform2(TerrainGrids("bb_tr"), MAP_BB_UR.X, MAP_BB_UR.Y)
         GL.Uniform2(TerrainGrids("bb_bl"), MAP_BB_BL.X, MAP_BB_BL.Y)
@@ -465,6 +468,7 @@ Module modRender
         GL.Uniform1(TerrainGrids("show_grid"), SHOW_GRID)
 
         GL.Uniform1(TerrainGrids("gGMF"), 0)
+
         GL.BindTextureUnit(0, FBOm.gGMF)
 
 
@@ -536,10 +540,6 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
-    Private Sub copy_default_to_gColor()
-        GL.ReadBuffer(ReadBufferMode.Back)
-        GL.CopyTextureSubImage2D(FBOm.gColor, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
-    End Sub
     Private Sub perform_SSAA_Pass()
 
         GL_PUSH_GROUP("perform_SSAA_Pass")
@@ -547,8 +547,6 @@ Module modRender
         'GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO)
 
         'GL.ReadBuffer(ReadBufferMode.Back)
-        GL.GetError()
-        copy_default_to_gColor()
         Dim e = GL.GetError
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
 
@@ -574,8 +572,6 @@ Module modRender
 
         GL_POP_GROUP()
     End Sub
-
-
 
     Private Sub glassPass()
         GL_PUSH_GROUP("perform_GlassPass")
@@ -612,6 +608,7 @@ Module modRender
 
 
     End Sub
+
     Private Sub draw_terrain_ids()
         GL_PUSH_GROUP("draw_terrain_ids")
 
@@ -633,11 +630,6 @@ Module modRender
 
         GL_POP_GROUP()
     End Sub
-
-    ''' <summary>
-    ''' renders all 2D things in ortho mode
-    ''' </summary>
-    ''' 
 
     Private Sub render_HUD()
         GL_PUSH_GROUP("render_HUD")
@@ -674,6 +666,104 @@ Module modRender
             draw_terrain_ids()
         End If
         '===========================================================================
+
+        GL_POP_GROUP()
+    End Sub
+
+    Private Sub Draw_SkyDome()
+        GL_PUSH_GROUP("Draw_SkyDome")
+
+        FBOm.attach_CNGP()
+
+        SkyDomeShader.Use()
+
+        GL.Enable(EnableCap.CullFace)
+
+        GL.BindTextureUnit(0, theMap.Sky_Texture_Id)
+
+        GL.BindVertexArray(theMap.skybox_mdl.vao)
+        GL.DrawElements(PrimitiveType.Triangles, theMap.skybox_mdl.indices_count * 3, DrawElementsType.UnsignedShort, 0)
+
+        SkyDomeShader.StopUse()
+        GL.BindTextureUnit(0, 0)
+        GL.Disable(EnableCap.CullFace)
+
+        GL_POP_GROUP()
+    End Sub
+
+    Private Sub draw_map_cursor()
+        GL_PUSH_GROUP("draw_map_cursor")
+
+        DecalProject.Use()
+
+        GL.Uniform3(DecalProject("color_in"), 0.4F, 0.3F, 0.3F)
+
+        GL.Uniform1(DecalProject("depthMap"), 0)
+        GL.Uniform1(DecalProject("gFlag"), 1)
+        GL.Uniform1(DecalProject("colorMap"), 2)
+        GL.Uniform1(DecalProject("gGMF"), 3)
+
+        GL.BindTextureUnit(0, FBOm.gDepth)
+        GL.BindTextureUnit(1, FBOm.gGMF)
+        GL.BindTextureUnit(2, CURSOR_TEXTURE_ID)
+        GL.BindTextureUnit(3, FBOm.gGMF)
+
+        ' Track the terrain at Y
+        Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
+        Dim model_S = Matrix4.CreateScale(25.0F, 50.0F, 25.0F)
+
+        ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
+        Dim rotate = Matrix4.CreateRotationX(1.570796)
+        GL.Enable(EnableCap.CullFace)
+
+        GL.UniformMatrix4(DecalProject("DecalMatrix"), False, rotate * model_S * model_X)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        DecalProject.StopUse()
+        unbind_textures(3)
+
+        GL_POP_GROUP()
+    End Sub
+
+    Private Sub draw_terrain_base_rings()
+
+        GL_PUSH_GROUP("draw_terrain_base_rings")
+
+        BaseRingProjector.Use()
+
+        GL.Uniform1(BaseRingProjector("depthMap"), 0)
+        GL.Uniform1(BaseRingProjector("gGMF"), 1)
+        GL.BindTextureUnit(0, FBOm.gDepth)
+        GL.BindTextureUnit(1, FBOm.gGMF)
+
+        'constants
+        GL.Uniform1(BaseRingProjector("radius"), 50.0F)
+        GL.Uniform1(BaseRingProjector("thickness"), 2.0F)
+        Dim rotate = Matrix4.CreateRotationX(1.570796)
+        Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
+
+        ' base 1 ring
+        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
+        GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
+        GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Green)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        'base 2 ring
+        model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
+        GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
+        GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Red)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        BaseRingProjector.StopUse()
+        unbind_textures(2)
 
         GL_POP_GROUP()
     End Sub
@@ -1072,107 +1162,6 @@ Module modRender
     End Sub
 #End Region
 
-    Private Sub Draw_SkyDome()
-        GL_PUSH_GROUP("Draw_SkyDome")
-
-        FBOm.attach_CNGP()
-
-        SkyDomeShader.Use()
-
-        GL.Enable(EnableCap.CullFace)
-
-        GL.BindTextureUnit(0, theMap.Sky_Texture_Id)
-
-        GL.BindVertexArray(theMap.skybox_mdl.vao)
-        GL.DrawElements(PrimitiveType.Triangles, theMap.skybox_mdl.indices_count * 3, DrawElementsType.UnsignedShort, 0)
-
-        SkyDomeShader.StopUse()
-        GL.BindTextureUnit(0, 0)
-        GL.Disable(EnableCap.CullFace)
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub draw_map_cursor()
-        GL_PUSH_GROUP("draw_map_cursor")
-
-        DecalProject.Use()
-
-        GL.Uniform3(DecalProject("color_in"), 0.4F, 0.3F, 0.3F)
-
-        GL.Uniform1(DecalProject("depthMap"), 0)
-        GL.Uniform1(DecalProject("gFlag"), 1)
-        GL.Uniform1(DecalProject("colorMap"), 2)
-        GL.Uniform1(DecalProject("gGMF"), 3)
-
-        GL.BindTextureUnit(0, FBOm.gDepth)
-        GL.BindTextureUnit(1, FBOm.gGMF)
-        GL.BindTextureUnit(2, CURSOR_TEXTURE_ID)
-        GL.BindTextureUnit(3, FBOm.gGMF)
-
-        ' Track the terrain at Y
-        Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
-        Dim model_S = Matrix4.CreateScale(25.0F, 50.0F, 25.0F)
-
-        ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
-        Dim rotate = Matrix4.CreateRotationX(1.570796)
-        GL.Enable(EnableCap.CullFace)
-
-        GL.UniformMatrix4(DecalProject("DecalMatrix"), False, rotate * model_S * model_X)
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        DecalProject.StopUse()
-        unbind_textures(3)
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub draw_terrain_base_rings()
-
-        GL_PUSH_GROUP("draw_terrain_base_rings")
-
-        BaseRingProjector.Use()
-
-        GL.Uniform1(BaseRingProjector("depthMap"), 0)
-        GL.Uniform1(BaseRingProjector("gGMF"), 1)
-        GL.BindTextureUnit(0, FBOm.gDepth)
-        GL.BindTextureUnit(1, FBOm.gGMF)
-
-        'constants
-        GL.Uniform1(BaseRingProjector("radius"), 50.0F)
-        GL.Uniform1(BaseRingProjector("thickness"), 2.0F)
-        Dim rotate = Matrix4.CreateRotationX(1.570796)
-        Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
-
-        ' base 1 ring
-        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
-        GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
-        GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Green)
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        'base 2 ring
-        model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
-        GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
-        GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Red)
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        BaseRingProjector.StopUse()
-        unbind_textures(2)
-
-        GL_POP_GROUP()
-    End Sub
-
-    ''' <summary>
-    ''' Unbinds textures from last used to zero
-    ''' </summary>
     Private Sub unbind_textures(ByVal start As Integer)
         'doing this backwards leaves TEXTURE0 active :)
         For i = start To 0 Step -1
@@ -1184,7 +1173,6 @@ Module modRender
         GL.Uniform4(deferredShader("rect"), 0.0F, CSng(-h), CSng(w), 0.0F)
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-        ' GL.BindVertexArray(0)
     End Sub
 
     Public Sub draw_text(ByRef text As String,
@@ -1193,7 +1181,8 @@ Module modRender
                          ByRef color As OpenTK.Graphics.Color4,
                          ByRef center As Boolean,
                          ByRef mask As Integer)
-        'text, loc X, loc Y, color, Center text at X location.
+        ' text, loc X, loc Y, color, Center text at X location,
+        ' mask 1 = drak background.
 
         '=======================================================================
         'draw text at location.
