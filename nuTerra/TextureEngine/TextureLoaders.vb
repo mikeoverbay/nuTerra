@@ -113,16 +113,27 @@ Module TextureLoaders
         Return image_id
     End Function
 
-    Public Enum DdsPixelFormatFlag
-        AlphaFlag = &H1
-        FourCCFlag = &H4
-        RGBFlag = &H40
-        RGBAFlag = RGBFlag Or AlphaFlag
-        YUVFlag = &H200
-        LuminanceFlag = &H20000
-    End Enum
-
     Public Class DDSHeader
+        Public Enum DdsPixelFormatFlag
+            AlphaFlag = &H1
+            FourCCFlag = &H4
+            RGBFlag = &H40
+            RGBAFlag = RGBFlag Or AlphaFlag
+            YUVFlag = &H200
+            LuminanceFlag = &H20000
+        End Enum
+
+        Public Enum DdsCaps2Flags
+            CubemapFlag = &H200
+            CubemapPositiveXFlag = &H400
+            CubemapNegativeXFlag = &H800
+            CubemapPositiveYFlag = &H1000
+            CubemapNegativeYFlag = &H2000
+            CubemapPositiveZFlag = &H4000
+            CubemapNegativeZFlag = &H8000
+            VolumeFlag = &H200000
+        End Enum
+
         Public height As Int32
         Public width As Int32
         Public mipMapCount As Int32
@@ -135,74 +146,74 @@ Module TextureLoaders
         Public blueMask As UInt32
         Public alphaMask As UInt32
         Public caps As UInt32
-        Public caps2 As UInt32
+        Public caps2 As DdsCaps2Flags
 
-        ReadOnly Property is_uncompressed As Boolean
+        Public Class FormatInfo
+            Public pixel_format As OpenGL.PixelFormat
+            Public texture_format As SizedInternalFormat
+            Public pixel_type As PixelType
+            Public components As Integer
+            Public compressed As Boolean
+        End Class
+
+        ReadOnly Property format_info As FormatInfo
             Get
-                Return Not flags.HasFlag(DdsPixelFormatFlag.FourCCFlag)
-            End Get
-        End Property
-
-        ReadOnly Property gl_format As InternalFormat
-            Get
-                If is_uncompressed Then
-                    Debug.Print("TODO: is_uncompressed")
-                    Stop
-                    Return -1
-                End If
-
+                Debug.Assert(flags.HasFlag(DdsPixelFormatFlag.FourCCFlag))
                 Select Case FourCC
                     Case "DXT1"
-                        Return InternalFormat.CompressedRgbaS3tcDxt1Ext
+                        Return New FormatInfo With {
+                            .pixel_format = -1, ' no source type
+                            .texture_format = InternalFormat.CompressedRgbaS3tcDxt1Ext,
+                            .pixel_type = -1, ' no pixel type
+                            .components = 8,
+                            .compressed = True
+                        }
                     Case "DXT3"
-                        Return InternalFormat.CompressedRgbaS3tcDxt3Ext
+                        Return New FormatInfo With {
+                            .pixel_format = -1, ' no source type
+                            .texture_format = InternalFormat.CompressedRgbaS3tcDxt3Ext,
+                            .pixel_type = -1, ' no pixel type
+                            .components = 16,
+                            .compressed = True
+                        }
                     Case "DXT5"
-                        Return InternalFormat.CompressedRgbaS3tcDxt5Ext
-                    Case Else ' DX10 ?
-                        'Stop
-                        Return -1
+                        Return New FormatInfo With {
+                            .pixel_format = -1, ' no source type
+                            .texture_format = InternalFormat.CompressedRgbaS3tcDxt5Ext,
+                            .pixel_type = -1, ' no pixel type
+                            .components = 16,
+                            .compressed = True
+                        }
+                    Case "t" & vbNullChar & vbNullChar & vbNullChar
+                        ' DXGI_FORMAT_R32G32B32A32_FLOAT 
+                        Return New FormatInfo With {
+                            .pixel_format = OpenGL.PixelFormat.Rgba,
+                            .texture_format = InternalFormat.Rgba32f,
+                            .pixel_type = PixelType.Float,
+                            .components = 16,
+                            .compressed = False
+                        }
+                    Case Else
+                        Stop
+                        Return Nothing
                 End Select
             End Get
         End Property
 
         ReadOnly Property faces As Integer
             Get
-                Const CubemapPositiveXFlag = &H400
-                Const CubemapNegativeXFlag = &H800
-                Const CubemapPositiveYFlag = &H1000
-                Const CubemapNegativeYFlag = &H2000
-                Const CubemapPositiveZFlag = &H4000
-                Const CubemapNegativeZFlag = &H8000
                 Dim AllCubemapFaceFlags() = {
-                    CubemapPositiveXFlag, CubemapNegativeXFlag,
-                    CubemapPositiveYFlag, CubemapNegativeYFlag,
-                    CubemapPositiveZFlag, CubemapNegativeZFlag
+                    DdsCaps2Flags.CubemapPositiveXFlag, DdsCaps2Flags.CubemapNegativeXFlag,
+                    DdsCaps2Flags.CubemapPositiveYFlag, DdsCaps2Flags.CubemapNegativeYFlag,
+                    DdsCaps2Flags.CubemapPositiveZFlag, DdsCaps2Flags.CubemapNegativeZFlag
                 }
                 Dim result = 0
                 For Each flag In AllCubemapFaceFlags
-                    If (caps2 And flag) = flag Then
+                    If caps2.HasFlag(flag) Then
                         result += 1
                     End If
                 Next
                 Return result
-            End Get
-        End Property
-
-        ReadOnly Property gl_block_size As Integer
-            Get
-                Debug.Assert((flags And &H4) <> 0)
-
-                Select Case FourCC
-                    Case "DXT1"
-                        Return 8
-                    Case "DXT3"
-                        Return 16
-                    Case "DXT5"
-                        Return 16
-                    Case Else ' DX10 ?
-                        'Stop
-                        Return -1
-                End Select
             End Get
         End Property
     End Class
@@ -242,9 +253,11 @@ Module TextureLoaders
             Return image_id
         End If
         Dim e1 = GL.GetError()
+
         ms.Position = 0
-        Dim br As New BinaryReader(ms, System.Text.Encoding.ASCII)
-        Dim dds_header = get_dds_header(br)
+        Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
+            Dim dds_header = get_dds_header(br)
+            ms.Position = 128
 
             'Select Case dds_header.caps
             '    Case &H1000
@@ -255,14 +268,6 @@ Module TextureLoaders
             '        Debug.Assert(False) ' Cubemap ?
             'End Select
 
-            Dim format As SizedInternalFormat = dds_header.gl_format
-            Dim blockSize = dds_header.gl_block_size
-            If blockSize = -1 Then
-                Return -1
-            End If
-
-            ms.Position = 128
-
             image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
             'If image_id = 356 Then Stop
@@ -270,6 +275,7 @@ Module TextureLoaders
             'GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
             Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
 
+            Dim format_info = dds_header.format_info
             If dds_header.mipMapCount = 0 Or dds_header.mipMapCount = 1 Then
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, numLevels)
@@ -277,11 +283,21 @@ Module TextureLoaders
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-                GL.TextureStorage2D(image_id, numLevels, format, dds_header.width, dds_header.height)
+                GL.TextureStorage2D(image_id, numLevels, format_info.texture_format, dds_header.width, dds_header.height)
 
-                Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * blockSize
+                Dim size As Integer
+                If format_info.compressed Then
+                    size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
+                Else
+                    size = dds_header.width * dds_header.height * format_info.components
+                End If
                 Dim data = br.ReadBytes(size)
-                GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, dds_header.width, dds_header.height, DirectCast(format, OpenGL.PixelFormat), size, data)
+
+                If format_info.compressed Then
+                    GL.CompressedTextureSubImage2D(image_id, 0, 0, 0, dds_header.width, dds_header.height, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
+                Else
+                    GL.TextureSubImage2D(image_id, 0, 0, 0, dds_header.width, dds_header.height, format_info.pixel_format, format_info.pixel_type, data)
+                End If
 
                 'added 10/4/2020
                 GL.GenerateTextureMipmap(image_id)
@@ -294,7 +310,7 @@ Module TextureLoaders
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
                 GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-                GL.TextureStorage2D(image_id, dds_header.mipMapCount, format, dds_header.width, dds_header.height)
+                GL.TextureStorage2D(image_id, dds_header.mipMapCount, format_info.texture_format, dds_header.width, dds_header.height)
 
                 Dim w = dds_header.width
                 Dim h = dds_header.height
@@ -306,18 +322,31 @@ Module TextureLoaders
                         Continue For
                     End If
 
-                    Dim size = ((w + 3) \ 4) * ((h + 3) \ 4) * blockSize
+                    Dim size As Integer
+                    If format_info.compressed Then
+                        size = ((w + 3) \ 4) * ((h + 3) \ 4) * format_info.components
+                    Else
+                        size = w * h * format_info.components
+                    End If
                     Dim data = br.ReadBytes(size)
-                    GL.CompressedTextureSubImage2D(image_id, i, 0, 0, w, h, DirectCast(format, OpenGL.PixelFormat), size, data)
+
+                    If format_info.compressed Then
+                        GL.CompressedTextureSubImage2D(image_id, i, 0, 0, w, h, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
+                    Else
+                        GL.TextureSubImage2D(image_id, i, 0, 0, w, h, format_info.pixel_format, format_info.pixel_type, data)
+                    End If
+
                     w /= 2
                     h /= 2
                 Next
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
             End If
-        Dim e2 = GL.GetError()
-        If e2 > 0 Then
-            Stop
-        End If
+
+            Dim e2 = GL.GetError()
+            If e2 > 0 Then
+                Stop
+            End If
+        End Using
         If fn.Length = 0 Then Return image_id
         add_image(fn, image_id)
         Return image_id
@@ -329,8 +358,8 @@ Module TextureLoaders
         Dim image_id As Integer
         If imageType = Il.IL_DDS Then
             image_id = load_dds_image_from_stream(ms, fn)
+            If image_id > 0 Then Return image_id
         End If
-        If image_id > 0 Then Return image_id
 
         ms.Position = 0
 

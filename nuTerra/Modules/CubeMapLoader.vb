@@ -35,8 +35,7 @@ Module CubeMapLoader
             Dim faces = dds_header.faces
             Debug.Assert(faces = 6)
 
-            Dim format As SizedInternalFormat = dds_header.gl_format
-            Dim blockSize = dds_header.gl_block_size
+            Dim format_info = dds_header.format_info
 
             ms.Position = 128
 
@@ -49,7 +48,7 @@ Module CubeMapLoader
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            GL.TextureStorage2D(CUBE_TEXTURE_ID, dds_header.mipMapCount, format, dds_header.width, dds_header.height)
+            GL.TextureStorage2D(CUBE_TEXTURE_ID, dds_header.mipMapCount, format_info.texture_format, dds_header.width, dds_header.height)
 
             Dim e1 = GL.GetError()
             If e1 > 0 Then
@@ -66,9 +65,9 @@ Module CubeMapLoader
                         Continue For
                     End If
 
-                    Dim size = ((w + 3) \ 4) * ((h + 3) \ 4) * blockSize
+                    Dim size = ((w + 3) \ 4) * ((h + 3) \ 4) * format_info.components
                     Dim data = br.ReadBytes(size)
-                    GL.CompressedTextureSubImage3D(CUBE_TEXTURE_ID, i, 0, 0, face, w, h, 1, DirectCast(format, OpenGL.PixelFormat), size, data)
+                    GL.CompressedTextureSubImage3D(CUBE_TEXTURE_ID, i, 0, 0, face, w, h, 1, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                     w /= 2
                     h /= 2
                 Next

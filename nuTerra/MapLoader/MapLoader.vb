@@ -820,6 +820,8 @@ Module MapLoader
                     Dim dds_header = get_dds_header(dds_br)
                     dds_ms.Position = 128
 
+                    Dim format_info = dds_header.format_info
+
                     If i = 0 Then 'run once
 
                         ' gets size of atlas
@@ -833,8 +835,7 @@ Module MapLoader
                         Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
 
                         atlas_tex = CreateTexture(TextureTarget.Texture2D, atlasPath)
-                        GL.TextureStorage2D(atlas_tex, numLevels,
-                                            DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
+                        GL.TextureStorage2D(atlas_tex, numLevels, format_info.texture_format, fullWidth, fullHeight)
 
                         GL.TextureParameter(atlas_tex, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 3)
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
@@ -845,13 +846,13 @@ Module MapLoader
                         GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
                     End If
 
-                    Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * dds_header.gl_block_size
+                    Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
                     Dim data = dds_br.ReadBytes(size)
 
                     Dim xoffset = CInt(coords.x0 * multiplierX)
                     Dim yoffset = CInt(coords.y0 * multiplierY)
                     GL.CompressedTextureSubImage2D(atlas_tex, 0, xoffset, yoffset, dds_header.width, dds_header.height,
-                                                   DirectCast(dds_header.gl_format, OpenGL.PixelFormat), size, data)
+                                                   DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                 End Using
             Next
             GL.GenerateTextureMipmap(atlas_tex)
