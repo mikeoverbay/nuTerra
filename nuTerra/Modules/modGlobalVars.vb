@@ -33,6 +33,11 @@ Module modGlobalVars
     Public AMBIENTSUNCOLOR As Vector3
     Public SSAA_enable As Boolean = True
     Public SSAA_text As String = "SSAA On"
+    Public TIME_OF_DAY As Single
+    Public SUN_SCALE As Single
+    Public SUN_TEXTURE_PATH As String
+    Public SUN_TEXTURE_ID As Integer
+    Public SUN_RENDER_COLOR As Vector3
     '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer
@@ -82,7 +87,9 @@ Module modGlobalVars
     '============================================================
     Public LIGHT_POS As Vector3
     Public LIGHT_RADIUS As Single 'Used when orbiting the light
-    Public LIGHT_ORBIT_ANGLE As Single 'Used when orbiting the light
+    Public LIGHT_ORBIT_ANGLE_X As Single 'Used when orbiting the light
+    Public LIGHT_ORBIT_ANGLE_Z As Single 'Used when orbiting the light
+    Public LIGHT_ORBIT_ANGLE As Single
     Public PAUSE_ORBIT As Boolean = True
     Public LIGHT_SPEED As Single = 0.02F
     '============================================================

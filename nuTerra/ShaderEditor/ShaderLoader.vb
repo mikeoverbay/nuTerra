@@ -157,6 +157,7 @@ Module ShaderLoader
     Public CrossHairShader As Shader
     Public DecalProject As Shader
     Public deferredShader As Shader
+    Public FF_BillboardShader As Shader
     Public frustumShader As Shader
     Public glassPassShader As Shader
     Public gWriterShader As Shader
@@ -201,6 +202,7 @@ Module ShaderLoader
         'unused: CrossHairShader = New Shader("CrossHair")
         DecalProject = New Shader("DecalProject")
         deferredShader = New Shader("deferred")
+        FF_BillboardShader = New Shader("FF_billboard")
         'unused: frustumShader = New Shader("frustum")
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")
@@ -231,6 +233,7 @@ Module ShaderLoader
         'unused: shaders.Add(CrossHairShader)
         shaders.Add(DecalProject)
         shaders.Add(deferredShader)
+        shaders.Add(FF_BillboardShader)
         'unused: shaders.Add(frustumShader)
         shaders.Add(image2dFlipShader)
         shaders.Add(image2dShader)

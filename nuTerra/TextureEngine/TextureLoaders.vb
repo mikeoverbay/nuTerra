@@ -159,7 +159,7 @@ Module TextureLoaders
                     Case "DXT5"
                         Return InternalFormat.CompressedRgbaS3tcDxt5Ext
                     Case Else ' DX10 ?
-                        Stop
+                        'Stop
                         Return -1
                 End Select
             End Get
@@ -200,7 +200,7 @@ Module TextureLoaders
                     Case "DXT5"
                         Return 16
                     Case Else ' DX10 ?
-                        Stop
+                        'Stop
                         Return -1
                 End Select
             End Get
@@ -243,8 +243,8 @@ Module TextureLoaders
         End If
         Dim e1 = GL.GetError()
         ms.Position = 0
-        Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
-            Dim dds_header = get_dds_header(br)
+        Dim br As New BinaryReader(ms, System.Text.Encoding.ASCII)
+        Dim dds_header = get_dds_header(br)
 
             'Select Case dds_header.caps
             '    Case &H1000
@@ -257,6 +257,9 @@ Module TextureLoaders
 
             Dim format As SizedInternalFormat = dds_header.gl_format
             Dim blockSize = dds_header.gl_block_size
+            If blockSize = -1 Then
+                Return -1
+            End If
 
             ms.Position = 128
 
@@ -311,7 +314,6 @@ Module TextureLoaders
                 Next
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
             End If
-        End Using
         Dim e2 = GL.GetError()
         If e2 > 0 Then
             Stop
@@ -324,12 +326,11 @@ Module TextureLoaders
     Public Function load_image_from_stream(ByRef imageType As Integer, ByRef ms As MemoryStream, ByRef fn As String, ByRef MIPS As Boolean, ByRef NEAREST As Boolean) As Integer
         'imageType = il.IL_imageType : ms As MemoryStream : filename as string : Create Mipmaps if True : NEAREST = True / LINEAR if False
         'File name is needed to add to our list of loaded textures
-
-        If imageType = Il.IL_DDS Then
-            Return load_dds_image_from_stream(ms, fn)
-        End If
-
         Dim image_id As Integer
+        If imageType = Il.IL_DDS Then
+            image_id = load_dds_image_from_stream(ms, fn)
+        End If
+        If image_id > 0 Then Return image_id
 
         ms.Position = 0
 

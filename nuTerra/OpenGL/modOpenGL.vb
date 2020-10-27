@@ -132,13 +132,6 @@ Module modOpenGL
         GL.NamedBufferSubData(PerViewDataBuffer, IntPtr.Zero, Marshal.SizeOf(PerViewData), PerViewData)
     End Sub
 
-    Public Sub set_light_pos()
-        LIGHT_POS.X = 400.0F
-        LIGHT_POS.Y = 200.0F
-        LIGHT_POS.Z = 400.0F
-        LIGHT_RADIUS = Sqrt(LIGHT_POS.X ^ 2 + LIGHT_POS.Z ^ 2)
-        LIGHT_ORBIT_ANGLE = Atan2(LIGHT_RADIUS / LIGHT_POS.Z, LIGHT_RADIUS / LIGHT_POS.Y)
-    End Sub
 
     Public Sub draw_color_rectangle(rect As RectangleF, color As Color4)
         rect2dShader.Use()

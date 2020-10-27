@@ -279,7 +279,6 @@ Module TerrainBuilder
         '==========================================================
         'Get the settings for this map
         get_team_locations_and_field_BB(ABS_NAME)
-        get_Sky_Dome(ABS_NAME)
 
         '==========================================================
         'get minimap
@@ -412,7 +411,7 @@ Module TerrainBuilder
         ReDim Preserve theMap.render_set(cnt - 1)
     End Sub
 
-    Private Sub get_Sky_Dome(abs_name As String)
+    Public Sub get_environment_info(abs_name As String)
         'Dim terrain As New DataTable
         Dim ms As New MemoryStream
         Dim f = Packages.MAP_PACKAGE("spaces/" + abs_name + "/environments/environments.xml")
@@ -425,6 +424,8 @@ Module TerrainBuilder
         Dim te As DataTable = ds.Tables("map_" + abs_name)
         Dim q = From row In te Select ename = row.Field(Of String)("environment")
 
+        '===========================================================================
+        'get skybox and cube texture paths
         theMap.skybox_path = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/skyDome/forward/skyBox.visual_processed"
         theMap.skybox_mdl = get_X_model(Application.StartupPath + "\resources\skyDome.x")
 
@@ -444,18 +445,40 @@ Module TerrainBuilder
         End If
         Dim envPath = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/environment.xml"
         entry = Packages.MAP_PACKAGE(envPath)
+
+        '===========================================================================
+        'get sun information and time of day.
         If entry IsNot Nothing Then
             ms = New MemoryStream
             entry.Extract(ms)
             openXml_stream(ms, Path.GetFileName(envPath))
             Dim day_light As DataTable = xmldataset.Tables("day_night_cycle")
             Dim q2 = From row In day_light Select
-            sunColor = row.Field(Of String)("sunLightColorForward"),
-            ambientSunColor = row.Field(Of String)("ambientColorForward")
+                        sunColor = row.Field(Of String)("sunLightColorForward"),
+                        ambientSunColor = row.Field(Of String)("ambientColorForward"),
+                        time_ = row.Field(Of String)("starttime"),
+                        sun_scale = row.Field(Of String)("sunScaleForward"),
+                        sun_path = row.Field(Of String)("sunTextureForward"),
+                        sun_color = row.Field(Of String)("sunColorForward")
+
 
             SUNCOLOR = vector3_from_string(q2(0).sunColor)
             AMBIENTSUNCOLOR = vector3_from_string(q2(0).ambientSunColor)
-
+            TIME_OF_DAY = Convert.ToSingle(q2(0).time_)
+            SUN_SCALE = Convert.ToSingle(q2(0).sun_scale)
+            SUN_TEXTURE_PATH = q2(0).sun_path
+            'default
+            If SUN_TEXTURE_PATH = "" Then
+                SUN_TEXTURE_PATH = "system/maps/PSF2_ldr.dds"
+            End If
+            SUN_RENDER_COLOR = vector3_from_string(q2(0).sun_color)
+            'sun rotation/location
+            Dim forward As DataTable = xmldataset.Tables("forward")
+            Dim q3 = From row In forward Select
+                        rotateX = row.Field(Of String)("angle"),
+                        rotateZ = row.Field(Of String)("angleZ")
+            LIGHT_ORBIT_ANGLE_X = q3(1).rotateX
+            LIGHT_ORBIT_ANGLE_Z = q3(1).rotateZ
         End If
     End Sub
     Private Function vector3_from_string(ByRef s As String) As Vector3

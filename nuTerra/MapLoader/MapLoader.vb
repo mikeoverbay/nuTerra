@@ -28,6 +28,8 @@ Module MapLoader
         Public Shared GUI_PACKAGE As ZipFile
         Public Shared GUI_PACKAGE_PART2 As ZipFile
 
+        Public Shared MISC_PACKAGE As ZipFile
+
         'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
         Public Shared PKG_DATA_TABLE As New DataTable("items")
     End Class
@@ -105,19 +107,23 @@ Module MapLoader
                 Return entry
             End If
         End If
+
         'look in SD shared package files
         'check map pkg first
         entry = Packages.MAP_PACKAGE(filename)
         If entry Is Nothing Then
-            entry = Packages.SHARED_PART_1(filename)
+            entry = Packages.MISC_PACKAGE(filename)
             If entry Is Nothing Then
-                entry = Packages.SHARED_PART_2(filename)
+                entry = Packages.SHARED_PART_1(filename)
                 If entry Is Nothing Then
-                    entry = Packages.SAND_BOX_PART_1(filename)
+                    entry = Packages.SHARED_PART_2(filename)
                     If entry Is Nothing Then
-                        entry = Packages.SAND_BOX_PART_2(filename)
+                        entry = Packages.SAND_BOX_PART_1(filename)
                         If entry Is Nothing Then
-                            entry = Packages.MAP_PARTICLES(filename)
+                            entry = Packages.SAND_BOX_PART_2(filename)
+                            If entry Is Nothing Then
+                                entry = Packages.MAP_PARTICLES(filename)
+                            End If
                         End If
                     End If
                 End If
@@ -198,6 +204,7 @@ Module MapLoader
         Packages.SAND_BOX_PART_2 = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox-part2.pkg"))
 
         Packages.MAP_PARTICLES = New ZipFile(Path.Combine(GAME_PATH, "particles.pkg"))
+        Packages.MISC_PACKAGE = New ZipFile(Path.Combine(GAME_PATH, "misc.pkg"))
     End Sub
 
     Public Sub close_shared_packages()
@@ -307,7 +314,15 @@ Module MapLoader
             Return
         End If
         '===============================================================
-
+        'need this for all rendering states
+        get_environment_info(ABS_NAME)
+        '===============================================================
+        Dim entry = search_pkgs(SUN_TEXTURE_PATH)
+        If entry IsNot Nothing Then
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+            SUN_TEXTURE_ID = load_image_from_stream(Il.IL_DDS, ms, SUN_TEXTURE_PATH, False, False)
+        End If
         '===============================================================
         If DONT_BLOCK_MODELS Then
 
@@ -598,16 +613,32 @@ Module MapLoader
         SHOW_LOADING_SCREEN = False
         'LOOK_AT_X = 0.001
         'LOOK_AT_Z = 0.001
-        frmMain.check_postion_for_update() ' need to initialize crusor altitude
+        '===================================================
+        ' Set sun location from map data
+        ' Set initial light position and get radius and angle.
 
-        'Maintains constant grow shrink regardless of frame rate.
+        LIGHT_RADIUS = MAP_SIZE.Length / 2.0 * 100.0
+        LIGHT_POS(0) = Math.Cos(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
+        LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X * 0.0174533) * LIGHT_RADIUS
+        LIGHT_POS(2) = Math.Sin(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
+        set_light_pos() 'for light rotation animation
+        '===================================================
 
+        frmMain.check_postion_for_update() ' need to initialize cursor altitude
         ' close packages
         close_shared_packages()
 
-        'dEnable main menu
+        'Enable main menu
         frmMain.MainMenuStrip.Enabled = True
 
+    End Sub
+
+    Public Sub set_light_pos()
+        LIGHT_POS.X = LIGHT_POS(0)
+        LIGHT_POS.Y = LIGHT_POS(1)
+        LIGHT_POS.Z = LIGHT_POS(2)
+        LIGHT_RADIUS = Math.Sqrt(LIGHT_POS.X ^ 2 + LIGHT_POS.Z ^ 2)
+        LIGHT_ORBIT_ANGLE = Math.Atan2(LIGHT_RADIUS / LIGHT_POS.Z, LIGHT_RADIUS / LIGHT_POS.Y)
     End Sub
 
     Private Structure AtlasCoords

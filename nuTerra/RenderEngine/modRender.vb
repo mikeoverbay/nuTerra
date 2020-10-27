@@ -64,7 +64,7 @@ Module modRender
         '===========================================================================
 
         If TERRAIN_LOADED And DONT_BLOCK_SKY Then Draw_SkyDome()
-
+        If TERRAIN_LOADED Then draw_sun()
         '===========================================================================
         'GL States 
         GL.Enable(EnableCap.DepthTest)
@@ -165,6 +165,30 @@ Module modRender
         End If
 
         FPS_COUNTER += 1
+    End Sub
+
+    Private Sub draw_sun()
+
+        FBOm.attach_C()
+        ' Dim matrix = Matrix4.CreateTranslation(New Vector3(LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2)))
+
+        'test only
+        Dim matrix = Matrix4.CreateTranslation(New Vector3(0F, 100.0F, 0F))
+
+
+        FF_BillboardShader.Use()
+        GL.Uniform1(FF_BillboardShader("colorMap"), 0)
+        GL.UniformMatrix4(FF_BillboardShader("matrix"), False, matrix)
+        GL.Uniform3(FF_BillboardShader("color"), SUN_RENDER_COLOR.X / 100.0F, SUN_RENDER_COLOR.Y / 100.0F, SUN_RENDER_COLOR.Z / 100.0F)
+        GL.Uniform1(FF_BillboardShader("scale"), 10.0F)
+        GL.BindTextureUnit(0, SUN_TEXTURE_ID)
+
+        GL.Uniform4(deferredShader("rect"), -0.5F, -0.5F, 0.5F, 0.5F)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        FF_BillboardShader.StopUse()
+
     End Sub
 
     Private Sub frustum_cull()

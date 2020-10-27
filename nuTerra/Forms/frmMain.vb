@@ -425,8 +425,6 @@ try_again:
         VIEW_RADIUS = -1000.0
         CAM_X_ANGLE = PI / 4
         CAM_Y_ANGLE = -PI / 4
-        ' Set initial light position and get radius and angle.
-        set_light_pos()
 
         'Everything is setup/loaded to show the main window.
         'Dispose of the no longer used Panel1
@@ -606,11 +604,11 @@ try_again:
                 WASD_movement()
                 '==============================================================
                 If Not PAUSE_ORBIT Then
-                    LIGHT_ORBIT_ANGLE += (DELTA_TIME * 0.5)
-                    If LIGHT_ORBIT_ANGLE > PI * 2 Then LIGHT_ORBIT_ANGLE -= PI * 2
-                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                    LIGHT_POS(1) = 200.0 'Cos(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
-                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE) * LIGHT_RADIUS
+                    LIGHT_ORBIT_ANGLE_Z += (DELTA_TIME * 0.5)
+                    If LIGHT_ORBIT_ANGLE_Z > PI * 2 Then LIGHT_ORBIT_ANGLE_Z -= PI * 2
+                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
+                    LIGHT_POS(1) = Cos(LIGHT_ORBIT_ANGLE_X) * LIGHT_RADIUS
+                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
                 End If
                 CROSS_HAIR_TIME += (DELTA_TIME * 0.5)
                 If CROSS_HAIR_TIME > 1.0F Then
