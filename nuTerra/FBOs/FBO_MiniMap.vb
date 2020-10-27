@@ -47,7 +47,7 @@ Module FBO_MiniMap
         Public Shared Sub create_textures()
             ' gColor ------------------------------------------------------------------------------------------
             '4 color int : RGB and alpha
-            GL.CreateTextures(TextureTarget.Texture2D, 1, gColor)
+            gColor = CreateTexture(TextureTarget.Texture2D, "gColor")
             GL.TextureParameter(gColor, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
             GL.TextureParameter(gColor, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             GL.TextureParameter(gColor, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)

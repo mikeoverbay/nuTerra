@@ -24,8 +24,6 @@ Module TerrainTextureFunctions
             .TexLayers(3).Blend_id = DUMMY_TEXTURE_ID
         End With
 
-        get_dominate_texture(map) ' get dom... for what I have no idea.
-
         Get_layer_texture_data(map) ' get all the data
 
         ' we have the data so lets get the textures.
@@ -281,141 +279,6 @@ Module TerrainTextureFunctions
         Return True
     End Function
 
-    Public Sub get_dominate_texture(ByVal map As Integer)
-        'lets not waste time loading this!
-        theMap.render_set(map).dom_texture_id = DUMMY_TEXTURE_ID ' just because tho it isnt ever used
-        Return
-
-
-        Dim ms As New MemoryStream(theMap.chunks(map).dominateTestures_data)
-        ms.Position = 0
-        Dim br As New BinaryReader(ms, Encoding.ASCII)
-
-        Dim magic = br.ReadUInt32()
-        Dim version = br.ReadUInt32()
-
-        Debug.Assert(magic = 7627117)
-        Debug.Assert(version = 1)
-
-        Dim number_of_textures As Integer = br.ReadUInt32()
-        Dim texture_string_length As Integer = br.ReadUInt32()
-
-        Dim d_width As Integer = br.ReadUInt32()
-        Dim d_height As Integer = br.ReadUInt32()
-
-        ' skip 8 bytes
-        br.BaseStream.Position += 8
-
-
-        ReDim theMap.render_set(map).dom_tex_list(7)
-        For i = 0 To 7
-            theMap.render_set(map).dom_tex_list(i) = ""
-        Next
-        For i = 0 To number_of_textures - 1
-            Dim s_buff As Char() = br.ReadChars(texture_string_length)
-            Dim nullPos = Array.IndexOf(s_buff, CType(vbNullChar, Char))
-            If nullPos <> -1 Then
-                Array.Resize(s_buff, nullPos)
-            End If
-            theMap.render_set(map).dom_tex_list(i) = s_buff
-        Next
-
-        Dim mg1 = br.ReadUInt32()
-        Dim mg2 = br.ReadUInt32()
-
-        Debug.Assert(mg1 = 2053730304)
-        Debug.Assert(mg2 = 1118801953)
-
-        Dim uncompressedsize = br.ReadInt32()
-
-        Dim buff(65536) As Byte
-        Dim total_read As Integer = 0
-
-        Using Decompress As New Zlib.ZlibStream(ms, Zlib.CompressionMode.Decompress, False)
-            Decompress.BufferSize = 65536
-            Dim numRead As Integer
-            numRead = Decompress.Read(buff, 0, buff.Length)
-            total_read = numRead
-        End Using
-
-        ReDim Preserve buff(total_read)
-        Dim c_buff((total_read) * 4) As Byte
-
-        Dim cnt As Integer = 0
-        Dim cnt2 As Integer = 0
-        'only one channel matters but lets make it grey to visualize.
-        Dim sb As New StringBuilder
-        sb.Length = 0
-        Dim dom_id As Integer = 0
-        For i = 0 To total_read - 1
-            sb.Append(buff(i).ToString + " ")
-            dom_id = dom_id Or buff(i)
-            c_buff(cnt + 0) = (buff(i) And &HF) << 4
-            c_buff(cnt + 1) = (buff(i) And &HF0) ' << 4
-            c_buff(cnt + 2) = 0
-            c_buff(cnt + 3) = 255
-            cnt += 4
-            cnt2 += 1
-            If cnt2 = 128 Then
-                sb.Append(vbCrLf)
-                cnt2 = 0
-            End If
-        Next
-        theMap.render_set(map).dom_id = dom_id
-        File.WriteAllText("c:\!_bin_data\!dom_" + map.ToString("000") + ".txt", sb.ToString)
-
-        'done with these so dispose of them.
-
-        br.Close()
-        br.Dispose()
-        ms.Dispose()
-
-        Dim h, w As Integer
-        w = d_width
-        h = d_height
-        Dim stride = (w / 2)
-
-        '------------------------------------------------------------------
-        'convert to 4 color data.
-        'w = stride * 8 : h = h * 2
-        'need point in to dbuff color buffer array
-        Dim bufPtr As IntPtr = Marshal.AllocHGlobal(c_buff.Length - 1)
-        Marshal.Copy(c_buff, 0, bufPtr, c_buff.Length - 1) ' copy dbuff to pufPtr's memory
-        Dim texID = Ilu.iluGenImage() ' Generation of one image name
-        Il.ilBindImage(texID) ' Binding of image name 
-        Dim success = Il.ilGetError
-
-        Il.ilTexImage(w, h, 1, 4, Il.IL_RGBA, Il.IL_UNSIGNED_BYTE, bufPtr) ' Create new image from bufPtr's data
-        success = Il.ilGetError
-
-        Marshal.FreeHGlobal(bufPtr) ' free this up
-
-        If success = Il.IL_NO_ERROR Then
-            Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
-            Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
-            Dim f = Il.IL_FALSE
-            Dim t = Il.IL_TRUE
-            Ilu.iluMirror()
-
-            GL.CreateTextures(TextureTarget.Texture2D, 1, theMap.render_set(map).dom_texture_id)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, theMap.render_set(map).dom_texture_id, -1, String.Format("TEX-{0}", "Dom_texture"))
-
-            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-
-            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            GL.TextureParameter(theMap.render_set(map).dom_texture_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-
-            GL.TextureStorage2D(theMap.render_set(map).dom_texture_id, 1, SizedInternalFormat.Rgba8, width, height)
-            GL.TextureSubImage2D(theMap.render_set(map).dom_texture_id, 0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
-
-            Il.ilBindImage(0)
-            Ilu.iluDeleteImage(texID)
-        Else
-            MsgBox("Error Dom Texture! Il Error " + success.ToString, MsgBoxStyle.Exclamation, "Well Shit...")
-        End If
-    End Sub
-
     Public Function find_and_trim(ByRef fn As String) As Integer
         'finds and loads and returns the GL texture ID.
         Dim id = image_exists(fn) 'Check if this has been loaded already.
@@ -474,9 +337,7 @@ Module TerrainTextureFunctions
             Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
             Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
-            GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
-
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-{0}", fn))
+            image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
             Dim maxAniso As Single = 3.0F
             'GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)

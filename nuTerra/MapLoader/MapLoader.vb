@@ -373,15 +373,15 @@ Module MapLoader
             Dim uv2_size = Marshal.SizeOf(Of Vector2)()
 
             GL.CreateBuffers(1, MapGL.Buffers.verts)
-            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.verts, -1, "verts")
+            LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.verts, "verts")
             GL.NamedBufferStorage(MapGL.Buffers.verts, numVerts * vertex_size, IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
             GL.CreateBuffers(1, MapGL.Buffers.prims)
-            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.prims, -1, "prims")
+            LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.prims, "prims")
             GL.NamedBufferStorage(MapGL.Buffers.prims, numPrims * tri_size, IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
             GL.CreateBuffers(1, MapGL.Buffers.vertsUV2)
-            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.vertsUV2, -1, "vertsUV2")
+            LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.vertsUV2, "vertsUV2")
             GL.NamedBufferStorage(MapGL.Buffers.vertsUV2, numVerts * uv2_size, IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
 
             Dim matrices(MapGL.numModelInstances - 1) As ModelInstance
@@ -488,40 +488,40 @@ Module MapLoader
             Next
 
             GL.CreateBuffers(1, MapGL.Buffers.parameters)
-            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.parameters, -1, "parameters")
+            LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.parameters, "parameters")
             GL.NamedBufferStorage(MapGL.Buffers.parameters, 256, IntPtr.Zero, BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, MapGL.Buffers.parameters)
 
             GL.CreateBuffers(1, MapGL.Buffers.drawCandidates)
-            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.drawCandidates, -1, "drawCandidates")
+            LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.drawCandidates, "drawCandidates")
             GL.NamedBufferStorage(MapGL.Buffers.drawCandidates, MapGL.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw)(), drawCommands, BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, MapGL.Buffers.drawCandidates)
             Erase drawCommands
 
             GL.CreateBuffers(1, MapGL.Buffers.indirect)
-            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, -1, "indirect")
+            LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, "indirect")
             GL.NamedBufferStorage(MapGL.Buffers.indirect, MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand)(), IntPtr.Zero, BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, MapGL.Buffers.indirect)
 
             GL.CreateBuffers(1, MapGL.Buffers.indirect_glass)
-            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect_glass, -1, "indirect_glass")
+            LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect_glass, "indirect_glass")
             GL.NamedBufferStorage(MapGL.Buffers.indirect_glass, MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand)(), IntPtr.Zero, BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 5, MapGL.Buffers.indirect_glass)
 
             GL.CreateBuffers(1, MapGL.Buffers.matrices)
-            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, -1, "matrices")
+            LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, "matrices")
             GL.NamedBufferStorage(MapGL.Buffers.matrices, matrices.Length * Marshal.SizeOf(Of ModelInstance)(), matrices, BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.matrices)
             Erase matrices
 
             GL.CreateBuffers(1, MapGL.Buffers.lods)
-            GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.lods, -1, "lods")
+            LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.lods, "lods")
             GL.NamedBufferStorage(MapGL.Buffers.lods, lods.Length * Marshal.SizeOf(Of ModelLoD)(), lods, BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 4, MapGL.Buffers.lods)
             Erase lods
 
             GL.CreateVertexArrays(1, MapGL.VertexArrays.allMapModels)
-            GL.ObjectLabel(ObjectLabelIdentifier.VertexArray, MapGL.VertexArrays.allMapModels, -1, "allMapModels")
+            LabelObject(ObjectLabelIdentifier.VertexArray, MapGL.VertexArrays.allMapModels, "allMapModels")
 
             'pos
             GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 0, MapGL.Buffers.verts, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
@@ -801,8 +801,7 @@ Module MapLoader
                         'Calculate Max Mip Level based on width or height.. Which ever is larger.
                         Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
 
-                        GL.CreateTextures(TextureTarget.Texture2D, 1, atlas_tex)
-                        GL.ObjectLabel(ObjectLabelIdentifier.Texture, atlas_tex, -1, String.Format("TEX-{0}", atlasPath))
+                        atlas_tex = CreateTexture(TextureTarget.Texture2D, atlasPath)
                         GL.TextureStorage2D(atlas_tex, numLevels,
                                             DirectCast(dds_header.gl_format, SizedInternalFormat), fullWidth, fullHeight)
 
@@ -988,7 +987,7 @@ Module MapLoader
         materials = Nothing
 
         GL.CreateBuffers(1, MapGL.Buffers.materials)
-        GL.ObjectLabel(ObjectLabelIdentifier.Buffer, MapGL.Buffers.materials, -1, "materials")
+        LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.materials, "materials")
         GL.NamedBufferStorage(MapGL.Buffers.materials, materialsData.Length * Marshal.SizeOf(Of GLMaterial)(), materialsData, BufferStorageFlags.None)
         GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 3, MapGL.Buffers.materials)
     End Sub

@@ -128,7 +128,6 @@ Module TerrainBuilder
         Public layer As layer_render_info_
         Public b_x_size, b_y_size As Integer
         Public layer_count As Integer
-        Public dom_texture_id As Integer
         Public dom_tex_list() As String
         Public dom_id As Integer
         Public visible As Boolean ' frustum clipped flag

@@ -180,6 +180,18 @@ Module modOpenGL
 
     End Sub
 
+    Public Function CreateTexture(target As TextureTarget, name As String) As Integer
+        Dim tex_id As Integer
+        GL.CreateTextures(target, 1, tex_id)
+        LabelObject(ObjectLabelIdentifier.Texture, tex_id, name)
+        Return tex_id
+    End Function
+
+    <Conditional("DEBUG")>
+    Public Sub LabelObject(objLabelIdent As ObjectLabelIdentifier, glObject As Integer, name As String)
+        GL.ObjectLabel(objLabelIdent, glObject, name.Length, name)
+    End Sub
+
     Private Function pack_10(x As Single) As UInt32
         Dim qx As Int32 = MathHelper.Clamp(CType(x * 511.0F, Int32), -512, 511)
         If qx < 0 Then

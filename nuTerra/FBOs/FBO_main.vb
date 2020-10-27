@@ -129,18 +129,16 @@ Module FBO_main
         Public Shared Sub create_textures()
             ' gColor ------------------------------------------------------------------------------------------
             ' 4 color int : RGB and alpha
-            GL.CreateTextures(TextureTarget.Texture2D, 1, gColor)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gColor, -1, "tex_gColor")
+            gColor = CreateTexture(TextureTarget.Texture2D, "gColor")
             GL.TextureParameter(gColor, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gColor, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gColor, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             GL.TextureParameter(gColor, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             GL.TextureStorage2D(gColor, 1, SizedInternalFormat.Rgba8, SCR_WIDTH, SCR_HEIGHT)
 
-            ' AUX_tex_gColor -----------------------------------------------------------------------------------
+            ' AUX_gColor -----------------------------------------------------------------------------------
             ' 4 color int : RGB and alpha
-            GL.CreateTextures(TextureTarget.Texture2D, 1, gAUX_Color)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gAUX_Color, -1, "AUX_tex_gColor")
+            gAUX_Color = CreateTexture(TextureTarget.Texture2D, "AUX_gColor")
             GL.TextureParameter(gAUX_Color, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gAUX_Color, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gAUX_Color, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -149,8 +147,7 @@ Module FBO_main
 
             ' gNormal ------------------------------------------------------------------------------------------
             ' 3 color 16f : normal in RGB
-            GL.CreateTextures(TextureTarget.Texture2D, 1, gNormal)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gNormal, -1, "tex_gNormal")
+            gNormal = CreateTexture(TextureTarget.Texture2D, "gNormal")
             GL.TextureParameter(gNormal, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gNormal, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gNormal, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -159,8 +156,7 @@ Module FBO_main
 
             ' gGM_Flag ------------------------------------------------------------------------------------------
             ' 3 color int : GM in RG : Flag in b
-            GL.CreateTextures(TextureTarget.Texture2D, 1, gGMF)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gGMF, -1, "tex_gGMF")
+            gGMF = CreateTexture(TextureTarget.Texture2D, "gGMF")
             GL.TextureParameter(gGMF, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gGMF, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gGMF, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -169,8 +165,7 @@ Module FBO_main
 
             ' gPosition ------------------------------------------------------------------------------------------
             ' RGB16F
-            GL.CreateTextures(TextureTarget.Texture2D, 1, gPosition)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gPosition, -1, "tex_gPosition")
+            gPosition = CreateTexture(TextureTarget.Texture2D, "gPosition")
             GL.TextureParameter(gPosition, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gPosition, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gPosition, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
@@ -178,18 +173,17 @@ Module FBO_main
             GL.TextureStorage2D(gPosition, 1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gDepth ------------------------------------------------------------------------------------------
-            'DepthComponent24
-            GL.CreateTextures(TextureTarget.Texture2D, 1, gDepth)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gDepth, -1, "tex_gDepth")
+            ' DepthComponent24
+            gDepth = CreateTexture(TextureTarget.Texture2D, "gDepth")
             GL.TextureParameter(gDepth, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gDepth, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gDepth, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             GL.TextureParameter(gDepth, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             GL.TextureStorage2D(gDepth, 1, DirectCast(PixelInternalFormat.DepthComponent24, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+
             ' gPick ------------------------------------------------------------------------------------------
-            'R16 uInt
-            GL.CreateTextures(TextureTarget.Texture2D, 1, gPick)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, gPick, -1, "gPick")
+            ' R16 uInt
+            gPick = CreateTexture(TextureTarget.Texture2D, "gPick")
             GL.TextureParameter(gPick, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gPick, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gPick, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)

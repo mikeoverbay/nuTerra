@@ -93,11 +93,7 @@ Module TextureLoaders
     End Function
 
     Public Function load_t2_texture_from_stream(br As BinaryReader, w As Integer, h As Integer) As Integer
-        Dim image_id As Integer
-
-        GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
-
-        GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-{0}", "blend_Tex"))
+        Dim image_id As Integer = CreateTexture(TextureTarget.Texture2D, "blend_Tex")
 
         GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
         GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
@@ -264,8 +260,8 @@ Module TextureLoaders
 
             ms.Position = 128
 
-            GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-{0}", fn))
+            image_id = CreateTexture(TextureTarget.Texture2D, fn)
+
             'If image_id = 356 Then Stop
             Dim maxAniso As Single = 3.0F
             'GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
@@ -360,7 +356,7 @@ Module TextureLoaders
             Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
             Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
-            GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
+            image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
             Dim maxAniso As Single
             GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
@@ -394,12 +390,10 @@ Module TextureLoaders
             'Other wise, add it to the cache.
             add_image(fn, image_id)
 
-            Dim glerror As OpenTK.Graphics.OpenGL.ErrorCode = GL.GetError
+            Dim glerror = GL.GetError
             If glerror > 0 Then
-
                 get_GL_error_string(glerror)
                 MsgBox(get_GL_error_string(glerror), MsgBoxStyle.Exclamation, "GL Error")
-
             End If
             Return image_id
         Else
@@ -437,7 +431,7 @@ Module TextureLoaders
 
             Dim OK As Boolean = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
-            GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
+            image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
             If NEAREST And Not MIPS Then
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
@@ -484,7 +478,7 @@ Module TextureLoaders
         Dim bitmapData = b.LockBits(New Rectangle(0, 0, 2,
                              2), Imaging.ImageLockMode.ReadOnly, Imaging.PixelFormat.Format32bppArgb)
 
-        GL.CreateTextures(TextureTarget.Texture2D, 1, dummy)
+        dummy = CreateTexture(TextureTarget.Texture2D, "Dummy_Texture")
 
         GL.TextureParameter(dummy, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
         GL.TextureParameter(dummy, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
@@ -495,7 +489,6 @@ Module TextureLoaders
         GL.TextureSubImage2D(dummy, 0, 0, 0, b.Width, b.Height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, bitmapData.Scan0)
 
         b.UnlockBits(bitmapData) ' Unlock The Pixel Data From Memory
-        GL.ObjectLabel(ObjectLabelIdentifier.Texture, dummy, -1, String.Format("TEX-{0}", "Dummy_Texture"))
 
         b.Dispose()
         g.Dispose()
@@ -532,8 +525,7 @@ Module TextureLoaders
 
 
             If make_id Then
-                GL.CreateTextures(TextureTarget.Texture2D, 1, image_id)
-                GL.ObjectLabel(ObjectLabelIdentifier.Texture, image_id, -1, String.Format("TEX-TANK-IMAGE-{0}", index))
+                image_id = CreateTexture(TextureTarget.Texture2D, String.Format("tank_img_{0}", index))
 
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)

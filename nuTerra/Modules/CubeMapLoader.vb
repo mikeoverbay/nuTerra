@@ -26,9 +26,6 @@ Module CubeMapLoader
 
     ' see https://github.com/fendevel/Guide-to-Modern-OpenGL-Functions#uploading-cube-maps
     Public Sub load_dds_cubemap_from_stream(ms As MemoryStream)
-        'Check if this image has already been loaded.
-        GL.CreateTextures(TextureTarget.TextureCubeMap, 1, CUBE_TEXTURE_ID)
-
         ms.Position = 0
         Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
             Dim dds_header = get_dds_header(br)
@@ -43,8 +40,7 @@ Module CubeMapLoader
 
             ms.Position = 128
 
-            GL.CreateTextures(TextureTarget.TextureCubeMap, 1, CUBE_TEXTURE_ID)
-            GL.ObjectLabel(ObjectLabelIdentifier.Texture, CUBE_TEXTURE_ID, -1, String.Format("TEX-{0}", "CubeMap"))
+            CUBE_TEXTURE_ID = CreateTexture(TextureTarget.TextureCubeMap, "CubeMap")
 
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureBaseLevel, 0)
             GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
