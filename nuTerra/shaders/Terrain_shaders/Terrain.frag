@@ -363,7 +363,7 @@ void main(void)
     // We only want the wetness normal where it exist on the map! (wNorm * global.a)
     gNormal.xyz = normalize(out_n.xyz + (wNorm * global.a));
 
-    gGMF = vec4(0.2, 0.0, 128.0/255.0, global.a);
+    gGMF = vec4(global.a+0.2, 0.0, 128.0/255.0, 0.0);
     gPosition = fs_in.worldPosition;
     gPick = 0;
 }
