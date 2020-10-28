@@ -466,6 +466,9 @@ Module TerrainBuilder
             AMBIENTSUNCOLOR = vector3_from_string(q2(0).ambientSunColor)
             TIME_OF_DAY = Convert.ToSingle(q2(0).time_)
             SUN_SCALE = Convert.ToSingle(q2(0).sun_scale)
+            If SUN_SCALE = 0 Then
+                SUN_SCALE = 5.0F
+            End If
             SUN_TEXTURE_PATH = q2(0).sun_path
             'default
             If SUN_TEXTURE_PATH = "" Then

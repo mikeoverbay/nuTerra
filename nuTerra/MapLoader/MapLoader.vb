@@ -617,7 +617,8 @@ Module MapLoader
         ' Set sun location from map data
         ' Set initial light position and get radius and angle.
 
-        LIGHT_RADIUS = MAP_SIZE.Length / 2.0 * 100.0
+        LIGHT_RADIUS = MAP_SIZE.Length * 100.0
+        LIGHT_ORBIT_ANGLE_Z -= 90.0
         LIGHT_POS(0) = Math.Cos(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
         LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X * 0.0174533) * LIGHT_RADIUS
         LIGHT_POS(2) = Math.Sin(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS

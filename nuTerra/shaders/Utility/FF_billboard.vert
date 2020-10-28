@@ -34,16 +34,15 @@ void main(void)
         uv = vec2(1.0f, 0.0f);
     }
 
-    vec4 vectex = vec4(co * scale, 0.0f, 1.0f);
-    vec3 n = vec3 (0.0,0.0,-1.0);
+    vec4 vertex = vec4(co * scale, 0.0f, 1.0f);
+    vertex.xyz *= scale;
     texCoord   = uv;
+    
+    vec4 p = viewProj * matrix[3] ;
+    p.xyz -= vertex.xyz;
+    p = inverse(viewProj) * p;
 
-    vec4 p =  matrix[3];
-    p.xyz -= vectex.xyz;
-
-    p = inverse(matrix) * p;
-
-    gl_Position =  viewProj * matrix  * p;
+    gl_Position =  viewProj * p;
 
 
 }
