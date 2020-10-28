@@ -158,54 +158,58 @@ Module TextureLoaders
 
         ReadOnly Property format_info As FormatInfo
             Get
-                Debug.Assert(flags.HasFlag(DdsPixelFormatFlag.FourCCFlag))
-                Select Case FourCC
-                    Case "DXT1"
+                If flags.HasFlag(DdsPixelFormatFlag.FourCCFlag) Then
+                    Select Case FourCC
+                        Case "DXT1"
+                            Return New FormatInfo With {
+                                .pixel_format = -1, ' no source type
+                                .texture_format = InternalFormat.CompressedRgbaS3tcDxt1Ext,
+                                .pixel_type = -1, ' no pixel type
+                                .components = 8,
+                                .compressed = True
+                            }
+                        Case "DXT3"
+                            Return New FormatInfo With {
+                                .pixel_format = -1, ' no source type
+                                .texture_format = InternalFormat.CompressedRgbaS3tcDxt3Ext,
+                                .pixel_type = -1, ' no pixel type
+                                .components = 16,
+                                .compressed = True
+                            }
+                        Case "DXT5"
+                            Return New FormatInfo With {
+                                .pixel_format = -1, ' no source type
+                                .texture_format = InternalFormat.CompressedRgbaS3tcDxt5Ext,
+                                .pixel_type = -1, ' no pixel type
+                                .components = 16,
+                                .compressed = True
+                            }
+                        Case "t" & vbNullChar & vbNullChar & vbNullChar
+                            ' DXGI_FORMAT_R32G32B32A32_FLOAT 
+                            Return New FormatInfo With {
+                                .pixel_format = OpenGL.PixelFormat.Rgba,
+                                .texture_format = InternalFormat.Rgba32f,
+                                .pixel_type = PixelType.Float,
+                                .components = 16,
+                                .compressed = False
+                            }
+                        Case Else
+                            Stop
+                            Return Nothing
+                    End Select
+                Else
+                    If rgbBitCount = 24 And redMask = &HFF0000 And greenMask = &HFF00 And blueMask = &HFF And alphaMask = &H0 Then
                         Return New FormatInfo With {
-                            .pixel_format = -1, ' no source type
-                            .texture_format = InternalFormat.CompressedRgbaS3tcDxt1Ext,
-                            .pixel_type = -1, ' no pixel type
-                            .components = 8,
-                            .compressed = True
-                        }
-                    Case "DXT3"
-                        Return New FormatInfo With {
-                            .pixel_format = -1, ' no source type
-                            .texture_format = InternalFormat.CompressedRgbaS3tcDxt3Ext,
-                            .pixel_type = -1, ' no pixel type
-                            .components = 16,
-                            .compressed = True
-                        }
-                    Case "DXT5"
-                        Return New FormatInfo With {
-                            .pixel_format = -1, ' no source type
-                            .texture_format = InternalFormat.CompressedRgbaS3tcDxt5Ext,
-                            .pixel_type = -1, ' no pixel type
-                            .components = 16,
-                            .compressed = True
-                        }
-                    Case "t" & vbNullChar & vbNullChar & vbNullChar
-                        ' DXGI_FORMAT_R32G32B32A32_FLOAT 
-                        Return New FormatInfo With {
-                            .pixel_format = OpenGL.PixelFormat.Rgba,
-                            .texture_format = InternalFormat.Rgba32f,
-                            .pixel_type = PixelType.Float,
-                            .components = 16,
-                            .compressed = False
-                        }
-                    Case vbNullChar & vbNullChar & vbNullChar & vbNullChar
-                        ' DXGI_FORMAT_R8G8B8A8_UINT
-                        Return New FormatInfo With {
-                            .pixel_format = OpenGL.PixelFormat.Rgba,
-                            .texture_format = InternalFormat.Rgba8,
+                            .pixel_format = OpenGL.PixelFormat.Bgr,
+                            .texture_format = InternalFormat.Rgb8,
                             .pixel_type = PixelType.UnsignedByte,
-                            .components = 16,
+                            .components = 3,
                             .compressed = False
                         }
-                    Case Else
-                        Stop
-                        Return Nothing
-                End Select
+                    End If
+                End If
+                Stop
+                Return Nothing
             End Get
         End Property
 
@@ -466,8 +470,8 @@ Module TextureLoaders
             Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
             Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
 
-            Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
-            Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
+            Il.ilConvertImage(Il.IL_BGR, Il.IL_UNSIGNED_BYTE)
+            Dim result = Il.ilConvertImage(Il.IL_RGB, Il.IL_UNSIGNED_BYTE)
 
             image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
@@ -489,8 +493,8 @@ Module TextureLoaders
             GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            GL.TextureStorage2D(image_id, If(MIPS, 4, 1), SizedInternalFormat.Rgba8, width, height)
-            GL.TextureSubImage2D(image_id, 0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+            GL.TextureStorage2D(image_id, If(MIPS, 4, 1), DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
+            GL.TextureSubImage2D(image_id, 0, 0, 0, width, height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, Il.ilGetData())
 
             If MIPS Then
                 GL.GenerateTextureMipmap(image_id)

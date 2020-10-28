@@ -327,7 +327,7 @@ Module MapLoader
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
-            CC_LUT_ID = just_load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
+            CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
         End If
         '===============================================================
         If DONT_BLOCK_MODELS Then
