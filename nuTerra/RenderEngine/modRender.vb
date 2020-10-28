@@ -331,6 +331,20 @@ Module modRender
 
         GL.BindTextureUnit(29, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
         GL.BindTextureUnit(30, m_normal_id)
+        'water BS
+        GL.BindTextureUnit(31, ripple_textures(RIPPLE_FRAME_NUMBER))
+        GL.BindTextureUnit(32, ripple_mask_texture)
+
+        GL.Uniform3(TerrainShader("waterColor"),
+                        Map_wetness.waterColor.X,
+                        Map_wetness.waterColor.Y,
+                        Map_wetness.waterColor.Z)
+
+        GL.Uniform1(TerrainShader("waterAlpha"), Map_wetness.waterAlpha)
+        GL.Uniform1(TerrainShader("waveUVScale"), Map_wetness.waveUVScale)
+        GL.Uniform1(TerrainShader("waveStrength"), Map_wetness.waveStrength)
+        GL.Uniform1(TerrainShader("waveMaskUVScale"), Map_wetness.waveMaskUVScale)
+
 
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
@@ -444,6 +458,8 @@ Module modRender
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
+        ' Color highlighting of LOD levels if enabled.
+        GL.Uniform1(modelShader("show_Lods"), SHOW_LOD_COLORS)
 
         'assign subroutines
         GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
@@ -454,7 +470,6 @@ Module modRender
         GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
-
 
         modelShader.StopUse()
 

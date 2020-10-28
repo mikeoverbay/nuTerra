@@ -9,7 +9,7 @@
 // Output
 layout (location = 0) out vec3 gColor;
 layout (location = 1) out vec3 gNormal;
-layout (location = 2) out vec3 gGMF;
+layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
 layout (location = 5) out vec4 gAux;
@@ -68,7 +68,7 @@ void main(void)
 
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
-
+    gGMF.a = 0.0;
 //    if (fs_in.lod_level == 1)      { gColor.r = 1; }
 //    else if (fs_in.lod_level == 2) { gColor.g = 1; }
 //    else if (fs_in.lod_level == 3) { gColor.b = 1; }

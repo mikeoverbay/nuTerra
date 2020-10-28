@@ -6,8 +6,10 @@ Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
-
+Imports System.Threading
 Module MapLoader
+    Public ripple_thread As New Thread(AddressOf ripple_handler)
+
     NotInheritable Class Packages
         ''' <summary>
         ''' WoT packages
@@ -242,7 +244,29 @@ Module MapLoader
     End Sub
 
 #End Region
-
+    Private Sub ripple_handler()
+        Dim timer As New Stopwatch
+        timer.Start()
+        While _STARTED
+            If timer.ElapsedMilliseconds > 60 Then
+                timer.Restart()
+                RIPPLE_FRAME_NUMBER += 1
+                If RIPPLE_FRAME_NUMBER > Map_wetness.waveTextureCount - 1 Then
+                    RIPPLE_FRAME_NUMBER = 0
+                End If
+            End If
+        End While
+        RIPPLE_FRAME_NUMBER = 0
+    End Sub
+    Private Sub start_ripple_thread()
+        RIPPLE_FRAME_NUMBER = 0
+        If Not ripple_thread.IsAlive Then
+            ripple_thread.Name = "Ripple Thread"
+            ripple_thread.IsBackground = True
+            ripple_thread.Priority = ThreadPriority.Normal
+            ripple_thread.Start()
+        End If
+    End Sub
     Public Sub load_map(ByVal package_name As String)
         'disable main menu
         frmMain.MainMenuStrip.Enabled = False
@@ -329,6 +353,15 @@ Module MapLoader
             entry.Extract(ms)
             CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
         End If
+        '===============================================================
+        'load ripple textures
+        Dim rtc = Map_wetness.waveTextureCount - 1
+        ReDim ripple_textures(rtc)
+        For i = 0 To rtc
+            Dim r_path = Map_wetness.waveTexture + i.ToString("000") + ".dds"
+            ripple_textures(i) = find_and_load_texture_from_pkgs(r_path)
+        Next
+        ripple_mask_texture = find_and_load_texture_from_pkgs(Map_wetness.waveMaskTexture)
         '===============================================================
         If DONT_BLOCK_MODELS Then
 
@@ -635,6 +668,8 @@ Module MapLoader
         ' close packages
         close_shared_packages()
 
+        'start our water animation timing
+        start_ripple_thread()
         'Enable main menu
         frmMain.MainMenuStrip.Enabled = True
 

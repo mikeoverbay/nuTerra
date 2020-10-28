@@ -155,13 +155,13 @@ Module FBO_main
             GL.TextureStorage2D(gNormal, 1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gGM_Flag ------------------------------------------------------------------------------------------
-            ' 3 color int : GM in RG : Flag in b
+            ' 4 color int : GM in RG : Flag in b : Wetness in a
             gGMF = CreateTexture(TextureTarget.Texture2D, "gGMF")
             GL.TextureParameter(gGMF, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(gGMF, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             GL.TextureParameter(gGMF, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             GL.TextureParameter(gGMF, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            GL.TextureStorage2D(gGMF, 1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            GL.TextureStorage2D(gGMF, 1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gPosition ------------------------------------------------------------------------------------------
             ' RGB16F

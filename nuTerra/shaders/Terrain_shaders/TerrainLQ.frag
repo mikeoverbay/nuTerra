@@ -2,7 +2,7 @@
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
-layout (location = 2) out vec3 gGMF;
+layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
 
@@ -41,7 +41,7 @@ void main(void)
     gColor.a = 1.0;
 
     gNormal.xyz = normalize(n.xyz);
-    gGMF.rgb = vec3(global.a+0.2, 0.0, 128.0/255.0);
+    gGMF = vec4(global.a+0.2, 0.0, 128.0/255.0, 0.0);
 
     gPosition = fs_in.worldPosition;
     gPick = 0;

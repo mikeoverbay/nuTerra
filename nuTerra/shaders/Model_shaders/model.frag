@@ -9,9 +9,11 @@
 // Output
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
-layout (location = 2) out vec3 gGMF;
+layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
+
+uniform int show_Lods;
 
 // Input from vertex shader
 in VS_OUT
@@ -306,12 +308,14 @@ void main(void)
 
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
-
+    gGMF.a - 0.0;
 // Just for debugging
-//    if (fs_in.lod_level == 1)      { gColor.r = 1; }
-//    else if (fs_in.lod_level == 2) { gColor.g = 1; }
-//    else if (fs_in.lod_level == 3) { gColor.b = 1; }
-
+if (show_Lods == 1)
+    {
+        if (fs_in.lod_level == 1)      { gColor.r += 0.4; }
+        else if (fs_in.lod_level == 2) { gColor.g += 0.4; }
+        else if (fs_in.lod_level == 3) { gColor.b += 0.4; }
+    }
     gPick.r = fs_in.model_id + 1;
 
 }

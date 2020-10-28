@@ -6,7 +6,20 @@ Imports Tao.DevIl
 Module TerrainBuilder
 
 #Region "Terrain Storage"
-
+    Public Map_wetness As wetness_
+    Public Structure wetness_
+        Public waterColor As Vector3
+        Public waterAlpha As Single
+        Public waveTexture As String
+        Public waveTextureCount As Integer
+        Public waveAnimationSpeed As Single
+        Public waveUVScale As Single
+        Public waveSpeed As Single
+        Public waveStrength As Single
+        Public waveMaskTexture As String
+        Public waveMaskUVScale As Single
+        Public waveMaskSpeed As Single
+    End Structure
     Public mapBoard(20, 20) As map_entry_
     Public Structure map_entry_
         Public location As Vector2
@@ -476,6 +489,7 @@ Module TerrainBuilder
                 SUN_TEXTURE_PATH = "system/maps/PSF2_ldr.dds"
             End If
             SUN_RENDER_COLOR = vector3_from_string(q2(0).sun_color)
+
             'sun rotation/location
             Dim forward As DataTable = xmldataset.Tables("forward")
             Dim q3 = From row In forward Select
@@ -489,6 +503,35 @@ Module TerrainBuilder
             Dim q4 = From row In colorCorrection Select
                         map = row.Field(Of String)("map")
             theMap.lut_path = q4(0)
+
+            Dim Wetness As DataTable = xmldataset.Tables("Wetness")
+            Dim q5 = From row In Wetness Select
+                waterColor = row.Field(Of String)("waterColor"),
+                waterAlpha = row.Field(Of String)("waterAlpha"),
+                waveTexture = row.Field(Of String)("waveTexture"),
+                waveTextureCount = row.Field(Of String)("waveTextureCount"),
+                waveAnimationSpeed = row.Field(Of String)("waveAnimationSpeed"),
+                waveUVScale = row.Field(Of String)("waveUVScale"),
+                waveSpeed = row.Field(Of String)("waveSpeed"),
+                waveStrength = row.Field(Of String)("waveStrength"),
+                waveMaskTexture = row.Field(Of String)("waveMaskTexture"),
+                waveMaskUVScale = row.Field(Of String)("waveMaskUVScale"),
+                waveMaskSpeed = row.Field(Of String)("waveMaskSpeed")
+            For Each w In q5
+
+                Map_wetness.waterColor = vector3_from_string(w.waterColor)
+                Map_wetness.waterAlpha = Convert.ToSingle(w.waterAlpha)
+                Map_wetness.waveTexture = w.waveTexture
+                Map_wetness.waveTextureCount = Convert.ToInt32(w.waveTextureCount)
+                Map_wetness.waveAnimationSpeed = Convert.ToSingle(w.waveAnimationSpeed)
+                Map_wetness.waveUVScale = Convert.ToSingle(w.waveUVScale)
+                Map_wetness.waveSpeed = Convert.ToSingle(w.waveSpeed)
+                Map_wetness.waveStrength = Convert.ToSingle(w.waveStrength)
+                Map_wetness.waveMaskTexture = w.waveMaskTexture
+                Map_wetness.waveMaskUVScale = Convert.ToSingle(w.waveMaskUVScale)
+                Map_wetness.waveMaskSpeed = Convert.ToSingle(w.waveMaskSpeed)
+            Next
+
         End If
     End Sub
     Private Function vector3_from_string(ByRef s As String) As Vector3

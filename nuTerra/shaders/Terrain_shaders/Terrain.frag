@@ -5,7 +5,7 @@
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
-layout (location = 2) out vec3 gGMF;
+layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
 
@@ -78,9 +78,20 @@ layout(binding = 28) uniform sampler2D tex_7;
 layout(binding = 29) uniform sampler2D global_AM;
 layout(binding = 30) uniform sampler2D normalMap;
 
+layout(binding = 31 ) uniform sampler2D waveTexture;
+layout(binding = 32 ) uniform sampler2D waveMaskTexture;
 
 
 uniform int show_test;
+
+uniform vec3 waterColor;
+uniform float waterAlpha;
+uniform float waveUVScale;
+uniform float waveStrength;
+
+uniform float waveMaskUVScale;
+
+
 
 in VS_OUT {
     mat3 TBN;
@@ -111,6 +122,10 @@ vec4 convertNormal(vec4 norm){
 }
 
 /*===========================================================*/
+
+vec4 get_wetness_normal(){
+    return convertNormal( texture(waveTexture, fs_in.UV / vec2(waveUVScale,waveUVScale)));
+}
 
 void main(void)
 {
@@ -340,11 +355,15 @@ void main(void)
 
     // The obvious
     gColor = base;
+    // Add in the wetness color mixed by its alpha * global.a
+    base.xyz += mix(base.xyz, waterColor.xyz, waterAlpha * global.a);
     gColor.a = 1.0;
     //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
-    gNormal.xyz = normalize(out_n.xyz);
-    gGMF.rgb = vec3(global.a+0.2, 0.0, 128.0/255.0);
+    vec3 wNorm = fs_in.TBN * get_wetness_normal().xyz;
+    // We only want the wetness normal where it exist on the map! (wNorm * global.a)
+    gNormal.xyz = normalize(out_n.xyz + (wNorm * global.a));
 
+    gGMF = vec4(0.2, 0.0, 128.0/255.0, global.a);
     gPosition = fs_in.worldPosition;
     gPick = 0;
 }

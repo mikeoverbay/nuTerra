@@ -39,6 +39,10 @@ Module modGlobalVars
     Public SUN_TEXTURE_ID As Integer
     Public SUN_RENDER_COLOR As Vector3
     Public CC_LUT_ID As Integer
+
+    Public RIPPLE_FRAME_NUMBER As Integer
+    Public ripple_textures() As Integer
+    Public ripple_mask_texture As Integer
     '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer
@@ -57,6 +61,7 @@ Module modGlobalVars
     Public PICK_MODELS As Boolean = False
     Public DONT_HIDE_HUD As Boolean = True
     Public DONT_HIDE_MINIMAP As Boolean = True
+    Public SHOW_LOD_COLORS As Integer
     'ascii characters
     Public ASCII_ID As Integer
     'wire flags

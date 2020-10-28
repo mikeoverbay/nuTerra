@@ -79,6 +79,8 @@ Public Class frmMain
                 Else
                     SSAA_text = "SSAA Off"
                 End If
+            Case Keys.F9
+                SHOW_LOD_COLORS = SHOW_LOD_COLORS Xor 1
                 '-------------------------------
             Case Keys.B
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
