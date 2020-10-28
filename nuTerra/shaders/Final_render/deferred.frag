@@ -8,6 +8,7 @@ uniform sampler2D gGMF;
 uniform sampler2D gPosition;
 uniform sampler2D gDepth;
 uniform samplerCube cubeMap;
+uniform lowp sampler2D lut;
 
 uniform mat4 ProjectionMatrix;
 
@@ -21,6 +22,11 @@ uniform float GAMMA_LEVEL;
 
 uniform vec3 ambientColorForward;
 uniform vec3 sunColor;
+
+#define MAXCOLOR 15.0
+#define COLORS 16.0
+#define WIDTH 256.0
+#define HEIGHT 16.0
 
 in VS_OUT {
     vec2 UV;
@@ -44,6 +50,30 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
     return vec4 (mapped, hdrColor.a);
 }
 
+ // https://defold.com/tutorials/grading/
+ vec4 lut_color_correction(in vec4 px)
+ {
+    float cell = px.b * MAXCOLOR;
+
+    float cell_l = floor(cell);
+    float cell_h = ceil(cell);
+
+    float half_px_x = 0.5 / WIDTH;
+    float half_px_y = 0.5 / HEIGHT;
+    float r_offset = half_px_x + px.r / COLORS * (MAXCOLOR / COLORS);
+    float g_offset = half_px_y + px.g * (MAXCOLOR / COLORS);
+
+    vec2 lut_pos_l = vec2(cell_l / COLORS + r_offset, g_offset);
+    vec2 lut_pos_h = vec2(cell_h / COLORS + r_offset, g_offset);
+
+    vec4 graded_color_l = texture2D(lut, lut_pos_l);
+    vec4 graded_color_h = texture2D(lut, lut_pos_h);
+
+    vec4 graded_color = mix(graded_color_l, graded_color_h, fract(cell));
+
+    return graded_color;
+ 
+ }
 /*===================================================================*/
 
 
@@ -98,7 +128,7 @@ void main (void)
             Ambient_level.rgb *= ambientColorForward;
 
             float dist = length(LightPosModelView - Position);
-            float cutoff = 5000.0;
+            float cutoff = 10000.0;
             vec4 color = vec4(0.36, 0.36, 0.36, 1.0);
 
             vec3 V = normalize(-Position);
@@ -106,9 +136,12 @@ void main (void)
             // Only light whats in range
             if (dist < cutoff) {
 
-                float lambertTerm = pow(max(dot(N, L),0.0),0.5);
-                final_color.xyz += max(lambertTerm * color_in.xyz*color.xyz,0.0);
-                final_color.rgb *= sunColor;
+                float lambertTerm = pow(max(dot(N, L),0.0),1.0)*1.0;
+                final_color.xyz += max(lambertTerm * color_in.xyz*color.xyz*sunColor,0.0);
+
+
+
+                //final_color.rgb *= sunColor;
 
                 vec3 halfwayDir = normalize(L + vd);
 
@@ -122,7 +155,7 @@ void main (void)
 
    
                 final_color.xyz += refection;
-
+                final_color = lut_color_correction( final_color );
                 // Fade to ambient over distance
                 final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;
             } else {
@@ -140,7 +173,7 @@ void main (void)
 
             /*===================================================================*/
             // Final Output
-            outColor =  correct(final_color,0.9,1.2)*2.5;
+            outColor =  correct(final_color,2.0,1.1)*2.25;
             outColor.a = 1.0;
             /*===================================================================*/
         //if flag != 128
@@ -149,7 +182,7 @@ void main (void)
         }
     // if flag != 0
     } else {
-        outColor = texture(gColor, fs_in.UV);
+        outColor = texture(gColor, fs_in.UV) * BRIGHTNESS;
     }
 
     outColor.a = 1.0;

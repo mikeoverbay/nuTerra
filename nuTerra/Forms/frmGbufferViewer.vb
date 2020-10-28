@@ -124,7 +124,7 @@ Public Class frmGbufferViewer
                 GL.Uniform1(colorMaskShader("mask"), MASK)
 
                 GL.BindTextureUnit(0, FBOm.gColor)
-                GL.BindTextureUnit(0, CC_LUT_ID)
+                'GL.BindTextureUnit(0, CC_LUT_ID)
 
                 GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
                 Dim rect As New RectangleF(0, 0, width, height)

@@ -99,7 +99,11 @@ Public Class frmMain
                     frmLighting.Visible = False
                 End If
 
+            Case Keys.M
+                DONT_HIDE_MINIMAP = DONT_HIDE_MINIMAP Xor True
+
             Case Keys.N
+                ' 0 None, 1 by vertex, 2 by face
                 NORMAL_DISPLAY_MODE += 1
                 If NORMAL_DISPLAY_MODE > 2 Then
                     NORMAL_DISPLAY_MODE = 0
@@ -114,6 +118,8 @@ Public Class frmMain
             Case Keys.T
                 SHOW_TEST_TEXTURES = SHOW_TEST_TEXTURES Xor 1
 
+            Case Keys.V
+                DONT_HIDE_HUD = DONT_HIDE_HUD Xor True
                 '-------------------------------
                 'Special Keys
             Case Keys.ControlKey

@@ -152,16 +152,20 @@ Module modRender
             copy_default_to_gColor()
             glassPass()
         End If
-        '===========================================================================
-        color_correct()
-        '===========================================================================
-        render_HUD() '==============================================================
-        '===========================================================================
+        If DONT_HIDE_HUD Then
+            '===========================================================================
+            'color_correct()
+            '===========================================================================
+            render_HUD() '==============================================================
+            '===========================================================================
 
-        '===========================================================================
-        'This has to be called last. It changes the PROJECTMATRIX and VIEWMATRIX
-        draw_mini_map() '===========================================================
-        '===========================================================================
+            '===========================================================================
+            'This has to be called last. It changes the PROJECTMATRIX and VIEWMATRIX
+            If DONT_HIDE_MINIMAP Then draw_mini_map() '===========================================================
+            '===========================================================================
+        End If
+        GL.DepthMask(True)
+        GL.Disable(EnableCap.Blend)
 
         '===========================================================================
         If _STARTED Then frmMain.glControl_main.SwapBuffers() '=====================
@@ -555,17 +559,19 @@ Module modRender
         deferredShader.Use()
 
         'set up uniforms
-        GL.BindTextureUnit(0, FBOm.gColor)
         GL.Uniform1(deferredShader("gColor"), 0)
-        GL.BindTextureUnit(1, FBOm.gNormal)
         GL.Uniform1(deferredShader("gNormal"), 1)
-        GL.BindTextureUnit(2, FBOm.gGMF)
         GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
-        GL.BindTextureUnit(3, FBOm.gPosition)
         GL.Uniform1(deferredShader("gPosition"), 3)
-
         GL.Uniform1(deferredShader("cubeMap"), 4)
+        GL.Uniform1(deferredShader("lut"), 5)
+
+        GL.BindTextureUnit(0, FBOm.gColor)
+        GL.BindTextureUnit(1, FBOm.gNormal)
+        GL.BindTextureUnit(2, FBOm.gGMF)
+        GL.BindTextureUnit(3, FBOm.gPosition)
         GL.BindTextureUnit(4, CUBE_TEXTURE_ID)
+        GL.BindTextureUnit(5, CC_LUT_ID)
 
         GL.Uniform3(deferredShader("sunColor"), SUNCOLOR.X, SUNCOLOR.Y, SUNCOLOR.Z)
         GL.Uniform3(deferredShader("ambientColorForward"), AMBIENTSUNCOLOR.X, AMBIENTSUNCOLOR.Y, AMBIENTSUNCOLOR.Z)
@@ -588,7 +594,7 @@ Module modRender
 
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
 
-        unbind_textures(5) ' unbind all the used texture slots
+        unbind_textures(4) ' unbind all the used texture slots
 
         deferredShader.StopUse()
 
@@ -966,8 +972,6 @@ Module modRender
         Next
         TextRenderShader.StopUse()
         GL.BindTextureUnit(0, 0)
-        GL.DepthMask(True)
-        GL.Disable(EnableCap.Blend)
 
         GL_POP_GROUP()
     End Sub

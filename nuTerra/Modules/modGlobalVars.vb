@@ -54,7 +54,9 @@ Module modGlobalVars
     Public LOOP_COUNT As Integer = 200
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer
-    Public PICK_MODELS As Boolean
+    Public PICK_MODELS As Boolean = False
+    Public DONT_HIDE_HUD As Boolean = True
+    Public DONT_HIDE_MINIMAP As Boolean = True
     'ascii characters
     Public ASCII_ID As Integer
     'wire flags

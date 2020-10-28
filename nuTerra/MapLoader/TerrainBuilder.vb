@@ -455,7 +455,7 @@ Module TerrainBuilder
             openXml_stream(ms, Path.GetFileName(envPath))
             Dim day_light As DataTable = xmldataset.Tables("day_night_cycle")
             Dim q2 = From row In day_light Select
-                        sunColor = row.Field(Of String)("sunLightColorForward"),
+                        sunColor = row.Field(Of String)("sunLightColor"),
                         ambientSunColor = row.Field(Of String)("ambientColorForward"),
                         time_ = row.Field(Of String)("starttime"),
                         sun_scale = row.Field(Of String)("sunScaleForward"),
