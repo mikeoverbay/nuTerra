@@ -336,7 +336,7 @@ void main(void)
     // Mix in the global_AM color using global_AM's alpha channel.
     // I think this is used for wetness on the map.
 
-    base.rgb = mix(base.rgb,global.rgb,global.a);
+    base.rgb = mix(base.rgb ,waterAlpha * global.rgb, global.a);
     
     // This blends between low and highrez by distance
 
