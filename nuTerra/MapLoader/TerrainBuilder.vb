@@ -58,6 +58,7 @@ Module TerrainBuilder
         Public Shared skybox_mdl As XModel
         Public Shared Sky_Texture_Id As Integer
         Public Shared skybox_path As String
+        Public Shared lut_path As String
         '------------------------
         Public Shared chunk_size As Single ' space.settings/chunkSize or 100.0 by default
         Public Shared bounds_minX As Int32 ' play area bounds?
@@ -482,6 +483,12 @@ Module TerrainBuilder
                         rotateZ = row.Field(Of String)("angleZ")
             LIGHT_ORBIT_ANGLE_X = q3(1).rotateX
             LIGHT_ORBIT_ANGLE_Z = q3(1).rotateZ
+
+            ' get color correction lut
+            Dim colorCorrection As DataTable = xmldataset.Tables("colorCorrection")
+            Dim q4 = From row In colorCorrection Select
+                        map = row.Field(Of String)("map")
+            theMap.lut_path = q4(0)
         End If
     End Sub
     Private Function vector3_from_string(ByRef s As String) As Vector3

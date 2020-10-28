@@ -38,6 +38,7 @@ Module modGlobalVars
     Public SUN_TEXTURE_PATH As String
     Public SUN_TEXTURE_ID As Integer
     Public SUN_RENDER_COLOR As Vector3
+    Public CC_LUT_ID As Integer
     '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer

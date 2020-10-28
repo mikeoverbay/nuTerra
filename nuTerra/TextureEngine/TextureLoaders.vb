@@ -193,6 +193,15 @@ Module TextureLoaders
                             .components = 16,
                             .compressed = False
                         }
+                    Case vbNullChar & vbNullChar & vbNullChar & vbNullChar
+                        ' DXGI_FORMAT_R8G8B8A8_UINT
+                        Return New FormatInfo With {
+                            .pixel_format = OpenGL.PixelFormat.Rgba,
+                            .texture_format = InternalFormat.Rgba8,
+                            .pixel_type = PixelType.UnsignedByte,
+                            .components = 16,
+                            .compressed = False
+                        }
                     Case Else
                         Stop
                         Return Nothing

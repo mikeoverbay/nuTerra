@@ -323,6 +323,12 @@ Module MapLoader
             entry.Extract(ms)
             SUN_TEXTURE_ID = load_image_from_stream(Il.IL_DDS, ms, SUN_TEXTURE_PATH, False, False)
         End If
+        entry = search_pkgs(theMap.lut_path)
+        If entry IsNot Nothing Then
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+            CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, True)
+        End If
         '===============================================================
         If DONT_BLOCK_MODELS Then
 
