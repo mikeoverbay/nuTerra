@@ -440,6 +440,80 @@ Module TextureLoaders
         End If
         Return Nothing
     End Function
+    Public Function just_load_image_from_stream(ByRef imageType As Integer, ByRef ms As MemoryStream, ByRef fn As String, ByRef MIPS As Boolean, ByRef NEAREST As Boolean) As Integer
+        'imageType = il.IL_imageType : ms As MemoryStream : filename as string : Create Mipmaps if True : NEAREST = True / LINEAR if False
+        'File name is needed to add to our list of loaded textures
+        Dim image_id As Integer
+        ms.Position = 0
+
+        GC.Collect()
+        GC.WaitForFullGCComplete()
+
+        Dim imgStore(ms.Length) As Byte
+        ms.Read(imgStore, 0, ms.Length)
+
+        Dim texID As UInt32
+        texID = Ilu.iluGenImage()
+        Il.ilBindImage(texID)
+        Dim er0 = GL.GetError
+        Dim success = Il.ilGetError
+        Il.ilLoadL(imageType, imgStore, ms.Length)
+        success = Il.ilGetError
+
+        If success = Il.IL_NO_ERROR Then
+            'Ilu.iluFlipImage()
+            'Ilu.iluMirror()
+            Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
+            Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
+
+            Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
+            Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
+
+            image_id = CreateTexture(TextureTarget.Texture2D, fn)
+
+            Dim maxAniso As Single
+            GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
+            If NEAREST And Not MIPS Then
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            End If
+            If Not NEAREST And Not MIPS Then
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            End If
+            If MIPS Then
+                GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+                GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
+            End If
+            GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
+            GL.TextureStorage2D(image_id, If(MIPS, 4, 1), SizedInternalFormat.Rgba8, width, height)
+            GL.TextureSubImage2D(image_id, 0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+
+            If MIPS Then
+                GL.GenerateTextureMipmap(image_id)
+            End If
+
+            Il.ilBindImage(0)
+            Ilu.iluDeleteImage(texID)
+
+            If fn.Length = 0 Then Return image_id '<- so we can load with out saving in the cache.
+            'Other wise, add it to the cache.
+            add_image(fn, image_id)
+
+            Dim glerror = GL.GetError
+            If glerror > 0 Then
+                get_GL_error_string(glerror)
+                MsgBox(get_GL_error_string(glerror), MsgBoxStyle.Exclamation, "GL Error")
+            End If
+            Return image_id
+        Else
+            MsgBox("Failed to load @ load_image_from_stream", MsgBoxStyle.Exclamation, "Shit!!")
+        End If
+        Return Nothing
+    End Function
 
     Public Function load_image_from_file(imageType As Integer, fn As String, MIPS As Boolean, NEAREST As Boolean)
         'imageType = il.IL_imageType : File path/name : Create Mipmaps if True : NEAREST = True / LINEAR if False

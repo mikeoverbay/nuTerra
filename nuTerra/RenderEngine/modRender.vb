@@ -148,10 +148,12 @@ Module modRender
         End If
         '===========================================================================
         'hopefully, this will look like glass :)
-        copy_default_to_gColor()
-        glassPass()
+        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            copy_default_to_gColor()
+            glassPass()
+        End If
         '===========================================================================
-
+        color_correct()
         '===========================================================================
         render_HUD() '==============================================================
         '===========================================================================
@@ -218,7 +220,29 @@ Module modRender
 
         GL_POP_GROUP()
     End Sub
+    Private Sub color_correct()
+        copy_default_to_gColor()
 
+        colorCorrectShader.Use()
+        GL.UniformMatrix4(colorCorrectShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+
+        GL.Uniform1(colorCorrectShader("colorMap"), 0)
+        GL.Uniform1(colorCorrectShader("lut"), 1)
+
+        GL.BindTextureUnit(0, FBOm.gColor)
+        GL.BindTextureUnit(1, CC_LUT_ID)
+
+        'draw full screen quad
+        GL.Uniform4(colorCorrectShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
+
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        colorCorrectShader.StopUse()
+        GL.BindTextureUnit(0, 0)
+        GL.BindTextureUnit(1, 0)
+
+    End Sub
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
         GL.CopyTextureSubImage2D(FBOm.gColor, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)

@@ -378,6 +378,12 @@
     <None Include="shaders\Developer\TerrainGrids.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Final_render\colorCorrect.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Final_render\colorCorrect.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Final_render\glassPass.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

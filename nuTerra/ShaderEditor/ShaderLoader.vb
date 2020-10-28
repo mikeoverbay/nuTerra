@@ -151,6 +151,7 @@ Module ShaderLoader
     Public BaseRingProjector As Shader
     Public boxShader As Shader
     Public cullShader As Shader
+    Public colorCorrectShader As Shader
     Public coloredline2dShader As Shader
     Public colorMaskShader As Shader
     Public colorOnlyShader As Shader
@@ -196,6 +197,7 @@ Module ShaderLoader
         BaseRingProjector = New Shader("BaseRingProjector")
         boxShader = New Shader("box")
         cullShader = New Shader("cull")
+        colorCorrectShader = New Shader("colorCorrect")
         coloredline2dShader = New Shader("coloredLine2d")
         colorMaskShader = New Shader("ColorMask")
         'unused: colorOnlyShader = New Shader("colorOnly")
@@ -227,6 +229,7 @@ Module ShaderLoader
         shaders.Add(BaseRingProjector)
         shaders.Add(boxShader)
         shaders.Add(cullShader)
+        shaders.Add(colorCorrectShader)
         shaders.Add(coloredline2dShader)
         shaders.Add(colorMaskShader)
         'unused: shaders.Add(colorOnlyShader)
