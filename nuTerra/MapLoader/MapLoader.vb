@@ -246,13 +246,23 @@ Module MapLoader
 #End Region
     Private Sub ripple_handler()
         Dim timer As New Stopwatch
+        Dim mask_timer As New Stopwatch
         timer.Start()
+        mask_timer.Start()
         While _STARTED
             If timer.ElapsedMilliseconds > 60 Then
                 timer.Restart()
                 RIPPLE_FRAME_NUMBER += 1
                 If RIPPLE_FRAME_NUMBER > Map_wetness.waveTextureCount - 1 Then
                     RIPPLE_FRAME_NUMBER = 0
+                End If
+                ripple_mask_time += 1.0F / 60.0F
+            End If
+            If mask_timer.ElapsedMilliseconds > 100 Then
+                mask_timer.Restart()
+                RIPPLE_MASK_TIME += 1.0F / 256.0F
+                If RIPPLE_MASK_TIME > 1.0F Then
+                    RIPPLE_MASK_TIME = 0F
                 End If
             End If
         End While

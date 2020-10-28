@@ -89,6 +89,7 @@ uniform float waterAlpha;
 uniform float waveUVScale;
 uniform float waveStrength;
 
+uniform float rippple_mask_time;
 uniform float waveMaskUVScale;
 
 
@@ -334,8 +335,8 @@ void main(void)
 
     
     // Mix in the global_AM color using global_AM's alpha channel.
-    // I think this is used for wetness on the map.
 
+    // I think this is used for wetness on the map.
     base.rgb = mix(base.rgb ,waterAlpha * global.rgb, global.a);
     
     // This blends between low and highrez by distance
@@ -351,17 +352,17 @@ void main(void)
 
     out_n = mix(n_tex, out_n, fs_in.ln) ;
 
-
+    float mask = texture(waveMaskTexture, (fs_in.UV / vec2(waveMaskUVScale)) + vec2(rippple_mask_time) ).x;
 
     // The obvious
     gColor = base;
     // Add in the wetness color mixed by its alpha * global.a
-    base.xyz += mix(base.xyz, waterColor.xyz, waterAlpha * global.a);
+    base.xyz += mix(base.xyz, waterColor.xyz, waterAlpha * global.a * mask);
     gColor.a = 1.0;
     //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
     vec3 wNorm = fs_in.TBN * get_wetness_normal().xyz;
     // We only want the wetness normal where it exist on the map! (wNorm * global.a)
-    gNormal.xyz = normalize(out_n.xyz + (wNorm * global.a));
+    gNormal.xyz = normalize(out_n.xyz + (wNorm  * global.a * mask));
 
     gGMF = vec4(global.a+0.2, 0.0, 128.0/255.0, 0.0);
     gPosition = fs_in.worldPosition;

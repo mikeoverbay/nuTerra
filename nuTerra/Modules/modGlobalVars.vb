@@ -41,8 +41,9 @@ Module modGlobalVars
     Public CC_LUT_ID As Integer
 
     Public RIPPLE_FRAME_NUMBER As Integer
-    Public ripple_textures() As Integer
-    Public ripple_mask_texture As Integer
+    Public RIPPLE_TEXTURES() As Integer
+    Public RIPPLE_MASK_TEXTURE As Integer
+    Public RIPPLE_MASK_TIME As Single
     '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer

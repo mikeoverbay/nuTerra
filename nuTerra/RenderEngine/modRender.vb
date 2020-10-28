@@ -345,6 +345,7 @@ Module modRender
         GL.Uniform1(TerrainShader("waveStrength"), Map_wetness.waveStrength)
         GL.Uniform1(TerrainShader("waveMaskUVScale"), Map_wetness.waveMaskUVScale)
 
+        GL.Uniform1(TerrainShader("rippple_mask_time"), RIPPLE_MASK_TIME)
 
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
