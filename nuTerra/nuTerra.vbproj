@@ -417,10 +417,10 @@
     <None Include="shaders\Model_shaders\skyDome.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\PostProcessing\SSAA.frag">
+    <None Include="shaders\PostProcessing\FXAA.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\PostProcessing\SSAA.vert">
+    <None Include="shaders\PostProcessing\FXAA.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Terrain_shaders\BaseRingProjector.frag">

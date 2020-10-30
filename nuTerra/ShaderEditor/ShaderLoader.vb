@@ -159,6 +159,7 @@ Module ShaderLoader
     Public DecalProject As Shader
     Public deferredShader As Shader
     Public FF_BillboardShader As Shader
+    Public FXAAShader As Shader
     Public frustumShader As Shader
     Public glassPassShader As Shader
     Public gWriterShader As Shader
@@ -171,7 +172,6 @@ Module ShaderLoader
     Public normalOffsetShader As Shader
     Public rect2dShader As Shader
     Public SkyDomeShader As Shader
-    Public SSAAShader As Shader
     Public TerrainGrids As Shader
     Public TerrainNormals As Shader
     Public TerrainShader As Shader
@@ -205,6 +205,7 @@ Module ShaderLoader
         DecalProject = New Shader("DecalProject")
         deferredShader = New Shader("deferred")
         FF_BillboardShader = New Shader("FF_billboard")
+        FXAAShader = New Shader("FXAA")
         'unused: frustumShader = New Shader("frustum")
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")
@@ -217,7 +218,6 @@ Module ShaderLoader
         normalOffsetShader = New Shader("normalOffset")
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")
-        SSAAShader = New Shader("SSAA")
         TerrainGrids = New Shader("TerrainGrids")
         TerrainNormals = New Shader("TerrainNormals")
         TerrainShader = New Shader("Terrain")
@@ -237,6 +237,7 @@ Module ShaderLoader
         shaders.Add(DecalProject)
         shaders.Add(deferredShader)
         shaders.Add(FF_BillboardShader)
+        shaders.Add(FXAAShader)
         'unused: shaders.Add(frustumShader)
         shaders.Add(image2dFlipShader)
         shaders.Add(image2dShader)
@@ -249,7 +250,6 @@ Module ShaderLoader
         shaders.Add(normalOffsetShader)
         shaders.Add(rect2dShader)
         shaders.Add(SkyDomeShader)
-        shaders.Add(SSAAShader)
         shaders.Add(TerrainGrids)
         shaders.Add(TerrainNormals)
         shaders.Add(TerrainShader)
