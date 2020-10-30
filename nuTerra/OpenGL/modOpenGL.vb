@@ -69,7 +69,7 @@ Module modOpenGL
         Dim alphaReference As Single
         Dim alphaTestEnable As UInt32
         Dim texAddressMode As Integer
-        Dim pad0 As UInt32
+        Dim g_enableAO As Boolean
         Dim pad1 As UInt32
         Dim pad2 As UInt32
         'Dim pad3 As UInt32

@@ -112,11 +112,17 @@ Module PrimitiveLoader
         Public diffuseMap As String
         Public normalMap As String
         Public metallicGlossMap As String
-        Public g_enableAO As Boolean
-        Public alphaTestEnable As Boolean
-        Public alphaReference As Integer
         Public g_baseColor As Vector4
         Public g_repaintColor As Vector4
+        Public alphaReference As Integer
+        Public alphaTestEnable As Boolean
+        Public g_enableAO As Boolean
+        Public g_enableTerrainBlending As Boolean
+        Public g_aging As Boolean
+        Public doubleSided As Boolean
+        Public selfIllumination As Integer
+        Public dirtAlbedoMap As String
+        Public glassMap As String
     End Structure
 
     Structure MaterialProps_lightonly_alpha

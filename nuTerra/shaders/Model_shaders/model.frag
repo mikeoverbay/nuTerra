@@ -303,10 +303,29 @@ layout(index = 6) subroutine(fn_entry) void FX_PBS_glass()
     discard;
 }
 
+
+
+
+
 layout(index = 7) subroutine(fn_entry) void FX_PBS_ext_repaint()
 {
-    discard;
+    float mip = mip_map_level(fs_in.TC1);
+    // g_tile0Tint = g_baseCOlor
+    // g_tile1Tint = g_repaintColor
+
+   vec4 diffuse = texture(thisMaterial.maps[0], fs_in.TC1);
+   diffuse.rgb = mix(diffuse.rgb, thisMaterial.g_tile1Tint.rgb , diffuse.a);
+   //diffuse.rgb += diffuse.rgb * (thisMaterial.g_tile1Tint.rgb * diffuse.a);
+   gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+
+   gColor = diffuse;
+   get_normal(mip);
 }
+
+
+
+
+
 
 layout(index = 8) subroutine(fn_entry) void FX_lightonly_alpha_entry()
 {

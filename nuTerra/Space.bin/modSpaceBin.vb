@@ -794,6 +794,7 @@ got_it:
                     Next
                     Dim obj As New MaterialProps_PBS_ext_repaint
                     With obj
+                        'If props.ContainsKey("glassMap") Then Stop
                         .diffuseMap = props("diffuseMap")
                         .normalMap = props("normalMap")
                         .metallicGlossMap = props("metallicGlossMap")
@@ -804,6 +805,8 @@ got_it:
                         .g_repaintColor = If(props.ContainsKey("g_repaintColor"), props("g_repaintColor"), New Vector4(1, 1, 1, 1))
 
                     End With
+                    mat.shader_type = ShaderTypes.FX_PBS_ext_repaint
+                    mat.props = obj
 
 
                 Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx"

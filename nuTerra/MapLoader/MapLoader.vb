@@ -1065,6 +1065,17 @@ Module MapLoader
                         .g_colorTint = props.g_filterColor
                         .texAddressMode = props.texAddressMode
 
+                    Case ShaderTypes.FX_PBS_ext_repaint
+                        Dim props As MaterialProps_PBS_ext_repaint = mat.props
+                        .map1Handle = textureHandles(props.diffuseMap)
+                        .map2Handle = textureHandles(props.normalMap)
+                        .map3Handle = textureHandles(props.metallicGlossMap)
+                        .alphaReference = props.alphaReference / 255.0
+                        .alphaTestEnable = props.alphaTestEnable
+                        .g_tile0Tint = props.g_baseColor
+                        .g_tile1Tint = props.g_repaintColor
+                        .g_enableAO = props.g_enableAO
+
                     Case ShaderTypes.FX_lightonly_alpha
                         Dim props As MaterialProps_lightonly_alpha = mat.props
                         .map1Handle = textureHandles(props.diffuseMap)
