@@ -277,6 +277,7 @@ Module MapLoader
             ripple_thread.Start()
         End If
     End Sub
+
     Public Sub load_map(ByVal package_name As String)
         'disable main menu
         frmMain.MainMenuStrip.Enabled = False
@@ -748,10 +749,18 @@ Module MapLoader
                         texturePaths.Add(mat.props.dirtMap)
                     End If
                     texturePaths.Add(mat.props.globalTex)
+
                 Case ShaderTypes.FX_PBS_glass
                     texturePaths.Add(mat.props.dirtAlbedoMap)
                     texturePaths.Add(mat.props.normalMap)
                     texturePaths.Add(mat.props.glassMap)
+
+                Case ShaderTypes.FX_PBS_ext_repaint
+                    texturePaths.Add(mat.props.diffuseMap)
+                    texturePaths.Add(mat.props.normalMap)
+                    texturePaths.Add(mat.props.metallicGlossMap)
+
+
 
                 Case ShaderTypes.FX_lightonly_alpha
                     texturePaths.Add(mat.props.diffuseMap)

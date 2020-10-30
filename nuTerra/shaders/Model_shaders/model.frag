@@ -303,18 +303,23 @@ layout(index = 6) subroutine(fn_entry) void FX_PBS_glass()
     discard;
 }
 
-layout(index = 7) subroutine(fn_entry) void FX_lightonly_alpha_entry()
+layout(index = 7) subroutine(fn_entry) void FX_PBS_ext_repaint()
+{
+    discard;
+}
+
+layout(index = 8) subroutine(fn_entry) void FX_lightonly_alpha_entry()
 {
     // gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor = vec4(0.0,0.0,1.0,0.0); // debug
 }
 
-layout(index = 8) subroutine(fn_entry) void FX_unsupported_entry()
+layout(index = 9) subroutine(fn_entry) void FX_unsupported_entry()
 {
     gColor = vec4(1.0, 1.0, 1.0, 0.0);
 }
 
-subroutine uniform fn_entry entries[9];
+subroutine uniform fn_entry entries[10];
 
 // ================================================================================
 // Main start

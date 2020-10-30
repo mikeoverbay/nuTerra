@@ -17,8 +17,9 @@ Module PrimitiveLoader
         FX_PBS_tiled_atlas = 4
         FX_PBS_tiled_atlas_global = 5
         FX_PBS_glass = 6
-        FX_lightonly_alpha = 7
-        FX_unsupported = 8
+        FX_PBS_ext_repaint = 7
+        FX_lightonly_alpha = 8
+        FX_unsupported = 9
     End Enum
 
     Structure MaterialProps_PBS_ext
@@ -106,6 +107,18 @@ Module PrimitiveLoader
         Public texAddressMode As UInteger
         Public g_filterColor As Vector4
     End Structure
+
+    Structure MaterialProps_PBS_ext_repaint
+        Public diffuseMap As String
+        Public normalMap As String
+        Public metallicGlossMap As String
+        Public g_enableAO As Boolean
+        Public alphaTestEnable As Boolean
+        Public alphaReference As Integer
+        Public g_baseColor As Vector4
+        Public g_repaintColor As Vector4
+    End Structure
+
     Structure MaterialProps_lightonly_alpha
         Public diffuseMap As String
     End Structure

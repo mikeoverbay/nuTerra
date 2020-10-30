@@ -770,6 +770,37 @@ got_it:
                     mat.props = obj
                     mat.shader_type = ShaderTypes.FX_PBS_glass
 
+                Case "shaders/std_effects/PBS_ext_repaint.fx"
+
+                    Dim knownPropNames As New HashSet(Of String)({
+                        "diffuseMap",
+                        "normalMap",
+                        "metallicGlossMap",
+                        "g_baseColor",
+                        "alphaReference",
+                        "g_baseColor",
+                        "g_repaintColor",
+                        "alphaTestEnable"
+                    })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            Stop
+                        End If
+                    Next
+                    Dim obj As New MaterialProps_PBS_ext_repaint
+                    With obj
+                        .diffuseMap = props("diffuseMap")
+                        .normalMap = props("normalMap")
+                        .metallicGlossMap = props("metallicGlossMap")
+                        .alphaTestEnable = props("alphaTestEnable")
+                        .alphaTestEnable = props("alphaReference")
+                        .g_enableAO = props("g_enableAO")
+                        .g_baseColor = props("g_baseColor")
+                        .g_repaintColor = props("g_repaintColor")
+
+                    End With
+
+
                 Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx"
                     Dim obj As New MaterialProps_lightonly_alpha
                     With obj
