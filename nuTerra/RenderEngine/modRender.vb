@@ -629,22 +629,22 @@ Module modRender
 
 
 
-        SSAAShader.Use()
-        GL.UniformMatrix4(SSAAShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        FXAAShader.Use()
+        GL.UniformMatrix4(FXAAShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
-        GL.Uniform2(SSAAShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
+        GL.Uniform2(FXAAShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
 
-        GL.Uniform1(SSAAShader("colorMap"), 0)
+        GL.Uniform1(FXAAShader("colorMap"), 0)
         GL.BindTextureUnit(0, FBOm.gColor)
         'GL.BindTextureUnit(0, FBOm.gAUX_Color)
 
         'draw full screen quad
-        GL.Uniform4(SSAAShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
+        GL.Uniform4(FXAAShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-        SSAAShader.StopUse()
+        FXAAShader.StopUse()
         GL.BindTextureUnit(0, 0)
 
         GL_POP_GROUP()
