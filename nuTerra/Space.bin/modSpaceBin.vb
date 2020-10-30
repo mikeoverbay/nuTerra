@@ -365,7 +365,7 @@ CleanUp:
                                 Dim s As String = props("dirtMap")
                                 If s.ToLower.Contains("dirt_pchurch_01_dm") Then
                                     props("dirtMap") = Replace(s, "/Tiles/", "/00_Tiles/")
-                                    Debug.WriteLine(props("dirtMap"))
+                                    'Debug.WriteLine(props("dirtMap"))
                                 End If
                             End If
                         Case Else
@@ -795,14 +795,32 @@ got_it:
                     Dim obj As New MaterialProps_PBS_ext_repaint
                     With obj
                         'If props.ContainsKey("glassMap") Then Stop
+                        If Not props.ContainsKey("g_repaintColor") Then
+                            If materials.ElementAt(pGroup.material_id - 1).Value.shader_type = ShaderTypes.FX_PBS_ext_repaint Then
+                                Dim props_2 = materials.ElementAt(pGroup.material_id - 1).Value.props
+                                .g_repaintColor = props_2.g_repaintColor
+                            End If
+                        Else
+                            .g_repaintColor = props("g_repaintColor")
+                        End If
+
+                        If Not props.ContainsKey("g_baseColor") Then
+                            If materials.ElementAt(pGroup.material_id - 1).Value.shader_type = ShaderTypes.FX_PBS_ext_repaint Then
+                                Dim props_2 = materials.ElementAt(pGroup.material_id - 1).Value.props
+                                .g_baseColor = props_2.g_baseColor
+                            End If
+
+                        Else
+                            .g_baseColor = props("g_baseColor")
+                        End If
+
                         .diffuseMap = props("diffuseMap")
                         .normalMap = props("normalMap")
                         .metallicGlossMap = props("metallicGlossMap")
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
                         .g_enableAO = props("g_enableAO")
-                        .g_baseColor = If(props.ContainsKey("g_baseColor"), props("g_baseColor"), New Vector4(1, 1, 1, 1))
-                        .g_repaintColor = If(props.ContainsKey("g_repaintColor"), props("g_repaintColor"), New Vector4(1, 1, 1, 1))
+                        '.g_baseColor = If(props.ContainsKey("g_baseColor"), props("g_baseColor"), New Vector4(0.223529, 0.25098, 0.282353, 1))
 
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_ext_repaint

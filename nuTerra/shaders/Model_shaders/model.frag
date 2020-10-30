@@ -314,6 +314,7 @@ layout(index = 7) subroutine(fn_entry) void FX_PBS_ext_repaint()
     // g_tile1Tint = g_repaintColor
 
    vec4 diffuse = texture(thisMaterial.maps[0], fs_in.TC1);
+   diffuse.rgb = mix(diffuse.rgb, thisMaterial.g_tile0Tint.rgb , diffuse.a);
    diffuse.rgb = mix(diffuse.rgb, thisMaterial.g_tile1Tint.rgb , diffuse.a);
    //diffuse.rgb += diffuse.rgb * (thisMaterial.g_tile1Tint.rgb * diffuse.a);
    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal

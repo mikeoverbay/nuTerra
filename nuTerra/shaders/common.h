@@ -68,6 +68,7 @@ struct MaterialProperties
     float alphaReference;     /* 200 .. 204 */
     bool alphaTestEnable;     /* 204 .. 208 */
     int texAddressMode;       /* 208 .. 212 */
+    bool g_enableAO;          /* 212 .. 216 */
 };
 
 #ifdef USE_PERVIEW_UBO
