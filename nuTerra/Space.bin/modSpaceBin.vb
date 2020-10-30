@@ -374,7 +374,7 @@ CleanUp:
                 End With
             Next
             Select Case fx
-                Case "shaders/std_effects/PBS_ext.fx", "shaders/std_effects/PBS_ext_skinned.fx", "shaders/std_effects/PBS_ext_repaint.fx"
+                Case "shaders/std_effects/PBS_ext.fx", "shaders/std_effects/PBS_ext_skinned.fx"
                     Dim knownPropNames As New HashSet(Of String)({
                         "diffuseMap",
                         "normalMap",
@@ -771,14 +771,12 @@ got_it:
                     mat.shader_type = ShaderTypes.FX_PBS_glass
 
                 Case "shaders/std_effects/PBS_ext_repaint.fx"
-
                     Dim knownPropNames As New HashSet(Of String)({
                         "diffuseMap",
                         "normalMap",
                         "metallicGlossMap",
                         "g_baseColor",
                         "alphaReference",
-                        "g_baseColor",
                         "g_repaintColor",
                         "alphaTestEnable"
                     })
