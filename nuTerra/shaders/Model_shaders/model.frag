@@ -84,6 +84,19 @@ float mip_map_level(in vec2 iUV)
     return round(0.55 * log2(d)); 
 }
 
+int get_dom_mix(in vec3 b){
+    int ov = 0;
+    float s = b.x;
+    if (b.y > b.x) {
+        s = b.y;
+        ov = 1;
+    }
+    if (b.z > s) {
+        ov = 2;
+    }
+    return ov;
+}
+
 
 // ================================================================================
 // Subroutines
@@ -93,16 +106,6 @@ layout(index = 0) subroutine(fn_entry) void default_entry()
     gColor = vec4(1, 0, 0, 0);
 }
 
-int get_dom_mix(in vec3 b){
-    int ov = 0;
-    float s = b.x;
-        if (b.y > b.x) {
-            s = b.y;
-            ov = 1;
-        }
-    if (b.z > s) { ov = 2;}
-    return ov;
-}
 
 layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
@@ -160,19 +163,22 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec4 colorAM_3 = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
 
     vec4 GBMT, MAO;
+    vec2 DOM_UV;
     switch (get_dom_mix(BLEND.xyz)){
-    case 0:
-    GBMT =    textureLod(thisMaterial.maps[1],uv1,mip);
-    MAO =     textureLod(thisMaterial.maps[2],uv1,mip);
-    break;
-    case 1:
-    GBMT =    textureLod(thisMaterial.maps[1],uv2,mip);
-    MAO =     textureLod(thisMaterial.maps[2],uv2,mip);
-    break;
-    case 2:
-    GBMT =    textureLod(thisMaterial.maps[1],uv3,mip);
-    MAO =     textureLod(thisMaterial.maps[2],uv3,mip);
-    }
+        case 0:
+            DOM_UV = uv1;
+            break;
+
+        case 1:
+            DOM_UV = uv2;
+            break;
+
+        case 2:
+            DOM_UV = uv3;
+        }
+
+    GBMT =    textureLod(thisMaterial.maps[1],DOM_UV,mip);
+    MAO =     textureLod(thisMaterial.maps[2],DOM_UV,mip);
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
@@ -236,19 +242,22 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     vec4 colorAM_3 = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
 
     vec4 GBMT, MAO;
+    vec2 DOM_UV;
     switch (get_dom_mix(BLEND.xyz)){
-    case 0:
-    GBMT =    textureLod(thisMaterial.maps[1],uv1,mip);
-    MAO =     textureLod(thisMaterial.maps[2],uv1,mip);
-    break;
-    case 1:
-    GBMT =    textureLod(thisMaterial.maps[1],uv2,mip);
-    MAO =     textureLod(thisMaterial.maps[2],uv2,mip);
-    break;
-    case 2:
-    GBMT =    textureLod(thisMaterial.maps[1],uv3,mip);
-    MAO =     textureLod(thisMaterial.maps[2],uv3,mip);
-    }
+        case 0:
+            DOM_UV = uv1;
+            break;
+
+        case 1:
+            DOM_UV = uv2;
+            break;
+
+        case 2:
+            DOM_UV = uv3;
+        }
+
+    GBMT = textureLod(thisMaterial.maps[1],DOM_UV,mip);
+    MAO =  textureLod(thisMaterial.maps[2],DOM_UV,mip);
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
