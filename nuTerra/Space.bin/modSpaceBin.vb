@@ -778,7 +778,14 @@ got_it:
                         "g_baseColor",
                         "alphaReference",
                         "g_repaintColor",
-                        "alphaTestEnable"
+                        "alphaTestEnable",
+                        "g_enableAO",
+                        "g_enableTerrainBlending",
+                        "g_aging",
+                        "doubleSided",
+                        "selfIllumination",
+                        "dirtAlbedoMap",
+                        "glassMap"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
@@ -790,11 +797,11 @@ got_it:
                         .diffuseMap = props("diffuseMap")
                         .normalMap = props("normalMap")
                         .metallicGlossMap = props("metallicGlossMap")
-                        .alphaTestEnable = props("alphaTestEnable")
-                        .alphaTestEnable = props("alphaReference")
+                        .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
+                        .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
                         .g_enableAO = props("g_enableAO")
-                        .g_baseColor = props("g_baseColor")
-                        .g_repaintColor = props("g_repaintColor")
+                        .g_baseColor = If(props.ContainsKey("g_baseColor"), props("g_baseColor"), New Vector4(1, 1, 1, 1))
+                        .g_repaintColor = If(props.ContainsKey("g_repaintColor"), props("g_repaintColor"), New Vector4(1, 1, 1, 1))
 
                     End With
 
