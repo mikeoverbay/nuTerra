@@ -69,8 +69,18 @@ void get_normal(in float mip)
         discard;
     }
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
+    gNormal.y = -gNormal.y;
+
 }
 
+vec3 get_detail_normal(vec4 normal){
+    vec3 bump;
+    bump.xy = normal.ag * 2.0 - 1.0;
+    bump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
+    bump.y = -bump.y;
+
+    return bump;
+}
 
 // ================================================================================
 // Atlas Functions
@@ -134,15 +144,14 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
     float mip = mip_map_level(fs_in.TC1);
     gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor *= thisMaterial.g_colorTint;
-
+    
     vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
+    vec4 detail = texture(thisMaterial.maps[3], fs_in.TC1*10.0);
 
-    vec4 detail = texture(thisMaterial.maps[4], fs_in.TC1);
-    gColor.rg = thisMaterial.g_detailInfluences.xy;
-    //gColor.rgb *=  detail.rgb;// * thisMaterial.g_detailInfluences.x;
-    //if (thisMaterial.g_enableAO) { gColor *= gm.b; }
-    gGMF.rg = gm.rg; // gloss/metal
+    gGMF.rg = mix(gGMF.rg, detail.rb, thisMaterial.g_detailInfluences.y*0.5); // gloss/metal
     get_normal(mip);
+    vec3 bump = get_detail_normal(detail);
+    gNormal = mix(gNormal, bump, thisMaterial.g_detailInfluences.x*0.5);
 }
 
 
@@ -218,7 +227,9 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec3 bump;
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
-    bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
+    bump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
+    bump.y = -bump.y;
+
     gNormal = normalize(fs_in.TBN * bump);
 }
 
@@ -300,7 +311,8 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
-    bump.z = clamp(sqrt(1.0 - ((tb.x*tb.x)+(tb.y*tb.y))),-1.0,1.0);
+    bump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
+    bump.y = -bump.y;
     gNormal = normalize(fs_in.TBN * bump);
 }
 
