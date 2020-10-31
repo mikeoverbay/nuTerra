@@ -69,6 +69,7 @@ struct MaterialProperties
     bool alphaTestEnable;     /* 204 .. 208 */
     int texAddressMode;       /* 208 .. 212 */
     bool g_enableAO;          /* 212 .. 216 */
+    vec4 g_detailInfluences;  /* 216 .. 220 */
 };
 
 #ifdef USE_PERVIEW_UBO

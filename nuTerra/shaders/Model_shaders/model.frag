@@ -134,7 +134,14 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
     float mip = mip_map_level(fs_in.TC1);
     gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor *= thisMaterial.g_colorTint;
-    gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+
+    vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
+
+    vec4 detail = texture(thisMaterial.maps[4], fs_in.TC1);
+    gColor.rg = thisMaterial.g_detailInfluences.xy;
+    //gColor.rgb *=  detail.rgb;// * thisMaterial.g_detailInfluences.x;
+    //if (thisMaterial.g_enableAO) { gColor *= gm.b; }
+    gGMF.rg = gm.rg; // gloss/metal
     get_normal(mip);
 }
 

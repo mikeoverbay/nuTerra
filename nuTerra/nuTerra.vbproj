@@ -393,6 +393,12 @@
     <None Include="shaders\Model_shaders\modelGlass.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\PostProcessing\FXAA.frag.spv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\PostProcessing\FXAA.vert.spv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Utility\FF_billboard.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

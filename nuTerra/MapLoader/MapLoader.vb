@@ -363,12 +363,12 @@ Module MapLoader
             CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
         End If
         'get env_brdf
-        entry = search_pkgs("system/maps/env_brdf_lut.dds")
-        If entry IsNot Nothing Then
-            Dim ms As New MemoryStream
-            entry.Extract(ms)
-            ENV_BRDF_LUT = just_load_image_from_stream(Il.IL_DDS, ms, "system/maps/env_brdf_lut.dds", False, False)
-        End If
+        'entry = search_pkgs("system/maps/env_brdf_lut.dds")
+        'If entry IsNot Nothing Then
+        '    Dim ms As New MemoryStream
+        '    entry.Extract(ms)
+        '    ENV_BRDF_LUT = just_load_image_from_stream(Il.IL_DDS, ms, "system/maps/env_brdf_lut.dds", False, False)
+        'End If
 
         '===============================================================
         'load ripple textures
@@ -731,6 +731,9 @@ Module MapLoader
                     texturePaths.Add(mat.props.diffuseMap)
                     texturePaths.Add(mat.props.normalMap)
                     texturePaths.Add(mat.props.metallicGlossMap)
+                    If mat.props.g_detailMap IsNot Nothing Then
+                        texturePaths.Add(mat.props.g_detailMap)
+                    End If
 
                 Case ShaderTypes.FX_PBS_tiled_atlas
                     atlasPaths.Add(mat.props.atlasAlbedoHeight)
@@ -1011,10 +1014,16 @@ Module MapLoader
                         .map1Handle = textureHandles(props.diffuseMap)
                         .map2Handle = textureHandles(props.normalMap)
                         .map3Handle = textureHandles(props.metallicGlossMap)
+                        If props.g_detailMap IsNot Nothing Then
+                            .map4Handle = textureHandles(props.g_detailMap)
+
+                        End If
+                        .g_enableAO = props.g_enableAO
                         .g_useNormalPackDXT1 = props.g_useNormalPackDXT1
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
+                        .g_detailInfluences = props.g_detailInfluences
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
                         Dim props As MaterialProps_PBS_tiled_atlas = mat.props

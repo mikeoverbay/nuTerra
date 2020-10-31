@@ -56,8 +56,10 @@ Module PrimitiveLoader
         Public doubleSided As Boolean
         Public g_detailMap As String
         Public g_useNormalPackDXT1 As Boolean
+        Public g_enableAO As Boolean
         'Public g_useTintColor As Boolean
         Public g_colorTint As Vector4
+        Public g_detailInfluences As Vector4
     End Structure
 
     Structure MaterialProps_PBS_tiled_atlas
