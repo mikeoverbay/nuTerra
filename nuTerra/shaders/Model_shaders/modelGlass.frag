@@ -68,10 +68,7 @@ void main(void)
 
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
-    gGMF.a = 0.0;
-//    if (fs_in.lod_level == 1)      { gColor.r = 1; }
-//    else if (fs_in.lod_level == 2) { gColor.g = 1; }
-//    else if (fs_in.lod_level == 3) { gColor.b = 1; }
+    gGMF.a = 0.5; // cube map all the time :)
 
     gPick.r = fs_in.model_id + 1;
 

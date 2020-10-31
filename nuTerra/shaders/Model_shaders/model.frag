@@ -205,7 +205,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     gColor = colorAM;
 
     //save Gloss.Metal
-    gGMF.r = GBMT.r;
+    gGMF.ra = GBMT.rb;
     gGMF.g = MAO.r;
         
     vec3 bump;
@@ -284,7 +284,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     gColor = colorAM;
 
     //save Gloss.Metal
-    gGMF.r = GBMT.r;
+    gGMF.ra = GBMT.rb;
     gGMF.g = MAO.r;
 
     vec3 bump;
@@ -317,7 +317,7 @@ layout(index = 7) subroutine(fn_entry) void FX_PBS_ext_repaint()
    diffuse.rgb = mix(diffuse.rgb, thisMaterial.g_tile0Tint.rgb , diffuse.a);
    diffuse.rgb = mix(diffuse.rgb, thisMaterial.g_tile1Tint.rgb , diffuse.a);
    //diffuse.rgb += diffuse.rgb * (thisMaterial.g_tile1Tint.rgb * diffuse.a);
-   gGMF.rg = texture(thisMaterial.maps[2], fs_in.TC1).rg; // gloss/metal
+   gGMF.rga = texture(thisMaterial.maps[2], fs_in.TC1).rgb; // gloss/metal
 
    gColor = diffuse;
    get_normal(mip);

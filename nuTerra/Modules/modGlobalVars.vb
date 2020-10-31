@@ -44,6 +44,7 @@ Module modGlobalVars
     Public RIPPLE_TEXTURES() As Integer
     Public RIPPLE_MASK_TEXTURE As Integer
     Public RIPPLE_MASK_TIME As Single
+    Public ENV_BRDF_LUT As Integer
     '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer

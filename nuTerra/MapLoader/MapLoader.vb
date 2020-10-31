@@ -336,8 +336,6 @@ Module MapLoader
         'load test textures
         N_MAP_TYPE = 1 ' has to be set for the ANM Green alpha normal maps.
         m_normal_id = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
-        m_color_id = load_image_from_file(Il.IL_PNG, Application.StartupPath + "\resources\ref_colorMap.png", True, False)
-        m_gmm_id = find_and_load_texture_from_pkgs("content/Buildings/bld_19_04_Ampitheratre/bld_19_04_Ampitheratre_GMM.dds")
         '===============================================================
 
         '===============================================================
@@ -364,6 +362,14 @@ Module MapLoader
             entry.Extract(ms)
             CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
         End If
+        'get env_brdf
+        entry = search_pkgs("system/maps/env_brdf_lut.dds")
+        If entry IsNot Nothing Then
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+            ENV_BRDF_LUT = just_load_image_from_stream(Il.IL_DDS, ms, "system/maps/env_brdf_lut.dds", False, False)
+        End If
+
         '===============================================================
         'load ripple textures
         Dim rtc = Map_wetness.waveTextureCount - 1

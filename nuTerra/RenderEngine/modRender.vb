@@ -581,6 +581,7 @@ Module modRender
         GL.Uniform1(deferredShader("gPosition"), 3)
         GL.Uniform1(deferredShader("cubeMap"), 4)
         GL.Uniform1(deferredShader("lut"), 5)
+        GL.Uniform1(deferredShader("env_brdf_lut"), 6)
 
         GL.BindTextureUnit(0, FBOm.gColor)
         GL.BindTextureUnit(1, FBOm.gNormal)
@@ -588,6 +589,9 @@ Module modRender
         GL.BindTextureUnit(3, FBOm.gPosition)
         GL.BindTextureUnit(4, CUBE_TEXTURE_ID)
         GL.BindTextureUnit(5, CC_LUT_ID)
+        GL.BindTextureUnit(6, ENV_BRDF_LUT)
+
+
 
         GL.Uniform3(deferredShader("sunColor"), SUNCOLOR.X, SUNCOLOR.Y, SUNCOLOR.Z)
         GL.Uniform3(deferredShader("ambientColorForward"), AMBIENTSUNCOLOR.X, AMBIENTSUNCOLOR.Y, AMBIENTSUNCOLOR.Z)
@@ -610,7 +614,7 @@ Module modRender
 
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
 
-        unbind_textures(4) ' unbind all the used texture slots
+        unbind_textures(6) ' unbind all the used texture slots
 
         deferredShader.StopUse()
 
@@ -621,13 +625,8 @@ Module modRender
 
         GL_PUSH_GROUP("perform_SSAA_Pass")
 
-        'GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO)
-
-        'GL.ReadBuffer(ReadBufferMode.Back)
         Dim e = GL.GetError
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
-
-
 
         FXAAShader.Use()
         GL.UniformMatrix4(FXAAShader("ProjectionMatrix"), False, PROJECTIONMATRIX)

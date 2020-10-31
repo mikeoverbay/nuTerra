@@ -99,7 +99,7 @@ void main (void)
 
             vec4 color_in = texture(gColor, fs_in.UV);
 
-            vec2 GM_in = texture(gGMF, fs_in.UV).xy;
+            vec3 GM_in = texture(gGMF, fs_in.UV).xya;
         
             vec3 LightPosModelView = LightPos.xyz;
 
@@ -122,7 +122,8 @@ void main (void)
                 //---------------------------------------------
 
             }
-            vec4 final_color = vec4(0.25, 0.25, 0.25, 1.0) * color_in;
+            vec4 final_color = vec4(0.25, 0.25, 0.25, 1.0) * color_in ;
+
             vec4 Ambient_level = color_in * vec4(AMBIENT * 3.0);
 
             Ambient_level.rgb *= ambientColorForward;
@@ -137,11 +138,9 @@ void main (void)
             if (dist < cutoff) {
 
                 float lambertTerm = pow(max(dot(N, L),0.0),1.0)*1.0;
-                final_color.xyz += max(lambertTerm * color_in.xyz*color.xyz*sunColor,0.0);
+                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz * sunColor,0.0);
 
 
-
-                //final_color.rgb *= sunColor;
 
                 vec3 halfwayDir = normalize(L + vd);
 
@@ -150,8 +149,9 @@ void main (void)
    
                 vec3 R = reflect(-V,N);
                 R.xz *= -1.0;
-                vec3 prefilteredColor = pow(textureLod(cubeMap, R,  max(5.0-GM_in.g *6, 0.0)).rgb,vec3(2.2));    
-                vec3 refection = prefilteredColor * spec;// * (1.0-GM_in.g );
+                vec3 prefilteredColor = pow(textureLod(cubeMap, R,  max(5.0-GM_in.g *5, 0.0)).rgb,vec3(2.2)); 
+                prefilteredColor = mix(vec3(spec), prefilteredColor+spec, GM_in.b*0.3);
+                vec3 refection = prefilteredColor;
 
    
                 final_color.xyz += refection;
@@ -173,7 +173,7 @@ void main (void)
 
             /*===================================================================*/
             // Final Output
-            outColor =  correct(final_color,2.0,1.1)*2.25;
+            outColor =  correct(final_color,1.9,0.9)*2.25;
             outColor.a = 1.0;
             /*===================================================================*/
         //if flag != 128
