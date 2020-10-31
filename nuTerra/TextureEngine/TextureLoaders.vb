@@ -206,6 +206,14 @@ Module TextureLoaders
                             .components = 3,
                             .compressed = False
                         }
+                    ElseIf rgbBitCount = 32 And redMask = &HFF0000 And greenMask = &HFF00 And blueMask = &HFF And alphaMask = &HFF000000UI Then
+                        Return New FormatInfo With {
+                            .pixel_format = OpenGL.PixelFormat.Bgra,
+                            .texture_format = InternalFormat.Rgba8,
+                            .pixel_type = PixelType.UnsignedByte,
+                            .components = 4,
+                            .compressed = False
+                        }
                     End If
                 End If
                 Stop
