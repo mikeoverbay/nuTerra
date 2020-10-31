@@ -27,6 +27,7 @@ Module modGlobalVars
 
     ' https://www.khronos.org/registry/OpenGL/extensions/NV/NV_mesh_shader.txt
     Public USE_NV_MESH_SHADER As Boolean
+    Public USE_SPIRV_SHADERS As Boolean
 
     'Shading
     Public SUNCOLOR As Vector3

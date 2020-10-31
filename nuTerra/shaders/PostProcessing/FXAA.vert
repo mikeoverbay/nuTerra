@@ -1,13 +1,18 @@
-﻿#version 450 core
+#version 450 core
 
-uniform mat4 ProjectionMatrix;
-uniform vec4 rect;
-out vec2 TexCoords;
+layout (location = 0) uniform mat4 ProjectionMatrix;
+layout (location = 1) uniform vec4 rect;
+
+layout (location=0) out VS_OUT {
+    vec2 TexCoords;
+} vs_out;
+
 
 void main(void)
 {
     vec2 co;
     vec2 uv;
+
     if (gl_VertexID == 0) {
         co = rect.xw;
         uv = vec2(0.0f, 1.0f);
@@ -23,7 +28,8 @@ void main(void)
     else {
         co = rect.zy;
         uv = vec2(1.0f, 0.0f);
-    }    gl_Position = ProjectionMatrix * vec4(co, 0.0f, 1.0f);
+    }
 
-    TexCoords=uv;
+    gl_Position = ProjectionMatrix * vec4(co, 0.0f, 1.0f);
+    vs_out.TexCoords = uv;
 }

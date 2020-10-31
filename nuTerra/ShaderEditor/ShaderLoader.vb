@@ -275,16 +275,21 @@ Module ShaderLoader
         ' Compile vertex shader
         Dim vertexObject As Integer = 0
         If v IsNot Nothing Then
-
             vertexObject = GL.CreateShader(ShaderType.VertexShader)
-            GL.ObjectLabel(ObjectLabelIdentifier.Shader, vertexObject, -1, "SHD-VERT-" + name)
+            LabelObject(ObjectLabelIdentifier.Shader, vertexObject, name)
 
-            Using vs_s As New StreamReader(v)
-                Dim vs As String = vs_s.ReadToEnd()
-                GL.ShaderSource(vertexObject, vs)
-            End Using
+            If USE_SPIRV_SHADERS And File.Exists(v + ".spv") Then
+                Dim vs_buf = File.ReadAllBytes(v + ".spv")
+                GL.ShaderBinary(1, vertexObject, DirectCast(&H9551, BinaryFormat), vs_buf, vs_buf.Length)
+                GL.SpecializeShader(vertexObject, "main", 0, 0, 0)
+            Else
+                Using vs_s As New StreamReader(v)
+                    Dim vs As String = vs_s.ReadToEnd()
+                    GL.ShaderSource(vertexObject, vs)
+                End Using
 
-            GL.Arb.CompileShaderInclude(vertexObject, incPaths.Length, incPaths, incPathLengths)
+                GL.Arb.CompileShaderInclude(vertexObject, incPaths.Length, incPaths, incPathLengths)
+            End If
 
             ' Get & check status after compile
             GL.GetShader(vertexObject, ShaderParameter.CompileStatus, status_code)
@@ -301,14 +306,20 @@ Module ShaderLoader
         Dim fragmentObject As Integer = 0
         If f IsNot Nothing Then
             fragmentObject = GL.CreateShader(ShaderType.FragmentShader)
-            GL.ObjectLabel(ObjectLabelIdentifier.Shader, fragmentObject, -1, "SHD-FRAG-" + name)
+            LabelObject(ObjectLabelIdentifier.Shader, fragmentObject, name)
 
-            Using fs_s As New StreamReader(f)
-                Dim fs As String = fs_s.ReadToEnd
-                GL.ShaderSource(fragmentObject, fs)
-            End Using
+            If USE_SPIRV_SHADERS And File.Exists(f + ".spv") Then
+                Dim fs_buf = File.ReadAllBytes(f + ".spv")
+                GL.ShaderBinary(1, fragmentObject, DirectCast(&H9551, BinaryFormat), fs_buf, fs_buf.Length)
+                GL.SpecializeShader(fragmentObject, "main", 0, 0, 0)
+            Else
+                Using fs_s As New StreamReader(f)
+                    Dim fs As String = fs_s.ReadToEnd
+                    GL.ShaderSource(fragmentObject, fs)
+                End Using
 
-            GL.Arb.CompileShaderInclude(fragmentObject, incPaths.Length, incPaths, incPathLengths)
+                GL.Arb.CompileShaderInclude(fragmentObject, incPaths.Length, incPaths, incPathLengths)
+            End If
 
             ' Get & check status after compile
             GL.GetShader(fragmentObject, ShaderParameter.CompileStatus, status_code)

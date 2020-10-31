@@ -354,6 +354,7 @@ try_again:
         Next
 
         USE_NV_MESH_SHADER = extensions.Contains("GL_NV_mesh_shader")
+        USE_SPIRV_SHADERS = extensions.Contains("GL_ARB_gl_spirv") 'core since 4.6
 
         ' Requied extensions
         Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
@@ -362,7 +363,6 @@ try_again:
         Debug.Assert(extensions.Contains("GL_ARB_multi_draw_indirect")) 'core since 4.3
         Debug.Assert(extensions.Contains("GL_ARB_direct_state_access")) 'core since 4.5
         Debug.Assert(extensions.Contains("GL_ARB_clip_control")) 'core since 4.5
-        Debug.Assert(extensions.Contains("GL_ARB_gl_spirv")) 'core since 4.6
 
 #If DEBUG Then
         ' Just check
