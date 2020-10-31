@@ -69,7 +69,7 @@ void get_normal(in float mip)
         discard;
     }
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
-    gNormal.y = -gNormal.y;
+    //gNormal.y = -gNormal.y;
 
 }
 
@@ -122,7 +122,11 @@ layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
     float mip = mip_map_level(fs_in.TC1);
     gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
     gColor *= thisMaterial.g_colorTint;
-    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, 0).rg; // gloss/metal
+    vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
+    gGMF.rg = gm.rg; // gloss/metal
+
+    if (thisMaterial.g_enableAO) gColor.xyz += gColor.xyz * gm.b;
+
     get_normal(mip);
 }
 

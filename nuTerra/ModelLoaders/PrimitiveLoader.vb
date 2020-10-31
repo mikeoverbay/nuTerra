@@ -32,6 +32,7 @@ Module PrimitiveLoader
         Public g_useNormalPackDXT1 As Boolean
         'Public g_useTintColor As Boolean
         Public g_colorTint As Vector4
+        Public g_enableAO As Boolean
     End Structure
 
     Structure MaterialProps_PBS_ext_dual

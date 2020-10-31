@@ -997,6 +997,7 @@ Module MapLoader
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
+                        .g_enableAO = props.g_enableAO
 
                     Case ShaderTypes.FX_PBS_ext_dual
                         Dim props As MaterialProps_PBS_ext_dual = mat.props

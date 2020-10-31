@@ -416,6 +416,7 @@ CleanUp:
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
                         .g_useNormalPackDXT1 = If(props.ContainsKey("g_useNormalPackDXT1"), props("g_useNormalPackDXT1"), False)
                         '.g_useTintColor = If(props.ContainsKey("g_useTintColor"), props("g_useTintColor"), False)
+                        .g_enableAO = If(props.ContainsKey("g_enableAO"), props("g_enableAO"), False)
                         .g_colorTint = If(props.ContainsKey("g_colorTint"), props("g_colorTint"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_ext
