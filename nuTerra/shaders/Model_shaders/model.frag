@@ -62,7 +62,8 @@ void get_normal(in float mip)
     } else {
         vec4 normal = textureLod(thisMaterial.maps[1], fs_in.TC1, mip);
         normalBump.xy = normal.ag * 2.0 - 1.0;
-        normalBump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
+        normalBump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
+        normalBump = normalize(normalBump);
         alphaCheck = normal.r;
     }
     if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
@@ -76,10 +77,10 @@ void get_normal(in float mip)
 vec3 get_detail_normal(vec4 normal){
     vec3 bump;
     bump.xy = normal.ag * 2.0 - 1.0;
-    bump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
+    bump.z = clamp( sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
     bump.y = -bump.y;
 
-    return bump;
+    return normalize(bump);
 }
 
 // ================================================================================
@@ -231,7 +232,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec3 bump;
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
-    bump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
+    bump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
     bump.y = -bump.y;
 
     gNormal = normalize(fs_in.TBN * bump);
@@ -315,7 +316,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
-    bump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
+    bump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
     bump.y = -bump.y;
     gNormal = normalize(fs_in.TBN * bump);
 }
