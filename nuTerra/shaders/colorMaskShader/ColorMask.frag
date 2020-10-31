@@ -10,7 +10,7 @@ in vec2 texCoord;
 out vec4 colorOut;
 void main()
     {
-    vec4 color = texture2D(colorMap,texCoord).rgba;
+    vec4 color = texture(colorMap,texCoord).rgba;
     float r = float(mask & 1) ;
     float g = float((mask & 2) / 2);
     float b = float((mask & 4) / 4);

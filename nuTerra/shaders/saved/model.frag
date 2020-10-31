@@ -198,7 +198,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 
 
     float mip = mip_map_level(fs_in.TC2);
-    vec4 BLEND = texture2D(thisMaterial.maps[3],UV4);
+    vec4 BLEND = texture(thisMaterial.maps[3],UV4);
 
     vec4 colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
     vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],UV1,mip);
@@ -264,7 +264,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 
 
     float mip = mip_map_level(fs_in.TC2);
-    vec4 BLEND = texture2D(thisMaterial.maps[3],UV4);
+    vec4 BLEND = texture(thisMaterial.maps[3],UV4);
 
     vec4 colorAM_1 = textureLod(thisMaterial.maps[0],UV1,mip) * thisMaterial.g_tile0Tint;
     vec4 GBMT_1 =    textureLod(thisMaterial.maps[1],UV1,mip);
