@@ -3,7 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
-#include "common.h"
+#include "common.h" //! #include "../common.h"
 
 layout (points) in;
 layout (line_strip, max_vertices = 24) out;

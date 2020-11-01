@@ -1,10 +1,9 @@
-﻿//BillBoardBasic
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
-#include "common.h"
+#include "common.h" //! #include "../common.h"
 
 uniform mat4 matrix;
 uniform vec4 rect;

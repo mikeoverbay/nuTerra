@@ -4,7 +4,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_MATERIALS_SSBO
-#include "common.h"
+#include "common.h" //! #include "../common.h"
 
 // Output
 layout (location = 0) out vec3 gColor;

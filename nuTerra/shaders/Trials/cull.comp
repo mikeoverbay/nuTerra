@@ -13,7 +13,7 @@
 #define USE_LODS_SSBO
 #define USE_INDIRECT_SSBO
 #define USE_INDIRECT_GLASS_SSBO
-#include "common.h"
+#include "common.h" //! #include "../common.h"
 
 layout (local_size_x = 16) in;
 

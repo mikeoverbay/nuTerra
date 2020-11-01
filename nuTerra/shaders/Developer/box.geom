@@ -4,7 +4,7 @@
 
 #define USE_PERVIEW_UBO
 #define USE_MODELINSTANCES_SSBO
-#include "common.h"
+#include "common.h" //! #include "../common.h"
 
 layout (points) in;
 layout (line_strip, max_vertices = 24) out;

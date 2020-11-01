@@ -8,7 +8,7 @@
 #define USE_MODELINSTANCES_SSBO
 #define USE_CANDIDATE_DRAWS_SSBO
 #define USE_MATERIALS_SSBO
-#include "common.h"
+#include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec4 vertexNormal;

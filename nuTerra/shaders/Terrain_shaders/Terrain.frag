@@ -1,7 +1,7 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
-#include "common.h"
+#include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
