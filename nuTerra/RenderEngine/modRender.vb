@@ -633,7 +633,6 @@ Module modRender
 
         GL.Uniform2(FXAAShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
 
-        GL.Uniform1(FXAAShader("colorMap"), 0)
         GL.BindTextureUnit(0, FBOm.gColor)
         'GL.BindTextureUnit(0, FBOm.gAUX_Color)
 
@@ -906,7 +905,6 @@ Module modRender
         'setup
         GL.Enable(EnableCap.Blend)
         TextRenderShader.Use()
-        GL.Uniform1(TextRenderShader("imageMap"), 0)
         GL.Uniform4(TextRenderShader("color"), OpenTK.Graphics.Color4.White)
         GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(TextRenderShader("divisor"), 1.0F) 'atlas size
@@ -1266,7 +1264,6 @@ Module modRender
 
         GL.Enable(EnableCap.Blend)
         TextRenderShader.Use()
-        GL.Uniform1(TextRenderShader("imageMap"), 0)
         GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(TextRenderShader("divisor"), 95.0F) 'atlas size
         GL.BindTextureUnit(0, ASCII_ID)

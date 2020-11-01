@@ -408,6 +408,9 @@
     <None Include="shaders\Utility\TextRender.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Utility\TextRender.frag.spv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Utility\TextRender.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -538,6 +541,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Developer\toLinear.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Utility\TextRender.vert.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

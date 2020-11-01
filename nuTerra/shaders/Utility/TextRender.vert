@@ -1,11 +1,15 @@
-﻿#version 450 core
+#version 450 core
 
-uniform mat4 ProjectionMatrix;
-uniform vec4 rect;
-uniform float index;
-uniform float divisor;
-uniform int col_row;
-out vec2 texCoord;
+layout (location = 0) uniform mat4 ProjectionMatrix;
+layout (location = 1) uniform vec4 rect;
+layout (location = 2) uniform float index;
+layout (location = 3) uniform float divisor;
+layout (location = 4) uniform int col_row;
+
+layout (location = 0) out VS_OUT {
+    vec2 texCoord;
+} vs_out;
+
 
 void main(void)
 {
@@ -33,10 +37,11 @@ void main(void)
 
     vec2 scale = vec2(1.0f/divisor);
     vec2 uvs = uv*scale + vec2(scale * index);
-    if ( col_row == 0 ){
-    uvs.x = uv.x;
-    }else{
-    uvs.y = uv.y;
+    if (col_row == 0) {
+        uvs.x = uv.x;
+    } else {
+        uvs.y = uv.y;
     }
-    texCoord = uvs;
+
+    vs_out.texCoord = uvs;
 }

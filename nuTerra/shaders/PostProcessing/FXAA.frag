@@ -1,7 +1,7 @@
 #version 450 core
 
-layout (location = 2) uniform sampler2D colorMap;
-layout (location = 3) uniform vec2 viewportSize;
+layout (binding = 0) uniform sampler2D colorMap;
+layout (location = 2) uniform vec2 viewportSize;
 
 layout (location=0) in VS_OUT {
     vec2 TexCoords;
