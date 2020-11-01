@@ -154,25 +154,33 @@ Module modOpenGL
     End Sub
 
     Public Sub draw_image_rectangle(rect As RectangleF, image As Integer)
-        image2dShader.Use()
+        If False And USE_NV_DRAW_TEXTURE Then
+            Dim h = frmMain.glControl_main.Height
+            Dim x0 = rect.Left
+            Dim x1 = rect.Right
+            Dim y0 = h - rect.Top
+            Dim y1 = h - rect.Bottom
+            GL.NV.DrawTexture(image, 0, x0, y0, x1, y1, 0, 0, 0, 1, 1)
+        Else
+            image2dShader.Use()
 
-        GL.BindTextureUnit(0, image)
-        GL.Uniform1(image2dShader("imageMap"), 0)
-        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform4(image2dShader("rect"),
-                    rect.Left,
-                    -rect.Top,
-                    rect.Right,
-                    -rect.Bottom)
+            GL.BindTextureUnit(0, image)
+            GL.Uniform1(image2dShader("imageMap"), 0)
+            GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+            GL.Uniform4(image2dShader("rect"),
+                        rect.Left,
+                        -rect.Top,
+                        rect.Right,
+                        -rect.Bottom)
 
-        GL.BindVertexArray(defaultVao)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-        'GL.BindVertexArray(0)
+            GL.BindVertexArray(defaultVao)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+            'GL.BindVertexArray(0)
 
-        image2dShader.StopUse()
-        'unbind texture
-        GL.BindTextureUnit(0, 0)
-
+            image2dShader.StopUse()
+            'unbind texture
+            GL.BindTextureUnit(0, 0)
+        End If
     End Sub
 
     Public Function CreateTexture(target As TextureTarget, name As String) As Integer

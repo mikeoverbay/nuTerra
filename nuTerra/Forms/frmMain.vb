@@ -354,6 +354,7 @@ try_again:
         Next
 
         USE_NV_MESH_SHADER = extensions.Contains("GL_NV_mesh_shader")
+        USE_NV_DRAW_TEXTURE = extensions.Contains("GL_NV_draw_texture")
         USE_SPIRV_SHADERS = extensions.Contains("GL_ARB_gl_spirv") 'core since 4.6
 
         ' Requied extensions
