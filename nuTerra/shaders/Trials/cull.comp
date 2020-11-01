@@ -4,6 +4,7 @@
 #extension GL_GOOGLE_include_directive : require
 #else
 #extension GL_ARB_shading_language_include : require
+#extension GL_ARB_bindless_texture : require
 #endif
 
 #define USE_PERVIEW_UBO
