@@ -292,12 +292,13 @@ Module TextureLoaders
             image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
             'If image_id = 356 Then Stop
-            Dim maxAniso As Single = 3.0F
-            'GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
+            Dim maxAniso As Single = 4.0F
             Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
 
             Dim format_info = dds_header.format_info
             If dds_header.mipMapCount = 0 Or dds_header.mipMapCount = 1 Then
+                GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
+                GL.TextureParameter(image_id, TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, numLevels)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
@@ -324,7 +325,8 @@ Module TextureLoaders
                 GL.GenerateTextureMipmap(image_id)
 
             Else
-                'GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
+                GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
+                GL.TextureParameter(image_id, TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                 GL.TextureParameter(image_id, TextureParameterName.TextureBaseLevel, 0)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
@@ -420,10 +422,11 @@ Module TextureLoaders
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If MIPS Then
+                GL.TextureParameter(image_id, TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-                GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
             End If
+            GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
             GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
@@ -483,8 +486,8 @@ Module TextureLoaders
 
             image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
-            Dim maxAniso As Single
-            GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
+            Dim maxAniso As Single = 4
+
             If NEAREST And Not MIPS Then
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
@@ -494,10 +497,12 @@ Module TextureLoaders
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If MIPS Then
+                GL.TextureParameter(image_id, TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-                GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
             End If
+
+            GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
             GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
@@ -567,6 +572,7 @@ Module TextureLoaders
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
             If MIPS Then
+                GL.TextureParameter(image_id, TextureParameterName.TextureLodBias, -0.75F)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If

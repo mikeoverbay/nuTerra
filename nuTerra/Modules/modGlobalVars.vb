@@ -47,6 +47,9 @@ Module modGlobalVars
     Public RIPPLE_MASK_TIME As Single
     Public ENV_BRDF_LUT As Integer
     '============================================================
+    ' this setting tweaks the mip biasing!
+    Public GLOBAL_MIP_BIAS As Single = -0.75F
+    '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As Integer
     Public m_color_id, m_normal_id, m_gmm_id As Integer

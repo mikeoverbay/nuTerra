@@ -35,16 +35,13 @@ in VS_OUT
     vec2 offset_4;
 } fs_in;
 
-// ================================================================================
 // globals
 vec3 normalBump;
-const float PI = 3.14159265359;
 MaterialProperties thisMaterial = material[fs_in.material_id];
 
-
-// ================================================================================
-// functions
-// ================================================================================
+//##################################################################################
+// sub functions ###################################################################
+//##################################################################################
 //color correction
 vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){  
     // Exposure tone mapping
@@ -53,7 +50,7 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
     mapped.rgb = pow(mapped.rgb, vec3(1.0 / gamma_level));  
     return vec4 (mapped, hdrColor.a);
 }
-
+//##################################################################################
 void get_normal(in float mip)
 {
     float alphaCheck = gColor.a;
@@ -70,10 +67,28 @@ void get_normal(in float mip)
         discard;
     }
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
-    //gNormal.y = -gNormal.y;
 
 }
+//##################################################################################
+void get_and_write_no_mips(void){
 
+    float alphaCheck = gColor.a;
+    if (thisMaterial.g_useNormalPackDXT1) {
+        normalBump = (texture(thisMaterial.maps[1], fs_in.TC1).rgb * 2.0f) - 1.0f;
+    } else {
+        vec4 normal = texture(thisMaterial.maps[1], fs_in.TC1);
+        normalBump.xy = normal.ag * 2.0 - 1.0;
+        normalBump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
+        normalBump = normalize(normalBump);
+        alphaCheck = normal.r;
+    }
+    if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
+        discard;
+    }
+    gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
+
+}
+//##################################################################################
 vec3 get_detail_normal(vec4 normal){
     vec3 bump;
     bump.xy = normal.ag * 2.0 - 1.0;
@@ -82,9 +97,7 @@ vec3 get_detail_normal(vec4 normal){
 
     return normalize(bump);
 }
-
-// ================================================================================
-// Atlas Functions
+//##################################################################################
 float mip_map_level(in vec2 iUV)
 {
     ivec2 isize = textureSize(thisMaterial.maps[0],0);
@@ -94,7 +107,7 @@ float mip_map_level(in vec2 iUV)
     
     return round(0.55 * log2(d)); 
 }
-
+//##################################################################################
 int get_dom_mix(in vec3 b){
     int ov = 0;
     float s = b.x;
@@ -107,31 +120,27 @@ int get_dom_mix(in vec3 b){
     }
     return ov;
 }
-
-
-// ================================================================================
-// Subroutines
+ //##################################################################################
+ // Dispacted Functions #############################################################
+ //##################################################################################
 subroutine void fn_entry();
 layout(index = 0) subroutine(fn_entry) void default_entry()
 {
     gColor = vec4(1, 0, 0, 0);
 }
-
-
+//##################################################################################
 layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
-    float mip = mip_map_level(fs_in.TC1);
-    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
+    gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
     gColor *= thisMaterial.g_colorTint;
     vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
     gGMF.rg = gm.rg; // gloss/metal
 
     if (thisMaterial.g_enableAO) gColor.xyz += gColor.xyz * gm.b;
 
-    get_normal(mip);
+    get_and_write_no_mips();
 }
-
-
+//##################################################################################
 layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
 {
     float mip = mip_map_level(fs_in.TC1);
@@ -140,13 +149,10 @@ layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
     gColor *= thisMaterial.g_colorTint;
     gColor.rgb *= 1.5; // this will need tweaking
     gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
-    get_normal(mip);
-}
-
-
+    get_and_write_no_mips();}
+//##################################################################################
 layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
 {
-    float mip = mip_map_level(fs_in.TC1);
     gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor *= thisMaterial.g_colorTint;
     
@@ -154,12 +160,11 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
     vec4 detail = texture(thisMaterial.maps[3], fs_in.TC1*10.0);
 
     gGMF.rg = mix(gGMF.rg, detail.rb, thisMaterial.g_detailInfluences.y*0.5); // gloss/metal
-    get_normal(mip);
+    get_and_write_no_mips();
     vec3 bump = get_detail_normal(detail);
     gNormal = mix(gNormal, bump, thisMaterial.g_detailInfluences.x*0.5);
 }
-
-
+//##################################################################################
 layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 {
     vec2 UVs;
@@ -198,8 +203,8 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
             DOM_UV = uv3;
         }
 
-    GBMT =    textureLod(thisMaterial.maps[1],DOM_UV,mip);
-    MAO =     textureLod(thisMaterial.maps[2],DOM_UV,mip);
+    GBMT =    texture(thisMaterial.maps[1],DOM_UV);
+    MAO =     texture(thisMaterial.maps[2],DOM_UV);
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
@@ -237,8 +242,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 
     gNormal = normalize(fs_in.TBN * bump);
 }
-
-
+//##################################################################################
 layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 {
     vec2 UVs;
@@ -279,8 +283,8 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
             DOM_UV = uv3;
         }
 
-    GBMT = textureLod(thisMaterial.maps[1],DOM_UV,mip);
-    MAO =  textureLod(thisMaterial.maps[2],DOM_UV,mip);
+    GBMT =    texture(thisMaterial.maps[1],DOM_UV);
+    MAO =     texture(thisMaterial.maps[2],DOM_UV);
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
@@ -320,20 +324,14 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     bump.y = -bump.y;
     gNormal = normalize(fs_in.TBN * bump);
 }
-
-
+//##################################################################################
 layout(index = 6) subroutine(fn_entry) void FX_PBS_glass()
 {
     discard;
 }
-
-
-
-
-
+//##################################################################################
 layout(index = 7) subroutine(fn_entry) void FX_PBS_ext_repaint()
 {
-    float mip = mip_map_level(fs_in.TC1);
     // g_tile0Tint = g_baseCOlor
     // g_tile1Tint = g_repaintColor
 
@@ -344,25 +342,20 @@ layout(index = 7) subroutine(fn_entry) void FX_PBS_ext_repaint()
    gGMF.rga = texture(thisMaterial.maps[2], fs_in.TC1).rgb; // gloss/metal
 
    gColor = diffuse;
-   get_normal(mip);
+   get_and_write_no_mips();
 }
-
-
-
-
-
-
+//##################################################################################
 layout(index = 8) subroutine(fn_entry) void FX_lightonly_alpha_entry()
 {
     // gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor = vec4(0.0,0.0,1.0,0.0); // debug
 }
-
+//##################################################################################
 layout(index = 9) subroutine(fn_entry) void FX_unsupported_entry()
 {
     gColor = vec4(1.0, 1.0, 1.0, 0.0);
 }
-
+//##################################################################################
 subroutine uniform fn_entry entries[10];
 
 // ================================================================================
@@ -376,17 +369,19 @@ void main(void)
 
     gColor.a = 1.0;
 
+    gPick.r = fs_in.model_id + 1;
+
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
     gGMF.a - 0.0;
-// Just for debugging
+
+    // Just for debugging
 if (show_Lods == 1)
     {
         if (fs_in.lod_level == 1)      { gColor.r += 0.4; }
         else if (fs_in.lod_level == 2) { gColor.g += 0.4; }
         else if (fs_in.lod_level == 3) { gColor.b += 0.4; }
     }
-    gPick.r = fs_in.model_id + 1;
 
 }
 // ================================================================================
