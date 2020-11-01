@@ -399,6 +399,9 @@
     <None Include="shaders\PostProcessing\FXAA.vert.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Trials\cull.comp.spv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Utility\FF_billboard.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

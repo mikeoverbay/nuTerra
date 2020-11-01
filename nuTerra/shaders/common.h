@@ -62,7 +62,11 @@ struct MaterialProperties
     vec4 g_tile1Tint;         /* 96  .. 112 */
     vec4 g_tile2Tint;         /* 112 .. 128 */
     vec4 g_tileUVScale;       /* 128 .. 144 */
+#ifdef GL_SPIRV
+    uvec2 maps[6];            /* 144 .. 192 */
+#else
     sampler2D maps[6];        /* 144 .. 192 */
+#endif
     uint shader_type;         /* 192 .. 196 */
     bool g_useNormalPackDXT1; /* 196 .. 200 */
     float alphaReference;     /* 200 .. 204 */

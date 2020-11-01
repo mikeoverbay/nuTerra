@@ -1,7 +1,10 @@
-﻿#version 450 core
+#version 450 core
 
-#extension GL_ARB_bindless_texture : require
+#ifdef GL_SPIRV
+#extension GL_GOOGLE_include_directive : require
+#else
 #extension GL_ARB_shading_language_include : require
+#endif
 
 #define USE_PERVIEW_UBO
 #define USE_MODELINSTANCES_SSBO
@@ -14,7 +17,7 @@
 
 layout (local_size_x = 16) in;
 
-uniform int numModelInstances;
+layout (location = 0) uniform int numModelInstances;
 
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
 layout (binding = PARAMETERS_BASE, offset = 4) uniform atomic_uint commandGlassCounter;
