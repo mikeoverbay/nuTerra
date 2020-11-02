@@ -87,6 +87,22 @@ Module MapLoader
         Packages.PKG_DATA_TABLE.ReadXml(Application.StartupPath + "\data\TheItemList.xml")
     End Sub
 
+    Public Function search_xml_list(ByVal filename As String)
+        Dim pn = search_xml(filename)
+        If pn = "" Then
+            LogThis("file not found in TheItemList.xml: " + filename)
+            Return Nothing
+        End If
+        Using zip As ZipFile = ZipFile.Read(Path.Combine(GAME_PATH, pn))
+            Dim entry = zip(filename)
+            If entry Is Nothing Then
+                LogThis("file not found in package: " + pn)
+                Return Nothing
+            End If
+            Return entry
+        End Using
+    End Function
+
     Public Function search_pkgs(ByVal filename As String) As ZipEntry
         Dim entry As ZipEntry = Nothing
         If HD_EXISTS And USE_HD_TEXTURES Then

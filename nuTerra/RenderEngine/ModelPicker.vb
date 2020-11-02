@@ -16,9 +16,11 @@ Module ModelPicker
         Dim index As UInt32 = pixel(0) ' + (pixel(1) * 255)
 
         If index > 0 And index < 65535 Then
-            PICKED_STRING = "ID " + index.ToString + " " + PICK_DICTIONARY(index - 1)
+            PICKED_STRING = "ID " + index.ToString + " : " + PICK_DICTIONARY(index - 1)
+            PICKED_MODEL_INDEX = index
         Else
             PICKED_STRING = "0" ' May just want this to be ""
+            PICKED_MODEL_INDEX = 0
         End If
 
 

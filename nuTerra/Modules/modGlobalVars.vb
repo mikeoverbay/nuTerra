@@ -8,6 +8,7 @@ Module modGlobalVars
     'map pick Dictionary
     Public PICK_DICTIONARY As New Dictionary(Of UInteger, String)
     Public PICKED_STRING As String = ""
+    Public PICKED_MODEL_INDEX As Integer
     '=================================================================================
     Public Sub clear_output()
         Try

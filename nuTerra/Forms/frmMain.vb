@@ -861,6 +861,26 @@ try_again:
 
     End Sub
 
+    Private Sub glControl_main_MouseDoubleClick(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDoubleClick
+        If PICK_MODELS And PICKED_MODEL_INDEX > 0 Then
+            If Not frmModelViewer.Visible Then
+                frmModelViewer.Visible = True
+            End If
+            'get the name we need to load
+            Dim ar = PICKED_STRING.Split(":")
+            Dim visual_path = ar(1).Trim.Replace(".primitives", ".visual_processed")
+            'find the package and get the entry from that package as a zipEntry
+            Dim entry = search_xml_list(visual_path.Replace("\", "/"))
+            If entry IsNot Nothing Then
+                Dim ms As New MemoryStream
+                entry.Extract(ms)
+                openXml_stream(ms, Path.GetFileName(visual_path))
+                'Put the visual string in the FCB on the frmModelViwer
+                frmModelViewer.FastColoredTextBox1.Text = TheXML_String
+            End If
+
+        End If
+    End Sub
 #End Region
 
     Private Sub map_loader_Tick(sender As Object, e As EventArgs) Handles map_loader.Tick
@@ -875,4 +895,5 @@ try_again:
     Private Sub m_camera_options_Click(sender As Object, e As EventArgs) Handles m_camera_options.Click
         frmCameraOptions.Visible = True
     End Sub
+
 End Class

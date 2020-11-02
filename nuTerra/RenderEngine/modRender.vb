@@ -511,6 +511,7 @@ Module modRender
             normalShader.StopUse()
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
         End If
 
         If SHOW_BOUNDING_BOXES Then
@@ -1027,9 +1028,24 @@ Module modRender
     Private Sub draw_minimap_texture()
         Dim w = Abs(MAP_BB_BL.X - MAP_BB_UR.X)
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
-        draw_image_rectangle(New RectangleF(MAP_BB_UR.X, MAP_BB_UR.Y,
-                                           -w, -h),
-                                            theMap.MINI_MAP_ID)
+        Dim rect As New RectangleF(MAP_BB_UR.X, MAP_BB_UR.Y, -w, -h)
+        image2dShader.Use()
+
+        GL.BindTextureUnit(0, theMap.MINI_MAP_ID)
+        GL.Uniform1(image2dShader("imageMap"), 0)
+        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform4(image2dShader("rect"),
+                    rect.Left,
+                    -rect.Top,
+                    rect.Right,
+                    -rect.Bottom)
+
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        image2dShader.StopUse()
+        'unbind texture
+        GL.BindTextureUnit(0, 0)
     End Sub
 
     Private Sub draw_mini_base_ids()

@@ -54,6 +54,7 @@ void main(void)
 
     gGMF.rg = texture(GMF_Map, UV).rg;
     gGMF.b = texture(normalMap, UV).a; // not all decal maps have height info in alpha.
-    gGMF.a = 0.0
+    gGMF.a = 0.0;
 	gPosition = worldPosition;
+
 }

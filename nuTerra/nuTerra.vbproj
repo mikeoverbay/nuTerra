@@ -204,6 +204,12 @@
     <Compile Include="Forms\frmGbufferViewer.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\frmModelViewer.Designer.vb">
+      <DependentUpon>frmModelViewer.vb</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\frmModelViewer.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\frmScreenCap.Designer.vb">
       <DependentUpon>frmScreenCap.vb</DependentUpon>
     </Compile>
@@ -286,6 +292,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmGbufferViewer.resx">
       <DependentUpon>frmGbufferViewer.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\frmModelViewer.resx">
+      <DependentUpon>frmModelViewer.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmScreenCap.resx">
       <DependentUpon>frmScreenCap.vb</DependentUpon>
@@ -555,6 +564,9 @@
     <None Include="Resources\question.png" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="data\filtered_strings.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="data\map_list.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
