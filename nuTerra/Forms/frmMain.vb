@@ -877,6 +877,25 @@ try_again:
                 openXml_stream(ms, Path.GetFileName(visual_path))
                 'Put the visual string in the FCB on the frmModelViwer
                 frmModelViewer.FastColoredTextBox1.Text = TheXML_String
+                Application.DoEvents()
+            Else
+                LogThis("visual not found: " + visual_path)
+            End If
+
+            Dim primitives_path = ar(1).Trim.Replace(".primitives", ".primitives_processed")
+            'find the package and get the entry from that package as a zipEntry
+            entry = search_xml_list(primitives_path.Replace("\", "/"))
+            If entry IsNot Nothing Then
+                Dim ms As New MemoryStream
+                entry.Extract(ms)
+                loadmodel(ms, primitives_path)
+                frmModelViewer.draw_model_view()
+                Application.DoEvents()
+                frmModelViewer.draw_model_view()
+                Application.DoEvents()
+
+            Else
+                LogThis("Model not found: " + primitives_path)
             End If
 
         End If

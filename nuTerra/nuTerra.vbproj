@@ -259,6 +259,7 @@
     </Compile>
     <Compile Include="OpenGL\modOpenGL.vb" />
     <Compile Include="RenderEngine\ModelPicker.vb" />
+    <Compile Include="RenderEngine\modPirmitiveLoader.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
     <Compile Include="Forms\frmEditFrag.designer.vb">
@@ -394,6 +395,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Final_render\glassPass.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\ModelViewer\ModelViewer.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\ModelViewer\ModelViewer.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Model_shaders\modelGlass.frag">
@@ -589,6 +596,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="HTML\lower_frame.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="HTML\FCTB_HELP.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="HTML\top_frame.html">

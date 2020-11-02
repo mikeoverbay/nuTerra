@@ -46,13 +46,14 @@ Partial Class frmEditFrag
         Me.ToolStripMenuItem9 = New System.Windows.Forms.ToolStripMenuItem()
         Me.TabPage4 = New System.Windows.Forms.TabPage()
         Me.compute_tb = New FastColoredTextBoxNS.FastColoredTextBox()
-        Me.CB1 = New System.Windows.Forms.ComboBox()
-        Me.Label1 = New System.Windows.Forms.Label()
-        Me.search_btn = New System.Windows.Forms.Button()
         Me.compute_context_menustrip = New System.Windows.Forms.ContextMenuStrip(Me.components)
         Me.ToolStripMenuItem10 = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripMenuItem11 = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripMenuItem12 = New System.Windows.Forms.ToolStripMenuItem()
+        Me.CB1 = New System.Windows.Forms.ComboBox()
+        Me.Label1 = New System.Windows.Forms.Label()
+        Me.search_btn = New System.Windows.Forms.Button()
+        Me.help = New System.Windows.Forms.Button()
         Me.TabControl1.SuspendLayout()
         Me.TabPage1.SuspendLayout()
         CType(Me.vert_tb, System.ComponentModel.ISupportInitialize).BeginInit()
@@ -301,7 +302,7 @@ Partial Class frmEditFrag
         Me.compute_tb.AutoIndent = False
         Me.compute_tb.AutoIndentChars = False
         Me.compute_tb.AutoIndentExistingLines = False
-        Me.compute_tb.AutoScrollMinSize = New System.Drawing.Size(27, 14)
+        Me.compute_tb.AutoScrollMinSize = New System.Drawing.Size(2, 14)
         Me.compute_tb.BackBrush = Nothing
         Me.compute_tb.BackColor = System.Drawing.Color.Black
         Me.compute_tb.CaretColor = System.Drawing.Color.White
@@ -323,11 +324,35 @@ Partial Class frmEditFrag
         Me.compute_tb.TabIndex = 2
         Me.compute_tb.Zoom = 100
         '
+        'compute_context_menustrip
+        '
+        Me.compute_context_menustrip.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem10, Me.ToolStripMenuItem11, Me.ToolStripMenuItem12})
+        Me.compute_context_menustrip.Name = "vertex_context_menustrip"
+        Me.compute_context_menustrip.Size = New System.Drawing.Size(103, 70)
+        '
+        'ToolStripMenuItem10
+        '
+        Me.ToolStripMenuItem10.Name = "ToolStripMenuItem10"
+        Me.ToolStripMenuItem10.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem10.Text = "Cut"
+        '
+        'ToolStripMenuItem11
+        '
+        Me.ToolStripMenuItem11.Name = "ToolStripMenuItem11"
+        Me.ToolStripMenuItem11.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem11.Text = "Copy"
+        '
+        'ToolStripMenuItem12
+        '
+        Me.ToolStripMenuItem12.Name = "ToolStripMenuItem12"
+        Me.ToolStripMenuItem12.Size = New System.Drawing.Size(102, 22)
+        Me.ToolStripMenuItem12.Text = "Paste"
+        '
         'CB1
         '
         Me.CB1.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
         Me.CB1.FormattingEnabled = True
-        Me.CB1.Location = New System.Drawing.Point(96, 589)
+        Me.CB1.Location = New System.Drawing.Point(96, 588)
         Me.CB1.Name = "CB1"
         Me.CB1.Size = New System.Drawing.Size(153, 21)
         Me.CB1.TabIndex = 3
@@ -352,29 +377,19 @@ Partial Class frmEditFrag
         Me.search_btn.Text = "Search"
         Me.search_btn.UseVisualStyleBackColor = True
         '
-        'compute_context_menustrip
+        'help
         '
-        Me.compute_context_menustrip.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem10, Me.ToolStripMenuItem11, Me.ToolStripMenuItem12})
-        Me.compute_context_menustrip.Name = "vertex_context_menustrip"
-        Me.compute_context_menustrip.Size = New System.Drawing.Size(153, 92)
-        '
-        'ToolStripMenuItem10
-        '
-        Me.ToolStripMenuItem10.Name = "ToolStripMenuItem10"
-        Me.ToolStripMenuItem10.Size = New System.Drawing.Size(152, 22)
-        Me.ToolStripMenuItem10.Text = "Cut"
-        '
-        'ToolStripMenuItem11
-        '
-        Me.ToolStripMenuItem11.Name = "ToolStripMenuItem11"
-        Me.ToolStripMenuItem11.Size = New System.Drawing.Size(152, 22)
-        Me.ToolStripMenuItem11.Text = "Copy"
-        '
-        'ToolStripMenuItem12
-        '
-        Me.ToolStripMenuItem12.Name = "ToolStripMenuItem12"
-        Me.ToolStripMenuItem12.Size = New System.Drawing.Size(152, 22)
-        Me.ToolStripMenuItem12.Text = "Paste"
+        Me.help.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
+        Me.help.BackColor = System.Drawing.Color.Gray
+        Me.help.BackgroundImage = Global.nuTerra.My.Resources.Resources.question
+        Me.help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch
+        Me.help.FlatStyle = System.Windows.Forms.FlatStyle.Flat
+        Me.help.ForeColor = System.Drawing.Color.Gray
+        Me.help.Location = New System.Drawing.Point(255, 588)
+        Me.help.Name = "help"
+        Me.help.Size = New System.Drawing.Size(23, 23)
+        Me.help.TabIndex = 6
+        Me.help.UseVisualStyleBackColor = False
         '
         'frmEditFrag
         '
@@ -382,6 +397,7 @@ Partial Class frmEditFrag
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.Gray
         Me.ClientSize = New System.Drawing.Size(656, 614)
+        Me.Controls.Add(Me.help)
         Me.Controls.Add(Me.search_btn)
         Me.Controls.Add(Me.Label1)
         Me.Controls.Add(Me.CB1)
@@ -437,4 +453,5 @@ End Sub
     Friend WithEvents ToolStripMenuItem10 As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripMenuItem11 As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripMenuItem12 As System.Windows.Forms.ToolStripMenuItem
+    Friend WithEvents help As Button
 End Class

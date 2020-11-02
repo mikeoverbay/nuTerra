@@ -435,7 +435,7 @@ Module TerrainBuilder
         End If
 
         Dim ds As DataSet = xmldataset.Copy
-        Dim te As DataTable = ds.Tables("map_" + abs_name)
+        Dim te As DataTable = ds.Tables("File_" + abs_name)
         Dim q = From row In te Select ename = row.Field(Of String)("environment")
 
         '===========================================================================

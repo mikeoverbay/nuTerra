@@ -10,6 +10,7 @@ Imports System.Collections.Generic
 Imports System.Runtime.Serialization.Formatters.Binary
 Imports System.Text.RegularExpressions
 Imports System.Drawing.Drawing2D
+Imports System.ComponentModel
 #End Region
 Public Class frmEditFrag
 #Region "variables"
@@ -290,4 +291,13 @@ Public Class frmEditFrag
         compute_tb.Paste()
     End Sub
 
+    Private Sub frmEditFrag_HelpButtonClicked(sender As Object, e As CancelEventArgs) Handles Me.HelpButtonClicked
+        Dim p = Application.StartupPath + "\HTML\FCTB_HELP.html"
+        Process.Start(p)
+    End Sub
+
+    Private Sub help_Click(sender As Object, e As EventArgs) Handles help.Click
+        Dim p = Application.StartupPath + "\HTML\FCTB_HELP.html"
+        Process.Start(p)
+    End Sub
 End Class

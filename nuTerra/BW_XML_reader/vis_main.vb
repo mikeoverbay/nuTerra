@@ -178,7 +178,7 @@ Module vis_main
         While xmldataset.Tables.Count > 0
             xmldataset.Reset()
         End While
-        PackedFileName = "map_" & PackedFileName_in.ToLower()
+        PackedFileName = "File_" & PackedFileName_in.ToLower()
         Dim reader As New BinaryReader(f)
         Dim head As UInt32 = reader.ReadUInt32()
         If head = Packed_Section.Packed_Header Then

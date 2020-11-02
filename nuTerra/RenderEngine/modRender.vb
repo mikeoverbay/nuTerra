@@ -733,7 +733,7 @@ Module modRender
         draw_text(PICKED_STRING, 5.0F, 43.0F, OpenTK.Graphics.Color4.Yellow, False, 1)
 
         'draw status of SSAA
-        draw_text(SSAA_text, FBOm.SCR_WIDTH - (MINI_MAP_SIZE / 2) + 5, FBOm.SCR_HEIGHT - MINI_MAP_SIZE - 30.0, OpenTK.Graphics.Color4.Yellow, True, 1)
+        draw_text(SSAA_text, 5.0F, 62.0F, OpenTK.Graphics.Color4.Yellow, False, 1)
         Dim temp_time = temp_timer.ElapsedMilliseconds
         Dim aa As Integer = 0
 
@@ -746,7 +746,7 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
-    Private Sub Draw_SkyDome()
+    Public Sub Draw_SkyDome()
         GL_PUSH_GROUP("Draw_SkyDome")
 
         FBOm.attach_CNGP()

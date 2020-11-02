@@ -30,15 +30,59 @@ Public Class frmModelViewer
     Dim keyWords As String = ""
     Dim filterlist() As String
     Dim colors(5) As System.Drawing.Color
-
+    Dim view_started As Boolean
     Public Sub draw_model_view()
+        If Not view_started Then
+            Return
+        End If
+
+        Dim current_fbo As Integer
+        GL.GetInteger(GetPName.DrawFramebufferBinding, current_fbo)
+
         glControl_modelView.MakeCurrent()
         set_prespective_view_ModelViewer()
         GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
+        If Model_Loaded Then
+
+            GL.Enable(EnableCap.CullFace)
+
+            ModelViewerShader.Use()
+
+            GL.Uniform3(ModelViewerShader("lightColor"), 0.5F, 0.5F, 0.7F)
+            GL.Uniform3(ModelViewerShader("viewPos"), CAM_POS.X, CAM_POS.Y, CAM_POS.Z)
+            GL.UniformMatrix4(ModelViewerShader("viewProjMat"), False, VIEWPROJECT)
+
+            GL.Uniform1(ModelViewerShader("colorMap"), 0)
+            GL.BindTextureUnit(0, theMap.Sky_Texture_Id)
+
+            Dim cSet = SplitContainer1.Panel1.Controls
+            For i = 0 To object_cnt
+                Dim cb As CheckBox = cSet(i)
+                If cb.Checked Then
+
+                    GL.BindVertexArray(theMap.skybox_mdl.vao)
+                    GL.DrawElements(PrimitiveType.Triangles, theMap.skybox_mdl.indices_count * 3, DrawElementsType.UnsignedShort, 0)
+
+                    'GL.BindVertexArray(_object(i).model.vao)
+                    'GL.DrawElements(PrimitiveType.Triangles, _object(i).model.indices_count * 3, DrawElementsType.UnsignedInt, 0)
+
+                    _object(i).hiden = False
+                Else
+                    _object(i).hiden = True
+                End If
+            Next
+
+            ModelViewerShader.StopUse()
+            GL.BindTextureUnit(0, 0)
+            GL.Disable(EnableCap.CullFace)
+        End If
+        modRender.Draw_SkyDome()
+
         glControl_modelView.SwapBuffers()
     End Sub
+
 
 #Region "form events"
 
@@ -66,8 +110,19 @@ Public Class frmModelViewer
         get_filter_strings()
         set_styles()
 
-
+        view_started = True
     End Sub
+
+    Private Sub frmModelViewer_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
+        If Model_Loaded Then
+            For i = 0 To object_cnt
+                If _object(i).model IsNot Nothing Then
+                    GL.DeleteBuffer(_object(i).model.vao)
+                End If
+            Next
+        End If
+    End Sub
+
     Private Sub frmModelViewer_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
         If Keys.Control Then
             ZM = True
@@ -284,6 +339,12 @@ Public Class frmModelViewer
     Private Sub FastColoredTextBox1_TextChanged(sender As Object, E As TextChangedEventArgs) Handles FastColoredTextBox1.TextChanged
         SyntaxHighlight(sender, E)
     End Sub
+
+    Private Sub ToolStripMenuItem1_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem1.Click
+        Dim p = Application.StartupPath + "\HTML\FCTB_HELP.html"
+        Process.Start(p)
+    End Sub
+
     Private Sub SyntaxHighlight(ByRef sender As FastColoredTextBox, e As TextChangedEventArgs)
         e.ChangedRange.SetFoldingMarkers("", "")
         sender.LeftBracket = "("c
@@ -302,7 +363,7 @@ Public Class frmModelViewer
         e.ChangedRange.SetStyle(FastColoredTextBox1.Styles(1), "(<.[^(><.)]+>)", RegexOptions.Multiline)
 
         'keyword highlighting
-        e.ChangedRange.SetStyle(FastColoredTextBox1.Styles(3), Keywords)
+        e.ChangedRange.SetStyle(FastColoredTextBox1.Styles(3), keyWords)
 
 
         'number highlighting
@@ -320,4 +381,5 @@ Public Class frmModelViewer
     Private Sub frmModelViewer_ResizeEnd(sender As Object, e As EventArgs) Handles Me.ResizeEnd
         draw_model_view()
     End Sub
+
 End Class

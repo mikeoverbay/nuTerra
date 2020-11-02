@@ -168,6 +168,7 @@ Module ShaderLoader
     Public MiniMapRingsShader As Shader
     Public modelShader As Shader
     Public modelGlassShader As Shader
+    Public ModelViewerShader As Shader
     Public normalShader As Shader
     Public normalOffsetShader As Shader
     Public rect2dShader As Shader
@@ -214,6 +215,7 @@ Module ShaderLoader
         MiniMapRingsShader = New Shader("MiniMapRings")
         modelShader = New Shader("model")
         modelGlassShader = New Shader("modelGlass")
+        ModelViewerShader = New Shader("ModelViewer")
         normalShader = New Shader("normal")
         normalOffsetShader = New Shader("normalOffset")
         rect2dShader = New Shader("rect2d")
@@ -246,6 +248,7 @@ Module ShaderLoader
         shaders.Add(MiniMapRingsShader)
         shaders.Add(modelShader)
         shaders.Add(modelGlassShader)
+        shaders.Add(ModelViewerShader)
         shaders.Add(normalShader)
         shaders.Add(normalOffsetShader)
         shaders.Add(rect2dShader)
