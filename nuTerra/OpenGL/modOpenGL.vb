@@ -103,6 +103,8 @@ Module modOpenGL
     End Sub
 
     Public Sub set_prespective_view()
+        GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
+        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
         Dim sin_x, cos_x, cos_y, sin_y As Single
         Dim cam_x, cam_y, cam_z As Single
 

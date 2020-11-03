@@ -36,14 +36,14 @@ Public Class frmModelViewer
     Public Sub draw_model_view()
 
         If Model_Loaded Then
-            glControl_modelView.MakeCurrent()
-            GL.BindVertexArray(MV_VA)
+            frmMain.glControl_main.Context.MakeCurrent(glControl_modelView.WindowInfo)
+            'GL.BindVertexArray(MV_VA)
             set_prespective_view_ModelViewer()
 
             GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
             GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
-            GL.Enable(EnableCap.CullFace)
+            GL.Disable(EnableCap.CullFace)
 
             ModelViewerShader.Use()
 
@@ -55,6 +55,12 @@ Public Class frmModelViewer
             GL.BindTextureUnit(0, theMap.Sky_Texture_Id)
 
             Dim cSet = SplitContainer1.Panel1.Controls
+
+            'GL.BindVertexArray(MV_VA)
+
+            GL.BindVertexArray(CUBE_VAO)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
             For i = 0 To object_cnt
                 Dim cb As CheckBox = cSet(i)
                 If cb.Checked Then
@@ -72,9 +78,14 @@ Public Class frmModelViewer
             GL.BindTextureUnit(0, 0)
             GL.Disable(EnableCap.CullFace)
 
+            'test text
+            Ortho_modelViewer()
+            draw_text_mv("The quick brown fox jumps over the lazy dog", 5.0, 5.0, Color4.Red, False, True)
+
+            'frmMain.glControl_main.SwapBuffers()
             glControl_modelView.SwapBuffers()
 
-            frmMain.glControl_main.MakeCurrent()
+            frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
         End If
 
     End Sub
@@ -82,6 +93,56 @@ Public Class frmModelViewer
         GL.Viewport(0, 0, glControl_modelView.ClientSize.Width, glControl_modelView.ClientSize.Height)
     End Sub
 
+    Private Sub draw_text_mv(ByRef text As String,
+                         ByVal locX As Single,
+                         ByVal locY As Single,
+                         ByRef color As OpenTK.Graphics.Color4,
+                         ByRef center As Boolean,
+                         ByRef mask As Integer)
+        ' text, loc X, loc Y, color, Center text at X location,
+        ' mask 1 = drak background.
+
+        '=======================================================================
+        'draw text at location.
+        '=======================================================================
+        'setup
+        If text Is Nothing Then Return
+
+        GL.Enable(EnableCap.Blend)
+        TextRenderShader.Use()
+        GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECT)
+        GL.Uniform1(TextRenderShader("divisor"), 95.0F) 'atlas size
+        GL.BindTextureUnit(0, ASCII_ID)
+        GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
+        GL.Uniform4(TextRenderShader("color"), color)
+        GL.Uniform1(TextRenderShader("mask"), mask)
+        '=======================================================================
+        'draw text
+        Dim cntr = 0
+        If center Then
+            cntr = text.Length * 10.0F / 2.0F
+        End If
+        Dim ar = text.ToArray
+        Dim cnt As Integer = 0
+        GL.BindVertexArray(defaultVao)
+        For Each l In ar
+            Dim idx = CSng(Asc(l) - 32)
+            Dim tp = (locX + cnt * 10.0) - cntr
+            GL.Uniform1(TextRenderShader("index"), idx)
+            Dim rect As New RectangleF(tp, locY, 10.0F, 15.0F)
+            GL.Uniform4(TextRenderShader("rect"),
+                      rect.Left,
+                      -rect.Top,
+                      rect.Right,
+                      -rect.Bottom)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+            cnt += 1
+        Next
+        GL.Disable(EnableCap.Blend)
+        TextRenderShader.StopUse()
+        GL.BindTextureUnit(0, 0)
+
+    End Sub
 
 #Region "form events"
 
@@ -114,6 +175,9 @@ Public Class frmModelViewer
         glControl_modelView.MakeCurrent()
         GL.CreateVertexArrays(1, MV_VA)
         frmMain.glControl_main.MakeCurrent()
+        V_RADIUS = -30.0
+        ROTATION_X = -Math.PI * 0.25
+        ROTATION_Z = Math.PI * 0.25
 
         view_started = True
     End Sub
@@ -124,12 +188,14 @@ Public Class frmModelViewer
     End Sub
 
     Private Sub frmModelViewer_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
-        If Keys.Control Then
-            ZM = True
-        End If
-        If Keys.Shift Then
-            MM = True
-        End If
+
+        Select Case e.KeyCode
+            Case Keys.ControlKey
+                ZM = True
+            Case Keys.ShiftKey
+                MM = True
+        End Select
+
     End Sub
 
     Private Sub frmModelViewer_KeyUp(sender As Object, e As KeyEventArgs) Handles Me.KeyUp
@@ -226,7 +292,7 @@ Public Class frmModelViewer
             End If
             Return
         End If
-        If MOVE_CAM_Z Then
+        If ZOOM Then
             If e.Y > (MP.Y + dead) Then
                 If e.Y - MP.Y > 100 Then t = (10)
             Else : t = CSng(Sin((e.Y - MP.Y) / 100)) * 12
@@ -258,8 +324,14 @@ Public Class frmModelViewer
     End Sub
 #End Region
 
+    Public Sub Ortho_modelViewer()
+        GL.Viewport(0, 0, glControl_modelView.ClientSize.Width, glControl_modelView.ClientSize.Height)
+        PROJECT = Matrix4.CreateOrthographicOffCenter(0.0F, glControl_modelView.Width, -glControl_modelView.Height, 0.0F, -300.0F, 300.0F)
+        VIEW = Matrix4.Identity
+    End Sub
 
     Public Sub set_prespective_view_ModelViewer()
+        GL.Viewport(0, 0, glControl_modelView.ClientSize.Width, glControl_modelView.ClientSize.Height)
         Dim sin_x, cos_x, cos_y, sin_y As Single
         Dim cam_x, cam_y, cam_z As Single
 
@@ -271,7 +343,7 @@ Public Class frmModelViewer
         cam_x = cos_y * sin_x * V_RADIUS
         cam_z = cos_y * cos_x * V_RADIUS
 
-        Dim MV_LOOK_Y = CURSOR_Y + MV_LOOK_AT_Y
+        Dim MV_LOOK_Y = MV_LOOK_AT_Y
         MV_CAM_POS.X = cam_x + MV_LOOK_AT_X
         MV_CAM_POS.Y = cam_y + MV_LOOK_Y
         MV_CAM_POS.Z = cam_z + MV_LOOK_AT_Z
@@ -331,12 +403,16 @@ Public Class frmModelViewer
         colors(4) = My.Settings.allothers
     End Sub
 
+    Private Sub m_on_top_Click(sender As Object, e As EventArgs) Handles m_on_top.Click
+        Me.TopMost = Me.TopMost Xor True
+        If Me.TopMost Then m_on_top.ForeColor = Color.Red Else m_on_top.ForeColor = Color.Black
+    End Sub
 
     Private Sub FastColoredTextBox1_TextChanged(sender As Object, E As TextChangedEventArgs) Handles FastColoredTextBox1.TextChanged
         SyntaxHighlight(sender, E)
     End Sub
 
-    Private Sub ToolStripMenuItem1_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem1.Click
+    Private Sub ToolStripMenuItem1_Click(sender As Object, e As EventArgs) Handles m_help.Click
         Dim p = Application.StartupPath + "\HTML\FCTB_HELP.html"
         Process.Start(p)
     End Sub

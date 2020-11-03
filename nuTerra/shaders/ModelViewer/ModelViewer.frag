@@ -33,7 +33,7 @@ void main(void)
     vec3 specular =  spec * lightColor;
     vec3 result = (ambient + diffuse + specular);
 
-	gColor.rgb = result.rgb;
-	gColor.a = 1.0;
+    gColor.rgb = result.rgb;
+    gColor.a = 1.0;
 
 }

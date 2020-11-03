@@ -25,12 +25,13 @@ Partial Class frmModelViewer
         Me.components = New System.ComponentModel.Container()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmModelViewer))
         Me.main_menu = New System.Windows.Forms.MenuStrip()
+        Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.TabControl1 = New System.Windows.Forms.TabControl()
         Me.TabPage1 = New System.Windows.Forms.TabPage()
         Me.TabPage2 = New System.Windows.Forms.TabPage()
         Me.FastColoredTextBox1 = New FastColoredTextBoxNS.FastColoredTextBox()
-        Me.ToolStripMenuItem1 = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_on_top = New System.Windows.Forms.ToolStripMenuItem()
         Me.main_menu.SuspendLayout()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer1.Panel2.SuspendLayout()
@@ -42,11 +43,22 @@ Partial Class frmModelViewer
         '
         'main_menu
         '
-        Me.main_menu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.ToolStripMenuItem1})
+        Me.main_menu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_help, Me.m_on_top})
         Me.main_menu.Location = New System.Drawing.Point(0, 0)
         Me.main_menu.Name = "main_menu"
         Me.main_menu.Size = New System.Drawing.Size(831, 24)
         Me.main_menu.TabIndex = 0
+        '
+        'm_help
+        '
+        Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_help.AutoSize = False
+        Me.m_help.BackColor = System.Drawing.Color.Transparent
+        Me.m_help.BackgroundImage = Global.nuTerra.My.Resources.Resources.question
+        Me.m_help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch
+        Me.m_help.Name = "m_help"
+        Me.m_help.Size = New System.Drawing.Size(20, 20)
+        Me.m_help.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText
         '
         'SplitContainer1
         '
@@ -59,8 +71,7 @@ Partial Class frmModelViewer
         '
         'SplitContainer1.Panel1
         '
-        Me.SplitContainer1.Panel1.BackColor = System.Drawing.Color.FromArgb(CType(CType(33, Byte), Integer), CType(CType(33, Byte), Integer), CType(CType(33, Byte), Integer))
-        Me.SplitContainer1.Panel1.BackgroundImage = Global.nuTerra.My.Resources.Resources.carbon
+        Me.SplitContainer1.Panel1.BackColor = System.Drawing.Color.FromArgb(CType(CType(63, Byte), Integer), CType(CType(63, Byte), Integer), CType(CType(63, Byte), Integer))
         '
         'SplitContainer1.Panel2
         '
@@ -113,7 +124,7 @@ Partial Class frmModelViewer
         Me.FastColoredTextBox1.AutoIndentChars = False
         Me.FastColoredTextBox1.AutoIndentCharsPatterns = ""
         Me.FastColoredTextBox1.AutoIndentExistingLines = False
-        Me.FastColoredTextBox1.AutoScrollMinSize = New System.Drawing.Size(179, 14)
+        Me.FastColoredTextBox1.AutoScrollMinSize = New System.Drawing.Size(154, 14)
         Me.FastColoredTextBox1.BackBrush = Nothing
         Me.FastColoredTextBox1.BackColor = System.Drawing.Color.FromArgb(CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer))
         Me.FastColoredTextBox1.BackgroundImage = Global.nuTerra.My.Resources.Resources.carbon
@@ -140,16 +151,14 @@ Partial Class frmModelViewer
         Me.FastColoredTextBox1.Text = "FastColoredTextBox1"
         Me.FastColoredTextBox1.Zoom = 100
         '
-        'ToolStripMenuItem1
+        'm_on_top
         '
-        Me.ToolStripMenuItem1.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
-        Me.ToolStripMenuItem1.AutoSize = False
-        Me.ToolStripMenuItem1.BackColor = System.Drawing.Color.Transparent
-        Me.ToolStripMenuItem1.BackgroundImage = Global.nuTerra.My.Resources.Resources.question
-        Me.ToolStripMenuItem1.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch
-        Me.ToolStripMenuItem1.Name = "ToolStripMenuItem1"
-        Me.ToolStripMenuItem1.Size = New System.Drawing.Size(20, 20)
-        Me.ToolStripMenuItem1.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText
+        Me.m_on_top.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_on_top.Font = New System.Drawing.Font("Segoe UI", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.m_on_top.ForeColor = System.Drawing.Color.Red
+        Me.m_on_top.Name = "m_on_top"
+        Me.m_on_top.Size = New System.Drawing.Size(58, 20)
+        Me.m_on_top.Text = "On Top"
         '
         'frmModelViewer
         '
@@ -165,6 +174,7 @@ Partial Class frmModelViewer
         Me.MainMenuStrip = Me.main_menu
         Me.Name = "frmModelViewer"
         Me.Text = "Model & Visual Viewer"
+        Me.TopMost = True
         Me.main_menu.ResumeLayout(False)
         Me.main_menu.PerformLayout()
         Me.SplitContainer1.Panel2.ResumeLayout(False)
@@ -185,5 +195,6 @@ Partial Class frmModelViewer
     Friend WithEvents TabPage1 As TabPage
     Friend WithEvents TabPage2 As TabPage
     Friend WithEvents FastColoredTextBox1 As FastColoredTextBoxNS.FastColoredTextBox
-    Friend WithEvents ToolStripMenuItem1 As ToolStripMenuItem
+    Friend WithEvents m_help As ToolStripMenuItem
+    Friend WithEvents m_on_top As ToolStripMenuItem
 End Class

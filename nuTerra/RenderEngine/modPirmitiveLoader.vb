@@ -483,7 +483,7 @@ Module modPirmitiveLoader
         Return
     End Sub
     Private Sub make_VBO(ByVal id As Integer)
-
+        'Return
         'build vertex list for VBO
         Dim vbuff() As _vertex
         ReDim vbuff(_object(id).verts.Length - 1)

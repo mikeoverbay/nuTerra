@@ -21,7 +21,9 @@ Module modRender
         FRAME_TIMER.Restart()
         '===========================================================================
 
-        frmMain.glControl_main.MakeCurrent()
+        'frmMain.glControl_main.MakeCurrent()
+        frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
+
         '===========================================================================
         If SHOW_MAPS_SCREEN Then
             gl_pick_map(MOUSE.X, MOUSE.Y)

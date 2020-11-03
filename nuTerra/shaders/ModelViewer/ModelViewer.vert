@@ -14,7 +14,7 @@ out vec3 FragPos;
 void main(void)
 {
     gl_Position = viewProjMat * vec4(Vertex, 1.0);
-	N = normalize(Normal);
-	UV = uv;
-	FragPos = Vertex;
+    N = normalize(Normal);
+    UV = uv;
+    FragPos = Vertex;
 }
