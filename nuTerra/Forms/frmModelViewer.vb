@@ -61,6 +61,7 @@ Public Class frmModelViewer
             GL.BindVertexArray(CUBE_VAO)
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
+            GL.BindVertexArray(defaultVao)
             For i = 0 To object_cnt
                 Dim cb As CheckBox = cSet(i)
                 If cb.Checked Then
@@ -185,6 +186,8 @@ Public Class frmModelViewer
     Private Sub frmModelViewer_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         e.Cancel = True
         Me.Visible = False
+        frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
+
     End Sub
 
     Private Sub frmModelViewer_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown

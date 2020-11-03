@@ -122,7 +122,7 @@ Module modPirmitiveLoader
             Model_Loaded = False
             For i = 0 To object_cnt
                 If _object(i).model IsNot Nothing Then
-                    GL.DeleteBuffer(_object(i).model.vao)
+                    'GL.DeleteBuffer(_object(i).model.vao)
                 End If
             Next
         End If
@@ -471,20 +471,25 @@ Module modPirmitiveLoader
                 Try
                     make_VBO(k)
                 Catch ex As Exception
-                    LogThis("VAO ERROR loading primitive!" + vbCrLf + ex.Message)
+                    LogThis("VBO ERROR loading primitive!" + vbCrLf + ex.Message)
+                    ms.Dispose()
+                    GC.Collect()
+                    Return
                 End Try
             Next
 
         Next
         bounding_box_size = (-x_min + x_max + -y_min + y_max + -z_min + z_max) / 3.0!
-        GC.Collect()
         ms.Dispose()
+        GC.Collect()
         Model_Loaded = True
         Return
     End Sub
     Private Sub make_VBO(ByVal id As Integer)
         'Return
         'build vertex list for VBO
+        GL.BindVertexArray(defaultVao)
+
         Dim vbuff() As _vertex
         ReDim vbuff(_object(id).verts.Length - 1)
         'pack data
