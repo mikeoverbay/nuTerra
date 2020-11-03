@@ -67,6 +67,11 @@ Module modRender
 
         If TERRAIN_LOADED And DONT_BLOCK_SKY Then Draw_SkyDome()
         '===========================================================================
+        'draw sun
+        FBOm.attach_C()
+        If TERRAIN_LOADED Then draw_sun()
+        '===========================================================================
+        '===========================================================================
         'GL States 
         GL.Enable(EnableCap.DepthTest)
         '===========================================================================
@@ -109,11 +114,6 @@ Module modRender
             '=======================================================================
         End If
 
-        '===========================================================================
-        'draw sun
-        FBOm.attach_C()
-        If TERRAIN_LOADED Then draw_sun()
-        '===========================================================================
 
         '===========================================================================
         If PICK_MODELS And MODELS_LOADED Then PickModel()
@@ -194,15 +194,17 @@ Module modRender
 
         'test only
         'Dim matrix = Matrix4.CreateTranslation(New Vector3(0F, 100.0F, 0F))
-        GL.Enable(EnableCap.DepthTest)
+        GL.Disable(EnableCap.DepthTest)
+        GL.Enable(EnableCap.Blend)
         Dim matrix = Matrix4.CreateTranslation(New Vector3(LIGHT_POS(0) + CAM_POSITION.X, LIGHT_POS(1) + CAM_POSITION.Y, LIGHT_POS(2) + CAM_POSITION.Z))
 
 
         FF_BillboardShader.Use()
         GL.Uniform1(FF_BillboardShader("colorMap"), 0)
         GL.UniformMatrix4(FF_BillboardShader("matrix"), False, matrix)
-        GL.Uniform3(FF_BillboardShader("color"), SUN_RENDER_COLOR.X / 100.0F, SUN_RENDER_COLOR.Y / 100.0F, SUN_RENDER_COLOR.Z / 100.0F)
-        GL.Uniform1(FF_BillboardShader("scale"), SUN_SCALE * 10)
+        'GL.Uniform3(FF_BillboardShader("color"), SUN_RENDER_COLOR.X / 100.0F, SUN_RENDER_COLOR.Y / 100.0F, SUN_RENDER_COLOR.Z / 100.0F)
+        GL.Uniform3(FF_BillboardShader("color"), 1.0F, 1.0F, 1.0F)
+        GL.Uniform1(FF_BillboardShader("scale"), SUN_SCALE * 6)
         GL.BindTextureUnit(0, SUN_TEXTURE_ID)
 
         GL.Uniform4(FF_BillboardShader("rect"), -0.5F, -0.5F, 0.5F, 0.5F)
@@ -210,6 +212,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         FF_BillboardShader.StopUse()
+        GL.Disable(EnableCap.Blend)
 
     End Sub
 

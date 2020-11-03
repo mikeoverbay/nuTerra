@@ -366,13 +366,13 @@ Module MapLoader
         'need this for all rendering states
         get_environment_info(ABS_NAME)
         '===============================================================
-        Dim entry = search_pkgs(SUN_TEXTURE_PATH)
-        If entry IsNot Nothing Then
-            Dim ms As New MemoryStream
-            entry.Extract(ms)
-            SUN_TEXTURE_ID = load_image_from_stream(Il.IL_DDS, ms, SUN_TEXTURE_PATH, False, False)
-        End If
-        entry = search_pkgs(theMap.lut_path)
+        SUN_TEXTURE_ID = load_image_from_file(Il.IL_PNG, Application.StartupPath + "\resources\sol.png", False, False)
+        'Dim entry = search_pkgs(SUN_TEXTURE_PATH)
+        'If entry IsNot Nothing Then
+        '    Dim ms As New MemoryStream
+        '    entry.Extract(ms)
+        'End If
+        Dim entry = search_pkgs(theMap.lut_path)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)

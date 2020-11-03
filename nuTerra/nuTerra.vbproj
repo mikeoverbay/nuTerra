@@ -662,6 +662,9 @@
     <Content Include="Resources\Ref_normalMap.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\sol.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\startup_banner.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
