@@ -43,11 +43,11 @@ Module modPirmitiveLoader
         Public has_uv2 As Boolean
     End Structure
 
-    Public section_names(30) As String
-    Dim section_sizes(30) As UInt32
-    Dim section_locations(30) As UInt32
-    Dim section_data(30) As data_
-    Dim sub_group_data(30) As sub_group_data_
+    Public section_names(50) As String
+    Dim section_sizes(50) As UInt32
+    Dim section_locations(50) As UInt32
+    Dim section_data(50) As data_
+    Dim sub_group_data(50) As sub_group_data_
     Public Structure sub_group_data_
         Public has_uv2 As Boolean
         Public uv2_data() As Byte
@@ -119,13 +119,13 @@ Module modPirmitiveLoader
         z_max = -10000
         z_min = 10000
         If Model_Loaded Then
+            Model_Loaded = False
             For i = 0 To object_cnt
                 If _object(i).model IsNot Nothing Then
                     GL.DeleteBuffer(_object(i).model.vao)
                 End If
             Next
         End If
-        Model_Loaded = False
         frmModelViewer.SplitContainer1.Panel1.Controls.Clear()
         GC.Collect()
         Application.DoEvents()
@@ -553,7 +553,6 @@ Module modPirmitiveLoader
         If x > 127 Then
             x = -128 + (x - 128)
         End If
-        'lookup(CInt(x + 127)) = sample
 
         If y > 127 Then
             y = -128 + (y - 128)

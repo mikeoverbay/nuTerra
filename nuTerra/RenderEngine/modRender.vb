@@ -176,6 +176,12 @@ Module modRender
             End If
         End If
 
+        If frmModelViewer IsNot Nothing Then
+            If frmModelViewer.Visible Then
+                frmModelViewer.draw_model_view()
+            End If
+        End If
+
         FPS_COUNTER += 1
     End Sub
 

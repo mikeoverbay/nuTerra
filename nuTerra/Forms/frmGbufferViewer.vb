@@ -23,6 +23,8 @@ Public Class frmGbufferViewer
     End Sub
 
     Private Sub frmTestView_Load(sender As Object, e As EventArgs) Handles Me.Load
+
+
         Me.GLC = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, GraphicsContextFlags.ForwardCompatible)
         Me.GLC.VSync = False
         Me.GLC.Dock = DockStyle.Fill
@@ -66,6 +68,7 @@ Public Class frmGbufferViewer
         GL.Viewport(0, 0, GLC.ClientSize.Width, GLC.ClientSize.Height)
         PROJECTIONMATRIX_GLC = Matrix4.CreateOrthographicOffCenter(0.0F, GLC.ClientSize.Width, -GLC.ClientSize.Height, 0.0F, -300.0F, 300.0F)
     End Sub
+
     Public Sub update_screen()
         If GLC Is Nothing Then Return
 

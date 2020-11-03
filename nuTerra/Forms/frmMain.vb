@@ -889,11 +889,6 @@ try_again:
                 Dim ms As New MemoryStream
                 entry.Extract(ms)
                 loadmodel(ms, primitives_path)
-                frmModelViewer.draw_model_view()
-                Application.DoEvents()
-                frmModelViewer.draw_model_view()
-                Application.DoEvents()
-
             Else
                 LogThis("Model not found: " + primitives_path)
             End If

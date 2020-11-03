@@ -17,13 +17,13 @@ Public Class frmModelViewer
     Dim MD, ZM, MM, ZOOM As Boolean
     Dim MP As New Point(0, 0)
 
-    Dim LOOK_AT_X As Single
-    Dim LOOK_AT_Y As Single
-    Dim LOOK_AT_Z As Single
+    Dim MV_LOOK_AT_X As Single
+    Dim MV_LOOK_AT_Y As Single
+    Dim MV_LOOK_AT_Z As Single
     Dim V_RADIUS As Single
     Dim ROTATION_Z As Single
     Dim ROTATION_X As Single
-    Dim CAM_POS As Vector3
+    Dim MV_CAM_POS As Vector3
     Dim PROJECT As Matrix4
     Dim VIEW As Matrix4
     Dim VIEWPROJECT As Matrix4
@@ -31,27 +31,24 @@ Public Class frmModelViewer
     Dim filterlist() As String
     Dim colors(5) As System.Drawing.Color
     Dim view_started As Boolean
+    Public MV_VA As Integer
+
     Public Sub draw_model_view()
-        If Not view_started Then
-            Return
-        End If
-
-        Dim current_fbo As Integer
-        GL.GetInteger(GetPName.DrawFramebufferBinding, current_fbo)
-
-        glControl_modelView.MakeCurrent()
-        set_prespective_view_ModelViewer()
-        GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
-        GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
         If Model_Loaded Then
+            glControl_modelView.MakeCurrent()
+            GL.BindVertexArray(MV_VA)
+            set_prespective_view_ModelViewer()
+
+            GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
+            GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
             GL.Enable(EnableCap.CullFace)
 
             ModelViewerShader.Use()
 
             GL.Uniform3(ModelViewerShader("lightColor"), 0.5F, 0.5F, 0.7F)
-            GL.Uniform3(ModelViewerShader("viewPos"), CAM_POS.X, CAM_POS.Y, CAM_POS.Z)
+            GL.Uniform3(ModelViewerShader("viewPos"), MV_CAM_POS.X, MV_CAM_POS.Y, MV_CAM_POS.Z)
             GL.UniformMatrix4(ModelViewerShader("viewProjMat"), False, VIEWPROJECT)
 
             GL.Uniform1(ModelViewerShader("colorMap"), 0)
@@ -62,11 +59,8 @@ Public Class frmModelViewer
                 Dim cb As CheckBox = cSet(i)
                 If cb.Checked Then
 
-                    GL.BindVertexArray(theMap.skybox_mdl.vao)
-                    GL.DrawElements(PrimitiveType.Triangles, theMap.skybox_mdl.indices_count * 3, DrawElementsType.UnsignedShort, 0)
-
-                    'GL.BindVertexArray(_object(i).model.vao)
-                    'GL.DrawElements(PrimitiveType.Triangles, _object(i).model.indices_count * 3, DrawElementsType.UnsignedInt, 0)
+                    GL.BindVertexArray(_object(i).model.vao)
+                    GL.DrawElements(PrimitiveType.Triangles, _object(i).model.indices_count * 3, DrawElementsType.UnsignedInt, 0)
 
                     _object(i).hiden = False
                 Else
@@ -77,10 +71,15 @@ Public Class frmModelViewer
             ModelViewerShader.StopUse()
             GL.BindTextureUnit(0, 0)
             GL.Disable(EnableCap.CullFace)
-        End If
-        modRender.Draw_SkyDome()
 
-        glControl_modelView.SwapBuffers()
+            glControl_modelView.SwapBuffers()
+
+            frmMain.glControl_main.MakeCurrent()
+        End If
+
+    End Sub
+    Private Sub set_viewPort()
+        GL.Viewport(0, 0, glControl_modelView.ClientSize.Width, glControl_modelView.ClientSize.Height)
     End Sub
 
 
@@ -88,21 +87,23 @@ Public Class frmModelViewer
 
     Private Sub frmModelViewer_Load(sender As Object, e As EventArgs) Handles MyBase.Load
 
-
-        ' Init main gl-control
         Dim flags As GraphicsContextFlags
+
 #If DEBUG Then
         flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
 #Else
         flags = GraphicsContextFlags.ForwardCompatible
-#End If
 
-        Me.glControl_modelView = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, flags)
+#End If
+        Me.glControl_modelView = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 16), 4, 5, flags)
         Me.glControl_modelView.VSync = False
-        TabPage1.Controls.Add(Me.glControl_modelView)
         glControl_modelView.Dock = DockStyle.Fill
+        TabPage1.Controls.Add(Me.glControl_modelView)
         '-----------------------------------------------------------------------------------------
         Me.Show()
+        Application.DoEvents()
+        Application.DoEvents()
+        Application.DoEvents()
         '-----------------------------------------------------------------------------------------
         '-----------------------------------------------------------------------------------------
         Me.KeyPreview = True    'So I catch keyboard before despatching it
@@ -110,17 +111,16 @@ Public Class frmModelViewer
         get_filter_strings()
         set_styles()
 
+        glControl_modelView.MakeCurrent()
+        GL.CreateVertexArrays(1, MV_VA)
+        frmMain.glControl_main.MakeCurrent()
+
         view_started = True
     End Sub
 
     Private Sub frmModelViewer_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
-        If Model_Loaded Then
-            For i = 0 To object_cnt
-                If _object(i).model IsNot Nothing Then
-                    GL.DeleteBuffer(_object(i).model.vao)
-                End If
-            Next
-        End If
+        e.Cancel = True
+        Me.Visible = False
     End Sub
 
     Private Sub frmModelViewer_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
@@ -135,7 +135,6 @@ Public Class frmModelViewer
     Private Sub frmModelViewer_KeyUp(sender As Object, e As KeyEventArgs) Handles Me.KeyUp
         ZM = False
         MM = False
-
     End Sub
 #End Region
 
@@ -166,8 +165,8 @@ Public Class frmModelViewer
             Else : t = CSng(Sin((e.X - MP.X) / 100)) * M_Speed
                 If Not ZM Then
                     If MM Then ' check for modifying flag
-                        LOOK_AT_X -= ((t * ms) * (Cos(ROTATION_Z)))
-                        LOOK_AT_Z -= ((t * ms) * (-Sin(ROTATION_Z)))
+                        MV_LOOK_AT_X -= ((t * ms) * (Cos(ROTATION_Z)))
+                        MV_LOOK_AT_Z -= ((t * ms) * (-Sin(ROTATION_Z)))
                     Else
                         ROTATION_Z -= t
                     End If
@@ -180,8 +179,8 @@ Public Class frmModelViewer
             Else : t = CSng(Sin((MP.X - e.X) / 100)) * M_Speed
                 If Not ZM Then
                     If MM Then ' check for modifying flag
-                        LOOK_AT_X += ((t * ms) * (Cos(ROTATION_Z)))
-                        LOOK_AT_Z += ((t * ms) * (-Sin(ROTATION_Z)))
+                        MV_LOOK_AT_X += ((t * ms) * (Cos(ROTATION_Z)))
+                        MV_LOOK_AT_Z += ((t * ms) * (-Sin(ROTATION_Z)))
                     Else
                         ROTATION_Z += t
                     End If
@@ -194,11 +193,11 @@ Public Class frmModelViewer
                 If e.Y - MP.Y > 100 Then t = (M_Speed)
             Else : t = CSng(Sin((e.Y - MP.Y) / 100)) * M_Speed
                 If ZM Then
-                    LOOK_AT_Y -= (t * ms)
+                    MV_LOOK_AT_Y -= (t * ms)
                 Else
                     If MM Then ' check for modifying flag
-                        LOOK_AT_Z -= ((t * ms) * (Cos(ROTATION_Z)))
-                        LOOK_AT_X -= ((t * ms) * (Sin(ROTATION_Z)))
+                        MV_LOOK_AT_Z -= ((t * ms) * (Cos(ROTATION_Z)))
+                        MV_LOOK_AT_X -= ((t * ms) * (Sin(ROTATION_Z)))
                     Else
                         If ROTATION_X - t < -PI / 2.0 Then
                             ROTATION_X = (-PI / 2.0) + 0.001
@@ -213,11 +212,11 @@ Public Class frmModelViewer
                 If MP.Y - e.Y > 100 Then t = (M_Speed)
             Else : t = CSng(Sin((MP.Y - e.Y) / 100)) * M_Speed
                 If ZM Then
-                    LOOK_AT_Y += (t * ms)
+                    MV_LOOK_AT_Y += (t * ms)
                 Else
                     If MM Then ' check for modifying flag
-                        LOOK_AT_Z += ((t * ms) * (Cos(ROTATION_Z)))
-                        LOOK_AT_X += ((t * ms) * (Sin(ROTATION_Z)))
+                        MV_LOOK_AT_Z += ((t * ms) * (Cos(ROTATION_Z)))
+                        MV_LOOK_AT_X += ((t * ms) * (Sin(ROTATION_Z)))
                     Else
                         ROTATION_X += t
                     End If
@@ -225,7 +224,6 @@ Public Class frmModelViewer
                 End If
                 MP.Y = e.Y
             End If
-            draw_model_view()
             Return
         End If
         If MOVE_CAM_Z Then
@@ -243,12 +241,10 @@ Public Class frmModelViewer
                 MP.Y = e.Y
             End If
             If V_RADIUS > -0.1 Then V_RADIUS = -0.1
-            draw_model_view()
             Return
         End If
         MP.X = e.X
         MP.Y = e.Y
-        draw_model_view()
     End Sub
 
     Private Sub glControl_modelView_MouseUp(sender As Object, e As MouseEventArgs) Handles glControl_modelView.MouseUp
@@ -275,18 +271,18 @@ Public Class frmModelViewer
         cam_x = cos_y * sin_x * V_RADIUS
         cam_z = cos_y * cos_x * V_RADIUS
 
-        Dim LOOK_Y = CURSOR_Y + LOOK_AT_Y
-        CAM_POS.X = cam_x + LOOK_AT_X
-        CAM_POS.Y = cam_y + LOOK_Y
-        CAM_POS.Z = cam_z + LOOK_AT_Z
+        Dim MV_LOOK_Y = CURSOR_Y + MV_LOOK_AT_Y
+        MV_CAM_POS.X = cam_x + MV_LOOK_AT_X
+        MV_CAM_POS.Y = cam_y + MV_LOOK_Y
+        MV_CAM_POS.Z = cam_z + MV_LOOK_AT_Z
 
-        Dim target As New Vector3(LOOK_AT_X, LOOK_Y, LOOK_AT_Z)
+        Dim target As New Vector3(MV_LOOK_AT_X, MV_LOOK_Y, MV_LOOK_AT_Z)
 
         PROJECT = Matrix4.CreatePerspectiveFieldOfView(
                                    FieldOfView,
                                    glControl_modelView.ClientSize.Width / CSng(glControl_modelView.ClientSize.Height),
                                    PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
-        VIEW = Matrix4.LookAt(CAM_POSITION, target, Vector3.UnitY)
+        VIEW = Matrix4.LookAt(MV_CAM_POS, target, Vector3.UnitY)
         VIEWPROJECT = VIEW * PROJECT
 
     End Sub
@@ -374,12 +370,6 @@ Public Class frmModelViewer
 
     End Sub
 
-    Private Sub frmModelViewer_Resize(sender As Object, e As EventArgs) Handles Me.Resize
-        draw_model_view()
-    End Sub
 
-    Private Sub frmModelViewer_ResizeEnd(sender As Object, e As EventArgs) Handles Me.ResizeEnd
-        draw_model_view()
-    End Sub
 
 End Class
