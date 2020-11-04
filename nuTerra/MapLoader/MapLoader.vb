@@ -459,19 +459,19 @@ Module MapLoader
             Dim tri_size = Marshal.SizeOf(Of vect3_32)()
             Dim uv2_size = Marshal.SizeOf(Of Vector2)()
 
-            MapGL.Buffers.verts = CreateBuffer("verts")
+            MapGL.Buffers.verts = CreateBuffer(BufferTarget.ArrayBuffer, "verts")
             BufferStorageNullData(BufferTarget.ArrayBuffer,
                                   MapGL.Buffers.verts,
                                   numVerts * vertex_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
-            MapGL.Buffers.prims = CreateBuffer("prims")
+            MapGL.Buffers.prims = CreateBuffer(BufferTarget.ElementArrayBuffer, "prims")
             BufferStorageNullData(BufferTarget.ElementArrayBuffer,
                                   MapGL.Buffers.prims,
                                   numPrims * tri_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
-            MapGL.Buffers.vertsUV2 = CreateBuffer("vertsUV2")
+            MapGL.Buffers.vertsUV2 = CreateBuffer(BufferTarget.ArrayBuffer, "vertsUV2")
             BufferStorageNullData(BufferTarget.ArrayBuffer,
                                   MapGL.Buffers.vertsUV2,
                                   numVerts * uv2_size,
@@ -580,14 +580,14 @@ Module MapLoader
                 mLast += batch.count
             Next
 
-            MapGL.Buffers.parameters = CreateBuffer("parameters")
+            MapGL.Buffers.parameters = CreateBuffer(BufferTarget.ShaderStorageBuffer, "parameters")
             BufferStorageNullData(BufferTarget.ShaderStorageBuffer,
                                   MapGL.Buffers.parameters,
                                   256,
                                   BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, MapGL.Buffers.parameters)
 
-            MapGL.Buffers.drawCandidates = CreateBuffer("drawCandidates")
+            MapGL.Buffers.drawCandidates = CreateBuffer(BufferTarget.ShaderStorageBuffer, "drawCandidates")
             BufferStorage(BufferTarget.ShaderStorageBuffer,
                           MapGL.Buffers.drawCandidates,
                           MapGL.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw),
@@ -596,21 +596,21 @@ Module MapLoader
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, MapGL.Buffers.drawCandidates)
             Erase drawCommands
 
-            MapGL.Buffers.indirect = CreateBuffer("indirect")
+            MapGL.Buffers.indirect = CreateBuffer(BufferTarget.ShaderStorageBuffer, "indirect")
             BufferStorageNullData(BufferTarget.ShaderStorageBuffer,
                                   MapGL.Buffers.indirect,
                                   MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                                   BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, MapGL.Buffers.indirect)
 
-            MapGL.Buffers.indirect_glass = CreateBuffer("indirect_glass")
+            MapGL.Buffers.indirect_glass = CreateBuffer(BufferTarget.ShaderStorageBuffer, "indirect_glass")
             BufferStorageNullData(BufferTarget.ShaderStorageBuffer,
                                   MapGL.Buffers.indirect_glass,
                                   MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                                   BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 5, MapGL.Buffers.indirect_glass)
 
-            MapGL.Buffers.matrices = CreateBuffer("matrices")
+            MapGL.Buffers.matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "matrices")
             BufferStorage(BufferTarget.ShaderStorageBuffer,
                           MapGL.Buffers.matrices,
                           matrices.Length * Marshal.SizeOf(Of ModelInstance),
@@ -619,7 +619,7 @@ Module MapLoader
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.matrices)
             Erase matrices
 
-            MapGL.Buffers.lods = CreateBuffer("lods")
+            MapGL.Buffers.lods = CreateBuffer(BufferTarget.ShaderStorageBuffer, "lods")
             BufferStorage(BufferTarget.ShaderStorageBuffer,
                           MapGL.Buffers.lods,
                           lods.Length * Marshal.SizeOf(Of ModelLoD),
@@ -897,6 +897,7 @@ Module MapLoader
                 End While
             End Using
 
+            Const target = TextureTarget.Texture2D
             Dim atlas_tex As Integer
             Dim fullWidth As Integer
             Dim fullHeight As Integer
@@ -940,16 +941,16 @@ Module MapLoader
                         'Calculate Max Mip Level based on width or height.. Which ever is larger.
                         Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
 
-                        atlas_tex = CreateTexture(TextureTarget.Texture2D, atlasPath)
-                        GL.TextureStorage2D(atlas_tex, numLevels, format_info.texture_format, fullWidth, fullHeight)
+                        atlas_tex = CreateTexture(target, atlasPath)
+                        TextureStorage2D(target, atlas_tex, numLevels, format_info.texture_format, fullWidth, fullHeight)
 
-                        GL.TextureParameter(atlas_tex, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 3)
-                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureBaseLevel, 0)
-                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMaxLevel, numLevels)
-                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-                        GL.TextureParameter(atlas_tex, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+                        TextureParameter(target, atlas_tex, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 3)
+                        TextureParameter(target, atlas_tex, TextureParameterName.TextureBaseLevel, 0)
+                        TextureParameter(target, atlas_tex, TextureParameterName.TextureMaxLevel, numLevels)
+                        TextureParameter(target, atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                        TextureParameter(target, atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                        TextureParameter(target, atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+                        TextureParameter(target, atlas_tex, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
                     End If
 
                     Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
@@ -961,7 +962,7 @@ Module MapLoader
                                                    DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                 End Using
             Next
-            GL.GenerateTextureMipmap(atlas_tex)
+            GenerateTextureMipmap(target, atlas_tex)
             'If atlasPath.ToLower.Contains("Tirpiz_atlas_AM".ToLower) Then
             '    GL.Clear(ClearBufferMask.ColorBufferBit)
             '    draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
@@ -1142,7 +1143,7 @@ Module MapLoader
 
         materials = Nothing
 
-        MapGL.Buffers.materials = CreateBuffer("materials")
+        MapGL.Buffers.materials = CreateBuffer(BufferTarget.ShaderStorageBuffer, "materials")
         BufferStorage(BufferRangeTarget.ShaderStorageBuffer,
                       MapGL.Buffers.materials,
                       materialsData.Length * Marshal.SizeOf(Of GLMaterial),

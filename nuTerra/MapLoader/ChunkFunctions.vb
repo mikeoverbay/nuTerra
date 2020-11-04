@@ -284,9 +284,9 @@ Module ChunkFunctions
 
             ' If the shared buffer is not defined, we need to do so.
             If theMap.vertex_vBuffer_id = 0 Then
-                theMap.vertex_vBuffer_id = CreateBuffer(String.Format("terrain_vertices_{0}", i))
-                theMap.vertex_iBuffer_id = CreateBuffer(String.Format("terrain_indices_{0}", i))
-                theMap.vertex_uvBuffer_id = CreateBuffer(String.Format("terrain_uv_{0}", i))
+                theMap.vertex_vBuffer_id = CreateBuffer(BufferTarget.ArrayBuffer, String.Format("terrain_vertices_{0}", i))
+                theMap.vertex_iBuffer_id = CreateBuffer(BufferTarget.ElementArrayBuffer, String.Format("terrain_indices_{0}", i))
+                theMap.vertex_uvBuffer_id = CreateBuffer(BufferTarget.ArrayBuffer, String.Format("terrain_uv_{0}", i))
 
                 'if the shared buffer is not defined, we need to fill the buffer now
                 BufferStorage(BufferTarget.ElementArrayBuffer,

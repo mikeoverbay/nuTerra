@@ -1,11 +1,8 @@
 ﻿Imports System.Math
-Imports System.Runtime.CompilerServices
 Imports System.Runtime.InteropServices
 Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-
-' #Const WITHOUT_DSA = True
 
 Module modOpenGL
     Public defaultVao As Integer
@@ -186,87 +183,6 @@ Module modOpenGL
             'unbind texture
             GL.BindTextureUnit(0, 0)
         End If
-    End Sub
-
-    <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Sub BufferStorage(Of dataType As Structure)(target As BufferTarget, buffer As Integer, size As Integer, data() As dataType, flags As BufferStorageFlags)
-#If WITHOUT_DSA Then
-        GL.BindBuffer(target, buffer)
-        ' GL 4.4+
-        GL.BufferStorage(target, size, data, flags)
-        GL.BindBuffer(target, 0)
-#Else
-        GL.NamedBufferStorage(buffer, size, data, flags)
-#End If
-    End Sub
-
-    <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Sub BufferStorage(Of dataType As Structure)(target As BufferTarget, buffer As Integer, size As Integer, data As dataType, flags As BufferStorageFlags)
-#If WITHOUT_DSA Then
-        GL.BindBuffer(target, buffer)
-        ' GL 4.4+
-        GL.BufferStorage(target, size, data, flags)
-        GL.BindBuffer(target, 0)
-#Else
-        GL.NamedBufferStorage(buffer, size, data, flags)
-#End If
-    End Sub
-
-    <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Sub BufferStorageNullData(target As BufferTarget, buffer As Integer, size As Integer, flags As BufferStorageFlags)
-#If WITHOUT_DSA Then
-        GL.BindBuffer(target, buffer)
-        ' GL 4.4+
-        GL.BufferStorage(target, size, IntPtr.Zero, flags)
-        GL.BindBuffer(target, 0)
-#Else
-        GL.NamedBufferStorage(buffer, size, IntPtr.Zero, flags)
-#End If
-    End Sub
-
-    <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Function CreateVertexArray(name As String) As Integer
-        Dim va_id As Integer
-#If WITHOUT_DSA Then
-        va_id = GL.GenVertexArray()
-        GL.BindVertexArray(va_id)
-        GL.BindVertexArray(0)
-#Else
-        GL.CreateVertexArrays(1, va_id)
-#End If
-        LabelObject(ObjectLabelIdentifier.VertexArray, va_id, name)
-        Return va_id
-    End Function
-
-    <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Function CreateBuffer(name As String) As Integer
-        Dim buf_id As Integer
-#If WITHOUT_DSA Then
-        buf_id = GL.GenBuffer()
-#Else
-        GL.CreateBuffers(1, buf_id)
-#End If
-        LabelObject(ObjectLabelIdentifier.Buffer, buf_id, name)
-        Return buf_id
-    End Function
-
-    <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Function CreateTexture(target As TextureTarget, name As String) As Integer
-        Dim tex_id As Integer
-#If WITHOUT_DSA Then
-        tex_id = GL.GenTexture()
-        GL.BindTexture(target, tex_id)
-        GL.BindTexture(target, 0)
-#Else
-        GL.CreateTextures(target, 1, tex_id)
-#End If
-        LabelObject(ObjectLabelIdentifier.Texture, tex_id, name)
-        Return tex_id
-    End Function
-
-    <Conditional("DEBUG")>
-    Public Sub LabelObject(objLabelIdent As ObjectLabelIdentifier, glObject As Integer, name As String)
-        GL.ObjectLabel(objLabelIdent, glObject, name.Length, name)
     End Sub
 
     Private Function pack_10(x As Single) As UInt32

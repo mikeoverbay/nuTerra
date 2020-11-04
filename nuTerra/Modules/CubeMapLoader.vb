@@ -39,16 +39,17 @@ Module CubeMapLoader
 
             ms.Position = 128
 
-            CUBE_TEXTURE_ID = CreateTexture(TextureTarget.TextureCubeMap, "CubeMap")
+            Const target = TextureTarget.TextureCubeMap
+            CUBE_TEXTURE_ID = CreateTexture(target, "CubeMap")
 
-            GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureBaseLevel, 0)
-            GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
-            GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-            GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureBaseLevel, 0)
+            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
+            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            GL.TextureStorage2D(CUBE_TEXTURE_ID, dds_header.mipMapCount, format_info.texture_format, dds_header.width, dds_header.height)
+            TextureStorage2D(target, CUBE_TEXTURE_ID, dds_header.mipMapCount, format_info.texture_format, dds_header.width, dds_header.height)
 
             Dim e1 = GL.GetError()
             If e1 > 0 Then
@@ -72,7 +73,7 @@ Module CubeMapLoader
                     h /= 2
                 Next
             Next
-            GL.TextureParameter(CUBE_TEXTURE_ID, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
+            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
 
         End Using
         Dim e2 = GL.GetError()

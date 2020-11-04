@@ -99,7 +99,7 @@ Module TerrainTextureFunctions
             layersBuffer.used_7 = .TexLayers(3).used_a
             layersBuffer.used_8 = .TexLayers(3).used_b
 
-            .layersStd140_ubo = CreateBuffer(String.Format("layersStd140_ubo_{0}", map))
+            .layersStd140_ubo = CreateBuffer(BufferTarget.UniformBuffer, String.Format("layersStd140_ubo_{0}", map))
             BufferStorage(BufferTarget.UniformBuffer,
                           .layersStd140_ubo,
                           Marshal.SizeOf(layersBuffer),

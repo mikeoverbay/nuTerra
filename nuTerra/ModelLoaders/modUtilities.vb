@@ -45,7 +45,7 @@ Module modUtilities
 
         CUBE_VAO = CreateVertexArray("CUBE")
 
-        Dim vbo = CreateBuffer("CUBE")
+        Dim vbo = CreateBuffer(BufferTarget.ArrayBuffer, "CUBE")
         BufferStorage(BufferTarget.ArrayBuffer,
                       vbo,
                       verts.Length * 4,

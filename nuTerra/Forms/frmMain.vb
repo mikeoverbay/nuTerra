@@ -409,7 +409,7 @@ try_again:
 
         make_cube()
 
-        PerViewDataBuffer = CreateBuffer("PerView")
+        PerViewDataBuffer = CreateBuffer(BufferTarget.UniformBuffer, "PerView")
         BufferStorageNullData(BufferTarget.UniformBuffer,
                               PerViewDataBuffer,
                               Marshal.SizeOf(PerViewData),
@@ -939,7 +939,7 @@ try_again:
                 frmModelViewer.SplitContainer1.Panel1.Controls.Add(cb)
             Next
 
-            frmModelViewer.modelIndirectBuffer = CreateBuffer("modelIndirectBuffer")
+            frmModelViewer.modelIndirectBuffer = CreateBuffer(BufferTarget.DrawIndirectBuffer, "modelIndirectBuffer")
             BufferStorage(BufferTarget.DrawIndirectBuffer,
                           frmModelViewer.modelIndirectBuffer,
                           indirectCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
