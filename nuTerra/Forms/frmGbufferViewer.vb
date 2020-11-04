@@ -51,10 +51,9 @@ Public Class frmGbufferViewer
 
 
         GLC.MakeCurrent()
-        GL.CreateVertexArrays(1, GLC_VA)
+        GLC_VA = CreateVertexArray("GLC_VA")
         update_screen()
     End Sub
-
 
     Private Sub CheckedChanged(sender As Object, e As EventArgs)
         image_scale = CSng(sender.tag)

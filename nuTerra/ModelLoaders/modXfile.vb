@@ -121,13 +121,15 @@ Module modXfile
         result.indices_count = index_buffer16.Length
 
         'Create VAO id
-        GL.CreateVertexArrays(1, result.vao)
+        result.vao = CreateVertexArray(file_)
 
-        Dim mBuffer As Integer
-        GL.CreateBuffers(1, mBuffer)
+        Dim mBuffer = CreateBuffer(file_)
 
         Dim vbuff_offset = New IntPtr(index_buffer16.Length * 6)
-        GL.NamedBufferStorage(mBuffer, index_buffer16.Length * 6 + vbuff.Length * 32, IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
+        BufferStorageNullData(BufferTarget.ArrayBuffer,
+                              mBuffer,
+                              index_buffer16.Length * 6 + vbuff.Length * 32,
+                              BufferStorageFlags.DynamicStorageBit)
         GL.NamedBufferSubData(mBuffer, IntPtr.Zero, index_buffer16.Length * 6, index_buffer16)
         GL.NamedBufferSubData(mBuffer, vbuff_offset, vbuff.Length * 32, vbuff)
 

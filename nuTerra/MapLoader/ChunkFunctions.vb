@@ -278,20 +278,32 @@ Module ChunkFunctions
         With theMap.v_data(i)
 
             'Gen VAO and VBO Ids
-            GL.CreateVertexArrays(1, theMap.render_set(i).VAO)
+            theMap.render_set(i).VAO = CreateVertexArray(String.Format("terrain_{0}", i))
             ReDim theMap.render_set(i).mBuffers(2)
             GL.CreateBuffers(3, theMap.render_set(i).mBuffers)
 
             ' If the shared buffer is not defined, we need to do so.
             If theMap.vertex_vBuffer_id = 0 Then
-                GL.CreateBuffers(1, theMap.vertex_vBuffer_id)
-                GL.CreateBuffers(1, theMap.vertex_iBuffer_id)
-                GL.CreateBuffers(1, theMap.vertex_uvBuffer_id)
+                theMap.vertex_vBuffer_id = CreateBuffer(String.Format("terrain_vertices_{0}", i))
+                theMap.vertex_iBuffer_id = CreateBuffer(String.Format("terrain_indices_{0}", i))
+                theMap.vertex_uvBuffer_id = CreateBuffer(String.Format("terrain_uv_{0}", i))
 
                 'if the shared buffer is not defined, we need to fill the buffer now
-                GL.NamedBufferStorage(theMap.vertex_iBuffer_id, .indicies.Length * 6, .indicies, BufferStorageFlags.None)
-                GL.NamedBufferStorage(theMap.vertex_vBuffer_id, .v_buff_XZ.Length * 8, .v_buff_XZ, BufferStorageFlags.None)
-                GL.NamedBufferStorage(theMap.vertex_uvBuffer_id, .uv_buff.Length * 8, .uv_buff, BufferStorageFlags.None)
+                BufferStorage(BufferTarget.ElementArrayBuffer,
+                              theMap.vertex_iBuffer_id,
+                              .indicies.Length * 6,
+                              .indicies,
+                              BufferStorageFlags.None)
+                BufferStorage(BufferTarget.ArrayBuffer,
+                              theMap.vertex_vBuffer_id,
+                              .v_buff_XZ.Length * 8,
+                              .v_buff_XZ,
+                              BufferStorageFlags.None)
+                BufferStorage(BufferTarget.ArrayBuffer,
+                              theMap.vertex_uvBuffer_id,
+                              .uv_buff.Length * 8,
+                              .uv_buff,
+                              BufferStorageFlags.None)
             End If
 
             ' VERTEX XZ ==================================================================

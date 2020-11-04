@@ -99,8 +99,12 @@ Module TerrainTextureFunctions
             layersBuffer.used_7 = .TexLayers(3).used_a
             layersBuffer.used_8 = .TexLayers(3).used_b
 
-            GL.CreateBuffers(1, .layersStd140_ubo)
-            GL.NamedBufferStorage(.layersStd140_ubo, Marshal.SizeOf(layersBuffer), layersBuffer, BufferStorageFlags.None)
+            .layersStd140_ubo = CreateBuffer(String.Format("layersStd140_ubo_{0}", map))
+            BufferStorage(BufferTarget.UniformBuffer,
+                          .layersStd140_ubo,
+                          Marshal.SizeOf(layersBuffer),
+                          layersBuffer,
+                          BufferStorageFlags.None)
         End With
     End Sub
 

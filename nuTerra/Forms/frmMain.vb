@@ -405,14 +405,15 @@ try_again:
         LogThis(String.Format("{0}ms Packages Path: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), GAME_PATH))
 
         ' Create default VAO
-        GL.CreateVertexArrays(1, defaultVao)
-        GL.ObjectLabel(ObjectLabelIdentifier.VertexArray, defaultVao, -1, "defaultVao")
+        defaultVao = CreateVertexArray("defaultVao")
 
         make_cube()
 
-        GL.CreateBuffers(1, PerViewDataBuffer)
-        GL.ObjectLabel(ObjectLabelIdentifier.Buffer, PerViewDataBuffer, -1, "PerView")
-        GL.NamedBufferStorage(PerViewDataBuffer, Marshal.SizeOf(PerViewData), IntPtr.Zero, BufferStorageFlags.DynamicStorageBit)
+        PerViewDataBuffer = CreateBuffer("PerView")
+        BufferStorageNullData(BufferTarget.UniformBuffer,
+                              PerViewDataBuffer,
+                              Marshal.SizeOf(PerViewData),
+                              BufferStorageFlags.DynamicStorageBit)
         GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 1, PerViewDataBuffer)
 
         FBOm.FBO_Initialize()
@@ -938,11 +939,13 @@ try_again:
                 frmModelViewer.SplitContainer1.Panel1.Controls.Add(cb)
             Next
 
-            GL.CreateBuffers(1, frmModelViewer.modelIndirectBuffer)
-            LabelObject(ObjectLabelIdentifier.Buffer, frmModelViewer.modelIndirectBuffer, "modelIndirectBuffer")
-            GL.NamedBufferStorage(frmModelViewer.modelIndirectBuffer, indirectCommands.Length * Marshal.SizeOf(indirectCommands(0)), indirectCommands, BufferStorageFlags.DynamicStorageBit)
+            frmModelViewer.modelIndirectBuffer = CreateBuffer("modelIndirectBuffer")
+            BufferStorage(BufferTarget.DrawIndirectBuffer,
+                          frmModelViewer.modelIndirectBuffer,
+                          indirectCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                          indirectCommands,
+                          BufferStorageFlags.DynamicStorageBit)
             frmModelViewer.Model_Loaded = True
-
 
         End If
     End Sub

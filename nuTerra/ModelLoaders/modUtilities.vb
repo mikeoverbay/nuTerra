@@ -43,13 +43,14 @@ Module modUtilities
             -0.5, 0.5, -0.5
         }
 
-        Dim vbo As Integer
-        GL.CreateVertexArrays(1, CUBE_VAO)
-        GL.ObjectLabel(ObjectLabelIdentifier.VertexArray, CUBE_VAO, -1, "CUBE")
+        CUBE_VAO = CreateVertexArray("CUBE")
 
-        GL.CreateBuffers(1, vbo)
-        GL.ObjectLabel(ObjectLabelIdentifier.Buffer, vbo, -1, "CUBE_VBO")
-        GL.NamedBufferStorage(vbo, verts.Length * 4, verts, BufferStorageFlags.None)
+        Dim vbo = CreateBuffer("CUBE")
+        BufferStorage(BufferTarget.ArrayBuffer,
+                      vbo,
+                      verts.Length * 4,
+                      verts,
+                      BufferStorageFlags.None)
 
         GL.VertexArrayVertexBuffer(CUBE_VAO, 0, vbo, IntPtr.Zero, 12)
         GL.VertexArrayAttribFormat(CUBE_VAO, 0, 3, VertexAttribType.Float, False, 0)

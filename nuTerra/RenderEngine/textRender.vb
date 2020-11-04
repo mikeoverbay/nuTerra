@@ -34,7 +34,8 @@ Module textRender
             If Me.texture_ > 0 Then
                 GL.DeleteTexture(Me.texture_)
             End If
-            GL.CreateTextures(TextureTarget.Texture2D, 1, Me.texture_)
+
+            Me.texture_ = CreateTexture(TextureTarget.Texture2D, "text")
 
             GL.TextureParameter(Me.texture_, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             GL.TextureParameter(Me.texture_, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
