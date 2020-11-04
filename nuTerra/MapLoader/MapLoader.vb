@@ -597,13 +597,13 @@ Module MapLoader
 
             GL.CreateBuffers(1, MapGL.Buffers.matrices)
             LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.indirect, "matrices")
-            GL.NamedBufferStorage(MapGL.Buffers.matrices, matrices.Length * Marshal.SizeOf(Of ModelInstance)(), matrices, BufferStorageFlags.None)
+            GL.NamedBufferStorage(MapGL.Buffers.matrices, matrices.Length * Marshal.SizeOf(Of ModelInstance)(), matrices, BufferStorageFlags.DynamicStorageBit Or BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.matrices)
             Erase matrices
 
             GL.CreateBuffers(1, MapGL.Buffers.lods)
             LabelObject(ObjectLabelIdentifier.Buffer, MapGL.Buffers.lods, "lods")
-            GL.NamedBufferStorage(MapGL.Buffers.lods, lods.Length * Marshal.SizeOf(Of ModelLoD)(), lods, BufferStorageFlags.None)
+            GL.NamedBufferStorage(MapGL.Buffers.lods, lods.Length * Marshal.SizeOf(Of ModelLoD)(), lods, BufferStorageFlags.DynamicStorageBit Or BufferStorageFlags.None)
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 4, MapGL.Buffers.lods)
             Erase lods
 

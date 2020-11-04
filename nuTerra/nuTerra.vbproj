@@ -259,7 +259,6 @@
     </Compile>
     <Compile Include="OpenGL\modOpenGL.vb" />
     <Compile Include="RenderEngine\ModelPicker.vb" />
-    <Compile Include="RenderEngine\modPirmitiveLoader.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
     <Compile Include="Forms\frmEditFrag.designer.vb">

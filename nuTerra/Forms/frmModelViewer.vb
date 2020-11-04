@@ -31,52 +31,48 @@ Public Class frmModelViewer
     Dim filterlist() As String
     Dim colors(5) As System.Drawing.Color
     Dim view_started As Boolean
-    Public MV_VA As Integer
+
+    Public Model_Loaded As Boolean
+    Public modelIndirectBuffer As Integer
+    Public modelDrawCount As Integer
+
+    Public Shared Sub update_model_indirect_buffer()
+        Dim indirectCommands(frmModelViewer.modelDrawCount - 1) As DrawElementsIndirectCommand
+        Dim size = frmModelViewer.modelDrawCount * Marshal.SizeOf(indirectCommands(0))
+        GL.GetNamedBufferSubData(frmModelViewer.modelIndirectBuffer, IntPtr.Zero, size, indirectCommands)
+
+        For i = 0 To frmModelViewer.SplitContainer1.Panel1.Controls.Count - 1
+            Dim cb As CheckBox = frmModelViewer.SplitContainer1.Panel1.Controls(i)
+            indirectCommands(i).instanceCount = If(cb.Checked, 1, 0)
+        Next
+
+        GL.NamedBufferSubData(frmModelViewer.modelIndirectBuffer, IntPtr.Zero, size, indirectCommands)
+    End Sub
 
     Public Sub draw_model_view()
 
         If Model_Loaded Then
             frmMain.glControl_main.Context.MakeCurrent(glControl_modelView.WindowInfo)
-            'GL.BindVertexArray(MV_VA)
             set_prespective_view_ModelViewer()
 
             GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
             GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
+            GL.Enable(EnableCap.DepthTest)
             GL.Disable(EnableCap.CullFace)
-
             ModelViewerShader.Use()
 
             GL.Uniform3(ModelViewerShader("lightColor"), 0.5F, 0.5F, 0.7F)
             GL.Uniform3(ModelViewerShader("viewPos"), MV_CAM_POS.X, MV_CAM_POS.Y, MV_CAM_POS.Z)
             GL.UniformMatrix4(ModelViewerShader("viewProjMat"), False, VIEWPROJECT)
 
-            GL.Uniform1(ModelViewerShader("colorMap"), 0)
-            GL.BindTextureUnit(0, theMap.Sky_Texture_Id)
+            GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
-            Dim cSet = SplitContainer1.Panel1.Controls
-
-            'GL.BindVertexArray(MV_VA)
-
-            GL.BindVertexArray(CUBE_VAO)
-            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-            GL.BindVertexArray(defaultVao)
-            For i = 0 To object_cnt
-                Dim cb As CheckBox = cSet(i)
-                If cb.Checked Then
-
-                    GL.BindVertexArray(_object(i).model.vao)
-                    GL.DrawElements(PrimitiveType.Triangles, _object(i).model.indices_count * 3, DrawElementsType.UnsignedInt, 0)
-
-                    _object(i).hiden = False
-                Else
-                    _object(i).hiden = True
-                End If
-            Next
+            GL.BindBuffer(BufferTarget.DrawIndirectBuffer, modelIndirectBuffer)
+            GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, modelDrawCount, 0)
 
             ModelViewerShader.StopUse()
-            GL.BindTextureUnit(0, 0)
             GL.Disable(EnableCap.CullFace)
 
             'test text
@@ -173,9 +169,6 @@ Public Class frmModelViewer
         get_filter_strings()
         set_styles()
 
-        glControl_modelView.MakeCurrent()
-        GL.CreateVertexArrays(1, MV_VA)
-        frmMain.glControl_main.MakeCurrent()
         V_RADIUS = -30.0
         ROTATION_X = -Math.PI * 0.25
         ROTATION_Z = Math.PI * 0.25
@@ -184,10 +177,13 @@ Public Class frmModelViewer
     End Sub
 
     Private Sub frmModelViewer_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
+        If Model_Loaded Then
+            GL.DeleteBuffer(modelIndirectBuffer)
+            Model_Loaded = False
+        End If
         e.Cancel = True
         Me.Visible = False
         frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
-
     End Sub
 
     Private Sub frmModelViewer_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown

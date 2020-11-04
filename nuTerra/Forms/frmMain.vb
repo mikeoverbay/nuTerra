@@ -863,9 +863,13 @@ try_again:
 
     Private Sub glControl_main_MouseDoubleClick(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDoubleClick
         If PICK_MODELS And PICKED_MODEL_INDEX > 0 Then
-            If Not frmModelViewer.Visible Then
-                frmModelViewer.Visible = True
+            frmModelViewer.SplitContainer1.Panel1.Controls.Clear()
+
+            If frmModelViewer.Model_Loaded Then
+                frmModelViewer.Model_Loaded = False
+                GL.DeleteBuffer(frmModelViewer.modelIndirectBuffer)
             End If
+
             'get the name we need to load
             Dim ar = PICKED_STRING.Split(":")
             Dim visual_path = ar(1).Trim.Replace(".primitives", ".visual_processed")
@@ -882,17 +886,58 @@ try_again:
                 LogThis("visual not found: " + visual_path)
             End If
 
-            Dim primitives_path = ar(1).Trim.Replace(".primitives", ".primitives_processed")
-            'find the package and get the entry from that package as a zipEntry
-            entry = search_xml_list(primitives_path.Replace("\", "/"))
-            If entry IsNot Nothing Then
-                Dim ms As New MemoryStream
-                entry.Extract(ms)
-                loadmodel(ms, primitives_path)
-            Else
-                LogThis("Model not found: " + primitives_path)
-            End If
+            Dim mdlInstance As ModelInstance
+            GL.GetNamedBufferSubData(MapGL.Buffers.matrices,
+                                     New IntPtr((PICKED_MODEL_INDEX - 1) * Marshal.SizeOf(mdlInstance)),
+                                     Marshal.SizeOf(mdlInstance),
+                                     mdlInstance)
 
+            Dim mdlLod As ModelLoD
+            GL.GetNamedBufferSubData(MapGL.Buffers.lods,
+                                     New IntPtr(mdlInstance.lod_offset * Marshal.SizeOf(mdlLod)),
+                                     Marshal.SizeOf(mdlLod),
+                                     mdlLod)
+
+            frmModelViewer.modelDrawCount = mdlLod.draw_count
+            Dim indirectCommands(mdlLod.draw_count - 1) As DrawElementsIndirectCommand
+            For i = 0 To mdlLod.draw_count - 1
+                Dim draw As CandidateDraw
+                GL.GetNamedBufferSubData(MapGL.Buffers.drawCandidates,
+                                         New IntPtr((mdlLod.draw_offset + i) * Marshal.SizeOf(draw)),
+                                         Marshal.SizeOf(draw),
+                                         draw)
+
+                With indirectCommands(i)
+                    .count = draw.count
+                    .instanceCount = 1
+                    .firstIndex = draw.firstIndex
+                    .baseVertex = draw.baseVertex
+                    .baseInstance = draw.baseInstance
+                End With
+
+                ' Add checkbox
+                Dim cb As New CheckBox
+                cb.AutoSize = True
+                cb.TextAlign = ContentAlignment.MiddleCenter
+                cb.Checked = True
+                cb.Text = String.Format("Primitive {0}, Poly Cnt: {1}", i, draw.count)
+                cb.ForeColor = Color.Wheat
+                cb.BackColor = Color.Transparent
+                Dim k = frmModelViewer.SplitContainer1.Panel1.Controls.Count
+                Dim h = cb.Height
+                cb.Location = New Point(3, (k * (h - 3)) + 5)
+                AddHandler cb.CheckedChanged, AddressOf frmModelViewer.update_model_indirect_buffer
+                frmModelViewer.SplitContainer1.Panel1.Controls.Add(cb)
+            Next
+
+            GL.CreateBuffers(1, frmModelViewer.modelIndirectBuffer)
+            LabelObject(ObjectLabelIdentifier.Buffer, frmModelViewer.modelIndirectBuffer, "modelIndirectBuffer")
+            GL.NamedBufferStorage(frmModelViewer.modelIndirectBuffer, indirectCommands.Length * Marshal.SizeOf(indirectCommands(0)), indirectCommands, BufferStorageFlags.DynamicStorageBit)
+            frmModelViewer.Model_Loaded = True
+
+            If Not frmModelViewer.Visible Then
+                frmModelViewer.Visible = True
+            End If
         End If
     End Sub
 #End Region
