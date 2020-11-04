@@ -497,7 +497,11 @@ Module TerrainBuilder
                         rotateZ = row.Field(Of String)("angleZ")
             LIGHT_ORBIT_ANGLE_X = q3(1).rotateX
             LIGHT_ORBIT_ANGLE_Z = q3(1).rotateZ
+            If LIGHT_ORBIT_ANGLE_X = 0 Then
+                LIGHT_ORBIT_ANGLE_X = q3(0).rotateX
+                LIGHT_ORBIT_ANGLE_Z = q3(0).rotateZ
 
+            End If
             ' get color correction lut
             Dim colorCorrection As DataTable = xmldataset.Tables("colorCorrection")
             Dim q4 = From row In colorCorrection Select

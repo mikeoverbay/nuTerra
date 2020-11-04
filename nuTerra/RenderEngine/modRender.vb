@@ -65,11 +65,11 @@ Module modRender
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
         '===========================================================================
 
-        If TERRAIN_LOADED And DONT_BLOCK_SKY Then Draw_SkyDome()
         '===========================================================================
         'draw sun
         FBOm.attach_C()
-        If TERRAIN_LOADED Then draw_sun()
+        If TERRAIN_LOADED And DONT_BLOCK_SKY Then Draw_SkyDome()
+        If TERRAIN_LOADED And DONT_BLOCK_SKY Then draw_sun()
         '===========================================================================
         '===========================================================================
         'GL States 
@@ -760,7 +760,9 @@ Module modRender
 
     Public Sub Draw_SkyDome()
         GL_PUSH_GROUP("Draw_SkyDome")
-
+        'GL.Enable(EnableCap.Blend)
+        'GL.Disable(EnableCap.DepthTest)
+        GL.DepthMask(False)
         FBOm.attach_CNGP()
 
         SkyDomeShader.Use()
@@ -775,6 +777,9 @@ Module modRender
         SkyDomeShader.StopUse()
         GL.BindTextureUnit(0, 0)
         GL.Disable(EnableCap.CullFace)
+        'GL.Disable(EnableCap.Blend)
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthMask(True)
 
         GL_POP_GROUP()
     End Sub
