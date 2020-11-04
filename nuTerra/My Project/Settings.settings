@@ -39,7 +39,7 @@
       <Value Profile="(Default)">0</Value>
     </Setting>
     <Setting Name="Specular_level" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">50</Value>
+      <Value Profile="(Default)">30</Value>
     </Setting>
     <Setting Name="load_terrain" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
@@ -61,21 +61,6 @@
     </Setting>
     <Setting Name="load_sky" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
-    </Setting>
-    <Setting Name="numeric" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">White</Value>
-    </Setting>
-    <Setting Name="tags" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">RoyalBlue</Value>
-    </Setting>
-    <Setting Name="textures" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">LightYellow</Value>
-    </Setting>
-    <Setting Name="props" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">DarkTurquoise</Value>
-    </Setting>
-    <Setting Name="allothers" Type="System.Drawing.Color" Scope="User">
-      <Value Profile="(Default)">Lime</Value>
     </Setting>
   </Settings>
 </SettingsFile>

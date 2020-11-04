@@ -1,13 +1,9 @@
-﻿Imports System.Globalization
-Imports System.IO
+﻿
 Imports System.Math
 Imports System.Runtime.InteropServices
-Imports System.Threading
-Imports System.Windows
 Imports OpenTK.Graphics
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
-Imports Tao.DevIl
 Imports FastColoredTextBoxNS
 Imports System.Text.RegularExpressions
 
@@ -35,6 +31,8 @@ Public Class frmModelViewer
     Public Model_Loaded As Boolean
     Public modelIndirectBuffer As Integer
     Public modelDrawCount As Integer
+
+    Public MODEL_NAME_MODELVIEWER As String
 
     Public Shared Sub update_model_indirect_buffer()
         Dim indirectCommands(frmModelViewer.modelDrawCount - 1) As DrawElementsIndirectCommand
@@ -77,7 +75,7 @@ Public Class frmModelViewer
 
             'test text
             Ortho_modelViewer()
-            draw_text_mv("The quick brown fox jumps over the lazy dog", 5.0, 5.0, Color4.Red, False, True)
+            draw_text_mv(MODEL_NAME_MODELVIEWER, 5.0, 5.0, Color4.Wheat, False, True)
 
             'frmMain.glControl_main.SwapBuffers()
             glControl_modelView.SwapBuffers()
@@ -85,9 +83,6 @@ Public Class frmModelViewer
             frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
         End If
 
-    End Sub
-    Private Sub set_viewPort()
-        GL.Viewport(0, 0, glControl_modelView.ClientSize.Width, glControl_modelView.ClientSize.Height)
     End Sub
 
     Private Sub draw_text_mv(ByRef text As String,
@@ -216,6 +211,12 @@ Public Class frmModelViewer
             MP.X = e.X
             MP.Y = e.Y
         End If
+        If e.Button = MouseButtons.Middle Then
+            MD = True
+            MM = True
+            MP.X = e.X
+            MP.Y = e.Y
+        End If
 
     End Sub
 
@@ -315,7 +316,7 @@ Public Class frmModelViewer
     Private Sub glControl_modelView_MouseUp(sender As Object, e As MouseEventArgs) Handles glControl_modelView.MouseUp
         MD = False
         ZOOM = False
-
+        MM = False
     End Sub
 
     Private Sub glControl_modelView_MouseEnter(sender As Object, e As EventArgs) Handles glControl_modelView.MouseEnter
@@ -357,11 +358,13 @@ Public Class frmModelViewer
         VIEWPROJECT = VIEW * PROJECT
 
     End Sub
+
     Private Sub get_filter_strings()
         Dim ts = IO.File.ReadAllText(Application.StartupPath + "\data\filtered_strings.txt")
         filterlist = ts.Split(ControlChars.CrLf.ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
         set_keywords()
     End Sub
+
     Private Sub set_keywords()
         Keywords = "\b("
         For Each s In filterlist
@@ -371,14 +374,17 @@ Public Class frmModelViewer
                 End If
             End If
         Next
-        Keywords += "diffuseMap2|primitiveGroup|/primitiveGroup)\b"
+        'this is needed because of the last | in the load loop!
+        keyWords += "colour)\b"
     End Sub
     Private Sub set_styles()
+
         get_color_settings()
+
         FastColoredTextBox1.Styles(0) = New TextStyle(getBrush(0), Nothing, Drawing.FontStyle.Regular)
-        FastColoredTextBox1.Styles(1) = New TextStyle(getBrush(1), Nothing, Drawing.FontStyle.Bold)
+        FastColoredTextBox1.Styles(1) = New TextStyle(getBrush(1), Nothing, Drawing.FontStyle.Regular)
         FastColoredTextBox1.Styles(2) = New TextStyle(getBrush(2), Nothing, Drawing.FontStyle.Bold)
-        FastColoredTextBox1.Styles(3) = New TextStyle(getBrush(3), Nothing, Drawing.FontStyle.Regular)
+        FastColoredTextBox1.Styles(3) = New TextStyle(getBrush(3), Nothing, Drawing.FontStyle.Bold)
         FastColoredTextBox1.Styles(4) = New TextStyle(getBrush(4), Nothing, Drawing.FontStyle.Regular)
         Dim e As New TextChangedEventArgs(New FastColoredTextBoxNS.Range(FastColoredTextBox1))
 
@@ -395,11 +401,20 @@ Public Class frmModelViewer
         Return br
     End Function
     Private Sub get_color_settings()
-        colors(0) = My.Settings.numeric
-        colors(1) = My.Settings.tags
-        colors(2) = My.Settings.textures
-        colors(3) = My.Settings.props
-        colors(4) = My.Settings.allothers
+        'numeric
+        colors(0) = Color.White
+
+        'tags
+        colors(1) = Color.LightBlue
+
+        'property strings
+        colors(2) = Color.LightYellow
+
+        'property names
+        colors(3) = Color.Silver
+
+        'everything else
+        colors(4) = Color.Green
     End Sub
 
     Private Sub m_on_top_Click(sender As Object, e As EventArgs) Handles m_on_top.Click

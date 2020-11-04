@@ -876,12 +876,20 @@ try_again:
             'find the package and get the entry from that package as a zipEntry
             Dim entry = search_xml_list(visual_path.Replace("\", "/"))
             If entry IsNot Nothing Then
+                'This has to be visible for the text highlighting to work.
+                If Not frmModelViewer.Visible Then
+                    frmModelViewer.Visible = True
+                End If
                 Dim ms As New MemoryStream
                 entry.Extract(ms)
                 openXml_stream(ms, Path.GetFileName(visual_path))
                 'Put the visual string in the FCB on the frmModelViwer
+                frmModelViewer.FastColoredTextBox1.Text = ""
+                Application.DoEvents()
+                'make sure the control sets the highlights
                 frmModelViewer.FastColoredTextBox1.Text = TheXML_String
                 Application.DoEvents()
+                frmModelViewer.MODEL_NAME_MODELVIEWER = visual_path.Replace("\", "/")
             Else
                 LogThis("visual not found: " + visual_path)
             End If
@@ -935,9 +943,7 @@ try_again:
             GL.NamedBufferStorage(frmModelViewer.modelIndirectBuffer, indirectCommands.Length * Marshal.SizeOf(indirectCommands(0)), indirectCommands, BufferStorageFlags.DynamicStorageBit)
             frmModelViewer.Model_Loaded = True
 
-            If Not frmModelViewer.Visible Then
-                frmModelViewer.Visible = True
-            End If
+
         End If
     End Sub
 #End Region
