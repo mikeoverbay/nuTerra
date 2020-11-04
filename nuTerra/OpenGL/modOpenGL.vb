@@ -156,7 +156,7 @@ Module modOpenGL
     End Sub
 
     Public Sub draw_image_rectangle(rect As RectangleF, image As Integer)
-        If True And USE_NV_DRAW_TEXTURE Then
+        If USE_NV_DRAW_TEXTURE Then
             Dim h = frmMain.glControl_main.Height
             Dim x0 = rect.Left
             Dim x1 = rect.Right

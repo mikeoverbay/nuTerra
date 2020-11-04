@@ -341,28 +341,29 @@ Module TerrainTextureFunctions
             Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
             Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
-            image_id = CreateTexture(TextureTarget.Texture2D, fn)
+            Const target = TextureTarget.Texture2D
+            image_id = CreateTexture(target, fn)
 
             Dim maxAniso As Single = 3.0F
             'GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
 
-            GL.TextureParameter(image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
+            TextureParameter(target, image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
 
-            GL.TextureParameter(image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            GL.TextureParameter(image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            TextureParameter(target, image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            TextureParameter(target, image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
 
-            GL.TextureParameter(image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            GL.TextureParameter(image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            TextureParameter(target, image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            TextureParameter(target, image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
             If CROP Then
-                GL.TextureStorage2D(image_id, 6, SizedInternalFormat.Rgba8, CInt(width * 0.875), CInt(height * 0.875))
-                GL.TextureSubImage2D(image_id, 0, 0, 0, CInt(width * 0.875), CInt(height * 0.875), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+                TextureStorage2D(target, image_id, 6, SizedInternalFormat.Rgba8, CInt(width * 0.875), CInt(height * 0.875))
+                TextureSubImage2D(target, image_id, 0, 0, 0, CInt(width * 0.875), CInt(height * 0.875), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
             Else
-                GL.TextureStorage2D(image_id, 6, SizedInternalFormat.Rgba8, CInt(width), CInt(height))
-                GL.TextureSubImage2D(image_id, 0, 0, 0, CInt(width), CInt(height), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+                TextureStorage2D(target, image_id, 6, SizedInternalFormat.Rgba8, CInt(width), CInt(height))
+                TextureSubImage2D(target, image_id, 0, 0, 0, CInt(width), CInt(height), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
             End If
 
-            GL.GenerateTextureMipmap(image_id)
+            GenerateTextureMipmap(target, image_id)
 
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)

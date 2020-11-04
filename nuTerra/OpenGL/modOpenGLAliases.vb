@@ -1,9 +1,42 @@
 ﻿Imports System.Runtime.CompilerServices
 Imports OpenTK.Graphics.OpenGL
 
-' #Const WITHOUT_DSA = True
+#Const WITHOUT_DSA = False
 
 Module modOpenGLAliases
+
+    <MethodImpl(MethodImplOptions.AggressiveInlining)>
+    Public Sub TextureSubImage2D(target As TextureTarget, tex_id As Integer, level As Integer, xoffset As Integer, yoffset As Integer, width As Integer, height As Integer, format As PixelFormat, type As PixelType, pixels As IntPtr)
+#If WITHOUT_DSA Then
+        GL.BindTexture(target, tex_id)
+        GL.TexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels)
+        GL.BindTexture(target, 0)
+#Else
+        GL.TextureSubImage2D(tex_id, level, xoffset, yoffset, width, height, format, type, pixels)
+#End If
+    End Sub
+
+    <MethodImpl(MethodImplOptions.AggressiveInlining)>
+    Public Sub TextureSubImage2D(target As TextureTarget, tex_id As Integer, level As Integer, xoffset As Integer, yoffset As Integer, width As Integer, height As Integer, format As PixelFormat, type As PixelType, pixels() As Byte)
+#If WITHOUT_DSA Then
+        GL.BindTexture(target, tex_id)
+        GL.TexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels)
+        GL.BindTexture(target, 0)
+#Else
+        GL.TextureSubImage2D(tex_id, level, xoffset, yoffset, width, height, format, type, pixels)
+#End If
+    End Sub
+
+    <MethodImpl(MethodImplOptions.AggressiveInlining)>
+    Public Sub CompressedTextureSubImage2D(target As TextureTarget, tex_id As Integer, level As Integer, xoffset As Integer, yoffset As Integer, width As Integer, height As Integer, format As PixelFormat, imageSize As Integer, data() As Byte)
+#If WITHOUT_DSA Then
+        GL.BindTexture(target, tex_id)
+        GL.CompressedTexSubImage2D(target, level, xoffset, yoffset, width, height, format, imageSize, data)
+        GL.BindTexture(target, 0)
+#Else
+        GL.CompressedTextureSubImage2D(tex_id, level, xoffset, yoffset, width, height, format, imageSize, data)
+#End If
+    End Sub
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
     Public Sub GenerateTextureMipmap(target As TextureTarget, tex_id As Integer)
@@ -128,6 +161,7 @@ Module modOpenGLAliases
     End Function
 
     <Conditional("DEBUG")>
+    <MethodImpl(MethodImplOptions.AggressiveInlining)>
     Public Sub LabelObject(objLabelIdent As ObjectLabelIdentifier, glObject As Integer, name As String)
         GL.ObjectLabel(objLabelIdent, glObject, name.Length, name)
     End Sub

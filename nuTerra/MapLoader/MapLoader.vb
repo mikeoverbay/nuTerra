@@ -958,8 +958,8 @@ Module MapLoader
 
                     Dim xoffset = CInt(coords.x0 * multiplierX)
                     Dim yoffset = CInt(coords.y0 * multiplierY)
-                    GL.CompressedTextureSubImage2D(atlas_tex, 0, xoffset, yoffset, dds_header.width, dds_header.height,
-                                                   DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
+                    CompressedTextureSubImage2D(target, atlas_tex, 0, xoffset, yoffset, dds_header.width, dds_header.height,
+                                                DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                 End Using
             Next
             GenerateTextureMipmap(target, atlas_tex)
