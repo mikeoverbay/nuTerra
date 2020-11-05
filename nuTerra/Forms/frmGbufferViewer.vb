@@ -84,8 +84,8 @@ Public Class frmGbufferViewer
         GL.Disable(EnableCap.Blend)
         'all gBuffer textures are the same size. so we can do this now
 
-        GL.GetTextureLevelParameter(FBOm.gColor, 0, GetTextureParameter.TextureWidth, width)
-        GL.GetTextureLevelParameter(FBOm.gColor, 0, GetTextureParameter.TextureHeight, height)
+        GL.GetTextureLevelParameter(FBOm.gColor.texture_id, 0, GetTextureParameter.TextureWidth, width)
+        GL.GetTextureLevelParameter(FBOm.gColor.texture_id, 0, GetTextureParameter.TextureHeight, height)
 
         h_label.Text = "Height:" + height.ToString("0000")
         w_label.Text = "Width:" + width.ToString("0000")
@@ -101,7 +101,7 @@ Public Class frmGbufferViewer
             Case 1
                 toLinearShader.Use()
 
-                GL.BindTextureUnit(0, FBOm.gDepth)
+                FBOm.gDepth.BindUnit(0)
                 GL.Uniform1(toLinearShader("imageMap"), 0)
                 GL.Uniform1(toLinearShader("far"), PRESPECTIVE_FAR)
                 GL.Uniform1(toLinearShader("near"), PRESPECTIVE_NEAR)
@@ -125,7 +125,7 @@ Public Class frmGbufferViewer
                 GL.Uniform1(colorMaskShader("isNormal"), 0)
                 GL.Uniform1(colorMaskShader("mask"), MASK)
 
-                GL.BindTextureUnit(0, FBOm.gColor)
+                FBOm.gColor.BindUnit(0)
                 'GL.BindTextureUnit(0, CC_LUT_ID)
 
                 GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
@@ -144,7 +144,7 @@ Public Class frmGbufferViewer
             Case 3
                 colorMaskShader.Use()
 
-                GL.BindTextureUnit(0, FBOm.gPosition)
+                FBOm.gPosition.BindUnit(0)
                 GL.Uniform1(colorMaskShader("isNormal"), 0)
                 GL.Uniform1(colorMaskShader("mask"), MASK)
 
@@ -167,7 +167,7 @@ Public Class frmGbufferViewer
                 GL.Uniform1(colorMaskShader("isNormal"), 1)
                 GL.Uniform1(colorMaskShader("mask"), MASK)
 
-                GL.BindTextureUnit(0, FBOm.gNormal)
+                FBOm.gNormal.BindUnit(0)
                 GL.Uniform1(normalOffsetShader("imageMap"), 0)
                 GL.UniformMatrix4(normalOffsetShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
 
@@ -185,7 +185,7 @@ Public Class frmGbufferViewer
             Case 5
                 colorMaskShader.Use()
 
-                GL.BindTextureUnit(0, FBOm.gGMF)
+                FBOm.gGMF.BindUnit(0)
                 GL.Uniform1(colorMaskShader("isNormal"), 0)
                 GL.Uniform1(colorMaskShader("mask"), MASK)
 
@@ -207,7 +207,7 @@ Public Class frmGbufferViewer
             Case 6
                 colorMaskShader.Use()
 
-                GL.BindTextureUnit(0, FBOm.gAUX_Color)
+                FBOm.gAUX_Color.BindUnit(0)
                 GL.Uniform1(colorMaskShader("isNormal"), 0)
                 GL.Uniform1(colorMaskShader("mask"), MASK)
 
@@ -226,7 +226,7 @@ Public Class frmGbufferViewer
                 colorMaskShader.StopUse()
 
         End Select
-        GL.BindTextureUnit(0, 0)
+        unbind_textures(0)
 
         GLC.SwapBuffers()  ' swap back to front
 

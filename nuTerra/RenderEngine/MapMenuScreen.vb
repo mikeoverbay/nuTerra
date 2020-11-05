@@ -8,7 +8,7 @@ Imports Tao.DevIl
 Module MapMenuScreen
 
 #Region "structurs/vars"
-    Public map_texture_ids() As Integer
+    Public map_texture_ids() As GLTexture
     Public img_grow_speed As Single = 1.5
     Public img_shrink_speed As Single = 0.5
     Public MapPickList() As map_item_
@@ -53,7 +53,8 @@ Module MapMenuScreen
             Me.rb = rb_ * scale
 
         End Sub
-        Public Sub draw_box(ByVal textId As Integer)
+
+        Public Sub draw_box(textId As GLTexture)
             Dim L As Integer
             If lt.X < 0 Then
                 L = -lt.X
@@ -63,7 +64,8 @@ Module MapMenuScreen
             Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y + 20, Me.rb.X, -Me.rb.Y - 10)
             draw_image_rectangle(rect, textId)
         End Sub
-        Public Sub draw_text(ByVal textId As Integer)
+
+        Public Sub draw_text(ByVal textId As GLTexture)
             Dim L As Integer
             If lt.X < 0 Then
                 L = -lt.X
@@ -73,6 +75,7 @@ Module MapMenuScreen
             Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y, 120, 20)
             draw_image_rectangle(rect, textId)
         End Sub
+
         Public Sub draw_pick_box(ByVal color_ As Color4)
             Dim L As Integer
             If lt.X < 0 Then
@@ -140,7 +143,6 @@ Module MapMenuScreen
         Dim ms As New MemoryStream
         entry2.Extract(ms)
         MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
-        GL.ObjectLabel(ObjectLabelIdentifier.Texture, MAP_SELECT_BACKGROUND_ID, -1, "TEX-MAP-SELECT-BACKGROUND")
     End Sub
 
     Public Sub gl_pick_map(ByVal x As Integer, ByVal y As Integer)

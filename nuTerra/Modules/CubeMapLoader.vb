@@ -5,11 +5,7 @@ Imports System.IO
 
 Module CubeMapLoader
     Public Sub load_cube_and_cube_map()
-
-        If CUBE_TEXTURE_ID > 0 Then
-            GL.DeleteTexture(CUBE_TEXTURE_ID)
-            GL.Finish()
-        End If
+        If CUBE_TEXTURE_ID IsNot Nothing Then CUBE_TEXTURE_ID.Delete()
 
         'find our cube in teh maps package
 
@@ -39,22 +35,16 @@ Module CubeMapLoader
 
             ms.Position = 128
 
-            Const target = TextureTarget.TextureCubeMap
-            CUBE_TEXTURE_ID = CreateTexture(target, "CubeMap")
+            CUBE_TEXTURE_ID = CreateTexture(TextureTarget.TextureCubeMap, "CubeMap")
 
-            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureBaseLevel, 0)
-            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
-            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureBaseLevel, 0)
+            CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
+            CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+            CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            TextureStorage2D(target, CUBE_TEXTURE_ID, dds_header.mipMapCount, format_info.texture_format, dds_header.width, dds_header.height)
-
-            Dim e1 = GL.GetError()
-            If e1 > 0 Then
-                Stop
-            End If
+            CUBE_TEXTURE_ID.Storage2D(dds_header.mipMapCount, format_info.texture_format, dds_header.width, dds_header.height)
 
             Dim mipMapCount = dds_header.mipMapCount
             For face = 0 To faces - 1
@@ -68,19 +58,13 @@ Module CubeMapLoader
 
                     Dim size = ((w + 3) \ 4) * ((h + 3) \ 4) * format_info.components
                     Dim data = br.ReadBytes(size)
-                    GL.CompressedTextureSubImage3D(CUBE_TEXTURE_ID, i, 0, 0, face, w, h, 1, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
+                    CUBE_TEXTURE_ID.CompressedSubImage3D(i, 0, 0, face, w, h, 1, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                     w /= 2
                     h /= 2
                 Next
             Next
-            TextureParameter(target, CUBE_TEXTURE_ID, TextureParameterName.TextureMaxLevel, mipMapCount - 1)
-
+            CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureMaxLevel, mipMapCount - 1)
         End Using
-        Dim e2 = GL.GetError()
-        If e2 > 0 Then
-            Stop
-        End If
-
     End Sub
 
 End Module

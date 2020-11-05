@@ -104,7 +104,7 @@ Public Class frmModelViewer
         TextRenderShader.Use()
         GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECT)
         GL.Uniform1(TextRenderShader("divisor"), 95.0F) 'atlas size
-        GL.BindTextureUnit(0, ASCII_ID)
+        ASCII_ID.BindUnit(0)
         GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
         GL.Uniform4(TextRenderShader("color"), color)
         GL.Uniform1(TextRenderShader("mask"), mask)
@@ -132,7 +132,7 @@ Public Class frmModelViewer
         Next
         GL.Disable(EnableCap.Blend)
         TextRenderShader.StopUse()
-        GL.BindTextureUnit(0, 0)
+        unbind_textures(0)
 
     End Sub
 

@@ -155,18 +155,18 @@ Module modOpenGL
         rect2dShader.StopUse()
     End Sub
 
-    Public Sub draw_image_rectangle(rect As RectangleF, image As Integer)
+    Public Sub draw_image_rectangle(rect As RectangleF, image As GLTexture)
         If USE_NV_DRAW_TEXTURE Then
             Dim h = frmMain.glControl_main.Height
             Dim x0 = rect.Left
             Dim x1 = rect.Right
             Dim y0 = h - rect.Top
             Dim y1 = h - rect.Bottom
-            GL.NV.DrawTexture(image, 0, x0, y0, x1, y1, 0, 0, 0, 1, 1)
+            GL.NV.DrawTexture(image.texture_id, 0, x0, y0, x1, y1, 0, 0, 0, 1, 1)
         Else
             image2dShader.Use()
 
-            GL.BindTextureUnit(0, image)
+            image.BindUnit(0)
             GL.Uniform1(image2dShader("imageMap"), 0)
             GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
             GL.Uniform4(image2dShader("rect"),
@@ -181,7 +181,7 @@ Module modOpenGL
 
             image2dShader.StopUse()
             'unbind texture
-            GL.BindTextureUnit(0, 0)
+            unbind_textures(0)
         End If
     End Sub
 

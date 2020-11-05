@@ -65,11 +65,11 @@ Module TerrainBuilder
         Public Shared v_data() As terain_V_data_
         Public Shared render_set() As chunk_render_data_
         '------------------------
-        Public Shared MINI_MAP_ID As Integer
-        Public Shared GLOBAL_AM_ID As Integer
+        Public Shared MINI_MAP_ID As GLTexture
+        Public Shared GLOBAL_AM_ID As GLTexture
 
         Public Shared skybox_mdl As XModel
-        Public Shared Sky_Texture_Id As Integer
+        Public Shared Sky_Texture_Id As GLTexture
         Public Shared skybox_path As String
         Public Shared lut_path As String
         '------------------------
@@ -183,11 +183,11 @@ Module TerrainBuilder
     End Structure
 
     Public Structure ids_
-        Public Blend_id As Integer
+        Public Blend_id As GLTexture
         Public AM_name1, NM_name1 As String
-        Public AM_id1, NM_id1 As Integer
+        Public AM_id1, NM_id1 As GLTexture
         Public AM_name2, NM_name2 As String
-        Public AM_id2, NM_id2 As Integer
+        Public AM_id2, NM_id2 As GLTexture
         Public uP1, uP2, vP1, vP2 As Vector4
         Public used_a, used_b As Single
         Public scale_a, scale_b As Vector4
@@ -454,7 +454,7 @@ Module TerrainBuilder
         entry.Extract(ms)
         openXml_stream(ms, Path.GetFileName(theMap.skybox_path))
         theMap.Sky_Texture_Id = get_diffuse_texture_id_from_visual()
-        If theMap.Sky_Texture_Id = -1 Then
+        If theMap.Sky_Texture_Id Is Nothing Then
             MsgBox("could not find Sky Box Texture", MsgBoxStyle.Exclamation, "Shit!")
         End If
         Dim envPath = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/environment.xml"
@@ -547,7 +547,8 @@ Module TerrainBuilder
         v.Z = Convert.ToSingle(a(2))
         Return v
     End Function
-    Public Function get_diffuse_texture_id_from_visual() As Integer
+
+    Public Function get_diffuse_texture_id_from_visual() As GLTexture
         Dim theString = TheXML_String
         Dim in_pos = InStr(1, theString, "diffuseMap")
         If in_pos > 0 Then
@@ -557,7 +558,7 @@ Module TerrainBuilder
             newS = Mid(theString, tex1_pos, tex1_Epos - tex1_pos).Replace("/", "\")
             Return find_and_load_texture_from_pkgs(newS)
         End If
-        Return -1
+        Return Nothing
     End Function
 
     Private Function get_team_locations_and_field_BB(ByRef name As String) As Boolean

@@ -897,8 +897,7 @@ Module MapLoader
                 End While
             End Using
 
-            Const target = TextureTarget.Texture2D
-            Dim atlas_tex As Integer
+            Dim atlas_tex As GLTexture
             Dim fullWidth As Integer
             Dim fullHeight As Integer
             Dim multiplierX, multiplierY As Single
@@ -941,16 +940,16 @@ Module MapLoader
                         'Calculate Max Mip Level based on width or height.. Which ever is larger.
                         Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
 
-                        atlas_tex = CreateTexture(target, atlasPath)
-                        TextureStorage2D(target, atlas_tex, numLevels, format_info.texture_format, fullWidth, fullHeight)
+                        atlas_tex = CreateTexture(TextureTarget.Texture2D, atlasPath)
+                        atlas_tex.Storage2D(numLevels, format_info.texture_format, fullWidth, fullHeight)
 
-                        TextureParameter(target, atlas_tex, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 3)
-                        TextureParameter(target, atlas_tex, TextureParameterName.TextureBaseLevel, 0)
-                        TextureParameter(target, atlas_tex, TextureParameterName.TextureMaxLevel, numLevels)
-                        TextureParameter(target, atlas_tex, TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-                        TextureParameter(target, atlas_tex, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                        TextureParameter(target, atlas_tex, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-                        TextureParameter(target, atlas_tex, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+                        atlas_tex.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 3)
+                        atlas_tex.Parameter(TextureParameterName.TextureBaseLevel, 0)
+                        atlas_tex.Parameter(TextureParameterName.TextureMaxLevel, numLevels)
+                        atlas_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                        atlas_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                        atlas_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+                        atlas_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
                     End If
 
                     Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
@@ -958,18 +957,18 @@ Module MapLoader
 
                     Dim xoffset = CInt(coords.x0 * multiplierX)
                     Dim yoffset = CInt(coords.y0 * multiplierY)
-                    CompressedTextureSubImage2D(target, atlas_tex, 0, xoffset, yoffset, dds_header.width, dds_header.height,
+                    atlas_tex.CompressedSubImage2D(0, xoffset, yoffset, dds_header.width, dds_header.height,
                                                 DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                 End Using
             Next
-            GenerateTextureMipmap(target, atlas_tex)
+            atlas_tex.GenerateMipmap()
             'If atlasPath.ToLower.Contains("Tirpiz_atlas_AM".ToLower) Then
             '    GL.Clear(ClearBufferMask.ColorBufferBit)
             '    draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
             '    Stop
             'End If
 
-            Dim handle = GL.Arb.GetTextureHandle(atlas_tex)
+            Dim handle = GL.Arb.GetTextureHandle(atlas_tex.texture_id)
             GL.Arb.MakeTextureHandleResident(handle)
 
             textureHandles(atlasPath) = handle
@@ -986,9 +985,9 @@ Module MapLoader
             End If
             'dont load images that are already created!
             Dim image_id = image_exists(texturePath)
-            If image_id > -1 Then
+            If image_id IsNot Nothing Then
                 'Debug.WriteLine(texturePath)
-                Dim hndl = GL.Arb.GetTextureHandle(image_id)
+                Dim hndl = GL.Arb.GetTextureHandle(image_id.texture_id)
                 textureHandles(texturePath) = hndl
                 Continue For
             End If
@@ -1014,7 +1013,7 @@ Module MapLoader
 
             Dim tex = load_dds_image_from_stream(ms, texturePath)
 
-            Dim handle = GL.Arb.GetTextureHandle(tex)
+            Dim handle = GL.Arb.GetTextureHandle(tex.texture_id)
             GL.Arb.MakeTextureHandleResident(handle)
 
             textureHandles(old_texturePath) = handle
@@ -1152,7 +1151,7 @@ Module MapLoader
         GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 3, MapGL.Buffers.materials)
     End Sub
 
-    Private Sub draw_test_iamge(ByVal w As Integer, ByVal h As Integer, ByVal id As Integer)
+    Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)
 
         Dim ww = frmMain.glControl_main.ClientRectangle.Width
 
@@ -1164,7 +1163,7 @@ Module MapLoader
         frmMain.glControl_main.SwapBuffers()
     End Sub
 
-    Private Function get_spaceBin(ByVal ABS_NAME As String) As Boolean
+    Private Function get_spaceBin(ABS_NAME As String) As Boolean
         Dim space_bin_file As Ionic.Zip.ZipEntry =
             Packages.MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, "space.bin"))
         Dim ms As New MemoryStream
@@ -1219,7 +1218,7 @@ Module MapLoader
         Next
         GL.Finish() ' make sure we are done before moving on
 
-        theMap.MINI_MAP_ID = 0
+        theMap.MINI_MAP_ID = Nothing
         theMap.chunks = Nothing
         theMap.vertex_vBuffer_id = 0
 

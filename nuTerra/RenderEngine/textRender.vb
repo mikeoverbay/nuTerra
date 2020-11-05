@@ -13,7 +13,7 @@ Module textRender
     Public Structure DrawText_
         Private bmp As Bitmap
         Private gfx As System.Drawing.Graphics
-        Private texture_ As Integer
+        Private texture_ As GLTexture
         Private dirty_region As Rectangle
 
         Public Sub TextRenderer(ByVal width As Integer, ByVal height As Integer)
@@ -31,15 +31,13 @@ Module textRender
             Me.bmp = New Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb)
             Me.gfx = System.Drawing.Graphics.FromImage(Me.bmp)
             Me.gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias
-            If Me.texture_ > 0 Then
-                GL.DeleteTexture(Me.texture_)
-            End If
+            If Me.texture_ IsNot Nothing Then Me.texture_.Delete()
 
             Me.texture_ = CreateTexture(TextureTarget.Texture2D, "text")
 
-            GL.TextureParameter(Me.texture_, TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            GL.TextureParameter(Me.texture_, TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            GL.TextureStorage2D(Me.texture_, 1, SizedInternalFormat.Rgba8, width, height)
+            Me.texture_.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            Me.texture_.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            Me.texture_.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
         End Sub
 
         Public Sub clear(ByRef color As Color)
@@ -55,7 +53,7 @@ Module textRender
 
         End Sub
 
-        Public ReadOnly Property Gettexture() As Integer
+        Public ReadOnly Property Gettexture() As GLTexture
             Get
                 uploadBitmap()
                 Return Me.texture_
@@ -69,7 +67,7 @@ Module textRender
                 Dim Data = Me.bmp.LockBits(Me.dirty_region, _
                         System.Drawing.Imaging.ImageLockMode.ReadOnly, _
                         System.Drawing.Imaging.PixelFormat.Format32bppArgb)
-                TextureSubImage2D(TextureTarget.Texture2D, Me.texture_, 0,
+                Me.texture_.SubImage2D(0,
                         Me.dirty_region.X, Me.dirty_region.Y, Me.dirty_region.Width, Me.dirty_region.Height,
                         PixelFormat.Bgra, PixelType.UnsignedByte, Data.Scan0)
                 Me.bmp.UnlockBits(Data)

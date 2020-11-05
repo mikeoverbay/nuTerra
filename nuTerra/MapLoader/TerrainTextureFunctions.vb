@@ -283,10 +283,10 @@ Module TerrainTextureFunctions
         Return True
     End Function
 
-    Public Function find_and_trim(ByRef fn As String) As Integer
+    Public Function find_and_trim(ByRef fn As String) As GLTexture
         'finds and loads and returns the GL texture ID.
         Dim id = image_exists(fn) 'Check if this has been loaded already.
-        If id > 0 Then
+        If id IsNot Nothing Then
             Return id
         End If
         Dim entry As ZipEntry = search_pkgs(fn)
@@ -298,14 +298,11 @@ Module TerrainTextureFunctions
             id = crop_DDS(ms, fn)
             Return id
         End If
-        Return -1
+        Return Nothing
     End Function
 
-    Private Function crop_DDS(ByRef ms As MemoryStream, ByRef fn As String) As Integer
+    Private Function crop_DDS(ByRef ms As MemoryStream, ByRef fn As String) As GLTexture
         'File name is needed to add to our list of loaded textures
-
-
-        Dim image_id As Integer
 
         ms.Position = 0
 
@@ -341,29 +338,28 @@ Module TerrainTextureFunctions
             Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
             Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
-            Const target = TextureTarget.Texture2D
-            image_id = CreateTexture(target, fn)
+            Dim image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
             Dim maxAniso As Single = 3.0F
             'GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
 
-            TextureParameter(target, image_id, DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
+            image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
 
-            TextureParameter(target, image_id, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            TextureParameter(target, image_id, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
 
-            TextureParameter(target, image_id, TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            TextureParameter(target, image_id, TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
             If CROP Then
-                TextureStorage2D(target, image_id, 6, SizedInternalFormat.Rgba8, CInt(width * 0.875), CInt(height * 0.875))
-                TextureSubImage2D(target, image_id, 0, 0, 0, CInt(width * 0.875), CInt(height * 0.875), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+                image_id.Storage2D(6, SizedInternalFormat.Rgba8, CInt(width * 0.875), CInt(height * 0.875))
+                image_id.SubImage2D(0, 0, 0, CInt(width * 0.875), CInt(height * 0.875), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
             Else
-                TextureStorage2D(target, image_id, 6, SizedInternalFormat.Rgba8, CInt(width), CInt(height))
-                TextureSubImage2D(target, image_id, 0, 0, 0, CInt(width), CInt(height), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
+                image_id.Storage2D(6, SizedInternalFormat.Rgba8, CInt(width), CInt(height))
+                image_id.SubImage2D(0, 0, 0, CInt(width), CInt(height), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
             End If
 
-            GenerateTextureMipmap(target, image_id)
+            image_id.GenerateMipmap()
 
             Il.ilBindImage(0)
             Ilu.iluDeleteImage(texID)
@@ -375,7 +371,6 @@ Module TerrainTextureFunctions
             MsgBox("Failed to load @ crop_DDS", MsgBoxStyle.Exclamation, "Shit!!")
         End If
         Return Nothing
-
 
     End Function
 End Module
