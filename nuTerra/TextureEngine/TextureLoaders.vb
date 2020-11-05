@@ -261,6 +261,7 @@ Module TextureLoaders
             Debug.WriteLine(fn)
             Return image_id
         End If
+        Dim e1 = GL.GetError()
 
         ms.Position = 0
         Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)

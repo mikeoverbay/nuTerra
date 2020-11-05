@@ -399,10 +399,10 @@
     <None Include="shaders\Final_render\glassPass.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\mapMixing\mixTerrain.frag">
+    <None Include="shaders\mapMixing\t_mixer.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\mapMixing\mixTerrain.vert">
+    <None Include="shaders\mapMixing\t_mixer.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\ModelViewer\ModelViewer.frag">

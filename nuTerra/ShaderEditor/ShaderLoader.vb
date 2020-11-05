@@ -214,7 +214,7 @@ Module ShaderLoader
         glassPassShader = New Shader("glassPass")
         'unused: gWriterShader = New Shader("gWriter")
         MiniMapRingsShader = New Shader("MiniMapRings")
-        mixTerrainShader = New Shader("mixTerrain")
+        mixTerrainShader = New Shader("t_mixer")
         modelShader = New Shader("model")
         modelGlassShader = New Shader("modelGlass")
         ModelViewerShader = New Shader("ModelViewer")

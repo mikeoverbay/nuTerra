@@ -396,7 +396,7 @@ Module MapLoader
         ripple_mask_texture = find_and_load_texture_from_pkgs(Map_wetness.waveMaskTexture)
         '===============================================================
 
-#Region "load map"
+#Region "load models"
 
         If DONT_BLOCK_MODELS Then
 
