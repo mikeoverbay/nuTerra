@@ -68,41 +68,42 @@ Module FBO_Mixer
         Public Shared Sub create_arraytextures()
             Dim er1 = GL.GetError
 
-            gColorArray = CreateTexture(TextureTarget.Texture2DArray, "gColorArray")
-            gNormalArray = CreateTexture(TextureTarget.Texture2DArray, "gNormalArray")
-            gGmmArray = CreateTexture(TextureTarget.Texture2DArray, "gGmmArray")
+            Const target = TextureTarget.Texture2DArray
+            gColorArray = CreateTexture(target, "gColorArray")
+            gNormalArray = CreateTexture(target, "gNormalArray")
+            gGmmArray = CreateTexture(target, "gGmmArray")
             'we should initialize layers for each mipmap level
             'For mip = 0 To mipCount - 1
 
             ' gColorArray ------------------------------------------------------------------------------------------
-            GL.TextureParameter(gColorArray, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            GL.TextureParameter(gColorArray, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            GL.TextureParameter(gColorArray, TextureParameterName.TextureBaseLevel, 0)
-            GL.TextureParameter(gColorArray, TextureParameterName.TextureMaxLevel, mipCount - 1)
-            GL.TextureParameter(gColorArray, TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
-            GL.TextureParameter(gColorArray, TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
+            TextureParameter(target, gColorArray, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            TextureParameter(target, gColorArray, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            TextureParameter(target, gColorArray, TextureParameterName.TextureBaseLevel, 0)
+            TextureParameter(target, gColorArray, TextureParameterName.TextureMaxLevel, mipCount - 1)
+            TextureParameter(target, gColorArray, TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
+            TextureParameter(target, gColorArray, TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
 
             GL.TextureStorage3D(gColorArray, mipCount - 1, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
             Dim er2 = GL.GetError
 
             ' gNormalArray ------------------------------------------------------------------------------------------
-            GL.TextureParameter(gNormalArray, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            GL.TextureParameter(gNormalArray, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            GL.TextureParameter(gNormalArray, TextureParameterName.TextureBaseLevel, 0)
-            GL.TextureParameter(gNormalArray, TextureParameterName.TextureMaxLevel, mipCount - 1)
-            GL.TextureParameter(gNormalArray, TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
-            GL.TextureParameter(gNormalArray, TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
+            TextureParameter(target, gNormalArray, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            TextureParameter(target, gNormalArray, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            TextureParameter(target, gNormalArray, TextureParameterName.TextureBaseLevel, 0)
+            TextureParameter(target, gNormalArray, TextureParameterName.TextureMaxLevel, mipCount - 1)
+            TextureParameter(target, gNormalArray, TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
+            TextureParameter(target, gNormalArray, TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
 
             GL.TextureStorage3D(gNormalArray, mipCount - 1, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
             Dim er3 = GL.GetError
 
             ' gGmmArray ------------------------------------------------------------------------------------------
-            GL.TextureParameter(gGmmArray, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            GL.TextureParameter(gGmmArray, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            GL.TextureParameter(gGmmArray, TextureParameterName.TextureBaseLevel, 0)
-            GL.TextureParameter(gGmmArray, TextureParameterName.TextureMaxLevel, mipCount - 1)
-            GL.TextureParameter(gGmmArray, TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
-            GL.TextureParameter(gGmmArray, TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
+            TextureParameter(target, gGmmArray, TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            TextureParameter(target, gGmmArray, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            TextureParameter(target, gGmmArray, TextureParameterName.TextureBaseLevel, 0)
+            TextureParameter(target, gGmmArray, TextureParameterName.TextureMaxLevel, mipCount - 1)
+            TextureParameter(target, gGmmArray, TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
+            TextureParameter(target, gGmmArray, TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
 
             GL.TextureStorage3D(gGmmArray, mipCount - 1, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
             Dim er4 = GL.GetError
@@ -116,7 +117,8 @@ Module FBO_Mixer
         End Sub
 
         Public Shared Function create_fbo() As Boolean
-            GL.CreateFramebuffers(1, FBO_Mixer_ID)
+            FBO_Mixer_ID = CreateFramebuffer("Mixer")
+
             'attach our textureArray to colorAttachment0, mip 0 and level 0
             GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment0, gColorArray, 0, 0)
             GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment1, gNormalArray, 0, 0)

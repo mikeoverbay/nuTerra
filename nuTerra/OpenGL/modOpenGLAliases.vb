@@ -6,6 +6,14 @@ Imports OpenTK.Graphics.OpenGL
 Module modOpenGLAliases
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
+    Public Function CreateFramebuffer(name As String) As Integer
+        Dim fbo_id As Integer
+        GL.CreateFramebuffers(1, fbo_id)
+        LabelObject(ObjectLabelIdentifier.Framebuffer, fbo_id, name)
+        Return fbo_id
+    End Function
+
+    <MethodImpl(MethodImplOptions.AggressiveInlining)>
     Public Sub TextureSubImage2D(target As TextureTarget, tex_id As Integer, level As Integer, xoffset As Integer, yoffset As Integer, width As Integer, height As Integer, format As PixelFormat, type As PixelType, pixels As IntPtr)
 #If WITHOUT_DSA Then
         GL.BindTexture(target, tex_id)

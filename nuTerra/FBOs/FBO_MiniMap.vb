@@ -47,16 +47,17 @@ Module FBO_MiniMap
         Public Shared Sub create_textures()
             ' gColor ------------------------------------------------------------------------------------------
             '4 color int : RGB and alpha
-            gColor = CreateTexture(TextureTarget.Texture2D, "gColor")
-            GL.TextureParameter(gColor, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-            GL.TextureParameter(gColor, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            GL.TextureParameter(gColor, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            GL.TextureParameter(gColor, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            GL.TextureStorage2D(gColor, 1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), mini_size, mini_size)
+            Const target = TextureTarget.Texture2D
+            gColor = CreateTexture(target, "gColor")
+            TextureParameter(target, gColor, TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+            TextureParameter(target, gColor, TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            TextureParameter(target, gColor, TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            TextureParameter(target, gColor, TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
+            TextureStorage2D(target, gColor, 1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), mini_size, mini_size)
         End Sub
 
         Public Shared Function create_fbo() As Boolean
-            GL.CreateFramebuffers(1, miniFBO)
+            miniFBO = CreateFramebuffer("miniFBO")
             'attach our render buffer textures.
 
             GL.NamedFramebufferTexture(miniFBO, FramebufferAttachment.ColorAttachment0, gColor, 0)

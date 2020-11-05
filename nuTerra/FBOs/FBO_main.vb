@@ -197,9 +197,7 @@ Module FBO_main
             Dim maxColorAttachments As Integer
             GL.GetInteger(GetPName.MaxColorAttachments, maxColorAttachments)
 
-
-            GL.CreateFramebuffers(1, mainFBO)
-            GL.ObjectLabel(ObjectLabelIdentifier.Framebuffer, mainFBO, -1, "mainFBO")
+            mainFBO = CreateFramebuffer("mainFBO")
 
             ' attach our render buffer textures.
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment0, gColor, 0)
