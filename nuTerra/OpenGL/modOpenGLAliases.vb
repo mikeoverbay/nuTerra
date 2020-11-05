@@ -115,7 +115,9 @@ Module modOpenGLAliases
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
         Public Sub CompressedSubImage3D(level As Integer, xoffset As Integer, yoffset As Integer, zoffset As Integer, width As Integer, height As Integer, depth As Integer, format As PixelFormat, imageSize As Integer, data() As Byte)
 #If WITHOUT_DSA Then
-            TODO
+            GL.BindTexture(target, texture_id)
+            GL.CompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data)
+            GL.BindTexture(target, 0)
 #Else
             GL.CompressedTextureSubImage3D(texture_id, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data)
 #End If
@@ -218,7 +220,8 @@ Module modOpenGLAliases
         'doing this backwards leaves TEXTURE0 active :)
         For i = start To 0 Step -1
 #If WITHOUT_DSA Then
-            TODO
+            GL.ActiveTexture(TextureUnit.Texture0 + i)
+            GL.BindTexture(TextureTarget.Texture2D, 0)
 #Else
             GL.BindTextureUnit(i, 0)
 #End If
