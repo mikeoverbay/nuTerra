@@ -20,7 +20,7 @@ Module modGlobalVars
     '=================================================================================
     Public checkerTest As Integer
     'Define these in CAP TEXT
-    Public TEST_IDS(7) As Integer
+    Public TEST_IDS(7) As GLTexture
     Public M_POS As Vector2
     '============================================================
     Public nuTerra_LOG As New StringBuilder ' for logging
@@ -40,22 +40,22 @@ Module modGlobalVars
     Public TIME_OF_DAY As Single
     Public SUN_SCALE As Single
     Public SUN_TEXTURE_PATH As String
-    Public SUN_TEXTURE_ID As Integer
+    Public SUN_TEXTURE_ID As GLTexture
     Public SUN_RENDER_COLOR As Vector3
-    Public CC_LUT_ID As Integer
+    Public CC_LUT_ID As GLTexture
 
     Public RIPPLE_FRAME_NUMBER As Integer
-    Public RIPPLE_TEXTURES() As Integer
-    Public RIPPLE_MASK_TEXTURE As Integer
+    Public RIPPLE_TEXTURES() As GLTexture
+    Public RIPPLE_MASK_TEXTURE As GLTexture
     Public RIPPLE_MASK_TIME As Single
-    Public ENV_BRDF_LUT As Integer
+    Public ENV_BRDF_LUT As GLTexture
     '============================================================
     ' this setting tweaks the mip biasing!
     Public GLOBAL_MIP_BIAS As Single = -0.75F
     '============================================================
     'temp test texture ids
-    Public color_id, normal_id, gmm_id As Integer
-    Public m_color_id, m_gmm_id As Integer
+    Public color_id, normal_id, gmm_id As GLTexture
+    Public m_color_id, m_normal_id, m_gmm_id As GLTexture
     '============================================================
     'Render related
     Public T1_Y As Single
@@ -71,9 +71,8 @@ Module modGlobalVars
     Public DONT_HIDE_HUD As Boolean = True
     Public DONT_HIDE_MINIMAP As Boolean = True
     Public SHOW_LOD_COLORS As Integer
-    Public M_NORMAL_ID As Integer
     'ascii characters
-    Public ASCII_ID As Integer
+    Public ASCII_ID As GLTexture
     'wire flags
     Public WIRE_MODELS As Boolean
     Public WIRE_DECALS As Boolean
@@ -85,21 +84,21 @@ Module modGlobalVars
     Public SHOW_CHUNK_IDs As Integer
     Public SHOW_TEST_TEXTURES As Integer = 0 'show test textures on terrain flag. default Off.
     'models
-    Public CURSOR_TEXTURE_ID As Integer
-    Public DIRECTION_TEXTURE_ID As Integer
+    Public CURSOR_TEXTURE_ID As GLTexture
+    Public DIRECTION_TEXTURE_ID As GLTexture
     Public CROSS_HAIR_TIME As Single = 0.0F ' animation time 0-1
-    Public PROGRESS_BAR_IMAGE_ID As Integer
+    Public PROGRESS_BAR_IMAGE_ID As GLTexture
     Public MINI_WORLD_MOUSE_POSITION As Vector2
     Public MINI_MOUSE_CAPTURED As Boolean
-    Public MINI_NUMBERS_ID As Integer
-    Public MINI_LETTERS_ID As Integer
-    Public MINI_TRIM_VERT_ID As Integer
-    Public MINI_TRIM_HORZ_ID As Integer
-    Public CUBE_TEXTURE_ID As Integer
+    Public MINI_NUMBERS_ID As GLTexture
+    Public MINI_LETTERS_ID As GLTexture
+    Public MINI_TRIM_VERT_ID As GLTexture
+    Public MINI_TRIM_HORZ_ID As GLTexture
+    Public CUBE_TEXTURE_ID As GLTexture
     Public CUBE_TEXTURE_PATH As String
     '============================================================
     'load screen background image
-    Public nuTERRA_BG_IMAGE As Integer
+    Public nuTERRA_BG_IMAGE As GLTexture
     '============================================================
     Public LIGHT_POS As Vector3
     Public LIGHT_RADIUS As Single 'Used when orbiting the light
@@ -145,9 +144,9 @@ Module modGlobalVars
     Public FIRST_UNUSED_TEXTURE As Integer 'Used for deltion of textures. holds starting texture
     Public FIRST_UNUSED_VB_OBJECT As Integer 'Used for deltion of VBO
     Public FIRST_UNUSED_V_BUFFER As Integer 'Used for deltion of V Bufffers
-    Public DUMMY_TEXTURE_ID As Integer 'texture id 
-    Public MAP_SELECT_BACKGROUND_ID As Integer 'texture id 
-    Public TEXT_OVERLAY_MAP_PICK As Integer 'texture id for text on icons
+    Public DUMMY_TEXTURE_ID As GLTexture 'texture id 
+    Public MAP_SELECT_BACKGROUND_ID As GLTexture 'texture id 
+    Public TEXT_OVERLAY_MAP_PICK As GLTexture 'texture id for text on icons
     '
     Public SHOW_MAPS_SCREEN As Boolean = False 'show pick menu screen
     Public SHOW_LOADING_SCREEN As Boolean = False 'show loading screen flag
@@ -181,7 +180,7 @@ Module modGlobalVars
     Public TEAM_2 As Vector3
     Public MAP_BB_UR As Vector2
     Public MAP_BB_BL As Vector2
-    Public TEAM_1_ICON_ID As Integer
-    Public TEAM_2_ICON_ID As Integer
+    Public TEAM_1_ICON_ID As GLTexture
+    Public TEAM_2_ICON_ID As GLTexture
 
 End Module

@@ -30,17 +30,17 @@ Module ChunkTextureMixer
 
         'shit load of textures to bind
 
-        GL.BindTextureUnit(21, TEST_IDS(0))
-        GL.BindTextureUnit(22, TEST_IDS(1))
-        GL.BindTextureUnit(23, TEST_IDS(2))
-        GL.BindTextureUnit(24, TEST_IDS(3))
-        GL.BindTextureUnit(25, TEST_IDS(4))
-        GL.BindTextureUnit(26, TEST_IDS(5))
-        GL.BindTextureUnit(27, TEST_IDS(6))
-        GL.BindTextureUnit(28, TEST_IDS(7))
+        TEST_IDS(0).BindUnit(0)
+        TEST_IDS(1).BindUnit(1)
+        TEST_IDS(2).BindUnit(2)
+        TEST_IDS(3).BindUnit(3)
+        TEST_IDS(4).BindUnit(4)
+        TEST_IDS(5).BindUnit(5)
+        TEST_IDS(6).BindUnit(6)
+        TEST_IDS(7).BindUnit(7)
 
-        GL.BindTextureUnit(29, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
-        GL.BindTextureUnit(30, M_NORMAL_ID)
+        theMap.GLOBAL_AM_ID.BindUnit(29) '<----------------- Texture Bind
+        m_normal_id.BindUnit(30)
         'water BS
 
         GL.Uniform2(mixTerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
@@ -68,34 +68,31 @@ Module ChunkTextureMixer
             With theMap.render_set(i)
                 GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, .layersStd140_ubo)
 
-                'debug shit
-                'GL.BindTextureUnit(31, .dom_texture_id) '<----------------- Texture Bind
-
                 'AM maps
-                GL.BindTextureUnit(1, .TexLayers(0).AM_id1)
-                GL.BindTextureUnit(2, .TexLayers(1).AM_id1)
-                GL.BindTextureUnit(3, .TexLayers(2).AM_id1)
-                GL.BindTextureUnit(4, .TexLayers(3).AM_id1)
+                .TexLayers(0).AM_id1.BindUnit(1)
+                .TexLayers(1).AM_id1.BindUnit(2)
+                .TexLayers(2).AM_id1.BindUnit(3)
+                .TexLayers(3).AM_id1.BindUnit(4)
 
-                GL.BindTextureUnit(5, .TexLayers(0).AM_id2)
-                GL.BindTextureUnit(6, .TexLayers(1).AM_id2)
-                GL.BindTextureUnit(7, .TexLayers(2).AM_id2)
-                GL.BindTextureUnit(8, .TexLayers(3).AM_id2)
+                .TexLayers(0).AM_id2.BindUnit(5)
+                .TexLayers(1).AM_id2.BindUnit(6)
+                .TexLayers(2).AM_id2.BindUnit(7)
+                .TexLayers(3).AM_id2.BindUnit(8)
                 'NM maps
-                GL.BindTextureUnit(9, .TexLayers(0).NM_id1)
-                GL.BindTextureUnit(10, .TexLayers(1).NM_id1)
-                GL.BindTextureUnit(11, .TexLayers(2).NM_id1)
-                GL.BindTextureUnit(12, .TexLayers(3).NM_id1)
+                .TexLayers(0).NM_id1.BindUnit(9)
+                .TexLayers(1).NM_id1.BindUnit(10)
+                .TexLayers(2).NM_id1.BindUnit(11)
+                .TexLayers(3).NM_id1.BindUnit(12)
 
-                GL.BindTextureUnit(13, .TexLayers(0).NM_id2)
-                GL.BindTextureUnit(14, .TexLayers(1).NM_id2)
-                GL.BindTextureUnit(15, .TexLayers(2).NM_id2)
-                GL.BindTextureUnit(16, .TexLayers(3).NM_id2)
+                .TexLayers(0).NM_id2.BindUnit(13)
+                .TexLayers(1).NM_id2.BindUnit(14)
+                .TexLayers(2).NM_id2.BindUnit(15)
+                .TexLayers(3).NM_id2.BindUnit(16)
                 'bind blend textures
-                GL.BindTextureUnit(17, .TexLayers(0).Blend_id)
-                GL.BindTextureUnit(18, .TexLayers(1).Blend_id)
-                GL.BindTextureUnit(19, .TexLayers(2).Blend_id)
-                GL.BindTextureUnit(20, .TexLayers(3).Blend_id)
+                .TexLayers(0).Blend_id.BindUnit(17)
+                .TexLayers(1).Blend_id.BindUnit(18)
+                .TexLayers(2).Blend_id.BindUnit(19)
+                .TexLayers(3).Blend_id.BindUnit(20)
 
                 'draw chunk
                 GL.BindVertexArray(.VAO)
