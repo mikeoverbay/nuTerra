@@ -205,7 +205,7 @@ Module modRender
         'GL.Uniform3(FF_BillboardShader("color"), SUN_RENDER_COLOR.X / 100.0F, SUN_RENDER_COLOR.Y / 100.0F, SUN_RENDER_COLOR.Z / 100.0F)
         GL.Uniform3(FF_BillboardShader("color"), 1.0F, 1.0F, 1.0F)
         GL.Uniform1(FF_BillboardShader("scale"), SUN_SCALE * 6)
-        SUN_TEXTURE_ID.BindUnit(0)
+        GL.BindTextureUnit(0, SUN_TEXTURE_ID)
 
         GL.Uniform4(FF_BillboardShader("rect"), -0.5F, -0.5F, 0.5F, 0.5F)
         GL.BindVertexArray(defaultVao)
@@ -245,8 +245,8 @@ Module modRender
         GL.Uniform1(colorCorrectShader("colorMap"), 0)
         GL.Uniform1(colorCorrectShader("lut"), 1)
 
-        FBOm.gColor.BindUnit(0)
-        CC_LUT_ID.BindUnit(1)
+        GL.BindTextureUnit(0, FBOm.gColor)
+        GL.BindTextureUnit(1, CC_LUT_ID)
 
         'draw full screen quad
         GL.Uniform4(colorCorrectShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
@@ -255,12 +255,13 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         colorCorrectShader.StopUse()
-        unbind_textures(1)
+        GL.BindTextureUnit(0, 0)
+        GL.BindTextureUnit(1, 0)
 
     End Sub
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
-        GL.CopyTextureSubImage2D(FBOm.gColor.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
+        GL.CopyTextureSubImage2D(FBOm.gColor, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
     End Sub
 
     Private Sub draw_terrain()
@@ -297,8 +298,8 @@ Module modRender
         TerrainLQShader.Use()  '<------------ Shader Bind
         '------------------------------------------------
         ' Set this texture to 0 to test LQ/HQ transitions
-        theMap.GLOBAL_AM_ID.BindUnit(0)
-        m_normal_id.BindUnit(1)
+        GL.BindTextureUnit(0, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
+        GL.BindTextureUnit(1, M_NORMAL_ID)
 
         GL.Uniform2(TerrainLQShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainLQShader("map_center"), -b_x_min, b_y_max)
@@ -331,20 +332,20 @@ Module modRender
 
         'shit load of textures to bind
 
-        TEST_IDS(0).BindUnit(21)
-        TEST_IDS(1).BindUnit(22)
-        TEST_IDS(2).BindUnit(23)
-        TEST_IDS(3).BindUnit(24)
-        TEST_IDS(4).BindUnit(25)
-        TEST_IDS(5).BindUnit(26)
-        TEST_IDS(6).BindUnit(27)
-        TEST_IDS(7).BindUnit(28)
+        GL.BindTextureUnit(21, TEST_IDS(0))
+        GL.BindTextureUnit(22, TEST_IDS(1))
+        GL.BindTextureUnit(23, TEST_IDS(2))
+        GL.BindTextureUnit(24, TEST_IDS(3))
+        GL.BindTextureUnit(25, TEST_IDS(4))
+        GL.BindTextureUnit(26, TEST_IDS(5))
+        GL.BindTextureUnit(27, TEST_IDS(6))
+        GL.BindTextureUnit(28, TEST_IDS(7))
 
-        theMap.GLOBAL_AM_ID.BindUnit(29)
-        m_normal_id.BindUnit(30)
+        GL.BindTextureUnit(29, theMap.GLOBAL_AM_ID) '<----------------- Texture Bind
+        GL.BindTextureUnit(30, M_NORMAL_ID)
         'water BS
-        RIPPLE_TEXTURES(RIPPLE_FRAME_NUMBER).BindUnit(31)
-        RIPPLE_MASK_TEXTURE.BindUnit(32)
+        GL.BindTextureUnit(31, ripple_textures(RIPPLE_FRAME_NUMBER))
+        GL.BindTextureUnit(32, ripple_mask_texture)
 
         GL.Uniform3(TerrainShader("waterColor"),
                         Map_wetness.waterColor.X,
@@ -378,33 +379,34 @@ Module modRender
                 With theMap.render_set(i)
                     GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, .layersStd140_ubo)
 
+                    'debug shit
+                    'GL.BindTextureUnit(31, .dom_texture_id) '<----------------- Texture Bind
+
                     'AM maps
-                    .TexLayers(0).AM_id1.BindUnit(1)
-                    .TexLayers(1).AM_id1.BindUnit(2)
-                    .TexLayers(2).AM_id1.BindUnit(3)
-                    .TexLayers(3).AM_id1.BindUnit(4)
+                    GL.BindTextureUnit(1, .TexLayers(0).AM_id1)
+                    GL.BindTextureUnit(2, .TexLayers(1).AM_id1)
+                    GL.BindTextureUnit(3, .TexLayers(2).AM_id1)
+                    GL.BindTextureUnit(4, .TexLayers(3).AM_id1)
 
-                    .TexLayers(0).AM_id2.BindUnit(5)
-                    .TexLayers(1).AM_id2.BindUnit(6)
-                    .TexLayers(2).AM_id2.BindUnit(7)
-                    .TexLayers(3).AM_id2.BindUnit(8)
-
+                    GL.BindTextureUnit(5, .TexLayers(0).AM_id2)
+                    GL.BindTextureUnit(6, .TexLayers(1).AM_id2)
+                    GL.BindTextureUnit(7, .TexLayers(2).AM_id2)
+                    GL.BindTextureUnit(8, .TexLayers(3).AM_id2)
                     'NM maps
-                    .TexLayers(0).NM_id1.BindUnit(9)
-                    .TexLayers(1).NM_id1.BindUnit(10)
-                    .TexLayers(2).NM_id1.BindUnit(11)
-                    .TexLayers(3).NM_id1.BindUnit(12)
+                    GL.BindTextureUnit(9, .TexLayers(0).NM_id1)
+                    GL.BindTextureUnit(10, .TexLayers(1).NM_id1)
+                    GL.BindTextureUnit(11, .TexLayers(2).NM_id1)
+                    GL.BindTextureUnit(12, .TexLayers(3).NM_id1)
 
-                    .TexLayers(0).NM_id2.BindUnit(13)
-                    .TexLayers(1).NM_id2.BindUnit(14)
-                    .TexLayers(2).NM_id2.BindUnit(15)
-                    .TexLayers(3).NM_id2.BindUnit(16)
-
+                    GL.BindTextureUnit(13, .TexLayers(0).NM_id2)
+                    GL.BindTextureUnit(14, .TexLayers(1).NM_id2)
+                    GL.BindTextureUnit(15, .TexLayers(2).NM_id2)
+                    GL.BindTextureUnit(16, .TexLayers(3).NM_id2)
                     'bind blend textures
-                    .TexLayers(0).Blend_id.BindUnit(17)
-                    .TexLayers(1).Blend_id.BindUnit(18)
-                    .TexLayers(2).Blend_id.BindUnit(19)
-                    .TexLayers(3).Blend_id.BindUnit(20)
+                    GL.BindTextureUnit(17, .TexLayers(0).Blend_id)
+                    GL.BindTextureUnit(18, .TexLayers(1).Blend_id)
+                    GL.BindTextureUnit(19, .TexLayers(2).Blend_id)
+                    GL.BindTextureUnit(20, .TexLayers(3).Blend_id)
 
                     'draw chunk
                     GL.BindVertexArray(.VAO)
@@ -555,7 +557,9 @@ Module modRender
 
         GL.Uniform1(TerrainGrids("gGMF"), 0)
 
-        FBOm.gGMF.BindUnit(0)
+        GL.BindTextureUnit(0, FBOm.gGMF)
+
+
 
         For i = 0 To theMap.render_set.Length - 1
             GL.UniformMatrix4(TerrainGrids("model"), False, theMap.render_set(i).matrix)
@@ -568,7 +572,7 @@ Module modRender
         Next
         TerrainGrids.StopUse()
 
-        unbind_textures(0)
+        GL.BindTextureUnit(0, 0)
 
         GL.DepthMask(True)
         GL.Enable(EnableCap.DepthTest)
@@ -592,13 +596,15 @@ Module modRender
         GL.Uniform1(deferredShader("lut"), 5)
         GL.Uniform1(deferredShader("env_brdf_lut"), 6)
 
-        FBOm.gColor.BindUnit(0)
-        FBOm.gNormal.BindUnit(1)
-        FBOm.gGMF.BindUnit(2)
-        FBOm.gPosition.BindUnit(3)
-        CUBE_TEXTURE_ID.BindUnit(4)
-        CC_LUT_ID.BindUnit(5)
-        If ENV_BRDF_LUT IsNot Nothing Then ENV_BRDF_LUT.BindUnit(6)
+        GL.BindTextureUnit(0, FBOm.gColor)
+        GL.BindTextureUnit(1, FBOm.gNormal)
+        GL.BindTextureUnit(2, FBOm.gGMF)
+        GL.BindTextureUnit(3, FBOm.gPosition)
+        GL.BindTextureUnit(4, CUBE_TEXTURE_ID)
+        GL.BindTextureUnit(5, CC_LUT_ID)
+        GL.BindTextureUnit(6, ENV_BRDF_LUT)
+
+
 
         GL.Uniform3(deferredShader("sunColor"), SUNCOLOR.X, SUNCOLOR.Y, SUNCOLOR.Z)
         GL.Uniform3(deferredShader("ambientColorForward"), AMBIENTSUNCOLOR.X, AMBIENTSUNCOLOR.Y, AMBIENTSUNCOLOR.Z)
@@ -640,7 +646,7 @@ Module modRender
 
         GL.Uniform2(FXAAShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
 
-        FBOm.gColor.BindUnit(0)
+        GL.BindTextureUnit(0, FBOm.gColor)
         'GL.BindTextureUnit(0, FBOm.gAUX_Color)
 
         'draw full screen quad
@@ -650,7 +656,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         FXAAShader.StopUse()
-        unbind_textures(0)
+        GL.BindTextureUnit(0, 0)
 
         GL_POP_GROUP()
     End Sub
@@ -673,8 +679,8 @@ Module modRender
         GL.Uniform1(glassPassShader("colorMap"), 0)
         GL.Uniform1(glassPassShader("glassMap"), 1)
 
-        FBOm.gColor.BindUnit(0)
-        FBOm.gAUX_Color.BindUnit(1)
+        GL.BindTextureUnit(0, FBOm.gColor)
+        GL.BindTextureUnit(1, FBOm.gAUX_Color)
 
         'draw full screen quad
         GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
@@ -683,7 +689,8 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         glassPassShader.StopUse()
-        unbind_textures(1)
+        GL.BindTextureUnit(0, 0)
+        GL.BindTextureUnit(1, 0)
 
         GL_POP_GROUP()
 
@@ -762,13 +769,13 @@ Module modRender
 
         GL.Enable(EnableCap.CullFace)
 
-        theMap.Sky_Texture_Id.BindUnit(0)
+        GL.BindTextureUnit(0, theMap.Sky_Texture_Id)
 
         GL.BindVertexArray(theMap.skybox_mdl.vao)
         GL.DrawElements(PrimitiveType.Triangles, theMap.skybox_mdl.indices_count * 3, DrawElementsType.UnsignedShort, 0)
 
         SkyDomeShader.StopUse()
-        unbind_textures(0)
+        GL.BindTextureUnit(0, 0)
         GL.Disable(EnableCap.CullFace)
         'GL.Disable(EnableCap.Blend)
         GL.Enable(EnableCap.DepthTest)
@@ -789,10 +796,10 @@ Module modRender
         GL.Uniform1(DecalProject("colorMap"), 2)
         GL.Uniform1(DecalProject("gGMF"), 3)
 
-        FBOm.gDepth.BindUnit(0)
-        FBOm.gGMF.BindUnit(1)
-        CURSOR_TEXTURE_ID.BindUnit(2)
-        FBOm.gGMF.BindUnit(3)
+        GL.BindTextureUnit(0, FBOm.gDepth)
+        GL.BindTextureUnit(1, FBOm.gGMF)
+        GL.BindTextureUnit(2, CURSOR_TEXTURE_ID)
+        GL.BindTextureUnit(3, FBOm.gGMF)
 
         ' Track the terrain at Y
         Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
@@ -821,8 +828,8 @@ Module modRender
 
         GL.Uniform1(BaseRingProjector("depthMap"), 0)
         GL.Uniform1(BaseRingProjector("gGMF"), 1)
-        FBOm.gDepth.BindUnit(0)
-        FBOm.gGMF.BindUnit(1)
+        GL.BindTextureUnit(0, FBOm.gDepth)
+        GL.BindTextureUnit(1, FBOm.gGMF)
 
         'constants
         GL.Uniform1(BaseRingProjector("radius"), 50.0F)
@@ -858,7 +865,7 @@ Module modRender
 
     Private Sub draw_mini_map()
         'check if we have the mini map loaded.
-        If theMap.MINI_MAP_ID Is Nothing Then
+        If theMap.MINI_MAP_ID = 0 Then
             Return
         End If
 
@@ -924,7 +931,7 @@ Module modRender
 
         '=======================================================================
         'draw horz trim
-        MINI_TRIM_HORZ_ID.BindUnit(0)
+        GL.BindTextureUnit(0, MINI_TRIM_HORZ_ID)
         Dim rect As New RectangleF(cx - 12, cy - 12, 640 + 12, 16.0F)
         GL.Uniform4(TextRenderShader("rect"),
                   rect.Left,
@@ -935,7 +942,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         'draw vert trim
-        MINI_TRIM_VERT_ID.BindUnit(0)
+        GL.BindTextureUnit(0, MINI_TRIM_VERT_ID)
         rect = New RectangleF(cx - 12, cy - 12, 16.0F, 640 + 12.0F)
         GL.Uniform4(TextRenderShader("rect"),
                  rect.Left,
@@ -951,7 +958,7 @@ Module modRender
         GL.Uniform1(TextRenderShader("divisor"), 10.0F) 'atlas size
 
         GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
-        MINI_NUMBERS_ID.BindUnit(0)
+        GL.BindTextureUnit(0, MINI_NUMBERS_ID)
 
         Dim index! = 0
         Dim cnt! = 10.0F
@@ -975,7 +982,7 @@ Module modRender
         '=======================================================================
         index = 0
         GL.Uniform1(TextRenderShader("col_row"), 0) 'draw row
-        MINI_LETTERS_ID.BindUnit(0)
+        GL.BindTextureUnit(0, MINI_LETTERS_ID)
 
         cnt! = 10.0F
         step_s! = MINI_MAP_SIZE / 10.0F
@@ -1041,7 +1048,7 @@ Module modRender
         Dim rect As New RectangleF(MAP_BB_UR.X, MAP_BB_UR.Y, -w, -h)
         image2dShader.Use()
 
-        theMap.MINI_MAP_ID.BindUnit(0)
+        GL.BindTextureUnit(0, theMap.MINI_MAP_ID)
         GL.Uniform1(image2dShader("imageMap"), 0)
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(image2dShader("rect"),
@@ -1055,7 +1062,7 @@ Module modRender
 
         image2dShader.StopUse()
         'unbind texture
-        unbind_textures(0)
+        GL.BindTextureUnit(0, 0)
     End Sub
 
     Private Sub draw_mini_base_ids()
@@ -1072,7 +1079,7 @@ Module modRender
         GL.Uniform1(image2dShader("imageMap"), 0)
 
         'Icon 1
-        TEAM_1_ICON_ID.BindUnit(0)
+        GL.BindTextureUnit(0, TEAM_1_ICON_ID)
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(image2dShader("rect"),
             pos_t1.Left,
@@ -1083,7 +1090,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         'Icon 2
-        TEAM_2_ICON_ID.BindUnit(0)
+        GL.BindTextureUnit(0, TEAM_2_ICON_ID)
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(image2dShader("rect"),
             pos_t2.Left,
@@ -1094,7 +1101,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         'Reset
-        unbind_textures(0)
+        GL.BindTextureUnit(0, 0)
         image2dShader.StopUse()
 
         GL_POP_GROUP()
@@ -1151,7 +1158,7 @@ Module modRender
         Dim model_R = Matrix4.CreateRotationZ(U_CAM_X_ANGLE)
         Dim modelMatrix = model_R * model_X
 
-        DIRECTION_TEXTURE_ID.BindUnit(0)
+        GL.BindTextureUnit(0, DIRECTION_TEXTURE_ID)
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, modelMatrix * PROJECTIONMATRIX)
         GL.Uniform4(image2dShader("rect"),
             pos.Left,
@@ -1260,6 +1267,13 @@ Module modRender
     End Sub
 #End Region
 
+    Public Sub unbind_textures(ByVal start As Integer)
+        'doing this backwards leaves TEXTURE0 active :)
+        For i = start To 0 Step -1
+            GL.BindTextureUnit(i, 0)
+        Next
+    End Sub
+
     Private Sub draw_main_Quad(w As Integer, h As Integer)
         GL.Uniform4(deferredShader("rect"), 0.0F, CSng(-h), CSng(w), 0.0F)
         GL.BindVertexArray(defaultVao)
@@ -1285,7 +1299,7 @@ Module modRender
         TextRenderShader.Use()
         GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(TextRenderShader("divisor"), 95.0F) 'atlas size
-        ASCII_ID.BindUnit(0)
+        GL.BindTextureUnit(0, ASCII_ID)
         GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
         GL.Uniform4(TextRenderShader("color"), color)
         GL.Uniform1(TextRenderShader("mask"), mask)

@@ -232,6 +232,7 @@
     </Compile>
     <Compile Include="MapLoader\TerrainBuilder.vb" />
     <Compile Include="MapLoader\TerrainTextureFunctions.vb" />
+    <Compile Include="MapLoader\ChunkTextureMixer.vb" />
     <Compile Include="ModelLoaders\modXfile.vb" />
     <Compile Include="Modules\CubeMapLoader.vb" />
     <Compile Include="Modules\modFrustum.vb" />
@@ -396,6 +397,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Final_render\glassPass.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\mapMixing\mixTerrain.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\mapMixing\mixTerrain.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\ModelViewer\ModelViewer.frag">

@@ -349,9 +349,8 @@ Module MapLoader
         '===============================================================
 
         '===============================================================
-        'load test textures
-        N_MAP_TYPE = 1 ' has to be set for the ANM Green alpha normal maps.
-        m_normal_id = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
+        'load sand texture. This will need to be set by the maps vars at some point.
+        M_NORMAL_ID = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
         '===============================================================
 
         '===============================================================
@@ -396,6 +395,9 @@ Module MapLoader
         Next
         ripple_mask_texture = find_and_load_texture_from_pkgs(Map_wetness.waveMaskTexture)
         '===============================================================
+
+#Region "load map"
+
         If DONT_BLOCK_MODELS Then
 
             ' Setup Bar graph
@@ -674,14 +676,15 @@ Module MapLoader
 
             MODELS_LOADED = True
         End If ' block DONT_BLOCK_MODELS laoded
+#End Region
         '===============================================================
 
 
         '===============================================================
         'As it says.. create the terrain
         If DONT_BLOCK_TERRAIN Then
-
             Create_Terrain()
+            make_pre_mixed_terrain()
             TERRAIN_LOADED = True
             PLAYER_FIELD_CELL_SIZE = Math.Abs(MAP_BB_BL.X - MAP_BB_UR.X) / 10.0F
             'TO DO and there is lots

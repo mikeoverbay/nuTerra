@@ -11,11 +11,9 @@ Module LoadingScreen
         'This is important!
         frmMain.glControl_main.MakeCurrent()
 
-        DrawMapPickText.TextRenderer(300, 30)
         'really dont need this but to be safe we set the default buffer!
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
-        'We are reusing this for the loading screen
         'and resize for our needs.
 
         Ortho_main()

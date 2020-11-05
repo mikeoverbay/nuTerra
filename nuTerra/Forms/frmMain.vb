@@ -381,23 +381,7 @@ try_again:
         LogThis(String.Format("Max Texture Size = {0}", maxTexSize))
         Dim Max_layers = GL.GetInteger(GetPName.MaxArrayTextureLayers)
         LogThis(String.Format("Max Texture Array Layers = {0}", maxTexSize))
-
         '-----------------------------------------------------------------------------------------
-        '-----------------------------------------------------------------------------------------
-        '-----------------------------------------------------------------------------------------
-        'just to test
-        FBO_mixer_set.LayerCount = 320
-        FBO_mixer_set.FBO_Initialize(New Point(1024, 1024))
-
-        'attach a layer to test
-        FBO_mixer_set.attach_array_layer(20)
-        '-----------------------------------------------------------------------------------------
-        '-----------------------------------------------------------------------------------------
-        '-----------------------------------------------------------------------------------------
-
-
-
-
 
         ' Set depth to [0..1] range instead of [-1..1]
         GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.ZeroToOne)

@@ -7,7 +7,6 @@ Module textRender
     Public sans As New Font(FontFamily.GenericSansSerif, 12)
     Public mono As New Font(FontFamily.GenericMonospace, 12)
     Public monoSmall As New Font(FontFamily.GenericMonospace, 9.5)
-    Public DrawText As New DrawText_
     Public DrawMapPickText As New DrawText_
 
     Public Structure DrawText_

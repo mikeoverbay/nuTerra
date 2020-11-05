@@ -166,6 +166,7 @@ Module ShaderLoader
     Public image2dFlipShader As Shader
     Public image2dShader As Shader
     Public MiniMapRingsShader As Shader
+    Public mixTerrainShader As Shader
     Public modelShader As Shader
     Public modelGlassShader As Shader
     Public ModelViewerShader As Shader
@@ -213,6 +214,7 @@ Module ShaderLoader
         glassPassShader = New Shader("glassPass")
         'unused: gWriterShader = New Shader("gWriter")
         MiniMapRingsShader = New Shader("MiniMapRings")
+        mixTerrainShader = New Shader("mixTerrain")
         modelShader = New Shader("model")
         modelGlassShader = New Shader("modelGlass")
         ModelViewerShader = New Shader("ModelViewer")
@@ -246,6 +248,7 @@ Module ShaderLoader
         shaders.Add(glassPassShader)
         'unused: shaders.Add(gWriterShader)
         shaders.Add(MiniMapRingsShader)
+        shaders.Add(mixTerrainShader)
         shaders.Add(modelShader)
         shaders.Add(modelGlassShader)
         shaders.Add(ModelViewerShader)

@@ -87,11 +87,9 @@ Module FBO_main
                 'set new size
                 oldWidth = SCR_WIDTH
                 oldHeigth = SCR_HEIGHT
-                'reset the size of the text header on the page
-                DrawText.TextRenderer(SCR_WIDTH, 20)
 
             End If
-            'make_test_texture()
+
         End Sub
 
         Public Shared Sub delete_textures_and_fbo()
