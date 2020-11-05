@@ -123,7 +123,7 @@ Module modXfile
         'Create VAO id
         result.vao = CreateVertexArray(file_)
 
-        Dim mBuffer = CreateBuffer(file_)
+        Dim mBuffer = CreateBuffer(BufferTarget.ArrayBuffer, file_)
 
         Dim vbuff_offset = New IntPtr(index_buffer16.Length * 6)
         BufferStorageNullData(BufferTarget.ArrayBuffer,

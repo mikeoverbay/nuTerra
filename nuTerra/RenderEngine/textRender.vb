@@ -69,7 +69,7 @@ Module textRender
                 Dim Data = Me.bmp.LockBits(Me.dirty_region, _
                         System.Drawing.Imaging.ImageLockMode.ReadOnly, _
                         System.Drawing.Imaging.PixelFormat.Format32bppArgb)
-                GL.TextureSubImage2D(Me.texture_, 0,
+                TextureSubImage2D(TextureTarget.Texture2D, Me.texture_, 0,
                         Me.dirty_region.X, Me.dirty_region.Y, Me.dirty_region.Width, Me.dirty_region.Height,
                         PixelFormat.Bgra, PixelType.UnsignedByte, Data.Scan0)
                 Me.bmp.UnlockBits(Data)
