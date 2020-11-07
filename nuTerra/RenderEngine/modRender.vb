@@ -220,7 +220,7 @@ Module modRender
         GL_PUSH_GROUP("frustum_cull")
 
         'clear atomic counter
-        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters, PixelInternalFormat.R32ui, IntPtr.Zero, 2 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, 2 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         cullShader.Use()
 
@@ -378,7 +378,7 @@ Module modRender
 
                 'bind all the data for this chunk
                 With theMap.render_set(i)
-                    GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, .layersStd140_ubo)
+                    .layersStd140_ubo.BindBase(0)
 
                     'AM maps
                     .TexLayers(0).AM_id1.BindUnit(1)
@@ -479,8 +479,8 @@ Module modRender
 
         GL.Enable(EnableCap.CullFace)
 
-        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
-        GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
+        MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
@@ -493,8 +493,8 @@ Module modRender
 
         GL.Disable(EnableCap.CullFace)
 
-        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect_glass)
-        GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
+        MapGL.Buffers.indirect_glass.Bind(BufferTarget.DrawIndirectBuffer)
+        MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(4), MapGL.indirectDrawCount, 0)
 
@@ -516,8 +516,8 @@ Module modRender
 
             GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(4), MapGL.indirectDrawCount, 0)
 
-            GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
-            GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
+            MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
+            MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
             GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
             GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
             normalShader.StopUse()

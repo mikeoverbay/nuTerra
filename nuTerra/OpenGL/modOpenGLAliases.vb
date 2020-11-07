@@ -3,7 +3,29 @@ Imports OpenTK.Graphics.OpenGL
 
 #Const WITHOUT_DSA = False
 
-Module modOpenGLAliases
+Public Module modOpenGLAliases
+    Public Const GL_PARAMETER_BUFFER_ARB = DirectCast(33006, BufferTarget)
+
+    Public Class GLBuffer
+        Public buffer_id As Integer
+        Public target As BufferTarget
+
+        <MethodImpl(MethodImplOptions.AggressiveInlining)>
+        Public Sub BindBase(base As Integer)
+            GL.BindBufferBase(DirectCast(target, BufferRangeTarget), base, buffer_id)
+        End Sub
+
+        <MethodImpl(MethodImplOptions.AggressiveInlining)>
+        Public Sub Bind(bind_target As BufferTarget)
+            GL.BindBuffer(bind_target, buffer_id)
+        End Sub
+
+        <MethodImpl(MethodImplOptions.AggressiveInlining)>
+        Public Sub Delete()
+            GL.DeleteBuffer(buffer_id)
+            GL.Finish()
+        End Sub
+    End Class
 
     Public Class GLTexture
         Public texture_id As Integer
@@ -133,38 +155,38 @@ Module modOpenGLAliases
     End Function
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Sub BufferStorage(Of dataType As Structure)(target As BufferTarget, buffer As Integer, size As Integer, data() As dataType, flags As BufferStorageFlags)
+    Public Sub BufferStorage(Of dataType As Structure)(buffer As GLBuffer, size As Integer, data() As dataType, flags As BufferStorageFlags)
 #If WITHOUT_DSA Then
-        GL.BindBuffer(target, buffer)
+        GL.BindBuffer(buffer.target, buffer.buffer_id)
         ' GL 4.4+
-        GL.BufferStorage(target, size, data, flags)
-        GL.BindBuffer(target, 0)
+        GL.BufferStorage(buffer.target, size, data, flags)
+        GL.BindBuffer(buffer.target, 0)
 #Else
-        GL.NamedBufferStorage(buffer, size, data, flags)
+        GL.NamedBufferStorage(buffer.buffer_id, size, data, flags)
 #End If
     End Sub
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Sub BufferStorage(Of dataType As Structure)(target As BufferTarget, buffer As Integer, size As Integer, data As dataType, flags As BufferStorageFlags)
+    Public Sub BufferStorage(Of dataType As Structure)(buffer As GLBuffer, size As Integer, data As dataType, flags As BufferStorageFlags)
 #If WITHOUT_DSA Then
-        GL.BindBuffer(target, buffer)
+        GL.BindBuffer(buffer.target, buffer.buffer_id)
         ' GL 4.4+
-        GL.BufferStorage(target, size, data, flags)
-        GL.BindBuffer(target, 0)
+        GL.BufferStorage(buffer.target, size, data, flags)
+        GL.BindBuffer(buffer.target, 0)
 #Else
-        GL.NamedBufferStorage(buffer, size, data, flags)
+        GL.NamedBufferStorage(buffer.buffer_id, size, data, flags)
 #End If
     End Sub
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Sub BufferStorageNullData(target As BufferTarget, buffer As Integer, size As Integer, flags As BufferStorageFlags)
+    Public Sub BufferStorageNullData(buffer As GLBuffer, size As Integer, flags As BufferStorageFlags)
 #If WITHOUT_DSA Then
-        GL.BindBuffer(target, buffer)
+        GL.BindBuffer(buffer.target, buffer.buffer_id)
         ' GL 4.4+
-        GL.BufferStorage(target, size, IntPtr.Zero, flags)
-        GL.BindBuffer(target, 0)
+        GL.BufferStorage(buffer.target, size, IntPtr.Zero, flags)
+        GL.BindBuffer(buffer.target, 0)
 #Else
-        GL.NamedBufferStorage(buffer, size, IntPtr.Zero, flags)
+        GL.NamedBufferStorage(buffer.buffer_id, size, IntPtr.Zero, flags)
 #End If
     End Sub
 
@@ -183,7 +205,7 @@ Module modOpenGLAliases
     End Function
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Function CreateBuffer(target As BufferTarget, name As String) As Integer
+    Public Function CreateBuffer(target As BufferTarget, name As String) As GLBuffer
         Dim buf_id As Integer
 #If WITHOUT_DSA Then
         buf_id = GL.GenBuffer()
@@ -193,7 +215,7 @@ Module modOpenGLAliases
         GL.CreateBuffers(1, buf_id)
 #End If
         LabelObject(ObjectLabelIdentifier.Buffer, buf_id, name)
-        Return buf_id
+        Return New GLBuffer With {.buffer_id = buf_id, .target = target}
     End Function
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>

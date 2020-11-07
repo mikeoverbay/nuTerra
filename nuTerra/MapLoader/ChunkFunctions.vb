@@ -283,31 +283,28 @@ Module ChunkFunctions
             GL.CreateBuffers(3, theMap.render_set(i).mBuffers)
 
             ' If the shared buffer is not defined, we need to do so.
-            If theMap.vertex_vBuffer_id = 0 Then
+            If theMap.vertex_vBuffer_id Is Nothing Then
                 theMap.vertex_vBuffer_id = CreateBuffer(BufferTarget.ArrayBuffer, String.Format("terrain_vertices_{0}", i))
                 theMap.vertex_iBuffer_id = CreateBuffer(BufferTarget.ElementArrayBuffer, String.Format("terrain_indices_{0}", i))
                 theMap.vertex_uvBuffer_id = CreateBuffer(BufferTarget.ArrayBuffer, String.Format("terrain_uv_{0}", i))
 
                 'if the shared buffer is not defined, we need to fill the buffer now
-                BufferStorage(BufferTarget.ElementArrayBuffer,
-                              theMap.vertex_iBuffer_id,
+                BufferStorage(theMap.vertex_iBuffer_id,
                               .indicies.Length * 6,
                               .indicies,
                               BufferStorageFlags.None)
-                BufferStorage(BufferTarget.ArrayBuffer,
-                              theMap.vertex_vBuffer_id,
+                BufferStorage(theMap.vertex_vBuffer_id,
                               .v_buff_XZ.Length * 8,
                               .v_buff_XZ,
                               BufferStorageFlags.None)
-                BufferStorage(BufferTarget.ArrayBuffer,
-                              theMap.vertex_uvBuffer_id,
+                BufferStorage(theMap.vertex_uvBuffer_id,
                               .uv_buff.Length * 8,
                               .uv_buff,
                               BufferStorageFlags.None)
             End If
 
             ' VERTEX XZ ==================================================================
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 0, theMap.vertex_vBuffer_id, IntPtr.Zero, 8)
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 0, theMap.vertex_vBuffer_id.buffer_id, IntPtr.Zero, 8)
             GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 0, 2, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 0, 0)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 0)
@@ -321,7 +318,7 @@ Module ChunkFunctions
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 1)
 
             ' UV ==================================================================
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 2, theMap.vertex_uvBuffer_id, IntPtr.Zero, 8)
+            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 2, theMap.vertex_uvBuffer_id.buffer_id, IntPtr.Zero, 8)
             GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 2, 2, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 2, 2)
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 2)
@@ -350,7 +347,7 @@ Module ChunkFunctions
             GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 4)
 
             ' INDICES ==================================================================
-            GL.VertexArrayElementBuffer(theMap.render_set(i).VAO, theMap.vertex_iBuffer_id)
+            GL.VertexArrayElementBuffer(theMap.render_set(i).VAO, theMap.vertex_iBuffer_id.buffer_id)
 
             .indicies = Nothing
             .v_buff_XZ = Nothing

@@ -126,29 +126,28 @@ Module modXfile
         Dim mBuffer = CreateBuffer(BufferTarget.ArrayBuffer, file_)
 
         Dim vbuff_offset = New IntPtr(index_buffer16.Length * 6)
-        BufferStorageNullData(BufferTarget.ArrayBuffer,
-                              mBuffer,
+        BufferStorageNullData(mBuffer,
                               index_buffer16.Length * 6 + vbuff.Length * 32,
                               BufferStorageFlags.DynamicStorageBit)
-        GL.NamedBufferSubData(mBuffer, IntPtr.Zero, index_buffer16.Length * 6, index_buffer16)
-        GL.NamedBufferSubData(mBuffer, vbuff_offset, vbuff.Length * 32, vbuff)
+        GL.NamedBufferSubData(mBuffer.buffer_id, IntPtr.Zero, index_buffer16.Length * 6, index_buffer16)
+        GL.NamedBufferSubData(mBuffer.buffer_id, vbuff_offset, vbuff.Length * 32, vbuff)
 
-        GL.VertexArrayVertexBuffer(result.vao, 0, mBuffer, vbuff_offset, 32)
+        GL.VertexArrayVertexBuffer(result.vao, 0, mBuffer.buffer_id, vbuff_offset, 32)
         GL.VertexArrayAttribFormat(result.vao, 0, 3, VertexAttribType.Float, False, 0)
         GL.VertexArrayAttribBinding(result.vao, 0, 0)
         GL.EnableVertexArrayAttrib(result.vao, 0)
 
-        GL.VertexArrayVertexBuffer(result.vao, 1, mBuffer, vbuff_offset, 32)
+        GL.VertexArrayVertexBuffer(result.vao, 1, mBuffer.buffer_id, vbuff_offset, 32)
         GL.VertexArrayAttribFormat(result.vao, 1, 3, VertexAttribType.Float, False, 12)
         GL.VertexArrayAttribBinding(result.vao, 1, 1)
         GL.EnableVertexArrayAttrib(result.vao, 1)
 
-        GL.VertexArrayVertexBuffer(result.vao, 2, mBuffer, vbuff_offset, 32)
+        GL.VertexArrayVertexBuffer(result.vao, 2, mBuffer.buffer_id, vbuff_offset, 32)
         GL.VertexArrayAttribFormat(result.vao, 2, 2, VertexAttribType.Float, False, 24)
         GL.VertexArrayAttribBinding(result.vao, 2, 2)
         GL.EnableVertexArrayAttrib(result.vao, 2)
 
-        GL.VertexArrayElementBuffer(result.vao, mBuffer)
+        GL.VertexArrayElementBuffer(result.vao, mBuffer.buffer_id)
         Return result
     End Function
 

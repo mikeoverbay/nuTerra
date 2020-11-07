@@ -53,16 +53,16 @@ Module MapLoader
         ''' OpenGL buffers used to draw all map models
         ''' </summary>
         NotInheritable Class Buffers
-            Public Shared materials As Integer
-            Public Shared parameters As Integer
-            Public Shared matrices As Integer
-            Public Shared drawCandidates As Integer
-            Public Shared verts As Integer
-            Public Shared vertsUV2 As Integer
-            Public Shared prims As Integer
-            Public Shared indirect As Integer
-            Public Shared indirect_glass As Integer
-            Public Shared lods As Integer
+            Public Shared materials As GLBuffer
+            Public Shared parameters As GLBuffer
+            Public Shared matrices As GLBuffer
+            Public Shared drawCandidates As GLBuffer
+            Public Shared verts As GLBuffer
+            Public Shared vertsUV2 As GLBuffer
+            Public Shared prims As GLBuffer
+            Public Shared indirect As GLBuffer
+            Public Shared indirect_glass As GLBuffer
+            Public Shared lods As GLBuffer
         End Class
 
         NotInheritable Class VertexArrays
@@ -272,7 +272,7 @@ Module MapLoader
                 If RIPPLE_FRAME_NUMBER > Map_wetness.waveTextureCount - 1 Then
                     RIPPLE_FRAME_NUMBER = 0
                 End If
-                ripple_mask_time += 1.0F / 60.0F
+                RIPPLE_MASK_TIME += 1.0F / 60.0F
             End If
             If mask_timer.ElapsedMilliseconds > 100 Then
                 mask_timer.Restart()
@@ -350,7 +350,7 @@ Module MapLoader
 
         '===============================================================
         'load sand texture. This will need to be set by the maps vars at some point.
-        M_NORMAL_ID = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
+        m_normal_id = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
         '===============================================================
 
         '===============================================================
@@ -388,12 +388,12 @@ Module MapLoader
         '===============================================================
         'load ripple textures
         Dim rtc = Map_wetness.waveTextureCount - 1
-        ReDim ripple_textures(rtc)
+        ReDim RIPPLE_TEXTURES(rtc)
         For i = 0 To rtc
             Dim r_path = Map_wetness.waveTexture + i.ToString("000") + ".dds"
-            ripple_textures(i) = find_and_load_texture_from_pkgs(r_path)
+            RIPPLE_TEXTURES(i) = find_and_load_texture_from_pkgs(r_path)
         Next
-        ripple_mask_texture = find_and_load_texture_from_pkgs(Map_wetness.waveMaskTexture)
+        RIPPLE_MASK_TEXTURE = find_and_load_texture_from_pkgs(Map_wetness.waveMaskTexture)
         '===============================================================
 
 #Region "load models"
@@ -462,20 +462,17 @@ Module MapLoader
             Dim uv2_size = Marshal.SizeOf(Of Vector2)()
 
             MapGL.Buffers.verts = CreateBuffer(BufferTarget.ArrayBuffer, "verts")
-            BufferStorageNullData(BufferTarget.ArrayBuffer,
-                                  MapGL.Buffers.verts,
+            BufferStorageNullData(MapGL.Buffers.verts,
                                   numVerts * vertex_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
             MapGL.Buffers.prims = CreateBuffer(BufferTarget.ElementArrayBuffer, "prims")
-            BufferStorageNullData(BufferTarget.ElementArrayBuffer,
-                                  MapGL.Buffers.prims,
+            BufferStorageNullData(MapGL.Buffers.prims,
                                   numPrims * tri_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
             MapGL.Buffers.vertsUV2 = CreateBuffer(BufferTarget.ArrayBuffer, "vertsUV2")
-            BufferStorageNullData(BufferTarget.ArrayBuffer,
-                                  MapGL.Buffers.vertsUV2,
+            BufferStorageNullData(MapGL.Buffers.vertsUV2,
                                   numVerts * uv2_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
@@ -523,11 +520,11 @@ Module MapLoader
 
                         baseVert += renderSet.numVertices
 
-                        GL.NamedBufferSubData(MapGL.Buffers.verts, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
-                        GL.NamedBufferSubData(MapGL.Buffers.prims, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
+                        GL.NamedBufferSubData(MapGL.Buffers.verts.buffer_id, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
+                        GL.NamedBufferSubData(MapGL.Buffers.prims.buffer_id, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
 
                         If renderSet.buffers.uv2 IsNot Nothing Then
-                            GL.NamedBufferSubData(MapGL.Buffers.vertsUV2, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
+                            GL.NamedBufferSubData(MapGL.Buffers.vertsUV2.buffer_id, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
                             Erase renderSet.buffers.uv2
                         End If
 
@@ -582,93 +579,87 @@ Module MapLoader
                 mLast += batch.count
             Next
 
-            MapGL.Buffers.parameters = CreateBuffer(BufferTarget.ShaderStorageBuffer, "parameters")
-            BufferStorageNullData(BufferTarget.ShaderStorageBuffer,
-                                  MapGL.Buffers.parameters,
+            MapGL.Buffers.parameters = CreateBuffer(BufferTarget.AtomicCounterBuffer, "parameters")
+            BufferStorageNullData(MapGL.Buffers.parameters,
                                   256,
                                   BufferStorageFlags.None)
-            GL.BindBufferBase(BufferRangeTarget.AtomicCounterBuffer, 0, MapGL.Buffers.parameters)
+            MapGL.Buffers.parameters.BindBase(0)
 
             MapGL.Buffers.drawCandidates = CreateBuffer(BufferTarget.ShaderStorageBuffer, "drawCandidates")
-            BufferStorage(BufferTarget.ShaderStorageBuffer,
-                          MapGL.Buffers.drawCandidates,
+            BufferStorage(MapGL.Buffers.drawCandidates,
                           MapGL.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw),
                           drawCommands,
                           BufferStorageFlags.None)
-            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 1, MapGL.Buffers.drawCandidates)
+            MapGL.Buffers.drawCandidates.BindBase(1)
             Erase drawCommands
 
             MapGL.Buffers.indirect = CreateBuffer(BufferTarget.ShaderStorageBuffer, "indirect")
-            BufferStorageNullData(BufferTarget.ShaderStorageBuffer,
-                                  MapGL.Buffers.indirect,
+            BufferStorageNullData(MapGL.Buffers.indirect,
                                   MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                                   BufferStorageFlags.None)
-            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 2, MapGL.Buffers.indirect)
+            MapGL.Buffers.indirect.BindBase(2)
 
             MapGL.Buffers.indirect_glass = CreateBuffer(BufferTarget.ShaderStorageBuffer, "indirect_glass")
-            BufferStorageNullData(BufferTarget.ShaderStorageBuffer,
-                                  MapGL.Buffers.indirect_glass,
+            BufferStorageNullData(MapGL.Buffers.indirect_glass,
                                   MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                                   BufferStorageFlags.None)
-            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 5, MapGL.Buffers.indirect_glass)
+            MapGL.Buffers.indirect_glass.BindBase(5)
 
             MapGL.Buffers.matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "matrices")
-            BufferStorage(BufferTarget.ShaderStorageBuffer,
-                          MapGL.Buffers.matrices,
+            BufferStorage(MapGL.Buffers.matrices,
                           matrices.Length * Marshal.SizeOf(Of ModelInstance),
                           matrices,
                           BufferStorageFlags.None)
-            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, MapGL.Buffers.matrices)
+            MapGL.Buffers.matrices.BindBase(0)
             Erase matrices
 
             MapGL.Buffers.lods = CreateBuffer(BufferTarget.ShaderStorageBuffer, "lods")
-            BufferStorage(BufferTarget.ShaderStorageBuffer,
-                          MapGL.Buffers.lods,
+            BufferStorage(MapGL.Buffers.lods,
                           lods.Length * Marshal.SizeOf(Of ModelLoD),
                           lods,
                           BufferStorageFlags.None)
-            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 4, MapGL.Buffers.lods)
+            MapGL.Buffers.lods.BindBase(4)
             Erase lods
 
             MapGL.VertexArrays.allMapModels = CreateVertexArray("allMapModels")
 
             'pos
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 0, MapGL.Buffers.verts, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 0, MapGL.Buffers.verts.buffer_id, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
             GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 0, 3, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 0, 0)
             GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 0)
 
             'normal
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 1, MapGL.Buffers.verts, New IntPtr(12), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 1, MapGL.Buffers.verts.buffer_id, New IntPtr(12), Marshal.SizeOf(Of ModelVertex))
             GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 1, 4, VertexAttribType.HalfFloat, False, 0)
             GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 1, 1)
             GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 1)
 
             'tangent
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 2, MapGL.Buffers.verts, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 2, MapGL.Buffers.verts.buffer_id, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
             GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 2, 4, VertexAttribType.HalfFloat, False, 0)
             GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 2, 2)
             GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 2)
 
             'binormal
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 3, MapGL.Buffers.verts, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 3, MapGL.Buffers.verts.buffer_id, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
             GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 3, 4, VertexAttribType.HalfFloat, False, 0)
             GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 3, 3)
             GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 3)
 
             'uv
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 4, MapGL.Buffers.verts, New IntPtr(36), Marshal.SizeOf(Of ModelVertex))
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 4, MapGL.Buffers.verts.buffer_id, New IntPtr(36), Marshal.SizeOf(Of ModelVertex))
             GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 4, 2, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 4, 4)
             GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 4)
 
             'uv2
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 5, MapGL.Buffers.vertsUV2, IntPtr.Zero, Marshal.SizeOf(Of Vector2))
+            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 5, MapGL.Buffers.vertsUV2.buffer_id, IntPtr.Zero, Marshal.SizeOf(Of Vector2))
             GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 5, 2, VertexAttribType.Float, False, 0)
             GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 5, 5)
             GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 5)
 
-            GL.VertexArrayElementBuffer(MapGL.VertexArrays.allMapModels, MapGL.Buffers.prims)
+            GL.VertexArrayElementBuffer(MapGL.VertexArrays.allMapModels, MapGL.Buffers.prims.buffer_id)
 
             load_materials()
 
@@ -1145,12 +1136,11 @@ Module MapLoader
         materials = Nothing
 
         MapGL.Buffers.materials = CreateBuffer(BufferTarget.ShaderStorageBuffer, "materials")
-        BufferStorage(BufferRangeTarget.ShaderStorageBuffer,
-                      MapGL.Buffers.materials,
+        BufferStorage(MapGL.Buffers.materials,
                       materialsData.Length * Marshal.SizeOf(Of GLMaterial),
                       materialsData,
                       BufferStorageFlags.None)
-        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 3, MapGL.Buffers.materials)
+        MapGL.Buffers.materials.BindBase(3)
     End Sub
 
     Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)
@@ -1222,7 +1212,7 @@ Module MapLoader
 
         theMap.MINI_MAP_ID = Nothing
         theMap.chunks = Nothing
-        theMap.vertex_vBuffer_id = 0
+        theMap.vertex_vBuffer_id = Nothing
 
         GC.Collect()
         GC.WaitForFullGCComplete()

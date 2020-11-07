@@ -412,11 +412,10 @@ try_again:
         make_cube()
 
         PerViewDataBuffer = CreateBuffer(BufferTarget.UniformBuffer, "PerView")
-        BufferStorageNullData(BufferTarget.UniformBuffer,
-                              PerViewDataBuffer,
+        BufferStorageNullData(PerViewDataBuffer,
                               Marshal.SizeOf(PerViewData),
                               BufferStorageFlags.DynamicStorageBit)
-        GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 1, PerViewDataBuffer)
+        PerViewDataBuffer.BindBase(1)
 
         FBOm.FBO_Initialize()
         LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
@@ -870,7 +869,9 @@ try_again:
 
             If frmModelViewer.Model_Loaded Then
                 frmModelViewer.Model_Loaded = False
-                GL.DeleteBuffer(frmModelViewer.modelIndirectBuffer)
+                If frmModelViewer.modelIndirectBuffer IsNot Nothing Then
+                    frmModelViewer.modelIndirectBuffer.Delete()
+                End If
             End If
 
             'get the name we need to load
@@ -898,13 +899,13 @@ try_again:
             End If
 
             Dim mdlInstance As ModelInstance
-            GL.GetNamedBufferSubData(MapGL.Buffers.matrices,
+            GL.GetNamedBufferSubData(MapGL.Buffers.matrices.buffer_id,
                                      New IntPtr((PICKED_MODEL_INDEX - 1) * Marshal.SizeOf(mdlInstance)),
                                      Marshal.SizeOf(mdlInstance),
                                      mdlInstance)
 
             Dim mdlLod As ModelLoD
-            GL.GetNamedBufferSubData(MapGL.Buffers.lods,
+            GL.GetNamedBufferSubData(MapGL.Buffers.lods.buffer_id,
                                      New IntPtr(mdlInstance.lod_offset * Marshal.SizeOf(mdlLod)),
                                      Marshal.SizeOf(mdlLod),
                                      mdlLod)
@@ -913,7 +914,7 @@ try_again:
             Dim indirectCommands(mdlLod.draw_count - 1) As DrawElementsIndirectCommand
             For i = 0 To mdlLod.draw_count - 1
                 Dim draw As CandidateDraw
-                GL.GetNamedBufferSubData(MapGL.Buffers.drawCandidates,
+                GL.GetNamedBufferSubData(MapGL.Buffers.drawCandidates.buffer_id,
                                          New IntPtr((mdlLod.draw_offset + i) * Marshal.SizeOf(draw)),
                                          Marshal.SizeOf(draw),
                                          draw)
@@ -942,8 +943,7 @@ try_again:
             Next
 
             frmModelViewer.modelIndirectBuffer = CreateBuffer(BufferTarget.DrawIndirectBuffer, "modelIndirectBuffer")
-            BufferStorage(BufferTarget.DrawIndirectBuffer,
-                          frmModelViewer.modelIndirectBuffer,
+            BufferStorage(frmModelViewer.modelIndirectBuffer,
                           indirectCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                           indirectCommands,
                           BufferStorageFlags.DynamicStorageBit)

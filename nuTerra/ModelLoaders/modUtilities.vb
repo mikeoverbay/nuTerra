@@ -46,13 +46,12 @@ Module modUtilities
         CUBE_VAO = CreateVertexArray("CUBE")
 
         Dim vbo = CreateBuffer(BufferTarget.ArrayBuffer, "CUBE")
-        BufferStorage(BufferTarget.ArrayBuffer,
-                      vbo,
+        BufferStorage(vbo,
                       verts.Length * 4,
                       verts,
                       BufferStorageFlags.None)
 
-        GL.VertexArrayVertexBuffer(CUBE_VAO, 0, vbo, IntPtr.Zero, 12)
+        GL.VertexArrayVertexBuffer(CUBE_VAO, 0, vbo.buffer_id, IntPtr.Zero, 12)
         GL.VertexArrayAttribFormat(CUBE_VAO, 0, 3, VertexAttribType.Float, False, 0)
         GL.VertexArrayAttribBinding(CUBE_VAO, 0, 0)
         GL.EnableVertexArrayAttrib(CUBE_VAO, 0)

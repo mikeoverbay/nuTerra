@@ -88,7 +88,7 @@ Module modOpenGL
         Public resolution As Vector2
     End Structure
     Public PerViewData As New TPerViewData
-    Public PerViewDataBuffer As Integer
+    Public PerViewDataBuffer As GLBuffer
 
     Public Sub Ortho_main()
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
@@ -133,7 +133,7 @@ Module modOpenGL
         PerViewData.invViewProj = Matrix4.Invert(PerViewData.viewProj)
         PerViewData.resolution.X = frmMain.glControl_main.ClientSize.Width
         PerViewData.resolution.Y = frmMain.glControl_main.ClientSize.Height
-        GL.NamedBufferSubData(PerViewDataBuffer, IntPtr.Zero, Marshal.SizeOf(PerViewData), PerViewData)
+        GL.NamedBufferSubData(PerViewDataBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(PerViewData), PerViewData)
     End Sub
 
 

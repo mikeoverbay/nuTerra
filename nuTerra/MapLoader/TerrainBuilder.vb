@@ -83,10 +83,10 @@ Module TerrainBuilder
         Public Shared global_map As String ' global_AM.dds
         Public Shared noise_texture As String ' noiseTexture
         '------------------------
-        Public Shared vertex_vBuffer_id As Integer
-        Public Shared vertex_iBuffer_id As Integer
-        Public Shared vertex_uvBuffer_id As Integer
-        Public Shared vertex_TangentBuffer_id As Integer
+        Public Shared vertex_vBuffer_id As GLBuffer
+        Public Shared vertex_iBuffer_id As GLBuffer
+        Public Shared vertex_uvBuffer_id As GLBuffer
+        Public Shared vertex_TangentBuffer_id As GLBuffer
         Public Shared indices_count As Integer = 7938 * 3
         '------------------------
 
@@ -137,7 +137,7 @@ Module TerrainBuilder
         Public matrix As Matrix4
         '-------------------------------
         ' Texture IDs and such below
-        Public layersStd140_ubo As Integer
+        Public layersStd140_ubo As GLBuffer
         Public TexLayers() As ids_
         Public layer As layer_render_info_
         Public b_x_size, b_y_size As Integer

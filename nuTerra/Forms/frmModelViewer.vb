@@ -1,5 +1,4 @@
-﻿
-Imports System.Math
+﻿Imports System.Math
 Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics
 Imports OpenTK
@@ -29,7 +28,7 @@ Public Class frmModelViewer
     Dim view_started As Boolean
 
     Public Model_Loaded As Boolean
-    Public modelIndirectBuffer As Integer
+    Public modelIndirectBuffer As modOpenGLAliases.GLBuffer
     Public modelDrawCount As Integer
 
     Public MODEL_NAME_MODELVIEWER As String
@@ -37,14 +36,14 @@ Public Class frmModelViewer
     Public Shared Sub update_model_indirect_buffer()
         Dim indirectCommands(frmModelViewer.modelDrawCount - 1) As DrawElementsIndirectCommand
         Dim size = frmModelViewer.modelDrawCount * Marshal.SizeOf(indirectCommands(0))
-        GL.GetNamedBufferSubData(frmModelViewer.modelIndirectBuffer, IntPtr.Zero, size, indirectCommands)
+        GL.GetNamedBufferSubData(frmModelViewer.modelIndirectBuffer.buffer_id, IntPtr.Zero, size, indirectCommands)
 
         For i = 0 To frmModelViewer.SplitContainer1.Panel1.Controls.Count - 1
             Dim cb As CheckBox = frmModelViewer.SplitContainer1.Panel1.Controls(i)
             indirectCommands(i).instanceCount = If(cb.Checked, 1, 0)
         Next
 
-        GL.NamedBufferSubData(frmModelViewer.modelIndirectBuffer, IntPtr.Zero, size, indirectCommands)
+        GL.NamedBufferSubData(frmModelViewer.modelIndirectBuffer.buffer_id, IntPtr.Zero, size, indirectCommands)
     End Sub
 
     Public Sub draw_model_view()
@@ -66,7 +65,7 @@ Public Class frmModelViewer
 
             GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
-            GL.BindBuffer(BufferTarget.DrawIndirectBuffer, modelIndirectBuffer)
+            modelIndirectBuffer.Bind(BufferTarget.DrawIndirectBuffer)
             GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
             GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, modelDrawCount, 0)
 
@@ -173,7 +172,7 @@ Public Class frmModelViewer
 
     Private Sub frmModelViewer_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         If Model_Loaded Then
-            GL.DeleteBuffer(modelIndirectBuffer)
+            modelIndirectBuffer.Delete()
             Model_Loaded = False
         End If
         e.Cancel = True
