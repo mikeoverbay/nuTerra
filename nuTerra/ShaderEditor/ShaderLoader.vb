@@ -174,6 +174,7 @@ Module ShaderLoader
     Public normalOffsetShader As Shader
     Public rect2dShader As Shader
     Public SkyDomeShader As Shader
+    Public T_DepthPassShader As Shader
     Public TerrainGrids As Shader
     Public TerrainNormals As Shader
     Public TerrainShader As Shader
@@ -222,6 +223,7 @@ Module ShaderLoader
         normalOffsetShader = New Shader("normalOffset")
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")
+        T_DepthPassShader = New Shader("T_depthPass")
         TerrainGrids = New Shader("TerrainGrids")
         TerrainNormals = New Shader("TerrainNormals")
         TerrainShader = New Shader("Terrain")
@@ -256,6 +258,7 @@ Module ShaderLoader
         shaders.Add(normalOffsetShader)
         shaders.Add(rect2dShader)
         shaders.Add(SkyDomeShader)
+        shaders.Add(T_DepthPassShader)
         shaders.Add(TerrainGrids)
         shaders.Add(TerrainNormals)
         shaders.Add(TerrainShader)

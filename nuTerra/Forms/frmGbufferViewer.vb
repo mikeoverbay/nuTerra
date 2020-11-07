@@ -41,6 +41,7 @@ Public Class frmGbufferViewer
         AddHandler b_normal.CheckedChanged, AddressOf image_changed
         AddHandler b_flags.CheckedChanged, AddressOf image_changed
         AddHandler b_aux.CheckedChanged, AddressOf image_changed
+        AddHandler b_mask.CheckedChanged, AddressOf image_changed
 
         Viewer_Image_ID = CInt(b_color.Tag)
 
@@ -208,6 +209,29 @@ Public Class frmGbufferViewer
                 colorMaskShader.Use()
 
                 FBOm.gAUX_Color.BindUnit(0)
+
+                GL.Uniform1(colorMaskShader("isNormal"), 0)
+                GL.Uniform1(colorMaskShader("mask"), MASK)
+
+                GL.Uniform1(colorMaskShader("colorMap"), 0)
+                GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+                Dim rect As New RectangleF(0, 0, width, height)
+
+                GL.Uniform4(colorMaskShader("rect"),
+                                    rect.Left,
+                                    -rect.Top,
+                                    rect.Right,
+                                    -rect.Bottom)
+
+                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+                colorMaskShader.StopUse()
+
+            Case 7
+                colorMaskShader.Use()
+
+                FBOm.gMask.BindUnit(0)
+
                 GL.Uniform1(colorMaskShader("isNormal"), 0)
                 GL.Uniform1(colorMaskShader("mask"), MASK)
 

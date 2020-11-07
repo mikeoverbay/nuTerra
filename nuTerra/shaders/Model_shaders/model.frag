@@ -12,6 +12,7 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
+layout (location = 5) out float gMask;
 
 uniform int show_Lods;
 
@@ -375,7 +376,10 @@ void main(void)
     gGMF.b = renderType;
     gGMF.a - 0.0;
 
-    // Just for debugging
+    //Write to gMask for terrain culling;
+    gMask = 1.0;
+
+  // Just for debugging
 if (show_Lods == 1)
     {
         if (fs_in.lod_level == 1)      { gColor.r += 0.4; }

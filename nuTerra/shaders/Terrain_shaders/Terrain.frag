@@ -1,6 +1,9 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
+
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
@@ -78,21 +81,10 @@ layout(binding = 28) uniform sampler2D tex_7;
 layout(binding = 29) uniform sampler2D global_AM;
 layout(binding = 30) uniform sampler2D normalMap;
 
-layout(binding = 31 ) uniform sampler2D waveTexture;
-layout(binding = 32 ) uniform sampler2D waveMaskTexture;
+layout(binding = 31 ) uniform sampler2D gMask_in;
 
 
 uniform int show_test;
-
-uniform vec3 waterColor;
-uniform float waterAlpha;
-uniform float waveUVScale;
-uniform float waveStrength;
-
-uniform float rippple_mask_time;
-uniform float waveMaskUVScale;
-
-
 
 in VS_OUT {
     mat3 TBN;
@@ -124,13 +116,12 @@ vec4 convertNormal(vec4 norm){
 
 /*===========================================================*/
 
-vec4 get_wetness_normal(){
-    return convertNormal( texture(waveTexture, fs_in.UV / vec2(waveUVScale,waveUVScale)));
-}
 
 void main(void)
 {
 
+    //==============================================================
+    if ( texture(gMask_in, gl_FragCoord.xy / resolution).r >0.5 ) discard;
     //==============================================================
     vec4 global = texture(global_AM, fs_in.Global_UV);
     // This is needed to light the global_AM.
@@ -337,7 +328,7 @@ void main(void)
     // Mix in the global_AM color using global_AM's alpha channel.
 
     // I think this is used for wetness on the map.
-    base.rgb = mix(base.rgb ,waterAlpha * global.rgb, global.a);
+    base.rgb = mix(base.rgb ,global.rgb, global.a);
     
     // This blends between low and highrez by distance
 
@@ -352,17 +343,14 @@ void main(void)
 
     out_n = mix(n_tex, out_n, fs_in.ln) ;
 
-    float mask = texture(waveMaskTexture, (fs_in.UV / vec2(waveMaskUVScale)) + vec2(rippple_mask_time) ).x;
 
     // The obvious
     gColor = base;
     // Add in the wetness color mixed by its alpha * global.a
-    base.xyz += mix(base.xyz, waterColor.xyz, waterAlpha * global.a * mask);
     gColor.a = 1.0;
     //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
-    vec3 wNorm = fs_in.TBN * get_wetness_normal().xyz;
     // We only want the wetness normal where it exist on the map! (wNorm * global.a)
-    gNormal.xyz = normalize(out_n.xyz + (wNorm  * global.a * mask));
+    gNormal.xyz = normalize(out_n.xyz);
 
     gGMF = vec4(global.a+0.2, 0.0, 128.0/255.0, 0.0);
     gPosition = fs_in.worldPosition;

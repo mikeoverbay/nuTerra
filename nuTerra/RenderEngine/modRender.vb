@@ -12,10 +12,19 @@ Module modRender
         '===========================================================================
         ' FLAG INFO
         ' 0  = No shading
-        ' 64  = model 
-        ' 128 = terrain
+        ' 64  = model PBR
+        ' 128 = terrain Sudo PBR
         ' 255 = sky dome. We will want to control brightness
         ' more as they are added
+        '===========================================================================
+        ' texture attacment info.
+        ' FBOm.attach_
+        'C - gColor
+        'N - gNormal
+        'G - gGMM
+        'P - gPosition
+        'M - gMask
+        ' Not all Attacmment combinations are supproted.
         '===========================================================================
         'house keeping
         FRAME_TIMER.Restart()
@@ -60,7 +69,7 @@ Module modRender
         cull_timer.Stop()
 
         '===========================================================================
-        FBOm.attach_CNGPA() 'clear ALL gTextures!
+        FBOm.attach_CNGPAM() 'clear ALL gTextures!
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
         '===========================================================================
@@ -76,7 +85,17 @@ Module modRender
         GL.Enable(EnableCap.DepthTest)
         '===========================================================================
 
-        FBOm.attach_CNGP()
+        If TERRAIN_LOADED And DONT_BLOCK_TERRAIN And MODELS_LOADED And DONT_BLOCK_MODELS Then
+            ' Need a depth write only!
+            Write_terrain_depth()
+        End If
+
+        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            '=======================================================================
+            draw_models() '=========================================================
+            '=======================================================================
+        End If
+
 
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             '=======================================================================
@@ -107,12 +126,7 @@ Module modRender
         End If
 
 
-        If MODELS_LOADED And DONT_BLOCK_MODELS Then
-            '=======================================================================
-            FBOm.attach_CNGP()
-            draw_models() '=========================================================
-            '=======================================================================
-        End If
+
 
 
         '===========================================================================
@@ -263,6 +277,29 @@ Module modRender
         GL.CopyTextureSubImage2D(FBOm.gColor.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
     End Sub
 
+    Private Sub Write_terrain_depth()
+        GL_PUSH_GROUP("draw_terrain_depth")
+
+        FBOm.attach_AUX()
+        GL.Enable(EnableCap.CullFace)
+
+        T_DepthPassShader.Use()
+
+        For i = 0 To theMap.render_set.Length - 1
+
+            If theMap.render_set(i).visible Then
+                GL.UniformMatrix4(T_DepthPassShader("modelMatrix"), False, theMap.render_set(i).matrix)
+                'draw chunk
+                GL.BindVertexArray(theMap.render_set(i).VAO)
+                GL.DrawElements(PrimitiveType.Triangles,
+                    24576,
+                    DrawElementsType.UnsignedShort, 0)
+            End If
+        Next
+        T_DepthPassShader.StopUse()
+        GL_POP_GROUP()
+    End Sub
+
     Private Sub draw_terrain()
         GL_PUSH_GROUP("draw_terrain")
 
@@ -271,6 +308,8 @@ Module modRender
         'FBOm.attach_C()
         'GL.Enable(EnableCap.Blend)
         '==========================
+        FBOm.attach_CNGP()
+        GL.Disable(EnableCap.DepthTest)
         TERRAIN_TRIS_DRAWN = 0
         GL.Enable(EnableCap.CullFace)
 
@@ -300,6 +339,7 @@ Module modRender
 
         theMap.GLOBAL_AM_ID.BindUnit(0)
         m_normal_id.BindUnit(1)
+        FBOm.gMask.BindUnit(2)
 
         GL.Uniform2(TerrainLQShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainLQShader("map_center"), -b_x_min, b_y_max)
@@ -344,21 +384,7 @@ Module modRender
         theMap.GLOBAL_AM_ID.BindUnit(29)
         m_normal_id.BindUnit(30)
 
-        'water BS
-        RIPPLE_TEXTURES(RIPPLE_FRAME_NUMBER).BindUnit(31)
-        RIPPLE_MASK_TEXTURE.BindUnit(32)
-
-        GL.Uniform3(TerrainShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
-
-        GL.Uniform1(TerrainShader("waterAlpha"), Map_wetness.waterAlpha)
-        GL.Uniform1(TerrainShader("waveUVScale"), Map_wetness.waveUVScale)
-        GL.Uniform1(TerrainShader("waveStrength"), Map_wetness.waveStrength)
-        GL.Uniform1(TerrainShader("waveMaskUVScale"), Map_wetness.waveMaskUVScale)
-
-        GL.Uniform1(TerrainShader("rippple_mask_time"), RIPPLE_MASK_TIME)
+        FBOm.gMask.BindUnit(31)
 
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
@@ -418,6 +444,7 @@ Module modRender
         Next
 
         TerrainShader.StopUse()
+        GL.Enable(EnableCap.DepthTest)
 
         GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
@@ -465,7 +492,7 @@ Module modRender
         GL_PUSH_GROUP("draw_models")
 
         'SOLID FILL
-        FBOm.attach_CNGP()
+        FBOm.attach_CNGPM()
 
         Dim indices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
         '------------------------------------------------
