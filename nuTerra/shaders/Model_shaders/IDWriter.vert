@@ -23,7 +23,7 @@ void main(void){
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
     const ModelInstance thisModel = models[thisDraw.model_id];
 
-    vs_out.modelId = thisDraw.material_id;
+    vs_out.modelId = thisDraw.model_id;
 
     mat4 modelView = view * thisModel.matrix;
 
