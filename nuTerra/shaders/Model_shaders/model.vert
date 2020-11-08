@@ -17,6 +17,8 @@ layout(location = 3) in vec4 vertexBinormal;
 layout(location = 4) in vec2 vertexTexCoord1;
 layout(location = 5) in vec2 vertexTexCoord2;
 
+uniform sampler2D modelId_tex;
+
 out VS_OUT
 {
     vec2 TC1;

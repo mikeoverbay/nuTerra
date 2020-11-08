@@ -92,7 +92,8 @@ Module modRender
 
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
             '=======================================================================
-            draw_models() '=========================================================
+            write_model_Ids()
+            draw_models()
             '=======================================================================
         End If
 
@@ -488,6 +489,32 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
+    Private Sub write_model_Ids()
+
+        GL_PUSH_GROUP("draw_model_Ids")
+        GL.DepthMask(False)
+        'SOLID FILL
+        FBOm.attach_gUint16()
+
+        '------------------------------------------------
+        IDWriterShader.Use()
+        '------------------------------------------------
+
+        GL.Enable(EnableCap.CullFace)
+
+        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, MapGL.Buffers.indirect)
+        GL.BindBuffer(DirectCast(33006, BufferTarget), MapGL.Buffers.parameters)
+        GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+
+        IDWriterShader.StopUse()
+
+        GL.Disable(EnableCap.CullFace)
+        GL.DepthMask(True)
+
+        GL_POP_GROUP()
+    End Sub
+
     Private Sub draw_models()
         GL_PUSH_GROUP("draw_models")
 
@@ -500,6 +527,8 @@ Module modRender
         '------------------------------------------------
         ' Color highlighting of LOD levels if enabled.
         GL.Uniform1(modelShader("show_Lods"), SHOW_LOD_COLORS)
+
+        FBOm.gUint16.BindUnit(1)
 
         'assign subroutines
         GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)

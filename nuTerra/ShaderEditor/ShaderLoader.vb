@@ -163,6 +163,7 @@ Module ShaderLoader
     Public frustumShader As Shader
     Public glassPassShader As Shader
     Public gWriterShader As Shader
+    Public IDWriterShader As Shader
     Public image2dFlipShader As Shader
     Public image2dShader As Shader
     Public MiniMapRingsShader As Shader
@@ -210,6 +211,7 @@ Module ShaderLoader
         FF_BillboardShader = New Shader("FF_billboard")
         FXAAShader = New Shader("FXAA")
         'unused: frustumShader = New Shader("frustum")
+        IDWriterShader = New Shader("IDWriter")
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")
         glassPassShader = New Shader("glassPass")
@@ -245,6 +247,7 @@ Module ShaderLoader
         shaders.Add(FF_BillboardShader)
         shaders.Add(FXAAShader)
         'unused: shaders.Add(frustumShader)
+        shaders.Add(IDWriterShader)
         shaders.Add(image2dFlipShader)
         shaders.Add(image2dShader)
         shaders.Add(glassPassShader)

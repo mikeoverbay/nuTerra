@@ -9,7 +9,7 @@ Module FBO_main
     Public NotInheritable Class FBOm
         Public Shared SCR_WIDTH, SCR_HEIGHT As Int32
         Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition, gPick As GLTexture
-        Public Shared gAUX_Color, gMask As GLTexture
+        Public Shared gAUX_Color, gMask, gUint16 As GLTexture
         Public Shared oldWidth As Integer = 1
         Public Shared oldHeigth As Integer = 1
         '========================
@@ -87,6 +87,10 @@ Module FBO_main
                                             FramebufferAttachment.ColorAttachment5
                                             }
 
+        Private Shared attach_gUint16_() As DrawBuffersEnum = {
+                                            FramebufferAttachment.ColorAttachment7
+                                            }
+
 
         Public Shared Sub FBO_Initialize()
             frmMain.glControl_main.MakeCurrent()
@@ -120,6 +124,7 @@ Module FBO_main
             If gPick IsNot Nothing Then gPick.Delete()
             If gPosition IsNot Nothing Then gPosition.Delete()
             If gMask IsNot Nothing Then gMask.Delete()
+            If gUint16 IsNot Nothing Then gUint16.Delete()
             If mainFBO > 0 Then GL.DeleteFramebuffer(mainFBO)
             If depthBufferTexture IsNot Nothing Then depthBufferTexture.Delete()
         End Sub
@@ -197,6 +202,15 @@ Module FBO_main
             gMask.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gMask.Storage2D(1, DirectCast(PixelInternalFormat.R8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
+            ' gUint16 ------------------------------------------------------------------------------------------
+            ' R16 uInt
+            gUint16 = CreateTexture(TextureTarget.Texture2D, "gUint16")
+            gUint16.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            gUint16.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            gUint16.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            gUint16.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
+            gUint16.Storage2D(1, DirectCast(PixelInternalFormat.R16ui, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+
 
             Dim er = GL.GetError
 
@@ -217,6 +231,7 @@ Module FBO_main
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment4, gPick.texture_id, 0)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment5, gAUX_Color.texture_id, 0)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment6, gMask.texture_id, 0)
+            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment7, gUInt16.texture_id, 0)
 
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.DepthAttachment, gDepth.texture_id, 0)
 
@@ -302,6 +317,10 @@ Module FBO_main
 
         Public Shared Sub attach_Pick()
             GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_gPick)
+        End Sub
+
+        Public Shared Sub attach_gUint16()
+            GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_gUint16_)
         End Sub
 
         Public Shared Sub attach_C_and_Aux()

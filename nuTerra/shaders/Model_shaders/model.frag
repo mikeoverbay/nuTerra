@@ -4,6 +4,8 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_MATERIALS_SSBO
+#define USE_PERVIEW_UBO
+
 #include "common.h" //! #include "../common.h"
 
 // Output
@@ -16,6 +18,7 @@ layout (location = 5) out float gMask;
 
 uniform int show_Lods;
 
+layout (binding = 1) uniform sampler2D model_id_tex;
 // Input from vertex shader
 in VS_OUT
 {
@@ -364,28 +367,32 @@ subroutine uniform fn_entry entries[10];
 // ================================================================================
 void main(void)
 {
-    float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
 
-    entries[thisMaterial.shader_type]();
+    if ( texture(model_id_tex, gl_FragCoord.xy/resolution).r != fs_in.model_id )
+        {
 
-    gColor.a = 1.0;
+        float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
 
-    gPick.r = fs_in.model_id + 1;
+        entries[thisMaterial.shader_type]();
+        gColor.rgb = gColor.rgb *0.01 + vec3(texture(model_id_tex, gl_FragCoord.xy/resolution).r/1000);
+        gColor.a = 1.0;
 
-    gPosition = fs_in.worldPosition;
-    gGMF.b = renderType;
-    gGMF.a - 0.0;
+        gPick.r = fs_in.model_id + 1;
 
-    //Write to gMask for terrain culling;
-    gMask = 1.0;
+        gPosition = fs_in.worldPosition;
+        gGMF.b = renderType;
+        gGMF.a - 0.0;
 
-  // Just for debugging
-if (show_Lods == 1)
-    {
-        if (fs_in.lod_level == 1)      { gColor.r += 0.4; }
-        else if (fs_in.lod_level == 2) { gColor.g += 0.4; }
-        else if (fs_in.lod_level == 3) { gColor.b += 0.4; }
+        //Write to gMask for terrain culling;
+        gMask = 1.0;
+
+        // Just for debugging
+        if (show_Lods == 1)
+        {
+            if (fs_in.lod_level == 1)      { gColor.r += 0.4; }
+            else if (fs_in.lod_level == 2) { gColor.g += 0.4; }
+            else if (fs_in.lod_level == 3) { gColor.b += 0.4; }
     }
-
+    }
 }
 // ================================================================================
