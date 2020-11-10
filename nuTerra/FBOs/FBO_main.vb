@@ -152,13 +152,13 @@ Module FBO_main
             gPosition.Storage2D(1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gDepth ------------------------------------------------------------------------------------------
-            ' DepthComponent24
+            ' DepthComponent32f
             gDepth = CreateTexture(TextureTarget.Texture2D, "gDepth")
             gDepth.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             gDepth.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             gDepth.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             gDepth.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent24, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gPick ------------------------------------------------------------------------------------------
             ' R16 uInt
@@ -194,6 +194,7 @@ Module FBO_main
                 Return False
             End If
             attach_CNGP()
+
             Return True ' No errors! all is good! :)
         End Function
 

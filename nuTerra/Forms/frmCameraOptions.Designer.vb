@@ -83,7 +83,7 @@ Partial Class frmCameraOptions
         Me.NumericUpDown3.Name = "NumericUpDown3"
         Me.NumericUpDown3.Size = New System.Drawing.Size(120, 20)
         Me.NumericUpDown3.TabIndex = 4
-        Me.NumericUpDown3.Value = New Decimal(New Integer() {3000, 0, 0, 0})
+        Me.NumericUpDown3.Value = New Decimal(New Integer() {20000, 0, 0, 0})
         '
         'Label3
         '

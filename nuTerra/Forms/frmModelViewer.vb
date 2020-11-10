@@ -53,6 +53,7 @@ Public Class frmModelViewer
             set_prespective_view_ModelViewer()
 
             GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
+            GL.ClearDepth(1.0F)
             GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
             GL.Enable(EnableCap.DepthTest)

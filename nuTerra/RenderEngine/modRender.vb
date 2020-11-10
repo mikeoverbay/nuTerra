@@ -62,6 +62,7 @@ Module modRender
         '===========================================================================
         FBOm.attach_CNGPA() 'clear ALL gTextures!
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
+        GL.ClearDepth(0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
         '===========================================================================
 
@@ -74,6 +75,7 @@ Module modRender
         '===========================================================================
         'GL States 
         GL.Enable(EnableCap.DepthTest)
+        GL.DepthFunc(DepthFunction.Greater)
         '===========================================================================
 
         FBOm.attach_CNGP()
@@ -114,6 +116,7 @@ Module modRender
             '=======================================================================
         End If
 
+        GL.DepthFunc(DepthFunction.Less)
 
         '===========================================================================
         If PICK_MODELS And MODELS_LOADED Then PickModel()

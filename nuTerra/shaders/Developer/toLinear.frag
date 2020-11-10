@@ -13,7 +13,7 @@ float linearDepth()
     float zFar = far;
     float zNear = near;
     
-    float depth = texture(imageMap, texCoord).x;
+    float depth = 1.0 - texture(imageMap, texCoord).x;
     return (2.0 * zNear) / (zFar + zNear - depth * (zFar - zNear));
 }
 

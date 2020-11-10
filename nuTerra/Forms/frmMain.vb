@@ -946,7 +946,7 @@ try_again:
             BufferStorage(frmModelViewer.modelIndirectBuffer,
                           indirectCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                           indirectCommands,
-                          BufferStorageFlags.DynamicStorageBit)
+                          BufferStorageFlags.DynamicStorageBit Or BufferStorageFlags.ClientStorageBit)
             frmModelViewer.Model_Loaded = True
 
         End If

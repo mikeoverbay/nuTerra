@@ -127,6 +127,11 @@ Module modOpenGL
                                    FieldOfView,
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
                                    PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
+#If True Then ' reverse depth
+        PerViewData.projection.M33 *= -1
+        PerViewData.projection.M33 -= 1
+        PerViewData.projection.M43 *= -1
+#End If
         PerViewData.cameraPos = CAM_POSITION
         PerViewData.view = Matrix4.LookAt(CAM_POSITION, target, Vector3.UnitY)
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
