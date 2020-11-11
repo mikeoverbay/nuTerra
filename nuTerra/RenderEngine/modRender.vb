@@ -486,8 +486,15 @@ Module modRender
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
+        GL.Disable(EnableCap.CullFace)
+
+        MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
+
         mDepthWriteShader.StopUse()
         GL.ColorMask(True, True, True, True)
+
+        GL.Enable(EnableCap.CullFace)
 
         GL_POP_GROUP()
     End Sub
@@ -496,6 +503,7 @@ Module modRender
 
         ' we need this because the depth has been writen already.
         GL.DepthFunc(DepthFunction.Equal)
+        GL.DepthMask(False)
 
         'SOLID FILL
         FBOm.attach_CNGP()
@@ -521,14 +529,14 @@ Module modRender
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
-        GL.DepthFunc(DepthFunction.Greater)
-
         GL.Disable(EnableCap.CullFace)
 
         MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
 
         modelShader.StopUse()
+
+        GL.DepthFunc(DepthFunction.Greater)
 
 
         FBOm.attach_CNGPA()
@@ -542,7 +550,6 @@ Module modRender
         modelGlassShader.StopUse()
 
         FBOm.attach_CNGP()
-        GL.DepthMask(False)
 
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
 
