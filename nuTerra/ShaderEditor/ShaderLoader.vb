@@ -155,7 +155,6 @@ Module ShaderLoader
     Public coloredline2dShader As Shader
     Public colorMaskShader As Shader
     Public colorOnlyShader As Shader
-    Public CrossHairShader As Shader
     Public DecalProject As Shader
     Public deferredShader As Shader
     Public FF_BillboardShader As Shader
@@ -203,7 +202,6 @@ Module ShaderLoader
         coloredline2dShader = New Shader("coloredLine2d")
         colorMaskShader = New Shader("ColorMask")
         'unused: colorOnlyShader = New Shader("colorOnly")
-        'unused: CrossHairShader = New Shader("CrossHair")
         DecalProject = New Shader("DecalProject")
         deferredShader = New Shader("deferred")
         FF_BillboardShader = New Shader("FF_billboard")
@@ -237,7 +235,6 @@ Module ShaderLoader
         shaders.Add(coloredline2dShader)
         shaders.Add(colorMaskShader)
         'unused: shaders.Add(colorOnlyShader)
-        'unused: shaders.Add(CrossHairShader)
         shaders.Add(DecalProject)
         shaders.Add(deferredShader)
         shaders.Add(FF_BillboardShader)

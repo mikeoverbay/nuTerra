@@ -347,9 +347,6 @@
     <None Include="packages.config" />
     <None Include="README.md" />
     <None Include="Resources\compass.x" />
-    <None Include="Resources\cross_hair.x">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="Resources\dial.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -631,9 +628,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\checkerBoard.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\cross_hair_texture.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Cursor.png">
