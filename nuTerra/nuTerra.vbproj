@@ -491,12 +491,6 @@
     <None Include="shaders\Trials\cull.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\User_GUI\CrossHair.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\User_GUI\CrossHair.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="shaders\Utility\coloredLine2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -570,7 +564,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="shaders\User_GUI\" />
+  </ItemGroup>
   <ItemGroup>
     <None Include="Resources\question.png" />
   </ItemGroup>
