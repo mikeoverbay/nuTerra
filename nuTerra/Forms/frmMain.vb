@@ -356,8 +356,15 @@ try_again:
         Next
 
         USE_NV_MESH_SHADER = extensions.Contains("GL_NV_mesh_shader")
-        USE_NV_DRAW_TEXTURE = extensions.Contains("GL_NV_draw_texture")
+
+#If DEBUG Then
+        ' Disable for debug builds
+        USE_SPIRV_SHADERS = False
+        USE_NV_DRAW_TEXTURE = False
+#Else
         USE_SPIRV_SHADERS = extensions.Contains("GL_ARB_gl_spirv") 'core since 4.6
+        USE_NV_DRAW_TEXTURE = extensions.Contains("GL_NV_draw_texture")
+#End If
 
         ' Requied extensions
         Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
