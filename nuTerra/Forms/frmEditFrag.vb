@@ -195,7 +195,7 @@ Public Class frmEditFrag
         'e.ChangedRange.SetStyle(BoldStyle, "\b(class|struct|enum|interface)\s+(?<range>\w+?)\b")
         'keyword highlighting
         e.ChangedRange.SetStyle(LightSalmonStyle, "\b(if|else|discard|break|switch|case|enum|struct|texture2dArray|" +
-                                                    "samplerCube|texture2D|sampler2D|texture|textureLod)\b")
+                                                    "samplerCube|texture2D|sampler2D|texture|textureLod|EmitVertex|EndPrimitive)\b")
         'GLSL keyword highlighting
         e.ChangedRange.SetStyle(GLSLstyle, GLSL_KEYWORDS, RegexOptions.Singleline)
 
