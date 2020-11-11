@@ -518,6 +518,8 @@ Module modRender
 
         modelShader.StopUse()
 
+        GL.DepthFunc(DepthFunction.Greater)
+
         FBOm.attach_CNGPA()
         '------------------------------------------------
         modelGlassShader.Use()  '<------------------------------- Shader Bind
@@ -570,7 +572,6 @@ Module modRender
         End If
 
         'restore depth function
-        GL.DepthFunc(DepthFunction.Greater)
 
         GL_POP_GROUP()
     End Sub
