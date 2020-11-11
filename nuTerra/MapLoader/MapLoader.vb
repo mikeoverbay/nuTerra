@@ -815,10 +815,6 @@ Module MapLoader
         BG_MAX_VALUE = texturePaths.Count
         draw_scene()
 
-
-        Dim maxAniso As Single
-        GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
-
         Dim textureHandles As New Dictionary(Of String, UInt64)
         For Each atlasPath In atlasPaths
             If atlasPath.EndsWith(".dds") Then

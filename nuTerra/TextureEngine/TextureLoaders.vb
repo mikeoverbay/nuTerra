@@ -399,8 +399,7 @@ Module TextureLoaders
 
             image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
-            Dim maxAniso As Single
-            GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
+            Dim maxAniso = GLCapabilities.maxAniso
             If NEAREST And Not MIPS Then
                 image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
                 image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)

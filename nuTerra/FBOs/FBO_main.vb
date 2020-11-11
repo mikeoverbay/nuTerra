@@ -172,10 +172,6 @@ Module FBO_main
         End Sub
 
         Public Shared Function create_fbo() As Boolean
-
-            Dim maxColorAttachments As Integer
-            GL.GetInteger(GetPName.MaxColorAttachments, maxColorAttachments)
-
             mainFBO = CreateFramebuffer("mainFBO")
 
             ' attach our render buffer textures.

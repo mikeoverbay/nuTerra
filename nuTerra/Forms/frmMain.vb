@@ -168,6 +168,8 @@ Public Class frmMain
         Me.m_developer.Visible = True
 #End If
 
+        Dim maxSupportedGL = GetMaxGLVersion()
+
         ' Init main gl-control
         Dim flags As GraphicsContextFlags
 #If DEBUG Then
@@ -176,7 +178,7 @@ Public Class frmMain
         flags = GraphicsContextFlags.ForwardCompatible
 #End If
 
-        Me.glControl_main = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, flags)
+        Me.glControl_main = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), maxSupportedGL.Item1, maxSupportedGL.Item2, flags)
         Me.glControl_main.VSync = False
         Me.Controls.Add(Me.glControl_main)
 
@@ -328,8 +330,8 @@ try_again:
         'Check context:
         Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
         Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
-        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 5) Then
-            MsgBox("A graphics card and driver with support for OpenGL 4.5 or higher is required.")
+        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 3) Then
+            MsgBox("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
             Application.Exit()
             Return
         End If
@@ -377,10 +379,7 @@ try_again:
 #End If
         '-----------------------------------------------------------------------------------------
         'Any relevant info the user could use.
-        Dim maxTexSize = GL.GetInteger(GetPName.MaxTextureSize)
-        LogThis(String.Format("Max Texture Size = {0}", maxTexSize))
-        Dim Max_layers = GL.GetInteger(GetPName.MaxArrayTextureLayers)
-        LogThis(String.Format("Max Texture Array Layers = {0}", maxTexSize))
+        GLCapabilities.init()
         '-----------------------------------------------------------------------------------------
 
         ' Set depth to [0..1] range instead of [-1..1]

@@ -340,7 +340,6 @@ Module TerrainTextureFunctions
             Dim image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
             Dim maxAniso As Single = 3.0F
-            'GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt, maxAniso)
 
             image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
 

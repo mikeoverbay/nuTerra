@@ -368,8 +368,6 @@ Module modRender
 
         GL.Uniform1(TerrainShader("show_test"), SHOW_TEST_TEXTURES)
 
-        'Dim max_binding As Integer = GL.GetInteger(GetPName.MaxUniformBufferBindings)
-
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk

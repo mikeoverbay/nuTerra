@@ -1,12 +1,46 @@
 ﻿Imports System.Math
 Imports System.Runtime.InteropServices
 Imports OpenTK
+Imports OpenTK.Platform.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
+Imports System.ComponentModel
 
 Module modOpenGL
     Public defaultVao As Integer
     Public FieldOfView As Single = CSng(Math.PI) * (60 / 180.0F)
+
+    Public Function GetMaxGLVersion() As Tuple(Of Integer, Integer)
+        Dim tmpControl = New GLControl()
+        tmpControl.MakeCurrent()
+
+        Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
+        Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
+
+        Return New Tuple(Of Integer, Integer)(majorVersion, minorVersion)
+    End Function
+
+    Public Class GLCapabilities
+        Public Shared maxTextureSize As Integer
+        Public Shared maxArrayTextureLayers As Integer
+        Public Shared maxUniformBufferBindings As Integer
+        Public Shared maxColorAttachments As Integer
+        Public Shared maxAniso As Single
+
+        Public Shared Sub init()
+            maxTextureSize = GL.GetInteger(GetPName.MaxTextureSize)
+            maxArrayTextureLayers = GL.GetInteger(GetPName.MaxArrayTextureLayers)
+            maxUniformBufferBindings = GL.GetInteger(GetPName.MaxUniformBufferBindings)
+            maxColorAttachments = GL.GetInteger(GetPName.MaxColorAttachments)
+            maxAniso = GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt)
+
+            LogThis(String.Format("Max Texture Size = {0}", maxTextureSize))
+            LogThis(String.Format("Max Array Texture Layers = {0}", maxArrayTextureLayers))
+            LogThis(String.Format("Max Uniform Buffer Bindings = {0}", maxUniformBufferBindings))
+            LogThis(String.Format("Max Color Attachments = {0}", maxColorAttachments))
+            LogThis(String.Format("Max Texture Max Anisotropy = {0}", maxAniso))
+        End Sub
+    End Class
 
     <StructLayout(LayoutKind.Sequential)>
     Public Structure DrawElementsIndirectCommand
