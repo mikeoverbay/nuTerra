@@ -358,6 +358,7 @@ Module MapLoader
         If Not get_spaceBin(ABS_NAME) Then
             MsgBox("Failed to load Space.Bin from the map package.", MsgBoxStyle.Exclamation, "Space.bin!")
             'Enabled main menu
+            close_shared_packages()
             frmMain.MainMenuStrip.Enabled = True
             Return
         End If

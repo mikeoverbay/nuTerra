@@ -78,7 +78,15 @@ Module modRender
         GL.DepthFunc(DepthFunction.Greater)
         '===========================================================================
 
-        FBOm.attach_CNGP()
+        'Model depth pass only
+        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            '=======================================================================
+            FBOm.attach_C()
+            model_depth_pass() '=========================================================
+            '=======================================================================
+        End If
+
+        FBOm.attach_CNGPA()
 
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             '=======================================================================
@@ -304,6 +312,13 @@ Module modRender
         theMap.GLOBAL_AM_ID.BindUnit(0)
         m_normal_id.BindUnit(1)
 
+        GL.Uniform3(TerrainLQShader("waterColor"),
+                        Map_wetness.waterColor.X,
+                        Map_wetness.waterColor.Y,
+                        Map_wetness.waterColor.Z)
+
+        GL.Uniform1(TerrainLQShader("waterAlpha"), Map_wetness.waterAlpha)
+
         GL.Uniform2(TerrainLQShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainLQShader("map_center"), -b_x_min, b_y_max)
 
@@ -348,20 +363,12 @@ Module modRender
         m_normal_id.BindUnit(30)
 
         'water BS
-        RIPPLE_TEXTURES(RIPPLE_FRAME_NUMBER).BindUnit(31)
-        RIPPLE_MASK_TEXTURE.BindUnit(32)
-
         GL.Uniform3(TerrainShader("waterColor"),
                         Map_wetness.waterColor.X,
                         Map_wetness.waterColor.Y,
                         Map_wetness.waterColor.Z)
 
         GL.Uniform1(TerrainShader("waterAlpha"), Map_wetness.waterAlpha)
-        GL.Uniform1(TerrainShader("waveUVScale"), Map_wetness.waveUVScale)
-        GL.Uniform1(TerrainShader("waveStrength"), Map_wetness.waveStrength)
-        GL.Uniform1(TerrainShader("waveMaskUVScale"), Map_wetness.waveMaskUVScale)
-
-        GL.Uniform1(TerrainShader("rippple_mask_time"), RIPPLE_MASK_TIME)
 
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
@@ -462,8 +469,32 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
+    Private Sub model_depth_pass()
+        'This is just to depth pass write to allow early z reject and stop
+        ' wetness from showing through the models.
+        GL_PUSH_GROUP("model_depth_pass")
+
+        '------------------------------------------------
+        mDepthWriteShader.Use()  '<------------------------------- Shader Bind
+        '------------------------------------------------
+        GL.ColorMask(False, False, False, False)
+        GL.Enable(EnableCap.CullFace)
+
+        MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
+        GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+
+        mDepthWriteShader.StopUse()
+        GL.ColorMask(True, True, True, True)
+
+        GL_POP_GROUP()
+    End Sub
     Private Sub draw_models()
         GL_PUSH_GROUP("draw_models")
+
+        ' we need this because the depth has been writen already.
+        GL.DepthFunc(DepthFunction.Equal)
 
         'SOLID FILL
         FBOm.attach_CNGP()
@@ -537,6 +568,9 @@ Module modRender
 
             boxShader.StopUse()
         End If
+
+        'restore depth function
+        GL.DepthFunc(DepthFunction.Greater)
 
         GL_POP_GROUP()
     End Sub

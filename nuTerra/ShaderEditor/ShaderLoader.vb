@@ -166,6 +166,7 @@ Module ShaderLoader
     Public image2dShader As Shader
     Public MiniMapRingsShader As Shader
     Public mixTerrainShader As Shader
+    Public mDepthWriteShader As Shader
     Public modelShader As Shader
     Public modelGlassShader As Shader
     Public ModelViewerShader As Shader
@@ -213,6 +214,7 @@ Module ShaderLoader
         'unused: gWriterShader = New Shader("gWriter")
         MiniMapRingsShader = New Shader("MiniMapRings")
         mixTerrainShader = New Shader("t_mixer")
+        mDepthWriteShader = New Shader("mDepthWrite")
         modelShader = New Shader("model")
         modelGlassShader = New Shader("modelGlass")
         ModelViewerShader = New Shader("ModelViewer")
@@ -246,6 +248,7 @@ Module ShaderLoader
         'unused: shaders.Add(gWriterShader)
         shaders.Add(MiniMapRingsShader)
         shaders.Add(mixTerrainShader)
+        shaders.Add(mDepthWriteShader)
         shaders.Add(modelShader)
         shaders.Add(modelGlassShader)
         shaders.Add(ModelViewerShader)

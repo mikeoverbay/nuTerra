@@ -149,7 +149,8 @@ void main (void)
    
                 vec3 R = reflect(-V,N);
                 R.xz *= -1.0;
-                vec3 prefilteredColor = pow(textureLod(cubeMap, R,  max(5.0-GM_in.g *5, 0.0)).rgb,vec3(2.2)); 
+                vec3 prefilteredColor = pow(textureLod(cubeMap, R,  max(5.0-GM_in.g *5, 0.0)).rgb,vec3(2.2));
+                // GM_in.b is the alpha channel.
                 prefilteredColor = mix(vec3(spec), prefilteredColor+spec, GM_in.b*0.3);
                 vec3 refection = prefilteredColor;
 

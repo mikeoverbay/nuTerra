@@ -6,6 +6,8 @@
 #define USE_MATERIALS_SSBO
 #include "common.h" //! #include "../common.h"
 
+layout(early_fragment_tests) in;
+
 // Output
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;

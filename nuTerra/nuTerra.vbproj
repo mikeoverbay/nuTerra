@@ -407,6 +407,12 @@
     <None Include="shaders\ModelViewer\ModelViewer.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Model_shaders\mDepthWrite.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Model_shaders\mDepthWrite.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Model_shaders\modelGlass.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

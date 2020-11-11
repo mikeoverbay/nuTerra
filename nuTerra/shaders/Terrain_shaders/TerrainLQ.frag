@@ -5,9 +5,13 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
+layout (location = 5) out vec4 gAux;
 
 layout(binding = 0) uniform sampler2D global_AM;
 layout(binding = 1) uniform sampler2D normalMap;
+
+uniform vec3 waterColor;
+uniform float waterAlpha;
 
 in VS_OUT {
     vec4 Vertex;
@@ -38,11 +42,15 @@ void main(void)
   
     // The obvious
     gColor = global;
+    gColor.rgb = mix(gColor.rgb ,waterColor, global.a * waterAlpha);
+   
     gColor.a = 1.0;
 
     gNormal.xyz = normalize(n.xyz);
-    gGMF = vec4(global.a+0.2, 0.0, 128.0/255.0, 0.0);
+    gGMF = vec4(0.2, 0.0, 128.0/255.0, global.a*0.8);
 
+    gAux.rgb = waterColor;
+    gAux.a = global.a * waterAlpha;
     gPosition = fs_in.worldPosition;
     gPick = 0;
 }
