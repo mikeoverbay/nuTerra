@@ -14,6 +14,7 @@
 #define USE_LODS_SSBO
 #define USE_INDIRECT_SSBO
 #define USE_INDIRECT_GLASS_SSBO
+#define USE_INDIRECT_DOUBLE_SIDED_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout (local_size_x = 16) in;
@@ -82,18 +83,14 @@ void main(void)
         for (int i = 0; i < lod.draw_count; ++i) {
             const CandidateDraw thisDraw = draw[lod.draw_offset + i];
 
-            if (material[thisDraw.material_id].double_sided){
+            if (material[thisDraw.material_id].double_sided) {
                 uint outDrawIndex = atomicCounterIncrement(commandDoubleSidedCounter);
-                command_glass[outDrawIndex].count = thisDraw.count;
-                command_glass[outDrawIndex].instanceCount = 1;
-                command_glass[outDrawIndex].firstIndex = thisDraw.firstIndex;
-                command_glass[outDrawIndex].baseVertex = thisDraw.baseVertex;
-                command_glass[outDrawIndex].baseInstance = thisDraw.baseInstance;
-
-            } else {
-            
-            // use separate indirect buffer for glass-models
-            if (material[thisDraw.material_id].shader_type == 6) {
+                command_double_sided[outDrawIndex].count = thisDraw.count;
+                command_double_sided[outDrawIndex].instanceCount = 1;
+                command_double_sided[outDrawIndex].firstIndex = thisDraw.firstIndex;
+                command_double_sided[outDrawIndex].baseVertex = thisDraw.baseVertex;
+                command_double_sided[outDrawIndex].baseInstance = thisDraw.baseInstance;
+            } else if (material[thisDraw.material_id].shader_type == 6) {
                 uint outDrawIndex = atomicCounterIncrement(commandGlassCounter);
                 command_glass[outDrawIndex].count = thisDraw.count;
                 command_glass[outDrawIndex].instanceCount = 1;
@@ -108,7 +105,6 @@ void main(void)
                 command[outDrawIndex].baseVertex = thisDraw.baseVertex;
                 command[outDrawIndex].baseInstance = thisDraw.baseInstance;
             }
-            }//double sided
         }
     }
 }

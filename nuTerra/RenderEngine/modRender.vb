@@ -480,10 +480,14 @@ Module modRender
         GL.ColorMask(False, False, False, False)
         GL.Enable(EnableCap.CullFace)
 
-        MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
         MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+
+        MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+
+        MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
 
         mDepthWriteShader.StopUse()
         GL.ColorMask(True, True, True, True)
@@ -511,10 +515,16 @@ Module modRender
 
         GL.Enable(EnableCap.CullFace)
 
-        MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
         MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+
+        MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+
+        GL.Disable(EnableCap.CullFace)
+
+        MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
 
         modelShader.StopUse()
 
@@ -525,11 +535,7 @@ Module modRender
         modelGlassShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
 
-        GL.Disable(EnableCap.CullFace)
-
         MapGL.Buffers.indirect_glass.Bind(BufferTarget.DrawIndirectBuffer)
-        MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
-        GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(4), MapGL.indirectDrawCount, 0)
 
         modelGlassShader.StopUse()
