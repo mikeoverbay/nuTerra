@@ -70,10 +70,10 @@ struct MaterialProperties
     sampler2D maps[6];        /* 160 .. 208 */
 #endif
     uint shader_type;         /* 208 .. 212 */
-    bool g_useNormalPackDXT1; /* 212 .. 216 */
+    uint texAddressMode;      /* 212 .. 216 */
     float alphaReference;     /* 216 .. 220 */
-    bool alphaTestEnable;     /* 220 .. 224 */
-    int texAddressMode;       /* 224 .. 228 */
+    bool g_useNormalPackDXT1; /* 220 .. 224 */
+    bool alphaTestEnable;     /* 224 .. 228 */
     bool g_enableAO;          /* 228 .. 232 */
     bool double_sided;        /* 232 .. 236 */
 };

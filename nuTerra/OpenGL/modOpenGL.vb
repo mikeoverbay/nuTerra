@@ -100,12 +100,12 @@ Module modOpenGL
         Dim map5Handle As UInt64
         Dim map6Handle As UInt64
         Dim shader_type As UInt32
-        Dim g_useNormalPackDXT1 As UInt32
+        Dim texAddressMode As UInt32
         Dim alphaReference As Single
+        Dim g_useNormalPackDXT1 As UInt32
         Dim alphaTestEnable As UInt32
-        Dim texAddressMode As Integer
-        Dim g_enableAO As Boolean
-        Dim double_sided As Boolean
+        Dim g_enableAO As UInt32
+        Dim double_sided As UInt32
         Dim pad0 As UInt32
     End Structure
 

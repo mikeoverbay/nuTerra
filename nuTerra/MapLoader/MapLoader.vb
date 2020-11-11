@@ -1025,12 +1025,12 @@ Module MapLoader
                         .map1Handle = textureHandles(props.diffuseMap)
                         .map2Handle = textureHandles(props.normalMap)
                         .map3Handle = textureHandles(props.metallicGlossMap)
-                        .g_useNormalPackDXT1 = props.g_useNormalPackDXT1
+                        .g_useNormalPackDXT1 = If(props.g_useNormalPackDXT1, 1, 0)
                         .alphaReference = props.alphaReference / 255.0
-                        .alphaTestEnable = props.alphaTestEnable
+                        .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
                         .g_colorTint = props.g_colorTint
-                        .g_enableAO = props.g_enableAO
-                        .double_sided = props.doubleSided
+                        .g_enableAO = If(props.g_enableAO, 1, 0)
+                        .double_sided = If(props.doubleSided, 1, 0)
 
                     Case ShaderTypes.FX_PBS_ext_dual
                         Dim props As MaterialProps_PBS_ext_dual = mat.props
@@ -1038,11 +1038,11 @@ Module MapLoader
                         .map2Handle = textureHandles(props.normalMap)
                         .map3Handle = textureHandles(props.metallicGlossMap)
                         .map4Handle = textureHandles(props.diffuseMap2)
-                        .g_useNormalPackDXT1 = props.g_useNormalPackDXT1
+                        .g_useNormalPackDXT1 = If(props.g_useNormalPackDXT1, 1, 0)
                         .alphaReference = props.alphaReference / 255.0
-                        .alphaTestEnable = props.alphaTestEnable
+                        .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
                         .g_colorTint = props.g_colorTint
-                        .double_sided = props.doubleSided
+                        .double_sided = If(props.doubleSided, 1, 0)
 
                     Case ShaderTypes.FX_PBS_ext_detail
                         Dim props As MaterialProps_PBS_ext_detail = mat.props
@@ -1053,13 +1053,13 @@ Module MapLoader
                             .map4Handle = textureHandles(props.g_detailMap)
 
                         End If
-                        .g_enableAO = props.g_enableAO
-                        .g_useNormalPackDXT1 = props.g_useNormalPackDXT1
+                        .g_enableAO = If(props.g_enableAO, 1, 0)
+                        .g_useNormalPackDXT1 = If(props.g_useNormalPackDXT1, 1, 0)
                         .alphaReference = props.alphaReference / 255.0
-                        .alphaTestEnable = props.alphaTestEnable
+                        .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
                         .g_colorTint = props.g_colorTint
                         .g_detailInfluences = props.g_detailInfluences
-                        .double_sided = props.doubleSided
+                        .double_sided = If(props.doubleSided, 1, 0)
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
                         Dim props As MaterialProps_PBS_tiled_atlas = mat.props
@@ -1081,7 +1081,7 @@ Module MapLoader
                         .g_tile1Tint = props.g_tile2Tint
                         .g_tile2Tint = props.g_tile2Tint
                         .g_tileUVScale = props.g_tileUVScale
-                        .double_sided = False
+                        .double_sided = 0
 
                     Case ShaderTypes.FX_PBS_tiled_atlas_global
                         Dim props As MaterialProps_PBS_atlas_global = mat.props
@@ -1095,7 +1095,7 @@ Module MapLoader
                         .map6Handle = textureHandles(props.globalTex)
 
                         .alphaReference = props.alphaReference / 255.0
-                        .alphaTestEnable = props.alphaTestEnable
+                        .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
                         .g_atlasIndexes = props.g_atlasIndexes
                         .g_atlasSizes = props.g_atlasSizes
                         .dirtColor = props.dirtColor
@@ -1104,7 +1104,7 @@ Module MapLoader
                         .g_tile1Tint = props.g_tile2Tint
                         .g_tile2Tint = props.g_tile2Tint
                         .g_tileUVScale = props.g_tileUVScale
-                        .double_sided = False
+                        .double_sided = 0
 
                     Case ShaderTypes.FX_PBS_glass
                         Dim props As MaterialProps_PBS_glass = mat.props
@@ -1114,10 +1114,10 @@ Module MapLoader
                         .map2Handle = textureHandles(props.normalMap)
                         .map3Handle = textureHandles(props.glassMap)
                         .alphaReference = props.alphaReference / 255.0
-                        .alphaTestEnable = props.alphaTestEnable
+                        .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
                         .g_colorTint = props.g_filterColor
                         .texAddressMode = props.texAddressMode
-                        .double_sided = False
+                        .double_sided = 0
 
                     Case ShaderTypes.FX_PBS_ext_repaint
                         Dim props As MaterialProps_PBS_ext_repaint = mat.props
@@ -1125,11 +1125,11 @@ Module MapLoader
                         .map2Handle = textureHandles(props.normalMap)
                         .map3Handle = textureHandles(props.metallicGlossMap)
                         .alphaReference = props.alphaReference / 255.0
-                        .alphaTestEnable = props.alphaTestEnable
+                        .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
                         .g_tile0Tint = props.g_baseColor
                         .g_tile1Tint = props.g_repaintColor
-                        .g_enableAO = props.g_enableAO
-                        .double_sided = props.doubleSided
+                        .g_enableAO = If(props.g_enableAO, 1, 0)
+                        .double_sided = If(props.doubleSided, 1, 0)
 
                     Case ShaderTypes.FX_lightonly_alpha
                         Dim props As MaterialProps_lightonly_alpha = mat.props
