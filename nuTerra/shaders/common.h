@@ -11,6 +11,7 @@
 #define MATERIALS_BASE 3
 #define LODS_BASE 4
 #define INDIRECT_GLASS_BASE 5
+#define INDIRECT_DBL_SIDED_BASE 6
 
 struct CandidateDraw
 {
@@ -74,6 +75,7 @@ struct MaterialProperties
     int texAddressMode;       /* 208 .. 212 */
     bool g_enableAO;          /* 212 .. 216 */
     vec4 g_detailInfluences;  /* 216 .. 220 */
+    bool double_sided;        /* 220 .. 224 */
 };
 
 #ifdef USE_PERVIEW_UBO

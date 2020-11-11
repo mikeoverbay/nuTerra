@@ -62,6 +62,7 @@ Module MapLoader
             Public Shared prims As GLBuffer
             Public Shared indirect As GLBuffer
             Public Shared indirect_glass As GLBuffer
+            Public Shared indirect_dbl_sided As GLBuffer
             Public Shared lods As GLBuffer
         End Class
 
@@ -358,7 +359,6 @@ Module MapLoader
         If Not get_spaceBin(ABS_NAME) Then
             MsgBox("Failed to load Space.Bin from the map package.", MsgBoxStyle.Exclamation, "Space.bin!")
             'Enabled main menu
-            close_shared_packages()
             frmMain.MainMenuStrip.Enabled = True
             Return
         End If
@@ -605,6 +605,12 @@ Module MapLoader
                                   MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                                   BufferStorageFlags.None)
             MapGL.Buffers.indirect_glass.BindBase(5)
+
+            MapGL.Buffers.indirect_dbl_sided = CreateBuffer(BufferTarget.ShaderStorageBuffer, "indirect_dbl_sided")
+            BufferStorageNullData(MapGL.Buffers.indirect_dbl_sided,
+                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                                  BufferStorageFlags.None)
+            MapGL.Buffers.indirect_dbl_sided.BindBase(6)
 
             MapGL.Buffers.matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "matrices")
             BufferStorage(MapGL.Buffers.matrices,
@@ -1024,6 +1030,7 @@ Module MapLoader
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
                         .g_enableAO = props.g_enableAO
+                        .double_sided = props.doubleSided
 
                     Case ShaderTypes.FX_PBS_ext_dual
                         Dim props As MaterialProps_PBS_ext_dual = mat.props
@@ -1035,6 +1042,7 @@ Module MapLoader
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
+                        .double_sided = props.doubleSided
 
                     Case ShaderTypes.FX_PBS_ext_detail
                         Dim props As MaterialProps_PBS_ext_detail = mat.props
@@ -1051,6 +1059,7 @@ Module MapLoader
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_colorTint
                         .g_detailInfluences = props.g_detailInfluences
+                        .double_sided = props.doubleSided
 
                     Case ShaderTypes.FX_PBS_tiled_atlas
                         Dim props As MaterialProps_PBS_tiled_atlas = mat.props
@@ -1072,6 +1081,7 @@ Module MapLoader
                         .g_tile1Tint = props.g_tile2Tint
                         .g_tile2Tint = props.g_tile2Tint
                         .g_tileUVScale = props.g_tileUVScale
+                        .double_sided = False
 
                     Case ShaderTypes.FX_PBS_tiled_atlas_global
                         Dim props As MaterialProps_PBS_atlas_global = mat.props
@@ -1094,6 +1104,7 @@ Module MapLoader
                         .g_tile1Tint = props.g_tile2Tint
                         .g_tile2Tint = props.g_tile2Tint
                         .g_tileUVScale = props.g_tileUVScale
+                        .double_sided = False
 
                     Case ShaderTypes.FX_PBS_glass
                         Dim props As MaterialProps_PBS_glass = mat.props
@@ -1106,6 +1117,7 @@ Module MapLoader
                         .alphaTestEnable = props.alphaTestEnable
                         .g_colorTint = props.g_filterColor
                         .texAddressMode = props.texAddressMode
+                        .double_sided = False
 
                     Case ShaderTypes.FX_PBS_ext_repaint
                         Dim props As MaterialProps_PBS_ext_repaint = mat.props
@@ -1117,6 +1129,7 @@ Module MapLoader
                         .g_tile0Tint = props.g_baseColor
                         .g_tile1Tint = props.g_repaintColor
                         .g_enableAO = props.g_enableAO
+                        .double_sided = props.doubleSided
 
                     Case ShaderTypes.FX_lightonly_alpha
                         Dim props As MaterialProps_lightonly_alpha = mat.props

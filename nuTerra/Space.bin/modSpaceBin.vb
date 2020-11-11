@@ -414,6 +414,10 @@ CleanUp:
                         .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
+                        'force double sided if its a border model
+                        If model_name.Contains("Borders") Then
+                            .doubleSided = True
+                        End If
                         .g_useNormalPackDXT1 = If(props.ContainsKey("g_useNormalPackDXT1"), props("g_useNormalPackDXT1"), False)
                         '.g_useTintColor = If(props.ContainsKey("g_useTintColor"), props("g_useTintColor"), False)
                         .g_enableAO = If(props.ContainsKey("g_enableAO"), props("g_enableAO"), False)

@@ -105,10 +105,11 @@ Module modOpenGL
         Dim texAddressMode As Integer
         Dim g_enableAO As Boolean
         Dim g_detailInfluences As Vector4
+        Dim double_sided As Boolean
         Dim pad0 As UInt32
-        'Dim pad1 As UInt32
-        'Dim pad2 As UInt32
-        'Dim pad3 As UInt32
+        Dim pad1 As UInt32
+        Dim pad2 As UInt32
+        Dim pad3 As UInt32
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>

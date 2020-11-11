@@ -26,12 +26,12 @@ Partial Class frmModelViewer
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmModelViewer))
         Me.main_menu = New System.Windows.Forms.MenuStrip()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_on_top = New System.Windows.Forms.ToolStripMenuItem()
         Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.TabControl1 = New System.Windows.Forms.TabControl()
         Me.TabPage1 = New System.Windows.Forms.TabPage()
         Me.TabPage2 = New System.Windows.Forms.TabPage()
         Me.FastColoredTextBox1 = New FastColoredTextBoxNS.FastColoredTextBox()
-        Me.m_on_top = New System.Windows.Forms.ToolStripMenuItem()
         Me.main_menu.SuspendLayout()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer1.Panel2.SuspendLayout()
@@ -60,6 +60,15 @@ Partial Class frmModelViewer
         Me.m_help.Size = New System.Drawing.Size(20, 20)
         Me.m_help.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText
         '
+        'm_on_top
+        '
+        Me.m_on_top.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_on_top.Font = New System.Drawing.Font("Segoe UI", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.m_on_top.ForeColor = System.Drawing.Color.Red
+        Me.m_on_top.Name = "m_on_top"
+        Me.m_on_top.Size = New System.Drawing.Size(58, 20)
+        Me.m_on_top.Text = "On Top"
+        '
         'SplitContainer1
         '
         Me.SplitContainer1.BackColor = System.Drawing.SystemColors.Control
@@ -78,7 +87,7 @@ Partial Class frmModelViewer
         Me.SplitContainer1.Panel2.BackColor = System.Drawing.Color.FromArgb(CType(CType(33, Byte), Integer), CType(CType(33, Byte), Integer), CType(CType(33, Byte), Integer))
         Me.SplitContainer1.Panel2.Controls.Add(Me.TabControl1)
         Me.SplitContainer1.Size = New System.Drawing.Size(831, 471)
-        Me.SplitContainer1.SplitterDistance = 180
+        Me.SplitContainer1.SplitterDistance = 170
         Me.SplitContainer1.TabIndex = 1
         '
         'TabControl1
@@ -92,7 +101,7 @@ Partial Class frmModelViewer
         Me.TabControl1.Name = "TabControl1"
         Me.TabControl1.Padding = New System.Drawing.Point(0, 0)
         Me.TabControl1.SelectedIndex = 0
-        Me.TabControl1.Size = New System.Drawing.Size(647, 471)
+        Me.TabControl1.Size = New System.Drawing.Size(657, 471)
         Me.TabControl1.TabIndex = 0
         '
         'TabPage1
@@ -102,7 +111,7 @@ Partial Class frmModelViewer
         Me.TabPage1.Location = New System.Drawing.Point(4, 25)
         Me.TabPage1.Name = "TabPage1"
         Me.TabPage1.Padding = New System.Windows.Forms.Padding(3)
-        Me.TabPage1.Size = New System.Drawing.Size(639, 442)
+        Me.TabPage1.Size = New System.Drawing.Size(649, 442)
         Me.TabPage1.TabIndex = 0
         Me.TabPage1.Text = "Model"
         '
@@ -135,6 +144,7 @@ Partial Class frmModelViewer
         Me.FastColoredTextBox1.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.FastColoredTextBox1.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.FastColoredTextBox1.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.FastColoredTextBox1.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.FastColoredTextBox1.IsReplaceMode = False
         Me.FastColoredTextBox1.LeftBracket = Global.Microsoft.VisualBasic.ChrW(60)
         Me.FastColoredTextBox1.LeftBracket2 = Global.Microsoft.VisualBasic.ChrW(40)
@@ -150,15 +160,6 @@ Partial Class frmModelViewer
         Me.FastColoredTextBox1.TabIndex = 0
         Me.FastColoredTextBox1.Text = "FastColoredTextBox1"
         Me.FastColoredTextBox1.Zoom = 100
-        '
-        'm_on_top
-        '
-        Me.m_on_top.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
-        Me.m_on_top.Font = New System.Drawing.Font("Segoe UI", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.m_on_top.ForeColor = System.Drawing.Color.Red
-        Me.m_on_top.Name = "m_on_top"
-        Me.m_on_top.Size = New System.Drawing.Size(58, 20)
-        Me.m_on_top.Text = "On Top"
         '
         'frmModelViewer
         '
