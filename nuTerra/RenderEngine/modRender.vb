@@ -486,9 +486,6 @@ Module modRender
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
-        MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
-
         mDepthWriteShader.StopUse()
         GL.ColorMask(True, True, True, True)
 
@@ -524,6 +521,8 @@ Module modRender
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
+        GL.DepthFunc(DepthFunction.Greater)
+
         GL.Disable(EnableCap.CullFace)
 
         MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
@@ -531,7 +530,6 @@ Module modRender
 
         modelShader.StopUse()
 
-        GL.DepthFunc(DepthFunction.Greater)
 
         FBOm.attach_CNGPA()
         '------------------------------------------------
