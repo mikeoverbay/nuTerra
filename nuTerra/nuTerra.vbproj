@@ -580,6 +580,9 @@
     <Content Include="data\filtered_strings.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="data\glsl_filtered_strings.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="data\map_list.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

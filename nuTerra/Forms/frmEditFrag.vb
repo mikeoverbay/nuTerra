@@ -23,14 +23,14 @@ Public Class frmEditFrag
 
     Const EM_SETTABSTOPS = &HCB
     Private focused_form As New Control
-    Dim TealStyle As TextStyle = New TextStyle(Brushes.LightBlue, Nothing, FontStyle.Regular)
+    Dim LightSalmonStyle As TextStyle = New TextStyle(Brushes.LightSalmon, Nothing, FontStyle.Regular)
     Dim BoldStyle As TextStyle = New TextStyle(Nothing, Nothing, FontStyle.Bold Or FontStyle.Underline)
     Dim GrayStyle As TextStyle = New TextStyle(Brushes.Gray, Nothing, FontStyle.Regular)
     Dim PowderBlueStyle As TextStyle = New TextStyle(Brushes.PowderBlue, Nothing, FontStyle.Regular)
-    Dim GreenStyle As TextStyle = New TextStyle(Brushes.Green, Nothing, FontStyle.Italic)
+    Dim GreenStyle As TextStyle = New TextStyle(Brushes.Green, Nothing, FontStyle.Regular)
     Dim BrownStyle As TextStyle = New TextStyle(Brushes.Brown, Nothing, FontStyle.Italic)
     Dim MaroonStyle As TextStyle = New TextStyle(Brushes.Maroon, Nothing, FontStyle.Regular)
-    Dim GLSLstyle As TextStyle = New TextStyle(Brushes.LightGreen, Nothing, FontStyle.Regular)
+    Dim GLSLstyle As TextStyle = New TextStyle(Brushes.CornflowerBlue, Nothing, FontStyle.Regular)
 
     Dim SameWordsStyle As MarkerStyle = New MarkerStyle(New SolidBrush(Color.FromArgb(40, Color.Gray)))
 #End Region
@@ -179,7 +179,7 @@ Public Class frmEditFrag
         sender.LeftBracket2 = ControlChars.NullChar
         sender.RightBracket2 = ControlChars.NullChar
         'clear style of changed range
-        e.ChangedRange.ClearStyle(TealStyle, BoldStyle, GrayStyle, PowderBlueStyle, GreenStyle, BrownStyle)
+        e.ChangedRange.ClearStyle(LightSalmonStyle, BoldStyle, GrayStyle, PowderBlueStyle, GreenStyle, BrownStyle)
 
         'string highlighting
         e.ChangedRange.SetStyle(BrownStyle, """""|@""""|''|@"".*?""|(?<!@)(?<range>"".*?[^\\]"")|'.*?[^\\]'")
@@ -192,15 +192,12 @@ Public Class frmEditFrag
         'attribute highlighting
         e.ChangedRange.SetStyle(GrayStyle, "^\s*(?<range>\[.+?\])\s*$", RegexOptions.Multiline)
         'class name highlighting
-        e.ChangedRange.SetStyle(BoldStyle, "\b(class|struct|enum|interface)\s+(?<range>\w+?)\b")
+        'e.ChangedRange.SetStyle(BoldStyle, "\b(class|struct|enum|interface)\s+(?<range>\w+?)\b")
         'keyword highlighting
-        e.ChangedRange.SetStyle(TealStyle, "\b(mat3|mat4|vec2|vec3|vec4|abstract|as|base|bool|break|byte|case|catch|char|checked|class|const|continue|decimal|default|delegate|do|double|else|enum|event|explicit|extern|false|finally|fixed|float|for|foreach|goto|if|implicit|in|int|interface|internal|is|lock|long|namespace|new|null|object|operator|out|override|params|private|protected|public|readonly|ref|return|sbyte|sealed|short|sizeof|stackalloc|static|string|struct|switch|this|throw|true|try|typeof|uint|ulong|unchecked|unsafe|ushort|using|virtual|void|volatile|while|add|alias|ascending|descending|dynamic|from|get|global|group|into|join|let|orderby|partial|remove|select|set|value|var|where|yield)\b|#region\b|#endregion\b")
+        e.ChangedRange.SetStyle(LightSalmonStyle, "\b(if|else|discard|break|switch|case|enum|struct|texture2dArray|" +
+                                                    "samplerCube|texture2D|sampler2D|texture|textureLod)\b")
         'GLSL keyword highlighting
-        e.ChangedRange.SetStyle(GLSLstyle, "\b(gl_FrontColor|uniform|varying|attribute|gl_Vertex|gl_NormalMatrix|gl_ModelViewMatrix|" _
-                                        + "gl_ModelViewProjectionMatrix|gl_Position|ftransform|mix|max|min|dfdx|dfdy|gl_FragColor|" _
-                                        + "gl_MultiTexCoord0|gl_MultiTexCoord1|gl_MultiTexCoord2|gl_MultiTexCoord3|gl_MultiTexCoord4|" _
-                                        + "reflact|fract|smoothstep|step|normalize|dot|cross|gl_Normal|pow|gl_LightSource|" _
-                                        + "gl_FrontMaterial|clamp|reflect|gl_Fog|gl_FragCoord|discard\b)")
+        e.ChangedRange.SetStyle(GLSLstyle, GLSL_KEYWORDS, RegexOptions.Singleline)
 
         'clear folding markers
         e.ChangedRange.ClearFoldingMarkers()

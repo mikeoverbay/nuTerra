@@ -5,6 +5,9 @@ Imports OpenTK
 Module modGlobalVars
 
     '=================================================================================
+    'GLSL highlighting string used in the editor
+    Public GLSL_KEYWORDS As String
+    '=================================================================================
     'map pick Dictionary
     Public PICK_DICTIONARY As New Dictionary(Of UInteger, String)
     Public PICKED_STRING As String = ""
