@@ -68,22 +68,16 @@ layout(binding = 18) uniform sampler2D mixtexture2;
 layout(binding = 19) uniform sampler2D mixtexture3;
 layout(binding = 20) uniform sampler2D mixtexture4;
 
-layout(binding = 21) uniform sampler2D tex_0;
-layout(binding = 22) uniform sampler2D tex_1;
-layout(binding = 23) uniform sampler2D tex_2;
-layout(binding = 24) uniform sampler2D tex_3;
 
-layout(binding = 25) uniform sampler2D tex_4;
-layout(binding = 26) uniform sampler2D tex_5;
-layout(binding = 27) uniform sampler2D tex_6;
-layout(binding = 28) uniform sampler2D tex_7;
+layout(binding = 21) uniform sampler2D global_AM;
 
-layout(binding = 29) uniform sampler2D global_AM;
-layout(binding = 30) uniform sampler2D normalMap;
+layout(binding = 22) uniform sampler2DArray textArrayC;
+layout(binding = 23) uniform sampler2DArray textArrayN;
+layout(binding = 24) uniform sampler2DArray textArrayG;
 
-uniform int show_test;
 uniform vec3 waterColor;
 uniform float waterAlpha;
+uniform float map_id;
 
 in VS_OUT {
     mat3 TBN;
@@ -121,22 +115,18 @@ void main(void)
     //==============================================================
     vec4 global = texture(global_AM, fs_in.Global_UV);
     // This is needed to light the global_AM.
-    vec4 g_nm = texture(normalMap, fs_in.UV);
-    vec4 n_tex = vec4(0.0);
-    n_tex.xyz = normalize(fs_in.TBN * vec3(convertNormal(g_nm).xyz));
     //Can we bail early?
-    if (fs_in.is_hole == 1.0)
-    {
-        gColor = global;
-        gColor.a = 1.0;
-        //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
-        gNormal.xyz = normalize(n_tex.xyz);
-        gGMF.rgb = vec3(global.a+0.2, 0.0, 128.0/255.0);
-
-        gPosition = fs_in.worldPosition;
-        gPick = 0;
-        return;
-    }
+//    if (fs_in.is_hole == 1.0)
+//    {
+//        gColor = global;
+//        gColor.a = 1.0;
+//        //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
+//        gGMF.rgb = vec3(global.a+0.2, 0.0, 128.0/255.0);
+//
+//        gPosition = fs_in.worldPosition;
+//        gPick = 0;
+//        return;
+//    }
     //==============================================================
 
     vec4 t1, t2, t3, t4;
@@ -158,28 +148,20 @@ void main(void)
 
     // Get AM maps and Test Texture maps
     t4 = texture(layer_4T1, fs_in.tuv4);
-    vec4 tex6 = texture(tex_6, fs_in.tuv4);
 
     t4_2 = texture(layer_4T2, fs_in.tuv4_2);
-    vec4 tex7 = texture(tex_7, fs_in.tuv4_2);
 
     t3 = texture(layer_3T1, fs_in.tuv3);
-    vec4 tex4 = texture(tex_4, fs_in.tuv3);
 
     t3_2 = texture(layer_3T2, fs_in.tuv3_2);
-    vec4 tex5 = texture(tex_5, fs_in.tuv3_2);
 
     t2 = texture(layer_2T1, fs_in.tuv2);
-    vec4 tex2 = texture(tex_2, fs_in.tuv2);
 
     t2_2 = texture(layer_2T2, fs_in.tuv2_2);
-    vec4 tex3 = texture(tex_3, fs_in.tuv2_2);
 
     t1 = texture(layer_1T1, fs_in.tuv1);
-    vec4 tex0 = texture(tex_0, fs_in.tuv1);
  
     t1_2 = texture(layer_1T2, fs_in.tuv1_2);
-    vec4 tex1 = texture(tex_1, fs_in.tuv1_2);
 
     // ambient occusion is in blue channel of the normal maps.
     // Specular OR Parallax is in the red channel. Green and Alpha are normal values.
@@ -229,30 +211,7 @@ void main(void)
     // It is used to clamp unused values to 0 so
     // they have no affect on shading.
 
-    // If we want to show the test textures, do it now.
-    if (show_test == 1){
-        float lv = 0.5;
-        t1 = (t1*0.1)+ vec4(lv);
-        t2 = (t2*0.1)+ vec4(lv);
-        t3 = (t3*0.1)+ vec4(lv);
-        t4 = (t4*0.1)+ vec4(lv);
-        t1_2 = (t1_2*0.1)+ vec4(lv);
-        t2_2 = (t2_2*0.1)+ vec4(lv);
-        t3_2 = (t3_2*0.1)+ vec4(lv);
-        t4_2 = (t4_2*0.1)+ vec4(lv);
 
-        t4 = t4 * tex6 * used_7;
-        t4_2 = t4_2 * tex7 * used_8;
-
-        t3 = t3 * tex4 * used_5;
-        t3_2 = t3_2 * tex5 * used_6;
-
-        t2 = t2 * tex2 * used_3;
-        t2_2 = t2_2 * tex3 * used_4;
-
-        t1 = t1 * tex0 * used_1;
-        t1_2 = t1_2 * tex1 * used_2;
-    }
 
     vec4 base = vec4(0.0);  
     vec4 empty = vec4(0.0);
@@ -333,21 +292,22 @@ void main(void)
     // Replace ln with 1.0 to show only layered terrain.
     
     //base = mix(base,vec4(MixLevel1.xy, 0.0 ,1.0), 0.4);
+    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, map_id) );
+    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, map_id) );
+    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, map_id) );
 
+    ArrayTextureN.xyz = fs_in.TBN * ArrayTextureN.xyz;
 
-    base = mix(global, base, fs_in.ln);
-
-    out_n = mix(n_tex, out_n, fs_in.ln) ;
-
+    base = mix(ArrayTextureC, base, fs_in.ln);
+    out_n = mix(ArrayTextureN, out_n, fs_in.ln) ;
+    gGMF = mix(ArrayTextureG, vec4(0.2, 0.0, 128.0/255.0, global.a*0.8), fs_in.ln);
 
     // The obvious
-    gColor = base;
+    gColor = base;//*0.001 + ArrayTexture;
     gColor.a = 1.0;
-    //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
-    // We only want the wetness normal where it exist on the map! (wNorm * global.a)
+
     gNormal.xyz = normalize(out_n.xyz);
 
-    gGMF = vec4(0.2, 0.0, 128.0/255.0, global.a*0.8);
     gAux.rgb = waterColor;
     gAux.a = global.a * waterAlpha;
 

@@ -230,6 +230,7 @@
     <Compile Include="Forms\frmLoadOptions.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="MapLoader\LQ_Texture_creator.vb" />
     <Compile Include="MapLoader\TerrainBuilder.vb" />
     <Compile Include="MapLoader\TerrainTextureFunctions.vb" />
     <Compile Include="ModelLoaders\modXfile.vb" />
