@@ -7,7 +7,7 @@ Module LQ_Texture_creator
     Public Sub make_LQ_textures()
 
 
-        Dim quailty As Integer = 400
+        Dim quailty As Integer = 360 '<-- adjusts size of the texture
 
         FBO_mixer_set.LayerCount = theMap.render_set.Length
         FBO_mixer_set.mipCount = 6

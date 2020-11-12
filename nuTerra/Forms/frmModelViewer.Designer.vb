@@ -32,6 +32,7 @@ Partial Class frmModelViewer
         Me.TabPage1 = New System.Windows.Forms.TabPage()
         Me.TabPage2 = New System.Windows.Forms.TabPage()
         Me.FastColoredTextBox1 = New FastColoredTextBoxNS.FastColoredTextBox()
+        Me.m_reset_view = New System.Windows.Forms.ToolStripMenuItem()
         Me.main_menu.SuspendLayout()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer1.Panel2.SuspendLayout()
@@ -43,7 +44,7 @@ Partial Class frmModelViewer
         '
         'main_menu
         '
-        Me.main_menu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_help, Me.m_on_top})
+        Me.main_menu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_help, Me.m_on_top, Me.m_reset_view})
         Me.main_menu.Location = New System.Drawing.Point(0, 0)
         Me.main_menu.Name = "main_menu"
         Me.main_menu.Size = New System.Drawing.Size(831, 24)
@@ -122,7 +123,7 @@ Partial Class frmModelViewer
         Me.TabPage2.Location = New System.Drawing.Point(4, 25)
         Me.TabPage2.Name = "TabPage2"
         Me.TabPage2.Padding = New System.Windows.Forms.Padding(3)
-        Me.TabPage2.Size = New System.Drawing.Size(639, 442)
+        Me.TabPage2.Size = New System.Drawing.Size(649, 442)
         Me.TabPage2.TabIndex = 1
         Me.TabPage2.Text = "Visual"
         '
@@ -144,7 +145,6 @@ Partial Class frmModelViewer
         Me.FastColoredTextBox1.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.FastColoredTextBox1.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.FastColoredTextBox1.Dock = System.Windows.Forms.DockStyle.Fill
-        Me.FastColoredTextBox1.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.FastColoredTextBox1.IsReplaceMode = False
         Me.FastColoredTextBox1.LeftBracket = Global.Microsoft.VisualBasic.ChrW(60)
         Me.FastColoredTextBox1.LeftBracket2 = Global.Microsoft.VisualBasic.ChrW(40)
@@ -156,10 +156,19 @@ Partial Class frmModelViewer
         Me.FastColoredTextBox1.RightBracket2 = Global.Microsoft.VisualBasic.ChrW(41)
         Me.FastColoredTextBox1.SelectionColor = System.Drawing.Color.FromArgb(CType(CType(60, Byte), Integer), CType(CType(60, Byte), Integer), CType(CType(60, Byte), Integer), CType(CType(0, Byte), Integer))
         Me.FastColoredTextBox1.ServiceColors = CType(resources.GetObject("FastColoredTextBox1.ServiceColors"), FastColoredTextBoxNS.ServiceColors)
-        Me.FastColoredTextBox1.Size = New System.Drawing.Size(633, 436)
+        Me.FastColoredTextBox1.Size = New System.Drawing.Size(643, 436)
         Me.FastColoredTextBox1.TabIndex = 0
         Me.FastColoredTextBox1.Text = "FastColoredTextBox1"
         Me.FastColoredTextBox1.Zoom = 100
+        '
+        'm_reset_view
+        '
+        Me.m_reset_view.BackColor = System.Drawing.Color.FromArgb(CType(CType(224, Byte), Integer), CType(CType(224, Byte), Integer), CType(CType(224, Byte), Integer))
+        Me.m_reset_view.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.m_reset_view.ForeColor = System.Drawing.Color.Black
+        Me.m_reset_view.Name = "m_reset_view"
+        Me.m_reset_view.Size = New System.Drawing.Size(75, 20)
+        Me.m_reset_view.Text = "Reset View"
         '
         'frmModelViewer
         '
@@ -198,4 +207,5 @@ Partial Class frmModelViewer
     Friend WithEvents FastColoredTextBox1 As FastColoredTextBoxNS.FastColoredTextBox
     Friend WithEvents m_help As ToolStripMenuItem
     Friend WithEvents m_on_top As ToolStripMenuItem
+    Friend WithEvents m_reset_view As ToolStripMenuItem
 End Class

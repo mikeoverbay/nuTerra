@@ -2,7 +2,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
-#include "common.h"
+#include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
 
@@ -55,22 +55,22 @@ if (show_grid==1){
 if(show_border==1){
     //X border
     if (V.y +0.28 < bb_tr.y && V.y+1.28 > bb_bl.y){
-        if (V.x +0.28 < bb_bl.x && V.x +1.28 > bb_bl.x){
+        if (V.x +0.0 < bb_bl.x && V.x +1.28 > bb_bl.x){
                 gColor = vec4(1.0,0.0,0.0,0.95);
                 flag = 1;
         }
-        if (V.x +0.28 < bb_tr.x && V.x+1.28 > bb_tr.x){
+        if (V.x +0.28 < bb_tr.x && V.x+1.3 > bb_tr.x){
                 gColor = vec4(1.0,0.0,0.0,0.95);
                 flag = 1;
         }
     }
     //Y border
     if (V.x +0.28 < bb_tr.x && V.x+1.28 > bb_bl.x){
-        if (V.y +0.28 < bb_bl.y && V.y+1.28 > bb_bl.y){
+        if (V.y +0.0 < bb_bl.y && V.y+1.28 > bb_bl.y){
                 gColor = vec4(1.0,0.0,0.0,0.95);
                 flag = 1;
         }
-        if (V.y +0.28 < bb_tr.y && V.y+1.28 > bb_tr.y){
+        if (V.y +0.0 < bb_tr.y && V.y+1.28 > bb_tr.y){
                gColor = vec4(1.0,0.0,0.0,0.95);
                 flag = 1;
         }

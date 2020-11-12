@@ -52,12 +52,13 @@ Public Class frmModelViewer
             frmMain.glControl_main.Context.MakeCurrent(glControl_modelView.WindowInfo)
             set_prespective_view_ModelViewer()
 
-            GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
+            GL.ClearColor(0.55, 0.27, 0.00, 0.0F)
             GL.ClearDepth(1.0F)
             GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
             GL.Enable(EnableCap.DepthTest)
             GL.Disable(EnableCap.CullFace)
+
             ModelViewerShader.Use()
 
             GL.Uniform3(ModelViewerShader("lightColor"), 0.5F, 0.5F, 0.7F)
@@ -223,7 +224,7 @@ Public Class frmModelViewer
     Private Sub glControl_modelView_MouseMove(sender As Object, e As MouseEventArgs) Handles glControl_modelView.MouseMove
         Dim dead As Integer = 5
         Dim t As Single
-        Dim M_Speed As Single = 0.8
+        Dim M_Speed As Single = 0.4
         Dim ms As Single = 0.2F * V_RADIUS ' distance away changes speed.. THIS WORKS WELL!
         If MD Then
             If e.X > (MP.X + dead) Then
@@ -420,6 +421,13 @@ Public Class frmModelViewer
     Private Sub m_on_top_Click(sender As Object, e As EventArgs) Handles m_on_top.Click
         Me.TopMost = Me.TopMost Xor True
         If Me.TopMost Then m_on_top.ForeColor = Color.Red Else m_on_top.ForeColor = Color.Black
+    End Sub
+
+    Private Sub m_reset_view_Click(sender As Object, e As EventArgs) Handles m_reset_view.Click
+        MV_LOOK_AT_X = 0.0
+        MV_LOOK_AT_Y = 0.0
+        MV_LOOK_AT_Z = 0.0
+        V_RADIUS = -10.0
     End Sub
 
     Private Sub FastColoredTextBox1_TextChanged(sender As Object, E As TextChangedEventArgs) Handles FastColoredTextBox1.TextChanged

@@ -207,7 +207,7 @@ Module modRender
         'Dim matrix = Matrix4.CreateTranslation(New Vector3(0F, 100.0F, 0F))
         GL.Disable(EnableCap.DepthTest)
         GL.Enable(EnableCap.Blend)
-        Dim matrix = Matrix4.CreateTranslation(New Vector3(LIGHT_POS(0) + CAM_POSITION.X, LIGHT_POS(1) + CAM_POSITION.Y, LIGHT_POS(2) + CAM_POSITION.Z))
+        Dim matrix = Matrix4.CreateTranslation(New Vector3(LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2)))
 
 
         FF_BillboardShader.Use()
@@ -247,6 +247,7 @@ Module modRender
 
         GL_POP_GROUP()
     End Sub
+
     Private Sub color_correct()
         copy_default_to_gColor()
 
@@ -269,6 +270,7 @@ Module modRender
         unbind_textures(1)
 
     End Sub
+
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
         GL.CopyTextureSubImage2D(FBOm.gColor.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)

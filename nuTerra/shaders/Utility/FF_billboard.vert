@@ -33,13 +33,13 @@ void main(void)
         uv = vec2(1.0f, 0.0f);
     }
 
-    vec4 vertex = vec4(co * scale, 0.0f, 1.0f);
-    vertex.xyz *= scale;
     texCoord   = uv;
+
+    vec4 p = view * ( matrix[3] + vec4(cameraPos, 0.0) ) ;
+    p += vec4(co * scale * scale *0.5, 0.0f, 1.0f);
     
-    vec4 p = viewProj * matrix[3] ;
-    p.xyz -= vertex.xyz;
-    p = inverse(viewProj) * p;
+    p = inverse(view) * p ;
+    //p = viewProj * p;
 
     gl_Position =  viewProj * p;
 
