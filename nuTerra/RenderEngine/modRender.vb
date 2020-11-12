@@ -523,9 +523,6 @@ Module modRender
         MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
-        'assign subroutines
-        GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
-
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
 
@@ -538,8 +535,9 @@ Module modRender
 
         GL.DepthFunc(DepthFunction.Greater)
 
-
         FBOm.attach_CNGPA()
+        GL.DepthMask(True)
+
         '------------------------------------------------
         modelGlassShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -550,6 +548,7 @@ Module modRender
         modelGlassShader.StopUse()
 
         FBOm.attach_CNGP()
+        GL.DepthMask(False)
 
         If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
 
