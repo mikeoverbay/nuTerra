@@ -310,7 +310,9 @@ Module modRender
         ' Set this texture to 0 to test LQ/HQ transitions
 
         theMap.GLOBAL_AM_ID.BindUnit(0)
-        m_normal_id.BindUnit(1)
+        FBO_mixer_set.gColorArray.BindUnit(1)
+        FBO_mixer_set.gNormalArray.BindUnit(2)
+        FBO_mixer_set.gGmmArray.BindUnit(3)
 
         GL.Uniform3(TerrainLQShader("waterColor"),
                         Map_wetness.waterColor.X,
@@ -325,6 +327,9 @@ Module modRender
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
+
+                GL.Uniform1(TerrainLQShader("map_id"), CSng(i))
+
 
                 GL.UniformMatrix4(TerrainLQShader("modelMatrix"), False, theMap.render_set(i).matrix)
 
@@ -348,19 +353,12 @@ Module modRender
         TerrainShader.Use()  '<-------------- Shader Bind
         '------------------------------------------------
 
-        'shit load of textures to bind
 
-        TEST_IDS(0).BindUnit(21)
-        TEST_IDS(1).BindUnit(22)
-        TEST_IDS(2).BindUnit(23)
-        TEST_IDS(3).BindUnit(24)
-        TEST_IDS(4).BindUnit(25)
-        TEST_IDS(5).BindUnit(26)
-        TEST_IDS(6).BindUnit(27)
-        TEST_IDS(7).BindUnit(28)
+        theMap.GLOBAL_AM_ID.BindUnit(21)
 
-        theMap.GLOBAL_AM_ID.BindUnit(29)
-        m_normal_id.BindUnit(30)
+        FBO_mixer_set.gColorArray.BindUnit(22)
+        FBO_mixer_set.gNormalArray.BindUnit(23)
+        FBO_mixer_set.gGmmArray.BindUnit(24)
 
         'water BS
         GL.Uniform3(TerrainShader("waterColor"),
@@ -378,6 +376,8 @@ Module modRender
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
+
+                GL.Uniform1(TerrainShader("map_id"), CSng(i))
 
                 GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
 

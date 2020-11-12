@@ -682,6 +682,7 @@ Module MapLoader
         'As it says.. create the terrain
         If DONT_BLOCK_TERRAIN Then
             Create_Terrain()
+            make_LQ_textures()
             TERRAIN_LOADED = True
             PLAYER_FIELD_CELL_SIZE = Math.Abs(MAP_BB_BL.X - MAP_BB_UR.X) / 10.0F
             'TO DO and there is lots

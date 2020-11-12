@@ -8,10 +8,14 @@ layout (location = 4) out uint gPick;
 layout (location = 5) out vec4 gAux;
 
 layout(binding = 0) uniform sampler2D global_AM;
-layout(binding = 1) uniform sampler2D normalMap;
+layout(binding = 1) uniform sampler2DArray textArrayC;
+layout(binding = 2) uniform sampler2DArray textArrayN;
+layout(binding = 3) uniform sampler2DArray textArrayG;
+
 
 uniform vec3 waterColor;
 uniform float waterAlpha;
+uniform float map_id;
 
 in VS_OUT {
     vec4 Vertex;
@@ -21,13 +25,6 @@ in VS_OUT {
     vec2 Global_UV;
 } fs_in;
 
-// Converion from AG map to RGB vector.
-vec4 convertNormal(vec4 norm){
-        vec3 n;
-        n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);
-        n.z = max(sqrt(1.0 - (n.x*n.x - n.y *n.y)),0.0);
-        return vec4(n,0.0);
-}
 
 /*===========================================================*/
 
@@ -35,19 +32,18 @@ void main(void)
 {
     vec4 global = texture(global_AM, fs_in.Global_UV);
     // This is needed to light the global_AM.
-    vec4 g_nm = texture(normalMap, fs_in.UV);
-    vec4 n = vec4(0.0);
-    n.xyz = normalize(fs_in.TBN * vec3(convertNormal(g_nm).xyz));
-    //n.x*=-1.0;
-  
+    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, map_id) );
+    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, map_id) );
+    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, map_id) );
+
     // The obvious
-    gColor = global;
+    gColor = ArrayTextureC;
     gColor.rgb = mix(gColor.rgb ,waterColor, global.a * waterAlpha);
    
     gColor.a = 1.0;
 
-    gNormal.xyz = normalize(n.xyz);
-    gGMF = vec4(0.2, 0.0, 128.0/255.0, global.a*0.8);
+    gNormal.xyz = normalize(fs_in.TBN * ArrayTextureN.xyz);
+    gGMF = ArrayTextureG;
 
     gAux.rgb = waterColor;
     gAux.a = global.a * waterAlpha;
