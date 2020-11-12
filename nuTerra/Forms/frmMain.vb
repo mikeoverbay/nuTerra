@@ -185,6 +185,35 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         Me.Show()
         '-----------------------------------------------------------------------------------------
+        Application.DoEvents()
+        '-----------------------------------------------------------------------------------------
+        ' My.Settings is not working for some unknow reason so we will
+        ' load set these as the defualts wont load!
+        '-----------------------------------------------------------------------------------------
+        'My.Settings.Reload()
+        'frmCameraOptions.StartPosition = FormStartPosition.CenterParent
+        'frmCameraOptions.TopMost = False
+        'frmCameraOptions.SendToBack()
+        'frmCameraOptions.Show()
+        'Application.DoEvents()
+        'If My.Settings.fov = 1 Then
+        '    My.Settings.fov = 60
+        '    My.Settings.far = 20000
+        '    My.Settings.near = 0.1
+        '    My.Settings.mouse_speed = 0.8
+        'End If
+        'frmCameraOptions.NumericUpDown1.Value = My.Settings.fov
+        'frmCameraOptions.NumericUpDown2.Value = My.Settings.near
+        'frmCameraOptions.NumericUpDown3.Value = My.Settings.far
+        'frmCameraOptions.NumericUpDown4_speed.Value = My.Settings.mouse_speed
+
+        'frmCameraOptions.Hide()
+        'frmCameraOptions.TopMost = True
+        'frmCameraOptions.StartPosition = FormStartPosition.CenterParent
+        'Application.DoEvents()
+
+        '-----------------------------------------------------------------------------------------
+        '-----------------------------------------------------------------------------------------
 
         ' we dont want menu events while the app is initializing :)
         MainMenuStrip.Enabled = False
@@ -649,7 +678,7 @@ try_again:
                     LIGHT_ORBIT_ANGLE_Z += (DELTA_TIME * 0.5)
                     If LIGHT_ORBIT_ANGLE_Z > PI * 2 Then LIGHT_ORBIT_ANGLE_Z -= PI * 2
                     LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
-                    LIGHT_POS(1) = Cos(LIGHT_ORBIT_ANGLE_X) * LIGHT_RADIUS
+                    LIGHT_POS(1) = Sin(LIGHT_ORBIT_ANGLE_X) * LIGHT_RADIUS
                     LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
                 End If
                 CROSS_HAIR_TIME += (DELTA_TIME * 0.5)
@@ -790,7 +819,7 @@ try_again:
         'End If
         Dim dead As Integer = 5
         Dim t As Single
-        Dim M_Speed As Single = MOUSE_SPEED_GLOBAL
+        Dim M_Speed As Single = My.Settings.speed
         Dim ms As Single = 0.2F * view_radius ' distance away changes speed.. THIS WORKS WELL!
         If M_DOWN Then
             If e.X > (MOUSE.X + dead) Then
@@ -870,8 +899,8 @@ try_again:
         If MOVE_CAM_Z Then
             If e.Y > (MOUSE.Y + dead) Then
                 If e.Y - MOUSE.Y > 100 Then t = (10)
-            Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * 12 * MOUSE_SPEED_GLOBAL
-                view_radius += (t * (view_radius * 0.2))    ' zoom is factored in to Cam radius
+            Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * 12 * My.Settings.speed
+                VIEW_RADIUS += (t * (view_radius * 0.2))    ' zoom is factored in to Cam radius
                 If VIEW_RADIUS < max_zoom_out Then
                     VIEW_RADIUS = max_zoom_out
                 End If
@@ -879,8 +908,8 @@ try_again:
             End If
             If e.Y < (MOUSE.Y - dead) Then
                 If MOUSE.Y - e.Y > 100 Then t = (10)
-            Else : t = CSng(Sin((MOUSE.Y - e.Y) / 100)) * 12 * MOUSE_SPEED_GLOBAL
-                view_radius -= (t * (view_radius * 0.2))    ' zoom is factored in to Cam radius
+            Else : t = CSng(Sin((MOUSE.Y - e.Y) / 100)) * 12 * My.Settings.speed
+                VIEW_RADIUS -= (t * (view_radius * 0.2))    ' zoom is factored in to Cam radius
                 If view_radius > -0.01 Then view_radius = -0.01
                 MOUSE.Y = e.Y
             End If

@@ -8,7 +8,6 @@ Module FBO_Mixer
     ''' Creates the main rendering FBO
     ''' </summary>
     Public NotInheritable Class FBO_mixer_set
-        Private Shared old_texture_size As Point
         Public Shared gColorArray, gNormalArray, gGmmArray As GLTexture
         Public Shared texture_size As Point
         Public Shared LayerCount As Integer
@@ -20,22 +19,14 @@ Module FBO_Mixer
 
             frmMain.glControl_main.MakeCurrent()
 
-            ' Stop changing the size becuase of excessive window resize calls.
-            If texture_size <> old_texture_size Then
+            delete_textures_and_fbo()
+            create_arraytextures()
 
-                delete_textures_and_fbo()
-
-                'mipCount = 1 + Math.Floor(Math.Log(Math.Max(texture_size.X, texture_size.Y), 2))
-
-                create_arraytextures()
-
-                If Not create_fbo() Then
-                    MsgBox("Failed to create mini FBO" + vbCrLf + "I must shut down!", MsgBoxStyle.Exclamation, "We're Screwed!")
-                    End
-                End If
-                'set new size
-                old_texture_size = texture_size
+            If Not create_fbo() Then
+                MsgBox("Failed to create mini FBO" + vbCrLf + "I must shut down!", MsgBoxStyle.Exclamation, "We're Screwed!")
+                End
             End If
+
         End Sub
 
         Public Shared Sub attach_array_layer(ByVal layer As Integer)
@@ -58,6 +49,7 @@ Module FBO_Mixer
             If gNormalArray IsNot Nothing Then gNormalArray.Delete()
             If gGmmArray IsNot Nothing Then gGmmArray.Delete()
             If FBO_Mixer_ID > 0 Then GL.DeleteFramebuffer(FBO_Mixer_ID)
+            GL.Finish() 'make sure we are done
         End Sub
 
         Public Shared Sub create_arraytextures()
@@ -93,6 +85,8 @@ Module FBO_Mixer
             gGmmArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
             gGmmArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
             gGmmArray.Storage3D(mipCount - 1, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
+
+            GL.Finish()
         End Sub
 
         Public Shared Function create_fbo() As Boolean

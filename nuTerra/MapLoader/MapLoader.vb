@@ -735,6 +735,10 @@ Module MapLoader
         LIGHT_POS.Z = LIGHT_POS(2)
         LIGHT_RADIUS = Math.Sqrt(LIGHT_POS.X ^ 2 + LIGHT_POS.Z ^ 2)
         LIGHT_ORBIT_ANGLE = Math.Atan2(LIGHT_RADIUS / LIGHT_POS.Z, LIGHT_RADIUS / LIGHT_POS.Y)
+        LIGHT_POS(0) = Math.Cos(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
+        LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X) * LIGHT_RADIUS
+        LIGHT_POS(2) = Math.Sin(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
+
     End Sub
 
     Private Structure AtlasCoords
@@ -1230,6 +1234,9 @@ Module MapLoader
 
         'Clear texture cache so we dont returned non-existent textures.
         imgTbl.Clear()
+
+        'clean up mixing FBO
+        FBO_mixer_set.delete_textures_and_fbo()
 
         GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce
         GC.Collect()

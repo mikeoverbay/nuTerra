@@ -11,7 +11,7 @@ Imports System.Runtime.InteropServices
 
 Public Class frmGbufferViewer
     Private image_scale As Single = 0.25
-    Public Viewer_Image_ID As Integer = -1
+    Public Viewer_Image_ID As Integer = 1
     Dim PROJECTIONMATRIX_GLC As Matrix4
     Dim GLC_VA As Integer
     Dim MASK As UInt32 = &HF
@@ -53,6 +53,7 @@ Public Class frmGbufferViewer
         GLC.MakeCurrent()
         GLC_VA = CreateVertexArray("GLC_VA")
         update_screen()
+        b_color.PerformClick()
     End Sub
 
     Private Sub CheckedChanged(sender As Object, e As EventArgs)
