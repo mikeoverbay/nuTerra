@@ -166,7 +166,7 @@ Module modGlobalVars
     Public BASES_LOADED As Boolean
     Public SKY_LOADED As Boolean
     Public WATER_LOADED As Boolean
-
+    Public BASE_RINGS_LOADED As Boolean
     'Block loading flags. They are used for skipping loading of data.
     Public DONT_BLOCK_TERRAIN As Boolean
     Public DONT_BLOCK_TREES As Boolean

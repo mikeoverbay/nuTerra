@@ -319,7 +319,7 @@ Module MapLoader
 
         '===============================================================
         'get the light settings for this map.
-        frmLighting.get_light_settings()
+        frmLightSettings.get_light_settings()
         '===============================================================
 
         '===============================================================

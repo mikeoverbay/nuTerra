@@ -43,12 +43,12 @@ Partial Class frmMain
         Me.m_block_loading = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_show_gbuffer = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_camera_options = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_screen_capture = New System.Windows.Forms.ToolStripMenuItem()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.FolderBrowserDialog1 = New System.Windows.Forms.FolderBrowserDialog()
         Me.map_loader = New System.Windows.Forms.Timer(Me.components)
         Me.Panel1 = New System.Windows.Forms.Panel()
-        Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         Me.SuspendLayout()
         '
@@ -187,6 +187,17 @@ Partial Class frmMain
         Me.m_camera_options.Size = New System.Drawing.Size(195, 22)
         Me.m_camera_options.Text = "Camera Options"
         '
+        'm_help
+        '
+        Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center
+        Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
+        Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
+        Me.m_help.ImageTransparentColor = System.Drawing.Color.Transparent
+        Me.m_help.Name = "m_help"
+        Me.m_help.Size = New System.Drawing.Size(28, 20)
+        Me.m_help.TextImageRelation = System.Windows.Forms.TextImageRelation.Overlay
+        '
         'm_screen_capture
         '
         Me.m_screen_capture.Name = "m_screen_capture"
@@ -208,26 +219,15 @@ Partial Class frmMain
         Me.Panel1.Dock = System.Windows.Forms.DockStyle.Fill
         Me.Panel1.Location = New System.Drawing.Point(0, 24)
         Me.Panel1.Name = "Panel1"
-        Me.Panel1.Size = New System.Drawing.Size(956, 549)
+        Me.Panel1.Size = New System.Drawing.Size(956, 655)
         Me.Panel1.TabIndex = 2
-        '
-        'm_help
-        '
-        Me.m_help.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
-        Me.m_help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center
-        Me.m_help.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image
-        Me.m_help.Image = Global.nuTerra.My.Resources.Resources.question
-        Me.m_help.ImageTransparentColor = System.Drawing.Color.Transparent
-        Me.m_help.Name = "m_help"
-        Me.m_help.Size = New System.Drawing.Size(28, 20)
-        Me.m_help.TextImageRelation = System.Windows.Forms.TextImageRelation.Overlay
         '
         'frmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.Black
-        Me.ClientSize = New System.Drawing.Size(956, 573)
+        Me.ClientSize = New System.Drawing.Size(956, 679)
         Me.Controls.Add(Me.Panel1)
         Me.Controls.Add(Me.frmMainMenu)
         Me.ForeColor = System.Drawing.Color.Black

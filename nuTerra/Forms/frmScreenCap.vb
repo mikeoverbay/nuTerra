@@ -10,7 +10,7 @@ Public Class frmScreenCap
                 Save_Dialog.Filter = "PNG|*.png"
                 Save_Dialog.Title = "Save PNG"
             Case rb_jpg.Checked
-                Save_Dialog.Filter = "JPG|*.png"
+                Save_Dialog.Filter = "JPG|*.jpg"
                 Save_Dialog.Title = "Save JPG"
             Case rb_dds.Checked
                 Il.ilSetInteger(Il.IL_DXTC_FORMAT, Il.IL_DXT5)

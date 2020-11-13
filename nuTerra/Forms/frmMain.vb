@@ -89,16 +89,16 @@ Public Class frmMain
                 If MAP_LOADED Then frmGbufferViewer.Show()
 
             Case Keys.E
-                frmEditFrag.Show()
+                frmProgramEditor.Show()
 
             Case Keys.I
                 SHOW_CHUNK_IDs = SHOW_CHUNK_IDs Xor True
 
             Case Keys.L
-                If Not frmLighting.Visible Then
+                If Not frmLightSettings.Visible Then
                     m_light_settings.PerformClick()
                 Else
-                    frmLighting.Visible = False
+                    frmLightSettings.Visible = False
                 End If
 
             Case Keys.M
@@ -184,35 +184,7 @@ Public Class frmMain
 
         '-----------------------------------------------------------------------------------------
         Me.Show()
-        '-----------------------------------------------------------------------------------------
         Application.DoEvents()
-        '-----------------------------------------------------------------------------------------
-        ' My.Settings is not working for some unknow reason so we will
-        ' load set these as the defualts wont load!
-        '-----------------------------------------------------------------------------------------
-        'My.Settings.Reload()
-        'frmCameraOptions.StartPosition = FormStartPosition.CenterParent
-        'frmCameraOptions.TopMost = False
-        'frmCameraOptions.SendToBack()
-        'frmCameraOptions.Show()
-        'Application.DoEvents()
-        'If My.Settings.fov = 1 Then
-        '    My.Settings.fov = 60
-        '    My.Settings.far = 20000
-        '    My.Settings.near = 0.1
-        '    My.Settings.mouse_speed = 0.8
-        'End If
-        'frmCameraOptions.NumericUpDown1.Value = My.Settings.fov
-        'frmCameraOptions.NumericUpDown2.Value = My.Settings.near
-        'frmCameraOptions.NumericUpDown3.Value = My.Settings.far
-        'frmCameraOptions.NumericUpDown4_speed.Value = My.Settings.mouse_speed
-
-        'frmCameraOptions.Hide()
-        'frmCameraOptions.TopMost = True
-        'frmCameraOptions.StartPosition = FormStartPosition.CenterParent
-        'Application.DoEvents()
-
-        '-----------------------------------------------------------------------------------------
         '-----------------------------------------------------------------------------------------
 
         ' we dont want menu events while the app is initializing :)
@@ -280,10 +252,10 @@ Public Class frmMain
 
     Private Sub m_light_settings_Click(sender As Object, e As EventArgs) Handles m_light_settings.Click
         'Opens light setting window
-        If Not frmLighting.Visible Then
-            frmLighting.Show()
+        If Not frmLightSettings.Visible Then
+            frmLightSettings.Show()
         Else
-            frmLighting.Hide()
+            frmLightSettings.Hide()
         End If
     End Sub
 
@@ -482,12 +454,12 @@ try_again:
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
         'Must load and hide frmLighting to access its functions.
-        frmLighting.StartPosition = FormStartPosition.CenterParent
-        frmLighting.TopMost = False
-        frmLighting.SendToBack()
-        frmLighting.Show()
-        frmLighting.Visible = False
-        frmLighting.TopMost = True
+        frmLightSettings.StartPosition = FormStartPosition.CenterParent
+        frmLightSettings.TopMost = False
+        frmLightSettings.SendToBack()
+        frmLightSettings.Show()
+        frmLightSettings.Visible = False
+        frmLightSettings.TopMost = True
         '-----------------------------------------------------------------------------------------
         'we are ready for user input so lets enable the menu
         MainMenuStrip.Enabled = True

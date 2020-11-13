@@ -189,10 +189,10 @@
     <Compile Include="Forms\frmCameraOptions.vb">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\frmLighting.designer.vb">
-      <DependentUpon>frmLighting.vb</DependentUpon>
+    <Compile Include="Forms\frmLightSettings.designer.vb">
+      <DependentUpon>frmLightSettings.vb</DependentUpon>
     </Compile>
-    <Compile Include="Forms\frmLighting.vb">
+    <Compile Include="Forms\frmLightSettings.vb">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\frmMain.vb">
@@ -237,7 +237,7 @@
     <Compile Include="MapLoader\TerrainBuilder.vb" />
     <Compile Include="MapLoader\TerrainTextureFunctions.vb" />
     <Compile Include="ModelLoaders\modXfile.vb" />
-    <Compile Include="Modules\CubeMapLoader.vb" />
+    <Compile Include="Modules\modCubeMapLoader.vb" />
     <Compile Include="Modules\modFrustum.vb" />
     <Compile Include="OpenGL\modOpenGLAliases.vb" />
     <Compile Include="RenderEngine\LoadingScreen.vb" />
@@ -267,10 +267,10 @@
     <Compile Include="RenderEngine\ModelPicker.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
-    <Compile Include="Forms\frmEditFrag.designer.vb">
-      <DependentUpon>frmEditFrag.vb</DependentUpon>
+    <Compile Include="Forms\frmProgramEditor.designer.vb">
+      <DependentUpon>frmProgramEditor.vb</DependentUpon>
     </Compile>
-    <Compile Include="Forms\frmEditFrag.vb">
+    <Compile Include="Forms\frmProgramEditor.vb">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\frmShaderError.Designer.vb">
@@ -290,8 +290,8 @@
     <EmbeddedResource Include="Forms\frmCameraOptions.resx">
       <DependentUpon>frmCameraOptions.vb</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmLighting.resx">
-      <DependentUpon>frmLighting.vb</DependentUpon>
+    <EmbeddedResource Include="Forms\frmLightSettings.resx">
+      <DependentUpon>frmLightSettings.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmMain.resx">
       <DependentUpon>frmMain.vb</DependentUpon>
@@ -317,8 +317,8 @@
       <CustomToolNamespace>My.Resources</CustomToolNamespace>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmEditFrag.resx">
-      <DependentUpon>frmEditFrag.vb</DependentUpon>
+    <EmbeddedResource Include="Forms\frmProgramEditor.resx">
+      <DependentUpon>frmProgramEditor.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmShaderError.resx">
       <DependentUpon>frmShaderError.vb</DependentUpon>
@@ -430,6 +430,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\PostProcessing\FXAA.vert.spv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Trials\cull.comp.spv">
@@ -588,9 +594,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="data\glsl_filtered_strings.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="data\map_list.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="data\TheItemList.xml">

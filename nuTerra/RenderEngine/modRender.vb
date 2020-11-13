@@ -106,7 +106,7 @@ Module modRender
             '=======================================================================
 
             '=======================================================================
-            draw_terrain_base_rings() '=============================================
+            'draw_terrain_base_rings() '=============================================
             '=======================================================================
             'restore settings after projected objects are drawn
             GL.Disable(EnableCap.Blend)
@@ -166,6 +166,15 @@ Module modRender
             copy_default_to_gColor()
             glassPass()
         End If
+
+        '===========================================================================
+        'ortho projection decals
+        If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
+            copy_default_to_gColor()
+            draw_base_rings_deferred()
+        End If
+        '===========================================================================
+
         If DONT_HIDE_HUD Then
             '===========================================================================
             'color_correct()
@@ -197,6 +206,52 @@ Module modRender
         End If
 
         FPS_COUNTER += 1
+    End Sub
+
+    Private Sub draw_base_rings_deferred()
+        If Not BASE_RINGS_LOADED Then
+            Return
+        End If
+        GL_PUSH_GROUP("draw_terrain_base_rings_deferred")
+
+        BaseRingProjectorDeferred.Use()
+
+        GL.Disable(EnableCap.CullFace)
+        'GL.Uniform1(BaseRingProjectorDeferred("depthMap"), 0)
+        'GL.Uniform1(BaseRingProjectorDeferred("gGMF"), 1)
+        'GL.Uniform1(BaseRingProjectorDeferred("gPosition"), 2)
+        FBOm.gDepth.BindUnit(0)
+        FBOm.gGMF.BindUnit(1)
+        FBOm.gPosition.BindUnit(2)
+
+        'constants
+        GL.Uniform1(BaseRingProjectorDeferred("radius"), 50.0F)
+        GL.Uniform1(BaseRingProjectorDeferred("thickness"), 2.0F)
+        Dim rotate = Matrix4.CreateRotationX(1.570796)
+        Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
+
+        ' base 1 ring
+        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
+        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
+        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjectorDeferred("color"), OpenTK.Graphics.Color4.Green)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        'base 2 ring
+        model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
+        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
+        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjectorDeferred("color"), OpenTK.Graphics.Color4.Red)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        BaseRingProjectorDeferred.StopUse()
+        unbind_textures(2)
+
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_sun()
@@ -471,6 +526,7 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
+
     Private Sub model_depth_pass()
         'This is just to depth pass write to allow early z reject and stop
         ' wetness from showing through the models.
@@ -660,11 +716,11 @@ Module modRender
         'GL.Uniform1(deferredShader("gDepth"), 4)
 
         'Lighting settings
-        GL.Uniform1(deferredShader("AMBIENT"), frmLighting.lighting_ambient)
-        GL.Uniform1(deferredShader("BRIGHTNESS"), frmLighting.lighting_terrain_texture)
-        GL.Uniform1(deferredShader("SPECULAR"), frmLighting.lighting_specular_level)
-        GL.Uniform1(deferredShader("GRAY_LEVEL"), frmLighting.lighting_gray_level)
-        GL.Uniform1(deferredShader("GAMMA_LEVEL"), frmLighting.lighting_gamma_level)
+        GL.Uniform1(deferredShader("AMBIENT"), frmLightSettings.lighting_ambient)
+        GL.Uniform1(deferredShader("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
+        GL.Uniform1(deferredShader("SPECULAR"), frmLightSettings.lighting_specular_level)
+        GL.Uniform1(deferredShader("GRAY_LEVEL"), frmLightSettings.lighting_gray_level)
+        GL.Uniform1(deferredShader("GAMMA_LEVEL"), frmLightSettings.lighting_gamma_level)
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
@@ -867,6 +923,10 @@ Module modRender
     End Sub
 
     Private Sub draw_terrain_base_rings()
+
+        If Not BASE_RINGS_LOADED Then
+            Return
+        End If
 
         GL_PUSH_GROUP("draw_terrain_base_rings")
 

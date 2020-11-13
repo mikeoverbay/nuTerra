@@ -3,6 +3,7 @@ Imports System.Runtime.InteropServices
 Imports System.Text
 Imports Ionic
 Imports Ionic.Zip
+Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
@@ -201,6 +202,11 @@ Module TerrainTextureFunctions
                 sec_sizes(i) = br2.ReadUInt32
             Next
             'ReDim .TexLayers(section_cnt)
+
+            If _Write_texture_info Then
+                sb.AppendLine(String.Format("MAP ID {0}", map.ToString))
+            End If
+
             For i = 0 To 3
                 Dim len = sec_sizes(i)
                 If len > 0 Then
@@ -269,11 +275,68 @@ Module TerrainTextureFunctions
                     .TexLayers(i).uP2 = .layer.render_info(cur_layer_info_pnt + 1).u
                     .TexLayers(i).vP2 = .layer.render_info(cur_layer_info_pnt + 1).v
                     '.TexLayers(i).scale_b = .layer.render_info(cur_layer_info_pnt + 1).scale
+                    If _Write_texture_info Then
+
+                        ' part 1 ======================================================
+                        sb.AppendLine(String.Format("A {0} --------------------------------------------", cur_layer_info_pnt.ToString))
+
+                        If .TexLayers(i).AM_name1 = "" Then
+                            sb.AppendLine("-= EMPTY =-")
+                        Else
+                            sb.AppendLine(.TexLayers(i).AM_name1)
+                        End If
+
+                        sb.Append(String.Format("{0,-8}", "uP1"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).u)
+
+                        sb.Append(String.Format("{0,-8}", "vP1"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).v)
+
+                        sb.Append(String.Format("{0,-8}", "v1"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).v1)
+
+                        sb.Append(String.Format("{0,-8}", "r1"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).r1)
+
+                        sb.Append(String.Format("{0,-8}", "r2"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).r2)
+
+                        sb.Append(String.Format("{0,-8}", "Scale"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).scale)
+
+                        ' part 2 ======================================================
+                        sb.AppendLine(String.Format("B {0} --------------------------------------------", cur_layer_info_pnt + 1.ToString))
+                        If .TexLayers(i).AM_name2 = "" Then
+                            sb.AppendLine("-= EMPTY =-")
+                        Else
+                            sb.AppendLine(.TexLayers(i).AM_name2)
+                        End If
+
+                        sb.Append(String.Format("{0,-8}", "uP2"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).u)
+
+                        sb.Append(String.Format("{0,-8}", "vP2"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).v)
+
+                        sb.Append(String.Format("{0,-8}", "v1"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).v1)
+
+                        sb.Append(String.Format("{0,-8}", "r1"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).r1)
+
+                        sb.Append(String.Format("{0,-8}", "r2"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).r2)
+
+                        sb.Append(String.Format("{0,-8}", "Scale"))
+                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).scale)
+                        '=============================================================
+                    End If
 
                     cur_layer_info_pnt += 2
                     .layer_count += 1
                 End If
             Next
+            sb.AppendLine("")
 
             ms2.Dispose()
             GC.Collect()
@@ -281,7 +344,10 @@ Module TerrainTextureFunctions
 
         Return True
     End Function
-
+    Private Sub write_vec4(ByRef v As Vector4)
+        sb.AppendLine(String.Format("{0,-8:F4} {1,-8:F4} {2,-8:F4} {3,-8:F4}",
+                                 v.X.ToString, v.Y.ToString, v.Z.ToString, v.W.ToString))
+    End Sub
     Public Function find_and_trim(ByRef fn As String) As GLTexture
         'finds and loads and returns the GL texture ID.
         Dim id = image_exists(fn) 'Check if this has been loaded already.
