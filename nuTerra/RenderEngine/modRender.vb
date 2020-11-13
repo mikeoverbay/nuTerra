@@ -171,7 +171,19 @@ Module modRender
         'ortho projection decals
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             copy_default_to_gColor()
+
+            GL.DepthMask(False)
+            GL.FrontFace(FrontFaceDirection.Cw)
+            GL.Enable(EnableCap.Blend)
+            GL.Enable(EnableCap.CullFace)
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
             draw_base_rings_deferred()
+
+            GL.Disable(EnableCap.Blend)
+            GL.DepthMask(True)
+            GL.Disable(EnableCap.CullFace)
+            GL.FrontFace(FrontFaceDirection.Ccw)
         End If
         '===========================================================================
 

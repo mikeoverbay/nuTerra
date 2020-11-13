@@ -32,32 +32,16 @@ void main (void)
     // Transform position from screen space to world space
     vec4 WorldPosition = invViewProj * ScreenPosition ;
     WorldPosition.xyz /= WorldPosition.w;
-    
-    //This should not be needed. PositionIn needs to stay in world space!
-    //PositionIn = fs_in.ORTHOVIEW * PositionIn;
-
-    // WorldPosition and PositionIn in are in world space projection
-    // at this point.
-    if (WorldPosition.xyz == PositionIn.xyz) 
-    {
-
-        //move to ortho projection
-        WorldPosition = ORTHOPROJECTION * WorldPosition;
 
 
+    float rs = length(WorldPosition.xz - ring_center.xz);
 
-        float rs = length(WorldPosition.xz - ring_center.xz);
-        float t = 1.0+ smoothstep(radius, radius+thickness, rs) 
-                        - smoothstep(radius-thickness, radius, rs);
-
-
-
-        if (colorOut.a > 0.0) discard;
-            //un rem to draw gPosition texture
-            //gColor.rgb *= PositionIn.rgb;
-            colorOut = color;
-            colorOut.a = 1.0-t;
+    float t = 1.0+ smoothstep(radius, radius+thickness, rs) 
+    - smoothstep(radius-thickness, radius, rs);
 
 
-    }// WorldPosition.z == PositionIn.z
+    if (colorOut.a < 0.0) discard;
+    colorOut = color;
+    colorOut.a = 1.0-t;
+  
 }

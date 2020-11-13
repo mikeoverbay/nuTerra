@@ -5,12 +5,10 @@
 #define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
 
-//Atempt to draw persective model in ortho mode
+
 layout(location = 0) in vec3 vertexPosition;
 
-
 uniform mat4 ModelMatrix;
-uniform mat4 ORTHOPROJECTION;
 
 void main(void)
 {
