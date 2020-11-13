@@ -39,8 +39,6 @@ void main (void)
     float t = 1.0+ smoothstep(radius, radius+thickness, rs) 
     - smoothstep(radius-thickness, radius, rs);
 
-
-    if (colorOut.a < 0.0) discard;
     colorOut = color;
     colorOut.a = 1.0-t;
   
