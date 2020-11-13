@@ -149,6 +149,7 @@ Module ShaderLoader
 
     Public shaders As List(Of Shader)
     Public BaseRingProjector As Shader
+    Public BaseRingProjectorDeferred As Shader
     Public boxShader As Shader
     Public cullShader As Shader
     Public colorCorrectShader As Shader
@@ -198,6 +199,7 @@ Module ShaderLoader
 
         'Try and keep these in alphabetical order 
         BaseRingProjector = New Shader("BaseRingProjector")
+        BaseRingProjectorDeferred = New Shader("BaseRingProjectorDeferred")
         boxShader = New Shader("box")
         cullShader = New Shader("cull")
         colorCorrectShader = New Shader("colorCorrect")
@@ -233,6 +235,7 @@ Module ShaderLoader
 
         shaders = New List(Of Shader)
         shaders.Add(BaseRingProjector)
+        shaders.Add(BaseRingProjectorDeferred)
         shaders.Add(boxShader)
         shaders.Add(cullShader)
         shaders.Add(colorCorrectShader)

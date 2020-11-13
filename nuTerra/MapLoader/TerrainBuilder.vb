@@ -2,8 +2,11 @@
 Imports System.Runtime.InteropServices
 Imports OpenTK
 Imports Tao.DevIl
+Imports System.Text
 
 Module TerrainBuilder
+    Public sb As New StringBuilder
+    Public _Write_texture_info As Boolean = True
 
 #Region "Terrain Storage"
     Public Map_wetness As wetness_
@@ -255,6 +258,7 @@ Module TerrainBuilder
         LogThis(String.Format("Smooth Seams: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Restart()
 
+        sb.Clear()
 
         BG_VALUE = 0
         BG_TEXT = "Reading Terrain Texture data..."
@@ -264,7 +268,10 @@ Module TerrainBuilder
             draw_scene()
             Application.DoEvents()
         Next
-
+        If _Write_texture_info Then
+            LogThis("sSaved Texture transform data")
+            File.WriteAllText(TEMP_STORAGE + "\" + MAP_NAME_NO_PATH + "_Tex_info.txt", sb.ToString)
+        End If
         LogThis(String.Format("Get Layers data and textures: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Restart()
 
@@ -292,7 +299,10 @@ Module TerrainBuilder
         GC.WaitForFullGCComplete()
         '==========================================================
         'Get the settings for this map
-        get_team_locations_and_field_BB(ABS_NAME)
+        BASE_RINGS_LOADED = False
+        If get_team_locations_and_field_BB(ABS_NAME) Then
+            BASE_RINGS_LOADED = True
+        End If
 
         '==========================================================
         'get minimap
@@ -433,10 +443,18 @@ Module TerrainBuilder
             f.Extract(ms)
             openXml_stream(ms, abs_name)
         End If
-
+        Dim q As EnumerableRowCollection(Of String)
         Dim ds As DataSet = xmldataset.Copy
         Dim te As DataTable = ds.Tables("File_" + abs_name)
-        Dim q = From row In te Select ename = row.Field(Of String)("environment")
+
+        If te.Columns("environment") IsNot Nothing Then
+            q = From row In te Select ename = row.Field(Of String)("environment")
+        End If
+
+        If te.Columns("activeEnvironment") IsNot Nothing Then
+            q = From row In te Select ename = row.Field(Of String)("activeEnvironment")
+        End If
+
 
         '===========================================================================
         'get skybox and cube texture paths
@@ -577,6 +595,9 @@ Module TerrainBuilder
         Dim t As DataSet = xmldataset.Copy
         Dim bb As DataTable = t.Tables("boundingbox")
         Dim t1 As DataTable = t.Tables("team1")
+        If t1 Is Nothing Then
+            Return False
+        End If
         Dim t2 As DataTable = t.Tables("team2")
         Dim s1 As String = t1.Rows(0).Item(0)
         Dim s2 As String = t2.Rows(0).Item(0)

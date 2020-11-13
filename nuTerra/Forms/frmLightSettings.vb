@@ -1,6 +1,6 @@
 ﻿Imports System.IO
 
-Public Class frmLighting
+Public Class frmLightSettings
     Public lighting_terrain_texture, lighting_ambient, lighting_fog_level, lighting_gray_level As Single
     Public lighting_specular_level, lighting_gamma_level As Single
     Public Sub save_light_settings()

@@ -12,7 +12,7 @@ Imports System.Text.RegularExpressions
 Imports System.Drawing.Drawing2D
 Imports System.ComponentModel
 #End Region
-Public Class frmEditFrag
+Public Class frmProgramEditor
 #Region "variables"
 
     Private f_app_path As String
@@ -296,5 +296,14 @@ Public Class frmEditFrag
     Private Sub help_Click(sender As Object, e As EventArgs) Handles help.Click
         Dim p = Application.StartupPath + "\HTML\FCTB_HELP.html"
         Process.Start(p)
+    End Sub
+
+    Private Sub CheckBox1_CheckedChanged(sender As Object, e As EventArgs) Handles CheckBox1.CheckedChanged
+        Me.TopMost = CheckBox1.Checked
+        If Me.TopMost = True Then
+            CheckBox1.ForeColor = Color.Red
+        Else
+            CheckBox1.ForeColor = Color.Black
+        End If
     End Sub
 End Class

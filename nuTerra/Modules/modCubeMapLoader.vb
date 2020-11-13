@@ -3,7 +3,7 @@ Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 Imports System.IO
 
-Module CubeMapLoader
+Module modCubeMapLoader
     Public Sub load_cube_and_cube_map()
         If CUBE_TEXTURE_ID IsNot Nothing Then CUBE_TEXTURE_ID.Delete()
 

@@ -1,5 +1,5 @@
 ﻿<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()> _
-Partial Class frmLighting
+Partial Class frmLightSettings
     Inherits System.Windows.Forms.Form
 
     'Form overrides dispose to clean up the component list.

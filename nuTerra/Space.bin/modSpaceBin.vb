@@ -398,6 +398,7 @@ CleanUp:
                         "g_baseColor",
                         "dirtAlbedoMap",
                         "glassMap",
+                        "g_applyScreenSpaceMorphing",
                         "g_aging"
                     })
                     For Each name In props.Keys
@@ -748,6 +749,7 @@ got_it:
                         "texAddressMode",
                         "doubleSided",
                         "selfIllumination",
+                        "applyOverlay",
                         "alphaTestEnable"
                     })
                     For Each name In props.Keys
@@ -792,6 +794,7 @@ got_it:
                         "doubleSided",
                         "selfIllumination",
                         "dirtAlbedoMap",
+                        "applyOverlay",
                         "glassMap"
                     })
                     For Each name In props.Keys
