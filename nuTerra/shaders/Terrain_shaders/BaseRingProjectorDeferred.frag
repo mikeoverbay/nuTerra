@@ -38,7 +38,7 @@ void main (void)
 
     // WorldPosition and PositionIn in are in world space projection
     // at this point.
-    if (WorldPosition.z == PositionIn.z) 
+    if (WorldPosition.xyz == PositionIn.xyz) 
     {
 
         //move to ortho projection
@@ -52,13 +52,12 @@ void main (void)
 
 
 
-        if (colorOut.a > 0.0)
-        {
+        if (colorOut.a > 0.0) discard;
             //un rem to draw gPosition texture
             //gColor.rgb *= PositionIn.rgb;
             colorOut = color;
             colorOut.a = 1.0-t;
-        }
+
 
     }// WorldPosition.z == PositionIn.z
 }
