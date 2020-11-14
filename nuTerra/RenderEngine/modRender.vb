@@ -250,15 +250,15 @@ Module modRender
         Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
 
         'check in side of cube
-        Dim alpha As Single = 1.0
         If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
-            GL.FrontFace(FrontFaceDirection.Cw)
+            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
         Else
-            GL.FrontFace(FrontFaceDirection.Ccw)
+            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
         End If
+
         GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
         GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(0.0F, 128.0F, 0.0F, alpha))
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(0.0F, 128.0F, 0.0F, 0.5F))
 
         GL.BindVertexArray(CUBE_VAO)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
@@ -268,15 +268,14 @@ Module modRender
 
         'check in side of cube
         If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
-            GL.FrontFace(FrontFaceDirection.Cw)
-            'alpha = 0.75
+            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
         Else
-            GL.FrontFace(FrontFaceDirection.Cw)
-            'alpha = 1.0
+            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(False))
         End If
+
         GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
         GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(128.0F, 0.0F, 0.0F, alpha))
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(128.0F, 0.0F, 0.0F, 0.5F))
 
         GL.BindVertexArray(CUBE_VAO)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
@@ -1416,13 +1415,23 @@ Module modRender
         'rotate * scale * translate
         'point in world space to check if its in out side of the cube
         'based on a 1 x 1 x 1 cube
-        Dim VTL As New Vector4(0.5, 0.5, -0.5, 1.0)
-        Dim VBR As New Vector4(-0.5, -0.5, 0.5, 1.0)
-        VTL = VTL * scale * rot * translate
-        VBR = VBR * scale * rot * translate
-        If VTL.X <= point.X Or VBR.X >= point.X Then Return False
-        If VTL.Y <= point.Y Or VBR.Y >= point.Y Then Return False
-        If VTL.Z <= point.Z Or VBR.Z <= point.Z Then Return False
+
+        ' get translate
+        Dim trans As Vector4 = translate.Row3
+        trans.Normalize()
+        Dim p = New Vector4(point, 0.0)
+        p.Normalize()
+        p = p * scale * rot + trans
+
+        Dim VTL As New Vector4(0.5, 0.5, 0.5, 1.0)
+        Dim VBR As New Vector4(-0.5, -0.5, -0.5, 1.0)
+        VTL = VTL * scale + trans
+        VBR = VBR * scale + trans
+
+        If VTL.X <= p.X Or VBR.X >= p.X Then Return False
+        If VTL.Y <= p.Z Or VBR.Y >= p.Z Then Return False
+        If VTL.Z >= p.y Or VBR.Z >= p.y Then Return False
+
         Return True
     End Function
 
