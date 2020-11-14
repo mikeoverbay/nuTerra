@@ -54,7 +54,7 @@ Partial Class frmProgramEditor
         Me.Label1 = New System.Windows.Forms.Label()
         Me.search_btn = New System.Windows.Forms.Button()
         Me.help = New System.Windows.Forms.Button()
-        Me.CheckBox1 = New System.Windows.Forms.CheckBox()
+        Me.Button1 = New System.Windows.Forms.Button()
         Me.TabControl1.SuspendLayout()
         Me.TabPage1.SuspendLayout()
         CType(Me.vert_tb, System.ComponentModel.ISupportInitialize).BeginInit()
@@ -73,8 +73,7 @@ Partial Class frmProgramEditor
         'recompile_bt
         '
         Me.recompile_bt.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
-        Me.recompile_bt.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Silver
-        Me.recompile_bt.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
+        Me.recompile_bt.FlatAppearance.BorderColor = System.Drawing.Color.White
         Me.recompile_bt.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.recompile_bt.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.recompile_bt.ForeColor = System.Drawing.Color.White
@@ -129,6 +128,7 @@ Partial Class frmProgramEditor
         Me.vert_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.vert_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.vert_tb.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.vert_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.vert_tb.ForeColor = System.Drawing.Color.White
         Me.vert_tb.IsReplaceMode = False
         Me.vert_tb.Location = New System.Drawing.Point(3, 3)
@@ -173,7 +173,7 @@ Partial Class frmProgramEditor
         Me.TabPage2.Location = New System.Drawing.Point(4, 22)
         Me.TabPage2.Name = "TabPage2"
         Me.TabPage2.Padding = New System.Windows.Forms.Padding(3)
-        Me.TabPage2.Size = New System.Drawing.Size(647, 559)
+        Me.TabPage2.Size = New System.Drawing.Size(683, 557)
         Me.TabPage2.TabIndex = 1
         Me.TabPage2.Text = "Fragment Program"
         Me.TabPage2.UseVisualStyleBackColor = True
@@ -194,6 +194,7 @@ Partial Class frmProgramEditor
         Me.frag_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.frag_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.frag_tb.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.frag_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.frag_tb.ForeColor = System.Drawing.Color.White
         Me.frag_tb.IsReplaceMode = False
         Me.frag_tb.Location = New System.Drawing.Point(3, 3)
@@ -201,7 +202,7 @@ Partial Class frmProgramEditor
         Me.frag_tb.Paddings = New System.Windows.Forms.Padding(0)
         Me.frag_tb.SelectionColor = System.Drawing.Color.FromArgb(CType(CType(60, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(255, Byte), Integer))
         Me.frag_tb.ServiceColors = CType(resources.GetObject("frag_tb.ServiceColors"), FastColoredTextBoxNS.ServiceColors)
-        Me.frag_tb.Size = New System.Drawing.Size(641, 553)
+        Me.frag_tb.Size = New System.Drawing.Size(677, 551)
         Me.frag_tb.TabIndex = 0
         Me.frag_tb.Zoom = 100
         '
@@ -234,7 +235,7 @@ Partial Class frmProgramEditor
         Me.TabPage3.Controls.Add(Me.geo_tb)
         Me.TabPage3.Location = New System.Drawing.Point(4, 22)
         Me.TabPage3.Name = "TabPage3"
-        Me.TabPage3.Size = New System.Drawing.Size(647, 559)
+        Me.TabPage3.Size = New System.Drawing.Size(683, 557)
         Me.TabPage3.TabIndex = 2
         Me.TabPage3.Text = "Geometry Program"
         Me.TabPage3.UseVisualStyleBackColor = True
@@ -255,6 +256,7 @@ Partial Class frmProgramEditor
         Me.geo_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.geo_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.geo_tb.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.geo_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.geo_tb.ForeColor = System.Drawing.Color.White
         Me.geo_tb.IsReplaceMode = False
         Me.geo_tb.Location = New System.Drawing.Point(0, 0)
@@ -262,7 +264,7 @@ Partial Class frmProgramEditor
         Me.geo_tb.Paddings = New System.Windows.Forms.Padding(0)
         Me.geo_tb.SelectionColor = System.Drawing.Color.FromArgb(CType(CType(60, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(255, Byte), Integer))
         Me.geo_tb.ServiceColors = CType(resources.GetObject("geo_tb.ServiceColors"), FastColoredTextBoxNS.ServiceColors)
-        Me.geo_tb.Size = New System.Drawing.Size(647, 559)
+        Me.geo_tb.Size = New System.Drawing.Size(683, 557)
         Me.geo_tb.TabIndex = 1
         Me.geo_tb.Zoom = 100
         '
@@ -295,7 +297,7 @@ Partial Class frmProgramEditor
         Me.TabPage4.Controls.Add(Me.compute_tb)
         Me.TabPage4.Location = New System.Drawing.Point(4, 22)
         Me.TabPage4.Name = "TabPage4"
-        Me.TabPage4.Size = New System.Drawing.Size(647, 559)
+        Me.TabPage4.Size = New System.Drawing.Size(683, 557)
         Me.TabPage4.TabIndex = 3
         Me.TabPage4.Text = "Compute Program"
         Me.TabPage4.UseVisualStyleBackColor = True
@@ -316,6 +318,7 @@ Partial Class frmProgramEditor
         Me.compute_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.compute_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.compute_tb.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.compute_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.compute_tb.ForeColor = System.Drawing.Color.White
         Me.compute_tb.IsReplaceMode = False
         Me.compute_tb.Location = New System.Drawing.Point(0, 0)
@@ -323,7 +326,7 @@ Partial Class frmProgramEditor
         Me.compute_tb.Paddings = New System.Windows.Forms.Padding(0)
         Me.compute_tb.SelectionColor = System.Drawing.Color.FromArgb(CType(CType(60, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(255, Byte), Integer))
         Me.compute_tb.ServiceColors = CType(resources.GetObject("compute_tb.ServiceColors"), FastColoredTextBoxNS.ServiceColors)
-        Me.compute_tb.Size = New System.Drawing.Size(647, 559)
+        Me.compute_tb.Size = New System.Drawing.Size(683, 557)
         Me.compute_tb.TabIndex = 2
         Me.compute_tb.Zoom = 100
         '
@@ -380,25 +383,25 @@ Partial Class frmProgramEditor
         'search_btn
         '
         Me.search_btn.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
-        Me.search_btn.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Silver
-        Me.search_btn.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
+        Me.search_btn.FlatAppearance.BorderColor = System.Drawing.Color.White
         Me.search_btn.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.search_btn.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.search_btn.ForeColor = System.Drawing.Color.White
-        Me.search_btn.Location = New System.Drawing.Point(428, 588)
+        Me.search_btn.Location = New System.Drawing.Point(416, 588)
         Me.search_btn.Margin = New System.Windows.Forms.Padding(0)
         Me.search_btn.Name = "search_btn"
-        Me.search_btn.Size = New System.Drawing.Size(171, 23)
+        Me.search_btn.Size = New System.Drawing.Size(186, 23)
         Me.search_btn.TabIndex = 5
-        Me.search_btn.Text = "Search Google for seleced text"
+        Me.search_btn.Text = "Search Google for selected text"
         Me.search_btn.UseVisualStyleBackColor = True
         '
         'help
         '
         Me.help.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
-        Me.help.BackColor = System.Drawing.Color.Gray
+        Me.help.BackColor = System.Drawing.Color.Transparent
         Me.help.BackgroundImage = Global.nuTerra.My.Resources.Resources.question
         Me.help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch
+        Me.help.FlatAppearance.BorderSize = 0
         Me.help.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.help.ForeColor = System.Drawing.Color.Gray
         Me.help.Location = New System.Drawing.Point(305, 588)
@@ -408,43 +411,36 @@ Partial Class frmProgramEditor
         Me.help.TabIndex = 6
         Me.help.UseVisualStyleBackColor = False
         '
-        'CheckBox1
+        'Button1
         '
-        Me.CheckBox1.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
-        Me.CheckBox1.Appearance = System.Windows.Forms.Appearance.Button
-        Me.CheckBox1.Checked = True
-        Me.CheckBox1.CheckState = System.Windows.Forms.CheckState.Checked
-        Me.CheckBox1.FlatAppearance.BorderSize = 0
-        Me.CheckBox1.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Gray
-        Me.CheckBox1.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
-        Me.CheckBox1.FlatStyle = System.Windows.Forms.FlatStyle.Flat
-        Me.CheckBox1.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.CheckBox1.ForeColor = System.Drawing.Color.Red
-        Me.CheckBox1.Location = New System.Drawing.Point(362, 589)
-        Me.CheckBox1.Margin = New System.Windows.Forms.Padding(0)
-        Me.CheckBox1.Name = "CheckBox1"
-        Me.CheckBox1.Size = New System.Drawing.Size(59, 22)
-        Me.CheckBox1.TabIndex = 7
-        Me.CheckBox1.Text = "On Top"
-        Me.CheckBox1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
-        Me.CheckBox1.UseVisualStyleBackColor = True
+        Me.Button1.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Button1.FlatAppearance.BorderColor = System.Drawing.Color.White
+        Me.Button1.FlatStyle = System.Windows.Forms.FlatStyle.Flat
+        Me.Button1.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Button1.ForeColor = System.Drawing.Color.Red
+        Me.Button1.Location = New System.Drawing.Point(346, 588)
+        Me.Button1.Margin = New System.Windows.Forms.Padding(0)
+        Me.Button1.Name = "Button1"
+        Me.Button1.Size = New System.Drawing.Size(67, 23)
+        Me.Button1.TabIndex = 7
+        Me.Button1.Text = "On Most"
+        Me.Button1.UseVisualStyleBackColor = True
         '
-        'frmEditFrag
+        'frmProgramEditor
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.BackColor = System.Drawing.Color.Gray
+        Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
         Me.ClientSize = New System.Drawing.Size(692, 614)
-        Me.Controls.Add(Me.CheckBox1)
+        Me.Controls.Add(Me.Button1)
         Me.Controls.Add(Me.help)
         Me.Controls.Add(Me.search_btn)
         Me.Controls.Add(Me.Label1)
         Me.Controls.Add(Me.CB1)
         Me.Controls.Add(Me.TabControl1)
         Me.Controls.Add(Me.recompile_bt)
-        Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
-        Me.Name = "frmEditFrag"
+        Me.Name = "frmProgramEditor"
         Me.Text = "Edit layer_Fragment.txt"
         Me.TopMost = True
         Me.TabControl1.ResumeLayout(False)
@@ -493,5 +489,5 @@ Partial Class frmProgramEditor
     Friend WithEvents ToolStripMenuItem11 As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripMenuItem12 As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents help As Button
-    Friend WithEvents CheckBox1 As CheckBox
+    Friend WithEvents Button1 As Button
 End Class
