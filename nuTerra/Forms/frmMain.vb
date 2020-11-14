@@ -792,7 +792,7 @@ try_again:
         Dim dead As Integer = 5
         Dim t As Single
         Dim M_Speed As Single = My.Settings.speed
-        Dim ms As Single = 0.2F * view_radius ' distance away changes speed.. THIS WORKS WELL!
+        Dim ms As Single = 0.2F * VIEW_RADIUS ' distance away changes speed.. THIS WORKS WELL!
         If M_DOWN Then
             If e.X > (MOUSE.X + dead) Then
                 If e.X - MOUSE.X > 100 Then t = (1.0F * M_Speed)
@@ -869,24 +869,27 @@ try_again:
             Return
         End If
         If MOVE_CAM_Z Then
-            If e.Y > (MOUSE.Y + dead) Then
+            ' zoom is factored in to Cam radius
+            Dim vrad = VIEW_RADIUS
+            If e.Y < (MOUSE.Y - dead) Then
                 If e.Y - MOUSE.Y > 100 Then t = (10)
             Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * 12 * My.Settings.speed
-                VIEW_RADIUS += (t * (view_radius * 0.2))    ' zoom is factored in to Cam radius
-                If VIEW_RADIUS < max_zoom_out Then
-                    VIEW_RADIUS = max_zoom_out
+                If vrad + (t * (vrad * 0.2)) < MAX_ZOOM_OUT Then
+                    vrad = MAX_ZOOM_OUT
+                Else
+                    vrad += (t * (vrad * 0.2))
                 End If
                 MOUSE.Y = e.Y
             End If
-            If e.Y < (MOUSE.Y - dead) Then
+            If e.Y > (MOUSE.Y + dead) Then
                 If MOUSE.Y - e.Y > 100 Then t = (10)
             Else : t = CSng(Sin((MOUSE.Y - e.Y) / 100)) * 12 * My.Settings.speed
-                VIEW_RADIUS -= (t * (view_radius * 0.2))    ' zoom is factored in to Cam radius
-                If view_radius > -0.01 Then view_radius = -0.01
-                MOUSE.Y = e.Y
+                vrad -= (t * (vrad * 0.2))    ' zoom is factored in to Cam radius
+                If vrad > -0.01 Then vrad = -0.01
             End If
-            If view_radius > -0.1 Then view_radius = -0.1
-            'draw_scene()
+            If vrad > -0.1 Then vrad = -0.1
+            VIEW_RADIUS = vrad
+            MOUSE.Y = e.Y
             Return
         End If
         MOUSE.X = e.X
