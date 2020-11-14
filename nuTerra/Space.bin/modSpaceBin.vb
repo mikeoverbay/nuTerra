@@ -399,6 +399,8 @@ CleanUp:
                         "dirtAlbedoMap",
                         "glassMap",
                         "g_applyScreenSpaceMorphing",
+                        "g_glossConversions",
+                        "g_metallicConversions",
                         "g_aging"
                     })
                     For Each name In props.Keys
@@ -641,6 +643,7 @@ got_it0:
                         "diffuseMap",
                         "applyOverlay",
                         "globalTex",
+                        "g_applyScreenSpaceMorphing",
                         "g_tileUVScale"
                     })
                     For Each name In props.Keys

@@ -5,6 +5,7 @@ Module LoadingScreen
     Public BG_MAX_VALUE As Double
     Public BG_VALUE As Double
     Public BG_TEXT As String
+    Public description_string As String
 #End Region
 
     Public Sub draw_loading_screen()
@@ -38,6 +39,9 @@ Module LoadingScreen
         GL.Enable(EnableCap.Blend)
         draw_image_rectangle(New RectangleF(0.0F, 10.0F, w_Valuev, 20),
                              PROGRESS_BAR_IMAGE_ID)
+
+        draw_text_Wrap(description_string, 10, 70,
+                       OpenTK.Graphics.Color4.Coral, False, False, 700.0)
 
         GL.Disable(EnableCap.Blend)
         ' Make it so!
