@@ -74,6 +74,7 @@ Partial Class frmProgramEditor
         '
         Me.recompile_bt.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.recompile_bt.FlatAppearance.BorderColor = System.Drawing.Color.White
+        Me.recompile_bt.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Gray
         Me.recompile_bt.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.recompile_bt.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.recompile_bt.ForeColor = System.Drawing.Color.White
@@ -128,7 +129,6 @@ Partial Class frmProgramEditor
         Me.vert_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.vert_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.vert_tb.Dock = System.Windows.Forms.DockStyle.Fill
-        Me.vert_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.vert_tb.ForeColor = System.Drawing.Color.White
         Me.vert_tb.IsReplaceMode = False
         Me.vert_tb.Location = New System.Drawing.Point(3, 3)
@@ -194,7 +194,6 @@ Partial Class frmProgramEditor
         Me.frag_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.frag_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.frag_tb.Dock = System.Windows.Forms.DockStyle.Fill
-        Me.frag_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.frag_tb.ForeColor = System.Drawing.Color.White
         Me.frag_tb.IsReplaceMode = False
         Me.frag_tb.Location = New System.Drawing.Point(3, 3)
@@ -256,7 +255,6 @@ Partial Class frmProgramEditor
         Me.geo_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.geo_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.geo_tb.Dock = System.Windows.Forms.DockStyle.Fill
-        Me.geo_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.geo_tb.ForeColor = System.Drawing.Color.White
         Me.geo_tb.IsReplaceMode = False
         Me.geo_tb.Location = New System.Drawing.Point(0, 0)
@@ -318,7 +316,6 @@ Partial Class frmProgramEditor
         Me.compute_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.compute_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.compute_tb.Dock = System.Windows.Forms.DockStyle.Fill
-        Me.compute_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.compute_tb.ForeColor = System.Drawing.Color.White
         Me.compute_tb.IsReplaceMode = False
         Me.compute_tb.Location = New System.Drawing.Point(0, 0)
@@ -384,6 +381,7 @@ Partial Class frmProgramEditor
         '
         Me.search_btn.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.search_btn.FlatAppearance.BorderColor = System.Drawing.Color.White
+        Me.search_btn.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Gray
         Me.search_btn.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.search_btn.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.search_btn.ForeColor = System.Drawing.Color.White
@@ -401,7 +399,8 @@ Partial Class frmProgramEditor
         Me.help.BackColor = System.Drawing.Color.Transparent
         Me.help.BackgroundImage = Global.nuTerra.My.Resources.Resources.question
         Me.help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch
-        Me.help.FlatAppearance.BorderSize = 0
+        Me.help.FlatAppearance.BorderColor = System.Drawing.Color.White
+        Me.help.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Gray
         Me.help.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.help.ForeColor = System.Drawing.Color.Gray
         Me.help.Location = New System.Drawing.Point(305, 588)
@@ -415,6 +414,7 @@ Partial Class frmProgramEditor
         '
         Me.Button1.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Button1.FlatAppearance.BorderColor = System.Drawing.Color.White
+        Me.Button1.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Gray
         Me.Button1.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.Button1.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Button1.ForeColor = System.Drawing.Color.Red
@@ -423,7 +423,7 @@ Partial Class frmProgramEditor
         Me.Button1.Name = "Button1"
         Me.Button1.Size = New System.Drawing.Size(67, 23)
         Me.Button1.TabIndex = 7
-        Me.Button1.Text = "On Most"
+        Me.Button1.Text = "On Top"
         Me.Button1.UseVisualStyleBackColor = True
         '
         'frmProgramEditor

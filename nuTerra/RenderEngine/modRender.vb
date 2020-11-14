@@ -173,12 +173,12 @@ Module modRender
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             copy_default_to_gColor()
             GL.Disable(EnableCap.DepthTest)
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
             GL.DepthMask(False)
             'GL.FrontFace(FrontFaceDirection.Cw)
             GL.Enable(EnableCap.Blend)
             GL.Enable(EnableCap.CullFace)
-            GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
 
             draw_base_rings_deferred()
 
@@ -188,7 +188,6 @@ Module modRender
             GL.Disable(EnableCap.CullFace)
             GL.FrontFace(FrontFaceDirection.Ccw)
         End If
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         '===========================================================================
 
         If DONT_HIDE_HUD Then
@@ -253,9 +252,9 @@ Module modRender
         'check in side of cube
         Dim alpha As Single = 1.0
         If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
-            alpha = 1.0
+            GL.FrontFace(FrontFaceDirection.Cw)
         Else
-            alpha = 0.75
+            GL.FrontFace(FrontFaceDirection.Ccw)
         End If
         GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
         GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
@@ -269,7 +268,7 @@ Module modRender
 
         'check in side of cube
         If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
-            GL.FrontFace(FrontFaceDirection.Ccw)
+            GL.FrontFace(FrontFaceDirection.Cw)
             'alpha = 0.75
         Else
             GL.FrontFace(FrontFaceDirection.Cw)
