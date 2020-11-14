@@ -48,8 +48,11 @@ Partial Class frmMain
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.FolderBrowserDialog1 = New System.Windows.Forms.FolderBrowserDialog()
         Me.map_loader = New System.Windows.Forms.Timer(Me.components)
+        Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.frmMainMenu.SuspendLayout()
+        CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.SplitContainer1.SuspendLayout()
         Me.SuspendLayout()
         '
         'frmMainMenu
@@ -212,6 +215,16 @@ Partial Class frmMain
         '
         Me.map_loader.Interval = 30
         '
+        'SplitContainer1
+        '
+        Me.SplitContainer1.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.SplitContainer1.Location = New System.Drawing.Point(0, 0)
+        Me.SplitContainer1.Name = "SplitContainer1"
+        Me.SplitContainer1.Panel2Collapsed = True
+        Me.SplitContainer1.Size = New System.Drawing.Size(956, 679)
+        Me.SplitContainer1.SplitterDistance = 318
+        Me.SplitContainer1.TabIndex = 0
+        '
         'Panel1
         '
         Me.Panel1.BackgroundImage = CType(resources.GetObject("Panel1.BackgroundImage"), System.Drawing.Image)
@@ -230,6 +243,7 @@ Partial Class frmMain
         Me.ClientSize = New System.Drawing.Size(956, 679)
         Me.Controls.Add(Me.Panel1)
         Me.Controls.Add(Me.frmMainMenu)
+        Me.Controls.Add(Me.SplitContainer1)
         Me.ForeColor = System.Drawing.Color.Black
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
         Me.MainMenuStrip = Me.frmMainMenu
@@ -238,6 +252,8 @@ Partial Class frmMain
         Me.Text = "nuTerra"
         Me.frmMainMenu.ResumeLayout(False)
         Me.frmMainMenu.PerformLayout()
+        CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.SplitContainer1.ResumeLayout(False)
         Me.ResumeLayout(False)
         Me.PerformLayout()
 
@@ -268,4 +284,5 @@ Partial Class frmMain
     Friend WithEvents map_loader As System.Windows.Forms.Timer
     Friend WithEvents m_screen_capture As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_camera_options As ToolStripMenuItem
+    Friend WithEvents SplitContainer1 As SplitContainer
 End Class

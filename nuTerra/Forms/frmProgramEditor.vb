@@ -15,6 +15,8 @@ Imports System.ComponentModel
 Public Class frmProgramEditor
 #Region "variables"
 
+    Public CP_parent As UInt32
+
     Private f_app_path As String
     Private v_app_path As String
     Private g_app_path As String
@@ -43,14 +45,21 @@ Public Class frmProgramEditor
 
     Private Sub frmEditFrag_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         TabControl1.Width = Me.ClientSize.Width
-        TabControl1.Height = Me.ClientSize.Height - CB1.Height - 5
-        recompile_bt.Location = New Point(recompile_bt.Location.X, TabControl1.Height + 3)
-        search_btn.Location = New Point(search_btn.Location.X, TabControl1.Height + 3)
+        TabControl1.Height = Me.ClientSize.Height - 60
 
         vert_tb.AcceptsTab = True
         geo_tb.AcceptsTab = True
         frag_tb.AcceptsTab = True
         compute_tb.AcceptsTab = True
+
+        Dim t As New Label
+        t.AutoSize = True
+        t.Text = "Click here to move Window"
+        t.ForeColor = Color.White
+        t.BackColor = Color.Transparent
+        t.Location = New Point(TabControl1.Width = t.Width, 3)
+        t.BringToFront()
+        Me.Controls.Add(t)
 
         For i = 0 To shaders.Count - 1
             CB1.Items.Add(shaders(i).program.ToString("00") + " : " + shaders(i).name)
@@ -58,10 +67,13 @@ Public Class frmProgramEditor
 
         recompile_bt.Enabled = False
         Me.Text = "Shader Editor:"
+        CP_parent = Me.Handle
     End Sub
+
     Sub TextBoxSetTabStopDistance(tb As TextBox, ByVal distance As Long)
         '	SendMessage(tb.Handle, EM_SETTABSTOPS, 1, 4)
     End Sub
+
     Private Sub recompile_bt_Click(sender As Object, e As EventArgs) Handles recompile_bt.Click
 
         recompile_bt.Enabled = False
@@ -307,4 +319,30 @@ Public Class frmProgramEditor
         End If
 
     End Sub
+
+
+    Private Sub Container_panel_MouseDoubleClick(sender As Object, e As MouseEventArgs) Handles Container_panel.MouseDoubleClick
+        If frmMain.WindowState = FormWindowState.Minimized Then
+            Return
+        End If
+        If CP_parent = Me.Handle Then
+            CP_parent = frmMain.Handle
+            Container_panel.Parent = frmMain.SplitContainer1.Panel2
+            frmMain.SplitContainer1.Panel2Collapsed = False
+            frmMain.SplitContainer1.SplitterDistance = frmMain.SplitContainer1.Width - TabControl1.Width
+            Me.Hide()
+            TabControl1.Focus()
+            frmMain.resize_fbo_main()
+        Else
+            CP_parent = Me.Handle
+            Me.Show()
+            Container_panel.Parent = Me
+            frmMain.SplitContainer1.Panel2Collapsed = True
+            TabControl1.Focus()
+            frmMain.resize_fbo_main()
+        End If
+
+    End Sub
+
+
 End Class
