@@ -171,20 +171,23 @@ Module modRender
         'ortho projection decals
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             copy_default_to_gColor()
+            GL.Disable(EnableCap.DepthTest)
 
             GL.DepthMask(False)
-            GL.FrontFace(FrontFaceDirection.Cw)
+            'GL.FrontFace(FrontFaceDirection.Cw)
             GL.Enable(EnableCap.Blend)
             GL.Enable(EnableCap.CullFace)
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+            GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill)
 
             draw_base_rings_deferred()
 
+            GL.Disable(EnableCap.DepthTest)
             GL.Disable(EnableCap.Blend)
             GL.DepthMask(True)
             GL.Disable(EnableCap.CullFace)
             GL.FrontFace(FrontFaceDirection.Ccw)
         End If
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         '===========================================================================
 
         If DONT_HIDE_HUD Then
@@ -243,19 +246,37 @@ Module modRender
         Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
 
         ' base 1 ring
+
         Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
+
+        'check in side of cube
+        Dim alpha As Single = 1.0
+        If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
+            alpha = 1.0
+        Else
+            alpha = 0.75
+        End If
         GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
         GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), OpenTK.Graphics.Color4.Green)
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(0.0F, 128.0F, 0.0F, alpha))
 
         GL.BindVertexArray(CUBE_VAO)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
         'base 2 ring
         model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
+
+        'check in side of cube
+        If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
+            GL.FrontFace(FrontFaceDirection.Ccw)
+            'alpha = 0.75
+        Else
+            GL.FrontFace(FrontFaceDirection.Cw)
+            'alpha = 1.0
+        End If
         GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
         GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), OpenTK.Graphics.Color4.Red)
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(128.0F, 0.0F, 0.0F, alpha))
 
         GL.BindVertexArray(CUBE_VAO)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
@@ -1390,6 +1411,20 @@ Module modRender
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
     End Sub
+
+    Public Function cube_point_intersection(ByRef rot As Matrix4, ByRef scale As Matrix4, ByRef translate As Matrix4, ByRef point As Vector3) As Boolean
+        'rotate * scale * translate
+        'point in world space to check if its in out side of the cube
+        'based on a 1 x 1 x 1 cube
+        Dim VTL As New Vector4(0.5, 0.5, -0.5, 1.0)
+        Dim VBR As New Vector4(-0.5, -0.5, 0.5, 1.0)
+        VTL = VTL * scale * rot * translate
+        VBR = VBR * scale * rot * translate
+        If VTL.X <= point.X Or VBR.X >= point.X Then Return False
+        If VTL.Y <= point.Y Or VBR.Y >= point.Y Then Return False
+        If VTL.Z <= point.Z Or VBR.Z <= point.Z Then Return False
+        Return True
+    End Function
 
     Public Sub draw_text(ByRef text As String,
                          ByVal locX As Single,

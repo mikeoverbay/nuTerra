@@ -298,12 +298,13 @@ Public Class frmProgramEditor
         Process.Start(p)
     End Sub
 
-    Private Sub CheckBox1_CheckedChanged(sender As Object, e As EventArgs) Handles CheckBox1.CheckedChanged
-        Me.TopMost = CheckBox1.Checked
+    Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
+        Me.TopMost = Me.TopMost Xor True
         If Me.TopMost = True Then
-            CheckBox1.ForeColor = Color.Red
+            Button1.ForeColor = Color.Red
         Else
-            CheckBox1.ForeColor = Color.Black
+            Button1.ForeColor = Color.Gray
         End If
+
     End Sub
 End Class

@@ -40,6 +40,6 @@ void main (void)
     - smoothstep(radius-thickness, radius, rs);
 
     colorOut = color;
-    colorOut.a = 1.0-t;
+    colorOut.a = (1.0-t) *0.25;
   
 }

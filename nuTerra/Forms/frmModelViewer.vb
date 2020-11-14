@@ -294,21 +294,30 @@ Public Class frmModelViewer
             Return
         End If
         If ZOOM Then
-            If e.Y > (MP.Y + dead) Then
-                If e.Y - MP.Y > 100 Then t = (10)
-            Else : t = CSng(Sin((e.Y - MP.Y) / 100)) * 12
-                V_RADIUS += (t * (V_RADIUS * 0.2))    ' zoom is factored in to Cam radius
-                MP.Y = e.Y
-            End If
+
+            ' zoom is factored in to Cam radius
+            Dim vrad = V_RADIUS
             If e.Y < (MP.Y - dead) Then
-                If MP.Y - e.Y > 100 Then t = (10)
-            Else : t = CSng(Sin((MP.Y - e.Y) / 100)) * 12
-                V_RADIUS -= (t * (V_RADIUS * 0.2))    ' zoom is factored in to Cam radius
-                If V_RADIUS > -0.01 Then V_RADIUS = -0.01
+                If e.Y - MP.Y > 100 Then t = (10)
+            Else : t = CSng(Sin((e.Y - MP.Y) / 100)) * 12 * My.Settings.speed
+                If vrad + (t * (vrad * 0.2)) < -200.0 Then
+                    vrad = -200.0F
+                Else
+                    vrad += (t * (vrad * 0.2))
+                End If
                 MP.Y = e.Y
             End If
-            If V_RADIUS > -0.1 Then V_RADIUS = -0.1
+            If e.Y > (MP.Y + dead) Then
+                If MP.Y - e.Y > 100 Then t = (10)
+            Else : t = CSng(Sin((MP.Y - e.Y) / 100)) * 12 * My.Settings.speed
+                vrad -= (t * (vrad * 0.2))    ' zoom is factored in to Cam radius
+                If vrad > -0.01 Then vrad = -0.01
+            End If
+            If vrad > -0.1 Then vrad = -0.1
+            V_RADIUS = vrad
+            MP.Y = e.Y
             Return
+
         End If
         MP.X = e.X
         MP.Y = e.Y
