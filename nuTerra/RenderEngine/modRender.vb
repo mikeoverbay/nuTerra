@@ -69,6 +69,7 @@ Module modRender
         '===========================================================================
         'draw sun
         FBOm.attach_C()
+        GL.Disable(EnableCap.DepthTest)
         If TERRAIN_LOADED And DONT_BLOCK_SKY Then Draw_SkyDome()
         If TERRAIN_LOADED And DONT_BLOCK_SKY Then draw_sun()
         '===========================================================================
@@ -1461,6 +1462,64 @@ Module modRender
         For Each l In ar
             Dim idx = CSng(Asc(l) - 32)
             Dim tp = (locX + cnt * 10.0) - cntr
+            GL.Uniform1(TextRenderShader("index"), idx)
+            Dim rect As New RectangleF(tp, locY, 10.0F, 15.0F)
+            GL.Uniform4(TextRenderShader("rect"),
+                      rect.Left,
+                      -rect.Top,
+                      rect.Right,
+                      -rect.Bottom)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+            cnt += 1
+        Next
+        GL.Disable(EnableCap.Blend)
+        TextRenderShader.StopUse()
+        GL.BindTextureUnit(0, 0)
+
+    End Sub
+
+    Public Sub draw_text_Wrap(ByRef text As String,
+                         ByVal locX As Single,
+                         ByVal locY As Single,
+                         ByRef color As OpenTK.Graphics.Color4,
+                         ByRef center As Boolean,
+                         ByRef mask As Integer,
+                         ByRef wrapWidth As Integer)
+        ' text, loc X, loc Y, color, Center text at X location,
+        ' mask 1 = drak background.
+        ' Width = target size in charaters to wrap at.
+
+        '=======================================================================
+        'draw text at location.
+        '=======================================================================
+        'setup
+        If text Is Nothing Then Return
+
+        GL.Enable(EnableCap.Blend)
+        TextRenderShader.Use()
+        GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform1(TextRenderShader("divisor"), 95.0F) 'atlas size
+        ASCII_ID.BindUnit(0)
+        GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
+        GL.Uniform4(TextRenderShader("color"), color)
+        GL.Uniform1(TextRenderShader("mask"), mask)
+        '=======================================================================
+        'draw text
+        Dim cntr = 0
+        If center Then
+            cntr = text.Length * 10.0F / 2.0F
+        End If
+        Dim ar = text.ToArray
+        Dim cnt As Integer = 0
+        GL.BindVertexArray(defaultVao)
+        Dim wrap As Boolean = False
+        For Each l In ar
+            Dim idx = CSng(Asc(l) - 32)
+            Dim tp = (locX + cnt * 10.0) - cntr
+            If tp > wrapWidth And idx = 0 Then
+                cnt = -1
+                locY += 19
+            End If
             GL.Uniform1(TextRenderShader("index"), idx)
             Dim rect As New RectangleF(tp, locY, 10.0F, 15.0F)
             GL.Uniform4(TextRenderShader("rect"),
