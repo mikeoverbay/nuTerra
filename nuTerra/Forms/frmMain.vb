@@ -180,11 +180,19 @@ Public Class frmMain
 
         Me.glControl_main = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), maxSupportedGL.Item1, maxSupportedGL.Item2, flags)
         Me.glControl_main.VSync = False
-        Me.Controls.Add(Me.glControl_main)
 
         '-----------------------------------------------------------------------------------------
         Me.Show()
         Application.DoEvents()
+        'size SplitContainer1
+        SplitContainer1.Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
+        SplitContainer1.Width = Me.ClientSize.Width
+        SplitContainer1.Height = Me.ClientSize.Height - frmMainMenu.Height
+        SplitContainer1.Location = New Point(0, frmMainMenu.Height)
+        SplitContainer1.Panel2Collapsed = True
+        '-----------------------------------------------------------------------------------------
+        SplitContainer1.Panel1.Controls.Add(Me.glControl_main)
+        glControl_main.Dock = DockStyle.Fill
         '-----------------------------------------------------------------------------------------
 
         ' we dont want menu events while the app is initializing :)
@@ -1000,4 +1008,8 @@ try_again:
         frmCameraOptions.Visible = True
     End Sub
 
+    Private Sub SplitContainer1_SplitterMoved(sender As Object, e As SplitterEventArgs) Handles SplitContainer1.SplitterMoved
+        If Not _STARTED Then Return
+        resize_fbo_main()
+    End Sub
 End Class

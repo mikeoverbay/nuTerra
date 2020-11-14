@@ -669,6 +669,7 @@
     <Content Include="Resources\mini_trim_vert.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Include="Resources\move_window.png" />
     <Content Include="Resources\progress_bar.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
