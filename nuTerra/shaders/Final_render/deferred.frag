@@ -134,7 +134,7 @@ void main (void)
                 //---------------------------------------------
                 // Poor mans PBR :)
                 // how shinny this is
-                POWER = max(GM_in.r* 60.0,5.0);
+                POWER = max(GM_in.r* 60.0,0.5);
                 INTENSITY = max(GM_in.r * GM_in.g  ,0.0);
                 // How metalic his is
                 color_in.rgb = mix(color_in.rgb,
@@ -159,7 +159,7 @@ void main (void)
             // Only light whats in range
             if (dist < cutoff) {
 
-                float lambertTerm = pow(max(dot(N, L),0.0),1.0)*1.0;
+                float lambertTerm = pow(max(dot(N, L),0.001),GM_in.r);
                 final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz * sunColor,0.0);
 
 
@@ -171,7 +171,7 @@ void main (void)
                 vec3 R = reflect(-V,N);
                 R.xz *= -1.0;
 
-                vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut, vec2(1.0-lambertTerm, 1.0-metal) ));
+                vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut, vec2(1.0-lambertTerm*0.45, 1.0-metal) ));
                 vec3 specular =  (vec3(spec) * brdf.x + brdf.y);
 
 
