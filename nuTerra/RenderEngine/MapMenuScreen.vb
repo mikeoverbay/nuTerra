@@ -32,7 +32,8 @@ Module MapMenuScreen
     Dim hash_index_offset As Integer
     Dim info_index_count As Integer
     Dim info_index_string_index As Integer
-    Dim enc As New System.Text.ASCIIEncoding
+
+    Dim enc As New System.Text.UTF8Encoding
 
     Public map_texture_ids() As GLTexture
     Public img_grow_speed As Single = 1.5

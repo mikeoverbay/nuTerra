@@ -321,6 +321,7 @@ Public Class frmProgramEditor
             Container_panel.Parent = frmMain.SplitContainer1.Panel2
             frmMain.SplitContainer1.Panel2Collapsed = False
             frmMain.SplitContainer1.SplitterDistance = (frmMain.ClientSize.Width - Me.ClientSize.Width) - frmMain.SplitContainer1.SplitterWidth
+            frmMain.SP2_Width = frmMain.ClientSize.Width - frmMain.SplitContainer1.SplitterDistance
             Me.Hide()
             TabControl1.Focus()
             frmMain.resize_fbo_main()
