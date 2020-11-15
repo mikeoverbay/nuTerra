@@ -200,9 +200,9 @@ Module FBO_main
 
             'This has to be done this way because of the menu and even size buffer textures.
             'Just docking the control in fill causes problems.
-            frmMain.glControl_main.Width = frmMain.ClientSize.Width
-            frmMain.glControl_main.Height = frmMain.ClientSize.Height - frmMain.MainMenuStrip.Height
-            frmMain.glControl_main.Location = New System.Drawing.Point(0, frmMain.MainMenuStrip.Height + 1)
+            frmMain.glControl_main.Width = frmMain.SplitContainer1.Panel1.Width
+            frmMain.glControl_main.Height = frmMain.SplitContainer1.Panel1.Height ' - frmMain.MainMenuStrip.Height
+            frmMain.glControl_main.Location = New System.Drawing.Point(0, 0)
 
             Dim w1 = frmMain.glControl_main.Width
             Dim h1 = frmMain.glControl_main.Height
