@@ -222,7 +222,61 @@ Module modRender
 
         FPS_COUNTER += 1
     End Sub
+    '=============================================================================================
 
+    Private Sub render_deferred_buffers()
+        GL_PUSH_GROUP("render_deferred_buffers")
+        '===========================================================================
+        ' Test our deferred shader =================================================
+        '===========================================================================
+        deferredShader.Use()
+
+        'set up uniforms
+        GL.Uniform1(deferredShader("gColor"), 0)
+        GL.Uniform1(deferredShader("gNormal"), 1)
+        GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
+        GL.Uniform1(deferredShader("gPosition"), 3)
+        GL.Uniform1(deferredShader("cubeMap"), 4)
+        GL.Uniform1(deferredShader("lut"), 5)
+        GL.Uniform1(deferredShader("env_brdf_lut"), 6)
+
+        FBOm.gColor.BindUnit(0)
+        FBOm.gNormal.BindUnit(1)
+        FBOm.gGMF.BindUnit(2)
+        FBOm.gPosition.BindUnit(3)
+        CUBE_TEXTURE_ID.BindUnit(4)
+        CC_LUT_ID.BindUnit(5)
+
+        If ENV_BRDF_LUT_ID IsNot Nothing Then ENV_BRDF_LUT_ID.BindUnit(6)
+
+        GL.Uniform3(deferredShader("sunColor"), SUNCOLOR.X, SUNCOLOR.Y, SUNCOLOR.Z)
+        GL.Uniform3(deferredShader("ambientColorForward"), AMBIENTSUNCOLOR.X, AMBIENTSUNCOLOR.Y, AMBIENTSUNCOLOR.Z)
+
+        ' GL.BindTextureUnit(4, FBOm.gDepth)
+        'GL.Uniform1(deferredShader("gDepth"), 4)
+
+        'Lighting settings
+        GL.Uniform1(deferredShader("AMBIENT"), frmLightSettings.lighting_ambient)
+        GL.Uniform1(deferredShader("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
+        GL.Uniform1(deferredShader("SPECULAR"), frmLightSettings.lighting_specular_level)
+        GL.Uniform1(deferredShader("GRAY_LEVEL"), frmLightSettings.lighting_gray_level)
+        GL.Uniform1(deferredShader("GAMMA_LEVEL"), frmLightSettings.lighting_gamma_level)
+
+        GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+
+        Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, PerViewData.view)
+
+        GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
+
+        draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
+
+        unbind_textures(6) ' unbind all the used texture slots
+
+        deferredShader.StopUse()
+
+        GL_POP_GROUP()
+    End Sub
+    '=============================================================================================
     Private Sub draw_base_rings_deferred()
         If Not BASE_RINGS_LOADED Then
             Return
@@ -558,7 +612,6 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
-
     Private Sub model_depth_pass()
         'This is just to depth pass write to allow early z reject and stop
         ' wetness from showing through the models.
@@ -588,6 +641,7 @@ Module modRender
 
         GL_POP_GROUP()
     End Sub
+
     Private Sub draw_models()
         GL_PUSH_GROUP("draw_models")
 
@@ -717,57 +771,6 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
-    Private Sub render_deferred_buffers()
-        GL_PUSH_GROUP("render_deferred_buffers")
-        '===========================================================================
-        ' Test our deferred shader =================================================
-        '===========================================================================
-        deferredShader.Use()
-
-        'set up uniforms
-        GL.Uniform1(deferredShader("gColor"), 0)
-        GL.Uniform1(deferredShader("gNormal"), 1)
-        GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
-        GL.Uniform1(deferredShader("gPosition"), 3)
-        GL.Uniform1(deferredShader("cubeMap"), 4)
-        GL.Uniform1(deferredShader("lut"), 5)
-        GL.Uniform1(deferredShader("env_brdf_lut"), 6)
-
-        FBOm.gColor.BindUnit(0)
-        FBOm.gNormal.BindUnit(1)
-        FBOm.gGMF.BindUnit(2)
-        FBOm.gPosition.BindUnit(3)
-        CUBE_TEXTURE_ID.BindUnit(4)
-        CC_LUT_ID.BindUnit(5)
-        If ENV_BRDF_LUT IsNot Nothing Then ENV_BRDF_LUT.BindUnit(6)
-
-        GL.Uniform3(deferredShader("sunColor"), SUNCOLOR.X, SUNCOLOR.Y, SUNCOLOR.Z)
-        GL.Uniform3(deferredShader("ambientColorForward"), AMBIENTSUNCOLOR.X, AMBIENTSUNCOLOR.Y, AMBIENTSUNCOLOR.Z)
-
-        ' GL.BindTextureUnit(4, FBOm.gDepth)
-        'GL.Uniform1(deferredShader("gDepth"), 4)
-
-        'Lighting settings
-        GL.Uniform1(deferredShader("AMBIENT"), frmLightSettings.lighting_ambient)
-        GL.Uniform1(deferredShader("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
-        GL.Uniform1(deferredShader("SPECULAR"), frmLightSettings.lighting_specular_level)
-        GL.Uniform1(deferredShader("GRAY_LEVEL"), frmLightSettings.lighting_gray_level)
-        GL.Uniform1(deferredShader("GAMMA_LEVEL"), frmLightSettings.lighting_gamma_level)
-
-        GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-
-        Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, PerViewData.view)
-
-        GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
-
-        draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
-
-        unbind_textures(6) ' unbind all the used texture slots
-
-        deferredShader.StopUse()
-
-        GL_POP_GROUP()
-    End Sub
 
     Private Sub perform_SSAA_Pass()
 
