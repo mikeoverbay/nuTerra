@@ -52,15 +52,6 @@ Public Class frmProgramEditor
         frag_tb.AcceptsTab = True
         compute_tb.AcceptsTab = True
 
-        Dim t As New Label
-        t.AutoSize = True
-        t.Text = "Click here to move Window"
-        t.ForeColor = Color.White
-        t.BackColor = Color.Transparent
-        t.Location = New Point(TabControl1.Width = t.Width, 3)
-        t.BringToFront()
-        Me.Controls.Add(t)
-
         For i = 0 To shaders.Count - 1
             CB1.Items.Add(shaders(i).program.ToString("00") + " : " + shaders(i).name)
         Next
@@ -329,7 +320,7 @@ Public Class frmProgramEditor
             CP_parent = frmMain.Handle
             Container_panel.Parent = frmMain.SplitContainer1.Panel2
             frmMain.SplitContainer1.Panel2Collapsed = False
-            frmMain.SplitContainer1.SplitterDistance = frmMain.SplitContainer1.Width - TabControl1.Width
+            frmMain.SplitContainer1.SplitterDistance = (frmMain.ClientSize.Width - Me.ClientSize.Width) - frmMain.SplitContainer1.SplitterWidth
             Me.Hide()
             TabControl1.Focus()
             frmMain.resize_fbo_main()
