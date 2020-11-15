@@ -681,9 +681,9 @@ try_again:
                 If Not PAUSE_ORBIT Then
                     LIGHT_ORBIT_ANGLE_Z += (DELTA_TIME * 0.5)
                     If LIGHT_ORBIT_ANGLE_Z > PI * 2 Then LIGHT_ORBIT_ANGLE_Z -= PI * 2
-                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE_X) * LIGHT_RADIUS
-                    LIGHT_POS(1) = Sin(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
-                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE_X) * LIGHT_RADIUS
+                    LIGHT_POS(0) = Cos(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
+                    'LIGHT_POS(1) = Sin(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
+                    LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
                 End If
                 CROSS_HAIR_TIME += (DELTA_TIME * 0.5)
                 If CROSS_HAIR_TIME > 1.0F Then
