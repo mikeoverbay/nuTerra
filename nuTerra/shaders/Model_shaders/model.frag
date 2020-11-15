@@ -159,12 +159,12 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
     gColor *= thisMaterial.g_colorTint;
     
     vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
-    vec4 detail = texture(thisMaterial.maps[3], fs_in.TC1*10.0);
-
-    gGMF.rg = mix(gGMF.rg, detail.rb, thisMaterial.g_detailInfluences.y*0.5); // gloss/metal
+    vec4 detail = texture(thisMaterial.maps[3], fs_in.TC1*3.0);
+    
+    gGMF.rgb = gm.rgb; // gloss/metal
     get_and_write_no_mips();
     vec3 bump = get_detail_normal(detail);
-    gNormal = mix(gNormal, bump, thisMaterial.g_detailInfluences.x*0.5);
+    gNormal = mix(gNormal, bump, 0.2);
 }
 //##################################################################################
 layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
