@@ -1036,6 +1036,7 @@ try_again:
         If Not sp_moved Then Return
         sp_moved = False
         SP2_Width = SplitContainer1.Panel2.Width + SplitContainer1.SplitterWidth
+        resize_fbo_main()
     End Sub
 
     Private Sub frmMain_ClientSizeChanged(sender As Object, e As EventArgs) Handles Me.ClientSizeChanged
