@@ -217,9 +217,18 @@ Partial Class frmMain
         '
         'SplitContainer1
         '
+        Me.SplitContainer1.BackColor = System.Drawing.SystemColors.ActiveCaption
         Me.SplitContainer1.Dock = System.Windows.Forms.DockStyle.Fill
         Me.SplitContainer1.Location = New System.Drawing.Point(0, 0)
         Me.SplitContainer1.Name = "SplitContainer1"
+        '
+        'SplitContainer1.Panel1
+        '
+        Me.SplitContainer1.Panel1.BackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
+        '
+        'SplitContainer1.Panel2
+        '
+        Me.SplitContainer1.Panel2.BackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
         Me.SplitContainer1.Panel2Collapsed = True
         Me.SplitContainer1.Size = New System.Drawing.Size(956, 679)
         Me.SplitContainer1.SplitterDistance = 318
