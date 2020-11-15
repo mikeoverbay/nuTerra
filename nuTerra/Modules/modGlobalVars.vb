@@ -46,12 +46,12 @@ Module modGlobalVars
     Public SUN_TEXTURE_ID As GLTexture
     Public SUN_RENDER_COLOR As Vector3
     Public CC_LUT_ID As GLTexture
+    Public ENV_BRDF_LUT_ID As GLTexture
 
     Public RIPPLE_FRAME_NUMBER As Integer
     Public RIPPLE_TEXTURES() As GLTexture
     Public RIPPLE_MASK_TEXTURE As GLTexture
     Public RIPPLE_MASK_TIME As Single
-    Public ENV_BRDF_LUT As GLTexture
     '============================================================
     ' this setting tweaks the mip biasing!
     Public GLOBAL_MIP_BIAS As Single = -0.75F

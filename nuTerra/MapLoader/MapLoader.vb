@@ -379,12 +379,12 @@ Module MapLoader
             CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
         End If
         'get env_brdf
-        'entry = search_pkgs("system/maps/env_brdf_lut.dds")
-        'If entry IsNot Nothing Then
-        '    Dim ms As New MemoryStream
-        '    entry.Extract(ms)
-        '    ENV_BRDF_LUT = just_load_image_from_stream(Il.IL_DDS, ms, "system/maps/env_brdf_lut.dds", False, False)
-        'End If
+        entry = search_pkgs("system/maps/env_brdf_lut.dds")
+        If entry IsNot Nothing Then
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+            ENV_BRDF_LUT_ID = just_load_image_from_stream(Il.IL_DDS, ms, "system/maps/env_brdf_lut.dds", False, False)
+        End If
 
         '===============================================================
         'load ripple textures

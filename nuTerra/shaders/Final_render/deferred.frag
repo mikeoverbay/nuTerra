@@ -9,6 +9,7 @@ uniform sampler2D gPosition;
 uniform sampler2D gDepth;
 uniform samplerCube cubeMap;
 uniform lowp sampler2D lut;
+uniform lowp sampler2D env_brdf_lut;
 
 uniform mat4 ProjectionMatrix;
 
@@ -75,6 +76,22 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
  
  }
 /*===================================================================*/
+#define MANUAL_SRGB ;
+vec4 SRGBtoLINEAR(vec4 srgbIn)
+{
+    #ifdef MANUAL_SRGB
+    #ifdef SRGB_FAST_APPROXIMATION
+    vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
+    #else //SRGB_FAST_APPROXIMATION
+    vec3 bLess = step(vec3(0.04045),srgbIn.xyz);
+    vec3 linOut = mix( srgbIn.xyz/vec3(12.92), pow((srgbIn.xyz+vec3(0.055))/vec3(1.055),vec3(2.4)), bLess );
+    #endif //SRGB_FAST_APPROXIMATION
+    return vec4(linOut,srgbIn.w);
+    ;
+    #else //MANUAL_SRGB
+    return srgbIn;
+    #endif //MANUAL_SRGB
+}
 
 
 void main (void)
@@ -133,6 +150,7 @@ void main (void)
             vec4 color = vec4(0.36, 0.36, 0.36, 1.0);
 
             vec3 V = normalize(-Position);
+            float perceptualRoughness = 0.6;
 
             // Only light whats in range
             if (dist < cutoff) {
@@ -145,14 +163,18 @@ void main (void)
                 vec3 halfwayDir = normalize(L + vd);
 
                 float spec = max(pow(dot(N, halfwayDir), POWER ),0.0001) * SPECULAR * INTENSITY;
-
    
                 vec3 R = reflect(-V,N);
                 R.xz *= -1.0;
-                vec3 prefilteredColor = pow(textureLod(cubeMap, R,  max(5.0-GM_in.g *5, 0.0)).rgb,vec3(2.2));
+
+                vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut, vec2(lambertTerm*1.0, (1.0 - perceptualRoughness)*0.75) ));
+                vec3 specular =  (vec3(spec) * brdf.x + brdf.y);
+
+
+                vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,  max(5.0-GM_in.g *5, 0.0)));
                 // GM_in.b is the alpha channel.
-                prefilteredColor = mix(vec3(spec), prefilteredColor+spec, GM_in.b*0.3);
-                vec3 refection = prefilteredColor;
+                prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb + specular, GM_in.b*0.3);
+                vec3 refection = prefilteredColor.rgb;
 
    
                 final_color.xyz += refection;
