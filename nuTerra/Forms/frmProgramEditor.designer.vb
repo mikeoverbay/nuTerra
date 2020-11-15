@@ -75,16 +75,15 @@ Partial Class frmProgramEditor
         '
         'recompile_bt
         '
-        Me.recompile_bt.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
+        Me.recompile_bt.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.recompile_bt.FlatAppearance.BorderColor = System.Drawing.Color.White
         Me.recompile_bt.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Gray
-        Me.recompile_bt.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.recompile_bt.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.recompile_bt.ForeColor = System.Drawing.Color.White
-        Me.recompile_bt.Location = New System.Drawing.Point(310, 588)
+        Me.recompile_bt.ForeColor = System.Drawing.Color.Black
+        Me.recompile_bt.Location = New System.Drawing.Point(498, 558)
         Me.recompile_bt.Margin = New System.Windows.Forms.Padding(0)
         Me.recompile_bt.Name = "recompile_bt"
-        Me.recompile_bt.Size = New System.Drawing.Size(69, 23)
+        Me.recompile_bt.Size = New System.Drawing.Size(97, 53)
         Me.recompile_bt.TabIndex = 0
         Me.recompile_bt.Text = "Compile"
         Me.recompile_bt.UseVisualStyleBackColor = True
@@ -134,6 +133,7 @@ Partial Class frmProgramEditor
         Me.vert_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.vert_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.vert_tb.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.vert_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.vert_tb.ForeColor = System.Drawing.Color.White
         Me.vert_tb.IsReplaceMode = False
         Me.vert_tb.Location = New System.Drawing.Point(0, 0)
@@ -189,7 +189,7 @@ Partial Class frmProgramEditor
         Me.frag_tb.AutoIndent = False
         Me.frag_tb.AutoIndentChars = False
         Me.frag_tb.AutoIndentExistingLines = False
-        Me.frag_tb.AutoScrollMinSize = New System.Drawing.Size(27, 14)
+        Me.frag_tb.AutoScrollMinSize = New System.Drawing.Size(2, 14)
         Me.frag_tb.BackBrush = Nothing
         Me.frag_tb.BackColor = System.Drawing.Color.Black
         Me.frag_tb.CaretColor = System.Drawing.Color.White
@@ -199,6 +199,7 @@ Partial Class frmProgramEditor
         Me.frag_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.frag_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.frag_tb.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.frag_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.frag_tb.ForeColor = System.Drawing.Color.White
         Me.frag_tb.IsReplaceMode = False
         Me.frag_tb.Location = New System.Drawing.Point(0, 0)
@@ -251,7 +252,7 @@ Partial Class frmProgramEditor
         Me.geo_tb.AutoIndent = False
         Me.geo_tb.AutoIndentChars = False
         Me.geo_tb.AutoIndentExistingLines = False
-        Me.geo_tb.AutoScrollMinSize = New System.Drawing.Size(27, 14)
+        Me.geo_tb.AutoScrollMinSize = New System.Drawing.Size(2, 14)
         Me.geo_tb.BackBrush = Nothing
         Me.geo_tb.BackColor = System.Drawing.Color.Black
         Me.geo_tb.CaretColor = System.Drawing.Color.White
@@ -261,6 +262,7 @@ Partial Class frmProgramEditor
         Me.geo_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.geo_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.geo_tb.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.geo_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.geo_tb.ForeColor = System.Drawing.Color.White
         Me.geo_tb.IsReplaceMode = False
         Me.geo_tb.Location = New System.Drawing.Point(0, 0)
@@ -313,7 +315,7 @@ Partial Class frmProgramEditor
         Me.compute_tb.AutoIndent = False
         Me.compute_tb.AutoIndentChars = False
         Me.compute_tb.AutoIndentExistingLines = False
-        Me.compute_tb.AutoScrollMinSize = New System.Drawing.Size(27, 14)
+        Me.compute_tb.AutoScrollMinSize = New System.Drawing.Size(2, 14)
         Me.compute_tb.BackBrush = Nothing
         Me.compute_tb.BackColor = System.Drawing.Color.Black
         Me.compute_tb.CaretColor = System.Drawing.Color.White
@@ -323,6 +325,7 @@ Partial Class frmProgramEditor
         Me.compute_tb.Cursor = System.Windows.Forms.Cursors.IBeam
         Me.compute_tb.DisabledColor = System.Drawing.Color.FromArgb(CType(CType(100, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer), CType(CType(180, Byte), Integer))
         Me.compute_tb.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.compute_tb.Font = New System.Drawing.Font("Courier New", 9.75!)
         Me.compute_tb.ForeColor = System.Drawing.Color.White
         Me.compute_tb.IsReplaceMode = False
         Me.compute_tb.Location = New System.Drawing.Point(0, 0)
@@ -389,9 +392,8 @@ Partial Class frmProgramEditor
         Me.search_btn.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
         Me.search_btn.FlatAppearance.BorderColor = System.Drawing.Color.White
         Me.search_btn.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Gray
-        Me.search_btn.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.search_btn.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.search_btn.ForeColor = System.Drawing.Color.White
+        Me.search_btn.ForeColor = System.Drawing.Color.Black
         Me.search_btn.Location = New System.Drawing.Point(95, 558)
         Me.search_btn.Margin = New System.Windows.Forms.Padding(0)
         Me.search_btn.Name = "search_btn"
@@ -405,7 +407,6 @@ Partial Class frmProgramEditor
         Me.Button1.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
         Me.Button1.FlatAppearance.BorderColor = System.Drawing.Color.White
         Me.Button1.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Gray
-        Me.Button1.FlatStyle = System.Windows.Forms.FlatStyle.Flat
         Me.Button1.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Button1.ForeColor = System.Drawing.Color.Red
         Me.Button1.Location = New System.Drawing.Point(3, 558)
@@ -436,26 +437,28 @@ Partial Class frmProgramEditor
         '
         Me.nuTerra_Image_panel.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
         Me.nuTerra_Image_panel.BackgroundImage = Global.nuTerra.My.Resources.Resources.topLogo
-        Me.nuTerra_Image_panel.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom
-        Me.nuTerra_Image_panel.Location = New System.Drawing.Point(382, 557)
+        Me.nuTerra_Image_panel.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch
+        Me.nuTerra_Image_panel.Location = New System.Drawing.Point(302, 557)
         Me.nuTerra_Image_panel.Name = "nuTerra_Image_panel"
-        Me.nuTerra_Image_panel.Size = New System.Drawing.Size(200, 54)
+        Me.nuTerra_Image_panel.Size = New System.Drawing.Size(152, 48)
         Me.nuTerra_Image_panel.TabIndex = 8
         '
         'help
         '
-        Me.help.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
+        Me.help.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.help.BackColor = System.Drawing.Color.Transparent
         Me.help.BackgroundImage = Global.nuTerra.My.Resources.Resources.question
         Me.help.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom
         Me.help.FlatAppearance.BorderColor = System.Drawing.Color.White
-        Me.help.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Gray
+        Me.help.FlatAppearance.BorderSize = 0
+        Me.help.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
+        Me.help.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer), CType(CType(64, Byte), Integer))
         Me.help.FlatStyle = System.Windows.Forms.FlatStyle.Flat
-        Me.help.ForeColor = System.Drawing.Color.Gray
-        Me.help.Location = New System.Drawing.Point(310, 558)
+        Me.help.ForeColor = System.Drawing.Color.White
+        Me.help.Location = New System.Drawing.Point(457, 573)
         Me.help.Margin = New System.Windows.Forms.Padding(0)
         Me.help.Name = "help"
-        Me.help.Size = New System.Drawing.Size(69, 23)
+        Me.help.Size = New System.Drawing.Size(28, 23)
         Me.help.TabIndex = 6
         Me.help.UseVisualStyleBackColor = False
         '

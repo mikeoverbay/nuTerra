@@ -390,7 +390,7 @@ Module TerrainTextureFunctions
         If success = Il.IL_NO_ERROR Then
             'Ilu.iluFlipImage()
             'Ilu.iluRotate(90.0F)
-            'Ilu.iluMirror()
+            Ilu.iluMirror()
             Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
             Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
             Dim ul = CInt(width * 0.0625)

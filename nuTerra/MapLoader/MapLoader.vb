@@ -1223,7 +1223,7 @@ Module MapLoader
         For i = FIRST_UNUSED_VB_OBJECT To Lvbo
             GL.DeleteVertexArray(i)
         Next
-        GL.Finish() ' make sure we are done before moving on
+        'GL.Finish() ' make sure we are done before moving on
 
         theMap.MINI_MAP_ID = Nothing
         theMap.chunks = Nothing
@@ -1236,10 +1236,10 @@ Module MapLoader
         imgTbl.Clear()
 
         'clean up mixing FBO
-        FBO_mixer_set.delete_textures_and_fbo()
-
-        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce
+        'FBO_mixer_set.delete_textures_and_fbo()
         GC.Collect()
+        GC.WaitForFullGCComplete()
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce
     End Sub
 
 
