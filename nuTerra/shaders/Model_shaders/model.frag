@@ -149,7 +149,7 @@ layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
     gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
     gColor *= textureLod(thisMaterial.maps[3], fs_in.TC2, mip); // color2
     gColor *= thisMaterial.g_colorTint;
-    gColor.rgb *= 1.5; // this will need tweaking
+    gColor.rgb *= 2.0; // this will need tweaking
     gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
     get_and_write_no_mips();}
 //##################################################################################

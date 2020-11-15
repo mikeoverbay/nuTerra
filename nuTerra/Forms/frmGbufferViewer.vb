@@ -83,10 +83,9 @@ Public Class frmGbufferViewer
         GL.Disable(EnableCap.DepthTest)
         'select image and shader by selected radio button
         GL.Disable(EnableCap.Blend)
-        'all gBuffer textures are the same size. so we can do this now
 
-        GL.GetTextureLevelParameter(FBOm.gColor.texture_id, 0, GetTextureParameter.TextureWidth, width)
-        GL.GetTextureLevelParameter(FBOm.gColor.texture_id, 0, GetTextureParameter.TextureHeight, height)
+        width = frmMain.glControl_main.Width
+        height = frmMain.glControl_main.Height
 
         h_label.Text = "Height:" + height.ToString("0000")
         w_label.Text = "Width:" + width.ToString("0000")

@@ -30,6 +30,16 @@ Public Class frmMain
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
 
+        ' If the Program editor is inserted in to frmMain,
+        ' We have to stop key down events while typing in
+        ' the editor's window.
+        If frmProgramEditor.CP_parent = Me.Handle Then
+            If Not glControl_main.Focused Then
+                Return
+            End If
+        End If
+
+        'mini map max size
         Dim max_size As Single = 640
 
         Select Case e.KeyCode
@@ -249,9 +259,17 @@ Public Class frmMain
 
     Private Sub frmMain_SizeChanged(sender As Object, e As EventArgs) Handles Me.SizeChanged
         If Not _STARTED Then Return
-        If SplitContainer1.Panel2Collapsed = False Then
-            SplitContainer1.SplitterDistance = Me.ClientSize.Width - SP2_Width
+        'catch Excetion
+        If Me.WindowState = FormWindowState.Minimized Then
+            Return
         End If
+        Try
+            If SplitContainer1.Panel2Collapsed = False Then
+                SplitContainer1.SplitterDistance = Me.ClientSize.Width - SP2_Width
+            End If
+        Catch ex As Exception
+
+        End Try
         resize_fbo_main()
     End Sub
 

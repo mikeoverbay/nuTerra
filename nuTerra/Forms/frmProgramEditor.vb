@@ -317,6 +317,10 @@ Public Class frmProgramEditor
             Return
         End If
         If CP_parent = Me.Handle Then
+            If (frmMain.ClientSize.Width - Me.ClientSize.Width) - frmMain.SplitContainer1.SplitterWidth < 50 Then
+                MsgBox("Edit window to WIDE to insert Main Window!", MsgBoxStyle.Exclamation, "To Wide..")
+                Return
+            End If
             CP_parent = frmMain.Handle
             Container_panel.Parent = frmMain.SplitContainer1.Panel2
             frmMain.SplitContainer1.Panel2Collapsed = False

@@ -92,6 +92,7 @@ vec4 convertNormal(vec4 norm){
         vec3 n;
         n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);
         n.z = max(sqrt(1.0 - (n.x*n.x - n.y *n.y)),0.0);
+        n.x *= -1.0; // X needs flipped DX to OpenGL
         return vec4(n,0.0);
 }
 

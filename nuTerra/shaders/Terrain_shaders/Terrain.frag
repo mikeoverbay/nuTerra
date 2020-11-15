@@ -104,6 +104,7 @@ vec4 convertNormal(vec4 norm){
         vec3 n;
         n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);
         n.z = max(sqrt(1.0 - (n.x*n.x - n.y *n.y)),0.0);
+        n.x *= -1.0; // X needs flipped DX to OpenGL
         return vec4(n,0.0);
 }
 /*===========================================================*/
@@ -251,19 +252,6 @@ void main(void)
     // Mix group 1
     n1.rgb = fs_in.TBN * normalize(n1.rgb) * MixLevel1.r * used_1;
     n1_2.rgb = fs_in.TBN * normalize(n1_2.rgb) * MixLevel1.g * used_2;
-
-
-    //flip X axis. Everything is flipped on X including texture rotations.
-
-    //n1.x *= -1.0;
-    //n2.x *= -1.0;
-    //n3.x *= -1.0;
-    //n4.x *= -1.0;
-
-    //n1_2.x *= -1.0;
-    //n2_2.x *= -1.0;
-    //n3_2.x *= -1.0;
-    //n4_2.x *= -1.0;
 
     //-------------------------------------------------------------
 
