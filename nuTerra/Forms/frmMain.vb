@@ -15,7 +15,7 @@ Public Class frmMain
     Private fps_timer As New System.Diagnostics.Stopwatch
     Private game_clock As New System.Diagnostics.Stopwatch
     Private launch_timer As New System.Diagnostics.Stopwatch
-    Private SP2_Width As Integer
+    Public SP2_Width As Integer
     Dim MINIMIZED As Boolean
     Dim ME_SIZING As Boolean
 #Region "Form Events"
@@ -239,9 +239,9 @@ Public Class frmMain
         Else
             MINIMIZED = False
         End If
-        If SplitContainer1.Panel1Collapsed = False Then
-            SplitContainer1.SplitterDistance = Me.ClientSize.Width - SP2_Width
-        End If
+        'If SplitContainer1.Panel1Collapsed = False Then
+        '    SplitContainer1.SplitterDistance = Me.ClientSize.Width - SP2_Width
+        'End If
     End Sub
 
     Private Sub frmMain_ResizeEnd(sender As Object, e As EventArgs) Handles Me.ResizeEnd
@@ -249,19 +249,27 @@ Public Class frmMain
             resize_fbo_main()
             draw_scene()
         End If
-        If SplitContainer1.Panel1Collapsed = False Then
-            SplitContainer1.SplitterDistance = Me.ClientSize.Width - SP2_Width
-        End If
-        ME_SIZING = False
+        'If SplitContainer1.Panel1Collapsed = False Then
+        '    SplitContainer1.SplitterDistance = Me.ClientSize.Width - SP2_Width
+        'End If
+        'ME_SIZING = False
     End Sub
 
     Private Sub frmMain_ResizeBegin(sender As Object, e As EventArgs) Handles Me.ResizeBegin
+        If SplitContainer1.Panel2Collapsed = False Then
+            'SP2_Width = SplitContainer1.Panel2.Width + SplitContainer1.SplitterWidth
+        End If
+
         ME_SIZING = True
     End Sub
 
     Private Sub frmMain_SizeChanged(sender As Object, e As EventArgs) Handles Me.SizeChanged
         If Not _STARTED Then Return
+        If SplitContainer1.Panel2Collapsed = False Then
+            SplitContainer1.SplitterDistance = Me.ClientSize.Width - SP2_Width
+        End If
         resize_fbo_main()
+        ME_SIZING = False
     End Sub
 
     Private Sub startup_delay_timer_Tick(sender As Object, e As EventArgs) Handles startup_delay_timer.Tick
@@ -1025,11 +1033,19 @@ try_again:
 
     Private Sub SplitContainer1_SplitterMoved(sender As Object, e As SplitterEventArgs) Handles SplitContainer1.SplitterMoved
         If Not _STARTED Then Return
-        If ME_SIZING Then Return
-        If Me.WindowState = FormWindowState.Maximized Then Return
-
+        If Not sp_moved Then Return
+        sp_moved = False
         SP2_Width = SplitContainer1.Panel2.Width + SplitContainer1.SplitterWidth
-        resize_fbo_main()
     End Sub
 
+    Private Sub frmMain_ClientSizeChanged(sender As Object, e As EventArgs) Handles Me.ClientSizeChanged
+        ME_SIZING = False
+    End Sub
+    Dim sp_moved As Boolean
+    Private Sub SplitContainer1_SplitterMoving(sender As Object, e As SplitterCancelEventArgs) Handles SplitContainer1.SplitterMoving
+        If Not _STARTED Then Return
+        SP2_Width = SplitContainer1.Panel2.Width + SplitContainer1.SplitterWidth
+        resize_fbo_main()
+        sp_moved = True
+    End Sub
 End Class
