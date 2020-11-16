@@ -182,6 +182,8 @@ Module ShaderLoader
     Public TerrainLQShader As Shader
     Public toLinearShader As Shader
     Public TextRenderShader As Shader
+    'particle shaders
+    Public explode_type_1_shader As Shader
 #End Region
 
 #Region "Compiler code"
@@ -232,6 +234,9 @@ Module ShaderLoader
         TerrainLQShader = New Shader("TerrainLQ")
         TextRenderShader = New Shader("TextRender")
         toLinearShader = New Shader("toLinear")
+        'particle shaders
+        explode_type_1_shader = New Shader("explode_type_1_")
+
 
         shaders = New List(Of Shader)
         shaders.Add(BaseRingProjector)
@@ -268,6 +273,8 @@ Module ShaderLoader
         shaders.Add(TerrainLQShader)
         shaders.Add(TextRenderShader)
         shaders.Add(toLinearShader)
+        'particle shaders
+        shaders.Add(explode_type_1_shader)
     End Sub
 
     Public Function assemble_shader(v As String,
