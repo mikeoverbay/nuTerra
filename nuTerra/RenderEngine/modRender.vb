@@ -69,10 +69,10 @@ Module modRender
         '===========================================================================
         'draw sun
         FBOm.attach_C()
+        'GL.FrontFace(FrontFaceDirection.Ccw)
         GL.Disable(EnableCap.DepthTest)
         If TERRAIN_LOADED And DONT_BLOCK_SKY Then Draw_SkyDome()
         If TERRAIN_LOADED And DONT_BLOCK_SKY Then draw_sun()
-        '===========================================================================
         '===========================================================================
         'GL States 
         GL.Enable(EnableCap.DepthTest)
@@ -123,6 +123,20 @@ Module modRender
             FBOm.attach_CNGP()
             draw_models() '=========================================================
             '=======================================================================
+        End If
+        '===========================================================================
+        If TERRAIN_LOADED Then
+            FBOm.attach_C()
+            GL.Enable(EnableCap.Blend)
+            GL.Enable(EnableCap.DepthTest)
+            GL.DepthMask(False)
+            For i = 0 To Test_Emiters.Length - 1
+                Test_Emiters(i).execute()
+            Next
+
+            GL.Disable(EnableCap.Blend)
+            GL.Enable(EnableCap.DepthTest)
+            GL.DepthMask(True)
         End If
 
         GL.DepthFunc(DepthFunction.Less)

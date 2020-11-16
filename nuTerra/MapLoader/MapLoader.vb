@@ -294,7 +294,7 @@ Module MapLoader
             ripple_thread.Start()
         End If
     End Sub
-
+    '============================================================================
     Public Sub load_map(ByVal package_name As String)
         'disable main menu
         frmMain.MainMenuStrip.Enabled = False
@@ -701,6 +701,42 @@ Module MapLoader
         T1_Y = get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)
         T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
         '===============================================================
+        'load some test emitters
+        ReDim Test_Emiters(30)
+        For i = 0 To 30
+            Test_Emiters(i) = New Explosion_type_1
+
+            Dim v = get_random_vector3(400) '<--- Spread out will be 1/2 this value
+
+
+            v.Y = get_Y_at_XZ(v.X, v.Z)
+            Test_Emiters(i).start_location = v
+
+            Test_Emiters(i).Scatter_factor = 0.1F ' quad randomly moves by this per loop
+
+            '  the quad may never get this big if Expand_speed is too low a value 
+            Test_Emiters(i).max_expand_size = 200.0F
+
+            Test_Emiters(i).expand_start_size = 2.0F 'initial size 
+
+            '(30 - 2) / 91 frames = 0.307692.. prefect grow rate..
+            'It can be larger And the quad Is frozen in size for the remaining frames
+            'Too small and the quad will never reach max_expanded size.
+            'It will reach max size before the frames are done using this valune
+            Test_Emiters(i).Expand_speed = 3.2F
+
+            Test_Emiters(i).image_count = 91
+            Test_Emiters(i).note = "This better F'in work!"
+            Test_Emiters(i).particle_count = 1
+            Test_Emiters(i).birth_speed = 500
+            Test_Emiters(i).continuous = True ' repeat or not
+
+            Test_Emiters(i).fixed_expand_speed = True
+            Test_Emiters(i).update_time = 35
+
+            Test_Emiters(i).initialize()
+        Next
+        '===============================================================
 
 
         SHOW_LOADING_SCREEN = False
@@ -710,7 +746,7 @@ Module MapLoader
         ' Set sun location from map data
         ' Set initial light position and get radius and angle.
 
-        LIGHT_RADIUS = MAP_SIZE.Length * 100.0
+        LIGHT_RADIUS = 300.0F
         LIGHT_ORBIT_ANGLE_Z += 180.0
         LIGHT_POS(0) = Math.Sin(-LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
         LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X * 0.0174533) * LIGHT_RADIUS
@@ -728,6 +764,7 @@ Module MapLoader
         frmMain.MainMenuStrip.Enabled = True
 
     End Sub
+    '============================================================================
 
     Public Sub set_light_pos()
         LIGHT_POS.X = LIGHT_POS(0)
