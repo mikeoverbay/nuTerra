@@ -7,21 +7,25 @@
 
 //uniform sampler2D colorMap;
 
+
+
+layout (binding = 1) uniform sampler2D alpha_LUT;
+
 uniform mat4 matrix;
 uniform float scale;
 uniform float rot_angle;
 uniform float frame_index;
-uniform int row_length;
+uniform float row_length;
+uniform float total_frames;
 
 out vec2 texCoord;
-out float fade;
+flat out float alpha;
 
 void main(void)
 {
-    fade = 1.0-frame_index/91.0;
     vec2 uv;
     vec2 co;
-    // our 4 points in PI angle. So we can add spining quads later :)
+    // Our 4, PI angle points. So we can rotate the quad :)
     const float pi_1 =  3.92699082;
     const float pi_2 =  2.3561945;
     const float pi_3 = -0.7853982;
@@ -54,10 +58,15 @@ void main(void)
         uv = vec2(1.0f, 0.0f);
     }
 
+    vec2 texCoord_LUT = vec2(frame_index/total_frames);
 
+    alpha = textureLod(alpha_LUT, texCoord_LUT, 0.0).r;
+
+    // Figure out what tile to draw...
     float tile_width = 1.0/row_length;
     uv.x = (uv.x/row_length) + (tile_width * frame_index);
-
+    
+    // Next Row?
     if (frame_index > row_length-1) {
         uv.x -= (tile_width * (frame_index-row_length));
         uv.y+=0.5;
@@ -70,9 +79,6 @@ void main(void)
     
     p = inverse(view) * p ;
 
-    //p.y = matrix[3].z;
-
     gl_Position =  viewProj * p;
-
 
 }

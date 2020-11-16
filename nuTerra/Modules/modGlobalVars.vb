@@ -5,9 +5,11 @@ Imports OpenTK
 Module modGlobalVars
 
     '=================================================================================
-    'Particle Textures
+    'Particle Textures and emitters
     Public Explosion_11776x512_91tiles_256x256_ID As GLTexture
-    Public Test_Emiters(10) As Explosion_Types.Explosion_type_1
+    Public ALPHA_LUT_ID As GLTexture
+
+    Public Test_Emiters(1) As Explosion_Types.Explosion_type_1
     '=================================================================================
 
     '=================================================================================

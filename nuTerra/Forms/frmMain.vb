@@ -473,7 +473,7 @@ try_again:
         LogThis(String.Format("{0}ms Assets Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
         'Set camara start up position. This is mostly for testing.
-        VIEW_RADIUS = -1000.0
+        VIEW_RADIUS = -300.0
         CAM_X_ANGLE = PI / 4
         CAM_Y_ANGLE = -PI / 4
 
@@ -586,12 +586,16 @@ try_again:
         ASCII_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\ascii_characters.png", False, True)
-        '---------------------------------------------------------
+        '===========================================================================================
         'load Ascii characters image.
         Explosion_11776x512_91tiles_256x256_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.png", True, True)
-        '---------------------------------------------------------
+
+        ALPHA_LUT_ID =
+            load_image_from_file(Il.IL_PNG,
+            sp + "\Resources\Particle_textures\alpha_LUT.png", True, True)
+        '===========================================================================================
         'Test Textures
         For i = 0 To 7
             TEST_IDS(i) =

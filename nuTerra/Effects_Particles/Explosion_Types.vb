@@ -1,6 +1,5 @@
 ﻿Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
-Imports System.Threading
 
 Module Explosion_Types
 
@@ -31,7 +30,9 @@ Module Explosion_Types
         Private Fixed_expand_speed_ As Boolean
         Private image_atlas_id_ As Integer
         Private Note_ As String
-        Private image_count_ As Single
+
+        Private total_frames_ As Single
+        Private row_length_ As Single
 
         Private DONE As Boolean
         Private done_count As Integer
@@ -47,7 +48,9 @@ Module Explosion_Types
             Public expand_factor As Single
             Public this_particle_time As Int64
             Public frame_index As Single
-            Public active As Boolean
+            Public aLive As Boolean
+            Public total_frames As Single
+            Public row_length As Single
         End Structure
 
 #Region "properties"
@@ -155,12 +158,20 @@ Module Explosion_Types
                 Note_ = value
             End Set
         End Property
-        Public Property image_count() As Single
+        Public Property total_frames() As Single
             Get
-                Return image_count_
+                Return total_frames_
             End Get
             Set(value As Single)
-                image_count_ = value
+                total_frames_ = value
+            End Set
+        End Property
+        Public Property row_length() As Single
+            Get
+                Return row_length_
+            End Get
+            Set(value As Single)
+                row_length_ = value
             End Set
         End Property
 
@@ -178,6 +189,9 @@ Module Explosion_Types
             For i = 0 To particle_count_
 
                 particles(i) = New particle_ ' new
+
+                particles(i).row_length = row_length
+                particles(i).total_frames = total_frames
 
                 Dim v = get_random_vector3(expand_speed_) 'get a random vector in -0.5 to 0.5 range
                 v.Y += 0.5F
@@ -210,8 +224,8 @@ Module Explosion_Types
             If timer.ElapsedMilliseconds > birth_speed + time_delta Then
                 time_delta = timer.ElapsedMilliseconds
                 For i = 0 To particle_count_ - 1
-                    If Not particles(i).active Then
-                        particles(i).active = True
+                    If Not particles(i).aLive Then
+                        particles(i).aLive = True
                         Dim v = get_random_vector3(1.0)
                         particles(i).frame_index = (v.Y + 0.5) * 90
 
@@ -222,12 +236,12 @@ Module Explosion_Types
 
             'Update each particle
             For i = 0 To particle_count_
-                If particles(i).active Then
+                If particles(i).aLive Then
 
                     'is it time to update this particle?
                     If timer.ElapsedMilliseconds >= particles(i).this_particle_time Then
 
-                        'timer.Stop()
+                        timer.Stop()
                         'updata time
                         particles(i).this_particle_time = timer.ElapsedMilliseconds + update_time_
 
@@ -236,13 +250,14 @@ Module Explosion_Types
 
                         'increment image index
                         particles(i).frame_index += 1.0F
-                        If particles(i).frame_index >= image_count_ Then
+                        If particles(i).frame_index >= total_frames Then
 
                             If Not continuous_ Then
-                                particles(i).active = False
+                                particles(i).aLive = False
                                 done_count += 1
                                 If done_count = particle_count_ Then
                                     DONE = True ' signals this emitter can be reset or removed
+                                    particles(i).aLive = False
                                 End If
                             Else
                                 particles(i).frame_index = 0
@@ -257,7 +272,7 @@ Module Explosion_Types
                             particles(i).expand_scale = max_expand_size_
                         End If
 
-                        'timer.Start()
+                        timer.Start()
 
 
                     End If
@@ -268,28 +283,29 @@ Module Explosion_Types
 
             explode_type_1_shader.Use()
 
-            GL.Uniform1(explode_type_1_shader("row_length"), 46)
 
             Explosion_11776x512_91tiles_256x256_ID.BindUnit(0)
+            ALPHA_LUT_ID.BindUnit(1)
 
             For i = 0 To particle_count_ - 1
-                If particles(i).active Then
+                If particles(i).aLive Then
                     Dim matrix = Matrix4.CreateTranslation(particles(i).location)
+
+                    GL.Uniform1(explode_type_1_shader("row_length"), particles(i).row_length)
+                    GL.Uniform1(explode_type_1_shader("total_frames"), particles(i).total_frames)
 
                     GL.UniformMatrix4(explode_type_1_shader("matrix"), False, matrix)
                     GL.Uniform1(explode_type_1_shader("frame_index"), particles(i).frame_index)
                     GL.Uniform1(explode_type_1_shader("rot_angle"), particles(i).rotation_angle)
                     GL.Uniform1(explode_type_1_shader("scale"), particles(i).expand_scale)
-                    'GL.Uniform1(explode_type_1_shader("scale"), SUN_SCALE * 6)
 
-                    GL.Uniform4(explode_type_1_shader("rect"), -0.5F, -0.5F, 0.5F, 0.5F)
                     GL.BindVertexArray(defaultVao)
                     GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
                 End If
             Next
             explode_type_1_shader.Use()
-
+            unbind_textures(1)
         End Sub
         Private Sub draw_Particle(ByVal id As Integer)
 
