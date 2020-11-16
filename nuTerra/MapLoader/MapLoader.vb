@@ -701,38 +701,64 @@ Module MapLoader
         T1_Y = get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)
         T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
         '===============================================================
+        'make some test lights
+        LIGHTS.lights = New Dictionary(Of Integer, point_light_)
+        For i = 0 To 199
+            Dim l = New point_light_
+            'color
+            Dim v = get_random_vector3(1.0) + New Vector3(0.5)
+            v.Normalize()
+            l.color = v
+            'location
+            v = get_random_vector3(1000)
+            v.Y = get_Y_at_XZ(v.X, v.Y) + 5.0
+            l.location = v
+            LIGHTS.add_light(l)
+        Next
+        LIGHTS.create_ubo_Buffer()
+
+        '===============================================================
         'load some test emitters
-        ReDim Test_Emiters(30)
-        For i = 0 To 30
+
+        ReDim Test_Emiters(1999) '<--- emitter count
+        For i = 0 To 1999
             Test_Emiters(i) = New Explosion_type_1
 
-            Dim v = get_random_vector3(400) '<--- Spread out will be 1/2 this value
+            Test_Emiters(i).total_frames = 91
+            Test_Emiters(i).row_length = 46
 
+            Test_Emiters(i).fixed_expand_speed = True
+
+            Test_Emiters(i).note = "This better F'in work!"
+
+            Dim v = get_random_vector3(400) '<--- Spread out will be 1/2 this value
 
             v.Y = get_Y_at_XZ(v.X, v.Z)
             Test_Emiters(i).start_location = v
 
-            Test_Emiters(i).Scatter_factor = 0.1F ' quad randomly moves by this per loop
+            Test_Emiters(i).Scatter_factor = 0.3F ' each quad randomly moves by per loop
 
             '  the quad may never get this big if Expand_speed is too low a value 
-            Test_Emiters(i).max_expand_size = 200.0F
+            Test_Emiters(i).max_expand_size = 50.0F
 
-            Test_Emiters(i).expand_start_size = 2.0F 'initial size 
+            Test_Emiters(i).expand_start_size = 10.0F 'initial size 
 
             '(30 - 2) / 91 frames = 0.307692.. prefect grow rate..
-            'It can be larger And the quad Is frozen in size for the remaining frames
+            'It can be larger BUT the quad will be frozen at max_expand_size for the remaining frames
             'Too small and the quad will never reach max_expanded size.
             'It will reach max size before the frames are done using this valune
-            Test_Emiters(i).Expand_speed = 3.2F
+            Test_Emiters(i).Expand_speed = 0.45F
 
-            Test_Emiters(i).image_count = 91
-            Test_Emiters(i).note = "This better F'in work!"
-            Test_Emiters(i).particle_count = 1
-            Test_Emiters(i).birth_speed = 500
+            Test_Emiters(i).update_time = 35
+            Test_Emiters(i).particle_count = 1 '<-- Partices for this emitter. 
+
+            Test_Emiters(i).birth_speed = (Test_Emiters(i).total_frames * Test_Emiters(i).update_time) / Test_Emiters(i).particle_count '<-- best if this = 1000. particle count
+            '(total_frames * update speed)/paricle_count = time to cycle.
+            'divid this by paricle count to get smooot birth rate
+
+
             Test_Emiters(i).continuous = True ' repeat or not
 
-            Test_Emiters(i).fixed_expand_speed = True
-            Test_Emiters(i).update_time = 35
 
             Test_Emiters(i).initialize()
         Next
@@ -746,7 +772,7 @@ Module MapLoader
         ' Set sun location from map data
         ' Set initial light position and get radius and angle.
 
-        LIGHT_RADIUS = 300.0F
+        LIGHT_RADIUS = -100.0F
         LIGHT_ORBIT_ANGLE_Z += 180.0
         LIGHT_POS(0) = Math.Sin(-LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
         LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X * 0.0174533) * LIGHT_RADIUS

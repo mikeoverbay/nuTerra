@@ -23,15 +23,28 @@ uniform float GAMMA_LEVEL;
 
 uniform vec3 ambientColorForward;
 uniform vec3 sunColor;
-
+uniform int light_count ;
 #define MAXCOLOR 15.0
 #define COLORS 16.0
 #define WIDTH 256.0
 #define HEIGHT 16.0
 
+
+
 in VS_OUT {
     vec2 UV;
 } fs_in;
+
+struct light {
+    vec3 location;
+    vec3 color;
+    float level;
+    float fallOff;
+    };
+
+//layout (std140, binding = 1) uniform LightBlock {
+//    light lights[];
+//};
 
 /*========================== FUNCTIONS =============================*/
 // This is  atest for making sure we actually are getting the depth.

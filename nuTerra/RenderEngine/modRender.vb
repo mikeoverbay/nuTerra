@@ -253,6 +253,9 @@ Module modRender
         GL.Uniform1(deferredShader("cubeMap"), 4)
         GL.Uniform1(deferredShader("lut"), 5)
         GL.Uniform1(deferredShader("env_brdf_lut"), 6)
+        GL.Uniform1(deferredShader("light_count"), LIGHTS.light_count)
+
+        'GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 1, LIGHTS.UBO_id)
 
         FBOm.gColor.BindUnit(0)
         FBOm.gNormal.BindUnit(1)

@@ -181,6 +181,7 @@
       <DependentUpon>DataSet1.xsd</DependentUpon>
     </Compile>
     <Compile Include="Effects_Particles\Explosion_Types.vb" />
+    <Compile Include="Effects_Particles\Point_Lights.vb" />
     <Compile Include="FBOs\FBO_MiniMap.vb" />
     <Compile Include="FBOs\FBO_main.vb" />
     <Compile Include="FBOs\FBO_Mixer.vb" />
@@ -677,6 +678,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Include="Resources\move_window.png" />
+    <Content Include="Resources\Particle_textures\alpha_LUT.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.dds">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
