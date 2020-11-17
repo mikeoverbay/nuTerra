@@ -204,6 +204,14 @@ Module modRender
         End If
         '===========================================================================
 
+        '===========================================================================
+        'hopefully, this will look like FOG :)
+        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            copy_default_to_gColor()
+            fog_pass()
+        End If
+
+        '===========================================================================
         If DONT_HIDE_HUD Then
             '===========================================================================
             'color_correct()
@@ -237,6 +245,47 @@ Module modRender
         FPS_COUNTER += 1
     End Sub
     '=============================================================================================
+    Private Sub fog_pass()
+        GL_PUSH_GROUP("perform_FogPass")
+
+        Dim fog_color As New Vector3(0.5, 0.5, 0.8)
+        GL.Disable(EnableCap.DepthTest)
+
+        gBufferFogShader.Use()
+        GL.DepthMask(False)
+
+        GL.UniformMatrix4(gBufferFogShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+
+
+        GL.Uniform1(gBufferFogShader("gPosition"), 0)
+        GL.Uniform1(gBufferFogShader("gColor"), 1)
+        GL.Uniform1(gBufferFogShader("gGMF"), 2)
+
+        GL.Uniform3(gBufferFogShader("fog_color_in"), fog_color.X, fog_color.Y, fog_color.Z)
+        GL.Uniform1(gBufferFogShader("Fog_density"), 0.2)
+        GL.Uniform1(gBufferFogShader("viewDistance"), 3000)
+
+
+
+        GL.Uniform1(gBufferFogShader("AMBIENT"), frmLightSettings.lighting_ambient)
+        GL.Uniform1(gBufferFogShader("FOG_LEVEL"), frmLightSettings.lighting_fog_level)
+
+        FBOm.gPosition.BindUnit(0)
+        FBOm.gColor.BindUnit(1)
+        FBOm.gGMF.BindUnit(2)
+
+        'draw full screen quad
+        GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
+
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        gBufferFogShader.StopUse()
+        unbind_textures(2)
+
+        GL_POP_GROUP()
+    End Sub
+
 
     Private Sub render_deferred_buffers()
         GL_PUSH_GROUP("render_deferred_buffers")

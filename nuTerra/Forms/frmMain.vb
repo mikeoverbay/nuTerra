@@ -478,7 +478,7 @@ try_again:
         LogThis(String.Format("{0}ms Assets Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
         'Set camara start up position. This is mostly for testing.
-        VIEW_RADIUS = -300.0
+        VIEW_RADIUS = -500.0
         CAM_X_ANGLE = PI / 4
         CAM_Y_ANGLE = -PI / 4
 

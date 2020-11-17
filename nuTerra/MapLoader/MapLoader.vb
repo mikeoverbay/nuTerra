@@ -760,13 +760,12 @@ Module MapLoader
         '===================================================
         ' Set sun location from map data
         ' Set initial light position and get radius and angle.
-
-        LIGHT_RADIUS = -100.0F
+        LIGHT_RADIUS = MAP_SIZE.Length * 100.0
         LIGHT_ORBIT_ANGLE_Z += 180.0
         LIGHT_POS(0) = Math.Sin(-LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
         LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X * 0.0174533) * LIGHT_RADIUS
         LIGHT_POS(2) = Math.Cos(-LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
-        'set_light_pos() 'for light rotation animation
+        set_light_pos() 'for light rotation animation
         '===================================================
 
         frmMain.check_postion_for_update() ' need to initialize cursor altitude
@@ -790,7 +789,7 @@ Module MapLoader
             Dim v = get_random_vector3(1.0) + New Vector3(0.5)
             v.Normalize()
             l.color = v
-            l.level = v.Y * 15.0F
+            l.level = v.Y
             'location
             v = get_random_vector3(400)
             v.Y = get_Y_at_XZ(v.X, v.Y) + 5.0
