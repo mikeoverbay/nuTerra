@@ -311,6 +311,10 @@ Module Explosion_Types
 
         End Sub
     End Structure
+    Public sort_lists() As sort_list_
+    Public Structure sort_list_
+        Public list() As Single
+    End Structure
 
 
 
