@@ -702,25 +702,25 @@ Module MapLoader
         T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
         '===============================================================
         'make some test lights
-        LIGHTS.lights = New Dictionary(Of Integer, point_light_)
-        For i = 0 To 199
+        LIGHTS.init()
+        For i = 0 To 100
             Dim l = New point_light_
             'color
             Dim v = get_random_vector3(1.0) + New Vector3(0.5)
             v.Normalize()
             l.color = v
             'location
-            v = get_random_vector3(1000)
+            v = get_random_vector3(400)
             v.Y = get_Y_at_XZ(v.X, v.Y) + 5.0
             l.location = v
             LIGHTS.add_light(l)
         Next
-        LIGHTS.create_ubo_Buffer()
-
+        LIGHTS.create_SSBO_Buffer()
         '===============================================================
         'load some test emitters
 
         ReDim Test_Emiters(1999) '<--- emitter count
+        ReDim sort_lists(Test_Emiters.Length)
         For i = 0 To 1999
             Test_Emiters(i) = New Explosion_type_1
 
@@ -751,7 +751,7 @@ Module MapLoader
 
             Test_Emiters(i).update_time = 35
             Test_Emiters(i).particle_count = 1 '<-- Partices for this emitter. 
-
+            ReDim sort_lists(i).list(Test_Emiters(i).particle_count)
             Test_Emiters(i).birth_speed = (Test_Emiters(i).total_frames * Test_Emiters(i).update_time) / Test_Emiters(i).particle_count '<-- best if this = 1000. particle count
             '(total_frames * update speed)/paricle_count = time to cycle.
             'divid this by paricle count to get smooot birth rate

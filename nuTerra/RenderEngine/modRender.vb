@@ -131,7 +131,7 @@ Module modRender
             GL.Enable(EnableCap.DepthTest)
             GL.DepthMask(False)
             For i = 0 To Test_Emiters.Length - 1
-                Test_Emiters(i).execute()
+                'Test_Emiters(i).execute()
             Next
 
             GL.Disable(EnableCap.Blend)
@@ -253,9 +253,9 @@ Module modRender
         GL.Uniform1(deferredShader("cubeMap"), 4)
         GL.Uniform1(deferredShader("lut"), 5)
         GL.Uniform1(deferredShader("env_brdf_lut"), 6)
-        GL.Uniform1(deferredShader("light_count"), LIGHTS.light_count)
 
-        'GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 1, LIGHTS.UBO_id)
+        GL.Uniform1(deferredShader("light_count"), LIGHTS.index - 1)
+
 
         FBOm.gColor.BindUnit(0)
         FBOm.gNormal.BindUnit(1)
@@ -682,6 +682,7 @@ Module modRender
         GL.Enable(EnableCap.CullFace)
 
         MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
+
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)

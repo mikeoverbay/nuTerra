@@ -1,5 +1,12 @@
 #version 450 core
 
+#extension GL_ARB_bindless_texture : require
+#extension GL_ARB_shading_language_include : require
+
+#define USE_LIGHT_SSBO
+#define USE_PERVIEW_UBO
+#include "common.h" //! #include "../common.h"
+
 out vec4 outColor;
 
 uniform sampler2D gColor;
@@ -24,27 +31,21 @@ uniform float GAMMA_LEVEL;
 uniform vec3 ambientColorForward;
 uniform vec3 sunColor;
 uniform int light_count ;
+
 #define MAXCOLOR 15.0
 #define COLORS 16.0
 #define WIDTH 256.0
 #define HEIGHT 16.0
 
+layout (std140, binding = 7) buffer Lights {
+    light lights[250];
+};
 
 
 in VS_OUT {
     vec2 UV;
 } fs_in;
 
-struct light {
-    vec3 location;
-    vec3 color;
-    float level;
-    float fallOff;
-    };
-
-//layout (std140, binding = 1) uniform LightBlock {
-//    light lights[];
-//};
 
 /*========================== FUNCTIONS =============================*/
 // This is  atest for making sure we actually are getting the depth.
@@ -197,10 +198,38 @@ void main (void)
                 final_color.xyz += refection;
                 final_color = lut_color_correction( final_color );
                 // Fade to ambient over distance
+
                 final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;
+
             } else {
                 final_color = Ambient_level * BRIGHTNESS;
             }
+
+            /*===================================================================*/
+            if (light_count >0){
+
+                final_color*=0.5;
+                vec4 summed_lights;
+
+                for (int i = 0; i < light_count; i++){
+
+                    vec4 lp = view * vec4(lights[i].location,1.0);
+
+                    dist = length(lp.rgb - Position);
+                    cutoff = 10.0;
+        
+                    if (dist < cutoff) {
+                    vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
+
+                    float lambertTerm = pow(max(dot(N, L),0.001),GM_in.r);
+                    summed_lights.rgb = max(lambertTerm * lights[i].color.xyz,0.0);
+                    // Mix in this light by distance
+                    final_color = mix(final_color, summed_lights, 1.0 - dist/cutoff) * BRIGHTNESS;
+                    }
+                }
+
+            }
+            // final_color.rgb += lights[7].color;
 
             /*===================================================================*/
             // Gray level

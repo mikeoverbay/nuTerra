@@ -12,6 +12,7 @@
 #define LODS_BASE 4
 #define INDIRECT_GLASS_BASE 5
 #define INDIRECT_DBL_SIDED_BASE 6
+#define LIGHTS_BASE 7
 
 struct CandidateDraw
 {
@@ -86,6 +87,16 @@ layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
     mat4 invViewProj;
     vec3 cameraPos;
     vec2 resolution;
+};
+#endif
+
+#ifdef USE_LIGHT_SSBO
+struct light {
+    vec3 location;
+    float level;
+    vec3 color;
+    float fallOff;
+    int inUse;
 };
 #endif
 
