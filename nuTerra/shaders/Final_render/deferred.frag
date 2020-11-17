@@ -206,7 +206,16 @@ void main (void)
             }
 
             /*===================================================================*/
-            if (light_count >0){
+            /*===================================================================*/
+            // Gray level
+            vec3 luma = vec3(0.299, 0.587, 0.114);
+            vec3 co = vec3(dot(luma, final_color.rgb));
+            vec3 c = mix(co, final_color.rgb, GRAY_LEVEL);
+            final_color.rgb = c;
+            /*===================================================================*/
+            /*===================================================================*/
+            // Small Map Lights
+           if (light_count >0){
 
                 final_color*=0.5;
                 vec4 summed_lights;
@@ -215,31 +224,24 @@ void main (void)
 
                     vec4 lp = view * vec4(lights[i].location,1.0);
 
-                    dist = length(lp.rgb - Position);
-                    cutoff = 10.0; // light radius
-                    cutoff = lights[i].level;
-
-                    if (dist < cutoff) {
+                    float dist = length(lp.rgb - Position);
+                    float radius = 10.0;
+                    
+                    if (dist < radius) {
+                    //dist *=lights[i].level;
                     vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
                     float lambertTerm = pow(max(dot(N, L),0.001),GM_in.r);
                     summed_lights.rgb = max(lambertTerm * lights[i].color.xyz,0.0);
                     // Mix in this light by distance
-                    final_color = mix(final_color, summed_lights, 1.0 - dist/cutoff) * BRIGHTNESS;
+                  
+                    float att = clamp(1.0 - dist/radius, 0.0, 1.0); att *= att;
+
+                    final_color = mix(final_color, summed_lights, att) * BRIGHTNESS;
                     }
                 }
 
             }
-            // final_color.rgb += lights[7].color;
-
-            /*===================================================================*/
-            // Gray level
-            vec3 luma = vec3(0.299, 0.587, 0.114);
-            vec3 co = vec3(dot(luma, final_color.rgb));
-            vec3 c = mix(co, final_color.rgb, GRAY_LEVEL);
-            final_color.rgb = c;
-            /*===================================================================*/
-
 
             /*===================================================================*/
             // Final Output

@@ -434,6 +434,12 @@
     <None Include="shaders\PostProcessing\FXAA.vert.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\PostProcessing\gBufferFog.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\PostProcessing\gBufferFog.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
