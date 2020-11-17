@@ -216,8 +216,9 @@ void main (void)
                     vec4 lp = view * vec4(lights[i].location,1.0);
 
                     dist = length(lp.rgb - Position);
-                    cutoff = 10.0;
-        
+                    cutoff = 10.0; // light radius
+                    cutoff = lights[i].level;
+
                     if (dist < cutoff) {
                     vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 

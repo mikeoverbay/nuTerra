@@ -790,6 +790,7 @@ Module MapLoader
             Dim v = get_random_vector3(1.0) + New Vector3(0.5)
             v.Normalize()
             l.color = v
+            l.level = v.Y * 15.0F
             'location
             v = get_random_vector3(400)
             v.Y = get_Y_at_XZ(v.X, v.Y) + 5.0
