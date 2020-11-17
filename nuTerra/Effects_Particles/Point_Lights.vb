@@ -21,10 +21,14 @@ Module Point_Lights
             For i = 0 To max_light_count
                 gl_light_array(i) = New point_light_
             Next
+            index = 0
         End Sub
 
         Public Sub create_SSBO_Buffer()
-            light_SSBO = CreateBuffer(BufferTarget.ShaderStorageBuffer, "Lights")
+            If light_SSBO Is Nothing Then
+                light_SSBO = CreateBuffer(BufferTarget.ShaderStorageBuffer, "Lights")
+
+            End If
             BufferStorage(light_SSBO,
                       gl_light_array.Length * Marshal.SizeOf(Of point_light_),
                       gl_light_array,
@@ -42,14 +46,6 @@ Module Point_Lights
             Return index - 1 ' return id for this light.. for what, I have no idea
 
         End Function
-
-        Public Sub clear()
-            ReDim gl_light_array(max_light_count)
-            For i = 0 To max_light_count
-                gl_light_array(i) = New point_light_
-            Next
-            index = 0
-        End Sub
 
     End Structure
 

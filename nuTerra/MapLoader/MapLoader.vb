@@ -702,26 +702,15 @@ Module MapLoader
         T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
         '===============================================================
         'make some test lights
-        LIGHTS.init()
-        For i = 0 To 100
-            Dim l = New point_light_
-            'color
-            Dim v = get_random_vector3(1.0) + New Vector3(0.5)
-            v.Normalize()
-            l.color = v
-            'location
-            v = get_random_vector3(400)
-            v.Y = get_Y_at_XZ(v.X, v.Y) + 5.0
-            l.location = v
-            LIGHTS.add_light(l)
-        Next
+        randomize_lights()
+
         LIGHTS.create_SSBO_Buffer()
         '===============================================================
         'load some test emitters
 
-        ReDim Test_Emiters(1999) '<--- emitter count
+        ReDim Test_Emiters(500) '<--- emitter count
         ReDim sort_lists(Test_Emiters.Length)
-        For i = 0 To 1999
+        For i = 0 To 500
             Test_Emiters(i) = New Explosion_type_1
 
             Test_Emiters(i).total_frames = 91
@@ -736,7 +725,7 @@ Module MapLoader
             v.Y = get_Y_at_XZ(v.X, v.Z)
             Test_Emiters(i).start_location = v
 
-            Test_Emiters(i).Scatter_factor = 0.3F ' each quad randomly moves by per loop
+            Test_Emiters(i).Scatter_factor = 0.5F ' each quad randomly moves by per loop
 
             '  the quad may never get this big if Expand_speed is too low a value 
             Test_Emiters(i).max_expand_size = 50.0F
@@ -750,7 +739,7 @@ Module MapLoader
             Test_Emiters(i).Expand_speed = 0.45F
 
             Test_Emiters(i).update_time = 35
-            Test_Emiters(i).particle_count = 1 '<-- Partices for this emitter. 
+            Test_Emiters(i).particle_count = 6 '<-- Partices for this emitter. 
             ReDim sort_lists(i).list(Test_Emiters(i).particle_count)
             Test_Emiters(i).birth_speed = (Test_Emiters(i).total_frames * Test_Emiters(i).update_time) / Test_Emiters(i).particle_count '<-- best if this = 1000. particle count
             '(total_frames * update speed)/paricle_count = time to cycle.
@@ -791,7 +780,24 @@ Module MapLoader
 
     End Sub
     '============================================================================
-
+    Public Sub randomize_lights()
+        '===============================================================
+        'make some test lights
+        LIGHTS.init()
+        For i = 0 To 100
+            Dim l = New point_light_
+            'color
+            Dim v = get_random_vector3(1.0) + New Vector3(0.5)
+            v.Normalize()
+            l.color = v
+            'location
+            v = get_random_vector3(400)
+            v.Y = get_Y_at_XZ(v.X, v.Y) + 5.0
+            l.location = v
+            LIGHTS.add_light(l)
+        Next
+        LIGHTS.create_SSBO_Buffer()
+    End Sub
     Public Sub set_light_pos()
         LIGHT_POS.X = LIGHT_POS(0)
         LIGHT_POS.Y = LIGHT_POS(1)

@@ -44,6 +44,11 @@ Public Class frmMain
 
         Select Case e.KeyCode
             '-------------------------------
+            Case Keys.R
+                If MAP_LOADED Then
+                    randomize_lights()
+                End If
+            '-------------------------------
             'mini map size
             Case Keys.Oemplus
                 If MINI_MAP_NEW_SIZE = MINI_MAP_SIZE Then
