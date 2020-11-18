@@ -592,21 +592,29 @@ try_again:
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\ascii_characters.png", False, True)
         '===========================================================================================
-        'load Ascii characters image.
+        'load Ascii characters texture.
         Explosion_11776x512_91tiles_256x256_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.png", True, True)
+        '===========================================================================================
+        'load Alpha_LUT texture.
 
         ALPHA_LUT_ID =
             load_image_from_file(Il.IL_PNG,
-            sp + "\Resources\Particle_textures\alpha_LUT.png", True, True)
+            sp + "\Resources\Particle_textures\alpha_LUT.png", False, True)
         '===========================================================================================
-        'Test Textures
-        For i = 0 To 7
-            TEST_IDS(i) =
-                load_image_from_file(Il.IL_PNG,
-                sp + "\resources\TestTextures\tex_" + i.ToString + ".png", True, False)
-        Next
+        'load noise texture.
+
+        NOISE_id =
+            load_image_from_file(Il.IL_PNG,
+            sp + "\Resources\noise.png", True, True)
+        '===========================================================================================
+        ''Test Textures
+        'For i = 0 To 7
+        '    TEST_IDS(i) =
+        '        load_image_from_file(Il.IL_PNG,
+        '        sp + "\resources\TestTextures\tex_" + i.ToString + ".png", True, False)
+        'Next
         '---------------------------------------------------------        'Test Textures
 #If False Then
         'This can be used to debug textureing

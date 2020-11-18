@@ -105,10 +105,6 @@ Module modRender
             '=======================================================================
             If SHOW_CURSOR Then draw_map_cursor() '=================================
             '=======================================================================
-
-            '=======================================================================
-            'draw_terrain_base_rings() '=============================================
-            '=======================================================================
             'restore settings after projected objects are drawn
             GL.Disable(EnableCap.Blend)
             GL.DepthMask(True)
@@ -139,8 +135,8 @@ Module modRender
             GL.DepthMask(True)
         End If
 
-        GL.DepthFunc(DepthFunction.Less)
 
+        GL.DepthFunc(DepthFunction.Less)
         '===========================================================================
         If PICK_MODELS And MODELS_LOADED Then PickModel()
         '===========================================================================
@@ -157,7 +153,7 @@ Module modRender
                 frmGbufferViewer.update_screen()
             End If
         End If
-        '===========================================================================
+
 
         '===========================================================================
         Ortho_main()
@@ -187,7 +183,6 @@ Module modRender
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             copy_default_to_gColor()
             GL.Disable(EnableCap.DepthTest)
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
             GL.DepthMask(False)
             'GL.FrontFace(FrontFaceDirection.Cw)
@@ -195,6 +190,9 @@ Module modRender
             GL.Enable(EnableCap.CullFace)
 
             draw_base_rings_deferred()
+
+            'hopefully, this will look like FOG :)
+            global_noise()
 
             GL.Disable(EnableCap.DepthTest)
             GL.Disable(EnableCap.Blend)
@@ -205,11 +203,16 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        'hopefully, this will look like FOG :)
-        If MODELS_LOADED And DONT_BLOCK_MODELS Then
-            copy_default_to_gColor()
-            fog_pass()
-        End If
+        'If MODELS_LOADED And DONT_BLOCK_MODELS Then
+        '    copy_default_to_gColor()
+        '    GL.DepthMask(False)
+        '    GL.Disable(EnableCap.DepthTest)
+        '    FBOm.attach_C_no_Depth()
+        '    GL.DepthMask(False)
+        '    GL.FrontFace(FrontFaceDirection.Cw)
+        '    GL.Enable(EnableCap.Blend)
+        '    GL.Enable(EnableCap.CullFace)
+        'End If
 
         '===========================================================================
         If DONT_HIDE_HUD Then
@@ -244,9 +247,113 @@ Module modRender
 
         FPS_COUNTER += 1
     End Sub
+
+    Dim map_center As Vector3
+    Dim scale As Vector3
+    Dim rotate As Matrix4 = Nothing
+    Dim model_S As Matrix4 = Nothing
+    Dim model_X As Matrix4 = Nothing
     '=============================================================================================
+    Private Sub global_noise()
+        GL_PUSH_GROUP("perform_Fog_Noise_pass")
+
+        DeferredDecalProjectShader.Use()
+
+        GL.Uniform3(DeferredDecalProjectShader("color_in"), 0.5F, 0.5F, 0.5F)
+        GL.Uniform1(DeferredDecalProjectShader("uv_scale"), 3.0F)
+
+        NOISE_id.BindUnit(0)
+        FBOm.gDepth.BindUnit(1)
+        FBOm.gPosition.BindUnit(2)
+        'FBOm.gGMF.BindUnit(1)
+
+        map_center.X = 100.0F * (theMap.bounds_minX + theMap.bounds_maxX) / 2.0F
+        map_center.Y = 1.0F
+        map_center.Z = 100.0F * (theMap.bounds_minY + theMap.bounds_maxY) / 2.0F
+        map_center.X += 50.0F
+        map_center.Z += 50.0F
+
+        scale.X = 100.0F * (Abs(theMap.bounds_minX) + Abs(theMap.bounds_maxX) + 1.0F)
+        scale.Y = 1000.0F
+        scale.Z = 100.0F * (Abs(theMap.bounds_minY) + Abs(theMap.bounds_maxY) + 1.0F)
+
+        'scale *= 0.1
+        Dim model_X = Matrix4.CreateTranslation(map_center)
+        Dim model_S = Matrix4.CreateScale(scale)
+
+        ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
+        Dim rotate = Matrix4.CreateRotationX(1.570796)
+        'GL.Enable(EnableCap.CullFace)
+
+        GL.UniformMatrix4(DeferredDecalProjectShader("DecalMatrix"), False, rotate * model_S * model_X)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        DeferredDecalProjectShader.StopUse()
+
+        unbind_textures(1)
+
+        GL_POP_GROUP()
+    End Sub
+    '=============================================================================================
+    Private Sub draw_base_rings_deferred()
+        If Not BASE_RINGS_LOADED Then
+            Return
+        End If
+        GL_PUSH_GROUP("draw_terrain_base_rings_deferred")
+
+        BaseRingProjectorDeferred.Use()
+
+        GL.Disable(EnableCap.CullFace)
+        'GL.Uniform1(BaseRingProjectorDeferred("depthMap"), 0)
+        'GL.Uniform1(BaseRingProjectorDeferred("gGMF"), 1)
+        'GL.Uniform1(BaseRingProjectorDeferred("gPosition"), 2)
+        FBOm.gDepth.BindUnit(0)
+        FBOm.gGMF.BindUnit(1)
+        FBOm.gPosition.BindUnit(2)
+
+        'constants
+        GL.Uniform1(BaseRingProjectorDeferred("radius"), 50.0F)
+        GL.Uniform1(BaseRingProjectorDeferred("thickness"), 2.0F)
+        Dim rotate = Matrix4.CreateRotationX(1.570796)
+        Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
+
+        ' base 1 ring
+
+        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
+
+        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
+        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(0.0F, 128.0F, 0.0F, 0.5F))
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        'base 2 ring
+        model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
+
+        'check in side of cube
+        If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
+            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
+        Else
+            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(False))
+        End If
+
+        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
+        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(128.0F, 0.0F, 0.0F, 0.5F))
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        BaseRingProjectorDeferred.StopUse()
+        unbind_textures(2)
+
+        GL_POP_GROUP()
+    End Sub
     Private Sub fog_pass()
-        GL_PUSH_GROUP("perform_FogPass")
+        GL_PUSH_GROUP("perform_Fog_Pass")
 
         Dim fog_color As New Vector3(0.5, 0.5, 0.8)
         GL.Disable(EnableCap.DepthTest)
@@ -343,68 +450,6 @@ Module modRender
         GL_POP_GROUP()
     End Sub
     '=============================================================================================
-    Private Sub draw_base_rings_deferred()
-        If Not BASE_RINGS_LOADED Then
-            Return
-        End If
-        GL_PUSH_GROUP("draw_terrain_base_rings_deferred")
-
-        BaseRingProjectorDeferred.Use()
-
-        GL.Disable(EnableCap.CullFace)
-        'GL.Uniform1(BaseRingProjectorDeferred("depthMap"), 0)
-        'GL.Uniform1(BaseRingProjectorDeferred("gGMF"), 1)
-        'GL.Uniform1(BaseRingProjectorDeferred("gPosition"), 2)
-        FBOm.gDepth.BindUnit(0)
-        FBOm.gGMF.BindUnit(1)
-        FBOm.gPosition.BindUnit(2)
-
-        'constants
-        GL.Uniform1(BaseRingProjectorDeferred("radius"), 50.0F)
-        GL.Uniform1(BaseRingProjectorDeferred("thickness"), 2.0F)
-        Dim rotate = Matrix4.CreateRotationX(1.570796)
-        Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
-
-        ' base 1 ring
-
-        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
-
-        'check in side of cube
-        If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
-            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
-        Else
-            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
-        End If
-
-        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
-        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(0.0F, 128.0F, 0.0F, 0.5F))
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        'base 2 ring
-        model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
-
-        'check in side of cube
-        If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
-            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
-        Else
-            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(False))
-        End If
-
-        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
-        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(128.0F, 0.0F, 0.0F, 0.5F))
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        BaseRingProjectorDeferred.StopUse()
-        unbind_textures(2)
-
-        GL_POP_GROUP()
-    End Sub
 
     Private Sub draw_sun()
 
@@ -995,15 +1040,9 @@ Module modRender
 
         GL.Uniform3(DecalProject("color_in"), 0.4F, 0.3F, 0.3F)
 
-        GL.Uniform1(DecalProject("depthMap"), 0)
-        GL.Uniform1(DecalProject("gFlag"), 1)
-        GL.Uniform1(DecalProject("colorMap"), 2)
-        GL.Uniform1(DecalProject("gGMF"), 3)
-
-        FBOm.gDepth.BindUnit(0)
-        FBOm.gGMF.BindUnit(1)
-        CURSOR_TEXTURE_ID.BindUnit(2)
-        FBOm.gGMF.BindUnit(3)
+        CURSOR_TEXTURE_ID.BindUnit(0)
+        FBOm.gDepth.BindUnit(1)
+        FBOm.gGMF.BindUnit(2)
 
         ' Track the terrain at Y
         Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
@@ -1011,7 +1050,7 @@ Module modRender
 
         ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
         Dim rotate = Matrix4.CreateRotationX(1.570796)
-        GL.Enable(EnableCap.CullFace)
+        'GL.Enable(EnableCap.CullFace)
 
         GL.UniformMatrix4(DecalProject("DecalMatrix"), False, rotate * model_S * model_X)
 

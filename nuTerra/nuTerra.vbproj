@@ -428,6 +428,12 @@
     <None Include="shaders\Model_shaders\modelGlass.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\PostProcessing\DeferredDecalProject.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\PostProcessing\DeferredDecalProject.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\PostProcessing\FXAA.frag.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -684,6 +690,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Include="Resources\move_window.png" />
+    <Content Include="Resources\noise.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\Particle_textures\alpha_LUT.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

@@ -7,16 +7,20 @@
 
 layout (location = 0) out vec4 gColor;
 
-
-layout (binding = 0) uniform sampler2D colorMap;
+layout (binding = 0) uniform sampler2D noiseMap;
 layout (binding = 1) uniform sampler2D depthMap;
-layout (binding = 2) uniform sampler2D gGMF;
+layout (binding = 2) uniform sampler2D gPosition;
 
 uniform vec3 color_in;
+uniform float uv_scale;
+uniform bool front;
+
+//uniform sampler2D gGMF;
 
 in VS_OUT {
     flat mat4 invMVP;
 } fs_in;
+
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
 const vec3 bl = vec3(-0.5, -0.5, -0.5);
@@ -29,13 +33,15 @@ void clip(vec3 v) {
 
 void main()
 {
-    //if ( gl_FrontFacing ) discard;
+    if ( gl_FrontFacing ) discard;
+
     // Calculate UVs
     vec2 uv = gl_FragCoord.xy / resolution;
+    vec3 position = texture(gPosition,uv).rgb;
 
     /*==================================================*/
-    bool flag = texture(gGMF,uv).b*255.0 == 64.0;
-    if (flag) discard;
+//    bool flag = texture(gGMF,uv).b*255.0 == 64.0;
+//    if (flag) discard;
     //if (flag == 96) { discard; }
     //if (flag != 128) { discard; }
 
@@ -45,21 +51,30 @@ void main()
 
     // Calculate clip space by recreating it out of the coordinates and depth-sample
     vec4 ScreenPosition = vec4(uv*2.0-1.0, depth, 1.0);
-
     // Transform position from screen space to world space
     vec4 WorldPosition = fs_in.invMVP * ScreenPosition;
+    vec4 ModelPosition = WorldPosition;
+
     WorldPosition.xyz /= WorldPosition.w;
     WorldPosition.w = 1.0f;
-    // trasform to decal original and size.
+    // transform to decal original and size.
     // 1 x 1 x 1
     clip (WorldPosition.xyz);
 
     /*==================================================*/
     //Get texture UVs
     WorldPosition.xy += 0.5;
+    
+    vec4 color = texture(noiseMap, WorldPosition.xy*vec2(uv_scale));
 
-    vec4 color = texture(colorMap, WorldPosition.xy);
-    color.xyz += color_in;
-    if (color.a < 0.05) { discard; }
+    color.xyz *= color_in;
+
+    vec4 t_cam = view * vec4(cameraPos,1.0);
+
+    float dist = clamp( length(position.xyz - t_cam.xyz)/500.0, 0.0, 1.0);
+    
+    color.a *= dist*0.8;
     gColor = color;
+   
 }
+

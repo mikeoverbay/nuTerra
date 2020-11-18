@@ -15,12 +15,11 @@ uniform vec4 color;
 uniform vec3 ring_center;
 uniform float radius;
 uniform float thickness;
-uniform mat4 ORTHOPROJECTION;
 uniform bool front;
 
 void main (void)
 {
-    if ( gl_FrontFacing == front ) discard;
+    if ( gl_FrontFacing ) discard;
 
     vec2 UV = gl_FragCoord.xy / resolution;
     float Depth = texture(depthMap, UV).x;
