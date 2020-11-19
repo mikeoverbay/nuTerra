@@ -232,7 +232,7 @@ void main (void)
             if( p.y <= MEAN ){
             
             height = 1.0-(p.y + -mapMinHeight) / (-mapMinHeight + MEAN);
-        
+            height = sin(1.5708*height); // change to a curve to improve depth.
             }
 
             const float LOG2 = 1.442695;
