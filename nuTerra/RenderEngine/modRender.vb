@@ -188,8 +188,8 @@ Module modRender
         '===========================================================================
         'hopefully, this will look like glass :)
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
-            glassPass()
             copy_default_to_gColor()
+            glassPass()
         End If
 
         '===========================================================================
@@ -978,6 +978,7 @@ Module modRender
         GL.Uniform1(glassPassShader("glassMap"), 1)
 
         FBOm.gColor.BindUnit(0)
+        FBOm.gAUX_Color.BindUnit(1)
 
         'draw full screen quad
         GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
