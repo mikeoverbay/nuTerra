@@ -11,6 +11,7 @@ layout (binding = 0) uniform sampler2D noiseMap;
 layout (binding = 1) uniform sampler2D depthMap;
 layout (binding = 2) uniform sampler2D gPosition;
 layout (binding = 3) uniform sampler2D gColor_in;
+layout (binding = 4) uniform sampler2D gColor_in_2;
 
 uniform vec3 color_in;
 uniform float uv_scale;
@@ -91,7 +92,7 @@ void main()
 
 
     vec4 deferred_mix = texture(gColor_in,uv);
-
+    deferred_mix.a = texture(gColor_in_2,uv).a;
     float noiseAlphaFactor = deferred_mix.a;
 
     /*==================================================*/
