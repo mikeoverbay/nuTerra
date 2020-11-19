@@ -13,7 +13,7 @@ layout (binding = 2) uniform sampler2D gPosition;
 layout (binding = 3) uniform sampler2D gColor_in;
 layout (binding = 4) uniform sampler2D gColor_in_2;
 
-uniform vec3 color_in;
+uniform vec3 fog_tint;
 uniform float uv_scale;
 uniform float time;
 uniform vec2 move_vector;
@@ -92,8 +92,8 @@ void main()
 
 
     vec4 deferred_mix = texture(gColor_in,uv);
-    deferred_mix.a = texture(gColor_in_2,uv).a;
-    float noiseAlphaFactor = deferred_mix.a;
+    vec4 fog_2 = texture(gColor_in_2,uv);
+    deferred_mix.a = fog_2.a;
 
     /*==================================================*/
 //    bool flag = texture(gGMF,uv).b*255.0 == 64.0;
@@ -135,13 +135,16 @@ void main()
     // Do the noise cloud (fractal Brownian motion)
     float c = NoiseFBM( loc , 8.0, 8) * 0.5 + 0.5;
     c = c * c;
-    color = ( color +vec4(c,c,c,1.0) )*0.5;
-    color.xyz *= color_in * deferred_mix.rgb;
+    color = ( color * vec4(c,c,c,1.0) )* 2.0 ;
 
+    color.xyz *= fog_tint * deferred_mix.a *1.0;
+    
 
     gColor.rgb = deferred_mix.rgb;
-   
-    gColor.rgb = mix(color.rgb,deferred_mix.rgb,noiseAlphaFactor);
+    // terrain painting
+    gColor.rgb = mix(deferred_mix.rgb,color.rgb, deferred_mix.a*0.8);
+    // Add some top level fog
+    gColor.rgb = mix(gColor.rgb,fog_2.rgb, deferred_mix.a*0.4 );
     color.a *= c;
 
 
