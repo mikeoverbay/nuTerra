@@ -51,6 +51,10 @@ Module FBO_main
         Private Shared attach_Color() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment0
                                             }
+        Private Shared attach_Color_1_2() As DrawBuffersEnum = {
+                                            FramebufferAttachment.ColorAttachment0,
+                                            FramebufferAttachment.ColorAttachment6
+                                            }
         Private Shared attach_Color_GMF() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment0,
                                             FramebufferAttachment.ColorAttachment2
@@ -254,6 +258,9 @@ Module FBO_main
 
         Public Shared Sub attach_C()
             GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_Color)
+        End Sub
+        Public Shared Sub attach_C1_and_C2()
+            GL.NamedFramebufferDrawBuffers(mainFBO, 2, attach_Color_1_2)
         End Sub
         Public Shared Sub attach_C2()
             GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_Color_2)
