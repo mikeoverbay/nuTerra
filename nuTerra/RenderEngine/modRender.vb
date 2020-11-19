@@ -212,8 +212,8 @@ Module modRender
             draw_base_rings_deferred()
 
             'hopefully, this will look like FOG :)
-            GL.Disable(EnableCap.Blend)
-            copy_default_to_gColor()
+             GL.Disable(EnableCap.Blend)
+           copy_default_to_gColor()
             global_noise()
 
             GL.Disable(EnableCap.DepthTest)
@@ -288,8 +288,8 @@ Module modRender
 
         DeferredDecalProjectShader.Use()
 
-        GL.Uniform3(DeferredDecalProjectShader("color_in"), 0.975F, 0.975F, 0.975F)
-        GL.Uniform1(DeferredDecalProjectShader("uv_scale"), 2.0F)
+        GL.Uniform3(DeferredDecalProjectShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
+        GL.Uniform1(DeferredDecalProjectShader("uv_scale"), 4.0F)
         GL.Uniform2(DeferredDecalProjectShader("move_vector"), uv_location.X, uv_location.Y)
 
         NOISE_id.BindUnit(0)
@@ -349,6 +349,8 @@ Module modRender
         GL.Uniform1(BaseRingProjectorDeferred("thickness"), 2.0F)
         Dim rotate = Matrix4.CreateRotationX(1.570796)
         Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
+
+        GL.Uniform1(BaseRingProjectorDeferred("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
 
         ' base 1 ring
 
@@ -446,6 +448,7 @@ Module modRender
         GL.Uniform1(deferredShader("mapMinHeight"), MIN_MAP_HEIGHT)
         GL.Uniform1(deferredShader("MEAN"), CSng(MEAN_MAP_HEIGHT))
 
+        GL.Uniform3(deferredShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
 
         FBOm.gColor.BindUnit(0)
         FBOm.gNormal.BindUnit(1)
@@ -974,8 +977,7 @@ Module modRender
 
         'GL.Uniform2(glassPassShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
 
-        GL.Uniform1(glassPassShader("colorMap"), 0)
-        GL.Uniform1(glassPassShader("glassMap"), 1)
+        GL.Uniform1(glassPassShader("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
 
         FBOm.gColor.BindUnit(0)
         FBOm.gAUX_Color.BindUnit(1)

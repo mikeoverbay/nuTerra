@@ -8,7 +8,7 @@
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 outColor;
-layout (location = 6) out vec4 fogColor;
+layout (location = 1) out vec4 fogColor;
 
 uniform sampler2D gColor;
 uniform sampler2D gNormal;
@@ -26,6 +26,7 @@ uniform float MEAN;
 uniform mat4 ProjectionMatrix;
 
 uniform vec3 LightPos;
+uniform vec3 fog_tint;
 
 uniform float AMBIENT;
 uniform float BRIGHTNESS;
@@ -226,7 +227,7 @@ void main (void)
             vec4 t_cam = view * vec4(cameraPos,1.0);
             vec4 p = inverse(view) * vec4(Position.xyz,1.0);
             float viewDistance = length(t_cam.xyz - Position);
-            float z = viewDistance ; 
+            float z = viewDistance*0.75 ; 
    
             float height = 0.0;
            
@@ -241,19 +242,20 @@ void main (void)
 
             //if (flag ==160) {z*=0.75;}//cut fog level down if this is water.
             float fog_density = 0.005;
-            vec4 fog_color = vec4 (0.5,0.5,0.7,1.0);
 
             float density = (fog_density * height ) * 0.75;
             float fogFactor = exp2(-density * density * z * z * LOG2);
             fogFactor = clamp(fogFactor, 0.0, 1.0);
-            vec4 f_color =  fog_color * AMBIENT*3.0*fog_alpha;
+
+            vec4 f_color =  vec4(fog_tint,1.0) * AMBIENT * 3.0 * fog_alpha;
 
             vec4 sColor = final_color;
 
-            final_color = mix(f_color, final_color, fogFactor);
             final_color = mix(final_color, sColor, fogFactor);
-            fogColor = mix(f_color, vec4(0.0), fogFactor);
-            fogColor.a = fogFactor;
+            final_color = mix(final_color, sColor, fogFactor);
+
+            fogColor = mix(f_color, final_color, fogFactor-0.1)*3.0;
+            fogColor.a = 1.0 - fogFactor;
             /*===================================================================*/
             // Small Map Lights
            if (light_count >0){

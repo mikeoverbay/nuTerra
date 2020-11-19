@@ -185,7 +185,8 @@ Public Class frmGbufferViewer
             Case 5
                 colorMaskShader.Use()
 
-                FBOm.gGMF.BindUnit(0)
+                FBOm.gColor_2.BindUnit(0)
+
                 GL.Uniform1(colorMaskShader("isNormal"), 0)
                 GL.Uniform1(colorMaskShader("mask"), MASK)
 

@@ -44,6 +44,7 @@ Module modGlobalVars
     Public USE_SPIRV_SHADERS As Boolean
 
     'Shading
+    Public FOG_COLOR As Vector3
     Public SUNCOLOR As Vector3
     Public AMBIENTSUNCOLOR As Vector3
     Public SSAA_enable As Boolean = True

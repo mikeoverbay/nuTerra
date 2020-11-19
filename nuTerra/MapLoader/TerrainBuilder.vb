@@ -526,6 +526,17 @@ Module TerrainBuilder
                 LIGHT_ORBIT_ANGLE_Z = q3(0).rotateZ
 
             End If
+            '===========================================================================
+            'fog_info
+            Dim forward_tbl = xmldataset.Tables("forward")
+            Dim fog_color_s = forward_tbl.Rows(0).Field(Of String)("color")
+            If fog_color_s IsNot Nothing Then
+                FOG_COLOR = vector3_from_string(fog_color_s)
+            Else
+                FOG_COLOR = New Vector3(0.75F, 75.0F, 0.85F)
+            End If
+            '===========================================================================
+
             ' get color correction lut
             Dim colorCorrection As DataTable = xmldataset.Tables("colorCorrection")
             Dim q4 = From row In colorCorrection Select
