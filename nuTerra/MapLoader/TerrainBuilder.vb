@@ -533,7 +533,7 @@ Module TerrainBuilder
             If fog_color_s IsNot Nothing Then
                 FOG_COLOR = vector3_from_string(fog_color_s)
             Else
-                FOG_COLOR = New Vector3(0.75F, 75.0F, 0.85F)
+                FOG_COLOR = New Vector3(0.75F, 0.75, 0.85F)
             End If
             '===========================================================================
 
