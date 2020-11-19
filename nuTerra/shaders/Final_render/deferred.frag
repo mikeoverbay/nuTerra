@@ -275,7 +275,7 @@ void main (void)
                     // Mix in this light by distance
                   
                     float att = clamp(1.0 - dist/radius, 0.0, 1.0); att *= att;
-                    final_color.rgb = mix(final_color.rgb, summed_lights.rgb, att) * BRIGHTNESS;
+                    final_color.rgb = mix(final_color.rgb, summed_lights.rgb, att);
 
                     }
                 }
