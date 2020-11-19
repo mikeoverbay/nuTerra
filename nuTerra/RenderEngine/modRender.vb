@@ -168,31 +168,28 @@ Module modRender
 
 
 
-        FBOm.attach_C2()
-
-        'final render. Either direct to default or use SSAA process.
         GL.Disable(EnableCap.DepthTest)
+        'final render. Either direct to default or use SSAA process.
 
-        If SSAA_enable Then
-            GL.ClearColor(0.0, 0.5, 0.0, 0.0)
-            GL.Clear(ClearBufferMask.ColorBufferBit)
-            render_deferred_buffers()
-            perform_SSAA_Pass()
-        Else
-            render_deferred_buffers()
-        End If
+        FBOm.attach_C1_and_C2()
+
+        render_deferred_buffers()
+        '                        BlitFramebufferFilter.Linear)
+        copy_color_2_to_gColor()
+
 
         '===========================================================================
         'DEFAUL BUFFER ATTACH!!!
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
         '===========================================================================
 
+        perform_SSAA_Pass()
 
         '===========================================================================
         'hopefully, this will look like glass :)
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
-            copy_default_to_gColor()
             glassPass()
+            copy_default_to_gColor()
         End If
 
         '===========================================================================
@@ -200,12 +197,13 @@ Module modRender
         'ortho projection decals
 #If True Then
 
+        FBOm.attach_C()
 
 
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
-            copy_default_to_gColor()
             GL.Disable(EnableCap.DepthTest)
 
+            copy_default_to_gColor()
             GL.DepthMask(False)
             'GL.FrontFace(FrontFaceDirection.Cw)
             GL.Enable(EnableCap.Blend)
@@ -215,6 +213,7 @@ Module modRender
 
             'hopefully, this will look like FOG :)
             GL.Disable(EnableCap.Blend)
+            copy_default_to_gColor()
             global_noise()
 
             GL.Disable(EnableCap.DepthTest)
@@ -296,7 +295,8 @@ Module modRender
         NOISE_id.BindUnit(0)
         FBOm.gDepth.BindUnit(1)
         FBOm.gPosition.BindUnit(2)
-        FBOm.gColor_2.BindUnit(3)
+        FBOm.gColor.BindUnit(3)
+        FBOm.gColor_2.BindUnit(4)
 
         map_center.X = 100.0F * (theMap.bounds_minX + theMap.bounds_maxX) / 2.0F
         map_center.Y = 1.0F
@@ -564,9 +564,16 @@ Module modRender
         GL.CopyTextureSubImage2D(FBOm.gColor.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
     End Sub
 
-    Private Sub copy_default_to_gAux_Color()
-        GL.ReadBuffer(ReadBufferMode.Back)
-        GL.CopyTextureSubImage2D(FBOm.gAUX_Color.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
+    Private Sub copy_color_2_to_gColor()
+        GL.ReadBuffer(ReadBufferMode.ColorAttachment6)
+        GL.DrawBuffer(DrawBufferMode.ColorAttachment0)
+        GL.BlitFramebuffer(0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
+                                0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
+                                0,
+                                BlitFramebufferFilter.Linear)
+        Dim er = GL.GetError
+        Dim er1 = GL.GetError
+
     End Sub
 
     Private Sub draw_terrain()
@@ -930,15 +937,16 @@ Module modRender
         GL_PUSH_GROUP("perform_SSAA_Pass")
 
         Dim e = GL.GetError
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
 
         FXAAShader.Use()
+
+        GL.Uniform1(FXAAShader("pass_through"), CInt(SSAA_enable))
+
         GL.UniformMatrix4(FXAAShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
         GL.Uniform2(FXAAShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
 
         FBOm.gColor.BindUnit(0)
-        'GL.BindTextureUnit(0, FBOm.gAUX_Color)
 
         'draw full screen quad
         GL.Uniform4(FXAAShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
@@ -969,8 +977,7 @@ Module modRender
         GL.Uniform1(glassPassShader("colorMap"), 0)
         GL.Uniform1(glassPassShader("glassMap"), 1)
 
-        FBOm.gColor_2.BindUnit(0)
-        FBOm.gAUX_Color.BindUnit(1)
+        FBOm.gColor.BindUnit(0)
 
         'draw full screen quad
         GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)

@@ -7,7 +7,8 @@
 #define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
 
-out vec4 outColor;
+layout (location = 0) out vec4 outColor;
+layout (location = 6) out vec4 fogColor;
 
 uniform sampler2D gColor;
 uniform sampler2D gNormal;
@@ -251,7 +252,8 @@ void main (void)
 
             final_color = mix(f_color, final_color, fogFactor);
             final_color = mix(final_color, sColor, fogFactor);
-            final_color.a = fogFactor;
+            fogColor = mix(f_color, vec4(0.0), fogFactor);
+            fogColor.a = fogFactor;
             /*===================================================================*/
             // Small Map Lights
            if (light_count >0){
