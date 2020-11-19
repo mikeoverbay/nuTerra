@@ -228,6 +228,10 @@ Module TerrainBuilder
         SWT.Start()
         ReDim mapBoard(20, 20) 'clear it
 
+        MAX_MAP_HEIGHT = -1000.0F
+        MIN_MAP_HEIGHT = 2000.0F
+        TOTAL_HEIGHT_COUNT = 0
+
         get_all_chunk_file_data()
         BG_TEXT = "Loading Terrain..."
         BG_MAX_VALUE = theMap.chunks.Length - 1
@@ -242,6 +246,8 @@ Module TerrainBuilder
             draw_scene()
             Application.DoEvents()
         Next
+        'needed for fog rendering
+        MEAN_MAP_HEIGHT /= TOTAL_HEIGHT_COUNT
 
         LogThis(String.Format("Load Terrain Data & build mesh: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Restart()

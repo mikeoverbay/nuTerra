@@ -12,6 +12,17 @@ Imports Tao.DevIl
 'Imports Utilities = OpenTK.Platform.Utilities
 
 Public Class frmMain
+    Dim last_state As FormWindowState
+    Protected Overrides Sub OnClientSizeChanged(e As EventArgs)
+        If last_state <> Me.WindowState Then
+            last_state = Me.WindowState
+            If _STARTED Then
+                FBOm.oldHeigth = -1
+                resize_fbo_main()
+            End If
+        End If
+        MyBase.OnClientSizeChanged(e)
+    End Sub
     Private fps_timer As New System.Diagnostics.Stopwatch
     Private game_clock As New System.Diagnostics.Stopwatch
     Private launch_timer As New System.Diagnostics.Stopwatch
@@ -233,10 +244,8 @@ Public Class frmMain
     Public Sub resize_fbo_main()
         Dim ww, hh As Integer
         FBOm.get_glControl_size(ww, hh)
-        If hh <> FBOm.SCR_WIDTH Or ww <> FBOm.SCR_HEIGHT Then
-            If Not Me.WindowState = FormWindowState.Minimized Then
-                FBOm.FBO_Initialize()
-            End If
+        If Not Me.WindowState = FormWindowState.Minimized Then
+            FBOm.FBO_Initialize()
         End If
 
     End Sub
@@ -1060,6 +1069,8 @@ try_again:
         If Not sp_moved Then Return
         sp_moved = False
         SP2_Width = SplitContainer1.Panel2.Width + SplitContainer1.SplitterWidth
+        FBOm.oldWidth = -1
+
         resize_fbo_main()
     End Sub
 
@@ -1067,7 +1078,8 @@ try_again:
     Private Sub SplitContainer1_SplitterMoving(sender As Object, e As SplitterCancelEventArgs) Handles SplitContainer1.SplitterMoving
         If Not _STARTED Then Return
         SP2_Width = SplitContainer1.Panel2.Width + SplitContainer1.SplitterWidth
-        resize_fbo_main()
+        FBOm.oldWidth = -1
+        'resize_fbo_main()
         sp_moved = True
     End Sub
 End Class

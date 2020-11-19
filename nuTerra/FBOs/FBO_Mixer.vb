@@ -4,8 +4,11 @@ Imports OpenTK
 Module FBO_Mixer
     Public FBO_Mixer_ID As Integer = 0
 
+    ' This is used to prerender the terrain.
+    ' The gGmmArray is only here for future use. Decals if there are rendered during at this time.
+
     ''' <summary>
-    ''' Creates the main rendering FBO
+    ''' Creates the mix FBO
     ''' </summary>
     Public NotInheritable Class FBO_mixer_set
         Public Shared gColorArray, gNormalArray, gGmmArray As GLTexture

@@ -12,6 +12,7 @@ layout (location=0) out vec4 fragColor;
 
 void main(void)
 {
+    float alpha = texture(colorMap, fs_in.TexCoords.xy).a;
     vec2 texCoordOffset = vec2(1.0, 1.0)/viewportSize.xy;
 
     float R_fxaaSpanMax = 6.0;
@@ -52,4 +53,5 @@ void main(void)
     } else {
         fragColor = vec4(result2, texture(colorMap, fs_in.TexCoords.xy).a);
     }
+    fragColor.a = alpha;
 }

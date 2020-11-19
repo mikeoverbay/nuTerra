@@ -328,6 +328,7 @@ Public Class frmProgramEditor
             frmMain.SP2_Width = frmMain.ClientSize.Width - frmMain.SplitContainer1.SplitterDistance
             Me.Hide()
             TabControl1.Focus()
+            FBOm.oldWidth = -1.0
             frmMain.resize_fbo_main()
         Else
             CP_parent = Me.Handle
@@ -335,6 +336,7 @@ Public Class frmProgramEditor
             Container_panel.Parent = Me
             frmMain.SplitContainer1.Panel2Collapsed = True
             TabControl1.Focus()
+            FBOm.oldWidth = -1.0
             frmMain.resize_fbo_main()
         End If
 

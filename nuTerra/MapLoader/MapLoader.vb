@@ -716,6 +716,9 @@ Module MapLoader
             Test_Emiters(i).total_frames = 91
             Test_Emiters(i).row_length = 46
 
+            Test_Emiters(i).update_time = 35
+            Test_Emiters(i).particle_count = 6 '<-- Partices for this emitter.
+
             Test_Emiters(i).fixed_expand_speed = True
 
             Test_Emiters(i).note = "This better F'in work!"
@@ -726,6 +729,7 @@ Module MapLoader
             Test_Emiters(i).start_location = v
 
             Test_Emiters(i).Scatter_factor = 0.5F ' each quad randomly moves by per loop
+            Test_Emiters(i).z_speed = 2.0
 
             '  the quad may never get this big if Expand_speed is too low a value 
             Test_Emiters(i).max_expand_size = 50.0F
@@ -736,10 +740,8 @@ Module MapLoader
             'It can be larger BUT the quad will be frozen at max_expand_size for the remaining frames
             'Too small and the quad will never reach max_expanded size.
             'It will reach max size before the frames are done using this valune
-            Test_Emiters(i).Expand_speed = 0.45F
+            Test_Emiters(i).Expand_speed = 1.5F
 
-            Test_Emiters(i).update_time = 35
-            Test_Emiters(i).particle_count = 6 '<-- Partices for this emitter. 
             ReDim sort_lists(i).list(Test_Emiters(i).particle_count)
             Test_Emiters(i).birth_speed = (Test_Emiters(i).total_frames * Test_Emiters(i).update_time) / Test_Emiters(i).particle_count '<-- best if this = 1000. particle count
             '(total_frames * update speed)/paricle_count = time to cycle.
@@ -783,7 +785,7 @@ Module MapLoader
         '===============================================================
         'make some test lights
         LIGHTS.init()
-        For i = 0 To 100
+        For i = 0 To 150
             Dim l = New point_light_
             'color
             Dim v = get_random_vector3(1.0) + New Vector3(0.5)
@@ -791,7 +793,7 @@ Module MapLoader
             l.color = v
             l.level = v.Y
             'location
-            v = get_random_vector3(400)
+            v = get_random_vector3(900)
             v.Y = get_Y_at_XZ(v.X, v.Y) + 5.0
             l.location = v
             LIGHTS.add_light(l)
