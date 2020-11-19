@@ -15,7 +15,6 @@ uniform vec4 color;
 uniform vec3 ring_center;
 uniform float radius;
 uniform float thickness;
-uniform bool front;
 
 void main (void)
 {

@@ -18,6 +18,10 @@ uniform samplerCube cubeMap;
 uniform lowp sampler2D lut;
 uniform lowp sampler2D env_brdf_lut;
 
+uniform float mapMaxHeight;
+uniform float mapMinHeight;
+uniform float MEAN;
+
 uniform mat4 ProjectionMatrix;
 
 uniform vec3 LightPos;
@@ -129,6 +133,8 @@ void main (void)
             vec3 Position = texture(gPosition, fs_in.UV).xyz;
 
             vec4 color_in = texture(gColor, fs_in.UV);
+            
+            float fog_alpha = color_in.a;
 
             vec3 GM_in = texture(gGMF, fs_in.UV).xya;
         
@@ -213,11 +219,44 @@ void main (void)
             vec3 c = mix(co, final_color.rgb, GRAY_LEVEL);
             final_color.rgb = c;
             /*===================================================================*/
+
+            // FOG calculation... using distance from camera and height on map.
+            // It's a more natural height based fog than plastering the screen with it.
+            vec4 t_cam = view * vec4(cameraPos,1.0);
+            vec4 p = inverse(view) * vec4(Position.xyz,1.0);
+            float viewDistance = length(t_cam.xyz - Position);
+            float z = viewDistance ; 
+   
+            float height = 0.0;
+           
+            if( p.y <= MEAN ){
+            
+            height = 1.0-(p.y + -mapMinHeight) / (-mapMinHeight + MEAN);
+        
+            }
+
+            const float LOG2 = 1.442695;
+
+
+            //if (flag ==160) {z*=0.75;}//cut fog level down if this is water.
+            float fog_density = 0.005;
+            vec4 fog_color = vec4 (0.5,0.5,0.7,1.0);
+
+            float density = (fog_density * height ) * 0.75;
+            float fogFactor = exp2(-density * density * z * z * LOG2);
+            fogFactor = clamp(fogFactor, 0.0, 1.0);
+            vec4 f_color =  fog_color * AMBIENT*3.0*fog_alpha;
+
+            vec4 sColor = final_color;
+
+            final_color = mix(f_color, final_color, fogFactor);
+            final_color = mix(final_color, sColor, fogFactor);
+            final_color.a = fogFactor;
             /*===================================================================*/
             // Small Map Lights
            if (light_count >0){
 
-                final_color*=0.5;
+                //final_color*=0.5;
                 vec4 summed_lights;
 
                 for (int i = 0; i < light_count; i++){
@@ -232,12 +271,12 @@ void main (void)
                     vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
                     float lambertTerm = pow(max(dot(N, L),0.001),GM_in.r);
-                    summed_lights.rgb = max(lambertTerm * lights[i].color.xyz,0.0);
+                    summed_lights.rgb = max(lambertTerm * lights[i].color.xyz, 0.0);
                     // Mix in this light by distance
                   
                     float att = clamp(1.0 - dist/radius, 0.0, 1.0); att *= att;
+                    final_color.rgb = mix(final_color.rgb, summed_lights.rgb, att) * BRIGHTNESS;
 
-                    final_color = mix(final_color, summed_lights, att) * BRIGHTNESS;
                     }
                 }
 
@@ -246,7 +285,7 @@ void main (void)
             /*===================================================================*/
             // Final Output
             outColor =  correct(final_color,1.9,0.9)*2.25;
-            outColor.a = 1.0;
+            outColor.a = fogFactor;
             /*===================================================================*/
         //if flag != 128
         }else{
@@ -257,5 +296,5 @@ void main (void)
         outColor = texture(gColor, fs_in.UV) * BRIGHTNESS;
     }
 
-    outColor.a = 1.0;
+    //outColor.a = 1.0;
 }

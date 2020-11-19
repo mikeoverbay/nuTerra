@@ -60,6 +60,10 @@ Module modGlobalVars
     Public RIPPLE_TEXTURES() As GLTexture
     Public RIPPLE_MASK_TEXTURE As GLTexture
     Public RIPPLE_MASK_TIME As Single
+    Public MAX_MAP_HEIGHT As Single
+    Public MIN_MAP_HEIGHT As Single
+    Public MEAN_MAP_HEIGHT As Double
+    Public TOTAL_HEIGHT_COUNT As Integer
     '============================================================
     ' this setting tweaks the mip biasing!
     Public GLOBAL_MIP_BIAS As Single = -0.75F

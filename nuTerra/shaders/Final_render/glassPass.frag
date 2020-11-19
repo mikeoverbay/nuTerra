@@ -14,4 +14,5 @@ void main(void){
 vec4 color = texture(colorMap, fs_in.UV);
 vec4 glass = texture(glassMap, fs_in.UV);
 blend.rgb = mix(color.rgb, glass.rgb, glass.a);
+blend.a = color.a;
 }

@@ -22,12 +22,14 @@ Module Explosion_Types
         Private expand_speed_ As Single 'image grow speed
         Private expand_start_size_ As Single 'inital billboard size
         Private max_expand_size_ As Single 'max billboard size
-        Private fade_time_ As Single
-        Private update_time_ As Single
-        Private particle_count_ As Integer
+        Private z_speed_ As Single ' how fast it moves in z
+
+        Private fade_time_ As Single ' affects alpha
+        Private update_time_ As Single 'time before the next frame plays in ms
+        Private particle_count_ As Integer ' number of partices for this emitter
         Private birth_speed_ As Int64 'delay in milliseconds
-        Private continuous_ As Boolean
-        Private Fixed_expand_speed_ As Boolean
+        Private continuous_ As Boolean ' repeat or cycle once
+        Private Fixed_expand_speed_ As Boolean ' random expand speed
         Private image_atlas_id_ As Integer
         Private Note_ As String
 
@@ -68,6 +70,14 @@ Module Explosion_Types
             End Get
             Set(value As Single)
                 max_expand_size_ = value
+            End Set
+        End Property
+        Public Property z_speed() As Single
+            Get
+                Return z_speed_
+            End Get
+            Set(value As Single)
+                z_speed_ = value
             End Set
         End Property
         Public Property start_location() As Vector3
@@ -245,9 +255,9 @@ Module Explosion_Types
                         'updata time
                         particles(i).this_particle_time = timer.ElapsedMilliseconds + update_time_
 
-                        'update location using scatter
-                        particles(i).location += particles(i).scatter_direction * Scatter_factor
-
+                        'update location using scatter and z_speed
+                        particles(i).location.Xz += particles(i).scatter_direction.Xz * Scatter_factor
+                        particles(i).location.Y += z_speed
                         'increment image index
                         particles(i).frame_index += 1.0F
                         If particles(i).frame_index >= total_frames Then

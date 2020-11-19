@@ -9,7 +9,7 @@ Module FBO_main
     Public NotInheritable Class FBOm
         Public Shared SCR_WIDTH, SCR_HEIGHT As Int32
         Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition, gPick As GLTexture
-        Public Shared gAUX_Color As GLTexture
+        Public Shared gAUX_Color, gColor_2 As GLTexture
         Public Shared oldWidth As Integer = 1
         Public Shared oldHeigth As Integer = 1
         '========================
@@ -28,7 +28,7 @@ Module FBO_main
                                             FramebufferAttachment.ColorAttachment3,
                                             FramebufferAttachment.ColorAttachment4
                                             }
-        Private Shared attach_Color_Normal_GMF_aux() As DrawBuffersEnum = {
+        Private Shared attach_Color_Normal_GMF_aux_fmask() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment0,
                                             FramebufferAttachment.ColorAttachment1,
                                             FramebufferAttachment.ColorAttachment2,
@@ -63,6 +63,9 @@ Module FBO_main
                                             }
         Private Shared attach_gAux_Color() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment5
+                                            }
+        Private Shared attach_Color_2() As DrawBuffersEnum = {
+                                            FramebufferAttachment.ColorAttachment6
                                             }
         Private Shared attach_gColor_and_gAux_Color() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment0,
@@ -100,6 +103,7 @@ Module FBO_main
             If gGMF IsNot Nothing Then gGMF.Delete()
             If gDepth IsNot Nothing Then gDepth.Delete()
             If gPick IsNot Nothing Then gPick.Delete()
+            If gColor_2 IsNot Nothing Then gColor_2.Delete()
             If gPosition IsNot Nothing Then gPosition.Delete()
             If mainFBO > 0 Then GL.DeleteFramebuffer(mainFBO)
             If depthBufferTexture IsNot Nothing Then depthBufferTexture.Delete()
@@ -107,7 +111,7 @@ Module FBO_main
 
         Public Shared Sub create_textures()
             ' gColor ------------------------------------------------------------------------------------------
-            ' 4 color int : RGB and alpha
+            ' RGBA8
             gColor = CreateTexture(TextureTarget.Texture2D, "gColor")
             gColor.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             gColor.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
@@ -116,7 +120,7 @@ Module FBO_main
             gColor.Storage2D(1, SizedInternalFormat.Rgba8, SCR_WIDTH, SCR_HEIGHT)
 
             ' AUX_gColor -----------------------------------------------------------------------------------
-            ' 4 color int : RGB and alpha
+            ' RGBA8
             gAUX_Color = CreateTexture(TextureTarget.Texture2D, "AUX_gColor")
             gAUX_Color.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             gAUX_Color.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
@@ -169,6 +173,16 @@ Module FBO_main
             gPick.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gPick.Storage2D(1, DirectCast(PixelInternalFormat.R16ui, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
             Dim er = GL.GetError
+            ' gColor_2 ------------------------------------------------------------------------------------------
+            ' RGBA8
+            gColor_2 = CreateTexture(TextureTarget.Texture2D, "gColor_2")
+            gColor_2.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            gColor_2.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            gColor_2.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            gColor_2.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
+            gColor_2.Storage2D(1, DirectCast(PixelInternalFormat.Rgba8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            Dim er4 = GL.GetError
+
         End Sub
 
         Public Shared Function create_fbo() As Boolean
@@ -181,6 +195,7 @@ Module FBO_main
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment3, gPosition.texture_id, 0)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment4, gPick.texture_id, 0)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment5, gAUX_Color.texture_id, 0)
+            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment6, gColor_2.texture_id, 0)
 
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.DepthAttachment, gDepth.texture_id, 0)
 
@@ -225,7 +240,7 @@ Module FBO_main
 
         Public Shared Sub attach_CNGPA()
             'attach our render buffer textures.
-            GL.NamedFramebufferDrawBuffers(mainFBO, 6, attach_Color_Normal_GMF_aux)
+            GL.NamedFramebufferDrawBuffers(mainFBO, 6, attach_Color_Normal_GMF_aux_fmask)
         End Sub
         Public Shared Sub attach_NGPA()
             'attach our render buffer textures.
@@ -239,6 +254,9 @@ Module FBO_main
 
         Public Shared Sub attach_C()
             GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_Color)
+        End Sub
+        Public Shared Sub attach_C2()
+            GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_Color_2)
         End Sub
         Public Shared Sub attach_AUX()
             GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_gAux_Color)

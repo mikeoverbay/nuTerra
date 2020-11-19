@@ -8,6 +8,7 @@ Module modRender
     Public PI As Single = 3.14159274F
     Public angle1, angle2 As Single
     Private cull_timer As New Stopwatch
+    Private uv_location As New Vector2
     Public Sub draw_scene()
         '===========================================================================
         ' FLAG INFO
@@ -156,21 +157,37 @@ Module modRender
 
 
         '===========================================================================
+        '===========================================================================
+        '===========================================================================
+        '===========================================================================
         Ortho_main()
-        FBOm.attach_CNGP()
+        '===========================================================================
+        '===========================================================================
+        '===========================================================================
+        '===========================================================================
+
+
+
+        FBOm.attach_C2()
+
         'final render. Either direct to default or use SSAA process.
         GL.Disable(EnableCap.DepthTest)
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+
         If SSAA_enable Then
             GL.ClearColor(0.0, 0.5, 0.0, 0.0)
             GL.Clear(ClearBufferMask.ColorBufferBit)
             render_deferred_buffers()
-            copy_default_to_gColor()
             perform_SSAA_Pass()
-
         Else
             render_deferred_buffers()
         End If
+
+        '===========================================================================
+        'DEFAUL BUFFER ATTACH!!!
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+        '===========================================================================
+
+
         '===========================================================================
         'hopefully, this will look like glass :)
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
@@ -179,7 +196,12 @@ Module modRender
         End If
 
         '===========================================================================
+
         'ortho projection decals
+#If True Then
+
+
+
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             copy_default_to_gColor()
             GL.Disable(EnableCap.DepthTest)
@@ -192,14 +214,15 @@ Module modRender
             draw_base_rings_deferred()
 
             'hopefully, this will look like FOG :)
+            GL.Disable(EnableCap.Blend)
             global_noise()
 
             GL.Disable(EnableCap.DepthTest)
-            GL.Disable(EnableCap.Blend)
             GL.DepthMask(True)
             GL.Disable(EnableCap.CullFace)
             GL.FrontFace(FrontFaceDirection.Ccw)
         End If
+#End If
         '===========================================================================
 
         '===========================================================================
@@ -257,15 +280,23 @@ Module modRender
     Private Sub global_noise()
         GL_PUSH_GROUP("perform_Fog_Noise_pass")
 
+        Dim s = 0.03F * DELTA_TIME ' <---- How fast the fog moves
+
+        'this is in the game data somewhere!
+        Dim move_vector = New Vector2(0.3, 0.7) ' <----  Direction the fog moves
+
+        uv_location += move_vector * s '<----  do the math;
+
         DeferredDecalProjectShader.Use()
 
-        GL.Uniform3(DeferredDecalProjectShader("color_in"), 0.5F, 0.5F, 0.5F)
-        GL.Uniform1(DeferredDecalProjectShader("uv_scale"), 3.0F)
+        GL.Uniform3(DeferredDecalProjectShader("color_in"), 0.975F, 0.975F, 0.975F)
+        GL.Uniform1(DeferredDecalProjectShader("uv_scale"), 2.0F)
+        GL.Uniform2(DeferredDecalProjectShader("move_vector"), uv_location.X, uv_location.Y)
 
         NOISE_id.BindUnit(0)
         FBOm.gDepth.BindUnit(1)
         FBOm.gPosition.BindUnit(2)
-        'FBOm.gGMF.BindUnit(1)
+        FBOm.gColor_2.BindUnit(3)
 
         map_center.X = 100.0F * (theMap.bounds_minX + theMap.bounds_maxX) / 2.0F
         map_center.Y = 1.0F
@@ -292,7 +323,7 @@ Module modRender
 
         DeferredDecalProjectShader.StopUse()
 
-        unbind_textures(1)
+        unbind_textures(2)
 
         GL_POP_GROUP()
     End Sub
@@ -411,6 +442,9 @@ Module modRender
         GL.Uniform1(deferredShader("env_brdf_lut"), 6)
 
         GL.Uniform1(deferredShader("light_count"), LIGHTS.index - 1)
+        GL.Uniform1(deferredShader("mapMaxHeight"), MAX_MAP_HEIGHT)
+        GL.Uniform1(deferredShader("mapMinHeight"), MIN_MAP_HEIGHT)
+        GL.Uniform1(deferredShader("MEAN"), CSng(MEAN_MAP_HEIGHT))
 
 
         FBOm.gColor.BindUnit(0)
@@ -477,6 +511,8 @@ Module modRender
         FF_BillboardShader.StopUse()
         GL.Disable(EnableCap.Blend)
 
+        unbind_textures(0)
+
     End Sub
 
     Private Sub frustum_cull()
@@ -526,6 +562,11 @@ Module modRender
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
         GL.CopyTextureSubImage2D(FBOm.gColor.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
+    End Sub
+
+    Private Sub copy_default_to_gAux_Color()
+        GL.ReadBuffer(ReadBufferMode.Back)
+        GL.CopyTextureSubImage2D(FBOm.gAUX_Color.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
     End Sub
 
     Private Sub draw_terrain()
@@ -918,7 +959,6 @@ Module modRender
 
         'GL.ReadBuffer(ReadBufferMode.Back)
         GL.GetError()
-        copy_default_to_gColor()
         Dim e = GL.GetError
 
         glassPassShader.Use()
@@ -929,7 +969,7 @@ Module modRender
         GL.Uniform1(glassPassShader("colorMap"), 0)
         GL.Uniform1(glassPassShader("glassMap"), 1)
 
-        FBOm.gColor.BindUnit(0)
+        FBOm.gColor_2.BindUnit(0)
         FBOm.gAUX_Color.BindUnit(1)
 
         'draw full screen quad

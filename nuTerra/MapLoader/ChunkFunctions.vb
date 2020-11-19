@@ -522,12 +522,17 @@ Module ChunkFunctions
         End If
 
 
-        'need to find a use for this :)
+        ' This Is important!
+        ' DONT DELETE THIS
         Dim avg, y_max, y_min As Single
         y_min = 1000.0F
         For j As UInt32 = 1 To mapsize - 1
             For i As UInt32 = 1 To mapsize - 1
-                avg += v.heights(i, j)
+
+                MEAN_MAP_HEIGHT += v.heights(i, j) '<---- this is important. DONT DELETE THIS
+
+                TOTAL_HEIGHT_COUNT += 1
+
                 If v.heights(i, j) < y_min Then
                     y_min = v.heights(i, j)
                 End If
@@ -538,6 +543,8 @@ Module ChunkFunctions
         Next
         c.heights_data = Nothing
         v.avg_heights = (y_max + y_min) / 2.0F
+        If y_max > MAX_MAP_HEIGHT Then MAX_MAP_HEIGHT = y_max
+        If y_min < MIN_MAP_HEIGHT Then MIN_MAP_HEIGHT = y_min
         br.Close()
         ms.Close()
         ms.Dispose()
