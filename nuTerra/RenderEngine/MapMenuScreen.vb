@@ -322,6 +322,7 @@ Module MapMenuScreen
                 Return realname
             End If
         Next
+        Return ""
     End Function
 
     Public Sub gl_pick_map(ByVal x As Integer, ByVal y As Integer)

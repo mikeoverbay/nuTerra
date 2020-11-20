@@ -110,11 +110,13 @@ Public Class frmMain
             Case Keys.B
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
 
-            Case Keys.G
-                If MAP_LOADED Then frmGbufferViewer.Show()
-
             Case Keys.E
                 frmProgramEditor.Show()
+
+            Case Keys.G
+                If MAP_LOADED Then frmGbufferViewer.Show()
+                'inialize the sizes
+                frmGbufferViewer.quater_scale.PerformClick()
 
             Case Keys.I
                 SHOW_CHUNK_IDs = SHOW_CHUNK_IDs Xor True
@@ -534,6 +536,7 @@ try_again:
     ''' Loads all assets nuTerra uses.
     ''' </summary>
     ''' 
+
     Private Sub load_assets()
         '---------------------------------------------------------
         'set up regex strings for the glsl editor.
@@ -566,6 +569,11 @@ try_again:
         nuTERRA_BG_IMAGE =
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\earth.png", False, True)
+        '---------------------------------------------------------
+        'background screen image
+        CHECKER_BOARD =
+            load_image_from_file(Il.IL_PNG,
+            sp + "\resources\CheckerPatternPaper.png", False, False)
         '---------------------------------------------------------
         'cursor texture
         CURSOR_TEXTURE_ID = load_image_from_file(Il.IL_PNG,
@@ -613,7 +621,6 @@ try_again:
             sp + "\Resources\Particle_textures\alpha_LUT.png", False, True)
         '===========================================================================================
         'load noise texture.
-
         NOISE_id =
             load_image_from_file(Il.IL_PNG,
             sp + "\Resources\noise.png", True, True)

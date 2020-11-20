@@ -969,7 +969,7 @@ Module MapLoader
                 End While
             End Using
 
-            Dim atlas_tex As GLTexture
+            Dim atlas_tex As New GLTexture
             Dim fullWidth As Integer
             Dim fullHeight As Integer
             Dim multiplierX, multiplierY As Single

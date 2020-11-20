@@ -524,7 +524,7 @@ Module ChunkFunctions
 
         ' This Is important!
         ' DONT DELETE THIS
-        Dim avg, y_max, y_min As Single
+        Dim y_max, y_min As Single
         y_min = 1000.0F
         For j As UInt32 = 1 To mapsize - 1
             For i As UInt32 = 1 To mapsize - 1

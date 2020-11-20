@@ -15,7 +15,25 @@ Public Class frmGbufferViewer
     Dim PROJECTIONMATRIX_GLC As Matrix4
     Dim GLC_VA As Integer
     Dim MASK As UInt32 = &HF
-    Dim maskList() As Integer = {1, 2, 4, 8}
+    ReadOnly maskList() As Integer = {1, 2, 4, 8}
+
+    Private mouse_pos As New Point
+    Private mouse_down As Boolean = False
+    Private mouse_delta As New Point
+
+    Public vBox As New l_
+    Public sBox As New l_
+    Public Structure l_
+        Public location As Point
+        Public Width As Single
+        Public Height As Single
+    End Structure
+
+    Public rect_location As New Point
+    Public rect_size As New Point
+    Public old_rect_size As New Point
+    Public Zoom_Factor As Single = 0.25
+    Public old_h, old_w As Integer
 
     Private Sub frmTestView_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         Me.Hide()
@@ -53,16 +71,37 @@ Public Class frmGbufferViewer
         GLC.MakeCurrent()
         GLC_VA = CreateVertexArray("GLC_VA")
         update_screen()
+
+        'order important?
         b_color.PerformClick()
+
+        Zoom_Factor = image_scale
+        Dim img_width = frmMain.glControl_main.Width
+        Dim img_height = frmMain.glControl_main.Height
+        old_w = img_width
+        old_h = img_height
+        rect_size.X = img_width * image_scale
+        rect_size.Y = img_height * image_scale
+        old_rect_size = New Point(old_w, old_h)
+        rect_location = New Point(0, 0)
+
     End Sub
 
     Private Sub CheckedChanged(sender As Object, e As EventArgs)
         image_scale = CSng(sender.tag)
-        update_screen()
+        Zoom_Factor = image_scale
+        Dim img_width = frmMain.glControl_main.Width
+        Dim img_height = frmMain.glControl_main.Height
+        old_w = img_width
+        old_h = img_height
+        rect_size.X = img_width * image_scale
+        rect_size.Y = img_height * image_scale
+        old_rect_size = New Point(old_w, old_h)
+        rect_location = New Point(0, 0)
+
     End Sub
     Private Sub image_changed(sender As Object, e As EventArgs)
         Viewer_Image_ID = CInt(sender.tag)
-        update_screen()
     End Sub
     Private Sub set_viewPort()
         GL.Viewport(0, 0, GLC.ClientSize.Width, GLC.ClientSize.Height)
@@ -73,7 +112,7 @@ Public Class frmGbufferViewer
         If GLC Is Nothing Then Return
 
         GLC.MakeCurrent()
-        Dim width, height As Integer
+        Dim img_width, img_height As Integer
         set_viewPort()
 
         GL.ClearColor(0.0, 0.0, 0.0, 0.0)
@@ -81,17 +120,17 @@ Public Class frmGbufferViewer
 
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         GL.Disable(EnableCap.DepthTest)
-        'select image and shader by selected radio button
+
         GL.Disable(EnableCap.Blend)
 
-        width = frmMain.glControl_main.Width
-        height = frmMain.glControl_main.Height
+        img_width = frmMain.glControl_main.Width
+        img_height = frmMain.glControl_main.Height
 
         h_label.Text = "Height:" + height.ToString("0000")
         w_label.Text = "Width:" + width.ToString("0000")
 
-        width *= image_scale
-        height *= image_scale
+        img_width *= image_scale
+        img_height *= image_scale
 
         Dim er = GL.GetError
         GL.BindVertexArray(GLC_VA)
@@ -107,141 +146,111 @@ Public Class frmGbufferViewer
                 GL.Uniform1(toLinearShader("near"), PRESPECTIVE_NEAR)
                 GL.UniformMatrix4(toLinearShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
 
-                Dim rect As New RectangleF(0, 0, width, height)
-                GL.Uniform4(toLinearShader("rect"),
+                Dim rect As New RectangleF(0, 0, img_width, img_height)
+
+                GL.Uniform4(colorMaskShader("rect"),
                             rect.Left,
                             -rect.Top,
                             rect.Right,
                             -rect.Bottom)
 
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
                 toLinearShader.StopUse()
 
             Case 2
-                colorMaskShader.Use()
-
-                GL.Uniform1(colorMaskShader("colorMap"), 0)
-                GL.Uniform1(colorMaskShader("isNormal"), 0)
-                GL.Uniform1(colorMaskShader("mask"), MASK)
-
-                FBOm.gColor.BindUnit(0)
-                'GL.BindTextureUnit(0, CC_LUT_ID)
-
-                GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-                Dim rect As New RectangleF(0, 0, width, height)
-
-                GL.Uniform4(colorMaskShader("rect"),
-                            rect.Left,
-                            -rect.Top,
-                            rect.Right,
-                            -rect.Bottom)
-
-                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
-                colorMaskShader.StopUse()
+                draw_image(img_width, img_height, FBOm.gColor, 0)
 
             Case 3
-                colorMaskShader.Use()
-
-                FBOm.gPosition.BindUnit(0)
-                GL.Uniform1(colorMaskShader("isNormal"), 0)
-                GL.Uniform1(colorMaskShader("mask"), MASK)
-
-                GL.Uniform1(colorMaskShader("colorMap"), 0)
-                GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-                Dim rect As New RectangleF(0, 0, width, height)
-
-                GL.Uniform4(colorMaskShader("rect"),
-                            rect.Left,
-                            -rect.Top,
-                            rect.Right,
-                            -rect.Bottom)
-
-                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
-                colorMaskShader.StopUse()
+                draw_image(img_width, img_height, FBOm.gPosition, 0)
 
             Case 4
-                colorMaskShader.Use()
-                GL.Uniform1(colorMaskShader("isNormal"), 1)
-                GL.Uniform1(colorMaskShader("mask"), MASK)
-
-                FBOm.gNormal.BindUnit(0)
-                GL.Uniform1(normalOffsetShader("imageMap"), 0)
-                GL.UniformMatrix4(normalOffsetShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-
-                Dim rect As New RectangleF(0, 0, width, height)
-                GL.Uniform4(normalOffsetShader("rect"),
-                            rect.Left,
-                            -rect.Top,
-                            rect.Right,
-                            -rect.Bottom)
-
-                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
-                colorMaskShader.StopUse()
+                draw_image(img_width, img_height, FBOm.gNormal, 1)
 
             Case 5
-                colorMaskShader.Use()
-
-                FBOm.gColor_2.BindUnit(0)
-
-                GL.Uniform1(colorMaskShader("isNormal"), 0)
-                GL.Uniform1(colorMaskShader("mask"), MASK)
-
-                GL.Uniform1(colorMaskShader("colorMap"), 0)
-                GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-                Dim rect As New RectangleF(0, 0, width, height)
-
-                GL.Uniform4(colorMaskShader("rect"),
-                            rect.Left,
-                            -rect.Top,
-                            rect.Right,
-                            -rect.Bottom)
-
-                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
-                colorMaskShader.StopUse()
-
+                draw_image(img_width, img_height, FBOm.gGMF, 0)
 
             Case 6
-                colorMaskShader.Use()
-
-                FBOm.gAUX_Color.BindUnit(0)
-                GL.Uniform1(colorMaskShader("isNormal"), 0)
-                GL.Uniform1(colorMaskShader("mask"), MASK)
-
-                GL.Uniform1(colorMaskShader("colorMap"), 0)
-                GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
-                Dim rect As New RectangleF(0, 0, width, height)
-
-                GL.Uniform4(colorMaskShader("rect"),
-                                    rect.Left,
-                                    -rect.Top,
-                                    rect.Right,
-                                    -rect.Bottom)
-
-                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
-                colorMaskShader.StopUse()
+                draw_image(img_width, img_height, FBOm.gAUX_Color, 0)
 
         End Select
+
         unbind_textures(0)
 
         GLC.SwapBuffers()  ' swap back to front
 
         'switch back to main context
         frmMain.glControl_main.MakeCurrent()
-        'GL.BindVertexArray(defaultVao)
+
     End Sub
+
+    Private Sub draw_image(ByVal img_width As Integer, ByVal img_hieght As Integer, ByRef image As GLTexture, ByVal is_normal As Integer)
+
+        draw_checker_board(CHECKER_BOARD)
+
+        If cb_alpha_enable.Checked Then
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One)
+            GL.Enable(EnableCap.Blend)
+        End If
+        colorMaskShader.Use()
+
+        image.BindUnit(0)
+        GL.Uniform1(colorMaskShader("isNormal"), is_normal)
+        GL.Uniform1(colorMaskShader("mask"), MASK)
+        GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+
+
+
+        Dim rect As New RectangleF(rect_location.X, rect_location.Y, rect_size.X, rect_size.Y)
+
+        GL.Uniform4(colorMaskShader("rect"),
+                            rect.Left,
+                            -rect.Top,
+                            rect.Right,
+                            -rect.Bottom)
+
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        colorMaskShader.StopUse()
+        GL.Disable(EnableCap.Blend)
+
+    End Sub
+
+    Public Sub draw_checker_board(image As GLTexture)
+
+        image2dShader.Use()
+        Dim ps = Panel1.Size
+        Dim p As New Vector2(320.0F, 320.0F)
+        Dim v As New Vector2(CSng(GLC.ClientSize.Width), CSng(GLC.ClientSize.Height))
+        Dim s As New Vector2(v.X / p.X, v.Y / p.Y)
+
+        image.BindUnit(0)
+        GL.Uniform1(image2dShader("imageMap"), 0)
+        GL.Uniform2(image2dShader("uv_scale"), s.X, s.Y)
+        GL.Uniform2(image2dShader("uv_scale"), 1, 1)
+
+        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+
+        Dim rect As New RectangleF(0F, 0F, CSng(GLC.ClientSize.Width), CSng(GLC.ClientSize.Height))
+
+        GL.Uniform4(image2dShader("rect"),
+                        rect.Left,
+                        -rect.Top,
+                        rect.Right,
+                        -rect.Bottom)
+
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        image2dShader.StopUse()
+        'unbind texture
+        unbind_textures(0)
+    End Sub
+
     Private Sub frmTestView_Resize(sender As Object, e As EventArgs) Handles Me.Resize
         update_screen()
     End Sub
 
-    Private Sub frmTestView_ResizeBegin(sender As Object, e As EventArgs) Handles Me.ResizeBegin
 
-    End Sub
 
     Private Sub frmTestView_ResizeEnd(sender As Object, e As EventArgs) Handles Me.ResizeEnd
         update_screen()
@@ -256,6 +265,123 @@ Public Class frmGbufferViewer
         Dim cb As CheckBox = DirectCast(sender, CheckBox)
         MASK = MASK Xor maskList(CInt(cb.Tag))
         Label1.Text = MASK.ToString("X")
+    End Sub
+
+    Private Sub GLC_MouseDown(sender As Object, e As MouseEventArgs) Handles GLC.MouseDown
+        mouse_down = True
+        mouse_delta = e.Location
+    End Sub
+
+    Private Sub GLC_MouseMove(sender As Object, e As MouseEventArgs) Handles GLC.MouseMove
+        If mouse_down Then
+            Dim p As New Point
+            p = e.Location - mouse_delta
+            rect_location += p
+            mouse_delta = e.Location
+            sBox.location = rect_location
+            sBox.Height = rect_size.Y
+            sBox.Width = rect_size.X
+            'draw(True)
+            Return
+        End If
+        mouse_pos = e.Location
+    End Sub
+
+    Private Sub GLC_MouseUp(sender As Object, e As MouseEventArgs) Handles GLC.MouseUp
+        mouse_down = False
+        mouse_pos = e.Location
+
+    End Sub
+
+    Private Sub GLC_MouseWheel(sender As Object, e As MouseEventArgs) Handles GLC.MouseWheel
+        mouse_pos = e.Location
+        mouse_delta = e.Location
+
+        If e.Delta > 0 Then
+            img_scale_up()
+        Else
+            img_scale_down()
+        End If
+    End Sub
+    Public Sub img_scale_up()
+
+        If Zoom_Factor >= 4.0 Then
+            Zoom_Factor = 4.0
+            Return 'to big and the t_bmp creation will hammer memory.
+        End If
+        Dim amt As Single = 0.125
+        Zoom_Factor += amt
+        Dim z = (Zoom_Factor / 1.0) * 100.0
+        'zoom.Text = "Zoom:" + vbCrLf + z.ToString("000") + "%"
+        Application.DoEvents()
+        'this bit of math zooms the texture around the mouses center during the resize.
+        'old_w and old_h is the original size of the image in width and height
+        'mouse_pos is current mouse position in the window.
+
+        Dim offset As New Point
+        Dim old_size_w, old_size_h As Double
+        old_size_w = (old_w * (Zoom_Factor - amt))
+        old_size_h = (old_h * (Zoom_Factor - amt))
+
+        offset = rect_location - (mouse_pos)
+
+        rect_size.X = Zoom_Factor * old_w
+        rect_size.Y = Zoom_Factor * old_h
+
+        Dim delta_x As Double = CDbl(offset.X / old_size_w)
+        Dim delta_y As Double = CDbl(offset.Y / old_size_h)
+
+        Dim x_offset = delta_x * (rect_size.X - old_size_w)
+        Dim y_offset = delta_y * (rect_size.Y - old_size_h)
+
+        rect_location.X += CInt(x_offset)
+        rect_location.Y += CInt(y_offset)
+
+        sBox.location = rect_location
+        sBox.Height = rect_size.Y
+        sBox.Width = rect_size.X
+        'draw(True)
+    End Sub
+    Public Sub img_scale_down()
+        If Zoom_Factor <= 0.25 Then
+            Zoom_Factor = 0.25
+            Return
+        End If
+        Dim amt As Single = 0.125
+        Zoom_Factor -= amt
+        Dim z = (Zoom_Factor / 1.0) * 100.0
+        'zoom.Text = "Zoom:" + vbCrLf + z.ToString("000") + "%"
+        Application.DoEvents()
+
+        'this bit of math zooms the texture around the mouses center during the resize.
+        'old_w and old_h is the original size of the image in width and height
+        'mouse_pos is current mouse position in the window.
+
+        Dim offset As New Point
+        Dim old_size_w, old_size_h As Double
+
+        old_size_w = (old_w * (Zoom_Factor - amt))
+        old_size_h = (old_h * (Zoom_Factor - amt))
+
+        offset = rect_location - (mouse_pos)
+
+        rect_size.X = Zoom_Factor * old_w
+        rect_size.Y = Zoom_Factor * old_h
+
+        Dim delta_x As Double = CDbl(offset.X / (rect_size.X + (rect_size.X - old_size_w)))
+        Dim delta_y As Double = CDbl(offset.Y / (rect_size.Y + (rect_size.Y - old_size_h)))
+
+        Dim x_offset = delta_x * (rect_size.X - old_size_w)
+        Dim y_offset = delta_y * (rect_size.Y - old_size_h)
+
+        rect_location.X += -CInt(x_offset)
+        rect_location.Y += -CInt(y_offset)
+
+        sBox.location = rect_location
+        sBox.Height = rect_size.Y
+        sBox.Width = rect_size.X
+
+        'draw(True)
     End Sub
 
 End Class

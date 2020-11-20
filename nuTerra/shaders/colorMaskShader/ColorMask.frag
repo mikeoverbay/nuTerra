@@ -3,7 +3,8 @@
 //
 #version 450
 
-uniform sampler2D colorMap;
+layout (binding = 0) uniform sampler2D colorMap;
+
 uniform uint mask;
 uniform int isNormal;
 in vec2 texCoord;
@@ -34,5 +35,4 @@ void main()
     }
 
     colorOut = color * MASK; // Mask the textures color channels
-    if (a==0.0) colorOut.a = 1.0; // dont allow 100% transparent!
     }

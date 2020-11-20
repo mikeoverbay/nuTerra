@@ -2,6 +2,7 @@
 
 uniform mat4 ProjectionMatrix;
 uniform vec4 rect;
+uniform vec2 uv_scale = vec2(1.0, 1.0);
 out vec2 texCoord;
 
 void main(void)
@@ -27,5 +28,5 @@ void main(void)
     }
 
     gl_Position = ProjectionMatrix * vec4(co, 0.0f, 1.0f);
-    texCoord = uv;
+    texCoord = uv * uv_scale;
 }
