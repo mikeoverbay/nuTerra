@@ -87,6 +87,24 @@ Module TerrainTextureFunctions
             layersBuffer.layer3VT1 = .TexLayers(3).vP1
             layersBuffer.layer3VT2 = .TexLayers(3).vP2
 
+            layersBuffer.r1_1 = .TexLayers(0).r1
+            layersBuffer.r1_2 = .TexLayers(0).r1
+            layersBuffer.r1_2 = .TexLayers(1).r1
+            layersBuffer.r1_3 = .TexLayers(1).r1
+            layersBuffer.r1_4 = .TexLayers(2).r1
+            layersBuffer.r1_5 = .TexLayers(2).r1
+            layersBuffer.r1_6 = .TexLayers(3).r1
+            layersBuffer.r1_7 = .TexLayers(3).r1
+
+            layersBuffer.r2_1 = .TexLayers(0).r2
+            layersBuffer.r2_2 = .TexLayers(0).r2
+            layersBuffer.r2_2 = .TexLayers(1).r2
+            layersBuffer.r2_3 = .TexLayers(1).r2
+            layersBuffer.r2_4 = .TexLayers(2).r2
+            layersBuffer.r2_5 = .TexLayers(2).r2
+            layersBuffer.r2_6 = .TexLayers(3).r2
+            layersBuffer.r2_7 = .TexLayers(3).r2
+
             ' Used 1 = true, 0 = false
             layersBuffer.used_1 = .TexLayers(0).used_a
             layersBuffer.used_2 = .TexLayers(0).used_b
@@ -270,10 +288,15 @@ Module TerrainTextureFunctions
 
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt + 0).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt + 0).v
+                    .TexLayers(i).r1 = .layer.render_info(cur_layer_info_pnt + 0).r1
+                    .TexLayers(i).r2 = .layer.render_info(cur_layer_info_pnt + 0).r2
                     '.TexLayers(i).scale_a = .layer.render_info(cur_layer_info_pnt + 0).scale
                     'layer part 2
                     .TexLayers(i).uP2 = .layer.render_info(cur_layer_info_pnt + 1).u
                     .TexLayers(i).vP2 = .layer.render_info(cur_layer_info_pnt + 1).v
+                    .TexLayers(i).r1 = .layer.render_info(cur_layer_info_pnt + 1).r1
+                    .TexLayers(i).r2 = .layer.render_info(cur_layer_info_pnt + 1).r2
+
                     '.TexLayers(i).scale_b = .layer.render_info(cur_layer_info_pnt + 1).scale
                     If _Write_texture_info Then
 

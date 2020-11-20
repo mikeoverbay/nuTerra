@@ -146,7 +146,7 @@ Public Class frmGbufferViewer
                 GL.Uniform1(toLinearShader("near"), PRESPECTIVE_NEAR)
                 GL.UniformMatrix4(toLinearShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
 
-                Dim rect As New RectangleF(0, 0, img_width, img_height)
+                Dim rect As New RectangleF(rect_location.X, rect_location.Y, rect_size.X, rect_size.Y)
 
                 GL.Uniform4(colorMaskShader("rect"),
                             rect.Left,

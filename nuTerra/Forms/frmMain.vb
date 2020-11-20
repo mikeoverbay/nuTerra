@@ -625,6 +625,11 @@ try_again:
             load_image_from_file(Il.IL_PNG,
             sp + "\Resources\noise.png", True, True)
         '===========================================================================================
+        'load noise texture.
+        JITTER_TEXTURE_ID =
+            load_image_from_file(Il.IL_PNG,
+            sp + "\Resources\256x256_Noise_Texture.png", True, True)
+        '===========================================================================================
         ''Test Textures
         'For i = 0 To 7
         '    TEST_IDS(i) =

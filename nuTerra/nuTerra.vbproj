@@ -657,6 +657,9 @@
     <Content Include="Pngcs.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\256x256_Noise_Texture.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\ascii_characters.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

@@ -32,6 +32,24 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 layer2VT2;
     vec4 layer3VT2;
 
+    vec4 r1_1;
+    vec4 r1_2;
+    vec4 r1_3;
+    vec4 r1_4;
+    vec4 r1_5;
+    vec4 r1_6;
+    vec4 r1_7;
+    vec4 r1_8;
+
+    vec4 r2_1;
+    vec4 r2_2;
+    vec4 r2_3;
+    vec4 r2_4;
+    vec4 r2_5;
+    vec4 r2_6;
+    vec4 r2_7;
+    vec4 r2_8;
+
     float used_1;
     float used_2;
     float used_3;

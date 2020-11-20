@@ -7,7 +7,6 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 
-
 layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 layer0UT1;
     vec4 layer1UT1;
@@ -28,6 +27,24 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 layer1VT2;
     vec4 layer2VT2;
     vec4 layer3VT2;
+        
+    vec4 r1_1;
+    vec4 r1_2;
+    vec4 r1_3;
+    vec4 r1_4;
+    vec4 r1_5;
+    vec4 r1_6;
+    vec4 r1_7;
+    vec4 r1_8;
+
+    vec4 r2_1;
+    vec4 r2_2;
+    vec4 r2_3;
+    vec4 r2_4;
+    vec4 r2_5;
+    vec4 r2_6;
+    vec4 r2_7;
+    vec4 r2_8;
 
     float used_1;
     float used_2;
@@ -66,6 +83,7 @@ layout(binding = 20) uniform sampler2D mixtexture4;
 
 
 layout(binding = 21) uniform sampler2D global_AM;
+layout(binding = 22) uniform sampler2D NRP_noise;
 
 uniform vec3 waterColor;
 uniform float waterAlpha;
@@ -80,6 +98,40 @@ in VS_OUT {
 } fs_in;
 
 /*===========================================================*/
+//http://www.iquilezles.org/www/articles/texturerepetition/texturerepetition.htm
+float sum( vec4 v ) {
+    return v.x+v.y+v.z;
+    }
+vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag)
+{
+    if (flag == 0.0 ) return texture(samp,uv);
+
+    // sample variation pattern    
+    float k = texture( NRP_noise, 0.005*uv ).x; // cheap (cache friendly) lookup    
+    
+    // compute index    
+    float index = k*8.0;
+    float i = floor( index );
+    float f = fract( index );
+
+    // offsets for the different virtual patterns    
+    vec2 offa = sin(vec2(3.0,7.0)*(i+0.0)); // can replace with any other hash    
+    vec2 offb = sin(vec2(3.0,7.0)*(i+1.0)); // can replace with any other hash    
+
+    // compute derivatives for mip-mapping    
+    vec2 dx = dFdx(uv), dy = dFdy(uv);
+    
+    // sample the two closest virtual patterns    
+    vec4 cola = textureGrad( samp, uv + offa, dx, dy );
+    vec4 colb = textureGrad( samp, uv + offb, dx, dy );
+
+
+    // interpolate between the two virtual patterns   
+    float s = smoothstep(0.2,0.8,f-0.1* sum(cola-colb) );
+    return mix( cola, colb, s);
+    }
+/*===========================================================*/
+
 // Used to add normals together. Could be better.
 vec4 add_norms (in vec4 n1, in vec4 n2) {
     n1.xyz += n2.xyz;
@@ -132,56 +184,56 @@ void main(void)
 
 
     // Get AM maps and Test Texture maps
-    t4 = texture(layer_4T1, fs_in.tuv4);
+    t4 = textureNoTile(layer_4T1, fs_in.tuv4, r1_7.z);
 
-    t4_2 = texture(layer_4T2, fs_in.tuv4_2);
+    t4_2 = textureNoTile(layer_4T2, fs_in.tuv4_2, r1_8.z);
 
-    t3 = texture(layer_3T1, fs_in.tuv3);
+    t3 = textureNoTile(layer_3T1, fs_in.tuv3, r1_5.z);
 
-    t3_2 = texture(layer_3T2, fs_in.tuv3_2);
+    t3_2 = textureNoTile(layer_3T2, fs_in.tuv3_2, r1_6.z);
 
-    t2 = texture(layer_2T1, fs_in.tuv2);
+    t2 = textureNoTile(layer_2T1, fs_in.tuv2, r1_3.z);
 
-    t2_2 = texture(layer_2T2, fs_in.tuv2_2);
+    t2_2 = textureNoTile(layer_2T2, fs_in.tuv2_2, r1_4.z);
 
-    t1 = texture(layer_1T1, fs_in.tuv1);
+    t1 = textureNoTile(layer_1T1, fs_in.tuv1, r1_1.z);
  
-    t1_2 = texture(layer_1T2, fs_in.tuv1_2);
+    t1_2 = textureNoTile(layer_1T2, fs_in.tuv1_2, r1_2.z);
 
     // ambient occusion is in blue channel of the normal maps.
     // Specular OR Parallax is in the red channel. Green and Alpha are normal values.
     // We must get the Ambient Occlusion before converting so it isn't lost.
 
     // Get and convert normal maps. Save ambient occlusion value.
-    n4 = texture(n_layer_4T1, fs_in.tuv4);
+    n4 = textureNoTile(n_layer_4T1, fs_in.tuv4, r1_6.z);
     aoc_6 = n4.b;
     n4 = convertNormal(n4) + layer3UT1;
 
-    n4_2 = texture(n_layer_4T2, fs_in.tuv4_2);
+    n4_2 = textureNoTile(n_layer_4T2, fs_in.tuv4_2, r1_8.z);
     aoc_7 = n4_2.b;
     n4_2 = convertNormal(n4_2) + layer3UT2;
 
-    n3 = texture(n_layer_3T1, fs_in.tuv3);
+    n3 = textureNoTile(n_layer_3T1, fs_in.tuv3, r1_5.z);
     aoc_4 = n3.b;
     n3 = convertNormal(n3) + layer2UT1;
 
-    n3_2 = texture(n_layer_3T2, fs_in.tuv3_2);
+    n3_2 = textureNoTile(n_layer_3T2, fs_in.tuv3_2, r1_5.z);
     aoc_5 = n3_2.b;
     n3_2 = convertNormal(n3_2) + layer2UT2;
 
-    n2 = texture(n_layer_2T1, fs_in.tuv2);
+    n2 = textureNoTile(n_layer_2T1, fs_in.tuv2, r1_3.z);
     aoc_2 = n2.b;
     n2 = convertNormal(n2) + layer1UT1;
 
-    n2_2 = texture(n_layer_2T2, fs_in.tuv2_2);
+    n2_2 = textureNoTile(n_layer_2T2, fs_in.tuv2_2, r1_4.z);
     aoc_3 = n2_2.b;
     n2_2 = convertNormal(n2_2) + layer1UT2;
 
-    n1 = texture(n_layer_1T1, fs_in.tuv1);
+    n1 = textureNoTile(n_layer_1T1, fs_in.tuv1, r1_1.z);
     aoc_0 = n1.b;
     n1 = convertNormal(n1) + layer0UT1;
 
-    n1_2 = texture(n_layer_1T2, fs_in.tuv1_2);
+    n1_2 = textureNoTile(n_layer_1T2, fs_in.tuv1_2, r1_2.z);
     aoc_1 =  n1_2.b;
     n1_2 = convertNormal(n1_2) + layer0UT2;
     

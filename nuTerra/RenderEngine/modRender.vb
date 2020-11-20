@@ -664,7 +664,7 @@ Module modRender
         FBO_mixer_set.gColorArray.BindUnit(22)
         FBO_mixer_set.gNormalArray.BindUnit(23)
         FBO_mixer_set.gGmmArray.BindUnit(24)
-
+        JITTER_TEXTURE_ID.BindUnit(25)
         'water BS
         GL.Uniform3(TerrainShader("waterColor"),
                         Map_wetness.waterColor.X,
