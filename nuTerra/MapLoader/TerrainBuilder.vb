@@ -173,6 +173,25 @@ Module TerrainBuilder
         Public layer2VT2 As Vector4
         Public layer3VT2 As Vector4
 
+        Public r1_1 As Vector4
+        Public r1_2 As Vector4
+        Public r1_3 As Vector4
+        Public r1_4 As Vector4
+        Public r1_5 As Vector4
+        Public r1_6 As Vector4
+        Public r1_7 As Vector4
+        Public r1_8 As Vector4
+
+        Public r2_1 As Vector4
+        Public r2_2 As Vector4
+        Public r2_3 As Vector4
+        Public r2_4 As Vector4
+        Public r2_5 As Vector4
+        Public r2_6 As Vector4
+        Public r2_7 As Vector4
+        Public r2_8 As Vector4
+
+
         Public used_1 As Single
         Public used_2 As Single
         Public used_3 As Single
@@ -194,6 +213,7 @@ Module TerrainBuilder
         Public uP1, uP2, vP1, vP2 As Vector4
         Public used_a, used_b As Single
         Public scale_a, scale_b As Vector4
+        Public r1, r2 As Vector4
     End Structure
     Public Structure layer_render_info_
         Public used_on() As UInt32
