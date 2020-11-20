@@ -1344,6 +1344,7 @@ Module modRender
         Dim h = Abs(MAP_BB_BL.Y - MAP_BB_UR.Y)
         Dim rect As New RectangleF(MAP_BB_UR.X, MAP_BB_UR.Y, -w, -h)
         image2dShader.Use()
+        GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
 
         theMap.MINI_MAP_ID.BindUnit(0)
         GL.Uniform1(image2dShader("imageMap"), 0)
@@ -1373,6 +1374,7 @@ Module modRender
 
         image2dShader.Use()
 
+        GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
         GL.Uniform1(image2dShader("imageMap"), 0)
 
         'Icon 1
@@ -1446,6 +1448,7 @@ Module modRender
         GL_PUSH_GROUP("draw_mini_position")
 
         image2dShader.Use()
+        GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
 
         GL.Uniform1(image2dShader("imageMap"), 0)
         Dim i_size = 32
