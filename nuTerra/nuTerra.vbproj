@@ -228,6 +228,7 @@
     <Compile Include="Forms\frmShowText.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="GlobalSuppressions.vb" />
     <Compile Include="MapLoader\ChunkFunctions.vb" />
     <Compile Include="Forms\frmLoadOptions.designer.vb">
       <DependentUpon>frmLoadOptions.vb</DependentUpon>
@@ -356,9 +357,6 @@
     <None Include="packages.config" />
     <None Include="README.md" />
     <None Include="Resources\compass.x" />
-    <None Include="Resources\dial.x">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -665,6 +663,9 @@
     <Content Include="Resources\checkerBoard.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\CheckerPatternPaper.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\Cursor.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -672,9 +673,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\earth.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\linear_face.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\mini_letters.png">

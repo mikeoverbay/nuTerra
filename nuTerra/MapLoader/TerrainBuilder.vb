@@ -449,7 +449,7 @@ Module TerrainBuilder
             f.Extract(ms)
             openXml_stream(ms, abs_name)
         End If
-        Dim q As EnumerableRowCollection(Of String)
+        Dim q As EnumerableRowCollection(Of String) = Nothing
         Dim ds As DataSet = xmldataset.Copy
         Dim te As DataTable = ds.Tables("File_" + abs_name)
 

@@ -207,6 +207,8 @@ Module modOpenGL
 
             image.BindUnit(0)
             GL.Uniform1(image2dShader("imageMap"), 0)
+            GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
+
             GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
             GL.Uniform4(image2dShader("rect"),
                         rect.Left,

@@ -29,7 +29,7 @@ Module modGlobalVars
         End Try
     End Sub
     '=================================================================================
-    Public checkerTest As Integer
+    Public CHECKERTEST As Integer
     'Define these in CAP TEXT
     Public TEST_IDS(7) As GLTexture
     Public M_POS As Vector2
@@ -113,8 +113,9 @@ Module modGlobalVars
     Public CUBE_TEXTURE_ID As GLTexture
     Public CUBE_TEXTURE_PATH As String
     '============================================================
-    'load screen background image
+    ' background images
     Public nuTERRA_BG_IMAGE As GLTexture
+    Public CHECKER_BOARD As GLTexture
     '============================================================
     Public LIGHT_POS As Vector3
     Public LIGHT_RADIUS As Single 'Used when orbiting the light

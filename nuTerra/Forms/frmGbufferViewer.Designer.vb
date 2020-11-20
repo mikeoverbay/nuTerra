@@ -32,6 +32,7 @@ Partial Class frmGbufferViewer
         Me.half_scale = New System.Windows.Forms.RadioButton()
         Me.full_scale = New System.Windows.Forms.RadioButton()
         Me.GroupBox2 = New System.Windows.Forms.GroupBox()
+        Me.b_aux = New System.Windows.Forms.RadioButton()
         Me.b_flags = New System.Windows.Forms.RadioButton()
         Me.b_normal = New System.Windows.Forms.RadioButton()
         Me.b_position = New System.Windows.Forms.RadioButton()
@@ -44,7 +45,7 @@ Partial Class frmGbufferViewer
         Me.b_cb = New System.Windows.Forms.CheckBox()
         Me.a_cb = New System.Windows.Forms.CheckBox()
         Me.Label1 = New System.Windows.Forms.Label()
-        Me.b_aux = New System.Windows.Forms.RadioButton()
+        Me.cb_alpha_enable = New System.Windows.Forms.CheckBox()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
@@ -132,6 +133,19 @@ Partial Class frmGbufferViewer
         Me.GroupBox2.TabIndex = 2
         Me.GroupBox2.TabStop = False
         Me.GroupBox2.Text = "Selected Image"
+        '
+        'b_aux
+        '
+        Me.b_aux.Appearance = System.Windows.Forms.Appearance.Button
+        Me.b_aux.ForeColor = System.Drawing.Color.Black
+        Me.b_aux.Location = New System.Drawing.Point(391, 14)
+        Me.b_aux.Name = "b_aux"
+        Me.b_aux.Size = New System.Drawing.Size(70, 23)
+        Me.b_aux.TabIndex = 6
+        Me.b_aux.Tag = "6"
+        Me.b_aux.Text = "gAuxColor"
+        Me.b_aux.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        Me.b_aux.UseVisualStyleBackColor = True
         '
         'b_flags
         '
@@ -297,18 +311,18 @@ Partial Class frmGbufferViewer
         Me.Label1.TabIndex = 10
         Me.Label1.Text = "   "
         '
-        'b_aux
+        'cb_alpha_enable
         '
-        Me.b_aux.Appearance = System.Windows.Forms.Appearance.Button
-        Me.b_aux.ForeColor = System.Drawing.Color.Black
-        Me.b_aux.Location = New System.Drawing.Point(391, 14)
-        Me.b_aux.Name = "b_aux"
-        Me.b_aux.Size = New System.Drawing.Size(70, 23)
-        Me.b_aux.TabIndex = 6
-        Me.b_aux.Tag = "6"
-        Me.b_aux.Text = "gAuxColor"
-        Me.b_aux.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
-        Me.b_aux.UseVisualStyleBackColor = True
+        Me.cb_alpha_enable.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.cb_alpha_enable.Appearance = System.Windows.Forms.Appearance.Button
+        Me.cb_alpha_enable.AutoSize = True
+        Me.cb_alpha_enable.ForeColor = System.Drawing.Color.Black
+        Me.cb_alpha_enable.Location = New System.Drawing.Point(525, 131)
+        Me.cb_alpha_enable.Name = "cb_alpha_enable"
+        Me.cb_alpha_enable.Size = New System.Drawing.Size(44, 23)
+        Me.cb_alpha_enable.TabIndex = 11
+        Me.cb_alpha_enable.Text = "Alpha"
+        Me.cb_alpha_enable.UseVisualStyleBackColor = True
         '
         'frmGbufferViewer
         '
@@ -316,6 +330,7 @@ Partial Class frmGbufferViewer
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer))
         Me.ClientSize = New System.Drawing.Size(589, 422)
+        Me.Controls.Add(Me.cb_alpha_enable)
         Me.Controls.Add(Me.Label1)
         Me.Controls.Add(Me.a_cb)
         Me.Controls.Add(Me.b_cb)
@@ -357,4 +372,5 @@ Partial Class frmGbufferViewer
     Friend WithEvents a_cb As CheckBox
     Friend WithEvents Label1 As Label
     Friend WithEvents b_aux As RadioButton
+    Friend WithEvents cb_alpha_enable As CheckBox
 End Class
