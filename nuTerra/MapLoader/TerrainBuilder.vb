@@ -153,25 +153,25 @@ Module TerrainBuilder
 
     <StructLayout(LayoutKind.Sequential)>
     Public Structure LayersStd140
-        Public layer0UT1 As Vector4
-        Public layer1UT1 As Vector4
-        Public layer2UT1 As Vector4
-        Public layer3UT1 As Vector4
+        Public U1 As Vector4
+        Public U2 As Vector4
+        Public U3 As Vector4
+        Public U4 As Vector4
 
-        Public layer0UT2 As Vector4
-        Public layer1UT2 As Vector4
-        Public layer2UT2 As Vector4
-        Public layer3UT2 As Vector4
+        Public U5 As Vector4
+        Public U6 As Vector4
+        Public U7 As Vector4
+        Public U8 As Vector4
 
-        Public layer0VT1 As Vector4
-        Public layer1VT1 As Vector4
-        Public layer2VT1 As Vector4
-        Public layer3VT1 As Vector4
+        Public V1 As Vector4
+        Public V2 As Vector4
+        Public V3 As Vector4
+        Public V4 As Vector4
 
-        Public layer0VT2 As Vector4
-        Public layer1VT2 As Vector4
-        Public layer2VT2 As Vector4
-        Public layer3VT2 As Vector4
+        Public V5 As Vector4
+        Public V6 As Vector4
+        Public V7 As Vector4
+        Public V8 As Vector4
 
         Public r1_1 As Vector4
         Public r1_2 As Vector4
@@ -214,6 +214,7 @@ Module TerrainBuilder
         Public used_a, used_b As Single
         Public scale_a, scale_b As Vector4
         Public r1, r2 As Vector4
+        Public r2_1, r2_2 As Vector4
     End Structure
     Public Structure layer_render_info_
         Public used_on() As UInt32
