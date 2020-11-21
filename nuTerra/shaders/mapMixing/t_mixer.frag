@@ -245,11 +245,7 @@ void main(void)
     // It is used to clamp unused values to 0 so
     // they have no affect on shading.
 
-    // If we want to show the test textures, do it now.
-
-
     vec4 base = vec4(0.0);  
-    vec4 empty = vec4(0.0);
 
     // Mix our textures in to base and
     // apply Ambient Occlusion.
