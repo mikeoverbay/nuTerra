@@ -89,12 +89,23 @@ uniform vec3 waterColor;
 uniform float waterAlpha;
 
 in VS_OUT {
-    mat3 TBN;
     vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
     vec2 UV;
     vec2 Global_UV;
     flat float is_hole;
 } fs_in;
+
+
+/*===========================================================*/
+float mip_map_level(in vec2 iUV, sampler2D samp)
+{
+    ivec2 isize = textureSize(samp,0);
+    vec2  dx_vtc        = dFdx(iUV * float(isize.x));
+    vec2  dy_vtc        = dFdy(iUV * float(isize.y));
+    float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
+    
+    return round(0.5 * log2(d)); 
+}
 
 /*===========================================================*/
 //http://www.iquilezles.org/www/articles/texturerepetition/texturerepetition.htm
@@ -103,10 +114,20 @@ float sum( vec4 v ) {
     }
 vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag)
 {
-    if (flag == 0.0 ) return texture(samp,uv);
+
+   uv = fract(uv) * vec2(0.875) + vec2(0.0625);
+
+   if (flag == 0.0 ){
+        vec2 dx = dFdx(uv);
+        vec2 dy = dFdy(uv);
+        //return textureGrad(samp, uv, dx, dy);
+        //return vec4(0);
+        return texture(samp,uv,0.6);
+        return textureLod( samp, uv, mip_map_level(uv, samp));
+        }
 
     // sample variation pattern    
-    float k = texture( NRP_noise, 0.005*uv ).x; // cheap (cache friendly) lookup    
+    float k = texture( NRP_noise, fract(uv)*0.005 ).x; // cheap (cache friendly) lookup    
     
     // compute index    
     float index = k*8.0;
@@ -151,6 +172,25 @@ vec4 convertNormal(vec4 norm){
 vec2 crop(in vec2 tc){
         return fract(tc) * vec2(0.875) + vec2(0.0625); 
     }
+/*===========================================================*/
+/*===========================================================*/
+vec4 get_dom_normal(vec4 n1,   vec4 n2,   vec4 n3,   vec4 n4, 
+                    vec4 n5,   vec4 n6,   vec4 n7,   vec4 n8,
+                    vec2 mix1, vec2 mix2, vec2 mix3, vec2 mix4, out float val){
+
+    vec4 n;
+    val = 0.0;
+       if (mix1.r > val){ n = n1; val = mix1.r; }
+       if (mix1.g > val){ n = n2; val = mix1.g; }
+       if (mix2.r > val){ n = n3; val = mix2.r; }
+       if (mix2.g > val){ n = n4; val = mix2.g; }
+       if (mix3.r > val){ n = n5; val = mix3.r; }
+       if (mix3.g > val){ n = n6; val = mix3.g; }
+       if (mix4.r > val){ n = n7; val = mix4.r; }
+       if (mix4.g > val){ n = n8; val = mix4.g; }
+
+    return n;
+}
 /*===========================================================*/
 
 
@@ -316,6 +356,12 @@ void main(void)
     out_n = add_norms(out_n, n7);
     out_n = add_norms(out_n, n8);
 
+    //Find dom Normal
+    float nBlend;
+    vec4 top_n = get_dom_normal(n1, n2, n3, n4, n5, n6, n7, n8,
+                           MixLevel1.rg, MixLevel2.rg, MixLevel3.rg,
+                           MixLevel4.rg, nBlend);
+    out_n = mix(out_n, top_n, nBlend);
     
     // Mix in the global_AM color using global_AM's alpha channel.
 

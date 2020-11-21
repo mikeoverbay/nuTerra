@@ -66,7 +66,6 @@ uniform mat4 Ortho_Project;
 uniform mat3 normalMatrix;
 
 out VS_OUT {
-    mat3 TBN;
     vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
     vec2 UV;
     vec2 Global_UV;
@@ -84,8 +83,7 @@ vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec4 Row3, in vec2 _uv) {
     vec4 tv = rs * vec4(_uv.x, 0.0, _uv.y, 1.0) * 100.0;   
     return vec2(tv.x, tv.z);
 }
- 
- 
+
 
 void main(void)
 {
@@ -108,7 +106,7 @@ void main(void)
     Vertex.x *= -1.0;
     
     //-------------------------------------------------------
-    vec2 scaled_uv = vec2(vertexTexCoord.x,1.0-vertexTexCoord.y);
+    vec2 scaled_uv = vec2(-vertexTexCoord.x,vertexTexCoord.y);
     //-------------------------------------------------------
 
     vs_out.tuv1 = get_transformed_uv(U1, V1, r1_1, scaled_uv); 
@@ -124,26 +122,6 @@ void main(void)
     vs_out.tuv8 = get_transformed_uv(U8, V8, r1_8, scaled_uv);
 
     //-------------------------------------------------------
-    // Calculate biNormal
-    vec3 VT, VB, VN ;
-    VN = normalize(vertexNormal.xyz);
-    VT = normalize(vertexTangent.xyz);
-
-    VT = VT - dot(VN, VT) * VN;
-    VB = cross(VT, VN);
-    //-------------------------------------------------------
-
-    // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
-    vec3 worldNormal = normalMatrix * VN;
-    vec3 worldTangent = normalMatrix * VT;
-    vec3 worldbiNormal = normalMatrix * VB;
-
-    // make perpendicular
-    worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
-    worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
-
-    // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
-    vs_out.TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
     gl_Position = Ortho_Project  * vec4(vertexPosition, 1.0f);
