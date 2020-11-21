@@ -148,6 +148,12 @@ vec4 convertNormal(vec4 norm){
 }
 
 /*===========================================================*/
+vec2 crop(in vec2 tc){
+        return fract(tc) * vec2(0.875) + vec2(0.0625); 
+    }
+/*===========================================================*/
+
+
 
 void main(void)
 {
@@ -181,17 +187,17 @@ void main(void)
     // create UV projections
 
     // Get AM maps and Test Texture maps
-    t1 = textureNoTile(layer_1T1, fs_in.tuv1, r1_1.z);
-    t2= textureNoTile(layer_1T2, fs_in.tuv2, r1_2.z);
+    t1 = textureNoTile(layer_1T1, crop(fs_in.tuv1), r1_1.z);
+    t2= textureNoTile(layer_1T2, crop(fs_in.tuv2), r1_2.z);
 
-    t3 = textureNoTile(layer_2T1, fs_in.tuv3, r1_3.z);
-    t4 = textureNoTile(layer_2T2, fs_in.tuv4, r1_4.z);
+    t3 = textureNoTile(layer_2T1, crop(fs_in.tuv3), r1_3.z);
+    t4 = textureNoTile(layer_2T2, crop(fs_in.tuv4), r1_4.z);
 
-    t5 = textureNoTile(layer_3T1, fs_in.tuv5, r1_5.z);
-    t6 = textureNoTile(layer_3T2, fs_in.tuv6, r1_6.z);
+    t5 = textureNoTile(layer_3T1, crop(fs_in.tuv5), r1_5.z);
+    t6 = textureNoTile(layer_3T2, crop(fs_in.tuv6), r1_6.z);
 
-    t7 = textureNoTile(layer_4T1, fs_in.tuv7, r1_7.z);
-    t8 = textureNoTile(layer_4T2, fs_in.tuv8, r1_8.z);
+    t7 = textureNoTile(layer_4T1, crop(fs_in.tuv7), r1_7.z);
+    t8 = textureNoTile(layer_4T2, crop(fs_in.tuv8), r1_8.z);
 
 
 
@@ -201,35 +207,35 @@ void main(void)
 
     // Get and convert normal maps. Save ambient occlusion value.
 
-    n1 = textureNoTile(n_layer_1T1, fs_in.tuv1, r1_1.z);
+    n1 = textureNoTile(n_layer_1T1, crop(fs_in.tuv1), r1_1.z);
     aoc_0 = n1.b;
     n1 = convertNormal(n1) + U1;
 
-    n2 = textureNoTile(n_layer_1T2, fs_in.tuv2, r1_2.z);
+    n2 = textureNoTile(n_layer_1T2, crop(fs_in.tuv2), r1_2.z);
     aoc_1 =  n2.b;
     n2 = convertNormal(n2) + U2;
 
-    n3 = textureNoTile(n_layer_2T1, fs_in.tuv3, r1_3.z);
+    n3 = textureNoTile(n_layer_2T1, crop(fs_in.tuv3), r1_3.z);
     aoc_2 = n3.b;
     n3= convertNormal(n3) + U3;
 
-    n4 = textureNoTile(n_layer_2T2, fs_in.tuv4, r1_4.z);
+    n4 = textureNoTile(n_layer_2T2, crop(fs_in.tuv4), r1_4.z);
     aoc_3 = n4.b;
     n4 = convertNormal(n4) + U4;
 
-    n5 = textureNoTile(n_layer_3T1, fs_in.tuv5, r1_5.z);
+    n5 = textureNoTile(n_layer_3T1, crop(fs_in.tuv5), r1_5.z);
     aoc_4 = n5.b;
     n5 = convertNormal(n5) + U5;
 
-    n6 = textureNoTile(n_layer_3T2, fs_in.tuv6, r1_6.z);
+    n6 = textureNoTile(n_layer_3T2, crop(fs_in.tuv6), r1_6.z);
     aoc_5 = n6.b;
     n6 = convertNormal(n6) + U6;
 
-    n7 = textureNoTile(n_layer_4T1, fs_in.tuv7, r1_7.z);
+    n7 = textureNoTile(n_layer_4T1, crop(fs_in.tuv7), r1_7.z);
     aoc_6 = n7.b;
     n7 = convertNormal(n7) + U7;
 
-    n8= textureNoTile(n_layer_4T2, fs_in.tuv8, r1_8.z);
+    n8= textureNoTile(n_layer_4T2, crop(fs_in.tuv8), r1_8.z);
     aoc_7 = n8.b;
     n8 = convertNormal(n8) + U8;
 

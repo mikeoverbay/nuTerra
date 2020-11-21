@@ -383,7 +383,7 @@ Module TerrainTextureFunctions
             entry.Extract(ms)
             'CHANGE THIS TO crop_DDS to use code below.
             'id = load_dds_image_from_stream(ms, fn)
-            id = crop_DDS(ms, fn)
+            id = load_dds_image_from_stream(ms, fn)
             Return id
         End If
         Return Nothing
@@ -408,7 +408,7 @@ Module TerrainTextureFunctions
         Il.ilLoadL(Il.IL_DDS, imgStore, ms.Length)
         success = Il.ilGetError
 
-        Dim CROP As Boolean = True
+        Dim CROP As Boolean = False
 
         If success = Il.IL_NO_ERROR Then
             'Ilu.iluFlipImage()
