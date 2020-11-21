@@ -80,9 +80,9 @@ vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec4 Row3, in vec2 _uv) {
     rs[2] = vec4(Row2.x, Row2.y, Row2.z, 0.0);
     rs[3] = vec4(Row3.x, 0.0,    Row3.y, 1.0);
     rs[3] = vec4(0.0,    0.0,    0.0,    1.0);
-    vec4 tv = rs * vec4(_uv.x, 0.0, _uv.y, 1.0) * 100.0;   
-    return vec2(tv.x, tv.z);
-}
+    vec4 tv = rs * vec4(_uv.x, 0.0, _uv.y, 1.0);   
+    return vec2(tv.x+0.5, tv.z+0.5);
+    }
 
 
 void main(void)
@@ -106,7 +106,7 @@ void main(void)
     Vertex.x *= -1.0;
     
     //-------------------------------------------------------
-    vec2 scaled_uv = vec2(-vertexTexCoord.x,vertexTexCoord.y);
+    vec2 scaled_uv = vec2(-vertexPosition.x,vertexPosition.z);
     //-------------------------------------------------------
 
     vs_out.tuv1 = get_transformed_uv(U1, V1, r1_1, scaled_uv); 
