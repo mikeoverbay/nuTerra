@@ -12,25 +12,25 @@ layout(location = 3) in vec4 vertexNormal;
 layout(location = 4) in vec3 vertexTangent;
 
 layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
-    vec4 layer0UT1;
-    vec4 layer1UT1;
-    vec4 layer2UT1;
-    vec4 layer3UT1;
+    vec4 U1;
+    vec4 U2;
+    vec4 U3;
+    vec4 U4;
 
-    vec4 layer0UT2;
-    vec4 layer1UT2;
-    vec4 layer2UT2;
-    vec4 layer3UT2;
+    vec4 U5;
+    vec4 U6;
+    vec4 U7;
+    vec4 U8;
 
-    vec4 layer0VT1;
-    vec4 layer1VT1;
-    vec4 layer2VT1;
-    vec4 layer3VT1;
+    vec4 V1;
+    vec4 V2;
+    vec4 V3;
+    vec4 V4;
 
-    vec4 layer0VT2;
-    vec4 layer1VT2;
-    vec4 layer2VT2;
-    vec4 layer3VT2;
+    vec4 V5;
+    vec4 V6;
+    vec4 V7;
+    vec4 V8;
 
     vec4 r1_1;
     vec4 r1_2;
@@ -59,7 +59,6 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     float used_7;
     float used_8;
 };
-
 uniform vec2 map_size;
 uniform vec2 map_center;
 uniform vec2 me_location;
@@ -68,12 +67,27 @@ uniform mat3 normalMatrix;
 
 out VS_OUT {
     mat3 TBN;
-    vec2 tuv4, tuv4_2, tuv3, tuv3_2;
-    vec2 tuv2, tuv2_2, tuv1, tuv1_2;
+    vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
     vec2 UV;
     vec2 Global_UV;
     flat float is_hole;
 } vs_out;
+
+vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec2 _uv) {
+
+    mat4 rs;
+    rs[0] = vec4(Row0.x, Row0.y, Row0.z, 1.0);
+    rs[1] = vec4(0.0, 1.0, 0.0, 1.0);
+    rs[2] = vec4(Row2.x, Row2.y, Row2.z, 1.0);
+    rs[3] = vec4(0.0, 0.0, 0.0, 1.0);
+
+    vec4 tv = rs * (vec4(_uv.x , 1.0, _uv.y, 1.0) * 100.0);
+
+    vec2 resv = vec2(tv.x,tv.z);
+
+    return resv;
+}
+ 
 
 void main(void)
 {
@@ -94,36 +108,21 @@ void main(void)
     vec3 vertexPosition = vec3(vertexXZ.x, vertexXZ.y, vertexY);
     vec4 Vertex = vec4(vertexPosition, 1.0) * 1.0;
     Vertex.x *= -1.0;
-    //make it XXYZW again for tex transforms
-    vec4 sVert = Vertex.xzyw;
     
-    //
-    // Calulate UVs for the texture layers
-    vs_out.tuv4 = -vec2(dot(-layer3UT1, sVert), dot(layer3VT1, sVert))+0.5 ;
-    vs_out.tuv4_2 = -vec2(dot(-layer3UT2, sVert), dot(layer3VT2, sVert))+0.5 ;
-
-    vs_out.tuv3 = -vec2(dot(-layer2UT1, sVert), dot(layer2VT1, sVert))+0.5 ;
-    vs_out.tuv3_2 = -vec2(dot(-layer2UT2, sVert), dot(layer2VT2, sVert))+0.5 ;
-
-    vs_out.tuv2 = -vec2(dot(-layer1UT1, sVert), dot(layer1VT1, sVert))+0.5;
-    vs_out.tuv2_2 = -vec2(dot(-layer1UT2, sVert), dot(layer1VT2, sVert))+0.5;
-
-    vs_out.tuv1 = -vec2(dot(-layer0UT1, sVert), dot(layer0VT1, sVert))+0.5 ;
-    vs_out.tuv1_2 = -vec2(dot(-layer0UT2, sVert), dot(layer0VT2, sVert))+0.5 ;
-
-
     //-------------------------------------------------------
-    // clip border - dont work!
-//    tuv1 = (tuv1*0.875) + (tuv1*0.0625);
-//    tuv2 = (tuv2*0.875) + (tuv2*0.0625);
-//    tuv3 = (tuv3*0.875) + (tuv3*0.0625);
-//    tuv4 = (tuv4*0.875) + (tuv4*0.0625);
-//
-//    tuv1_2 = (tuv1_2*0.875) + (tuv1_2*0.0625);
-//    tuv2_2 = (tuv2_2*0.875) + (tuv2_2*0.0625);
-//    tuv3_2 = (tuv3_2*0.875) + (tuv3_2*0.0625);
-//    tuv4_2 = (tuv4_2*0.875) + (tuv4_2*0.0625);
-    //-------------------------------------------------------
+    vec2 scaled_uv = vec2(vertexTexCoord.x,1.0-vertexTexCoord.y);
+
+    vs_out.tuv1 = get_transformed_uv(U1, V1, scaled_uv); 
+    vs_out.tuv2 = get_transformed_uv(U2, V2, scaled_uv);
+
+    vs_out.tuv3 = get_transformed_uv(U3, V3, scaled_uv); 
+    vs_out.tuv4 = get_transformed_uv(U4, V4, scaled_uv);
+
+    vs_out.tuv5 = get_transformed_uv(U5, V5, scaled_uv); 
+    vs_out.tuv6 = get_transformed_uv(U6, V6, scaled_uv);
+
+    vs_out.tuv7 = get_transformed_uv(U7, V7, scaled_uv);
+    vs_out.tuv8 = get_transformed_uv(U8, V8, scaled_uv);
 
     //-------------------------------------------------------
     // Calculate biNormal

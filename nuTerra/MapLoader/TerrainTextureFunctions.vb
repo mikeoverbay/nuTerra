@@ -63,47 +63,47 @@ Module TerrainTextureFunctions
         ' fill ubo
         With theMap.render_set(map)
             Dim layersBuffer As New LayersStd140
-            layersBuffer.layer0UT1 = .TexLayers(0).uP1
-            layersBuffer.layer0UT2 = .TexLayers(0).uP2
+            layersBuffer.U1 = .TexLayers(0).uP1
+            layersBuffer.U2 = .TexLayers(0).uP2
 
-            layersBuffer.layer0VT1 = .TexLayers(0).vP1
-            layersBuffer.layer0VT2 = .TexLayers(0).vP2
+            layersBuffer.U3 = .TexLayers(1).uP1
+            layersBuffer.U4 = .TexLayers(1).uP2
 
-            layersBuffer.layer1UT1 = .TexLayers(1).uP1
-            layersBuffer.layer1UT2 = .TexLayers(1).uP2
+            layersBuffer.U5 = .TexLayers(2).uP1
+            layersBuffer.U6 = .TexLayers(2).uP2
 
-            layersBuffer.layer1VT1 = .TexLayers(1).vP1
-            layersBuffer.layer1VT2 = .TexLayers(1).vP2
+            layersBuffer.U7 = .TexLayers(3).uP1
+            layersBuffer.U8 = .TexLayers(3).uP2
 
-            layersBuffer.layer2UT1 = .TexLayers(2).uP1
-            layersBuffer.layer2UT2 = .TexLayers(2).uP2
+            layersBuffer.V1 = .TexLayers(0).vP1
+            layersBuffer.V2 = .TexLayers(0).vP2
 
-            layersBuffer.layer2VT1 = .TexLayers(2).vP1
-            layersBuffer.layer2VT2 = .TexLayers(2).vP2
+            layersBuffer.V3 = .TexLayers(1).vP1
+            layersBuffer.V4 = .TexLayers(1).vP2
 
-            layersBuffer.layer3UT1 = .TexLayers(3).uP1
-            layersBuffer.layer3UT2 = .TexLayers(3).uP2
+            layersBuffer.V5 = .TexLayers(2).vP1
+            layersBuffer.V6 = .TexLayers(2).vP2
 
-            layersBuffer.layer3VT1 = .TexLayers(3).vP1
-            layersBuffer.layer3VT2 = .TexLayers(3).vP2
+            layersBuffer.V7 = .TexLayers(3).vP1
+            layersBuffer.V8 = .TexLayers(3).vP2
 
             layersBuffer.r1_1 = .TexLayers(0).r1
-            layersBuffer.r1_2 = .TexLayers(0).r1
-            layersBuffer.r1_2 = .TexLayers(1).r1
+            layersBuffer.r1_2 = .TexLayers(0).r2
             layersBuffer.r1_3 = .TexLayers(1).r1
-            layersBuffer.r1_4 = .TexLayers(2).r1
+            layersBuffer.r1_4 = .TexLayers(1).r2
             layersBuffer.r1_5 = .TexLayers(2).r1
-            layersBuffer.r1_6 = .TexLayers(3).r1
+            layersBuffer.r1_6 = .TexLayers(2).r2
             layersBuffer.r1_7 = .TexLayers(3).r1
+            layersBuffer.r1_8 = .TexLayers(3).r2
 
-            layersBuffer.r2_1 = .TexLayers(0).r2
-            layersBuffer.r2_2 = .TexLayers(0).r2
-            layersBuffer.r2_2 = .TexLayers(1).r2
-            layersBuffer.r2_3 = .TexLayers(1).r2
-            layersBuffer.r2_4 = .TexLayers(2).r2
-            layersBuffer.r2_5 = .TexLayers(2).r2
-            layersBuffer.r2_6 = .TexLayers(3).r2
-            layersBuffer.r2_7 = .TexLayers(3).r2
+            layersBuffer.r2_1 = .TexLayers(0).r2_1
+            layersBuffer.r2_2 = .TexLayers(0).r2_2
+            layersBuffer.r2_3 = .TexLayers(1).r2_1
+            layersBuffer.r2_4 = .TexLayers(1).r2_2
+            layersBuffer.r2_5 = .TexLayers(2).r2_1
+            layersBuffer.r2_6 = .TexLayers(2).r2_2
+            layersBuffer.r2_7 = .TexLayers(3).r2_1
+            layersBuffer.r2_8 = .TexLayers(3).r2_2
 
             ' Used 1 = true, 0 = false
             layersBuffer.used_1 = .TexLayers(0).used_a
@@ -289,13 +289,13 @@ Module TerrainTextureFunctions
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt + 0).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt + 0).v
                     .TexLayers(i).r1 = .layer.render_info(cur_layer_info_pnt + 0).r1
-                    .TexLayers(i).r2 = .layer.render_info(cur_layer_info_pnt + 0).r2
+                    .TexLayers(i).r2_1 = .layer.render_info(cur_layer_info_pnt + 0).r2
                     '.TexLayers(i).scale_a = .layer.render_info(cur_layer_info_pnt + 0).scale
                     'layer part 2
                     .TexLayers(i).uP2 = .layer.render_info(cur_layer_info_pnt + 1).u
                     .TexLayers(i).vP2 = .layer.render_info(cur_layer_info_pnt + 1).v
-                    .TexLayers(i).r1 = .layer.render_info(cur_layer_info_pnt + 1).r1
-                    .TexLayers(i).r2 = .layer.render_info(cur_layer_info_pnt + 1).r2
+                    .TexLayers(i).r2 = .layer.render_info(cur_layer_info_pnt + 1).r1
+                    .TexLayers(i).r2_2 = .layer.render_info(cur_layer_info_pnt + 1).r2
 
                     '.TexLayers(i).scale_b = .layer.render_info(cur_layer_info_pnt + 1).scale
                     If _Write_texture_info Then
