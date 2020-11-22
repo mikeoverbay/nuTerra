@@ -118,12 +118,7 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag)
    uv = fract(uv) * vec2(0.875) + vec2(0.0625);
 
    if (flag == 0.0 ){
-        vec2 dx = dFdx(uv);
-        vec2 dy = dFdy(uv);
-        //return textureGrad(samp, uv, dx, dy);
-        //return vec4(0);
-        return texture(samp,uv,0.6);
-        return textureLod( samp, uv, mip_map_level(uv, samp));
+        return texture(samp,uv);
         }
 
     // sample variation pattern    
@@ -228,7 +223,7 @@ void main(void)
 
     // Get AM maps and Test Texture maps
     t1 = textureNoTile(layer_1T1, crop(fs_in.tuv1), r1_1.z);
-    t2= textureNoTile(layer_1T2, crop(fs_in.tuv2), r1_2.z);
+    t2 = textureNoTile(layer_1T2, crop(fs_in.tuv2), r1_2.z);
 
     t3 = textureNoTile(layer_2T1, crop(fs_in.tuv3), r1_3.z);
     t4 = textureNoTile(layer_2T2, crop(fs_in.tuv4), r1_4.z);
