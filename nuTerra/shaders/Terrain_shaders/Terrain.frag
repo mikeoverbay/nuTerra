@@ -115,12 +115,20 @@ in VS_OUT {
 
 /*===========================================================*/
 // https://www.gamedev.net/articles/programming/graphics/advanced-terrain-texture-splatting-r3287/
-vec3 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
+vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
  float depth = 0.2;
  float ma = max(texture1.a + a1, texture2.a + a2) - depth;
  float b1 = max(texture1.a + a1 - ma, 0);
  float b2 = max(texture2.a + a2 - ma, 0);
- return (texture1.rgb * b1 + texture2.rgb * b2) / (b1 + b2);
+ return (texture1 * b1 + texture2 * b2) / (b1 + b2);
+ }
+ //have to do this because we need the alpha in the textures.
+vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, float a2) {
+ float depth = 0.2;
+ float ma = max(texture1.a + a1, texture2.a + a2) - depth;
+ float b1 = max(texture1.a + a1 - ma, 0);
+ float b2 = max(texture2.a + a2 - ma, 0);
+ return (n1 * b1 + n2 * b2) / (b1 + b2);
  }
 /*===========================================================*/
 
@@ -274,43 +282,27 @@ void main(void)
 
     n1 = textureNoTile(n_layer_1T1, fs_in.tuv1, r1_1.z, B1);
     aoc_0 = n1.b;
-    n1 = convertNormal(n1);// + U1;
-    n1.a = t1.a; // for blend function
 
     n2 = textureNoTile(n_layer_1T2, fs_in.tuv2, r1_2.z, B2);
     aoc_1 =  n2.b;
-    n2 = convertNormal(n2);// + U2;
-    n2.a = t2.a; // for blend function
 
     n3 = textureNoTile(n_layer_2T1, fs_in.tuv3, r1_3.z, B3);
     aoc_2 = n3.b;
-    n3= convertNormal(n3);// + U3;
-    n3.a = t3.a; // for blend function
 
     n4 = textureNoTile(n_layer_2T2, fs_in.tuv4, r1_4.z, B4);
     aoc_3 = n4.b;
-    n4 = convertNormal(n4);// + U4;
-    n4.a = t4.a; // for blend function
 
     n5 = textureNoTile(n_layer_3T1, fs_in.tuv5, r1_5.z, B5);
     aoc_4 = n5.b;
-    n5 = convertNormal(n5);// + U5;
-    n5.a = t5.a; // for blend function
 
     n6 = textureNoTile(n_layer_3T2, fs_in.tuv6, r1_6.z, B6);
     aoc_5 = n6.b;
-    n6 = convertNormal(n6);// + U6;
-    n6.a = t6.a; // for blend function
 
     n7 = textureNoTile(n_layer_4T1, fs_in.tuv7, r1_7.z, B7);
     aoc_6 = n7.b;
-    n7 = convertNormal(n7);// + U7;
-    n7.a = t7.a; // for blend function
 
     n8= textureNoTile(n_layer_4T2, fs_in.tuv8, r1_8.z, B8);
     aoc_7 = n8.b;
-    n8 = convertNormal(n8);// + U8;
-    n8.a = t8.a; // for blend function
     
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
@@ -327,18 +319,34 @@ void main(void)
     // Mix our textures in to base and
     // apply Ambient Occlusion.
     // Mix group 4
-    base = t8 * MixLevel4.g;
+    //base = t8 * MixLevel4.g;
 
-    base.rgb = blend(base, aoc_7 * MixLevel4.g, t7, aoc_7);
-    base.rgb = blend(base, aoc_7, t7, aoc_6 * MixLevel4.r);
-    base.rgb = blend(base, aoc_6, t6, aoc_5 * MixLevel3.g);
-    base.rgb = blend(base, aoc_5, t5, aoc_4 * MixLevel3.r);
-    base.rgb = blend(base, aoc_4, t4, aoc_3 * MixLevel2.g);
-    base.rgb = blend(base, aoc_3, t3, aoc_2 * MixLevel2.r);
-    base.rgb = blend(base, aoc_2, t2, aoc_1 * MixLevel1.g);
-    base.rgb = blend(base, aoc_1, t1, aoc_0 * MixLevel1.r);
+//    base.rgb = blend(base, aoc_7 * MixLevel4.g, t7, aoc_7);
+//    base.rgb = blend(base, aoc_7, t7, aoc_6 * MixLevel4.r);
+//    base.rgb = blend(base, aoc_6, t6, aoc_5 * MixLevel3.g);
+//    base.rgb = blend(base, aoc_5, t5, aoc_4 * MixLevel3.r);
+//    base.rgb = blend(base, aoc_4, t4, aoc_3 * MixLevel2.g);
+//    base.rgb = blend(base, aoc_3, t3, aoc_2 * MixLevel2.r);
+//    base.rgb = blend(base, aoc_2, t2, aoc_1 * MixLevel1.g);
+//    base.rgb = blend(base, aoc_1, t1, aoc_0 * MixLevel1.r);
+//
+    vec4 m4 = blend(t7, aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
+
+    vec4 m3 = blend(t5, aoc_4 * MixLevel3.r, t6 , aoc_5 * MixLevel3.g);
+
+    vec4 m2 = blend(t3, aoc_2 * MixLevel2.r, t4 , aoc_3 * MixLevel2.g);
+
+    vec4 m1 = blend(t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
 
 
+    vec4 m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4 , MixLevel4.r+MixLevel4.g);
+
+    vec4 m6 = blend(m1, MixLevel1.r+MixLevel1.g, m2 , MixLevel2.r+MixLevel2.g);
+
+    vec4 m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+
+    base = m7;
+   
     // Texture outlines if test = 1.0;
     base = mix(base, base + color_1, B1 * test * MixLevel1.r);
     base = mix(base, base + color_2, B2 * test * MixLevel1.g);
@@ -354,22 +362,41 @@ void main(void)
     //-------------------------------------------------------------
 
     vec4 out_n = vec4(0.0);
-    out_n.rgb = normalize(n7.rgb);
-    out_n.rgb = blend(out_n,aoc_7 * MixLevel4.g ,normalize(n7), aoc_7);
-    out_n.rgb = blend(out_n,aoc_7, normalize(n7) ,aoc_6 * MixLevel4.r);
-    out_n.rgb = blend(out_n,aoc_6, normalize(n6) ,aoc_5 * MixLevel3.g);
-    out_n.rgb = blend(out_n,aoc_5, normalize(n5) ,aoc_4 * MixLevel3.r);
-    out_n.rgb = blend(out_n,aoc_4, normalize(n4) ,aoc_3 * MixLevel2.g);
-    out_n.rgb = blend(out_n,aoc_3, normalize(n3) ,aoc_2 * MixLevel2.r);
-    out_n.rgb = blend(out_n,aoc_2, normalize(n2) ,aoc_1 * MixLevel1.g);
-    out_n.rgb = blend(out_n,aoc_1, normalize(n1) ,aoc_0 * MixLevel1.r);
-    
+
+     m4 = blend_normal(n7, n8, t7 , aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
+
+     m3 = blend_normal(n5, n6, t5, aoc_4 * MixLevel3.r, t6 , aoc_5 * MixLevel3.g);
+
+     m2 = blend_normal(n3, n4, t3, aoc_2 * MixLevel2.r, t4 , aoc_3 * MixLevel2.g);
+
+     m1 = blend_normal(n1, n2, t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
+
+
+     m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4 , MixLevel4.r+MixLevel4.g);
+
+     m6 = blend(m1, MixLevel1.r+MixLevel1.g, m2 , MixLevel2.r+MixLevel2.g);
+
+     m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+
+     out_n = m7;
+     vec2 gmm = vec2(out_n.r, out_n.b);
+//    out_n.rgb = normalize(n7.rgb);
+//    out_n.rgb = blend(out_n,aoc_7 * MixLevel4.g ,normalize(n7), aoc_7);
+//    out_n.rgb = blend(out_n,aoc_7, normalize(n7) ,aoc_6 * MixLevel4.r);
+//    out_n.rgb = blend(out_n,aoc_6, normalize(n6) ,aoc_5 * MixLevel3.g);
+//    out_n.rgb = blend(out_n,aoc_5, normalize(n5) ,aoc_4 * MixLevel3.r);
+//    out_n.rgb = blend(out_n,aoc_4, normalize(n4) ,aoc_3 * MixLevel2.g);
+//    out_n.rgb = blend(out_n,aoc_3, normalize(n3) ,aoc_2 * MixLevel2.r);
+//    out_n.rgb = blend(out_n,aoc_2, normalize(n2) ,aoc_1 * MixLevel1.g);
+//    out_n.rgb = blend(out_n,aoc_1, normalize(n1) ,aoc_0 * MixLevel1.r);
+//    
     //Find dom Normal
     float nBlend;
     vec4 top_n = get_dom_normal(n1, n2, n3, n4, n5, n6, n7, n8,
                            MixLevel1.rg, MixLevel2.rg, MixLevel3.rg,
                            MixLevel4.rg, nBlend);
-    out_n = mix(out_n, top_n, nBlend);
+
+    out_n = convertNormal(out_n);
     out_n.xyz = fs_in.TBN * out_n.xyz;
 
     // Mix in the global_AM color using global_AM's alpha channel.
@@ -392,7 +419,7 @@ void main(void)
 
     base = mix(ArrayTextureC, base, fs_in.ln);
     out_n = mix(ArrayTextureN, out_n, fs_in.ln) ;
-    gGMF = mix(ArrayTextureG, vec4(0.2, 0.0, 128.0/255.0, global.a*0.8), fs_in.ln);
+    gGMF = mix(ArrayTextureG, vec4(gmm.r, 0.0, 128.0/255.0, global.a*0.8), fs_in.ln);
 
     // The obvious
     gColor = base;
