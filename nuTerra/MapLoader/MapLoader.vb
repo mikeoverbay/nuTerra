@@ -763,10 +763,10 @@ Module MapLoader
         ' Set sun location from map data
         ' Set initial light position and get radius and angle.
         LIGHT_RADIUS = MAP_SIZE.Length * 100.0
-        LIGHT_ORBIT_ANGLE_Z += 180.0
-        LIGHT_POS(0) = Math.Sin(-LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
+        'LIGHT_ORBIT_ANGLE_Z += 180.0
+        LIGHT_POS(0) = Math.Sin(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
         LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X * 0.0174533) * LIGHT_RADIUS
-        LIGHT_POS(2) = Math.Cos(-LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
+        LIGHT_POS(2) = -Math.Cos(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
         set_light_pos() 'for light rotation animation
         '===================================================
 
@@ -785,7 +785,7 @@ Module MapLoader
         '===============================================================
         'make some test lights
         LIGHTS.init()
-        For i = 0 To 150
+        For i = 0 To 10
             Dim l = New point_light_
             'color
             Dim v = get_random_vector3(1.0) + New Vector3(0.5)
@@ -806,9 +806,9 @@ Module MapLoader
         LIGHT_POS.Z = LIGHT_POS(2)
         LIGHT_RADIUS = Math.Sqrt(LIGHT_POS.X ^ 2 + LIGHT_POS.Z ^ 2)
         LIGHT_ORBIT_ANGLE = Math.Atan2(LIGHT_RADIUS / LIGHT_POS.Z, LIGHT_RADIUS / LIGHT_POS.Y)
-        LIGHT_POS(0) = Math.Sin(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
-        'LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X) * LIGHT_RADIUS
-        LIGHT_POS(2) = Math.Cos(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
+        LIGHT_POS(0) = Math.Sin(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
+        LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X * 0.0174533) * LIGHT_RADIUS
+        LIGHT_POS(2) = -Math.Cos(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
 
     End Sub
 
