@@ -95,9 +95,25 @@ in VS_OUT {
     flat float is_hole;
 } fs_in;
 
-
-
 /*===========================================================*/
+// https://www.gamedev.net/articles/programming/graphics/advanced-terrain-texture-splatting-r3287/
+vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
+ float depth = 0.2;
+ float ma = max(texture1.a + a1, texture2.a + a2) - depth;
+ float b1 = max(texture1.a + a1 - ma, 0);
+ float b2 = max(texture2.a + a2 - ma, 0);
+ return (texture1 * b1 + texture2 * b2) / (b1 + b2);
+ }
+ //have to do this because we need the alpha in the am textures.
+vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, float a2) {
+ float depth = 0.2;
+ float ma = max(texture1.a + a1, texture2.a + a2) - depth;
+ float b1 = max(texture1.a + a1 - ma, 0);
+ float b2 = max(texture2.a + a2 - ma, 0);
+ return (n1 * b1 + n2 * b2) / (b1 + b2);
+ }
+/*===========================================================*/
+
 //http://www.iquilezles.org/www/articles/texturerepetition/texturerepetition.htm
 float sum( vec4 v ) {
     return v.x+v.y+v.z;
@@ -156,25 +172,7 @@ vec4 convertNormal(vec4 norm){
 
 /*===========================================================*/
 /*===========================================================*/
-vec4 get_dom_normal(vec4 n1,   vec4 n2,   vec4 n3,   vec4 n4, 
-                    vec4 n5,   vec4 n6,   vec4 n7,   vec4 n8,
-                    vec2 mix1, vec2 mix2, vec2 mix3, vec2 mix4, out float val){
-
-    vec4 n;
-    val = 0.0;
-       if (mix1.r > val){ n = n1; val = mix1.r; }
-       if (mix1.g > val){ n = n2; val = mix1.g; }
-       if (mix2.r > val){ n = n3; val = mix2.r; }
-       if (mix2.g > val){ n = n4; val = mix2.g; }
-       if (mix3.r > val){ n = n5; val = mix3.r; }
-       if (mix3.g > val){ n = n6; val = mix3.g; }
-       if (mix4.r > val){ n = n7; val = mix4.r; }
-       if (mix4.g > val){ n = n8; val = mix4.g; }
-
-    return n;
-}
 /*===========================================================*/
-
 
 
 void main(void)
@@ -272,68 +270,54 @@ void main(void)
     vec4 base = vec4(0.0);  
 
     // Mix our textures in to base and
-    // apply Ambient Occlusion.
-    // Mix group 4
-    base += t7 * aoc_6 * MixLevel4.r;
-    base += t8 * aoc_7 * MixLevel4.g;
+    vec4 m4 = blend(t7, aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
 
-    // Mix group 3
-    base += t5 * aoc_4 * MixLevel3.r;
-    base += t6 * aoc_5 * MixLevel3.g;
+    vec4 m3 = blend(t5, aoc_4 * MixLevel3.r, t6 , aoc_5 * MixLevel3.g);
 
-    // Mix group 2
-    base += t3 * aoc_2 * MixLevel2.r;
-    base += t4 * aoc_3 * MixLevel2.g;
+    vec4 m2 = blend(t3, aoc_2 * MixLevel2.r, t4 , aoc_3 * MixLevel2.g);
 
-    // Mix group 1
-    base += t1 * aoc_0 * MixLevel1.r;
-    base += t2 * aoc_1 * MixLevel1.g;
-    
-    //Get our normal maps. Same mixing and clamping as AM maps above
+    vec4 m1 = blend(t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
 
-    // Mix group 4
-    n7.rgb = normalize(n7.rgb) * MixLevel4.r;
-    n8.rgb = normalize(n8.rgb) * MixLevel4.g;
 
-    // Mix group 3
-    n5.rgb =  normalize(n5.rgb) * MixLevel3.r;
-    n6.rgb = normalize(n6.rgb) * MixLevel3.g;
+    vec4 m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4 , MixLevel4.r+MixLevel4.g);
 
-    // Mix group 2
-    n3.rgb = normalize(n3.rgb) * MixLevel2.r;
-    n4.rgb = normalize(n4.rgb) * MixLevel2.g;
+    vec4 m6 = blend(m1, MixLevel1.r+MixLevel1.g, m2 , MixLevel2.r+MixLevel2.g);
 
-    // Mix group 1
-    n1.rgb = normalize(n1.rgb) * MixLevel1.r;
-    n2.rgb =  normalize(n2.rgb) * MixLevel1.g;
+    vec4 m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+
+    base = m7;
 
 
     //-------------------------------------------------------------
 
     vec4 out_n = vec4(0.0);
-    // Add up our normal values.
-    out_n = add_norms(out_n, n1);
-    out_n = add_norms(out_n, n2);
-    out_n = add_norms(out_n, n3);
-    out_n = add_norms(out_n, n4);
-    out_n = add_norms(out_n, n5);
-    out_n = add_norms(out_n, n6);
-    out_n = add_norms(out_n, n7);
-    out_n = add_norms(out_n, n8);
 
-    //Find dom Normal
-    float nBlend;
-    vec4 top_n = get_dom_normal(n1, n2, n3, n4, n5, n6, n7, n8,
-                           MixLevel1.rg, MixLevel2.rg, MixLevel3.rg,
-                           MixLevel4.rg, nBlend);
-    out_n = mix(out_n, top_n, nBlend);
-    gNormal.xyz = normalize(out_n.xyz);
-    
-    // Mix in the global_AM color using global_AM's alpha channel.
+     m4 = blend_normal(n7, n8, t7 , aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
+
+     m3 = blend_normal(n5, n6, t5, aoc_4 * MixLevel3.r, t6 , aoc_5 * MixLevel3.g);
+
+     m2 = blend_normal(n3, n4, t3, aoc_2 * MixLevel2.r, t4 , aoc_3 * MixLevel2.g);
+
+     m1 = blend_normal(n1, n2, t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
+
+
+     m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4 , MixLevel4.r+MixLevel4.g);
+
+     m6 = blend(m1, MixLevel1.r+MixLevel1.g, m2 , MixLevel2.r+MixLevel2.g);
+
+     m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+
+     out_n = m7;
+
+     vec2 gmm = vec2(out_n.r, out_n.b);
+
+     out_n = convertNormal(out_n);
+
+     gNormal.xyz = normalize(out_n.xyz);
 
     // I think this is used for wetness on the map.
-//    base.rgb = mix(base.rgb ,waterColor, global.a);
-    gGMF = vec4(0.2, 0.0, 128.0/255.0, global.a*0.8);
+    // base.rgb = mix(base.rgb ,waterColor, global.a);
+    gGMF = vec4(gmm.r, 0.0, 128.0/255.0, global.a*0.8);
     
     gColor = base;
     gColor.a = 1.0;

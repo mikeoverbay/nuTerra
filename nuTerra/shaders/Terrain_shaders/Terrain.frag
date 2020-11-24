@@ -122,7 +122,7 @@ vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
  float b2 = max(texture2.a + a2 - ma, 0);
  return (texture1 * b1 + texture2 * b2) / (b1 + b2);
  }
- //have to do this because we need the alpha in the textures.
+ //have to do this because we need the alpha in the am textures.
 vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, float a2) {
  float depth = 0.2;
  float ma = max(texture1.a + a1, texture2.a + a2) - depth;
@@ -198,23 +198,6 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
     }
 
 /*===========================================================*/
-vec4 get_dom_normal(vec4 n1,   vec4 n2,   vec4 n3,   vec4 n4, 
-                    vec4 n5,   vec4 n6,   vec4 n7,   vec4 n8,
-                    vec2 mix1, vec2 mix2, vec2 mix3, vec2 mix4, out float val){
-
-    vec4 n;
-    val = 0.0;
-       if (mix1.r > val){ n = n1; val = mix1.r; }
-       if (mix1.g > val){ n = n2; val = mix1.g; }
-       if (mix2.r > val){ n = n3; val = mix2.r; }
-       if (mix2.g > val){ n = n4; val = mix2.g; }
-       if (mix3.r > val){ n = n5; val = mix3.r; }
-       if (mix3.g > val){ n = n6; val = mix3.g; }
-       if (mix4.r > val){ n = n7; val = mix4.r; }
-       if (mix4.g > val){ n = n8; val = mix4.g; }
-
-    return n;
-}
 /*===========================================================*/
 /*===========================================================*/
 /*===========================================================*/
@@ -317,19 +300,6 @@ void main(void)
 
     vec4 base = vec4(0.0);  
     // Mix our textures in to base and
-    // apply Ambient Occlusion.
-    // Mix group 4
-    //base = t8 * MixLevel4.g;
-
-//    base.rgb = blend(base, aoc_7 * MixLevel4.g, t7, aoc_7);
-//    base.rgb = blend(base, aoc_7, t7, aoc_6 * MixLevel4.r);
-//    base.rgb = blend(base, aoc_6, t6, aoc_5 * MixLevel3.g);
-//    base.rgb = blend(base, aoc_5, t5, aoc_4 * MixLevel3.r);
-//    base.rgb = blend(base, aoc_4, t4, aoc_3 * MixLevel2.g);
-//    base.rgb = blend(base, aoc_3, t3, aoc_2 * MixLevel2.r);
-//    base.rgb = blend(base, aoc_2, t2, aoc_1 * MixLevel1.g);
-//    base.rgb = blend(base, aoc_1, t1, aoc_0 * MixLevel1.r);
-//
     vec4 m4 = blend(t7, aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
 
     vec4 m3 = blend(t5, aoc_4 * MixLevel3.r, t6 , aoc_5 * MixLevel3.g);
@@ -380,21 +350,7 @@ void main(void)
 
      out_n = m7;
      vec2 gmm = vec2(out_n.r, out_n.b);
-//    out_n.rgb = normalize(n7.rgb);
-//    out_n.rgb = blend(out_n,aoc_7 * MixLevel4.g ,normalize(n7), aoc_7);
-//    out_n.rgb = blend(out_n,aoc_7, normalize(n7) ,aoc_6 * MixLevel4.r);
-//    out_n.rgb = blend(out_n,aoc_6, normalize(n6) ,aoc_5 * MixLevel3.g);
-//    out_n.rgb = blend(out_n,aoc_5, normalize(n5) ,aoc_4 * MixLevel3.r);
-//    out_n.rgb = blend(out_n,aoc_4, normalize(n4) ,aoc_3 * MixLevel2.g);
-//    out_n.rgb = blend(out_n,aoc_3, normalize(n3) ,aoc_2 * MixLevel2.r);
-//    out_n.rgb = blend(out_n,aoc_2, normalize(n2) ,aoc_1 * MixLevel1.g);
-//    out_n.rgb = blend(out_n,aoc_1, normalize(n1) ,aoc_0 * MixLevel1.r);
-//    
     //Find dom Normal
-    float nBlend;
-    vec4 top_n = get_dom_normal(n1, n2, n3, n4, n5, n6, n7, n8,
-                           MixLevel1.rg, MixLevel2.rg, MixLevel3.rg,
-                           MixLevel4.rg, nBlend);
 
     out_n = convertNormal(out_n);
     out_n.xyz = fs_in.TBN * out_n.xyz;
