@@ -300,6 +300,7 @@ void main(void)
 
     vec4 base = vec4(0.0);  
     // Mix our textures in to base and
+
     vec4 m4 = blend(t7, aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
 
     vec4 m3 = blend(t5, aoc_4 * MixLevel3.r, t6 , aoc_5 * MixLevel3.g);
@@ -309,11 +310,11 @@ void main(void)
     vec4 m1 = blend(t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
 
 
-    vec4 m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4 , MixLevel4.r+MixLevel4.g);
+    vec4 m5 = blend(m3,aoc_5 * MixLevel3.r+MixLevel3.g, m4 ,aoc_6 *  MixLevel4.r+MixLevel4.g);
 
-    vec4 m6 = blend(m1, MixLevel1.r+MixLevel1.g, m2 , MixLevel2.r+MixLevel2.g);
+    vec4 m6 = blend(m1,aoc_1 *  MixLevel1.r+MixLevel1.g, m2 ,aoc_2 *  MixLevel2.r+MixLevel2.g);
 
-    vec4 m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+    vec4 m7 = blend(m5,aoc_3 *  MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,aoc_4 * MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
     base = m7;
    
@@ -342,11 +343,11 @@ void main(void)
      m1 = blend_normal(n1, n2, t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
 
 
-     m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4 , MixLevel4.r+MixLevel4.g);
+     m5 = blend(m3, aoc_5 * MixLevel3.r+MixLevel3.g, m4 ,aoc_6 *  MixLevel4.r+MixLevel4.g);
 
-     m6 = blend(m1, MixLevel1.r+MixLevel1.g, m2 , MixLevel2.r+MixLevel2.g);
+     m6 = blend(m1,aoc_1 *  MixLevel1.r+MixLevel1.g, m2 ,aoc_2 *  MixLevel2.r+MixLevel2.g);
 
-     m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+     m7 = blend(m5,aoc_4 * MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,aoc_3 * MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
      out_n = m7;
      vec2 gmm = vec2(out_n.r, out_n.b);
@@ -375,7 +376,7 @@ void main(void)
 
     base = mix(ArrayTextureC, base, fs_in.ln);
     out_n = mix(ArrayTextureN, out_n, fs_in.ln) ;
-    gGMF = mix(ArrayTextureG, vec4(gmm.r, 0.0, 128.0/255.0, global.a*0.8), fs_in.ln);
+    gGMF = mix(ArrayTextureG, vec4(gmm.r, gmm.g*0.5, 128.0/255.0, global.a*0.8), fs_in.ln);
 
     // The obvious
     gColor = base;
