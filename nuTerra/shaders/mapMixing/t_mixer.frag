@@ -96,16 +96,6 @@ in VS_OUT {
 } fs_in;
 
 
-/*===========================================================*/
-float mip_map_level(in vec2 iUV, sampler2D samp)
-{
-    ivec2 isize = textureSize(samp,0);
-    vec2  dx_vtc        = dFdx(iUV * float(isize.x));
-    vec2  dy_vtc        = dFdy(iUV * float(isize.y));
-    float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    
-    return round(0.5 * log2(d)); 
-}
 
 /*===========================================================*/
 //http://www.iquilezles.org/www/articles/texturerepetition/texturerepetition.htm
@@ -116,10 +106,11 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag)
 {
 
    uv = fract(uv) * vec2(0.875) + vec2(0.0625);
+   return texture(samp,uv);
 
+   // disabled for now
    if (flag == 0.0 ){
-        return texture(samp,uv);
-        }
+      }
 
     // sample variation pattern    
     float k = texture( NRP_noise, fract(uv)*0.005 ).x; // cheap (cache friendly) lookup    
@@ -163,10 +154,6 @@ vec4 convertNormal(vec4 norm){
         return vec4(n,0.0);
 }
 
-/*===========================================================*/
-vec2 crop(in vec2 tc){
-        return fract(tc) * vec2(0.875) + vec2(0.0625); 
-    }
 /*===========================================================*/
 /*===========================================================*/
 vec4 get_dom_normal(vec4 n1,   vec4 n2,   vec4 n3,   vec4 n4, 
@@ -219,22 +206,18 @@ void main(void)
     mix_coords.x = 1.0 - mix_coords.x;
     vec2 UVs = fs_in.UV;
 
-    // create UV projections
-
     // Get AM maps and Test Texture maps
-    t1 = textureNoTile(layer_1T1, crop(fs_in.tuv1), r1_1.z);
-    t2 = textureNoTile(layer_1T2, crop(fs_in.tuv2), r1_2.z);
+    t1 = textureNoTile(layer_1T1, fs_in.tuv1, r1_1.z);
+    t2 = textureNoTile(layer_1T2, fs_in.tuv2, r1_2.z);
 
-    t3 = textureNoTile(layer_2T1, crop(fs_in.tuv3), r1_3.z);
-    t4 = textureNoTile(layer_2T2, crop(fs_in.tuv4), r1_4.z);
+    t3 = textureNoTile(layer_2T1, fs_in.tuv3, r1_3.z);
+    t4 = textureNoTile(layer_2T2, fs_in.tuv4, r1_4.z);
 
-    t5 = textureNoTile(layer_3T1, crop(fs_in.tuv5), r1_5.z);
-    t6 = textureNoTile(layer_3T2, crop(fs_in.tuv6), r1_6.z);
+    t5 = textureNoTile(layer_3T1, fs_in.tuv5, r1_5.z);
+    t6 = textureNoTile(layer_3T2, fs_in.tuv6, r1_6.z);
 
-    t7 = textureNoTile(layer_4T1, crop(fs_in.tuv7), r1_7.z);
-    t8 = textureNoTile(layer_4T2, crop(fs_in.tuv8), r1_8.z);
-
-
+    t7 = textureNoTile(layer_4T1, fs_in.tuv7, r1_7.z);
+    t8 = textureNoTile(layer_4T2, fs_in.tuv8, r1_8.z);
 
     // ambient occusion is in blue channel of the normal maps.
     // Specular OR Parallax is in the red channel. Green and Alpha are normal values.
@@ -242,35 +225,35 @@ void main(void)
 
     // Get and convert normal maps. Save ambient occlusion value.
 
-    n1 = textureNoTile(n_layer_1T1, crop(fs_in.tuv1), r1_1.z);
+    n1 = textureNoTile(n_layer_1T1, fs_in.tuv1, r1_1.z);
     aoc_0 = n1.b;
     n1 = convertNormal(n1) + U1;
 
-    n2 = textureNoTile(n_layer_1T2, crop(fs_in.tuv2), r1_2.z);
+    n2 = textureNoTile(n_layer_1T2, fs_in.tuv2, r1_2.z);
     aoc_1 =  n2.b;
     n2 = convertNormal(n2) + U2;
 
-    n3 = textureNoTile(n_layer_2T1, crop(fs_in.tuv3), r1_3.z);
+    n3 = textureNoTile(n_layer_2T1, fs_in.tuv3, r1_3.z);
     aoc_2 = n3.b;
     n3= convertNormal(n3) + U3;
 
-    n4 = textureNoTile(n_layer_2T2, crop(fs_in.tuv4), r1_4.z);
+    n4 = textureNoTile(n_layer_2T2, fs_in.tuv4, r1_4.z);
     aoc_3 = n4.b;
     n4 = convertNormal(n4) + U4;
 
-    n5 = textureNoTile(n_layer_3T1, crop(fs_in.tuv5), r1_5.z);
+    n5 = textureNoTile(n_layer_3T1, fs_in.tuv5, r1_5.z);
     aoc_4 = n5.b;
     n5 = convertNormal(n5) + U5;
 
-    n6 = textureNoTile(n_layer_3T2, crop(fs_in.tuv6), r1_6.z);
+    n6 = textureNoTile(n_layer_3T2, fs_in.tuv6, r1_6.z);
     aoc_5 = n6.b;
     n6 = convertNormal(n6) + U6;
 
-    n7 = textureNoTile(n_layer_4T1, crop(fs_in.tuv7), r1_7.z);
+    n7 = textureNoTile(n_layer_4T1, fs_in.tuv7, r1_7.z);
     aoc_6 = n7.b;
     n7 = convertNormal(n7) + U7;
 
-    n8= textureNoTile(n_layer_4T2, crop(fs_in.tuv8), r1_8.z);
+    n8= textureNoTile(n_layer_4T2, fs_in.tuv8, r1_8.z);
     aoc_7 = n8.b;
     n8 = convertNormal(n8) + U8;
 
@@ -291,55 +274,42 @@ void main(void)
     // Mix our textures in to base and
     // apply Ambient Occlusion.
     // Mix group 4
-    base += t7 * aoc_6 * MixLevel4.r * used_7;
-    base += t8 * aoc_7 * MixLevel4.g * used_8;
+    base += t7 * aoc_6 * MixLevel4.r;
+    base += t8 * aoc_7 * MixLevel4.g;
 
     // Mix group 3
-    base += t5 * aoc_4 * MixLevel3.r * used_5;
-    base += t6 * aoc_5 * MixLevel3.g * used_6;
+    base += t5 * aoc_4 * MixLevel3.r;
+    base += t6 * aoc_5 * MixLevel3.g;
 
     // Mix group 2
-    base += t3 * aoc_2 * MixLevel2.r * used_3;
-    base += t4 * aoc_3 * MixLevel2.g * used_4;
+    base += t3 * aoc_2 * MixLevel2.r;
+    base += t4 * aoc_3 * MixLevel2.g;
 
     // Mix group 1
-    base += t1 * aoc_0 * MixLevel1.r * used_1;
-    base += t2 * aoc_1 * MixLevel1.g * used_2;
+    base += t1 * aoc_0 * MixLevel1.r;
+    base += t2 * aoc_1 * MixLevel1.g;
     
     //Get our normal maps. Same mixing and clamping as AM maps above
 
     // Mix group 4
-    n7.rgb = normalize(n7.rgb) * MixLevel4.r * used_7;
-    n8.rgb = normalize(n8.rgb) * MixLevel4.g * used_8;
+    n7.rgb = normalize(n7.rgb) * MixLevel4.r;
+    n8.rgb = normalize(n8.rgb) * MixLevel4.g;
 
     // Mix group 3
-    n5.rgb =  normalize(n5.rgb) * MixLevel3.r * used_5;
-    n6.rgb = normalize(n6.rgb) * MixLevel3.g * used_6;
+    n5.rgb =  normalize(n5.rgb) * MixLevel3.r;
+    n6.rgb = normalize(n6.rgb) * MixLevel3.g;
 
     // Mix group 2
-    n3.rgb = normalize(n3.rgb) * MixLevel2.r * used_3;
-    n4.rgb = normalize(n4.rgb) * MixLevel2.g * used_4;
+    n3.rgb = normalize(n3.rgb) * MixLevel2.r;
+    n4.rgb = normalize(n4.rgb) * MixLevel2.g;
 
     // Mix group 1
-    n1.rgb = normalize(n1.rgb) * MixLevel1.r * used_1;
-    n2.rgb =  normalize(n2.rgb) * MixLevel1.g * used_2;
+    n1.rgb = normalize(n1.rgb) * MixLevel1.r;
+    n2.rgb =  normalize(n2.rgb) * MixLevel1.g;
 
-
-    //flip X axis. Everything is flipped on X including texture rotations.
-
-    //n1.x *= -1.0;
-    //n2.x *= -1.0;
-    //n3.x *= -1.0;
-    //n4.x *= -1.0;
-
-    //n1_2.x *= -1.0;
-    //n2_2.x *= -1.0;
-    //n3_2.x *= -1.0;
-    //n4_2.x *= -1.0;
 
     //-------------------------------------------------------------
 
-    //n_tex.x*=-1.0;
     vec4 out_n = vec4(0.0);
     // Add up our normal values.
     out_n = add_norms(out_n, n1);
@@ -357,16 +327,16 @@ void main(void)
                            MixLevel1.rg, MixLevel2.rg, MixLevel3.rg,
                            MixLevel4.rg, nBlend);
     out_n = mix(out_n, top_n, nBlend);
+    gNormal.xyz = normalize(out_n.xyz);
     
     // Mix in the global_AM color using global_AM's alpha channel.
 
     // I think this is used for wetness on the map.
-    base.rgb = mix(base.rgb ,waterColor, global.a * waterAlpha);
-    
-    gNormal.xyz = normalize(out_n.xyz);
-    gColor = base;
+//    base.rgb = mix(base.rgb ,waterColor, global.a);
     gGMF = vec4(0.2, 0.0, 128.0/255.0, global.a*0.8);
-    gColor.rgb = mix (gColor.rgb, gColor.rgb * waterColor,global.a*0.8);
-    gColor.a = global.a * waterAlpha;
+    
+    gColor = base;
+    gColor.a = 1.0;
+
 
 }

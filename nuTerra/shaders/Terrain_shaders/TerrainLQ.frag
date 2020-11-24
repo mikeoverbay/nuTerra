@@ -38,7 +38,6 @@ void main(void)
 
     // The obvious
     gColor = ArrayTextureC;
-    gColor.rgb = mix(gColor.rgb ,waterColor, global.a * waterAlpha);
    
     gColor.a = 1.0;
 

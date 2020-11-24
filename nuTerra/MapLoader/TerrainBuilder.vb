@@ -296,7 +296,7 @@ Module TerrainBuilder
             Application.DoEvents()
         Next
         If _Write_texture_info Then
-            LogThis("sSaved Texture transform data")
+            LogThis("Saved Texture transform data")
             File.WriteAllText(TEMP_STORAGE + "\" + MAP_NAME_NO_PATH + "_Tex_info.txt", sb.ToString)
         End If
         LogThis(String.Format("Get Layers data and textures: {0}", SWT.ElapsedMilliseconds.ToString))

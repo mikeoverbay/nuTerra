@@ -63,7 +63,6 @@ uniform vec2 map_size;
 uniform vec2 map_center;
 uniform vec2 me_location;
 uniform mat4 Ortho_Project;
-uniform mat3 normalMatrix;
 
 out VS_OUT {
     vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
@@ -83,7 +82,6 @@ vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec4 Row3, in vec2 _uv) {
     vec4 tv = rs * vec4(_uv.x, 0.0, _uv.y, 1.0);   
     return vec2(tv.x+0.5, tv.z+0.5);
     }
-
 
 void main(void)
 {
@@ -105,9 +103,11 @@ void main(void)
     vec4 Vertex = vec4(vertexPosition, 1.0) * 1.0;
     Vertex.x *= -1.0;
     
+
     //-------------------------------------------------------
-    vec2 scaled_uv = vec2(-vertexPosition.x,vertexPosition.z);
+    // Calulate UVs for the texture layers
     //-------------------------------------------------------
+    vec2 scaled_uv = vec2(-vertexTexCoord.x*100.0,vertexTexCoord.y*100.0);
 
     vs_out.tuv1 = get_transformed_uv(U1, V1, r1_1, scaled_uv); 
     vs_out.tuv2 = get_transformed_uv(U2, V2, r1_2, scaled_uv);

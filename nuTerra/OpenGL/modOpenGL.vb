@@ -26,6 +26,7 @@ Module modOpenGL
         Public Shared maxUniformBufferBindings As Integer
         Public Shared maxColorAttachments As Integer
         Public Shared maxAniso As Single
+        Public Shared maxVertexOutputComponents As Single
 
         Public Shared Sub init()
             maxTextureSize = GL.GetInteger(GetPName.MaxTextureSize)
@@ -33,12 +34,15 @@ Module modOpenGL
             maxUniformBufferBindings = GL.GetInteger(GetPName.MaxUniformBufferBindings)
             maxColorAttachments = GL.GetInteger(GetPName.MaxColorAttachments)
             maxAniso = GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt)
+            maxAniso = GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt)
+            maxVertexOutputComponents = GL.GetInteger(GetPName.MaxVertexOutputComponents)
 
             LogThis(String.Format("Max Texture Size = {0}", maxTextureSize))
             LogThis(String.Format("Max Array Texture Layers = {0}", maxArrayTextureLayers))
             LogThis(String.Format("Max Uniform Buffer Bindings = {0}", maxUniformBufferBindings))
             LogThis(String.Format("Max Color Attachments = {0}", maxColorAttachments))
             LogThis(String.Format("Max Texture Max Anisotropy = {0}", maxAniso))
+            LogThis(String.Format("Max vertex output components = {0}", maxVertexOutputComponents))
         End Sub
     End Class
 

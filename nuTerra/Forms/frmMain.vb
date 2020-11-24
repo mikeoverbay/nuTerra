@@ -145,7 +145,11 @@ Public Class frmMain
                 PICK_MODELS = PICK_MODELS Xor True
 
             Case Keys.T
-                SHOW_TEST_TEXTURES = SHOW_TEST_TEXTURES Xor 1
+                If SHOW_TEST_TEXTURES = 0F Then
+                    SHOW_TEST_TEXTURES = 1.0F
+                Else
+                    SHOW_TEST_TEXTURES = 0.0F
+                End If
 
             Case Keys.V
                 DONT_HIDE_HUD = DONT_HIDE_HUD Xor True
@@ -629,6 +633,7 @@ try_again:
         JITTER_TEXTURE_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\Resources\256x256_Noise_Texture.png", True, True)
+
         '===========================================================================================
         ''Test Textures
         'For i = 0 To 7

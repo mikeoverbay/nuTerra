@@ -363,6 +363,8 @@ Module TextureLoaders
         Return image_id
     End Function
 
+
+
     Public Function load_image_from_stream(ByRef imageType As Integer, ByRef ms As MemoryStream, ByRef fn As String, ByRef MIPS As Boolean, ByRef NEAREST As Boolean) As GLTexture
         'imageType = il.IL_imageType : ms As MemoryStream : filename as string : Create Mipmaps if True : NEAREST = True / LINEAR if False
         'File name is needed to add to our list of loaded textures
