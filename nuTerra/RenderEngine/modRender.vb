@@ -197,21 +197,24 @@ Module modRender
         FBOm.attach_C1_and_C2()
 
         render_deferred_buffers()
-        '                        BlitFramebufferFilter.Linear)
-        copy_color_2_to_gColor()
+
+        copy_gColor_2_to_gColor()
 
 
         '===========================================================================
         'DEFAUL BUFFER ATTACH!!!
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+        GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
         '===========================================================================
 
-        perform_SSAA_Pass()
+        If SSAA_enable Then
+            perform_SSAA_Pass()
+            copy_default_to_gColor() ' <-- has to happen if there is a glass pass
+        End If
 
         '===========================================================================
         'hopefully, this will look like glass :)
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
-            copy_default_to_gColor()
             glassPass()
         End If
 
@@ -519,6 +522,8 @@ Module modRender
         'Dim matrix = Matrix4.CreateTranslation(New Vector3(0F, 100.0F, 0F))
         GL.Disable(EnableCap.DepthTest)
         GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+
         Dim matrix = Matrix4.CreateTranslation(New Vector3(LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2)))
 
 
@@ -590,7 +595,7 @@ Module modRender
         GL.CopyTextureSubImage2D(FBOm.gColor.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
     End Sub
 
-    Private Sub copy_color_2_to_gColor()
+    Private Sub copy_gColor_2_to_gColor()
         GL.ReadBuffer(ReadBufferMode.ColorAttachment6)
         GL.DrawBuffer(DrawBufferMode.ColorAttachment0)
         GL.BlitFramebuffer(0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
@@ -1091,7 +1096,7 @@ Module modRender
     Public Sub Draw_SkyDome()
         GL_PUSH_GROUP("Draw_SkyDome")
         'GL.Enable(EnableCap.Blend)
-        'GL.Disable(EnableCap.DepthTest)
+        GL.Disable(EnableCap.DepthTest)
         GL.DepthMask(False)
         FBOm.attach_CNGP()
 
