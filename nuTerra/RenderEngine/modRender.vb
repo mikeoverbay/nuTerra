@@ -9,6 +9,29 @@ Module modRender
     Public angle1, angle2 As Single
     Private cull_timer As New Stopwatch
     Private uv_location As New Vector2
+
+    Dim colors() As Graphics.Color4 = {
+        Graphics.Color4.Red,
+        Graphics.Color4.Green,
+        Graphics.Color4.Blue,
+        Graphics.Color4.Yellow,
+        Graphics.Color4.Purple,
+        Graphics.Color4.Orange,
+        Graphics.Color4.Coral,
+        Graphics.Color4.Silver
+        }
+
+    Dim tags() As String = {
+        "Texture 1",
+        "Texture 2",
+        "Texture 3",
+        "Texture 4",
+        "Texture 5",
+        "Texture 6",
+        "Texture 7",
+        "Texture 8"
+        }
+
     Public Sub draw_scene()
         '===========================================================================
         ' FLAG INFO
@@ -212,8 +235,8 @@ Module modRender
             draw_base_rings_deferred()
 
             'hopefully, this will look like FOG :)
-             GL.Disable(EnableCap.Blend)
-           copy_default_to_gColor()
+            GL.Disable(EnableCap.Blend)
+            copy_default_to_gColor()
             global_noise()
 
             GL.Disable(EnableCap.DepthTest)
@@ -665,6 +688,7 @@ Module modRender
         FBO_mixer_set.gNormalArray.BindUnit(23)
         FBO_mixer_set.gGmmArray.BindUnit(24)
         JITTER_TEXTURE_ID.BindUnit(25)
+
         'water BS
         GL.Uniform3(TerrainShader("waterColor"),
                         Map_wetness.waterColor.X,
@@ -676,7 +700,7 @@ Module modRender
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
 
-        GL.Uniform1(TerrainShader("show_test"), SHOW_TEST_TEXTURES)
+        GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
@@ -1039,12 +1063,19 @@ Module modRender
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
         'txt = String.Format("HX {0} : HY {1}", HX, HY)
-        draw_text(txt, 5.0F, 5.0F, OpenTK.Graphics.Color4.Cyan, False, 1)
-        draw_text(txt2, 5.0F, 24.0F, OpenTK.Graphics.Color4.Cyan, False, 1)
-        draw_text(PICKED_STRING, 5.0F, 43.0F, OpenTK.Graphics.Color4.Yellow, False, 1)
+        draw_text(txt, 5.0F, 5.0F, Graphics.Color4.Cyan, False, 1)
+        draw_text(txt2, 5.0F, 24.0F, Graphics.Color4.Cyan, False, 1)
+        draw_text(PICKED_STRING, 5.0F, 43.0F, Graphics.Color4.Yellow, False, 1)
+
+        If SHOW_TEST_TEXTURES > 0.0F Then
+            For i = 0 To 7
+                draw_text(tags(i), 5.0F, 81.0F + (i * 19.0F), colors(i), False, 0)
+
+            Next
+        End If
 
         'draw status of SSAA
-        draw_text(SSAA_text, 5.0F, 62.0F, OpenTK.Graphics.Color4.Yellow, False, 1)
+        draw_text(SSAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)
         Dim temp_time = temp_timer.ElapsedMilliseconds
         Dim aa As Integer = 0
 

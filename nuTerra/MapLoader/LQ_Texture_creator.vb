@@ -9,8 +9,12 @@ Module LQ_Texture_creator
 
         Dim quailty As Integer = 360 '<-- adjusts size of the texture
 
+        Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(quailty, quailty), 2))
+
         FBO_mixer_set.LayerCount = theMap.render_set.Length
-        FBO_mixer_set.mipCount = 6
+
+        FBO_mixer_set.mipCount = numLevels
+
         FBO_mixer_set.FBO_Initialize(New Point(quailty, quailty))
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_Mixer_ID)
@@ -20,6 +24,7 @@ Module LQ_Texture_creator
         For map = 0 To theMap.render_set.Length - 1
             create_layer(map)
         Next
+
         FBO_mixer_set.make_mips()
     End Sub
     Private Sub create_layer(ByVal map As Integer)
@@ -31,6 +36,7 @@ Module LQ_Texture_creator
         'TerrainShader.Use()  '<-------------- Shader Bind
         '------------------------------------------------
         theMap.GLOBAL_AM_ID.BindUnit(21)
+        JITTER_TEXTURE_ID.BindUnit(22)
 
         'water BS
         GL.Uniform3(t_mixerShader("waterColor"),
@@ -45,7 +51,6 @@ Module LQ_Texture_creator
 
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, PROJECTIONMATRIX)
 
-        GL.UniformMatrix3(t_mixerShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PROJECTIONMATRIX))) 'NormalMatrix
         GL.Uniform2(t_mixerShader("me_location"), theMap.chunks(map).location.X, theMap.chunks(map).location.Y) 'me_location
 
         'bind all the data for this chunk
@@ -92,7 +97,7 @@ Module LQ_Texture_creator
         GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
 
-        unbind_textures(21)
+        unbind_textures(22)
 
 
 

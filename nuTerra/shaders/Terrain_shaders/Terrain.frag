@@ -95,9 +95,11 @@ layout(binding = 24) uniform sampler2DArray textArrayG;
 
 layout(binding = 25) uniform sampler2D NRP_noise;
 
+
 uniform vec3 waterColor;
 uniform float waterAlpha;
 uniform float map_id;
+uniform float test;
 
 in VS_OUT {
     mat3 TBN;
@@ -110,13 +112,24 @@ in VS_OUT {
     flat float is_hole;
 } fs_in;
 
+
 /*===========================================================*/
+// https://www.gamedev.net/articles/programming/graphics/advanced-terrain-texture-splatting-r3287/
+vec3 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
+ float depth = 0.2;
+ float ma = max(texture1.a + a1, texture2.a + a2) - depth;
+ float b1 = max(texture1.a + a1 - ma, 0);
+ float b2 = max(texture2.a + a2 - ma, 0);
+ return (texture1.rgb * b1 + texture2.rgb * b2) / (b1 + b2);
+ }
+/*===========================================================*/
+
 // Used to add normals together. Could be better.
 vec4 add_norms (in vec4 n1, in vec4 n2) {
     n1.xyz += n2.xyz;
     return n1;
 }
-//-------------------------------------------------------------
+/*===========================================================*/
 
 // Converion from AG map to RGB vector.
 vec4 convertNormal(vec4 norm){
@@ -127,28 +140,28 @@ vec4 convertNormal(vec4 norm){
         return vec4(n,0.0);
 }
 
-float mip_map_level(in vec2 iUV, sampler2D samp)
-{
-    ivec2 isize = textureSize(samp,0);
-    vec2  dx_vtc        = dFdx(iUV * float(isize.x));
-    vec2  dy_vtc        = dFdy(iUV * float(isize.y));
-    float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    
-    return round(0.5 * log2(d)); 
-}
 /*===========================================================*/
 //http://www.iquilezles.org/www/articles/texturerepetition/texturerepetition.htm
 float sum( vec4 v ) {
     return v.x+v.y+v.z;
     }
 
-vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag)
+vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
 {
 
    uv = fract(uv) * vec2(0.875) + vec2(0.0625);
+   
+   b =0.0;
+   if (uv.x < 0.065 ) b = 1.0;
+   if (uv.x > 0.935 ) b = 1.0;
+   if (uv.y < 0.065 ) b = 1.0;
+   if (uv.y > 0.935 ) b = 1.0;
 
+
+   return texture(samp,uv,0.6);
+
+// Disabled for now.
    if (flag == 0.0 ){
-        return texture(samp,uv,0.6);
         }
 
     // sample variation pattern    
@@ -175,12 +188,7 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag)
     float s = smoothstep(0.2,0.8,f-0.1* sum(cola-colb) );
     return mix( cola, colb, s);
     }
-/*===========================================================*/
-/*===========================================================*/
-vec2 crop(in vec2 tc){
-        return  fract(tc) * vec2(0.875) + vec2(0.0625);
-    }
-/*===========================================================*/
+
 /*===========================================================*/
 vec4 get_dom_normal(vec4 n1,   vec4 n2,   vec4 n3,   vec4 n4, 
                     vec4 n5,   vec4 n6,   vec4 n7,   vec4 n8,
@@ -200,11 +208,12 @@ vec4 get_dom_normal(vec4 n1,   vec4 n2,   vec4 n3,   vec4 n4,
     return n;
 }
 /*===========================================================*/
+/*===========================================================*/
+/*===========================================================*/
+/*===========================================================*/
 
 void main(void)
 {
-
-    //==============================================================
     vec4 global = texture(global_AM, fs_in.Global_UV);
     // This is needed to light the global_AM.
     //Can we bail early?
@@ -220,6 +229,15 @@ void main(void)
 //        return;
 //    }
     //==============================================================
+    float B1, B2, B3, B4, B5, B6, B7, B8;
+    vec4 color_1 = vec4(1.0,  1.0,  0.0,  0.0);
+    vec4 color_2 = vec4(0.0,  1.0,  0.0,  0.0);
+    vec4 color_3 = vec4(0.0,  0.0,  1.0,  0.0);
+    vec4 color_4 = vec4(1.0,  1.0,  0.0,  0.0);
+    vec4 color_5 = vec4(1.0,  0.0,  1.0,  0.0);
+    vec4 color_6 = vec4(1.0,  0.65, 0.0,  0.0);
+    vec4 color_7 = vec4(1.0,  0.49, 0.31, 0.0);
+    vec4 color_8 = vec4(0.5,  0.5,  0.5,  0.0);
 
     vec4 t1, t2, t3, t4, t5, t6, t7, t8;
     vec4 n1, n2, n3, n4, n5, n6, n7, n8;
@@ -235,19 +253,18 @@ void main(void)
     vec2 UVs = fs_in.UV;
 
     // create UV projections
-    float mip;
-    // Get AM maps and Test Texture maps
-    t1 = textureNoTile(layer_1T1, fs_in.tuv1, r1_1.z);
-    t2 = textureNoTile(layer_1T2, fs_in.tuv2, r1_2.z);
+    // Get AM maps,crop, detilize and set Test outline blend flag
+    t1 = textureNoTile(layer_1T1, fs_in.tuv1, r1_1.z, B1);
+    t2 = textureNoTile(layer_1T2, fs_in.tuv2, r1_2.z, B2);
 
-    t3 = textureNoTile(layer_2T1, fs_in.tuv3, r1_3.z);
-    t4 = textureNoTile(layer_2T2, fs_in.tuv4, r1_4.z);
+    t3 = textureNoTile(layer_2T1, fs_in.tuv3, r1_3.z, B3);
+    t4 = textureNoTile(layer_2T2, fs_in.tuv4, r1_4.z, B4);
 
-    t5 = textureNoTile(layer_3T1, fs_in.tuv5, r1_5.z);
-    t6 = textureNoTile(layer_3T2, fs_in.tuv6, r1_6.z);
+    t5 = textureNoTile(layer_3T1, fs_in.tuv5, r1_5.z, B5);
+    t6 = textureNoTile(layer_3T2, fs_in.tuv6, r1_6.z, B6);
 
-    t7 = textureNoTile(layer_4T1, fs_in.tuv7, r1_7.z);
-    t8 = textureNoTile(layer_4T2, fs_in.tuv8, r1_8.z);
+    t7 = textureNoTile(layer_4T1, fs_in.tuv7, r1_7.z, B7);
+    t8 = textureNoTile(layer_4T2, fs_in.tuv8, r1_8.z, B8);
 
     // ambient occusion is in blue channel of the normal maps.
     // Specular OR Parallax is in the red channel. Green and Alpha are normal values.
@@ -255,38 +272,45 @@ void main(void)
 
     // Get and convert normal maps. Save ambient occlusion value.
 
-    n1 = textureNoTile(n_layer_1T1, fs_in.tuv1, r1_1.z);
+    n1 = textureNoTile(n_layer_1T1, fs_in.tuv1, r1_1.z, B1);
     aoc_0 = n1.b;
-    n1 = convertNormal(n1) + U1;
+    n1 = convertNormal(n1);// + U1;
+    n1.a = t1.a; // for blend function
 
-    n2 = textureNoTile(n_layer_1T2, fs_in.tuv2, r1_2.z);
+    n2 = textureNoTile(n_layer_1T2, fs_in.tuv2, r1_2.z, B2);
     aoc_1 =  n2.b;
-    n2 = convertNormal(n2) + U2;
+    n2 = convertNormal(n2);// + U2;
+    n2.a = t2.a; // for blend function
 
-    n3 = textureNoTile(n_layer_2T1, fs_in.tuv3, r1_3.z);
+    n3 = textureNoTile(n_layer_2T1, fs_in.tuv3, r1_3.z, B3);
     aoc_2 = n3.b;
-    n3= convertNormal(n3) + U3;
+    n3= convertNormal(n3);// + U3;
+    n3.a = t3.a; // for blend function
 
-    n4 = textureNoTile(n_layer_2T2, fs_in.tuv4, r1_4.z);
+    n4 = textureNoTile(n_layer_2T2, fs_in.tuv4, r1_4.z, B4);
     aoc_3 = n4.b;
-    n4 = convertNormal(n4) + U4;
+    n4 = convertNormal(n4);// + U4;
+    n4.a = t4.a; // for blend function
 
-    n5 = textureNoTile(n_layer_3T1, fs_in.tuv5, r1_5.z);
+    n5 = textureNoTile(n_layer_3T1, fs_in.tuv5, r1_5.z, B5);
     aoc_4 = n5.b;
-    n5 = convertNormal(n5) + U5;
+    n5 = convertNormal(n5);// + U5;
+    n5.a = t5.a; // for blend function
 
-    n6 = textureNoTile(n_layer_3T2, fs_in.tuv6, r1_6.z);
+    n6 = textureNoTile(n_layer_3T2, fs_in.tuv6, r1_6.z, B6);
     aoc_5 = n6.b;
-    n6 = convertNormal(n6) + U6;
+    n6 = convertNormal(n6);// + U6;
+    n6.a = t6.a; // for blend function
 
-    n7 = textureNoTile(n_layer_4T1, fs_in.tuv7, r1_7.z);
+    n7 = textureNoTile(n_layer_4T1, fs_in.tuv7, r1_7.z, B7);
     aoc_6 = n7.b;
-    n7 = convertNormal(n7) + U7;
+    n7 = convertNormal(n7);// + U7;
+    n7.a = t7.a; // for blend function
 
-    n8= textureNoTile(n_layer_4T2, fs_in.tuv8, r1_8.z);
+    n8= textureNoTile(n_layer_4T2, fs_in.tuv8, r1_8.z, B8);
     aoc_7 = n8.b;
-    n8 = convertNormal(n8) + U8;
-
+    n8 = convertNormal(n8);// + U8;
+    n8.a = t8.a; // for blend function
     
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
@@ -299,60 +323,46 @@ void main(void)
     // It is used to clamp unused values to 0 so
     // they have no affect on shading.
 
-
-
     vec4 base = vec4(0.0);  
-    vec4 empty = vec4(0.0);
-
     // Mix our textures in to base and
     // apply Ambient Occlusion.
     // Mix group 4
-    base += t7 * aoc_6 * MixLevel4.r;// * used_7;
-    base += t8 * aoc_7 * MixLevel4.g * used_8;
+    base = t8 * MixLevel4.g;
 
-    // Mix group 3
-    base += t5 * aoc_4 * MixLevel3.r;// * used_5;
-    base += t6 * aoc_5 * MixLevel3.g;// * used_6;
+    base.rgb = blend(base, aoc_7 * MixLevel4.g, t7, aoc_7);
+    base.rgb = blend(base, aoc_7, t7, aoc_6 * MixLevel4.r);
+    base.rgb = blend(base, aoc_6, t6, aoc_5 * MixLevel3.g);
+    base.rgb = blend(base, aoc_5, t5, aoc_4 * MixLevel3.r);
+    base.rgb = blend(base, aoc_4, t4, aoc_3 * MixLevel2.g);
+    base.rgb = blend(base, aoc_3, t3, aoc_2 * MixLevel2.r);
+    base.rgb = blend(base, aoc_2, t2, aoc_1 * MixLevel1.g);
+    base.rgb = blend(base, aoc_1, t1, aoc_0 * MixLevel1.r);
 
-    // Mix group 2
-    base += t3 * aoc_2 * MixLevel2.r;// * used_3;
-    base += t4 * aoc_3 * MixLevel2.g;// * used_4;
 
-    // Mix group 1
-    base += t1 * aoc_0 * MixLevel1.r;// * used_1;
-    base += t2 * aoc_1 * MixLevel1.g;// * used_2;
-    
+    // Texture outlines if test = 1.0;
+    base = mix(base, base + color_1, B1 * test * MixLevel1.r);
+    base = mix(base, base + color_2, B2 * test * MixLevel1.g);
+    base = mix(base, base + color_3, B3 * test * MixLevel2.r);
+    base = mix(base, base + color_4, B4 * test * MixLevel2.g);
+    base = mix(base, base + color_5, B5 * test * MixLevel3.r);
+    base = mix(base, base + color_6, B6 * test * MixLevel3.g);
+    base = mix(base, base + color_7, B7 * test * MixLevel4.r);
+    base = mix(base, base + color_8, B8 * test * MixLevel4.g);
+
     //Get our normal maps. Same mixing and clamping as AM maps above
 
-    // Mix group 4
-    n7.rgb = normalize(n7.rgb) * MixLevel4.r;// * used_7;
-    n8.rgb = normalize(n8.rgb) * MixLevel4.g;// * used_8;
-
-    // Mix group 3
-    n5.rgb =  normalize(n5.rgb) * MixLevel3.r;// * used_5;
-    n6.rgb = normalize(n6.rgb) * MixLevel3.g;// * used_6;
-
-    // Mix group 2
-    n3.rgb = normalize(n3.rgb) * MixLevel2.r;// * used_3;
-    n4.rgb = normalize(n4.rgb) * MixLevel2.g;// * used_4;
-
-    // Mix group 1
-    n1.rgb = normalize(n1.rgb) * MixLevel1.r;// * used_1;
-    n2.rgb =  normalize(n2.rgb) * MixLevel1.g;// * used_2;
-    
     //-------------------------------------------------------------
 
-    //n_tex.x*=-1.0;
     vec4 out_n = vec4(0.0);
-    // Add up our normal values.
-    out_n = add_norms(out_n, n1);
-    out_n = add_norms(out_n, n2);
-    out_n = add_norms(out_n, n3);
-    out_n = add_norms(out_n, n4);
-    out_n = add_norms(out_n, n5);
-    out_n = add_norms(out_n, n6);
-    out_n = add_norms(out_n, n7);
-    out_n = add_norms(out_n, n8);
+    out_n.rgb = normalize(n7.rgb);
+    out_n.rgb = blend(out_n,aoc_7 * MixLevel4.g ,normalize(n7), aoc_7);
+    out_n.rgb = blend(out_n,aoc_7, normalize(n7) ,aoc_6 * MixLevel4.r);
+    out_n.rgb = blend(out_n,aoc_6, normalize(n6) ,aoc_5 * MixLevel3.g);
+    out_n.rgb = blend(out_n,aoc_5, normalize(n5) ,aoc_4 * MixLevel3.r);
+    out_n.rgb = blend(out_n,aoc_4, normalize(n4) ,aoc_3 * MixLevel2.g);
+    out_n.rgb = blend(out_n,aoc_3, normalize(n3) ,aoc_2 * MixLevel2.r);
+    out_n.rgb = blend(out_n,aoc_2, normalize(n2) ,aoc_1 * MixLevel1.g);
+    out_n.rgb = blend(out_n,aoc_1, normalize(n1) ,aoc_0 * MixLevel1.r);
     
     //Find dom Normal
     float nBlend;

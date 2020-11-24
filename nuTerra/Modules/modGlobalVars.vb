@@ -56,7 +56,7 @@ Module modGlobalVars
     Public SUN_RENDER_COLOR As Vector3
     Public CC_LUT_ID As GLTexture
     Public ENV_BRDF_LUT_ID As GLTexture
-
+    Public MIXER_LUT As GLTexture
     Public RIPPLE_FRAME_NUMBER As Integer
     Public RIPPLE_TEXTURES() As GLTexture
     Public RIPPLE_MASK_TEXTURE As GLTexture
@@ -99,7 +99,7 @@ Module modGlobalVars
     Public SHOW_GRID As Integer
     Public SHOW_BORDER As Integer
     Public SHOW_CHUNK_IDs As Integer
-    Public SHOW_TEST_TEXTURES As Integer = 0 'show test textures on terrain flag. default Off.
+    Public SHOW_TEST_TEXTURES As Single = 0.0F 'show test ourtline on terrain flag. default Off.
     'models
     Public CURSOR_TEXTURE_ID As GLTexture
     Public DIRECTION_TEXTURE_ID As GLTexture
