@@ -129,13 +129,6 @@ vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, floa
  }
 /*===========================================================*/
 
-// Used to add normals together. Could be better.
-vec4 add_norms (in vec4 n1, in vec4 n2) {
-    n1.xyz += n2.xyz;
-    return n1;
-}
-/*===========================================================*/
-
 // Converion from AG map to RGB vector.
 vec4 convertNormal(vec4 norm){
         vec3 n;
@@ -280,11 +273,8 @@ void main(void)
     t7 = textureNoTile(layer_4T1, tuv7, r1_7.z, B7);
     t8 = textureNoTile(layer_4T2, tuv8, r1_8.z, B8);
 
-    // ambient occusion is in blue channel of the normal maps.
-    // Specular OR Parallax is in the red channel. Green and Alpha are normal values.
-    // We must get the Ambient Occlusion before converting so it isn't lost.
-
-    // Get and convert normal maps. Save ambient occlusion value.
+    // height is in blue channel of the normal maps.
+    // Specular is in the red channel. Green and Alpha are normal values.
 
     n1 = textureNoTile(n_layer_1T1, tuv1, r1_1.z, B1);
     n2 = textureNoTile(n_layer_1T2, tuv2, r1_2.z, B2);
