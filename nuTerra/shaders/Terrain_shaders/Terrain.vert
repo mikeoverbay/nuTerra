@@ -49,15 +49,6 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 r2_6;
     vec4 r2_7;
     vec4 r2_8;
-
-    float used_1;
-    float used_2;
-    float used_3;
-    float used_4;
-    float used_5;
-    float used_6;
-    float used_7;
-    float used_8;
 };
 
 uniform vec2 map_size;
@@ -74,7 +65,6 @@ out VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
-    flat float is_hole;
 } vs_out;
 
 
@@ -105,7 +95,6 @@ void main(void)
     vs_out.Global_UV = scaled + uv_g;
     vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
     
-    vs_out.is_hole = vertexNormal.w ;
     //-------------------------------------------------------
     // Calulate UVs for the texture layers
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);

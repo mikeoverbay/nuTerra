@@ -192,7 +192,6 @@ Module modRender
 
 
         GL.Disable(EnableCap.DepthTest)
-        'final render. Either direct to default or use SSAA process.
 
         FBOm.attach_C1_and_C2()
 
@@ -209,12 +208,12 @@ Module modRender
 
         If SSAA_enable Then
             perform_SSAA_Pass()
-            copy_default_to_gColor() ' <-- has to happen if there is a glass pass
         End If
 
         '===========================================================================
         'hopefully, this will look like glass :)
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            copy_default_to_gColor() ' <-- has to happen if there is a glass pass
             glassPass()
         End If
 
@@ -240,7 +239,7 @@ Module modRender
             'hopefully, this will look like FOG :)
             GL.Disable(EnableCap.Blend)
             copy_default_to_gColor()
-            global_noise()
+            global_fog()
 
             GL.Disable(EnableCap.DepthTest)
             GL.DepthMask(True)
@@ -248,20 +247,8 @@ Module modRender
             GL.FrontFace(FrontFaceDirection.Ccw)
         End If
 #End If
-        '===========================================================================
 
         '===========================================================================
-        'If MODELS_LOADED And DONT_BLOCK_MODELS Then
-        '    copy_default_to_gColor()
-        '    GL.DepthMask(False)
-        '    GL.Disable(EnableCap.DepthTest)
-        '    FBOm.attach_C_no_Depth()
-        '    GL.DepthMask(False)
-        '    GL.FrontFace(FrontFaceDirection.Cw)
-        '    GL.Enable(EnableCap.Blend)
-        '    GL.Enable(EnableCap.CullFace)
-        'End If
-
         '===========================================================================
         If DONT_HIDE_HUD Then
             '===========================================================================
@@ -301,158 +288,8 @@ Module modRender
     Dim rotate As Matrix4 = Nothing
     Dim model_S As Matrix4 = Nothing
     Dim model_X As Matrix4 = Nothing
+
     '=============================================================================================
-    Private Sub global_noise()
-        GL_PUSH_GROUP("perform_Fog_Noise_pass")
-
-        Dim s = 0.03F * DELTA_TIME ' <---- How fast the fog moves
-
-        'this is in the game data somewhere!
-        Dim move_vector = New Vector2(0.3, 0.7) ' <----  Direction the fog moves
-
-        uv_location += move_vector * s '<----  do the math;
-
-        DeferredDecalProjectShader.Use()
-
-        GL.Uniform3(DeferredDecalProjectShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
-        GL.Uniform1(DeferredDecalProjectShader("uv_scale"), 4.0F)
-        GL.Uniform2(DeferredDecalProjectShader("move_vector"), uv_location.X, uv_location.Y)
-
-        NOISE_id.BindUnit(0)
-        FBOm.gDepth.BindUnit(1)
-        FBOm.gPosition.BindUnit(2)
-        FBOm.gColor.BindUnit(3)
-        FBOm.gColor_2.BindUnit(4)
-
-        map_center.X = 100.0F * (theMap.bounds_minX + theMap.bounds_maxX) / 2.0F
-        map_center.Y = 1.0F
-        map_center.Z = 100.0F * (theMap.bounds_minY + theMap.bounds_maxY) / 2.0F
-        map_center.X += 50.0F
-        map_center.Z += 50.0F
-
-        scale.X = 100.0F * (Abs(theMap.bounds_minX) + Abs(theMap.bounds_maxX) + 1.0F)
-        scale.Y = 1000.0F
-        scale.Z = 100.0F * (Abs(theMap.bounds_minY) + Abs(theMap.bounds_maxY) + 1.0F)
-
-        'scale *= 0.1
-        Dim model_X = Matrix4.CreateTranslation(map_center)
-        Dim model_S = Matrix4.CreateScale(scale)
-
-        ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
-        Dim rotate = Matrix4.CreateRotationX(1.570796)
-        'GL.Enable(EnableCap.CullFace)
-
-        GL.UniformMatrix4(DeferredDecalProjectShader("DecalMatrix"), False, rotate * model_S * model_X)
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        DeferredDecalProjectShader.StopUse()
-
-        unbind_textures(2)
-
-        GL_POP_GROUP()
-    End Sub
-    '=============================================================================================
-    Private Sub draw_base_rings_deferred()
-        If Not BASE_RINGS_LOADED Then
-            Return
-        End If
-        GL_PUSH_GROUP("draw_terrain_base_rings_deferred")
-
-        BaseRingProjectorDeferred.Use()
-
-        GL.Disable(EnableCap.CullFace)
-        'GL.Uniform1(BaseRingProjectorDeferred("depthMap"), 0)
-        'GL.Uniform1(BaseRingProjectorDeferred("gGMF"), 1)
-        'GL.Uniform1(BaseRingProjectorDeferred("gPosition"), 2)
-        FBOm.gDepth.BindUnit(0)
-        FBOm.gGMF.BindUnit(1)
-        FBOm.gPosition.BindUnit(2)
-
-        'constants
-        GL.Uniform1(BaseRingProjectorDeferred("radius"), 50.0F)
-        GL.Uniform1(BaseRingProjectorDeferred("thickness"), 2.0F)
-        Dim rotate = Matrix4.CreateRotationX(1.570796)
-        Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
-
-        GL.Uniform1(BaseRingProjectorDeferred("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
-
-        ' base 1 ring
-
-        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
-
-        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
-        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(0.0F, 128.0F, 0.0F, 0.5F))
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        'base 2 ring
-        model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
-
-        'check in side of cube
-        If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
-            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
-        Else
-            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(False))
-        End If
-
-        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
-        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(128.0F, 0.0F, 0.0F, 0.5F))
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        BaseRingProjectorDeferred.StopUse()
-        unbind_textures(2)
-
-        GL_POP_GROUP()
-    End Sub
-    Private Sub fog_pass()
-        GL_PUSH_GROUP("perform_Fog_Pass")
-
-        Dim fog_color As New Vector3(0.5, 0.5, 0.8)
-        GL.Disable(EnableCap.DepthTest)
-
-        gBufferFogShader.Use()
-        GL.DepthMask(False)
-
-        GL.UniformMatrix4(gBufferFogShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-
-
-        GL.Uniform1(gBufferFogShader("gPosition"), 0)
-        GL.Uniform1(gBufferFogShader("gColor"), 1)
-        GL.Uniform1(gBufferFogShader("gGMF"), 2)
-
-        GL.Uniform3(gBufferFogShader("fog_color_in"), fog_color.X, fog_color.Y, fog_color.Z)
-        GL.Uniform1(gBufferFogShader("Fog_density"), 0.2)
-        GL.Uniform1(gBufferFogShader("viewDistance"), 3000)
-
-
-
-        GL.Uniform1(gBufferFogShader("AMBIENT"), frmLightSettings.lighting_ambient)
-        GL.Uniform1(gBufferFogShader("FOG_LEVEL"), frmLightSettings.lighting_fog_level)
-
-        FBOm.gPosition.BindUnit(0)
-        FBOm.gColor.BindUnit(1)
-        FBOm.gGMF.BindUnit(2)
-
-        'draw full screen quad
-        GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
-
-        GL.BindVertexArray(defaultVao)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
-        gBufferFogShader.StopUse()
-        unbind_textures(2)
-
-        GL_POP_GROUP()
-    End Sub
-
-
     Private Sub render_deferred_buffers()
         GL_PUSH_GROUP("render_deferred_buffers")
         '===========================================================================
@@ -514,36 +351,114 @@ Module modRender
     End Sub
     '=============================================================================================
 
-    Private Sub draw_sun()
+    Private Sub global_fog()
+        GL_PUSH_GROUP("perform_Fog_Noise_pass")
 
-        FBOm.attach_C()
+        Dim s = 0.03F * DELTA_TIME ' <---- How fast the fog moves
 
-        'test only
-        'Dim matrix = Matrix4.CreateTranslation(New Vector3(0F, 100.0F, 0F))
-        GL.Disable(EnableCap.DepthTest)
-        GL.Enable(EnableCap.Blend)
-        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+        'this is in the game data somewhere!
+        Dim move_vector = New Vector2(0.3, 0.7) ' <----  Direction the fog moves
 
-        Dim matrix = Matrix4.CreateTranslation(New Vector3(LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2)))
+        uv_location += move_vector * s '<----  do the math;
 
+        DeferredDecalProjectShader.Use()
 
-        FF_BillboardShader.Use()
-        GL.Uniform1(FF_BillboardShader("colorMap"), 0)
-        GL.UniformMatrix4(FF_BillboardShader("matrix"), False, matrix)
-        'GL.Uniform3(FF_BillboardShader("color"), SUN_RENDER_COLOR.X / 100.0F, SUN_RENDER_COLOR.Y / 100.0F, SUN_RENDER_COLOR.Z / 100.0F)
-        GL.Uniform3(FF_BillboardShader("color"), 1.0F, 1.0F, 1.0F)
-        GL.Uniform1(FF_BillboardShader("scale"), SUN_SCALE * 6)
-        SUN_TEXTURE_ID.BindUnit(0)
+        GL.Uniform3(DeferredDecalProjectShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
+        GL.Uniform1(DeferredDecalProjectShader("uv_scale"), 4.0F)
+        GL.Uniform2(DeferredDecalProjectShader("move_vector"), uv_location.X, uv_location.Y)
 
-        GL.Uniform4(FF_BillboardShader("rect"), -0.5F, -0.5F, 0.5F, 0.5F)
-        GL.BindVertexArray(defaultVao)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        NOISE_id.BindUnit(0)
+        FBOm.gDepth.BindUnit(1)
+        FBOm.gPosition.BindUnit(2)
+        FBOm.gColor.BindUnit(3)
+        FBOm.gColor_2.BindUnit(4)
 
-        FF_BillboardShader.StopUse()
-        GL.Disable(EnableCap.Blend)
+        map_center.X = 100.0F * (theMap.bounds_minX + theMap.bounds_maxX) / 2.0F
+        map_center.Y = 1.0F
+        map_center.Z = 100.0F * (theMap.bounds_minY + theMap.bounds_maxY) / 2.0F
+        map_center.X += 50.0F
+        map_center.Z += 50.0F
 
-        unbind_textures(0)
+        scale.X = 100.0F * (Abs(theMap.bounds_minX) + Abs(theMap.bounds_maxX) + 1.0F)
+        scale.Y = 1000.0F
+        scale.Z = 100.0F * (Abs(theMap.bounds_minY) + Abs(theMap.bounds_maxY) + 1.0F)
 
+        'scale *= 0.1
+        Dim model_X = Matrix4.CreateTranslation(map_center)
+        Dim model_S = Matrix4.CreateScale(scale)
+
+        ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
+        Dim rotate = Matrix4.CreateRotationX(1.570796)
+        'GL.Enable(EnableCap.CullFace)
+
+        GL.UniformMatrix4(DeferredDecalProjectShader("DecalMatrix"), False, rotate * model_S * model_X)
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        DeferredDecalProjectShader.StopUse()
+
+        unbind_textures(2)
+
+        GL_POP_GROUP()
+    End Sub
+
+    Private Sub draw_base_rings_deferred()
+        If Not BASE_RINGS_LOADED Then
+            Return
+        End If
+        GL_PUSH_GROUP("draw_terrain_base_rings_deferred")
+
+        BaseRingProjectorDeferred.Use()
+
+        GL.Disable(EnableCap.CullFace)
+        'GL.Uniform1(BaseRingProjectorDeferred("depthMap"), 0)
+        'GL.Uniform1(BaseRingProjectorDeferred("gGMF"), 1)
+        'GL.Uniform1(BaseRingProjectorDeferred("gPosition"), 2)
+        FBOm.gDepth.BindUnit(0)
+        FBOm.gGMF.BindUnit(1)
+        FBOm.gPosition.BindUnit(2)
+
+        'constants
+        GL.Uniform1(BaseRingProjectorDeferred("radius"), 50.0F)
+        GL.Uniform1(BaseRingProjectorDeferred("thickness"), 2.0F)
+        Dim rotate = Matrix4.CreateRotationX(1.570796)
+        Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
+
+        GL.Uniform1(BaseRingProjectorDeferred("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
+
+        ' base 1 ring
+
+        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
+
+        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
+        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(0.0F, 128.0F, 0.0F, 0.5F))
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        'base 2 ring
+        model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
+
+        'check in side of cube
+        If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
+            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
+        Else
+            GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(False))
+        End If
+
+        GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
+        GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(128.0F, 0.0F, 0.0F, 0.5F))
+
+        GL.BindVertexArray(CUBE_VAO)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+
+        BaseRingProjectorDeferred.StopUse()
+        unbind_textures(2)
+
+        GL_POP_GROUP()
     End Sub
 
     Private Sub frustum_cull()
@@ -963,7 +878,6 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
-
     Private Sub perform_SSAA_Pass()
 
         GL_PUSH_GROUP("perform_SSAA_Pass")
@@ -1095,8 +1009,7 @@ Module modRender
 
     Public Sub Draw_SkyDome()
         GL_PUSH_GROUP("Draw_SkyDome")
-        'GL.Enable(EnableCap.Blend)
-        GL.Disable(EnableCap.DepthTest)
+
         GL.DepthMask(False)
         FBOm.attach_CNGP()
 
@@ -1111,12 +1024,40 @@ Module modRender
 
         SkyDomeShader.StopUse()
         unbind_textures(0)
-        GL.Disable(EnableCap.CullFace)
-        'GL.Disable(EnableCap.Blend)
-        GL.Enable(EnableCap.DepthTest)
+
         GL.DepthMask(True)
 
         GL_POP_GROUP()
+    End Sub
+
+    Private Sub draw_sun()
+
+        FBOm.attach_C()
+
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+
+        Dim matrix = Matrix4.CreateTranslation(New Vector3(LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2)))
+
+        FF_BillboardShader.Use()
+        GL.Uniform1(FF_BillboardShader("colorMap"), 0)
+        GL.UniformMatrix4(FF_BillboardShader("matrix"), False, matrix)
+        'GL.Uniform3(FF_BillboardShader("color"), SUN_RENDER_COLOR.X / 100.0F, SUN_RENDER_COLOR.Y / 100.0F, SUN_RENDER_COLOR.Z / 100.0F)
+        GL.Uniform3(FF_BillboardShader("color"), 1.0F, 1.0F, 1.0F)
+        GL.Uniform1(FF_BillboardShader("scale"), SUN_SCALE * 6)
+
+        SUN_TEXTURE_ID.BindUnit(0)
+
+        GL.Uniform4(FF_BillboardShader("rect"), -0.5F, -0.5F, 0.5F, 0.5F)
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        FF_BillboardShader.StopUse()
+
+        GL.Disable(EnableCap.Blend)
+
+        unbind_textures(0)
+
     End Sub
 
     Private Sub draw_map_cursor()
@@ -1145,51 +1086,6 @@ Module modRender
 
         DecalProject.StopUse()
         unbind_textures(3)
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub draw_terrain_base_rings()
-
-        If Not BASE_RINGS_LOADED Then
-            Return
-        End If
-
-        GL_PUSH_GROUP("draw_terrain_base_rings")
-
-        BaseRingProjector.Use()
-
-        GL.Uniform1(BaseRingProjector("depthMap"), 0)
-        GL.Uniform1(BaseRingProjector("gGMF"), 1)
-        FBOm.gDepth.BindUnit(0)
-        FBOm.gGMF.BindUnit(1)
-
-        'constants
-        GL.Uniform1(BaseRingProjector("radius"), 50.0F)
-        GL.Uniform1(BaseRingProjector("thickness"), 2.0F)
-        Dim rotate = Matrix4.CreateRotationX(1.570796)
-        Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
-
-        ' base 1 ring
-        Dim model_X = Matrix4.CreateTranslation(-TEAM_1.X, T1_Y, TEAM_1.Z)
-        GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
-        GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Green)
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        'base 2 ring
-        model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
-        GL.Uniform3(BaseRingProjector("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
-        GL.UniformMatrix4(BaseRingProjector("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjector("color"), OpenTK.Graphics.Color4.Red)
-
-        GL.BindVertexArray(CUBE_VAO)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        BaseRingProjector.StopUse()
-        unbind_textures(2)
 
         GL_POP_GROUP()
     End Sub
