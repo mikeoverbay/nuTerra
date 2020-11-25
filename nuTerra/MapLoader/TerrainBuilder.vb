@@ -191,6 +191,15 @@ Module TerrainBuilder
         Public r2_7 As Vector4
         Public r2_8 As Vector4
 
+        Public s1 As Vector4
+        Public s2 As Vector4
+        Public s3 As Vector4
+        Public s4 As Vector4
+        Public s5 As Vector4
+        Public s6 As Vector4
+        Public s7 As Vector4
+        Public s8 As Vector4
+
     End Structure
 
     Public Structure ids_
