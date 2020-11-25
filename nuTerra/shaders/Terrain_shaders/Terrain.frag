@@ -248,6 +248,7 @@ void main(void)
         //-------------------------------------------------------
     vec2 scaled_uv = vec2(fs_in.Vertex.x, fs_in.Vertex.z);
 
+    // create UV projections
     tuv1 = get_transformed_uv(U1, V1, r1_1, scaled_uv); 
     tuv2 = get_transformed_uv(U2, V2, r1_2, scaled_uv);
 
@@ -259,7 +260,7 @@ void main(void)
 
     tuv7 = get_transformed_uv(U7, V7, r1_7, scaled_uv);
     tuv8 = get_transformed_uv(U8, V8, r1_8, scaled_uv);
-    // create UV projections
+
     // Get AM maps,crop, detilize and set Test outline blend flag
     t1 = textureNoTile(layer_1T1, tuv1, r1_1.z, B1);
     t2 = textureNoTile(layer_1T2, tuv2, r1_2.z, B2);
