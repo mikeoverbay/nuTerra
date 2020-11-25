@@ -96,7 +96,6 @@ in VS_OUT {
     mat3 TBN;
     vec4 Vertex;
     vec3 worldPosition;
-    vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
     vec2 UV;
     vec2 Global_UV;
     float ln;
@@ -147,7 +146,6 @@ float sum( vec4 v ) {
 vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
 {
 
-   uv = fract(uv) * vec2(0.875) + vec2(0.0625);
    
    b =0.0;
    if (uv.x < 0.065 ) b = 1.0;
@@ -155,10 +153,17 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
    if (uv.y < 0.065 ) b = 1.0;
    if (uv.y > 0.935 ) b = 1.0;
 
+    vec2  dx_vtc        = dFdx(uv);
+    vec2  dy_vtc        = dFdy(uv);
+    float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
 
-   return texture(samp,uv,0.6);
 
-// Disabled for now.
+    //return max(0.0, 0.5 * log2(delta_max_sqr) - 1.0); // == log2(sqrt(delta_max_sqr));
+    float mip = 0.5 * log2(delta_max_sqr); // == log2(sqrt(delta_max_sqr));
+   //return texture(samp,uv,0.6);
+   return textureLod( samp, uv, mip );
+
+    // Disabled for now.
    if (flag == 0.0 ){
         }
 
@@ -187,6 +192,23 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
     return mix( cola, colb, s);
     }
 
+vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec4 Row3, in vec2 _uv) {
+
+
+    mat4 rs;
+    rs[0] = vec4(Row0.x, Row0.y, Row0.z, Row0.w);
+    rs[1] = vec4(0.0,    1.0,    0.0,    0.0);
+    rs[2] = vec4(Row2.x, Row2.y, Row2.z, Row2.w);
+    rs[3] = vec4(Row3.x, 0.0,    Row3.z, 1.0);
+    rs[3] = vec4(0.0,    0.0,    0.0,    1.0);
+    vec4 tv = rs * vec4(_uv.x, 0.0, _uv.y, 1.0); 
+  
+    vec2 out_uv = vec2(tv.x, tv.z);
+    
+    return fract(out_uv) * vec2(0.875) + vec2(0.0625);
+    return out_uv;
+    }
+
 /*===========================================================*/
 /*===========================================================*/
 /*===========================================================*/
@@ -210,6 +232,7 @@ void main(void)
     vec4 n1, n2, n3, n4, n5, n6, n7, n8;
     float  aoc_0, aoc_1, aoc_2, aoc_3;
     float  aoc_4, aoc_5, aoc_6, aoc_7;
+    vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
 
     vec2 MixLevel1, MixLevel2, MixLevel3, MixLevel4;
     vec3 PN1, PN2, PN3, PN4;
@@ -221,19 +244,33 @@ void main(void)
     vec2 UVs = fs_in.UV;
 
     vec4 global = texture(global_AM, fs_in.Global_UV);
+        //-------------------------------------------------------
+    vec2 scaled_uv = vec2(fs_in.Vertex.x, fs_in.Vertex.z);
+
+    tuv1 = get_transformed_uv(U1, V1, r1_1, scaled_uv); 
+    tuv2 = get_transformed_uv(U2, V2, r1_2, scaled_uv);
+
+    tuv3 = get_transformed_uv(U3, V3, r1_3, scaled_uv); 
+    tuv4 = get_transformed_uv(U4, V4, r1_4, scaled_uv);
+
+    tuv5 = get_transformed_uv(U5, V5, r1_5, scaled_uv); 
+    tuv6 = get_transformed_uv(U6, V6, r1_6, scaled_uv);
+
+    tuv7 = get_transformed_uv(U7, V7, r1_7, scaled_uv);
+    tuv8 = get_transformed_uv(U8, V8, r1_8, scaled_uv);
     // create UV projections
     // Get AM maps,crop, detilize and set Test outline blend flag
-    t1 = textureNoTile(layer_1T1, fs_in.tuv1, r1_1.z, B1);
-    t2 = textureNoTile(layer_1T2, fs_in.tuv2, r1_2.z, B2);
+    t1 = textureNoTile(layer_1T1, tuv1, r1_1.z, B1);
+    t2 = textureNoTile(layer_1T2, tuv2, r1_2.z, B2);
 
-    t3 = textureNoTile(layer_2T1, fs_in.tuv3, r1_3.z, B3);
-    t4 = textureNoTile(layer_2T2, fs_in.tuv4, r1_4.z, B4);
+    t3 = textureNoTile(layer_2T1, tuv3, r1_3.z, B3);
+    t4 = textureNoTile(layer_2T2, tuv4, r1_4.z, B4);
 
-    t5 = textureNoTile(layer_3T1, fs_in.tuv5, r1_5.z, B5);
-    t6 = textureNoTile(layer_3T2, fs_in.tuv6, r1_6.z, B6);
+    t5 = textureNoTile(layer_3T1, tuv5, r1_5.z, B5);
+    t6 = textureNoTile(layer_3T2, tuv6, r1_6.z, B6);
 
-    t7 = textureNoTile(layer_4T1, fs_in.tuv7, r1_7.z, B7);
-    t8 = textureNoTile(layer_4T2, fs_in.tuv8, r1_8.z, B8);
+    t7 = textureNoTile(layer_4T1, tuv7, r1_7.z, B7);
+    t8 = textureNoTile(layer_4T2, tuv8, r1_8.z, B8);
 
     // ambient occusion is in blue channel of the normal maps.
     // Specular OR Parallax is in the red channel. Green and Alpha are normal values.
@@ -241,14 +278,14 @@ void main(void)
 
     // Get and convert normal maps. Save ambient occlusion value.
 
-    n1 = textureNoTile(n_layer_1T1, fs_in.tuv1, r1_1.z, B1);
-    n2 = textureNoTile(n_layer_1T2, fs_in.tuv2, r1_2.z, B2);
-    n3 = textureNoTile(n_layer_2T1, fs_in.tuv3, r1_3.z, B3);
-    n4 = textureNoTile(n_layer_2T2, fs_in.tuv4, r1_4.z, B4);
-    n5 = textureNoTile(n_layer_3T1, fs_in.tuv5, r1_5.z, B5);
-    n6 = textureNoTile(n_layer_3T2, fs_in.tuv6, r1_6.z, B6);
-    n7 = textureNoTile(n_layer_4T1, fs_in.tuv7, r1_7.z, B7);
-    n8 = textureNoTile(n_layer_4T2, fs_in.tuv8, r1_8.z, B8);
+    n1 = textureNoTile(n_layer_1T1, tuv1, r1_1.z, B1);
+    n2 = textureNoTile(n_layer_1T2, tuv2, r1_2.z, B2);
+    n3 = textureNoTile(n_layer_2T1, tuv3, r1_3.z, B3);
+    n4 = textureNoTile(n_layer_2T2, tuv4, r1_4.z, B4);
+    n5 = textureNoTile(n_layer_3T1, tuv5, r1_5.z, B5);
+    n6 = textureNoTile(n_layer_3T2, tuv6, r1_6.z, B6);
+    n7 = textureNoTile(n_layer_4T1, tuv7, r1_7.z, B7);
+    n8 = textureNoTile(n_layer_4T2, tuv8, r1_8.z, B8);
 
     // get the heights
     aoc_0 = n1.b;
