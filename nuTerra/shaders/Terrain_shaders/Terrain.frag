@@ -50,15 +50,6 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 r2_6;
     vec4 r2_7;
     vec4 r2_8;
-
-    float used_1;
-    float used_2;
-    float used_3;
-    float used_4;
-    float used_5;
-    float used_6;
-    float used_7;
-    float used_8;
 };
 
 layout(binding = 1 ) uniform sampler2D layer_1T1;
@@ -109,7 +100,6 @@ in VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
-    flat float is_hole;
 } fs_in;
 
 
@@ -193,7 +183,7 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
 
 
     // interpolate between the two virtual patterns   
-    float s = smoothstep(0.2,0.8,f-0.1* sum(cola-colb) );
+    float s = smoothstep(0.2,0.8,f-0.1 * sum(cola-colb) );
     return mix( cola, colb, s);
     }
 
@@ -205,20 +195,6 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
 
 void main(void)
 {
-    vec4 global = texture(global_AM, fs_in.Global_UV);
-    // This is needed to light the global_AM.
-    //Can we bail early?
-//    if (fs_in.is_hole == 1.0)
-//    {
-//        gColor = global;
-//        gColor.a = 1.0;
-//        //if (fs_in.ln > 0.0 ) gColor.r = 1.0;
-//        gGMF.rgb = vec3(global.a+0.2, 0.0, 128.0/255.0);
-//
-//        gPosition = fs_in.worldPosition;
-//        gPick = 0;
-//        return;
-//    }
     //==============================================================
     float B1, B2, B3, B4, B5, B6, B7, B8;
     vec4 color_1 = vec4(1.0,  1.0,  0.0,  0.0);
@@ -232,17 +208,19 @@ void main(void)
 
     vec4 t1, t2, t3, t4, t5, t6, t7, t8;
     vec4 n1, n2, n3, n4, n5, n6, n7, n8;
+    float  aoc_0, aoc_1, aoc_2, aoc_3;
+    float  aoc_4, aoc_5, aoc_6, aoc_7;
 
     vec2 MixLevel1, MixLevel2, MixLevel3, MixLevel4;
     vec3 PN1, PN2, PN3, PN4;
-    float aoc_0, aoc_1, aoc_2, aoc_3;
-    float  aoc_4, aoc_5, aoc_6, aoc_7;
     vec2 mix_coords;
+    //==============================================================
 
     mix_coords = fs_in.UV;
     mix_coords.x = 1.0 - mix_coords.x;
     vec2 UVs = fs_in.UV;
 
+    vec4 global = texture(global_AM, fs_in.Global_UV);
     // create UV projections
     // Get AM maps,crop, detilize and set Test outline blend flag
     t1 = textureNoTile(layer_1T1, fs_in.tuv1, r1_1.z, B1);
@@ -264,27 +242,22 @@ void main(void)
     // Get and convert normal maps. Save ambient occlusion value.
 
     n1 = textureNoTile(n_layer_1T1, fs_in.tuv1, r1_1.z, B1);
-    aoc_0 = n1.b;
-
     n2 = textureNoTile(n_layer_1T2, fs_in.tuv2, r1_2.z, B2);
-    aoc_1 =  n2.b;
-
     n3 = textureNoTile(n_layer_2T1, fs_in.tuv3, r1_3.z, B3);
-    aoc_2 = n3.b;
-
     n4 = textureNoTile(n_layer_2T2, fs_in.tuv4, r1_4.z, B4);
-    aoc_3 = n4.b;
-
     n5 = textureNoTile(n_layer_3T1, fs_in.tuv5, r1_5.z, B5);
-    aoc_4 = n5.b;
-
     n6 = textureNoTile(n_layer_3T2, fs_in.tuv6, r1_6.z, B6);
-    aoc_5 = n6.b;
-
     n7 = textureNoTile(n_layer_4T1, fs_in.tuv7, r1_7.z, B7);
-    aoc_6 = n7.b;
+    n8 = textureNoTile(n_layer_4T2, fs_in.tuv8, r1_8.z, B8);
 
-    n8= textureNoTile(n_layer_4T2, fs_in.tuv8, r1_8.z, B8);
+    // get the heights
+    aoc_0 = n1.b;
+    aoc_1 = n2.b;
+    aoc_2 = n3.b;
+    aoc_3 = n4.b;
+    aoc_4 = n5.b;
+    aoc_5 = n6.b;
+    aoc_6 = n7.b;
     aoc_7 = n8.b;
     
     //Get the mix values from the mix textures 1-4 and move to vec2. 
@@ -293,13 +266,10 @@ void main(void)
     MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
-    // Uniforms used_1 thru used_8 are either 0 or 1
-    // depending on if the slot is used.
-    // It is used to clamp unused values to 0 so
-    // they have no affect on shading.
+
+    // Mix our textures in to base and
 
     vec4 base = vec4(0.0);  
-    // Mix our textures in to base and
 
     vec4 m4 = blend(t7, aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
 
@@ -310,11 +280,11 @@ void main(void)
     vec4 m1 = blend(t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
 
 
-    vec4 m5 = blend(m3,aoc_5 * MixLevel3.r+MixLevel3.g, m4 ,aoc_6 *  MixLevel4.r+MixLevel4.g);
+    vec4 m5 = blend(m3, aoc_5 + MixLevel3.r+MixLevel3.g, m4, aoc_6 + MixLevel4.r+MixLevel4.g);
 
-    vec4 m6 = blend(m1,aoc_1 *  MixLevel1.r+MixLevel1.g, m2 ,aoc_2 *  MixLevel2.r+MixLevel2.g);
+    vec4 m6 = blend(m1 ,aoc_1 + MixLevel1.r+MixLevel1.g, m2, aoc_2 + MixLevel2.r+MixLevel2.g);
 
-    vec4 m7 = blend(m5,aoc_3 *  MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,aoc_4 * MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+    vec4 m7 = blend(m5, aoc_4 + MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, aoc_3 + MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
     base = m7;
    
@@ -328,10 +298,8 @@ void main(void)
     base = mix(base, base + color_7, B7 * test * MixLevel4.r);
     base = mix(base, base + color_8, B8 * test * MixLevel4.g);
 
-    //Get our normal maps. Same mixing and clamping as AM maps above
-
     //-------------------------------------------------------------
-
+    // normals
     vec4 out_n = vec4(0.0);
 
      m4 = blend_normal(n7, n8, t7 , aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
@@ -343,42 +311,38 @@ void main(void)
      m1 = blend_normal(n1, n2, t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
 
 
-     m5 = blend(m3, aoc_5 * MixLevel3.r+MixLevel3.g, m4 ,aoc_6 *  MixLevel4.r+MixLevel4.g);
+     m5 = blend(m3, aoc_5 + MixLevel3.r+MixLevel3.g, m4, aoc_6 + MixLevel4.r+MixLevel4.g);
 
-     m6 = blend(m1,aoc_1 *  MixLevel1.r+MixLevel1.g, m2 ,aoc_2 *  MixLevel2.r+MixLevel2.g);
+     m6 = blend(m1, aoc_1 + MixLevel1.r+MixLevel1.g, m2, aoc_2 + MixLevel2.r+MixLevel2.g);
 
-     m7 = blend(m5,aoc_4 * MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6 ,aoc_3 * MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+     m7 = blend(m5, aoc_4 + MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, aoc_3 + MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
-     out_n = m7;
-     vec2 gmm = vec2(out_n.r, out_n.b);
-    //Find dom Normal
+    out_n = m7;
+    float specular = out_n.r;
 
     out_n = convertNormal(out_n);
     out_n.xyz = fs_in.TBN * out_n.xyz;
 
-    // Mix in the global_AM color using global_AM's alpha channel.
-
-    // I think this is used for wetness on the map.
+    // global.a is used for wetness on the map.
+    // I am not sure this should be applied to the AM color.
     base.rgb = mix(base.rgb ,waterColor, global.a * waterAlpha);
     
-    // This blends between low and highrez by distance
-
-    // This blends the layered colors/normals and the global_AM/normalMaps over distance.
-    // The blend stats at 100 and ends at 400. This has been changed for debug
-    // Replace ln with 1.0 to show only layered terrain.
-    
-    //base = mix(base,vec4(MixLevel1.xy, 0.0 ,1.0), 0.4);
+    // Get pre=mixed map textures
     vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, map_id) );
     vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, map_id) );
     vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, map_id) );
 
     ArrayTextureN.xyz = fs_in.TBN * ArrayTextureN.xyz;
 
+    // This blends the pre-mixed maps over distance.
     base = mix(ArrayTextureC, base, fs_in.ln);
     out_n = mix(ArrayTextureN, out_n, fs_in.ln) ;
-    gGMF = mix(ArrayTextureG, vec4(gmm.r, gmm.g*0.5, 128.0/255.0, global.a*0.8), fs_in.ln);
 
-    // The obvious
+    //there are no metal values for the terrain so we hard code 0.1;
+    // specular is in the red channel of the normal maps;
+    vec4 gmm_out = vec4(specular, 0.1, 128.0/255.0, global.a*0.8);
+    gGMF = mix(ArrayTextureG, gmm_out, fs_in.ln);
+
     gColor = base;
     //gColor = gColor* 0.001 + r1_8;
     gColor.a = 1.0;

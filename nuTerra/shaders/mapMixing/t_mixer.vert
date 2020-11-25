@@ -49,15 +49,6 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 r2_6;
     vec4 r2_7;
     vec4 r2_8;
-
-    float used_1;
-    float used_2;
-    float used_3;
-    float used_4;
-    float used_5;
-    float used_6;
-    float used_7;
-    float used_8;
 };
 uniform vec2 map_size;
 uniform vec2 map_center;
@@ -68,7 +59,6 @@ out VS_OUT {
     vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
     vec2 UV;
     vec2 Global_UV;
-    flat float is_hole;
 } vs_out;
 
 vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec4 Row3, in vec2 _uv) {
@@ -96,7 +86,6 @@ void main(void)
     vs_out.Global_UV = scaled + uv_g;
     vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
     
-    vs_out.is_hole = vertexNormal.w ;
     //-------------------------------------------------------
     //This is XZY because of ortho projection!
     vec3 vertexPosition = vec3(vertexXZ.x, vertexXZ.y, vertexY);

@@ -191,17 +191,6 @@ Module TerrainBuilder
         Public r2_7 As Vector4
         Public r2_8 As Vector4
 
-
-        Public used_1 As Single
-        Public used_2 As Single
-        Public used_3 As Single
-        Public used_4 As Single
-
-        Public used_5 As Single
-        Public used_6 As Single
-        Public used_7 As Single
-        Public used_8 As Single
-
     End Structure
 
     Public Structure ids_
