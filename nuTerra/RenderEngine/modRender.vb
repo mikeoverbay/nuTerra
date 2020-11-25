@@ -208,12 +208,12 @@ Module modRender
 
         If SSAA_enable Then
             perform_SSAA_Pass()
+            copy_default_to_gColor()
         End If
 
         '===========================================================================
         'hopefully, this will look like glass :)
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
-            copy_default_to_gColor() ' <-- has to happen if there is a glass pass
             glassPass()
         End If
 
@@ -350,7 +350,20 @@ Module modRender
         GL_POP_GROUP()
     End Sub
     '=============================================================================================
+    Private Sub color_keys()
 
+        If SHOW_TEST_TEXTURES = 0 Then Return
+
+        draw_image_rectangle(New RectangleF(0.0F, 79.0F, 100.0F, 19.0F * 8.0F),
+                                            DUMMY_TEXTURE_ID)
+
+        If SHOW_TEST_TEXTURES > 0.0F Then
+            For i = 0 To 7
+                draw_text(tags(i), 5.0F, 81.0F + (i * 19.0F), colors(i), False, 0)
+            Next
+        End If
+
+    End Sub
     Private Sub global_fog()
         GL_PUSH_GROUP("perform_Fog_Noise_pass")
 
@@ -986,12 +999,7 @@ Module modRender
         draw_text(txt2, 5.0F, 24.0F, Graphics.Color4.Cyan, False, 1)
         draw_text(PICKED_STRING, 5.0F, 43.0F, Graphics.Color4.Yellow, False, 1)
 
-        If SHOW_TEST_TEXTURES > 0.0F Then
-            For i = 0 To 7
-                draw_text(tags(i), 5.0F, 81.0F + (i * 19.0F), colors(i), False, 0)
-
-            Next
-        End If
+        color_keys()
 
         'draw status of SSAA
         draw_text(SSAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)
