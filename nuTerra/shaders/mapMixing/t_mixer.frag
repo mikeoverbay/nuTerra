@@ -45,7 +45,16 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 r2_6;
     vec4 r2_7;
     vec4 r2_8;
-};
+
+    vec4 s1;
+    vec4 s2;
+    vec4 s3;
+    vec4 s4;
+    vec4 s5;
+    vec4 s6;
+    vec4 s7;
+    vec4 s8;
+    };
 
 layout(binding = 1 ) uniform sampler2D layer_1T1;
 layout(binding = 2 ) uniform sampler2D layer_2T1;
@@ -88,7 +97,7 @@ in VS_OUT {
 /*===========================================================*/
 // https://www.gamedev.net/articles/programming/graphics/advanced-terrain-texture-splatting-r3287/
 vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
- float depth = 0.2;
+ float depth = 0.5;
  float ma = max(texture1.a + a1, texture2.a + a2) - depth;
  float b1 = max(texture1.a + a1 - ma, 0);
  float b2 = max(texture2.a + a2 - ma, 0);
@@ -96,7 +105,7 @@ vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
  }
  //have to do this because we need the alpha in the am textures.
 vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, float a2) {
- float depth = 0.2;
+ float depth = 0.5;
  float ma = max(texture1.a + a1, texture2.a + a2) - depth;
  float b1 = max(texture1.a + a1 - ma, 0);
  float b2 = max(texture2.a + a2 - ma, 0);

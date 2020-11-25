@@ -96,14 +96,25 @@ Module TerrainTextureFunctions
             layersBuffer.r1_7 = .TexLayers(3).r1
             layersBuffer.r1_8 = .TexLayers(3).r2
 
-            layersBuffer.r2_1 = .TexLayers(0).r2_1
-            layersBuffer.r2_2 = .TexLayers(0).r2_2
-            layersBuffer.r2_3 = .TexLayers(1).r2_1
-            layersBuffer.r2_4 = .TexLayers(1).r2_2
-            layersBuffer.r2_5 = .TexLayers(2).r2_1
-            layersBuffer.r2_6 = .TexLayers(2).r2_2
-            layersBuffer.r2_7 = .TexLayers(3).r2_1
-            layersBuffer.r2_8 = .TexLayers(3).r2_2
+            layersBuffer.r2_1 = .TexLayers(0).r2
+            layersBuffer.r2_2 = .TexLayers(0).r2
+            layersBuffer.r2_3 = .TexLayers(1).r2
+            layersBuffer.r2_4 = .TexLayers(1).r2
+            layersBuffer.r2_5 = .TexLayers(2).r2
+            layersBuffer.r2_6 = .TexLayers(2).r2
+            layersBuffer.r2_7 = .TexLayers(3).r2
+            layersBuffer.r2_8 = .TexLayers(3).r2
+
+            layersBuffer.s1 = .TexLayers(0).scale_a
+            layersBuffer.s2 = .TexLayers(0).scale_b
+            layersBuffer.s3 = .TexLayers(1).scale_a
+            layersBuffer.s4 = .TexLayers(1).scale_b
+            layersBuffer.s5 = .TexLayers(2).scale_a
+            layersBuffer.s6 = .TexLayers(2).scale_b
+            layersBuffer.s7 = .TexLayers(3).scale_a
+            layersBuffer.s8 = .TexLayers(3).scale_b
+
+
 
             .layersStd140_ubo = CreateBuffer(BufferTarget.UniformBuffer, String.Format("layersStd140_ubo_{0}", map))
             BufferStorage(.layersStd140_ubo,

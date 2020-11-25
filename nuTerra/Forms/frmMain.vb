@@ -111,6 +111,9 @@ Public Class frmMain
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
 
             Case Keys.E
+                If frmProgramEditor.CP_parent = Me.Handle Then
+                    Return
+                End If
                 frmProgramEditor.Show()
 
             Case Keys.G

@@ -49,7 +49,16 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 r2_6;
     vec4 r2_7;
     vec4 r2_8;
-};
+
+    vec4 s1;
+    vec4 s2;
+    vec4 s3;
+    vec4 s4;
+    vec4 s5;
+    vec4 s6;
+    vec4 s7;
+    vec4 s8;
+    };
 
 uniform vec2 map_size;
 uniform vec2 map_center;
