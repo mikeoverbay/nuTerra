@@ -101,7 +101,6 @@ in VS_OUT {
     float ln;
 } fs_in;
 
-
 /*===========================================================*/
 // https://www.gamedev.net/articles/programming/graphics/advanced-terrain-texture-splatting-r3287/
 vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
@@ -153,15 +152,13 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
    if (uv.y < 0.065 ) b = 1.0;
    if (uv.y > 0.935 ) b = 1.0;
 
-    vec2  dx_vtc        = dFdx(uv);
-    vec2  dy_vtc        = dFdy(uv);
+    vec2  dx_vtc        = dFdx(uv*1024.0);
+    vec2  dy_vtc        = dFdy(uv*1024.0);
     float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-
-
-    //return max(0.0, 0.5 * log2(delta_max_sqr) - 1.0); // == log2(sqrt(delta_max_sqr));
-    float mip = 0.5 * log2(delta_max_sqr); // == log2(sqrt(delta_max_sqr));
+    
+    float mipLevel = 0.5 * log2(delta_max_sqr);
    //return texture(samp,uv,0.6);
-   return textureLod( samp, uv, mip );
+    return textureLod( samp, uv, max(0.0, mipLevel) );
 
     // Disabled for now.
    if (flag == 0.0 ){

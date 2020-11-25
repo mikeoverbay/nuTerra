@@ -89,8 +89,6 @@ void main(void)
     vs_out.Vertex = vec4(vertexPosition, 1.0) * 1.0;
     vs_out.Vertex.x *= -1.0;
 
-
-
     //-------------------------------------------------------
     // Calculate biNormal
     vec3 VT, VB, VN ;
