@@ -146,22 +146,24 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
 {
 
    
-   b =0.0;
-   if (uv.x < 0.065 ) b = 1.0;
-   if (uv.x > 0.935 ) b = 1.0;
-   if (uv.y < 0.065 ) b = 1.0;
-   if (uv.y > 0.935 ) b = 1.0;
+   if (flag < 111.0 ){
 
-    vec2  dx_vtc        = dFdx(uv*1024.0);
-    vec2  dy_vtc        = dFdy(uv*1024.0);
-    float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    
-    float mipLevel = 0.5 * log2(delta_max_sqr);
-   //return texture(samp,uv,0.6);
-    return textureLod( samp, uv, max(0.0, mipLevel) );
+        vec2  dx_vtc        = dFdx(uv*1024.0);
+        vec2  dy_vtc        = dFdy(uv*1024.0);
+        float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
 
-    // Disabled for now.
-   if (flag == 0.0 ){
+        float mipLevel = 0.5 * log2(delta_max_sqr);
+        //return texture(samp,uv,0.6);
+        vec2 cropped = fract(uv) * vec2(0.875) + vec2(0.0625);
+
+        b =0.0;
+        if (cropped.x < 0.065 ) b = 1.0;
+        if (cropped.x > 0.935 ) b = 1.0;
+        if (cropped.y < 0.065 ) b = 1.0;
+        if (cropped.y > 0.935 ) b = 1.0;
+
+        return textureLod( samp, cropped, max(0.0, mipLevel) );
+
         }
 
     // sample variation pattern    
@@ -202,7 +204,7 @@ vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec4 Row3, in vec2 _uv) {
   
     vec2 out_uv = vec2(tv.x, tv.z);
     
-    return fract(out_uv) * vec2(0.875) + vec2(0.0625);
+    //return fract(out_uv) * vec2(0.875) + vec2(0.0625);
     return out_uv;
     }
 
