@@ -10,6 +10,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "nuTerraWPF", "nuTerraWPF\nuTerraWPF.vbproj", "{5D452983-0738-43A9-83E0-A402E4ABAB48}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,18 @@ Global
 		{62DB32AB-490B-4210-8570-C744B428E69F}.Release|x64.Build.0 = Release|x64
 		{62DB32AB-490B-4210-8570-C744B428E69F}.Release|x86.ActiveCfg = Release|x86
 		{62DB32AB-490B-4210-8570-C744B428E69F}.Release|x86.Build.0 = Release|x86
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Debug|x64.Build.0 = Debug|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Debug|x86.Build.0 = Debug|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Release|x64.ActiveCfg = Release|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Release|x64.Build.0 = Release|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Release|x86.ActiveCfg = Release|Any CPU
+		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
