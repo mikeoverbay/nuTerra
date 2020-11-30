@@ -190,6 +190,8 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
     vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
     
+    float dirtLevel = BLEND.z;
+
     float b = -BLEND.x + 1.0;
     BLEND.z = clamp(-BLEND.y + b, 0.0, 1.0);
 
@@ -231,18 +233,17 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
     float dirt_blend = thisMaterial.dirtParams.x;
 
-    vec4 DIRT = textureLod(thisMaterial.maps[4],uv4,mip);
+    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.TC1,mip);
     DIRT.rgb *= thisMaterial.dirtColor.rgb;
+    DIRT.rgb *= DIRT.a;
     //============================================
-    vec4 colorAM;
+    vec4 colorAM, R0;
     colorAM.xyz =  colorAM_y.xyz * BLEND.yyy;
     colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
     colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
 
-    //colorAM.xyz = BLEND.zzz;
-
-    //colorAM = mix(colorAM, DIRT, BLEND.b);
-
+    colorAM = mix(colorAM,DIRT*colorAM, dirtLevel*dirt_blend*0.5);
+    //colorAM.r = dirtLevel;
     colorAM *= BLEND.a;
     gColor = colorAM;
 
@@ -284,6 +285,8 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
     vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
     
+    float dirtLevel = BLEND.z;
+
     float b = -BLEND.x + 1.0;
     BLEND.z = clamp(-BLEND.y + b, 0.0, 1.0);
 
@@ -323,8 +326,9 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
     float dirt_blend = thisMaterial.dirtParams.x;
 
-    vec4 DIRT = textureLod(thisMaterial.maps[4],uv4,mip);
+    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.TC1,mip);
     DIRT.rgb *= thisMaterial.dirtColor.rgb;
+    DIRT.rgb *= DIRT.a;
     //============================================
 
     vec4 colorAM;
@@ -332,7 +336,8 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
     colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
 
-    colorAM = mix(colorAM,DIRT, BLEND.b);
+    colorAM = mix(colorAM,DIRT*colorAM, dirtLevel*dirt_blend*0.5);
+
     colorAM *= BLEND.a;
     gColor = colorAM;
 
