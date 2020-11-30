@@ -184,7 +184,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     uv4 = UVs + fs_in.UV4;
 
     float mip = mip_map_level(fs_in.TC2);
-    vec4 BLEND = texture(thisMaterial.maps[3], uv4);
+    vec4 BLEND = textureLod(thisMaterial.maps[3], uv4,0.0);
 
     vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
     vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
@@ -242,7 +242,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
     colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
 
-    colorAM = mix(colorAM,DIRT*colorAM, dirtLevel*dirt_blend*0.5);
+    colorAM = mix(colorAM,DIRT*colorAM, dirtLevel*dirt_blend*0.25);
     //colorAM.r = dirtLevel;
     colorAM *= BLEND.a;
     gColor = colorAM;
@@ -279,7 +279,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     uv4 = UVs + fs_in.UV4;
 
     float mip = mip_map_level(fs_in.TC2);
-    vec4 BLEND = texture(thisMaterial.maps[3], uv4);
+    vec4 BLEND = textureLod(thisMaterial.maps[3], uv4,0.0);
 
     vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
     vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
@@ -336,7 +336,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
     colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
 
-    colorAM = mix(colorAM,DIRT*colorAM, dirtLevel*dirt_blend*0.5);
+    colorAM = mix(colorAM,DIRT*colorAM, dirtLevel*dirt_blend*0.25);
 
     colorAM *= BLEND.a;
     gColor = colorAM;
