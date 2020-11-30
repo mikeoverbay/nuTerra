@@ -186,9 +186,28 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     float mip = mip_map_level(fs_in.TC2);
     vec4 BLEND = texture(thisMaterial.maps[3], uv4);
 
-    vec4 colorAM_1 = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
-    vec4 colorAM_2 = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
-    vec4 colorAM_3 = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
+    vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
+    vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
+    vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
+    
+    float b = -BLEND.x + 1.0;
+    BLEND.z = clamp(-BLEND.y + b, 0.0, 1.0);
+
+    BLEND.z += 0.01;
+
+    BLEND.x *= colorAM_x.a;
+    BLEND.y *= colorAM_y.a;
+    BLEND.z *= colorAM_z.a;
+
+    BLEND.xyz *= BLEND.xyz;
+    BLEND.xyz *= BLEND.xyz;
+    BLEND.xyz *= BLEND.xyz;
+//    BLEND.xyz *= BLEND.xyz;
+
+
+    float d = dot(BLEND.xyz, vec3(0.99));
+    BLEND.xyz = BLEND.xyz/d;
+
 
     vec4 GBMT, MAO;
     vec2 DOM_UV;
@@ -214,21 +233,16 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 
     vec4 DIRT = textureLod(thisMaterial.maps[4],uv4,mip);
     DIRT.rgb *= thisMaterial.dirtColor.rgb;
-
     //============================================
-    // Some 40 plus hours of trial and error to get this working.
-    // The mix texture has to be compressed down/squished.
-    BLEND.r = smoothstep(BLEND.r*colorAM_1.a,0.00,0.09);
-    BLEND.g = smoothstep(BLEND.g*colorAM_2.a,0.00,0.25);
-    BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
-    BLEND = correct(BLEND,4.0,0.8);
-    //============================================
+    vec4 colorAM;
+    colorAM.xyz =  colorAM_y.xyz * BLEND.yyy;
+    colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
+    colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
 
-    vec4 colorAM = colorAM_3;
-    colorAM = mix(colorAM,colorAM_1, BLEND.r);
-    colorAM = mix(colorAM,colorAM_2, BLEND.g);
-          
-    colorAM = mix(colorAM,DIRT, BLEND.b);
+    //colorAM.xyz = BLEND.zzz;
+
+    //colorAM = mix(colorAM, DIRT, BLEND.b);
+
     colorAM *= BLEND.a;
     gColor = colorAM;
 
@@ -266,9 +280,26 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     float mip = mip_map_level(fs_in.TC2);
     vec4 BLEND = texture(thisMaterial.maps[3], uv4);
 
-    vec4 colorAM_1 = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
-    vec4 colorAM_2 = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
-    vec4 colorAM_3 = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
+    vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
+    vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
+    vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
+    
+    float b = -BLEND.x + 1.0;
+    BLEND.z = clamp(-BLEND.y + b, 0.0, 1.0);
+
+    BLEND.z += 0.01;
+
+    BLEND.x *= colorAM_x.a;
+    BLEND.y *= colorAM_y.a;
+    BLEND.z *= colorAM_z.a;
+
+    BLEND.xyz *= BLEND.xyz;
+    BLEND.xyz *= BLEND.xyz;
+    BLEND.xyz *= BLEND.xyz;
+
+
+    float d = dot(BLEND.xyz, vec3(1.0));
+    BLEND.xyz = BLEND.xyz/d;
 
     vec4 GBMT, MAO;
     vec2 DOM_UV;
@@ -294,19 +325,12 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 
     vec4 DIRT = textureLod(thisMaterial.maps[4],uv4,mip);
     DIRT.rgb *= thisMaterial.dirtColor.rgb;
-
-    //============================================
-    // Some 40 plus hours of trial and error to get this working.
-    // The mix texture has to be compressed down/squished.
-    BLEND.r = smoothstep(BLEND.r*colorAM_1.a,0.00,0.09);
-    BLEND.g = smoothstep(BLEND.g*colorAM_2.a,0.00,0.25);
-    BLEND.b = smoothstep(BLEND.b,0.00,0.6);// uncertain still... but this value seems to work well
-    BLEND = correct(BLEND,4.0,0.8);
     //============================================
 
-    vec4 colorAM = colorAM_3;
-    colorAM = mix(colorAM,colorAM_1, BLEND.r);
-    colorAM = mix(colorAM,colorAM_2, BLEND.g);
+    vec4 colorAM;
+    colorAM.xyz =  colorAM_y.xyz * BLEND.yyy;
+    colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
+    colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
 
     colorAM = mix(colorAM,DIRT, BLEND.b);
     colorAM *= BLEND.a;

@@ -148,15 +148,15 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
 {
 
    
-   if (flag < 111.0 ){
+   if (flag == 0.0 ){
 
         vec2  dx_vtc        = dFdx(uv*1024.0);
         vec2  dy_vtc        = dFdy(uv*1024.0);
         float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
 
         float mipLevel = 0.5 * log2(delta_max_sqr);
-        //return texture(samp,uv,0.6);
-        vec2 cropped = fract(uv) * vec2(0.875) + vec2(0.0625);
+
+        vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
 
         b =0.0;
         if (cropped.x < 0.065 ) b = 1.0;
@@ -167,6 +167,14 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
         return textureLod( samp, cropped, max(0.0, mipLevel) );
 
         }
+
+    vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
+
+    b =0.0;
+    if (cropped.x < 0.065 ) b = 1.0;
+    if (cropped.x > 0.935 ) b = 1.0;
+    if (cropped.y < 0.065 ) b = 1.0;
+    if (cropped.y > 0.935 ) b = 1.0;
 
     // sample variation pattern    
     float k = texture( NRP_noise, fract(uv)*0.005 ).x; // cheap (cache friendly) lookup    
@@ -193,20 +201,19 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
     return mix( cola, colb, s);
     }
 
-vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec4 Row3, in vec2 _uv) {
+vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1) {
 
+    mat4 M;
+    M[0] = vec4(U.x,    U.y,    U.z,    U.w);
+    M[1] = vec4(0.0,    1.0,    0.0,    0.0);
+    M[2] = vec4(V.x,    V.y,    V.z,    V.w);
+    //M[3] = vec4(R1.x,    R1.y,    R1.z,    1.0);
+    M[3] = vec4(0.0,    0.0,    0.0,    1.0);
 
-    mat4 rs;
-    rs[0] = vec4(Row0.x, Row0.y, Row0.z, Row0.w);
-    rs[1] = vec4(0.0,    1.0,    0.0,    0.0);
-    rs[2] = vec4(Row2.x, Row2.y, Row2.z, Row2.w);
-    rs[3] = vec4(Row3.x, 0.0,    Row3.z, 1.0);
-    rs[3] = vec4(0.0,    0.0,    0.0,    1.0);
-    vec4 tv = rs * vec4(_uv.x, 0.0, _uv.y, 1.0); 
+    vec4 tv = M * fs_in.Vertex; 
   
-    vec2 out_uv = vec2(tv.x, tv.z);
+    vec2 out_uv = vec2(tv.x+0.5, tv.z+0.5);
     
-    //return fract(out_uv) * vec2(0.875) + vec2(0.0625);
     return out_uv;
     }
 
@@ -219,6 +226,7 @@ vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec4 Row3, in vec2 _uv) {
 void main(void)
 {
     //==============================================================
+    // texture outline stuff
     float B1, B2, B3, B4, B5, B6, B7, B8;
     vec4 color_1 = vec4(1.0,  1.0,  0.0,  0.0);
     vec4 color_2 = vec4(0.0,  1.0,  0.0,  0.0);
@@ -228,6 +236,7 @@ void main(void)
     vec4 color_6 = vec4(1.0,  0.65, 0.0,  0.0);
     vec4 color_7 = vec4(1.0,  0.49, 0.31, 0.0);
     vec4 color_8 = vec4(0.5,  0.5,  0.5,  0.0);
+    //==============================================================
 
     vec4 t1, t2, t3, t4, t5, t6, t7, t8;
     vec4 n1, n2, n3, n4, n5, n6, n7, n8;
@@ -246,20 +255,20 @@ void main(void)
 
     vec4 global = texture(global_AM, fs_in.Global_UV);
         //-------------------------------------------------------
-    vec2 scaled_uv = vec2(fs_in.Vertex.x, fs_in.Vertex.z);
+    vec4 scaled_uv = fs_in.Vertex;
 
     // create UV projections
-    tuv1 = get_transformed_uv(U1, V1, r1_1, scaled_uv); 
-    tuv2 = get_transformed_uv(U2, V2, r1_2, scaled_uv);
+    tuv1 = get_transformed_uv(U1, V1, r1_1); 
+    tuv2 = get_transformed_uv(U2, V2, r1_2);
 
-    tuv3 = get_transformed_uv(U3, V3, r1_3, scaled_uv); 
-    tuv4 = get_transformed_uv(U4, V4, r1_4, scaled_uv);
+    tuv3 = get_transformed_uv(U3, V3, r1_3); 
+    tuv4 = get_transformed_uv(U4, V4, r1_4);
 
-    tuv5 = get_transformed_uv(U5, V5, r1_5, scaled_uv); 
-    tuv6 = get_transformed_uv(U6, V6, r1_6, scaled_uv);
+    tuv5 = get_transformed_uv(U5, V5, r1_5); 
+    tuv6 = get_transformed_uv(U6, V6, r1_6);
 
-    tuv7 = get_transformed_uv(U7, V7, r1_7, scaled_uv);
-    tuv8 = get_transformed_uv(U8, V8, r1_8, scaled_uv);
+    tuv7 = get_transformed_uv(U7, V7, r1_7);
+    tuv8 = get_transformed_uv(U8, V8, r1_8);
 
     // Get AM maps,crop, detilize and set Test outline blend flag
     t1 = textureNoTile(layer_1T1, tuv1, r1_1.z, B1);
