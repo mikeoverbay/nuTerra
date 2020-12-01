@@ -192,8 +192,8 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     
     float dirtLevel = blend.z;
 
-    float b = -blend.z + 1.0;
-    blend.y = clamp(-blend.y + b, 0.0, 1.0);
+//    float b = -blend.z + 1.0;
+//    blend.y = clamp(-blend.y + b, 0.0, 1.0);
 
     blend.z += 0.01;
 
@@ -292,8 +292,8 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     
     float dirtLevel = blend.z;
 
-    float b = -blend.z + 1.0;
-    blend.y = clamp(-blend.y + b, 0.0, 1.0);
+//    float b = -blend.z + 1.0;
+//    blend.y = clamp(-blend.y + b, 0.0, 1.0);
 
     blend.z += 0.01;
 
