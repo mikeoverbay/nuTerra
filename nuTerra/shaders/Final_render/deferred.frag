@@ -157,14 +157,14 @@ void main (void)
                 // Poor mans PBR :)
                 // how shinny this is
                 POWER = max(GM_in.r* 60.0,0.5);
-                INTENSITY = max(GM_in.r * GM_in.g  ,0.0);
+                INTENSITY = max(GM_in.r  ,0.0);
                 // How metalic his is
                 color_in.rgb = mix(color_in.rgb,
-                                   color_in.rgb * vec3(0.04), max( metal * 0.25 , 0.01) );
+                                   color_in.rgb * vec3(0.04), max( metal * 0.25 , 0.00) );
                 //---------------------------------------------
 
             }
-            vec4 final_color = vec4(0.25, 0.25, 0.25, 1.0) * color_in ;
+            vec4 final_color = vec4(0.225, 0.25, 0.25, 1.0) * color_in ;
 
             vec4 Ambient_level = color_in * vec4(AMBIENT * 3.0);
 
@@ -172,7 +172,7 @@ void main (void)
 
             float dist = length(LightPosModelView - Position);
             float cutoff = 10000.0;
-            vec4 color = vec4(0.36, 0.36, 0.36, 1.0);
+            vec4 color = mix(vec4(sunColor,0.0),vec4(0.5),0.6);
 
             vec3 V = normalize(-Position);
 
@@ -182,7 +182,7 @@ void main (void)
             if (dist < cutoff) {
 
                 float lambertTerm = pow(max(dot(N, L),0.001),GM_in.r);
-                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz * sunColor,0.0);
+                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0);
 
 
 
@@ -193,21 +193,22 @@ void main (void)
                 vec3 R = reflect(-V,N);
                 R.xz *= -1.0;
 
-                vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut, vec2(1.0-lambertTerm*0.45, 1.0-metal) ));
+                vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut, vec2(1.0-lambertTerm * 0.25, 1.0-metal) ));
                 vec3 specular =  (vec3(spec) * brdf.x + brdf.y);
 
 
-                vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,  max(4.0-GM_in.g *4, 0.0)));
+                vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,  max(4.0-GM_in.g *4.0, 0.0)));
                 // GM_in.b is the alpha channel.
                 prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb + specular, GM_in.b*0.2);
                 vec3 refection = prefilteredColor.rgb;
 
    
                 final_color.xyz += refection;
-                final_color = lut_color_correction( final_color );
+
                 // Fade to ambient over distance
 
                 final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;
+                final_color = lut_color_correction( final_color );
 
             } else {
                 final_color = Ambient_level * BRIGHTNESS;
@@ -288,7 +289,7 @@ void main (void)
 
             /*===================================================================*/
             // Final Output
-            outColor =  correct(final_color,1.9,0.9)*2.25;
+            outColor =  correct(final_color,1.4,1.2)*1.6;
             outColor.a = fogFactor;
             /*===================================================================*/
         //if flag != 128
