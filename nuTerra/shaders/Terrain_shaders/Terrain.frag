@@ -312,7 +312,7 @@ void main(void)
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
 
-    // Mix our textures in to base and
+    // Mix our textures in to base
 
     vec4 base = vec4(0.0);  
 

@@ -184,36 +184,36 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     uv4 = UVs + fs_in.UV4;
 
     float mip = mip_map_level(fs_in.TC2);
-    vec4 BLEND = textureLod(thisMaterial.maps[3], uv4,0.0);
+    vec4 blend = textureLod(thisMaterial.maps[3], uv4,0.0);
 
     vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
     vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
     vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
     
-    float dirtLevel = BLEND.z;
+    float dirtLevel = blend.z;
 
-    float b = -BLEND.x + 1.0;
-    BLEND.z = clamp(-BLEND.y + b, 0.0, 1.0);
+    float b = -blend.z + 1.0;
+    blend.y = clamp(-blend.y + b, 0.0, 1.0);
 
-    BLEND.z += 0.01;
+    blend.z += 0.01;
 
-    BLEND.x *= colorAM_x.a;
-    BLEND.y *= colorAM_y.a;
-    BLEND.z *= colorAM_z.a;
+    blend.x *= colorAM_x.a;
+    blend.y *= colorAM_y.a;
+    blend.z *= colorAM_z.a;
 
-    BLEND.xyz *= BLEND.xyz;
-    BLEND.xyz *= BLEND.xyz;
-    BLEND.xyz *= BLEND.xyz;
-//    BLEND.xyz *= BLEND.xyz;
+    blend.xyz *= blend.xyz;
+    blend.xyz *= blend.xyz;
+    blend.xyz *= blend.xyz;
+//    blend.xyz *= blend.xyz;
 
 
-    float d = dot(BLEND.xyz, vec3(1.0));
-    BLEND.xyz = BLEND.xyz/d;
+    float d = dot(blend.xyz, vec3(1.0));
+    blend.xyz = blend.xyz/d;
 
 
     vec4 GBMT, MAO;
     vec2 DOM_UV;
-    switch (get_dom_mix(BLEND.xyz)){
+    switch (get_dom_mix(blend.xyz)){
         case 0:
             DOM_UV = uv1;
             break;
@@ -238,20 +238,22 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     DIRT.rgb *= DIRT.a;
     //============================================
     vec4 colorAM, r0;
-    r0 = BLEND;
-    colorAM.xyz =  colorAM_y.xyz * BLEND.yyy;
-    colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
-    colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
 
-    colorAM.rgb = mix(colorAM.rgb, DIRT.rgb, dirtLevel *0.35);
+    colorAM.xyz =  colorAM_y.xyz * blend.yyy;
+    colorAM.xyz += colorAM_z.xyz * blend.zzz;
+    colorAM.xyz += colorAM_x.xyz * blend.xxx;
+    
+    
+
+    //colorAM.rgb = mix(colorAM.rgb,colorAM.rgb * DIRT.rgb, dirtLevel *0.5);
  
 
     colorAM.rgb *= MAO.ggg;
-    colorAM *= BLEND.a;
+    colorAM *= blend.a;
     gColor = colorAM;
 
     //save Gloss.Metal
-    gGMF.ra = GBMT.rb;
+    gGMF.r = GBMT.r;
     gGMF.g = MAO.r;
         
     vec3 bump;
@@ -282,34 +284,34 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     uv4 = UVs + fs_in.UV4;
 
     float mip = mip_map_level(fs_in.TC2);
-    vec4 BLEND = textureLod(thisMaterial.maps[3], uv4,0.0);
+    vec4 blend = textureLod(thisMaterial.maps[3], uv4,0.0);
 
     vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
     vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
     vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
     
-    float dirtLevel = BLEND.z;
+    float dirtLevel = blend.z;
 
-    float b = -BLEND.x + 1.0;
-    BLEND.z = clamp(-BLEND.y + b, 0.0, 1.0);
+    float b = -blend.z + 1.0;
+    blend.y = clamp(-blend.y + b, 0.0, 1.0);
 
-    BLEND.z += 0.01;
+    blend.z += 0.01;
 
-    BLEND.x *= colorAM_x.a;
-    BLEND.y *= colorAM_y.a;
-    BLEND.z *= colorAM_z.a;
+    blend.x *= colorAM_x.a;
+    blend.y *= colorAM_y.a;
+    blend.z *= colorAM_z.a;
 
-    BLEND.xyz *= BLEND.xyz;
-    BLEND.xyz *= BLEND.xyz;
-    BLEND.xyz *= BLEND.xyz;
+    blend.xyz *= blend.xyz;
+    blend.xyz *= blend.xyz;
+    blend.xyz *= blend.xyz;
 
 
-    float d = dot(BLEND.xyz, vec3(1.0));
-    BLEND.xyz = BLEND.xyz/d;
+    float d = dot(blend.xyz, vec3(1.0));
+    blend.xyz = blend.xyz/d;
 
     vec4 GBMT, MAO;
     vec2 DOM_UV;
-    switch (get_dom_mix(BLEND.xyz)){
+    switch (get_dom_mix(blend.xyz)){
         case 0:
             DOM_UV = uv1;
             break;
@@ -335,21 +337,21 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     //============================================
 
     vec4 colorAM;
-    colorAM.xyz =  colorAM_y.xyz * BLEND.yyy;
-    colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
-    colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
+    colorAM.xyz =  colorAM_y.xyz * blend.yyy;
+    colorAM.xyz += colorAM_z.xyz * blend.zzz;
+    colorAM.xyz += colorAM_x.xyz * blend.xxx;
 
     colorAM.rgb = mix(colorAM.rgb, DIRT.rgb, dirtLevel *0.35);
  
 
     colorAM.rgb *= MAO.ggg;
-    colorAM *= BLEND.a;
+    colorAM *= blend.a;
     gColor = colorAM;
 
     //save Gloss.Metal
-    gGMF.ra = GBMT.rb;
+    gGMF.r = GBMT.r;
     gGMF.g = MAO.r;
-
+        
     vec3 bump;
 
     GBMT = mix(GBMT, globalTex, 0.5); // mix in the global NormalMap
