@@ -207,7 +207,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 //    BLEND.xyz *= BLEND.xyz;
 
 
-    float d = dot(BLEND.xyz, vec3(0.99));
+    float d = dot(BLEND.xyz, vec3(1.0));
     BLEND.xyz = BLEND.xyz/d;
 
 
@@ -226,24 +226,27 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
             DOM_UV = uv3;
         }
 
-    GBMT =    texture(thisMaterial.maps[1],DOM_UV);
-    MAO =     texture(thisMaterial.maps[2],DOM_UV);
+    GBMT =    textureLod(thisMaterial.maps[1],DOM_UV,mip);
+    MAO =     textureLod(thisMaterial.maps[2],DOM_UV,mip);
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
     float dirt_blend = thisMaterial.dirtParams.x;
 
     vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.TC1,mip);
-    DIRT.rgb *= thisMaterial.dirtColor.rgb;
+    //DIRT.rgb *= thisMaterial.dirtColor.rgb;
     DIRT.rgb *= DIRT.a;
     //============================================
-    vec4 colorAM, R0;
+    vec4 colorAM, r0;
+    r0 = BLEND;
     colorAM.xyz =  colorAM_y.xyz * BLEND.yyy;
     colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
     colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
 
-    colorAM = mix(colorAM,DIRT*colorAM, dirtLevel*dirt_blend*0.25);
-    //colorAM.r = dirtLevel;
+    colorAM.rgb = mix(colorAM.rgb, DIRT.rgb, dirtLevel *0.35);
+ 
+
+    colorAM.rgb *= MAO.ggg;
     colorAM *= BLEND.a;
     gColor = colorAM;
 
@@ -255,7 +258,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
     bump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
-    bump.y = -bump.y;
+    bump.xy = -bump.xy;
 
     gNormal = normalize(fs_in.TBN * bump);
 }
@@ -319,8 +322,8 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
             DOM_UV = uv3;
         }
 
-    GBMT =    texture(thisMaterial.maps[1],DOM_UV);
-    MAO =     texture(thisMaterial.maps[2],DOM_UV);
+    GBMT =    textureLod(thisMaterial.maps[1],DOM_UV,mip);
+    MAO =     textureLod(thisMaterial.maps[2],DOM_UV,mip);
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
@@ -336,8 +339,10 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     colorAM.xyz += colorAM_z.xyz * BLEND.zzz;
     colorAM.xyz += colorAM_x.xyz * BLEND.xxx;
 
-    colorAM = mix(colorAM,DIRT*colorAM, dirtLevel*dirt_blend*0.25);
+    colorAM.rgb = mix(colorAM.rgb, DIRT.rgb, dirtLevel *0.35);
+ 
 
+    colorAM.rgb *= MAO.ggg;
     colorAM *= BLEND.a;
     gColor = colorAM;
 
@@ -352,7 +357,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
     bump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
-    bump.y = -bump.y;
+    bump.xy = -bump.xy;
     gNormal = normalize(fs_in.TBN * bump);
 }
 //##################################################################################
