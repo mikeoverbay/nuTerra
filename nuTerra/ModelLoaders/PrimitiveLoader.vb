@@ -380,6 +380,11 @@ Module PrimitiveLoader
                     .pos.X = -br.ReadSingle
                     .pos.Y = br.ReadSingle
                     .pos.Z = br.ReadSingle
+
+                    round_signed_to(.pos.X, 2)
+                    round_signed_to(.pos.Y, 2)
+                    round_signed_to(.pos.Z, 2)
+
                     If realNormals Then
                         .normal.X = -br.ReadSingle
                         .normal.Y = br.ReadSingle
@@ -417,6 +422,12 @@ Module PrimitiveLoader
                 End With
             Next
         Next
+    End Sub
+    Public Sub round_signed_to(ByRef n As Single, ByRef places As Integer)
+        Dim t As Single = Truncate(n)
+        Dim r As Integer = (n - t) * (10 ^ places)
+        Dim r2 As Single = r / (10 ^ places)
+        n = t + r2
     End Sub
 
     Public Sub load_primitives_uv2(br As BinaryReader,

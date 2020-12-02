@@ -36,7 +36,9 @@ uniform float GAMMA_LEVEL;
 
 uniform vec3 ambientColorForward;
 uniform vec3 sunColor;
-uniform int light_count ;
+uniform int  light_count;
+uniform vec3 waterColor;
+uniform vec3 viewPos;
 
 #define MAXCOLOR 15.0
 #define COLORS 16.0
@@ -141,12 +143,13 @@ void main (void)
             vec3 GM_in = texture(gGMF, fs_in.UV).xya;
         
             vec3 LightPosModelView = LightPos.xyz;
+           
+            color_in.rgb = mix(color_in.rgb, waterColor.rgb,GM_in.z);
 
-            // lighting calculations
-            vec3 vd = normalize(-Position);//view direction
             vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
             vec3 N = normalize(texture(gNormal, fs_in.UV).xyz);
+
             float POWER;
             float INTENSITY;
 
@@ -156,15 +159,15 @@ void main (void)
                 //---------------------------------------------
                 // Poor mans PBR :)
                 // how shinny this is
-                POWER = max(GM_in.r* 60.0,0.5);
-                INTENSITY = max(GM_in.r  ,0.0);
+                POWER = max(GM_in.r* 60.0,3.0);
+                INTENSITY = GM_in.r;
                 // How metalic his is
                 color_in.rgb = mix(color_in.rgb,
                                    color_in.rgb * vec3(0.04), max( metal * 0.25 , 0.00) );
                 //---------------------------------------------
 
             }
-            vec4 final_color = vec4(0.225, 0.25, 0.25, 1.0) * color_in ;
+            vec4 final_color = vec4(0.25, 0.25, 0.25, 1.0) * color_in ;
 
             vec4 Ambient_level = color_in * vec4(AMBIENT * 3.0);
 
@@ -174,7 +177,8 @@ void main (void)
             float cutoff = 10000.0;
             vec4 color = mix(vec4(sunColor,0.0),vec4(0.5),0.6);
 
-            vec3 V = normalize(-Position);
+            vec3 vp = (vec3(view * vec4(viewPos,1.0)));
+            vec3 V = normalize(vp-Position);
 
             float perceptualRoughness = 0.2;
 
@@ -184,13 +188,13 @@ void main (void)
                 float lambertTerm = pow(max(dot(N, L),0.001),GM_in.r);
                 final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0);
 
-
-
-                vec3 halfwayDir = normalize(L + vd);
-
-                float spec = max(pow(dot(N, halfwayDir), POWER ),0.0001) * SPECULAR * INTENSITY;
-   
                 vec3 R = reflect(-V,N);
+
+
+                vec3 halfwayDir = normalize(L + V);
+
+                float spec = max(pow(dot(N,halfwayDir), POWER ),0.0001) * SPECULAR * INTENSITY;
+   
                 R.xz *= -1.0;
 
                 vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut, vec2(1.0-lambertTerm * 0.25, 1.0-metal) ));
@@ -198,12 +202,13 @@ void main (void)
 
 
                 vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,  max(4.0-GM_in.g *4.0, 0.0)));
+                vec4 W_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,  max(GM_in.z *2.0, 0.0)));
                 // GM_in.b is the alpha channel.
                 prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb + specular, GM_in.b*0.2);
-                vec3 refection = prefilteredColor.rgb;
 
-   
-                final_color.xyz += refection;
+                vec3 water_reflect =  mix(vec3(specular), W_prefilteredColor.rgb + specular, GM_in.b*0.3);
+                //final_color.xyz += prefilteredColor.xyz + water_reflect;
+                final_color.xyz += specular;
 
                 // Fade to ambient over distance
 
@@ -272,7 +277,7 @@ void main (void)
                     float radius = 10.0;
                     
                     if (dist < radius) {
-                    //dist *=lights[i].level;
+                 
                     vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
                     float lambertTerm = pow(max(dot(N, L),0.001),GM_in.r);
