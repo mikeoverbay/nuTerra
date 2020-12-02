@@ -814,7 +814,7 @@ Module modRender
         FBOm.attach_CNGP()
         GL.DepthMask(False)
 
-        If WIRE_MODELS Or NORMAL_DISPLAY_MODE > 0 Then
+        If WIRE_MODELS Then
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
 

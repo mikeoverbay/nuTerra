@@ -21,6 +21,7 @@ out VS_OUT
     vec3 n;
     vec3 t;
     vec3 b;
+    mat4 matrix;
 } vs_out;
 
 void main(void)
@@ -31,14 +32,13 @@ void main(void)
     // Calculate vertex position in clip coordinates
 
     vec3 offsetVertex;
-    offsetVertex = vertexPosition.xyz + (vertexNormal.xyz * 0.02);
-    gl_Position = viewProj * thisModel.matrix * vec4(offsetVertex, 1.0);
-
+    offsetVertex = vertexPosition.xyz + (vertexNormal.xyz * 0.005);
+    gl_Position = vec4(offsetVertex, 1.0);
+    vs_out.matrix = viewProj * thisModel.matrix;
     // Should be mat3(transpose(inverse(view * thisModel.matrix))), but it's very slow
-    mat3 normalMatrix = mat3(view * thisModel.matrix);
-    vs_out.n = normalize(vec3(projection * vec4(normalMatrix * vertexNormal.xyz, 0.0f)));
-    vs_out.t = normalize(vec3(projection * vec4(normalMatrix * vertexTangent.xyz, 0.0f)));
-    vs_out.b = normalize(vec3(projection * vec4(normalMatrix * vertexBinormal.xyz, 0.0f)));
+    vs_out.n = normalize(vertexNormal.xyz);
+    vs_out.t = normalize(vertexTangent.xyz);
+    vs_out.b = normalize(vertexBinormal.xyz);
 
     //Make angles perpendicular
     vs_out.t -= dot(vs_out.n, vs_out.t) * vs_out.n;
