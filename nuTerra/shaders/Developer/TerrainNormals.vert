@@ -18,6 +18,7 @@ out VS_OUT
     vec3 n;
     vec3 t;
     vec3 b;
+    mat4 matrix;
 } vs_out;
 
 void main(void)
@@ -26,16 +27,20 @@ void main(void)
     
     // Calculate vertex position in clip coordinates
     vec3 offsetVertex;
-    offsetVertex = vertexPosition.xyz + (vertexNormal.xyz * 0.02);
-    gl_Position = viewProj * model * vec4(offsetVertex, 1.0);
+    offsetVertex = vertexPosition.xyz + (vertexNormal.xyz * 0.005);
+    gl_Position = vec4(offsetVertex, 1.0);
+    vs_out.matrix = viewProj * model;
 
-
-    mat3 normalMatrix = mat3(transpose(inverse(view * model)));
+   
     vec3 VT = vertexTangent.xyz - dot(vertexNormal.xyz, vertexTangent.xyz) * vertexNormal.xyz;
     vec3 worldBiTangent = cross(VT, vertexNormal.xyz);
     //--------------------
     // NOTE: vertexNormal is already normalized in the VBO.
-    vs_out.n = normalize(vec3(projection * vec4(normalMatrix * vertexNormal.xyz, 0.0f)));
-    vs_out.t = normalize(vec3(projection * vec4(normalMatrix * vertexTangent.xyz, 0.0f)));
-    vs_out.b= normalize(vec3(projection * vec4(normalMatrix * worldBiTangent.xyz, 0.0f)));
+    vs_out.n = normalize(vertexNormal.xyz);
+    vs_out.t = normalize(vertexTangent.xyz);
+    vs_out.b = normalize(worldBiTangent.xyz);
+    //Make angles perpendicular
+    vs_out.t -= dot(vs_out.n, vs_out.t) * vs_out.n;
+    vs_out.b -= dot(vs_out.n, vs_out.b) * vs_out.n;
+
 }

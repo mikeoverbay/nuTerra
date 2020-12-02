@@ -158,9 +158,7 @@ Module ChunkFunctions
             v0.Xz = XY(ia) : v0.Y = Z(ia)
             V1.Xz = XY(ib) : V1.Y = Z(ib)
             v2.Xz = XY(ic) : v2.Y = Z(ic)
-            'v0 += New Vector3(50.0, 0.0, 50.0)
-            'V1 += New Vector3(50.0, 0.0, 50.0)
-            'v2 += New Vector3(50.0, 0.0, 50.0)
+
             Dim uv0 = UV(ia)
             Dim uv1 = UV(ib)
             Dim uv2 = UV(ic)
@@ -175,13 +173,12 @@ Module ChunkFunctions
 
             tangent.Normalize()
 
-            t_buff(ia) += tangent
-            t_buff(ib) += tangent
-            t_buff(ic) += tangent
+            t_buff(ia) = tangent
+            t_buff(ib) = tangent
+            t_buff(ic) = tangent
 
         Next
         For i = 0 To t_buff.Length - 1
-            t_buff(i).Normalize()
             n_buff(i).Normalize()
         Next
     End Sub
