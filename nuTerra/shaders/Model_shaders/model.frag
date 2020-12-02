@@ -69,7 +69,7 @@ void get_normal(in float mip)
         discard;
     }
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
-
+    gNormal.y = -gNormal.y;
 }
 //##################################################################################
 void get_and_write_no_mips(void){
@@ -88,7 +88,7 @@ void get_and_write_no_mips(void){
         discard;
     }
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
-
+    gNormal.y = -gNormal.y;
 }
 //##################################################################################
 vec3 get_detail_normal(vec4 normal){
@@ -259,7 +259,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
     bump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
-    bump.xy = -bump.xy;
+    bump.y = -bump.y;
 
     gNormal = normalize(fs_in.TBN * bump);
 }
@@ -358,7 +358,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
     bump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
-    bump.xy = -bump.xy;
+    bump.y = -bump.y;
     gNormal = normalize(fs_in.TBN * bump);
 }
 //##################################################################################

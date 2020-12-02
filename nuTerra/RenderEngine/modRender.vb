@@ -313,6 +313,16 @@ Module modRender
 
         GL.Uniform3(deferredShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
 
+        GL.Uniform3(deferredShader("waterColor"),
+                        Map_wetness.waterColor.X,
+                        Map_wetness.waterColor.Y,
+                        Map_wetness.waterColor.Z)
+
+        GL.Uniform3(deferredShader("viewPos"),
+                        CAM_POSITION.X,
+                        CAM_POSITION.Y,
+                        CAM_POSITION.Z)
+
         FBOm.gColor.BindUnit(0)
         FBOm.gNormal.BindUnit(1)
         FBOm.gGMF.BindUnit(2)
