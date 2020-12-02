@@ -100,14 +100,14 @@ vec3 get_detail_normal(vec4 normal){
     return normalize(bump);
 }
 //##################################################################################
-float mip_map_level(in vec2 iUV)
+float get_mip_map_level(sampler2D samp)
 {
-    ivec2 isize = textureSize(thisMaterial.maps[0],0);
-    vec2  dx_vtc        = dFdx(iUV * float(isize.x));
-    vec2  dy_vtc        = dFdy(iUV * float(isize.y));
+    ivec2 isize = textureSize(samp,0);
+    vec2  dx_vtc        = dFdx(fs_in.TC1 * float(isize.x));
+    vec2  dy_vtc        = dFdy(fs_in.TC1 * float(isize.y));
     float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
     
-    return round(0.55 * log2(d)); 
+    return round(0.25 * log2(d)); 
 }
 //##################################################################################
 int get_dom_mix(in vec3 b){
@@ -145,12 +145,11 @@ layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 //##################################################################################
 layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
 {
-    float mip = mip_map_level(fs_in.TC1);
-    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, mip); // color
-    gColor *= textureLod(thisMaterial.maps[3], fs_in.TC2, mip); // color2
+    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, get_mip_map_level(thisMaterial.maps[0])); // color
+    gColor *= textureLod(thisMaterial.maps[3], fs_in.TC2, get_mip_map_level(thisMaterial.maps[3])); // color2
     gColor *= thisMaterial.g_colorTint;
     gColor.rgb *= 2.0; // this will need tweaking
-    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, mip).rg; // gloss/metal
+    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, get_mip_map_level(thisMaterial.maps[2])).rg; // gloss/metal
     get_and_write_no_mips();}
 //##################################################################################
 layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
@@ -183,12 +182,11 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     UVs = zeroONE*fs_in.scale_4 + fs_in.offset_4;
     uv4 = UVs + fs_in.UV4;
 
-    float mip = mip_map_level(fs_in.TC2);
     vec4 blend = textureLod(thisMaterial.maps[3], uv4,0.0);
 
-    vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
-    vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
-    vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
+    vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile0Tint;
+    vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile1Tint;
+    vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile2Tint;
     
     float dirtLevel = blend.z;
 
@@ -226,14 +224,15 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
             DOM_UV = uv3;
         }
 
-    GBMT =    textureLod(thisMaterial.maps[1],DOM_UV,mip);
-    MAO =     textureLod(thisMaterial.maps[2],DOM_UV,mip);
+    GBMT = textureLod(thisMaterial.maps[1],DOM_UV,get_mip_map_level(thisMaterial.maps[1]));
+    MAO  = textureLod(thisMaterial.maps[2],DOM_UV,get_mip_map_level(thisMaterial.maps[2]));
+
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
     float dirt_blend = thisMaterial.dirtParams.x;
 
-    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.TC1,mip);
+    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.TC1,get_mip_map_level(thisMaterial.maps[4]));
     //DIRT.rgb *= thisMaterial.dirtColor.rgb;
     DIRT.rgb *= DIRT.a;
     //============================================
@@ -283,13 +282,12 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     UVs = zeroONE*fs_in.scale_4 + fs_in.offset_4;
     uv4 = UVs + fs_in.UV4;
 
-    float mip = mip_map_level(fs_in.TC2);
     vec4 blend = textureLod(thisMaterial.maps[3], uv4,0.0);
 
-    vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,mip) * thisMaterial.g_tile0Tint;
-    vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,mip) * thisMaterial.g_tile1Tint;
-    vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,mip) * thisMaterial.g_tile2Tint;
-    
+    vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile0Tint;
+    vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile1Tint;
+    vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile2Tint;
+
     float dirtLevel = blend.z;
 
     float b = -blend.y + 1.0;
@@ -324,14 +322,15 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
             DOM_UV = uv3;
         }
 
-    GBMT =    textureLod(thisMaterial.maps[1],DOM_UV,mip);
-    MAO =     textureLod(thisMaterial.maps[2],DOM_UV,mip);
+    GBMT = textureLod(thisMaterial.maps[1],DOM_UV,get_mip_map_level(thisMaterial.maps[1]));
+    MAO  = textureLod(thisMaterial.maps[2],DOM_UV,get_mip_map_level(thisMaterial.maps[2]));
+
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
     float dirt_blend = thisMaterial.dirtParams.x;
 
-    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.TC1,mip);
+    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.TC1,get_mip_map_level(thisMaterial.maps[4]));
     DIRT.rgb *= thisMaterial.dirtColor.rgb;
     DIRT.rgb *= DIRT.a;
     //============================================
