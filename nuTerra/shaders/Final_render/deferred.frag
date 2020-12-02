@@ -206,9 +206,8 @@ void main (void)
                 // GM_in.b is the alpha channel.
                 prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb + specular, GM_in.b*0.2);
 
-                vec3 water_reflect =  mix(vec3(specular), W_prefilteredColor.rgb + specular, GM_in.b*0.3);
-                //final_color.xyz += prefilteredColor.xyz + water_reflect;
-                final_color.xyz += specular;
+                vec3 water_reflect =  mix(vec3(specular), W_prefilteredColor.rgb + specular, GM_in.b*0.2);
+                final_color.xyz += prefilteredColor.xyz + water_reflect;
 
                 // Fade to ambient over distance
 
