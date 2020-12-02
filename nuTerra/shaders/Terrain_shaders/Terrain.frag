@@ -370,7 +370,7 @@ void main(void)
 
     // global.a is used for wetness on the map.
     // I am not sure this should be applied to the AM color.
-    base.rgb = mix(base.rgb ,waterColor, global.a * waterAlpha);
+    //base.rgb = mix(base.rgb ,waterColor, global.a * waterAlpha);
     
     // Get pre=mixed map textures
     vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, map_id) );
