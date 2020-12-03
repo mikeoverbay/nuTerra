@@ -34,12 +34,9 @@ Module FBO_shadowBaker_mod
         End Sub
 
         Public Shared Function FBO_Make_Ready_For_Shadow_writes() As Boolean
-            If FBO_ShadowBaker_ID > 0 Then GL.DeleteFramebuffer(FBO_ShadowBaker_ID)
-            GL.Finish()
-            FBO_ShadowBaker_ID = CreateFramebuffer("ShadowBaker")
 
             GL.NamedFramebufferTexture(FBO_ShadowBaker_ID, FramebufferAttachment.ColorAttachment0, shadow_map.texture_id, 0)
-
+            'Need a deepth attachment
             GL.NamedFramebufferTexture(FBO_ShadowBaker_ID, FramebufferAttachment.DepthAttachment, gDepth.texture_id, 0)
 
             GL.NamedFramebufferDrawBuffers(FBO_ShadowBaker_ID, 1, attactments)
@@ -53,11 +50,10 @@ Module FBO_shadowBaker_mod
         End Function
 
         Public Shared Function FBO_Make_Ready_For_mask_writes() As Boolean
-            If FBO_ShadowBaker_ID > 0 Then GL.DeleteFramebuffer(FBO_ShadowBaker_ID)
-            GL.Finish()
-            FBO_ShadowBaker_ID = CreateFramebuffer("ShadowBaker")
 
             GL.NamedFramebufferTextureLayer(FBO_ShadowBaker_ID, FramebufferAttachment.ColorAttachment0, gBakerColorArray.texture_id, 0, 0)
+            'dont need depth attachment for creating shadow masks
+            GL.NamedFramebufferTexture(FBO_ShadowBaker_ID, FramebufferAttachment.DepthAttachment, 0, 0)
 
             GL.NamedFramebufferDrawBuffers(FBO_ShadowBaker_ID, 1, attactments)
 
