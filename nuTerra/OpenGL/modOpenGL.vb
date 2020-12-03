@@ -126,6 +126,17 @@ Module modOpenGL
     Public PerViewData As New TPerViewData
     Public PerViewDataBuffer As GLBuffer
 
+    Public Sub Sun_Ortho_main(ByRef pos As Point)
+        GL.Viewport(0, 0, FBO_ShadowBaker.shadow_map_size, FBO_ShadowBaker.shadow_map_size)
+        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(-75.0F - pos.X,
+                                                               75.0F + pos.X,
+                                                               -75.0F + pos.Y,
+                                                               75.0F + pos.Y,
+                                                               -30000.0F,
+                                                               30000.0F)
+        VIEWMATRIX = Matrix4.Identity
+    End Sub
+
     Public Sub Ortho_main()
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -30000.0F, 30000.0F)
@@ -138,6 +149,14 @@ Module modOpenGL
         VIEWMATRIX = Matrix4.Identity
     End Sub
 
+    Public Function set_sun_view_matrix(ByRef t As Vector3) As Matrix4
+
+        Dim rotatez = Matrix4.CreateRotationZ(LIGHT_ORBIT_ANGLE_Z * 0.0174533)
+        Dim rotatex = Matrix4.CreateRotationX(LIGHT_ORBIT_ANGLE_X * 0.0174533)
+
+        Dim m As Matrix4 = rotatex * rotatez
+        Return m
+    End Function
     Public Sub set_prespective_view()
 
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)

@@ -184,6 +184,7 @@
     <Compile Include="Effects_Particles\Point_Lights.vb" />
     <Compile Include="FBOs\FBO_MiniMap.vb" />
     <Compile Include="FBOs\FBO_main.vb" />
+    <Compile Include="FBOs\FBO_shadowBaker.vb" />
     <Compile Include="FBOs\FBO_Mixer.vb" />
     <Compile Include="Forms\frmCameraOptions.Designer.vb">
       <DependentUpon>frmCameraOptions.vb</DependentUpon>
@@ -442,6 +443,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\PostProcessing\gBufferFog.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\ShadowBaking\terrainDepthWriter.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\ShadowBaking\terrainDepthWriter.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.frag">
