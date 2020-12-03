@@ -11,7 +11,7 @@ Module FBO_shadowBaker_mod
     ''' Creates the mix FBO
     ''' </summary>
     Public NotInheritable Class FBO_ShadowBaker
-        Public Shared shadow_map_size As Integer = 512
+        Public Shared depth_map_size As Integer = 512
         Public Shared gBakerColorArray, shadow_map, gDepth As GLTexture
         Public Shared texture_size As Point
         Public Shared LayerCount As Integer
@@ -121,7 +121,7 @@ Module FBO_shadowBaker_mod
             shadow_map.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToBorder)
             shadow_map.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToBorder)
             'shadow_map.Storage2D(1, SizedInternalFormat.Rg16f, shadow_map_size, shadow_map_size)
-            shadow_map.Storage2D(1, SizedInternalFormat.Rgba8, shadow_map_size, shadow_map_size)
+            shadow_map.Storage2D(1, SizedInternalFormat.Rgba8, depth_map_size, depth_map_size)
 
             ' gDepth ------------------------------------------------------------------------------------------
             ' DepthComponent32f
@@ -130,7 +130,7 @@ Module FBO_shadowBaker_mod
             gDepth.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             gDepth.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             gDepth.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), shadow_map_size, shadow_map_size)
+            gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), depth_map_size, depth_map_size)
 
             Dim er2 = GL.GetError
 
