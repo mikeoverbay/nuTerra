@@ -4,10 +4,17 @@ Imports OpenTK.Graphics.OpenGL
 Module LQ_Texture_creator
 
     Public Sub bake_terrain_shadows()
-        Dim quailty As Integer = 512 '<-- adjusts size of the shadow textures
+
+        Dim quailty As Integer = 512 '<-- adjusts size of the mask textures
+
         Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(quailty, quailty), 2))
-        FBO_shadowBaker.layerCount = theMap.render_set.Length
+
+        FBO_ShadowBaker.LayerCount = theMap.render_set.Length
+
         FBO_ShadowBaker.mipCount = numLevels
+
+        FBO_ShadowBaker.depth_map_size = 512 ' Depth map size
+
         FBO_ShadowBaker.FBO_Initialize(New Point(quailty, quailty))
 
         If Not FBO_ShadowBaker.FBO_Make_Ready_For_Shadow_writes() Then
