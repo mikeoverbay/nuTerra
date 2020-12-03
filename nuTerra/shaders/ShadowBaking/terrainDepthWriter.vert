@@ -13,12 +13,10 @@ void main(void)
 {
 
     //-------------------------------------------------------
-    //This is XZY because of ortho projection!
-    vec3 vertexPosition = vec3(vertexXZ.x, vertexXZ.y, vertexY);
-    
+    vec3 vp = vec3(vertexXZ.x, vertexY, vertexXZ.y);
+    vp = vec3(modelMatrix * vec4(vp.xyz, 1.0)).xyz;
     //-------------------------------------------------------
-
-    // Calculate vertex position in clip coordinates
-    gl_Position = modelMatrix * Ortho_Project  * vec4(vertexPosition, 1.0f);
+    //This is XZY because of ortho projection!
+    gl_Position = Ortho_Project * vec4(vp.x, vp.z, vp.y, 1.0);
 
 }
