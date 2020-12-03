@@ -13,7 +13,6 @@ uniform vec4 color;
 uniform vec3 ring_center;
 uniform float radius;
 uniform float thickness;
-
 void main (void)
 {
     vec2 UV = gl_FragCoord.xy / resolution;

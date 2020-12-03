@@ -62,4 +62,5 @@ void main()
     color.xyz += color_in;
     if (color.a < 0.05) { discard; }
     gColor = color;
+    gColor.a = 0.0;
 }

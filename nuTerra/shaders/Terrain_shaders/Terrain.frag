@@ -10,7 +10,6 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
-layout (location = 5) out vec4 gAux;
 
 layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 U1;
@@ -385,17 +384,14 @@ void main(void)
 
     //there are no metal values for the terrain so we hard code 0.1;
     // specular is in the red channel of the normal maps;
-    vec4 gmm_out = vec4(specular, 0.1, 128.0/255.0, global.a*0.8);
+    vec4 gmm_out = vec4(0.1, specular, 128.0/255.0, 0.0);
     gGMF = mix(ArrayTextureG, gmm_out, fs_in.ln);
 
     gColor = base;
     //gColor = gColor* 0.001 + r1_8;
-    gColor.a = 1.0;
+    gColor.a = global.a*0.8;
 
     gNormal.xyz = normalize(out_n.xyz);
-
-    gAux.rgb = waterColor;
-    gAux.a = global.a * waterAlpha;
 
     gPosition = fs_in.worldPosition;
     gPick = 0;

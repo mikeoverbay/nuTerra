@@ -11,7 +11,7 @@ layout (binding = 0) uniform sampler2D noiseMap;
 layout (binding = 1) uniform sampler2D depthMap;
 layout (binding = 2) uniform sampler2D gPosition;
 layout (binding = 3) uniform sampler2D gColor_in;
-layout (binding = 4) uniform sampler2D gColor_in_2;
+//layout (binding = 4) uniform sampler2D gColor_in_2;
 
 uniform vec3 fog_tint;
 uniform float uv_scale;
@@ -92,8 +92,6 @@ void main()
 
 
     vec4 deferred_mix = texture(gColor_in,uv);
-    vec4 fog_2 = texture(gColor_in_2,uv);
-    deferred_mix.a = fog_2.a;
 
     /*==================================================*/
 //    bool flag = texture(gGMF,uv).b*255.0 == 64.0;
@@ -137,15 +135,14 @@ void main()
     c = c * c;
     color = ( color * vec4(c,c,c,1.0) )* 2.0 ;
 
-    color.xyz *= fog_tint * deferred_mix.a *1.0;
+    color.xyz *= fog_tint * deferred_mix.a *6.0;
     
 
     gColor.rgb = deferred_mix.rgb;
     // terrain painting
-    gColor.rgb = mix(deferred_mix.rgb,color.rgb, deferred_mix.a*0.8);
+    gColor.rgb = mix(deferred_mix.rgb, color.rgb, 0.95-deferred_mix.a);
     // Add some top level fog
-    gColor.rgb = mix(gColor.rgb,fog_2.rgb, deferred_mix.a*0.4 );
-    color.a *= c;
-
+    gColor.rgb = mix(gColor.rgb, fog_tint.rgb, 1.0-deferred_mix.a );
+    //gColor.r = deferred_mix.a;
 
 }

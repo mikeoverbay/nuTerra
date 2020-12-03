@@ -28,7 +28,6 @@ in VS_OUT
 // ================================================================================
 // globals
 vec3 normalBump;
-const float PI = 3.14159265359;
 MaterialProperties thisMaterial = material[fs_in.material_id];
 
 
