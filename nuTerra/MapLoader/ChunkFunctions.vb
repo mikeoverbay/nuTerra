@@ -542,6 +542,8 @@ Module ChunkFunctions
         v.avg_heights = (y_max + y_min) / 2.0F
         If y_max > MAX_MAP_HEIGHT Then MAX_MAP_HEIGHT = y_max
         If y_min < MIN_MAP_HEIGHT Then MIN_MAP_HEIGHT = y_min
+        v.max_height = MAX_MAP_HEIGHT
+        v.min_height = MIN_MAP_HEIGHT
         br.Close()
         ms.Close()
         ms.Dispose()

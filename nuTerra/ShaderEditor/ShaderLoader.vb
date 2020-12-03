@@ -186,6 +186,8 @@ Module ShaderLoader
     Public TextRenderShader As Shader
     'particle shaders
     Public explode_type_1_shader As Shader
+    'shadow shaders
+    Public terrainDepthShader As Shader
 #End Region
 
 #Region "Compiler code"
@@ -240,7 +242,8 @@ Module ShaderLoader
         toLinearShader = New Shader("toLinear")
         'particle shaders
         explode_type_1_shader = New Shader("explode_type_1_")
-
+        'shadow shaders
+        terrainDepthShader = New Shader("terrainDepthWriter")
 
         shaders = New List(Of Shader)
         shaders.Add(BaseRingProjector)
@@ -281,6 +284,8 @@ Module ShaderLoader
         shaders.Add(toLinearShader)
         'particle shaders
         shaders.Add(explode_type_1_shader)
+        'shadow shaders
+        shaders.Add(terrainDepthShader)
     End Sub
 
     Public Function assemble_shader(v As String,

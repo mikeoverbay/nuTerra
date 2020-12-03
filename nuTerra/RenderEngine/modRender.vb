@@ -32,6 +32,53 @@ Module modRender
         "Texture 8"
         }
 
+    Private Sub test_fbo()
+
+        frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
+
+        '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_ShadowBaker_ID) '=====
+        '===========================================================================
+        FBO_ShadowBaker.FBO_Make_Ready_For_Shadow_writes()
+
+        Dim loc As New Point
+        loc.X = theMap.render_set(0).matrix.Row3.X
+        loc.Y = theMap.render_set(0).matrix.Row3.Z
+        Dim loc_z As Single = (theMap.v_data(0).min_height + theMap.v_data(0).max_height) / 2.0F
+
+        Sun_Ortho_main(New Point(loc.X, loc_z))
+        GL.ClearColor(0.0F, 0.0F, 0.5F, 0.0F)
+
+        'GL.ClearDepth(0.0F)
+        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+        Dim sun_matrix = set_sun_view_matrix(New Vector3(loc.X, loc_z, loc.Y))
+
+        With theMap.render_set(0)
+            terrainDepthShader.Use()
+
+            GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, PROJECTIONMATRIX)
+            GL.UniformMatrix4(terrainDepthShader("modelMatrix"), False, .matrix)
+
+            GL.BindVertexArray(.VAO)
+            GL.DrawElements(PrimitiveType.Triangles,
+                        24576,
+                        DrawElementsType.UnsignedShort, 0)
+
+        End With
+
+
+        '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '=====
+        '===========================================================================
+        '===========================================================================
+        Ortho_main()
+        '===========================================================================
+        Dim r As New Rectangle(0F, 0F, FBO_ShadowBaker.shadow_map_size, FBO_ShadowBaker.shadow_map_size)
+        draw_image_rectangle(r, FBO_ShadowBaker.shadow_map)
+
+        frmMain.glControl_main.SwapBuffers()
+
+    End Sub
     Public Sub draw_scene()
         '===========================================================================
         ' FLAG INFO
@@ -57,6 +104,10 @@ Module modRender
             draw_loading_screen()
             Return
         End If
+        '===========================================================================
+        'draw test render
+        test_fbo()
+        Return
         '===========================================================================
 
         '===========================================================================
