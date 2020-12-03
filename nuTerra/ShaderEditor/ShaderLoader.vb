@@ -158,7 +158,7 @@ Module ShaderLoader
     Public colorOnlyShader As Shader
     Public DecalProject As Shader
     Public deferredShader As Shader
-    Public DeferredDecalProjectShader As Shader
+    Public DeferredFogShader As Shader
     Public FF_BillboardShader As Shader
     Public FXAAShader As Shader
     Public frustumShader As Shader
@@ -211,7 +211,7 @@ Module ShaderLoader
         colorMaskShader = New Shader("ColorMask")
         'unused: colorOnlyShader = New Shader("colorOnly")
         DecalProject = New Shader("DecalProject")
-        DeferredDecalProjectShader = New Shader("DeferredDecalProject")
+        DeferredFogShader = New Shader("DeferredFog")
         deferredShader = New Shader("deferred")
         FF_BillboardShader = New Shader("FF_billboard")
         FXAAShader = New Shader("FXAA")
@@ -252,7 +252,7 @@ Module ShaderLoader
         shaders.Add(colorMaskShader)
         'unused: shaders.Add(colorOnlyShader)
         shaders.Add(DecalProject)
-        shaders.Add(DeferredDecalProjectShader)
+        shaders.Add(DeferredFogShader)
         shaders.Add(deferredShader)
         shaders.Add(FF_BillboardShader)
         shaders.Add(FXAAShader)

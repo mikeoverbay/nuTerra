@@ -381,9 +381,9 @@ Module PrimitiveLoader
                     .pos.Y = br.ReadSingle
                     .pos.Z = br.ReadSingle
 
-                    round_signed_to(.pos.X, 2)
-                    round_signed_to(.pos.Y, 2)
-                    round_signed_to(.pos.Z, 2)
+                    round_signed_to(.pos.X, 3)
+                    round_signed_to(.pos.Y, 3)
+                    round_signed_to(.pos.Z, 3)
 
                     If realNormals Then
                         .normal.X = -br.ReadSingle

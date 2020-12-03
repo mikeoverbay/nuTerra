@@ -426,10 +426,10 @@
     <None Include="shaders\Model_shaders\modelGlass.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\PostProcessing\DeferredDecalProject.frag">
+    <None Include="shaders\PostProcessing\DeferredFog.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\PostProcessing\DeferredDecalProject.vert">
+    <None Include="shaders\PostProcessing\DeferredFog.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\PostProcessing\FXAA.frag.spv">

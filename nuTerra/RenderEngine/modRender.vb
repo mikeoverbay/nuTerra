@@ -123,14 +123,12 @@ Module modRender
             FBOm.attach_C_no_Depth()
             GL.DepthMask(False)
             GL.FrontFace(FrontFaceDirection.Cw)
-            GL.Enable(EnableCap.Blend)
             GL.Enable(EnableCap.CullFace)
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
             '=======================================================================
             If SHOW_CURSOR Then draw_map_cursor() '=================================
             '=======================================================================
             'restore settings after projected objects are drawn
-            GL.Disable(EnableCap.Blend)
             GL.DepthMask(True)
             GL.Disable(EnableCap.CullFace)
             FBOm.attach_Depth()
@@ -193,10 +191,11 @@ Module modRender
 
         GL.Disable(EnableCap.DepthTest)
 
-        FBOm.attach_C1_and_C2()
+        FBOm.attach_C2()
 
         render_deferred_buffers()
-
+        'gAux_color to gColor;
+        FBOm.attach_C1_and_C2()
         copy_gColor_2_to_gColor()
 
 
@@ -318,10 +317,6 @@ Module modRender
                         Map_wetness.waterColor.Y,
                         Map_wetness.waterColor.Z)
 
-        GL.Uniform3(deferredShader("viewPos"),
-                        CAM_POSITION.X,
-                        CAM_POSITION.Y,
-                        CAM_POSITION.Z)
 
         FBOm.gColor.BindUnit(0)
         FBOm.gNormal.BindUnit(1)
@@ -384,17 +379,18 @@ Module modRender
 
         uv_location += move_vector * s '<----  do the math;
 
-        DeferredDecalProjectShader.Use()
+        DeferredFogShader.Use()
 
-        GL.Uniform3(DeferredDecalProjectShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
-        GL.Uniform1(DeferredDecalProjectShader("uv_scale"), 4.0F)
-        GL.Uniform2(DeferredDecalProjectShader("move_vector"), uv_location.X, uv_location.Y)
+        GL.Uniform3(DeferredFogShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
+        GL.Uniform1(DeferredFogShader("uv_scale"), 4.0F)
+        GL.Uniform2(DeferredFogShader("move_vector"), uv_location.X, uv_location.Y)
+        GL.Uniform3(DeferredFogShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
 
         NOISE_id.BindUnit(0)
         FBOm.gDepth.BindUnit(1)
         FBOm.gPosition.BindUnit(2)
         FBOm.gColor.BindUnit(3)
-        FBOm.gColor_2.BindUnit(4)
+        'FBOm.gColor_2.BindUnit(4)
 
         map_center.X = 100.0F * (theMap.bounds_minX + theMap.bounds_maxX) / 2.0F
         map_center.Y = 1.0F
@@ -414,12 +410,12 @@ Module modRender
         Dim rotate = Matrix4.CreateRotationX(1.570796)
         'GL.Enable(EnableCap.CullFace)
 
-        GL.UniformMatrix4(DeferredDecalProjectShader("DecalMatrix"), False, rotate * model_S * model_X)
+        GL.UniformMatrix4(DeferredFogShader("DecalMatrix"), False, rotate * model_S * model_X)
 
         GL.BindVertexArray(CUBE_VAO)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
-        DeferredDecalProjectShader.StopUse()
+        DeferredFogShader.StopUse()
 
         unbind_textures(2)
 
@@ -538,10 +534,10 @@ Module modRender
         GL.DrawBuffer(DrawBufferMode.ColorAttachment0)
         GL.BlitFramebuffer(0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
                                 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
-                                0,
-                                BlitFramebufferFilter.Linear)
-        Dim er = GL.GetError
-        Dim er1 = GL.GetError
+                                ClearBufferMask.ColorBufferBit,
+                                BlitFramebufferFilter.Nearest)
+        'Dim er = GL.GetError
+        'Dim er1 = GL.GetError
 
     End Sub
 

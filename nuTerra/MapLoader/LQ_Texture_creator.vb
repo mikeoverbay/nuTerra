@@ -39,12 +39,12 @@ Module LQ_Texture_creator
         JITTER_TEXTURE_ID.BindUnit(22)
 
         'water BS
-        GL.Uniform3(t_mixerShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
+        'GL.Uniform3(t_mixerShader("waterColor"),
+        '                Map_wetness.waterColor.X,
+        '                Map_wetness.waterColor.Y,
+        '                Map_wetness.waterColor.Z)
 
-        GL.Uniform1(t_mixerShader("waterAlpha"), Map_wetness.waterAlpha)
+        'GL.Uniform1(t_mixerShader("waterAlpha"), Map_wetness.waterAlpha)
 
         GL.Uniform2(t_mixerShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(t_mixerShader("map_center"), -b_x_min, b_y_max)

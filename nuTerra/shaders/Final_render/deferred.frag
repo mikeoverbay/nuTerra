@@ -8,7 +8,6 @@
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 outColor;
-layout (location = 1) out vec4 fogColor;
 
 uniform sampler2D gColor;
 uniform sampler2D gNormal;
@@ -38,7 +37,6 @@ uniform vec3 ambientColorForward;
 uniform vec3 sunColor;
 uniform int  light_count;
 uniform vec3 waterColor;
-uniform vec3 viewPos;
 
 #define MAXCOLOR 15.0
 #define COLORS 16.0
@@ -123,6 +121,7 @@ void main (void)
     //if (depth == 1.0) discard;// nothing there
 
     const uint FLAG = uint( texture(gGMF, fs_in.UV).b * 255.0);
+
     // Writen as a float in shaders as f = Flag_value/255.0
     // or just 0.0 to mask any shading.
     //
@@ -138,14 +137,19 @@ void main (void)
 
             vec4 color_in = texture(gColor, fs_in.UV);
             
-            float fog_alpha = color_in.a;
+            //Mix in our water color
+            color_in.rgb = mix(color_in.rgb, waterColor, color_in.a);
+
+            //fog level... this should be on the controller
+            float fog_alpha = 0.5;
 
             vec3 GM_in = texture(gGMF, fs_in.UV).xya;
-        
+
+            //water overides GM values
+            GM_in.rg = mix(GM_in.rg,vec2(0.4,0.8), color_in.a);
+
             vec3 LightPosModelView = LightPos.xyz;
            
-            color_in.rgb = mix(color_in.rgb, waterColor.rgb,GM_in.z);
-
             vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
             vec3 N = normalize(texture(gNormal, fs_in.UV).xyz);
@@ -153,14 +157,14 @@ void main (void)
             float POWER;
             float INTENSITY;
 
-            float metal = GM_in.g;
+            float metal = GM_in.r;
 
             if (FLAG == 64 || FLAG == 128) {
                 //---------------------------------------------
                 // Poor mans PBR :)
                 // how shinny this is
-                POWER = max(GM_in.r* 60.0,3.0);
-                INTENSITY = GM_in.r;
+                POWER = max(GM_in.r * 30.0, 3.0);
+                INTENSITY = GM_in.g;
                 // How metalic his is
                 color_in.rgb = mix(color_in.rgb,
                                    color_in.rgb * vec3(0.04), max( metal * 0.25 , 0.00) );
@@ -177,38 +181,51 @@ void main (void)
             float cutoff = 10000.0;
             vec4 color = mix(vec4(sunColor,0.0),vec4(0.5),0.6);
 
-            vec3 vp = (vec3(view * vec4(viewPos,1.0)));
-            vec3 V = normalize(vp-Position);
+            vec4 t_cam = view * vec4(cameraPos,1.0);
+            vec3 V = normalize(t_cam.xyz-Position);
 
             float perceptualRoughness = 0.2;
-
+            
+            //create a up facing normal that translates properly.
+            vec3 blank_n = mat3(inverse(transpose(view))) * normalize(vec3(0.0, 1.0, 0.0));
+            float water_mix = color_in.a;
             // Only light whats in range
             if (dist < cutoff) {
+                // kill the terrian normals where there is water
+                N = mix(N, blank_n, water_mix*1.20);
 
-                float lambertTerm = pow(max(dot(N, L),0.001),GM_in.r);
+                float lambertTerm = pow(max(dot(N, L),0.001),GM_in.g);
+
                 final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0);
 
-                vec3 R = reflect(-V,N);
+                vec3 R = reflect(-L,N);
 
 
                 vec3 halfwayDir = normalize(L + V);
 
-                float spec = max(pow(dot(N,halfwayDir), POWER ),0.0001) * SPECULAR * INTENSITY;
+                float spec = max(pow(dot(V,R), POWER ),0.0001) * SPECULAR * INTENSITY;
    
                 R.xz *= -1.0;
 
-                vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut, vec2(1.0-lambertTerm * 0.25, 1.0-metal) ));
+                vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut,
+                            vec2(1.0-lambertTerm * 0.25, 1.0-metal) ));
                 vec3 specular =  (vec3(spec) * brdf.x + brdf.y);
 
 
-                vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,  max(4.0-GM_in.g *4.0, 0.0)));
-                vec4 W_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,  max(GM_in.z *2.0, 0.0)));
+                vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
+                                        max(4.0-GM_in.g *4.0, 0.0)));
                 // GM_in.b is the alpha channel.
-                prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb + specular, GM_in.b*0.2);
+                prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb +
+                                       specular, GM_in.b*0.2*(1.0-color_in.a));
 
-                vec3 water_reflect =  mix(vec3(specular), W_prefilteredColor.rgb + specular, GM_in.b*0.2);
-                final_color.xyz += prefilteredColor.xyz + water_reflect;
+                vec4 W_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
+                                          max(2.0-water_mix *2.0, 0.0)))*0.15;
 
+                vec3 water_reflect =  mix(prefilteredColor.xyz,
+                                      W_prefilteredColor.xyz + vec3(spec)*1.0, color_in.a);
+
+                final_color.xyz += water_reflect;
+                //final_color.xyz += spec;
                 // Fade to ambient over distance
 
                 final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;
@@ -217,7 +234,7 @@ void main (void)
             } else {
                 final_color = Ambient_level * BRIGHTNESS;
             }
-
+            //final_color.r = color_in.a;
             /*===================================================================*/
             /*===================================================================*/
             // Gray level
@@ -229,9 +246,9 @@ void main (void)
 
             // FOG calculation... using distance from camera and height on map.
             // It's a more natural height based fog than plastering the screen with it.
-            vec4 t_cam = view * vec4(cameraPos,1.0);
+            vec4 ts_cam = view * vec4(cameraPos,1.0);
             vec4 p = inverse(view) * vec4(Position.xyz,1.0);
-            float viewDistance = length(t_cam.xyz - Position);
+            float viewDistance = length(ts_cam.xyz - Position);
             float z = viewDistance*0.75 ; 
    
             float height = 0.0;
@@ -252,15 +269,12 @@ void main (void)
             float fogFactor = exp2(-density * density * z * z * LOG2);
             fogFactor = clamp(fogFactor, 0.0, 1.0);
 
-            vec4 f_color =  vec4(fog_tint,1.0) * AMBIENT * 3.0 * fog_alpha;
+            vec4 f_color =  vec4(fog_tint,0.0) * 1.5 * fog_alpha;
 
-            vec4 sColor = final_color;
 
-            final_color = mix(final_color, sColor, fogFactor);
-            final_color = mix(final_color, sColor, fogFactor);
-
-            fogColor = mix(f_color, final_color, fogFactor-0.1)*3.0;
-            fogColor.a = 1.0 - fogFactor;
+            final_color = mix(final_color, f_color,1.0- fogFactor);
+            outColor.a = 1.0-fogFactor;
+            //final_color.r = outColor.a;
             /*===================================================================*/
             // Small Map Lights
            if (light_count >0){
@@ -294,7 +308,7 @@ void main (void)
             /*===================================================================*/
             // Final Output
             outColor =  correct(final_color,1.4,1.2)*1.6;
-            outColor.a = fogFactor;
+            //outColor.a = fogFactor;
             /*===================================================================*/
         //if flag != 128
         }else{
