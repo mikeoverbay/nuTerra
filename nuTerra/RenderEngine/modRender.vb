@@ -103,7 +103,7 @@ Module modRender
                         GL.Uniform1(terrainDepthShader("map_id"), i)
 
                         GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, theMap.render_set(i).matrix * SUN_CAMERA * PROJECTIONMATRIX)
-                        'draw chunk fitted to this othro projection
+
                         GL.BindVertexArray(theMap.render_set(i).VAO)
                         GL.DrawElements(PrimitiveType.Triangles,
                             24576,
