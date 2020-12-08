@@ -144,6 +144,7 @@ Module modGlobalVars
     Public MAX_ZOOM_OUT As Single = -2000.0F 'must be negitive
     Public SHOW_CURSOR As Integer
     '============================================================
+    Public SUN_CAMERA As New Matrix4
     Public PROJECTIONMATRIX As New Matrix4
     Public VIEWMATRIX As New Matrix4
     Public PRESPECTIVE_NEAR As Single = 0.1F

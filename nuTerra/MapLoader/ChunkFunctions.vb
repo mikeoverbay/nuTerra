@@ -123,13 +123,13 @@ Module ChunkFunctions
         '=========================================================================
         'From : https://www.iquilezles.org/www/articles/normals/normals.htm
         'Create smoothed normals using IQ's method
-        make_normals(v_data.indicies, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff, v_data.t_buff, v_data.uv_buff)
+        make_normals(v_data.indicies, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff, v_data.t_buff, v_data.uv_buff, v_data, r_set)
         '=========================================================================
 
 
     End Sub
 
-    Private Sub make_normals(ByRef indi() As vect3_16, ByRef XY() As Vector2, ByRef Z() As Single, ByRef n_buff() As Vector3, ByRef t_buff() As Vector3, ByRef UV() As Vector2)
+    Private Sub make_normals(ByRef indi() As vect3_16, ByRef XY() As Vector2, ByRef Z() As Single, ByRef n_buff() As Vector3, ByRef t_buff() As Vector3, ByRef UV() As Vector2, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
         'generate and smooth normals. Amazing code by IQ.
         For i = 0 To indi.Length - 1
             Dim ia As UInt16 = indi(i).z
@@ -178,8 +178,28 @@ Module ChunkFunctions
             t_buff(ic) = tangent
 
         Next
+        Dim sunMatrix = set_sun_view_matrix()
+        v_data.xl = 100000.0F
+        v_data.yl = 100000.0F
+        v_data.zl = 100000.0F
+        v_data.xr = -100000.0F
+        v_data.yr = -100000.0F
+        v_data.zr = -100000.0F
+
         For i = 0 To t_buff.Length - 1
             n_buff(i).Normalize()
+            Dim v, v3 As Vector4
+            v.Y = Z(i)
+            v.Xz = XY(i)
+            v.W = 1.0
+            v3 = v * r_set.matrix
+            If v3.X < v_data.xl Then v_data.xl = v3.X
+            If v3.X > v_data.xr Then v_data.xr = v3.X
+            If v3.Y < v_data.yl Then v_data.yl = v3.Y
+            If v3.Y > v_data.yr Then v_data.yr = v3.Y
+            If v3.Z < v_data.zl Then v_data.zl = v3.Z
+            If v3.Z > v_data.zr Then v_data.zr = v3.Z
+
         Next
     End Sub
 

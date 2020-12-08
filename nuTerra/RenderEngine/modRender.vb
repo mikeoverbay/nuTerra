@@ -34,40 +34,89 @@ Module modRender
 
     Private Sub test_fbo()
 
-        frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
+        'frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
 
         '===========================================================================
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_ShadowBaker_ID) '=====
         '===========================================================================
         FBO_ShadowBaker.FBO_Make_Ready_For_Shadow_writes()
-
+        Dim map_id As Integer = 48
         Dim loc As New Point
-        loc.X = theMap.render_set(0).matrix.Row3.X
-        loc.Y = theMap.render_set(0).matrix.Row3.Z
-        Dim loc_z As Single = (theMap.v_data(0).min_height + theMap.v_data(0).max_height) / 2.0F
 
-        Sun_Ortho_main(New Point(loc.X, loc_z))
-        GL.ClearColor(0.0F, 0.5F, 0.5F, 0.0F)
-
-        GL.Disable(EnableCap.DepthTest)
-
-        'GL.ClearDepth(0.0F)
+        GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+
         Dim sunMatrix = set_sun_view_matrix()
 
-        With theMap.render_set(0)
-            terrainDepthShader.Use()
+        'GL.Disable(EnableCap.DepthTest)
+        GL.Enable(EnableCap.CullFace)
+        'GL.ClearDepth(0.0F)
 
-            GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, PROJECTIONMATRIX)
-            GL.UniformMatrix4(terrainDepthShader("modelMatrix"), False, .matrix)
-            GL.UniformMatrix4(terrainDepthShader("sunMatrix"), False, sunMatrix)
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+        GL.FrontFace(FrontFaceDirection.Ccw)
 
-            GL.BindVertexArray(.VAO)
-            GL.DrawElements(PrimitiveType.Triangles,
-                        24576,
-                        DrawElementsType.UnsignedShort, 0)
+        'this is not used
+        Dim sun_rotate = set_sun_view_matrix()
 
-        End With
+        For id = map_id To map_id
+            loc.X = theMap.render_set(map_id).matrix.Row3.X
+            loc.Y = theMap.render_set(map_id).matrix.Row3.Z
+            Dim loc_z As Single = (theMap.v_data(map_id).min_height + theMap.v_data(map_id).max_height) / 2.0F
+
+            With theMap.render_set(id)
+                'save this shadow matrix
+
+                'set up the ortho window for each chunk
+                With theMap.v_data(map_id)
+                    Dim sc = ((.xl + .xr) / 2.0F)
+                    Dim zc = ((.zl + .zr) / 2.0F)
+                    Sun_Ortho_view(loc.X - 50.0F, loc.X + 50.0F, loc.Y - 50.0, loc.Y + 50.0, 0.0F, 0.0F)
+                    'Sun_Ortho_main(-1500.0, 1500.0, -1500.0, 1500.0, 0.0F, 0.0F)
+                End With
+
+                Dim eye As New Vector3(LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
+                Dim at As New Vector3(loc.X, loc_z, loc.Y)
+
+
+                SUN_CAMERA = Matrix4.LookAt(eye, at, New Vector3(0.0F, 1.0F, 0.0))
+
+                .shadowMatrix = SUN_CAMERA * .matrix * PROJECTIONMATRIX
+
+                terrainDepthShader.Use()
+
+                'test only
+                GL.Uniform1(terrainDepthShader("map_id"), id)
+                FBO_mixer_set.gColorArray.BindUnit(0)
+
+                GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, .matrix * sun_rotate * SUN_CAMERA * PROJECTIONMATRIX)
+                'draw chunk fitted to this othro projection
+                GL.BindVertexArray(.VAO)
+                'GL.DrawElements(PrimitiveType.Triangles,
+                '            24576,
+                '            DrawElementsType.UnsignedShort, 0)
+
+                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
+                For i = 0 To theMap.render_set.Length - 1
+                    'draw all terrain chucks to capture shadow from other chunks
+                    If i <> id Then
+                        GL.Uniform1(terrainDepthShader("map_id"), i)
+
+                        GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, theMap.render_set(i).matrix * SUN_CAMERA * PROJECTIONMATRIX)
+                        'draw chunk fitted to this othro projection
+                        GL.BindVertexArray(theMap.render_set(i).VAO)
+                        GL.DrawElements(PrimitiveType.Triangles,
+                            24576,
+                            DrawElementsType.UnsignedShort, 0)
+                    End If
+                Next
+
+            End With
+        Next
+
+
+
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
 
         '===========================================================================
@@ -76,12 +125,14 @@ Module modRender
         '===========================================================================
         Ortho_main()
         '===========================================================================
+        GL.Disable(EnableCap.CullFace)
         Dim r As New Rectangle(0F, 0F, FBO_ShadowBaker.depth_map_size, FBO_ShadowBaker.depth_map_size)
-        draw_image_rectangle(r, FBO_ShadowBaker.shadow_map)
+        draw_image_rectangle_flipY(r, FBO_ShadowBaker.shadow_map)
 
-        frmMain.glControl_main.SwapBuffers()
+        'frmMain.glControl_main.SwapBuffers()
 
     End Sub
+
     Public Sub draw_scene()
         '===========================================================================
         ' FLAG INFO
@@ -99,6 +150,8 @@ Module modRender
         frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
 
         '===========================================================================
+
+        GL.FrontFace(FrontFaceDirection.Ccw)
         If SHOW_MAPS_SCREEN Then
             gl_pick_map(MOUSE.X, MOUSE.Y)
             Return
@@ -107,10 +160,6 @@ Module modRender
             draw_loading_screen()
             Return
         End If
-        '===========================================================================
-        'draw test render
-        test_fbo()
-        Return
         '===========================================================================
 
         '===========================================================================
@@ -302,7 +351,6 @@ Module modRender
 #End If
 
         '===========================================================================
-        '===========================================================================
         If DONT_HIDE_HUD Then
             '===========================================================================
             'color_correct()
@@ -318,6 +366,10 @@ Module modRender
         GL.DepthMask(True)
         GL.Disable(EnableCap.Blend)
 
+        '===========================================================================
+        'draw test render
+        test_fbo()
+        '===========================================================================
         '===========================================================================
         If _STARTED Then frmMain.glControl_main.SwapBuffers() '=====================
         '===========================================================================
@@ -1027,6 +1079,9 @@ Module modRender
                 If sp.Z > 0.0F Then
                     Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
                     draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True, 1)
+                    s = String.Format("{0}, {1}", theMap.render_set(i).matrix.Row3(0), theMap.render_set(i).matrix.Row3(2))
+                    draw_text(s, sp.X, sp.Y - 19, OpenTK.Graphics.Color4.Yellow, True, 1)
+
                 End If
             End If
         Next
