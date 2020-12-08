@@ -131,6 +131,7 @@ Module TerrainBuilder
         Public uv_buff() As Vector2
         Public n_buff() As Vector3
         Public t_buff() As Vector3
+        Public xl, xr, yl, yr, zl, zr As Single
 
     End Structure
 
@@ -138,6 +139,7 @@ Module TerrainBuilder
         Public mBuffers() As Integer
         Public VAO As Integer
         Public matrix As Matrix4
+        Public shadowMatrix As Matrix4
         '-------------------------------
         ' Texture IDs and such below
         Public layersStd140_ubo As GLBuffer

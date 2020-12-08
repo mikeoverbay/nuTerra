@@ -126,12 +126,12 @@ Module modOpenGL
     Public PerViewData As New TPerViewData
     Public PerViewDataBuffer As GLBuffer
 
-    Public Sub Sun_Ortho_main(ByRef pos As Point)
+    Public Sub Sun_Ortho_view(ByVal L As Single, ByVal R As Single, ByVal B As Single, ByVal T As Single, ByVal x_offset As Single, ByVal y_offset As Single)
         GL.Viewport(0, 0, FBO_ShadowBaker.depth_map_size, FBO_ShadowBaker.depth_map_size)
-        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(-75.0F - pos.X,
-                                                               75.0F + pos.X,
-                                                               -75.0F + pos.Y,
-                                                               75.0F + pos.Y,
+        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter((L) + x_offset,
+                                                               (R) + x_offset,
+                                                               (B) + y_offset,
+                                                               (T) + y_offset,
                                                                -30000.0F,
                                                                30000.0F)
         VIEWMATRIX = Matrix4.Identity
@@ -151,10 +151,10 @@ Module modOpenGL
 
     Public Function set_sun_view_matrix() As Matrix4
 
-        Dim rotatez = Matrix4.CreateRotationZ(LIGHT_ORBIT_ANGLE_Z * 0.0174533)
-        Dim rotatex = Matrix4.CreateRotationX(LIGHT_ORBIT_ANGLE_X * 0.0174533)
+        Dim rotateY = Matrix4.CreateRotationY((LIGHT_ORBIT_ANGLE_Z) * 0.0174533)
+        Dim rotateX = Matrix4.CreateRotationX(LIGHT_ORBIT_ANGLE_X * 0.0174533)
 
-        Dim m As Matrix4 = rotatex * rotatez
+        Dim m As Matrix4 = rotateY * rotateX
         Return m
     End Function
 
@@ -249,6 +249,39 @@ Module modOpenGL
             unbind_textures(0)
         End If
     End Sub
+
+    Public Sub draw_image_rectangle_flipY(rect As RectangleF, image As GLTexture)
+        If USE_NV_DRAW_TEXTURE Then
+            Dim h = frmMain.glControl_main.Height
+            Dim x0 = rect.Left
+            Dim x1 = rect.Right
+            Dim y0 = h - rect.Top
+            Dim y1 = h - rect.Bottom
+            GL.NV.DrawTexture(image.texture_id, 0, x0, y0, x1, y1, 0, 0, 0, 1, 1)
+        Else
+            image2dShader.Use()
+
+            image.BindUnit(0)
+            GL.Uniform1(image2dShader("imageMap"), 0)
+            GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
+
+            GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+            GL.Uniform4(image2dShader("rect"),
+                        rect.Left,
+                        -rect.Bottom,
+                        rect.Right,
+                        -rect.Top)
+
+            GL.BindVertexArray(defaultVao)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+            'GL.BindVertexArray(0)
+
+            image2dShader.StopUse()
+            'unbind texture
+            unbind_textures(0)
+        End If
+    End Sub
+
 
     Private Function pack_10(x As Single) As UInt32
         Dim qx As Int32 = MathHelper.Clamp(CType(x * 511.0F, Int32), -512, 511)

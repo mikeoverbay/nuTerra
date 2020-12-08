@@ -13,7 +13,7 @@ Module LQ_Texture_creator
 
         FBO_ShadowBaker.mipCount = numLevels
 
-        FBO_ShadowBaker.depth_map_size = 512 ' Depth map size
+        FBO_ShadowBaker.depth_map_size = 1024 ' Depth map size
 
         FBO_ShadowBaker.FBO_Initialize(New Point(quailty, quailty))
 

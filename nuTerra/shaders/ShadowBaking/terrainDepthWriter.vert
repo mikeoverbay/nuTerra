@@ -8,16 +8,12 @@ layout(location = 3) in vec4 vertexNormal;
 layout(location = 4) in vec3 vertexTangent;
 
 uniform mat4 Ortho_Project;
-uniform mat4 modelMatrix;
-uniform mat4 sunMatrix;
+out vec2 uv;
+
 void main(void)
 {
-
-    //-------------------------------------------------------
-    vec3 vp = vec3(vertexXZ.x, vertexY, vertexXZ.y);
-    vp = vec3(modelMatrix * sunMatrix * vec4(vp.xyz, 1.0)).xyz;
-    //-------------------------------------------------------
-    //This is XZY because of ortho projection!
-    gl_Position = Ortho_Project * vec4(vp.x, vp.z, vp.y, 1.0);
+    uv = vertexTexCoord;
+    vec4 vp = vec4(vertexXZ.x, vertexY, vertexXZ.y, 1.0);
+    gl_Position = Ortho_Project * vec4(vp.x, vp.y, vp.z, 1.0);
 
 }

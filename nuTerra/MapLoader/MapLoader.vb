@@ -764,9 +764,11 @@ Module MapLoader
         ' Set initial light position and get radius and angle.
         LIGHT_RADIUS = MAP_SIZE.Length * 100.0
         'LIGHT_ORBIT_ANGLE_Z += 180.0
+        LIGHT_ORBIT_ANGLE_Z = 360 - LIGHT_ORBIT_ANGLE_Z
+        LIGHT_ORBIT_ANGLE_Z += 180.0F
         LIGHT_POS(0) = Math.Sin(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
         LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X * 0.0174533) * LIGHT_RADIUS
-        LIGHT_POS(2) = -Math.Cos(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
+        LIGHT_POS(2) = Math.Cos(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
         set_light_pos() 'for light rotation animation
         '===================================================
 
@@ -804,11 +806,10 @@ Module MapLoader
         LIGHT_POS.X = LIGHT_POS(0)
         LIGHT_POS.Y = LIGHT_POS(1)
         LIGHT_POS.Z = LIGHT_POS(2)
-        LIGHT_RADIUS = Math.Sqrt(LIGHT_POS.X ^ 2 + LIGHT_POS.Z ^ 2)
-        LIGHT_ORBIT_ANGLE = Math.Atan2(LIGHT_RADIUS / LIGHT_POS.Z, LIGHT_RADIUS / LIGHT_POS.Y)
+        LIGHT_ORBIT_ANGLE = LIGHT_ORBIT_ANGLE_Z
         LIGHT_POS(0) = Math.Sin(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
         LIGHT_POS(1) = Math.Sin(LIGHT_ORBIT_ANGLE_X * 0.0174533) * LIGHT_RADIUS
-        LIGHT_POS(2) = -Math.Cos(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
+        LIGHT_POS(2) = Math.Cos(LIGHT_ORBIT_ANGLE_Z * 0.0174533) * LIGHT_RADIUS
 
     End Sub
 

@@ -26,7 +26,6 @@ in VS_OUT {
 
 
 /*===========================================================*/
-
 void main(void)
 {
     vec4 global = texture(global_AM, fs_in.Global_UV);
