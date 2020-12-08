@@ -88,7 +88,7 @@ Module modRender
                 GL.Uniform1(terrainDepthShader("map_id"), id)
                 FBO_mixer_set.gColorArray.BindUnit(0)
 
-                GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, .matrix * sun_rotate * SUN_CAMERA * PROJECTIONMATRIX)
+                GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, .matrix * SUN_CAMERA * PROJECTIONMATRIX)
                 'draw chunk at this othro projection
                 GL.BindVertexArray(.VAO)
                 GL.DrawElements(PrimitiveType.Triangles,
