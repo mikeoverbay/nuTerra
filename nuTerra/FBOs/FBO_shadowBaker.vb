@@ -130,7 +130,7 @@ Module FBO_shadowBaker_mod
             gDepth.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             gDepth.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             gDepth.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), depth_map_size, depth_map_size)
+            gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent24, SizedInternalFormat), depth_map_size, depth_map_size)
 
             Dim er2 = GL.GetError
 

@@ -35,22 +35,24 @@ Module modRender
     Private Sub test_fbo()
 
         'frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
+        GL.Clear(ClearBufferMask.DepthBufferBit)
 
         '===========================================================================
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_ShadowBaker_ID) '=====
         '===========================================================================
         FBO_ShadowBaker.FBO_Make_Ready_For_Shadow_writes()
-        Dim map_id As Integer = 48
+        Dim map_id As Integer = 62
         Dim loc As New Point
 
+        GL.DepthFunc(DepthFunction.Less)
+        GL.ClearDepth(1.0F)
         GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
 
         Dim sunMatrix = set_sun_view_matrix()
 
-        'GL.Disable(EnableCap.DepthTest)
+        GL.Enable(EnableCap.DepthTest)
         GL.Enable(EnableCap.CullFace)
-        'GL.ClearDepth(0.0F)
 
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         GL.FrontFace(FrontFaceDirection.Ccw)
@@ -65,19 +67,14 @@ Module modRender
 
             With theMap.render_set(id)
 
-                'set up the ortho window for each chunk
-                With theMap.v_data(map_id)
-                    Dim sc = ((.xl + .xr) / 2.0F)
-                    Dim zc = ((.zl + .zr) / 2.0F)
-                    Sun_Ortho_view(loc.X - 50.0F, loc.X + 50.0F, loc.Y - 50.0, loc.Y + 50.0, 0.0F, 0.0F)
-                    'Sun_Ortho_view(-1500.0, 1500.0, -1500.0, 1500.0, 0.0F, 0.0F)
-                End With
-
                 Dim eye As New Vector3(LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
                 Dim at As New Vector3(loc.X, loc_z, loc.Y)
-
-
                 SUN_CAMERA = Matrix4.LookAt(eye, at, New Vector3(0.0F, 1.0F, 0.0))
+                Dim rv = New Vector4(50, loc_z, 50, 1.0)
+
+                'set up the ortho window for each chunk
+                Sun_Ortho_view(-75.0, 75.0, -115.0, 35.0, 0.0F, 0.0F)
+
 
                 'save this shadow matrix for use later
                 .shadowMatrix = SUN_CAMERA * .matrix * PROJECTIONMATRIX
@@ -110,11 +107,32 @@ Module modRender
                             DrawElementsType.UnsignedShort, 0)
                     End If
                 Next
+                terrainDepthShader.StopUse()
+
+
+                modelDepthShader.Use()
+
+                GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, &HEFFF)
+
+                GL.UniformMatrix4(modelDepthShader("Ortho_Project"), False, SUN_CAMERA * PROJECTIONMATRIX)
+
+                MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
+
+                GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+
+                MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
+                GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+
+                GL.Disable(EnableCap.CullFace)
+
+                MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
+                GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
+
+                modelDepthShader.StopUse()
 
             End With
         Next
 
-        terrainDepthShader.StopUse()
 
 
 
@@ -127,6 +145,7 @@ Module modRender
         '===========================================================================
         Ortho_main()
         '===========================================================================
+        GL.Disable(EnableCap.DepthTest)
         GL.Disable(EnableCap.CullFace)
         Dim r As New Rectangle(0F, 0F, FBO_ShadowBaker.depth_map_size, FBO_ShadowBaker.depth_map_size)
         draw_image_rectangle_flipY(r, FBO_ShadowBaker.shadow_map)
