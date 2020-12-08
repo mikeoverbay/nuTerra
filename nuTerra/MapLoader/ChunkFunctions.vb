@@ -178,29 +178,11 @@ Module ChunkFunctions
             t_buff(ic) = tangent
 
         Next
-        Dim sunMatrix = set_sun_view_matrix()
-        v_data.xl = 100000.0F
-        v_data.yl = 100000.0F
-        v_data.zl = 100000.0F
-        v_data.xr = -100000.0F
-        v_data.yr = -100000.0F
-        v_data.zr = -100000.0F
 
         For i = 0 To t_buff.Length - 1
             n_buff(i).Normalize()
-            Dim v, v3 As Vector4
-            v.Y = Z(i)
-            v.Xz = XY(i)
-            v.W = 1.0
-            v3 = v * r_set.matrix
-            If v3.X < v_data.xl Then v_data.xl = v3.X
-            If v3.X > v_data.xr Then v_data.xr = v3.X
-            If v3.Y < v_data.yl Then v_data.yl = v3.Y
-            If v3.Y > v_data.yr Then v_data.yr = v3.Y
-            If v3.Z < v_data.zl Then v_data.zl = v3.Z
-            If v3.Z > v_data.zr Then v_data.zr = v3.Z
-
         Next
+
     End Sub
 
     Public Sub smooth_edges(ByVal Idx As Integer)
@@ -372,6 +354,7 @@ Module ChunkFunctions
             .v_buff_Y = Nothing
             .n_buff = Nothing
             .h_buff = Nothing
+            .t_buff = Nothing
 
         End With
     End Sub

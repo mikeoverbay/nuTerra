@@ -445,6 +445,12 @@
     <None Include="shaders\PostProcessing\gBufferFog.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\ShadowBaking\modelDepthWriter.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\ShadowBaking\modelDepthWriter.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\ShadowBaking\terrainDepthWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
