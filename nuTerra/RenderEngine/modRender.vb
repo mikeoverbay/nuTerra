@@ -71,7 +71,7 @@ Module modRender
                     Dim sc = ((.xl + .xr) / 2.0F)
                     Dim zc = ((.zl + .zr) / 2.0F)
                     Sun_Ortho_view(loc.X - 50.0F, loc.X + 50.0F, loc.Y - 50.0, loc.Y + 50.0, 0.0F, 0.0F)
-                    'Sun_Ortho_main(-1500.0, 1500.0, -1500.0, 1500.0, 0.0F, 0.0F)
+                    'Sun_Ortho_view(-1500.0, 1500.0, -1500.0, 1500.0, 0.0F, 0.0F)
                 End With
 
                 Dim eye As New Vector3(LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
@@ -80,6 +80,7 @@ Module modRender
 
                 SUN_CAMERA = Matrix4.LookAt(eye, at, New Vector3(0.0F, 1.0F, 0.0))
 
+                'for use later
                 .shadowMatrix = SUN_CAMERA * .matrix * PROJECTIONMATRIX
 
                 terrainDepthShader.Use()
@@ -113,6 +114,8 @@ Module modRender
 
             End With
         Next
+
+        terrainDepthShader.StopUse()
 
 
 
