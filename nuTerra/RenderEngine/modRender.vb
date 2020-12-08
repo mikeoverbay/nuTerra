@@ -64,7 +64,6 @@ Module modRender
             Dim loc_z As Single = (theMap.v_data(map_id).min_height + theMap.v_data(map_id).max_height) / 2.0F
 
             With theMap.render_set(id)
-                'save this shadow matrix
 
                 'set up the ortho window for each chunk
                 With theMap.v_data(map_id)
@@ -80,7 +79,7 @@ Module modRender
 
                 SUN_CAMERA = Matrix4.LookAt(eye, at, New Vector3(0.0F, 1.0F, 0.0))
 
-                'for use later
+                'save this shadow matrix for use later
                 .shadowMatrix = SUN_CAMERA * .matrix * PROJECTIONMATRIX
 
                 terrainDepthShader.Use()
@@ -90,11 +89,11 @@ Module modRender
                 FBO_mixer_set.gColorArray.BindUnit(0)
 
                 GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, .matrix * sun_rotate * SUN_CAMERA * PROJECTIONMATRIX)
-                'draw chunk fitted to this othro projection
+                'draw chunk at this othro projection
                 GL.BindVertexArray(.VAO)
-                'GL.DrawElements(PrimitiveType.Triangles,
-                '            24576,
-                '            DrawElementsType.UnsignedShort, 0)
+                GL.DrawElements(PrimitiveType.Triangles,
+                            24576,
+                            DrawElementsType.UnsignedShort, 0)
 
                 GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
