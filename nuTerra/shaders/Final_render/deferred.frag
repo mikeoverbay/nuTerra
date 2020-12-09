@@ -272,7 +272,7 @@ void main (void)
             vec4 f_color =  vec4(fog_tint,0.0) * 1.5 * fog_alpha;
 
 
-            final_color = mix(final_color, f_color,1.0- fogFactor);
+           // final_color = mix(final_color, f_color,1.0- fogFactor);
             outColor.a = 1.0-fogFactor;
             //final_color.r = outColor.a;
             /*===================================================================*/

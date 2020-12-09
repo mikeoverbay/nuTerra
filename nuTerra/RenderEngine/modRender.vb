@@ -32,127 +32,6 @@ Module modRender
         "Texture 8"
         }
 
-    Private Sub test_fbo()
-
-        'frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
-        GL.Clear(ClearBufferMask.DepthBufferBit)
-
-        '===========================================================================
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_ShadowBaker_ID) '=====
-        '===========================================================================
-        FBO_ShadowBaker.FBO_Make_Ready_For_Shadow_writes()
-        Dim map_id As Integer = 62
-        Dim loc As New Point
-
-        GL.DepthFunc(DepthFunction.Less)
-        GL.ClearDepth(1.0F)
-        GL.ClearColor(0.0F, 0.0F, 0.3F, 0.0F)
-        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
-
-        Dim sunMatrix = set_sun_view_matrix()
-
-        GL.Enable(EnableCap.DepthTest)
-        GL.Enable(EnableCap.CullFace)
-
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-        GL.FrontFace(FrontFaceDirection.Ccw)
-
-        'this is not used
-        Dim sun_rotate = set_sun_view_matrix()
-
-        For id = map_id To map_id
-            loc.X = theMap.render_set(map_id).matrix.Row3.X
-            loc.Y = theMap.render_set(map_id).matrix.Row3.Z
-            Dim loc_z As Single = (theMap.v_data(map_id).min_height + theMap.v_data(map_id).max_height) / 2.0F
-
-            With theMap.render_set(id)
-
-                Dim eye As New Vector3(LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
-                Dim at As New Vector3(loc.X, loc_z, loc.Y)
-                SUN_CAMERA = Matrix4.LookAt(eye, at, New Vector3(0.0F, 1.0F, 0.0))
-                Dim rv = New Vector4(50, loc_z, 50, 1.0)
-
-                'set up the ortho window for each chunk
-                Sun_Ortho_view(-75.0, 75.0, -115.0, 35.0, 0.0F, 0.0F)
-
-
-                'save this shadow matrix for use later
-                .shadowMatrix = SUN_CAMERA * .matrix * PROJECTIONMATRIX
-
-                terrainDepthShader.Use()
-
-                'test only
-                GL.Uniform1(terrainDepthShader("map_id"), id)
-                FBO_mixer_set.gColorArray.BindUnit(0)
-
-                GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, .matrix * SUN_CAMERA * PROJECTIONMATRIX)
-                'draw chunk at this othro projection
-                GL.BindVertexArray(.VAO)
-                GL.DrawElements(PrimitiveType.Triangles,
-                            24576,
-                            DrawElementsType.UnsignedShort, 0)
-
-                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-
-                For i = 0 To theMap.render_set.Length - 1
-                    'draw all terrain chucks to capture shadow from other chunks
-                    If i <> id Then
-                        GL.Uniform1(terrainDepthShader("map_id"), i)
-
-                        GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, theMap.render_set(i).matrix * SUN_CAMERA * PROJECTIONMATRIX)
-
-                        GL.BindVertexArray(theMap.render_set(i).VAO)
-                        GL.DrawElements(PrimitiveType.Triangles,
-                            24576,
-                            DrawElementsType.UnsignedShort, 0)
-                    End If
-                Next
-                terrainDepthShader.StopUse()
-
-
-                modelDepthShader.Use()
-
-                GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, &HEFFF)
-
-                GL.UniformMatrix4(modelDepthShader("Ortho_Project"), False, SUN_CAMERA * PROJECTIONMATRIX)
-
-                MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
-
-                GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
-
-                MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-                GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
-
-                GL.Disable(EnableCap.CullFace)
-
-                MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-                GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
-
-                modelDepthShader.StopUse()
-
-            End With
-        Next
-
-
-
-
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-
-
-        '===========================================================================
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '======================
-        '===========================================================================
-        '===========================================================================
-        Ortho_main()
-        '===========================================================================
-        GL.Disable(EnableCap.DepthTest)
-        GL.Disable(EnableCap.CullFace)
-        Dim r As New Rectangle(0F, 0F, FBO_ShadowBaker.depth_map_size, FBO_ShadowBaker.depth_map_size)
-        draw_image_rectangle_flipY(r, FBO_ShadowBaker.shadow_map)
-
-        'frmMain.glControl_main.SwapBuffers()
-
-    End Sub
 
     Public Sub draw_scene()
         '===========================================================================
@@ -343,7 +222,7 @@ Module modRender
         '===========================================================================
 
         'ortho projection decals
-#If True Then
+#If False Then
 
         FBOm.attach_C()
 
@@ -387,10 +266,6 @@ Module modRender
         GL.DepthMask(True)
         GL.Disable(EnableCap.Blend)
 
-        '===========================================================================
-        'draw test render
-        test_fbo()
-        '===========================================================================
         '===========================================================================
         If _STARTED Then frmMain.glControl_main.SwapBuffers() '=====================
         '===========================================================================

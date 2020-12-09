@@ -1,5 +1,6 @@
 ﻿Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
+Imports System.Runtime.InteropServices
 
 Module LQ_Texture_creator
 
@@ -20,7 +21,175 @@ Module LQ_Texture_creator
         If Not FBO_ShadowBaker.FBO_Make_Ready_For_Shadow_writes() Then
             Stop
         End If
+        If Not DONT_BLOCK_TERRAIN Then
+            Return
+        End If
+        'frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
+        GL.Clear(ClearBufferMask.DepthBufferBit)
+
+        '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_ShadowBaker_ID) '=====
+        '===========================================================================
+        Dim map_id As Integer = 62
+        Dim loc As New Point
+
+        GL.DepthFunc(DepthFunction.Less)
+        GL.ClearDepth(1.0F)
+        GL.ClearColor(1.0F, 1.0F, 1.0F, 1.0)
+
+        Dim sunMatrix = set_sun_view_matrix()
+
+        GL.Enable(EnableCap.DepthTest)
+        GL.Enable(EnableCap.CullFace)
+
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+        GL.FrontFace(FrontFaceDirection.Ccw)
+
+        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            clear_culling_and_Lod()
+        End If
+
+        For id = 0 To theMap.render_set.Length - 1
+            'For id = 48 To 48
+
+            FBO_ShadowBaker.FBO_Make_Ready_For_Shadow_writes()
+
+            GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+
+            With theMap.render_set(id)
+
+                loc.X = .matrix.Row3.X
+                loc.Y = .matrix.Row3.Z
+                Dim loc_z As Single = (theMap.v_data(id).min_height + theMap.v_data(id).max_height) / 2.0F
+
+                Dim eye As New Vector3(LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
+                Dim at As New Vector3(loc.X, loc_z, loc.Y)
+                SUN_CAMERA = Matrix4.LookAt(eye, at, New Vector3(0.0F, 1.0F, 0.0))
+                Dim rv = New Vector4(50, loc_z, 50, 1.0)
+
+                'set up the ortho window for each chunk
+                Sun_Ortho_view(-75.0, 75.0, -115.0, 35.0, 0.0F, 0.0F)
+
+
+                'save this shadow matrix for use later
+                .shadowMatrix = .matrix * SUN_CAMERA * PROJECTIONMATRIX
+
+                terrainDepthShader.Use()
+
+                'test only
+                GL.Uniform1(terrainDepthShader("map_id"), id)
+
+                'this chunk is for testing. It can be drawn with the others once everything is proved out.
+                GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, .matrix * SUN_CAMERA * PROJECTIONMATRIX)
+                'draw chunk at this othro projection
+                GL.BindVertexArray(.VAO)
+                GL.DrawElements(PrimitiveType.Triangles,
+                                24576,
+                                DrawElementsType.UnsignedShort, 0)
+
+                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
+                For i = 0 To theMap.render_set.Length - 1
+                    'draw all terrain chucks to capture shadow from other chunks
+                    If i <> id Then
+                        GL.Uniform1(terrainDepthShader("map_id"), i)
+
+                        GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, theMap.render_set(i).matrix * SUN_CAMERA * PROJECTIONMATRIX)
+
+                        GL.BindVertexArray(theMap.render_set(i).VAO)
+                        GL.DrawElements(PrimitiveType.Triangles,
+                                24576,
+                                DrawElementsType.UnsignedShort, 0)
+                    End If
+                Next
+                terrainDepthShader.StopUse()
+
+                '==================================================================
+                'draw all buildings . we will need to draw these 2 times. Once with back side and once with forward facing side.
+                If MODELS_LOADED And DONT_BLOCK_MODELS Then
+
+
+                    modelDepthShader.Use()
+
+                    GL.UniformMatrix4(modelDepthShader("Ortho_Project"), False, SUN_CAMERA * PROJECTIONMATRIX)
+
+                    MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
+
+                    GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+
+                    MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
+                    GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+
+                    GL.Disable(EnableCap.CullFace)
+
+                    MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
+                    GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
+
+                    modelDepthShader.StopUse()
+                End If
+                '==================================================================
+                'now that we have the shadow depth texture, we can create the shadow mask.
+                FBO_ShadowBaker.FBO_Make_Ready_For_mask_writes()
+                FBO_ShadowBaker.attach_array_layer(id)
+                ortho(FBO_ShadowBaker.texture_size.X)
+
+                terrainMaskShader.Use()
+
+                GL.UniformMatrix4(terrainMaskShader("Ortho_Project"), False, PROJECTIONMATRIX)
+                GL.UniformMatrix4(terrainMaskShader("shadowProjection"), False, .shadowMatrix)
+
+                GL.BindVertexArray(.VAO)
+                GL.DrawElements(PrimitiveType.Triangles,
+                                24576,
+                                DrawElementsType.UnsignedShort, 0)
+
+
+                terrainMaskShader.StopUse()
+
+
+            End With
+        Next
+
+        '    GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
+
+        ''===========================================================================
+        'GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '======================
+        ''===========================================================================
+        ''===========================================================================
+        'Ortho_main()
+        ''===========================================================================
+        'GL.Disable(EnableCap.DepthTest)
+        'GL.Disable(EnableCap.CullFace)
+        'Dim r As New Rectangle(0F, 0F, FBO_ShadowBaker.depth_map_size, FBO_ShadowBaker.depth_map_size)
+        'draw_image_rectangle_flipY(r, FBO_ShadowBaker.shadow_map)
+
+        ''frmMain.glControl_main.SwapBuffers()
+
     End Sub
+
+    Private Sub clear_culling_and_Lod()
+        GL_PUSH_GROUP("cull_Lod_Clear")
+
+        'clear atomic counter
+        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+
+        cullLodClearShader.Use()
+
+        GL.Uniform1(cullLodClearShader("numModelInstances"), MapGL.numModelInstances)
+
+        Dim workGroupSize = 16
+        Dim numGroups = (MapGL.numModelInstances + workGroupSize - 1) \ workGroupSize
+        GL.DispatchCompute(numGroups, 1, 1)
+
+        GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
+
+        cullLodClearShader.StopUse()
+
+        GL_POP_GROUP()
+
+    End Sub
+
     Public Sub make_LQ_textures()
 
         bake_terrain_shadows()
@@ -56,13 +225,9 @@ Module LQ_Texture_creator
         theMap.GLOBAL_AM_ID.BindUnit(21)
         JITTER_TEXTURE_ID.BindUnit(22)
 
-        'water BS
-        'GL.Uniform3(t_mixerShader("waterColor"),
-        '                Map_wetness.waterColor.X,
-        '                Map_wetness.waterColor.Y,
-        '                Map_wetness.waterColor.Z)
+        'pre created shadow masks
+        FBO_ShadowBaker.gBakerColorArray.BindUnit(23)
 
-        'GL.Uniform1(t_mixerShader("waterAlpha"), Map_wetness.waterAlpha)
 
         GL.Uniform2(t_mixerShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(t_mixerShader("map_center"), -b_x_min, b_y_max)
@@ -122,7 +287,7 @@ Module LQ_Texture_creator
     End Sub
 
 
-    Private Sub ortho(ByVal size As Integer)
+    Public Sub ortho(ByVal size As Integer)
         GL.Viewport(0, 0, size, size)
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(-50.0F, 50.0, -50.0, 50.0F, -300.0F, 300.0F)
         VIEWMATRIX = Matrix4.Identity

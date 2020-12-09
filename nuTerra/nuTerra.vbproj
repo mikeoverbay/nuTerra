@@ -451,6 +451,12 @@
     <None Include="shaders\ShadowBaking\modelDepthWriter.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\ShadowBaking\terrainMask.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\ShadowBaking\terrainMask.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\ShadowBaking\terrainDepthWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -461,6 +467,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Trials\cullLodClear.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Trials\cull.comp.spv">
