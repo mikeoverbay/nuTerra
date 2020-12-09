@@ -85,6 +85,11 @@ layout(binding = 20) uniform sampler2D mixtexture4;
 layout(binding = 21) uniform sampler2D global_AM;
 layout(binding = 22) uniform sampler2D NRP_noise;
 
+layout(binding = 23) uniform sampler2DArray shadow;
+
+uniform int map_id;
+
+
 in VS_OUT {
     vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
     vec2 UV;
@@ -274,8 +279,9 @@ void main(void)
      gNormal.xyz = normalize(out_n.xyz);
 
     gGMF = vec4(0.1, specular, 128.0/255.0, 0.0);
-    
+    vec3 shad = vec3( texture( shadow, vec3(fs_in.UV, float(map_id)) ).r );
     gColor = base;
+    gColor.rgb *= shad;
     // global.a is used for wetness on the map.
     gColor.a = global.a*0.8;
 

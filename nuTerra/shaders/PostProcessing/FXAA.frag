@@ -9,14 +9,8 @@ layout (location=0) in VS_OUT {
 
 layout (location=0) out vec4 fragColor;
 
-uniform bool pass_through;
-
 void main(void)
 {
-    if (pass_through ){
-    fragColor = texture(colorMap, fs_in.TexCoords.xy);
-    return;
-    }
 
     float alpha = texture(colorMap, fs_in.TexCoords.xy).a;
     vec2 texCoordOffset = vec2(1.0, 1.0)/viewportSize.xy;

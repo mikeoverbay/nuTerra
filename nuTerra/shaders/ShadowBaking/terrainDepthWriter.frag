@@ -1,16 +1,23 @@
 ﻿#version 450 core
 
+
 out vec4 color;
-in vec2 uv;
-layout(binding = 0) uniform sampler2DArray textArrayC;
-uniform int map_id;
+
+in vec4 v_position;
 
 void main(void){
 
-    vec4 ArrayTextureC = texture(textArrayC, vec3(uv, map_id) );
+    float scale = 5000.0;
+    float d = v_position.z / v_position.w ;
 
-    if (uv.x < 0.005 || uv.x > 0.995 || uv.y < 0.005 || uv.y > 0.995)
-        { ArrayTextureC = vec4(0.9,0.9,0.9,0.0); }
+        d = d* 0.5 + 0.5;
+    
+    float d2 = d * d;
+   
+    // Adjusting moments (this is sort of bias per pixel) using derivative
+    float dx = dFdx(d);
+    float dy = dFdy(d);
+    d2 += 0.25*(dx*dx+dy*dy) ;  
+    color = vec4( d * scale, d2 * scale, 0.0, 1.0 );
 
-    color = ArrayTextureC;
 }

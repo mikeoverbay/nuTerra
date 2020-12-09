@@ -11,6 +11,8 @@ layout(location = 0) in vec3 vp;
 
 uniform mat4 Ortho_Project;
 
+out vec4 v_position;
+
 void main(void)
 {
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
@@ -18,5 +20,5 @@ void main(void)
     mat4 modelView = Ortho_Project * thisModel.matrix;
 
     gl_Position = modelView * vec4(vp.x, vp.y, vp.z, 1.0);
-
+    v_position = gl_Position;
 }

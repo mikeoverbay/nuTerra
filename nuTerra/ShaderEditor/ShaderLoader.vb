@@ -152,6 +152,7 @@ Module ShaderLoader
     Public BaseRingProjectorDeferred As Shader
     Public boxShader As Shader
     Public cullShader As Shader
+    Public cullLodClearShader As Shader
     Public colorCorrectShader As Shader
     Public coloredline2dShader As Shader
     Public colorMaskShader As Shader
@@ -188,6 +189,7 @@ Module ShaderLoader
     Public explode_type_1_shader As Shader
     'shadow shaders
     Public terrainDepthShader As Shader
+    Public terrainMaskShader As Shader
     Public modelDepthShader As Shader
 #End Region
 
@@ -209,6 +211,7 @@ Module ShaderLoader
         BaseRingProjectorDeferred = New Shader("BaseRingProjectorDeferred")
         boxShader = New Shader("box")
         cullShader = New Shader("cull")
+        cullLodClearShader = New Shader("cullLodClear")
         colorCorrectShader = New Shader("colorCorrect")
         coloredline2dShader = New Shader("coloredLine2d")
         colorMaskShader = New Shader("ColorMask")
@@ -245,13 +248,17 @@ Module ShaderLoader
         explode_type_1_shader = New Shader("explode_type_1_")
         'shadow shaders
         terrainDepthShader = New Shader("terrainDepthWriter")
+        terrainMaskShader = New Shader("terrainMask")
         modelDepthShader = New Shader("modelDepthWriter")
+
+
 
         shaders = New List(Of Shader)
         shaders.Add(BaseRingProjector)
         shaders.Add(BaseRingProjectorDeferred)
         shaders.Add(boxShader)
         shaders.Add(cullShader)
+        shaders.Add(cullLodClearShader)
         shaders.Add(colorCorrectShader)
         shaders.Add(coloredline2dShader)
         shaders.Add(colorMaskShader)
@@ -288,6 +295,7 @@ Module ShaderLoader
         shaders.Add(explode_type_1_shader)
         'shadow shaders
         shaders.Add(terrainDepthShader)
+        shaders.Add(terrainMaskShader)
         shaders.Add(modelDepthShader)
     End Sub
 

@@ -69,7 +69,6 @@ Module FBO_shadowBaker_mod
         Public Shared Sub attach_array_layer(ByVal layer As Integer)
             GL.NamedFramebufferDrawBuffers(FBO_ShadowBaker_ID, 1, attactments)
             GL.NamedFramebufferTextureLayer(FBO_ShadowBaker_ID, FramebufferAttachment.ColorAttachment0, gBakerColorArray.texture_id, 0, layer)
-            GL.NamedFramebufferDrawBuffers(FBO_ShadowBaker_ID, 1, attactments)
 
             GL.Finish() 'make sure we are done
 
@@ -112,7 +111,7 @@ Module FBO_shadowBaker_mod
             gBakerColorArray.Parameter(TextureParameterName.TextureMaxLevel, mipCount - 1)
             gBakerColorArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToBorder)
             gBakerColorArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToBorder)
-            gBakerColorArray.Storage3D(mipCount - 1, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
+            gBakerColorArray.Storage3D(mipCount - 1, SizedInternalFormat.R8, texture_size.X, texture_size.Y, LayerCount)
 
             ' gBakerShadowDepth ------------------------------------------------------------------------------------
             shadow_map = CreateTexture(TextureTarget.Texture2D, "shadow_map")
@@ -120,8 +119,7 @@ Module FBO_shadowBaker_mod
             shadow_map.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             shadow_map.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToBorder)
             shadow_map.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToBorder)
-            'shadow_map.Storage2D(1, SizedInternalFormat.Rg16f, shadow_map_size, shadow_map_size)
-            shadow_map.Storage2D(1, SizedInternalFormat.Rgba8, depth_map_size, depth_map_size)
+            shadow_map.Storage2D(1, SizedInternalFormat.Rg16f, depth_map_size, depth_map_size)
 
             ' gDepth ------------------------------------------------------------------------------------------
             ' DepthComponent32f
