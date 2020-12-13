@@ -12,7 +12,7 @@ Module FBO_shadowBaker_mod
     ''' </summary>
     Public NotInheritable Class FBO_ShadowBaker
         Public Shared depth_map_size As Integer = 512
-        Public Shared gBakerColorArray, shadow_map, gDepth As GLTexture
+        Public Shared gBakerColorArray, shadow_map, gDepth, gDepthMask As GLTexture
         Public Shared texture_size As Point
         Public Shared LayerCount As Integer
         Public Shared mipCount As Integer
@@ -49,11 +49,11 @@ Module FBO_shadowBaker_mod
             Return True ' No errors! all is good! :)
         End Function
 
-        Public Shared Function FBO_Make_Ready_For_mask_writes() As Boolean
+        Public Shared Function FBO_Make_Ready_For_mask_writes(ByVal layer As Integer) As Boolean
 
-            GL.NamedFramebufferTextureLayer(FBO_ShadowBaker_ID, FramebufferAttachment.ColorAttachment0, gBakerColorArray.texture_id, 0, 0)
+            GL.NamedFramebufferTextureLayer(FBO_ShadowBaker_ID, FramebufferAttachment.ColorAttachment0, gBakerColorArray.texture_id, 0, layer)
             'dont need depth attachment for creating shadow masks
-            GL.NamedFramebufferTexture(FBO_ShadowBaker_ID, FramebufferAttachment.DepthAttachment, 0, 0)
+            GL.NamedFramebufferTexture(FBO_ShadowBaker_ID, FramebufferAttachment.DepthAttachment, gDepthMask.texture_id, 0)
 
             GL.NamedFramebufferDrawBuffers(FBO_ShadowBaker_ID, 1, attactments)
 
@@ -66,17 +66,6 @@ Module FBO_shadowBaker_mod
 
         End Function
 
-        Public Shared Sub attach_array_layer(ByVal layer As Integer)
-            GL.NamedFramebufferDrawBuffers(FBO_ShadowBaker_ID, 1, attactments)
-            GL.NamedFramebufferTextureLayer(FBO_ShadowBaker_ID, FramebufferAttachment.ColorAttachment0, gBakerColorArray.texture_id, 0, layer)
-
-            GL.Finish() 'make sure we are done
-
-            Dim er2 = GL.GetError
-            If er2 <> 0 Then
-                Stop
-            End If
-        End Sub
 
         Public Shared Sub attach_depth_texture()
             GL.NamedFramebufferDrawBuffers(FBO_ShadowBaker_ID, 1, attactments)
@@ -95,6 +84,14 @@ Module FBO_shadowBaker_mod
             If gBakerColorArray IsNot Nothing Then gBakerColorArray.Delete()
             If shadow_map IsNot Nothing Then shadow_map.Delete()
             If gDepth IsNot Nothing Then gDepth.Delete()
+            If gDepthMask IsNot Nothing Then gDepthMask.Delete()
+            If FBO_ShadowBaker_ID > 0 Then GL.DeleteFramebuffer(FBO_ShadowBaker_ID)
+            GL.Finish() 'make sure we are done
+        End Sub
+        Public Shared Sub clean_up()
+            If shadow_map IsNot Nothing Then shadow_map.Delete()
+            If gDepth IsNot Nothing Then gDepth.Delete()
+            If gDepthMask IsNot Nothing Then gDepthMask.Delete()
             If FBO_ShadowBaker_ID > 0 Then GL.DeleteFramebuffer(FBO_ShadowBaker_ID)
             GL.Finish() 'make sure we are done
         End Sub
@@ -119,7 +116,7 @@ Module FBO_shadowBaker_mod
             shadow_map.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             shadow_map.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToBorder)
             shadow_map.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToBorder)
-            shadow_map.Storage2D(1, SizedInternalFormat.Rg16f, depth_map_size, depth_map_size)
+            shadow_map.Storage2D(1, SizedInternalFormat.Rg32f, depth_map_size, depth_map_size)
 
             ' gDepth ------------------------------------------------------------------------------------------
             ' DepthComponent32f
@@ -130,6 +127,14 @@ Module FBO_shadowBaker_mod
             gDepth.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent24, SizedInternalFormat), depth_map_size, depth_map_size)
 
+            ' gDepthMask ------------------------------------------------------------------------------------------
+            ' DepthComponent32f
+            gDepthMask = CreateTexture(TextureTarget.Texture2D, "gDepthMask")
+            gDepthMask.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            gDepthMask.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            gDepthMask.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            gDepthMask.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
+            gDepthMask.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent24, SizedInternalFormat), texture_size.X, texture_size.Y)
             Dim er2 = GL.GetError
 
             GL.Finish()

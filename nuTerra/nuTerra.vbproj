@@ -487,6 +487,12 @@
     <None Include="shaders\Utility\FF_billboard.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Utility\image2dArray.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Utility\image2dArray.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Utility\TextRender.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
