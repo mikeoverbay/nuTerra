@@ -279,9 +279,9 @@ void main(void)
      gNormal.xyz = normalize(out_n.xyz);
 
     gGMF = vec4(0.1, specular, 128.0/255.0, 0.0);
-    vec3 shad = vec3( texture( shadow, vec3(fs_in.UV, float(map_id)) ).r );
+    //vec3 shad = vec3( texture( shadow, vec3(fs_in.UV, float(map_id)) ).r );
     gColor = base;
-    gColor.rgb *= shad;
+    //gColor.rgb *= shad;
     // global.a is used for wetness on the map.
     gColor.a = global.a*0.8;
 

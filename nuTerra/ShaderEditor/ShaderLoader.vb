@@ -166,6 +166,7 @@ Module ShaderLoader
     Public gBufferFogShader As Shader
     Public glassPassShader As Shader
     Public gWriterShader As Shader
+    Public image2dArrayShader As Shader
     Public image2dFlipShader As Shader
     Public image2dShader As Shader
     Public MiniMapRingsShader As Shader
@@ -222,6 +223,7 @@ Module ShaderLoader
         FF_BillboardShader = New Shader("FF_billboard")
         FXAAShader = New Shader("FXAA")
         'unused: frustumShader = New Shader("frustum")
+        image2dArrayShader = New Shader("image2dArray")
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")
         gBufferFogShader = New Shader("gBufferFog")
@@ -270,6 +272,7 @@ Module ShaderLoader
         shaders.Add(FXAAShader)
         shaders.Add(gBufferFogShader)
         'unused: shaders.Add(frustumShader)
+        shaders.Add(image2dArrayShader)
         shaders.Add(image2dFlipShader)
         shaders.Add(image2dShader)
         shaders.Add(glassPassShader)

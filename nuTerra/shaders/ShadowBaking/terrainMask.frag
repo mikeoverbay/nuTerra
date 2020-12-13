@@ -9,16 +9,16 @@ layout(binding = 0) uniform sampler2D shadow_map;
 
 uniform int map_id;
 vec4 ShadowCoordPostW;
+vec2 moments;
 
 float chebyshevUpperBound( float distance)
 {
-    // this clips off the depth map edge artifact.
-    if (ShadowCoordPostW.x >0.997) return 1.0;
-    if (ShadowCoordPostW.x <0.003) return 1.0;
-    if (ShadowCoordPostW.y >0.997) return 1.0;
-    if (ShadowCoordPostW.y <0.003) return 1.0;
-   
-   vec2 moments = texture(shadow_map,ShadowCoordPostW.xy).rg;
+
+   vec2 s_uv = ShadowCoordPostW.xy;
+//   s_uv.y = 1.0 - s_uv.y;
+//   s_uv.x = 1.0 - s_uv.x;
+
+   moments = texture(shadow_map,s_uv.xy).rg;
 
     // Surface is fully lit. as the current fragment is before the light occluder
     if (distance <= moments.x)
@@ -42,9 +42,10 @@ void main(void){
 
     vec4 full = vec4(1.0);
         ShadowCoordPostW = ShadowCoord / ShadowCoord.w;
-    // Depth was scaled up in the depth shader so we scale it up here too.
+    // Depth was scaled up in the depth shaders so we scale it up here too.
     // This fixes precision issues.
-    float shadow = chebyshevUpperBound(ShadowCoordPostW.z*5000.0);
+    float shadow = chebyshevUpperBound(ShadowCoordPostW.z*3000.0);
 
-    mask.r =  max(abs(shadow)+0.4,0.1);
+    mask.r =  max(abs(shadow+0.4),0.1);
+//    mask.r = moments.x;
 }

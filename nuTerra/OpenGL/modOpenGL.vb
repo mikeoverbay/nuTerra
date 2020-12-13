@@ -126,14 +126,9 @@ Module modOpenGL
     Public PerViewData As New TPerViewData
     Public PerViewDataBuffer As GLBuffer
 
-    Public Sub Sun_Ortho_view(ByVal L As Single, ByVal R As Single, ByVal B As Single, ByVal T As Single, ByVal x_offset As Single, ByVal y_offset As Single)
+    Public Sub Sun_Ortho_view(ByVal L As Single, ByVal R As Single, ByVal B As Single, ByVal T As Single)
         GL.Viewport(0, 0, FBO_ShadowBaker.depth_map_size, FBO_ShadowBaker.depth_map_size)
-        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter((L) + x_offset,
-                                                               (R) + x_offset,
-                                                               (B) + y_offset,
-                                                               (T) + y_offset,
-                                                               -30000.0F,
-                                                               30000.0F)
+        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(L, R, B, T, -3000.0F, 3000.0F)
         VIEWMATRIX = Matrix4.Identity
     End Sub
 
@@ -282,6 +277,30 @@ Module modOpenGL
         End If
     End Sub
 
+    Public Sub draw_image_array(rect As RectangleF, image As GLTexture, ByVal id As Integer)
+
+        image2dArrayShader.Use()
+
+        image.BindUnit(0)
+        GL.Uniform1(image2dArrayShader("imageMap"), 0)
+        GL.Uniform1(image2dArrayShader("id"), id)
+        GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
+
+        GL.UniformMatrix4(image2dArrayShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform4(image2dArrayShader("rect"),
+                        rect.Left,
+                        -rect.Bottom,
+                        rect.Right,
+                        -rect.Top)
+
+        GL.BindVertexArray(defaultVao)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        'GL.BindVertexArray(0)
+
+        image2dShader.StopUse()
+        'unbind texture
+        unbind_textures(0)
+    End Sub
 
     Private Function pack_10(x As Single) As UInt32
         Dim qx As Int32 = MathHelper.Clamp(CType(x * 511.0F, Int32), -512, 511)

@@ -3,10 +3,11 @@
 out vec4 color;
 
 in vec4 v_position;
+in vec2 uv;
 
 void main(void){
 
-    float scale = 5000.0;
+    float scale = 3000.0;
     float d = v_position.z / v_position.w ;
 
         d = d* 0.5 + 0.5;
