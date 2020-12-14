@@ -98,28 +98,29 @@ def unpack_layers(fr):
         width, height, count = unpack('<3I', fr.read(3 * 4))
         print('width:', width)
         print('height:', height)
-        print('count:', count)
+        print('count:', count) # bpp?
 
-        x, y, z, w = unpack('<4f', fr.read(4 * 4))
-        print(x, y, z, w)
+        uProjection = unpack('<4f', fr.read(4 * 4))
+        print('uProjection:', uProjection)
 
-        x, y, z, w = unpack('<4f', fr.read(4 * 4))
-        print(x, y, z, w)
+        vProjection = unpack('<4f', fr.read(4 * 4))
+        print('vProjection:', vProjection)
 
-        always_59 = unpack('<I', fr.read(4))[0]
-        assert always_59 == 59
+        flags = unpack('<I', fr.read(4))[0]
+        assert flags == 59
 
-        x, y, z = unpack('<3f', fr.read(3 * 4))
-        print(x, y, z)
+        padding = unpack('<3I', fr.read(3 * 4))
+        assert padding == (0, 0, 0), padding
 
-        x, y, z, w = unpack('<4f', fr.read(4 * 4))
-        print(x, y, z, w)
+        # Displacement
+        row0 = unpack('<4f', fr.read(4 * 4))
+        print('row0:', row0)
 
-        x, y, z, w = unpack('<4f', fr.read(4 * 4))
-        print(x, y, z, w)
+        row1 = unpack('<4f', fr.read(4 * 4))
+        print('row1:', row1)
 
-        x, y, z, w = unpack('<4f', fr.read(4 * 4))
-        print(x, y, z, w)
+        row2 = unpack('<4f', fr.read(4 * 4))
+        print('row2:', row2)
 
         sz = unpack('<I', fr.read(4))[0]
         print(fr.read(sz + 1))
