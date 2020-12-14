@@ -100,8 +100,6 @@ def unpack_layers(fr):
         print('height:', height)
         print('count:', count) # bpp?
 
-        uProjection = unpack('<4f', fr.read(4 * 4))
-        print('uProjection:', uProjection)
 
         vProjection = unpack('<4f', fr.read(4 * 4))
         print('vProjection:', vProjection)
