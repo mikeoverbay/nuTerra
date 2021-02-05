@@ -222,7 +222,7 @@ Module modRender
         '===========================================================================
 
         'ortho projection decals
-#If False Then
+#If True Then
 
         FBOm.attach_C()
 
