@@ -123,6 +123,12 @@
   <PropertyGroup>
     <ApplicationIcon>Terra!.ico</ApplicationIcon>
   </PropertyGroup>
+  <PropertyGroup>
+    <TargetZone>LocalIntranet</TargetZone>
+  </PropertyGroup>
+  <PropertyGroup>
+    <GenerateManifests>false</GenerateManifests>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="FastColoredTextBox, Version=2.16.24.0, Culture=neutral, PublicKeyToken=fb8aa12b994ef61b, processorArchitecture=MSIL">
       <HintPath>..\packages\FCTB.2.16.24\lib\FastColoredTextBox.dll</HintPath>
@@ -361,273 +367,274 @@
     <None Include="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="Resources\skyDome.x">
+    <Content Include="Resources\skyDome.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\colorMaskShader\ColorMask.frag">
+    </Content>
+    <Content Include="Resources\banner.jpg" />
+    <Content Include="shaders\colorMaskShader\ColorMask.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\colorMaskShader\ColorMask.vert">
+    </Content>
+    <Content Include="shaders\colorMaskShader\ColorMask.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\box.frag">
+    </Content>
+    <Content Include="shaders\Developer\box.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\box.geom">
+    </Content>
+    <Content Include="shaders\Developer\box.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\box.vert">
+    </Content>
+    <Content Include="shaders\Developer\box.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\frustum.frag">
+    </Content>
+    <Content Include="shaders\Developer\frustum.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\frustum.geom">
+    </Content>
+    <Content Include="shaders\Developer\frustum.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\frustum.vert">
+    </Content>
+    <Content Include="shaders\Developer\frustum.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\TerrainGrids.frag">
+    </Content>
+    <Content Include="shaders\Developer\TerrainGrids.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\TerrainGrids.vert">
+    </Content>
+    <Content Include="shaders\Developer\TerrainGrids.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Final_render\colorCorrect.frag">
+    </Content>
+    <Content Include="shaders\Final_render\colorCorrect.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Final_render\colorCorrect.vert">
+    </Content>
+    <Content Include="shaders\Final_render\colorCorrect.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Final_render\glassPass.frag">
+    </Content>
+    <Content Include="shaders\Final_render\glassPass.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\mapMixing\t_mixer.frag">
+    </Content>
+    <Content Include="shaders\mapMixing\t_mixer.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\mapMixing\t_mixer.vert">
+    </Content>
+    <Content Include="shaders\mapMixing\t_mixer.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\ModelViewer\ModelViewer.frag">
+    </Content>
+    <Content Include="shaders\ModelViewer\ModelViewer.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\ModelViewer\ModelViewer.vert">
+    </Content>
+    <Content Include="shaders\ModelViewer\ModelViewer.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\mDepthWrite.frag">
+    </Content>
+    <Content Include="shaders\Model_shaders\mDepthWrite.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\mDepthWrite.vert">
+    </Content>
+    <Content Include="shaders\Model_shaders\mDepthWrite.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\modelGlass.frag">
+    </Content>
+    <Content Include="shaders\Model_shaders\modelGlass.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\modelGlass.vert">
+    </Content>
+    <Content Include="shaders\Model_shaders\modelGlass.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\PostProcessing\DeferredFog.frag">
+    </Content>
+    <Content Include="shaders\PostProcessing\DeferredFog.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\PostProcessing\DeferredFog.vert">
+    </Content>
+    <Content Include="shaders\PostProcessing\DeferredFog.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\PostProcessing\FXAA.frag.spv">
+    </Content>
+    <Content Include="shaders\PostProcessing\FXAA.frag.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\PostProcessing\FXAA.vert.spv">
+    </Content>
+    <Content Include="shaders\PostProcessing\FXAA.vert.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\PostProcessing\gBufferFog.frag">
+    </Content>
+    <Content Include="shaders\PostProcessing\gBufferFog.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\PostProcessing\gBufferFog.vert">
+    </Content>
+    <Content Include="shaders\PostProcessing\gBufferFog.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\ShadowBaking\modelDepthWriter.frag">
+    </Content>
+    <Content Include="shaders\ShadowBaking\modelDepthWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\ShadowBaking\modelDepthWriter.vert">
+    </Content>
+    <Content Include="shaders\ShadowBaking\modelDepthWriter.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\ShadowBaking\terrainMask.frag">
+    </Content>
+    <Content Include="shaders\ShadowBaking\terrainMask.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\ShadowBaking\terrainMask.vert">
+    </Content>
+    <Content Include="shaders\ShadowBaking\terrainMask.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\ShadowBaking\terrainDepthWriter.frag">
+    </Content>
+    <Content Include="shaders\ShadowBaking\terrainDepthWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\ShadowBaking\terrainDepthWriter.vert">
+    </Content>
+    <Content Include="shaders\ShadowBaking\terrainDepthWriter.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.frag">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.vert">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Trials\cullLodClear.comp">
+    </Content>
+    <Content Include="shaders\Trials\cullLodClear.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    </Content>
     <None Include="shaders\Trials\cull.comp.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Utility\explode_type_1_.frag">
+    <Content Include="shaders\Utility\explode_type_1_.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\explode_type_1_.vert">
+    </Content>
+    <Content Include="shaders\Utility\explode_type_1_.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\FF_billboard.frag">
+    </Content>
+    <Content Include="shaders\Utility\FF_billboard.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\FF_billboard.vert">
+    </Content>
+    <Content Include="shaders\Utility\FF_billboard.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\image2dArray.frag">
+    </Content>
+    <Content Include="shaders\Utility\image2dArray.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\image2dArray.vert">
+    </Content>
+    <Content Include="shaders\Utility\image2dArray.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\TextRender.frag">
+    </Content>
+    <Content Include="shaders\Utility\TextRender.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\TextRender.frag.spv">
+    </Content>
+    <Content Include="shaders\Utility\TextRender.frag.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\TextRender.vert">
+    </Content>
+    <Content Include="shaders\Utility\TextRender.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\MiniMap_Shaders\MiniMapRings.frag">
+    </Content>
+    <Content Include="shaders\MiniMap_Shaders\MiniMapRings.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\MiniMap_Shaders\MiniMapRings.vert">
+    </Content>
+    <Content Include="shaders\MiniMap_Shaders\MiniMapRings.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\skyDome.frag">
+    </Content>
+    <Content Include="shaders\Model_shaders\skyDome.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\skyDome.vert">
+    </Content>
+    <Content Include="shaders\Model_shaders\skyDome.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\PostProcessing\FXAA.frag">
+    </Content>
+    <Content Include="shaders\PostProcessing\FXAA.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\PostProcessing\FXAA.vert">
+    </Content>
+    <Content Include="shaders\PostProcessing\FXAA.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\BaseRingProjector.frag">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\BaseRingProjector.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\BaseRingProjector.vert">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\BaseRingProjector.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\DecalProject.frag">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\DecalProject.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\DecalProject.vert">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\DecalProject.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\TerrainLQ.frag">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\TerrainLQ.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\TerrainLQ.vert">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\TerrainLQ.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\Terrain.frag">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\Terrain.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\Terrain.vert">
+    </Content>
+    <Content Include="shaders\Terrain_shaders\Terrain.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\TerrainNormals.vert">
+    </Content>
+    <Content Include="shaders\Developer\TerrainNormals.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\TerrainNormals.geom">
+    </Content>
+    <Content Include="shaders\Developer\TerrainNormals.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\TerrainNormals.frag">
+    </Content>
+    <Content Include="shaders\Developer\TerrainNormals.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Trials\cull.comp">
+    </Content>
+    <Content Include="shaders\Trials\cull.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\coloredLine2d.frag">
+    </Content>
+    <Content Include="shaders\Utility\coloredLine2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\coloredLine2d.vert">
+    </Content>
+    <Content Include="shaders\Utility\coloredLine2d.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\image2dFlip.frag">
+    </Content>
+    <Content Include="shaders\Utility\image2dFlip.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\image2dFlip.vert">
+    </Content>
+    <Content Include="shaders\Utility\image2dFlip.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\rect2d.frag">
+    </Content>
+    <Content Include="shaders\Utility\rect2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\image2d.frag">
+    </Content>
+    <Content Include="shaders\Utility\image2d.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\colorOnly.frag">
+    </Content>
+    <Content Include="shaders\Model_shaders\colorOnly.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\image2d.vert">
+    </Content>
+    <Content Include="shaders\Utility\image2d.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\rect2d.vert">
+    </Content>
+    <Content Include="shaders\Utility\rect2d.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\colorOnly.vert">
+    </Content>
+    <Content Include="shaders\Model_shaders\colorOnly.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\normal.frag">
+    </Content>
+    <Content Include="shaders\Developer\normal.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\normal.geom">
+    </Content>
+    <Content Include="shaders\Developer\normal.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\normal.vert">
+    </Content>
+    <Content Include="shaders\Developer\normal.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\model.frag">
+    </Content>
+    <Content Include="shaders\Model_shaders\model.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\model.vert">
+    </Content>
+    <Content Include="shaders\Model_shaders\model.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\normalOffset.frag">
+    </Content>
+    <Content Include="shaders\Developer\normalOffset.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\normalOffset.vert">
+    </Content>
+    <Content Include="shaders\Developer\normalOffset.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Final_render\deferred.frag">
+    </Content>
+    <Content Include="shaders\Final_render\deferred.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Final_render\deferred.vert">
+    </Content>
+    <Content Include="shaders\Final_render\deferred.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\gWriter.vert">
+    </Content>
+    <Content Include="shaders\Model_shaders\gWriter.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Model_shaders\gWriter.frag">
+    </Content>
+    <Content Include="shaders\Model_shaders\gWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\toLinear.frag">
+    </Content>
+    <Content Include="shaders\Developer\toLinear.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Developer\toLinear.vert">
+    </Content>
+    <Content Include="shaders\Developer\toLinear.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Utility\TextRender.vert.spv">
+    </Content>
+    <Content Include="shaders\Utility\TextRender.vert.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="shaders\User_GUI\" />
@@ -774,9 +781,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Terra!.ico" />
-    <None Include="shaders\Final_render\glassPass.vert">
+    <Content Include="shaders\Final_render\glassPass.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.5">

@@ -10,7 +10,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
-Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "nuTerraWPF", "nuTerraWPF\nuTerraWPF.vbproj", "{5D452983-0738-43A9-83E0-A402E4ABAB48}"
+Project("{778DAE3C-4631-46EA-AA77-85C1314464D9}") = "nuTerraWPF", "nuTerraWPF\nuTerraWPF.vbproj", "{5D452983-0738-43A9-83E0-A402E4ABAB48}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "nuTerra Setup", "nuTerra Setup\nuTerra Setup.vdproj", "{AB3F52BA-7773-4B3A-8479-4F7E709CBBD1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -47,6 +49,12 @@ Global
 		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Release|x64.Build.0 = Release|Any CPU
 		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Release|x86.ActiveCfg = Release|Any CPU
 		{5D452983-0738-43A9-83E0-A402E4ABAB48}.Release|x86.Build.0 = Release|Any CPU
+		{AB3F52BA-7773-4B3A-8479-4F7E709CBBD1}.Debug|Any CPU.ActiveCfg = Debug
+		{AB3F52BA-7773-4B3A-8479-4F7E709CBBD1}.Debug|x64.ActiveCfg = Debug
+		{AB3F52BA-7773-4B3A-8479-4F7E709CBBD1}.Debug|x86.ActiveCfg = Debug
+		{AB3F52BA-7773-4B3A-8479-4F7E709CBBD1}.Release|Any CPU.ActiveCfg = Release
+		{AB3F52BA-7773-4B3A-8479-4F7E709CBBD1}.Release|x64.ActiveCfg = Release
+		{AB3F52BA-7773-4B3A-8479-4F7E709CBBD1}.Release|x86.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
