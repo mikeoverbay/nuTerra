@@ -7,9 +7,12 @@ Public Class frmLightSettings
         If Not MAP_LOADED Then
             Return
         End If
-
+        Dim appdata = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/NuTerra/light_settings/"
+        If Not Directory.Exists(appdata) Then
+            Directory.CreateDirectory(appdata)
+        End If
         Try
-            Dim f = File.Open(Application.StartupPath + "/light_settings/" + MAP_NAME_NO_PATH + ".light", FileMode.Create)
+            Dim f = File.Open(appdata + MAP_NAME_NO_PATH + ".light", FileMode.Create)
             Dim b_writer As New BinaryWriter(f)
             'the order: all as unsigend bytes
             '	1. texture level
@@ -38,9 +41,10 @@ Public Class frmLightSettings
     End Sub
     Public Function get_light_settings() As Boolean
 
-        If File.Exists(Application.StartupPath + "/light_settings/" + MAP_NAME_NO_PATH + ".light") Then
+        Dim appdata = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/NuTerra/light_settings/"
+        If File.Exists(appdata + "/light_settings/" + MAP_NAME_NO_PATH + ".light") Then
 
-            Dim f = File.Open(Application.StartupPath + "/light_settings/" + MAP_NAME_NO_PATH + ".light", FileMode.Open)
+            Dim f = File.Open(Application.StartupPath + MAP_NAME_NO_PATH + ".light", FileMode.Open)
             Dim b_reader As New BinaryReader(f)
             'the order: all as integer
             '	1. texture level
