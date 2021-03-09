@@ -220,7 +220,7 @@
                 {
                 "Name" = "8:.NET Framework"
                 "Message" = "8:[VSDNETMSG]"
-                "FrameworkVersion" = "8:.NETFramework,Version=v4.6.1"
+                "FrameworkVersion" = "8:ANY"
                 "AllowLaterVersions" = "11:FALSE"
                 "InstallUrl" = "8:http://go.microsoft.com/fwlink/?LinkId=863262"
                 }
@@ -553,7 +553,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:nuTerra"
         "ProductCode" = "8:{8C6FD37A-2711-47EF-AE10-F857CB29A8FB}"
-        "PackageCode" = "8:{1F032312-9406-41B4-AE4B-A20E0301475C}"
+        "PackageCode" = "8:{C6173599-CFE1-4B46-9D7E-ADC6F2AC93EB}"
         "UpgradeCode" = "8:{2DA65F9C-CB27-42A8-9661-0DFF5E33FD1D}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
