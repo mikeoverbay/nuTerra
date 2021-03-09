@@ -403,7 +403,7 @@ Module TerrainTextureFunctions
             image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
             'If image_id = 356 Then Stop
-            Dim maxAniso As Single = 8.0F
+            Dim maxAniso As Single = 4 'GLCapabilities.maxAniso
             Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
 
             Dim format_info = dds_header.format_info

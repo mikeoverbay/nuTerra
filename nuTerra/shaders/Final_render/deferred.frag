@@ -38,7 +38,8 @@ uniform vec3 sunColor;
 uniform int  light_count;
 uniform vec3 waterColor;
 
-#define MAXCOLOR 15.0
+ // do not change!
+#define MAXCOLOR 16.0
 #define COLORS 16.0
 #define WIDTH 256.0
 #define HEIGHT 16.0
@@ -96,21 +97,9 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
  
  }
 /*===================================================================*/
-#define MANUAL_SRGB ;
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
-    #ifdef MANUAL_SRGB
-    #ifdef SRGB_FAST_APPROXIMATION
-    vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
-    #else //SRGB_FAST_APPROXIMATION
-    vec3 bLess = step(vec3(0.04045),srgbIn.xyz);
-    vec3 linOut = mix( srgbIn.xyz/vec3(12.92), pow((srgbIn.xyz+vec3(0.055))/vec3(1.055),vec3(2.4)), bLess );
-    #endif //SRGB_FAST_APPROXIMATION
-    return vec4(linOut,srgbIn.w);
-    ;
-    #else //MANUAL_SRGB
-    return srgbIn;
-    #endif //MANUAL_SRGB
+     return srgbIn;
 }
 
 
@@ -146,7 +135,7 @@ void main (void)
             vec3 GM_in = texture(gGMF, fs_in.UV).xya;
 
             //water overides GM values
-            GM_in.rg = mix(GM_in.rg,vec2(0.4,0.8), color_in.a);
+            GM_in.rg = mix(GM_in.rg,vec2(1.0,0.0), color_in.a);
 
             vec3 LightPosModelView = LightPos.xyz;
            

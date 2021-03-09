@@ -685,9 +685,6 @@
     <Content Include="ILUT.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="light_settings\readme.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="PBR_Source.txt" />
     <Content Include="Pngcs.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

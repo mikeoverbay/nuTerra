@@ -65,22 +65,15 @@ uniform vec2 me_location;
 uniform mat4 Ortho_Project;
 
 out VS_OUT {
-    vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
+ 
+    vec4 Vertex;
+    vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
+
 } vs_out;
 
-vec2 get_transformed_uv(in vec4 Row0, in vec4 Row2, in vec4 Row3, in vec2 _uv) {
 
-    mat4 rs;
-    rs[0] = vec4(Row0.x, Row0.y, Row0.z, 0.0);
-    rs[1] = vec4(0.0,    1.0,    0.0,    0.0);
-    rs[2] = vec4(Row2.x, Row2.y, Row2.z, 0.0);
-    rs[3] = vec4(Row3.x, 0.0,    Row3.y, 1.0);
-    rs[3] = vec4(0.0,    0.0,    0.0,    1.0);
-    vec4 tv = rs * vec4(_uv.x, 0.0, _uv.y, 1.0);   
-    return vec2(tv.x+0.5, tv.z+0.5);
-    }
 
 void main(void)
 {
@@ -99,25 +92,9 @@ void main(void)
     //This is XZY because of ortho projection!
     vec3 vertexPosition = vec3(vertexXZ.x, vertexXZ.y, vertexY);
     vec4 Vertex = vec4(vertexPosition, 1.0) * 1.0;
-    Vertex.x *= -1.0;
-    
+    //Vertex.x *= -1.0;
+    vs_out.Vertex = Vertex;
 
-    //-------------------------------------------------------
-    // Calulate UVs for the texture layers
-    //-------------------------------------------------------
-    vec2 scaled_uv = vec2(-vertexTexCoord.x*100.0,vertexTexCoord.y*100.0);
-
-    vs_out.tuv1 = get_transformed_uv(U1, V1, r1_1, scaled_uv); 
-    vs_out.tuv2 = get_transformed_uv(U2, V2, r1_2, scaled_uv);
-
-    vs_out.tuv3 = get_transformed_uv(U3, V3, r1_3, scaled_uv); 
-    vs_out.tuv4 = get_transformed_uv(U4, V4, r1_4, scaled_uv);
-
-    vs_out.tuv5 = get_transformed_uv(U5, V5, r1_5, scaled_uv); 
-    vs_out.tuv6 = get_transformed_uv(U6, V6, r1_6, scaled_uv);
-
-    vs_out.tuv7 = get_transformed_uv(U7, V7, r1_7, scaled_uv);
-    vs_out.tuv8 = get_transformed_uv(U8, V8, r1_8, scaled_uv);
 
     //-------------------------------------------------------
 
