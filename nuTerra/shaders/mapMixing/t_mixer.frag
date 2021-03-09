@@ -91,9 +91,12 @@ uniform int map_id;
 
 
 in VS_OUT {
-    vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
+
+    vec4 Vertex;
+    vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
+
 } fs_in;
 
 /*===========================================================*/
@@ -163,6 +166,25 @@ vec4 convertNormal(vec4 norm){
         return vec4(n,0.0);
 }
 
+vec3 ColorCorrect(in vec3 valin){  
+    // Gamma correction 
+   return  pow(valin.rgb, vec3(1.0 / 1.3));  
+    
+}
+vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
+
+    mat4 rs;
+    rs[0] = vec4(U.x, U.y, U.z, 0.0);
+    rs[1] = vec4(0.0, 1.0, 0.0, 0.0);
+    rs[2] = vec4(V.x, V.y, V.z, 0.0);
+    rs[3] = vec4(0.0, 0.0, 0.0, 1.0);
+
+    vec4 vt = rs * vec4(fs_in.UV.x*100.0, 0.0, fs_in.UV.y*100.0, 1.0);   
+
+    vec2 out_uv = vec2(-vt.x, -vt.z+0.5);
+    out_uv += vec2(R1.x, R1.y);
+    return out_uv;
+    }
 /*===========================================================*/
 /*===========================================================*/
 /*===========================================================*/
@@ -172,115 +194,158 @@ void main(void)
     //==============================================================
     vec4 t1, t2, t3, t4, t5, t6, t7, t8;
     vec4 n1, n2, n3, n4, n5, n6, n7, n8;
-    float  aoc_0, aoc_1, aoc_2, aoc_3;
-    float  aoc_4, aoc_5, aoc_6, aoc_7;
+    vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
 
     vec2 MixLevel1, MixLevel2, MixLevel3, MixLevel4;
-    vec3 PN1, PN2, PN3, PN4;
-    float height_0, height_1, height_2, height_3;
-    float  height_4, height_5, height_6, height_7;
     vec2 mix_coords;
     //==============================================================
 
     mix_coords = fs_in.UV;
     mix_coords.x = 1.0 - mix_coords.x;
-    vec2 UVs = fs_in.UV;
 
     vec4 global = texture(global_AM, fs_in.Global_UV);
+    // create UV projections
+    tuv1 = get_transformed_uv(U1, V1, r1_1, r1_1, s1); 
+    tuv2 = get_transformed_uv(U2, V2, r1_2, r1_2, s2);
 
-    // Get AM maps and Test Texture maps
-    t1 = textureNoTile(layer_1T1, fs_in.tuv1, r1_1.z);
-    t2 = textureNoTile(layer_1T2, fs_in.tuv2, r1_2.z);
+    tuv3 = get_transformed_uv(U3, V3, r1_3, r1_3, s3); 
+    tuv4 = get_transformed_uv(U4, V4, r1_4, r1_4, s4);
 
-    t3 = textureNoTile(layer_2T1, fs_in.tuv3, r1_3.z);
-    t4 = textureNoTile(layer_2T2, fs_in.tuv4, r1_4.z);
+    tuv5 = get_transformed_uv(U5, V5, r1_5, r1_5, s5); 
+    tuv6 = get_transformed_uv(U6, V6, r1_6, r1_6, s6);
 
-    t5 = textureNoTile(layer_3T1, fs_in.tuv5, r1_5.z);
-    t6 = textureNoTile(layer_3T2, fs_in.tuv6, r1_6.z);
+    tuv7 = get_transformed_uv(U7, V7, r1_7, r1_7, s7);
+    tuv8 = get_transformed_uv(U8, V8, r1_8, r1_8, s8);
 
-    t7 = textureNoTile(layer_4T1, fs_in.tuv7, r1_7.z);
-    t8 = textureNoTile(layer_4T2, fs_in.tuv8, r1_8.z);
+    // Get AM maps 
+    t1 = textureNoTile(layer_1T1, tuv1, r1_1.z);
+    t2 = textureNoTile(layer_1T2, tuv2, r1_2.z);
 
-    // height is in blue channel of the normal maps.
-    // Specular is in the red channel. Green and Alpha are normal values.
+    t3 = textureNoTile(layer_2T1, tuv3, r1_3.z);
+    t4 = textureNoTile(layer_2T2, tuv4, r1_4.z);
 
-    n1 = textureNoTile(n_layer_1T1, fs_in.tuv1, r1_1.z);
-    n2 = textureNoTile(n_layer_1T2, fs_in.tuv2, r1_2.z);
-    n3 = textureNoTile(n_layer_2T1, fs_in.tuv3, r1_3.z);
-    n4 = textureNoTile(n_layer_2T2, fs_in.tuv4, r1_4.z);
-    n5 = textureNoTile(n_layer_3T1, fs_in.tuv5, r1_5.z);
-    n6 = textureNoTile(n_layer_3T2, fs_in.tuv6, r1_6.z);
-    n7 = textureNoTile(n_layer_4T1, fs_in.tuv7, r1_7.z);
-    n8 = textureNoTile(n_layer_4T2, fs_in.tuv8, r1_8.z);
+    t5 = textureNoTile(layer_3T1, tuv5, r1_5.z);
+    t6 = textureNoTile(layer_3T2, tuv6, r1_6.z);
 
-    // get the heights
-    aoc_0 = n1.b;
-    aoc_1 = n2.b;
-    aoc_2 = n3.b;
-    aoc_3 = n4.b;
-    aoc_4 = n5.b;
-    aoc_5 = n6.b;
-    aoc_6 = n7.b;
-    aoc_7 = n8.b;
+    t7 = textureNoTile(layer_4T1, tuv7, r1_7.z);
+    t8 = textureNoTile(layer_4T2, tuv8, r1_8.z);
 
-    
+    // Height is in red channel of the normal maps.
+    // Ambient occlusion is in the Blue channel.
+    // Green and Alpha are normal values.
+
+    n1 = textureNoTile(n_layer_1T1, tuv1, r1_1.z);
+    n2 = textureNoTile(n_layer_1T2, tuv2, r1_2.z);
+    n3 = textureNoTile(n_layer_2T1, tuv3, r1_3.z);
+    n4 = textureNoTile(n_layer_2T2, tuv4, r1_4.z);
+    n5 = textureNoTile(n_layer_3T1, tuv5, r1_5.z);
+    n6 = textureNoTile(n_layer_3T2, tuv6, r1_6.z);
+    n7 = textureNoTile(n_layer_4T1, tuv7, r1_7.z);
+    n8 = textureNoTile(n_layer_4T2, tuv8, r1_8.z);
+
+    // get the ambient occlusion
+    t1.rgb *= n1.b;
+    t2.rgb *= n2.b;
+    t3.rgb *= n3.b;
+    t4.rgb *= n4.b;
+    t5.rgb *= n5.b;
+    t6.rgb *= n6.b;
+    t7.rgb *= n7.b;
+    t8.rgb *= n8.b;
+   
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
     MixLevel2.rg = texture(mixtexture2, mix_coords.xy).ag;
     MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
-    // Mix our textures in to base and
+    MixLevel1.r *= t1.a;
+    MixLevel1.g *= t2.a;
+    MixLevel2.r *= t3.a;
+    MixLevel2.g *= t4.a;
+    MixLevel3.r *= t5.a;
+    MixLevel3.g *= t6.a;
+    MixLevel4.r *= t7.a;
+    MixLevel4.g *= t8.a;
 
-    vec4 base = vec4(0.0);  
+// Height Offset
+    t1.a = n1.r * s1.x;
+    t2.a = n2.r * s2.x;
+    t3.a = n3.r * s3.x;
+    t4.a = n4.r * s4.x;
+    t5.a = n5.r * s5.x;
+    t6.a = n6.r * s6.x;
+    t7.a = n7.r * s7.x;
+    t8.a = n8.r * s8.x;
 
-    vec4 m4 = blend(t7, aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
+    float sm1 = 0.4;
+    float sm2 = 0.7;
 
-    vec4 m3 = blend(t5, aoc_4 * MixLevel3.r, t6 , aoc_5 * MixLevel3.g);
+    t1.a = smoothstep(sm1, sm2, t1.a);
+    t2.a = smoothstep(sm1, sm2, t2.a);
+    t3.a = smoothstep(sm1, sm2, t3.a);
+    t4.a = smoothstep(sm1, sm2, t4.a);
+    t5.a = smoothstep(sm1, sm2, t5.a);
+    t6.a = smoothstep(sm1, sm2, t6.a);
+    t7.a = smoothstep(sm1, sm2, t7.a);
+    t8.a = smoothstep(sm1, sm2, t8.a);
 
-    vec4 m2 = blend(t3, aoc_2 * MixLevel2.r, t4 , aoc_3 * MixLevel2.g);
+    float offs = 0.0;
+    float offe = 0.2;
 
-    vec4 m1 = blend(t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
+    MixLevel1.r = smoothstep(offs+r1_1.y, offe+r1_1.x, MixLevel1.r);
+    MixLevel1.g = smoothstep(offs+r1_2.y, offe+r1_2.x, MixLevel1.g);
+    MixLevel2.r = smoothstep(offs+r1_3.y, offe+r1_3.x, MixLevel2.r);
+    MixLevel2.g = smoothstep(offs+r1_4.y, offe+r1_4.x, MixLevel2.g);
+    MixLevel3.r = smoothstep(offs+r1_5.y, offe+r1_5.x, MixLevel3.r);
+    MixLevel3.g = smoothstep(offs+r1_6.y, offe+r1_6.x, MixLevel3.g);
+    MixLevel4.r = smoothstep(offs+r1_7.y, offe+r1_7.x, MixLevel4.r);
+    MixLevel4.g = smoothstep(offs+r1_8.y, offe+r1_8.x, MixLevel4.g);
+
+    vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
+
+    vec4 m3 = blend(t5, MixLevel3.r, t6 , MixLevel3.g);
+
+    vec4 m2 = blend(t3, MixLevel2.r, t4 , MixLevel2.g);
+
+    vec4 m1 = blend(t1, MixLevel1.r, t2 , MixLevel1.g);
 
 
-    vec4 m5 = blend(m3, aoc_5 + MixLevel3.r+MixLevel3.g, m4, aoc_6 + MixLevel4.r+MixLevel4.g);
+    vec4 m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4, MixLevel4.r+MixLevel4.g);
 
-    vec4 m6 = blend(m1 ,aoc_1 + MixLevel1.r+MixLevel1.g, m2, aoc_2 + MixLevel2.r+MixLevel2.g);
+    vec4 m6 = blend(m1 ,MixLevel1.r+MixLevel1.g, m2, MixLevel2.r+MixLevel2.g);
 
-    vec4 m7 = blend(m5, aoc_4 + MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, aoc_3 + MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+    vec4 m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
-    base = m7;
+    vec4 base = m7;
 
-
+    base.rgb = ColorCorrect(base.rgb);
     //-------------------------------------------------------------
     // normals
-    vec4 out_n = vec4(0.0);
 
-     m4 = blend_normal(n7, n8, t7 , aoc_6 * MixLevel4.r, t8 , aoc_7 * MixLevel4.g);
+    m4 = blend_normal(n7, n8, t7, MixLevel4.r, t8 , MixLevel4.g);
 
-     m3 = blend_normal(n5, n6, t5, aoc_4 * MixLevel3.r, t6 , aoc_5 * MixLevel3.g);
+    m3 = blend_normal(n5, n6, t5, MixLevel3.r, t6 , MixLevel3.g);
 
-     m2 = blend_normal(n3, n4, t3, aoc_2 * MixLevel2.r, t4 , aoc_3 * MixLevel2.g);
+    m2 = blend_normal(n3, n4, t3, MixLevel2.r, t4 , MixLevel2.g);
 
-     m1 = blend_normal(n1, n2, t1, aoc_0 * MixLevel1.r, t2 , aoc_1 * MixLevel1.g);
+    m1 = blend_normal(n1, n2, t1, MixLevel1.r, t2 , MixLevel1.g);
 
 
-     m5 = blend(m3, aoc_5 + MixLevel3.r+MixLevel3.g, m4, aoc_6 + MixLevel4.r+MixLevel4.g);
+    m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4, MixLevel4.r+MixLevel4.g);
 
-     m6 = blend(m1, aoc_1 + MixLevel1.r+MixLevel1.g, m2, aoc_2 + MixLevel2.r+MixLevel2.g);
+    m6 = blend(m1, MixLevel1.r+MixLevel1.g, m2, MixLevel2.r+MixLevel2.g);
 
-     m7 = blend(m5, aoc_4 + MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, aoc_3 + MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+    m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
-    out_n = m7;
-     float specular = out_n.r;
 
-     out_n = convertNormal(out_n);
+     float specular = m7.r;
 
-     gNormal.xyz = normalize(out_n.xyz);
+     gNormal.xyz = normalize(convertNormal(m7).xyz);
 
     gGMF = vec4(0.1, specular, 128.0/255.0, 0.0);
     //vec3 shad = vec3( texture( shadow, vec3(fs_in.UV, float(map_id)) ).r );
-    gColor = base;
+    gColor.rgb = base.rgb;
     //gColor.rgb *= shad;
     // global.a is used for wetness on the map.
     gColor.a = global.a*0.8;
