@@ -553,7 +553,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:nuTerra"
         "ProductCode" = "8:{8C6FD37A-2711-47EF-AE10-F857CB29A8FB}"
-        "PackageCode" = "8:{C6173599-CFE1-4B46-9D7E-ADC6F2AC93EB}"
+        "PackageCode" = "8:{287BA566-2522-41B7-A32F-FE897B39094E}"
         "UpgradeCode" = "8:{2DA65F9C-CB27-42A8-9661-0DFF5E33FD1D}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"

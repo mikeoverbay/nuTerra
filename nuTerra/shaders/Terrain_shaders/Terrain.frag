@@ -259,17 +259,17 @@ void main(void)
     //-------------------------------------------------------
 
     // create UV projections
-    tuv1 = get_transformed_uv(U1, V1, r1_1, r1_1, s1); 
-    tuv2 = get_transformed_uv(U2, V2, r1_2, r1_2, s2);
+    tuv1 = get_transformed_uv(U1, V1, r1_1, r2_1, s1); 
+    tuv2 = get_transformed_uv(U2, V2, r1_2, r2_2, s2);
 
-    tuv3 = get_transformed_uv(U3, V3, r1_3, r1_3, s3); 
-    tuv4 = get_transformed_uv(U4, V4, r1_4, r1_4, s4);
+    tuv3 = get_transformed_uv(U3, V3, r1_3, r2_3, s3); 
+    tuv4 = get_transformed_uv(U4, V4, r1_4, r2_4, s4);
 
-    tuv5 = get_transformed_uv(U5, V5, r1_5, r1_5, s5); 
-    tuv6 = get_transformed_uv(U6, V6, r1_6, r1_6, s6);
+    tuv5 = get_transformed_uv(U5, V5, r1_5, r2_5, s5); 
+    tuv6 = get_transformed_uv(U6, V6, r1_6, r2_6, s6);
 
-    tuv7 = get_transformed_uv(U7, V7, r1_7, r1_7, s7);
-    tuv8 = get_transformed_uv(U8, V8, r1_8, r1_8, s8);
+    tuv7 = get_transformed_uv(U7, V7, r1_7, r2_7, s7);
+    tuv8 = get_transformed_uv(U8, V8, r1_8, r2_8, s8);
 
 
     // Get AM maps,crop, detilize and set Test outline blend flag
@@ -314,48 +314,37 @@ void main(void)
     MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
-    MixLevel1.r *= t1.a;
-    MixLevel1.g *= t2.a;
-    MixLevel2.r *= t3.a;
-    MixLevel2.g *= t4.a;
-    MixLevel3.r *= t5.a;
-    MixLevel3.g *= t6.a;
-    MixLevel4.r *= t7.a;
-    MixLevel4.g *= t8.a;
+    //months of work to figure this out!
+    MixLevel1.r *= n1.a + t1.a;
+    MixLevel1.g *= n2.a + t2.a;
+    MixLevel2.r *= n3.a + t3.a;
+    MixLevel2.g *= n4.a + t4.a;
+    MixLevel3.r *= n5.a + t5.a;
+    MixLevel3.g *= n6.a + t6.a;
+    MixLevel4.r *= n7.a + t7.a;
+    MixLevel4.g *= n8.a + t8.a;
+    
+    MixLevel1 *= MixLevel1;
+ 
+    MixLevel2 *= MixLevel2;
 
-// Height Offset
-    t1.a = n1.r * s1.x;
-    t2.a = n2.r * s2.x;
-    t3.a = n3.r * s3.x;
-    t4.a = n4.r * s4.x;
-    t5.a = n5.r * s5.x;
-    t6.a = n6.r * s6.x;
-    t7.a = n7.r * s7.x;
-    t8.a = n8.r * s8.x;
+    MixLevel3 *= MixLevel3;
 
-    float sm1 = 0.4;
-    float sm2 = 0.7;
+    MixLevel4 *= MixLevel4;
 
-    t1.a = smoothstep(sm1, sm2, t1.a);
-    t2.a = smoothstep(sm1, sm2, t2.a);
-    t3.a = smoothstep(sm1, sm2, t3.a);
-    t4.a = smoothstep(sm1, sm2, t4.a);
-    t5.a = smoothstep(sm1, sm2, t5.a);
-    t6.a = smoothstep(sm1, sm2, t6.a);
-    t7.a = smoothstep(sm1, sm2, t7.a);
-    t8.a = smoothstep(sm1, sm2, t8.a);
+// Height mix clamp
 
     float offs = 0.0;
     float offe = 0.2;
 
-    MixLevel1.r = smoothstep(offs+r1_1.y, offe+r1_1.x, MixLevel1.r);
-    MixLevel1.g = smoothstep(offs+r1_2.y, offe+r1_2.x, MixLevel1.g);
-    MixLevel2.r = smoothstep(offs+r1_3.y, offe+r1_3.x, MixLevel2.r);
-    MixLevel2.g = smoothstep(offs+r1_4.y, offe+r1_4.x, MixLevel2.g);
-    MixLevel3.r = smoothstep(offs+r1_5.y, offe+r1_5.x, MixLevel3.r);
-    MixLevel3.g = smoothstep(offs+r1_6.y, offe+r1_6.x, MixLevel3.g);
-    MixLevel4.r = smoothstep(offs+r1_7.y, offe+r1_7.x, MixLevel4.r);
-    MixLevel4.g = smoothstep(offs+r1_8.y, offe+r1_8.x, MixLevel4.g);
+    MixLevel1.r = smoothstep(offs, offe, MixLevel1.r);
+    MixLevel1.g = smoothstep(offs, offe, MixLevel1.g);
+    MixLevel2.r = smoothstep(offs, offe, MixLevel2.r);
+    MixLevel2.g = smoothstep(offs, offe, MixLevel2.g);
+    MixLevel3.r = smoothstep(offs, offe, MixLevel3.r);
+    MixLevel3.g = smoothstep(offs, offe, MixLevel3.g);
+    MixLevel4.r = smoothstep(offs, offe, MixLevel4.r);
+    MixLevel4.g = smoothstep(offs, offe, MixLevel4.g);
 
     vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
 
