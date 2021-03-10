@@ -173,17 +173,12 @@ vec3 ColorCorrect(in vec3 valin){
 }
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
 
-    mat4 rs;
-    rs[0] = vec4(U.x, U.y, U.z, 0.0);
-    rs[1] = vec4(0.0, 1.0, 0.0, 0.0);
-    rs[2] = vec4(V.x, V.y, V.z, 0.0);
-    rs[3] = vec4(0.0, 0.0, 0.0, 1.0);
-
-    vec4 vt = rs * vec4(fs_in.UV.x*100.0, 0.0, fs_in.UV.y*100.0, 1.0);   
-
-    vec2 out_uv = vec2(-vt.x, -vt.z+0.5);
+    vec4 vt = vec4(fs_in.UV.x*100.0, 0.0, fs_in.UV.y*100.0, 1.0);   
+    
+    vec2 out_uv = vec2(dot(U,-vt), dot(V,-vt)+0.5);
     out_uv += vec2(R1.x, R1.y);
     return out_uv;
+
     }
 /*===========================================================*/
 /*===========================================================*/
@@ -260,36 +255,39 @@ void main(void)
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
     //months of work to figure this out!
-    MixLevel1.r *= n1.a + t1.a;
-    MixLevel1.g *= n2.a + t2.a;
-    MixLevel2.r *= n3.a + t3.a;
-    MixLevel2.g *= n4.a + t4.a;
-    MixLevel3.r *= n5.a + t5.a;
-    MixLevel3.g *= n6.a + t6.a;
-    MixLevel4.r *= n7.a + t7.a;
-    MixLevel4.g *= n8.a + t8.a;
-    
-    MixLevel1 *= MixLevel1;
+    MixLevel1.r *= t1.a;
+    MixLevel1.g *= t2.a;
+    MixLevel2.r *= t3.a;
+    MixLevel2.g *= t4.a;
+    MixLevel3.r *= t5.a;
+    MixLevel3.g *= t6.a;
+    MixLevel4.r *= t7.a;
+    MixLevel4.g *= t8.a;
+
+    t1.a += n1.r;
+    t2.a += n2.r;
+    t3.a += n3.r;
+    t4.a += n4.r;
+    t5.a += n5.r;
+    t6.a += n6.r;
+    t7.a += n7.r;
+    t8.a += n8.r;
+   
+    MixLevel1 += MixLevel1;
+    MixLevel1 += MixLevel1;
+    MixLevel1 += MixLevel1;
  
-    MixLevel2 *= MixLevel2;
+    MixLevel2 += MixLevel2;
+    MixLevel2 += MixLevel2;
+    MixLevel2 += MixLevel2;
 
-    MixLevel3 *= MixLevel3;
+    MixLevel3 += MixLevel3;
+    MixLevel3 += MixLevel3;
+    MixLevel3 += MixLevel3;
 
-    MixLevel4 *= MixLevel4;
-
-// Height mix clamp
-
-    float offs = 0.0;
-    float offe = 0.2;
-
-    MixLevel1.r = smoothstep(offs, offe, MixLevel1.r);
-    MixLevel1.g = smoothstep(offs, offe, MixLevel1.g);
-    MixLevel2.r = smoothstep(offs, offe, MixLevel2.r);
-    MixLevel2.g = smoothstep(offs, offe, MixLevel2.g);
-    MixLevel3.r = smoothstep(offs, offe, MixLevel3.r);
-    MixLevel3.g = smoothstep(offs, offe, MixLevel3.g);
-    MixLevel4.r = smoothstep(offs, offe, MixLevel4.r);
-    MixLevel4.g = smoothstep(offs, offe, MixLevel4.g);
+    MixLevel4 += MixLevel4;
+    MixLevel4 += MixLevel4;
+    MixLevel4 += MixLevel4;
 
     vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
 

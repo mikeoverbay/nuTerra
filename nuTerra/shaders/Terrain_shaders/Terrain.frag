@@ -139,7 +139,7 @@ vec4 convertNormal(vec4 norm){
 
 vec3 ColorCorrect(in vec3 valin){  
     // Gamma correction 
-   return  pow(valin.rgb, vec3(1.0 / 1.3));  
+   return  pow(valin.rgb, vec3(1.0 / 1.5));  
     
 }
 
@@ -209,16 +209,12 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
 
-    mat4 rs;
-    rs[0] = vec4(U.x, 0.0, U.z, 0.0);
-    rs[1] = vec4(0.0, 1.0, 0.0, 0.0);
-    rs[2] = vec4(V.x, 0.0, V.z, 0.0);
-    rs[3] = vec4(0.0, 0.0, 0.0, 1.0);
-
-    vec4 vt = rs * vec4(fs_in.UV.x*100.0, 0.0, fs_in.UV.y*100.0, 1.0);   
-
-    vec2 out_uv = vec2(-vt.x, -vt.z+0.5);
-    out_uv += vec2(R1.x, R1.y);
+    vec4 vt = vec4(fs_in.UV.x*100, 0.0, fs_in.UV.y*100.0, 1.0);   
+    //U.w = R2.x;
+    //V.w = R2.x;
+    vec2 out_uv = vec2(dot(U,-vt)+0.5, dot(V,-vt)+0.5);
+    //out_uv += vec2(R1.x, R1.y);
+    //out_uv = out_uv *100.0;
     return out_uv;
 
     }
@@ -284,6 +280,8 @@ void main(void)
 
     t7 = textureNoTile(layer_4T1, tuv7, r2_7.z, B7);
     t8 = textureNoTile(layer_4T2, tuv8, r2_8.z, B8);
+    
+    //t6= vec4(0.0);
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
@@ -299,6 +297,7 @@ void main(void)
     n8 = textureNoTile(n_layer_4T2, tuv8, r1_8.z, B8);
 
     // get the ambient occlusion
+
     t1.rgb *= n1.b;
     t2.rgb *= n2.b;
     t3.rgb *= n3.b;
@@ -307,7 +306,7 @@ void main(void)
     t6.rgb *= n6.b;
     t7.rgb *= n7.b;
     t8.rgb *= n8.b;
-    
+   
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
     MixLevel2.rg = texture(mixtexture2, mix_coords.xy).ag;
@@ -315,36 +314,39 @@ void main(void)
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
     //months of work to figure this out!
-    MixLevel1.r *= n1.a + t1.a;
-    MixLevel1.g *= n2.a + t2.a;
-    MixLevel2.r *= n3.a + t3.a;
-    MixLevel2.g *= n4.a + t4.a;
-    MixLevel3.r *= n5.a + t5.a;
-    MixLevel3.g *= n6.a + t6.a;
-    MixLevel4.r *= n7.a + t7.a;
-    MixLevel4.g *= n8.a + t8.a;
-    
-    MixLevel1 *= MixLevel1;
+    MixLevel1.r *= t1.a;
+    MixLevel1.g *= t2.a;
+    MixLevel2.r *= t3.a;
+    MixLevel2.g *= t4.a;
+    MixLevel3.r *= t5.a;
+    MixLevel3.g *= t6.a;
+    MixLevel4.r *= t7.a;
+    MixLevel4.g *= t8.a;
+
+    t1.a += n1.r;
+    t2.a += n2.r;
+    t3.a += n3.r;
+    t4.a += n4.r;
+    t5.a += n5.r;
+    t6.a += n6.r;
+    t7.a += n7.r;
+    t8.a += n8.r;
+   
+    MixLevel1 += MixLevel1;
+    MixLevel1 += MixLevel1;
+    MixLevel1 += MixLevel1;
  
-    MixLevel2 *= MixLevel2;
+    MixLevel2 += MixLevel2;
+    MixLevel2 += MixLevel2;
+    MixLevel2 += MixLevel2;
 
-    MixLevel3 *= MixLevel3;
+    MixLevel3 += MixLevel3;
+    MixLevel3 += MixLevel3;
+    MixLevel3 += MixLevel3;
 
-    MixLevel4 *= MixLevel4;
-
-// Height mix clamp
-
-    float offs = 0.0;
-    float offe = 0.2;
-
-    MixLevel1.r = smoothstep(offs, offe, MixLevel1.r);
-    MixLevel1.g = smoothstep(offs, offe, MixLevel1.g);
-    MixLevel2.r = smoothstep(offs, offe, MixLevel2.r);
-    MixLevel2.g = smoothstep(offs, offe, MixLevel2.g);
-    MixLevel3.r = smoothstep(offs, offe, MixLevel3.r);
-    MixLevel3.g = smoothstep(offs, offe, MixLevel3.g);
-    MixLevel4.r = smoothstep(offs, offe, MixLevel4.r);
-    MixLevel4.g = smoothstep(offs, offe, MixLevel4.g);
+    MixLevel4 += MixLevel4;
+    MixLevel4 += MixLevel4;
+    MixLevel4 += MixLevel4;
 
     vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
 
@@ -418,7 +420,7 @@ void main(void)
     vec4 gmm_out = vec4(0.1, specular, 128.0/255.0, 0.0);
     gGMF = mix(ArrayTextureG, gmm_out, fs_in.ln);
 
-    gColor.rgb = base.rgb;
+    gColor.rgb = base.rgb*0.95;
     //gColor = gColor* 0.001 + r1_8;
     gColor.a = global.a*0.8;
 
