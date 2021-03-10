@@ -210,11 +210,9 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
 
     vec4 vt = vec4(fs_in.UV.x*100, 0.0, fs_in.UV.y*100.0, 1.0);   
-    //U.w = R2.x;
-    //V.w = R2.x;
+
     vec2 out_uv = vec2(dot(U,-vt)+0.5, dot(V,-vt)+0.5);
-    //out_uv += vec2(R1.x, R1.y);
-    //out_uv = out_uv *100.0;
+
     return out_uv;
 
     }
@@ -420,7 +418,7 @@ void main(void)
     vec4 gmm_out = vec4(0.1, specular, 128.0/255.0, 0.0);
     gGMF = mix(ArrayTextureG, gmm_out, fs_in.ln);
 
-    gColor.rgb = base.rgb*0.95;
+    gColor.rgb = base.rgb * 0.95;
     //gColor = gColor* 0.001 + r1_8;
     gColor.a = global.a*0.8;
 

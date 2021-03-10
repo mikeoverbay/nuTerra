@@ -168,15 +168,15 @@ vec4 convertNormal(vec4 norm){
 
 vec3 ColorCorrect(in vec3 valin){  
     // Gamma correction 
-   return  pow(valin.rgb, vec3(1.0 / 1.3));  
+   return  pow(valin.rgb, vec3(1.0 / 1.5));  
     
 }
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
 
-    vec4 vt = vec4(fs_in.UV.x*100.0, 0.0, fs_in.UV.y*100.0, 1.0);   
-    
-    vec2 out_uv = vec2(dot(U,-vt), dot(V,-vt)+0.5);
-    out_uv += vec2(R1.x, R1.y);
+    vec4 vt = vec4(fs_in.UV.x*100, 0.0, fs_in.UV.y*100.0, 1.0);   
+
+    vec2 out_uv = vec2(dot(U,-vt)+0.5, dot(V,-vt)+0.5);
+
     return out_uv;
 
     }
@@ -332,7 +332,7 @@ void main(void)
 
     gGMF = vec4(0.1, specular, 128.0/255.0, 0.0);
     //vec3 shad = vec3( texture( shadow, vec3(fs_in.UV, float(map_id)) ).r );
-    gColor.rgb = base.rgb;
+    gColor.rgb = base.rgb * 0.95;
     //gColor.rgb *= shad;
     // global.a is used for wetness on the map.
     gColor.a = global.a*0.8;
