@@ -289,6 +289,12 @@ void main(void)
     MixLevel4 += MixLevel4;
     MixLevel4 += MixLevel4;
 
+    float pow_s = 4.0;
+    MixLevel1 = pow(MixLevel1,vec2(pow_s));
+    MixLevel2 = pow(MixLevel2,vec2(pow_s));
+    MixLevel3 = pow(MixLevel3,vec2(pow_s));
+    MixLevel4 = pow(MixLevel4,vec2(pow_s));
+
     vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
 
     vec4 m3 = blend(t5, MixLevel3.r, t6 , MixLevel3.g);
@@ -332,9 +338,10 @@ void main(void)
 
     gGMF = vec4(0.1, specular, 128.0/255.0, 0.0);
     //vec3 shad = vec3( texture( shadow, vec3(fs_in.UV, float(map_id)) ).r );
-    gColor.rgb = base.rgb * 0.95;
     //gColor.rgb *= shad;
     // global.a is used for wetness on the map.
+
+    gColor.rgb = base.rgb * 0.95;
     gColor.a = global.a*0.8;
 
 }

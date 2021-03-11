@@ -346,6 +346,13 @@ void main(void)
     MixLevel4 += MixLevel4;
     MixLevel4 += MixLevel4;
 
+    float pow_s = 4.0;
+    MixLevel1 = pow(MixLevel1,vec2(pow_s));
+    MixLevel2 = pow(MixLevel2,vec2(pow_s));
+    MixLevel3 = pow(MixLevel3,vec2(pow_s));
+    MixLevel4 = pow(MixLevel4,vec2(pow_s));
+
+
     vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
 
     vec4 m3 = blend(t5, MixLevel3.r, t6 , MixLevel3.g);
@@ -362,8 +369,10 @@ void main(void)
     vec4 m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
     vec4 base = m7;
+    base.rgb = ColorCorrect(base.rgb);
    
     // Texture outlines if test = 1.0;
+
     base = mix(base, base + color_1, B1 * test * MixLevel1.r);
     base = mix(base, base + color_2, B2 * test * MixLevel1.g);
     base = mix(base, base + color_3, B3 * test * MixLevel2.r);
@@ -373,7 +382,6 @@ void main(void)
     base = mix(base, base + color_7, B7 * test * MixLevel4.r);
     base = mix(base, base + color_8, B8 * test * MixLevel4.g);
 
-    base.rgb = ColorCorrect(base.rgb);
     //-------------------------------------------------------------
     // normals
 
@@ -418,8 +426,9 @@ void main(void)
     vec4 gmm_out = vec4(0.1, specular, 128.0/255.0, 0.0);
     gGMF = mix(ArrayTextureG, gmm_out, fs_in.ln);
 
-    gColor.rgb = base.rgb * 0.95;
     //gColor = gColor* 0.001 + r1_8;
+
+    gColor.rgb = base.rgb;
     gColor.a = global.a*0.8;
 
     gNormal.xyz = normalize(out_n.xyz);
