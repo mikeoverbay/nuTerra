@@ -352,7 +352,7 @@ Module TerrainBuilder
         '==========================================================
 
         'I don't expect any maps larger than 225 chunks
-        Dim Expected_max_chunk_count As Integer = 20 * 20
+        Dim Expected_max_chunk_count As Integer = 24 * 24
         ReDim theMap.chunks(Expected_max_chunk_count)
         ReDim theMap.v_data(Expected_max_chunk_count)
         ReDim theMap.render_set(Expected_max_chunk_count)

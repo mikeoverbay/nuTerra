@@ -341,6 +341,7 @@ Module modRender
         GL.Uniform1(deferredShader("SPECULAR"), frmLightSettings.lighting_specular_level)
         GL.Uniform1(deferredShader("GRAY_LEVEL"), frmLightSettings.lighting_gray_level)
         GL.Uniform1(deferredShader("GAMMA_LEVEL"), frmLightSettings.lighting_gamma_level)
+        GL.Uniform1(deferredShader("fog_level"), frmLightSettings.lighting_fog_level * 100.0F)
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
@@ -387,6 +388,9 @@ Module modRender
         GL.Uniform1(DeferredFogShader("uv_scale"), 4.0F)
         GL.Uniform2(DeferredFogShader("move_vector"), uv_location.X, uv_location.Y)
         GL.Uniform3(DeferredFogShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
+        GL.Uniform1(DeferredFogShader("fog_level"), frmLightSettings.lighting_fog_level * 100.0F)
+
+        Dim ff = frmLightSettings.lighting_fog_level * 100.0
 
         NOISE_id.BindUnit(0)
         FBOm.gDepth.BindUnit(1)

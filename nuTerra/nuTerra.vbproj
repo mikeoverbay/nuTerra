@@ -446,12 +446,6 @@
     <Content Include="shaders\PostProcessing\FXAA.vert.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="shaders\PostProcessing\gBufferFog.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="shaders\PostProcessing\gBufferFog.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="shaders\ShadowBaking\modelDepthWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

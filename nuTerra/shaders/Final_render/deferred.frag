@@ -32,14 +32,14 @@ uniform float BRIGHTNESS;
 uniform float SPECULAR;
 uniform float GRAY_LEVEL;
 uniform float GAMMA_LEVEL;
+uniform float fog_level;
 
 uniform vec3 ambientColorForward;
 uniform vec3 sunColor;
 uniform int  light_count;
 uniform vec3 waterColor;
 
- // do not change!
-#define MAXCOLOR 16.0
+#define MAXCOLOR 15.0
 #define COLORS 16.0
 #define WIDTH 256.0
 #define HEIGHT 16.0
@@ -97,9 +97,21 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
  
  }
 /*===================================================================*/
+#define MANUAL_SRGB ;
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
-     return srgbIn;
+    #ifdef MANUAL_SRGB
+    #ifdef SRGB_FAST_APPROXIMATION
+    vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
+    #else //SRGB_FAST_APPROXIMATION
+    vec3 bLess = step(vec3(0.04045),srgbIn.xyz);
+    vec3 linOut = mix( srgbIn.xyz/vec3(12.92), pow((srgbIn.xyz+vec3(0.055))/vec3(1.055),vec3(2.4)), bLess );
+    #endif //SRGB_FAST_APPROXIMATION
+    return vec4(linOut,srgbIn.w);
+    ;
+    #else //MANUAL_SRGB
+    return srgbIn;
+    #endif //MANUAL_SRGB
 }
 
 
@@ -135,7 +147,7 @@ void main (void)
             vec3 GM_in = texture(gGMF, fs_in.UV).xya;
 
             //water overides GM values
-            GM_in.rg = mix(GM_in.rg,vec2(1.0,0.0), color_in.a);
+            GM_in.rg = mix(GM_in.rg,vec2(0.4,0.8), color_in.a);
 
             vec3 LightPosModelView = LightPos.xyz;
            
@@ -181,7 +193,7 @@ void main (void)
             // Only light whats in range
             if (dist < cutoff) {
                 // kill the terrian normals where there is water
-                N = mix(N, blank_n, water_mix*1.20);
+                N = mix(N, blank_n, water_mix*0.7);
 
                 float lambertTerm = pow(max(dot(N, L),0.001),GM_in.g);
 
@@ -261,8 +273,7 @@ void main (void)
             vec4 f_color =  vec4(fog_tint,0.0) * 1.5 * fog_alpha;
 
 
-            final_color = mix(final_color, f_color,1.0- fogFactor);
-            outColor.a = 1.0-fogFactor;
+            final_color = mix(final_color, f_color,(1.0- fogFactor)*fog_level);
             //final_color.r = outColor.a;
             /*===================================================================*/
             // Small Map Lights

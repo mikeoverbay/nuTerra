@@ -17,7 +17,7 @@ uniform vec3 fog_tint;
 uniform float uv_scale;
 uniform float time;
 uniform vec2 move_vector;
-//uniform sampler2D gGMF;
+uniform float fog_level;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -143,6 +143,8 @@ void main()
     gColor.rgb = mix(deferred_mix.rgb, color.rgb, 0.95-deferred_mix.a);
     // Add some top level fog
     gColor.rgb = mix(gColor.rgb, fog_tint.rgb, 1.0-deferred_mix.a );
-    //gColor.r = deferred_mix.a;
+
+    gColor.rgb = mix(deferred_mix.rgb, gColor.rgb, fog_level);
+    //gColor.rgb = vec3(deferred_mix*color);
 
 }
