@@ -204,6 +204,7 @@ Module modSpacedBinVars
             settings2 = TerrainSettings2_v1_6_1.Create(br)
             lod_distances = New BWArray(Of Single)(br)
             ' TODO
+            'lods are next and unused
         End Sub
 
         <StructLayout(LayoutKind.Sequential)>

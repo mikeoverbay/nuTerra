@@ -473,6 +473,7 @@
     <Content Include="shaders\Trials\cullLodClear.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="shaders\Terrain_shaders\Terrain - Copy.frag" />
     <None Include="shaders\Trials\cull.comp.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

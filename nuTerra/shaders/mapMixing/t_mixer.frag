@@ -173,9 +173,12 @@ vec3 ColorCorrect(in vec3 valin){
 }
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
 
-    vec4 vt = vec4(fs_in.UV.x*100, 0.0, fs_in.UV.y*100.0, 1.0);   
+    vec4 vt = vec4(fs_in.UV.x*100, 0.0, fs_in.UV.y*100.0, 1.0);
 
-    vec2 out_uv = vec2(dot(U,-vt)+0.5, dot(V,-vt)+0.5);
+    vec2 out_uv;
+    out_uv = vec2(dot(U,vt), dot(V,vt));
+    out_uv = out_uv * vec2(1.0,1.0);// + vec2(0.5,0.5);
+    out_uv.xy += vec2(-S.x, -S.y);
 
     return out_uv;
 
@@ -255,23 +258,23 @@ void main(void)
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
     //months of work to figure this out!
-    MixLevel1.r *= t1.a;
-    MixLevel1.g *= t2.a;
-    MixLevel2.r *= t3.a;
-    MixLevel2.g *= t4.a;
-    MixLevel3.r *= t5.a;
-    MixLevel3.g *= t6.a;
-    MixLevel4.r *= t7.a;
-    MixLevel4.g *= t8.a;
+    MixLevel1.r *= t1.a+r1_1.x;
+    MixLevel1.g *= t2.a+r1_2.x;
+    MixLevel2.r *= t3.a+r1_3.x;
+    MixLevel2.g *= t4.a+r1_4.x;
+    MixLevel3.r *= t5.a+r1_5.x;
+    MixLevel3.g *= t6.a+r1_6.x;
+    MixLevel4.r *= t7.a+r1_7.x;
+    MixLevel4.g *= t8.a+r1_8.x;
 
-    t1.a += n1.r;
-    t2.a += n2.r;
-    t3.a += n3.r;
-    t4.a += n4.r;
-    t5.a += n5.r;
-    t6.a += n6.r;
-    t7.a += n7.r;
-    t8.a += n8.r;
+    t1.a += n1.r+r1_1.y;
+    t2.a += n2.r+r1_2.y;
+    t3.a += n3.r+r1_3.y;
+    t4.a += n4.r+r1_4.y;
+    t5.a += n5.r+r1_5.y;
+    t6.a += n6.r+r1_6.y;
+    t7.a += n7.r+r1_7.y;
+    t8.a += n8.r+r1_8.y;
    
     MixLevel1 += MixLevel1;
     MixLevel1 += MixLevel1;

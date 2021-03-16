@@ -507,29 +507,6 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
-    Private Sub color_correct()
-        copy_default_to_gColor()
-
-        colorCorrectShader.Use()
-        GL.UniformMatrix4(colorCorrectShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-
-        GL.Uniform1(colorCorrectShader("colorMap"), 0)
-        GL.Uniform1(colorCorrectShader("lut"), 1)
-
-        FBOm.gColor.BindUnit(0)
-        CC_LUT_ID.BindUnit(1)
-
-        'draw full screen quad
-        GL.Uniform4(colorCorrectShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
-
-        GL.BindVertexArray(defaultVao)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
-        colorCorrectShader.StopUse()
-        unbind_textures(1)
-
-    End Sub
-
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
         GL.CopyTextureSubImage2D(FBOm.gColor.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
@@ -1037,6 +1014,15 @@ Module modRender
         FBOm.attach_CNGP()
 
         SkyDomeShader.Use()
+        Dim mat = skyDomeMatrix
+
+        mat.M12 *= -1.0
+        mat.M13 *= -1.0
+        mat.M21 *= -1.0
+        mat.M31 *= -1.0
+
+        Dim rm = Matrix4.CreateRotationY(180.0 * 0.017453293)
+        GL.UniformMatrix4(SkyDomeShader("matrix"), False, mat * rm)
 
         GL.Enable(EnableCap.CullFace)
 

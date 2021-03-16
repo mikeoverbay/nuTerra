@@ -216,7 +216,7 @@ Module TerrainBuilder
         Public r2_1, r2_2 As Vector4
     End Structure
     Public Structure layer_render_info_
-        Public used_on() As UInt32
+        Public layer_section_size() As UInt32
         Public render_info() As layer_render_info_entry_
     End Structure
     Public Structure layer_render_info_entry_

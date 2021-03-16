@@ -9,6 +9,8 @@ Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 
 Module TerrainTextureFunctions
+    Public max_on As UInt32
+    Public min_on As UInt32
     Dim cur_layer_info_pnt As Integer = 0
 
     Public Sub get_layers(ByVal map As Integer)
@@ -136,11 +138,19 @@ Module TerrainTextureFunctions
         Dim br As New BinaryReader(ms)
         With theMap.render_set(map)
 
+            'If map = 53 Then Stop
+
             Dim magic = br.ReadUInt32
             Dim map_count = br.ReadUInt32
-            ReDim .layer.used_on(7)
+            ReDim .layer.layer_section_size(7)
             For i = 0 To 7
-                .layer.used_on(i) = br.ReadUInt32
+                .layer.layer_section_size(i) = br.ReadUInt32
+
+                If .layer.layer_section_size(i) > max_on Then max_on = .layer.layer_section_size(i)
+                If .layer.layer_section_size(i) > 0 Then
+                    If .layer.layer_section_size(i) < min_on Then min_on = .layer.layer_section_size(i)
+                End If
+
             Next
             ReDim .layer.render_info(map_count)
 
@@ -155,14 +165,16 @@ Module TerrainTextureFunctions
                 If .layer.render_info(i).count <> 8 Then Stop
 
                 'texture projection transforms
-                .layer.render_info(i).u.X = br.ReadSingle
-                .layer.render_info(i).u.Y = br.ReadSingle
-                .layer.render_info(i).u.Z = -br.ReadSingle
+                .layer.render_info(i).u.X = -round_4(br.ReadSingle)
+                .layer.render_info(i).u.Y = 0.0
+                br.ReadSingle()
+                .layer.render_info(i).u.Z = round_4(br.ReadSingle)
                 .layer.render_info(i).u.W = br.ReadSingle
 
-                .layer.render_info(i).v.X = -br.ReadSingle
-                .layer.render_info(i).v.Y = br.ReadSingle
-                .layer.render_info(i).v.Z = br.ReadSingle
+                .layer.render_info(i).v.X = round_4(br.ReadSingle)
+                .layer.render_info(i).v.Y = 0.0
+                br.ReadSingle()
+                .layer.render_info(i).v.Z = -round_4(br.ReadSingle)
                 .layer.render_info(i).v.W = br.ReadSingle
 
                 .layer.render_info(i).flags = br.ReadUInt32 'always 59
@@ -173,6 +185,9 @@ Module TerrainTextureFunctions
                 .layer.render_info(i).v1.Y = br.ReadSingle
                 .layer.render_info(i).v1.Z = br.ReadSingle
 
+
+                ' r1.x = tessellation height
+                ' r2.y = terrain offset
                 .layer.render_info(i).r1.X = br.ReadSingle
                 .layer.render_info(i).r1.Y = br.ReadSingle
                 .layer.render_info(i).r1.Z = br.ReadSingle
@@ -211,8 +226,8 @@ Module TerrainTextureFunctions
             Dim br2 As New BinaryReader(ms2)
 
             Dim magic2 = br2.ReadUInt32()
-            Dim section_cnt = br2.ReadUInt32
-            section_cnt = 4
+            Dim version = br2.ReadUInt32
+            Dim section_cnt = 4
             Dim sec_sizes(3) As UInt32
             For i = 0 To 3
                 sec_sizes(i) = br2.ReadUInt32
@@ -261,28 +276,6 @@ Module TerrainTextureFunctions
                     End If
                     'load blend texture
                     .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
-
-                    'If .TexLayers(i).AM_name1 <> .dom_tex_list(cur_layer_info_pnt) Then
-                    '    Stop
-                    'End If
-                    'layer part 1
-                    'scaleX = .sqrt((a * a) + (c * c));
-                    Dim u = .layer.render_info(cur_layer_info_pnt + 0).u
-                    Dim v = .layer.render_info(cur_layer_info_pnt + 0).v
-
-                    Dim scaleX = Math.Sqrt(u.X * u.X + u.Z * u.Z)
-                    Dim scaley = Math.Sqrt(v.X * v.X + v.Z * v.Z)
-                    'Debug.Write("(" + cur_layer_info_pnt.ToString + ") ")
-                    'Debug.WriteLine(scaleX.ToString + " ", scaley.ToString)
-
-                    u = .layer.render_info(cur_layer_info_pnt + 0).u
-                    v = .layer.render_info(cur_layer_info_pnt + 0).v
-
-                    scaleX = Math.Sqrt(u.X * u.X + u.Z * u.Z)
-                    scaley = Math.Sqrt(v.X * v.X + v.Z * v.Z)
-                    'Debug.Write("(" + CInt(cur_layer_info_pnt + 1).ToString + ") ")
-                    'Debug.WriteLine(scaleX.ToString + " ", scaley.ToString)
-
 
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt + 0).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt + 0).v
@@ -365,6 +358,11 @@ Module TerrainTextureFunctions
 
         Return True
     End Function
+
+    Private Function round_4(ByVal v As Single)
+        Return Math.Round(v, 2)
+    End Function
+
     Private Sub write_vec4(ByRef v As Vector4)
         sb.AppendLine(String.Format("{0,-8:F4} {1,-8:F4} {2,-8:F4} {3,-8:F4}",
                                  v.X.ToString, v.Y.ToString, v.Z.ToString, v.W.ToString))

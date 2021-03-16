@@ -542,7 +542,8 @@ Module ChunkFunctions
             Next
         Next
         c.heights_data = Nothing
-        v.avg_heights = (y_max + y_min) / 2.0F
+        v.avg_heights = (y_max + y_min) / 2.0F ' used for fog
+
         If y_max > MAX_MAP_HEIGHT Then MAX_MAP_HEIGHT = y_max
         If y_min < MIN_MAP_HEIGHT Then MIN_MAP_HEIGHT = y_min
         v.max_height = MAX_MAP_HEIGHT
