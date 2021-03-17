@@ -1,12 +1,13 @@
 ﻿Imports System.IO
 Imports System.Runtime
 Imports System.Runtime.InteropServices
+Imports System.Threading
 Imports Ionic.Zip
 Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
-Imports System.Threading
+
 Module MapLoader
     Public ripple_thread As New Thread(AddressOf ripple_handler)
 

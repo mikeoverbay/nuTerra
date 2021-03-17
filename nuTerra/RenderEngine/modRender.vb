@@ -1644,6 +1644,5 @@ Module modRender
         GL.Disable(EnableCap.Blend)
         TextRenderShader.StopUse()
         GL.BindTextureUnit(0, 0)
-
     End Sub
 End Module

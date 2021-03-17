@@ -1,5 +1,7 @@
-﻿Imports System.IO
+﻿Imports System.Globalization
+Imports System.IO
 Imports Ionic.Zip
+Imports NGettext
 Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
@@ -9,38 +11,14 @@ Module MapMenuScreen
 
 #Region "structurs/vars"
 
-    Public info_string As String
-    Public os_strings() As String
-    Public trans_strings() As String
-    Public trans_strings_raw() As Array
-    Public trans_flags() As Boolean
-    Public hash_tbl() As Integer
-    Public Structure indice_
-        Public len As Integer
-        Public offset As Integer
-    End Structure
-    Public os_indices() As indice_
-    Public hash_indices() As indice_
-    Public trans_indices() As indice_
-    Dim info_string_length As Integer = 0
-    Dim hash_count As Integer = 0
-    Dim file_size As Integer = 0
-    Dim delta As Integer = 0
-    Dim os_string_sec_length As Integer = 0
-    Dim magic As Integer
-    Dim info_index_offset As Integer
-    Dim hash_index_offset As Integer
-    Dim info_index_count As Integer
-    Dim info_index_string_index As Integer
-
-    Dim enc As New System.Text.UTF8Encoding
+    Public arenas_mo_catalog As Catalog
 
     Public map_texture_ids() As GLTexture
     Public img_grow_speed As Single = 1.5
     Public img_shrink_speed As Single = 0.5
-    Public MapPickList() As map_item_
+    Public MapPickList As List(Of map_item_)
 
-    Public Structure map_item_ : Implements IComparable(Of map_item_)
+    Public Class map_item_ : Implements IComparable(Of map_item_)
         Public lt As Vector2
         Public lb As Vector2
         Public rt As Vector2
@@ -123,7 +101,7 @@ Module MapMenuScreen
                 Return 0
             End Try
         End Function
-    End Structure
+    End Class
 #End Region
 
     Public Sub make_map_pick_buttons()
@@ -132,7 +110,11 @@ Module MapMenuScreen
         DUMMY_TEXTURE_ID = make_dummy_texture()
         '==========================================================
 
-        open_mo()
+        ' open mo
+        Dim arenas_mo_path = Path.Combine(My.Settings.GamePath, "res/text/lc_messages/arenas.mo")
+        Using moFileStream = File.OpenRead(arenas_mo_path)
+            arenas_mo_catalog = New Catalog(moFileStream, New CultureInfo("en-US"))
+        End Using
 
         Dim scriptPkg As ZipFile = ZipFile.Read(GAME_PATH + "\scripts.pkg")
         Dim list_entry = scriptPkg("scripts/arena_defs/_list_.xml")
@@ -149,42 +131,27 @@ Module MapMenuScreen
             listMS.Dispose()
             Return
         End If
-        ReDim MapPickList(100)
         Dim t = xmldataset.Tables("map")
         Dim q = From row In t.AsEnumerable
                 Select
                     name = row.Field(Of String)("name")
 
-        Dim pos As Integer = 0
-
+        MapPickList = New List(Of map_item_)
         For Each m In q
-            MapPickList(pos) = New map_item_
-            MapPickList(pos) = New map_item_
-            MapPickList(pos).name = m
-            MapPickList(pos).max_scale = 1.5F
-            MapPickList(pos).min_scale = 1.0F
-            MapPickList(pos).scale = 1.0F
-            Dim name = find_maps_gui_name(m) ' discriiption is returned in m
-            If name IsNot Nothing Then
-
-                MapPickList(pos).realname = name
-                MapPickList(pos).discription = m
-                MapPickList(pos).realname = MapPickList(pos).realname.Replace("Winter ", "Wtr ")
-
-                pos += 1
-            Else
-                'Stop
-            End If
+            MapPickList.Add(New map_item_ With {
+                .name = m,
+                .max_scale = 1.5F,
+                .min_scale = 1.0F,
+                .scale = 1.0F,
+                .realname = arenas_mo_catalog.GetString(String.Format("{0}/name", m)).Replace("Winter ", "Wtr "),
+                .discription = arenas_mo_catalog.GetString(String.Format("{0}/description", m))
+            })
         Next
 
-        ReDim Preserve MapPickList(pos - 2) '??
-
-
-        Array.Sort(MapPickList)
+        MapPickList.Sort()
         Application.DoEvents()
 
         Dim cnt = 0
-
         For Each thing In MapPickList
             Dim entry As ZipEntry = Packages.GUI_PACKAGE("gui/maps/icons/map/stats/" + thing.name + ".png")
             If entry Is Nothing And Packages.GUI_PACKAGE_PART2 IsNot Nothing Then
@@ -197,133 +164,15 @@ Module MapMenuScreen
             entry.Extract(ms2)
             'True = hard wired to save in map_texture_ids(cnt)
             get_tank_image(ms2, cnt, True, 0.5)
-            MapPickList(cnt).name += ".pkg"
+            thing.name += ".pkg"
             cnt += 1
         Next
+
         Dim entry2 As ZipEntry = Packages.GUI_PACKAGE("gui/maps/bg.png")
         Dim ms As New MemoryStream
         entry2.Extract(ms)
         MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
     End Sub
-    Private Sub open_mo()
-
-        Dim index_os, index_tl As ULong
-
-        Dim t_path = My.Settings.GamePath + "/res/text/lc_messages/arenas.mo"
-
-        Dim data() = System.IO.File.ReadAllBytes(t_path)
-        Dim file_size = data.Length
-
-
-        Dim ms As New MemoryStream(data)
-        Dim br As New BinaryReader(ms)
-        ms.Position = 0
-        Dim magic = br.ReadInt32
-        If magic <> &H950412DE Then
-            MsgBox("This file is NOT a WoT MO file. Magic number is wrong!", MsgBoxStyle.Exclamation, "Opps")
-            Return
-        End If
-
-        Dim version = br.ReadInt32
-        Dim count = br.ReadInt32
-        Dim os_index_start As ULong = br.ReadInt32 'always = 28?
-        Dim index_info = br.ReadInt32()
-        Dim info_index_offset = index_info
-
-        Dim hash_count = br.ReadUInt32
-
-        Dim index_hash = br.ReadUInt32
-        Dim hash_index_offset = index_hash
-
-        Dim unknown3 = br.ReadUInt32
-        Dim n_data() As Byte
-        'make room for the data
-        ReDim os_strings(count)
-        ReDim trans_strings(count)
-        ReDim trans_strings_raw(count)
-        ReDim trans_flags(count)
-        ReDim trans_indices(count)
-        ReDim os_indices(count)
-        ReDim hash_tbl(hash_count)
-        ReDim hash_indices(hash_count)
-        'get hash table
-        ms.Position = index_hash
-        For i = 0 To hash_count - 1
-            hash_tbl(i) = br.ReadInt32
-        Next
-        Dim cp = os_index_start 'save .. we need it for loop
-        For i = 0 To count - 1
-            ms.Position = cp 'restore position
-            Dim s_length = br.ReadInt32
-            os_string_sec_length += s_length
-
-            index_os = br.ReadInt32
-            os_indices(i) = New indice_
-            os_indices(i).len = s_length
-            os_indices(i).offset = index_os
-
-            ReDim n_data(s_length)
-            cp = ms.Position
-            ms.Position = index_os
-            ReDim n_data(s_length)
-            n_data = br.ReadBytes(s_length)
-            os_strings(i) = enc.GetString(n_data)
-        Next
-        index_tl = br.ReadInt32
-        ms.Position = index_info ' point at project info index
-        info_string_length = br.ReadInt32 ' get project string length
-        info_index_count = info_string_length
-
-        index_info = br.ReadInt32 ' get start of project string
-        info_index_string_index = index_info
-
-        Dim trans_index = ms.Position ' save start of trans string indexes which is next
-        ms.Position = index_info ' move to where project string is stored
-
-        ReDim n_data(info_string_length) 'make room
-        n_data = br.ReadBytes(info_string_length) ' read project info
-        info_string = enc.GetString(n_data) ' convert to string
-        Dim trans_strings_start = ms.Position  ' save start of trans strings - not used.. debug only
-        cp = trans_index 'save for loop
-        'get trans strings
-        For i = 0 To count - 1
-            ms.Position = cp 'restore position
-            Dim s_length = br.ReadInt32
-            index_os = br.ReadInt32
-
-            trans_indices(i) = New indice_
-            trans_indices(i).len = s_length
-            trans_indices(i).offset = index_os
-            ReDim n_data(s_length)
-            cp = ms.Position ' save position
-            ms.Position = index_os 'set postion
-            ReDim n_data(s_length)
-            n_data = br.ReadBytes(s_length)
-            trans_strings(i) = enc.GetString(n_data)
-            trans_strings_raw(i) = n_data
-            trans_flags(i) = False
-        Next
-
-        ms.Close()
-        ms.Dispose()
-
-        'strange but some lines have a lf ctr (10) in them.. This screws up the selection in the string table form.
-        For i = 0 To count - 1
-            trans_strings(i) = trans_strings(i).Replace(vbLf, " ")
-        Next
-
-    End Sub
-    Private Function find_maps_gui_name(ByRef mapname As String) As String
-        For i = 1 To os_strings.Length - 2
-            If os_strings(i).Contains(mapname) Then
-                Dim realname = trans_strings(i)
-                Dim discription = trans_strings(i - 1)
-                mapname = discription
-                Return realname
-            End If
-        Next
-        Return ""
-    End Function
 
     Public Sub gl_pick_map(ByVal x As Integer, ByVal y As Integer)
 
@@ -518,9 +367,9 @@ Module MapMenuScreen
 
         'this checks to see if there are any images drawn oversize
         If FINISH_MAPS Then
-            Dim no_stragglers As Boolean = True
-            For i = 0 To MapPickList.Length - 2
-                If Not MapPickList(i).unit_size Then
+            Dim no_stragglers = True
+            For Each mapItem In MapPickList
+                If Not mapItem.unit_size Then
                     no_stragglers = False
                 End If
             Next

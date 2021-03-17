@@ -401,7 +401,9 @@ CleanUp:
                         "g_applyScreenSpaceMorphing",
                         "g_glossConversions",
                         "g_metallicConversions",
-                        "g_aging"
+                        "g_aging",
+                        "g_albedoConversions",
+                        "g_defaultPBSConversionParams"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
