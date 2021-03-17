@@ -145,8 +145,8 @@ Module TerrainTextureFunctions
                 add_image(.texture_name, .atlas_id)
                 'If atlasPath.ToLower.Contains("Tirpiz_atlas_AM".ToLower) Then
                 GL.Clear(ClearBufferMask.ColorBufferBit)
-                    draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
-                    Stop
+                draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
+                'Stop
                 'End If
             End With
         Next
