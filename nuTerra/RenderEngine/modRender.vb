@@ -10,6 +10,40 @@ Module modRender
     Private cull_timer As New Stopwatch
     Private uv_location As New Vector2
 
+    Private Function FixRussianLetter(l As Char) As Char
+        Dim DIRTY_HACK_RUSSIAN_LETTERS As String() = {
+            "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя",
+            "ABVGDEJZIJKLMNOPRSTUFHZCSSbYbEUAabvgdejzijklmnoprstufhzcssbybeua"
+        }
+        Dim firstRussianL = AscW(DIRTY_HACK_RUSSIAN_LETTERS(0)(0))
+        Dim i = AscW(l) - firstRussianL
+        If DIRTY_HACK_RUSSIAN_LETTERS(0).Length > i And i >= 0 Then
+            If DIRTY_HACK_RUSSIAN_LETTERS(0)(i) = l Then
+                Return DIRTY_HACK_RUSSIAN_LETTERS(1)(i)
+            End If
+        End If
+
+        If l = "ё" Then
+            Return "e"
+        End If
+
+        If l = "Ё" Then
+            Return "E"
+        End If
+
+        ' Fix for "Em Dash"
+        If l = "—" Then
+            Return "-"
+        End If
+
+        ' Fix for "No-Break Space"
+        If l = " " Then
+            Return " "
+        End If
+
+        Return l
+    End Function
+
     Dim colors() As Graphics.Color4 = {
         Graphics.Color4.Red,
         Graphics.Color4.Green,
@@ -1620,12 +1654,11 @@ Module modRender
         If center Then
             cntr = text.Length * 10.0F / 2.0F
         End If
-        Dim ar = text.ToArray
         Dim cnt As Integer = 0
         GL.BindVertexArray(defaultVao)
         Dim wrap As Boolean = False
-        For Each l In ar
-            Dim idx = CSng(Asc(l) - 32)
+        For Each l In text
+            Dim idx = CSng(Asc(FixRussianLetter(l)) - 32)
             Dim tp = (locX + cnt * 10.0) - cntr
             If tp > wrapWidth And idx = 0 Then
                 cnt = -1
