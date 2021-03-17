@@ -7,7 +7,6 @@ Imports Tao.DevIl
 
 Module TextureLoaders
     Public imgTbl As New Dictionary(Of String, GLTexture)
-
 #Region "imgTbl routines"
 
     Public Sub add_image(fn As String, id As GLTexture)

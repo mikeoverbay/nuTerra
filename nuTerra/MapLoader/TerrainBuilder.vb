@@ -220,6 +220,7 @@ Module TerrainBuilder
         Public render_info() As layer_render_info_entry_
     End Structure
     Public Structure layer_render_info_entry_
+        Public atlas_id As GLTexture
         Public texture_name As String
         Public width As Integer
         Public height As Integer

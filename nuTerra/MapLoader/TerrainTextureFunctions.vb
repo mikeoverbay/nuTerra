@@ -38,31 +38,120 @@ Module TerrainTextureFunctions
     Private Sub get_layer_textures(ByVal map As Integer)
         'It is important to fill blank IDs with the dummy texture
         'so the shader has VALID ID and nothing is added.
-        For i = 0 To 3
-            With theMap.render_set(map).TexLayers(i)
-                If .AM_name1 = "" Then
-                    .AM_id1 = DUMMY_TEXTURE_ID
-                    .NM_id1 = DUMMY_TEXTURE_ID
-                    .used_a = 0.0F
-                Else
-                    .AM_id1 = find_and_trim(.AM_name1)
-                    .NM_id1 = find_and_trim(.NM_name1)
-                    .used_a = 1.0F
-                End If
-                If .AM_name2 = "" Then
-                    .AM_id2 = DUMMY_TEXTURE_ID
-                    .NM_id2 = DUMMY_TEXTURE_ID
-                    .used_b = 0.0F
-                Else
-                    .AM_id2 = find_and_trim(.AM_name2)
-                    .NM_id2 = find_and_trim(.NM_name2)
-                    .used_b = 1.0F
-                End If
+        'For i = 0 To 3
+        '    With theMap.render_set(map).TexLayers(i)
+        '        If .AM_name1 = "" Then
+        '            .AM_id1 = DUMMY_TEXTURE_ID
+        '            .NM_id1 = DUMMY_TEXTURE_ID
+        '            .used_a = 0.0F
+        '        Else
+        '            .AM_id1 = find_and_trim(.AM_name1)
+        '            .NM_id1 = find_and_trim(.NM_name1)
+        '            .used_a = 1.0F
+        '        End If
+        '        If .AM_name2 = "" Then
+        '            .AM_id2 = DUMMY_TEXTURE_ID
+        '            .NM_id2 = DUMMY_TEXTURE_ID
+        '            .used_b = 0.0F
+        '        Else
+        '            .AM_id2 = find_and_trim(.AM_name2)
+        '            .NM_id2 = find_and_trim(.NM_name2)
+        '            .used_b = 1.0F
+        '        End If
 
+        '    End With
+        'Next
+        For z = 0 To 7
+            With theMap.render_set(map).layer.render_info(z)
+                'finds and loads and returns the GL texture ID.
+                If .texture_name = "" Then
+                    .atlas_id = DUMMY_TEXTURE_ID
+                    Continue For
+                End If
+                Dim id = image_exists(.texture_name) 'Check if this has been loaded already.
+                If id IsNot Nothing Then
+                    .atlas_id = id
+                    Continue For
+                End If
+                Dim yoffset As Integer = 0
+                Dim xoffset As Integer = 0
+                Dim tex_names(3) As String
+                tex_names(0) = .texture_name
+                tex_names(1) = .texture_name.Replace("_AM", "_NM")
+                tex_names(2) = .texture_name.Replace("_AM", "_macro_AM")
+
+                Dim atlas_tex As New GLTexture
+                Dim fullWidth As Integer
+                Dim fullHeight As Integer
+                Dim multiplierX, multiplierY As Single
+                Application.DoEvents() 'stop freezing the UI
+                For i = 0 To 2
+                    Dim coords = tex_names(i)
+
+                    Dim dds_entry As ZipEntry = Nothing
+                    If HD_EXISTS Then
+                        dds_entry = search_pkgs(coords)
+                    End If
+
+                    If dds_entry Is Nothing Then
+                        Stop
+                        Continue For
+                    End If
+
+                    Dim dds_ms As New MemoryStream
+                    dds_entry.Extract(dds_ms)
+
+                    dds_ms.Position = 0
+                    Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
+                        Dim dds_header = get_dds_header(dds_br)
+                        dds_ms.Position = 128
+
+                        Dim format_info = dds_header.format_info
+
+                        If i = 0 Then 'run once
+
+                            ' gets size of atlas
+                            fullWidth = 3072
+                            fullHeight = 1024
+
+                            multiplierX = 1024
+                            multiplierY = 1024
+
+                            'Calculate Max Mip Level based on width or height.. Which ever is larger.
+                            Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
+
+                            atlas_tex = CreateTexture(TextureTarget.Texture2D, "tAtlas" + map.ToString + "_" + z.ToString)
+                            atlas_tex.Storage2D(numLevels, format_info.texture_format, fullWidth, fullHeight)
+
+                            atlas_tex.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 3)
+                            atlas_tex.Parameter(TextureParameterName.TextureBaseLevel, 0)
+                            atlas_tex.Parameter(TextureParameterName.TextureMaxLevel, numLevels)
+                            atlas_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                            atlas_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                            atlas_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+                            atlas_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+                        End If
+
+                        Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
+                        Dim data = dds_br.ReadBytes(size)
+
+                        atlas_tex.CompressedSubImage2D(0, xoffset, yoffset, 1024, 1024,
+                                                DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
+                    End Using
+                    xoffset += 1024
+                Next
+                atlas_tex.GenerateMipmap()
+                .atlas_id = atlas_tex
+                add_image(.texture_name, .atlas_id)
+                'If atlasPath.ToLower.Contains("Tirpiz_atlas_AM".ToLower) Then
+                GL.Clear(ClearBufferMask.ColorBufferBit)
+                    draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
+                    Stop
+                'End If
             End With
         Next
-
         ' fill ubo
+
         With theMap.render_set(map)
             Dim layersBuffer As New LayersStd140
             layersBuffer.U1 = .TexLayers(0).uP1
@@ -125,6 +214,17 @@ Module TerrainTextureFunctions
                           BufferStorageFlags.None)
         End With
     End Sub
+    Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)
+
+        Dim ww = frmMain.glControl_main.ClientRectangle.Width
+
+        Dim ls = (1920.0F - ww) / 2.0F
+
+        ' Draw Terra Image
+        draw_image_rectangle(New RectangleF(0, 0, w, h), id)
+
+        frmMain.glControl_main.SwapBuffers()
+    End Sub
 
 
     Public Function Get_layer_texture_data(ByVal map As Integer) As Boolean
@@ -155,7 +255,6 @@ Module TerrainTextureFunctions
             ReDim .layer.render_info(map_count)
 
             ReDim Preserve .layer.render_info(7)
-
             For i = 0 To map_count - 1
                 .layer.render_info(i) = New layer_render_info_entry_
                 br.ReadUInt32() 'magic
@@ -367,19 +466,19 @@ Module TerrainTextureFunctions
         sb.AppendLine(String.Format("{0,-8:F4} {1,-8:F4} {2,-8:F4} {3,-8:F4}",
                                  v.X.ToString, v.Y.ToString, v.Z.ToString, v.W.ToString))
     End Sub
-    Public Function find_and_trim(ByRef fn As String) As GLTexture
+    Public Function find_and_trim(ByRef fn1 As String) As GLTexture
         'finds and loads and returns the GL texture ID.
-        Dim id = image_exists(fn) 'Check if this has been loaded already.
+        Dim id = image_exists(fn1) 'Check if this has been loaded already.
         If id IsNot Nothing Then
             Return id
         End If
-        Dim entry As ZipEntry = search_pkgs(fn)
+        Dim entry As ZipEntry = search_pkgs(fn1)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
             'CHANGE THIS TO crop_DDS to use code below.
             'id = load_dds_image_from_stream(ms, fn)
-            id = load_terrain_texture_from_stream(ms, fn)
+            id = load_terrain_texture_from_stream(ms, fn1)
             Return id
         End If
         Return Nothing
