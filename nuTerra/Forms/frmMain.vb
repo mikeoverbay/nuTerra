@@ -610,13 +610,12 @@ try_again:
         PROGRESS_BAR_IMAGE_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\resources\progress_bar.png", False, True)
+
         '---------------------------------------------------------
-        'load Ascii characters image.
-        ASCII_ID =
-            load_image_from_file(Il.IL_PNG,
-            sp + "\resources\ascii_characters.png", False, True)
+        ' build Ascii characters texture.
+        ASCII_ID = build_ascii_characters()
+
         '===========================================================================================
-        'load Ascii characters texture.
         Explosion_11776x512_91tiles_256x256_ID =
             load_image_from_file(Il.IL_PNG,
             sp + "\Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.png", True, True)

@@ -10,40 +10,6 @@ Module modRender
     Private cull_timer As New Stopwatch
     Private uv_location As New Vector2
 
-    Private Function FixRussianLetter(l As Char) As Char
-        Dim DIRTY_HACK_RUSSIAN_LETTERS As String() = {
-            "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя",
-            "ABVGDEJZIJKLMNOPRSTUFHZCSSbYbEUAabvgdejzijklmnoprstufhzcssbybeua"
-        }
-        Dim firstRussianL = AscW(DIRTY_HACK_RUSSIAN_LETTERS(0)(0))
-        Dim i = AscW(l) - firstRussianL
-        If DIRTY_HACK_RUSSIAN_LETTERS(0).Length > i And i >= 0 Then
-            If DIRTY_HACK_RUSSIAN_LETTERS(0)(i) = l Then
-                Return DIRTY_HACK_RUSSIAN_LETTERS(1)(i)
-            End If
-        End If
-
-        If l = "ё" Then
-            Return "e"
-        End If
-
-        If l = "Ё" Then
-            Return "E"
-        End If
-
-        ' Fix for "Em Dash"
-        If l = "—" Then
-            Return "-"
-        End If
-
-        ' Fix for "No-Break Space"
-        If l = " " Then
-            Return " "
-        End If
-
-        Return l
-    End Function
-
     Dim colors() As Graphics.Color4 = {
         Graphics.Color4.Red,
         Graphics.Color4.Green,
@@ -1221,7 +1187,6 @@ Module modRender
                  -rect.Top,
                  rect.Right,
                  -rect.Bottom)
-        GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
         '=======================================================================
 
@@ -1235,7 +1200,6 @@ Module modRender
         Dim index! = 0
         Dim cnt! = 10.0F
         Dim step_s! = MINI_MAP_SIZE / 10.0F
-        GL.BindVertexArray(defaultVao)
         For xp = cx To cx + MINI_MAP_SIZE Step step_s
             GL.Uniform1(TextRenderShader("index"), index)
 
@@ -1258,7 +1222,6 @@ Module modRender
 
         cnt! = 10.0F
         step_s! = MINI_MAP_SIZE / 10.0F
-        GL.BindVertexArray(defaultVao)
         For yp = cy To cy + MINI_MAP_SIZE Step step_s
             GL.Uniform1(TextRenderShader("index"), index)
 
@@ -1590,7 +1553,7 @@ Module modRender
         GL.Enable(EnableCap.Blend)
         TextRenderShader.Use()
         GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform1(TextRenderShader("divisor"), 95.0F) 'atlas size
+        GL.Uniform1(TextRenderShader("divisor"), 162.0F) 'atlas size
         ASCII_ID.BindUnit(0)
         GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
         GL.Uniform4(TextRenderShader("color"), color)
@@ -1601,13 +1564,12 @@ Module modRender
         If center Then
             cntr = text.Length * 10.0F / 2.0F
         End If
-        Dim ar = text.ToArray
         Dim cnt As Integer = 0
         GL.BindVertexArray(defaultVao)
-        For Each l In ar
-            Dim idx = CSng(Asc(l) - 32)
+        For Each l In text
+            Dim idx = ASCII_CHARACTERS.IndexOf(l) + 1
             Dim tp = (locX + cnt * 10.0) - cntr
-            GL.Uniform1(TextRenderShader("index"), idx)
+            GL.Uniform1(TextRenderShader("index"), CSng(idx))
             Dim rect As New RectangleF(tp, locY, 10.0F, 15.0F)
             GL.Uniform4(TextRenderShader("rect"),
                       rect.Left,
@@ -1643,7 +1605,7 @@ Module modRender
         GL.Enable(EnableCap.Blend)
         TextRenderShader.Use()
         GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform1(TextRenderShader("divisor"), 95.0F) 'atlas size
+        GL.Uniform1(TextRenderShader("divisor"), 162.0F) 'atlas size
         ASCII_ID.BindUnit(0)
         GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
         GL.Uniform4(TextRenderShader("color"), color)
@@ -1656,15 +1618,14 @@ Module modRender
         End If
         Dim cnt As Integer = 0
         GL.BindVertexArray(defaultVao)
-        Dim wrap As Boolean = False
         For Each l In text
-            Dim idx = CSng(Asc(FixRussianLetter(l)) - 32)
+            Dim idx = ASCII_CHARACTERS.IndexOf(l) + 1
             Dim tp = (locX + cnt * 10.0) - cntr
             If tp > wrapWidth And idx = 0 Then
                 cnt = -1
                 locY += 19
             End If
-            GL.Uniform1(TextRenderShader("index"), idx)
+            GL.Uniform1(TextRenderShader("index"), CSng(idx))
             Dim rect As New RectangleF(tp, locY, 10.0F, 15.0F)
             GL.Uniform4(TextRenderShader("rect"),
                       rect.Left,
