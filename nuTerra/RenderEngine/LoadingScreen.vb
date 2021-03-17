@@ -44,9 +44,9 @@ Module LoadingScreen
                        OpenTK.Graphics.Color4.Coral, False, False, 700.0)
 
         GL.Disable(EnableCap.Blend)
+
         ' Make it so!
         frmMain.glControl_main.SwapBuffers()
-        GL.Flush()
     End Sub
 
 End Module

@@ -800,7 +800,9 @@ got_it:
                         "selfIllumination",
                         "dirtAlbedoMap",
                         "applyOverlay",
-                        "glassMap"
+                        "glassMap",
+                        "g_useTintColor",
+                        "g_tintColor"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
