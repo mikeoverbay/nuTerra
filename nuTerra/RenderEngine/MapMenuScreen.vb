@@ -69,7 +69,7 @@ Module MapMenuScreen
                 L = 0
             End If
             Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y + 20, Me.rb.X, -Me.rb.Y - 10)
-            draw_image_rectangle(rect, textId)
+            draw_image_rectangle(rect, textId, False)
         End Sub
 
         Public Sub draw_text(ByVal textId As GLTexture)
@@ -80,7 +80,7 @@ Module MapMenuScreen
                 L = 0
             End If
             Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y, 120, 20)
-            draw_image_rectangle(rect, textId)
+            draw_image_rectangle(rect, textId, False)
         End Sub
 
         Public Sub draw_pick_box(ByVal color_ As Color4)
@@ -261,7 +261,7 @@ Module MapMenuScreen
 
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
-        draw_image_rectangle(rect, MAP_SELECT_BACKGROUND_ID)
+        draw_image_rectangle(rect, MAP_SELECT_BACKGROUND_ID, False)
 
         Dim ms_x As Single = 120
         Dim ms_y As Single = -72

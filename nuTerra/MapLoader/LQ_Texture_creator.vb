@@ -308,26 +308,26 @@ Module LQ_Texture_creator
             .layersStd140_ubo.BindBase(0)
 
             'AM maps
-            .TexLayers(0).AM_id1.BindUnit(1)
-            .TexLayers(1).AM_id1.BindUnit(2)
-            .TexLayers(2).AM_id1.BindUnit(3)
-            .TexLayers(3).AM_id1.BindUnit(4)
+            '.TexLayers(0).AM_id1.BindUnit(1)
+            '.TexLayers(1).AM_id1.BindUnit(2)
+            '.TexLayers(2).AM_id1.BindUnit(3)
+            '.TexLayers(3).AM_id1.BindUnit(4)
 
-            .TexLayers(0).AM_id2.BindUnit(5)
-            .TexLayers(1).AM_id2.BindUnit(6)
-            .TexLayers(2).AM_id2.BindUnit(7)
-            .TexLayers(3).AM_id2.BindUnit(8)
+            '.TexLayers(0).AM_id2.BindUnit(5)
+            '.TexLayers(1).AM_id2.BindUnit(6)
+            '.TexLayers(2).AM_id2.BindUnit(7)
+            '.TexLayers(3).AM_id2.BindUnit(8)
 
-            'NM maps
-            .TexLayers(0).NM_id1.BindUnit(9)
-            .TexLayers(1).NM_id1.BindUnit(10)
-            .TexLayers(2).NM_id1.BindUnit(11)
-            .TexLayers(3).NM_id1.BindUnit(12)
+            ''NM maps
+            '.TexLayers(0).NM_id1.BindUnit(9)
+            '.TexLayers(1).NM_id1.BindUnit(10)
+            '.TexLayers(2).NM_id1.BindUnit(11)
+            '.TexLayers(3).NM_id1.BindUnit(12)
 
-            .TexLayers(0).NM_id2.BindUnit(13)
-            .TexLayers(1).NM_id2.BindUnit(14)
-            .TexLayers(2).NM_id2.BindUnit(15)
-            .TexLayers(3).NM_id2.BindUnit(16)
+            '.TexLayers(0).NM_id2.BindUnit(13)
+            '.TexLayers(1).NM_id2.BindUnit(14)
+            '.TexLayers(2).NM_id2.BindUnit(15)
+            '.TexLayers(3).NM_id2.BindUnit(16)
 
             'bind blend textures
             .TexLayers(0).Blend_id.BindUnit(17)

@@ -213,7 +213,7 @@ Module modOpenGL
         rect2dShader.StopUse()
     End Sub
 
-    Public Sub draw_image_rectangle(rect As RectangleF, image As GLTexture)
+    Public Sub draw_image_rectangle(rect As RectangleF, image As GLTexture, atlas As Boolean)
         If USE_NV_DRAW_TEXTURE Then
             Dim h = frmMain.glControl_main.Height
             Dim x0 = rect.Left
@@ -222,25 +222,40 @@ Module modOpenGL
             Dim y1 = h - rect.Bottom
             GL.NV.DrawTexture(image.texture_id, 0, x0, y0, x1, y1, 0, 0, 0, 1, 1)
         Else
-            image2dShader.Use()
+            If atlas Then
+                image2dArrayShader.Use()
+                GL.Uniform1(image2dArrayShader("id"), 1)
 
-            image.BindUnit(0)
-            GL.Uniform1(image2dShader("imageMap"), 0)
-            GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
-
-            GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-            GL.Uniform4(image2dShader("rect"),
+                image.BindUnit(0)
+                GL.Uniform1(image2dArrayShader("imageMap"), 0)
+                GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
+                GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+                GL.Uniform4(image2dArrayShader("rect"),
                         rect.Left,
                         -rect.Top,
                         rect.Right,
                         -rect.Bottom)
 
-            GL.BindVertexArray(defaultVao)
-            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-            'GL.BindVertexArray(0)
+                GL.BindVertexArray(defaultVao)
+                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+                image2dArrayShader.StopUse()
+            Else
+                image2dShader.Use()
+                image.BindUnit(0)
+                GL.Uniform1(image2dShader("imageMap"), 0)
+                GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
+                GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+                GL.Uniform4(image2dShader("rect"),
+                        rect.Left,
+                        -rect.Top,
+                        rect.Right,
+                        -rect.Bottom)
 
-            image2dShader.StopUse()
-            'unbind texture
+                GL.BindVertexArray(defaultVao)
+                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+                image2dShader.StopUse()
+            End If
+
             unbind_textures(0)
         End If
     End Sub

@@ -60,25 +60,16 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 s8;
 };
 
-layout(binding = 1 ) uniform sampler2D layer_1T1;
-layout(binding = 2 ) uniform sampler2D layer_2T1;
-layout(binding = 3 ) uniform sampler2D layer_3T1;
-layout(binding = 4 ) uniform sampler2D layer_4T1;
+layout(binding = 1 ) uniform sampler2DArray at1;
+layout(binding = 2 ) uniform sampler2DArray at2;
+layout(binding = 3 ) uniform sampler2DArray at3;
+layout(binding = 4 ) uniform sampler2DArray at4;
 
-layout(binding = 5 ) uniform sampler2D layer_1T2;
-layout(binding = 6 ) uniform sampler2D layer_2T2;
-layout(binding = 7 ) uniform sampler2D layer_3T2;
-layout(binding = 8 ) uniform sampler2D layer_4T2;
+layout(binding = 5 ) uniform sampler2DArray at5;
+layout(binding = 6 ) uniform sampler2DArray at6;
+layout(binding = 7 ) uniform sampler2DArray at7;
+layout(binding = 8 ) uniform sampler2DArray at8;
 
-layout(binding = 9 ) uniform sampler2D n_layer_1T1;
-layout(binding = 10) uniform sampler2D n_layer_2T1;
-layout(binding = 11) uniform sampler2D n_layer_3T1;
-layout(binding = 12) uniform sampler2D n_layer_4T1;
-
-layout(binding = 13) uniform sampler2D n_layer_1T2;
-layout(binding = 14) uniform sampler2D n_layer_2T2;
-layout(binding = 15) uniform sampler2D n_layer_3T2;
-layout(binding = 16) uniform sampler2D n_layer_4T2;
 
 layout(binding = 17) uniform sampler2D mixtexture1;
 layout(binding = 18) uniform sampler2D mixtexture2;
@@ -149,7 +140,7 @@ float sum( vec4 v ) {
     return v.x+v.y+v.z;
     }
 
-vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
+vec4 textureNoTile( sampler2DArray samp, in vec2 uv , in float layer, in float flag, in out float b)
 {
 
    
@@ -170,7 +161,7 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
         if (cropped.y < 0.065 ) b = 1.0;
         if (cropped.y > 0.935 ) b = 1.0;
 
-        return textureLod( samp, cropped, max(0.0, mipLevel) );
+        return textureLod( samp, vec3(cropped, layer),mipLevel);
 
         }
 
@@ -198,8 +189,8 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
     vec2 dx = dFdx(uv), dy = dFdy(uv);
     
     // sample the two closest virtual patterns    
-    vec4 cola = textureGrad( samp, uv + offa, dx, dy );
-    vec4 colb = textureGrad( samp, uv + offb, dx, dy );
+    vec4 cola = textureGrad( samp, vec3(uv + offa, layer), dx, dy );
+    vec4 colb = textureGrad( samp, vec3(uv + offb, layer), dx, dy );
 
 
     // interpolate between the two virtual patterns   
@@ -209,13 +200,13 @@ vec4 textureNoTile( sampler2D samp, in vec2 uv ,in float flag, in out float b)
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
 
-    vec4 vt = vec4(-fs_in.UV.x*100, 0.0, fs_in.UV.y*100.0, 1.0);   
+    vec4 vt = vec4(fs_in.UV.x*100, 0.0, fs_in.UV.y*100.0, 1.0);   
 
     vec2 out_uv;
 
     out_uv = vec2(dot(U,vt), dot(V,vt));
     out_uv = out_uv * vec2(1.0,1.0);// + vec2(0.5,0.5);
-    out_uv.xy += vec2(-S.x, -S.y);
+    //out_uv.xy += vec2(-S.x, -S.y);
 
     return out_uv;
 
@@ -242,6 +233,8 @@ void main(void)
     vec4 color_8 = vec4(0.5,  0.5,  0.5,  0.0);
     //==============================================================
 
+    vec4 mt1, mt2, mt3, mt4, mt5, mt6, mt7, mt8;
+    vec4 mn1, mn2, mn3, mn4, mn5, mn6, mn7, mn8;
     vec4 t1, t2, t3, t4, t5, t6, t7, t8;
     vec4 n1, n2, n3, n4, n5, n6, n7, n8;
     vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
@@ -271,17 +264,30 @@ void main(void)
 
 
     // Get AM maps,crop, detilize and set Test outline blend flag
-    t1 = textureNoTile(layer_1T1, tuv1, r2_1.z, B1);
-    t2 = textureNoTile(layer_1T2, tuv2, r2_2.z, B2);
+    t1 = textureNoTile(at1, tuv1, 0.0, r2_1.z, B1);
+    t2 = textureNoTile(at2, tuv2, 0.0, r2_2.z, B2);
 
-    t3 = textureNoTile(layer_2T1, tuv3, r2_3.z, B3);
-    t4 = textureNoTile(layer_2T2, tuv4, r2_4.z, B4);
+    t3 = textureNoTile(at3, tuv3, 0.0, r2_3.z, B3);
+    t4 = textureNoTile(at4, tuv4, 0.0, r2_4.z, B4);
 
-    t5 = textureNoTile(layer_3T1, tuv5, r2_5.z, B5);
-    t6 = textureNoTile(layer_3T2, tuv6, r2_6.z, B6);
+    t5 = textureNoTile(at5, tuv5, 0.0, r2_5.z, B5);
+    t6 = textureNoTile(at6, tuv6, 0.0, r2_6.z, B6);
 
-    t7 = textureNoTile(layer_4T1, tuv7, r2_7.z, B7);
-    t8 = textureNoTile(layer_4T2, tuv8, r2_8.z, B8);
+    t7 = textureNoTile(at7, tuv7, 0.0, r2_7.z, B7);
+    t8 = textureNoTile(at8, tuv8, 0.0, r2_8.z, B8);
+
+
+    mt1 = textureNoTile(at1, tuv1*0.125, 2.0, r2_1.z, B1);
+    mt2 = textureNoTile(at2, tuv2*0.125, 2.0, r2_2.z, B2);
+
+    mt3 = textureNoTile(at3, tuv3*0.125, 2.0, r2_3.z, B3);
+    mt4 = textureNoTile(at4, tuv4*0.125, 2.0, r2_4.z, B4);
+
+    mt5 = textureNoTile(at5, tuv5*0.125, 2.0, r2_5.z, B5);
+    mt6 = textureNoTile(at6, tuv6*0.125, 2.0, r2_6.z, B6);
+
+    mt7 = textureNoTile(at7, tuv7*0.125, 2.0, r2_7.z, B7);
+    mt8 = textureNoTile(at8, tuv8*0.125, 2.0, r2_8.z, B8);
     
     //t6= vec4(0.0);
 
@@ -289,17 +295,46 @@ void main(void)
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    n1 = textureNoTile(n_layer_1T1, tuv1, r1_1.z, B1);
-    n2 = textureNoTile(n_layer_1T2, tuv2, r1_2.z, B2);
-    n3 = textureNoTile(n_layer_2T1, tuv3, r1_3.z, B3);
-    n4 = textureNoTile(n_layer_2T2, tuv4, r1_4.z, B4);
-    n5 = textureNoTile(n_layer_3T1, tuv5, r1_5.z, B5);
-    n6 = textureNoTile(n_layer_3T2, tuv6, r1_6.z, B6);
-    n7 = textureNoTile(n_layer_4T1, tuv7, r1_7.z, B7);
-    n8 = textureNoTile(n_layer_4T2, tuv8, r1_8.z, B8);
+    n1 = textureNoTile(at1, tuv1, 1.0, r1_1.z, B1);
+    n2 = textureNoTile(at2, tuv2, 1.0, r1_2.z, B2);
+    n3 = textureNoTile(at3, tuv3, 1.0, r1_3.z, B3);
+    n4 = textureNoTile(at4, tuv4, 1.0, r1_4.z, B4);
+    n5 = textureNoTile(at5, tuv5, 1.0, r1_5.z, B5);
+    n6 = textureNoTile(at6, tuv6, 1.0, r1_6.z, B6);
+    n7 = textureNoTile(at7, tuv7, 1.0, r1_7.z, B7);
+    n8 = textureNoTile(at8, tuv8, 1.0, r1_8.z, B8);
+
+
+    mn1 = textureNoTile(at1, tuv1*0.125, 3.0, r1_1.z, B1);
+    mn2 = textureNoTile(at2, tuv2*0.125, 3.0, r1_2.z, B2);
+    mn3 = textureNoTile(at3, tuv3*0.125, 3.0, r1_3.z, B3);
+    mn4 = textureNoTile(at4, tuv4*0.125, 3.0, r1_4.z, B4);
+    mn5 = textureNoTile(at5, tuv5*0.125, 3.0, r1_5.z, B5);
+    mn6 = textureNoTile(at6, tuv6*0.125, 3.0, r1_6.z, B6);
+    mn7 = textureNoTile(at7, tuv7*0.125, 3.0, r1_7.z, B7);
+    mn8 = textureNoTile(at8, tuv8*0.125, 3.0, r1_8.z, B8);
+
+
+    t1 = mix(t1, mt1, s1.y);
+    t2 = mix(t3, mt2, s2.y);
+    t3 = mix(t3, mt3, s2.y);
+    t4 = mix(t4, mt4, s4.y);
+    t5 = mix(t5, mt5, s5.y);
+    t6 = mix(t6, mt6, s6.y);
+    t7 = mix(t7, mt7, s7.y);
+    t8 = mix(t8, mt8, s8.y);
+
+
+    n1 = mix(n1, mn1, s1.x);
+    n2 = mix(n2, mn2, s2.y);
+    n3 = mix(n3, mn3, s3.y);
+    n4 = mix(n4, mn4, s4.y);
+    n5 = mix(n5, mn5, s5.y);
+    n6 = mix(n6, mn6, s6.y);
+    n7 = mix(n7, mn7, s7.y);
+    n8 = mix(n8, mn8, s8.y);
 
     // get the ambient occlusion
-
     t1.rgb *= n1.b;
     t2.rgb *= n2.b;
     t3.rgb *= n3.b;
@@ -422,8 +457,8 @@ void main(void)
     ArrayTextureN.xyz = fs_in.TBN * ArrayTextureN.xyz;
 
     // This blends the pre-mixed maps over distance.
-    base = mix(ArrayTextureC, base, fs_in.ln);
-    out_n = mix(ArrayTextureN, out_n, fs_in.ln) ;
+    //base = mix(ArrayTextureC, base, fs_in.ln);
+    //out_n = mix(ArrayTextureN, out_n, fs_in.ln) ;
 
     //there are no metal values for the terrain so we hard code 0.1;
     // specular is in the red channel of the normal maps;
@@ -431,8 +466,8 @@ void main(void)
     gGMF = mix(ArrayTextureG, gmm_out, fs_in.ln);
 
     //gColor = gColor* 0.001 + r1_8;
-
-    gColor.rgb = base.rgb;
+    t1 = texture(at1,vec3(fs_in.UV,1.0));
+    gColor.rgb = base.rgb;//*0.01+t1.rgb;
     gColor.a = global.a*0.8;
 
     gNormal.xyz = normalize(out_n.xyz);

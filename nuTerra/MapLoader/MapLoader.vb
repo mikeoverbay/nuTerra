@@ -1033,8 +1033,13 @@ Module MapLoader
 
                     Dim xoffset = CInt(coords.x0 * multiplierX)
                     Dim yoffset = CInt(coords.y0 * multiplierY)
+                    'Dim er = GL.GetError
                     atlas_tex.CompressedSubImage2D(0, xoffset, yoffset, dds_header.width, dds_header.height,
                                                 DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
+                    'er = GL.GetError
+                    'If er > 0 Then
+                    '    Debug.WriteLine("error!")
+                    'End If
                 End Using
             Next
             atlas_tex.GenerateMipmap()
@@ -1233,14 +1238,14 @@ Module MapLoader
         MapGL.Buffers.materials.BindBase(3)
     End Sub
 
-    Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)
+    Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture, atlas As Boolean)
 
         Dim ww = frmMain.glControl_main.ClientRectangle.Width
 
         Dim ls = (1920.0F - ww) / 2.0F
 
         ' Draw Terra Image
-        draw_image_rectangle(New RectangleF(0, 0, w, h), id)
+        draw_image_rectangle(New RectangleF(0, 0, w, h), id, atlas)
 
         frmMain.glControl_main.SwapBuffers()
     End Sub
