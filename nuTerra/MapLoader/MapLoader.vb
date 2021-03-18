@@ -323,6 +323,8 @@ Module MapLoader
         frmLightSettings.Init()
         '===============================================================
 
+        frmTerrainOptions.Init()
+
         '===============================================================
         'Set draw enable flags
         TERRAIN_LOADED = False

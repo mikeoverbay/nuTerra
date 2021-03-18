@@ -120,8 +120,9 @@ Module modOpenGL
         Public viewProj As Matrix4
         Public invViewProj As Matrix4
         Public cameraPos As Vector3
-        Private pad As UInt32 'reserved
+        Public _start As Single
         Public resolution As Vector2
+        Public _end As Single
     End Structure
     Public PerViewData As New TPerViewData
     Public PerViewDataBuffer As GLBuffer

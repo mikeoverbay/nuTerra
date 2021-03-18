@@ -50,6 +50,7 @@ Partial Class frmMain
         Me.map_loader = New System.Windows.Forms.Timer(Me.components)
         Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.Panel1 = New System.Windows.Forms.Panel()
+        Me.TerrainOptionsToolStripMenuItem = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer1.SuspendLayout()
@@ -163,7 +164,7 @@ Partial Class frmMain
         'm_developer
         '
         Me.m_developer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_block_loading, Me.m_show_gbuffer, Me.m_camera_options})
+        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_block_loading, Me.m_show_gbuffer, Me.m_camera_options, Me.TerrainOptionsToolStripMenuItem})
         Me.m_developer.ForeColor = System.Drawing.Color.Black
         Me.m_developer.Name = "m_developer"
         Me.m_developer.Size = New System.Drawing.Size(102, 20)
@@ -244,6 +245,12 @@ Partial Class frmMain
         Me.Panel1.Size = New System.Drawing.Size(956, 655)
         Me.Panel1.TabIndex = 2
         '
+        'TerrainOptionsToolStripMenuItem
+        '
+        Me.TerrainOptionsToolStripMenuItem.Name = "TerrainOptionsToolStripMenuItem"
+        Me.TerrainOptionsToolStripMenuItem.Size = New System.Drawing.Size(195, 22)
+        Me.TerrainOptionsToolStripMenuItem.Text = "Terrain Options"
+        '
         'frmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -294,4 +301,5 @@ Partial Class frmMain
     Friend WithEvents m_screen_capture As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_camera_options As ToolStripMenuItem
     Friend WithEvents SplitContainer1 As SplitContainer
+    Friend WithEvents TerrainOptionsToolStripMenuItem As ToolStripMenuItem
 End Class
