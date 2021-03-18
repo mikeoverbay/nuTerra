@@ -90,9 +90,7 @@ Module TerrainTextureFunctions
                     Dim coords = tex_names(i)
 
                     Dim dds_entry As ZipEntry = Nothing
-                    If HD_EXISTS Then
-                        dds_entry = search_pkgs(coords)
-                    End If
+                    dds_entry = search_pkgs(coords)
 
                     If dds_entry Is Nothing Then
                         Stop
