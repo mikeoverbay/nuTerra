@@ -35,8 +35,8 @@ jobs:
     - name: Zipping
       uses: papeloto/action-zip@v1
       with:
-        files: nuTerra/bin/
-        dest: my-artifact.zip
+        files: nuTerra/bin/x86/Release/
+        dest: nuTerra.zip
 
     - name: Create Release
       id: create_release
@@ -44,9 +44,10 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.sha }}
-        release_name: Release ${{ github.sha }}
-        draft: true
+        tag_name: run_id/${{ github.run_id }}
+        release_name: Release ${{ github.run_id }}
+        draft: false
+        prerelease: true
 
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
@@ -54,6 +55,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-        asset_path: ./my-artifact.zip
-        asset_name: my-artifact.zip
+        asset_path: ./nuTerra.zip
+        asset_name: nuTerra.zip
         asset_content_type: application/zip
