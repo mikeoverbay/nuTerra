@@ -158,7 +158,7 @@ Module PrimitiveLoader
 
         ' search everywhere!
 
-        Dim entry As Ionic.Zip.ZipEntry = search_pkgs(filename)
+        Dim entry = Packages.search_pkgs(filename)
         If entry Is Nothing Then
             MsgBox("Can't find " + filename, MsgBoxStyle.Exclamation, "shit!")
             Return False

@@ -661,9 +661,6 @@
     <Content Include="data\glsl_filtered_strings.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="data\TheItemList.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="DevIL.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

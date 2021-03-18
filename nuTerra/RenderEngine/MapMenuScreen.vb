@@ -116,18 +116,15 @@ Module MapMenuScreen
             arenas_mo_catalog = New Catalog(moFileStream, New CultureInfo("en-US"))
         End Using
 
-        Dim scriptPkg As ZipFile = ZipFile.Read(GAME_PATH + "\scripts.pkg")
-        Dim list_entry = scriptPkg("scripts/arena_defs/_list_.xml")
+        Dim list_entry = Packages.search_pkgs("scripts/arena_defs/_list_.xml")
         If list_entry Is Nothing Then
             MsgBox("Unabe to load map list", MsgBoxStyle.Exclamation, "Well Damn!")
-            scriptPkg.Dispose()
             Return
         End If
         Dim listMS As New MemoryStream
         list_entry.Extract(listMS)
         If Not openXml_stream(listMS, "map_list") Then
             MsgBox("Failed to open _list_.xml", MsgBoxStyle.Exclamation, "Well Damn!")
-            scriptPkg.Dispose()
             listMS.Dispose()
             Return
         End If
@@ -153,12 +150,9 @@ Module MapMenuScreen
 
         Dim cnt = 0
         For Each thing In MapPickList
-            Dim entry As ZipEntry = Packages.GUI_PACKAGE("gui/maps/icons/map/stats/" + thing.name + ".png")
-            If entry Is Nothing And Packages.GUI_PACKAGE_PART2 IsNot Nothing Then
-                entry = Packages.GUI_PACKAGE_PART2("gui/maps/icons/map/stats/" + thing.name + ".png")
-            End If
+            Dim entry = Packages.search_pkgs("gui/maps/icons/map/stats/" + thing.name + ".png")
             If entry Is Nothing Then
-                entry = Packages.GUI_PACKAGE("gui/maps/icons/map/small/" + "noimage.png")
+                entry = Packages.search_pkgs("gui/maps/icons/map/small/noImage.png")
             End If
             Dim ms2 = New MemoryStream
             entry.Extract(ms2)
@@ -168,7 +162,7 @@ Module MapMenuScreen
             cnt += 1
         Next
 
-        Dim entry2 As ZipEntry = Packages.GUI_PACKAGE("gui/maps/bg.png")
+        Dim entry2 = Packages.search_pkgs("gui/maps/bg.png")
         Dim ms As New MemoryStream
         entry2.Extract(ms)
         MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)

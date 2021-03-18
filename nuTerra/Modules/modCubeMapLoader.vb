@@ -9,7 +9,7 @@ Module modCubeMapLoader
 
         'find our cube in teh maps package
 
-        Dim entry = Packages.MAP_PACKAGE(CUBE_TEXTURE_PATH)
+        Dim entry = Packages.search_pkgs(CUBE_TEXTURE_PATH)
         If entry Is Nothing Then
             LogThis("cube not found " + CUBE_TEXTURE_PATH)
             Return
