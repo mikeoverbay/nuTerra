@@ -1,6 +1,6 @@
 ﻿Public Class frmCameraOptions
-    Private Sub NumericUpDown1_ValueChanged(sender As Object, e As EventArgs) Handles NumericUpDown1.ValueChanged
-        FieldOfView = CSng(Math.PI) * (NumericUpDown1.Value / 180.0F)
+    Private Sub NumericUpDown1_ValueChanged(sender As Object, e As EventArgs) Handles FoVNumericUpDown.ValueChanged
+        FieldOfView = CSng(Math.PI) * (FoVNumericUpDown.Value / 180.0F)
     End Sub
 
     Private Sub NumericUpDown2_ValueChanged(sender As Object, e As EventArgs) Handles NumericUpDown2.ValueChanged
@@ -14,11 +14,10 @@
     Private Sub NumericUpDown4_speed_ValueChanged(sender As Object, e As EventArgs) Handles NumericUpDown4_speed.ValueChanged
     End Sub
 
-    Private Sub frmCameraOptions_Load(sender As Object, e As EventArgs) Handles Me.Load
-
-    End Sub
-
-    Private Sub frmCameraOptions_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
-        'My.Settings.Save()
+    Private Sub ResetButton_Click(sender As Object, e As EventArgs) Handles ResetButton.Click
+        FoVNumericUpDown.Value = My.Settings.PropertyValues("fov").Property.DefaultValue
+        NumericUpDown2.Value = My.Settings.PropertyValues("near").Property.DefaultValue
+        NumericUpDown3.Value = My.Settings.PropertyValues("far").Property.DefaultValue
+        NumericUpDown4_speed.Value = My.Settings.PropertyValues("speed").Property.DefaultValue
     End Sub
 End Class

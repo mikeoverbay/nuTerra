@@ -28,6 +28,7 @@ Partial Class frmLightSettings
         Me.Label4 = New System.Windows.Forms.Label()
         Me.Label3 = New System.Windows.Forms.Label()
         Me.Label6 = New System.Windows.Forms.Label()
+        Me.ResetButton = New System.Windows.Forms.Button()
         Me.s_specular_level = New System.Windows.Forms.TrackBar()
         Me.s_gray_level = New System.Windows.Forms.TrackBar()
         Me.s_gamma = New System.Windows.Forms.TrackBar()
@@ -107,6 +108,15 @@ Partial Class frmLightSettings
         Me.Label6.TabIndex = 1
         Me.Label6.Text = "Gray" & Global.Microsoft.VisualBasic.ChrW(13) & Global.Microsoft.VisualBasic.ChrW(10) & "Level"
         Me.Label6.TextAlign = System.Drawing.ContentAlignment.TopCenter
+        '
+        'ResetButton
+        '
+        Me.ResetButton.Location = New System.Drawing.Point(100, 195)
+        Me.ResetButton.Name = "ResetButton"
+        Me.ResetButton.Size = New System.Drawing.Size(75, 23)
+        Me.ResetButton.TabIndex = 6
+        Me.ResetButton.Text = "Reset"
+        Me.ResetButton.UseVisualStyleBackColor = True
         '
         's_specular_level
         '
@@ -210,12 +220,13 @@ Partial Class frmLightSettings
         Me.s_terrain_texture_level.TickStyle = System.Windows.Forms.TickStyle.Both
         Me.s_terrain_texture_level.Value = Global.nuTerra.My.MySettings.Default.Bright_level
         '
-        'frmLighting
+        'frmLightSettings
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer))
-        Me.ClientSize = New System.Drawing.Size(292, 197)
+        Me.ClientSize = New System.Drawing.Size(292, 230)
+        Me.Controls.Add(Me.ResetButton)
         Me.Controls.Add(Me.Label3)
         Me.Controls.Add(Me.Label6)
         Me.Controls.Add(Me.s_specular_level)
@@ -231,7 +242,7 @@ Partial Class frmLightSettings
         Me.ForeColor = System.Drawing.Color.DarkRed
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow
         Me.MaximizeBox = False
-        Me.Name = "frmLighting"
+        Me.Name = "frmLightSettings"
         Me.ShowInTaskbar = False
         Me.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent
         Me.Text = "Lighting and fog settings"
@@ -258,4 +269,5 @@ Partial Class frmLightSettings
     Friend WithEvents Label6 As System.Windows.Forms.Label
     Friend WithEvents s_gray_level As System.Windows.Forms.TrackBar
     Friend WithEvents s_specular_level As System.Windows.Forms.TrackBar
+    Friend WithEvents ResetButton As Button
 End Class

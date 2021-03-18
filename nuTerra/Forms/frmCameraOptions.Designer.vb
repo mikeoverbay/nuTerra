@@ -30,11 +30,12 @@ Partial Class frmCameraOptions
         Me.NumericUpDown4_speed = New System.Windows.Forms.NumericUpDown()
         Me.NumericUpDown3 = New System.Windows.Forms.NumericUpDown()
         Me.NumericUpDown2 = New System.Windows.Forms.NumericUpDown()
-        Me.NumericUpDown1 = New System.Windows.Forms.NumericUpDown()
+        Me.FoVNumericUpDown = New System.Windows.Forms.NumericUpDown()
+        Me.ResetButton = New System.Windows.Forms.Button()
         CType(Me.NumericUpDown4_speed, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.NumericUpDown3, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.NumericUpDown2, System.ComponentModel.ISupportInitialize).BeginInit()
-        CType(Me.NumericUpDown1, System.ComponentModel.ISupportInitialize).BeginInit()
+        CType(Me.FoVNumericUpDown, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
         'Label1
@@ -116,24 +117,34 @@ Partial Class frmCameraOptions
         Me.NumericUpDown2.TabIndex = 2
         Me.NumericUpDown2.Value = Global.nuTerra.My.MySettings.Default.near
         '
-        'NumericUpDown1
+        'FoVNumericUpDown
         '
-        Me.NumericUpDown1.DataBindings.Add(New System.Windows.Forms.Binding("Value", Global.nuTerra.My.MySettings.Default, "fov", True, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged))
-        Me.NumericUpDown1.DecimalPlaces = 2
-        Me.NumericUpDown1.Location = New System.Drawing.Point(12, 12)
-        Me.NumericUpDown1.Maximum = New Decimal(New Integer() {179, 0, 0, 0})
-        Me.NumericUpDown1.Minimum = New Decimal(New Integer() {1, 0, 0, 0})
-        Me.NumericUpDown1.Name = "NumericUpDown1"
-        Me.NumericUpDown1.Size = New System.Drawing.Size(120, 20)
-        Me.NumericUpDown1.TabIndex = 0
-        Me.NumericUpDown1.Value = Global.nuTerra.My.MySettings.Default.fov
+        Me.FoVNumericUpDown.DataBindings.Add(New System.Windows.Forms.Binding("Value", Global.nuTerra.My.MySettings.Default, "fov", True, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged))
+        Me.FoVNumericUpDown.DecimalPlaces = 2
+        Me.FoVNumericUpDown.Location = New System.Drawing.Point(12, 12)
+        Me.FoVNumericUpDown.Maximum = New Decimal(New Integer() {179, 0, 0, 0})
+        Me.FoVNumericUpDown.Minimum = New Decimal(New Integer() {1, 0, 0, 0})
+        Me.FoVNumericUpDown.Name = "FoVNumericUpDown"
+        Me.FoVNumericUpDown.Size = New System.Drawing.Size(120, 20)
+        Me.FoVNumericUpDown.TabIndex = 0
+        Me.FoVNumericUpDown.Value = Global.nuTerra.My.MySettings.Default.fov
+        '
+        'ResetButton
+        '
+        Me.ResetButton.Location = New System.Drawing.Point(13, 118)
+        Me.ResetButton.Name = "ResetButton"
+        Me.ResetButton.Size = New System.Drawing.Size(155, 23)
+        Me.ResetButton.TabIndex = 8
+        Me.ResetButton.Text = "Reset"
+        Me.ResetButton.UseVisualStyleBackColor = True
         '
         'frmCameraOptions
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer))
-        Me.ClientSize = New System.Drawing.Size(180, 125)
+        Me.ClientSize = New System.Drawing.Size(180, 149)
+        Me.Controls.Add(Me.ResetButton)
         Me.Controls.Add(Me.Label4)
         Me.Controls.Add(Me.NumericUpDown4_speed)
         Me.Controls.Add(Me.Label3)
@@ -141,7 +152,7 @@ Partial Class frmCameraOptions
         Me.Controls.Add(Me.Label2)
         Me.Controls.Add(Me.NumericUpDown2)
         Me.Controls.Add(Me.Label1)
-        Me.Controls.Add(Me.NumericUpDown1)
+        Me.Controls.Add(Me.FoVNumericUpDown)
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
         Me.Name = "frmCameraOptions"
@@ -151,13 +162,13 @@ Partial Class frmCameraOptions
         CType(Me.NumericUpDown4_speed, System.ComponentModel.ISupportInitialize).EndInit()
         CType(Me.NumericUpDown3, System.ComponentModel.ISupportInitialize).EndInit()
         CType(Me.NumericUpDown2, System.ComponentModel.ISupportInitialize).EndInit()
-        CType(Me.NumericUpDown1, System.ComponentModel.ISupportInitialize).EndInit()
+        CType(Me.FoVNumericUpDown, System.ComponentModel.ISupportInitialize).EndInit()
         Me.ResumeLayout(False)
         Me.PerformLayout()
 
     End Sub
 
-    Friend WithEvents NumericUpDown1 As NumericUpDown
+    Friend WithEvents FoVNumericUpDown As NumericUpDown
     Friend WithEvents Label1 As Label
     Friend WithEvents NumericUpDown2 As NumericUpDown
     Friend WithEvents Label2 As Label
@@ -165,4 +176,5 @@ Partial Class frmCameraOptions
     Friend WithEvents Label3 As Label
     Friend WithEvents NumericUpDown4_speed As NumericUpDown
     Friend WithEvents Label4 As Label
+    Friend WithEvents ResetButton As Button
 End Class

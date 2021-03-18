@@ -320,7 +320,7 @@ Module MapLoader
 
         '===============================================================
         'get the light settings for this map.
-        frmLightSettings.get_light_settings()
+        frmLightSettings.Init()
         '===============================================================
 
         '===============================================================
