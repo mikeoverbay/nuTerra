@@ -200,13 +200,13 @@ vec4 textureNoTile( sampler2DArray samp, in vec2 uv , in float layer, in float f
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
 
-    vec4 vt = vec4(fs_in.UV.x*100, 0.0, fs_in.UV.y*100.0, 1.0);   
+    vec4 vt = vec4(fs_in.UV.x*100, 0.0, -fs_in.UV.y*100.0, 1.0);   
 
     vec2 out_uv;
 
     out_uv = vec2(dot(U,vt), dot(V,vt));
     out_uv = out_uv * vec2(1.0,1.0);// + vec2(0.5,0.5);
-    //out_uv.xy += vec2(-S.x, -S.y);
+    out_uv.xy += vec2(-S.x, S.y);
 
     return out_uv;
 
@@ -315,24 +315,24 @@ void main(void)
     mn8 = textureNoTile(at8, tuv8*0.125, 3.0, r1_8.z, B8);
 
 
-    t1 = mix(t1, mt1, s1.y);
-    t2 = mix(t3, mt2, s2.y);
-    t3 = mix(t3, mt3, s2.y);
-    t4 = mix(t4, mt4, s4.y);
-    t5 = mix(t5, mt5, s5.y);
-    t6 = mix(t6, mt6, s6.y);
-    t7 = mix(t7, mt7, s7.y);
-    t8 = mix(t8, mt8, s8.y);
+    t1.rgb = mix(t1.rgb, mt1.rgb, s1.x);
+    t2.rgb = mix(t3.rgb, mt2.rgb, s2.x);
+    t3.rgb = mix(t3.rgb, mt3.rgb, s2.x);
+    t4.rgb = mix(t4.rgb, mt4.rgb, s4.x);
+    t5.rgb = mix(t5.rgb, mt5.rgb, s5.x);
+    t6.rgb = mix(t6.rgb, mt6.rgb, s6.x);
+    t7.rgb = mix(t7.rgb, mt7.rgb, s7.x);
+    t8.rgb = mix(t8.rgb, mt8.rgb, s8.x);
 
 
-    n1 = mix(n1, mn1, s1.x);
-    n2 = mix(n2, mn2, s2.y);
-    n3 = mix(n3, mn3, s3.y);
-    n4 = mix(n4, mn4, s4.y);
-    n5 = mix(n5, mn5, s5.y);
-    n6 = mix(n6, mn6, s6.y);
-    n7 = mix(n7, mn7, s7.y);
-    n8 = mix(n8, mn8, s8.y);
+    n1.ga = mix(n1.ga , mn1.ga , s1.x);
+    n2.ga = mix(n2.ga , mn2.ga , s2.x);
+    n3.ga = mix(n3.ga , mn3.ga , s3.x);
+    n4.ga = mix(n4.ga , mn4.ga , s4.x);
+    n5.ga = mix(n5.ga , mn5.ga , s5.x);
+    n6.ga = mix(n6.ga , mn6.ga , s6.x);
+    n7.ga = mix(n7.ga , mn7.ga , s7.x);
+    n8.ga = mix(n8.ga , mn8.ga , s8.x);
 
     // get the ambient occlusion
     t1.rgb *= n1.b;
