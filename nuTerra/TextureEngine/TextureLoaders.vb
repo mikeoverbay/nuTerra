@@ -37,7 +37,7 @@ Module TextureLoaders
         GL.Finish() 'We must make sure we are done deleting!!!
     End Sub
 
-    Public Function find_and_load_texture_from_pkgs(ByRef fn As String) As GLTexture
+    Public Function find_and_load_texture_from_pkgs(fn As String) As GLTexture
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
         fn = fn.Replace(".png", ".dds")
@@ -46,7 +46,7 @@ Module TextureLoaders
         If id IsNot Nothing Then
             Return id
         End If
-        Dim entry As ZipEntry = search_pkgs(fn)
+        Dim entry = Packages.search_pkgs(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -65,7 +65,7 @@ Module TextureLoaders
             Return id
         End If
 
-        Dim entry As ZipEntry = search_pkgs(fn)
+        Dim entry = Packages.search_pkgs(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)

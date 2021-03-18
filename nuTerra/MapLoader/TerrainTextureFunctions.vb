@@ -89,8 +89,7 @@ Module TerrainTextureFunctions
                 For i = 0 To 3
                     Dim coords = tex_names(i)
 
-                    Dim dds_entry As ZipEntry = Nothing
-                    dds_entry = search_pkgs(coords)
+                    Dim dds_entry = Packages.search_pkgs(coords)
 
                     If dds_entry Is Nothing Then
                         Stop

@@ -553,24 +553,16 @@ try_again:
         'setup text renderer
         Dim sp = Application.StartupPath
         '---------------------------------------------------------
-        'needed to load image elements
-        If File.Exists(Path.Combine(GAME_PATH, "gui.pkg")) Then
-            'old WoT version
-            Packages.GUI_PACKAGE = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui.pkg"))
-        Else
-            'new WoT version ~v1.10
-            Packages.GUI_PACKAGE = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui-part1.pkg"))
-            Packages.GUI_PACKAGE_PART2 = New Ionic.Zip.ZipFile(Path.Combine(GAME_PATH, "gui-part2.pkg"))
-        End If
+
+        '---------------------------------------------------------
+        'Init packages
+        Packages.Init()
 
         '---------------------------------------------------------
         'Loads the textures for the map selection routines
         make_map_pick_buttons()
         '---------------------------------------------------------
 
-        '---------------------------------------------------------
-        'load the xml list of all item locations
-        load_lookup_xml()
         '---------------------------------------------------------
         'loading screen image
         nuTERRA_BG_IMAGE =
@@ -995,7 +987,7 @@ try_again:
             Dim ar = PICKED_STRING.Split(":")
             Dim visual_path = ar(1).Trim.Replace(".primitives", ".visual_processed")
             'find the package and get the entry from that package as a zipEntry
-            Dim entry = search_xml_list(visual_path.Replace("\", "/"))
+            Dim entry = Packages.search_pkgs(visual_path.Replace("\", "/"))
             If entry IsNot Nothing Then
                 'This has to be visible for the text highlighting to work.
                 If Not frmModelViewer.Visible Then

@@ -130,6 +130,9 @@
   <PropertyGroup>
     <GenerateManifests>false</GenerateManifests>
   </PropertyGroup>
+  <PropertyGroup>
+    <LargeAddressAware>true</LargeAddressAware>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="FastColoredTextBox, Version=2.16.24.0, Culture=neutral, PublicKeyToken=fb8aa12b994ef61b, processorArchitecture=MSIL">
       <HintPath>..\packages\FCTB.2.16.24\lib\FastColoredTextBox.dll</HintPath>
@@ -658,9 +661,6 @@
     <Content Include="data\glsl_filtered_strings.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="data\TheItemList.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="DevIL.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -806,10 +806,6 @@
     </BootstrapperPackage>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
-  <PropertyGroup>
-    <PostBuildEvent>call "$(DevEnvDir)..\tools\vsdevcmd.bat"
-editbin /largeaddressaware "$(TargetPath)"</PostBuildEvent>
-  </PropertyGroup>
   <Import Project="..\packages\LargeAddressAware.1.0.5\build\LargeAddressAware.targets" Condition="Exists('..\packages\LargeAddressAware.1.0.5\build\LargeAddressAware.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

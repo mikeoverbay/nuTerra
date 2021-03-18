@@ -12,29 +12,49 @@ Module MapLoader
     Public ripple_thread As New Thread(AddressOf ripple_handler)
 
     NotInheritable Class Packages
-        ''' <summary>
-        ''' WoT packages
-        ''' </summary>
-        Public Shared SHARED_PART_1 As ZipFile
-        Public Shared SHARED_PART_2 As ZipFile
-        Public Shared SAND_BOX_PART_1 As ZipFile
-        Public Shared SAND_BOX_PART_2 As ZipFile
+        Public Shared CACHE As New Dictionary(Of String, ZipFile)
+        Public Shared FILENAME2PACKAGE As Dictionary(Of String, HashSet(Of Int32))
 
-        Public Shared SHARED_PART_1_HD As ZipFile
-        Public Shared SHARED_PART_2_HD As ZipFile
-        Public Shared SAND_BOX_PART_1_HD As ZipFile
-        Public Shared SAND_BOX_PART_2_HD As ZipFile
+        Public Shared Sub Init()
+            FILENAME2PACKAGE = New Dictionary(Of String, HashSet(Of Int32))
+            For Each pkg_name In Directory.GetFiles(GAME_PATH, "*.pkg")
+                Using entry As New ZipFile(pkg_name)
+                    Dim hs As New HashSet(Of Int32)
+                    For Each file In entry.Entries
+                        If file.IsDirectory Then
+                            Continue For
+                        End If
+                        hs.Add(file.FileName.ToLower.GetHashCode)
+                    Next
+                    FILENAME2PACKAGE.Add(Path.GetFileName(pkg_name), hs)
+                End Using
+            Next
+        End Sub
 
-        Public Shared MAP_PACKAGE As ZipFile
-        Public Shared MAP_PACKAGE_HD As ZipFile
-        Public Shared MAP_PARTICLES As ZipFile
-        Public Shared GUI_PACKAGE As ZipFile
-        Public Shared GUI_PACKAGE_PART2 As ZipFile
+        Public Shared Function search_pkgs(filename As String) As ZipEntry
+            filename = filename.ToLower.Replace("\", "/")
+            Dim hash = filename.GetHashCode
+            For Each pair In FILENAME2PACKAGE
+                If pair.Value.Contains(hash) Then
+                    If CACHE.ContainsKey(pair.Key) Then
+                        Return CACHE(pair.Key)(filename)
+                    Else
+                        Using zip = ZipFile.Read(Path.Combine(GAME_PATH, pair.Key))
+                            Dim entry = zip(filename)
+                            If entry Is Nothing Then
+                                LogThis("file not found in package: " + pair.Key)
+                                Return Nothing
+                            End If
+                            CACHE.Add(pair.Key, zip)
+                            Return entry
+                        End Using
+                    End If
+                End If
+            Next
 
-        Public Shared MISC_PACKAGE As ZipFile
-
-        'stores what .PKG a model, visual, primtive, atlas_processed or texture is located.
-        Public Shared PKG_DATA_TABLE As New DataTable("items")
+            LogThis("file not found: " + filename)
+            Return Nothing
+        End Function
     End Class
 
     Public LODMAPSIZE As Integer = 256
@@ -81,185 +101,6 @@ Module MapLoader
     End Structure
 
 #Region "utility functions"
-
-    Public Sub load_lookup_xml()
-        Packages.PKG_DATA_TABLE.Clear()
-        Packages.PKG_DATA_TABLE.Columns.Add("filename", GetType(String))
-        Packages.PKG_DATA_TABLE.Columns.Add("package", GetType(String))
-        Packages.PKG_DATA_TABLE.ReadXml(Application.StartupPath + "\data\TheItemList.xml")
-    End Sub
-
-    Public Function search_xml_list(ByVal filename As String)
-        Dim pn = search_xml(filename)
-        If pn = "" Then
-            LogThis("file not found in TheItemList.xml: " + filename)
-            Return Nothing
-        End If
-        Using zip As ZipFile = ZipFile.Read(Path.Combine(GAME_PATH, pn))
-            Dim entry = zip(filename)
-            If entry Is Nothing Then
-                LogThis("file not found in package: " + pn)
-                Return Nothing
-            End If
-            Return entry
-        End Using
-    End Function
-
-    Public Function search_pkgs(ByVal filename As String) As ZipEntry
-        Dim entry As ZipEntry = Nothing
-        If HD_EXISTS And USE_HD_TEXTURES Then
-            'look in HD shared package files
-            'check map pkg first
-            entry = Packages.MAP_PACKAGE_HD(filename)
-            If entry Is Nothing Then
-                entry = Packages.SHARED_PART_1_HD(filename)
-                If entry Is Nothing Then
-                    entry = Packages.SHARED_PART_2_HD(filename)
-                    If entry Is Nothing Then
-                        entry = Packages.SAND_BOX_PART_1_HD(filename)
-                        If entry Is Nothing Then
-                            entry = Packages.SAND_BOX_PART_2_HD(filename)
-                        End If
-                    End If
-                End If
-            End If
-            If entry IsNot Nothing Then
-                Return entry
-            End If
-        End If
-
-        'look in SD shared package files
-        'check map pkg first
-        entry = Packages.MAP_PACKAGE(filename)
-        If entry Is Nothing Then
-            entry = Packages.MISC_PACKAGE(filename)
-            If entry Is Nothing Then
-                entry = Packages.SHARED_PART_1(filename)
-                If entry Is Nothing Then
-                    entry = Packages.SHARED_PART_2(filename)
-                    If entry Is Nothing Then
-                        entry = Packages.SAND_BOX_PART_1(filename)
-                        If entry Is Nothing Then
-                            entry = Packages.SAND_BOX_PART_2(filename)
-                            If entry Is Nothing Then
-                                entry = Packages.MAP_PARTICLES(filename)
-                            End If
-                        End If
-                    End If
-                End If
-            End If
-        End If
-        If entry IsNot Nothing Then
-            Return entry
-        End If
-
-        entry = Packages.GUI_PACKAGE(filename)
-        If entry IsNot Nothing Then
-            Return entry
-        End If
-        entry = Packages.GUI_PACKAGE_PART2(filename)
-        If entry IsNot Nothing Then
-            Return entry
-        End If
-        'We still have not found it so lets search the XML datatable.
-        Dim pn = search_xml(filename)
-        If pn = "" Then
-            'Stop ' didnt find it
-            Return Nothing
-        End If
-        Using zip As ZipFile = ZipFile.Read(Path.Combine(GAME_PATH, pn))
-            entry = zip(filename)
-            If entry Is Nothing Then
-                Return Nothing
-            End If
-            Return entry
-        End Using
-    End Function
-
-    Public Function search_xml(ByVal filename) As String
-        'Searches the PKG_DATA_TABLE xml item to get the package its located in.
-        If filename.Length = 0 Then
-            Return ""
-        End If
-        Dim q = From d In Packages.PKG_DATA_TABLE.AsEnumerable
-                Where d.Field(Of String)("filename").Contains(filename)
-                Select
-                pkg = d.Field(Of String)("package"),
-                file = d.Field(Of String)("filename")
-
-        If q.Count = 0 Then
-            Return ""
-        End If
-        For Each item In q
-            If item.file.Contains("lod0") Then
-                Return item.pkg
-            End If
-        Next
-        'If we land here, the file we are looking for
-        'is not in a LOD folder so return the only item found.
-        Return q(0).pkg
-
-    End Function
-
-    Private Sub open_packages()
-        'Opens the shared and selected map packages.
-        'Can we put these in virtual memory files? Is there a reason?
-
-        'Check if there is HD content on the users disc.
-        HD_EXISTS = File.Exists(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg"))
-        If HD_EXISTS Then
-            Packages.MAP_PACKAGE_HD = ZipFile.Read(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH.Replace(".pkg", "_hd.pkg")))
-            Packages.SHARED_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_hd-part1.pkg"))
-            Packages.SHARED_PART_2_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_hd-part2.pkg"))
-            Packages.SAND_BOX_PART_1_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part1.pkg"))
-            Packages.SAND_BOX_PART_2_HD = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox_hd-part2.pkg"))
-        End If
-
-        'open map pkg file
-        Packages.MAP_PACKAGE = New ZipFile(Path.Combine(GAME_PATH, MAP_NAME_NO_PATH))
-
-        Packages.SHARED_PART_1 = New ZipFile(Path.Combine(GAME_PATH, "shared_content-part1.pkg"))
-        Packages.SHARED_PART_2 = New ZipFile(Path.Combine(GAME_PATH, "shared_content-part2.pkg"))
-        Packages.SAND_BOX_PART_1 = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox-part1.pkg"))
-        Packages.SAND_BOX_PART_2 = New ZipFile(Path.Combine(GAME_PATH, "shared_content_sandbox-part2.pkg"))
-
-        Packages.MAP_PARTICLES = New ZipFile(Path.Combine(GAME_PATH, "particles.pkg"))
-        Packages.MISC_PACKAGE = New ZipFile(Path.Combine(GAME_PATH, "misc.pkg"))
-    End Sub
-
-    Public Sub close_shared_packages()
-        'Disposes of the loaded packages.
-        If HD_EXISTS Then
-            Packages.SHARED_PART_1_HD.Dispose()
-            Packages.SHARED_PART_2_HD.Dispose()
-            Packages.SAND_BOX_PART_1_HD.Dispose()
-            Packages.SAND_BOX_PART_2_HD.Dispose()
-
-            Packages.SHARED_PART_1_HD = Nothing
-            Packages.SHARED_PART_2_HD = Nothing
-            Packages.SAND_BOX_PART_1_HD = Nothing
-            Packages.SAND_BOX_PART_2_HD = Nothing
-        End If
-
-        Packages.MAP_PACKAGE.Dispose()
-        Packages.SHARED_PART_1.Dispose()
-        Packages.SHARED_PART_2.Dispose()
-        Packages.SAND_BOX_PART_1.Dispose()
-        Packages.SAND_BOX_PART_2.Dispose()
-        Packages.MAP_PARTICLES.Dispose()
-
-        Packages.MAP_PACKAGE = Nothing
-        Packages.SHARED_PART_1 = Nothing
-        Packages.SHARED_PART_2 = Nothing
-        Packages.SAND_BOX_PART_1 = Nothing
-        Packages.SAND_BOX_PART_2 = Nothing
-        Packages.MAP_PARTICLES = Nothing
-
-        'Tell the grabage collector to clean up
-        GC.Collect()
-        'Wait for the garbage collector to finish cleaning up
-        GC.WaitForFullGCComplete()
-    End Sub
 
 #End Region
     Private Sub ripple_handler()
@@ -348,11 +189,6 @@ Module MapLoader
         '===============================================================
 
         '===============================================================
-        'we need to load the packages. This also opens the Map pkg we selected.
-        open_packages()
-        '===============================================================
-
-        '===============================================================
         'load sand texture. This will need to be set by the maps vars at some point.
         m_normal_id = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
         '===============================================================
@@ -375,14 +211,14 @@ Module MapLoader
         '    Dim ms As New MemoryStream
         '    entry.Extract(ms)
         'End If
-        Dim entry = search_pkgs(theMap.lut_path)
+        Dim entry = Packages.search_pkgs(theMap.lut_path)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
             CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
         End If
         'get env_brdf
-        entry = search_pkgs("system/maps/env_brdf_lut.dds")
+        entry = Packages.search_pkgs("system/maps/env_brdf_lut.dds")
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -768,8 +604,6 @@ Module MapLoader
         '===================================================
 
         frmMain.check_postion_for_update() ' need to initialize cursor altitude
-        ' close packages
-        close_shared_packages()
 
         'start our water animation timing
         start_ripple_thread()
@@ -917,7 +751,7 @@ Module MapLoader
                 Continue For
             End If
 
-            Dim entry As ZipEntry = search_pkgs(atlasPath + "_processed")
+            Dim entry = Packages.search_pkgs(atlasPath + "_processed")
             If entry Is Nothing Then
                 Stop
                 Continue For
@@ -985,11 +819,11 @@ Module MapLoader
 
                 Dim dds_entry As ZipEntry = Nothing
                 If HD_EXISTS Then
-                    dds_entry = search_pkgs(coords.path.Replace(".dds", "_hd.dds"))
+                    dds_entry = Packages.search_pkgs(coords.path.Replace(".dds", "_hd.dds"))
                 End If
 
                 If dds_entry Is Nothing Then
-                    dds_entry = search_pkgs(coords.path)
+                    dds_entry = Packages.search_pkgs(coords.path)
                     If dds_entry Is Nothing Then
                         Stop
                         Continue For
@@ -1077,10 +911,10 @@ Module MapLoader
 
             Dim entry As ZipEntry = Nothing
             If HD_EXISTS Then
-                entry = search_pkgs(texturePath.Replace(".dds", "_hd.dds"))
+                entry = Packages.search_pkgs(texturePath.Replace(".dds", "_hd.dds"))
             End If
             If entry Is Nothing Then
-                entry = search_pkgs(texturePath)
+                entry = Packages.search_pkgs(texturePath)
             End If
             If entry Is Nothing Then
                 Stop
@@ -1253,22 +1087,19 @@ Module MapLoader
     End Sub
 
     Private Function get_spaceBin(ABS_NAME As String) As Boolean
-        Dim space_bin_file As Ionic.Zip.ZipEntry =
-            Packages.MAP_PACKAGE(Path.Combine("spaces", ABS_NAME, "space.bin"))
+        Dim space_bin_file = Packages.search_pkgs(String.Format("spaces/{0}/space.bin", ABS_NAME))
         Dim ms As New MemoryStream
         space_bin_file.Extract(ms)
         If ms IsNot Nothing Then
             If Not ReadSpaceBinData(ms) Then
                 space_bin_file = Nothing
                 MsgBox("Error decoding Space.bin", MsgBoxStyle.Exclamation, "File Error...")
-                close_shared_packages()
                 Return False
             End If
             space_bin_file = Nothing
         Else
             space_bin_file = Nothing
             MsgBox("Unable to load Space.bin from package", MsgBoxStyle.Exclamation, "File Error...")
-            close_shared_packages()
             Return False
         End If
         Return True
