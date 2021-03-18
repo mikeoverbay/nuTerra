@@ -1101,4 +1101,8 @@ try_again:
         'resize_fbo_main()
         sp_moved = True
     End Sub
+
+    Private Sub TerrainOptionsToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles TerrainOptionsToolStripMenuItem.Click
+        frmTerrainOptions.Show()
+    End Sub
 End Class

@@ -86,7 +86,9 @@ layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
     mat4 viewProj;
     mat4 invViewProj;
     vec3 cameraPos;
+    float _start;
     vec2 resolution;
+    float _end;
 };
 #endif
 
