@@ -16,7 +16,8 @@ Module textRender
         Dim gfx = Graphics.FromImage(bmp)
         gfx.TextRenderingHint = Text.TextRenderingHint.AntiAlias
 
-        Dim mono As New Font(FontFamily.GenericMonospace, 12.15)
+        Dim mono As New Font(FontFamily.GenericMonospace, 12.15, FontStyle.Bold)
+
         Dim brush = New SolidBrush(Color.White)
         gfx.DrawString(ASCII_CHARACTERS, mono, brush, New PointF(7, -2))
 
