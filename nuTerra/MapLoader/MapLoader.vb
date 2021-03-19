@@ -12,45 +12,39 @@ Module MapLoader
     Public ripple_thread As New Thread(AddressOf ripple_handler)
 
     NotInheritable Class Packages
-        Public Shared CACHE As New Dictionary(Of String, ZipFile)
-        Public Shared FILENAME2PACKAGE As Dictionary(Of String, HashSet(Of Int32))
+        Shared CACHE As New Dictionary(Of String, ZipEntry)
+        Shared FILE_EXTENSIONS_TO_USE As New HashSet(Of String)({
+            ".dds", ".model", ".primitives_processed",
+            ".visual_processed", ".model", ".cdata_processed",
+            ".bin", ".xml", ".png", ".settings", ".srt",
+            ".texformat", ".atlas_processed"
+            })
 
-        Public Shared Sub Init()
-            FILENAME2PACKAGE = New Dictionary(Of String, HashSet(Of Int32))
-            For Each pkg_name In Directory.GetFiles(GAME_PATH, "*.pkg")
-                Using entry As New ZipFile(pkg_name)
-                    Dim hs As New HashSet(Of Int32)
+        Public Shared Sub Init(wot_res_path As String)
+            For Each pkgPath In Directory.GetFiles(wot_res_path, "*.pkg")
+                Using entry As New ZipFile(pkgPath)
                     For Each file In entry.Entries
                         If file.IsDirectory Then
                             Continue For
                         End If
-                        hs.Add(file.FileName.ToLower.GetHashCode)
+                        Dim lowered_fn = file.FileName.ToLower
+                        If FILE_EXTENSIONS_TO_USE.Contains(Path.GetExtension(lowered_fn)) Then
+                            CACHE.Add(lowered_fn, file)
+                        End If
                     Next
-                    FILENAME2PACKAGE.Add(Path.GetFileName(pkg_name), hs)
                 End Using
             Next
         End Sub
 
-        Public Shared Function search_pkgs(filename As String) As ZipEntry
-            filename = filename.ToLower.Replace("\", "/")
-            Dim hash = filename.GetHashCode
-            For Each pair In FILENAME2PACKAGE
-                If pair.Value.Contains(hash) Then
-                    If CACHE.ContainsKey(pair.Key) Then
-                        Return CACHE(pair.Key)(filename)
-                    Else
-                        Using zip = ZipFile.Read(Path.Combine(GAME_PATH, pair.Key))
-                            Dim entry = zip(filename)
-                            If entry Is Nothing Then
-                                LogThis("file not found in package: " + pair.Key)
-                                Return Nothing
-                            End If
-                            CACHE.Add(pair.Key, zip)
-                            Return entry
-                        End Using
-                    End If
-                End If
-            Next
+        Public Shared Function Lookup(filename As String) As ZipEntry
+            Dim lowered_fn = filename.ToLower.Replace("\", "/")
+            If CACHE.ContainsKey(lowered_fn) Then
+                Return CACHE(lowered_fn)
+            End If
+
+            If Not FILE_EXTENSIONS_TO_USE.Contains(Path.GetExtension(lowered_fn)) Then
+                Stop
+            End If
 
             LogThis("file not found: " + filename)
             Return Nothing
@@ -211,14 +205,14 @@ Module MapLoader
         '    Dim ms As New MemoryStream
         '    entry.Extract(ms)
         'End If
-        Dim entry = Packages.search_pkgs(theMap.lut_path)
+        Dim entry = Packages.Lookup(theMap.lut_path)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
             CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
         End If
         'get env_brdf
-        entry = Packages.search_pkgs("system/maps/env_brdf_lut.dds")
+        entry = Packages.Lookup("system/maps/env_brdf_lut.dds")
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -751,7 +745,7 @@ Module MapLoader
                 Continue For
             End If
 
-            Dim entry = Packages.search_pkgs(atlasPath + "_processed")
+            Dim entry = Packages.Lookup(atlasPath + "_processed")
             If entry Is Nothing Then
                 Stop
                 Continue For
@@ -819,11 +813,11 @@ Module MapLoader
 
                 Dim dds_entry As ZipEntry = Nothing
                 If HD_EXISTS Then
-                    dds_entry = Packages.search_pkgs(coords.path.Replace(".dds", "_hd.dds"))
+                    dds_entry = Packages.Lookup(coords.path.Replace(".dds", "_hd.dds"))
                 End If
 
                 If dds_entry Is Nothing Then
-                    dds_entry = Packages.search_pkgs(coords.path)
+                    dds_entry = Packages.Lookup(coords.path)
                     If dds_entry Is Nothing Then
                         Stop
                         Continue For
@@ -911,10 +905,10 @@ Module MapLoader
 
             Dim entry As ZipEntry = Nothing
             If HD_EXISTS Then
-                entry = Packages.search_pkgs(texturePath.Replace(".dds", "_hd.dds"))
+                entry = Packages.Lookup(texturePath.Replace(".dds", "_hd.dds"))
             End If
             If entry Is Nothing Then
-                entry = Packages.search_pkgs(texturePath)
+                entry = Packages.Lookup(texturePath)
             End If
             If entry Is Nothing Then
                 Stop
@@ -1087,7 +1081,7 @@ Module MapLoader
     End Sub
 
     Private Function get_spaceBin(ABS_NAME As String) As Boolean
-        Dim space_bin_file = Packages.search_pkgs(String.Format("spaces/{0}/space.bin", ABS_NAME))
+        Dim space_bin_file = Packages.Lookup(String.Format("spaces/{0}/space.bin", ABS_NAME))
         Dim ms As New MemoryStream
         space_bin_file.Extract(ms)
         If ms IsNot Nothing Then

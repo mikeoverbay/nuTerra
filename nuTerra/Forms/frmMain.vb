@@ -555,8 +555,8 @@ try_again:
         '---------------------------------------------------------
 
         '---------------------------------------------------------
-        'Init packages
-        Packages.Init()
+        ' Init packages
+        Packages.Init(GAME_PATH)
 
         '---------------------------------------------------------
         'Loads the textures for the map selection routines
@@ -991,7 +991,7 @@ try_again:
             Dim ar = PICKED_STRING.Split(":")
             Dim visual_path = ar(1).Trim.Replace(".primitives", ".visual_processed")
             'find the package and get the entry from that package as a zipEntry
-            Dim entry = Packages.search_pkgs(visual_path.Replace("\", "/"))
+            Dim entry = Packages.lookup(visual_path)
             If entry IsNot Nothing Then
                 'This has to be visible for the text highlighting to work.
                 If Not frmModelViewer.Visible Then

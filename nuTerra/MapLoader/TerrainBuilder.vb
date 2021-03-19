@@ -333,13 +333,13 @@ Module TerrainBuilder
 
         '==========================================================
         'get minimap
-        Dim mm = Packages.search_pkgs(String.Format("spaces/{0}/mmap.dds", ABS_NAME))
+        Dim mm = Packages.lookup(String.Format("spaces/{0}/mmap.dds", ABS_NAME))
         Dim mss As New MemoryStream
         mm.Extract(mss)
         theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, "spaces/" + ABS_NAME + "/mmap.dds", False, False)
         mss.Dispose()
         'get global_am
-        Dim gmm = Packages.search_pkgs(String.Format("spaces/{0}/global_am.dds", ABS_NAME))
+        Dim gmm = Packages.lookup(String.Format("spaces/{0}/global_am.dds", ABS_NAME))
         Dim gmss As New MemoryStream
         gmm.Extract(gmss)
         theMap.GLOBAL_AM_ID = load_image_from_stream(Il.IL_DDS, gmss, "", False, False)
@@ -385,7 +385,7 @@ Module TerrainBuilder
 
                 theMap.chunks(cnt).name = Path.GetFileNameWithoutExtension(s)
 
-                Dim entry = Packages.search_pkgs(String.Format("spaces/{0}/{1}", ABS_NAME, s))
+                Dim entry = Packages.lookup(String.Format("spaces/{0}/{1}", ABS_NAME, s))
                 Dim ms As New MemoryStream
                 entry.Extract(ms)
 
@@ -465,7 +465,7 @@ Module TerrainBuilder
     Public Sub get_environment_info(abs_name As String)
         'Dim terrain As New DataTable
         Dim ms As New MemoryStream
-        Dim f = Packages.search_pkgs(String.Format("spaces/{0}/environments/environments.xml", abs_name))
+        Dim f = Packages.lookup(String.Format("spaces/{0}/environments/environments.xml", abs_name))
         If f IsNot Nothing Then
             f.Extract(ms)
             openXml_stream(ms, abs_name)
@@ -490,7 +490,7 @@ Module TerrainBuilder
 
         CUBE_TEXTURE_PATH = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/probes/global/pmrem.dds"
 
-        Dim entry = Packages.search_pkgs(theMap.skybox_path)
+        Dim entry = Packages.lookup(theMap.skybox_path)
         If entry Is Nothing Then
             MsgBox("Cant find sky box visual_processed", MsgBoxStyle.Exclamation, "Oh no!")
             Return
@@ -503,7 +503,7 @@ Module TerrainBuilder
             MsgBox("could not find Sky Box Texture", MsgBoxStyle.Exclamation, "Shit!")
         End If
         Dim envPath = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/environment.xml"
-        entry = Packages.search_pkgs(envPath)
+        entry = Packages.lookup(envPath)
 
         '===========================================================================
         'get sun information and time of day.

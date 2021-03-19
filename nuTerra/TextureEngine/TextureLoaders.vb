@@ -46,7 +46,7 @@ Module TextureLoaders
         If id IsNot Nothing Then
             Return id
         End If
-        Dim entry = Packages.search_pkgs(fn)
+        Dim entry = Packages.Lookup(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -65,7 +65,7 @@ Module TextureLoaders
             Return id
         End If
 
-        Dim entry = Packages.search_pkgs(fn)
+        Dim entry = Packages.Lookup(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)

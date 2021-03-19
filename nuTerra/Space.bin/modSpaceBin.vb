@@ -718,7 +718,7 @@ got_it0:
                             LogThis("atlas_global: Missing Atlas Size: " + props("atlasAlbedoHeight") +
                                     vbCrLf + "Model: " + model_name)
 
-                            Dim zipfile = Packages.search_pkgs(model_name.Replace(".primitives", ".visual_processed").Replace("\", "/"))
+                            Dim zipfile = Packages.Lookup(model_name.Replace(".primitives", ".visual_processed"))
                             If zipfile IsNot Nothing Then
                                 Dim ms As New MemoryStream
                                 zipfile.Extract(ms)

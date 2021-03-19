@@ -116,7 +116,7 @@ Module MapMenuScreen
             arenas_mo_catalog = New Catalog(moFileStream, New CultureInfo("en-US"))
         End Using
 
-        Dim list_entry = Packages.search_pkgs("scripts/arena_defs/_list_.xml")
+        Dim list_entry = Packages.Lookup("scripts/arena_defs/_list_.xml")
         If list_entry Is Nothing Then
             MsgBox("Unabe to load map list", MsgBoxStyle.Exclamation, "Well Damn!")
             Return
@@ -150,9 +150,9 @@ Module MapMenuScreen
 
         Dim cnt = 0
         For Each thing In MapPickList
-            Dim entry = Packages.search_pkgs("gui/maps/icons/map/stats/" + thing.name + ".png")
+            Dim entry = Packages.Lookup("gui/maps/icons/map/stats/" + thing.name + ".png")
             If entry Is Nothing Then
-                entry = Packages.search_pkgs("gui/maps/icons/map/small/noImage.png")
+                entry = Packages.Lookup("gui/maps/icons/map/small/noImage.png")
             End If
             Dim ms2 = New MemoryStream
             entry.Extract(ms2)
@@ -162,7 +162,7 @@ Module MapMenuScreen
             cnt += 1
         Next
 
-        Dim entry2 = Packages.search_pkgs("gui/maps/bg.png")
+        Dim entry2 = Packages.Lookup("gui/maps/bg.png")
         Dim ms As New MemoryStream
         entry2.Extract(ms)
         MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
