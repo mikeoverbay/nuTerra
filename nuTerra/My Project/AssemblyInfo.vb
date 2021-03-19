@@ -11,8 +11,8 @@ Imports System.Runtime.InteropServices
 <Assembly: AssemblyTitle("nuTerra")> 
 <Assembly: AssemblyDescription("")> 
 <Assembly: AssemblyCompany("")> 
-<Assembly: AssemblyProduct("nuTerra")> 
-<Assembly: AssemblyCopyright("Copyright ©  2020")> 
+<Assembly: AssemblyProduct("nuTerra")>
+<Assembly: AssemblyCopyright("Copyright ©  2020-2021")>
 <Assembly: AssemblyTrademark("")> 
 
 <Assembly: ComVisible(False)>
