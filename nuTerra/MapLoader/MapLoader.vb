@@ -30,7 +30,6 @@ Module MapLoader
                         Dim lowered_fn = file.FileName.ToLower
                         If FILE_EXTENSIONS_TO_USE.Contains(Path.GetExtension(lowered_fn)) Then
                             If CACHE.ContainsKey(lowered_fn) Then
-                                MessageBox.Show(String.Format("'{0}' from '{1}' is already added!", lowered_fn, pkgPath))
                                 Continue For
                             End If
                             CACHE.Add(lowered_fn, file)
