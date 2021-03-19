@@ -6,6 +6,14 @@ Imports OpenTK.Graphics.OpenGL
 Public Module modOpenGLAliases
     Public Const GL_PARAMETER_BUFFER_ARB = DirectCast(33006, BufferTarget)
 
+    <MethodImpl(MethodImplOptions.AggressiveInlining)>
+    Private Sub CheckGLError()
+#If DEBUG Then
+        Dim err_code = GL.GetError
+        If err_code > 0 Then Stop
+#End If
+    End Sub
+
     Public Class GLBuffer
         Public buffer_id As Integer
         Public target As BufferTarget
@@ -13,17 +21,20 @@ Public Module modOpenGLAliases
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
         Public Sub BindBase(base As Integer)
             GL.BindBufferBase(DirectCast(target, BufferRangeTarget), base, buffer_id)
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
         Public Sub Bind(bind_target As BufferTarget)
             GL.BindBuffer(bind_target, buffer_id)
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
         Public Sub Delete()
             GL.DeleteBuffer(buffer_id)
             GL.Finish()
+            CheckGLError()
         End Sub
     End Class
 
@@ -40,12 +51,14 @@ Public Module modOpenGLAliases
 #Else
             GL.GenerateTextureMipmap(texture_id)
 #End If
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
         Public Sub Delete()
             GL.DeleteTexture(texture_id)
             GL.Finish()
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -56,6 +69,7 @@ Public Module modOpenGLAliases
 #Else
             GL.BindTextureUnit(unit, texture_id)
 #End If
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -67,6 +81,7 @@ Public Module modOpenGLAliases
 #Else
             GL.TextureParameter(texture_id, pname, param)
 #End If
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -78,6 +93,7 @@ Public Module modOpenGLAliases
 #Else
             GL.TextureParameter(texture_id, pname, param)
 #End If
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -89,6 +105,7 @@ Public Module modOpenGLAliases
 #Else
             GL.TextureStorage2D(texture_id, levels, iFormat, width, height)
 #End If
+            CheckGLError()
         End Sub
 
         Public Sub Storage3D(levels As Integer, iFormat As SizedInternalFormat, width As Integer, height As Integer, depth As Integer)
@@ -99,6 +116,7 @@ Public Module modOpenGLAliases
 #Else
             GL.TextureStorage3D(texture_id, levels, iFormat, width, height, depth)
 #End If
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -110,6 +128,7 @@ Public Module modOpenGLAliases
 #Else
             GL.TextureSubImage2D(texture_id, level, xoffset, yoffset, width, height, format, type, pixels)
 #End If
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -121,6 +140,7 @@ Public Module modOpenGLAliases
 #Else
             GL.TextureSubImage2D(texture_id, level, xoffset, yoffset, width, height, format, type, pixels)
 #End If
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -132,6 +152,8 @@ Public Module modOpenGLAliases
 #Else
             GL.CompressedTextureSubImage2D(texture_id, level, xoffset, yoffset, width, height, format, imageSize, data)
 #End If
+            ' FAILED on lakeville:
+            CheckGLError()
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -143,6 +165,7 @@ Public Module modOpenGLAliases
 #Else
             GL.CompressedTextureSubImage3D(texture_id, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data)
 #End If
+            CheckGLError()
         End Sub
     End Class
 
@@ -164,6 +187,7 @@ Public Module modOpenGLAliases
 #Else
         GL.NamedBufferStorage(buffer.buffer_id, size, data, flags)
 #End If
+        CheckGLError()
     End Sub
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -176,6 +200,7 @@ Public Module modOpenGLAliases
 #Else
         GL.NamedBufferStorage(buffer.buffer_id, size, data, flags)
 #End If
+        CheckGLError()
     End Sub
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
@@ -188,6 +213,7 @@ Public Module modOpenGLAliases
 #Else
         GL.NamedBufferStorage(buffer.buffer_id, size, IntPtr.Zero, flags)
 #End If
+        CheckGLError()
     End Sub
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>

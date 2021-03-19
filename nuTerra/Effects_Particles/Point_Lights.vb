@@ -27,13 +27,11 @@ Module Point_Lights
         Public Sub create_SSBO_Buffer()
             If light_SSBO Is Nothing Then
                 light_SSBO = CreateBuffer(BufferTarget.ShaderStorageBuffer, "Lights")
-
+                BufferStorage(light_SSBO, gl_light_array.Length * Marshal.SizeOf(Of point_light_), gl_light_array, BufferStorageFlags.DynamicStorageBit)
+                light_SSBO.BindBase(7)
+            Else
+                GL.NamedBufferSubData(light_SSBO.buffer_id, IntPtr.Zero, gl_light_array.Length * Marshal.SizeOf(Of point_light_), gl_light_array)
             End If
-            BufferStorage(light_SSBO,
-                      gl_light_array.Length * Marshal.SizeOf(Of point_light_),
-                      gl_light_array,
-                      BufferStorageFlags.DynamicStorageBit)
-            light_SSBO.BindBase(7)
         End Sub
 
         Public Function add_light(ByRef light As point_light_) As Integer

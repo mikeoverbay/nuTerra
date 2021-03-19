@@ -538,9 +538,9 @@ Module MapLoader
         T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
         '===============================================================
         'make some test lights
+        LIGHTS.light_SSBO = Nothing ' reset ssbo
         randomize_lights()
 
-        LIGHTS.create_SSBO_Buffer()
         '===============================================================
         'load some test emitters
 

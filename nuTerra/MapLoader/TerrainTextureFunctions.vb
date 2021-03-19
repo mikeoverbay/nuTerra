@@ -427,7 +427,6 @@ Module TerrainTextureFunctions
     Public Sub make_dummy_4_layer_atlas()
         'makes dummy fill texture for terrain atlases
 
-        Dim atlas_tex As New GLTexture
         Dim fullWidth As Integer = 12
         Dim fullHeight As Integer = 12
         Dim layer As Single
@@ -464,7 +463,7 @@ Module TerrainTextureFunctions
                 Dim data = dds_br.ReadBytes(size)
 
                 er = GL.GetError
-                atlas_tex.CompressedSubImage3D(0, 0, 0, layer, 12, 12, 1,
+                DUMMY_ATLAS.CompressedSubImage3D(0, 0, 0, layer, 12, 12, 1,
                                             DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                 er = GL.GetError
             End Using
