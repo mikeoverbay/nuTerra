@@ -377,7 +377,7 @@ Module TerrainBuilder
                 theMap.chunks(cnt) = New chunk_
                 theMap.render_set(cnt) = New chunk_render_data_
 
-                Dim s = Left(chunk_name, chunk_name.IndexOf("/"))
+                Dim s = Left(chunk_name, chunk_name.LastIndexOf("/"))
 
                 theMap.chunks(cnt).name = Path.GetFileNameWithoutExtension(s)
 

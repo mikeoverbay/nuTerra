@@ -40,10 +40,6 @@ Module MapLoader
         End Sub
 
         Public Shared Function Lookup(filename As String) As ZipEntry
-            If filename Is Nothing Then
-                Stop
-                Return Nothing
-            End If
             Dim lowered_fn = filename.ToLower.Replace("\", "/")
             If CACHE.ContainsKey(lowered_fn) Then
                 Return CACHE(lowered_fn)
