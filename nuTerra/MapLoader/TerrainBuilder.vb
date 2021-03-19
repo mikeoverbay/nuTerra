@@ -23,7 +23,7 @@ Module TerrainBuilder
         Public waveMaskUVScale As Single
         Public waveMaskSpeed As Single
     End Structure
-    Public mapBoard(20, 20) As map_entry_
+    Public mapBoard(,) As map_entry_
     Public Structure map_entry_
         Public location As Vector2
         Public map_id As Integer
@@ -246,7 +246,7 @@ Module TerrainBuilder
 #End If
 
         SWT.Start()
-        ReDim mapBoard(20, 20) 'clear it
+        ReDim mapBoard(34, 34) 'clear it
 
         MAX_MAP_HEIGHT = -1000.0F
         MIN_MAP_HEIGHT = 2000.0F

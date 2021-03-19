@@ -569,9 +569,9 @@ Module ChunkFunctions
         c.location.X = (x * 100.0) + 50.0
         c.location.Y = (y * 100.0) - 50.0
 
-        ' TODO: what is 10 const? magic!
-        c.mBoard_x = x + 10
-        c.mBoard_y = y + 10
+        Dim center = Math.Sqrt(mapBoard.Length) \ 2
+        c.mBoard_x = x + center
+        c.mBoard_y = y + center
 
         With mapBoard(c.mBoard_x, c.mBoard_y)
             .map_id = map_id
