@@ -131,9 +131,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BW_XML_reader\packed_section.vb" />
-    <Compile Include="BW_XML_reader\primitive_.vb" />
-    <Compile Include="BW_XML_reader\primitive_file.vb" />
-    <Compile Include="BW_XML_reader\vis_main.vb" />
+    <Compile Include="BW_XML_reader\ResMgr.vb" />
     <Compile Include="Effects_Particles\Explosion_Types.vb" />
     <Compile Include="Effects_Particles\Point_Lights.vb" />
     <Compile Include="FBOs\FBO_MiniMap.vb" />

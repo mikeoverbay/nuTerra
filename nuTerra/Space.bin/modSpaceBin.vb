@@ -597,7 +597,7 @@ CleanUp:
                             'If zipfile IsNot Nothing Then
                             '    Dim ms As New MemoryStream
                             '    zipfile.Extract(ms)
-                            '    openXml_stream(ms, Path.GetFileName(model_name.Replace(".primitive", ".visual_processed")))
+                            '    ResMgr.openXml_stream(ms, Path.GetFileName(model_name.Replace(".primitive", ".visual_processed")))
                             '    LogThis("Visual -------------------------------------------")
                             '    LogThis(TheXML_String + vbCrLf)
                             'End If
@@ -718,13 +718,10 @@ got_it0:
                             LogThis("atlas_global: Missing Atlas Size: " + props("atlasAlbedoHeight") +
                                     vbCrLf + "Model: " + model_name)
 
-                            Dim zipfile = Packages.Lookup(model_name.Replace(".primitives", ".visual_processed"))
-                            If zipfile IsNot Nothing Then
-                                Dim ms As New MemoryStream
-                                zipfile.Extract(ms)
-                                openXml_stream(ms, Path.GetFileName(model_name.Replace(".primitive", ".visual_processed")))
-                                LogThis("Visual -------------------------------------------")
-                                LogThis(TheXML_String + vbCrLf)
+                            Dim visual_xml = ResMgr.openXML(model_name.Replace(".primitives", ".visual_processed"))
+                            If visual_xml IsNot Nothing Then
+                                LogThis("Visual")
+                                LogThis(visual_xml.InnerXml + vbCrLf)
                             End If
                             '-------------------------------------------------------------------------------------------------
                             .g_atlasSizes = New Vector4(4, 4, 8, 4) 'default

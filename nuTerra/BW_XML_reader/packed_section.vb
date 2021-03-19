@@ -2,9 +2,8 @@
 Imports System.Text
 Imports System.Xml
 
-Public Class Packed_Section
+Public Class PackedSection
     Public Shared ReadOnly Packed_Header As UInt32 = &H62A14E45UI
-    Public Const MAX_LENGTH As Integer = 256
 
     Public Class DataDescriptor
         Public ReadOnly address As Integer
@@ -16,18 +15,6 @@ Public Class Packed_Section
             Me.type = type
             Me.address = address
         End Sub
-
-        Public Overrides Function ToString() As String
-            Dim sb As New StringBuilder("[")
-            sb.Append("0x")
-            sb.Append(Convert.ToString([end], 16))
-            sb.Append(", ")
-            sb.Append("0x")
-            sb.Append(Convert.ToString(type, 16))
-            sb.Append("]@0x")
-            sb.Append(Convert.ToString(address, 16))
-            Return sb.ToString()
-        End Function
     End Class
 
     Public Class ElementDescriptor
@@ -38,31 +25,16 @@ Public Class Packed_Section
             Me.nameIndex = nameIndex
             Me.dataDescriptor = dataDescriptor
         End Sub
-
-        Public Overrides Function ToString() As String
-            Dim sb As New StringBuilder("[")
-            sb.Append("0x")
-            sb.Append(Convert.ToString(nameIndex, 16))
-            sb.Append(":")
-            sb.Append(dataDescriptor)
-            Return sb.ToString()
-        End Function
     End Class
 
     Public Function readStringTillZero(reader As BinaryReader) As String
-        Dim work As Char() = New Char(MAX_LENGTH - 1) {}
-        Dim i As Integer = 0
+        Dim builder As New StringBuilder
         Dim c As Char = reader.ReadChar()
-        While c <> Convert.ToChar(&H0)
-            work(System.Math.Max(System.Threading.Interlocked.Increment(i), i - 1)) = c
+        While c <> vbNullChar
+            builder.Append(c)
             c = reader.ReadChar()
         End While
-        Dim s As String = ""
-        For k = 1 To i
-            s = s + work(k)
-        Next
-        Return s
-
+        Return builder.ToString()
     End Function
 
     Public Function readDictionary(reader As BinaryReader) As List(Of String)
@@ -103,29 +75,22 @@ Public Class Packed_Section
         Select Case lengthInBytes
             Case 1
                 Number = reader.ReadSByte().ToString()
-                Exit Select
             Case 2
                 Number = reader.ReadInt16().ToString()
-                Exit Select
             Case 4
                 Number = reader.ReadInt32().ToString()
             Case 8
                 Number = reader.ReadInt64().ToString()
-                Exit Select
             Case Else
                 Number = "0"
-                Exit Select
         End Select
         Return Number
-
     End Function
 
     Public Function readFloats(reader As BinaryReader, lengthInBytes As Integer) As String
         Dim n As Integer = lengthInBytes / 4
-
-        Dim sb As New StringBuilder()
+        Dim sb As New StringBuilder
         For i As Integer = 0 To n - 1
-
             If i <> 0 Then
                 sb.Append(" ")
             End If
@@ -135,7 +100,6 @@ Public Class Packed_Section
         Return sb.ToString()
     End Function
 
-
     Public Function readBoolean(reader As BinaryReader, lengthInBytes As Integer) As Boolean
         Dim bool As Boolean = lengthInBytes = 1
         If bool Then
@@ -143,7 +107,6 @@ Public Class Packed_Section
                 Throw New System.ArgumentException("Boolean error")
             End If
         End If
-
         Return bool
     End Function
 
@@ -235,12 +198,3 @@ Public Class Packed_Section
 
     End Sub
 End Class
-
-
-'=======================================================
-'Service provided by Telerik (www.telerik.com)
-'Conversion powered by NRefactory.
-'Twitter: @telerik, @toddanglin
-'Facebook: facebook.com/telerik
-'=======================================================
-

@@ -991,20 +991,18 @@ try_again:
             Dim ar = PICKED_STRING.Split(":")
             Dim visual_path = ar(1).Trim.Replace(".primitives", ".visual_processed")
             'find the package and get the entry from that package as a zipEntry
-            Dim entry = Packages.lookup(visual_path)
-            If entry IsNot Nothing Then
+            Dim visual = ResMgr.openXML(visual_path)
+            If visual IsNot Nothing Then
                 'This has to be visible for the text highlighting to work.
                 If Not frmModelViewer.Visible Then
                     frmModelViewer.Visible = True
                 End If
-                Dim ms As New MemoryStream
-                entry.Extract(ms)
-                openXml_stream(ms, Path.GetFileName(visual_path))
+
                 'Put the visual string in the FCB on the frmModelViwer
                 frmModelViewer.FastColoredTextBox1.Text = ""
                 Application.DoEvents()
                 'make sure the control sets the highlights
-                frmModelViewer.FastColoredTextBox1.Text = TheXML_String
+                frmModelViewer.FastColoredTextBox1.Text = visual.InnerXml
                 Application.DoEvents()
                 frmModelViewer.MODEL_NAME_MODELVIEWER = visual_path.Replace("\", "/")
             Else

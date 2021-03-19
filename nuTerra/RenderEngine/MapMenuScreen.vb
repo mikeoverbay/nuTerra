@@ -1,6 +1,5 @@
 ﻿Imports System.Globalization
 Imports System.IO
-Imports Ionic.Zip
 Imports NGettext
 Imports OpenTK
 Imports OpenTK.Graphics
@@ -116,32 +115,22 @@ Module MapMenuScreen
             arenas_mo_catalog = New Catalog(moFileStream, New CultureInfo("en-US"))
         End Using
 
-        Dim list_entry = Packages.Lookup("scripts/arena_defs/_list_.xml")
-        If list_entry Is Nothing Then
+        Dim list_xml = ResMgr.openXML("scripts/arena_defs/_list_.xml")
+        If list_xml Is Nothing Then
             MsgBox("Unabe to load map list", MsgBoxStyle.Exclamation, "Well Damn!")
             Return
         End If
-        Dim listMS As New MemoryStream
-        list_entry.Extract(listMS)
-        If Not openXml_stream(listMS, "map_list") Then
-            MsgBox("Failed to open _list_.xml", MsgBoxStyle.Exclamation, "Well Damn!")
-            listMS.Dispose()
-            Return
-        End If
-        Dim t = xmldataset.Tables("map")
-        Dim q = From row In t.AsEnumerable
-                Select
-                    name = row.Field(Of String)("name")
 
         MapPickList = New List(Of map_item_)
-        For Each m In q
+        For Each node In list_xml.SelectNodes("map")
+            Dim name = node("name").InnerText
             MapPickList.Add(New map_item_ With {
-                .name = m,
+                .name = name,
                 .max_scale = 1.5F,
                 .min_scale = 1.0F,
                 .scale = 1.0F,
-                .realname = arenas_mo_catalog.GetString(String.Format("{0}/name", m)).Replace("Winter ", "Wtr "),
-                .discription = arenas_mo_catalog.GetString(String.Format("{0}/description", m))
+                .realname = arenas_mo_catalog.GetString(String.Format("{0}/name", name)).Replace("Winter ", "Wtr "),
+                .discription = arenas_mo_catalog.GetString(String.Format("{0}/description", name))
             })
         Next
 

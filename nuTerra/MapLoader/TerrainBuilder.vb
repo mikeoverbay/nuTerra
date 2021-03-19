@@ -73,7 +73,6 @@ Module TerrainBuilder
 
         Public Shared skybox_mdl As XModel
         Public Shared Sky_Texture_Id As GLTexture
-        Public Shared skybox_path As String
         Public Shared lut_path As String
         '------------------------
         Public Shared chunk_size As Single ' space.settings/chunkSize or 100.0 by default
@@ -326,10 +325,7 @@ Module TerrainBuilder
         GC.WaitForFullGCComplete()
         '==========================================================
         'Get the settings for this map
-        BASE_RINGS_LOADED = False
-        If get_team_locations_and_field_BB(ABS_NAME) Then
-            BASE_RINGS_LOADED = True
-        End If
+        BASE_RINGS_LOADED = get_team_locations_and_field_BB(ABS_NAME)
 
         '==========================================================
         'get minimap
@@ -463,219 +459,107 @@ Module TerrainBuilder
     End Sub
 
     Public Sub get_environment_info(abs_name As String)
-        'Dim terrain As New DataTable
-        Dim ms As New MemoryStream
-        Dim f = Packages.lookup(String.Format("spaces/{0}/environments/environments.xml", abs_name))
-        If f IsNot Nothing Then
-            f.Extract(ms)
-            openXml_stream(ms, abs_name)
-        End If
-        Dim q As EnumerableRowCollection(Of String) = Nothing
-        Dim ds As DataSet = xmldataset.Copy
-        Dim te As DataTable = ds.Tables("File_" + abs_name)
+        Dim environments_xml = ResMgr.openXML(String.Format("spaces/{0}/environments/environments.xml", abs_name))
+        Dim activeEnvironment = environments_xml("activeEnvironment").InnerText.Replace(".", "-")
 
-        If te.Columns("environment") IsNot Nothing Then
-            q = From row In te Select ename = row.Field(Of String)("environment")
-        End If
-
-        If te.Columns("activeEnvironment") IsNot Nothing Then
-            q = From row In te Select ename = row.Field(Of String)("activeEnvironment")
-        End If
-
-
-        '===========================================================================
-        'get skybox and cube texture paths
-        theMap.skybox_path = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/skyDome/forward/skyBox.visual_processed"
+        ' get skybox and cube texture paths
         theMap.skybox_mdl = get_X_model(Application.StartupPath + "\resources\skyDome.x")
+        CUBE_TEXTURE_PATH = "spaces/" + abs_name + "/environments/" + activeEnvironment + "/probes/global/pmrem.dds"
 
-        CUBE_TEXTURE_PATH = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/probes/global/pmrem.dds"
+        Dim skyBox_visual_path = String.Format("spaces/{0}/environments/{1}/skyDome/forward/skyBox.visual_processed", abs_name, activeEnvironment)
+        Dim skyBox_visual = ResMgr.openXML(skyBox_visual_path)
+        Dim skyBox_diffuseMap = skyBox_visual.SelectSingleNode("renderSet/geometry/primitiveGroup/material/property[contains(text(), 'diffuseMap')]/Texture").InnerText
+        theMap.Sky_Texture_Id = find_and_load_texture_from_pkgs(skyBox_diffuseMap)
 
-        Dim entry = Packages.lookup(theMap.skybox_path)
-        If entry Is Nothing Then
-            MsgBox("Cant find sky box visual_processed", MsgBoxStyle.Exclamation, "Oh no!")
-            Return
+        ' get sun information and time of day.
+        Dim active_environment_xml = ResMgr.openXML(String.Format("spaces/{0}/environments/{1}/environment.xml", abs_name, activeEnvironment))
+        Dim day_night_cycle_node = active_environment_xml("day_night_cycle")
+
+        SUNCOLOR = vector3_from_string(day_night_cycle_node("sunLightColor").InnerText)
+        AMBIENTSUNCOLOR = vector3_from_string(day_night_cycle_node("ambientColorForward").InnerText)
+        TIME_OF_DAY = Convert.ToSingle(day_night_cycle_node("starttime").InnerText)
+        SUN_SCALE = Convert.ToSingle(day_night_cycle_node("sunScaleForward").InnerText)
+        SUN_TEXTURE_PATH = day_night_cycle_node("sunTextureForward").InnerText
+        SUN_RENDER_COLOR = vector3_from_string(day_night_cycle_node("sunColorForward").InnerText)
+
+        If SUN_SCALE = 0 Then
+            SUN_SCALE = 5.0F
         End If
-        ms = New MemoryStream
-        entry.Extract(ms)
-        openXml_stream(ms, Path.GetFileName(theMap.skybox_path))
-        theMap.Sky_Texture_Id = get_diffuse_texture_id_from_visual()
-        If theMap.Sky_Texture_Id Is Nothing Then
-            MsgBox("could not find Sky Box Texture", MsgBoxStyle.Exclamation, "Shit!")
+
+        'default
+        If SUN_TEXTURE_PATH = "" Then
+            SUN_TEXTURE_PATH = "system/maps/PSF2_ldr.dds"
         End If
-        Dim envPath = "spaces/" + abs_name + "/environments/" + q(0).Replace(".", "-") + "/environment.xml"
-        entry = Packages.lookup(envPath)
 
-        '===========================================================================
-        'get sun information and time of day.
-        If entry IsNot Nothing Then
-            ms = New MemoryStream
-            entry.Extract(ms)
-            openXml_stream(ms, Path.GetFileName(envPath))
-            Dim day_light As DataTable = xmldataset.Tables("day_night_cycle")
-            Dim q2 = From row In day_light Select
-                        sunColor = row.Field(Of String)("sunLightColor"),
-                        ambientSunColor = row.Field(Of String)("ambientColorForward"),
-                        time_ = row.Field(Of String)("starttime"),
-                        sun_scale = row.Field(Of String)("sunScaleForward"),
-                        sun_path = row.Field(Of String)("sunTextureForward"),
-                        sun_color = row.Field(Of String)("sunColorForward")
+        'sun rotation/location
+        LIGHT_ORBIT_ANGLE_X = day_night_cycle_node("forward")("angle").InnerText
+        LIGHT_ORBIT_ANGLE_Z = day_night_cycle_node("forward")("angleZ").InnerText
 
-
-            SUNCOLOR = vector3_from_string(q2(0).sunColor)
-            AMBIENTSUNCOLOR = vector3_from_string(q2(0).ambientSunColor)
-            TIME_OF_DAY = Convert.ToSingle(q2(0).time_)
-            SUN_SCALE = Convert.ToSingle(q2(0).sun_scale)
-            If SUN_SCALE = 0 Then
-                SUN_SCALE = 5.0F
-            End If
-            SUN_TEXTURE_PATH = q2(0).sun_path
-            'default
-            If SUN_TEXTURE_PATH = "" Then
-                SUN_TEXTURE_PATH = "system/maps/PSF2_ldr.dds"
-            End If
-            SUN_RENDER_COLOR = vector3_from_string(q2(0).sun_color)
-
-            'sun rotation/location
-            Dim forward As DataTable = xmldataset.Tables("forward")
-            Dim q3 = From row In forward Select
-                        rotateX = row.Field(Of String)("angle"),
-                        rotateZ = row.Field(Of String)("angleZ")
-            LIGHT_ORBIT_ANGLE_X = q3(1).rotateX
-            LIGHT_ORBIT_ANGLE_Z = q3(1).rotateZ
-            If LIGHT_ORBIT_ANGLE_X = 0 Then
-                LIGHT_ORBIT_ANGLE_X = q3(0).rotateX
-                LIGHT_ORBIT_ANGLE_Z = q3(0).rotateZ
-
-            End If
-            '===========================================================================
-            'fog_info
-            Dim forward_tbl = xmldataset.Tables("forward")
-            Dim fog_color_s = forward_tbl.Rows(0).Field(Of String)("color")
-            If fog_color_s IsNot Nothing Then
-                FOG_COLOR = vector3_from_string(fog_color_s)
-            Else
-                FOG_COLOR = New Vector3(0.75F, 0.75, 0.85F)
-            End If
-            '===========================================================================
-
-            ' get color correction lut
-            Dim colorCorrection As DataTable = xmldataset.Tables("colorCorrection")
-            Dim q4 = From row In colorCorrection Select
-                        map = row.Field(Of String)("map")
-            theMap.lut_path = q4(0)
-
-            Dim Wetness As DataTable = xmldataset.Tables("Wetness")
-            Dim q5 = From row In Wetness Select
-                waterColor = row.Field(Of String)("waterColor"),
-                waterAlpha = row.Field(Of String)("waterAlpha"),
-                waveTexture = row.Field(Of String)("waveTexture"),
-                waveTextureCount = row.Field(Of String)("waveTextureCount"),
-                waveAnimationSpeed = row.Field(Of String)("waveAnimationSpeed"),
-                waveUVScale = row.Field(Of String)("waveUVScale"),
-                waveSpeed = row.Field(Of String)("waveSpeed"),
-                waveStrength = row.Field(Of String)("waveStrength"),
-                waveMaskTexture = row.Field(Of String)("waveMaskTexture"),
-                waveMaskUVScale = row.Field(Of String)("waveMaskUVScale"),
-                waveMaskSpeed = row.Field(Of String)("waveMaskSpeed")
-            For Each w In q5
-
-                Map_wetness.waterColor = vector3_from_string(w.waterColor)
-                Map_wetness.waterAlpha = Convert.ToSingle(w.waterAlpha)
-                Map_wetness.waveTexture = w.waveTexture
-                Map_wetness.waveTextureCount = Convert.ToInt32(w.waveTextureCount)
-                Map_wetness.waveAnimationSpeed = Convert.ToSingle(w.waveAnimationSpeed)
-                Map_wetness.waveUVScale = Convert.ToSingle(w.waveUVScale)
-                Map_wetness.waveSpeed = Convert.ToSingle(w.waveSpeed)
-                Map_wetness.waveStrength = Convert.ToSingle(w.waveStrength)
-                Map_wetness.waveMaskTexture = w.waveMaskTexture
-                Map_wetness.waveMaskUVScale = Convert.ToSingle(w.waveMaskUVScale)
-                Map_wetness.waveMaskSpeed = Convert.ToSingle(w.waveMaskSpeed)
-            Next
-
+        ' fog_info
+        Dim fog_color_node = active_environment_xml.SelectSingleNode("Fog/forward/color")
+        If fog_color_node IsNot Nothing Then
+            FOG_COLOR = vector3_from_string(fog_color_node.InnerText)
+        Else
+            FOG_COLOR = New Vector3(0.75F, 0.75, 0.85F)
         End If
+
+        ' get color correction lut
+        theMap.lut_path = active_environment_xml.SelectSingleNode("HDR/colorCorrection/map").InnerText
+
+        Dim wetness_node = active_environment_xml("Wetness")
+        With Map_wetness
+            .waterColor = vector3_from_string(wetness_node("waterColor").InnerText)
+            .waterAlpha = Convert.ToSingle(wetness_node("waterAlpha").InnerText)
+            .waveTexture = wetness_node("waveTexture").InnerText
+            .waveTextureCount = Convert.ToInt32(wetness_node("waveTextureCount").InnerText)
+            .waveAnimationSpeed = Convert.ToSingle(wetness_node("waveAnimationSpeed").InnerText)
+            .waveUVScale = Convert.ToSingle(wetness_node("waveUVScale").InnerText)
+            .waveSpeed = Convert.ToSingle(wetness_node("waveSpeed").InnerText)
+            .waveStrength = Convert.ToSingle(wetness_node("waveStrength").InnerText)
+            .waveMaskTexture = wetness_node("waveMaskTexture").InnerText
+            .waveMaskUVScale = Convert.ToSingle(wetness_node("waveMaskUVScale").InnerText)
+            .waveMaskSpeed = Convert.ToSingle(wetness_node("waveMaskSpeed").InnerText)
+        End With
     End Sub
-    Private Function vector3_from_string(ByRef s As String) As Vector3
-        Dim v As New Vector3
-        's = s.Replace("  ", " ")
+
+    Private Function vector3_from_string(s As String) As Vector3
         Dim a = s.Split(" ")
-        v.X = Convert.ToSingle(a(0))
-        v.Y = Convert.ToSingle(a(1))
-        v.Z = Convert.ToSingle(a(2))
-        Return v
+        Return New Vector3(
+            Convert.ToSingle(a(0)),
+            Convert.ToSingle(a(1)),
+            Convert.ToSingle(a(2))
+        )
     End Function
 
-    Public Function get_diffuse_texture_id_from_visual() As GLTexture
-        Dim theString = TheXML_String
-        Dim in_pos = InStr(1, theString, "diffuseMap")
-        If in_pos > 0 Then
-            Dim tex1_pos = InStr(in_pos, theString, "<Texture>") + "<Texture>".Length
-            Dim tex1_Epos = InStr(in_pos, theString, "</Texture>")
-            Dim newS As String = ""
-            newS = Mid(theString, tex1_pos, tex1_Epos - tex1_pos).Replace("/", "\")
-            Return find_and_load_texture_from_pkgs(newS)
-        End If
-        Return Nothing
-    End Function
+    Private Function get_team_locations_and_field_BB(name As String) As Boolean
+        Dim arena_xml = ResMgr.openXML(String.Format("scripts/arena_defs/{0}.xml", name))
 
-    Private Function get_team_locations_and_field_BB(ByRef name As String) As Boolean
-        Dim ar = name.Split(".")
-        Dim script_pkg = Ionic.Zip.ZipFile.Read(Path.Combine(GAME_PATH, "scripts.pkg"))
-        Dim script As Ionic.Zip.ZipEntry = script_pkg("scripts\arena_defs\" & name & ".xml")
+        Dim bb_bottomLeft = arena_xml("boundingBox")("bottomLeft").InnerText.Split(" ")
+        Dim bb_upperRight = arena_xml("boundingBox")("upperRight").InnerText.Split(" ")
 
-        Dim ms As New MemoryStream
-        script.Extract(ms)
-
-        ms.Position = 0
-        openXml_stream(ms, "")
-        script_pkg.Dispose()
-
-        ms.Dispose()
-        Dim t As DataSet = xmldataset.Copy
-        Dim bb As DataTable = t.Tables("boundingbox")
-        Dim t1 As DataTable = t.Tables("team1")
-        If t1 Is Nothing Then
-            Return False
-        End If
-        Dim t2 As DataTable = t.Tables("team2")
-        Dim s1 As String = t1.Rows(0).Item(0)
-        Dim s2 As String = t2.Rows(0).Item(0)
-        Dim bb_bl As String = bb.Rows(0).Item(0)
-        Dim bb_ur As String = bb.Rows(0).Item(1)
-        If s1.Length = 1 Then
-            s1 = t1.Rows(1).Item(2)
-            s2 = t2.Rows(1).Item(2)
-        End If
-        t.Dispose()
-        t1.Dispose()
-        t2.Dispose()
-        bb.Dispose()
-        ar = s1.Split(" ")
-        TEAM_1.X = ar(0)
-        TEAM_1.Y = 0.0
-        TEAM_1.Z = ar(1)
-        ar = s2.Split(" ")
-        TEAM_2.X = ar(0)
-        TEAM_2.Y = 0.0
-        TEAM_2.Z = ar(1)
-        ar = bb_bl.Split(" ")
         Dim scaler As Single = 1.0  'this is debug testing for minimap scale issues.
-        MAP_BB_UR.X = -ar(0) * scaler
-        MAP_BB_BL.Y = ar(1) * scaler
-        ar = bb_ur.Split(" ")
-        MAP_BB_BL.X = -ar(0) * scaler
-        MAP_BB_UR.Y = ar(1) * scaler
+        MAP_BB_UR.X = -bb_bottomLeft(0) * scaler
+        MAP_BB_BL.Y = bb_bottomLeft(1) * scaler
+        MAP_BB_BL.X = -bb_upperRight(0) * scaler
+        MAP_BB_UR.Y = bb_upperRight(1) * scaler
+
         If MAP_BB_UR.Y > 1000 Or MAP_BB_BL.X < -1000 Then
             Dim mmscale = 0.1
             MAP_BB_UR.X *= mmscale
             MAP_BB_BL.Y *= mmscale
             MAP_BB_BL.X *= mmscale
             MAP_BB_UR.Y *= mmscale
-
         End If
 
-
+        Dim ctf_teamBasePositions_node = arena_xml.SelectSingleNode("gameplayTypes/ctf/teamBasePositions")
+        Dim team1_pos = ctf_teamBasePositions_node("team1")("position1").InnerText.Split(" ")
+        Dim team2_pos = ctf_teamBasePositions_node("team2")("position1").InnerText.Split(" ")
+        TEAM_1.X = team1_pos(0)
+        TEAM_1.Y = 0.0
+        TEAM_1.Z = team1_pos(1)
+        TEAM_2.X = team2_pos(0)
+        TEAM_2.Y = 0.0
+        TEAM_2.Z = team2_pos(1)
         Return True
     End Function
-
-
 End Module
