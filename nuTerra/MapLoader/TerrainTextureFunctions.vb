@@ -65,7 +65,7 @@ Module TerrainTextureFunctions
             With theMap.render_set(map).layer.render_info(z)
                 'finds and loads and returns the GL texture ID.
                 If .texture_name = "" Then
-                    .atlas_id = DUMMY_TEXTURE_ID
+                    .atlas_id = New GLTexture  'DUMMY_TEXTURE_ID
                     Continue For
                 End If
                 Dim id = image_exists(.texture_name) 'Check if this has been loaded already.
