@@ -10,8 +10,6 @@ Module MapMenuScreen
 
 #Region "structurs/vars"
 
-    Public arenas_mo_catalog As Catalog
-
     Public map_texture_ids() As GLTexture
     Public img_grow_speed As Single = 1.5
     Public img_shrink_speed As Single = 0.5
@@ -111,6 +109,7 @@ Module MapMenuScreen
 
         ' open mo
         Dim arenas_mo_path = Path.Combine(My.Settings.GamePath, "res/text/lc_messages/arenas.mo")
+        Dim arenas_mo_catalog As Catalog
         Using moFileStream = File.OpenRead(arenas_mo_path)
             arenas_mo_catalog = New Catalog(moFileStream, New CultureInfo("en-US"))
         End Using
@@ -124,6 +123,12 @@ Module MapMenuScreen
         MapPickList = New List(Of map_item_)
         For Each node In list_xml.SelectNodes("map")
             Dim name = node("name").InnerText
+
+            ' dummy map
+            If name = "1002_ai_test" Then
+                Continue For
+            End If
+
             MapPickList.Add(New map_item_ With {
                 .name = name,
                 .max_scale = 1.5F,
