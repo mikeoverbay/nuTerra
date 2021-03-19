@@ -553,7 +553,7 @@ Module TerrainBuilder
 
         Dim ctf_teamBasePositions_node = arena_xml.SelectSingleNode("gameplayTypes/ctf/teamBasePositions")
         Dim team1_pos = ctf_teamBasePositions_node("team1")("position1").InnerText.Split(" ")
-        Dim team2_pos = ctf_teamBasePositions_node("team2")("position1").InnerText.Split(" ")
+        Dim team2_pos = ctf_teamBasePositions_node("team2").ChildNodes(1).InnerText.Split(" ") ' position1 or position2
         TEAM_1.X = team1_pos(0)
         TEAM_1.Y = 0.0
         TEAM_1.Z = team1_pos(1)
