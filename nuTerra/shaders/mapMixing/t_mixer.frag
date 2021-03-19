@@ -165,13 +165,12 @@ vec3 ColorCorrect(in vec3 valin){
 }
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 S) {
 
-    vec4 vt = vec4(fs_in.UV.x*100, 0.0, fs_in.UV.y*100.0, 1.0);
+    vec4 vt = vec4(fs_in.UV.x*100, 0.0, -fs_in.UV.y*100.0, 1.0);
 
     vec2 out_uv;
 
-    out_uv = -vec2(dot(-U,vt), dot(V,vt));
-    out_uv = out_uv * vec2(1.0,1.0);// + vec2(0.5,0.5);
-    //out_uv.xy += vec2(-S.x, -S.y);
+    out_uv = vec2(-dot(U,vt), dot(V,vt));
+    out_uv.xy += vec2(-S.x, S.y);
 
     return out_uv;
 

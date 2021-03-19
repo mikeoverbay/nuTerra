@@ -36,35 +36,12 @@ Module TerrainTextureFunctions
     End Sub
 
     Private Sub get_layer_textures(ByVal map As Integer)
-        'It is important to fill blank IDs with the dummy texture
-        'so the shader has VALID ID and nothing is added.
-        'For i = 0 To 3
-        '    With theMap.render_set(map).TexLayers(i)
-        '        If .AM_name1 = "" Then
-        '            .AM_id1 = DUMMY_TEXTURE_ID
-        '            .NM_id1 = DUMMY_TEXTURE_ID
-        '            .used_a = 0.0F
-        '        Else
-        '            .AM_id1 = find_and_trim(.AM_name1)
-        '            .NM_id1 = find_and_trim(.NM_name1)
-        '            .used_a = 1.0F
-        '        End If
-        '        If .AM_name2 = "" Then
-        '            .AM_id2 = DUMMY_TEXTURE_ID
-        '            .NM_id2 = DUMMY_TEXTURE_ID
-        '            .used_b = 0.0F
-        '        Else
-        '            .AM_id2 = find_and_trim(.AM_name2)
-        '            .NM_id2 = find_and_trim(.NM_name2)
-        '            .used_b = 1.0F
-        '        End If
 
-        '    End With
-        'Next
         For z = 0 To 7
             With theMap.render_set(map).layer.render_info(z)
                 'finds and loads and returns the GL texture ID.
                 If .texture_name = "" Then
+                    'It is important to fill blank IDs with the dummy texture
                     .atlas_id = DUMMY_ATLAS
                     Continue For
                 End If
@@ -87,9 +64,8 @@ Module TerrainTextureFunctions
                 Dim layer As Single
                 Application.DoEvents() 'stop freezing the UI
                 For i = 0 To 3
-                    Dim coords = tex_names(i)
 
-                    Dim dds_entry = Packages.Lookup(coords)
+                    Dim dds_entry = Packages.Lookup(tex_names(i))
 
                     If dds_entry Is Nothing Then
                         Stop
@@ -127,10 +103,7 @@ Module TerrainTextureFunctions
                 atlas_tex.GenerateMipmap()
                 .atlas_id = atlas_tex
                 add_image(.texture_name, .atlas_id)
-                'GL.Clear(ClearBufferMask.ColorBufferBit)
-                'draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex, True)
-                'Stop
-                'End If
+
             End With
         Next
         ' fill ubo
@@ -211,18 +184,6 @@ Module TerrainTextureFunctions
         Return t
 
     End Function
-    Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture, atlas As Boolean)
-
-        Dim ww = frmMain.glControl_main.ClientRectangle.Width
-
-        Dim ls = (1920.0F - ww) / 2.0F
-
-        ' Draw Terra Image
-        draw_image_rectangle(New RectangleF(0, 0, w, h), id, atlas)
-
-        frmMain.glControl_main.SwapBuffers()
-    End Sub
-
 
     Public Function Get_layer_texture_data(ByVal map As Integer) As Boolean
 
@@ -517,195 +478,5 @@ Module TerrainTextureFunctions
         ' fill ubo
 
     End Sub
-    'Public Function find_and_trim(ByRef fn1 As String) As GLTexture
-    '    finds And loads And returns the GL texture ID.
-    '    Dim id = image_exists(fn1) 'Check if this has been loaded already.
-    '    If id IsNot Nothing Then
-    '        Return id
-    '    End If
-    '    Dim entry As ZipEntry = search_pkgs(fn1)
-    '    If entry IsNot Nothing Then
-    '        Dim ms As New MemoryStream
-    '        entry.Extract(ms)
-    '        CHANGE THIS TO crop_DDS to use code below.
-    '        id = load_dds_image_from_stream(ms, fn)
-    '        id = load_terrain_texture_from_stream(ms, fn1)
-    '        Return id
-    '    End If
-    '    Return Nothing
-    'End Function
-    'Public Function load_terrain_texture_from_stream(ms As MemoryStream, fn As String) As GLTexture
-    '    'Check if this image has already been loaded.
-    '    Dim image_id = image_exists(fn)
-    '    If image_id IsNot Nothing Then
-    '        Debug.WriteLine(fn)
-    '        Return image_id
-    '    End If
-    '    Dim e1 = GL.GetError()
 
-    '    ms.Position = 0
-    '    Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
-    '        Dim dds_header = get_dds_header(br)
-    '        ms.Position = 128
-
-    '        image_id = CreateTexture(TextureTarget.Texture2D, fn)
-
-    '        'If image_id = 356 Then Stop
-    '        Dim maxAniso As Single = 4 'GLCapabilities.maxAniso
-    '        Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
-
-    '        Dim format_info = dds_header.format_info
-    '        If dds_header.mipMapCount = 0 Or dds_header.mipMapCount = 1 Then
-    '            image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
-    '            'image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-    '            image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
-    '            image_id.Parameter(TextureParameterName.TextureMaxLevel, numLevels)
-    '            image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-    '            image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-    '            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-    '            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-    '            image_id.Storage2D(numLevels, format_info.texture_format, dds_header.width, dds_header.height)
-
-    '            Dim size As Integer
-    '            If format_info.compressed Then
-    '                size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
-    '            Else
-    '                size = dds_header.width * dds_header.height * format_info.components
-    '            End If
-    '            Dim data = br.ReadBytes(size)
-
-    '            If format_info.compressed Then
-    '                image_id.CompressedSubImage2D(0, 0, 0, dds_header.width, dds_header.height, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
-    '            Else
-    '                image_id.SubImage2D(0, 0, 0, dds_header.width, dds_header.height, format_info.pixel_format, format_info.pixel_type, data)
-    '            End If
-
-    '            'added 10/4/2020
-    '            image_id.GenerateMipmap()
-
-    '        Else
-
-
-    '            image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
-    '            'image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-    '            image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
-    '            image_id.Parameter(TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
-    '            image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-    '            image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-    '            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-    '            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-    '            image_id.Storage2D(dds_header.mipMapCount, format_info.texture_format, dds_header.width, dds_header.height)
-
-    '            Dim w = dds_header.width
-    '            Dim h = dds_header.height
-    '            Dim mipMapCount = dds_header.mipMapCount
-
-    '            For i = 0 To dds_header.mipMapCount - 1
-    '                If (w = 0 Or h = 0) Then
-    '                    mipMapCount -= 1
-    '                    Continue For
-    '                End If
-
-    '                Dim size As Integer
-    '                If format_info.compressed Then
-    '                    size = ((w + 3) \ 4) * ((h + 3) \ 4) * format_info.components
-    '                Else
-    '                    size = w * h * format_info.components
-    '                End If
-    '                Dim data = br.ReadBytes(size)
-
-    '                If format_info.compressed Then
-    '                    image_id.CompressedSubImage2D(i, 0, 0, w, h, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
-    '                Else
-    '                    image_id.SubImage2D(i, 0, 0, w, h, format_info.pixel_format, format_info.pixel_type, data)
-    '                End If
-
-    '                w /= 2
-    '                h /= 2
-    '            Next
-    '            image_id.Parameter(TextureParameterName.TextureMaxLevel, mipMapCount - 1)
-    '        End If
-
-    '        Dim e2 = GL.GetError()
-    '        If e2 > 0 Then
-    '            Stop
-    '        End If
-    '    End Using
-    '    If fn.Length = 0 Then Return image_id
-    '    add_image(fn, image_id)
-    '    Return image_id
-    'End Function
-
-    'Private Function crop_DDS(ByRef ms As MemoryStream, ByRef fn As String) As GLTexture
-    '    'File name is needed to add to our list of loaded textures
-
-    '    ms.Position = 0
-
-    '    GC.Collect()
-    '    GC.WaitForFullGCComplete()
-
-    '    Dim imgStore(ms.Length) As Byte
-    '    ms.Read(imgStore, 0, ms.Length)
-
-    '    Dim texID As UInt32
-    '    texID = Ilu.iluGenImage()
-    '    Il.ilBindImage(texID)
-
-    '    Dim success = Il.ilGetError
-    '    Il.ilLoadL(Il.IL_DDS, imgStore, ms.Length)
-    '    success = Il.ilGetError
-
-    '    Dim CROP As Boolean = True
-
-    '    If success = Il.IL_NO_ERROR Then
-    '        'Ilu.iluFlipImage()
-    '        'Ilu.iluRotate(90.0F)
-    '        Ilu.iluMirror()
-    '        Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
-    '        Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
-    '        Dim ul = CInt(width * 0.0625)
-    '        Dim lr = CInt(width * 0.875)
-
-    '        If CROP Then
-    '            Ilu.iluCrop(ul, ul, 0, lr, lr, 1)
-    '        End If
-
-    '        Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
-    '        Dim result = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
-
-    '        Dim image_id = CreateTexture(TextureTarget.Texture2D, fn)
-
-    '        Dim maxAniso As Single = 3.0F
-
-    '        image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
-
-    '        image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-    '        image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-
-    '        image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-    '        image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-
-
-    '        If CROP Then
-    '            image_id.Storage2D(6, SizedInternalFormat.Rgba8, CInt(width * 0.875), CInt(height * 0.875))
-    '            image_id.SubImage2D(0, 0, 0, CInt(width * 0.875), CInt(height * 0.875), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
-    '        Else
-    '            image_id.Storage2D(6, SizedInternalFormat.Rgba8, CInt(width), CInt(height))
-    '            image_id.SubImage2D(0, 0, 0, CInt(width), CInt(height), OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
-    '        End If
-
-    '        image_id.GenerateMipmap()
-
-    '        Il.ilBindImage(0)
-    '        Ilu.iluDeleteImage(texID)
-
-    '        add_image(fn, image_id)
-
-    '        Return image_id
-    '    Else
-    '        MsgBox("Failed to load @ crop_DDS", MsgBoxStyle.Exclamation, "Shit!!")
-    '    End If
-    '    Return Nothing
-
-    'End Function
 End Module
