@@ -563,40 +563,24 @@ Module ChunkFunctions
 
     Public Sub get_location(ByRef c As chunk_, ByVal map_id As Integer)
         'This routine gets the maps location in the world grid from its name
-        Dim x, y As Integer
+        Dim x = -Convert.ToInt16(c.name.Substring(0, 4), 16) - 1
+        Dim y = Convert.ToInt16(c.name.Substring(4, 4), 16) + 1
 
-        Dim a = c.name.ToCharArray
-        If a(0) = "f" Then
-            If AscW(a(3)) < 97 Then a(3) = ChrW(AscW(a(3)) + 39)
-            x = AscW("f") - AscW(a(3))  '+ 1
-            c.location.X = ((AscW("f") - AscW(a(3))) * 100.0) + 50.0
-        Else
-            If a(0) = "0" Then
-                x = AscW(a(3)) - AscW("0") + 1
-                c.location.X = ((AscW(a(3)) - AscW("0")) * -100.0) - 50.0
-                x *= -1
-            End If
-        End If
-        If a(4) = "f" Then
-            If AscW(a(7)) < 97 Then a(7) = ChrW(AscW(a(7)) + 39)
-            y = AscW("f") - AscW(a(7))  '+ 1
-            c.location.Y = ((AscW("f") - AscW(a(7))) * -100.0) - 50
-            y *= -1
-        Else
-            If a(4) = "0" Then
-                y = AscW(a(7)) - AscW("0") + 1
-                c.location.Y = ((AscW(a(7)) - AscW("0")) * 100.0) + 50
-            End If
-        End If
+        c.location.X = (x * 100.0) + 50.0
+        c.location.Y = (y * 100.0) - 50.0
+
+        ' TODO: what is 10 const? magic!
         c.mBoard_x = x + 10
         c.mBoard_y = y + 10
 
-        mapBoard(x + 10, y + 10).map_id = map_id
-        mapBoard(x + 10, y + 10).location.X = c.location.X
-        mapBoard(x + 10, y + 10).location.Y = c.location.Y
-        mapBoard(x + 10, y + 10).abs_location.X = x
-        mapBoard(x + 10, y + 10).abs_location.X = y
-        mapBoard(x + 10, y + 10).occupied = True
+        With mapBoard(c.mBoard_x, c.mBoard_y)
+            .map_id = map_id
+            .location.X = c.location.X
+            .location.Y = c.location.Y
+            .abs_location.X = x
+            .abs_location.X = y
+            .occupied = True
+        End With
 
         If b_x_min > x Then b_x_min = x
         If b_x_max < x Then b_x_max = x
