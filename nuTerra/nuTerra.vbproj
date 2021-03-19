@@ -332,6 +332,9 @@
     <None Include="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <Content Include="Resources\blank12x12.dds">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\skyDome.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

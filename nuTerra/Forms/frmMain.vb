@@ -473,6 +473,8 @@ try_again:
 
         make_cube() ' used for many draw functions
 
+        make_dummy_4_layer_atlas() ' needed for terrain atlas textures
+
         PerViewDataBuffer = CreateBuffer(BufferTarget.UniformBuffer, "PerView")
         BufferStorageNullData(PerViewDataBuffer,
                               Marshal.SizeOf(PerViewData),
