@@ -134,14 +134,6 @@
     <Compile Include="BW_XML_reader\primitive_.vb" />
     <Compile Include="BW_XML_reader\primitive_file.vb" />
     <Compile Include="BW_XML_reader\vis_main.vb" />
-    <Compile Include="DataSet1.Designer.vb">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>DataSet1.xsd</DependentUpon>
-    </Compile>
-    <Compile Include="DataSet1.vb">
-      <DependentUpon>DataSet1.xsd</DependentUpon>
-    </Compile>
     <Compile Include="Effects_Particles\Explosion_Types.vb" />
     <Compile Include="Effects_Particles\Point_Lights.vb" />
     <Compile Include="FBOs\FBO_MiniMap.vb" />
@@ -302,17 +294,6 @@
   <ItemGroup>
     <None Include="..\.editorconfig">
       <Link>.editorconfig</Link>
-    </None>
-    <None Include="DataSet1.xsc">
-      <DependentUpon>DataSet1.xsd</DependentUpon>
-    </None>
-    <None Include="DataSet1.xsd">
-      <SubType>Designer</SubType>
-      <Generator>MSDataSetGenerator</Generator>
-      <LastGenOutput>DataSet1.Designer.vb</LastGenOutput>
-    </None>
-    <None Include="DataSet1.xss">
-      <DependentUpon>DataSet1.xsd</DependentUpon>
     </None>
     <None Include="My Project\app.manifest" />
     <None Include="My Project\Application.myapp">
