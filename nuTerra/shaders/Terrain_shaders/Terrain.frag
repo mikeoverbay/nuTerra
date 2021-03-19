@@ -161,7 +161,7 @@ vec4 textureNoTile( sampler2DArray samp, in vec2 uv , in float layer, in float f
         if (cropped.y < 0.065 ) b = 1.0;
         if (cropped.y > 0.935 ) b = 1.0;
 
-        return textureLod( samp, vec3(cropped, layer),mipLevel);
+        return textureLod( samp, vec3(cropped, layer), mipLevel);
 
         }
 
@@ -205,10 +205,15 @@ vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S)
     vec2 out_uv;
 
     out_uv = -vec2(dot(-U,vt), dot(V,vt));
-    out_uv = out_uv * vec2(-1.0,1.0);// + vec2(0.5,0.5);
-    out_uv.xy += vec2(S.x, S.y);
+    out_uv = out_uv * vec2(1.0,1.0);// + vec2(0.5,0.5);
+    //out_uv.xy += vec2(-S.x, S.y);
 
-    return out_uv;
+
+//    out_uv = -vec2(dot(-U,vt), dot(V,vt));
+//    out_uv = out_uv * vec2(-1.0,1.0);// + vec2(0.5,0.5);
+//    out_uv.xy += vec2(S.x, S.y);
+//
+   return out_uv;
 
     }
 
@@ -456,8 +461,8 @@ void main(void)
     ArrayTextureN.xyz = fs_in.TBN * ArrayTextureN.xyz;
 
     // This blends the pre-mixed maps over distance.
-    //base = mix(ArrayTextureC, base, fs_in.ln);
-    //out_n = mix(ArrayTextureN, out_n, fs_in.ln) ;
+    base = mix(ArrayTextureC, base, fs_in.ln);
+    out_n = mix(ArrayTextureN, out_n, fs_in.ln) ;
 
     //there are no metal values for the terrain so we hard code 0.1;
     // specular is in the red channel of the normal maps;

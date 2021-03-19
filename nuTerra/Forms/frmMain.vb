@@ -473,8 +473,6 @@ try_again:
 
         make_cube() ' used for many draw functions
 
-        make_dummy_4_layer_atlas() ' needed for terrain atlas textures
-
         PerViewDataBuffer = CreateBuffer(BufferTarget.UniformBuffer, "PerView")
         BufferStorageNullData(PerViewDataBuffer,
                               Marshal.SizeOf(PerViewData),
@@ -631,6 +629,10 @@ try_again:
             sp + "\Resources\256x256_Noise_Texture.png", True, True)
 
         '===========================================================================================
+        ' needed for terrain atlas textures
+        make_dummy_4_layer_atlas()
+        '===========================================================================================
+
         ''Test Textures
         'For i = 0 To 7
         '    TEST_IDS(i) =
