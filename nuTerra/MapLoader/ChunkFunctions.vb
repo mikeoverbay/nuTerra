@@ -16,6 +16,7 @@ Module ChunkFunctions
     Public CURSOR_Y As Single
     Public HX, HY, OX, OY As Integer
     Dim hole_size As Integer
+
     Public Sub get_mesh(ByRef chunk As chunk_, ByRef v_data As terain_V_data_, ByRef r_set As chunk_render_data_)
 
         'good place as any to set bounding box
@@ -51,19 +52,21 @@ Module ChunkFunctions
         'If theMap.vertex_vBuffer_id = 0 Then
         For j = 0 To 63
             For i = 0 To 63
-                v_data.indicies(cnt + 0).x = (i + 0) + ((j + 1) * stride) ' BL
-                v_data.indicies(cnt + 0).y = (i + 1) + ((j + 0) * stride) ' TR
-                v_data.indicies(cnt + 0).z = (i + 0) + ((j + 0) * stride) ' TL
+                With v_data.indicies(cnt + 0)
+                    .x = (i + 0) + ((j + 1) * stride) ' BL
+                    .y = (i + 1) + ((j + 0) * stride) ' TR
+                    .z = (i + 0) + ((j + 0) * stride) ' TL
+                End With
 
-                v_data.indicies(cnt + 1).x = (i + 0) + ((j + 1) * stride) ' BL
-                v_data.indicies(cnt + 1).y = (i + 1) + ((j + 1) * stride) ' BR
-                v_data.indicies(cnt + 1).z = (i + 1) + ((j + 0) * stride) ' TR
+                With v_data.indicies(cnt + 1)
+                    .x = (i + 0) + ((j + 1) * stride) ' BL
+                    .y = (i + 1) + ((j + 1) * stride) ' BR
+                    .z = (i + 1) + ((j + 0) * stride) ' TR
+                End With
                 cnt += 2
             Next
         Next
         'End If
-
-        cnt = 0
 
         For j As Single = 0 To 63
             For i As Single = 0 To 64
@@ -544,8 +547,9 @@ Module ChunkFunctions
         c.heights_data = Nothing
         v.avg_heights = (y_max + y_min) / 2.0F ' used for fog
 
-        If y_max > MAX_MAP_HEIGHT Then MAX_MAP_HEIGHT = y_max
-        If y_min < MIN_MAP_HEIGHT Then MIN_MAP_HEIGHT = y_min
+        MAX_MAP_HEIGHT = Max(MAX_MAP_HEIGHT, y_max)
+        MIN_MAP_HEIGHT = Min(MIN_MAP_HEIGHT, y_min)
+
         v.max_height = MAX_MAP_HEIGHT
         v.min_height = MIN_MAP_HEIGHT
         br.Close()
@@ -555,13 +559,15 @@ Module ChunkFunctions
     End Sub
 
     Public Sub set_map_bs()
-        b_x_max = -10000
-        b_x_min = 10000
-        b_y_max = -10000
-        b_y_min = 10000
+        MAX_MAP_HEIGHT = Single.MinValue
+        MIN_MAP_HEIGHT = Single.MaxValue
+        b_x_max = Single.MinValue
+        b_x_min = Single.MaxValue
+        b_y_max = Single.MinValue
+        b_y_min = Single.MaxValue
     End Sub
 
-    Public Sub get_location(ByRef c As chunk_, ByVal map_id As Integer)
+    Public Sub get_location(ByRef c As chunk_, map_id As Integer)
         'This routine gets the maps location in the world grid from its name
         Dim x = -Convert.ToInt16(c.name.Substring(0, 4), 16) - 1
         Dim y = Convert.ToInt16(c.name.Substring(4, 4), 16) + 1
@@ -569,26 +575,23 @@ Module ChunkFunctions
         c.location.X = (x * 100.0) + 50.0
         c.location.Y = (y * 100.0) - 50.0
 
-        Dim center = Math.Sqrt(mapBoard.Length) \ 2
+        Const center = MAP_BOARD_SIZE \ 2
         c.mBoard_x = x + center
         c.mBoard_y = y + center
 
         With mapBoard(c.mBoard_x, c.mBoard_y)
             .map_id = map_id
-            .location.X = c.location.X
-            .location.Y = c.location.Y
-            .abs_location.X = x
-            .abs_location.X = y
+            .location = c.location.Xy
             .occupied = True
         End With
 
-        If b_x_min > x Then b_x_min = x
-        If b_x_max < x Then b_x_max = x
-        If b_y_min > y Then b_y_min = y
-        If b_y_max < y Then b_y_max = y
+        b_x_min = Min(b_x_min, x)
+        b_x_max = Max(b_x_max, x)
+        b_y_min = Min(b_y_min, y)
+        b_y_max = Max(b_y_max, y)
+
         MAP_SIZE.X = b_x_max - b_x_min
         MAP_SIZE.Y = b_y_max - b_y_min
-
     End Sub
 
     Private Sub get_translated_bb_terrain(ByRef BB() As Vector3, ByRef c As terain_V_data_)
@@ -634,8 +637,8 @@ Module ChunkFunctions
         Lx += 0.01
         Lz += 0.01
 
-        For xo = 0 To 19
-            For yo = 0 To 19
+        For xo = 0 To MAP_BOARD_SIZE - 1
+            For yo = 0 To MAP_BOARD_SIZE - 1
                 If mapBoard(xo, yo).occupied Then
 
                     Dim px = mapBoard(xo, yo).location.X
@@ -652,8 +655,8 @@ Module ChunkFunctions
             Next
         Next
 exit1:
-        For xo = 0 To 19
-            For yo = 0 To 19
+        For xo = 0 To MAP_BOARD_SIZE - 1
+            For yo = 0 To MAP_BOARD_SIZE - 1
                 If mapBoard(xo, yo).occupied Then
                     Dim pz = mapBoard(xo, yo).location.Y
                     If pz - 50 < Lz And pz + 50 >= Lz Then

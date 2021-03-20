@@ -23,11 +23,13 @@ Module TerrainBuilder
         Public waveMaskUVScale As Single
         Public waveMaskSpeed As Single
     End Structure
+
+    Public Const MAP_BOARD_SIZE = 34
     Public mapBoard(,) As map_entry_
+
     Public Structure map_entry_
         Public location As Vector2
         Public map_id As Integer
-        Public abs_location As Point
         Public occupied As Boolean
     End Structure
 
@@ -246,10 +248,8 @@ Module TerrainBuilder
 #End If
 
         SWT.Start()
-        ReDim mapBoard(34, 34) 'clear it
+        ReDim mapBoard(MAP_BOARD_SIZE, MAP_BOARD_SIZE) 'clear it
 
-        MAX_MAP_HEIGHT = -1000.0F
-        MIN_MAP_HEIGHT = 2000.0F
         TOTAL_HEIGHT_COUNT = 0
 
         get_all_chunk_file_data()

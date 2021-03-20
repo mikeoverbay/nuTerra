@@ -1,8 +1,6 @@
-﻿Imports OpenTK
+﻿Imports System.Runtime.InteropServices
+Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
-Imports OpenTK.Graphics
-Imports System.Math
-Imports System.Runtime.InteropServices
 
 Module Point_Lights
     'just a test. we can use these for different types of lights
@@ -11,16 +9,12 @@ Module Point_Lights
     Public Structure Light_group_
 
         Public light_SSBO As GLBuffer
-        Public lights As Dictionary(Of Integer, point_light_)
         Public gl_light_array() As point_light_
         Public index As Integer
         Public Const max_light_count As Integer = 250
 
         Public Sub init()
             ReDim gl_light_array(max_light_count)
-            For i = 0 To max_light_count
-                gl_light_array(i) = New point_light_
-            Next
             index = 0
         End Sub
 
@@ -57,9 +51,6 @@ Module Point_Lights
         Private pad0 As Integer
         Private pad1 As Integer
         Private pad2 As Integer
-        'Private pad3 As Integer
     End Structure
-
-
 
 End Module
