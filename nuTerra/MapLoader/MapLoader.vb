@@ -91,7 +91,7 @@ Module MapLoader
         End If
     End Sub
     '============================================================================
-    Public Sub load_map(ByVal package_name As String)
+    Public Sub load_map(map_name As String)
         'disable main menu
         frmMain.MainMenuStrip.Enabled = False
 
@@ -104,8 +104,6 @@ Module MapLoader
         SHOW_LOADING_SCREEN = True
         'For now, we are going to hard wire this name
         'and call this at startup so skip having to select a menu
-        MAP_NAME_NO_PATH = package_name
-        Dim ABS_NAME = MAP_NAME_NO_PATH.Replace(".pkg", "")
 
         'First we need to remove the loaded data.
         '===============================================================
@@ -149,7 +147,7 @@ Module MapLoader
 
         '===============================================================
         'Open the space.bin file. If it fails, it closes all packages and lets the user know.
-        If Not get_spaceBin(ABS_NAME) Then
+        If Not get_spaceBin(map_name) Then
             MsgBox("Failed to load Space.Bin from the map package.", MsgBoxStyle.Exclamation, "Space.bin!")
             'Enabled main menu
             frmMain.MainMenuStrip.Enabled = True
@@ -157,7 +155,7 @@ Module MapLoader
         End If
         '===============================================================
         'need this for all rendering states
-        get_environment_info(ABS_NAME)
+        get_environment_info(map_name)
         '===============================================================
         SUN_TEXTURE_ID = load_image_from_file(Il.IL_PNG, Application.StartupPath + "\resources\sol.png", False, False)
         'Dim entry = search_pkgs(SUN_TEXTURE_PATH)

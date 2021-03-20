@@ -44,6 +44,9 @@ Public Class frmMain
         ' If the Program editor is inserted in to frmMain,
         ' We have to stop key down events while typing in
         ' the editor's window.
+        If frmProgramEditor Is Nothing Then
+            Return
+        End If
         If frmProgramEditor.CP_parent = Me.Handle Then
             If Not glControl_main.Focused Then
                 Return
@@ -331,7 +334,7 @@ Public Class frmMain
         'Runs Map picking code.
         glControl_main.MakeCurrent()
         SHOW_MAPS_SCREEN = True
-        SELECTED_MAP_HIT = 0
+        SelectedMap = Nothing
     End Sub
 
     Private Sub m_set_game_path_Click(sender As Object, e As EventArgs) Handles m_set_game_path.Click
@@ -826,27 +829,21 @@ try_again:
 
         If SHOW_MAPS_SCREEN Then
             If e.Button = Forms.MouseButtons.Left Then
-
-                If SELECTED_MAP_HIT = 0 And MAP_LOADED Then
+                If SelectedMap Is Nothing Then
+                    Return
+                ElseIf MAP_LOADED Then
                     SHOW_MAPS_SCREEN = False
                     Application.DoEvents()
                     Return
                 Else
-                    Dim dx = SELECTED_MAP_HIT - 1 'deal with posible false hit
-                    Try
-                        Me.Text = String.Format("{0} {1} : {2}",
-                                                Application.ProductName,
-                                                Application.ProductVersion,
-                                                MapPickList(SELECTED_MAP_HIT - 1).realname)
-                    Catch ex As Exception
-                        Return
-                    End Try
-                    If dx < 0 Then Return
+                    Me.Text = String.Format("{0} {1} : {2}",
+                                            Application.ProductName,
+                                            Application.ProductVersion,
+                                            SelectedMap.realname)
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
                     MOUSE.X = 0
                     MOUSE.Y = 0
-
                     Return
                 End If
             End If

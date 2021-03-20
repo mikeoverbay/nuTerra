@@ -169,7 +169,6 @@ Module modGlobalVars
     '
     Public SHOW_MAPS_SCREEN As Boolean = False 'show pick menu screen
     Public SHOW_LOADING_SCREEN As Boolean = False 'show loading screen flag
-    Public SELECTED_MAP_HIT = 0 'pick menu flag
     Public BLOCK_MOUSE As Boolean 'pick menu flag
     Public FINISH_MAPS As Boolean 'pick menu flag
     Public USE_HD_TEXTURES As Boolean = True 'Lets the map loader know if we want to try and find HD textures.

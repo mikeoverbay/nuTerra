@@ -53,7 +53,7 @@ Module modRender
 
         GL.FrontFace(FrontFaceDirection.Ccw)
         If SHOW_MAPS_SCREEN Then
-            gl_pick_map(MOUSE.X, MOUSE.Y)
+            gl_pick_map(MOUSE)
             Return
         End If
         If SHOW_LOADING_SCREEN Then
