@@ -292,14 +292,14 @@ void main(void)
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
     //months of work to figure this out!
-    MixLevel1.r *= t1.a+r1_1.x;
-    MixLevel1.g *= t2.a+r1_2.x;
-    MixLevel2.r *= t3.a+r1_3.x;
-    MixLevel2.g *= t4.a+r1_4.x;
-    MixLevel3.r *= t5.a+r1_5.x;
-    MixLevel3.g *= t6.a+r1_6.x;
-    MixLevel4.r *= t7.a+r1_7.x;
-    MixLevel4.g *= t8.a+r1_8.x;
+    MixLevel1.r *= t1.a;
+    MixLevel1.g *= t2.a;
+    MixLevel2.r *= t3.a;
+    MixLevel2.g *= t4.a;
+    MixLevel3.r *= t5.a;
+    MixLevel3.g *= t6.a;
+    MixLevel4.r *= t7.a;
+    MixLevel4.g *= t8.a;
 
     t1.a += n1.r+r1_1.y;
     t2.a += n2.r+r1_2.y;

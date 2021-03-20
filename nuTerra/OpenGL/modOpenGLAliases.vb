@@ -10,7 +10,10 @@ Public Module modOpenGLAliases
     Private Sub CheckGLError()
 #If DEBUG Then
         Dim err_code = GL.GetError
-        If err_code > 0 Then Stop
+        If err_code > 0 Then
+            LogThis("GL Error " + err_code.ToString)
+            Stop
+        End If
 #End If
     End Sub
 
@@ -150,6 +153,7 @@ Public Module modOpenGLAliases
             GL.CompressedTexSubImage2D(target, level, xoffset, yoffset, width, height, format, imageSize, data)
             GL.BindTexture(target, 0)
 #Else
+
             GL.CompressedTextureSubImage2D(texture_id, level, xoffset, yoffset, width, height, format, imageSize, data)
 #End If
             ' FAILED on lakeville:

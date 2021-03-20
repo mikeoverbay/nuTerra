@@ -37,7 +37,7 @@ Module TextureLoaders
         GL.Finish() 'We must make sure we are done deleting!!!
     End Sub
 
-    Public Function find_and_load_texture_from_pkgs(fn As String) As GLTexture
+    Public Function find_and_load_texture_from_pkgs(ByRef fn As String) As GLTexture
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
         fn = fn.Replace(".png", ".dds")
@@ -321,6 +321,9 @@ Module TextureLoaders
                 image_id.GenerateMipmap()
 
             Else
+                If dds_header.width <> dds_header.height Then
+                    dds_header.mipMapCount -= 1
+                End If
                 image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
                 image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                 image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
