@@ -756,16 +756,7 @@
   </ItemGroup>
   <Target Name="AssemblyVersion" Inputs="@(AssemblyVersionFiles)" Outputs="UpdatedAssemblyVersionFiles" BeforeTargets="PrepareForBuild">
     <Attrib Files="%(AssemblyVersionFiles.FullPath)" Normal="true" />
-    <AssemblyInfo
-      CodeLanguage="VB"
-      OutputFile="%(AssemblyVersionFiles.FullPath)"
-      AssemblyProduct="$(ProductName)"
-      AssemblyTitle="$(ProductName)"
-      AssemblyCompany=""
-      AssemblyCopyright="Copyright © 2020-2021"
-      AssemblyVersion="$(Version)"
-      AssemblyFileVersion="$(Version)"
-      AssemblyInformationalVersion="">
+    <AssemblyInfo CodeLanguage="VB" OutputFile="%(AssemblyVersionFiles.FullPath)" AssemblyProduct="$(ProductName)" AssemblyTitle="$(ProductName)" AssemblyCompany="" AssemblyCopyright="Copyright © 2020-2021" AssemblyVersion="$(Version)" AssemblyFileVersion="$(Version)" AssemblyInformationalVersion="">
       <Output TaskParameter="OutputFile" ItemName="UpdatedAssemblyVersionFiles" />
     </AssemblyInfo>
   </Target>

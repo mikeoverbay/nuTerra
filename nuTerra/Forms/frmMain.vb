@@ -198,6 +198,13 @@ Public Class frmMain
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
         Me.Text = Application.ProductName & " " & Application.ProductVersion
+
+        If My.Settings.UpgradeRequired Then
+            My.Settings.Upgrade()
+            My.Settings.UpgradeRequired = False
+            My.Settings.Save()
+        End If
+
 #If DEBUG Then
         ' Set to True on Debug builds
         Me.m_developer.Visible = True
