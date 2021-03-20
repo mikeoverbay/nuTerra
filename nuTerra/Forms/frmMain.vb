@@ -36,7 +36,6 @@ Public Class frmMain
             frmGbufferViewer.Visible = False
             frmGbufferViewer.Dispose()
         End If
-        remove_map_data()
     End Sub
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
@@ -44,9 +43,6 @@ Public Class frmMain
         ' If the Program editor is inserted in to frmMain,
         ' We have to stop key down events while typing in
         ' the editor's window.
-        If frmProgramEditor Is Nothing Then
-            Return
-        End If
         If frmProgramEditor.CP_parent = Me.Handle Then
             If Not glControl_main.Focused Then
                 Return
@@ -326,13 +322,15 @@ Public Class frmMain
     End Sub
 
     Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
+        If Not MAP_LOADED Then
+            Return
+        End If
+
         Me.Text = Application.ProductName & " " & Application.ProductVersion
-        'we are disabling this to speed up debugging of space.bin
-#If 1 Then
-        'Return
-#End If
+
         'Runs Map picking code.
         glControl_main.MakeCurrent()
+        ' SHOULD BE THERE: remove_map_data()
         SHOW_MAPS_SCREEN = True
         SelectedMap = Nothing
     End Sub
@@ -829,13 +827,10 @@ try_again:
 
         If SHOW_MAPS_SCREEN Then
             If e.Button = Forms.MouseButtons.Left Then
-                If SelectedMap Is Nothing Then
-                    Return
-                ElseIf MAP_LOADED Then
+                If SelectedMap Is Nothing And MAP_LOADED Then
                     SHOW_MAPS_SCREEN = False
                     Application.DoEvents()
-                    Return
-                Else
+                ElseIf SelectedMap IsNot Nothing Then
                     Me.Text = String.Format("{0} {1} : {2}",
                                             Application.ProductName,
                                             Application.ProductVersion,
@@ -844,8 +839,8 @@ try_again:
                     FINISH_MAPS = True
                     MOUSE.X = 0
                     MOUSE.Y = 0
-                    Return
                 End If
+                Return
             End If
         End If
         MOUSE.X = e.X
