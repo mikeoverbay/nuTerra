@@ -742,11 +742,25 @@
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\LargeAddressAware.1.0.5\build\LargeAddressAware.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\LargeAddressAware.1.0.5\build\LargeAddressAware.targets'))" />
+    <Error Condition="!Exists('..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets'))" />
   </Target>
   <PropertyGroup>
-    <PostBuildEvent>del *.pdb
-del *.xml</PostBuildEvent>
+    <PostBuildEvent>del *.pdb;del *.xml</PostBuildEvent>
   </PropertyGroup>
+  <PropertyGroup>
+    <ProductName>$(AssemblyName)</ProductName>
+    <Version Condition=" '$(RUN_NUMBER)' != '' ">1.0.0.$(RUN_NUMBER)</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyVersionFiles Include="$(MSBuildProjectDirectory)\My Project\AssemblyInfo.vb" />
+  </ItemGroup>
+  <Target Name="AssemblyVersion" Inputs="@(AssemblyVersionFiles)" Outputs="UpdatedAssemblyVersionFiles" BeforeTargets="PrepareForBuild">
+    <Attrib Files="%(AssemblyVersionFiles.FullPath)" Normal="true" />
+    <AssemblyInfo CodeLanguage="VB" OutputFile="%(AssemblyVersionFiles.FullPath)" AssemblyProduct="$(ProductName)" AssemblyTitle="$(ProductName)" AssemblyCompany="" AssemblyCopyright="Copyright © 2020-2021" AssemblyVersion="$(Version)" AssemblyFileVersion="$(Version)" AssemblyInformationalVersion="">
+      <Output TaskParameter="OutputFile" ItemName="UpdatedAssemblyVersionFiles" />
+    </AssemblyInfo>
+  </Target>
+  <Import Project="..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets" Condition="Exists('..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

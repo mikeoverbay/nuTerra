@@ -23,11 +23,13 @@ Module TerrainBuilder
         Public waveMaskUVScale As Single
         Public waveMaskSpeed As Single
     End Structure
+
+    Public Const MAP_BOARD_SIZE = 34
     Public mapBoard(,) As map_entry_
+
     Public Structure map_entry_
         Public location As Vector2
         Public map_id As Integer
-        Public abs_location As Point
         Public occupied As Boolean
     End Structure
 
@@ -246,10 +248,8 @@ Module TerrainBuilder
 #End If
 
         SWT.Start()
-        ReDim mapBoard(34, 34) 'clear it
+        ReDim mapBoard(MAP_BOARD_SIZE, MAP_BOARD_SIZE) 'clear it
 
-        MAX_MAP_HEIGHT = -1000.0F
-        MIN_MAP_HEIGHT = 2000.0F
         TOTAL_HEIGHT_COUNT = 0
 
         get_all_chunk_file_data()
@@ -348,8 +348,8 @@ Module TerrainBuilder
         TEAM_2_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
         '==========================================================
 
-        'I don't expect any maps larger than 225 chunks
-        Dim Expected_max_chunk_count As Integer = 24 * 24
+        'I don't expect any maps larger than 1024 chunks (208_bf_epic_normandy)
+        Dim Expected_max_chunk_count As Integer = 32 * 32
         ReDim theMap.chunks(Expected_max_chunk_count)
         ReDim theMap.v_data(Expected_max_chunk_count)
         ReDim theMap.render_set(Expected_max_chunk_count)
@@ -556,7 +556,7 @@ Module TerrainBuilder
             Return False
         End If
 
-        Dim team1_pos = ctf_teamBasePositions_node("team1")("position1").InnerText.Split(" ")
+        Dim team1_pos = ctf_teamBasePositions_node("team1").ChildNodes(1).InnerText.Split(" ") ' position1 or position2
         Dim team2_pos = ctf_teamBasePositions_node("team2").ChildNodes(1).InnerText.Split(" ") ' position1 or position2
         TEAM_1.X = team1_pos(0)
         TEAM_1.Y = 0.0

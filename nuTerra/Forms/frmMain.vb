@@ -197,6 +197,14 @@ Public Class frmMain
     End Sub
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
+        Me.Text = Application.ProductName & " " & Application.ProductVersion
+
+        If My.Settings.UpgradeRequired Then
+            My.Settings.Upgrade()
+            My.Settings.UpgradeRequired = False
+            My.Settings.Save()
+        End If
+
 #If DEBUG Then
         ' Set to True on Debug builds
         Me.m_developer.Visible = True
@@ -315,6 +323,7 @@ Public Class frmMain
     End Sub
 
     Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
+        Me.Text = Application.ProductName & " " & Application.ProductVersion
         'we are disabling this to speed up debugging of space.bin
 #If 1 Then
         'Return
@@ -821,12 +830,13 @@ try_again:
                 Else
                     Dim dx = SELECTED_MAP_HIT - 1 'deal with posible false hit
                     Try
-                        Me.Text = "NuTerra : " + MapPickList(SELECTED_MAP_HIT - 1).realname
-
+                        Me.Text = String.Format("{0} {1} : {2}",
+                                                Application.ProductName,
+                                                Application.ProductVersion,
+                                                MapPickList(SELECTED_MAP_HIT - 1).realname)
                     Catch ex As Exception
-
+                        Return
                     End Try
-
                     If dx < 0 Then Return
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
