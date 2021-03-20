@@ -44,8 +44,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: run_id/${{ github.run_id }}
-        release_name: Release ${{ github.run_id }}
+        tag_name: run_number/${{ github.run_number }}
+        release_name: Release ${{ github.run_number }}
         draft: false
         prerelease: true
 
