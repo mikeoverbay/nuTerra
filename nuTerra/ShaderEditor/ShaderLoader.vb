@@ -85,7 +85,6 @@ Module ShaderLoader
                 Dim status_code As Integer
                 GL.GetShader(program, ShaderParameter.DeleteStatus, status_code)
                 Debug.Assert(status_code = 0)
-                GL.Finish()
             End If
 
             program = assemble_shader(vertex, geo, compute, fragment, name)

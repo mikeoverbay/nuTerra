@@ -81,7 +81,7 @@ Module MapMenuScreen
             draw_image_rectangle(rect, map_texture_id, False)
         End Sub
 
-        Public Sub draw_text(ByVal textId As GLTexture)
+        Public Sub draw_text(textId As GLTexture)
             Dim L As Integer
             If lt.X < 0 Then
                 L = -lt.X
@@ -92,7 +92,7 @@ Module MapMenuScreen
             draw_image_rectangle(rect, textId, False)
         End Sub
 
-        Public Sub draw_pick_box(ByVal color_ As Color4)
+        Public Sub draw_pick_box(color_ As Color4)
             Dim L As Integer
             If lt.X < 0 Then
                 L = -lt.X
@@ -103,12 +103,8 @@ Module MapMenuScreen
             draw_color_rectangle(rect, color_)
         End Sub
 
-        Public Function CompareTo(ByVal other As map_item_) As Integer Implements System.IComparable(Of map_item_).CompareTo
-            Try
-                Return Me.realname.CompareTo(other.realname)
-            Catch ex As Exception
-                Return 0
-            End Try
+        Public Function CompareTo(other As map_item_) As Integer Implements System.IComparable(Of map_item_).CompareTo
+            Return realname.CompareTo(other.realname)
         End Function
     End Class
 #End Region

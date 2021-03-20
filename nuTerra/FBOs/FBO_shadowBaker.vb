@@ -71,14 +71,12 @@ Module FBO_shadowBaker_mod
             GL.NamedFramebufferDrawBuffers(FBO_ShadowBaker_ID, 1, attactments)
             GL.NamedFramebufferTexture(FBO_ShadowBaker_ID, FramebufferAttachment.ColorAttachment0, shadow_map.texture_id, 0)
 
-            GL.Finish() 'make sure we are done
-
             Dim er2 = GL.GetError
             If er2 <> 0 Then
                 Stop
             End If
-
         End Sub
+
         Public Shared Sub delete_textures_and_fbo()
             'as the name says
             If gBakerColorArray IsNot Nothing Then gBakerColorArray.Delete()
@@ -86,20 +84,19 @@ Module FBO_shadowBaker_mod
             If gDepth IsNot Nothing Then gDepth.Delete()
             If gDepthMask IsNot Nothing Then gDepthMask.Delete()
             If FBO_ShadowBaker_ID > 0 Then GL.DeleteFramebuffer(FBO_ShadowBaker_ID)
-            GL.Finish() 'make sure we are done
         End Sub
+
         Public Shared Sub clean_up()
             If shadow_map IsNot Nothing Then shadow_map.Delete()
             If gDepth IsNot Nothing Then gDepth.Delete()
             If gDepthMask IsNot Nothing Then gDepthMask.Delete()
             If FBO_ShadowBaker_ID > 0 Then GL.DeleteFramebuffer(FBO_ShadowBaker_ID)
-            GL.Finish() 'make sure we are done
         End Sub
 
         Public Shared Sub create_textures()
             'we should initialize layers for each mipmap level
             'For mip = 0 To mipCount - 1
-            Dim er1 = GL.GetError
+
             ' gColorArray ------------------------------------------------------------------------------------------
             gBakerColorArray = CreateTexture(TextureTarget.Texture2DArray, "gBakerColorArray")
             gBakerColorArray.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
@@ -135,9 +132,6 @@ Module FBO_shadowBaker_mod
             gDepthMask.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             gDepthMask.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gDepthMask.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent24, SizedInternalFormat), texture_size.X, texture_size.Y)
-            Dim er2 = GL.GetError
-
-            GL.Finish()
         End Sub
 
         Public Shared Function create_fbo() As Boolean
