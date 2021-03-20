@@ -10,8 +10,8 @@ Module MapMenuScreen
 
 #Region "structurs/vars"
 
-    Public img_grow_speed As Single = 1.5
-    Public img_shrink_speed As Single = 0.5
+    Public img_grow_speed As Single = 2
+    Public img_shrink_speed As Single = 1
 
     Public SelectedMap As map_item_
     Public MapPickList As List(Of map_item_)
