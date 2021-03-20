@@ -263,18 +263,6 @@ void main(void)
 
 
     // Get AM maps,crop, detilize and set Test outline blend flag
-    t1 = textureNoTile(at1, tuv1, 0.0, r2_1.z, B1);
-    t2 = textureNoTile(at2, tuv2, 0.0, r2_2.z, B2);
-
-    t3 = textureNoTile(at3, tuv3, 0.0, r2_3.z, B3);
-    t4 = textureNoTile(at4, tuv4, 0.0, r2_4.z, B4);
-
-    t5 = textureNoTile(at5, tuv5, 0.0, r2_5.z, B5);
-    t6 = textureNoTile(at6, tuv6, 0.0, r2_6.z, B6);
-
-    t7 = textureNoTile(at7, tuv7, 0.0, r2_7.z, B7);
-    t8 = textureNoTile(at8, tuv8, 0.0, r2_8.z, B8);
-
 
     mt1 = textureNoTile(at1, tuv1*0.125, 2.0, r2_1.z, B1);
     mt2 = textureNoTile(at2, tuv2*0.125, 2.0, r2_2.z, B2);
@@ -287,12 +275,34 @@ void main(void)
 
     mt7 = textureNoTile(at7, tuv7*0.125, 2.0, r2_7.z, B7);
     mt8 = textureNoTile(at8, tuv8*0.125, 2.0, r2_8.z, B8);
+
+    t1 = textureNoTile(at1, tuv1, 0.0, r2_1.z, B1);
+    t2 = textureNoTile(at2, tuv2, 0.0, r2_2.z, B2);
+
+    t3 = textureNoTile(at3, tuv3, 0.0, r2_3.z, B3);
+    t4 = textureNoTile(at4, tuv4, 0.0, r2_4.z, B4);
+
+    t5 = textureNoTile(at5, tuv5, 0.0, r2_5.z, B5);
+    t6 = textureNoTile(at6, tuv6, 0.0, r2_6.z, B6);
+
+    t7 = textureNoTile(at7, tuv7, 0.0, r2_7.z, B7);
+    t8 = textureNoTile(at8, tuv8, 0.0, r2_8.z, B8);
+
     
 
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
+
+    mn1 = textureNoTile(at1, tuv1*0.125, 3.0, r1_1.z, B1);
+    mn2 = textureNoTile(at2, tuv2*0.125, 3.0, r1_2.z, B2);
+    mn3 = textureNoTile(at3, tuv3*0.125, 3.0, r1_3.z, B3);
+    mn4 = textureNoTile(at4, tuv4*0.125, 3.0, r1_4.z, B4);
+    mn5 = textureNoTile(at5, tuv5*0.125, 3.0, r1_5.z, B5);
+    mn6 = textureNoTile(at6, tuv6*0.125, 3.0, r1_6.z, B6);
+    mn7 = textureNoTile(at7, tuv7*0.125, 3.0, r1_7.z, B7);
+    mn8 = textureNoTile(at8, tuv8*0.125, 3.0, r1_8.z, B8);
 
     n1 = textureNoTile(at1, tuv1, 1.0, r1_1.z, B1);
     n2 = textureNoTile(at2, tuv2, 1.0, r1_2.z, B2);
@@ -303,35 +313,6 @@ void main(void)
     n7 = textureNoTile(at7, tuv7, 1.0, r1_7.z, B7);
     n8 = textureNoTile(at8, tuv8, 1.0, r1_8.z, B8);
 
-
-    mn1 = textureNoTile(at1, tuv1*0.125, 3.0, r1_1.z, B1);
-    mn2 = textureNoTile(at2, tuv2*0.125, 3.0, r1_2.z, B2);
-    mn3 = textureNoTile(at3, tuv3*0.125, 3.0, r1_3.z, B3);
-    mn4 = textureNoTile(at4, tuv4*0.125, 3.0, r1_4.z, B4);
-    mn5 = textureNoTile(at5, tuv5*0.125, 3.0, r1_5.z, B5);
-    mn6 = textureNoTile(at6, tuv6*0.125, 3.0, r1_6.z, B6);
-    mn7 = textureNoTile(at7, tuv7*0.125, 3.0, r1_7.z, B7);
-    mn8 = textureNoTile(at8, tuv8*0.125, 3.0, r1_8.z, B8);
-/*
-    t1.rgb = mix(t1.rgb, mt1.rgb, r2_1.x);
-    t2.rgb = mix(t3.rgb, mt2.rgb, r2_2.x);
-    t3.rgb = mix(t3.rgb, mt3.rgb, r2_2.x);
-    t4.rgb = mix(t4.rgb, mt4.rgb, r2_4.x);
-    t5.rgb = mix(t5.rgb, mt5.rgb, r2_5.x);
-    t6.rgb = mix(t6.rgb, mt6.rgb, r2_6.x);
-    t7.rgb = mix(t7.rgb, mt7.rgb, r2_7.x);
-    t8.rgb = mix(t8.rgb, mt8.rgb, r2_8.x);
-
-
-    n1.ga = mix(n1.ga , mn1.ga , r2_1.y);
-    n2.ga = mix(n2.ga , mn2.ga , r2_2.y);
-    n3.ga = mix(n3.ga , mn3.ga , r2_3.y);
-    n4.ga = mix(n4.ga , mn4.ga , r2_4.y);
-    n5.ga = mix(n5.ga , mn5.ga , r2_5.y);
-    n6.ga = mix(n6.ga , mn6.ga , r2_6.y);
-    n7.ga = mix(n7.ga , mn7.ga , r2_7.y);
-    n8.ga = mix(n8.ga , mn8.ga , r2_8.y);
-*/
     // get the ambient occlusion
     t1.rgb *= n1.b;
     t2.rgb *= n2.b;
@@ -341,6 +322,36 @@ void main(void)
     t6.rgb *= n6.b;
     t7.rgb *= n7.b;
     t8.rgb *= n8.b;
+
+    mt1.rgb *= mn1.b;
+    mt2.rgb *= mn2.b;
+    mt3.rgb *= mn3.b;
+    mt4.rgb *= mn4.b;
+    mt5.rgb *= mn5.b;
+    mt6.rgb *= mn6.b;
+    mt7.rgb *= mn7.b;
+    mt8.rgb *= mn8.b;
+
+    //mix macro
+    t1.rgb = t1.rgb* min(r2_1.x,1.0) + mt1.rgb*(r2_1.y+1.0);
+    t2.rgb = t2.rgb* min(r2_2.x,1.0) + mt2.rgb*(r2_2.y+1.0);
+    t3.rgb = t3.rgb* min(r2_3.x,1.0) + mt3.rgb*(r2_3.y+1.0);
+    t4.rgb = t4.rgb* min(r2_4.x,1.0) + mt4.rgb*(r2_4.y+1.0);
+    t5.rgb = t5.rgb* min(r2_5.x,1.0) + mt5.rgb*(r2_5.y+1.0);
+    t6.rgb = t6.rgb* min(r2_6.x,1.0) + mt6.rgb*(r2_6.y+1.0);
+    t7.rgb = t7.rgb* min(r2_7.x,1.0) + mt7.rgb*(r2_7.y+1.0);
+    t8.rgb = t8.rgb* min(r2_8.x,1.0) + mt8.rgb*(r2_8.y+1.0);
+
+    n1.rgb = n1.rgb* min(r2_1.x,1.0) + mn1.rgb*(r2_1.y+1.0);
+    n2.rgb = n2.rgb* min(r2_2.x,1.0) + mn2.rgb*(r2_2.y+1.0);
+    n3.rgb = n3.rgb* min(r2_3.x,1.0) + mn3.rgb*(r2_3.y+1.0);
+    n4.rgb = n4.rgb* min(r2_4.x,1.0) + mn4.rgb*(r2_4.y+1.0);
+    n5.rgb = n5.rgb* min(r2_5.x,1.0) + mn5.rgb*(r2_5.y+1.0);
+    n6.rgb = n6.rgb* min(r2_6.x,1.0) + mn6.rgb*(r2_6.y+1.0);
+    n7.rgb = n7.rgb* min(r2_7.x,1.0) + mn7.rgb*(r2_7.y+1.0);
+    n8.rgb = n8.rgb* min(r2_8.x,1.0) + mn8.rgb*(r2_8.y+1.0);
+
+
    
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;

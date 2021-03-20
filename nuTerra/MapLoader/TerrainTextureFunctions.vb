@@ -292,9 +292,10 @@ Module TerrainTextureFunctions
             'ReDim .TexLayers(section_cnt)
 
             If _Write_texture_info Then
-                sb.AppendLine(String.Format("MAP ID {0}", map.ToString))
+                sb.AppendLine("***********************************************")
+                sb.AppendLine(String.Format("*********************************************** MAP ID {0}", map.ToString))
             End If
-
+            Dim lpnter As Integer = 1
             For i = 0 To 3
                 Dim len = sec_sizes(i)
                 If len > 0 Then
@@ -309,26 +310,28 @@ Module TerrainTextureFunctions
                     Dim tex_cnt = br2.ReadUInt16
 
                     br2.ReadUInt64() 'padding
-
-                    .TexLayers(i).AM_name1 = ""
+                    'just for reference
+                    .TexLayers(i).AM_name1 = theMap.render_set(map).layer.render_info(lpnter).texture_name
                     .TexLayers(i).AM_name2 = ""
                     .TexLayers(i).NM_name1 = ""
                     .TexLayers(i).NM_name2 = ""
 
                     'get first tex name
-                    Dim bs = br2.ReadUInt32
-                    Dim d = br2.ReadBytes(bs)
-
-                    .TexLayers(i).AM_name1 = Encoding.UTF8.GetString(d, 0, d.Length)
-                    .TexLayers(i).NM_name1 = .TexLayers(i).AM_name1.Replace("AM.dds", "NM.dds")
+                    Dim bs = br2.ReadUInt32 'str length
+                    br2.BaseStream.Position += CLng(bs)
+                    'we skip these
+                    'Dim d = br2.ReadBytes(bs)
+                    '.TexLayers(i).AM_name1 = Encoding.UTF8.GetString(d, 0, d.Length)
+                    '.TexLayers(i).NM_name1 = .TexLayers(i).AM_name1.Replace("AM.dds", "NM.dds")
 
                     If tex_cnt > 1 Then
                         'get 2nd tex name if it exist
-                        bs = br2.ReadUInt32
-                        d = br2.ReadBytes(bs)
-
-                        .TexLayers(i).AM_name2 = Encoding.UTF8.GetString(d, 0, d.Length)
-                        .TexLayers(i).NM_name2 = .TexLayers(i).AM_name2.Replace("AM.dds", "NM.dds")
+                        bs = br2.ReadUInt32 'str length
+                        br2.BaseStream.Position += CLng(bs)
+                        'we skip these
+                        'd = br2.ReadBytes(bs)
+                        '.TexLayers(i).AM_name2 = Encoding.UTF8.GetString(d, 0, d.Length)
+                        '.TexLayers(i).NM_name2 = .TexLayers(i).AM_name2.Replace("AM.dds", "NM.dds")
 
                     End If
                     'load blend texture
@@ -349,56 +352,59 @@ Module TerrainTextureFunctions
                     If _Write_texture_info Then
 
                         ' part 1 ======================================================
-                        sb.AppendLine(String.Format("A {0} --------------------------------------------", cur_layer_info_pnt.ToString))
+                        sb.AppendLine(String.Format("T{0} --------------------------------------------", lpnter.ToString))
 
-                        If .TexLayers(i).AM_name1 = "" Then
+                        Dim name = theMap.render_set(map).layer.render_info(lpnter - 1).texture_name
+                        If name = "" Then
                             sb.AppendLine("-= EMPTY =-")
                         Else
-                            sb.AppendLine(.TexLayers(i).AM_name1)
+                            sb.AppendLine(name)
                         End If
-
-                        sb.Append(String.Format("{0,-8}", "uP1"))
+                        lpnter += 1
+                        sb.Append(String.Format("{0,-8}", "U"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 0).u)
 
-                        sb.Append(String.Format("{0,-8}", "vP1"))
+                        sb.Append(String.Format("{0,-8}", "V"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 0).v)
 
-                        sb.Append(String.Format("{0,-8}", "v1"))
+                        sb.Append(String.Format("{0,-8}", "V0"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 0).v1)
 
-                        sb.Append(String.Format("{0,-8}", "r1"))
+                        sb.Append(String.Format("{0,-8}", "V1"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 0).r1)
 
-                        sb.Append(String.Format("{0,-8}", "r2"))
+                        sb.Append(String.Format("{0,-8}", "V2"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 0).r2)
 
-                        sb.Append(String.Format("{0,-8}", "Scale"))
+                        sb.Append(String.Format("{0,-8}", "V3"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 0).scale)
 
                         ' part 2 ======================================================
-                        sb.AppendLine(String.Format("B {0} --------------------------------------------", cur_layer_info_pnt + 1.ToString))
-                        If .TexLayers(i).AM_name2 = "" Then
+                        sb.AppendLine(String.Format("T{0} --------------------------------------------", lpnter.ToString))
+                        name = theMap.render_set(map).layer.render_info(lpnter - 1).texture_name
+                        If name = "" Then
                             sb.AppendLine("-= EMPTY =-")
                         Else
-                            sb.AppendLine(.TexLayers(i).AM_name2)
+                            sb.AppendLine(name)
                         End If
+                        lpnter += 1
 
-                        sb.Append(String.Format("{0,-8}", "uP2"))
+                        sb.Append(String.Format("{0,-8}", "U"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 1).u)
 
-                        sb.Append(String.Format("{0,-8}", "vP2"))
+                        sb.Append(String.Format("{0,-8}", "V"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 1).v)
 
-                        sb.Append(String.Format("{0,-8}", "v1"))
+                        sb.Append(String.Format("{0,-8}", "V0"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 1).v1)
 
-                        sb.Append(String.Format("{0,-8}", "r1"))
+                        sb.Append(String.Format("{0,-8}", "V1"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 1).r1)
 
-                        sb.Append(String.Format("{0,-8}", "r2"))
+                        sb.Append(String.Format("{0,-8}", "V2"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 1).r2)
 
-                        sb.Append(String.Format("{0,-8}", "Scale"))
+                        sb.Append(String.Format("{0,-8}", "V3"))
                         write_vec4(.layer.render_info(cur_layer_info_pnt + 1).scale)
                         '=============================================================
                     End If
