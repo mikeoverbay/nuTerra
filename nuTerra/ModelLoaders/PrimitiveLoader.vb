@@ -158,7 +158,7 @@ Module PrimitiveLoader
 
         ' search everywhere!
 
-        Dim entry = Packages.lookup(filename)
+        Dim entry = ResMgr.Lookup(filename)
         If entry Is Nothing Then
             MsgBox("Can't find " + filename, MsgBoxStyle.Exclamation, "shit!")
             Return False

@@ -11,49 +11,6 @@ Imports Tao.DevIl
 Module MapLoader
     Public ripple_thread As New Thread(AddressOf ripple_handler)
 
-    NotInheritable Class Packages
-        Shared CACHE As New Dictionary(Of String, ZipEntry)
-        Shared FILE_EXTENSIONS_TO_USE As New HashSet(Of String)({
-            ".dds", ".model", ".primitives_processed",
-            ".visual_processed", ".model", ".cdata_processed",
-            ".bin", ".xml", ".png", ".settings", ".srt",
-            ".texformat", ".atlas_processed"
-            })
-
-        Public Shared Sub Init(wot_res_path As String)
-            For Each pkgPath In Directory.GetFiles(wot_res_path, "*.pkg")
-                Using entry As New ZipFile(pkgPath)
-                    For Each file In entry.Entries
-                        If file.IsDirectory Then
-                            Continue For
-                        End If
-                        Dim lowered_fn = file.FileName.ToLower
-                        If FILE_EXTENSIONS_TO_USE.Contains(Path.GetExtension(lowered_fn)) Then
-                            If CACHE.ContainsKey(lowered_fn) Then
-                                Continue For
-                            End If
-                            CACHE.Add(lowered_fn, file)
-                        End If
-                    Next
-                End Using
-            Next
-        End Sub
-
-        Public Shared Function Lookup(filename As String) As ZipEntry
-            Dim lowered_fn = filename.ToLower.Replace("\", "/")
-            If CACHE.ContainsKey(lowered_fn) Then
-                Return CACHE(lowered_fn)
-            End If
-
-            If Not FILE_EXTENSIONS_TO_USE.Contains(Path.GetExtension(lowered_fn)) Then
-                Stop
-            End If
-
-            LogThis("file not found: " + filename)
-            Return Nothing
-        End Function
-    End Class
-
     Public LODMAPSIZE As Integer = 256
     Public AOMAPSIZE As Integer = 256
     Public HEIGHTMAPSIZE As Integer = 64
@@ -208,14 +165,14 @@ Module MapLoader
         '    Dim ms As New MemoryStream
         '    entry.Extract(ms)
         'End If
-        Dim entry = Packages.Lookup(theMap.lut_path)
+        Dim entry = ResMgr.Lookup(theMap.lut_path)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
             CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
         End If
         'get env_brdf
-        entry = Packages.Lookup("system/maps/env_brdf_lut.dds")
+        entry = ResMgr.Lookup("system/maps/env_brdf_lut.dds")
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -748,7 +705,7 @@ Module MapLoader
                 Continue For
             End If
 
-            Dim entry = Packages.Lookup(atlasPath + "_processed")
+            Dim entry = ResMgr.Lookup(atlasPath + "_processed")
             If entry Is Nothing Then
                 Stop
                 Continue For
@@ -816,11 +773,11 @@ Module MapLoader
 
                 Dim dds_entry As ZipEntry = Nothing
                 If HD_EXISTS Then
-                    dds_entry = Packages.Lookup(coords.path.Replace(".dds", "_hd.dds"))
+                    dds_entry = ResMgr.Lookup(coords.path.Replace(".dds", "_hd.dds"))
                 End If
 
                 If dds_entry Is Nothing Then
-                    dds_entry = Packages.Lookup(coords.path)
+                    dds_entry = ResMgr.Lookup(coords.path)
                     If dds_entry Is Nothing Then
                         Stop
                         Continue For
@@ -908,10 +865,10 @@ Module MapLoader
 
             Dim entry As ZipEntry = Nothing
             If HD_EXISTS Then
-                entry = Packages.Lookup(texturePath.Replace(".dds", "_hd.dds"))
+                entry = ResMgr.Lookup(texturePath.Replace(".dds", "_hd.dds"))
             End If
             If entry Is Nothing Then
-                entry = Packages.Lookup(texturePath)
+                entry = ResMgr.Lookup(texturePath)
             End If
             If entry Is Nothing Then
                 Stop
@@ -1084,7 +1041,7 @@ Module MapLoader
     End Sub
 
     Private Function get_spaceBin(ABS_NAME As String) As Boolean
-        Dim space_bin_file = Packages.Lookup(String.Format("spaces/{0}/space.bin", ABS_NAME))
+        Dim space_bin_file = ResMgr.Lookup(String.Format("spaces/{0}/space.bin", ABS_NAME))
         Dim ms As New MemoryStream
         space_bin_file.Extract(ms)
         If ms IsNot Nothing Then

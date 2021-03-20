@@ -10,12 +10,12 @@ Module MapMenuScreen
 
 #Region "structurs/vars"
 
-    Public map_texture_ids() As GLTexture
     Public img_grow_speed As Single = 1.5
     Public img_shrink_speed As Single = 0.5
     Public MapPickList As List(Of map_item_)
 
     Public Class map_item_ : Implements IComparable(Of map_item_)
+        Public map_texture_id As GLTexture
         Public lt As Vector2
         Public lb As Vector2
         Public rt As Vector2
@@ -58,7 +58,7 @@ Module MapMenuScreen
 
         End Sub
 
-        Public Sub draw_box(textId As GLTexture)
+        Public Sub draw_box()
             Dim L As Integer
             If lt.X < 0 Then
                 L = -lt.X
@@ -66,7 +66,7 @@ Module MapMenuScreen
                 L = 0
             End If
             Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y + 20, Me.rb.X, -Me.rb.Y - 10)
-            draw_image_rectangle(rect, textId, False)
+            draw_image_rectangle(rect, map_texture_id, False)
         End Sub
 
         Public Sub draw_text(ByVal textId As GLTexture)
@@ -102,29 +102,26 @@ Module MapMenuScreen
 #End Region
 
     Public Sub make_map_pick_buttons()
-
-        '==========================================================
-        DUMMY_TEXTURE_ID = make_dummy_texture()
-        '==========================================================
-
-        ' open mo
+        ' open arenas.mo
         Dim arenas_mo_path = Path.Combine(My.Settings.GamePath, "res/text/lc_messages/arenas.mo")
         Dim arenas_mo_catalog As Catalog
         Using moFileStream = File.OpenRead(arenas_mo_path)
             arenas_mo_catalog = New Catalog(moFileStream, New CultureInfo("en-US"))
         End Using
 
+        ' open _list_.xml
         Dim list_xml = ResMgr.openXML("scripts/arena_defs/_list_.xml")
         If list_xml Is Nothing Then
             MsgBox("Unabe to load map list", MsgBoxStyle.Exclamation, "Well Damn!")
             Return
         End If
 
+        ' load list os maps
         MapPickList = New List(Of map_item_)
         For Each node In list_xml.SelectNodes("map")
             Dim name = node("name").InnerText
 
-            ' dummy map
+            ' skip dummy map
             If name = "1002_ai_test" Then
                 Continue For
             End If
@@ -139,31 +136,32 @@ Module MapMenuScreen
             })
         Next
 
+        ' sort map list
         MapPickList.Sort()
-        Application.DoEvents()
 
+        ' load map images
         Dim cnt = 0
         For Each thing In MapPickList
-            Dim entry = Packages.Lookup("gui/maps/icons/map/stats/" + thing.name + ".png")
+            Dim entry = ResMgr.Lookup("gui/maps/icons/map/stats/" + thing.name + ".png")
             If entry Is Nothing Then
-                entry = Packages.Lookup("gui/maps/icons/map/small/noImage.png")
+                entry = ResMgr.Lookup("gui/maps/icons/map/small/noImage.png")
             End If
-            Dim ms2 = New MemoryStream
-            entry.Extract(ms2)
-            'True = hard wired to save in map_texture_ids(cnt)
-            get_tank_image(ms2, cnt, True, 0.5)
-            thing.name += ".pkg"
+            Using ms As New MemoryStream
+                entry.Extract(ms)
+                thing.map_texture_id = get_map_image(ms, cnt, 0.5)
+            End Using
             cnt += 1
         Next
 
-        Dim entry2 = Packages.Lookup("gui/maps/bg.png")
-        Dim ms As New MemoryStream
-        entry2.Extract(ms)
-        MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
+        ' load backgaround image
+        Dim entry2 = ResMgr.Lookup("gui/maps/bg.png")
+        Using ms As New MemoryStream
+            entry2.Extract(ms)
+            MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
+        End Using
     End Sub
 
-    Public Sub gl_pick_map(ByVal x As Integer, ByVal y As Integer)
-
+    Public Sub gl_pick_map(x As Integer, y As Integer)
         DrawMapPickText.TextRenderer(120, 20)
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
@@ -212,7 +210,7 @@ Module MapMenuScreen
 
         Dim map As Byte = 0
 
-        While map < map_texture_ids.Length
+        While map < MapPickList.Count
 
             If SELECTED_MAP_HIT - 1 = map Then
                 MapPickList(map).selected = True
@@ -228,7 +226,6 @@ Module MapMenuScreen
     End Sub
 
     Public Sub draw_maps()
-
         'in case the form is closed while pick map is the current screen
         If Not _STARTED Then Return
 
@@ -255,23 +252,23 @@ Module MapMenuScreen
         Dim ms_y As Single = -72
         Dim space_x As Single = 15
 
-        Dim w_cnt As Single = 7 'Floor(w / (ms_x + space_x))
+        Dim w_cnt = Math.Floor(w / (ms_x + space_x))
         Dim space_cnt As Single = (w_cnt - 1) * space_x
         Dim border As Single = (w - ((w_cnt * ms_x) + space_cnt)) / 2
         Dim map As Integer = 0
-        Dim v_cnt = (map_texture_ids.Length - 1) / w_cnt
+        Dim v_cnt = (MapPickList.Count - 1) / w_cnt
         If (v_cnt * (ms_x + space_x)) + (border * 2) < w Then
             v_cnt -= 1
         End If
         Dim v_pos As Integer = 0
         Dim vi, hi As Single
         vi = 15
-        While map < map_texture_ids.Length - 1
+        While map < MapPickList.Count - 1
             If w = 0 Then
                 Exit While
             End If
             For i = 0 To w_cnt - 1
-                If map = map_texture_ids.Length Then
+                If map = MapPickList.Count Then
                     Exit While
                 End If
                 hi = border + (i * (ms_x + space_x))
@@ -284,7 +281,7 @@ Module MapMenuScreen
                     MapPickList(map).selected = False
                 End If
                 MapPickList(map).grow_shrink()
-                MapPickList(map).draw_box(map_texture_ids(map))
+                MapPickList(map).draw_box()
                 'draw text overlay
                 DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
 
@@ -306,13 +303,13 @@ Module MapMenuScreen
         End While
         map = 0
         vi = 15
-        While map < map_texture_ids.Length - 1
+        While map < MapPickList.Count - 1
             If w = 0 Then
                 Exit While
             End If
             For i = 0 To w_cnt - 1
 
-                If map = map_texture_ids.Length Then
+                If map = MapPickList.Count Then
                     Exit While
                 End If
                 hi = border + (i * (ms_x + space_x))
@@ -326,7 +323,7 @@ Module MapMenuScreen
                 End If
 
                 If MapPickList(map).scale > 1.05 Then ' need to draw the selected map box on top of all others
-                    MapPickList(map).draw_box(map_texture_ids(map))
+                    MapPickList(map).draw_box()
                     'draw text overlay
                     DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
 
