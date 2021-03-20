@@ -634,8 +634,8 @@ Module ChunkFunctions
         Lx += 0.01
         Lz += 0.01
 
-        For xo = 0 To 19
-            For yo = 0 To 19
+        For xo = 0 To 33
+            For yo = 0 To 33
                 If mapBoard(xo, yo).occupied Then
 
                     Dim px = mapBoard(xo, yo).location.X
@@ -652,8 +652,8 @@ Module ChunkFunctions
             Next
         Next
 exit1:
-        For xo = 0 To 19
-            For yo = 0 To 19
+        For xo = 0 To 33
+            For yo = 0 To 33
                 If mapBoard(xo, yo).occupied Then
                     Dim pz = mapBoard(xo, yo).location.Y
                     If pz - 50 < Lz And pz + 50 >= Lz Then
