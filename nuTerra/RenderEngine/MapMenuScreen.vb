@@ -1,120 +1,89 @@
-﻿Imports System.Globalization
-Imports System.IO
+﻿Imports System.IO
 Imports NGettext
 Imports OpenTK
-Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 
 Module MapMenuScreen
 
-#Region "structurs/vars"
+    Private Const MAX_NUM_COLUMNS = 7
+    Private Const IMG_SPACE = 15.0
+    Private Const IMG_WIDTH = 120.0
+    Private Const IMG_HEIGHT = 72.0
+    Private Const IMG_GROW_SPEED = 2.0
+    Private Const IMG_SHRINK_SPEED = 1.0
+    Private Const IMG_MAX_SCALE = 1.5
+    Private Const IMG_MIN_SCALE = 1.0
+    Private MAP_NAME_COLOR = Color.Gray
 
-    Public img_grow_speed As Single = 2
-    Public img_shrink_speed As Single = 1
+    Public SelectedMap As MapItem
+    Private MapPickList As New List(Of MapItem)
 
-    Public SelectedMap As map_item_
-    Public MapPickList As List(Of map_item_)
-
-    Public Class map_item_ : Implements IComparable(Of map_item_)
-        Public map_texture_id As GLTexture
-        Public lt As Vector2
-        Public lb As Vector2
-        Public rt As Vector2
-        Public rb As Vector2
+    Public Class MapItem : Implements IComparable(Of MapItem)
+        Public map_image As GLTexture
+        Public rect As Rectangle
 
         Public name As String
         Public realname As String
         Public discription As String
 
+        Private scale As Single = 1.0
         Public unit_size As Boolean
-        Public scale As Single
-        Public max_scale As Single
-        Public min_scale As Single
-        Public location As Vector2
 
-        Public Function Contains(pt As Point) As Boolean
-            Dim L As Integer
-            If lt.X < 0 Then
-                L = -lt.X
-            Else
-                L = 0
-            End If
-            Dim rect As New Rectangle(lt.X + L, -lt.Y, rb.X, -rb.Y)
-            Return rect.Contains(pt)
-        End Function
-
-        Public Sub grow_shrink()
-            Dim lt_ As New Vector2(-60.0F, 36.0F)
-            Dim rb_ As New Vector2(120.0F, -72.0F)
-
+        Public Sub calc_rect(location As Vector2)
             If Me Is SelectedMap And Not FINISH_MAPS Then
-                If Not (img_grow_speed * DELTA_TIME) + scale >= max_scale Then
-                    scale += (img_grow_speed * DELTA_TIME)
+                If Not (IMG_GROW_SPEED * DELTA_TIME) + scale >= IMG_MAX_SCALE Then
+                    scale += (IMG_GROW_SPEED * DELTA_TIME)
                     unit_size = False
                 Else
-                    scale = max_scale
+                    scale = IMG_MAX_SCALE
                 End If
             Else
-                If Not scale - (img_shrink_speed * DELTA_TIME) <= min_scale Then
-                    scale -= (img_shrink_speed * DELTA_TIME)
+                If Not scale - (IMG_SHRINK_SPEED * DELTA_TIME) <= IMG_MIN_SCALE Then
+                    scale -= (IMG_SHRINK_SPEED * DELTA_TIME)
                     unit_size = False
                 Else
-                    scale = min_scale
+                    scale = IMG_MIN_SCALE
                     unit_size = True
                 End If
             End If
 
-            Me.lt = (scale * lt_) + Me.location
-            Me.rb = rb_ * scale
+            Dim lt = New Vector2(-IMG_WIDTH / 2, -IMG_HEIGHT / 2) * scale + location
+            Dim rb = New Vector2(IMG_WIDTH, IMG_HEIGHT) * scale
 
+            rect = New Rectangle(Math.Max(0, lt.X), lt.Y, rb.X, rb.Y)
         End Sub
 
-        Public Sub draw_box()
-            Dim L As Integer
-            If lt.X < 0 Then
-                L = -lt.X
-            Else
-                L = 0
-            End If
-            Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y + 20, Me.rb.X, -Me.rb.Y - 10)
-            draw_image_rectangle(rect, map_texture_id, False)
+        Public Sub draw()
+            ' draw box
+            draw_image_rectangle(New Rectangle(rect.X, rect.Y + 20, rect.Width, rect.Height - 10), map_image, False)
+
+            ' draw text overlay
+            DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
+
+            Dim d = (scale - 1.0F) / 0.5F
+            Dim colour = Color.FromArgb(0, CInt(d * 127), CInt(d * 127), CInt(d * 127))
+            Dim colourBase = Color.FromArgb(MAP_NAME_COLOR.A + colour.A,
+                                            MAP_NAME_COLOR.R + colour.R,
+                                            MAP_NAME_COLOR.G + colour.G,
+                                            MAP_NAME_COLOR.B - colour.B)
+            Dim brush_ = New SolidBrush(colourBase)
+            DrawMapPickText.DrawString(realname, lucid_console, brush_, New PointF(0, 0))
+
+            draw_image_rectangle(New Rectangle(rect.X, rect.Y, IMG_WIDTH, 20), DrawMapPickText.Gettexture, False)
         End Sub
 
-        Public Sub draw_text(textId As GLTexture)
-            Dim L As Integer
-            If lt.X < 0 Then
-                L = -lt.X
-            Else
-                L = 0
-            End If
-            Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y, 120, 20)
-            draw_image_rectangle(rect, textId, False)
-        End Sub
-
-        Public Sub draw_pick_box(color_ As Color4)
-            Dim L As Integer
-            If lt.X < 0 Then
-                L = -lt.X
-            Else
-                L = 0
-            End If
-            Dim rect As New Rectangle(Me.lt.X + L, -Me.lt.Y, Me.rb.X, -Me.rb.Y)
-            draw_color_rectangle(rect, color_)
-        End Sub
-
-        Public Function CompareTo(other As map_item_) As Integer Implements System.IComparable(Of map_item_).CompareTo
+        Public Function CompareTo(other As MapItem) As Integer Implements System.IComparable(Of MapItem).CompareTo
             Return realname.CompareTo(other.realname)
         End Function
     End Class
-#End Region
 
     Public Sub make_map_pick_buttons()
         ' open arenas.mo
         Dim arenas_mo_path = Path.Combine(My.Settings.GamePath, "res/text/lc_messages/arenas.mo")
         Dim arenas_mo_catalog As Catalog
         Using moFileStream = File.OpenRead(arenas_mo_path)
-            arenas_mo_catalog = New Catalog(moFileStream, New CultureInfo("en-US"))
+            arenas_mo_catalog = New Catalog(moFileStream)
         End Using
 
         ' open _list_.xml
@@ -124,8 +93,7 @@ Module MapMenuScreen
             Return
         End If
 
-        ' load list os maps
-        MapPickList = New List(Of map_item_)
+        ' load map list
         For Each node In list_xml.SelectNodes("map")
             Dim name = node("name").InnerText
 
@@ -134,11 +102,8 @@ Module MapMenuScreen
                 Continue For
             End If
 
-            MapPickList.Add(New map_item_ With {
+            MapPickList.Add(New MapItem With {
                 .name = name,
-                .max_scale = 1.5F,
-                .min_scale = 1.0F,
-                .scale = 1.0F,
                 .realname = arenas_mo_catalog.GetString(String.Format("{0}/name", name)).Replace("Winter ", "Wtr "),
                 .discription = arenas_mo_catalog.GetString(String.Format("{0}/description", name))
             })
@@ -156,7 +121,7 @@ Module MapMenuScreen
             End If
             Using ms As New MemoryStream
                 entry.Extract(ms)
-                thing.map_texture_id = get_map_image(ms, cnt, 0.5)
+                thing.map_image = get_map_image(ms, cnt, 0.5)
             End Using
             cnt += 1
         Next
@@ -169,20 +134,20 @@ Module MapMenuScreen
         End Using
     End Sub
 
-    Public Sub gl_pick_map(pt As Point)
+    Public Sub gl_pick_map()
         ' reset old selected
         SelectedMap = Nothing
 
         ' find new selected map
         For i = 0 To MapPickList.Count - 1
-            If MapPickList(i).Contains(pt) Then
+            If MapPickList(i).rect.Contains(MOUSE) Then
                 MAP_NAME_NO_PATH = MapPickList(i).name
                 SelectedMap = MapPickList(i)
                 Exit For
             End If
         Next
 
-        DrawMapPickText.TextRenderer(120, 20)
+        DrawMapPickText.TextRenderer(IMG_WIDTH, 20)
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
         Ortho_main()
@@ -193,9 +158,6 @@ Module MapMenuScreen
         GL.Disable(EnableCap.Blend)
         GL.Disable(EnableCap.DepthTest)
 
-        'in case the form is closed while pick map is the current screen
-        If Not _STARTED Then Return
-
         Dim w = frmMain.glControl_main.Width
         Dim h = frmMain.glControl_main.Height
         If w = 0 Or h = 0 Then
@@ -204,13 +166,9 @@ Module MapMenuScreen
 
         draw_image_rectangle(New RectangleF(0, 0, w, h), MAP_SELECT_BACKGROUND_ID, False)
 
-        Dim ms_x As Single = 120
-        Dim ms_y As Single = -72
-        Dim space_x As Single = 15
-
-        Dim num_columns = Math.Max(1, Math.Min(7, Math.Floor(w / (ms_x + space_x))))
-        Dim space_cnt As Single = (num_columns - 1) * space_x
-        Dim border As Single = (w - ((num_columns * ms_x) + space_cnt)) / 2
+        Dim num_columns = Math.Max(1, Math.Min(MAX_NUM_COLUMNS, Math.Floor(w / (IMG_WIDTH + IMG_SPACE))))
+        Dim space_cnt = (num_columns - 1) * IMG_SPACE
+        Dim border = (w - ((num_columns * IMG_WIDTH) + space_cnt)) / 2
 
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
@@ -219,55 +177,20 @@ Module MapMenuScreen
             Dim row = i \ num_columns
             Dim column = i Mod num_columns
 
-            Dim hi = border + (column * (ms_x + space_x))
-            Dim vi = 15 + row * (-space_x + ms_y)
+            Dim hi = column * (IMG_WIDTH + IMG_SPACE) + border + IMG_WIDTH / 2
+            Dim vi = row * (IMG_HEIGHT + IMG_SPACE) + IMG_HEIGHT - IMG_SPACE
 
-            MapPickList(i).location = New Vector2(hi + 60.0F, vi + ms_y)
+            MapPickList(i).calc_rect(New Vector2(hi, vi))
 
             If MapPickList(i) Is SelectedMap Then
                 Continue For
             End If
 
-            MapPickList(i).grow_shrink()
-            MapPickList(i).draw_box()
-
-            'draw text overlay
-            DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
-
-            Dim d = (MapPickList(i).scale - 1.0F) / 0.5F
-            Dim gray = Color.Gray
-            Dim colour = Color.FromArgb(0, CInt(d * 127), CInt(d * 127), CInt(d * 127))
-            Dim colourBase = Color.FromArgb(gray.A + colour.A,
-                                            gray.R + colour.R,
-                                            gray.G + colour.G,
-                                            gray.B - colour.B)
-            Dim brush_ = New SolidBrush(colourBase)
-            DrawMapPickText.DrawString(MapPickList(i).realname, lucid_console, brush_, New PointF(0, 0))
-
-            Dim tex = DrawMapPickText.Gettexture
-            MapPickList(i).draw_text(tex)
+            MapPickList(i).draw()
         Next
 
         If SelectedMap IsNot Nothing Then
-            Dim i = MapPickList.IndexOf(SelectedMap)
-            SelectedMap.grow_shrink()
-            SelectedMap.draw_box()
-
-            'draw text overlay
-            DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
-
-            Dim d = (SelectedMap.scale - 1.0F) / 0.5F
-            Dim gray = Color.Gray
-            Dim colour = Color.FromArgb(0, CInt(d * 127), CInt(d * 127), CInt(d * 127))
-            Dim colourBase = Color.FromArgb(gray.A + colour.A,
-                                            gray.R + colour.R,
-                                            gray.G + colour.G,
-                                            gray.B - colour.B)
-            Dim brush_ = New SolidBrush(colourBase)
-            DrawMapPickText.DrawString(SelectedMap.realname, lucid_console, brush_, New PointF(0, 0))
-
-            Dim tex = DrawMapPickText.Gettexture
-            SelectedMap.draw_text(tex)
+            SelectedMap.draw()
         End If
 
         GL.Disable(EnableCap.Blend)
