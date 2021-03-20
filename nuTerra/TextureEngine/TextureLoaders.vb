@@ -46,7 +46,7 @@ Module TextureLoaders
         If id IsNot Nothing Then
             Return id
         End If
-        Dim entry = Packages.Lookup(fn)
+        Dim entry = ResMgr.Lookup(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -65,7 +65,7 @@ Module TextureLoaders
             Return id
         End If
 
-        Dim entry = Packages.Lookup(fn)
+        Dim entry = ResMgr.Lookup(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -630,7 +630,7 @@ Module TextureLoaders
         Return dummy
     End Function
 
-    Public Function get_tank_image(ByVal ms As MemoryStream, ByVal index As Integer, ByVal make_id As Boolean, ByVal scale As Single) As Bitmap
+    Public Function get_map_image(ms As MemoryStream, index As Integer, scale As Single) As GLTexture
         'all these should be unique textures.. No need to check if they already have been loaded.
 
         ms.Position = 0
@@ -643,58 +643,36 @@ Module TextureLoaders
         Dim success = Il.ilGetError
         Il.ilLoadL(Il.IL_PNG, textIn, textIn.Length)
         success = Il.ilGetError
-        If success = Il.IL_NO_ERROR Then
-            'Ilu.iluFlipImage()
 
-            Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
-            Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
-            width = Math.Floor(width * scale) + 2
-            height = Math.Floor(height * scale)
-            Ilu.iluScale(width, height, 1)
-
-            Il.ilConvertImage(Il.IL_BGR, Il.IL_UNSIGNED_BYTE)
-
-
-            If make_id Then
-                Dim image = CreateTexture(TextureTarget.Texture2D, String.Format("tank_img_{0}", index))
-
-                image.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                image.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
-                image.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-                image.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-
-                image.Storage2D(2, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
-                image.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, Il.ilGetData())
-
-                image.GenerateMipmap()
-
-                Il.ilBindImage(0)
-                ReDim Preserve map_texture_ids(index)
-                map_texture_ids(index) = image
-
-                Il.ilBindImage(0)
-                Ilu.iluDeleteImage(texID)
-                GL.Finish()
-                Return Nothing
-            Else
-                ' Create the bitmap.
-                Dim Bitmapi As New Drawing.Bitmap(width, height, Imaging.PixelFormat.Format32bppArgb)
-                Dim rect As New Rectangle(0, 0, width, height)
-
-                ' Store the DevIL image data into the bitmap.
-                Dim bitmapData As BitmapData = Bitmapi.LockBits(rect, ImageLockMode.WriteOnly, Imaging.PixelFormat.Format32bppArgb)
-
-                Il.ilConvertImage(Il.IL_BGRA, Il.IL_UNSIGNED_BYTE)
-                Il.ilCopyPixels(0, 0, 0, width, height, 1, Il.IL_BGRA, Il.IL_UNSIGNED_BYTE, bitmapData.Scan0)
-                Bitmapi.UnlockBits(bitmapData)
-
-                Return Bitmapi
-
-            End If
-        Else
-            MsgBox("Unable to load texture @ get_tank_image", MsgBoxStyle.Exclamation, "SHIT!!")
+        If Il.ilGetError <> Il.IL_NO_ERROR Then
+            Return Nothing
         End If
-        Return Nothing
+
+        Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
+        Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
+        width = Math.Floor(width * scale) + 2
+        height = Math.Floor(height * scale)
+        Ilu.iluScale(width, height, 1)
+
+        Il.ilConvertImage(Il.IL_BGR, Il.IL_UNSIGNED_BYTE)
+        Dim image = CreateTexture(TextureTarget.Texture2D, String.Format("tank_img_{0}", index))
+
+        image.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+        image.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+        image.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+        image.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
+        image.Storage2D(2, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
+        image.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, Il.ilGetData())
+
+        image.GenerateMipmap()
+
+        Il.ilBindImage(0)
+
+        Il.ilBindImage(0)
+        Ilu.iluDeleteImage(texID)
+
+        Return image
     End Function
 
 End Module

@@ -65,7 +65,7 @@ Module TerrainTextureFunctions
                 Application.DoEvents() 'stop freezing the UI
                 For i = 0 To 3
 
-                    Dim dds_entry = Packages.Lookup(tex_names(i))
+                    Dim dds_entry = ResMgr.Lookup(tex_names(i))
 
                     If dds_entry Is Nothing Then
                         Stop

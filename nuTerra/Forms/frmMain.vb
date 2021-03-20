@@ -36,7 +36,6 @@ Public Class frmMain
             frmGbufferViewer.Visible = False
             frmGbufferViewer.Dispose()
         End If
-        remove_map_data()
     End Sub
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
@@ -323,15 +322,17 @@ Public Class frmMain
     End Sub
 
     Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
+        If Not MAP_LOADED Then
+            Return
+        End If
+
         Me.Text = Application.ProductName & " " & Application.ProductVersion
-        'we are disabling this to speed up debugging of space.bin
-#If 1 Then
-        'Return
-#End If
+
         'Runs Map picking code.
         glControl_main.MakeCurrent()
+        ' SHOULD BE THERE: remove_map_data()
         SHOW_MAPS_SCREEN = True
-        SELECTED_MAP_HIT = 0
+        SelectedMap = Nothing
     End Sub
 
     Private Sub m_set_game_path_Click(sender As Object, e As EventArgs) Handles m_set_game_path.Click
@@ -565,12 +566,16 @@ try_again:
 
         '---------------------------------------------------------
         ' Init packages
-        Packages.Init(GAME_PATH)
+        ResMgr.Init(GAME_PATH)
 
         '---------------------------------------------------------
         'Loads the textures for the map selection routines
         make_map_pick_buttons()
         '---------------------------------------------------------
+
+        '==========================================================
+        DUMMY_TEXTURE_ID = make_dummy_texture()
+        '==========================================================
 
         '---------------------------------------------------------
         'loading screen image
@@ -822,29 +827,20 @@ try_again:
 
         If SHOW_MAPS_SCREEN Then
             If e.Button = Forms.MouseButtons.Left Then
-
-                If SELECTED_MAP_HIT = 0 And MAP_LOADED Then
+                If SelectedMap Is Nothing And MAP_LOADED Then
                     SHOW_MAPS_SCREEN = False
                     Application.DoEvents()
-                    Return
-                Else
-                    Dim dx = SELECTED_MAP_HIT - 1 'deal with posible false hit
-                    Try
-                        Me.Text = String.Format("{0} {1} : {2}",
-                                                Application.ProductName,
-                                                Application.ProductVersion,
-                                                MapPickList(SELECTED_MAP_HIT - 1).realname)
-                    Catch ex As Exception
-                        Return
-                    End Try
-                    If dx < 0 Then Return
+                ElseIf SelectedMap IsNot Nothing Then
+                    Me.Text = String.Format("{0} {1} : {2}",
+                                            Application.ProductName,
+                                            Application.ProductVersion,
+                                            SelectedMap.realname)
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
                     MOUSE.X = 0
                     MOUSE.Y = 0
-
-                    Return
                 End If
+                Return
             End If
         End If
         MOUSE.X = e.X
