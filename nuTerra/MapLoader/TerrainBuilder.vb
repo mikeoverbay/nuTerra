@@ -348,8 +348,8 @@ Module TerrainBuilder
         TEAM_2_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
         '==========================================================
 
-        'I don't expect any maps larger than 225 chunks
-        Dim Expected_max_chunk_count As Integer = 24 * 24
+        'I don't expect any maps larger than 1024 chunks (208_bf_epic_normandy)
+        Dim Expected_max_chunk_count As Integer = 32 * 32
         ReDim theMap.chunks(Expected_max_chunk_count)
         ReDim theMap.v_data(Expected_max_chunk_count)
         ReDim theMap.render_set(Expected_max_chunk_count)
