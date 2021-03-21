@@ -296,10 +296,10 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("20000")>  _
-        Public Property far() As Decimal
+         Global.System.Configuration.DefaultSettingValueAttribute("25000")>  _
+        Public Property far() As Single
             Get
-                Return CType(Me("far"),Decimal)
+                Return CType(Me("far"),Single)
             End Get
             Set
                 Me("far") = value
@@ -309,9 +309,9 @@ Namespace My
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("0.1")>  _
-        Public Property near() As Decimal
+        Public Property near() As Single
             Get
-                Return CType(Me("near"),Decimal)
+                Return CType(Me("near"),Single)
             End Get
             Set
                 Me("near") = value
@@ -320,10 +320,10 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("60.0")>  _
-        Public Property fov() As Decimal
+         Global.System.Configuration.DefaultSettingValueAttribute("60")>  _
+        Public Property fov() As Single
             Get
-                Return CType(Me("fov"),Decimal)
+                Return CType(Me("fov"),Single)
             End Get
             Set
                 Me("fov") = value
@@ -333,9 +333,9 @@ Namespace My
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("0.8")>  _
-        Public Property speed() As Decimal
+        Public Property speed() As Single
             Get
-                Return CType(Me("speed"),Decimal)
+                Return CType(Me("speed"),Single)
             End Get
             Set
                 Me("speed") = value

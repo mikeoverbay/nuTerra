@@ -62,16 +62,16 @@
     <Setting Name="load_sky" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
-    <Setting Name="far" Type="System.Decimal" Scope="User">
-      <Value Profile="(Default)">20000</Value>
+    <Setting Name="far" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">25000</Value>
     </Setting>
-    <Setting Name="near" Type="System.Decimal" Scope="User">
+    <Setting Name="near" Type="System.Single" Scope="User">
       <Value Profile="(Default)">0.1</Value>
     </Setting>
-    <Setting Name="fov" Type="System.Decimal" Scope="User">
-      <Value Profile="(Default)">60.0</Value>
+    <Setting Name="fov" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">60</Value>
     </Setting>
-    <Setting Name="speed" Type="System.Decimal" Scope="User">
+    <Setting Name="speed" Type="System.Single" Scope="User">
       <Value Profile="(Default)">0.8</Value>
     </Setting>
     <Setting Name="UpgradeRequired" Type="System.Boolean" Scope="User">

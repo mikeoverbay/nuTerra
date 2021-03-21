@@ -178,12 +178,6 @@
     <Compile Include="Forms\SettingsPropertyGrid.vb" />
     <Compile Include="GlobalSuppressions.vb" />
     <Compile Include="MapLoader\ChunkFunctions.vb" />
-    <Compile Include="Forms\frmLoadOptions.designer.vb">
-      <DependentUpon>frmLoadOptions.vb</DependentUpon>
-    </Compile>
-    <Compile Include="Forms\frmLoadOptions.vb">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="MapLoader\LQ_Texture_creator.vb" />
     <Compile Include="MapLoader\TerrainBuilder.vb" />
     <Compile Include="MapLoader\TerrainTextureFunctions.vb" />
@@ -255,9 +249,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmShowText.resx">
       <DependentUpon>frmShowText.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmLoadOptions.resx">
-      <DependentUpon>frmLoadOptions.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="My Project\Resources.resx">
       <Generator>VbMyResourcesResXFileCodeGenerator</Generator>

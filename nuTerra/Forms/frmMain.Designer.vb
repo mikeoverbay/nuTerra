@@ -38,9 +38,9 @@ Partial Class frmMain
         Me.m_set_game_path = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripSeparator3 = New System.Windows.Forms.ToolStripSeparator()
         Me.m_show_light_pos = New System.Windows.Forms.ToolStripMenuItem()
+        Me.ShowPropertiesToolStripMenuItem = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_light_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_developer = New System.Windows.Forms.ToolStripMenuItem()
-        Me.m_block_loading = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_show_gbuffer = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_screen_capture = New System.Windows.Forms.ToolStripMenuItem()
@@ -50,7 +50,6 @@ Partial Class frmMain
         Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.PropertyGrid1 = New System.Windows.Forms.PropertyGrid()
-        Me.ShowPropertiesToolStripMenuItem = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer1.SuspendLayout()
@@ -153,6 +152,12 @@ Partial Class frmMain
         Me.m_show_light_pos.Size = New System.Drawing.Size(321, 22)
         Me.m_show_light_pos.Text = "Show Light Position"
         '
+        'ShowPropertiesToolStripMenuItem
+        '
+        Me.ShowPropertiesToolStripMenuItem.Name = "ShowPropertiesToolStripMenuItem"
+        Me.ShowPropertiesToolStripMenuItem.Size = New System.Drawing.Size(321, 22)
+        Me.ShowPropertiesToolStripMenuItem.Text = "Show Properties"
+        '
         'm_light_settings
         '
         Me.m_light_settings.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
@@ -164,25 +169,18 @@ Partial Class frmMain
         'm_developer
         '
         Me.m_developer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_block_loading, Me.m_show_gbuffer})
+        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_show_gbuffer})
         Me.m_developer.ForeColor = System.Drawing.Color.Black
         Me.m_developer.Name = "m_developer"
         Me.m_developer.Size = New System.Drawing.Size(102, 20)
         Me.m_developer.Text = "Developer Tools"
         Me.m_developer.Visible = False
         '
-        'm_block_loading
-        '
-        Me.m_block_loading.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_block_loading.Name = "m_block_loading"
-        Me.m_block_loading.Size = New System.Drawing.Size(195, 22)
-        Me.m_block_loading.Text = "Block Loading of Types"
-        '
         'm_show_gbuffer
         '
         Me.m_show_gbuffer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
         Me.m_show_gbuffer.Name = "m_show_gbuffer"
-        Me.m_show_gbuffer.Size = New System.Drawing.Size(195, 22)
+        Me.m_show_gbuffer.Size = New System.Drawing.Size(192, 22)
         Me.m_show_gbuffer.Text = "Show Gbuffer Textures"
         '
         'm_help
@@ -251,12 +249,6 @@ Partial Class frmMain
         Me.PropertyGrid1.ToolbarVisible = False
         Me.PropertyGrid1.ViewBackColor = System.Drawing.Color.White
         '
-        'ShowPropertiesToolStripMenuItem
-        '
-        Me.ShowPropertiesToolStripMenuItem.Name = "ShowPropertiesToolStripMenuItem"
-        Me.ShowPropertiesToolStripMenuItem.Size = New System.Drawing.Size(321, 22)
-        Me.ShowPropertiesToolStripMenuItem.Text = "Show Properties"
-        '
         'frmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -292,7 +284,6 @@ Partial Class frmMain
     Friend WithEvents FolderBrowserDialog1 As System.Windows.Forms.FolderBrowserDialog
     Friend WithEvents m_load_map As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_developer As System.Windows.Forms.ToolStripMenuItem
-    Friend WithEvents m_block_loading As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_show_gbuffer As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripSeparator1 As System.Windows.Forms.ToolStripSeparator
     Friend WithEvents m_developer_mode As System.Windows.Forms.ToolStripMenuItem

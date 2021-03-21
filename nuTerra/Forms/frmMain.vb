@@ -361,11 +361,6 @@ try_again:
         frmGbufferViewer.Visible = True
     End Sub
 
-    Private Sub m_block_loading_Click(sender As Object, e As EventArgs) Handles m_block_loading.Click
-        'Opens the window to chose what to block from loading.
-        frmLoadOptions.Visible = True
-    End Sub
-
     Private Sub m_shut_down_Click(sender As Object, e As EventArgs) Handles m_shut_down.Click
         'Closes the app.
         Me.Close()

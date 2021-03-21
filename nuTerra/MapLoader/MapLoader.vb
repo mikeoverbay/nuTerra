@@ -127,15 +127,7 @@ Module MapLoader
         WATER_LOADED = False
         '===============================================================
 
-        '===============================================================
-        'Get block state of things we want to block loading to speed things up for testing/debugging
-        DONT_BLOCK_BASES = My.Settings.load_bases
-        DONT_BLOCK_DECALS = My.Settings.load_decals
-        DONT_BLOCK_MODELS = My.Settings.load_models
-        DONT_BLOCK_SKY = My.Settings.load_sky
-        DONT_BLOCK_TERRAIN = My.Settings.load_terrain
-        DONT_BLOCK_TREES = My.Settings.load_trees
-        DONT_BLOCK_WATER = My.Settings.load_water
+
         '===============================================================
 
         '===============================================================
