@@ -127,7 +127,7 @@ NotInheritable Class MapMenuScreen
             End If
             Using ms As New MemoryStream
                 entry.Extract(ms)
-                thing.map_image = get_map_image(ms, cnt, 0.5)
+                thing.map_image = get_map_image(ms, cnt)
             End Using
             cnt += 1
         Next

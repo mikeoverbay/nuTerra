@@ -1109,5 +1109,6 @@ try_again:
         Else
             SplitContainer1.Panel2Collapsed = True
         End If
+        resize_fbo_main()
     End Sub
 End Class

@@ -627,7 +627,7 @@ Module TextureLoaders
         Return dummy
     End Function
 
-    Public Function get_map_image(ms As MemoryStream, index As Integer, scale As Single) As GLTexture
+    Public Function get_map_image(ms As MemoryStream, index As Integer) As GLTexture
         'all these should be unique textures.. No need to check if they already have been loaded.
 
         ms.Position = 0
@@ -647,15 +647,14 @@ Module TextureLoaders
 
         Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
         Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
-        width = Math.Floor(width * scale) + 2
-        height = Math.Floor(height * scale)
-        Ilu.iluScale(width, height, 1)
 
         Il.ilConvertImage(Il.IL_BGR, Il.IL_UNSIGNED_BYTE)
-        Dim image = CreateTexture(TextureTarget.Texture2D, String.Format("tank_img_{0}", index))
+        Dim image = CreateTexture(TextureTarget.Texture2D, String.Format("map_img_{0}", index))
 
-        image.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-        image.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+        image.Parameter(TextureParameterName.TextureBaseLevel, 0)
+        image.Parameter(TextureParameterName.TextureMaxLevel, 1)
+        image.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+        image.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         image.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
         image.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
