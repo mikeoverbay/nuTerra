@@ -105,7 +105,7 @@ Module FBO_shadowBaker_mod
             gBakerColorArray.Parameter(TextureParameterName.TextureMaxLevel, mipCount - 1)
             gBakerColorArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToBorder)
             gBakerColorArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToBorder)
-            gBakerColorArray.Storage3D(mipCount - 1, SizedInternalFormat.R8, texture_size.X, texture_size.Y, LayerCount)
+            gBakerColorArray.Storage3D(mipCount, SizedInternalFormat.R8, texture_size.X, texture_size.Y, LayerCount)
 
             ' gBakerShadowDepth ------------------------------------------------------------------------------------
             shadow_map = CreateTexture(TextureTarget.Texture2D, "shadow_map")

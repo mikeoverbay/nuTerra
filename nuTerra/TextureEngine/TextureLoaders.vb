@@ -81,6 +81,7 @@ Module TextureLoaders
         Dim image_id = CreateTexture(TextureTarget.Texture2D, "blend_Tex")
 
         image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
+        image_id.Parameter(TextureParameterName.TextureMaxLevel, 1)
         image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
 
@@ -293,7 +294,7 @@ Module TextureLoaders
                 image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
                 image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                 image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
-                image_id.Parameter(TextureParameterName.TextureMaxLevel, numLevels)
+                image_id.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
                 image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
                 image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
@@ -409,32 +410,28 @@ Module TextureLoaders
 
             image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
-            Dim maxAniso = GLCapabilities.maxAniso
-            If NEAREST And Not MIPS Then
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
-
-            If Not NEAREST And Not MIPS Then
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
-
-            If MIPS Then
-                image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
-
-            image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
-            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-
             image_id.Storage2D(If(MIPS, 4, 1), SizedInternalFormat.Rgba8, width, height)
             image_id.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
 
+            image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), GLCapabilities.maxAniso)
+            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
             If MIPS Then
+                image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
+                image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
+                image_id.Parameter(TextureParameterName.TextureMaxLevel, 4 - 1)
+                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
                 image_id.GenerateMipmap()
+
+            ElseIf NEAREST Then
+                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+
+            Else
+                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
 
             Il.ilBindImage(0)
@@ -487,31 +484,29 @@ Module TextureLoaders
 
             image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
+            image_id.Storage2D(If(MIPS, 4, 1), DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
+            image_id.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, Il.ilGetData())
+
             Dim maxAniso As Single = 4
-
-            If NEAREST And Not MIPS Then
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            End If
-            If Not NEAREST And Not MIPS Then
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
-            If MIPS Then
-                image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
-
             image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
             image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            image_id.Storage2D(If(MIPS, 4, 1), DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
-            image_id.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, Il.ilGetData())
-
             If MIPS Then
+                image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
+                image_id.Parameter(TextureParameterName.TextureMaxLevel, 4 - 1)
+                image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
+                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
                 image_id.GenerateMipmap()
+
+            ElseIf NEAREST Then
+                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+
+            Else
+                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
 
             Il.ilBindImage(0)
@@ -562,30 +557,29 @@ Module TextureLoaders
 
             Dim OK As Boolean = Il.ilConvertImage(Il.IL_RGBA, Il.IL_UNSIGNED_BYTE)
 
-            Const target = TextureTarget.Texture2D
-            image_id = CreateTexture(target, fn)
+            image_id = CreateTexture(TextureTarget.Texture2D, fn)
 
-            If NEAREST And Not MIPS Then
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
-            If Not NEAREST And Not MIPS Then
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
-            If MIPS Then
-                image_id.Parameter(TextureParameterName.TextureLodBias, -0.75F)
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
+            image_id.Storage2D(If(MIPS, 4, 1), SizedInternalFormat.Rgba8, width, height)
+
+            image_id.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
             image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            image_id.Storage2D(If(MIPS, 4, 1), SizedInternalFormat.Rgba8, width, height)
-            image_id.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, Il.ilGetData())
-
             If MIPS Then
+                image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
+                image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
+                image_id.Parameter(TextureParameterName.TextureMaxLevel, 4 - 1)
+                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
                 image_id.GenerateMipmap()
+
+            ElseIf NEAREST Then
+                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+
+            Else
+                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             End If
 
             Il.ilBindImage(0)

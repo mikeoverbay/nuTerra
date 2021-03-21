@@ -807,7 +807,7 @@ Module MapLoader
 
                         atlas_tex.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 3)
                         atlas_tex.Parameter(TextureParameterName.TextureBaseLevel, 0)
-                        atlas_tex.Parameter(TextureParameterName.TextureMaxLevel, numLevels)
+                        atlas_tex.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
                         atlas_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
                         atlas_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                         atlas_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
