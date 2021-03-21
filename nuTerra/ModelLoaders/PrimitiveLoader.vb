@@ -457,38 +457,16 @@ Module PrimitiveLoader
     End Sub
 
     Public Function unpackNormal_8_8_8(packed As UInt32) As Vector3
-        Dim pkz, pky, pkx As Int32
-        pkx = CLng(packed) And &HFF Xor 127
-        pky = CLng(packed >> 8) And &HFF Xor 127
-        pkz = CLng(packed >> 16) And &HFF Xor 127
-
-        Dim x As Single = (pkx)
-        Dim y As Single = (pky)
-        Dim z As Single = (pkz)
-
-        Dim p As New Vector3
-        If x > 127 Then
-            x = -128 + (x - 128)
-        End If
-        If y > 127 Then
-            y = -128 + (y - 128)
-        End If
-        If z > 127 Then
-            z = -128 + (z - 128)
-        End If
-        p.X = CSng(x) / 127
-        p.Y = CSng(y) / 127
-        p.Z = CSng(z) / 127
-        Dim len As Single = Sqrt((p.X ^ 2) + (p.Y ^ 2) + (p.Z ^ 2))
-
-        'avoid division by 0
-        If len = 0.0F Then len = 1.0F
-        'len = 1.0
-        'reduce to unit size
-        p.X = -(p.X / len)
-        p.Y = -(p.Y / len)
-        p.Z = -(p.Z / len)
-        Return p
+        Dim p As New Vector3 With {
+            .X = CLng(packed) And &HFF Xor 127,
+            .Y = CLng(packed >> 8) And &HFF Xor 127,
+            .Z = CLng(packed >> 16) And &HFF Xor 127
+        }
+        If p.X > 127 Then p.X -= 256
+        If p.Y > 127 Then p.Y -= 256
+        If p.Z > 127 Then p.Z -= 256
+        p.NormalizeFast()
+        Return -p
     End Function
 
     Public Function unpackNormal(ByVal packed As UInt32) As Vector3

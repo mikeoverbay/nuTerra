@@ -38,8 +38,6 @@ Module FBO_Mixer
             GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment1, gNormalArray.texture_id, 0, layer)
             GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment2, gGmmArray.texture_id, 0, layer)
 
-            GL.Finish() 'make sure we are done
-
             Dim er2 = GL.GetError
             If er2 <> 0 Then
                 Stop
@@ -52,7 +50,6 @@ Module FBO_Mixer
             If gNormalArray IsNot Nothing Then gNormalArray.Delete()
             If gGmmArray IsNot Nothing Then gGmmArray.Delete()
             If FBO_Mixer_ID > 0 Then GL.DeleteFramebuffer(FBO_Mixer_ID)
-            GL.Finish() 'make sure we are done
         End Sub
 
         Public Shared Sub create_arraytextures()
@@ -88,8 +85,6 @@ Module FBO_Mixer
             gGmmArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
             gGmmArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
             gGmmArray.Storage3D(mipCount - 1, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
-
-            GL.Finish()
         End Sub
 
         Public Shared Function create_fbo() As Boolean

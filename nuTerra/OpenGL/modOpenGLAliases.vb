@@ -36,7 +36,6 @@ Public Module modOpenGLAliases
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
         Public Sub Delete()
             GL.DeleteBuffer(buffer_id)
-            GL.Finish()
             CheckGLError()
         End Sub
     End Class
@@ -60,7 +59,6 @@ Public Module modOpenGLAliases
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
         Public Sub Delete()
             GL.DeleteTexture(texture_id)
-            GL.Finish()
             CheckGLError()
         End Sub
 

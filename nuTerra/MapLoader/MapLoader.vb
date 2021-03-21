@@ -1072,7 +1072,6 @@ Module MapLoader
             End If
             GL.DeleteTexture(i)
         Next
-        GL.Finish() ' make sure we are done before moving on
 
         'delete VBOs
         Dim Lvb As Integer
@@ -1080,7 +1079,6 @@ Module MapLoader
         For i = FIRST_UNUSED_V_BUFFER To Lvb
             GL.DeleteBuffer(i)
         Next
-        GL.Finish() ' make sure we are done before moving on
 
         'delete VAOs
         Dim Lvbo As Integer
@@ -1088,7 +1086,6 @@ Module MapLoader
         For i = FIRST_UNUSED_VB_OBJECT To Lvbo
             GL.DeleteVertexArray(i)
         Next
-        'GL.Finish() ' make sure we are done before moving on
 
         theMap.MINI_MAP_ID = Nothing
         theMap.chunks = Nothing

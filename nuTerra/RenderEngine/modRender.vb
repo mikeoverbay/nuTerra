@@ -53,7 +53,7 @@ Module modRender
 
         GL.FrontFace(FrontFaceDirection.Ccw)
         If SHOW_MAPS_SCREEN Then
-            gl_pick_map(MOUSE)
+            gl_pick_map()
             Return
         End If
         If SHOW_LOADING_SCREEN Then
@@ -963,7 +963,7 @@ Module modRender
         ' Text Rendering ===========================================================
         'save this.. we may want to use it for debug with a different source for the values.
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
-        'GL.Finish()
+
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
 
         'sum triangles drawn

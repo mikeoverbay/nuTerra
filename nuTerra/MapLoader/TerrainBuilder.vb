@@ -44,27 +44,6 @@ Module TerrainBuilder
         Public hole As UInt32
     End Structure
 
-    Public Structure grid_sec
-        Public bmap As System.Drawing.Bitmap
-        Public calllist_Id As Int32
-        Public normMapID As Int32
-        Public HZ_normMapID As Int32
-        Public colorMapId As Int32
-        Public HZ_colorMapID As Int32
-        Public dominateId As Int32
-        Public location As Vector3
-        Public heights(,) As Single
-        Public holes(,) As Single
-        Public heights_avg As Single
-        Public seamCallId As Integer
-        Public has_holes As Integer
-        Public BB_Max As Vector3
-        Public BB_Min As Vector3
-        Public BB() As Vector3
-        Public visible As Boolean
-    End Structure
-
-
     Public NotInheritable Class theMap
         Public Shared chunks() As chunk_
         Public Shared v_data() As terain_V_data_
