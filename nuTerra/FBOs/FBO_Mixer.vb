@@ -64,7 +64,7 @@ Module FBO_Mixer
             gColorArray.Parameter(TextureParameterName.TextureMaxLevel, mipCount - 1)
             gColorArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
             gColorArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
-            gColorArray.Storage3D(mipCount - 1, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
+            gColorArray.Storage3D(mipCount, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
 
             ' gNormalArray ------------------------------------------------------------------------------------------
             gNormalArray = CreateTexture(TextureTarget.Texture2DArray, "gNormalArray")
@@ -74,7 +74,7 @@ Module FBO_Mixer
             gNormalArray.Parameter(TextureParameterName.TextureMaxLevel, mipCount - 1)
             gNormalArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
             gNormalArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
-            gNormalArray.Storage3D(mipCount - 1, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
+            gNormalArray.Storage3D(mipCount, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
 
             ' gGmmArray ------------------------------------------------------------------------------------------
             gGmmArray = CreateTexture(TextureTarget.Texture2DArray, "gGmmArray")
@@ -84,7 +84,7 @@ Module FBO_Mixer
             gGmmArray.Parameter(TextureParameterName.TextureMaxLevel, mipCount - 1)
             gGmmArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
             gGmmArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
-            gGmmArray.Storage3D(mipCount - 1, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
+            gGmmArray.Storage3D(mipCount, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
         End Sub
 
         Public Shared Function create_fbo() As Boolean

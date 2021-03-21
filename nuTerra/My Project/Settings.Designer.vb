@@ -353,6 +353,18 @@ Namespace My
                 Me("UpgradeRequired") = value
             End Set
         End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("1")>  _
+        Public Property UI_map_icon_scale() As Single
+            Get
+                Return CType(Me("UI_map_icon_scale"),Single)
+            End Get
+            Set
+                Me("UI_map_icon_scale") = value
+            End Set
+        End Property
     End Class
 End Namespace
 

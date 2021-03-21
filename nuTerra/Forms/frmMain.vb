@@ -196,7 +196,8 @@ Public Class frmMain
     End Sub
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
-        Me.Text = Application.ProductName & " " & Application.ProductVersion
+        Text = Application.ProductName & " " & Application.ProductVersion
+        PropertyGrid1.SelectedObject = New SettingsPropertyGrid()
 
         If My.Settings.UpgradeRequired Then
             My.Settings.Upgrade()
@@ -332,7 +333,7 @@ Public Class frmMain
         glControl_main.MakeCurrent()
         ' SHOULD BE THERE: remove_map_data()
         SHOW_MAPS_SCREEN = True
-        SelectedMap = Nothing
+        MapMenuScreen.SelectedMap = Nothing
     End Sub
 
     Private Sub m_set_game_path_Click(sender As Object, e As EventArgs) Handles m_set_game_path.Click
@@ -570,7 +571,7 @@ try_again:
 
         '---------------------------------------------------------
         'Loads the textures for the map selection routines
-        make_map_pick_buttons()
+        MapMenuScreen.make_map_pick_buttons()
         '---------------------------------------------------------
 
         '==========================================================
@@ -827,14 +828,14 @@ try_again:
 
         If SHOW_MAPS_SCREEN Then
             If e.Button = Forms.MouseButtons.Left Then
-                If SelectedMap Is Nothing And MAP_LOADED Then
+                If MapMenuScreen.SelectedMap Is Nothing And MAP_LOADED Then
                     SHOW_MAPS_SCREEN = False
                     Application.DoEvents()
-                ElseIf SelectedMap IsNot Nothing Then
+                ElseIf MapMenuScreen.SelectedMap IsNot Nothing Then
                     Me.Text = String.Format("{0} {1} : {2}",
                                             Application.ProductName,
                                             Application.ProductVersion,
-                                            SelectedMap.realname)
+                                            MapMenuScreen.SelectedMap.realname)
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
                     MOUSE.X = 0
@@ -1079,10 +1080,6 @@ try_again:
         frmScreenCap.ShowDialog()
     End Sub
 
-    Private Sub m_camera_options_Click(sender As Object, e As EventArgs) Handles m_camera_options.Click
-        frmCameraOptions.Visible = True
-    End Sub
-
     Private Sub SplitContainer1_SplitterMoved(sender As Object, e As SplitterEventArgs) Handles SplitContainer1.SplitterMoved
         If Not _STARTED Then Return
         If Not sp_moved Then Return
@@ -1102,7 +1099,16 @@ try_again:
         sp_moved = True
     End Sub
 
-    Private Sub TerrainOptionsToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles TerrainOptionsToolStripMenuItem.Click
-        frmTerrainOptions.Show()
+    Private Sub ShowPropertiesToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles ShowPropertiesToolStripMenuItem.Click
+        ShowPropertiesToolStripMenuItem.Checked = Not ShowPropertiesToolStripMenuItem.Checked
+        If ShowPropertiesToolStripMenuItem.Checked Then
+            PropertyGrid1.Parent = SplitContainer1.Panel2
+            SplitContainer1.Panel2Collapsed = False
+            SP2_Width = 225
+            SplitContainer1.SplitterDistance = (ClientSize.Width) - SP2_Width
+        Else
+            SplitContainer1.Panel2Collapsed = True
+        End If
+        resize_fbo_main()
     End Sub
 End Class

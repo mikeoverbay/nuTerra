@@ -170,7 +170,7 @@ Module TerrainTextureFunctions
                           BufferStorageFlags.None)
         End With
     End Sub
-    Private Function get_atlas(ByVal mipcount As Integer, map As Int32, z As Int32, format As SizedInternalFormat) As GLTexture
+    Private Function get_atlas(mipcount As Integer, map As Int32, z As Int32, format As SizedInternalFormat) As GLTexture
         Dim t = New GLTexture
         't.target = TextureTarget.Texture2DArray
         t = CreateTexture(TextureTarget.Texture2DArray, "tAtlas" + map.ToString + "_" + z.ToString)
@@ -180,7 +180,7 @@ Module TerrainTextureFunctions
         t.Parameter(TextureParameterName.TextureMaxLevel, mipcount - 1)
         t.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
         t.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-        t.Storage3D(mipcount - 1, format, 1024, 1024, 4)
+        t.Storage3D(mipcount, format, 1024, 1024, 4)
         Return t
 
     End Function
@@ -459,7 +459,7 @@ Module TerrainTextureFunctions
                     DUMMY_ATLAS.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                     DUMMY_ATLAS.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
                     DUMMY_ATLAS.Parameter(TextureParameterName.TextureBaseLevel, 0)
-                    DUMMY_ATLAS.Parameter(TextureParameterName.TextureMaxLevel, 2)
+                    DUMMY_ATLAS.Parameter(TextureParameterName.TextureMaxLevel, 1)
                     DUMMY_ATLAS.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
                     DUMMY_ATLAS.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
                     DUMMY_ATLAS.Storage3D(2, format_info.texture_format, 12, 12, 4)
