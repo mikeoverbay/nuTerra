@@ -753,7 +753,7 @@ Module modRender
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
         ' Color highlighting of LOD levels if enabled.
-        GL.Uniform1(modelShader("show_Lods"), SHOW_LOD_COLORS)
+        GL.Uniform1(modelShader("show_Lods"), CInt(SHOW_LOD_COLORS))
 
         'assign subroutines
         GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
@@ -987,7 +987,7 @@ Module modRender
         Dim aa As Integer = 0
 
         ' Draw Terrain IDs =========================================================
-        If SHOW_CHUNK_IDs Then
+        If SHOW_CHUNK_IDs And DONT_BLOCK_TERRAIN Then
             draw_terrain_ids()
         End If
         '===========================================================================
@@ -1241,11 +1241,15 @@ Module modRender
         GL.Enable(EnableCap.Blend)
 
         '======================================================
-        draw_mini_base_rings()
+        If BASE_RINGS_LOADED Then
+            draw_mini_base_rings()
+        End If
         '======================================================
 
         '======================================================
-        draw_mini_base_ids()
+        If BASE_RINGS_LOADED Then
+            draw_mini_base_ids()
+        End If
         '======================================================
 
         '======================================================
@@ -1273,7 +1277,6 @@ Module modRender
         GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
 
         theMap.MINI_MAP_ID.BindUnit(0)
-        GL.Uniform1(image2dShader("imageMap"), 0)
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform4(image2dShader("rect"),
                     rect.Left,
@@ -1301,7 +1304,6 @@ Module modRender
         image2dShader.Use()
 
         GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
-        GL.Uniform1(image2dShader("imageMap"), 0)
 
         'Icon 1
         TEAM_1_ICON_ID.BindUnit(0)
@@ -1376,7 +1378,6 @@ Module modRender
         image2dShader.Use()
         GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
 
-        GL.Uniform1(image2dShader("imageMap"), 0)
         Dim i_size = 32
         Dim pos As New RectangleF(-i_size, -i_size, i_size * 2, i_size * 2)
 

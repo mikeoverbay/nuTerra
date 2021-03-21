@@ -104,7 +104,7 @@ Public Class frmMain
                     SSAA_text = "SSAA Off"
                 End If
             Case Keys.F9
-                SHOW_LOD_COLORS = SHOW_LOD_COLORS Xor 1
+                SHOW_LOD_COLORS = SHOW_LOD_COLORS Xor True
                 '-------------------------------
             Case Keys.B
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
@@ -178,6 +178,7 @@ Public Class frmMain
                 WASD_VECTOR.Y = 1
 
         End Select
+        PropertyGrid1.Refresh()
     End Sub
 
     Private Sub frmMain_KeyUp(sender As Object, e As KeyEventArgs) Handles Me.KeyUp

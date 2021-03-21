@@ -225,7 +225,6 @@ Public Class frmGbufferViewer
         Dim s As New Vector2(v.X / p.X, v.Y / p.Y)
 
         image.BindUnit(0)
-        GL.Uniform1(image2dShader("imageMap"), 0)
         GL.Uniform2(image2dShader("uv_scale"), s.X, s.Y)
         GL.Uniform2(image2dShader("uv_scale"), 1, 1)
 

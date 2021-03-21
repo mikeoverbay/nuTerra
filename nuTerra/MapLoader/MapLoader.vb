@@ -479,8 +479,10 @@ Module MapLoader
         '===============================================================
         'We need to get the Y location of the rings and stop drawing overly tall cubes.
         'It only needs to happen once!
-        T1_Y = get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)
-        T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
+        If BASE_RINGS_LOADED Then
+            T1_Y = get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)
+            T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
+        End If
         '===============================================================
         'make some test lights
         LIGHTS.light_SSBO = Nothing ' reset ssbo

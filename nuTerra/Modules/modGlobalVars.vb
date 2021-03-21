@@ -88,7 +88,7 @@ Module modGlobalVars
     Public PICK_MODELS As Boolean = False
     Public DONT_HIDE_HUD As Boolean = True
     Public DONT_HIDE_MINIMAP As Boolean = True
-    Public SHOW_LOD_COLORS As Integer
+    Public SHOW_LOD_COLORS As Boolean
     'ascii characters
     Public ASCII_ID As GLTexture
     'wire flags

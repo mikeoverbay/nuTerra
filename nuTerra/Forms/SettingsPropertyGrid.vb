@@ -205,4 +205,104 @@ Public Class SettingsPropertyGrid
             Return DONT_BLOCK_WATER
         End Get
     End Property
+
+    <DisplayName("Draw terrain wire"), Category("Overlays")>
+    Public Property OVERLAYS_draw_terrain_wire As Boolean
+        Set(value As Boolean)
+            WIRE_TERRAIN = value
+        End Set
+        Get
+            Return WIRE_TERRAIN
+        End Get
+    End Property
+
+    <DisplayName("Draw model wire"), Category("Overlays")>
+    Public Property OVERLAYS_draw_model_wire As Boolean
+        Set(value As Boolean)
+            WIRE_MODELS = value
+        End Set
+        Get
+            Return WIRE_MODELS
+        End Get
+    End Property
+
+    <DisplayName("Draw normals (0 none, 1 by face, 2 by vertex)"), Category("Overlays")>
+    Public Property OVERLAYS_draw_normals As Integer
+        Set(value As Integer)
+            NORMAL_DISPLAY_MODE = value
+        End Set
+        Get
+            Return NORMAL_DISPLAY_MODE
+        End Get
+    End Property
+
+    <DisplayName("Draw bounding boxes"), Category("Overlays")>
+    Public Property OVERLAYS_draw_model_boxes As Boolean
+        Set(value As Boolean)
+            SHOW_BOUNDING_BOXES = value
+        End Set
+        Get
+            Return SHOW_BOUNDING_BOXES
+        End Get
+    End Property
+
+    <DisplayName("Draw chunks"), Category("Overlays")>
+    Public Property OVERLAYS_draw_chunks As Boolean
+        Set(value As Boolean)
+            SHOW_CHUNKS = value
+        End Set
+        Get
+            Return SHOW_CHUNKS
+        End Get
+    End Property
+
+    <DisplayName("Draw grid"), Category("Overlays")>
+    Public Property OVERLAYS_draw_grid As Boolean
+        Set(value As Boolean)
+            SHOW_GRID = value
+        End Set
+        Get
+            Return SHOW_GRID
+        End Get
+    End Property
+
+    <DisplayName("Draw border"), Category("Overlays")>
+    Public Property OVERLAYS_draw_border As Boolean
+        Set(value As Boolean)
+            SHOW_BORDER = value
+        End Set
+        Get
+            Return SHOW_BORDER
+        End Get
+    End Property
+
+    <DisplayName("Draw colored lods"), Category("Overlays")>
+    Public Property OVERLAYS_colored_lods As Boolean
+        Set(value As Boolean)
+            SHOW_LOD_COLORS = value
+        End Set
+        Get
+            Return SHOW_LOD_COLORS
+        End Get
+    End Property
+
+    <DisplayName("Draw chunk ids"), Category("Overlays")>
+    Public Property OVERLAYS_chunk_ids As Boolean
+        Set(value As Boolean)
+            SHOW_CHUNK_IDs = value
+        End Set
+        Get
+            Return SHOW_CHUNK_IDs
+        End Get
+    End Property
+
+    <DisplayName("Draw test textures"), Category("Overlays")>
+    Public Property OVERLAYS_test_textures As Single
+        Set(value As Single)
+            SHOW_TEST_TEXTURES = value
+        End Set
+        Get
+            Return SHOW_TEST_TEXTURES
+        End Get
+    End Property
 End Class

@@ -15,7 +15,7 @@ layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out uint gPick;
 
-uniform int show_Lods;
+uniform bool show_Lods;
 
 // Input from vertex shader
 in VS_OUT
@@ -413,8 +413,7 @@ void main(void)
     gGMF.a - 0.0;
 
     // Just for debugging
-if (show_Lods == 1)
-    {
+    if (show_Lods) {
         if (fs_in.lod_level == 1)      { gColor.r += 0.4; }
         else if (fs_in.lod_level == 2) { gColor.g += 0.4; }
         else if (fs_in.lod_level == 3) { gColor.b += 0.4; }
