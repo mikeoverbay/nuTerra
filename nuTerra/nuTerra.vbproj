@@ -138,12 +138,6 @@
     <Compile Include="FBOs\FBO_main.vb" />
     <Compile Include="FBOs\FBO_shadowBaker.vb" />
     <Compile Include="FBOs\FBO_Mixer.vb" />
-    <Compile Include="Forms\frmCameraOptions.Designer.vb">
-      <DependentUpon>frmCameraOptions.vb</DependentUpon>
-    </Compile>
-    <Compile Include="Forms\frmCameraOptions.vb">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="Forms\frmLightSettings.designer.vb">
       <DependentUpon>frmLightSettings.vb</DependentUpon>
     </Compile>
@@ -181,12 +175,7 @@
     <Compile Include="Forms\frmShowText.vb">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\frmTerrainOptions.Designer.vb">
-      <DependentUpon>frmTerrainOptions.vb</DependentUpon>
-    </Compile>
-    <Compile Include="Forms\frmTerrainOptions.vb">
-      <SubType>Form</SubType>
-    </Compile>
+    <Compile Include="Forms\SettingsPropertyGrid.vb" />
     <Compile Include="GlobalSuppressions.vb" />
     <Compile Include="MapLoader\ChunkFunctions.vb" />
     <Compile Include="Forms\frmLoadOptions.designer.vb">
@@ -249,9 +238,6 @@
     <Compile Include="TextureEngine\TextureLoaders.vb" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Forms\frmCameraOptions.resx">
-      <DependentUpon>frmCameraOptions.vb</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmLightSettings.resx">
       <DependentUpon>frmLightSettings.vb</DependentUpon>
     </EmbeddedResource>
@@ -272,9 +258,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmLoadOptions.resx">
       <DependentUpon>frmLoadOptions.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmTerrainOptions.resx">
-      <DependentUpon>frmTerrainOptions.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="My Project\Resources.resx">
       <Generator>VbMyResourcesResXFileCodeGenerator</Generator>

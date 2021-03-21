@@ -196,7 +196,8 @@ Public Class frmMain
     End Sub
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
-        Me.Text = Application.ProductName & " " & Application.ProductVersion
+        Text = Application.ProductName & " " & Application.ProductVersion
+        PropertyGrid1.SelectedObject = New SettingsPropertyGrid()
 
         If My.Settings.UpgradeRequired Then
             My.Settings.Upgrade()
@@ -512,10 +513,10 @@ try_again:
 
         'Everything is setup/loaded to show the main window.
         'Dispose of the no longer used Panel1
-        'Panel1.Visible = False
-        'Me.Controls.Remove(Panel1)
-        'Panel1.Dispose()
-        'glControl_main.BringToFront()
+        Panel1.Visible = False
+        Me.Controls.Remove(Panel1)
+        Panel1.Dispose()
+        glControl_main.BringToFront()
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
         'Must load and hide frmLighting to access its functions.
@@ -1079,10 +1080,6 @@ try_again:
         frmScreenCap.ShowDialog()
     End Sub
 
-    Private Sub m_camera_options_Click(sender As Object, e As EventArgs) Handles m_camera_options.Click
-        frmCameraOptions.Visible = True
-    End Sub
-
     Private Sub SplitContainer1_SplitterMoved(sender As Object, e As SplitterEventArgs) Handles SplitContainer1.SplitterMoved
         If Not _STARTED Then Return
         If Not sp_moved Then Return
@@ -1102,7 +1099,15 @@ try_again:
         sp_moved = True
     End Sub
 
-    Private Sub TerrainOptionsToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles TerrainOptionsToolStripMenuItem.Click
-        frmTerrainOptions.Show()
+    Private Sub ShowPropertiesToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles ShowPropertiesToolStripMenuItem.Click
+        ShowPropertiesToolStripMenuItem.Checked = Not ShowPropertiesToolStripMenuItem.Checked
+        If ShowPropertiesToolStripMenuItem.Checked Then
+            PropertyGrid1.Parent = SplitContainer1.Panel2
+            SplitContainer1.Panel2Collapsed = False
+            SP2_Width = 225
+            SplitContainer1.SplitterDistance = (ClientSize.Width) - SP2_Width
+        Else
+            SplitContainer1.Panel2Collapsed = True
+        End If
     End Sub
 End Class

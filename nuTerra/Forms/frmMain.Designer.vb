@@ -42,7 +42,6 @@ Partial Class frmMain
         Me.m_developer = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_block_loading = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_show_gbuffer = New System.Windows.Forms.ToolStripMenuItem()
-        Me.m_camera_options = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_screen_capture = New System.Windows.Forms.ToolStripMenuItem()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
@@ -50,7 +49,8 @@ Partial Class frmMain
         Me.map_loader = New System.Windows.Forms.Timer(Me.components)
         Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.Panel1 = New System.Windows.Forms.Panel()
-        Me.TerrainOptionsToolStripMenuItem = New System.Windows.Forms.ToolStripMenuItem()
+        Me.PropertyGrid1 = New System.Windows.Forms.PropertyGrid()
+        Me.ShowPropertiesToolStripMenuItem = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer1.SuspendLayout()
@@ -125,7 +125,7 @@ Partial Class frmMain
         'm_settings
         '
         Me.m_settings.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_settings.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_set_game_path, Me.ToolStripSeparator3, Me.m_show_light_pos})
+        Me.m_settings.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_set_game_path, Me.ToolStripSeparator3, Me.m_show_light_pos, Me.ShowPropertiesToolStripMenuItem})
         Me.m_settings.ForeColor = System.Drawing.Color.Black
         Me.m_settings.Name = "m_settings"
         Me.m_settings.Size = New System.Drawing.Size(61, 20)
@@ -164,7 +164,7 @@ Partial Class frmMain
         'm_developer
         '
         Me.m_developer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_block_loading, Me.m_show_gbuffer, Me.m_camera_options, Me.TerrainOptionsToolStripMenuItem})
+        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_block_loading, Me.m_show_gbuffer})
         Me.m_developer.ForeColor = System.Drawing.Color.Black
         Me.m_developer.Name = "m_developer"
         Me.m_developer.Size = New System.Drawing.Size(102, 20)
@@ -184,12 +184,6 @@ Partial Class frmMain
         Me.m_show_gbuffer.Name = "m_show_gbuffer"
         Me.m_show_gbuffer.Size = New System.Drawing.Size(195, 22)
         Me.m_show_gbuffer.Text = "Show Gbuffer Textures"
-        '
-        'm_camera_options
-        '
-        Me.m_camera_options.Name = "m_camera_options"
-        Me.m_camera_options.Size = New System.Drawing.Size(195, 22)
-        Me.m_camera_options.Text = "Camera Options"
         '
         'm_help
         '
@@ -245,11 +239,23 @@ Partial Class frmMain
         Me.Panel1.Size = New System.Drawing.Size(956, 655)
         Me.Panel1.TabIndex = 2
         '
-        'TerrainOptionsToolStripMenuItem
+        'PropertyGrid1
         '
-        Me.TerrainOptionsToolStripMenuItem.Name = "TerrainOptionsToolStripMenuItem"
-        Me.TerrainOptionsToolStripMenuItem.Size = New System.Drawing.Size(195, 22)
-        Me.TerrainOptionsToolStripMenuItem.Text = "Terrain Options"
+        Me.PropertyGrid1.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.PropertyGrid1.HelpVisible = False
+        Me.PropertyGrid1.Location = New System.Drawing.Point(630, 0)
+        Me.PropertyGrid1.Name = "PropertyGrid1"
+        Me.PropertyGrid1.PropertySort = System.Windows.Forms.PropertySort.Categorized
+        Me.PropertyGrid1.Size = New System.Drawing.Size(326, 655)
+        Me.PropertyGrid1.TabIndex = 0
+        Me.PropertyGrid1.ToolbarVisible = False
+        Me.PropertyGrid1.ViewBackColor = System.Drawing.Color.White
+        '
+        'ShowPropertiesToolStripMenuItem
+        '
+        Me.ShowPropertiesToolStripMenuItem.Name = "ShowPropertiesToolStripMenuItem"
+        Me.ShowPropertiesToolStripMenuItem.Size = New System.Drawing.Size(321, 22)
+        Me.ShowPropertiesToolStripMenuItem.Text = "Show Properties"
         '
         'frmMain
         '
@@ -299,7 +305,7 @@ Partial Class frmMain
     Friend WithEvents ToolStripSeparator5 As System.Windows.Forms.ToolStripSeparator
     Friend WithEvents map_loader As System.Windows.Forms.Timer
     Friend WithEvents m_screen_capture As System.Windows.Forms.ToolStripMenuItem
-    Friend WithEvents m_camera_options As ToolStripMenuItem
     Friend WithEvents SplitContainer1 As SplitContainer
-    Friend WithEvents TerrainOptionsToolStripMenuItem As ToolStripMenuItem
+    Friend WithEvents PropertyGrid1 As PropertyGrid
+    Friend WithEvents ShowPropertiesToolStripMenuItem As ToolStripMenuItem
 End Class

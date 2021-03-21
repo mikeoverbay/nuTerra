@@ -6,13 +6,23 @@ Imports Tao.DevIl
 NotInheritable Class MapMenuScreen
     Const MAX_NUM_COLUMNS = 7
     Const IMG_SPACE = 15.0
-    Const IMG_WIDTH = 120.0
-    Const IMG_HEIGHT = 72.0
     Const IMG_GROW_SPEED = 2.0
     Const IMG_SHRINK_SPEED = 1.0
     Const IMG_MAX_SCALE = 1.5
     Const IMG_MIN_SCALE = 1.0
     Shared MAP_NAME_COLOR = Color.Gray
+
+    Shared ReadOnly Property ImgWidth
+        Get
+            Return 120.0 * My.Settings.UI_map_icon_scale
+        End Get
+    End Property
+
+    Shared ReadOnly Property ImgHeight
+        Get
+            Return 72.0 * My.Settings.UI_map_icon_scale
+        End Get
+    End Property
 
     Public Shared SelectedMap As MapItem
     Shared MapPickList As New List(Of MapItem)
@@ -46,8 +56,8 @@ NotInheritable Class MapMenuScreen
                 End If
             End If
 
-            Dim lt = New Point(-IMG_WIDTH / 2 * scale, -IMG_HEIGHT / 2 * scale) + location
-            rect = New Rectangle(Math.Max(0, lt.X), lt.Y, IMG_WIDTH * scale, IMG_HEIGHT * scale)
+            Dim lt = New Point(-ImgWidth / 2 * scale, -ImgHeight / 2 * scale) + location
+            rect = New Rectangle(Math.Max(0, lt.X), lt.Y, ImgWidth * scale, ImgHeight * scale)
         End Sub
 
         Public Sub draw()
@@ -66,7 +76,7 @@ NotInheritable Class MapMenuScreen
             Dim brush_ = New SolidBrush(colourBase)
             DrawMapPickText.DrawString(realname, lucid_console, brush_, New PointF(0, 0))
 
-            draw_image_rectangle(New Rectangle(rect.X, rect.Y, IMG_WIDTH, 20), DrawMapPickText.Gettexture, False)
+            draw_image_rectangle(New Rectangle(rect.X, rect.Y, ImgWidth, 20), DrawMapPickText.Gettexture, False)
         End Sub
 
         Public Function CompareTo(other As MapItem) As Integer Implements System.IComparable(Of MapItem).CompareTo
@@ -143,7 +153,7 @@ NotInheritable Class MapMenuScreen
             End If
         Next
 
-        DrawMapPickText.TextRenderer(IMG_WIDTH, 20)
+        DrawMapPickText.TextRenderer(ImgWidth, 20)
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
         Ortho_main()
@@ -162,9 +172,9 @@ NotInheritable Class MapMenuScreen
 
         draw_image_rectangle(New RectangleF(0, 0, w, h), MAP_SELECT_BACKGROUND_ID, False)
 
-        Dim num_columns = Math.Max(1, Math.Min(MAX_NUM_COLUMNS, Math.Floor(w / (IMG_WIDTH + IMG_SPACE))))
+        Dim num_columns = Math.Max(1, Math.Min(MAX_NUM_COLUMNS, Math.Floor(w / (ImgWidth + IMG_SPACE))))
         Dim space_cnt = (num_columns - 1) * IMG_SPACE
-        Dim border = (w - ((num_columns * IMG_WIDTH) + space_cnt)) / 2
+        Dim border = (w - ((num_columns * ImgWidth) + space_cnt)) / 2
 
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
@@ -173,8 +183,8 @@ NotInheritable Class MapMenuScreen
             Dim row = i \ num_columns
             Dim column = i Mod num_columns
 
-            Dim hi = column * (IMG_WIDTH + IMG_SPACE) + border + IMG_WIDTH / 2
-            Dim vi = row * (IMG_HEIGHT + IMG_SPACE) + IMG_HEIGHT - IMG_SPACE
+            Dim hi = column * (ImgWidth + IMG_SPACE) + border + ImgWidth / 2
+            Dim vi = row * (ImgHeight + IMG_SPACE) + ImgHeight - IMG_SPACE
 
             MapPickList(i).calc_rect(New Point(hi, vi))
 
