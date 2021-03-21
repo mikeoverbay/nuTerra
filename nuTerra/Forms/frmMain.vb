@@ -178,7 +178,6 @@ Public Class frmMain
                 WASD_VECTOR.Y = 1
 
         End Select
-        PropertyGrid1.Refresh()
     End Sub
 
     Private Sub frmMain_KeyUp(sender As Object, e As KeyEventArgs) Handles Me.KeyUp
@@ -265,7 +264,7 @@ Public Class frmMain
         If Not Me.WindowState = FormWindowState.Minimized Then
             FBOm.FBO_Initialize()
         End If
-
+        MapMenuScreen.Invalidate()
     End Sub
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
@@ -854,8 +853,10 @@ try_again:
         End If
     End Sub
 
-    Private Sub glControl_main_MouseEnter(sender As Object, e As EventArgs) Handles glControl_main.MouseEnter
-
+    Private Sub glControl_main_MouseWheel(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseWheel
+        If SHOW_MAPS_SCREEN Then
+            MapMenuScreen.Scroll(e.Delta)
+        End If
     End Sub
 
     Private Sub glControl_main_MouseUp(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseUp

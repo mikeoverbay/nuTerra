@@ -112,6 +112,7 @@ Public Class SettingsPropertyGrid
         Set(value As Single)
             If value > 0.0 Then
                 My.Settings.UI_map_icon_scale = value
+                MapMenuScreen.Invalidate()
             End If
         End Set
         Get
