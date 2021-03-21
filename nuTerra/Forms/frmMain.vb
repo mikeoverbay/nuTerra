@@ -332,7 +332,7 @@ Public Class frmMain
         glControl_main.MakeCurrent()
         ' SHOULD BE THERE: remove_map_data()
         SHOW_MAPS_SCREEN = True
-        SelectedMap = Nothing
+        MapMenuScreen.SelectedMap = Nothing
     End Sub
 
     Private Sub m_set_game_path_Click(sender As Object, e As EventArgs) Handles m_set_game_path.Click
@@ -512,10 +512,10 @@ try_again:
 
         'Everything is setup/loaded to show the main window.
         'Dispose of the no longer used Panel1
-        Panel1.Visible = False
-        Me.Controls.Remove(Panel1)
-        Panel1.Dispose()
-        glControl_main.BringToFront()
+        'Panel1.Visible = False
+        'Me.Controls.Remove(Panel1)
+        'Panel1.Dispose()
+        'glControl_main.BringToFront()
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
         'Must load and hide frmLighting to access its functions.
@@ -570,7 +570,7 @@ try_again:
 
         '---------------------------------------------------------
         'Loads the textures for the map selection routines
-        make_map_pick_buttons()
+        MapMenuScreen.make_map_pick_buttons()
         '---------------------------------------------------------
 
         '==========================================================
@@ -827,14 +827,14 @@ try_again:
 
         If SHOW_MAPS_SCREEN Then
             If e.Button = Forms.MouseButtons.Left Then
-                If SelectedMap Is Nothing And MAP_LOADED Then
+                If MapMenuScreen.SelectedMap Is Nothing And MAP_LOADED Then
                     SHOW_MAPS_SCREEN = False
                     Application.DoEvents()
-                ElseIf SelectedMap IsNot Nothing Then
+                ElseIf MapMenuScreen.SelectedMap IsNot Nothing Then
                     Me.Text = String.Format("{0} {1} : {2}",
                                             Application.ProductName,
                                             Application.ProductVersion,
-                                            SelectedMap.realname)
+                                            MapMenuScreen.SelectedMap.realname)
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
                     MOUSE.X = 0

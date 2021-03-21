@@ -1,25 +1,23 @@
 ﻿Imports System.IO
 Imports NGettext
-Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
 
-Module MapMenuScreen
+NotInheritable Class MapMenuScreen
+    Const MAX_NUM_COLUMNS = 7
+    Const IMG_SPACE = 15.0
+    Const IMG_WIDTH = 120.0
+    Const IMG_HEIGHT = 72.0
+    Const IMG_GROW_SPEED = 2.0
+    Const IMG_SHRINK_SPEED = 1.0
+    Const IMG_MAX_SCALE = 1.5
+    Const IMG_MIN_SCALE = 1.0
+    Shared MAP_NAME_COLOR = Color.Gray
 
-    Private Const MAX_NUM_COLUMNS = 7
-    Private Const IMG_SPACE = 15.0
-    Private Const IMG_WIDTH = 120.0
-    Private Const IMG_HEIGHT = 72.0
-    Private Const IMG_GROW_SPEED = 2.0
-    Private Const IMG_SHRINK_SPEED = 1.0
-    Private Const IMG_MAX_SCALE = 1.5
-    Private Const IMG_MIN_SCALE = 1.0
-    Private MAP_NAME_COLOR = Color.Gray
+    Public Shared SelectedMap As MapItem
+    Shared MapPickList As New List(Of MapItem)
 
-    Public SelectedMap As MapItem
-    Private MapPickList As New List(Of MapItem)
-
-    Public Class MapItem : Implements IComparable(Of MapItem)
+    Class MapItem : Implements IComparable(Of MapItem)
         Public map_image As GLTexture
         Public rect As Rectangle
 
@@ -27,10 +25,10 @@ Module MapMenuScreen
         Public realname As String
         Public discription As String
 
-        Private scale As Single = 1.0
+        Private scale As Single = IMG_MIN_SCALE
         Public unit_size As Boolean
 
-        Public Sub calc_rect(location As Vector2)
+        Public Sub calc_rect(location As Point)
             If Me Is SelectedMap And Not FINISH_MAPS Then
                 If Not (IMG_GROW_SPEED * DELTA_TIME) + scale >= IMG_MAX_SCALE Then
                     scale += (IMG_GROW_SPEED * DELTA_TIME)
@@ -48,10 +46,8 @@ Module MapMenuScreen
                 End If
             End If
 
-            Dim lt = New Vector2(-IMG_WIDTH / 2, -IMG_HEIGHT / 2) * scale + location
-            Dim rb = New Vector2(IMG_WIDTH, IMG_HEIGHT) * scale
-
-            rect = New Rectangle(Math.Max(0, lt.X), lt.Y, rb.X, rb.Y)
+            Dim lt = New Point(-IMG_WIDTH / 2 * scale, -IMG_HEIGHT / 2 * scale) + location
+            rect = New Rectangle(Math.Max(0, lt.X), lt.Y, IMG_WIDTH * scale, IMG_HEIGHT * scale)
         End Sub
 
         Public Sub draw()
@@ -61,7 +57,7 @@ Module MapMenuScreen
             ' draw text overlay
             DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
 
-            Dim d = (scale - 1.0F) / 0.5F
+            Dim d = (scale - IMG_MIN_SCALE) / (IMG_MAX_SCALE - IMG_MIN_SCALE)
             Dim colour = Color.FromArgb(0, CInt(d * 127), CInt(d * 127), CInt(d * 127))
             Dim colourBase = Color.FromArgb(MAP_NAME_COLOR.A + colour.A,
                                             MAP_NAME_COLOR.R + colour.R,
@@ -78,7 +74,7 @@ Module MapMenuScreen
         End Function
     End Class
 
-    Public Sub make_map_pick_buttons()
+    Public Shared Sub make_map_pick_buttons()
         ' open arenas.mo
         Dim arenas_mo_path = Path.Combine(My.Settings.GamePath, "res/text/lc_messages/arenas.mo")
         Dim arenas_mo_catalog As Catalog
@@ -134,7 +130,7 @@ Module MapMenuScreen
         End Using
     End Sub
 
-    Public Sub gl_pick_map()
+    Public Shared Sub gl_pick_map()
         ' reset old selected
         SelectedMap = Nothing
 
@@ -180,7 +176,7 @@ Module MapMenuScreen
             Dim hi = column * (IMG_WIDTH + IMG_SPACE) + border + IMG_WIDTH / 2
             Dim vi = row * (IMG_HEIGHT + IMG_SPACE) + IMG_HEIGHT - IMG_SPACE
 
-            MapPickList(i).calc_rect(New Vector2(hi, vi))
+            MapPickList(i).calc_rect(New Point(hi, vi))
 
             If MapPickList(i) Is SelectedMap Then
                 Continue For
@@ -217,4 +213,4 @@ Module MapMenuScreen
         End If
 
     End Sub
-End Module
+End Class

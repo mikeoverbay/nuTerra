@@ -53,7 +53,7 @@ Module modRender
 
         GL.FrontFace(FrontFaceDirection.Ccw)
         If SHOW_MAPS_SCREEN Then
-            gl_pick_map()
+            MapMenuScreen.gl_pick_map()
             Return
         End If
         If SHOW_LOADING_SCREEN Then
