@@ -190,8 +190,6 @@ NotInheritable Class MapMenuScreen
 
         'need to create this texture.
         DrawMapPickText.TextRenderer(300, 30)
-
-        Invalidate()
     End Sub
 
     Public Shared Sub gl_pick_map()
