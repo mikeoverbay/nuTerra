@@ -182,6 +182,7 @@ NotInheritable Class MapMenuScreen
         For i = 0 To MapPickList.Count - 1
             If MapPickList(i).rect.Contains(MOUSE) Then
                 MAP_NAME_NO_PATH = MapPickList(i).name
+                description_string = MapPickList(i).discription
                 SelectedMap = MapPickList(i)
                 Exit For
             End If
