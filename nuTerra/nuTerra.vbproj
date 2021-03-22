@@ -82,14 +82,13 @@
     <LargeAddressAware>true</LargeAddressAware>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="DotNetZip, Version=1.15.0.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">
+      <HintPath>..\packages\DotNetZip.1.15.0\lib\net40\DotNetZip.dll</HintPath>
+    </Reference>
     <Reference Include="FastColoredTextBox, Version=2.16.24.0, Culture=neutral, PublicKeyToken=fb8aa12b994ef61b, processorArchitecture=MSIL">
       <HintPath>..\packages\FCTB.2.16.24\lib\FastColoredTextBox.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Ionic.Zip">
-      <HintPath>.\Ionic.Zip.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.CSharp" />
     <Reference Include="NGettext, Version=0.6.1.0, Culture=neutral, PublicKeyToken=08d3d1c89dfd2985, processorArchitecture=MSIL">
       <HintPath>..\packages\NGettext.0.6.6\lib\net46\NGettext.dll</HintPath>
     </Reference>
@@ -99,19 +98,17 @@
     <Reference Include="OpenTK.GLControl, Version=3.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
       <HintPath>..\packages\OpenTK.GLControl.3.1.0\lib\net20\OpenTK.GLControl.dll</HintPath>
     </Reference>
-    <Reference Include="Pngcs">
+    <Reference Include="Pngcs, Version=1.1.4.1, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>.\Pngcs.dll</HintPath>
     </Reference>
-    <Reference Include="PresentationCore" />
     <Reference Include="System" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
-    <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Core" />
     <Reference Include="Tao.DevIl">
       <HintPath>.\Tao.DevIl.dll</HintPath>
     </Reference>
@@ -178,12 +175,6 @@
     <Compile Include="Forms\SettingsPropertyGrid.vb" />
     <Compile Include="GlobalSuppressions.vb" />
     <Compile Include="MapLoader\ChunkFunctions.vb" />
-    <Compile Include="Forms\frmLoadOptions.designer.vb">
-      <DependentUpon>frmLoadOptions.vb</DependentUpon>
-    </Compile>
-    <Compile Include="Forms\frmLoadOptions.vb">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="MapLoader\LQ_Texture_creator.vb" />
     <Compile Include="MapLoader\TerrainBuilder.vb" />
     <Compile Include="MapLoader\TerrainTextureFunctions.vb" />
@@ -255,9 +246,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\frmShowText.resx">
       <DependentUpon>frmShowText.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmLoadOptions.resx">
-      <DependentUpon>frmLoadOptions.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="My Project\Resources.resx">
       <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
@@ -598,9 +586,6 @@
     <Content Include="HTML\top_frame.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="ICSharpCode.SharpZipLib.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="ILU.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -608,9 +593,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="PBR_Source.txt" />
-    <Content Include="Pngcs.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="Resources\256x256_Noise_Texture.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

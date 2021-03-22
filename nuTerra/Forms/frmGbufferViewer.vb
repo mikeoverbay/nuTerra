@@ -142,8 +142,8 @@ Public Class frmGbufferViewer
 
                 FBOm.gDepth.BindUnit(0)
                 GL.Uniform1(toLinearShader("imageMap"), 0)
-                GL.Uniform1(toLinearShader("far"), PRESPECTIVE_FAR)
-                GL.Uniform1(toLinearShader("near"), PRESPECTIVE_NEAR)
+                GL.Uniform1(toLinearShader("far"), My.Settings.far)
+                GL.Uniform1(toLinearShader("near"), My.Settings.near)
                 GL.UniformMatrix4(toLinearShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
 
                 Dim rect As New RectangleF(rect_location.X, rect_location.Y, rect_size.X, rect_size.Y)
@@ -225,7 +225,6 @@ Public Class frmGbufferViewer
         Dim s As New Vector2(v.X / p.X, v.Y / p.Y)
 
         image.BindUnit(0)
-        GL.Uniform1(image2dShader("imageMap"), 0)
         GL.Uniform2(image2dShader("uv_scale"), s.X, s.Y)
         GL.Uniform2(image2dShader("uv_scale"), 1, 1)
 

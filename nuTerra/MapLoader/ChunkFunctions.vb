@@ -467,7 +467,7 @@ Module ChunkFunctions
             ReDim data(iInfo.Cols * iInfo.Cols * 4)
             Dim iline As ImageLine  ' create place to hold a scan line
             For i = 0 To iInfo.Cols - 1
-                iline = rdr.GetRow(i)
+                iline = rdr.ReadRow(i)
                 For j = 0 To iline.Scanline.Length - 1
                     'get the line and convert from word to byte and save in our buffer 'data'
                     Dim bytes() As Byte = BitConverter.GetBytes(iline.Scanline(j))

@@ -104,7 +104,7 @@ Public Class frmMain
                     SSAA_text = "SSAA Off"
                 End If
             Case Keys.F9
-                SHOW_LOD_COLORS = SHOW_LOD_COLORS Xor 1
+                SHOW_LOD_COLORS = SHOW_LOD_COLORS Xor True
                 '-------------------------------
             Case Keys.B
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
@@ -264,7 +264,7 @@ Public Class frmMain
         If Not Me.WindowState = FormWindowState.Minimized Then
             FBOm.FBO_Initialize()
         End If
-
+        MapMenuScreen.Invalidate()
     End Sub
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
@@ -359,11 +359,6 @@ try_again:
     Private Sub m_show_gbuffer_Click(sender As Object, e As EventArgs) Handles m_show_gbuffer.Click
         'Shows the Gbuffer Viwer.
         frmGbufferViewer.Visible = True
-    End Sub
-
-    Private Sub m_block_loading_Click(sender As Object, e As EventArgs) Handles m_block_loading.Click
-        'Opens the window to chose what to block from loading.
-        frmLoadOptions.Visible = True
     End Sub
 
     Private Sub m_shut_down_Click(sender As Object, e As EventArgs) Handles m_shut_down.Click
@@ -858,8 +853,10 @@ try_again:
         End If
     End Sub
 
-    Private Sub glControl_main_MouseEnter(sender As Object, e As EventArgs) Handles glControl_main.MouseEnter
-
+    Private Sub glControl_main_MouseWheel(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseWheel
+        If SHOW_MAPS_SCREEN Then
+            MapMenuScreen.Scroll(e.Delta)
+        End If
     End Sub
 
     Private Sub glControl_main_MouseUp(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseUp

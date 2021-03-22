@@ -88,7 +88,7 @@ Module modGlobalVars
     Public PICK_MODELS As Boolean = False
     Public DONT_HIDE_HUD As Boolean = True
     Public DONT_HIDE_MINIMAP As Boolean = True
-    Public SHOW_LOD_COLORS As Integer
+    Public SHOW_LOD_COLORS As Boolean
     'ascii characters
     Public ASCII_ID As GLTexture
     'wire flags
@@ -148,8 +148,6 @@ Module modGlobalVars
     Public SUN_CAMERA As New Matrix4
     Public PROJECTIONMATRIX As New Matrix4
     Public VIEWMATRIX As New Matrix4
-    Public PRESPECTIVE_NEAR As Single = 0.1F
-    Public PRESPECTIVE_FAR As Single = 20000.0F
     '============================================================
     'Map related
     Public PLAYER_FIELD_CELL_SIZE As Single

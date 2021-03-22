@@ -127,15 +127,7 @@ Module MapLoader
         WATER_LOADED = False
         '===============================================================
 
-        '===============================================================
-        'Get block state of things we want to block loading to speed things up for testing/debugging
-        DONT_BLOCK_BASES = My.Settings.load_bases
-        DONT_BLOCK_DECALS = My.Settings.load_decals
-        DONT_BLOCK_MODELS = My.Settings.load_models
-        DONT_BLOCK_SKY = My.Settings.load_sky
-        DONT_BLOCK_TERRAIN = My.Settings.load_terrain
-        DONT_BLOCK_TREES = My.Settings.load_trees
-        DONT_BLOCK_WATER = My.Settings.load_water
+
         '===============================================================
 
         '===============================================================
@@ -487,8 +479,10 @@ Module MapLoader
         '===============================================================
         'We need to get the Y location of the rings and stop drawing overly tall cubes.
         'It only needs to happen once!
-        T1_Y = get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)
-        T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
+        If BASE_RINGS_LOADED Then
+            T1_Y = get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)
+            T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
+        End If
         '===============================================================
         'make some test lights
         LIGHTS.light_SSBO = Nothing ' reset ssbo

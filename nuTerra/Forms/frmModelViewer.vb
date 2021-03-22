@@ -362,7 +362,7 @@ Public Class frmModelViewer
         PROJECT = Matrix4.CreatePerspectiveFieldOfView(
                                    FieldOfView,
                                    glControl_modelView.ClientSize.Width / CSng(glControl_modelView.ClientSize.Height),
-                                   PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
+                                   My.Settings.near, My.Settings.far)
         VIEW = Matrix4.LookAt(MV_CAM_POS, target, Vector3.UnitY)
         VIEWPROJECT = VIEW * PROJECT
 

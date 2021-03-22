@@ -8,7 +8,7 @@ Imports System.ComponentModel
 
 Module modOpenGL
     Public defaultVao As Integer
-    Public FieldOfView As Single = CSng(Math.PI) * (60 / 180.0F)
+    Public FieldOfView As Single
 
     Public Function GetMaxGLVersion() As Tuple(Of Integer, Integer)
         Dim tmpControl = New GLControl()
@@ -180,7 +180,7 @@ Module modOpenGL
         PerViewData.projection = Matrix4.CreatePerspectiveFieldOfView(
                                    FieldOfView,
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
-                                   PRESPECTIVE_NEAR, PRESPECTIVE_FAR)
+                                   My.Settings.near, My.Settings.far)
 #If True Then ' reverse depth
         PerViewData.projection.M33 *= -1
         PerViewData.projection.M33 -= 1
@@ -243,7 +243,6 @@ Module modOpenGL
             Else
                 image2dShader.Use()
                 image.BindUnit(0)
-                GL.Uniform1(image2dShader("imageMap"), 0)
                 GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
                 GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
                 GL.Uniform4(image2dShader("rect"),
@@ -273,7 +272,6 @@ Module modOpenGL
             image2dShader.Use()
 
             image.BindUnit(0)
-            GL.Uniform1(image2dShader("imageMap"), 0)
             GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
 
             GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)

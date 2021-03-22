@@ -12,6 +12,13 @@ NotInheritable Class MapMenuScreen
     Const IMG_MIN_SCALE = 1.0
     Shared MAP_NAME_COLOR = Color.Gray
 
+    Shared space_cnt As Integer
+    Shared border As Integer
+    Shared num_columns As Integer
+    Shared num_rows As Integer
+    Shared scrollpane_y As Integer
+    Shared scrollpane_height As Integer
+
     Shared ReadOnly Property ImgWidth
         Get
             Return 120.0 * My.Settings.UI_map_icon_scale
@@ -26,6 +33,31 @@ NotInheritable Class MapMenuScreen
 
     Public Shared SelectedMap As MapItem
     Shared MapPickList As New List(Of MapItem)
+
+    Public Shared Sub Invalidate()
+        Dim w = frmMain.glControl_main.Width
+        scrollpane_y = 0
+
+        num_columns = Math.Max(1, Math.Min(MAX_NUM_COLUMNS, Math.Floor(w / (ImgWidth + IMG_SPACE))))
+        num_rows = Math.Ceiling(MapPickList.Count / num_columns)
+
+        space_cnt = (num_columns - 1) * IMG_SPACE
+        border = (w - ((num_columns * ImgWidth) + space_cnt)) / 2
+
+        scrollpane_height = num_rows * (ImgHeight + IMG_SPACE) + ImgHeight - IMG_SPACE
+    End Sub
+
+    Public Shared Sub Scroll(delta As Integer)
+        Dim h = frmMain.glControl_main.Height
+        If scrollpane_height < h Then
+            Return
+        End If
+        If delta < 0 Then
+            scrollpane_y = Math.Max(scrollpane_y + delta, -(scrollpane_height - h))
+        ElseIf delta > 0 Then
+            scrollpane_y = Math.Min(scrollpane_y + delta, 0)
+        End If
+    End Sub
 
     Class MapItem : Implements IComparable(Of MapItem)
         Public map_image As GLTexture
@@ -138,6 +170,8 @@ NotInheritable Class MapMenuScreen
             entry2.Extract(ms)
             MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
         End Using
+
+        Invalidate()
     End Sub
 
     Public Shared Sub gl_pick_map()
@@ -172,10 +206,6 @@ NotInheritable Class MapMenuScreen
 
         draw_image_rectangle(New RectangleF(0, 0, w, h), MAP_SELECT_BACKGROUND_ID, False)
 
-        Dim num_columns = Math.Max(1, Math.Min(MAX_NUM_COLUMNS, Math.Floor(w / (ImgWidth + IMG_SPACE))))
-        Dim space_cnt = (num_columns - 1) * IMG_SPACE
-        Dim border = (w - ((num_columns * ImgWidth) + space_cnt)) / 2
-
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
@@ -184,7 +214,7 @@ NotInheritable Class MapMenuScreen
             Dim column = i Mod num_columns
 
             Dim hi = column * (ImgWidth + IMG_SPACE) + border + ImgWidth / 2
-            Dim vi = row * (ImgHeight + IMG_SPACE) + ImgHeight - IMG_SPACE
+            Dim vi = scrollpane_y + row * (ImgHeight + IMG_SPACE) + ImgHeight - IMG_SPACE
 
             MapPickList(i).calc_rect(New Point(hi, vi))
 
