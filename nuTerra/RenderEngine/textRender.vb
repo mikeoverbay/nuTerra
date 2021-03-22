@@ -2,7 +2,6 @@
 
 Module textRender
     Public lucid_console As New Font("Lucide Console", 14, FontStyle.Bold, GraphicsUnit.Pixel)
-    Public DrawMapPickText As New DrawText_
     Public Const ASCII_CHARACTERS = "!" & Chr(34) & "#$%&" & Chr(39) & "()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
 
     Public Function build_ascii_characters() As GLTexture
@@ -33,7 +32,7 @@ Module textRender
         Return tex
     End Function
 
-    Public Structure DrawText_
+    Public Class DrawText_
         Private bmp As Bitmap
         Private gfx As System.Drawing.Graphics
         Private texture_ As GLTexture
@@ -87,8 +86,8 @@ Module textRender
         Private Sub uploadBitmap()
 
             If Me.dirty_region <> RectangleF.Empty Then
-                Dim Data = Me.bmp.LockBits(Me.dirty_region, _
-                        System.Drawing.Imaging.ImageLockMode.ReadOnly, _
+                Dim Data = Me.bmp.LockBits(Me.dirty_region,
+                        System.Drawing.Imaging.ImageLockMode.ReadOnly,
                         System.Drawing.Imaging.PixelFormat.Format32bppArgb)
                 Me.texture_.SubImage2D(0,
                         Me.dirty_region.X, Me.dirty_region.Y, Me.dirty_region.Width, Me.dirty_region.Height,
@@ -98,7 +97,7 @@ Module textRender
             End If
 
         End Sub
-    End Structure
+    End Class
 
 
 End Module

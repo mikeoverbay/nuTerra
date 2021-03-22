@@ -330,10 +330,9 @@ Public Class frmMain
         Me.Text = Application.ProductName & " " & Application.ProductVersion
 
         'Runs Map picking code.
+        MapMenuScreen.Invalidate()
         glControl_main.MakeCurrent()
-        ' SHOULD BE THERE: remove_map_data()
         SHOW_MAPS_SCREEN = True
-        MapMenuScreen.SelectedMap = Nothing
     End Sub
 
     Private Sub m_set_game_path_Click(sender As Object, e As EventArgs) Handles m_set_game_path.Click
@@ -657,8 +656,6 @@ try_again:
                 sp + "\resources\checkerboard.png", True, False)
 #End If
         '---------------------------------------------------------
-        'need to create this texture.
-        DrawMapPickText.TextRenderer(300, 30)
 
         'This gets the first GL texture, vertex array and vertex buffer IDs after the static IDs
         'ALL STATIC ITEMS NEED TO BE LOADED BEFORE THIS IS CALLED!!!

@@ -12,6 +12,7 @@ NotInheritable Class MapMenuScreen
     Const IMG_MIN_SCALE = 1.0
     Shared MAP_NAME_COLOR = Color.Gray
 
+    Shared DrawMapPickText As New DrawText_
     Shared space_cnt As Integer
     Shared border As Integer
     Shared num_columns As Integer
@@ -20,22 +21,18 @@ NotInheritable Class MapMenuScreen
     Shared scrollpane_y As Integer
     Shared scrollpane_height As Integer
 
-    Shared ReadOnly Property ImgWidth
-        Get
-            Return 120.0 * My.Settings.UI_map_icon_scale
-        End Get
-    End Property
-
-    Shared ReadOnly Property ImgHeight
-        Get
-            Return 72.0 * My.Settings.UI_map_icon_scale
-        End Get
-    End Property
+    Shared ImgWidth As Single
+    Shared ImgHeight As Single
 
     Public Shared SelectedMap As MapItem
     Shared MapPickList As New List(Of MapItem)
 
     Public Shared Sub Invalidate()
+        SelectedMap = Nothing
+
+        ImgWidth = 120.0 * My.Settings.UI_map_icon_scale
+        ImgHeight = 72.0 * My.Settings.UI_map_icon_scale
+
         Dim w = frmMain.glControl_main.Width
         scrollpane_y = 0
 
@@ -46,22 +43,37 @@ NotInheritable Class MapMenuScreen
         border = (w - ((num_columns * ImgWidth) + space_cnt)) / 2
 
         scrollpane_height = num_rows * (ImgHeight + IMG_SPACE) + ImgHeight - IMG_SPACE
+
+        For Each map In MapPickList
+            map.Invalidate()
+        Next
     End Sub
 
     Public Shared Sub Scroll(delta As Integer)
         scroll_delta = delta
     End Sub
 
-    Class MapItem : Implements IComparable(Of MapItem)
+    Class MapItem
+        Implements IComparable(Of MapItem)
+
         Public map_image As GLTexture
+        Private unscaled_mapname_image As GLTexture
         Public rect As Rectangle
 
         Public name As String
         Public realname As String
         Public discription As String
 
-        Private scale As Single = IMG_MIN_SCALE
+        Private scale As Single
         Public unit_size As Boolean
+
+        Public Sub Invalidate()
+            If unscaled_mapname_image IsNot Nothing Then
+                unscaled_mapname_image.Delete()
+            End If
+            unscaled_mapname_image = Nothing
+            scale = IMG_MIN_SCALE
+        End Sub
 
         Public Sub calc_rect(location As Point)
             If Me Is SelectedMap And Not FINISH_MAPS Then
@@ -89,19 +101,31 @@ NotInheritable Class MapMenuScreen
             ' draw box
             draw_image_rectangle(New Rectangle(rect.X, rect.Y + 20, rect.Width, rect.Height - 10), map_image, False)
 
-            ' draw text overlay
-            DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
+            If unscaled_mapname_image Is Nothing And scale = IMG_MIN_SCALE Then ' cache unsacaled
+                Dim unscaled_mapname_text As New DrawText_
+                unscaled_mapname_text.TextRenderer(ImgWidth, 20)
+                unscaled_mapname_text.clear(Color.FromArgb(0, 0, 0, 255))
+                unscaled_mapname_text.DrawString(realname, lucid_console, New SolidBrush(MAP_NAME_COLOR), New PointF(0, 0))
+                unscaled_mapname_image = unscaled_mapname_text.Gettexture
+            End If
 
-            Dim d = (scale - IMG_MIN_SCALE) / (IMG_MAX_SCALE - IMG_MIN_SCALE)
-            Dim colour = Color.FromArgb(0, CInt(d * 127), CInt(d * 127), CInt(d * 127))
-            Dim colourBase = Color.FromArgb(MAP_NAME_COLOR.A + colour.A,
+            ' draw text overlay
+            If scale = IMG_MIN_SCALE Then
+                draw_image_rectangle(New Rectangle(rect.X, rect.Y, ImgWidth, 20), unscaled_mapname_image, False)
+            Else
+                Dim d = (scale - IMG_MIN_SCALE) / (IMG_MAX_SCALE - IMG_MIN_SCALE)
+                Dim colour = Color.FromArgb(0, CInt(d * 127), CInt(d * 127), CInt(d * 127))
+                Dim colourBase = Color.FromArgb(MAP_NAME_COLOR.A + colour.A,
                                             MAP_NAME_COLOR.R + colour.R,
                                             MAP_NAME_COLOR.G + colour.G,
                                             MAP_NAME_COLOR.B - colour.B)
-            Dim brush_ = New SolidBrush(colourBase)
-            DrawMapPickText.DrawString(realname, lucid_console, brush_, New PointF(0, 0))
+                Dim brush_ As New SolidBrush(colourBase)
 
-            draw_image_rectangle(New Rectangle(rect.X, rect.Y, ImgWidth, 20), DrawMapPickText.Gettexture, False)
+                DrawMapPickText.TextRenderer(ImgWidth, 20)
+                DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
+                DrawMapPickText.DrawString(realname, lucid_console, brush_, New PointF(0, 0))
+                draw_image_rectangle(New Rectangle(rect.X, rect.Y, ImgWidth, 20), DrawMapPickText.Gettexture, False)
+            End If
         End Sub
 
         Public Function CompareTo(other As MapItem) As Integer Implements System.IComparable(Of MapItem).CompareTo
@@ -164,6 +188,9 @@ NotInheritable Class MapMenuScreen
             MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
         End Using
 
+        'need to create this texture.
+        DrawMapPickText.TextRenderer(300, 30)
+
         Invalidate()
     End Sub
 
@@ -187,7 +214,6 @@ NotInheritable Class MapMenuScreen
             End If
         Next
 
-        DrawMapPickText.TextRenderer(ImgWidth, 20)
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
         Ortho_main()
@@ -237,6 +263,9 @@ NotInheritable Class MapMenuScreen
 
         'make it visible
         frmMain.glControl_main.SwapBuffers()
+
+        'we don't need a big fps here
+        Threading.Thread.Sleep(5)
 
         'this checks to see if there are any images drawn oversize
         If FINISH_MAPS Then
