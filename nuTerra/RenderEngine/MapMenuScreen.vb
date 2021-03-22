@@ -16,6 +16,7 @@ NotInheritable Class MapMenuScreen
     Shared border As Integer
     Shared num_columns As Integer
     Shared num_rows As Integer
+    Shared scroll_delta As Single
     Shared scrollpane_y As Integer
     Shared scrollpane_height As Integer
 
@@ -48,15 +49,7 @@ NotInheritable Class MapMenuScreen
     End Sub
 
     Public Shared Sub Scroll(delta As Integer)
-        Dim h = frmMain.glControl_main.Height
-        If scrollpane_height < h Then
-            Return
-        End If
-        If delta < 0 Then
-            scrollpane_y = Math.Max(scrollpane_y + delta, -(scrollpane_height - h))
-        ElseIf delta > 0 Then
-            scrollpane_y = Math.Min(scrollpane_y + delta, 0)
-        End If
+        scroll_delta = delta
     End Sub
 
     Class MapItem : Implements IComparable(Of MapItem)
@@ -175,6 +168,12 @@ NotInheritable Class MapMenuScreen
     End Sub
 
     Public Shared Sub gl_pick_map()
+        Dim w = frmMain.glControl_main.Width
+        Dim h = frmMain.glControl_main.Height
+        If w = 0 Or h = 0 Then
+            Return
+        End If
+
         ' reset old selected
         SelectedMap = Nothing
 
@@ -182,6 +181,7 @@ NotInheritable Class MapMenuScreen
         For i = 0 To MapPickList.Count - 1
             If MapPickList(i).rect.Contains(MOUSE) Then
                 MAP_NAME_NO_PATH = MapPickList(i).name
+                description_string = MapPickList(i).discription
                 SelectedMap = MapPickList(i)
                 Exit For
             End If
@@ -198,10 +198,14 @@ NotInheritable Class MapMenuScreen
         GL.Disable(EnableCap.Blend)
         GL.Disable(EnableCap.DepthTest)
 
-        Dim w = frmMain.glControl_main.Width
-        Dim h = frmMain.glControl_main.Height
-        If w = 0 Or h = 0 Then
-            Return
+        If scrollpane_height > h Then
+            If scroll_delta > 0 Then
+                scrollpane_y = Math.Min(scrollpane_y + 2, 0)
+                scroll_delta -= 1.5
+            ElseIf scroll_delta < 0 Then
+                scrollpane_y = Math.Max(scrollpane_y - 2, -(scrollpane_height - h))
+                scroll_delta += 1.5
+            End If
         End If
 
         draw_image_rectangle(New RectangleF(0, 0, w, h), MAP_SELECT_BACKGROUND_ID, False)
