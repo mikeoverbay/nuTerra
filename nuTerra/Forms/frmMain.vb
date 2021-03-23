@@ -507,6 +507,9 @@ try_again:
         CAM_X_ANGLE = PI / 4
         CAM_Y_ANGLE = -PI / 4
 
+        resize_fbo_main()
+        MapMenuScreen.Invalidate()
+
         'Everything is setup/loaded to show the main window.
         'Dispose of the no longer used Panel1
         Panel1.Visible = False
@@ -633,12 +636,6 @@ try_again:
         NOISE_id =
             load_image_from_file(Il.IL_PNG,
             sp + "\Resources\noise.png", True, True)
-        '===========================================================================================
-        'load noise texture.
-        JITTER_TEXTURE_ID =
-            load_image_from_file(Il.IL_PNG,
-            sp + "\Resources\256x256_Noise_Texture.png", True, True)
-
         '===========================================================================================
         ' needed for terrain atlas textures
         make_dummy_4_layer_atlas()

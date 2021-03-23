@@ -609,7 +609,6 @@ Module modRender
         FBO_mixer_set.gColorArray.BindUnit(22)
         FBO_mixer_set.gNormalArray.BindUnit(23)
         FBO_mixer_set.gGmmArray.BindUnit(24)
-        JITTER_TEXTURE_ID.BindUnit(25)
 
         'water BS
         GL.Uniform3(TerrainShader("waterColor"),
@@ -970,14 +969,12 @@ Module modRender
         Dim tr = TERRAIN_TRIS_DRAWN
 
         Dim cull_t = cull_timer.ElapsedMilliseconds
-        Dim txt = String.Format("Culled: {0} | FPS: {1} | Triangles drawn per frame: {2} | Draw time in Milliseconds: {3}", CULLED_COUNT, FPS_TIME, tr, elapsed)
-        Dim txt2 = String.Format("Cull Time: {0}", cull_t)
+        Dim txt = String.Format("FPS: {0} | Draw time in Milliseconds: {1}", FPS_TIME, elapsed)
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
         'txt = String.Format("HX {0} : HY {1}", HX, HY)
         draw_text(txt, 5.0F, 5.0F, Graphics.Color4.Cyan, False, 1)
-        draw_text(txt2, 5.0F, 24.0F, Graphics.Color4.Cyan, False, 1)
-        draw_text(PICKED_STRING, 5.0F, 43.0F, Graphics.Color4.Yellow, False, 1)
+        draw_text(PICKED_STRING, 5.0F, 24.0F, Graphics.Color4.Yellow, False, 1)
 
         color_keys()
 

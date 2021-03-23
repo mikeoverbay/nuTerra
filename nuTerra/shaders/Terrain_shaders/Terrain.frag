@@ -127,15 +127,10 @@ vec4 convertNormal(vec4 norm){
 
 vec3 ColorCorrect(in vec3 valin){  
     // Gamma correction 
-   return  pow(valin.rgb, vec3(1.0 / 1.3));  
-    
+   return  pow(valin.rgb, vec3(1.0 / 1.3));
 }
 
 /*===========================================================*/
-//http://www.iquilezles.org/www/articles/texturerepetition/texturerepetition.htm
-float sum( vec4 v ) {
-    return v.x+v.y+v.z;
-    }
 
 vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, in out float b)
 {
@@ -164,16 +159,11 @@ vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer)
 
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
-
     vec4 vt = vec4(fs_in.UV.x*100, 0.0, -fs_in.UV.y*100.0, 1.0);   
-
     vec2 out_uv;
-
     out_uv = vec2(-dot(U,vt), dot(V,vt));
     out_uv.xy += vec2(-S.x, S.y);
-
-   return out_uv;
-
+    return out_uv;
     }
 
 /*===========================================================*/
@@ -216,45 +206,32 @@ void main(void)
     // create UV projections
     tuv1 = get_transformed_uv(U1, V1, r1_1, r2_1, s1); 
     tuv2 = get_transformed_uv(U2, V2, r1_2, r2_2, s2);
-
     tuv3 = get_transformed_uv(U3, V3, r1_3, r2_3, s3); 
     tuv4 = get_transformed_uv(U4, V4, r1_4, r2_4, s4);
-
     tuv5 = get_transformed_uv(U5, V5, r1_5, r2_5, s5); 
     tuv6 = get_transformed_uv(U6, V6, r1_6, r2_6, s6);
-
     tuv7 = get_transformed_uv(U7, V7, r1_7, r2_7, s7);
     tuv8 = get_transformed_uv(U8, V8, r1_8, r2_8, s8);
-
 
     // Get AM maps,crop, detilize and set Test outline blend flag
 
     t1 = crop(at1, tuv1, 0.0, B1);
     t2 = crop(at2, tuv2, 0.0, B2);
-
     t3 = crop(at3, tuv3, 0.0, B3);
     t4 = crop(at4, tuv4, 0.0, B4);
-
     t5 = crop(at5, tuv5, 0.0, B5);
     t6 = crop(at6, tuv6, 0.0, B6);
-
     t7 = crop(at7, tuv7, 0.0, B7);
     t8 = crop(at8, tuv8, 0.0, B8);
-
     
     mt1 = crop2(at1, tuv1*0.125, 2.0);
     mt2 = crop2(at2, tuv2*0.125, 2.0);
-
     mt3 = crop2(at3, tuv3*0.125, 2.0);
     mt4 = crop2(at4, tuv4*0.125, 2.0);
-
     mt5 = crop2(at5, tuv5*0.125, 2.0);
     mt6 = crop2(at6, tuv6*0.125, 2.0);
-
     mt7 = crop2(at7, tuv7*0.125, 2.0);
     mt8 = crop2(at8, tuv8*0.125, 2.0);
-
-
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
@@ -316,7 +293,6 @@ void main(void)
     n6.rgb = n6.rgb* min(r2_6.x,1.0) + mn6.rgb*(r2_6.y+1.0);
     n7.rgb = n7.rgb* min(r2_7.x,1.0) + mn7.rgb*(r2_7.y+1.0);
     n8.rgb = n8.rgb* min(r2_8.x,1.0) + mn8.rgb*(r2_8.y+1.0);
-
 
    
     //Get the mix values from the mix textures 1-4 and move to vec2. 
@@ -418,7 +394,6 @@ void main(void)
     MixLevel3 = pow(MixLevel3,vec2(pow_s));
     MixLevel4 = pow(MixLevel4,vec2(pow_s));
 
-
     vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
 
     vec4 m3 = blend(t5, MixLevel3.r, t6 , MixLevel3.g);
@@ -426,7 +401,6 @@ void main(void)
     vec4 m2 = blend(t3, MixLevel2.r, t4 , MixLevel2.g);
 
     vec4 m1 = blend(t1, MixLevel1.r, t2 , MixLevel1.g);
-
 
     vec4 m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4, MixLevel4.r+MixLevel4.g);
 
@@ -458,7 +432,6 @@ void main(void)
     m2 = blend_normal(n3, n4, t3, MixLevel2.r, t4 , MixLevel2.g);
 
     m1 = blend_normal(n1, n2, t1, MixLevel1.r, t2 , MixLevel1.g);
-
 
     m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4, MixLevel4.r+MixLevel4.g);
 

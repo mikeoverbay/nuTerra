@@ -77,7 +77,6 @@ Module modGlobalVars
     Public m_color_id, m_normal_id, m_gmm_id As GLTexture
     '============================================================
     'Render related
-    Public JITTER_TEXTURE_ID As GLTexture
     Public T1_Y As Single
     Public T2_Y As Single
     Public DELTA_TIME As Single

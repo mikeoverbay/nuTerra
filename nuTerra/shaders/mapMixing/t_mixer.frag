@@ -75,7 +75,7 @@ layout(binding = 20) uniform sampler2D mixtexture4;
 
 layout(binding = 21) uniform sampler2D global_AM;
 
-layout(binding = 23) uniform sampler2DArray shadow;
+//layout(binding = 23) uniform sampler2DArray shadow;
 
 uniform int map_id;
 
@@ -108,11 +108,6 @@ vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, floa
  }
 /*===========================================================*/
 
-//http://www.iquilezles.org/www/articles/texturerepetition/texturerepetition.htm
-float sum( vec4 v ) {
-    return v.x+v.y+v.z;
-    }
-
 vec4 crop( sampler2DArray samp, in vec2 uv , in float layer)
 {
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
@@ -132,19 +127,14 @@ vec4 convertNormal(vec4 norm){
 vec3 ColorCorrect(in vec3 valin){  
     // Gamma correction 
    return  pow(valin.rgb, vec3(1.0 / 1.5));  
-    
 }
+
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 S) {
-
     vec4 vt = vec4(fs_in.UV.x*100, 0.0, -fs_in.UV.y*100.0, 1.0);
-
     vec2 out_uv;
-
     out_uv = vec2(-dot(U,vt), dot(V,vt));
     out_uv.xy += vec2(-S.x, S.y);
-
     return out_uv;
-
     }
 /*===========================================================*/
 /*===========================================================*/
@@ -170,38 +160,29 @@ void main(void)
     // create UV projections
     tuv1 = get_transformed_uv(U1, V1, s1); 
     tuv2 = get_transformed_uv(U2, V2, s2);
-
     tuv3 = get_transformed_uv(U3, V3, s3); 
     tuv4 = get_transformed_uv(U4, V4, s4);
-
     tuv5 = get_transformed_uv(U5, V5, s5); 
     tuv6 = get_transformed_uv(U6, V6, s6);
-
     tuv7 = get_transformed_uv(U7, V7, s7);
     tuv8 = get_transformed_uv(U8, V8, s8);
 
     // Get AM maps 
     t1 = crop(at1, tuv1, 0.0);
     t2 = crop(at2, tuv2, 0.0);
-
     t3 = crop(at3, tuv3, 0.0);
     t4 = crop(at4, tuv4, 0.0);
-
     t5 = crop(at5, tuv5, 0.0);
     t6 = crop(at6, tuv6, 0.0);
-
     t7 = crop(at7, tuv7, 0.0);
     t8 = crop(at8, tuv8, 0.0);
 
     mt1 = crop(at1, tuv1*0.125, 2.0);
     mt2 = crop(at2, tuv2*0.125, 2.0);
-
     mt3 = crop(at3, tuv3*0.125, 2.0);
     mt4 = crop(at4, tuv4*0.125, 2.0);
-
     mt5 = crop(at5, tuv5*0.125, 2.0);
     mt6 = crop(at6, tuv6*0.125, 2.0);
-
     mt7 = crop(at7, tuv7*0.125, 2.0);
     mt8 = crop(at8, tuv8*0.125, 2.0);
 
@@ -217,7 +198,6 @@ void main(void)
     n6 = crop(at6, tuv6, 1.0);
     n7 = crop(at7, tuv7, 1.0);
     n8 = crop(at8, tuv8, 1.0);
-
 
     mn1 = crop(at1, tuv1*0.125, 3.0);
     mn2 = crop(at2, tuv2*0.125, 3.0);
@@ -264,8 +244,6 @@ void main(void)
     n6.rgb = n6.rgb* min(r2_6.x,1.0) + mn6.rgb*(r2_6.y+1.0);
     n7.rgb = n7.rgb* min(r2_7.x,1.0) + mn7.rgb*(r2_7.y+1.0);
     n8.rgb = n8.rgb* min(r2_8.x,1.0) + mn8.rgb*(r2_8.y+1.0);
-
-
 
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
@@ -322,7 +300,6 @@ void main(void)
 
     vec4 m1 = blend(t1, MixLevel1.r, t2 , MixLevel1.g);
 
-
     vec4 m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4, MixLevel4.r+MixLevel4.g);
 
     vec4 m6 = blend(m1 ,MixLevel1.r+MixLevel1.g, m2, MixLevel2.r+MixLevel2.g);
@@ -343,17 +320,15 @@ void main(void)
 
     m1 = blend_normal(n1, n2, t1, MixLevel1.r, t2 , MixLevel1.g);
 
-
     m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4, MixLevel4.r+MixLevel4.g);
 
     m6 = blend(m1, MixLevel1.r+MixLevel1.g, m2, MixLevel2.r+MixLevel2.g);
 
     m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
+    float specular = m7.r;
 
-     float specular = m7.r;
-
-     gNormal.xyz = normalize(convertNormal(m7).xyz);
+    gNormal.xyz = normalize(convertNormal(m7).xyz);
 
     gGMF = vec4(0.1, specular, 128.0/255.0, 0.0);
     //vec3 shad = vec3( texture( shadow, vec3(fs_in.UV, float(map_id)) ).r );
