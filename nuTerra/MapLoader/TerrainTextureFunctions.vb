@@ -269,7 +269,6 @@ Module TerrainTextureFunctions
 
             Next
             ms.Dispose()
-            GC.Collect()
 
             '---------------------------------------------------------------------
             'lets get the textures and blend texture.
@@ -416,7 +415,6 @@ Module TerrainTextureFunctions
             sb.AppendLine("")
 
             ms2.Dispose()
-            GC.Collect()
         End With
 
         Return True

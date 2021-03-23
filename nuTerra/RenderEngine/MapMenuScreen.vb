@@ -226,11 +226,11 @@ NotInheritable Class MapMenuScreen
 
         If scrollpane_height > h Then
             If scroll_delta > 0 Then
-                scrollpane_y = Math.Min(scrollpane_y + 2, 0)
-                scroll_delta -= 1.5
+                scrollpane_y = Math.Min(scrollpane_y + 4, 0)
+                scroll_delta -= 5
             ElseIf scroll_delta < 0 Then
-                scrollpane_y = Math.Max(scrollpane_y - 2, -(scrollpane_height - h))
-                scroll_delta += 1.5
+                scrollpane_y = Math.Max(scrollpane_y - 4, -(scrollpane_height - h))
+                scroll_delta += 5
             End If
         End If
 
