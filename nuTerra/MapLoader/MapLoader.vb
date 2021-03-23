@@ -185,16 +185,20 @@ Module MapLoader
             ' Setup Bar graph
             BG_TEXT = "Loading Models..."
             BG_MAX_VALUE = MAP_MODELS.Length - 1
+            BG_VALUE = 0
+            draw_scene()
 
             For i = 0 To MAP_MODELS.Length - 1
                 BG_VALUE = i
                 For Each model In MAP_MODELS(i).modelLods
                     If Not model.junk Then
-                        Application.DoEvents() '<-- Give some time to this app's UI
                         Dim good = get_primitive(model)
                     End If
                 Next
-                draw_scene()
+                If i Mod 10 = 0 Then
+                    Application.DoEvents() '<-- Give some time to this app's UI
+                    draw_scene()
+                End If
             Next
 
             '----------------------------------------------------------------
@@ -703,7 +707,10 @@ Module MapLoader
 
             'update bargraph
             BG_VALUE += 1
-            draw_scene()
+            If BG_VALUE Mod 100 = 0 Then
+                Application.DoEvents() 'stop freezing the UI
+                draw_scene()
+            End If
 
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -757,7 +764,6 @@ Module MapLoader
             Dim fullWidth As Integer
             Dim fullHeight As Integer
             Dim multiplierX, multiplierY As Single
-            Application.DoEvents() 'stop freezing the UI
             For i = 0 To atlasParts.Count - 1
                 Dim coords = atlasParts(i)
 
@@ -867,7 +873,9 @@ Module MapLoader
 
             'update bargraph
             BG_VALUE += 1
-            draw_scene()
+            If BG_VALUE Mod 50 = 0 Then
+                draw_scene()
+            End If
 
             Dim ms As New MemoryStream
             entry.Extract(ms)

@@ -6,7 +6,7 @@ Imports System.Text
 
 Module TerrainBuilder
     Public sb As New StringBuilder
-    Public _Write_texture_info As Boolean = True
+    Public _Write_texture_info As Boolean = False
 
 #Region "Terrain Storage"
     Public Map_wetness As wetness_
@@ -235,6 +235,8 @@ Module TerrainBuilder
         BG_TEXT = "Loading Terrain..."
         BG_MAX_VALUE = theMap.chunks.Length - 1
         BG_VALUE = 0
+        draw_scene()
+
         set_map_bs() 'presets max min values
         For I = 0 To theMap.chunks.Length - 1
             get_location(theMap.chunks(I), I)
@@ -242,8 +244,10 @@ Module TerrainBuilder
             get_heights(theMap.chunks(I), theMap.v_data(I))
             get_mesh(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
             BG_VALUE = I
-            draw_scene()
-            Application.DoEvents()
+            If I Mod 50 = 0 Then
+                draw_scene()
+                Application.DoEvents()
+            End If
         Next
         'needed for fog rendering
         MEAN_MAP_HEIGHT /= TOTAL_HEIGHT_COUNT
@@ -255,11 +259,14 @@ Module TerrainBuilder
         BG_TEXT = "Smoothing Terrain Normals..."
         draw_scene()
 
-        Parallel.For(0, theMap.chunks.Length,
-                     Sub(i As Integer)
-                         smooth_edges(i)
-                         BG_VALUE += 1
-                     End Sub)
+        For i = 0 To theMap.chunks.Length - 1
+            smooth_edges(i)
+            BG_VALUE = i
+            If i Mod 50 = 0 Then
+                draw_scene()
+                Application.DoEvents()
+            End If
+        Next
 
         LogThis(String.Format("Smooth Seams: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Restart()
@@ -271,8 +278,10 @@ Module TerrainBuilder
         For i = 0 To theMap.chunks.Length - 1
             get_layers(i)
             BG_VALUE = i
-            draw_scene()
-            Application.DoEvents()
+            If i Mod 50 = 0 Then
+                draw_scene()
+                Application.DoEvents()
+            End If
         Next
         If _Write_texture_info Then
             LogThis("Saved Texture transform data")
@@ -288,8 +297,10 @@ Module TerrainBuilder
         For i = 0 To theMap.chunks.Length - 1
             build_Terrain_VAO(i)
             BG_VALUE = i
-            draw_scene()
-            Application.DoEvents()
+            If i Mod 50 = 0 Then
+                draw_scene()
+                Application.DoEvents()
+            End If
         Next
         LogThis(String.Format("Build VAO: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Stop()
