@@ -507,6 +507,9 @@ try_again:
         CAM_X_ANGLE = PI / 4
         CAM_Y_ANGLE = -PI / 4
 
+        resize_fbo_main()
+        MapMenuScreen.Invalidate()
+
         'Everything is setup/loaded to show the main window.
         'Dispose of the no longer used Panel1
         Panel1.Visible = False
