@@ -289,7 +289,6 @@ Module LQ_Texture_creator
         'TerrainShader.Use()  '<-------------- Shader Bind
         '------------------------------------------------
         theMap.GLOBAL_AM_ID.BindUnit(21)
-        JITTER_TEXTURE_ID.BindUnit(22)
 
         'pre created shadow masks
         'FBO_ShadowBaker.gBakerColorArray.BindUnit(23)
