@@ -160,7 +160,7 @@ NotInheritable Class MapMenuScreen
             MapPickList.Add(New MapItem With {
                 .name = name,
                 .realname = arenas_mo_catalog.GetString(String.Format("{0}/name", name)).Replace("Winter ", "Wtr "),
-                .discription = arenas_mo_catalog.GetString(String.Format("{0}/description", name))
+                .discription = arenas_mo_catalog.GetString(String.Format("{0}/description", name)).Replace(" ", " ").Replace("—", "-")
             })
         Next
 

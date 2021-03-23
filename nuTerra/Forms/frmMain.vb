@@ -819,10 +819,7 @@ try_again:
 
         If SHOW_MAPS_SCREEN Then
             If e.Button = Forms.MouseButtons.Left Then
-                If MapMenuScreen.SelectedMap Is Nothing And MAP_LOADED Then
-                    SHOW_MAPS_SCREEN = False
-                    Application.DoEvents()
-                ElseIf MapMenuScreen.SelectedMap IsNot Nothing Then
+                If MapMenuScreen.SelectedMap IsNot Nothing Then
                     Me.Text = String.Format("{0} {1} : {2}",
                                             Application.ProductName,
                                             Application.ProductVersion,
