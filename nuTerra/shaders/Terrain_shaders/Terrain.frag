@@ -83,9 +83,6 @@ layout(binding = 22) uniform sampler2DArray textArrayC;
 layout(binding = 23) uniform sampler2DArray textArrayN;
 layout(binding = 24) uniform sampler2DArray textArrayG;
 
-layout(binding = 25) uniform sampler2D NRP_noise;
-
-
 uniform vec3 waterColor;
 uniform float waterAlpha;
 uniform float map_id;
@@ -140,63 +137,31 @@ float sum( vec4 v ) {
     return v.x+v.y+v.z;
     }
 
-vec4 textureNoTile( sampler2DArray samp, in vec2 uv , in float layer, in float flag, in out float b)
+vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, in out float b)
 {
-
-   
-   //if (flag > 0.0 ){
-   if (true){
-
-        vec2  dx_vtc        = dFdx(uv*1024.0);
-        vec2  dy_vtc        = dFdy(uv*1024.0);
-        float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-
-        float mipLevel = 0.5 * log2(delta_max_sqr);
-
-        vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-
-        b =0.0;
-        if (cropped.x < 0.065 ) b = 1.0;
-        if (cropped.x > 0.935 ) b = 1.0;
-        if (cropped.y < 0.065 ) b = 1.0;
-        if (cropped.y > 0.935 ) b = 1.0;
-
-        return textureLod( samp, vec3(cropped, layer), mipLevel);
-
-        }
-
+    vec2  dx_vtc        = dFdx(uv*1024.0);
+    vec2  dy_vtc        = dFdy(uv*1024.0);
+    float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
+    float mipLevel = 0.5 * log2(delta_max_sqr);
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-
     b =0.0;
     if (cropped.x < 0.065 ) b = 1.0;
     if (cropped.x > 0.935 ) b = 1.0;
     if (cropped.y < 0.065 ) b = 1.0;
     if (cropped.y > 0.935 ) b = 1.0;
-
-    // sample variation pattern    
-    float k = texture( NRP_noise, fract(uv)*0.005 ).x; // cheap (cache friendly) lookup    
-    
-    // compute index    
-    float index = k*8.0;
-    float i = floor( index );
-    float f = fract( index );
-
-    // offsets for the different virtual patterns    
-    vec2 offa = sin(vec2(3.0,7.0)*(i+0.0)); // can replace with any other hash    
-    vec2 offb = sin(vec2(3.0,7.0)*(i+1.0)); // can replace with any other hash    
-
-    // compute derivatives for mip-mapping    
-    vec2 dx = dFdx(uv), dy = dFdy(uv);
-    
-    // sample the two closest virtual patterns    
-    vec4 cola = textureGrad( samp, vec3(uv + offa, layer), dx, dy );
-    vec4 colb = textureGrad( samp, vec3(uv + offb, layer), dx, dy );
-
-
-    // interpolate between the two virtual patterns   
-    float s = smoothstep(0.2,0.8,f-0.1 * sum(cola-colb) );
-    return mix( cola, colb, s);
+    return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
+
+vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer)
+{
+    vec2  dx_vtc        = dFdx(uv*1024.0);
+    vec2  dy_vtc        = dFdy(uv*1024.0);
+    float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
+    float mipLevel = 0.5 * log2(delta_max_sqr);
+    vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
+    return textureLod( samp, vec3(cropped, layer), mipLevel);
+    }
+
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 R1, in vec4 R2, in vec4 S) {
 
@@ -264,54 +229,54 @@ void main(void)
 
     // Get AM maps,crop, detilize and set Test outline blend flag
 
-    mt1 = textureNoTile(at1, tuv1*0.125, 2.0, r2_1.z, B1);
-    mt2 = textureNoTile(at2, tuv2*0.125, 2.0, r2_2.z, B2);
+    t1 = crop(at1, tuv1, 0.0, B1);
+    t2 = crop(at2, tuv2, 0.0, B2);
 
-    mt3 = textureNoTile(at3, tuv3*0.125, 2.0, r2_3.z, B3);
-    mt4 = textureNoTile(at4, tuv4*0.125, 2.0, r2_4.z, B4);
+    t3 = crop(at3, tuv3, 0.0, B3);
+    t4 = crop(at4, tuv4, 0.0, B4);
 
-    mt5 = textureNoTile(at5, tuv5*0.125, 2.0, r2_5.z, B5);
-    mt6 = textureNoTile(at6, tuv6*0.125, 2.0, r2_6.z, B6);
+    t5 = crop(at5, tuv5, 0.0, B5);
+    t6 = crop(at6, tuv6, 0.0, B6);
 
-    mt7 = textureNoTile(at7, tuv7*0.125, 2.0, r2_7.z, B7);
-    mt8 = textureNoTile(at8, tuv8*0.125, 2.0, r2_8.z, B8);
-
-    t1 = textureNoTile(at1, tuv1, 0.0, r2_1.z, B1);
-    t2 = textureNoTile(at2, tuv2, 0.0, r2_2.z, B2);
-
-    t3 = textureNoTile(at3, tuv3, 0.0, r2_3.z, B3);
-    t4 = textureNoTile(at4, tuv4, 0.0, r2_4.z, B4);
-
-    t5 = textureNoTile(at5, tuv5, 0.0, r2_5.z, B5);
-    t6 = textureNoTile(at6, tuv6, 0.0, r2_6.z, B6);
-
-    t7 = textureNoTile(at7, tuv7, 0.0, r2_7.z, B7);
-    t8 = textureNoTile(at8, tuv8, 0.0, r2_8.z, B8);
+    t7 = crop(at7, tuv7, 0.0, B7);
+    t8 = crop(at8, tuv8, 0.0, B8);
 
     
+    mt1 = crop2(at1, tuv1*0.125, 2.0);
+    mt2 = crop2(at2, tuv2*0.125, 2.0);
+
+    mt3 = crop2(at3, tuv3*0.125, 2.0);
+    mt4 = crop2(at4, tuv4*0.125, 2.0);
+
+    mt5 = crop2(at5, tuv5*0.125, 2.0);
+    mt6 = crop2(at6, tuv6*0.125, 2.0);
+
+    mt7 = crop2(at7, tuv7*0.125, 2.0);
+    mt8 = crop2(at8, tuv8*0.125, 2.0);
+
 
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    mn1 = textureNoTile(at1, tuv1*0.125, 3.0, r1_1.z, B1);
-    mn2 = textureNoTile(at2, tuv2*0.125, 3.0, r1_2.z, B2);
-    mn3 = textureNoTile(at3, tuv3*0.125, 3.0, r1_3.z, B3);
-    mn4 = textureNoTile(at4, tuv4*0.125, 3.0, r1_4.z, B4);
-    mn5 = textureNoTile(at5, tuv5*0.125, 3.0, r1_5.z, B5);
-    mn6 = textureNoTile(at6, tuv6*0.125, 3.0, r1_6.z, B6);
-    mn7 = textureNoTile(at7, tuv7*0.125, 3.0, r1_7.z, B7);
-    mn8 = textureNoTile(at8, tuv8*0.125, 3.0, r1_8.z, B8);
+    n1 = crop2(at1, tuv1, 1.0);
+    n2 = crop2(at2, tuv2, 1.0);
+    n3 = crop2(at3, tuv3, 1.0);
+    n4 = crop2(at4, tuv4, 1.0);
+    n5 = crop2(at5, tuv5, 1.0);
+    n6 = crop2(at6, tuv6, 1.0);
+    n7 = crop2(at7, tuv7, 1.0);
+    n8 = crop2(at8, tuv8, 1.0);
 
-    n1 = textureNoTile(at1, tuv1, 1.0, r1_1.z, B1);
-    n2 = textureNoTile(at2, tuv2, 1.0, r1_2.z, B2);
-    n3 = textureNoTile(at3, tuv3, 1.0, r1_3.z, B3);
-    n4 = textureNoTile(at4, tuv4, 1.0, r1_4.z, B4);
-    n5 = textureNoTile(at5, tuv5, 1.0, r1_5.z, B5);
-    n6 = textureNoTile(at6, tuv6, 1.0, r1_6.z, B6);
-    n7 = textureNoTile(at7, tuv7, 1.0, r1_7.z, B7);
-    n8 = textureNoTile(at8, tuv8, 1.0, r1_8.z, B8);
+    mn1 = crop2(at1, tuv1*0.125, 3.0);
+    mn2 = crop2(at2, tuv2*0.125, 3.0);
+    mn3 = crop2(at3, tuv3*0.125, 3.0);
+    mn4 = crop2(at4, tuv4*0.125, 3.0);
+    mn5 = crop2(at5, tuv5*0.125, 3.0);
+    mn6 = crop2(at6, tuv6*0.125, 3.0);
+    mn7 = crop2(at7, tuv7*0.125, 3.0);
+    mn8 = crop2(at8, tuv8*0.125, 3.0);
 
     // get the ambient occlusion
     t1.rgb *= n1.b;
@@ -333,6 +298,7 @@ void main(void)
     mt8.rgb *= mn8.b;
 
     //mix macro
+
     t1.rgb = t1.rgb* min(r2_1.x,1.0) + mt1.rgb*(r2_1.y+1.0);
     t2.rgb = t2.rgb* min(r2_2.x,1.0) + mt2.rgb*(r2_2.y+1.0);
     t3.rgb = t3.rgb* min(r2_3.x,1.0) + mt3.rgb*(r2_3.y+1.0);
@@ -359,6 +325,58 @@ void main(void)
     MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
+    // This is experimental code from shader assembly.
+    // It is not used yet.
+    /*
+    vec4 r23,r24;
+    r23.rg = texture(mixtexture1, mix_coords.xy).ag;
+    r23.ba = texture(mixtexture2, mix_coords.xy).ag;
+    r24.rg = texture(mixtexture3, mix_coords.xy).ag;
+    r24.ba = texture(mixtexture4, mix_coords.xy).ag;
+    
+    vec4 r8;
+    r8.x = mt1.a;
+    r8.y = mt2.a;
+    r8.z = mt3.a;
+    r8.w = mt4.a;
+
+    vec4 r3;
+    r3.x = t1.a;
+    r3.y = t2.a;
+    r3.z = t3.a;
+    r3.w = t4.a;
+    vec4 r14;
+    r14.x = t5.a;
+    r14.y = t6.a;
+    r14.z = t7.a;
+    r14.w = t8.a;
+
+    vec4 r10 = -r3 + r8;
+    vec4 r11 = max(r8, vec4(0.003922) );
+
+
+    float d1 = dot(r23,vec4(1.0));
+    float d2 = dot(r24,vec4(1.0));
+    d1 += d2;
+
+    vec4 mx1_ = r23/vec4(d1);
+    vec4 mx2_ = r24/vec4(d1);
+    
+    vec4 r4;
+    r4.w = dot(r14,r24);
+    vec4 r25 = r23 / r4.w;
+    vec4 r26 = r24 / r4.w;
+
+    r4.w = dot(r14,r24);
+    r24 = max(r14, vec4(0.03922));
+
+
+    r3.x = dot(r3,r23);
+    r3.x += r4.w;
+
+   // r23 = r21 * r25;
+
+   */
     //months of work to figure this out!
     MixLevel1.r *= t1.a;
     MixLevel1.g *= t2.a;

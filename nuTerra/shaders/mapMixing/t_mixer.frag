@@ -74,7 +74,6 @@ layout(binding = 20) uniform sampler2D mixtexture4;
 
 
 layout(binding = 21) uniform sampler2D global_AM;
-layout(binding = 22) uniform sampler2D NRP_noise;
 
 layout(binding = 23) uniform sampler2DArray shadow;
 
@@ -114,39 +113,11 @@ float sum( vec4 v ) {
     return v.x+v.y+v.z;
     }
 
-vec4 textureNoTile( sampler2DArray samp, in vec2 uv , in float layer, in float flag)
+vec4 crop( sampler2DArray samp, in vec2 uv , in float layer)
 {
-
-        vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-   return texture(samp,vec3(cropped, layer));
-
-   // disabled for now
-   if (flag == 0.0 ){
-      }
-
-    // sample variation pattern    
-    float k = texture( NRP_noise, fract(uv)*0.005 ).x; // cheap (cache friendly) lookup    
-    
-    // compute index    
-    float index = k*8.0;
-    float i = floor( index );
-    float f = fract( index );
-
-    // offsets for the different virtual patterns    
-    vec2 offa = sin(vec2(3.0,7.0)*(i+0.0)); // can replace with any other hash    
-    vec2 offb = sin(vec2(3.0,7.0)*(i+1.0)); // can replace with any other hash    
-
-    // compute derivatives for mip-mapping    
-    vec2 dx = dFdx(uv), dy = dFdy(uv);
-    
-    // sample the two closest virtual patterns    
-    vec4 cola = textureGrad( samp, vec3(uv + offa, layer), dx, dy );
-    vec4 colb = textureGrad( samp, vec3(uv + offb, layer), dx, dy );
-
-    // interpolate between the two virtual patterns   
-    float s = smoothstep(0.2,0.8,f-0.1* sum(cola-colb) );
-    return mix( cola, colb, s);
-    }
+    vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
+    return texture(samp,vec3(cropped, layer));
+}
 /*===========================================================*/
 
 // Converion from AG map to RGB vector.
@@ -210,70 +181,52 @@ void main(void)
     tuv8 = get_transformed_uv(U8, V8, s8);
 
     // Get AM maps 
-    t1 = textureNoTile(at1, tuv1, 0.0, r1_1.z);
-    t2 = textureNoTile(at2, tuv2, 0.0, r1_2.z);
+    t1 = crop(at1, tuv1, 0.0);
+    t2 = crop(at2, tuv2, 0.0);
 
-    t3 = textureNoTile(at3, tuv3, 0.0, r1_3.z);
-    t4 = textureNoTile(at4, tuv4, 0.0, r1_4.z);
+    t3 = crop(at3, tuv3, 0.0);
+    t4 = crop(at4, tuv4, 0.0);
 
-    t5 = textureNoTile(at5, tuv5, 0.0, r1_5.z);
-    t6 = textureNoTile(at6, tuv6, 0.0, r1_6.z);
+    t5 = crop(at5, tuv5, 0.0);
+    t6 = crop(at6, tuv6, 0.0);
 
-    t7 = textureNoTile(at7, tuv7, 0.0, r1_7.z);
-    t8 = textureNoTile(at8, tuv8, 0.0, r1_8.z);
+    t7 = crop(at7, tuv7, 0.0);
+    t8 = crop(at8, tuv8, 0.0);
 
-    // Height is in red channel of the normal maps.
-    // Ambient occlusion is in the Blue channel.
-    // Green and Alpha are normal values.
+    mt1 = crop(at1, tuv1*0.125, 2.0);
+    mt2 = crop(at2, tuv2*0.125, 2.0);
 
-    t1 = textureNoTile(at1, tuv1, 0.0, r2_1.z);
-    t2 = textureNoTile(at2, tuv2, 0.0, r2_2.z);
+    mt3 = crop(at3, tuv3*0.125, 2.0);
+    mt4 = crop(at4, tuv4*0.125, 2.0);
 
-    t3 = textureNoTile(at3, tuv3, 0.0, r2_3.z);
-    t4 = textureNoTile(at4, tuv4, 0.0, r2_4.z);
+    mt5 = crop(at5, tuv5*0.125, 2.0);
+    mt6 = crop(at6, tuv6*0.125, 2.0);
 
-    t5 = textureNoTile(at5, tuv5, 0.0, r2_5.z);
-    t6 = textureNoTile(at6, tuv6, 0.0, r2_6.z);
-
-    t7 = textureNoTile(at7, tuv7, 0.0, r2_7.z);
-    t8 = textureNoTile(at8, tuv8, 0.0, r2_8.z);
-
-
-    mt1 = textureNoTile(at1, tuv1*0.125, 2.0, r2_1.z);
-    mt2 = textureNoTile(at2, tuv2*0.125, 2.0, r2_2.z);
-
-    mt3 = textureNoTile(at3, tuv3*0.125, 2.0, r2_3.z);
-    mt4 = textureNoTile(at4, tuv4*0.125, 2.0, r2_4.z);
-
-    mt5 = textureNoTile(at5, tuv5*0.125, 2.0, r2_5.z);
-    mt6 = textureNoTile(at6, tuv6*0.125, 2.0, r2_6.z);
-
-    mt7 = textureNoTile(at7, tuv7*0.125, 2.0, r2_7.z);
-    mt8 = textureNoTile(at8, tuv8*0.125, 2.0, r2_8.z);
-    
+    mt7 = crop(at7, tuv7*0.125, 2.0);
+    mt8 = crop(at8, tuv8*0.125, 2.0);
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    n1 = textureNoTile(at1, tuv1, 1.0, r1_1.z);
-    n2 = textureNoTile(at2, tuv2, 1.0, r1_2.z);
-    n3 = textureNoTile(at3, tuv3, 1.0, r1_3.z);
-    n4 = textureNoTile(at4, tuv4, 1.0, r1_4.z);
-    n5 = textureNoTile(at5, tuv5, 1.0, r1_5.z);
-    n6 = textureNoTile(at6, tuv6, 1.0, r1_6.z);
-    n7 = textureNoTile(at7, tuv7, 1.0, r1_7.z);
-    n8 = textureNoTile(at8, tuv8, 1.0, r1_8.z);
+    n1 = crop(at1, tuv1, 1.0);
+    n2 = crop(at2, tuv2, 1.0);
+    n3 = crop(at3, tuv3, 1.0);
+    n4 = crop(at4, tuv4, 1.0);
+    n5 = crop(at5, tuv5, 1.0);
+    n6 = crop(at6, tuv6, 1.0);
+    n7 = crop(at7, tuv7, 1.0);
+    n8 = crop(at8, tuv8, 1.0);
 
 
-    mn1 = textureNoTile(at1, tuv1*0.125, 3.0, r1_1.z);
-    mn2 = textureNoTile(at2, tuv2*0.125, 3.0, r1_2.z);
-    mn3 = textureNoTile(at3, tuv3*0.125, 3.0, r1_3.z);
-    mn4 = textureNoTile(at4, tuv4*0.125, 3.0, r1_4.z);
-    mn5 = textureNoTile(at5, tuv5*0.125, 3.0, r1_5.z);
-    mn6 = textureNoTile(at6, tuv6*0.125, 3.0, r1_6.z);
-    mn7 = textureNoTile(at7, tuv7*0.125, 3.0, r1_7.z);
-    mn8 = textureNoTile(at8, tuv8*0.125, 3.0, r1_8.z);
+    mn1 = crop(at1, tuv1*0.125, 3.0);
+    mn2 = crop(at2, tuv2*0.125, 3.0);
+    mn3 = crop(at3, tuv3*0.125, 3.0);
+    mn4 = crop(at4, tuv4*0.125, 3.0);
+    mn5 = crop(at5, tuv5*0.125, 3.0);
+    mn6 = crop(at6, tuv6*0.125, 3.0);
+    mn7 = crop(at7, tuv7*0.125, 3.0);
+    mn8 = crop(at8, tuv8*0.125, 3.0);
 
     // get the ambient occlusion
     t1.rgb *= n1.b;
