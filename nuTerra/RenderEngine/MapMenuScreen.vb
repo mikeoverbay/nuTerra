@@ -203,14 +203,16 @@ NotInheritable Class MapMenuScreen
         SelectedMap = Nothing
 
         ' find new selected map
-        For i = 0 To MapPickList.Count - 1
-            If MapPickList(i).rect.Contains(MOUSE) Then
-                MAP_NAME_NO_PATH = MapPickList(i).name
-                description_string = MapPickList(i).discription
-                SelectedMap = MapPickList(i)
-                Exit For
-            End If
-        Next
+        If Not FINISH_MAPS Then
+            For i = 0 To MapPickList.Count - 1
+                If MapPickList(i).rect.Contains(MOUSE) Then
+                    MAP_NAME_NO_PATH = MapPickList(i).name
+                    description_string = MapPickList(i).discription
+                    SelectedMap = MapPickList(i)
+                    Exit For
+                End If
+            Next
+        End If
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
@@ -224,10 +226,10 @@ NotInheritable Class MapMenuScreen
 
         If scrollpane_height > h Then
             If scroll_delta > 0 Then
-                scrollpane_y = Math.Min(scrollpane_y + 4, 0)
+                scrollpane_y = Math.Min(scrollpane_y + 5, 0)
                 scroll_delta -= 5
             ElseIf scroll_delta < 0 Then
-                scrollpane_y = Math.Max(scrollpane_y - 4, -(scrollpane_height - h))
+                scrollpane_y = Math.Max(scrollpane_y - 5, -(scrollpane_height - h))
                 scroll_delta += 5
             End If
         End If
@@ -271,6 +273,7 @@ NotInheritable Class MapMenuScreen
             For Each mapItem In MapPickList
                 If Not mapItem.unit_size Then
                     no_stragglers = False
+                    Exit For
                 End If
             Next
             If no_stragglers Then
