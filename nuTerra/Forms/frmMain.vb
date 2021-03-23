@@ -264,7 +264,9 @@ Public Class frmMain
         If Not Me.WindowState = FormWindowState.Minimized Then
             FBOm.FBO_Initialize()
         End If
-        MapMenuScreen.Invalidate()
+        If SHOW_MAPS_SCREEN Then
+            MapMenuScreen.Invalidate()
+        End If
     End Sub
 
     Private Sub frmMain_Resize(sender As Object, e As EventArgs) Handles Me.Resize
