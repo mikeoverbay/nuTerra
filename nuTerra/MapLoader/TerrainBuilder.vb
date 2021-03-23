@@ -253,12 +253,13 @@ Module TerrainBuilder
 
         BG_VALUE = 0
         BG_TEXT = "Smoothing Terrain Normals..."
-        For i = 0 To theMap.chunks.Length - 1
-            smooth_edges(i)
-            BG_VALUE = i
-            draw_scene()
-            Application.DoEvents()
-        Next
+        draw_scene()
+
+        Parallel.For(0, theMap.chunks.Length,
+                     Sub(i As Integer)
+                         smooth_edges(i)
+                         BG_VALUE += 1
+                     End Sub)
 
         LogThis(String.Format("Smooth Seams: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Restart()
