@@ -178,6 +178,15 @@ Module TextureLoaders
                                 .components = 16,
                                 .compressed = False
                             }
+                        Case "q" & vbNullChar & vbNullChar & vbNullChar
+                            ' DXGI_FORMAT_R16G16B16A16_FLOAT
+                            Return New FormatInfo With {
+                                .pixel_format = OpenGL.PixelFormat.Rgba,
+                                .texture_format = InternalFormat.Rgba16f,
+                                .pixel_type = PixelType.HalfFloat,
+                                .components = 8,
+                                .compressed = False
+                            }
                         Case Else
                             Stop
                             Return Nothing
@@ -420,81 +429,6 @@ Module TextureLoaders
                 image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                 image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
                 image_id.Parameter(TextureParameterName.TextureMaxLevel, 4 - 1)
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-                image_id.GenerateMipmap()
-
-            ElseIf NEAREST Then
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-
-            Else
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
-
-            Il.ilBindImage(0)
-            Ilu.iluDeleteImage(texID)
-
-            If fn.Length = 0 Then Return image_id '<- so we can load with out saving in the cache.
-            'Other wise, add it to the cache.
-            add_image(fn, image_id)
-
-            Dim glerror = GL.GetError
-            If glerror > 0 Then
-                get_GL_error_string(glerror)
-                MsgBox(get_GL_error_string(glerror), MsgBoxStyle.Exclamation, "GL Error")
-            End If
-            Return image_id
-        Else
-            MsgBox("Failed to load @ load_image_from_stream", MsgBoxStyle.Exclamation, "Shit!!")
-        End If
-        Return Nothing
-    End Function
-
-    Public Function just_load_image_from_stream(ByRef imageType As Integer, ByRef ms As MemoryStream, ByRef fn As String, ByRef MIPS As Boolean, ByRef NEAREST As Boolean) As GLTexture
-        'imageType = il.IL_imageType : ms As MemoryStream : filename as string : Create Mipmaps if True : NEAREST = True / LINEAR if False
-        'File name is needed to add to our list of loaded textures
-        Dim image_id As GLTexture
-        ms.Position = 0
-
-        GC.Collect()
-        GC.WaitForFullGCComplete()
-
-        Dim imgStore(ms.Length) As Byte
-        ms.Read(imgStore, 0, ms.Length)
-
-        Dim texID As UInt32
-        texID = Ilu.iluGenImage()
-        Il.ilBindImage(texID)
-        Dim er0 = GL.GetError
-        Dim success = Il.ilGetError
-        Il.ilLoadL(imageType, imgStore, ms.Length)
-        success = Il.ilGetError
-
-        If success = Il.IL_NO_ERROR Then
-            'Ilu.iluFlipImage()
-            'Ilu.iluMirror()
-            Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
-            Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
-
-            Il.ilConvertImage(Il.IL_BGR, Il.IL_UNSIGNED_BYTE)
-            Dim result = Il.ilConvertImage(Il.IL_RGB, Il.IL_UNSIGNED_BYTE)
-
-            image_id = CreateTexture(TextureTarget.Texture2D, fn)
-
-            image_id.Storage2D(If(MIPS, 4, 1), DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
-            image_id.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, Il.ilGetData())
-
-            Dim maxAniso As Single = 4
-            image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
-            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-
-            If MIPS Then
-                image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
-                image_id.Parameter(TextureParameterName.TextureMaxLevel, 4 - 1)
-                image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                 image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                 image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
                 image_id.GenerateMipmap()
