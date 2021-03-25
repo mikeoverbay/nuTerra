@@ -325,11 +325,10 @@ Public Class frmMain
     End Sub
 
     Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
-        If Not MAP_LOADED Then
-            Return
-        End If
 
-        Me.Text = Application.ProductName & " " & Application.ProductVersion
+        If Not MAP_LOADED Then
+            Me.Text = Application.ProductName & " " & Application.ProductVersion
+        End If
 
         'Runs Map picking code.
         MapMenuScreen.Invalidate()
@@ -819,17 +818,24 @@ try_again:
 
         If SHOW_MAPS_SCREEN Then
             If e.Button = Forms.MouseButtons.Left Then
-                If MapMenuScreen.SelectedMap IsNot Nothing Then
-                    Me.Text = String.Format("{0} {1} : {2}",
-                                            Application.ProductName,
-                                            Application.ProductVersion,
-                                            MapMenuScreen.SelectedMap.realname)
+                If MapMenuScreen.SelectedMap Is Nothing Then
+                    If MAP_LOADED Then
+                        SHOW_MAPS_SCREEN = False
+                        Return
+                    Else
+                        BLOCK_MOUSE = True
+                        FINISH_MAPS = True
+                        MOUSE.X = 0
+                        MOUSE.Y = 0
+                        Return
+                    End If
+                Else
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
-                    MOUSE.X = 0
-                    MOUSE.Y = 0
+                    MAP_LOADED = False
+                    'SHOW_MAPS_SCREEN = False
+                    Return
                 End If
-                Return
             End If
         End If
         MOUSE.X = e.X

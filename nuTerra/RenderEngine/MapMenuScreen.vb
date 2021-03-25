@@ -277,12 +277,14 @@ NotInheritable Class MapMenuScreen
                 End If
             Next
             If no_stragglers Then
+                MAP_LOADED = False
                 FINISH_MAPS = False
                 SHOW_MAPS_SCREEN = False
                 BLOCK_MOUSE = False
                 BG_VALUE = 0 'reset bar graph
                 SHOW_LOADING_SCREEN = True
                 frmMain.map_loader.Enabled = True
+
             End If
         End If
 

@@ -45,14 +45,14 @@ MaterialProperties thisMaterial = material[fs_in.material_id];
 // sub functions ###################################################################
 //##################################################################################
 //color correction
-vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){  
-    // Exposure tone mapping
-    vec3 mapped = vec3(1.0) - exp(-hdrColor.rgb * exposure);
-    // Gamma correction 
-    mapped.rgb = pow(mapped.rgb, vec3(1.0 / gamma_level));  
-    return vec4 (mapped, hdrColor.a);
-}
-//##################################################################################
+//vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){  
+//    // Exposure tone mapping
+//    vec3 mapped = vec3(1.0) - exp(-hdrColor.rgb * exposure);
+//    // Gamma correction 
+//    mapped.rgb = pow(mapped.rgb, vec3(1.0 / gamma_level));  
+//    return vec4 (mapped, hdrColor.a);
+//}
+////##################################################################################
 void get_normal(in float mip)
 {
     float alphaCheck = gColor.a;
@@ -76,9 +76,9 @@ void get_and_write_no_mips(void){
 
     float alphaCheck = gColor.a;
     if (thisMaterial.g_useNormalPackDXT1) {
-        normalBump = (texture(thisMaterial.maps[1], fs_in.TC1).rgb * 2.0f) - 1.0f;
+        normalBump = (texture(thisMaterial.maps[1], fs_in.TC1,1.0).rgb * 2.0f) - 1.0f;
     } else {
-        vec4 normal = texture(thisMaterial.maps[1], fs_in.TC1);
+        vec4 normal = texture(thisMaterial.maps[1], fs_in.TC1,1.0);
         normalBump.xy = normal.ag * 2.0 - 1.0;
         normalBump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
         normalBump = normalize(normalBump);
@@ -91,13 +91,13 @@ void get_and_write_no_mips(void){
     //gNormal.y = -gNormal.y;
 }
 //##################################################################################
-vec3 get_detail_normal(vec4 normal){
+vec3 get_detail_normal(vec4 anm){
     vec3 bump;
-    bump.xy = normal.ag * 2.0 - 1.0;
-    bump.z = clamp( sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
+    bump.xy = anm.ag * 2.0 - 1.0;
+    bump.z = clamp( sqrt(1.0 - dot(anm.xy, anm.xy)),-1.0,1.0);
     //bump.y = -bump.y;
 
-    return normalize(bump);
+    return normalize(fs_in.TBN * bump);
 }
 //##################################################################################
 float get_mip_map_level(sampler2D samp)
@@ -158,13 +158,17 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
     gColor *= thisMaterial.g_colorTint;
     
     vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
-    vec4 detail = texture(thisMaterial.maps[3], fs_in.TC1*3.0);
-    
+    float d_aoc = texture(thisMaterial.maps[3], fs_in.TC1).r;
+    float nm_aoc = texture(thisMaterial.maps[1], fs_in.TC1).r;
+
+    gColor.rgb *= mix(nm_aoc,d_aoc,thisMaterial.g_detailInfluences.x);
+
     gGMF.rgb = gm.rgb; // gloss/metal
-    get_and_write_no_mips();
-    vec3 bump = get_detail_normal(detail);
-    gNormal = mix(gNormal, bump, 0.2);
-}
+    vec4 nmap;
+    nmap.ag = mix(texture(thisMaterial.maps[1], fs_in.TC1).ag, texture(thisMaterial.maps[3], fs_in.TC1*5.0,1.0).ag,thisMaterial.g_detailInfluences.xx);
+
+    gNormal.rgb = get_detail_normal(nmap);
+    }
 //##################################################################################
 layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 {
@@ -187,7 +191,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile0Tint;
     vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile1Tint;
     vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile2Tint;
-    
+
     float dirtLevel = blend.z;
 
     float b = -blend.y + 1.0;
@@ -403,7 +407,7 @@ void main(void)
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
 
     entries[thisMaterial.shader_type]();
-
+    gColor.rgb = pow(gColor.rgb, vec3(1.0 / 2.2));
     gColor.a = 0.0;
 
     gPick.r = fs_in.model_id + 1;
