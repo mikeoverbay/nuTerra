@@ -87,15 +87,15 @@ void get_and_write_no_mips(void){
     if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
         discard;
     }
+    gNormal.x = -gNormal.x;
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
-    //gNormal.y = -gNormal.y;
 }
 //##################################################################################
 vec3 get_detail_normal(vec4 anm){
     vec3 bump;
     bump.xy = anm.ag * 2.0 - 1.0;
     bump.z = clamp( sqrt(1.0 - dot(anm.xy, anm.xy)),-1.0,1.0);
-    //bump.y = -bump.y;
+    //bump.x = -bump.x;
 
     return normalize(fs_in.TBN * bump);
 }
@@ -154,20 +154,20 @@ layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
 //##################################################################################
 layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
 {
+    vec2 uvc = fract(fs_in.TC1) *10.0 * 0.875 + +0.0625;
     gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor *= thisMaterial.g_colorTint;
     
     vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
-    float d_aoc = texture(thisMaterial.maps[3], fs_in.TC1*10.0).r;
-    float nm_aoc = texture(thisMaterial.maps[1], fs_in.TC1).r;
+    float nm_aoc = texture(thisMaterial.maps[1], fs_in.TC1).b;
+    float d_aoc = texture(thisMaterial.maps[3], uvc).b;
 
-    gColor.rgb *= mix(nm_aoc,d_aoc,thisMaterial.g_detailInfluences.x);
+    //gColor.rgb *= mix(nm_aoc, d_aoc, thisMaterial.g_detailInfluences.x);
 
     gGMF.rgb = gm.rgb; // gloss/metal
     vec4 nmap;
-vec2 uvc = fs_in.TC1 * 0.875 + +0.0625;
-    nmap.ag = mix(texture(thisMaterial.maps[3], fs_in.TC1).ag, texture(thisMaterial.maps[1],
-                (uvc)*-10.0,1.0).ag,thisMaterial.g_detailInfluences.xx);
+    nmap.ag = mix(texture(thisMaterial.maps[1], fs_in.TC1).ag, texture(thisMaterial.maps[3],
+                (uvc),1.0).ag, 1.0-thisMaterial.g_detailInfluences.xx);
 
     gNormal.rgb = get_detail_normal(nmap);
     }
@@ -265,7 +265,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
     bump.xy    = tb.xy;
     bump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
-    //bump.y = -bump.y;
+    bump.x = -bump.x;
 
     gNormal = normalize(fs_in.TBN * bump);
 }
