@@ -87,6 +87,13 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
+    <DisplayName("Position"), Category("Camera")>
+    Public ReadOnly Property Camera_target As OpenTK.Vector3
+        Get
+            Return CAM_POSITION
+        End Get
+    End Property
+
     <DisplayName("Start"), Category("Terrain")>
     Public Property Terrain_Start As Single
         Set(value As Single)

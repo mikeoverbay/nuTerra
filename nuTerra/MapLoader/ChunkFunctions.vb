@@ -456,7 +456,7 @@ Module ChunkFunctions
 
 
         Dim mapsize As UInt32
-        Dim data(h_width * h_height * 4) As Byte
+        Dim data(h_width * h_height * 4 - 1) As Byte
         Dim cnt As UInt32 = 0
         Using r
             r.Position = 36 'skip bigworld header stuff
@@ -464,7 +464,7 @@ Module ChunkFunctions
             Dim iInfo = rdr.ImgInfo
             mapsize = iInfo.Cols
 
-            ReDim data(iInfo.Cols * iInfo.Cols * 4)
+            ReDim data(iInfo.Cols * iInfo.Cols * 4 - 1)
             Dim iline As ImageLine  ' create place to hold a scan line
             For i = 0 To iInfo.Cols - 1
                 iline = rdr.ReadRow(i)

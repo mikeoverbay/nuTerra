@@ -1059,6 +1059,8 @@ Module MapLoader
     Public Sub remove_map_data()
         'Used to delete all images and display lists.
 
+        MapMenuScreen.Invalidate()
+
         PICK_DICTIONARY.Clear()
         'Remove map related textures. Keep Static Textures!
         Dim img_id = GL.GenTexture()
