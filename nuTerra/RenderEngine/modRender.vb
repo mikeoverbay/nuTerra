@@ -120,7 +120,7 @@ Module modRender
             '=======================================================================
             draw_terrain() '========================================================
             '=======================================================================
-            If (SHOW_BORDER + SHOW_CHUNKS + SHOW_GRID) > 0 Then draw_terrain_grids()
+            If (SHOW_BORDER Or SHOW_CHUNKS Or SHOW_GRID) Then draw_terrain_grids()
             '=======================================================================
             'setup for projection before drawing
             FBOm.attach_C_no_Depth()
@@ -840,9 +840,9 @@ Module modRender
         GL.Uniform2(TerrainGrids("bb_bl"), MAP_BB_BL.X, MAP_BB_BL.Y)
         GL.Uniform1(TerrainGrids("g_size"), PLAYER_FIELD_CELL_SIZE)
 
-        GL.Uniform1(TerrainGrids("show_border"), SHOW_BORDER)
-        GL.Uniform1(TerrainGrids("show_chunks"), SHOW_CHUNKS)
-        GL.Uniform1(TerrainGrids("show_grid"), SHOW_GRID)
+        GL.Uniform1(TerrainGrids("show_border"), CInt(SHOW_BORDER))
+        GL.Uniform1(TerrainGrids("show_chunks"), CInt(SHOW_CHUNKS))
+        GL.Uniform1(TerrainGrids("show_grid"), CInt(SHOW_GRID))
 
         GL.Uniform1(TerrainGrids("gGMF"), 0)
 

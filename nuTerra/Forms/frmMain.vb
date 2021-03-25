@@ -35,14 +35,11 @@ Public Class frmMain
     End Sub
 
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
-
         ' If the Program editor is inserted in to frmMain,
         ' We have to stop key down events while typing in
         ' the editor's window.
-        If frmProgramEditor.CP_parent = Me.Handle Then
-            If Not glControl_main.Focused Then
-                Return
-            End If
+        If Not glControl_main.Focused Then
+            Return
         End If
 
         'mini map max size
@@ -84,13 +81,13 @@ Public Class frmMain
                 '-------------------------------
                 'grid display
             Case Keys.F5
-                SHOW_CHUNKS = SHOW_CHUNKS Xor 1
+                SHOW_CHUNKS = SHOW_CHUNKS Xor True
 
             Case Keys.F6
-                SHOW_GRID = SHOW_GRID Xor 1
+                SHOW_GRID = SHOW_GRID Xor True
 
             Case Keys.F7
-                SHOW_BORDER = SHOW_BORDER Xor 1
+                SHOW_BORDER = SHOW_BORDER Xor True
 
             Case Keys.F8
                 SSAA_enable = SSAA_enable Xor True
@@ -174,6 +171,8 @@ Public Class frmMain
                 WASD_VECTOR.Y = 1
 
         End Select
+
+        PropertyGrid1.Refresh()
     End Sub
 
     Private Sub frmMain_KeyUp(sender As Object, e As KeyEventArgs) Handles Me.KeyUp
@@ -617,14 +616,14 @@ try_again:
         ''Test Textures
         'For i = 0 To 7
         '    TEST_IDS(i) =
-        '        load_image_from_file(Il.IL_PNG,
+        '        load_png_image_from_file(
         '        sp + "\resources\TestTextures\tex_" + i.ToString + ".png", True, False)
         'Next
         '---------------------------------------------------------        'Test Textures
 #If False Then
         'This can be used to debug textureing
         checkerTest =
-                load_image_from_file(Il.IL_PNG,
+                load_png_image_from_file(
                 sp + "\resources\checkerboard.png", True, False)
 #End If
         '---------------------------------------------------------
@@ -796,18 +795,11 @@ try_again:
                     If MAP_LOADED Then
                         SHOW_MAPS_SCREEN = False
                         Return
-                    Else
-                        BLOCK_MOUSE = True
-                        FINISH_MAPS = True
-                        MOUSE.X = 0
-                        MOUSE.Y = 0
-                        Return
                     End If
                 Else
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
                     MAP_LOADED = False
-                    'SHOW_MAPS_SCREEN = False
                     Return
                 End If
             End If
