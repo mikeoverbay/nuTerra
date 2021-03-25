@@ -164,7 +164,7 @@ Module MapLoader
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
-            ENV_BRDF_LUT_ID = just_load_image_from_stream(Il.IL_DDS, ms, "system/maps/env_brdf_lut.dds", False, False)
+            ENV_BRDF_LUT_ID = load_dds_image_from_stream(ms, "system/maps/env_brdf_lut.dds")
         End If
 
         '===============================================================

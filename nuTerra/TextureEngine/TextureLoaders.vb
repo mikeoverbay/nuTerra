@@ -1,6 +1,5 @@
 ﻿Imports System.Drawing.Imaging
 Imports System.IO
-Imports Ionic.Zip
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Tao.DevIl
@@ -177,6 +176,15 @@ Module TextureLoaders
                                 .texture_format = InternalFormat.Rgba32f,
                                 .pixel_type = PixelType.Float,
                                 .components = 16,
+                                .compressed = False
+                            }
+                        Case "q" & vbNullChar & vbNullChar & vbNullChar
+                            ' DXGI_FORMAT_R16G16B16A16_FLOAT
+                            Return New FormatInfo With {
+                                .pixel_format = OpenGL.PixelFormat.Rgba,
+                                .texture_format = InternalFormat.Rgba16f,
+                                .pixel_type = PixelType.HalfFloat,
+                                .components = 8,
                                 .compressed = False
                             }
                         Case Else
@@ -453,81 +461,6 @@ Module TextureLoaders
         Return Nothing
     End Function
 
-    Public Function just_load_image_from_stream(ByRef imageType As Integer, ByRef ms As MemoryStream, ByRef fn As String, ByRef MIPS As Boolean, ByRef NEAREST As Boolean) As GLTexture
-        'imageType = il.IL_imageType : ms As MemoryStream : filename as string : Create Mipmaps if True : NEAREST = True / LINEAR if False
-        'File name is needed to add to our list of loaded textures
-        Dim image_id As GLTexture
-        ms.Position = 0
-
-        GC.Collect()
-        GC.WaitForFullGCComplete()
-
-        Dim imgStore(ms.Length) As Byte
-        ms.Read(imgStore, 0, ms.Length)
-
-        Dim texID As UInt32
-        texID = Ilu.iluGenImage()
-        Il.ilBindImage(texID)
-        Dim er0 = GL.GetError
-        Dim success = Il.ilGetError
-        Il.ilLoadL(imageType, imgStore, ms.Length)
-        success = Il.ilGetError
-
-        If success = Il.IL_NO_ERROR Then
-            'Ilu.iluFlipImage()
-            'Ilu.iluMirror()
-            Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
-            Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
-
-            Il.ilConvertImage(Il.IL_BGR, Il.IL_UNSIGNED_BYTE)
-            Dim result = Il.ilConvertImage(Il.IL_RGB, Il.IL_UNSIGNED_BYTE)
-
-            image_id = CreateTexture(TextureTarget.Texture2D, fn)
-
-            image_id.Storage2D(If(MIPS, 4, 1), DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
-            image_id.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, Il.ilGetData())
-
-            Dim maxAniso As Single = 4
-            image_id.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), maxAniso)
-            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-
-            If MIPS Then
-                image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
-                image_id.Parameter(TextureParameterName.TextureMaxLevel, 4 - 1)
-                image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-                image_id.GenerateMipmap()
-
-            ElseIf NEAREST Then
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-
-            Else
-                image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-                image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            End If
-
-            Il.ilBindImage(0)
-            Ilu.iluDeleteImage(texID)
-
-            If fn.Length = 0 Then Return image_id '<- so we can load with out saving in the cache.
-            'Other wise, add it to the cache.
-            add_image(fn, image_id)
-
-            Dim glerror = GL.GetError
-            If glerror > 0 Then
-                get_GL_error_string(glerror)
-                MsgBox(get_GL_error_string(glerror), MsgBoxStyle.Exclamation, "GL Error")
-            End If
-            Return image_id
-        Else
-            MsgBox("Failed to load @ load_image_from_stream", MsgBoxStyle.Exclamation, "Shit!!")
-        End If
-        Return Nothing
-    End Function
-
     Public Function load_image_from_file(imageType As Integer, fn As String, MIPS As Boolean, NEAREST As Boolean) As GLTexture
         'imageType = il.IL_imageType : File path/name : Create Mipmaps if True : NEAREST = True / LINEAR if False
 
@@ -598,71 +531,59 @@ Module TextureLoaders
     Public Function make_dummy_texture() As GLTexture
         'Used to attach to shaders that must have a texture but it doesn't
         'like blend maps or terrain textures.
-        Dim b As New Bitmap(2, 2, Imaging.PixelFormat.Format32bppArgb)
-        Dim g As Drawing.Graphics = Drawing.Graphics.FromImage(b)
-        g.Clear(Color.FromArgb(0, 0, 0, 0))
-        Dim bitmapData = b.LockBits(New Rectangle(0, 0, 2,
-                             2), Imaging.ImageLockMode.ReadOnly, Imaging.PixelFormat.Format32bppArgb)
+        Using bmp As New Bitmap(2, 2, Imaging.PixelFormat.Format32bppArgb)
+            Using gfx = Drawing.Graphics.FromImage(bmp)
+                gfx.Clear(Color.FromArgb(0, 0, 0, 0))
 
-        Dim dummy = CreateTexture(TextureTarget.Texture2D, "Dummy_Texture")
+                Dim bitmapData = bmp.LockBits(New Rectangle(0, 0, 2, 2),
+                                            Imaging.ImageLockMode.ReadOnly,
+                                            Imaging.PixelFormat.Format32bppArgb)
 
-        dummy.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-        dummy.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-        dummy.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-        dummy.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+                Dim dummy = CreateTexture(TextureTarget.Texture2D, "Dummy_Texture")
 
-        dummy.Storage2D(1, SizedInternalFormat.Rgba8, b.Width, b.Height)
-        dummy.SubImage2D(0, 0, 0, b.Width, b.Height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, bitmapData.Scan0)
+                dummy.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+                dummy.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+                dummy.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+                dummy.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-        b.UnlockBits(bitmapData) ' Unlock The Pixel Data From Memory
+                dummy.Storage2D(1, SizedInternalFormat.Rgba8, bmp.Width, bmp.Height)
+                dummy.SubImage2D(0, 0, 0, bmp.Width, bmp.Height, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, bitmapData.Scan0)
 
-        b.Dispose()
-        g.Dispose()
-        Return dummy
+                ' Unlock The Pixel Data From Memory
+                bmp.UnlockBits(bitmapData)
+
+                Return dummy
+            End Using
+        End Using
     End Function
 
     Public Function get_map_image(ms As MemoryStream, index As Integer) As GLTexture
         'all these should be unique textures.. No need to check if they already have been loaded.
 
         ms.Position = 0
-        Dim texID As UInt32
-        Dim textIn(ms.Length) As Byte
-        ms.Read(textIn, 0, ms.Length)
+        Using bmp = New Bitmap(ms)
+            Dim bitmapData = bmp.LockBits(New Rectangle(0, 0, bmp.Width, bmp.Height),
+                                    ImageLockMode.ReadOnly,
+                                    Imaging.PixelFormat.Format24bppRgb)
 
-        texID = Ilu.iluGenImage() ' /* Generation of one image name */
-        Il.ilBindImage(texID) '; /* Binding of image name */
-        Dim success = Il.ilGetError
-        Il.ilLoadL(Il.IL_PNG, textIn, textIn.Length)
-        success = Il.ilGetError
+            Dim image = CreateTexture(TextureTarget.Texture2D, String.Format("map_img_{0}", index))
 
-        If Il.ilGetError <> Il.IL_NO_ERROR Then
-            Return Nothing
-        End If
+            image.Parameter(TextureParameterName.TextureBaseLevel, 0)
+            image.Parameter(TextureParameterName.TextureMaxLevel, 1)
+            image.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+            image.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            image.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            image.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-        Dim width As Integer = Il.ilGetInteger(Il.IL_IMAGE_WIDTH)
-        Dim height As Integer = Il.ilGetInteger(Il.IL_IMAGE_HEIGHT)
+            image.Storage2D(2, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), bmp.Width, bmp.Height)
+            image.SubImage2D(0, 0, 0, bmp.Width, bmp.Height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, bitmapData.Scan0)
 
-        Il.ilConvertImage(Il.IL_BGR, Il.IL_UNSIGNED_BYTE)
-        Dim image = CreateTexture(TextureTarget.Texture2D, String.Format("map_img_{0}", index))
+            ' Unlock The Pixel Data From Memory
+            bmp.UnlockBits(BitmapData)
 
-        image.Parameter(TextureParameterName.TextureBaseLevel, 0)
-        image.Parameter(TextureParameterName.TextureMaxLevel, 1)
-        image.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-        image.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-        image.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-        image.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            image.GenerateMipmap()
 
-        image.Storage2D(2, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
-        image.SubImage2D(0, 0, 0, width, height, OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, Il.ilGetData())
-
-        image.GenerateMipmap()
-
-        Il.ilBindImage(0)
-
-        Il.ilBindImage(0)
-        Ilu.iluDeleteImage(texID)
-
-        Return image
+            Return image
+        End Using
     End Function
-
 End Module
