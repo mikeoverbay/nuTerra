@@ -158,14 +158,16 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
     gColor *= thisMaterial.g_colorTint;
     
     vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
-    float d_aoc = texture(thisMaterial.maps[3], fs_in.TC1).r;
+    float d_aoc = texture(thisMaterial.maps[3], fs_in.TC1*10.0).r;
     float nm_aoc = texture(thisMaterial.maps[1], fs_in.TC1).r;
 
     gColor.rgb *= mix(nm_aoc,d_aoc,thisMaterial.g_detailInfluences.x);
 
     gGMF.rgb = gm.rgb; // gloss/metal
     vec4 nmap;
-    nmap.ag = mix(texture(thisMaterial.maps[1], fs_in.TC1).ag, texture(thisMaterial.maps[3], fs_in.TC1*5.0,1.0).ag,thisMaterial.g_detailInfluences.xx);
+vec2 uvc = fs_in.TC1 * 0.875 + +0.0625;
+    nmap.ag = mix(texture(thisMaterial.maps[3], fs_in.TC1).ag, texture(thisMaterial.maps[1],
+                (uvc)*-10.0,1.0).ag,thisMaterial.g_detailInfluences.xx);
 
     gNormal.rgb = get_detail_normal(nmap);
     }
