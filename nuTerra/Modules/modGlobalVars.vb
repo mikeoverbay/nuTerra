@@ -97,10 +97,10 @@ Module modGlobalVars
     Public WIRE_DECALS As Boolean
     Public WIRE_TERRAIN As Boolean
     'grid display
-    Public SHOW_CHUNKS As Boolean
-    Public SHOW_GRID As Boolean
-    Public SHOW_BORDER As Boolean
-    Public SHOW_CHUNK_IDs As Boolean
+    Public SHOW_CHUNKS As Integer
+    Public SHOW_GRID As Integer
+    Public SHOW_BORDER As Integer
+    Public SHOW_CHUNK_IDs As Integer
     Public SHOW_TEST_TEXTURES As Single = 0.0F 'show test ourtline on terrain flag. default Off.
     'models
     Public CURSOR_TEXTURE_ID As GLTexture

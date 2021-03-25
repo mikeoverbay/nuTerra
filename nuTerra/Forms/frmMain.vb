@@ -796,15 +796,12 @@ try_again:
                     If MAP_LOADED Then
                         SHOW_MAPS_SCREEN = False
                         Return
-                    Else
-                        MOUSE.X = 0
-                        MOUSE.Y = 0
-                        Return
                     End If
                 Else
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
                     MAP_LOADED = False
+                    Me.Text = MapMenuScreen.SelectedMap.realname
                     Return
                 End If
             End If
