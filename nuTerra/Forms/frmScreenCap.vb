@@ -35,7 +35,7 @@ Public Class frmScreenCap
 
             bmp.UnlockBits(bitmapData)
             bmp.RotateFlip(RotateFlipType.RotateNoneFlipY)
-            bmp.Save(Save_Dialog.FileName)
+            bmp.Save(Save_Dialog.FileName, If(rb_jpg.Checked, ImageFormat.Jpeg, ImageFormat.Png))
         End Using
 
         GL.PixelStore(PixelStoreParameter.PackAlignment, 4)
