@@ -797,8 +797,6 @@ try_again:
                         SHOW_MAPS_SCREEN = False
                         Return
                     Else
-                        BLOCK_MOUSE = True
-                        FINISH_MAPS = True
                         MOUSE.X = 0
                         MOUSE.Y = 0
                         Return
@@ -807,7 +805,6 @@ try_again:
                     BLOCK_MOUSE = True
                     FINISH_MAPS = True
                     MAP_LOADED = False
-                    'SHOW_MAPS_SCREEN = False
                     Return
                 End If
             End If
