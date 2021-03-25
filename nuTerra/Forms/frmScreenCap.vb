@@ -1,4 +1,5 @@
-﻿Imports OpenTK.Graphics.OpenGL
+﻿Imports OpenTK.Graphics
+Imports OpenTK.Graphics.OpenGL
 Imports System.Drawing.Imaging
 
 Public Class frmScreenCap
@@ -27,10 +28,10 @@ Public Class frmScreenCap
 
         Using bmp As New Bitmap(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, Imaging.PixelFormat.Format24bppRgb)
             Dim bitmapData = bmp.LockBits(New Rectangle(0, 0, bmp.Width, bmp.Height),
-                                          ImageLockMode.ReadOnly,
+                                          ImageLockMode.WriteOnly,
                                           bmp.PixelFormat)
 
-            GL.ReadPixels(0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, InternalFormat.Rgb, PixelType.UnsignedByte, bitmapData.Scan0)
+            GL.ReadPixels(0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, OpenGL.PixelFormat.Bgr, PixelType.UnsignedByte, bitmapData.Scan0)
 
             bmp.UnlockBits(bitmapData)
             bmp.RotateFlip(RotateFlipType.RotateNoneFlipY)
