@@ -24,9 +24,8 @@ Partial Class frmScreenCap
     Private Sub InitializeComponent()
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(frmScreenCap))
         Me.GroupBox1 = New System.Windows.Forms.GroupBox()
-        Me.rb_png = New System.Windows.Forms.RadioButton()
         Me.rb_jpg = New System.Windows.Forms.RadioButton()
-        Me.rb_dds = New System.Windows.Forms.RadioButton()
+        Me.rb_png = New System.Windows.Forms.RadioButton()
         Me.save_btn = New System.Windows.Forms.Button()
         Me.Save_Dialog = New System.Windows.Forms.SaveFileDialog()
         Me.GroupBox1.SuspendLayout()
@@ -34,16 +33,25 @@ Partial Class frmScreenCap
         '
         'GroupBox1
         '
-        Me.GroupBox1.Controls.Add(Me.rb_dds)
         Me.GroupBox1.Controls.Add(Me.rb_jpg)
         Me.GroupBox1.Controls.Add(Me.rb_png)
         Me.GroupBox1.ForeColor = System.Drawing.SystemColors.ActiveCaption
         Me.GroupBox1.Location = New System.Drawing.Point(18, 12)
         Me.GroupBox1.Name = "GroupBox1"
-        Me.GroupBox1.Size = New System.Drawing.Size(73, 100)
+        Me.GroupBox1.Size = New System.Drawing.Size(73, 69)
         Me.GroupBox1.TabIndex = 0
         Me.GroupBox1.TabStop = False
         Me.GroupBox1.Text = "Format"
+        '
+        'rb_jpg
+        '
+        Me.rb_jpg.AutoSize = True
+        Me.rb_jpg.Location = New System.Drawing.Point(6, 43)
+        Me.rb_jpg.Name = "rb_jpg"
+        Me.rb_jpg.Size = New System.Drawing.Size(45, 17)
+        Me.rb_jpg.TabIndex = 1
+        Me.rb_jpg.Text = "JPG"
+        Me.rb_jpg.UseVisualStyleBackColor = True
         '
         'rb_png
         '
@@ -57,29 +65,9 @@ Partial Class frmScreenCap
         Me.rb_png.Text = "PNG"
         Me.rb_png.UseVisualStyleBackColor = True
         '
-        'rb_jpg
-        '
-        Me.rb_jpg.AutoSize = True
-        Me.rb_jpg.Location = New System.Drawing.Point(6, 43)
-        Me.rb_jpg.Name = "rb_jpg"
-        Me.rb_jpg.Size = New System.Drawing.Size(45, 17)
-        Me.rb_jpg.TabIndex = 1
-        Me.rb_jpg.Text = "JPG"
-        Me.rb_jpg.UseVisualStyleBackColor = True
-        '
-        'rb_dds
-        '
-        Me.rb_dds.AutoSize = True
-        Me.rb_dds.Location = New System.Drawing.Point(7, 66)
-        Me.rb_dds.Name = "rb_dds"
-        Me.rb_dds.Size = New System.Drawing.Size(48, 17)
-        Me.rb_dds.TabIndex = 2
-        Me.rb_dds.Text = "DDS"
-        Me.rb_dds.UseVisualStyleBackColor = True
-        '
         'save_btn
         '
-        Me.save_btn.Location = New System.Drawing.Point(18, 128)
+        Me.save_btn.Location = New System.Drawing.Point(16, 88)
         Me.save_btn.Name = "save_btn"
         Me.save_btn.Size = New System.Drawing.Size(75, 23)
         Me.save_btn.TabIndex = 1
@@ -91,7 +79,7 @@ Partial Class frmScreenCap
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(33, Byte), Integer), CType(CType(33, Byte), Integer), CType(CType(33, Byte), Integer))
-        Me.ClientSize = New System.Drawing.Size(110, 163)
+        Me.ClientSize = New System.Drawing.Size(110, 123)
         Me.Controls.Add(Me.save_btn)
         Me.Controls.Add(Me.GroupBox1)
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow
@@ -106,7 +94,6 @@ Partial Class frmScreenCap
 
     End Sub
     Friend WithEvents GroupBox1 As System.Windows.Forms.GroupBox
-    Friend WithEvents rb_dds As System.Windows.Forms.RadioButton
     Friend WithEvents rb_jpg As System.Windows.Forms.RadioButton
     Friend WithEvents rb_png As System.Windows.Forms.RadioButton
     Friend WithEvents save_btn As System.Windows.Forms.Button

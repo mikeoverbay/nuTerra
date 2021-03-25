@@ -6,10 +6,6 @@ Imports System.Threading
 Imports System.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-Imports Tao.DevIl
-
-'Imports Config = OpenTK.Configuration
-'Imports Utilities = OpenTK.Platform.Utilities
 
 Public Class frmMain
     Dim last_state As FormWindowState
@@ -491,10 +487,6 @@ try_again:
         FBOmini.FBO_Initialize(240) '<- default start up size
         LogThis(String.Format("{0}ms FBO Mini Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
-        Il.ilInit()
-        Ilu.iluInit()
-        LogThis(String.Format("{0}ms DevIL Initialized.", launch_timer.ElapsedMilliseconds.ToString("0000")))
-
         build_shaders()
         LogThis(String.Format("{0}ms Shaders Built.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
@@ -578,63 +570,45 @@ try_again:
 
         '---------------------------------------------------------
         'loading screen image
-        nuTERRA_BG_IMAGE =
-            load_image_from_file(Il.IL_PNG,
-            sp + "\resources\earth.png", False, True)
+        nuTERRA_BG_IMAGE = load_png_image_from_file(Path.Combine(sp, "resources\earth.png"), False, True)
         '---------------------------------------------------------
         'background screen image
-        CHECKER_BOARD =
-            load_image_from_file(Il.IL_PNG,
-            sp + "\resources\CheckerPatternPaper.png", False, False)
+        CHECKER_BOARD = load_png_image_from_file(Path.Combine(sp, "resources\CheckerPatternPaper.png"), False, False)
         '---------------------------------------------------------
         'cursor texture
-        CURSOR_TEXTURE_ID = load_image_from_file(Il.IL_PNG,
-            sp + "\resources\Cursor.png", True, False)
+        CURSOR_TEXTURE_ID = load_png_image_from_file(Path.Combine(sp, "resources\Cursor.png"), True, False)
         '---------------------------------------------------------
         'MiniMap position/direction img
-        DIRECTION_TEXTURE_ID = load_image_from_file(Il.IL_PNG,
-            sp + "\resources\direction.png", True, False)
+        DIRECTION_TEXTURE_ID = load_png_image_from_file(Path.Combine(sp, "resources\direction.png"), True, False)
         '---------------------------------------------------------
         'MiniMap Letter Legends
-        MINI_LETTERS_ID = load_image_from_file(Il.IL_PNG,
-            sp + "\resources\mini_letters.png", False, False)
+        MINI_LETTERS_ID = load_png_image_from_file(Path.Combine(sp, "resources\mini_letters.png"), False, False)
         '---------------------------------------------------------
         'MiniMap Number Legends
-        MINI_NUMBERS_ID = load_image_from_file(Il.IL_PNG,
-            sp + "\resources\mini_numbers.png", False, False)
+        MINI_NUMBERS_ID = load_png_image_from_file(Path.Combine(sp, "resources\mini_numbers.png"), False, False)
         '---------------------------------------------------------
         'MiniMap vert trim
-        MINI_TRIM_VERT_ID = load_image_from_file(Il.IL_PNG,
-            sp + "\resources\mini_trim_vert.png", False, False)
+        MINI_TRIM_VERT_ID = load_png_image_from_file(Path.Combine(sp, "resources\mini_trim_vert.png"), False, False)
         '---------------------------------------------------------
         'MiniMap horz trim
-        MINI_TRIM_HORZ_ID = load_image_from_file(Il.IL_PNG,
-            sp + "\resources\mini_trim_horz.png", False, False)
+        MINI_TRIM_HORZ_ID = load_png_image_from_file(Path.Combine(sp, "resources\mini_trim_horz.png"), False, False)
         '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
-        PROGRESS_BAR_IMAGE_ID =
-            load_image_from_file(Il.IL_PNG,
-            sp + "\resources\progress_bar.png", False, True)
+        PROGRESS_BAR_IMAGE_ID = load_png_image_from_file(Path.Combine(sp, "resources\progress_bar.png"), False, True)
 
         '---------------------------------------------------------
         ' build Ascii characters texture.
         ASCII_ID = build_ascii_characters()
 
         '===========================================================================================
-        Explosion_11776x512_91tiles_256x256_ID =
-            load_image_from_file(Il.IL_PNG,
-            sp + "\Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.png", True, True)
+        Explosion_11776x512_91tiles_256x256_ID = load_png_image_from_file(Path.Combine(sp, "Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.png"), True, True)
         '===========================================================================================
         'load Alpha_LUT texture.
 
-        ALPHA_LUT_ID =
-            load_image_from_file(Il.IL_PNG,
-            sp + "\Resources\Particle_textures\alpha_LUT.png", False, True)
+        ALPHA_LUT_ID = load_png_image_from_file(Path.Combine(sp, "Resources\Particle_textures\alpha_LUT.png"), False, True)
         '===========================================================================================
         'load noise texture.
-        NOISE_id =
-            load_image_from_file(Il.IL_PNG,
-            sp + "\Resources\noise.png", True, True)
+        NOISE_id = load_png_image_from_file(Path.Combine(sp, "Resources\noise.png"), True, True)
         '===========================================================================================
         ' needed for terrain atlas textures
         make_dummy_4_layer_atlas()

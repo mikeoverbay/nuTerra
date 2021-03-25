@@ -1,7 +1,6 @@
 ﻿Imports System.IO
 Imports NGettext
 Imports OpenTK.Graphics.OpenGL
-Imports Tao.DevIl
 
 NotInheritable Class MapMenuScreen
     Const MAX_NUM_COLUMNS = 7
@@ -185,7 +184,7 @@ NotInheritable Class MapMenuScreen
         Dim entry2 = ResMgr.Lookup("gui/maps/bg.png")
         Using ms As New MemoryStream
             entry2.Extract(ms)
-            MAP_SELECT_BACKGROUND_ID = load_image_from_stream(Il.IL_PNG, ms, entry2.FileName, False, True)
+            MAP_SELECT_BACKGROUND_ID = load_png_image_from_stream(ms, entry2.FileName, False, True)
         End Using
 
         'need to create this texture.

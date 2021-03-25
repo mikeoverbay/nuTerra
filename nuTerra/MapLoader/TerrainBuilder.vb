@@ -1,7 +1,6 @@
 ﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports OpenTK
-Imports Tao.DevIl
 Imports System.Text
 
 Module TerrainBuilder
@@ -323,13 +322,13 @@ Module TerrainBuilder
         Dim mm = ResMgr.Lookup(String.Format("spaces/{0}/mmap.dds", ABS_NAME))
         Dim mss As New MemoryStream
         mm.Extract(mss)
-        theMap.MINI_MAP_ID = load_image_from_stream(Il.IL_DDS, mss, "spaces/" + ABS_NAME + "/mmap.dds", False, False)
+        theMap.MINI_MAP_ID = load_dds_image_from_stream(mss, "spaces/" + ABS_NAME + "/mmap.dds")
         mss.Dispose()
         'get global_am
         Dim gmm = ResMgr.Lookup(String.Format("spaces/{0}/global_am.dds", ABS_NAME))
         Dim gmss As New MemoryStream
         gmm.Extract(gmss)
-        theMap.GLOBAL_AM_ID = load_image_from_stream(Il.IL_DDS, gmss, "", False, False)
+        theMap.GLOBAL_AM_ID = load_dds_image_from_stream(gmss, "")
         gmss.Dispose()
         GC.Collect()
 

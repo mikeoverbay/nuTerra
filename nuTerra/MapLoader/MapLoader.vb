@@ -6,7 +6,6 @@ Imports Ionic.Zip
 Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-Imports Tao.DevIl
 
 Module MapLoader
     Public ripple_thread As New Thread(AddressOf ripple_handler)
@@ -147,7 +146,7 @@ Module MapLoader
         'need this for all rendering states
         get_environment_info(map_name)
         '===============================================================
-        SUN_TEXTURE_ID = load_image_from_file(Il.IL_PNG, Application.StartupPath + "\resources\sol.png", False, False)
+        SUN_TEXTURE_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\sol.png"), False, False)
         'Dim entry = search_pkgs(SUN_TEXTURE_PATH)
         'If entry IsNot Nothing Then
         '    Dim ms As New MemoryStream
@@ -157,7 +156,7 @@ Module MapLoader
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
-            CC_LUT_ID = load_image_from_stream(Il.IL_DDS, ms, theMap.lut_path, False, False)
+            CC_LUT_ID = load_dds_image_from_stream(ms, theMap.lut_path)
         End If
         'get env_brdf
         entry = ResMgr.Lookup("system/maps/env_brdf_lut.dds")

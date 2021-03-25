@@ -1,6 +1,5 @@
 ﻿Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-Imports Tao.DevIl
 Imports System.IO
 
 Module modCubeMapLoader

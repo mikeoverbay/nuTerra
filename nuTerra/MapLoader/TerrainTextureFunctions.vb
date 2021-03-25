@@ -1,12 +1,9 @@
 ﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports System.Text
-Imports Ionic
-Imports Ionic.Zip
 Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-Imports Tao.DevIl
 
 Module TerrainTextureFunctions
     Public max_on As UInt32
