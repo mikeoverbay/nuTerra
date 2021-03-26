@@ -194,12 +194,14 @@ void main (void)
             if (dist < cutoff) {
                 // kill the terrian normals where there is water
                 N = mix(N, blank_n, water_mix*0.7);
+                vec3 R = reflect(-L,N);
 
                 float lambertTerm = pow(max(dot(N, L),0.001),GM_in.g);
 
+                float water_spec = max(pow(dot(V,R), 120.0 ),0.0001) * SPECULAR;
+
                 final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0);
 
-                vec3 R = reflect(-L,N);
 
 
                 vec3 halfwayDir = normalize(L + V);
@@ -222,8 +224,7 @@ void main (void)
                 vec4 W_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
                                           max(2.0-water_mix *2.0, 0.0)))*0.15;
 
-                vec3 water_reflect =  mix(prefilteredColor.xyz,
-                                      W_prefilteredColor.xyz + vec3(spec)*1.0, color_in.a);
+                vec3 water_reflect = vec3(water_mix*ambientColorForward) * vec3(water_spec)*2.0;
 
                 final_color.xyz += water_reflect;
                 //final_color.xyz += spec;
@@ -277,7 +278,7 @@ void main (void)
             //final_color.r = outColor.a;
             /*===================================================================*/
             // Small Map Lights
-           if (light_count >0){
+           if (light_count >1000){
 
                 //final_color*=0.5;
                 vec4 summed_lights;
