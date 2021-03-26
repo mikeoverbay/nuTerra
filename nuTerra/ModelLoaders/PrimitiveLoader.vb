@@ -61,6 +61,7 @@ Module PrimitiveLoader
         'Public g_useTintColor As Boolean
         Public g_colorTint As Vector4
         Public g_detailInfluences As Vector4
+        Public g_detailRejectTiling As Vector4
     End Structure
 
     Structure MaterialProps_PBS_tiled_atlas

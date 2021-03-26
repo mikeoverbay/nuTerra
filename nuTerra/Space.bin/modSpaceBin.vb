@@ -530,6 +530,7 @@ CleanUp:
                         .g_colorTint = If(props.ContainsKey("g_colorTint"), props("g_colorTint"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
                         .g_enableAO = If(props.ContainsKey("g_enableAO"), props("g_enableAO"), False)
                         .g_detailInfluences = If(props.ContainsKey("g_detailInfluences"), props("g_detailInfluences"), New Vector4(0.0F, 0.0F, 0.0F, 0.0F))
+                        .g_detailRejectTiling = If(props.ContainsKey("g_detailRejectTiling"), props("g_detailRejectTiling"), New Vector4(20.0F, 20.0F, 0.0F, 0.0F))
 
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_ext_detail

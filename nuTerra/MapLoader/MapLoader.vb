@@ -931,6 +931,7 @@ Module MapLoader
                         .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
                         .g_colorTint = props.g_colorTint
                         .g_detailInfluences = props.g_detailInfluences
+                        .g_detailRejectTiling = props.g_detailRejectTiling
                         .double_sided = If(props.doubleSided, 1, 0)
 
                     Case ShaderTypes.FX_PBS_tiled_atlas

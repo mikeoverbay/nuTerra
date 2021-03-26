@@ -97,6 +97,7 @@ Module modOpenGL
         Dim g_tile2Tint As Vector4
         Dim g_tileUVScale As Vector4
         Dim g_detailInfluences As Vector4
+        Dim g_detailRejectTiling As Vector4
         Dim map1Handle As UInt64
         Dim map2Handle As UInt64
         Dim map3Handle As UInt64
@@ -110,7 +111,7 @@ Module modOpenGL
         Dim alphaTestEnable As UInt32
         Dim g_enableAO As UInt32
         Dim double_sided As UInt32
-        Dim pad0 As UInt32
+        'Dim pad0 As UInt32
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>

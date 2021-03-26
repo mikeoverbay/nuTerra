@@ -61,7 +61,9 @@ void get_normal(in float mip)
     } else {
         vec4 normal = textureLod(thisMaterial.maps[1], fs_in.TC1, mip);
         normalBump.xy = normal.ag * 2.0 - 1.0;
-        normalBump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
+        float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
+        normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
+        normalBump.y *= -1.0;
         normalBump = normalize(normalBump);
         alphaCheck = normal.r;
     }
@@ -80,7 +82,9 @@ void get_and_write_no_mips(void){
     } else {
         vec4 normal = texture(thisMaterial.maps[1], fs_in.TC1,1.0);
         normalBump.xy = normal.ag * 2.0 - 1.0;
-        normalBump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
+        float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
+        normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
+        normalBump.y *= -1.0;
         normalBump = normalize(normalBump);
         alphaCheck = normal.r;
     }
@@ -153,8 +157,9 @@ layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
     get_and_write_no_mips();}
 //##################################################################################
 layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
-{
-    vec2 uvc = fract(fs_in.TC1) *10.0 * 0.875 + +0.0625;
+{   
+    // detail uv scale is in g_detailRejectTiling.zw;
+    vec2 uvc = fract(fs_in.TC1) * thisMaterial.g_detailRejectTiling.zw;
     gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor *= thisMaterial.g_colorTint;
     
@@ -263,9 +268,12 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
         
     vec3 bump;
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
-    bump.xy    = tb.xy;
-    bump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
-    bump.x = -bump.x;
+
+    bump.xy = tb.xy;
+    float dp = min(dot(bump.xy, bump.xy),1.0);
+    bump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
+    bump = normalize(bump);
+    bump.y = -bump.y;
 
     gNormal = normalize(fs_in.TBN * bump);
 }
@@ -362,9 +370,12 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     GBMT = mix(GBMT, globalTex, 0.5); // mix in the global NormalMap
 
     vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
-    bump.xy    = tb.xy;
-    bump.z = clamp(sqrt(1.0 - dot(normalBump.xy, normalBump.xy)),-1.0,1.0);
-    //bump.y = -bump.y;
+    bump.xy = tb.xy;
+    float dp = min(dot(bump.xy, bump.xy),1.0);
+    bump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
+    bump = normalize(bump);
+    bump.y = -bump.y;
+
     gNormal = normalize(fs_in.TBN * bump);
 }
 //##################################################################################

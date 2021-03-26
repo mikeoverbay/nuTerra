@@ -65,6 +65,7 @@ struct MaterialProperties
     vec4 g_tile2Tint;         /* 112 .. 128 */
     vec4 g_tileUVScale;       /* 128 .. 144 */
     vec4 g_detailInfluences;  /* 144 .. 160 */
+    vec4 g_detailRejectTiling;
 #ifdef GL_SPIRV
     uvec2 maps[6];            /* 160 .. 208 */
 #else

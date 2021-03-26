@@ -117,11 +117,13 @@ vec4 crop( sampler2DArray samp, in vec2 uv , in float layer)
 
 // Converion from AG map to RGB vector.
 vec4 convertNormal(vec4 norm){
-        vec3 n;
-        n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);
-        n.z = max(sqrt(1.0 - (n.x*n.x - n.y *n.y)),0.0);
-        n.x *= -1.0; // X needs flipped DX to OpenGL
-        return vec4(n,0.0);
+    vec3 n;
+    n.xy = clamp(norm.ag*2.0-1.0, -1.0 ,1.0);;
+    float dp = min(dot(n.xy, n.xy),1.0);
+    n.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
+    n = normalize(n);
+    n.x = -n.x;
+    return vec4(n,0.0);
 }
 
 vec3 ColorCorrect(in vec3 valin){  
