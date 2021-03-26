@@ -411,6 +411,9 @@ void main(void)
     vec4 m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
     vec4 base = m7;
+    // global.a is used for wetness on the map.
+    // I am not sure this should be applied to the AM color.
+    base.rgb = mix(base.rgb,waterColor,waterAlpha*global.a);
     base.rgb = ColorCorrect(base.rgb);
    
     // Texture outlines if test = 1.0;
@@ -446,10 +449,6 @@ void main(void)
 
     out_n = convertNormal(out_n);
     out_n.xyz = fs_in.TBN * out_n.xyz;
-
-    // global.a is used for wetness on the map.
-    // I am not sure this should be applied to the AM color.
-    //base.rgb = mix(base.rgb ,waterColor, global.a * waterAlpha);
     
     // Get pre=mixed map textures
     vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, map_id) );

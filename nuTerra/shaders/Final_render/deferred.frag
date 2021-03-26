@@ -139,7 +139,7 @@ void main (void)
             vec4 color_in = texture(gColor, fs_in.UV);
             
             //Mix in our water color
-            color_in.rgb = mix(color_in.rgb, waterColor, color_in.a);
+            //color_in.rgb = mix(color_in.rgb, waterColor, color_in.a);
 
             //fog level... this should be on the controller
             float fog_alpha = 0.5;

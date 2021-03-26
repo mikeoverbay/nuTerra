@@ -78,7 +78,8 @@ layout(binding = 21) uniform sampler2D global_AM;
 //layout(binding = 23) uniform sampler2DArray shadow;
 
 uniform int map_id;
-
+uniform vec3 waterColor;
+uniform float waterAlpha;
 
 in VS_OUT {
 
@@ -309,7 +310,7 @@ void main(void)
     vec4 m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
 
     vec4 base = m7;
-
+    base.rgb = mix(base.rgb,waterColor,waterAlpha*global.a);
     base.rgb = ColorCorrect(base.rgb);
     //-------------------------------------------------------------
     // normals
