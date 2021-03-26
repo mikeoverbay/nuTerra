@@ -1,0 +1,23 @@
+﻿#version 450 core
+
+#extension GL_ARB_shading_language_include : require
+
+layout (local_size_x = 16) in;
+
+layout (location = 0) uniform int numAfterFrustum;
+layout (location = 1) uniform int numAfterFrustumDblSided;
+
+#define USE_VISIBLES_SSBO
+#define USE_INDIRECT_SSBO
+#define USE_INDIRECT_DOUBLE_SIDED_SSBO
+#include "common.h" //! #include "../common.h"
+
+void main(void)
+{
+    if (gl_GlobalInvocationID.x < numAfterFrustum) {
+        command[gl_GlobalInvocationID.x].instanceCount = visibles[gl_GlobalInvocationID.x];
+    }
+    if (gl_GlobalInvocationID.x < numAfterFrustumDblSided) {
+        command_double_sided[gl_GlobalInvocationID.x].instanceCount = visibles_dbl_sided[gl_GlobalInvocationID.x];
+    }
+}

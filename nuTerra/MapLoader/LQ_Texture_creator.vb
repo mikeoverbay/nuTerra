@@ -151,12 +151,12 @@ Module LQ_Texture_creator
                     GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
                     MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-                    GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+                    GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(0), 0)
 
                     GL.Disable(EnableCap.CullFace)
 
                     MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-                    GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
+                    GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(1), 0)
 
                     modelDepthShader.StopUse()
                 End If

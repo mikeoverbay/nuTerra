@@ -45,6 +45,9 @@ Module modGlobalVars
     Public USE_NV_DRAW_TEXTURE As Boolean
     Public USE_SPIRV_SHADERS As Boolean
 
+    ' https://github.com/nvpro-samples/gl_occlusion_culling
+    Public USE_RASTER_CULLING As Boolean = False
+
     'Shading
     Public DUMMY_ATLAS As GLTexture
     Public FOG_COLOR As Vector3

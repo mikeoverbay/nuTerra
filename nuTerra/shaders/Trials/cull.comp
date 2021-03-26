@@ -22,8 +22,8 @@ layout (local_size_x = 16) in;
 layout (location = 0) uniform int numModelInstances;
 
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
-layout (binding = PARAMETERS_BASE, offset = 4) uniform atomic_uint commandGlassCounter;
-layout (binding = PARAMETERS_BASE, offset = 8) uniform atomic_uint commandDoubleSidedCounter;
+layout (binding = PARAMETERS_BASE, offset = 4) uniform atomic_uint commandDoubleSidedCounter;
+layout (binding = PARAMETERS_BASE, offset = 8) uniform atomic_uint commandGlassCounter;
 
 struct Frustum {
     vec4 planes[6];

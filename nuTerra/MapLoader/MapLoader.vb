@@ -23,6 +23,9 @@ Module MapLoader
     Public MAP_MODELS() As mdl_
 
     NotInheritable Class MapGL
+        ' Get data from gpu
+        Public Shared numAfterFrustum(2) As Integer
+
         ''' <summary>
         ''' OpenGL buffers used to draw all map models
         ''' </summary>
@@ -38,6 +41,10 @@ Module MapLoader
             Public Shared indirect_glass As GLBuffer
             Public Shared indirect_dbl_sided As GLBuffer
             Public Shared lods As GLBuffer
+
+            ' For cull-raster only!
+            Public Shared visibles As GLBuffer
+            Public Shared visibles_dbl_sided As GLBuffer
         End Class
 
         NotInheritable Class VertexArrays
@@ -367,8 +374,20 @@ Module MapLoader
             MapGL.Buffers.parameters = CreateBuffer(BufferTarget.AtomicCounterBuffer, "parameters")
             BufferStorageNullData(MapGL.Buffers.parameters,
                                   256,
-                                  BufferStorageFlags.None)
+                                  BufferStorageFlags.ClientStorageBit)
             MapGL.Buffers.parameters.BindBase(0)
+
+            MapGL.Buffers.visibles = CreateBuffer(BufferTarget.ShaderStorageBuffer, "visibles")
+            BufferStorageNullData(MapGL.Buffers.visibles,
+                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of Integer),
+                                  BufferStorageFlags.DynamicStorageBit)
+            MapGL.Buffers.visibles.BindBase(8)
+
+            MapGL.Buffers.visibles_dbl_sided = CreateBuffer(BufferTarget.ShaderStorageBuffer, "visibles_dbl_sided")
+            BufferStorageNullData(MapGL.Buffers.visibles_dbl_sided,
+                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of Integer),
+                                  BufferStorageFlags.DynamicStorageBit)
+            MapGL.Buffers.visibles_dbl_sided.BindBase(9)
 
             MapGL.Buffers.drawCandidates = CreateBuffer(BufferTarget.ShaderStorageBuffer, "drawCandidates")
             BufferStorage(MapGL.Buffers.drawCandidates,

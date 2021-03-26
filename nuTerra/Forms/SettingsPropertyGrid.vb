@@ -313,4 +313,14 @@ Public Class SettingsPropertyGrid
             Return SHOW_TEST_TEXTURES
         End Get
     End Property
+
+    <DisplayName("Raster culling"), Category("Culling")>
+    Public Property CULLING_raster_culling As Boolean
+        Set(value As Boolean)
+            USE_RASTER_CULLING = value
+        End Set
+        Get
+            Return USE_RASTER_CULLING
+        End Get
+    End Property
 End Class

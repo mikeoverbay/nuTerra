@@ -18,6 +18,7 @@ Module ShaderLoader
     End Function
 
     Public Class Shader
+        Private defines() As String
         Private is_used As Boolean
         Private loaded As Boolean
         Public program As Integer
@@ -87,7 +88,7 @@ Module ShaderLoader
                 Debug.Assert(status_code = 0)
             End If
 
-            program = assemble_shader(vertex, geo, compute, fragment, name)
+            program = assemble_shader(vertex, geo, compute, fragment, name, defines)
 
             If program = 0 Then
                 ' Stop ' For debugging
@@ -108,8 +109,9 @@ Module ShaderLoader
             loaded = True
         End Sub
 
-        Sub New(name As String)
+        Sub New(name As String, Optional defines() As String = Nothing)
             Me.name = name
+            Me.defines = defines
             is_used = False
             loaded = False
             Dim failed_1, failed_2, failed_3, failed_4 As Boolean
@@ -152,6 +154,9 @@ Module ShaderLoader
     Public boxShader As Shader
     Public cullShader As Shader
     Public cullLodClearShader As Shader
+    Public cullRasterShader As Shader
+    Public cullRasterDblSidedShader As Shader
+    Public cullInvalidateShader As Shader
     Public colorCorrectShader As Shader
     Public coloredline2dShader As Shader
     Public colorMaskShader As Shader
@@ -211,6 +216,9 @@ Module ShaderLoader
         boxShader = New Shader("box")
         cullShader = New Shader("cull")
         cullLodClearShader = New Shader("cullLodClear")
+        cullRasterShader = New Shader("cull-raster")
+        cullRasterDblSidedShader = New Shader("cull-raster", {"#define DBL_SIDED"})
+        cullInvalidateShader = New Shader("cull-invalidate")
         colorCorrectShader = New Shader("colorCorrect")
         coloredline2dShader = New Shader("coloredLine2d")
         colorMaskShader = New Shader("ColorMask")
@@ -258,6 +266,9 @@ Module ShaderLoader
         shaders.Add(boxShader)
         shaders.Add(cullShader)
         shaders.Add(cullLodClearShader)
+        shaders.Add(cullRasterShader)
+        shaders.Add(cullRasterDblSidedShader)
+        shaders.Add(cullInvalidateShader)
         shaders.Add(colorCorrectShader)
         shaders.Add(coloredline2dShader)
         shaders.Add(colorMaskShader)
@@ -302,7 +313,8 @@ Module ShaderLoader
                                     g As String,
                                     c As String,
                                     f As String,
-                                    name As String) As Integer
+                                    name As String,
+                                    defines() As String) As Integer
         Dim status_code As Integer
 
         Dim program As Integer = GL.CreateProgram()
@@ -323,7 +335,11 @@ Module ShaderLoader
                 GL.SpecializeShader(vertexObject, "main", 0, 0, 0)
             Else
                 Using vs_s As New StreamReader(v)
-                    Dim vs As String = vs_s.ReadToEnd()
+                    Dim vs = vs_s.ReadLine() & vbNewLine
+                    If defines IsNot Nothing Then
+                        vs += String.Join(vbNewLine, defines) & vbNewLine
+                    End If
+                    vs += vs_s.ReadToEnd()
                     GL.ShaderSource(vertexObject, vs)
                 End Using
 
@@ -352,7 +368,11 @@ Module ShaderLoader
                 GL.SpecializeShader(fragmentObject, "main", 0, 0, 0)
             Else
                 Using fs_s As New StreamReader(f)
-                    Dim fs As String = fs_s.ReadToEnd
+                    Dim fs = fs_s.ReadLine() & vbNewLine
+                    If defines IsNot Nothing Then
+                        fs += String.Join(vbNewLine, defines) & vbNewLine
+                    End If
+                    fs += fs_s.ReadToEnd()
                     GL.ShaderSource(fragmentObject, fs)
                 End Using
 
@@ -377,7 +397,11 @@ Module ShaderLoader
             geomObject = GL.CreateShader(ShaderType.GeometryShader)
 
             Using gs_s As New StreamReader(g)
-                Dim gs As String = gs_s.ReadToEnd()
+                Dim gs = gs_s.ReadLine() & vbNewLine
+                If defines IsNot Nothing Then
+                    gs += String.Join(vbNewLine, defines) & vbNewLine
+                End If
+                gs += gs_s.ReadToEnd()
                 GL.ShaderSource(geomObject, gs)
             End Using
 
@@ -425,7 +449,11 @@ Module ShaderLoader
                 GL.SpecializeShader(computeObject, "main", 0, 0, 0)
             Else
                 Using cs_s As New StreamReader(c)
-                    Dim cs As String = cs_s.ReadToEnd()
+                    Dim cs = cs_s.ReadLine() & vbNewLine
+                    If defines IsNot Nothing Then
+                        cs += String.Join(vbNewLine, defines) & vbNewLine
+                    End If
+                    cs += cs_s.ReadToEnd()
                     GL.ShaderSource(computeObject, cs)
                 End Using
 

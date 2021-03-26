@@ -386,6 +386,18 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="shaders\Terrain_shaders\Terrain - Copy.frag" />
+    <None Include="shaders\Trials\cull-invalidate.comp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Trials\cull-raster.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Trials\cull-raster.geom">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Trials\cull-raster.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Trials\cull.comp.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

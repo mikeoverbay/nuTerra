@@ -109,9 +109,10 @@ Module modRender
         'Model depth pass only
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
             '=======================================================================
-            FBOm.attach_C()
             model_depth_pass() '=========================================================
             '=======================================================================
+
+            If USE_RASTER_CULLING Then model_cull_raster_pass()
         End If
 
         FBOm.attach_CNGPA()
@@ -504,6 +505,8 @@ Module modRender
 
         cullShader.StopUse()
 
+        GL.GetNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), MapGL.numAfterFrustum)
+
         GL_POP_GROUP()
     End Sub
 
@@ -722,17 +725,57 @@ Module modRender
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(0), 0)
 
         GL.Disable(EnableCap.CullFace)
 
         MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(1), 0)
 
         mDepthWriteShader.StopUse()
         GL.ColorMask(True, True, True, True)
 
         GL.Enable(EnableCap.CullFace)
+
+        GL_POP_GROUP()
+    End Sub
+
+    Private Sub model_cull_raster_pass()
+        GL_PUSH_GROUP("model_cull_raster_pass")
+
+        GL.ColorMask(False, False, False, False)
+        ' we need this because the depth has been writen already.
+        GL.DepthFunc(DepthFunction.Gequal)
+        GL.DepthMask(False)
+
+        'clear
+        GL.ClearNamedBufferSubData(MapGL.Buffers.visibles.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, MapGL.numAfterFrustum(0) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        GL.ClearNamedBufferSubData(MapGL.Buffers.visibles_dbl_sided.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, MapGL.numAfterFrustum(1) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+
+        GL.BindVertexArray(defaultVao)
+
+        cullRasterShader.Use()
+        GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(0))
+        cullRasterShader.StopUse()
+
+        cullRasterDblSidedShader.Use()
+        GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(1))
+        cullRasterDblSidedShader.StopUse()
+
+        cullInvalidateShader.Use()
+        GL.Uniform1(cullInvalidateShader("numAfterFrustum"), MapGL.numAfterFrustum(0))
+        GL.Uniform1(cullInvalidateShader("numAfterFrustumDblSided"), MapGL.numAfterFrustum(1))
+
+        Dim workGroupSize = 16
+        Dim numGroups = (Math.Max(MapGL.numAfterFrustum(0), MapGL.numAfterFrustum(1)) + workGroupSize - 1) \ workGroupSize
+        GL.DispatchCompute(numGroups, 1, 1)
+
+        GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
+
+        cullInvalidateShader.StopUse()
+
+        GL.DepthMask(True)
+        GL.ColorMask(True, True, True, True)
 
         GL_POP_GROUP()
     End Sub
@@ -764,12 +807,12 @@ Module modRender
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(0), 0)
 
         GL.Disable(EnableCap.CullFace)
 
         MapGL.Buffers.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(8), MapGL.indirectDrawCount, 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(1), 0)
 
         modelShader.StopUse()
 
@@ -783,7 +826,7 @@ Module modRender
         '------------------------------------------------
 
         MapGL.Buffers.indirect_glass.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(4), MapGL.indirectDrawCount, 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(2), 0)
 
         modelGlassShader.StopUse()
 
@@ -801,12 +844,12 @@ Module modRender
             GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
 
-            GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, New IntPtr(4), MapGL.indirectDrawCount, 0)
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(2), 0)
 
             MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
             MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
             GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
-            GL.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, IntPtr.Zero, MapGL.indirectDrawCount, 0)
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(0), 0)
             normalShader.StopUse()
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)

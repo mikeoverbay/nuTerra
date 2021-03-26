@@ -13,6 +13,8 @@
 #define INDIRECT_GLASS_BASE 5
 #define INDIRECT_DBL_SIDED_BASE 6
 #define LIGHTS_BASE 7
+#define VISIBLES_BASE 8
+#define VISIBLES_DBL_SIDED_BASE 9
 
 struct CandidateDraw
 {
@@ -132,7 +134,7 @@ layout(binding = LODS_BASE, std430) readonly buffer ModelLoDs
 #endif
 
 #ifdef USE_INDIRECT_SSBO
-layout(binding = INDIRECT_BASE, std430) writeonly buffer Indirect
+layout(binding = INDIRECT_BASE, std430) buffer Indirect
 {
     DrawElementsIndirectCommand command[];
 };
@@ -146,8 +148,17 @@ layout(binding = INDIRECT_GLASS_BASE, std430) writeonly buffer IndirectGlass
 #endif
 
 #ifdef USE_INDIRECT_DOUBLE_SIDED_SSBO
-layout(binding = INDIRECT_DBL_SIDED_BASE, std430) writeonly buffer IndirectDoubleSided
+layout(binding = INDIRECT_DBL_SIDED_BASE, std430) buffer IndirectDoubleSided
 {
     DrawElementsIndirectCommand command_double_sided[];
+};
+#endif
+
+#ifdef USE_VISIBLES_SSBO
+layout(std430, binding = VISIBLES_BASE) buffer visibleBuffer {
+    int visibles[];
+};
+layout(std430, binding = VISIBLES_DBL_SIDED_BASE) buffer visibleDblSidedBuffer {
+    int visibles_dbl_sided[];
 };
 #endif
