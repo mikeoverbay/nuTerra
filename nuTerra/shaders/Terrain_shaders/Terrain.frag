@@ -215,7 +215,7 @@ void main(void)
     tuv7 = get_transformed_uv(U7, V7, r1_7, r2_7, s7);
     tuv8 = get_transformed_uv(U8, V8, r1_8, r2_8, s8);
 
-    // Get AM maps,crop, detilize and set Test outline blend flag
+    // Get AM maps,crop and set Test outline blend flag
 
     t1 = crop(at1, tuv1, 0.0, B1);
     t2 = crop(at2, tuv2, 0.0, B2);
@@ -286,7 +286,7 @@ void main(void)
     t6.rgb = t6.rgb* min(r2_6.x,1.0) + mt6.rgb*(r2_6.y+1.0);
     t7.rgb = t7.rgb* min(r2_7.x,1.0) + mt7.rgb*(r2_7.y+1.0);
     t8.rgb = t8.rgb* min(r2_8.x,1.0) + mt8.rgb*(r2_8.y+1.0);
-
+    
     n1.rgb = n1.rgb* min(r2_1.x,1.0) + mn1.rgb*(r2_1.y+1.0);
     n2.rgb = n2.rgb* min(r2_2.x,1.0) + mn2.rgb*(r2_2.y+1.0);
     n3.rgb = n3.rgb* min(r2_3.x,1.0) + mn3.rgb*(r2_3.y+1.0);
@@ -409,11 +409,13 @@ void main(void)
     vec4 m6 = blend(m1 ,MixLevel1.r+MixLevel1.g, m2, MixLevel2.r+MixLevel2.g);
 
     vec4 m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
+    //Mix in water as a hieght using the globla alpha.
+    vec4 m8 = blend(m7, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g + 
+              MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g,
+              vec4(waterColor,waterAlpha),global.a);
+                   
+    vec4 base = m8;
 
-    vec4 base = m7;
-    // global.a is used for wetness on the map.
-    // I am not sure this should be applied to the AM color.
-    base.rgb = mix(base.rgb,waterColor,waterAlpha*global.a);
     base.rgb = ColorCorrect(base.rgb);
    
     // Texture outlines if test = 1.0;
