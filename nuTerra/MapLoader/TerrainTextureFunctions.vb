@@ -198,6 +198,7 @@ Module TerrainTextureFunctions
             Dim magic = br.ReadUInt32
             Dim map_count = br.ReadUInt32
             ReDim .layer.layer_section_size(7)
+            ReDim Preserve .layer.render_info(7)
             For i = 0 To 7
                 .layer.layer_section_size(i) = br.ReadUInt32
 
@@ -205,13 +206,12 @@ Module TerrainTextureFunctions
                 If .layer.layer_section_size(i) > 0 Then
                     If .layer.layer_section_size(i) < min_on Then min_on = .layer.layer_section_size(i)
                 End If
-
-            Next
-            ReDim .layer.render_info(map_count)
-
-            ReDim Preserve .layer.render_info(7)
-            For i = 0 To map_count - 1
                 .layer.render_info(i) = New layer_render_info_entry_
+                .layer.render_info(i).texture_name = ""
+            Next
+            'ReDim .layer.render_info(map_count)
+
+            For i = 0 To map_count - 1
                 br.ReadUInt32() 'magic
                 .layer.render_info(i).width = br.ReadUInt32
                 .layer.render_info(i).height = br.ReadUInt32
