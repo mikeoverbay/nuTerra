@@ -155,7 +155,6 @@ Module ShaderLoader
     Public cullShader As Shader
     Public cullLodClearShader As Shader
     Public cullRasterShader As Shader
-    Public cullRasterDblSidedShader As Shader
     Public cullInvalidateShader As Shader
     Public colorCorrectShader As Shader
     Public coloredline2dShader As Shader
@@ -217,7 +216,6 @@ Module ShaderLoader
         cullShader = New Shader("cull")
         cullLodClearShader = New Shader("cullLodClear")
         cullRasterShader = New Shader("cull-raster")
-        cullRasterDblSidedShader = New Shader("cull-raster", {"#define DBL_SIDED"})
         cullInvalidateShader = New Shader("cull-invalidate")
         colorCorrectShader = New Shader("colorCorrect")
         coloredline2dShader = New Shader("coloredLine2d")
@@ -267,7 +265,6 @@ Module ShaderLoader
         shaders.Add(cullShader)
         shaders.Add(cullLodClearShader)
         shaders.Add(cullRasterShader)
-        shaders.Add(cullRasterDblSidedShader)
         shaders.Add(cullInvalidateShader)
         shaders.Add(colorCorrectShader)
         shaders.Add(coloredline2dShader)

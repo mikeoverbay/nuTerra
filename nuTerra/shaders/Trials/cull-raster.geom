@@ -13,17 +13,20 @@
 layout (points) in;
 layout (triangle_strip, max_vertices = 14) out;
 
+layout (location = 0) uniform int numAfterFrustum;
+
 flat out int objid;
 
 void main(void)
 {
     objid = gl_PrimitiveIDIn;
 
-#ifdef DBL_SIDED
-    const ModelInstance thisModel = models[draw[command_double_sided[gl_PrimitiveIDIn].baseInstance].model_id];
-#else
-    const ModelInstance thisModel = models[draw[command[gl_PrimitiveIDIn].baseInstance].model_id];
-#endif
+    ModelInstance thisModel;
+    if (gl_PrimitiveIDIn >= numAfterFrustum) {
+        thisModel = models[draw[command_double_sided[gl_PrimitiveIDIn - numAfterFrustum].baseInstance].model_id];
+    } else {
+        thisModel = models[draw[command[gl_PrimitiveIDIn].baseInstance].model_id];
+    }
 
     const vec3 bmin = thisModel.bmin * 1.01;
     const vec3 bmax = thisModel.bmax * 1.01;

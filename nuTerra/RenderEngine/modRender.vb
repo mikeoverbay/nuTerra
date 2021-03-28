@@ -750,12 +750,9 @@ Module modRender
         End If
 
         cullRasterShader.Use()
-        GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(0))
+        GL.Uniform1(cullRasterShader("numAfterFrustum"), MapGL.numAfterFrustum(0))
+        GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(0) + MapGL.numAfterFrustum(1))
         cullRasterShader.StopUse()
-
-        cullRasterDblSidedShader.Use()
-        GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(1))
-        cullRasterDblSidedShader.StopUse()
 
         If USE_REPRESENTATIVE_TEST Then
             GL.Disable(GL_REPRESENTATIVE_FRAGMENT_TEST_NV)
