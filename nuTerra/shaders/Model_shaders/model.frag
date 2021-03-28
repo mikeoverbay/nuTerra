@@ -63,15 +63,14 @@ void get_normal(in float mip)
         normalBump.xy = normal.ag * 2.0 - 1.0;
         float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
         normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
-        normalBump.y *= -1.0;
         normalBump = normalize(normalBump);
         alphaCheck = normal.r;
     }
     if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
         discard;
     }
+    //normalBump.x *= -1.0;
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
-    //gNormal.y = -gNormal.y;
 }
 //##################################################################################
 void get_and_write_no_mips(void){
@@ -84,23 +83,20 @@ void get_and_write_no_mips(void){
         normalBump.xy = normal.ag * 2.0 - 1.0;
         float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
         normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
-        normalBump.y *= -1.0;
         normalBump = normalize(normalBump);
         alphaCheck = normal.r;
     }
     if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
         discard;
     }
-    gNormal.x = -gNormal.x;
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
 }
 //##################################################################################
 vec3 get_detail_normal(vec4 anm){
     vec3 bump;
     bump.xy = anm.ag * 2.0 - 1.0;
-    bump.z = clamp( sqrt(1.0 - dot(anm.xy, anm.xy)),-1.0,1.0);
-    //bump.x = -bump.x;
-
+    float dp = min(dot(bump.xy, bump.xy),1.0);
+    bump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
     return normalize(fs_in.TBN * bump);
 }
 //##################################################################################
@@ -110,7 +106,6 @@ float get_mip_map_level(sampler2D samp)
     vec2  dx_vtc        = dFdx(fs_in.TC1 * float(isize.x));
     vec2  dy_vtc        = dFdy(fs_in.TC1 * float(isize.y));
     float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    
     return round(0.25 * log2(d)); 
 }
 //##################################################################################
@@ -267,13 +262,12 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     gGMF.g = MAO.r;
         
     vec3 bump;
-    vec2 tb = vec2(GBMT.ga * 2.0 - 1.0);
+    vec2 tb = vec2(GBMT.ag * 2.0 - 1.0);
 
     bump.xy = tb.xy;
     float dp = min(dot(bump.xy, bump.xy),1.0);
     bump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
     bump = normalize(bump);
-    bump.y = -bump.y;
 
     gNormal = normalize(fs_in.TBN * bump);
 }
@@ -374,7 +368,6 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     float dp = min(dot(bump.xy, bump.xy),1.0);
     bump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
     bump = normalize(bump);
-    bump.y = -bump.y;
 
     gNormal = normalize(fs_in.TBN * bump);
 }

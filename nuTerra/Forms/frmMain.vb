@@ -993,7 +993,7 @@ try_again:
                 frmModelViewer.FastColoredTextBox1.Text = ""
                 Application.DoEvents()
                 'make sure the control sets the highlights
-                frmModelViewer.FastColoredTextBox1.Text = visual.InnerXml
+                frmModelViewer.FastColoredTextBox1.Text = visual.InnerXml.Replace("><", ">" + vbCrLf + ">")
                 Application.DoEvents()
                 frmModelViewer.MODEL_NAME_MODELVIEWER = visual_path.Replace("\", "/")
             Else
