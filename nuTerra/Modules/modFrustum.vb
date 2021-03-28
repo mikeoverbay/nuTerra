@@ -15,15 +15,10 @@ Module modFrustum
 
     Public Sub ExtractFrustum()
         CULLED_COUNT = 0
-        Dim proj(16) As Single
-        Dim modl(16) As Single
         Dim t As Single
 
-
-        Dim clip As New Matrix4
         ' Combine the two matrices (multiply projection by modelview) 
-        clip = Matrix4.Mult(PerViewData.view, PerViewData.projection)
-
+        Dim clip = Matrix4.Mult(PerViewData.view, PerViewData.projection)
 
         ' Extract the numbers for the RIGHT plane 
         frustum(0, 0) = clip.M14 - clip.M11
@@ -96,20 +91,12 @@ Module modFrustum
         frustum(5, 2) = clip.M34 + clip.M33
         frustum(5, 3) = clip.M44 + clip.M43
 
-        ' Normalize the result 
+        ' Normalize the result
         t = Sqrt(frustum(5, 0) * frustum(5, 0) + frustum(5, 1) * frustum(5, 1) + frustum(5, 2) * frustum(5, 2))
         frustum(5, 0) /= t
         frustum(5, 1) /= t
         frustum(5, 2) /= t
         frustum(5, 3) /= t
-        'tb1.text = ""
-        'Return
-        Dim str As String = ""
-        For i = 0 To 5
-            str += frustum(i, 0).ToString("000.0000") + "   " + frustum(i, 1).ToString("000.0000") + "   " + frustum(i, 2).ToString("000.0000") + "   " + frustum(i, 3).ToString("000.0000") + vbCrLf
-        Next
-
-
     End Sub
 
     Public Function CubeInFrustum(ByRef bb() As Vector3) As Boolean

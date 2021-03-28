@@ -146,8 +146,6 @@ Module LQ_Texture_creator
 
                     GL.UniformMatrix4(terrainDepthShader("Ortho_Project"), False, PROJECTIONMATRIX)
 
-                    MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
-
                     GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
                     MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)

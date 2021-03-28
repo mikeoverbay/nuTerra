@@ -4,7 +4,6 @@ Imports OpenTK.Graphics.OpenGL
 #Const WITHOUT_DSA = False
 
 Public Module modOpenGLAliases
-    Public Const GL_PARAMETER_BUFFER_ARB As BufferTarget = 33006
     Public Const GL_REPRESENTATIVE_FRAGMENT_TEST_NV As EnableCap = 37759
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>

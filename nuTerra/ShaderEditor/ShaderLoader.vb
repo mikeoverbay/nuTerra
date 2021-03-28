@@ -72,7 +72,7 @@ Module ShaderLoader
             End If
             is_used = False
 #End If
-            GL.UseProgram(0)
+            ' GL.UseProgram(0)
         End Sub
 
         Sub UpdateShader()

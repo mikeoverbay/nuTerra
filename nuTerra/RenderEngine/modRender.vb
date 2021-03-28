@@ -7,7 +7,6 @@ Module modRender
     Dim temp_timer As New Stopwatch
     Public PI As Single = 3.14159274F
     Public angle1, angle2 As Single
-    Private cull_timer As New Stopwatch
     Private uv_location As New Vector2
 
     Dim colors() As Graphics.Color4 = {
@@ -46,9 +45,6 @@ Module modRender
         FRAME_TIMER.Restart()
         '===========================================================================
 
-        'frmMain.glControl_main.MakeCurrent()
-        frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
-
         '===========================================================================
 
         GL.FrontFace(FrontFaceDirection.Ccw)
@@ -71,8 +67,6 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        CULLED_COUNT = 0
-        cull_timer.Restart()
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             ExtractFrustum()
             cull_terrain()
@@ -84,7 +78,6 @@ Module modRender
             frustum_cull() '========================================================
             '=======================================================================
         End If
-        cull_timer.Stop()
 
         '===========================================================================
         FBOm.attach_CNGPA() 'clear ALL gTextures!
@@ -94,15 +87,16 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        'draw sun
         FBOm.attach_C()
-        'GL.FrontFace(FrontFaceDirection.Ccw)
-        GL.Disable(EnableCap.DepthTest)
-        If TERRAIN_LOADED And DONT_BLOCK_SKY Then Draw_SkyDome()
-        If TERRAIN_LOADED And DONT_BLOCK_SKY Then draw_sun()
+        If TERRAIN_LOADED And DONT_BLOCK_SKY Then
+            GL.Disable(EnableCap.DepthTest)
+            Draw_SkyDome()
+            draw_sun()
+            GL.Enable(EnableCap.DepthTest)
+        End If
+
         '===========================================================================
         'GL States 
-        GL.Enable(EnableCap.DepthTest)
         GL.DepthFunc(DepthFunction.Greater)
         '===========================================================================
 
@@ -112,7 +106,9 @@ Module modRender
             model_depth_pass() '=========================================================
             '=======================================================================
 
-            If USE_RASTER_CULLING Then model_cull_raster_pass()
+            If USE_RASTER_CULLING Then
+                model_cull_raster_pass()
+            End If
         End If
 
         FBOm.attach_CNGPA()
@@ -142,7 +138,6 @@ Module modRender
 
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
             '=======================================================================
-            FBOm.attach_CNGP()
             draw_models() '=========================================================
             '=======================================================================
         End If
@@ -287,9 +282,6 @@ Module modRender
 
     Dim map_center As Vector3
     Dim scale As Vector3
-    Dim rotate As Matrix4 = Nothing
-    Dim model_S As Matrix4 = Nothing
-    Dim model_X As Matrix4 = Nothing
 
     '=============================================================================================
     Private Sub render_deferred_buffers()
@@ -721,7 +713,6 @@ Module modRender
         GL.ColorMask(False, False, False, False)
         GL.Enable(EnableCap.CullFace)
 
-        MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
@@ -812,8 +803,6 @@ Module modRender
 
         GL.Enable(EnableCap.CullFace)
 
-        MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
-
         GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
 
         MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
@@ -857,8 +846,6 @@ Module modRender
             GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(2), 0)
 
             MapGL.Buffers.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-            MapGL.Buffers.parameters.Bind(GL_PARAMETER_BUFFER_ARB)
-            GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
             GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, MapGL.numAfterFrustum(0), 0)
             normalShader.StopUse()
 
@@ -1021,7 +1008,6 @@ Module modRender
         'sum triangles drawn
         Dim tr = TERRAIN_TRIS_DRAWN
 
-        Dim cull_t = cull_timer.ElapsedMilliseconds
         Dim txt = String.Format("FPS: {0} | Draw time in Milliseconds: {1}", FPS_TIME, elapsed)
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
