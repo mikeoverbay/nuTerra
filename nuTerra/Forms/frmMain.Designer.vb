@@ -38,7 +38,7 @@ Partial Class frmMain
         Me.m_set_game_path = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripSeparator3 = New System.Windows.Forms.ToolStripSeparator()
         Me.m_show_light_pos = New System.Windows.Forms.ToolStripMenuItem()
-        Me.ShowPropertiesToolStripMenuItem = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_show_properties = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_light_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_developer = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_show_gbuffer = New System.Windows.Forms.ToolStripMenuItem()
@@ -124,7 +124,7 @@ Partial Class frmMain
         'm_settings
         '
         Me.m_settings.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_settings.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_set_game_path, Me.ToolStripSeparator3, Me.m_show_light_pos, Me.ShowPropertiesToolStripMenuItem})
+        Me.m_settings.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_set_game_path, Me.ToolStripSeparator3, Me.m_show_light_pos, Me.m_show_properties})
         Me.m_settings.ForeColor = System.Drawing.Color.Black
         Me.m_settings.Name = "m_settings"
         Me.m_settings.Size = New System.Drawing.Size(61, 20)
@@ -152,11 +152,11 @@ Partial Class frmMain
         Me.m_show_light_pos.Size = New System.Drawing.Size(321, 22)
         Me.m_show_light_pos.Text = "Show Light Position"
         '
-        'ShowPropertiesToolStripMenuItem
+        'm_show_properties
         '
-        Me.ShowPropertiesToolStripMenuItem.Name = "ShowPropertiesToolStripMenuItem"
-        Me.ShowPropertiesToolStripMenuItem.Size = New System.Drawing.Size(321, 22)
-        Me.ShowPropertiesToolStripMenuItem.Text = "Show Properties"
+        Me.m_show_properties.Name = "m_show_properties"
+        Me.m_show_properties.Size = New System.Drawing.Size(321, 22)
+        Me.m_show_properties.Text = "Show Properties"
         '
         'm_light_settings
         '
@@ -298,5 +298,5 @@ Partial Class frmMain
     Friend WithEvents m_screen_capture As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents SplitContainer1 As SplitContainer
     Friend WithEvents PropertyGrid1 As PropertyGrid
-    Friend WithEvents ShowPropertiesToolStripMenuItem As ToolStripMenuItem
+    Friend WithEvents m_show_properties As ToolStripMenuItem
 End Class

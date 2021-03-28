@@ -420,7 +420,7 @@ void main(void)
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
 
     entries[thisMaterial.shader_type]();
-    gColor.rgb = pow(gColor.rgb, vec3(1.0 / 2.2));
+    gColor.rgb = pow(gColor.rgb, vec3(1.0 / 1.5));
     gColor.a = 0.0;
 
     gPick.r = fs_in.model_id + 1;

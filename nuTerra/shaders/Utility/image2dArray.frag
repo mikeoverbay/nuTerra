@@ -7,5 +7,5 @@ in vec2 texCoord;
 
 void main(void)
 {
-    fragColor.r = texture( imageMap, vec3( texCoord,float(id) ) ).r*0.5;
+    fragColor = texture( imageMap, vec3( texCoord,float(id) ) );
 }

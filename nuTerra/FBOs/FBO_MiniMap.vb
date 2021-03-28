@@ -49,7 +49,7 @@ Module FBO_MiniMap
             gColor.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             gColor.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
             gColor.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            gColor.Storage2D(1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), mini_size, mini_size)
+            gColor.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), mini_size, mini_size)
         End Sub
 
         Public Shared Function create_fbo() As Boolean

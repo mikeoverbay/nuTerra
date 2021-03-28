@@ -145,6 +145,11 @@ Module modOpenGL
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(MAP_BB_UR.X, MAP_BB_BL.X, -MAP_BB_UR.Y, -MAP_BB_BL.Y, -300.0F, 300.0F)
         VIEWMATRIX = Matrix4.Identity
     End Sub
+    Public Sub Ortho_MiniMap_actual(ByVal square_size As Integer)
+        GL.Viewport(0, 0, square_size, square_size)
+        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(square_size, 0.0, -square_size, 0.0, -300.0F, 300.0F)
+        VIEWMATRIX = Matrix4.Identity
+    End Sub
 
     Public Function set_sun_view_matrix() As Matrix4
 

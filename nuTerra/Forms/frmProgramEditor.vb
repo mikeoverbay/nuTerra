@@ -317,24 +317,42 @@ Public Class frmProgramEditor
             Return
         End If
         If CP_parent = Me.Handle Then
+            'frmMain.SplitContainer1.Panel2 IS NOT parent!
+            frmMain.panel_2_occupied = True
+
             If (frmMain.ClientSize.Width - Me.ClientSize.Width) - frmMain.SplitContainer1.SplitterWidth < 50 Then
-                MsgBox("Edit window to WIDE to insert Main Window!", MsgBoxStyle.Exclamation, "To Wide..")
+                MsgBox("Edit window to WIDE to insert in Main Window!", MsgBoxStyle.Exclamation, "To Wide..")
                 Return
             End If
             CP_parent = frmMain.Handle
-            Container_panel.Parent = frmMain.SplitContainer1.Panel2
             frmMain.SplitContainer1.Panel2Collapsed = False
-            frmMain.SplitContainer1.SplitterDistance = (frmMain.ClientSize.Width - Me.ClientSize.Width) - frmMain.SplitContainer1.SplitterWidth
-            frmMain.SP2_Width = frmMain.ClientSize.Width - frmMain.SplitContainer1.SplitterDistance
+            frmMain.SplitContainer1.SplitterDistance = frmMain.ClientSize.Width - Container_panel.Width - frmMain.SplitContainer1.SplitterWidth
+            frmMain.SP2_Width = Container_panel.Width
+            Container_panel.Parent = frmMain.SplitContainer1.Panel2
+
             Me.Hide()
+            Container_panel.Show()
+
+            frmMain.PropertyGrid1.Hide()
+
             TabControl1.Focus()
             FBOm.oldWidth = -1.0
             frmMain.resize_fbo_main()
         Else
+            'frmMain.SplitContainer1.Panel2 is parent!
+            Dim ss = frmMain.PG_width
+            frmMain.panel_2_occupied = False
+            frmMain.PropertyGrid1.Show()
+            If frmMain.m_show_properties.Checked Then
+                frmMain.SP2_Width = frmMain.PropertyGrid1.Width
+                frmMain.SplitContainer1.SplitterDistance = frmMain.ClientSize.Width - frmMain.PG_width - frmMain.SplitContainer1.SplitterWidth
+                frmMain.SplitContainer1.Panel2Collapsed = False
+            Else
+                frmMain.SplitContainer1.Panel2Collapsed = True
+            End If
             CP_parent = Me.Handle
             Me.Show()
             Container_panel.Parent = Me
-            frmMain.SplitContainer1.Panel2Collapsed = True
             TabControl1.Focus()
             FBOm.oldWidth = -1.0
             frmMain.resize_fbo_main()

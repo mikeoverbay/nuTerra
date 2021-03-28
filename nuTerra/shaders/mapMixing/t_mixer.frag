@@ -129,7 +129,7 @@ vec4 convertNormal(vec4 norm){
 
 vec3 ColorCorrect(in vec3 valin){  
     // Gamma correction 
-   return  pow(valin.rgb, vec3(1.0 / 1.5));  
+   return  pow(valin.rgb, vec3(1.0 / 1.3));  
 }
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 S) {
@@ -314,7 +314,9 @@ void main(void)
               MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g,
               vec4(waterColor,waterAlpha),global.a);
                    
-    vec4 base = m8;
+    vec4 base = blend(m8, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g + 
+                MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g,
+                vec4(global.rgb,1.0),190.0);
 
     base.rgb = ColorCorrect(base.rgb);
     //-------------------------------------------------------------

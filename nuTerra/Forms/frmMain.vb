@@ -8,6 +8,21 @@ Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 
 Public Class frmMain
+    '          SP2_Width = SplitContainer1.Panel2.Width
+    Private Const WM_NCLBUTTONDBLCLK As Integer = &HA3
+    Private Const HTCAPTION As Integer = &H2
+    Private Const WM_SYSCOMMAND As Integer = &H112
+    Private Const SC_MAXIMIZE As Integer = &HF030
+
+    Protected Overrides Sub WndProc(ByRef m As Message)
+        If (m.Msg = WM_SYSCOMMAND AndAlso m.WParam.ToInt32 = SC_MAXIMIZE) OrElse (m.Msg = WM_NCLBUTTONDBLCLK AndAlso m.WParam.ToInt32 = HTCAPTION) Then
+            SP2_Width = SplitContainer1.Panel2.Width
+            'm.Result = CType(0, IntPtr)
+            'Return
+        End If
+        MyBase.WndProc(m)
+    End Sub
+
     Dim last_state As FormWindowState
     Protected Overrides Sub OnClientSizeChanged(e As EventArgs)
         If last_state <> Me.WindowState Then
@@ -24,6 +39,11 @@ Public Class frmMain
     Private launch_timer As New System.Diagnostics.Stopwatch
     Public SP2_Width As Integer
     Dim MINIMIZED As Boolean
+    Public panel_2_occupied As Boolean
+    Public PG_width As Integer
+    Public FE_width As Integer
+
+
 #Region "Form Events"
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
@@ -245,6 +265,7 @@ Public Class frmMain
         'get directory of all shader files
         SHADER_PATHS = Directory.GetFiles(Application.StartupPath + "\shaders\", "*.*", SearchOption.AllDirectories)
         '-----------------------------------------------------------------------------------------
+        PropertyGrid1.Parent = SplitContainer1.Panel2
         'Debugger.Break()
         'This timer allows the form to become visible before we initialize everything
         'It is disposed after its done its job.
@@ -286,19 +307,18 @@ Public Class frmMain
 
     End Sub
 
+    Private Sub frmMain_ResizeBegin(sender As Object, e As EventArgs) Handles Me.ResizeBegin
+
+    End Sub
+
     Private Sub frmMain_SizeChanged(sender As Object, e As EventArgs) Handles Me.SizeChanged
         If Not _STARTED Then Return
         'catch Excetion
         If Me.WindowState = FormWindowState.Minimized Then
             Return
         End If
-        Try
-            If SplitContainer1.Panel2Collapsed = False Then
-                SplitContainer1.SplitterDistance = Me.ClientSize.Width - SP2_Width
-            End If
-        Catch ex As Exception
+        SplitContainer1.SplitterDistance = ClientSize.Width - SP2_Width - SplitContainer1.SplitterWidth
 
-        End Try
         resize_fbo_main()
     End Sub
 
@@ -1048,31 +1068,55 @@ try_again:
         If Not _STARTED Then Return
         If Not sp_moved Then Return
         sp_moved = False
-        SP2_Width = SplitContainer1.Panel2.Width + SplitContainer1.SplitterWidth
+        SP2_Width = SplitContainer1.Panel2.Width
+        If panel_2_occupied Then
+            FE_width = SP2_Width
+        Else
+            PG_width = SP2_Width
+        End If
         FBOm.oldWidth = -1
-
         resize_fbo_main()
     End Sub
 
     Dim sp_moved As Boolean
     Private Sub SplitContainer1_SplitterMoving(sender As Object, e As SplitterCancelEventArgs) Handles SplitContainer1.SplitterMoving
         If Not _STARTED Then Return
-        SP2_Width = SplitContainer1.Panel2.Width + SplitContainer1.SplitterWidth
-        FBOm.oldWidth = -1
-        'resize_fbo_main()
+
+
         sp_moved = True
+
     End Sub
 
-    Private Sub ShowPropertiesToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles ShowPropertiesToolStripMenuItem.Click
-        ShowPropertiesToolStripMenuItem.Checked = Not ShowPropertiesToolStripMenuItem.Checked
-        If ShowPropertiesToolStripMenuItem.Checked Then
-            PropertyGrid1.Parent = SplitContainer1.Panel2
+    Private Sub m_show_properties_Click(sender As Object, e As EventArgs) Handles m_show_properties.Click
+        m_show_properties.Checked = Not m_show_properties.Checked
+        If m_show_properties.Checked Then
+            If panel_2_occupied Then
+                frmProgramEditor.Container_panel.Hide()
+            Else
+                frmProgramEditor.Container_panel.Show()
+            End If
             SplitContainer1.Panel2Collapsed = False
+            PropertyGrid1.Show()
             SP2_Width = 225
-            SplitContainer1.SplitterDistance = (ClientSize.Width) - SP2_Width
+            SplitContainer1.SplitterDistance = (ClientSize.Width) - SP2_Width - SplitContainer1.SplitterWidth
+            PG_width = SP2_Width
         Else
-            SplitContainer1.Panel2Collapsed = True
+            PropertyGrid1.Hide()
+            If panel_2_occupied Then
+                SplitContainer1.Panel2Collapsed = False
+                SplitContainer1.SplitterDistance = (ClientSize.Width) - FE_width - SplitContainer1.SplitterWidth
+                frmProgramEditor.Container_panel.Show()
+            Else
+                SplitContainer1.Panel2Collapsed = True
+
+            End If
         End If
         resize_fbo_main()
     End Sub
+
+
+
+
+
+
 End Class
