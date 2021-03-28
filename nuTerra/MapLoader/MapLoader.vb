@@ -559,6 +559,7 @@ Module MapLoader
             Test_Emiters(i).initialize()
         Next
         '===============================================================
+        FBOmini.FBO_Initialize(240) '<- default start up size
 
 
         SHOW_LOADING_SCREEN = False
