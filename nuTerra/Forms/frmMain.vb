@@ -433,15 +433,19 @@ try_again:
             extensions.Add(GL.GetString(StringNameIndexed.Extensions, i))
         Next
 
-        USE_NV_MESH_SHADER = extensions.Contains("GL_NV_mesh_shader")
+        '-----------------------------------------------------------------------------------------
+        'Any relevant info the user could use.
+        GLCapabilities.Init(extensions)
+        '-----------------------------------------------------------------------------------------
+
+        USE_REPRESENTATIVE_TEST = GLCapabilities.has_GL_NV_representative_fragment_test
+        USE_NV_DRAW_TEXTURE = GLCapabilities.has_GL_NV_draw_texture
+        USE_SPIRV_SHADERS = GLCapabilities.has_GL_ARB_gl_spirv 'core since 4.6
 
 #If DEBUG Then
         ' Disable for debug builds
         USE_SPIRV_SHADERS = False
         USE_NV_DRAW_TEXTURE = False
-#Else
-        USE_SPIRV_SHADERS = extensions.Contains("GL_ARB_gl_spirv") 'core since 4.6
-        USE_NV_DRAW_TEXTURE = extensions.Contains("GL_NV_draw_texture")
 #End If
 
         ' Requied extensions
@@ -462,10 +466,6 @@ try_again:
             SetupDebugOutputCallback()
         End If
 #End If
-        '-----------------------------------------------------------------------------------------
-        'Any relevant info the user could use.
-        GLCapabilities.init()
-        '-----------------------------------------------------------------------------------------
 
         ' Set depth to [0..1] range instead of [-1..1]
         GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.ZeroToOne)

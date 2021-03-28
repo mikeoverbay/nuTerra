@@ -754,6 +754,10 @@ Module modRender
 
         GL.BindVertexArray(defaultVao)
 
+        If USE_REPRESENTATIVE_TEST Then
+            GL.Enable(GL_REPRESENTATIVE_FRAGMENT_TEST_NV)
+        End If
+
         cullRasterShader.Use()
         GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(0))
         cullRasterShader.StopUse()
@@ -761,6 +765,12 @@ Module modRender
         cullRasterDblSidedShader.Use()
         GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(1))
         cullRasterDblSidedShader.StopUse()
+
+        If USE_REPRESENTATIVE_TEST Then
+            GL.Disable(GL_REPRESENTATIVE_FRAGMENT_TEST_NV)
+        End If
+
+        GL.MemoryBarrier(MemoryBarrierFlags.ShaderStorageBarrierBit)
 
         cullInvalidateShader.Use()
         GL.Uniform1(cullInvalidateShader("numAfterFrustum"), MapGL.numAfterFrustum(0))

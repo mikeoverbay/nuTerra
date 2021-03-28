@@ -39,11 +39,12 @@ Module modGlobalVars
     Public nuTerra_LOG As New StringBuilder ' for logging
     '============================================================
 
-    ' https://www.khronos.org/registry/OpenGL/extensions/NV/NV_mesh_shader.txt
-    Public USE_NV_MESH_SHADER As Boolean
     ' https://www.khronos.org/registry/OpenGL/extensions/NV/NV_draw_texture.txt
     Public USE_NV_DRAW_TEXTURE As Boolean
     Public USE_SPIRV_SHADERS As Boolean
+
+    ' https://www.khronos.org/registry/OpenGL/extensions/NV/NV_representative_fragment_test.txt
+    Public USE_REPRESENTATIVE_TEST As Boolean
 
     ' https://github.com/nvpro-samples/gl_occlusion_culling
     Public USE_RASTER_CULLING As Boolean = False

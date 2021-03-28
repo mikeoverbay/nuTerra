@@ -26,9 +26,13 @@ Module modOpenGL
         Public Shared maxUniformBufferBindings As Integer
         Public Shared maxColorAttachments As Integer
         Public Shared maxAniso As Single
-        Public Shared maxVertexOutputComponents As Single
+        Public Shared maxVertexOutputComponents As Integer
+        Public Shared has_GL_NV_representative_fragment_test As Boolean
+        Public Shared has_GL_NV_mesh_shader As Boolean
+        Public Shared has_GL_NV_draw_texture As Boolean
+        Public Shared has_GL_ARB_gl_spirv As Boolean
 
-        Public Shared Sub init()
+        Public Shared Sub Init(extensions As List(Of String))
             maxTextureSize = GL.GetInteger(GetPName.MaxTextureSize)
             maxArrayTextureLayers = GL.GetInteger(GetPName.MaxArrayTextureLayers)
             maxUniformBufferBindings = GL.GetInteger(GetPName.MaxUniformBufferBindings)
@@ -37,12 +41,22 @@ Module modOpenGL
             maxAniso = GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt)
             maxVertexOutputComponents = GL.GetInteger(GetPName.MaxVertexOutputComponents)
 
+            ' useful extensions
+            has_GL_NV_representative_fragment_test = extensions.Contains("GL_NV_representative_fragment_test")
+            has_GL_NV_mesh_shader = extensions.Contains("GL_NV_mesh_shader")
+            has_GL_NV_draw_texture = extensions.Contains("GL_NV_draw_texture")
+            has_GL_ARB_gl_spirv = extensions.Contains("GL_ARB_gl_spirv")
+
             LogThis(String.Format("Max Texture Size = {0}", maxTextureSize))
             LogThis(String.Format("Max Array Texture Layers = {0}", maxArrayTextureLayers))
             LogThis(String.Format("Max Uniform Buffer Bindings = {0}", maxUniformBufferBindings))
             LogThis(String.Format("Max Color Attachments = {0}", maxColorAttachments))
             LogThis(String.Format("Max Texture Max Anisotropy = {0}", maxAniso))
             LogThis(String.Format("Max vertex output components = {0}", maxVertexOutputComponents))
+            LogThis(String.Format("GL_NV_representative_fragment_test = {0}", has_GL_NV_representative_fragment_test))
+            LogThis(String.Format("GL_NV_mesh_shader = {0}", has_GL_NV_mesh_shader))
+            LogThis(String.Format("GL_NV_draw_texture = {0}", has_GL_NV_draw_texture))
+            LogThis(String.Format("GL_ARB_gl_spirv = {0}", has_GL_ARB_gl_spirv))
         End Sub
     End Class
 
