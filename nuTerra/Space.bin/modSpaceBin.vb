@@ -529,7 +529,7 @@ CleanUp:
                         '.g_useTintColor = If(props.ContainsKey("g_useTintColor"), props("g_useTintColor"), False)
                         .g_colorTint = If(props.ContainsKey("g_colorTint"), props("g_colorTint"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
                         .g_enableAO = If(props.ContainsKey("g_enableAO"), props("g_enableAO"), False)
-                        .g_detailInfluences = If(props.ContainsKey("g_detailInfluences"), props("g_detailInfluences"), New Vector4(0.0F, 0.0F, 0.0F, 0.0F))
+                        .g_detailInfluences = If(props.ContainsKey("g_detailInfluences"), props("g_detailInfluences"), New Vector4(1.0F, 0.0F, 0.0F, 0.0F))
                         .g_detailRejectTiling = If(props.ContainsKey("g_detailRejectTiling"), props("g_detailRejectTiling"), New Vector4(20.0F, 20.0F, 0.0F, 0.0F))
 
                     End With
@@ -586,28 +586,9 @@ CleanUp:
                             .g_atlasSizes = New Vector4(3, 2, 4, 4)
                         End If
                         If Not props.ContainsKey("g_atlasSizes") Then
-                            'If .atlasBlend.ToLower.Contains("hd_envAF_033_Cliff_rocks_Atlas_Blend.png".ToLower) Then
-                            '    .g_atlasSizes = New Vector4(2, 2, 8, 1)
-                            '    GoTo got_it0
-                            'End If
-                            ''-------------------------------------------------------------------------------------------------
-                            'LogThis("atlas_global: Missing Atlas Size: " + props("atlasAlbedoHeight") +
-                            '        vbCrLf + "Model: " + model_name)
-
-                            'Dim zipfile = search_pkgs(model_name.Replace(".primitives", ".visual_processed").Replace("\", "/"))
-                            'If zipfile IsNot Nothing Then
-                            '    Dim ms As New MemoryStream
-                            '    zipfile.Extract(ms)
-                            '    ResMgr.openXml_stream(ms, Path.GetFileName(model_name.Replace(".primitive", ".visual_processed")))
-                            '    LogThis("Visual -------------------------------------------")
-                            '    LogThis(TheXML_String + vbCrLf)
-                            'End If
-                            '-------------------------------------------------------------------------------------------------                            LogThis("tiled_atlas: Missing Atlas Size: " + props("atlasAlbedoHeight") + vbCrLf + "Model: " + model_name)
 
                             .g_atlasSizes = New Vector4(4, 4, 8, 4) 'default
                         End If
-
-got_it0:
 
                         .g_tile0Tint = If(props.ContainsKey("g_tile0Tint"), props("g_tile0Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
                         .g_tile1Tint = If(props.ContainsKey("g_tile1Tint"), props("g_tile1Tint"), New Vector4(1.0, 1.0, 1.0, 1.0))
