@@ -15,6 +15,7 @@
 #define LIGHTS_BASE 7
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
+#define MVP_MATRICES_BASE 10
 
 struct CandidateDraw
 {
@@ -160,5 +161,12 @@ layout(std430, binding = VISIBLES_BASE) buffer visibleBuffer {
 };
 layout(std430, binding = VISIBLES_DBL_SIDED_BASE) buffer visibleDblSidedBuffer {
     int visibles_dbl_sided[];
+};
+#endif
+
+
+#ifdef USE_MVP_MATRICES_SSBO
+layout(std430, binding = MVP_MATRICES_BASE) buffer mvpMatricesBuffer {
+    mat4 mvp_matrices[];
 };
 #endif

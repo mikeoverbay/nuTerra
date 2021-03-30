@@ -41,6 +41,7 @@ Module MapLoader
             Public Shared indirect_glass As GLBuffer
             Public Shared indirect_dbl_sided As GLBuffer
             Public Shared lods As GLBuffer
+            Public Shared mvp_matrices As GLBuffer
 
             ' For cull-raster only!
             Public Shared visibles As GLBuffer
@@ -421,6 +422,12 @@ Module MapLoader
                           matrices,
                           BufferStorageFlags.None)
             MapGL.Buffers.matrices.BindBase(0)
+
+            MapGL.Buffers.mvp_matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "mvp_matrices")
+            BufferStorageNullData(MapGL.Buffers.mvp_matrices,
+                                  matrices.Length * Marshal.SizeOf(Of Matrix4),
+                                  BufferStorageFlags.None)
+            MapGL.Buffers.mvp_matrices.BindBase(10)
             Erase matrices
 
             MapGL.Buffers.lods = CreateBuffer(BufferTarget.ShaderStorageBuffer, "lods")

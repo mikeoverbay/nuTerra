@@ -8,6 +8,7 @@
 #define USE_MODELINSTANCES_SSBO
 #define USE_CANDIDATE_DRAWS_SSBO
 #define USE_VISIBLES_SSBO
+#define USE_MVP_MATRICES_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout (points) in;
@@ -21,17 +22,19 @@ void main(void)
 {
     objid = gl_PrimitiveIDIn;
 
-    ModelInstance thisModel;
+    uint model_id;
     if (gl_PrimitiveIDIn >= numAfterFrustum) {
-        thisModel = models[draw[command_double_sided[gl_PrimitiveIDIn - numAfterFrustum].baseInstance].model_id];
+        model_id = draw[command_double_sided[gl_PrimitiveIDIn - numAfterFrustum].baseInstance].model_id;
     } else {
-        thisModel = models[draw[command[gl_PrimitiveIDIn].baseInstance].model_id];
+        model_id = draw[command[gl_PrimitiveIDIn].baseInstance].model_id;
     }
+
+    const ModelInstance thisModel = models[model_id];
+    const mat4 MVP = mvp_matrices[model_id];
 
     const vec3 bmin = thisModel.bmin * 1.01;
     const vec3 bmax = thisModel.bmax * 1.01;
 
-    const mat4 MVP = viewProj * thisModel.matrix;
     vec4 p1 = MVP * vec4(bmax.x, bmin.y, bmax.z, 1.0);
     vec4 p2 = MVP * vec4(bmin.xy, bmax.z, 1.0);
     vec4 p3 = MVP * vec4(bmax, 1.0);

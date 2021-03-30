@@ -5,8 +5,8 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
-#define USE_MODELINSTANCES_SSBO
 #define USE_CANDIDATE_DRAWS_SSBO
+#define USE_MVP_MATRICES_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec3 vertexPosition;
@@ -21,15 +21,11 @@ out vec2 uv;
 void main(void)
 {
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
-    const ModelInstance thisModel = models[thisDraw.model_id];
+    const mat4 mvp = mvp_matrices[thisDraw.model_id];
 
     vs_out.model_id = thisDraw.material_id;
     vs_out.uv = vertexTexCoord1;
 
-    mat4 modelView = view * thisModel.matrix;
-
     // Calculate vertex position in clip coordinates
-    gl_Position = projection * modelView * vec4(vertexPosition, 1.0f);
-
- 
+    gl_Position = mvp * vec4(vertexPosition, 1.0f);
 }

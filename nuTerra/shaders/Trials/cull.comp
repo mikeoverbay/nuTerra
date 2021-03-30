@@ -15,6 +15,7 @@
 #define USE_INDIRECT_SSBO
 #define USE_INDIRECT_GLASS_SSBO
 #define USE_INDIRECT_DOUBLE_SIDED_SSBO
+#define USE_MVP_MATRICES_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout (local_size_x = 16) in;
@@ -73,6 +74,9 @@ void main(void)
         const vec4 cs_position = view * thisModel.matrix * vec4(0, 0, 0, 1);
         const float radius = length(thisModel.bmax - thisModel.bmin) / 2.0f;
         const float distToCamera = -cs_position.z - radius;
+
+        // Save mvp
+        mvp_matrices[gl_GlobalInvocationID.x] = MVP;
 
         const uint lod_id = min(
             distToCamera < 50 ? 0 :
