@@ -72,6 +72,7 @@ Module modOpenGL
     <StructLayout(LayoutKind.Sequential)>
     Public Structure ModelInstance
         Dim matrix As Matrix4
+        Dim cached_mvp As Matrix4
         Dim bmin As Vector3
         Dim lod_offset As UInt32
         Dim bmax As Vector3

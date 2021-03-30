@@ -8,7 +8,6 @@
 #define USE_MODELINSTANCES_SSBO
 #define USE_CANDIDATE_DRAWS_SSBO
 #define USE_MATERIALS_SSBO
-#define USE_MVP_MATRICES_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec3 vertexPosition;
@@ -42,7 +41,7 @@ void main(void)
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
     const ModelInstance thisModel = models[thisDraw.model_id];
     const MaterialProperties thisMaterial = material[thisDraw.material_id];
-    const mat4 mvp = mvp_matrices[thisDraw.model_id];
+    const mat4 mvp = thisModel.cached_mvp;
 
     vs_out.material_id = thisDraw.material_id;
     vs_out.model_id = thisDraw.model_id;

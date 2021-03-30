@@ -8,7 +8,6 @@
 #define USE_MODELINSTANCES_SSBO
 #define USE_CANDIDATE_DRAWS_SSBO
 #define USE_VISIBLES_SSBO
-#define USE_MVP_MATRICES_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout (points) in;
@@ -30,7 +29,7 @@ void main(void)
     }
 
     const ModelInstance thisModel = models[model_id];
-    const mat4 MVP = mvp_matrices[model_id];
+    const mat4 MVP = thisModel.cached_mvp;
 
     const vec3 bmin = thisModel.bmin * 1.01;
     const vec3 bmax = thisModel.bmax * 1.01;

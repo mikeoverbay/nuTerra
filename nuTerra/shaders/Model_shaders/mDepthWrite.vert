@@ -6,7 +6,7 @@
 
 #define USE_PERVIEW_UBO
 #define USE_CANDIDATE_DRAWS_SSBO
-#define USE_MVP_MATRICES_SSBO
+#define USE_MODELINSTANCES_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec3 vertexPosition;
@@ -21,7 +21,7 @@ out vec2 uv;
 void main(void)
 {
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
-    const mat4 mvp = mvp_matrices[thisDraw.model_id];
+    const mat4 mvp = models[thisDraw.model_id].cached_mvp;
 
     vs_out.model_id = thisDraw.material_id;
     vs_out.uv = vertexTexCoord1;
