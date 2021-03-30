@@ -12,15 +12,13 @@
 #define USE_INDIRECT_SSBO
 #define USE_INDIRECT_GLASS_SSBO
 #define USE_INDIRECT_DOUBLE_SIDED_SSBO
+#define USE_ATOMIC_COUNTERS
+#define USE_MODELS_AFTER_FRUSTUM_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout (local_size_variable) in;
 
 layout (location = 0) uniform int numModelInstances;
-
-layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
-layout (binding = PARAMETERS_BASE, offset = 4) uniform atomic_uint commandDoubleSidedCounter;
-layout (binding = PARAMETERS_BASE, offset = 8) uniform atomic_uint commandGlassCounter;
 
 struct Frustum {
     vec4 planes[6];
@@ -74,6 +72,9 @@ void main(void)
         // Save mvp
         models[gl_GlobalInvocationID.x].cached_mvp = MVP;
 
+        const uint id = atomicCounterIncrement(frustumCounter);
+        models_after_frustum[id] = gl_GlobalInvocationID.x;
+
         const uint lod_id = min(
             distToCamera < 50 ? 0 :
             distToCamera < 100 ? 1 :
@@ -90,7 +91,7 @@ void main(void)
                 command_double_sided[outDrawIndex].firstIndex = thisDraw.firstIndex;
                 command_double_sided[outDrawIndex].baseVertex = thisDraw.baseVertex;
                 command_double_sided[outDrawIndex].baseInstance = thisDraw.baseInstance;
-            }else if (material[thisDraw.material_id].shader_type == 6) {
+            } else if (material[thisDraw.material_id].shader_type == 6) {
                 uint outDrawIndex = atomicCounterIncrement(commandGlassCounter);
                 command_glass[outDrawIndex].count = thisDraw.count;
                 command_glass[outDrawIndex].instanceCount = 1;

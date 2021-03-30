@@ -5,20 +5,24 @@
 
 layout (local_size_variable) in;
 
-layout (location = 0) uniform int numAfterFrustum;
-layout (location = 1) uniform int numAfterFrustumDblSided;
-
 #define USE_VISIBLES_SSBO
 #define USE_INDIRECT_SSBO
+#define USE_CANDIDATE_DRAWS_SSBO
 #define USE_INDIRECT_DOUBLE_SIDED_SSBO
 #include "common.h" //! #include "../common.h"
 
+layout (location = 0) uniform int numAfterFrustum;
+layout (location = 1) uniform int numAfterFrustumDblSided;
+
 void main(void)
 {
-    if (gl_GlobalInvocationID.x < numAfterFrustum) {
-        command[gl_GlobalInvocationID.x].instanceCount = visibles[gl_GlobalInvocationID.x];
+    const uint id = gl_GlobalInvocationID.x;
+    if (id < numAfterFrustum) {
+        const uint model_id = draw[command[id].baseInstance].model_id;
+        command[id].instanceCount = visibles[model_id];
     }
-    if (gl_GlobalInvocationID.x < numAfterFrustumDblSided) {
-        command_double_sided[gl_GlobalInvocationID.x].instanceCount = visibles_dbl_sided[gl_GlobalInvocationID.x];
+    if (id < numAfterFrustumDblSided) {
+        const uint model_id = draw[command_double_sided[id].baseInstance].model_id;
+        command_double_sided[id].instanceCount = visibles[model_id];
     }
 }

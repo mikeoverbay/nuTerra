@@ -66,18 +66,18 @@ Module modRender
         set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
+        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            '=======================================================================
+            frustum_cull() '========================================================
+            '=======================================================================
+        End If
+
         '===========================================================================
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             ExtractFrustum()
             cull_terrain()
         End If
         '===========================================================================
-
-        If MODELS_LOADED And DONT_BLOCK_MODELS Then
-            '=======================================================================
-            frustum_cull() '========================================================
-            '=======================================================================
-        End If
 
         '===========================================================================
         FBOm.attach_CNGPA() 'clear ALL gTextures!
@@ -102,6 +102,8 @@ Module modRender
 
         'Model depth pass only
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            GL.GetNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, IntPtr.Zero, 4 * Marshal.SizeOf(Of Integer), MapGL.numAfterFrustum)
+
             '=======================================================================
             model_depth_pass() '=========================================================
             '=======================================================================
@@ -482,8 +484,8 @@ Module modRender
     Private Sub frustum_cull()
         GL_PUSH_GROUP("frustum_cull")
 
-        'clear atomic counter
-        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        ' clear atomic counters
+        GL.ClearNamedBufferData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         cullShader.Use()
 
@@ -495,8 +497,6 @@ Module modRender
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 
         cullShader.StopUse()
-
-        GL.GetNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), MapGL.numAfterFrustum)
 
         GL_POP_GROUP()
     End Sub
@@ -739,8 +739,7 @@ Module modRender
         GL.DepthMask(False)
 
         'clear
-        GL.ClearNamedBufferSubData(MapGL.Buffers.visibles.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, MapGL.numAfterFrustum(0) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
-        GL.ClearNamedBufferSubData(MapGL.Buffers.visibles_dbl_sided.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, MapGL.numAfterFrustum(1) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        GL.ClearNamedBufferData(MapGL.Buffers.visibles.buffer_id, PixelInternalFormat.R32ui, PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         GL.BindVertexArray(defaultVao)
 
@@ -749,8 +748,7 @@ Module modRender
         End If
 
         cullRasterShader.Use()
-        GL.Uniform1(cullRasterShader("numAfterFrustum"), MapGL.numAfterFrustum(0))
-        GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(0) + MapGL.numAfterFrustum(1))
+        GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(3))
         cullRasterShader.StopUse()
 
         If USE_REPRESENTATIVE_TEST Then

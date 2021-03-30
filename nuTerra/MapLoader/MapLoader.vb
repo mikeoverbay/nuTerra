@@ -24,7 +24,7 @@ Module MapLoader
 
     NotInheritable Class MapGL
         ' Get data from gpu
-        Public Shared numAfterFrustum(2) As Integer
+        Public Shared numAfterFrustum(3) As Integer
 
         ''' <summary>
         ''' OpenGL buffers used to draw all map models
@@ -43,8 +43,8 @@ Module MapLoader
             Public Shared lods As GLBuffer
 
             ' For cull-raster only!
+            Public Shared models_after_frustum As GLBuffer
             Public Shared visibles As GLBuffer
-            Public Shared visibles_dbl_sided As GLBuffer
         End Class
 
         NotInheritable Class VertexArrays
@@ -373,21 +373,21 @@ Module MapLoader
 
             MapGL.Buffers.parameters = CreateBuffer(BufferTarget.AtomicCounterBuffer, "parameters")
             BufferStorageNullData(MapGL.Buffers.parameters,
-                                  256,
+                                  128,
                                   BufferStorageFlags.ClientStorageBit)
             MapGL.Buffers.parameters.BindBase(0)
 
             MapGL.Buffers.visibles = CreateBuffer(BufferTarget.ShaderStorageBuffer, "visibles")
             BufferStorageNullData(MapGL.Buffers.visibles,
-                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of Integer),
+                                  matrices.Length * Marshal.SizeOf(Of Integer),
                                   BufferStorageFlags.DynamicStorageBit)
             MapGL.Buffers.visibles.BindBase(8)
 
-            MapGL.Buffers.visibles_dbl_sided = CreateBuffer(BufferTarget.ShaderStorageBuffer, "visibles_dbl_sided")
-            BufferStorageNullData(MapGL.Buffers.visibles_dbl_sided,
-                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of Integer),
-                                  BufferStorageFlags.DynamicStorageBit)
-            MapGL.Buffers.visibles_dbl_sided.BindBase(9)
+            MapGL.Buffers.models_after_frustum = CreateBuffer(BufferTarget.ShaderStorageBuffer, "models_after_frustum")
+            BufferStorageNullData(MapGL.Buffers.models_after_frustum,
+                                  matrices.Length * Marshal.SizeOf(Of Integer),
+                                  BufferStorageFlags.None)
+            MapGL.Buffers.models_after_frustum.BindBase(9)
 
             MapGL.Buffers.drawCandidates = CreateBuffer(BufferTarget.ShaderStorageBuffer, "drawCandidates")
             BufferStorage(MapGL.Buffers.drawCandidates,

@@ -2,33 +2,20 @@
 
 #extension GL_ARB_shading_language_include : require
 
-#define USE_PERVIEW_UBO
-#define USE_INDIRECT_SSBO
-#define USE_INDIRECT_DOUBLE_SIDED_SSBO
 #define USE_MODELINSTANCES_SSBO
-#define USE_CANDIDATE_DRAWS_SSBO
-#define USE_VISIBLES_SSBO
+#define USE_MODELS_AFTER_FRUSTUM_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout (points) in;
 layout (triangle_strip, max_vertices = 14) out;
 
-layout (location = 0) uniform int numAfterFrustum;
-
-flat out int objid;
+flat out uint objid;
 
 void main(void)
 {
-    objid = gl_PrimitiveIDIn;
+    objid = models_after_frustum[gl_PrimitiveIDIn];
 
-    uint model_id;
-    if (gl_PrimitiveIDIn >= numAfterFrustum) {
-        model_id = draw[command_double_sided[gl_PrimitiveIDIn - numAfterFrustum].baseInstance].model_id;
-    } else {
-        model_id = draw[command[gl_PrimitiveIDIn].baseInstance].model_id;
-    }
-
-    const ModelInstance thisModel = models[model_id];
+    const ModelInstance thisModel = models[objid];
     const mat4 MVP = thisModel.cached_mvp;
 
     const vec3 bmin = thisModel.bmin * 1.01;

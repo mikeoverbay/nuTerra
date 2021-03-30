@@ -14,7 +14,7 @@
 #define INDIRECT_DBL_SIDED_BASE 6
 #define LIGHTS_BASE 7
 #define VISIBLES_BASE 8
-#define VISIBLES_DBL_SIDED_BASE 9
+#define MODELS_AFTER_FRUSTUM_BASE 9
 
 struct CandidateDraw
 {
@@ -159,7 +159,17 @@ layout(binding = INDIRECT_DBL_SIDED_BASE, std430) buffer IndirectDoubleSided
 layout(std430, binding = VISIBLES_BASE) buffer visibleBuffer {
     int visibles[];
 };
-layout(std430, binding = VISIBLES_DBL_SIDED_BASE) buffer visibleDblSidedBuffer {
-    int visibles_dbl_sided[];
+#endif
+
+#ifdef USE_MODELS_AFTER_FRUSTUM_SSBO
+layout(std430, binding = MODELS_AFTER_FRUSTUM_BASE) buffer modelsAfterFrustumBuffer {
+    uint models_after_frustum[];
 };
+#endif
+
+#ifdef USE_ATOMIC_COUNTERS
+layout(binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
+layout(binding = PARAMETERS_BASE, offset = 4) uniform atomic_uint commandDoubleSidedCounter;
+layout(binding = PARAMETERS_BASE, offset = 8) uniform atomic_uint commandGlassCounter;
+layout(binding = PARAMETERS_BASE, offset = 12) uniform atomic_uint frustumCounter;
 #endif
