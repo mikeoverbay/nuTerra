@@ -99,7 +99,13 @@ vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
  float b2 = max(texture2.a + a2 - ma, 0);
  return (texture1 * b1 + texture2 * b2) / (b1 + b2);
  }
- //have to do this because we need the alpha in the am textures.
+vec4 blend_macro(vec4 texture1, float a1, vec4 texture2, float a2) {
+ float depth = 1.8;
+ float ma = max(texture1.a + a1, texture2.a + a2) - depth;
+ float b1 = max(texture1.a + a1 - ma, 0);
+ float b2 = max(texture2.a + a2 - ma, 0);
+ return (texture1 * b1 + texture2 * b2) / (b1 + b2);
+ } //have to do this because we need the alpha in the am textures.
 vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, float a2) {
  float depth = 0.5;
  float ma = max(texture1.a + a1, texture2.a + a2) - depth;
@@ -129,7 +135,7 @@ vec4 convertNormal(vec4 norm){
 
 vec3 ColorCorrect(in vec3 valin){  
     // Gamma correction 
-   return  pow(valin.rgb, vec3(1.0 / 1.3));  
+   return  pow(valin.rgb, vec3(1.0 / 1.5));  
 }
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 S) {
@@ -314,10 +320,11 @@ void main(void)
               MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g,
               vec4(waterColor,waterAlpha),global.a);
                    
-    vec4 base = blend(m8, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g + 
-                MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g,
-                vec4(global.rgb,1.0),190.0);
-
+    vec4 base;
+    vec4 gc = global;
+    gc.rgb = pow(global.rgb, vec3(1.0 / 0.4));
+    base = blend_macro(m8, m8.a, gc, 0.7 * (1.0-global.a));
+    //base = m8;
     base.rgb = ColorCorrect(base.rgb);
     //-------------------------------------------------------------
     // normals

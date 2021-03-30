@@ -206,7 +206,7 @@ void main (void)
 
                 vec3 halfwayDir = normalize(L + V);
 
-                float spec = max(pow(dot(V,R), POWER ),0.0001) * SPECULAR * INTENSITY;
+                float spec = max(pow(dot(V,R), POWER ),0.0000) * SPECULAR * INTENSITY;
    
                 R.xz *= -1.0;
 
@@ -216,15 +216,15 @@ void main (void)
 
 
                 vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
-                                        max(4.0-GM_in.g *4.0, 0.0)));
+                                        max(8.0-GM_in.g *4.0, 0.0)));
                 // GM_in.b is the alpha channel.
                 prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb +
                                        specular, GM_in.b*0.2*(1.0-color_in.a));
 
                 vec4 W_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
-                                          max(2.0-water_mix *2.0, 0.0)))*0.15;
+                                          max(8.0-water_mix *5.0, 0.0)));
 
-                vec3 water_reflect = vec3(water_mix*ambientColorForward) * vec3(water_spec)*2.0;
+                vec3 water_reflect = vec3(water_mix*ambientColorForward) * vec3(water_spec)*2.0 * W_prefilteredColor.rgb;
 
                 final_color.xyz += water_reflect;
                 //final_color.xyz += spec;

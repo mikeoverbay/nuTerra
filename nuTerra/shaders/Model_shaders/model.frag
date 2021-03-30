@@ -53,25 +53,7 @@ MaterialProperties thisMaterial = material[fs_in.material_id];
 //    return vec4 (mapped, hdrColor.a);
 //}
 ////##################################################################################
-void get_normal(in float mip)
-{
-    float alphaCheck = gColor.a;
-    if (thisMaterial.g_useNormalPackDXT1) {
-        normalBump = (textureLod(thisMaterial.maps[1], fs_in.TC1, mip).rgb * 2.0f) - 1.0f;
-    } else {
-        vec4 normal = textureLod(thisMaterial.maps[1], fs_in.TC1, mip);
-        normalBump.xy = normal.ag * 2.0 - 1.0;
-        float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
-        normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
-        normalBump = normalize(normalBump);
-        alphaCheck = normal.r;
-    }
-    if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
-        discard;
-    }
-    //normalBump.x *= -1.0;
-    gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
-}
+
 //##################################################################################
 void get_and_write_no_mips(void){
 
@@ -87,7 +69,7 @@ void get_and_write_no_mips(void){
         alphaCheck = normal.r;
     }
     if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
-        discard;
+        //discard;
     }
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
 }
@@ -106,7 +88,7 @@ float get_mip_map_level(sampler2D samp)
     vec2  dx_vtc        = dFdx(fs_in.TC1 * float(isize.x));
     vec2  dy_vtc        = dFdy(fs_in.TC1 * float(isize.y));
     float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    return round(0.25 * log2(d)); 
+    return round(0.35 * log2(d)); 
 }
 //##################################################################################
 int get_dom_mix(in vec3 b){
@@ -132,13 +114,12 @@ layout(index = 0) subroutine(fn_entry) void default_entry()
 //##################################################################################
 layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
-    gColor = texture(thisMaterial.maps[0], fs_in.TC1); // color
+    gColor = texture(thisMaterial.maps[0], fs_in.TC1,1); // color
     gColor *= thisMaterial.g_colorTint;
-    vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
+    vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1,1);
     gGMF.rg = gm.rg; // gloss/metal
 
     if (thisMaterial.g_enableAO) gColor.xyz += gColor.xyz * gm.b;
-
     get_and_write_no_mips();
 }
 //##################################################################################
@@ -149,7 +130,8 @@ layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
     gColor *= thisMaterial.g_colorTint;
     gColor.rgb *= 2.0; // this will need tweaking
     gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, get_mip_map_level(thisMaterial.maps[2])).rg; // gloss/metal
-    get_and_write_no_mips();}
+    get_and_write_no_mips();
+}
 //##################################################################################
 layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
 {   
