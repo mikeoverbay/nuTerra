@@ -825,6 +825,7 @@ Module MapLoader
                         atlas_tex.Storage2D(numLevels, format_info.texture_format, fullWidth, fullHeight)
 
                         atlas_tex.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 3)
+                        atlas_tex.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                         atlas_tex.Parameter(TextureParameterName.TextureBaseLevel, 0)
                         atlas_tex.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
                         atlas_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)

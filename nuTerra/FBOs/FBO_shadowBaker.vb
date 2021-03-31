@@ -101,6 +101,7 @@ Module FBO_shadowBaker_mod
             gBakerColorArray = CreateTexture(TextureTarget.Texture2DArray, "gBakerColorArray")
             gBakerColorArray.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
             gBakerColorArray.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            gBakerColorArray.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
             gBakerColorArray.Parameter(TextureParameterName.TextureBaseLevel, 0)
             gBakerColorArray.Parameter(TextureParameterName.TextureMaxLevel, mipCount - 1)
             gBakerColorArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToBorder)

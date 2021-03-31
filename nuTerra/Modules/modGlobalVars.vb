@@ -76,7 +76,7 @@ Module modGlobalVars
     Public TOTAL_HEIGHT_COUNT As Integer
     '============================================================
     ' this setting tweaks the mip biasing!
-    Public GLOBAL_MIP_BIAS As Single = -0.75F
+    Public GLOBAL_MIP_BIAS As Single = 0.0
     '============================================================
     'temp test texture ids
     Public color_id, normal_id, gmm_id As GLTexture
