@@ -204,7 +204,7 @@ Module modRender
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
         '===========================================================================
 
-        If SSAA_enable Then
+        If FXAA_enable Then
             perform_SSAA_Pass()
             copy_default_to_gColor()
         End If
@@ -910,7 +910,7 @@ Module modRender
 
         FXAAShader.Use()
 
-        GL.Uniform1(FXAAShader("pass_through"), CInt(SSAA_enable))
+        GL.Uniform1(FXAAShader("pass_through"), CInt(FXAA_enable))
 
         GL.UniformMatrix4(FXAAShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
@@ -1013,7 +1013,7 @@ Module modRender
         color_keys()
 
         'draw status of SSAA
-        draw_text(SSAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)
+        draw_text(FXAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)
         Dim temp_time = temp_timer.ElapsedMilliseconds
         Dim aa As Integer = 0
 

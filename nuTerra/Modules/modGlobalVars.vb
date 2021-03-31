@@ -56,8 +56,8 @@ Module modGlobalVars
     Public FOG_COLOR As Vector3
     Public SUNCOLOR As Vector3
     Public AMBIENTSUNCOLOR As Vector3
-    Public SSAA_enable As Boolean = True
-    Public SSAA_text As String = "SSAA On"
+    Public FXAA_enable As Boolean = True
+    Public FXAA_text As String = "FXAA On"
     Public TIME_OF_DAY As Single
     Public SUN_SCALE As Single
     Public SUN_TEXTURE_PATH As String

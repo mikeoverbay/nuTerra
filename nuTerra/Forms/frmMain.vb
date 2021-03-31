@@ -113,11 +113,11 @@ Public Class frmMain
                 SHOW_BORDER = SHOW_BORDER Xor 1
 
             Case Keys.F8
-                SSAA_enable = SSAA_enable Xor True
-                If SSAA_enable Then
-                    SSAA_text = "SSAA On"
+                FXAA_enable = FXAA_enable Xor True
+                If FXAA_enable Then
+                    FXAA_text = "FXAA On"
                 Else
-                    SSAA_text = "SSAA Off"
+                    FXAA_text = "FXAA Off"
                 End If
             Case Keys.F9
                 SHOW_LOD_COLORS = SHOW_LOD_COLORS Xor True
