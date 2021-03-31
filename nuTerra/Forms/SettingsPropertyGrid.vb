@@ -130,7 +130,9 @@ Public Class SettingsPropertyGrid
     <DisplayName("Global Mip Bias"), Category("Open GL")>
     Public Property OPENGL_global_mip_bias As Single
         Set(value As Single)
-            GLOBAL_MIP_BIAS = value
+            If -4.0 <= value And value <= 4.0 Then
+                GLOBAL_MIP_BIAS = value
+            End If
         End Set
         Get
             Return GLOBAL_MIP_BIAS
