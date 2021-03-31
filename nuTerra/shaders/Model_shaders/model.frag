@@ -88,7 +88,7 @@ float get_mip_map_level(sampler2D samp)
     vec2  dx_vtc        = dFdx(fs_in.TC1 * float(isize.x));
     vec2  dy_vtc        = dFdy(fs_in.TC1 * float(isize.y));
     float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    return round(0.35 * log2(d)); 
+    return round(0.5 * log2(d)); 
 }
 //##################################################################################
 int get_dom_mix(in vec3 b){
@@ -395,7 +395,7 @@ void main(void)
     float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
 
     entries[thisMaterial.shader_type]();
-    gColor.rgb = pow(gColor.rgb, vec3(1.0 / 1.5));
+    gColor.rgb = pow(gColor.rgb, vec3(1.0 / 1.3));
     gColor.a = 0.0;
 
     gPick.r = fs_in.model_id + 1;

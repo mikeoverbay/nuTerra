@@ -11,7 +11,7 @@ Module modGlobalVars
     Public NOISE_id As GLTexture
     Public Test_Emiters(1) As Explosion_Types.Explosion_type_1
     '=================================================================================
-
+    Public RES_MODS_PATH As String
     '=================================================================================
     'GLSL highlighting string used in the editor
     Public GLSL_KEYWORDS As String

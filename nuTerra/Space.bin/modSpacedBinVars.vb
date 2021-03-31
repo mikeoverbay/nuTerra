@@ -268,24 +268,24 @@ Module modSpacedBinVars
         Public Structure TerrainSettings2_v1_6_1
             Public terrain_version As UInt32      ' space.settings/terrain/version
             Public flags As UInt32
-            Public height_map_size As UInt32      ' terrain/heightMapSize
-            Public normal_map_size As UInt32      ' terrain/normalMapSize
-            Public hole_map_size As UInt32        ' terrain/holeMapSize
-            Public shadow_map_size As UInt32      ' terrain/shadowMapSize
-            Public blend_map_size As UInt32       ' terrain/blendMapSize
-            Public lod_texture_distance As Single ' terrain/lodInfo/lodTextureDistance
-            Public macro_lod_start As Single      ' terrain/lodInfo/macroLODStart
-            Public unknown_1 As UInt32
-            Public start_bias As Single           ' terrain/lodInfo/startBias
-            Public end_bias As Single             ' terrain/lodInfo/endBias
-            Public direct_occlusion As Single     ' terrain/soundOcclusion/directOcclusion
-            Public reverb_occlusion As Single     ' terrain/soundOcclusion/reverbOcclusion
-            Public wrap_u As Single               ' terrain/detailNormal/wrapU
-            Public wrap_v As Single               ' terrain/detailNormal/wrapV
-            Public unknown_2 As UInt32
-            Public unknown_3 As Single
-            Public unknown_4 As Single
-            Public unknown_5 As Single
+            Public height_map_size As UInt32        ' terrain/heightMapSize
+            Public normal_map_size As UInt32        ' terrain/normalMapSize
+            Public hole_map_size As UInt32          ' terrain/holeMapSize
+            Public shadow_map_size As UInt32        ' terrain/shadowMapSize
+            Public blend_map_size As UInt32         ' terrain/blendMapSize
+            Public lod_texture_distance As Single   ' terrain/lodInfo/lodTextureDistance
+            Public macro_lod_start As Single        ' terrain/lodInfo/macroLODStart
+            Public unknown_1 As UInt32              ' blend mode avg color/avg alpha height ??
+            Public start_bias As Single             ' terrain/lodInfo/startBias
+            Public end_bias As Single               ' terrain/lodInfo/endBias
+            Public direct_occlusion As Single       ' terrain/soundOcclusion/directOcclusion
+            Public reverb_occlusion As Single       ' terrain/soundOcclusion/reverbOcclusion
+            Public wrap_u As Single                 ' terrain/detailNormal/wrapU
+            Public wrap_v As Single                 ' terrain/detailNormal/wrapV
+            Public unknown_2 As UInt32              ' tessZoomUpperThreshold
+            Public unknown_3 As Single              ' tessZoomLowerThreshold
+            Public unknown_4 As Single              ' tessZoomUpperScale
+            Public unknown_5 As Single              ' tessZoomLowerScale
             Public blend_macro_influence As Single  ' terrain/blendMacroInfluence
             Public blend_global_threshold As Single ' terrain/blendGlobalThreshold
             Public blend_height As Single           ' terrain/blendHeight

@@ -33,11 +33,7 @@ Module TerrainTextureFunctions
     End Sub
 
     Private Sub get_layer_textures(ByVal map As Integer)
-        FBOmini.FBO_Initialize(1024)
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
-        Ortho_MiniMap_actual(1024)
 
-        Dim rect As New RectangleF(0F, 0F, 1024.0F, 1024.0F)
         For z = 0 To 7
             With theMap.render_set(map).layer.render_info(z)
                 'finds and loads and returns the GL texture ID.
@@ -60,10 +56,9 @@ Module TerrainTextureFunctions
                 tex_names(3) = .texture_name.Replace("_AM", "_macro_NM")
 
                 Dim atlas_tex As New GLTexture
-                Dim store_tex As New GLTexture
                 Dim fullWidth As Integer = 1024
                 Dim fullHeight As Integer = 1024
-                Dim layer As Integer
+                Dim layer As Single
                 Application.DoEvents() 'stop freezing the UI
                 For i = 0 To 3
 
@@ -90,7 +85,6 @@ Module TerrainTextureFunctions
                             'Calculate Max Mip Level based on width or height.. Which ever is larger.
                             Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
                             atlas_tex = get_atlas(numLevels, map, z, format_info.texture_format)
-                            store_tex = create_textures(numLevels, map, z, format_info.texture_format)
                         End If
 
                         Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
@@ -100,19 +94,12 @@ Module TerrainTextureFunctions
                         atlas_tex.CompressedSubImage3D(0, 0, 0, layer, 1024, 1024, 1,
                                                 DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                         er = GL.GetError
-
-                        draw_to_buffer(rect, atlas_tex, layer)
-                        er = GL.GetError
-                        GL.CopyTextureSubImage3D(store_tex.texture_id, 0, 0, 0, layer, 0, 0, 1024, 1024)
-                        er = GL.GetError
-
                     End Using
                     layer += 1
                 Next
-                store_tex.GenerateMipmap()
-                .atlas_id = store_tex
+                atlas_tex.GenerateMipmap()
+                .atlas_id = atlas_tex
                 add_image(.texture_name, .atlas_id)
-                atlas_tex.Delete()
 
             End With
         Next
@@ -179,11 +166,7 @@ Module TerrainTextureFunctions
                           layersBuffer,
                           BufferStorageFlags.None)
         End With
-
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
-
     End Sub
-
     Private Function get_atlas(mipcount As Integer, map As Int32, z As Int32, format As SizedInternalFormat) As GLTexture
         Dim t = New GLTexture
         't.target = TextureTarget.Texture2DArray
@@ -196,44 +179,9 @@ Module TerrainTextureFunctions
         t.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
         t.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
         t.Storage3D(mipcount, format, 1024, 1024, 4)
-
         Return t
 
     End Function
-
-    Public Function create_textures(mipcount As Integer, map As Int32, z As Int32, format As SizedInternalFormat) As GLTexture
-        ' gColor ------------------------------------------------------------------------------------------
-        '4 color int : RGB and alpha
-        Dim t = New GLTexture
-        ' gColorArray ------------------------------------------------------------------------------------------
-        t = CreateTexture(TextureTarget.Texture2DArray, "gColorArray")
-        t.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-        t.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-        t.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-        t.Parameter(TextureParameterName.TextureBaseLevel, 0)
-        t.Parameter(TextureParameterName.TextureMaxLevel, mipcount - 1)
-        t.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-        t.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-        t.Storage3D(mipcount, SizedInternalFormat.Rgba8, 1024, 1024, 4)
-        Return t
-    End Function
-
-    Private Sub draw_to_buffer(ByRef rect As RectangleF, ByVal image As GLTexture, ByVal layer As Integer)
-        image2dArrayShader.Use()
-        GL.Uniform1(image2dArrayShader("id"), layer)
-        image.BindUnit(0)
-        'GL.Uniform1(image2dArrayShader("imageMap"), image.texture_id)
-        GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
-        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform4(image2dArrayShader("rect"),
-                rect.Left,
-                -rect.Top,
-                rect.Right,
-                -rect.Bottom)
-        GL.BindVertexArray(defaultVao)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-        image2dArrayShader.StopUse()
-    End Sub
 
     Public Function Get_layer_texture_data(ByVal map As Integer) As Boolean
 
@@ -484,24 +432,45 @@ Module TerrainTextureFunctions
         Dim fullWidth As Integer = 12
         Dim fullHeight As Integer = 12
         Dim layer As Single
+        Application.DoEvents() 'stop freezing the UI
+        Dim buffer = File.ReadAllBytes(Application.StartupPath + "\resources\blank12x12.dds")
 
-        Dim er = GL.GetError
+        For i = 0 To 3
 
-        Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(12, 12), 2))
-        layer = 0
-        'Calculate Max Mip Level based on width or height.. Which ever is larger.
-        DUMMY_ATLAS = CreateTexture(TextureTarget.Texture2DArray, "gColorArray")
-        DUMMY_ATLAS.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-        DUMMY_ATLAS.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-        DUMMY_ATLAS.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-        DUMMY_ATLAS.Parameter(TextureParameterName.TextureBaseLevel, 0)
-        DUMMY_ATLAS.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
-        DUMMY_ATLAS.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-        DUMMY_ATLAS.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-        DUMMY_ATLAS.Storage3D(numLevels, SizedInternalFormat.Rgba8, 12, 12, 4)
+            Dim dds_ms As New MemoryStream(buffer)
 
+            dds_ms.Position = 0
 
-        er = GL.GetError
+            Dim er = GL.GetError
+            Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
+                Dim dds_header = get_dds_header(dds_br)
+                dds_ms.Position = 128
+
+                Dim format_info = dds_header.format_info
+
+                If i = 0 Then 'run once to get new atlas texture
+                    layer = 0
+                    'Calculate Max Mip Level based on width or height.. Which ever is larger.
+                    DUMMY_ATLAS = CreateTexture(TextureTarget.Texture2DArray, "dummyAtlas")
+                    DUMMY_ATLAS.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                    DUMMY_ATLAS.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+                    DUMMY_ATLAS.Parameter(TextureParameterName.TextureBaseLevel, 0)
+                    DUMMY_ATLAS.Parameter(TextureParameterName.TextureMaxLevel, 1)
+                    DUMMY_ATLAS.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+                    DUMMY_ATLAS.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+                    DUMMY_ATLAS.Storage3D(2, format_info.texture_format, 12, 12, 4)
+                End If
+
+                Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
+                Dim data = dds_br.ReadBytes(size)
+
+                er = GL.GetError
+                DUMMY_ATLAS.CompressedSubImage3D(0, 0, 0, layer, 12, 12, 1,
+                                            DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
+                er = GL.GetError
+            End Using
+            layer += 1
+        Next
         DUMMY_ATLAS.GenerateMipmap()
         'GL.Clear(ClearBufferMask.ColorBufferBit)
         'draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex, True)

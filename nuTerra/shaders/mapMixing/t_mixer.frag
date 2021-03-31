@@ -113,7 +113,13 @@ vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, floa
  float b2 = max(texture2.a + a2 - ma, 0);
  return (n1 * b1 + n2 * b2) / (b1 + b2);
  }
-/*===========================================================*/
+vec4 blend_global(vec4 texture1, float a1, vec4 texture2, float a2) {
+ float depth = 0.5;
+ float ma = max(texture1.a + a1, texture2.a + a2) - depth;
+ float b1 = max(texture1.a + a1 - ma, 0);
+ float b2 = max(texture2.a + a2 - ma, 0);
+ return (texture1 * b1 + texture2 * b2) / (b1 + b2);
+ }/*===========================================================*/
 
 vec4 crop( sampler2DArray samp, in vec2 uv , in float layer)
 {
@@ -133,16 +139,11 @@ vec4 convertNormal(vec4 norm){
     return vec4(n,0.0);
 }
 
-vec3 ColorCorrect(in vec3 valin){  
-    // Gamma correction 
-   return  pow(valin.rgb, vec3(1.0 / 1.5));  
-}
-
 vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 S) {
     vec4 vt = vec4(fs_in.UV.x*100, 0.0, -fs_in.UV.y*100.0, 1.0);
     vec2 out_uv;
     out_uv = vec2(-dot(U,vt), dot(V,vt));
-    out_uv.xy += vec2(-S.x, S.y);
+    //out_uv.xy += vec2(-S.x, S.y);
     return out_uv;
     }
 /*===========================================================*/
@@ -322,10 +323,14 @@ void main(void)
                    
     vec4 base;
     vec4 gc = global;
-    gc.rgb = pow(global.rgb, vec3(1.0 / 0.4));
-    base = blend_macro(m8, m8.a, gc, 0.7 * (1.0-global.a));
-    //base = m8;
-    base.rgb = ColorCorrect(base.rgb);
+
+    float c_l = length(m8.rgb) + m8.a;
+    float g_l = length(global.rgb) - global.a;
+
+    gc.rgb = global.rgb;
+
+    base.rgb = (m8.rgb * c_l + gc.rgb * g_l)/2.0;
+    base.rgb = base.rgb * 0.9;
     //-------------------------------------------------------------
     // normals
 
@@ -352,7 +357,7 @@ void main(void)
     //gColor.rgb *= shad;
     // global.a is used for wetness on the map.
 
-    gColor.rgb = base.rgb * 0.95;
+    gColor.rgb = base.rgb;
     gColor.a = global.a*0.8;
 
 }

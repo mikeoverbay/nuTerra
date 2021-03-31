@@ -264,6 +264,8 @@ Public Class frmMain
         '-----------------------------------------------------------------------------------------
         'get directory of all shader files
         SHADER_PATHS = Directory.GetFiles(Application.StartupPath + "\shaders\", "*.*", SearchOption.AllDirectories)
+
+
         '-----------------------------------------------------------------------------------------
         PropertyGrid1.Parent = SplitContainer1.Panel2
         'Debugger.Break()
@@ -506,6 +508,19 @@ try_again:
         GAME_PATH = Path.Combine(My.Settings.GamePath, "res", "packages")
         LogThis(String.Format("{0}ms Packages Path: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), GAME_PATH))
 
+        'find out if our res_mods path is out of data!
+
+        Dim PATHS_XML = File.ReadAllText(My.Settings.GamePath + "\paths.xml")
+        Dim ar = PATHS_XML.Split(vbLf)
+        PATHS_XML = ar(2).Replace(vbTab, "")
+        PATHS_XML = ar(2).Replace(vbCr, "")
+        PATHS_XML = PATHS_XML.Replace(" ", "")
+        PATHS_XML = PATHS_XML.Replace("""", "")
+        PATHS_XML = PATHS_XML.Replace("""", "'")
+        PATHS_XML = PATHS_XML.Replace("<PathcacheSubdirs=true>./res_mods/", "")
+        PATHS_XML = PATHS_XML.Replace("</Path>", "")
+
+        RES_MODS_PATH = Application.StartupPath + "\res_mods\" + PATHS_XML
         ' Create default VAO
         defaultVao = CreateVertexArray("defaultVao")
 
