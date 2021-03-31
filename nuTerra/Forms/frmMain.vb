@@ -433,6 +433,30 @@ try_again:
             extensions.Add(GL.GetString(StringNameIndexed.Extensions, i))
         Next
 
+        Dim requied_extensions = {
+            "GL_ARB_vertex_type_10f_11f_11f_rev",
+            "GL_ARB_compute_variable_group_size",
+            "GL_ARB_shading_language_include",
+            "GL_ARB_indirect_parameters",
+            "GL_ARB_multi_draw_indirect", 'core since 4.3
+            "GL_ARB_direct_state_access", 'core since 4.5
+            "GL_ARB_clip_control" 'core since 4.5
+        }
+
+        Dim unsupported_ext As New List(Of String)
+        For Each ext In requied_extensions
+            If Not extensions.Contains(ext) Then
+                unsupported_ext.Add(ext)
+            End If
+        Next
+
+        If unsupported_ext.Count > 0 Then
+            MsgBox(String.Format(
+                   "A graphics card and driver with support for {0} is required.", String.Join(" ", unsupported_ext)))
+            Application.Exit()
+            Return
+        End If
+
         '-----------------------------------------------------------------------------------------
         'Any relevant info the user could use.
         GLCapabilities.Init(extensions)
@@ -447,15 +471,6 @@ try_again:
         USE_SPIRV_SHADERS = False
         USE_NV_DRAW_TEXTURE = False
 #End If
-
-        ' Requied extensions
-        Debug.Assert(extensions.Contains("GL_ARB_vertex_type_10f_11f_11f_rev"))
-        Debug.Assert(extensions.Contains("GL_ARB_compute_variable_group_size"))
-        Debug.Assert(extensions.Contains("GL_ARB_shading_language_include"))
-        Debug.Assert(extensions.Contains("GL_ARB_indirect_parameters"))
-        Debug.Assert(extensions.Contains("GL_ARB_multi_draw_indirect")) 'core since 4.3
-        Debug.Assert(extensions.Contains("GL_ARB_direct_state_access")) 'core since 4.5
-        Debug.Assert(extensions.Contains("GL_ARB_clip_control")) 'core since 4.5
 
 #If DEBUG Then
         ' Just check

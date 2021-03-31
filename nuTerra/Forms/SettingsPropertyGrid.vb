@@ -140,7 +140,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Work Group Size"), Category("Open GL")>
     Public Property OPENGL_work_group_size As Integer
         Set(value As Integer)
-            If value > 0 Then
+            If 1 <= value And value <= 1024 Then
                 WORK_GROUP_SIZE = value
             End If
         End Set
