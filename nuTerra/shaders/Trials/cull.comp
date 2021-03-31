@@ -1,11 +1,8 @@
 #version 450 core
 
-#ifdef GL_SPIRV
-#extension GL_GOOGLE_include_directive : require
-#else
 #extension GL_ARB_shading_language_include : require
 #extension GL_ARB_bindless_texture : require
-#endif
+#extension GL_ARB_compute_variable_group_size : require
 
 #define USE_PERVIEW_UBO
 #define USE_MODELINSTANCES_SSBO
@@ -17,7 +14,7 @@
 #define USE_INDIRECT_DOUBLE_SIDED_SSBO
 #include "common.h" //! #include "../common.h"
 
-layout (local_size_x = 16) in;
+layout (local_size_variable) in;
 
 layout (location = 0) uniform int numModelInstances;
 

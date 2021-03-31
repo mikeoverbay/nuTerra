@@ -137,6 +137,18 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
+    <DisplayName("Work Group Size"), Category("Open GL")>
+    Public Property OPENGL_work_group_size As Integer
+        Set(value As Integer)
+            If value > 0 Then
+                WORK_GROUP_SIZE = value
+            End If
+        End Set
+        Get
+            Return WORK_GROUP_SIZE
+        End Get
+    End Property
+
     <DisplayName("Draw terrain"), Category("Map")>
     Public Property MAP_draw_terrain As Boolean
         Set(value As Boolean)

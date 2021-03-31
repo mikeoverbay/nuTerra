@@ -489,9 +489,8 @@ Module modRender
 
         GL.Uniform1(cullShader("numModelInstances"), MapGL.numModelInstances)
 
-        Dim workGroupSize = 16
-        Dim numGroups = (MapGL.numModelInstances + workGroupSize - 1) \ workGroupSize
-        GL.DispatchCompute(numGroups, 1, 1)
+        Dim numGroups = (MapGL.numModelInstances + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
+        GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 
@@ -764,9 +763,8 @@ Module modRender
         GL.Uniform1(cullInvalidateShader("numAfterFrustum"), MapGL.numAfterFrustum(0))
         GL.Uniform1(cullInvalidateShader("numAfterFrustumDblSided"), MapGL.numAfterFrustum(1))
 
-        Dim workGroupSize = 16
-        Dim numGroups = (Math.Max(MapGL.numAfterFrustum(0), MapGL.numAfterFrustum(1)) + workGroupSize - 1) \ workGroupSize
-        GL.DispatchCompute(numGroups, 1, 1)
+        Dim numGroups = (Math.Max(MapGL.numAfterFrustum(0), MapGL.numAfterFrustum(1)) + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
+        GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 

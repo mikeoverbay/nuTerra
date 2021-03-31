@@ -49,6 +49,8 @@ Module modGlobalVars
     ' https://github.com/nvpro-samples/gl_occlusion_culling
     Public USE_RASTER_CULLING As Boolean = False
 
+    Public WORK_GROUP_SIZE As Integer = 32
+
     'Shading
     Public DUMMY_ATLAS As GLTexture
     Public FOG_COLOR As Vector3

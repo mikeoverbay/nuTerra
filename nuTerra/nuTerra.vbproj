@@ -398,9 +398,6 @@
     <None Include="shaders\Trials\cull-raster.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Trials\cull.comp.spv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <Content Include="shaders\Utility\explode_type_1_.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
