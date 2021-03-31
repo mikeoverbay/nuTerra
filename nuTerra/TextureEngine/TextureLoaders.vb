@@ -78,6 +78,7 @@ Module TextureLoaders
     Public Function load_t2_texture_from_stream(br As BinaryReader, w As Integer, h As Integer) As GLTexture
         Dim image_id = CreateTexture(TextureTarget.Texture2D, "blend_Tex")
 
+        image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
         image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
         image_id.Parameter(TextureParameterName.TextureMaxLevel, 1)
         image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
@@ -414,7 +415,6 @@ Module TextureLoaders
             image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
             If MIPS Then
-                image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
                 image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
                 image_id.Parameter(TextureParameterName.TextureMaxLevel, 4 - 1)
                 image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)

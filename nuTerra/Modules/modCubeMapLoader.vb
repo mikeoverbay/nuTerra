@@ -36,6 +36,7 @@ Module modCubeMapLoader
 
             CUBE_TEXTURE_ID = CreateTexture(TextureTarget.TextureCubeMap, "CubeMap")
 
+            CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
             CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureBaseLevel, 0)
             CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureMaxLevel, dds_header.mipMapCount - 1)
             CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
