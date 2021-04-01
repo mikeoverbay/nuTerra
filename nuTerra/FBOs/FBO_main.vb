@@ -33,20 +33,8 @@ Module FBO_main
                                             FramebufferAttachment.ColorAttachment1,
                                             FramebufferAttachment.ColorAttachment2,
                                             FramebufferAttachment.ColorAttachment3,
-                                            FramebufferAttachment.ColorAttachment4,
-                                            FramebufferAttachment.ColorAttachment5
-                                            }
-        Private Shared attach_Normal_GMF_aux() As DrawBuffersEnum = {
-                                            FramebufferAttachment.ColorAttachment1,
-                                            FramebufferAttachment.ColorAttachment2,
-                                            FramebufferAttachment.ColorAttachment3,
-                                            FramebufferAttachment.ColorAttachment4,
-                                            FramebufferAttachment.ColorAttachment5
-                                            }
-        Private Shared attach_Color_Normal() As DrawBuffersEnum = {
-                                            FramebufferAttachment.ColorAttachment0,
-                                            FramebufferAttachment.ColorAttachment1,
-                                            FramebufferAttachment.ColorAttachment3
+                                            FramebufferAttachment.ColorAttachment5,
+                                            FramebufferAttachment.ColorAttachment4
                                             }
         Private Shared attach_Color() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment0
@@ -62,20 +50,9 @@ Module FBO_main
         Private Shared attach_Normal() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment1
                                             }
-        Private Shared attach_gPick() As DrawBuffersEnum = {
-                                            FramebufferAttachment.ColorAttachment4
-                                            }
-        Private Shared attach_gAux_Color() As DrawBuffersEnum = {
-                                            FramebufferAttachment.ColorAttachment5
-                                            }
         Private Shared attach_Color_2() As DrawBuffersEnum = {
                                             FramebufferAttachment.ColorAttachment6
                                             }
-        Private Shared attach_gColor_and_gAux_Color() As DrawBuffersEnum = {
-                                            FramebufferAttachment.ColorAttachment0,
-                                            FramebufferAttachment.ColorAttachment5
-                                            }
-
 
         Public Shared Sub FBO_Initialize()
             frmMain.glControl_main.MakeCurrent()
@@ -239,21 +216,20 @@ Module FBO_main
 
         Public Shared Sub attach_CNGP()
             'attach our render buffer textures.
-            GL.NamedFramebufferDrawBuffers(mainFBO, 5, attach_Color_Normal_GMF)
+            If PICK_MODELS Then
+                GL.NamedFramebufferDrawBuffers(mainFBO, 5, attach_Color_Normal_GMF)
+            Else
+                GL.NamedFramebufferDrawBuffers(mainFBO, 4, attach_Color_Normal_GMF)
+            End If
         End Sub
 
         Public Shared Sub attach_CNGPA()
             'attach our render buffer textures.
-            GL.NamedFramebufferDrawBuffers(mainFBO, 6, attach_Color_Normal_GMF_aux_fmask)
-        End Sub
-        Public Shared Sub attach_NGPA()
-            'attach our render buffer textures.
-            GL.NamedFramebufferDrawBuffers(mainFBO, 5, attach_Normal_GMF_aux)
-        End Sub
-
-        Public Shared Sub attach_CNP()
-            'attach our render buffer textures.
-            GL.NamedFramebufferDrawBuffers(mainFBO, 3, attach_Color_Normal)
+            If PICK_MODELS Then
+                GL.NamedFramebufferDrawBuffers(mainFBO, 6, attach_Color_Normal_GMF_aux_fmask)
+            Else
+                GL.NamedFramebufferDrawBuffers(mainFBO, 5, attach_Color_Normal_GMF_aux_fmask)
+            End If
         End Sub
 
         Public Shared Sub attach_C()
@@ -264,9 +240,6 @@ Module FBO_main
         End Sub
         Public Shared Sub attach_C2()
             GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_Color_2)
-        End Sub
-        Public Shared Sub attach_AUX()
-            GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_gAux_Color)
         End Sub
 
         Public Shared Sub attach_C_no_Depth()
@@ -280,14 +253,6 @@ Module FBO_main
 
         Public Shared Sub attach_CF()
             GL.NamedFramebufferDrawBuffers(mainFBO, 2, attach_Color_GMF)
-        End Sub
-
-        Public Shared Sub attach_Pick()
-            GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_gPick)
-        End Sub
-
-        Public Shared Sub attach_C_and_Aux()
-            GL.NamedFramebufferDrawBuffers(mainFBO, 2, attach_gColor_and_gAux_Color)
         End Sub
 
         Public Shared Sub attach_N()
