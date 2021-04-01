@@ -781,7 +781,8 @@ got_it:
                         "applyOverlay",
                         "glassMap",
                         "g_useTintColor",
-                        "g_tintColor"
+                        "g_tintColor",
+                        "texAddressMode"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then

@@ -1,9 +1,9 @@
 ﻿Imports System.IO
 Imports System.Xml
 Imports Ionic.Zip
-Imports System.IO.Directory
 
 NotInheritable Class ResMgr
+    Shared RES_MODS_PATH As String
     Shared FILENAME_TO_ZIP_ENTRY As New Dictionary(Of String, ZipEntry)
     Shared FILE_EXTENSIONS_TO_USE As New HashSet(Of String)({
             ".dds", ".model", ".primitives_processed",
@@ -12,27 +12,8 @@ NotInheritable Class ResMgr
             ".texformat", ".atlas_processed"
             })
 
-    Function SearchForFiles(ByVal RootFolder As String, ByVal FileFilter() As String) As List(Of String)
-        Dim ReturnedData As New List(Of String)                             'List to hold the search results
-        Dim FolderStack As New Stack(Of String)                             'Stack for searching the folders
-        FolderStack.Push(RootFolder)                                        'Start at the specified root folder
-        Do While FolderStack.Count > 0                                      'While there are things in the stack
-            Dim ThisFolder As String = FolderStack.Pop                      'Grab the next folder to process
-            Try                                                             'Use a try to catch any errors
-                For Each SubFolder In GetDirectories(ThisFolder)            'Loop through each sub folder in this folder
-                    FolderStack.Push(SubFolder)                             'Add to the stack for further processing
-                Next                                                        'Process next sub folder
-                For Each FileExt In FileFilter                              'For each File filter specified
-                    ReturnedData.AddRange(GetFiles(ThisFolder, FileExt))    'Search for and return the matched file names
-                Next                                                        'Process next FileFilter
-            Catch ex As Exception                                           'For simplicity sake
-            End Try                                                         'We'll ignore the errors
-        Loop                                                                'Process next folder in the stack
-        Return ReturnedData                                                 'Return the list of files that match
-    End Function
-
-    Public Shared Sub Init(wot_res_path As String)
-        For Each pkgPath In Directory.GetFiles(wot_res_path, "*.pkg")
+    Public Shared Sub Init(wot_path As String)
+        For Each pkgPath In Directory.GetFiles(Path.Combine(wot_path, "res", "packages"), "*.pkg")
             Using entry As New ZipFile(pkgPath)
                 For Each file In entry.Entries
                     If file.IsDirectory Then
@@ -48,9 +29,24 @@ NotInheritable Class ResMgr
                 Next
             End Using
         Next
+
+        Dim xDoc As New XmlDocument
+        xDoc.Load(Path.Combine(wot_path, "paths.xml"))
+        Dim first_path = xDoc.SelectSingleNode("//Paths/Path").InnerText.Remove(0, 2)
+        RES_MODS_PATH = Path.Combine(wot_path, first_path)
     End Sub
 
     Public Shared Function Lookup(filename As String) As ZipEntry
+        If File.Exists(Path.Combine(RES_MODS_PATH, filename)) Then
+            Dim tmpZip As New ZipFile
+            tmpZip.AddFile(Path.Combine(RES_MODS_PATH, filename), filename)
+            Dim tmpMs As New MemoryStream
+            tmpZip.Save(tmpMs)
+            tmpMs.Position = 0
+            tmpZip = ZipFile.Read(tmpMs)
+            Return tmpZip.Entries(0)
+        End If
+
         Dim lowered_fn = filename.ToLower.Replace("\", "/")
         If FILENAME_TO_ZIP_ENTRY.ContainsKey(lowered_fn) Then
             Return FILENAME_TO_ZIP_ENTRY(lowered_fn)

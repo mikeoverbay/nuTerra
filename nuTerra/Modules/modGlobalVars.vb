@@ -11,7 +11,6 @@ Module modGlobalVars
     Public NOISE_id As GLTexture
     Public Test_Emiters(1) As Explosion_Types.Explosion_type_1
     '=================================================================================
-    Public RES_MODS_PATH As String
     '=================================================================================
     'GLSL highlighting string used in the editor
     Public GLSL_KEYWORDS As String
@@ -164,7 +163,6 @@ Module modGlobalVars
     Public MAP_NAME_NO_PATH As String = ""
     Public MAP_LOADED As Boolean = False 'Rendering/settings clause
     Public TEMP_STORAGE As String 'Work are on users SSD/HDD
-    Public GAME_PATH As String 'Points directly to "world_of_tanks\res\packages\"
     Public FIRST_UNUSED_TEXTURE As Integer 'Used for deltion of textures. holds starting texture
     Public FIRST_UNUSED_VB_OBJECT As Integer 'Used for deltion of VBO
     Public FIRST_UNUSED_V_BUFFER As Integer 'Used for deltion of V Bufffers
