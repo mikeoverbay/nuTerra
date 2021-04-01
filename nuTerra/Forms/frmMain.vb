@@ -384,6 +384,37 @@ try_again:
         frmShowText.FastColoredTextBox1.Text = File.ReadAllText(Path.Combine(TEMP_STORAGE, "nuTerra_log.txt"))
     End Sub
 
+    Private Sub m_show_properties_Click(sender As Object, e As EventArgs) Handles m_show_properties.Click
+        m_show_properties.Checked = Not m_show_properties.Checked
+        If m_show_properties.Checked Then
+            If panel_2_occupied Then
+                frmProgramEditor.Container_panel.Hide()
+            Else
+                frmProgramEditor.Container_panel.Show()
+            End If
+            SplitContainer1.Panel2Collapsed = False
+            PropertyGrid1.Show()
+            SP2_Width = 225
+            SplitContainer1.SplitterDistance = (ClientSize.Width) - SP2_Width - SplitContainer1.SplitterWidth
+            PG_width = SP2_Width
+        Else
+            PropertyGrid1.Hide()
+            If panel_2_occupied Then
+                SplitContainer1.Panel2Collapsed = False
+                SplitContainer1.SplitterDistance = (ClientSize.Width) - FE_width - SplitContainer1.SplitterWidth
+                frmProgramEditor.Container_panel.Show()
+            Else
+                SplitContainer1.Panel2Collapsed = True
+
+            End If
+        End If
+        resize_fbo_main()
+    End Sub
+
+    Private Sub m_appVersion_Click(sender As Object, e As EventArgs) Handles m_appVersion.Click
+        System.Diagnostics.Process.Start("https://github.com/mikeoverbay/nuTerra/actions")
+    End Sub
+
 #End Region
 
     '=================================================================================
@@ -1091,37 +1122,6 @@ try_again:
 
         sp_moved = True
 
-    End Sub
-
-    Private Sub m_show_properties_Click(sender As Object, e As EventArgs) Handles m_show_properties.Click
-        m_show_properties.Checked = Not m_show_properties.Checked
-        If m_show_properties.Checked Then
-            If panel_2_occupied Then
-                frmProgramEditor.Container_panel.Hide()
-            Else
-                frmProgramEditor.Container_panel.Show()
-            End If
-            SplitContainer1.Panel2Collapsed = False
-            PropertyGrid1.Show()
-            SP2_Width = 225
-            SplitContainer1.SplitterDistance = (ClientSize.Width) - SP2_Width - SplitContainer1.SplitterWidth
-            PG_width = SP2_Width
-        Else
-            PropertyGrid1.Hide()
-            If panel_2_occupied Then
-                SplitContainer1.Panel2Collapsed = False
-                SplitContainer1.SplitterDistance = (ClientSize.Width) - FE_width - SplitContainer1.SplitterWidth
-                frmProgramEditor.Container_panel.Show()
-            Else
-                SplitContainer1.Panel2Collapsed = True
-
-            End If
-        End If
-        resize_fbo_main()
-    End Sub
-
-    Private Sub m_appVersion_Click(sender As Object, e As EventArgs) Handles m_appVersion.Click
-        System.Diagnostics.Process.Start("https://github.com/mikeoverbay/nuTerra/actions")
     End Sub
 
 End Class
