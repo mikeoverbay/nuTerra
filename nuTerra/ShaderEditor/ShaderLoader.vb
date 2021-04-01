@@ -50,7 +50,7 @@ Module ShaderLoader
         End Property
 
         Sub SetDefine(key As String, Optional value As String = "")
-            defines.Add(key, value)
+            defines(key) = value
             UpdateShader()
         End Sub
 
@@ -343,7 +343,7 @@ Module ShaderLoader
                 Using vs_s As New StreamReader(v)
                     Dim vs = vs_s.ReadLine() & vbNewLine
                     For Each item In defines
-                        vs += String.Format("#define {0} {1}\n", item.Key, item.Value)
+                        vs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
                     vs += vs_s.ReadToEnd()
                     GL.ShaderSource(vertexObject, vs)
@@ -376,7 +376,7 @@ Module ShaderLoader
                 Using fs_s As New StreamReader(f)
                     Dim fs = fs_s.ReadLine() & vbNewLine
                     For Each item In defines
-                        fs += String.Format("#define {0} {1}\n", item.Key, item.Value)
+                        fs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
                     fs += fs_s.ReadToEnd()
                     GL.ShaderSource(fragmentObject, fs)
@@ -405,7 +405,7 @@ Module ShaderLoader
             Using gs_s As New StreamReader(g)
                 Dim gs = gs_s.ReadLine() & vbNewLine
                 For Each item In defines
-                    gs += String.Format("#define {0} {1}\n", item.Key, item.Value)
+                    gs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                 Next
                 gs += gs_s.ReadToEnd()
                 GL.ShaderSource(geomObject, gs)
@@ -457,7 +457,7 @@ Module ShaderLoader
                 Using cs_s As New StreamReader(c)
                     Dim cs = cs_s.ReadLine() & vbNewLine
                     For Each item In defines
-                        cs += String.Format("#define {0} {1}\n", item.Key, item.Value)
+                        cs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
                     cs += cs_s.ReadToEnd()
                     GL.ShaderSource(computeObject, cs)
