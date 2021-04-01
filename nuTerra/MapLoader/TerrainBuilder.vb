@@ -318,10 +318,13 @@ Module TerrainBuilder
         '==========================================================
         'get minimap
         Dim mm = ResMgr.Lookup(String.Format("spaces/{0}/mmap.dds", ABS_NAME))
-        Dim mss As New MemoryStream
-        mm.Extract(mss)
-        theMap.MINI_MAP_ID = load_dds_image_from_stream(mss, "spaces/" + ABS_NAME + "/mmap.dds")
-        mss.Dispose()
+        If mm IsNot Nothing Then
+            Using mss As New MemoryStream
+                mm.Extract(mss)
+                theMap.MINI_MAP_ID = load_dds_image_from_stream(mss, "spaces/" + ABS_NAME + "/mmap.dds")
+            End Using
+        End If
+
         'get global_am
         Dim gmm = ResMgr.Lookup(String.Format("spaces/{0}/global_am.dds", ABS_NAME))
         Dim gmss As New MemoryStream

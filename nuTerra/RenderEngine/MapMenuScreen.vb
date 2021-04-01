@@ -166,6 +166,12 @@ NotInheritable Class MapMenuScreen
         ' sort map list
         MapPickList.Sort()
 
+        MapPickList.Add(New MapItem With {
+            .name = "hangar_v3",
+            .realname = "hangar_v3",
+            .discription = "hangar_v3"
+        })
+
         ' load map images
         Dim cnt = 0
         For Each thing In MapPickList
