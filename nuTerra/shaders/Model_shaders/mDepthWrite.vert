@@ -14,8 +14,8 @@ layout(location = 4) in vec2 vertexTexCoord1;
 
 out VS_OUT
 {
-flat out uint model_id;
-out vec2 uv;
+    flat uint model_id;
+    vec2 uv;
 } vs_out;
 
 void main(void)

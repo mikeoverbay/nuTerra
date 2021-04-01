@@ -18,7 +18,7 @@ Module ShaderLoader
     End Function
 
     Public Class Shader
-        Private defines() As String
+        Private defines As New Dictionary(Of String, String)
         Private is_used As Boolean
         Private loaded As Boolean
         Public program As Integer
@@ -48,6 +48,16 @@ Module ShaderLoader
                 Return uniforms(uniformName)
             End Get
         End Property
+
+        Sub SetDefine(key As String, Optional value As String = "")
+            defines.Add(key, value)
+            UpdateShader()
+        End Sub
+
+        Sub UnsetDefine(key As String)
+            defines.Remove(key)
+            UpdateShader()
+        End Sub
 
         Sub Use()
 #If DEBUG Then
@@ -109,9 +119,8 @@ Module ShaderLoader
             loaded = True
         End Sub
 
-        Sub New(name As String, Optional defines() As String = Nothing)
+        Sub New(name As String)
             Me.name = name
-            Me.defines = defines
             is_used = False
             loaded = False
             Dim failed_1, failed_2, failed_3, failed_4 As Boolean
@@ -311,7 +320,7 @@ Module ShaderLoader
                                     c As String,
                                     f As String,
                                     name As String,
-                                    defines() As String) As Integer
+                                    defines As Dictionary(Of String, String)) As Integer
         Dim status_code As Integer
 
         Dim program As Integer = GL.CreateProgram()
@@ -333,9 +342,9 @@ Module ShaderLoader
             Else
                 Using vs_s As New StreamReader(v)
                     Dim vs = vs_s.ReadLine() & vbNewLine
-                    If defines IsNot Nothing Then
-                        vs += String.Join(vbNewLine, defines) & vbNewLine
-                    End If
+                    For Each item In defines
+                        vs += String.Format("#define {0} {1}\n", item.Key, item.Value)
+                    Next
                     vs += vs_s.ReadToEnd()
                     GL.ShaderSource(vertexObject, vs)
                 End Using
@@ -366,9 +375,9 @@ Module ShaderLoader
             Else
                 Using fs_s As New StreamReader(f)
                     Dim fs = fs_s.ReadLine() & vbNewLine
-                    If defines IsNot Nothing Then
-                        fs += String.Join(vbNewLine, defines) & vbNewLine
-                    End If
+                    For Each item In defines
+                        fs += String.Format("#define {0} {1}\n", item.Key, item.Value)
+                    Next
                     fs += fs_s.ReadToEnd()
                     GL.ShaderSource(fragmentObject, fs)
                 End Using
@@ -395,9 +404,9 @@ Module ShaderLoader
 
             Using gs_s As New StreamReader(g)
                 Dim gs = gs_s.ReadLine() & vbNewLine
-                If defines IsNot Nothing Then
-                    gs += String.Join(vbNewLine, defines) & vbNewLine
-                End If
+                For Each item In defines
+                    gs += String.Format("#define {0} {1}\n", item.Key, item.Value)
+                Next
                 gs += gs_s.ReadToEnd()
                 GL.ShaderSource(geomObject, gs)
             End Using
@@ -447,9 +456,9 @@ Module ShaderLoader
             Else
                 Using cs_s As New StreamReader(c)
                     Dim cs = cs_s.ReadLine() & vbNewLine
-                    If defines IsNot Nothing Then
-                        cs += String.Join(vbNewLine, defines) & vbNewLine
-                    End If
+                    For Each item In defines
+                        cs += String.Format("#define {0} {1}\n", item.Key, item.Value)
+                    Next
                     cs += cs_s.ReadToEnd()
                     GL.ShaderSource(computeObject, cs)
                 End Using

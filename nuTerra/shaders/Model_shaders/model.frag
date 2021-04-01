@@ -13,9 +13,9 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
+#ifdef PICK_MODELS
 layout (location = 4) out uint gPick;
-
-uniform bool show_Lods;
+#endif
 
 // Input from vertex shader
 in VS_OUT
@@ -25,8 +25,6 @@ in VS_OUT
     vec3 worldPosition;
     mat3 TBN;
     flat uint material_id;
-    flat uint model_id;
-    flat uint lod_level;
     vec2 UV1;
     vec2 UV2;
     vec2 UV3;
@@ -35,6 +33,12 @@ in VS_OUT
     vec2 scale_4;
     vec2 offset_123;
     vec2 offset_4;
+#ifdef PICK_MODELS
+    flat uint model_id;
+#endif
+#ifdef SHOW_LOD_COLORS
+    flat uint lod_level;
+#endif
 } fs_in;
 
 // globals
@@ -392,24 +396,23 @@ subroutine uniform fn_entry entries[10];
 // ================================================================================
 void main(void)
 {
-    float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
+    const float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
 
     entries[thisMaterial.shader_type]();
     gColor.rgb = pow(gColor.rgb, vec3(1.0 / 1.3));
     gColor.a = 0.0;
 
-    gPick.r = fs_in.model_id + 1;
-
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
-    gGMF.a - 0.0;
 
+#ifdef PICK_MODELS
+    gPick.r = fs_in.model_id + 1;
+#endif
+
+#ifdef SHOW_LOD_COLORS
     // Just for debugging
-    if (show_Lods) {
-        if (fs_in.lod_level == 1)      { gColor.r += 0.4; }
-        else if (fs_in.lod_level == 2) { gColor.g += 0.4; }
-        else if (fs_in.lod_level == 3) { gColor.b += 0.4; }
-    }
-
+    if (fs_in.lod_level == 1)      { gColor.r += 0.4; }
+    else if (fs_in.lod_level == 2) { gColor.g += 0.4; }
+    else if (fs_in.lod_level == 3) { gColor.b += 0.4; }
+#endif
 }
-// ================================================================================

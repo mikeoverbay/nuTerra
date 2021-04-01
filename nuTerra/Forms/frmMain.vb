@@ -119,8 +119,7 @@ Public Class frmMain
                 Else
                     FXAA_text = "FXAA Off"
                 End If
-            Case Keys.F9
-                SHOW_LOD_COLORS = SHOW_LOD_COLORS Xor True
+
                 '-------------------------------
             Case Keys.B
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
@@ -161,6 +160,11 @@ Public Class frmMain
 
             Case Keys.P
                 PICK_MODELS = PICK_MODELS Xor True
+                If PICK_MODELS Then
+                    modelShader.SetDefine("PICK_MODELS")
+                Else
+                    modelShader.UnsetDefine("PICK_MODELS")
+                End If
 
             Case Keys.T
                 If SHOW_TEST_TEXTURES = 0F Then

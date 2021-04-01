@@ -790,8 +790,6 @@ Module modRender
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
-        ' Color highlighting of LOD levels if enabled.
-        GL.Uniform1(modelShader("show_Lods"), CInt(SHOW_LOD_COLORS))
 
         'assign subroutines
         GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
@@ -828,7 +826,6 @@ Module modRender
         GL.DepthMask(False)
 
         If WIRE_MODELS Then
-
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
 
             FBOm.attach_CF()

@@ -302,6 +302,11 @@ Public Class SettingsPropertyGrid
     Public Property OVERLAYS_colored_lods As Boolean
         Set(value As Boolean)
             SHOW_LOD_COLORS = value
+            If SHOW_LOD_COLORS Then
+                modelShader.SetDefine("SHOW_LOD_COLORS")
+            Else
+                modelShader.UnsetDefine("SHOW_LOD_COLORS")
+            End If
         End Set
         Get
             Return SHOW_LOD_COLORS
