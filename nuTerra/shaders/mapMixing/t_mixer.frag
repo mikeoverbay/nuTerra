@@ -121,11 +121,40 @@ vec4 blend_global(vec4 texture1, float a1, vec4 texture2, float a2) {
  return (texture1 * b1 + texture2 * b2) / (b1 + b2);
  }/*===========================================================*/
 
+
+vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 S) {
+
+    vec4 vt = vec4(-fs_in.Vertex.x+50.0, fs_in.Vertex.y, fs_in.Vertex.z, 1.0);
+    vt *= vec4(1.0, -1.0, 1.0,  1.0);
+    vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
+    return out_uv;
+    }
+    
 vec4 crop( sampler2DArray samp, in vec2 uv , in float layer)
 {
+    uv += vec2(0.50,0.50);
+    //uv += vec2(offset.x ,offset.y);
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
     return texture(samp,vec3(cropped, layer));
 }
+vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
+{
+    uv += vec2(0.50,0.50);
+    //uv += vec2(offset.x ,offset.y);
+    vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
+    return texture(samp,vec3(cropped, layer));
+    }
+
+vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
+{
+
+    uv += vec2(0.5,0.5);
+    uv *= vec2(0.125, 0.125);
+    //uv += vec2(offset.x , offset.y);
+    vec2 cropped = fract(uv)* vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
+    return texture(samp,vec3(cropped, layer));
+    }
+
 /*===========================================================*/
 
 // Converion from AG map to RGB vector.
@@ -139,13 +168,6 @@ vec4 convertNormal(vec4 norm){
     return vec4(n,0.0);
 }
 
-vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 S) {
-    vec4 vt = vec4(fs_in.UV.x*100, 0.0, -fs_in.UV.y*100.0, 1.0);
-    vec2 out_uv;
-    out_uv = vec2(-dot(U,vt), dot(V,vt));
-    //out_uv.xy += vec2(-S.x, S.y);
-    return out_uv;
-    }
 /*===========================================================*/
 /*===========================================================*/
 /*===========================================================*/
@@ -178,6 +200,8 @@ void main(void)
     tuv8 = get_transformed_uv(U8, V8, s8);
 
     // Get AM maps 
+    // Get AM maps,crop and set Test outline blend flag
+
     t1 = crop(at1, tuv1, 0.0);
     t2 = crop(at2, tuv2, 0.0);
     t3 = crop(at3, tuv3, 0.0);
@@ -186,37 +210,37 @@ void main(void)
     t6 = crop(at6, tuv6, 0.0);
     t7 = crop(at7, tuv7, 0.0);
     t8 = crop(at8, tuv8, 0.0);
-
-    mt1 = crop(at1, tuv1*0.125, 2.0);
-    mt2 = crop(at2, tuv2*0.125, 2.0);
-    mt3 = crop(at3, tuv3*0.125, 2.0);
-    mt4 = crop(at4, tuv4*0.125, 2.0);
-    mt5 = crop(at5, tuv5*0.125, 2.0);
-    mt6 = crop(at6, tuv6*0.125, 2.0);
-    mt7 = crop(at7, tuv7*0.125, 2.0);
-    mt8 = crop(at8, tuv8*0.125, 2.0);
+    
+    mt1 = crop3(at1, tuv1, 2.0, s1);
+    mt2 = crop3(at2, tuv2, 2.0, s2);
+    mt3 = crop3(at3, tuv3, 2.0, s3);
+    mt4 = crop3(at4, tuv4, 2.0, s4);
+    mt5 = crop3(at5, tuv5, 2.0, s5);
+    mt6 = crop3(at6, tuv6, 2.0, s6);
+    mt7 = crop3(at7, tuv7, 2.0, s7);
+    mt8 = crop3(at8, tuv8, 2.0, s8);
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    n1 = crop(at1, tuv1, 1.0);
-    n2 = crop(at2, tuv2, 1.0);
-    n3 = crop(at3, tuv3, 1.0);
-    n4 = crop(at4, tuv4, 1.0);
-    n5 = crop(at5, tuv5, 1.0);
-    n6 = crop(at6, tuv6, 1.0);
-    n7 = crop(at7, tuv7, 1.0);
-    n8 = crop(at8, tuv8, 1.0);
+    n1 = crop2(at1, tuv1, 1.0, s1);
+    n2 = crop2(at2, tuv2, 1.0, s2);
+    n3 = crop2(at3, tuv3, 1.0, s3);
+    n4 = crop2(at4, tuv4, 1.0, s4);
+    n5 = crop2(at5, tuv5, 1.0, s5);
+    n6 = crop2(at6, tuv6, 1.0, s6);
+    n7 = crop2(at7, tuv7, 1.0, s7);
+    n8 = crop2(at8, tuv8, 1.0, s8);
 
-    mn1 = crop(at1, tuv1*0.125, 3.0);
-    mn2 = crop(at2, tuv2*0.125, 3.0);
-    mn3 = crop(at3, tuv3*0.125, 3.0);
-    mn4 = crop(at4, tuv4*0.125, 3.0);
-    mn5 = crop(at5, tuv5*0.125, 3.0);
-    mn6 = crop(at6, tuv6*0.125, 3.0);
-    mn7 = crop(at7, tuv7*0.125, 3.0);
-    mn8 = crop(at8, tuv8*0.125, 3.0);
+    mn1 = crop3(at1, tuv1, 3.0, s1);
+    mn2 = crop3(at2, tuv2, 3.0, s2);
+    mn3 = crop3(at3, tuv3, 3.0, s3);
+    mn4 = crop3(at4, tuv4, 3.0, s4);
+    mn5 = crop3(at5, tuv5, 3.0, s5);
+    mn6 = crop3(at6, tuv6, 3.0, s6);
+    mn7 = crop3(at7, tuv7, 3.0, s7);
+    mn8 = crop3(at8, tuv8, 3.0, s8);
 
     // get the ambient occlusion
     t1.rgb *= n1.b;
@@ -326,11 +350,11 @@ void main(void)
 
     float c_l = length(m8.rgb) + m8.a;
     float g_l = length(global.rgb) - global.a;
-
     gc.rgb = global.rgb;
-
     base.rgb = (m8.rgb * c_l + gc.rgb * g_l)/2.0;
     base.rgb = base.rgb * 0.9;
+
+    //base = m8;
     //-------------------------------------------------------------
     // normals
 

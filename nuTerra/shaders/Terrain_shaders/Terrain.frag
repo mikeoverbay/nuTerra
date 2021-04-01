@@ -106,13 +106,15 @@ vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
  float b2 = max(texture2.a + a2 - ma, 0);
  return (texture1 * b1 + texture2 * b2) / (b1 + b2);
  }
+/*
 vec4 blend_macro(vec4 texture1, float a1, vec4 texture2, float a2) {
- float depth = 1.8;
+ float depth = 0.0;
  float ma = max(texture1.a + a1, texture2.a + a2) - depth;
  float b1 = max(texture1.a + a1 - ma, 0);
  float b2 = max(texture2.a + a2 - ma, 0);
  return (texture1 * b1 + texture2 * b2) / (b1 + b2);
  }
+*/
  //have to do this because we need the alpha in the am textures.
 vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, float a2) {
  float depth = 0.5;
@@ -122,7 +124,7 @@ vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, floa
  return (n1 * b1 + n2 * b2) / (b1 + b2);
  }
 vec4 blend_global(vec4 texture1, float a1, vec4 texture2, float a2) {
- float depth = 0.5;
+ float depth = 0.125;
  float ma = max(a1, a2) - depth;
  float b1 = max(a1 - ma, 0);
  float b2 = max(a2 - ma, 0);
@@ -144,21 +146,23 @@ vec4 convertNormal(vec4 norm){
 
 /*===========================================================*/
 
-vec2 get_transformed_uv(in vec4 U, in vec4 V,vec4 S) {
+vec2 get_transformed_uv(in vec4 U, in vec4 V) {
 
-    vec4 vt = vec4(fs_in.UV.x*100, 0.0, -fs_in.UV.y*100.0, 1.0);
-    vec2 out_uv;
-    out_uv = vec2(-dot(U,vt), dot(V,vt));
-    //out_uv.xy += vec2(-S.x, S.y);
-    return out_uv+0.5;
+    vec4 vt = vec4(-fs_in.Vertex.x+50.0, fs_in.Vertex.y, fs_in.Vertex.z, 1.0);
+    vt *= vec4(1.0, -1.0, 1.0,  1.0);
+    vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
+    return out_uv;
     }
 
-vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, in out float b)
+vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, in out float b, in vec4 offset)
 {
     vec2  dx_vtc        = dFdx(uv*1024.0);
     vec2  dy_vtc        = dFdy(uv*1024.0);
     float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
     float mipLevel = 0.5 * log2(delta_max_sqr);
+
+    uv += vec2(0.50,0.50);
+    //uv += vec2(offset.x ,offset.y);
 
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
 
@@ -172,26 +176,34 @@ vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, in out float b)
     return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
 
-vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer)
+vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
 {
     vec2  dx_vtc        = dFdx(uv*1024.0);
     vec2  dy_vtc        = dFdy(uv*1024.0);
     float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
     float mipLevel = 0.5 * log2(delta_max_sqr);
+
+    uv += vec2(0.50,0.50);
+    //uv += vec2(offset.x ,offset.y);
 
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
 
     return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
 
-vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer)
+vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
 {
+
+    uv += vec2(0.5,0.5);
+    uv *= vec2(0.125, 0.125);
+
     vec2  dx_vtc        = dFdx(uv*1024.0);
     vec2  dy_vtc        = dFdy(uv*1024.0);
     float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
 
     float mipLevel = 0.5 * log2(delta_max_sqr);
-    
+
+    //uv += vec2(offset.x , offset.y);
     vec2 cropped = fract(uv)* vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
 
     return textureLod( samp, vec3(cropped, layer), mipLevel);
@@ -235,56 +247,56 @@ void main(void)
     //-------------------------------------------------------
 
     // create UV projections
-    tuv1 = get_transformed_uv(U1, V1, s1); 
-    tuv2 = get_transformed_uv(U2, V2, s2);
-    tuv3 = get_transformed_uv(U3, V3, s3); 
-    tuv4 = get_transformed_uv(U4, V4, s4);
-    tuv5 = get_transformed_uv(U5, V5, s5); 
-    tuv6 = get_transformed_uv(U6, V6, s6);
-    tuv7 = get_transformed_uv(U7, V7, s7);
-    tuv8 = get_transformed_uv(U8, V8, s8);
+    tuv1 = get_transformed_uv(U1, V1); 
+    tuv2 = get_transformed_uv(U2, V2);
+    tuv3 = get_transformed_uv(U3, V3); 
+    tuv4 = get_transformed_uv(U4, V4);
+    tuv5 = get_transformed_uv(U5, V5); 
+    tuv6 = get_transformed_uv(U6, V6);
+    tuv7 = get_transformed_uv(U7, V7);
+    tuv8 = get_transformed_uv(U8, V8);
 
     // Get AM maps,crop and set Test outline blend flag
 
-    t1 = crop(at1, tuv1, 0.0, B1);
-    t2 = crop(at2, tuv2, 0.0, B2);
-    t3 = crop(at3, tuv3, 0.0, B3);
-    t4 = crop(at4, tuv4, 0.0, B4);
-    t5 = crop(at5, tuv5, 0.0, B5);
-    t6 = crop(at6, tuv6, 0.0, B6);
-    t7 = crop(at7, tuv7, 0.0, B7);
-    t8 = crop(at8, tuv8, 0.0, B8);
+    t1 = crop(at1, tuv1, 0.0, B1, s1);
+    t2 = crop(at2, tuv2, 0.0, B2, s2);
+    t3 = crop(at3, tuv3, 0.0, B3, s3);
+    t4 = crop(at4, tuv4, 0.0, B4, s4);
+    t5 = crop(at5, tuv5, 0.0, B5, s5);
+    t6 = crop(at6, tuv6, 0.0, B6, s6);
+    t7 = crop(at7, tuv7, 0.0, B7, s7);
+    t8 = crop(at8, tuv8, 0.0, B8, s8);
     
-    mt1 = crop3(at1, -tuv1*0.125, 2.0);
-    mt2 = crop3(at2, -tuv2*0.125, 2.0);
-    mt3 = crop3(at3, -tuv3*0.125, 2.0);
-    mt4 = crop3(at4, -tuv4*0.125, 2.0);
-    mt5 = crop3(at5, -tuv5*0.125, 2.0);
-    mt6 = crop3(at6, -tuv6*0.125, 2.0);
-    mt7 = crop3(at7, -tuv7*0.125, 2.0);
-    mt8 = crop3(at8, -tuv8*0.125, 2.0);
+    mt1 = crop3(at1, tuv1, 2.0, s1);
+    mt2 = crop3(at2, tuv2, 2.0, s2);
+    mt3 = crop3(at3, tuv3, 2.0, s3);
+    mt4 = crop3(at4, tuv4, 2.0, s4);
+    mt5 = crop3(at5, tuv5, 2.0, s5);
+    mt6 = crop3(at6, tuv6, 2.0, s6);
+    mt7 = crop3(at7, tuv7, 2.0, s7);
+    mt8 = crop3(at8, tuv8, 2.0, s8);
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    n1 = crop2(at1, tuv1, 1.0);
-    n2 = crop2(at2, tuv2, 1.0);
-    n3 = crop2(at3, tuv3, 1.0);
-    n4 = crop2(at4, tuv4, 1.0);
-    n5 = crop2(at5, tuv5, 1.0);
-    n6 = crop2(at6, tuv6, 1.0);
-    n7 = crop2(at7, tuv7, 1.0);
-    n8 = crop2(at8, tuv8, 1.0);
+    n1 = crop2(at1, tuv1, 1.0, s1);
+    n2 = crop2(at2, tuv2, 1.0, s2);
+    n3 = crop2(at3, tuv3, 1.0, s3);
+    n4 = crop2(at4, tuv4, 1.0, s4);
+    n5 = crop2(at5, tuv5, 1.0, s5);
+    n6 = crop2(at6, tuv6, 1.0, s6);
+    n7 = crop2(at7, tuv7, 1.0, s7);
+    n8 = crop2(at8, tuv8, 1.0, s8);
 
-    mn1 = crop3(at1, -tuv1*0.125, 3.0);
-    mn2 = crop3(at2, -tuv2*0.125, 3.0);
-    mn3 = crop3(at3, -tuv3*0.125, 3.0);
-    mn4 = crop3(at4, -tuv4*0.125, 3.0);
-    mn5 = crop3(at5, -tuv5*0.125, 3.0);
-    mn6 = crop3(at6, -tuv6*0.125, 3.0);
-    mn7 = crop3(at7, -tuv7*0.125, 3.0);
-    mn8 = crop3(at8, -tuv8*0.125, 3.0);
+    mn1 = crop3(at1, tuv1, 3.0, s1);
+    mn2 = crop3(at2, tuv2, 3.0, s2);
+    mn3 = crop3(at3, tuv3, 3.0, s3);
+    mn4 = crop3(at4, tuv4, 3.0, s4);
+    mn5 = crop3(at5, tuv5, 3.0, s5);
+    mn6 = crop3(at6, tuv6, 3.0, s6);
+    mn7 = crop3(at7, tuv7, 3.0, s7);
+    mn8 = crop3(at8, tuv8, 3.0, s8);
 
     // get the ambient occlusion
 
@@ -307,7 +319,10 @@ void main(void)
     mt8.rgb *= mn8.b;
 
     //mix macro
-    
+
+
+    //t5 = blend(t5, r2_5.x, mt5, r2_5.y-0.5);
+    //n5 = blend_global(n5, r2_5.x, mn5, r2_5.y-0.5);
 
     t1.rgb = t1.rgb* min(r2_1.x,1.0) + mt1.rgb*(r2_1.y+1.0);
     t2.rgb = t2.rgb* min(r2_2.x,1.0) + mt2.rgb*(r2_2.y+1.0);
@@ -326,7 +341,8 @@ void main(void)
     n6.rgb = n6.rgb* min(r2_6.x,1.0) + mn6.rgb*(r2_6.y+1.0);
     n7.rgb = n7.rgb* min(r2_7.x,1.0) + mn7.rgb*(r2_7.y+1.0);
     n8.rgb = n8.rgb* min(r2_8.x,1.0) + mn8.rgb*(r2_8.y+1.0);
- 
+
+
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
     MixLevel2.rg = texture(mixtexture2, mix_coords.xy).ag;
@@ -398,12 +414,11 @@ void main(void)
 
     float c_l = length(m8.rgb) + m8.a;
     float g_l = length(global.rgb) - global.a;
-
     gc.rgb = global.rgb;
-
     base.rgb = (m8.rgb * c_l + gc.rgb * g_l)/2.0;
     base.rgb = base.rgb * 0.9;
-   
+
+    //base = m8;
     // Texture outlines if test = 1.0;
     base = mix(base, base + color_1, B1 * test * MixLevel1.r);
     base = mix(base, base + color_2, B2 * test * MixLevel1.g);
@@ -450,7 +465,7 @@ void main(void)
 
     //there are no metal values for the terrain so we hard code 0.1;
     // specular is in the red channel of the normal maps;
-    vec4 gmm_out = vec4(0.1, specular, 128.0/255.0, 0.0);
+    vec4 gmm_out = vec4(0.2, specular, 128.0/255.0, 0.0);
     gGMF = mix(ArrayTextureG, gmm_out, fs_in.ln);
 
     //gColor = gColor* 0.001 + r1_8;

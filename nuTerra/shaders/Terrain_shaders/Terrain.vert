@@ -95,7 +95,6 @@ void main(void)
     // Calulate UVs for the texture layers
     vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     vs_out.Vertex = vec4(vertexPosition, 1.0);
-    vs_out.Vertex.x *= -1.0;
 
     //-------------------------------------------------------
     // Calculate biNormal

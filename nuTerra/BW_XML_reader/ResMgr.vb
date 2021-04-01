@@ -1,7 +1,6 @@
 ﻿Imports System.IO
 Imports System.Xml
 Imports Ionic.Zip
-Imports System.IO.Directory
 
 NotInheritable Class ResMgr
     Shared RES_MODS_PATH As String
@@ -40,7 +39,12 @@ NotInheritable Class ResMgr
     Public Shared Function Lookup(filename As String) As ZipEntry
         If File.Exists(Path.Combine(RES_MODS_PATH, filename)) Then
             Dim tmpZip As New ZipFile
-            Return tmpZip.AddFile(Path.Combine(RES_MODS_PATH, filename))
+            tmpZip.AddFile(Path.Combine(RES_MODS_PATH, filename), filename)
+            Dim tmpMs As New MemoryStream
+            tmpZip.Save(tmpMs)
+            tmpMs.Position = 0
+            tmpZip = ZipFile.Read(tmpMs)
+            Return tmpZip.Entries(0)
         End If
 
         Dim lowered_fn = filename.ToLower.Replace("\", "/")

@@ -88,7 +88,7 @@ float get_mip_map_level(sampler2D samp)
     vec2  dx_vtc        = dFdx(fs_in.TC1 * float(isize.x));
     vec2  dy_vtc        = dFdy(fs_in.TC1 * float(isize.y));
     float d = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    return round(0.5 * log2(d)); 
+    return round(0.3 * log2(d)); 
 }
 //##################################################################################
 int get_dom_mix(in vec3 b){
