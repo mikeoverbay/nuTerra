@@ -217,7 +217,7 @@ Public Class frmMain
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
         Text = Application.ProductName
-        VersionToolStripMenuItem.Text = "Version: " & Application.ProductVersion
+        m_appVersion.Text = "Version: " & Application.ProductVersion
         PropertyGrid1.SelectedObject = New SettingsPropertyGrid()
 
         If My.Settings.UpgradeRequired Then
@@ -1120,9 +1120,8 @@ try_again:
         resize_fbo_main()
     End Sub
 
-
-
-
-
+    Private Sub m_appVersion_Click(sender As Object, e As EventArgs) Handles m_appVersion.Click
+        System.Diagnostics.Process.Start("https://github.com/mikeoverbay/nuTerra/actions")
+    End Sub
 
 End Class

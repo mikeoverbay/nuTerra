@@ -40,13 +40,13 @@ Partial Class frmMain
         Me.m_light_settings = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_screen_capture = New System.Windows.Forms.ToolStripMenuItem()
+        Me.m_appVersion = New System.Windows.Forms.ToolStripMenuItem()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
         Me.FolderBrowserDialog1 = New System.Windows.Forms.FolderBrowserDialog()
         Me.map_loader = New System.Windows.Forms.Timer(Me.components)
         Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.PropertyGrid1 = New System.Windows.Forms.PropertyGrid()
-        Me.VersionToolStripMenuItem = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer1.SuspendLayout()
@@ -54,7 +54,7 @@ Partial Class frmMain
         '
         'frmMainMenu
         '
-        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_settings, Me.m_light_settings, Me.m_help, Me.m_screen_capture, Me.VersionToolStripMenuItem})
+        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_settings, Me.m_light_settings, Me.m_help, Me.m_screen_capture, Me.m_appVersion})
         Me.frmMainMenu.Location = New System.Drawing.Point(0, 0)
         Me.frmMainMenu.Name = "frmMainMenu"
         Me.frmMainMenu.Size = New System.Drawing.Size(956, 24)
@@ -168,6 +168,14 @@ Partial Class frmMain
         Me.m_screen_capture.Size = New System.Drawing.Size(99, 20)
         Me.m_screen_capture.Text = "Screen Capture"
         '
+        'm_appVersion
+        '
+        Me.m_appVersion.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.m_appVersion.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.m_appVersion.Name = "m_appVersion"
+        Me.m_appVersion.Size = New System.Drawing.Size(96, 20)
+        Me.m_appVersion.Text = "Version: 1.0.0.0"
+        '
         'startup_delay_timer
         '
         Me.startup_delay_timer.Interval = 1000
@@ -217,14 +225,6 @@ Partial Class frmMain
         Me.PropertyGrid1.ToolbarVisible = False
         Me.PropertyGrid1.ViewBackColor = System.Drawing.Color.White
         '
-        'VersionToolStripMenuItem
-        '
-        Me.VersionToolStripMenuItem.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
-        Me.VersionToolStripMenuItem.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.VersionToolStripMenuItem.Name = "VersionToolStripMenuItem"
-        Me.VersionToolStripMenuItem.Size = New System.Drawing.Size(96, 20)
-        Me.VersionToolStripMenuItem.Text = "Version: 1.0.0.0"
-        '
         'frmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -271,5 +271,5 @@ Partial Class frmMain
     Friend WithEvents SplitContainer1 As SplitContainer
     Friend WithEvents PropertyGrid1 As PropertyGrid
     Friend WithEvents m_show_properties As ToolStripMenuItem
-    Friend WithEvents VersionToolStripMenuItem As ToolStripMenuItem
+    Friend WithEvents m_appVersion As ToolStripMenuItem
 End Class
