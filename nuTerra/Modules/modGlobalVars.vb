@@ -1,9 +1,7 @@
-﻿Imports System.Runtime.InteropServices
-Imports System.Text
+﻿Imports System.Text
 Imports OpenTK
 
 Module modGlobalVars
-    Public skyDomeMatrix As New Matrix4
     '=================================================================================
     'Effects, Particle Textures and emitters.. more
     Public Explosion_11776x512_91tiles_256x256_ID As GLTexture

@@ -1033,15 +1033,6 @@ Module modRender
         FBOm.attach_CNGP()
 
         SkyDomeShader.Use()
-        Dim mat = skyDomeMatrix
-
-        mat.M12 *= -1.0
-        mat.M13 *= -1.0
-        mat.M21 *= -1.0
-        mat.M31 *= -1.0
-
-        Dim rm = Matrix4.CreateRotationY(180.0 * 0.017453293)
-        GL.UniformMatrix4(SkyDomeShader("matrix"), False, mat * rm)
 
         GL.Enable(EnableCap.CullFace)
 
