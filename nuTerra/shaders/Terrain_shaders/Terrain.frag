@@ -106,15 +106,7 @@ vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
  float b2 = max(texture2.a + a2 - ma, 0);
  return (texture1 * b1 + texture2 * b2) / (b1 + b2);
  }
-/*
-vec4 blend_macro(vec4 texture1, float a1, vec4 texture2, float a2) {
- float depth = 0.0;
- float ma = max(texture1.a + a1, texture2.a + a2) - depth;
- float b1 = max(texture1.a + a1 - ma, 0);
- float b2 = max(texture2.a + a2 - ma, 0);
- return (texture1 * b1 + texture2 * b2) / (b1 + b2);
- }
-*/
+
  //have to do this because we need the alpha in the am textures.
 vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, float a2) {
  float depth = 0.5;
@@ -122,13 +114,6 @@ vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, floa
  float b1 = max(texture1.a + a1 - ma, 0);
  float b2 = max(texture2.a + a2 - ma, 0);
  return (n1 * b1 + n2 * b2) / (b1 + b2);
- }
-vec4 blend_global(vec4 texture1, float a1, vec4 texture2, float a2) {
- float depth = 0.125;
- float ma = max(a1, a2) - depth;
- float b1 = max(a1 - ma, 0);
- float b2 = max(a2 - ma, 0);
- return (texture1 * b1 + texture2 * b2) / (b1 + b2);
  }
 /*===========================================================*/
 
@@ -368,27 +353,17 @@ void main(void)
     t7.a += n7.r+r1_7.y;
     t8.a += n8.r+r1_8.y;
    
-    MixLevel1 += MixLevel1;
-    MixLevel1 += MixLevel1;
-    MixLevel1 += MixLevel1;
- 
-    MixLevel2 += MixLevel2;
-    MixLevel2 += MixLevel2;
-    MixLevel2 += MixLevel2;
+    //much better compression of blend textures.
+    float f =0.0;
+    f += dot(MixLevel1.rg,vec2(1.0,1.0));
+    f += dot(MixLevel2.rg,vec2(1.0,1.0));
+    f += dot(MixLevel3.rg,vec2(1.0,1.0));
+    f += dot(MixLevel4.rg,vec2(1.0,1.0));
 
-    MixLevel3 += MixLevel3;
-    MixLevel3 += MixLevel3;
-    MixLevel3 += MixLevel3;
-
-    MixLevel4 += MixLevel4;
-    MixLevel4 += MixLevel4;
-    MixLevel4 += MixLevel4;
-
-    float pow_s = 4.0;
-    MixLevel1 = pow(MixLevel1,vec2(pow_s));
-    MixLevel2 = pow(MixLevel2,vec2(pow_s));
-    MixLevel3 = pow(MixLevel3,vec2(pow_s));
-    MixLevel4 = pow(MixLevel4,vec2(pow_s));
+    MixLevel1.rg/= f;
+    MixLevel2.rg/= f;
+    MixLevel3.rg/= f;
+    MixLevel4.rg/= f;
 
     vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
 

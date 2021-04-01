@@ -99,13 +99,7 @@ vec4 blend(vec4 texture1, float a1, vec4 texture2, float a2) {
  float b2 = max(texture2.a + a2 - ma, 0);
  return (texture1 * b1 + texture2 * b2) / (b1 + b2);
  }
-vec4 blend_macro(vec4 texture1, float a1, vec4 texture2, float a2) {
- float depth = 1.8;
- float ma = max(texture1.a + a1, texture2.a + a2) - depth;
- float b1 = max(texture1.a + a1 - ma, 0);
- float b2 = max(texture2.a + a2 - ma, 0);
- return (texture1 * b1 + texture2 * b2) / (b1 + b2);
- } //have to do this because we need the alpha in the am textures.
+
 vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, float a2) {
  float depth = 0.5;
  float ma = max(texture1.a + a1, texture2.a + a2) - depth;
@@ -113,41 +107,26 @@ vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, floa
  float b2 = max(texture2.a + a2 - ma, 0);
  return (n1 * b1 + n2 * b2) / (b1 + b2);
  }
-vec4 blend_global(vec4 texture1, float a1, vec4 texture2, float a2) {
- float depth = 0.5;
- float ma = max(texture1.a + a1, texture2.a + a2) - depth;
- float b1 = max(texture1.a + a1 - ma, 0);
- float b2 = max(texture2.a + a2 - ma, 0);
- return (texture1 * b1 + texture2 * b2) / (b1 + b2);
- }/*===========================================================*/
 
 
-vec2 get_transformed_uv(in vec4 U, in vec4 V, in vec4 S) {
+vec2 get_transformed_uv(in vec4 U, in vec4 V) {
 
-    vec4 vt = vec4(-fs_in.Vertex.x+50.0, fs_in.Vertex.y, fs_in.Vertex.z, 1.0);
+    vec4 vt = vec4(-fs_in.Vertex.x+50.0, fs_in.Vertex.z, fs_in.Vertex.y, 1.0);
     vt *= vec4(1.0, -1.0, 1.0,  1.0);
     vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
     return out_uv;
     }
     
-vec4 crop( sampler2DArray samp, in vec2 uv , in float layer)
+vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
 {
     uv += vec2(0.50,0.50);
     //uv += vec2(offset.x ,offset.y);
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
     return texture(samp,vec3(cropped, layer));
 }
+
 vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
 {
-    uv += vec2(0.50,0.50);
-    //uv += vec2(offset.x ,offset.y);
-    vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-    return texture(samp,vec3(cropped, layer));
-    }
-
-vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
-{
-
     uv += vec2(0.5,0.5);
     uv *= vec2(0.125, 0.125);
     //uv += vec2(offset.x , offset.y);
@@ -190,57 +169,57 @@ void main(void)
 
     vec4 global = texture(global_AM, fs_in.Global_UV);
     // create UV projections
-    tuv1 = get_transformed_uv(U1, V1, s1); 
-    tuv2 = get_transformed_uv(U2, V2, s2);
-    tuv3 = get_transformed_uv(U3, V3, s3); 
-    tuv4 = get_transformed_uv(U4, V4, s4);
-    tuv5 = get_transformed_uv(U5, V5, s5); 
-    tuv6 = get_transformed_uv(U6, V6, s6);
-    tuv7 = get_transformed_uv(U7, V7, s7);
-    tuv8 = get_transformed_uv(U8, V8, s8);
+    tuv1 = get_transformed_uv(U1, V1); 
+    tuv2 = get_transformed_uv(U2, V2);
+    tuv3 = get_transformed_uv(U3, V3); 
+    tuv4 = get_transformed_uv(U4, V4);
+    tuv5 = get_transformed_uv(U5, V5); 
+    tuv6 = get_transformed_uv(U6, V6);
+    tuv7 = get_transformed_uv(U7, V7);
+    tuv8 = get_transformed_uv(U8, V8);
 
     // Get AM maps 
     // Get AM maps,crop and set Test outline blend flag
 
-    t1 = crop(at1, tuv1, 0.0);
-    t2 = crop(at2, tuv2, 0.0);
-    t3 = crop(at3, tuv3, 0.0);
-    t4 = crop(at4, tuv4, 0.0);
-    t5 = crop(at5, tuv5, 0.0);
-    t6 = crop(at6, tuv6, 0.0);
-    t7 = crop(at7, tuv7, 0.0);
-    t8 = crop(at8, tuv8, 0.0);
+    t1 = crop(at1, tuv1, 0.0, s1);
+    t2 = crop(at2, tuv2, 0.0, s2);
+    t3 = crop(at3, tuv3, 0.0, s3);
+    t4 = crop(at4, tuv4, 0.0, s4);
+    t5 = crop(at5, tuv5, 0.0, s5);
+    t6 = crop(at6, tuv6, 0.0, s6);
+    t7 = crop(at7, tuv7, 0.0, s7);
+    t8 = crop(at8, tuv8, 0.0, s8);
     
-    mt1 = crop3(at1, tuv1, 2.0, s1);
-    mt2 = crop3(at2, tuv2, 2.0, s2);
-    mt3 = crop3(at3, tuv3, 2.0, s3);
-    mt4 = crop3(at4, tuv4, 2.0, s4);
-    mt5 = crop3(at5, tuv5, 2.0, s5);
-    mt6 = crop3(at6, tuv6, 2.0, s6);
-    mt7 = crop3(at7, tuv7, 2.0, s7);
-    mt8 = crop3(at8, tuv8, 2.0, s8);
+    mt1 = crop2(at1, tuv1, 2.0, s1);
+    mt2 = crop2(at2, tuv2, 2.0, s2);
+    mt3 = crop2(at3, tuv3, 2.0, s3);
+    mt4 = crop2(at4, tuv4, 2.0, s4);
+    mt5 = crop2(at5, tuv5, 2.0, s5);
+    mt6 = crop2(at6, tuv6, 2.0, s6);
+    mt7 = crop2(at7, tuv7, 2.0, s7);
+    mt8 = crop2(at8, tuv8, 2.0, s8);
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    n1 = crop2(at1, tuv1, 1.0, s1);
-    n2 = crop2(at2, tuv2, 1.0, s2);
-    n3 = crop2(at3, tuv3, 1.0, s3);
-    n4 = crop2(at4, tuv4, 1.0, s4);
-    n5 = crop2(at5, tuv5, 1.0, s5);
-    n6 = crop2(at6, tuv6, 1.0, s6);
-    n7 = crop2(at7, tuv7, 1.0, s7);
-    n8 = crop2(at8, tuv8, 1.0, s8);
+    n1 = crop(at1, tuv1, 1.0, s1);
+    n2 = crop(at2, tuv2, 1.0, s2);
+    n3 = crop(at3, tuv3, 1.0, s3);
+    n4 = crop(at4, tuv4, 1.0, s4);
+    n5 = crop(at5, tuv5, 1.0, s5);
+    n6 = crop(at6, tuv6, 1.0, s6);
+    n7 = crop(at7, tuv7, 1.0, s7);
+    n8 = crop(at8, tuv8, 1.0, s8);
 
-    mn1 = crop3(at1, tuv1, 3.0, s1);
-    mn2 = crop3(at2, tuv2, 3.0, s2);
-    mn3 = crop3(at3, tuv3, 3.0, s3);
-    mn4 = crop3(at4, tuv4, 3.0, s4);
-    mn5 = crop3(at5, tuv5, 3.0, s5);
-    mn6 = crop3(at6, tuv6, 3.0, s6);
-    mn7 = crop3(at7, tuv7, 3.0, s7);
-    mn8 = crop3(at8, tuv8, 3.0, s8);
+    mn1 = crop2(at1, tuv1, 3.0, s1);
+    mn2 = crop2(at2, tuv2, 3.0, s2);
+    mn3 = crop2(at3, tuv3, 3.0, s3);
+    mn4 = crop2(at4, tuv4, 3.0, s4);
+    mn5 = crop2(at5, tuv5, 3.0, s5);
+    mn6 = crop2(at6, tuv6, 3.0, s6);
+    mn7 = crop2(at7, tuv7, 3.0, s7);
+    mn8 = crop2(at8, tuv8, 3.0, s8);
 
     // get the ambient occlusion
     t1.rgb *= n1.b;
@@ -304,27 +283,17 @@ void main(void)
     t7.a += n7.r+r1_7.y;
     t8.a += n8.r+r1_8.y;
    
-    MixLevel1 += MixLevel1;
-    MixLevel1 += MixLevel1;
-    MixLevel1 += MixLevel1;
- 
-    MixLevel2 += MixLevel2;
-    MixLevel2 += MixLevel2;
-    MixLevel2 += MixLevel2;
+    //much better compression of blend textures.
+    float f =0.0;
+    f += dot(MixLevel1.rg,vec2(1.0,1.0));
+    f += dot(MixLevel2.rg,vec2(1.0,1.0));
+    f += dot(MixLevel3.rg,vec2(1.0,1.0));
+    f += dot(MixLevel4.rg,vec2(1.0,1.0));
 
-    MixLevel3 += MixLevel3;
-    MixLevel3 += MixLevel3;
-    MixLevel3 += MixLevel3;
-
-    MixLevel4 += MixLevel4;
-    MixLevel4 += MixLevel4;
-    MixLevel4 += MixLevel4;
-
-    float pow_s = 4.0;
-    MixLevel1 = pow(MixLevel1,vec2(pow_s));
-    MixLevel2 = pow(MixLevel2,vec2(pow_s));
-    MixLevel3 = pow(MixLevel3,vec2(pow_s));
-    MixLevel4 = pow(MixLevel4,vec2(pow_s));
+    MixLevel1.rg/= f;
+    MixLevel2.rg/= f;
+    MixLevel3.rg/= f;
+    MixLevel4.rg/= f;
 
     vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
 

@@ -89,9 +89,9 @@ void main(void)
     vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
     
     //-------------------------------------------------------
-    //This is XZY because of ortho projection!
     vec3 vertexPosition = vec3(vertexXZ.x, vertexXZ.y, vertexY);
     vec4 Vertex = vec4(vertexPosition, 1.0) * 1.0;
+    //Vertex.x *= -1.0;
     vs_out.Vertex = Vertex;
 
 
