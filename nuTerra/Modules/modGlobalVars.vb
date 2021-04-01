@@ -146,6 +146,7 @@ Module modGlobalVars
     Public U_VIEW_RADIUS, U_CAM_X_ANGLE, U_CAM_Y_ANGLE As Single
     Public U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z As Single
     Public CAM_POSITION As Vector3
+    Public CAM_TARGET As Vector3
     Public MAX_ZOOM_OUT As Single = -2000.0F 'must be negitive
     Public SHOW_CURSOR As Integer
     '============================================================

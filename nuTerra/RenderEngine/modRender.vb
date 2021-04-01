@@ -102,6 +102,8 @@ Module modRender
 
         'Model depth pass only
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
+            GL.GetNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), MapGL.numAfterFrustum)
+
             '=======================================================================
             model_depth_pass() '=========================================================
             '=======================================================================
@@ -495,8 +497,6 @@ Module modRender
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
 
         cullShader.StopUse()
-
-        GL.GetNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), MapGL.numAfterFrustum)
 
         GL_POP_GROUP()
     End Sub

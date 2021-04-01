@@ -225,11 +225,6 @@ Public Class frmMain
             My.Settings.Save()
         End If
 
-#If DEBUG Then
-        ' Set to True on Debug builds
-        Me.m_developer.Visible = True
-#End If
-
         Dim maxSupportedGL = GetMaxGLVersion()
 
         ' Init main gl-control
@@ -378,23 +373,9 @@ try_again:
         Process.Start(p)
     End Sub
 
-    Private Sub m_show_gbuffer_Click(sender As Object, e As EventArgs) Handles m_show_gbuffer.Click
-        'Shows the Gbuffer Viwer.
-        frmGbufferViewer.Visible = True
-    End Sub
-
     Private Sub m_shut_down_Click(sender As Object, e As EventArgs) Handles m_shut_down.Click
         'Closes the app.
         Me.Close()
-    End Sub
-
-    Private Sub m_developer_mode_Click(sender As Object, e As EventArgs) Handles m_developer_mode.Click
-        'Makes the developer menu visible.
-        If m_developer.Visible Then
-            m_developer.Visible = False
-        Else
-            m_developer.Visible = True
-        End If
     End Sub
 
     Private Sub m_Log_File_Click(sender As Object, e As EventArgs) Handles m_Log_File.Click
@@ -444,6 +425,7 @@ try_again:
             "GL_ARB_compute_variable_group_size",
             "GL_ARB_shading_language_include",
             "GL_ARB_indirect_parameters",
+            "GL_ARB_bindless_texture",
             "GL_ARB_multi_draw_indirect", 'core since 4.3
             "GL_ARB_direct_state_access", 'core since 4.5
             "GL_ARB_clip_control" 'core since 4.5

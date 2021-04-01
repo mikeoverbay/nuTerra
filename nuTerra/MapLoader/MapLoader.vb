@@ -373,7 +373,7 @@ Module MapLoader
 
             MapGL.Buffers.parameters = CreateBuffer(BufferTarget.AtomicCounterBuffer, "parameters")
             BufferStorageNullData(MapGL.Buffers.parameters,
-                                  256,
+                                  3 * Marshal.SizeOf(Of Integer),
                                   BufferStorageFlags.ClientStorageBit)
             MapGL.Buffers.parameters.BindBase(0)
 

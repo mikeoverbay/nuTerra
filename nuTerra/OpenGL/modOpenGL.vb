@@ -197,7 +197,7 @@ Module modOpenGL
         CAM_POSITION.Y = cam_y + LOOK_Y
         CAM_POSITION.Z = cam_z + U_LOOK_AT_Z
 
-        Dim target As New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
+        CAM_TARGET = New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
 
         PerViewData.projection = Matrix4.CreatePerspectiveFieldOfView(
                                    FieldOfView,
@@ -209,7 +209,7 @@ Module modOpenGL
         PerViewData.projection.M43 *= -1
 #End If
         PerViewData.cameraPos = CAM_POSITION
-        PerViewData.view = Matrix4.LookAt(CAM_POSITION, target, Vector3.UnitY)
+        PerViewData.view = Matrix4.LookAt(CAM_POSITION, CAM_TARGET, Vector3.UnitY)
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
         PerViewData.invViewProj = Matrix4.Invert(PerViewData.viewProj)
         PerViewData.resolution.X = frmMain.glControl_main.ClientSize.Width

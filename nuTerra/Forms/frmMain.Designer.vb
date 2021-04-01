@@ -28,8 +28,6 @@ Partial Class frmMain
         Me.m_file = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_load_map = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripSeparator1 = New System.Windows.Forms.ToolStripSeparator()
-        Me.m_developer_mode = New System.Windows.Forms.ToolStripMenuItem()
-        Me.ToolStripSeparator2 = New System.Windows.Forms.ToolStripSeparator()
         Me.m_Log_File = New System.Windows.Forms.ToolStripMenuItem()
         Me.ToolStripSeparator4 = New System.Windows.Forms.ToolStripSeparator()
         Me.ToolStripSeparator5 = New System.Windows.Forms.ToolStripSeparator()
@@ -40,8 +38,6 @@ Partial Class frmMain
         Me.m_show_light_pos = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_show_properties = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_light_settings = New System.Windows.Forms.ToolStripMenuItem()
-        Me.m_developer = New System.Windows.Forms.ToolStripMenuItem()
-        Me.m_show_gbuffer = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_help = New System.Windows.Forms.ToolStripMenuItem()
         Me.m_screen_capture = New System.Windows.Forms.ToolStripMenuItem()
         Me.startup_delay_timer = New System.Windows.Forms.Timer(Me.components)
@@ -57,7 +53,7 @@ Partial Class frmMain
         '
         'frmMainMenu
         '
-        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_settings, Me.m_light_settings, Me.m_developer, Me.m_help, Me.m_screen_capture})
+        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_settings, Me.m_light_settings, Me.m_help, Me.m_screen_capture})
         Me.frmMainMenu.Location = New System.Drawing.Point(0, 0)
         Me.frmMainMenu.Name = "frmMainMenu"
         Me.frmMainMenu.Size = New System.Drawing.Size(956, 24)
@@ -67,7 +63,7 @@ Partial Class frmMain
         'm_file
         '
         Me.m_file.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_file.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_load_map, Me.ToolStripSeparator1, Me.m_developer_mode, Me.ToolStripSeparator2, Me.m_Log_File, Me.ToolStripSeparator4, Me.ToolStripSeparator5, Me.m_shut_down})
+        Me.m_file.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_load_map, Me.ToolStripSeparator1, Me.m_Log_File, Me.ToolStripSeparator4, Me.ToolStripSeparator5, Me.m_shut_down})
         Me.m_file.ForeColor = System.Drawing.Color.Black
         Me.m_file.Name = "m_file"
         Me.m_file.Size = New System.Drawing.Size(37, 20)
@@ -77,48 +73,36 @@ Partial Class frmMain
         '
         Me.m_load_map.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
         Me.m_load_map.Name = "m_load_map"
-        Me.m_load_map.Size = New System.Drawing.Size(161, 22)
+        Me.m_load_map.Size = New System.Drawing.Size(180, 22)
         Me.m_load_map.Text = "Load Map"
         '
         'ToolStripSeparator1
         '
         Me.ToolStripSeparator1.Name = "ToolStripSeparator1"
-        Me.ToolStripSeparator1.Size = New System.Drawing.Size(158, 6)
-        '
-        'm_developer_mode
-        '
-        Me.m_developer_mode.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_developer_mode.Name = "m_developer_mode"
-        Me.m_developer_mode.Size = New System.Drawing.Size(161, 22)
-        Me.m_developer_mode.Text = "Developer Mode"
-        '
-        'ToolStripSeparator2
-        '
-        Me.ToolStripSeparator2.Name = "ToolStripSeparator2"
-        Me.ToolStripSeparator2.Size = New System.Drawing.Size(158, 6)
+        Me.ToolStripSeparator1.Size = New System.Drawing.Size(177, 6)
         '
         'm_Log_File
         '
         Me.m_Log_File.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
         Me.m_Log_File.Name = "m_Log_File"
-        Me.m_Log_File.Size = New System.Drawing.Size(161, 22)
+        Me.m_Log_File.Size = New System.Drawing.Size(180, 22)
         Me.m_Log_File.Text = "Log File"
         '
         'ToolStripSeparator4
         '
         Me.ToolStripSeparator4.Name = "ToolStripSeparator4"
-        Me.ToolStripSeparator4.Size = New System.Drawing.Size(158, 6)
+        Me.ToolStripSeparator4.Size = New System.Drawing.Size(177, 6)
         '
         'ToolStripSeparator5
         '
         Me.ToolStripSeparator5.Name = "ToolStripSeparator5"
-        Me.ToolStripSeparator5.Size = New System.Drawing.Size(158, 6)
+        Me.ToolStripSeparator5.Size = New System.Drawing.Size(177, 6)
         '
         'm_shut_down
         '
         Me.m_shut_down.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
         Me.m_shut_down.Name = "m_shut_down"
-        Me.m_shut_down.Size = New System.Drawing.Size(161, 22)
+        Me.m_shut_down.Size = New System.Drawing.Size(180, 22)
         Me.m_shut_down.Text = "Shut Me Down"
         '
         'm_settings
@@ -165,23 +149,6 @@ Partial Class frmMain
         Me.m_light_settings.Name = "m_light_settings"
         Me.m_light_settings.Size = New System.Drawing.Size(91, 20)
         Me.m_light_settings.Text = "Light Settings"
-        '
-        'm_developer
-        '
-        Me.m_developer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_developer.DropDownItems.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_show_gbuffer})
-        Me.m_developer.ForeColor = System.Drawing.Color.Black
-        Me.m_developer.Name = "m_developer"
-        Me.m_developer.Size = New System.Drawing.Size(102, 20)
-        Me.m_developer.Text = "Developer Tools"
-        Me.m_developer.Visible = False
-        '
-        'm_show_gbuffer
-        '
-        Me.m_show_gbuffer.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.m_show_gbuffer.Name = "m_show_gbuffer"
-        Me.m_show_gbuffer.Size = New System.Drawing.Size(192, 22)
-        Me.m_show_gbuffer.Text = "Show Gbuffer Textures"
         '
         'm_help
         '
@@ -283,11 +250,7 @@ Partial Class frmMain
     Friend WithEvents startup_delay_timer As System.Windows.Forms.Timer
     Friend WithEvents FolderBrowserDialog1 As System.Windows.Forms.FolderBrowserDialog
     Friend WithEvents m_load_map As System.Windows.Forms.ToolStripMenuItem
-    Friend WithEvents m_developer As System.Windows.Forms.ToolStripMenuItem
-    Friend WithEvents m_show_gbuffer As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripSeparator1 As System.Windows.Forms.ToolStripSeparator
-    Friend WithEvents m_developer_mode As System.Windows.Forms.ToolStripMenuItem
-    Friend WithEvents ToolStripSeparator2 As System.Windows.Forms.ToolStripSeparator
     Friend WithEvents m_shut_down As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents ToolStripSeparator3 As System.Windows.Forms.ToolStripSeparator
     Friend WithEvents m_show_light_pos As System.Windows.Forms.ToolStripMenuItem

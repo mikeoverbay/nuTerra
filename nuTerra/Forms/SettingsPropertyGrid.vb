@@ -1,4 +1,5 @@
 ﻿Imports System.ComponentModel
+Imports System.Text.RegularExpressions
 
 Public Class SettingsPropertyGrid
     Const MIN_FOV = 1
@@ -88,9 +89,16 @@ Public Class SettingsPropertyGrid
     End Property
 
     <DisplayName("Position"), Category("Camera")>
-    Public ReadOnly Property Camera_target As OpenTK.Vector3
+    Public ReadOnly Property Camera_position As String
         Get
-            Return CAM_POSITION
+            Return CAM_POSITION.ToString.Replace("(", "").Replace(")", "")
+        End Get
+    End Property
+
+    <DisplayName("Target"), Category("Camera")>
+    Public ReadOnly Property Camera_target As String
+        Get
+            Return CAM_TARGET.ToString.Replace("(", "").Replace(")", "")
         End Get
     End Property
 
