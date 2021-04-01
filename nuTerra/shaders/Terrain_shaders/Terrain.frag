@@ -344,14 +344,14 @@ void main(void)
     MixLevel4.r *= t7.a;
     MixLevel4.g *= t8.a;
 
-    t1.a += n1.r+r1_1.y;
-    t2.a += n2.r+r1_2.y;
-    t3.a += n3.r+r1_3.y;
-    t4.a += n4.r+r1_4.y;
-    t5.a += n5.r+r1_5.y;
-    t6.a += n6.r+r1_6.y;
-    t7.a += n7.r+r1_7.y;
-    t8.a += n8.r+r1_8.y;
+    t1.a += r1_1.y;
+    t2.a += r1_2.y;
+    t3.a += r1_3.y;
+    t4.a += r1_4.y;
+    t5.a += r1_5.y;
+    t6.a += r1_6.y;
+    t7.a += r1_7.y;
+    t8.a += r1_8.y;
    
     //much better compression of blend textures.
     float f =0.0;
