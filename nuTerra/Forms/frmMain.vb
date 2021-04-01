@@ -216,7 +216,8 @@ Public Class frmMain
     End Sub
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
-        Text = Application.ProductName & " " & Application.ProductVersion
+        Text = Application.ProductName
+        VersionToolStripMenuItem.Text = "Version: " & Application.ProductVersion
         PropertyGrid1.SelectedObject = New SettingsPropertyGrid()
 
         If My.Settings.UpgradeRequired Then

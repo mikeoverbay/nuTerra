@@ -46,6 +46,7 @@ Partial Class frmMain
         Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.PropertyGrid1 = New System.Windows.Forms.PropertyGrid()
+        Me.VersionToolStripMenuItem = New System.Windows.Forms.ToolStripMenuItem()
         Me.frmMainMenu.SuspendLayout()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer1.SuspendLayout()
@@ -53,7 +54,7 @@ Partial Class frmMain
         '
         'frmMainMenu
         '
-        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_settings, Me.m_light_settings, Me.m_help, Me.m_screen_capture})
+        Me.frmMainMenu.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.m_file, Me.m_settings, Me.m_light_settings, Me.m_help, Me.m_screen_capture, Me.VersionToolStripMenuItem})
         Me.frmMainMenu.Location = New System.Drawing.Point(0, 0)
         Me.frmMainMenu.Name = "frmMainMenu"
         Me.frmMainMenu.Size = New System.Drawing.Size(956, 24)
@@ -73,36 +74,36 @@ Partial Class frmMain
         '
         Me.m_load_map.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
         Me.m_load_map.Name = "m_load_map"
-        Me.m_load_map.Size = New System.Drawing.Size(180, 22)
+        Me.m_load_map.Size = New System.Drawing.Size(152, 22)
         Me.m_load_map.Text = "Load Map"
         '
         'ToolStripSeparator1
         '
         Me.ToolStripSeparator1.Name = "ToolStripSeparator1"
-        Me.ToolStripSeparator1.Size = New System.Drawing.Size(177, 6)
+        Me.ToolStripSeparator1.Size = New System.Drawing.Size(149, 6)
         '
         'm_Log_File
         '
         Me.m_Log_File.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
         Me.m_Log_File.Name = "m_Log_File"
-        Me.m_Log_File.Size = New System.Drawing.Size(180, 22)
+        Me.m_Log_File.Size = New System.Drawing.Size(152, 22)
         Me.m_Log_File.Text = "Log File"
         '
         'ToolStripSeparator4
         '
         Me.ToolStripSeparator4.Name = "ToolStripSeparator4"
-        Me.ToolStripSeparator4.Size = New System.Drawing.Size(177, 6)
+        Me.ToolStripSeparator4.Size = New System.Drawing.Size(149, 6)
         '
         'ToolStripSeparator5
         '
         Me.ToolStripSeparator5.Name = "ToolStripSeparator5"
-        Me.ToolStripSeparator5.Size = New System.Drawing.Size(177, 6)
+        Me.ToolStripSeparator5.Size = New System.Drawing.Size(149, 6)
         '
         'm_shut_down
         '
         Me.m_shut_down.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
         Me.m_shut_down.Name = "m_shut_down"
-        Me.m_shut_down.Size = New System.Drawing.Size(180, 22)
+        Me.m_shut_down.Size = New System.Drawing.Size(152, 22)
         Me.m_shut_down.Text = "Shut Me Down"
         '
         'm_settings
@@ -216,6 +217,14 @@ Partial Class frmMain
         Me.PropertyGrid1.ToolbarVisible = False
         Me.PropertyGrid1.ViewBackColor = System.Drawing.Color.White
         '
+        'VersionToolStripMenuItem
+        '
+        Me.VersionToolStripMenuItem.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right
+        Me.VersionToolStripMenuItem.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.VersionToolStripMenuItem.Name = "VersionToolStripMenuItem"
+        Me.VersionToolStripMenuItem.Size = New System.Drawing.Size(96, 20)
+        Me.VersionToolStripMenuItem.Text = "Version: 1.0.0.0"
+        '
         'frmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -262,4 +271,5 @@ Partial Class frmMain
     Friend WithEvents SplitContainer1 As SplitContainer
     Friend WithEvents PropertyGrid1 As PropertyGrid
     Friend WithEvents m_show_properties As ToolStripMenuItem
+    Friend WithEvents VersionToolStripMenuItem As ToolStripMenuItem
 End Class
