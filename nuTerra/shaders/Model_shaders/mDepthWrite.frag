@@ -10,13 +10,13 @@ out vec4 co;
 
 in VS_OUT
 {
-    flat uint model_id;
+    flat uint material_id;
     vec2 uv;
 } fs_in;
 
 void main(void)
 {
-    const MaterialProperties thisMaterial = material[fs_in.model_id];
+    const MaterialProperties thisMaterial = material[fs_in.material_id];
 
     if (thisMaterial.alphaTestEnable) {
         float alpha = texture(thisMaterial.maps[1], fs_in.uv).r;

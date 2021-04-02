@@ -162,8 +162,10 @@ Public Class frmMain
                 PICK_MODELS = PICK_MODELS Xor True
                 If PICK_MODELS Then
                     modelShader.SetDefine("PICK_MODELS")
+                    modelGlassShader.SetDefine("PICK_MODELS")
                 Else
                     modelShader.UnsetDefine("PICK_MODELS")
+                    modelGlassShader.UnsetDefine("PICK_MODELS")
                 End If
 
             Case Keys.T

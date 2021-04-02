@@ -14,7 +14,7 @@ layout(location = 4) in vec2 vertexTexCoord1;
 
 out VS_OUT
 {
-    flat uint model_id;
+    flat uint material_id;
     vec2 uv;
 } vs_out;
 
@@ -23,7 +23,7 @@ void main(void)
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
     const mat4 mvp = models[thisDraw.model_id].cached_mvp;
 
-    vs_out.model_id = thisDraw.material_id;
+    vs_out.material_id = thisDraw.material_id;
     vs_out.uv = vertexTexCoord1;
 
     // Calculate vertex position in clip coordinates

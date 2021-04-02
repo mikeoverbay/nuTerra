@@ -22,8 +22,9 @@ out VS_OUT
     vec3 worldPosition;
     mat3 TBN;
     flat uint material_id;
+#ifdef PICK_MODELS
     flat uint model_id;
-    flat uint lod_level;
+#endif
 } vs_out;
 
 void main(void)
@@ -34,8 +35,10 @@ void main(void)
     const mat4 mvp = thisModel.cached_mvp;
 
     vs_out.material_id = thisDraw.material_id;
+
+#ifdef PICK_MODELS
     vs_out.model_id = thisDraw.model_id;
-    vs_out.lod_level = thisDraw.lod_level;
+#endif
 
     vs_out.TC1 = vertexTexCoord1;
 
