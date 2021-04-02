@@ -263,7 +263,6 @@ Module modRender
         End If
         GL.DepthMask(True)
         GL.Disable(EnableCap.Blend)
-        frmMain.glControl_main.MakeCurrent()
 
         '===========================================================================
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================

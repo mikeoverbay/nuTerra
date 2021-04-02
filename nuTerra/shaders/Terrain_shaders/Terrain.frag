@@ -335,6 +335,27 @@ void main(void)
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
     //months of work to figure this out!
+   
+    //retuned to old mixing. Its better
+
+    MixLevel1.rg+=MixLevel1.rg;
+    MixLevel1.rg+=MixLevel1.rg;
+
+    MixLevel2.rg+=MixLevel2.rg;
+    MixLevel2.rg+=MixLevel2.rg;
+
+    MixLevel3.rg+=MixLevel3.rg;
+    MixLevel3.rg+=MixLevel3.rg;
+
+    MixLevel4.rg+=MixLevel4.rg;
+    MixLevel4.rg+=MixLevel4.rg;
+    vec2 power = vec2(2.0);
+
+    MixLevel1.rg = pow(MixLevel1.rg,power);
+    MixLevel2.rg = pow(MixLevel2.rg,power);
+    MixLevel3.rg = pow(MixLevel3.rg,power);
+    MixLevel4.rg = pow(MixLevel4.rg,power);
+
     MixLevel1.r *= t1.a;
     MixLevel1.g *= t2.a;
     MixLevel2.r *= t3.a;
@@ -344,26 +365,6 @@ void main(void)
     MixLevel4.r *= t7.a;
     MixLevel4.g *= t8.a;
 
-    t1.a += r1_1.y;
-    t2.a += r1_2.y;
-    t3.a += r1_3.y;
-    t4.a += r1_4.y;
-    t5.a += r1_5.y;
-    t6.a += r1_6.y;
-    t7.a += r1_7.y;
-    t8.a += r1_8.y;
-   
-    //much better compression of blend textures.
-    float f =0.0;
-    f += dot(MixLevel1.rg,vec2(1.0,1.0));
-    f += dot(MixLevel2.rg,vec2(1.0,1.0));
-    f += dot(MixLevel3.rg,vec2(1.0,1.0));
-    f += dot(MixLevel4.rg,vec2(1.0,1.0));
-
-    MixLevel1.rg/= f;
-    MixLevel2.rg/= f;
-    MixLevel3.rg/= f;
-    MixLevel4.rg/= f;
 
     vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
 
@@ -387,11 +388,11 @@ void main(void)
     vec4 base;
     vec4 gc = global;
 
-    float c_l = length(m8.rgb) + m8.a;
+    float c_l = length(m8.rgb) + m8.a + global.a;
     float g_l = length(global.rgb) - global.a;
     gc.rgb = global.rgb;
-    base.rgb = (m8.rgb * c_l + gc.rgb * g_l)/2.0;
-    base.rgb = base.rgb * 0.9;
+    base.rgb = (m8.rgb * c_l + gc.rgb * g_l)/1.8;
+
 
     //base = m8;
     // Texture outlines if test = 1.0;

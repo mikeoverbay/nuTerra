@@ -4,7 +4,6 @@ Imports System.Text
 Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-
 Module TerrainTextureFunctions
     Public max_on As UInt32
     Public min_on As UInt32
@@ -171,6 +170,9 @@ Module TerrainTextureFunctions
         Dim t = New GLTexture
         't.target = TextureTarget.Texture2DArray
         t = CreateTexture(TextureTarget.Texture2DArray, "tAtlas" + map.ToString + "_" + z.ToString)
+
+        t.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), GLCapabilities.maxAniso) 'GLCapabilities.maxAniso
+
         t.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
         t.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         t.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)

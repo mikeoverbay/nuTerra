@@ -189,7 +189,9 @@ void main (void)
             
             //create a up facing normal that translates properly.
             vec3 blank_n = mat3(inverse(transpose(view))) * normalize(vec3(0.0, 1.0, 0.0));
+
             float water_mix = color_in.a;
+
             // Only light whats in range
             if (dist < cutoff) {
                 // kill the terrian normals where there is water
@@ -224,9 +226,12 @@ void main (void)
                 vec4 W_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
                                           max(8.0-water_mix *5.0, 0.0)));
 
-                vec3 water_reflect = vec3(water_mix*ambientColorForward) * vec3(water_spec)*2.0 * W_prefilteredColor.rgb;
+                vec4 G_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
+                                          max(3.0-GM_in.z *3.0, 0.0)))*GM_in.z*spec*4.0;
 
-                final_color.xyz += water_reflect;
+                vec3 water_reflect = vec3(water_mix*ambientColorForward) * vec3(water_spec)*1.5 * W_prefilteredColor.rgb;
+
+                final_color.xyz += clamp(water_reflect+specular+G_prefilteredColor.xyz,0.0,1.0);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance
 

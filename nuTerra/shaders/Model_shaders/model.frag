@@ -372,7 +372,7 @@ layout(index = 7) subroutine(fn_entry) void FX_PBS_ext_repaint()
    diffuse.rgb = mix(diffuse.rgb, thisMaterial.g_tile0Tint.rgb , diffuse.a);
    diffuse.rgb = mix(diffuse.rgb, thisMaterial.g_tile1Tint.rgb , diffuse.a);
    //diffuse.rgb += diffuse.rgb * (thisMaterial.g_tile1Tint.rgb * diffuse.a);
-   gGMF.rga = texture(thisMaterial.maps[2], fs_in.TC1).rgb; // gloss/metal
+   gGMF.rga = texture(thisMaterial.maps[2], fs_in.TC1).rgb*vec3(0.5*diffuse.a,2.0-diffuse.a,0.4-diffuse.a); // gloss/metal
 
    gColor = diffuse;
    get_and_write_no_mips();
