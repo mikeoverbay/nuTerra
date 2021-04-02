@@ -150,7 +150,7 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
 
     //gColor.rgb *= mix(nm_aoc, d_aoc, thisMaterial.g_detailInfluences.x);
 
-    gGMF.rgb = gm.rgb; // gloss/metal
+    gGMF.rga = gm.rgr; // gloss/metal
     vec4 nmap;
     nmap.ag = mix(texture(thisMaterial.maps[1], fs_in.TC1).ag, texture(thisMaterial.maps[3],
                 (uvc),1.0).ag, 1.0-thisMaterial.g_detailInfluences.xx);
