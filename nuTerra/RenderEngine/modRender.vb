@@ -263,8 +263,10 @@ Module modRender
         End If
         GL.DepthMask(True)
         GL.Disable(EnableCap.Blend)
+        frmMain.glControl_main.MakeCurrent()
 
         '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
         If _STARTED Then frmMain.glControl_main.SwapBuffers() '=====================
         '===========================================================================
         If frmGbufferViewer IsNot Nothing Then
@@ -1113,12 +1115,12 @@ Module modRender
         If theMap.MINI_MAP_ID Is Nothing Then
             Return
         End If
-
         GL_PUSH_GROUP("draw_mini_map")
 
         GL.DepthMask(False)
         GL.Disable(EnableCap.DepthTest)
 
+        '===========================================================================
         ' Animate map growth
         'need to control this so it is not affected by frame rate!
         Dim s = CInt(150 * DELTA_TIME)
@@ -1138,19 +1140,22 @@ Module modRender
             End If
             'sized changed so we must resize the FBOmini
             FBOmini.FBO_Initialize(MINI_MAP_SIZE)
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
+            Ortho_MiniMap(MINI_MAP_SIZE)
+            FBOmini.attach_gcolor()
+            'render to gcolor and blit it to the screeenTexture buffer
+            GL.ClearColor(0.0, 0.0, 0.5, 0.0)
+            GL.Clear(ClearBufferMask.ColorBufferBit)
+            Draw_mini()
+            draw_mini_position()
         Else
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
+            Ortho_MiniMap(MINI_MAP_SIZE)
+            FBOmini.attach_gcolor()
+            draw_mini_position()
         End If
 
-        '===========================================================================
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
-        '===========================================================================
-
-        Ortho_MiniMap(MINI_MAP_SIZE)
-
-        GL.ClearColor(0.0, 0.0, 0.5, 0.0)
-        GL.Clear(ClearBufferMask.ColorBufferBit)
-        Draw_mini()
-
+        get_world_Position_In_Minimap_Window(M_POS)
         '===========================================================================
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
         '===========================================================================
@@ -1246,6 +1251,7 @@ Module modRender
         TextRenderShader.StopUse()
         GL.BindTextureUnit(0, 0)
 
+
         GL_POP_GROUP()
     End Sub
 
@@ -1275,15 +1281,11 @@ Module modRender
         draw_mini_grids_lines()
         '======================================================
 
-        '======================================================
-        draw_mini_position()
-        '======================================================
+        'now, bilt this to screenTexture
+        FBOmini.attach_both()
+        FBOmini.blit_to_screenTexture()
+        FBOmini.attach_gcolor()
 
-        GL.Disable(EnableCap.Blend)
-
-        '======================================================
-        get_world_Position_In_Minimap_Window(M_POS)
-        '======================================================
 
         GL_POP_GROUP()
     End Sub
@@ -1352,7 +1354,7 @@ Module modRender
 
         GL_POP_GROUP()
     End Sub
-
+ 
     Private Sub draw_mini_base_rings()
         GL_PUSH_GROUP("draw_mini_base_rings")
 
@@ -1392,7 +1394,13 @@ Module modRender
     End Sub
 
     Private Sub draw_mini_position()
+        GL.Enable(EnableCap.Blend)
         GL_PUSH_GROUP("draw_mini_position")
+
+        FBOmini.attach_both()
+        FBOmini.blit_to_gBuffer() ' copy prerendered to screenTexture
+        FBOmini.attach_gcolor()
+        'GoTo skip
 
         image2dShader.Use()
         GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
@@ -1444,7 +1452,7 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         MiniMapRingsShader.StopUse()
-
+skip:
         GL_POP_GROUP()
     End Sub
 

@@ -559,8 +559,8 @@ Module MapLoader
             Test_Emiters(i).initialize()
         Next
         '===============================================================
-        FBOmini.FBO_Initialize(240) '<- default start up size
-
+        MINI_MAP_SIZE += 1 ' force a redraw of the entire minimap
+        '===============================================================
 
         SHOW_LOADING_SCREEN = False
         'LOOK_AT_X = 0.001
