@@ -6,7 +6,7 @@ Imports System.Threading
 Imports System.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-
+Imports System.Reflection
 Public Class frmMain
     '          SP2_Width = SplitContainer1.Panel2.Width
     Private Const WM_NCLBUTTONDBLCLK As Integer = &HA3
@@ -397,13 +397,16 @@ try_again:
             SplitContainer1.Panel2Collapsed = False
             PropertyGrid1.Show()
             SP2_Width = 225
-            SplitContainer1.SplitterDistance = (ClientSize.Width) - SP2_Width - SplitContainer1.SplitterWidth
+            SplitContainer1.SplitterDistance = (ClientSize.Width - SP2_Width) - SplitContainer1.SplitterWidth
+            SetLabelColumnWidth(PropertyGrid1, 120)
+            PropertyGrid1.Invalidate()
             PG_width = SP2_Width
         Else
             PropertyGrid1.Hide()
             If panel_2_occupied Then
+                SP2_Width = frmProgramEditor.Container_panel.Width
                 SplitContainer1.Panel2Collapsed = False
-                SplitContainer1.SplitterDistance = (ClientSize.Width) - FE_width - SplitContainer1.SplitterWidth
+                SplitContainer1.SplitterDistance = (ClientSize.Width - SP2_Width) - SplitContainer1.SplitterWidth
                 frmProgramEditor.Container_panel.Show()
             Else
                 SplitContainer1.Panel2Collapsed = True
@@ -411,6 +414,17 @@ try_again:
             End If
         End If
         resize_fbo_main()
+    End Sub
+
+    Public Shared Sub SetLabelColumnWidth(ByVal grid As PropertyGrid, ByVal width As Integer)
+        If grid Is Nothing Then Return
+        Dim fi As FieldInfo = grid.[GetType]().GetField("gridView", BindingFlags.Instance Or BindingFlags.NonPublic)
+        If fi Is Nothing Then Return
+        Dim view As Control = TryCast(fi.GetValue(grid), Control)
+        If view Is Nothing Then Return
+        Dim mi As MethodInfo = view.[GetType]().GetMethod("MoveSplitterTo", BindingFlags.Instance Or BindingFlags.NonPublic)
+        If mi Is Nothing Then Return
+        mi.Invoke(view, New Object() {width})
     End Sub
 
     Private Sub m_appVersion_Click(sender As Object, e As EventArgs) Handles m_appVersion.Click

@@ -69,6 +69,7 @@ layout(binding = 5 ) uniform sampler2DArray at5;
 layout(binding = 6 ) uniform sampler2DArray at6;
 layout(binding = 7 ) uniform sampler2DArray at7;
 layout(binding = 8 ) uniform sampler2DArray at8;
+layout(binding = 10 ) uniform sampler2DArray micro_NM;
 
 
 layout(binding = 17) uniform sampler2D mixtexture1;
