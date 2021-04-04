@@ -307,14 +307,14 @@ void main(void)
     //mix macro
 
 
-    t1.rgb = t1.rgb* min(r1_1.x,1.0) + mt1.rgb*(r2_1.y+1.0);
-    t2.rgb = t2.rgb* min(r1_2.x,1.0) + mt2.rgb*(r2_2.y+1.0);
-    t3.rgb = t3.rgb* min(r1_3.x,1.0) + mt3.rgb*(r2_3.y+1.0);
-    t4.rgb = t4.rgb* min(r1_4.x,1.0) + mt4.rgb*(r2_4.y+1.0);
-    t5.rgb = t5.rgb* min(r1_5.x,1.0) + mt5.rgb*(r2_5.y+1.0);
-    t6.rgb = t6.rgb* min(r1_6.x,1.0) + mt6.rgb*(r2_6.y+1.0);
-    t7.rgb = t7.rgb* min(r1_7.x,1.0) + mt7.rgb*(r2_7.y+1.0);
-    t8.rgb = t8.rgb* min(r1_8.x,1.0) + mt8.rgb*(r2_8.y+1.0);
+    t1.rgb = t1.rgb* min(r1_1.x,1.0) + mt1.rgb*(r1_1.y+1.0);
+    t2.rgb = t2.rgb* min(r1_2.x,1.0) + mt2.rgb*(r1_2.y+1.0);
+    t3.rgb = t3.rgb* min(r1_3.x,1.0) + mt3.rgb*(r1_3.y+1.0);
+    t4.rgb = t4.rgb* min(r1_4.x,1.0) + mt4.rgb*(r1_4.y+1.0);
+    t5.rgb = t5.rgb* min(r1_5.x,1.0) + mt5.rgb*(r1_5.y+1.0);
+    t6.rgb = t6.rgb* min(r1_6.x,1.0) + mt6.rgb*(r1_6.y+1.0);
+    t7.rgb = t7.rgb* min(r1_7.x,1.0) + mt7.rgb*(r1_7.y+1.0);
+    t8.rgb = t8.rgb* min(r1_8.x,1.0) + mt8.rgb*(r1_8.y+1.0);
     
     n1.rgb = n1.rgb* min(r1_1.x,1.0) + mn1.rgb*(r2_1.y+1.0);
     n2.rgb = n2.rgb* min(r1_2.x,1.0) + mn2.rgb*(r2_2.y+1.0);
@@ -334,16 +334,16 @@ void main(void)
 
     //months of work to figure this out!
    
-    MixLevel1.r *= t1.a*r1_1.x;
-    MixLevel1.g *= t2.a*r1_2.x;
-    MixLevel2.r *= t3.a*r1_3.x;
-    MixLevel2.g *= t4.a*r1_4.x;
-    MixLevel3.r *= t5.a*r1_5.x;
-    MixLevel3.g *= t6.a*r1_6.x;
-    MixLevel4.r *= t7.a*r1_7.x;
-    MixLevel4.g *= t8.a*r1_8.x;
+    MixLevel1.r *= t1.a+r1_1.x;
+    MixLevel1.g *= t2.a+r1_2.x;
+    MixLevel2.r *= t3.a+r1_3.x;
+    MixLevel2.g *= t4.a+r1_4.x;
+    MixLevel3.r *= t5.a+r1_5.x;
+    MixLevel3.g *= t6.a+r1_6.x;
+    MixLevel4.r *= t7.a+r1_7.x;
+    MixLevel4.g *= t8.a+r1_8.x;
 
-    float power = 0.2;
+    float power = 0.6;
     MixLevel1.r = pow(MixLevel1.r,1.0/power);
     MixLevel1.g = pow(MixLevel1.g,1.0/power);
     MixLevel2.r = pow(MixLevel2.r,1.0/power);
@@ -352,6 +352,7 @@ void main(void)
     MixLevel3.g = pow(MixLevel3.g,1.0/power);
     MixLevel4.r = pow(MixLevel4.r,1.0/power);
     MixLevel4.g = pow(MixLevel4.g,1.0/power);
+
 
     float f =0.0;
     f += dot(MixLevel1.rg,vec2(1.0,1.0));
@@ -363,15 +364,19 @@ void main(void)
     MixLevel2.rg/= f;
     MixLevel3.rg/= f;
     MixLevel4.rg/= f;
-    
 
+    MixLevel1 = max(MixLevel1,vec2(0.0139));
+    MixLevel2 = max(MixLevel2,vec2(0.0139));
+    MixLevel3 = max(MixLevel3,vec2(0.0139));
+    MixLevel4 = max(MixLevel4,vec2(0.0139));
+  
 //    //Mix in water as a hieght using the globla alpha.
 //    vec4 m8 = blend(m7, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g + 
 //              MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g,
 //              vec4(waterColor,waterAlpha),global.a);
 //                   
     vec4 base;
-    base =  t1 * MixLevel1.r;
+    base  =  t1 * MixLevel1.r;
     base += t2 * MixLevel1.g;
     base += t3 * MixLevel2.r;
     base += t4 * MixLevel2.g;
@@ -386,7 +391,9 @@ void main(void)
    float c_l = length(base.rgb) + base.a + global.a;
     float g_l = length(global.rgb) - global.a;
     gc.rgb = global.rgb;
+    //rem to remove global content
     base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
+
     //wetness
     base = blend(base,base.a,vec4(waterColor,waterAlpha),global.a);
 

@@ -265,14 +265,14 @@ void main(void)
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
 
-    MixLevel1.r *= t1.a*r1_1.x;
-    MixLevel1.g *= t2.a*r1_2.x;
-    MixLevel2.r *= t3.a*r1_3.x;
-    MixLevel2.g *= t4.a*r1_4.x;
-    MixLevel3.r *= t5.a*r1_5.x;
-    MixLevel3.g *= t6.a*r1_6.x;
-    MixLevel4.r *= t7.a*r1_7.x;
-    MixLevel4.g *= t8.a*r1_8.x;
+    MixLevel1.r *= t1.a+r1_1.x;
+    MixLevel1.g *= t2.a+r1_2.x;
+    MixLevel2.r *= t3.a+r1_3.x;
+    MixLevel2.g *= t4.a+r1_4.x;
+    MixLevel3.r *= t5.a+r1_5.x;
+    MixLevel3.g *= t6.a+r1_6.x;
+    MixLevel4.r *= t7.a+r1_7.x;
+    MixLevel4.g *= t8.a+r1_8.x;
 
     float power = 0.2;
     MixLevel1.r = pow(MixLevel1.r,1.0/power);
@@ -295,7 +295,11 @@ void main(void)
     MixLevel3.rg/= f;
     MixLevel4.rg/= f;   //months of work to figure this out!
    
-    //retuned to old mixing. Its better
+    MixLevel1 = max(MixLevel1,vec2(0.0139));
+    MixLevel2 = max(MixLevel2,vec2(0.0139));
+    MixLevel3 = max(MixLevel3,vec2(0.0139));
+    MixLevel4 = max(MixLevel4,vec2(0.0139));
+   //retuned to old mixing. Its better
        vec4 base;
 
     base =  t1 * MixLevel1.r;
