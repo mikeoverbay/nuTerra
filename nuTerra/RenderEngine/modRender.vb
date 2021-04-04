@@ -740,8 +740,7 @@ Module modRender
         GL.DepthMask(False)
 
         'clear
-        GL.ClearNamedBufferSubData(MapGL.Buffers.visibles.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, MapGL.numAfterFrustum(0) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
-        GL.ClearNamedBufferSubData(MapGL.Buffers.visibles_dbl_sided.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, MapGL.numAfterFrustum(1) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        GL.ClearNamedBufferData(MapGL.Buffers.visibles.buffer_id, PixelInternalFormat.R32ui, PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         GL.BindVertexArray(defaultVao)
 
@@ -750,8 +749,7 @@ Module modRender
         End If
 
         cullRasterShader.Use()
-        GL.Uniform1(cullRasterShader("numAfterFrustum"), MapGL.numAfterFrustum(0))
-        GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(0) + MapGL.numAfterFrustum(1))
+        GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numModelInstances)
         cullRasterShader.StopUse()
 
         If USE_REPRESENTATIVE_TEST Then

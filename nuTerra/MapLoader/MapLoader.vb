@@ -44,7 +44,6 @@ Module MapLoader
 
             ' For cull-raster only!
             Public Shared visibles As GLBuffer
-            Public Shared visibles_dbl_sided As GLBuffer
         End Class
 
         NotInheritable Class VertexArrays
@@ -379,15 +378,9 @@ Module MapLoader
 
             MapGL.Buffers.visibles = CreateBuffer(BufferTarget.ShaderStorageBuffer, "visibles")
             BufferStorageNullData(MapGL.Buffers.visibles,
-                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of Integer),
+                                  matrices.Length * Marshal.SizeOf(Of Integer),
                                   BufferStorageFlags.DynamicStorageBit)
             MapGL.Buffers.visibles.BindBase(8)
-
-            MapGL.Buffers.visibles_dbl_sided = CreateBuffer(BufferTarget.ShaderStorageBuffer, "visibles_dbl_sided")
-            BufferStorageNullData(MapGL.Buffers.visibles_dbl_sided,
-                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of Integer),
-                                  BufferStorageFlags.DynamicStorageBit)
-            MapGL.Buffers.visibles_dbl_sided.BindBase(9)
 
             MapGL.Buffers.drawCandidates = CreateBuffer(BufferTarget.ShaderStorageBuffer, "drawCandidates")
             BufferStorage(MapGL.Buffers.drawCandidates,

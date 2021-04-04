@@ -14,7 +14,6 @@
 #define INDIRECT_DBL_SIDED_BASE 6
 #define LIGHTS_BASE 7
 #define VISIBLES_BASE 8
-#define VISIBLES_DBL_SIDED_BASE 9
 
 struct CandidateDraw
 {
@@ -45,7 +44,7 @@ struct ModelInstance
     vec3 bmax;
     uint lod_count;
     uint batch_count; // hack!!!
-    uint reserved1;
+    bool passed;
     uint reserved2;
     uint reserved3;
 };
@@ -158,8 +157,5 @@ layout(binding = INDIRECT_DBL_SIDED_BASE, std430) buffer IndirectDoubleSided
 #ifdef USE_VISIBLES_SSBO
 layout(std430, binding = VISIBLES_BASE) buffer visibleBuffer {
     int visibles[];
-};
-layout(std430, binding = VISIBLES_DBL_SIDED_BASE) buffer visibleDblSidedBuffer {
-    int visibles_dbl_sided[];
 };
 #endif

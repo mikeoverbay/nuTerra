@@ -11,14 +11,15 @@ layout (location = 1) uniform int numAfterFrustumDblSided;
 #define USE_VISIBLES_SSBO
 #define USE_INDIRECT_SSBO
 #define USE_INDIRECT_DOUBLE_SIDED_SSBO
+#define USE_CANDIDATE_DRAWS_SSBO
 #include "common.h" //! #include "../common.h"
 
 void main(void)
 {
     if (gl_GlobalInvocationID.x < numAfterFrustum) {
-        command[gl_GlobalInvocationID.x].instanceCount = visibles[gl_GlobalInvocationID.x];
+        command[gl_GlobalInvocationID.x].instanceCount = visibles[draw[command[gl_GlobalInvocationID.x].baseInstance].model_id];
     }
     if (gl_GlobalInvocationID.x < numAfterFrustumDblSided) {
-        command_double_sided[gl_GlobalInvocationID.x].instanceCount = visibles_dbl_sided[gl_GlobalInvocationID.x];
+        command_double_sided[gl_GlobalInvocationID.x].instanceCount = visibles[draw[command_double_sided[gl_GlobalInvocationID.x].baseInstance].model_id];
     }
 }
