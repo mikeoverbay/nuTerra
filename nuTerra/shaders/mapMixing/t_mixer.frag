@@ -240,23 +240,23 @@ void main(void)
     mt7.rgb *= mn7.b;
     mt8.rgb *= mn8.b;
 
-    t1.rgb = t1.rgb* min(r2_1.x,1.0) + mt1.rgb*(r2_1.y+1.0);
-    t2.rgb = t2.rgb* min(r2_2.x,1.0) + mt2.rgb*(r2_2.y+1.0);
-    t3.rgb = t3.rgb* min(r2_3.x,1.0) + mt3.rgb*(r2_3.y+1.0);
-    t4.rgb = t4.rgb* min(r2_4.x,1.0) + mt4.rgb*(r2_4.y+1.0);
-    t5.rgb = t5.rgb* min(r2_5.x,1.0) + mt5.rgb*(r2_5.y+1.0);
-    t6.rgb = t6.rgb* min(r2_6.x,1.0) + mt6.rgb*(r2_6.y+1.0);
-    t7.rgb = t7.rgb* min(r2_7.x,1.0) + mt7.rgb*(r2_7.y+1.0);
-    t8.rgb = t8.rgb* min(r2_8.x,1.0) + mt8.rgb*(r2_8.y+1.0);
-
-    n1.rgb = n1.rgb* min(r2_1.x,1.0) + mn1.rgb*(r2_1.y+1.0);
-    n2.rgb = n2.rgb* min(r2_2.x,1.0) + mn2.rgb*(r2_2.y+1.0);
-    n3.rgb = n3.rgb* min(r2_3.x,1.0) + mn3.rgb*(r2_3.y+1.0);
-    n4.rgb = n4.rgb* min(r2_4.x,1.0) + mn4.rgb*(r2_4.y+1.0);
-    n5.rgb = n5.rgb* min(r2_5.x,1.0) + mn5.rgb*(r2_5.y+1.0);
-    n6.rgb = n6.rgb* min(r2_6.x,1.0) + mn6.rgb*(r2_6.y+1.0);
-    n7.rgb = n7.rgb* min(r2_7.x,1.0) + mn7.rgb*(r2_7.y+1.0);
-    n8.rgb = n8.rgb* min(r2_8.x,1.0) + mn8.rgb*(r2_8.y+1.0);
+    t1.rgb = t1.rgb* min(r1_1.x,1.0) + mt1.rgb*(r2_1.y+1.0);
+    t2.rgb = t2.rgb* min(r1_2.x,1.0) + mt2.rgb*(r2_2.y+1.0);
+    t3.rgb = t3.rgb* min(r1_3.x,1.0) + mt3.rgb*(r2_3.y+1.0);
+    t4.rgb = t4.rgb* min(r1_4.x,1.0) + mt4.rgb*(r2_4.y+1.0);
+    t5.rgb = t5.rgb* min(r1_5.x,1.0) + mt5.rgb*(r2_5.y+1.0);
+    t6.rgb = t6.rgb* min(r1_6.x,1.0) + mt6.rgb*(r2_6.y+1.0);
+    t7.rgb = t7.rgb* min(r1_7.x,1.0) + mt7.rgb*(r2_7.y+1.0);
+    t8.rgb = t8.rgb* min(r1_8.x,1.0) + mt8.rgb*(r2_8.y+1.0);
+    
+    n1.rgb = n1.rgb* min(r1_1.x,1.0) + mn1.rgb*(r2_1.y+1.0);
+    n2.rgb = n2.rgb* min(r1_2.x,1.0) + mn2.rgb*(r2_2.y+1.0);
+    n3.rgb = n3.rgb* min(r1_3.x,1.0) + mn3.rgb*(r2_3.y+1.0);
+    n4.rgb = n4.rgb* min(r1_4.x,1.0) + mn4.rgb*(r2_4.y+1.0);
+    n5.rgb = n5.rgb* min(r1_5.x,1.0) + mn5.rgb*(r2_5.y+1.0);
+    n6.rgb = n6.rgb* min(r1_6.x,1.0) + mn6.rgb*(r2_6.y+1.0);
+    n7.rgb = n7.rgb* min(r1_7.x,1.0) + mn7.rgb*(r2_7.y+1.0);
+    n8.rgb = n8.rgb* min(r1_8.x,1.0) + mn8.rgb*(r2_8.y+1.0);
 
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
@@ -264,87 +264,67 @@ void main(void)
     MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
-    //months of work to figure this out!
+
+    MixLevel1.r *= t1.a*r1_1.x;
+    MixLevel1.g *= t2.a*r1_2.x;
+    MixLevel2.r *= t3.a*r1_3.x;
+    MixLevel2.g *= t4.a*r1_4.x;
+    MixLevel3.r *= t5.a*r1_5.x;
+    MixLevel3.g *= t6.a*r1_6.x;
+    MixLevel4.r *= t7.a*r1_7.x;
+    MixLevel4.g *= t8.a*r1_8.x;
+
+    float power = 0.2;
+    MixLevel1.r = pow(MixLevel1.r,1.0/power);
+    MixLevel1.g = pow(MixLevel1.g,1.0/power);
+    MixLevel2.r = pow(MixLevel2.r,1.0/power);
+    MixLevel2.g = pow(MixLevel2.g,1.0/power);
+    MixLevel3.r = pow(MixLevel3.r,1.0/power);
+    MixLevel3.g = pow(MixLevel3.g,1.0/power);
+    MixLevel4.r = pow(MixLevel4.r,1.0/power);
+    MixLevel4.g = pow(MixLevel4.g,1.0/power);
+
+     float f =0.0;
+    f += dot(MixLevel1.rg,vec2(1.0,1.0));
+    f += dot(MixLevel2.rg,vec2(1.0,1.0));
+    f += dot(MixLevel3.rg,vec2(1.0,1.0));
+    f += dot(MixLevel4.rg,vec2(1.0,1.0));
+
+    MixLevel1.rg/= f;
+    MixLevel2.rg/= f;
+    MixLevel3.rg/= f;
+    MixLevel4.rg/= f;   //months of work to figure this out!
    
     //retuned to old mixing. Its better
+       vec4 base;
 
-    MixLevel1.rg+=MixLevel1.rg;
-    MixLevel1.rg+=MixLevel1.rg;
-
-    MixLevel2.rg+=MixLevel2.rg;
-    MixLevel2.rg+=MixLevel2.rg;
-
-    MixLevel3.rg+=MixLevel3.rg;
-    MixLevel3.rg+=MixLevel3.rg;
-
-    MixLevel4.rg+=MixLevel4.rg;
-    MixLevel4.rg+=MixLevel4.rg;
-    vec2 power = vec2(2.0);
-
-    MixLevel1.rg = pow(MixLevel1.rg,power);
-    MixLevel2.rg = pow(MixLevel2.rg,power);
-    MixLevel3.rg = pow(MixLevel3.rg,power);
-    MixLevel4.rg = pow(MixLevel4.rg,power);
-
-    MixLevel1.r *= t1.a;
-    MixLevel1.g *= t2.a;
-    MixLevel2.r *= t3.a;
-    MixLevel2.g *= t4.a;
-    MixLevel3.r *= t5.a;
-    MixLevel3.g *= t6.a;
-    MixLevel4.r *= t7.a;
-    MixLevel4.g *= t8.a;
-
-
-    vec4 m4 = blend(t7, MixLevel4.r, t8 , MixLevel4.g);
-
-    vec4 m3 = blend(t5, MixLevel3.r, t6 , MixLevel3.g);
-
-    vec4 m2 = blend(t3, MixLevel2.r, t4 , MixLevel2.g);
-
-    vec4 m1 = blend(t1, MixLevel1.r, t2 , MixLevel1.g);
-
-    vec4 m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4, MixLevel4.r+MixLevel4.g);
-
-    vec4 m6 = blend(m1 ,MixLevel1.r+MixLevel1.g, m2, MixLevel2.r+MixLevel2.g);
-
-    vec4 m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
-
-    //Mix in water as a hieght using the globla alpha.
-    vec4 m8 = blend(m7, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g + 
-              MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g,
-              vec4(waterColor,waterAlpha),global.a);
-                   
-    vec4 base;
-    vec4 gc = global;
-
-    float c_l = length(m8.rgb) + m8.a + global.a;
-    float g_l = length(global.rgb) - global.a;
-    gc.rgb = global.rgb;
-    base.rgb = (m8.rgb * c_l + gc.rgb * g_l)/1.8;
-
-
+    base =  t1 * MixLevel1.r;
+    base += t2 * MixLevel1.g;
+    base += t3 * MixLevel2.r;
+    base += t4 * MixLevel2.g;
+    base += t5 * MixLevel3.r;
+    base += t6 * MixLevel3.g;
+    base += t7 * MixLevel4.r;
+    base += t8 * MixLevel4.g;
+    base  *= 1.0;
     //base = m8;
+
+
     //-------------------------------------------------------------
     // normals
 
-    m4 = blend_normal(n7, n8, t7, MixLevel4.r, t8 , MixLevel4.g);
+    vec4 out_n;
+    out_n =  n1 * MixLevel1.r;
+    out_n += n2 * MixLevel1.g;
+    out_n += n3 * MixLevel2.r;
+    out_n += n4 * MixLevel2.g;
+    out_n += n5 * MixLevel3.r;
+    out_n += n6 * MixLevel3.g;
+    out_n += n7 * MixLevel4.r;
+    out_n += n8 * MixLevel4.g;
+    float specular = out_n.r;
 
-    m3 = blend_normal(n5, n6, t5, MixLevel3.r, t6 , MixLevel3.g);
-
-    m2 = blend_normal(n3, n4, t3, MixLevel2.r, t4 , MixLevel2.g);
-
-    m1 = blend_normal(n1, n2, t1, MixLevel1.r, t2 , MixLevel1.g);
-
-    m5 = blend(m3, MixLevel3.r+MixLevel3.g, m4, MixLevel4.r+MixLevel4.g);
-
-    m6 = blend(m1, MixLevel1.r+MixLevel1.g, m2, MixLevel2.r+MixLevel2.g);
-
-    m7 = blend(m5, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g, m6, MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g);
-
-    float specular = m7.r;
-
-    gNormal.xyz = normalize(convertNormal(m7).xyz);
+    gNormal.xyz = normalize(convertNormal(out_n).xyz);
 
     gGMF = vec4(0.1, specular, 128.0/255.0, 0.0);
     //vec3 shad = vec3( texture( shadow, vec3(fs_in.UV, float(map_id)) ).r );
