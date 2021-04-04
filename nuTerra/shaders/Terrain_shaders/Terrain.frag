@@ -376,7 +376,7 @@ void main(void)
 //              vec4(waterColor,waterAlpha),global.a);
 //                   
     vec4 base;
-    base  =  t1 * MixLevel1.r;
+    base  = t1 * MixLevel1.r;
     base += t2 * MixLevel1.g;
     base += t3 * MixLevel2.r;
     base += t4 * MixLevel2.g;
