@@ -315,7 +315,7 @@ void main(void)
     gc.rgb = global.rgb;
     base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
     //wetness
-    base = blend(base,1.0,vec4(waterColor,waterAlpha),global.a);
+    base = blend(base,base.a,vec4(waterColor,waterAlpha),global.a);
 
     //-------------------------------------------------------------
     // normals

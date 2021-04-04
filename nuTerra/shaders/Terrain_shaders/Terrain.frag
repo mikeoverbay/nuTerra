@@ -262,7 +262,7 @@ void main(void)
     mt7 = crop3(at7, tuv7, 2.0, s7);
     mt8 = crop3(at8, tuv8, 2.0, s8);
 
-    // Height is in red channel of the normal maps.
+    // spcular is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
@@ -388,7 +388,7 @@ void main(void)
     gc.rgb = global.rgb;
     base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
     //wetness
-    base = blend(base,1.0,vec4(waterColor,waterAlpha),global.a);
+    base = blend(base,base.a,vec4(waterColor,waterAlpha),global.a);
 
     // Texture outlines if test = 1.0;
     base = mix(base, base + color_1, B1 * test * MixLevel1.r);
