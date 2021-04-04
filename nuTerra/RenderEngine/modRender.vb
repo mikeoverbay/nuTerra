@@ -736,7 +736,7 @@ Module modRender
 
         GL.ColorMask(False, False, False, False)
         ' we need this because the depth has been writen already.
-        GL.DepthFunc(DepthFunction.Gequal)
+        GL.DepthFunc(DepthFunction.Greater)
         GL.DepthMask(False)
 
         'clear
@@ -750,8 +750,16 @@ Module modRender
         End If
 
         cullRasterShader.Use()
+
+        GL.Enable(EnableCap.PolygonOffsetFill)
+        GL.PolygonOffset(-1, -1)
+
         GL.Uniform1(cullRasterShader("numAfterFrustum"), MapGL.numAfterFrustum(0))
         GL.DrawArrays(PrimitiveType.Points, 0, MapGL.numAfterFrustum(0) + MapGL.numAfterFrustum(1))
+
+        GL.PolygonOffset(0, 0)
+        GL.Disable(EnableCap.PolygonOffsetFill)
+
         cullRasterShader.StopUse()
 
         If USE_REPRESENTATIVE_TEST Then

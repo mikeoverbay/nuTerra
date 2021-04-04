@@ -9,13 +9,15 @@ layout(early_fragment_tests) in;
 
 layout (location = 0) uniform int numAfterFrustum;
 
-flat in int objid;
+in GS_OUT {
+    flat uint objid;
+} fs_in;
 
 void main()
 {
-    if (objid >= numAfterFrustum) {
-        visibles_dbl_sided[objid - numAfterFrustum] = 1;
+    if (fs_in.objid >= numAfterFrustum) {
+        visibles_dbl_sided[fs_in.objid - numAfterFrustum] = 1;
     } else {
-        visibles[objid] = 1;
+        visibles[fs_in.objid] = 1;
     }
 }
