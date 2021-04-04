@@ -381,12 +381,14 @@ void main(void)
     base += t8 * MixLevel4.g;
     base  *= 1.0;
 
-    vec4 gc = global;
-
-    float c_l = length(base.rgb) + base.a + global.a;
+    //global
+     vec4 gc = global;
+   float c_l = length(base.rgb) + base.a + global.a;
     float g_l = length(global.rgb) - global.a;
     gc.rgb = global.rgb;
     base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
+    //wetness
+    base = blend(base,1.0,vec4(waterColor,waterAlpha),global.a);
 
     // Texture outlines if test = 1.0;
     base = mix(base, base + color_1, B1 * test * MixLevel1.r);
