@@ -307,7 +307,13 @@ void main(void)
     base += t7 * MixLevel4.r;
     base += t8 * MixLevel4.g;
     base  *= 1.0;
-    //base = m8;
+
+    vec4 gc = global;
+
+    float c_l = length(base.rgb) + base.a + global.a;
+    float g_l = length(global.rgb) - global.a;
+    gc.rgb = global.rgb;
+    base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
 
 
     //-------------------------------------------------------------

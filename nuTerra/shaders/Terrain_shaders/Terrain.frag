@@ -371,14 +371,6 @@ void main(void)
 //              vec4(waterColor,waterAlpha),global.a);
 //                   
     vec4 base;
-    vec4 gc = global;
-
-    float c_l = length(base.rgb) + base.a + global.a;
-    float g_l = length(global.rgb) - global.a;
-    gc.rgb = global.rgb;
-    base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
-
-
     base =  t1 * MixLevel1.r;
     base += t2 * MixLevel1.g;
     base += t3 * MixLevel2.r;
@@ -388,7 +380,14 @@ void main(void)
     base += t7 * MixLevel4.r;
     base += t8 * MixLevel4.g;
     base  *= 1.0;
-    //base = m8;
+
+    vec4 gc = global;
+
+    float c_l = length(base.rgb) + base.a + global.a;
+    float g_l = length(global.rgb) - global.a;
+    gc.rgb = global.rgb;
+    base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
+
     // Texture outlines if test = 1.0;
     base = mix(base, base + color_1, B1 * test * MixLevel1.r);
     base = mix(base, base + color_2, B2 * test * MixLevel1.g);
