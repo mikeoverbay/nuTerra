@@ -65,10 +65,6 @@ Module TerrainBuilder
         Public Shared global_map As String ' global_AM.dds
         Public Shared noise_texture As String ' noiseTexture
         '------------------------
-        Public Shared vertex_vBuffer_id As GLBuffer
-        Public Shared vertex_iBuffer_id As GLBuffer
-        Public Shared vertex_uvBuffer_id As GLBuffer
-        Public Shared vertex_TangentBuffer_id As GLBuffer
         Public Shared indices_count As Integer = 7938 * 3
         '------------------------
 
@@ -114,8 +110,6 @@ Module TerrainBuilder
     End Structure
 
     Public Structure chunk_render_data_
-        Public mBuffers() As Integer
-        Public VAO As Integer
         Public matrix As Matrix4
         Public shadowMatrix As Matrix4
         '-------------------------------
@@ -291,17 +285,13 @@ Module TerrainBuilder
         'we need to find a way to package the terrains texture info so we can use instance rendering
         BG_VALUE = 0
         BG_TEXT = "Building render VAOs..."
-        For i = 0 To theMap.chunks.Length - 1
-            build_Terrain_VAO(i)
-            BG_VALUE = i
-            If i Mod 50 = 0 Then
-                draw_scene()
-                Application.DoEvents()
-            End If
-        Next
+        draw_scene()
+        Application.DoEvents()
+
+        build_Terrain_VAO()
+
         LogThis(String.Format("Build VAO: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Stop()
-
     End Sub
 
     '=======================================================================

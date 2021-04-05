@@ -5,11 +5,10 @@
 #define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
 
-layout(location = 0) in vec2 vertexXZ;
-layout(location = 1) in float vertexY;
-layout(location = 2) in vec2 vertexTexCoord;
-layout(location = 3) in vec4 vertexNormal;
-layout(location = 4) in vec3 vertexTangent;
+layout(location = 0) in vec3 vertexPosition;
+layout(location = 1) in vec2 vertexTexCoord;
+layout(location = 2) in vec4 vertexNormal;
+layout(location = 3) in vec3 vertexTangent;
 
 layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 U1;
@@ -93,7 +92,6 @@ void main(void)
     
     //-------------------------------------------------------
     // Calulate UVs for the texture layers
-    vec3 vertexPosition = vec3(vertexXZ.x, vertexY, vertexXZ.y);
     vs_out.Vertex = vec4(vertexPosition, 1.0);
 
     //-------------------------------------------------------

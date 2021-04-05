@@ -88,7 +88,7 @@ Module modRender
 
         '===========================================================================
         FBOm.attach_C()
-        If TERRAIN_LOADED And DONT_BLOCK_SKY Then
+        If DONT_BLOCK_SKY Then
             GL.Disable(EnableCap.DepthTest)
             Draw_SkyDome()
             draw_sun()
@@ -569,6 +569,8 @@ Module modRender
         GL.Uniform2(TerrainLQShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainLQShader("map_center"), -b_x_min, b_y_max)
 
+        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
@@ -582,10 +584,9 @@ Module modRender
                 GL.Uniform2(TerrainLQShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
 
                 'draw chunk
-                GL.BindVertexArray(theMap.render_set(i).VAO)
-                GL.DrawElements(PrimitiveType.Triangles,
+                GL.DrawElementsBaseVertex(PrimitiveType.Triangles,
                     24576,
-                    DrawElementsType.UnsignedShort, 0)
+                    DrawElementsType.UnsignedShort, IntPtr.Zero, i * 4225)
             End If
 
         Next
@@ -618,6 +619,7 @@ Module modRender
 
         GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
 
+        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
@@ -650,10 +652,9 @@ Module modRender
                     .TexLayers(3).Blend_id.BindUnit(20)
 
                     'draw chunk
-                    GL.BindVertexArray(.VAO)
-                    GL.DrawElements(PrimitiveType.Triangles,
+                    GL.DrawElementsBaseVertex(PrimitiveType.Triangles,
                         24576,
-                        DrawElementsType.UnsignedShort, 0)
+                        DrawElementsType.UnsignedShort, IntPtr.Zero, i * 4225)
                 End With
             End If
         Next
@@ -676,6 +677,7 @@ Module modRender
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
 
+            GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
             For i = 0 To theMap.render_set.Length - 1
 
                 If theMap.render_set(i).visible Then
@@ -684,12 +686,10 @@ Module modRender
 
                     GL.UniformMatrix4(TerrainNormals("model"), False, model)
 
-                    GL.BindVertexArray(theMap.render_set(i).VAO)
-
                     'draw chunk wire
-                    GL.DrawElements(PrimitiveType.Triangles,
-                            24576,
-                            DrawElementsType.UnsignedShort, 0)
+                    GL.DrawElementsBaseVertex(PrimitiveType.Triangles,
+                        24576,
+                        DrawElementsType.UnsignedShort, IntPtr.Zero, i * 4225)
 
                 End If
             Next
@@ -881,14 +881,14 @@ Module modRender
 
         FBOm.gGMF.BindUnit(0)
 
+        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         For i = 0 To theMap.render_set.Length - 1
             GL.UniformMatrix4(TerrainGrids("model"), False, theMap.render_set(i).matrix)
 
             'draw chunk
-            GL.BindVertexArray(theMap.render_set(i).VAO)
-            GL.DrawElements(PrimitiveType.Triangles,
+            GL.DrawElementsBaseVertex(PrimitiveType.Triangles,
                 24576,
-                DrawElementsType.UnsignedShort, 0)
+                DrawElementsType.UnsignedShort, IntPtr.Zero, i * 4225)
         Next
         TerrainGrids.StopUse()
 
