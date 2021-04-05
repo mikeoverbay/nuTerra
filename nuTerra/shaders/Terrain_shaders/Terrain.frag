@@ -323,11 +323,7 @@ void main(void)
     MixLevel3 = max(MixLevel3,vec2(0.0139));
     MixLevel4 = max(MixLevel4,vec2(0.0139));
   
-//    //Mix in water as a hieght using the globla alpha.
-//    vec4 m8 = blend(m7, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g + 
-//              MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g,
-//              vec4(waterColor,waterAlpha),global.a);
-//                   
+                 
     vec4 base;
     base  = t1 * MixLevel1.r;
     base += t2 * MixLevel1.g;
@@ -337,7 +333,6 @@ void main(void)
     base += t6 * MixLevel3.g;
     base += t7 * MixLevel4.r;
     base += t8 * MixLevel4.g;
-    base  *= 1.0;
 
     //global
      vec4 gc = global;
@@ -347,7 +342,7 @@ void main(void)
     //rem to remove global content
     base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
 
-    //wetness
+    //Mix in wetness as a hieght using the globla alpha.
     base = blend(base,base.a,vec4(waterColor,waterAlpha),global.a);
 
     // Texture outlines if test = 1.0;
@@ -389,14 +384,15 @@ void main(void)
     base = mix(ArrayTextureC, base, fs_in.ln);
     out_n = mix(ArrayTextureN, out_n, fs_in.ln) ;
 
-    //there are no metal values for the terrain so we hard code 0.1;
+    //there are no metal values for the terrain so we hard code 0.2;
     // specular is in the red channel of the normal maps;
     vec4 gmm_out = vec4(0.2, specular, 128.0/255.0, 0.0);
     gGMF = mix(ArrayTextureG, gmm_out, fs_in.ln);
 
-    //gColor = gColor* 0.001 + r1_8;
+    // global.a is used for wetness specular on the map.
+    // Stored in alpha of color map for deferred rendering.
     t1 = texture(at1,vec3(fs_in.UV,1.0));
-    gColor.rgb = base.rgb;//*0.01+t1.rgb;
+    gColor.rgb = base.rgb;
     gColor.a = global.a*0.8;
 
     gNormal.xyz = normalize(out_n.xyz);

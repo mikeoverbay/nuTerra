@@ -244,15 +244,14 @@ void main(void)
     MixLevel1.rg/= f;
     MixLevel2.rg/= f;
     MixLevel3.rg/= f;
-    MixLevel4.rg/= f;   //months of work to figure this out!
+    MixLevel4.rg/= f;
    
     MixLevel1 = max(MixLevel1,vec2(0.0139));
     MixLevel2 = max(MixLevel2,vec2(0.0139));
     MixLevel3 = max(MixLevel3,vec2(0.0139));
     MixLevel4 = max(MixLevel4,vec2(0.0139));
-   //retuned to old mixing. Its better
-       vec4 base;
-
+  
+    vec4 base;
     base =  t1 * MixLevel1.r;
     base += t2 * MixLevel1.g;
     base += t3 * MixLevel2.r;
@@ -269,7 +268,8 @@ void main(void)
     float g_l = length(global.rgb) - global.a;
     gc.rgb = global.rgb;
     base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
-    //wetness
+
+    //Mix in wetness as a hieght using the globla alpha.
     base = blend(base,base.a,vec4(waterColor,waterAlpha),global.a);
 
     //-------------------------------------------------------------
@@ -291,9 +291,9 @@ void main(void)
     gGMF = vec4(0.1, specular, 128.0/255.0, 0.0);
     //vec3 shad = vec3( texture( shadow, vec3(fs_in.UV, float(map_id)) ).r );
     //gColor.rgb *= shad;
-    // global.a is used for wetness on the map.
 
-    gColor.rgb = base.rgb;
+    // global.a is used for wetness specular on the map.
+    // Stored in alpha of color map for deferred rendering.    gColor.rgb = base.rgb;
     gColor.a = global.a*0.8;
 
 }
