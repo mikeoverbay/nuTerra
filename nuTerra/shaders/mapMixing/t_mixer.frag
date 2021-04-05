@@ -263,6 +263,7 @@ void main(void)
     base += t6 * MixLevel3.g;
     base += t7 * MixLevel4.r;
     base += t8 * MixLevel4.g;
+    base  *= 1.0;
 
     //global
      vec4 gc = global;
