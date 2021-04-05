@@ -284,10 +284,20 @@ Module ChunkFunctions
         Public tangents As Vector3
     End Structure
 
+    <StructLayout(LayoutKind.Sequential)>
+    Private Structure TerrainChunkInfo
+        Public modelMatrix As Matrix4
+        Public me_location As Vector2
+        Public pad1 As UInt32
+        Public pad2 As UInt32
+        Public layers As ChunkLayers
+    End Structure
+
     Public Sub build_Terrain_VAO()
         MapGL.numTerrainChunks = theMap.chunks.Length
 
         Dim terrainIndirect(MapGL.numTerrainChunks - 1) As DrawElementsIndirectCommand
+        Dim terrainMatrices(MapGL.numTerrainChunks - 1) As TerrainChunkInfo
 
         MapGL.VertexArrays.allTerrainChunks = CreateVertexArray("allTerrainChunks")
 
@@ -309,6 +319,62 @@ Module ChunkFunctions
                 terrainIndirect(i).firstIndex = 0
                 terrainIndirect(i).baseVertex = i * .v_buff_XZ.Length
                 terrainIndirect(i).baseInstance = i
+
+                terrainMatrices(i).modelMatrix = theMap.render_set(i).matrix
+                terrainMatrices(i).me_location = theMap.chunks(i).location.Xy
+
+                With theMap.render_set(i)
+                    terrainMatrices(i).layers.U1 = .TexLayers(0).uP1
+                    terrainMatrices(i).layers.U2 = .TexLayers(0).uP2
+
+                    terrainMatrices(i).layers.U3 = .TexLayers(1).uP1
+                    terrainMatrices(i).layers.U4 = .TexLayers(1).uP2
+
+                    terrainMatrices(i).layers.U5 = .TexLayers(2).uP1
+                    terrainMatrices(i).layers.U6 = .TexLayers(2).uP2
+
+                    terrainMatrices(i).layers.U7 = .TexLayers(3).uP1
+                    terrainMatrices(i).layers.U8 = .TexLayers(3).uP2
+
+                    terrainMatrices(i).layers.V1 = .TexLayers(0).vP1
+                    terrainMatrices(i).layers.V2 = .TexLayers(0).vP2
+
+                    terrainMatrices(i).layers.V3 = .TexLayers(1).vP1
+                    terrainMatrices(i).layers.V4 = .TexLayers(1).vP2
+
+                    terrainMatrices(i).layers.V5 = .TexLayers(2).vP1
+                    terrainMatrices(i).layers.V6 = .TexLayers(2).vP2
+
+                    terrainMatrices(i).layers.V7 = .TexLayers(3).vP1
+                    terrainMatrices(i).layers.V8 = .TexLayers(3).vP2
+
+                    terrainMatrices(i).layers.r1_1 = .TexLayers(0).r1
+                    terrainMatrices(i).layers.r1_2 = .TexLayers(0).r2_1
+                    terrainMatrices(i).layers.r1_3 = .TexLayers(1).r1
+                    terrainMatrices(i).layers.r1_4 = .TexLayers(1).r2_1
+                    terrainMatrices(i).layers.r1_5 = .TexLayers(2).r1
+                    terrainMatrices(i).layers.r1_6 = .TexLayers(2).r2_1
+                    terrainMatrices(i).layers.r1_7 = .TexLayers(3).r1
+                    terrainMatrices(i).layers.r1_8 = .TexLayers(3).r2_1
+
+                    terrainMatrices(i).layers.r2_1 = .TexLayers(0).r2
+                    terrainMatrices(i).layers.r2_2 = .TexLayers(0).r2_2
+                    terrainMatrices(i).layers.r2_3 = .TexLayers(1).r2
+                    terrainMatrices(i).layers.r2_4 = .TexLayers(1).r2_2
+                    terrainMatrices(i).layers.r2_5 = .TexLayers(2).r2
+                    terrainMatrices(i).layers.r2_6 = .TexLayers(2).r2_2
+                    terrainMatrices(i).layers.r2_7 = .TexLayers(3).r2
+                    terrainMatrices(i).layers.r2_8 = .TexLayers(3).r2_2
+
+                    terrainMatrices(i).layers.s1 = .TexLayers(0).scale_a
+                    terrainMatrices(i).layers.s2 = .TexLayers(0).scale_b
+                    terrainMatrices(i).layers.s3 = .TexLayers(1).scale_a
+                    terrainMatrices(i).layers.s4 = .TexLayers(1).scale_b
+                    terrainMatrices(i).layers.s5 = .TexLayers(2).scale_a
+                    terrainMatrices(i).layers.s6 = .TexLayers(2).scale_b
+                    terrainMatrices(i).layers.s7 = .TexLayers(3).scale_a
+                    terrainMatrices(i).layers.s8 = .TexLayers(3).scale_b
+                End With
 
                 Dim vertices(.n_buff.Length - 1) As TerrainVertex
                 For j = 0 To .n_buff.Length - 1
@@ -361,8 +427,12 @@ Module ChunkFunctions
         GL.VertexArrayElementBuffer(MapGL.VertexArrays.allTerrainChunks, MapGL.Buffers.terrain_indices.buffer_id)
 
         MapGL.Buffers.terrain_indirect = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_indices")
-        BufferStorage(MapGL.Buffers.terrain_indirect, MapGL.numTerrainChunks * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
+        BufferStorage(MapGL.Buffers.terrain_indirect, terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
         MapGL.Buffers.terrain_indirect.BindBase(10)
+
+        MapGL.Buffers.terrain_matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
+        BufferStorage(MapGL.Buffers.terrain_matrices, terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
+        MapGL.Buffers.terrain_matrices.BindBase(11)
     End Sub
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)

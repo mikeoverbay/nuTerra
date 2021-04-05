@@ -15,6 +15,8 @@
 #define LIGHTS_BASE 7
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
+#define TERRAIN_INDIRECT_BASE 10
+#define TERRAIN_CHUNK_INFO_BASE 11
 
 struct CandidateDraw
 {
@@ -161,5 +163,68 @@ layout(std430, binding = VISIBLES_BASE) buffer visibleBuffer {
 };
 layout(std430, binding = VISIBLES_DBL_SIDED_BASE) buffer visibleDblSidedBuffer {
     int visibles_dbl_sided[];
+};
+#endif
+
+#ifdef USE_TERRAIN_CHUNK_INFO_SSBO
+struct ChunkLayers {
+    vec4 U1;
+    vec4 U2;
+    vec4 U3;
+    vec4 U4;
+
+    vec4 U5;
+    vec4 U6;
+    vec4 U7;
+    vec4 U8;
+
+    vec4 V1;
+    vec4 V2;
+    vec4 V3;
+    vec4 V4;
+
+    vec4 V5;
+    vec4 V6;
+    vec4 V7;
+    vec4 V8;
+
+    vec4 r1_1;
+    vec4 r1_2;
+    vec4 r1_3;
+    vec4 r1_4;
+    vec4 r1_5;
+    vec4 r1_6;
+    vec4 r1_7;
+    vec4 r1_8;
+
+    vec4 r2_1;
+    vec4 r2_2;
+    vec4 r2_3;
+    vec4 r2_4;
+    vec4 r2_5;
+    vec4 r2_6;
+    vec4 r2_7;
+    vec4 r2_8;
+
+    vec4 s1;
+    vec4 s2;
+    vec4 s3;
+    vec4 s4;
+    vec4 s5;
+    vec4 s6;
+    vec4 s7;
+    vec4 s8;
+};
+
+struct TerrainChunkInfo {
+    mat4 modelMatrix;
+    vec2 me_location;
+    uint pad1;
+    uint pad2;
+    ChunkLayers layers;
+};
+
+layout(std430, binding = TERRAIN_CHUNK_INFO_BASE) buffer TerrainChunkInfoBuffer {
+    TerrainChunkInfo terrain_chunk_info[];
 };
 #endif

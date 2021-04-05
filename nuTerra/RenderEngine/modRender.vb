@@ -575,12 +575,6 @@ Module modRender
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
-
-                GL.UniformMatrix4(TerrainLQShader("modelMatrix"), False, theMap.render_set(i).matrix)
-
-                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
-                GL.Uniform2(TerrainLQShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
-
                 'draw chunk
                 GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
             End If
@@ -622,15 +616,8 @@ Module modRender
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
 
-                GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
-
-                GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
-                GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
-
                 'bind all the data for this chunk
                 With theMap.render_set(i)
-                    .layersStd140_ubo.BindBase(0)
-
                     'AM maps
                     theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
                     theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
@@ -675,13 +662,7 @@ Module modRender
             MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
             For i = 0 To theMap.render_set.Length - 1
-
                 If theMap.render_set(i).visible Then
-
-                    Dim model = theMap.render_set(i).matrix
-
-                    GL.UniformMatrix4(TerrainNormals("model"), False, model)
-
                     'draw chunk wire
                     GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                 End If

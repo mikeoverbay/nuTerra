@@ -114,7 +114,6 @@ Module TerrainBuilder
         Public shadowMatrix As Matrix4
         '-------------------------------
         ' Texture IDs and such below
-        Public layersStd140_ubo As GLBuffer
         Public TexLayers() As ids_
         Public layer As layer_render_info_
         Public b_x_size, b_y_size As Integer
@@ -124,7 +123,7 @@ Module TerrainBuilder
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
-    Public Structure LayersStd140
+    Public Structure ChunkLayers
         Public U1 As Vector4
         Public U2 As Vector4
         Public U3 As Vector4
@@ -171,7 +170,6 @@ Module TerrainBuilder
         Public s6 As Vector4
         Public s7 As Vector4
         Public s8 As Vector4
-
     End Structure
 
     Public Structure ids_

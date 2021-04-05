@@ -52,11 +52,8 @@ Module LQ_Texture_creator
 
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, PROJECTIONMATRIX)
 
-        GL.Uniform2(t_mixerShader("me_location"), theMap.chunks(map).location.X, theMap.chunks(map).location.Y) 'me_location
-
         'bind all the data for this chunk
         With theMap.render_set(map)
-            .layersStd140_ubo.BindBase(0)
             Dim i = map
             'AM maps
             theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
