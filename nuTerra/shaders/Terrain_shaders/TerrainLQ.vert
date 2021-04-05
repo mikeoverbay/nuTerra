@@ -1,5 +1,6 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shader_draw_parameters : require
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
@@ -22,10 +23,12 @@ out VS_OUT {
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
+    flat uint map_id;
 } vs_out;
 
 void main(void)
 {
+    vs_out.map_id = gl_BaseInstanceARB;
     vs_out.UV = vertexTexCoord;
 
     // calculate tex coords for global_AM

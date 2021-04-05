@@ -14,7 +14,6 @@ layout(binding = 3) uniform sampler2DArray textArrayG;
 
 uniform vec3 waterColor;
 uniform float waterAlpha;
-uniform float map_id;
 
 in VS_OUT {
     vec4 Vertex;
@@ -22,6 +21,7 @@ in VS_OUT {
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
+    flat uint map_id;
 } fs_in;
 
 
@@ -30,9 +30,9 @@ void main(void)
 {
     vec4 global = texture(global_AM, fs_in.Global_UV);
     // This is needed to light the global_AM.
-    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, map_id) );
-    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, map_id) );
-    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, map_id) );
+    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, fs_in.map_id) );
 
     // The obvious
     gColor = ArrayTextureC;

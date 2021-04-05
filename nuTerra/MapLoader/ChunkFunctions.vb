@@ -308,7 +308,7 @@ Module ChunkFunctions
                 terrainIndirect(i).instanceCount = 1
                 terrainIndirect(i).firstIndex = 0
                 terrainIndirect(i).baseVertex = i * .v_buff_XZ.Length
-                terrainIndirect(i).baseInstance = 0
+                terrainIndirect(i).baseInstance = i
 
                 Dim vertices(.n_buff.Length - 1) As TerrainVertex
                 For j = 0 To .n_buff.Length - 1

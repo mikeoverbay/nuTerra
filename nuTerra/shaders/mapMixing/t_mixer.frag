@@ -77,7 +77,6 @@ layout(binding = 21) uniform sampler2D global_AM;
 
 //layout(binding = 23) uniform sampler2DArray shadow;
 
-uniform int map_id;
 uniform vec3 waterColor;
 uniform float waterAlpha;
 

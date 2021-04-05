@@ -86,7 +86,6 @@ layout(binding = 24) uniform sampler2DArray textArrayG;
 
 uniform vec3 waterColor;
 uniform float waterAlpha;
-uniform float map_id;
 uniform float test;
 
 in VS_OUT {
@@ -96,6 +95,7 @@ in VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
+    flat uint map_id;
 } fs_in;
 
 /*===========================================================*/
@@ -426,9 +426,9 @@ void main(void)
     out_n.xyz = fs_in.TBN * out_n.xyz;
     
     // Get pre=mixed map textures
-    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, map_id) );
-    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, map_id) );
-    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, map_id) );
+    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, fs_in.map_id) );
 
     ArrayTextureN.xyz = fs_in.TBN * ArrayTextureN.xyz;
 

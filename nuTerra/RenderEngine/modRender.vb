@@ -576,9 +576,6 @@ Module modRender
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
 
-                GL.Uniform1(TerrainLQShader("map_id"), CSng(i))
-
-
                 GL.UniformMatrix4(TerrainLQShader("modelMatrix"), False, theMap.render_set(i).matrix)
 
                 GL.UniformMatrix3(TerrainLQShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
@@ -624,8 +621,6 @@ Module modRender
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
-
-                GL.Uniform1(TerrainShader("map_id"), CSng(i))
 
                 GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
 
