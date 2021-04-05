@@ -293,7 +293,8 @@ void main(void)
     //gColor.rgb *= shad;
 
     // global.a is used for wetness specular on the map.
-    // Stored in alpha of color map for deferred rendering.    gColor.rgb = base.rgb;
+    // Stored in alpha of color map for deferred rendering.
+    gColor.rgb = base.rgb;
     gColor.a = global.a*0.8;
 
 }
