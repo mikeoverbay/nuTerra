@@ -162,7 +162,6 @@ Module ShaderLoader
     Public BaseRingProjectorDeferred As Shader
     Public boxShader As Shader
     Public cullShader As Shader
-    Public cullLodClearShader As Shader
     Public cullRasterShader As Shader
     Public cullInvalidateShader As Shader
     Public colorCorrectShader As Shader
@@ -223,7 +222,6 @@ Module ShaderLoader
         BaseRingProjectorDeferred = New Shader("BaseRingProjectorDeferred")
         boxShader = New Shader("box")
         cullShader = New Shader("cull")
-        cullLodClearShader = New Shader("cullLodClear")
         cullRasterShader = New Shader("cull-raster")
         cullInvalidateShader = New Shader("cull-invalidate")
         colorCorrectShader = New Shader("colorCorrect")
@@ -272,7 +270,6 @@ Module ShaderLoader
         shaders.Add(BaseRingProjectorDeferred)
         shaders.Add(boxShader)
         shaders.Add(cullShader)
-        shaders.Add(cullLodClearShader)
         shaders.Add(cullRasterShader)
         shaders.Add(cullInvalidateShader)
         shaders.Add(colorCorrectShader)

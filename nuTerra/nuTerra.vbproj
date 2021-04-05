@@ -403,9 +403,6 @@
     <Content Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="shaders\Trials\cullLodClear.comp">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="shaders\Terrain_shaders\Terrain - Copy.frag" />
     <None Include="shaders\Trials\cull-invalidate.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -572,6 +569,9 @@
     <Content Include="shaders\Utility\TextRender.vert.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Include="shaders\Trials\terrainCull.comp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="shaders\User_GUI\" />

@@ -239,3 +239,10 @@ layout(std430, binding = TERRAIN_CHUNK_INFO_BASE) buffer TerrainChunkInfoBuffer 
     TerrainChunkInfo terrain_chunk_info[];
 };
 #endif
+
+#ifdef USE_TERRAIN_INDIRECT_SSBO
+layout(binding = TERRAIN_INDIRECT_BASE, std430) writeonly buffer TerrainIndirect
+{
+    DrawElementsIndirectCommand terrain_indirect[];
+};
+#endif
