@@ -94,7 +94,10 @@ layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
     vec3 cameraPos;
     float _start;
     vec2 resolution;
+    vec2 map_size;
+    vec2 map_center;
     float _end;
+    float waterAlpha;
 };
 #endif
 

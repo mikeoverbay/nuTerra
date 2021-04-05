@@ -12,9 +12,6 @@ layout(location = 1) in vec2 vertexTexCoord;
 layout(location = 2) in vec4 vertexNormal;
 layout(location = 3) in vec3 vertexTangent;
 
-uniform vec2 map_size;
-uniform vec2 map_center;
-
 out VS_OUT {
     mat3 TBN;
     vec4 Vertex;

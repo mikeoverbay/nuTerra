@@ -138,7 +138,10 @@ Module modOpenGL
         Public cameraPos As Vector3
         Public _start As Single
         Public resolution As Vector2
+        Public map_size As Vector2
+        Public map_center As Vector2
         Public _end As Single
+        Public waterAlpha As Single
     End Structure
     Public PerViewData As New TPerViewData
     Public PerViewDataBuffer As GLBuffer

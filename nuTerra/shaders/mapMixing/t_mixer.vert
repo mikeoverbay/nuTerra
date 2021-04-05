@@ -12,8 +12,6 @@ layout(location = 1) in vec2 vertexTexCoord;
 layout(location = 2) in vec4 vertexNormal;
 layout(location = 3) in vec3 vertexTangent;
 
-uniform vec2 map_size;
-uniform vec2 map_center;
 uniform mat4 Ortho_Project;
 
 out VS_OUT {
@@ -23,7 +21,6 @@ out VS_OUT {
     vec2 Global_UV;
     flat uint map_id;
 } vs_out;
-
 
 void main(void)
 {

@@ -564,11 +564,6 @@ Module modRender
                         Map_wetness.waterColor.Y,
                         Map_wetness.waterColor.Z)
 
-        GL.Uniform1(TerrainLQShader("waterAlpha"), Map_wetness.waterAlpha)
-
-        GL.Uniform2(TerrainLQShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
-        GL.Uniform2(TerrainLQShader("map_center"), -b_x_min, b_y_max)
-
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
@@ -601,11 +596,6 @@ Module modRender
                         Map_wetness.waterColor.X,
                         Map_wetness.waterColor.Y,
                         Map_wetness.waterColor.Z)
-
-        GL.Uniform1(TerrainShader("waterAlpha"), Map_wetness.waterAlpha)
-
-        GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
-        GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
 
         GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
 
@@ -850,8 +840,6 @@ Module modRender
         GL.Uniform1(TerrainGrids("show_border"), CInt(SHOW_BORDER))
         GL.Uniform1(TerrainGrids("show_chunks"), CInt(SHOW_CHUNKS))
         GL.Uniform1(TerrainGrids("show_grid"), CInt(SHOW_GRID))
-
-        GL.Uniform1(TerrainGrids("gGMF"), 0)
 
         FBOm.gGMF.BindUnit(0)
 

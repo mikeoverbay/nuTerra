@@ -7,10 +7,10 @@ Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
 Module ChunkFunctions
-    Public b_x_min As Single
-    Public b_x_max As Single
-    Public b_y_min As Single
-    Public b_y_max As Single
+    Private b_x_min As Single
+    Private b_x_max As Single
+    Private b_y_min As Single
+    Private b_y_max As Single
     Public tl_, tr_, br_, bl_ As Vector3
     Public Cursor_point As Vector3
     Public surface_normal As Vector3
@@ -295,6 +295,14 @@ Module ChunkFunctions
 
     Public Sub build_Terrain_VAO()
         MapGL.numTerrainChunks = theMap.chunks.Length
+
+        PerViewData.map_size.X = MAP_SIZE.X + 1
+        PerViewData.map_size.Y = MAP_SIZE.Y + 1
+
+        PerViewData.map_center.X = -b_x_min
+        PerViewData.map_center.Y = b_y_max
+
+        PerViewData.waterAlpha = Map_wetness.waterAlpha
 
         Dim terrainIndirect(MapGL.numTerrainChunks - 1) As DrawElementsIndirectCommand
         Dim terrainMatrices(MapGL.numTerrainChunks - 1) As TerrainChunkInfo

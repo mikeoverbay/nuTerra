@@ -1,6 +1,8 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_PERVIEW_UBO
 #define USE_TERRAIN_CHUNK_INFO_SSBO
 #include "common.h" //! #include "../common.h"
 
@@ -30,7 +32,6 @@ layout(binding = 21) uniform sampler2D global_AM;
 //layout(binding = 23) uniform sampler2DArray shadow;
 
 uniform vec3 waterColor;
-uniform float waterAlpha;
 
 in VS_OUT {
     vec4 Vertex;
