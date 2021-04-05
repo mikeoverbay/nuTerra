@@ -527,7 +527,6 @@ Module modRender
         'FBOm.attach_C()
         'GL.Enable(EnableCap.Blend)
         '==========================
-        TERRAIN_TRIS_DRAWN = 0
         GL.Enable(EnableCap.CullFace)
 
         '=======================================================================================
@@ -569,7 +568,6 @@ Module modRender
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
-                TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
                 'draw chunk
                 GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
             End If
@@ -604,7 +602,6 @@ Module modRender
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
-                TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
 
                 'bind all the data for this chunk
                 With theMap.render_set(i)
@@ -949,9 +946,6 @@ Module modRender
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
 
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
-
-        'sum triangles drawn
-        Dim tr = TERRAIN_TRIS_DRAWN
 
         Dim txt = String.Format("FPS: {0} | Draw time in Milliseconds: {1}", FPS_TIME, elapsed)
         'debug shit
