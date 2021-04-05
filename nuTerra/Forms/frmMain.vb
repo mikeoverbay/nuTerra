@@ -472,11 +472,13 @@ try_again:
             "GL_ARB_vertex_type_10f_11f_11f_rev",
             "GL_ARB_compute_variable_group_size",
             "GL_ARB_shading_language_include",
-            "GL_ARB_indirect_parameters",
             "GL_ARB_bindless_texture",
             "GL_ARB_multi_draw_indirect", 'core since 4.3
             "GL_ARB_direct_state_access", 'core since 4.5
-            "GL_ARB_clip_control" 'core since 4.5
+            "GL_ARB_clip_control", 'core since 4.5
+            "GL_ARB_indirect_parameters", 'core since 4.6
+            "GL_ARB_shader_draw_parameters", 'core since 4.6
+            "GL_ARB_shader_atomic_counter_ops" 'core since 4.6
         }
 
         Dim unsupported_ext As New List(Of String)
