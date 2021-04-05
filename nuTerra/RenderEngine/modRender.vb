@@ -310,12 +310,6 @@ Module modRender
 
         GL.Uniform3(deferredShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
 
-        GL.Uniform3(deferredShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
-
-
         FBOm.gColor.BindUnit(0)
         FBOm.gNormal.BindUnit(1)
         FBOm.gGMF.BindUnit(2)
@@ -558,11 +552,6 @@ Module modRender
         FBO_mixer_set.gNormalArray.BindUnit(2)
         FBO_mixer_set.gGmmArray.BindUnit(3)
 
-        GL.Uniform3(TerrainLQShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
-
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
@@ -588,12 +577,6 @@ Module modRender
         FBO_mixer_set.gColorArray.BindUnit(22)
         FBO_mixer_set.gNormalArray.BindUnit(23)
         FBO_mixer_set.gGmmArray.BindUnit(24)
-
-        'water BS
-        GL.Uniform3(TerrainShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
 
         GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
 

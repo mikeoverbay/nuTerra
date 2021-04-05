@@ -296,13 +296,13 @@ Module ChunkFunctions
     Public Sub build_Terrain_VAO()
         MapGL.numTerrainChunks = theMap.chunks.Length
 
-        PerViewData.map_size.X = MAP_SIZE.X + 1
-        PerViewData.map_size.Y = MAP_SIZE.Y + 1
-
-        PerViewData.map_center.X = -b_x_min
-        PerViewData.map_center.Y = b_y_max
-
-        PerViewData.waterAlpha = Map_wetness.waterAlpha
+        GlobalProperties.waterColor = Map_wetness.waterColor
+        GlobalProperties.waterAlpha = Map_wetness.waterAlpha
+        GlobalProperties.map_size.X = MAP_SIZE.X + 1
+        GlobalProperties.map_size.Y = MAP_SIZE.Y + 1
+        GlobalProperties.map_center.X = -b_x_min
+        GlobalProperties.map_center.Y = b_y_max
+        GL.NamedBufferSubData(GlobalPropertiesBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(GlobalProperties), GlobalProperties)
 
         Dim terrainIndirect(MapGL.numTerrainChunks - 1) As DrawElementsIndirectCommand
         Dim terrainMatrices(MapGL.numTerrainChunks - 1) As TerrainChunkInfo

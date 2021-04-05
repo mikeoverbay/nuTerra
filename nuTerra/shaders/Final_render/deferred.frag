@@ -3,6 +3,7 @@
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
 
+#define USE_GLOBAL_UBO
 #define USE_LIGHT_SSBO
 #define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
@@ -37,7 +38,6 @@ uniform float fog_level;
 uniform vec3 ambientColorForward;
 uniform vec3 sunColor;
 uniform int  light_count;
-uniform vec3 waterColor;
 
 #define MAXCOLOR 15.0
 #define COLORS 16.0

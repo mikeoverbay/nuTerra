@@ -44,8 +44,6 @@ Module LQ_Texture_creator
         'pre created shadow masks
         'FBO_ShadowBaker.gBakerColorArray.BindUnit(23)
 
-        GL.Uniform3(t_mixerShader("waterColor"), Map_wetness.waterColor.X, Map_wetness.waterColor.Y, Map_wetness.waterColor.Z)
-
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, PROJECTIONMATRIX)
 
         'bind all the data for this chunk

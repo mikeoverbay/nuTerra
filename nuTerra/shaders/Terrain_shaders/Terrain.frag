@@ -2,7 +2,7 @@
 
 #extension GL_ARB_shading_language_include : require
 
-#define USE_PERVIEW_UBO
+#define USE_GLOBAL_UBO
 #define USE_TERRAIN_CHUNK_INFO_SSBO
 #include "common.h" //! #include "../common.h"
 
@@ -37,7 +37,6 @@ layout(binding = 22) uniform sampler2DArray textArrayC;
 layout(binding = 23) uniform sampler2DArray textArrayN;
 layout(binding = 24) uniform sampler2DArray textArrayG;
 
-uniform vec3 waterColor;
 uniform float test;
 
 in VS_OUT {

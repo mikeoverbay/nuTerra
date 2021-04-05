@@ -136,15 +136,23 @@ Module modOpenGL
         Public viewProj As Matrix4
         Public invViewProj As Matrix4
         Public cameraPos As Vector3
-        Public _start As Single
+        Public pad As UInt32
         Public resolution As Vector2
-        Public map_size As Vector2
-        Public map_center As Vector2
-        Public _end As Single
-        Public waterAlpha As Single
     End Structure
     Public PerViewData As New TPerViewData
     Public PerViewDataBuffer As GLBuffer
+
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure TGlobalProperties
+        Public waterColor As Vector3
+        Public waterAlpha As Single
+        Public map_size As Vector2
+        Public map_center As Vector2
+        Public _start As Single
+        Public _end As Single
+    End Structure
+    Public GlobalProperties As New TGlobalProperties
+    Public GlobalPropertiesBuffer As GLBuffer
 
     Public Sub Sun_Ortho_view(ByVal L As Single, ByVal R As Single, ByVal B As Single, ByVal T As Single)
         GL.Viewport(0, 0, FBO_ShadowBaker.depth_map_size, FBO_ShadowBaker.depth_map_size)

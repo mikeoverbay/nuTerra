@@ -3,6 +3,7 @@
 #extension GL_ARB_shader_draw_parameters : require
 #extension GL_ARB_shading_language_include : require
 
+#define USE_GLOBAL_UBO
 #define USE_PERVIEW_UBO
 #define USE_TERRAIN_CHUNK_INFO_SSBO
 #include "common.h" //! #include "../common.h"

@@ -3,6 +3,7 @@
 // Uniforms Blocks
 #define TERRAIN_LAYERS_UBO_BASE 0
 #define PER_VIEW_UBO_BASE 1
+#define GLOBAL_UBO_BASE 2
 
 // SSBO
 #define MATRICES_BASE 0
@@ -92,12 +93,19 @@ layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
     mat4 viewProj;
     mat4 invViewProj;
     vec3 cameraPos;
-    float _start;
+    uint pad;
     vec2 resolution;
+};
+#endif
+
+#ifdef USE_GLOBAL_UBO
+layout(binding = GLOBAL_UBO_BASE, std140) uniform GlobalProperties {
+    vec3 waterColor;
+    float waterAlpha;
     vec2 map_size;
     vec2 map_center;
+    float _start;
     float _end;
-    float waterAlpha;
 };
 #endif
 
