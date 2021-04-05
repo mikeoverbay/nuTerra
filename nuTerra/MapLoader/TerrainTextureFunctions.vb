@@ -102,70 +102,8 @@ Module TerrainTextureFunctions
 
             End With
         Next
-        ' fill ubo
-
-        With theMap.render_set(map)
-            Dim layersBuffer As New LayersStd140
-            layersBuffer.U1 = .TexLayers(0).uP1
-            layersBuffer.U2 = .TexLayers(0).uP2
-
-            layersBuffer.U3 = .TexLayers(1).uP1
-            layersBuffer.U4 = .TexLayers(1).uP2
-
-            layersBuffer.U5 = .TexLayers(2).uP1
-            layersBuffer.U6 = .TexLayers(2).uP2
-
-            layersBuffer.U7 = .TexLayers(3).uP1
-            layersBuffer.U8 = .TexLayers(3).uP2
-
-            layersBuffer.V1 = .TexLayers(0).vP1
-            layersBuffer.V2 = .TexLayers(0).vP2
-
-            layersBuffer.V3 = .TexLayers(1).vP1
-            layersBuffer.V4 = .TexLayers(1).vP2
-
-            layersBuffer.V5 = .TexLayers(2).vP1
-            layersBuffer.V6 = .TexLayers(2).vP2
-
-            layersBuffer.V7 = .TexLayers(3).vP1
-            layersBuffer.V8 = .TexLayers(3).vP2
-
-            layersBuffer.r1_1 = .TexLayers(0).r1
-            layersBuffer.r1_2 = .TexLayers(0).r2_1
-            layersBuffer.r1_3 = .TexLayers(1).r1
-            layersBuffer.r1_4 = .TexLayers(1).r2_1
-            layersBuffer.r1_5 = .TexLayers(2).r1
-            layersBuffer.r1_6 = .TexLayers(2).r2_1
-            layersBuffer.r1_7 = .TexLayers(3).r1
-            layersBuffer.r1_8 = .TexLayers(3).r2_1
-
-            layersBuffer.r2_1 = .TexLayers(0).r2
-            layersBuffer.r2_2 = .TexLayers(0).r2_2
-            layersBuffer.r2_3 = .TexLayers(1).r2
-            layersBuffer.r2_4 = .TexLayers(1).r2_2
-            layersBuffer.r2_5 = .TexLayers(2).r2
-            layersBuffer.r2_6 = .TexLayers(2).r2_2
-            layersBuffer.r2_7 = .TexLayers(3).r2
-            layersBuffer.r2_8 = .TexLayers(3).r2_2
-
-            layersBuffer.s1 = .TexLayers(0).scale_a
-            layersBuffer.s2 = .TexLayers(0).scale_b
-            layersBuffer.s3 = .TexLayers(1).scale_a
-            layersBuffer.s4 = .TexLayers(1).scale_b
-            layersBuffer.s5 = .TexLayers(2).scale_a
-            layersBuffer.s6 = .TexLayers(2).scale_b
-            layersBuffer.s7 = .TexLayers(3).scale_a
-            layersBuffer.s8 = .TexLayers(3).scale_b
-
-
-
-            .layersStd140_ubo = CreateBuffer(BufferTarget.UniformBuffer, String.Format("layersStd140_ubo_{0}", map))
-            BufferStorage(.layersStd140_ubo,
-                          Marshal.SizeOf(layersBuffer),
-                          layersBuffer,
-                          BufferStorageFlags.None)
-        End With
     End Sub
+
     Private Function get_atlas(mipcount As Integer, map As Int32, z As Int32, format As SizedInternalFormat) As GLTexture
         Dim t = New GLTexture
         't.target = TextureTarget.Texture2DArray

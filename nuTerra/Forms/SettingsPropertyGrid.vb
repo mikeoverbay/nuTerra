@@ -15,8 +15,8 @@ Public Class SettingsPropertyGrid
     Const MAX_SPEED = 10000.0
 
     Public Sub New()
-        PerViewData._start = 75
-        PerViewData._end = 200
+        GlobalProperties._start = 75
+        GlobalProperties._end = 200
         FieldOfView = CSng(Math.PI) * (My.Settings.fov / 180.0F)
 
         'Get block state of things we want to block loading to speed things up for testing/debugging
@@ -105,20 +105,20 @@ Public Class SettingsPropertyGrid
     <DisplayName("Start"), Category("Terrain")>
     Public Property Terrain_Start As Single
         Set(value As Single)
-            PerViewData._start = value
+            GlobalProperties._start = value
         End Set
         Get
-            Return PerViewData._start
+            Return GlobalProperties._start
         End Get
     End Property
 
     <DisplayName("End"), Category("Terrain")>
     Public Property Terrain_End As Single
         Set(value As Single)
-            PerViewData._end = value
+            GlobalProperties._end = value
         End Set
         Get
-            Return PerViewData._end
+            Return GlobalProperties._end
         End Get
     End Property
 

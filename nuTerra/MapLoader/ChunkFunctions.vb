@@ -1,15 +1,16 @@
 ﻿Imports System.IO
 Imports System.Math
+Imports System.Runtime.InteropServices
 Imports Hjg.Pngcs
 Imports Ionic
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
 Module ChunkFunctions
-    Public b_x_min As Single
-    Public b_x_max As Single
-    Public b_y_min As Single
-    Public b_y_max As Single
+    Private b_x_min As Single
+    Private b_x_max As Single
+    Private b_y_min As Single
+    Private b_y_max As Single
     Public tl_, tr_, br_, bl_ As Vector3
     Public Cursor_point As Vector3
     Public surface_normal As Vector3
@@ -275,91 +276,171 @@ Module ChunkFunctions
 
     End Sub
 
-    Public Sub build_Terrain_VAO(ByVal i As Integer)
-        ' SETUP ==================================================================
-        With theMap.v_data(i)
+    <StructLayout(LayoutKind.Sequential)>
+    Private Structure TerrainVertex
+        Public xyz As Vector3
+        Public uv As Vector2
+        Public packed_noraml As UInt32
+        Public tangents As Vector3
+    End Structure
 
-            'Gen VAO and VBO Ids
-            theMap.render_set(i).VAO = CreateVertexArray(String.Format("terrain_{0}", i))
-            ReDim theMap.render_set(i).mBuffers(2)
-            GL.CreateBuffers(3, theMap.render_set(i).mBuffers)
+    <StructLayout(LayoutKind.Sequential)>
+    Private Structure TerrainChunkInfo
+        Public modelMatrix As Matrix4
+        Public me_location As Vector2
+        Public pad1 As UInt32
+        Public pad2 As UInt32
+        Public layers As ChunkLayers
+    End Structure
 
-            ' If the shared buffer is not defined, we need to do so.
-            If theMap.vertex_vBuffer_id Is Nothing Then
-                theMap.vertex_vBuffer_id = CreateBuffer(BufferTarget.ArrayBuffer, String.Format("terrain_vertices_{0}", i))
-                theMap.vertex_iBuffer_id = CreateBuffer(BufferTarget.ElementArrayBuffer, String.Format("terrain_indices_{0}", i))
-                theMap.vertex_uvBuffer_id = CreateBuffer(BufferTarget.ArrayBuffer, String.Format("terrain_uv_{0}", i))
+    Public Sub build_Terrain_VAO()
+        MapGL.numTerrainChunks = theMap.chunks.Length
 
-                'if the shared buffer is not defined, we need to fill the buffer now
-                BufferStorage(theMap.vertex_iBuffer_id,
-                              .indicies.Length * 6,
-                              .indicies,
-                              BufferStorageFlags.None)
-                BufferStorage(theMap.vertex_vBuffer_id,
-                              .v_buff_XZ.Length * 8,
-                              .v_buff_XZ,
-                              BufferStorageFlags.None)
-                BufferStorage(theMap.vertex_uvBuffer_id,
-                              .uv_buff.Length * 8,
-                              .uv_buff,
-                              BufferStorageFlags.None)
-            End If
+        GlobalProperties.waterColor = Map_wetness.waterColor
+        GlobalProperties.waterAlpha = Map_wetness.waterAlpha
+        GlobalProperties.map_size.X = MAP_SIZE.X + 1
+        GlobalProperties.map_size.Y = MAP_SIZE.Y + 1
+        GlobalProperties.map_center.X = -b_x_min
+        GlobalProperties.map_center.Y = b_y_max
+        GL.NamedBufferSubData(GlobalPropertiesBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(GlobalProperties), GlobalProperties)
 
-            ' VERTEX XZ ==================================================================
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 0, theMap.vertex_vBuffer_id.buffer_id, IntPtr.Zero, 8)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 0, 2, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 0, 0)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 0)
+        Dim terrainIndirect(MapGL.numTerrainChunks - 1) As DrawElementsIndirectCommand
+        Dim terrainMatrices(MapGL.numTerrainChunks - 1) As TerrainChunkInfo
 
-            ' POSITION Y ==================================================================
-            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(0), .v_buff_Y.Length * 4, .v_buff_Y, BufferStorageFlags.None)
+        MapGL.VertexArrays.allTerrainChunks = CreateVertexArray("allTerrainChunks")
 
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 1, theMap.render_set(i).mBuffers(0), IntPtr.Zero, 4)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 1, 1, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 1, 1)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 1)
+        MapGL.Buffers.terrain_vertices = CreateBuffer(BufferTarget.ArrayBuffer, "terrain_vertices")
+        MapGL.Buffers.terrain_indices = CreateBuffer(BufferTarget.ElementArrayBuffer, "terrain_indices")
 
-            ' UV ==================================================================
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 2, theMap.vertex_uvBuffer_id.buffer_id, IntPtr.Zero, 8)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 2, 2, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 2, 2)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 2)
+        Dim vcount = theMap.v_data(0).v_buff_XZ.Length * theMap.chunks.Length
+        Dim vsize = Marshal.SizeOf(Of TerrainVertex)
 
-            Debug.Assert(.n_buff.Length = .h_buff.Length)
+        BufferStorageNullData(MapGL.Buffers.terrain_vertices, vcount * vsize, BufferStorageFlags.DynamicStorageBit)
+        BufferStorage(MapGL.Buffers.terrain_indices, theMap.v_data(0).indicies.Length * 6, theMap.v_data(0).indicies, BufferStorageFlags.None)
 
-            Dim packed(.n_buff.Length - 1) As UInteger
-            For j = 0 To .n_buff.Length - 1
-                packed(j) = pack_2_10_10_10(.n_buff(j), .h_buff(j))
-            Next
+        For i = 0 To theMap.chunks.Length - 1
+            With theMap.v_data(i)
+                Debug.Assert(.n_buff.Length = .h_buff.Length)
 
-            ' NORMALS AND HOLES ======================================================== 
-            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(1), packed.Length * 4, packed, BufferStorageFlags.None)
+                terrainIndirect(i).count = 24576
+                terrainIndirect(i).instanceCount = 1
+                terrainIndirect(i).firstIndex = 0
+                terrainIndirect(i).baseVertex = i * .v_buff_XZ.Length
+                terrainIndirect(i).baseInstance = i
 
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 3, theMap.render_set(i).mBuffers(1), IntPtr.Zero, 4)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 3, 4, VertexAttribType.Int2101010Rev, True, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 3, 3)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 3)
+                terrainMatrices(i).modelMatrix = theMap.render_set(i).matrix
+                terrainMatrices(i).me_location = theMap.chunks(i).location.Xy
 
-            ' Tangents ========================================================
-            GL.NamedBufferStorage(theMap.render_set(i).mBuffers(2), .t_buff.Length * 12, .t_buff, BufferStorageFlags.None)
+                With theMap.render_set(i)
+                    terrainMatrices(i).layers.U1 = .TexLayers(0).uP1
+                    terrainMatrices(i).layers.U2 = .TexLayers(0).uP2
 
-            GL.VertexArrayVertexBuffer(theMap.render_set(i).VAO, 4, theMap.render_set(i).mBuffers(2), IntPtr.Zero, 12)
-            GL.VertexArrayAttribFormat(theMap.render_set(i).VAO, 4, 3, VertexAttribType.Float, True, 0)
-            GL.VertexArrayAttribBinding(theMap.render_set(i).VAO, 4, 4)
-            GL.EnableVertexArrayAttrib(theMap.render_set(i).VAO, 4)
+                    terrainMatrices(i).layers.U3 = .TexLayers(1).uP1
+                    terrainMatrices(i).layers.U4 = .TexLayers(1).uP2
 
-            ' INDICES ==================================================================
-            GL.VertexArrayElementBuffer(theMap.render_set(i).VAO, theMap.vertex_iBuffer_id.buffer_id)
+                    terrainMatrices(i).layers.U5 = .TexLayers(2).uP1
+                    terrainMatrices(i).layers.U6 = .TexLayers(2).uP2
 
-            .indicies = Nothing
-            .v_buff_XZ = Nothing
-            .uv_buff = Nothing
-            .v_buff_Y = Nothing
-            .n_buff = Nothing
-            .h_buff = Nothing
-            .t_buff = Nothing
+                    terrainMatrices(i).layers.U7 = .TexLayers(3).uP1
+                    terrainMatrices(i).layers.U8 = .TexLayers(3).uP2
 
-        End With
+                    terrainMatrices(i).layers.V1 = .TexLayers(0).vP1
+                    terrainMatrices(i).layers.V2 = .TexLayers(0).vP2
+
+                    terrainMatrices(i).layers.V3 = .TexLayers(1).vP1
+                    terrainMatrices(i).layers.V4 = .TexLayers(1).vP2
+
+                    terrainMatrices(i).layers.V5 = .TexLayers(2).vP1
+                    terrainMatrices(i).layers.V6 = .TexLayers(2).vP2
+
+                    terrainMatrices(i).layers.V7 = .TexLayers(3).vP1
+                    terrainMatrices(i).layers.V8 = .TexLayers(3).vP2
+
+                    terrainMatrices(i).layers.r1_1 = .TexLayers(0).r1
+                    terrainMatrices(i).layers.r1_2 = .TexLayers(0).r2_1
+                    terrainMatrices(i).layers.r1_3 = .TexLayers(1).r1
+                    terrainMatrices(i).layers.r1_4 = .TexLayers(1).r2_1
+                    terrainMatrices(i).layers.r1_5 = .TexLayers(2).r1
+                    terrainMatrices(i).layers.r1_6 = .TexLayers(2).r2_1
+                    terrainMatrices(i).layers.r1_7 = .TexLayers(3).r1
+                    terrainMatrices(i).layers.r1_8 = .TexLayers(3).r2_1
+
+                    terrainMatrices(i).layers.r2_1 = .TexLayers(0).r2
+                    terrainMatrices(i).layers.r2_2 = .TexLayers(0).r2_2
+                    terrainMatrices(i).layers.r2_3 = .TexLayers(1).r2
+                    terrainMatrices(i).layers.r2_4 = .TexLayers(1).r2_2
+                    terrainMatrices(i).layers.r2_5 = .TexLayers(2).r2
+                    terrainMatrices(i).layers.r2_6 = .TexLayers(2).r2_2
+                    terrainMatrices(i).layers.r2_7 = .TexLayers(3).r2
+                    terrainMatrices(i).layers.r2_8 = .TexLayers(3).r2_2
+
+                    terrainMatrices(i).layers.s1 = .TexLayers(0).scale_a
+                    terrainMatrices(i).layers.s2 = .TexLayers(0).scale_b
+                    terrainMatrices(i).layers.s3 = .TexLayers(1).scale_a
+                    terrainMatrices(i).layers.s4 = .TexLayers(1).scale_b
+                    terrainMatrices(i).layers.s5 = .TexLayers(2).scale_a
+                    terrainMatrices(i).layers.s6 = .TexLayers(2).scale_b
+                    terrainMatrices(i).layers.s7 = .TexLayers(3).scale_a
+                    terrainMatrices(i).layers.s8 = .TexLayers(3).scale_b
+                End With
+
+                Dim vertices(.n_buff.Length - 1) As TerrainVertex
+                For j = 0 To .n_buff.Length - 1
+                    vertices(j).xyz.Xz = .v_buff_XZ(j)
+                    vertices(j).xyz.Y = .v_buff_Y(j)
+                    vertices(j).uv = .uv_buff(j)
+                    vertices(j).packed_noraml = pack_2_10_10_10(.n_buff(j), .h_buff(j))
+                    vertices(j).tangents = .t_buff(j)
+                Next
+
+                GL.NamedBufferSubData(MapGL.Buffers.terrain_vertices.buffer_id,
+                                      New IntPtr(i * vertices.Length * vsize),
+                                      vertices.Length * vsize,
+                                      vertices)
+
+                .indicies = Nothing
+                .v_buff_XZ = Nothing
+                .uv_buff = Nothing
+                .v_buff_Y = Nothing
+                .n_buff = Nothing
+                .h_buff = Nothing
+                .t_buff = Nothing
+            End With
+        Next
+
+        ' VERTEX XYZ
+        GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allTerrainChunks, 0, MapGL.Buffers.terrain_vertices.buffer_id, IntPtr.Zero, vsize)
+        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 0, 3, VertexAttribType.Float, False, 0)
+        GL.VertexArrayAttribBinding(MapGL.VertexArrays.allTerrainChunks, 0, 0)
+        GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 0)
+
+        ' UV
+        GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allTerrainChunks, 1, MapGL.Buffers.terrain_vertices.buffer_id, New IntPtr(12), vsize)
+        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 1, 2, VertexAttribType.Float, False, 0)
+        GL.VertexArrayAttribBinding(MapGL.VertexArrays.allTerrainChunks, 1, 1)
+        GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 1)
+
+        ' NORMALS AND HOLES
+        GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allTerrainChunks, 2, MapGL.Buffers.terrain_vertices.buffer_id, New IntPtr(20), vsize)
+        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 2, 4, VertexAttribType.Int2101010Rev, True, 0)
+        GL.VertexArrayAttribBinding(MapGL.VertexArrays.allTerrainChunks, 2, 2)
+        GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 2)
+
+        ' Tangents
+        GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allTerrainChunks, 3, MapGL.Buffers.terrain_vertices.buffer_id, New IntPtr(24), vsize)
+        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 3, 3, VertexAttribType.Float, True, 0)
+        GL.VertexArrayAttribBinding(MapGL.VertexArrays.allTerrainChunks, 3, 3)
+        GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 3)
+
+        GL.VertexArrayElementBuffer(MapGL.VertexArrays.allTerrainChunks, MapGL.Buffers.terrain_indices.buffer_id)
+
+        MapGL.Buffers.terrain_indirect = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_indices")
+        BufferStorage(MapGL.Buffers.terrain_indirect, terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
+        MapGL.Buffers.terrain_indirect.BindBase(10)
+
+        MapGL.Buffers.terrain_matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
+        BufferStorage(MapGL.Buffers.terrain_matrices, terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
+        MapGL.Buffers.terrain_matrices.BindBase(11)
     End Sub
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)

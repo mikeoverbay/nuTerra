@@ -65,10 +65,6 @@ Module TerrainBuilder
         Public Shared global_map As String ' global_AM.dds
         Public Shared noise_texture As String ' noiseTexture
         '------------------------
-        Public Shared vertex_vBuffer_id As GLBuffer
-        Public Shared vertex_iBuffer_id As GLBuffer
-        Public Shared vertex_uvBuffer_id As GLBuffer
-        Public Shared vertex_TangentBuffer_id As GLBuffer
         Public Shared indices_count As Integer = 7938 * 3
         '------------------------
 
@@ -114,13 +110,10 @@ Module TerrainBuilder
     End Structure
 
     Public Structure chunk_render_data_
-        Public mBuffers() As Integer
-        Public VAO As Integer
         Public matrix As Matrix4
         Public shadowMatrix As Matrix4
         '-------------------------------
         ' Texture IDs and such below
-        Public layersStd140_ubo As GLBuffer
         Public TexLayers() As ids_
         Public layer As layer_render_info_
         Public b_x_size, b_y_size As Integer
@@ -130,7 +123,7 @@ Module TerrainBuilder
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
-    Public Structure LayersStd140
+    Public Structure ChunkLayers
         Public U1 As Vector4
         Public U2 As Vector4
         Public U3 As Vector4
@@ -177,7 +170,6 @@ Module TerrainBuilder
         Public s6 As Vector4
         Public s7 As Vector4
         Public s8 As Vector4
-
     End Structure
 
     Public Structure ids_
@@ -291,17 +283,13 @@ Module TerrainBuilder
         'we need to find a way to package the terrains texture info so we can use instance rendering
         BG_VALUE = 0
         BG_TEXT = "Building render VAOs..."
-        For i = 0 To theMap.chunks.Length - 1
-            build_Terrain_VAO(i)
-            BG_VALUE = i
-            If i Mod 50 = 0 Then
-                draw_scene()
-                Application.DoEvents()
-            End If
-        Next
+        draw_scene()
+        Application.DoEvents()
+
+        build_Terrain_VAO()
+
         LogThis(String.Format("Build VAO: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Stop()
-
     End Sub
 
     '=======================================================================

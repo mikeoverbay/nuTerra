@@ -88,7 +88,7 @@ Module modRender
 
         '===========================================================================
         FBOm.attach_C()
-        If TERRAIN_LOADED And DONT_BLOCK_SKY Then
+        If DONT_BLOCK_SKY Then
             GL.Disable(EnableCap.DepthTest)
             Draw_SkyDome()
             draw_sun()
@@ -310,12 +310,6 @@ Module modRender
 
         GL.Uniform3(deferredShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
 
-        GL.Uniform3(deferredShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
-
-
         FBOm.gColor.BindUnit(0)
         FBOm.gNormal.BindUnit(1)
         FBOm.gGMF.BindUnit(2)
@@ -527,7 +521,6 @@ Module modRender
         'FBOm.attach_C()
         'GL.Enable(EnableCap.Blend)
         '==========================
-        TERRAIN_TRIS_DRAWN = 0
         GL.Enable(EnableCap.CullFace)
 
         '=======================================================================================
@@ -559,33 +552,13 @@ Module modRender
         FBO_mixer_set.gNormalArray.BindUnit(2)
         FBO_mixer_set.gGmmArray.BindUnit(3)
 
-        GL.Uniform3(TerrainLQShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
-
-        GL.Uniform1(TerrainLQShader("waterAlpha"), Map_wetness.waterAlpha)
-
-        GL.Uniform2(TerrainLQShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
-        GL.Uniform2(TerrainLQShader("map_center"), -b_x_min, b_y_max)
+        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
-                TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
-
-                GL.Uniform1(TerrainLQShader("map_id"), CSng(i))
-
-
-                GL.UniformMatrix4(TerrainLQShader("modelMatrix"), False, theMap.render_set(i).matrix)
-
-                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
-                GL.Uniform2(TerrainLQShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
-
                 'draw chunk
-                GL.BindVertexArray(theMap.render_set(i).VAO)
-                GL.DrawElements(PrimitiveType.Triangles,
-                    24576,
-                    DrawElementsType.UnsignedShort, 0)
+                GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
             End If
 
         Next
@@ -605,34 +578,16 @@ Module modRender
         FBO_mixer_set.gNormalArray.BindUnit(23)
         FBO_mixer_set.gGmmArray.BindUnit(24)
 
-        'water BS
-        GL.Uniform3(TerrainShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
-
-        GL.Uniform1(TerrainShader("waterAlpha"), Map_wetness.waterAlpha)
-
-        GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
-        GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
-
         GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
+
+        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
-                TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
-
-                GL.Uniform1(TerrainShader("map_id"), CSng(i))
-
-                GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
-
-                GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
-                GL.Uniform2(TerrainShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y) 'me_location
 
                 'bind all the data for this chunk
                 With theMap.render_set(i)
-                    .layersStd140_ubo.BindBase(0)
-
                     'AM maps
                     theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
                     theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
@@ -650,10 +605,7 @@ Module modRender
                     .TexLayers(3).Blend_id.BindUnit(20)
 
                     'draw chunk
-                    GL.BindVertexArray(.VAO)
-                    GL.DrawElements(PrimitiveType.Triangles,
-                        24576,
-                        DrawElementsType.UnsignedShort, 0)
+                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                 End With
             End If
         Next
@@ -676,23 +628,10 @@ Module modRender
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
 
-            For i = 0 To theMap.render_set.Length - 1
+            GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+            MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
-                If theMap.render_set(i).visible Then
-
-                    Dim model = theMap.render_set(i).matrix
-
-                    GL.UniformMatrix4(TerrainNormals("model"), False, model)
-
-                    GL.BindVertexArray(theMap.render_set(i).VAO)
-
-                    'draw chunk wire
-                    GL.DrawElements(PrimitiveType.Triangles,
-                            24576,
-                            DrawElementsType.UnsignedShort, 0)
-
-                End If
-            Next
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, MapGL.numTerrainChunks, 0)
 
             TerrainNormals.StopUse()
 
@@ -877,19 +816,12 @@ Module modRender
         GL.Uniform1(TerrainGrids("show_chunks"), CInt(SHOW_CHUNKS))
         GL.Uniform1(TerrainGrids("show_grid"), CInt(SHOW_GRID))
 
-        GL.Uniform1(TerrainGrids("gGMF"), 0)
-
         FBOm.gGMF.BindUnit(0)
 
-        For i = 0 To theMap.render_set.Length - 1
-            GL.UniformMatrix4(TerrainGrids("model"), False, theMap.render_set(i).matrix)
+        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
-            'draw chunk
-            GL.BindVertexArray(theMap.render_set(i).VAO)
-            GL.DrawElements(PrimitiveType.Triangles,
-                24576,
-                DrawElementsType.UnsignedShort, 0)
-        Next
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, MapGL.numTerrainChunks, 0)
         TerrainGrids.StopUse()
 
         unbind_textures(0)
@@ -997,9 +929,6 @@ Module modRender
         'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
 
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
-
-        'sum triangles drawn
-        Dim tr = TERRAIN_TRIS_DRAWN
 
         Dim txt = String.Format("FPS: {0} | Draw time in Milliseconds: {1}", FPS_TIME, elapsed)
         'debug shit

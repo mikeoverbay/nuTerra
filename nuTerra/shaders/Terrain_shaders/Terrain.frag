@@ -1,6 +1,9 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_GLOBAL_UBO
+#define USE_TERRAIN_CHUNK_INFO_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout(early_fragment_tests) in;
@@ -9,56 +12,6 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
-layout (location = 4) out uint gPick;
-
-layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
-    vec4 U1;
-    vec4 U2;
-    vec4 U3;
-    vec4 U4;
-
-    vec4 U5;
-    vec4 U6;
-    vec4 U7;
-    vec4 U8;
-
-    vec4 V1;
-    vec4 V2;
-    vec4 V3;
-    vec4 V4;
-
-    vec4 V5;
-    vec4 V6;
-    vec4 V7;
-    vec4 V8;
-
-    vec4 r1_1;
-    vec4 r1_2;
-    vec4 r1_3;
-    vec4 r1_4;
-    vec4 r1_5;
-    vec4 r1_6;
-    vec4 r1_7;
-    vec4 r1_8;
-
-    vec4 r2_1;
-    vec4 r2_2;
-    vec4 r2_3;
-    vec4 r2_4;
-    vec4 r2_5;
-    vec4 r2_6;
-    vec4 r2_7;
-    vec4 r2_8;
-
-    vec4 s1;
-    vec4 s2;
-    vec4 s3;
-    vec4 s4;
-    vec4 s5;
-    vec4 s6;
-    vec4 s7;
-    vec4 s8;
-};
 
 layout(binding = 1 ) uniform sampler2DArray at1;
 layout(binding = 2 ) uniform sampler2DArray at2;
@@ -84,9 +37,6 @@ layout(binding = 22) uniform sampler2DArray textArrayC;
 layout(binding = 23) uniform sampler2DArray textArrayN;
 layout(binding = 24) uniform sampler2DArray textArrayG;
 
-uniform vec3 waterColor;
-uniform float waterAlpha;
-uniform float map_id;
 uniform float test;
 
 in VS_OUT {
@@ -96,6 +46,7 @@ in VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
+    flat uint map_id;
 } fs_in;
 
 /*===========================================================*/
@@ -203,6 +154,8 @@ vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
 
 void main(void)
 {
+    const ChunkLayers l = terrain_chunk_info[fs_in.map_id].layers;
+
     //==============================================================
     // texture outline stuff
     float B1, B2, B3, B4, B5, B6, B7, B8;
@@ -233,56 +186,56 @@ void main(void)
     //-------------------------------------------------------
 
     // create UV projections
-    tuv1 = get_transformed_uv(U1, V1); 
-    tuv2 = get_transformed_uv(U2, V2);
-    tuv3 = get_transformed_uv(U3, V3); 
-    tuv4 = get_transformed_uv(U4, V4);
-    tuv5 = get_transformed_uv(U5, V5); 
-    tuv6 = get_transformed_uv(U6, V6);
-    tuv7 = get_transformed_uv(U7, V7);
-    tuv8 = get_transformed_uv(U8, V8);
+    tuv1 = get_transformed_uv(l.U1, l.V1); 
+    tuv2 = get_transformed_uv(l.U2, l.V2);
+    tuv3 = get_transformed_uv(l.U3, l.V3); 
+    tuv4 = get_transformed_uv(l.U4, l.V4);
+    tuv5 = get_transformed_uv(l.U5, l.V5); 
+    tuv6 = get_transformed_uv(l.U6, l.V6);
+    tuv7 = get_transformed_uv(l.U7, l.V7);
+    tuv8 = get_transformed_uv(l.U8, l.V8);
 
     // Get AM maps,crop and set Test outline blend flag
 
-    t1 = crop(at1, tuv1, 0.0, B1, s1);
-    t2 = crop(at2, tuv2, 0.0, B2, s2);
-    t3 = crop(at3, tuv3, 0.0, B3, s3);
-    t4 = crop(at4, tuv4, 0.0, B4, s4);
-    t5 = crop(at5, tuv5, 0.0, B5, s5);
-    t6 = crop(at6, tuv6, 0.0, B6, s6);
-    t7 = crop(at7, tuv7, 0.0, B7, s7);
-    t8 = crop(at8, tuv8, 0.0, B8, s8);
+    t1 = crop(at1, tuv1, 0.0, B1, l.s1);
+    t2 = crop(at2, tuv2, 0.0, B2, l.s2);
+    t3 = crop(at3, tuv3, 0.0, B3, l.s3);
+    t4 = crop(at4, tuv4, 0.0, B4, l.s4);
+    t5 = crop(at5, tuv5, 0.0, B5, l.s5);
+    t6 = crop(at6, tuv6, 0.0, B6, l.s6);
+    t7 = crop(at7, tuv7, 0.0, B7, l.s7);
+    t8 = crop(at8, tuv8, 0.0, B8, l.s8);
     
-    mt1 = crop3(at1, tuv1, 2.0, s1);
-    mt2 = crop3(at2, tuv2, 2.0, s2);
-    mt3 = crop3(at3, tuv3, 2.0, s3);
-    mt4 = crop3(at4, tuv4, 2.0, s4);
-    mt5 = crop3(at5, tuv5, 2.0, s5);
-    mt6 = crop3(at6, tuv6, 2.0, s6);
-    mt7 = crop3(at7, tuv7, 2.0, s7);
-    mt8 = crop3(at8, tuv8, 2.0, s8);
+    mt1 = crop3(at1, tuv1, 2.0, l.s1);
+    mt2 = crop3(at2, tuv2, 2.0, l.s2);
+    mt3 = crop3(at3, tuv3, 2.0, l.s3);
+    mt4 = crop3(at4, tuv4, 2.0, l.s4);
+    mt5 = crop3(at5, tuv5, 2.0, l.s5);
+    mt6 = crop3(at6, tuv6, 2.0, l.s6);
+    mt7 = crop3(at7, tuv7, 2.0, l.s7);
+    mt8 = crop3(at8, tuv8, 2.0, l.s8);
 
     // spcular is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    n1 = crop2(at1, tuv1, 1.0, s1);
-    n2 = crop2(at2, tuv2, 1.0, s2);
-    n3 = crop2(at3, tuv3, 1.0, s3);
-    n4 = crop2(at4, tuv4, 1.0, s4);
-    n5 = crop2(at5, tuv5, 1.0, s5);
-    n6 = crop2(at6, tuv6, 1.0, s6);
-    n7 = crop2(at7, tuv7, 1.0, s7);
-    n8 = crop2(at8, tuv8, 1.0, s8);
+    n1 = crop2(at1, tuv1, 1.0, l.s1);
+    n2 = crop2(at2, tuv2, 1.0, l.s2);
+    n3 = crop2(at3, tuv3, 1.0, l.s3);
+    n4 = crop2(at4, tuv4, 1.0, l.s4);
+    n5 = crop2(at5, tuv5, 1.0, l.s5);
+    n6 = crop2(at6, tuv6, 1.0, l.s6);
+    n7 = crop2(at7, tuv7, 1.0, l.s7);
+    n8 = crop2(at8, tuv8, 1.0, l.s8);
 
-    mn1 = crop3(at1, tuv1, 3.0, s1);
-    mn2 = crop3(at2, tuv2, 3.0, s2);
-    mn3 = crop3(at3, tuv3, 3.0, s3);
-    mn4 = crop3(at4, tuv4, 3.0, s4);
-    mn5 = crop3(at5, tuv5, 3.0, s5);
-    mn6 = crop3(at6, tuv6, 3.0, s6);
-    mn7 = crop3(at7, tuv7, 3.0, s7);
-    mn8 = crop3(at8, tuv8, 3.0, s8);
+    mn1 = crop3(at1, tuv1, 3.0, l.s1);
+    mn2 = crop3(at2, tuv2, 3.0, l.s2);
+    mn3 = crop3(at3, tuv3, 3.0, l.s3);
+    mn4 = crop3(at4, tuv4, 3.0, l.s4);
+    mn5 = crop3(at5, tuv5, 3.0, l.s5);
+    mn6 = crop3(at6, tuv6, 3.0, l.s6);
+    mn7 = crop3(at7, tuv7, 3.0, l.s7);
+    mn8 = crop3(at8, tuv8, 3.0, l.s8);
 
     // get the ambient occlusion
 
@@ -307,23 +260,23 @@ void main(void)
     //mix macro
 
 
-    t1.rgb = t1.rgb* min(r1_1.x,1.0) + mt1.rgb*(r1_1.y+1.0);
-    t2.rgb = t2.rgb* min(r1_2.x,1.0) + mt2.rgb*(r1_2.y+1.0);
-    t3.rgb = t3.rgb* min(r1_3.x,1.0) + mt3.rgb*(r1_3.y+1.0);
-    t4.rgb = t4.rgb* min(r1_4.x,1.0) + mt4.rgb*(r1_4.y+1.0);
-    t5.rgb = t5.rgb* min(r1_5.x,1.0) + mt5.rgb*(r1_5.y+1.0);
-    t6.rgb = t6.rgb* min(r1_6.x,1.0) + mt6.rgb*(r1_6.y+1.0);
-    t7.rgb = t7.rgb* min(r1_7.x,1.0) + mt7.rgb*(r1_7.y+1.0);
-    t8.rgb = t8.rgb* min(r1_8.x,1.0) + mt8.rgb*(r1_8.y+1.0);
+    t1.rgb = t1.rgb* min(l.r1_1.x,1.0) + mt1.rgb*(l.r1_1.y+1.0);
+    t2.rgb = t2.rgb* min(l.r1_2.x,1.0) + mt2.rgb*(l.r1_2.y+1.0);
+    t3.rgb = t3.rgb* min(l.r1_3.x,1.0) + mt3.rgb*(l.r1_3.y+1.0);
+    t4.rgb = t4.rgb* min(l.r1_4.x,1.0) + mt4.rgb*(l.r1_4.y+1.0);
+    t5.rgb = t5.rgb* min(l.r1_5.x,1.0) + mt5.rgb*(l.r1_5.y+1.0);
+    t6.rgb = t6.rgb* min(l.r1_6.x,1.0) + mt6.rgb*(l.r1_6.y+1.0);
+    t7.rgb = t7.rgb* min(l.r1_7.x,1.0) + mt7.rgb*(l.r1_7.y+1.0);
+    t8.rgb = t8.rgb* min(l.r1_8.x,1.0) + mt8.rgb*(l.r1_8.y+1.0);
     
-    n1.rgb = n1.rgb* min(r1_1.x,1.0) + mn1.rgb*(r2_1.y+1.0);
-    n2.rgb = n2.rgb* min(r1_2.x,1.0) + mn2.rgb*(r2_2.y+1.0);
-    n3.rgb = n3.rgb* min(r1_3.x,1.0) + mn3.rgb*(r2_3.y+1.0);
-    n4.rgb = n4.rgb* min(r1_4.x,1.0) + mn4.rgb*(r2_4.y+1.0);
-    n5.rgb = n5.rgb* min(r1_5.x,1.0) + mn5.rgb*(r2_5.y+1.0);
-    n6.rgb = n6.rgb* min(r1_6.x,1.0) + mn6.rgb*(r2_6.y+1.0);
-    n7.rgb = n7.rgb* min(r1_7.x,1.0) + mn7.rgb*(r2_7.y+1.0);
-    n8.rgb = n8.rgb* min(r1_8.x,1.0) + mn8.rgb*(r2_8.y+1.0);
+    n1.rgb = n1.rgb* min(l.r1_1.x,1.0) + mn1.rgb*(l.r2_1.y+1.0);
+    n2.rgb = n2.rgb* min(l.r1_2.x,1.0) + mn2.rgb*(l.r2_2.y+1.0);
+    n3.rgb = n3.rgb* min(l.r1_3.x,1.0) + mn3.rgb*(l.r2_3.y+1.0);
+    n4.rgb = n4.rgb* min(l.r1_4.x,1.0) + mn4.rgb*(l.r2_4.y+1.0);
+    n5.rgb = n5.rgb* min(l.r1_5.x,1.0) + mn5.rgb*(l.r2_5.y+1.0);
+    n6.rgb = n6.rgb* min(l.r1_6.x,1.0) + mn6.rgb*(l.r2_6.y+1.0);
+    n7.rgb = n7.rgb* min(l.r1_7.x,1.0) + mn7.rgb*(l.r2_7.y+1.0);
+    n8.rgb = n8.rgb* min(l.r1_8.x,1.0) + mn8.rgb*(l.r2_8.y+1.0);
 
 
     //Get the mix values from the mix textures 1-4 and move to vec2. 
@@ -334,14 +287,14 @@ void main(void)
 
     //months of work to figure this out!
    
-    MixLevel1.r *= t1.a+r1_1.x;
-    MixLevel1.g *= t2.a+r1_2.x;
-    MixLevel2.r *= t3.a+r1_3.x;
-    MixLevel2.g *= t4.a+r1_4.x;
-    MixLevel3.r *= t5.a+r1_5.x;
-    MixLevel3.g *= t6.a+r1_6.x;
-    MixLevel4.r *= t7.a+r1_7.x;
-    MixLevel4.g *= t8.a+r1_8.x;
+    MixLevel1.r *= t1.a+l.r1_1.x;
+    MixLevel1.g *= t2.a+l.r1_2.x;
+    MixLevel2.r *= t3.a+l.r1_3.x;
+    MixLevel2.g *= t4.a+l.r1_4.x;
+    MixLevel3.r *= t5.a+l.r1_5.x;
+    MixLevel3.g *= t6.a+l.r1_6.x;
+    MixLevel4.r *= t7.a+l.r1_7.x;
+    MixLevel4.g *= t8.a+l.r1_8.x;
 
     float power = 0.6;
     MixLevel1.r = pow(MixLevel1.r,1.0/power);
@@ -426,9 +379,9 @@ void main(void)
     out_n.xyz = fs_in.TBN * out_n.xyz;
     
     // Get pre=mixed map textures
-    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, map_id) );
-    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, map_id) );
-    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, map_id) );
+    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, fs_in.map_id) );
 
     ArrayTextureN.xyz = fs_in.TBN * ArrayTextureN.xyz;
 
@@ -449,5 +402,4 @@ void main(void)
     gNormal.xyz = normalize(out_n.xyz);
 
     gPosition = fs_in.worldPosition;
-    gPick = 0;
 }

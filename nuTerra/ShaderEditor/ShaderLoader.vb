@@ -261,9 +261,9 @@ Module ShaderLoader
         'particle shaders
         explode_type_1_shader = New Shader("explode_type_1_")
         'shadow shaders
-        terrainDepthShader = New Shader("terrainDepthWriter")
-        terrainMaskShader = New Shader("terrainMask")
-        modelDepthShader = New Shader("modelDepthWriter")
+        'unused: terrainDepthShader = New Shader("terrainDepthWriter")
+        'unused: terrainMaskShader = New Shader("terrainMask")
+        'unused: modelDepthShader = New Shader("modelDepthWriter")
 
 
 
@@ -310,9 +310,9 @@ Module ShaderLoader
         'particle shaders
         shaders.Add(explode_type_1_shader)
         'shadow shaders
-        shaders.Add(terrainDepthShader)
-        shaders.Add(terrainMaskShader)
-        shaders.Add(modelDepthShader)
+        'unused: shaders.Add(terrainDepthShader)
+        'unused: shaders.Add(terrainMaskShader)
+        'unused: shaders.Add(modelDepthShader)
     End Sub
 
     Public Function assemble_shader(v As String,

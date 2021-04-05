@@ -30,6 +30,7 @@ Module MapLoader
         ''' OpenGL buffers used to draw all map models
         ''' </summary>
         NotInheritable Class Buffers
+            ' For map models only!
             Public Shared materials As GLBuffer
             Public Shared parameters As GLBuffer
             Public Shared matrices As GLBuffer
@@ -42,6 +43,12 @@ Module MapLoader
             Public Shared indirect_dbl_sided As GLBuffer
             Public Shared lods As GLBuffer
 
+            ' For terrain only!
+            Public Shared terrain_matrices As GLBuffer
+            Public Shared terrain_indirect As GLBuffer
+            Public Shared terrain_vertices As GLBuffer
+            Public Shared terrain_indices As GLBuffer
+
             ' For cull-raster only!
             Public Shared visibles As GLBuffer
             Public Shared visibles_dbl_sided As GLBuffer
@@ -49,10 +56,12 @@ Module MapLoader
 
         NotInheritable Class VertexArrays
             Public Shared allMapModels As Integer
+            Public Shared allTerrainChunks As Integer
         End Class
 
         Public Shared numModelInstances As Integer
         Public Shared indirectDrawCount As Integer
+        Public Shared numTerrainChunks As Integer
     End Class
 
     Public Structure mdl_
@@ -1112,7 +1121,6 @@ Module MapLoader
 
         theMap.MINI_MAP_ID = Nothing
         theMap.chunks = Nothing
-        theMap.vertex_vBuffer_id = Nothing
 
         GC.Collect()
         GC.WaitForFullGCComplete()

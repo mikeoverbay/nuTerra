@@ -556,6 +556,12 @@ try_again:
                               BufferStorageFlags.DynamicStorageBit)
         PerViewDataBuffer.BindBase(1)
 
+        GlobalPropertiesBuffer = CreateBuffer(BufferTarget.UniformBuffer, "GlobalProperties")
+        BufferStorageNullData(GlobalPropertiesBuffer,
+                              Marshal.SizeOf(GlobalProperties),
+                              BufferStorageFlags.DynamicStorageBit)
+        GlobalPropertiesBuffer.BindBase(2)
+
         FBOm.FBO_Initialize()
         LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
