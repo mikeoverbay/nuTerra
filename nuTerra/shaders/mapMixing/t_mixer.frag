@@ -20,12 +20,10 @@ layout(binding = 6 ) uniform sampler2DArray at6;
 layout(binding = 7 ) uniform sampler2DArray at7;
 layout(binding = 8 ) uniform sampler2DArray at8;
 
-
-layout(binding = 17) uniform sampler2D mixtexture1;
-layout(binding = 18) uniform sampler2D mixtexture2;
-layout(binding = 19) uniform sampler2D mixtexture3;
-layout(binding = 20) uniform sampler2D mixtexture4;
-
+layout(binding = 17) uniform sampler2DArray mixtexture1;
+layout(binding = 18) uniform sampler2DArray mixtexture2;
+layout(binding = 19) uniform sampler2DArray mixtexture3;
+layout(binding = 20) uniform sampler2DArray mixtexture4;
 
 layout(binding = 21) uniform sampler2D global_AM;
 
@@ -210,10 +208,10 @@ void main(void)
     n8.rgb = n8.rgb* min(l.r1_8.x,1.0) + mn8.rgb*(l.r2_8.y+1.0);
 
     //Get the mix values from the mix textures 1-4 and move to vec2. 
-    MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
-    MixLevel2.rg = texture(mixtexture2, mix_coords.xy).ag;
-    MixLevel3.rg = texture(mixtexture3, mix_coords.xy).ag;
-    MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
+    MixLevel1.rg = texture(mixtexture1, vec3(mix_coords.xy, fs_in.map_id)).ag;
+    MixLevel2.rg = texture(mixtexture2, vec3(mix_coords.xy, fs_in.map_id)).ag;
+    MixLevel3.rg = texture(mixtexture3, vec3(mix_coords.xy, fs_in.map_id)).ag;
+    MixLevel4.rg = texture(mixtexture4, vec3(mix_coords.xy, fs_in.map_id)).ag;
 
 
     MixLevel1.r *= t1.a+l.r1_1.x;

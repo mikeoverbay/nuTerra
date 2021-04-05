@@ -75,28 +75,13 @@ Module TextureLoaders
         Return Nothing ' Didn't find it
     End Function
 
-    Public Function load_t2_texture_from_stream(br As BinaryReader, w As Integer, h As Integer) As GLTexture
-        Dim image_id = CreateTexture(TextureTarget.Texture2D, "blend_Tex")
-
-        image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-        image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
-        image_id.Parameter(TextureParameterName.TextureMaxLevel, 1)
-        image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-        image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-
-        image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.MirroredRepeat)
-        image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.MirroredRepeat)
+    Public Sub load_t2_texture_from_stream(br As BinaryReader, w As Integer, h As Integer, i As Integer, map As Integer)
+        Dim image_id = theMap.BLEND_ARRAY(i)
 
         Dim data = br.ReadBytes(w * h)
-        Dim sizedFormat = DirectCast(InternalFormat.CompressedRgbaS3tcDxt5Ext, SizedInternalFormat)
         Dim pixelFormat = DirectCast(InternalFormat.CompressedRgbaS3tcDxt5Ext, OpenGL.PixelFormat)
-        image_id.Storage2D(2, sizedFormat, w, h)
-        image_id.CompressedSubImage2D(0, 0, 0, w, h, pixelFormat, w * h, data)
-
-        image_id.GenerateMipmap()
-
-        Return image_id
-    End Function
+        image_id.CompressedSubImage3D(0, 0, 0, map, w, h, 1, pixelFormat, w * h, data)
+    End Sub
 
     Public Class DDSHeader
         Public Enum DdsPixelFormatFlag

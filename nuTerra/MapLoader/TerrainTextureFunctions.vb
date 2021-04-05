@@ -17,10 +17,6 @@ Module TerrainTextureFunctions
         With theMap.render_set(map)
             ReDim .TexLayers(3)
             .layer_count = 0 'How many layer sets are there
-            .TexLayers(0).Blend_id = DUMMY_TEXTURE_ID
-            .TexLayers(1).Blend_id = DUMMY_TEXTURE_ID
-            .TexLayers(2).Blend_id = DUMMY_TEXTURE_ID
-            .TexLayers(3).Blend_id = DUMMY_TEXTURE_ID
         End With
 
         Get_layer_texture_data(map) ' get all the data
@@ -272,7 +268,7 @@ Module TerrainTextureFunctions
 
                     End If
                     'load blend texture
-                    .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
+                    load_t2_texture_from_stream(br2, .b_x_size, .b_y_size, i, map)
 
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt + 0).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt + 0).v

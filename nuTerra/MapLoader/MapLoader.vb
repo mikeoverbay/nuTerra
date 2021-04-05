@@ -16,7 +16,7 @@ Module MapLoader
     Public NORMALMAPSIZE As Integer = 256
     Public HOLEMAPSIZE As Integer = 64
     Public SHADOWMAPSIZE As Integer = 64
-    Public BLENDMAPSIZE As Integer = 256
+    Public BLENDMAPSIZE As Integer = 128
 
     '-----------------------------------
     'This stores all models used on a map

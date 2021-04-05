@@ -46,6 +46,12 @@ Module LQ_Texture_creator
 
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, PROJECTIONMATRIX)
 
+        'bind blend textures
+        theMap.BLEND_ARRAY(0).BindUnit(17)
+        theMap.BLEND_ARRAY(1).BindUnit(18)
+        theMap.BLEND_ARRAY(2).BindUnit(19)
+        theMap.BLEND_ARRAY(3).BindUnit(20)
+
         'bind all the data for this chunk
         With theMap.render_set(map)
             Dim i = map
@@ -58,13 +64,6 @@ Module LQ_Texture_creator
             theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(6)
             theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(7)
             theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(8)
-
-
-            'bind blend textures
-            .TexLayers(0).Blend_id.BindUnit(17)
-            .TexLayers(1).Blend_id.BindUnit(18)
-            .TexLayers(2).Blend_id.BindUnit(19)
-            .TexLayers(3).Blend_id.BindUnit(20)
 
             'draw chunk
             GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))

@@ -1,7 +1,8 @@
 ﻿Imports System.IO
 Imports System.Runtime.InteropServices
-Imports OpenTK
 Imports System.Text
+Imports OpenTK
+Imports OpenTK.Graphics.OpenGL
 
 Module TerrainBuilder
     Public sb As New StringBuilder
@@ -48,6 +49,8 @@ Module TerrainBuilder
         Public Shared v_data() As terain_V_data_
         Public Shared render_set() As chunk_render_data_
         '------------------------
+        Public Shared BLEND_ARRAY(3) As GLTexture
+        '------------------------
         Public Shared MINI_MAP_ID As GLTexture
         Public Shared GLOBAL_AM_ID As GLTexture
 
@@ -64,11 +67,8 @@ Module TerrainBuilder
         Public Shared normal_map As String
         Public Shared global_map As String ' global_AM.dds
         Public Shared noise_texture As String ' noiseTexture
-        '------------------------
-        Public Shared indices_count As Integer = 7938 * 3
-        '------------------------
-
     End Class
+
     Public Structure chunk_
         Public cdata() As Byte
         Public heights_data() As Byte
@@ -173,7 +173,6 @@ Module TerrainBuilder
     End Structure
 
     Public Structure ids_
-        Public Blend_id As GLTexture
         Public AM_name1, NM_name1 As String
         Public AM_id1, NM_id1 As GLTexture
         Public AM_name2, NM_name2 As String
@@ -264,6 +263,12 @@ Module TerrainBuilder
 
         BG_VALUE = 0
         BG_TEXT = "Reading Terrain Texture data..."
+
+        theMap.BLEND_ARRAY(0) = create_blend_texture(0)
+        theMap.BLEND_ARRAY(1) = create_blend_texture(1)
+        theMap.BLEND_ARRAY(2) = create_blend_texture(2)
+        theMap.BLEND_ARRAY(3) = create_blend_texture(3)
+
         For i = 0 To theMap.chunks.Length - 1
             get_layers(i)
             BG_VALUE = i
@@ -272,6 +277,12 @@ Module TerrainBuilder
                 Application.DoEvents()
             End If
         Next
+
+        theMap.BLEND_ARRAY(0).GenerateMipmap()
+        theMap.BLEND_ARRAY(1).GenerateMipmap()
+        theMap.BLEND_ARRAY(2).GenerateMipmap()
+        theMap.BLEND_ARRAY(3).GenerateMipmap()
+
         If _Write_texture_info Then
             LogThis("Saved Texture transform data")
             File.WriteAllText(TEMP_STORAGE + "\" + MAP_NAME_NO_PATH + "_Tex_info.txt", sb.ToString)
@@ -291,6 +302,24 @@ Module TerrainBuilder
         LogThis(String.Format("Build VAO: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Stop()
     End Sub
+
+    Private Function create_blend_texture(i As Integer) As GLTexture
+        Dim tex = CreateTexture(TextureTarget.Texture2DArray, String.Format("blend_tex_{0}", i))
+
+        tex.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
+        tex.Parameter(TextureParameterName.TextureBaseLevel, 0)
+        tex.Parameter(TextureParameterName.TextureMaxLevel, 1)
+        tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+
+        tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.MirroredRepeat)
+        tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.MirroredRepeat)
+
+        Dim sizedFormat = DirectCast(InternalFormat.CompressedRgbaS3tcDxt5Ext, SizedInternalFormat)
+        tex.Storage3D(2, sizedFormat, BLENDMAPSIZE, BLENDMAPSIZE, theMap.chunks.Length)
+
+        Return tex
+    End Function
 
     '=======================================================================
     Public Sub get_all_chunk_file_data()
@@ -332,6 +361,8 @@ Module TerrainBuilder
         ReDim theMap.chunks(Expected_max_chunk_count)
         ReDim theMap.v_data(Expected_max_chunk_count)
         ReDim theMap.render_set(Expected_max_chunk_count)
+
+        BLENDMAPSIZE = cBWT2.settings2.blend_map_size
 
         Dim cnt As Integer = 0
         With cBWT2.settings

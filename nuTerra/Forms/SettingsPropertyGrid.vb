@@ -1,5 +1,6 @@
 ﻿Imports System.ComponentModel
-Imports System.Text.RegularExpressions
+Imports System.Runtime.InteropServices
+Imports OpenTK.Graphics.OpenGL
 
 Public Class SettingsPropertyGrid
     Const MIN_FOV = 1
@@ -106,6 +107,7 @@ Public Class SettingsPropertyGrid
     Public Property Terrain_Start As Single
         Set(value As Single)
             GlobalProperties._start = value
+            GL.NamedBufferSubData(GlobalPropertiesBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(GlobalProperties), GlobalProperties)
         End Set
         Get
             Return GlobalProperties._start
@@ -116,6 +118,7 @@ Public Class SettingsPropertyGrid
     Public Property Terrain_End As Single
         Set(value As Single)
             GlobalProperties._end = value
+            GL.NamedBufferSubData(GlobalPropertiesBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(GlobalProperties), GlobalProperties)
         End Set
         Get
             Return GlobalProperties._end
@@ -138,7 +141,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Global Mip Bias"), Category("Open GL")>
     Public Property OPENGL_global_mip_bias As Single
         Set(value As Single)
-            If -4.0 <= value And value <= 4.0 Then
+            If -15.0 <= value And value <= 15.0 Then
                 GLOBAL_MIP_BIAS = value
             End If
         End Set
