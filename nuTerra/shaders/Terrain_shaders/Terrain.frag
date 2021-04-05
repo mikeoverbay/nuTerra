@@ -325,10 +325,7 @@ void main(void)
     MixLevel4 = max(MixLevel4,vec2(0.0139));
   
 //    //Mix in water as a hieght using the globla alpha.
-//    vec4 m8 = blend(m7, MixLevel3.r+MixLevel3.g+MixLevel4.r+MixLevel4.g + 
-//              MixLevel1.r+MixLevel1.g+ MixLevel2.r+MixLevel2.g,
-//              vec4(waterColor,waterAlpha),global.a);
-//                   
+                 
     vec4 base;
     base  = t1 * MixLevel1.r;
     base += t2 * MixLevel1.g;
@@ -338,7 +335,7 @@ void main(void)
     base += t6 * MixLevel3.g;
     base += t7 * MixLevel4.r;
     base += t8 * MixLevel4.g;
-    base  *= 1.0;
+
 
     //global
      vec4 gc = global;
