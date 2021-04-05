@@ -61,6 +61,14 @@ Module modOpenGL
     End Class
 
     <StructLayout(LayoutKind.Sequential)>
+    Public Structure ModelInstanceRange
+        Dim instance_offset As UInt32
+        Dim instance_count As UInt32
+        Dim draw_offset As UInt32
+        Dim draw_count As UInt32
+    End Structure
+
+    <StructLayout(LayoutKind.Sequential)>
     Public Structure DrawElementsIndirectCommand
         Dim count As UInt32
         Dim instanceCount As UInt32

@@ -7,6 +7,7 @@
 #define USE_PERVIEW_UBO
 #define USE_CANDIDATE_DRAWS_SSBO
 #define USE_MODELINSTANCES_SSBO
+#define USE_MODEL_INSTANCE_MAPPING_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec3 vertexPosition;
@@ -20,10 +21,10 @@ out VS_OUT
 
 void main(void)
 {
-    const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
-    const mat4 mvp = models[thisDraw.model_id].cached_mvp;
+    const uint model_id = model_instance_mapping[gl_BaseInstanceARB + gl_InstanceID];
+    const mat4 mvp = models[model_id].cached_mvp;
 
-    vs_out.material_id = thisDraw.material_id;
+    vs_out.material_id = 0;
     vs_out.uv = vertexTexCoord1;
 
     // Calculate vertex position in clip coordinates

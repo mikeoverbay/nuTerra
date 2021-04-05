@@ -486,13 +486,13 @@ Module modRender
         GL_PUSH_GROUP("frustum_cull")
 
         'clear atomic counter
-        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, 4 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         cullShader.Use()
 
-        GL.Uniform1(cullShader("numModelInstances"), MapGL.numModelInstances)
+        GL.Uniform1(cullShader("numModelInstances"), MapGL.numModels)
 
-        Dim numGroups = (MapGL.numModelInstances + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
+        Dim numGroups = (MapGL.numModels + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
         GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)

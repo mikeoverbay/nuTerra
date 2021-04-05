@@ -42,6 +42,10 @@ Module MapLoader
             Public Shared indirect_dbl_sided As GLBuffer
             Public Shared lods As GLBuffer
 
+            ' For instancing!
+            Public Shared modelRanges As GLBuffer
+            Public Shared modelInstanceMapping As GLBuffer
+
             ' For cull-raster only!
             Public Shared visibles As GLBuffer
             Public Shared visibles_dbl_sided As GLBuffer
@@ -51,6 +55,7 @@ Module MapLoader
             Public Shared allMapModels As Integer
         End Class
 
+        Public Shared numModels As Integer
         Public Shared numModelInstances As Integer
         Public Shared indirectDrawCount As Integer
     End Class
@@ -211,11 +216,12 @@ Module MapLoader
             ' calc instances
             MapGL.numModelInstances = 0
             MapGL.indirectDrawCount = 0
+            MapGL.numModels = 0
             Dim numVerts = 0
             Dim numPrims = 0
             Dim numLods = 0
             For Each batch In MODEL_BATCH_LIST
-                For lod_id = 0 To MAP_MODELS(batch.model_id).modelLods.Count - 1
+                For lod_id = 0 To 0
                     Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
 
                     If lod.junk Then
@@ -242,6 +248,7 @@ Module MapLoader
 
                     numLods += batch.count
                     If lod_id = 0 Then MapGL.numModelInstances += batch.count
+                    MapGL.numModels += 1
                 Next
             Next
 
@@ -269,7 +276,9 @@ Module MapLoader
                                   BufferStorageFlags.DynamicStorageBit)
 
             Dim matrices(MapGL.numModelInstances - 1) As ModelInstance
+            Dim modelRanges(MapGL.numModels - 1) As ModelInstanceRange
             Dim lods(numLods - 1) As ModelLoD
+            Dim modelId = 0
             Dim cmdId = 0
             Dim vLast = 0
             Dim iLast = 0
@@ -280,7 +289,7 @@ Module MapLoader
                 Dim skip = True
                 Dim savedLodOffset = lodLast
 
-                For lod_id = 0 To MAP_MODELS(batch.model_id).modelLods.Count - 1
+                For lod_id = 0 To 0
                     Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
 
                     If lod.junk Then
@@ -328,28 +337,12 @@ Module MapLoader
                     Next
 
                     If Not skip Then
-                        Dim countPrimGroups = cmdId - savedCmdId
-                        For i = 1 To batch.count - 1
-                            For j = 0 To countPrimGroups - 1
-                                With drawCommands(cmdId)
-                                    .model_id = mLast + i
-                                    .material_id = drawCommands(savedCmdId + j).material_id
-                                    .count = drawCommands(savedCmdId + j).count
-                                    .firstIndex = drawCommands(savedCmdId + j).firstIndex
-                                    .baseVertex = drawCommands(savedCmdId + j).baseVertex
-                                    .baseInstance = cmdId
-                                    .lod_level = lod_id
-                                End With
-                                cmdId += 1
-                            Next
-                        Next
-                        For i = 0 To batch.count - 1
-                            With lods(lodLast)
-                                .draw_offset = savedCmdId + i * countPrimGroups
-                                .draw_count = countPrimGroups
-                            End With
-                            lodLast += 1
-                        Next
+                        With modelRanges(modelId)
+                            .instance_offset = mLast
+                            .instance_count = batch.count
+                            .draw_offset = savedCmdId
+                            .draw_count = cmdId - savedCmdId
+                        End With
                     End If
                 Next
 
@@ -369,11 +362,12 @@ Module MapLoader
                     PICK_DICTIONARY(mLast + i) = Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
                 Next
                 mLast += batch.count
+                modelId += 1
             Next
 
             MapGL.Buffers.parameters = CreateBuffer(BufferTarget.AtomicCounterBuffer, "parameters")
             BufferStorageNullData(MapGL.Buffers.parameters,
-                                  3 * Marshal.SizeOf(Of Integer),
+                                  4 * Marshal.SizeOf(Of Integer),
                                   BufferStorageFlags.ClientStorageBit)
             MapGL.Buffers.parameters.BindBase(0)
 
@@ -422,6 +416,20 @@ Module MapLoader
                           BufferStorageFlags.None)
             MapGL.Buffers.matrices.BindBase(0)
             Erase matrices
+
+            MapGL.Buffers.modelRanges = CreateBuffer(BufferTarget.ShaderStorageBuffer, "modelRanges")
+            BufferStorage(MapGL.Buffers.modelRanges,
+                          modelRanges.Length * Marshal.SizeOf(Of ModelInstanceRange),
+                          modelRanges,
+                          BufferStorageFlags.None)
+            MapGL.Buffers.modelRanges.BindBase(10)
+            Erase modelRanges
+
+            MapGL.Buffers.modelInstanceMapping = CreateBuffer(BufferTarget.ShaderStorageBuffer, "modelInstanceMapping")
+            BufferStorageNullData(MapGL.Buffers.modelInstanceMapping,
+                                  MapGL.numModelInstances * Marshal.SizeOf(Of UInt32),
+                                  BufferStorageFlags.None)
+            MapGL.Buffers.modelInstanceMapping.BindBase(11)
 
             MapGL.Buffers.lods = CreateBuffer(BufferTarget.ShaderStorageBuffer, "lods")
             BufferStorage(MapGL.Buffers.lods,

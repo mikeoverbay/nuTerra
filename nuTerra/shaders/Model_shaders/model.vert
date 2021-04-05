@@ -8,6 +8,7 @@
 #define USE_MODELINSTANCES_SSBO
 #define USE_CANDIDATE_DRAWS_SSBO
 #define USE_MATERIALS_SSBO
+#define USE_MODEL_INSTANCE_MAPPING_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec3 vertexPosition;
@@ -42,12 +43,13 @@ out VS_OUT
 
 void main(void)
 {
-    const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
-    const ModelInstance thisModel = models[thisDraw.model_id];
-    const MaterialProperties thisMaterial = material[thisDraw.material_id];
+    const uint model_id = model_instance_mapping[gl_BaseInstanceARB + gl_InstanceID];
+
+    const ModelInstance thisModel = models[model_id];
+    const MaterialProperties thisMaterial = material[0];
     const mat4 mvp = thisModel.cached_mvp;
 
-    vs_out.material_id = thisDraw.material_id;
+    vs_out.material_id = 0;
 
 #ifdef PICK_MODELS
     vs_out.model_id = thisDraw.model_id;

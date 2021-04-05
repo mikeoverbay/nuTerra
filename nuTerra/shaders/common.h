@@ -15,6 +15,15 @@
 #define LIGHTS_BASE 7
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
+#define MODEL_RANGES_BASE 10
+#define MODEL_INSTANCE_MAPPING_BASE 11
+
+struct ModelInstanceRange {
+    uint instance_offset;
+    uint instance_count;
+    uint draw_offset;
+    uint draw_count;
+};
 
 struct CandidateDraw
 {
@@ -45,7 +54,7 @@ struct ModelInstance
     vec3 bmax;
     uint lod_count;
     uint batch_count; // hack!!!
-    uint reserved1;
+    bool inFrustum;
     uint reserved2;
     uint reserved3;
 };
@@ -161,5 +170,19 @@ layout(std430, binding = VISIBLES_BASE) buffer visibleBuffer {
 };
 layout(std430, binding = VISIBLES_DBL_SIDED_BASE) buffer visibleDblSidedBuffer {
     int visibles_dbl_sided[];
+};
+#endif
+
+#ifdef USE_MODEL_RANGES_SSBO
+layout(binding = MODEL_RANGES_BASE, std430) readonly buffer MODEL_RANGES_BLOCK
+{
+    ModelInstanceRange model_ranges[];
+};
+#endif
+
+#ifdef USE_MODEL_INSTANCE_MAPPING_SSBO
+layout(binding = MODEL_INSTANCE_MAPPING_BASE, std430) buffer MODEL_INSTANCE_MAPPING_BLOCK
+{
+    uint model_instance_mapping[];
 };
 #endif
