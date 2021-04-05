@@ -651,12 +651,7 @@ Module modRender
             GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
             MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
-            For i = 0 To theMap.render_set.Length - 1
-                If theMap.render_set(i).visible Then
-                    'draw chunk wire
-                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-                End If
-            Next
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, MapGL.numTerrainChunks, 0)
 
             TerrainNormals.StopUse()
 
