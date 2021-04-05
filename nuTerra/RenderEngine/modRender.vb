@@ -570,6 +570,7 @@ Module modRender
         GL.Uniform2(TerrainLQShader("map_center"), -b_x_min, b_y_max)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
@@ -584,9 +585,7 @@ Module modRender
                 GL.Uniform2(TerrainLQShader("me_location"), theMap.chunks(i).location.X, theMap.chunks(i).location.Y)
 
                 'draw chunk
-                GL.DrawElementsBaseVertex(PrimitiveType.Triangles,
-                    24576,
-                    DrawElementsType.UnsignedShort, IntPtr.Zero, i * 4225)
+                GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
             End If
 
         Next
@@ -620,6 +619,8 @@ Module modRender
         GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
                 TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
@@ -652,9 +653,7 @@ Module modRender
                     .TexLayers(3).Blend_id.BindUnit(20)
 
                     'draw chunk
-                    GL.DrawElementsBaseVertex(PrimitiveType.Triangles,
-                        24576,
-                        DrawElementsType.UnsignedShort, IntPtr.Zero, i * 4225)
+                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                 End With
             End If
         Next
@@ -678,6 +677,8 @@ Module modRender
             GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
 
             GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+            MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+
             For i = 0 To theMap.render_set.Length - 1
 
                 If theMap.render_set(i).visible Then
@@ -687,10 +688,7 @@ Module modRender
                     GL.UniformMatrix4(TerrainNormals("model"), False, model)
 
                     'draw chunk wire
-                    GL.DrawElementsBaseVertex(PrimitiveType.Triangles,
-                        24576,
-                        DrawElementsType.UnsignedShort, IntPtr.Zero, i * 4225)
-
+                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                 End If
             Next
 
@@ -882,13 +880,12 @@ Module modRender
         FBOm.gGMF.BindUnit(0)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
         For i = 0 To theMap.render_set.Length - 1
             GL.UniformMatrix4(TerrainGrids("model"), False, theMap.render_set(i).matrix)
 
             'draw chunk
-            GL.DrawElementsBaseVertex(PrimitiveType.Triangles,
-                24576,
-                DrawElementsType.UnsignedShort, IntPtr.Zero, i * 4225)
+            GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
         Next
         TerrainGrids.StopUse()
 

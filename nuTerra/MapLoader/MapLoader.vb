@@ -44,6 +44,7 @@ Module MapLoader
             Public Shared lods As GLBuffer
 
             ' For terrain only!
+            Public Shared terrain_indirect As GLBuffer
             Public Shared terrain_vertices As GLBuffer
             Public Shared terrain_indices As GLBuffer
 
@@ -59,6 +60,7 @@ Module MapLoader
 
         Public Shared numModelInstances As Integer
         Public Shared indirectDrawCount As Integer
+        Public Shared numTerrainChunks As Integer
     End Class
 
     Public Structure mdl_

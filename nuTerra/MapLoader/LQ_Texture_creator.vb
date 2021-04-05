@@ -23,6 +23,8 @@ Module LQ_Texture_creator
         ortho(quailty)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+
         For map = 0 To theMap.render_set.Length - 1
             create_layer(map)
         Next
@@ -75,9 +77,7 @@ Module LQ_Texture_creator
             .TexLayers(3).Blend_id.BindUnit(20)
 
             'draw chunk
-            GL.DrawElementsBaseVertex(PrimitiveType.Triangles,
-                24576,
-                DrawElementsType.UnsignedShort, IntPtr.Zero, i * 4225)
+            GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
         End With
 
         t_mixerShader.StopUse()

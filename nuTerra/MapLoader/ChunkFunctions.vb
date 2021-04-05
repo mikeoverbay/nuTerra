@@ -285,6 +285,10 @@ Module ChunkFunctions
     End Structure
 
     Public Sub build_Terrain_VAO()
+        MapGL.numTerrainChunks = theMap.chunks.Length
+
+        Dim terrainIndirect(MapGL.numTerrainChunks - 1) As DrawElementsIndirectCommand
+
         MapGL.VertexArrays.allTerrainChunks = CreateVertexArray("allTerrainChunks")
 
         MapGL.Buffers.terrain_vertices = CreateBuffer(BufferTarget.ArrayBuffer, "terrain_vertices")
@@ -299,6 +303,12 @@ Module ChunkFunctions
         For i = 0 To theMap.chunks.Length - 1
             With theMap.v_data(i)
                 Debug.Assert(.n_buff.Length = .h_buff.Length)
+
+                terrainIndirect(i).count = 24576
+                terrainIndirect(i).instanceCount = 1
+                terrainIndirect(i).firstIndex = 0
+                terrainIndirect(i).baseVertex = i * .v_buff_XZ.Length
+                terrainIndirect(i).baseInstance = 0
 
                 Dim vertices(.n_buff.Length - 1) As TerrainVertex
                 For j = 0 To .n_buff.Length - 1
@@ -349,6 +359,10 @@ Module ChunkFunctions
         GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 3)
 
         GL.VertexArrayElementBuffer(MapGL.VertexArrays.allTerrainChunks, MapGL.Buffers.terrain_indices.buffer_id)
+
+        MapGL.Buffers.terrain_indirect = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_indices")
+        BufferStorage(MapGL.Buffers.terrain_indirect, MapGL.numTerrainChunks * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
+        MapGL.Buffers.terrain_indirect.BindBase(10)
     End Sub
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)
