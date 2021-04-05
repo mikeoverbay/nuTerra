@@ -4,7 +4,6 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
-layout (location = 4) out uint gPick;
 
 layout(binding = 0) uniform sampler2D global_AM;
 layout(binding = 1) uniform sampler2DArray textArrayC;
@@ -40,5 +39,4 @@ void main(void)
     gGMF = ArrayTextureG;
 
     gPosition = fs_in.worldPosition;
-    gPick = 0;
 }
