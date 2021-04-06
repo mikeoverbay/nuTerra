@@ -288,8 +288,8 @@ Module ChunkFunctions
     Private Structure TerrainChunkInfo
         Public modelMatrix As Matrix4
         Public me_location As Vector2
-        Public pad1 As UInt32
-        Public pad2 As UInt32
+        Public avg_heights As Single
+        Public lq As UInt32
         Public layers As ChunkLayers
     End Structure
 
@@ -302,6 +302,7 @@ Module ChunkFunctions
         GlobalProperties.map_size.Y = MAP_SIZE.Y + 1
         GlobalProperties.map_center.X = -b_x_min
         GlobalProperties.map_center.Y = b_y_max
+        GlobalProperties.numTerrainChunks = MapGL.numTerrainChunks
         GL.NamedBufferSubData(GlobalPropertiesBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(GlobalProperties), GlobalProperties)
 
         Dim terrainIndirect(MapGL.numTerrainChunks - 1) As DrawElementsIndirectCommand
@@ -330,6 +331,7 @@ Module ChunkFunctions
 
                 terrainMatrices(i).modelMatrix = theMap.render_set(i).matrix
                 terrainMatrices(i).me_location = theMap.chunks(i).location.Xy
+                terrainMatrices(i).avg_heights = theMap.v_data(i).avg_heights
 
                 With theMap.render_set(i)
                     terrainMatrices(i).layers.U1 = .TexLayers(0).uP1

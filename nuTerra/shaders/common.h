@@ -106,6 +106,7 @@ layout(binding = GLOBAL_UBO_BASE, std140) uniform GlobalProperties {
     vec2 map_center;
     float _start;
     float _end;
+    uint numTerrainChunks;
 };
 #endif
 
@@ -230,8 +231,8 @@ struct ChunkLayers {
 struct TerrainChunkInfo {
     mat4 modelMatrix;
     vec2 me_location;
-    uint pad1;
-    uint pad2;
+    float avg_heights;
+    uint lq;
     ChunkLayers layers;
 };
 

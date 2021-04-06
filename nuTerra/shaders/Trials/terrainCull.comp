@@ -11,8 +11,6 @@
 
 layout (local_size_variable) in;
 
-layout (location = 0) uniform int numTerrainChunks;
-
 struct Frustum {
     vec4 planes[6];
 };
@@ -57,9 +55,17 @@ void main(void)
     const TerrainChunkInfo info = terrain_chunk_info[gl_GlobalInvocationID.x];
     const mat4 mvp = viewProj * info.modelMatrix;
 
-    vec3 bmin = vec3(-1);
-    vec3 bmax = vec3(1);
+    vec3 bmin = vec3(-50);
+    vec3 bmax = vec3(50);
 
     const bool passed = frustumCullingTest(mvp, bmin, bmax);
     terrain_indirect[gl_GlobalInvocationID.x].instanceCount = passed ? 1 : 0;
+
+    if (!passed) return;
+
+    float l1 = abs(info.me_location.x - cameraPos.x);
+    float l2 = abs(info.avg_heights - cameraPos.y);
+    float l3 = abs(info.me_location.y - cameraPos.z);
+
+    terrain_chunk_info[gl_GlobalInvocationID.x].lq = length(vec3(l1, l2, l3)) > 300.0 ? 1 : 0;
 }

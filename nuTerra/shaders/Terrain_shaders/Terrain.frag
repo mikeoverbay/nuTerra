@@ -154,7 +154,12 @@ vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
 
 void main(void)
 {
-    const ChunkLayers l = terrain_chunk_info[fs_in.map_id].layers;
+    const TerrainChunkInfo info = terrain_chunk_info[fs_in.map_id];
+    if (info.lq == 1) {
+        discard;
+    }
+
+    const ChunkLayers l = info.layers;
 
     //==============================================================
     // texture outline stuff

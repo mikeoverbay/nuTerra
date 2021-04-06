@@ -1,5 +1,10 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shading_language_include : require
+
+#define USE_TERRAIN_CHUNK_INFO_SSBO
+#include "common.h" //! #include "../common.h"
+
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
@@ -23,6 +28,11 @@ in VS_OUT {
 /*===========================================================*/
 void main(void)
 {
+    const TerrainChunkInfo info = terrain_chunk_info[fs_in.map_id];
+    if (info.lq == 0) {
+        discard;
+    }
+
     vec4 global = texture(global_AM, fs_in.Global_UV);
     // This is needed to light the global_AM.
     vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, fs_in.map_id) );

@@ -150,6 +150,7 @@ Module modOpenGL
         Public map_center As Vector2
         Public _start As Single
         Public _end As Single
+        Public numTerrainChunks As UInt32
     End Structure
     Public GlobalProperties As New TGlobalProperties
     Public GlobalPropertiesBuffer As GLBuffer

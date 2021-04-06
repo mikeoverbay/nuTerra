@@ -68,14 +68,13 @@ Module modRender
 
         '===========================================================================
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
-            ExtractFrustum()
-            cull_terrain()
+            terrain_frustum_cull()
         End If
         '===========================================================================
 
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
             '=======================================================================
-            frustum_cull() '========================================================
+            models_frustum_cull() '========================================================
             '=======================================================================
         End If
 
@@ -476,8 +475,25 @@ Module modRender
         GL_POP_GROUP()
     End Sub
 
-    Private Sub frustum_cull()
-        GL_PUSH_GROUP("frustum_cull")
+    Private Sub terrain_frustum_cull()
+        GL_PUSH_GROUP("terrain_frustum_cull")
+
+        terrainCullShader.Use()
+
+        GL.Uniform1(terrainCullShader("numTerrainChunks"), MapGL.numTerrainChunks)
+
+        Dim numGroups = (MapGL.numTerrainChunks + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
+        GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
+
+        GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
+
+        terrainCullShader.StopUse()
+
+        GL_POP_GROUP()
+    End Sub
+
+    Private Sub models_frustum_cull()
+        GL_PUSH_GROUP("models_frustum_cull")
 
         'clear atomic counter
         GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
@@ -524,22 +540,6 @@ Module modRender
         GL.Enable(EnableCap.CullFace)
 
         '=======================================================================================
-        'First, find out what chunks are to be drawn as LQ global_AM texturing only.
-        '=======================================================================================
-        For i = 0 To theMap.render_set.Length - 1
-            Dim l1 = Abs(theMap.chunks(i).location.X - CAM_POSITION.X) 'x
-            Dim l2 = Abs(theMap.v_data(i).avg_heights - CAM_POSITION.Y) 'y
-            Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
-            Dim v As New Vector3(l1, l2, l3)
-            Dim l = v.Length
-            If l > 300.0F Then 'This value is the distance at which the chunk drawing is swapped.
-                theMap.render_set(i).LQ = True
-            Else
-                theMap.render_set(i).LQ = False
-            End If
-        Next
-
-        '=======================================================================================
         'Draw visible LQ chunks
         '=======================================================================================
         '------------------------------------------------
@@ -555,13 +555,8 @@ Module modRender
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
-        For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
-                'draw chunk
-                GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-            End If
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, MapGL.numTerrainChunks, 0)
 
-        Next
         TerrainLQShader.StopUse()
         unbind_textures(2)
         '=======================================================================================
@@ -590,24 +585,19 @@ Module modRender
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
         For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
+            'bind all the data for this chunk
+            'AM maps
+            theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
+            theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
+            theMap.render_set(i).layer.render_info(2).atlas_id.BindUnit(3)
+            theMap.render_set(i).layer.render_info(3).atlas_id.BindUnit(4)
+            theMap.render_set(i).layer.render_info(4).atlas_id.BindUnit(5)
+            theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(6)
+            theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(7)
+            theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(8)
 
-                'bind all the data for this chunk
-                With theMap.render_set(i)
-                    'AM maps
-                    theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
-                    theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
-                    theMap.render_set(i).layer.render_info(2).atlas_id.BindUnit(3)
-                    theMap.render_set(i).layer.render_info(3).atlas_id.BindUnit(4)
-                    theMap.render_set(i).layer.render_info(4).atlas_id.BindUnit(5)
-                    theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(6)
-                    theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(7)
-                    theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(8)
-
-                    'draw chunk
-                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-                End With
-            End If
+            'draw chunk
+            GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
         Next
 
         TerrainShader.StopUse()
@@ -897,21 +887,18 @@ Module modRender
         GL_PUSH_GROUP("draw_terrain_ids")
 
         For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible Then ' Dont do math on no-visible chunks
+            Dim v As Vector4
+            v.Y = theMap.v_data(i).avg_heights
+            v.W = 1.0
 
-                Dim v As Vector4
-                v.Y = theMap.v_data(i).avg_heights
-                v.W = 1.0
+            Dim sp = UnProject_Chunk(v, theMap.render_set(i).matrix)
 
-                Dim sp = UnProject_Chunk(v, theMap.render_set(i).matrix)
+            If sp.Z > 0.0F Then
+                Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
+                draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True, 1)
+                s = String.Format("{0}, {1}", theMap.render_set(i).matrix.Row3(0), theMap.render_set(i).matrix.Row3(2))
+                draw_text(s, sp.X, sp.Y - 19, OpenTK.Graphics.Color4.Yellow, True, 1)
 
-                If sp.Z > 0.0F Then
-                    Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
-                    draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True, 1)
-                    s = String.Format("{0}, {1}", theMap.render_set(i).matrix.Row3(0), theMap.render_set(i).matrix.Row3(2))
-                    draw_text(s, sp.X, sp.Y - 19, OpenTK.Graphics.Color4.Yellow, True, 1)
-
-                End If
             End If
         Next
 
