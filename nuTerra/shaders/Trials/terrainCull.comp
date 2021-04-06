@@ -12,6 +12,8 @@
 
 layout (local_size_variable) in;
 
+layout (binding = PARAMETERS_BASE, offset = 12) uniform atomic_uint commandTerrainCounter;
+
 struct Frustum {
     vec4 planes[6];
 };
@@ -60,9 +62,11 @@ void main(void)
     vec3 bmax = vec3(50);
 
     const bool passed = frustumCullingTest(mvp, bmin, bmax);
-    terrain_indirect[gl_GlobalInvocationID.x].instanceCount = passed ? 1 : 0;
 
     if (!passed) return;
+
+    uint outDrawIndex = atomicCounterIncrement(commandTerrainCounter);
+    terrain_indirect_dynamic[outDrawIndex] = terrain_indirect_static[gl_GlobalInvocationID.x];
 
     float l1 = abs(info.me_location.x - cameraPos.x);
     float l2 = abs(info.avg_heights - cameraPos.y);

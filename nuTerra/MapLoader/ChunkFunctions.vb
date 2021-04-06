@@ -445,13 +445,17 @@ Module ChunkFunctions
 
         GL.VertexArrayElementBuffer(MapGL.VertexArrays.allTerrainChunks, MapGL.Buffers.terrain_indices.buffer_id)
 
-        MapGL.Buffers.terrain_indirect = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_indices")
-        BufferStorage(MapGL.Buffers.terrain_indirect, terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
-        MapGL.Buffers.terrain_indirect.BindBase(10)
+        MapGL.Buffers.terrain_indirect_static = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_indirect_static")
+        BufferStorage(MapGL.Buffers.terrain_indirect_static, terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
+        MapGL.Buffers.terrain_indirect_static.BindBase(10)
 
         MapGL.Buffers.terrain_matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
         BufferStorage(MapGL.Buffers.terrain_matrices, terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
         MapGL.Buffers.terrain_matrices.BindBase(11)
+
+        MapGL.Buffers.terrain_indirect_dynamic = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_indirect_dynamic")
+        BufferStorageNullData(MapGL.Buffers.terrain_indirect_dynamic, MapGL.numTerrainChunks * Marshal.SizeOf(Of DrawElementsIndirectCommand), BufferStorageFlags.None)
+        MapGL.Buffers.terrain_indirect_dynamic.BindBase(12)
     End Sub
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)

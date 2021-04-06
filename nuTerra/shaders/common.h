@@ -16,8 +16,9 @@
 #define LIGHTS_BASE 7
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
-#define TERRAIN_INDIRECT_BASE 10
+#define TERRAIN_INDIRECT_STATIC_BASE 10
 #define TERRAIN_CHUNK_INFO_BASE 11
+#define TERRAIN_INDIRECT_DYNAMIC_BASE 12
 
 struct CandidateDraw
 {
@@ -240,8 +241,13 @@ layout(std430, binding = TERRAIN_CHUNK_INFO_BASE) buffer TerrainChunkInfoBuffer 
 #endif
 
 #ifdef USE_TERRAIN_INDIRECT_SSBO
-layout(binding = TERRAIN_INDIRECT_BASE, std430) writeonly buffer TerrainIndirect
+layout(binding = TERRAIN_INDIRECT_STATIC_BASE, std430) readonly buffer TerrainIndirectStatic
 {
-    DrawElementsIndirectCommand terrain_indirect[];
+    DrawElementsIndirectCommand terrain_indirect_static[];
+};
+
+layout(binding = TERRAIN_INDIRECT_DYNAMIC_BASE, std430) writeonly buffer TerrainIndirectDynamic
+{
+    DrawElementsIndirectCommand terrain_indirect_dynamic[];
 };
 #endif

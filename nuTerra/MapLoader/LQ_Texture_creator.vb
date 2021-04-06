@@ -23,7 +23,7 @@ Module LQ_Texture_creator
         ortho(quailty)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
-        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        MapGL.Buffers.terrain_indirect_static.Bind(BufferTarget.DrawIndirectBuffer)
 
         For map = 0 To theMap.render_set.Length - 1
             create_layer(map)

@@ -119,21 +119,25 @@ Module modRender
             draw_terrain() '========================================================
             '=======================================================================
             If (SHOW_BORDER Or SHOW_CHUNKS Or SHOW_GRID) Then draw_terrain_grids()
-            '=======================================================================
-            'setup for projection before drawing
-            FBOm.attach_C_no_Depth()
-            GL.DepthMask(False)
-            GL.FrontFace(FrontFaceDirection.Cw)
-            GL.Enable(EnableCap.CullFace)
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-            '=======================================================================
-            If SHOW_CURSOR Then draw_map_cursor() '=================================
-            '=======================================================================
-            'restore settings after projected objects are drawn
-            GL.DepthMask(True)
-            GL.Disable(EnableCap.CullFace)
-            FBOm.attach_Depth()
-            GL.FrontFace(FrontFaceDirection.Ccw)
+
+            If SHOW_CURSOR Then
+                '=======================================================================
+                'setup for projection before drawing
+                '=======================================================================
+                FBOm.attach_C_no_Depth()
+                GL.DepthMask(False)
+                GL.FrontFace(FrontFaceDirection.Cw)
+                GL.Enable(EnableCap.CullFace)
+                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+                draw_map_cursor()
+
+                '=======================================================================
+                'restore settings after projected objects are drawn
+                GL.DepthMask(True)
+                GL.Disable(EnableCap.CullFace)
+                FBOm.attach_Depth()
+                GL.FrontFace(FrontFaceDirection.Ccw)
+            End If
         End If
 
 
@@ -143,19 +147,6 @@ Module modRender
             '=======================================================================
         End If
         '===========================================================================
-        If TERRAIN_LOADED Then
-            FBOm.attach_C()
-            GL.Enable(EnableCap.Blend)
-            GL.Enable(EnableCap.DepthTest)
-            GL.DepthMask(False)
-            For i = 0 To Test_Emiters.Length - 1
-                'Test_Emiters(i).execute()
-            Next
-
-            GL.Disable(EnableCap.Blend)
-            GL.Enable(EnableCap.DepthTest)
-            GL.DepthMask(True)
-        End If
 
 
         GL.DepthFunc(DepthFunction.Less)
@@ -467,6 +458,9 @@ Module modRender
     Private Sub terrain_frustum_cull()
         GL_PUSH_GROUP("terrain_frustum_cull")
 
+        'clear atomic counter
+        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, New IntPtr(12), 4, PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+
         terrainCullShader.Use()
 
         Dim numGroups = (MapGL.numTerrainChunks + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
@@ -540,9 +534,10 @@ Module modRender
         theMap.BLEND_ARRAY(3).BindUnit(7)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
-        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        MapGL.Buffers.terrain_indirect_dynamic.Bind(BufferTarget.DrawIndirectBuffer)
+        MapGL.Buffers.parameters.Bind(ArbIndirectParameters.ParameterBufferArb)
 
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, MapGL.numTerrainChunks, 0)
+        GL.Arb.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, New IntPtr(12), MapGL.numTerrainChunks, 0)
 
         TerrainShader.StopUse()
 
@@ -747,7 +742,7 @@ Module modRender
         FBOm.gGMF.BindUnit(0)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
-        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        MapGL.Buffers.terrain_indirect_static.Bind(BufferTarget.DrawIndirectBuffer)
 
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, MapGL.numTerrainChunks, 0)
         TerrainGrids.StopUse()
