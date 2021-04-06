@@ -13,29 +13,26 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 
-layout(binding = 1 ) uniform sampler2DArray at1;
-layout(binding = 2 ) uniform sampler2DArray at2;
-layout(binding = 3 ) uniform sampler2DArray at3;
-layout(binding = 4 ) uniform sampler2DArray at4;
+layout(binding = 0) uniform sampler2D global_AM;
 
-layout(binding = 5 ) uniform sampler2DArray at5;
-layout(binding = 6 ) uniform sampler2DArray at6;
-layout(binding = 7 ) uniform sampler2DArray at7;
-layout(binding = 8 ) uniform sampler2DArray at8;
-layout(binding = 10 ) uniform sampler2DArray micro_NM;
+layout(binding = 1) uniform sampler2DArray textArrayC;
+layout(binding = 2) uniform sampler2DArray textArrayN;
+layout(binding = 3) uniform sampler2DArray textArrayG;
 
+layout(binding = 4) uniform sampler2DArray mixtexture1;
+layout(binding = 5) uniform sampler2DArray mixtexture2;
+layout(binding = 6) uniform sampler2DArray mixtexture3;
+layout(binding = 7) uniform sampler2DArray mixtexture4;
 
-layout(binding = 17) uniform sampler2DArray mixtexture1;
-layout(binding = 18) uniform sampler2DArray mixtexture2;
-layout(binding = 19) uniform sampler2DArray mixtexture3;
-layout(binding = 20) uniform sampler2DArray mixtexture4;
+layout(binding = 8 ) uniform sampler2DArray at1;
+layout(binding = 9 ) uniform sampler2DArray at2;
+layout(binding = 10 ) uniform sampler2DArray at3;
+layout(binding = 11 ) uniform sampler2DArray at4;
 
-
-layout(binding = 21) uniform sampler2D global_AM;
-
-layout(binding = 22) uniform sampler2DArray textArrayC;
-layout(binding = 23) uniform sampler2DArray textArrayN;
-layout(binding = 24) uniform sampler2DArray textArrayG;
+layout(binding = 12 ) uniform sampler2DArray at5;
+layout(binding = 13 ) uniform sampler2DArray at6;
+layout(binding = 14 ) uniform sampler2DArray at7;
+layout(binding = 15 ) uniform sampler2DArray at8;
 
 uniform float test;
 

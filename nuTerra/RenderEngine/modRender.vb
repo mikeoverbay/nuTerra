@@ -547,16 +547,16 @@ Module modRender
         '------------------------------------------------
         ' Set this texture to 0 to test LQ/HQ transitions
 
-        'bind blend textures
-        theMap.BLEND_ARRAY(0).BindUnit(17)
-        theMap.BLEND_ARRAY(1).BindUnit(18)
-        theMap.BLEND_ARRAY(2).BindUnit(19)
-        theMap.BLEND_ARRAY(3).BindUnit(20)
+        theMap.GLOBAL_AM_ID.BindUnit(0)
+        FBO_mixer_set.gColorArray.BindUnit(1)
+        FBO_mixer_set.gNormalArray.BindUnit(2)
+        FBO_mixer_set.gGmmArray.BindUnit(3)
 
-        theMap.GLOBAL_AM_ID.BindUnit(21)
-        FBO_mixer_set.gColorArray.BindUnit(22)
-        FBO_mixer_set.gNormalArray.BindUnit(23)
-        FBO_mixer_set.gGmmArray.BindUnit(24)
+        'bind blend textures
+        theMap.BLEND_ARRAY(0).BindUnit(4)
+        theMap.BLEND_ARRAY(1).BindUnit(5)
+        theMap.BLEND_ARRAY(2).BindUnit(6)
+        theMap.BLEND_ARRAY(3).BindUnit(7)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
@@ -577,14 +577,14 @@ Module modRender
         For i = 0 To theMap.render_set.Length - 1
             'bind all the data for this chunk
             'AM maps
-            theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
-            theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
-            theMap.render_set(i).layer.render_info(2).atlas_id.BindUnit(3)
-            theMap.render_set(i).layer.render_info(3).atlas_id.BindUnit(4)
-            theMap.render_set(i).layer.render_info(4).atlas_id.BindUnit(5)
-            theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(6)
-            theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(7)
-            theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(8)
+            theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(8)
+            theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(9)
+            theMap.render_set(i).layer.render_info(2).atlas_id.BindUnit(10)
+            theMap.render_set(i).layer.render_info(3).atlas_id.BindUnit(11)
+            theMap.render_set(i).layer.render_info(4).atlas_id.BindUnit(12)
+            theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(13)
+            theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(14)
+            theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(15)
 
             'draw chunk
             GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
@@ -595,10 +595,9 @@ Module modRender
         GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
 
-        unbind_textures(30)
+        unbind_textures(16)
 
         If WIRE_TERRAIN Then
-
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
             FBOm.attach_CF()
 
@@ -607,9 +606,6 @@ Module modRender
             GL.Uniform1(TerrainNormals("prj_length"), 0.5F)
             GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
-
-            GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
-            MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
             GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, MapGL.numTerrainChunks, 0)
 

@@ -10,10 +10,10 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 
-layout(binding = 21) uniform sampler2D global_AM;
-layout(binding = 22) uniform sampler2DArray textArrayC;
-layout(binding = 23) uniform sampler2DArray textArrayN;
-layout(binding = 24) uniform sampler2DArray textArrayG;
+layout(binding = 0) uniform sampler2D global_AM;
+layout(binding = 1) uniform sampler2DArray textArrayC;
+layout(binding = 2) uniform sampler2DArray textArrayN;
+layout(binding = 3) uniform sampler2DArray textArrayG;
 
 in VS_OUT {
     vec4 Vertex;
