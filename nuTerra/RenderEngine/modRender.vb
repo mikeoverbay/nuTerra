@@ -459,7 +459,7 @@ Module modRender
         GL_PUSH_GROUP("terrain_frustum_cull")
 
         'clear atomic counter
-        GL.ClearNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, PixelInternalFormat.R32ui, New IntPtr(12), 4, PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        GL.ClearNamedBufferSubData(MapGL.Buffers.terrain_parameters.buffer_id, PixelInternalFormat.R32ui, IntPtr.Zero, 4, PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         terrainCullShader.Use()
 
@@ -522,29 +522,16 @@ Module modRender
 
         TerrainShader.Use()  '<------------ Shader Bind
 
-        theMap.GLOBAL_AM_ID.BindUnit(0)
-        FBO_mixer_set.gColorArray.BindUnit(1)
-        FBO_mixer_set.gNormalArray.BindUnit(2)
-        FBO_mixer_set.gGmmArray.BindUnit(3)
-
-        'bind blend textures
-        theMap.BLEND_ARRAY(0).BindUnit(4)
-        theMap.BLEND_ARRAY(1).BindUnit(5)
-        theMap.BLEND_ARRAY(2).BindUnit(6)
-        theMap.BLEND_ARRAY(3).BindUnit(7)
-
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         MapGL.Buffers.terrain_indirect_dynamic.Bind(BufferTarget.DrawIndirectBuffer)
-        MapGL.Buffers.parameters.Bind(ArbIndirectParameters.ParameterBufferArb)
+        MapGL.Buffers.terrain_parameters.Bind(ArbIndirectParameters.ParameterBufferArb)
 
-        GL.Arb.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, New IntPtr(12), MapGL.numTerrainChunks, 0)
+        GL.Arb.MultiDrawElementsIndirectCount(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, IntPtr.Zero, MapGL.numTerrainChunks, 0)
 
         TerrainShader.StopUse()
 
         GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
-
-        unbind_textures(7)
 
         If WIRE_TERRAIN Then
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)

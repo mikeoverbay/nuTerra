@@ -286,11 +286,11 @@ Module ChunkFunctions
 
     <StructLayout(LayoutKind.Sequential)>
     Private Structure TerrainChunkInfo
+        Public layers As ChunkLayers
         Public modelMatrix As Matrix4
         Public me_location As Vector2
         Public avg_heights As Single
         Public lq As UInt32
-        Public layers As ChunkLayers
     End Structure
 
     Public Sub build_Terrain_VAO()
@@ -448,6 +448,12 @@ Module ChunkFunctions
         MapGL.Buffers.terrain_indirect_static = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_indirect_static")
         BufferStorage(MapGL.Buffers.terrain_indirect_static, terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
         MapGL.Buffers.terrain_indirect_static.BindBase(10)
+
+        MapGL.Buffers.terrain_parameters = CreateBuffer(BufferTarget.AtomicCounterBuffer, "terrain_parameters")
+        BufferStorageNullData(MapGL.Buffers.terrain_parameters,
+                              Marshal.SizeOf(Of Integer),
+                              BufferStorageFlags.None)
+        MapGL.Buffers.terrain_parameters.BindBase(1)
 
         MapGL.Buffers.terrain_matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
         BufferStorage(MapGL.Buffers.terrain_matrices, terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)

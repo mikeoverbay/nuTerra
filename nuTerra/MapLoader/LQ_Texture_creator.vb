@@ -30,7 +30,17 @@ Module LQ_Texture_creator
         Next
 
         FBO_mixer_set.make_mips()
+
+        GL.Arb.ProgramUniformHandle(TerrainShader.program, 5, theMap.GLOBAL_AM_ID.GetHandle())
+        GL.Arb.ProgramUniformHandle(TerrainShader.program, 6, FBO_mixer_set.gColorArray.GetHandle())
+        GL.Arb.ProgramUniformHandle(TerrainShader.program, 7, FBO_mixer_set.gNormalArray.GetHandle())
+        GL.Arb.ProgramUniformHandle(TerrainShader.program, 8, FBO_mixer_set.gGmmArray.GetHandle())
+        GL.Arb.ProgramUniformHandle(TerrainShader.program, 9, theMap.BLEND_ARRAY(0).GetHandle())
+        GL.Arb.ProgramUniformHandle(TerrainShader.program, 10, theMap.BLEND_ARRAY(1).GetHandle())
+        GL.Arb.ProgramUniformHandle(TerrainShader.program, 11, theMap.BLEND_ARRAY(2).GetHandle())
+        GL.Arb.ProgramUniformHandle(TerrainShader.program, 12, theMap.BLEND_ARRAY(3).GetHandle())
     End Sub
+
     Private Sub create_layer(ByVal map As Integer)
 
         FBO_mixer_set.attach_array_layer(map)

@@ -12,7 +12,7 @@
 
 layout (local_size_variable) in;
 
-layout (binding = PARAMETERS_BASE, offset = 12) uniform atomic_uint commandTerrainCounter;
+layout (binding = 1, offset = 0) uniform atomic_uint commandTerrainCounter;
 
 struct Frustum {
     vec4 planes[6];

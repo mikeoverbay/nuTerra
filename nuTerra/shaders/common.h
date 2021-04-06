@@ -228,11 +228,11 @@ struct ChunkLayers {
 };
 
 struct TerrainChunkInfo {
+    ChunkLayers layers;
     mat4 modelMatrix;
     vec2 me_location;
     float avg_heights;
     uint lq;
-    ChunkLayers layers;
 };
 
 layout(std430, binding = TERRAIN_CHUNK_INFO_BASE) buffer TerrainChunkInfoBuffer {

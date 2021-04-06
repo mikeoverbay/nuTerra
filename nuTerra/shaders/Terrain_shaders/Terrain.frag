@@ -14,16 +14,16 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 
-layout(binding = 0) uniform sampler2D global_AM;
+layout(location = 5, bindless_sampler) uniform sampler2D global_AM;
 
-layout(binding = 1) uniform sampler2DArray textArrayC;
-layout(binding = 2) uniform sampler2DArray textArrayN;
-layout(binding = 3) uniform sampler2DArray textArrayG;
+layout(location = 6, bindless_sampler) uniform sampler2DArray textArrayC;
+layout(location = 7, bindless_sampler) uniform sampler2DArray textArrayN;
+layout(location = 8, bindless_sampler) uniform sampler2DArray textArrayG;
 
-layout(binding = 4) uniform sampler2DArray mixtexture1;
-layout(binding = 5) uniform sampler2DArray mixtexture2;
-layout(binding = 6) uniform sampler2DArray mixtexture3;
-layout(binding = 7) uniform sampler2DArray mixtexture4;
+layout(location = 9, bindless_sampler) uniform sampler2DArray mixtexture1;
+layout(location = 10, bindless_sampler) uniform sampler2DArray mixtexture2;
+layout(location = 11, bindless_sampler) uniform sampler2DArray mixtexture3;
+layout(location = 12, bindless_sampler) uniform sampler2DArray mixtexture4;
 
 in VS_OUT {
     mat3 TBN;

@@ -44,6 +44,7 @@ Module MapLoader
             Public Shared lods As GLBuffer
 
             ' For terrain only!
+            Public Shared terrain_parameters As GLBuffer
             Public Shared terrain_matrices As GLBuffer
             Public Shared terrain_indirect_static As GLBuffer
             Public Shared terrain_indirect_dynamic As GLBuffer
@@ -383,7 +384,7 @@ Module MapLoader
 
             MapGL.Buffers.parameters = CreateBuffer(BufferTarget.AtomicCounterBuffer, "parameters")
             BufferStorageNullData(MapGL.Buffers.parameters,
-                                  12 * Marshal.SizeOf(Of Integer),
+                                  3 * Marshal.SizeOf(Of Integer),
                                   BufferStorageFlags.ClientStorageBit)
             MapGL.Buffers.parameters.BindBase(0)
 
