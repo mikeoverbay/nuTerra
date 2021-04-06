@@ -547,10 +547,16 @@ Module modRender
         '------------------------------------------------
         ' Set this texture to 0 to test LQ/HQ transitions
 
-        theMap.GLOBAL_AM_ID.BindUnit(0)
-        FBO_mixer_set.gColorArray.BindUnit(1)
-        FBO_mixer_set.gNormalArray.BindUnit(2)
-        FBO_mixer_set.gGmmArray.BindUnit(3)
+        'bind blend textures
+        theMap.BLEND_ARRAY(0).BindUnit(17)
+        theMap.BLEND_ARRAY(1).BindUnit(18)
+        theMap.BLEND_ARRAY(2).BindUnit(19)
+        theMap.BLEND_ARRAY(3).BindUnit(20)
+
+        theMap.GLOBAL_AM_ID.BindUnit(21)
+        FBO_mixer_set.gColorArray.BindUnit(22)
+        FBO_mixer_set.gNormalArray.BindUnit(23)
+        FBO_mixer_set.gGmmArray.BindUnit(24)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
@@ -558,7 +564,7 @@ Module modRender
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, MapGL.numTerrainChunks, 0)
 
         TerrainLQShader.StopUse()
-        unbind_textures(2)
+
         '=======================================================================================
         'draw visible HZ terrain
         '=======================================================================================
@@ -566,23 +572,7 @@ Module modRender
         TerrainShader.Use()  '<-------------- Shader Bind
         '------------------------------------------------
 
-
-        theMap.GLOBAL_AM_ID.BindUnit(21)
-
-        FBO_mixer_set.gColorArray.BindUnit(22)
-        FBO_mixer_set.gNormalArray.BindUnit(23)
-        FBO_mixer_set.gGmmArray.BindUnit(24)
-
         GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
-
-        'bind blend textures
-        theMap.BLEND_ARRAY(0).BindUnit(17)
-        theMap.BLEND_ARRAY(1).BindUnit(18)
-        theMap.BLEND_ARRAY(2).BindUnit(19)
-        theMap.BLEND_ARRAY(3).BindUnit(20)
-
-        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
-        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
         For i = 0 To theMap.render_set.Length - 1
             'bind all the data for this chunk
