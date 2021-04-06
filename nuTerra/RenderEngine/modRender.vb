@@ -552,8 +552,6 @@ Module modRender
         theMap.BLEND_ARRAY(2).BindUnit(6)
         theMap.BLEND_ARRAY(3).BindUnit(7)
 
-        GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
-
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 

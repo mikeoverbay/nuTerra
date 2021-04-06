@@ -25,8 +25,6 @@ layout(binding = 5) uniform sampler2DArray mixtexture2;
 layout(binding = 6) uniform sampler2DArray mixtexture3;
 layout(binding = 7) uniform sampler2DArray mixtexture4;
 
-uniform float test;
-
 in VS_OUT {
     mat3 TBN;
     vec4 Vertex;
@@ -150,13 +148,13 @@ void main(void)
     vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, fs_in.map_id) );
     vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, fs_in.map_id) );
 
+    gPosition = fs_in.worldPosition;
+
     if (info.lq == 1) {
         // The obvious
         gColor = ArrayTextureC;
         gNormal.xyz = normalize(fs_in.TBN * ArrayTextureN.xyz);
         gGMF = ArrayTextureG;
-
-        gPosition = fs_in.worldPosition;
         return;
     }
 
@@ -348,7 +346,9 @@ void main(void)
     //Mix in wetness as a hieght using the globla alpha.
     base = blend(base,base.a,vec4(waterColor,waterAlpha),global.a);
 
-    // Texture outlines if test = 1.0;
+    // Texture outlines
+#ifdef SHOW_TEST_TEXTURES
+    const float test = 1.0;
     base = mix(base, base + color_1, B1 * test * MixLevel1.r);
     base = mix(base, base + color_2, B2 * test * MixLevel1.g);
     base = mix(base, base + color_3, B3 * test * MixLevel2.r);
@@ -357,6 +357,7 @@ void main(void)
     base = mix(base, base + color_6, B6 * test * MixLevel3.g);
     base = mix(base, base + color_7, B7 * test * MixLevel4.r);
     base = mix(base, base + color_8, B8 * test * MixLevel4.g);
+#endif
 
     //-------------------------------------------------------------
     // normals
@@ -389,11 +390,8 @@ void main(void)
 
     // global.a is used for wetness specular on the map.
     // Stored in alpha of color map for deferred rendering.
-    t1 = texture(l.at[0],vec3(fs_in.UV,1.0));
     gColor.rgb = base.rgb;
     gColor.a = global.a*0.8;
 
     gNormal.xyz = normalize(out_n.xyz);
-
-    gPosition = fs_in.worldPosition;
 }
