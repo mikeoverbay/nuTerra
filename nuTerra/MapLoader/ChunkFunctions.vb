@@ -384,6 +384,15 @@ Module ChunkFunctions
                     terrainMatrices(i).layers.s6 = .TexLayers(2).scale_b
                     terrainMatrices(i).layers.s7 = .TexLayers(3).scale_a
                     terrainMatrices(i).layers.s8 = .TexLayers(3).scale_b
+
+                    terrainMatrices(i).layers.at1 = .layer.render_info(0).atlas_id.GetHandle()
+                    terrainMatrices(i).layers.at2 = .layer.render_info(1).atlas_id.GetHandle()
+                    terrainMatrices(i).layers.at3 = .layer.render_info(2).atlas_id.GetHandle()
+                    terrainMatrices(i).layers.at4 = .layer.render_info(3).atlas_id.GetHandle()
+                    terrainMatrices(i).layers.at5 = .layer.render_info(4).atlas_id.GetHandle()
+                    terrainMatrices(i).layers.at6 = .layer.render_info(5).atlas_id.GetHandle()
+                    terrainMatrices(i).layers.at7 = .layer.render_info(6).atlas_id.GetHandle()
+                    terrainMatrices(i).layers.at8 = .layer.render_info(7).atlas_id.GetHandle()
                 End With
 
                 Dim vertices(.n_buff.Length - 1) As TerrainVertex

@@ -1,5 +1,6 @@
 ﻿#version 450 core
 
+#extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
 #extension GL_ARB_shader_draw_parameters : require
 

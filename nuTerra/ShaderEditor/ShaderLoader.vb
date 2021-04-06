@@ -194,7 +194,6 @@ Module ShaderLoader
     Public TerrainGrids As Shader
     Public TerrainNormals As Shader
     Public TerrainShader As Shader
-    Public TerrainLQShader As Shader
     Public toLinearShader As Shader
     Public TextRenderShader As Shader
     'particle shaders
@@ -255,7 +254,6 @@ Module ShaderLoader
         TerrainGrids = New Shader("TerrainGrids")
         TerrainNormals = New Shader("TerrainNormals")
         TerrainShader = New Shader("Terrain")
-        TerrainLQShader = New Shader("TerrainLQ")
         TextRenderShader = New Shader("TextRender")
         toLinearShader = New Shader("toLinear")
         'particle shaders
@@ -304,7 +302,6 @@ Module ShaderLoader
         shaders.Add(TerrainGrids)
         shaders.Add(TerrainNormals)
         shaders.Add(TerrainShader)
-        shaders.Add(TerrainLQShader)
         shaders.Add(TextRenderShader)
         shaders.Add(toLinearShader)
         'particle shaders

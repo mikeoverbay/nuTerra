@@ -63,6 +63,15 @@ Public Module modOpenGLAliases
         End Sub
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
+        Public Function GetHandle() As Long
+            Dim handle = GL.Arb.GetTextureHandle(texture_id)
+            If Not GL.Arb.IsTextureHandleResident(handle) Then
+                GL.Arb.MakeTextureHandleResident(handle)
+            End If
+            Return handle
+        End Function
+
+        <MethodImpl(MethodImplOptions.AggressiveInlining)>
         Public Sub BindUnit(unit As Integer)
 #If WITHOUT_DSA Then
             GL.ActiveTexture(TextureUnit.Texture0 + unit)

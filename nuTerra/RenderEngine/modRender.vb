@@ -539,13 +539,7 @@ Module modRender
         '==========================
         GL.Enable(EnableCap.CullFace)
 
-        '=======================================================================================
-        'Draw visible LQ chunks
-        '=======================================================================================
-        '------------------------------------------------
-        TerrainLQShader.Use()  '<------------ Shader Bind
-        '------------------------------------------------
-        ' Set this texture to 0 to test LQ/HQ transitions
+        TerrainShader.Use()  '<------------ Shader Bind
 
         theMap.GLOBAL_AM_ID.BindUnit(0)
         FBO_mixer_set.gColorArray.BindUnit(1)
@@ -558,44 +552,19 @@ Module modRender
         theMap.BLEND_ARRAY(2).BindUnit(6)
         theMap.BLEND_ARRAY(3).BindUnit(7)
 
+        GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
+
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, MapGL.numTerrainChunks, 0)
-
-        TerrainLQShader.StopUse()
-
-        '=======================================================================================
-        'draw visible HZ terrain
-        '=======================================================================================
-        '------------------------------------------------
-        TerrainShader.Use()  '<-------------- Shader Bind
-        '------------------------------------------------
-
-        GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
-
-        For i = 0 To theMap.render_set.Length - 1
-            'bind all the data for this chunk
-            'AM maps
-            theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(8)
-            theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(9)
-            theMap.render_set(i).layer.render_info(2).atlas_id.BindUnit(10)
-            theMap.render_set(i).layer.render_info(3).atlas_id.BindUnit(11)
-            theMap.render_set(i).layer.render_info(4).atlas_id.BindUnit(12)
-            theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(13)
-            theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(14)
-            theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(15)
-
-            'draw chunk
-            GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-        Next
 
         TerrainShader.StopUse()
 
         GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
 
-        unbind_textures(16)
+        unbind_textures(7)
 
         If WIRE_TERRAIN Then
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)

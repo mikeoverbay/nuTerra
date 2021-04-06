@@ -1,5 +1,6 @@
 ﻿#version 450 core
 
+#extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
 
 #define USE_GLOBAL_UBO
@@ -23,16 +24,6 @@ layout(binding = 4) uniform sampler2DArray mixtexture1;
 layout(binding = 5) uniform sampler2DArray mixtexture2;
 layout(binding = 6) uniform sampler2DArray mixtexture3;
 layout(binding = 7) uniform sampler2DArray mixtexture4;
-
-layout(binding = 8 ) uniform sampler2DArray at1;
-layout(binding = 9 ) uniform sampler2DArray at2;
-layout(binding = 10 ) uniform sampler2DArray at3;
-layout(binding = 11 ) uniform sampler2DArray at4;
-
-layout(binding = 12 ) uniform sampler2DArray at5;
-layout(binding = 13 ) uniform sampler2DArray at6;
-layout(binding = 14 ) uniform sampler2DArray at7;
-layout(binding = 15 ) uniform sampler2DArray at8;
 
 uniform float test;
 
@@ -151,9 +142,22 @@ vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
 
 void main(void)
 {
+    vec4 global = texture(global_AM, fs_in.Global_UV);
     const TerrainChunkInfo info = terrain_chunk_info[fs_in.map_id];
+
+    // Get pre=mixed map textures
+    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, fs_in.map_id) );
+
     if (info.lq == 1) {
-        discard;
+        // The obvious
+        gColor = ArrayTextureC;
+        gNormal.xyz = normalize(fs_in.TBN * ArrayTextureN.xyz);
+        gGMF = ArrayTextureG;
+
+        gPosition = fs_in.worldPosition;
+        return;
     }
 
     const ChunkLayers l = info.layers;
@@ -184,9 +188,6 @@ void main(void)
     mix_coords = fs_in.UV;
     mix_coords.x = 1.0 - mix_coords.x;
 
-    vec4 global = texture(global_AM, fs_in.Global_UV);
-    //-------------------------------------------------------
-
     // create UV projections
     tuv1 = get_transformed_uv(l.U1, l.V1); 
     tuv2 = get_transformed_uv(l.U2, l.V2);
@@ -199,45 +200,45 @@ void main(void)
 
     // Get AM maps,crop and set Test outline blend flag
 
-    t1 = crop(at1, tuv1, 0.0, B1, l.s1);
-    t2 = crop(at2, tuv2, 0.0, B2, l.s2);
-    t3 = crop(at3, tuv3, 0.0, B3, l.s3);
-    t4 = crop(at4, tuv4, 0.0, B4, l.s4);
-    t5 = crop(at5, tuv5, 0.0, B5, l.s5);
-    t6 = crop(at6, tuv6, 0.0, B6, l.s6);
-    t7 = crop(at7, tuv7, 0.0, B7, l.s7);
-    t8 = crop(at8, tuv8, 0.0, B8, l.s8);
+    t1 = crop(l.at[0], tuv1, 0.0, B1, l.s1);
+    t2 = crop(l.at[1], tuv2, 0.0, B2, l.s2);
+    t3 = crop(l.at[2], tuv3, 0.0, B3, l.s3);
+    t4 = crop(l.at[3], tuv4, 0.0, B4, l.s4);
+    t5 = crop(l.at[4], tuv5, 0.0, B5, l.s5);
+    t6 = crop(l.at[5], tuv6, 0.0, B6, l.s6);
+    t7 = crop(l.at[6], tuv7, 0.0, B7, l.s7);
+    t8 = crop(l.at[7], tuv8, 0.0, B8, l.s8);
     
-    mt1 = crop3(at1, tuv1, 2.0, l.s1);
-    mt2 = crop3(at2, tuv2, 2.0, l.s2);
-    mt3 = crop3(at3, tuv3, 2.0, l.s3);
-    mt4 = crop3(at4, tuv4, 2.0, l.s4);
-    mt5 = crop3(at5, tuv5, 2.0, l.s5);
-    mt6 = crop3(at6, tuv6, 2.0, l.s6);
-    mt7 = crop3(at7, tuv7, 2.0, l.s7);
-    mt8 = crop3(at8, tuv8, 2.0, l.s8);
+    mt1 = crop3(l.at[0], tuv1, 2.0, l.s1);
+    mt2 = crop3(l.at[1], tuv2, 2.0, l.s2);
+    mt3 = crop3(l.at[2], tuv3, 2.0, l.s3);
+    mt4 = crop3(l.at[3], tuv4, 2.0, l.s4);
+    mt5 = crop3(l.at[4], tuv5, 2.0, l.s5);
+    mt6 = crop3(l.at[5], tuv6, 2.0, l.s6);
+    mt7 = crop3(l.at[6], tuv7, 2.0, l.s7);
+    mt8 = crop3(l.at[7], tuv8, 2.0, l.s8);
 
     // spcular is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    n1 = crop2(at1, tuv1, 1.0, l.s1);
-    n2 = crop2(at2, tuv2, 1.0, l.s2);
-    n3 = crop2(at3, tuv3, 1.0, l.s3);
-    n4 = crop2(at4, tuv4, 1.0, l.s4);
-    n5 = crop2(at5, tuv5, 1.0, l.s5);
-    n6 = crop2(at6, tuv6, 1.0, l.s6);
-    n7 = crop2(at7, tuv7, 1.0, l.s7);
-    n8 = crop2(at8, tuv8, 1.0, l.s8);
+    n1 = crop2(l.at[0], tuv1, 1.0, l.s1);
+    n2 = crop2(l.at[1], tuv2, 1.0, l.s2);
+    n3 = crop2(l.at[2], tuv3, 1.0, l.s3);
+    n4 = crop2(l.at[3], tuv4, 1.0, l.s4);
+    n5 = crop2(l.at[4], tuv5, 1.0, l.s5);
+    n6 = crop2(l.at[5], tuv6, 1.0, l.s6);
+    n7 = crop2(l.at[6], tuv7, 1.0, l.s7);
+    n8 = crop2(l.at[7], tuv8, 1.0, l.s8);
 
-    mn1 = crop3(at1, tuv1, 3.0, l.s1);
-    mn2 = crop3(at2, tuv2, 3.0, l.s2);
-    mn3 = crop3(at3, tuv3, 3.0, l.s3);
-    mn4 = crop3(at4, tuv4, 3.0, l.s4);
-    mn5 = crop3(at5, tuv5, 3.0, l.s5);
-    mn6 = crop3(at6, tuv6, 3.0, l.s6);
-    mn7 = crop3(at7, tuv7, 3.0, l.s7);
-    mn8 = crop3(at8, tuv8, 3.0, l.s8);
+    mn1 = crop3(l.at[0], tuv1, 3.0, l.s1);
+    mn2 = crop3(l.at[1], tuv2, 3.0, l.s2);
+    mn3 = crop3(l.at[2], tuv3, 3.0, l.s3);
+    mn4 = crop3(l.at[3], tuv4, 3.0, l.s4);
+    mn5 = crop3(l.at[4], tuv5, 3.0, l.s5);
+    mn6 = crop3(l.at[5], tuv6, 3.0, l.s6);
+    mn7 = crop3(l.at[6], tuv7, 3.0, l.s7);
+    mn8 = crop3(l.at[7], tuv8, 3.0, l.s8);
 
     // get the ambient occlusion
 
@@ -375,11 +376,6 @@ void main(void)
     out_n = convertNormal(out_n);
     out_n.xyz = fs_in.TBN * out_n.xyz;
     
-    // Get pre=mixed map textures
-    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, fs_in.map_id) );
-    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, fs_in.map_id) );
-    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, fs_in.map_id) );
-
     ArrayTextureN.xyz = fs_in.TBN * ArrayTextureN.xyz;
 
     // This blends the pre-mixed maps over distance.
@@ -393,7 +389,7 @@ void main(void)
 
     // global.a is used for wetness specular on the map.
     // Stored in alpha of color map for deferred rendering.
-    t1 = texture(at1,vec3(fs_in.UV,1.0));
+    t1 = texture(l.at[0],vec3(fs_in.UV,1.0));
     gColor.rgb = base.rgb;
     gColor.a = global.a*0.8;
 

@@ -72,11 +72,7 @@ struct MaterialProperties
     vec4 g_tileUVScale;       /* 128 .. 144 */
     vec4 g_detailInfluences;  /* 144 .. 160 */
     vec4 g_detailRejectTiling;
-#ifdef GL_SPIRV
-    uvec2 maps[6];            /* 160 .. 208 */
-#else
     sampler2D maps[6];        /* 160 .. 208 */
-#endif
     uint shader_type;         /* 208 .. 212 */
     uint texAddressMode;      /* 212 .. 216 */
     float alphaReference;     /* 216 .. 220 */
@@ -226,6 +222,8 @@ struct ChunkLayers {
     vec4 s6;
     vec4 s7;
     vec4 s8;
+
+    sampler2DArray at[8];
 };
 
 struct TerrainChunkInfo {

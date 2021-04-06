@@ -167,6 +167,15 @@ Module TerrainBuilder
         Public s6 As Vector4
         Public s7 As Vector4
         Public s8 As Vector4
+
+        Public at1 As UInt64
+        Public at2 As UInt64
+        Public at3 As UInt64
+        Public at4 As UInt64
+        Public at5 As UInt64
+        Public at6 As UInt64
+        Public at7 As UInt64
+        Public at8 As UInt64
     End Structure
 
     Public Structure ids_
