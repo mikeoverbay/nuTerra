@@ -117,7 +117,7 @@ void main(void)
     worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
 
     // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
-    vs_out.TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
+    vs_out.TBN = mat3( worldTangent, worldbiNormal, normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
     gl_Position = viewProj * modelMatrix * vec4(vertexPosition, 1.0f);
