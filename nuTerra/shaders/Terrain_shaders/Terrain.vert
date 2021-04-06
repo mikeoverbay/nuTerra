@@ -42,7 +42,7 @@ void main(void)
     uv_g.y = ((( (info.me_location.y )-50.0)/100.0)-map_center.y) * m_s.y ;
     vs_out.Global_UV = scaled + uv_g;
     vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
-    
+
     //-------------------------------------------------------
     // Calulate UVs for the texture layers
     vs_out.Vertex = vec4(vertexPosition, 1.0);
@@ -61,26 +61,25 @@ void main(void)
     vs_out.worldPosition = vec3(view * info.modelMatrix * vec4(vertexPosition, 1.0f));
 
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
-    mat3 normalMatrix = mat3(transpose(inverse(view * info.modelMatrix)));
+    mat3 normalMatrix = mat3(view * info.modelMatrix);
     vec3 worldNormal = normalMatrix * VN;
     vec3 worldTangent = normalMatrix * VT;
     vec3 worldbiNormal = normalMatrix * VB;
 
     // make perpendicular
-    worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
-    worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
+    worldTangent = worldTangent - dot(worldNormal, worldTangent) * worldNormal;
+    worldbiNormal = worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal;
 
     // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
     vs_out.TBN = mat3( normalize(worldTangent), normalize(worldbiNormal), normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
     gl_Position = viewProj * info.modelMatrix * vec4(vertexPosition, 1.0f);
-   
+
     // This is the cut off distance for bumping the surface.
     vec3 point = vec3(info.modelMatrix * vec4(vertexPosition, 1.0));
     vs_out.ln = distance( point.xyz,cameraPos.xyz );
 
     if (vs_out.ln < _start + _end) { vs_out.ln = 1.0 - (vs_out.ln-_start)/_end;}
     else {vs_out.ln = 0.0;}
-
 }
