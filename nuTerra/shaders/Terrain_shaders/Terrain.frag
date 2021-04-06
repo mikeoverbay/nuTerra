@@ -9,7 +9,6 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
-layout (location = 4) out uint gPick;
 
 layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 U1;
@@ -87,7 +86,6 @@ layout(binding = 24) uniform sampler2DArray textArrayG;
 uniform vec3 waterColor;
 uniform float waterAlpha;
 uniform float map_id;
-uniform float test;
 
 in VS_OUT {
     mat3 TBN;
@@ -397,7 +395,9 @@ void main(void)
     //wetness
     base = blend(base,base.a,vec4(waterColor,waterAlpha),global.a);
 
-    // Texture outlines if test = 1.0;
+    // Texture outlines
+#ifdef SHOW_TEST_TEXTURES
+    const float test = 1.0;
     base = mix(base, base + color_1, B1 * test * MixLevel1.r);
     base = mix(base, base + color_2, B2 * test * MixLevel1.g);
     base = mix(base, base + color_3, B3 * test * MixLevel2.r);
@@ -406,6 +406,7 @@ void main(void)
     base = mix(base, base + color_6, B6 * test * MixLevel3.g);
     base = mix(base, base + color_7, B7 * test * MixLevel4.r);
     base = mix(base, base + color_8, B8 * test * MixLevel4.g);
+#endif
 
     //-------------------------------------------------------------
     // normals
@@ -449,5 +450,4 @@ void main(void)
     gNormal.xyz = normalize(out_n.xyz);
 
     gPosition = fs_in.worldPosition;
-    gPick = 0;
 }

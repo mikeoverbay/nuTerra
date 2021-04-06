@@ -618,8 +618,6 @@ Module modRender
         GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
         GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
 
-        GL.Uniform1(TerrainShader("test"), SHOW_TEST_TEXTURES)
-
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
