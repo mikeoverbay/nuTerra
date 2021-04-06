@@ -10,14 +10,13 @@
 
 layout (location = 0) out vec4 outColor;
 
-uniform sampler2D gColor;
-uniform sampler2D gNormal;
-uniform sampler2D gGMF;
-uniform sampler2D gPosition;
-uniform sampler2D gDepth;
-uniform samplerCube cubeMap;
-uniform lowp sampler2D lut;
-uniform lowp sampler2D env_brdf_lut;
+layout(binding = 0) uniform sampler2D gColor;
+layout(binding = 1) uniform sampler2D gNormal;
+layout(binding = 2) uniform sampler2D gGMF;
+layout(binding = 3) uniform sampler2D gPosition;
+layout(binding = 4) uniform samplerCube cubeMap;
+layout(binding = 5) uniform lowp sampler2D lut;
+layout(binding = 6) uniform lowp sampler2D env_brdf_lut;
 
 uniform float mapMaxHeight;
 uniform float mapMinHeight;
@@ -55,13 +54,6 @@ in VS_OUT {
 
 
 /*========================== FUNCTIONS =============================*/
-// This is  atest for making sure we actually are getting the depth.
-float linearDepth(float depthSample)
-{
-    float f = 5000.0;
-    float n = 1.0;
-    return  (2.0 * n) / (f + n - depthSample * (f - n));
-}
 // This helps to even out overall levels of brightness and adjusts gamma.
 vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){  
     // Exposure tone mapping
@@ -117,10 +109,6 @@ vec4 SRGBtoLINEAR(vec4 srgbIn)
 
 void main (void)
 {
-    float depth = texture(gDepth, fs_in.UV).x;
-
-    //if (depth == 1.0) discard;// nothing there
-
     const uint FLAG = uint( texture(gGMF, fs_in.UV).b * 255.0);
 
     // Writen as a float in shaders as f = Flag_value/255.0

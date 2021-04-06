@@ -294,14 +294,6 @@ Module modRender
         deferredShader.Use()
 
         'set up uniforms
-        GL.Uniform1(deferredShader("gColor"), 0)
-        GL.Uniform1(deferredShader("gNormal"), 1)
-        GL.Uniform1(deferredShader("gGMF"), 2) ' ignore this for now
-        GL.Uniform1(deferredShader("gPosition"), 3)
-        GL.Uniform1(deferredShader("cubeMap"), 4)
-        GL.Uniform1(deferredShader("lut"), 5)
-        GL.Uniform1(deferredShader("env_brdf_lut"), 6)
-
         GL.Uniform1(deferredShader("light_count"), LIGHTS.index - 1)
         GL.Uniform1(deferredShader("mapMaxHeight"), MAX_MAP_HEIGHT)
         GL.Uniform1(deferredShader("mapMinHeight"), MIN_MAP_HEIGHT)
@@ -320,9 +312,6 @@ Module modRender
 
         GL.Uniform3(deferredShader("sunColor"), SUNCOLOR.X, SUNCOLOR.Y, SUNCOLOR.Z)
         GL.Uniform3(deferredShader("ambientColorForward"), AMBIENTSUNCOLOR.X, AMBIENTSUNCOLOR.Y, AMBIENTSUNCOLOR.Z)
-
-        ' GL.BindTextureUnit(4, FBOm.gDepth)
-        'GL.Uniform1(deferredShader("gDepth"), 4)
 
         'Lighting settings
         GL.Uniform1(deferredShader("AMBIENT"), frmLightSettings.lighting_ambient)
@@ -479,8 +468,6 @@ Module modRender
         GL_PUSH_GROUP("terrain_frustum_cull")
 
         terrainCullShader.Use()
-
-        GL.Uniform1(terrainCullShader("numTerrainChunks"), MapGL.numTerrainChunks)
 
         Dim numGroups = (MapGL.numTerrainChunks + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
         GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
@@ -738,8 +725,6 @@ Module modRender
 
             boxShader.StopUse()
         End If
-
-        'restore depth function
 
         GL_POP_GROUP()
     End Sub
