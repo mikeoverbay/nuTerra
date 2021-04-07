@@ -33,6 +33,7 @@ Module MapLoader
             ' For map models only!
             Public Shared materials As GLBuffer
             Public Shared parameters As GLBuffer
+            Public Shared parameters_temp As GLBuffer
             Public Shared matrices As GLBuffer
             Public Shared drawCandidates As GLBuffer
             Public Shared verts As GLBuffer
@@ -377,10 +378,15 @@ Module MapLoader
                 mLast += batch.count
             Next
 
+            MapGL.Buffers.parameters_temp = CreateBuffer(BufferTarget.CopyWriteBuffer, "parameters_temp")
+            BufferStorageNullData(MapGL.Buffers.parameters_temp,
+                                  3 * Marshal.SizeOf(Of Integer),
+                                  BufferStorageFlags.ClientStorageBit)
+
             MapGL.Buffers.parameters = CreateBuffer(BufferTarget.AtomicCounterBuffer, "parameters")
             BufferStorageNullData(MapGL.Buffers.parameters,
                                   3 * Marshal.SizeOf(Of Integer),
-                                  BufferStorageFlags.ClientStorageBit)
+                                  BufferStorageFlags.None)
             MapGL.Buffers.parameters.BindBase(0)
 
             MapGL.Buffers.visibles = CreateBuffer(BufferTarget.ShaderStorageBuffer, "visibles")
