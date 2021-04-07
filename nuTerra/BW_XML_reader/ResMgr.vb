@@ -13,7 +13,14 @@ NotInheritable Class ResMgr
             })
 
     Public Shared Sub Init(wot_path As String)
-        For Each pkgPath In Directory.GetFiles(Path.Combine(wot_path, "res", "packages"), "*.pkg")
+        Dim xDoc As New XmlDocument
+        xDoc.Load(Path.Combine(wot_path, "paths.xml"))
+        Dim first_path = xDoc.SelectSingleNode("//Paths/Path").InnerText.Remove(0, 2)
+        RES_MODS_PATH = Path.Combine(wot_path, first_path)
+
+        For Each pkgNode In xDoc.SelectNodes("//Paths/Packages/Package")
+            Dim pkg = pkgNode.InnerText.Remove(0, 2)
+            Dim pkgPath = Path.Combine(wot_path, pkg)
             Using entry As New ZipFile(pkgPath)
                 For Each file In entry.Entries
                     If file.IsDirectory Then
@@ -30,10 +37,6 @@ NotInheritable Class ResMgr
             End Using
         Next
 
-        Dim xDoc As New XmlDocument
-        xDoc.Load(Path.Combine(wot_path, "paths.xml"))
-        Dim first_path = xDoc.SelectSingleNode("//Paths/Path").InnerText.Remove(0, 2)
-        RES_MODS_PATH = Path.Combine(wot_path, first_path)
     End Sub
 
     Public Shared Function Lookup(filename As String) As ZipEntry
