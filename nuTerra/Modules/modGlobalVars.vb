@@ -173,8 +173,6 @@ Module modGlobalVars
     Public SHOW_LOADING_SCREEN As Boolean = False 'show loading screen flag
     Public BLOCK_MOUSE As Boolean 'pick menu flag
     Public FINISH_MAPS As Boolean 'pick menu flag
-    Public USE_HD_TEXTURES As Boolean = True 'Lets the map loader know if we want to try and find HD textures.
-    Public HD_EXISTS As Boolean 'Flag that the user has HD files in the packages folder.
     '
     'Draw Enable Flags. Items wont be rendered if these are False
     Public TERRAIN_LOADED As Boolean

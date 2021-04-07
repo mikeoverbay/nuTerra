@@ -798,11 +798,7 @@ Module MapLoader
             For i = 0 To atlasParts.Count - 1
                 Dim coords = atlasParts(i)
 
-                Dim dds_entry As ZipEntry = Nothing
-                If HD_EXISTS Then
-                    dds_entry = ResMgr.Lookup(coords.path.Replace(".dds", "_hd.dds"))
-                End If
-
+                Dim dds_entry = ResMgr.Lookup(coords.path.Replace(".dds", "_hd.dds"))
                 If dds_entry Is Nothing Then
                     dds_entry = ResMgr.Lookup(coords.path)
                     If dds_entry Is Nothing Then
@@ -891,10 +887,7 @@ Module MapLoader
                 Continue For
             End If
 
-            Dim entry As ZipEntry = Nothing
-            If HD_EXISTS Then
-                entry = ResMgr.Lookup(texturePath.Replace(".dds", "_hd.dds"))
-            End If
+            Dim entry = ResMgr.Lookup(texturePath.Replace(".dds", "_hd.dds"))
             If entry Is Nothing Then
                 entry = ResMgr.Lookup(texturePath)
             End If
