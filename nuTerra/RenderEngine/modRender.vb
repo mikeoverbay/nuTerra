@@ -101,7 +101,8 @@ Module modRender
 
         'Model depth pass only
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
-            GL.GetNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), MapGL.numAfterFrustum)
+            GL.CopyNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, MapGL.Buffers.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer))
+            GL.GetNamedBufferSubData(MapGL.Buffers.parameters_temp.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), MapGL.numAfterFrustum)
 
             '=======================================================================
             model_depth_pass() '=========================================================
@@ -1189,7 +1190,7 @@ Module modRender
 
         GL_POP_GROUP()
     End Sub
- 
+
     Private Sub draw_mini_base_rings()
         GL_PUSH_GROUP("draw_mini_base_rings")
 
@@ -1381,7 +1382,7 @@ skip:
 
         If VTL.X <= p.X Or VBR.X >= p.X Then Return False
         If VTL.Y <= p.Z Or VBR.Y >= p.Z Then Return False
-        If VTL.Z >= p.y Or VBR.Z >= p.y Then Return False
+        If VTL.Z >= p.Y Or VBR.Z >= p.Y Then Return False
 
         Return True
     End Function
