@@ -172,6 +172,12 @@ NotInheritable Class MapMenuScreen
             .discription = "hangar_v3"
         })
 
+        MapPickList.Add(New MapItem With {
+            .name = "h31_battle_royale_2020",
+            .realname = "h31_battle_royale_2020",
+            .discription = "h31_battle_royale_2020"
+        })
+
         ' load map images
         Dim cnt = 0
         For Each thing In MapPickList
