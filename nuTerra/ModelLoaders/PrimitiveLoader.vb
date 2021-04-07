@@ -168,8 +168,13 @@ Module PrimitiveLoader
         Dim ms As New MemoryStream
         entry.Extract(ms)
 
-        load_primitive(ms, mdl)
-        Return True
+        Try
+            load_primitive(ms, mdl)
+            Return True
+        Catch ex As Exception
+            MsgBox("Can't load " + filename, MsgBoxStyle.Exclamation, "shit!")
+            Return False
+        End Try
     End Function
 
     Public Sub load_primitive(ms As MemoryStream,

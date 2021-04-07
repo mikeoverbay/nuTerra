@@ -206,6 +206,10 @@ Module MapLoader
                 For Each model In MAP_MODELS(i).modelLods
                     If Not model.junk Then
                         Dim good = get_primitive(model)
+                        If Not good Then
+                            Application.Exit()
+                            Return
+                        End If
                     End If
                 Next
                 If i Mod 10 = 0 Then
