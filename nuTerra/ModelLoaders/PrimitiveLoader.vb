@@ -226,12 +226,19 @@ Module PrimitiveLoader
         For Each renderSet In mdl.render_sets
             Dim vertsSectionName = renderSet.verts_name.Substring(renderSet.verts_name.LastIndexOf("/"c) + 1)
             Dim primsSectionName = renderSet.prims_name.Substring(renderSet.prims_name.LastIndexOf("/"c) + 1)
-            load_primitives_indices(br, renderSet, binSections(primsSectionName))
-            load_primitives_vertices(br, renderSet, binSections(vertsSectionName))
-            Dim uv2SectionName = If(vertsSectionName.Contains("."), vertsSectionName.Split(".")(0) + ".uv2", "uv2")
-            If binSections.ContainsKey(uv2SectionName) Then
-                load_primitives_uv2(br, renderSet, binSections(uv2SectionName))
-            End If
+            Try
+                load_primitives_indices(br, renderSet, binSections(primsSectionName))
+                load_primitives_vertices(br, renderSet, binSections(vertsSectionName))
+                Dim uv2SectionName = If(vertsSectionName.Contains("."), vertsSectionName.Split(".")(0) + ".uv2", "uv2")
+                If binSections.ContainsKey(uv2SectionName) Then
+                    load_primitives_uv2(br, renderSet, binSections(uv2SectionName))
+                End If
+            Catch ex As Exception
+                LogThis("vertsSectionName: " + vertsSectionName)
+                LogThis("primsSectionName: " + primsSectionName)
+                LogThis(String.Join(", ", binSections.Keys))
+                Throw ex
+            End Try
         Next
     End Sub
 
