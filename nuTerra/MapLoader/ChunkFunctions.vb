@@ -281,7 +281,7 @@ Module ChunkFunctions
         Public xyz As Vector3
         Public uv As Vector2
         Public packed_noraml As UInt32
-        Public tangents As Vector3
+        Public tangents As UInt32
     End Structure
 
     Public Sub build_Terrain_VAO()
@@ -306,7 +306,7 @@ Module ChunkFunctions
                     vertices(j).xyz.Y = .v_buff_Y(j)
                     vertices(j).uv = .uv_buff(j)
                     vertices(j).packed_noraml = pack_2_10_10_10(.n_buff(j), .h_buff(j))
-                    vertices(j).tangents = .t_buff(j)
+                    vertices(j).tangents = pack_2_10_10_10(.t_buff(j))
                 Next
 
                 GL.NamedBufferSubData(MapGL.Buffers.terrain_vertices.buffer_id,
@@ -344,7 +344,7 @@ Module ChunkFunctions
 
         ' Tangents
         GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allTerrainChunks, 3, MapGL.Buffers.terrain_vertices.buffer_id, New IntPtr(24), vsize)
-        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 3, 3, VertexAttribType.Float, True, 0)
+        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 3, 4, VertexAttribType.Int2101010Rev, True, 0)
         GL.VertexArrayAttribBinding(MapGL.VertexArrays.allTerrainChunks, 3, 3)
         GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 3)
 
