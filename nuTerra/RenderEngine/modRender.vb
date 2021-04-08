@@ -539,7 +539,11 @@ Module modRender
                     .TexLayers(3).Blend_id.BindUnit(20)
 
                     'draw chunk
-                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                    If USE_TESSELATION Then
+                        GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                    Else
+                        GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                    End If
                 End With
             End If
         Next

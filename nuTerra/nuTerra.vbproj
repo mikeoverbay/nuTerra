@@ -406,10 +406,10 @@
     <Content Include="shaders\Trials\cullLodClear.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <None Include="shaders\Terrain_shaders\Terrain.tess_control">
+    <None Include="shaders\Terrain_shaders\Terrain.tesc">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\Terrain.tess_evaluation">
+    <None Include="shaders\Terrain_shaders\Terrain.tese">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Trials\cull-invalidate.comp">

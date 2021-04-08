@@ -131,12 +131,12 @@ Module ShaderLoader
                 vertex = Nothing
             End If
 
-            tc = get_shader(String.Format("{0}.tess_control", name))
+            tc = get_shader(String.Format("{0}.tesc", name))
             If Not File.Exists(tc) Then
                 tc = Nothing
             End If
 
-            te = get_shader(String.Format("{0}.tess_evaluation", name))
+            te = get_shader(String.Format("{0}.tese", name))
             If Not File.Exists(te) Then
                 te = Nothing
             End If
@@ -563,6 +563,16 @@ Module ShaderLoader
         ' attach shader objects
         If vertexObject Then
             GL.AttachShader(program, vertexObject)
+        End If
+
+        If USE_TESSELATION Then
+            If tessControlObject Then
+                GL.AttachShader(program, tessControlObject)
+            End If
+
+            If tessEvaluationObject Then
+                GL.AttachShader(program, tessEvaluationObject)
+            End If
         End If
 
         If geomObject Then
