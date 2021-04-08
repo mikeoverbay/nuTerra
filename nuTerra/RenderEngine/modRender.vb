@@ -122,22 +122,23 @@ Module modRender
             '=======================================================================
             If (SHOW_BORDER Or SHOW_CHUNKS Or SHOW_GRID) Then draw_terrain_grids()
             '=======================================================================
-            'setup for projection before drawing
-            FBOm.attach_C_no_Depth()
-            GL.DepthMask(False)
-            GL.FrontFace(FrontFaceDirection.Cw)
-            GL.Enable(EnableCap.CullFace)
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-            '=======================================================================
-            If SHOW_CURSOR Then draw_map_cursor() '=================================
-            '=======================================================================
-            'restore settings after projected objects are drawn
-            GL.DepthMask(True)
-            GL.Disable(EnableCap.CullFace)
-            FBOm.attach_Depth()
-            GL.FrontFace(FrontFaceDirection.Ccw)
+            If SHOW_CURSOR Then
+                'setup for projection before drawing
+                FBOm.attach_C_no_Depth()
+                GL.DepthMask(False)
+                GL.FrontFace(FrontFaceDirection.Cw)
+                GL.Enable(EnableCap.CullFace)
+                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+                '=======================================================================
+                draw_map_cursor() '=================================
+                '=======================================================================
+                'restore settings after projected objects are drawn
+                GL.DepthMask(True)
+                GL.Disable(EnableCap.CullFace)
+                FBOm.attach_Depth()
+                GL.FrontFace(FrontFaceDirection.Ccw)
+            End If
         End If
-
 
         If MODELS_LOADED And DONT_BLOCK_MODELS Then
             '=======================================================================
@@ -459,9 +460,6 @@ Module modRender
                                 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
                                 ClearBufferMask.ColorBufferBit,
                                 BlitFramebufferFilter.Nearest)
-        'Dim er = GL.GetError
-        'Dim er1 = GL.GetError
-
     End Sub
 
     Private Sub draw_terrain()
@@ -472,24 +470,8 @@ Module modRender
         'FBOm.attach_C()
         'GL.Enable(EnableCap.Blend)
         '==========================
-        TERRAIN_TRIS_DRAWN = 0
         GL.Enable(EnableCap.CullFace)
 
-        '=======================================================================================
-        'First, find out what chunks are to be drawn as LQ global_AM texturing only.
-        '=======================================================================================
-        For i = 0 To theMap.render_set.Length - 1
-            Dim l1 = Abs(theMap.chunks(i).location.X - CAM_POSITION.X) 'x
-            Dim l2 = Abs(theMap.v_data(i).avg_heights - CAM_POSITION.Y) 'y
-            Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
-            Dim v As New Vector3(l1, l2, l3)
-            Dim l = v.Length
-            If l > 300.0F Then 'This value is the distance at which the chunk drawing is swapped.
-                theMap.render_set(i).LQ = True
-            Else
-                theMap.render_set(i).LQ = False
-            End If
-        Next
 
         '=======================================================================================
         'Draw visible LQ chunks
@@ -508,8 +490,6 @@ Module modRender
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
-                TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
-
                 GL.Uniform1(TerrainLQShader("map_id"), CSng(i))
 
 
@@ -526,7 +506,7 @@ Module modRender
 
         Next
         TerrainLQShader.StopUse()
-        unbind_textures(2)
+        unbind_textures(3)
         '=======================================================================================
         'draw visible HZ terrain
         '=======================================================================================
@@ -544,8 +524,6 @@ Module modRender
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
-                TERRAIN_TRIS_DRAWN += 8192 ' number of triangles per chunk
-
                 GL.Uniform1(TerrainShader("map_id"), CSng(i))
 
                 GL.UniformMatrix4(TerrainShader("modelMatrix"), False, theMap.render_set(i).matrix)
@@ -824,8 +802,6 @@ Module modRender
 
         GL_PUSH_GROUP("perform_SSAA_Pass")
 
-        Dim e = GL.GetError
-
         FXAAShader.Use()
 
         GL.Uniform1(FXAAShader("pass_through"), CInt(FXAA_enable))
@@ -854,8 +830,6 @@ Module modRender
         'GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO)
 
         'GL.ReadBuffer(ReadBufferMode.Back)
-        GL.GetError()
-        Dim e = GL.GetError
 
         glassPassShader.Use()
         GL.UniformMatrix4(glassPassShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
@@ -914,9 +888,6 @@ Module modRender
 
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
 
-        'sum triangles drawn
-        Dim tr = TERRAIN_TRIS_DRAWN
-
         Dim txt = String.Format("FPS: {0} | Draw time in Milliseconds: {1}", FPS_TIME, elapsed)
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
@@ -970,7 +941,7 @@ Module modRender
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
-        Dim matrix = Matrix4.CreateTranslation(New Vector3(LIGHT_POS(0), LIGHT_POS(1), LIGHT_POS(2)))
+        Dim matrix = Matrix4.CreateTranslation(LIGHT_POS)
 
         FF_BillboardShader.Use()
         GL.Uniform1(FF_BillboardShader("colorMap"), 0)
@@ -1278,7 +1249,7 @@ Module modRender
         'draw base rings
         MiniMapRingsShader.Use()
         'constants
-        Dim er0 = GL.GetError
+
         GL.UniformMatrix4(MiniMapRingsShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(MiniMapRingsShader("radius"), 50.0F)
         GL.Uniform1(MiniMapRingsShader("thickness"), 2.5F)
@@ -1345,15 +1316,13 @@ Module modRender
         'draw ring around pointer 
         MiniMapRingsShader.Use()
         'constants
-        Dim er0 = GL.GetError
+
         GL.UniformMatrix4(MiniMapRingsShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(MiniMapRingsShader("radius"), 40.0F)
         GL.Uniform1(MiniMapRingsShader("thickness"), 3.0F)
-        Dim er3 = GL.GetError
 
         Dim m_size = New RectangleF(MAP_BB_UR.X, MAP_BB_UR.Y, -w, -h)
 
-        Dim er1 = GL.GetError
         GL.Uniform4(MiniMapRingsShader("rect"),
             m_size.Left,
             -m_size.Top,

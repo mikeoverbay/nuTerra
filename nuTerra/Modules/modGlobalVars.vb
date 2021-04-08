@@ -128,7 +128,7 @@ Module modGlobalVars
     Public PAUSE_ORBIT As Boolean = True
     Public LIGHT_SPEED As Single = 0.02F
     '============================================================
-    Public TERRAIN_TRIS_DRAWN As UInt32
+
     '============================================================
     Public _STARTED As Boolean 'Signals UI initialization is complete
 
