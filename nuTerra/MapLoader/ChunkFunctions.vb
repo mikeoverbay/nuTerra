@@ -284,6 +284,14 @@ Module ChunkFunctions
         Public tangents As UInt32
     End Structure
 
+    <StructLayout(LayoutKind.Sequential)>
+    Private Structure TerrainChunkInfo
+        Public modelMatrix As Matrix4
+        Public me_location As Vector2
+        Public pad1 As UInt32
+        Public pad2 As UInt32
+    End Structure
+
     Public Sub build_Terrain_VAO()
         CommonProperties.waterColor = Map_wetness.waterColor
         CommonProperties.waterAlpha = Map_wetness.waterAlpha
@@ -292,6 +300,9 @@ Module ChunkFunctions
         CommonProperties.map_center.X = -b_x_min
         CommonProperties.map_center.Y = b_y_max
         CommonProperties.update()
+
+        Dim terrainMatrices(theMap.chunks.Length - 1) As TerrainChunkInfo
+        Dim terrainIndirect(theMap.chunks.Length - 1) As DrawElementsIndirectCommand
 
         MapGL.VertexArrays.allTerrainChunks = CreateVertexArray("allTerrainChunks")
 
@@ -307,6 +318,15 @@ Module ChunkFunctions
         For i = 0 To theMap.chunks.Length - 1
             With theMap.v_data(i)
                 Debug.Assert(.n_buff.Length = .h_buff.Length)
+
+                terrainIndirect(i).count = 24576
+                terrainIndirect(i).instanceCount = 1
+                terrainIndirect(i).firstIndex = 0
+                terrainIndirect(i).baseVertex = i * .v_buff_XZ.Length
+                terrainIndirect(i).baseInstance = i
+
+                terrainMatrices(i).modelMatrix = theMap.render_set(i).matrix
+                terrainMatrices(i).me_location = theMap.chunks(i).location.Xy
 
                 Dim vertices(.n_buff.Length - 1) As TerrainVertex
                 For j = 0 To .n_buff.Length - 1
@@ -357,6 +377,13 @@ Module ChunkFunctions
         GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 3)
 
         GL.VertexArrayElementBuffer(MapGL.VertexArrays.allTerrainChunks, MapGL.Buffers.terrain_indices.buffer_id)
+
+        MapGL.Buffers.terrain_indirect = CreateBuffer(BufferTarget.DrawIndirectBuffer, "terrain_indirect")
+        BufferStorage(MapGL.Buffers.terrain_indirect, terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
+
+        MapGL.Buffers.terrain_matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
+        BufferStorage(MapGL.Buffers.terrain_matrices, terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
+        MapGL.Buffers.terrain_matrices.BindBase(10)
     End Sub
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)

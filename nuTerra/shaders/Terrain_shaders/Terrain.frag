@@ -85,8 +85,6 @@ layout(binding = 22) uniform sampler2DArray textArrayC;
 layout(binding = 23) uniform sampler2DArray textArrayN;
 layout(binding = 24) uniform sampler2DArray textArrayG;
 
-uniform float map_id;
-
 in VS_OUT {
     mat3 TBN;
     vec4 Vertex;
@@ -94,6 +92,7 @@ in VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
+    flat float map_id;
 } fs_in;
 
 /*===========================================================*/
@@ -427,9 +426,9 @@ void main(void)
     out_n.xyz = fs_in.TBN * out_n.xyz;
     
     // Get pre=mixed map textures
-    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, map_id) );
-    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, map_id) );
-    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, map_id) );
+    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, fs_in.map_id) );
+    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, fs_in.map_id) );
 
     ArrayTextureN.xyz = fs_in.TBN * ArrayTextureN.xyz;
 

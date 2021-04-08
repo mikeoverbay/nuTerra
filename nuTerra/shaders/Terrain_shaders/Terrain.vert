@@ -1,9 +1,11 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shader_draw_parameters : require
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
 #define USE_COMMON_PROPERTIES_UBO
+#define USE_TERRAIN_CHUNK_INFO_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec3 vertexPosition;
@@ -58,10 +60,8 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 s6;
     vec4 s7;
     vec4 s8;
-    };
+};
 
-uniform vec2 me_location;
-uniform mat4 modelMatrix;
 uniform mat3 normalMatrix;
 
 out VS_OUT {
@@ -71,21 +71,25 @@ out VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
+    flat float map_id;
 } vs_out;
 
 //-------------------------------------------------------
 //-------------------------------------------------------
 
+const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
+
 void main(void)
 {
+    vs_out.map_id = gl_BaseInstanceARB;
 
     vs_out.UV =  vertexTexCoord;
     // calculate tex coords for global_AM
     vec2 uv_g;
     vec2 scaled = vs_out.UV / props.map_size;
     vec2 m_s = vec2(1.0)/props.map_size;
-    uv_g.x = ((( (me_location.x )-50.0)/100.0)+props.map_center.x) * m_s.x ;
-    uv_g.y = ((( (me_location.y )-50.0)/100.0)-props.map_center.y) * m_s.y ;
+    uv_g.x = ((( (chunk.me_location.x )-50.0)/100.0)+props.map_center.x) * m_s.x ;
+    uv_g.y = ((( (chunk.me_location.y )-50.0)/100.0)-props.map_center.y) * m_s.y ;
     vs_out.Global_UV = scaled + uv_g;
     vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
     
@@ -104,7 +108,7 @@ void main(void)
     //-------------------------------------------------------
 
     // vertex --> world pos
-    vs_out.worldPosition = vec3(view * modelMatrix * vec4(vertexPosition, 1.0f));
+    vs_out.worldPosition = vec3(view * chunk.modelMatrix * vec4(vertexPosition, 1.0f));
 
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
     vec3 worldNormal = normalMatrix * VN;
@@ -119,10 +123,10 @@ void main(void)
     vs_out.TBN = mat3( worldTangent, worldbiNormal, normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
-    gl_Position = viewProj * modelMatrix * vec4(vertexPosition, 1.0f);
+    gl_Position = viewProj * chunk.modelMatrix * vec4(vertexPosition, 1.0f);
    
     // This is the cut off distance for bumping the surface.
-    vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
+    vec3 point = vec3(chunk.modelMatrix * vec4(vertexPosition, 1.0));
     vs_out.ln = distance( point.xyz,cameraPos.xyz );
 
     if (vs_out.ln < props._start + props._end) { vs_out.ln = 1.0 - (vs_out.ln-props._start)/props._end;}

@@ -16,6 +16,7 @@
 #define LIGHTS_BASE 7
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
+#define TERRAIN_CHUNK_INFO_BASE 10
 
 struct CandidateDraw
 {
@@ -189,5 +190,18 @@ layout(std430, binding = VISIBLES_BASE) buffer visibleBuffer {
 };
 layout(std430, binding = VISIBLES_DBL_SIDED_BASE) buffer visibleDblSidedBuffer {
     int visibles_dbl_sided[];
+};
+#endif
+
+#ifdef USE_TERRAIN_CHUNK_INFO_SSBO
+struct TerrainChunkInfo {
+    mat4 modelMatrix;
+    vec2 me_location;
+    uint pad1;
+    uint pad2;
+};
+
+layout(std430, binding = TERRAIN_CHUNK_INFO_BASE) readonly buffer TerrainChunkInfoBuffer {
+    TerrainChunkInfo chunks[];
 };
 #endif

@@ -45,6 +45,8 @@ Module MapLoader
             Public Shared lods As GLBuffer
 
             ' For terrain only!
+            Public Shared terrain_matrices As GLBuffer
+            Public Shared terrain_indirect As GLBuffer
             Public Shared terrain_vertices As GLBuffer
             Public Shared terrain_indices As GLBuffer
 

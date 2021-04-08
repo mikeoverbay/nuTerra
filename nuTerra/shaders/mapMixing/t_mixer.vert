@@ -1,9 +1,11 @@
 ﻿#version 450 core
 
+#extension GL_ARB_shader_draw_parameters : require
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
 #define USE_COMMON_PROPERTIES_UBO
+#define USE_TERRAIN_CHUNK_INFO_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec3 vertexPosition;
@@ -60,7 +62,6 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 s8;
     };
 
-uniform vec2 me_location;
 uniform mat4 Ortho_Project;
 
 out VS_OUT {
@@ -73,6 +74,8 @@ out VS_OUT {
 } vs_out;
 
 
+const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
+
 
 void main(void)
 {
@@ -82,8 +85,8 @@ void main(void)
     vec2 uv_g;
     vec2 scaled = vs_out.UV / props.map_size;
     vec2 m_s = vec2(1.0)/props.map_size;
-    uv_g.x = ((( (me_location.x )-50.0)/100.0)+props.map_center.x) * m_s.x ;
-    uv_g.y = ((( (me_location.y )-50.0)/100.0)-props.map_center.y) * m_s.y ;
+    uv_g.x = ((( (chunk.me_location.x )-50.0)/100.0)+props.map_center.x) * m_s.x ;
+    uv_g.y = ((( (chunk.me_location.y )-50.0)/100.0)-props.map_center.y) * m_s.y ;
     vs_out.Global_UV = scaled + uv_g;
     vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
     
