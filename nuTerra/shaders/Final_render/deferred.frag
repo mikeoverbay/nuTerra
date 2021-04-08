@@ -5,6 +5,7 @@
 
 #define USE_LIGHT_SSBO
 #define USE_PERVIEW_UBO
+#define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 outColor;
@@ -17,35 +18,13 @@ layout(binding = 4) uniform samplerCube cubeMap;
 layout(binding = 5) uniform lowp sampler2D lut;
 layout(binding = 6) uniform lowp sampler2D env_brdf_lut;
 
-uniform float mapMaxHeight;
-uniform float mapMinHeight;
-uniform float MEAN;
-
 uniform mat4 ProjectionMatrix;
-
 uniform vec3 LightPos;
-uniform vec3 fog_tint;
-
-uniform float AMBIENT;
-uniform float BRIGHTNESS;
-uniform float SPECULAR;
-uniform float GRAY_LEVEL;
-uniform float GAMMA_LEVEL;
-uniform float fog_level;
-
-uniform vec3 ambientColorForward;
-uniform vec3 sunColor;
-uniform int  light_count;
-uniform vec3 waterColor;
 
 #define MAXCOLOR 15.0
 #define COLORS 16.0
 #define WIDTH 256.0
 #define HEIGHT 16.0
-
-layout (std140, binding = 7) buffer Lights {
-    light lights[250];
-};
 
 
 in VS_OUT {
@@ -60,7 +39,7 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
     vec3 mapped = vec3(1.0) - exp(-hdrColor.rgb * exposure);
     // Gamma correction 
     mapped.rgb = pow(mapped.rgb, vec3(1.0 / gamma_level));  
-    mapped.rgb = pow(mapped.rgb, vec3(1.0 / GAMMA_LEVEL*0.5));  
+    mapped.rgb = pow(mapped.rgb, vec3(1.0 / props.GAMMA_LEVEL*0.5));  
     return vec4 (mapped, hdrColor.a);
 }
 
@@ -162,13 +141,13 @@ void main (void)
             }
             vec4 final_color = vec4(0.25, 0.25, 0.25, 1.0) * color_in ;
 
-            vec4 Ambient_level = color_in * vec4(AMBIENT * 3.0);
+            vec4 Ambient_level = color_in * vec4(props.AMBIENT * 3.0);
 
-            Ambient_level.rgb *= ambientColorForward;
+            Ambient_level.rgb *= props.ambientColorForward;
 
             float dist = length(LightPosModelView - Position);
             float cutoff = 10000.0;
-            vec4 color = mix(vec4(sunColor,0.0),vec4(0.5),0.6);
+            vec4 color = mix(vec4(props.sunColor,0.0),vec4(0.5),0.6);
 
             vec4 t_cam = view * vec4(cameraPos,1.0);
             vec3 V = normalize(t_cam.xyz-Position);
@@ -188,7 +167,7 @@ void main (void)
 
                 float lambertTerm = pow(max(dot(N, L),0.001),GM_in.g);
 
-                float water_spec = max(pow(dot(V,R), 120.0 ),0.0001) * SPECULAR;
+                float water_spec = max(pow(dot(V,R), 120.0 ),0.0001) * props.SPECULAR;
 
                 final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0);
 
@@ -196,7 +175,7 @@ void main (void)
 
                 vec3 halfwayDir = normalize(L + V);
 
-                float spec = max(pow(dot(V,R), POWER ),0.0000) * SPECULAR * INTENSITY;
+                float spec = max(pow(dot(V,R), POWER ),0.0000) * props.SPECULAR * INTENSITY;
    
                 R.xz *= -1.0;
 
@@ -217,17 +196,17 @@ void main (void)
                 vec4 G_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
                                           max(3.0-GM_in.z *3.0, 0.0)))*GM_in.z*spec*4.0;
 
-                vec3 water_reflect = vec3(water_mix*ambientColorForward) * vec3(water_spec)*1.5 * W_prefilteredColor.rgb;
+                vec3 water_reflect = vec3(water_mix*props.ambientColorForward) * vec3(water_spec)*1.5 * W_prefilteredColor.rgb;
 
                 final_color.xyz += clamp(water_reflect+specular+G_prefilteredColor.xyz,0.0,1.0);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance
 
-                final_color = mix(final_color,Ambient_level,dist/cutoff) * BRIGHTNESS;
+                final_color = mix(final_color,Ambient_level,dist/cutoff) * props.BRIGHTNESS;
                 final_color = lut_color_correction( final_color );
 
             } else {
-                final_color = Ambient_level * BRIGHTNESS;
+                final_color = Ambient_level * props.BRIGHTNESS;
             }
             //final_color.r = color_in.a;
             /*===================================================================*/
@@ -235,7 +214,7 @@ void main (void)
             // Gray level
             vec3 luma = vec3(0.299, 0.587, 0.114);
             vec3 co = vec3(dot(luma, final_color.rgb));
-            vec3 c = mix(co, final_color.rgb, GRAY_LEVEL);
+            vec3 c = mix(co, final_color.rgb, props.GRAY_LEVEL);
             final_color.rgb = c;
             /*===================================================================*/
 
@@ -248,9 +227,9 @@ void main (void)
    
             float height = 0.0;
            
-            if( p.y <= MEAN ){
+            if( p.y <= props.MEAN ){
             
-            height = 1.0-(p.y + -mapMinHeight) / (-mapMinHeight + MEAN);
+            height = 1.0-(p.y + -props.mapMinHeight) / (-props.mapMinHeight + props.MEAN);
             height = sin(1.5708*height); // change to a curve to improve depth.
             }
 
@@ -264,19 +243,19 @@ void main (void)
             float fogFactor = exp2(-density * density * z * z * LOG2);
             fogFactor = clamp(fogFactor, 0.0, 1.0);
 
-            vec4 f_color =  vec4(fog_tint,0.0) * 1.5 * fog_alpha;
+            vec4 f_color =  vec4(props.fog_tint,0.0) * 1.5 * fog_alpha;
 
 
-            final_color = mix(final_color, f_color,(1.0- fogFactor)*fog_level);
+            final_color = mix(final_color, f_color,(1.0- fogFactor)*props.fog_level);
             //final_color.r = outColor.a;
             /*===================================================================*/
             // Small Map Lights
-           if (light_count >1000){
+           if (props.light_count >1000){
 
                 //final_color*=0.5;
                 vec4 summed_lights;
 
-                for (int i = 0; i < light_count; i++){
+                for (int i = 0; i < props.light_count; i++){
 
                     vec4 lp = view * vec4(lights[i].location,1.0);
 
@@ -306,11 +285,11 @@ void main (void)
             /*===================================================================*/
         //if flag != 128
         }else{
-            outColor = texture(gColor, fs_in.UV) * BRIGHTNESS;
+            outColor = texture(gColor, fs_in.UV) * props.BRIGHTNESS;
         }
     // if flag != 0
     } else {
-        outColor = texture(gColor, fs_in.UV) * BRIGHTNESS;
+        outColor = texture(gColor, fs_in.UV) * props.BRIGHTNESS;
     }
 
     //outColor.a = 1.0;

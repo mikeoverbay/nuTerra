@@ -1,6 +1,8 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
 
 layout(early_fragment_tests) in;
@@ -83,8 +85,6 @@ layout(binding = 22) uniform sampler2DArray textArrayC;
 layout(binding = 23) uniform sampler2DArray textArrayN;
 layout(binding = 24) uniform sampler2DArray textArrayG;
 
-uniform vec3 waterColor;
-uniform float waterAlpha;
 uniform float map_id;
 
 in VS_OUT {
@@ -393,7 +393,7 @@ void main(void)
     base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
 
     //wetness
-    base = blend(base,base.a,vec4(waterColor,waterAlpha),global.a);
+    base = blend(base,base.a,vec4(props.waterColor,props.waterAlpha),global.a);
 
     // Texture outlines
 #ifdef SHOW_TEST_TEXTURES

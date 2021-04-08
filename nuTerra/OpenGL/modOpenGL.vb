@@ -136,12 +136,53 @@ Module modOpenGL
         Public viewProj As Matrix4
         Public invViewProj As Matrix4
         Public cameraPos As Vector3
-        Public _start As Single
+        Public pad1 As UInt32
         Public resolution As Vector2
-        Public _end As Single
     End Structure
     Public PerViewData As New TPerViewData
     Public PerViewDataBuffer As GLBuffer
+
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure TCommonProperties
+        Public map_size As Vector2
+        Public map_center As Vector2
+        Public waterColor As Vector3
+        Public waterAlpha As Single
+        Public fog_tint As Vector3
+        Public light_count As UInt32
+        Public sunColor As Vector3
+        Public mapMaxHeight As Single
+        Public ambientColorForward As Vector3
+        Public mapMinHeight As Single
+        Public MEAN As Single
+        Public AMBIENT As Single
+        Public BRIGHTNESS As Single
+        Public SPECULAR As Single
+        Public GRAY_LEVEL As Single
+        Public GAMMA_LEVEL As Single
+        Public fog_level As Single
+        Public _start As Single
+        Public _end As Single
+
+        Public Sub update()
+            light_count = Math.Max(LIGHTS.index - 1, 0)
+            mapMaxHeight = MAX_MAP_HEIGHT
+            mapMinHeight = MIN_MAP_HEIGHT
+            MEAN = CSng(MEAN_MAP_HEIGHT)
+
+            'Lighting settings
+            AMBIENT = frmLightSettings.lighting_ambient
+            BRIGHTNESS = frmLightSettings.lighting_terrain_texture
+            SPECULAR = frmLightSettings.lighting_specular_level
+            GRAY_LEVEL = frmLightSettings.lighting_gray_level
+            GAMMA_LEVEL = frmLightSettings.lighting_gamma_level
+            fog_level = frmLightSettings.lighting_fog_level * 100.0F
+
+            GL.NamedBufferSubData(CommonPropertiesBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(Me), Me)
+        End Sub
+    End Structure
+    Public CommonProperties As New TCommonProperties
+    Public CommonPropertiesBuffer As GLBuffer
 
     Public Sub Sun_Ortho_view(ByVal L As Single, ByVal R As Single, ByVal B As Single, ByVal T As Single)
         GL.Viewport(0, 0, FBO_ShadowBaker.depth_map_size, FBO_ShadowBaker.depth_map_size)

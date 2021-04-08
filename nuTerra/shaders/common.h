@@ -3,6 +3,7 @@
 // Uniforms Blocks
 #define TERRAIN_LAYERS_UBO_BASE 0
 #define PER_VIEW_UBO_BASE 1
+#define COMMON_PROPERTIES_UBO_BASE 2
 
 // SSBO
 #define MATRICES_BASE 0
@@ -90,10 +91,33 @@ layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
     mat4 viewProj;
     mat4 invViewProj;
     vec3 cameraPos;
-    float _start;
+    uint pad;
     vec2 resolution;
-    float _end;
 };
+#endif
+
+#ifdef USE_COMMON_PROPERTIES_UBO
+layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
+    vec2 map_size;
+    vec2 map_center;
+    vec3 waterColor;
+    float waterAlpha;
+    vec3 fog_tint;
+    uint light_count;
+    vec3 sunColor;
+    float mapMaxHeight;
+    vec3 ambientColorForward;
+    float mapMinHeight;
+    float MEAN;
+    float AMBIENT;
+    float BRIGHTNESS;
+    float SPECULAR;
+    float GRAY_LEVEL;
+    float GAMMA_LEVEL;
+    float fog_level;
+    float _start;
+    float _end;
+} props;
 #endif
 
 #ifdef USE_LIGHT_SSBO
@@ -103,6 +127,10 @@ struct light {
     vec3 color;
     float fallOff;
     int inUse;
+};
+
+layout(std140, binding = LIGHTS_BASE) buffer Lights {
+    light lights[];
 };
 #endif
 

@@ -285,6 +285,14 @@ Module ChunkFunctions
     End Structure
 
     Public Sub build_Terrain_VAO()
+        CommonProperties.waterColor = Map_wetness.waterColor
+        CommonProperties.waterAlpha = Map_wetness.waterAlpha
+        CommonProperties.map_size.X = MAP_SIZE.X + 1
+        CommonProperties.map_size.Y = MAP_SIZE.Y + 1
+        CommonProperties.map_center.X = -b_x_min
+        CommonProperties.map_center.Y = b_y_max
+        CommonProperties.update()
+
         MapGL.VertexArrays.allTerrainChunks = CreateVertexArray("allTerrainChunks")
 
         MapGL.Buffers.terrain_vertices = CreateBuffer(BufferTarget.ArrayBuffer, "terrain_vertices")

@@ -1,6 +1,8 @@
 ﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
+
+#define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
@@ -78,8 +80,6 @@ layout(binding = 21) uniform sampler2D global_AM;
 //layout(binding = 23) uniform sampler2DArray shadow;
 
 uniform int map_id;
-uniform vec3 waterColor;
-uniform float waterAlpha;
 
 in VS_OUT {
 
@@ -319,7 +319,7 @@ void main(void)
     gc.rgb = global.rgb;
     base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
     //wetness
-    base = blend(base,base.a,vec4(waterColor,waterAlpha),global.a);
+    base = blend(base,base.a,vec4(props.waterColor,props.waterAlpha),global.a);
 
     //-------------------------------------------------------------
     // normals

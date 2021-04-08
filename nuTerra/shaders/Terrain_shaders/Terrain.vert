@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
+#define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec3 vertexPosition;
@@ -59,8 +60,6 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
     vec4 s8;
     };
 
-uniform vec2 map_size;
-uniform vec2 map_center;
 uniform vec2 me_location;
 uniform mat4 modelMatrix;
 uniform mat3 normalMatrix;
@@ -83,10 +82,10 @@ void main(void)
     vs_out.UV =  vertexTexCoord;
     // calculate tex coords for global_AM
     vec2 uv_g;
-    vec2 scaled = vs_out.UV / map_size;
-    vec2 m_s = vec2(1.0)/map_size;
-    uv_g.x = ((( (me_location.x )-50.0)/100.0)+map_center.x) * m_s.x ;
-    uv_g.y = ((( (me_location.y )-50.0)/100.0)-map_center.y) * m_s.y ;
+    vec2 scaled = vs_out.UV / props.map_size;
+    vec2 m_s = vec2(1.0)/props.map_size;
+    uv_g.x = ((( (me_location.x )-50.0)/100.0)+props.map_center.x) * m_s.x ;
+    uv_g.y = ((( (me_location.y )-50.0)/100.0)-props.map_center.y) * m_s.y ;
     vs_out.Global_UV = scaled + uv_g;
     vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
     
@@ -126,7 +125,7 @@ void main(void)
     vec3 point = vec3(modelMatrix * vec4(vertexPosition, 1.0));
     vs_out.ln = distance( point.xyz,cameraPos.xyz );
 
-    if (vs_out.ln < _start + _end) { vs_out.ln = 1.0 - (vs_out.ln-_start)/_end;}
+    if (vs_out.ln < props._start + props._end) { vs_out.ln = 1.0 - (vs_out.ln-props._start)/props._end;}
     else {vs_out.ln = 0.0;}
 
 }

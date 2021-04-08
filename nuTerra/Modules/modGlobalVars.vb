@@ -50,9 +50,6 @@ Module modGlobalVars
 
     'Shading
     Public DUMMY_ATLAS As GLTexture
-    Public FOG_COLOR As Vector3
-    Public SUNCOLOR As Vector3
-    Public AMBIENTSUNCOLOR As Vector3
     Public FXAA_enable As Boolean = True
     Public FXAA_text As String = "FXAA On"
     Public TIME_OF_DAY As Single

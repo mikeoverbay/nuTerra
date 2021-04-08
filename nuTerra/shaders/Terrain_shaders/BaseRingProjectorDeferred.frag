@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
+#define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
 
 out vec4 colorOut;
@@ -15,7 +16,7 @@ uniform vec4 color;
 uniform vec3 ring_center;
 uniform float radius;
 uniform float thickness;
-uniform float BRIGHTNESS;
+
 void main (void)
 {
     if ( gl_FrontFacing ) discard;
@@ -41,6 +42,6 @@ void main (void)
     - smoothstep(radius-thickness, radius, rs);
 
     colorOut = color;
-    colorOut.a = (1.0-t) *0.25 * BRIGHTNESS;
+    colorOut.a = (1.0-t) *0.25 * props.BRIGHTNESS;
   
 }

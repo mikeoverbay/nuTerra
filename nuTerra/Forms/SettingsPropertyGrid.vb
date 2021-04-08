@@ -1,5 +1,6 @@
 ﻿Imports System.ComponentModel
-Imports System.Text.RegularExpressions
+Imports System.Runtime.InteropServices
+Imports OpenTK.Graphics.OpenGL
 
 Public Class SettingsPropertyGrid
     Const MIN_FOV = 1
@@ -15,8 +16,8 @@ Public Class SettingsPropertyGrid
     Const MAX_SPEED = 10000.0
 
     Public Sub New()
-        PerViewData._start = 75
-        PerViewData._end = 200
+        CommonProperties._start = 75
+        CommonProperties._end = 200
         FieldOfView = CSng(Math.PI) * (My.Settings.fov / 180.0F)
 
         'Get block state of things we want to block loading to speed things up for testing/debugging
@@ -105,20 +106,22 @@ Public Class SettingsPropertyGrid
     <DisplayName("Start"), Category("Terrain")>
     Public Property Terrain_Start As Single
         Set(value As Single)
-            PerViewData._start = value
+            CommonProperties._start = value
+            CommonProperties.update()
         End Set
         Get
-            Return PerViewData._start
+            Return CommonProperties._start
         End Get
     End Property
 
     <DisplayName("End"), Category("Terrain")>
     Public Property Terrain_End As Single
         Set(value As Single)
-            PerViewData._end = value
+            CommonProperties._end = value
+            CommonProperties.update()
         End Set
         Get
-            Return PerViewData._end
+            Return CommonProperties._end
         End Get
     End Property
 
@@ -138,7 +141,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Global Mip Bias"), Category("Open GL")>
     Public Property OPENGL_global_mip_bias As Single
         Set(value As Single)
-            If -4.0 <= value And value <= 4.0 Then
+            If -15.0 <= value And value <= 15.0 Then
                 GLOBAL_MIP_BIAS = value
             End If
         End Set

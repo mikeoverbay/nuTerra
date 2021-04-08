@@ -574,6 +574,9 @@ Module MapLoader
 
             Test_Emiters(i).initialize()
         Next
+
+        CommonProperties.update()
+
         '===============================================================
         MINI_MAP_SIZE += 1 ' force a redraw of the entire minimap
         '===============================================================
@@ -594,6 +597,7 @@ Module MapLoader
         frmMain.MainMenuStrip.Enabled = True
 
     End Sub
+
     '============================================================================
     Public Sub randomize_lights()
         '===============================================================

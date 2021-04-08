@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
+#define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
@@ -13,11 +14,9 @@ layout (binding = 2) uniform sampler2D gPosition;
 layout (binding = 3) uniform sampler2D gColor_in;
 //layout (binding = 4) uniform sampler2D gColor_in_2;
 
-uniform vec3 fog_tint;
 uniform float uv_scale;
 uniform float time;
 uniform vec2 move_vector;
-uniform float fog_level;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -135,16 +134,16 @@ void main()
     c = c * c;
     color = ( color * vec4(c,c,c,1.0) )* 2.0 ;
 
-    color.xyz *= fog_tint * deferred_mix.a *6.0;
+    color.xyz *= props.fog_tint * deferred_mix.a *6.0;
     
 
     gColor.rgb = deferred_mix.rgb;
     // terrain painting
     gColor.rgb = mix(deferred_mix.rgb, color.rgb, 0.95-deferred_mix.a);
     // Add some top level fog
-    gColor.rgb = mix(gColor.rgb, fog_tint.rgb, 1.0-deferred_mix.a );
+    gColor.rgb = mix(gColor.rgb, props.fog_tint.rgb, 1.0-deferred_mix.a );
 
-    gColor.rgb = mix(deferred_mix.rgb, gColor.rgb, fog_level);
+    gColor.rgb = mix(deferred_mix.rgb, gColor.rgb, props.fog_level);
     //gColor.rgb = vec3(deferred_mix*color);
 
 }

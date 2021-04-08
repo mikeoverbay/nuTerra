@@ -7,7 +7,7 @@ NotInheritable Class ResMgr
     Shared FILENAME_TO_ZIP_ENTRY As New Dictionary(Of String, ZipEntry)
     Shared FILE_EXTENSIONS_TO_USE As New HashSet(Of String)({
             ".dds", ".model", ".primitives_processed",
-            ".visual_processed", ".model", ".cdata_processed",
+            ".visual_processed", ".cdata_processed",
             ".bin", ".xml", ".png", ".settings", ".srt",
             ".texformat", ".atlas_processed"
             })

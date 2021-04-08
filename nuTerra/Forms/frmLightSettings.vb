@@ -24,30 +24,37 @@ Public Class frmLightSettings
         s_fog_level.Value = My.Settings.PropertyValues("Fog_level").Property.DefaultValue
         s_specular_level.Value = My.Settings.PropertyValues("Specular_level").Property.DefaultValue
         s_gray_level.Value = My.Settings.PropertyValues("Gray_level").Property.DefaultValue
+        CommonProperties.update()
     End Sub
 
     Private Sub s_specular_level_ValueChanged(sender As Object, e As EventArgs) Handles s_specular_level.ValueChanged
         lighting_specular_level = s_specular_level.Value / 100.0!
+        CommonProperties.update()
     End Sub
 
     Private Sub s_fog_level_ValueChanged(sender As Object, e As EventArgs) Handles s_fog_level.ValueChanged
         lighting_fog_level = s_fog_level.Value / 10000.0! ' yes 10,000
+        CommonProperties.update()
     End Sub
 
     Private Sub s_terrain_ambient_ValueChanged(sender As Object, e As EventArgs) Handles s_terrain_ambient.ValueChanged
         lighting_ambient = s_terrain_ambient.Value / 300.0!
+        CommonProperties.update()
     End Sub
 
     Private Sub s_terrain_texture_level_ValueChanged(sender As Object, e As EventArgs) Handles s_terrain_texture_level.ValueChanged
         lighting_terrain_texture = s_terrain_texture_level.Value / 50.0!
+        CommonProperties.update()
     End Sub
 
     Private Sub s_gamma_ValueChanged(sender As Object, e As EventArgs) Handles s_gamma.ValueChanged
         lighting_gamma_level = s_gamma.Value / 100.0!
+        CommonProperties.update()
     End Sub
 
     Private Sub s_gray_level_ValueChanged(sender As Object, e As EventArgs) Handles s_gray_level.ValueChanged
         lighting_gray_level = 1.0 - (s_gray_level.Value / 100.0!)
+        CommonProperties.update()
     End Sub
 
     Private Sub s_terrain_texture_level_MouseEnter(sender As Object, e As EventArgs) Handles s_terrain_texture_level.MouseEnter

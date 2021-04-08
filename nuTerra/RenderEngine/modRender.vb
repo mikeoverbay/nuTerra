@@ -145,20 +145,6 @@ Module modRender
             '=======================================================================
         End If
         '===========================================================================
-        If TERRAIN_LOADED Then
-            FBOm.attach_C()
-            GL.Enable(EnableCap.Blend)
-            GL.Enable(EnableCap.DepthTest)
-            GL.DepthMask(False)
-            For i = 0 To Test_Emiters.Length - 1
-                'Test_Emiters(i).execute()
-            Next
-
-            GL.Disable(EnableCap.Blend)
-            GL.Enable(EnableCap.DepthTest)
-            GL.DepthMask(True)
-        End If
-
 
         GL.DepthFunc(DepthFunction.Less)
         '===========================================================================
@@ -295,39 +281,15 @@ Module modRender
         '===========================================================================
         deferredShader.Use()
 
-        'set up uniforms
-        GL.Uniform1(deferredShader("light_count"), LIGHTS.index - 1)
-        GL.Uniform1(deferredShader("mapMaxHeight"), MAX_MAP_HEIGHT)
-        GL.Uniform1(deferredShader("mapMinHeight"), MIN_MAP_HEIGHT)
-        GL.Uniform1(deferredShader("MEAN"), CSng(MEAN_MAP_HEIGHT))
-
-        GL.Uniform3(deferredShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
-
-        GL.Uniform3(deferredShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
-
-
         FBOm.gColor.BindUnit(0)
         FBOm.gNormal.BindUnit(1)
         FBOm.gGMF.BindUnit(2)
         FBOm.gPosition.BindUnit(3)
         CUBE_TEXTURE_ID.BindUnit(4)
         CC_LUT_ID.BindUnit(5)
-
-        If ENV_BRDF_LUT_ID IsNot Nothing Then ENV_BRDF_LUT_ID.BindUnit(6)
-
-        GL.Uniform3(deferredShader("sunColor"), SUNCOLOR.X, SUNCOLOR.Y, SUNCOLOR.Z)
-        GL.Uniform3(deferredShader("ambientColorForward"), AMBIENTSUNCOLOR.X, AMBIENTSUNCOLOR.Y, AMBIENTSUNCOLOR.Z)
-
-        'Lighting settings
-        GL.Uniform1(deferredShader("AMBIENT"), frmLightSettings.lighting_ambient)
-        GL.Uniform1(deferredShader("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
-        GL.Uniform1(deferredShader("SPECULAR"), frmLightSettings.lighting_specular_level)
-        GL.Uniform1(deferredShader("GRAY_LEVEL"), frmLightSettings.lighting_gray_level)
-        GL.Uniform1(deferredShader("GAMMA_LEVEL"), frmLightSettings.lighting_gamma_level)
-        GL.Uniform1(deferredShader("fog_level"), frmLightSettings.lighting_fog_level * 100.0F)
+        If ENV_BRDF_LUT_ID IsNot Nothing Then
+            ENV_BRDF_LUT_ID.BindUnit(6)
+        End If
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
@@ -370,11 +332,8 @@ Module modRender
 
         DeferredFogShader.Use()
 
-        GL.Uniform3(DeferredFogShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
         GL.Uniform1(DeferredFogShader("uv_scale"), 4.0F)
         GL.Uniform2(DeferredFogShader("move_vector"), uv_location.X, uv_location.Y)
-        GL.Uniform3(DeferredFogShader("fog_tint"), FOG_COLOR.X, FOG_COLOR.Y, FOG_COLOR.Z)
-        GL.Uniform1(DeferredFogShader("fog_level"), frmLightSettings.lighting_fog_level * 100.0F)
 
         Dim ff = frmLightSettings.lighting_fog_level * 100.0
 
@@ -423,9 +382,7 @@ Module modRender
         BaseRingProjectorDeferred.Use()
 
         GL.Disable(EnableCap.CullFace)
-        'GL.Uniform1(BaseRingProjectorDeferred("depthMap"), 0)
-        'GL.Uniform1(BaseRingProjectorDeferred("gGMF"), 1)
-        'GL.Uniform1(BaseRingProjectorDeferred("gPosition"), 2)
+
         FBOm.gDepth.BindUnit(0)
         FBOm.gGMF.BindUnit(1)
         FBOm.gPosition.BindUnit(2)
@@ -435,8 +392,6 @@ Module modRender
         GL.Uniform1(BaseRingProjectorDeferred("thickness"), 2.0F)
         Dim rotate = Matrix4.CreateRotationX(1.570796)
         Dim scale = Matrix4.CreateScale(120.0F, 25.0F, 120.0F)
-
-        GL.Uniform1(BaseRingProjectorDeferred("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
 
         ' base 1 ring
 
@@ -549,16 +504,6 @@ Module modRender
         FBO_mixer_set.gNormalArray.BindUnit(2)
         FBO_mixer_set.gGmmArray.BindUnit(3)
 
-        GL.Uniform3(TerrainLQShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
-
-        GL.Uniform1(TerrainLQShader("waterAlpha"), Map_wetness.waterAlpha)
-
-        GL.Uniform2(TerrainLQShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
-        GL.Uniform2(TerrainLQShader("map_center"), -b_x_min, b_y_max)
-
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
 
         For i = 0 To theMap.render_set.Length - 1
@@ -595,17 +540,6 @@ Module modRender
         FBO_mixer_set.gColorArray.BindUnit(22)
         FBO_mixer_set.gNormalArray.BindUnit(23)
         FBO_mixer_set.gGmmArray.BindUnit(24)
-
-        'water BS
-        GL.Uniform3(TerrainShader("waterColor"),
-                        Map_wetness.waterColor.X,
-                        Map_wetness.waterColor.Y,
-                        Map_wetness.waterColor.Z)
-
-        GL.Uniform1(TerrainShader("waterAlpha"), Map_wetness.waterAlpha)
-
-        GL.Uniform2(TerrainShader("map_size"), MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
-        GL.Uniform2(TerrainShader("map_center"), -b_x_min, b_y_max)
 
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
         For i = 0 To theMap.render_set.Length - 1
@@ -925,10 +859,6 @@ Module modRender
 
         glassPassShader.Use()
         GL.UniformMatrix4(glassPassShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-
-        'GL.Uniform2(glassPassShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
-
-        GL.Uniform1(glassPassShader("BRIGHTNESS"), frmLightSettings.lighting_terrain_texture)
 
         FBOm.gColor.BindUnit(0)
         FBOm.gAUX_Color.BindUnit(1)

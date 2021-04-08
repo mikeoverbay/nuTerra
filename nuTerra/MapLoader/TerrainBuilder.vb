@@ -456,8 +456,8 @@ Module TerrainBuilder
         Dim active_environment_xml = ResMgr.openXML(String.Format("spaces/{0}/environments/{1}/environment.xml", abs_name, activeEnvironment))
         Dim day_night_cycle_node = active_environment_xml("day_night_cycle")
 
-        SUNCOLOR = vector3_from_string(day_night_cycle_node("sunLightColor").InnerText)
-        AMBIENTSUNCOLOR = vector3_from_string(day_night_cycle_node("ambientColorForward").InnerText)
+        CommonProperties.sunColor = vector3_from_string(day_night_cycle_node("sunLightColor").InnerText)
+        CommonProperties.ambientColorForward = vector3_from_string(day_night_cycle_node("ambientColorForward").InnerText)
         TIME_OF_DAY = Convert.ToSingle(day_night_cycle_node("starttime").InnerText)
         SUN_SCALE = Convert.ToSingle(day_night_cycle_node("sunScaleForward").InnerText)
         SUN_TEXTURE_PATH = day_night_cycle_node("sunTextureForward").InnerText
@@ -479,9 +479,9 @@ Module TerrainBuilder
         ' fog_info
         Dim fog_color_node = active_environment_xml.SelectSingleNode("Fog/forward/color")
         If fog_color_node IsNot Nothing Then
-            FOG_COLOR = vector3_from_string(fog_color_node.InnerText)
+            CommonProperties.fog_tint = vector3_from_string(fog_color_node.InnerText)
         Else
-            FOG_COLOR = New Vector3(0.75F, 0.75, 0.85F)
+            CommonProperties.fog_tint = New Vector3(0.75F, 0.75, 0.85F)
         End If
 
         ' get color correction lut
