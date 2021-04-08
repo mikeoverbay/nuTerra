@@ -17,10 +17,6 @@ Public Class frmProgramEditor
 
     Public CP_parent As UInt32
 
-    Private f_app_path As String
-    Private v_app_path As String
-    Private g_app_path As String
-    Private c_app_path As String
     Private shader_index As Integer
 
     Const EM_SETTABSTOPS = &HCB
@@ -69,25 +65,34 @@ Public Class frmProgramEditor
 
         recompile_bt.Enabled = False
 
-        If shaders(shader_index).vertex IsNot Nothing Then
-            File.WriteAllText(v_app_path, vert_tb.Text)
+        Dim shader = shaders(shader_index)
+        If shader.vertex IsNot Nothing Then
+            File.WriteAllText(shader.vertex, vert_tb.Text)
         End If
 
-        If shaders(shader_index).fragment IsNot Nothing Then
-            File.WriteAllText(f_app_path, frag_tb.Text)
+        If shader.tc IsNot Nothing Then
+            File.WriteAllText(shader.tc, tessControl_tb.Text)
         End If
 
-        If shaders(shader_index).geo IsNot Nothing Then
-            File.WriteAllText(g_app_path, geo_tb.Text)
+        If shader.te IsNot Nothing Then
+            File.WriteAllText(shader.te, tessEvaluation_tb.Text)
         End If
 
-        If shaders(shader_index).compute IsNot Nothing Then
-            File.WriteAllText(c_app_path, compute_tb.Text)
+        If shader.geo IsNot Nothing Then
+            File.WriteAllText(shader.geo, geo_tb.Text)
+        End If
+
+        If shader.fragment IsNot Nothing Then
+            File.WriteAllText(shader.fragment, frag_tb.Text)
+        End If
+
+        If shader.compute IsNot Nothing Then
+            File.WriteAllText(shader.compute, compute_tb.Text)
         End If
 
         Me.TopMost = False
 
-        shaders(shader_index).UpdateShader()
+        shader.UpdateShader()
 
         reset_focus()
         recompile_bt.Enabled = True
@@ -96,41 +101,55 @@ Public Class frmProgramEditor
     End Sub
 
     Private Sub CB1_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CB1.SelectedIndexChanged
-        Dim shader As String = CB1.Items(CB1.SelectedIndex)
-        Me.Text = "Shader Editor: " + shader
+        Dim shader_name As String = CB1.Items(CB1.SelectedIndex)
+        Me.Text = "Shader Editor: " + shader_name
         shader_index = CB1.SelectedIndex
-        v_app_path = shaders(shader_index).vertex
-        g_app_path = shaders(shader_index).geo
-        f_app_path = shaders(shader_index).fragment
-        c_app_path = shaders(shader_index).compute
 
-        If shaders(shader_index).vertex IsNot Nothing Then
+        Dim shader = shaders(shader_index)
+
+        If shader.vertex IsNot Nothing Then
             vert_tb.Enabled = True
-            vert_tb.Text = File.ReadAllText(v_app_path)
+            vert_tb.Text = File.ReadAllText(shader.vertex)
         Else
             vert_tb.Enabled = False
             vert_tb.Text = "NO VERTEX PROGRAM"
         End If
 
-        If shaders(shader_index).fragment IsNot Nothing Then
-            frag_tb.Enabled = True
-            frag_tb.Text = File.ReadAllText(f_app_path)
+        If shader.tc IsNot Nothing Then
+            tessControl_tb.Enabled = True
+            tessControl_tb.Text = File.ReadAllText(shader.tc)
         Else
-            frag_tb.Text = "NO FRAG PROGRAM"
-            frag_tb.Enabled = False
+            tessControl_tb.Text = "NO TESS CONTROL PROGRAM"
+            tessControl_tb.Enabled = False
         End If
 
-        If shaders(shader_index).geo IsNot Nothing Then
+        If shader.te IsNot Nothing Then
+            tessEvaluation_tb.Enabled = True
+            tessEvaluation_tb.Text = File.ReadAllText(shader.te)
+        Else
+            tessEvaluation_tb.Text = "NO TESS EVALUATION PROGRAM"
+            tessEvaluation_tb.Enabled = False
+        End If
+
+        If shader.geo IsNot Nothing Then
             geo_tb.Enabled = True
-            geo_tb.Text = File.ReadAllText(g_app_path)
+            geo_tb.Text = File.ReadAllText(shader.geo)
         Else
             geo_tb.Text = "NO GEOM PROGRAM"
             geo_tb.Enabled = False
         End If
 
-        If shaders(shader_index).compute IsNot Nothing Then
+        If shader.fragment IsNot Nothing Then
+            frag_tb.Enabled = True
+            frag_tb.Text = File.ReadAllText(shader.fragment)
+        Else
+            frag_tb.Text = "NO FRAG PROGRAM"
+            frag_tb.Enabled = False
+        End If
+
+        If shader.compute IsNot Nothing Then
             compute_tb.Enabled = True
-            compute_tb.Text = File.ReadAllText(c_app_path)
+            compute_tb.Text = File.ReadAllText(shader.compute)
         Else
             compute_tb.Text = "NO COMPUTE PROGRAM"
             compute_tb.Enabled = False
@@ -144,13 +163,6 @@ Public Class frmProgramEditor
         If focused_form IsNot Nothing Then
             focused_form.Focus()
         End If
-    End Sub
-    Private Sub frag_tb_GotFocus(sender As Object, e As EventArgs)
-        focused_form = frag_tb
-    End Sub
-
-    Private Sub vert_tb_GotFocus(sender As Object, e As EventArgs)
-        focused_form = vert_tb
     End Sub
 
     Private Sub geo_tb_GotFocus(sender As Object, e As EventArgs) Handles geo_tb.GotFocus
@@ -244,51 +256,15 @@ Public Class frmProgramEditor
 
     'vetext editor
     Private Sub ToolStripMenuItem1_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem1.Click
-        vert_tb.Cut()
+        CType(sender.Owner.SourceControl, FastColoredTextBox).Cut()
     End Sub
 
     Private Sub ToolStripMenuItem2_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem2.Click
-        vert_tb.Copy()
+        CType(sender.Owner.SourceControl, FastColoredTextBox).Copy()
     End Sub
 
     Private Sub ToolStripMenuItem3_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem3.Click
-        vert_tb.Paste()
-    End Sub
-    'fragment
-    Private Sub ToolStripMenuItem4_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem4.Click
-        frag_tb.Cut()
-    End Sub
-
-    Private Sub ToolStripMenuItem5_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem5.Click
-        frag_tb.Copy()
-    End Sub
-
-    Private Sub ToolStripMenuItem6_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem6.Click
-        frag_tb.Paste()
-    End Sub
-
-    Private Sub ToolStripMenuItem7_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem7.Click
-        geo_tb.Cut()
-    End Sub
-
-    Private Sub ToolStripMenuItem8_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem8.Click
-        geo_tb.Copy()
-    End Sub
-
-    Private Sub ToolStripMenuItem9_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem9.Click
-        geo_tb.Paste()
-    End Sub
-
-    Private Sub ToolStripMenuItem10_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem10.Click
-        compute_tb.Cut()
-    End Sub
-
-    Private Sub ToolStripMenuItem11_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem11.Click
-        compute_tb.Copy()
-    End Sub
-
-    Private Sub ToolStripMenuItem12_Click(sender As Object, e As EventArgs) Handles ToolStripMenuItem12.Click
-        compute_tb.Paste()
+        CType(sender.Owner.SourceControl, FastColoredTextBox).Paste()
     End Sub
 
     Private Sub frmEditFrag_HelpButtonClicked(sender As Object, e As CancelEventArgs) Handles Me.HelpButtonClicked
