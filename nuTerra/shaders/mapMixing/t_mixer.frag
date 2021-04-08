@@ -79,15 +79,12 @@ layout(binding = 21) uniform sampler2D global_AM;
 
 //layout(binding = 23) uniform sampler2DArray shadow;
 
-uniform int map_id;
-
 in VS_OUT {
-
     vec4 Vertex;
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
-
+    flat float map_id;
 } fs_in;
 
 /*===========================================================*/

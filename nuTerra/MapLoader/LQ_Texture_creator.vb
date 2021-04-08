@@ -44,11 +44,7 @@ Module LQ_Texture_creator
         'pre created shadow masks
         'FBO_ShadowBaker.gBakerColorArray.BindUnit(23)
 
-        GL.Uniform1(t_mixerShader("map_id"), map)
-
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, PROJECTIONMATRIX)
-
-        GL.Uniform2(t_mixerShader("me_location"), theMap.chunks(map).location.X, theMap.chunks(map).location.Y) 'me_location
 
         'bind all the data for this chunk
         With theMap.render_set(map)

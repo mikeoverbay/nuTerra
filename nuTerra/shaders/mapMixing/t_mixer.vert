@@ -65,12 +65,11 @@ layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
 uniform mat4 Ortho_Project;
 
 out VS_OUT {
- 
     vec4 Vertex;
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
-
+    flat float map_id;
 } vs_out;
 
 
@@ -79,7 +78,7 @@ const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
 
 void main(void)
 {
-
+    vs_out.map_id = gl_BaseInstanceARB;
     vs_out.UV =  vertexTexCoord;
     // calculate tex coords for global_AM
     vec2 uv_g;
