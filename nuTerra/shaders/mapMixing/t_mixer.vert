@@ -69,7 +69,7 @@ out VS_OUT {
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
-    flat float map_id;
+    flat uint map_id;
 } vs_out;
 
 

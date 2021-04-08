@@ -491,7 +491,7 @@ Module modRender
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And theMap.render_set(i).LQ Then
-                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
+                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
 
                 'draw chunk
                 GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
@@ -516,7 +516,7 @@ Module modRender
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
-                GL.UniformMatrix3(TerrainShader("normalMatrix"), True, Matrix3.Invert(New Matrix3(PerViewData.view * theMap.render_set(i).matrix))) 'NormalMatrix
+                GL.UniformMatrix3(TerrainShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
 
                 'bind all the data for this chunk
                 With theMap.render_set(i)

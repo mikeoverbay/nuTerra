@@ -71,7 +71,7 @@ out VS_OUT {
     vec2 UV;
     vec2 Global_UV;
     float ln;
-    flat float map_id;
+    flat uint map_id;
 } vs_out;
 
 //-------------------------------------------------------
