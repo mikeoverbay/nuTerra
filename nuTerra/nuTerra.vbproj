@@ -406,7 +406,12 @@
     <Content Include="shaders\Trials\cullLodClear.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="shaders\Terrain_shaders\Terrain - Copy.frag" />
+    <None Include="shaders\Terrain_shaders\Terrain.tess_control">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\Terrain.tess_evaluation">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Trials\cull-invalidate.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

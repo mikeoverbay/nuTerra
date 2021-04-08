@@ -26,6 +26,8 @@ Module ShaderLoader
 
         Public name As String
         Public fragment As String
+        Public tc As String
+        Public te As String
         Public vertex As String
         Public geo As String
         Public compute As String
@@ -98,7 +100,7 @@ Module ShaderLoader
                 Debug.Assert(status_code = 0)
             End If
 
-            program = assemble_shader(vertex, geo, compute, fragment, name, defines)
+            program = assemble_shader(vertex, tc, te, geo, compute, fragment, name, defines)
 
             If program = 0 Then
                 ' Stop ' For debugging
@@ -123,36 +125,37 @@ Module ShaderLoader
             Me.name = name
             is_used = False
             loaded = False
-            Dim failed_1, failed_2, failed_3, failed_4 As Boolean
+
             vertex = get_shader(String.Format("{0}.vert", name))
             If Not File.Exists(vertex) Then
-                failed_1 = True
                 vertex = Nothing
+            End If
+
+            tc = get_shader(String.Format("{0}.tess_control", name))
+            If Not File.Exists(tc) Then
+                tc = Nothing
+            End If
+
+            te = get_shader(String.Format("{0}.tess_evaluation", name))
+            If Not File.Exists(te) Then
+                te = Nothing
             End If
 
             geo = get_shader(String.Format("{0}.geom", name))
             If Not File.Exists(geo) Then
-                failed_2 = True
                 geo = Nothing
             End If
 
             compute = get_shader(String.Format("{0}.comp", name))
             If Not File.Exists(compute) Then
-                failed_3 = True
                 compute = Nothing
             End If
 
             fragment = get_shader(String.Format("{0}.frag", name))
             If Not File.Exists(fragment) Then
-                failed_4 = True
                 fragment = Nothing
             End If
 
-            'check if our shader was found
-            If failed_1 And failed_2 And failed_3 And failed_4 Then
-                MsgBox(name + " was not found.", MsgBoxStyle.Exclamation, "Oh No!!")
-                Return
-            End If
             UpdateShader()
         End Sub
     End Class
@@ -316,6 +319,8 @@ Module ShaderLoader
     End Sub
 
     Public Function assemble_shader(v As String,
+                                    tc As String,
+                                    te As String,
                                     g As String,
                                     c As String,
                                     f As String,
@@ -363,6 +368,75 @@ Module ShaderLoader
             End If
         End If
 
+        ' Compile tess control shader
+        Dim tessControlObject As Integer = 0
+        If tc IsNot Nothing Then
+            tessControlObject = GL.CreateShader(ShaderType.TessControlShader)
+
+            If USE_SPIRV_SHADERS And File.Exists(tc + ".spv") Then
+                Dim tcs_buf = File.ReadAllBytes(tc + ".spv")
+                GL.ShaderBinary(1, tessControlObject, DirectCast(&H9551, BinaryFormat), tcs_buf, tcs_buf.Length)
+                GL.SpecializeShader(tessControlObject, "main", 0, 0, 0)
+            Else
+                Using tcs_s As New StreamReader(tc)
+                    Dim tcs = tcs_s.ReadLine() & vbNewLine
+                    For Each item In defines
+                        tcs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
+                    Next
+                    tcs += tcs_s.ReadToEnd()
+                    GL.ShaderSource(tessControlObject, tcs)
+                End Using
+
+                GL.Arb.CompileShaderInclude(tessControlObject, incPaths.Length, incPaths, incPathLengths)
+            End If
+
+            ' Get & check status after compile
+            GL.GetShader(tessControlObject, ShaderParameter.CompileStatus, status_code)
+            If status_code = 0 Then
+                Dim info = GL.GetShaderInfoLog(tessControlObject)
+                GL.DeleteShader(vertexObject)
+                GL.DeleteShader(tessControlObject)
+                GL.DeleteProgram(program)
+                gl_error(tc + " didn't compile!" + vbCrLf + info.ToString)
+                Return 0
+            End If
+        End If
+
+        ' Compile tess evaluation shader
+        Dim tessEvaluationObject As Integer = 0
+        If te IsNot Nothing Then
+            tessEvaluationObject = GL.CreateShader(ShaderType.TessEvaluationShader)
+
+            If USE_SPIRV_SHADERS And File.Exists(te + ".spv") Then
+                Dim tes_buf = File.ReadAllBytes(te + ".spv")
+                GL.ShaderBinary(1, tessEvaluationObject, DirectCast(&H9551, BinaryFormat), tes_buf, tes_buf.Length)
+                GL.SpecializeShader(tessEvaluationObject, "main", 0, 0, 0)
+            Else
+                Using tes_s As New StreamReader(te)
+                    Dim tes = tes_s.ReadLine() & vbNewLine
+                    For Each item In defines
+                        tes += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
+                    Next
+                    tes += tes_s.ReadToEnd()
+                    GL.ShaderSource(tessEvaluationObject, tes)
+                End Using
+
+                GL.Arb.CompileShaderInclude(tessEvaluationObject, incPaths.Length, incPaths, incPathLengths)
+            End If
+
+            ' Get & check status after compile
+            GL.GetShader(tessEvaluationObject, ShaderParameter.CompileStatus, status_code)
+            If status_code = 0 Then
+                Dim info = GL.GetShaderInfoLog(tessEvaluationObject)
+                GL.DeleteShader(vertexObject)
+                GL.DeleteShader(tessControlObject)
+                GL.DeleteShader(tessEvaluationObject)
+                GL.DeleteProgram(program)
+                gl_error(te + " didn't compile!" + vbCrLf + info.ToString)
+                Return 0
+            End If
+        End If
+
         ' Compile fragment shader
         Dim fragmentObject As Integer = 0
         If f IsNot Nothing Then
@@ -390,6 +464,8 @@ Module ShaderLoader
             If status_code = 0 Then
                 Dim info = GL.GetShaderInfoLog(fragmentObject)
                 GL.DeleteShader(vertexObject)
+                GL.DeleteShader(tessControlObject)
+                GL.DeleteShader(tessEvaluationObject)
                 GL.DeleteShader(fragmentObject)
                 GL.DeleteProgram(program)
                 gl_error(name + "_fragment didn't compile!" + vbCrLf + info.ToString)
@@ -418,6 +494,8 @@ Module ShaderLoader
             If status_code = 0 Then
                 Dim info = GL.GetShaderInfoLog(geomObject)
                 GL.DeleteShader(vertexObject)
+                GL.DeleteShader(tessControlObject)
+                GL.DeleteShader(tessEvaluationObject)
                 GL.DeleteShader(fragmentObject)
                 GL.DeleteShader(geomObject)
                 GL.DeleteProgram(program)
@@ -471,6 +549,8 @@ Module ShaderLoader
             If status_code = 0 Then
                 Dim info = GL.GetShaderInfoLog(computeObject)
                 GL.DeleteShader(vertexObject)
+                GL.DeleteShader(tessControlObject)
+                GL.DeleteShader(tessEvaluationObject)
                 GL.DeleteShader(fragmentObject)
                 GL.DeleteShader(geomObject)
                 GL.DeleteShader(computeObject)
