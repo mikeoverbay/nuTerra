@@ -80,14 +80,9 @@ void main(void)
 {
     vs_out.map_id = gl_BaseInstanceARB;
     vs_out.UV =  vertexTexCoord;
+
     // calculate tex coords for global_AM
-    vec2 uv_g;
-    vec2 scaled = vs_out.UV / props.map_size;
-    vec2 m_s = vec2(1.0)/props.map_size;
-    uv_g.x = ((( (chunk.me_location.x )-50.0)/100.0)+props.map_center.x) * m_s.x ;
-    uv_g.y = ((( (chunk.me_location.y )-50.0)/100.0)-props.map_center.y) * m_s.y ;
-    vs_out.Global_UV = scaled + uv_g;
-    vs_out.Global_UV.xy = 1.0 - vs_out.Global_UV.xy;
+    vs_out.Global_UV = 1.0 - (chunk.g_uv_offset + (vertexTexCoord * props.map_size));
     
     //-------------------------------------------------------
     vec4 Vertex = vec4(vertexPosition.xzy, 1.0) * 1.0;

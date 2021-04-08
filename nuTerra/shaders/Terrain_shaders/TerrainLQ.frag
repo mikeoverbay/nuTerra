@@ -20,7 +20,7 @@ in VS_OUT {
     mat3 TBN;
     vec3 worldPosition;
     vec2 UV;
-    vec2 Global_UV;
+    // vec2 Global_UV;
     flat uint map_id;
 } fs_in;
 
@@ -28,7 +28,8 @@ in VS_OUT {
 /*===========================================================*/
 void main(void)
 {
-    vec4 global = texture(global_AM, fs_in.Global_UV);
+    // vec4 global = texture(global_AM, fs_in.Global_UV);
+
     // This is needed to light the global_AM.
     vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, fs_in.map_id) );
     vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, fs_in.map_id) );

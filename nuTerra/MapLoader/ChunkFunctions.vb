@@ -287,18 +287,18 @@ Module ChunkFunctions
     <StructLayout(LayoutKind.Sequential)>
     Private Structure TerrainChunkInfo
         Public modelMatrix As Matrix4
-        Public me_location As Vector2
+        Public g_uv_offset As Vector2
         Public pad1 As UInt32
         Public pad2 As UInt32
     End Structure
 
     Public Sub build_Terrain_VAO()
+        Dim mapsize As New Vector2(MAP_SIZE.X + 1, MAP_SIZE.Y + 1)
+
         CommonProperties.waterColor = Map_wetness.waterColor
         CommonProperties.waterAlpha = Map_wetness.waterAlpha
-        CommonProperties.map_size.X = MAP_SIZE.X + 1
-        CommonProperties.map_size.Y = MAP_SIZE.Y + 1
-        CommonProperties.map_center.X = -b_x_min
-        CommonProperties.map_center.Y = b_y_max
+        CommonProperties.map_size.X = 1.0 / mapsize.X
+        CommonProperties.map_size.Y = 1.0 / mapsize.Y
         CommonProperties.update()
 
         Dim terrainMatrices(theMap.chunks.Length - 1) As TerrainChunkInfo
@@ -326,7 +326,7 @@ Module ChunkFunctions
                 terrainIndirect(i).baseInstance = i
 
                 terrainMatrices(i).modelMatrix = theMap.render_set(i).matrix
-                terrainMatrices(i).me_location = theMap.chunks(i).location.Xy
+                terrainMatrices(i).g_uv_offset = Vector2.Divide((((theMap.chunks(i).location.Xy - New Vector2(50.0)) / 100.0) - New Vector2(b_x_min, b_y_max)), mapsize)
 
                 Dim vertices(.n_buff.Length - 1) As TerrainVertex
                 For j = 0 To .n_buff.Length - 1

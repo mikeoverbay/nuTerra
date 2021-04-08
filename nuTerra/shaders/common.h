@@ -99,8 +99,6 @@ layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
 
 #ifdef USE_COMMON_PROPERTIES_UBO
 layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
-    vec2 map_size;
-    vec2 map_center;
     vec3 waterColor;
     float waterAlpha;
     vec3 fog_tint;
@@ -109,6 +107,7 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float mapMaxHeight;
     vec3 ambientColorForward;
     float mapMinHeight;
+    vec2 map_size;
     float MEAN;
     float AMBIENT;
     float BRIGHTNESS;
@@ -196,7 +195,7 @@ layout(std430, binding = VISIBLES_DBL_SIDED_BASE) buffer visibleDblSidedBuffer {
 #ifdef USE_TERRAIN_CHUNK_INFO_SSBO
 struct TerrainChunkInfo {
     mat4 modelMatrix;
-    vec2 me_location;
+    vec2 g_uv_offset;
     uint pad1;
     uint pad2;
 };

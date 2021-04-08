@@ -144,8 +144,6 @@ Module modOpenGL
 
     <StructLayout(LayoutKind.Sequential)>
     Public Structure TCommonProperties
-        Public map_size As Vector2
-        Public map_center As Vector2
         Public waterColor As Vector3
         Public waterAlpha As Single
         Public fog_tint As Vector3
@@ -154,6 +152,7 @@ Module modOpenGL
         Public mapMaxHeight As Single
         Public ambientColorForward As Vector3
         Public mapMinHeight As Single
+        Public map_size As Vector2
         Public MEAN As Single
         Public AMBIENT As Single
         Public BRIGHTNESS As Single
