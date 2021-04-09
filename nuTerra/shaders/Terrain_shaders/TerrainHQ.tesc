@@ -2,6 +2,7 @@
 
 #extension GL_ARB_shading_language_include : require
 
+#define USE_PERVIEW_UBO
 #define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
 
@@ -25,12 +26,13 @@ out TCS_OUT {
 
 void main(void)
 {
-    if (gl_InvocationID == 0) {
-        gl_TessLevelInner[0] = props.tess_level;
-        gl_TessLevelOuter[0] = props.tess_level;
-        gl_TessLevelOuter[1] = props.tess_level;
-        gl_TessLevelOuter[2] = props.tess_level;
-    }
+    float ln = distance(gl_in[gl_InvocationID].gl_Position.xyz, cameraPos.xyz);
+    float factor = (ln < 40) ? 8.0 : (ln < 80) ? 4.0 : (ln < 110) ? 2.0 : 1.0;
+
+    gl_TessLevelInner[0] = factor * props.tess_level;
+    gl_TessLevelOuter[0] = factor * props.tess_level;
+    gl_TessLevelOuter[1] = factor * props.tess_level;
+    gl_TessLevelOuter[2] = factor * props.tess_level;
 
     gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
 

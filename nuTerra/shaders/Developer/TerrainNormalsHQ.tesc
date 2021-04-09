@@ -2,7 +2,9 @@
 
 #extension GL_ARB_shading_language_include : require
 
+#define USE_PERVIEW_UBO
 #define USE_COMMON_PROPERTIES_UBO
+#define USE_TERRAIN_CHUNK_INFO_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout (vertices = 3) out;
@@ -25,12 +27,15 @@ out TCS_OUT {
 
 void main(void)
 {
-    if (gl_InvocationID == 0) {
-        gl_TessLevelInner[0] = props.tess_level;
-        gl_TessLevelOuter[0] = props.tess_level;
-        gl_TessLevelOuter[1] = props.tess_level;
-        gl_TessLevelOuter[2] = props.tess_level;
-    }
+    const TerrainChunkInfo chunk = chunks[tcs_in[0].map_id];
+
+    float ln = distance((chunk.modelMatrix * vec4(gl_in[gl_InvocationID].gl_Position.xyz, 1.0)).xyz, cameraPos.xyz);
+    float factor = (ln < 40) ? 8.0 : (ln < 80) ? 4.0 : (ln < 110) ? 2.0 : 1.0;
+
+    gl_TessLevelInner[0] = factor * props.tess_level;
+    gl_TessLevelOuter[0] = factor * props.tess_level;
+    gl_TessLevelOuter[1] = factor * props.tess_level;
+    gl_TessLevelOuter[2] = factor * props.tess_level;
 
     gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
 
