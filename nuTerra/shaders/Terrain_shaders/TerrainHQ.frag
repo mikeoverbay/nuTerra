@@ -98,6 +98,7 @@ vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, in out float b, in 
 
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
 
+#ifdef SHOW_TEST_TEXTURES
     //----- test texture outlines -----
     b =0.0;
     if (cropped.x < 0.065 ) b = 1.0;
@@ -105,6 +106,8 @@ vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, in out float b, in 
     if (cropped.y < 0.065 ) b = 1.0;
     if (cropped.y > 0.935 ) b = 1.0;
     //-----
+#endif
+
     return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
 

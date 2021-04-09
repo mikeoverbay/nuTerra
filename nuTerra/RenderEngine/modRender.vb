@@ -617,6 +617,26 @@ Module modRender
 
                 For i = 0 To theMap.render_set.Length - 1
                     If theMap.render_set(i).visible And theMap.render_set(i).quality = TerrainQuality.HQ Then
+                        With theMap.render_set(i)
+                            .layersStd140_ubo.BindBase(0)
+
+                            'AM maps
+                            theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
+                            theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
+                            theMap.render_set(i).layer.render_info(2).atlas_id.BindUnit(3)
+                            theMap.render_set(i).layer.render_info(3).atlas_id.BindUnit(4)
+                            theMap.render_set(i).layer.render_info(4).atlas_id.BindUnit(5)
+                            theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(6)
+                            theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(7)
+                            theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(8)
+
+                            'bind blend textures
+                            .TexLayers(0).Blend_id.BindUnit(17)
+                            .TexLayers(1).Blend_id.BindUnit(18)
+                            .TexLayers(2).Blend_id.BindUnit(19)
+                            .TexLayers(3).Blend_id.BindUnit(20)
+                        End With
+
                         GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                     End If
                 Next

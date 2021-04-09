@@ -11,6 +11,7 @@ in VS_OUT {
     vec3 n;
     vec3 t;
     vec3 b;
+    vec2 uv;
     flat uint map_id;
 } tcs_in[];
 
@@ -18,6 +19,7 @@ out TCS_OUT {
     vec3 n;
     vec3 t;
     vec3 b;
+    vec2 uv;
     flat uint map_id;
 } tcs_out[];
 
@@ -36,5 +38,6 @@ void main(void)
     tcs_out[gl_InvocationID].n = tcs_in[gl_InvocationID].n;
     tcs_out[gl_InvocationID].t = tcs_in[gl_InvocationID].t;
     tcs_out[gl_InvocationID].b = tcs_in[gl_InvocationID].b;
+    tcs_out[gl_InvocationID].uv = tcs_in[gl_InvocationID].uv;
     tcs_out[gl_InvocationID].map_id = tcs_in[gl_InvocationID].map_id;
 }

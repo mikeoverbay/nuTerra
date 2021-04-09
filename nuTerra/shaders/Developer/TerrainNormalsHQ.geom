@@ -95,7 +95,7 @@ void main()
     if (show_wireframe) {
         gs_out.color = vec4(1.0f, 1.0f, 0.0f, 1.0f);
         for (i = 0; i < gl_in.length(); i++) {
-            gl_Position = mvp *  gl_in[i].gl_Position;
+            gl_Position = mvp * gl_in[i].gl_Position;
             EmitVertex();
         }
         EndPrimitive();
