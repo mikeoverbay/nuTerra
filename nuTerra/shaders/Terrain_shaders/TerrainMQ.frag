@@ -254,16 +254,15 @@ void main(void)
 
     //mix macro
 
-
-    t1.rgb = t1.rgb* min(r1_1.x,1.0) + mt1.rgb*(r1_1.y+1.0);
-    t2.rgb = t2.rgb* min(r1_2.x,1.0) + mt2.rgb*(r1_2.y+1.0);
-    t3.rgb = t3.rgb* min(r1_3.x,1.0) + mt3.rgb*(r1_3.y+1.0);
-    t4.rgb = t4.rgb* min(r1_4.x,1.0) + mt4.rgb*(r1_4.y+1.0);
-    t5.rgb = t5.rgb* min(r1_5.x,1.0) + mt5.rgb*(r1_5.y+1.0);
-    t6.rgb = t6.rgb* min(r1_6.x,1.0) + mt6.rgb*(r1_6.y+1.0);
-    t7.rgb = t7.rgb* min(r1_7.x,1.0) + mt7.rgb*(r1_7.y+1.0);
-    t8.rgb = t8.rgb* min(r1_8.x,1.0) + mt8.rgb*(r1_8.y+1.0);
-    
+    t1.rgb = t1.rgb* min(r1_1.x,1.0) + mt1.rgb*(r2_1.y+1.0);
+    t2.rgb = t2.rgb* min(r1_2.x,1.0) + mt2.rgb*(r2_2.y+1.0);
+    t3.rgb = t3.rgb* min(r1_3.x,1.0) + mt3.rgb*(r2_3.y+1.0);
+    t4.rgb = t4.rgb* min(r1_4.x,1.0) + mt4.rgb*(r2_4.y+1.0);
+    t5.rgb = t5.rgb* min(r1_5.x,1.0) + mt5.rgb*(r2_5.y+1.0);
+    t6.rgb = t6.rgb* min(r1_6.x,1.0) + mt6.rgb*(r2_6.y+1.0);
+    t7.rgb = t7.rgb* min(r1_7.x,1.0) + mt7.rgb*(r2_7.y+1.0);
+    t8.rgb = t8.rgb* min(r1_8.x,1.0) + mt8.rgb*(r2_8.y+1.0);
+       
     n1.rgb = n1.rgb* min(r1_1.x,1.0) + mn1.rgb*(r2_1.y+1.0);
     n2.rgb = n2.rgb* min(r1_2.x,1.0) + mn2.rgb*(r2_2.y+1.0);
     n3.rgb = n3.rgb* min(r1_3.x,1.0) + mn3.rgb*(r2_3.y+1.0);
