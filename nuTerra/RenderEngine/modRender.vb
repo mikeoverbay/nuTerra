@@ -1015,6 +1015,7 @@ Module modRender
         '===========================================================================
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
         '===========================================================================
+        GL.Disable(EnableCap.Blend)
         Ortho_main()
         Dim size = frmMain.glControl_main.Size
         Dim cx = size.Width - MINI_MAP_SIZE
