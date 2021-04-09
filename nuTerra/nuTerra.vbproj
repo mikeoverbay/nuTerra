@@ -421,10 +421,10 @@
     <None Include="shaders\Developer\TerrainNormalsHQ.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\Terrain.tesc">
+    <None Include="shaders\Terrain_shaders\TerrainHQ.tesc">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\Terrain.tese">
+    <None Include="shaders\Terrain_shaders\TerrainHQ.tese">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Terrain_shaders\TerrainMQ.frag">
@@ -508,10 +508,10 @@
     <Content Include="shaders\Terrain_shaders\TerrainLQ.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="shaders\Terrain_shaders\Terrain.frag">
+    <Content Include="shaders\Terrain_shaders\TerrainHQ.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="shaders\Terrain_shaders\Terrain.vert">
+    <Content Include="shaders\Terrain_shaders\TerrainHQ.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="shaders\Developer\TerrainNormals.vert">

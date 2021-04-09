@@ -9,55 +9,6 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 
-layout (std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
-    vec4 U1;
-    vec4 U2;
-    vec4 U3;
-    vec4 U4;
-
-    vec4 U5;
-    vec4 U6;
-    vec4 U7;
-    vec4 U8;
-
-    vec4 V1;
-    vec4 V2;
-    vec4 V3;
-    vec4 V4;
-
-    vec4 V5;
-    vec4 V6;
-    vec4 V7;
-    vec4 V8;
-
-    vec4 r1_1;
-    vec4 r1_2;
-    vec4 r1_3;
-    vec4 r1_4;
-    vec4 r1_5;
-    vec4 r1_6;
-    vec4 r1_7;
-    vec4 r1_8;
-
-    vec4 r2_1;
-    vec4 r2_2;
-    vec4 r2_3;
-    vec4 r2_4;
-    vec4 r2_5;
-    vec4 r2_6;
-    vec4 r2_7;
-    vec4 r2_8;
-
-    vec4 s1;
-    vec4 s2;
-    vec4 s3;
-    vec4 s4;
-    vec4 s5;
-    vec4 s6;
-    vec4 s7;
-    vec4 s8;
-    };
-
 layout(binding = 1 ) uniform sampler2DArray at1;
 layout(binding = 2 ) uniform sampler2DArray at2;
 layout(binding = 3 ) uniform sampler2DArray at3;

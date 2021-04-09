@@ -171,10 +171,10 @@ Public Class frmMain
             Case Keys.T
                 If SHOW_TEST_TEXTURES = 0F Then
                     SHOW_TEST_TEXTURES = 1.0F
-                    TerrainShader.SetDefine("SHOW_TEST_TEXTURES")
+                    TerrainHQShader.SetDefine("SHOW_TEST_TEXTURES")
                 Else
                     SHOW_TEST_TEXTURES = 0.0F
-                    TerrainShader.UnsetDefine("SHOW_TEST_TEXTURES")
+                    TerrainHQShader.UnsetDefine("SHOW_TEST_TEXTURES")
                 End If
 
             Case Keys.V

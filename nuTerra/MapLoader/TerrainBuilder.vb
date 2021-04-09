@@ -109,6 +109,12 @@ Module TerrainBuilder
 
     End Structure
 
+    Enum TerrainQuality
+        LQ
+        MQ
+        HQ
+    End Enum
+
     Public Structure chunk_render_data_
         Public matrix As Matrix4
         Public shadowMatrix As Matrix4
@@ -120,7 +126,7 @@ Module TerrainBuilder
         Public b_x_size, b_y_size As Integer
         Public layer_count As Integer
         Public visible As Boolean ' frustum clipped flag
-        Public LQ As Boolean 'draw global_am only flag
+        Public quality As TerrainQuality
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>

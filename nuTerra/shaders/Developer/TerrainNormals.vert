@@ -41,5 +41,4 @@ void main(void)
     //Make angles perpendicular
     vs_out.t -= dot(vs_out.n, vs_out.t) * vs_out.n;
     vs_out.b -= dot(vs_out.n, vs_out.b) * vs_out.n;
-
 }

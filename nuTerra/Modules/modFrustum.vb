@@ -18,9 +18,11 @@ Module modFrustum
                 Dim v As New Vector3(l1, l2, l3)
                 Dim l = v.Length
                 If l > 300.0F Then 'This value is the distance at which the chunk drawing is swapped.
-                    theMap.render_set(i).LQ = True
+                    theMap.render_set(i).quality = TerrainQuality.LQ
+                ElseIf l > 150.0F Then
+                    theMap.render_set(i).quality = TerrainQuality.MQ
                 Else
-                    theMap.render_set(i).LQ = False
+                    theMap.render_set(i).quality = If(USE_TESSELLATION, TerrainQuality.HQ, TerrainQuality.MQ)
                 End If
             End If
         Next

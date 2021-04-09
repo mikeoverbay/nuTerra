@@ -362,9 +362,9 @@ Public Class SettingsPropertyGrid
         Set(value As Single)
             SHOW_TEST_TEXTURES = value
             If SHOW_TEST_TEXTURES = 1.0F Then
-                TerrainShader.SetDefine("SHOW_TEST_TEXTURES")
+                TerrainHQShader.SetDefine("SHOW_TEST_TEXTURES")
             Else
-                TerrainShader.UnsetDefine("SHOW_TEST_TEXTURES")
+                TerrainHQShader.UnsetDefine("SHOW_TEST_TEXTURES")
             End If
         End Set
         Get
