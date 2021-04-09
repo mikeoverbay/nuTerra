@@ -406,10 +406,31 @@
     <Content Include="shaders\Trials\cullLodClear.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Include="shaders\Developer\TerrainNormalsHQ.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Developer\TerrainNormalsHQ.geom">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Developer\TerrainNormalsHQ.tesc">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Developer\TerrainNormalsHQ.tese">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Developer\TerrainNormalsHQ.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Terrain_shaders\Terrain.tesc">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Terrain_shaders\Terrain.tese">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\TerrainMQ.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\TerrainMQ.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Trials\cull-invalidate.comp">

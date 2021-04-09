@@ -117,6 +117,7 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float fog_level;
     float _start;
     float _end;
+    float tess_level;
 } props;
 #endif
 

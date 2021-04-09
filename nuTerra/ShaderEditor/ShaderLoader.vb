@@ -196,7 +196,9 @@ Module ShaderLoader
     Public t_mixerShader As Shader
     Public TerrainGrids As Shader
     Public TerrainNormals As Shader
+    Public TerrainNormalsHQ As Shader
     Public TerrainShader As Shader
+    Public TerrainMQShader As Shader
     Public TerrainLQShader As Shader
     Public toLinearShader As Shader
     Public TextRenderShader As Shader
@@ -257,7 +259,9 @@ Module ShaderLoader
         t_mixerShader = New Shader("t_mixer")
         TerrainGrids = New Shader("TerrainGrids")
         TerrainNormals = New Shader("TerrainNormals")
+        TerrainNormalsHQ = New Shader("TerrainNormalsHQ")
         TerrainShader = New Shader("Terrain")
+        TerrainMQShader = New Shader("TerrainMQ")
         TerrainLQShader = New Shader("TerrainLQ")
         TextRenderShader = New Shader("TextRender")
         toLinearShader = New Shader("toLinear")
@@ -306,7 +310,9 @@ Module ShaderLoader
         shaders.Add(t_mixerShader)
         shaders.Add(TerrainGrids)
         shaders.Add(TerrainNormals)
+        shaders.Add(TerrainNormalsHQ)
         shaders.Add(TerrainShader)
+        shaders.Add(TerrainMQShader)
         shaders.Add(TerrainLQShader)
         shaders.Add(TextRenderShader)
         shaders.Add(toLinearShader)

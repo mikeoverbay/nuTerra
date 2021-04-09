@@ -504,9 +504,11 @@ Module modRender
         'draw visible HZ terrain
         '=======================================================================================
         '------------------------------------------------
-        TerrainShader.Use()  '<-------------- Shader Bind
-        '------------------------------------------------
 
+        Dim hq_terrain_shader = If(USE_TESSELLATION, TerrainShader, TerrainMQShader)
+
+        hq_terrain_shader.Use()  '<-------------- Shader Bind
+        '------------------------------------------------
 
         theMap.GLOBAL_AM_ID.BindUnit(21)
 
@@ -516,7 +518,7 @@ Module modRender
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
-                GL.UniformMatrix3(TerrainShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
+                GL.UniformMatrix3(hq_terrain_shader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
 
                 'bind all the data for this chunk
                 With theMap.render_set(i)
@@ -539,12 +541,12 @@ Module modRender
                     .TexLayers(3).Blend_id.BindUnit(20)
 
                     'draw chunk
-                    GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                    GL.DrawElementsIndirect(If(USE_TESSELLATION, PrimitiveType.Patches, PrimitiveType.Triangles), DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                 End With
             End If
         Next
 
-        TerrainShader.StopUse()
+        hq_terrain_shader.StopUse()
 
         GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
@@ -564,12 +566,29 @@ Module modRender
 
             For i = 0 To theMap.render_set.Length - 1
                 If theMap.render_set(i).visible Then
-                    'draw chunk wire
-                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                    If Not USE_TESSELLATION Or (USE_TESSELLATION And theMap.render_set(i).LQ) Then
+                        GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                    End If
                 End If
             Next
 
             TerrainNormals.StopUse()
+
+            TerrainNormalsHQ.Use()
+
+            GL.Uniform1(TerrainNormalsHQ("prj_length"), 0.5F)
+            GL.Uniform1(TerrainNormalsHQ("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
+            GL.Uniform1(TerrainNormalsHQ("show_wireframe"), CInt(WIRE_TERRAIN))
+
+            If USE_TESSELLATION Then
+                For i = 0 To theMap.render_set.Length - 1
+                    If theMap.render_set(i).visible And Not theMap.render_set(i).LQ Then
+                        GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                    End If
+                Next
+            End If
+
+            TerrainNormalsHQ.StopUse()
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
         End If

@@ -18,6 +18,7 @@ Public Class SettingsPropertyGrid
     Public Sub New()
         CommonProperties._start = 75
         CommonProperties._end = 200
+        CommonProperties.tess_level = 2.0
         FieldOfView = CSng(Math.PI) * (My.Settings.fov / 180.0F)
 
         'Get block state of things we want to block loading to speed things up for testing/debugging
@@ -124,6 +125,28 @@ Public Class SettingsPropertyGrid
             Return CommonProperties._end
         End Get
     End Property
+
+    <DisplayName("Use tessellation"), Category("Terrain")>
+    Public Property Terrain_use_tessellation As Boolean
+        Set(value As Boolean)
+            USE_TESSELLATION = value
+        End Set
+        Get
+            Return USE_TESSELLATION
+        End Get
+    End Property
+
+    <DisplayName("Tessellation level"), Category("Terrain")>
+    Public Property Terrain_tess_level As Single
+        Set(value As Single)
+            CommonProperties.tess_level = value
+            CommonProperties.update()
+        End Set
+        Get
+            Return CommonProperties.tess_level
+        End Get
+    End Property
+
 
     <DisplayName("Map Icon Scale"), Category("User Interface")>
     Public Property UI_map_icon_scale As Single

@@ -162,6 +162,7 @@ Module modOpenGL
         Public fog_level As Single
         Public _start As Single
         Public _end As Single
+        Public tess_level As Single
 
         Public Sub update()
             light_count = Math.Max(LIGHTS.index - 1, 0)
