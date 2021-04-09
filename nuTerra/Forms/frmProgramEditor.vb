@@ -187,6 +187,14 @@ Public Class frmProgramEditor
         CSharpSyntaxHighlight(geo_tb, e) 'custom highlighting
     End Sub
 
+    Private Sub tessControl_tb_TextChanged(sender As Object, e As TextChangedEventArgs) Handles tessControl_tb.TextChanged
+        CSharpSyntaxHighlight(geo_tb, e) 'custom highlighting
+    End Sub
+
+    Private Sub tessEvaluation_tb_TextChanged(sender As Object, e As TextChangedEventArgs) Handles tessEvaluation_tb.TextChanged
+        CSharpSyntaxHighlight(geo_tb, e) 'custom highlighting
+    End Sub
+
     Private Sub CSharpSyntaxHighlight(ByRef sender As FastColoredTextBox, e As TextChangedEventArgs)
         e.ChangedRange.SetFoldingMarkers("", "")
         sender.LeftBracket = "("c
@@ -335,6 +343,5 @@ Public Class frmProgramEditor
         End If
 
     End Sub
-
 
 End Class
