@@ -565,14 +565,12 @@ Module ShaderLoader
             GL.AttachShader(program, vertexObject)
         End If
 
-        If USE_TESSELATION Then
-            If tessControlObject Then
-                GL.AttachShader(program, tessControlObject)
-            End If
+        If tessControlObject Then
+            GL.AttachShader(program, tessControlObject)
+        End If
 
-            If tessEvaluationObject Then
-                GL.AttachShader(program, tessEvaluationObject)
-            End If
+        If tessEvaluationObject Then
+            GL.AttachShader(program, tessEvaluationObject)
         End If
 
         If geomObject Then

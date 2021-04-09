@@ -48,8 +48,6 @@ Module modGlobalVars
 
     Public WORK_GROUP_SIZE As Integer = 32
 
-    Public USE_TESSELATION As Boolean = False
-
     'Shading
     Public DUMMY_ATLAS As GLTexture
     Public FXAA_enable As Boolean = True

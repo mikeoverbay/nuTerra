@@ -70,8 +70,6 @@ layout(binding = 5 ) uniform sampler2DArray at5;
 layout(binding = 6 ) uniform sampler2DArray at6;
 layout(binding = 7 ) uniform sampler2DArray at7;
 layout(binding = 8 ) uniform sampler2DArray at8;
-layout(binding = 10 ) uniform sampler2DArray micro_NM;
-
 
 layout(binding = 17) uniform sampler2D mixtexture1;
 layout(binding = 18) uniform sampler2D mixtexture2;
@@ -85,9 +83,9 @@ layout(binding = 22) uniform sampler2DArray textArrayC;
 layout(binding = 23) uniform sampler2DArray textArrayN;
 layout(binding = 24) uniform sampler2DArray textArrayG;
 
-in VS_OUT {
+in TES_OUT {
     mat3 TBN;
-    vec4 Vertex;
+    vec3 vertexPosition;
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
@@ -131,7 +129,7 @@ vec4 convertNormal(vec4 norm){
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V) {
 
-    vec4 vt = vec4(-fs_in.Vertex.x+50.0, fs_in.Vertex.y, fs_in.Vertex.z, 1.0);
+    vec4 vt = vec4(-fs_in.vertexPosition.x+50.0, fs_in.vertexPosition.y, fs_in.vertexPosition.z, 1.0);
     vt *= vec4(1.0, -1.0, 1.0,  1.0);
     vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
     return out_uv;
