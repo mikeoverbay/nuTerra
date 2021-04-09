@@ -55,7 +55,7 @@ void main(void)
     tes_out.Global_UV =  1.0 - (chunk.g_uv_offset + (tes_out.UV * props.map_size));
 
     // This is the cut off distance for bumping the surface.
-    tes_out.ln = distance(tes_out.vertexPosition, cameraPos.xyz);
+    tes_out.ln = distance(pos.xyz, cameraPos.xyz);
 
     if (tes_out.ln < props._start + props._end) { tes_out.ln = 1.0 - (tes_out.ln-props._start)/props._end;}
     else {tes_out.ln = 0.0;}
