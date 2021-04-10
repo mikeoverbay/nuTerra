@@ -37,6 +37,16 @@ in TES_OUT {
 //==============================================================
 // texture outline stuff
 float B[8];
+const vec4 test_colors[8] = {
+    vec4(1.0,  1.0,  0.0,  0.0),
+    vec4(0.0,  1.0,  0.0,  0.0),
+    vec4(0.0,  0.0,  1.0,  0.0),
+    vec4(1.0,  1.0,  0.0,  0.0),
+    vec4(1.0,  0.0,  1.0,  0.0),
+    vec4(1.0,  0.65, 0.0,  0.0),
+    vec4(1.0,  0.49, 0.31, 0.0),
+    vec4(0.5,  0.5,  0.5,  0.0)
+};
 //==============================================================
 #endif
 
@@ -148,11 +158,7 @@ vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
 
 void main(void)
 {
-    vec2 mix_coords;
-    //==============================================================
-
-    mix_coords = fs_in.UV;
-    mix_coords.x = 1.0 - mix_coords.x;
+    const vec2 mix_coords = vec2(1.0 - fs_in.UV.x, fs_in.UV.y);
 
     // Get the mix values from the mix textures 1-4 and move to vec2.
     vec2 MixLevel[4];
@@ -161,8 +167,7 @@ void main(void)
     MixLevel[2].rg = texture(mixtexture[2], mix_coords.xy).ag;
     MixLevel[3].rg = texture(mixtexture[3], mix_coords.xy).ag;
 
-    vec4 global = texture(global_AM, fs_in.Global_UV);
-    //-------------------------------------------------------
+    const vec4 global = texture(global_AM, fs_in.Global_UV);
 
     vec4 t[8];
     vec4 n[8];
@@ -170,7 +175,7 @@ void main(void)
 
     for (int i = 0; i < 8; ++i) {
         // create UV projections
-        vec2 tuv = get_transformed_uv(L.U[i], L.V[i]); 
+        const vec2 tuv = get_transformed_uv(L.U[i], L.V[i]); 
 
         // Get AM maps,crop and set Test outline blend flag
         t[i] = crop(at[i], tuv, 0.0, i, L.s[i]);
@@ -193,7 +198,7 @@ void main(void)
         // months of work to figure this out!
         MixLevel[i / 2][i % 2] *= t[i].a + L.r1[i].x;
 
-        const float power = 1.6666;
+        const float power = 1 / 0.6;
         MixLevel[i / 2][i % 2] = pow(MixLevel[i / 2][i % 2], power);
         f += MixLevel[i / 2][i % 2];
     }
@@ -208,31 +213,20 @@ void main(void)
         out_n += n[i] * MixLevel[i / 2][i % 2];
     }
 
-    //global
-    vec4 gc = global;
+    // global
     float c_l = length(base.rgb) + base.a + global.a;
     float g_l = length(global.rgb) - global.a;
-    gc.rgb = global.rgb;
-    //rem to remove global content
-    base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
 
-    //wetness
-    base = blend(base,base.a,vec4(props.waterColor,props.waterAlpha),global.a);
+    // rem to remove global content
+    base.rgb = (base.rgb * c_l + global.rgb * g_l) / 1.8;
+
+    // wetness
+    base = blend(base, base.a, vec4(props.waterColor, props.waterAlpha), global.a);
 
     // Texture outlines
 #ifdef SHOW_TEST_TEXTURES
-    vec4 colors[8] = {
-        vec4(1.0,  1.0,  0.0,  0.0),
-        vec4(0.0,  1.0,  0.0,  0.0),
-        vec4(0.0,  0.0,  1.0,  0.0),
-        vec4(1.0,  1.0,  0.0,  0.0),
-        vec4(1.0,  0.0,  1.0,  0.0),
-        vec4(1.0,  0.65, 0.0,  0.0),
-        vec4(1.0,  0.49, 0.31, 0.0),
-        vec4(0.5,  0.5,  0.5,  0.0)
-    };
     for (int i = 0; i < 8; ++i) {
-        base = mix(base, base + colors[i], B[i] * MixLevel[i / 2][i % 2]);
+        base = mix(base, base + test_colors[i], B[i] * MixLevel[i / 2][i % 2]);
     }
 #endif
 
@@ -252,14 +246,14 @@ void main(void)
     base = mix(ArrayTextureC, base, fs_in.ln);
     out_n = mix(ArrayTextureN, out_n, fs_in.ln);
 
-    //there are no metal values for the terrain so we hard code 0.1;
+    // there are no metal values for the terrain so we hard code 0.1;
     // specular is in the red channel of the normal maps;
     vec4 gmm_out = vec4(0.2, specular, 128.0/255.0, 0.0);
     gGMF = mix(ArrayTextureG, gmm_out, fs_in.ln);
 
     //gColor = gColor* 0.001 + r1_8;
-    gColor.rgb = base.rgb;//*0.01+t1.rgb;
-    gColor.a = global.a*0.8;
+    gColor.rgb = base.rgb;
+    gColor.a = global.a * 0.8;
 
     gNormal.xyz = normalize(out_n.xyz);
 

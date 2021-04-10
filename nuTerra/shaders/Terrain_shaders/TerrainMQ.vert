@@ -17,7 +17,7 @@ uniform mat3 normalMatrix;
 
 out VS_OUT {
     mat3 TBN;
-    vec4 Vertex;
+    vec3 vertexPosition;
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
@@ -41,7 +41,7 @@ void main(void)
 
     //-------------------------------------------------------
     // Calulate UVs for the texture layers
-    vs_out.Vertex = vec4(vertexPosition, 1.0);
+    vs_out.vertexPosition = vertexPosition;
 
     //-------------------------------------------------------
     // Calculate biNormal
