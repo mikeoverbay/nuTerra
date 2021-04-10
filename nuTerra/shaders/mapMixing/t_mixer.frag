@@ -102,11 +102,11 @@ vec4 convertNormal(vec4 norm){
 void main(void)
 {
     //==============================================================
-    vec4 mt1, mt2, mt3, mt4, mt5, mt6, mt7, mt8;
-    vec4 mn1, mn2, mn3, mn4, mn5, mn6, mn7, mn8;
-    vec4 t1, t2, t3, t4, t5, t6, t7, t8;
-    vec4 n1, n2, n3, n4, n5, n6, n7, n8;
-    vec2 tuv1, tuv2, tuv3, tuv4, tuv5, tuv6, tuv7, tuv8; 
+    vec4 mt[8];
+    vec4 mn[8];
+    vec4 t[8];
+    vec4 n[8];
+    vec2 tuv[8]; 
 
     vec2 MixLevel1, MixLevel2, MixLevel3, MixLevel4;
     vec2 mix_coords;
@@ -117,94 +117,94 @@ void main(void)
 
     vec4 global = texture(global_AM, fs_in.Global_UV);
     // create UV projections
-    tuv1 = get_transformed_uv(U1, V1); 
-    tuv2 = get_transformed_uv(U2, V2);
-    tuv3 = get_transformed_uv(U3, V3); 
-    tuv4 = get_transformed_uv(U4, V4);
-    tuv5 = get_transformed_uv(U5, V5); 
-    tuv6 = get_transformed_uv(U6, V6);
-    tuv7 = get_transformed_uv(U7, V7);
-    tuv8 = get_transformed_uv(U8, V8);
+    tuv[0] = get_transformed_uv(L.U[0], L.V[0]); 
+    tuv[1] = get_transformed_uv(L.U[1], L.V[1]);
+    tuv[2] = get_transformed_uv(L.U[2], L.V[2]); 
+    tuv[3] = get_transformed_uv(L.U[3], L.V[3]);
+    tuv[4] = get_transformed_uv(L.U[4], L.V[4]); 
+    tuv[5] = get_transformed_uv(L.U[5], L.V[5]);
+    tuv[6] = get_transformed_uv(L.U[6], L.V[6]);
+    tuv[7] = get_transformed_uv(L.U[7], L.V[7]);
 
     // Get AM maps 
     // Get AM maps,crop and set Test outline blend flag
 
-    t1 = crop(at1, tuv1, 0.0, s1);
-    t2 = crop(at2, tuv2, 0.0, s2);
-    t3 = crop(at3, tuv3, 0.0, s3);
-    t4 = crop(at4, tuv4, 0.0, s4);
-    t5 = crop(at5, tuv5, 0.0, s5);
-    t6 = crop(at6, tuv6, 0.0, s6);
-    t7 = crop(at7, tuv7, 0.0, s7);
-    t8 = crop(at8, tuv8, 0.0, s8);
+    t[0] = crop(at1, tuv[0], 0.0, L.s[0]);
+    t[1] = crop(at2, tuv[1], 0.0, L.s[1]);
+    t[2] = crop(at3, tuv[2], 0.0, L.s[2]);
+    t[3] = crop(at4, tuv[3], 0.0, L.s[3]);
+    t[4] = crop(at5, tuv[4], 0.0, L.s[4]);
+    t[5] = crop(at6, tuv[5], 0.0, L.s[5]);
+    t[6] = crop(at7, tuv[6], 0.0, L.s[6]);
+    t[7] = crop(at8, tuv[7], 0.0, L.s[7]);
     
-    mt1 = crop2(at1, tuv1, 2.0, s1);
-    mt2 = crop2(at2, tuv2, 2.0, s2);
-    mt3 = crop2(at3, tuv3, 2.0, s3);
-    mt4 = crop2(at4, tuv4, 2.0, s4);
-    mt5 = crop2(at5, tuv5, 2.0, s5);
-    mt6 = crop2(at6, tuv6, 2.0, s6);
-    mt7 = crop2(at7, tuv7, 2.0, s7);
-    mt8 = crop2(at8, tuv8, 2.0, s8);
+    mt[0] = crop2(at1, tuv[0], 2.0, L.s[0]);
+    mt[1] = crop2(at2, tuv[1], 2.0, L.s[1]);
+    mt[2] = crop2(at3, tuv[2], 2.0, L.s[2]);
+    mt[3] = crop2(at4, tuv[3], 2.0, L.s[3]);
+    mt[4] = crop2(at5, tuv[4], 2.0, L.s[4]);
+    mt[5] = crop2(at6, tuv[5], 2.0, L.s[5]);
+    mt[6] = crop2(at7, tuv[6], 2.0, L.s[6]);
+    mt[7] = crop2(at8, tuv[7], 2.0, L.s[7]);
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    n1 = crop(at1, tuv1, 1.0, s1);
-    n2 = crop(at2, tuv2, 1.0, s2);
-    n3 = crop(at3, tuv3, 1.0, s3);
-    n4 = crop(at4, tuv4, 1.0, s4);
-    n5 = crop(at5, tuv5, 1.0, s5);
-    n6 = crop(at6, tuv6, 1.0, s6);
-    n7 = crop(at7, tuv7, 1.0, s7);
-    n8 = crop(at8, tuv8, 1.0, s8);
+    n[0] = crop(at1, tuv[0], 1.0, L.s[0]);
+    n[1] = crop(at2, tuv[1], 1.0, L.s[1]);
+    n[2] = crop(at3, tuv[2], 1.0, L.s[2]);
+    n[3] = crop(at4, tuv[3], 1.0, L.s[3]);
+    n[4] = crop(at5, tuv[4], 1.0, L.s[4]);
+    n[5] = crop(at6, tuv[5], 1.0, L.s[5]);
+    n[6] = crop(at7, tuv[6], 1.0, L.s[6]);
+    n[7] = crop(at8, tuv[7], 1.0, L.s[7]);
 
-    mn1 = crop2(at1, tuv1, 3.0, s1);
-    mn2 = crop2(at2, tuv2, 3.0, s2);
-    mn3 = crop2(at3, tuv3, 3.0, s3);
-    mn4 = crop2(at4, tuv4, 3.0, s4);
-    mn5 = crop2(at5, tuv5, 3.0, s5);
-    mn6 = crop2(at6, tuv6, 3.0, s6);
-    mn7 = crop2(at7, tuv7, 3.0, s7);
-    mn8 = crop2(at8, tuv8, 3.0, s8);
+    mn[0] = crop2(at1, tuv[0], 3.0, L.s[0]);
+    mn[1] = crop2(at2, tuv[1], 3.0, L.s[1]);
+    mn[2] = crop2(at3, tuv[2], 3.0, L.s[2]);
+    mn[3] = crop2(at4, tuv[3], 3.0, L.s[3]);
+    mn[4] = crop2(at5, tuv[4], 3.0, L.s[4]);
+    mn[5] = crop2(at6, tuv[5], 3.0, L.s[5]);
+    mn[6] = crop2(at7, tuv[6], 3.0, L.s[6]);
+    mn[7] = crop2(at8, tuv[7], 3.0, L.s[7]);
 
     // get the ambient occlusion
-    t1.rgb *= n1.b;
-    t2.rgb *= n2.b;
-    t3.rgb *= n3.b;
-    t4.rgb *= n4.b;
-    t5.rgb *= n5.b;
-    t6.rgb *= n6.b;
-    t7.rgb *= n7.b;
-    t8.rgb *= n8.b;
+    t[0].rgb *= n[0].b;
+    t[1].rgb *= n[1].b;
+    t[2].rgb *= n[2].b;
+    t[3].rgb *= n[3].b;
+    t[4].rgb *= n[4].b;
+    t[5].rgb *= n[5].b;
+    t[6].rgb *= n[6].b;
+    t[7].rgb *= n[7].b;
    
-    mt1.rgb *= mn1.b;
-    mt2.rgb *= mn2.b;
-    mt3.rgb *= mn3.b;
-    mt4.rgb *= mn4.b;
-    mt5.rgb *= mn5.b;
-    mt6.rgb *= mn6.b;
-    mt7.rgb *= mn7.b;
-    mt8.rgb *= mn8.b;
+    mt[0].rgb *= mn[0].b;
+    mt[1].rgb *= mn[1].b;
+    mt[2].rgb *= mn[2].b;
+    mt[3].rgb *= mn[3].b;
+    mt[4].rgb *= mn[4].b;
+    mt[5].rgb *= mn[5].b;
+    mt[6].rgb *= mn[6].b;
+    mt[7].rgb *= mn[7].b;
 
-    t1.rgb = t1.rgb* min(r1_1.x,1.0) + mt1.rgb*(r2_1.y+1.0);
-    t2.rgb = t2.rgb* min(r1_2.x,1.0) + mt2.rgb*(r2_2.y+1.0);
-    t3.rgb = t3.rgb* min(r1_3.x,1.0) + mt3.rgb*(r2_3.y+1.0);
-    t4.rgb = t4.rgb* min(r1_4.x,1.0) + mt4.rgb*(r2_4.y+1.0);
-    t5.rgb = t5.rgb* min(r1_5.x,1.0) + mt5.rgb*(r2_5.y+1.0);
-    t6.rgb = t6.rgb* min(r1_6.x,1.0) + mt6.rgb*(r2_6.y+1.0);
-    t7.rgb = t7.rgb* min(r1_7.x,1.0) + mt7.rgb*(r2_7.y+1.0);
-    t8.rgb = t8.rgb* min(r1_8.x,1.0) + mt8.rgb*(r2_8.y+1.0);
+    t[0].rgb = t[0].rgb* min(L.r1[0].x,1.0) + mt[0].rgb*(L.r2[0].y+1.0);
+    t[1].rgb = t[1].rgb* min(L.r1[1].x,1.0) + mt[1].rgb*(L.r2[1].y+1.0);
+    t[2].rgb = t[2].rgb* min(L.r1[2].x,1.0) + mt[2].rgb*(L.r2[2].y+1.0);
+    t[3].rgb = t[3].rgb* min(L.r1[3].x,1.0) + mt[3].rgb*(L.r2[3].y+1.0);
+    t[4].rgb = t[4].rgb* min(L.r1[4].x,1.0) + mt[4].rgb*(L.r2[4].y+1.0);
+    t[5].rgb = t[5].rgb* min(L.r1[5].x,1.0) + mt[5].rgb*(L.r2[5].y+1.0);
+    t[6].rgb = t[6].rgb* min(L.r1[6].x,1.0) + mt[6].rgb*(L.r2[6].y+1.0);
+    t[7].rgb = t[7].rgb* min(L.r1[7].x,1.0) + mt[7].rgb*(L.r2[7].y+1.0);
 
-    n1.rgb = n1.rgb* min(r1_1.x,1.0) + mn1.rgb*(r2_1.y+1.0);
-    n2.rgb = n2.rgb* min(r1_2.x,1.0) + mn2.rgb*(r2_2.y+1.0);
-    n3.rgb = n3.rgb* min(r1_3.x,1.0) + mn3.rgb*(r2_3.y+1.0);
-    n4.rgb = n4.rgb* min(r1_4.x,1.0) + mn4.rgb*(r2_4.y+1.0);
-    n5.rgb = n5.rgb* min(r1_5.x,1.0) + mn5.rgb*(r2_5.y+1.0);
-    n6.rgb = n6.rgb* min(r1_6.x,1.0) + mn6.rgb*(r2_6.y+1.0);
-    n7.rgb = n7.rgb* min(r1_7.x,1.0) + mn7.rgb*(r2_7.y+1.0);
-    n8.rgb = n8.rgb* min(r1_8.x,1.0) + mn8.rgb*(r2_8.y+1.0);
+    n[0].rgb = n[0].rgb* min(L.r1[0].x,1.0) + mn[0].rgb*(L.r2[0].y+1.0);
+    n[1].rgb = n[1].rgb* min(L.r1[1].x,1.0) + mn[1].rgb*(L.r2[1].y+1.0);
+    n[2].rgb = n[2].rgb* min(L.r1[2].x,1.0) + mn[2].rgb*(L.r2[2].y+1.0);
+    n[3].rgb = n[3].rgb* min(L.r1[3].x,1.0) + mn[3].rgb*(L.r2[3].y+1.0);
+    n[4].rgb = n[4].rgb* min(L.r1[4].x,1.0) + mn[4].rgb*(L.r2[4].y+1.0);
+    n[5].rgb = n[5].rgb* min(L.r1[5].x,1.0) + mn[5].rgb*(L.r2[5].y+1.0);
+    n[6].rgb = n[6].rgb* min(L.r1[6].x,1.0) + mn[6].rgb*(L.r2[6].y+1.0);
+    n[7].rgb = n[7].rgb* min(L.r1[7].x,1.0) + mn[7].rgb*(L.r2[7].y+1.0);
 
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
@@ -213,14 +213,14 @@ void main(void)
     MixLevel4.rg = texture(mixtexture4, mix_coords.xy).ag;
 
 
-    MixLevel1.r *= t1.a+r1_1.x;
-    MixLevel1.g *= t2.a+r1_2.x;
-    MixLevel2.r *= t3.a+r1_3.x;
-    MixLevel2.g *= t4.a+r1_4.x;
-    MixLevel3.r *= t5.a+r1_5.x;
-    MixLevel3.g *= t6.a+r1_6.x;
-    MixLevel4.r *= t7.a+r1_7.x;
-    MixLevel4.g *= t8.a+r1_8.x;
+    MixLevel1.r *= t[0].a+L.r1[0].x;
+    MixLevel1.g *= t[1].a+L.r1[1].x;
+    MixLevel2.r *= t[2].a+L.r1[2].x;
+    MixLevel2.g *= t[3].a+L.r1[3].x;
+    MixLevel3.r *= t[4].a+L.r1[4].x;
+    MixLevel3.g *= t[5].a+L.r1[5].x;
+    MixLevel4.r *= t[6].a+L.r1[6].x;
+    MixLevel4.g *= t[7].a+L.r1[7].x;
 
     float power = 0.2;
     MixLevel1.r = pow(MixLevel1.r,1.0/power);
@@ -250,15 +250,14 @@ void main(void)
    //retuned to old mixing. Its better
        vec4 base;
 
-    base =  t1 * MixLevel1.r;
-    base += t2 * MixLevel1.g;
-    base += t3 * MixLevel2.r;
-    base += t4 * MixLevel2.g;
-    base += t5 * MixLevel3.r;
-    base += t6 * MixLevel3.g;
-    base += t7 * MixLevel4.r;
-    base += t8 * MixLevel4.g;
-    base  *= 1.0;
+    base =  t[0] * MixLevel1.r;
+    base += t[1] * MixLevel1.g;
+    base += t[2] * MixLevel2.r;
+    base += t[3] * MixLevel2.g;
+    base += t[4] * MixLevel3.r;
+    base += t[5] * MixLevel3.g;
+    base += t[6] * MixLevel4.r;
+    base += t[7] * MixLevel4.g;
 
     //global
      vec4 gc = global;
@@ -273,14 +272,14 @@ void main(void)
     // normals
 
     vec4 out_n;
-    out_n =  n1 * MixLevel1.r;
-    out_n += n2 * MixLevel1.g;
-    out_n += n3 * MixLevel2.r;
-    out_n += n4 * MixLevel2.g;
-    out_n += n5 * MixLevel3.r;
-    out_n += n6 * MixLevel3.g;
-    out_n += n7 * MixLevel4.r;
-    out_n += n8 * MixLevel4.g;
+    out_n =  n[0] * MixLevel1.r;
+    out_n += n[1] * MixLevel1.g;
+    out_n += n[2] * MixLevel2.r;
+    out_n += n[3] * MixLevel2.g;
+    out_n += n[4] * MixLevel3.r;
+    out_n += n[5] * MixLevel3.g;
+    out_n += n[6] * MixLevel4.r;
+    out_n += n[7] * MixLevel4.g;
     float specular = out_n.r;
 
     gNormal.xyz = normalize(convertNormal(out_n).xyz);
