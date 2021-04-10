@@ -492,11 +492,18 @@ try_again:
             End If
         Next
 
-        If unsupported_ext.Count > 0 Then
-            MsgBox(String.Format(
-                   "A graphics card and driver with support for {0} is required.", String.Join(" ", unsupported_ext)))
-            Application.Exit()
-            Return
+        ' https://renderdoc.org/docs/getting_started/faq.html#can-i-tell-via-the-graphics-apis-if-renderdoc-Is-present-at-runtime
+        Const GL_DEBUG_TOOL_EXT = &H6789
+        Dim debug_tool = GL.IsEnabled(GL_DEBUG_TOOL_EXT)
+
+        ' skip checks if we are in RenderDoc 
+        If Not debug_tool Then
+            If unsupported_ext.Count > 0 Then
+                MsgBox(String.Format(
+                       "A graphics card and driver with support for {0} is required.", String.Join(" ", unsupported_ext)))
+                Application.Exit()
+                Return
+            End If
         End If
 
         '-----------------------------------------------------------------------------------------

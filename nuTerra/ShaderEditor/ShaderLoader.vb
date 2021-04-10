@@ -9,7 +9,7 @@ Module ShaderLoader
 #pragma optionNV(fastmath on)
 #pragma optionNV(unroll all)
 #pragma optionNV(inline all)
-#pragma optionNV(ifcvt all)
+#pragma optionNV(ifcvt none)
 "
 
     Public SHADER_PATHS() As String
