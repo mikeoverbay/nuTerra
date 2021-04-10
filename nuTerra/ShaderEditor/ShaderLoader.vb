@@ -4,6 +4,13 @@ Imports OpenTK.Graphics.OpenGL
 Module ShaderLoader
     Private incPaths() As String = {"/"}
     Private incPathLengths() As Integer = {1}
+    Private shader_head = "
+#pragma optionNV(strict on)
+#pragma optionNV(fastmath on)
+#pragma optionNV(unroll all)
+#pragma optionNV(inline all)
+#pragma optionNV(ifcvt all)
+"
 
     Public SHADER_PATHS() As String
 #Region "shader_storage"
@@ -355,6 +362,7 @@ Module ShaderLoader
             Else
                 Using vs_s As New StreamReader(v)
                     Dim vs = vs_s.ReadLine() & vbNewLine
+                    vs += shader_head
                     For Each item In defines
                         vs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
@@ -388,6 +396,7 @@ Module ShaderLoader
             Else
                 Using tcs_s As New StreamReader(tc)
                     Dim tcs = tcs_s.ReadLine() & vbNewLine
+                    tcs += shader_head
                     For Each item In defines
                         tcs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
@@ -422,6 +431,7 @@ Module ShaderLoader
             Else
                 Using tes_s As New StreamReader(te)
                     Dim tes = tes_s.ReadLine() & vbNewLine
+                    tes += shader_head
                     For Each item In defines
                         tes += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
@@ -457,6 +467,7 @@ Module ShaderLoader
             Else
                 Using fs_s As New StreamReader(f)
                     Dim fs = fs_s.ReadLine() & vbNewLine
+                    fs += shader_head
                     For Each item In defines
                         fs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
@@ -488,6 +499,7 @@ Module ShaderLoader
 
             Using gs_s As New StreamReader(g)
                 Dim gs = gs_s.ReadLine() & vbNewLine
+                gs += shader_head
                 For Each item In defines
                     gs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                 Next
@@ -542,6 +554,7 @@ Module ShaderLoader
             Else
                 Using cs_s As New StreamReader(c)
                     Dim cs = cs_s.ReadLine() & vbNewLine
+                    cs += shader_head
                     For Each item In defines
                         cs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next

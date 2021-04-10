@@ -1,7 +1,5 @@
 ﻿#version 450 core
 
-#pragma optionNV (unroll all)
-
 layout (triangles) in;
 layout (line_strip, max_vertices = 21) out;
 

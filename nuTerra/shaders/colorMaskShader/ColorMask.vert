@@ -1,7 +1,9 @@
-﻿// ChannelMute_vertex.glsl
+﻿#version 450 core
+
+// ChannelMute_vertex.glsl
 // Masks out color channels
 // 
-#version 450
+
 uniform mat4 ProjectionMatrix;
 uniform vec4 rect;
 out vec2 texCoord;

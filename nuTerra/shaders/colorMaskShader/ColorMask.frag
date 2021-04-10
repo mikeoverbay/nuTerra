@@ -1,7 +1,8 @@
-﻿// ChannelMute_vertex.glsl
+﻿#version 450 core
+
+// ChannelMute_vertex.glsl
 // Masks out color channels
 //
-#version 450
 
 layout (binding = 0) uniform sampler2D colorMap;
 

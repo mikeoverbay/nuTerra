@@ -1,5 +1,6 @@
-﻿//BillBoardBasic
-#version 450 compatibility
+﻿#version 450 core
+
+//BillBoardBasic
 
 uniform sampler2D colorMap;
 uniform vec3 color;

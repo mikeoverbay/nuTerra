@@ -1,7 +1,5 @@
 ﻿#version 450 core
 
-#pragma optionNV (unroll all)
-
 #extension GL_ARB_shading_language_include : require
 
 #define USE_COMMON_PROPERTIES_UBO
