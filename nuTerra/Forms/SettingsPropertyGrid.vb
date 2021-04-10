@@ -18,7 +18,7 @@ Public Class SettingsPropertyGrid
     Public Sub New()
         CommonProperties._start = 75
         CommonProperties._end = 200
-        CommonProperties.tess_level = 4.0
+        CommonProperties.tess_level = 2.0
         FieldOfView = CSng(Math.PI) * (My.Settings.fov / 180.0F)
 
         'Get block state of things we want to block loading to speed things up for testing/debugging
