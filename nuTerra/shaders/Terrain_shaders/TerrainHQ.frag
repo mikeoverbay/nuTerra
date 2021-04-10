@@ -1,6 +1,10 @@
-﻿#version 450 core
+#version 450 core
 
+#ifdef GL_SPIRV
+#extension GL_GOOGLE_include_directive : require
+#else
 #extension GL_ARB_shading_language_include : require
+#endif
 
 #define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
@@ -21,14 +25,14 @@ layout(binding = 22) uniform sampler2DArray textArrayC;
 layout(binding = 23) uniform sampler2DArray textArrayN;
 layout(binding = 24) uniform sampler2DArray textArrayG;
 
-in TES_OUT {
+layout(location = 0) in TES_OUT {
     mat3 TBN;
     vec3 vertexPosition;
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
     float ln;
-    flat uint map_id;
+    flat int map_id;
 } fs_in;
 
 #ifdef SHOW_TEST_TEXTURES

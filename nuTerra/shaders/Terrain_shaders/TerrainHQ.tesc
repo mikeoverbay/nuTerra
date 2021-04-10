@@ -1,6 +1,10 @@
 #version 450 core
 
+#ifdef GL_SPIRV
+#extension GL_GOOGLE_include_directive : require
+#else
 #extension GL_ARB_shading_language_include : require
+#endif
 
 #define USE_PERVIEW_UBO
 #define USE_COMMON_PROPERTIES_UBO
@@ -8,20 +12,20 @@
 
 layout (vertices = 3) out;
 
-in VS_OUT {
+layout(location = 0) in VS_OUT {
     vec3 vertexPosition;
     vec3 vertexNormal;
     vec3 vertexTangent;
     vec2 UV;
-    flat uint map_id;
+    flat int map_id;
 } tcs_in[];
 
-out TCS_OUT {
+layout(location = 0) out TCS_OUT {
     vec3 vertexPosition;
     vec3 vertexNormal;
     vec3 vertexTangent;
     vec2 UV;
-    flat uint map_id;
+    flat int map_id;
 } tcs_out[];
 
 void main(void)

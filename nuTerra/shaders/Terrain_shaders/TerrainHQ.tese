@@ -1,6 +1,10 @@
 #version 450 core
 
+#ifdef GL_SPIRV
+#extension GL_GOOGLE_include_directive : require
+#else
 #extension GL_ARB_shading_language_include : require
+#endif
 
 #define USE_PERVIEW_UBO
 #define USE_COMMON_PROPERTIES_UBO
@@ -12,24 +16,24 @@ layout (triangles, equal_spacing) in;
 layout(binding = 1 ) uniform sampler2DArray at[8];
 layout(binding = 17) uniform sampler2D mixtexture[4];
 
-uniform mat3 normalMatrix;
+layout(location = 5) uniform mat3 normalMatrix;
 
-in TCS_OUT {
+layout(location = 0) in TCS_OUT {
     vec3 vertexPosition;
     vec3 vertexNormal;
     vec3 vertexTangent;
     vec2 UV;
-    flat uint map_id;
+    flat int map_id;
 } tes_in[];
 
-out TES_OUT {
+layout(location = 0) out TES_OUT {
     mat3 TBN;
     vec3 vertexPosition;
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
     float ln;
-    flat uint map_id;
+    flat int map_id;
 } tes_out;
 
 vec2 get_transformed_uv(in vec3 pos, in vec4 U, in vec4 V) {

@@ -373,12 +373,6 @@
     <Content Include="shaders\PostProcessing\DeferredFog.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="shaders\PostProcessing\FXAA.frag.spv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="shaders\PostProcessing\FXAA.vert.spv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="shaders\ShadowBaking\modelDepthWriter.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -464,9 +458,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="shaders\Utility\TextRender.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="shaders\Utility\TextRender.frag.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="shaders\Utility\TextRender.vert">
@@ -593,9 +584,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="shaders\Developer\toLinear.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="shaders\Utility\TextRender.vert.spv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -746,7 +734,7 @@
     <Error Condition="!Exists('..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets'))" />
   </Target>
   <PropertyGroup>
-    <PostBuildEvent>del DotNetZip.pdb;del OpenTK.GLControl.pdb;del OpenTK.pdb;del *.xml</PostBuildEvent>
+    <PostBuildEvent>del DotNetZip.pdb &amp;&amp; del OpenTK.GLControl.pdb &amp;&amp; del OpenTK.pdb &amp;&amp; del *.xml &amp;&amp; $(ProjectDir)shaders\to_spirv.cmd</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <ProductName>$(AssemblyName)</ProductName>

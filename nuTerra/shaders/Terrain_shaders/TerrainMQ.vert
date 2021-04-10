@@ -1,7 +1,12 @@
-﻿#version 450 core
+#version 450 core
+
+#ifdef GL_SPIRV
+#extension GL_GOOGLE_include_directive : require
+#else
+#extension GL_ARB_shading_language_include : require
+#endif
 
 #extension GL_ARB_shader_draw_parameters : require
-#extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
 #define USE_COMMON_PROPERTIES_UBO
@@ -13,25 +18,25 @@ layout(location = 1) in vec2 vertexTexCoord;
 layout(location = 2) in vec4 vertexNormal;
 layout(location = 3) in vec3 vertexTangent;
 
-uniform mat3 normalMatrix;
+layout (location = 5) uniform mat3 normalMatrix;
 
-out VS_OUT {
+layout (location = 0) out VS_OUT {
     mat3 TBN;
     vec3 vertexPosition;
     vec3 worldPosition;
     vec2 UV;
     vec2 Global_UV;
     float ln;
-    flat uint map_id;
+    flat int map_id;
 } vs_out;
 
 //-------------------------------------------------------
 //-------------------------------------------------------
 
-const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
-
 void main(void)
 {
+    const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
+
     vs_out.map_id = gl_BaseInstanceARB;
 
     vs_out.UV =  vertexTexCoord;
