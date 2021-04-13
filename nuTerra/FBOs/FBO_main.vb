@@ -95,55 +95,31 @@ Module FBO_main
             ' gColor ------------------------------------------------------------------------------------------
             ' RGBA8
             gColor = CreateTexture(TextureTarget.Texture2D, "gColor")
-            gColor.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gColor.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gColor.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            gColor.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gColor.Storage2D(1, SizedInternalFormat.Rgba8, SCR_WIDTH, SCR_HEIGHT)
 
             ' AUX_gColor -----------------------------------------------------------------------------------
             ' RGBA8
             gAUX_Color = CreateTexture(TextureTarget.Texture2D, "AUX_gColor")
-            gAUX_Color.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gAUX_Color.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gAUX_Color.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            gAUX_Color.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gAUX_Color.Storage2D(1, SizedInternalFormat.Rgba8, SCR_WIDTH, SCR_HEIGHT)
 
             ' gNormal ------------------------------------------------------------------------------------------
             ' 3 color 16f : normal in RGB
             gNormal = CreateTexture(TextureTarget.Texture2D, "gNormal")
-            gNormal.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gNormal.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gNormal.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            gNormal.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gNormal.Storage2D(1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gGM_Flag ------------------------------------------------------------------------------------------
             ' 4 color int : GM in RG : Flag in b : Wetness in a
             gGMF = CreateTexture(TextureTarget.Texture2D, "gGMF")
-            gGMF.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gGMF.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gGMF.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            gGMF.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gGMF.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gPosition ------------------------------------------------------------------------------------------
             ' RGB16F
             gPosition = CreateTexture(TextureTarget.Texture2D, "gPosition")
-            gPosition.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gPosition.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gPosition.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            gPosition.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gPosition.Storage2D(1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gDepth ------------------------------------------------------------------------------------------
             ' DepthComponent32f
             gDepth = CreateTexture(TextureTarget.Texture2D, "gDepth")
-            gDepth.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gDepth.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gDepth.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            gDepth.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gPick ------------------------------------------------------------------------------------------
@@ -155,10 +131,6 @@ Module FBO_main
             ' gColor_2 ------------------------------------------------------------------------------------------
             ' RGBA8
             gColor_2 = CreateTexture(TextureTarget.Texture2D, "gColor_2")
-            gColor_2.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gColor_2.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gColor_2.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            gColor_2.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             gColor_2.Storage2D(1, DirectCast(PixelInternalFormat.Rgba8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
             Dim er4 = GL.GetError
 
