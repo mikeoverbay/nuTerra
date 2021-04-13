@@ -80,24 +80,27 @@ Module FBO_MiniMap
             screenTexture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
             screenTexture.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), mini_size, mini_size)
         End Sub
+
         Public Shared Sub blit_to_screenTexture()
-            GL.ReadBuffer(ReadBufferMode.ColorAttachment0)
-            GL.DrawBuffer(DrawBufferMode.ColorAttachment1)
-            GL.BlitFramebuffer(0, 0, mini_size, mini_size,
-                                0, 0, mini_size, mini_size,
-                                ClearBufferMask.ColorBufferBit,
-                                BlitFramebufferFilter.Nearest)
-
+            GL.NamedFramebufferReadBuffer(miniFBO, ReadBufferMode.ColorAttachment0)
+            GL.NamedFramebufferDrawBuffer(miniFBO, DrawBufferMode.ColorAttachment1)
+            GL.BlitNamedFramebuffer(miniFBO, miniFBO,
+                                    0, 0, mini_size, mini_size,
+                                    0, 0, mini_size, mini_size,
+                                    ClearBufferMask.ColorBufferBit,
+                                    BlitFramebufferFilter.Nearest)
         End Sub
+
         Public Shared Sub blit_to_gBuffer()
-            GL.ReadBuffer(ReadBufferMode.ColorAttachment1)
-            GL.DrawBuffer(DrawBufferMode.ColorAttachment0)
-            GL.BlitFramebuffer(0, 0, mini_size, mini_size,
-                                0, 0, mini_size, mini_size,
-                                ClearBufferMask.ColorBufferBit,
-                                BlitFramebufferFilter.Nearest)
-
+            GL.NamedFramebufferReadBuffer(miniFBO, ReadBufferMode.ColorAttachment1)
+            GL.NamedFramebufferDrawBuffer(miniFBO, DrawBufferMode.ColorAttachment0)
+            GL.BlitNamedFramebuffer(miniFBO, miniFBO,
+                                    0, 0, mini_size, mini_size,
+                                    0, 0, mini_size, mini_size,
+                                    ClearBufferMask.ColorBufferBit,
+                                    BlitFramebufferFilter.Nearest)
         End Sub
+
         Public Shared Function create_fbo() As Boolean
             miniFBO = CreateFramebuffer("miniFBO")
             'attach our render buffer textures.

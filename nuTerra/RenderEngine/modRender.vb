@@ -454,9 +454,11 @@ Module modRender
     End Sub
 
     Private Sub copy_gColor_2_to_gColor()
-        GL.ReadBuffer(ReadBufferMode.ColorAttachment6)
-        GL.DrawBuffer(DrawBufferMode.ColorAttachment0)
-        GL.BlitFramebuffer(0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
+        GL.NamedFramebufferReadBuffer(mainFBO, ReadBufferMode.ColorAttachment6)
+        GL.NamedFramebufferDrawBuffer(mainFBO, DrawBufferMode.ColorAttachment0)
+        GL.BlitNamedFramebuffer(mainFBO,
+                                mainFBO,
+                                0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
                                 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
                                 ClearBufferMask.ColorBufferBit,
                                 BlitFramebufferFilter.Nearest)

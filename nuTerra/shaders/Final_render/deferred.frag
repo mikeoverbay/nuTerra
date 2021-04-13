@@ -26,12 +26,6 @@ uniform vec3 LightPos;
 #define WIDTH 256.0
 #define HEIGHT 16.0
 
-
-in VS_OUT {
-    vec2 UV;
-} fs_in;
-
-
 /*========================== FUNCTIONS =============================*/
 // This helps to even out overall levels of brightness and adjusts gamma.
 vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){  
@@ -88,7 +82,7 @@ vec4 SRGBtoLINEAR(vec4 srgbIn)
 
 void main (void)
 {
-    const uint FLAG = uint( texture(gGMF, fs_in.UV).b * 255.0);
+    const uint FLAG = uint(texelFetch(gGMF, ivec2(gl_FragCoord), 0).b * 255.0);
 
     // Writen as a float in shaders as f = Flag_value/255.0
     // or just 0.0 to mask any shading.
@@ -101,9 +95,9 @@ void main (void)
         // FLAG VALUES WILL BE DECIDED AS WE NEED THEM BUT..
         // ZERO = JUST PASS THE COLOR TO OUTPUT
         if (FLAG != 255) {
-            vec3 Position = texture(gPosition, fs_in.UV).xyz;
+            vec3 Position = texelFetch(gPosition, ivec2(gl_FragCoord), 0).xyz;
 
-            vec4 color_in = texture(gColor, fs_in.UV);
+            vec4 color_in = texelFetch(gColor, ivec2(gl_FragCoord), 0);
             
             //Mix in our water color
             //color_in.rgb = mix(color_in.rgb, waterColor, color_in.a);
@@ -111,7 +105,7 @@ void main (void)
             //fog level... this should be on the controller
             float fog_alpha = 0.5;
 
-            vec3 GM_in = texture(gGMF, fs_in.UV).xya;
+            vec3 GM_in = texelFetch(gGMF, ivec2(gl_FragCoord), 0).xya;
 
             //water overides GM values
             GM_in.rg = mix(GM_in.rg,vec2(0.4,0.8), color_in.a);
@@ -120,7 +114,7 @@ void main (void)
            
             vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
-            vec3 N = normalize(texture(gNormal, fs_in.UV).xyz);
+            vec3 N = normalize(texelFetch(gNormal, ivec2(gl_FragCoord), 0).xyz);
 
             float POWER;
             float INTENSITY;
@@ -285,11 +279,11 @@ void main (void)
             /*===================================================================*/
         //if flag != 128
         }else{
-            outColor = texture(gColor, fs_in.UV) * props.BRIGHTNESS;
+            outColor = texelFetch(gColor, ivec2(gl_FragCoord), 0) * props.BRIGHTNESS;
         }
     // if flag != 0
     } else {
-        outColor = texture(gColor, fs_in.UV) * props.BRIGHTNESS;
+        outColor = texelFetch(gColor, ivec2(gl_FragCoord), 0) * props.BRIGHTNESS;
     }
 
     //outColor.a = 1.0;
