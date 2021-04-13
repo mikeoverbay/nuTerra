@@ -8,9 +8,9 @@ Module FBO_main
     ''' </summary>
     Public NotInheritable Class FBOm
         Public Shared SCR_WIDTH, SCR_HEIGHT As Int32
-        Public Shared gPick As Integer
+        Public Shared gPick, gColor_2 As Integer
         Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition As GLTexture
-        Public Shared gAUX_Color, gColor_2 As GLTexture
+        Public Shared gAUX_Color As GLTexture
         Public Shared oldWidth As Integer = 1
         Public Shared oldHeigth As Integer = 1
         '========================
@@ -85,7 +85,7 @@ Module FBO_main
             If gGMF IsNot Nothing Then gGMF.Delete()
             If gDepth IsNot Nothing Then gDepth.Delete()
             If gPick > 0 Then GL.DeleteRenderbuffer(gPick)
-            If gColor_2 IsNot Nothing Then gColor_2.Delete()
+            If gColor_2 > 0 Then GL.DeleteRenderbuffer(gColor_2)
             If gPosition IsNot Nothing Then gPosition.Delete()
             If mainFBO > 0 Then GL.DeleteFramebuffer(mainFBO)
             If depthBufferTexture IsNot Nothing Then depthBufferTexture.Delete()
@@ -130,8 +130,8 @@ Module FBO_main
 
             ' gColor_2 ------------------------------------------------------------------------------------------
             ' RGBA8
-            gColor_2 = CreateTexture(TextureTarget.Texture2D, "gColor_2")
-            gColor_2.Storage2D(1, DirectCast(PixelInternalFormat.Rgba8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            gColor_2 = CreateRenderbuffer("gColor_2")
+            GL.NamedRenderbufferStorage(gColor_2, RenderbufferStorage.Rgba8, SCR_WIDTH, SCR_HEIGHT)
             Dim er4 = GL.GetError
 
         End Sub
@@ -146,7 +146,7 @@ Module FBO_main
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment3, gPosition.texture_id, 0)
             GL.NamedFramebufferRenderbuffer(mainFBO, FramebufferAttachment.ColorAttachment4, RenderbufferTarget.Renderbuffer, gPick)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment5, gAUX_Color.texture_id, 0)
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment6, gColor_2.texture_id, 0)
+            GL.NamedFramebufferRenderbuffer(mainFBO, FramebufferAttachment.ColorAttachment6, RenderbufferTarget.Renderbuffer, gColor_2)
 
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.DepthAttachment, gDepth.texture_id, 0)
 
