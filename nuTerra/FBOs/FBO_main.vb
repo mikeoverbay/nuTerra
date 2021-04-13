@@ -8,7 +8,8 @@ Module FBO_main
     ''' </summary>
     Public NotInheritable Class FBOm
         Public Shared SCR_WIDTH, SCR_HEIGHT As Int32
-        Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition, gPick As GLTexture
+        Public Shared gPick As Integer
+        Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition As GLTexture
         Public Shared gAUX_Color, gColor_2 As GLTexture
         Public Shared oldWidth As Integer = 1
         Public Shared oldHeigth As Integer = 1
@@ -83,7 +84,7 @@ Module FBO_main
             If gNormal IsNot Nothing Then gNormal.Delete()
             If gGMF IsNot Nothing Then gGMF.Delete()
             If gDepth IsNot Nothing Then gDepth.Delete()
-            If gPick IsNot Nothing Then gPick.Delete()
+            If gPick > 0 Then GL.DeleteRenderbuffer(gPick)
             If gColor_2 IsNot Nothing Then gColor_2.Delete()
             If gPosition IsNot Nothing Then gPosition.Delete()
             If mainFBO > 0 Then GL.DeleteFramebuffer(mainFBO)
@@ -147,13 +148,10 @@ Module FBO_main
 
             ' gPick ------------------------------------------------------------------------------------------
             ' R16 uInt
-            gPick = CreateTexture(TextureTarget.Texture2D, "gPick")
-            gPick.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gPick.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gPick.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
-            gPick.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
-            gPick.Storage2D(1, DirectCast(PixelInternalFormat.R16ui, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            gPick = CreateRenderbuffer("gPick")
+            GL.NamedRenderbufferStorage(gPick, RenderbufferStorage.R16ui, SCR_WIDTH, SCR_HEIGHT)
             Dim er = GL.GetError
+
             ' gColor_2 ------------------------------------------------------------------------------------------
             ' RGBA8
             gColor_2 = CreateTexture(TextureTarget.Texture2D, "gColor_2")
@@ -174,7 +172,7 @@ Module FBO_main
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment1, gNormal.texture_id, 0)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment2, gGMF.texture_id, 0)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment3, gPosition.texture_id, 0)
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment4, gPick.texture_id, 0)
+            GL.NamedFramebufferRenderbuffer(mainFBO, FramebufferAttachment.ColorAttachment4, RenderbufferTarget.Renderbuffer, gPick)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment5, gAUX_Color.texture_id, 0)
             GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment6, gColor_2.texture_id, 0)
 

@@ -152,6 +152,14 @@ Public Module modOpenGLAliases
     End Function
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
+    Public Function CreateRenderbuffer(name As String) As Integer
+        Dim buffer_id As Integer
+        GL.CreateRenderbuffers(1, buffer_id)
+        LabelObject(ObjectLabelIdentifier.Texture, buffer_id, name)
+        Return buffer_id
+    End Function
+
+    <MethodImpl(MethodImplOptions.AggressiveInlining)>
     Public Function CreateTexture(target As TextureTarget, name As String) As GLTexture
         Dim tex_id As Integer
         GL.CreateTextures(target, 1, tex_id)
