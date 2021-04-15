@@ -126,6 +126,8 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float _start;
     float _end;
     float tess_level;
+    float blend_macro_influence;
+    float blend_global_threshold;
 } props;
 #endif
 

@@ -163,6 +163,8 @@ Module modOpenGL
         Public _start As Single
         Public _end As Single
         Public tess_level As Single
+        Public blend_macro_influence As Single ' from space.bin/BWT2
+        Public blend_global_threshold As Single ' from space.bin/BWT2
 
         Public Sub update()
             light_count = Math.Max(LIGHTS.index - 1, 0)

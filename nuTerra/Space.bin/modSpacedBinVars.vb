@@ -301,6 +301,9 @@ Module modSpacedBinVars
                 Dim handle = GCHandle.Alloc(buffer, GCHandleType.Pinned)
                 Create = Marshal.PtrToStructure(Marshal.UnsafeAddrOfPinnedArrayElement(buffer, 0), GetType(TerrainSettings2_v1_6_1))
                 handle.Free()
+
+                CommonProperties.blend_macro_influence = Create.blend_macro_influence
+                CommonProperties.blend_global_threshold = Create.blend_global_threshold
             End Function
         End Structure
     End Structure
