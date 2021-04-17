@@ -91,18 +91,16 @@ vec2 get_transformed_uv(in vec4 U, in vec4 V) {
     vec4 vt = vec4(-fs_in.vertexPosition.x+50.0, fs_in.vertexPosition.y, fs_in.vertexPosition.z, 1.0);
     vt *= vec4(1.0, -1.0, 1.0,  1.0);
     vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
+    out_uv += vec2(0.50,0.50);
     return out_uv;
     }
 
-vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id, in vec4 offset)
+vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id)
 {
     vec2  dx_vtc        = dFdx(uv*1024.0);
     vec2  dy_vtc        = dFdy(uv*1024.0);
     float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
     float mipLevel = 0.5 * log2(delta_max_sqr);
-
-    uv += vec2(0.50,0.50);
-    //uv += vec2(offset.x ,offset.y);
 
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
 
@@ -119,25 +117,21 @@ vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id, in vec4 off
     return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
 
-vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
+vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer)
 {
     vec2  dx_vtc        = dFdx(uv*1024.0);
     vec2  dy_vtc        = dFdy(uv*1024.0);
     float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
     float mipLevel = 0.5 * log2(delta_max_sqr);
 
-    uv += vec2(0.50,0.50);
-    //uv += vec2(offset.x ,offset.y);
-
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
 
     return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
 
-vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
+vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer)
 {
 
-    uv += vec2(0.5,0.5);
     uv *= vec2(0.125, 0.125);
 
     vec2  dx_vtc        = dFdx(uv*1024.0);
@@ -172,7 +166,11 @@ void main(void)
     const vec4 global = texture(global_AM, fs_in.Global_UV);
 
     vec4 t[8];
+    vec4 mt[8];
+    float mth[8];
+    float th[8];
     vec4 n[8];
+    vec4 mn[8];
     float f = 0.0;
 
     for (int i = 0; i < 8; ++i) {
@@ -180,27 +178,29 @@ void main(void)
         const vec2 tuv = get_transformed_uv(L.U[i], L.V[i]); 
 
         // Get AM maps,crop and set Test outline blend flag
-        t[i] = crop(at[i], tuv, 0.0, i, L.s[i]);
-        vec4 mt = crop2(at[i], tuv, 2.0, L.s[i]);
+        t[i] = crop(at[i], tuv, 0.0, i);
+        th[i] = max(t[i].w, 0.00392156886);
 
+        mt[i] = crop3(at[i], tuv, 2.0);
+        mth[i] = max(mt[i].w,0.00392156886);
         // specular is in red channel of the normal maps.
         // Ambient occlusion is in the Blue channel.
         // Green and Alpha are normal values.
-        n[i] = crop2(at[i], tuv, 1.0, L.s[i]);
-        vec4 mn = crop2(at[i], tuv, 3.0, L.s[i]);
+        n[i] = crop2(at[i], tuv, 1.0);
+        mn[i] = crop2(at[i], tuv, 3.0);
 
         // get the ambient occlusion
         t[i].rgb *= n[i].b;
-        mt.rgb *= mn.b;
+        mt[i].rgb *= mn[i].b;
 
         // mix macro
-        t[i].rgb = t[i].rgb * min(L.r1[i].x, 1.0) + mt.rgb * (L.r2[i].y + 1.0);
-        n[i].rgb = n[i].rgb * min(L.r1[i].x, 1.0) + mn.rgb * (L.r2[i].y + 1.0);
+        t[i].rgb = t[i].rgb * min(L.r1[i].x, 1.0) + mt[i].rgb * (L.r2[i].y + 1.0);
+        n[i].rgb = n[i].rgb * min(L.r1[i].x, 1.0) + mn[i].rgb * (L.r2[i].y + 1.0);
 
         // months of work to figure this out!
         MixLevel[i / 2][i % 2] *= t[i].a + L.r1[i].x;
 
-        const float power = 1 / 0.6;
+        const float power = 1.0 / 0.2;
         MixLevel[i / 2][i % 2] = pow(MixLevel[i / 2][i % 2], power);
         f += MixLevel[i / 2][i % 2];
     }
