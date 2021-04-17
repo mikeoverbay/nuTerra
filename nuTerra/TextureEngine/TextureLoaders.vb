@@ -88,8 +88,12 @@ Module TextureLoaders
         image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.MirroredRepeat)
 
         Dim data = br.ReadBytes(w * h)
+
         Dim sizedFormat = DirectCast(InternalFormat.CompressedRgbaS3tcDxt5Ext, SizedInternalFormat)
         Dim pixelFormat = DirectCast(InternalFormat.CompressedRgbaS3tcDxt5Ext, OpenGL.PixelFormat)
+
+        ' TEST: nuTerraCPP.Utils.FlipDDS(data, sizedFormat, w, h)
+
         image_id.Storage2D(2, sizedFormat, w, h)
         image_id.CompressedSubImage2D(0, 0, 0, w, h, pixelFormat, w * h, data)
 
