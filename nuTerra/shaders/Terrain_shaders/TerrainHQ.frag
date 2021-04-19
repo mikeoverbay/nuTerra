@@ -88,7 +88,7 @@ vec4 convertNormal(vec4 norm){
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V) {
 
-    vec4 vt = vec4(-fs_in.vertexPosition.x+50.0, fs_in.vertexPosition.y, fs_in.vertexPosition.z, 1.0);
+    vec4 vt = vec4(-fs_in.UV.x*100.0+50.0, 0.0, fs_in.UV.y*100.0, 1.0);
     vt *= vec4(1.0, -1.0, 1.0,  1.0);
     vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
     out_uv += vec2(0.50,0.50);

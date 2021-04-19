@@ -59,23 +59,21 @@ vec4 blend_normal(vec4 n1, vec4 n2, vec4 texture1, float a1, vec4 texture2, floa
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V) {
 
-    vec4 vt = vec4(-fs_in.Vertex.x+50.0, fs_in.Vertex.z, fs_in.Vertex.y, 1.0);
+    vec4 vt = vec4(-fs_in.UV.x*100.0+50.0, 0.0, fs_in.UV.y*100.0, 1.0);
     vt *= vec4(1.0, -1.0, 1.0,  1.0);
     vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
+    out_uv += vec2(0.50,0.50);
     return out_uv;
     }
     
-vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
+vec4 crop( sampler2DArray samp, in vec2 uv , in float layer)
 {
-    uv += vec2(0.50,0.50);
-    //uv += vec2(offset.x ,offset.y);
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
     return texture(samp,vec3(cropped, layer));
 }
 
-vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer, in vec4 offset)
+vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer)
 {
-    uv += vec2(0.5,0.5);
     uv *= vec2(0.125, 0.125);
     //uv += vec2(offset.x , offset.y);
     vec2 cropped = fract(uv)* vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
@@ -129,45 +127,45 @@ void main(void)
     // Get AM maps 
     // Get AM maps,crop and set Test outline blend flag
 
-    t[0] = crop(at1, tuv[0], 0.0, L.s[0]);
-    t[1] = crop(at2, tuv[1], 0.0, L.s[1]);
-    t[2] = crop(at3, tuv[2], 0.0, L.s[2]);
-    t[3] = crop(at4, tuv[3], 0.0, L.s[3]);
-    t[4] = crop(at5, tuv[4], 0.0, L.s[4]);
-    t[5] = crop(at6, tuv[5], 0.0, L.s[5]);
-    t[6] = crop(at7, tuv[6], 0.0, L.s[6]);
-    t[7] = crop(at8, tuv[7], 0.0, L.s[7]);
+    t[0] = crop(at1, tuv[0], 0.0);
+    t[1] = crop(at2, tuv[1], 0.0);
+    t[2] = crop(at3, tuv[2], 0.0);
+    t[3] = crop(at4, tuv[3], 0.0);
+    t[4] = crop(at5, tuv[4], 0.0);
+    t[5] = crop(at6, tuv[5], 0.0);
+    t[6] = crop(at7, tuv[6], 0.0);
+    t[7] = crop(at8, tuv[7], 0.0);
     
-    mt[0] = crop2(at1, tuv[0], 2.0, L.s[0]);
-    mt[1] = crop2(at2, tuv[1], 2.0, L.s[1]);
-    mt[2] = crop2(at3, tuv[2], 2.0, L.s[2]);
-    mt[3] = crop2(at4, tuv[3], 2.0, L.s[3]);
-    mt[4] = crop2(at5, tuv[4], 2.0, L.s[4]);
-    mt[5] = crop2(at6, tuv[5], 2.0, L.s[5]);
-    mt[6] = crop2(at7, tuv[6], 2.0, L.s[6]);
-    mt[7] = crop2(at8, tuv[7], 2.0, L.s[7]);
+    mt[0] = crop2(at1, tuv[0], 2.0);
+    mt[1] = crop2(at2, tuv[1], 2.0);
+    mt[2] = crop2(at3, tuv[2], 2.0);
+    mt[3] = crop2(at4, tuv[3], 2.0);
+    mt[4] = crop2(at5, tuv[4], 2.0);
+    mt[5] = crop2(at6, tuv[5], 2.0);
+    mt[6] = crop2(at7, tuv[6], 2.0);
+    mt[7] = crop2(at8, tuv[7], 2.0);
 
     // Height is in red channel of the normal maps.
     // Ambient occlusion is in the Blue channel.
     // Green and Alpha are normal values.
 
-    n[0] = crop(at1, tuv[0], 1.0, L.s[0]);
-    n[1] = crop(at2, tuv[1], 1.0, L.s[1]);
-    n[2] = crop(at3, tuv[2], 1.0, L.s[2]);
-    n[3] = crop(at4, tuv[3], 1.0, L.s[3]);
-    n[4] = crop(at5, tuv[4], 1.0, L.s[4]);
-    n[5] = crop(at6, tuv[5], 1.0, L.s[5]);
-    n[6] = crop(at7, tuv[6], 1.0, L.s[6]);
-    n[7] = crop(at8, tuv[7], 1.0, L.s[7]);
+    n[0] = crop(at1, tuv[0], 1.0);
+    n[1] = crop(at2, tuv[1], 1.0);
+    n[2] = crop(at3, tuv[2], 1.0);
+    n[3] = crop(at4, tuv[3], 1.0);
+    n[4] = crop(at5, tuv[4], 1.0);
+    n[5] = crop(at6, tuv[5], 1.0);
+    n[6] = crop(at7, tuv[6], 1.0);
+    n[7] = crop(at8, tuv[7], 1.0);
 
-    mn[0] = crop2(at1, tuv[0], 3.0, L.s[0]);
-    mn[1] = crop2(at2, tuv[1], 3.0, L.s[1]);
-    mn[2] = crop2(at3, tuv[2], 3.0, L.s[2]);
-    mn[3] = crop2(at4, tuv[3], 3.0, L.s[3]);
-    mn[4] = crop2(at5, tuv[4], 3.0, L.s[4]);
-    mn[5] = crop2(at6, tuv[5], 3.0, L.s[5]);
-    mn[6] = crop2(at7, tuv[6], 3.0, L.s[6]);
-    mn[7] = crop2(at8, tuv[7], 3.0, L.s[7]);
+    mn[0] = crop2(at1, tuv[0], 3.0);
+    mn[1] = crop2(at2, tuv[1], 3.0);
+    mn[2] = crop2(at3, tuv[2], 3.0);
+    mn[3] = crop2(at4, tuv[3], 3.0);
+    mn[4] = crop2(at5, tuv[4], 3.0);
+    mn[5] = crop2(at6, tuv[5], 3.0);
+    mn[6] = crop2(at7, tuv[6], 3.0);
+    mn[7] = crop2(at8, tuv[7], 3.0);
 
     // get the ambient occlusion
     t[0].rgb *= n[0].b;
