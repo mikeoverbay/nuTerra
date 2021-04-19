@@ -162,6 +162,12 @@ void main(void)
     MixLevel[2].rg = texture(mixtexture[2], mix_coords.xy).ag;
     MixLevel[3].rg = texture(mixtexture[3], mix_coords.xy).ag;
 
+    vec4 m1 = vec4(MixLevel[0].rg,MixLevel[1].rg);
+    vec4 m2 = vec4(MixLevel[2].rg,MixLevel[3].rg);
+    float m1_d = dot(m1, vec4(1.0) );
+    float m2_d = dot(m2, vec4(1.0) );
+    float b_dot = m1_d+m2_d;
+
     const vec4 global = texture(global_AM, fs_in.Global_UV);
 
     vec4 t[8];
@@ -188,7 +194,7 @@ void main(void)
         // Ambient occlusion is in the Blue channel.
         // Green and Alpha are normal values.
         n[i] = crop2(at[i], tuv, 1.0);
-        mn[i] = crop2(at[i], tuv, 3.0);
+        mn[i] = crop3(at[i], tuv, 3.0);
 
         // get the ambient occlusion
         t[i].rgb *= n[i].b;

@@ -88,7 +88,7 @@ vec4 convertNormal(vec4 norm){
 
 vec2 get_transformed_uv(in vec4 U, in vec4 V) {
 
-    vec4 vt = vec4(-fs_in.vertexPosition.x+50.0, fs_in.vertexPosition.y, fs_in.vertexPosition.z, 1.0);
+    vec4 vt = vec4(-fs_in.UV.x*100.0+50.0, 0.0, fs_in.UV.y*100.0, 1.0);
     vt *= vec4(1.0, -1.0, 1.0,  1.0);
     vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
     out_uv += vec2(0.50,0.50);
@@ -179,7 +179,6 @@ void main(void)
 
         // Get AM maps,crop and set Test outline blend flag
         t[i] = crop(at[i], tuv, 0.0, i);
-        th[i] = max(t[i].w, 0.00392156886);
 
         mt[i] = crop3(at[i], tuv, 2.0);
         mth[i] = max(mt[i].w,0.00392156886);
@@ -187,7 +186,7 @@ void main(void)
         // Ambient occlusion is in the Blue channel.
         // Green and Alpha are normal values.
         n[i] = crop2(at[i], tuv, 1.0);
-        mn[i] = crop2(at[i], tuv, 3.0);
+        mn[i] = crop3(at[i], tuv, 3.0);
 
         // get the ambient occlusion
         t[i].rgb *= n[i].b;
