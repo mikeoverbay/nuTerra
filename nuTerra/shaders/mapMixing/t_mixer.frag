@@ -188,23 +188,23 @@ void main(void)
     mt[6].rgb *= mn[6].b;
     mt[7].rgb *= mn[7].b;
 
-    t[0].rgb = t[0].rgb* min(L.r1[0].x,1.0) + mt[0].rgb*(L.r2[0].y+1.0);
-    t[1].rgb = t[1].rgb* min(L.r1[1].x,1.0) + mt[1].rgb*(L.r2[1].y+1.0);
-    t[2].rgb = t[2].rgb* min(L.r1[2].x,1.0) + mt[2].rgb*(L.r2[2].y+1.0);
-    t[3].rgb = t[3].rgb* min(L.r1[3].x,1.0) + mt[3].rgb*(L.r2[3].y+1.0);
-    t[4].rgb = t[4].rgb* min(L.r1[4].x,1.0) + mt[4].rgb*(L.r2[4].y+1.0);
-    t[5].rgb = t[5].rgb* min(L.r1[5].x,1.0) + mt[5].rgb*(L.r2[5].y+1.0);
-    t[6].rgb = t[6].rgb* min(L.r1[6].x,1.0) + mt[6].rgb*(L.r2[6].y+1.0);
-    t[7].rgb = t[7].rgb* min(L.r1[7].x,1.0) + mt[7].rgb*(L.r2[7].y+1.0);
+    t[0].rgb = t[0].rgb* min(L.r2[0].x,1.0) + mt[0].rgb*(L.r2[0].y+1.0);
+    t[1].rgb = t[1].rgb* min(L.r2[1].x,1.0) + mt[1].rgb*(L.r2[1].y+1.0);
+    t[2].rgb = t[2].rgb* min(L.r2[2].x,1.0) + mt[2].rgb*(L.r2[2].y+1.0);
+    t[3].rgb = t[3].rgb* min(L.r2[3].x,1.0) + mt[3].rgb*(L.r2[3].y+1.0);
+    t[4].rgb = t[4].rgb* min(L.r2[4].x,1.0) + mt[4].rgb*(L.r2[4].y+1.0);
+    t[5].rgb = t[5].rgb* min(L.r2[5].x,1.0) + mt[5].rgb*(L.r2[5].y+1.0);
+    t[6].rgb = t[6].rgb* min(L.r2[6].x,1.0) + mt[6].rgb*(L.r2[6].y+1.0);
+    t[7].rgb = t[7].rgb* min(L.r2[7].x,1.0) + mt[7].rgb*(L.r2[7].y+1.0);
 
-    n[0].rgb = n[0].rgb* min(L.r1[0].x,1.0) + mn[0].rgb*(L.r2[0].y+1.0);
-    n[1].rgb = n[1].rgb* min(L.r1[1].x,1.0) + mn[1].rgb*(L.r2[1].y+1.0);
-    n[2].rgb = n[2].rgb* min(L.r1[2].x,1.0) + mn[2].rgb*(L.r2[2].y+1.0);
-    n[3].rgb = n[3].rgb* min(L.r1[3].x,1.0) + mn[3].rgb*(L.r2[3].y+1.0);
-    n[4].rgb = n[4].rgb* min(L.r1[4].x,1.0) + mn[4].rgb*(L.r2[4].y+1.0);
-    n[5].rgb = n[5].rgb* min(L.r1[5].x,1.0) + mn[5].rgb*(L.r2[5].y+1.0);
-    n[6].rgb = n[6].rgb* min(L.r1[6].x,1.0) + mn[6].rgb*(L.r2[6].y+1.0);
-    n[7].rgb = n[7].rgb* min(L.r1[7].x,1.0) + mn[7].rgb*(L.r2[7].y+1.0);
+    n[0].rgb = n[0].rgb* min(L.r2[0].x,1.0) + mn[0].rgb*(L.r2[0].y+1.0);
+    n[1].rgb = n[1].rgb* min(L.r2[1].x,1.0) + mn[1].rgb*(L.r2[1].y+1.0);
+    n[2].rgb = n[2].rgb* min(L.r2[2].x,1.0) + mn[2].rgb*(L.r2[2].y+1.0);
+    n[3].rgb = n[3].rgb* min(L.r2[3].x,1.0) + mn[3].rgb*(L.r2[3].y+1.0);
+    n[4].rgb = n[4].rgb* min(L.r2[4].x,1.0) + mn[4].rgb*(L.r2[4].y+1.0);
+    n[5].rgb = n[5].rgb* min(L.r2[5].x,1.0) + mn[5].rgb*(L.r2[5].y+1.0);
+    n[6].rgb = n[6].rgb* min(L.r2[6].x,1.0) + mn[6].rgb*(L.r2[6].y+1.0);
+    n[7].rgb = n[7].rgb* min(L.r2[7].x,1.0) + mn[7].rgb*(L.r2[7].y+1.0);
 
     //Get the mix values from the mix textures 1-4 and move to vec2. 
     MixLevel1.rg = texture(mixtexture1, mix_coords.xy).ag;
@@ -222,7 +222,7 @@ void main(void)
     MixLevel4.r *= t[6].a+L.r1[6].x;
     MixLevel4.g *= t[7].a+L.r1[7].x;
 
-    float power = 0.2;
+    float power = 0.7;
     MixLevel1.r = pow(MixLevel1.r,1.0/power);
     MixLevel1.g = pow(MixLevel1.g,1.0/power);
     MixLevel2.r = pow(MixLevel2.r,1.0/power);
@@ -243,11 +243,11 @@ void main(void)
     MixLevel3.rg/= f;
     MixLevel4.rg/= f;   //months of work to figure this out!
    
-    MixLevel1 = max(MixLevel1,vec2(0.0139));
-    MixLevel2 = max(MixLevel2,vec2(0.0139));
-    MixLevel3 = max(MixLevel3,vec2(0.0139));
-    MixLevel4 = max(MixLevel4,vec2(0.0139));
-   //retuned to old mixing. Its better
+//    MixLevel1 = max(MixLevel1,vec2(0.0139));
+//    MixLevel2 = max(MixLevel2,vec2(0.0139));
+//    MixLevel3 = max(MixLevel3,vec2(0.0139));
+//    MixLevel4 = max(MixLevel4,vec2(0.0139));
+//   //retuned to old mixing. Its better
        vec4 base;
 
     base =  t[0] * MixLevel1.r;
@@ -261,12 +261,12 @@ void main(void)
 
     //global
      vec4 gc = global;
-   float c_l = length(base.rgb) + base.a + global.a;
-    float g_l = length(global.rgb) - global.a;
+    float c_l = length(base.rgb) + base.a + global.a+0.25;
+    float g_l = length(global.rgb) - global.a-base.a;
     gc.rgb = global.rgb;
-    base.rgb = (base.rgb * c_l + gc.rgb * g_l)/1.8;
+    base.rgb = (base.rgb * c_l + global.rgb * g_l) / 1.8;
     //wetness
-    base = blend(base,base.a,vec4(props.waterColor,props.waterAlpha),global.a);
+    base = blend(base, base.a+0.75, vec4(props.waterColor, props.waterAlpha), global.a);
 
     //-------------------------------------------------------------
     // normals

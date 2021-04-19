@@ -173,6 +173,7 @@ void main(void)
     vec4 mn[8];
     float f = 0.0;
 
+
     for (int i = 0; i < 8; ++i) {
         // create UV projections
         const vec2 tuv = get_transformed_uv(L.U[i], L.V[i]); 
@@ -193,13 +194,14 @@ void main(void)
         mt[i].rgb *= mn[i].b;
 
         // mix macro
-        t[i].rgb = t[i].rgb * min(L.r1[i].x, 1.0) + mt[i].rgb * (L.r2[i].y + 1.0);
-        n[i].rgb = n[i].rgb * min(L.r1[i].x, 1.0) + mn[i].rgb * (L.r2[i].y + 1.0);
-
+        t[i].rgb = t[i].rgb * min(L.r2[i].x, 1.0) + mt[i].rgb * (L.r2[i].y + 1.0);
+        n[i].rgb = n[i].rgb * min(L.r2[i].x, 1.0) + mn[i].rgb * (L.r2[i].y + 1.0);
+        //t[i].rgb = mt[i].rgb;
+        //n[i].rgb = mn[i].rgb;
         // months of work to figure this out!
         MixLevel[i / 2][i % 2] *= t[i].a + L.r1[i].x;
 
-        const float power = 1.0 / 0.2;
+        const float power = 1.0 / 0.7;
         MixLevel[i / 2][i % 2] = pow(MixLevel[i / 2][i % 2], power);
         f += MixLevel[i / 2][i % 2];
     }
@@ -208,22 +210,21 @@ void main(void)
     vec4 base = vec4(0.0);
     for (int i = 0; i < 8; ++i) {
         MixLevel[i / 2][i % 2] /= f;
-        MixLevel[i / 2][i % 2] = max(MixLevel[i / 2][i % 2], 0.0139);
+        //MixLevel[i / 2][i % 2] = max(MixLevel[i / 2][i % 2], 0.0139);
 
         base += t[i] * MixLevel[i / 2][i % 2];
         out_n += n[i] * MixLevel[i / 2][i % 2];
     }
 
     // global
-    float c_l = length(base.rgb) + base.a + global.a;
-    float g_l = length(global.rgb) - global.a;
+    float c_l = length(base.rgb) + base.a + global.a+0.25;
+    float g_l = length(global.rgb) - global.a-base.a;
 
     // rem to remove global content
     base.rgb = (base.rgb * c_l + global.rgb * g_l) / 1.8;
 
     // wetness
-    base = blend(base, base.a, vec4(props.waterColor, props.waterAlpha), global.a);
-
+    base = blend(base, base.a+0.75, vec4(props.waterColor, props.waterAlpha), global.a);
     // Texture outlines
 #ifdef SHOW_TEST_TEXTURES
     for (int i = 0; i < 8; ++i) {
