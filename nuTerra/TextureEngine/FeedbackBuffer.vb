@@ -25,7 +25,7 @@ Public Class FeedbackBuffer
         ReDim Requests(indexer.Count - 1)
 
         rendertarget = CreateRenderbuffer("FeedbackBuffer_rendertarget")
-        GL.NamedRenderbufferStorage(rendertarget, RenderbufferStorage.Rgba32f, width, height)
+        GL.NamedRenderbufferStorage(rendertarget, RenderbufferStorage.Rgba8, width, height)
 
         depthbuffer = CreateRenderbuffer("FeedbackBuffer_depthbuffer")
         GL.NamedRenderbufferStorage(depthbuffer, RenderbufferStorage.DepthComponent32f, width, height)
