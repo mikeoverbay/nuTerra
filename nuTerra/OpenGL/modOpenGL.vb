@@ -166,6 +166,13 @@ Module modOpenGL
         Public blend_macro_influence As Single ' from space.bin/BWT2
         Public blend_global_threshold As Single ' from space.bin/BWT2
 
+        Public VirtualTextureSize As Single
+        Public AtlasScale As Single
+        Public BorderScale As Single
+        Public BorderOffset As Single
+        Public MipBias As Single
+        Public PageTableSize As Single
+
         Public Sub update()
             light_count = Math.Max(LIGHTS.index - 1, 0)
             mapMaxHeight = MAX_MAP_HEIGHT
@@ -220,9 +227,6 @@ Module modOpenGL
     End Function
 
     Public Sub set_prespective_view()
-
-        GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
-
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
         Dim sin_x, cos_x, cos_y, sin_y As Single
         Dim cam_x, cam_y, cam_z As Single

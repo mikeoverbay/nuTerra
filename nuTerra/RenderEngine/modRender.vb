@@ -59,10 +59,6 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) '================
-        '===========================================================================
-
-        '===========================================================================
         set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
@@ -79,10 +75,19 @@ Module modRender
         End If
         '===========================================================================
 
+        If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
+            '===========================================================================
+            draw_terrain_vt_mip()
+            '===========================================================================
+        End If
+
+        '===========================================================================
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) '================
+        GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
+        '===========================================================================
+
         '===========================================================================
         FBOm.attach_CNGPA() 'clear ALL gTextures!
-        GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
-        GL.ClearDepth(0.0F)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
         '===========================================================================
 
@@ -462,6 +467,33 @@ Module modRender
                                 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
                                 ClearBufferMask.ColorBufferBit,
                                 BlitFramebufferFilter.Nearest)
+    End Sub
+
+    Private Sub draw_terrain_vt_mip()
+        GL_PUSH_GROUP("draw_terrain_vt_mip")
+
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, feedback.fbo)
+        GL.Viewport(0, 0, feedback.width, feedback.height)
+        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthFunc(DepthFunction.Greater)
+        GL.Enable(EnableCap.CullFace)
+
+        TerrainVTMIPShader.Use()
+
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+
+        For i = 0 To theMap.render_set.Length - 1
+            If theMap.render_set(i).visible Then
+                GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+            End If
+        Next
+
+        TerrainVTMIPShader.StopUse()
+
+        GL_POP_GROUP()
     End Sub
 
     Private Sub draw_terrain()

@@ -263,6 +263,7 @@ Module ShaderLoader
     Public TerrainHQShader As Shader
     Public TerrainMQShader As Shader
     Public TerrainLQShader As Shader
+    Public TerrainVTMIPShader As Shader
     Public toLinearShader As Shader
     Public TextRenderShader As Shader
     'particle shaders
@@ -328,6 +329,8 @@ Module ShaderLoader
         TerrainMQShader = New Shader("TerrainMQ")
         TerrainHQShader = New Shader("TerrainHQ") ' High Quality + Tessellation
 
+        TerrainVTMIPShader = New Shader("TerrainVTMIP")
+
         TextRenderShader = New Shader("TextRender")
         toLinearShader = New Shader("toLinear")
         'particle shaders
@@ -379,6 +382,7 @@ Module ShaderLoader
         shaders.Add(TerrainHQShader)
         shaders.Add(TerrainMQShader)
         shaders.Add(TerrainLQShader)
+        shaders.Add(TerrainVTMIPShader)
         shaders.Add(TextRenderShader)
         shaders.Add(toLinearShader)
         'particle shaders

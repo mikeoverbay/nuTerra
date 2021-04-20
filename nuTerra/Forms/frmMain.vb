@@ -538,6 +538,9 @@ try_again:
         ' Enable depth clamping
         GL.Enable(EnableCap.DepthClamp)
 
+        GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
+        GL.ClearDepth(0.0F)
+
         '-----------------------------------------------------------------------------------------
         'Check if the game path is set
         If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
@@ -572,6 +575,20 @@ try_again:
                               Marshal.SizeOf(CommonProperties),
                               BufferStorageFlags.DynamicStorageBit)
         CommonPropertiesBuffer.BindBase(2)
+
+        vtInfo = New VirtualTextureInfo With {
+            .BorderSize = 1,
+            .TileSize = 128,
+            .VirtualTextureSize = 8192
+            }
+        feedback = New FeedbackBuffer(vtInfo, 64, 64)
+
+        CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
+        CommonProperties.AtlasScale = 1.0F / 1.0
+        CommonProperties.BorderScale = 1.0
+        CommonProperties.BorderOffset = vtInfo.BorderSize
+        CommonProperties.MipBias = 0
+        CommonProperties.PageTableSize = vtInfo.PageTableSize
 
         FBOm.FBO_Initialize()
         LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))

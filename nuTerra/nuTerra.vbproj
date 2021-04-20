@@ -220,7 +220,11 @@
     <Compile Include="Space.bin\modSpaceBinFunctions.vb" />
     <Compile Include="Space.bin\modSpacedBinVars.vb" />
     <Compile Include="MapLoader\MapLoader.vb" />
+    <Compile Include="TextureEngine\FeedbackBuffer.vb" />
+    <Compile Include="TextureEngine\Page.vb" />
+    <Compile Include="TextureEngine\PageIndexer.vb" />
     <Compile Include="TextureEngine\TextureLoaders.vb" />
+    <Compile Include="TextureEngine\VirtualTextureInfo.vb" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Forms\frmLightSettings.resx">
@@ -404,6 +408,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Terrain_shaders\TerrainMQ.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\TerrainVTMIP.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\Terrain_shaders\TerrainVTMIP.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="shaders\Trials\cull-invalidate.comp">

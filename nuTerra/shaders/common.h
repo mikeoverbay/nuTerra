@@ -128,6 +128,12 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float tess_level;
     float blend_macro_influence;
     float blend_global_threshold;
+    float VirtualTextureSize;
+    float AtlasScale;
+    float BorderScale;
+    float BorderOffset;
+    float MipBias;
+    float PageTableSize;
 } props;
 #endif
 
