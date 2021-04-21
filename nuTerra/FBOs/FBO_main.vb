@@ -1,6 +1,7 @@
 ﻿Imports OpenTK.Graphics.OpenGL
 
 Module FBO_main
+    Public vt As VirtualTexture
     Public vtInfo As VirtualTextureInfo
     Public feedback As FeedbackBuffer
 

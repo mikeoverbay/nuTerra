@@ -220,10 +220,19 @@
     <Compile Include="Space.bin\modSpaceBinFunctions.vb" />
     <Compile Include="Space.bin\modSpacedBinVars.vb" />
     <Compile Include="MapLoader\MapLoader.vb" />
+    <Compile Include="TextureEngine\ConcurrentQueue.vb" />
     <Compile Include="TextureEngine\FeedbackBuffer.vb" />
+    <Compile Include="TextureEngine\LruCollection.vb" />
     <Compile Include="TextureEngine\Page.vb" />
+    <Compile Include="TextureEngine\PageCache.vb" />
+    <Compile Include="TextureEngine\PageCount.vb" />
     <Compile Include="TextureEngine\PageIndexer.vb" />
+    <Compile Include="TextureEngine\PageLoader.vb" />
+    <Compile Include="TextureEngine\PageTable.vb" />
+    <Compile Include="TextureEngine\ProcessingThread.vb" />
+    <Compile Include="TextureEngine\TextureAtlas.vb" />
     <Compile Include="TextureEngine\TextureLoaders.vb" />
+    <Compile Include="TextureEngine\VirtualTexture.vb" />
     <Compile Include="TextureEngine\VirtualTextureInfo.vb" />
   </ItemGroup>
   <ItemGroup>

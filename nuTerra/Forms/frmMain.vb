@@ -581,6 +581,7 @@ try_again:
             .TileSize = 128,
             .VirtualTextureSize = 8192
             }
+        vt = New VirtualTexture(vtInfo, 512, 5)
         feedback = New FeedbackBuffer(vtInfo, 64, 64)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize

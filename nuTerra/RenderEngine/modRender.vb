@@ -494,6 +494,7 @@ Module modRender
         TerrainVTMIPShader.StopUse()
 
         feedback.Download()
+        ' TODO: vt.Update(feedback.Requests)
 
         GL_POP_GROUP()
     End Sub
