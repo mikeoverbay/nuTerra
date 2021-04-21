@@ -9,6 +9,27 @@
 
     Public Sub New(info As VirtualTextureInfo)
         Me.info = info
+        mipcount = Math.Log(info.PageTableSize, 2) + 1
+
+        Count = 0
+        ReDim sizes(mipcount - 1)
+        ReDim offsets(mipcount - 1)
+        For i = 0 To mipcount - 1
+            sizes(i) = (info.VirtualTextureSize \ info.TileSize) >> i
+            offsets(i) = Count
+            Count += sizes(i) * sizes(i)
+        Next
+
+        ReDim reverse(Count - 1)
+        For i = 0 To mipcount - 1
+            Dim size = sizes(i)
+            For y = 0 To size - 1
+                For x = 0 To size - 1
+                    Dim Page As New Page(x, y, i)
+                    reverse(Me(Page)) = Page
+                Next
+            Next
+        Next
     End Sub
 
     Default Public ReadOnly Property Item(page As Page) As Integer
@@ -29,6 +50,30 @@
     End Function
 
     Public Function IsValid(page As Page) As Boolean
+        If page.Mip < 0 Then
+            MsgBox(String.Format("Mip level smaller than zero ({0}).", page))
+            Return False
+        ElseIf page.Mip >= mipcount Then
+            MsgBox(String.Format("Mip level larger than max ({1}), ({0}).", page, mipcount))
+            Return False
+        End If
+
+        If (page.X < 0) Then
+            MsgBox(String.Format("X smaller than zero ({0}).", page))
+            Return False
+        ElseIf (page.X >= sizes(page.Mip)) Then
+            MsgBox(String.Format("X larger than max ({1}), ({0}).", page, sizes(page.Mip)))
+            Return False
+        End If
+
+        If (page.Y < 0) Then
+            MsgBox(String.Format("Y smaller than zero ({0}).", page))
+            Return False
+        ElseIf (page.Y >= sizes(page.Mip)) Then
+            MsgBox(String.Format("Y larger than max ({1}), ({0}).", page, sizes(page.Mip)))
+            Return False
+        End If
+
         Return True
     End Function
 End Class

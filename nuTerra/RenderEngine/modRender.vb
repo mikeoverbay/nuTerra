@@ -493,6 +493,8 @@ Module modRender
 
         TerrainVTMIPShader.StopUse()
 
+        feedback.Download()
+
         GL_POP_GROUP()
     End Sub
 

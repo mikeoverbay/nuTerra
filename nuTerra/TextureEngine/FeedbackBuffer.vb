@@ -1,4 +1,5 @@
-﻿Imports OpenTK
+﻿Imports System.Runtime.InteropServices
+Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
 
 Public Class FeedbackBuffer
@@ -13,7 +14,7 @@ Public Class FeedbackBuffer
     Public height As Integer
 
     Public fbo As Integer
-    ReadOnly rendertarget As Integer
+    ReadOnly rendertarget As GLTexture
     ReadOnly depthbuffer As Integer
 
     Public Sub New(info As VirtualTextureInfo, width As Integer, height As Integer)
@@ -24,15 +25,15 @@ Public Class FeedbackBuffer
         indexer = New PageIndexer(info)
         ReDim Requests(indexer.Count - 1)
 
-        rendertarget = CreateRenderbuffer("FeedbackBuffer_rendertarget")
-        GL.NamedRenderbufferStorage(rendertarget, RenderbufferStorage.Rgba8, width, height)
+        rendertarget = CreateTexture(TextureTarget.Texture2D, "FeedbackBuffer_rendertarget")
+        rendertarget.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
         depthbuffer = CreateRenderbuffer("FeedbackBuffer_depthbuffer")
         GL.NamedRenderbufferStorage(depthbuffer, RenderbufferStorage.DepthComponent32f, width, height)
 
         fbo = CreateFramebuffer("FeedbackBuffer_fbo")
 
-        GL.NamedFramebufferRenderbuffer(fbo, FramebufferAttachment.ColorAttachment0, RenderbufferTarget.Renderbuffer, rendertarget)
+        GL.NamedFramebufferTexture(fbo, FramebufferAttachment.ColorAttachment0, rendertarget.texture_id, 0)
         GL.NamedFramebufferRenderbuffer(fbo, FramebufferAttachment.DepthAttachment, RenderbufferTarget.Renderbuffer, depthbuffer)
 
         Dim FBOHealth = GL.CheckNamedFramebufferStatus(fbo, FramebufferTarget.Framebuffer)
@@ -43,18 +44,26 @@ Public Class FeedbackBuffer
 
     Public Sub Dispose() Implements IDisposable.Dispose
         GL.DeleteFramebuffer(fbo)
-        GL.DeleteRenderbuffer(rendertarget)
+        rendertarget.Delete()
         GL.DeleteRenderbuffer(depthbuffer)
     End Sub
 
+    <StructLayout(LayoutKind.Sequential)>
+    Private Structure FBColor
+        Public r As Byte
+        Public g As Byte
+        Public b As Byte
+        Public a As Byte
+    End Structure
+
     Public Sub Download()
         ' Download New data
-        Dim data(width * height - 1) As Vector4
-        GL.GetTextureImage(rendertarget, 0, PixelFormat.Rgba, PixelType.Float, data.Length, data)
+        Dim data(width * height - 1) As FBColor
+        GL.GetTextureImage(rendertarget.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, 4 * data.Length, data)
 
         For i = 0 To data.Length - 1
-            If data(i).W >= 0.99F Then
-                Dim request = New Page(data(i).X, data(i).Y, data(i).Z)
+            If data(i).a >= &HFF Then
+                Dim request = New Page(data(i).b, data(i).g, data(i).r)
                 AddRequestAndParents(request)
             End If
         Next
@@ -68,7 +77,7 @@ Public Class FeedbackBuffer
             Dim xpos = request.X >> i
             Dim ypos = request.Y >> i
 
-            Dim page = New Page(xpos, ypos, request.Mip + i)
+            Dim page As New Page(xpos, ypos, request.Mip + i)
 
             If Not indexer.IsValid(page) Then
                 Return
