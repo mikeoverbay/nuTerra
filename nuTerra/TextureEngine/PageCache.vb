@@ -10,8 +10,21 @@
 
     Dim current As Integer
 
-    ReadOnly lru As LruCollection(Of Page, Point)
-    ReadOnly loading As HashSet(Of Page)
+    Private Structure LruPage
+        Implements IComparable(Of Page)
+
+        Dim m_page As Page
+        Dim m_point As Point
+
+        Public Function CompareTo(other As Page) As Integer _
+        Implements IComparable(Of Page).CompareTo
+            Return other.CompareTo(m_page)
+        End Function
+    End Structure
+
+    ReadOnly lru As New List(Of LruPage)
+    ReadOnly lru_used As New HashSet(Of Page)
+    ReadOnly loading As New HashSet(Of Page)
 
     Public Sub New(info As VirtualTextureInfo, atlas As TextureAtlas, loader As PageLoader, indexer As PageIndexer, count As Integer)
         Me.info = info
@@ -19,14 +32,21 @@
         Me.loader = loader
         Me.indexer = indexer
         Me.count = count
-
-        loading = New HashSet(Of Page)()
     End Sub
 
     ' Update the pages's position in the lru
     Public Function Touch(page As Page) As Boolean
         If Not loading.Contains(page) Then
-            Return lru.TryGetValue(page, True, Point.Empty)
+            If Not lru_used.Contains(page) Then
+                ' Find the page (slow!!) And add it to the back of the list
+                For Each it In lru
+                    If it.m_page.Equals(page) Then
+                        lru.Remove(it)
+                        lru.Add(it)
+                        Return True
+                    End If
+                Next
+            End If
         End If
         Return False
     End Function
@@ -34,8 +54,7 @@
     ' Schedule a load if Not already loaded Or loading
     Public Function Request(request_ As Page) As Boolean
         If Not loading.Contains(request_) Then
-            Dim pt = Point.Empty
-            If Not lru.TryGetValue(request_, False, pt) Then
+            If Not lru_used.Contains(request_) Then
                 loading.Add(request_)
                 loader.Submit(request_)
                 Return True
@@ -46,6 +65,8 @@
     End Function
 
     Public Sub Clear()
+        lru_used.Clear()
+        lru.Clear()
         current = 0
     End Sub
 End Class

@@ -222,7 +222,6 @@
     <Compile Include="MapLoader\MapLoader.vb" />
     <Compile Include="TextureEngine\ConcurrentQueue.vb" />
     <Compile Include="TextureEngine\FeedbackBuffer.vb" />
-    <Compile Include="TextureEngine\LruCollection.vb" />
     <Compile Include="TextureEngine\Page.vb" />
     <Compile Include="TextureEngine\PageCache.vb" />
     <Compile Include="TextureEngine\PageCount.vb" />
