@@ -156,21 +156,25 @@ void main(void)
 {
     const vec2 mix_coords = vec2(1.0 - fs_in.UV.x, fs_in.UV.y);
 
-    // Get the mix values from the mix textures 1-4 and move to vec2.
-    vec2 MixLevel[4];
-    MixLevel[0].rg = texture(mixtexture[0], mix_coords.xy).ag;
-    MixLevel[1].rg = texture(mixtexture[1], mix_coords.xy).ag;
-    MixLevel[2].rg = texture(mixtexture[2], mix_coords.xy).ag;
-    MixLevel[3].rg = texture(mixtexture[3], mix_coords.xy).ag;
+    float Mix[8];
+    Mix[0] = texture(mixtexture[0], mix_coords.xy).a;
+    Mix[1] = texture(mixtexture[0], mix_coords.xy).g;
+    Mix[2] = texture(mixtexture[1], mix_coords.xy).a;
+    Mix[3] = texture(mixtexture[1], mix_coords.xy).g;
+
+    Mix[4] = texture(mixtexture[2], mix_coords.xy).a;
+    Mix[5] = texture(mixtexture[2], mix_coords.xy).g;
+    Mix[6] = texture(mixtexture[3], mix_coords.xy).a;
+    Mix[7] = texture(mixtexture[3], mix_coords.xy).g;
 
     const vec4 global = texture(global_AM, fs_in.Global_UV);
 
-    vec4 t[8];
-    vec4 mt[8];
-    float mth[8];
-    float th[8];
-    vec4 n[8];
-    vec4 mn[8];
+    vec4 t[8];      // am map
+    vec4 mt[8];     // am macro 
+    float mth[8];   // macro height in alpha
+    float th[8];    // am height
+    vec4 n[8];      // normal map
+    vec4 mn[8];     // macro normal map
     float f = 0.0;
 
 
@@ -182,7 +186,22 @@ void main(void)
         t[i] = crop(at[i], tuv, 0.0, i);
 
         mt[i] = crop3(at[i], tuv, 2.0);
+
+    //u_xlat10 = max(u_xlat10, vec4(0.00392156886, 0.00392156886, 0.00392156886, 0.00392156886));
         mth[i] = max(mt[i].w,0.00392156886);
+
+    //u_xlat14.xyz = u_xlat12.xyz;
+        vec3 tv = mt[i].xyz;
+
+    //u_xlat14.xyz = clamp(u_xlat14.xyz, 0.0, 1.0);
+        tv = clamp(tv, vec3(0.0), vec3(1.0));
+
+    //u_xlat14.xyz = (-u_xlat12.xyz) + u_xlat14.xyz;
+        tv = -mt[i].xyz + tv;
+
+    //u_xlat12.xyz = g_blockDataPS[1].blendMacroInfluence[3].xxx * u_xlat14.xyz + u_xlat12.xyz;
+        mt[i].xyz = L.r2[i].xxx * tv + mt[i].xyz;
+
         // specular is in red channel of the normal maps.
         // Ambient occlusion is in the Blue channel.
         // Green and Alpha are normal values.
@@ -199,21 +218,20 @@ void main(void)
         //t[i].rgb = mt[i].rgb;
         //n[i].rgb = mn[i].rgb;
         // months of work to figure this out!
-        MixLevel[i / 2][i % 2] *= t[i].a + L.r1[i].x;
+        Mix[i] *= t[i].a + L.r1[i].x;
 
         const float power = 1.0 / 0.7;
-        MixLevel[i / 2][i % 2] = pow(MixLevel[i / 2][i % 2], power);
-        f += MixLevel[i / 2][i % 2];
+        Mix[i] = pow(Mix[i], power);
+        f += Mix[i];
     }
 
     vec4 out_n = vec4(0.0);
     vec4 base = vec4(0.0);
     for (int i = 0; i < 8; ++i) {
-        MixLevel[i / 2][i % 2] /= f;
-        //MixLevel[i / 2][i % 2] = max(MixLevel[i / 2][i % 2], 0.0139);
+        Mix[i] /= f;
 
-        base += t[i] * MixLevel[i / 2][i % 2];
-        out_n += n[i] * MixLevel[i / 2][i % 2];
+        base += t[i] * Mix[i];
+        out_n += n[i] * Mix[i];
     }
 
     // global

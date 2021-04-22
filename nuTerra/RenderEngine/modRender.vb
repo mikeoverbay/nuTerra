@@ -77,7 +77,7 @@ Module modRender
 
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             '===========================================================================
-            draw_terrain_vt_mip()
+            'draw_terrain_vt_mip()
             '===========================================================================
         End If
 
