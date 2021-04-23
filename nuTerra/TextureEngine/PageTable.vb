@@ -11,7 +11,7 @@ Public Class PageTable
         Me.info = info
         Me.indexer = indexer
 
-        texture = CreateTexture(TextureTarget.Texture2DArray, "PageTable")
+        texture = CreateTexture(TextureTarget.Texture2D, "PageTable")
         texture.Storage2D(1, SizedInternalFormat.Rgba8, info.PageTableSize, info.PageTableSize)
     End Sub
 

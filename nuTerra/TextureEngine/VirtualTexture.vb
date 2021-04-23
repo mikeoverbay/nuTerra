@@ -33,7 +33,7 @@ Public Class VirtualTexture
     Public Sub New(info As VirtualTextureInfo, atlassize As Integer, uploadsperframe As Integer)
         Me.info = info
 
-        Me.atlascount = atlassize / info.PageSize
+        Me.atlascount = atlassize \ info.PageSize
         Me.uploadsperframe = uploadsperframe
 
         indexer = New PageIndexer(info)

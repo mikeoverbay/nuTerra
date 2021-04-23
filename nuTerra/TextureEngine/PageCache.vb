@@ -30,22 +30,25 @@
 
     Public Sub LoadComplete(p As Page, data As Byte())
         loading.Remove(p)
-        Dim pt = Point.Empty
+        Dim pt As Point
 
         If current = count * count Then
-            pt = lru.Last.m_point
-            lru.Remove(lru.Last)
+            Dim lru_page = lru.First
+            pt = lru_page.m_point
+            lru_used.Remove(lru_page.m_page)
+            lru.RemoveAt(0)
         Else
             pt = New Point(current Mod count, current \ count)
             current += 1
 
             If current = count * count Then
-                LogThis("Atlas Full, using LRU")
+                LogThis("Atlas is Full, using LRU")
             End If
         End If
 
         atlas.uploadPage(pt, data)
         lru.Add(New LruPage With {.m_page = p, .m_point = pt})
+        lru_used.Add(p)
     End Sub
 
     ' Update the pages's position in the lru
