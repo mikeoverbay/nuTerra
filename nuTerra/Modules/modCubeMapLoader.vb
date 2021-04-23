@@ -10,7 +10,7 @@ Module modCubeMapLoader
 
         Dim entry = ResMgr.Lookup(CUBE_TEXTURE_PATH)
         If entry Is Nothing Then
-            LogThis("cube not found " + CUBE_TEXTURE_PATH)
+            LogThis("cube not found {0}", CUBE_TEXTURE_PATH)
             Return
         End If
         Dim ms As New MemoryStream

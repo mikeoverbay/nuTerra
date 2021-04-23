@@ -59,7 +59,7 @@ NotInheritable Class ResMgr
             Stop
         End If
 
-        LogThis("file not found: " + filename)
+        LogThis("file not found: {0}", filename)
         Return Nothing
     End Function
 

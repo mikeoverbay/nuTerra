@@ -221,3 +221,15 @@ layout(std430, binding = TERRAIN_CHUNK_INFO_BASE) readonly buffer TerrainChunkIn
     TerrainChunkInfo chunks[];
 };
 #endif
+
+#ifdef USE_VT_FUNCTIONS
+// This function estimates mipmap levels
+float MipLevel(vec2 uv, float size)
+{
+    vec2 dx = dFdx(uv * size);
+    vec2 dy = dFdy(uv * size);
+    float d = max(dot(dx, dx), dot(dy, dy));
+
+    return max(0.5 * log2(d), 0);
+}
+#endif

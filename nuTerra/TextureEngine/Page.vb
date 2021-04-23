@@ -27,4 +27,8 @@ Public Structure Page
 
 		Return other.Mip.CompareTo(Mip)
 	End Function
+
+	Public Overrides Function ToString() As String
+		Return String.Format("{0}, {1}, {2}", X, Y, Mip)
+	End Function
 End Structure

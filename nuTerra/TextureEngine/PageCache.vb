@@ -11,15 +11,8 @@
     Dim current As Integer
 
     Private Structure LruPage
-        Implements IComparable(Of Page)
-
         Dim m_page As Page
         Dim m_point As Point
-
-        Public Function CompareTo(other As Page) As Integer _
-        Implements IComparable(Of Page).CompareTo
-            Return other.CompareTo(m_page)
-        End Function
     End Structure
 
     ReadOnly lru As New List(Of LruPage)

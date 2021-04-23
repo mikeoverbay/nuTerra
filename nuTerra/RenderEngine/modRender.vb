@@ -77,7 +77,7 @@ Module modRender
 
         If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
             '===========================================================================
-            'draw_terrain_vt_mip()
+            draw_terrain_vt_mip()
             '===========================================================================
         End If
 
@@ -494,7 +494,7 @@ Module modRender
         TerrainVTMIPShader.StopUse()
 
         feedback.Download()
-        ' TODO: vt.Update(feedback.Requests)
+        vt.Update(feedback.Requests)
 
         GL_POP_GROUP()
     End Sub
@@ -509,19 +509,15 @@ Module modRender
         '==========================
         GL.Enable(EnableCap.CullFace)
 
-
         '=======================================================================================
         'Draw visible LQ chunks
         '=======================================================================================
         '------------------------------------------------
         TerrainLQShader.Use()  '<------------ Shader Bind
         '------------------------------------------------
-        ' Set this texture to 0 to test LQ/HQ transitions
 
-        theMap.GLOBAL_AM_ID.BindUnit(0)
-        FBO_mixer_set.gColorArray.BindUnit(1)
-        FBO_mixer_set.gNormalArray.BindUnit(2)
-        FBO_mixer_set.gGmmArray.BindUnit(3)
+        vt.pagetable.texture.BindUnit(0)
+        vt.atlas.texture.BindUnit(1)
 
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
@@ -536,7 +532,7 @@ Module modRender
         Next
 
         TerrainLQShader.StopUse()
-        unbind_textures(3)
+        unbind_textures(1)
         '=======================================================================================
         'draw visible HZ terrain
         '=======================================================================================

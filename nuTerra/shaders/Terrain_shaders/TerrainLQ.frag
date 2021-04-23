@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_COMMON_PROPERTIES_UBO
+#define USE_VT_FUNCTIONS
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
@@ -10,10 +11,8 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 
-layout(binding = 0) uniform sampler2D global_AM;
-layout(binding = 1) uniform sampler2DArray textArrayC;
-layout(binding = 2) uniform sampler2DArray textArrayN;
-layout(binding = 3) uniform sampler2DArray textArrayG;
+layout(binding = 0) uniform sampler2D PageTable;
+layout(binding = 1) uniform sampler2D TextureAtlas;
 
 in VS_OUT {
     vec4 Vertex;
@@ -25,20 +24,43 @@ in VS_OUT {
 } fs_in;
 
 
+// This function samples the page table and returns the page's
+// position and mip level.
+vec3 SampleTable(vec2 uv, float mip)
+{
+    const vec2 offset = fract(uv * props.PageTableSize) / props.PageTableSize;
+    return textureLod(PageTable, uv - offset, mip).xyz;
+}
+
+// This functions samples from the texture atlas and returns the final color
+vec4 SampleAtlas(vec3 page, vec2 uv)
+{
+    const float mipsize = exp2(floor(page.z * 255.0 + 0.5));
+    uv = fract(uv * props.PageTableSize / mipsize);
+    uv *= props.BorderScale;
+    uv += props.BorderOffset;
+    const vec2 offset = floor(page.xy * 255 + 0.5);
+    return texture(TextureAtlas, (offset + uv) * props.AtlasScale);
+}
+
+
 /*===========================================================*/
 void main(void)
 {
-    // vec4 global = texture(global_AM, fs_in.Global_UV);
+    float miplevel = MipLevel(fs_in.UV, props.VirtualTextureSize);
+    miplevel = clamp(miplevel, 0, log2(props.PageTableSize) - 1);
 
-    // This is needed to light the global_AM.
-    vec4 ArrayTextureC = texture(textArrayC, vec3(fs_in.UV, fs_in.map_id) );
-    vec4 ArrayTextureN = texture(textArrayN, vec3(fs_in.UV, fs_in.map_id) );
-    vec4 ArrayTextureG = texture(textArrayG, vec3(fs_in.UV, fs_in.map_id) );
+    const float mip1 = floor(miplevel);
+    const float mip2 = mip1 + 1;
+    const float mipfrac = miplevel - mip1;
 
-    // The obvious
-    gColor = ArrayTextureC;
-    gNormal.xyz = normalize(fs_in.TBN * ArrayTextureN.xyz);
-    gGMF = ArrayTextureG;
+    const vec3 page1 = SampleTable(fs_in.UV, mip1);
+    const vec3 page2 = SampleTable(fs_in.UV, mip2);
+
+    const vec4 sample1 = SampleAtlas(page1, fs_in.UV);
+    const vec4 sample2 = SampleAtlas(page2, fs_in.UV);
+
+    gColor = mix(sample1, sample2, mipfrac);
 
     gPosition = fs_in.worldPosition;
 }

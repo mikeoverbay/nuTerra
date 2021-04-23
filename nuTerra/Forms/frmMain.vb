@@ -459,12 +459,12 @@ try_again:
         If Not Directory.Exists(TEMP_STORAGE) Then
             Directory.CreateDirectory(TEMP_STORAGE)
         End If
-        LogThis(String.Format("{0}ms Temp storage is located at: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), TEMP_STORAGE))
+        LogThis("{0}ms Temp storage is located at: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), TEMP_STORAGE)
 
-        LogThis(String.Format("Vendor: {0}", GL.GetString(StringName.Vendor)))
-        LogThis(String.Format("Renderer: {0}", GL.GetString(StringName.Renderer)))
-        LogThis(String.Format("Version: {0}", GL.GetString(StringName.Version)))
-        LogThis(String.Format("GLSL Version: {0}", GL.GetString(StringName.ShadingLanguageVersion)))
+        LogThis("Vendor: {0}", GL.GetString(StringName.Vendor))
+        LogThis("Renderer: {0}", GL.GetString(StringName.Renderer))
+        LogThis("Version: {0}", GL.GetString(StringName.Version))
+        LogThis("GLSL Version: {0}", GL.GetString(StringName.ShadingLanguageVersion))
 
         Dim extensions As New List(Of String)
         Dim numExt As Integer = GL.GetInteger(GetPName.NumExtensions)
@@ -1087,7 +1087,7 @@ try_again:
                 Application.DoEvents()
                 frmModelViewer.MODEL_NAME_MODELVIEWER = visual_path.Replace("\", "/")
             Else
-                LogThis("visual not found: " + visual_path)
+                LogThis("visual not found: {0}", visual_path)
             End If
 
             Dim mdlInstance As ModelInstance

@@ -47,16 +47,16 @@ Module modOpenGL
             has_GL_NV_draw_texture = extensions.Contains("GL_NV_draw_texture")
             has_GL_ARB_gl_spirv = extensions.Contains("GL_ARB_gl_spirv")
 
-            LogThis(String.Format("Max Texture Size = {0}", maxTextureSize))
-            LogThis(String.Format("Max Array Texture Layers = {0}", maxArrayTextureLayers))
-            LogThis(String.Format("Max Uniform Buffer Bindings = {0}", maxUniformBufferBindings))
-            LogThis(String.Format("Max Color Attachments = {0}", maxColorAttachments))
-            LogThis(String.Format("Max Texture Max Anisotropy = {0}", maxAniso))
-            LogThis(String.Format("Max vertex output components = {0}", maxVertexOutputComponents))
-            LogThis(String.Format("GL_NV_representative_fragment_test = {0}", has_GL_NV_representative_fragment_test))
-            LogThis(String.Format("GL_NV_mesh_shader = {0}", has_GL_NV_mesh_shader))
-            LogThis(String.Format("GL_NV_draw_texture = {0}", has_GL_NV_draw_texture))
-            LogThis(String.Format("GL_ARB_gl_spirv = {0}", has_GL_ARB_gl_spirv))
+            LogThis("Max Texture Size = {0}", maxTextureSize)
+            LogThis("Max Array Texture Layers = {0}", maxArrayTextureLayers)
+            LogThis("Max Uniform Buffer Bindings = {0}", maxUniformBufferBindings)
+            LogThis("Max Color Attachments = {0}", maxColorAttachments)
+            LogThis("Max Texture Max Anisotropy = {0}", maxAniso)
+            LogThis("Max vertex output components = {0}", maxVertexOutputComponents)
+            LogThis("GL_NV_representative_fragment_test = {0}", has_GL_NV_representative_fragment_test)
+            LogThis("GL_NV_mesh_shader = {0}", has_GL_NV_mesh_shader)
+            LogThis("GL_NV_draw_texture = {0}", has_GL_NV_draw_texture)
+            LogThis("GL_ARB_gl_spirv = {0}", has_GL_ARB_gl_spirv)
         End Sub
     End Class
 

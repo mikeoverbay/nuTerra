@@ -697,8 +697,8 @@ CleanUp:
                             End If
 
                             '-------------------------------------------------------------------------------------------------
-                            LogThis("atlas_global: Missing Atlas Size: " + props("atlasAlbedoHeight") +
-                                    vbCrLf + "Model: " + model_name)
+                            LogThis("atlas_global: Missing Atlas Size: {0}", props("atlasAlbedoHeight"))
+                            LogThis("Model: {0}", model_name)
 
                             Dim visual_xml = ResMgr.openXML(model_name.Replace(".primitives", ".visual_processed"))
                             If visual_xml IsNot Nothing Then

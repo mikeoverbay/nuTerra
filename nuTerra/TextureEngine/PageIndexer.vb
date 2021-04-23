@@ -51,26 +51,26 @@
 
     Public Function IsValid(page As Page) As Boolean
         If page.Mip < 0 Then
-            MsgBox(String.Format("Mip level smaller than zero ({0}).", page))
+            'LogThis(String.Format("Mip level smaller than zero ({0}).", page))
             Return False
         ElseIf page.Mip >= mipcount Then
-            MsgBox(String.Format("Mip level larger than max ({1}), ({0}).", page, mipcount))
+            'LogThis(String.Format("Mip level larger than max ({1}), ({0}).", page, mipcount))
             Return False
         End If
 
-        If (page.X < 0) Then
-            MsgBox(String.Format("X smaller than zero ({0}).", page))
+        If page.X < 0 Then
+            'LogThis(String.Format("X smaller than zero ({0}).", page))
             Return False
-        ElseIf (page.X >= sizes(page.Mip)) Then
-            MsgBox(String.Format("X larger than max ({1}), ({0}).", page, sizes(page.Mip)))
+        ElseIf page.X >= sizes(page.Mip) Then
+            'LogThis(String.Format("X larger than max ({1}), ({0}).", page, sizes(page.Mip)))
             Return False
         End If
 
-        If (page.Y < 0) Then
-            MsgBox(String.Format("Y smaller than zero ({0}).", page))
+        If page.Y < 0 Then
+            'LogThis(String.Format("Y smaller than zero ({0}).", page))
             Return False
-        ElseIf (page.Y >= sizes(page.Mip)) Then
-            MsgBox(String.Format("Y larger than max ({1}), ({0}).", page, sizes(page.Mip)))
+        ElseIf page.Y >= sizes(page.Mip) Then
+            'LogThis(String.Format("Y larger than max ({1}), ({0}).", page, sizes(page.Mip)))
             Return False
         End If
 

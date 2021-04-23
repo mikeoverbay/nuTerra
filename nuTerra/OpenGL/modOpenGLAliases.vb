@@ -9,7 +9,7 @@ Public Module modOpenGLAliases
 #If DEBUG Then
         Dim err_code = GL.GetError
         If err_code > 0 Then
-            LogThis("GL Error " + err_code.ToString)
+            LogThis("GL Error {0}", err_code.ToString)
             'Stop
         End If
 #End If

@@ -5,13 +5,13 @@ Imports OpenTK.Graphics.OpenGL4
 Module modUtilities
     Public CUBE_VAO As Integer
 
-    Public Sub LogThis(entry As String)
+    Public Sub LogThis(entry As String, ParamArray args() As Object)
 #If DEBUG Then
-        Debug.Print(entry)
+        Debug.Print(entry, args)
 #End If
 
         'Writes to the log and immediately saves it.
-        nuTerra_LOG.AppendLine(entry)
+        nuTerra_LOG.AppendLine(String.Format(entry, args))
         File.WriteAllText(Path.Combine(TEMP_STORAGE, "nuTerra_Log.txt"), nuTerra_LOG.ToString)
     End Sub
 

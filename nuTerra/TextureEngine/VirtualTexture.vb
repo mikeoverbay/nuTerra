@@ -8,8 +8,8 @@ Public Class VirtualTexture
     Const ChannelCount = 4
     ReadOnly info As VirtualTextureInfo
     ReadOnly indexer As PageIndexer
-    ReadOnly pagetable As PageTable
-    ReadOnly atlas As TextureAtlas
+    Public pagetable As PageTable
+    Public atlas As TextureAtlas
     ReadOnly loader As PageLoader
     ReadOnly cache As PageCache
 
@@ -26,7 +26,7 @@ Public Class VirtualTexture
         End Get
         Set
             _mipbias = Value
-            Console.WriteLine("MipBias: {0}", _mipbias)
+            LogThis("MipBias: {0}", _mipbias)
         End Set
     End Property
 
@@ -93,9 +93,6 @@ Public Class VirtualTexture
         Else
             mipbias -= 1
         End If
-
-        ' load any waiting requests & update the texture atlas
-		loader.Update(uploadsperframe)
 
         ' Update the page table
         pagetable.Update()
