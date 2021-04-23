@@ -9,6 +9,8 @@
     Const ChannelCount = 4
     Dim info As VirtualTextureInfo
 
+    Public Event loadComplete(p As Page, data As Byte())
+
     Public Sub New(filename As String, indexer As PageIndexer, info As VirtualTextureInfo)
         Me.info = info
     End Sub
@@ -22,6 +24,7 @@
             .Page = request
             }
         LoadPage(state)
+        RaiseEvent loadComplete(state.Page, state.Data)
     End Sub
 
     Private Sub LoadPage(state As ReadState)
@@ -60,11 +63,11 @@
                 {255, 255, 0, 255},
                 {64, 64, 192, 255},
                 {64, 192, 64, 255},
-                 {64, 192, 192, 255},
-                 {192, 64, 64, 255},
-                 {192, 64, 192, 255},
-                 {192, 192, 64, 255},
-                 {0, 255, 0, 255}
+                {64, 192, 192, 255},
+                {192, 64, 64, 255},
+                {192, 64, 192, 255},
+                {192, 192, 64, 255},
+                {0, 255, 0, 255}
             }
 
         Dim pagesize = info.PageSize

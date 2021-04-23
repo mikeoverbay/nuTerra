@@ -86,7 +86,7 @@ Public Class VirtualTexture
             toload.Sort()
 
             ' if more pages than will fit in memory or more than update per frame drop high res pages with lowest use count
-            Dim loadcount = System.Math.Min(System.Math.Min(toload.Count, uploadsperframe), atlascount * atlascount)
+            Dim loadcount = Math.Min(Math.Min(toload.Count, uploadsperframe), atlascount * atlascount)
             For i = 0 To loadcount - 1
                 cache.Request(toload(i).Page)
             Next
