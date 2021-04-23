@@ -24,6 +24,9 @@ Module modFrustum
                 Else
                     theMap.render_set(i).quality = If(USE_TESSELLATION, TerrainQuality.HQ, TerrainQuality.MQ)
                 End If
+
+                ' Force LQ!!!!
+                theMap.render_set(i).quality = TerrainQuality.LQ
             End If
         Next
     End Sub

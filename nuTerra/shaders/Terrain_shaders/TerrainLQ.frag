@@ -19,7 +19,7 @@ in VS_OUT {
     mat3 TBN;
     vec3 worldPosition;
     vec2 UV;
-    // vec2 Global_UV;
+    vec2 Global_UV;
     flat uint map_id;
 } fs_in;
 
@@ -47,18 +47,18 @@ vec4 SampleAtlas(vec3 page, vec2 uv)
 /*===========================================================*/
 void main(void)
 {
-    float miplevel = MipLevel(fs_in.UV, props.VirtualTextureSize);
+    float miplevel = MipLevel(fs_in.Global_UV, props.VirtualTextureSize);
     miplevel = clamp(miplevel, 0, log2(props.PageTableSize) - 1);
 
     const float mip1 = floor(miplevel);
     const float mip2 = mip1 + 1;
     const float mipfrac = miplevel - mip1;
 
-    const vec3 page1 = SampleTable(fs_in.UV, mip1);
-    const vec3 page2 = SampleTable(fs_in.UV, mip2);
+    const vec3 page1 = SampleTable(fs_in.Global_UV, mip1);
+    const vec3 page2 = SampleTable(fs_in.Global_UV, mip2);
 
-    const vec4 sample1 = SampleAtlas(page1, fs_in.UV);
-    const vec4 sample2 = SampleAtlas(page2, fs_in.UV);
+    const vec4 sample1 = SampleAtlas(page1, fs_in.Global_UV);
+    const vec4 sample2 = SampleAtlas(page2, fs_in.Global_UV);
 
     gColor = mix(sample1, sample2, mipfrac);
 

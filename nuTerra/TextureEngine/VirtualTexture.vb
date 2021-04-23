@@ -26,7 +26,7 @@ Public Class VirtualTexture
         End Get
         Set
             _mipbias = Value
-            LogThis("MipBias: {0}", _mipbias)
+            ' LogThis("MipBias: {0}", _mipbias)
         End Set
     End Property
 

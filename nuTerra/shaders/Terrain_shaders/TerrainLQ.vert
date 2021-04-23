@@ -20,20 +20,21 @@ out VS_OUT {
     mat3 TBN;
     vec3 worldPosition;
     vec2 UV;
-    // vec2 Global_UV;
+    vec2 Global_UV;
     flat uint map_id;
 } vs_out;
 
-const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
 
 void main(void)
 {
+    const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
+
     vs_out.map_id = gl_BaseInstanceARB;
 
     vs_out.UV = vertexTexCoord;
 
     // calculate tex coords for global_AM
-    // vs_out.Global_UV = 1.0 - (chunk.g_uv_offset + (vertexTexCoord * props.map_size));
+    vs_out.Global_UV = 1.0 - (chunk.g_uv_offset + (vertexTexCoord * props.map_size));
     
     vs_out.Vertex = vec4(vertexPosition, 1.0) * 1.0;
     vs_out.Vertex.x *= -1.0;
