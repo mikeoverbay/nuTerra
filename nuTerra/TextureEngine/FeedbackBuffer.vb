@@ -86,4 +86,8 @@ Public Class FeedbackBuffer
             Requests(indexer(page)) += 1
         Next
     End Sub
+
+    Public Sub clear()
+        Array.Clear(Requests, 0, indexer.Count)
+    End Sub
 End Class

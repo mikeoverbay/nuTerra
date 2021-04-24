@@ -106,7 +106,7 @@
 			exitloop = True
 
 			For i = 0 To 3
-				If node.Children(i) IsNot Nothing And node.Children(i).Rectangle.Contains(x, y) Then
+				If node.Children(i) IsNot Nothing AndAlso node.Children(i).Rectangle.Contains(x, y) Then
 					' We found it
 					If request.Mip = node.Level - 1 Then
 						index = i

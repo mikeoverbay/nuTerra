@@ -64,7 +64,7 @@
             If lru_used.Contains(p) Then
                 ' Find the page (slow!!) And add it to the back of the list
                 For Each it In lru
-                    If (it.m_page.Mip = p.Mip) And (it.m_page.Y = p.Y) And (it.m_page.X = p.X) Then
+                    If (it.m_page.Mip = p.Mip) AndAlso (it.m_page.Y = p.Y) AndAlso (it.m_page.X = p.X) Then
                         lru.Remove(it)
                         lru.Add(it)
                         Return True

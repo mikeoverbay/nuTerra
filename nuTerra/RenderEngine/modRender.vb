@@ -62,20 +62,20 @@ Module modRender
         set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
-        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             '=======================================================================
             frustum_cull() '========================================================
             '=======================================================================
         End If
 
         '===========================================================================
-        If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
+        If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             ExtractFrustum()
             cull_terrain()
         End If
         '===========================================================================
 
-        If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
+        If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             '===========================================================================
             draw_terrain_vt_mip()
             '===========================================================================
@@ -106,7 +106,7 @@ Module modRender
         '===========================================================================
 
         'Model depth pass only
-        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             GL.CopyNamedBufferSubData(MapGL.Buffers.parameters.buffer_id, MapGL.Buffers.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer))
             GL.GetNamedBufferSubData(MapGL.Buffers.parameters_temp.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), MapGL.numAfterFrustum)
 
@@ -121,7 +121,7 @@ Module modRender
 
         FBOm.attach_CNGPA()
 
-        If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
+        If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             '=======================================================================
             draw_terrain() '========================================================
             '=======================================================================
@@ -145,7 +145,7 @@ Module modRender
             End If
         End If
 
-        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             '=======================================================================
             draw_models() '=========================================================
             '=======================================================================
@@ -154,7 +154,7 @@ Module modRender
 
         GL.DepthFunc(DepthFunction.Less)
         '===========================================================================
-        If PICK_MODELS And MODELS_LOADED Then PickModel()
+        If PICK_MODELS AndAlso MODELS_LOADED Then PickModel()
         '===========================================================================
 
         '===========================================================================
@@ -165,7 +165,7 @@ Module modRender
         '===========================================================================
         'Before we destory the gColor texture using it for other functions.
         If frmGbufferViewer IsNot Nothing Then
-            If frmGbufferViewer.Visible And frmGbufferViewer.Viewer_Image_ID = 2 Then
+            If frmGbufferViewer.Visible AndAlso frmGbufferViewer.Viewer_Image_ID = 2 Then
                 frmGbufferViewer.update_screen()
             End If
         End If
@@ -206,7 +206,7 @@ Module modRender
 
         '===========================================================================
         'hopefully, this will look like glass :)
-        If MODELS_LOADED And DONT_BLOCK_MODELS Then
+        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             glassPass()
         End If
 
@@ -218,7 +218,7 @@ Module modRender
         FBOm.attach_C()
 
 
-        If TERRAIN_LOADED And DONT_BLOCK_TERRAIN Then
+        If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             GL.Disable(EnableCap.DepthTest)
 
             copy_default_to_gColor()
@@ -262,7 +262,7 @@ Module modRender
         If _STARTED Then frmMain.glControl_main.SwapBuffers() '=====================
         '===========================================================================
         If frmGbufferViewer IsNot Nothing Then
-            If frmGbufferViewer.Visible And frmGbufferViewer.Viewer_Image_ID <> 2 Then
+            If frmGbufferViewer.Visible AndAlso frmGbufferViewer.Viewer_Image_ID <> 2 Then
                 frmGbufferViewer.update_screen()
             End If
         End If
@@ -499,6 +499,8 @@ Module modRender
         feedback.Download()
         vt.Update(feedback.Requests)
 
+        feedback.clear()
+
         GL_POP_GROUP()
     End Sub
 
@@ -526,7 +528,7 @@ Module modRender
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
 
         For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible And theMap.render_set(i).quality = TerrainQuality.LQ Then
+            If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.LQ Then
                 GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
 
                 'draw chunk
@@ -551,7 +553,7 @@ Module modRender
         FBO_mixer_set.gGmmArray.BindUnit(24)
 
         For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible And theMap.render_set(i).quality = TerrainQuality.MQ Then
+            If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.MQ Then
                 GL.UniformMatrix3(TerrainMQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
 
                 'bind all the data for this chunk
@@ -588,7 +590,7 @@ Module modRender
             '------------------------------------------------
 
             For i = 0 To theMap.render_set.Length - 1
-                If theMap.render_set(i).visible And theMap.render_set(i).quality = TerrainQuality.HQ Then
+                If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then
                     GL.UniformMatrix3(TerrainHQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
 
                     'bind all the data for this chunk
@@ -637,7 +639,7 @@ Module modRender
             GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
 
             For i = 0 To theMap.render_set.Length - 1
-                If theMap.render_set(i).visible And theMap.render_set(i).quality <> TerrainQuality.HQ Then
+                If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality <> TerrainQuality.HQ Then
                     GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                 End If
             Next
@@ -652,7 +654,7 @@ Module modRender
                 GL.Uniform1(TerrainNormalsHQ("show_wireframe"), CInt(WIRE_TERRAIN))
 
                 For i = 0 To theMap.render_set.Length - 1
-                    If theMap.render_set(i).visible And theMap.render_set(i).quality = TerrainQuality.HQ Then
+                    If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then
                         With theMap.render_set(i)
                             .layersStd140_ubo.BindBase(0)
 
@@ -977,6 +979,7 @@ Module modRender
         color_keys()
 
         draw_image_rectangle(New RectangleF(0.0F, 79.0F, 200.0F, 200.0F), vt.atlas.texture, False)
+        draw_image_rectangle(New RectangleF(0.0F, 280.0F, 128.0, 128.0), vt.pagetable.texture, False)
 
         'draw status of SSAA
         draw_text(FXAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)
@@ -984,7 +987,7 @@ Module modRender
         Dim aa As Integer = 0
 
         ' Draw Terrain IDs =========================================================
-        If SHOW_CHUNK_IDs And DONT_BLOCK_TERRAIN Then
+        If SHOW_CHUNK_IDs AndAlso DONT_BLOCK_TERRAIN Then
             draw_terrain_ids()
         End If
         '===========================================================================
@@ -1603,7 +1606,7 @@ skip:
         For Each l In text
             Dim idx = ASCII_CHARACTERS.IndexOf(l) + 1
             Dim tp = (locX + cnt * 10.0) - cntr
-            If tp > wrapWidth And idx = 0 Then
+            If tp > wrapWidth AndAlso idx = 0 Then
                 cnt = -1
                 locY += 19
             End If
