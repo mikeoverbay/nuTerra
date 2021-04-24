@@ -16,12 +16,8 @@ layout(location = 3) in vec3 vertexTangent;
 uniform mat3 normalMatrix;
 
 out VS_OUT {
-    vec4 Vertex;
-    mat3 TBN;
     vec3 worldPosition;
-    vec2 UV;
     vec2 Global_UV;
-    flat uint map_id;
 } vs_out;
 
 
@@ -29,40 +25,11 @@ void main(void)
 {
     const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
 
-    vs_out.map_id = gl_BaseInstanceARB;
-
-    vs_out.UV = vertexTexCoord;
-
     // calculate tex coords for global_AM
     vs_out.Global_UV = 1.0 - (chunk.g_uv_offset + (vertexTexCoord * props.map_size));
     
-    vs_out.Vertex = vec4(vertexPosition, 1.0) * 1.0;
-    vs_out.Vertex.x *= -1.0;
-
-    //-------------------------------------------------------
-    // Calculate biNormal
-    vec3 VT, VB, VN ;
-    VN = normalize(vertexNormal.xyz);
-    VT = normalize(vertexTangent.xyz);
-
-    VT = VT - dot(VN, VT) * VN;
-    VB = cross(VT, VN);
-    //-------------------------------------------------------
-
     // vertex --> world pos
     vs_out.worldPosition = vec3(view * chunk.modelMatrix * vec4(vertexPosition, 1.0f));
-
-    // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
-    vec3 worldNormal = normalMatrix * VN;
-    vec3 worldTangent = normalMatrix * VT;
-    vec3 worldbiNormal = normalMatrix * VB;
-
-    // make perpendicular
-    worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
-    worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
-
-    // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
-    vs_out.TBN = mat3(worldTangent, worldbiNormal, normalize(worldNormal));
 
     // Calculate vertex position in clip coordinates
     gl_Position = viewProj * chunk.modelMatrix * vec4(vertexPosition, 1.0f);

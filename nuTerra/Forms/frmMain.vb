@@ -585,9 +585,9 @@ try_again:
         feedback = New FeedbackBuffer(vtInfo, 64, 64)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
-        CommonProperties.AtlasScale = 1.0F / (2048 / vtInfo.PageSize)
-        CommonProperties.BorderScale = 1.0
-        CommonProperties.BorderOffset = vtInfo.BorderSize
+        CommonProperties.AtlasScale = 1.0F / (2048 \ vtInfo.PageSize)
+        CommonProperties.BorderScale = (vtInfo.PageSize - 2.0F * vtInfo.BorderSize) / vtInfo.PageSize
+        CommonProperties.BorderOffset = vtInfo.BorderSize / vtInfo.PageSize
         CommonProperties.MipBias = vt.MipBias
         CommonProperties.PageTableSize = vtInfo.PageTableSize
 

@@ -15,12 +15,8 @@ layout(binding = 0) uniform sampler2D PageTable;
 layout(binding = 1) uniform sampler2D TextureAtlas;
 
 in VS_OUT {
-    vec4 Vertex;
-    mat3 TBN;
     vec3 worldPosition;
-    vec2 UV;
     vec2 Global_UV;
-    flat uint map_id;
 } fs_in;
 
 
