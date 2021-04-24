@@ -327,6 +327,7 @@ Module ChunkFunctions
 
                 terrainMatrices(i).modelMatrix = theMap.render_set(i).matrix
                 terrainMatrices(i).g_uv_offset = Vector2.Divide((((theMap.chunks(i).location.Xy - New Vector2(50.0)) / 100.0) - New Vector2(b_x_min, b_y_max)), mapsize)
+                terrainMatrices(i).g_uv_offset.Y += 1.0
 
                 Dim vertices(.n_buff.Length - 1) As TerrainVertex
                 For j = 0 To .n_buff.Length - 1

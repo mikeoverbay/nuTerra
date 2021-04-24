@@ -19,7 +19,7 @@ void main(void)
 {
     const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
 
-    vs_out.UV = 1.0 - (chunk.g_uv_offset + (vertexTexCoord * props.map_size));
+    vs_out.UV = chunk.g_uv_offset + (vertexTexCoord * props.map_size);
 
     // Calculate vertex position in clip coordinates
     gl_Position = viewProj * chunk.modelMatrix * vec4(vertexPosition, 1.0f);

@@ -26,7 +26,7 @@ void main(void)
     const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
 
     // calculate tex coords for global_AM
-    vs_out.Global_UV = 1.0 - (chunk.g_uv_offset + (vertexTexCoord * props.map_size));
+    vs_out.Global_UV = chunk.g_uv_offset + (vertexTexCoord * props.map_size);
     
     // vertex --> world pos
     vs_out.worldPosition = vec3(view * chunk.modelMatrix * vec4(vertexPosition, 1.0f));
