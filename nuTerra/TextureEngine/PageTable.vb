@@ -1,6 +1,7 @@
 ﻿Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics.OpenGL
 
+<StructLayout(LayoutKind.Sequential)>
 Public Structure TableEntry
     Dim cachePageX As Byte
     Dim cachePageY As Byte
@@ -14,7 +15,7 @@ Public Class PageTable
     ReadOnly indexer As PageIndexer
     Public texture As GLTexture
 
-    ReadOnly tableEntryPool As List(Of TableEntry())
+    ReadOnly tableEntryPool As List(Of TableEntry(,))
     ReadOnly quadtree As Quadtree
 
     Public Sub New(cache As PageCache, info As VirtualTextureInfo, indexer As PageIndexer)
@@ -29,27 +30,24 @@ Public Class PageTable
                                       Me.quadtree.Remove(p)
                                   End Sub
 
-        tableEntryPool = New List(Of TableEntry())
+        tableEntryPool = New List(Of TableEntry(,))
 
         For i = 0 To numLevels - 1
-            Dim arr(indexer.sizes(i) * indexer.sizes(i) - 1) As TableEntry
+            Dim arr(indexer.sizes(i) - 1, indexer.sizes(i) - 1) As TableEntry
             tableEntryPool.Add(arr)
         Next
 
         texture = CreateTexture(TextureTarget.Texture2D, "PageTable")
         texture.Storage2D(numLevels, InternalFormat.Rgb8, info.PageTableSize, info.PageTableSize)
-        texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.NearestMipmapNearest)
         texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+        texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        texture.Parameter(TextureParameterName.TextureWrapR, TextureWrapMode.ClampToEdge)
+        texture.Parameter(TextureParameterName.TextureBaseLevel, 0)
+        texture.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
 
         For l = 0 To numLevels - 1
-            For e = 0 To (indexer.sizes(l) * indexer.sizes(l)) - 1
-                With tableEntryPool(l)(e)
-                    .cachePageX = 0
-                    .cachePageY = 0
-                    .mipLevel = 0
-                End With
-            Next
-
             Dim handle = GCHandle.Alloc(tableEntryPool(l), GCHandleType.Pinned)
             Dim ptr = handle.AddrOfPinnedObject()
             texture.SubImage2D(l, 0, 0, indexer.sizes(l), indexer.sizes(l), PixelFormat.Rgb, PixelType.UnsignedByte, ptr)
@@ -69,7 +67,7 @@ Public Class PageTable
 
             Dim handle = GCHandle.Alloc(tableEntryPool(l), GCHandleType.Pinned)
             Dim ptr = handle.AddrOfPinnedObject()
-            texture.SubImage2D(l, 0, 0, indexer.sizes(l), indexer.sizes(l), PixelFormat.Rgba, PixelType.UnsignedByte, ptr)
+            texture.SubImage2D(l, 0, 0, indexer.sizes(l), indexer.sizes(l), PixelFormat.Rgb, PixelType.UnsignedByte, ptr)
             handle.Free()
         Next
     End Sub
