@@ -26,7 +26,7 @@ Public Class FeedbackBuffer
         ReDim Requests(indexer.Count - 1)
 
         rendertarget = CreateTexture(TextureTarget.Texture2D, "FeedbackBuffer_rendertarget")
-        rendertarget.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
+        rendertarget.Storage2D(1, SizedInternalFormat.Rgba16f, width, height)
 
         depthbuffer = CreateRenderbuffer("FeedbackBuffer_depthbuffer")
         GL.NamedRenderbufferStorage(depthbuffer, RenderbufferStorage.DepthComponent32f, width, height)
@@ -50,20 +50,20 @@ Public Class FeedbackBuffer
 
     <StructLayout(LayoutKind.Sequential)>
     Private Structure FBColor
-        Public r As Byte
-        Public g As Byte
-        Public b As Byte
-        Public a As Byte
+        Public r As Half
+        Public g As Half
+        Public b As Half
+        Public a As Half
     End Structure
 
     Public Sub Download()
         ' Download New data
         Dim data(width * height - 1) As FBColor
-        GL.GetTextureImage(rendertarget.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, 4 * data.Length, data)
+        GL.GetTextureImage(rendertarget.texture_id, 0, PixelFormat.Rgba, PixelType.HalfFloat, 8 * data.Length, data)
 
         For i = 0 To data.Length - 1
-            If data(i).a >= &HFF Then
-                Dim request = New Page(data(i).b, data(i).g, data(i).r)
+            If data(i).a >= 0.99F Then
+                Dim request = New Page(data(i).r.ToSingle, data(i).g.ToSingle, data(i).b.ToSingle)
                 AddRequestAndParents(request)
             End If
         Next
