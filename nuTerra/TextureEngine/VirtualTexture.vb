@@ -91,7 +91,7 @@ Public Class VirtualTexture
                 cache.Request(toload(i).Page)
             Next
         Else
-            mipbias -= 1
+            MipBias -= 1
         End If
 
         ' Update the page table

@@ -14,7 +14,7 @@ Public Structure VirtualTextureInfo
 
 	ReadOnly Property PageTableSize As Integer
 		Get
-			Return VirtualTextureSize / TileSize
+			Return VirtualTextureSize \ TileSize
 		End Get
 	End Property
 End Structure

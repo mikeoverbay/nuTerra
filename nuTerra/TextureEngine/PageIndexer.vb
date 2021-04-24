@@ -1,8 +1,8 @@
 ﻿Public Class PageIndexer
     ReadOnly info As VirtualTextureInfo
     ReadOnly mipcount As Integer
-    ReadOnly offsets As Integer() ' This stores the offsets To the first page Of the start Of a mipmap level 
-    ReadOnly sizes As Integer() ' This stores the sizes Of various mip levels
+    Public offsets As Integer() ' This stores the offsets To the first page Of the start Of a mipmap level 
+    Public sizes As Integer() ' This stores the sizes Of various mip levels
     ReadOnly reverse As Page()
 
     Public Count As Integer

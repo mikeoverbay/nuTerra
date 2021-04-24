@@ -19,6 +19,10 @@
     ReadOnly lru_used As New HashSet(Of Page)
     ReadOnly loading As New HashSet(Of Page)
 
+    ' These events are used to notify the other systems
+    Public Event Removed(p As Page, pt As Point)
+    Public Event Added(p As Page, pt As Point)
+
     Public Sub New(info As VirtualTextureInfo, atlas As TextureAtlas, loader As PageLoader, indexer As PageIndexer, count As Integer)
         Me.info = info
         Me.atlas = atlas
@@ -37,6 +41,7 @@
             pt = lru_page.m_point
             lru_used.Remove(lru_page.m_page)
             lru.RemoveAt(0)
+            RaiseEvent Removed(lru_page.m_page, pt)
         Else
             pt = New Point(current Mod count, current \ count)
             current += 1
@@ -49,15 +54,17 @@
         atlas.uploadPage(pt, data)
         lru.Add(New LruPage With {.m_page = p, .m_point = pt})
         lru_used.Add(p)
+
+        RaiseEvent Added(p, pt)
     End Sub
 
     ' Update the pages's position in the lru
-    Public Function Touch(page As Page) As Boolean
-        If Not loading.Contains(page) Then
-            If Not lru_used.Contains(page) Then
+    Public Function Touch(p As Page) As Boolean
+        If Not loading.Contains(p) Then
+            If lru_used.Contains(p) Then
                 ' Find the page (slow!!) And add it to the back of the list
                 For Each it In lru
-                    If it.m_page.Equals(page) Then
+                    If (it.m_page.Mip = p.Mip) And (it.m_page.Y = p.Y) And (it.m_page.X = p.X) Then
                         lru.Remove(it)
                         lru.Add(it)
                         Return True
