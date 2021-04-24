@@ -324,8 +324,8 @@ Module modRender
                 draw_text(tags(i), 5.0F, 81.0F + (i * 19.0F), colors(i), False, 0)
             Next
         End If
-
     End Sub
+
     Private Sub global_fog()
         GL_PUSH_GROUP("perform_Fog_Noise_pass")
 
@@ -975,6 +975,8 @@ Module modRender
         draw_text(PICKED_STRING, 5.0F, 24.0F, Graphics.Color4.Yellow, False, 1)
 
         color_keys()
+
+        draw_image_rectangle(New RectangleF(0.0F, 79.0F, 200.0F, 200.0F), vt.atlas.texture, False)
 
         'draw status of SSAA
         draw_text(FXAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)

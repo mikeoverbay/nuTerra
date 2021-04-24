@@ -579,16 +579,16 @@ try_again:
         vtInfo = New VirtualTextureInfo With {
             .BorderSize = 1,
             .TileSize = 128,
-            .VirtualTextureSize = 8192
+            .VirtualTextureSize = 16384
             }
         vt = New VirtualTexture(vtInfo, 2048, 1)
         feedback = New FeedbackBuffer(vtInfo, 64, 64)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
-        CommonProperties.AtlasScale = 1.0F / 1.0
+        CommonProperties.AtlasScale = 1.0F / (2048 / vtInfo.PageSize)
         CommonProperties.BorderScale = 1.0
         CommonProperties.BorderOffset = vtInfo.BorderSize
-        CommonProperties.MipBias = 0
+        CommonProperties.MipBias = vt.MipBias
         CommonProperties.PageTableSize = vtInfo.PageTableSize
 
         FBOm.FBO_Initialize()
