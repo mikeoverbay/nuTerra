@@ -4,13 +4,6 @@
 Public Structure VirtualTextureInfo
 	Public VirtualTextureSize As Integer
 	Public TileSize As Integer
-	Public BorderSize As Integer
-
-	ReadOnly Property PageSize As Integer
-		Get
-			Return TileSize + 2 * BorderSize
-		End Get
-	End Property
 
 	ReadOnly Property PageTableSize As Integer
 		Get

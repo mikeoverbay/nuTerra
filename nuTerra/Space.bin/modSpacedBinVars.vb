@@ -317,12 +317,6 @@ Module modSpacedBinVars
         Public chunk_models As BWArray(Of ChunkModel_v1_0_0)
         Public visibility_masks As BWArray(Of vis_mask_)
         Public model_BSMO_indexes As BWArray(Of model_index_)
-        Public animation_tbl As BWArray(Of animation_tbl_)
-        Public animation_info As BWArray(Of animation_info_)
-        Public tbl_7 As BWArray(Of tbl_7_)
-        Public skined_tbl As BWArray(Of skined_tbl_)
-        Public tbl_9 As BWArray(Of tbl_9_)
-        Public tbl_10 As BWArray(Of tbl_10_)
 
         Public Sub New(bsmiHeader As SectionHeader, br As BinaryReader)
             ' set stream reader to point at this chunk
@@ -335,12 +329,6 @@ Module modSpacedBinVars
             chunk_models = New BWArray(Of ChunkModel_v1_0_0)(br)
             visibility_masks = New BWArray(Of vis_mask_)(br)
             model_BSMO_indexes = New BWArray(Of model_index_)(br)
-            animation_tbl = New BWArray(Of animation_tbl_)(br)
-            animation_info = New BWArray(Of animation_info_)(br)
-            tbl_7 = New BWArray(Of tbl_7_)(br)
-            skined_tbl = New BWArray(Of skined_tbl_)(br)
-            tbl_9 = New BWArray(Of tbl_9_)(br)
-            tbl_10 = New BWArray(Of tbl_10_)(br)
         End Sub
 
         't2
@@ -401,6 +389,7 @@ Module modSpacedBinVars
             Public speed As Single
             Public delay As Single
             Public unknown As Single
+            Public unknown2 As Single
 
             ReadOnly Property flag_auto_start As Boolean
                 Get

@@ -482,8 +482,7 @@ Module modRender
 
         TerrainVTMIPShader.Use()
 
-        CommonProperties.MipBias = vt.MipBias
-        CommonProperties.update()
+        GL.Uniform1(TerrainVTMIPShader("MipBias"), CSng(vt.MipBias))
 
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)

@@ -577,7 +577,6 @@ try_again:
         CommonPropertiesBuffer.BindBase(2)
 
         vtInfo = New VirtualTextureInfo With {
-            .BorderSize = 0,
             .TileSize = 128,
             .VirtualTextureSize = 16384 * 2
             }
@@ -585,9 +584,8 @@ try_again:
         feedback = New FeedbackBuffer(vtInfo, 64, 64)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
-        CommonProperties.atlas_count = (2048 \ vtInfo.PageSize)
-        CommonProperties.AtlasScale = 1.0F / CommonProperties.atlas_count
-        CommonProperties.MipBias = vt.MipBias
+        CommonProperties.atlas_count = vt.atlas.atlascount
+        CommonProperties.AtlasScale = 1.0F / vt.atlas.atlascount
         CommonProperties.PageTableSize = vtInfo.PageTableSize
 
         FBOm.FBO_Initialize()

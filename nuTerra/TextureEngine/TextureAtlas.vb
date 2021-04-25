@@ -21,12 +21,12 @@ Public Class TextureAtlas
         texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
         texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
-        texture.Storage3D(1, SizedInternalFormat.Rgba8, info.PageSize, info.PageSize, atlascount * atlascount)
+        texture.Storage3D(1, SizedInternalFormat.Rgba8, info.TileSize, info.TileSize, atlascount * atlascount)
     End Sub
 
 	Public Sub uploadPage(pt As Point, data As Byte())
         GL.NamedFramebufferReadBuffer(FBO_Mixer_ID, ReadBufferMode.ColorAttachment0)
-        GL.CopyTextureSubImage3D(texture.texture_id, 0, 0, 0, pt.X + pt.Y * atlascount, 0, 0, info.PageSize, info.PageSize)
+        GL.CopyTextureSubImage3D(texture.texture_id, 0, 0, 0, pt.X + pt.Y * atlascount, 0, 0, info.TileSize, info.TileSize)
     End Sub
 
 	Public Sub Dispose() Implements IDisposable.Dispose

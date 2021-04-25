@@ -12,10 +12,12 @@ in VS_OUT {
     vec2 UV;
 } fs_in;
 
+uniform float MipBias;
+
 void main(void)
 {
     float mipCount = log2(props.PageTableSize);
-    float mip = floor(MipLevel(fs_in.UV, props.VirtualTextureSize) - props.MipBias);
+    float mip = floor(MipLevel(fs_in.UV, props.VirtualTextureSize) - MipBias);
     mip = clamp(mip, 0, mipCount);
     vec2 offset = floor(fs_in.UV * props.PageTableSize);
     gColor = vec4(floor(vec3(offset / exp2(mip), mip)), 1.0);

@@ -169,7 +169,6 @@ Module modOpenGL
         Public VirtualTextureSize As Single
         Public AtlasScale As Single
         Public atlas_count As Single
-        Public MipBias As Single
         Public PageTableSize As Single
 
         Public Sub update()

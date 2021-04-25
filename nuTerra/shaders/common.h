@@ -131,7 +131,6 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float VirtualTextureSize;
     float AtlasScale;
     float atlas_count;
-    float MipBias;
     float PageTableSize;
 } props;
 #endif
