@@ -58,6 +58,7 @@ Public Class FeedbackBuffer
     Public Sub Download()
         ' Download New data
         Dim data(width * height - 1) As FBColor
+        ' GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.HalfFloat, data)
         GL.GetTextureImage(rendertarget.texture_id, 0, PixelFormat.Rgb, PixelType.HalfFloat, 6 * data.Length, data)
 
         For i = 0 To data.Length - 1

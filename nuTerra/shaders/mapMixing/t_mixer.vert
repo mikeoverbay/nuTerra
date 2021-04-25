@@ -23,15 +23,13 @@ out VS_OUT {
     flat uint map_id;
 } vs_out;
 
-
-const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
-
-
 void main(void)
 {
+    const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
+
     // calculate tex coords for global_AM
     vs_out.Global_UV = chunk.g_uv_offset + (vertexTexCoord * props.map_size);
 
     // Calculate vertex position in clip coordinates
-    gl_Position = Ortho_Project * chunk.modelMatrix * vec4(vertexPosition.xzy, 1.0f);
+    gl_Position = Ortho_Project * (chunk.modelMatrix * vec4(vertexPosition.xyz, 1.0f)).xzyw;
 }

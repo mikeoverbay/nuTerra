@@ -510,7 +510,8 @@ CleanUp:
                         "g_tile",
                         "texAddressMode",
                         "g_applyScreenSpaceMorphing",
-                        "applyOverlay"
+                        "applyOverlay",
+                        "g_applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
@@ -737,7 +738,8 @@ got_it:
                         "doubleSided",
                         "selfIllumination",
                         "applyOverlay",
-                        "alphaTestEnable"
+                        "alphaTestEnable",
+                        "g_applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
@@ -785,7 +787,8 @@ got_it:
                         "glassMap",
                         "g_useTintColor",
                         "g_tintColor",
-                        "texAddressMode"
+                        "texAddressMode",
+                        "g_applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
