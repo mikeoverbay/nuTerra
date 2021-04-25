@@ -548,9 +548,9 @@ Module modRender
 
         theMap.GLOBAL_AM_ID.BindUnit(21)
 
-        FBO_mixer_set.gColorArray.BindUnit(22)
-        FBO_mixer_set.gNormalArray.BindUnit(23)
-        FBO_mixer_set.gGmmArray.BindUnit(24)
+        FBO_mixer_set.gColor.BindUnit(22)
+        FBO_mixer_set.gNormal.BindUnit(23)
+        FBO_mixer_set.gGmm.BindUnit(24)
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.MQ Then

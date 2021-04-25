@@ -11,14 +11,14 @@ Module FBO_Mixer
     ''' Creates the mix FBO
     ''' </summary>
     Public NotInheritable Class FBO_mixer_set
-        Public Shared gColorArray, gNormalArray, gGmmArray As GLTexture
-        Public Shared texture_size As Point
-        Public Shared LayerCount As Integer
-        Public Shared mipCount As Integer
+        Public Shared gColor, gNormal, gGmm As GLTexture
+        Private Shared width As Integer
+        Private Shared height As Integer
         Private Shared attactments() As DrawBuffersEnum = {FramebufferAttachment.ColorAttachment0, FramebufferAttachment.ColorAttachment1, FramebufferAttachment.ColorAttachment2}
 
-        Public Shared Sub FBO_Initialize(ByVal size As Point)
-            texture_size = size
+        Public Shared Sub FBO_Initialize(_width As Integer, _height As Integer)
+            width = _width
+            height = _height
 
             frmMain.glControl_main.MakeCurrent()
 
@@ -32,71 +32,51 @@ Module FBO_Mixer
 
         End Sub
 
-        Public Shared Sub attach_array_layer(ByVal layer As Integer)
+        Public Shared Sub attach()
             GL.NamedFramebufferDrawBuffers(FBO_Mixer_ID, 3, attactments)
-            GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment0, gColorArray.texture_id, 0, layer)
-            GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment1, gNormalArray.texture_id, 0, layer)
-            GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment2, gGmmArray.texture_id, 0, layer)
+            GL.NamedFramebufferTexture(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment0, gColor.texture_id, 0)
+            GL.NamedFramebufferTexture(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment1, gNormal.texture_id, 0)
+            GL.NamedFramebufferTexture(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment2, gGmm.texture_id, 0)
 
             Dim er2 = GL.GetError
-            If er2 <> 0 Then
-                Stop
-            End If
+            If er2 <> 0 Then Stop
         End Sub
 
         Public Shared Sub delete_textures_and_fbo()
             'as the name says
-            If gColorArray IsNot Nothing Then gColorArray.Delete()
-            If gNormalArray IsNot Nothing Then gNormalArray.Delete()
-            If gGmmArray IsNot Nothing Then gGmmArray.Delete()
+            If gColor IsNot Nothing Then gColor.Delete()
+            If gNormal IsNot Nothing Then gNormal.Delete()
+            If gGmm IsNot Nothing Then gGmm.Delete()
             If FBO_Mixer_ID > 0 Then GL.DeleteFramebuffer(FBO_Mixer_ID)
         End Sub
 
         Public Shared Sub create_arraytextures()
-            'we should initialize layers for each mipmap level
-            'For mip = 0 To mipCount - 1
+            ' gColor ------------------------------------------------------------------------------------------
+            gColor = CreateTexture(TextureTarget.Texture2D, "FBO_mixer_gColor")
+            gColor.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            gColor.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            gColor.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
-            ' gColorArray ------------------------------------------------------------------------------------------
-            gColorArray = CreateTexture(TextureTarget.Texture2DArray, "gColorArray")
-            gColorArray.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            gColorArray.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            gColorArray.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-            gColorArray.Parameter(TextureParameterName.TextureBaseLevel, 0)
-            gColorArray.Parameter(TextureParameterName.TextureMaxLevel, mipCount - 1)
-            gColorArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
-            gColorArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
-            gColorArray.Storage3D(mipCount, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
-
-            ' gNormalArray ------------------------------------------------------------------------------------------
-            gNormalArray = CreateTexture(TextureTarget.Texture2DArray, "gNormalArray")
-            gNormalArray.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            gNormalArray.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            gNormalArray.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-            gNormalArray.Parameter(TextureParameterName.TextureBaseLevel, 0)
-            gNormalArray.Parameter(TextureParameterName.TextureMaxLevel, mipCount - 1)
-            gNormalArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
-            gNormalArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
-            gNormalArray.Storage3D(mipCount, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
+            ' gNormal ------------------------------------------------------------------------------------------
+            gNormal = CreateTexture(TextureTarget.Texture2D, "FBO_mixer_gNormal")
+            gNormal.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            gNormal.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            gNormal.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
             ' gGmmArray ------------------------------------------------------------------------------------------
-            gGmmArray = CreateTexture(TextureTarget.Texture2DArray, "gGmmArray")
-            gGmmArray.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
-            gGmmArray.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            gGmmArray.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
-            gGmmArray.Parameter(TextureParameterName.TextureBaseLevel, 0)
-            gGmmArray.Parameter(TextureParameterName.TextureMaxLevel, mipCount - 1)
-            gGmmArray.Parameter(TextureParameterName.TextureWrapS, TextureParameterName.ClampToEdge)
-            gGmmArray.Parameter(TextureParameterName.TextureWrapT, TextureParameterName.ClampToEdge)
-            gGmmArray.Storage3D(mipCount, SizedInternalFormat.Rgba8, texture_size.X, texture_size.Y, LayerCount)
+            gGmm = CreateTexture(TextureTarget.Texture2D, "FBO_mixer_gGmm")
+            gGmm.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            gGmm.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            gGmm.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
         End Sub
 
         Public Shared Function create_fbo() As Boolean
             FBO_Mixer_ID = CreateFramebuffer("Mixer")
 
             'attach our textureArray to colorAttachment0, mip 0 and level 0
-            GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment0, gColorArray.texture_id, 0, 0)
-            GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment1, gNormalArray.texture_id, 0, 0)
-            GL.NamedFramebufferTextureLayer(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment2, gGmmArray.texture_id, 0, 0)
+            GL.NamedFramebufferTexture(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment0, gColor.texture_id, 0)
+            GL.NamedFramebufferTexture(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment1, gNormal.texture_id, 0)
+            GL.NamedFramebufferTexture(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment2, gGmm.texture_id, 0)
 
             Dim FBOHealth = GL.CheckNamedFramebufferStatus(FBO_Mixer_ID, FramebufferTarget.Framebuffer)
 
@@ -104,15 +84,10 @@ Module FBO_Mixer
                 Return False
             End If
 
-            Return True ' No errors! all is good! :)
+            attach()
+
+            Return True
         End Function
-
-        Public Shared Sub make_mips()
-            gColorArray.GenerateMipmap()
-            gNormalArray.GenerateMipmap()
-            gGmmArray.GenerateMipmap()
-        End Sub
-
 
     End Class
 

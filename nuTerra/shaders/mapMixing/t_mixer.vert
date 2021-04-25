@@ -29,21 +29,9 @@ const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
 
 void main(void)
 {
-    vs_out.map_id = gl_BaseInstanceARB;
-    vs_out.UV =  vertexTexCoord;
-
     // calculate tex coords for global_AM
-    vs_out.Global_UV = 1.0 - (chunk.g_uv_offset + (vertexTexCoord * props.map_size));
-    
-    //-------------------------------------------------------
-    vec4 Vertex = vec4(vertexPosition.xzy, 1.0) * 1.0;
-    //Vertex.x *= -1.0;
-    vs_out.Vertex = Vertex;
-
-
-    //-------------------------------------------------------
+    vs_out.Global_UV = chunk.g_uv_offset + (vertexTexCoord * props.map_size);
 
     // Calculate vertex position in clip coordinates
-    gl_Position = Ortho_Project  * vec4(vertexPosition.xzy, 1.0f);
-
+    gl_Position = Ortho_Project * vec4(vertexPosition.xzy, 1.0f);
 }

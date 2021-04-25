@@ -51,7 +51,7 @@
             End If
         End If
 
-        atlas.uploadPage(pt, data)
+        'atlas.uploadPage(pt, data)
         lru.Add(New LruPage With {.m_page = p, .m_point = pt})
         lru_used.Add(p)
 

@@ -169,7 +169,6 @@
     <Compile Include="Forms\SettingsPropertyGrid.vb" />
     <Compile Include="GlobalSuppressions.vb" />
     <Compile Include="MapLoader\ChunkFunctions.vb" />
-    <Compile Include="MapLoader\LQ_Texture_creator.vb" />
     <Compile Include="MapLoader\TerrainBuilder.vb" />
     <Compile Include="MapLoader\TerrainTextureFunctions.vb" />
     <Compile Include="ModelLoaders\modXfile.vb" />

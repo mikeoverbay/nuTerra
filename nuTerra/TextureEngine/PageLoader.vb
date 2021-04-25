@@ -1,4 +1,8 @@
-﻿Public Class PageLoader
+﻿Imports System.Runtime.InteropServices
+Imports OpenTK
+Imports OpenTK.Graphics.OpenGL
+
+Public Class PageLoader
     Implements IDisposable
 
     Class ReadState
@@ -13,6 +17,8 @@
 
     Public Sub New(filename As String, indexer As PageIndexer, info As VirtualTextureInfo)
         Me.info = info
+
+        FBO_mixer_set.FBO_Initialize(info.TileSize, info.TileSize)
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
@@ -30,9 +36,40 @@
     Private Sub LoadPage(state As ReadState)
         Dim size = info.PageSize * info.PageSize * ChannelCount
 
-        ReDim state.Data(size - 1)
-        CopyColor(state.Data, state.Page)
-        CopyBorder(state.Data)
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_Mixer_ID)
+        GL.Viewport(0, 0, info.TileSize, info.TileSize)
+        GL.Clear(ClearBufferMask.ColorBufferBit)
+
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+
+        t_mixerShader.Use()
+
+        Dim proj = Matrix4.CreateOrthographicOffCenter(-50.0F, 50.0, -50.0, 50.0F, -3000.0F, 3000.0F)
+        GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, proj)
+
+        GL.Disable(EnableCap.DepthTest)
+        GL.Disable(EnableCap.CullFace)
+
+        theMap.GLOBAL_AM_ID.BindUnit(21)
+
+        For i = 0 To theMap.render_set.Length - 1
+            If Not theMap.render_set(i).visible Then
+                Continue For
+            End If
+
+            'draw chunk
+            GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+        Next
+
+        t_mixerShader.StopUse()
+        unbind_textures(22)
+
+        GL.NamedFramebufferReadBuffer(FBO_Mixer_ID, ReadBufferMode.ColorAttachment0)
+
+        Dim x = state.Page.X * info.PageSize
+        Dim y = state.Page.Y * info.PageSize
+        GL.CopyTextureSubImage2D(vt.atlas.texture.texture_id, 0, x, y, 0, 0, info.TileSize, info.TileSize)
     End Sub
 
     Private Sub CopyBorder(image As Byte())
