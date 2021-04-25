@@ -73,10 +73,6 @@ Public Class PageLoader
         theMap.GLOBAL_AM_ID.BindUnit(0)
 
         For i = 0 To theMap.render_set.Length - 1
-            If Not theMap.render_set(i).visible Then
-                Continue For
-            End If
-
             'draw chunk
             GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
         Next

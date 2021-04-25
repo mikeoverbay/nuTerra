@@ -977,8 +977,8 @@ Module modRender
 
         color_keys()
 
-        For y = 0 To vt.atlas.atlascount
-            For x = 0 To vt.atlas.atlascount
+        For y = 0 To vt.atlas.atlascount - 1
+            For x = 0 To vt.atlas.atlascount - 1
                 Dim xoff = 0 + x * 10
                 Dim yoff = 79 + y * 10
                 draw_image_rectangle(New RectangleF(xoff, yoff, 10, 10), vt.atlas.texture, True, y * vt.atlas.atlascount + x)
