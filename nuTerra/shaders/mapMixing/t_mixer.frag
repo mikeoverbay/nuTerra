@@ -9,7 +9,7 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 
-layout(binding = 21) uniform sampler2D global_AM;
+layout(binding = 0) uniform sampler2D global_AM;
 
 in VS_OUT {
     vec4 Vertex;

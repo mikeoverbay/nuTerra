@@ -84,8 +84,6 @@ Module FBO_Mixer
                 Return False
             End If
 
-            attach()
-
             Return True
         End Function
 

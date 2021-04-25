@@ -40,9 +40,6 @@ Public Class PageLoader
         GL.Viewport(0, 0, info.TileSize, info.TileSize)
         GL.Clear(ClearBufferMask.ColorBufferBit)
 
-        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
-
         t_mixerShader.Use()
 
         Dim proj = Matrix4.CreateOrthographicOffCenter(-50.0F, 50.0, -50.0, 50.0F, -3000.0F, 3000.0F)
@@ -52,7 +49,7 @@ Public Class PageLoader
         GL.Disable(EnableCap.DepthTest)
         GL.Disable(EnableCap.CullFace)
 
-        theMap.GLOBAL_AM_ID.BindUnit(21)
+        theMap.GLOBAL_AM_ID.BindUnit(0)
 
         For i = 0 To theMap.render_set.Length - 1
             If Not theMap.render_set(i).visible Then
@@ -64,6 +61,6 @@ Public Class PageLoader
         Next
 
         t_mixerShader.StopUse()
-        unbind_textures(22)
+        unbind_textures(0)
     End Sub
 End Class

@@ -42,7 +42,7 @@ vec4 SampleAtlas(vec3 page, vec2 uv)
 void main(void)
 {
     float miplevel = MipLevel(fs_in.Global_UV, props.VirtualTextureSize);
-    miplevel = clamp(miplevel, 0, log2(props.PageTableSize) - 2); // HACK!!!! SHOULD BE "log2(props.PageTableSize) - 1"
+    miplevel = clamp(miplevel, 0, log2(props.PageTableSize) - 1);
 
     const float mip1 = floor(miplevel);
     const float mip2 = mip1 + 1;

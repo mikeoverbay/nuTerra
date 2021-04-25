@@ -6,7 +6,7 @@
 #define USE_VT_FUNCTIONS
 #include "common.h" //! #include "../common.h"
 
-layout (location = 0) out vec4 gColor;
+layout (location = 0) out vec3 gColor;
 
 in VS_OUT {
     vec2 UV;
@@ -20,5 +20,5 @@ void main(void)
     float mip = floor(MipLevel(fs_in.UV, props.VirtualTextureSize) - MipBias);
     mip = clamp(mip, 0, mipCount);
     vec2 offset = floor(fs_in.UV * props.PageTableSize);
-    gColor = vec4(floor(vec3(offset / exp2(mip), mip)), 1.0);
+    gColor = vec3(floor(vec3(offset / exp2(mip), 1.0 + mip)));
 }

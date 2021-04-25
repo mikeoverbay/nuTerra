@@ -33,8 +33,8 @@ Public Class PageTable
         texture = CreateTexture(TextureTarget.Texture2D, "PageTable")
         texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.NearestMipmapNearest)
         texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-        texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
-        texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+        texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
         texture.Parameter(TextureParameterName.TextureBaseLevel, 0)
         texture.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
         Const GL_RGB565 = 36194
