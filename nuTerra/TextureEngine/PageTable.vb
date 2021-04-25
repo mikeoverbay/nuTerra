@@ -10,6 +10,7 @@ Public Class PageTable
 
     ReadOnly tableEntryPool As List(Of UShort(,))
     ReadOnly quadtree As Quadtree
+    Dim quadtreeDirty As Boolean = True
 
     Public Sub New(cache As PageCache, info As VirtualTextureInfo, indexer As PageIndexer)
         Me.info = info
@@ -18,8 +19,12 @@ Public Class PageTable
         Dim numLevels As Integer = Math.Log(info.PageTableSize, 2) + 1
         Me.quadtree = New Quadtree(New Rectangle(0, 0, info.PageTableSize, info.PageTableSize), numLevels - 1)
 
-        AddHandler cache.Added, AddressOf Me.quadtree.Add
+        AddHandler cache.Added, Sub(p As Page, pt As Point)
+                                    Me.quadtreeDirty = True
+                                    Me.quadtree.Add(p, pt)
+                                End Sub
         AddHandler cache.Removed, Sub(p As Page, pt As Point)
+                                      Me.quadtreeDirty = True
                                       Me.quadtree.Remove(p)
                                   End Sub
 
@@ -53,6 +58,12 @@ Public Class PageTable
     End Sub
 
     Public Sub Update()
+        If Not quadtreeDirty Then
+            Return
+        End If
+
+        quadtreeDirty = False
+
         Dim numLevels = Math.Log(info.PageTableSize, 2) + 1
 
         For l = 0 To numLevels - 1
