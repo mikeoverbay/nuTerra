@@ -45,7 +45,7 @@
 		End If
 	End Sub
 
-	Public Sub Write(data As TableEntry(,), miplevel As Integer)
+	Public Sub Write(data As UShort(,), miplevel As Integer)
 		Quadtree.Write(Me, data, miplevel)
 	End Sub
 
@@ -70,7 +70,7 @@
 		Throw New ArgumentOutOfRangeException("index")
 	End Function
 
-	Shared Sub Write(node As Quadtree, data As TableEntry(,), miplevel As Integer)
+	Shared Sub Write(node As Quadtree, data As UShort(,), miplevel As Integer)
 		If node.Level >= miplevel Then
 			Dim rx = node.Rectangle.X >> miplevel
 			Dim ry = node.Rectangle.Y >> miplevel
@@ -79,11 +79,10 @@
 
 			For i = ry To ry + rh - 1
 				For j = rx To rx + rw - 1
-					With data(i, j)
-						.cachePageX = node.Mapping.X
-						.cachePageY = node.Mapping.Y
-						.mipLevel = node.Level
-					End With
+					If node.Mapping.X > 32 Then Stop
+					If node.Mapping.Y > 64 Then Stop
+					If node.Level > 32 Then Stop
+					data(i, j) = (node.Mapping.X << 11) Or (node.Mapping.Y << 5) Or node.Level
 				Next
 			Next
 

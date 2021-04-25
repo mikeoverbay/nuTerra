@@ -403,7 +403,8 @@ CleanUp:
                         "g_metallicConversions",
                         "g_aging",
                         "g_albedoConversions",
-                        "g_defaultPBSConversionParams"
+                        "g_defaultPBSConversionParams",
+                        "g_applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
@@ -451,7 +452,8 @@ CleanUp:
                         "texAddressMode",
                         "dynamicObject",
                         "selfIllumination",
-                        "applyOverlay"
+                        "applyOverlay",
+                        "g_applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
@@ -559,7 +561,8 @@ CleanUp:
                         "texAddressMode",
                         "selfIllumination",
                         "diffuseMap",
-                        "applyOverlay"
+                        "applyOverlay",
+                        "g_applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then

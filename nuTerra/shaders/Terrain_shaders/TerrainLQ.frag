@@ -31,9 +31,9 @@ vec3 SampleTable(vec2 uv, float mip)
 // This functions samples from the texture atlas and returns the final color
 vec4 SampleAtlas(vec3 page, vec2 uv)
 {
-    const float mipsize = exp2(floor(page.z * 255.0 + 0.5));
+    const float mipsize = exp2(floor(page.z * 31.0 + 0.5));
     uv = fract(uv * props.PageTableSize / mipsize);
-    const float layer = (page.x + page.y * props.atlas_count) * 255;
+    const float layer = (page.x * 31.0 + page.y * 63.0 * props.atlas_count);
     return texture(TextureAtlas, vec3(uv, layer));
 }
 
