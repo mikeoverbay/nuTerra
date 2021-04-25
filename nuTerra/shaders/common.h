@@ -130,8 +130,7 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float blend_global_threshold;
     float VirtualTextureSize;
     float AtlasScale;
-    float BorderScale;
-    float BorderOffset;
+    float atlas_count;
     float MipBias;
     float PageTableSize;
 } props;

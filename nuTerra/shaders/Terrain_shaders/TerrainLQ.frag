@@ -12,7 +12,7 @@ layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 
 layout(binding = 0) uniform sampler2D PageTable;
-layout(binding = 1) uniform sampler2D TextureAtlas;
+layout(binding = 1) uniform sampler2DArray TextureAtlas;
 
 in VS_OUT {
     vec3 worldPosition;
@@ -33,10 +33,8 @@ vec4 SampleAtlas(vec3 page, vec2 uv)
 {
     const float mipsize = exp2(floor(page.z * 255.0 + 0.5));
     uv = fract(uv * props.PageTableSize / mipsize);
-    uv *= props.BorderScale;
-    uv += props.BorderOffset;
-    const vec2 offset = floor(page.xy * 255 + 0.5);
-    return texture(TextureAtlas, (offset + uv) * props.AtlasScale);
+    const float layer = (page.x + page.y * props.atlas_count) * 255;
+    return texture(TextureAtlas, vec3(uv, layer));
 }
 
 
@@ -44,7 +42,7 @@ vec4 SampleAtlas(vec3 page, vec2 uv)
 void main(void)
 {
     float miplevel = MipLevel(fs_in.Global_UV, props.VirtualTextureSize);
-    miplevel = clamp(miplevel, 0, log2(props.PageTableSize) - 1);
+    miplevel = clamp(miplevel, 0, log2(props.PageTableSize) - 2); // HACK!!!! SHOULD BE "log2(props.PageTableSize) - 1"
 
     const float mip1 = floor(miplevel);
     const float mip2 = mip1 + 1;

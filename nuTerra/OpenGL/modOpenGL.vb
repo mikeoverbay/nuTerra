@@ -168,8 +168,7 @@ Module modOpenGL
 
         Public VirtualTextureSize As Single
         Public AtlasScale As Single
-        Public BorderScale As Single
-        Public BorderOffset As Single
+        Public atlas_count As Single
         Public MipBias As Single
         Public PageTableSize As Single
 
@@ -283,8 +282,8 @@ Module modOpenGL
         rect2dShader.StopUse()
     End Sub
 
-    Public Sub draw_image_rectangle(rect As RectangleF, image As GLTexture, atlas As Boolean)
-        If USE_NV_DRAW_TEXTURE Then
+    Public Sub draw_image_rectangle(rect As RectangleF, image As GLTexture, atlas As Boolean, Optional atlas_id As Integer = 1)
+        If USE_NV_DRAW_TEXTURE AndAlso Not atlas Then
             Dim h = frmMain.glControl_main.Height
             Dim x0 = rect.Left
             Dim x1 = rect.Right
@@ -294,7 +293,7 @@ Module modOpenGL
         Else
             If atlas Then
                 image2dArrayShader.Use()
-                GL.Uniform1(image2dArrayShader("id"), 1)
+                GL.Uniform1(image2dArrayShader("id"), atlas_id)
 
                 image.BindUnit(0)
                 GL.Uniform1(image2dArrayShader("imageMap"), 0)

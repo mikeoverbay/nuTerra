@@ -5,20 +5,28 @@ Public Class TextureAtlas
 
     Dim info As VirtualTextureInfo
     Public texture As GLTexture
+    Public atlascount As Integer
 
     Public Sub New(info As VirtualTextureInfo, atlascount As Integer, uploadsperframe As Integer)
         Me.info = info
+        Me.atlascount = atlascount
 
-        texture = CreateTexture(TextureTarget.Texture2D, "TextureAtlas")
-        texture.Storage2D(1, SizedInternalFormat.Rgba8, atlascount * info.PageSize, atlascount * info.PageSize)
+        If atlascount * atlascount > 2048 Then
+            LogThis("NO!")
+            Stop
+        End If
+
+        texture = CreateTexture(TextureTarget.Texture2DArray, "TextureAtlas")
+        texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+        texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+        texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        texture.Storage3D(1, SizedInternalFormat.Rgba8, info.PageSize, info.PageSize, atlascount * atlascount)
     End Sub
 
 	Public Sub uploadPage(pt As Point, data As Byte())
-        ' Copy the texture part to the actual atlas texture
-        Dim pagesize = info.PageSize
-        Dim xpos = pt.X * pagesize
-        Dim ypos = pt.Y * pagesize
-        texture.SubImage2D(0, xpos, ypos, pagesize, pagesize, PixelFormat.Rgba, PixelType.UnsignedByte, data)
+        GL.NamedFramebufferReadBuffer(FBO_Mixer_ID, ReadBufferMode.ColorAttachment0)
+        GL.CopyTextureSubImage3D(texture.texture_id, 0, 0, 0, pt.X + pt.Y * atlascount, 0, 0, info.PageSize, info.PageSize)
     End Sub
 
 	Public Sub Dispose() Implements IDisposable.Dispose

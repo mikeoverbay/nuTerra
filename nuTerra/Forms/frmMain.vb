@@ -577,7 +577,7 @@ try_again:
         CommonPropertiesBuffer.BindBase(2)
 
         vtInfo = New VirtualTextureInfo With {
-            .BorderSize = 1,
+            .BorderSize = 0,
             .TileSize = 128,
             .VirtualTextureSize = 16384 * 2
             }
@@ -585,9 +585,8 @@ try_again:
         feedback = New FeedbackBuffer(vtInfo, 64, 64)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
-        CommonProperties.AtlasScale = 1.0F / (2048 \ vtInfo.PageSize)
-        CommonProperties.BorderScale = (vtInfo.PageSize - 2.0F * vtInfo.BorderSize) / vtInfo.PageSize
-        CommonProperties.BorderOffset = vtInfo.BorderSize / vtInfo.PageSize
+        CommonProperties.atlas_count = (2048 \ vtInfo.PageSize)
+        CommonProperties.AtlasScale = 1.0F / CommonProperties.atlas_count
         CommonProperties.MipBias = vt.MipBias
         CommonProperties.PageTableSize = vtInfo.PageTableSize
 

@@ -978,7 +978,13 @@ Module modRender
 
         color_keys()
 
-        draw_image_rectangle(New RectangleF(0.0F, 79.0F, 200.0F, 200.0F), vt.atlas.texture, False)
+        For y = 0 To vt.atlas.atlascount
+            For x = 0 To vt.atlas.atlascount
+                Dim xoff = 0 + x * 10
+                Dim yoff = 79 + y * 10
+                draw_image_rectangle(New RectangleF(xoff, yoff, 10, 10), vt.atlas.texture, True, y * vt.atlas.atlascount + x)
+            Next
+        Next
         draw_image_rectangle(New RectangleF(0.0F, 280.0F, 128.0, 128.0), vt.pagetable.texture, False)
 
         'draw status of SSAA

@@ -38,14 +38,13 @@ Public Class PageTable
         Next
 
         texture = CreateTexture(TextureTarget.Texture2D, "PageTable")
-        texture.Storage2D(numLevels, InternalFormat.Rgb8, info.PageTableSize, info.PageTableSize)
         texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.NearestMipmapNearest)
         texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
         texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
         texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
-        texture.Parameter(TextureParameterName.TextureWrapR, TextureWrapMode.ClampToEdge)
         texture.Parameter(TextureParameterName.TextureBaseLevel, 0)
         texture.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
+        texture.Storage2D(numLevels, InternalFormat.Rgb8, info.PageTableSize, info.PageTableSize)
 
         For l = 0 To numLevels - 1
             Dim handle = GCHandle.Alloc(tableEntryPool(l), GCHandleType.Pinned)

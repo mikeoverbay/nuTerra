@@ -64,12 +64,6 @@ Public Class PageLoader
 
         t_mixerShader.StopUse()
         unbind_textures(22)
-
-        GL.NamedFramebufferReadBuffer(FBO_Mixer_ID, ReadBufferMode.ColorAttachment0)
-
-        Dim x = state.Page.X * info.PageSize
-        Dim y = state.Page.Y * info.PageSize
-        GL.CopyTextureSubImage2D(vt.atlas.texture.texture_id, 0, x, y, 0, 0, info.TileSize, info.TileSize)
     End Sub
 
     Private Sub CopyBorder(image As Byte())
