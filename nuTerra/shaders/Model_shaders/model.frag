@@ -75,7 +75,7 @@ void get_and_write_no_mips(void){
     if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
         //discard;
     }
-    gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz);
+    gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz)*0.5+0.5;
 }
 //##################################################################################
 vec3 get_detail_normal(vec4 anm){
@@ -155,7 +155,7 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
     nmap.ag = mix(texture(thisMaterial.maps[1], fs_in.TC1).ag, texture(thisMaterial.maps[3],
                 (uvc),1.0).ag, 1.0-thisMaterial.g_detailInfluences.xx);
 
-    gNormal.rgb = get_detail_normal(nmap);
+    gNormal.rgb = get_detail_normal(nmap)*0.5+0.5;
     }
 //##################################################################################
 layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
@@ -255,7 +255,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     bump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
     bump = normalize(bump);
 
-    gNormal = normalize(fs_in.TBN * bump);
+    gNormal = normalize(fs_in.TBN * bump)*0.5+0.5;
 }
 //##################################################################################
 layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
@@ -355,7 +355,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     bump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
     bump = normalize(bump);
 
-    gNormal = normalize(fs_in.TBN * bump);
+    gNormal = normalize(fs_in.TBN * bump)*0.5+0.5;
 }
 //##################################################################################
 layout(index = 6) subroutine(fn_entry) void FX_PBS_glass()
