@@ -11,6 +11,16 @@ Module MakeMega
     Public megaHDL_GMM As FileStream = Nothing  'gloss/metal
 
 
+    'The basic idea of this is:
+    '1. Render to the mix fbo at a high resolution. 4096 x 4096. May need to be higher.
+    '2. Create mips from this texture. Max of 5 total.
+    '3. Copy the texture as 128 x 128 tile blocks from the fbo texture to disc.
+    '4. Update the LUT texture at the proper pixel with the index of the texture on disc.
+    '5. DO this for each mip level also.
+    'The LUT is a uint texture, 32 x 32 with 5 mip levels. Each pixel in the each Mip stores the location index
+    'of the texture on disc.
+    'The LUT we shall call megaLUT and it will reside in each render_set of theMAP structure.
+
     Public Sub close_megas()
         'Used when Terra is shut down
         If megaHDL_AM IsNot Nothing Then
@@ -24,17 +34,10 @@ Module MakeMega
         End If
     End Sub
     Public Sub prallocate_disc_space()
-        'check if we have created these already.
-        'Close if they are open
-        If megaHDL_AM IsNot Nothing Then
-            megaHDL_AM.Close()
-        End If
-        If megaHDL_NM IsNot Nothing Then
-            megaHDL_NM.Close()
-        End If
-        If megaHDL_GMM IsNot Nothing Then
-            megaHDL_GMM.Close()
-        End If
+
+        'Close if they are exist already. This atomatically deletes them per options.
+        close_megas()
+
         Dim chunk_count = theMap.render_set.Length - 1
         'each chunk will be need:
         Dim MAX_RES As Integer = 4096

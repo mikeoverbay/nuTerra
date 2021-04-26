@@ -195,7 +195,7 @@ Public Class frmGbufferViewer
         colorMaskShader.Use()
 
         image.BindUnit(0)
-        GL.Uniform1(colorMaskShader("isNormal"), 0)
+        GL.Uniform1(colorMaskShader("isNormal"), 0) ' gNormal is no longer a float.
         GL.Uniform1(colorMaskShader("mask"), MASK)
         GL.UniformMatrix4(colorMaskShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
 
