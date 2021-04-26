@@ -584,10 +584,10 @@ try_again:
         CommonPropertiesBuffer.BindBase(2)
 
         vtInfo = New VirtualTextureInfo With {
-            .TileSize = 128,
-            .VirtualTextureSize = 16384 * 16
+            .TileSize = 1024,
+            .VirtualTextureSize = 262144
             }
-        vt = New VirtualTexture(vtInfo, 4096, 1)
+        vt = New VirtualTexture(vtInfo, 16384, 1)
         feedback = New FeedbackBuffer(vtInfo, 64, 64)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize

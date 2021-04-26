@@ -77,11 +77,10 @@
 			Dim rw = node.Rectangle.Width >> miplevel
 			Dim rh = node.Rectangle.Height >> miplevel
 
+			Dim value = (node.Mapping << 5) Or node.Level
 			For i = ry To ry + rh - 1
 				For j = rx To rx + rw - 1
-					If node.Mapping > 2047 Then Stop
-					If node.Level > 31 Then Stop
-					data(i, j) = (node.Mapping << 5) Or node.Level
+					data(i, j) = value
 				Next
 			Next
 
