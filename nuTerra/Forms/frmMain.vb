@@ -48,12 +48,19 @@ Public Class frmMain
 
     Private Sub frmMain_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         _STARTED = False
+        close_gracefully()
+    End Sub
+    Private Sub close_gracefully()
+        'need to kill everything we created.
+        'TODO
+        'Need to delete all GL stuff too.
+        close_megas()
         If frmGbufferViewer.Visible Then
             frmGbufferViewer.Visible = False
             frmGbufferViewer.Dispose()
         End If
+        remove_map_data()
     End Sub
-
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
 
         ' If the Program editor is inserted in to frmMain,
@@ -702,6 +709,10 @@ try_again:
         '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
         PROGRESS_BAR_IMAGE_ID = load_png_image_from_file(Path.Combine(sp, "resources\progress_bar.png"), False, True)
+
+        '---------------------------------------------------------
+        'load test_pattenr
+        TEST_PATTERN_ID = load_png_image_from_file(Path.Combine(sp, "resources\test_pattern.png"), False, True)
 
         '---------------------------------------------------------
         ' build Ascii characters texture.

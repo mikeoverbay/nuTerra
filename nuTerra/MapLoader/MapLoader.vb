@@ -512,6 +512,10 @@ Module MapLoader
         'It must happend after terrain load to get the path.
         load_cube_and_cube_map()
         '===============================================================
+        'test load of maga textures
+        '===============================================================
+        prallocate_disc_space()
+        '===============================================================
 
         MAP_LOADED = True
 
@@ -529,6 +533,7 @@ Module MapLoader
 
         '===============================================================
         'load some test emitters
+#If False Then
 
         ReDim Test_Emiters(500) '<--- emitter count
         ReDim sort_lists(Test_Emiters.Length)
@@ -575,6 +580,7 @@ Module MapLoader
 
             Test_Emiters(i).initialize()
         Next
+#End If
 
         CommonProperties.update()
 

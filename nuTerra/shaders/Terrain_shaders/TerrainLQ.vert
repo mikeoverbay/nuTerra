@@ -18,13 +18,14 @@ uniform mat3 normalMatrix;
 out VS_OUT {
     vec3 worldPosition;
     vec2 Global_UV;
+    vec2 UV;
 } vs_out;
 
 
 void main(void)
 {
     const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
-
+    vs_out.UV = vertexTexCoord;
     // calculate tex coords for global_AM
     vs_out.Global_UV = chunk.g_uv_offset + (vertexTexCoord * props.map_size);
     

@@ -2,6 +2,7 @@
 Imports OpenTK
 
 Module modGlobalVars
+    Public TEST_PATTERN_ID As GLTexture
     '=================================================================================
     'Effects, Particle Textures and emitters.. more
     Public Explosion_11776x512_91tiles_256x256_ID As GLTexture

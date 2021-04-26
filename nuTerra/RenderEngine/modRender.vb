@@ -521,6 +521,7 @@ Module modRender
         '------------------------------------------------
 
         vt.pagetable.texture.BindUnit(0)
+        'TEST_PATTERN_ID.BindUnit(0)
         vt.atlas.texture.BindUnit(1)
 
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)

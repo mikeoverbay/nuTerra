@@ -219,19 +219,20 @@
     <Compile Include="Space.bin\modSpaceBinFunctions.vb" />
     <Compile Include="Space.bin\modSpacedBinVars.vb" />
     <Compile Include="MapLoader\MapLoader.vb" />
-    <Compile Include="TextureEngine\ConcurrentQueue.vb" />
-    <Compile Include="TextureEngine\FeedbackBuffer.vb" />
-    <Compile Include="TextureEngine\Page.vb" />
-    <Compile Include="TextureEngine\PageCache.vb" />
-    <Compile Include="TextureEngine\PageCount.vb" />
-    <Compile Include="TextureEngine\PageIndexer.vb" />
-    <Compile Include="TextureEngine\PageLoader.vb" />
-    <Compile Include="TextureEngine\PageTable.vb" />
-    <Compile Include="TextureEngine\Quadtree.vb" />
-    <Compile Include="TextureEngine\TextureAtlas.vb" />
+    <Compile Include="Virtual Texturing\ConcurrentQueue.vb" />
+    <Compile Include="Virtual Texturing\FeedbackBuffer.vb" />
+    <Compile Include="Virtual Texturing\Mega Texture\MakeMega.vb" />
+    <Compile Include="Virtual Texturing\Page.vb" />
+    <Compile Include="Virtual Texturing\PageCache.vb" />
+    <Compile Include="Virtual Texturing\PageCount.vb" />
+    <Compile Include="Virtual Texturing\PageIndexer.vb" />
+    <Compile Include="Virtual Texturing\PageLoader.vb" />
+    <Compile Include="Virtual Texturing\PageTable.vb" />
+    <Compile Include="Virtual Texturing\Quadtree.vb" />
+    <Compile Include="Virtual Texturing\TextureAtlas.vb" />
     <Compile Include="TextureEngine\TextureLoaders.vb" />
-    <Compile Include="TextureEngine\VirtualTexture.vb" />
-    <Compile Include="TextureEngine\VirtualTextureInfo.vb" />
+    <Compile Include="Virtual Texturing\VirtualTexture.vb" />
+    <Compile Include="Virtual Texturing\VirtualTextureInfo.vb" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Forms\frmLightSettings.resx">
@@ -294,6 +295,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\banner.jpg" />
+    <Content Include="Resources\test_pattern.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="shaders\colorMaskShader\ColorMask.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

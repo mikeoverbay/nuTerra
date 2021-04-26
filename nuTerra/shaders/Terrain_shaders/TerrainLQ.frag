@@ -17,6 +17,7 @@ layout(binding = 1) uniform sampler2DArray TextureAtlas;
 in VS_OUT {
     vec3 worldPosition;
     vec2 Global_UV;
+    vec2 UV;
 } fs_in;
 
 
@@ -54,7 +55,7 @@ void main(void)
     const vec4 sample1 = SampleAtlas(page1, fs_in.Global_UV);
     const vec4 sample2 = SampleAtlas(page2, fs_in.Global_UV);
 
-    gColor = mix(sample1, sample2, mipfrac);
-
+    //gColor = mix(sample1, sample2, mipfrac);
+    gColor = texture (PageTable,fs_in.UV);
     gPosition = fs_in.worldPosition;
 }
