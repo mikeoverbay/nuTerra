@@ -14,7 +14,7 @@ Public Class FeedbackBuffer
     Public height As Integer
 
     Public fbo As Integer
-    ReadOnly rendertarget As GLTexture
+    ReadOnly rendertarget As Integer
     ReadOnly depthbuffer As Integer
     ReadOnly pboReadback As GLBuffer
     ReadOnly data() As FBColor
@@ -28,18 +28,18 @@ Public Class FeedbackBuffer
         indexer = New PageIndexer(info)
         ReDim Requests(indexer.Count - 1)
 
-        pboReadback = CreateBuffer(BufferTarget.PixelUnpackBuffer, "FeedbackBuffer_pboReadback")
+        pboReadback = CreateBuffer(BufferTarget.PixelPackBuffer, "FeedbackBuffer_pboReadback")
         BufferStorageNullData(pboReadback, width * height * 3, BufferStorageFlags.None)
 
-        rendertarget = CreateTexture(TextureTarget.Texture2D, "FeedbackBuffer_rendertarget")
-        rendertarget.Storage2D(1, InternalFormat.Rgb8, width, height)
+        rendertarget = CreateRenderbuffer("FeedbackBuffer_rendertarget")
+        GL.NamedRenderbufferStorage(rendertarget, RenderbufferStorage.Rgb8, width, height)
 
         depthbuffer = CreateRenderbuffer("FeedbackBuffer_depthbuffer")
         GL.NamedRenderbufferStorage(depthbuffer, RenderbufferStorage.DepthComponent16, width, height)
 
         fbo = CreateFramebuffer("FeedbackBuffer_fbo")
 
-        GL.NamedFramebufferTexture(fbo, FramebufferAttachment.ColorAttachment0, rendertarget.texture_id, 0)
+        GL.NamedFramebufferRenderbuffer(fbo, FramebufferAttachment.ColorAttachment0, RenderbufferTarget.Renderbuffer, rendertarget)
         GL.NamedFramebufferRenderbuffer(fbo, FramebufferAttachment.DepthAttachment, RenderbufferTarget.Renderbuffer, depthbuffer)
 
         Dim FBOHealth = GL.CheckNamedFramebufferStatus(fbo, FramebufferTarget.Framebuffer)
@@ -50,7 +50,7 @@ Public Class FeedbackBuffer
 
     Public Sub Dispose() Implements IDisposable.Dispose
         GL.DeleteFramebuffer(fbo)
-        rendertarget.Delete()
+        GL.DeleteRenderbuffer(rendertarget)
         GL.DeleteRenderbuffer(depthbuffer)
     End Sub
 
