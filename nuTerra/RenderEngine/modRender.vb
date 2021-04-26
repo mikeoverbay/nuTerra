@@ -499,6 +499,7 @@ Module modRender
         vt.Update(feedback.Requests)
 
         feedback.clear()
+        feedback.copy()
 
         GL_POP_GROUP()
     End Sub

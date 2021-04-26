@@ -16,17 +16,23 @@ Public Class FeedbackBuffer
     Public fbo As Integer
     ReadOnly rendertarget As GLTexture
     ReadOnly depthbuffer As Integer
+    ReadOnly pboReadback As GLBuffer
+    ReadOnly data() As FBColor
 
     Public Sub New(info As VirtualTextureInfo, width As Integer, height As Integer)
         Me.info = info
         Me.width = width
         Me.height = height
+        ReDim data(width * height - 1)
 
         indexer = New PageIndexer(info)
         ReDim Requests(indexer.Count - 1)
 
+        pboReadback = CreateBuffer(BufferTarget.PixelUnpackBuffer, "FeedbackBuffer_pboReadback")
+        BufferStorageNullData(pboReadback, width * height * 3, BufferStorageFlags.None)
+
         rendertarget = CreateTexture(TextureTarget.Texture2D, "FeedbackBuffer_rendertarget")
-        rendertarget.Storage2D(1, InternalFormat.Rgb16f, width, height)
+        rendertarget.Storage2D(1, InternalFormat.Rgb8, width, height)
 
         depthbuffer = CreateRenderbuffer("FeedbackBuffer_depthbuffer")
         GL.NamedRenderbufferStorage(depthbuffer, RenderbufferStorage.DepthComponent16, width, height)
@@ -50,20 +56,18 @@ Public Class FeedbackBuffer
 
     <StructLayout(LayoutKind.Sequential)>
     Private Structure FBColor
-        Public r As Half
-        Public g As Half
-        Public b As Half
+        Public r As Byte
+        Public g As Byte
+        Public b As Byte
     End Structure
 
     Public Sub Download()
         ' Download New data
-        Dim data(width * height - 1) As FBColor
-        ' GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.HalfFloat, data)
-        GL.GetTextureImage(rendertarget.texture_id, 0, PixelFormat.Rgb, PixelType.HalfFloat, 6 * data.Length, data)
+        GL.GetNamedBufferSubData(pboReadback.buffer_id, IntPtr.Zero, data.Length * 3, data)
 
         For i = 0 To data.Length - 1
-            If data(i).b >= 0.99F Then
-                Dim request = New Page(data(i).r.ToSingle, data(i).g.ToSingle, data(i).b.ToSingle - 1.0)
+            If data(i).b >= 1 Then
+                Dim request = New Page(data(i).r, data(i).g, data(i).b - 1)
                 AddRequestAndParents(request)
             End If
         Next
@@ -85,6 +89,12 @@ Public Class FeedbackBuffer
 
             Requests(indexer(page)) += 1
         Next
+    End Sub
+
+    Public Sub copy()
+        pboReadback.Bind(BufferTarget.PixelPackBuffer)
+        GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero)
+        GL.BindBuffer(BufferTarget.PixelPackBuffer, 0)
     End Sub
 
     Public Sub clear()

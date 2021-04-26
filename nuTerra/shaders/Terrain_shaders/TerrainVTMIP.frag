@@ -20,5 +20,5 @@ void main(void)
     float mip = floor(MipLevel(fs_in.UV, props.VirtualTextureSize) - MipBias);
     mip = clamp(mip, 0, mipCount);
     vec2 offset = floor(fs_in.UV * props.PageTableSize);
-    gColor = vec3(floor(vec3(offset / exp2(mip), 1.0 + mip)));
+    gColor = vec3(floor(vec3(offset / exp2(mip), 1.0 + mip))) / 255.0;
 }

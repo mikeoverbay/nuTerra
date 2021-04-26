@@ -55,7 +55,6 @@ void main(void)
     const vec4 sample1 = SampleAtlas(page1, fs_in.Global_UV);
     const vec4 sample2 = SampleAtlas(page2, fs_in.Global_UV);
 
-    //gColor = mix(sample1, sample2, mipfrac);
-    gColor = texture (PageTable,fs_in.UV);
+    gColor = mix(sample1, sample2, mipfrac);
     gPosition = fs_in.worldPosition;
 }
