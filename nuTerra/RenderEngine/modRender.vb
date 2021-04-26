@@ -981,12 +981,11 @@ Module modRender
 
         For y = 0 To vt.atlas.atlascount - 1
             For x = 0 To vt.atlas.atlascount - 1
-                Dim xoff = 0 + x * 10
-                Dim yoff = 79 + y * 10
-                draw_image_rectangle(New RectangleF(xoff, yoff, 10, 10), vt.atlas.texture, True, y * vt.atlas.atlascount + x)
+                Dim xoff = 0 + x * 4
+                Dim yoff = 79 + y * 4
+                draw_image_rectangle(New RectangleF(xoff, yoff, 4, 4), vt.atlas.texture, True, y * vt.atlas.atlascount + x)
             Next
         Next
-        draw_image_rectangle(New RectangleF(0.0F, 280.0F, 128.0, 128.0), vt.pagetable.texture, False)
 
         'draw status of SSAA
         draw_text(FXAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)

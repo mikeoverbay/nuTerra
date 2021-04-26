@@ -1,7 +1,7 @@
 ﻿Public Class Quadtree
 	Public Level As Integer
 	Public Rectangle As Rectangle
-	Public Mapping As Point
+	Public Mapping As Integer
 
 	Public Children As Quadtree()
 
@@ -11,7 +11,7 @@
 		ReDim Me.Children(3)
 	End Sub
 
-	Public Sub Add(request As Page, mapping As Point)
+	Public Sub Add(request As Page, mapping As Integer)
 		Dim scale = 1 << request.Mip
 		Dim x = request.X * scale
 		Dim y = request.Y * scale
@@ -79,10 +79,9 @@
 
 			For i = ry To ry + rh - 1
 				For j = rx To rx + rw - 1
-					If node.Mapping.X > 32 Then Stop
-					If node.Mapping.Y > 64 Then Stop
-					If node.Level > 32 Then Stop
-					data(i, j) = (node.Mapping.X << 11) Or (node.Mapping.Y << 5) Or node.Level
+					If node.Mapping > 2047 Then Stop
+					If node.Level > 31 Then Stop
+					data(i, j) = (node.Mapping << 5) Or node.Level
 				Next
 			Next
 

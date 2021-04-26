@@ -53,13 +53,6 @@ Public Class PageLoader
         Dim x = xMin + state.Page.X / info.PageTableSize * perSize * _w
         Dim y = yMin + state.Page.Y / info.PageTableSize * perSize * _h
 
-        If state.Page.Mip = 5 Then
-            LogThis("{0}", state.Page)
-            LogThis("{0} {1}", x, x + _w / info.PageTableSize * perSize)
-            LogThis("{0} {1}", y, y + _h / info.PageTableSize * perSize)
-
-        End If
-
         Dim proj = Matrix4.CreateOrthographicOffCenter(
             x, x + _w / info.PageTableSize * perSize,
             y, y + _h / info.PageTableSize * perSize,

@@ -11,7 +11,7 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 
-layout(binding = 0) uniform sampler2D PageTable;
+layout(binding = 0) uniform usampler2D PageTable;
 layout(binding = 1) uniform sampler2DArray TextureAtlas;
 
 in VS_OUT {
@@ -23,18 +23,18 @@ in VS_OUT {
 
 // This function samples the page table and returns the page's
 // position and mip level.
-vec3 SampleTable(vec2 uv, float mip)
+uint SampleTable(vec2 uv, float mip)
 {
     const vec2 offset = fract(uv * props.PageTableSize) / props.PageTableSize;
-    return textureLod(PageTable, uv - offset, mip).xyz;
+    return textureLod(PageTable, uv - offset, mip).r;
 }
 
 // This functions samples from the texture atlas and returns the final color
-vec4 SampleAtlas(vec3 page, vec2 uv)
+vec4 SampleAtlas(uint page, vec2 uv)
 {
-    const float mipsize = exp2(floor(page.z * 31.0 + 0.5));
+    const float mipsize = exp2(page & 31);
     uv = fract(uv * props.PageTableSize / mipsize);
-    const float layer = (page.x * 31.0 + page.y * 63.0 * props.atlas_count);
+    const uint layer = (page >> 5);
     return texture(TextureAtlas, vec3(uv, layer));
 }
 
@@ -49,8 +49,8 @@ void main(void)
     const float mip2 = mip1 + 1;
     const float mipfrac = miplevel - mip1;
 
-    const vec3 page1 = SampleTable(fs_in.Global_UV, mip1);
-    const vec3 page2 = SampleTable(fs_in.Global_UV, mip2);
+    const uint page1 = SampleTable(fs_in.Global_UV, mip1);
+    const uint page2 = SampleTable(fs_in.Global_UV, mip2);
 
     const vec4 sample1 = SampleAtlas(page1, fs_in.Global_UV);
     const vec4 sample2 = SampleAtlas(page2, fs_in.Global_UV);

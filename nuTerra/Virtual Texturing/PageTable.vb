@@ -19,11 +19,11 @@ Public Class PageTable
         Dim numLevels As Integer = Math.Log(info.PageTableSize, 2) + 1
         Me.quadtree = New Quadtree(New Rectangle(0, 0, info.PageTableSize, info.PageTableSize), numLevels - 1)
 
-        AddHandler cache.Added, Sub(p As Page, pt As Point)
+        AddHandler cache.Added, Sub(p As Page, mapping As Integer)
                                     Me.quadtreeDirty = True
-                                    Me.quadtree.Add(p, pt)
+                                    Me.quadtree.Add(p, mapping)
                                 End Sub
-        AddHandler cache.Removed, Sub(p As Page, pt As Point)
+        AddHandler cache.Removed, Sub(p As Page, mapping As Integer)
                                       Me.quadtreeDirty = True
                                       Me.quadtree.Remove(p)
                                   End Sub
@@ -42,15 +42,8 @@ Public Class PageTable
         texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
         texture.Parameter(TextureParameterName.TextureBaseLevel, 0)
         texture.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
-        Const GL_RGB565 = 36194
-        texture.Storage2D(numLevels, GL_RGB565, info.PageTableSize, info.PageTableSize)
-
-        For l = 0 To numLevels - 1
-            Dim handle = GCHandle.Alloc(tableEntryPool(l), GCHandleType.Pinned)
-            Dim ptr = handle.AddrOfPinnedObject()
-            texture.SubImage2D(l, 0, 0, indexer.sizes(l), indexer.sizes(l), PixelFormat.Rgb, PixelType.UnsignedShort565, ptr)
-            handle.Free()
-        Next
+        ' Const GL_RGB565 = 36194
+        texture.Storage2D(numLevels, SizedInternalFormat.R16ui, info.PageTableSize, info.PageTableSize)
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
@@ -71,7 +64,7 @@ Public Class PageTable
 
             Dim handle = GCHandle.Alloc(tableEntryPool(l), GCHandleType.Pinned)
             Dim ptr = handle.AddrOfPinnedObject()
-            texture.SubImage2D(l, 0, 0, indexer.sizes(l), indexer.sizes(l), PixelFormat.Rgb, PixelType.UnsignedShort565, ptr)
+            texture.SubImage2D(l, 0, 0, indexer.sizes(l), indexer.sizes(l), PixelFormat.RedInteger, PixelType.UnsignedShort, ptr)
             handle.Free()
         Next
     End Sub

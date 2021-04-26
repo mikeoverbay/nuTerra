@@ -24,12 +24,12 @@ Public Class TextureAtlas
         texture.Storage3D(1, SizedInternalFormat.Rgba8, info.TileSize, info.TileSize, atlascount * atlascount)
     End Sub
 
-	Public Sub uploadPage(pt As Point, data As Byte())
+    Public Sub uploadPage(index As Integer, data As Byte())
         GL.NamedFramebufferReadBuffer(FBO_Mixer_ID, ReadBufferMode.ColorAttachment0)
-        GL.CopyTextureSubImage3D(texture.texture_id, 0, 0, 0, pt.X + pt.Y * atlascount, 0, 0, info.TileSize, info.TileSize)
+        GL.CopyTextureSubImage3D(texture.texture_id, 0, 0, 0, index, 0, 0, info.TileSize, info.TileSize)
     End Sub
 
-	Public Sub Dispose() Implements IDisposable.Dispose
+    Public Sub Dispose() Implements IDisposable.Dispose
         texture.Delete()
     End Sub
 End Class
