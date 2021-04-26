@@ -109,7 +109,7 @@ Module FBO_main
             ' gNormal ------------------------------------------------------------------------------------------
             ' 3 color 16f : normal in RGB
             gNormal = CreateTexture(TextureTarget.Texture2D, "gNormal")
-            gNormal.Storage2D(1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            gNormal.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gGM_Flag ------------------------------------------------------------------------------------------
             ' 4 color int : GM in RG : Flag in b : Wetness in a

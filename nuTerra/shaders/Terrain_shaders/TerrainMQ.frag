@@ -275,7 +275,7 @@ void main(void)
     gColor.rgb = base.rgb;
     gColor.a = global.a * 0.8;
 
-    gNormal.xyz = normalize(out_n.xyz);
+    gNormal.xyz = normalize(out_n.xyz)*0.5+0.5;
 
     gPosition = fs_in.worldPosition;
 }

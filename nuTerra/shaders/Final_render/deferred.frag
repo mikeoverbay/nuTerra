@@ -114,7 +114,7 @@ void main (void)
            
             vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
-            vec3 N = normalize(texelFetch(gNormal, ivec2(gl_FragCoord), 0).xyz);
+            vec3 N = normalize(texelFetch(gNormal, ivec2(gl_FragCoord), 0).xyz*2.0-1.0);
 
             float POWER;
             float INTENSITY;

@@ -26,7 +26,7 @@ Module modFrustum
                 End If
 
                 ' Force LQ!!!!
-                theMap.render_set(i).quality = TerrainQuality.LQ
+                'theMap.render_set(i).quality = TerrainQuality.LQ
             End If
         Next
     End Sub
