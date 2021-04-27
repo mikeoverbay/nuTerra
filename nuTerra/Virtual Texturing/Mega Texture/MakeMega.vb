@@ -209,12 +209,12 @@ Module MakeMega
         er = GL.GetError
 
         GL.BindTexture(TextureTarget.Texture2D, LUT.texture_id)
-        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R32ui, 32, 32, 0, PixelFormat.Red, PixelType.UnsignedInt, lut_data(0).buff)
-        GL.TexImage2D(TextureTarget.Texture2D, 1, PixelInternalFormat.R32ui, 16, 16, 0, PixelFormat.Red, PixelType.UnsignedInt, lut_data(1).buff)
-        GL.TexImage2D(TextureTarget.Texture2D, 2, PixelInternalFormat.R32ui, 8, 8, 0, PixelFormat.Red, PixelType.UnsignedInt, lut_data(2).buff)
-        GL.TexImage2D(TextureTarget.Texture2D, 3, PixelInternalFormat.R32ui, 4, 4, 0, PixelFormat.Red, PixelType.UnsignedInt, lut_data(3).buff)
-        GL.TexImage2D(TextureTarget.Texture2D, 4, PixelInternalFormat.R32ui, 1, 1, 0, PixelFormat.Red, PixelType.UnsignedInt, lut_data(4).buff)
-        GL.TexImage2D(TextureTarget.Texture2D, 5, PixelInternalFormat.R32ui, 1, 1, 0, PixelFormat.Red, PixelType.UnsignedInt, lut_data(5).buff)
+        GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 32, 32, PixelFormat.RedInteger, PixelType.UnsignedInt, lut_data(0).buff)
+        GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 16, 16, PixelFormat.RedInteger, PixelType.UnsignedInt, lut_data(1).buff)
+        GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 8, 8, PixelFormat.RedInteger, PixelType.UnsignedInt, lut_data(2).buff)
+        GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 4, 4, PixelFormat.RedInteger, PixelType.UnsignedInt, lut_data(3).buff)
+        GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 2, 2, PixelFormat.RedInteger, PixelType.UnsignedInt, lut_data(4).buff)
+        GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 1, 1, PixelFormat.RedInteger, PixelType.UnsignedInt, lut_data(5).buff)
         GL.BindTexture(TextureTarget.Texture2D, 0)
         er = GL.GetError
 
