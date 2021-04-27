@@ -585,7 +585,7 @@ try_again:
 
         vtInfo = New VirtualTextureInfo With {
             .TileSize = 256,
-            .VirtualTextureSize = 131072
+            .VirtualTextureSize = 256 * 1024
             }
         vt = New VirtualTexture(vtInfo, 4096, 1)
         feedback = New FeedbackBuffer(vtInfo, 64, 64)
