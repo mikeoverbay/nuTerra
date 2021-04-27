@@ -1,29 +1,47 @@
-﻿#version 450 core
+#version 450 core
 
+#ifdef GL_SPIRV
+#extension GL_GOOGLE_include_directive : require
+#else
 #extension GL_ARB_shading_language_include : require
+#endif
 
 #define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
 
+layout(early_fragment_tests) in;
+
 layout (location = 0) out vec4 gColor;
-layout (location = 1) out vec4 gNormal;
+layout (location = 1) out vec3 gNormal;
+layout (location = 2) out vec4 gGMF;
+//layout (location = 3) out vec3 gPosition;
+
+layout(binding = 1 ) uniform sampler2DArray at[8];
+layout(binding = 17) uniform sampler2D mixtexture[4];
 
 layout(binding = 0) uniform sampler2D global_AM;
 
-layout(binding = 1) uniform sampler2DArray at[8];
-layout(binding = 9) uniform sampler2D mixtexture[4];
 
-
-in VS_OUT {
-    vec4 Vertex;
-    vec3 worldPosition;
+layout (location = 0) in VS_OUT {
     vec2 UV;
     vec2 Global_UV;
-    flat uint map_id;
 } fs_in;
 
+#ifdef SHOW_TEST_TEXTURES
+//==============================================================
 
-
+const vec4 test_colors[8] = {
+    vec4(1.0,  1.0,  0.0,  0.0),
+    vec4(0.0,  1.0,  0.0,  0.0),
+    vec4(0.0,  0.0,  1.0,  0.0),
+    vec4(1.0,  1.0,  0.0,  0.0),
+    vec4(1.0,  0.0,  1.0,  0.0),
+    vec4(1.0,  0.65, 0.0,  0.0),
+    vec4(1.0,  0.49, 0.31, 0.0),
+    vec4(0.5,  0.5,  0.5,  0.0)
+};
+//==============================================================
+#endif
 
 /*===========================================================*/
 // https://www.gamedev.net/articles/programming/graphics/advanced-terrain-texture-splatting-r3287/
@@ -68,7 +86,7 @@ vec2 get_transformed_uv(in vec4 U, in vec4 V) {
     return out_uv;
     }
 
-vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id)
+vec4 crop( sampler2DArray samp, in vec2 uv , in float layer)
 {
     vec2  dx_vtc        = dFdx(uv*1024.0);
     vec2  dy_vtc        = dFdy(uv*1024.0);
@@ -80,17 +98,6 @@ vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id)
     return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
 
-vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer)
-{
-    vec2  dx_vtc        = dFdx(uv*1024.0);
-    vec2  dy_vtc        = dFdy(uv*1024.0);
-    float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    float mipLevel = 0.5 * log2(delta_max_sqr);
-
-    vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-
-    return textureLod( samp, vec3(cropped, layer), mipLevel);
-    }
 
 vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer)
 {
@@ -109,6 +116,11 @@ vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer)
     return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
 
+/*===========================================================*/
+/*===========================================================*/
+/*===========================================================*/
+/*===========================================================*/
+/*===========================================================*/
 
 void main(void)
 {
@@ -141,7 +153,7 @@ void main(void)
         const vec2 tuv = get_transformed_uv(L.U[i], L.V[i]); 
 
         // Get AM maps,crop and set Test outline blend flag
-        t[i] = crop(at[i], tuv, 0.0, i);
+        t[i] = crop(at[i], tuv, 0.0);
 
         mt[i] = crop3(at[i], tuv, 2.0);
 
@@ -163,7 +175,7 @@ void main(void)
         // specular is in red channel of the normal maps.
         // Ambient occlusion is in the Blue channel.
         // Green and Alpha are normal values.
-        n[i] = crop2(at[i], tuv, 1.0);
+        n[i] = crop(at[i], tuv, 1.0);
         mn[i] = crop3(at[i], tuv, 3.0);
 
         // get the ambient occlusion
@@ -201,12 +213,21 @@ void main(void)
 
     // wetness
     base = blend(base, base.a+0.75, vec4(props.waterColor, props.waterAlpha), global.a);
+    // Texture outlines
 
     float specular = out_n.r;
+
+    out_n = convertNormal(out_n);
+    
+    // there are no metal values for the terrain so we hard code 0.1;
+    // specular is in the red channel of the normal maps;
+    vec4 gmm_out = vec4(0.2, specular, 128.0/255.0, 0.0);
+    gGMF = gmm_out;
 
     //gColor = gColor* 0.001 + r1_8;
     gColor.rgb = base.rgb;
     gColor.a = global.a * 0.8;
 
-    gNormal.xyz = normalize(convertNormal(out_n).xyz);
+    gNormal.xyz = normalize(out_n.xyz)*0.5+0.5;
+
 }

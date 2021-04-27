@@ -246,6 +246,7 @@ Module ShaderLoader
     Public image2dArrayShader As Shader
     Public image2dFlipShader As Shader
     Public image2dShader As Shader
+    Public MegaMixerShader As Shader
     Public MiniMapRingsShader As Shader
     Public mixTerrainShader As Shader
     Public mDepthWriteShader As Shader
@@ -310,6 +311,7 @@ Module ShaderLoader
         image2dShader = New Shader("image2d")
         glassPassShader = New Shader("glassPass")
         'unused: gWriterShader = New Shader("gWriter")
+        MegaMixerShader = New Shader("MegaMixer")
         MiniMapRingsShader = New Shader("MiniMapRings")
         mixTerrainShader = New Shader("t_mixer")
         mDepthWriteShader = New Shader("mDepthWrite")
@@ -365,6 +367,7 @@ Module ShaderLoader
         shaders.Add(image2dShader)
         shaders.Add(glassPassShader)
         'unused: shaders.Add(gWriterShader)
+        shaders.Add(MegaMixerShader)
         shaders.Add(MiniMapRingsShader)
         shaders.Add(mixTerrainShader)
         shaders.Add(mDepthWriteShader)

@@ -410,6 +410,12 @@
     <None Include="shaders\Developer\TerrainNormalsHQ.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\mapMixing\MegaMixer.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="shaders\mapMixing\MegaMixer.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Terrain_shaders\TerrainHQ.tesc">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

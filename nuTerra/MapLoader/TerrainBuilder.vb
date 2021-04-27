@@ -116,6 +116,7 @@ Module TerrainBuilder
     End Enum
 
     Public Structure chunk_render_data_
+        Public mega_LUT As GLTexture
         Public matrix As Matrix4
         Public shadowMatrix As Matrix4
         '-------------------------------

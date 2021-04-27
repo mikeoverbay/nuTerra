@@ -158,8 +158,8 @@ Public Class frmGbufferViewer
                 toLinearShader.StopUse()
 
             Case 2
-                draw_image(img_width, img_height, FBOm.gColor, 0)
-                'draw_image(img_width, img_height, FBO_ShadowBaker.shadow_map, 0)
+                'draw_image(img_width, img_height, FBOm.gColor, 0)
+                draw_image(img_width, img_height, FBO_Mega_set.gColor, 0)
 
             Case 3
                 draw_image(img_width, img_height, FBOm.gPosition, 0)

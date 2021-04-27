@@ -503,9 +503,16 @@ Module MapLoader
         'As it says.. create the terrain
         If DONT_BLOCK_TERRAIN Then
             Create_Terrain()
-            TERRAIN_LOADED = True
             PLAYER_FIELD_CELL_SIZE = Math.Abs(MAP_BB_BL.X - MAP_BB_UR.X) / 10.0F
-            'TO DO and there is lots
+
+#If True Then
+            If Not Build_Mega_Textures() Then
+                MsgBox("failed to create Virtual Textures on Disc Drive!" + vbCrLf +
+                   "I will close now...", MsgBoxStyle.Exclamation, "Not a good day!")
+                End
+            End If
+#End If
+            TERRAIN_LOADED = True
         End If 'DONT_BLOCK_TERRAIN
         '===============================================================
         'load cube map for PBS_ext lighting,
@@ -514,7 +521,6 @@ Module MapLoader
         '===============================================================
         'test load of maga textures
         '===============================================================
-        'prallocate_disc_space()
         '===============================================================
 
         MAP_LOADED = True

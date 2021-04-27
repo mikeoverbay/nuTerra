@@ -12,6 +12,7 @@ Module FBO_Mega
     ''' </summary>
     Public NotInheritable Class FBO_Mega_set
         Public Shared gColor, gNormal, gGmm As GLTexture
+        Public Shared max_mip_level As Integer = 1
         Private Shared width As Integer
         Private Shared height As Integer
         Private Shared attactments() As DrawBuffersEnum = {FramebufferAttachment.ColorAttachment0, FramebufferAttachment.ColorAttachment1, FramebufferAttachment.ColorAttachment2}
@@ -55,18 +56,21 @@ Module FBO_Mega
             gColor = CreateTexture(TextureTarget.Texture2D, "FBO_Mega_gColor")
             gColor.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             gColor.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            gColor.Parameter(TextureParameterName.TextureMaxLevel, max_mip_level)
             gColor.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
             ' gNormal ------------------------------------------------------------------------------------------
             gNormal = CreateTexture(TextureTarget.Texture2D, "FBO_Mega_gNormal")
             gNormal.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             gNormal.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            gNormal.Parameter(TextureParameterName.TextureMaxLevel, max_mip_level)
             gNormal.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
             ' gGmmArray ------------------------------------------------------------------------------------------
             gGmm = CreateTexture(TextureTarget.Texture2D, "FBO_Mega_gGmm")
             gGmm.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             gGmm.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            gGmm.Parameter(TextureParameterName.TextureMaxLevel, max_mip_level)
             gGmm.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
         End Sub
 
