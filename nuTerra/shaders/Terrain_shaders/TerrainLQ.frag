@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_COMMON_PROPERTIES_UBO
+#define USE_MIPLEVEL_FUNCTION
 #define USE_VT_FUNCTIONS
 #include "common.h" //! #include "../common.h"
 
@@ -22,24 +23,6 @@ in VS_OUT {
 } fs_in;
 
 
-// This function samples the page table and returns the page's
-// position and mip level.
-uvec2 SampleTable(vec2 uv, float mip)
-{
-    const vec2 offset = fract(uv * props.PageTableSize) / props.PageTableSize;
-    const uint pck = textureLod(PageTable, uv - offset, mip).r;
-    return uvec2((pck >> 5), (pck & 31));
-}
-
-// This functions samples from the texture atlas and returns the final color
-vec4 SampleAtlas(sampler2DArray atlas, uvec2 page, vec2 uv)
-{
-    const float mipsize = exp2(page.y);
-    uv = fract(uv * props.PageTableSize / mipsize);
-    return texture(atlas, vec3(uv, page.x));
-}
-
-
 /*===========================================================*/
 void main(void)
 {
@@ -50,8 +33,8 @@ void main(void)
     const float mip2 = mip1 + 1;
     const float mipfrac = miplevel - mip1;
 
-    const uvec2 page1 = SampleTable(fs_in.Global_UV, mip1);
-    const uvec2 page2 = SampleTable(fs_in.Global_UV, mip2);
+    const uvec2 page1 = SampleTable(PageTable, fs_in.Global_UV, mip1);
+    const uvec2 page2 = SampleTable(PageTable, fs_in.Global_UV, mip2);
 
     const vec4 color_sample1 = SampleAtlas(ColorTextureAtlas, page1, fs_in.Global_UV);
     const vec4 color_sample2 = SampleAtlas(ColorTextureAtlas, page2, fs_in.Global_UV);

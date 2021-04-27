@@ -21,7 +21,6 @@ layout(location = 0) in VS_OUT {
 } tcs_in[];
 
 layout(location = 0) out TCS_OUT {
-    vec3 vertexPosition;
     vec3 vertexNormal;
     vec3 vertexTangent;
     vec2 UV;
@@ -41,7 +40,6 @@ void main(void)
     gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
 
     // forward
-    tcs_out[gl_InvocationID].vertexPosition = tcs_in[gl_InvocationID].vertexPosition;
     tcs_out[gl_InvocationID].vertexNormal = tcs_in[gl_InvocationID].vertexNormal;
     tcs_out[gl_InvocationID].vertexTangent = tcs_in[gl_InvocationID].vertexTangent;
     tcs_out[gl_InvocationID].UV = tcs_in[gl_InvocationID].UV;

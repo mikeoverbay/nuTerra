@@ -130,7 +130,6 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float blend_global_threshold;
     float VirtualTextureSize;
     float AtlasScale;
-    float atlas_count;
     float PageTableSize;
 } props;
 #endif
@@ -220,7 +219,7 @@ layout(std430, binding = TERRAIN_CHUNK_INFO_BASE) readonly buffer TerrainChunkIn
 };
 #endif
 
-#ifdef USE_VT_FUNCTIONS
+#ifdef USE_MIPLEVEL_FUNCTION
 // This function estimates mipmap levels
 float MipLevel(vec2 uv, float size)
 {
@@ -229,5 +228,24 @@ float MipLevel(vec2 uv, float size)
     float d = max(dot(dx, dx), dot(dy, dy));
 
     return max(0.5 * log2(d), 0);
+}
+#endif
+
+#ifdef USE_VT_FUNCTIONS
+// This function samples the page table and returns the page's
+// position and mip level.
+uvec2 SampleTable(usampler2D table, vec2 uv, float mip)
+{
+    const vec2 offset = fract(uv * props.PageTableSize) / props.PageTableSize;
+    const uint pck = textureLod(table, uv - offset, mip).r;
+    return uvec2((pck >> 5), (pck & 31));
+}
+
+// This functions samples from the texture atlas and returns the final color
+vec4 SampleAtlas(sampler2DArray atlas, uvec2 page, vec2 uv)
+{
+    const float mipsize = exp2(page.y);
+    uv = fract(uv * props.PageTableSize / mipsize);
+    return texture(atlas, vec3(uv, page.x));
 }
 #endif

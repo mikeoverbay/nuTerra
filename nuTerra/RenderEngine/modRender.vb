@@ -539,53 +539,10 @@ Module modRender
         Next
 
         TerrainLQShader.StopUse()
-        unbind_textures(2)
         '=======================================================================================
         'draw visible HZ terrain
         '=======================================================================================
         '------------------------------------------------
-
-        TerrainMQShader.Use()  '<-------------- Shader Bind
-        '------------------------------------------------
-
-        theMap.GLOBAL_AM_ID.BindUnit(21)
-
-        FBO_mixer_set.gColor.BindUnit(22)
-        FBO_mixer_set.gNormal.BindUnit(23)
-        FBO_mixer_set.gGmm.BindUnit(24)
-
-        For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.MQ Then
-                GL.UniformMatrix3(TerrainMQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
-
-                'bind all the data for this chunk
-                With theMap.render_set(i)
-                    .layersStd140_ubo.BindBase(0)
-
-                    'AM maps
-                    theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
-                    theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
-                    theMap.render_set(i).layer.render_info(2).atlas_id.BindUnit(3)
-                    theMap.render_set(i).layer.render_info(3).atlas_id.BindUnit(4)
-                    theMap.render_set(i).layer.render_info(4).atlas_id.BindUnit(5)
-                    theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(6)
-                    theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(7)
-                    theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(8)
-
-                    'bind blend textures
-                    .TexLayers(0).Blend_id.BindUnit(17)
-                    .TexLayers(1).Blend_id.BindUnit(18)
-                    .TexLayers(2).Blend_id.BindUnit(19)
-                    .TexLayers(3).Blend_id.BindUnit(20)
-
-                    'draw chunk
-                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-                End With
-            End If
-        Next
-
-        TerrainMQShader.StopUse()
-
 
         If USE_TESSELLATION Then
             TerrainHQShader.Use()  '<-------------- Shader Bind
@@ -599,22 +556,6 @@ Module modRender
                     With theMap.render_set(i)
                         .layersStd140_ubo.BindBase(0)
 
-                        'AM maps
-                        theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
-                        theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
-                        theMap.render_set(i).layer.render_info(2).atlas_id.BindUnit(3)
-                        theMap.render_set(i).layer.render_info(3).atlas_id.BindUnit(4)
-                        theMap.render_set(i).layer.render_info(4).atlas_id.BindUnit(5)
-                        theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(6)
-                        theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(7)
-                        theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(8)
-
-                        'bind blend textures
-                        .TexLayers(0).Blend_id.BindUnit(17)
-                        .TexLayers(1).Blend_id.BindUnit(18)
-                        .TexLayers(2).Blend_id.BindUnit(19)
-                        .TexLayers(3).Blend_id.BindUnit(20)
-
                         'draw chunk
                         GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                     End With
@@ -624,11 +565,10 @@ Module modRender
             TerrainHQShader.StopUse()
         End If
 
+        unbind_textures(2)
 
         GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)
-
-        unbind_textures(30)
 
         If WIRE_TERRAIN Then
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)

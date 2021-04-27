@@ -63,6 +63,7 @@ Public Class FeedbackBuffer
     Public Sub Download()
         ' Download New data
         GL.GetNamedBufferSubData(pboReadback.buffer_id, IntPtr.Zero, data.Length * 6, data)
+        Dim told = 0
         For i = 0 To data.Length - 1
             If data(i).b >= 1 Then
                 AddRequestAndParents(data(i).r, data(i).g, data(i).b - 1)

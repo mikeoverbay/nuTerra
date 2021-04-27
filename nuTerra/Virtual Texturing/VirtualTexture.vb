@@ -5,13 +5,12 @@
 Public Class VirtualTexture
     Implements IDisposable
 
-    Const ChannelCount = 4
     ReadOnly info As VirtualTextureInfo
     ReadOnly indexer As PageIndexer
     Public pagetable As PageTable
     Public atlas As TextureAtlas
     ReadOnly loader As PageLoader
-    Public cache As PageCache
+    ReadOnly cache As PageCache
 
     ReadOnly atlascount As Integer
     ReadOnly uploadsperframe As Integer

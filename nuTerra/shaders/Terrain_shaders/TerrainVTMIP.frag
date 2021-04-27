@@ -3,7 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_COMMON_PROPERTIES_UBO
-#define USE_VT_FUNCTIONS
+#define USE_MIPLEVEL_FUNCTION
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec3 gColor;

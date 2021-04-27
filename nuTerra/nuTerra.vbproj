@@ -422,12 +422,6 @@
     <None Include="shaders\Terrain_shaders\TerrainHQ.tese">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\TerrainMQ.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="shaders\Terrain_shaders\TerrainMQ.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="shaders\Terrain_shaders\TerrainVTMIP.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

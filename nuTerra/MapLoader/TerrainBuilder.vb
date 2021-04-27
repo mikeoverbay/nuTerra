@@ -111,7 +111,6 @@ Module TerrainBuilder
 
     Enum TerrainQuality
         LQ
-        MQ
         HQ
     End Enum
 

@@ -17,16 +17,11 @@ Module modFrustum
                 Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
                 Dim v As New Vector3(l1, l2, l3)
                 Dim l = v.Length
-                If l > 300.0F Then 'This value is the distance at which the chunk drawing is swapped.
+                If l > 100.0F Then 'This value is the distance at which the chunk drawing is swapped.
                     theMap.render_set(i).quality = TerrainQuality.LQ
-                ElseIf l > 150.0F Then
-                    theMap.render_set(i).quality = TerrainQuality.MQ
                 Else
-                    theMap.render_set(i).quality = If(USE_TESSELLATION, TerrainQuality.HQ, TerrainQuality.MQ)
+                    theMap.render_set(i).quality = If(USE_TESSELLATION, TerrainQuality.HQ, TerrainQuality.LQ)
                 End If
-
-                ' Force LQ!!!!
-                theMap.render_set(i).quality = TerrainQuality.LQ
             End If
         Next
     End Sub

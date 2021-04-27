@@ -1,72 +1,9 @@
 ﻿Imports System.IO
 Imports OpenTK.Graphics.OpenGL
 
-Public Enum optionNV_all_none_default
-    _default
-    all
-    none
-End Enum
-
-Public Enum optionNV_on_off_default
-    _default
-    _on
-    off
-End Enum
-
 Module ShaderLoader
     Private incPaths() As String = {"/"}
     Private incPathLengths() As Integer = {1}
-
-    Public pragma_optionNV_strict = optionNV_on_off_default._default
-    Public pragma_optionNV_fastmath = optionNV_on_off_default._default
-    Public pragma_optionNV_fastprecision = optionNV_on_off_default._default
-    Public pragma_optionNV_unroll = optionNV_all_none_default._default
-    Public pragma_optionNV_inline = optionNV_all_none_default._default
-    Public pragma_optionNV_ifcvt = optionNV_all_none_default._default
-
-    Private ReadOnly Property shader_pragmas As String
-        Get
-            Dim res = ""
-
-            If pragma_optionNV_strict = optionNV_on_off_default._on Then
-                res += "#pragma optionNV(strict on)" & vbNewLine
-            ElseIf pragma_optionNV_strict = optionNV_on_off_default.off Then
-                res += "#pragma optionNV(strict off)" & vbNewLine
-            End If
-
-            If pragma_optionNV_fastmath = optionNV_on_off_default._on Then
-                res += "#pragma optionNV(fastmath on)" & vbNewLine
-            ElseIf pragma_optionNV_fastmath = optionNV_on_off_default.off Then
-                res += "#pragma optionNV(fastmath off)" & vbNewLine
-            End If
-
-            If pragma_optionNV_fastprecision = optionNV_on_off_default._on Then
-                res += "#pragma optionNV(fastprecision on)" & vbNewLine
-            ElseIf pragma_optionNV_fastprecision = optionNV_on_off_default.off Then
-                res += "#pragma optionNV(fastprecision off)" & vbNewLine
-            End If
-
-            If pragma_optionNV_unroll = optionNV_all_none_default.all Then
-                res += "#pragma optionNV(unroll all)" & vbNewLine
-            ElseIf pragma_optionNV_unroll = optionNV_all_none_default.none Then
-                res += "#pragma optionNV(unroll none)" & vbNewLine
-            End If
-
-            If pragma_optionNV_inline = optionNV_all_none_default.all Then
-                res += "#pragma optionNV(inline all)" & vbNewLine
-            ElseIf pragma_optionNV_inline = optionNV_all_none_default.none Then
-                res += "#pragma optionNV(inline none)" & vbNewLine
-            End If
-
-            If pragma_optionNV_ifcvt = optionNV_all_none_default.all Then
-                res += "#pragma optionNV(ifcvt all)" & vbNewLine
-            ElseIf pragma_optionNV_ifcvt = optionNV_all_none_default.none Then
-                res += "#pragma optionNV(ifcvt none)" & vbNewLine
-            End If
-
-            Return res
-        End Get
-    End Property
 
     Public SHADER_PATHS() As String
 #Region "shader_storage"
@@ -262,7 +199,6 @@ Module ShaderLoader
     Public TerrainNormals As Shader
     Public TerrainNormalsHQ As Shader
     Public TerrainHQShader As Shader
-    Public TerrainMQShader As Shader
     Public TerrainLQShader As Shader
     Public TerrainVTMIPShader As Shader
     Public toLinearShader As Shader
@@ -328,7 +264,6 @@ Module ShaderLoader
         TerrainNormalsHQ = New Shader("TerrainNormalsHQ")
 
         TerrainLQShader = New Shader("TerrainLQ")
-        TerrainMQShader = New Shader("TerrainMQ")
         TerrainHQShader = New Shader("TerrainHQ") ' High Quality + Tessellation
 
         TerrainVTMIPShader = New Shader("TerrainVTMIP")
@@ -383,7 +318,6 @@ Module ShaderLoader
         shaders.Add(TerrainNormals)
         shaders.Add(TerrainNormalsHQ)
         shaders.Add(TerrainHQShader)
-        shaders.Add(TerrainMQShader)
         shaders.Add(TerrainLQShader)
         shaders.Add(TerrainVTMIPShader)
         shaders.Add(TextRenderShader)
@@ -425,7 +359,6 @@ Module ShaderLoader
             Else
                 Using vs_s As New StreamReader(v)
                     Dim vs = vs_s.ReadLine() & vbNewLine
-                    vs += shader_pragmas
                     For Each item In defines
                         vs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
@@ -459,7 +392,6 @@ Module ShaderLoader
             Else
                 Using tcs_s As New StreamReader(tc)
                     Dim tcs = tcs_s.ReadLine() & vbNewLine
-                    tcs += shader_pragmas
                     For Each item In defines
                         tcs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
@@ -494,7 +426,6 @@ Module ShaderLoader
             Else
                 Using tes_s As New StreamReader(te)
                     Dim tes = tes_s.ReadLine() & vbNewLine
-                    tes += shader_pragmas
                     For Each item In defines
                         tes += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
@@ -530,7 +461,6 @@ Module ShaderLoader
             Else
                 Using fs_s As New StreamReader(f)
                     Dim fs = fs_s.ReadLine() & vbNewLine
-                    fs += shader_pragmas
                     For Each item In defines
                         fs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next
@@ -562,7 +492,6 @@ Module ShaderLoader
 
             Using gs_s As New StreamReader(g)
                 Dim gs = gs_s.ReadLine() & vbNewLine
-                gs += shader_pragmas
                 For Each item In defines
                     gs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                 Next
@@ -585,26 +514,8 @@ Module ShaderLoader
                 gl_error(name + "_geo didn't compile!" + vbCrLf + info.ToString)
                 Return 0
             End If
-
-
-            'If name.Contains("raytrace") Then
-            '    GL.Ext.ProgramParameter(program, DirectCast(ExtGeometryShader4.GeometryInputTypeExt, AssemblyProgramParameterArb), All.Triangles)
-            '    GL.Ext.ProgramParameter(program, DirectCast(ExtGeometryShader4.GeometryOutputTypeExt, AssemblyProgramParameterArb), All.LineStrip)
-            '    GL.Ext.ProgramParameter(program, DirectCast(ExtGeometryShader4.GeometryVerticesOutExt, AssemblyProgramParameterArb), 6)
-            'End If
-
-            If name = "normal" Then
-                GL.Ext.ProgramParameter(program, DirectCast(ExtGeometryShader4.GeometryInputTypeExt, AssemblyProgramParameterArb), All.Triangles)
-                GL.Ext.ProgramParameter(program, DirectCast(ExtGeometryShader4.GeometryOutputTypeExt, AssemblyProgramParameterArb), All.LineStrip)
-                GL.Ext.ProgramParameter(program, DirectCast(ExtGeometryShader4.GeometryVerticesOutExt, AssemblyProgramParameterArb), 21)
-            End If
-
-            If name = "TerrainNormals" Then
-                GL.Ext.ProgramParameter(program, DirectCast(ExtGeometryShader4.GeometryInputTypeExt, AssemblyProgramParameterArb), All.Triangles)
-                GL.Ext.ProgramParameter(program, DirectCast(ExtGeometryShader4.GeometryOutputTypeExt, AssemblyProgramParameterArb), All.LineStrip)
-                GL.Ext.ProgramParameter(program, DirectCast(ExtGeometryShader4.GeometryVerticesOutExt, AssemblyProgramParameterArb), 9)
-            End If
         End If
+
         ' Compile Compute shader
         Dim computeObject As Integer = 0
         If c IsNot Nothing Then
@@ -617,7 +528,6 @@ Module ShaderLoader
             Else
                 Using cs_s As New StreamReader(c)
                     Dim cs = cs_s.ReadLine() & vbNewLine
-                    cs += shader_pragmas
                     For Each item In defines
                         cs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
                     Next

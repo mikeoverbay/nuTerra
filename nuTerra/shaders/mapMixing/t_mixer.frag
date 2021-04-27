@@ -134,8 +134,8 @@ void main(void)
     vec4 n[8];      // normal map
     vec4 mn[8];     // macro normal map
     float f = 0.0;
-
-
+    
+    float height = 0.0;
     for (int i = 0; i < 8; ++i) {
         // create UV projections
         const vec2 tuv = get_transformed_uv(L.U[i], L.V[i]); 
@@ -173,6 +173,9 @@ void main(void)
         // mix macro
         t[i].rgb = t[i].rgb * min(L.r2[i].x, 1.0) + mt[i].rgb * (L.r2[i].y + 1.0);
         n[i].rgb = n[i].rgb * min(L.r2[i].x, 1.0) + mn[i].rgb * (L.r2[i].y + 1.0);
+
+        height += t[i].a * Mix[i] * L.r1[i].x;
+
         //t[i].rgb = mt[i].rgb;
         //n[i].rgb = mn[i].rgb;
         // months of work to figure this out!
@@ -209,4 +212,5 @@ void main(void)
     gColor.a = global.a * 0.8;
 
     gNormal.xyz = normalize(convertNormal(out_n).xyz);
+    gNormal.w = height;
 }

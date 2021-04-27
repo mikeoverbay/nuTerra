@@ -185,84 +185,6 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
-    <DisplayName("optionNV strict"), Category("GLSL Compiler optimizations")>
-    Public Property GLSL_strict As optionNV_on_off_default
-        Set(value As optionNV_on_off_default)
-            pragma_optionNV_strict = value
-            For Each sh In shaders
-                sh.UpdateShader()
-            Next
-        End Set
-        Get
-            Return pragma_optionNV_strict
-        End Get
-    End Property
-
-    <DisplayName("optionNV fastmath"), Category("GLSL Compiler optimizations")>
-    Public Property GLSL_fastmath As optionNV_on_off_default
-        Set(value As optionNV_on_off_default)
-            pragma_optionNV_fastmath = value
-            For Each sh In shaders
-                sh.UpdateShader()
-            Next
-        End Set
-        Get
-            Return pragma_optionNV_fastmath
-        End Get
-    End Property
-
-    <DisplayName("optionNV fastprecision"), Category("GLSL Compiler optimizations")>
-    Public Property GLSL_fastprecision As optionNV_on_off_default
-        Set(value As optionNV_on_off_default)
-            pragma_optionNV_fastprecision = value
-            For Each sh In shaders
-                sh.UpdateShader()
-            Next
-        End Set
-        Get
-            Return pragma_optionNV_fastprecision
-        End Get
-    End Property
-
-    <DisplayName("optionNV unroll"), Category("GLSL Compiler optimizations")>
-    Public Property GLSL_unroll As optionNV_all_none_default
-        Set(value As optionNV_all_none_default)
-            pragma_optionNV_unroll = value
-            For Each sh In shaders
-                sh.UpdateShader()
-            Next
-        End Set
-        Get
-            Return pragma_optionNV_unroll
-        End Get
-    End Property
-
-    <DisplayName("optionNV inline"), Category("GLSL Compiler optimizations")>
-    Public Property GLSL_inline As optionNV_all_none_default
-        Set(value As optionNV_all_none_default)
-            pragma_optionNV_inline = value
-            For Each sh In shaders
-                sh.UpdateShader()
-            Next
-        End Set
-        Get
-            Return pragma_optionNV_inline
-        End Get
-    End Property
-
-    <DisplayName("optionNV ifcvt"), Category("GLSL Compiler optimizations")>
-    Public Property GLSL_ifcvt As optionNV_all_none_default
-        Set(value As optionNV_all_none_default)
-            pragma_optionNV_ifcvt = value
-            For Each sh In shaders
-                sh.UpdateShader()
-            Next
-        End Set
-        Get
-            Return pragma_optionNV_ifcvt
-        End Get
-    End Property
-
     <DisplayName("Draw terrain"), Category("Map")>
     Public Property MAP_draw_terrain As Boolean
         Set(value As Boolean)
@@ -440,10 +362,10 @@ Public Class SettingsPropertyGrid
         Set(value As Single)
             SHOW_TEST_TEXTURES = value
             If SHOW_TEST_TEXTURES = 1.0F Then
-                TerrainMQShader.SetDefine("SHOW_TEST_TEXTURES")
+                TerrainLQShader.SetDefine("SHOW_TEST_TEXTURES")
                 TerrainHQShader.SetDefine("SHOW_TEST_TEXTURES")
             Else
-                TerrainMQShader.UnsetDefine("SHOW_TEST_TEXTURES")
+                TerrainLQShader.UnsetDefine("SHOW_TEST_TEXTURES")
                 TerrainHQShader.UnsetDefine("SHOW_TEST_TEXTURES")
             End If
         End Set

@@ -107,9 +107,9 @@ Module FBO_main
             gAUX_Color.Storage2D(1, SizedInternalFormat.Rgba8, SCR_WIDTH, SCR_HEIGHT)
 
             ' gNormal ------------------------------------------------------------------------------------------
-            ' 3 color 16f : normal in RGB
+            ' 3 color : normal in RGB
             gNormal = CreateTexture(TextureTarget.Texture2D, "gNormal")
-            gNormal.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+            gNormal.Storage2D(1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gGM_Flag ------------------------------------------------------------------------------------------
             ' 4 color int : GM in RG : Flag in b : Wetness in a

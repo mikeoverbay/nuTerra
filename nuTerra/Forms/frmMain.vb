@@ -178,11 +178,11 @@ Public Class frmMain
             Case Keys.T
                 If SHOW_TEST_TEXTURES = 0F Then
                     SHOW_TEST_TEXTURES = 1.0F
-                    TerrainMQShader.SetDefine("SHOW_TEST_TEXTURES")
+                    TerrainLQShader.SetDefine("SHOW_TEST_TEXTURES")
                     TerrainHQShader.SetDefine("SHOW_TEST_TEXTURES")
                 Else
                     SHOW_TEST_TEXTURES = 0.0F
-                    TerrainMQShader.UnsetDefine("SHOW_TEST_TEXTURES")
+                    TerrainLQShader.UnsetDefine("SHOW_TEST_TEXTURES")
                     TerrainHQShader.UnsetDefine("SHOW_TEST_TEXTURES")
                 End If
 
@@ -591,7 +591,6 @@ try_again:
         feedback = New FeedbackBuffer(vtInfo, 64, 64)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
-        CommonProperties.atlas_count = vt.atlas.atlascount
         CommonProperties.AtlasScale = 1.0F / vt.atlas.atlascount
         CommonProperties.PageTableSize = vtInfo.PageTableSize
 
