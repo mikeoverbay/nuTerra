@@ -35,7 +35,7 @@ Public Class TextureAtlas
         normal_texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
         normal_texture.Storage3D(1, InternalFormat.CompressedRgbaS3tcDxt5Ext, info.TileSize, info.TileSize, atlascount * atlascount)
 
-        specular_texture = CreateTexture(TextureTarget.Texture2DArray, "NormalTextureAtlas")
+        specular_texture = CreateTexture(TextureTarget.Texture2DArray, "SpecularTextureAtlas")
         specular_texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         specular_texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         specular_texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)

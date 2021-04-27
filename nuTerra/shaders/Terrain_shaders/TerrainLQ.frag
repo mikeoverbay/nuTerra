@@ -42,7 +42,7 @@ void main(void)
     gColor = mix(color_sample1, color_sample2, mipfrac);
     
     const vec3 out_n = SampleAtlas(NormalTextureAtlas, page1, fs_in.Global_UV).xyz;
-    gNormal.xyz = normalize(fs_in.TBN * out_n);
+    gNormal.xyz = normalize(fs_in.TBN * out_n) * 0.5 + 0.5;
 
     const float specular = SampleAtlas(SpecularTextureAtlas, page1, fs_in.Global_UV).r;
     gGMF = vec4(0.2, specular, 128.0/255.0, 0.0);
