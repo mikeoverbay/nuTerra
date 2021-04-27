@@ -43,5 +43,8 @@ void main(void)
     const vec3 out_n = SampleAtlas(NormalTextureAtlas, page1, fs_in.Global_UV).xyz;
     gNormal.xyz = normalize(fs_in.TBN * out_n);
 
+    const float specular = 0.0; // TODO
+    gGMF = vec4(0.2, specular, 128.0/255.0, 0.0);
+
     gPosition = fs_in.worldPosition;
 }
