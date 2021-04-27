@@ -555,8 +555,6 @@ Module modRender
 
                     'bind all the data for this chunk
                     With theMap.render_set(i)
-                        .layersStd140_ubo.BindBase(0)
-
                         'draw chunk
                         GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                     End With
@@ -566,7 +564,7 @@ Module modRender
             TerrainHQShader.StopUse()
         End If
 
-        unbind_textures(2)
+        unbind_textures(3)
 
         GL.Disable(EnableCap.CullFace)
         GL.Disable(EnableCap.Blend)

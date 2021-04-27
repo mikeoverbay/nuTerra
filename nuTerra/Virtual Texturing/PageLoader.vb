@@ -71,7 +71,7 @@ Public Class PageLoader
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, proj)
 
         GL.Disable(EnableCap.DepthTest)
-        GL.Disable(EnableCap.CullFace)
+        GL.CullFace(CullFaceMode.Front)
 
         theMap.GLOBAL_AM_ID.BindUnit(0)
 
@@ -118,6 +118,9 @@ Public Class PageLoader
 
         t_mixerShader.StopUse()
         unbind_textures(12)
+
+        ' RESTORE STATE
+        GL.CullFace(CullFaceMode.Back)
 
         GL.GetTextureImage(FBO_mixer_set.gColor.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompData.Length, uncompData)
         nuTerraCPP.Utils.CompressDXT5(uncompData, compDataColor, info.TileSize, info.TileSize)
