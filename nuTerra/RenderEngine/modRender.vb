@@ -495,11 +495,13 @@ Module modRender
 
         TerrainVTMIPShader.StopUse()
 
-        feedback.Download()
-        vt.Update(feedback.Requests)
+        If vt.cache.current < vt.atlas.atlascount * vt.atlas.atlascount Then
+            feedback.Download()
+            vt.Update(feedback.Requests)
 
-        feedback.clear()
-        feedback.copy()
+            feedback.clear()
+            feedback.copy()
+        End If
 
         GL_POP_GROUP()
     End Sub

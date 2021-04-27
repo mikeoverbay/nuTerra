@@ -3,7 +3,7 @@
     ReadOnly loader As PageLoader
 
     ReadOnly count As Integer
-    Dim current As Integer = 0
+    Public current As Integer = 0
 
     ReadOnly lru As New List(Of Page)
     ReadOnly lru_used As New Dictionary(Of Page, Integer)

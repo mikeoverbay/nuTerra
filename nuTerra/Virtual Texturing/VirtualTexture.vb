@@ -11,7 +11,7 @@ Public Class VirtualTexture
     Public pagetable As PageTable
     Public atlas As TextureAtlas
     ReadOnly loader As PageLoader
-    ReadOnly cache As PageCache
+    Public cache As PageCache
 
     ReadOnly atlascount As Integer
     ReadOnly uploadsperframe As Integer
