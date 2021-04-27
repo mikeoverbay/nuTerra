@@ -14,18 +14,15 @@ Public Structure Page
 		Me.Mip = mip
 	End Sub
 
+	ReadOnly Property AsPacked As UInteger
+		Get
+			Return Mip Or (Y << 8) Or (X << 20)
+		End Get
+	End Property
+
 	Public Function CompareTo(other As Page) As Integer _
 		Implements IComparable(Of Page).CompareTo
-
-		If X <> other.X Then
-			Return other.X.CompareTo(X)
-		End If
-
-		If Y <> other.Y Then
-			Return other.Y.CompareTo(Y)
-		End If
-
-		Return other.Mip.CompareTo(Mip)
+		Return other.AsPacked.CompareTo(Me.AsPacked)
 	End Function
 
 	Public Overrides Function ToString() As String
