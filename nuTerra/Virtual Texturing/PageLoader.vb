@@ -52,12 +52,14 @@ Public Class PageLoader
         Dim _w = 100 * (theMap.bounds_maxX - theMap.bounds_minX + 1)
         Dim _h = 100 * (theMap.bounds_maxY - theMap.bounds_minY + 1)
 
-        Dim x = xMin + state.Page.X / info.PageTableSize * perSize * _w
-        Dim y = yMin + state.Page.Y / info.PageTableSize * perSize * _h
+        Dim left = xMin + state.Page.X / info.PageTableSize * perSize * _w
+        Dim bottom = yMin + state.Page.Y / info.PageTableSize * perSize * _h
+        Dim right = left + _w / info.PageTableSize * perSize
+        Dim top = bottom + _h / info.PageTableSize * perSize
 
         Dim proj = Matrix4.CreateOrthographicOffCenter(
-            x, x + _w / info.PageTableSize * perSize,
-            y, y + _h / info.PageTableSize * perSize,
+            left, right,
+            bottom, top,
             -1, 1)
 
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, proj)
@@ -68,6 +70,22 @@ Public Class PageLoader
         theMap.GLOBAL_AM_ID.BindUnit(0)
 
         For i = 0 To theMap.render_set.Length - 1
+            If theMap.v_data(i).BB_Min.X > right Then
+                Continue For
+            End If
+
+            If theMap.v_data(i).BB_Max.X < left Then
+                Continue For
+            End If
+
+            If theMap.v_data(i).BB_Min.Z > top Then
+                Continue For
+            End If
+
+            If theMap.v_data(i).BB_Max.Z < bottom Then
+                Continue For
+            End If
+
             With theMap.render_set(i)
                 .layersStd140_ubo.BindBase(0)
 
