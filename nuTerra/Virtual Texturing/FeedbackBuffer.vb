@@ -17,6 +17,13 @@ Public Class FeedbackBuffer
     ReadOnly rendertarget As Integer
     ReadOnly depthbuffer As Integer
     ReadOnly pboReadback As GLBuffer
+
+    <StructLayout(LayoutKind.Sequential)>
+    Private Structure FBColor
+        Public r As UShort
+        Public g As UShort
+        Public b As UShort
+    End Structure
     ReadOnly data() As FBColor
 
     Public Sub New(info As VirtualTextureInfo, width As Integer, height As Integer)
@@ -29,10 +36,10 @@ Public Class FeedbackBuffer
         ReDim Requests(indexer.Count - 1)
 
         pboReadback = CreateBuffer(BufferTarget.PixelPackBuffer, "FeedbackBuffer_pboReadback")
-        BufferStorageNullData(pboReadback, width * height * 3, BufferStorageFlags.None)
+        BufferStorageNullData(pboReadback, width * height * 6, BufferStorageFlags.None)
 
         rendertarget = CreateRenderbuffer("FeedbackBuffer_rendertarget")
-        GL.NamedRenderbufferStorage(rendertarget, RenderbufferStorage.Rgb8, width, height)
+        GL.NamedRenderbufferStorage(rendertarget, RenderbufferStorage.Rgb16, width, height)
 
         depthbuffer = CreateRenderbuffer("FeedbackBuffer_depthbuffer")
         GL.NamedRenderbufferStorage(depthbuffer, RenderbufferStorage.DepthComponent16, width, height)
@@ -54,17 +61,9 @@ Public Class FeedbackBuffer
         GL.DeleteRenderbuffer(depthbuffer)
     End Sub
 
-    <StructLayout(LayoutKind.Sequential)>
-    Private Structure FBColor
-        Public r As Byte
-        Public g As Byte
-        Public b As Byte
-    End Structure
-
     Public Sub Download()
         ' Download New data
-        GL.GetNamedBufferSubData(pboReadback.buffer_id, IntPtr.Zero, data.Length * 3, data)
-
+        GL.GetNamedBufferSubData(pboReadback.buffer_id, IntPtr.Zero, data.Length * 6, data)
         For i = 0 To data.Length - 1
             If data(i).b >= 1 Then
                 Dim request = New Page(data(i).r, data(i).g, data(i).b - 1)
@@ -93,7 +92,7 @@ Public Class FeedbackBuffer
 
     Public Sub copy()
         pboReadback.Bind(BufferTarget.PixelPackBuffer)
-        GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero)
+        GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedShort, IntPtr.Zero)
         GL.BindBuffer(BufferTarget.PixelPackBuffer, 0)
     End Sub
 
