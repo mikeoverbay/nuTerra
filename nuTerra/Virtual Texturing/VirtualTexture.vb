@@ -41,7 +41,7 @@ Public Class VirtualTexture
 
         atlas = New TextureAtlas(info, atlascount, uploadsperframe)
 
-        loader = New PageLoader("stub.cache", indexer, info)
+        loader = New PageLoader(indexer, info)
 
         cache = New PageCache(info, atlas, loader, indexer, atlascount)
 

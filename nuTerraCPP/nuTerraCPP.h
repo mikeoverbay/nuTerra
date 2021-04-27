@@ -6,6 +6,6 @@ namespace nuTerraCPP {
 	public ref class Utils
 	{
 	public:
-		static void FlipDDS(array<System::Byte>^ bytes, System::Int32 format, System::Int32 width, System::Int32 height);
+		static void CompressDXT5(array<System::Byte>^ in, array<System::Byte>^ out, System::Int32 width, System::Int32 height);
 	};
 }

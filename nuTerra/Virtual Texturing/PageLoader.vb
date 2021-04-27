@@ -13,12 +13,15 @@ Public Class PageLoader
     Const ChannelCount = 4
     Dim info As VirtualTextureInfo
     Dim indexer As PageIndexer
+    Dim uncompData() As Byte
+    Dim compData() As Byte
 
     Public Event loadComplete(p As Page, data As Byte())
 
-    Public Sub New(filename As String, indexer As PageIndexer, info As VirtualTextureInfo)
+    Public Sub New(indexer As PageIndexer, info As VirtualTextureInfo)
         Me.info = info
-        Me.indexer = indexer
+        ReDim uncompData((info.TileSize * info.TileSize * 4) - 1)
+        ReDim compData((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
 
         FBO_mixer_set.FBO_Initialize(info.TileSize, info.TileSize)
     End Sub
@@ -41,7 +44,6 @@ Public Class PageLoader
         GL.Clear(ClearBufferMask.ColorBufferBit)
 
         t_mixerShader.Use()
-
 
         Dim perSize = Math.Pow(2, state.Page.Mip)
 
@@ -92,5 +94,12 @@ Public Class PageLoader
 
         t_mixerShader.StopUse()
         unbind_textures(12)
+
+        GL.NamedFramebufferReadBuffer(FBO_Mixer_ID, ReadBufferMode.ColorAttachment0)
+
+        GL.GetTextureImage(FBO_mixer_set.gColor.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompData.Length, uncompData)
+
+        nuTerraCPP.Utils.CompressDXT5(uncompData, compData, info.TileSize, info.TileSize)
+        state.Data = compData
     End Sub
 End Class

@@ -75,7 +75,7 @@ Module TextureLoaders
         Return Nothing ' Didn't find it
     End Function
 
-    Public Function load_t2_texture_from_stream(br As BinaryReader, w As Integer, h As Integer, Optional flip As Boolean = False) As GLTexture
+    Public Function load_t2_texture_from_stream(br As BinaryReader, w As Integer, h As Integer) As GLTexture
         Dim image_id = CreateTexture(TextureTarget.Texture2D, "blend_Tex")
 
         image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
@@ -91,10 +91,6 @@ Module TextureLoaders
 
         Dim sizedFormat = DirectCast(InternalFormat.CompressedRgbaS3tcDxt5Ext, SizedInternalFormat)
         Dim pixelFormat = DirectCast(InternalFormat.CompressedRgbaS3tcDxt5Ext, OpenGL.PixelFormat)
-
-        If flip Then
-            nuTerraCPP.Utils.FlipDDS(data, sizedFormat, w, h)
-        End If
 
         image_id.Storage2D(2, sizedFormat, w, h)
         image_id.CompressedSubImage2D(0, 0, 0, w, h, pixelFormat, w * h, data)
@@ -274,7 +270,7 @@ Module TextureLoaders
     End Function
 
     ' Based on https://gist.github.com/tilkinsc/13191c0c1e5d6b25fbe79bbd2288a673
-    Public Function load_dds_image_from_stream(ms As MemoryStream, fn As String, Optional flip As Boolean = False) As GLTexture
+    Public Function load_dds_image_from_stream(ms As MemoryStream, fn As String) As GLTexture
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
         If image_id IsNot Nothing Then
@@ -323,10 +319,6 @@ Module TextureLoaders
                 End If
                 Dim data = br.ReadBytes(size)
 
-                If flip Then
-                    nuTerraCPP.Utils.FlipDDS(data, format_info.texture_format, dds_header.width, dds_header.height)
-                End If
-
                 If format_info.compressed Then
                     image_id.CompressedSubImage2D(0, 0, 0, dds_header.width, dds_header.height, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                 Else
@@ -367,10 +359,6 @@ Module TextureLoaders
                         size = w * h * format_info.components
                     End If
                     Dim data = br.ReadBytes(size)
-
-                    If flip Then
-                        nuTerraCPP.Utils.FlipDDS(data, format_info.texture_format, w, h)
-                    End If
 
                     If format_info.compressed Then
                         image_id.CompressedSubImage2D(i, 0, 0, w, h, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
