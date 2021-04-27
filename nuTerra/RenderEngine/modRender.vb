@@ -525,6 +525,7 @@ Module modRender
         'TEST_PATTERN_ID.BindUnit(0)
         vt.atlas.color_texture.BindUnit(1)
         vt.atlas.normal_texture.BindUnit(2)
+        vt.atlas.specular_texture.BindUnit(3)
 
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
@@ -931,8 +932,16 @@ Module modRender
         For y = 0 To vt.atlas.atlascount - 1
             For x = 0 To vt.atlas.atlascount - 1
                 Dim xoff = 0 + x * 8
-                Dim yoff = 250 + y * 8
+                Dim yoff = 79 + vt.atlas.atlascount * 8 + y * 8
                 draw_image_rectangle(New RectangleF(xoff, yoff, 8, 8), vt.atlas.normal_texture, True, y * vt.atlas.atlascount + x)
+            Next
+        Next
+
+        For y = 0 To vt.atlas.atlascount - 1
+            For x = 0 To vt.atlas.atlascount - 1
+                Dim xoff = 0 + x * 8
+                Dim yoff = 79 + 2 * vt.atlas.atlascount * 8 + y * 8
+                draw_image_rectangle(New RectangleF(xoff, yoff, 8, 8), vt.atlas.specular_texture, True, y * vt.atlas.atlascount + x)
             Next
         Next
 

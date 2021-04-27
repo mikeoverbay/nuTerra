@@ -9,6 +9,7 @@ Public Class PageLoader
         Public Page As Page
         Public ColorData() As Byte
         Public NormalData() As Byte
+        Public SpecularData() As Byte
     End Class
 
     Const ChannelCount = 4
@@ -17,12 +18,14 @@ Public Class PageLoader
     Dim uncompData() As Byte
     Dim compDataColor() As Byte
     Dim compDataNormal() As Byte
+    Dim specularData() As Byte
 
-    Public Event loadComplete(p As Page, color_data As Byte(), normal_data As Byte())
+    Public Event loadComplete(p As Page, color_data As Byte(), normal_data As Byte(), specular_data As Byte())
 
     Public Sub New(indexer As PageIndexer, info As VirtualTextureInfo)
         Me.info = info
         ReDim uncompData((info.TileSize * info.TileSize * 4) - 1)
+        ReDim specularData((info.TileSize * info.TileSize) - 1)
         ReDim compDataColor((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
         ReDim compDataNormal((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
 
@@ -38,7 +41,7 @@ Public Class PageLoader
             .Page = request
             }
         LoadPage(state)
-        RaiseEvent loadComplete(state.Page, state.ColorData, state.NormalData)
+        RaiseEvent loadComplete(state.Page, state.ColorData, state.NormalData, state.SpecularData)
     End Sub
 
     Private Sub LoadPage(state As ReadState)
@@ -123,5 +126,8 @@ Public Class PageLoader
         GL.GetTextureImage(FBO_mixer_set.gNormal.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompData.Length, uncompData)
         nuTerraCPP.Utils.CompressDXT5(uncompData, compDataNormal, info.TileSize, info.TileSize)
         state.NormalData = compDataNormal
+
+        GL.GetTextureImage(FBO_mixer_set.gSpecular.texture_id, 0, PixelFormat.Red, PixelType.UnsignedByte, specularData.Length, specularData)
+        state.SpecularData = specularData
     End Sub
 End Class

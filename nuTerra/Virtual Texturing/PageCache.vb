@@ -19,7 +19,7 @@
         AddHandler loader.loadComplete, AddressOf LoadComplete
     End Sub
 
-    Public Sub LoadComplete(p As Page, color_data As Byte(), normal_data As Byte())
+    Public Sub LoadComplete(p As Page, color_data As Byte(), normal_data As Byte(), specular_data As Byte())
         Dim mapping As Integer
 
         If current = count * count Then
@@ -37,7 +37,7 @@
             End If
         End If
 
-        atlas.uploadPage(mapping, color_data, normal_data)
+        atlas.uploadPage(mapping, color_data, normal_data, specular_data)
         lru.Add(p)
         lru_used.Add(p, mapping)
 

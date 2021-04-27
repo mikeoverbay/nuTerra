@@ -15,6 +15,7 @@ layout (location = 3) out vec3 gPosition;
 layout(binding = 0) uniform usampler2D PageTable;
 layout(binding = 1) uniform sampler2DArray ColorTextureAtlas;
 layout(binding = 2) uniform sampler2DArray NormalTextureAtlas;
+layout(binding = 3) uniform sampler2DArray SpecularTextureAtlas;
 
 in VS_OUT {
     mat3 TBN;
@@ -43,7 +44,7 @@ void main(void)
     const vec3 out_n = SampleAtlas(NormalTextureAtlas, page1, fs_in.Global_UV).xyz;
     gNormal.xyz = normalize(fs_in.TBN * out_n);
 
-    const float specular = 0.0; // TODO
+    const float specular = SampleAtlas(SpecularTextureAtlas, page1, fs_in.Global_UV).r;
     gGMF = vec4(0.2, specular, 128.0/255.0, 0.0);
 
     gPosition = fs_in.worldPosition;

@@ -7,6 +7,7 @@
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec4 gNormal;
+layout (location = 2) out float gSpecular;
 
 layout(binding = 0) uniform sampler2D global_AM;
 
@@ -205,7 +206,7 @@ void main(void)
     // wetness
     base = blend(base, base.a+0.75, vec4(props.waterColor, props.waterAlpha), global.a);
 
-    float specular = out_n.r;
+    gSpecular = out_n.r;
 
     //gColor = gColor* 0.001 + r1_8;
     gColor.rgb = base.rgb;
