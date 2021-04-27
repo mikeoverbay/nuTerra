@@ -58,25 +58,23 @@ Public Class VirtualTexture
         cache.Clear()
     End Sub
 
-    Public Sub Update(requests As Integer())
+    Public Sub Update(requests As Dictionary(Of Page, Integer))
         toload.Clear()
 
         ' Find out what is already in memory
         ' If it Is, update it's position in the LRU collection
         ' Otherwise add it to the list of pages to load
         Dim touched = 0
-        For i = 0 To requests.Length - 1
-            If requests(i) > 0 Then
-                Dim pc = New PageCount With {
-                    .Page = indexer.GetPageFromIndex(i),
-                    .Count = requests(i)
-                }
+        For Each req In requests
+            Dim pc = New PageCount With {
+                .Page = req.Key,
+                .Count = req.Value
+            }
 
-                If Not cache.Touch(pc.Page) Then
-                    toload.Add(pc)
-                Else
-                    touched += 1
-                End If
+            If Not cache.Touch(pc.Page) Then
+                toload.Add(pc)
+            Else
+                touched += 1
             End If
         Next
 

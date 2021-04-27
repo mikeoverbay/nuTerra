@@ -8,7 +8,7 @@ Public Class FeedbackBuffer
     ReadOnly info As VirtualTextureInfo
     ReadOnly indexer As PageIndexer
 
-    Public Requests() As Integer
+    Public Requests As New Dictionary(Of Page, Integer)(New PageEqualityComparer)
 
     Public width As Integer
     Public height As Integer
@@ -33,7 +33,6 @@ Public Class FeedbackBuffer
         ReDim data(width * height - 1)
 
         indexer = New PageIndexer(info)
-        ReDim Requests(indexer.Count - 1)
 
         pboReadback = CreateBuffer(BufferTarget.PixelPackBuffer, "FeedbackBuffer_pboReadback")
         BufferStorageNullData(pboReadback, width * height * 6, BufferStorageFlags.None)
@@ -66,27 +65,30 @@ Public Class FeedbackBuffer
         GL.GetNamedBufferSubData(pboReadback.buffer_id, IntPtr.Zero, data.Length * 6, data)
         For i = 0 To data.Length - 1
             If data(i).b >= 1 Then
-                Dim request = New Page(data(i).r, data(i).g, data(i).b - 1)
-                AddRequestAndParents(request)
+                AddRequestAndParents(data(i).r, data(i).g, data(i).b - 1)
             End If
         Next
     End Sub
 
-    Private Sub AddRequestAndParents(request As Page)
+    Private Sub AddRequestAndParents(X As Integer, Y As Integer, Mip As Integer)
         Dim PageTableSizeLog2 = Math.Log(info.PageTableSize, 2)
-        Dim count = PageTableSizeLog2 - request.Mip + 1
+        Dim count = PageTableSizeLog2 - Mip + 1
 
         For i = 0 To count - 1
-            Dim xpos = request.X >> i
-            Dim ypos = request.Y >> i
+            Dim xpos = X >> i
+            Dim ypos = Y >> i
 
-            Dim page As New Page(xpos, ypos, request.Mip + i)
-
-            If Not indexer.IsValid(page) Then
+            If Not indexer.IsValid(xpos, ypos, Mip + i) Then
                 Return
             End If
 
-            Requests(indexer(page)) += 1
+            Dim page As New Page(xpos, ypos, Mip + i)
+
+            If Requests.ContainsKey(page) Then
+                Requests(page) += 1
+            Else
+                Requests(page) = 1
+            End If
         Next
     End Sub
 
@@ -97,6 +99,6 @@ Public Class FeedbackBuffer
     End Sub
 
     Public Sub clear()
-        Array.Clear(Requests, 0, indexer.Count)
+        Requests.Clear()
     End Sub
 End Class

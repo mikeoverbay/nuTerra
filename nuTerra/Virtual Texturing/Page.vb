@@ -1,31 +1,36 @@
-﻿Imports System.Diagnostics
+﻿<DebuggerDisplay("( {X}, {Y}, {Mip} )")>
+Public Class Page
+    Implements IEquatable(Of Page)
 
-<DebuggerDisplay("( {X}, {Y}, {Mip} )")>
-Public Structure Page
-	Implements IComparable(Of Page)
+    Public X As Integer
+    Public Y As Integer
+    Public Mip As Integer
+    Public Packed As UInteger
 
-	Public X As Integer
-	Public Y As Integer
-	Public Mip As Integer
+    Public Sub New(x As Integer, y As Integer, mip As Integer)
+        Me.X = x
+        Me.Y = y
+        Me.Mip = mip
+        Me.Packed = mip Or (y << 8) Or (x << 20)
+    End Sub
 
-	Public Sub New(x As Integer, y As Integer, mip As Integer)
-		Me.X = x
-		Me.Y = y
-		Me.Mip = mip
-	End Sub
+    Public Overrides Function ToString() As String
+        Return String.Format("{0}, {1}, {2}", X, Y, Mip)
+    End Function
 
-	ReadOnly Property AsPacked As UInteger
-		Get
-			Return Mip Or (Y << 8) Or (X << 20)
-		End Get
-	End Property
+    Public Overloads Function Equals(other As Page) As Boolean Implements IEquatable(Of Page).Equals
+        Return Packed = other.Packed
+    End Function
+End Class
 
-	Public Function CompareTo(other As Page) As Integer _
-		Implements IComparable(Of Page).CompareTo
-		Return other.AsPacked.CompareTo(Me.AsPacked)
-	End Function
+Public Class PageEqualityComparer
+    Implements IEqualityComparer(Of Page)
 
-	Public Overrides Function ToString() As String
-		Return String.Format("{0}, {1}, {2}", X, Y, Mip)
-	End Function
-End Structure
+    Public Overloads Function GetHashCode(obj As Page) As Integer Implements IEqualityComparer(Of Page).GetHashCode
+        Return obj.Packed.GetHashCode()
+    End Function
+
+    Public Overloads Function Equals(x As Page, y As Page) As Boolean Implements IEqualityComparer(Of Page).Equals
+        Return x.Packed = y.Packed
+    End Function
+End Class

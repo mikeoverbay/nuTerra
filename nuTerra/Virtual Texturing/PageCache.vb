@@ -6,7 +6,7 @@
     Public current As Integer = 0
 
     ReadOnly lru As New List(Of Page)
-    ReadOnly lru_used As New Dictionary(Of Page, Integer)
+    ReadOnly lru_used As New Dictionary(Of Page, Integer)(New PageEqualityComparer)
 
     ' These events are used to notify the other systems
     Public Event Removed(p As Page, mapping As Integer)
