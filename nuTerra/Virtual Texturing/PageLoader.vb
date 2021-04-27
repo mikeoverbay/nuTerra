@@ -7,21 +7,24 @@ Public Class PageLoader
 
     Class ReadState
         Public Page As Page
-        Public Data() As Byte
+        Public ColorData() As Byte
+        Public NormalData() As Byte
     End Class
 
     Const ChannelCount = 4
     Dim info As VirtualTextureInfo
     Dim indexer As PageIndexer
     Dim uncompData() As Byte
-    Dim compData() As Byte
+    Dim compDataColor() As Byte
+    Dim compDataNormal() As Byte
 
-    Public Event loadComplete(p As Page, data As Byte())
+    Public Event loadComplete(p As Page, color_data As Byte(), normal_data As Byte())
 
     Public Sub New(indexer As PageIndexer, info As VirtualTextureInfo)
         Me.info = info
         ReDim uncompData((info.TileSize * info.TileSize * 4) - 1)
-        ReDim compData((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
+        ReDim compDataColor((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
+        ReDim compDataNormal((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
 
         FBO_mixer_set.FBO_Initialize(info.TileSize, info.TileSize)
     End Sub
@@ -35,7 +38,7 @@ Public Class PageLoader
             .Page = request
             }
         LoadPage(state)
-        RaiseEvent loadComplete(state.Page, state.Data)
+        RaiseEvent loadComplete(state.Page, state.ColorData, state.NormalData)
     End Sub
 
     Private Sub LoadPage(state As ReadState)
@@ -113,11 +116,12 @@ Public Class PageLoader
         t_mixerShader.StopUse()
         unbind_textures(12)
 
-        GL.NamedFramebufferReadBuffer(FBO_Mixer_ID, ReadBufferMode.ColorAttachment0)
-
         GL.GetTextureImage(FBO_mixer_set.gColor.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompData.Length, uncompData)
+        nuTerraCPP.Utils.CompressDXT5(uncompData, compDataColor, info.TileSize, info.TileSize)
+        state.ColorData = compDataColor
 
-        nuTerraCPP.Utils.CompressDXT5(uncompData, compData, info.TileSize, info.TileSize)
-        state.Data = compData
+        GL.GetTextureImage(FBO_mixer_set.gNormal.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompData.Length, uncompData)
+        nuTerraCPP.Utils.CompressDXT5(uncompData, compDataNormal, info.TileSize, info.TileSize)
+        state.NormalData = compDataNormal
     End Sub
 End Class

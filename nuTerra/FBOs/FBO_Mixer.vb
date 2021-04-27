@@ -84,6 +84,9 @@ Module FBO_Mixer
                 Return False
             End If
 
+            Dim bufs() As DrawBuffersEnum = {FramebufferAttachment.ColorAttachment0, FramebufferAttachment.ColorAttachment1, FramebufferAttachment.ColorAttachment2}
+            GL.NamedFramebufferDrawBuffers(FBO_Mixer_ID, 3, bufs)
+
             Return True
         End Function
 

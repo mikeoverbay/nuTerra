@@ -16,19 +16,41 @@ layout(location = 3) in vec3 vertexTangent;
 uniform mat3 normalMatrix;
 
 out VS_OUT {
+    mat3 TBN;
     vec3 worldPosition;
     vec2 Global_UV;
-    vec2 UV;
 } vs_out;
 
 
 void main(void)
 {
     const TerrainChunkInfo chunk = chunks[gl_BaseInstanceARB];
-    vs_out.UV = vertexTexCoord;
+
     // calculate tex coords for global_AM
     vs_out.Global_UV = chunk.g_uv_offset + (vertexTexCoord * props.map_size);
-    
+
+    //-------------------------------------------------------
+    // Calculate biNormal
+    vec3 VT, VB, VN ;
+    VN = normalize(vertexNormal.xyz);
+    VT = normalize(vertexTangent.xyz);
+
+    VT = VT - dot(VN, VT) * VN;
+    VB = cross(VT, VN);
+    //-------------------------------------------------------
+
+    // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
+    vec3 worldNormal = normalMatrix * VN;
+    vec3 worldTangent = normalMatrix * VT;
+    vec3 worldbiNormal = normalMatrix * VB;
+
+    // make perpendicular
+    worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
+    worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
+
+    // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
+    vs_out.TBN = mat3( worldTangent, worldbiNormal, normalize(worldNormal));
+
     // vertex --> world pos
     vs_out.worldPosition = vec3(view * chunk.modelMatrix * vec4(vertexPosition, 1.0f));
 

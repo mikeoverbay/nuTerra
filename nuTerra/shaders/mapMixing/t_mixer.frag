@@ -6,6 +6,7 @@
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
+layout (location = 1) out vec4 gNormal;
 
 layout(binding = 0) uniform sampler2D global_AM;
 
@@ -75,16 +76,6 @@ vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id)
     float mipLevel = 0.5 * log2(delta_max_sqr);
 
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-
-#ifdef SHOW_TEST_TEXTURES
-    //----- test texture outlines -----
-    B[id] = 0.0;
-    if (cropped.x < 0.065 ) B[id] = 1.0;
-    if (cropped.x > 0.935 ) B[id] = 1.0;
-    if (cropped.y < 0.065 ) B[id] = 1.0;
-    if (cropped.y > 0.935 ) B[id] = 1.0;
-    //-----
-#endif
 
     return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
@@ -216,4 +207,6 @@ void main(void)
     //gColor = gColor* 0.001 + r1_8;
     gColor.rgb = base.rgb;
     gColor.a = global.a * 0.8;
+
+    gNormal.xyz = normalize(convertNormal(out_n).xyz);
 }

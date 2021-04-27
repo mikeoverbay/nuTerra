@@ -28,7 +28,7 @@
         AddHandler loader.loadComplete, AddressOf LoadComplete
     End Sub
 
-    Public Sub LoadComplete(p As Page, data As Byte())
+    Public Sub LoadComplete(p As Page, color_data As Byte(), normal_data As Byte())
         loading.Remove(p)
         Dim mapping As Integer
 
@@ -47,7 +47,7 @@
             End If
         End If
 
-        atlas.uploadPage(mapping, data)
+        atlas.uploadPage(mapping, color_data, normal_data)
         lru.Add(New LruPage With {.m_page = p, .m_mapping = mapping})
         lru_used.Add(p)
 

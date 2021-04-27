@@ -523,7 +523,8 @@ Module modRender
 
         vt.pagetable.texture.BindUnit(0)
         'TEST_PATTERN_ID.BindUnit(0)
-        vt.atlas.texture.BindUnit(1)
+        vt.atlas.color_texture.BindUnit(1)
+        vt.atlas.normal_texture.BindUnit(2)
 
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
@@ -538,7 +539,7 @@ Module modRender
         Next
 
         TerrainLQShader.StopUse()
-        unbind_textures(1)
+        unbind_textures(2)
         '=======================================================================================
         'draw visible HZ terrain
         '=======================================================================================
@@ -981,9 +982,17 @@ Module modRender
 
         For y = 0 To vt.atlas.atlascount - 1
             For x = 0 To vt.atlas.atlascount - 1
-                Dim xoff = 0 + x * 4
-                Dim yoff = 79 + y * 4
-                draw_image_rectangle(New RectangleF(xoff, yoff, 4, 4), vt.atlas.texture, True, y * vt.atlas.atlascount + x)
+                Dim xoff = 0 + x * 8
+                Dim yoff = 79 + y * 8
+                draw_image_rectangle(New RectangleF(xoff, yoff, 8, 8), vt.atlas.color_texture, True, y * vt.atlas.atlascount + x)
+            Next
+        Next
+
+        For y = 0 To vt.atlas.atlascount - 1
+            For x = 0 To vt.atlas.atlascount - 1
+                Dim xoff = 0 + x * 8
+                Dim yoff = 250 + y * 8
+                draw_image_rectangle(New RectangleF(xoff, yoff, 8, 8), vt.atlas.normal_texture, True, y * vt.atlas.atlascount + x)
             Next
         Next
 
