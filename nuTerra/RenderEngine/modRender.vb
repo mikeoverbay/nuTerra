@@ -921,6 +921,7 @@ Module modRender
 
         color_keys()
 
+#If False Then
         For y = 0 To vt.atlas.atlascount - 1
             For x = 0 To vt.atlas.atlascount - 1
                 Dim xoff = 0 + x * 8
@@ -944,6 +945,7 @@ Module modRender
                 draw_image_rectangle(New RectangleF(xoff, yoff, 8, 8), vt.atlas.specular_texture, True, y * vt.atlas.atlascount + x)
             Next
         Next
+#End If
 
         'draw status of SSAA
         draw_text(FXAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)
