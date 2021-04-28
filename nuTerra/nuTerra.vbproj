@@ -228,7 +228,6 @@
     <Compile Include="Virtual Texturing\PageIndexer.vb" />
     <Compile Include="Virtual Texturing\PageLoader.vb" />
     <Compile Include="Virtual Texturing\PageTable.vb" />
-    <Compile Include="Virtual Texturing\Quadtree.vb" />
     <Compile Include="Virtual Texturing\TextureAtlas.vb" />
     <Compile Include="TextureEngine\TextureLoaders.vb" />
     <Compile Include="Virtual Texturing\VirtualTexture.vb" />

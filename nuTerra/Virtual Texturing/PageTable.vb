@@ -8,22 +8,22 @@ Public Class PageTable
     Public texture As GLTexture
 
     ReadOnly tableEntryPool As List(Of UShort(,))
-    ReadOnly quadtree As Quadtree
+    ReadOnly quadtree As nuTerraCPP.QuadtreeWrap
     Dim quadtreeDirty As Boolean = True
 
     Public Sub New(cache As PageCache, info As VirtualTextureInfo)
         Me.info = info
 
         Dim numLevels As Integer = Math.Log(info.PageTableSize, 2) + 1
-        Me.quadtree = New Quadtree(New Rectangle(0, 0, info.PageTableSize, info.PageTableSize), numLevels - 1)
+        Me.quadtree = New nuTerraCPP.QuadtreeWrap(info.PageTableSize, numLevels - 1)
 
         AddHandler cache.Added, Sub(p As Page, mapping As Integer)
                                     Me.quadtreeDirty = True
-                                    Me.quadtree.Add(p, mapping)
+                                    Me.quadtree.Add(p.Packed, mapping)
                                 End Sub
         AddHandler cache.Removed, Sub(p As Page, mapping As Integer)
                                       Me.quadtreeDirty = True
-                                      Me.quadtree.Remove(p)
+                                      Me.quadtree.Remove(p.Packed)
                                   End Sub
 
         tableEntryPool = New List(Of UShort(,))
