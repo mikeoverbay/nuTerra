@@ -35,7 +35,7 @@ Public Class FeedbackBuffer
         indexer = New PageIndexer(info)
 
         pboReadback = CreateBuffer(BufferTarget.PixelPackBuffer, "FeedbackBuffer_pboReadback")
-        BufferStorageNullData(pboReadback, width * height * 6, BufferStorageFlags.None)
+        BufferStorageNullData(pboReadback, width * height * 6, BufferStorageFlags.ClientStorageBit)
 
         rendertarget = CreateRenderbuffer("FeedbackBuffer_rendertarget")
         GL.NamedRenderbufferStorage(rendertarget, RenderbufferStorage.Rgb16, width, height)
@@ -63,7 +63,6 @@ Public Class FeedbackBuffer
     Public Sub Download()
         ' Download New data
         GL.GetNamedBufferSubData(pboReadback.buffer_id, IntPtr.Zero, data.Length * 6, data)
-        Dim told = 0
         For i = 0 To data.Length - 1
             If data(i).b >= 1 Then
                 AddRequestAndParents(data(i).r, data(i).g, data(i).b - 1)

@@ -5,14 +5,13 @@
 Public Class VirtualTexture
     Implements IDisposable
 
-    ReadOnly info As VirtualTextureInfo
     ReadOnly indexer As PageIndexer
     Public pagetable As PageTable
     Public atlas As TextureAtlas
     ReadOnly loader As PageLoader
     ReadOnly cache As PageCache
 
-    ReadOnly atlascount As Integer
+    ReadOnly num_tiles As Integer
     ReadOnly uploadsperframe As Integer
 
     ReadOnly toload As List(Of PageCount)
@@ -29,21 +28,15 @@ Public Class VirtualTexture
         End Set
     End Property
 
-    Public Sub New(info As VirtualTextureInfo, atlassize As Integer, uploadsperframe As Integer)
-        Me.info = info
-
-        Me.atlascount = atlassize \ info.TileSize
+    Public Sub New(info As VirtualTextureInfo, num_tiles As Integer, uploadsperframe As Integer)
+        Me.num_tiles = num_tiles
         Me.uploadsperframe = uploadsperframe
 
         indexer = New PageIndexer(info)
         toload = New List(Of PageCount)(indexer.Count)
-
-        atlas = New TextureAtlas(info, atlascount, uploadsperframe)
-
+        atlas = New TextureAtlas(info, num_tiles)
         loader = New PageLoader(indexer, info)
-
-        cache = New PageCache(info, atlas, loader, indexer, atlascount)
-
+        cache = New PageCache(atlas, loader, num_tiles)
         pagetable = New PageTable(cache, info, indexer)
     End Sub
 
@@ -78,12 +71,12 @@ Public Class VirtualTexture
         Next
 
         ' Check to make sure we don't thrash
-        If touched < atlascount * atlascount Then
+        If touched < num_tiles Then
             ' sort by low res to high res And number of requests
             toload.Sort()
 
             ' if more pages than will fit in memory or more than update per frame drop high res pages with lowest use count
-            Dim loadcount = Math.Min(Math.Min(toload.Count, uploadsperframe), atlascount * atlascount)
+            Dim loadcount = Math.Min(Math.Min(toload.Count, uploadsperframe), num_tiles)
             For i = 0 To loadcount - 1
                 cache.Request(toload(i).Page)
             Next

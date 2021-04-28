@@ -31,7 +31,8 @@ Public Class PageTable
         tableEntryPool = New List(Of UShort(,))
 
         For i = 0 To numLevels - 1
-            Dim arr(indexer.sizes(i) - 1, indexer.sizes(i) - 1) As UShort
+            Dim size = info.PageTableSize >> i
+            Dim arr(size - 1, size - 1) As UShort
             tableEntryPool.Add(arr)
         Next
 
@@ -42,7 +43,6 @@ Public Class PageTable
         texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
         texture.Parameter(TextureParameterName.TextureBaseLevel, 0)
         texture.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
-        ' Const GL_RGB565 = 36194
         texture.Storage2D(numLevels, SizedInternalFormat.R16ui, info.PageTableSize, info.PageTableSize)
     End Sub
 
@@ -64,7 +64,8 @@ Public Class PageTable
 
             Dim handle = GCHandle.Alloc(tableEntryPool(l), GCHandleType.Pinned)
             Dim ptr = handle.AddrOfPinnedObject()
-            texture.SubImage2D(l, 0, 0, indexer.sizes(l), indexer.sizes(l), PixelFormat.RedInteger, PixelType.UnsignedShort, ptr)
+            Dim size = info.PageTableSize >> l
+            texture.SubImage2D(l, 0, 0, size, size, PixelFormat.RedInteger, PixelType.UnsignedShort, ptr)
             handle.Free()
         Next
     End Sub

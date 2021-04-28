@@ -523,6 +523,23 @@ Module MapLoader
         '===============================================================
         '===============================================================
 
+        ' CREATE VT
+        Const NUM_TILES = 1024
+        Const VT_NUM_PAGES = 1024
+        Const TILE_SIZE = 256
+
+        vtInfo = New VirtualTextureInfo With {
+            .TileSize = TILE_SIZE,
+            .VirtualTextureSize = TILE_SIZE * VT_NUM_PAGES
+            }
+        vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
+        feedback = New FeedbackBuffer(vtInfo, 64, 64)
+
+        CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
+        CommonProperties.AtlasScale = 1.0F / (vtInfo.VirtualTextureSize / vtInfo.TileSize)
+        CommonProperties.PageTableSize = vtInfo.PageTableSize
+        CommonProperties.update()
+
         MAP_LOADED = True
 
         '===============================================================
@@ -1106,6 +1123,10 @@ Module MapLoader
 
     Public Sub remove_map_data()
         'Used to delete all images and display lists.
+
+        vt = Nothing
+        vtInfo = Nothing
+        feedback = Nothing
 
         MapMenuScreen.Invalidate()
 

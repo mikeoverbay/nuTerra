@@ -583,17 +583,6 @@ try_again:
                               BufferStorageFlags.DynamicStorageBit)
         CommonPropertiesBuffer.BindBase(2)
 
-        vtInfo = New VirtualTextureInfo With {
-            .TileSize = 256,
-            .VirtualTextureSize = 256 * 1024
-            }
-        vt = New VirtualTexture(vtInfo, 256 * 32, 1)
-        feedback = New FeedbackBuffer(vtInfo, 64, 64)
-
-        CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
-        CommonProperties.AtlasScale = 1.0F / vt.atlas.atlascount
-        CommonProperties.PageTableSize = vtInfo.PageTableSize
-
         FBOm.FBO_Initialize()
         LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 

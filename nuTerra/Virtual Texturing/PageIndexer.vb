@@ -1,17 +1,15 @@
 ﻿Public Class PageIndexer
-    ReadOnly info As VirtualTextureInfo
     ReadOnly mipcount As Integer
     Public sizes As Integer() ' This stores the sizes Of various mip levels
     Public Count As Integer
 
     Public Sub New(info As VirtualTextureInfo)
-        Me.info = info
         mipcount = Math.Log(info.PageTableSize, 2) + 1
 
         Count = 0
         ReDim sizes(mipcount - 1)
         For i = 0 To mipcount - 1
-            sizes(i) = (info.VirtualTextureSize \ info.TileSize) >> i
+            sizes(i) = info.PageTableSize >> i
             Count += sizes(i) * sizes(i)
         Next
     End Sub

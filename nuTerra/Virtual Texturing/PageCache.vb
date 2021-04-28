@@ -2,7 +2,7 @@
     ReadOnly atlas As TextureAtlas
     ReadOnly loader As PageLoader
 
-    ReadOnly count As Integer
+    ReadOnly num_tiles As Integer
     Public current As Integer = 0
 
     ReadOnly lru As New List(Of Page)
@@ -12,17 +12,17 @@
     Public Event Removed(p As Page, mapping As Integer)
     Public Event Added(p As Page, mapping As Integer)
 
-    Public Sub New(info As VirtualTextureInfo, atlas As TextureAtlas, loader As PageLoader, indexer As PageIndexer, count As Integer)
+    Public Sub New(atlas As TextureAtlas, loader As PageLoader, num_tiles As Integer)
         Me.atlas = atlas
         Me.loader = loader
-        Me.count = count
+        Me.num_tiles = num_tiles
         AddHandler loader.loadComplete, AddressOf LoadComplete
     End Sub
 
     Public Sub LoadComplete(p As Page, color_data As Byte(), normal_data As Byte(), specular_data As Byte())
         Dim mapping As Integer
 
-        If current = count * count Then
+        If current = num_tiles Then
             Dim lru_page = lru.First
             mapping = lru_used(lru_page)
             lru_used.Remove(lru_page)
@@ -32,7 +32,7 @@
             mapping = current
             current += 1
 
-            If current = count * count Then
+            If current = num_tiles Then
                 LogThis("Atlas is Full, using LRU")
             End If
         End If

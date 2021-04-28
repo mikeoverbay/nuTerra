@@ -632,7 +632,8 @@ CleanUp:
                         "applyOverlay",
                         "globalTex",
                         "g_applyScreenSpaceMorphing",
-                        "g_tileUVScale"
+                        "g_tileUVScale",
+                        "g_applyOverlay"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
