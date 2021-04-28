@@ -533,7 +533,7 @@ Module MapLoader
             .VirtualTextureSize = TILE_SIZE * VT_NUM_PAGES
             }
         vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
-        feedback = New FeedbackBuffer(vtInfo, 64, 64)
+        feedback = New FeedbackBuffer(vtInfo, 20, 16)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
         CommonProperties.AtlasScale = 1.0F / (vtInfo.VirtualTextureSize / vtInfo.TileSize)
