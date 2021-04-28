@@ -5,16 +5,14 @@ Public Class PageTable
     Implements IDisposable
 
     ReadOnly info As VirtualTextureInfo
-    ReadOnly indexer As PageIndexer
     Public texture As GLTexture
 
     ReadOnly tableEntryPool As List(Of UShort(,))
     ReadOnly quadtree As Quadtree
     Dim quadtreeDirty As Boolean = True
 
-    Public Sub New(cache As PageCache, info As VirtualTextureInfo, indexer As PageIndexer)
+    Public Sub New(cache As PageCache, info As VirtualTextureInfo)
         Me.info = info
-        Me.indexer = indexer
 
         Dim numLevels As Integer = Math.Log(info.PageTableSize, 2) + 1
         Me.quadtree = New Quadtree(New Rectangle(0, 0, info.PageTableSize, info.PageTableSize), numLevels - 1)

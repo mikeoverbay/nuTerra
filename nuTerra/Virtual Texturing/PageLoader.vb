@@ -33,7 +33,10 @@ Public Class PageLoader
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
-
+        uncompData = Nothing
+        specularData = Nothing
+        compDataColor = Nothing
+        compDataNormal = Nothing
     End Sub
 
     Public Sub Submit(request As Page)
@@ -45,7 +48,7 @@ Public Class PageLoader
     End Sub
 
     Private Sub LoadPage(state As ReadState)
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_Mixer_ID)
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_mixer_set.fbo)
         GL.Viewport(0, 0, info.TileSize, info.TileSize)
         GL.Clear(ClearBufferMask.ColorBufferBit)
 
@@ -53,10 +56,10 @@ Public Class PageLoader
 
         Dim perSize = Math.Pow(2, state.Page.Mip)
 
-        Dim xMin As Integer = 100 * (theMap.bounds_minX) + 100
-        Dim yMin As Integer = 100 * (theMap.bounds_minY)
-        Dim _w = 100 * (theMap.bounds_maxX - theMap.bounds_minX + 1)
-        Dim _h = 100 * (theMap.bounds_maxY - theMap.bounds_minY + 1)
+        Dim xMin As Integer = 100 * b_x_min
+        Dim yMin As Integer = 100 * (b_y_min - 1)
+        Dim _w = 100 * (b_x_max - b_x_min + 1)
+        Dim _h = 100 * (b_y_max - b_y_min + 1)
 
         Dim left = xMin + state.Page.X / info.PageTableSize * perSize * _w
         Dim bottom = yMin + state.Page.Y / info.PageTableSize * perSize * _h

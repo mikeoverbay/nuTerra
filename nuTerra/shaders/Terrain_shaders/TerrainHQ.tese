@@ -44,7 +44,7 @@ void main(void)
     const vec2 uv = gl_TessCoord.x * tes_in[0].UV +
                     gl_TessCoord.y * tes_in[1].UV +
                     gl_TessCoord.z * tes_in[2].UV;
-                    
+
     tes_out.Global_UV = chunk.g_uv_offset + (uv * props.map_size);
 
     const uvec2 page = SampleTable(PageTable, tes_out.Global_UV, 0);

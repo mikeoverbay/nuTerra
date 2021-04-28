@@ -37,7 +37,7 @@ Public Class VirtualTexture
         atlas = New TextureAtlas(info, num_tiles)
         loader = New PageLoader(indexer, info)
         cache = New PageCache(atlas, loader, num_tiles)
-        pagetable = New PageTable(cache, info, indexer)
+        pagetable = New PageTable(cache, info)
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose

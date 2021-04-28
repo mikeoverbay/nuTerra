@@ -1,16 +1,8 @@
 ﻿Imports OpenTK.Graphics.OpenGL
-Imports OpenTK
 
 Module FBO_Mixer
-    Public FBO_Mixer_ID As Integer = 0
-
-    ' This is used to prerender the terrain.
-    ' The gGmmArray is only here for future use. Decals if there are rendered during at this time.
-
-    ''' <summary>
-    ''' Creates the mix FBO
-    ''' </summary>
     Public NotInheritable Class FBO_mixer_set
+        Public Shared fbo As Integer
         Public Shared gColor, gNormal, gSpecular As GLTexture
         Private Shared width As Integer
         Private Shared height As Integer
@@ -19,8 +11,6 @@ Module FBO_Mixer
             width = _width
             height = _height
 
-            frmMain.glControl_main.MakeCurrent()
-
             delete_textures_and_fbo()
             create_arraytextures()
 
@@ -28,7 +18,6 @@ Module FBO_Mixer
                 MsgBox("Failed to create mini FBO" + vbCrLf + "I must shut down!", MsgBoxStyle.Exclamation, "We're Screwed!")
                 End
             End If
-
         End Sub
 
         Public Shared Sub delete_textures_and_fbo()
@@ -36,7 +25,7 @@ Module FBO_Mixer
             If gColor IsNot Nothing Then gColor.Delete()
             If gNormal IsNot Nothing Then gNormal.Delete()
             If gSpecular IsNot Nothing Then gSpecular.Delete()
-            If FBO_Mixer_ID > 0 Then GL.DeleteFramebuffer(FBO_Mixer_ID)
+            If fbo > 0 Then GL.DeleteFramebuffer(fbo)
         End Sub
 
         Public Shared Sub create_arraytextures()
@@ -60,25 +49,21 @@ Module FBO_Mixer
         End Sub
 
         Public Shared Function create_fbo() As Boolean
-            FBO_Mixer_ID = CreateFramebuffer("Mixer")
+            fbo = CreateFramebuffer("Tile Mixer")
 
-            'attach our textureArray to colorAttachment0, mip 0 and level 0
-            GL.NamedFramebufferTexture(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment0, gColor.texture_id, 0)
-            GL.NamedFramebufferTexture(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment1, gNormal.texture_id, 0)
-            GL.NamedFramebufferTexture(FBO_Mixer_ID, FramebufferAttachment.ColorAttachment2, gSpecular.texture_id, 0)
+            GL.NamedFramebufferTexture(fbo, FramebufferAttachment.ColorAttachment0, gColor.texture_id, 0)
+            GL.NamedFramebufferTexture(fbo, FramebufferAttachment.ColorAttachment1, gNormal.texture_id, 0)
+            GL.NamedFramebufferTexture(fbo, FramebufferAttachment.ColorAttachment2, gSpecular.texture_id, 0)
 
-            Dim FBOHealth = GL.CheckNamedFramebufferStatus(FBO_Mixer_ID, FramebufferTarget.Framebuffer)
+            Dim FBOHealth = GL.CheckNamedFramebufferStatus(fbo, FramebufferTarget.Framebuffer)
 
             If FBOHealth <> FramebufferStatus.FramebufferComplete Then
                 Return False
             End If
 
-            Dim bufs() As DrawBuffersEnum = {FramebufferAttachment.ColorAttachment0, FramebufferAttachment.ColorAttachment1, FramebufferAttachment.ColorAttachment2}
-            GL.NamedFramebufferDrawBuffers(FBO_Mixer_ID, 3, bufs)
-
+            Dim attachments() As DrawBuffersEnum = {FramebufferAttachment.ColorAttachment0, FramebufferAttachment.ColorAttachment1, FramebufferAttachment.ColorAttachment2}
+            GL.NamedFramebufferDrawBuffers(fbo, 3, attachments)
             Return True
         End Function
-
     End Class
-
 End Module

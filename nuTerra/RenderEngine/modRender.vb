@@ -72,14 +72,10 @@ Module modRender
         If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             ExtractFrustum()
             cull_terrain()
+
+            terrain_vt_pass()
         End If
         '===========================================================================
-
-        If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
-            '===========================================================================
-            draw_terrain_vt_mip()
-            '===========================================================================
-        End If
 
         '===========================================================================
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) '================
@@ -469,8 +465,8 @@ Module modRender
                                 BlitFramebufferFilter.Nearest)
     End Sub
 
-    Private Sub draw_terrain_vt_mip()
-        GL_PUSH_GROUP("draw_terrain_vt_mip")
+    Private Sub terrain_vt_pass()
+        GL_PUSH_GROUP("terrain_vt_pass")
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, feedback.fbo)
         GL.Viewport(0, 0, feedback.width, feedback.height)
@@ -507,69 +503,65 @@ Module modRender
     Private Sub draw_terrain()
         GL_PUSH_GROUP("draw_terrain")
 
-        '==========================
-        'debug
-        'FBOm.attach_C()
-        'GL.Enable(EnableCap.Blend)
-        '==========================
+        ' EANABLE FACE CULLING
         GL.Enable(EnableCap.CullFace)
 
-        '=======================================================================================
-        'Draw visible LQ chunks
-        '=======================================================================================
-        '------------------------------------------------
-        TerrainLQShader.Use()  '<------------ Shader Bind
-        '------------------------------------------------
+        ' BIND LQ SHADER
+        TerrainLQShader.Use()
 
+        ' BIND VT TEXTURES
         vt.pagetable.texture.BindUnit(0)
-        'TEST_PATTERN_ID.BindUnit(0)
         vt.atlas.color_texture.BindUnit(1)
         vt.atlas.normal_texture.BindUnit(2)
         vt.atlas.specular_texture.BindUnit(3)
 
-        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        ' BIND TERRAIN VAO
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
+
+        ' BIND TERRAIN INDIRECT BUFFER
+        MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.LQ Then
-                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
+                ' CALC NORMAL MATRIX FOR CHUNK
+                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix))
 
-                'draw chunk
+                ' DRAW CHUNK INDIRECT
                 GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
             End If
         Next
 
+        ' UNBIND SHADER
         TerrainLQShader.StopUse()
-        '=======================================================================================
-        'draw visible HZ terrain
-        '=======================================================================================
-        '------------------------------------------------
 
         If USE_TESSELLATION Then
-            TerrainHQShader.Use()  '<-------------- Shader Bind
-            '------------------------------------------------
+            GL_PUSH_GROUP("draw_terrain: tessellation")
+
+            ' BIND HQ SHADER
+            TerrainHQShader.Use()
 
             For i = 0 To theMap.render_set.Length - 1
                 If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then
-                    GL.UniformMatrix3(TerrainHQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix)) 'NormalMatrix
+                    ' CALC NORMAL MATRIX FOR CHUNK
+                    GL.UniformMatrix3(TerrainHQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix))
 
-                    'bind all the data for this chunk
-                    With theMap.render_set(i)
-                        'draw chunk
-                        GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-                    End With
+                    ' DRAW CHUNK INDIRECT
+                    GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                 End If
             Next
 
+            ' UNBIND SHADER
             TerrainHQShader.StopUse()
+
+            GL_POP_GROUP()
         End If
 
-        unbind_textures(3)
-
+        ' RESTORE STATE
         GL.Disable(EnableCap.CullFace)
-        GL.Disable(EnableCap.Blend)
 
         If WIRE_TERRAIN Then
+            GL_PUSH_GROUP("draw_terrain: wire")
+
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
             FBOm.attach_CF()
 
@@ -596,26 +588,6 @@ Module modRender
 
                 For i = 0 To theMap.render_set.Length - 1
                     If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then
-                        With theMap.render_set(i)
-                            .layersStd140_ubo.BindBase(0)
-
-                            'AM maps
-                            theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
-                            theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
-                            theMap.render_set(i).layer.render_info(2).atlas_id.BindUnit(3)
-                            theMap.render_set(i).layer.render_info(3).atlas_id.BindUnit(4)
-                            theMap.render_set(i).layer.render_info(4).atlas_id.BindUnit(5)
-                            theMap.render_set(i).layer.render_info(5).atlas_id.BindUnit(6)
-                            theMap.render_set(i).layer.render_info(6).atlas_id.BindUnit(7)
-                            theMap.render_set(i).layer.render_info(7).atlas_id.BindUnit(8)
-
-                            'bind blend textures
-                            .TexLayers(0).Blend_id.BindUnit(17)
-                            .TexLayers(1).Blend_id.BindUnit(18)
-                            .TexLayers(2).Blend_id.BindUnit(19)
-                            .TexLayers(3).Blend_id.BindUnit(20)
-                        End With
-
                         GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
                     End If
                 Next
@@ -623,8 +595,14 @@ Module modRender
                 TerrainNormalsHQ.StopUse()
             End If
 
+            ' RESTORE STATE
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
+            GL_POP_GROUP()
         End If
+
+        ' UNBIND VT TEXTURES
+        unbind_textures(3)
 
         GL_POP_GROUP()
     End Sub
