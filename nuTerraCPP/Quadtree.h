@@ -42,7 +42,7 @@ struct Quadtree
 	void             write(uint16_t* image, int size, int miplevel);
 	Rect			 getRectangle(int index);
 
-	void		     write(Quadtree* node, uint16_t* image, int size, int miplevel);
+	void		     write(Quadtree* node, uint16_t* image, const int size, const int miplevel);
 	static Quadtree* findPage(Quadtree* node, uint32_t request, int* index);
 
 	Rect      m_rectangle;

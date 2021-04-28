@@ -16,6 +16,8 @@ namespace nuTerraCPP {
 
 	public:
 		QuadtreeWrap(System::Int32 size, System::Int32 level);
+		~QuadtreeWrap();
+
 		void Add(System::UInt32 request, System::Int32 mapping);
 		void Remove(System::UInt32 request);
 		void Write(array<System::UInt16, 2>^ data, System::Int32 miplevel);

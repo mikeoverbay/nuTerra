@@ -22,6 +22,11 @@ nuTerraCPP::QuadtreeWrap::QuadtreeWrap(System::Int32 size, System::Int32 level)
 	this->quadtree_impl = new Quadtree(r, level);
 }
 
+nuTerraCPP::QuadtreeWrap::~QuadtreeWrap()
+{
+	delete this->quadtree_impl;
+}
+
 void nuTerraCPP::QuadtreeWrap::Add(System::UInt32 request, System::Int32 mapping)
 {
 	this->quadtree_impl->add(request, mapping);

@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include <algorithm>
 #include "Quadtree.h"
 
 Quadtree::Quadtree(Rect _rect, int _level)
@@ -98,21 +98,23 @@ Rect Quadtree::getRectangle(int index)
 	return { 0, 0, 0, 0 };
 }
 
-void Quadtree::write(Quadtree* node, uint16_t* data, int size, int miplevel)
+void Quadtree::write(Quadtree* node, uint16_t* data, const int size, const int miplevel)
 {
 	if (node->m_level >= miplevel)
 	{
-		int rx = node->m_rectangle.m_x >> miplevel;
-		int ry = node->m_rectangle.m_y >> miplevel;
-		int rw = node->m_rectangle.m_width >> miplevel;
-		int rh = node->m_rectangle.m_width >> miplevel;
+		const int rx = node->m_rectangle.m_x >> miplevel;
+		const int ry = node->m_rectangle.m_y >> miplevel;
+		const int rw = (node->m_rectangle.m_width >> miplevel);
+		const int rh = ry + (node->m_rectangle.m_width >> miplevel);
 
-		uint16_t value = (node->m_mapping << 5) | node->m_level;
-		for (int i = ry; i < ry + rh; ++i)
+		const uint16_t value = (node->m_mapping << 5) | node->m_level;
+		for (int i = ry; i < rh; ++i)
 		{
-			for (int j = rx; j < rx + rw; ++j)
+			uint16_t* ptr = data + i * size + rx;
+			const uint16_t* end = ptr + rw;
+			for (; ptr < end; ++ptr)
 			{
-				data[i * size + j] = value;
+				*ptr = value;
 			}
 		}
 
