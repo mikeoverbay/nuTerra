@@ -532,7 +532,7 @@ Module MapLoader
             .TileSize = TILE_SIZE,
             .VirtualTextureSize = TILE_SIZE * VT_NUM_PAGES
             }
-        vt = New VirtualTexture(vtInfo, NUM_TILES, 2)
+        vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
         feedback = New FeedbackBuffer(vtInfo, 64, 64)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
