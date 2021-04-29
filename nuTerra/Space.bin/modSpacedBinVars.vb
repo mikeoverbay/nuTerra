@@ -51,28 +51,6 @@ Module modSpacedBinVars
         End Sub
     End Class
 
-
-#Region "BSGD"
-    Public cBSGD As cBSGD_
-    Public Structure cBSGD_
-        '''<summary>
-        '''This data contains chunks of vertex creation data
-        '''Chunk size is stored in cBWSG tbl 3
-        '''</summary>
-        Public data As Byte()
-
-        Public Sub New(bsgdHeader As SectionHeader, br As BinaryReader)
-            ' set stream reader to point at this chunk
-            br.BaseStream.Position = bsgdHeader.offset
-
-            ' Check version in header
-            Debug.Assert(bsgdHeader.version = 2)
-
-            data = br.ReadBytes(bsgdHeader.length)
-        End Sub
-    End Structure
-#End Region
-
 #Region "BWST"
     Public cBWST As cBWST_
     Public Structure cBWST_
@@ -115,64 +93,6 @@ Module modSpacedBinVars
                 Return strs(index)
             Else
                 Debug.Fail("String in BWST not found!", key.ToString)
-                Return Nothing
-            End If
-        End Function
-    End Structure
-#End Region
-
-#Region "BWSG"
-    Public cBWSG As cBWSG_
-    Public Structure cBWSG_
-        Public location As UInt32
-        Public length As UInt32
-        Public keys() As UInt32
-        Public strs() As String
-
-        Public primitive_entries() As primitive_entries_
-        Public primitive_data_list() As primitive_data_list_
-        Public cBWSG_VertexDataChunks() As raw_data_
-        Public primitive_data() As primitive_data_
-
-        Public Structure primitive_entries_
-            Public str_key1 As UInt32
-            Public start_idx As UInt32
-            Public end_idx As UInt32
-            Public vertex_count As UInt32
-            Public str_key2 As UInt32
-            Public vertex_type As String
-            Public model As String
-        End Structure
-
-        Public Structure primitive_data_list_
-            Public block_type As UInt32
-            Public vertex_stride As UInt32
-            Public chunkDataBlockLength As UInt32
-            Public chunkDataBlockIndex As UInt32
-            Public chunkDataOffset As UInt32
-            Public data() As Byte
-        End Structure
-
-        Public Structure primitive_data_
-            Public block_type As UInt32
-            Public vertex_stride As UInt32
-            Public data_length() As UInt32
-            Public section_index As UInt32
-            Public offset As UInt32
-            Public data() As Byte
-        End Structure
-
-        Public Structure raw_data_
-            Public data_size As UInt32
-            Public data() As Byte
-        End Structure
-
-        Public Function find_str(key As UInt32) As String
-            Dim index As Integer = Array.BinarySearch(keys, key)
-            If index >= 0 Then
-                Return strs(index)
-            Else
-                Debug.Fail("String in BWSG not found!", key.ToString)
                 Return Nothing
             End If
         End Function
@@ -440,23 +360,6 @@ Module modSpacedBinVars
 
 #End Region
 
-#Region "WTbl"
-    Public cWTbl As cWTbl_
-    Public Structure cWTbl_
-        Public benchmark_locations As BWArray(Of Vector3)
-
-        Public Sub New(wtblHeader As SectionHeader, br As BinaryReader)
-            ' set stream reader to point at this chunk
-            br.BaseStream.Position = wtblHeader.offset
-
-            ' Check version in header
-            Debug.Assert(wtblHeader.version = 0)
-
-            benchmark_locations = New BWArray(Of Vector3)(br)
-        End Sub
-    End Structure
-#End Region
-
 #Region "BSMO"
     Public cBSMO As cBSMO_
     Public Structure cBSMO_
@@ -475,12 +378,6 @@ Module modSpacedBinVars
         Public model_hardpoint_items As BWArray(Of Matrix4)
         Public falling_model_info_items As BWArray(Of WoTFallingModelInfoItem_v1_0_0)
         Public fragile_model_info_items As BWArray(Of WoTFragileModelInfoItem_v1_0_0)
-        ' TODO: wsmo_4
-        ' TODO: wsmo_2
-        ' TODO: wsmo_3
-        ' TODO: havok_info
-        ' TODO: 16_8
-        ' TODO: vertices_data_sizes
 
         Public Sub New(bsmoHeader As SectionHeader, br As BinaryReader)
             ' set stream reader to point at this chunk
@@ -697,44 +594,6 @@ Module modSpacedBinVars
             Public vec4_indx As UInt32
         End Structure
 
-    End Structure
-#End Region
-
-#Region "BWAL"
-    'bigworld asset list
-    Public cBWAL As cBWAL_
-    Public Structure cBWAL_
-        Public assetList() As assetList_
-
-        Public Sub New(bwalHeader As SectionHeader, br As BinaryReader)
-            ' set stream reader to point at this chunk
-            br.BaseStream.Position = bwalHeader.offset
-
-            ' Check version in header
-            Debug.Assert(bwalHeader.version = 2)
-
-            Dim ds = br.ReadUInt32 'data size per entry in bytes
-            Dim tl = br.ReadUInt32 ' number of entries in this table
-
-            ReDim assetList(tl - 1)
-            For k = 0 To tl - 1
-                assetList(k).AssetType = br.ReadUInt32
-                assetList(k).EntryID = br.ReadUInt32
-            Next
-        End Sub
-
-        <StructLayout(LayoutKind.Sequential)>
-        Public Structure assetList_
-            Public AssetType As UInt32
-            Public EntryID As UInt32
-
-            ReadOnly Property string_name As String
-                Get
-                    Dim ns() = {"ASSET_TYPE_UNKNOWN_TYPE", "ASSET_TYPE_DATASECTION", "ASSET_TYPE_TEXTURE", "ASSET_TYPE_EFFECT", "ASSET_TYPE_PRIMITIVE", "ASSET_TYPE_VISUAL", "ASSET_TYPE_MODEL"}
-                    Return ns(AssetType)
-                End Get
-            End Property
-        End Structure
     End Structure
 #End Region
 

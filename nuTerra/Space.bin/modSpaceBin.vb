@@ -51,20 +51,6 @@ Module modSpaceBin
             End Try
 
             Try
-                'cBWAL = New cBWAL_(sectionHeaders("BWAL"), br)
-            Catch ex As Exception
-                ShowDecodeFailedMessage(ex, "BWAL")
-                GoTo Failed
-            End Try
-
-            Try
-                get_BWSG(sectionHeaders("BWSG"), br)
-            Catch ex As Exception
-                'ShowDecodeFailedMessage(ex, "BWSG")
-                GoTo Failed
-            End Try
-
-            Try
                 cBWT2 = New cBWT2_(sectionHeaders("BWT2"), br)
             Catch ex As Exception
                 ShowDecodeFailedMessage(ex, "BWT2")
@@ -112,29 +98,6 @@ Module modSpaceBin
                 ShowDecodeFailedMessage(ex, "BWWa")
                 GoTo Failed
             End Try
-
-            Try
-                'cWTbl = New cWTbl_(sectionHeaders("WTbl"), br)
-            Catch ex As Exception
-                ShowDecodeFailedMessage(ex, "WTbl")
-                GoTo Failed
-            End Try
-
-            'Unimplemented sections:
-            'BWCS
-            'BWS2
-            'BSG2
-            'WTCP
-            'BWEP
-            'WGCO
-            'BWPs
-            'CENT
-            'UDOS
-            'WGDE
-            'BWLC
-            'WTau
-            'WGSH
-            'WGMM
         End Using
 
         ms.Dispose()
@@ -254,15 +217,11 @@ CleanUp:
         sectionHeaders = Nothing
 
         'Clear Sections
-        cBSGD = Nothing
         'cBWST = Nothing
-        cBWSG = Nothing
         'cBWT2 = Nothing
         cBSMI = Nothing
-        cWTbl = Nothing
         cBSMO = Nothing
         cBSMA = Nothing
-        cBWAL = Nothing
         cWGSD = Nothing
         cSpTr = Nothing
         cBWWa = Nothing
