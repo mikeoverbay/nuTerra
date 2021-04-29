@@ -41,6 +41,13 @@ jobs:
         files: nuTerra/bin/Release/
         dest: nuTerra.zip
 
+    - uses: dev-drprasad/delete-older-releases@v0.2.0
+      with:
+        keep_latest: 10
+        delete_tags: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
