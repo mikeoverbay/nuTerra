@@ -76,19 +76,40 @@ Public Class VirtualTexture
         Dim pad = 10
         Dim size = (frmMain.glControl_main.ClientSize.Height - pad * 2) \ H
 
+        If SHOW_VT = 1 Then
+            atlas.color_texture.BindUnit(0)
+        ElseIf SHOW_VT = 2 Then
+            atlas.normal_texture.BindUnit(0)
+        Else
+            atlas.specular_texture.BindUnit(0)
+        End If
+
+        image2dArrayShader.Use()
+        GL.BindVertexArray(defaultVao)
+        GL.UniformMatrix4(image2dArrayShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
+
         For y = 0 To H - 1
             For x = 0 To W - 1
                 Dim xoff = pad + x * size
                 Dim yoff = pad + y * size
-                If SHOW_VT = 1 Then
-                    draw_image_rectangle(New RectangleF(xoff, yoff, size, size), atlas.color_texture, True, y * W + x)
-                ElseIf SHOW_VT = 2 Then
-                    draw_image_rectangle(New RectangleF(xoff, yoff, size, size), atlas.normal_texture, True, y * W + x)
-                Else
-                    draw_image_rectangle(New RectangleF(xoff, yoff, size, size), atlas.specular_texture, True, y * W + x)
-                End If
+
+                GL.Uniform1(image2dArrayShader("id"), y * W + x)
+                Dim rect = New RectangleF(xoff, yoff, size, size)
+                GL.Uniform4(image2dArrayShader("rect"),
+                    rect.Left,
+                    -rect.Bottom,
+                    rect.Right,
+                    -rect.Top)
+
+                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
             Next
         Next
+
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
+
+        image2dArrayShader.StopUse()
     End Sub
 
     Public Sub Clear()
