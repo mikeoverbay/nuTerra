@@ -301,7 +301,8 @@ Module modRender
 
         draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
 
-        unbind_textures(6) ' unbind all the used texture slots
+        ' UNBIND
+        unbind_textures(7)
 
         deferredShader.StopUse()
 
@@ -370,7 +371,8 @@ Module modRender
 
         DeferredFogShader.StopUse()
 
-        unbind_textures(2)
+        ' MULTI UNBIND
+        GL.BindTextures(0, 4, {0, 0, 0, 0})
 
         GL_POP_GROUP()
     End Sub
@@ -424,7 +426,9 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
         BaseRingProjectorDeferred.StopUse()
-        unbind_textures(2)
+
+        ' UNBIND
+        unbind_textures(3)
 
         GL_POP_GROUP()
     End Sub
@@ -510,10 +514,7 @@ Module modRender
         TerrainLQShader.Use()
 
         ' BIND VT TEXTURES
-        vt.pagetable.texture.BindUnit(0)
-        vt.atlas.color_texture.BindUnit(1)
-        vt.atlas.normal_texture.BindUnit(2)
-        vt.atlas.specular_texture.BindUnit(3)
+        vt.Bind()
 
         ' BIND TERRAIN VAO
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
@@ -602,7 +603,7 @@ Module modRender
         End If
 
         ' UNBIND VT TEXTURES
-        unbind_textures(3)
+        vt.Unbind()
 
         GL_POP_GROUP()
     End Sub
@@ -780,8 +781,6 @@ Module modRender
         GL.Uniform1(TerrainGrids("show_chunks"), CInt(SHOW_CHUNKS))
         GL.Uniform1(TerrainGrids("show_grid"), CInt(SHOW_GRID))
 
-        GL.Uniform1(TerrainGrids("gGMF"), 0)
-
         FBOm.gGMF.BindUnit(0)
 
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
@@ -790,7 +789,8 @@ Module modRender
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, theMap.render_set.Length, 0)
         TerrainGrids.StopUse()
 
-        unbind_textures(0)
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
 
         GL.DepthMask(True)
         GL.Enable(EnableCap.DepthTest)
@@ -819,7 +819,9 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         FXAAShader.StopUse()
-        unbind_textures(0)
+
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
 
         GL_POP_GROUP()
     End Sub
@@ -844,11 +846,11 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         glassPassShader.StopUse()
-        unbind_textures(1)
+
+        ' UNBIND
+        unbind_textures(2)
 
         GL_POP_GROUP()
-
-
     End Sub
 
     Private Sub draw_terrain_ids()
@@ -897,36 +899,9 @@ Module modRender
 
         color_keys()
 
-#If False Then
-        For y = 0 To vt.atlas.atlascount - 1
-            For x = 0 To vt.atlas.atlascount - 1
-                Dim xoff = 0 + x * 8
-                Dim yoff = 79 + y * 8
-                draw_image_rectangle(New RectangleF(xoff, yoff, 8, 8), vt.atlas.color_texture, True, y * vt.atlas.atlascount + x)
-            Next
-        Next
-
-        For y = 0 To vt.atlas.atlascount - 1
-            For x = 0 To vt.atlas.atlascount - 1
-                Dim xoff = 0 + x * 8
-                Dim yoff = 79 + vt.atlas.atlascount * 8 + y * 8
-                draw_image_rectangle(New RectangleF(xoff, yoff, 8, 8), vt.atlas.normal_texture, True, y * vt.atlas.atlascount + x)
-            Next
-        Next
-
-        For y = 0 To vt.atlas.atlascount - 1
-            For x = 0 To vt.atlas.atlascount - 1
-                Dim xoff = 0 + x * 8
-                Dim yoff = 79 + 2 * vt.atlas.atlascount * 8 + y * 8
-                draw_image_rectangle(New RectangleF(xoff, yoff, 8, 8), vt.atlas.specular_texture, True, y * vt.atlas.atlascount + x)
-            Next
-        Next
-#End If
-
         'draw status of SSAA
         draw_text(FXAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)
         Dim temp_time = temp_timer.ElapsedMilliseconds
-        Dim aa As Integer = 0
 
         ' Draw Terrain IDs =========================================================
         If SHOW_CHUNK_IDs AndAlso DONT_BLOCK_TERRAIN Then
@@ -953,7 +928,9 @@ Module modRender
         GL.DrawElements(PrimitiveType.Triangles, theMap.skybox_mdl.indices_count * 3, DrawElementsType.UnsignedShort, 0)
 
         SkyDomeShader.StopUse()
-        unbind_textures(0)
+
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
 
         GL.DepthMask(True)
 
@@ -986,8 +963,8 @@ Module modRender
 
         GL.Disable(EnableCap.Blend)
 
-        unbind_textures(0)
-
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
     End Sub
 
     Private Sub draw_map_cursor()
@@ -1015,6 +992,8 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
 
         DecalProject.StopUse()
+
+        ' UNBIND
         unbind_textures(3)
 
         GL_POP_GROUP()
@@ -1222,8 +1201,9 @@ Module modRender
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         image2dShader.StopUse()
-        'unbind texture
-        unbind_textures(0)
+
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
     End Sub
 
     Private Sub draw_mini_base_ids()
@@ -1261,8 +1241,8 @@ Module modRender
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
-        'Reset
-        unbind_textures(0)
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
         image2dShader.StopUse()
 
         GL_POP_GROUP()

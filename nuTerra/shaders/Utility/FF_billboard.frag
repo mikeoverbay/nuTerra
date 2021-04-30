@@ -2,7 +2,7 @@
 
 //BillBoardBasic
 
-uniform sampler2D colorMap;
+layout(binding = 0) uniform sampler2D colorMap;
 uniform vec3 color;
 in vec2 texCoord;
 

@@ -1,7 +1,7 @@
 ﻿#version 450 core
 
 out vec4 fragColor;
-uniform sampler2DArray imageMap;
+layout(binding = 0) uniform sampler2DArray imageMap;
 uniform int id;
 in vec2 texCoord;
 

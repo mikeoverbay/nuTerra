@@ -294,7 +294,6 @@ Module modOpenGL
                 GL.Uniform1(image2dArrayShader("id"), atlas_id)
 
                 image.BindUnit(0)
-                GL.Uniform1(image2dArrayShader("imageMap"), 0)
                 GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
                 GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
                 GL.Uniform4(image2dArrayShader("rect"),
@@ -322,7 +321,8 @@ Module modOpenGL
                 image2dShader.StopUse()
             End If
 
-            unbind_textures(0)
+            ' UNBIND
+            GL.BindTextureUnit(0, 0)
         End If
     End Sub
 
@@ -352,8 +352,9 @@ Module modOpenGL
             'GL.BindVertexArray(0)
 
             image2dShader.StopUse()
-            'unbind texture
-            unbind_textures(0)
+
+            ' UNBIND
+            GL.BindTextureUnit(0, 0)
         End If
     End Sub
 
@@ -362,7 +363,6 @@ Module modOpenGL
         image2dArrayShader.Use()
 
         image.BindUnit(0)
-        GL.Uniform1(image2dArrayShader("imageMap"), 0)
         GL.Uniform1(image2dArrayShader("id"), id)
         GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
 
@@ -378,8 +378,9 @@ Module modOpenGL
         'GL.BindVertexArray(0)
 
         image2dShader.StopUse()
-        'unbind texture
-        unbind_textures(0)
+
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
     End Sub
 
     Private Function pack_10(x As Single) As UInt32

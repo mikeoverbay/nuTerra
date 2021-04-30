@@ -7,7 +7,7 @@
 
 layout (location = 0) out vec4 gColor;
 
-uniform sampler2D gGMF;
+layout(binding = 0) uniform sampler2D gGMF;
 
 uniform vec2 bb_tr;
 uniform vec2 bb_bl;

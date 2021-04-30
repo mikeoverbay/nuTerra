@@ -132,8 +132,9 @@ Public Class frmModelViewer
         Next
         GL.Disable(EnableCap.Blend)
         TextRenderShader.StopUse()
-        unbind_textures(0)
 
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
     End Sub
 
 #Region "form events"

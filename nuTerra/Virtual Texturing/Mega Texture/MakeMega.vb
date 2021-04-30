@@ -143,7 +143,9 @@ Module MakeMega
         Next I
 
         MegaMixerShader.StopUse()
-        unbind_textures(12)
+
+        ' UNBIND
+        unbind_textures(13)
 
         GL.ReadBuffer(ReadBufferMode.Back)
 

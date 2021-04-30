@@ -315,7 +315,9 @@ Module Explosion_Types
                 End If
             Next
             explode_type_1_shader.Use()
-            unbind_textures(1)
+
+            ' UNBIND
+            unbind_textures(2)
         End Sub
         Private Sub draw_Particle(ByVal id As Integer)
 

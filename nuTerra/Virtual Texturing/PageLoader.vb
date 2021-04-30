@@ -1,6 +1,6 @@
 ﻿Imports System.Runtime.InteropServices
 Imports OpenTK
-Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Graphics.OpenGL4
 
 Public Class PageLoader
     Implements IDisposable
@@ -120,7 +120,9 @@ Public Class PageLoader
         Next
 
         t_mixerShader.StopUse()
-        unbind_textures(12)
+
+        ' UNBIND
+        unbind_textures(13)
 
         ' RESTORE STATE
         GL.CullFace(CullFaceMode.Back)

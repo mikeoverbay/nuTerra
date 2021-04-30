@@ -1,4 +1,6 @@
-﻿''' <summary>
+﻿Imports OpenTK.Graphics.OpenGL4
+
+''' <summary>
 ''' Based on: http://linedef.com/virtual-texture-demo.html
 ''' </summary>
 
@@ -6,8 +8,8 @@ Public Class VirtualTexture
     Implements IDisposable
 
     ReadOnly indexer As PageIndexer
-    Public pagetable As PageTable
-    Public atlas As TextureAtlas
+    ReadOnly pagetable As PageTable
+    ReadOnly atlas As TextureAtlas
     ReadOnly loader As PageLoader
     ReadOnly cache As PageCache
 
@@ -44,6 +46,28 @@ Public Class VirtualTexture
         pagetable.Dispose()
         atlas.Dispose()
         loader.Dispose()
+    End Sub
+
+    Public Sub Bind()
+#If False Then
+        ' SHOULD WE USE MULTI BIND?
+        Dim textures() = {
+            pagetable.texture.texture_id,
+            atlas.color_texture.texture_id,
+            atlas.normal_texture.texture_id,
+            atlas.specular_texture.texture_id
+            }
+        GL.BindTextures(0, 4, textures)
+#Else
+        pagetable.texture.BindUnit(0)
+        atlas.color_texture.BindUnit(1)
+        atlas.normal_texture.BindUnit(2)
+        atlas.specular_texture.BindUnit(3)
+#End If
+    End Sub
+
+    Public Sub Unbind()
+        unbind_textures(4)
     End Sub
 
     Public Sub Clear()

@@ -1,5 +1,5 @@
 ﻿Imports System.Runtime.CompilerServices
-Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Graphics.OpenGL4
 
 Public Module modOpenGLAliases
     Public Const GL_REPRESENTATIVE_FRAGMENT_TEST_NV As EnableCap = 37759
@@ -62,12 +62,6 @@ Public Module modOpenGLAliases
 
         <MethodImpl(MethodImplOptions.AggressiveInlining)>
         Public Sub Parameter(pname As TextureParameterName, param As Single)
-            GL.TextureParameter(texture_id, pname, param)
-            CheckGLError()
-        End Sub
-
-        <MethodImpl(MethodImplOptions.AggressiveInlining)>
-        Public Sub Parameter(pname As TextureParameterName, param As Integer)
             GL.TextureParameter(texture_id, pname, param)
             CheckGLError()
         End Sub
@@ -192,11 +186,15 @@ Public Module modOpenGLAliases
         GL.ObjectLabel(objLabelIdent, glObject, name.Length, name)
     End Sub
 
-    Public Sub unbind_textures(start As Integer)
-        'doing this backwards leaves TEXTURE0 active :)
-        For i = start To 0 Step -1
+    <MethodImpl(MethodImplOptions.AggressiveInlining)>
+    Public Sub unbind_textures(count As Integer)
+#If False Then
+        ' SHOULD WE USE MULTI UNBIND?
+        GL.BindTextures(0, count, 0)
+#Else
+        For i = 0 To count - 1
             GL.BindTextureUnit(i, 0)
         Next
+#End If
     End Sub
-
 End Module

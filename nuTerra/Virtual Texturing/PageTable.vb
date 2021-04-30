@@ -1,5 +1,5 @@
 ﻿Imports System.Runtime.InteropServices
-Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Graphics.OpenGL4
 
 Public Class PageTable
     Implements IDisposable

@@ -141,7 +141,6 @@ Public Class frmGbufferViewer
                 toLinearShader.Use()
 
                 FBOm.gDepth.BindUnit(0)
-                GL.Uniform1(toLinearShader("imageMap"), 0)
                 GL.Uniform1(toLinearShader("far"), My.Settings.far)
                 GL.Uniform1(toLinearShader("near"), My.Settings.near)
                 GL.UniformMatrix4(toLinearShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
@@ -175,7 +174,8 @@ Public Class frmGbufferViewer
 
         End Select
 
-        unbind_textures(0)
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
 
         GLC.SwapBuffers()  ' swap back to front
 
@@ -242,8 +242,9 @@ Public Class frmGbufferViewer
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         image2dShader.StopUse()
-        'unbind texture
-        unbind_textures(0)
+
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
     End Sub
 
     Private Sub frmTestView_Resize(sender As Object, e As EventArgs) Handles Me.Resize
