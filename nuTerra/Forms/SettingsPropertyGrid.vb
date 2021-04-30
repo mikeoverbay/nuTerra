@@ -188,7 +188,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Feedback width"), Category("VT")>
     Public Property VT_feedback_width As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 64 Then
+            If 1 <= value And value <= 128 Then
                 FEEDBACK_WIDTH = value
                 RebuildVTAtlas()
             End If
@@ -201,7 +201,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Feedback height"), Category("VT")>
     Public Property VT_feedback_height As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 64 Then
+            If 1 <= value And value <= 128 Then
                 FEEDBACK_HEIGHT = value
                 RebuildVTAtlas()
             End If
@@ -214,7 +214,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Tile Size"), Category("VT")>
     Public Property VT_tile_zise As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 4096 Then
+            If 1 <= value And value <= 8192 Then
                 TILE_SIZE = value
                 RebuildVTAtlas()
             End If
@@ -227,7 +227,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Num pages"), Category("VT")>
     Public Property VT_num_pages_ As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 4096 Then
+            If 1 <= value And value <= 8192 Then
                 VT_NUM_PAGES = value
                 RebuildVTAtlas()
             End If
@@ -247,6 +247,19 @@ Public Class SettingsPropertyGrid
         End Set
         Get
             Return NUM_TILES
+        End Get
+    End Property
+
+    <DisplayName("Uploads per frame"), Category("VT")>
+    Public Property VT_uploads_per_frame_ As Integer
+        Set(value As Integer)
+            If 1 <= value And value <= 64 Then
+                UPLOADS_PER_FRAME = value
+                RebuildVTAtlas()
+            End If
+        End Set
+        Get
+            Return UPLOADS_PER_FRAME
         End Get
     End Property
 

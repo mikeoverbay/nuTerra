@@ -523,12 +523,7 @@ Module MapLoader
         '===============================================================
         '===============================================================
 
-        vtInfo = New VirtualTextureInfo With {
-            .TileSize = TILE_SIZE,
-            .VirtualTextureSize = TILE_SIZE * VT_NUM_PAGES
-            }
-        vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
-        feedback = New FeedbackBuffer(vtInfo, 26, 22)
+        RebuildVTAtlas()
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
         CommonProperties.AtlasScale = 1.0F / (vtInfo.VirtualTextureSize / vtInfo.TileSize)
@@ -625,10 +620,16 @@ Module MapLoader
 
     Public Sub RebuildVTAtlas()
         LogThis("REBUILD ATLAS")
-        vt.Dispose()
-        vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
 
-        feedback.Dispose()
+        vtInfo = New VirtualTextureInfo With {
+            .TileSize = TILE_SIZE,
+            .VirtualTextureSize = TILE_SIZE * VT_NUM_PAGES
+            }
+
+        If vt IsNot Nothing Then vt.Dispose()
+        vt = New VirtualTexture(vtInfo, NUM_TILES, UPLOADS_PER_FRAME)
+
+        If feedback IsNot Nothing Then feedback.Dispose()
         feedback = New FeedbackBuffer(vtInfo, FEEDBACK_WIDTH, FEEDBACK_HEIGHT)
     End Sub
 

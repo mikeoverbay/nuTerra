@@ -3,6 +3,7 @@ Imports OpenTK
 
 Module modGlobalVars
     ' VT params
+    Public UPLOADS_PER_FRAME As Integer = 1
     Public NUM_TILES As Integer = 1024
     Public VT_NUM_PAGES As Integer = 1024
     Public TILE_SIZE As Integer = 256
