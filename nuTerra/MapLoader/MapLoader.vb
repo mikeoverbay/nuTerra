@@ -623,6 +623,12 @@ Module MapLoader
 
     End Sub
 
+    Public Sub RebuildVTAtlas()
+        LogThis("REBUILD ATLAS")
+        vt.Dispose()
+        vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
+    End Sub
+
     '============================================================================
     Public Sub randomize_lights()
         '===============================================================

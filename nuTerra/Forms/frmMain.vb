@@ -184,11 +184,16 @@ Public Class frmMain
                     SHOW_TEST_TEXTURES = 0.0F
                     t_mixerShader.UnsetDefine("SHOW_TEST_TEXTURES")
                 End If
+                RebuildVTAtlas()
 
             Case Keys.Y
-                LogThis("REBUILD ATLAS")
-                vt.Dispose()
-                vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
+                RebuildVTAtlas()
+
+            Case Keys.U
+                SHOW_VT += 1
+                If SHOW_VT > 3 Then
+                    SHOW_VT = 0
+                End If
 
             Case Keys.V
                 DONT_HIDE_HUD = DONT_HIDE_HUD Xor True

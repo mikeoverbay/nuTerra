@@ -70,6 +70,27 @@ Public Class VirtualTexture
         unbind_textures(4)
     End Sub
 
+    Public Sub DebugShow()
+        Dim W = (num_tiles \ 32)
+        Dim H = (num_tiles \ W)
+        Dim pad = 80
+        Dim size = (frmMain.glControl_main.ClientSize.Height - pad * 2) \ H
+
+        For y = 0 To H - 1
+            For x = 0 To W - 1
+                Dim xoff = 0 + x * size
+                Dim yoff = pad + y * size
+                If SHOW_VT = 1 Then
+                    draw_image_rectangle(New RectangleF(xoff, yoff, size, size), atlas.color_texture, True, y * H + x)
+                ElseIf SHOW_VT = 2 Then
+                    draw_image_rectangle(New RectangleF(xoff, yoff, size, size), atlas.normal_texture, True, y * H + x)
+                Else
+                    draw_image_rectangle(New RectangleF(xoff, yoff, size, size), atlas.specular_texture, True, y * H + x)
+                End If
+            Next
+        Next
+    End Sub
+
     Public Sub Clear()
         cache.Clear()
     End Sub

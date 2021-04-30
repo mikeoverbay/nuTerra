@@ -95,6 +95,7 @@ Module modGlobalVars
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer
     Public PICK_MODELS As Boolean = False
+    Public SHOW_VT As Integer = 0
     Public DONT_HIDE_HUD As Boolean = True
     Public DONT_HIDE_MINIMAP As Boolean = True
     Public SHOW_LOD_COLORS As Boolean
