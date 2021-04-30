@@ -523,17 +523,12 @@ Module MapLoader
         '===============================================================
         '===============================================================
 
-        ' CREATE VT
-        Const NUM_TILES = 1024
-        Const VT_NUM_PAGES = 1024
-        Const TILE_SIZE = 256
-
         vtInfo = New VirtualTextureInfo With {
             .TileSize = TILE_SIZE,
             .VirtualTextureSize = TILE_SIZE * VT_NUM_PAGES
             }
         vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
-        feedback = New FeedbackBuffer(vtInfo, 20, 16)
+        feedback = New FeedbackBuffer(vtInfo, 22, 22)
 
         CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
         CommonProperties.AtlasScale = 1.0F / (vtInfo.VirtualTextureSize / vtInfo.TileSize)
@@ -1124,10 +1119,6 @@ Module MapLoader
     Public Sub remove_map_data()
         'Used to delete all images and display lists.
 
-        vt = Nothing
-        vtInfo = Nothing
-        feedback = Nothing
-
         MapMenuScreen.Invalidate()
 
         PICK_DICTIONARY.Clear()
@@ -1166,8 +1157,10 @@ Module MapLoader
         'Clear texture cache so we dont returned non-existent textures.
         imgTbl.Clear()
 
-        'clean up mixing FBO
-        'FBO_mixer_set.delete_textures_and_fbo()
+        vt = Nothing
+        vtInfo = Nothing
+        feedback = Nothing
+
         GC.Collect()
         GC.WaitForFullGCComplete()
         GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce

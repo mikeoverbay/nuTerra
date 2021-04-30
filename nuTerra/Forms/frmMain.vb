@@ -77,11 +77,6 @@ Public Class frmMain
 
         Select Case e.KeyCode
             '-------------------------------
-            Case Keys.R
-                If MAP_LOADED Then
-                    randomize_lights()
-                End If
-            '-------------------------------
             'mini map size
             Case Keys.Oemplus
                 If MINI_MAP_NEW_SIZE = MINI_MAP_SIZE Then
@@ -175,6 +170,12 @@ Public Class frmMain
                     modelGlassShader.UnsetDefine("PICK_MODELS")
                 End If
 
+            '-------------------------------
+            Case Keys.R
+                If MAP_LOADED Then
+                    randomize_lights()
+                End If
+
             Case Keys.T
                 If SHOW_TEST_TEXTURES = 0F Then
                     SHOW_TEST_TEXTURES = 1.0F
@@ -185,6 +186,11 @@ Public Class frmMain
                     TerrainLQShader.UnsetDefine("SHOW_TEST_TEXTURES")
                     TerrainHQShader.UnsetDefine("SHOW_TEST_TEXTURES")
                 End If
+
+            Case Keys.Y
+                LogThis("REBUILD ATLAS")
+                vt.Dispose()
+                vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
 
             Case Keys.V
                 DONT_HIDE_HUD = DONT_HIDE_HUD Xor True

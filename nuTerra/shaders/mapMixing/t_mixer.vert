@@ -31,6 +31,7 @@ void main(void)
 
     // calculate tex coords for global_AM
     vs_out.Global_UV = chunk.g_uv_offset + (vertexTexCoord * props.map_size);
+    vs_out.Global_UV *= -1.0;
 
     // Calculate vertex position in clip coordinates
     gl_Position = Ortho_Project * (chunk.modelMatrix * vec4(vertexPosition.xyz, 1.0f)).xzyw;

@@ -2,6 +2,11 @@
 Imports OpenTK
 
 Module modGlobalVars
+    ' VT params
+    Public Const NUM_TILES = 1024
+    Public Const VT_NUM_PAGES = 1024
+    Public Const TILE_SIZE = 256
+
     Public TEST_PATTERN_ID As GLTexture
     '=================================================================================
     'Effects, Particle Textures and emitters.. more
