@@ -177,11 +177,10 @@ Public Class frmMain
                 End If
 
             Case Keys.T
-                If SHOW_TEST_TEXTURES = 0F Then
-                    SHOW_TEST_TEXTURES = 1.0F
+                SHOW_TEST_TEXTURES = SHOW_TEST_TEXTURES Xor True
+                If SHOW_TEST_TEXTURES Then
                     t_mixerShader.SetDefine("SHOW_TEST_TEXTURES")
                 Else
-                    SHOW_TEST_TEXTURES = 0.0F
                     t_mixerShader.UnsetDefine("SHOW_TEST_TEXTURES")
                 End If
                 RebuildVTAtlas()

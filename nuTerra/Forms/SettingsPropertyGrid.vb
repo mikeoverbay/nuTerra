@@ -185,6 +185,71 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
+    <DisplayName("Feedback width"), Category("VT")>
+    Public Property VT_feedback_width As Integer
+        Set(value As Integer)
+            If 1 <= value And value <= 64 Then
+                FEEDBACK_WIDTH = value
+                RebuildVTAtlas()
+            End If
+        End Set
+        Get
+            Return FEEDBACK_WIDTH
+        End Get
+    End Property
+
+    <DisplayName("Feedback height"), Category("VT")>
+    Public Property VT_feedback_height As Integer
+        Set(value As Integer)
+            If 1 <= value And value <= 64 Then
+                FEEDBACK_HEIGHT = value
+                RebuildVTAtlas()
+            End If
+        End Set
+        Get
+            Return FEEDBACK_HEIGHT
+        End Get
+    End Property
+
+    <DisplayName("Tile Size"), Category("VT")>
+    Public Property VT_tile_zise As Integer
+        Set(value As Integer)
+            If 1 <= value And value <= 4096 Then
+                TILE_SIZE = value
+                RebuildVTAtlas()
+            End If
+        End Set
+        Get
+            Return TILE_SIZE
+        End Get
+    End Property
+
+    <DisplayName("Num pages"), Category("VT")>
+    Public Property VT_num_pages_ As Integer
+        Set(value As Integer)
+            If 1 <= value And value <= 4096 Then
+                VT_NUM_PAGES = value
+                RebuildVTAtlas()
+            End If
+        End Set
+        Get
+            Return VT_NUM_PAGES
+        End Get
+    End Property
+
+    <DisplayName("Num tiles"), Category("VT")>
+    Public Property VT_num_tiles_ As Integer
+        Set(value As Integer)
+            If 1 <= value And value <= 2048 Then
+                NUM_TILES = value
+                RebuildVTAtlas()
+            End If
+        End Set
+        Get
+            Return NUM_TILES
+        End Get
+    End Property
+
     <DisplayName("Draw terrain"), Category("Map")>
     Public Property MAP_draw_terrain As Boolean
         Set(value As Boolean)
@@ -358,15 +423,13 @@ Public Class SettingsPropertyGrid
     End Property
 
     <DisplayName("Draw test textures"), Category("Overlays")>
-    Public Property OVERLAYS_test_textures As Single
-        Set(value As Single)
+    Public Property OVERLAYS_test_textures As Boolean
+        Set(value As Boolean)
             SHOW_TEST_TEXTURES = value
-            If SHOW_TEST_TEXTURES = 1.0F Then
-                TerrainLQShader.SetDefine("SHOW_TEST_TEXTURES")
-                TerrainHQShader.SetDefine("SHOW_TEST_TEXTURES")
+            If SHOW_TEST_TEXTURES Then
+                t_mixerShader.SetDefine("SHOW_TEST_TEXTURES")
             Else
-                TerrainLQShader.UnsetDefine("SHOW_TEST_TEXTURES")
-                TerrainHQShader.UnsetDefine("SHOW_TEST_TEXTURES")
+                t_mixerShader.UnsetDefine("SHOW_TEST_TEXTURES")
             End If
         End Set
         Get

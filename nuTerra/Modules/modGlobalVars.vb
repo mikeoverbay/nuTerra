@@ -3,9 +3,11 @@ Imports OpenTK
 
 Module modGlobalVars
     ' VT params
-    Public Const NUM_TILES = 1024
-    Public Const VT_NUM_PAGES = 1024
-    Public Const TILE_SIZE = 256
+    Public NUM_TILES As Integer = 1024
+    Public VT_NUM_PAGES As Integer = 1024
+    Public TILE_SIZE As Integer = 256
+    Public FEEDBACK_WIDTH As Integer = 26
+    Public FEEDBACK_HEIGHT As Integer = 22
 
     Public TEST_PATTERN_ID As GLTexture
     '=================================================================================
@@ -110,7 +112,7 @@ Module modGlobalVars
     Public SHOW_GRID As Integer
     Public SHOW_BORDER As Integer
     Public SHOW_CHUNK_IDs As Integer
-    Public SHOW_TEST_TEXTURES As Single = 0.0F 'show test ourtline on terrain flag. default Off.
+    Public SHOW_TEST_TEXTURES As Boolean = False 'show test ourtline on terrain flag. default Off.
     'models
     Public CURSOR_TEXTURE_ID As GLTexture
     Public DIRECTION_TEXTURE_ID As GLTexture

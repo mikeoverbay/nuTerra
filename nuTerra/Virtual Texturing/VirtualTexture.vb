@@ -71,10 +71,12 @@ Public Class VirtualTexture
     End Sub
 
     Public Sub DebugShow()
-        Dim W = (num_tiles \ 24)
+        Dim pad = 0
+        Dim W = CInt(Math.Sqrt(num_tiles))
         Dim H = (num_tiles \ W)
-        Dim pad = 10
-        Dim size = (frmMain.glControl_main.ClientSize.Height - pad * 2) \ H
+        Dim size = Math.Min(
+            (frmMain.glControl_main.ClientSize.Width - pad * 2) \ W,
+            (frmMain.glControl_main.ClientSize.Height - pad * 2) \ H)
 
         If SHOW_VT = 1 Then
             atlas.color_texture.BindUnit(0)

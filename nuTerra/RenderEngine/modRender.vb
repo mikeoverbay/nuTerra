@@ -310,17 +310,14 @@ Module modRender
     End Sub
     '=============================================================================================
     Private Sub color_keys()
-
-        If SHOW_TEST_TEXTURES = 0 Then Return
+        If Not SHOW_TEST_TEXTURES Then Return
 
         draw_image_rectangle(New RectangleF(0.0F, 79.0F, 100.0F, 19.0F * 8.0F),
                                             DUMMY_TEXTURE_ID, False)
 
-        If SHOW_TEST_TEXTURES > 0.0F Then
-            For i = 0 To 7
-                draw_text(tags(i), 5.0F, 81.0F + (i * 19.0F), colors(i), False, 0)
-            Next
-        End If
+        For i = 0 To 7
+            draw_text(tags(i), 5.0F, 81.0F + (i * 19.0F), colors(i), False, 0)
+        Next
     End Sub
 
     Private Sub global_fog()

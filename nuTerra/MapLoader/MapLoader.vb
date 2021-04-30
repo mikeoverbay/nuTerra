@@ -627,6 +627,9 @@ Module MapLoader
         LogThis("REBUILD ATLAS")
         vt.Dispose()
         vt = New VirtualTexture(vtInfo, NUM_TILES, 1)
+
+        feedback.Dispose()
+        feedback = New FeedbackBuffer(vtInfo, FEEDBACK_WIDTH, FEEDBACK_HEIGHT)
     End Sub
 
     '============================================================================
