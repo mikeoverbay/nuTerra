@@ -899,11 +899,6 @@ Module modRender
 
         color_keys()
 
-        If SHOW_VT > 0 Then
-            vt.DebugShow()
-        End If
-
-
         'draw status of SSAA
         draw_text(FXAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)
         Dim temp_time = temp_timer.ElapsedMilliseconds
@@ -913,6 +908,10 @@ Module modRender
             draw_terrain_ids()
         End If
         '===========================================================================
+
+        If SHOW_VT > 0 Then
+            vt.DebugShow()
+        End If
 
         GL_POP_GROUP()
     End Sub
