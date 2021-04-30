@@ -227,7 +227,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Num pages"), Category("VT")>
     Public Property VT_num_pages_ As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 8192 Then
+            If 1 <= value And value <= 4096 Then
                 VT_NUM_PAGES = value
                 RebuildVTAtlas()
             End If

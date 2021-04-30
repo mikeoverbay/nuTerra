@@ -525,11 +525,6 @@ Module MapLoader
 
         RebuildVTAtlas()
 
-        CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
-        CommonProperties.AtlasScale = 1.0F / (vtInfo.VirtualTextureSize / vtInfo.TileSize)
-        CommonProperties.PageTableSize = vtInfo.PageTableSize
-        CommonProperties.update()
-
         MAP_LOADED = True
 
         '===============================================================
@@ -631,6 +626,11 @@ Module MapLoader
 
         If feedback IsNot Nothing Then feedback.Dispose()
         feedback = New FeedbackBuffer(vtInfo, FEEDBACK_WIDTH, FEEDBACK_HEIGHT)
+
+        CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
+        CommonProperties.AtlasScale = 1.0F / (vtInfo.VirtualTextureSize / vtInfo.TileSize)
+        CommonProperties.PageTableSize = vtInfo.PageTableSize
+        CommonProperties.update()
     End Sub
 
     '============================================================================
