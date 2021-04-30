@@ -24,6 +24,22 @@ in VS_OUT {
 } fs_in;
 
 
+#ifdef SHOW_TEST_TEXTURES
+//==============================================================
+// texture outline stuff
+float B[8];
+const vec4 test_colors[8] = {
+    vec4(1.0,  1.0,  0.0,  0.0),
+    vec4(0.0,  1.0,  0.0,  0.0),
+    vec4(0.0,  0.0,  1.0,  0.0),
+    vec4(1.0,  1.0,  0.0,  0.0),
+    vec4(1.0,  0.0,  1.0,  0.0),
+    vec4(1.0,  0.65, 0.0,  0.0),
+    vec4(1.0,  0.49, 0.31, 0.0),
+    vec4(0.5,  0.5,  0.5,  0.0)
+};
+//==============================================================
+#endif
 
 
 /*===========================================================*/
@@ -77,6 +93,16 @@ vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id)
     float mipLevel = 0.5 * log2(delta_max_sqr);
 
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
+
+#ifdef SHOW_TEST_TEXTURES
+    //----- test texture outlines -----
+    B[id] = 0.0;
+    if (cropped.x < 0.065 ) B[id] = 1.0;
+    if (cropped.x > 0.935 ) B[id] = 1.0;
+    if (cropped.y < 0.065 ) B[id] = 1.0;
+    if (cropped.y > 0.935 ) B[id] = 1.0;
+    //-----
+#endif
 
     return textureLod( samp, vec3(cropped, layer), mipLevel);
     }
@@ -205,6 +231,13 @@ void main(void)
 
     // wetness
     base = blend(base, base.a+0.75, vec4(props.waterColor, props.waterAlpha), global.a);
+
+    // Texture outlines
+#ifdef SHOW_TEST_TEXTURES
+    for (int i = 0; i < 8; ++i) {
+        base = mix(base, base + test_colors[i], B[i] * Mix[i]);
+    }
+#endif
 
     gSpecular = out_n.r;
 
