@@ -30,7 +30,7 @@ void main(void)
     const TerrainChunkInfo chunk = chunks[tcs_in[0].map_id];
 
     const float ln = distance((chunk.modelMatrix * vec4(gl_in[gl_InvocationID].gl_Position.xyz, 1.0)).xyz, cameraPos.xyz);
-    const float factor = (ln < 30) ? 8.0 : (ln < 60) ? 4.0 : (ln < 90) ? 2.0 : 1.0;
+    const float factor = max(min(8.0 - ln / 10.0, 8.0), 1.0);
 
     gl_TessLevelInner[0] = factor * props.tess_level;
     gl_TessLevelOuter[0] = factor * props.tess_level;
