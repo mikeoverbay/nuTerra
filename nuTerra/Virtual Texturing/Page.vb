@@ -7,11 +7,11 @@ Public Class Page
     Public Mip As Integer
     Public Packed As UInteger
 
-    Public Sub New(x As Integer, y As Integer, mip As Integer)
+    Public Sub New(x As UInteger, y As UInteger, mip As UInteger)
         Me.X = x
         Me.Y = y
         Me.Mip = mip
-        Me.Packed = mip Or (y << 8) Or (x << 20)
+        Me.Packed = mip Or (y << 8UI) Or (x << 20UI)
     End Sub
 
     Public Overrides Function ToString() As String
