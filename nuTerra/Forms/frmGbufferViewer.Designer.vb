@@ -32,6 +32,7 @@ Partial Class frmGbufferViewer
         Me.half_scale = New System.Windows.Forms.RadioButton()
         Me.full_scale = New System.Windows.Forms.RadioButton()
         Me.GroupBox2 = New System.Windows.Forms.GroupBox()
+        Me.b_vt1 = New System.Windows.Forms.RadioButton()
         Me.b_aux = New System.Windows.Forms.RadioButton()
         Me.b_flags = New System.Windows.Forms.RadioButton()
         Me.b_normal = New System.Windows.Forms.RadioButton()
@@ -119,6 +120,7 @@ Partial Class frmGbufferViewer
         '
         'GroupBox2
         '
+        Me.GroupBox2.Controls.Add(Me.b_vt1)
         Me.GroupBox2.Controls.Add(Me.b_aux)
         Me.GroupBox2.Controls.Add(Me.b_flags)
         Me.GroupBox2.Controls.Add(Me.b_normal)
@@ -133,6 +135,19 @@ Partial Class frmGbufferViewer
         Me.GroupBox2.TabIndex = 2
         Me.GroupBox2.TabStop = False
         Me.GroupBox2.Text = "Selected Image"
+        '
+        'b_vt1
+        '
+        Me.b_vt1.Appearance = System.Windows.Forms.Appearance.Button
+        Me.b_vt1.ForeColor = System.Drawing.Color.Black
+        Me.b_vt1.Location = New System.Drawing.Point(467, 14)
+        Me.b_vt1.Name = "b_vt1"
+        Me.b_vt1.Size = New System.Drawing.Size(70, 23)
+        Me.b_vt1.TabIndex = 7
+        Me.b_vt1.Tag = "7"
+        Me.b_vt1.Text = "VT1"
+        Me.b_vt1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        Me.b_vt1.UseVisualStyleBackColor = True
         '
         'b_aux
         '
@@ -373,4 +388,5 @@ Partial Class frmGbufferViewer
     Friend WithEvents Label1 As Label
     Friend WithEvents b_aux As RadioButton
     Friend WithEvents cb_alpha_enable As CheckBox
+    Friend WithEvents b_vt1 As RadioButton
 End Class

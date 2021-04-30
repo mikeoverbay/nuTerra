@@ -70,31 +70,22 @@ Public Class VirtualTexture
         unbind_textures(4)
     End Sub
 
-    Public Sub DebugShow()
-        Dim pad = 0
+    Public Sub DebugDraw(location As Point, sizep As Point, proj As OpenTK.Matrix4)
         Dim W = CInt(Math.Sqrt(num_tiles))
         Dim H = (num_tiles \ W)
-        Dim size = Math.Min(
-            (frmMain.glControl_main.ClientSize.Width - pad * 2) \ W,
-            (frmMain.glControl_main.ClientSize.Height - pad * 2) \ H)
+        Dim size = Math.Min(sizep.X / W, sizep.Y / H)
 
-        If SHOW_VT = 1 Then
-            atlas.color_texture.BindUnit(0)
-        ElseIf SHOW_VT = 2 Then
-            atlas.normal_texture.BindUnit(0)
-        Else
-            atlas.specular_texture.BindUnit(0)
-        End If
+        atlas.color_texture.BindUnit(0)
 
         image2dArrayShader.Use()
         GL.BindVertexArray(defaultVao)
-        GL.UniformMatrix4(image2dArrayShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.UniformMatrix4(image2dArrayShader("ProjectionMatrix"), False, proj)
         GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
 
         For y = 0 To H - 1
             For x = 0 To W - 1
-                Dim xoff = pad + x * size
-                Dim yoff = pad + y * size
+                Dim xoff = location.X + x * size
+                Dim yoff = location.Y + y * size
 
                 GL.Uniform1(image2dArrayShader("id"), y * W + x)
                 Dim rect = New RectangleF(xoff, yoff, size, size)

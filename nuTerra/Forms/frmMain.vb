@@ -188,12 +188,6 @@ Public Class frmMain
             Case Keys.Y
                 RebuildVTAtlas()
 
-            Case Keys.U
-                SHOW_VT += 1
-                If SHOW_VT > 3 Then
-                    SHOW_VT = 0
-                End If
-
             Case Keys.V
                 DONT_HIDE_HUD = DONT_HIDE_HUD Xor True
                 '-------------------------------

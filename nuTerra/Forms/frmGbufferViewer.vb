@@ -59,6 +59,7 @@ Public Class frmGbufferViewer
         AddHandler b_normal.CheckedChanged, AddressOf image_changed
         AddHandler b_flags.CheckedChanged, AddressOf image_changed
         AddHandler b_aux.CheckedChanged, AddressOf image_changed
+        AddHandler b_vt1.CheckedChanged, AddressOf image_changed
 
         Viewer_Image_ID = CInt(b_color.Tag)
 
@@ -172,6 +173,12 @@ Public Class frmGbufferViewer
             Case 6
                 draw_image(img_width, img_height, FBOm.gAUX_Color, 0)
 
+            Case 7
+                If vt IsNot Nothing Then
+                    draw_checker_board(CHECKER_BOARD)
+                    vt.DebugDraw(rect_location, rect_size, PROJECTIONMATRIX_GLC)
+                End If
+
         End Select
 
         ' UNBIND
@@ -251,15 +258,9 @@ Public Class frmGbufferViewer
         update_screen()
     End Sub
 
-
-
     Private Sub frmTestView_ResizeEnd(sender As Object, e As EventArgs) Handles Me.ResizeEnd
         update_screen()
 
-    End Sub
-
-    Private Sub b_flags_CheckedChanged(sender As Object, e As EventArgs) Handles b_flags.CheckedChanged
-        update_screen()
     End Sub
 
     Private Sub change_mask(sender As Object, e As EventArgs)
@@ -306,8 +307,8 @@ Public Class frmGbufferViewer
     End Sub
     Public Sub img_scale_up()
 
-        If Zoom_Factor >= 4.0 Then
-            Zoom_Factor = 4.0
+        If Zoom_Factor >= 8.0 Then
+            Zoom_Factor = 8.0
             Return 'to big and the t_bmp creation will hammer memory.
         End If
         Dim amt As Single = 0.125

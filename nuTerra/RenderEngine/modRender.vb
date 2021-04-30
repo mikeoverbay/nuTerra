@@ -906,10 +906,6 @@ Module modRender
         End If
         '===========================================================================
 
-        If SHOW_VT > 0 Then
-            vt.DebugShow()
-        End If
-
         GL_POP_GROUP()
     End Sub
 
