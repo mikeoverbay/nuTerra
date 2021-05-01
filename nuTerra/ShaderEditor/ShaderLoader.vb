@@ -122,6 +122,8 @@ Module ShaderLoader
         End Sub
 
         Sub New(name As String)
+            shaders.Add(New WeakReference(Of Shader)(Me))
+
             Me.name = name
             is_used = False
             loaded = False
@@ -160,7 +162,7 @@ Module ShaderLoader
         End Sub
     End Class
 
-    Public shaders(42) As Shader
+    Public shaders As New List(Of WeakReference(Of Shader))
     Public BaseRingProjector As Shader
     Public BaseRingProjectorDeferred As Shader
     Public boxShader As Shader
@@ -276,50 +278,6 @@ Module ShaderLoader
         terrainDepthShader = New Shader("terrainDepthWriter")
         terrainMaskShader = New Shader("terrainMask")
         modelDepthShader = New Shader("modelDepthWriter")
-
-        shaders(0) = BaseRingProjector
-        shaders(1) = BaseRingProjectorDeferred
-        shaders(2) = boxShader
-        shaders(3) = cullShader
-        shaders(4) = cullLodClearShader
-        shaders(5) = cullRasterShader
-        shaders(6) = cullInvalidateShader
-        shaders(7) = colorCorrectShader
-        shaders(8) = coloredline2dShader
-        shaders(9) = colorMaskShader
-        shaders(10) = DecalProject
-        shaders(11) = DeferredFogShader
-        shaders(12) = deferredShader
-        shaders(13) = FF_BillboardShader
-        shaders(14) = FXAAShader
-        shaders(15) = image2dArrayShader
-        shaders(16) = image2dFlipShader
-        shaders(17) = image2dShader
-        shaders(18) = glassPassShader
-        shaders(19) = MegaMixerShader
-        shaders(20) = MiniMapRingsShader
-        shaders(21) = mixTerrainShader
-        shaders(22) = mDepthWriteShader
-        shaders(23) = modelShader
-        shaders(24) = modelGlassShader
-        shaders(25) = ModelViewerShader
-        shaders(26) = normalShader
-        shaders(27) = normalOffsetShader
-        shaders(28) = rect2dShader
-        shaders(29) = SkyDomeShader
-        shaders(30) = t_mixerShader
-        shaders(31) = TerrainGrids
-        shaders(32) = TerrainNormals
-        shaders(33) = TerrainNormalsHQ
-        shaders(34) = TerrainHQShader
-        shaders(35) = TerrainLQShader
-        shaders(36) = TerrainVTMIPShader
-        shaders(37) = TextRenderShader
-        shaders(38) = toLinearShader
-        shaders(39) = explode_type_1_shader
-        shaders(40) = terrainDepthShader
-        shaders(41) = terrainMaskShader
-        shaders(42) = modelDepthShader
     End Sub
 
     Public Function assemble_shader(v As String,
