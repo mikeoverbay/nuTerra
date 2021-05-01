@@ -66,7 +66,7 @@ Public Class frmMain
         ' If the Program editor is inserted in to frmMain,
         ' We have to stop key down events while typing in
         ' the editor's window.
-        If frmProgramEditor.CP_parent = Me.Handle Then
+        If frmProgramEditor IsNot Nothing AndAlso frmProgramEditor.CP_parent = Me.Handle Then
             If Not glControl_main.Focused Then
                 Return
             End If
@@ -699,10 +699,6 @@ try_again:
         '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
         PROGRESS_BAR_IMAGE_ID = load_png_image_from_file(Path.Combine(sp, "resources\progress_bar.png"), False, True)
-
-        '---------------------------------------------------------
-        'load test_pattenr
-        TEST_PATTERN_ID = load_png_image_from_file(Path.Combine(sp, "resources\test_pattern.png"), False, True)
 
         '---------------------------------------------------------
         ' build Ascii characters texture.

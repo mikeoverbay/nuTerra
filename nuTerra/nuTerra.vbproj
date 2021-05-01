@@ -294,9 +294,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\banner.jpg" />
-    <Content Include="Resources\test_pattern.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="shaders\colorMaskShader\ColorMask.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
