@@ -70,39 +70,25 @@ Public Class VirtualTexture
         unbind_textures(4)
     End Sub
 
-    Public Sub DebugDraw(location As Point, sizep As Point, proj As OpenTK.Matrix4)
-        Dim W = CInt(Math.Sqrt(num_tiles))
-        Dim H = (num_tiles \ W)
-        Dim size = Math.Min(sizep.X / W, sizep.Y / H)
-
+    Public Sub DebugDraw(location As Point, size As Point, proj As OpenTK.Matrix4)
         atlas.color_texture.BindUnit(0)
 
         image2dArrayShader.Use()
-        GL.BindVertexArray(defaultVao)
         GL.UniformMatrix4(image2dArrayShader("ProjectionMatrix"), False, proj)
-        GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
 
-        For y = 0 To H - 1
-            For x = 0 To W - 1
-                Dim xoff = location.X + x * size
-                Dim yoff = location.Y + y * size
-
-                GL.Uniform1(image2dArrayShader("id"), y * W + x)
-                Dim rect = New RectangleF(xoff, yoff, size, size)
-                GL.Uniform4(image2dArrayShader("rect"),
+        Dim rect = New RectangleF(location.X, location.Y, size.X / 10, size.X / 10)
+        GL.Uniform4(image2dArrayShader("rect"),
                     rect.Left,
                     -rect.Bottom,
                     rect.Right,
                     -rect.Top)
 
-                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-            Next
-        Next
+        GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 4, num_tiles)
+
+        image2dArrayShader.StopUse()
 
         ' UNBIND
         GL.BindTextureUnit(0, 0)
-
-        image2dArrayShader.StopUse()
     End Sub
 
     Public Sub Clear()

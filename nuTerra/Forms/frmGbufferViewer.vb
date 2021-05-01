@@ -158,8 +158,7 @@ Public Class frmGbufferViewer
                 toLinearShader.StopUse()
 
             Case 2
-                'draw_image(img_width, img_height, FBOm.gColor, 0)
-                draw_image(img_width, img_height, FBO_Mega_set.gColor, 0)
+                draw_image(img_width, img_height, FBOm.gColor, 0)
 
             Case 3
                 draw_image(img_width, img_height, FBOm.gPosition, 0)
@@ -233,7 +232,6 @@ Public Class frmGbufferViewer
 
         image.BindUnit(0)
         GL.Uniform2(image2dShader("uv_scale"), s.X, s.Y)
-        GL.Uniform2(image2dShader("uv_scale"), 1, 1)
 
         GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
 

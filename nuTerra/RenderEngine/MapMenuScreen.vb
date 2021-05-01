@@ -98,7 +98,7 @@ NotInheritable Class MapMenuScreen
 
         Public Sub draw()
             ' draw box
-            draw_image_rectangle(New Rectangle(rect.X, rect.Y + 20, rect.Width, rect.Height - 10), map_image, False)
+            draw_image_rectangle(New Rectangle(rect.X, rect.Y + 20, rect.Width, rect.Height - 10), map_image)
 
             If unscaled_mapname_image Is Nothing And scale = IMG_MIN_SCALE Then ' cache unsacaled
                 Dim unscaled_mapname_text As New DrawText_
@@ -110,7 +110,7 @@ NotInheritable Class MapMenuScreen
 
             ' draw text overlay
             If scale = IMG_MIN_SCALE Then
-                draw_image_rectangle(New Rectangle(rect.X, rect.Y, ImgWidth, 20), unscaled_mapname_image, False)
+                draw_image_rectangle(New Rectangle(rect.X, rect.Y, ImgWidth, 20), unscaled_mapname_image)
             Else
                 Dim d = (scale - IMG_MIN_SCALE) / (IMG_MAX_SCALE - IMG_MIN_SCALE)
                 Dim colour = Color.FromArgb(0, CInt(d * 127), CInt(d * 127), CInt(d * 127))
@@ -123,7 +123,7 @@ NotInheritable Class MapMenuScreen
                 DrawMapPickText.TextRenderer(ImgWidth, 20)
                 DrawMapPickText.clear(Color.FromArgb(0, 0, 0, 255))
                 DrawMapPickText.DrawString(realname, lucid_console, brush_, New PointF(0, 0))
-                draw_image_rectangle(New Rectangle(rect.X, rect.Y, ImgWidth, 20), DrawMapPickText.Gettexture, False)
+                draw_image_rectangle(New Rectangle(rect.X, rect.Y, ImgWidth, 20), DrawMapPickText.Gettexture)
             End If
         End Sub
 
@@ -245,7 +245,7 @@ NotInheritable Class MapMenuScreen
             End If
         End If
 
-        draw_image_rectangle(New RectangleF(0, 0, w, h), MAP_SELECT_BACKGROUND_ID, False)
+        draw_image_rectangle(New RectangleF(0, 0, w, h), MAP_SELECT_BACKGROUND_ID)
 
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)

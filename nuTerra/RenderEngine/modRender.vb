@@ -313,7 +313,7 @@ Module modRender
         If Not SHOW_TEST_TEXTURES Then Return
 
         draw_image_rectangle(New RectangleF(0.0F, 79.0F, 100.0F, 19.0F * 8.0F),
-                                            DUMMY_TEXTURE_ID, False)
+                                            DUMMY_TEXTURE_ID)
 
         For i = 0 To 7
             draw_text(tags(i), 5.0F, 81.0F + (i * 19.0F), colors(i), False, 0)
@@ -1054,7 +1054,7 @@ Module modRender
         Dim cy = size.Height - MINI_MAP_SIZE
         draw_image_rectangle(New RectangleF(cx, cy,
                                                 MINI_MAP_SIZE, MINI_MAP_SIZE),
-                                                FBOmini.gColor, False)
+                                                FBOmini.gColor)
 
         '=======================================================================
         'draw mini map legends

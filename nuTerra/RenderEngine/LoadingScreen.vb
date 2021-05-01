@@ -30,7 +30,7 @@ Module LoadingScreen
 
         ' Draw Terra Image
         draw_image_rectangle(New RectangleF(-ls, 0, 1920, 1080),
-                             nuTERRA_BG_IMAGE, False)
+                             nuTERRA_BG_IMAGE)
 
         ' Draw 'Loading Models...' text
         draw_text(BG_TEXT, 5, 30, OpenTK.Graphics.Color4.White, False, 0)
@@ -38,7 +38,7 @@ Module LoadingScreen
         'Draw Bargraph
         GL.Enable(EnableCap.Blend)
         draw_image_rectangle(New RectangleF(0.0F, 10.0F, w_Valuev, 20),
-                             PROGRESS_BAR_IMAGE_ID, False)
+                             PROGRESS_BAR_IMAGE_ID)
 
         draw_text_Wrap(description_string, 10, 70,
                        OpenTK.Graphics.Color4.Coral, False, False, 700.0)

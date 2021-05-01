@@ -280,8 +280,8 @@ Module modOpenGL
         rect2dShader.StopUse()
     End Sub
 
-    Public Sub draw_image_rectangle(rect As RectangleF, image As GLTexture, atlas As Boolean, Optional atlas_id As Integer = 1)
-        If USE_NV_DRAW_TEXTURE AndAlso Not atlas Then
+    Public Sub draw_image_rectangle(rect As RectangleF, image As GLTexture)
+        If USE_NV_DRAW_TEXTURE Then
             Dim h = frmMain.glControl_main.Height
             Dim x0 = rect.Left
             Dim x1 = rect.Right
@@ -289,37 +289,19 @@ Module modOpenGL
             Dim y1 = h - rect.Bottom
             GL.NV.DrawTexture(image.texture_id, 0, x0, y0, x1, y1, 0, 0, 0, 1, 1)
         Else
-            If atlas Then
-                image2dArrayShader.Use()
-                GL.Uniform1(image2dArrayShader("id"), atlas_id)
+            image2dShader.Use()
+            image.BindUnit(0)
+            GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
+            GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+            GL.Uniform4(image2dShader("rect"),
+                    rect.Left,
+                    -rect.Top,
+                    rect.Right,
+                    -rect.Bottom)
 
-                image.BindUnit(0)
-                GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
-                GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-                GL.Uniform4(image2dArrayShader("rect"),
-                        rect.Left,
-                        -rect.Top,
-                        rect.Right,
-                        -rect.Bottom)
-
-                GL.BindVertexArray(defaultVao)
-                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-                image2dArrayShader.StopUse()
-            Else
-                image2dShader.Use()
-                image.BindUnit(0)
-                GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
-                GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-                GL.Uniform4(image2dShader("rect"),
-                        rect.Left,
-                        -rect.Top,
-                        rect.Right,
-                        -rect.Bottom)
-
-                GL.BindVertexArray(defaultVao)
-                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-                image2dShader.StopUse()
-            End If
+            GL.BindVertexArray(defaultVao)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+            image2dShader.StopUse()
 
             ' UNBIND
             GL.BindTextureUnit(0, 0)
@@ -356,31 +338,6 @@ Module modOpenGL
             ' UNBIND
             GL.BindTextureUnit(0, 0)
         End If
-    End Sub
-
-    Public Sub draw_image_array(rect As RectangleF, image As GLTexture, ByVal id As Integer)
-
-        image2dArrayShader.Use()
-
-        image.BindUnit(0)
-        GL.Uniform1(image2dArrayShader("id"), id)
-        GL.Uniform2(image2dArrayShader("uv_scale"), 1.0F, 1.0F)
-
-        GL.UniformMatrix4(image2dArrayShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform4(image2dArrayShader("rect"),
-                        rect.Left,
-                        -rect.Bottom,
-                        rect.Right,
-                        -rect.Top)
-
-        GL.BindVertexArray(defaultVao)
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-        'GL.BindVertexArray(0)
-
-        image2dShader.StopUse()
-
-        ' UNBIND
-        GL.BindTextureUnit(0, 0)
     End Sub
 
     Private Function pack_10(x As Single) As UInt32

@@ -1095,14 +1095,14 @@ Module MapLoader
         MapGL.Buffers.materials.BindBase(3)
     End Sub
 
-    Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture, atlas As Boolean)
+    Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)
 
         Dim ww = frmMain.glControl_main.ClientRectangle.Width
 
         Dim ls = (1920.0F - ww) / 2.0F
 
         ' Draw Terra Image
-        draw_image_rectangle(New RectangleF(0, 0, w, h), id, atlas)
+        draw_image_rectangle(New RectangleF(0, 0, w, h), id)
 
         frmMain.glControl_main.SwapBuffers()
     End Sub
