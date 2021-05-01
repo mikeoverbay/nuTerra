@@ -8,8 +8,6 @@ Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 
 Module MapLoader
-    Public ripple_thread As New Thread(AddressOf ripple_handler)
-
     Public LODMAPSIZE As Integer = 256
     Public AOMAPSIZE As Integer = 256
     Public HEIGHTMAPSIZE As Integer = 64
@@ -72,39 +70,7 @@ Module MapLoader
 #Region "utility functions"
 
 #End Region
-    Private Sub ripple_handler()
-        Dim timer As New Stopwatch
-        Dim mask_timer As New Stopwatch
-        timer.Start()
-        mask_timer.Start()
-        While _STARTED
-            If timer.ElapsedMilliseconds > 60 Then
-                timer.Restart()
-                RIPPLE_FRAME_NUMBER += 1
-                If RIPPLE_FRAME_NUMBER > Map_wetness.waveTextureCount - 1 Then
-                    RIPPLE_FRAME_NUMBER = 0
-                End If
-                RIPPLE_MASK_TIME += 1.0F / 60.0F
-            End If
-            If mask_timer.ElapsedMilliseconds > 100 Then
-                mask_timer.Restart()
-                RIPPLE_MASK_TIME += 1.0F / 256.0F
-                If RIPPLE_MASK_TIME > 1.0F Then
-                    RIPPLE_MASK_TIME = 0F
-                End If
-            End If
-        End While
-        RIPPLE_FRAME_NUMBER = 0
-    End Sub
-    Private Sub start_ripple_thread()
-        RIPPLE_FRAME_NUMBER = 0
-        If Not ripple_thread.IsAlive Then
-            ripple_thread.Name = "Ripple Thread"
-            ripple_thread.IsBackground = True
-            ripple_thread.Priority = ThreadPriority.Normal
-            ripple_thread.Start()
-        End If
-    End Sub
+
     '============================================================================
     Public Sub load_map(map_name As String)
         'disable main menu
@@ -606,8 +572,6 @@ Module MapLoader
 
         frmMain.check_postion_for_update() ' need to initialize cursor altitude
 
-        'start our water animation timing
-        start_ripple_thread()
         'Enable main menu
         frmMain.MainMenuStrip.Enabled = True
 
