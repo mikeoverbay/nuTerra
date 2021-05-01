@@ -7,8 +7,8 @@ Module modGlobalVars
     Public NUM_TILES As Integer = 1024
     Public VT_NUM_PAGES As Integer = 1024
     Public TILE_SIZE As Integer = 256
-    Public FEEDBACK_WIDTH As Integer = 26
-    Public FEEDBACK_HEIGHT As Integer = 22
+    Public FEEDBACK_WIDTH As Integer = 32
+    Public FEEDBACK_HEIGHT As Integer = 32
 
     '=================================================================================
     'Effects, Particle Textures and emitters.. more

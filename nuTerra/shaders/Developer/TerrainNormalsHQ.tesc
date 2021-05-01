@@ -1,12 +1,5 @@
 #version 450 core
 
-#extension GL_ARB_shading_language_include : require
-
-#define USE_PERVIEW_UBO
-#define USE_COMMON_PROPERTIES_UBO
-#define USE_TERRAIN_CHUNK_INFO_SSBO
-#include "common.h" //! #include "../common.h"
-
 layout (vertices = 3) out;
 
 in VS_OUT {
@@ -15,6 +8,7 @@ in VS_OUT {
     vec3 b;
     vec2 uv;
     flat uint map_id;
+    float fLevel;
 } tcs_in[];
 
 out TCS_OUT {
@@ -27,15 +21,10 @@ out TCS_OUT {
 
 void main(void)
 {
-    const TerrainChunkInfo chunk = chunks[tcs_in[0].map_id];
-
-    const float ln = distance((chunk.modelMatrix * vec4(gl_in[gl_InvocationID].gl_Position.xyz, 1.0)).xyz, cameraPos.xyz);
-    const float factor = max(min(8.0 - ln / 10.0, 8.0), 1.0);
-
-    gl_TessLevelInner[0] = factor * props.tess_level;
-    gl_TessLevelOuter[0] = factor * props.tess_level;
-    gl_TessLevelOuter[1] = factor * props.tess_level;
-    gl_TessLevelOuter[2] = factor * props.tess_level;
+    gl_TessLevelInner[0] = max(max(tcs_in[0].fLevel, tcs_in[1].fLevel), tcs_in[2].fLevel);
+    gl_TessLevelOuter[0] = max(tcs_in[1].fLevel, tcs_in[2].fLevel);
+    gl_TessLevelOuter[1] = max(tcs_in[0].fLevel, tcs_in[2].fLevel);
+    gl_TessLevelOuter[2] = max(tcs_in[0].fLevel, tcs_in[1].fLevel);
 
     gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
 
