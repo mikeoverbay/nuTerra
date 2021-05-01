@@ -160,7 +160,7 @@ Module ShaderLoader
         End Sub
     End Class
 
-    Public shaders As List(Of Shader)
+    Public shaders(42) As Shader
     Public BaseRingProjector As Shader
     Public BaseRingProjectorDeferred As Shader
     Public boxShader As Shader
@@ -277,57 +277,49 @@ Module ShaderLoader
         terrainMaskShader = New Shader("terrainMask")
         modelDepthShader = New Shader("modelDepthWriter")
 
-
-
-        shaders = New List(Of Shader)
-        shaders.Add(BaseRingProjector)
-        shaders.Add(BaseRingProjectorDeferred)
-        shaders.Add(boxShader)
-        shaders.Add(cullShader)
-        shaders.Add(cullLodClearShader)
-        shaders.Add(cullRasterShader)
-        shaders.Add(cullInvalidateShader)
-        shaders.Add(colorCorrectShader)
-        shaders.Add(coloredline2dShader)
-        shaders.Add(colorMaskShader)
-        'unused: shaders.Add(colorOnlyShader)
-        shaders.Add(DecalProject)
-        shaders.Add(DeferredFogShader)
-        shaders.Add(deferredShader)
-        shaders.Add(FF_BillboardShader)
-        shaders.Add(FXAAShader)
-        'unused: shaders.Add(frustumShader)
-        shaders.Add(image2dArrayShader)
-        shaders.Add(image2dFlipShader)
-        shaders.Add(image2dShader)
-        shaders.Add(glassPassShader)
-        'unused: shaders.Add(gWriterShader)
-        shaders.Add(MegaMixerShader)
-        shaders.Add(MiniMapRingsShader)
-        shaders.Add(mixTerrainShader)
-        shaders.Add(mDepthWriteShader)
-        shaders.Add(modelShader)
-        shaders.Add(modelGlassShader)
-        shaders.Add(ModelViewerShader)
-        shaders.Add(normalShader)
-        shaders.Add(normalOffsetShader)
-        shaders.Add(rect2dShader)
-        shaders.Add(SkyDomeShader)
-        shaders.Add(t_mixerShader)
-        shaders.Add(TerrainGrids)
-        shaders.Add(TerrainNormals)
-        shaders.Add(TerrainNormalsHQ)
-        shaders.Add(TerrainHQShader)
-        shaders.Add(TerrainLQShader)
-        shaders.Add(TerrainVTMIPShader)
-        shaders.Add(TextRenderShader)
-        shaders.Add(toLinearShader)
-        'particle shaders
-        shaders.Add(explode_type_1_shader)
-        'shadow shaders
-        shaders.Add(terrainDepthShader)
-        shaders.Add(terrainMaskShader)
-        shaders.Add(modelDepthShader)
+        shaders(0) = BaseRingProjector
+        shaders(1) = BaseRingProjectorDeferred
+        shaders(2) = boxShader
+        shaders(3) = cullShader
+        shaders(4) = cullLodClearShader
+        shaders(5) = cullRasterShader
+        shaders(6) = cullInvalidateShader
+        shaders(7) = colorCorrectShader
+        shaders(8) = coloredline2dShader
+        shaders(9) = colorMaskShader
+        shaders(10) = DecalProject
+        shaders(11) = DeferredFogShader
+        shaders(12) = deferredShader
+        shaders(13) = FF_BillboardShader
+        shaders(14) = FXAAShader
+        shaders(15) = image2dArrayShader
+        shaders(16) = image2dFlipShader
+        shaders(17) = image2dShader
+        shaders(18) = glassPassShader
+        shaders(19) = MegaMixerShader
+        shaders(20) = MiniMapRingsShader
+        shaders(21) = mixTerrainShader
+        shaders(22) = mDepthWriteShader
+        shaders(23) = modelShader
+        shaders(24) = modelGlassShader
+        shaders(25) = ModelViewerShader
+        shaders(26) = normalShader
+        shaders(27) = normalOffsetShader
+        shaders(28) = rect2dShader
+        shaders(29) = SkyDomeShader
+        shaders(30) = t_mixerShader
+        shaders(31) = TerrainGrids
+        shaders(32) = TerrainNormals
+        shaders(33) = TerrainNormalsHQ
+        shaders(34) = TerrainHQShader
+        shaders(35) = TerrainLQShader
+        shaders(36) = TerrainVTMIPShader
+        shaders(37) = TextRenderShader
+        shaders(38) = toLinearShader
+        shaders(39) = explode_type_1_shader
+        shaders(40) = terrainDepthShader
+        shaders(41) = terrainMaskShader
+        shaders(42) = modelDepthShader
     End Sub
 
     Public Function assemble_shader(v As String,
@@ -593,6 +585,12 @@ Module ShaderLoader
         If vertexObject Then
             GL.DetachShader(program, vertexObject)
         End If
+        If tessControlObject Then
+            GL.DetachShader(program, tessControlObject)
+        End If
+        If tessEvaluationObject Then
+            GL.DetachShader(program, tessEvaluationObject)
+        End If
         If geomObject Then
             GL.DetachShader(program, geomObject)
         End If
@@ -606,6 +604,12 @@ Module ShaderLoader
         ' delete shader objects
         If vertexObject Then
             GL.DeleteShader(vertexObject)
+        End If
+        If tessControlObject Then
+            GL.DeleteShader(tessControlObject)
+        End If
+        If tessEvaluationObject Then
+            GL.DeleteShader(tessEvaluationObject)
         End If
         If geomObject Then
             GL.DeleteShader(geomObject)

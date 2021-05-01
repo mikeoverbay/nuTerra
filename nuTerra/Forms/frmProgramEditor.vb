@@ -94,6 +94,10 @@ Public Class frmProgramEditor
 
         shader.UpdateShader()
 
+        If shader Is t_mixerShader Then
+            RebuildVTAtlas()
+        End If
+
         reset_focus()
         recompile_bt.Enabled = True
         Me.TopMost = True
