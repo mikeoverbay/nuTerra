@@ -122,6 +122,8 @@ Module ShaderLoader
         End Sub
 
         Sub New(name As String)
+            shaders.Add(Me)
+
             Me.name = name
             is_used = False
             loaded = False
@@ -157,8 +159,6 @@ Module ShaderLoader
             End If
 
             UpdateShader()
-
-            shaders.Add(Me)
         End Sub
     End Class
 
@@ -187,7 +187,6 @@ Module ShaderLoader
     Public image2dShader As Shader
     Public MegaMixerShader As Shader
     Public MiniMapRingsShader As Shader
-    Public mixTerrainShader As Shader
     Public mDepthWriteShader As Shader
     Public modelShader As Shader
     Public modelGlassShader As Shader
@@ -251,7 +250,6 @@ Module ShaderLoader
         'unused: gWriterShader = New Shader("gWriter")
         MegaMixerShader = New Shader("MegaMixer")
         MiniMapRingsShader = New Shader("MiniMapRings")
-        mixTerrainShader = New Shader("t_mixer")
         mDepthWriteShader = New Shader("mDepthWrite")
         modelShader = New Shader("model")
         modelGlassShader = New Shader("modelGlass")

@@ -93,12 +93,10 @@ Public Class frmProgramEditor
 
         Me.TopMost = False
 
-        ' HACK!!
-        If shader.name = t_mixerShader.name Then
-            t_mixerShader.UpdateShader()
+        shader.UpdateShader()
+
+        If shader Is t_mixerShader Then
             RebuildVTAtlas()
-        Else
-            shader.UpdateShader()
         End If
 
         reset_focus()
