@@ -122,8 +122,6 @@ Module ShaderLoader
         End Sub
 
         Sub New(name As String)
-            shaders.Add(New WeakReference(Of Shader)(Me))
-
             Me.name = name
             is_used = False
             loaded = False
@@ -159,10 +157,12 @@ Module ShaderLoader
             End If
 
             UpdateShader()
+
+            shaders.Add(Me)
         End Sub
     End Class
 
-    Public shaders As New List(Of WeakReference(Of Shader))
+    Public shaders As New List(Of Shader)
     Public BaseRingProjector As Shader
     Public BaseRingProjectorDeferred As Shader
     Public boxShader As Shader

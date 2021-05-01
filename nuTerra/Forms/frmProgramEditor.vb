@@ -48,9 +48,7 @@ Public Class frmProgramEditor
         frag_tb.AcceptsTab = True
         compute_tb.AcceptsTab = True
 
-        For Each shaderWPtr In shaders
-            Dim shader As Shader = Nothing
-            shaderWPtr.TryGetTarget(shader)
+        For Each shader In shaders
             CB1.Items.Add(String.Format("{0,3} : {1}", shader.program, shader.name))
         Next
 
@@ -67,8 +65,7 @@ Public Class frmProgramEditor
 
         recompile_bt.Enabled = False
 
-        Dim shader As Shader = Nothing
-        shaders(shader_index).TryGetTarget(shader)
+        Dim shader = shaders(shader_index)
 
         If shader.vertex IsNot Nothing Then
             File.WriteAllText(shader.vertex, vert_tb.Text)
@@ -96,10 +93,12 @@ Public Class frmProgramEditor
 
         Me.TopMost = False
 
-        shader.UpdateShader()
-
+        ' HACK!!
         If shader.name = t_mixerShader.name Then
+            t_mixerShader.UpdateShader()
             RebuildVTAtlas()
+        Else
+            shader.UpdateShader()
         End If
 
         reset_focus()
@@ -113,8 +112,7 @@ Public Class frmProgramEditor
         Me.Text = "Shader Editor: " + shader_name
         shader_index = CB1.SelectedIndex
 
-        Dim shader As Shader = Nothing
-        shaders(shader_index).TryGetTarget(shader)
+        Dim shader As Shader = shaders(shader_index)
 
         If shader.vertex IsNot Nothing Then
             vert_tb.Enabled = True
