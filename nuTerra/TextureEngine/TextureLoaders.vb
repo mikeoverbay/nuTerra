@@ -360,6 +360,7 @@ Module TextureLoaders
                     End If
                     Dim data = br.ReadBytes(size)
 
+                    If data.Length = 0 Then Stop
                     If format_info.compressed Then
                         image_id.CompressedSubImage2D(i, 0, 0, w, h, DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                     Else
@@ -439,6 +440,23 @@ Module TextureLoaders
             add_image(fn, image_id)
 
             Return image_id
+        End Using
+    End Function
+
+    Public Function load_dds_image_from_file(fn As String) As GLTexture
+        'Check if this image has already been loaded.
+        Dim image_id = image_exists(fn)
+        If image_id IsNot Nothing Then
+            Return image_id
+        End If
+
+        If Not File.Exists(fn) Then
+            MsgBox("Can't find :" + fn, MsgBoxStyle.Exclamation, "Oh my!")
+            Return Nothing
+        End If
+
+        Using ms As New MemoryStream(File.ReadAllBytes(fn))
+            Return load_dds_image_from_stream(ms, fn)
         End Using
     End Function
 

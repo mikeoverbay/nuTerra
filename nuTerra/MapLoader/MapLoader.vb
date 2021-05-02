@@ -126,7 +126,7 @@ Module MapLoader
         'need this for all rendering states
         get_environment_info(map_name)
         '===============================================================
-        SUN_TEXTURE_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\sol.png"), False, False)
+        SUN_TEXTURE_ID = load_dds_image_from_file(Path.Combine(Application.StartupPath, "resources\sol.dds"))
         'Dim entry = search_pkgs(SUN_TEXTURE_PATH)
         'If entry IsNot Nothing Then
         '    Dim ms As New MemoryStream
@@ -500,10 +500,6 @@ Module MapLoader
             T1_Y = get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)
             T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
         End If
-        '===============================================================
-        'make some test lights
-        LIGHTS.light_SSBO = Nothing ' reset ssbo
-        randomize_lights()
 
         '===============================================================
         'load some test emitters
@@ -597,26 +593,6 @@ Module MapLoader
         CommonProperties.update()
     End Sub
 
-    '============================================================================
-    Public Sub randomize_lights()
-        '===============================================================
-        'make some test lights
-        LIGHTS.init()
-        For i = 0 To 10
-            Dim l = New point_light_
-            'color
-            Dim v = get_random_vector3(1.0) + New Vector3(0.5)
-            v.Normalize()
-            l.color = v
-            l.level = v.Y
-            'location
-            v = get_random_vector3(900)
-            v.Y = get_Y_at_XZ(v.X, v.Y) + 5.0
-            l.location = v
-            LIGHTS.add_light(l)
-        Next
-        LIGHTS.create_SSBO_Buffer()
-    End Sub
     Public Sub set_light_pos()
         LIGHT_RADIUS = MAP_SIZE.Length * 100.0
         'LIGHT_ORBIT_ANGLE_Z += 180.0

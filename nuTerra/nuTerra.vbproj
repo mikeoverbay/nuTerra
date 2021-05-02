@@ -144,8 +144,6 @@
   <ItemGroup>
     <Compile Include="BW_XML_reader\packed_section.vb" />
     <Compile Include="BW_XML_reader\ResMgr.vb" />
-    <Compile Include="Effects_Particles\Explosion_Types.vb" />
-    <Compile Include="Effects_Particles\Point_Lights.vb" />
     <Compile Include="FBOs\FBO_MiniMap.vb" />
     <Compile Include="FBOs\FBO_main.vb" />
     <Compile Include="FBOs\FBO_Mega.vb" />
@@ -315,6 +313,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\banner.jpg" />
+    <Content Include="Resources\sol.dds">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="shaders\colorMaskShader\ColorMask.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -670,15 +671,6 @@
     <Content Include="Resources\noise.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Resources\Particle_textures\alpha_LUT.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.dds">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="Resources\progress_bar.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -686,9 +678,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Ref_normalMap.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\sol.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\startup_banner.png">

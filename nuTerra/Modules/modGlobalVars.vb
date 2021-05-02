@@ -12,10 +12,7 @@ Module modGlobalVars
 
     '=================================================================================
     'Effects, Particle Textures and emitters.. more
-    Public Explosion_11776x512_91tiles_256x256_ID As GLTexture
-    Public ALPHA_LUT_ID As GLTexture
     Public NOISE_id As GLTexture
-    Public Test_Emiters(1) As Explosion_Types.Explosion_type_1
     '=================================================================================
     '=================================================================================
     'GLSL highlighting string used in the editor

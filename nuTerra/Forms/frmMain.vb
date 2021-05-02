@@ -170,12 +170,6 @@ Public Class frmMain
                     modelGlassShader.UnsetDefine("PICK_MODELS")
                 End If
 
-            '-------------------------------
-            Case Keys.R
-                If MAP_LOADED Then
-                    randomize_lights()
-                End If
-
             Case Keys.T
                 SHOW_TEST_TEXTURES = SHOW_TEST_TEXTURES Xor True
                 If SHOW_TEST_TEXTURES Then
@@ -699,12 +693,6 @@ try_again:
         ' build Ascii characters texture.
         ASCII_ID = build_ascii_characters()
 
-        '===========================================================================================
-        Explosion_11776x512_91tiles_256x256_ID = load_png_image_from_file(Path.Combine(sp, "Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.png"), True, True)
-        '===========================================================================================
-        'load Alpha_LUT texture.
-        'FX texture
-        ALPHA_LUT_ID = load_png_image_from_file(Path.Combine(sp, "Resources\Particle_textures\alpha_LUT.png"), False, True)
         '===========================================================================================
         'load noise texture.
         NOISE_id = load_png_image_from_file(Path.Combine(sp, "Resources\noise.png"), True, True)

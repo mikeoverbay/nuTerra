@@ -186,7 +186,6 @@ Module modOpenGL
         Public PageTableSize As Single
 
         Public Sub update()
-            light_count = Math.Max(LIGHTS.index - 1, 0)
             mapMaxHeight = MAX_MAP_HEIGHT
             mapMinHeight = MIN_MAP_HEIGHT
             MEAN = CSng(MEAN_MAP_HEIGHT)
