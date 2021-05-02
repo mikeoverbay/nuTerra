@@ -888,7 +888,7 @@ Module modRender
 
         Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
 
-        Dim txt = String.Format("FPS: {0} | Draw time in Milliseconds: {1}", FPS_TIME, elapsed)
+        Dim txt = String.Format("FPS: {0,-3} | Draw time in Milliseconds: {1,-2} | VRAM usage: {2,-4}mb of {3}mb", FPS_TIME, elapsed, GLCapabilities.memory_usage, GLCapabilities.total_mem_mb)
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
         'txt = String.Format("HX {0} : HY {1}", HX, HY)

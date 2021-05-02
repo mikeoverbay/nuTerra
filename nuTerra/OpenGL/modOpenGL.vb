@@ -17,12 +17,23 @@ Module modOpenGL
         Public Shared maxVertexOutputComponents As Integer
 
         Public Shared total_mem_mb As Integer
-        Public Shared cur_avail_mem_mb As Integer
 
         Public Shared has_GL_NV_representative_fragment_test As Boolean
         Public Shared has_GL_NV_mesh_shader As Boolean
         Public Shared has_GL_NV_draw_texture As Boolean
         Public Shared has_GL_ARB_gl_spirv As Boolean
+        Public Shared has_GL_NVX_gpu_memory_info As Boolean
+
+        Public Shared ReadOnly Property memory_usage As Integer
+            Get
+                If has_GL_NVX_gpu_memory_info Then
+                    Const GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX As GetPName = &H9049
+                    Return total_mem_mb - GL.GetInteger(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX) \ 1024
+                Else
+                    Return Nothing
+                End If
+            End Get
+        End Property
 
         Public Shared Sub Init(extensions As List(Of String))
             maxTextureSize = GL.GetInteger(GetPName.MaxTextureSize)
@@ -38,12 +49,11 @@ Module modOpenGL
             has_GL_NV_mesh_shader = extensions.Contains("GL_NV_mesh_shader")
             has_GL_NV_draw_texture = extensions.Contains("GL_NV_draw_texture")
             has_GL_ARB_gl_spirv = extensions.Contains("GL_ARB_gl_spirv")
+            has_GL_NVX_gpu_memory_info = extensions.Contains("GL_NVX_gpu_memory_info")
 
-            If extensions.Contains("GL_NVX_gpu_memory_info") Then
+            If has_GL_NVX_gpu_memory_info Then
                 Const GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX As GetPName = &H9048
-                Const GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX As GetPName = &H9049
                 total_mem_mb = GL.GetInteger(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX) \ 1024
-                cur_avail_mem_mb = GL.GetInteger(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX) \ 1024
             Else
                 ' TODO: https://www.khronos.org/registry/OpenGL/extensions/AMD/WGL_AMD_gpu_association.txt
             End If
@@ -59,9 +69,9 @@ Module modOpenGL
             LogThis("GL_NV_mesh_shader = {0}", has_GL_NV_mesh_shader)
             LogThis("GL_NV_draw_texture = {0}", has_GL_NV_draw_texture)
             LogThis("GL_ARB_gl_spirv = {0}", has_GL_ARB_gl_spirv)
+            LogThis("GL_NVX_gpu_memory_info = {0}", has_GL_NVX_gpu_memory_info)
 
             LogThis("total_mem_mb = {0}", total_mem_mb)
-            LogThis("cur_avail_mem_mb = {0}", cur_avail_mem_mb)
         End Sub
     End Class
 
