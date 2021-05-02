@@ -242,7 +242,7 @@ Module PrimitiveLoader
         ' "list32" = UInt32 pointers
 
         Dim triTypeName As New String(br.ReadChars(64))
-        triTypeName = triTypeName.Substring(0, triTypeName.IndexOf(vbNullChar))
+        triTypeName = triTypeName.Remove(triTypeName.IndexOf(vbNullChar, System.StringComparison.Ordinal))
 
         Dim indexSize = If(triTypeName = "list32", 4, 2)
 
@@ -300,7 +300,7 @@ Module PrimitiveLoader
         br.BaseStream.Position = sectionInfo.location
 
         Dim vertTypeName As New String(br.ReadChars(64))
-        vertTypeName = vertTypeName.Substring(0, vertTypeName.IndexOf(vbNullChar))
+        vertTypeName = vertTypeName.Remove(vertTypeName.IndexOf(vbNullChar, System.StringComparison.Ordinal))
 
         '-------------------------------
         Dim BPVT_mode As Boolean = False
@@ -440,14 +440,14 @@ Module PrimitiveLoader
         br.BaseStream.Position = sectionInfo.location
 
         Dim uv2_subname As New String(br.ReadChars(64))
-        uv2_subname = uv2_subname.Substring(0, uv2_subname.IndexOf(vbNullChar))
+        uv2_subname = uv2_subname.Remove(uv2_subname.IndexOf(vbNullChar, System.StringComparison.Ordinal))
         Debug.Assert(uv2_subname.StartsWith("BPVS"))
 
         Dim unused = br.ReadUInt32()
         Debug.Assert(unused = 0)
 
         Dim uv2_format As New String(br.ReadChars(64))
-        uv2_format = uv2_format.Substring(0, uv2_format.IndexOf(vbNullChar))
+        uv2_format = uv2_format.Remove(uv2_format.IndexOf(vbNullChar, System.StringComparison.Ordinal))
         Debug.Assert(uv2_format = "set3/uv2pc")
 
         Dim uv2_count = br.ReadUInt32()
