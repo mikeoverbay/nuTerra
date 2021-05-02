@@ -1113,7 +1113,6 @@ Module modRender
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
             index += 1.0F
-            Application.DoEvents()
         Next
         'column
         '=======================================================================
@@ -1135,7 +1134,6 @@ Module modRender
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
             index += 1.0F
-            Application.DoEvents()
         Next
         TextRenderShader.StopUse()
         GL.BindTextureUnit(0, 0)

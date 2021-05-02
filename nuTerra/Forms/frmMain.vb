@@ -42,7 +42,7 @@ Public Class frmMain
     Public panel_2_occupied As Boolean
     Public PG_width As Integer
     Public FE_width As Integer
-
+    Public mouse_timer As New Windows.Forms.Timer
 
 #Region "Form Events"
 
@@ -204,13 +204,13 @@ Public Class frmMain
                  '-------------------------------
                'Navigation
             Case Keys.A
-                WASD_VECTOR.X = -1
+                WASD_VECTOR.X = -3.0F
             Case Keys.D
-                WASD_VECTOR.X = 1
+                WASD_VECTOR.X = 3.0F
             Case Keys.W
-                WASD_VECTOR.Y = -1
+                WASD_VECTOR.Y = -3.0F
             Case Keys.S
-                WASD_VECTOR.Y = 1
+                WASD_VECTOR.Y = 3.0F
 
         End Select
     End Sub
@@ -449,7 +449,13 @@ try_again:
     '=================================================================================
     Private Sub post_frmMain_loaded()
         '-----------------------------------------------------------------------------------------
+        mouse_timer.Interval = 10
+        AddHandler mouse_timer.Tick, AddressOf check_postion_for_update
+        mouse_timer.Start()
+
+        '-----------------------------------------------------------------------------------------
         launch_timer.Restart() 'log eplase times
+
         '-----------------------------------------------------------------------------------------
         glControl_main.MakeCurrent()
 
@@ -566,8 +572,6 @@ try_again:
 
         LogThis(String.Format("{0}ms Game Path: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), My.Settings.GamePath))
 
-        'find out if our res_mods path is out of data!
-
         ' Create default VAO
         defaultVao = CreateVertexArray("defaultVao")
 
@@ -633,14 +637,7 @@ try_again:
         launch_update_thread()
         '-----------------------------------------------------------------------------------------
         '-----------------------------------------------------------------------------------------
-        'This is temporary to speed up debugging
-        '-----------------------------------------------------------------------------------------
-        'load_map("19_monastery.pkg")
-        'load_map("08_ruinberg.pkg")
-        'load_map("14_siegfried_line.pkg")
-        'load_map("29_el_hallouf.pkg")
-        'load_map("31_airfield.pkg")
-        'load_map("112_eiffel_tower_ctf.pkg")
+
     End Sub
     '=================================================================================
 
@@ -708,7 +705,7 @@ try_again:
         Explosion_11776x512_91tiles_256x256_ID = load_png_image_from_file(Path.Combine(sp, "Resources\Particle_textures\Explosion_11776x512_91tiles_256x256.png"), True, True)
         '===========================================================================================
         'load Alpha_LUT texture.
-
+        'FX texture
         ALPHA_LUT_ID = load_png_image_from_file(Path.Combine(sp, "Resources\Particle_textures\alpha_LUT.png"), False, True)
         '===========================================================================================
         'load noise texture.
@@ -718,13 +715,6 @@ try_again:
         make_dummy_4_layer_atlas()
         '===========================================================================================
 
-        ''Test Textures
-        'For i = 0 To 7
-        '    TEST_IDS(i) =
-        '        load_image_from_file(Il.IL_PNG,
-        '        sp + "\resources\TestTextures\tex_" + i.ToString + ".png", True, False)
-        'Next
-        '---------------------------------------------------------        'Test Textures
 #If False Then
         'This can be used to debug textureing
         checkerTest =
@@ -768,12 +758,13 @@ try_again:
         startup_delay_timer.Dispose()
         closed_loop_updater()
     End Sub
+
     Private Sub WASD_movement()
         If WASD_VECTOR.X <> 0 Or WASD_VECTOR.Y <> 0 Then
             WASD_SPEED += DELTA_TIME
-            If WASD_SPEED > 0.025 Then
-                WASD_SPEED = 0
-                Dim MAX = -200.0
+            If WASD_SPEED > 0.025F Then
+                WASD_SPEED = 0F
+                Dim MAX = -200.0F
                 If MAX < VIEW_RADIUS Then
                     MAX = VIEW_RADIUS
                 End If
@@ -785,7 +776,7 @@ try_again:
                     LOOK_AT_Z -= ((t * ms) * (-Sin(CAM_X_ANGLE)))
                 End If
 
-                t = WASD_VECTOR.Y * ms * 0.003
+                t = WASD_VECTOR.Y * ms * 0.003F
 
                 If WASD_VECTOR.Y <> 0 Then
                     LOOK_AT_Z -= ((t * ms) * (Cos(CAM_X_ANGLE)))
@@ -815,10 +806,7 @@ try_again:
                     'LIGHT_POS(1) = Sin(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
                     LIGHT_POS(2) = Sin(LIGHT_ORBIT_ANGLE_Z) * LIGHT_RADIUS
                 End If
-                CROSS_HAIR_TIME += (DELTA_TIME * 0.5)
-                If CROSS_HAIR_TIME > 1.0F Then
-                    CROSS_HAIR_TIME = 0.0F
-                End If
+
                 '==============================================================
 
                 '==============================================================
@@ -828,9 +816,7 @@ try_again:
                     FPS_COUNTER = 0
                 End If
                 '==============================================================
-
                 '==============================================================
-                check_postion_for_update()
                 draw_scene()
                 Application.DoEvents()
                 '==============================================================

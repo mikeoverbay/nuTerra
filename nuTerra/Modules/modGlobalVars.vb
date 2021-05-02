@@ -52,7 +52,7 @@ Module modGlobalVars
     Public USE_REPRESENTATIVE_TEST As Boolean
 
     ' https://github.com/nvpro-samples/gl_occlusion_culling
-    Public USE_RASTER_CULLING As Boolean = False
+    Public USE_RASTER_CULLING As Boolean = True
 
     Public WORK_GROUP_SIZE As Integer = 32
 
@@ -115,7 +115,6 @@ Module modGlobalVars
     'models
     Public CURSOR_TEXTURE_ID As GLTexture
     Public DIRECTION_TEXTURE_ID As GLTexture
-    Public CROSS_HAIR_TIME As Single = 0.0F ' animation time 0-1
     Public PROGRESS_BAR_IMAGE_ID As GLTexture
     Public MINI_WORLD_MOUSE_POSITION As Vector2
     Public MINI_MOUSE_CAPTURED As Boolean

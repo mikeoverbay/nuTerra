@@ -113,7 +113,7 @@ Module MapLoader
 
         '===============================================================
         'load sand texture. This will need to be set by the maps vars at some point.
-        m_normal_id = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
+        'm_normal_id = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
         '===============================================================
 
         '===============================================================
@@ -150,6 +150,7 @@ Module MapLoader
 
         '===============================================================
         'load ripple textures
+#If False Then
         Dim rtc = Map_wetness.waveTextureCount - 1
         ReDim RIPPLE_TEXTURES(rtc)
         For i = 0 To rtc
@@ -157,6 +158,7 @@ Module MapLoader
             RIPPLE_TEXTURES(i) = find_and_load_texture_from_pkgs(r_path)
         Next
         RIPPLE_MASK_TEXTURE = find_and_load_texture_from_pkgs(Map_wetness.waveMaskTexture)
+#End If
         '===============================================================
 
 #Region "load models"
@@ -471,7 +473,7 @@ Module MapLoader
             Create_Terrain()
             PLAYER_FIELD_CELL_SIZE = Math.Abs(MAP_BB_BL.X - MAP_BB_UR.X) / 10.0F
 
-#If True Then
+#If False Then
             If Not Build_Mega_Textures() Then
                 MsgBox("failed to create Virtual Textures on Disc Drive!" + vbCrLf +
                    "I will close now...", MsgBoxStyle.Exclamation, "Not a good day!")
