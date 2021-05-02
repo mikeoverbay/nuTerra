@@ -615,11 +615,18 @@ Module MapLoader
     End Sub
 
     Private Structure AtlasCoords
+        Implements IComparable(Of AtlasCoords)
         Dim x0 As Int32
         Dim x1 As Int32
         Dim y0 As Int32
         Dim y1 As Int32
         Dim path As String
+
+        Public Function CompareTo(other As AtlasCoords) As Integer Implements IComparable(Of AtlasCoords).CompareTo
+            If y0 > other.y0 Then Return 1
+            If y0 = other.y0 AndAlso x0 > other.x0 Then Return 1
+            Return -1
+        End Function
     End Structure
 
     'Load materials
@@ -731,8 +738,6 @@ Module MapLoader
             ms.Position = 0
 
             Dim atlasParts As New List(Of AtlasCoords)
-            Dim uniqueX0 As New HashSet(Of Integer)
-            Dim uniqueY0 As New HashSet(Of Integer)
 
             Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
                 Dim version = br.ReadInt32
@@ -758,10 +763,6 @@ Module MapLoader
                     coords.y0 = br.ReadInt32
                     coords.y1 = br.ReadInt32
 
-                    'hack for now
-                    uniqueX0.Add(coords.x0)
-                    uniqueY0.Add(coords.y0)
-
                     coords.path = ""
                     Dim tmpChar = br.ReadChar
                     While tmpChar <> vbNullChar
@@ -775,9 +776,6 @@ Module MapLoader
             End Using
 
             Dim atlas_tex As New GLTexture
-            Dim fullWidth As Integer
-            Dim fullHeight As Integer
-            Dim multiplierX, multiplierY As Single
             For i = 0 To atlasParts.Count - 1
                 Dim coords = atlasParts(i)
 
@@ -801,19 +799,11 @@ Module MapLoader
                     Dim format_info = dds_header.format_info
 
                     If i = 0 Then 'run once
-
-                        ' gets size of atlas
-                        fullWidth = uniqueX0.Count * dds_header.width
-                        fullHeight = uniqueY0.Count * dds_header.height
-
-                        multiplierX = dds_header.width / (coords.x1 - coords.x0)
-                        multiplierY = dds_header.height / (coords.y1 - coords.y0)
-
                         'Calculate Max Mip Level based on width or height.. Which ever is larger.
-                        Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
+                        Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
 
-                        atlas_tex = CreateTexture(TextureTarget.Texture2D, atlasPath)
-                        atlas_tex.Storage2D(numLevels, format_info.texture_format, fullWidth, fullHeight)
+                        atlas_tex = CreateTexture(TextureTarget.Texture2DArray, atlasPath)
+                        atlas_tex.Storage3D(numLevels, format_info.texture_format, dds_header.width, dds_header.height, atlasParts.Count)
 
                         atlas_tex.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 4)
                         atlas_tex.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
@@ -828,15 +818,8 @@ Module MapLoader
                     Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
                     Dim data = dds_br.ReadBytes(size)
 
-                    Dim xoffset = CInt(coords.x0 * multiplierX)
-                    Dim yoffset = CInt(coords.y0 * multiplierY)
-                    'Dim er = GL.GetError
-                    atlas_tex.CompressedSubImage2D(0, xoffset, yoffset, dds_header.width, dds_header.height,
+                    atlas_tex.CompressedSubImage3D(0, 0, 0, i, dds_header.width, dds_header.height, 1,
                                                 DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
-                    'er = GL.GetError
-                    'If er > 0 Then
-                    '    Debug.WriteLine("error!")
-                    'End If
                 End Using
             Next
             atlas_tex.GenerateMipmap()

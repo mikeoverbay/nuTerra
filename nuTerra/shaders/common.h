@@ -68,25 +68,25 @@ struct ModelLoD
 
 struct MaterialProperties
 {
-    vec4 g_atlasIndexes;      /* 0   .. 16 */
-    vec4 g_atlasSizes;        /* 16  .. 32 */
-    vec4 g_colorTint;         /* 32  .. 48 */
-    vec4 dirtParams;          /* 48  .. 64 */
-    vec4 dirtColor;           /* 64  .. 80 */
-    vec4 g_tile0Tint;         /* 80  .. 96 */
-    vec4 g_tile1Tint;         /* 96  .. 112 */
-    vec4 g_tile2Tint;         /* 112 .. 128 */
-    vec4 g_tileUVScale;       /* 128 .. 144 */
-    vec4 g_detailInfluences;  /* 144 .. 160 */
+    vec4 g_atlasIndexes;
+    vec4 g_atlasSizes;
+    vec4 g_colorTint;
+    vec4 dirtParams;
+    vec4 dirtColor;
+    vec4 g_tile0Tint;
+    vec4 g_tile1Tint;
+    vec4 g_tile2Tint;
+    vec4 g_tileUVScale;
+    vec4 g_detailInfluences;
     vec4 g_detailRejectTiling;
-    uvec2 maps[6];            /* 160 .. 208 */
-    uint shader_type;         /* 208 .. 212 */
-    uint texAddressMode;      /* 212 .. 216 */
-    float alphaReference;     /* 216 .. 220 */
-    bool g_useNormalPackDXT1; /* 220 .. 224 */
-    bool alphaTestEnable;     /* 224 .. 228 */
-    bool g_enableAO;          /* 228 .. 232 */
-    bool double_sided;        /* 232 .. 236 */
+    uvec2 maps[6];
+    uint shader_type;
+    uint texAddressMode;
+    float alphaReference;
+    bool g_useNormalPackDXT1;
+    bool alphaTestEnable;
+    bool g_enableAO;
+    bool double_sided;
 };
 
 #ifdef USE_PERVIEW_UBO
