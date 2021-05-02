@@ -81,6 +81,9 @@ Public Class frmModelViewer
             'frmMain.glControl_main.SwapBuffers()
             glControl_modelView.SwapBuffers()
 
+            ' RESTORE
+            GL.ClearDepth(0.0F)
+
             frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
         End If
 
