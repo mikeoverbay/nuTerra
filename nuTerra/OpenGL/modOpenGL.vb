@@ -15,6 +15,10 @@ Module modOpenGL
         Public Shared maxColorAttachments As Integer
         Public Shared maxAniso As Single
         Public Shared maxVertexOutputComponents As Integer
+
+        Public Shared total_mem_mb As Integer
+        Public Shared cur_avail_mem_mb As Integer
+
         Public Shared has_GL_NV_representative_fragment_test As Boolean
         Public Shared has_GL_NV_mesh_shader As Boolean
         Public Shared has_GL_NV_draw_texture As Boolean
@@ -35,16 +39,29 @@ Module modOpenGL
             has_GL_NV_draw_texture = extensions.Contains("GL_NV_draw_texture")
             has_GL_ARB_gl_spirv = extensions.Contains("GL_ARB_gl_spirv")
 
+            If extensions.Contains("GL_NVX_gpu_memory_info") Then
+                Const GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX As GetPName = &H9048
+                Const GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX As GetPName = &H9049
+                total_mem_mb = GL.GetInteger(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX) \ 1024
+                cur_avail_mem_mb = GL.GetInteger(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX) \ 1024
+            Else
+                ' TODO: https://www.khronos.org/registry/OpenGL/extensions/AMD/WGL_AMD_gpu_association.txt
+            End If
+
             LogThis("Max Texture Size = {0}", maxTextureSize)
             LogThis("Max Array Texture Layers = {0}", maxArrayTextureLayers)
             LogThis("Max Uniform Buffer Bindings = {0}", maxUniformBufferBindings)
             LogThis("Max Color Attachments = {0}", maxColorAttachments)
             LogThis("Max Texture Max Anisotropy = {0}", maxAniso)
             LogThis("Max vertex output components = {0}", maxVertexOutputComponents)
+
             LogThis("GL_NV_representative_fragment_test = {0}", has_GL_NV_representative_fragment_test)
             LogThis("GL_NV_mesh_shader = {0}", has_GL_NV_mesh_shader)
             LogThis("GL_NV_draw_texture = {0}", has_GL_NV_draw_texture)
             LogThis("GL_ARB_gl_spirv = {0}", has_GL_ARB_gl_spirv)
+
+            LogThis("total_mem_mb = {0}", total_mem_mb)
+            LogThis("cur_avail_mem_mb = {0}", cur_avail_mem_mb)
         End Sub
     End Class
 
