@@ -34,7 +34,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("FoV"), Category("Camera")>
     Public Property Camera_FoV As Single
         Set(value As Single)
-            If MIN_FOV <= value And value <= MAX_FOV Then
+            If MIN_FOV <= value AndAlso value <= MAX_FOV Then
                 My.Settings.fov = value
                 FieldOfView = CSng(Math.PI) * (value / 180.0F)
             End If
@@ -47,7 +47,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Near"), Category("Camera")>
     Public Property Camera_Near As Single
         Set(value As Single)
-            If MIN_NEAR <= value And value <= MAX_NEAR Then
+            If MIN_NEAR <= value AndAlso value <= MAX_NEAR Then
                 My.Settings.near = value
             End If
         End Set
@@ -59,7 +59,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Far"), Category("Camera")>
     Public Property Camera_Far As Single
         Set(value As Single)
-            If MIN_FAR <= value And value <= MAX_FAR Then
+            If MIN_FAR <= value AndAlso value <= MAX_FAR Then
                 My.Settings.far = value
             End If
         End Set
@@ -71,7 +71,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Speed"), Category("Camera")>
     Public Property Camera_Speed As Single
         Set(value As Single)
-            If MIN_SPEED <= value And value <= MAX_SPEED Then
+            If MIN_SPEED <= value AndAlso value <= MAX_SPEED Then
                 My.Settings.speed = value
             End If
         End Set
@@ -164,7 +164,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Global Mip Bias"), Category("Open GL")>
     Public Property OPENGL_global_mip_bias As Single
         Set(value As Single)
-            If -15.0 <= value And value <= 15.0 Then
+            If -15.0 <= value AndAlso value <= 15.0 Then
                 GLOBAL_MIP_BIAS = value
             End If
         End Set
@@ -176,7 +176,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Work Group Size"), Category("Open GL")>
     Public Property OPENGL_work_group_size As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 1024 Then
+            If 1 <= value AndAlso value <= 1024 Then
                 WORK_GROUP_SIZE = value
             End If
         End Set
@@ -188,7 +188,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Feedback width"), Category("VT")>
     Public Property VT_feedback_width As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 128 Then
+            If 1 <= value AndAlso value <= 128 Then
                 FEEDBACK_WIDTH = value
                 RebuildVTAtlas()
             End If
@@ -201,7 +201,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Feedback height"), Category("VT")>
     Public Property VT_feedback_height As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 128 Then
+            If 1 <= value AndAlso value <= 128 Then
                 FEEDBACK_HEIGHT = value
                 RebuildVTAtlas()
             End If
@@ -214,7 +214,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Tile Size"), Category("VT")>
     Public Property VT_tile_zise As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 8192 Then
+            If 1 <= value AndAlso value <= 8192 Then
                 TILE_SIZE = value
                 RebuildVTAtlas()
             End If
@@ -227,7 +227,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Num pages"), Category("VT")>
     Public Property VT_num_pages_ As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 4096 Then
+            If 1 <= value AndAlso value <= 4096 Then
                 VT_NUM_PAGES = value
                 RebuildVTAtlas()
             End If
@@ -240,7 +240,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Num tiles"), Category("VT")>
     Public Property VT_num_tiles_ As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 2048 Then
+            If 1 <= value AndAlso value <= 2048 Then
                 NUM_TILES = value
                 RebuildVTAtlas()
             End If
@@ -253,7 +253,7 @@ Public Class SettingsPropertyGrid
     <DisplayName("Uploads per frame"), Category("VT")>
     Public Property VT_uploads_per_frame_ As Integer
         Set(value As Integer)
-            If 1 <= value And value <= 64 Then
+            If 1 <= value AndAlso value <= 64 Then
                 UPLOADS_PER_FRAME = value
                 RebuildVTAtlas()
             End If

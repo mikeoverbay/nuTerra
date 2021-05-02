@@ -300,7 +300,7 @@ Module ShaderLoader
         If v IsNot Nothing Then
             vertexObject = GL.CreateShader(ShaderType.VertexShader)
 
-            If USE_SPIRV_SHADERS And File.Exists(v + ".spv") Then
+            If USE_SPIRV_SHADERS AndAlso File.Exists(v + ".spv") Then
                 Dim vs_buf = File.ReadAllBytes(v + ".spv")
                 GL.ShaderBinary(1, vertexObject, DirectCast(&H9551, BinaryFormat), vs_buf, vs_buf.Length)
                 GL.SpecializeShader(vertexObject, "main", 0, 0, 0)
@@ -333,7 +333,7 @@ Module ShaderLoader
         If tc IsNot Nothing Then
             tessControlObject = GL.CreateShader(ShaderType.TessControlShader)
 
-            If USE_SPIRV_SHADERS And File.Exists(tc + ".spv") Then
+            If USE_SPIRV_SHADERS AndAlso File.Exists(tc + ".spv") Then
                 Dim tcs_buf = File.ReadAllBytes(tc + ".spv")
                 GL.ShaderBinary(1, tessControlObject, DirectCast(&H9551, BinaryFormat), tcs_buf, tcs_buf.Length)
                 GL.SpecializeShader(tessControlObject, "main", 0, 0, 0)
@@ -367,7 +367,7 @@ Module ShaderLoader
         If te IsNot Nothing Then
             tessEvaluationObject = GL.CreateShader(ShaderType.TessEvaluationShader)
 
-            If USE_SPIRV_SHADERS And File.Exists(te + ".spv") Then
+            If USE_SPIRV_SHADERS AndAlso File.Exists(te + ".spv") Then
                 Dim tes_buf = File.ReadAllBytes(te + ".spv")
                 GL.ShaderBinary(1, tessEvaluationObject, DirectCast(&H9551, BinaryFormat), tes_buf, tes_buf.Length)
                 GL.SpecializeShader(tessEvaluationObject, "main", 0, 0, 0)
@@ -402,7 +402,7 @@ Module ShaderLoader
         If f IsNot Nothing Then
             fragmentObject = GL.CreateShader(ShaderType.FragmentShader)
 
-            If USE_SPIRV_SHADERS And File.Exists(f + ".spv") Then
+            If USE_SPIRV_SHADERS AndAlso File.Exists(f + ".spv") Then
                 Dim fs_buf = File.ReadAllBytes(f + ".spv")
                 GL.ShaderBinary(1, fragmentObject, DirectCast(&H9551, BinaryFormat), fs_buf, fs_buf.Length)
                 GL.SpecializeShader(fragmentObject, "main", 0, 0, 0)
@@ -469,7 +469,7 @@ Module ShaderLoader
         If c IsNot Nothing Then
             computeObject = GL.CreateShader(ShaderType.ComputeShader)
 
-            If USE_SPIRV_SHADERS And File.Exists(c + ".spv") Then
+            If USE_SPIRV_SHADERS AndAlso File.Exists(c + ".spv") Then
                 Dim cs_buf = File.ReadAllBytes(c + ".spv")
                 GL.ShaderBinary(1, computeObject, DirectCast(&H9551, BinaryFormat), cs_buf, cs_buf.Length)
                 GL.SpecializeShader(computeObject, "main", 0, 0, 0)

@@ -194,7 +194,7 @@ Module TextureLoaders
                             Return Nothing
                     End Select
                 Else
-                    If rgbBitCount = 24 And redMask = &HFF0000 And greenMask = &HFF00 And blueMask = &HFF And alphaMask = &H0 Then
+                    If rgbBitCount = 24 AndAlso redMask = &HFF0000 AndAlso greenMask = &HFF00 AndAlso blueMask = &HFF AndAlso alphaMask = &H0 Then
                         Return New FormatInfo With {
                             .pixel_format = OpenGL.PixelFormat.Bgr,
                             .texture_format = InternalFormat.Rgb8,
@@ -202,7 +202,7 @@ Module TextureLoaders
                             .components = 3,
                             .compressed = False
                         }
-                    ElseIf rgbBitCount = 32 And redMask = &HFF0000 And greenMask = &HFF00 And blueMask = &HFF And alphaMask = &HFF000000UI Then
+                    ElseIf rgbBitCount = 32 AndAlso redMask = &HFF0000 AndAlso greenMask = &HFF00 AndAlso blueMask = &HFF AndAlso alphaMask = &HFF000000UI Then
                         Return New FormatInfo With {
                             .pixel_format = OpenGL.PixelFormat.Bgra,
                             .texture_format = InternalFormat.Rgba8,
@@ -210,7 +210,7 @@ Module TextureLoaders
                             .components = 4,
                             .compressed = False
                         }
-                    ElseIf rgbBitCount = 32 And redMask = &HFF And greenMask = &HFF00 And blueMask = &HFF0000 And alphaMask = &HFF000000UI Then
+                    ElseIf rgbBitCount = 32 AndAlso redMask = &HFF AndAlso greenMask = &HFF00 AndAlso blueMask = &HFF0000 AndAlso alphaMask = &HFF000000UI Then
                         Return New FormatInfo With {
                             .pixel_format = OpenGL.PixelFormat.Rgba,
                             .texture_format = InternalFormat.Rgba8,

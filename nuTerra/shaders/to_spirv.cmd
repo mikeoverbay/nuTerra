@@ -2,7 +2,7 @@
 
 cd "%~dp0"
 
-if not exist ..\bin\Release exit
+if not exist ..\bin\x64\Release exit
 
 set shaders=PostProcessing\FXAA.vert PostProcessing\FXAA.frag ^
             Utility\TextRender.frag Utility\TextRender.vert
@@ -17,5 +17,5 @@ for %%q in (%shaders%) do (
     REM spirv-tools-x64\spirv-dis.exe %%q.spv -o %%q.txt
 
     del %%q.nonopt.spv
-    move %%q.spv ..\bin\Release\shaders\%%q.spv
+    move %%q.spv ..\bin\x64\Release\shaders\%%q.spv
 )

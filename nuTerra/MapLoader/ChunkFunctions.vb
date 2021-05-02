@@ -667,10 +667,10 @@ Module ChunkFunctions
                 If mapBoard(xo, yo).occupied Then
 
                     Dim px = mapBoard(xo, yo).location.X
-                    If px - 50 < Lx And px + 50 >= Lx Then
+                    If px - 50 < Lx AndAlso px + 50 >= Lx Then
                         xvp = xo
                         Dim pz = mapBoard(xo, yo).location.Y
-                        If pz - 50 < Lz And pz + 50 >= Lz Then
+                        If pz - 50 < Lz AndAlso pz + 50 >= Lz Then
                             yvp = yo
                             GoTo exit2
                         End If
@@ -684,7 +684,7 @@ exit1:
             For yo = 0 To MAP_BOARD_SIZE - 1
                 If mapBoard(xo, yo).occupied Then
                     Dim pz = mapBoard(xo, yo).location.Y
-                    If pz - 50 < Lz And pz + 50 >= Lz Then
+                    If pz - 50 < Lz AndAlso pz + 50 >= Lz Then
                         yvp = yo
                         GoTo exit2
                     End If
@@ -803,7 +803,7 @@ domath:
 
         Dim nc As Vector3 = Vector3.Cross(p - r, q - r).Normalized()
 
-        If p.Z = q.Z And q.Z = r.Z Then
+        If p.Z = q.Z AndAlso q.Z = r.Z Then
             Return r.Y
         End If
         surface_normal.X = -nc.X

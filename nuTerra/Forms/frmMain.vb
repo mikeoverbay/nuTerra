@@ -460,7 +460,7 @@ try_again:
         'Check context:
         Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
         Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
-        If majorVersion < 4 Or (majorVersion = 4 And minorVersion < 3) Then
+        If majorVersion < 4 Or (majorVersion = 4 AndAlso minorVersion < 3) Then
             MsgBox("A graphics card and driver with support for OpenGL 4.3 or higher is required.")
             Application.Exit()
             Return
@@ -1036,7 +1036,7 @@ try_again:
     End Sub
 
     Private Sub glControl_main_MouseDoubleClick(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDoubleClick
-        If PICK_MODELS And PICKED_MODEL_INDEX > 0 Then
+        If PICK_MODELS AndAlso PICKED_MODEL_INDEX > 0 Then
             frmModelViewer.SplitContainer1.Panel1.Controls.Clear()
 
             If frmModelViewer.Model_Loaded Then

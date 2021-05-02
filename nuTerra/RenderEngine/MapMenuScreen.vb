@@ -75,7 +75,7 @@ NotInheritable Class MapMenuScreen
         End Sub
 
         Public Sub calc_rect(location As Point)
-            If Me Is SelectedMap And Not FINISH_MAPS Then
+            If Me Is SelectedMap AndAlso Not FINISH_MAPS Then
                 If Not (IMG_GROW_SPEED * DELTA_TIME) + scale >= IMG_MAX_SCALE Then
                     scale += (IMG_GROW_SPEED * DELTA_TIME)
                     unit_size = False
@@ -100,7 +100,7 @@ NotInheritable Class MapMenuScreen
             ' draw box
             draw_image_rectangle(New Rectangle(rect.X, rect.Y + 20, rect.Width, rect.Height - 10), map_image)
 
-            If unscaled_mapname_image Is Nothing And scale = IMG_MIN_SCALE Then ' cache unsacaled
+            If unscaled_mapname_image Is Nothing AndAlso scale = IMG_MIN_SCALE Then ' cache unsacaled
                 Dim unscaled_mapname_text As New DrawText_
                 unscaled_mapname_text.TextRenderer(ImgWidth, 20)
                 unscaled_mapname_text.clear(Color.FromArgb(0, 0, 0, 255))

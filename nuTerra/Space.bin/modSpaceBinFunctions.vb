@@ -122,13 +122,13 @@ Module modSpaceBinFunctions
         Dim ty = br.ReadUInt32() 'type?
         Dim vr = br.ReadUInt32() 'version?
 
-        If ty = 2 And vr = 3 Then
+        If ty = 2 AndAlso vr = 3 Then
             GoTo read3_only
         End If
-        If ty = 1 And vr = 3 Then
+        If ty = 1 AndAlso vr = 3 Then
             GoTo read3_only
         End If
-        If ty = 1 And vr = 2 Then
+        If ty = 1 AndAlso vr = 2 Then
             Stop
         End If
         '===================================================================================
