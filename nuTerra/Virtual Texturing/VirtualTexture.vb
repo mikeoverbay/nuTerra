@@ -18,7 +18,7 @@ Public Class VirtualTexture
 
     ReadOnly toload As List(Of PageCount)
 
-    Dim _mipbias As Integer = 4
+    Dim _mipbias As Integer = 5
 
     Public Property MipBias As Integer
         Get
