@@ -1,7 +1,8 @@
 ﻿Imports System.Math
 Imports System.Runtime.InteropServices
 Imports OpenTK
-Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Graphics
+Imports OpenTK.Graphics.OpenGL4
 
 Module modRender
     Dim temp_timer As New Stopwatch
@@ -9,15 +10,15 @@ Module modRender
     Public angle1, angle2 As Single
     Private uv_location As New Vector2
 
-    Dim colors() As Graphics.Color4 = {
-        Graphics.Color4.Red,
-        Graphics.Color4.Green,
-        Graphics.Color4.Blue,
-        Graphics.Color4.Yellow,
-        Graphics.Color4.Purple,
-        Graphics.Color4.Orange,
-        Graphics.Color4.Coral,
-        Graphics.Color4.Silver
+    Dim colors() As Color4 = {
+        Color4.Red,
+        Color4.Green,
+        Color4.Blue,
+        Color4.Yellow,
+        Color4.Purple,
+        Color4.Orange,
+        Color4.Coral,
+        Color4.Silver
         }
 
     Dim tags() As String = {
@@ -400,7 +401,7 @@ Module modRender
 
         GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_1.X, TEAM_1.Y, TEAM_1.Z)
         GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(0.0F, 128.0F, 0.0F, 0.5F))
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Color4(0.0F, 128.0F, 0.0F, 0.5F))
 
         GL.BindVertexArray(CUBE_VAO)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
@@ -417,7 +418,7 @@ Module modRender
 
         GL.Uniform3(BaseRingProjectorDeferred("ring_center"), -TEAM_2.X, TEAM_2.Y, TEAM_2.Z)
         GL.UniformMatrix4(BaseRingProjectorDeferred("ModelMatrix"), False, rotate * scale * model_X)
-        GL.Uniform4(BaseRingProjectorDeferred("color"), New Graphics.Color4(128.0F, 0.0F, 0.0F, 0.5F))
+        GL.Uniform4(BaseRingProjectorDeferred("color"), New Color4(128.0F, 0.0F, 0.0F, 0.5F))
 
         GL.BindVertexArray(CUBE_VAO)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
@@ -864,9 +865,9 @@ Module modRender
 
                 If sp.Z > 0.0F Then
                     Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
-                    draw_text(s, sp.X, sp.Y, OpenTK.Graphics.Color4.Yellow, True, 1)
+                    draw_text(s, sp.X, sp.Y, Color4.Yellow, True, 1)
                     s = String.Format("{0}, {1}", theMap.render_set(i).matrix.Row3(0), theMap.render_set(i).matrix.Row3(2))
-                    draw_text(s, sp.X, sp.Y - 19, OpenTK.Graphics.Color4.Yellow, True, 1)
+                    draw_text(s, sp.X, sp.Y - 19, Color4.Yellow, True, 1)
 
                 End If
             End If
@@ -891,13 +892,13 @@ Module modRender
         'debug shit
         'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
         'txt = String.Format("HX {0} : HY {1}", HX, HY)
-        draw_text(txt, 5.0F, 5.0F, Graphics.Color4.Cyan, False, 1)
-        draw_text(PICKED_STRING, 5.0F, 24.0F, Graphics.Color4.Yellow, False, 1)
+        draw_text(txt, 5.0F, 5.0F, Color4.Cyan, False, 1)
+        draw_text(PICKED_STRING, 5.0F, 24.0F, Color4.Yellow, False, 1)
 
         color_keys()
 
         'draw status of SSAA
-        draw_text(FXAA_text, 5.0F, 62.0F, Graphics.Color4.Yellow, False, 1)
+        draw_text(FXAA_text, 5.0F, 62.0F, Color4.Yellow, False, 1)
         Dim temp_time = temp_timer.ElapsedMilliseconds
 
         ' Draw Terrain IDs =========================================================
@@ -1062,7 +1063,7 @@ Module modRender
         'setup
         GL.Enable(EnableCap.Blend)
         TextRenderShader.Use()
-        GL.Uniform4(TextRenderShader("color"), OpenTK.Graphics.Color4.White)
+        GL.Uniform4(TextRenderShader("color"), Color4.White)
         GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(TextRenderShader("divisor"), 1.0F) 'atlas size
         GL.Uniform1(TextRenderShader("index"), 0.0F)
@@ -1265,13 +1266,13 @@ Module modRender
             -m_size.Bottom)
 
         GL.Uniform2(MiniMapRingsShader("center"), TEAM_2.X, TEAM_2.Z)
-        GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.DarkRed)
+        GL.Uniform4(MiniMapRingsShader("color"), Color4.DarkRed)
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         GL.Uniform2(MiniMapRingsShader("center"), TEAM_1.X, TEAM_1.Z)
-        GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.DarkGreen)
+        GL.Uniform4(MiniMapRingsShader("color"), Color4.DarkGreen)
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
@@ -1332,7 +1333,7 @@ Module modRender
             -m_size.Bottom)
 
         GL.Uniform2(MiniMapRingsShader("center"), -U_LOOK_AT_X, U_LOOK_AT_Z)
-        GL.Uniform4(MiniMapRingsShader("color"), OpenTK.Graphics.Color4.White)
+        GL.Uniform4(MiniMapRingsShader("color"), Color4.White)
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
@@ -1350,8 +1351,8 @@ skip:
 
         coloredline2dShader.Use()
 
-        Dim co As OpenTK.Graphics.Color4
-        co = OpenTK.Graphics.Color4.GhostWhite
+        Dim co As Color4
+        co = Color4.GhostWhite
         co.A = 0.5F ' tone down the brightness some
 
         GL.UniformMatrix4(coloredline2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
@@ -1440,7 +1441,7 @@ skip:
     Public Sub draw_text(ByRef text As String,
                          ByVal locX As Single,
                          ByVal locY As Single,
-                         ByRef color As OpenTK.Graphics.Color4,
+                         ByRef color As Color4,
                          ByRef center As Boolean,
                          ByRef mask As Integer)
         ' text, loc X, loc Y, color, Center text at X location,
@@ -1490,7 +1491,7 @@ skip:
     Public Sub draw_text_Wrap(ByRef text As String,
                          ByVal locX As Single,
                          ByVal locY As Single,
-                         ByRef color As OpenTK.Graphics.Color4,
+                         ByRef color As Color4,
                          ByRef center As Boolean,
                          ByRef mask As Integer,
                          ByRef wrapWidth As Integer)

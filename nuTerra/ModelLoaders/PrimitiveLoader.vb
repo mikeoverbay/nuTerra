@@ -1,8 +1,6 @@
 ﻿Imports System.IO
 Imports System.Math
-Imports System.Runtime.InteropServices.Marshal
 Imports OpenTK
-Imports OpenTK.Graphics.OpenGL
 
 Module PrimitiveLoader
     Public Class BinarySectionInfo

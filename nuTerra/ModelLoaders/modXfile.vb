@@ -1,6 +1,6 @@
 ﻿Imports System.IO
 Imports OpenTK
-Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Graphics.OpenGL4
 
 Module modXfile
     Private Structure _vertex

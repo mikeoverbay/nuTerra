@@ -4,6 +4,7 @@ Imports System.Text
 Imports OpenTK
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
+
 Module TerrainTextureFunctions
     Public max_on As UInt32
     Public min_on As UInt32
@@ -420,7 +421,7 @@ Module TerrainTextureFunctions
         Return True
     End Function
 
-    Private Function round_4(ByVal v As Single)
+    Private Function round_4(v As Single) As Single
         Return Math.Round(v, 2)
     End Function
 

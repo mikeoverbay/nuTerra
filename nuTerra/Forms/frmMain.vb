@@ -241,8 +241,6 @@ Public Class frmMain
             My.Settings.Save()
         End If
 
-        Dim maxSupportedGL = GetMaxGLVersion()
-
         ' Init main gl-control
         Dim flags As GraphicsContextFlags
 #If DEBUG Then
@@ -251,7 +249,7 @@ Public Class frmMain
         flags = GraphicsContextFlags.ForwardCompatible
 #End If
 
-        Me.glControl_main = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), maxSupportedGL.Item1, maxSupportedGL.Item2, flags)
+        Me.glControl_main = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, flags)
         Me.glControl_main.VSync = False
 
         '-----------------------------------------------------------------------------------------

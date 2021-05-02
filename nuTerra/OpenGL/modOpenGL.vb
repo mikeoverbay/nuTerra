@@ -1,24 +1,12 @@
 ﻿Imports System.Math
 Imports System.Runtime.InteropServices
 Imports OpenTK
-Imports OpenTK.Platform.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
-Imports System.ComponentModel
 
 Module modOpenGL
     Public defaultVao As Integer
     Public FieldOfView As Single
-
-    Public Function GetMaxGLVersion() As Tuple(Of Integer, Integer)
-        Dim tmpControl = New GLControl()
-        tmpControl.MakeCurrent()
-
-        Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
-        Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
-
-        Return New Tuple(Of Integer, Integer)(majorVersion, minorVersion)
-    End Function
 
     Public Class GLCapabilities
         Public Shared maxTextureSize As Integer

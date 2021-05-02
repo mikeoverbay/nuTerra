@@ -1,4 +1,4 @@
-﻿Imports OpenTK.Graphics.OpenGL
+﻿Imports OpenTK.Graphics.OpenGL4
 
 Module LoadingScreen
 #Region "Variables"

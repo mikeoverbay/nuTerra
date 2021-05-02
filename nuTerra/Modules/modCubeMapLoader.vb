@@ -1,6 +1,6 @@
-﻿Imports OpenTK.Graphics
-Imports OpenTK.Graphics.OpenGL
-Imports System.IO
+﻿Imports System.IO
+Imports OpenTK.Graphics
+Imports OpenTK.Graphics.OpenGL4
 
 Module modCubeMapLoader
     Public Sub load_cube_and_cube_map()

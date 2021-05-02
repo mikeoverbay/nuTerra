@@ -1,7 +1,4 @@
-﻿Imports System.Math
-Imports System.Runtime.InteropServices
-Imports OpenTK
-Imports OpenTK.Graphics.OpenGL
+﻿Imports OpenTK.Graphics.OpenGL4
 
 Module ModelPicker
     Sub PickModel()

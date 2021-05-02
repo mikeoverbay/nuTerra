@@ -200,6 +200,7 @@ Module MakeMega
         Next
         Return block
     End Function
+
     Private Function make_LUT(ByRef max_mip_level As Integer) As GLTexture
         Dim er = GL.GetError
         Dim LUT = CreateTexture(TextureTarget.Texture2D, "Mega_LUT")
@@ -219,8 +220,9 @@ Module MakeMega
         GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 1, 1, PixelFormat.RedInteger, PixelType.UnsignedInt, lut_data(5).buff)
         GL.BindTexture(TextureTarget.Texture2D, 0)
         er = GL.GetError
-
+        Return LUT
     End Function
+
     Public Sub close_megas()
         'Used when Terra is shut down
         If megaHDL_AM IsNot Nothing Then

@@ -1,6 +1,6 @@
 ﻿Imports System.IO
 Imports NGettext
-Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Graphics.OpenGL4
 
 NotInheritable Class MapMenuScreen
     Const MAX_NUM_COLUMNS = 7
