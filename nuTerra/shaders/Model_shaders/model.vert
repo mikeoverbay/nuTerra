@@ -82,7 +82,7 @@ void main(void)
         //============================================
         vec4 At_size = thisMaterial.g_atlasSizes;
 
-        ivec2 isize = textureSize(thisMaterial.maps[0],0);
+        ivec2 isize = textureSize(sampler2D(thisMaterial.maps[0]), 0);
         vec2 image_size;
         image_size.x = float(isize.x); //to float. AMD hates using int values with floats.
         image_size.y = float(isize.y);

@@ -932,7 +932,6 @@ Module MapLoader
                         .map3Handle = textureHandles(props.metallicGlossMap)
                         If props.g_detailMap IsNot Nothing Then
                             .map4Handle = textureHandles(props.g_detailMap)
-
                         End If
                         .g_enableAO = If(props.g_enableAO, 1, 0)
                         .g_useNormalPackDXT1 = If(props.g_useNormalPackDXT1, 1, 0)

@@ -63,9 +63,9 @@ void get_and_write_no_mips(void){
 
     float alphaCheck = gColor.a;
     if (thisMaterial.g_useNormalPackDXT1) {
-        normalBump = (texture(thisMaterial.maps[1], fs_in.TC1,1.0).rgb * 2.0f) - 1.0f;
+        normalBump = (texture(sampler2D(thisMaterial.maps[1]), fs_in.TC1,1.0).rgb * 2.0f) - 1.0f;
     } else {
-        vec4 normal = texture(thisMaterial.maps[1], fs_in.TC1,1.0);
+        vec4 normal = texture(sampler2D(thisMaterial.maps[1]), fs_in.TC1,1.0);
         normalBump.xy = normal.ag * 2.0 - 1.0;
         float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
         normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
@@ -118,9 +118,12 @@ layout(index = 0) subroutine(fn_entry) void default_entry()
 //##################################################################################
 layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 {
-    gColor = texture(thisMaterial.maps[0], fs_in.TC1,1); // color
+    const sampler2D diffuseMap_sampler = sampler2D(thisMaterial.maps[0]);
+    const sampler2D metallicGlossMap_sampler = sampler2D(thisMaterial.maps[2]);
+
+    gColor = texture(diffuseMap_sampler, fs_in.TC1,1); // color
     gColor *= thisMaterial.g_colorTint;
-    vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1,1);
+    vec4 gm = texture(metallicGlossMap_sampler, fs_in.TC1,1);
     gGMF.rg = gm.rg; // gloss/metal
 
     if (thisMaterial.g_enableAO) gColor.xyz += gColor.xyz * gm.b;
@@ -129,30 +132,39 @@ layout(index = 1) subroutine(fn_entry) void FX_PBS_ext_entry()
 //##################################################################################
 layout(index = 2) subroutine(fn_entry) void FX_PBS_ext_dual_entry()
 {
-    gColor = textureLod(thisMaterial.maps[0], fs_in.TC1, get_mip_map_level(thisMaterial.maps[0])); // color
-    gColor *= textureLod(thisMaterial.maps[3], fs_in.TC2, get_mip_map_level(thisMaterial.maps[3])); // color2
+    const sampler2D diffuseMap_sampler = sampler2D(thisMaterial.maps[0]);
+    const sampler2D metallicGlossMap_sampler = sampler2D(thisMaterial.maps[2]);
+    const sampler2D diffuseMap2_sampler = sampler2D(thisMaterial.maps[3]);
+
+    gColor = textureLod(diffuseMap_sampler, fs_in.TC1, get_mip_map_level(diffuseMap_sampler)); // color
+    gColor *= textureLod(diffuseMap2_sampler, fs_in.TC2, get_mip_map_level(diffuseMap2_sampler)); // color2
     gColor *= thisMaterial.g_colorTint;
     gColor.rgb *= 2.0; // this will need tweaking
-    gGMF.rg = textureLod(thisMaterial.maps[2], fs_in.TC1, get_mip_map_level(thisMaterial.maps[2])).rg; // gloss/metal
+    gGMF.rg = textureLod(metallicGlossMap_sampler, fs_in.TC1, get_mip_map_level(metallicGlossMap_sampler)).rg; // gloss/metal
     get_and_write_no_mips();
 }
 //##################################################################################
 layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
-{   
+{
+    const sampler2D diffuseMap_sampler = sampler2D(thisMaterial.maps[0]);
+    const sampler2D normalMap_sampler = sampler2D(thisMaterial.maps[1]);
+    const sampler2D metallicGlossMap_sampler = sampler2D(thisMaterial.maps[2]);
+    const sampler2D g_detailMap_sampler = sampler2D(thisMaterial.maps[3]);
+
     // detail uv scale is in g_detailRejectTiling.zw;
     vec2 uvc = fract(fs_in.TC1) * thisMaterial.g_detailRejectTiling.zw;
-    gColor = texture(thisMaterial.maps[0], fs_in.TC1);
+    gColor = texture(diffuseMap_sampler, fs_in.TC1);
     gColor *= thisMaterial.g_colorTint;
     
-    vec4 gm = texture(thisMaterial.maps[2], fs_in.TC1);
-    float nm_aoc = texture(thisMaterial.maps[1], fs_in.TC1).b;
-    float d_aoc = texture(thisMaterial.maps[3], uvc).b;
+    vec4 gm = texture(metallicGlossMap_sampler, fs_in.TC1);
+    float nm_aoc = texture(normalMap_sampler, fs_in.TC1).b;
+    float d_aoc = texture(g_detailMap_sampler, uvc).b;
 
     //gColor.rgb *= mix(nm_aoc, d_aoc, thisMaterial.g_detailInfluences.x);
 
     gGMF.rga = gm.rgr; // gloss/metal
     vec4 nmap;
-    nmap.ag = mix(texture(thisMaterial.maps[1], fs_in.TC1).ag, texture(thisMaterial.maps[3],
+    nmap.ag = mix(texture(normalMap_sampler, fs_in.TC1).ag, texture(g_detailMap_sampler,
                 (uvc),1.0).ag, 1.0-thisMaterial.g_detailInfluences.xx);
 
     gNormal.rgb = get_detail_normal(nmap)*0.5+0.5;
@@ -160,6 +172,12 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
 //##################################################################################
 layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 {
+    const sampler2D atlasAlbedoHeight_sampler = sampler2D(thisMaterial.maps[0]);
+    const sampler2D atlasNormalGlossSpec_sampler = sampler2D(thisMaterial.maps[1]);
+    const sampler2D atlasMetallicAO_sampler = sampler2D(thisMaterial.maps[2]);
+    const sampler2D atlasBlend_sampler = sampler2D(thisMaterial.maps[3]);
+    const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[4]);
+
     vec2 UVs;
     vec2 uv1,uv2,uv3,uv4;
 
@@ -174,11 +192,11 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     UVs = zeroONE*fs_in.scale_4 + fs_in.offset_4;
     uv4 = UVs + fs_in.UV4;
 
-    vec4 blend = textureLod(thisMaterial.maps[3], uv4,0.0);
+    vec4 blend = textureLod(atlasBlend_sampler, uv4,0.0);
 
-    vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile0Tint;
-    vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile1Tint;
-    vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile2Tint;
+    vec4 colorAM_x = textureLod(atlasAlbedoHeight_sampler, uv1, get_mip_map_level(atlasAlbedoHeight_sampler)) * thisMaterial.g_tile0Tint;
+    vec4 colorAM_y = textureLod(atlasAlbedoHeight_sampler, uv2, get_mip_map_level(atlasAlbedoHeight_sampler)) * thisMaterial.g_tile1Tint;
+    vec4 colorAM_z = textureLod(atlasAlbedoHeight_sampler, uv3, get_mip_map_level(atlasAlbedoHeight_sampler)) * thisMaterial.g_tile2Tint;
 
     float dirtLevel = blend.z;
 
@@ -216,15 +234,14 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
             DOM_UV = uv3;
         }
 
-    GBMT = textureLod(thisMaterial.maps[1],DOM_UV,get_mip_map_level(thisMaterial.maps[1]));
-    MAO  = textureLod(thisMaterial.maps[2],DOM_UV,get_mip_map_level(thisMaterial.maps[2]));
-
+    GBMT = textureLod(atlasNormalGlossSpec_sampler, DOM_UV, get_mip_map_level(atlasNormalGlossSpec_sampler));
+    MAO  = textureLod(atlasMetallicAO_sampler, DOM_UV, get_mip_map_level(atlasMetallicAO_sampler));
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
     float dirt_blend = thisMaterial.dirtParams.x;
 
-    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.TC1,get_mip_map_level(thisMaterial.maps[4]));
+    vec4 DIRT = textureLod(dirtMap_sampler, fs_in.TC1, get_mip_map_level(dirtMap_sampler));
     //DIRT.rgb *= thisMaterial.dirtColor.rgb;
     DIRT.rgb *= DIRT.a;
     //============================================
@@ -260,10 +277,17 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 //##################################################################################
 layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 {
+    const sampler2D atlasAlbedoHeight_sampler = sampler2D(thisMaterial.maps[0]);
+    const sampler2D atlasNormalGlossSpec_sampler = sampler2D(thisMaterial.maps[1]);
+    const sampler2D atlasMetallicAO_sampler = sampler2D(thisMaterial.maps[2]);
+    const sampler2D atlasBlend_sampler = sampler2D(thisMaterial.maps[3]);
+    const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[4]);
+    const sampler2D globalTex_sampler = sampler2D(thisMaterial.maps[5]);
+
     vec2 UVs;
     vec2 uv1,uv2,uv3,uv4;
 
-    vec4 globalTex = texture(thisMaterial.maps[5],fs_in.TC2);
+    vec4 globalTex = texture(globalTex_sampler, fs_in.TC2);
 
     vec2 zeroONE = vec2(fract(fs_in.TC1.x), fract(fs_in.TC1.y));
 
@@ -276,11 +300,11 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     UVs = zeroONE*fs_in.scale_4 + fs_in.offset_4;
     uv4 = UVs + fs_in.UV4;
 
-    vec4 blend = textureLod(thisMaterial.maps[3], uv4,0.0);
+    vec4 blend = textureLod(atlasBlend_sampler, uv4, 0.0);
 
-    vec4 colorAM_x = textureLod(thisMaterial.maps[0],uv1,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile0Tint;
-    vec4 colorAM_y = textureLod(thisMaterial.maps[0],uv2,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile1Tint;
-    vec4 colorAM_z = textureLod(thisMaterial.maps[0],uv3,get_mip_map_level(thisMaterial.maps[0])) * thisMaterial.g_tile2Tint;
+    vec4 colorAM_x = textureLod(atlasAlbedoHeight_sampler, uv1, get_mip_map_level(atlasAlbedoHeight_sampler)) * thisMaterial.g_tile0Tint;
+    vec4 colorAM_y = textureLod(atlasAlbedoHeight_sampler, uv2, get_mip_map_level(atlasAlbedoHeight_sampler)) * thisMaterial.g_tile1Tint;
+    vec4 colorAM_z = textureLod(atlasAlbedoHeight_sampler, uv3, get_mip_map_level(atlasAlbedoHeight_sampler)) * thisMaterial.g_tile2Tint;
 
     float dirtLevel = blend.z;
 
@@ -316,15 +340,14 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
             DOM_UV = uv3;
         }
 
-    GBMT = textureLod(thisMaterial.maps[1],DOM_UV,get_mip_map_level(thisMaterial.maps[1]));
-    MAO  = textureLod(thisMaterial.maps[2],DOM_UV,get_mip_map_level(thisMaterial.maps[2]));
-
+    GBMT = textureLod(atlasNormalGlossSpec_sampler, DOM_UV, get_mip_map_level(atlasNormalGlossSpec_sampler));
+    MAO  = textureLod(atlasMetallicAO_sampler, DOM_UV, get_mip_map_level(atlasMetallicAO_sampler));
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
     float dirt_blend = thisMaterial.dirtParams.x;
 
-    vec4 DIRT = textureLod(thisMaterial.maps[4],fs_in.TC1,get_mip_map_level(thisMaterial.maps[4]));
+    vec4 DIRT = textureLod(dirtMap_sampler, fs_in.TC1, get_mip_map_level(dirtMap_sampler));
     DIRT.rgb *= thisMaterial.dirtColor.rgb;
     DIRT.rgb *= DIRT.a;
     //============================================
@@ -360,19 +383,22 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 //##################################################################################
 layout(index = 6) subroutine(fn_entry) void FX_PBS_glass()
 {
-    discard;
+    // discard;
 }
 //##################################################################################
 layout(index = 7) subroutine(fn_entry) void FX_PBS_ext_repaint()
 {
-    // g_tile0Tint = g_baseCOlor
+    const sampler2D diffuseMap_sampler = sampler2D(thisMaterial.maps[0]);
+    const sampler2D metallicGlossMap_sampler = sampler2D(thisMaterial.maps[2]);
+
+    // g_tile0Tint = g_baseColor
     // g_tile1Tint = g_repaintColor
 
-   vec4 diffuse = texture(thisMaterial.maps[0], fs_in.TC1);
+   vec4 diffuse = texture(diffuseMap_sampler, fs_in.TC1);
    diffuse.rgb = mix(diffuse.rgb, thisMaterial.g_tile0Tint.rgb , diffuse.a);
    diffuse.rgb = mix(diffuse.rgb, thisMaterial.g_tile1Tint.rgb , diffuse.a);
    //diffuse.rgb += diffuse.rgb * (thisMaterial.g_tile1Tint.rgb * diffuse.a);
-   gGMF.rga = texture(thisMaterial.maps[2], fs_in.TC1).rgb*vec3(0.5*diffuse.a,2.0-diffuse.a,0.4-diffuse.a); // gloss/metal
+   gGMF.rga = texture(metallicGlossMap_sampler, fs_in.TC1).rgb*vec3(0.5*diffuse.a,2.0-diffuse.a,0.4-diffuse.a); // gloss/metal
 
    gColor = diffuse;
    get_and_write_no_mips();
@@ -380,7 +406,6 @@ layout(index = 7) subroutine(fn_entry) void FX_PBS_ext_repaint()
 //##################################################################################
 layout(index = 8) subroutine(fn_entry) void FX_lightonly_alpha_entry()
 {
-    // gColor = texture(thisMaterial.maps[0], fs_in.TC1);
     gColor = vec4(0.0,0.0,1.0,0.0); // debug
 }
 //##################################################################################

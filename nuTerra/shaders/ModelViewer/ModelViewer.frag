@@ -22,7 +22,7 @@ void main(void)
 {
     MaterialProperties thisMaterial = material[fs_in.material_id];
 
-    vec3 texColor =  texture(thisMaterial.maps[0], fs_in.UV).rgb;
+    vec3 texColor =  texture(sampler2D(thisMaterial.maps[0]), fs_in.UV).rgb;
 
     vec3 lightPosition = vec3 (30.0,30.0,30.0);
 

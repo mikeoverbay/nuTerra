@@ -39,9 +39,7 @@ const MaterialProperties thisMaterial = material[fs_in.material_id];
 // ================================================================================
 void get_normal()
 {
-
-
-        vec4 normal = texture(thisMaterial.maps[1], fs_in.TC1);
+        vec4 normal = texture(sampler2D(thisMaterial.maps[1]), fs_in.TC1);
         float alphaCheck = normal.r;      
         normalBump.xy = normal.ag * 2.0 - 1.0;
         normalBump.z = sqrt(1.0 - dot(normalBump.xy, normalBump.xy));
@@ -60,9 +58,9 @@ void main(void)
 {
     const float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
 
-    vec4 co = texture(thisMaterial.maps[0], fs_in.TC1); // color    vec4 co = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
+    vec4 co = texture(sampler2D(thisMaterial.maps[0]), fs_in.TC1); // color    vec4 co = textureLod(thisMaterial.maps[0], fs_in.TC1, 0); // color
     //note swizzle here
-    gGMF.gr = texture(thisMaterial.maps[2], fs_in.TC1).rg;
+    gGMF.gr = texture(sampler2D(thisMaterial.maps[2]), fs_in.TC1).rg;
     co.rgb *= thisMaterial.g_colorTint.rgb;
     gAux = co;
     gAux.a = co.a;

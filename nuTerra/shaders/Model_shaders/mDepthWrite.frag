@@ -19,7 +19,7 @@ void main(void)
     const MaterialProperties thisMaterial = material[fs_in.material_id];
 
     if (thisMaterial.alphaTestEnable) {
-        float alpha = texture(thisMaterial.maps[1], fs_in.uv).r;
+        float alpha = texture(sampler2D(thisMaterial.maps[1]), fs_in.uv).r;
         if (alpha < thisMaterial.alphaReference) {
             discard;
         }
