@@ -170,9 +170,12 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     const sampler2DArray atlasBlend_sampler = sampler2DArray(thisMaterial.maps[3]);
     const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[4]);
 
-    vec4 colorAM_x = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.x)) * thisMaterial.g_tile0Tint;
-    vec4 colorAM_y = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.y)) * thisMaterial.g_tile1Tint;
-    vec4 colorAM_z = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.z)) * thisMaterial.g_tile2Tint;
+    const float padSize = 0.0625;
+    const vec2 uv1 = padSize + fract(fs_in.TC1) * (1.0 - padSize * 2.0);
+
+    vec4 colorAM_x = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.x)) * thisMaterial.g_tile0Tint;
+    vec4 colorAM_y = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.y)) * thisMaterial.g_tile1Tint;
+    vec4 colorAM_z = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.z)) * thisMaterial.g_tile2Tint;
     vec4 blend = textureLod(atlasBlend_sampler, vec3(fs_in.TC2, thisMaterial.g_atlasIndexes.w), 0.0);
 
     float dirtLevel = blend.z;
@@ -195,8 +198,8 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     blend.xyz = blend.xyz/d;
 
     float dom_id = get_dom_mix(blend.xyz);
-    vec4 GBMT = texture(atlasNormalGlossSpec_sampler, vec3(fs_in.TC1, dom_id));
-    vec4 MAO  = texture(atlasMetallicAO_sampler, vec3(fs_in.TC1, dom_id));
+    vec4 GBMT = texture(atlasNormalGlossSpec_sampler, vec3(uv1, dom_id));
+    vec4 MAO  = texture(atlasMetallicAO_sampler, vec3(uv1, dom_id));
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
@@ -244,9 +247,12 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
 
     vec4 globalTex = texture(globalTex_sampler, fs_in.TC2);
 
-    vec4 colorAM_x = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.x)) * thisMaterial.g_tile0Tint;
-    vec4 colorAM_y = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.y)) * thisMaterial.g_tile1Tint;
-    vec4 colorAM_z = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.z)) * thisMaterial.g_tile2Tint;
+    const float padSize = 0.0625;
+    const vec2 uv1 = padSize + fract(fs_in.TC1) * (1.0 - padSize * 2.0);
+
+    vec4 colorAM_x = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.x)) * thisMaterial.g_tile0Tint;
+    vec4 colorAM_y = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.y)) * thisMaterial.g_tile1Tint;
+    vec4 colorAM_z = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.z)) * thisMaterial.g_tile2Tint;
     vec4 blend = textureLod(atlasBlend_sampler, vec3(fs_in.TC2, thisMaterial.g_atlasIndexes.w), 0.0);
 
     float dirtLevel = blend.z;
@@ -268,8 +274,8 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     blend.xyz = blend.xyz/d;
 
     float dom_id = get_dom_mix(blend.xyz);
-    vec4 GBMT = texture(atlasNormalGlossSpec_sampler, vec3(fs_in.TC1, dom_id));
-    vec4 MAO  = texture(atlasMetallicAO_sampler, vec3(fs_in.TC1, dom_id));
+    vec4 GBMT = texture(atlasNormalGlossSpec_sampler, vec3(uv1, dom_id));
+    vec4 MAO  = texture(atlasMetallicAO_sampler, vec3(uv1, dom_id));
 
     //need to sort this out!
     vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
