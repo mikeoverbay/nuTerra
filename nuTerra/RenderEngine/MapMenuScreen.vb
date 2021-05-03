@@ -156,6 +156,11 @@ NotInheritable Class MapMenuScreen
                 Continue For
             End If
 
+            ' skip dummy map
+            If name = "1003_cgf_test" Then
+                Continue For
+            End If
+
             MapPickList.Add(New MapItem With {
                 .name = name,
                 .realname = arenas_mo_catalog.GetString(String.Format("{0}/name", name)).Replace("Winter ", "Wtr "),

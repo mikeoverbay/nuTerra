@@ -502,6 +502,7 @@ try_again:
         ' https://renderdoc.org/docs/getting_started/faq.html#can-i-tell-via-the-graphics-apis-if-renderdoc-Is-present-at-runtime
         Const GL_DEBUG_TOOL_EXT = &H6789
         Dim debug_tool = GL.IsEnabled(GL_DEBUG_TOOL_EXT)
+        GL.GetError() ' Clear last error
 
         ' skip checks if we are in RenderDoc 
         If Not debug_tool Then

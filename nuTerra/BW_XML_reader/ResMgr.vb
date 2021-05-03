@@ -20,6 +20,17 @@ NotInheritable Class ResMgr
 
         For Each pkgNode In xDoc.SelectNodes("//Paths/Packages/Package")
             Dim pkg = pkgNode.InnerText.Remove(0, 2)
+
+            If Path.GetFileName(pkg).StartsWith("vehicles_") Then
+                ' ignore vehicle packages
+                Continue For
+            End If
+
+            If Path.GetFileName(pkg).StartsWith("audioww-") Then
+                ' ignore audio packages
+                Continue For
+            End If
+
             Dim pkgPath = Path.Combine(wot_path, pkg)
             Using entry As New ZipFile(pkgPath)
                 For Each file In entry.Entries
