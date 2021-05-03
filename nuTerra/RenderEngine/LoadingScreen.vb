@@ -1,4 +1,5 @@
-﻿Imports OpenTK.Graphics.OpenGL4
+﻿Imports System.IO
+Imports OpenTK.Graphics.OpenGL4
 
 Module LoadingScreen
 #Region "Variables"
@@ -27,6 +28,12 @@ Module LoadingScreen
         GL.Clear(ClearBufferMask.ColorBufferBit)
 
         Dim ls = (1920.0F - ww) / 2.0F
+
+        '---------------------------------------------------------
+        'loading screen image
+        If nuTERRA_BG_IMAGE Is Nothing Then
+            nuTERRA_BG_IMAGE = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\earth.png"), False, True)
+        End If
 
         ' Draw Terra Image
         draw_image_rectangle(New RectangleF(-ls, 0, 1920, 1080),

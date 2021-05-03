@@ -559,6 +559,11 @@ Module MapLoader
         '===============================================================
 
         SHOW_LOADING_SCREEN = False
+
+        ' Cleanup loading screen resources
+        nuTERRA_BG_IMAGE.Delete()
+        nuTERRA_BG_IMAGE = Nothing
+
         'LOOK_AT_X = 0.001
         'LOOK_AT_Z = 0.001
         '===================================================

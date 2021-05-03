@@ -662,9 +662,6 @@ try_again:
         '==========================================================
 
         '---------------------------------------------------------
-        'loading screen image
-        nuTERRA_BG_IMAGE = load_png_image_from_file(Path.Combine(sp, "resources\earth.png"), False, True)
-        '---------------------------------------------------------
         'background screen image
         CHECKER_BOARD = load_png_image_from_file(Path.Combine(sp, "resources\CheckerPatternPaper.png"), False, False)
         '---------------------------------------------------------
