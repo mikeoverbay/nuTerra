@@ -629,11 +629,30 @@ Module MapLoader
         End Function
     End Structure
 
+    Private Sub AddAtlas(atlasPath As String,
+                         atlasPaths As Dictionary(Of String, HashSet(Of Integer)),
+                         ddsAtlasSizes As Dictionary(Of String, Vector2),
+                         indexes() As Integer,
+                         size As Vector2)
+        If atlasPaths.ContainsKey(atlasPath) Then
+            For Each i In indexes
+                atlasPaths(atlasPath).Add(i)
+                atlasPaths(atlasPath).Add(i)
+                atlasPaths(atlasPath).Add(i)
+            Next
+        Else
+            atlasPaths(atlasPath) = New HashSet(Of Integer)(indexes)
+            If atlasPath.EndsWith(".dds") Then
+                ddsAtlasSizes(atlasPath) = size
+            End If
+        End If
+    End Sub
+
     'Load materials
     Private Sub load_materials()
         Dim texturePaths As New HashSet(Of String)
-        Dim atlasPaths As New HashSet(Of String)
-
+        Dim atlasPaths As New Dictionary(Of String, HashSet(Of Integer))
+        Dim ddsAtlasSizes As New Dictionary(Of String, Vector2)
 
         For Each mat In materials.Values
             Select Case mat.shader_type
@@ -657,24 +676,67 @@ Module MapLoader
                     End If
 
                 Case ShaderTypes.FX_PBS_tiled_atlas
-                    atlasPaths.Add(mat.props.atlasAlbedoHeight)
+                    AddAtlas(mat.props.atlasAlbedoHeight,
+                             atlasPaths,
+                             ddsAtlasSizes,
+                             {mat.props.g_atlasIndexes.X,
+                             mat.props.g_atlasIndexes.Y,
+                             mat.props.g_atlasIndexes.Z},
+                             mat.props.g_atlasSizes.Xy)
                     Debug.Assert(mat.props.atlasBlend.EndsWith(".png"))
                     mat.props.atlasBlend = mat.props.atlasBlend.Replace(".png", ".dds") 'hack!!!
-                    texturePaths.Add(mat.props.atlasBlend)
-                    atlasPaths.Add(mat.props.atlasNormalGlossSpec)
-                    atlasPaths.Add(mat.props.atlasMetallicAO)
+                    AddAtlas(mat.props.atlasBlend,
+                             atlasPaths,
+                             ddsAtlasSizes,
+                             {mat.props.g_atlasIndexes.W},
+                             mat.props.g_atlasSizes.Zw)
+                    AddAtlas(mat.props.atlasNormalGlossSpec,
+                             atlasPaths,
+                             ddsAtlasSizes,
+                             {mat.props.g_atlasIndexes.X,
+                             mat.props.g_atlasIndexes.Y,
+                             mat.props.g_atlasIndexes.Z},
+                             mat.props.g_atlasSizes.Xy)
+                    AddAtlas(mat.props.atlasMetallicAO,
+                             atlasPaths,
+                             ddsAtlasSizes,
+                             {mat.props.g_atlasIndexes.X,
+                             mat.props.g_atlasIndexes.Y,
+                             mat.props.g_atlasIndexes.Z},
+                             mat.props.g_atlasSizes.Xy)
                     If mat.props.dirtMap IsNot Nothing Then
-                        atlasPaths.Add(mat.props.dirtMap)
+                        texturePaths.Add(mat.props.dirtMap)
                     End If
 
                 Case ShaderTypes.FX_PBS_tiled_atlas_global
-                    atlasPaths.Add(mat.props.atlasAlbedoHeight)
+                    AddAtlas(mat.props.atlasAlbedoHeight,
+                             atlasPaths,
+                             ddsAtlasSizes,
+                             {mat.props.g_atlasIndexes.X,
+                             mat.props.g_atlasIndexes.Y,
+                             mat.props.g_atlasIndexes.Z},
+                             mat.props.g_atlasSizes.Xy)
                     Debug.Assert(mat.props.atlasBlend.EndsWith(".png"))
                     mat.props.atlasBlend = mat.props.atlasBlend.Replace(".png", ".dds") 'hack!!!
-                    texturePaths.Add(mat.props.atlasBlend)
-                    atlasPaths.Add(mat.props.atlasNormalGlossSpec)
-                    atlasPaths.Add(mat.props.atlasMetallicAO)
-                    atlasPaths.Add(mat.props.atlasAlbedoHeight)
+                    AddAtlas(mat.props.atlasBlend,
+                             atlasPaths,
+                             ddsAtlasSizes,
+                             {mat.props.g_atlasIndexes.W},
+                             mat.props.g_atlasSizes.Zw)
+                    AddAtlas(mat.props.atlasNormalGlossSpec,
+                             atlasPaths,
+                             ddsAtlasSizes,
+                             {mat.props.g_atlasIndexes.X,
+                             mat.props.g_atlasIndexes.Y,
+                             mat.props.g_atlasIndexes.Z},
+                             mat.props.g_atlasSizes.Xy)
+                    AddAtlas(mat.props.atlasMetallicAO,
+                             atlasPaths,
+                             ddsAtlasSizes,
+                             {mat.props.g_atlasIndexes.X,
+                             mat.props.g_atlasIndexes.Y,
+                             mat.props.g_atlasIndexes.Z},
+                             mat.props.g_atlasSizes.Xy)
                     If mat.props.dirtMap IsNot Nothing Then
                         texturePaths.Add(mat.props.dirtMap)
                     End If
@@ -689,8 +751,6 @@ Module MapLoader
                     texturePaths.Add(mat.props.diffuseMap)
                     texturePaths.Add(mat.props.normalMap)
                     texturePaths.Add(mat.props.metallicGlossMap)
-
-
 
                 Case ShaderTypes.FX_lightonly_alpha
                     texturePaths.Add(mat.props.diffuseMap)
@@ -708,19 +768,110 @@ Module MapLoader
         draw_scene()
 
         Dim textureHandles As New Dictionary(Of String, UInt64)
-        For Each atlasPath In atlasPaths
-            If atlasPath.EndsWith(".dds") Then
-                texturePaths.Add(atlasPath)
+        Dim atlasIndexRemaper As New Dictionary(Of String, Dictionary(Of Integer, Integer))
+        For Each atlasPathAndUsage In atlasPaths
+            Dim unique As New HashSet(Of Integer)(atlasPathAndUsage.Value)
+            Dim old2new_indexes As New Dictionary(Of Integer, Integer)
+            Dim handle As Long
+            Dim atlas_tex = CreateTexture(TextureTarget.Texture2DArray, atlasPathAndUsage.Key)
+
+            If atlasPathAndUsage.Key.EndsWith(".dds") Then
+                Dim atlasSize = ddsAtlasSizes(atlasPathAndUsage.Key)
+                Dim dds_entry = ResMgr.Lookup(atlasPathAndUsage.Key.Replace(".dds", "_hd.dds"))
+                If dds_entry Is Nothing Then
+                    dds_entry = ResMgr.Lookup(atlasPathAndUsage.Key)
+                    If dds_entry Is Nothing Then
+                        Stop
+                        Continue For
+                    End If
+                End If
+
+                Dim dds_ms As New MemoryStream
+                dds_entry.Extract(dds_ms)
+
+                dds_ms.Position = 0
+                Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
+                    Dim dds_header = get_dds_header(dds_br)
+                    dds_ms.Position = 128
+
+                    Dim format_info = dds_header.format_info
+
+                    Dim tmp_tex = CreateTexture(TextureTarget.Texture2D, "tmpTex")
+                    tmp_tex.Parameter(TextureParameterName.TextureBaseLevel, 0)
+                    tmp_tex.Parameter(TextureParameterName.TextureMaxLevel, 0)
+                    tmp_tex.Storage2D(1, format_info.texture_format, dds_header.width, dds_header.height)
+
+                    If format_info.compressed Then
+                        Dim srcImgSize = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
+                        Dim srcImgData = dds_br.ReadBytes(srcImgSize)
+                        tmp_tex.CompressedSubImage2D(0, 0, 0, dds_header.width, dds_header.height, format_info.texture_format, srcImgSize, srcImgData)
+                    Else
+                        Stop
+                    End If
+
+                    Dim tileWidth = dds_header.width \ CInt(atlasSize.X)
+                    Dim tileHeight = dds_header.height \ CInt(atlasSize.Y)
+
+                    Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(tileWidth, tileHeight), 2))
+                    If atlasPathAndUsage.Key.EndsWith("_blend.dds") Then
+                        numLevels = 1
+                    End If
+
+                    atlas_tex = CreateTexture(TextureTarget.Texture2DArray, atlasPathAndUsage.Key)
+                    atlas_tex.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 4)
+                    atlas_tex.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
+                    atlas_tex.Parameter(TextureParameterName.TextureBaseLevel, 0)
+                    atlas_tex.Parameter(TextureParameterName.TextureMaxLevel, numLevels - 1)
+                    atlas_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMinFilter.Linear)
+                    atlas_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+                    atlas_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+                    atlas_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+                    atlas_tex.Storage3D(numLevels, format_info.texture_format, tileWidth, tileHeight, unique.Count)
+
+                    Dim i = 0
+                    For Each old_id In unique
+                        old2new_indexes(old_id) = i
+                        Dim x = old_id Mod CInt(atlasSize.X)
+                        Dim y = old_id \ CInt(atlasSize.X)
+
+                        GL.CopyImageSubData(tmp_tex.texture_id,
+                                            ImageTarget.Texture2D,
+                                            0,
+                                            x * tileWidth,
+                                            y * tileHeight,
+                                            0,
+                                            atlas_tex.texture_id,
+                                            ImageTarget.Texture2DArray,
+                                            0,
+                                            0,
+                                            0,
+                                            i,
+                                            tileWidth,
+                                            tileHeight,
+                                            1)
+                        i += 1
+                    Next
+
+                    tmp_tex.Delete()
+                End Using
+
+                atlas_tex.GenerateMipmap()
+
+                handle = GL.Arb.GetTextureHandle(atlas_tex.texture_id)
+                GL.Arb.MakeTextureHandleResident(handle)
+
+                textureHandles(atlasPathAndUsage.Key) = handle
+                atlasIndexRemaper(atlasPathAndUsage.Key) = old2new_indexes
                 Continue For
             End If
 
-            If Not atlasPath.EndsWith(".atlas") Then
-                'Stop
-                texturePaths.Add(atlasPath)
+            If Not atlasPathAndUsage.Key.EndsWith(".atlas") Then
+                Stop
+                texturePaths.Add(atlasPathAndUsage.Key)
                 Continue For
             End If
 
-            Dim entry = ResMgr.Lookup(atlasPath + "_processed")
+            Dim entry = ResMgr.Lookup(atlasPathAndUsage.Key + "_processed")
             If entry Is Nothing Then
                 Stop
                 Continue For
@@ -756,6 +907,7 @@ Module MapLoader
                 Dim dds_chunk_size = br.ReadUInt64
                 ms.Position += dds_chunk_size
 
+                Dim i = 0
                 While br.BaseStream.Position < br.BaseStream.Length - 1
                     Dim coords As New AtlasCoords
                     coords.x0 = br.ReadInt32
@@ -771,11 +923,14 @@ Module MapLoader
                     End While
 
                     coords.path = coords.path.Replace(".png", ".dds")
-                    atlasParts.Add(coords)
+                    If unique.Contains(i) Then
+                        old2new_indexes(i) = atlasParts.Count
+                        atlasParts.Add(coords)
+                    End If
+                    i += 1
                 End While
             End Using
 
-            Dim atlas_tex As New GLTexture
             For i = 0 To atlasParts.Count - 1
                 Dim coords = atlasParts(i)
 
@@ -802,7 +957,6 @@ Module MapLoader
                         'Calculate Max Mip Level based on width or height.. Which ever is larger.
                         Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(dds_header.width, dds_header.height), 2))
 
-                        atlas_tex = CreateTexture(TextureTarget.Texture2DArray, atlasPath)
                         atlas_tex.Storage3D(numLevels, format_info.texture_format, dds_header.width, dds_header.height, atlasParts.Count)
 
                         atlas_tex.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), 4)
@@ -829,10 +983,11 @@ Module MapLoader
             '    Stop
             'End If
 
-            Dim handle = GL.Arb.GetTextureHandle(atlas_tex.texture_id)
+            handle = GL.Arb.GetTextureHandle(atlas_tex.texture_id)
             GL.Arb.MakeTextureHandleResident(handle)
 
-            textureHandles(atlasPath) = handle
+            textureHandles(atlasPathAndUsage.Key) = handle
+            atlasIndexRemaper(atlasPathAndUsage.Key) = old2new_indexes
         Next
 
         'load textures
@@ -937,8 +1092,10 @@ Module MapLoader
 
                         '.alphaReference = props.alphaReference / 255.0
                         '.alphaTestEnable = mat.props.alphaTestEnable
-                        .g_atlasIndexes = props.g_atlasIndexes
-                        .g_atlasSizes = props.g_atlasSizes
+                        .g_atlasIndexes.X = atlasIndexRemaper(props.atlasAlbedoHeight)(props.g_atlasIndexes.X)
+                        .g_atlasIndexes.Y = atlasIndexRemaper(props.atlasNormalGlossSpec)(props.g_atlasIndexes.Y)
+                        .g_atlasIndexes.Z = atlasIndexRemaper(props.atlasMetallicAO)(props.g_atlasIndexes.Z)
+                        .g_atlasIndexes.W = atlasIndexRemaper(props.atlasBlend)(props.g_atlasIndexes.W)
                         .dirtColor = props.dirtColor
                         .dirtParams = props.dirtParams
                         .g_tile0Tint = props.g_tile0Tint
@@ -960,8 +1117,10 @@ Module MapLoader
 
                         .alphaReference = props.alphaReference / 255.0
                         .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
-                        .g_atlasIndexes = props.g_atlasIndexes
-                        .g_atlasSizes = props.g_atlasSizes
+                        .g_atlasIndexes.X = atlasIndexRemaper(props.atlasAlbedoHeight)(props.g_atlasIndexes.X)
+                        .g_atlasIndexes.Y = atlasIndexRemaper(props.atlasNormalGlossSpec)(props.g_atlasIndexes.Y)
+                        .g_atlasIndexes.Z = atlasIndexRemaper(props.atlasMetallicAO)(props.g_atlasIndexes.Z)
+                        .g_atlasIndexes.W = atlasIndexRemaper(props.atlasBlend)(props.g_atlasIndexes.W)
                         .dirtColor = props.dirtColor
                         .dirtParams = props.dirtParams
                         .g_tile0Tint = props.g_tile0Tint

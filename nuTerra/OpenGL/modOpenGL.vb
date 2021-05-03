@@ -118,7 +118,6 @@ Module modOpenGL
     <StructLayout(LayoutKind.Sequential)>
     Public Structure GLMaterial
         Dim g_atlasIndexes As Vector4
-        Dim g_atlasSizes As Vector4
         Dim g_colorTint As Vector4
         Dim dirtParams As Vector4
         Dim dirtColor As Vector4

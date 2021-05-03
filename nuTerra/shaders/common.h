@@ -69,7 +69,6 @@ struct ModelLoD
 struct MaterialProperties
 {
     vec4 g_atlasIndexes;
-    vec4 g_atlasSizes;
     vec4 g_colorTint;
     vec4 dirtParams;
     vec4 dirtColor;

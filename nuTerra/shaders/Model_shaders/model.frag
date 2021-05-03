@@ -167,19 +167,13 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     const sampler2DArray atlasAlbedoHeight_sampler = sampler2DArray(thisMaterial.maps[0]);
     const sampler2DArray atlasNormalGlossSpec_sampler = sampler2DArray(thisMaterial.maps[1]);
     const sampler2DArray atlasMetallicAO_sampler = sampler2DArray(thisMaterial.maps[2]);
-    const sampler2D atlasBlend_sampler = sampler2D(thisMaterial.maps[3]);
+    const sampler2DArray atlasBlend_sampler = sampler2DArray(thisMaterial.maps[3]);
     const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[4]);
-
-    vec2 blend_uv;
-    blend_uv.y = floor(thisMaterial.g_atlasIndexes.w / thisMaterial.g_atlasSizes.z);
-    blend_uv.x = thisMaterial.g_atlasIndexes.w - blend_uv.y * thisMaterial.g_atlasSizes.z;
-    blend_uv /= thisMaterial.g_atlasSizes.zw;
-    blend_uv += fs_in.TC2 / thisMaterial.g_atlasSizes.zw;
 
     vec4 colorAM_x = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.x)) * thisMaterial.g_tile0Tint;
     vec4 colorAM_y = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.y)) * thisMaterial.g_tile1Tint;
     vec4 colorAM_z = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.z)) * thisMaterial.g_tile2Tint;
-    vec4 blend = textureLod(atlasBlend_sampler, blend_uv, 0.0);
+    vec4 blend = textureLod(atlasBlend_sampler, vec3(fs_in.TC2, thisMaterial.g_atlasIndexes.w), 0.0);
 
     float dirtLevel = blend.z;
 
@@ -244,22 +238,16 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     const sampler2DArray atlasAlbedoHeight_sampler = sampler2DArray(thisMaterial.maps[0]);
     const sampler2DArray atlasNormalGlossSpec_sampler = sampler2DArray(thisMaterial.maps[1]);
     const sampler2DArray atlasMetallicAO_sampler = sampler2DArray(thisMaterial.maps[2]);
-    const sampler2D atlasBlend_sampler = sampler2D(thisMaterial.maps[3]);
+    const sampler2DArray atlasBlend_sampler = sampler2DArray(thisMaterial.maps[3]);
     const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[4]);
     const sampler2D globalTex_sampler = sampler2D(thisMaterial.maps[5]);
 
     vec4 globalTex = texture(globalTex_sampler, fs_in.TC2);
 
-    vec2 blend_uv;
-    blend_uv.y = floor(thisMaterial.g_atlasIndexes.w / thisMaterial.g_atlasSizes.z);
-    blend_uv.x = thisMaterial.g_atlasIndexes.w - blend_uv.y * thisMaterial.g_atlasSizes.z;
-    blend_uv /= thisMaterial.g_atlasSizes.zw;
-    blend_uv += fs_in.TC2 / thisMaterial.g_atlasSizes.zw;
-
     vec4 colorAM_x = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.x)) * thisMaterial.g_tile0Tint;
     vec4 colorAM_y = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.y)) * thisMaterial.g_tile1Tint;
     vec4 colorAM_z = texture(atlasAlbedoHeight_sampler, vec3(fs_in.TC1, thisMaterial.g_atlasIndexes.z)) * thisMaterial.g_tile2Tint;
-    vec4 blend = textureLod(atlasBlend_sampler, blend_uv, 0.0);
+    vec4 blend = textureLod(atlasBlend_sampler, vec3(fs_in.TC2, thisMaterial.g_atlasIndexes.w), 0.0);
 
     float dirtLevel = blend.z;
 
