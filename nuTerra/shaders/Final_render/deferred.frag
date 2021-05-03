@@ -3,7 +3,6 @@
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
 
-#define USE_LIGHT_SSBO
 #define USE_PERVIEW_UBO
 #define USE_COMMON_PROPERTIES_UBO
 #include "common.h" //! #include "../common.h"
@@ -243,34 +242,6 @@ void main (void)
             final_color = mix(final_color, f_color,(1.0- fogFactor)*props.fog_level);
             //final_color.r = outColor.a;
             /*===================================================================*/
-            // Small Map Lights
-           if (props.light_count >1000){
-
-                //final_color*=0.5;
-                vec4 summed_lights;
-
-                for (int i = 0; i < props.light_count; i++){
-
-                    vec4 lp = view * vec4(lights[i].location,1.0);
-
-                    float dist = length(lp.rgb - Position);
-                    float radius = 10.0;
-                    
-                    if (dist < radius) {
-                 
-                    vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
-
-                    float lambertTerm = pow(max(dot(N, L),0.001),GM_in.r);
-                    summed_lights.rgb = max(lambertTerm * lights[i].color.xyz, 0.0);
-                    // Mix in this light by distance
-                  
-                    float att = clamp(1.0 - dist/radius, 0.0, 1.0); att *= att;
-                    final_color.rgb = mix(final_color.rgb, summed_lights.rgb, att);
-
-                    }
-                }
-
-            }
 
             /*===================================================================*/
             // Final Output

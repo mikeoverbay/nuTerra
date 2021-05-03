@@ -161,7 +161,7 @@ Module modOpenGL
         Public waterColor As Vector3
         Public waterAlpha As Single
         Public fog_tint As Vector3
-        Public light_count As UInt32
+        Public tess_level As Single
         Public sunColor As Vector3
         Public mapMaxHeight As Single
         Public ambientColorForward As Vector3
@@ -174,9 +174,6 @@ Module modOpenGL
         Public GRAY_LEVEL As Single
         Public GAMMA_LEVEL As Single
         Public fog_level As Single
-        Public _start As Single
-        Public _end As Single
-        Public tess_level As Single
         Public blend_macro_influence As Single ' from space.bin/BWT2
         Public blend_global_threshold As Single ' from space.bin/BWT2
 
@@ -382,11 +379,10 @@ Module modOpenGL
         If source = DebugSource.DebugSourceApplication Then Return
         If id = 131185 Then Return
         If id = 1281 Then Return
-        'If id = 1282 Then Return
+        If id = 131218 Then Return
 
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
 
-        Application.DoEvents()
         LogThis(String.Format("OpenGL error #{0}: {1}", id, message))
     End Sub
 

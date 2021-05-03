@@ -16,8 +16,6 @@ Public Class SettingsPropertyGrid
     Const MAX_SPEED = 10000.0
 
     Public Sub New()
-        CommonProperties._start = 75
-        CommonProperties._end = 200
         CommonProperties.tess_level = 1.0
         FieldOfView = CSng(Math.PI) * (My.Settings.fov / 180.0F)
 
@@ -101,28 +99,6 @@ Public Class SettingsPropertyGrid
     Public ReadOnly Property Camera_target As String
         Get
             Return CAM_TARGET.ToString.Replace("(", "").Replace(")", "")
-        End Get
-    End Property
-
-    <DisplayName("Start"), Category("Terrain")>
-    Public Property Terrain_Start As Single
-        Set(value As Single)
-            CommonProperties._start = value
-            CommonProperties.update()
-        End Set
-        Get
-            Return CommonProperties._start
-        End Get
-    End Property
-
-    <DisplayName("End"), Category("Terrain")>
-    Public Property Terrain_End As Single
-        Set(value As Single)
-            CommonProperties._end = value
-            CommonProperties.update()
-        End Set
-        Get
-            Return CommonProperties._end
         End Get
     End Property
 

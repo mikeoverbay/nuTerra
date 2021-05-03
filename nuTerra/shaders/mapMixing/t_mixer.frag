@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_COMMON_PROPERTIES_UBO
+#define USE_TERRAIN_LAYERS_UBO
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;

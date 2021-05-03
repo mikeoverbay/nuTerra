@@ -7,6 +7,7 @@
 #endif
 
 #define USE_COMMON_PROPERTIES_UBO
+#define USE_TERRAIN_LAYERS_UBO
 #include "common.h" //! #include "../common.h"
 
 layout(early_fragment_tests) in;

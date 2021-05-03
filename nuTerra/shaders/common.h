@@ -13,18 +13,9 @@
 #define LODS_BASE 4
 #define INDIRECT_GLASS_BASE 5
 #define INDIRECT_DBL_SIDED_BASE 6
-#define LIGHTS_BASE 7
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
 #define TERRAIN_CHUNK_INFO_BASE 10
-
-layout(std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
-    vec4 U[8];
-    vec4 V[8];
-    vec4 r1[8];
-    vec4 r2[8];
-    vec4 s[8];
-} L;
 
 struct CandidateDraw
 {
@@ -88,6 +79,16 @@ struct MaterialProperties
     bool double_sided;
 };
 
+#ifdef USE_TERRAIN_LAYERS_UBO
+layout(std140, binding = TERRAIN_LAYERS_UBO_BASE) uniform Layers {
+    vec4 U[8];
+    vec4 V[8];
+    vec4 r1[8];
+    vec4 r2[8];
+    vec4 s[8];
+} L;
+#endif
+
 #ifdef USE_PERVIEW_UBO
 layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
     mat4 view;
@@ -105,7 +106,7 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     vec3 waterColor;
     float waterAlpha;
     vec3 fog_tint;
-    uint light_count;
+    float tess_level;
     vec3 sunColor;
     float mapMaxHeight;
     vec3 ambientColorForward;
@@ -118,29 +119,12 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float GRAY_LEVEL;
     float GAMMA_LEVEL;
     float fog_level;
-    float _start;
-    float _end;
-    float tess_level;
     float blend_macro_influence;
     float blend_global_threshold;
     float VirtualTextureSize;
     float AtlasScale;
     float PageTableSize;
 } props;
-#endif
-
-#ifdef USE_LIGHT_SSBO
-struct light {
-    vec3 location;
-    float level;
-    vec3 color;
-    float fallOff;
-    int inUse;
-};
-
-layout(std140, binding = LIGHTS_BASE) buffer Lights {
-    light lights[];
-};
 #endif
 
 #ifdef USE_MODELINSTANCES_SSBO
