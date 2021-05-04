@@ -52,10 +52,9 @@ void main(void)
     const vec4 color_sample2 = SampleAtlas(ColorTextureAtlas, page2, fs_in.Global_UV);
     gColor = mix(color_sample1, color_sample2, mipfract);
 
-    // TRILINEAR FILTERING BETWEEN MIP1 AND MIP2
-    const vec3 n_sample1 = SampleAtlas(NormalTextureAtlas, page1, fs_in.Global_UV).xyz;
-    const vec3 n_sample2 = SampleAtlas(NormalTextureAtlas, page2, fs_in.Global_UV).xyz;
-    gNormal.xyz = normalize(fs_in.TBN * (mix(n_sample1, n_sample2, mipfract) * 2.0 - 1.0)) * 0.5 + 0.5;
+    // Q: DO WE NEED TRILINEAR FILTERING FOR NORMALS? I'M NOT SURE
+    const vec3 out_n = SampleAtlas(NormalTextureAtlas, page1, fs_in.Global_UV).xyz;
+    gNormal.xyz = normalize(fs_in.TBN * (out_n * 2.0 - 1.0)) * 0.5 + 0.5;
 
     // TRILINEAR FILTERING BETWEEN MIP1 AND MIP2
     const float specular_sample1 = SampleAtlas(SpecularTextureAtlas, page1, fs_in.Global_UV).r;

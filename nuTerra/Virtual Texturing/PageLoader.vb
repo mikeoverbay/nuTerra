@@ -72,7 +72,6 @@ Public Class PageLoader
             -1, 1)
 
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, proj)
-        GL.Uniform1(t_mixerShader("tile_mip_level"), CSng(state.Page.Mip) / 3)
 
         GL.Disable(EnableCap.DepthTest)
         GL.CullFace(CullFaceMode.Front)
