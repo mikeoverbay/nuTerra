@@ -618,6 +618,11 @@ CleanUp:
                         .g_atlasIndexes = If(props.ContainsKey("g_atlasIndexes"), props("g_atlasIndexes"), New Vector4(0, 0, 0, 0))
                         .g_atlasSizes = If(props.ContainsKey("g_atlasSizes"), props("g_atlasSizes"), New Vector4(0, 0, 0, 0))
 
+                        If .atlasMetallicAO = "content/outland/00_atlases/hd_out_na_47_mountain_main_mao.atlas" Then
+                            ' HACK!!!!!!
+                            .g_atlasIndexes.Z = 0
+                        End If
+
                         If Not props.ContainsKey("g_atlasIndexes") Then
 
 
