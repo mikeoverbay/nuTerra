@@ -15,6 +15,7 @@ layout(binding = 0) uniform sampler2D global_AM;
 layout(binding = 1) uniform sampler2DArray at[8];
 layout(binding = 9) uniform sampler2D mixtexture[4];
 
+uniform float tile_mip_level;
 
 in VS_OUT {
     vec4 Vertex;
@@ -100,20 +101,20 @@ vec4 crop(sampler2DArray samp, in vec2 uv , in float layer, int id)
     //-----
 #endif
 
-    return textureLod(samp, vec3(cropped, layer), 0.0);
+    return textureLod(samp, vec3(cropped, layer), tile_mip_level);
 }
 
-vec4 crop2(sampler2DArray samp, in vec2 uv, in float layer)
+vec4 crop2(sampler2DArray samp, in vec2 uv , in float layer)
 {
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-    return textureLod(samp, vec3(cropped, layer), 0.0);
+    return textureLod(samp, vec3(cropped, layer), tile_mip_level);
 }
 
 vec4 crop3(sampler2DArray samp, in vec2 uv , in float layer)
 {
     uv *= vec2(0.125, 0.125);
     vec2 cropped = fract(uv)* vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-    return textureLod(samp, vec3(cropped, layer), 0.0);
+    return textureLod(samp, vec3(cropped, layer), tile_mip_level);
 }
 
 
