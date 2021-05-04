@@ -84,15 +84,10 @@ vec2 get_transformed_uv(in vec4 U, in vec4 V) {
     vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
     out_uv += vec2(0.50,0.50);
     return out_uv;
-    }
+}
 
-vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id)
+vec4 crop(sampler2DArray samp, in vec2 uv , in float layer, int id)
 {
-    vec2  dx_vtc        = dFdx(uv*1024.0);
-    vec2  dy_vtc        = dFdy(uv*1024.0);
-    float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    float mipLevel = 0.5 * log2(delta_max_sqr);
-
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
 
 #ifdef SHOW_TEST_TEXTURES
@@ -105,37 +100,21 @@ vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id)
     //-----
 #endif
 
-    return textureLod( samp, vec3(cropped, layer), mipLevel);
-    }
+    return textureLod(samp, vec3(cropped, layer), 0.0);
+}
 
-vec4 crop2( sampler2DArray samp, in vec2 uv , in float layer)
+vec4 crop2(sampler2DArray samp, in vec2 uv, in float layer)
 {
-    vec2  dx_vtc        = dFdx(uv*1024.0);
-    vec2  dy_vtc        = dFdy(uv*1024.0);
-    float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-    float mipLevel = 0.5 * log2(delta_max_sqr);
-
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
+    return textureLod(samp, vec3(cropped, layer), 0.0);
+}
 
-    return textureLod( samp, vec3(cropped, layer), mipLevel);
-    }
-
-vec4 crop3( sampler2DArray samp, in vec2 uv , in float layer)
+vec4 crop3(sampler2DArray samp, in vec2 uv , in float layer)
 {
-
     uv *= vec2(0.125, 0.125);
-
-    vec2  dx_vtc        = dFdx(uv*1024.0);
-    vec2  dy_vtc        = dFdy(uv*1024.0);
-    float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-
-    float mipLevel = 0.5 * log2(delta_max_sqr);
-
-    //uv += vec2(offset.x , offset.y);
     vec2 cropped = fract(uv)* vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-
-    return textureLod( samp, vec3(cropped, layer), mipLevel);
-    }
+    return textureLod(samp, vec3(cropped, layer), 0.0);
+}
 
 
 void main(void)
