@@ -15,7 +15,8 @@ Public Class PageLoader
     Const ChannelCount = 4
     Dim info As VirtualTextureInfo
     Dim indexer As PageIndexer
-    Dim uncompData() As Byte
+    Dim uncompColorData() As Byte
+    Dim uncompNormalData() As Byte
     Dim compDataColor() As Byte
     Dim compDataNormal() As Byte
     Dim specularData() As Byte
@@ -24,7 +25,8 @@ Public Class PageLoader
 
     Public Sub New(indexer As PageIndexer, info As VirtualTextureInfo)
         Me.info = info
-        ReDim uncompData((info.TileSize * info.TileSize * 4) - 1)
+        ReDim uncompColorData((info.TileSize * info.TileSize * 4) - 1)
+        ReDim uncompNormalData((info.TileSize * info.TileSize * 4) - 1)
         ReDim specularData((info.TileSize * info.TileSize) - 1)
         ReDim compDataColor((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
         ReDim compDataNormal((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
@@ -33,7 +35,8 @@ Public Class PageLoader
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
-        uncompData = Nothing
+        uncompColorData = Nothing
+        uncompNormalData = Nothing
         specularData = Nothing
         compDataColor = Nothing
         compDataNormal = Nothing
@@ -127,15 +130,23 @@ Public Class PageLoader
         ' RESTORE STATE
         GL.CullFace(CullFaceMode.Back)
 
-        GL.GetTextureImage(FBO_mixer_set.gColor.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompData.Length, uncompData)
-        nuTerraCPP.Utils.CompressDXT5(uncompData, compDataColor, info.TileSize, info.TileSize)
-        state.ColorData = compDataColor
+        GL.GetTextureImage(FBO_mixer_set.gColor.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompColorData.Length, uncompColorData)
+        Dim compColorTask As New Task(Sub()
+                                          nuTerraCPP.Utils.CompressDXT5(uncompColorData, compDataColor, info.TileSize, info.TileSize)
+                                          state.ColorData = compDataColor
+                                      End Sub)
+        compColorTask.Start()
 
-        GL.GetTextureImage(FBO_mixer_set.gNormal.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompData.Length, uncompData)
-        nuTerraCPP.Utils.CompressDXT5(uncompData, compDataNormal, info.TileSize, info.TileSize)
-        state.NormalData = compDataNormal
+        GL.GetTextureImage(FBO_mixer_set.gNormal.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompNormalData.Length, uncompNormalData)
+        Dim compNormalTask As New Task(Sub()
+                                           nuTerraCPP.Utils.CompressDXT5(uncompNormalData, compDataNormal, info.TileSize, info.TileSize)
+                                           state.NormalData = compDataNormal
+                                       End Sub)
+        compNormalTask.Start()
 
         GL.GetTextureImage(FBO_mixer_set.gSpecular.texture_id, 0, PixelFormat.Red, PixelType.UnsignedByte, specularData.Length, specularData)
         state.SpecularData = specularData
+
+        Task.WaitAll({compColorTask, compNormalTask})
     End Sub
 End Class
