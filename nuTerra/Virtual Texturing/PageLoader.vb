@@ -147,6 +147,6 @@ Public Class PageLoader
         GL.GetTextureImage(FBO_mixer_set.gSpecular.texture_id, 0, PixelFormat.Red, PixelType.UnsignedByte, specularData.Length, specularData)
         state.SpecularData = specularData
 
-        Task.WaitAll({compColorTask, compNormalTask})
+        Task.WaitAll(compColorTask, compNormalTask)
     End Sub
 End Class

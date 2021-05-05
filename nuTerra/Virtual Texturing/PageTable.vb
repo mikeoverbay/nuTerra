@@ -56,10 +56,24 @@ Public Class PageTable
         quadtreeDirty = False
 
         Dim numLevels = Math.Log(info.PageTableSize, 2) + 1
+        Dim pageTblTask As New Task(Sub()
+                                        quadtree.Write(tableEntryPool(0), 0)
+                                    End Sub)
+        pageTblTask.Start()
 
-        For l = 0 To numLevels - 1
+        For l = 1 To numLevels - 1
             quadtree.Write(tableEntryPool(l), l)
 
+            Dim handle = GCHandle.Alloc(tableEntryPool(l), GCHandleType.Pinned)
+            Dim ptr = handle.AddrOfPinnedObject()
+            Dim size = info.PageTableSize >> l
+            texture.SubImage2D(l, 0, 0, size, size, PixelFormat.RedInteger, PixelType.UnsignedShort, ptr)
+            handle.Free()
+        Next
+
+        pageTblTask.Wait()
+
+        For l = 0 To 0
             Dim handle = GCHandle.Alloc(tableEntryPool(l), GCHandleType.Pinned)
             Dim ptr = handle.AddrOfPinnedObject()
             Dim size = info.PageTableSize >> l
