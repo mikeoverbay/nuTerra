@@ -83,8 +83,9 @@ Public Class FeedbackBuffer
 
             Dim page As New Page(xpos, ypos, Mip + i)
 
-            If Requests.ContainsKey(page) Then
-                Requests(page) += 1
+            Dim value As Integer
+            If Requests.TryGetValue(page, value) Then
+                Requests(page) = value + 1
             Else
                 Requests(page) = 1
             End If
