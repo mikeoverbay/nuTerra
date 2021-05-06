@@ -5,8 +5,7 @@
     ReadOnly num_tiles As Integer
     Public current As Integer = 0
 
-    ReadOnly lru As New List(Of Page)
-    ReadOnly lru_used As New Dictionary(Of Page, Integer)(New PageEqualityComparer)
+    ReadOnly lru As LRUCache
 
     ' These events are used to notify the other systems
     Public Event Removed(p As Page, mapping As Integer)
@@ -16,6 +15,7 @@
         Me.atlas = atlas
         Me.loader = loader
         Me.num_tiles = num_tiles
+        Me.lru = New LRUCache(Me.num_tiles)
         AddHandler loader.loadComplete, AddressOf LoadComplete
     End Sub
 
@@ -23,11 +23,9 @@
         Dim mapping As Integer
 
         If current = num_tiles Then
-            Dim lru_page = lru.First
-            mapping = lru_used(lru_page)
-            lru_used.Remove(lru_page)
-            lru.RemoveAt(0)
-            RaiseEvent Removed(lru_page, mapping)
+            Dim lru_node = lru.RemoveLast()
+            mapping = lru_node.Value
+            RaiseEvent Removed(lru_node.Key, mapping)
         Else
             mapping = current
             current += 1
@@ -38,35 +36,26 @@
         End If
 
         atlas.uploadPage(mapping, color_data, normal_data, specular_data)
-        lru.Add(p)
-        lru_used.Add(p, mapping)
+        lru.Add(p, mapping)
 
         RaiseEvent Added(p, mapping)
     End Sub
 
     ' Update the pages's position in the lru
     Public Function Touch(p As Page) As Boolean
-        If lru_used.ContainsKey(p) Then
-            ' Find the page (slow!!) And add it to the back of the list
-            lru.Remove(p)
-            lru.Add(p)
-            Return True
-        End If
-        Return False
+        Return lru.ContainsKeyUpdate(p)
     End Function
 
     ' Schedule a load if Not already loaded Or loading
     Public Function Request(request_ As Page) As Boolean
-        If Not lru_used.ContainsKey(request_) Then
+        If Not lru.ContainsKey(request_) Then
             loader.Submit(request_)
             Return True
         End If
-
         Return False
     End Function
 
     Public Sub Clear()
-        lru_used.Clear()
         lru.Clear()
         current = 0
     End Sub

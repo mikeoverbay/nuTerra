@@ -240,6 +240,7 @@
     <Compile Include="Space.bin\modSpacedBinVars.vb" />
     <Compile Include="MapLoader\MapLoader.vb" />
     <Compile Include="Virtual Texturing\FeedbackBuffer.vb" />
+    <Compile Include="Virtual Texturing\LRUCache.vb" />
     <Compile Include="Virtual Texturing\Mega Texture\MakeMega.vb" />
     <Compile Include="Virtual Texturing\Page.vb" />
     <Compile Include="Virtual Texturing\PageCache.vb" />
