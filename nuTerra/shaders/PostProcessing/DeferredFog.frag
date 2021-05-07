@@ -137,13 +137,15 @@ void main()
     color.xyz *= props.fog_tint * deferred_mix.a *6.0;
     
 
-    gColor.rgb = deferred_mix.rgb;
+    //gColor.rgb = deferred_mix.rgb;
     // terrain painting
     gColor.rgb = mix(deferred_mix.rgb, color.rgb, 0.95-deferred_mix.a);
     // Add some top level fog
     gColor.rgb = mix(gColor.rgb, props.fog_tint.rgb, 1.0-deferred_mix.a );
-
+    
+    //gamma the hell out of the fog.
+    float gamma = 2.2;
+    gColor.rgb = pow(gColor.rgb, vec3(1.0/gamma));
     gColor.rgb = mix(deferred_mix.rgb, gColor.rgb, props.fog_level);
-    //gColor.rgb = vec3(deferred_mix*color);
 
 }
