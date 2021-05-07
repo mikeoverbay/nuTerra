@@ -207,21 +207,21 @@ Module ChunkFunctions
                 Dim you_tr = 64 * 65
                 Dim you_tl = 65 * 65 - 1
                 Dim you_br = 0
-                v1 = theMap.v_data(tr).n_buff(you_tr)
-                v2 = theMap.v_data(tl).n_buff(you_tl)
-                v3 = theMap.v_data(br).n_buff(you_br)
-                v4 = .n_buff(me_) '<-- me
+                v1 = .n_buff(me_) '<-- me
+                v2 = theMap.v_data(tr).n_buff(you_tr)
+                v3 = theMap.v_data(tl).n_buff(you_tl)
+                v4 = theMap.v_data(br).n_buff(you_br)
                 v1 = (v1 + v2 + v3 + v4) / 4.0F
                 theMap.v_data(tr).n_buff(you_tr) = v1
                 theMap.v_data(tl).n_buff(you_tl) = v1
                 theMap.v_data(br).n_buff(you_br) = v1
                 .n_buff(me_) = v1
 
-                v1 = theMap.v_data(tr).t_buff(you_tr)
-                v2 = theMap.v_data(tl).t_buff(you_tl)
-                v3 = theMap.v_data(br).t_buff(you_br)
-                v4 = .t_buff(me_) '<-- me
-                v1 = (v1 + v2 + v3 + v4) / 4.0F
+                v1 = .t_buff(me_) '<-- me
+                v2 = theMap.v_data(tr).t_buff(you_tr)
+                v3 = theMap.v_data(tl).t_buff(you_tl)
+                v4 = theMap.v_data(br).t_buff(you_br)
+                'v1 = (v1 + v2 + v3 + v4) / 4.0F
                 theMap.v_data(tr).t_buff(you_tr) = v1
                 theMap.v_data(tl).t_buff(you_tl) = v1
                 theMap.v_data(br).t_buff(you_br) = v1
@@ -244,7 +244,7 @@ Module ChunkFunctions
 
                     v1 = .t_buff(me_) '<-- me
                     v2 = theMap.v_data(other).t_buff(you_)
-                    v1 = (v1 + v2) / 2.0
+                    'v1 = (v1 + v2) / 2.0
                     .t_buff(me_) = v1
                     theMap.v_data(other).t_buff(you_) = v1
 
@@ -263,8 +263,8 @@ Module ChunkFunctions
                     theMap.v_data(other).n_buff(you_) = v1
 
                     v1 = .t_buff(me_) '<-- me
-                    v2 = theMap.v_data(other).t_buff(you_)
-                    v1 = (v1 + v2) / 2.0F
+                    v1 = theMap.v_data(other).t_buff(you_)
+                    'v1 = (v1 + v2) / 2.0F
                     .t_buff(me_) = v1
                     theMap.v_data(other).t_buff(you_) = v1
 
