@@ -62,7 +62,7 @@ Module MakeMega
         'setup FBO
         FBO_Mega_set.max_mip_level = 1
 
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_Mega_ID)
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_Mega_ID.fbo_id)
         GL.Disable(EnableCap.DepthTest)
         GL.Disable(EnableCap.CullFace)
 
@@ -203,7 +203,7 @@ Module MakeMega
 
     Private Function make_LUT(ByRef max_mip_level As Integer) As GLTexture
         Dim er = GL.GetError
-        Dim LUT = CreateTexture(TextureTarget.Texture2D, "Mega_LUT")
+        Dim LUT = GLTexture.Create(TextureTarget.Texture2D, "Mega_LUT")
         LUT.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
         LUT.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
         LUT.Parameter(TextureParameterName.TextureMaxLevel, max_mip_level)

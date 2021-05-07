@@ -435,4 +435,29 @@ Public Class SettingsPropertyGrid
             Return USE_RASTER_CULLING
         End Get
     End Property
+
+#If False Then
+    ' TODO
+    <DisplayName("Textures (Kb)"), Category("Statictics")>
+    Public ReadOnly Property STAT_textures As Integer
+        Get
+            Return GLTexture.ALL_SIZE / 1024
+        End Get
+    End Property
+
+    ' TODO
+    <DisplayName("Renderbuffers (Kb)"), Category("Statictics")>
+    Public ReadOnly Property STAT_renderbuffers As Integer
+        Get
+            Return GLRenderbuffer.ALL_SIZE / 1024
+        End Get
+    End Property
+#End If
+
+    <DisplayName("Buffers (Kb)"), Category("Statictics")>
+    Public ReadOnly Property STAT_buffers As Integer
+        Get
+            Return GLBuffer.ALL_SIZE / 1024
+        End Get
+    End Property
 End Class

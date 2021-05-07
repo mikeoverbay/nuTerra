@@ -34,7 +34,7 @@ Public Class PageTable
             tableEntryPool.Add(arr)
         Next
 
-        texture = CreateTexture(TextureTarget.Texture2D, "PageTable")
+        texture = GLTexture.Create(TextureTarget.Texture2D, "PageTable")
         texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.NearestMipmapNearest)
         texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
         texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)

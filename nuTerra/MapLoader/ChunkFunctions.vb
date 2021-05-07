@@ -306,14 +306,14 @@ Module ChunkFunctions
 
         MapGL.VertexArrays.allTerrainChunks = CreateVertexArray("allTerrainChunks")
 
-        MapGL.Buffers.terrain_vertices = CreateBuffer(BufferTarget.ArrayBuffer, "terrain_vertices")
-        MapGL.Buffers.terrain_indices = CreateBuffer(BufferTarget.ElementArrayBuffer, "terrain_indices")
+        MapGL.Buffers.terrain_vertices = GLBuffer.Create(BufferTarget.ArrayBuffer, "terrain_vertices")
+        MapGL.Buffers.terrain_indices = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "terrain_indices")
 
         Dim vcount = theMap.v_data(0).v_buff_XZ.Length * theMap.chunks.Length
         Dim vsize = Marshal.SizeOf(Of TerrainVertex)
 
-        BufferStorageNullData(MapGL.Buffers.terrain_vertices, vcount * vsize, BufferStorageFlags.DynamicStorageBit)
-        BufferStorage(MapGL.Buffers.terrain_indices, theMap.v_data(0).indicies.Length * 6, theMap.v_data(0).indicies, BufferStorageFlags.None)
+        MapGL.Buffers.terrain_vertices.StorageNullData(vcount * vsize, BufferStorageFlags.DynamicStorageBit)
+        MapGL.Buffers.terrain_indices.Storage(theMap.v_data(0).indicies.Length * 6, theMap.v_data(0).indicies, BufferStorageFlags.None)
 
         For i = 0 To theMap.chunks.Length - 1
             With theMap.v_data(i)
@@ -379,11 +379,11 @@ Module ChunkFunctions
 
         GL.VertexArrayElementBuffer(MapGL.VertexArrays.allTerrainChunks, MapGL.Buffers.terrain_indices.buffer_id)
 
-        MapGL.Buffers.terrain_indirect = CreateBuffer(BufferTarget.DrawIndirectBuffer, "terrain_indirect")
-        BufferStorage(MapGL.Buffers.terrain_indirect, terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
+        MapGL.Buffers.terrain_indirect = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "terrain_indirect")
+        MapGL.Buffers.terrain_indirect.Storage(terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
 
-        MapGL.Buffers.terrain_matrices = CreateBuffer(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
-        BufferStorage(MapGL.Buffers.terrain_matrices, terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
+        MapGL.Buffers.terrain_matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
+        MapGL.Buffers.terrain_matrices.Storage(terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
         MapGL.Buffers.terrain_matrices.BindBase(10)
     End Sub
 

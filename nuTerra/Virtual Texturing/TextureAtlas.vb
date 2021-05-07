@@ -19,7 +19,7 @@ Public Class TextureAtlas
 
         ' DXT5 RGBA
         ' RGB for albedo, A for wetness
-        color_texture = CreateTexture(TextureTarget.Texture2DArray, "ColorTextureAtlas")
+        color_texture = GLTexture.Create(TextureTarget.Texture2DArray, "ColorTextureAtlas")
         color_texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         color_texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         color_texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
@@ -28,7 +28,7 @@ Public Class TextureAtlas
 
         ' DXT5 RGBA
         ' RGB for normal, A for tessellation
-        normal_texture = CreateTexture(TextureTarget.Texture2DArray, "NormalTextureAtlas")
+        normal_texture = GLTexture.Create(TextureTarget.Texture2DArray, "NormalTextureAtlas")
         normal_texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         normal_texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         normal_texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
@@ -37,7 +37,7 @@ Public Class TextureAtlas
 
         ' R8 w/o compression
         ' R for specular
-        specular_texture = CreateTexture(TextureTarget.Texture2DArray, "SpecularTextureAtlas")
+        specular_texture = GLTexture.Create(TextureTarget.Texture2DArray, "SpecularTextureAtlas")
         specular_texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         specular_texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         specular_texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)

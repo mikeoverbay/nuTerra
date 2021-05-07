@@ -2,7 +2,7 @@
 
 Module FBO_Mixer
     Public NotInheritable Class FBO_mixer_set
-        Public Shared fbo As Integer
+        Public Shared fbo As GLFramebuffer
         Public Shared gColor, gNormal, gSpecular As GLTexture
         Private Shared width As Integer
         Private Shared height As Integer
@@ -25,44 +25,42 @@ Module FBO_Mixer
             If gColor IsNot Nothing Then gColor.Delete()
             If gNormal IsNot Nothing Then gNormal.Delete()
             If gSpecular IsNot Nothing Then gSpecular.Delete()
-            If fbo > 0 Then GL.DeleteFramebuffer(fbo)
+            If fbo IsNot Nothing Then fbo.Delete()
         End Sub
 
         Public Shared Sub create_arraytextures()
             ' gColor
-            gColor = CreateTexture(TextureTarget.Texture2D, "FBO_mixer_gColor")
+            gColor = GLTexture.Create(TextureTarget.Texture2D, "FBO_mixer_gColor")
             gColor.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             gColor.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             gColor.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
             ' gNormal
-            gNormal = CreateTexture(TextureTarget.Texture2D, "FBO_mixer_gNormal")
+            gNormal = GLTexture.Create(TextureTarget.Texture2D, "FBO_mixer_gNormal")
             gNormal.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             gNormal.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             gNormal.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
             ' gSpecular
-            gSpecular = CreateTexture(TextureTarget.Texture2D, "FBO_mixer_gSpecular")
+            gSpecular = GLTexture.Create(TextureTarget.Texture2D, "FBO_mixer_gSpecular")
             gSpecular.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             gSpecular.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
             gSpecular.Storage2D(1, SizedInternalFormat.R8, width, height)
         End Sub
 
         Public Shared Function create_fbo() As Boolean
-            fbo = CreateFramebuffer("Tile Mixer")
+            fbo = GLFramebuffer.Create("Tile Mixer")
 
-            GL.NamedFramebufferTexture(fbo, FramebufferAttachment.ColorAttachment0, gColor.texture_id, 0)
-            GL.NamedFramebufferTexture(fbo, FramebufferAttachment.ColorAttachment1, gNormal.texture_id, 0)
-            GL.NamedFramebufferTexture(fbo, FramebufferAttachment.ColorAttachment2, gSpecular.texture_id, 0)
+            fbo.Texture(FramebufferAttachment.ColorAttachment0, gColor, 0)
+            fbo.Texture(FramebufferAttachment.ColorAttachment1, gNormal, 0)
+            fbo.Texture(FramebufferAttachment.ColorAttachment2, gSpecular, 0)
 
-            Dim FBOHealth = GL.CheckNamedFramebufferStatus(fbo, FramebufferTarget.Framebuffer)
-
-            If FBOHealth <> FramebufferStatus.FramebufferComplete Then
+            If Not fbo.IsComplete Then
                 Return False
             End If
 
             Dim attachments() As DrawBuffersEnum = {FramebufferAttachment.ColorAttachment0, FramebufferAttachment.ColorAttachment1, FramebufferAttachment.ColorAttachment2}
-            GL.NamedFramebufferDrawBuffers(fbo, 3, attachments)
+            fbo.DrawBuffers(3, attachments)
             Return True
         End Function
     End Class

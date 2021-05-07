@@ -200,12 +200,6 @@ Module modOpenGL
     Public CommonProperties As New TCommonProperties
     Public CommonPropertiesBuffer As GLBuffer
 
-    Public Sub Sun_Ortho_view(ByVal L As Single, ByVal R As Single, ByVal B As Single, ByVal T As Single)
-        GL.Viewport(0, 0, FBO_ShadowBaker.depth_map_size, FBO_ShadowBaker.depth_map_size)
-        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(L, R, B, T, -3000.0F, 3000.0F)
-        VIEWMATRIX = Matrix4.Identity
-    End Sub
-
     Public Sub Ortho_main()
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -30000.0F, 30000.0F)

@@ -160,17 +160,17 @@ Module TerrainTextureFunctions
 
 
 
-            .layersStd140_ubo = CreateBuffer(BufferTarget.UniformBuffer, String.Format("layersStd140_ubo_{0}", map))
-            BufferStorage(.layersStd140_ubo,
-                          Marshal.SizeOf(layersBuffer),
-                          layersBuffer,
-                          BufferStorageFlags.None)
+            .layersStd140_ubo = GLBuffer.Create(BufferTarget.UniformBuffer, String.Format("layersStd140_ubo_{0}", map))
+            .layersStd140_ubo.Storage(
+                Marshal.SizeOf(layersBuffer),
+                layersBuffer,
+                BufferStorageFlags.None)
         End With
     End Sub
     Private Function get_atlas(mipcount As Integer, map As Int32, z As Int32, format As SizedInternalFormat) As GLTexture
         Dim t = New GLTexture
         't.target = TextureTarget.Texture2DArray
-        t = CreateTexture(TextureTarget.Texture2DArray, "tAtlas" + map.ToString + "_" + z.ToString)
+        t = GLTexture.Create(TextureTarget.Texture2DArray, "tAtlas" + map.ToString + "_" + z.ToString)
 
         t.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), GLCapabilities.maxAniso) 'GLCapabilities.maxAniso
 
@@ -454,7 +454,7 @@ Module TerrainTextureFunctions
                 If i = 0 Then 'run once to get new atlas texture
                     layer = 0
                     'Calculate Max Mip Level based on width or height.. Which ever is larger.
-                    DUMMY_ATLAS = CreateTexture(TextureTarget.Texture2DArray, "dummyAtlas")
+                    DUMMY_ATLAS = GLTexture.Create(TextureTarget.Texture2DArray, "dummyAtlas")
                     DUMMY_ATLAS.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
                     DUMMY_ATLAS.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
                     DUMMY_ATLAS.Parameter(TextureParameterName.TextureBaseLevel, 0)

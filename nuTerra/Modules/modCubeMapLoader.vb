@@ -34,7 +34,7 @@ Module modCubeMapLoader
 
             ms.Position = 128
 
-            CUBE_TEXTURE_ID = CreateTexture(TextureTarget.TextureCubeMap, "CubeMap")
+            CUBE_TEXTURE_ID = GLTexture.Create(TextureTarget.TextureCubeMap, "CubeMap")
 
             CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
             CUBE_TEXTURE_ID.Parameter(TextureParameterName.TextureBaseLevel, 0)

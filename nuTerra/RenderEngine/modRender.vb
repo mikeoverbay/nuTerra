@@ -79,7 +79,7 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO) '================
+        mainFBO.Bind(FramebufferTarget.Framebuffer)
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
         '===========================================================================
 
@@ -457,10 +457,10 @@ Module modRender
     End Sub
 
     Private Sub copy_gColor_2_to_gColor()
-        GL.NamedFramebufferReadBuffer(mainFBO, ReadBufferMode.ColorAttachment6)
-        GL.NamedFramebufferDrawBuffer(mainFBO, DrawBufferMode.ColorAttachment0)
-        GL.BlitNamedFramebuffer(mainFBO,
-                                mainFBO,
+        mainFBO.ReadBuffer(ReadBufferMode.ColorAttachment6)
+        mainFBO.DrawBuffer(DrawBufferMode.ColorAttachment0)
+        GL.BlitNamedFramebuffer(mainFBO.fbo_id,
+                                mainFBO.fbo_id,
                                 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
                                 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
                                 ClearBufferMask.ColorBufferBit,
@@ -470,7 +470,7 @@ Module modRender
     Private Sub terrain_vt_pass()
         GL_PUSH_GROUP("terrain_vt_pass")
 
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, feedback.fbo)
+        feedback.fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Viewport(0, 0, feedback.width, feedback.height)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
 
@@ -1029,7 +1029,7 @@ Module modRender
             End If
             'sized changed so we must resize the FBOmini
             FBOmini.FBO_Initialize(MINI_MAP_SIZE)
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
+            miniFBO.Bind(FramebufferTarget.Framebuffer)
             Ortho_MiniMap(MINI_MAP_SIZE)
             FBOmini.attach_gcolor()
             'render to gcolor and blit it to the screeenTexture buffer
@@ -1038,7 +1038,7 @@ Module modRender
             Draw_mini()
             draw_mini_position()
         Else
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, miniFBO) '================
+            miniFBO.Bind(FramebufferTarget.Framebuffer)
             Ortho_MiniMap(MINI_MAP_SIZE)
             FBOmini.attach_gcolor()
             draw_mini_position()

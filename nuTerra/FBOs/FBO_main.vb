@@ -5,14 +5,14 @@ Module FBO_main
     Public vtInfo As VirtualTextureInfo
     Public feedback As FeedbackBuffer
 
-    Public mainFBO As Integer
+    Public mainFBO As GLFramebuffer
 
     ''' <summary>
     ''' Creates the main rendering FBO
     ''' </summary>
     Public NotInheritable Class FBOm
         Public Shared SCR_WIDTH, SCR_HEIGHT As Int32
-        Public Shared gPick, gColor_2 As Integer
+        Public Shared gPick, gColor_2 As GLRenderbuffer
         Public Shared gColor, gNormal, gGMF, gDepth, depthBufferTexture, gPosition As GLTexture
         Public Shared gAUX_Color As GLTexture
         Public Shared oldWidth As Integer = 1
@@ -88,77 +88,73 @@ Module FBO_main
             If gNormal IsNot Nothing Then gNormal.Delete()
             If gGMF IsNot Nothing Then gGMF.Delete()
             If gDepth IsNot Nothing Then gDepth.Delete()
-            If gPick > 0 Then GL.DeleteRenderbuffer(gPick)
-            If gColor_2 > 0 Then GL.DeleteRenderbuffer(gColor_2)
+            If gPick IsNot Nothing Then gPick.Delete()
+            If gColor_2 IsNot Nothing Then gColor_2.Delete()
             If gPosition IsNot Nothing Then gPosition.Delete()
-            If mainFBO > 0 Then GL.DeleteFramebuffer(mainFBO)
+            If mainFBO IsNot Nothing Then mainFBO.Delete()
             If depthBufferTexture IsNot Nothing Then depthBufferTexture.Delete()
         End Sub
 
         Public Shared Sub create_textures()
             ' gColor ------------------------------------------------------------------------------------------
             ' RGBA8
-            gColor = CreateTexture(TextureTarget.Texture2D, "gColor")
+            gColor = GLTexture.Create(TextureTarget.Texture2D, "gColor")
             gColor.Storage2D(1, SizedInternalFormat.Rgba8, SCR_WIDTH, SCR_HEIGHT)
 
             ' AUX_gColor -----------------------------------------------------------------------------------
             ' RGBA8
-            gAUX_Color = CreateTexture(TextureTarget.Texture2D, "AUX_gColor")
+            gAUX_Color = GLTexture.Create(TextureTarget.Texture2D, "AUX_gColor")
             gAUX_Color.Storage2D(1, SizedInternalFormat.Rgba8, SCR_WIDTH, SCR_HEIGHT)
 
             ' gNormal ------------------------------------------------------------------------------------------
             ' 3 color : normal in RGB
-            gNormal = CreateTexture(TextureTarget.Texture2D, "gNormal")
+            gNormal = GLTexture.Create(TextureTarget.Texture2D, "gNormal")
             gNormal.Storage2D(1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gGM_Flag ------------------------------------------------------------------------------------------
             ' 4 color int : GM in RG : Flag in b : Wetness in a
-            gGMF = CreateTexture(TextureTarget.Texture2D, "gGMF")
+            gGMF = GLTexture.Create(TextureTarget.Texture2D, "gGMF")
             gGMF.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gPosition ------------------------------------------------------------------------------------------
             ' RGB16F
-            gPosition = CreateTexture(TextureTarget.Texture2D, "gPosition")
+            gPosition = GLTexture.Create(TextureTarget.Texture2D, "gPosition")
             gPosition.Storage2D(1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gDepth ------------------------------------------------------------------------------------------
             ' DepthComponent32f
-            gDepth = CreateTexture(TextureTarget.Texture2D, "gDepth")
+            gDepth = GLTexture.Create(TextureTarget.Texture2D, "gDepth")
             gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
 
             ' gPick ------------------------------------------------------------------------------------------
             ' R16 uInt
-            gPick = CreateRenderbuffer("gPick")
-            GL.NamedRenderbufferStorage(gPick, RenderbufferStorage.R16ui, SCR_WIDTH, SCR_HEIGHT)
-            Dim er = GL.GetError
+            gPick = GLRenderbuffer.Create("gPick")
+            gPick.Storage(RenderbufferStorage.R16ui, SCR_WIDTH, SCR_HEIGHT)
 
             ' gColor_2 ------------------------------------------------------------------------------------------
             ' RGBA8
-            gColor_2 = CreateRenderbuffer("gColor_2")
-            GL.NamedRenderbufferStorage(gColor_2, RenderbufferStorage.Rgba8, SCR_WIDTH, SCR_HEIGHT)
-            Dim er4 = GL.GetError
-
+            gColor_2 = GLRenderbuffer.Create("gColor_2")
+            gColor_2.Storage(RenderbufferStorage.Rgba8, SCR_WIDTH, SCR_HEIGHT)
         End Sub
 
         Public Shared Function create_fbo() As Boolean
-            mainFBO = CreateFramebuffer("mainFBO")
+            mainFBO = GLFramebuffer.Create("mainFBO")
 
             ' attach our render buffer textures.
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment0, gColor.texture_id, 0)
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment1, gNormal.texture_id, 0)
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment2, gGMF.texture_id, 0)
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment3, gPosition.texture_id, 0)
-            GL.NamedFramebufferRenderbuffer(mainFBO, FramebufferAttachment.ColorAttachment4, RenderbufferTarget.Renderbuffer, gPick)
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.ColorAttachment5, gAUX_Color.texture_id, 0)
-            GL.NamedFramebufferRenderbuffer(mainFBO, FramebufferAttachment.ColorAttachment6, RenderbufferTarget.Renderbuffer, gColor_2)
+            mainFBO.Texture(FramebufferAttachment.ColorAttachment0, gColor, 0)
+            mainFBO.Texture(FramebufferAttachment.ColorAttachment1, gNormal, 0)
+            mainFBO.Texture(FramebufferAttachment.ColorAttachment2, gGMF, 0)
+            mainFBO.Texture(FramebufferAttachment.ColorAttachment3, gPosition, 0)
+            mainFBO.Renderbuffer(FramebufferAttachment.ColorAttachment4, RenderbufferTarget.Renderbuffer, gPick)
+            mainFBO.Texture(FramebufferAttachment.ColorAttachment5, gAUX_Color, 0)
+            mainFBO.Renderbuffer(FramebufferAttachment.ColorAttachment6, RenderbufferTarget.Renderbuffer, gColor_2)
 
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.DepthAttachment, gDepth.texture_id, 0)
+            mainFBO.Texture(FramebufferAttachment.DepthAttachment, gDepth, 0)
 
-            Dim FBOHealth = GL.CheckNamedFramebufferStatus(mainFBO, FramebufferTarget.Framebuffer)
-
-            If FBOHealth <> FramebufferStatus.FramebufferComplete Then
+            If Not mainFBO.IsComplete Then
                 Return False
             End If
+
             attach_CNGP()
 
             Return True ' No errors! all is good! :)
@@ -191,47 +187,47 @@ Module FBO_main
         Public Shared Sub attach_CNGP()
             'attach our render buffer textures.
             If PICK_MODELS Then
-                GL.NamedFramebufferDrawBuffers(mainFBO, 5, attach_Color_Normal_GMF)
+                mainFBO.DrawBuffers(5, attach_Color_Normal_GMF)
             Else
-                GL.NamedFramebufferDrawBuffers(mainFBO, 4, attach_Color_Normal_GMF)
+                mainFBO.DrawBuffers(4, attach_Color_Normal_GMF)
             End If
         End Sub
 
         Public Shared Sub attach_CNGPA()
             'attach our render buffer textures.
             If PICK_MODELS Then
-                GL.NamedFramebufferDrawBuffers(mainFBO, 6, attach_Color_Normal_GMF_aux_fmask)
+                mainFBO.DrawBuffers(6, attach_Color_Normal_GMF_aux_fmask)
             Else
-                GL.NamedFramebufferDrawBuffers(mainFBO, 5, attach_Color_Normal_GMF_aux_fmask)
+                mainFBO.DrawBuffers(5, attach_Color_Normal_GMF_aux_fmask)
             End If
         End Sub
 
         Public Shared Sub attach_C()
-            GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_Color)
+            mainFBO.DrawBuffers(1, attach_Color)
         End Sub
         Public Shared Sub attach_C1_and_C2()
-            GL.NamedFramebufferDrawBuffers(mainFBO, 2, attach_Color_1_2)
+            mainFBO.DrawBuffers(2, attach_Color_1_2)
         End Sub
         Public Shared Sub attach_C2()
-            GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_Color_2)
+            mainFBO.DrawBuffers(1, attach_Color_2)
         End Sub
 
         Public Shared Sub attach_C_no_Depth()
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.DepthAttachment, 0, 0)
-            GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_Color)
+            mainFBO.Texture(FramebufferAttachment.DepthAttachment, Nothing, 0)
+            mainFBO.DrawBuffers(1, attach_Color)
         End Sub
 
         Public Shared Sub attach_Depth()
-            GL.NamedFramebufferTexture(mainFBO, FramebufferAttachment.DepthAttachment, gDepth.texture_id, 0)
+            mainFBO.Texture(FramebufferAttachment.DepthAttachment, gDepth, 0)
         End Sub
 
         Public Shared Sub attach_CF()
-            GL.NamedFramebufferDrawBuffers(mainFBO, 2, attach_Color_GMF)
+            mainFBO.DrawBuffers(2, attach_Color_GMF)
         End Sub
 
         Public Shared Sub attach_N()
             'This will be used to write to the normals during decal rendering. No depth needed.
-            GL.NamedFramebufferDrawBuffers(mainFBO, 1, attach_Normal)
+            mainFBO.DrawBuffers(1, attach_Normal)
         End Sub
     End Class
 

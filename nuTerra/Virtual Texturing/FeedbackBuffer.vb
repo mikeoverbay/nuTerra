@@ -12,9 +12,9 @@ Public Class FeedbackBuffer
     Public width As Integer
     Public height As Integer
 
-    Public fbo As Integer
-    ReadOnly rendertarget As Integer
-    ReadOnly depthbuffer As Integer
+    Public fbo As GLFramebuffer
+    ReadOnly rendertarget As GLRenderbuffer
+    ReadOnly depthbuffer As GLRenderbuffer
     ReadOnly pboReadback As GLBuffer
 
     <StructLayout(LayoutKind.Sequential)>
@@ -33,30 +33,29 @@ Public Class FeedbackBuffer
 
         indexer = New PageIndexer(info)
 
-        pboReadback = CreateBuffer(BufferTarget.PixelPackBuffer, "FeedbackBuffer_pboReadback")
-        BufferStorageNullData(pboReadback, width * height * 6, BufferStorageFlags.ClientStorageBit)
+        pboReadback = GLBuffer.Create(BufferTarget.PixelPackBuffer, "FeedbackBuffer_pboReadback")
+        pboReadback.StorageNullData(width * height * 6, BufferStorageFlags.ClientStorageBit)
 
-        rendertarget = CreateRenderbuffer("FeedbackBuffer_rendertarget")
-        GL.NamedRenderbufferStorage(rendertarget, RenderbufferStorage.Rgb16, width, height)
+        rendertarget = GLRenderbuffer.Create("FeedbackBuffer_rendertarget")
+        rendertarget.Storage(RenderbufferStorage.Rgb16, width, height)
 
-        depthbuffer = CreateRenderbuffer("FeedbackBuffer_depthbuffer")
-        GL.NamedRenderbufferStorage(depthbuffer, RenderbufferStorage.DepthComponent16, width, height)
+        depthbuffer = GLRenderbuffer.Create("FeedbackBuffer_depthbuffer")
+        depthbuffer.Storage(RenderbufferStorage.DepthComponent16, width, height)
 
-        fbo = CreateFramebuffer("FeedbackBuffer_fbo")
+        fbo = GLFramebuffer.Create("FeedbackBuffer_fbo")
 
-        GL.NamedFramebufferRenderbuffer(fbo, FramebufferAttachment.ColorAttachment0, RenderbufferTarget.Renderbuffer, rendertarget)
-        GL.NamedFramebufferRenderbuffer(fbo, FramebufferAttachment.DepthAttachment, RenderbufferTarget.Renderbuffer, depthbuffer)
+        fbo.Renderbuffer(FramebufferAttachment.ColorAttachment0, RenderbufferTarget.Renderbuffer, rendertarget)
+        fbo.Renderbuffer(FramebufferAttachment.DepthAttachment, RenderbufferTarget.Renderbuffer, depthbuffer)
 
-        Dim FBOHealth = GL.CheckNamedFramebufferStatus(fbo, FramebufferTarget.Framebuffer)
-        If FBOHealth <> FramebufferStatus.FramebufferComplete Then
+        If Not fbo.IsComplete Then
             Stop
         End If
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
-        GL.DeleteFramebuffer(fbo)
-        GL.DeleteRenderbuffer(rendertarget)
-        GL.DeleteRenderbuffer(depthbuffer)
+        rendertarget.Delete()
+        depthbuffer.Delete()
+        fbo.Delete()
     End Sub
 
     Public Sub Download()

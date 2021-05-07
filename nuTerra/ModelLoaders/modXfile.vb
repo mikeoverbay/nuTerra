@@ -123,12 +123,12 @@ Module modXfile
         'Create VAO id
         result.vao = CreateVertexArray(file_)
 
-        Dim mBuffer = CreateBuffer(BufferTarget.ArrayBuffer, file_)
+        Dim mBuffer = GLBuffer.Create(BufferTarget.ArrayBuffer, file_)
 
         Dim vbuff_offset = New IntPtr(index_buffer16.Length * 6)
-        BufferStorageNullData(mBuffer,
-                              index_buffer16.Length * 6 + vbuff.Length * 32,
-                              BufferStorageFlags.DynamicStorageBit)
+        mBuffer.StorageNullData(
+            index_buffer16.Length * 6 + vbuff.Length * 32,
+            BufferStorageFlags.DynamicStorageBit)
         GL.NamedBufferSubData(mBuffer.buffer_id, IntPtr.Zero, index_buffer16.Length * 6, index_buffer16)
         GL.NamedBufferSubData(mBuffer.buffer_id, vbuff_offset, vbuff.Length * 32, vbuff)
 

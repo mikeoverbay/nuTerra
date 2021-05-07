@@ -51,7 +51,7 @@ Public Class PageLoader
     End Sub
 
     Private Sub LoadPage(state As ReadState)
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_mixer_set.fbo)
+        FBO_mixer_set.fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Viewport(0, 0, info.TileSize, info.TileSize)
         GL.Clear(ClearBufferMask.ColorBufferBit)
 

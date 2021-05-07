@@ -8,7 +8,7 @@ Module textRender
         Const width = 1620
         Const height = 15
 
-        Dim tex = CreateTexture(TextureTarget.Texture2D, "ASCII_CHARACTERS")
+        Dim tex = GLTexture.Create(TextureTarget.Texture2D, "ASCII_CHARACTERS")
         tex.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
         Dim bmp As New Bitmap(width, height, Imaging.PixelFormat.Format32bppArgb)
@@ -55,7 +55,7 @@ Module textRender
             Me.gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias
             If Me.texture_ IsNot Nothing Then Me.texture_.Delete()
 
-            Me.texture_ = CreateTexture(TextureTarget.Texture2D, "text")
+            Me.texture_ = GLTexture.Create(TextureTarget.Texture2D, "text")
 
             Me.texture_.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
             Me.texture_.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)

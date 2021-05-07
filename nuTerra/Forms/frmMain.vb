@@ -326,7 +326,7 @@ Public Class frmMain
         If Me.WindowState = FormWindowState.Minimized Then
             Return
         End If
-        SplitContainer1.SplitterDistance = ClientSize.Width - SP2_Width - SplitContainer1.SplitterWidth
+        SplitContainer1.SplitterDistance = Math.Max(0, ClientSize.Width - SP2_Width - SplitContainer1.SplitterWidth)
 
         resize_fbo_main()
     End Sub
@@ -570,16 +570,16 @@ try_again:
 
         make_cube() ' used for many draw functions
 
-        PerViewDataBuffer = CreateBuffer(BufferTarget.UniformBuffer, "PerView")
-        BufferStorageNullData(PerViewDataBuffer,
-                              Marshal.SizeOf(PerViewData),
-                              BufferStorageFlags.DynamicStorageBit)
+        PerViewDataBuffer = GLBuffer.Create(BufferTarget.UniformBuffer, "PerView")
+        PerViewDataBuffer.StorageNullData(
+            Marshal.SizeOf(PerViewData),
+            BufferStorageFlags.DynamicStorageBit)
         PerViewDataBuffer.BindBase(1)
 
-        CommonPropertiesBuffer = CreateBuffer(BufferTarget.UniformBuffer, "CommonProperties")
-        BufferStorageNullData(CommonPropertiesBuffer,
-                              Marshal.SizeOf(CommonProperties),
-                              BufferStorageFlags.DynamicStorageBit)
+        CommonPropertiesBuffer = GLBuffer.Create(BufferTarget.UniformBuffer, "CommonProperties")
+        CommonPropertiesBuffer.StorageNullData(
+            Marshal.SizeOf(CommonProperties),
+            BufferStorageFlags.DynamicStorageBit)
         CommonPropertiesBuffer.BindBase(2)
 
         FBOm.FBO_Initialize()
@@ -1098,11 +1098,11 @@ try_again:
                 frmModelViewer.SplitContainer1.Panel1.Controls.Add(cb)
             Next
 
-            frmModelViewer.modelIndirectBuffer = CreateBuffer(BufferTarget.DrawIndirectBuffer, "modelIndirectBuffer")
-            BufferStorage(frmModelViewer.modelIndirectBuffer,
-                          indirectCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
-                          indirectCommands,
-                          BufferStorageFlags.DynamicStorageBit Or BufferStorageFlags.ClientStorageBit)
+            frmModelViewer.modelIndirectBuffer = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "modelIndirectBuffer")
+            frmModelViewer.modelIndirectBuffer.Storage(
+                indirectCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                indirectCommands,
+                BufferStorageFlags.DynamicStorageBit Or BufferStorageFlags.ClientStorageBit)
             frmModelViewer.Model_Loaded = True
 
         End If

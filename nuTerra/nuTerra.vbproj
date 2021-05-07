@@ -147,7 +147,6 @@
     <Compile Include="FBOs\FBO_MiniMap.vb" />
     <Compile Include="FBOs\FBO_main.vb" />
     <Compile Include="FBOs\FBO_Mega.vb" />
-    <Compile Include="FBOs\FBO_shadowBaker.vb" />
     <Compile Include="FBOs\FBO_Mixer.vb" />
     <Compile Include="Forms\frmLightSettings.designer.vb">
       <DependentUpon>frmLightSettings.vb</DependentUpon>
@@ -194,6 +193,10 @@
     <Compile Include="ModelLoaders\modXfile.vb" />
     <Compile Include="Modules\modCubeMapLoader.vb" />
     <Compile Include="Modules\modFrustum.vb" />
+    <Compile Include="OpenGL\GLBuffer.vb" />
+    <Compile Include="OpenGL\GLFramebuffer.vb" />
+    <Compile Include="OpenGL\GLRenderbuffer.vb" />
+    <Compile Include="OpenGL\GLTexture.vb" />
     <Compile Include="OpenGL\modOpenGLAliases.vb" />
     <Compile Include="RenderEngine\LoadingScreen.vb" />
     <Compile Include="RenderEngine\MapMenuScreen.vb" />

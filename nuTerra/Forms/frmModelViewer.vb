@@ -28,7 +28,7 @@ Public Class frmModelViewer
     Dim view_started As Boolean
 
     Public Model_Loaded As Boolean
-    Public modelIndirectBuffer As modOpenGLAliases.GLBuffer
+    Public modelIndirectBuffer As GLBuffer
     Public modelDrawCount As Integer
 
     Public MODEL_NAME_MODELVIEWER As String
