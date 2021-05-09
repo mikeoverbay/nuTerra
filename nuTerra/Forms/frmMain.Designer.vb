@@ -248,7 +248,7 @@ Partial Class frmMain
         Me.PerformLayout()
 
     End Sub
-    Friend WithEvents glControl_main As OpenTK.GLControl
+    Friend WithEvents glControl_main As OpenTK.WinForms.GLControl
     Friend WithEvents frmMainMenu As System.Windows.Forms.MenuStrip
     Friend WithEvents m_file As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents m_help As System.Windows.Forms.ToolStripMenuItem

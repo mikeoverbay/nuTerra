@@ -1,3 +1,4 @@
+#pragma unmanaged
 #include <algorithm>
 #include "Quadtree.h"
 

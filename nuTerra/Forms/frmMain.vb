@@ -6,7 +6,9 @@ Imports System.Threading
 Imports System.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Windowing
 Imports System.Reflection
+
 Public Class frmMain
     '          SP2_Width = SplitContainer1.Panel2.Width
     Private Const WM_NCLBUTTONDBLCLK As Integer = &HA3
@@ -236,15 +238,19 @@ Public Class frmMain
         End If
 
         ' Init main gl-control
-        Dim flags As GraphicsContextFlags
+        Dim glSettings As New OpenTK.WinForms.GLControlSettings
+        glSettings.API = OpenTK.Windowing.Common.ContextAPI.OpenGL
+        glSettings.Profile = OpenTK.Windowing.Common.ContextProfile.Core
+        glSettings.APIVersion = New Version(4, 5)
+        glSettings.Flags = OpenTK.Windowing.Common.ContextFlags.ForwardCompatible
 #If DEBUG Then
-        flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
-#Else
-        flags = GraphicsContextFlags.ForwardCompatible
+        glSettings.Flags = glSettings.Flags Or OpenTK.Windowing.Common.ContextFlags.Debug
 #End If
+        Me.glControl_main = New OpenTK.WinForms.GLControl(glSettings)
+        Me.glControl_main.MakeCurrent()
 
-        Me.glControl_main = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, flags)
-        Me.glControl_main.VSync = False
+        ' Disable VSync
+        GraphicsLibraryFramework.GLFW.SwapInterval(0)
 
         '-----------------------------------------------------------------------------------------
         Me.Show()
@@ -372,6 +378,7 @@ try_again:
                         MsgBoxStyle.Exclamation, "Wrong Path!")
                 GoTo try_again
             End If
+            My.Settings.Save()
         End If
     End Sub
 

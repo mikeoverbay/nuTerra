@@ -1,5 +1,5 @@
 ﻿Imports System.Text
-Imports OpenTK
+Imports OpenTK.Mathematics
 
 Module modGlobalVars
     Public vt As VirtualTexture

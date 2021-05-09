@@ -306,9 +306,9 @@ Module ShaderLoader
                 GL.SpecializeShader(vertexObject, "main", 0, 0, 0)
             Else
                 Using vs_s As New StreamReader(v)
-                    Dim vs = vs_s.ReadLine() & vbNewLine
+                    Dim vs = vs_s.ReadLine() & vbCrLf
                     For Each item In defines
-                        vs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
+                        vs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
                     Next
                     vs += vs_s.ReadToEnd()
                     GL.ShaderSource(vertexObject, vs)
@@ -339,9 +339,9 @@ Module ShaderLoader
                 GL.SpecializeShader(tessControlObject, "main", 0, 0, 0)
             Else
                 Using tcs_s As New StreamReader(tc)
-                    Dim tcs = tcs_s.ReadLine() & vbNewLine
+                    Dim tcs = tcs_s.ReadLine() & vbCrLf
                     For Each item In defines
-                        tcs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
+                        tcs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
                     Next
                     tcs += tcs_s.ReadToEnd()
                     GL.ShaderSource(tessControlObject, tcs)
@@ -373,9 +373,9 @@ Module ShaderLoader
                 GL.SpecializeShader(tessEvaluationObject, "main", 0, 0, 0)
             Else
                 Using tes_s As New StreamReader(te)
-                    Dim tes = tes_s.ReadLine() & vbNewLine
+                    Dim tes = tes_s.ReadLine() & vbCrLf
                     For Each item In defines
-                        tes += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
+                        tes += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
                     Next
                     tes += tes_s.ReadToEnd()
                     GL.ShaderSource(tessEvaluationObject, tes)
@@ -408,9 +408,9 @@ Module ShaderLoader
                 GL.SpecializeShader(fragmentObject, "main", 0, 0, 0)
             Else
                 Using fs_s As New StreamReader(f)
-                    Dim fs = fs_s.ReadLine() & vbNewLine
+                    Dim fs = fs_s.ReadLine() & vbCrLf
                     For Each item In defines
-                        fs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
+                        fs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
                     Next
                     fs += fs_s.ReadToEnd()
                     GL.ShaderSource(fragmentObject, fs)
@@ -439,9 +439,9 @@ Module ShaderLoader
             geomObject = GL.CreateShader(ShaderType.GeometryShader)
 
             Using gs_s As New StreamReader(g)
-                Dim gs = gs_s.ReadLine() & vbNewLine
+                Dim gs = gs_s.ReadLine() & vbCrLf
                 For Each item In defines
-                    gs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
+                    gs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
                 Next
                 gs += gs_s.ReadToEnd()
                 GL.ShaderSource(geomObject, gs)
@@ -475,9 +475,9 @@ Module ShaderLoader
                 GL.SpecializeShader(computeObject, "main", 0, 0, 0)
             Else
                 Using cs_s As New StreamReader(c)
-                    Dim cs = cs_s.ReadLine() & vbNewLine
+                    Dim cs = cs_s.ReadLine() & vbCrLf
                     For Each item In defines
-                        cs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
+                        cs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
                     Next
                     cs += cs_s.ReadToEnd()
                     GL.ShaderSource(computeObject, cs)

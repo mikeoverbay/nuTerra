@@ -5,6 +5,7 @@ Imports Hjg.Pngcs
 Imports Ionic
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Mathematics
 
 Module ChunkFunctions
     Public b_x_min As Single

@@ -36,7 +36,7 @@
 		MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 		Lesser General Public License for more details.
 */
-
+#pragma unmanaged
 #include "dxt.h"
 
 #include <emmintrin.h>  // sse2

@@ -1,10 +1,10 @@
 ﻿Imports System.Math
 Imports System.Runtime.InteropServices
-Imports OpenTK.Graphics
-Imports OpenTK
-Imports OpenTK.Graphics.OpenGL
-Imports FastColoredTextBoxNS
 Imports System.Text.RegularExpressions
+Imports FastColoredTextBoxNS
+Imports OpenTK.Graphics
+Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Mathematics
 
 Public Class frmModelViewer
 
@@ -49,7 +49,7 @@ Public Class frmModelViewer
     Public Sub draw_model_view()
 
         If Model_Loaded Then
-            frmMain.glControl_main.Context.MakeCurrent(glControl_modelView.WindowInfo)
+            glControl_modelView.MakeCurrent()
             set_prespective_view_ModelViewer()
 
             GL.ClearColor(0.55, 0.27, 0.00, 0.0F)
@@ -83,8 +83,6 @@ Public Class frmModelViewer
 
             ' RESTORE
             GL.ClearDepth(0.0F)
-
-            frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
         End If
 
     End Sub
@@ -92,7 +90,7 @@ Public Class frmModelViewer
     Private Sub draw_text_mv(ByRef text As String,
                          ByVal locX As Single,
                          ByVal locY As Single,
-                         ByRef color As OpenTK.Graphics.Color4,
+                         ByRef color As Color4,
                          ByRef center As Boolean,
                          ByRef mask As Integer)
         ' text, loc X, loc Y, color, Center text at X location,
@@ -143,17 +141,16 @@ Public Class frmModelViewer
 #Region "form events"
 
     Private Sub frmModelViewer_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-
-        Dim flags As GraphicsContextFlags
-
+        Dim glSettings As New OpenTK.WinForms.GLControlSettings
+        glSettings.API = OpenTK.Windowing.Common.ContextAPI.OpenGL
+        glSettings.Profile = OpenTK.Windowing.Common.ContextProfile.Core
+        glSettings.APIVersion = New Version(4, 5)
+        glSettings.Flags = OpenTK.Windowing.Common.ContextFlags.ForwardCompatible
+        glSettings.SharedContext = frmMain.glControl_main.Context
 #If DEBUG Then
-        flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
-#Else
-        flags = GraphicsContextFlags.ForwardCompatible
-
+        glSettings.Flags = glSettings.Flags Or OpenTK.Windowing.Common.ContextFlags.Debug
 #End If
-        Me.glControl_modelView = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 16), 4, 5, flags)
-        Me.glControl_modelView.VSync = False
+        Me.glControl_modelView = New OpenTK.WinForms.GLControl(glSettings)
         glControl_modelView.Dock = DockStyle.Fill
         TabPage1.Controls.Add(Me.glControl_modelView)
         '-----------------------------------------------------------------------------------------
@@ -182,7 +179,7 @@ Public Class frmModelViewer
         End If
         e.Cancel = True
         Me.Visible = False
-        frmMain.glControl_main.Context.MakeCurrent(frmMain.glControl_main.WindowInfo)
+        frmMain.glControl_main.Context.MakeCurrent()
     End Sub
 
     Private Sub frmModelViewer_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
@@ -379,11 +376,11 @@ Public Class frmModelViewer
     End Sub
 
     Private Sub set_keywords()
-        Keywords = "\b("
+        keyWords = "\b("
         For Each s In filterlist
             If InStr(s, "#") = 0 Then
                 If s.Length > 2 Then
-                    Keywords += s + "|"
+                    keyWords += s + "|"
                 End If
             End If
         Next

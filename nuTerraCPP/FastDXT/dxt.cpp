@@ -2,7 +2,7 @@
 //    Real-Time DXT Compression
 //    May 20th 2006 J.M.P. van Waveren
 //    (c) 2006, Id Software, Inc.
-
+#pragma unmanaged
 #include "dxt.h"
 #include "util.h"
 

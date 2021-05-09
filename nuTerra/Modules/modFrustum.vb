@@ -1,5 +1,5 @@
 ﻿Imports System.Math
-Imports OpenTK
+Imports OpenTK.Mathematics
 
 Module modFrustum
     Public frustum(6) As Vector4
