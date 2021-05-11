@@ -501,57 +501,6 @@ Module MapLoader
             T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
         End If
 
-        '===============================================================
-        'load some test emitters
-#If False Then
-
-        ReDim Test_Emiters(500) '<--- emitter count
-        ReDim sort_lists(Test_Emiters.Length)
-        For i = 0 To 500
-            Test_Emiters(i) = New Explosion_type_1
-
-            Test_Emiters(i).total_frames = 91
-            Test_Emiters(i).row_length = 46
-
-            Test_Emiters(i).update_time = 35
-            Test_Emiters(i).particle_count = 6 '<-- Partices for this emitter.
-
-            Test_Emiters(i).fixed_expand_speed = True
-
-            Test_Emiters(i).note = "This better F'in work!"
-
-            Dim v = get_random_vector3(400) '<--- Spread out will be 1/2 this value
-
-            v.Y = get_Y_at_XZ(v.X, v.Z)
-            Test_Emiters(i).start_location = v
-
-            Test_Emiters(i).Scatter_factor = 0.5F ' each quad randomly moves by per loop
-            Test_Emiters(i).z_speed = 2.0
-
-            '  the quad may never get this big if Expand_speed is too low a value 
-            Test_Emiters(i).max_expand_size = 50.0F
-
-            Test_Emiters(i).expand_start_size = 10.0F 'initial size 
-
-            '(30 - 2) / 91 frames = 0.307692.. prefect grow rate..
-            'It can be larger BUT the quad will be frozen at max_expand_size for the remaining frames
-            'Too small and the quad will never reach max_expanded size.
-            'It will reach max size before the frames are done using this valune
-            Test_Emiters(i).Expand_speed = 1.5F
-
-            ReDim sort_lists(i).list(Test_Emiters(i).particle_count)
-            Test_Emiters(i).birth_speed = (Test_Emiters(i).total_frames * Test_Emiters(i).update_time) / Test_Emiters(i).particle_count '<-- best if this = 1000. particle count
-            '(total_frames * update speed)/paricle_count = time to cycle.
-            'divid this by paricle count to get smooot birth rate
-
-
-            Test_Emiters(i).continuous = True ' repeat or not
-
-
-            Test_Emiters(i).initialize()
-        Next
-#End If
-
         CommonProperties.update()
 
         '===============================================================
