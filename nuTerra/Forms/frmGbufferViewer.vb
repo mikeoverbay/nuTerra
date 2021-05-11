@@ -141,7 +141,7 @@ Public Class frmGbufferViewer
             Case 1
                 toLinearShader.Use()
 
-                FBOm.gDepth.BindUnit(0)
+                MainFBO.gDepth.BindUnit(0)
                 GL.Uniform1(toLinearShader("far"), My.Settings.far)
                 GL.Uniform1(toLinearShader("near"), My.Settings.near)
                 GL.UniformMatrix4(toLinearShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
@@ -158,19 +158,19 @@ Public Class frmGbufferViewer
                 toLinearShader.StopUse()
 
             Case 2
-                draw_image(img_width, img_height, FBOm.gColor, 0)
+                draw_image(img_width, img_height, MainFBO.gColor, 0)
 
             Case 3
-                draw_image(img_width, img_height, FBOm.gPosition, 0)
+                draw_image(img_width, img_height, MainFBO.gPosition, 0)
 
             Case 4
-                draw_image(img_width, img_height, FBOm.gNormal, 1)
+                draw_image(img_width, img_height, MainFBO.gNormal, 1)
 
             Case 5
-                draw_image(img_width, img_height, FBOm.gGMF, 0)
+                draw_image(img_width, img_height, MainFBO.gGMF, 0)
 
             Case 6
-                draw_image(img_width, img_height, FBOm.gAUX_Color, 0)
+                draw_image(img_width, img_height, MainFBO.gAUX_Color, 0)
 
             Case 7
                 If vt IsNot Nothing Then

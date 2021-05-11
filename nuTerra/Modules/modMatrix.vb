@@ -43,8 +43,8 @@ Module modMatrix
         pos.X /= pos.W
         pos.Y /= pos.W
 
-        pos.X = ((pos.X + 1.0F) * 0.5F) * FBOm.SCR_WIDTH
-        pos.Y = ((1.0 - pos.Y) * 0.5F) * FBOm.SCR_HEIGHT
+        pos.X = ((pos.X + 1.0F) * 0.5F) * MainFBO.SCR_WIDTH
+        pos.Y = ((1.0 - pos.Y) * 0.5F) * MainFBO.SCR_HEIGHT
 
         Return pos
 

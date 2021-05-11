@@ -79,17 +79,17 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        mainFBO.Bind(FramebufferTarget.Framebuffer)
+        MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
         '===========================================================================
 
         '===========================================================================
-        FBOm.attach_CNGPA() 'clear ALL gTextures!
+        MainFBO.attach_CNGPA() 'clear ALL gTextures!
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
         '===========================================================================
 
         '===========================================================================
-        FBOm.attach_C()
+        MainFBO.attach_C()
         If DONT_BLOCK_SKY Then
             GL.Disable(EnableCap.DepthTest)
             Draw_SkyDome()
@@ -116,7 +116,7 @@ Module modRender
             End If
         End If
 
-        FBOm.attach_CNGPA()
+        MainFBO.attach_CNGPA()
 
         If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             '=======================================================================
@@ -126,7 +126,7 @@ Module modRender
             '=======================================================================
             If SHOW_CURSOR Then
                 'setup for projection before drawing
-                FBOm.attach_C_no_Depth()
+                MainFBO.attach_C_no_Depth()
                 GL.DepthMask(False)
                 GL.FrontFace(FrontFaceDirection.Cw)
                 GL.Enable(EnableCap.CullFace)
@@ -137,7 +137,7 @@ Module modRender
                 'restore settings after projected objects are drawn
                 GL.DepthMask(True)
                 GL.Disable(EnableCap.CullFace)
-                FBOm.attach_Depth()
+                MainFBO.attach_Depth()
                 GL.FrontFace(FrontFaceDirection.Ccw)
             End If
         End If
@@ -182,11 +182,11 @@ Module modRender
 
         GL.Disable(EnableCap.DepthTest)
 
-        FBOm.attach_C2()
+        MainFBO.attach_C2()
 
         render_deferred_buffers()
         'gAux_color to gColor;
-        FBOm.attach_C1_and_C2()
+        MainFBO.attach_C1_and_C2()
         copy_gColor_2_to_gColor()
 
 
@@ -212,7 +212,7 @@ Module modRender
         'ortho projection decals
 #If True Then
 
-        FBOm.attach_C()
+        MainFBO.attach_C()
 
 
         If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
@@ -284,10 +284,10 @@ Module modRender
         '===========================================================================
         deferredShader.Use()
 
-        FBOm.gColor.BindUnit(0)
-        FBOm.gNormal.BindUnit(1)
-        FBOm.gGMF.BindUnit(2)
-        FBOm.gPosition.BindUnit(3)
+        MainFBO.gColor.BindUnit(0)
+        MainFBO.gNormal.BindUnit(1)
+        MainFBO.gGMF.BindUnit(2)
+        MainFBO.gPosition.BindUnit(3)
         CUBE_TEXTURE_ID.BindUnit(4)
         CC_LUT_ID.BindUnit(5)
         If ENV_BRDF_LUT_ID IsNot Nothing Then
@@ -300,7 +300,7 @@ Module modRender
 
         GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
 
-        draw_main_Quad(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT) 'render Gbuffer lighting
+        draw_main_Quad(MainFBO.SCR_WIDTH, MainFBO.SCR_HEIGHT) 'render Gbuffer lighting
 
         ' UNBIND
         unbind_textures(7)
@@ -339,9 +339,9 @@ Module modRender
         Dim ff = frmLightSettings.lighting_fog_level * 100.0
 
         NOISE_id.BindUnit(0)
-        FBOm.gDepth.BindUnit(1)
-        FBOm.gPosition.BindUnit(2)
-        FBOm.gColor.BindUnit(3)
+        MainFBO.gDepth.BindUnit(1)
+        MainFBO.gPosition.BindUnit(2)
+        MainFBO.gColor.BindUnit(3)
         'FBOm.gColor_2.BindUnit(4)
 
         map_center.X = 100.0F * (theMap.bounds_minX + theMap.bounds_maxX) / 2.0F
@@ -385,9 +385,9 @@ Module modRender
 
         GL.Disable(EnableCap.CullFace)
 
-        FBOm.gDepth.BindUnit(0)
-        FBOm.gGMF.BindUnit(1)
-        FBOm.gPosition.BindUnit(2)
+        MainFBO.gDepth.BindUnit(0)
+        MainFBO.gGMF.BindUnit(1)
+        MainFBO.gPosition.BindUnit(2)
 
         'constants
         GL.Uniform1(BaseRingProjectorDeferred("radius"), 50.0F)
@@ -453,18 +453,19 @@ Module modRender
 
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
-        GL.CopyTextureSubImage2D(FBOm.gColor.texture_id, 0, 0, 0, 0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT)
+        GL.CopyTextureSubImage2D(MainFBO.gColor.texture_id, 0, 0, 0, 0, 0, MainFBO.SCR_WIDTH, MainFBO.SCR_HEIGHT)
     End Sub
 
     Private Sub copy_gColor_2_to_gColor()
-        mainFBO.ReadBuffer(ReadBufferMode.ColorAttachment6)
-        mainFBO.DrawBuffer(DrawBufferMode.ColorAttachment0)
-        GL.BlitNamedFramebuffer(mainFBO.fbo_id,
-                                mainFBO.fbo_id,
-                                0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
-                                0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT,
-                                ClearBufferMask.ColorBufferBit,
-                                BlitFramebufferFilter.Nearest)
+        MainFBO.fbo.ReadBuffer(ReadBufferMode.ColorAttachment6)
+        MainFBO.fbo.DrawBuffer(DrawBufferMode.ColorAttachment0)
+        GL.BlitNamedFramebuffer(
+            MainFBO.fbo.fbo_id,
+            MainFBO.fbo.fbo_id,
+            0, 0, MainFBO.SCR_WIDTH, MainFBO.SCR_HEIGHT,
+            0, 0, MainFBO.SCR_WIDTH, MainFBO.SCR_HEIGHT,
+            ClearBufferMask.ColorBufferBit,
+            BlitFramebufferFilter.Nearest)
     End Sub
 
     Private Sub terrain_vt_pass()
@@ -562,7 +563,7 @@ Module modRender
             GL_PUSH_GROUP("draw_terrain: wire")
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
-            FBOm.attach_CF()
+            MainFBO.attach_CF()
 
             TerrainNormals.Use()
 
@@ -689,7 +690,7 @@ Module modRender
         GL.DepthMask(False)
 
         'SOLID FILL
-        FBOm.attach_CNGP()
+        MainFBO.attach_CNGP()
 
         Dim indices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
         '------------------------------------------------
@@ -715,7 +716,7 @@ Module modRender
 
         GL.DepthFunc(DepthFunction.Greater)
 
-        FBOm.attach_CNGPA()
+        MainFBO.attach_CNGPA()
         GL.DepthMask(True)
 
         '------------------------------------------------
@@ -727,13 +728,13 @@ Module modRender
 
         modelGlassShader.StopUse()
 
-        FBOm.attach_CNGP()
+        MainFBO.attach_CNGP()
         GL.DepthMask(False)
 
         If WIRE_MODELS Then
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
 
-            FBOm.attach_CF()
+            MainFBO.attach_CF()
             normalShader.Use()
 
             GL.Uniform1(normalShader("prj_length"), 0.3F)
@@ -767,7 +768,7 @@ Module modRender
     Private Sub draw_terrain_grids()
         GL_PUSH_GROUP("draw_terrain_grids")
 
-        FBOm.attach_C()
+        MainFBO.attach_C()
         'GL.DepthMask(False)
         GL.Enable(EnableCap.DepthTest)
         TerrainGrids.Use()
@@ -779,7 +780,7 @@ Module modRender
         GL.Uniform1(TerrainGrids("show_chunks"), CInt(SHOW_CHUNKS))
         GL.Uniform1(TerrainGrids("show_grid"), CInt(SHOW_GRID))
 
-        FBOm.gGMF.BindUnit(0)
+        MainFBO.gGMF.BindUnit(0)
 
         MapGL.Buffers.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
         GL.BindVertexArray(MapGL.VertexArrays.allTerrainChunks)
@@ -806,12 +807,12 @@ Module modRender
 
         GL.UniformMatrix4(FXAAShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
-        GL.Uniform2(FXAAShader("viewportSize"), CSng(FBOm.SCR_WIDTH), CSng(FBOm.SCR_HEIGHT))
+        GL.Uniform2(FXAAShader("viewportSize"), CSng(MainFBO.SCR_WIDTH), CSng(MainFBO.SCR_HEIGHT))
 
-        FBOm.gColor.BindUnit(0)
+        MainFBO.gColor.BindUnit(0)
 
         'draw full screen quad
-        GL.Uniform4(FXAAShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
+        GL.Uniform4(FXAAShader("rect"), 0.0F, CSng(-MainFBO.SCR_HEIGHT), CSng(MainFBO.SCR_WIDTH), 0.0F)
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
@@ -834,11 +835,11 @@ Module modRender
         glassPassShader.Use()
         GL.UniformMatrix4(glassPassShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
-        FBOm.gColor.BindUnit(0)
-        FBOm.gAUX_Color.BindUnit(1)
+        MainFBO.gColor.BindUnit(0)
+        MainFBO.gAUX_Color.BindUnit(1)
 
         'draw full screen quad
-        GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-FBOm.SCR_HEIGHT), CSng(FBOm.SCR_WIDTH), 0.0F)
+        GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-MainFBO.SCR_HEIGHT), CSng(MainFBO.SCR_WIDTH), 0.0F)
 
         GL.BindVertexArray(defaultVao)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
@@ -914,7 +915,7 @@ Module modRender
         GL_PUSH_GROUP("Draw_SkyDome")
 
         GL.DepthMask(False)
-        FBOm.attach_CNGP()
+        MainFBO.attach_CNGP()
 
         SkyDomeShader.Use()
 
@@ -937,7 +938,7 @@ Module modRender
 
     Private Sub draw_sun()
 
-        FBOm.attach_C()
+        MainFBO.attach_C()
 
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
@@ -973,8 +974,8 @@ Module modRender
         GL.Uniform3(DecalProject("color_in"), 0.4F, 0.3F, 0.3F)
 
         CURSOR_TEXTURE_ID.BindUnit(0)
-        FBOm.gDepth.BindUnit(1)
-        FBOm.gGMF.BindUnit(2)
+        MainFBO.gDepth.BindUnit(1)
+        MainFBO.gGMF.BindUnit(2)
 
         ' Track the terrain at Y
         Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
@@ -1028,19 +1029,19 @@ Module modRender
                 End If
             End If
             'sized changed so we must resize the FBOmini
-            FBOmini.FBO_Initialize(MINI_MAP_SIZE)
-            miniFBO.Bind(FramebufferTarget.Framebuffer)
+            MiniMapFBO.FBO_Initialize(MINI_MAP_SIZE)
+            MiniMapFBO.fbo.Bind(FramebufferTarget.Framebuffer)
             Ortho_MiniMap(MINI_MAP_SIZE)
-            FBOmini.attach_gcolor()
+            MiniMapFBO.attach_gcolor()
             'render to gcolor and blit it to the screeenTexture buffer
             GL.ClearColor(0.0, 0.0, 0.5, 0.0)
             GL.Clear(ClearBufferMask.ColorBufferBit)
             Draw_mini()
             draw_mini_position()
         Else
-            miniFBO.Bind(FramebufferTarget.Framebuffer)
+            MiniMapFBO.fbo.Bind(FramebufferTarget.Framebuffer)
             Ortho_MiniMap(MINI_MAP_SIZE)
-            FBOmini.attach_gcolor()
+            MiniMapFBO.attach_gcolor()
             draw_mini_position()
         End If
 
@@ -1055,7 +1056,7 @@ Module modRender
         Dim cy = size.Height - MINI_MAP_SIZE
         draw_image_rectangle(New RectangleF(cx, cy,
                                                 MINI_MAP_SIZE, MINI_MAP_SIZE),
-                                                FBOmini.gColor)
+                                                MiniMapFBO.gColor)
 
         '=======================================================================
         'draw mini map legends
@@ -1170,9 +1171,9 @@ Module modRender
         '======================================================
 
         'now, bilt this to screenTexture
-        FBOmini.attach_both()
-        FBOmini.blit_to_screenTexture()
-        FBOmini.attach_gcolor()
+        MiniMapFBO.attach_both()
+        MiniMapFBO.blit_to_screenTexture()
+        MiniMapFBO.attach_gcolor()
 
 
         GL_POP_GROUP()
@@ -1286,9 +1287,9 @@ Module modRender
         GL.Enable(EnableCap.Blend)
         GL_PUSH_GROUP("draw_mini_position")
 
-        FBOmini.attach_both()
-        FBOmini.blit_to_gBuffer() ' copy prerendered to screenTexture
-        FBOmini.attach_gcolor()
+        MiniMapFBO.attach_both()
+        MiniMapFBO.blit_to_gBuffer() ' copy prerendered to screenTexture
+        MiniMapFBO.attach_gcolor()
         'GoTo skip
 
         image2dShader.Use()
@@ -1390,8 +1391,8 @@ skip:
     Private Sub get_world_Position_In_Minimap_Window(ByRef pos As Vector2)
         MINI_MOUSE_CAPTURED = False
 
-        Dim left = FBOm.SCR_WIDTH - MINI_MAP_SIZE
-        Dim top = FBOm.SCR_HEIGHT - MINI_MAP_SIZE
+        Dim left = MainFBO.SCR_WIDTH - MINI_MAP_SIZE
+        Dim top = MainFBO.SCR_HEIGHT - MINI_MAP_SIZE
         'Are we over the minimap?
         If M_MOUSE.X < left Then Return
         If M_MOUSE.Y < top Then Return

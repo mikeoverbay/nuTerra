@@ -26,12 +26,12 @@ Public Class frmScreenCap
 
         GL.PixelStore(PixelStoreParameter.PackAlignment, 1)
 
-        Using bmp As New Bitmap(FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, Imaging.PixelFormat.Format24bppRgb)
+        Using bmp As New Bitmap(MainFBO.SCR_WIDTH, MainFBO.SCR_HEIGHT, Imaging.PixelFormat.Format24bppRgb)
             Dim bitmapData = bmp.LockBits(New Rectangle(0, 0, bmp.Width, bmp.Height),
                                           ImageLockMode.WriteOnly,
                                           bmp.PixelFormat)
 
-            GL.ReadPixels(0, 0, FBOm.SCR_WIDTH, FBOm.SCR_HEIGHT, OpenGL.PixelFormat.Bgr, PixelType.UnsignedByte, bitmapData.Scan0)
+            GL.ReadPixels(0, 0, MainFBO.SCR_WIDTH, MainFBO.SCR_HEIGHT, OpenGL.PixelFormat.Bgr, PixelType.UnsignedByte, bitmapData.Scan0)
 
             bmp.UnlockBits(bitmapData)
             bmp.RotateFlip(RotateFlipType.RotateNoneFlipY)

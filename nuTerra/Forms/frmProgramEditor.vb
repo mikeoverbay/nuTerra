@@ -325,7 +325,7 @@ Public Class frmProgramEditor
             frmMain.PropertyGrid1.Hide()
 
             TabControl1.Focus()
-            FBOm.oldWidth = -1.0
+            MainFBO.oldWidth = -1.0
             frmMain.resize_fbo_main()
         Else
             'frmMain.SplitContainer1.Panel2 is parent!
@@ -343,7 +343,7 @@ Public Class frmProgramEditor
             Me.Show()
             Container_panel.Parent = Me
             TabControl1.Focus()
-            FBOm.oldWidth = -1.0
+            MainFBO.oldWidth = -1.0
             frmMain.resize_fbo_main()
         End If
 

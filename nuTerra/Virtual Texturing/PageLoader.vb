@@ -31,7 +31,7 @@ Public Class PageLoader
         ReDim compDataColor((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
         ReDim compDataNormal((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
 
-        FBO_mixer_set.FBO_Initialize(info.TileSize, info.TileSize)
+        VTMixerFBO.FBO_Initialize(info.TileSize, info.TileSize)
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
@@ -51,7 +51,7 @@ Public Class PageLoader
     End Sub
 
     Private Sub LoadPage(state As ReadState)
-        FBO_mixer_set.fbo.Bind(FramebufferTarget.Framebuffer)
+        VTMixerFBO.fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Viewport(0, 0, info.TileSize, info.TileSize)
         GL.Clear(ClearBufferMask.ColorBufferBit)
 
@@ -130,21 +130,21 @@ Public Class PageLoader
         ' RESTORE STATE
         GL.CullFace(CullFaceMode.Back)
 
-        GL.GetTextureImage(FBO_mixer_set.gColor.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompColorData.Length, uncompColorData)
+        GL.GetTextureImage(VTMixerFBO.ColorTex.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompColorData.Length, uncompColorData)
         Dim compColorTask As New Task(Sub()
                                           nuTerraCPP.Utils.CompressDXT5(uncompColorData, compDataColor, info.TileSize, info.TileSize)
                                           state.ColorData = compDataColor
                                       End Sub)
         compColorTask.Start()
 
-        GL.GetTextureImage(FBO_mixer_set.gNormal.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompNormalData.Length, uncompNormalData)
+        GL.GetTextureImage(VTMixerFBO.NormalTex.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompNormalData.Length, uncompNormalData)
         Dim compNormalTask As New Task(Sub()
                                            nuTerraCPP.Utils.CompressDXT5(uncompNormalData, compDataNormal, info.TileSize, info.TileSize)
                                            state.NormalData = compDataNormal
                                        End Sub)
         compNormalTask.Start()
 
-        GL.GetTextureImage(FBO_mixer_set.gSpecular.texture_id, 0, PixelFormat.Red, PixelType.UnsignedByte, specularData.Length, specularData)
+        GL.GetTextureImage(VTMixerFBO.SpecularTex.texture_id, 0, PixelFormat.Red, PixelType.UnsignedByte, specularData.Length, specularData)
         state.SpecularData = specularData
 
         Task.WaitAll(compColorTask, compNormalTask)

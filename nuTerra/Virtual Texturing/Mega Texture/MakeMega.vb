@@ -60,9 +60,9 @@ Module MakeMega
         prallocate_disc_space(MAX_RES)
 
         'setup FBO
-        FBO_Mega_set.max_mip_level = 1
+        MegaFBO.max_mip_level = 1
 
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO_Mega_ID.fbo_id)
+        MegaFBO.fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Disable(EnableCap.DepthTest)
         GL.Disable(EnableCap.CullFace)
 
@@ -83,7 +83,7 @@ Module MakeMega
         chunk_count = 1
         For I = 0 To chunk_count
 
-            FBO_Mega_set.FBO_Initialize(MAX_RES, MAX_RES)
+            MegaFBO.FBO_Initialize(MAX_RES, MAX_RES)
             GL.Viewport(0, 0, MAX_RES, MAX_RES)
 
             With theMap.render_set(I)
@@ -107,13 +107,13 @@ Module MakeMega
             'draw chunk
             GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(I * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
 
-            FBO_Mega_set.gColor.GenerateMipmap()
-            FBO_Mega_set.gNormal.GenerateMipmap()
-            FBO_Mega_set.gGmm.GenerateMipmap()
+            MegaFBO.gColor.GenerateMipmap()
+            MegaFBO.gNormal.GenerateMipmap()
+            MegaFBO.gGmm.GenerateMipmap()
 
             Dim status = True
             For level = 0 To 5
-                status = status And slice_and_dice(FBO_Mega_set.gColor, MAX_RES, lut_data, megaHDL_AM, am_vt_index, am_vt_pointer, level)
+                status = status And slice_and_dice(MegaFBO.gColor, MAX_RES, lut_data, megaHDL_AM, am_vt_index, am_vt_pointer, level)
                 'check for IO failure.
                 If Not status Then
                     Return False
@@ -122,7 +122,7 @@ Module MakeMega
 
 
             For level = 0 To 5
-                status = status And slice_and_dice(FBO_Mega_set.gNormal, MAX_RES, lut_data, megaHDL_NM, nm_vt_index, nm_vt_pointer, level)
+                status = status And slice_and_dice(MegaFBO.gNormal, MAX_RES, lut_data, megaHDL_NM, nm_vt_index, nm_vt_pointer, level)
                 'check for IO failure.
                 If Not status Then
                     Return False
@@ -130,7 +130,7 @@ Module MakeMega
             Next
 
             For level = 0 To 5
-                status = status And slice_and_dice(FBO_Mega_set.gGmm, MAX_RES, lut_data, megaHDL_GMM, gmm_vt_index, gmm_vt_pointer, level)
+                status = status And slice_and_dice(MegaFBO.gGmm, MAX_RES, lut_data, megaHDL_GMM, gmm_vt_index, gmm_vt_pointer, level)
                 'check for IO failure.
                 If Not status Then
                     Return False

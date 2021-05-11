@@ -28,7 +28,7 @@ Public Class frmMain
         If last_state <> Me.WindowState Then
             last_state = Me.WindowState
             If _STARTED Then
-                FBOm.oldHeigth = -1
+                MainFBO.oldHeigth = -1
                 resize_fbo_main()
             End If
         End If
@@ -82,14 +82,14 @@ Public Class frmMain
                 If MINI_MAP_NEW_SIZE = MINI_MAP_SIZE Then
                     If MINI_MAP_NEW_SIZE < max_size Then
                         MINI_MAP_NEW_SIZE += 40
-                        FBOmini.FBO_Initialize(MINI_MAP_NEW_SIZE)
+                        MiniMapFBO.FBO_Initialize(MINI_MAP_NEW_SIZE)
                     End If
                 End If
             Case Keys.OemMinus
                 If MINI_MAP_NEW_SIZE = MINI_MAP_SIZE Then
                     If MINI_MAP_NEW_SIZE > 100 Then
                         MINI_MAP_NEW_SIZE -= 40
-                        FBOmini.FBO_Initialize(MINI_MAP_NEW_SIZE)
+                        MiniMapFBO.FBO_Initialize(MINI_MAP_NEW_SIZE)
                     End If
                 End If
                 '-------------------------------
@@ -286,9 +286,9 @@ Public Class frmMain
 
     Public Sub resize_fbo_main()
         Dim ww, hh As Integer
-        FBOm.get_glControl_size(ww, hh)
+        MainFBO.get_glControl_size(ww, hh)
         If Not Me.WindowState = FormWindowState.Minimized Then
-            FBOm.FBO_Initialize()
+            MainFBO.FBO_Initialize()
         End If
         If SHOW_MAPS_SCREEN Then
             MapMenuScreen.Invalidate()
@@ -582,10 +582,10 @@ try_again:
             BufferStorageFlags.DynamicStorageBit)
         CommonPropertiesBuffer.BindBase(2)
 
-        FBOm.FBO_Initialize()
+        MainFBO.FBO_Initialize()
         LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
-        FBOmini.FBO_Initialize(240) '<- default start up size
+        MiniMapFBO.FBO_Initialize(240) '<- default start up size
         LogThis(String.Format("{0}ms FBO Mini Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 
         build_shaders()
@@ -1128,7 +1128,7 @@ try_again:
         Else
             PG_width = SP2_Width
         End If
-        FBOm.oldWidth = -1
+        MainFBO.oldWidth = -1
         resize_fbo_main()
     End Sub
 

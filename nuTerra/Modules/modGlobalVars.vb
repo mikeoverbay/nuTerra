@@ -2,6 +2,10 @@
 Imports OpenTK
 
 Module modGlobalVars
+    Public vt As VirtualTexture
+    Public vtInfo As VirtualTextureInfo
+    Public feedback As FeedbackBuffer
+
     ' VT params
     Public UPLOADS_PER_FRAME As Integer = 1
     Public NUM_TILES As Integer = 1280

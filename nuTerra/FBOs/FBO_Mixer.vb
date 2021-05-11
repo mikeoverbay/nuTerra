@@ -1,67 +1,64 @@
-﻿Imports OpenTK.Graphics.OpenGL
+﻿Imports OpenTK.Graphics.OpenGL4
 
-Module FBO_Mixer
-    Public NotInheritable Class FBO_mixer_set
-        Public Shared fbo As GLFramebuffer
-        Public Shared gColor, gNormal, gSpecular As GLTexture
-        Private Shared width As Integer
-        Private Shared height As Integer
+Public Class VTMixerFBO
+    Public Shared fbo As GLFramebuffer
+    Public Shared ColorTex As GLTexture
+    Public Shared NormalTex As GLTexture
+    Public Shared SpecularTex As GLTexture
+    Private Shared width As Integer
+    Private Shared height As Integer
 
-        Public Shared Sub FBO_Initialize(_width As Integer, _height As Integer)
-            width = _width
-            height = _height
+    Public Shared Sub FBO_Initialize(_width As Integer, _height As Integer)
+        width = _width
+        height = _height
 
-            delete_textures_and_fbo()
-            create_arraytextures()
+        delete_textures_and_fbo()
+        create_textures()
 
-            If Not create_fbo() Then
-                MsgBox("Failed to create mini FBO" + vbCrLf + "I must shut down!", MsgBoxStyle.Exclamation, "We're Screwed!")
-                End
-            End If
-        End Sub
+        If Not create_fbo() Then
+            MsgBox("Failed to create mini FBO" + vbCrLf + "I must shut down!", MsgBoxStyle.Exclamation, "We're Screwed!")
+            End
+        End If
+    End Sub
 
-        Public Shared Sub delete_textures_and_fbo()
-            'as the name says
-            If gColor IsNot Nothing Then gColor.Delete()
-            If gNormal IsNot Nothing Then gNormal.Delete()
-            If gSpecular IsNot Nothing Then gSpecular.Delete()
-            If fbo IsNot Nothing Then fbo.Delete()
-        End Sub
+    Public Shared Sub delete_textures_and_fbo()
+        'as the name says
+        If ColorTex IsNot Nothing Then ColorTex.Delete()
+        If NormalTex IsNot Nothing Then NormalTex.Delete()
+        If SpecularTex IsNot Nothing Then SpecularTex.Delete()
+        If fbo IsNot Nothing Then fbo.Delete()
+    End Sub
 
-        Public Shared Sub create_arraytextures()
-            ' gColor
-            gColor = GLTexture.Create(TextureTarget.Texture2D, "FBO_mixer_gColor")
-            gColor.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gColor.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gColor.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
+    Public Shared Sub create_textures()
+        ColorTex = GLTexture.Create(TextureTarget.Texture2D, "VTMixerFBO_ColorTex")
+        ColorTex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        ColorTex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        ColorTex.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
-            ' gNormal
-            gNormal = GLTexture.Create(TextureTarget.Texture2D, "FBO_mixer_gNormal")
-            gNormal.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gNormal.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gNormal.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
+        NormalTex = GLTexture.Create(TextureTarget.Texture2D, "VTMixerFBO_NormalTex")
+        NormalTex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        NormalTex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        NormalTex.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
-            ' gSpecular
-            gSpecular = GLTexture.Create(TextureTarget.Texture2D, "FBO_mixer_gSpecular")
-            gSpecular.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-            gSpecular.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-            gSpecular.Storage2D(1, SizedInternalFormat.R8, width, height)
-        End Sub
+        SpecularTex = GLTexture.Create(TextureTarget.Texture2D, "VTMixerFBO_SpecularTex")
+        SpecularTex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        SpecularTex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        SpecularTex.Storage2D(1, SizedInternalFormat.R8, width, height)
+    End Sub
 
-        Public Shared Function create_fbo() As Boolean
-            fbo = GLFramebuffer.Create("Tile Mixer")
+    Public Shared Function create_fbo() As Boolean
+        fbo = GLFramebuffer.Create("VTMixerFBO")
 
-            fbo.Texture(FramebufferAttachment.ColorAttachment0, gColor, 0)
-            fbo.Texture(FramebufferAttachment.ColorAttachment1, gNormal, 0)
-            fbo.Texture(FramebufferAttachment.ColorAttachment2, gSpecular, 0)
+        fbo.Texture(FramebufferAttachment.ColorAttachment0, ColorTex, 0)
+        fbo.Texture(FramebufferAttachment.ColorAttachment1, NormalTex, 0)
+        fbo.Texture(FramebufferAttachment.ColorAttachment2, SpecularTex, 0)
 
-            If Not fbo.IsComplete Then
-                Return False
-            End If
+        If Not fbo.IsComplete Then
+            Return False
+        End If
 
-            Dim attachments() As DrawBuffersEnum = {FramebufferAttachment.ColorAttachment0, FramebufferAttachment.ColorAttachment1, FramebufferAttachment.ColorAttachment2}
-            fbo.DrawBuffers(3, attachments)
-            Return True
-        End Function
-    End Class
-End Module
+        Dim attachments() As DrawBuffersEnum = {FramebufferAttachment.ColorAttachment0, FramebufferAttachment.ColorAttachment1, FramebufferAttachment.ColorAttachment2}
+        fbo.DrawBuffers(3, attachments)
+        Return True
+    End Function
+End Class
