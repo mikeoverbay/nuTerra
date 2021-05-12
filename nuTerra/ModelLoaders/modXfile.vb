@@ -2,6 +2,11 @@
 Imports OpenTK
 Imports OpenTK.Graphics.OpenGL4
 
+Public Class XModel
+    Public vao As GLVertexArray
+    Public indices_count As Integer
+End Class
+
 Module modXfile
     Private Structure _vertex
         Public v As Vector3
@@ -12,11 +17,6 @@ Module modXfile
     Private Structure _indice
         Public a, b, c As UShort
     End Structure
-
-    Public Class XModel
-        Public vao As GLVertexArray
-        Public indices_count As Integer
-    End Class
 
     Public Function get_X_model(file_ As String) As XModel
         Dim vbuff() As _vertex

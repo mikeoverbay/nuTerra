@@ -51,8 +51,6 @@ Module TerrainBuilder
         Public Shared MINI_MAP_ID As GLTexture
         Public Shared GLOBAL_AM_ID As GLTexture
 
-        Public Shared skybox_mdl As XModel
-        Public Shared Sky_Texture_Id As GLTexture
         Public Shared lut_path As String
         '------------------------
         Public Shared chunk_size As Single ' space.settings/chunkSize or 100.0 by default
@@ -464,13 +462,13 @@ Module TerrainBuilder
         Dim activeEnvironment = environments_xml("activeEnvironment").InnerText.Replace(".", "-")
 
         ' get skybox and cube texture paths
-        theMap.skybox_mdl = get_X_model(Application.StartupPath + "\resources\skyDome.x")
+        map_scene.sky.skybox_mdl = get_X_model(Application.StartupPath + "\resources\skyDome.x")
         CUBE_TEXTURE_PATH = "spaces/" + abs_name + "/environments/" + activeEnvironment + "/probes/global/pmrem.dds"
 
         Dim skyBox_visual_path = String.Format("spaces/{0}/environments/{1}/skyDome/forward/skyBox.visual_processed", abs_name, activeEnvironment)
         Dim skyBox_visual = ResMgr.openXML(skyBox_visual_path)
         Dim skyBox_diffuseMap = skyBox_visual.SelectSingleNode("renderSet/geometry/primitiveGroup/material/property[contains(text(), 'diffuseMap')]/Texture").InnerText
-        theMap.Sky_Texture_Id = find_and_load_texture_from_pkgs(skyBox_diffuseMap)
+        map_scene.sky.texture = find_and_load_texture_from_pkgs(skyBox_diffuseMap)
 
         ' get sun information and time of day.
         Dim active_environment_xml = ResMgr.openXML(String.Format("spaces/{0}/environments/{1}/environment.xml", abs_name, activeEnvironment))
