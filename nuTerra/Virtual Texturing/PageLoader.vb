@@ -79,7 +79,7 @@ Public Class PageLoader
         GL.Disable(EnableCap.DepthTest)
         GL.CullFace(CullFaceMode.Front)
 
-        theMap.GLOBAL_AM_ID.BindUnit(0)
+        map_scene.terrain.GLOBAL_AM_ID.BindUnit(0)
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.v_data(i).BB_Min.X > right Then

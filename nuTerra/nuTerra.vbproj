@@ -204,6 +204,7 @@
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
     <Compile Include="Scene\MapBaseRings.vb" />
+    <Compile Include="Scene\MapCursor.vb" />
     <Compile Include="Scene\MapFog.vb" />
     <Compile Include="Scene\MapMinimap.vb" />
     <Compile Include="Scene\MapScene.vb" />
@@ -222,6 +223,7 @@
     <Compile Include="Scene\MapSky.vb" />
     <Compile Include="Scene\MapStaticModels.vb" />
     <Compile Include="Scene\MapTerrain.vb" />
+    <Compile Include="Scene\MapTrees.vb" />
     <Compile Include="Scene\MapWater.vb" />
     <Compile Include="ShaderEditor\ShaderLoader.vb" />
     <Compile Include="Space.bin\modSpaceBin.vb" />

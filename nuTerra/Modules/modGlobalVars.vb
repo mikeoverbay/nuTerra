@@ -101,7 +101,6 @@ Module modGlobalVars
     Public SHOW_CHUNK_IDs As Integer
     Public SHOW_TEST_TEXTURES As Boolean = False 'show test ourtline on terrain flag. default Off.
     'models
-    Public CURSOR_TEXTURE_ID As GLTexture
     Public DIRECTION_TEXTURE_ID As GLTexture
     Public PROGRESS_BAR_IMAGE_ID As GLTexture
     Public MINI_WORLD_MOUSE_POSITION As Vector2

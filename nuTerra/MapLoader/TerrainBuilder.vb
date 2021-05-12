@@ -48,7 +48,6 @@ Module TerrainBuilder
         Public Shared v_data() As terain_V_data_
         Public Shared render_set() As chunk_render_data_
         '------------------------
-        Public Shared GLOBAL_AM_ID As GLTexture
 
         Public Shared lut_path As String
         '------------------------
@@ -57,10 +56,6 @@ Module TerrainBuilder
         Public Shared bounds_maxX As Int32 '
         Public Shared bounds_minY As Int32 '
         Public Shared bounds_maxY As Int32 '
-        '------------------------
-        Public Shared normal_map As String
-        Public Shared global_map As String ' global_AM.dds
-        Public Shared noise_texture As String ' noiseTexture
     End Class
 
     Public Structure chunk_
@@ -336,7 +331,7 @@ Module TerrainBuilder
         Dim gmm = ResMgr.Lookup(String.Format("spaces/{0}/global_am.dds", ABS_NAME))
         Dim gmss As New MemoryStream
         gmm.Extract(gmss)
-        theMap.GLOBAL_AM_ID = load_dds_image_from_stream(gmss, "")
+        map_scene.terrain.GLOBAL_AM_ID = load_dds_image_from_stream(gmss, "")
         gmss.Dispose()
         GC.Collect()
 
@@ -359,10 +354,6 @@ Module TerrainBuilder
             theMap.bounds_maxY = .bounds_maxY
             theMap.bounds_minX = .bounds_minX
             theMap.bounds_minY = .bounds_minY
-
-            theMap.global_map = .global_map
-            theMap.normal_map = .normal_map
-            theMap.noise_texture = .noise_texture
         End With
         For i = 0 To cBWT2.cdatas.count - 1
             With cBWT2.cdatas.data(i)

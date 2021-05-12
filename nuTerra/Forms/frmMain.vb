@@ -667,7 +667,6 @@ try_again:
         CHECKER_BOARD = load_png_image_from_file(Path.Combine(sp, "resources\CheckerPatternPaper.png"), False, False)
         '---------------------------------------------------------
         'cursor texture
-        CURSOR_TEXTURE_ID = load_png_image_from_file(Path.Combine(sp, "resources\Cursor.png"), True, False)
         '---------------------------------------------------------
         'MiniMap position/direction img
         DIRECTION_TEXTURE_ID = load_png_image_from_file(Path.Combine(sp, "resources\direction.png"), True, False)
