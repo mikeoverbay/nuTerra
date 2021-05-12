@@ -14,7 +14,7 @@ Module modXfile
     End Structure
 
     Public Class XModel
-        Public vao As Integer
+        Public vao As GLVertexArray
         Public indices_count As Integer
     End Class
 
@@ -121,7 +121,7 @@ Module modXfile
         result.indices_count = index_buffer16.Length
 
         'Create VAO id
-        result.vao = CreateVertexArray(file_)
+        result.vao = GLVertexArray.Create(file_)
 
         Dim mBuffer = GLBuffer.Create(BufferTarget.ArrayBuffer, file_)
 
@@ -132,22 +132,22 @@ Module modXfile
         GL.NamedBufferSubData(mBuffer.buffer_id, IntPtr.Zero, index_buffer16.Length * 6, index_buffer16)
         GL.NamedBufferSubData(mBuffer.buffer_id, vbuff_offset, vbuff.Length * 32, vbuff)
 
-        GL.VertexArrayVertexBuffer(result.vao, 0, mBuffer.buffer_id, vbuff_offset, 32)
-        GL.VertexArrayAttribFormat(result.vao, 0, 3, VertexAttribType.Float, False, 0)
-        GL.VertexArrayAttribBinding(result.vao, 0, 0)
-        GL.EnableVertexArrayAttrib(result.vao, 0)
+        result.vao.VertexBuffer(0, mBuffer, vbuff_offset, 32)
+        result.vao.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
+        result.vao.AttribBinding(0, 0)
+        result.vao.EnableAttrib(0)
 
-        GL.VertexArrayVertexBuffer(result.vao, 1, mBuffer.buffer_id, vbuff_offset, 32)
-        GL.VertexArrayAttribFormat(result.vao, 1, 3, VertexAttribType.Float, False, 12)
-        GL.VertexArrayAttribBinding(result.vao, 1, 1)
-        GL.EnableVertexArrayAttrib(result.vao, 1)
+        result.vao.VertexBuffer(1, mBuffer, vbuff_offset, 32)
+        result.vao.AttribFormat(1, 3, VertexAttribType.Float, False, 12)
+        result.vao.AttribBinding(1, 1)
+        result.vao.EnableAttrib(1)
 
-        GL.VertexArrayVertexBuffer(result.vao, 2, mBuffer.buffer_id, vbuff_offset, 32)
-        GL.VertexArrayAttribFormat(result.vao, 2, 2, VertexAttribType.Float, False, 24)
-        GL.VertexArrayAttribBinding(result.vao, 2, 2)
-        GL.EnableVertexArrayAttrib(result.vao, 2)
+        result.vao.VertexBuffer(2, mBuffer, vbuff_offset, 32)
+        result.vao.AttribFormat(2, 2, VertexAttribType.Float, False, 24)
+        result.vao.AttribBinding(2, 2)
+        result.vao.EnableAttrib(2)
 
-        GL.VertexArrayElementBuffer(result.vao, mBuffer.buffer_id)
+        result.vao.ElementBuffer(mBuffer)
         Return result
     End Function
 

@@ -5,7 +5,7 @@ Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 
 Module modOpenGL
-    Public defaultVao As Integer
+    Public defaultVao As GLVertexArray
     Public FieldOfView As Single
 
     Public Class GLCapabilities
@@ -277,7 +277,7 @@ Module modOpenGL
                     rect.Right,
                     -rect.Bottom)
 
-        GL.BindVertexArray(defaultVao)
+        defaultVao.Bind()
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
         'GL.BindVertexArray(0)
 
@@ -303,7 +303,7 @@ Module modOpenGL
                     rect.Right,
                     -rect.Bottom)
 
-            GL.BindVertexArray(defaultVao)
+            defaultVao.Bind()
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
             image2dShader.StopUse()
 
@@ -333,7 +333,7 @@ Module modOpenGL
                         rect.Right,
                         -rect.Top)
 
-            GL.BindVertexArray(defaultVao)
+            defaultVao.Bind()
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
             'GL.BindVertexArray(0)
 

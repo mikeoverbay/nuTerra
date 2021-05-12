@@ -304,16 +304,16 @@ Module ChunkFunctions
         Dim terrainMatrices(theMap.chunks.Length - 1) As TerrainChunkInfo
         Dim terrainIndirect(theMap.chunks.Length - 1) As DrawElementsIndirectCommand
 
-        MapGL.VertexArrays.allTerrainChunks = CreateVertexArray("allTerrainChunks")
+        map_scene.allTerrainChunks = GLVertexArray.Create("allTerrainChunks")
 
-        MapGL.Buffers.terrain_vertices = GLBuffer.Create(BufferTarget.ArrayBuffer, "terrain_vertices")
-        MapGL.Buffers.terrain_indices = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "terrain_indices")
+        map_scene.terrain_vertices = GLBuffer.Create(BufferTarget.ArrayBuffer, "terrain_vertices")
+        map_scene.terrain_indices = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "terrain_indices")
 
         Dim vcount = theMap.v_data(0).v_buff_XZ.Length * theMap.chunks.Length
         Dim vsize = Marshal.SizeOf(Of TerrainVertex)
 
-        MapGL.Buffers.terrain_vertices.StorageNullData(vcount * vsize, BufferStorageFlags.DynamicStorageBit)
-        MapGL.Buffers.terrain_indices.Storage(theMap.v_data(0).indicies.Length * 6, theMap.v_data(0).indicies, BufferStorageFlags.None)
+        map_scene.terrain_vertices.StorageNullData(vcount * vsize, BufferStorageFlags.DynamicStorageBit)
+        map_scene.terrain_indices.Storage(theMap.v_data(0).indicies.Length * 6, theMap.v_data(0).indicies, BufferStorageFlags.None)
 
         For i = 0 To theMap.chunks.Length - 1
             With theMap.v_data(i)
@@ -338,7 +338,7 @@ Module ChunkFunctions
                     vertices(j).tangents = pack_2_10_10_10(.t_buff(j))
                 Next
 
-                GL.NamedBufferSubData(MapGL.Buffers.terrain_vertices.buffer_id,
+                GL.NamedBufferSubData(map_scene.terrain_vertices.buffer_id,
                                       New IntPtr(i * vertices.Length * vsize),
                                       vertices.Length * vsize,
                                       vertices)
@@ -354,37 +354,37 @@ Module ChunkFunctions
         Next
 
         ' VERTEX XYZ
-        GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allTerrainChunks, 0, MapGL.Buffers.terrain_vertices.buffer_id, IntPtr.Zero, vsize)
-        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 0, 3, VertexAttribType.Float, False, 0)
-        GL.VertexArrayAttribBinding(MapGL.VertexArrays.allTerrainChunks, 0, 0)
-        GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 0)
+        map_scene.allTerrainChunks.VertexBuffer(0, map_scene.terrain_vertices, IntPtr.Zero, vsize)
+        map_scene.allTerrainChunks.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
+        map_scene.allTerrainChunks.AttribBinding(0, 0)
+        map_scene.allTerrainChunks.EnableAttrib(0)
 
         ' UV
-        GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allTerrainChunks, 1, MapGL.Buffers.terrain_vertices.buffer_id, New IntPtr(12), vsize)
-        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 1, 2, VertexAttribType.Float, False, 0)
-        GL.VertexArrayAttribBinding(MapGL.VertexArrays.allTerrainChunks, 1, 1)
-        GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 1)
+        map_scene.allTerrainChunks.VertexBuffer(1, map_scene.terrain_vertices, New IntPtr(12), vsize)
+        map_scene.allTerrainChunks.AttribFormat(1, 2, VertexAttribType.Float, False, 0)
+        map_scene.allTerrainChunks.AttribBinding(1, 1)
+        map_scene.allTerrainChunks.EnableAttrib(1)
 
         ' NORMALS AND HOLES
-        GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allTerrainChunks, 2, MapGL.Buffers.terrain_vertices.buffer_id, New IntPtr(20), vsize)
-        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 2, 4, VertexAttribType.Int2101010Rev, True, 0)
-        GL.VertexArrayAttribBinding(MapGL.VertexArrays.allTerrainChunks, 2, 2)
-        GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 2)
+        map_scene.allTerrainChunks.VertexBuffer(2, map_scene.terrain_vertices, New IntPtr(20), vsize)
+        map_scene.allTerrainChunks.AttribFormat(2, 4, VertexAttribType.Int2101010Rev, True, 0)
+        map_scene.allTerrainChunks.AttribBinding(2, 2)
+        map_scene.allTerrainChunks.EnableAttrib(2)
 
         ' Tangents
-        GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allTerrainChunks, 3, MapGL.Buffers.terrain_vertices.buffer_id, New IntPtr(24), vsize)
-        GL.VertexArrayAttribFormat(MapGL.VertexArrays.allTerrainChunks, 3, 4, VertexAttribType.Int2101010Rev, True, 0)
-        GL.VertexArrayAttribBinding(MapGL.VertexArrays.allTerrainChunks, 3, 3)
-        GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allTerrainChunks, 3)
+        map_scene.allTerrainChunks.VertexBuffer(3, map_scene.terrain_vertices, New IntPtr(24), vsize)
+        map_scene.allTerrainChunks.AttribFormat(3, 4, VertexAttribType.Int2101010Rev, True, 0)
+        map_scene.allTerrainChunks.AttribBinding(3, 3)
+        map_scene.allTerrainChunks.EnableAttrib(3)
 
-        GL.VertexArrayElementBuffer(MapGL.VertexArrays.allTerrainChunks, MapGL.Buffers.terrain_indices.buffer_id)
+        map_scene.allTerrainChunks.ElementBuffer(map_scene.terrain_indices)
 
-        MapGL.Buffers.terrain_indirect = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "terrain_indirect")
-        MapGL.Buffers.terrain_indirect.Storage(terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
+        map_scene.terrain_indirect = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "terrain_indirect")
+        map_scene.terrain_indirect.Storage(terrainIndirect.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
 
-        MapGL.Buffers.terrain_matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
-        MapGL.Buffers.terrain_matrices.Storage(terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
-        MapGL.Buffers.terrain_matrices.BindBase(10)
+        map_scene.terrain_matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
+        map_scene.terrain_matrices.Storage(terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
+        map_scene.terrain_matrices.BindBase(10)
     End Sub
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terain_V_data_)

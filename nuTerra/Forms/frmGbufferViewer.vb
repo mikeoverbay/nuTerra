@@ -13,7 +13,7 @@ Public Class frmGbufferViewer
     Private image_scale As Single = 0.25
     Public Viewer_Image_ID As Integer = 1
     Dim PROJECTIONMATRIX_GLC As Matrix4
-    Dim GLC_VA As Integer
+    Dim GLC_VA As GLVertexArray
     Dim MASK As UInt32 = &HF
     ReadOnly maskList() As Integer = {1, 2, 4, 8}
 
@@ -70,7 +70,7 @@ Public Class frmGbufferViewer
 
 
         GLC.MakeCurrent()
-        GLC_VA = CreateVertexArray("GLC_VA")
+        GLC_VA = GLVertexArray.Create("GLC_VA")
         update_screen()
 
         'order important?
@@ -133,9 +133,7 @@ Public Class frmGbufferViewer
         img_width *= image_scale
         img_height *= image_scale
 
-        Dim er = GL.GetError
-        GL.BindVertexArray(GLC_VA)
-        Dim er2 = GL.GetError
+        GLC_VA.Bind()
 
         Select Case Viewer_Image_ID
             Case 1
@@ -173,9 +171,9 @@ Public Class frmGbufferViewer
                 draw_image(img_width, img_height, MainFBO.gAUX_Color, 0)
 
             Case 7
-                If vt IsNot Nothing Then
+                If map_scene.vt IsNot Nothing Then
                     draw_checker_board(CHECKER_BOARD)
-                    vt.DebugDraw(rect_location, rect_size, PROJECTIONMATRIX_GLC)
+                    map_scene.vt.DebugDraw(rect_location, rect_size, PROJECTIONMATRIX_GLC)
                 End If
 
         End Select
@@ -243,7 +241,7 @@ Public Class frmGbufferViewer
                         rect.Right,
                         -rect.Bottom)
 
-        GL.BindVertexArray(defaultVao)
+        defaultVao.Bind()
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         image2dShader.StopUse()

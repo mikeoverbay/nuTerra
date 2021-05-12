@@ -54,6 +54,10 @@ Public Class GLBuffer
         CheckGLError()
     End Sub
 
+    Public Sub ClearSubData(internalformat As PixelInternalFormat, offset As IntPtr, size As Integer, format As PixelFormat, type As PixelType, data As IntPtr)
+        GL.ClearNamedBufferSubData(buffer_id, internalformat, offset, size, format, type, data)
+    End Sub
+
     Public Sub Dispose() Implements IDisposable.Dispose
         GL.DeleteBuffer(buffer_id)
         ALL_SIZE -= size

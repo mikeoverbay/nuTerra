@@ -119,6 +119,7 @@
     <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="OpenGL\GLVertexArray.vb" />
     <Compile Include="ResMgr\packed_section.vb" />
     <Compile Include="ResMgr\ResMgr.vb" />
     <Compile Include="FBOs\FBO_MiniMap.vb" />
@@ -202,6 +203,7 @@
     <Compile Include="RenderEngine\ModelPicker.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
+    <Compile Include="Scene\MapScene.vb" />
     <Compile Include="Forms\frmProgramEditor.designer.vb">
       <DependentUpon>frmProgramEditor.vb</DependentUpon>
     </Compile>

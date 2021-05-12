@@ -64,10 +64,6 @@ Module TerrainBuilder
         Public Shared normal_map As String
         Public Shared global_map As String ' global_AM.dds
         Public Shared noise_texture As String ' noiseTexture
-
-        Public Shared Sub Delete()
-            MapGL.Buffers.Delete()
-        End Sub
     End Class
 
     Public Structure chunk_

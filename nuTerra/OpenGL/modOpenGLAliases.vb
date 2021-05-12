@@ -15,14 +15,6 @@ Public Module modOpenGLAliases
 #End If
     End Sub
 
-    <MethodImpl(MethodImplOptions.AggressiveInlining)>
-    Public Function CreateVertexArray(name As String) As Integer
-        Dim va_id As Integer
-        GL.CreateVertexArrays(1, va_id)
-        LabelObject(ObjectLabelIdentifier.VertexArray, va_id, name)
-        Return va_id
-    End Function
-
     <Conditional("DEBUG")>
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
     Public Sub LabelObject(objLabelIdent As ObjectLabelIdentifier, glObject As Integer, name As String)

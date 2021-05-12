@@ -18,68 +18,7 @@ Module MapLoader
     'This stores all models used on a map
     Public MAP_MODELS() As mdl_
 
-    NotInheritable Class MapGL
-        ' Get data from gpu
-        Public Shared numAfterFrustum(2) As Integer
 
-        ''' <summary>
-        ''' OpenGL buffers used to draw all map models
-        ''' </summary>
-        NotInheritable Class Buffers
-            ' For map models only!
-            Public Shared materials As GLBuffer
-            Public Shared parameters As GLBuffer
-            Public Shared parameters_temp As GLBuffer
-            Public Shared matrices As GLBuffer
-            Public Shared drawCandidates As GLBuffer
-            Public Shared verts As GLBuffer
-            Public Shared vertsUV2 As GLBuffer
-            Public Shared prims As GLBuffer
-            Public Shared indirect As GLBuffer
-            Public Shared indirect_glass As GLBuffer
-            Public Shared indirect_dbl_sided As GLBuffer
-            Public Shared lods As GLBuffer
-
-            ' For terrain only!
-            Public Shared terrain_matrices As GLBuffer
-            Public Shared terrain_indirect As GLBuffer
-            Public Shared terrain_vertices As GLBuffer
-            Public Shared terrain_indices As GLBuffer
-
-            ' For cull-raster only!
-            Public Shared visibles As GLBuffer
-            Public Shared visibles_dbl_sided As GLBuffer
-
-            Public Shared Sub Delete()
-                materials?.Dispose()
-                parameters?.Dispose()
-                parameters_temp?.Dispose()
-                matrices?.Dispose()
-                drawCandidates?.Dispose()
-                verts?.Dispose()
-                vertsUV2?.Dispose()
-                prims?.Dispose()
-                indirect?.Dispose()
-                indirect_glass?.Dispose()
-                indirect_dbl_sided?.Dispose()
-                lods?.Dispose()
-                terrain_matrices?.Dispose()
-                terrain_indirect?.Dispose()
-                terrain_vertices?.Dispose()
-                terrain_indices?.Dispose()
-                visibles?.Dispose()
-                visibles_dbl_sided?.Dispose()
-            End Sub
-        End Class
-
-        NotInheritable Class VertexArrays
-            Public Shared allMapModels As Integer
-            Public Shared allTerrainChunks As Integer
-        End Class
-
-        Public Shared numModelInstances As Integer
-        Public Shared indirectDrawCount As Integer
-    End Class
 
     Public Structure mdl_
         Public modelLods() As base_model_holder_
@@ -106,10 +45,8 @@ Module MapLoader
         'and call this at startup so skip having to select a menu
 
         'First we need to remove the loaded data.
-        '===============================================================
-        remove_map_data() '=============================================
-        '===============================================================
-        'House Keeping
+        map_scene?.Dispose()
+        map_scene = New MapScene(map_name)
 
         '===============================================================
         'get the light settings for this map.
@@ -209,8 +146,8 @@ Module MapLoader
 
             '----------------------------------------------------------------
             ' calc instances
-            MapGL.numModelInstances = 0
-            MapGL.indirectDrawCount = 0
+            map_scene.numModelInstances = 0
+            map_scene.indirectDrawCount = 0
             Dim numVerts = 0
             Dim numPrims = 0
             Dim numLods = 0
@@ -231,7 +168,7 @@ Module MapLoader
                             If primGroup.no_draw Then
                                 Continue For
                             End If
-                            MapGL.indirectDrawCount += batch.count
+                            map_scene.indirectDrawCount += batch.count
                             skip = False
                         Next
                         numVerts += renderSet.buffers.vertexBuffer.Length
@@ -241,34 +178,34 @@ Module MapLoader
                     If skip Then Continue For
 
                     numLods += batch.count
-                    If lod_id = 0 Then MapGL.numModelInstances += batch.count
+                    If lod_id = 0 Then map_scene.numModelInstances += batch.count
                 Next
             Next
 
             '----------------------------------------------------------------
             ' setup instances
-            Dim drawCommands(MapGL.indirectDrawCount - 1) As CandidateDraw
+            Dim drawCommands(map_scene.indirectDrawCount - 1) As CandidateDraw
 
             Dim vertex_size = Marshal.SizeOf(Of ModelVertex)()
             Dim tri_size = Marshal.SizeOf(Of vect3_32)()
             Dim uv2_size = Marshal.SizeOf(Of Vector2)()
 
-            MapGL.Buffers.verts = GLBuffer.Create(BufferTarget.ArrayBuffer, "verts")
-            MapGL.Buffers.verts.StorageNullData(
+            map_scene.verts = GLBuffer.Create(BufferTarget.ArrayBuffer, "verts")
+            map_scene.verts.StorageNullData(
                                   numVerts * vertex_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
-            MapGL.Buffers.prims = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "prims")
-            MapGL.Buffers.prims.StorageNullData(
+            map_scene.prims = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "prims")
+            map_scene.prims.StorageNullData(
                                   numPrims * tri_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
-            MapGL.Buffers.vertsUV2 = GLBuffer.Create(BufferTarget.ArrayBuffer, "vertsUV2")
-            MapGL.Buffers.vertsUV2.StorageNullData(
+            map_scene.vertsUV2 = GLBuffer.Create(BufferTarget.ArrayBuffer, "vertsUV2")
+            map_scene.vertsUV2.StorageNullData(
                                   numVerts * uv2_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
-            Dim matrices(MapGL.numModelInstances - 1) As ModelInstance
+            Dim matrices(map_scene.numModelInstances - 1) As ModelInstance
             Dim lods(numLods - 1) As ModelLoD
             Dim cmdId = 0
             Dim vLast = 0
@@ -312,11 +249,11 @@ Module MapLoader
 
                         baseVert += renderSet.numVertices
 
-                        GL.NamedBufferSubData(MapGL.Buffers.verts.buffer_id, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
-                        GL.NamedBufferSubData(MapGL.Buffers.prims.buffer_id, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
+                        GL.NamedBufferSubData(map_scene.verts.buffer_id, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
+                        GL.NamedBufferSubData(map_scene.prims.buffer_id, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
 
                         If renderSet.buffers.uv2 IsNot Nothing Then
-                            GL.NamedBufferSubData(MapGL.Buffers.vertsUV2.buffer_id, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
+                            GL.NamedBufferSubData(map_scene.vertsUV2.buffer_id, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
                             Erase renderSet.buffers.uv2
                         End If
 
@@ -371,110 +308,110 @@ Module MapLoader
                 mLast += batch.count
             Next
 
-            MapGL.Buffers.parameters_temp = GLBuffer.Create(BufferTarget.CopyWriteBuffer, "parameters_temp")
-            MapGL.Buffers.parameters_temp.StorageNullData(
-                                  3 * Marshal.SizeOf(Of Integer),
-                                  BufferStorageFlags.ClientStorageBit)
+            map_scene.parameters_temp = GLBuffer.Create(BufferTarget.CopyWriteBuffer, "parameters_temp")
+            map_scene.parameters_temp.StorageNullData(
+                3 * Marshal.SizeOf(Of Integer),
+                BufferStorageFlags.ClientStorageBit)
 
-            MapGL.Buffers.parameters = GLBuffer.Create(BufferTarget.AtomicCounterBuffer, "parameters")
-            MapGL.Buffers.parameters.StorageNullData(
-                                  3 * Marshal.SizeOf(Of Integer),
-                                  BufferStorageFlags.None)
-            MapGL.Buffers.parameters.BindBase(0)
+            map_scene.parameters = GLBuffer.Create(BufferTarget.AtomicCounterBuffer, "parameters")
+            map_scene.parameters.StorageNullData(
+                3 * Marshal.SizeOf(Of Integer),
+                BufferStorageFlags.None)
+            map_scene.parameters.BindBase(0)
 
-            MapGL.Buffers.visibles = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "visibles")
-            MapGL.Buffers.visibles.StorageNullData(
-                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of Integer),
-                                  BufferStorageFlags.DynamicStorageBit)
-            MapGL.Buffers.visibles.BindBase(8)
+            map_scene.visibles = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "visibles")
+            map_scene.visibles.StorageNullData(
+                map_scene.indirectDrawCount * Marshal.SizeOf(Of Integer),
+                BufferStorageFlags.DynamicStorageBit)
+            map_scene.visibles.BindBase(8)
 
-            MapGL.Buffers.visibles_dbl_sided = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "visibles_dbl_sided")
-            MapGL.Buffers.visibles_dbl_sided.StorageNullData(
-                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of Integer),
-                                  BufferStorageFlags.DynamicStorageBit)
-            MapGL.Buffers.visibles_dbl_sided.BindBase(9)
+            map_scene.visibles_dbl_sided = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "visibles_dbl_sided")
+            map_scene.visibles_dbl_sided.StorageNullData(
+                map_scene.indirectDrawCount * Marshal.SizeOf(Of Integer),
+                BufferStorageFlags.DynamicStorageBit)
+            map_scene.visibles_dbl_sided.BindBase(9)
 
-            MapGL.Buffers.drawCandidates = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "drawCandidates")
-            MapGL.Buffers.drawCandidates.Storage(
-                          MapGL.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw),
-                          drawCommands,
-                          BufferStorageFlags.None)
-            MapGL.Buffers.drawCandidates.BindBase(1)
+            map_scene.drawCandidates = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "drawCandidates")
+            map_scene.drawCandidates.Storage(
+                map_scene.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw),
+                drawCommands,
+                BufferStorageFlags.None)
+            map_scene.drawCandidates.BindBase(1)
             Erase drawCommands
 
-            MapGL.Buffers.indirect = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect")
-            MapGL.Buffers.indirect.StorageNullData(
-                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
-                                  BufferStorageFlags.None)
-            MapGL.Buffers.indirect.BindBase(2)
-
-            MapGL.Buffers.indirect_glass = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_glass")
-            MapGL.Buffers.indirect_glass.StorageNullData(
-                                  MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
-                                  BufferStorageFlags.None)
-            MapGL.Buffers.indirect_glass.BindBase(5)
-
-            MapGL.Buffers.indirect_dbl_sided = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_dbl_sided")
-            MapGL.Buffers.indirect_dbl_sided.StorageNullData(
-                MapGL.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+            map_scene.indirect = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect")
+            map_scene.indirect.StorageNullData(
+                map_scene.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                 BufferStorageFlags.None)
-            MapGL.Buffers.indirect_dbl_sided.BindBase(6)
+            map_scene.indirect.BindBase(2)
 
-            MapGL.Buffers.matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "matrices")
-            MapGL.Buffers.matrices.Storage(
+            map_scene.indirect_glass = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_glass")
+            map_scene.indirect_glass.StorageNullData(
+                map_scene.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                BufferStorageFlags.None)
+            map_scene.indirect_glass.BindBase(5)
+
+            map_scene.indirect_dbl_sided = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_dbl_sided")
+            map_scene.indirect_dbl_sided.StorageNullData(
+                map_scene.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                BufferStorageFlags.None)
+            map_scene.indirect_dbl_sided.BindBase(6)
+
+            map_scene.matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "matrices")
+            map_scene.matrices.Storage(
                 matrices.Length * Marshal.SizeOf(Of ModelInstance),
                 matrices,
                 BufferStorageFlags.None)
-            MapGL.Buffers.matrices.BindBase(0)
+            map_scene.matrices.BindBase(0)
             Erase matrices
 
-            MapGL.Buffers.lods = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "lods")
-            MapGL.Buffers.lods.Storage(
+            map_scene.lods = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "lods")
+            map_scene.lods.Storage(
                 lods.Length * Marshal.SizeOf(Of ModelLoD),
                 lods,
                 BufferStorageFlags.None)
-            MapGL.Buffers.lods.BindBase(4)
+            map_scene.lods.BindBase(4)
             Erase lods
 
-            MapGL.VertexArrays.allMapModels = CreateVertexArray("allMapModels")
+            map_scene.allMapModels = GLVertexArray.Create("allMapModels")
 
             'pos
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 0, MapGL.Buffers.verts.buffer_id, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 0, 3, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 0, 0)
-            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 0)
+            map_scene.allMapModels.VertexBuffer(0, map_scene.verts, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
+            map_scene.allMapModels.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
+            map_scene.allMapModels.AttribBinding(0, 0)
+            map_scene.allMapModels.EnableAttrib(0)
 
             'normal
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 1, MapGL.Buffers.verts.buffer_id, New IntPtr(12), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 1, 4, VertexAttribType.HalfFloat, False, 0)
-            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 1, 1)
-            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 1)
+            map_scene.allMapModels.VertexBuffer(1, map_scene.verts, New IntPtr(12), Marshal.SizeOf(Of ModelVertex))
+            map_scene.allMapModels.AttribFormat(1, 4, VertexAttribType.HalfFloat, False, 0)
+            map_scene.allMapModels.AttribBinding(1, 1)
+            map_scene.allMapModels.EnableAttrib(1)
 
             'tangent
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 2, MapGL.Buffers.verts.buffer_id, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 2, 4, VertexAttribType.HalfFloat, False, 0)
-            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 2, 2)
-            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 2)
+            map_scene.allMapModels.VertexBuffer(2, map_scene.verts, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
+            map_scene.allMapModels.AttribFormat(2, 4, VertexAttribType.HalfFloat, False, 0)
+            map_scene.allMapModels.AttribBinding(2, 2)
+            map_scene.allMapModels.EnableAttrib(2)
 
             'binormal
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 3, MapGL.Buffers.verts.buffer_id, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 3, 4, VertexAttribType.HalfFloat, False, 0)
-            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 3, 3)
-            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 3)
+            map_scene.allMapModels.VertexBuffer(3, map_scene.verts, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
+            map_scene.allMapModels.AttribFormat(3, 4, VertexAttribType.HalfFloat, False, 0)
+            map_scene.allMapModels.AttribBinding(3, 3)
+            map_scene.allMapModels.EnableAttrib(3)
 
             'uv
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 4, MapGL.Buffers.verts.buffer_id, New IntPtr(36), Marshal.SizeOf(Of ModelVertex))
-            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 4, 2, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 4, 4)
-            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 4)
+            map_scene.allMapModels.VertexBuffer(4, map_scene.verts, New IntPtr(36), Marshal.SizeOf(Of ModelVertex))
+            map_scene.allMapModels.AttribFormat(4, 2, VertexAttribType.Float, False, 0)
+            map_scene.allMapModels.AttribBinding(4, 4)
+            map_scene.allMapModels.EnableAttrib(4)
 
             'uv2
-            GL.VertexArrayVertexBuffer(MapGL.VertexArrays.allMapModels, 5, MapGL.Buffers.vertsUV2.buffer_id, IntPtr.Zero, Marshal.SizeOf(Of Vector2))
-            GL.VertexArrayAttribFormat(MapGL.VertexArrays.allMapModels, 5, 2, VertexAttribType.Float, False, 0)
-            GL.VertexArrayAttribBinding(MapGL.VertexArrays.allMapModels, 5, 5)
-            GL.EnableVertexArrayAttrib(MapGL.VertexArrays.allMapModels, 5)
+            map_scene.allMapModels.VertexBuffer(5, map_scene.vertsUV2, IntPtr.Zero, Marshal.SizeOf(Of Vector2))
+            map_scene.allMapModels.AttribFormat(5, 2, VertexAttribType.Float, False, 0)
+            map_scene.allMapModels.AttribBinding(5, 5)
+            map_scene.allMapModels.EnableAttrib(5)
 
-            GL.VertexArrayElementBuffer(MapGL.VertexArrays.allMapModels, MapGL.Buffers.prims.buffer_id)
+            map_scene.allMapModels.ElementBuffer(map_scene.prims)
 
             load_materials()
 
@@ -510,7 +447,7 @@ Module MapLoader
         '===============================================================
         '===============================================================
 
-        RebuildVTAtlas()
+        map_scene.RebuildVTAtlas()
 
         MAP_LOADED = True
 
@@ -546,26 +483,6 @@ Module MapLoader
         'Enable main menu
         frmMain.MainMenuStrip.Enabled = True
 
-    End Sub
-
-    Public Sub RebuildVTAtlas()
-        LogThis("REBUILD ATLAS")
-
-        vtInfo = New VirtualTextureInfo With {
-            .TileSize = TILE_SIZE,
-            .VirtualTextureSize = TILE_SIZE * VT_NUM_PAGES
-            }
-
-        If vt IsNot Nothing Then vt.Dispose()
-        vt = New VirtualTexture(vtInfo, NUM_TILES, UPLOADS_PER_FRAME)
-
-        If feedback IsNot Nothing Then feedback.Dispose()
-        feedback = New FeedbackBuffer(vtInfo, FEEDBACK_WIDTH, FEEDBACK_HEIGHT)
-
-        CommonProperties.VirtualTextureSize = vtInfo.VirtualTextureSize
-        CommonProperties.AtlasScale = 1.0F / (vtInfo.VirtualTextureSize / vtInfo.TileSize)
-        CommonProperties.PageTableSize = vtInfo.PageTableSize
-        CommonProperties.update()
     End Sub
 
     Public Sub set_light_pos()
@@ -1143,12 +1060,12 @@ Module MapLoader
 
         materials = Nothing
 
-        MapGL.Buffers.materials = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "materials")
-        MapGL.Buffers.materials.Storage(
+        map_scene.materials = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "materials")
+        map_scene.materials.Storage(
             materialsData.Length * Marshal.SizeOf(Of GLMaterial),
             materialsData,
             BufferStorageFlags.None)
-        MapGL.Buffers.materials.BindBase(3)
+        map_scene.materials.BindBase(3)
     End Sub
 
     Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)
@@ -1203,8 +1120,6 @@ Module MapLoader
             GL.DeleteTexture(i)
         Next
 
-        theMap.Delete()
-
         'delete VAOs
         Dim Lvbo As Integer
         GL.GenVertexArrays(1, Lvbo)
@@ -1220,10 +1135,6 @@ Module MapLoader
 
         'Clear texture cache so we dont returned non-existent textures.
         imgTbl.Clear()
-
-        vt = Nothing
-        vtInfo = Nothing
-        feedback = Nothing
 
         GC.Collect()
         GC.WaitForFullGCComplete()

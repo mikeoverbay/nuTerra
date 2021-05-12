@@ -2,9 +2,7 @@
 Imports OpenTK
 
 Module modGlobalVars
-    Public vt As VirtualTexture
-    Public vtInfo As VirtualTextureInfo
-    Public feedback As FeedbackBuffer
+    Public map_scene As MapScene
 
     ' VT params
     Public UPLOADS_PER_FRAME As Integer = 1

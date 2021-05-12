@@ -65,10 +65,8 @@ Public Class frmModelViewer
             GL.Uniform3(ModelViewerShader("viewPos"), MV_CAM_POS.X, MV_CAM_POS.Y, MV_CAM_POS.Z)
             GL.UniformMatrix4(ModelViewerShader("viewProjMat"), False, VIEWPROJECT)
 
-            GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
-
             modelIndirectBuffer.Bind(BufferTarget.DrawIndirectBuffer)
-            GL.BindVertexArray(MapGL.VertexArrays.allMapModels)
+            map_scene.allMapModels.Bind()
             GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, modelDrawCount, 0)
 
             ModelViewerShader.StopUse()
@@ -119,7 +117,7 @@ Public Class frmModelViewer
             cntr = text.Length * 10.0F / 2.0F
         End If
         Dim cnt As Integer = 0
-        GL.BindVertexArray(defaultVao)
+        defaultVao.Bind()
         For Each l In text
             Dim idx = ASCII_CHARACTERS.IndexOf(l) + 1
             Dim tp = (locX + cnt * 10.0) - cntr

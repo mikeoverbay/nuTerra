@@ -177,10 +177,10 @@ Public Class frmMain
                 Else
                     t_mixerShader.UnsetDefine("SHOW_TEST_TEXTURES")
                 End If
-                RebuildVTAtlas()
+                map_scene.RebuildVTAtlas()
 
             Case Keys.Y
-                RebuildVTAtlas()
+                map_scene.RebuildVTAtlas()
 
             Case Keys.V
                 DONT_HIDE_HUD = DONT_HIDE_HUD Xor True
@@ -566,7 +566,7 @@ try_again:
         LogThis(String.Format("{0}ms Game Path: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), My.Settings.GamePath))
 
         ' Create default VAO
-        defaultVao = CreateVertexArray("defaultVao")
+        defaultVao = GLVertexArray.Create("defaultVao")
 
         make_cube() ' used for many draw functions
 
@@ -1053,13 +1053,13 @@ try_again:
             End If
 
             Dim mdlInstance As ModelInstance
-            GL.GetNamedBufferSubData(MapGL.Buffers.matrices.buffer_id,
+            GL.GetNamedBufferSubData(map_scene.matrices.buffer_id,
                                      New IntPtr((PICKED_MODEL_INDEX - 1) * Marshal.SizeOf(mdlInstance)),
                                      Marshal.SizeOf(mdlInstance),
                                      mdlInstance)
 
             Dim mdlLod As ModelLoD
-            GL.GetNamedBufferSubData(MapGL.Buffers.lods.buffer_id,
+            GL.GetNamedBufferSubData(map_scene.lods.buffer_id,
                                      New IntPtr(mdlInstance.lod_offset * Marshal.SizeOf(mdlLod)),
                                      Marshal.SizeOf(mdlLod),
                                      mdlLod)
@@ -1068,7 +1068,7 @@ try_again:
             Dim indirectCommands(mdlLod.draw_count - 1) As DrawElementsIndirectCommand
             For i = 0 To mdlLod.draw_count - 1
                 Dim draw As CandidateDraw
-                GL.GetNamedBufferSubData(MapGL.Buffers.drawCandidates.buffer_id,
+                GL.GetNamedBufferSubData(map_scene.drawCandidates.buffer_id,
                                          New IntPtr((mdlLod.draw_offset + i) * Marshal.SizeOf(draw)),
                                          Marshal.SizeOf(draw),
                                          draw)

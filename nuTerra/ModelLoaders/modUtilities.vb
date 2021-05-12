@@ -3,7 +3,7 @@ Imports System.Runtime.CompilerServices
 Imports OpenTK.Graphics.OpenGL4
 
 Module modUtilities
-    Public CUBE_VAO As Integer
+    Public CUBE_VAO As GLVertexArray
 
     Public Sub LogThis(entry As String, ParamArray args() As Object)
 #If DEBUG Then
@@ -43,14 +43,13 @@ Module modUtilities
             -0.5, 0.5, -0.5
         }
 
-        CUBE_VAO = CreateVertexArray("CUBE")
-
         Dim vbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "CUBE")
         vbo.Storage(verts.Length * 4, verts, BufferStorageFlags.None)
 
-        GL.VertexArrayVertexBuffer(CUBE_VAO, 0, vbo.buffer_id, IntPtr.Zero, 12)
-        GL.VertexArrayAttribFormat(CUBE_VAO, 0, 3, VertexAttribType.Float, False, 0)
-        GL.VertexArrayAttribBinding(CUBE_VAO, 0, 0)
-        GL.EnableVertexArrayAttrib(CUBE_VAO, 0)
+        CUBE_VAO = GLVertexArray.Create("CUBE")
+        CUBE_VAO.VertexBuffer(0, vbo, IntPtr.Zero, 12)
+        CUBE_VAO.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
+        CUBE_VAO.AttribBinding(0, 0)
+        CUBE_VAO.EnableAttrib(0)
     End Sub
 End Module
