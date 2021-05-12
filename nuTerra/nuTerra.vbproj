@@ -216,6 +216,8 @@
     <Compile Include="Forms\frmShaderError.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Scene\MapStaticModels.vb" />
+    <Compile Include="Scene\MapTerrain.vb" />
     <Compile Include="ShaderEditor\ShaderLoader.vb" />
     <Compile Include="Space.bin\modSpaceBin.vb" />
     <Compile Include="Space.bin\modSpaceBinFunctions.vb" />

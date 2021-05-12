@@ -104,8 +104,8 @@ Module modRender
 
         'Model depth pass only
         If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
-            GL.CopyNamedBufferSubData(map_scene.parameters.buffer_id, map_scene.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer))
-            GL.GetNamedBufferSubData(map_scene.parameters_temp.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), map_scene.numAfterFrustum)
+            GL.CopyNamedBufferSubData(map_scene.static_models.parameters.buffer_id, map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer))
+            GL.GetNamedBufferSubData(map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), map_scene.static_models.numAfterFrustum)
 
             '=======================================================================
             model_depth_pass() '=========================================================
@@ -433,13 +433,13 @@ Module modRender
         GL_PUSH_GROUP("frustum_cull")
 
         'clear atomic counter
-        map_scene.parameters.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        map_scene.static_models.parameters.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         cullShader.Use()
 
-        GL.Uniform1(cullShader("numModelInstances"), map_scene.numModelInstances)
+        GL.Uniform1(cullShader("numModelInstances"), map_scene.static_models.numModelInstances)
 
-        Dim numGroups = (map_scene.numModelInstances + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
+        Dim numGroups = (map_scene.static_models.numModelInstances + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
         GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
@@ -469,8 +469,8 @@ Module modRender
     Private Sub terrain_vt_pass()
         GL_PUSH_GROUP("terrain_vt_pass")
 
-        map_scene.feedback.fbo.Bind(FramebufferTarget.Framebuffer)
-        GL.Viewport(0, 0, map_scene.feedback.width, map_scene.feedback.height)
+        map_scene.terrain.feedback.fbo.Bind(FramebufferTarget.Framebuffer)
+        GL.Viewport(0, 0, map_scene.terrain.feedback.width, map_scene.terrain.feedback.height)
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
 
         GL.Enable(EnableCap.DepthTest)
@@ -479,10 +479,10 @@ Module modRender
 
         TerrainVTMIPShader.Use()
 
-        GL.Uniform1(TerrainVTMIPShader("MipBias"), CSng(map_scene.vt.MipBias))
+        GL.Uniform1(TerrainVTMIPShader("MipBias"), CSng(map_scene.terrain.vt.MipBias))
 
-        map_scene.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        map_scene.allTerrainChunks.Bind()
+        map_scene.terrain.indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
+        map_scene.terrain.all_chunks_vao.Bind()
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible Then
@@ -492,11 +492,11 @@ Module modRender
 
         TerrainVTMIPShader.StopUse()
 
-        map_scene.feedback.Download()
-        map_scene.vt.Update(map_scene.feedback.Requests)
+        map_scene.terrain.feedback.Download()
+        map_scene.terrain.vt.Update(map_scene.terrain.feedback.Requests)
 
-        map_scene.feedback.clear()
-        map_scene.feedback.copy()
+        map_scene.terrain.feedback.clear()
+        map_scene.terrain.feedback.copy()
 
         GL_POP_GROUP()
     End Sub
@@ -511,13 +511,13 @@ Module modRender
         TerrainLQShader.Use()
 
         ' BIND VT TEXTURES
-        map_scene.vt.Bind()
+        map_scene.terrain.vt.Bind()
 
         ' BIND TERRAIN VAO
-        map_scene.allTerrainChunks.Bind()
+        map_scene.terrain.all_chunks_vao.Bind()
 
         ' BIND TERRAIN INDIRECT BUFFER
-        map_scene.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        map_scene.terrain.indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.LQ Then
@@ -600,7 +600,7 @@ Module modRender
         End If
 
         ' UNBIND VT TEXTURES
-        map_scene.vt.Unbind()
+        map_scene.terrain.vt.Unbind()
 
         GL_POP_GROUP()
     End Sub
@@ -616,15 +616,15 @@ Module modRender
         GL.ColorMask(False, False, False, False)
         GL.Enable(EnableCap.CullFace)
 
-        map_scene.allMapModels.Bind()
+        map_scene.static_models.allMapModels.Bind()
 
-        map_scene.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.numAfterFrustum(0), 0)
+        map_scene.static_models.indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
 
         GL.Disable(EnableCap.CullFace)
 
-        map_scene.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.numAfterFrustum(1), 0)
+        map_scene.static_models.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1), 0)
 
         mDepthWriteShader.StopUse()
         GL.ColorMask(True, True, True, True)
@@ -643,8 +643,8 @@ Module modRender
         GL.DepthMask(False)
 
         'clear
-        map_scene.visibles.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, map_scene.numAfterFrustum(0) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
-        map_scene.visibles_dbl_sided.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, map_scene.numAfterFrustum(1) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        map_scene.static_models.visibles.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        map_scene.static_models.visibles_dbl_sided.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         defaultVao.Bind()
 
@@ -653,8 +653,8 @@ Module modRender
         End If
 
         cullRasterShader.Use()
-        GL.Uniform1(cullRasterShader("numAfterFrustum"), map_scene.numAfterFrustum(0))
-        GL.DrawArrays(PrimitiveType.Points, 0, map_scene.numAfterFrustum(0) + map_scene.numAfterFrustum(1))
+        GL.Uniform1(cullRasterShader("numAfterFrustum"), map_scene.static_models.numAfterFrustum(0))
+        GL.DrawArrays(PrimitiveType.Points, 0, map_scene.static_models.numAfterFrustum(0) + map_scene.static_models.numAfterFrustum(1))
         cullRasterShader.StopUse()
 
         If USE_REPRESENTATIVE_TEST Then
@@ -664,10 +664,10 @@ Module modRender
         GL.MemoryBarrier(MemoryBarrierFlags.ShaderStorageBarrierBit)
 
         cullInvalidateShader.Use()
-        GL.Uniform1(cullInvalidateShader("numAfterFrustum"), map_scene.numAfterFrustum(0))
-        GL.Uniform1(cullInvalidateShader("numAfterFrustumDblSided"), map_scene.numAfterFrustum(1))
+        GL.Uniform1(cullInvalidateShader("numAfterFrustum"), map_scene.static_models.numAfterFrustum(0))
+        GL.Uniform1(cullInvalidateShader("numAfterFrustumDblSided"), map_scene.static_models.numAfterFrustum(1))
 
-        Dim numGroups = (Math.Max(map_scene.numAfterFrustum(0), map_scene.numAfterFrustum(1)) + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
+        Dim numGroups = (Math.Max(map_scene.static_models.numAfterFrustum(0), map_scene.static_models.numAfterFrustum(1)) + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
         GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
 
         GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
@@ -700,15 +700,15 @@ Module modRender
 
         GL.Enable(EnableCap.CullFace)
 
-        map_scene.allMapModels.Bind()
+        map_scene.static_models.allMapModels.Bind()
 
-        map_scene.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.numAfterFrustum(0), 0)
+        map_scene.static_models.indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
 
         GL.Disable(EnableCap.CullFace)
 
-        map_scene.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.numAfterFrustum(1), 0)
+        map_scene.static_models.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1), 0)
 
         modelShader.StopUse()
 
@@ -721,8 +721,8 @@ Module modRender
         modelGlassShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
 
-        map_scene.indirect_glass.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.numAfterFrustum(2), 0)
+        map_scene.static_models.indirect_glass.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(2), 0)
 
         modelGlassShader.StopUse()
 
@@ -739,10 +739,10 @@ Module modRender
             GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
 
-            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.numAfterFrustum(2), 0)
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(2), 0)
 
-            map_scene.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.numAfterFrustum(0), 0)
+            map_scene.static_models.indirect.Bind(BufferTarget.DrawIndirectBuffer)
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
             normalShader.StopUse()
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
@@ -755,7 +755,7 @@ Module modRender
             boxShader.Use()
 
             defaultVao.Bind()
-            GL.DrawArrays(PrimitiveType.Points, 0, map_scene.numModelInstances)
+            GL.DrawArrays(PrimitiveType.Points, 0, map_scene.static_models.numModelInstances)
 
             boxShader.StopUse()
         End If
@@ -780,8 +780,8 @@ Module modRender
 
         MainFBO.gGMF.BindUnit(0)
 
-        map_scene.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        map_scene.allTerrainChunks.Bind()
+        map_scene.terrain.indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
+        map_scene.terrain.all_chunks_vao.Bind()
 
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, theMap.render_set.Length, 0)
         TerrainGrids.StopUse()

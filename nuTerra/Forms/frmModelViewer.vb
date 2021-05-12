@@ -66,7 +66,7 @@ Public Class frmModelViewer
             GL.UniformMatrix4(ModelViewerShader("viewProjMat"), False, VIEWPROJECT)
 
             modelIndirectBuffer.Bind(BufferTarget.DrawIndirectBuffer)
-            map_scene.allMapModels.Bind()
+            map_scene.static_models.allMapModels.Bind()
             GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, modelDrawCount, 0)
 
             ModelViewerShader.StopUse()

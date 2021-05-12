@@ -177,10 +177,10 @@ Public Class frmMain
                 Else
                     t_mixerShader.UnsetDefine("SHOW_TEST_TEXTURES")
                 End If
-                map_scene.RebuildVTAtlas()
+                map_scene.terrain.RebuildVTAtlas()
 
             Case Keys.Y
-                map_scene.RebuildVTAtlas()
+                map_scene.terrain.RebuildVTAtlas()
 
             Case Keys.V
                 DONT_HIDE_HUD = DONT_HIDE_HUD Xor True
@@ -1053,13 +1053,13 @@ try_again:
             End If
 
             Dim mdlInstance As ModelInstance
-            GL.GetNamedBufferSubData(map_scene.matrices.buffer_id,
+            GL.GetNamedBufferSubData(map_scene.static_models.matrices.buffer_id,
                                      New IntPtr((PICKED_MODEL_INDEX - 1) * Marshal.SizeOf(mdlInstance)),
                                      Marshal.SizeOf(mdlInstance),
                                      mdlInstance)
 
             Dim mdlLod As ModelLoD
-            GL.GetNamedBufferSubData(map_scene.lods.buffer_id,
+            GL.GetNamedBufferSubData(map_scene.static_models.lods.buffer_id,
                                      New IntPtr(mdlInstance.lod_offset * Marshal.SizeOf(mdlLod)),
                                      Marshal.SizeOf(mdlLod),
                                      mdlLod)
@@ -1068,7 +1068,7 @@ try_again:
             Dim indirectCommands(mdlLod.draw_count - 1) As DrawElementsIndirectCommand
             For i = 0 To mdlLod.draw_count - 1
                 Dim draw As CandidateDraw
-                GL.GetNamedBufferSubData(map_scene.drawCandidates.buffer_id,
+                GL.GetNamedBufferSubData(map_scene.static_models.drawCandidates.buffer_id,
                                          New IntPtr((mdlLod.draw_offset + i) * Marshal.SizeOf(draw)),
                                          Marshal.SizeOf(draw),
                                          draw)

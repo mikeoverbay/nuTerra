@@ -96,7 +96,7 @@ Public Class frmProgramEditor
         shader.UpdateShader()
 
         If shader Is t_mixerShader Then
-            map_scene.RebuildVTAtlas()
+            map_scene.terrain.RebuildVTAtlas()
         End If
 
         reset_focus()

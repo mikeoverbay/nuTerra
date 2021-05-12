@@ -166,7 +166,7 @@ Public Class SettingsPropertyGrid
         Set(value As Integer)
             If 1 <= value AndAlso value <= 128 Then
                 FEEDBACK_WIDTH = value
-                map_scene.RebuildVTAtlas()
+                map_scene.terrain.RebuildVTAtlas()
             End If
         End Set
         Get
@@ -179,7 +179,7 @@ Public Class SettingsPropertyGrid
         Set(value As Integer)
             If 1 <= value AndAlso value <= 128 Then
                 FEEDBACK_HEIGHT = value
-                map_scene.RebuildVTAtlas()
+                map_scene.terrain.RebuildVTAtlas()
             End If
         End Set
         Get
@@ -192,7 +192,7 @@ Public Class SettingsPropertyGrid
         Set(value As Integer)
             If 1 <= value AndAlso value <= 8192 Then
                 TILE_SIZE = value
-                map_scene.RebuildVTAtlas()
+                map_scene.terrain.RebuildVTAtlas()
             End If
         End Set
         Get
@@ -205,7 +205,7 @@ Public Class SettingsPropertyGrid
         Set(value As Integer)
             If 1 <= value AndAlso value <= 4096 Then
                 VT_NUM_PAGES = value
-                map_scene.RebuildVTAtlas()
+                map_scene.terrain.RebuildVTAtlas()
             End If
         End Set
         Get
@@ -218,7 +218,7 @@ Public Class SettingsPropertyGrid
         Set(value As Integer)
             If 1 <= value AndAlso value <= 2048 Then
                 NUM_TILES = value
-                map_scene.RebuildVTAtlas()
+                map_scene.terrain.RebuildVTAtlas()
             End If
         End Set
         Get
@@ -231,7 +231,7 @@ Public Class SettingsPropertyGrid
         Set(value As Integer)
             If 1 <= value AndAlso value <= 64 Then
                 UPLOADS_PER_FRAME = value
-                map_scene.RebuildVTAtlas()
+                map_scene.terrain.RebuildVTAtlas()
             End If
         End Set
         Get

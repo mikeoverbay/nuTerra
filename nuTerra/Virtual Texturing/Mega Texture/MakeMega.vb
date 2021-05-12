@@ -77,7 +77,7 @@ Module MakeMega
 
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, proj)
 
-        map_scene.terrain_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        map_scene.terrain.indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
 
         theMap.GLOBAL_AM_ID.BindUnit(0)
         chunk_count = 1

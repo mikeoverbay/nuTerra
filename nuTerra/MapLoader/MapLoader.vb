@@ -146,8 +146,8 @@ Module MapLoader
 
             '----------------------------------------------------------------
             ' calc instances
-            map_scene.numModelInstances = 0
-            map_scene.indirectDrawCount = 0
+            map_scene.static_models.numModelInstances = 0
+            map_scene.static_models.indirectDrawCount = 0
             Dim numVerts = 0
             Dim numPrims = 0
             Dim numLods = 0
@@ -168,7 +168,7 @@ Module MapLoader
                             If primGroup.no_draw Then
                                 Continue For
                             End If
-                            map_scene.indirectDrawCount += batch.count
+                            map_scene.static_models.indirectDrawCount += batch.count
                             skip = False
                         Next
                         numVerts += renderSet.buffers.vertexBuffer.Length
@@ -178,34 +178,34 @@ Module MapLoader
                     If skip Then Continue For
 
                     numLods += batch.count
-                    If lod_id = 0 Then map_scene.numModelInstances += batch.count
+                    If lod_id = 0 Then map_scene.static_models.numModelInstances += batch.count
                 Next
             Next
 
             '----------------------------------------------------------------
             ' setup instances
-            Dim drawCommands(map_scene.indirectDrawCount - 1) As CandidateDraw
+            Dim drawCommands(map_scene.static_models.indirectDrawCount - 1) As CandidateDraw
 
             Dim vertex_size = Marshal.SizeOf(Of ModelVertex)()
             Dim tri_size = Marshal.SizeOf(Of vect3_32)()
             Dim uv2_size = Marshal.SizeOf(Of Vector2)()
 
-            map_scene.verts = GLBuffer.Create(BufferTarget.ArrayBuffer, "verts")
-            map_scene.verts.StorageNullData(
+            map_scene.static_models.verts = GLBuffer.Create(BufferTarget.ArrayBuffer, "verts")
+            map_scene.static_models.verts.StorageNullData(
                                   numVerts * vertex_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
-            map_scene.prims = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "prims")
-            map_scene.prims.StorageNullData(
+            map_scene.static_models.prims = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "prims")
+            map_scene.static_models.prims.StorageNullData(
                                   numPrims * tri_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
-            map_scene.vertsUV2 = GLBuffer.Create(BufferTarget.ArrayBuffer, "vertsUV2")
-            map_scene.vertsUV2.StorageNullData(
+            map_scene.static_models.vertsUV2 = GLBuffer.Create(BufferTarget.ArrayBuffer, "vertsUV2")
+            map_scene.static_models.vertsUV2.StorageNullData(
                                   numVerts * uv2_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
-            Dim matrices(map_scene.numModelInstances - 1) As ModelInstance
+            Dim matrices(map_scene.static_models.numModelInstances - 1) As ModelInstance
             Dim lods(numLods - 1) As ModelLoD
             Dim cmdId = 0
             Dim vLast = 0
@@ -249,11 +249,11 @@ Module MapLoader
 
                         baseVert += renderSet.numVertices
 
-                        GL.NamedBufferSubData(map_scene.verts.buffer_id, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
-                        GL.NamedBufferSubData(map_scene.prims.buffer_id, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
+                        GL.NamedBufferSubData(map_scene.static_models.verts.buffer_id, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
+                        GL.NamedBufferSubData(map_scene.static_models.prims.buffer_id, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
 
                         If renderSet.buffers.uv2 IsNot Nothing Then
-                            GL.NamedBufferSubData(map_scene.vertsUV2.buffer_id, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
+                            GL.NamedBufferSubData(map_scene.static_models.vertsUV2.buffer_id, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
                             Erase renderSet.buffers.uv2
                         End If
 
@@ -308,110 +308,110 @@ Module MapLoader
                 mLast += batch.count
             Next
 
-            map_scene.parameters_temp = GLBuffer.Create(BufferTarget.CopyWriteBuffer, "parameters_temp")
-            map_scene.parameters_temp.StorageNullData(
+            map_scene.static_models.parameters_temp = GLBuffer.Create(BufferTarget.CopyWriteBuffer, "parameters_temp")
+            map_scene.static_models.parameters_temp.StorageNullData(
                 3 * Marshal.SizeOf(Of Integer),
                 BufferStorageFlags.ClientStorageBit)
 
-            map_scene.parameters = GLBuffer.Create(BufferTarget.AtomicCounterBuffer, "parameters")
-            map_scene.parameters.StorageNullData(
+            map_scene.static_models.parameters = GLBuffer.Create(BufferTarget.AtomicCounterBuffer, "parameters")
+            map_scene.static_models.parameters.StorageNullData(
                 3 * Marshal.SizeOf(Of Integer),
                 BufferStorageFlags.None)
-            map_scene.parameters.BindBase(0)
+            map_scene.static_models.parameters.BindBase(0)
 
-            map_scene.visibles = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "visibles")
-            map_scene.visibles.StorageNullData(
-                map_scene.indirectDrawCount * Marshal.SizeOf(Of Integer),
+            map_scene.static_models.visibles = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "visibles")
+            map_scene.static_models.visibles.StorageNullData(
+                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of Integer),
                 BufferStorageFlags.DynamicStorageBit)
-            map_scene.visibles.BindBase(8)
+            map_scene.static_models.visibles.BindBase(8)
 
-            map_scene.visibles_dbl_sided = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "visibles_dbl_sided")
-            map_scene.visibles_dbl_sided.StorageNullData(
-                map_scene.indirectDrawCount * Marshal.SizeOf(Of Integer),
+            map_scene.static_models.visibles_dbl_sided = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "visibles_dbl_sided")
+            map_scene.static_models.visibles_dbl_sided.StorageNullData(
+                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of Integer),
                 BufferStorageFlags.DynamicStorageBit)
-            map_scene.visibles_dbl_sided.BindBase(9)
+            map_scene.static_models.visibles_dbl_sided.BindBase(9)
 
-            map_scene.drawCandidates = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "drawCandidates")
-            map_scene.drawCandidates.Storage(
-                map_scene.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw),
+            map_scene.static_models.drawCandidates = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "drawCandidates")
+            map_scene.static_models.drawCandidates.Storage(
+                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw),
                 drawCommands,
                 BufferStorageFlags.None)
-            map_scene.drawCandidates.BindBase(1)
+            map_scene.static_models.drawCandidates.BindBase(1)
             Erase drawCommands
 
-            map_scene.indirect = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect")
-            map_scene.indirect.StorageNullData(
-                map_scene.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+            map_scene.static_models.indirect = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect")
+            map_scene.static_models.indirect.StorageNullData(
+                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                 BufferStorageFlags.None)
-            map_scene.indirect.BindBase(2)
+            map_scene.static_models.indirect.BindBase(2)
 
-            map_scene.indirect_glass = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_glass")
-            map_scene.indirect_glass.StorageNullData(
-                map_scene.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+            map_scene.static_models.indirect_glass = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_glass")
+            map_scene.static_models.indirect_glass.StorageNullData(
+                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                 BufferStorageFlags.None)
-            map_scene.indirect_glass.BindBase(5)
+            map_scene.static_models.indirect_glass.BindBase(5)
 
-            map_scene.indirect_dbl_sided = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_dbl_sided")
-            map_scene.indirect_dbl_sided.StorageNullData(
-                map_scene.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+            map_scene.static_models.indirect_dbl_sided = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_dbl_sided")
+            map_scene.static_models.indirect_dbl_sided.StorageNullData(
+                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                 BufferStorageFlags.None)
-            map_scene.indirect_dbl_sided.BindBase(6)
+            map_scene.static_models.indirect_dbl_sided.BindBase(6)
 
-            map_scene.matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "matrices")
-            map_scene.matrices.Storage(
+            map_scene.static_models.matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "matrices")
+            map_scene.static_models.matrices.Storage(
                 matrices.Length * Marshal.SizeOf(Of ModelInstance),
                 matrices,
                 BufferStorageFlags.None)
-            map_scene.matrices.BindBase(0)
+            map_scene.static_models.matrices.BindBase(0)
             Erase matrices
 
-            map_scene.lods = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "lods")
-            map_scene.lods.Storage(
+            map_scene.static_models.lods = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "lods")
+            map_scene.static_models.lods.Storage(
                 lods.Length * Marshal.SizeOf(Of ModelLoD),
                 lods,
                 BufferStorageFlags.None)
-            map_scene.lods.BindBase(4)
+            map_scene.static_models.lods.BindBase(4)
             Erase lods
 
-            map_scene.allMapModels = GLVertexArray.Create("allMapModels")
+            map_scene.static_models.allMapModels = GLVertexArray.Create("allMapModels")
 
             'pos
-            map_scene.allMapModels.VertexBuffer(0, map_scene.verts, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
-            map_scene.allMapModels.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
-            map_scene.allMapModels.AttribBinding(0, 0)
-            map_scene.allMapModels.EnableAttrib(0)
+            map_scene.static_models.allMapModels.VertexBuffer(0, map_scene.static_models.verts, New IntPtr(0), Marshal.SizeOf(Of ModelVertex))
+            map_scene.static_models.allMapModels.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
+            map_scene.static_models.allMapModels.AttribBinding(0, 0)
+            map_scene.static_models.allMapModels.EnableAttrib(0)
 
             'normal
-            map_scene.allMapModels.VertexBuffer(1, map_scene.verts, New IntPtr(12), Marshal.SizeOf(Of ModelVertex))
-            map_scene.allMapModels.AttribFormat(1, 4, VertexAttribType.HalfFloat, False, 0)
-            map_scene.allMapModels.AttribBinding(1, 1)
-            map_scene.allMapModels.EnableAttrib(1)
+            map_scene.static_models.allMapModels.VertexBuffer(1, map_scene.static_models.verts, New IntPtr(12), Marshal.SizeOf(Of ModelVertex))
+            map_scene.static_models.allMapModels.AttribFormat(1, 4, VertexAttribType.HalfFloat, False, 0)
+            map_scene.static_models.allMapModels.AttribBinding(1, 1)
+            map_scene.static_models.allMapModels.EnableAttrib(1)
 
             'tangent
-            map_scene.allMapModels.VertexBuffer(2, map_scene.verts, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
-            map_scene.allMapModels.AttribFormat(2, 4, VertexAttribType.HalfFloat, False, 0)
-            map_scene.allMapModels.AttribBinding(2, 2)
-            map_scene.allMapModels.EnableAttrib(2)
+            map_scene.static_models.allMapModels.VertexBuffer(2, map_scene.static_models.verts, New IntPtr(20), Marshal.SizeOf(Of ModelVertex))
+            map_scene.static_models.allMapModels.AttribFormat(2, 4, VertexAttribType.HalfFloat, False, 0)
+            map_scene.static_models.allMapModels.AttribBinding(2, 2)
+            map_scene.static_models.allMapModels.EnableAttrib(2)
 
             'binormal
-            map_scene.allMapModels.VertexBuffer(3, map_scene.verts, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
-            map_scene.allMapModels.AttribFormat(3, 4, VertexAttribType.HalfFloat, False, 0)
-            map_scene.allMapModels.AttribBinding(3, 3)
-            map_scene.allMapModels.EnableAttrib(3)
+            map_scene.static_models.allMapModels.VertexBuffer(3, map_scene.static_models.verts, New IntPtr(28), Marshal.SizeOf(Of ModelVertex))
+            map_scene.static_models.allMapModels.AttribFormat(3, 4, VertexAttribType.HalfFloat, False, 0)
+            map_scene.static_models.allMapModels.AttribBinding(3, 3)
+            map_scene.static_models.allMapModels.EnableAttrib(3)
 
             'uv
-            map_scene.allMapModels.VertexBuffer(4, map_scene.verts, New IntPtr(36), Marshal.SizeOf(Of ModelVertex))
-            map_scene.allMapModels.AttribFormat(4, 2, VertexAttribType.Float, False, 0)
-            map_scene.allMapModels.AttribBinding(4, 4)
-            map_scene.allMapModels.EnableAttrib(4)
+            map_scene.static_models.allMapModels.VertexBuffer(4, map_scene.static_models.verts, New IntPtr(36), Marshal.SizeOf(Of ModelVertex))
+            map_scene.static_models.allMapModels.AttribFormat(4, 2, VertexAttribType.Float, False, 0)
+            map_scene.static_models.allMapModels.AttribBinding(4, 4)
+            map_scene.static_models.allMapModels.EnableAttrib(4)
 
             'uv2
-            map_scene.allMapModels.VertexBuffer(5, map_scene.vertsUV2, IntPtr.Zero, Marshal.SizeOf(Of Vector2))
-            map_scene.allMapModels.AttribFormat(5, 2, VertexAttribType.Float, False, 0)
-            map_scene.allMapModels.AttribBinding(5, 5)
-            map_scene.allMapModels.EnableAttrib(5)
+            map_scene.static_models.allMapModels.VertexBuffer(5, map_scene.static_models.vertsUV2, IntPtr.Zero, Marshal.SizeOf(Of Vector2))
+            map_scene.static_models.allMapModels.AttribFormat(5, 2, VertexAttribType.Float, False, 0)
+            map_scene.static_models.allMapModels.AttribBinding(5, 5)
+            map_scene.static_models.allMapModels.EnableAttrib(5)
 
-            map_scene.allMapModels.ElementBuffer(map_scene.prims)
+            map_scene.static_models.allMapModels.ElementBuffer(map_scene.static_models.prims)
 
             load_materials()
 
@@ -447,7 +447,7 @@ Module MapLoader
         '===============================================================
         '===============================================================
 
-        map_scene.RebuildVTAtlas()
+        map_scene.terrain.RebuildVTAtlas()
 
         MAP_LOADED = True
 
@@ -1060,12 +1060,12 @@ Module MapLoader
 
         materials = Nothing
 
-        map_scene.materials = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "materials")
-        map_scene.materials.Storage(
+        map_scene.static_models.materials = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "materials")
+        map_scene.static_models.materials.Storage(
             materialsData.Length * Marshal.SizeOf(Of GLMaterial),
             materialsData,
             BufferStorageFlags.None)
-        map_scene.materials.BindBase(3)
+        map_scene.static_models.materials.BindBase(3)
     End Sub
 
     Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)

@@ -171,9 +171,9 @@ Public Class frmGbufferViewer
                 draw_image(img_width, img_height, MainFBO.gAUX_Color, 0)
 
             Case 7
-                If map_scene.vt IsNot Nothing Then
+                If map_scene.terrain.vt IsNot Nothing Then
                     draw_checker_board(CHECKER_BOARD)
-                    map_scene.vt.DebugDraw(rect_location, rect_size, PROJECTIONMATRIX_GLC)
+                    map_scene.terrain.vt.DebugDraw(rect_location, rect_size, PROJECTIONMATRIX_GLC)
                 End If
 
         End Select
