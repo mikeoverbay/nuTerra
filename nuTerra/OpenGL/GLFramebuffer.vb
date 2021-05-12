@@ -1,14 +1,22 @@
 ﻿Imports OpenTK.Graphics.OpenGL4
 
 Public Class GLFramebuffer
+    Implements IDisposable
+
     Public fbo_id As Integer
+
+    Public Sub New(fbo_id As Integer, name As String)
+        Me.fbo_id = fbo_id
+        LabelObject(ObjectLabelIdentifier.Framebuffer, fbo_id, name)
+    End Sub
 
     Public Shared Function Create(name As String) As GLFramebuffer
         Dim fbo_id As Integer
         GL.CreateFramebuffers(1, fbo_id)
-        LabelObject(ObjectLabelIdentifier.Framebuffer, fbo_id, name)
-        Dim obj As New GLFramebuffer With {.fbo_id = fbo_id}
-        Return obj
+        If fbo_id <> 0 Then
+            Return New GLFramebuffer(fbo_id, name)
+        End If
+        Return Nothing
     End Function
 
     Public Sub Bind(target As FramebufferTarget)
@@ -37,16 +45,16 @@ Public Class GLFramebuffer
         End Get
     End Property
 
-    Public Sub Delete()
-        GL.DeleteFramebuffer(fbo_id)
-        CheckGLError()
-    End Sub
-
     Public Sub ReadBuffer(src As ReadBufferMode)
         GL.NamedFramebufferReadBuffer(fbo_id, src)
     End Sub
 
     Public Sub DrawBuffer(buf As DrawBufferMode)
         GL.NamedFramebufferDrawBuffer(fbo_id, buf)
+    End Sub
+
+    Public Sub Dispose() Implements IDisposable.Dispose
+        GL.DeleteFramebuffer(fbo_id)
+        CheckGLError()
     End Sub
 End Class

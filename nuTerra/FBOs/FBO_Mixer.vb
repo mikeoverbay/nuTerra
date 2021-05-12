@@ -23,10 +23,10 @@ Public Class VTMixerFBO
 
     Public Shared Sub delete_textures_and_fbo()
         'as the name says
-        If ColorTex IsNot Nothing Then ColorTex.Delete()
-        If NormalTex IsNot Nothing Then NormalTex.Delete()
-        If SpecularTex IsNot Nothing Then SpecularTex.Delete()
-        If fbo IsNot Nothing Then fbo.Delete()
+        ColorTex?.Dispose()
+        NormalTex?.Dispose()
+        SpecularTex?.Dispose()
+        fbo?.Dispose()
     End Sub
 
     Public Shared Sub create_textures()

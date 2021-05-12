@@ -75,8 +75,8 @@ Public Class TextureAtlas
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
-        color_texture.Delete()
-        normal_texture.Delete()
-        specular_texture.Delete()
+        color_texture?.Dispose()
+        normal_texture?.Dispose()
+        specular_texture?.Dispose()
     End Sub
 End Class

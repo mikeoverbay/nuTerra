@@ -1,7 +1,7 @@
 ﻿Imports System.IO
 Imports System.Runtime.InteropServices
-Imports OpenTK
 Imports System.Text
+Imports OpenTK
 
 Module TerrainBuilder
     Public sb As New StringBuilder
@@ -64,11 +64,12 @@ Module TerrainBuilder
         Public Shared normal_map As String
         Public Shared global_map As String ' global_AM.dds
         Public Shared noise_texture As String ' noiseTexture
-        '------------------------
-        Public Shared indices_count As Integer = 7938 * 3
-        '------------------------
 
+        Public Shared Sub Delete()
+            MapGL.Buffers.Delete()
+        End Sub
     End Class
+
     Public Structure chunk_
         Public cdata() As Byte
         Public heights_data() As Byte
@@ -115,9 +116,10 @@ Module TerrainBuilder
     End Enum
 
     Public Structure chunk_render_data_
+        Implements IDisposable
+
         Public mega_LUT As GLTexture
         Public matrix As Matrix4
-        Public shadowMatrix As Matrix4
         '-------------------------------
         ' Texture IDs and such below
         Public layersStd140_ubo As GLBuffer
@@ -127,6 +129,11 @@ Module TerrainBuilder
         Public layer_count As Integer
         Public visible As Boolean ' frustum clipped flag
         Public quality As TerrainQuality
+
+        Public Sub Dispose() Implements IDisposable.Dispose
+            mega_LUT?.Dispose()
+            layersStd140_ubo?.Dispose()
+        End Sub
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
@@ -181,22 +188,36 @@ Module TerrainBuilder
     End Structure
 
     Public Structure ids_
+        Implements IDisposable
+
         Public Blend_id As GLTexture
-        Public AM_name1, NM_name1 As String
-        Public AM_id1, NM_id1 As GLTexture
-        Public AM_name2, NM_name2 As String
-        Public AM_id2, NM_id2 As GLTexture
+        Public AM_id1 As GLTexture
+        Public NM_id1 As GLTexture
+        Public AM_id2 As GLTexture
+        Public NM_id2 As GLTexture
         Public uP1, uP2, vP1, vP2 As Vector4
         Public used_a, used_b As Single
         Public scale_a, scale_b As Vector4
         Public r1, r2 As Vector4
         Public r2_1, r2_2 As Vector4
+
+        Public Sub Dispose() Implements IDisposable.Dispose
+            Blend_id?.Dispose()
+            AM_id1?.Dispose()
+            NM_id1?.Dispose()
+            AM_id2?.Dispose()
+            NM_id2?.Dispose()
+        End Sub
     End Structure
+
     Public Structure layer_render_info_
         Public layer_section_size() As UInt32
         Public render_info() As layer_render_info_entry_
     End Structure
-    Public Structure layer_render_info_entry_
+
+    Public Class layer_render_info_entry_
+        Implements IDisposable
+
         Public atlas_id As GLTexture
         Public texture_name As String
         Public width As Integer
@@ -205,23 +226,20 @@ Module TerrainBuilder
         Public u As Vector4
         Public v As Vector4
         Public flags As UInt32
-        Dim v1 As Vector4 ' unknown?
+        Public v1 As Vector4 ' unknown?
         Public r1 As Vector4
         Public r2 As Vector4
         Public scale As Vector4
-    End Structure
-    Public Structure imageData
-        Public data() As Byte
-    End Structure
+
+        Public Sub Dispose() Implements IDisposable.Dispose
+            atlas_id?.Dispose()
+        End Sub
+    End Class
 #End Region
 
     '=======================================================================
     Public Sub Create_Terrain()
         Dim SWT As New Stopwatch
-#If DEBUG Then
-        'clear debug window
-        clear_output()
-#End If
 
         SWT.Start()
         ReDim mapBoard(MAP_BOARD_SIZE, MAP_BOARD_SIZE) 'clear it

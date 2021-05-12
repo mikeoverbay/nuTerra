@@ -40,10 +40,10 @@ Public Class MegaFBO
 
     Public Shared Sub delete_textures_and_fbo()
         'as the name says
-        If gColor IsNot Nothing Then gColor.Delete()
-        If gNormal IsNot Nothing Then gNormal.Delete()
-        If gGmm IsNot Nothing Then gGmm.Delete()
-        If fbo IsNot Nothing Then fbo.Delete()
+        gColor?.Dispose()
+        gNormal?.Dispose()
+        gGmm?.Dispose()
+        fbo?.Dispose()
     End Sub
 
     Public Shared Sub create_textures()

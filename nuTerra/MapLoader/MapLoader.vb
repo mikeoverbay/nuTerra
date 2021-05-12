@@ -49,6 +49,27 @@ Module MapLoader
             ' For cull-raster only!
             Public Shared visibles As GLBuffer
             Public Shared visibles_dbl_sided As GLBuffer
+
+            Public Shared Sub Delete()
+                materials?.Dispose()
+                parameters?.Dispose()
+                parameters_temp?.Dispose()
+                matrices?.Dispose()
+                drawCandidates?.Dispose()
+                verts?.Dispose()
+                vertsUV2?.Dispose()
+                prims?.Dispose()
+                indirect?.Dispose()
+                indirect_glass?.Dispose()
+                indirect_dbl_sided?.Dispose()
+                lods?.Dispose()
+                terrain_matrices?.Dispose()
+                terrain_indirect?.Dispose()
+                terrain_vertices?.Dispose()
+                terrain_indices?.Dispose()
+                visibles?.Dispose()
+                visibles_dbl_sided?.Dispose()
+            End Sub
         End Class
 
         NotInheritable Class VertexArrays
@@ -510,7 +531,7 @@ Module MapLoader
         SHOW_LOADING_SCREEN = False
 
         ' Cleanup loading screen resources
-        nuTERRA_BG_IMAGE.Delete()
+        nuTERRA_BG_IMAGE?.Dispose()
         nuTERRA_BG_IMAGE = Nothing
 
         'LOOK_AT_X = 0.001
@@ -806,7 +827,7 @@ Module MapLoader
                         i += 1
                     Next
 
-                    tmp_tex.Delete()
+                    tmp_tex.Dispose()
                 End Using
 
                 atlas_tex.GenerateMipmap()
@@ -1182,12 +1203,7 @@ Module MapLoader
             GL.DeleteTexture(i)
         Next
 
-        'delete VBOs
-        Dim Lvb As Integer
-        GL.GenBuffers(1, Lvb)
-        For i = FIRST_UNUSED_V_BUFFER To Lvb
-            GL.DeleteBuffer(i)
-        Next
+        theMap.Delete()
 
         'delete VAOs
         Dim Lvbo As Integer

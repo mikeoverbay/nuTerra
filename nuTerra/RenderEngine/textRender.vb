@@ -53,7 +53,7 @@ Module textRender
             Me.bmp = New Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb)
             Me.gfx = System.Drawing.Graphics.FromImage(Me.bmp)
             Me.gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias
-            If Me.texture_ IsNot Nothing Then Me.texture_.Delete()
+            Me.texture_?.Dispose()
 
             Me.texture_ = GLTexture.Create(TextureTarget.Texture2D, "text")
 

@@ -80,15 +80,15 @@ Public Class MainFBO
 
     Public Shared Sub delete_textures_and_fbo()
         ' as the name says
-        If gColor IsNot Nothing Then gColor.Delete()
-        If gAUX_Color IsNot Nothing Then gAUX_Color.Delete()
-        If gNormal IsNot Nothing Then gNormal.Delete()
-        If gGMF IsNot Nothing Then gGMF.Delete()
-        If gDepth IsNot Nothing Then gDepth.Delete()
-        If gPick IsNot Nothing Then gPick.Delete()
-        If gColor_2 IsNot Nothing Then gColor_2.Delete()
-        If gPosition IsNot Nothing Then gPosition.Delete()
-        If fbo IsNot Nothing Then fbo.Delete()
+        gColor?.Dispose()
+        gAUX_Color?.Dispose()
+        gNormal?.Dispose()
+        gGMF?.Dispose()
+        gDepth?.Dispose()
+        gPick?.Dispose()
+        gColor_2?.Dispose()
+        gPosition?.Dispose()
+        fbo?.Dispose()
     End Sub
 
     Public Shared Sub create_textures()

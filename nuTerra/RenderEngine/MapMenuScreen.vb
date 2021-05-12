@@ -67,9 +67,7 @@ NotInheritable Class MapMenuScreen
         Public unit_size As Boolean
 
         Public Sub Invalidate()
-            If unscaled_mapname_image IsNot Nothing Then
-                unscaled_mapname_image.Delete()
-            End If
+            unscaled_mapname_image?.Dispose()
             unscaled_mapname_image = Nothing
             scale = IMG_MIN_SCALE
         End Sub

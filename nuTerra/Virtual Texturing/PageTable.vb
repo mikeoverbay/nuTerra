@@ -45,7 +45,7 @@ Public Class PageTable
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
-        texture.Delete()
+        texture?.Dispose()
     End Sub
 
     Public Sub Update()

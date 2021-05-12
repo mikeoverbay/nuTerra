@@ -42,9 +42,9 @@ Public Class MiniMapFBO
 
     Public Shared Sub delete_textures_and_fbo()
         'as the name says
-        If gColor IsNot Nothing Then gColor.Delete()
-        If screenTexture IsNot Nothing Then screenTexture.Delete()
-        If fbo IsNot Nothing Then fbo.Delete()
+        gColor?.Dispose()
+        screenTexture?.Dispose()
+        fbo?.Dispose()
     End Sub
 
     Public Shared Sub attach_both()

@@ -27,15 +27,7 @@ Module modGlobalVars
     Public PICKED_STRING As String = ""
     Public PICKED_MODEL_INDEX As Integer
     '=================================================================================
-    Public Sub clear_output()
-        Return
-        Try
-            'this does not work with VS 2019
-            'Dim dte = Marshal.GetActiveObject("VisualStudio.DTE.17.0") 'change to version of visual studio
-            'dte.ExecuteCommand("Edit.ClearOutputWindow")
-        Catch
-        End Try
-    End Sub
+
     '=================================================================================
     Public CHECKERTEST As Integer
     'Define these in CAP TEXT

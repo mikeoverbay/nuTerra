@@ -1,17 +1,26 @@
 ﻿Imports OpenTK.Graphics.OpenGL4
 
 Public Class GLBuffer
-    Public Shared ALL_SIZE As Integer
+    Implements IDisposable
+
+    Public Shared ALL_SIZE As Long
     Public buffer_id As Integer
-    Public target As BufferTarget
+    ReadOnly target As BufferTarget
     Private size As Integer
+
+    Public Sub New(buffer_id As Integer, target As BufferTarget, name As String)
+        Me.buffer_id = buffer_id
+        Me.target = target
+        LabelObject(ObjectLabelIdentifier.Buffer, buffer_id, name)
+    End Sub
 
     Public Shared Function Create(target As BufferTarget, name As String) As GLBuffer
         Dim buf_id As Integer
         GL.CreateBuffers(1, buf_id)
-        LabelObject(ObjectLabelIdentifier.Buffer, buf_id, name)
-        Dim obj As New GLBuffer With {.buffer_id = buf_id, .target = target}
-        Return obj
+        If buf_id <> 0 Then
+            Return New GLBuffer(buf_id, target, name)
+        End If
+        Return Nothing
     End Function
 
     Public Sub BindBase(base As Integer)
@@ -21,12 +30,6 @@ Public Class GLBuffer
 
     Public Sub Bind(bind_target As BufferTarget)
         GL.BindBuffer(bind_target, buffer_id)
-        CheckGLError()
-    End Sub
-
-    Public Sub Delete()
-        GL.DeleteBuffer(buffer_id)
-        ALL_SIZE -= size
         CheckGLError()
     End Sub
 
@@ -48,6 +51,12 @@ Public Class GLBuffer
         GL.NamedBufferStorage(buffer_id, size, IntPtr.Zero, flags)
         Me.size = size
         ALL_SIZE += size
+        CheckGLError()
+    End Sub
+
+    Public Sub Dispose() Implements IDisposable.Dispose
+        GL.DeleteBuffer(buffer_id)
+        ALL_SIZE -= size
         CheckGLError()
     End Sub
 End Class

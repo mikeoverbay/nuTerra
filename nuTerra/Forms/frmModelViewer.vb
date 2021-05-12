@@ -177,7 +177,7 @@ Public Class frmModelViewer
 
     Private Sub frmModelViewer_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
         If Model_Loaded Then
-            modelIndirectBuffer.Delete()
+            modelIndirectBuffer = Nothing
             Model_Loaded = False
         End If
         e.Cancel = True

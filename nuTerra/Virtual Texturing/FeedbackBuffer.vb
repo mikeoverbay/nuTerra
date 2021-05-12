@@ -53,9 +53,9 @@ Public Class FeedbackBuffer
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
-        rendertarget.Delete()
-        depthbuffer.Delete()
-        fbo.Delete()
+        rendertarget?.Dispose()
+        depthbuffer?.Dispose()
+        fbo?.Dispose()
     End Sub
 
     Public Sub Download()

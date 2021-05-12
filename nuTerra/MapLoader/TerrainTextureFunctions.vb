@@ -55,7 +55,7 @@ Module TerrainTextureFunctions
                 tex_names(2) = .texture_name.Replace("_AM", "_macro_AM")
                 tex_names(3) = .texture_name.Replace("_AM", "_macro_NM")
 
-                Dim atlas_tex As New GLTexture
+                Dim atlas_tex As GLTexture
                 Dim fullWidth As Integer = 1024
                 Dim fullHeight As Integer = 1024
                 Dim layer As Single
@@ -168,9 +168,7 @@ Module TerrainTextureFunctions
         End With
     End Sub
     Private Function get_atlas(mipcount As Integer, map As Int32, z As Int32, format As SizedInternalFormat) As GLTexture
-        Dim t = New GLTexture
-        't.target = TextureTarget.Texture2DArray
-        t = GLTexture.Create(TextureTarget.Texture2DArray, "tAtlas" + map.ToString + "_" + z.ToString)
+        Dim t = GLTexture.Create(TextureTarget.Texture2DArray, "tAtlas" + map.ToString + "_" + z.ToString)
 
         t.Parameter(DirectCast(ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, TextureParameterName), GLCapabilities.maxAniso) 'GLCapabilities.maxAniso
 
@@ -310,11 +308,6 @@ Module TerrainTextureFunctions
                     Dim tex_cnt = br2.ReadUInt16
 
                     br2.ReadUInt64() 'padding
-                    'just for reference
-                    .TexLayers(i).AM_name1 = theMap.render_set(map).layer.render_info(lpnter).texture_name
-                    .TexLayers(i).AM_name2 = ""
-                    .TexLayers(i).NM_name1 = ""
-                    .TexLayers(i).NM_name2 = ""
 
                     'get first tex name
                     Dim bs = br2.ReadUInt32 'str length

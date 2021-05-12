@@ -1,27 +1,30 @@
 ﻿Imports OpenTK.Graphics.OpenGL4
 
 Public Class GLTexture
-    Public Shared ALL_SIZE As Integer
+    Implements IDisposable
+
+    Public Shared ALL_SIZE As Long
     Public texture_id As Integer
     Public target As TextureTarget
     Private size As Integer
 
+    Public Sub New(texture_id As Integer, target As TextureTarget, name As String)
+        Me.texture_id = texture_id
+        Me.target = target
+        LabelObject(ObjectLabelIdentifier.Texture, texture_id, name)
+    End Sub
+
     Public Shared Function Create(target As TextureTarget, name As String) As GLTexture
         Dim tex_id As Integer
         GL.CreateTextures(target, 1, tex_id)
-        LabelObject(ObjectLabelIdentifier.Texture, tex_id, name)
-        Dim obj As New GLTexture With {.texture_id = tex_id, .target = target}
-        Return obj
+        If tex_id <> 0 Then
+            Return New GLTexture(tex_id, target, name)
+        End If
+        Return Nothing
     End Function
 
     Public Sub GenerateMipmap()
         GL.GenerateTextureMipmap(texture_id)
-        CheckGLError()
-    End Sub
-
-    Public Sub Delete()
-        GL.DeleteTexture(texture_id)
-        ALL_SIZE -= size
         CheckGLError()
     End Sub
 
@@ -67,6 +70,12 @@ Public Class GLTexture
 
     Public Sub CompressedSubImage3D(level As Integer, xoffset As Integer, yoffset As Integer, zoffset As Integer, width As Integer, height As Integer, depth As Integer, format As PixelFormat, imageSize As Integer, data() As Byte)
         GL.CompressedTextureSubImage3D(texture_id, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data)
+        CheckGLError()
+    End Sub
+
+    Public Sub Dispose() Implements IDisposable.Dispose
+        GL.DeleteTexture(texture_id)
+        ALL_SIZE -= size
         CheckGLError()
     End Sub
 

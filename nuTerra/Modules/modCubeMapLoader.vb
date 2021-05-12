@@ -4,7 +4,7 @@ Imports OpenTK.Graphics.OpenGL4
 
 Module modCubeMapLoader
     Public Sub load_cube_and_cube_map()
-        If CUBE_TEXTURE_ID IsNot Nothing Then CUBE_TEXTURE_ID.Delete()
+        CUBE_TEXTURE_ID?.Dispose()
 
         'find our cube in teh maps package
 

@@ -1027,9 +1027,7 @@ try_again:
 
             If frmModelViewer.Model_Loaded Then
                 frmModelViewer.Model_Loaded = False
-                If frmModelViewer.modelIndirectBuffer IsNot Nothing Then
-                    frmModelViewer.modelIndirectBuffer.Delete()
-                End If
+                frmModelViewer.modelIndirectBuffer = Nothing
             End If
 
             'get the name we need to load
