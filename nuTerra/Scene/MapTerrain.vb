@@ -1,4 +1,7 @@
-﻿Public Class MapTerrain
+﻿Imports System.Runtime.InteropServices
+Imports OpenTK.Graphics.OpenGL4
+
+Public Class MapTerrain
     Implements IDisposable
 
     Public matrices As GLBuffer
@@ -10,6 +13,41 @@
     Public vt As VirtualTexture
     Public vtInfo As VirtualTextureInfo
     Public feedback As FeedbackBuffer
+
+    Public Sub terrain_vt_pass()
+        GL_PUSH_GROUP("terrain_vt_pass")
+
+        feedback.fbo.Bind(FramebufferTarget.Framebuffer)
+        GL.Viewport(0, 0, feedback.width, feedback.height)
+        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthFunc(DepthFunction.Greater)
+        GL.Enable(EnableCap.CullFace)
+
+        TerrainVTMIPShader.Use()
+
+        GL.Uniform1(TerrainVTMIPShader("MipBias"), CSng(vt.MipBias))
+
+        indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
+        all_chunks_vao.Bind()
+
+        For i = 0 To theMap.render_set.Length - 1
+            If theMap.render_set(i).visible Then
+                GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+            End If
+        Next
+
+        TerrainVTMIPShader.StopUse()
+
+        feedback.Download()
+        vt.Update(feedback.Requests)
+
+        feedback.clear()
+        feedback.copy()
+
+        GL_POP_GROUP()
+    End Sub
 
     Public Sub RebuildVTAtlas()
         LogThis("REBUILD ATLAS")

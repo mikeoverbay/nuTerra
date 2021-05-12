@@ -6,6 +6,9 @@
     Public terrain As New MapTerrain
     Public static_models As New MapStaticModels
     Public water As New MapWater
+    Public base_rings As New MapBaseRings
+    Public mini_map As New MapMinimap
+    Public fog As New MapFog
 
     Public Sub New(mapName As String)
         Me.mapName = mapName
@@ -16,5 +19,8 @@
         terrain.Dispose()
         static_models.Dispose()
         water.Dispose()
+        base_rings.Dispose()
+        mini_map.Dispose()
+        fog.Dispose()
     End Sub
 End Class

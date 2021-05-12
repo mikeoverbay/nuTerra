@@ -48,7 +48,6 @@ Module TerrainBuilder
         Public Shared v_data() As terain_V_data_
         Public Shared render_set() As chunk_render_data_
         '------------------------
-        Public Shared MINI_MAP_ID As GLTexture
         Public Shared GLOBAL_AM_ID As GLTexture
 
         Public Shared lut_path As String
@@ -329,7 +328,7 @@ Module TerrainBuilder
         If mm IsNot Nothing Then
             Using mss As New MemoryStream
                 mm.Extract(mss)
-                theMap.MINI_MAP_ID = load_dds_image_from_stream(mss, "spaces/" + ABS_NAME + "/mmap.dds")
+                map_scene.mini_map.MINI_MAP_ID = load_dds_image_from_stream(mss, "spaces/" + ABS_NAME + "/mmap.dds")
             End Using
         End If
 
@@ -343,8 +342,8 @@ Module TerrainBuilder
 
         '==========================================================
         'getting mini map team icons here
-        TEAM_1_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_1.png")
-        TEAM_2_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
+        map_scene.mini_map.TEAM_1_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_1.png")
+        map_scene.mini_map.TEAM_2_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
         '==========================================================
 
         'I don't expect any maps larger than 1024 chunks (208_bf_epic_normandy)

@@ -672,18 +672,6 @@ try_again:
         'MiniMap position/direction img
         DIRECTION_TEXTURE_ID = load_png_image_from_file(Path.Combine(sp, "resources\direction.png"), True, False)
         '---------------------------------------------------------
-        'MiniMap Letter Legends
-        MINI_LETTERS_ID = load_png_image_from_file(Path.Combine(sp, "resources\mini_letters.png"), False, False)
-        '---------------------------------------------------------
-        'MiniMap Number Legends
-        MINI_NUMBERS_ID = load_png_image_from_file(Path.Combine(sp, "resources\mini_numbers.png"), False, False)
-        '---------------------------------------------------------
-        'MiniMap vert trim
-        MINI_TRIM_VERT_ID = load_png_image_from_file(Path.Combine(sp, "resources\mini_trim_vert.png"), False, False)
-        '---------------------------------------------------------
-        'MiniMap horz trim
-        MINI_TRIM_HORZ_ID = load_png_image_from_file(Path.Combine(sp, "resources\mini_trim_horz.png"), False, False)
-        '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
         PROGRESS_BAR_IMAGE_ID = load_png_image_from_file(Path.Combine(sp, "resources\progress_bar.png"), False, True)
 
@@ -691,9 +679,6 @@ try_again:
         ' build Ascii characters texture.
         ASCII_ID = build_ascii_characters()
 
-        '===========================================================================================
-        'load noise texture.
-        NOISE_id = load_png_image_from_file(Path.Combine(sp, "Resources\noise.png"), True, True)
         '===========================================================================================
         ' needed for terrain atlas textures
         make_dummy_4_layer_atlas()

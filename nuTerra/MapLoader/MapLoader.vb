@@ -1127,7 +1127,6 @@ Module MapLoader
             GL.DeleteVertexArray(i)
         Next
 
-        theMap.MINI_MAP_ID = Nothing
         theMap.chunks = Nothing
 
         GC.Collect()

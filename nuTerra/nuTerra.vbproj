@@ -203,6 +203,9 @@
     <Compile Include="RenderEngine\ModelPicker.vb" />
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
+    <Compile Include="Scene\MapBaseRings.vb" />
+    <Compile Include="Scene\MapFog.vb" />
+    <Compile Include="Scene\MapMinimap.vb" />
     <Compile Include="Scene\MapScene.vb" />
     <Compile Include="Forms\frmProgramEditor.designer.vb">
       <DependentUpon>frmProgramEditor.vb</DependentUpon>

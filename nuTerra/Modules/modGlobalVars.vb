@@ -13,9 +13,6 @@ Module modGlobalVars
     Public FEEDBACK_HEIGHT As Integer = 32
 
     '=================================================================================
-    'Effects, Particle Textures and emitters.. more
-    Public NOISE_id As GLTexture
-    '=================================================================================
     '=================================================================================
     'GLSL highlighting string used in the editor
     Public GLSL_KEYWORDS As String
@@ -109,10 +106,6 @@ Module modGlobalVars
     Public PROGRESS_BAR_IMAGE_ID As GLTexture
     Public MINI_WORLD_MOUSE_POSITION As Vector2
     Public MINI_MOUSE_CAPTURED As Boolean
-    Public MINI_NUMBERS_ID As GLTexture
-    Public MINI_LETTERS_ID As GLTexture
-    Public MINI_TRIM_VERT_ID As GLTexture
-    Public MINI_TRIM_HORZ_ID As GLTexture
     Public CUBE_TEXTURE_ID As GLTexture
     Public CUBE_TEXTURE_PATH As String
     '============================================================
@@ -195,7 +188,5 @@ Module modGlobalVars
     Public TEAM_2 As Vector3
     Public MAP_BB_UR As Vector2
     Public MAP_BB_BL As Vector2
-    Public TEAM_1_ICON_ID As GLTexture
-    Public TEAM_2_ICON_ID As GLTexture
 
 End Module
