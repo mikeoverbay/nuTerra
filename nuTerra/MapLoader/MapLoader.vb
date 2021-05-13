@@ -440,7 +440,7 @@ Module MapLoader
             TERRAIN_LOADED = True
         End If 'DONT_BLOCK_TERRAIN
         If DONT_BLOCK_OUTLAND Then
-            create_outand()
+            create_outland()
 
         End If
         '===============================================================
