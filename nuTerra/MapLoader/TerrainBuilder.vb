@@ -445,11 +445,11 @@ Module TerrainBuilder
         Next
 
         outland_albedo = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).tile_map)
-        outland_normal = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).normal_map)
+        outland_normal_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).normal_map)
         outland_height_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).height_map)
         If cBWT2.cascades.count = 2 Then
             outland_albedo_cascade = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).tile_map)
-            outland_normal_cascade = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).normal_map)
+            outland_normal_map_cascade = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).normal_map)
             outland_height_cascade_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).height_map)
         End If
 
