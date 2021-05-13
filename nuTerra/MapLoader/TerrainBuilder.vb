@@ -306,7 +306,7 @@ Module TerrainBuilder
         SWT.Stop()
     End Sub
     Public Sub create_outland()
-        Dim out_c = cBWT2.
+        'Dim out_c = cBWT2.OutlandCascade_v1_0_0
     End Sub
 
     '=======================================================================

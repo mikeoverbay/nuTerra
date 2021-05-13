@@ -107,7 +107,7 @@ Module modSpacedBinVars
         Public _3 As BWArray(Of Int32)
         Public settings2 As TerrainSettings2_v1_6_1
         Public lod_distances As BWArray(Of Single) ' terrain/lodInfo/lodDistances
-        Public _6 As BWArray(Of Int32)
+        Public _6 As _6_
         Public cascades As BWArray(Of OutlandCascade_v1_0_0) ' outland/cascade
         Public tiles_fnv As BWArray(Of UInt32) ' outland/tiles
 
@@ -123,60 +123,71 @@ Module modSpacedBinVars
             _3 = New BWArray(Of Integer)(br)
             settings2 = TerrainSettings2_v1_6_1.Create(br)
             lod_distances = New BWArray(Of Single)(br)
+            _6 = New _6_(br)
+            cascades = New BWArray(Of OutlandCascade_v1_0_0)(br)
             ' TODO
             'lods are next and unused
         End Sub
-
         <StructLayout(LayoutKind.Sequential)>
-        Public Structure OutlandCascade_v1_0_0
-            Public outland_BB_min As Vector3
-            Public outland_bb_max As Vector3
-            Public height_map_fnv As UInt32
-            Public normal_map_fvn As UInt32
-            Public tile_map_fvn As UInt32
-            Public tileScale As Single
-
-
+        Public Structure _6_
+            Public int_1 As Int32
+            Public int_2 As Int32
             Public Sub New(br As BinaryReader)
-                Dim size = br.ReadUInt32()
-                Debug.Assert(Marshal.SizeOf(Me) = size)
-
-                outland_BB_min.X = br.ReadSingle
-                outland_BB_min.Y = br.ReadSingle
-                outland_BB_min.Z = br.ReadSingle
-
-                outland_bb_max.X = br.ReadSingle
-                outland_bb_max.Y = br.ReadSingle
-                outland_bb_max.Z = br.ReadSingle
-
-                height_map_fnv = br.ReadUInt32
-                normal_map_fvn = br.ReadUInt32
-                tile_map_fvn = br.ReadUInt32
-
-                tileScale = br.ReadSingle
+                int_1 = br.ReadInt32
+                int_2 = br.ReadInt32
             End Sub
-
-            ReadOnly Property height_map As String
-                Get
-                    Return cBWST.find_str(height_map_fnv)
-                End Get
-            End Property
-
-            ReadOnly Property normal_map As String
-                Get
-                    Return cBWST.find_str(normal_map_fvn)
-                End Get
-            End Property
-
-            ReadOnly Property tile_map As String
-                Get
-                    Return cBWST.find_str(tile_map_fvn)
-                End Get
-            End Property
-
         End Structure
 
         <StructLayout(LayoutKind.Sequential)>
+            Public Structure OutlandCascade_v1_0_0
+                Public outland_BB_min As Vector3
+                Public outland_bb_max As Vector3
+                Public height_map_fnv As UInt32
+                Public normal_map_fvn As UInt32
+                Public tile_map_fvn As UInt32
+                Public tileScale As Single
+
+
+                Public Sub New(br As BinaryReader)
+                    Dim size = br.ReadUInt32()
+                    Debug.Assert(Marshal.SizeOf(Me) = size)
+
+                    outland_BB_min.X = br.ReadSingle
+                    outland_BB_min.Y = br.ReadSingle
+                    outland_BB_min.Z = br.ReadSingle
+
+                    outland_bb_max.X = br.ReadSingle
+                    outland_bb_max.Y = br.ReadSingle
+                    outland_bb_max.Z = br.ReadSingle
+
+                    height_map_fnv = br.ReadUInt32
+                    normal_map_fvn = br.ReadUInt32
+                    tile_map_fvn = br.ReadUInt32
+
+                    tileScale = br.ReadSingle
+                End Sub
+
+                ReadOnly Property height_map As String
+                    Get
+                        Return cBWST.find_str(height_map_fnv)
+                    End Get
+                End Property
+
+                ReadOnly Property normal_map As String
+                    Get
+                        Return cBWST.find_str(normal_map_fvn)
+                    End Get
+                End Property
+
+                ReadOnly Property tile_map As String
+                    Get
+                        Return cBWST.find_str(tile_map_fvn)
+                    End Get
+                End Property
+
+            End Structure
+
+            <StructLayout(LayoutKind.Sequential)>
             Public Structure TerrainSettings1_v0_9_20
                 Public chunk_size As Single ' space.settings/chunkSize or 100.0 by default
                 Public bounds_minX As Int32 ' space.settings/bounds
