@@ -121,7 +121,13 @@ Module modGlobalVars
     Public PAUSE_ORBIT As Boolean = True
     Public LIGHT_SPEED As Single = 0.02F
     '============================================================
-
+    'outland texture ids
+    Public outland_normal As GLTexture
+    Public outland_normal_cascade As GLTexture
+    Public outland_albedo As GLTexture
+    Public outland_albedo_cascade As GLTexture
+    Public outland_height_map As GLTexture
+    Public outland_height_cascade_map
     '============================================================
     Public _STARTED As Boolean 'Signals UI initialization is complete
 
@@ -166,6 +172,7 @@ Module modGlobalVars
     '
     'Draw Enable Flags. Items wont be rendered if these are False
     Public TERRAIN_LOADED As Boolean
+    Public OUTLAND_LOADED As Boolean
     Public TREES_LOADED As Boolean
     Public DECALS_LOADED As Boolean
     Public MODELS_LOADED As Boolean
@@ -175,6 +182,7 @@ Module modGlobalVars
     Public BASE_RINGS_LOADED As Boolean
     'Block loading flags. They are used for skipping loading of data.
     Public DONT_BLOCK_TERRAIN As Boolean
+    Public DONT_BLOCK_OUTLAND As Boolean
     Public DONT_BLOCK_TREES As Boolean
     Public DONT_BLOCK_DECALS As Boolean
     Public DONT_BLOCK_MODELS As Boolean = False

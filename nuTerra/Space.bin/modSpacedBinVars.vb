@@ -107,9 +107,9 @@ Module modSpacedBinVars
         Public _3 As BWArray(Of Int32)
         Public settings2 As TerrainSettings2_v1_6_1
         Public lod_distances As BWArray(Of Single) ' terrain/lodInfo/lodDistances
-        ' Public _6 As BWArray(Of 2 x Int32)
-        ' Public cascades As BWArray(Of OutlandCascade_v1_0_0) ' outland/cascade
-        ' Public tiles_fnv As BWArray(Of UInt32) ' outland/tiles
+        Public _6 As BWArray(Of Int32)
+        Public cascades As BWArray(Of OutlandCascade_v1_0_0) ' outland/cascade
+        Public tiles_fnv As BWArray(Of UInt32) ' outland/tiles
 
         Public Sub New(bwt2Header As SectionHeader, br As BinaryReader)
             ' set stream reader to point at this chunk
@@ -128,109 +128,158 @@ Module modSpacedBinVars
         End Sub
 
         <StructLayout(LayoutKind.Sequential)>
-        Public Structure TerrainSettings1_v0_9_20
-            Public chunk_size As Single ' space.settings/chunkSize or 100.0 by default
-            Public bounds_minX As Int32 ' space.settings/bounds
-            Public bounds_maxX As Int32 ' space.settings/bounds
-            Public bounds_minY As Int32 ' space.settings/bounds
-            Public bounds_maxY As Int32 ' space.settings/bounds
-            Public normal_map_fnv As UInt32
-            Public global_map_fnv As UInt32 ' global_AM.dds, maybe tintTexture - global terrain albedo map
-            Public noise_texture_fnv As UInt32 ' noiseTexture
+        Public Structure OutlandCascade_v1_0_0
+            Public outland_BB_min As Vector3
+            Public outland_bb_max As Vector3
+            Public height_map_fnv As UInt32
+            Public normal_map_fvn As UInt32
+            Public tile_map_fvn As UInt32
+            Public tileScale As Single
+
 
             Public Sub New(br As BinaryReader)
                 Dim size = br.ReadUInt32()
                 Debug.Assert(Marshal.SizeOf(Me) = size)
 
-                chunk_size = br.ReadSingle()
-                bounds_minX = br.ReadInt32()
-                bounds_maxX = br.ReadInt32()
-                bounds_minY = br.ReadInt32()
-                bounds_maxY = br.ReadInt32()
-                normal_map_fnv = br.ReadUInt32()
-                global_map_fnv = br.ReadUInt32()
-                noise_texture_fnv = br.ReadUInt32()
+                outland_BB_min.X = br.ReadSingle
+                outland_BB_min.Y = br.ReadSingle
+                outland_BB_min.Z = br.ReadSingle
+
+                outland_bb_max.X = br.ReadSingle
+                outland_bb_max.Y = br.ReadSingle
+                outland_bb_max.Z = br.ReadSingle
+
+                height_map_fnv = br.ReadUInt32
+                normal_map_fvn = br.ReadUInt32
+                tile_map_fvn = br.ReadUInt32
+
+                tileScale = br.ReadSingle
             End Sub
+
+            ReadOnly Property height_map As String
+                Get
+                    Return cBWST.find_str(height_map_fnv)
+                End Get
+            End Property
 
             ReadOnly Property normal_map As String
                 Get
-                    Return cBWST.find_str(normal_map_fnv)
+                    Return cBWST.find_str(normal_map_fvn)
                 End Get
             End Property
 
-            ReadOnly Property global_map As String
+            ReadOnly Property tile_map As String
                 Get
-                    Return cBWST.find_str(global_map_fnv)
+                    Return cBWST.find_str(tile_map_fvn)
                 End Get
             End Property
 
-            ReadOnly Property noise_texture As String
-                Get
-                    Return cBWST.find_str(noise_texture_fnv)
-                End Get
-            End Property
         End Structure
 
         <StructLayout(LayoutKind.Sequential)>
-        Public Structure ChunkTerrain_v0_9_12
-            Public resource_fnv As UInt32
-            Public loc_x As Int16
-            Public loc_y As Int16
+            Public Structure TerrainSettings1_v0_9_20
+                Public chunk_size As Single ' space.settings/chunkSize or 100.0 by default
+                Public bounds_minX As Int32 ' space.settings/bounds
+                Public bounds_maxX As Int32 ' space.settings/bounds
+                Public bounds_minY As Int32 ' space.settings/bounds
+                Public bounds_maxY As Int32 ' space.settings/bounds
+                Public normal_map_fnv As UInt32
+                Public global_map_fnv As UInt32 ' global_AM.dds, maybe tintTexture - global terrain albedo map
+                Public noise_texture_fnv As UInt32 ' noiseTexture
 
-            ReadOnly Property resource As String
-                Get
-                    Return cBWST.find_str(resource_fnv)
-                End Get
-            End Property
+                Public Sub New(br As BinaryReader)
+                    Dim size = br.ReadUInt32()
+                    Debug.Assert(Marshal.SizeOf(Me) = size)
+
+                    chunk_size = br.ReadSingle()
+                    bounds_minX = br.ReadInt32()
+                    bounds_maxX = br.ReadInt32()
+                    bounds_minY = br.ReadInt32()
+                    bounds_maxY = br.ReadInt32()
+                    normal_map_fnv = br.ReadUInt32()
+                    global_map_fnv = br.ReadUInt32()
+                    noise_texture_fnv = br.ReadUInt32()
+                End Sub
+
+                ReadOnly Property normal_map As String
+                    Get
+                        Return cBWST.find_str(normal_map_fnv)
+                    End Get
+                End Property
+
+                ReadOnly Property global_map As String
+                    Get
+                        Return cBWST.find_str(global_map_fnv)
+                    End Get
+                End Property
+
+                ReadOnly Property noise_texture As String
+                    Get
+                        Return cBWST.find_str(noise_texture_fnv)
+                    End Get
+                End Property
+            End Structure
+
+            <StructLayout(LayoutKind.Sequential)>
+            Public Structure ChunkTerrain_v0_9_12
+                Public resource_fnv As UInt32
+                Public loc_x As Int16
+                Public loc_y As Int16
+
+                ReadOnly Property resource As String
+                    Get
+                        Return cBWST.find_str(resource_fnv)
+                    End Get
+                End Property
+            End Structure
+
+            <StructLayout(LayoutKind.Sequential)>
+            Public Structure TerrainSettings2_v1_6_1
+                Public terrain_version As UInt32      ' space.settings/terrain/version
+                Public flags As UInt32
+                Public height_map_size As UInt32        ' terrain/heightMapSize
+                Public normal_map_size As UInt32        ' terrain/normalMapSize
+                Public hole_map_size As UInt32          ' terrain/holeMapSize
+                Public shadow_map_size As UInt32        ' terrain/shadowMapSize
+                Public blend_map_size As UInt32         ' terrain/blendMapSize
+                Public lod_texture_distance As Single   ' terrain/lodInfo/lodTextureDistance
+                Public macro_lod_start As Single        ' terrain/lodInfo/macroLODStart
+                Public unknown_1 As UInt32              ' blend mode avg color/avg alpha height ??
+                Public start_bias As Single             ' terrain/lodInfo/startBias
+                Public end_bias As Single               ' terrain/lodInfo/endBias
+                Public direct_occlusion As Single       ' terrain/soundOcclusion/directOcclusion
+                Public reverb_occlusion As Single       ' terrain/soundOcclusion/reverbOcclusion
+                Public wrap_u As Single                 ' terrain/detailNormal/wrapU
+                Public wrap_v As Single                 ' terrain/detailNormal/wrapV
+                Public unknown_2 As UInt32              ' tessZoomUpperThreshold
+                Public unknown_3 As Single              ' tessZoomLowerThreshold
+                Public unknown_4 As Single              ' tessZoomUpperScale
+                Public unknown_5 As Single              ' tessZoomLowerScale
+                Public blend_macro_influence As Single  ' terrain/blendMacroInfluence
+                Public blend_global_threshold As Single ' terrain/blendGlobalThreshold
+                Public blend_height As Single           ' terrain/blendHeight
+                Public disabled_blend_height As Single  ' terrain/disabledBlendHeight
+                Public vt_lod_params As Vector4         ' terrain/VTLodParams
+                Public bounding_box As Vector4
+
+                Public Shared Function Create(br As BinaryReader) As TerrainSettings2_v1_6_1
+                    Dim size = br.ReadUInt32()
+                    Debug.Assert(Marshal.SizeOf(Create) = size)
+
+                    Dim buffer = br.ReadBytes(size)
+                    Dim handle = GCHandle.Alloc(buffer, GCHandleType.Pinned)
+                    Create = Marshal.PtrToStructure(Marshal.UnsafeAddrOfPinnedArrayElement(buffer, 0), GetType(TerrainSettings2_v1_6_1))
+                    handle.Free()
+
+                    CommonProperties.blend_macro_influence = Create.blend_macro_influence
+                    CommonProperties.blend_global_threshold = Create.blend_global_threshold
+                End Function
+            End Structure
         End Structure
-
-        <StructLayout(LayoutKind.Sequential)>
-        Public Structure TerrainSettings2_v1_6_1
-            Public terrain_version As UInt32      ' space.settings/terrain/version
-            Public flags As UInt32
-            Public height_map_size As UInt32        ' terrain/heightMapSize
-            Public normal_map_size As UInt32        ' terrain/normalMapSize
-            Public hole_map_size As UInt32          ' terrain/holeMapSize
-            Public shadow_map_size As UInt32        ' terrain/shadowMapSize
-            Public blend_map_size As UInt32         ' terrain/blendMapSize
-            Public lod_texture_distance As Single   ' terrain/lodInfo/lodTextureDistance
-            Public macro_lod_start As Single        ' terrain/lodInfo/macroLODStart
-            Public unknown_1 As UInt32              ' blend mode avg color/avg alpha height ??
-            Public start_bias As Single             ' terrain/lodInfo/startBias
-            Public end_bias As Single               ' terrain/lodInfo/endBias
-            Public direct_occlusion As Single       ' terrain/soundOcclusion/directOcclusion
-            Public reverb_occlusion As Single       ' terrain/soundOcclusion/reverbOcclusion
-            Public wrap_u As Single                 ' terrain/detailNormal/wrapU
-            Public wrap_v As Single                 ' terrain/detailNormal/wrapV
-            Public unknown_2 As UInt32              ' tessZoomUpperThreshold
-            Public unknown_3 As Single              ' tessZoomLowerThreshold
-            Public unknown_4 As Single              ' tessZoomUpperScale
-            Public unknown_5 As Single              ' tessZoomLowerScale
-            Public blend_macro_influence As Single  ' terrain/blendMacroInfluence
-            Public blend_global_threshold As Single ' terrain/blendGlobalThreshold
-            Public blend_height As Single           ' terrain/blendHeight
-            Public disabled_blend_height As Single  ' terrain/disabledBlendHeight
-            Public vt_lod_params As Vector4         ' terrain/VTLodParams
-            Public bounding_box As Vector4
-
-            Public Shared Function Create(br As BinaryReader) As TerrainSettings2_v1_6_1
-                Dim size = br.ReadUInt32()
-                Debug.Assert(Marshal.SizeOf(Create) = size)
-
-                Dim buffer = br.ReadBytes(size)
-                Dim handle = GCHandle.Alloc(buffer, GCHandleType.Pinned)
-                Create = Marshal.PtrToStructure(Marshal.UnsafeAddrOfPinnedArrayElement(buffer, 0), GetType(TerrainSettings2_v1_6_1))
-                handle.Free()
-
-                CommonProperties.blend_macro_influence = Create.blend_macro_influence
-                CommonProperties.blend_global_threshold = Create.blend_global_threshold
-            End Function
-        End Structure
-    End Structure
 #End Region
 
 #Region "BSMI"
-    Public cBSMI As cBSMI_
+        Public cBSMI As cBSMI_
 
     Public Structure cBSMI_
         Public transforms As BWArray(Of Matrix4)

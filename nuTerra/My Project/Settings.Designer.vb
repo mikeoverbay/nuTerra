@@ -365,6 +365,18 @@ Namespace My
                 Me("UI_map_icon_scale") = value
             End Set
         End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property load_outland() As Boolean
+            Get
+                Return CType(Me("load_outland"),Boolean)
+            End Get
+            Set
+                Me("load_outland") = value
+            End Set
+        End Property
     End Class
 End Namespace
 

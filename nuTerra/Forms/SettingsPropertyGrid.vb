@@ -25,6 +25,7 @@ Public Class SettingsPropertyGrid
         DONT_BLOCK_MODELS = My.Settings.load_models
         DONT_BLOCK_SKY = My.Settings.load_sky
         DONT_BLOCK_TERRAIN = My.Settings.load_terrain
+        DONT_BLOCK_OUTLAND = My.Settings.load_outland
         DONT_BLOCK_TREES = My.Settings.load_trees
         DONT_BLOCK_WATER = My.Settings.load_water
     End Sub
@@ -247,6 +248,17 @@ Public Class SettingsPropertyGrid
         End Set
         Get
             Return DONT_BLOCK_TERRAIN
+        End Get
+    End Property
+
+    <DisplayName("Draw Outland"), Category("Map")>
+    Public Property MAP_draw_outland As Boolean
+        Set(value As Boolean)
+            My.Settings.load_outland = value
+            DONT_BLOCK_OUTLAND = value
+        End Set
+        Get
+            Return DONT_BLOCK_OUTLAND
         End Get
     End Property
 

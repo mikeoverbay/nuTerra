@@ -310,6 +310,9 @@ Module TerrainBuilder
         LogThis(String.Format("Build VAO: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Stop()
     End Sub
+    Public Sub create_outland()
+        Dim out_c = cBWT2.
+    End Sub
 
     '=======================================================================
     Public Sub get_all_chunk_file_data()

@@ -56,6 +56,7 @@ Module MapLoader
         '===============================================================
         'Set draw enable flags
         TERRAIN_LOADED = False
+        OUTLAND_LOADED = False
         TREES_LOADED = False
         DECALS_LOADED = False
         MODELS_LOADED = False
@@ -438,6 +439,10 @@ Module MapLoader
 #End If
             TERRAIN_LOADED = True
         End If 'DONT_BLOCK_TERRAIN
+        If DONT_BLOCK_OUTLAND Then
+            create_outand()
+
+        End If
         '===============================================================
         'load cube map for PBS_ext lighting,
         'It must happend after terrain load to get the path.
