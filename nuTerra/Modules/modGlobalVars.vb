@@ -126,7 +126,9 @@ Module modGlobalVars
     Public outland_albedo As GLTexture
     Public outland_albedo_cascade As GLTexture
     Public outland_height_map As GLTexture
-    Public outland_height_cascade_map
+    Public outland_height_cascade_map As GLTexture
+    Public outland_tiles() As GLTexture
+
     '============================================================
     Public _STARTED As Boolean 'Signals UI initialization is complete
 

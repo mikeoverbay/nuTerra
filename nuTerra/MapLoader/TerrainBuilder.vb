@@ -305,10 +305,9 @@ Module TerrainBuilder
         LogThis(String.Format("Build VAO: {0}", SWT.ElapsedMilliseconds.ToString))
         SWT.Stop()
     End Sub
-    Public Sub create_outland()
-        Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
-        Dim ent = ResMgr.Lookup(String.Format("spaces/{0}/{1}", ABS_NAME, outland_albedo))
 
+    Public Sub create_outland()
+        ' TODO
     End Sub
 
     '=======================================================================
@@ -444,6 +443,21 @@ Module TerrainBuilder
 
             End With
         Next
+
+        outland_albedo = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).tile_map)
+        outland_normal = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).normal_map)
+        outland_height_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).height_map)
+        If cBWT2.cascades.count = 2 Then
+            outland_albedo_cascade = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).tile_map)
+            outland_normal_cascade = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).normal_map)
+            outland_height_cascade_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).height_map)
+        End If
+
+        ReDim outland_tiles(cBWT2.tiles_fnv.count - 1)
+        For i = 0 To cBWT2.tiles_fnv.count - 1
+            outland_tiles(i) = find_and_load_texture_from_pkgs(cBWST.find_str(cBWT2.tiles_fnv.data(i)))
+        Next
+
         cBWT2 = Nothing
         cBWST = Nothing
 

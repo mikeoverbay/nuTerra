@@ -125,21 +125,9 @@ Module modSpacedBinVars
             lod_distances = New BWArray(Of Single)(br)
             _6 = New _6_(br)
             cascades = New BWArray(Of OutlandCascade_v1_0_0)(br)
-            ' TODO
-            'lods are next and unused
-            Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
-            Dim ent = ResMgr.Lookup(String.Format("spaces/{0}/{1}", ABS_NAME, outland_albedo))
-
-            'outland_albedo = find_and_load_texture_from_pkgs(cascades.data(0).tile_map)
-            'outland_albedo_cascade = find_and_load_texture_from_pkgs(cascades.data(1).tile_map)
-
-            'outland_normal = find_and_load_texture_from_pkgs(cascades.data(0).normal_map)
-            'outland_normal_cascade = find_and_load_texture_from_pkgs(cascades.data(1).normal_map)
-
-            'outland_height_map = find_and_load_texture_from_pkgs(cascades.data(0).height_map)
-            'outland_height_cascade_map = find_and_load_texture_from_pkgs(cascades.data(1).height_map)
-
+            tiles_fnv = New BWArray(Of UInt32)(br)
         End Sub
+
         <StructLayout(LayoutKind.Sequential)>
         Public Structure _6_
             Public int_1 As Int32
