@@ -10,6 +10,8 @@ Module TerrainTextureFunctions
     Public min_on As UInt32
     Dim cur_layer_info_pnt As Integer = 0
 
+
+
     Public Sub get_layers(ByVal map As Integer)
         'There can be as many as 4 TexLayer sets.
         'Each contains the blend map and the 1 or 2 textures

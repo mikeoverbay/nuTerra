@@ -306,7 +306,9 @@ Module TerrainBuilder
         SWT.Stop()
     End Sub
     Public Sub create_outland()
-        'Dim out_c = cBWT2.OutlandCascade_v1_0_0
+        Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
+        Dim ent = ResMgr.Lookup(String.Format("spaces/{0}/{1}", ABS_NAME, outland_albedo))
+
     End Sub
 
     '=======================================================================
