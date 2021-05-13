@@ -121,8 +121,8 @@ Module modGlobalVars
     Public LIGHT_SPEED As Single = 0.02F
     '============================================================
     'outland texture ids
-    Public outland_normal As GLTexture
-    Public outland_normal_cascade As GLTexture
+    Public outland_normal_map As GLTexture
+    Public outland_normal_map_cascade As GLTexture
     Public outland_albedo As GLTexture
     Public outland_albedo_cascade As GLTexture
     Public outland_height_map As GLTexture

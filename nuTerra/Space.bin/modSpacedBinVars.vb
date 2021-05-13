@@ -125,9 +125,51 @@ Module modSpacedBinVars
             lod_distances = New BWArray(Of Single)(br)
             _6 = New _6_(br)
             cascades = New BWArray(Of OutlandCascade_v1_0_0)(br)
-            tiles_fnv = New BWArray(Of UInt32)(br)
-        End Sub
+            ' TODO
+            'lods are next and unused
+            Dim ms As MemoryStream
+            Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
+            Dim ent = ResMgr.Lookup(cascades.data(0).tile_map)
+            If ent IsNot Nothing Then
+                ms = New MemoryStream
+                ent.Extract(ms)
+                outland_albedo = load_png_image_from_stream(ms, cascades.data(0).tile_map, False, False)
+            End If
+            ent = ResMgr.Lookup(cascades.data(1).tile_map)
+            If ent IsNot Nothing Then
+                ms = New MemoryStream
+                ent.Extract(ms)
+                outland_albedo_cascade = load_png_image_from_stream(ms, cascades.data(1).tile_map, False, False)
+            End If
 
+            ent = ResMgr.Lookup(cascades.data(0).height_map)
+            If ent IsNot Nothing Then
+                ms = New MemoryStream
+                ent.Extract(ms)
+                outland_height_map = load_png_image_from_stream(ms, cascades.data(0).height_map, False, False)
+            End If
+            ent = ResMgr.Lookup(cascades.data(1).height_map)
+            If ent IsNot Nothing Then
+                ms = New MemoryStream
+                ent.Extract(ms)
+                outland_height_cascade_map = load_png_image_from_stream(ms, cascades.data(1).height_map, False, False)
+            End If
+
+            ent = ResMgr.Lookup(cascades.data(0).normal_map)
+            If ent IsNot Nothing Then
+                ms = New MemoryStream
+                ent.Extract(ms)
+                outland_normal_map = load_dds_image_from_stream(ms, cascades.data(0).normal_map)
+            End If
+            ent = ResMgr.Lookup(cascades.data(1).normal_map)
+            If ent IsNot Nothing Then
+                ms = New MemoryStream
+                ent.Extract(ms)
+                outland_normal_map_cascade = load_dds_image_from_stream(ms, cascades.data(1).normal_map)
+            End If
+
+
+        End Sub
         <StructLayout(LayoutKind.Sequential)>
         Public Structure _6_
             Public int_1 As Int32
