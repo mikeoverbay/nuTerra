@@ -7,6 +7,7 @@ Public Class MapFog
     Implements IDisposable
 
     Public NOISE_id As GLTexture
+    Public uv_location As New Vector2
 
     Public Sub New()
         NOISE_id = load_png_image_from_file(Path.Combine(Application.StartupPath, "Resources\noise.png"), True, True)

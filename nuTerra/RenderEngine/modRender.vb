@@ -7,8 +7,6 @@ Imports OpenTK.Graphics.OpenGL4
 Module modRender
     Dim temp_timer As New Stopwatch
     Public PI As Single = 3.14159274F
-    Public angle1, angle2 As Single
-    Public uv_location As New Vector2
 
     Dim colors() As Color4 = {
         Color4.Red,
@@ -65,7 +63,7 @@ Module modRender
 
         If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             '=======================================================================
-            frustum_cull() '========================================================
+            map_scene.static_models.frustum_cull() '========================================================
             '=======================================================================
         End If
 
@@ -102,22 +100,19 @@ Module modRender
             GL.CopyNamedBufferSubData(map_scene.static_models.parameters.buffer_id, map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer))
             GL.GetNamedBufferSubData(map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, 3 * Marshal.SizeOf(Of Integer), map_scene.static_models.numAfterFrustum)
 
-            '=======================================================================
-            model_depth_pass() '=========================================================
-            '=======================================================================
+            map_scene.static_models.model_depth_pass()
 
             If USE_RASTER_CULLING Then
-                model_cull_raster_pass()
+                map_scene.static_models.model_cull_raster_pass()
             End If
         End If
 
         MainFBO.attach_CNGPA()
 
         If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
-            '=======================================================================
-            draw_terrain() '========================================================
-            '=======================================================================
-            If (SHOW_BORDER Or SHOW_CHUNKS Or SHOW_GRID) Then draw_terrain_grids()
+            map_scene.terrain.draw_terrain()
+
+            If (SHOW_BORDER Or SHOW_CHUNKS Or SHOW_GRID) Then map_scene.terrain.draw_terrain_grids()
             '=======================================================================
             If SHOW_CURSOR Then
                 'setup for projection before drawing
@@ -127,7 +122,7 @@ Module modRender
                 GL.Enable(EnableCap.CullFace)
                 GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
                 '=======================================================================
-                draw_map_cursor() '=================================
+                map_scene.cursor.draw_map_cursor() '=================================
                 '=======================================================================
                 'restore settings after projected objects are drawn
                 GL.DepthMask(True)
@@ -138,11 +133,8 @@ Module modRender
         End If
 
         If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
-            '=======================================================================
-            draw_models() '=========================================================
-            '=======================================================================
+            map_scene.static_models.draw_models()
         End If
-        '===========================================================================
 
         GL.DepthFunc(DepthFunction.Less)
         '===========================================================================
@@ -199,7 +191,7 @@ Module modRender
         '===========================================================================
         'hopefully, this will look like glass :)
         If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
-            glassPass()
+            map_scene.static_models.glassPass()
         End If
 
         '===========================================================================
@@ -314,26 +306,6 @@ Module modRender
         Next
     End Sub
 
-    Private Sub frustum_cull()
-        GL_PUSH_GROUP("frustum_cull")
-
-        'clear atomic counter
-        map_scene.static_models.parameters.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
-
-        cullShader.Use()
-
-        GL.Uniform1(cullShader("numModelInstances"), map_scene.static_models.numModelInstances)
-
-        Dim numGroups = (map_scene.static_models.numModelInstances + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
-        GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
-
-        GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
-
-        cullShader.StopUse()
-
-        GL_POP_GROUP()
-    End Sub
-
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
         GL.CopyTextureSubImage2D(MainFBO.gColor.texture_id, 0, 0, 0, 0, 0, MainFBO.SCR_WIDTH, MainFBO.SCR_HEIGHT)
@@ -349,300 +321,6 @@ Module modRender
             0, 0, MainFBO.SCR_WIDTH, MainFBO.SCR_HEIGHT,
             ClearBufferMask.ColorBufferBit,
             BlitFramebufferFilter.Nearest)
-    End Sub
-
-    Private Sub draw_terrain()
-        GL_PUSH_GROUP("draw_terrain")
-
-        ' EANABLE FACE CULLING
-        GL.Enable(EnableCap.CullFace)
-
-        ' BIND LQ SHADER
-        TerrainLQShader.Use()
-
-        ' BIND VT TEXTURES
-        map_scene.terrain.vt.Bind()
-
-        ' BIND TERRAIN VAO
-        map_scene.terrain.all_chunks_vao.Bind()
-
-        ' BIND TERRAIN INDIRECT BUFFER
-        map_scene.terrain.indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
-
-        For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.LQ Then
-                ' CALC NORMAL MATRIX FOR CHUNK
-                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix))
-
-                ' DRAW CHUNK INDIRECT
-                GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-            End If
-        Next
-
-        ' UNBIND SHADER
-        TerrainLQShader.StopUse()
-
-        If USE_TESSELLATION Then
-            GL_PUSH_GROUP("draw_terrain: tessellation")
-
-            ' BIND HQ SHADER
-            TerrainHQShader.Use()
-
-            For i = 0 To theMap.render_set.Length - 1
-                If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then
-                    ' CALC NORMAL MATRIX FOR CHUNK
-                    GL.UniformMatrix3(TerrainHQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix))
-
-                    ' DRAW CHUNK INDIRECT
-                    GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-                End If
-            Next
-
-            ' UNBIND SHADER
-            TerrainHQShader.StopUse()
-
-            GL_POP_GROUP()
-        End If
-
-        ' RESTORE STATE
-        GL.Disable(EnableCap.CullFace)
-
-        If WIRE_TERRAIN Then
-            GL_PUSH_GROUP("draw_terrain: wire")
-
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
-            MainFBO.attach_CF()
-
-            TerrainNormals.Use()
-
-            GL.Uniform1(TerrainNormals("prj_length"), 0.5F)
-            GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
-            GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
-
-            For i = 0 To theMap.render_set.Length - 1
-                If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality <> TerrainQuality.HQ Then
-                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-                End If
-            Next
-
-            TerrainNormals.StopUse()
-
-            If USE_TESSELLATION Then
-                TerrainNormalsHQ.Use()
-
-                GL.Uniform1(TerrainNormalsHQ("prj_length"), 0.2F)
-                GL.Uniform1(TerrainNormalsHQ("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
-                GL.Uniform1(TerrainNormalsHQ("show_wireframe"), CInt(WIRE_TERRAIN))
-
-                For i = 0 To theMap.render_set.Length - 1
-                    If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then
-                        GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-                    End If
-                Next
-
-                TerrainNormalsHQ.StopUse()
-            End If
-
-            ' RESTORE STATE
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-
-            GL_POP_GROUP()
-        End If
-
-        ' UNBIND VT TEXTURES
-        map_scene.terrain.vt.Unbind()
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub model_depth_pass()
-        'This is just to depth pass write to allow early z reject and stop
-        ' wetness from showing through the models.
-        GL_PUSH_GROUP("model_depth_pass")
-
-        '------------------------------------------------
-        mDepthWriteShader.Use()  '<------------------------------- Shader Bind
-        '------------------------------------------------
-        GL.ColorMask(False, False, False, False)
-        GL.Enable(EnableCap.CullFace)
-
-        map_scene.static_models.allMapModels.Bind()
-
-        map_scene.static_models.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
-
-        GL.Disable(EnableCap.CullFace)
-
-        map_scene.static_models.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1), 0)
-
-        mDepthWriteShader.StopUse()
-        GL.ColorMask(True, True, True, True)
-
-        GL.Enable(EnableCap.CullFace)
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub model_cull_raster_pass()
-        GL_PUSH_GROUP("model_cull_raster_pass")
-
-        GL.ColorMask(False, False, False, False)
-        ' we need this because the depth has been writen already.
-        GL.DepthFunc(DepthFunction.Gequal)
-        GL.DepthMask(False)
-
-        'clear
-        map_scene.static_models.visibles.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
-        map_scene.static_models.visibles_dbl_sided.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1) * Marshal.SizeOf(Of Integer), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
-
-        defaultVao.Bind()
-
-        If USE_REPRESENTATIVE_TEST Then
-            GL.Enable(GL_REPRESENTATIVE_FRAGMENT_TEST_NV)
-        End If
-
-        cullRasterShader.Use()
-        GL.Uniform1(cullRasterShader("numAfterFrustum"), map_scene.static_models.numAfterFrustum(0))
-        GL.DrawArrays(PrimitiveType.Points, 0, map_scene.static_models.numAfterFrustum(0) + map_scene.static_models.numAfterFrustum(1))
-        cullRasterShader.StopUse()
-
-        If USE_REPRESENTATIVE_TEST Then
-            GL.Disable(GL_REPRESENTATIVE_FRAGMENT_TEST_NV)
-        End If
-
-        GL.MemoryBarrier(MemoryBarrierFlags.ShaderStorageBarrierBit)
-
-        cullInvalidateShader.Use()
-        GL.Uniform1(cullInvalidateShader("numAfterFrustum"), map_scene.static_models.numAfterFrustum(0))
-        GL.Uniform1(cullInvalidateShader("numAfterFrustumDblSided"), map_scene.static_models.numAfterFrustum(1))
-
-        Dim numGroups = (Math.Max(map_scene.static_models.numAfterFrustum(0), map_scene.static_models.numAfterFrustum(1)) + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
-        GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
-
-        GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
-
-        cullInvalidateShader.StopUse()
-
-        GL.DepthMask(True)
-        GL.ColorMask(True, True, True, True)
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub draw_models()
-        GL_PUSH_GROUP("draw_models")
-
-        ' we need this because the depth has been writen already.
-        GL.DepthFunc(DepthFunction.Equal)
-        GL.DepthMask(False)
-
-        'SOLID FILL
-        MainFBO.attach_CNGP()
-
-        Dim indices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
-        '------------------------------------------------
-        modelShader.Use()  '<------------------------------- Shader Bind
-        '------------------------------------------------
-
-        'assign subroutines
-        GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
-
-        GL.Enable(EnableCap.CullFace)
-
-        map_scene.static_models.allMapModels.Bind()
-
-        map_scene.static_models.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
-
-        GL.Disable(EnableCap.CullFace)
-
-        map_scene.static_models.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1), 0)
-
-        modelShader.StopUse()
-
-        GL.DepthFunc(DepthFunction.Greater)
-
-        MainFBO.attach_CNGPA()
-        GL.DepthMask(True)
-
-        '------------------------------------------------
-        modelGlassShader.Use()  '<------------------------------- Shader Bind
-        '------------------------------------------------
-
-        map_scene.static_models.indirect_glass.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(2), 0)
-
-        modelGlassShader.StopUse()
-
-        MainFBO.attach_CNGP()
-        GL.DepthMask(False)
-
-        If WIRE_MODELS Then
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
-
-            MainFBO.attach_CF()
-            normalShader.Use()
-
-            GL.Uniform1(normalShader("prj_length"), 0.3F)
-            GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
-            GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
-
-            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(2), 0)
-
-            map_scene.static_models.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
-            normalShader.StopUse()
-
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-
-        End If
-
-        If SHOW_BOUNDING_BOXES Then
-            GL.Disable(EnableCap.DepthTest)
-
-            boxShader.Use()
-
-            defaultVao.Bind()
-            GL.DrawArrays(PrimitiveType.Points, 0, map_scene.static_models.numModelInstances)
-
-            boxShader.StopUse()
-        End If
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub draw_terrain_grids()
-        GL_PUSH_GROUP("draw_terrain_grids")
-
-        MainFBO.attach_C()
-        'GL.DepthMask(False)
-        GL.Enable(EnableCap.DepthTest)
-        TerrainGrids.Use()
-        GL.Uniform2(TerrainGrids("bb_tr"), MAP_BB_UR.X, MAP_BB_UR.Y)
-        GL.Uniform2(TerrainGrids("bb_bl"), MAP_BB_BL.X, MAP_BB_BL.Y)
-        GL.Uniform1(TerrainGrids("g_size"), PLAYER_FIELD_CELL_SIZE)
-
-        GL.Uniform1(TerrainGrids("show_border"), CInt(SHOW_BORDER))
-        GL.Uniform1(TerrainGrids("show_chunks"), CInt(SHOW_CHUNKS))
-        GL.Uniform1(TerrainGrids("show_grid"), CInt(SHOW_GRID))
-
-        MainFBO.gGMF.BindUnit(0)
-
-        map_scene.terrain.indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
-        map_scene.terrain.all_chunks_vao.Bind()
-
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, theMap.render_set.Length, 0)
-        TerrainGrids.StopUse()
-
-        ' UNBIND
-        GL.BindTextureUnit(0, 0)
-
-        GL.DepthMask(True)
-        GL.Enable(EnableCap.DepthTest)
-
-        GL_POP_GROUP()
     End Sub
 
     Private Sub perform_SSAA_Pass()
@@ -669,58 +347,6 @@ Module modRender
 
         ' UNBIND
         GL.BindTextureUnit(0, 0)
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub glassPass()
-        GL_PUSH_GROUP("perform_GlassPass")
-
-        'GL.BindFramebuffer(FramebufferTarget.Framebuffer, mainFBO)
-
-        'GL.ReadBuffer(ReadBufferMode.Back)
-
-        glassPassShader.Use()
-        GL.UniformMatrix4(glassPassShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-
-        MainFBO.gColor.BindUnit(0)
-        MainFBO.gAUX_Color.BindUnit(1)
-
-        'draw full screen quad
-        GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-MainFBO.SCR_HEIGHT), CSng(MainFBO.SCR_WIDTH), 0.0F)
-
-        defaultVao.Bind()
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-
-        glassPassShader.StopUse()
-
-        ' UNBIND
-        unbind_textures(2)
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub draw_terrain_ids()
-        GL_PUSH_GROUP("draw_terrain_ids")
-
-        For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible Then ' Dont do math on no-visible chunks
-
-                Dim v As Vector4
-                v.Y = theMap.v_data(i).avg_heights
-                v.W = 1.0
-
-                Dim sp = UnProject_Chunk(v, theMap.render_set(i).matrix)
-
-                If sp.Z > 0.0F Then
-                    Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
-                    draw_text(s, sp.X, sp.Y, Color4.Yellow, True, 1)
-                    s = String.Format("{0}, {1}", theMap.render_set(i).matrix.Row3(0), theMap.render_set(i).matrix.Row3(2))
-                    draw_text(s, sp.X, sp.Y - 19, Color4.Yellow, True, 1)
-
-                End If
-            End If
-        Next
 
         GL_POP_GROUP()
     End Sub
@@ -752,49 +378,12 @@ Module modRender
 
         ' Draw Terrain IDs =========================================================
         If SHOW_CHUNK_IDs AndAlso DONT_BLOCK_TERRAIN Then
-            draw_terrain_ids()
+            map_scene.terrain.draw_terrain_ids()
         End If
         '===========================================================================
 
         GL_POP_GROUP()
     End Sub
-
-    Private Sub draw_map_cursor()
-        GL_PUSH_GROUP("draw_map_cursor")
-
-        DecalProject.Use()
-
-        GL.Uniform3(DecalProject("color_in"), 0.4F, 0.3F, 0.3F)
-
-        CURSOR_TEXTURE_ID.BindUnit(0)
-        MainFBO.gDepth.BindUnit(1)
-        MainFBO.gGMF.BindUnit(2)
-
-        ' Track the terrain at Y
-        Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
-        Dim model_S = Matrix4.CreateScale(25.0F, 50.0F, 25.0F)
-
-        ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
-        Dim rotate = Matrix4.CreateRotationX(1.570796)
-        'GL.Enable(EnableCap.CullFace)
-
-        GL.UniformMatrix4(DecalProject("DecalMatrix"), False, rotate * model_S * model_X)
-
-        defaultVao.Bind()
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
-
-        DecalProject.StopUse()
-
-        ' UNBIND
-        unbind_textures(3)
-
-        GL_POP_GROUP()
-    End Sub
-
-#Region "miniMap"
-
-
-#End Region
 
     Private Sub draw_main_Quad(w As Integer, h As Integer)
         GL.Uniform4(deferredShader("rect"), 0.0F, CSng(-h), CSng(w), 0.0F)

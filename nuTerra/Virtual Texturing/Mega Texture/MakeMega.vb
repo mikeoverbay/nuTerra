@@ -79,7 +79,7 @@ Module MakeMega
 
         map_scene.terrain.indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
 
-        theMap.GLOBAL_AM_ID.BindUnit(0)
+        map_scene.terrain.GLOBAL_AM_ID.BindUnit(0)
         chunk_count = 1
         For I = 0 To chunk_count
 

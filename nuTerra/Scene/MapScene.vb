@@ -9,6 +9,8 @@
     Public base_rings As New MapBaseRings
     Public mini_map As New MapMinimap
     Public fog As New MapFog
+    Public trees As New MapTrees
+    Public cursor As New MapCursor
 
     Public Sub New(mapName As String)
         Me.mapName = mapName
@@ -22,5 +24,6 @@
         base_rings.Dispose()
         mini_map.Dispose()
         fog.Dispose()
+        cursor.Dispose()
     End Sub
 End Class

@@ -1,4 +1,6 @@
 ﻿Imports System.Runtime.InteropServices
+Imports OpenTK
+Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
 
 Public Class MapTerrain
@@ -13,6 +15,8 @@ Public Class MapTerrain
     Public vt As VirtualTexture
     Public vtInfo As VirtualTextureInfo
     Public feedback As FeedbackBuffer
+
+    Public GLOBAL_AM_ID As GLTexture
 
     Public Sub terrain_vt_pass()
         GL_PUSH_GROUP("terrain_vt_pass")
@@ -69,6 +73,167 @@ Public Class MapTerrain
         CommonProperties.update()
     End Sub
 
+    Public Sub draw_terrain()
+        GL_PUSH_GROUP("draw_terrain")
+
+        ' EANABLE FACE CULLING
+        GL.Enable(EnableCap.CullFace)
+
+        ' BIND LQ SHADER
+        TerrainLQShader.Use()
+
+        ' BIND VT TEXTURES
+        vt.Bind()
+
+        ' BIND TERRAIN VAO
+        all_chunks_vao.Bind()
+
+        ' BIND TERRAIN INDIRECT BUFFER
+        indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
+
+        For i = 0 To theMap.render_set.Length - 1
+            If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.LQ Then
+                ' CALC NORMAL MATRIX FOR CHUNK
+                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix))
+
+                ' DRAW CHUNK INDIRECT
+                GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+            End If
+        Next
+
+        ' UNBIND SHADER
+        TerrainLQShader.StopUse()
+
+        If USE_TESSELLATION Then
+            GL_PUSH_GROUP("draw_terrain: tessellation")
+
+            ' BIND HQ SHADER
+            TerrainHQShader.Use()
+
+            For i = 0 To theMap.render_set.Length - 1
+                If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then
+                    ' CALC NORMAL MATRIX FOR CHUNK
+                    GL.UniformMatrix3(TerrainHQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix))
+
+                    ' DRAW CHUNK INDIRECT
+                    GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                End If
+            Next
+
+            ' UNBIND SHADER
+            TerrainHQShader.StopUse()
+
+            GL_POP_GROUP()
+        End If
+
+        ' RESTORE STATE
+        GL.Disable(EnableCap.CullFace)
+
+        If WIRE_TERRAIN Then
+            GL_PUSH_GROUP("draw_terrain: wire")
+
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
+            MainFBO.attach_CF()
+
+            TerrainNormals.Use()
+
+            GL.Uniform1(TerrainNormals("prj_length"), 0.5F)
+            GL.Uniform1(TerrainNormals("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
+            GL.Uniform1(TerrainNormals("show_wireframe"), CInt(WIRE_TERRAIN))
+
+            For i = 0 To theMap.render_set.Length - 1
+                If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality <> TerrainQuality.HQ Then
+                    GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                End If
+            Next
+
+            TerrainNormals.StopUse()
+
+            If USE_TESSELLATION Then
+                TerrainNormalsHQ.Use()
+
+                GL.Uniform1(TerrainNormalsHQ("prj_length"), 0.2F)
+                GL.Uniform1(TerrainNormalsHQ("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
+                GL.Uniform1(TerrainNormalsHQ("show_wireframe"), CInt(WIRE_TERRAIN))
+
+                For i = 0 To theMap.render_set.Length - 1
+                    If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then
+                        GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+                    End If
+                Next
+
+                TerrainNormalsHQ.StopUse()
+            End If
+
+            ' RESTORE STATE
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
+            GL_POP_GROUP()
+        End If
+
+        ' UNBIND VT TEXTURES
+        vt.Unbind()
+
+        GL_POP_GROUP()
+    End Sub
+
+    Public Sub draw_terrain_grids()
+        GL_PUSH_GROUP("draw_terrain_grids")
+
+        MainFBO.attach_C()
+        'GL.DepthMask(False)
+        GL.Enable(EnableCap.DepthTest)
+        TerrainGrids.Use()
+        GL.Uniform2(TerrainGrids("bb_tr"), MAP_BB_UR.X, MAP_BB_UR.Y)
+        GL.Uniform2(TerrainGrids("bb_bl"), MAP_BB_BL.X, MAP_BB_BL.Y)
+        GL.Uniform1(TerrainGrids("g_size"), PLAYER_FIELD_CELL_SIZE)
+
+        GL.Uniform1(TerrainGrids("show_border"), CInt(SHOW_BORDER))
+        GL.Uniform1(TerrainGrids("show_chunks"), CInt(SHOW_CHUNKS))
+        GL.Uniform1(TerrainGrids("show_grid"), CInt(SHOW_GRID))
+
+        MainFBO.gGMF.BindUnit(0)
+
+        indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
+        all_chunks_vao.Bind()
+
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, IntPtr.Zero, theMap.render_set.Length, 0)
+        TerrainGrids.StopUse()
+
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
+
+        GL.DepthMask(True)
+        GL.Enable(EnableCap.DepthTest)
+
+        GL_POP_GROUP()
+    End Sub
+
+    Public Sub draw_terrain_ids()
+        GL_PUSH_GROUP("draw_terrain_ids")
+
+        For i = 0 To theMap.render_set.Length - 1
+            If theMap.render_set(i).visible Then ' Dont do math on no-visible chunks
+
+                Dim v As Vector4
+                v.Y = theMap.v_data(i).avg_heights
+                v.W = 1.0
+
+                Dim sp = UnProject_Chunk(v, theMap.render_set(i).matrix)
+
+                If sp.Z > 0.0F Then
+                    Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
+                    draw_text(s, sp.X, sp.Y, Color4.Yellow, True, 1)
+                    s = String.Format("{0}, {1}", theMap.render_set(i).matrix.Row3(0), theMap.render_set(i).matrix.Row3(2))
+                    draw_text(s, sp.X, sp.Y - 19, Color4.Yellow, True, 1)
+
+                End If
+            End If
+        Next
+
+        GL_POP_GROUP()
+    End Sub
+
     Public Sub Dispose() Implements IDisposable.Dispose
         matrices?.Dispose()
         indirect_buffer?.Dispose()
@@ -78,5 +243,7 @@ Public Class MapTerrain
 
         vt?.Dispose()
         feedback?.Dispose()
+
+        GLOBAL_AM_ID?.Dispose()
     End Sub
 End Class
