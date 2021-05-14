@@ -56,6 +56,21 @@ Module TerrainBuilder
         Public Shared bounds_maxX As Int32 '
         Public Shared bounds_minY As Int32 '
         Public Shared bounds_maxY As Int32 '
+
+        Public Shared outland_bounds_max As Vector3
+        Public Shared outland_bounds_min As Vector3
+
+        Public Shared outland_Cascade_bounds_max As Vector3
+        Public Shared outland_Cascade_bounds_min As Vector3
+
+        Public Shared outland_locations() As Vector2
+        Public Shared outland_cascade_locations() As Vector2
+        Public Shared near_scale As Single
+        Public Shared far_scale As Single
+        Public Shared near_y_height As Single
+        Public Shared far_y_height As Single
+        Public Shared near_y_offset As Single
+        Public Shared far_y_offset As Single
     End Class
 
     Public Structure chunk_
@@ -308,17 +323,21 @@ Module TerrainBuilder
 
     Public Sub create_outland()
         ' TODO
+        theMap.near_y_height = theMap.outland_bounds_max.Y - theMap.outland_bounds_min.Y
+        theMap.near_y_height = theMap.outland_Cascade_bounds_max.Y - theMap.outland_Cascade_bounds_min.Y
+        theMap.near_y_offset = theMap.outland_bounds_min.Y
+        theMap.far_y_offset = theMap.outland_Cascade_bounds_min.Y
     End Sub
 
     '=======================================================================
     Public Sub get_all_chunk_file_data()
-        'Reads and stores the contents of each cdata_processed
+        ' Reads and stores the contents of each cdata_processed
         Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
 
         GC.Collect()
         GC.WaitForFullGCComplete()
         '==========================================================
-        'Get the settings for this map
+        ' Get the settings for this map
         BASE_RINGS_LOADED = get_team_locations_and_field_BB(ABS_NAME)
 
         '==========================================================
@@ -331,7 +350,7 @@ Module TerrainBuilder
             End Using
         End If
 
-        'get global_am
+        ' get global_am
         Dim gmm = ResMgr.Lookup(String.Format("spaces/{0}/global_am.dds", ABS_NAME))
         Dim gmss As New MemoryStream
         gmm.Extract(gmss)
@@ -340,7 +359,7 @@ Module TerrainBuilder
         GC.Collect()
 
         '==========================================================
-        'getting mini map team icons here
+        ' getting mini map team icons here
         map_scene.mini_map.TEAM_1_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_1.png")
         map_scene.mini_map.TEAM_2_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
         '==========================================================
@@ -351,7 +370,8 @@ Module TerrainBuilder
         ReDim theMap.v_data(Expected_max_chunk_count)
         ReDim theMap.render_set(Expected_max_chunk_count)
 
-        Dim cnt As Integer = 0
+        '==========================================================
+        ' get map bounds
         With cBWT2.settings
             theMap.chunk_size = .chunk_size
             theMap.bounds_maxX = .bounds_maxX
@@ -359,6 +379,23 @@ Module TerrainBuilder
             theMap.bounds_minX = .bounds_minX
             theMap.bounds_minY = .bounds_minY
         End With
+
+        '==========================================================
+        ' get outland bounds
+        With cBWT2.cascades.data(0)
+            theMap.outland_bounds_max = .outland_bb_max
+            theMap.outland_bounds_min = .outland_BB_min
+        End With
+        If cBWT2.cascades.count = 2 Then
+            With cBWT2.cascades.data(1)
+                theMap.outland_Cascade_bounds_max = .outland_bb_max
+                theMap.outland_Cascade_bounds_min = .outland_BB_min
+            End With
+        End If
+
+        '==========================================================
+        ' get map data for each chunk
+        Dim cnt As Integer = 0
         For i = 0 To cBWT2.cdatas.count - 1
             With cBWT2.cdatas.data(i)
                 Dim chunk_name As String = .resource
@@ -444,6 +481,8 @@ Module TerrainBuilder
             End With
         Next
 
+        '==========================================================
+        ' get outland textures
         outland_albedo = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).tile_map)
         outland_normal_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).normal_map)
         outland_height_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).height_map)
@@ -457,7 +496,8 @@ Module TerrainBuilder
         For i = 0 To cBWT2.tiles_fnv.count - 1
             outland_tiles(i) = find_and_load_texture_from_pkgs(cBWST.find_str(cBWT2.tiles_fnv.data(i)))
         Next
-
+        '==========================================================
+        'remove data now that its unneeded now.
         cBWT2 = Nothing
         cBWST = Nothing
 

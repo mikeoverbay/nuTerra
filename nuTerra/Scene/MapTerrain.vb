@@ -73,6 +73,18 @@ Public Class MapTerrain
         CommonProperties.update()
     End Sub
 
+    Public Sub Draw_outland()
+        GL_PUSH_GROUP("draw_outland")
+        ' EANABLE FACE CULLING
+        GL.Enable(EnableCap.CullFace)
+
+        GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view))
+
+        GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+
+        GL_POP_GROUP()
+    End Sub
+
     Public Sub draw_terrain()
         GL_PUSH_GROUP("draw_terrain")
 

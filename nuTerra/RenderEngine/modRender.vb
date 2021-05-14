@@ -30,6 +30,9 @@ Module modRender
         "Texture 8"
         }
 
+    Public map_center As Vector3
+    Public scale As Vector3
+
 
     Public Sub draw_scene()
         '===========================================================================
@@ -135,6 +138,14 @@ Module modRender
         If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             map_scene.static_models.draw_models()
         End If
+
+        If DONT_BLOCK_OUTLAND And TERRAIN_LOADED Then
+            MainFBO.attach_C()
+            GL.Disable(EnableCap.DepthTest) 'just so we can see all of it
+            map_scene.terrain.Draw_outland()
+            GL.Enable(EnableCap.DepthTest)
+        End If
+
 
         GL.DepthFunc(DepthFunction.Less)
         '===========================================================================
@@ -259,9 +270,6 @@ Module modRender
 
         FPS_COUNTER += 1
     End Sub
-
-    Public map_center As Vector3
-    Public scale As Vector3
 
     '=============================================================================================
     Private Sub render_deferred_buffers()
