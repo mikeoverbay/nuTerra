@@ -434,10 +434,10 @@ Module ChunkFunctions
         map_scene.terrain.outland_vao.EnableAttrib(0)
 
         ' UV
-        map_scene.terrain.all_chunks_vao.VertexBuffer(1, map_scene.terrain.vertices_buffer, New IntPtr(8), vsize)
-        map_scene.terrain.all_chunks_vao.AttribFormat(1, 2, VertexAttribType.Float, False, 0)
-        map_scene.terrain.all_chunks_vao.AttribBinding(1, 1)
-        map_scene.terrain.all_chunks_vao.EnableAttrib(1)
+        map_scene.terrain.outland_vao.VertexBuffer(1, map_scene.terrain.outland_vertices_buffer, New IntPtr(8), vsize)
+        map_scene.terrain.outland_vao.AttribFormat(1, 2, VertexAttribType.Float, False, 0)
+        map_scene.terrain.outland_vao.AttribBinding(1, 1)
+        map_scene.terrain.outland_vao.EnableAttrib(1)
 
         map_scene.terrain.outland_vao.ElementBuffer(map_scene.terrain.outland_indices_buffer)
     End Sub
