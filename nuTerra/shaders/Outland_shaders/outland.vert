@@ -17,7 +17,7 @@ void main(void)
 {
     vs_out.UV =  vertexPosition.xy +50.0;
     vec3 pos;
-    pos.xz = vertexPosition.xy * 100;
+    pos.xz = vertexPosition.xy * 10;
     pos.y = 0.0;// this will come from height map
 
     vs_out.vertexPosition = pos;
