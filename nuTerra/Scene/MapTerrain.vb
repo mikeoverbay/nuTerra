@@ -82,11 +82,13 @@ Public Class MapTerrain
         ' EANABLE FACE CULLING
         GL.Disable(EnableCap.CullFace)
 
+        '=========================================================
+        ' Cascade near
         outlandShader.Use()
 
         outland_height_map.BindUnit(1)
-        'CHECKER_BOARD.BindUnit(1)
         outland_normal_map.BindUnit(2)
+        outland_tile_cascade.BindUnit(3)
 
         GL.Uniform1(outlandShader("y_range"), theMap.near_y_height)
         GL.Uniform1(outlandShader("y_offset"), theMap.near_y_offset)
@@ -99,10 +101,40 @@ Public Class MapTerrain
         GL.Uniform3(outlandShader("lightPosition"), LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
 
         GL.UniformMatrix4(outlandShader("modelMatrix"), False, VIEWMATRIX)
+
         outland_vao.Bind()
+
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
         GL.DrawElements(PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length * 3, DrawElementsType.UnsignedInt, IntPtr.Zero)
+        '=========================================================
+        ' Cascade far
+        If cascade_levels = 2 Then
+
+            outland_height_cascade_map.BindUnit(1)
+            outland_normal_map_cascade.BindUnit(2)
+            outland_tile_cascade.BindUnit(3)
+
+            GL.Uniform1(outlandShader("y_range"), theMap.far_y_height)
+            GL.Uniform1(outlandShader("y_offset"), theMap.far_y_offset)
+
+            GL.Uniform2(outlandShader("scale"), theMap.far_scale.X, theMap.far_scale.Y)
+            GL.Uniform2(outlandShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
+
+            GL.Uniform3(outlandShader("lightColor"), 0.5, 0.5, 0.5)
+            GL.Uniform3(outlandShader("viewPos"), CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
+            GL.Uniform3(outlandShader("lightPosition"), LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
+
+            GL.UniformMatrix4(outlandShader("modelMatrix"), False, VIEWMATRIX)
+
+            outland_vao.Bind()
+
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
+            GL.DrawElements(PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length * 3, DrawElementsType.UnsignedInt, IntPtr.Zero)
+
+        End If
+
 
         outlandShader.StopUse()
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)

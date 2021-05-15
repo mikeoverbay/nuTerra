@@ -11,6 +11,7 @@ layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 
+layout(binding = 3) uniform sampler2D tile_map;
 
 uniform vec3 lightColor;
 uniform vec3 viewPos;
@@ -25,11 +26,14 @@ in VS_OUT {
 } fs_in;
 
 void main(void)
-{
- 
+    {
+
+    vec4 c = texture(tile_map,fs_in.UV);
     gPosition = fs_in.vertexPosition;
     gNormal = fs_in.vertexNormal;
+    
     gColor.rgb = fs_in.co;
+    gColor.rgb = c.rgb;
     gColor.a = 0.0;
 
     gGMF = vec4(0.2, fs_in.specular, 128.0/255.0, 0.0);

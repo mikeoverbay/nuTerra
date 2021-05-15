@@ -123,12 +123,12 @@ Module modGlobalVars
     'outland texture ids
     Public outland_normal_map As GLTexture
     Public outland_normal_map_cascade As GLTexture
-    Public outland_albedo As GLTexture
-    Public outland_albedo_cascade As GLTexture
+    Public outland_tile As GLTexture
+    Public outland_tile_cascade As GLTexture
     Public outland_height_map As GLTexture
     Public outland_height_cascade_map As GLTexture
     Public outland_tiles() As GLTexture
-
+    Public cascade_levels As Integer = 0
     '============================================================
     Public _STARTED As Boolean 'Signals UI initialization is complete
 

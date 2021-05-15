@@ -38,6 +38,8 @@ Module ChunkFunctions
         Dim b_size = size * size - 1
 
         ReDim v_data.v_buff_XZ(b_size)
+        ReDim v_data.uv_buff(b_size)
+
         ReDim v_data.indicies_32(indi_count - 1)
 
         Dim w As Double = size 'bmp_w
@@ -111,6 +113,9 @@ Module ChunkFunctions
                 ' Fill the arrays
                 v_data.v_buff_XZ(i + ((j + 1) * stride)) = bottomleft.vert
                 v_data.v_buff_XZ(i + ((j + 0) * stride)) = topleft.vert
+
+                v_data.uv_buff(i + ((j + 1) * stride)) = bottomleft.uv
+                v_data.uv_buff(i + ((j + 0) * stride)) = topleft.uv
 
             Next
         Next
@@ -385,6 +390,12 @@ Module ChunkFunctions
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
+    Private Structure OutlandVertex
+        Public xy As Vector2
+        Public uv As Vector2
+    End Structure
+
+    <StructLayout(LayoutKind.Sequential)>
     Private Structure TerrainChunkInfo
         Public modelMatrix As Matrix4
         Public g_uv_offset As Vector2
@@ -399,16 +410,21 @@ Module ChunkFunctions
         map_scene.terrain.outland_indices_buffer = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "outland_indices")
 
         Dim vcount = theMap.outland_Vdata.v_buff_XZ.Length
-        Dim vsize = Marshal.SizeOf(Of Vector2)
+        Dim vsize = Marshal.SizeOf(Of OutlandVertex)
 
         map_scene.terrain.outland_indices_buffer.Storage(theMap.outland_Vdata.indicies_32.Length * 12, theMap.outland_Vdata.indicies_32, BufferStorageFlags.None)
 
         With theMap.outland_Vdata
-            map_scene.terrain.outland_vertices_buffer.Storage(vcount * vsize, .v_buff_XZ, BufferStorageFlags.DynamicStorageBit)
+            Dim vertices(.v_buff_XZ.Length - 1) As OutlandVertex
+            For j = 0 To .v_buff_XZ.Length - 1
+                vertices(j).xy = .v_buff_XZ(j)
+                vertices(j).uv = .uv_buff(j)
+            Next
+            map_scene.terrain.outland_vertices_buffer.Storage(vcount * vsize, vertices, BufferStorageFlags.DynamicStorageBit)
 
             .indicies = Nothing
             .v_buff_XZ = Nothing
-
+            .uv_buff = Nothing
         End With
 
         ' VERTEX XYZ
@@ -416,6 +432,12 @@ Module ChunkFunctions
         map_scene.terrain.outland_vao.AttribFormat(0, 2, VertexAttribType.Float, False, 0)
         map_scene.terrain.outland_vao.AttribBinding(0, 0)
         map_scene.terrain.outland_vao.EnableAttrib(0)
+
+        ' UV
+        map_scene.terrain.all_chunks_vao.VertexBuffer(1, map_scene.terrain.vertices_buffer, New IntPtr(8), vsize)
+        map_scene.terrain.all_chunks_vao.AttribFormat(1, 2, VertexAttribType.Float, False, 0)
+        map_scene.terrain.all_chunks_vao.AttribBinding(1, 1)
+        map_scene.terrain.all_chunks_vao.EnableAttrib(1)
 
         map_scene.terrain.outland_vao.ElementBuffer(map_scene.terrain.outland_indices_buffer)
     End Sub

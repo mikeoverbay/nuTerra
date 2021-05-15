@@ -6,6 +6,7 @@
 #include "common.h" //! #include "../common.h"
 
 layout(location = 0) in vec2 vertexPosition;
+layout(location = 1) in vec2 UVs;
 
 layout(binding = 1) uniform sampler2D heigth_map;
 layout(binding = 2) uniform sampler2D normal_map;
@@ -35,7 +36,7 @@ return normalize(norm);
 
 void main(void)
 {
-    vec2 UV = -(vertexPosition.xy + 50.0)/100.0;
+    vec2 UV = UVs;
     vs_out.UV = UV;
     
     vec4 n = texture(normal_map,UV);
