@@ -378,18 +378,6 @@
     <Content Include="shaders\PostProcessing\DeferredFog.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="shaders\ShadowBaking\terrainMask.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="shaders\ShadowBaking\terrainMask.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="shaders\ShadowBaking\terrainDepthWriter.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="shaders\ShadowBaking\terrainDepthWriter.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="shaders\Terrain_shaders\BaseRingProjectorDeferred.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -438,6 +426,12 @@
     <None Include="shaders\Terrain_shaders\TerrainHQ.tese">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <Content Include="shaders\Terrain_shaders\TerrainLQ.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\Terrain_shaders\Terrain_light.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="shaders\Terrain_shaders\TerrainVTMIP.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -513,7 +507,7 @@
     <Content Include="shaders\Terrain_shaders\TerrainLQ.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="shaders\Terrain_shaders\TerrainLQ.vert">
+    <Content Include="shaders\Terrain_shaders\Terrain_light.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="shaders\Terrain_shaders\TerrainHQ.frag">

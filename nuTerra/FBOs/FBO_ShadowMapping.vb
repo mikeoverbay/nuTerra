@@ -4,12 +4,12 @@ Public Class ShadowMappingFBO
     Public Shared fbo As GLFramebuffer
     Public Shared depth_tex As GLTexture
 
-    Public Const WIDTH = 1024
-    Public Const HEIGHT = 1024
+    Public Const WIDTH = 4096
+    Public Const HEIGHT = 4096
 
-    Public Shared ORTHO_WIDTH As Single = 100.0F
-    Public Shared ORTHO_HEIGHT As Single = 100.0F
-    Public Shared NEAR As Single = -4000.0F
+    Public Shared ORTHO_WIDTH As Single = 1000.0F
+    Public Shared ORTHO_HEIGHT As Single = 400.0F
+    Public Shared NEAR As Single = 400.0F
     Public Shared FAR As Single = 4000.0F
     Public Shared ENABLED As Boolean = False
 

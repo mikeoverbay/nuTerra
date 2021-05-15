@@ -260,11 +260,12 @@ Module modOpenGL
         PerViewData.cameraPos = CAM_POSITION
         PerViewData.view = Matrix4.LookAt(CAM_POSITION, CAM_TARGET, Vector3.UnitY)
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
-        PerViewData.invViewProj = Matrix4.Invert(PerViewData.viewProj)
+        PerViewData.invViewProj = PerViewData.viewProj.Inverted()
 
         If ShadowMappingFBO.ENABLED Then
             Dim light_proj_matrix = Matrix4.CreateOrthographic(ShadowMappingFBO.ORTHO_WIDTH, ShadowMappingFBO.ORTHO_HEIGHT, ShadowMappingFBO.NEAR, ShadowMappingFBO.FAR)
-            Dim light_view_matrix = Matrix4.LookAt(LIGHT_POS, Vector3.Zero, Vector3.UnitY)
+            Dim cam_xz As New Vector3(CAM_POSITION.X, 0.0F, CAM_POSITION.Z)
+            Dim light_view_matrix = Matrix4.LookAt(LIGHT_POS + cam_xz, cam_xz, Vector3.UnitY)
             PerViewData.light_vp_matrix = light_view_matrix * light_proj_matrix
         End If
 

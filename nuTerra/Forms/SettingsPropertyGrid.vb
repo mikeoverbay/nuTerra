@@ -478,6 +478,11 @@ Public Class SettingsPropertyGrid
     Public Property SHADOW_MAPPING_enabled As Boolean
         Set(value As Boolean)
             ShadowMappingFBO.ENABLED = value
+            If value Then
+                deferredShader.SetDefine("SHADOW_MAPPING")
+            Else
+                deferredShader.UnsetDefine("SHADOW_MAPPING")
+            End If
         End Set
         Get
             Return ShadowMappingFBO.ENABLED

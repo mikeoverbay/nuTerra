@@ -296,6 +296,10 @@ Module modRender
         CC_LUT_ID.BindUnit(5)
         ENV_BRDF_LUT_ID?.BindUnit(6)
 
+        If ShadowMappingFBO.ENABLED Then
+            ShadowMappingFBO.depth_tex.BindUnit(7)
+        End If
+
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
         Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, PerViewData.view)

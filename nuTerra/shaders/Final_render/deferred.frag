@@ -16,6 +16,9 @@ layout(binding = 3) uniform sampler2D gPosition;
 layout(binding = 4) uniform samplerCube cubeMap;
 layout(binding = 5) uniform lowp sampler2D lut;
 layout(binding = 6) uniform lowp sampler2D env_brdf_lut;
+#ifdef SHADOW_MAPPING
+layout(binding = 7) uniform sampler2DShadow shadowMap;
+#endif
 
 uniform mat4 ProjectionMatrix;
 uniform vec3 LightPos;
@@ -97,7 +100,7 @@ void main (void)
             vec3 Position = texelFetch(gPosition, ivec2(gl_FragCoord), 0).xyz;
 
             vec4 color_in = texelFetch(gColor, ivec2(gl_FragCoord), 0);
-            
+
             //Mix in our water color
             //color_in.rgb = mix(color_in.rgb, waterColor, color_in.a);
 
@@ -246,6 +249,21 @@ void main (void)
             /*===================================================================*/
             // Final Output
             outColor =  correct(final_color,1.4,1.2)*1.6;
+
+#ifdef SHADOW_MAPPING
+            const mat4 biasMatrix = mat4(0.5, 0.0, 0.0, 0.0,
+                0.0, 0.5, 0.0, 0.0,
+                0.0, 0.0, 0.5, 0.0,
+                0.5, 0.5, 0.5, 1.0);
+            vec3 pos = texelFetch(gPosition, ivec2(gl_FragCoord), 0).xyz;
+            vec4 coords = biasMatrix * light_vp_matrix * inverse(view) * vec4(pos, 1.0);
+            coords.xyz /= coords.w;
+            float shadowDepth = textureProj(shadowMap, coords).x;
+            if (coords.z > shadowDepth) {
+                outColor.xyz *= 0.4;
+            }
+#endif
+
             //outColor.a = fogFactor;
             /*===================================================================*/
         //if flag != 128

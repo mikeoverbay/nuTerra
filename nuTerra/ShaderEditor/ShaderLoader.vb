@@ -209,7 +209,7 @@ Module ShaderLoader
     Public explode_type_1_shader As Shader
     'shadow shaders
     Public terrainDepthShader As Shader
-    Public terrainMaskShader As Shader
+    Public Terrain_light As Shader
     Public mDepthWrite_light As Shader
 #End Region
 
@@ -275,8 +275,7 @@ Module ShaderLoader
         'particle shaders
         explode_type_1_shader = New Shader("explode_type_1_")
         'shadow shaders
-        terrainDepthShader = New Shader("terrainDepthWriter")
-        terrainMaskShader = New Shader("terrainMask")
+        Terrain_light = New Shader("Terrain_light")
         mDepthWrite_light = New Shader("mDepthWrite_light")
     End Sub
 
