@@ -18,6 +18,23 @@ Public Class MapScene
         Me.mapName = mapName
     End Sub
 
+    Public Sub DrawLightFrustum()
+        GL_PUSH_GROUP("MapScene::DrawLightFrustum")
+
+        GL.Disable(EnableCap.DepthTest)
+
+        frustumShader.Use()
+
+        defaultVao.Bind()
+        GL.DrawArrays(PrimitiveType.Points, 0, 1)
+
+        frustumShader.StopUse()
+
+        GL.Enable(EnableCap.DepthTest)
+
+        GL_POP_GROUP()
+    End Sub
+
     Public Sub ShadowMappingPass()
         GL_PUSH_GROUP("MapScene::ShadowMappingPass")
 

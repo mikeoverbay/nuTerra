@@ -243,7 +243,7 @@ Module ShaderLoader
         deferredShader = New Shader("deferred")
         FF_BillboardShader = New Shader("FF_billboard")
         FXAAShader = New Shader("FXAA")
-        'unused: frustumShader = New Shader("frustum")
+        frustumShader = New Shader("frustum")
         image2dArrayShader = New Shader("image2dArray")
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")

@@ -8,9 +8,6 @@
 layout (points) in;
 layout (line_strip, max_vertices = 24) out;
 
-uniform mat4 frozen_projection;
-uniform mat4 frozen_view;
-
 const vec4 f[8] = vec4[8](
     // near
     vec4(-1, -1, -1, 1),
@@ -26,7 +23,7 @@ const vec4 f[8] = vec4[8](
 
 void main(void)
 {
-    mat4 inv = inverse(frozen_projection * frozen_view);
+    mat4 inv = inverse(light_vp_matrix);
 
     vec4 v[8];
     for (int i = 0; i < 8; i++) {
