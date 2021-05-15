@@ -5,7 +5,6 @@ Imports OpenTK.Graphics.OpenGL4
 
 Public Class MapTerrain
     Implements IDisposable
-    Public Outland_matrices As GLBuffer
     Public outland_vertices_buffer As GLBuffer
     Public outland_indices_buffer As GLBuffer
     Public outland_vao As GLVertexArray
@@ -88,8 +87,7 @@ Public Class MapTerrain
         outland_vao.Bind()
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
 
-        GL.DrawElementsInstanced(
-            PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length, DrawElementsType.UnsignedInt, IntPtr.Zero, 1)
+        GL.DrawElements(PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length, DrawElementsType.UnsignedInt, IntPtr.Zero)
 
         outlandShader.StopUse()
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)

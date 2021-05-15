@@ -16,7 +16,6 @@
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
 #define TERRAIN_CHUNK_INFO_BASE 10
-#define OUTLAND_INFO_BASE 11
 
 struct CandidateDraw
 {
@@ -197,10 +196,6 @@ struct TerrainChunkInfo {
 
 layout(std430, binding = TERRAIN_CHUNK_INFO_BASE) readonly buffer TerrainChunkInfoBuffer {
     TerrainChunkInfo chunks[];
-};
-
-layout(std430, binding = OUTLAND_INFO_BASE) readonly buffer OutlandInfoBuffer {
-    TerrainChunkInfo outland[];
 };
 #endif
 

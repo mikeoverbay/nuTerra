@@ -385,11 +385,6 @@ Module ChunkFunctions
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
-    Private Structure OutlandVertex
-        Public xy As Vector2
-    End Structure
-
-    <StructLayout(LayoutKind.Sequential)>
     Private Structure TerrainChunkInfo
         Public modelMatrix As Matrix4
         Public g_uv_offset As Vector2
@@ -398,9 +393,6 @@ Module ChunkFunctions
     End Structure
 
     Public Sub build_outland_vao()
-
-        Dim terrainMatrices As TerrainChunkInfo
-
         map_scene.terrain.outland_vao = GLVertexArray.Create("outland_vao")
 
         map_scene.terrain.outland_vertices_buffer = GLBuffer.Create(BufferTarget.ArrayBuffer, "outland_vertices")
@@ -412,12 +404,6 @@ Module ChunkFunctions
         map_scene.terrain.outland_indices_buffer.Storage(theMap.outland_Vdata.indicies_32.Length * 12, theMap.outland_Vdata.indicies_32, BufferStorageFlags.None)
 
         With theMap.outland_Vdata
-
-            'compute scaling factor
-            terrainMatrices.modelMatrix = Matrix4.Identity
-            terrainMatrices.modelMatrix.M11 = (theMap.outland_bounds_max.X - theMap.outland_bounds_min.X) / 10.0F
-            terrainMatrices.modelMatrix.M33 = (theMap.outland_bounds_max.Z - theMap.outland_bounds_min.Z) / 10.0F
-
             map_scene.terrain.outland_vertices_buffer.Storage(vcount * vsize, .v_buff_XZ, BufferStorageFlags.DynamicStorageBit)
 
             .indicies = Nothing
@@ -432,10 +418,6 @@ Module ChunkFunctions
         map_scene.terrain.outland_vao.EnableAttrib(0)
 
         map_scene.terrain.outland_vao.ElementBuffer(map_scene.terrain.outland_indices_buffer)
-
-        map_scene.terrain.Outland_matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
-        map_scene.terrain.Outland_matrices.Storage(Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
-        map_scene.terrain.Outland_matrices.BindBase(11)
     End Sub
 
     Public Sub build_Terrain_VAO()
