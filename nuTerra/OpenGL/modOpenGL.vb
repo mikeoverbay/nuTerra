@@ -228,6 +228,12 @@ Module modOpenGL
         Return m
     End Function
 
+    Private REVERSE As New Matrix4(
+        New Vector4(1, 0, 0, 0),
+        New Vector4(0, 1, 0, 0),
+        New Vector4(0, 0, -1, 0),
+        New Vector4(0, 0, 1, 1)
+    )
     Public Sub set_prespective_view()
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
         Dim sin_x, cos_x, cos_y, sin_y As Single
@@ -251,21 +257,20 @@ Module modOpenGL
         PerViewData.projection = Matrix4.CreatePerspectiveFieldOfView(
                                    FieldOfView,
                                    frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
-                                   My.Settings.near, My.Settings.far)
-#If True Then ' reverse depth
-        PerViewData.projection.M33 *= -1
-        PerViewData.projection.M33 -= 1
-        PerViewData.projection.M43 *= -1
-#End If
+                                   My.Settings.near, My.Settings.far) * REVERSE
         PerViewData.cameraPos = CAM_POSITION
         PerViewData.view = Matrix4.LookAt(CAM_POSITION, CAM_TARGET, Vector3.UnitY)
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
         PerViewData.invViewProj = PerViewData.viewProj.Inverted()
 
         If ShadowMappingFBO.ENABLED Then
-            Dim light_proj_matrix = Matrix4.CreateOrthographic(ShadowMappingFBO.ORTHO_WIDTH, ShadowMappingFBO.ORTHO_HEIGHT, ShadowMappingFBO.NEAR, ShadowMappingFBO.FAR)
-            Dim cam_xz As New Vector3(CAM_TARGET.X, 0.0F, CAM_TARGET.Z)
-            Dim light_view_matrix = Matrix4.LookAt(LIGHT_POS + cam_xz, cam_xz, Vector3.UnitY)
+            Dim dist = Math.Max(200, Vector3.Distance(CAM_TARGET, CAM_POSITION))
+            Dim light_proj_matrix = Matrix4.CreateOrthographic(dist, dist, ShadowMappingFBO.NEAR, ShadowMappingFBO.FAR)
+            light_proj_matrix.M33 = 1.0F / (ShadowMappingFBO.FAR - ShadowMappingFBO.NEAR)
+            light_proj_matrix.M43 = ShadowMappingFBO.FAR / (ShadowMappingFBO.FAR - ShadowMappingFBO.NEAR)
+            Dim cam_x0z As New Vector3(CAM_TARGET.X, 0.0F, CAM_TARGET.Z)
+            Dim lp_norm = LIGHT_POS.Normalized() * dist
+            Dim light_view_matrix = Matrix4.LookAt(lp_norm + cam_x0z, cam_x0z, Vector3.UnitY)
             PerViewData.light_vp_matrix = light_view_matrix * light_proj_matrix
         End If
 

@@ -4,13 +4,13 @@ Public Class ShadowMappingFBO
     Public Shared fbo As GLFramebuffer
     Public Shared depth_tex As GLTexture
 
-    Public Const WIDTH = 4096
-    Public Const HEIGHT = 2048
+    Public Const WIDTH = 8192
+    Public Const HEIGHT = 8192
 
-    Public Shared ORTHO_WIDTH As Single = 800.0F
+    Public Shared ORTHO_WIDTH As Single = 400.0F
     Public Shared ORTHO_HEIGHT As Single = 400.0F
-    Public Shared NEAR As Single = 300.0F
-    Public Shared FAR As Single = 1400.0F
+    Public Shared NEAR As Single = -100.0F
+    Public Shared FAR As Single = 1000.0F
     Public Shared ENABLED As Boolean = False
 
     Public Shared Sub FBO_Initialize()
@@ -26,10 +26,12 @@ Public Class ShadowMappingFBO
 
     Public Shared Sub create_textures()
         depth_tex = GLTexture.Create(TextureTarget.Texture2D, "depth_tex")
+        depth_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+        depth_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
         depth_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         depth_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         depth_tex.Parameter(TextureParameterName.TextureCompareMode, TextureCompareMode.CompareRefToTexture)
-        depth_tex.Parameter(TextureParameterName.TextureCompareFunc, DepthFunction.Lequal)
+        depth_tex.Parameter(TextureParameterName.TextureCompareFunc, DepthFunction.Greater)
         depth_tex.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), WIDTH, HEIGHT)
     End Sub
 

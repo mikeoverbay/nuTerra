@@ -253,14 +253,14 @@ void main (void)
 #ifdef SHADOW_MAPPING
             const mat4 biasMatrix = mat4(0.5, 0.0, 0.0, 0.0,
                 0.0, 0.5, 0.0, 0.0,
-                0.0, 0.0, 0.5, 0.0,
+                0.0, 0.0, -0.5, 0.0,
                 0.5, 0.5, 0.5, 1.0);
             vec3 pos = texelFetch(gPosition, ivec2(gl_FragCoord), 0).xyz;
             vec4 coords = biasMatrix * light_vp_matrix * inverse(view) * vec4(pos, 1.0);
             coords.xyz /= coords.w;
             float shadowDepth = textureProj(shadowMap, coords).x;
             if (coords.z > shadowDepth) {
-                outColor.xyz *= 0.4;
+                outColor.xyz *= 0.5;
             }
 #endif
 

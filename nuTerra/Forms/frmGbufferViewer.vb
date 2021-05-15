@@ -182,7 +182,7 @@ Public Class frmGbufferViewer
                 toLinearShader.Use()
 
                 ShadowMappingFBO.depth_tex.BindUnit(0)
-                GL.Uniform1(toLinearShader("reversed"), CInt(False))
+                GL.Uniform1(toLinearShader("reversed"), CInt(True))
                 GL.Uniform1(toLinearShader("far"), ShadowMappingFBO.FAR)
                 GL.Uniform1(toLinearShader("near"), ShadowMappingFBO.NEAR)
                 GL.UniformMatrix4(toLinearShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)

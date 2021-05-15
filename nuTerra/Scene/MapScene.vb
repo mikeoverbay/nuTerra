@@ -40,14 +40,13 @@ Public Class MapScene
 
         ShadowMappingFBO.fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Viewport(0, 0, ShadowMappingFBO.WIDTH, ShadowMappingFBO.HEIGHT)
-        GL.ClearDepth(1.0)
         GL.Clear(ClearBufferMask.DepthBufferBit)
-        GL.DepthFunc(DepthFunction.Less)
+        GL.DepthFunc(DepthFunction.Greater)
 
         GL.CullFace(CullFaceMode.Front)
 
         GL.Enable(EnableCap.PolygonOffsetFill)
-        GL.PolygonOffset(4.0F, 4.0F)
+        GL.PolygonOffset(1.1F, 4.0F)
 
         If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             static_models.shadow_mapping_pass()
@@ -56,10 +55,6 @@ Public Class MapScene
         If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             terrain.shadow_mapping_pass()
         End If
-
-        ' Restore reversed-z depth
-        GL.ClearDepth(0.0)
-        GL.DepthFunc(DepthFunction.Greater)
 
         GL.Disable(EnableCap.PolygonOffsetFill)
         GL.CullFace(CullFaceMode.Back)
