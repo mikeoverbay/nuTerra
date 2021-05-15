@@ -115,7 +115,7 @@ Module modRender
         If DONT_BLOCK_OUTLAND And TERRAIN_LOADED Then
             MainFBO.attach_C()
             GL.Disable(EnableCap.DepthTest) 'just so we can see all of it
-            'map_scene.terrain.Draw_outland()
+            map_scene.terrain.Draw_outland()
             GL.Enable(EnableCap.DepthTest)
             MainFBO.attach_CNGPA()
         End If

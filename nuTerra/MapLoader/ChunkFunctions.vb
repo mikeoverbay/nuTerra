@@ -470,7 +470,6 @@ Module ChunkFunctions
     Public Sub build_outland_vao()
 
         Dim terrainMatrices As TerrainChunkInfo
-        Dim terrainIndirect As DrawElementsIndirectCommand
 
         map_scene.terrain.outland_vao = GLVertexArray.Create("outland_vao")
 
@@ -480,7 +479,6 @@ Module ChunkFunctions
         Dim vcount = theMap.outland_Vdata.v_buff_XZ.Length
         Dim vsize = Marshal.SizeOf(Of TerrainVertex)
 
-        map_scene.terrain.vertices_buffer.StorageNullData(vcount * vsize, BufferStorageFlags.DynamicStorageBit)
         map_scene.terrain.outland_indices_buffer.Storage(theMap.outland_Vdata.indicies_32.Length * 12, theMap.outland_Vdata.indicies_32, BufferStorageFlags.None)
 
         With theMap.outland_Vdata
@@ -491,13 +489,6 @@ Module ChunkFunctions
             terrainMatrices.modelMatrix.M11 = (theMap.outland_bounds_max.X - theMap.outland_bounds_min.X) / 10.0F
             terrainMatrices.modelMatrix.M33 = (theMap.outland_bounds_max.Z - theMap.outland_bounds_min.Z) / 10.0F
 
-            terrainIndirect.count = theMap.outland_Vdata.indicies_32.Length * 6
-            terrainIndirect.instanceCount = 1
-            terrainIndirect.firstIndex = 0
-            terrainIndirect.baseVertex = .v_buff_XZ.Length
-            terrainIndirect.baseInstance = 0
-
-
             Dim vertices(.n_buff.Length - 1) As TerrainVertex
             For j = 0 To .n_buff.Length - 1
                 vertices(j).xyz.Xz = .v_buff_XZ(j)
@@ -507,10 +498,7 @@ Module ChunkFunctions
                 vertices(j).tangents = pack_2_10_10_10(.t_buff(j))
             Next
 
-            GL.NamedBufferSubData(map_scene.terrain.outland_vertices_buffer.buffer_id,
-                                  New IntPtr(vertices.Length * vsize),
-                                  vertices.Length * vsize,
-                                  vertices)
+            map_scene.terrain.outland_vertices_buffer.Storage(vcount * vsize, vertices, BufferStorageFlags.DynamicStorageBit)
 
             .indicies = Nothing
             .v_buff_XZ = Nothing
@@ -547,12 +535,9 @@ Module ChunkFunctions
 
         map_scene.terrain.outland_vao.ElementBuffer(map_scene.terrain.outland_indices_buffer)
 
-        map_scene.terrain.outland_indirect_buffer = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "terrain_indirect")
-        map_scene.terrain.outland_indirect_buffer.Storage(Marshal.SizeOf(Of DrawElementsIndirectCommand), terrainIndirect, BufferStorageFlags.None)
-
         map_scene.terrain.Outland_matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "terrain_matrices")
         map_scene.terrain.Outland_matrices.Storage(Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
-        map_scene.terrain.Outland_matrices.BindBase(10)
+        map_scene.terrain.Outland_matrices.BindBase(11)
     End Sub
 
     Public Sub build_Terrain_VAO()

@@ -3,7 +3,6 @@
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
 
-#define USE_MATERIALS_SSBO
 #include "common.h" //! #include "../common.h"
 
 out vec4 gColor;
@@ -19,9 +18,7 @@ in VS_OUT {
 
 void main(void)
 {
-    //MaterialProperties thisMaterial = material[fs_in.material_id];
-
-    vec3 texColor =  vec3 (0.4,0.4,0.4);//texture(sampler2D(thisMaterial.maps[0]), fs_in.UV).rgb;
+    vec3 texColor =  vec3 (0.4,0.4,0.4);
 
     vec3 lightPosition = vec3 (30.0,30.0,30.0);
 

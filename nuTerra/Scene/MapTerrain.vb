@@ -6,7 +6,6 @@ Imports OpenTK.Graphics.OpenGL4
 Public Class MapTerrain
     Implements IDisposable
     Public Outland_matrices As GLBuffer
-    Public outland_indirect_buffer As GLBuffer
     Public outland_vertices_buffer As GLBuffer
     Public outland_indices_buffer As GLBuffer
     Public outland_vao As GLVertexArray
@@ -88,11 +87,8 @@ Public Class MapTerrain
 
         outland_vao.Bind()
 
-        outland_indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
-
-        GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view))
-
-        GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+        GL.DrawElementsInstanced(
+            PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length, DrawElementsType.UnsignedInt, IntPtr.Zero, 1)
 
         outlandShader.StopUse()
 
