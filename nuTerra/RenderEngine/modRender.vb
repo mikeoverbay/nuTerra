@@ -110,15 +110,15 @@ Module modRender
             End If
         End If
 
-        MainFBO.attach_CNGPA()
 
         If DONT_BLOCK_OUTLAND And TERRAIN_LOADED Then
-            MainFBO.attach_C()
-            GL.Disable(EnableCap.DepthTest) 'just so we can see all of it
+            MainFBO.attach_CNGPA()
+            'GL.Disable(EnableCap.DepthTest) 'just so we can see all of it
             map_scene.terrain.Draw_outland()
             GL.Enable(EnableCap.DepthTest)
-            MainFBO.attach_CNGPA()
         End If
+        MainFBO.attach_CNGPA()
+
         If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             map_scene.terrain.draw_terrain()
 
@@ -145,7 +145,6 @@ Module modRender
         If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             map_scene.static_models.draw_models()
         End If
-
 
 
         GL.DepthFunc(DepthFunction.Less)

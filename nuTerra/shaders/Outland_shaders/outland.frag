@@ -5,39 +5,33 @@
 
 #include "common.h" //! #include "../common.h"
 
-out vec4 gColor;
+
+layout (location = 0) out vec4 gColor;
+layout (location = 1) out vec3 gNormal;
+layout (location = 2) out vec4 gGMF;
+layout (location = 3) out vec3 gPosition;
+
 
 uniform vec3 lightColor;
 uniform vec3 viewPos;
+uniform vec3 lightPosition;
 
 in VS_OUT {
+    vec3 co;
     vec3 vertexPosition;
     vec3 vertexNormal;
     vec2 UV;
+    float specular;
 } fs_in;
 
 void main(void)
 {
-    vec3 texColor =  vec3 (0.4,0.4,0.4);
+ 
+    gPosition = fs_in.vertexPosition;
+    gNormal = fs_in.vertexNormal;
+    gColor.rgb = fs_in.co;
+    gColor.a = 0.0;
 
-    vec3 lightPosition = vec3 (30.0,30.0,30.0);
+    gGMF = vec4(0.2, fs_in.specular, 128.0/255.0, 0.0);
 
-    float ambientStrength = 0.7;
-    vec3 ambient = ambientStrength * lightColor * texColor;
-
-    vec3 norm = normalize(fs_in.vertexNormal);
-    vec3 lightDir = normalize(lightPosition - fs_in.vertexPosition);
-
-    float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor * texColor;
-
-    vec3 viewDir = normalize(viewPos - fs_in.vertexPosition);
-    vec3 reflectDir = reflect(-lightDir, norm);
-
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 8)*0.6;
-    vec3 specular =  spec * lightColor;
-    vec3 result = (ambient + diffuse + specular);
-
-    gColor.rgb = result.rgb;
-    gColor.a = 1.0;
 }

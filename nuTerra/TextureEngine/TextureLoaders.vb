@@ -31,7 +31,6 @@ Module TextureLoaders
         FIRST_UNUSED_V_BUFFER = GL.GenBuffer()
         GL.DeleteBuffer(FIRST_UNUSED_V_BUFFER)
     End Sub
-
     Public Function find_and_load_texture_from_pkgs(ByRef fn As String) As GLTexture
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
@@ -48,6 +47,28 @@ Module TextureLoaders
             'we want mips and linear filtering
             id = load_dds_image_from_stream(ms, fn)
             Return id
+        End If
+        Return Nothing ' Didn't find it
+    End Function
+
+    Public Function find_and_load_texture_from_pkgs_No_Suffix_change(ByRef fn As String) As GLTexture
+        fn = fn.Replace("\", "/") ' fix path issue
+        'finds and loads and returns the GL texture ID.
+        Dim id = image_exists(fn) 'check if this has been loaded.
+        If id IsNot Nothing Then
+            Return id
+        End If
+        Dim entry = ResMgr.Lookup(fn)
+        If entry IsNot Nothing Then
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+            'we do not want mips and linear filtering
+            If fn.Contains(".dds") Then
+                Return load_dds_image_from_stream(ms, fn)
+            End If
+            If fn.Contains(".png") Then
+                Return load_png_image_from_stream(ms, fn, False, True)
+            End If
         End If
         Return Nothing ' Didn't find it
     End Function

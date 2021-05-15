@@ -68,8 +68,9 @@ Module TerrainBuilder
 
         Public Shared outland_locations() As Vector2
         Public Shared outland_cascade_locations() As Vector2
-        Public Shared near_scale As Single
-        Public Shared far_scale As Single
+        Public Shared center_offset As Vector2
+        Public Shared near_scale As Vector2
+        Public Shared far_scale As Vector2
         Public Shared near_y_height As Single
         Public Shared far_y_height As Single
         Public Shared near_y_offset As Single
@@ -331,8 +332,17 @@ Module TerrainBuilder
         ' Build the mesh.. Size to be tweaked later. Currently 1024 x 1024 . 1 to 1 texture size
         get_outland_mesh(theMap.outland_chunk, theMap.outland_Vdata, theMap.outland_render_set)
         'get Y ranges. Not sure this is even used yet.
+        theMap.center_offset.X = (theMap.bounds_maxX + theMap.bounds_minX) / 2.0 * 100
+        theMap.center_offset.Y = (theMap.bounds_maxY + theMap.bounds_minY) / 2.0 * 100
+
+        theMap.near_scale.X = (theMap.outland_bounds_max.X - theMap.outland_bounds_min.X) / 100.0
+        theMap.near_scale.Y = (theMap.outland_bounds_max.Z - theMap.outland_bounds_min.Z) / 100.0
+
+        theMap.far_scale.X = (theMap.outland_Cascade_bounds_max.X - theMap.outland_Cascade_bounds_min.X) / 100.0
+        theMap.far_scale.Y = (theMap.outland_Cascade_bounds_max.Z - theMap.outland_Cascade_bounds_min.Z) / 100.0
+
         theMap.near_y_height = theMap.outland_bounds_max.Y - theMap.outland_bounds_min.Y
-        theMap.near_y_height = theMap.outland_Cascade_bounds_max.Y - theMap.outland_Cascade_bounds_min.Y
+        theMap.far_y_height = theMap.outland_Cascade_bounds_max.Y - theMap.outland_Cascade_bounds_min.Y
         theMap.near_y_offset = theMap.outland_bounds_min.Y
         theMap.far_y_offset = theMap.outland_Cascade_bounds_min.Y
         'this does not need to be indirect?
@@ -493,18 +503,18 @@ Module TerrainBuilder
 
         '==========================================================
         ' get outland textures
-        outland_albedo = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).tile_map)
-        outland_normal_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).normal_map)
-        outland_height_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(0).height_map)
+        outland_albedo = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).tile_map)
+        outland_normal_map = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).normal_map)
+        outland_height_map = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).height_map)
         If cBWT2.cascades.count = 2 Then
-            outland_albedo_cascade = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).tile_map)
-            outland_normal_map_cascade = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).normal_map)
-            outland_height_cascade_map = find_and_load_texture_from_pkgs(cBWT2.cascades.data(1).height_map)
+            outland_albedo_cascade = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).tile_map)
+            outland_normal_map_cascade = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).normal_map)
+            outland_height_cascade_map = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).height_map)
         End If
 
         ReDim outland_tiles(cBWT2.tiles_fnv.count - 1)
         For i = 0 To cBWT2.tiles_fnv.count - 1
-            outland_tiles(i) = find_and_load_texture_from_pkgs(cBWST.find_str(cBWT2.tiles_fnv.data(i)))
+            outland_tiles(i) = find_and_load_texture_from_pkgs_No_Suffix_change(cBWST.find_str(cBWT2.tiles_fnv.data(i)))
         Next
         '==========================================================
         'remove data now that its unneeded now.

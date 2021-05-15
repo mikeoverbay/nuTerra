@@ -30,7 +30,7 @@ Module ChunkFunctions
         'get_translated_bb_terrain(v_data.BB, v_data)
         r_set.matrix = Matrix4.Identity
 
-        Dim size = 1024
+        Dim size = 256
         Dim indi_count = (size - 1) * (size - 1) * 2
         Dim vert_count = size * size
         ' 64 * 64 * 2  = 8192 indi count
