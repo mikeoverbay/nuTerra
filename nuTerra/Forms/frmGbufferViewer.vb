@@ -60,6 +60,7 @@ Public Class frmGbufferViewer
         AddHandler b_flags.CheckedChanged, AddressOf image_changed
         AddHandler b_aux.CheckedChanged, AddressOf image_changed
         AddHandler b_vt1.CheckedChanged, AddressOf image_changed
+        AddHandler b_shadow.CheckedChanged, AddressOf image_changed
 
         Viewer_Image_ID = CInt(b_color.Tag)
 
@@ -136,10 +137,11 @@ Public Class frmGbufferViewer
         GLC_VA.Bind()
 
         Select Case Viewer_Image_ID
-            Case 1
+            Case b_depth.Tag
                 toLinearShader.Use()
 
                 MainFBO.gDepth.BindUnit(0)
+                GL.Uniform1(toLinearShader("reversed"), CInt(True))
                 GL.Uniform1(toLinearShader("far"), My.Settings.far)
                 GL.Uniform1(toLinearShader("near"), My.Settings.near)
                 GL.UniformMatrix4(toLinearShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
@@ -155,27 +157,46 @@ Public Class frmGbufferViewer
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
                 toLinearShader.StopUse()
 
-            Case 2
-                draw_image(img_width, img_height, MainFBO.gColor, 0)
+            Case b_color.Tag
+                draw_image(MainFBO.gColor, 0)
 
-            Case 3
-                draw_image(img_width, img_height, MainFBO.gPosition, 0)
+            Case b_position.Tag
+                draw_image(MainFBO.gPosition, 0)
 
-            Case 4
-                draw_image(img_width, img_height, MainFBO.gNormal, 1)
+            Case b_normal.Tag
+                draw_image(MainFBO.gNormal, 1)
 
-            Case 5
-                draw_image(img_width, img_height, MainFBO.gGMF, 0)
+            Case b_flags.Tag
+                draw_image(MainFBO.gGMF, 0)
 
-            Case 6
-                draw_image(img_width, img_height, MainFBO.gAUX_Color, 0)
+            Case b_aux.Tag
+                draw_image(MainFBO.gAUX_Color, 0)
 
-            Case 7
+            Case b_vt1.Tag
                 If map_scene.terrain.vt IsNot Nothing Then
                     draw_checker_board(CHECKER_BOARD)
                     map_scene.terrain.vt.DebugDraw(rect_location, rect_size, PROJECTIONMATRIX_GLC)
                 End If
 
+            Case b_shadow.Tag
+                toLinearShader.Use()
+
+                ShadowMappingFBO.depth_tex.BindUnit(0)
+                GL.Uniform1(toLinearShader("reversed"), CInt(False))
+                GL.Uniform1(toLinearShader("far"), ShadowMappingFBO.FAR)
+                GL.Uniform1(toLinearShader("near"), ShadowMappingFBO.NEAR)
+                GL.UniformMatrix4(toLinearShader("ProjectionMatrix"), False, PROJECTIONMATRIX_GLC)
+
+                Dim rect As New RectangleF(rect_location.X, rect_location.Y, rect_size.X, rect_size.X)
+
+                GL.Uniform4(colorMaskShader("rect"),
+                            rect.Left,
+                            -rect.Top,
+                            rect.Right,
+                            -rect.Bottom)
+
+                GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+                toLinearShader.StopUse()
         End Select
 
         ' UNBIND
@@ -188,7 +209,7 @@ Public Class frmGbufferViewer
 
     End Sub
 
-    Private Sub draw_image(ByVal img_width As Integer, ByVal img_hieght As Integer, ByRef image As GLTexture, ByVal is_normal As Integer)
+    Private Sub draw_image(image As GLTexture, is_normal As Integer)
 
         draw_checker_board(CHECKER_BOARD)
 

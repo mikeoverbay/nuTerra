@@ -110,6 +110,14 @@ Module modRender
             End If
         End If
 
+        If ShadowMappingFBO.ENABLED Then
+            map_scene.ShadowMappingPass()
+
+            ' restore main FBO
+            MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
+            GL.Viewport(0, 0, frmMain.glControl_main.ClientSize.Width, frmMain.glControl_main.ClientSize.Height)
+        End If
+
         MainFBO.attach_CNGPA()
 
         If DONT_BLOCK_OUTLAND And TERRAIN_LOADED Then

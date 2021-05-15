@@ -47,8 +47,11 @@ Partial Class frmGbufferViewer
         Me.a_cb = New System.Windows.Forms.CheckBox()
         Me.Label1 = New System.Windows.Forms.Label()
         Me.cb_alpha_enable = New System.Windows.Forms.CheckBox()
+        Me.FlowLayoutPanel1 = New System.Windows.Forms.FlowLayoutPanel()
+        Me.b_shadow = New System.Windows.Forms.RadioButton()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
+        Me.FlowLayoutPanel1.SuspendLayout()
         Me.SuspendLayout()
         '
         'Panel1
@@ -59,7 +62,7 @@ Partial Class frmGbufferViewer
         Me.Panel1.BackColor = System.Drawing.Color.Black
         Me.Panel1.Location = New System.Drawing.Point(1, 0)
         Me.Panel1.Name = "Panel1"
-        Me.Panel1.Size = New System.Drawing.Size(510, 375)
+        Me.Panel1.Size = New System.Drawing.Size(517, 376)
         Me.Panel1.TabIndex = 0
         '
         'GroupBox1
@@ -69,7 +72,7 @@ Partial Class frmGbufferViewer
         Me.GroupBox1.Controls.Add(Me.half_scale)
         Me.GroupBox1.Controls.Add(Me.full_scale)
         Me.GroupBox1.ForeColor = System.Drawing.Color.White
-        Me.GroupBox1.Location = New System.Drawing.Point(517, 12)
+        Me.GroupBox1.Location = New System.Drawing.Point(524, 12)
         Me.GroupBox1.Name = "GroupBox1"
         Me.GroupBox1.Size = New System.Drawing.Size(60, 113)
         Me.GroupBox1.TabIndex = 1
@@ -120,18 +123,12 @@ Partial Class frmGbufferViewer
         '
         'GroupBox2
         '
-        Me.GroupBox2.Controls.Add(Me.b_vt1)
-        Me.GroupBox2.Controls.Add(Me.b_aux)
-        Me.GroupBox2.Controls.Add(Me.b_flags)
-        Me.GroupBox2.Controls.Add(Me.b_normal)
-        Me.GroupBox2.Controls.Add(Me.b_position)
-        Me.GroupBox2.Controls.Add(Me.b_color)
-        Me.GroupBox2.Controls.Add(Me.b_depth)
+        Me.GroupBox2.Controls.Add(Me.FlowLayoutPanel1)
         Me.GroupBox2.Dock = System.Windows.Forms.DockStyle.Bottom
         Me.GroupBox2.ForeColor = System.Drawing.Color.White
-        Me.GroupBox2.Location = New System.Drawing.Point(0, 381)
+        Me.GroupBox2.Location = New System.Drawing.Point(0, 382)
         Me.GroupBox2.Name = "GroupBox2"
-        Me.GroupBox2.Size = New System.Drawing.Size(589, 41)
+        Me.GroupBox2.Size = New System.Drawing.Size(596, 58)
         Me.GroupBox2.TabIndex = 2
         Me.GroupBox2.TabStop = False
         Me.GroupBox2.Text = "Selected Image"
@@ -140,9 +137,9 @@ Partial Class frmGbufferViewer
         '
         Me.b_vt1.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_vt1.ForeColor = System.Drawing.Color.Black
-        Me.b_vt1.Location = New System.Drawing.Point(467, 14)
+        Me.b_vt1.Location = New System.Drawing.Point(429, 3)
         Me.b_vt1.Name = "b_vt1"
-        Me.b_vt1.Size = New System.Drawing.Size(70, 23)
+        Me.b_vt1.Size = New System.Drawing.Size(65, 23)
         Me.b_vt1.TabIndex = 7
         Me.b_vt1.Tag = "7"
         Me.b_vt1.Text = "VT1"
@@ -153,9 +150,9 @@ Partial Class frmGbufferViewer
         '
         Me.b_aux.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_aux.ForeColor = System.Drawing.Color.Black
-        Me.b_aux.Location = New System.Drawing.Point(391, 14)
+        Me.b_aux.Location = New System.Drawing.Point(358, 3)
         Me.b_aux.Name = "b_aux"
-        Me.b_aux.Size = New System.Drawing.Size(70, 23)
+        Me.b_aux.Size = New System.Drawing.Size(65, 23)
         Me.b_aux.TabIndex = 6
         Me.b_aux.Tag = "6"
         Me.b_aux.Text = "gAuxColor"
@@ -166,9 +163,9 @@ Partial Class frmGbufferViewer
         '
         Me.b_flags.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_flags.ForeColor = System.Drawing.Color.Black
-        Me.b_flags.Location = New System.Drawing.Point(315, 14)
+        Me.b_flags.Location = New System.Drawing.Point(287, 3)
         Me.b_flags.Name = "b_flags"
-        Me.b_flags.Size = New System.Drawing.Size(70, 23)
+        Me.b_flags.Size = New System.Drawing.Size(65, 23)
         Me.b_flags.TabIndex = 4
         Me.b_flags.Tag = "5"
         Me.b_flags.Text = "Flags"
@@ -179,9 +176,9 @@ Partial Class frmGbufferViewer
         '
         Me.b_normal.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_normal.ForeColor = System.Drawing.Color.Black
-        Me.b_normal.Location = New System.Drawing.Point(239, 14)
+        Me.b_normal.Location = New System.Drawing.Point(216, 3)
         Me.b_normal.Name = "b_normal"
-        Me.b_normal.Size = New System.Drawing.Size(70, 23)
+        Me.b_normal.Size = New System.Drawing.Size(65, 23)
         Me.b_normal.TabIndex = 3
         Me.b_normal.Tag = "4"
         Me.b_normal.Text = "Normals"
@@ -192,9 +189,9 @@ Partial Class frmGbufferViewer
         '
         Me.b_position.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_position.ForeColor = System.Drawing.Color.Black
-        Me.b_position.Location = New System.Drawing.Point(163, 14)
+        Me.b_position.Location = New System.Drawing.Point(145, 3)
         Me.b_position.Name = "b_position"
-        Me.b_position.Size = New System.Drawing.Size(70, 23)
+        Me.b_position.Size = New System.Drawing.Size(65, 23)
         Me.b_position.TabIndex = 2
         Me.b_position.Tag = "3"
         Me.b_position.Text = "Position"
@@ -205,9 +202,9 @@ Partial Class frmGbufferViewer
         '
         Me.b_color.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_color.ForeColor = System.Drawing.Color.Black
-        Me.b_color.Location = New System.Drawing.Point(87, 14)
+        Me.b_color.Location = New System.Drawing.Point(74, 3)
         Me.b_color.Name = "b_color"
-        Me.b_color.Size = New System.Drawing.Size(70, 23)
+        Me.b_color.Size = New System.Drawing.Size(65, 23)
         Me.b_color.TabIndex = 1
         Me.b_color.Tag = "2"
         Me.b_color.Text = "Colors"
@@ -219,9 +216,9 @@ Partial Class frmGbufferViewer
         Me.b_depth.Appearance = System.Windows.Forms.Appearance.Button
         Me.b_depth.Checked = True
         Me.b_depth.ForeColor = System.Drawing.Color.Black
-        Me.b_depth.Location = New System.Drawing.Point(11, 14)
+        Me.b_depth.Location = New System.Drawing.Point(3, 3)
         Me.b_depth.Name = "b_depth"
-        Me.b_depth.Size = New System.Drawing.Size(70, 23)
+        Me.b_depth.Size = New System.Drawing.Size(65, 23)
         Me.b_depth.TabIndex = 0
         Me.b_depth.TabStop = True
         Me.b_depth.Tag = "1"
@@ -234,7 +231,7 @@ Partial Class frmGbufferViewer
         Me.w_label.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.w_label.AutoSize = True
         Me.w_label.ForeColor = System.Drawing.Color.Silver
-        Me.w_label.Location = New System.Drawing.Point(514, 201)
+        Me.w_label.Location = New System.Drawing.Point(521, 201)
         Me.w_label.Name = "w_label"
         Me.w_label.Size = New System.Drawing.Size(38, 13)
         Me.w_label.TabIndex = 3
@@ -245,7 +242,7 @@ Partial Class frmGbufferViewer
         Me.h_label.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.h_label.AutoSize = True
         Me.h_label.ForeColor = System.Drawing.Color.Silver
-        Me.h_label.Location = New System.Drawing.Point(511, 219)
+        Me.h_label.Location = New System.Drawing.Point(518, 219)
         Me.h_label.Name = "h_label"
         Me.h_label.Size = New System.Drawing.Size(41, 13)
         Me.h_label.TabIndex = 4
@@ -259,7 +256,7 @@ Partial Class frmGbufferViewer
         Me.r_cb.CheckState = System.Windows.Forms.CheckState.Checked
         Me.r_cb.Font = New System.Drawing.Font("Microsoft Sans Serif", 11.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.r_cb.ForeColor = System.Drawing.Color.FromArgb(CType(CType(192, Byte), Integer), CType(CType(0, Byte), Integer), CType(CType(0, Byte), Integer))
-        Me.r_cb.Location = New System.Drawing.Point(518, 269)
+        Me.r_cb.Location = New System.Drawing.Point(524, 266)
         Me.r_cb.Name = "r_cb"
         Me.r_cb.Size = New System.Drawing.Size(39, 22)
         Me.r_cb.TabIndex = 5
@@ -275,7 +272,7 @@ Partial Class frmGbufferViewer
         Me.g_cb.CheckState = System.Windows.Forms.CheckState.Checked
         Me.g_cb.Font = New System.Drawing.Font("Microsoft Sans Serif", 11.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.g_cb.ForeColor = System.Drawing.Color.FromArgb(CType(CType(0, Byte), Integer), CType(CType(192, Byte), Integer), CType(CType(0, Byte), Integer))
-        Me.g_cb.Location = New System.Drawing.Point(518, 297)
+        Me.g_cb.Location = New System.Drawing.Point(524, 294)
         Me.g_cb.Name = "g_cb"
         Me.g_cb.Size = New System.Drawing.Size(40, 22)
         Me.g_cb.TabIndex = 7
@@ -291,7 +288,7 @@ Partial Class frmGbufferViewer
         Me.b_cb.CheckState = System.Windows.Forms.CheckState.Checked
         Me.b_cb.Font = New System.Drawing.Font("Microsoft Sans Serif", 11.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.b_cb.ForeColor = System.Drawing.Color.Blue
-        Me.b_cb.Location = New System.Drawing.Point(517, 325)
+        Me.b_cb.Location = New System.Drawing.Point(523, 322)
         Me.b_cb.Name = "b_cb"
         Me.b_cb.Size = New System.Drawing.Size(38, 22)
         Me.b_cb.TabIndex = 8
@@ -307,7 +304,7 @@ Partial Class frmGbufferViewer
         Me.a_cb.CheckState = System.Windows.Forms.CheckState.Checked
         Me.a_cb.Font = New System.Drawing.Font("Microsoft Sans Serif", 11.25!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.a_cb.ForeColor = System.Drawing.Color.White
-        Me.a_cb.Location = New System.Drawing.Point(518, 353)
+        Me.a_cb.Location = New System.Drawing.Point(524, 350)
         Me.a_cb.Name = "a_cb"
         Me.a_cb.Size = New System.Drawing.Size(37, 22)
         Me.a_cb.TabIndex = 9
@@ -320,7 +317,7 @@ Partial Class frmGbufferViewer
         Me.Label1.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label1.AutoSize = True
         Me.Label1.ForeColor = System.Drawing.SystemColors.ActiveCaption
-        Me.Label1.Location = New System.Drawing.Point(517, 253)
+        Me.Label1.Location = New System.Drawing.Point(524, 271)
         Me.Label1.Name = "Label1"
         Me.Label1.Size = New System.Drawing.Size(16, 13)
         Me.Label1.TabIndex = 10
@@ -332,19 +329,47 @@ Partial Class frmGbufferViewer
         Me.cb_alpha_enable.Appearance = System.Windows.Forms.Appearance.Button
         Me.cb_alpha_enable.AutoSize = True
         Me.cb_alpha_enable.ForeColor = System.Drawing.Color.Black
-        Me.cb_alpha_enable.Location = New System.Drawing.Point(525, 131)
+        Me.cb_alpha_enable.Location = New System.Drawing.Point(532, 131)
         Me.cb_alpha_enable.Name = "cb_alpha_enable"
         Me.cb_alpha_enable.Size = New System.Drawing.Size(44, 23)
         Me.cb_alpha_enable.TabIndex = 11
         Me.cb_alpha_enable.Text = "Alpha"
         Me.cb_alpha_enable.UseVisualStyleBackColor = True
         '
+        'FlowLayoutPanel1
+        '
+        Me.FlowLayoutPanel1.Controls.Add(Me.b_depth)
+        Me.FlowLayoutPanel1.Controls.Add(Me.b_color)
+        Me.FlowLayoutPanel1.Controls.Add(Me.b_position)
+        Me.FlowLayoutPanel1.Controls.Add(Me.b_normal)
+        Me.FlowLayoutPanel1.Controls.Add(Me.b_flags)
+        Me.FlowLayoutPanel1.Controls.Add(Me.b_aux)
+        Me.FlowLayoutPanel1.Controls.Add(Me.b_vt1)
+        Me.FlowLayoutPanel1.Controls.Add(Me.b_shadow)
+        Me.FlowLayoutPanel1.Location = New System.Drawing.Point(12, 19)
+        Me.FlowLayoutPanel1.Name = "FlowLayoutPanel1"
+        Me.FlowLayoutPanel1.Size = New System.Drawing.Size(572, 30)
+        Me.FlowLayoutPanel1.TabIndex = 8
+        '
+        'b_shadow
+        '
+        Me.b_shadow.Appearance = System.Windows.Forms.Appearance.Button
+        Me.b_shadow.ForeColor = System.Drawing.Color.Black
+        Me.b_shadow.Location = New System.Drawing.Point(500, 3)
+        Me.b_shadow.Name = "b_shadow"
+        Me.b_shadow.Size = New System.Drawing.Size(65, 23)
+        Me.b_shadow.TabIndex = 8
+        Me.b_shadow.Tag = "8"
+        Me.b_shadow.Text = "Shadow"
+        Me.b_shadow.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        Me.b_shadow.UseVisualStyleBackColor = True
+        '
         'frmGbufferViewer
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer), CType(CType(32, Byte), Integer))
-        Me.ClientSize = New System.Drawing.Size(589, 422)
+        Me.ClientSize = New System.Drawing.Size(596, 440)
         Me.Controls.Add(Me.cb_alpha_enable)
         Me.Controls.Add(Me.Label1)
         Me.Controls.Add(Me.a_cb)
@@ -363,6 +388,7 @@ Partial Class frmGbufferViewer
         Me.TopMost = True
         Me.GroupBox1.ResumeLayout(False)
         Me.GroupBox2.ResumeLayout(False)
+        Me.FlowLayoutPanel1.ResumeLayout(False)
         Me.ResumeLayout(False)
         Me.PerformLayout()
 
@@ -389,4 +415,6 @@ Partial Class frmGbufferViewer
     Friend WithEvents b_aux As RadioButton
     Friend WithEvents cb_alpha_enable As CheckBox
     Friend WithEvents b_vt1 As RadioButton
+    Friend WithEvents FlowLayoutPanel1 As FlowLayoutPanel
+    Friend WithEvents b_shadow As RadioButton
 End Class

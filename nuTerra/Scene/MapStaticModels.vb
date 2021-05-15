@@ -97,6 +97,34 @@ Public Class MapStaticModels
         GL_POP_GROUP()
     End Sub
 
+    Public Sub shadow_mapping_pass()
+        GL_PUSH_GROUP("MapStaticModels::shadow_mapping_pass")
+
+        mDepthWrite_light.Use()
+
+        GL.ColorMask(False, False, False, False)
+        GL.Enable(EnableCap.CullFace)
+
+        allMapModels.Bind()
+
+        indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
+
+        GL.Disable(EnableCap.CullFace)
+
+        indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1), 0)
+
+        mDepthWriteShader.StopUse()
+        GL.ColorMask(True, True, True, True)
+
+        GL.Enable(EnableCap.CullFace)
+
+        mDepthWrite_light.StopUse()
+
+        GL_POP_GROUP()
+    End Sub
+
     Public Sub model_depth_pass()
         'This is just to depth pass write to allow early z reject and stop
         ' wetness from showing through the models.

@@ -472,4 +472,35 @@ Public Class SettingsPropertyGrid
             Return GLBuffer.ALL_SIZE / 1024
         End Get
     End Property
+
+
+    <DisplayName("Enabled"), Category("Shadow Mapping")>
+    Public Property SHADOW_MAPPING_enabled As Boolean
+        Set(value As Boolean)
+            ShadowMappingFBO.ENABLED = value
+        End Set
+        Get
+            Return ShadowMappingFBO.ENABLED
+        End Get
+    End Property
+
+    <DisplayName("zNear"), Category("Shadow Mapping")>
+    Public Property SHADOW_MAPPING_near As Single
+        Set(value As Single)
+            ShadowMappingFBO.NEAR = value
+        End Set
+        Get
+            Return ShadowMappingFBO.NEAR
+        End Get
+    End Property
+
+    <DisplayName("zFar"), Category("Shadow Mapping")>
+    Public Property SHADOW_MAPPING_far As Single
+        Set(value As Single)
+            ShadowMappingFBO.FAR = value
+        End Set
+        Get
+            Return ShadowMappingFBO.FAR
+        End Get
+    End Property
 End Class
