@@ -335,7 +335,7 @@ Module TerrainBuilder
         theMap.near_y_height = theMap.outland_Cascade_bounds_max.Y - theMap.outland_Cascade_bounds_min.Y
         theMap.near_y_offset = theMap.outland_bounds_min.Y
         theMap.far_y_offset = theMap.outland_Cascade_bounds_min.Y
-        'this does not does not need to be indirect?
+        'this does not need to be indirect?
         build_outland_vao()
     End Sub
 

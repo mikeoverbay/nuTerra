@@ -81,16 +81,18 @@ Public Class MapTerrain
     Public Sub Draw_outland()
         GL_PUSH_GROUP("draw_outland")
         ' EANABLE FACE CULLING
-        GL.Enable(EnableCap.CullFace)
+        GL.Disable(EnableCap.CullFace)
 
         outlandShader.Use()
 
         outland_vao.Bind()
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
 
         GL.DrawElementsInstanced(
             PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length, DrawElementsType.UnsignedInt, IntPtr.Zero, 1)
 
         outlandShader.StopUse()
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
         GL_POP_GROUP()
     End Sub

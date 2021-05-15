@@ -6,10 +6,7 @@
 #define USE_TERRAIN_CHUNK_INFO_SSBO
 #include "common.h" //! #include "../common.h"
 
-layout(location = 0) in vec3 vertexPosition;
-layout(location = 1) in vec2 vertexTexCoord;
-layout(location = 2) in vec4 vertexNormal;
-layout(location = 3) in vec3 vertexTangent;
+layout(location = 0) in vec2 vertexPosition;
 
 layout(location = 0) out VS_OUT {
     vec3 vertexPosition;
@@ -21,11 +18,14 @@ void main(void)
 {
     const TerrainChunkInfo chunk = outland[gl_InstanceID];
 
-    vs_out.UV =  vertexTexCoord;
-    vs_out.vertexPosition = vertexPosition;
-    vs_out.vertexNormal = vertexNormal.xyz;
-    vec3 v = vertexPosition;
+    vs_out.UV =  vertexPosition.xy +50.0;
+    vec4 v;
+    v.xy = vertexPosition.xy;
     v.xz *= 100.0;
-    gl_Position = viewProj * chunk.modelMatrix * vec4(vertexPosition, 1.0);
+    v.z = 0.0;// this will come from height map
+    vs_out.vertexPosition = v.xyz;
+    //th8is will come from normal texture
+    //vs_out.vertexNormal = vertexNormal.xyz;
+    gl_Position = viewProj * chunk.modelMatrix * v;
 
 }

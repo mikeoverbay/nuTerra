@@ -38,11 +38,6 @@ Module ChunkFunctions
         Dim b_size = size * size - 1
 
         ReDim v_data.v_buff_XZ(b_size)
-        ReDim v_data.v_buff_Y(b_size)
-        ReDim v_data.h_buff(b_size)
-        ReDim v_data.uv_buff(b_size)
-        ReDim v_data.n_buff(b_size)
-        ReDim v_data.t_buff(b_size)
         ReDim v_data.indicies_32(indi_count - 1)
 
         Dim w As Double = size 'bmp_w
@@ -117,23 +112,8 @@ Module ChunkFunctions
                 v_data.v_buff_XZ(i + ((j + 1) * stride)) = bottomleft.vert
                 v_data.v_buff_XZ(i + ((j + 0) * stride)) = topleft.vert
 
-                v_data.v_buff_Y(i + ((j + 1) * stride)) = bottomleft.H
-                v_data.v_buff_Y(i + ((j + 0) * stride)) = topleft.H
-
-                v_data.h_buff(i + ((j + 1) * stride)) = bottomleft.hole
-                v_data.h_buff(i + ((j + 0) * stride)) = topleft.hole
-
-                v_data.uv_buff(i + ((j + 1) * stride)) = bottomleft.uv
-                v_data.uv_buff(i + ((j + 0) * stride)) = topleft.uv
-
             Next
         Next
-
-        '=========================================================================
-        'From : https://www.iquilezles.org/www/articles/normals/normals.htm
-        'Create smoothed normals using IQ's method
-        make_normals_outland(v_data.indicies_32, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff, v_data.t_buff, v_data.uv_buff, v_data, r_set)
-        '=========================================================================
 
 
     End Sub
@@ -308,61 +288,6 @@ Module ChunkFunctions
         Next
 
     End Sub
-    Private Sub make_normals_outland(ByRef indi() As vect3_32, ByRef XY() As Vector2, ByRef Z() As Single, ByRef n_buff() As Vector3, ByRef t_buff() As Vector3, ByRef UV() As Vector2, ByRef v_data As terrain_V_data_, ByRef r_set As chunk_render_data_)
-        'generate and smooth normals. Amazing code by IQ.
-        For i = 0 To indi.Length - 1
-            Dim ia As UInt32 = indi(i).z
-            Dim ib As UInt32 = indi(i).y
-            Dim ic As UInt32 = indi(i).x
-
-            Dim e1, e2 As Vector3
-
-            e1.Xz = XY(ia) - XY(ib)
-            e1.Y = Z(ia) - Z(ib)
-            e2.Xz = XY(ic) - XY(ib)
-            e2.Y = Z(ic) - Z(ib)
-            Dim no = Vector3.Cross(e1, e2)
-            no.Normalize()
-            n_buff(ia) += no
-            n_buff(ib) += no
-            n_buff(ic) += no
-        Next
-        For i = 0 To indi.Length - 1
-            Dim v0, V1, v2 As Vector3
-
-            Dim ia As UInt32 = indi(i).z
-            Dim ib As UInt32 = indi(i).y
-            Dim ic As UInt32 = indi(i).x
-
-            v0.Xz = XY(ia) : v0.Y = Z(ia)
-            V1.Xz = XY(ib) : V1.Y = Z(ib)
-            v2.Xz = XY(ic) : v2.Y = Z(ic)
-
-            Dim uv0 = UV(ia)
-            Dim uv1 = UV(ib)
-            Dim uv2 = UV(ic)
-
-            Dim deltaPos1 = V1 - v0
-            Dim deltaPos2 = v2 - v0
-            Dim deltaUV1 = uv1 - uv0
-            Dim deltaUV2 = uv2 - uv1
-
-            Dim r = 1.0F / (deltaUV1.X * deltaUV2.Y - deltaUV1.Y * deltaUV2.X)
-            Dim tangent As Vector3 = (deltaPos1 * deltaUV2.Y - deltaPos2 * deltaUV1.Y) * r
-
-            tangent.Normalize()
-
-            t_buff(ia) = tangent
-            t_buff(ib) = tangent
-            t_buff(ic) = tangent
-
-        Next
-
-        For i = 0 To t_buff.Length - 1
-            n_buff(i).Normalize()
-        Next
-
-    End Sub
 
     Public Sub smooth_edges(ByVal Idx As Integer)
 
@@ -460,6 +385,11 @@ Module ChunkFunctions
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
+    Private Structure OutlandVertex
+        Public xy As Vector2
+    End Structure
+
+    <StructLayout(LayoutKind.Sequential)>
     Private Structure TerrainChunkInfo
         Public modelMatrix As Matrix4
         Public g_uv_offset As Vector2
@@ -477,61 +407,29 @@ Module ChunkFunctions
         map_scene.terrain.outland_indices_buffer = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "outland_indices")
 
         Dim vcount = theMap.outland_Vdata.v_buff_XZ.Length
-        Dim vsize = Marshal.SizeOf(Of TerrainVertex)
+        Dim vsize = Marshal.SizeOf(Of Vector2)
 
         map_scene.terrain.outland_indices_buffer.Storage(theMap.outland_Vdata.indicies_32.Length * 12, theMap.outland_Vdata.indicies_32, BufferStorageFlags.None)
 
         With theMap.outland_Vdata
-            Debug.Assert(.n_buff.Length = .h_buff.Length)
 
             'compute scaling factor
             terrainMatrices.modelMatrix = Matrix4.Identity
             terrainMatrices.modelMatrix.M11 = (theMap.outland_bounds_max.X - theMap.outland_bounds_min.X) / 10.0F
             terrainMatrices.modelMatrix.M33 = (theMap.outland_bounds_max.Z - theMap.outland_bounds_min.Z) / 10.0F
 
-            Dim vertices(.n_buff.Length - 1) As TerrainVertex
-            For j = 0 To .n_buff.Length - 1
-                vertices(j).xyz.Xz = .v_buff_XZ(j)
-                vertices(j).xyz.Y = .v_buff_Y(j)
-                vertices(j).uv = .uv_buff(j)
-                vertices(j).packed_noraml = pack_2_10_10_10(.n_buff(j), .h_buff(j))
-                vertices(j).tangents = pack_2_10_10_10(.t_buff(j))
-            Next
-
-            map_scene.terrain.outland_vertices_buffer.Storage(vcount * vsize, vertices, BufferStorageFlags.DynamicStorageBit)
+            map_scene.terrain.outland_vertices_buffer.Storage(vcount * vsize, .v_buff_XZ, BufferStorageFlags.DynamicStorageBit)
 
             .indicies = Nothing
             .v_buff_XZ = Nothing
-            .uv_buff = Nothing
-            .v_buff_Y = Nothing
-            .n_buff = Nothing
-            .h_buff = Nothing
-            .t_buff = Nothing
+
         End With
 
         ' VERTEX XYZ
         map_scene.terrain.outland_vao.VertexBuffer(0, map_scene.terrain.outland_vertices_buffer, IntPtr.Zero, vsize)
-        map_scene.terrain.outland_vao.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
+        map_scene.terrain.outland_vao.AttribFormat(0, 2, VertexAttribType.Float, False, 0)
         map_scene.terrain.outland_vao.AttribBinding(0, 0)
         map_scene.terrain.outland_vao.EnableAttrib(0)
-
-        ' UV
-        map_scene.terrain.outland_vao.VertexBuffer(1, map_scene.terrain.outland_vertices_buffer, New IntPtr(12), vsize)
-        map_scene.terrain.outland_vao.AttribFormat(1, 2, VertexAttribType.Float, False, 0)
-        map_scene.terrain.outland_vao.AttribBinding(1, 1)
-        map_scene.terrain.outland_vao.EnableAttrib(1)
-
-        ' NORMALS AND HOLES
-        map_scene.terrain.outland_vao.VertexBuffer(2, map_scene.terrain.outland_vertices_buffer, New IntPtr(20), vsize)
-        map_scene.terrain.outland_vao.AttribFormat(2, 4, VertexAttribType.Int2101010Rev, True, 0)
-        map_scene.terrain.outland_vao.AttribBinding(2, 2)
-        map_scene.terrain.outland_vao.EnableAttrib(2)
-
-        ' Tangents
-        map_scene.terrain.outland_vao.VertexBuffer(3, map_scene.terrain.outland_vertices_buffer, New IntPtr(24), vsize)
-        map_scene.terrain.outland_vao.AttribFormat(3, 4, VertexAttribType.Int2101010Rev, True, 0)
-        map_scene.terrain.outland_vao.AttribBinding(3, 3)
-        map_scene.terrain.outland_vao.EnableAttrib(3)
 
         map_scene.terrain.outland_vao.ElementBuffer(map_scene.terrain.outland_indices_buffer)
 
