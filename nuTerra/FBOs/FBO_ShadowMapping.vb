@@ -7,6 +7,12 @@ Public Class ShadowMappingFBO
     Public Const WIDTH = 1024
     Public Const HEIGHT = 1024
 
+    Public Shared ORTHO_WIDTH As Single = 100.0F
+    Public Shared ORTHO_HEIGHT As Single = 100.0F
+    Public Shared NEAR As Single = -4000.0F
+    Public Shared FAR As Single = 4000.0F
+    Public Shared ENABLED As Boolean = False
+
     Public Shared Sub FBO_Initialize()
         frmMain.glControl_main.MakeCurrent()
 

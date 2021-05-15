@@ -262,9 +262,11 @@ Module modOpenGL
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
         PerViewData.invViewProj = Matrix4.Invert(PerViewData.viewProj)
 
-        Dim light_proj_matrix = Matrix4.CreateOrthographicOffCenter(-50, 50, -50, 50, -200, 200)
-        Dim light_view_matrix = Matrix4.LookAt(LIGHT_POS, Vector3.Zero, Vector3.UnitY)
-        PerViewData.light_vp_matrix = light_view_matrix * light_proj_matrix
+        If ShadowMappingFBO.ENABLED Then
+            Dim light_proj_matrix = Matrix4.CreateOrthographic(ShadowMappingFBO.ORTHO_WIDTH, ShadowMappingFBO.ORTHO_HEIGHT, ShadowMappingFBO.NEAR, ShadowMappingFBO.FAR)
+            Dim light_view_matrix = Matrix4.LookAt(LIGHT_POS, Vector3.Zero, Vector3.UnitY)
+            PerViewData.light_vp_matrix = light_view_matrix * light_proj_matrix
+        End If
 
         PerViewData.resolution.X = frmMain.glControl_main.ClientSize.Width
         PerViewData.resolution.Y = frmMain.glControl_main.ClientSize.Height

@@ -210,7 +210,7 @@ Module ShaderLoader
     'shadow shaders
     Public terrainDepthShader As Shader
     Public terrainMaskShader As Shader
-    Public modelDepthShader As Shader
+    Public mDepthWrite_light As Shader
 #End Region
 
 #Region "Compiler code"
@@ -277,7 +277,7 @@ Module ShaderLoader
         'shadow shaders
         terrainDepthShader = New Shader("terrainDepthWriter")
         terrainMaskShader = New Shader("terrainMask")
-        modelDepthShader = New Shader("modelDepthWriter")
+        mDepthWrite_light = New Shader("mDepthWrite_light")
     End Sub
 
     Public Function assemble_shader(v As String,

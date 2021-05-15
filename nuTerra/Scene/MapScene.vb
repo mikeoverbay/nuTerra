@@ -19,8 +19,23 @@ Public Class MapScene
     End Sub
 
     Public Sub ShadowMappingPass()
+        GL_PUSH_GROUP("MapScene::ShadowMappingPass")
+
         ShadowMappingFBO.fbo.Bind(FramebufferTarget.Framebuffer)
+        GL.Viewport(0, 0, ShadowMappingFBO.WIDTH, ShadowMappingFBO.HEIGHT)
+        GL.ClearDepth(1.0)
         GL.Clear(ClearBufferMask.DepthBufferBit)
+        GL.DepthFunc(DepthFunction.Less)
+
+        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+            static_models.shadow_mapping_pass()
+        End If
+
+        ' Restore reversed-z depth
+        GL.ClearDepth(0.0)
+        GL.DepthFunc(DepthFunction.Greater)
+
+        GL_POP_GROUP()
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
