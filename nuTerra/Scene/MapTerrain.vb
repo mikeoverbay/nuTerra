@@ -5,6 +5,12 @@ Imports OpenTK.Graphics.OpenGL4
 
 Public Class MapTerrain
     Implements IDisposable
+    Public Outland_matrices As GLBuffer
+    Public outland_indirect_buffer As GLBuffer
+    Public outland_vertices_buffer As GLBuffer
+    Public outland_indices_buffer As GLBuffer
+    Public outland_vao As GLVertexArray
+
 
     Public matrices As GLBuffer
     Public indirect_buffer As GLBuffer
@@ -78,9 +84,17 @@ Public Class MapTerrain
         ' EANABLE FACE CULLING
         GL.Enable(EnableCap.CullFace)
 
+        outlandShader.Use()
+
+        outland_vao.Bind()
+
+        outland_indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
+
         GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view))
 
         GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(Marshal.SizeOf(Of DrawElementsIndirectCommand)))
+
+        outlandShader.StopUse()
 
         GL_POP_GROUP()
     End Sub

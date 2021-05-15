@@ -45,10 +45,13 @@ Module TerrainBuilder
 
     Public NotInheritable Class theMap
         Public Shared chunks() As chunk_
-        Public Shared v_data() As terain_V_data_
+        Public Shared v_data() As terrain_V_data_
         Public Shared render_set() As chunk_render_data_
         '------------------------
-
+        Public Shared outland_Vdata As terrain_V_data_
+        Public Shared outland_render_set As chunk_render_data_
+        Public Shared outland_chunk As chunk_
+        '------------------------
         Public Shared lut_path As String
         '------------------------
         Public Shared chunk_size As Single ' space.settings/chunkSize or 100.0 by default
@@ -90,7 +93,7 @@ Module TerrainBuilder
         Public name As String
     End Structure
 
-    Public Structure terain_V_data_
+    Public Structure terrain_V_data_
         Public holes(,) As UInt32
         Public heights(,) As Single
         Public heightsTBL(,) As Single
@@ -105,6 +108,7 @@ Module TerrainBuilder
         Dim v_buff_XZ() As Vector2
         Dim v_buff_Y() As Single
         Dim indicies() As vect3_16
+        Dim indicies_32() As vect3_32
 
         Public h_buff() As UInt32
         Public uv_buff() As Vector2
@@ -321,12 +325,18 @@ Module TerrainBuilder
         SWT.Stop()
     End Sub
 
+    '=======================================================================
     Public Sub create_outland()
         ' TODO
+        ' Build the mesh.. Size to be tweaked later. Currently 1024 x 1024 . 1 to 1 texture size
+        get_outland_mesh(theMap.outland_chunk, theMap.outland_Vdata, theMap.outland_render_set)
+        'get Y ranges. Not sure this is even used yet.
         theMap.near_y_height = theMap.outland_bounds_max.Y - theMap.outland_bounds_min.Y
         theMap.near_y_height = theMap.outland_Cascade_bounds_max.Y - theMap.outland_Cascade_bounds_min.Y
         theMap.near_y_offset = theMap.outland_bounds_min.Y
         theMap.far_y_offset = theMap.outland_Cascade_bounds_min.Y
+        'this does not does not need to be indirect?
+        build_outland_vao()
     End Sub
 
     '=======================================================================
@@ -403,7 +413,7 @@ Module TerrainBuilder
                 Dim loc_y = .loc_y
 
                 '-- make room
-                theMap.v_data(cnt) = New terain_V_data_
+                theMap.v_data(cnt) = New terrain_V_data_
                 theMap.chunks(cnt) = New chunk_
                 theMap.render_set(cnt) = New chunk_render_data_
 
