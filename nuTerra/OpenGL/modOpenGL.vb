@@ -149,6 +149,7 @@ Module modOpenGL
         Public projection As Matrix4
         Public viewProj As Matrix4
         Public invViewProj As Matrix4
+        Public light_vp_matrix As Matrix4
         Public cameraPos As Vector3
         Public pad1 As UInt32
         Public resolution As Vector2
@@ -260,6 +261,11 @@ Module modOpenGL
         PerViewData.view = Matrix4.LookAt(CAM_POSITION, CAM_TARGET, Vector3.UnitY)
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
         PerViewData.invViewProj = Matrix4.Invert(PerViewData.viewProj)
+
+        Dim light_proj_matrix = Matrix4.CreateOrthographicOffCenter(-50, 50, -50, 50, -200, 200)
+        Dim light_view_matrix = Matrix4.LookAt(LIGHT_POS, Vector3.Zero, Vector3.UnitY)
+        PerViewData.light_vp_matrix = light_view_matrix * light_proj_matrix
+
         PerViewData.resolution.X = frmMain.glControl_main.ClientSize.Width
         PerViewData.resolution.Y = frmMain.glControl_main.ClientSize.Height
         GL.NamedBufferSubData(PerViewDataBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(PerViewData), PerViewData)

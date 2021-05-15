@@ -22,8 +22,8 @@ Public Class ShadowMappingFBO
         depth_tex = GLTexture.Create(TextureTarget.Texture2D, "depth_tex")
         depth_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         depth_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-        'depth_tex.Parameter(TextureParameterName.TextureCompareMode, TextureCompareMode.CompareRefToTexture)
-        'depth_tex.Parameter(TextureParameterName.TextureCompareFunc, DepthFunction.Lequal)
+        depth_tex.Parameter(TextureParameterName.TextureCompareMode, TextureCompareMode.CompareRefToTexture)
+        depth_tex.Parameter(TextureParameterName.TextureCompareFunc, DepthFunction.Lequal)
         depth_tex.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), WIDTH, HEIGHT)
     End Sub
 

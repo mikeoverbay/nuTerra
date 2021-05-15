@@ -119,6 +119,7 @@
     <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FBOs\FBO_ShadowMapping.vb" />
     <Compile Include="OpenGL\GLVertexArray.vb" />
     <Compile Include="ResMgr\packed_section.vb" />
     <Compile Include="ResMgr\ResMgr.vb" />

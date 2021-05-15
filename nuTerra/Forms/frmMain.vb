@@ -582,6 +582,9 @@ try_again:
             BufferStorageFlags.DynamicStorageBit)
         CommonPropertiesBuffer.BindBase(2)
 
+        ShadowMappingFBO.FBO_Initialize()
+        LogThis("{0}ms FBO ShadowMapping Created.", launch_timer.ElapsedMilliseconds.ToString("0000"))
+
         MainFBO.FBO_Initialize()
         LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
 

@@ -1,4 +1,6 @@
-﻿Public Class MapScene
+﻿Imports OpenTK.Graphics.OpenGL4
+
+Public Class MapScene
     Implements IDisposable
 
     ReadOnly mapName As String
@@ -14,6 +16,11 @@
 
     Public Sub New(mapName As String)
         Me.mapName = mapName
+    End Sub
+
+    Public Sub ShadowMappingPass()
+        ShadowMappingFBO.fbo.Bind(FramebufferTarget.Framebuffer)
+        GL.Clear(ClearBufferMask.DepthBufferBit)
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
