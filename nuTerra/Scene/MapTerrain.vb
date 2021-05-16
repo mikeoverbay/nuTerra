@@ -86,19 +86,22 @@ Public Class MapTerrain
         ' Cascade near
         outlandShader.Use()
 
-        outland_height_map.BindUnit(1)
-        outland_normal_map.BindUnit(2)
-        outland_tile_cascade.BindUnit(3)
+        OUTLAND_HEIGTH_MAP.BindUnit(1)
+        OUTLAND_NORMAL_MAP.BindUnit(2)
+        outland_tile.BindUnit(3)
+
+        OUTLAND_TILES(4).BindUnit(4)
+        OUTLAND_TILES(5).BindUnit(5)
+        OUTLAND_TILES(6).BindUnit(6)
+        OUTLAND_TILES(7).BindUnit(7)
+
+        GL.Uniform1(outlandShader("tile_scale"), OUTLAND_TILE_SCALE / 10.0F)
 
         GL.Uniform1(outlandShader("y_range"), theMap.near_y_height)
         GL.Uniform1(outlandShader("y_offset"), theMap.near_y_offset)
 
         GL.Uniform2(outlandShader("scale"), theMap.near_scale.X, theMap.near_scale.Y)
         GL.Uniform2(outlandShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
-
-        GL.Uniform3(outlandShader("lightColor"), 0.5, 0.5, 0.5)
-        GL.Uniform3(outlandShader("viewPos"), CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
-        GL.Uniform3(outlandShader("lightPosition"), LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
 
         GL.UniformMatrix4(outlandShader("modelMatrix"), False, VIEWMATRIX)
 
@@ -107,13 +110,21 @@ Public Class MapTerrain
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
         GL.DrawElements(PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length * 3, DrawElementsType.UnsignedInt, IntPtr.Zero)
+        unbind_textures(7)
         '=========================================================
         ' Cascade far
         If cascade_levels = 2 Then
 
-            outland_height_cascade_map.BindUnit(1)
-            outland_normal_map_cascade.BindUnit(2)
-            outland_tile_cascade.BindUnit(3)
+            OUTLAND_HEIGTH_CASCADE_MAP.BindUnit(1)
+            OUTLAND_NORMAL_CASCADE_MAP.BindUnit(2)
+            OUTLAND_TILE_CASCADE.BindUnit(3)
+
+            OUTLAND_TILES(0).BindUnit(4)
+            OUTLAND_TILES(1).BindUnit(5)
+            OUTLAND_TILES(2).BindUnit(6)
+            OUTLAND_TILES(3).BindUnit(7)
+
+            GL.Uniform1(outlandShader("tile_scale"), OUTLAND_TILE_SCALE_CASCADE / 10.0F)
 
             GL.Uniform1(outlandShader("y_range"), theMap.far_y_height)
             GL.Uniform1(outlandShader("y_offset"), theMap.far_y_offset)
@@ -139,7 +150,7 @@ Public Class MapTerrain
         outlandShader.StopUse()
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
-        unbind_textures(2)
+        unbind_textures(7)
         GL_POP_GROUP()
     End Sub
 

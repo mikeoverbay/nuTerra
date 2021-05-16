@@ -121,14 +121,16 @@ Module modGlobalVars
     Public LIGHT_SPEED As Single = 0.02F
     '============================================================
     'outland texture ids
-    Public outland_normal_map As GLTexture
-    Public outland_normal_map_cascade As GLTexture
-    Public outland_tile As GLTexture
-    Public outland_tile_cascade As GLTexture
-    Public outland_height_map As GLTexture
-    Public outland_height_cascade_map As GLTexture
-    Public outland_tiles() As GLTexture
-    Public cascade_levels As Integer = 0
+    Public OUTLAND_NORMAL_MAP As GLTexture
+    Public OUTLAND_NORMAL_CASCADE_MAP As GLTexture
+    Public OUTLAND_TILE As GLTexture
+    Public OUTLAND_TILE_CASCADE As GLTexture
+    Public OUTLAND_HEIGTH_MAP As GLTexture
+    Public OUTLAND_HEIGTH_CASCADE_MAP As GLTexture
+    Public OUTLAND_TILES() As GLTexture
+    Public CASCADE_LEVELS As Integer = 0
+    Public OUTLAND_TILE_SCALE As Single
+    Public OUTLAND_TILE_SCALE_CASCADE As Single
     '============================================================
     Public _STARTED As Boolean 'Signals UI initialization is complete
 

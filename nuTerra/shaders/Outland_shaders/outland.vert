@@ -7,9 +7,10 @@
 
 layout(location = 0) in vec2 vertexPosition;
 layout(location = 1) in vec2 UVs;
+layout(location = 2) in vec4 vertexNormal;
+layout(location = 3) in vec3 vertexTangent;
 
 layout(binding = 1) uniform sampler2D heigth_map;
-layout(binding = 2) uniform sampler2D normal_map;
 
 uniform float y_range;
 uniform float y_offset;
@@ -20,37 +21,44 @@ uniform vec2 center_offset;
 uniform mat4 modelMatrix;
 
 layout(location = 0) out VS_OUT {
-    vec3 co;
     vec3 vertexPosition;
-    vec3 vertexNormal;
+    mat3 TBN;
     vec2 UV;
     float specular;
 } vs_out;
 
-vec3 convert_normal(in vec4 n){
-vec3 norm;
-norm.xy = n.ag;
-norm.z = clamp(sqrt(1.0-(n.x * n.x) +(n.y * n.y)),-1.0,1.0);
-return normalize(norm);
-}
 
 void main(void)
 {
-    vec2 UV = UVs;
+    vec2 UV = -UVs;
     vs_out.UV = UV;
     
-    vec4 n = texture(normal_map,UV);
-    vs_out.specular = n.r;
-    vs_out.vertexNormal = convert_normal(n);
 
-    vec3 color = texture(heigth_map,UV).rgb;
-    vs_out.co = color;
+    vec3 VT, VB, VN ;
+    VN = normalize(vertexNormal.xyz);
+    VT = normalize(vertexTangent);
+    VT = VT - dot(VN, VT) * VN;
+    VB = cross(VT, VN);
+    // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
+    mat3 normalMatrix = mat3(inverse(modelMatrix));
+    vec3 worldNormal = normalMatrix * VN;
+    vec3 worldTangent = normalMatrix * VT;
+    vec3 worldbiNormal = normalMatrix * VB;
+
+    // make perpendicular
+    worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
+    worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
+
+    // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
+    vs_out.TBN = mat3(worldTangent, worldbiNormal, normalize(worldNormal));
+
     vec3 pos;
+    pos.xz -= center_offset ;
     pos.xz = vertexPosition.xy * scale;
-    //pos.xz -= center_offset ;
-    pos.y = texture(heigth_map,UV).x;
+    pos.y = texture(heigth_map, UV).x;
+
     pos.y = pos.y;
-    //pos.y *= 100.0;
+
     pos.y = pos.y * y_range + y_offset-1.5;
     vs_out.vertexPosition = vec3(modelMatrix * vec4(-pos, 1.0));
 
