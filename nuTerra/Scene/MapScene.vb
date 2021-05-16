@@ -52,10 +52,6 @@ Public Class MapScene
             static_models.shadow_mapping_pass()
         End If
 
-        If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
-            terrain.shadow_mapping_pass()
-        End If
-
         GL.Disable(EnableCap.PolygonOffsetFill)
         GL.CullFace(CullFaceMode.Back)
 

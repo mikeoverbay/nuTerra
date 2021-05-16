@@ -275,7 +275,6 @@ Module ShaderLoader
         'particle shaders
         explode_type_1_shader = New Shader("explode_type_1_")
         'shadow shaders
-        Terrain_light = New Shader("Terrain_light")
         mDepthWrite_light = New Shader("mDepthWrite_light")
     End Sub
 

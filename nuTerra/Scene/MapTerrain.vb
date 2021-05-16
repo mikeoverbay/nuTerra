@@ -143,29 +143,6 @@ Public Class MapTerrain
         GL_POP_GROUP()
     End Sub
 
-    Public Sub shadow_mapping_pass()
-        GL_PUSH_GROUP("MapTerrain::shadow_mapping_pass")
-
-        Terrain_light.Use()
-
-        ' BIND TERRAIN VAO
-        all_chunks_vao.Bind()
-
-        ' BIND TERRAIN INDIRECT BUFFER
-        indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
-
-        For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible Then
-                ' DRAW CHUNK INDIRECT
-                GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
-            End If
-        Next
-
-        Terrain_light.StopUse()
-
-        GL_POP_GROUP()
-    End Sub
-
     Public Sub draw_terrain()
         GL_PUSH_GROUP("draw_terrain")
 
