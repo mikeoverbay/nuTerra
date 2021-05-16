@@ -255,17 +255,21 @@ void main (void)
             coords.xy *= vec2(0.5);
             coords.xy += vec2(0.5);
             if (coords.z < 1.0 && coords.z > 0.0) {
+#if 1
                 float shadowDepth = 0.0;
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2(-2,-2));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 0,-2));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 2,-2));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2(-2, 0));
+                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2(-1,-1));
+                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 0,-1));
+                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 1,-1));
+                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2(-1, 0));
                 shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 0, 0));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 2, 0));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2(-2, 2));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 0, 2));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 2, 2));
+                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 1, 0));
+                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2(-1, 1));
+                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 0, 1));
+                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 1, 1));
                 shadowDepth /= 9.0;
+#else
+                float shadowDepth = texture(shadowMap, coords.xyz);
+#endif
                 outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
             }
 #endif
