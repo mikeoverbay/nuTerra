@@ -21,10 +21,8 @@ float linearDepth()
 void main()
 {
     if (reversed) {
-        float c = sqrt(sqrt(sqrt(linearDepth())));
-        if (c < 1.0){
-            fragColor = vec4(c, c, c, 1.0);
-        }
+        float c = linearDepth();
+        fragColor = vec4(c, c, c, 1.0);
     } else {
         fragColor = vec4(vec3(1.0 - linearDepth()), 1.0);
     }
