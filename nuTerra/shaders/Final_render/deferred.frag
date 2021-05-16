@@ -23,6 +23,8 @@ layout(binding = 7) uniform sampler2DShadow shadowMap;
 uniform mat4 ProjectionMatrix;
 uniform vec3 LightPos;
 
+in flat mat4 shadowMatrix;
+
 #define MAXCOLOR 15.0
 #define COLORS 16.0
 #define WIDTH 256.0
@@ -217,7 +219,7 @@ void main (void)
             // FOG calculation... using distance from camera and height on map.
             // It's a more natural height based fog than plastering the screen with it.
             vec4 ts_cam = view * vec4(cameraPos,1.0);
-            vec4 p = inverse(view) * vec4(Position.xyz,1.0);
+            vec4 p = invView * vec4(Position.xyz,1.0);
             float viewDistance = length(ts_cam.xyz - Position);
             float z = viewDistance*0.75 ; 
    
@@ -251,17 +253,10 @@ void main (void)
             outColor =  correct(final_color,1.4,1.2)*1.6;
 
 #ifdef SHADOW_MAPPING
-            const mat4 biasMatrix = mat4(0.5, 0.0, 0.0, 0.0,
-                0.0, 0.5, 0.0, 0.0,
-                0.0, 0.0, -0.5, 0.0,
-                0.5, 0.5, 0.5, 1.0);
-            vec3 pos = texelFetch(gPosition, ivec2(gl_FragCoord), 0).xyz;
-            vec4 coords = biasMatrix * light_vp_matrix * inverse(view) * vec4(pos, 1.0);
+            vec4 coords = shadowMatrix * vec4(Position, 1.0);
             coords.xyz /= coords.w;
             float shadowDepth = textureProj(shadowMap, coords).x;
-            if (coords.z > shadowDepth) {
-                outColor.xyz *= 0.5;
-            }
+            outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
 #endif
 
             //outColor.a = fogFactor;

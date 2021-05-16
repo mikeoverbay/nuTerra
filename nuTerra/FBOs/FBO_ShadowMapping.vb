@@ -26,8 +26,8 @@ Public Class ShadowMappingFBO
 
     Public Shared Sub create_textures()
         depth_tex = GLTexture.Create(TextureTarget.Texture2D, "depth_tex")
-        depth_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
-        depth_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        depth_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+        depth_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
         depth_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         depth_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         depth_tex.Parameter(TextureParameterName.TextureCompareMode, TextureCompareMode.CompareRefToTexture)

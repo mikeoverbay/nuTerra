@@ -95,6 +95,7 @@ layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
     mat4 projection;
     mat4 viewProj;
     mat4 invViewProj;
+    mat4 invView;
     mat4 light_vp_matrix;
     vec3 cameraPos;
     uint pad;

@@ -149,6 +149,7 @@ Module modOpenGL
         Public projection As Matrix4
         Public viewProj As Matrix4
         Public invViewProj As Matrix4
+        Public invView As Matrix4
         Public light_vp_matrix As Matrix4
         Public cameraPos As Vector3
         Public pad1 As UInt32
@@ -262,6 +263,7 @@ Module modOpenGL
         PerViewData.view = Matrix4.LookAt(CAM_POSITION, CAM_TARGET, Vector3.UnitY)
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
         PerViewData.invViewProj = PerViewData.viewProj.Inverted()
+        PerViewData.invView = PerViewData.view.Inverted()
 
         If ShadowMappingFBO.ENABLED Then
             Dim dist = Math.Max(200, Vector3.Distance(CAM_TARGET, CAM_POSITION))
