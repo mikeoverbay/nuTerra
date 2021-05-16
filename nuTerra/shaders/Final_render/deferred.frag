@@ -255,9 +255,8 @@ void main (void)
 #ifdef SHADOW_MAPPING
             if (FLAG == 128) { // terrain only!
                 vec4 coords = shadowMatrix * vec4(Position, 1.0);
-                coords.xyz /= coords.w;
                 if (coords.z < 1.0 && coords.z > 0.0) {
-                    float shadowDepth = textureProj(shadowMap, coords).x;
+                    float shadowDepth = texture(shadowMap, coords.xyz).x;
                     outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
                 }
             }
