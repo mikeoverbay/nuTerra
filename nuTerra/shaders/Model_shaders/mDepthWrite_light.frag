@@ -16,8 +16,7 @@ void main(void)
 {
     const MaterialProperties thisMaterial = material[fs_in.material_id];
 
-    if (thisMaterial.alphaTestEnable
-        && (thisMaterial.shader_type == 1 || thisMaterial.shader_type == 2 || thisMaterial.shader_type == 7)) {
+    if (thisMaterial.alphaTestEnable) {
         float alpha = texture(sampler2D(thisMaterial.maps[1]), fs_in.uv).r;
         if (alpha < thisMaterial.alphaReference) {
             discard;

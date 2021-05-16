@@ -53,7 +53,7 @@ MaterialProperties thisMaterial = material[fs_in.material_id];
 //##################################################################################
 void get_and_write_no_mips(void){
 
-    float alphaCheck = gColor.a;
+    //float alphaCheck = gColor.a;
     if (thisMaterial.g_useNormalPackDXT1) {
         normalBump = (texture(sampler2D(thisMaterial.maps[1]), fs_in.TC1,1.0).rgb * 2.0f) - 1.0f;
     } else {
@@ -62,11 +62,11 @@ void get_and_write_no_mips(void){
         float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
         normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
         normalBump = normalize(normalBump);
-        alphaCheck = normal.r;
+        //alphaCheck = normal.r;
     }
-    if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
-        discard;
-    }
+    //if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
+        // discard;
+    //}
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz)*0.5+0.5;
 }
 //##################################################################################
