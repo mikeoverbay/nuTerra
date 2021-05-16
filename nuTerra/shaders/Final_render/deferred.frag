@@ -23,8 +23,6 @@ layout(binding = 7) uniform sampler2DShadow shadowMap;
 uniform mat4 ProjectionMatrix;
 uniform vec3 LightPos;
 
-in flat mat4 shadowMatrix;
-
 #define MAXCOLOR 15.0
 #define COLORS 16.0
 #define WIDTH 256.0
@@ -253,12 +251,12 @@ void main (void)
             outColor =  correct(final_color,1.4,1.2)*1.6;
 
 #ifdef SHADOW_MAPPING
-            if (FLAG == 128) { // terrain only!
-                vec4 coords = shadowMatrix * vec4(Position, 1.0);
-                if (coords.z < 1.0 && coords.z > 0.0) {
-                    float shadowDepth = texture(shadowMap, coords.xyz).x;
-                    outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
-                }
+            vec4 coords = light_vp_matrix * p;
+            coords.xy *= vec2(0.5);
+            coords.xy += vec2(0.5);
+            if (coords.z < 1.0 && coords.z > 0.0) {
+                float shadowDepth = texture(shadowMap, vec3(coords.xy, coords.z)).x;
+                outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
             }
 #endif
 
