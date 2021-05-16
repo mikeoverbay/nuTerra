@@ -65,7 +65,7 @@ void get_and_write_no_mips(void){
         alphaCheck = normal.r;
     }
     if (thisMaterial.alphaTestEnable && alphaCheck < thisMaterial.alphaReference) {
-        //discard;
+        discard;
     }
     gNormal.xyz = normalize(fs_in.TBN * normalBump.xyz)*0.5+0.5;
 }
