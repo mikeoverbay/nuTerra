@@ -253,10 +253,12 @@ void main (void)
             outColor =  correct(final_color,1.4,1.2)*1.6;
 
 #ifdef SHADOW_MAPPING
-            vec4 coords = shadowMatrix * vec4(Position, 1.0);
-            coords.xyz /= coords.w;
-            float shadowDepth = textureProj(shadowMap, coords).x;
-            outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
+            if (FLAG == 128) { // terrain only!
+                vec4 coords = shadowMatrix * vec4(Position, 1.0);
+                coords.xyz /= coords.w;
+                float shadowDepth = textureProj(shadowMap, coords).x;
+                outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
+            }
 #endif
 
             //outColor.a = fogFactor;
