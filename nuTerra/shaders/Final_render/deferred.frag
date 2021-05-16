@@ -256,8 +256,10 @@ void main (void)
             if (FLAG == 128) { // terrain only!
                 vec4 coords = shadowMatrix * vec4(Position, 1.0);
                 coords.xyz /= coords.w;
-                float shadowDepth = textureProj(shadowMap, coords).x;
-                outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
+                if (coords.z < 1.0 && coords.z > 0.0) {
+                    float shadowDepth = textureProj(shadowMap, coords).x;
+                    outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
+                }
             }
 #endif
 
