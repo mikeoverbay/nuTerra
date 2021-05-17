@@ -517,7 +517,7 @@ Module TerrainBuilder
 
         ReDim OUTLAND_TILES(cBWT2.tiles_fnv.count - 1)
         For i = 0 To cBWT2.tiles_fnv.count - 1
-            OUTLAND_TILES(i) = find_and_load_texture_from_pkgs_No_Suffix_change(cBWST.find_str(cBWT2.tiles_fnv.data(i)))
+            OUTLAND_TILES(i) = find_and_load_texture_from_pkgs(cBWST.find_str(cBWT2.tiles_fnv.data(i)))
         Next
         '==========================================================
         'remove data now that its unneeded now.

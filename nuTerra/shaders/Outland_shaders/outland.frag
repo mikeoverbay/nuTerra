@@ -32,19 +32,19 @@ in VS_OUT {
 
 float write_normal(void){
     vec4 n = texture(normal_map, fs_in.UV);
-    float shadow = n.r;
     vec3 norm;
     norm.xz = n.ag;
     norm.y = clamp(sqrt(1.0-(n.x * n.x) +(n.z * n.z)), -1.0, 1.0);
+    //norm.x *= -1.0;
     norm.xyz = normalize(fs_in.TBN * norm);
     gNormal = norm.xyz * 0.5 + 0.5;
-    return shadow;
+    return n.r;
 }
 
 vec4 get_tile( sampler2D samp, in vec2 uv)
 {
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-    return textureLod( samp, cropped, 0);
+    return texture( samp, cropped);
     }
 
 void main(void)
@@ -63,27 +63,28 @@ void main(void)
 
 
     float mv = texture(tile_map, fs_in.UV).r;
-    int m = int(65535 * mv);
-    int m1 = m & 0xf;
-    int m2 = m & 0xf0 >> 4;
-    int m3 = m & 0xf00 >> 8;
-    int m4 = m & 0xf000 >> 12;
+    uint m = uint(65535 * mv);
+    uint m1 = m & 0xf;
+    uint m2 = m & 0xf0 >> 4;
+    uint m3 = m & 0xf00 >> 8;
+    uint m4 = m & 0xf000 >> 12;
 
-    float ml = 1.0;
+    float ml = 0.7;
     float mx1 = float(m1 * ml);
     float mx2 = float(m2 * ml);
     float mx3 = float(m3 * ml);
     float mx4 = float(m4 * ml);
 
     vec3 color = c1.rgb;
-    color.rgb = color.rgb + c2.rgb * c2.w * mx2;
-    color.rgb = color.rgb + c3.rgb * c3.w * mx3;
-    color.rgb = color.rgb + c4.rgb * c4.w * mx4;
+    color = mix(color, c2.rgb, mx2 * c2.w);
+    color = mix(color, c3.rgb, mx3 * c3.w);
+    color = mix(color, c4.rgb, mx4 * c4.w);
+
 
     float shadow = write_normal();
     
     
-    gColor.rgb = color * (shadow+0.1);
+    gColor.rgb = color;// * (shadow+0.1);
     gColor.a = 0.0;
 
     gPosition = fs_in.vertexPosition;

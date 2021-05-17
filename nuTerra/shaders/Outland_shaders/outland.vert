@@ -53,14 +53,14 @@ void main(void)
     vs_out.TBN = mat3(worldTangent, worldbiNormal, normalize(worldNormal));
 
     vec3 pos;
-    pos.xz -= center_offset ;
     pos.xz = vertexPosition.xy * scale;
+    pos.xz += center_offset ;
     pos.y = texture(heigth_map, UV).x;
 
     pos.y = pos.y;
 
     pos.y = pos.y * y_range + y_offset-1.5;
-    vs_out.vertexPosition = pos;
+    vs_out.vertexPosition = vec3( view * vec4(pos,1.0) );
 
     gl_Position = viewProj * vec4(pos, 1.0);
 
