@@ -493,6 +493,8 @@ Module ChunkFunctions
             .indicies = Nothing
             .v_buff_XZ = Nothing
             .uv_buff = Nothing
+            .n_buff = Nothing
+            .t_buff = Nothing
         End With
 
         ' VERTEX XZ

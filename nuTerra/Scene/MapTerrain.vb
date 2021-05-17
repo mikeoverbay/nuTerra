@@ -90,10 +90,10 @@ Public Class MapTerrain
         OUTLAND_NORMAL_MAP.BindUnit(2)
         outland_tile.BindUnit(3)
 
-        OUTLAND_TILES(4).BindUnit(4)
-        OUTLAND_TILES(5).BindUnit(5)
-        OUTLAND_TILES(6).BindUnit(6)
-        OUTLAND_TILES(7).BindUnit(7)
+        OUTLAND_TILES(0).BindUnit(4)
+        OUTLAND_TILES(1).BindUnit(5)
+        OUTLAND_TILES(2).BindUnit(6)
+        OUTLAND_TILES(3).BindUnit(7)
 
         GL.Uniform1(outlandShader("tile_scale"), OUTLAND_TILE_SCALE / 10.0F)
 
@@ -103,7 +103,7 @@ Public Class MapTerrain
         GL.Uniform2(outlandShader("scale"), theMap.near_scale.X, theMap.near_scale.Y)
         GL.Uniform2(outlandShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
 
-        GL.UniformMatrix4(outlandShader("modelMatrix"), False, VIEWMATRIX)
+        GL.UniformMatrix4(outlandShader("nMatrix"), False, PerViewData.invView)
 
         outland_vao.Bind()
 
@@ -132,11 +132,7 @@ Public Class MapTerrain
             GL.Uniform2(outlandShader("scale"), theMap.far_scale.X, theMap.far_scale.Y)
             GL.Uniform2(outlandShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
 
-            GL.Uniform3(outlandShader("lightColor"), 0.5, 0.5, 0.5)
-            GL.Uniform3(outlandShader("viewPos"), CAM_POSITION.X, CAM_POSITION.Y, CAM_POSITION.Z)
-            GL.Uniform3(outlandShader("lightPosition"), LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z)
-
-            GL.UniformMatrix4(outlandShader("modelMatrix"), False, VIEWMATRIX)
+            GL.UniformMatrix4(outlandShader("nMatrix"), False, PerViewData.invView)
 
             outland_vao.Bind()
 

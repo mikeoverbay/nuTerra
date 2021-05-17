@@ -30,12 +30,22 @@ in VS_OUT {
     float specular;
 } fs_in;
 
-vec3 convert_normal(in vec4 n){
-vec3 norm;
-norm.xz = n.ag;
-norm.y = clamp(sqrt(1.0-(n.x * n.x) +(n.z * n.z)), -1.0, 1.0);
-return normalize(norm);
+float write_normal(void){
+    vec4 n = texture(normal_map, fs_in.UV);
+    float shadow = n.r;
+    vec3 norm;
+    norm.xz = n.ag;
+    norm.y = clamp(sqrt(1.0-(n.x * n.x) +(n.z * n.z)), -1.0, 1.0);
+    norm.xyz = normalize(fs_in.TBN * norm);
+    gNormal = norm.xyz * 0.5 + 0.5;
+    return shadow;
 }
+
+vec4 get_tile( sampler2D samp, in vec2 uv)
+{
+    vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
+    return textureLod( samp, cropped, 0);
+    }
 
 void main(void)
     {
@@ -46,19 +56,20 @@ void main(void)
     //t_uv = t_uv * vec2(0.875) + vec2(0.0625);
     t_uv *= vec2 (1.0, 1.0);
     vec4 c1,c2,c3,c4;
-    c1 = texture(c_tile_1, t_uv);
-    c2 = texture(c_tile_2, t_uv);
-    c3 = texture(c_tile_3, t_uv);
-    c4 = texture(c_tile_4, t_uv);
+    c1 = get_tile(c_tile_1,t_uv);
+    c2 = get_tile(c_tile_2,t_uv);
+    c3 = get_tile(c_tile_3,t_uv);
+    c4 = get_tile(c_tile_4,t_uv);
+
 
     float mv = texture(tile_map, fs_in.UV).r;
-    int m = int(255 * mv);
-    int m1 = m & 0x1;
-    int m2 = m & 0x4 >> 2;
-    int m3 = m & 0x16 >> 4;
-    int m4 = m & 0x64 >> 6;
+    int m = int(65535 * mv);
+    int m1 = m & 0xf;
+    int m2 = m & 0xf0 >> 4;
+    int m3 = m & 0xf00 >> 8;
+    int m4 = m & 0xf000 >> 12;
 
-    float ml = 0.95;
+    float ml = 1.0;
     float mx1 = float(m1 * ml);
     float mx2 = float(m2 * ml);
     float mx3 = float(m3 * ml);
@@ -69,16 +80,13 @@ void main(void)
     color.rgb = color.rgb + c3.rgb * c3.w * mx3;
     color.rgb = color.rgb + c4.rgb * c4.w * mx4;
 
-    gPosition = fs_in.vertexPosition;
-    vec4 n = texture(normal_map, fs_in.UV);
-    float shadow = n.r;
-    n.xyz = fs_in.TBN * convert_normal(n);
-
-    gNormal = n.xyz * 0.5 + 0.5;
+    float shadow = write_normal();
     
-    gColor.rgb = color;// * shadow;
+    
+    gColor.rgb = color * (shadow+0.1);
     gColor.a = 0.0;
 
+    gPosition = fs_in.vertexPosition;
     gGMF = vec4(0.2, 0.3, 128.0/255.0, 0.0);
 
 }
