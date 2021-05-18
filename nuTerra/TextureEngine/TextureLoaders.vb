@@ -444,42 +444,28 @@ Module TextureLoaders
             'r16 float
             Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_height")
 
-            image_id.Parameter(TextureParameterName.TextureLodBias, 0)
-            image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
-            image_id.Parameter(TextureParameterName.TextureMaxLevel, 1)
             image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
 
             image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
             image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
 
-
-            Dim sizedFormat = DirectCast(InternalFormat.R16f, SizedInternalFormat)
-            Dim pixelFormat = DirectCast(InternalFormat.R16f, OpenGL.PixelFormat)
-
-            image_id.Storage2D(2, sizedFormat, sizeX, sizeY)
-            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, pixelFormat, PixelType.Float, data)
+            image_id.Storage2D(1, SizedInternalFormat.R16f, sizeX, sizeY)
+            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.Red, PixelType.HalfFloat, data)
 
             Return image_id
         Else
             'r16 uint
             Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_height")
 
-            image_id.Parameter(TextureParameterName.TextureLodBias, 0)
-            image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
-            image_id.Parameter(TextureParameterName.TextureMaxLevel, 1)
             image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
             image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
 
             image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-
-            Dim sizedFormat = DirectCast(InternalFormat.R16ui, SizedInternalFormat)
-            Dim pixelFormat = DirectCast(InternalFormat.R16ui, OpenGL.PixelFormat)
-
-            image_id.Storage2D(2, sizedFormat, sizeX, sizeY)
-            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, pixelFormat, PixelType.UnsignedShort, data)
+            image_id.Storage2D(1, SizedInternalFormat.R16ui, sizeX, sizeY)
+            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.RedInteger, PixelType.UnsignedShort, data)
 
             Return image_id
         End If
