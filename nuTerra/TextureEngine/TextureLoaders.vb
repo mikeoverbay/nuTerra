@@ -52,7 +52,7 @@ Module TextureLoaders
         Return Nothing ' Didn't find it
     End Function
 
-    Public Function find_and_load_texture_from_pkgs_No_Suffix_change(ByRef fn As String, ByVal intOrFloat As Boolean) As GLTexture
+    Public Function find_and_load_texture_from_pkgs_No_Suffix_change(ByRef fn As String, ByVal heightMap As Boolean) As GLTexture
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
         Dim id = image_exists(fn) 'check if this has been loaded.
@@ -68,7 +68,7 @@ Module TextureLoaders
                 Return load_dds_image_from_stream(ms, fn)
             End If
             If fn.Contains(".png") Then
-                Return load_16bit_grayscale_png_from_stream(ms, intOrFloat)
+                Return load_16bit_grayscale_png_from_stream(ms, heightMap)
             End If
         End If
         Return Nothing ' Didn't find it
@@ -405,7 +405,7 @@ Module TextureLoaders
         Return image_id
     End Function
 
-    Public Function load_16bit_grayscale_png_from_stream(ByRef ms As MemoryStream, ByVal uintORf16 As Boolean) As GLTexture
+    Public Function load_16bit_grayscale_png_from_stream(ByRef ms As MemoryStream, ByVal heightMap As Boolean) As GLTexture
         'we wont check for if this is loaded already.. It cant be. They are unique.
         ms.Position = 0
         Dim data(100) As Byte
@@ -439,19 +439,35 @@ Module TextureLoaders
             ms.Dispose()
         End Using
 
-        'r16 uint
-        Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_height")
+        If heightMap Then
+            'r16 ushort
+            Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_height")
 
-        image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-        image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+            image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
 
-        image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-        image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-        image_id.Storage2D(1, SizedInternalFormat.R16ui, sizeX, sizeY)
-        image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.RedInteger, PixelType.UnsignedShort, data)
+            image_id.Storage2D(1, SizedInternalFormat.R16ui, sizeX, sizeY)
+            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.RedInteger, PixelType.UnsignedShort, data)
 
-        Return image_id
+            Return image_id
+        Else
+            'rgba4444
+            Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_tilemap")
+
+            image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+
+            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
+            image_id.Storage2D(1, InternalFormat.Rgba4, sizeX, sizeY)
+            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.Rgba, PixelType.UnsignedShort4444, data)
+
+            Return image_id
+        End If
 
     End Function
 

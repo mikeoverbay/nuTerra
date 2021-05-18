@@ -62,18 +62,13 @@ void main(void)
     c3 = get_tile(c_tile_3,t_uv);
     c4 = get_tile(c_tile_4,t_uv);
    
-    float mv = texture(tile_map, fs_in.UV).r;
-    uint m = uint(256 * mv);
-    uint m1 = m & 3;
-    uint m2 = m & 12 >> 2;
-    uint m3 = m & 48 >> 4;
-    uint m4 = m & 192 >> 6;
+    vec4 mv = texture(tile_map, fs_in.UV);
 
     float ml = 1.0;
-    float mx1 = float(m1 * ml);
-    float mx2 = float(m2 * ml);
-    float mx3 = float(m3 * ml);
-    float mx4 = float(m4 * ml);
+    float mx1 = float(mv.r * ml);
+    float mx2 = float(mv.g * ml);
+    float mx3 = float(mv.b * ml);
+    float mx4 = float(mv.a * ml);
 
     vec3 color = c1.rgb;
     color = mix(color, c2.rgb, mx2 * c2.w);
