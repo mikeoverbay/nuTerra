@@ -15,10 +15,8 @@ layout(binding = 2) uniform sampler2D normal_map;
 layout(binding = 3) uniform sampler2D tile_map;
 
 
-layout(binding =  4) uniform sampler2D c_tile_1;
-layout(binding =  5) uniform sampler2D c_tile_2;
-layout(binding =  6) uniform sampler2D c_tile_3;
-layout(binding =  7) uniform sampler2D c_tile_4;
+// TODO: use sampler2DArray
+layout(binding =  4) uniform sampler2D c_tiles[4];
 
 
 uniform float tile_scale;
@@ -57,23 +55,17 @@ void main(void)
     //t_uv = t_uv * vec2(0.875) + vec2(0.0625);
     t_uv *= vec2 (-1.0, 1.0);
     vec4 c1,c2,c3,c4;
-    c1 = get_tile(c_tile_1,t_uv);
-    c2 = get_tile(c_tile_2,t_uv);
-    c3 = get_tile(c_tile_3,t_uv);
-    c4 = get_tile(c_tile_4,t_uv);
+    c1 = get_tile(c_tiles[0], t_uv);
+    c2 = get_tile(c_tiles[1], t_uv);
+    c3 = get_tile(c_tiles[2], t_uv);
+    c4 = get_tile(c_tiles[3], t_uv);
    
     vec4 mv = texture(tile_map, fs_in.UV);
 
-    float ml = 1.0;
-    float mx1 = float(mv.r * ml);
-    float mx2 = float(mv.g * ml);
-    float mx3 = float(mv.b * ml);
-    float mx4 = float(mv.a * ml);
-
-    vec3 color = c1.rgb;
-    color = mix(color, c2.rgb, mx2 * c2.w);
-    color = mix(color, c3.rgb, mx3 * c3.w);
-    color = mix(color, c4.rgb, mx4 * c4.w);
+    vec3 color = c1.rgb * mv.r;
+    color = mix(color, c2.rgb, mv.g);
+    color = mix(color, c3.rgb, mv.b);
+    color = mix(color, c4.rgb, mv.a);
 
 
     float shadow = write_normal();

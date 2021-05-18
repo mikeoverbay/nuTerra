@@ -18,8 +18,6 @@ uniform float y_offset;
 uniform vec2 scale;
 uniform vec2 center_offset;
 
-uniform mat4 nMatrix;
-
 layout(location = 0) out VS_OUT {
     vec3 vertexPosition;
     mat3 TBN;
@@ -40,7 +38,7 @@ void main(void)
     VT = VT - dot(VN, VT) * VN;
     VB = cross(VT, VN);
     // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
-    mat3 normalMatrix = mat3(nMatrix);
+    mat3 normalMatrix = mat3(view);
     vec3 worldNormal = normalMatrix * VN;
     vec3 worldTangent = normalMatrix * VT;
     vec3 worldbiNormal = normalMatrix * VB;

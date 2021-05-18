@@ -449,8 +449,8 @@ Module TextureLoaders
             image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
             image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            image_id.Storage2D(1, SizedInternalFormat.R16ui, sizeX, sizeY)
-            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.RedInteger, PixelType.UnsignedShort, data)
+            image_id.Storage2D(1, SizedInternalFormat.R16, sizeX, sizeY)
+            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.Red, PixelType.UnsignedShort, data)
 
             Return image_id
         Else

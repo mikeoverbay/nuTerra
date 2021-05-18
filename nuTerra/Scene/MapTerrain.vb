@@ -103,8 +103,6 @@ Public Class MapTerrain
         GL.Uniform2(outlandShader("scale"), theMap.near_scale.X, theMap.near_scale.Y)
         GL.Uniform2(outlandShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
 
-        GL.UniformMatrix4(outlandShader("nMatrix"), False, PerViewData.invView)
-
         outland_vao.Bind()
 
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
@@ -132,8 +130,6 @@ Public Class MapTerrain
 
             GL.Uniform2(outlandShader("scale"), theMap.far_scale.X, theMap.far_scale.Y)
             GL.Uniform2(outlandShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
-
-            GL.UniformMatrix4(outlandShader("nMatrix"), False, PerViewData.invView)
 
             outland_vao.Bind()
 
