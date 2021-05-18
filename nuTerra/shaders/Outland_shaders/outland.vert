@@ -10,7 +10,7 @@ layout(location = 1) in vec2 UVs;
 layout(location = 2) in vec4 vertexNormal;
 layout(location = 3) in vec3 vertexTangent;
 
-layout(binding = 1) uniform sampler2D heigth_map;
+layout(binding = 1) uniform sampler2D height_map;
 
 uniform float y_range;
 uniform float y_offset;
@@ -55,7 +55,7 @@ void main(void)
     vec3 pos;
     pos.xz = vertexPosition.xy * scale;
     pos.xz += center_offset ;
-    pos.y = texture(heigth_map, UV).x;
+    pos.y = texture(height_map, UV).x;
 
     pos.y = pos.y;
 

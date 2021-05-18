@@ -28,7 +28,7 @@ Public Class frmMain
         If last_state <> Me.WindowState Then
             last_state = Me.WindowState
             If _STARTED Then
-                MainFBO.oldHeigth = -1
+                MainFBO.oldheight = -1
                 resize_fbo_main()
             End If
         End If
@@ -99,6 +99,9 @@ Public Class frmMain
 
             Case Keys.D2
                 WIRE_TERRAIN = WIRE_TERRAIN Xor True
+
+            Case Keys.D3
+                WIRE_OUTLAND = WIRE_OUTLAND Xor True
 
             Case Keys.F1
                 SHOW_CURSOR = SHOW_CURSOR Xor True

@@ -2,6 +2,7 @@
 Imports System.IO
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
+Imports Hjg.Pngcs
 
 Module TextureLoaders
     Public imgTbl As New Dictionary(Of String, GLTexture)
@@ -51,7 +52,7 @@ Module TextureLoaders
         Return Nothing ' Didn't find it
     End Function
 
-    Public Function find_and_load_texture_from_pkgs_No_Suffix_change(ByRef fn As String) As GLTexture
+    Public Function find_and_load_texture_from_pkgs_No_Suffix_change(ByRef fn As String, ByVal intOrFloat As Boolean) As GLTexture
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
         Dim id = image_exists(fn) 'check if this has been loaded.
@@ -67,7 +68,7 @@ Module TextureLoaders
                 Return load_dds_image_from_stream(ms, fn)
             End If
             If fn.Contains(".png") Then
-                Return load_png_image_from_stream(ms, fn, False, True)
+                Return load_16bit_grayscale_png_from_stream(ms, intOrFloat)
             End If
         End If
         Return Nothing ' Didn't find it
@@ -404,6 +405,87 @@ Module TextureLoaders
         Return image_id
     End Function
 
+    Public Function load_16bit_grayscale_png_from_stream(ByRef ms As MemoryStream, ByVal uintORf16 As Boolean) As GLTexture
+        'we wont check for if this is loaded already.. It cant be. They are unique.
+        ms.Position = 0
+        Dim data(100) As Byte
+        Dim cols As UInt32
+        Dim cnt As Integer = 0
+        Dim sizeX, sizeY As Integer
+        Using ms
+            Dim rdr As New PngReader(ms) ' create png from stream 's'
+            Dim iInfo = rdr.ImgInfo
+            Dim channels = iInfo.Channels
+            Dim bytesRow = iInfo.BytesPerRow
+            sizeX = iInfo.Cols
+            sizeY = iInfo.Rows
+            cols = iInfo.Cols
+
+            ReDim data(sizeX * sizeY * 2 - 1)
+            Dim iline As ImageLine  ' create place to hold a scan line
+            For i = 0 To iInfo.Cols - 1
+                iline = rdr.ReadRow(i)
+                For j = 0 To iline.Scanline.Length - 1
+                    'get the line and convert from word to byte and save in our buffer 'data'
+                    Dim bytes() As Byte = BitConverter.GetBytes(iline.Scanline(j))
+                    'THESE MAY NEED TO BE FLIPPED Endiness.
+                    data(cnt) = bytes(0)
+                    cnt += 1
+                    data(cnt) = bytes(1)
+                    cnt += 1
+                Next
+            Next
+            ms.Close()
+            ms.Dispose()
+        End Using
+
+
+        If uintORf16 Then
+            'r16 float
+            Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_height")
+
+            image_id.Parameter(TextureParameterName.TextureLodBias, 0)
+            image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
+            image_id.Parameter(TextureParameterName.TextureMaxLevel, 1)
+            image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+
+            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+
+
+            Dim sizedFormat = DirectCast(InternalFormat.R16f, SizedInternalFormat)
+            Dim pixelFormat = DirectCast(InternalFormat.R16f, OpenGL.PixelFormat)
+
+            image_id.Storage2D(2, sizedFormat, sizeX, sizeY)
+            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, pixelFormat, PixelType.Float, data)
+
+            Return image_id
+        Else
+            'r16 uint
+            Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_height")
+
+            image_id.Parameter(TextureParameterName.TextureLodBias, 0)
+            image_id.Parameter(TextureParameterName.TextureBaseLevel, 0)
+            image_id.Parameter(TextureParameterName.TextureMaxLevel, 1)
+            image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+
+            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+
+
+            Dim sizedFormat = DirectCast(InternalFormat.R16ui, SizedInternalFormat)
+            Dim pixelFormat = DirectCast(InternalFormat.R16ui, OpenGL.PixelFormat)
+
+            image_id.Storage2D(2, sizedFormat, sizeX, sizeY)
+            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, pixelFormat, PixelType.UnsignedShort, data)
+
+            Return image_id
+        End If
+
+    End Function
+
     Public Function load_png_image_from_stream(ms As MemoryStream, fn As String, MIPS As Boolean, NEAREST As Boolean) As GLTexture
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
@@ -463,6 +545,7 @@ Module TextureLoaders
             Return image_id
         End Using
     End Function
+
 
     Public Function load_dds_image_from_file(fn As String) As GLTexture
         'Check if this image has already been loaded.

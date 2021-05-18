@@ -13,7 +13,7 @@ Public Class MainFBO
     Public Shared gPosition As GLTexture
     Public Shared gAUX_Color As GLTexture
     Public Shared oldWidth As Integer = 1
-    Public Shared oldHeigth As Integer = 1
+    Public Shared oldheight As Integer = 1
     '========================
     ' Color Attachments
     ' color     = 0
@@ -61,7 +61,7 @@ Public Class MainFBO
         ' Stop changing the size becuase of excessive window resize calls.
         get_glControl_main_size(SCR_WIDTH, SCR_HEIGHT)
 
-        If oldWidth <> SCR_WIDTH Or oldHeigth <> SCR_HEIGHT Then
+        If oldWidth <> SCR_WIDTH Or oldheight <> SCR_HEIGHT Then
             delete_textures_and_fbo()
 
             create_textures()
@@ -72,7 +72,7 @@ Public Class MainFBO
             End If
             'set new size
             oldWidth = SCR_WIDTH
-            oldHeigth = SCR_HEIGHT
+            oldheight = SCR_HEIGHT
 
         End If
 

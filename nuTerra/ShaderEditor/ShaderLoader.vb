@@ -194,6 +194,7 @@ Module ShaderLoader
     Public normalShader As Shader
     Public normalOffsetShader As Shader
     Public outlandShader As Shader
+    Public outlandNormalsShader As Shader
     Public rect2dShader As Shader
     Public SkyDomeShader As Shader
     Public t_mixerShader As Shader
@@ -258,6 +259,7 @@ Module ShaderLoader
         normalShader = New Shader("normal")
         normalOffsetShader = New Shader("normalOffset")
         outlandShader = New Shader("outland")
+        outlandNormalsShader = New Shader("outlandNormals")
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")
         t_mixerShader = New Shader("t_mixer")

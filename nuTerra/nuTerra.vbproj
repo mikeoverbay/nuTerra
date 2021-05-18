@@ -387,6 +387,15 @@
     <Content Include="shaders\Trials\cullLodClear.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="shaders\Developer\outlandNormals.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\Developer\outlandNormals.geom">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\Developer\outlandNormals.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="shaders\Developer\TerrainNormalsHQ.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

@@ -86,14 +86,14 @@ Public Class MapTerrain
         ' Cascade near
         outlandShader.Use()
 
-        OUTLAND_HEIGTH_MAP.BindUnit(1)
+        OUTLAND_height_MAP.BindUnit(1)
         OUTLAND_NORMAL_MAP.BindUnit(2)
-        outland_tile.BindUnit(3)
-
-        OUTLAND_TILES(0).BindUnit(4)
-        OUTLAND_TILES(1).BindUnit(5)
-        OUTLAND_TILES(2).BindUnit(6)
-        OUTLAND_TILES(3).BindUnit(7)
+        OUTLAND_TILE.BindUnit(3)
+        'there is something odd with textures when there is far outland terrain.
+        OUTLAND_TILES(7).BindUnit(4)
+        OUTLAND_TILES(6).BindUnit(5)
+        OUTLAND_TILES(5).BindUnit(6)
+        OUTLAND_TILES(4).BindUnit(7)
 
         GL.Uniform1(outlandShader("tile_scale"), OUTLAND_TILE_SCALE / 10.0F)
 
@@ -111,11 +111,12 @@ Public Class MapTerrain
 
         GL.DrawElements(PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length * 3, DrawElementsType.UnsignedInt, IntPtr.Zero)
         unbind_textures(7)
+
         '=========================================================
         ' Cascade far
-        If cascade_levels = 2 Then
+        If CASCADE_LEVELS = 2 Then
 
-            OUTLAND_HEIGTH_CASCADE_MAP.BindUnit(1)
+            OUTLAND_height_CASCADE_MAP.BindUnit(1)
             OUTLAND_NORMAL_CASCADE_MAP.BindUnit(2)
             OUTLAND_TILE_CASCADE.BindUnit(3)
 

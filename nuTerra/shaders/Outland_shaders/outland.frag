@@ -44,32 +44,32 @@ float write_normal(void){
 vec4 get_tile( sampler2D samp, in vec2 uv)
 {
     vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-    return texture( samp, cropped);
+    //set mip bias -2 per games specs
+    return texture( samp, cropped,-2);
     }
 
 void main(void)
     {
 
-    float sc = tile_scale/2.0 ;
+    float sc = tile_scale/4.0 ;
     vec2 t_uv = fract(fs_in.UV * sc);
     //t_uv += vec2 (0.5,0.5);
     //t_uv = t_uv * vec2(0.875) + vec2(0.0625);
-    t_uv *= vec2 (1.0, 1.0);
+    t_uv *= vec2 (-1.0, 1.0);
     vec4 c1,c2,c3,c4;
     c1 = get_tile(c_tile_1,t_uv);
     c2 = get_tile(c_tile_2,t_uv);
     c3 = get_tile(c_tile_3,t_uv);
     c4 = get_tile(c_tile_4,t_uv);
-
-
+   
     float mv = texture(tile_map, fs_in.UV).r;
-    uint m = uint(65535 * mv);
-    uint m1 = m & 0xf;
-    uint m2 = m & 0xf0 >> 4;
-    uint m3 = m & 0xf00 >> 8;
-    uint m4 = m & 0xf000 >> 12;
+    uint m = uint(256 * mv);
+    uint m1 = m & 3;
+    uint m2 = m & 12 >> 2;
+    uint m3 = m & 48 >> 4;
+    uint m4 = m & 192 >> 6;
 
-    float ml = 0.7;
+    float ml = 1.0;
     float mx1 = float(m1 * ml);
     float mx2 = float(m2 * ml);
     float mx3 = float(m3 * ml);

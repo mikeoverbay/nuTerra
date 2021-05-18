@@ -94,6 +94,7 @@ Module modGlobalVars
     Public WIRE_MODELS As Boolean
     Public WIRE_DECALS As Boolean
     Public WIRE_TERRAIN As Boolean
+    Public WIRE_OUTLAND As Boolean
     'grid display
     Public SHOW_CHUNKS As Integer
     Public SHOW_GRID As Integer
@@ -125,8 +126,8 @@ Module modGlobalVars
     Public OUTLAND_NORMAL_CASCADE_MAP As GLTexture
     Public OUTLAND_TILE As GLTexture
     Public OUTLAND_TILE_CASCADE As GLTexture
-    Public OUTLAND_HEIGTH_MAP As GLTexture
-    Public OUTLAND_HEIGTH_CASCADE_MAP As GLTexture
+    Public OUTLAND_height_MAP As GLTexture
+    Public OUTLAND_height_CASCADE_MAP As GLTexture
     Public OUTLAND_TILES() As GLTexture
     Public CASCADE_LEVELS As Integer = 0
     Public OUTLAND_TILE_SCALE As Single
