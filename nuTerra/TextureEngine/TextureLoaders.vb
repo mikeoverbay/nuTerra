@@ -439,36 +439,19 @@ Module TextureLoaders
             ms.Dispose()
         End Using
 
+        'r16 uint
+        Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_height")
 
-        If uintORf16 Then
-            'r16 float
-            Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_height")
+        image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
 
-            image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+        image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+        image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
 
-            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
-            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        image_id.Storage2D(1, SizedInternalFormat.R16ui, sizeX, sizeY)
+        image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.RedInteger, PixelType.UnsignedShort, data)
 
-            image_id.Storage2D(1, SizedInternalFormat.R16f, sizeX, sizeY)
-            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.Red, PixelType.HalfFloat, data)
-
-            Return image_id
-        Else
-            'r16 uint
-            Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "outland_height")
-
-            image_id.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
-            image_id.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
-
-            image_id.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
-            image_id.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
-
-            image_id.Storage2D(1, SizedInternalFormat.R16ui, sizeX, sizeY)
-            image_id.SubImage2D(0, 0, 0, sizeX, sizeY, OpenGL4.PixelFormat.RedInteger, PixelType.UnsignedShort, data)
-
-            Return image_id
-        End If
+        Return image_id
 
     End Function
 
