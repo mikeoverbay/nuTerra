@@ -20,7 +20,7 @@ out Block
 void main(void)
 {
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
-    const mat4 mvp = light_vp_matrix * models[thisDraw.model_id].matrix;
+    const mat4 mvp = light_vp_matrix * models[thisDraw.model_id + gl_InstanceID].matrix;
 
     vs_out.material_id = thisDraw.material_id;
     vs_out.uv = vertexTexCoord1;

@@ -154,7 +154,8 @@ Module MapLoader
             Dim numPrims = 0
             Dim numLods = 0
             For Each batch In MODEL_BATCH_LIST
-                For lod_id = 0 To MAP_MODELS(batch.model_id).modelLods.Count - 1
+                Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Count - 1
+                For lod_id = 0 To MAX_LOD_ID
                     Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
 
                     If lod.junk Then
@@ -171,7 +172,7 @@ Module MapLoader
                                 Continue For
                             End If
                             map_scene.static_models.indirectDrawCount += batch.count
-                            If lod_id = 0 Then map_scene.static_models.indirectShadowMappingDrawCount += batch.count
+                            If lod_id = MAX_LOD_ID Then map_scene.static_models.indirectShadowMappingDrawCount += 1
                             skip = False
                         Next
                         numVerts += renderSet.buffers.vertexBuffer.Length
@@ -222,7 +223,8 @@ Module MapLoader
                 Dim skip = True
                 Dim savedLodOffset = lodLast
 
-                For lod_id = 0 To MAP_MODELS(batch.model_id).modelLods.Count - 1
+                Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Count - 1
+                For lod_id = 0 To MAX_LOD_ID
                     Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
 
                     If lod.junk Then
@@ -248,11 +250,11 @@ Module MapLoader
                                 .baseInstance = cmdId
                                 .lod_level = lod_id
                             End With
-                            If lod_id = 0 Then
+                            If lod_id = MAX_LOD_ID Then
                                 With shadowMappingDrawCommands(shadow_cmdId)
                                     .baseVertex = drawCommands(cmdId).baseVertex
                                     .firstIndex = drawCommands(cmdId).firstIndex
-                                    .instanceCount = 1
+                                    .instanceCount = batch.count
                                     .count = drawCommands(cmdId).count
                                     .baseInstance = cmdId
                                 End With
@@ -292,16 +294,6 @@ Module MapLoader
                                     .baseInstance = cmdId
                                     .lod_level = lod_id
                                 End With
-                                If lod_id = 0 Then
-                                    With shadowMappingDrawCommands(shadow_cmdId)
-                                        .baseVertex = drawCommands(cmdId).baseVertex
-                                        .firstIndex = drawCommands(cmdId).firstIndex
-                                        .instanceCount = 1
-                                        .count = drawCommands(cmdId).count
-                                        .baseInstance = cmdId
-                                    End With
-                                    shadow_cmdId += 1
-                                End If
                                 cmdId += 1
                             Next
                         Next
