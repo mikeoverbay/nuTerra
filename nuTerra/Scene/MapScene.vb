@@ -39,7 +39,7 @@ Public Class MapScene
         GL_PUSH_GROUP("MapScene::ShadowMappingPass")
 
         ShadowMappingFBO.fbo.Bind(FramebufferTarget.Framebuffer)
-        GL.Viewport(0, 0, ShadowMappingFBO.WIDTH, ShadowMappingFBO.HEIGHT)
+        GL.ViewportIndexed(0, 0, 0, ShadowMappingFBO.WIDTH, ShadowMappingFBO.HEIGHT)
         GL.Clear(ClearBufferMask.DepthBufferBit)
         GL.DepthFunc(DepthFunction.Greater)
 

@@ -104,16 +104,12 @@ Public Class MapStaticModels
 
         mDepthWrite_light.Use()
 
-        GL.ColorMask(False, False, False, False)
         GL.Enable(EnableCap.CullFace)
 
         allMapModels.Bind()
 
         indirect_shadow_mapping.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.indirectShadowMappingDrawCount, 0)
-
-        mDepthWriteShader.StopUse()
-        GL.ColorMask(True, True, True, True)
 
         mDepthWrite_light.StopUse()
 

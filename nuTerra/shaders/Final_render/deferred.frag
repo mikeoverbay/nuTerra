@@ -17,7 +17,7 @@ layout(binding = 4) uniform samplerCube cubeMap;
 layout(binding = 5) uniform lowp sampler2D lut;
 layout(binding = 6) uniform lowp sampler2D env_brdf_lut;
 #ifdef SHADOW_MAPPING
-layout(binding = 7) uniform sampler2DShadow shadowMap;
+layout(binding = 7) uniform sampler2DArrayShadow shadowMap;
 #endif
 
 uniform mat4 ProjectionMatrix;
@@ -255,20 +255,22 @@ void main (void)
             coords.xy *= vec2(0.5);
             coords.xy += vec2(0.5);
             if (coords.z < 1.0 && coords.z > 0.0) {
+                coords.w = 0.0; // layer
+                coords = coords.xywz;
 #if 1
                 float shadowDepth = 0.0;
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2(-1,-1));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 0,-1));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 1,-1));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2(-1, 0));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 0, 0));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 1, 0));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2(-1, 1));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 0, 1));
-                shadowDepth += textureOffset(shadowMap, coords.xyz, ivec2( 1, 1));
+                shadowDepth += textureOffset(shadowMap, coords, ivec2(-1,-1));
+                shadowDepth += textureOffset(shadowMap, coords, ivec2( 0,-1));
+                shadowDepth += textureOffset(shadowMap, coords, ivec2( 1,-1));
+                shadowDepth += textureOffset(shadowMap, coords, ivec2(-1, 0));
+                shadowDepth += textureOffset(shadowMap, coords, ivec2( 0, 0));
+                shadowDepth += textureOffset(shadowMap, coords, ivec2( 1, 0));
+                shadowDepth += textureOffset(shadowMap, coords, ivec2(-1, 1));
+                shadowDepth += textureOffset(shadowMap, coords, ivec2( 0, 1));
+                shadowDepth += textureOffset(shadowMap, coords, ivec2( 1, 1));
                 shadowDepth /= 9.0;
 #else
-                float shadowDepth = texture(shadowMap, coords.xyz);
+                float shadowDepth = texture(shadowMap, coords);
 #endif
                 outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
             }
