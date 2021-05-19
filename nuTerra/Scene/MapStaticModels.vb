@@ -5,7 +5,7 @@ Public Class MapStaticModels
     Implements IDisposable
 
     ' Get data from gpu
-    Public numAfterFrustum(3) As Integer
+    Public numAfterFrustum(2) As Integer
 
     ' OpenGL buffers used to draw all map models
     ' For map models only!
@@ -31,12 +31,13 @@ Public Class MapStaticModels
 
     Public numModelInstances As Integer
     Public indirectDrawCount As Integer
+    Public indirectShadowMappingDrawCount As Integer
 
     Public Sub frustum_cull()
         GL_PUSH_GROUP("frustum_cull")
 
         'clear atomic counter
-        parameters.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, 4 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        parameters.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         cullShader.Use()
 
@@ -109,7 +110,7 @@ Public Class MapStaticModels
         allMapModels.Bind()
 
         indirect_shadow_mapping.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(3), 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.indirectShadowMappingDrawCount, 0)
 
         mDepthWriteShader.StopUse()
         GL.ColorMask(True, True, True, True)

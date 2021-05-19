@@ -13,9 +13,6 @@
 #define USE_INDIRECT_SSBO
 #define USE_INDIRECT_GLASS_SSBO
 #define USE_INDIRECT_DOUBLE_SIDED_SSBO
-#ifdef SHADOW_MAPPING
-#define INDIRECT_SHADOW_MAPPING_SSBO
-#endif
 #include "common.h" //! #include "../common.h"
 
 layout (local_size_variable) in;
@@ -25,9 +22,6 @@ layout (location = 0) uniform int numModelInstances;
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
 layout (binding = PARAMETERS_BASE, offset = 4) uniform atomic_uint commandDoubleSidedCounter;
 layout (binding = PARAMETERS_BASE, offset = 8) uniform atomic_uint commandGlassCounter;
-#ifdef SHADOW_MAPPING
-layout (binding = PARAMETERS_BASE, offset = 12) uniform atomic_uint commandShadowMappingCounter;
-#endif
 
 struct Frustum {
     vec4 planes[6];
@@ -72,22 +66,6 @@ void main(void)
 
     const ModelInstance thisModel = models[gl_GlobalInvocationID.x];
     const mat4 MVP = viewProj * thisModel.matrix;
-
-#ifdef SHADOW_MAPPING
-    {
-        // use lod0 for shadow mapping
-        const ModelLoD lod = lods[thisModel.lod_offset];
-        for (int i = 0; i < lod.draw_count; ++i) {
-            const CandidateDraw thisDraw = draw[lod.draw_offset + i];
-            uint outDrawIndex = atomicCounterIncrement(commandShadowMappingCounter);
-            command_shadow_mapping[outDrawIndex].count = thisDraw.count;
-            command_shadow_mapping[outDrawIndex].instanceCount = 1;
-            command_shadow_mapping[outDrawIndex].firstIndex = thisDraw.firstIndex;
-            command_shadow_mapping[outDrawIndex].baseVertex = thisDraw.baseVertex;
-            command_shadow_mapping[outDrawIndex].baseInstance = thisDraw.baseInstance;
-        }
-    }
-#endif
 
     if (frustumCullingTest(MVP, thisModel.bmin, thisModel.bmax)) {
         const vec4 cs_position = view * thisModel.matrix * vec4(0, 0, 0, 1);

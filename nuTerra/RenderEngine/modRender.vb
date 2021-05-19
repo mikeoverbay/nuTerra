@@ -100,8 +100,8 @@ Module modRender
 
         'Model depth pass only
         If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
-            GL.CopyNamedBufferSubData(map_scene.static_models.parameters.buffer_id, map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, 4 * Marshal.SizeOf(Of Integer))
-            GL.GetNamedBufferSubData(map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, 4 * Marshal.SizeOf(Of Integer), map_scene.static_models.numAfterFrustum)
+            GL.CopyNamedBufferSubData(map_scene.static_models.parameters.buffer_id, map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer))
+            GL.GetNamedBufferSubData(map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer), map_scene.static_models.numAfterFrustum)
 
             map_scene.static_models.model_depth_pass()
 

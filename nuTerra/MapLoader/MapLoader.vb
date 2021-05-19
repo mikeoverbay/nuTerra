@@ -149,6 +149,7 @@ Module MapLoader
             ' calc instances
             map_scene.static_models.numModelInstances = 0
             map_scene.static_models.indirectDrawCount = 0
+            map_scene.static_models.indirectShadowMappingDrawCount = 0
             Dim numVerts = 0
             Dim numPrims = 0
             Dim numLods = 0
@@ -170,6 +171,7 @@ Module MapLoader
                                 Continue For
                             End If
                             map_scene.static_models.indirectDrawCount += batch.count
+                            If lod_id = 0 Then map_scene.static_models.indirectShadowMappingDrawCount += batch.count
                             skip = False
                         Next
                         numVerts += renderSet.buffers.vertexBuffer.Length
@@ -186,6 +188,7 @@ Module MapLoader
             '----------------------------------------------------------------
             ' setup instances
             Dim drawCommands(map_scene.static_models.indirectDrawCount - 1) As CandidateDraw
+            Dim shadowMappingDrawCommands(map_scene.static_models.indirectShadowMappingDrawCount - 1) As DrawElementsIndirectCommand
 
             Dim vertex_size = Marshal.SizeOf(Of ModelVertex)()
             Dim tri_size = Marshal.SizeOf(Of vect3_32)()
@@ -209,6 +212,7 @@ Module MapLoader
             Dim matrices(map_scene.static_models.numModelInstances - 1) As ModelInstance
             Dim lods(numLods - 1) As ModelLoD
             Dim cmdId = 0
+            Dim shadow_cmdId = 0
             Dim vLast = 0
             Dim iLast = 0
             Dim mLast = 0
@@ -244,6 +248,16 @@ Module MapLoader
                                 .baseInstance = cmdId
                                 .lod_level = lod_id
                             End With
+                            If lod_id = 0 Then
+                                With shadowMappingDrawCommands(shadow_cmdId)
+                                    .baseVertex = drawCommands(cmdId).baseVertex
+                                    .firstIndex = drawCommands(cmdId).firstIndex
+                                    .instanceCount = 1
+                                    .count = drawCommands(cmdId).count
+                                    .baseInstance = cmdId
+                                End With
+                                shadow_cmdId += 1
+                            End If
                             cmdId += 1
                             skip = False
                         Next
@@ -278,6 +292,16 @@ Module MapLoader
                                     .baseInstance = cmdId
                                     .lod_level = lod_id
                                 End With
+                                If lod_id = 0 Then
+                                    With shadowMappingDrawCommands(shadow_cmdId)
+                                        .baseVertex = drawCommands(cmdId).baseVertex
+                                        .firstIndex = drawCommands(cmdId).firstIndex
+                                        .instanceCount = 1
+                                        .count = drawCommands(cmdId).count
+                                        .baseInstance = cmdId
+                                    End With
+                                    shadow_cmdId += 1
+                                End If
                                 cmdId += 1
                             Next
                         Next
@@ -311,12 +335,12 @@ Module MapLoader
 
             map_scene.static_models.parameters_temp = GLBuffer.Create(BufferTarget.CopyWriteBuffer, "parameters_temp")
             map_scene.static_models.parameters_temp.StorageNullData(
-                4 * Marshal.SizeOf(Of Integer),
+                map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer),
                 BufferStorageFlags.ClientStorageBit)
 
             map_scene.static_models.parameters = GLBuffer.Create(BufferTarget.AtomicCounterBuffer, "parameters")
             map_scene.static_models.parameters.StorageNullData(
-                4 * Marshal.SizeOf(Of Integer),
+                map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer),
                 BufferStorageFlags.None)
             map_scene.static_models.parameters.BindBase(0)
 
@@ -358,11 +382,11 @@ Module MapLoader
                 BufferStorageFlags.None)
             map_scene.static_models.indirect_dbl_sided.BindBase(6)
 
-            map_scene.static_models.indirect_shadow_mapping = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_shadow_mapping")
-            map_scene.static_models.indirect_shadow_mapping.StorageNullData(
-                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+            map_scene.static_models.indirect_shadow_mapping = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "indirect_shadow_mapping")
+            map_scene.static_models.indirect_shadow_mapping.Storage(
+                shadowMappingDrawCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                shadowMappingDrawCommands,
                 BufferStorageFlags.None)
-            map_scene.static_models.indirect_shadow_mapping.BindBase(11)
 
             map_scene.static_models.matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "matrices")
             map_scene.static_models.matrices.Storage(

@@ -9,7 +9,7 @@ Public Class ShadowMappingFBO
 
     Public Shared ORTHO_WIDTH As Single = 400.0F
     Public Shared ORTHO_HEIGHT As Single = 400.0F
-    Public Shared NEAR As Single = 0.0F
+    Public Shared NEAR As Single = 0.1F
     Public Shared FAR As Single = 2000.0F
     Public Shared ENABLED As Boolean = False
 
