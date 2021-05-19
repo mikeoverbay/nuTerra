@@ -1,6 +1,5 @@
 ﻿#version 450 core
 
-#extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shader_draw_parameters : require
 #extension GL_ARB_shading_language_include : require
 
@@ -12,7 +11,7 @@
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 4) in vec2 vertexTexCoord1;
 
-out VS_OUT
+out Block
 {
     flat uint material_id;
     vec2 uv;

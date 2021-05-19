@@ -417,6 +417,9 @@
     <None Include="shaders\mapMixing\MegaMixer.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="shaders\Model_shaders\mDepthWrite_light.geom">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="shaders\Model_shaders\mDepthWrite_light.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

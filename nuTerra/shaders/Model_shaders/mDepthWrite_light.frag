@@ -6,7 +6,7 @@
 #define USE_MATERIALS_SSBO
 #include "common.h" //! #include "../common.h"
 
-in VS_OUT
+in Block
 {
     flat uint material_id;
     vec2 uv;
