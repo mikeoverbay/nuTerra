@@ -4,6 +4,7 @@
 #define TERRAIN_LAYERS_UBO_BASE 0
 #define PER_VIEW_UBO_BASE 1
 #define COMMON_PROPERTIES_UBO_BASE 2
+#define SHADOW_MAPPING_UBO_BASE 3
 
 // SSBO
 #define MATRICES_BASE 0
@@ -96,10 +97,13 @@ layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
     mat4 viewProj;
     mat4 invViewProj;
     mat4 invView;
-    mat4 light_vp_matrix;
     vec3 cameraPos;
     uint pad;
     vec2 resolution;
+};
+
+layout(binding = SHADOW_MAPPING_UBO_BASE, std140) uniform ShadowMapping {
+    mat4 light_vp_matrix;
 };
 #endif
 

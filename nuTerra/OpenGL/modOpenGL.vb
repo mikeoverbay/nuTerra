@@ -150,7 +150,6 @@ Module modOpenGL
         Public viewProj As Matrix4
         Public invViewProj As Matrix4
         Public invView As Matrix4
-        Public light_vp_matrix As Matrix4
         Public cameraPos As Vector3
         Public pad1 As UInt32
         Public resolution As Vector2
@@ -263,17 +262,6 @@ Module modOpenGL
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
         PerViewData.invViewProj = PerViewData.viewProj.Inverted()
         PerViewData.invView = PerViewData.view.Inverted()
-
-        If ShadowMappingFBO.ENABLED AndAlso FPS_COUNTER Mod ShadowMappingFBO.FRAME_STEP = 0 Then
-            Dim dist = MathHelper.Clamp(4 * Vector3.Distance(CAM_TARGET, CAM_POSITION), 150, 1000)
-            Dim light_proj_matrix = Matrix4.CreateOrthographic(dist, dist, ShadowMappingFBO.NEAR, ShadowMappingFBO.FAR)
-            light_proj_matrix.M33 = 1.0F / (ShadowMappingFBO.FAR - ShadowMappingFBO.NEAR)
-            light_proj_matrix.M43 = ShadowMappingFBO.FAR / (ShadowMappingFBO.FAR - ShadowMappingFBO.NEAR)
-            Dim cam_x0z As New Vector3(CAM_TARGET.X, 0.0F, CAM_TARGET.Z)
-            Dim lp_norm = LIGHT_POS.Normalized() * dist
-            Dim light_view_matrix = Matrix4.LookAt(lp_norm + cam_x0z, cam_x0z, Vector3.UnitY)
-            PerViewData.light_vp_matrix = light_view_matrix * light_proj_matrix
-        End If
 
         PerViewData.resolution.X = frmMain.glControl_main.ClientSize.Width
         PerViewData.resolution.Y = frmMain.glControl_main.ClientSize.Height

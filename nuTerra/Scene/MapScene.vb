@@ -1,4 +1,6 @@
-﻿Imports OpenTK.Graphics.OpenGL4
+﻿Imports System.Runtime.InteropServices
+Imports OpenTK
+Imports OpenTK.Graphics.OpenGL4
 
 Public Class MapScene
     Implements IDisposable
@@ -14,8 +16,16 @@ Public Class MapScene
     Public trees As New MapTrees
     Public cursor As New MapCursor
 
+    Public shadow_mapping_matrix As GLBuffer
+
     Public Sub New(mapName As String)
         Me.mapName = mapName
+
+        shadow_mapping_matrix = GLBuffer.Create(BufferTarget.UniformBuffer, "shadow_mapping_matrix")
+        shadow_mapping_matrix.StorageNullData(
+            Marshal.SizeOf(Of Matrix4),
+            BufferStorageFlags.DynamicStorageBit)
+        shadow_mapping_matrix.BindBase(3)
     End Sub
 
     Public Sub DrawLightFrustum()
@@ -35,8 +45,22 @@ Public Class MapScene
         GL_POP_GROUP()
     End Sub
 
+    ' https://docs.nvidia.com/gameworks/content/gameworkslibrary/graphicssamples/opengl_samples/cascadedshadowmapping.htm
     Public Sub ShadowMappingPass()
         GL_PUSH_GROUP("MapScene::ShadowMappingPass")
+
+        Dim dist = MathHelper.Clamp(4 * Vector3.Distance(CAM_TARGET, CAM_POSITION), 150, 1000)
+        Dim light_proj_matrix = Matrix4.CreateOrthographic(dist, dist, ShadowMappingFBO.NEAR, ShadowMappingFBO.FAR)
+
+        ' Fix for reversed-z
+        light_proj_matrix.M33 = 1.0F / (ShadowMappingFBO.FAR - ShadowMappingFBO.NEAR)
+        light_proj_matrix.M43 = ShadowMappingFBO.FAR / (ShadowMappingFBO.FAR - ShadowMappingFBO.NEAR)
+
+        Dim cam_x0z As New Vector3(CAM_TARGET.X, 0.0F, CAM_TARGET.Z)
+        Dim lp_norm = LIGHT_POS.Normalized() * dist
+        Dim light_view_matrix = Matrix4.LookAt(lp_norm + cam_x0z, cam_x0z, Vector3.UnitY)
+        Dim light_vp_matrix = light_view_matrix * light_proj_matrix
+        GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, IntPtr.Zero, Marshal.SizeOf(light_vp_matrix), light_vp_matrix)
 
         ShadowMappingFBO.fbo.Bind(FramebufferTarget.Framebuffer)
         GL.ViewportIndexed(0, 0, 0, ShadowMappingFBO.WIDTH, ShadowMappingFBO.HEIGHT)
@@ -67,5 +91,8 @@ Public Class MapScene
         mini_map.Dispose()
         fog.Dispose()
         cursor.Dispose()
+
+        ' gl buffers
+        shadow_mapping_matrix.Dispose()
     End Sub
 End Class
