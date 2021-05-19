@@ -5,7 +5,7 @@ Public Class MapStaticModels
     Implements IDisposable
 
     ' Get data from gpu
-    Public numAfterFrustum(2) As Integer
+    Public numAfterFrustum(3) As Integer
 
     ' OpenGL buffers used to draw all map models
     ' For map models only!
@@ -20,6 +20,7 @@ Public Class MapStaticModels
     Public indirect As GLBuffer
     Public indirect_glass As GLBuffer
     Public indirect_dbl_sided As GLBuffer
+    Public indirect_shadow_mapping As GLBuffer
     Public lods As GLBuffer
 
     ' For cull-raster only!
@@ -35,7 +36,7 @@ Public Class MapStaticModels
         GL_PUSH_GROUP("frustum_cull")
 
         'clear atomic counter
-        parameters.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, 3 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        parameters.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, 4 * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         cullShader.Use()
 
@@ -107,18 +108,11 @@ Public Class MapStaticModels
 
         allMapModels.Bind()
 
-        indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
-
-        GL.Disable(EnableCap.CullFace)
-
-        indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1), 0)
+        indirect_shadow_mapping.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(3), 0)
 
         mDepthWriteShader.StopUse()
         GL.ColorMask(True, True, True, True)
-
-        GL.Enable(EnableCap.CullFace)
 
         mDepthWrite_light.StopUse()
 
@@ -276,6 +270,7 @@ Public Class MapStaticModels
         indirect?.Dispose()
         indirect_glass?.Dispose()
         indirect_dbl_sided?.Dispose()
+        indirect_shadow_mapping?.Dispose()
         lods?.Dispose()
 
         visibles?.Dispose()

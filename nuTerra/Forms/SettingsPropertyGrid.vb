@@ -480,8 +480,10 @@ Public Class SettingsPropertyGrid
             ShadowMappingFBO.ENABLED = value
             If value Then
                 deferredShader.SetDefine("SHADOW_MAPPING")
+                cullShader.SetDefine("SHADOW_MAPPING")
             Else
                 deferredShader.UnsetDefine("SHADOW_MAPPING")
+                cullShader.UnsetDefine("SHADOW_MAPPING")
             End If
         End Set
         Get

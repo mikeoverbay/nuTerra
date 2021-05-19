@@ -311,12 +311,12 @@ Module MapLoader
 
             map_scene.static_models.parameters_temp = GLBuffer.Create(BufferTarget.CopyWriteBuffer, "parameters_temp")
             map_scene.static_models.parameters_temp.StorageNullData(
-                3 * Marshal.SizeOf(Of Integer),
+                4 * Marshal.SizeOf(Of Integer),
                 BufferStorageFlags.ClientStorageBit)
 
             map_scene.static_models.parameters = GLBuffer.Create(BufferTarget.AtomicCounterBuffer, "parameters")
             map_scene.static_models.parameters.StorageNullData(
-                3 * Marshal.SizeOf(Of Integer),
+                4 * Marshal.SizeOf(Of Integer),
                 BufferStorageFlags.None)
             map_scene.static_models.parameters.BindBase(0)
 
@@ -357,6 +357,12 @@ Module MapLoader
                 map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                 BufferStorageFlags.None)
             map_scene.static_models.indirect_dbl_sided.BindBase(6)
+
+            map_scene.static_models.indirect_shadow_mapping = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_shadow_mapping")
+            map_scene.static_models.indirect_shadow_mapping.StorageNullData(
+                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                BufferStorageFlags.None)
+            map_scene.static_models.indirect_shadow_mapping.BindBase(11)
 
             map_scene.static_models.matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "matrices")
             map_scene.static_models.matrices.Storage(

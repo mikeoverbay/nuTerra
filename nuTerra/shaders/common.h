@@ -16,6 +16,7 @@
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
 #define TERRAIN_CHUNK_INFO_BASE 10
+#define INDIRECT_SHADOW_MAPPING_BASE 11
 
 struct CandidateDraw
 {
@@ -175,6 +176,13 @@ layout(binding = INDIRECT_GLASS_BASE, std430) writeonly buffer IndirectGlass
 layout(binding = INDIRECT_DBL_SIDED_BASE, std430) buffer IndirectDoubleSided
 {
     DrawElementsIndirectCommand command_double_sided[];
+};
+#endif
+
+#ifdef INDIRECT_SHADOW_MAPPING_SSBO
+layout(binding = INDIRECT_SHADOW_MAPPING_BASE, std430) buffer IndirectShadowMapping
+{
+    DrawElementsIndirectCommand command_shadow_mapping[];
 };
 #endif
 
