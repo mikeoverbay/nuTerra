@@ -264,7 +264,7 @@ Module modOpenGL
         PerViewData.invViewProj = PerViewData.viewProj.Inverted()
         PerViewData.invView = PerViewData.view.Inverted()
 
-        If ShadowMappingFBO.ENABLED Then
+        If ShadowMappingFBO.ENABLED AndAlso FPS_COUNTER Mod ShadowMappingFBO.FRAME_STEP = 0 Then
             Dim dist = MathHelper.Clamp(4 * Vector3.Distance(CAM_TARGET, CAM_POSITION), 150, 1000)
             Dim light_proj_matrix = Matrix4.CreateOrthographic(dist, dist, ShadowMappingFBO.NEAR, ShadowMappingFBO.FAR)
             light_proj_matrix.M33 = 1.0F / (ShadowMappingFBO.FAR - ShadowMappingFBO.NEAR)

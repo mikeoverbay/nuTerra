@@ -155,6 +155,7 @@ Module MapLoader
             Dim numLods = 0
             For Each batch In MODEL_BATCH_LIST
                 Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Count - 1
+                Dim SHADOW_MAP_LOD = Math.Min(1, MAX_LOD_ID)
                 For lod_id = 0 To MAX_LOD_ID
                     Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
 
@@ -172,7 +173,7 @@ Module MapLoader
                                 Continue For
                             End If
                             map_scene.static_models.indirectDrawCount += batch.count
-                            If lod_id = MAX_LOD_ID Then map_scene.static_models.indirectShadowMappingDrawCount += 1
+                            If lod_id = SHADOW_MAP_LOD Then map_scene.static_models.indirectShadowMappingDrawCount += 1
                             skip = False
                         Next
                         numVerts += renderSet.buffers.vertexBuffer.Length
@@ -224,6 +225,7 @@ Module MapLoader
                 Dim savedLodOffset = lodLast
 
                 Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Count - 1
+                Dim SHADOW_MAP_LOD = Math.Min(1, MAX_LOD_ID)
                 For lod_id = 0 To MAX_LOD_ID
                     Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
 
@@ -250,7 +252,7 @@ Module MapLoader
                                 .baseInstance = cmdId
                                 .lod_level = lod_id
                             End With
-                            If lod_id = MAX_LOD_ID Then
+                            If lod_id = SHADOW_MAP_LOD Then
                                 With shadowMappingDrawCommands(shadow_cmdId)
                                     .baseVertex = drawCommands(cmdId).baseVertex
                                     .firstIndex = drawCommands(cmdId).firstIndex
@@ -379,6 +381,7 @@ Module MapLoader
                 shadowMappingDrawCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                 shadowMappingDrawCommands,
                 BufferStorageFlags.None)
+            Erase shadowMappingDrawCommands
 
             map_scene.static_models.matrices = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "matrices")
             map_scene.static_models.matrices.Storage(

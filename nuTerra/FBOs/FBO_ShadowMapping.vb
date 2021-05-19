@@ -12,6 +12,7 @@ Public Class ShadowMappingFBO
     Public Shared NEAR As Single = 0.1F
     Public Shared FAR As Single = 2000.0F
     Public Shared ENABLED As Boolean = False
+    Public Shared FRAME_STEP As Integer = 20
 
     Public Shared Sub FBO_Initialize()
         frmMain.glControl_main.MakeCurrent()

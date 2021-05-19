@@ -110,7 +110,7 @@ Module modRender
             End If
         End If
 
-        If ShadowMappingFBO.ENABLED Then
+        If ShadowMappingFBO.ENABLED AndAlso FPS_COUNTER Mod ShadowMappingFBO.FRAME_STEP = 0 Then
             map_scene.ShadowMappingPass()
 
             ' restore main FBO
