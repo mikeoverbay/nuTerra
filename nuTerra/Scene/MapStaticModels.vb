@@ -4,6 +4,8 @@ Imports OpenTK.Graphics.OpenGL4
 Public Class MapStaticModels
     Implements IDisposable
 
+    ReadOnly scene As MapScene
+
     ' Get data from gpu
     Public numAfterFrustum(2) As Integer
 
@@ -33,11 +35,15 @@ Public Class MapStaticModels
     Public indirectDrawCount As Integer
     Public indirectShadowMappingDrawCount As Integer
 
+    Public Sub New(scene As MapScene)
+        Me.scene = scene
+    End Sub
+
     Public Sub frustum_cull()
         GL_PUSH_GROUP("frustum_cull")
 
         'clear atomic counter
-        parameters.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
+        parameters.ClearSubData(PixelInternalFormat.R32ui, IntPtr.Zero, numAfterFrustum.Length * Marshal.SizeOf(Of UInt32), PixelFormat.RedInteger, PixelType.UnsignedInt, IntPtr.Zero)
 
         cullShader.Use()
 
@@ -109,7 +115,7 @@ Public Class MapStaticModels
         allMapModels.Bind()
 
         indirect_shadow_mapping.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.indirectShadowMappingDrawCount, 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, indirectShadowMappingDrawCount, 0)
 
         mDepthWrite_light.StopUse()
 
@@ -130,12 +136,12 @@ Public Class MapStaticModels
         allMapModels.Bind()
 
         indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(0), 0)
 
         GL.Disable(EnableCap.CullFace)
 
         indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1), 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(1), 0)
 
         mDepthWriteShader.StopUse()
         GL.ColorMask(True, True, True, True)
@@ -165,15 +171,15 @@ Public Class MapStaticModels
 
         GL.Enable(EnableCap.CullFace)
 
-        map_scene.static_models.allMapModels.Bind()
+        allMapModels.Bind()
 
-        map_scene.static_models.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
+        indirect.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(0), 0)
 
         GL.Disable(EnableCap.CullFace)
 
-        map_scene.static_models.indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(1), 0)
+        indirect_dbl_sided.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(1), 0)
 
         modelShader.StopUse()
 
@@ -186,8 +192,8 @@ Public Class MapStaticModels
         modelGlassShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
 
-        map_scene.static_models.indirect_glass.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(2), 0)
+        indirect_glass.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(2), 0)
 
         modelGlassShader.StopUse()
 
@@ -204,10 +210,10 @@ Public Class MapStaticModels
             GL.Uniform1(normalShader("mode"), NORMAL_DISPLAY_MODE) ' 0 none, 1 by face, 2 by vertex
             GL.Uniform1(normalShader("show_wireframe"), CInt(WIRE_MODELS))
 
-            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(2), 0)
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(2), 0)
 
-            map_scene.static_models.indirect.Bind(BufferTarget.DrawIndirectBuffer)
-            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, map_scene.static_models.numAfterFrustum(0), 0)
+            indirect.Bind(BufferTarget.DrawIndirectBuffer)
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(0), 0)
             normalShader.StopUse()
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
@@ -220,7 +226,7 @@ Public Class MapStaticModels
             boxShader.Use()
 
             defaultVao.Bind()
-            GL.DrawArrays(PrimitiveType.Points, 0, map_scene.static_models.numModelInstances)
+            GL.DrawArrays(PrimitiveType.Points, 0, numModelInstances)
 
             boxShader.StopUse()
         End If

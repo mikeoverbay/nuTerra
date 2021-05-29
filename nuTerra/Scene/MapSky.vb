@@ -4,8 +4,14 @@ Imports OpenTK
 Public Class MapSky
     Implements IDisposable
 
+    ReadOnly scene As MapScene
+
     Public skybox_mdl As XModel
     Public texture As GLTexture
+
+    Public Sub New(scene As MapScene)
+        Me.scene = scene
+    End Sub
 
     Public Sub draw_sky()
         If Not DONT_BLOCK_SKY Then Return
@@ -20,10 +26,10 @@ Public Class MapSky
 
         GL.Enable(EnableCap.CullFace)
 
-        map_scene.sky.texture.BindUnit(0)
+        texture.BindUnit(0)
 
-        map_scene.sky.skybox_mdl.vao.Bind()
-        GL.DrawElements(PrimitiveType.Triangles, map_scene.sky.skybox_mdl.indices_count * 3, DrawElementsType.UnsignedShort, 0)
+        skybox_mdl.vao.Bind()
+        GL.DrawElements(PrimitiveType.Triangles, skybox_mdl.indices_count * 3, DrawElementsType.UnsignedShort, 0)
 
         SkyDomeShader.StopUse()
 

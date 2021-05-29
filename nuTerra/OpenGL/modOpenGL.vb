@@ -144,20 +144,6 @@ Module modOpenGL
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
-    Public Structure TPerViewData
-        Public view As Matrix4
-        Public projection As Matrix4
-        Public viewProj As Matrix4
-        Public invViewProj As Matrix4
-        Public invView As Matrix4
-        Public cameraPos As Vector3
-        Public pad1 As UInt32
-        Public resolution As Vector2
-    End Structure
-    Public PerViewData As New TPerViewData
-    Public PerViewDataBuffer As GLBuffer
-
-    <StructLayout(LayoutKind.Sequential)>
     Public Structure TCommonProperties
         Public waterColor As Vector3
         Public waterAlpha As Single
@@ -227,46 +213,6 @@ Module modOpenGL
         Return m
     End Function
 
-    Private REVERSE As New Matrix4(
-        New Vector4(1, 0, 0, 0),
-        New Vector4(0, 1, 0, 0),
-        New Vector4(0, 0, -1, 0),
-        New Vector4(0, 0, 1, 1)
-    )
-    Public Sub set_prespective_view()
-        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, frmMain.glControl_main.Width, -frmMain.glControl_main.Height, 0.0F, -300.0F, 300.0F)
-        Dim sin_x, cos_x, cos_y, sin_y As Single
-        Dim cam_x, cam_y, cam_z As Single
-
-        sin_x = Sin(U_CAM_X_ANGLE)
-        cos_x = Cos(U_CAM_X_ANGLE)
-        cos_y = Cos(U_CAM_Y_ANGLE)
-        sin_y = Sin(U_CAM_Y_ANGLE)
-        cam_y = sin_y * VIEW_RADIUS
-        cam_x = cos_y * sin_x * VIEW_RADIUS
-        cam_z = cos_y * cos_x * VIEW_RADIUS
-
-        Dim LOOK_Y = CURSOR_Y + U_LOOK_AT_Y
-        CAM_POSITION.X = cam_x + U_LOOK_AT_X
-        CAM_POSITION.Y = cam_y + LOOK_Y
-        CAM_POSITION.Z = cam_z + U_LOOK_AT_Z
-
-        CAM_TARGET = New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
-
-        PerViewData.projection = Matrix4.CreatePerspectiveFieldOfView(
-                                   FieldOfView,
-                                   frmMain.glControl_main.ClientSize.Width / CSng(frmMain.glControl_main.ClientSize.Height),
-                                   My.Settings.near, My.Settings.far) * REVERSE
-        PerViewData.cameraPos = CAM_POSITION
-        PerViewData.view = Matrix4.LookAt(CAM_POSITION, CAM_TARGET, Vector3.UnitY)
-        PerViewData.viewProj = PerViewData.view * PerViewData.projection
-        PerViewData.invViewProj = PerViewData.viewProj.Inverted()
-        PerViewData.invView = PerViewData.view.Inverted()
-
-        PerViewData.resolution.X = frmMain.glControl_main.ClientSize.Width
-        PerViewData.resolution.Y = frmMain.glControl_main.ClientSize.Height
-        GL.NamedBufferSubData(PerViewDataBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(PerViewData), PerViewData)
-    End Sub
 
 
     Public Sub draw_color_rectangle(rect As RectangleF, color As Color4)

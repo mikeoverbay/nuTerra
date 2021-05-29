@@ -137,17 +137,9 @@ Module modGlobalVars
 
     'mouse camera related
     Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE, M_SPIN As Boolean ' mouse control booleans
-    Public WASD As Boolean
     Public WASD_SPEED As Single = 0
     Public WASD_VECTOR As Point
     Public M_MOUSE, MOUSE As New Point
-    Public VIEW_RADIUS, CAM_X_ANGLE, CAM_Y_ANGLE As Single
-    Public LOOK_AT_X, LOOK_AT_Y, LOOK_AT_Z As Single
-    Public U_VIEW_RADIUS, U_CAM_X_ANGLE, U_CAM_Y_ANGLE As Single
-    Public U_LOOK_AT_X, U_LOOK_AT_Y, U_LOOK_AT_Z As Single
-    Public CAM_POSITION As Vector3
-    Public CAM_TARGET As Vector3
-    Public MAX_ZOOM_OUT As Single = -2000.0F 'must be negitive
     Public SHOW_CURSOR As Integer
     '============================================================
     Public SUN_CAMERA As New Matrix4

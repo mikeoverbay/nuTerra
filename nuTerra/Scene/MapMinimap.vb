@@ -7,6 +7,8 @@ Imports OpenTK.Graphics.OpenGL4
 Public Class MapMinimap
     Implements IDisposable
 
+    ReadOnly scene As MapScene
+
     Public TEAM_1_ICON_ID As GLTexture
     Public TEAM_2_ICON_ID As GLTexture
     Public MINI_MAP_ID As GLTexture
@@ -15,7 +17,8 @@ Public Class MapMinimap
     Public MINI_TRIM_VERT_ID As GLTexture
     Public MINI_TRIM_HORZ_ID As GLTexture
 
-    Public Sub New()
+    Public Sub New(scene As MapScene)
+        Me.scene = scene
         MINI_LETTERS_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_letters.png"), False, False)
         MINI_NUMBERS_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_numbers.png"), False, False)
         MINI_TRIM_VERT_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_trim_vert.png"), False, False)
@@ -319,8 +322,8 @@ Public Class MapMinimap
         Dim i_size = 32
         Dim pos As New RectangleF(-i_size, -i_size, i_size * 2, i_size * 2)
 
-        Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, -U_LOOK_AT_Z, 0.0F)
-        Dim model_R = Matrix4.CreateRotationZ(U_CAM_X_ANGLE)
+        Dim model_X = Matrix4.CreateTranslation(scene.camera.U_LOOK_AT_X, -scene.camera.U_LOOK_AT_Z, 0.0F)
+        Dim model_R = Matrix4.CreateRotationZ(scene.camera.U_CAM_X_ANGLE)
         Dim modelMatrix = model_R * model_X
 
         DIRECTION_TEXTURE_ID.BindUnit(0)
@@ -354,7 +357,7 @@ Public Class MapMinimap
             m_size.Right,
             -m_size.Bottom)
 
-        GL.Uniform2(MiniMapRingsShader("center"), -U_LOOK_AT_X, U_LOOK_AT_Z)
+        GL.Uniform2(MiniMapRingsShader("center"), -scene.camera.U_LOOK_AT_X, scene.camera.U_LOOK_AT_Z)
         GL.Uniform4(MiniMapRingsShader("color"), Color4.White)
 
         defaultVao.Bind()

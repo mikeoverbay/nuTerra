@@ -61,7 +61,7 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
-        set_prespective_view() ' <-- sets camera and prespective view ==============
+        map_scene.camera.set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
         If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
@@ -301,7 +301,7 @@ Module modRender
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
-        Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, PerViewData.view)
+        Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, map_scene.camera.PerViewData.view)
 
         GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
 

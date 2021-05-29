@@ -508,7 +508,7 @@ Module MapLoader
         set_light_pos() 'for light rotation animation
         '===================================================
 
-        frmMain.check_postion_for_update() ' need to initialize cursor altitude
+        map_scene.check_postion_for_update() ' need to initialize cursor altitude
 
         'Enable main menu
         frmMain.MainMenuStrip.Enabled = True

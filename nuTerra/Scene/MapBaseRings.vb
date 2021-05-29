@@ -5,6 +5,12 @@ Imports OpenTK.Graphics.OpenGL4
 Public Class MapBaseRings
     Implements IDisposable
 
+    ReadOnly scene As MapScene
+
+    Public Sub New(scene As MapScene)
+        Me.scene = scene
+    End Sub
+
     Public Sub draw_base_rings_deferred()
         If Not BASE_RINGS_LOADED Then
             Return
@@ -40,7 +46,7 @@ Public Class MapBaseRings
         model_X = Matrix4.CreateTranslation(-TEAM_2.X, T2_Y, TEAM_2.Z)
 
         'check in side of cube
-        If cube_point_intersection(rotate, scale, model_X, CAM_POSITION) Then
+        If cube_point_intersection(rotate, scale, model_X, scene.camera.CAM_POSITION) Then
             GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(True))
         Else
             GL.Uniform1(BaseRingProjectorDeferred("front"), CInt(False))

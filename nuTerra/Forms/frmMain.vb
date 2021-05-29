@@ -42,7 +42,6 @@ Public Class frmMain
     Public panel_2_occupied As Boolean
     Public PG_width As Integer
     Public FE_width As Integer
-    Public mouse_timer As New Windows.Forms.Timer
 
 #Region "Form Events"
 
@@ -444,11 +443,6 @@ try_again:
     '=================================================================================
     Private Sub post_frmMain_loaded()
         '-----------------------------------------------------------------------------------------
-        mouse_timer.Interval = 10
-        AddHandler mouse_timer.Tick, AddressOf check_postion_for_update
-        mouse_timer.Start()
-
-        '-----------------------------------------------------------------------------------------
         launch_timer.Restart() 'log eplase times
 
         '-----------------------------------------------------------------------------------------
@@ -573,12 +567,6 @@ try_again:
 
         make_cube() ' used for many draw functions
 
-        PerViewDataBuffer = GLBuffer.Create(BufferTarget.UniformBuffer, "PerView")
-        PerViewDataBuffer.StorageNullData(
-            Marshal.SizeOf(PerViewData),
-            BufferStorageFlags.DynamicStorageBit)
-        PerViewDataBuffer.BindBase(1)
-
         CommonPropertiesBuffer = GLBuffer.Create(BufferTarget.UniformBuffer, "CommonProperties")
         CommonPropertiesBuffer.StorageNullData(
             Marshal.SizeOf(CommonProperties),
@@ -599,11 +587,6 @@ try_again:
 
         load_assets()
         LogThis(String.Format("{0}ms Assets Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
-
-        'Set camara start up position. This is mostly for testing.
-        VIEW_RADIUS = -500.0
-        CAM_X_ANGLE = PI / 4
-        CAM_Y_ANGLE = -PI / 4
 
         resize_fbo_main()
         MapMenuScreen.Invalidate()
@@ -739,22 +722,22 @@ try_again:
             If WASD_SPEED > 0.025F Then
                 WASD_SPEED = 0F
                 Dim MAX = -200.0F
-                If MAX < VIEW_RADIUS Then
-                    MAX = VIEW_RADIUS
+                If MAX < map_scene.camera.VIEW_RADIUS Then
+                    MAX = map_scene.camera.VIEW_RADIUS
                 End If
                 Dim ms As Single = 0.2F * MAX ' distance away changes speed.. THIS WORKS WELL!
                 Dim t = WASD_VECTOR.X * ms * 0.003
 
                 If WASD_VECTOR.X <> 0 Then
-                    LOOK_AT_X -= ((t * ms) * (Cos(CAM_X_ANGLE)))
-                    LOOK_AT_Z -= ((t * ms) * (-Sin(CAM_X_ANGLE)))
+                    map_scene.camera.LOOK_AT_X -= ((t * ms) * (Cos(map_scene.camera.CAM_X_ANGLE)))
+                    map_scene.camera.LOOK_AT_Z -= ((t * ms) * (-Sin(map_scene.camera.CAM_X_ANGLE)))
                 End If
 
                 t = WASD_VECTOR.Y * ms * 0.003F
 
                 If WASD_VECTOR.Y <> 0 Then
-                    LOOK_AT_Z -= ((t * ms) * (Cos(CAM_X_ANGLE)))
-                    LOOK_AT_X -= ((t * ms) * (Sin(CAM_X_ANGLE)))
+                    map_scene.camera.LOOK_AT_Z -= ((t * ms) * (Cos(map_scene.camera.CAM_X_ANGLE)))
+                    map_scene.camera.LOOK_AT_X -= ((t * ms) * (Sin(map_scene.camera.CAM_X_ANGLE)))
                 End If
 
             End If
@@ -806,38 +789,6 @@ try_again:
         End While
     End Sub
 
-    Public Sub check_postion_for_update()
-        Dim halfPI = PI * 0.5F
-        If LOOK_AT_X <> U_LOOK_AT_X Then
-            U_LOOK_AT_X = LOOK_AT_X
-        End If
-        If LOOK_AT_Y <> U_LOOK_AT_Y Then
-            U_LOOK_AT_Y = LOOK_AT_Y
-        End If
-        If LOOK_AT_Z <> U_LOOK_AT_Z Then
-            U_LOOK_AT_Z = LOOK_AT_Z
-        End If
-        If CAM_X_ANGLE <> U_CAM_X_ANGLE Then
-            U_CAM_X_ANGLE = CAM_X_ANGLE
-        End If
-        If CAM_Y_ANGLE <> U_CAM_Y_ANGLE Then
-            If CAM_Y_ANGLE > 1.3 Then
-                U_CAM_Y_ANGLE = 1.3
-                CAM_Y_ANGLE = U_CAM_Y_ANGLE
-            End If
-            If CAM_Y_ANGLE < -halfPI Then
-                U_CAM_Y_ANGLE = -halfPI + 0.001
-                CAM_Y_ANGLE = U_CAM_Y_ANGLE
-            End If
-            U_CAM_Y_ANGLE = CAM_Y_ANGLE
-        End If
-        If VIEW_RADIUS <> U_VIEW_RADIUS Then
-            U_VIEW_RADIUS = VIEW_RADIUS
-        End If
-
-        CURSOR_Y = get_Y_at_XZ(U_LOOK_AT_X, U_LOOK_AT_Z)
-
-    End Sub
 #End Region
 
 
@@ -850,8 +801,8 @@ try_again:
 
         If MINI_MOUSE_CAPTURED Then
             'User clicked on the mini so lets move to that locations in world space
-            LOOK_AT_X = MINI_WORLD_MOUSE_POSITION.X
-            LOOK_AT_Z = MINI_WORLD_MOUSE_POSITION.Y
+            map_scene.camera.LOOK_AT_X = MINI_WORLD_MOUSE_POSITION.X
+            map_scene.camera.LOOK_AT_Z = MINI_WORLD_MOUSE_POSITION.Y
         End If
 
         If SHOW_MAPS_SCREEN Then
@@ -906,106 +857,109 @@ try_again:
         Dim dead As Integer = 5
         Dim t As Single
         Dim M_Speed As Single = My.Settings.speed
-        Dim ms As Single = 0.2F * VIEW_RADIUS ' distance away changes speed.. THIS WORKS WELL!
-        If M_DOWN Then
-            If e.X > (MOUSE.X + dead) Then
-                If e.X - MOUSE.X > 100 Then t = (1.0F * M_Speed)
-            Else : t = CSng(Sin((e.X - MOUSE.X) / 100)) * M_Speed
-                If Not Z_MOVE Then
-                    If MOVE_MOD Then ' check for modifying flag
-                        LOOK_AT_X -= ((t * ms) * (Cos(CAM_X_ANGLE)))
-                        LOOK_AT_Z -= ((t * ms) * (-Sin(CAM_X_ANGLE)))
-                    Else
-                        CAM_X_ANGLE -= t
-                    End If
-                    If CAM_X_ANGLE > (2 * PI) Then CAM_X_ANGLE -= (2 * PI)
-                    MOUSE.X = e.X
-                End If
-            End If
-            If e.X < (MOUSE.X - dead) Then
-                If MOUSE.X - e.X > 100 Then t = (M_Speed)
-            Else : t = CSng(Sin((MOUSE.X - e.X) / 100)) * M_Speed
-                If Not Z_MOVE Then
-                    If MOVE_MOD Then ' check for modifying flag
-                        LOOK_AT_X += ((t * ms) * (Cos(CAM_X_ANGLE)))
-                        LOOK_AT_Z += ((t * ms) * (-Sin(CAM_X_ANGLE)))
-                    Else
-                        CAM_X_ANGLE += t
-                    End If
-                    If CAM_X_ANGLE < 0 Then CAM_X_ANGLE += (2 * PI)
-                    MOUSE.X = e.X
-                End If
-            End If
-            ' ------- Y moves ----------------------------------
-            If e.Y > (MOUSE.Y + dead) Then
-                If e.Y - MOUSE.Y > 100 Then t = (M_Speed)
-            Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * M_Speed
-                If Z_MOVE Then
-                    LOOK_AT_Y -= (t * ms)
-                Else
-                    If MOVE_MOD Then ' check for modifying flag
-                        LOOK_AT_Z -= ((t * ms) * (Cos(CAM_X_ANGLE)))
-                        LOOK_AT_X -= ((t * ms) * (Sin(CAM_X_ANGLE)))
-                    Else
-                        If CAM_Y_ANGLE - t < -PI / 2.0 Then
-                            CAM_Y_ANGLE = -PI / 2.0 + 0.001
+        If map_scene IsNot Nothing Then
+            Dim ms As Single = 0.2F * map_scene.camera.VIEW_RADIUS ' distance away changes speed.. THIS WORKS WELL!
+            If M_DOWN Then
+                If e.X > (MOUSE.X + dead) Then
+                    If e.X - MOUSE.X > 100 Then t = (1.0F * M_Speed)
+                Else : t = CSng(Sin((e.X - MOUSE.X) / 100)) * M_Speed
+                    If Not Z_MOVE Then
+                        If MOVE_MOD Then ' check for modifying flag
+                            map_scene.camera.LOOK_AT_X -= ((t * ms) * (Cos(map_scene.camera.CAM_X_ANGLE)))
+                            map_scene.camera.LOOK_AT_Z -= ((t * ms) * (-Sin(map_scene.camera.CAM_X_ANGLE)))
                         Else
-                            CAM_Y_ANGLE -= t
+                            map_scene.camera.CAM_X_ANGLE -= t
                         End If
+                        If map_scene.camera.CAM_X_ANGLE > (2 * PI) Then map_scene.camera.CAM_X_ANGLE -= (2 * PI)
+                        MOUSE.X = e.X
                     End If
-                    'If CAM_Y_ANGLE < -PI / 2.0 Then CAM_Y_ANGLE = -PI / 2.0 + 0.001
                 End If
-                MOUSE.Y = e.Y
-            End If
-            If e.Y < (MOUSE.Y - dead) Then
-                If MOUSE.Y - e.Y > 100 Then t = (M_Speed)
-            Else : t = CSng(Sin((MOUSE.Y - e.Y) / 100)) * M_Speed
-                If Z_MOVE Then
-                    LOOK_AT_Y += (t * ms)
-                Else
-                    If MOVE_MOD Then ' check for modifying flag
-                        LOOK_AT_Z += ((t * ms) * (Cos(CAM_X_ANGLE)))
-                        LOOK_AT_X += ((t * ms) * (Sin(CAM_X_ANGLE)))
-                    Else
-                        If CAM_Y_ANGLE + t > 1.3 Then
-                            CAM_Y_ANGLE = 1.3
+                If e.X < (MOUSE.X - dead) Then
+                    If MOUSE.X - e.X > 100 Then t = (M_Speed)
+                Else : t = CSng(Sin((MOUSE.X - e.X) / 100)) * M_Speed
+                    If Not Z_MOVE Then
+                        If MOVE_MOD Then ' check for modifying flag
+                            map_scene.camera.LOOK_AT_X += ((t * ms) * (Cos(map_scene.camera.CAM_X_ANGLE)))
+                            map_scene.camera.LOOK_AT_Z += ((t * ms) * (-Sin(map_scene.camera.CAM_X_ANGLE)))
                         Else
-                            CAM_Y_ANGLE += t
+                            map_scene.camera.CAM_X_ANGLE += t
                         End If
+                        If map_scene.camera.CAM_X_ANGLE < 0 Then map_scene.camera.CAM_X_ANGLE += (2 * PI)
+                        MOUSE.X = e.X
+                    End If
+                End If
+                ' ------- Y moves ----------------------------------
+                If e.Y > (MOUSE.Y + dead) Then
+                    If e.Y - MOUSE.Y > 100 Then t = (M_Speed)
+                Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * M_Speed
+                    If Z_MOVE Then
+                        map_scene.camera.LOOK_AT_Y -= (t * ms)
+                    Else
+                        If MOVE_MOD Then ' check for modifying flag
+                            map_scene.camera.LOOK_AT_Z -= ((t * ms) * (Cos(map_scene.camera.CAM_X_ANGLE)))
+                            map_scene.camera.LOOK_AT_X -= ((t * ms) * (Sin(map_scene.camera.CAM_X_ANGLE)))
+                        Else
+                            If map_scene.camera.CAM_Y_ANGLE - t < -PI / 2.0 Then
+                                map_scene.camera.CAM_Y_ANGLE = -PI / 2.0 + 0.001
+                            Else
+                                map_scene.camera.CAM_Y_ANGLE -= t
+                            End If
+                        End If
+                        'If CAM_Y_ANGLE < -PI / 2.0 Then CAM_Y_ANGLE = -PI / 2.0 + 0.001
+                    End If
+                    MOUSE.Y = e.Y
+                End If
+                If e.Y < (MOUSE.Y - dead) Then
+                    If MOUSE.Y - e.Y > 100 Then t = (M_Speed)
+                Else : t = CSng(Sin((MOUSE.Y - e.Y) / 100)) * M_Speed
+                    If Z_MOVE Then
+                        map_scene.camera.LOOK_AT_Y += (t * ms)
+                    Else
+                        If MOVE_MOD Then ' check for modifying flag
+                            map_scene.camera.LOOK_AT_Z += ((t * ms) * (Cos(map_scene.camera.CAM_X_ANGLE)))
+                            map_scene.camera.LOOK_AT_X += ((t * ms) * (Sin(map_scene.camera.CAM_X_ANGLE)))
+                        Else
+                            If map_scene.camera.CAM_Y_ANGLE + t > 1.3 Then
+                                map_scene.camera.CAM_Y_ANGLE = 1.3
+                            Else
+                                map_scene.camera.CAM_Y_ANGLE += t
+                            End If
 
+                        End If
+                        'If CAM_Y_ANGLE > 1.3 Then CAM_Y_ANGLE = 1.3
                     End If
-                    'If CAM_Y_ANGLE > 1.3 Then CAM_Y_ANGLE = 1.3
+                    MOUSE.Y = e.Y
                 End If
-                MOUSE.Y = e.Y
+                'draw_scene()
+                'Debug.WriteLine(Cam_X_angle.ToString("0.000") + " " + Cam_Y_angle.ToString("0.000"))
+                Return
             End If
-            'draw_scene()
-            'Debug.WriteLine(Cam_X_angle.ToString("0.000") + " " + Cam_Y_angle.ToString("0.000"))
-            Return
-        End If
-        If MOVE_CAM_Z Then
-            ' zoom is factored in to Cam radius
-            Dim vrad = VIEW_RADIUS
-            If e.Y < (MOUSE.Y - dead) Then
-                If e.Y - MOUSE.Y > 100 Then t = (10)
-            Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * 12 * My.Settings.speed
-                If vrad + (t * (vrad * 0.2)) < MAX_ZOOM_OUT Then
-                    vrad = MAX_ZOOM_OUT
-                Else
-                    vrad += (t * (vrad * 0.2))
+            If MOVE_CAM_Z Then
+                ' zoom is factored in to Cam radius
+                Dim vrad = map_scene.camera.VIEW_RADIUS
+                If e.Y < (MOUSE.Y - dead) Then
+                    If e.Y - MOUSE.Y > 100 Then t = (10)
+                Else : t = CSng(Sin((e.Y - MOUSE.Y) / 100)) * 12 * My.Settings.speed
+                    If vrad + (t * (vrad * 0.2)) < map_scene.camera.MAX_ZOOM_OUT Then
+                        vrad = map_scene.camera.MAX_ZOOM_OUT
+                    Else
+                        vrad += (t * (vrad * 0.2))
+                    End If
+                    MOUSE.Y = e.Y
                 End If
+                If e.Y > (MOUSE.Y + dead) Then
+                    If MOUSE.Y - e.Y > 100 Then t = (10)
+                Else : t = CSng(Sin((MOUSE.Y - e.Y) / 100)) * 12 * My.Settings.speed
+                    vrad -= (t * (vrad * 0.2))    ' zoom is factored in to Cam radius
+                    If vrad > -0.01 Then vrad = -0.01
+                End If
+                If vrad > -0.1 Then vrad = -0.1
+                map_scene.camera.VIEW_RADIUS = vrad
                 MOUSE.Y = e.Y
+                Return
             End If
-            If e.Y > (MOUSE.Y + dead) Then
-                If MOUSE.Y - e.Y > 100 Then t = (10)
-            Else : t = CSng(Sin((MOUSE.Y - e.Y) / 100)) * 12 * My.Settings.speed
-                vrad -= (t * (vrad * 0.2))    ' zoom is factored in to Cam radius
-                If vrad > -0.01 Then vrad = -0.01
-            End If
-            If vrad > -0.1 Then vrad = -0.1
-            VIEW_RADIUS = vrad
-            MOUSE.Y = e.Y
-            Return
         End If
+
         MOUSE.X = e.X
         MOUSE.Y = e.Y
 

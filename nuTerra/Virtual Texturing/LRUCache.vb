@@ -9,7 +9,7 @@
 
 
     Public Function ContainsKeyUpdate(key As Page) As Boolean
-        Dim node As LinkedListNode(Of LRUCacheItem)
+        Dim node As LinkedListNode(Of LRUCacheItem) = Nothing
         If _cacheMap.TryGetValue(key, node) Then
             MoveToTop(node)
             Return True

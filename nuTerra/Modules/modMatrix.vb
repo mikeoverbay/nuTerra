@@ -37,8 +37,8 @@ Module modMatrix
         Dim pos As Vector4
 
         Vector4.Transform(vec, model, pos)
-        Vector4.Transform(pos, PerViewData.view, pos)
-        Vector4.Transform(pos, PerViewData.projection, pos)
+        Vector4.Transform(pos, map_scene.camera.PerViewData.view, pos)
+        Vector4.Transform(pos, map_scene.camera.PerViewData.projection, pos)
 
         pos.X /= pos.W
         pos.Y /= pos.W

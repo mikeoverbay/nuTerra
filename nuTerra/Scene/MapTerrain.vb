@@ -5,10 +5,12 @@ Imports OpenTK.Graphics.OpenGL4
 
 Public Class MapTerrain
     Implements IDisposable
+
+    ReadOnly scene As MapScene
+
     Public outland_vertices_buffer As GLBuffer
     Public outland_indices_buffer As GLBuffer
     Public outland_vao As GLVertexArray
-
 
     Public matrices As GLBuffer
     Public indirect_buffer As GLBuffer
@@ -21,6 +23,10 @@ Public Class MapTerrain
     Public feedback As FeedbackBuffer
 
     Public GLOBAL_AM_ID As GLTexture
+
+    Public Sub New(scene As MapScene)
+        Me.scene = scene
+    End Sub
 
     Public Sub terrain_vt_pass()
         GL_PUSH_GROUP("terrain_vt_pass")
@@ -168,7 +174,7 @@ Public Class MapTerrain
         For i = 0 To theMap.render_set.Length - 1
             If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.LQ Then
                 ' CALC NORMAL MATRIX FOR CHUNK
-                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix))
+                GL.UniformMatrix3(TerrainLQShader("normalMatrix"), False, New Matrix3(scene.camera.PerViewData.view * theMap.render_set(i).matrix))
 
                 ' DRAW CHUNK INDIRECT
                 GL.DrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))
@@ -187,7 +193,7 @@ Public Class MapTerrain
             For i = 0 To theMap.render_set.Length - 1
                 If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then
                     ' CALC NORMAL MATRIX FOR CHUNK
-                    GL.UniformMatrix3(TerrainHQShader("normalMatrix"), False, New Matrix3(PerViewData.view * theMap.render_set(i).matrix))
+                    GL.UniformMatrix3(TerrainHQShader("normalMatrix"), False, New Matrix3(scene.camera.PerViewData.view * theMap.render_set(i).matrix))
 
                     ' DRAW CHUNK INDIRECT
                     GL.DrawElementsIndirect(PrimitiveType.Patches, DrawElementsType.UnsignedShort, New IntPtr(i * Marshal.SizeOf(Of DrawElementsIndirectCommand)))

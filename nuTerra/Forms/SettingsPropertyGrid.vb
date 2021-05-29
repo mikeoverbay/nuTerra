@@ -82,24 +82,24 @@ Public Class SettingsPropertyGrid
     <DisplayName("Max Zoom Out"), Category("Camera")>
     Public Property Camera_max_zoom_out As Single
         Set(value As Single)
-            MAX_ZOOM_OUT = value
+            map_scene.camera.MAX_ZOOM_OUT = value
         End Set
         Get
-            Return MAX_ZOOM_OUT
+            Return map_scene?.camera.MAX_ZOOM_OUT
         End Get
     End Property
 
     <DisplayName("Position"), Category("Camera")>
     Public ReadOnly Property Camera_position As String
         Get
-            Return CAM_POSITION.ToString.Replace("(", "").Replace(")", "")
+            Return map_scene?.camera.CAM_POSITION.ToString.Replace("(", "").Replace(")", "")
         End Get
     End Property
 
     <DisplayName("Target"), Category("Camera")>
     Public ReadOnly Property Camera_target As String
         Get
-            Return CAM_TARGET.ToString.Replace("(", "").Replace(")", "")
+            Return map_scene?.camera.CAM_TARGET.ToString.Replace("(", "").Replace(")", "")
         End Get
     End Property
 

@@ -5,9 +5,12 @@ Imports OpenTK.Graphics.OpenGL4
 Public Class MapCursor
     Implements IDisposable
 
+    ReadOnly scene As MapScene
+
     Public CURSOR_TEXTURE_ID As GLTexture
 
-    Public Sub New()
+    Public Sub New(scene As MapScene)
+        Me.scene = scene
         CURSOR_TEXTURE_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\Cursor.png"), True, False)
     End Sub
 
@@ -23,7 +26,7 @@ Public Class MapCursor
         MainFBO.gGMF.BindUnit(2)
 
         ' Track the terrain at Y
-        Dim model_X = Matrix4.CreateTranslation(U_LOOK_AT_X, CURSOR_Y, U_LOOK_AT_Z)
+        Dim model_X = Matrix4.CreateTranslation(scene.camera.U_LOOK_AT_X, CURSOR_Y, scene.camera.U_LOOK_AT_Z)
         Dim model_S = Matrix4.CreateScale(25.0F, 50.0F, 25.0F)
 
         ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!

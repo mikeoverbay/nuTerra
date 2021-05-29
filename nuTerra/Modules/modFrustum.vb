@@ -12,9 +12,9 @@ Module modFrustum
             'First, find out what chunks are to be drawn as LQ global_AM texturing only.
             '=======================================================================================
             If theMap.render_set(i).visible Then
-                Dim l1 = Abs(theMap.chunks(i).location.X - CAM_POSITION.X) 'x
-                Dim l2 = Abs(theMap.v_data(i).avg_heights - CAM_POSITION.Y) 'y
-                Dim l3 = Abs(theMap.chunks(i).location.Y - CAM_POSITION.Z) 'z
+                Dim l1 = Abs(theMap.chunks(i).location.X - map_scene.camera.CAM_POSITION.X) 'x
+                Dim l2 = Abs(theMap.v_data(i).avg_heights - map_scene.camera.CAM_POSITION.Y) 'y
+                Dim l3 = Abs(theMap.chunks(i).location.Y - map_scene.camera.CAM_POSITION.Z) 'z
                 Dim v As New Vector3(l1, l2, l3)
                 Dim l = v.Length
                 If l > 300.0F Then 'This value is the distance at which the chunk drawing is swapped.
@@ -28,7 +28,7 @@ Module modFrustum
 
     Public Sub ExtractFrustum()
         ' Combine the two matrices (multiply projection by modelview)
-        Dim clip = PerViewData.viewProj
+        Dim clip = map_scene.camera.PerViewData.viewProj
 
         ' Extract the numbers for the RIGHT plane
         frustum(0).X = clip.M14 - clip.M11

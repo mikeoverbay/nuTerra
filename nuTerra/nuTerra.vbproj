@@ -205,6 +205,7 @@
     <Compile Include="RenderEngine\modRender.vb" />
     <Compile Include="RenderEngine\textRender.vb" />
     <Compile Include="Scene\MapBaseRings.vb" />
+    <Compile Include="Scene\MapCamera.vb" />
     <Compile Include="Scene\MapCursor.vb" />
     <Compile Include="Scene\MapFog.vb" />
     <Compile Include="Scene\MapMinimap.vb" />

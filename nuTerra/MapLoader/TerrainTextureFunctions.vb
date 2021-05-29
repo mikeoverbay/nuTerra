@@ -57,7 +57,7 @@ Module TerrainTextureFunctions
                 tex_names(2) = .texture_name.Replace("_AM", "_macro_AM")
                 tex_names(3) = .texture_name.Replace("_AM", "_macro_NM")
 
-                Dim atlas_tex As GLTexture
+                Dim atlas_tex As GLTexture = Nothing
                 Dim fullWidth As Integer = 1024
                 Dim fullHeight As Integer = 1024
                 Dim layer As Single

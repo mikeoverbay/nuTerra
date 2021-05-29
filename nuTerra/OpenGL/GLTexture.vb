@@ -74,6 +74,12 @@ Public Class GLTexture
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
+        Dim imgHandle = GL.Arb.GetTextureHandle(texture_id)
+        If imgHandle > 0 Then
+            If GL.Arb.IsTextureHandleResident(imgHandle) Then
+                GL.Arb.MakeTextureHandleNonResident(imgHandle)
+            End If
+        End If
         GL.DeleteTexture(texture_id)
         ALL_SIZE -= size
         CheckGLError()
