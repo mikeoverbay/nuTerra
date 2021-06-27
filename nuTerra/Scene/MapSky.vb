@@ -1,5 +1,5 @@
 ﻿Imports OpenTK.Graphics.OpenGL4
-Imports OpenTK
+Imports OpenTK.Mathematics
 
 Public Class MapSky
     Implements IDisposable

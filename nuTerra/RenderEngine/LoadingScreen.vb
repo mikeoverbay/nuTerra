@@ -1,5 +1,6 @@
 ﻿Imports System.IO
 Imports OpenTK.Graphics.OpenGL4
+Imports OpenTK.Mathematics
 
 Module LoadingScreen
 #Region "Variables"
@@ -40,7 +41,7 @@ Module LoadingScreen
                              nuTERRA_BG_IMAGE)
 
         ' Draw 'Loading Models...' text
-        draw_text(BG_TEXT, 5, 30, OpenTK.Graphics.Color4.White, False, 0)
+        draw_text(BG_TEXT, 5, 30, Color4.White, False, 0)
 
         'Draw Bargraph
         GL.Enable(EnableCap.Blend)
@@ -48,7 +49,7 @@ Module LoadingScreen
                              PROGRESS_BAR_IMAGE_ID)
 
         draw_text_Wrap(description_string, 10, 70,
-                       OpenTK.Graphics.Color4.Coral, False, False, 700.0)
+                       Color4.Coral, False, False, 700.0)
 
         GL.Disable(EnableCap.Blend)
 

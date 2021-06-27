@@ -1,7 +1,8 @@
 ﻿
 Imports System.Math
 Imports System
-Imports OpenTK
+Imports OpenTK.Mathematics
+Imports OpenTK.Windowing.Common
 Imports OpenTK.Platform.Windows
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
@@ -41,10 +42,14 @@ Public Class frmGbufferViewer
     End Sub
 
     Private Sub frmTestView_Load(sender As Object, e As EventArgs) Handles Me.Load
+        Dim glSettings As New OpenTK.WinForms.GLControlSettings With {
+            .API = ContextAPI.OpenGL,
+            .APIVersion = New Version(4, 5),
+            .Profile = ContextProfile.Core,
+            .Flags = ContextFlags.ForwardCompatible
+        }
+        Me.GLC = New OpenTK.WinForms.GLControl()
 
-
-        Me.GLC = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, GraphicsContextFlags.ForwardCompatible)
-        Me.GLC.VSync = False
         Me.GLC.Dock = DockStyle.Fill
         Me.Panel1.Controls.Add(Me.GLC)
 

@@ -197,7 +197,7 @@ Partial Class frmModelViewer
         Me.PerformLayout()
 
     End Sub
-    Friend WithEvents glControl_modelView As OpenTK.GLControl
+    Friend WithEvents glControl_modelView As OpenTK.WinForms.GLControl
 
     Friend WithEvents main_menu As MenuStrip
     Friend WithEvents SplitContainer1 As SplitContainer

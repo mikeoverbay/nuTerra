@@ -45,9 +45,6 @@ Module textRender
             If height = 0 Then
                 Throw New Exception("Height = 0")
             End If
-            If OpenTK.Graphics.GraphicsContext.CurrentContext Is Nothing Then
-                Throw New Exception("No current GL context")
-            End If
             Me.bmp = Nothing
             Me.gfx = Nothing
             Me.bmp = New Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb)

@@ -5,8 +5,10 @@ Imports System.Runtime.InteropServices
 Imports System.Threading
 Imports System.Windows
 Imports OpenTK.Graphics
+Imports OpenTK.Windowing.Common
 Imports OpenTK.Graphics.OpenGL
 Imports System.Reflection
+
 Public Class frmMain
     '          SP2_Width = SplitContainer1.Panel2.Width
     Private Const WM_NCLBUTTONDBLCLK As Integer = &HA3
@@ -238,15 +240,17 @@ Public Class frmMain
         End If
 
         ' Init main gl-control
-        Dim flags As GraphicsContextFlags
+        Dim glSettings As New OpenTK.WinForms.GLControlSettings With {
+            .API = ContextAPI.OpenGL,
+            .APIVersion = New Version(4, 5),
+            .Profile = ContextProfile.Core,
+            .Flags = ContextFlags.ForwardCompatible
+        }
 #If DEBUG Then
-        flags = GraphicsContextFlags.ForwardCompatible Or GraphicsContextFlags.Debug
-#Else
-        flags = GraphicsContextFlags.ForwardCompatible
+        glSettings.Flags = glSettings.Flags Or ContextFlags.Debug
 #End If
 
-        Me.glControl_main = New OpenTK.GLControl(New GraphicsMode(ColorFormat.Empty, 0), 4, 5, flags)
-        Me.glControl_main.VSync = False
+        Me.glControl_main = New OpenTK.WinForms.GLControl(glSettings)
 
         '-----------------------------------------------------------------------------------------
         Me.Show()

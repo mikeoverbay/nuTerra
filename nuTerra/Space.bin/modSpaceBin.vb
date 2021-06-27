@@ -1,6 +1,6 @@
 ﻿Imports System.IO
 Imports System.Text
-Imports OpenTK
+Imports OpenTK.Mathematics
 
 Module modSpaceBin
     Public sectionHeaders As Dictionary(Of String, SectionHeader)

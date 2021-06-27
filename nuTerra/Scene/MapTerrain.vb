@@ -1,5 +1,5 @@
 ﻿Imports System.Runtime.InteropServices
-Imports OpenTK
+Imports OpenTK.Mathematics
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
 

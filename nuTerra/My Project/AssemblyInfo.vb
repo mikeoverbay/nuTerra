@@ -13,7 +13,7 @@ Option Explicit On
 
 <Assembly: System.Reflection.AssemblyProduct("nuTerra"),  _
  Assembly: System.Reflection.AssemblyCopyright("Copyright © 2020-2021"),  _
- Assembly: System.Reflection.AssemblyFileVersion("1.0.0.0"),  _
- Assembly: System.Reflection.AssemblyVersion("1.0.0.0"),  _
+ Assembly: System.Reflection.AssemblyFileVersion("1.0.0"),  _
+ Assembly: System.Reflection.AssemblyVersion("1.0.0"),  _
  Assembly: System.Reflection.AssemblyTitle("nuTerra")> 
 

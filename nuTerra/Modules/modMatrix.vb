@@ -1,10 +1,10 @@
-﻿Imports OpenTK
+﻿Imports OpenTK.Mathematics
 
 Module modMatrix
     Public Function Transform_vertex_by_Matrix4(ByRef v As Vector3, ByRef m As Matrix4) As Vector3
         Dim mm = New Matrix3(m)
         Dim vo As Vector3
-        vo = Vector3.Transform(mm, v)
+        vo = Vector3.TransformColumn(mm, v)
 
         vo.X += m.M41
         vo.Y += m.M42
@@ -20,8 +20,8 @@ Module modMatrix
         Dim viewInv As Matrix4 = Matrix4.Invert(VIEWMATRIX)
         Dim projInv As Matrix4 = Matrix4.Invert(PROJECTIONMATRIX)
 
-        Vector4.Transform(vec, projInv, vec)
-        Vector4.Transform(vec, viewInv, vec)
+        Vector4.TransformRow(vec, projInv, vec)
+        Vector4.TransformRow(vec, viewInv, vec)
 
         If vec.W > Single.Epsilon OrElse vec.W < Single.Epsilon Then
             vec.X /= vec.W
@@ -36,9 +36,9 @@ Module modMatrix
 
         Dim pos As Vector4
 
-        Vector4.Transform(vec, model, pos)
-        Vector4.Transform(pos, map_scene.camera.PerViewData.view, pos)
-        Vector4.Transform(pos, map_scene.camera.PerViewData.projection, pos)
+        Vector4.TransformRow(vec, model, pos)
+        Vector4.TransformRow(pos, map_scene.camera.PerViewData.view, pos)
+        Vector4.TransformRow(pos, map_scene.camera.PerViewData.projection, pos)
 
         pos.X /= pos.W
         pos.Y /= pos.W

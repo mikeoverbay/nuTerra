@@ -398,7 +398,7 @@ Partial Class frmGbufferViewer
     Friend WithEvents quater_scale As System.Windows.Forms.RadioButton
     Friend WithEvents half_scale As System.Windows.Forms.RadioButton
     Friend WithEvents full_scale As System.Windows.Forms.RadioButton
-    Friend WithEvents GLC As OpenTK.GLControl
+    Friend WithEvents GLC As OpenTK.WinForms.GLControl
     Friend WithEvents GroupBox2 As System.Windows.Forms.GroupBox
     Friend WithEvents b_depth As System.Windows.Forms.RadioButton
     Friend WithEvents w_label As System.Windows.Forms.Label

@@ -1,6 +1,6 @@
 ﻿Imports System.IO
 Imports System.Math
-Imports OpenTK
+Imports OpenTK.Mathematics
 Imports OpenTK.Graphics.OpenGL4
 
 Public Class MapFog

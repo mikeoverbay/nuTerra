@@ -1,5 +1,5 @@
 ﻿Imports System.IO
-Imports OpenTK
+Imports OpenTK.Mathematics
 Imports OpenTK.Graphics.OpenGL4
 
 Public Class MapCursor

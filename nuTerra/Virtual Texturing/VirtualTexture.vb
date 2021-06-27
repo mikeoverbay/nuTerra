@@ -1,4 +1,5 @@
-﻿Imports OpenTK.Graphics.OpenGL4
+﻿Imports OpenTK.Mathematics
+Imports OpenTK.Graphics.OpenGL4
 
 ''' <summary>
 ''' Based on: http://linedef.com/virtual-texture-demo.html
@@ -70,7 +71,7 @@ Public Class VirtualTexture
         unbind_textures(4)
     End Sub
 
-    Public Sub DebugDraw(location As Point, size As Point, proj As OpenTK.Matrix4)
+    Public Sub DebugDraw(location As Point, size As Point, proj As Matrix4)
         atlas.color_texture.BindUnit(0)
 
         image2dArrayShader.Use()

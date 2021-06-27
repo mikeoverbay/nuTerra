@@ -1,7 +1,7 @@
 ﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports System.Text
-Imports OpenTK
+Imports OpenTK.Mathematics
 
 Module TerrainBuilder
     Public sb As New StringBuilder

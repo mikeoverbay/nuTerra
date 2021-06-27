@@ -1,21 +1,11 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <TargetFramework>net5.0-windows</TargetFramework>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
-    <ProjectGuid>{62DB32AB-490B-4210-8570-C744B428E69F}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <StartupObject>nuTerra.My.MyApplication</StartupObject>
-    <RootNamespace>nuTerra</RootNamespace>
-    <AssemblyName>nuTerra</AssemblyName>
-    <FileAlignment>512</FileAlignment>
     <MyType>WindowsForms</MyType>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <NuGetPackageImportStamp>
-    </NuGetPackageImportStamp>
-    <TargetFrameworkProfile />
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -30,18 +20,12 @@
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
-  </PropertyGroup>
-  <PropertyGroup>
-    <OptionExplicit>On</OptionExplicit>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
   </PropertyGroup>
   <PropertyGroup>
     <OptionCompare>Text</OptionCompare>
-  </PropertyGroup>
-  <PropertyGroup>
-    <OptionStrict>Off</OptionStrict>
-  </PropertyGroup>
-  <PropertyGroup>
-    <OptionInfer>On</OptionInfer>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationManifest>My Project\app.manifest</ApplicationManifest>
@@ -56,248 +40,76 @@
     <GenerateManifests>false</GenerateManifests>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <DebugSymbols>true</DebugSymbols>
-    <DefineDebug>true</DefineDebug>
-    <DefineTrace>true</DefineTrace>
     <OutputPath>bin\x64\Debug\</OutputPath>
-    <WarningLevel>1</WarningLevel>
     <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <DebugSymbols>true</DebugSymbols>
-    <DefineTrace>true</DefineTrace>
     <OutputPath>bin\x64\Release\</OutputPath>
-    <WarningLevel>1</WarningLevel>
     <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="DotNetZip, Version=1.15.0.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">
-      <HintPath>..\packages\DotNetZip.1.15.0\lib\net40\DotNetZip.dll</HintPath>
-    </Reference>
-    <Reference Include="FastColoredTextBox, Version=2.16.24.0, Culture=neutral, PublicKeyToken=fb8aa12b994ef61b, processorArchitecture=MSIL">
-      <HintPath>..\packages\FCTB.2.16.24\lib\FastColoredTextBox.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="NGettext, Version=0.6.1.0, Culture=neutral, PublicKeyToken=08d3d1c89dfd2985, processorArchitecture=MSIL">
-      <HintPath>..\packages\NGettext.0.6.6\lib\net46\NGettext.dll</HintPath>
-    </Reference>
-    <Reference Include="OpenTK, Version=3.3.1.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
-      <HintPath>..\packages\OpenTK.3.3.1\lib\net20\OpenTK.dll</HintPath>
-    </Reference>
-    <Reference Include="OpenTK.GLControl, Version=3.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
-      <HintPath>..\packages\OpenTK.GLControl.3.1.0\lib\net20\OpenTK.GLControl.dll</HintPath>
-    </Reference>
     <Reference Include="Pngcs, Version=1.1.4.1, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>.\Pngcs.dll</HintPath>
     </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Import Include="Microsoft.VisualBasic" />
-    <Import Include="System" />
-    <Import Include="System.Collections" />
-    <Import Include="System.Collections.Generic" />
-    <Import Include="System.Data" />
     <Import Include="System.Drawing" />
-    <Import Include="System.Diagnostics" />
     <Import Include="System.Windows.Forms" />
-    <Import Include="System.Linq" />
-    <Import Include="System.Xml.Linq" />
-    <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FBOs\FBO_ShadowMapping.vb" />
-    <Compile Include="OpenGL\GLVertexArray.vb" />
-    <Compile Include="ResMgr\packed_section.vb" />
-    <Compile Include="ResMgr\ResMgr.vb" />
-    <Compile Include="FBOs\FBO_MiniMap.vb" />
-    <Compile Include="FBOs\FBO_main.vb" />
-    <Compile Include="FBOs\FBO_Mega.vb" />
-    <Compile Include="FBOs\FBO_Mixer.vb" />
-    <Compile Include="Forms\frmLightSettings.designer.vb">
+    <Compile Update="Forms\frmLightSettings.designer.vb">
       <DependentUpon>frmLightSettings.vb</DependentUpon>
     </Compile>
-    <Compile Include="Forms\frmLightSettings.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\frmMain.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\frmMain.Designer.vb">
-      <DependentUpon>frmMain.vb</DependentUpon>
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\frmGbufferViewer.Designer.vb">
+    <Compile Update="Forms\frmGbufferViewer.Designer.vb">
       <DependentUpon>frmGbufferViewer.vb</DependentUpon>
     </Compile>
-    <Compile Include="Forms\frmGbufferViewer.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\frmModelViewer.Designer.vb">
+    <Compile Update="Forms\frmModelViewer.Designer.vb">
       <DependentUpon>frmModelViewer.vb</DependentUpon>
     </Compile>
-    <Compile Include="Forms\frmModelViewer.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\frmScreenCap.Designer.vb">
+    <Compile Update="Forms\frmScreenCap.Designer.vb">
       <DependentUpon>frmScreenCap.vb</DependentUpon>
     </Compile>
-    <Compile Include="Forms\frmScreenCap.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\frmShowText.Designer.vb">
+    <Compile Update="Forms\frmShowText.Designer.vb">
       <DependentUpon>frmShowText.vb</DependentUpon>
     </Compile>
-    <Compile Include="Forms\frmShowText.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\SettingsPropertyGrid.vb" />
-    <Compile Include="GlobalSuppressions.vb" />
-    <Compile Include="MapLoader\ChunkFunctions.vb" />
-    <Compile Include="MapLoader\TerrainBuilder.vb" />
-    <Compile Include="MapLoader\TerrainTextureFunctions.vb" />
-    <Compile Include="ModelLoaders\modXfile.vb" />
-    <Compile Include="Modules\modCubeMapLoader.vb" />
-    <Compile Include="Modules\modFrustum.vb" />
-    <Compile Include="OpenGL\GLBuffer.vb" />
-    <Compile Include="OpenGL\GLFramebuffer.vb" />
-    <Compile Include="OpenGL\GLRenderbuffer.vb" />
-    <Compile Include="OpenGL\GLTexture.vb" />
-    <Compile Include="OpenGL\modOpenGLAliases.vb" />
-    <Compile Include="RenderEngine\LoadingScreen.vb" />
-    <Compile Include="RenderEngine\MapMenuScreen.vb" />
-    <Compile Include="ModelLoaders\modUtilities.vb" />
-    <Compile Include="ModelLoaders\PrimitiveLoader.vb" />
-    <Compile Include="Modules\modGlobalVars.vb" />
-    <Compile Include="Modules\modMatrix.vb" />
-    <Compile Include="Modules\modTypeStructures.vb" />
-    <Compile Include="My Project\AssemblyInfo.vb" />
-    <Compile Include="My Project\Application.Designer.vb">
+    <Compile Update="My Project\Application.Designer.vb">
       <AutoGen>True</AutoGen>
       <DependentUpon>Application.myapp</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
-    <Compile Include="My Project\Resources.Designer.vb">
+    <Compile Update="My Project\Resources.Designer.vb">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="My Project\Settings.Designer.vb">
+    <Compile Update="My Project\Settings.Designer.vb">
       <AutoGen>True</AutoGen>
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
-    <Compile Include="OpenGL\modOpenGL.vb" />
-    <Compile Include="RenderEngine\ModelPicker.vb" />
-    <Compile Include="RenderEngine\modRender.vb" />
-    <Compile Include="RenderEngine\textRender.vb" />
-    <Compile Include="Scene\MapBaseRings.vb" />
-    <Compile Include="Scene\MapCamera.vb" />
-    <Compile Include="Scene\MapCursor.vb" />
-    <Compile Include="Scene\MapFog.vb" />
-    <Compile Include="Scene\MapMinimap.vb" />
-    <Compile Include="Scene\MapScene.vb" />
-    <Compile Include="Forms\frmProgramEditor.designer.vb">
+    <Compile Update="Forms\frmProgramEditor.designer.vb">
       <DependentUpon>frmProgramEditor.vb</DependentUpon>
     </Compile>
-    <Compile Include="Forms\frmProgramEditor.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\frmShaderError.Designer.vb">
+    <Compile Update="Forms\frmShaderError.Designer.vb">
       <DependentUpon>frmShaderError.vb</DependentUpon>
     </Compile>
-    <Compile Include="Forms\frmShaderError.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Scene\MapSky.vb" />
-    <Compile Include="Scene\MapStaticModels.vb" />
-    <Compile Include="Scene\MapTerrain.vb" />
-    <Compile Include="Scene\MapTrees.vb" />
-    <Compile Include="Scene\MapWater.vb" />
-    <Compile Include="ShaderEditor\ShaderLoader.vb" />
-    <Compile Include="Space.bin\modSpaceBin.vb" />
-    <Compile Include="Space.bin\modSpaceBinFunctions.vb" />
-    <Compile Include="Space.bin\modSpacedBinVars.vb" />
-    <Compile Include="MapLoader\MapLoader.vb" />
-    <Compile Include="Virtual Texturing\FeedbackBuffer.vb" />
-    <Compile Include="Virtual Texturing\LRUCache.vb" />
-    <Compile Include="Virtual Texturing\Mega Texture\MakeMega.vb" />
-    <Compile Include="Virtual Texturing\Page.vb" />
-    <Compile Include="Virtual Texturing\PageCache.vb" />
-    <Compile Include="Virtual Texturing\PageCount.vb" />
-    <Compile Include="Virtual Texturing\PageIndexer.vb" />
-    <Compile Include="Virtual Texturing\PageLoader.vb" />
-    <Compile Include="Virtual Texturing\PageTable.vb" />
-    <Compile Include="Virtual Texturing\TextureAtlas.vb" />
-    <Compile Include="TextureEngine\TextureLoaders.vb" />
-    <Compile Include="Virtual Texturing\VirtualTexture.vb" />
-    <Compile Include="Virtual Texturing\VirtualTextureInfo.vb" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Forms\frmLightSettings.resx">
-      <DependentUpon>frmLightSettings.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmMain.resx">
-      <DependentUpon>frmMain.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmGbufferViewer.resx">
-      <DependentUpon>frmGbufferViewer.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmModelViewer.resx">
-      <DependentUpon>frmModelViewer.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmScreenCap.resx">
-      <DependentUpon>frmScreenCap.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmShowText.resx">
-      <DependentUpon>frmShowText.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="My Project\Resources.resx">
-      <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.vb</LastGenOutput>
-      <CustomToolNamespace>My.Resources</CustomToolNamespace>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmProgramEditor.resx">
-      <DependentUpon>frmProgramEditor.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\frmShaderError.resx">
-      <DependentUpon>frmShaderError.vb</DependentUpon>
-    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig">
       <Link>.editorconfig</Link>
     </None>
-    <None Include="My Project\app.manifest" />
-    <None Include="My Project\Application.myapp">
+    <None Update="My Project\Application.myapp">
       <Generator>MyApplicationCodeGenerator</Generator>
       <LastGenOutput>Application.Designer.vb</LastGenOutput>
     </None>
-    <None Include="My Project\Settings.settings">
+    <None Update="My Project\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
-      <CustomToolNamespace>My</CustomToolNamespace>
-      <LastGenOutput>Settings.Designer.vb</LastGenOutput>
     </None>
-    <None Include="App.config" />
-    <None Include="OpenTK.dll.config" />
-    <None Include="packages.config" />
-    <None Include="README.md" />
-    <None Include="Resources\compass.x" />
-    <None Include="Resources\moon.x">
+    <None Update="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Content Include="Resources\blank12x12.dds">
@@ -397,67 +209,67 @@
     <Content Include="shaders\Developer\outlandNormals.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <None Include="shaders\Developer\TerrainNormalsHQ.frag">
+    <None Update="shaders\Developer\TerrainNormalsHQ.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Developer\TerrainNormalsHQ.geom">
+    <None Update="shaders\Developer\TerrainNormalsHQ.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Developer\TerrainNormalsHQ.tesc">
+    <None Update="shaders\Developer\TerrainNormalsHQ.tesc">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Developer\TerrainNormalsHQ.tese">
+    <None Update="shaders\Developer\TerrainNormalsHQ.tese">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Developer\TerrainNormalsHQ.vert">
+    <None Update="shaders\Developer\TerrainNormalsHQ.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\mapMixing\MegaMixer.frag">
+    <None Update="shaders\mapMixing\MegaMixer.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\mapMixing\MegaMixer.vert">
+    <None Update="shaders\mapMixing\MegaMixer.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Model_shaders\mDepthWrite_light.geom">
+    <None Update="shaders\Model_shaders\mDepthWrite_light.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Model_shaders\mDepthWrite_light.frag">
+    <None Update="shaders\Model_shaders\mDepthWrite_light.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Model_shaders\mDepthWrite_light.vert">
+    <None Update="shaders\Model_shaders\mDepthWrite_light.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Outland_shaders\outland.frag">
+    <None Update="shaders\Outland_shaders\outland.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Outland_shaders\outland.vert">
+    <None Update="shaders\Outland_shaders\outland.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\TerrainHQ.tesc">
+    <None Update="shaders\Terrain_shaders\TerrainHQ.tesc">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\TerrainHQ.tese">
+    <None Update="shaders\Terrain_shaders\TerrainHQ.tese">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Content Include="shaders\Terrain_shaders\TerrainLQ.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <None Include="shaders\Terrain_shaders\TerrainVTMIP.frag">
+    <None Update="shaders\Terrain_shaders\TerrainVTMIP.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Terrain_shaders\TerrainVTMIP.vert">
+    <None Update="shaders\Terrain_shaders\TerrainVTMIP.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Trials\cull-invalidate.comp">
+    <None Update="shaders\Trials\cull-invalidate.comp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Trials\cull-raster.frag">
+    <None Update="shaders\Trials\cull-raster.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Trials\cull-raster.geom">
+    <None Update="shaders\Trials\cull-raster.geom">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="shaders\Trials\cull-raster.vert">
+    <None Update="shaders\Trials\cull-raster.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Content Include="shaders\Utility\explode_type_1_.frag">
@@ -609,9 +421,6 @@
     <Folder Include="shaders\User_GUI\" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\question.png" />
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="data\filtered_strings.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -667,7 +476,6 @@
     <Content Include="Resources\mini_trim_vert.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <None Include="Resources\move_window.png" />
     <Content Include="Resources\noise.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -708,28 +516,28 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets'))" />
-  </Target>
   <PropertyGroup>
-    <PostBuildEvent>del DotNetZip.pdb &amp;&amp; del OpenTK.GLControl.pdb &amp;&amp; del OpenTK.pdb &amp;&amp; del *.xml &amp;&amp; $(ProjectDir)shaders\to_spirv.cmd</PostBuildEvent>
+    <PostBuildEvent></PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <ProductName>$(AssemblyName)</ProductName>
     <Version Condition=" '$(RUN_NUMBER)' != '' ">1.0.0.$(RUN_NUMBER)</Version>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
   <ItemGroup>
     <AssemblyVersionFiles Include="$(MSBuildProjectDirectory)\My Project\AssemblyInfo.vb" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\nuTerraCPP\nuTerraCPP.vcxproj">
-      <Project>{3a73aa31-20e9-422f-924e-67fcecf09c3e}</Project>
-      <Name>nuTerraCPP</Name>
-    </ProjectReference>
+    <ProjectReference Include="..\nuTerraCPP\nuTerraCPP.vcxproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="DotNetZip" Version="1.15.0" />
+    <PackageReference Include="FCTB" Version="2.16.24" />
+    <PackageReference Include="NGettext" Version="0.6.6" />
+    <PackageReference Include="OpenTK" Version="4.6.4" />
+    <PackageReference Include="OpenTK.WinForms.Radegast" Version="0.1.0" />
   </ItemGroup>
   <Target Name="AssemblyVersion" Inputs="@(AssemblyVersionFiles)" Outputs="UpdatedAssemblyVersionFiles" BeforeTargets="PrepareForBuild">
     <Attrib Files="%(AssemblyVersionFiles.FullPath)" Normal="true" />
@@ -738,11 +546,4 @@
     </AssemblyInfo>
   </Target>
   <Import Project="..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets" Condition="Exists('..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets')" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
 </Project>

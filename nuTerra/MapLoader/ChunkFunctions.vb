@@ -3,7 +3,7 @@ Imports System.Math
 Imports System.Runtime.InteropServices
 Imports Hjg.Pngcs
 Imports Ionic
-Imports OpenTK
+Imports OpenTK.Mathematics
 Imports OpenTK.Graphics.OpenGL
 
 Module ChunkFunctions
