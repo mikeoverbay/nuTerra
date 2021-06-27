@@ -521,14 +521,6 @@ try_again:
         '-----------------------------------------------------------------------------------------
 
         USE_REPRESENTATIVE_TEST = GLCapabilities.has_GL_NV_representative_fragment_test
-        USE_NV_DRAW_TEXTURE = GLCapabilities.has_GL_NV_draw_texture
-        USE_SPIRV_SHADERS = GLCapabilities.has_GL_ARB_gl_spirv 'core since 4.6
-
-#If DEBUG Then
-        ' Disable for debug builds
-        USE_SPIRV_SHADERS = False
-        USE_NV_DRAW_TEXTURE = False
-#End If
 
 #If DEBUG Then
         ' Just check

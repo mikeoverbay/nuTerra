@@ -1,8 +1,7 @@
-﻿Imports System.Math
-Imports System.Runtime.InteropServices
-Imports OpenTK.Mathematics
+﻿Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
+Imports OpenTK.Mathematics
 
 Module modRender
     Dim temp_timer As New Stopwatch

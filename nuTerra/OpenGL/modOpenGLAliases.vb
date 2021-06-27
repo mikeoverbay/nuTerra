@@ -23,13 +23,6 @@ Public Module modOpenGLAliases
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
     Public Sub unbind_textures(count As Integer)
-#If False Then
-        ' SHOULD WE USE MULTI UNBIND?
-        GL.BindTextures(0, count, 0)
-#Else
-        For i = 0 To count - 1
-            GL.BindTextureUnit(i, 0)
-        Next
-#End If
+        GL.BindTextures(0, count, Unsafe.NullRef(Of Integer))
     End Sub
 End Module

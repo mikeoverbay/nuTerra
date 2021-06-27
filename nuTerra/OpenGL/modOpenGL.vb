@@ -1,8 +1,7 @@
-﻿Imports System.Math
-Imports System.Runtime.InteropServices
-Imports OpenTK.Mathematics
+﻿Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics
-Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Graphics.OpenGL4
+Imports OpenTK.Mathematics
 
 Module modOpenGL
     Public defaultVao As GLVertexArray
@@ -20,8 +19,6 @@ Module modOpenGL
 
         Public Shared has_GL_NV_representative_fragment_test As Boolean
         Public Shared has_GL_NV_mesh_shader As Boolean
-        Public Shared has_GL_NV_draw_texture As Boolean
-        Public Shared has_GL_ARB_gl_spirv As Boolean
         Public Shared has_GL_NVX_gpu_memory_info As Boolean
 
         Public Shared ReadOnly Property memory_usage As Integer
@@ -40,15 +37,12 @@ Module modOpenGL
             maxArrayTextureLayers = GL.GetInteger(GetPName.MaxArrayTextureLayers)
             maxUniformBufferBindings = GL.GetInteger(GetPName.MaxUniformBufferBindings)
             maxColorAttachments = GL.GetInteger(GetPName.MaxColorAttachments)
-            maxAniso = GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt)
-            maxAniso = GL.GetFloat(ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt)
+            maxAniso = GL.GetFloat(OpenGL.ExtTextureFilterAnisotropic.MaxTextureMaxAnisotropyExt)
             maxVertexOutputComponents = GL.GetInteger(GetPName.MaxVertexOutputComponents)
 
             ' useful extensions
             has_GL_NV_representative_fragment_test = extensions.Contains("GL_NV_representative_fragment_test")
             has_GL_NV_mesh_shader = extensions.Contains("GL_NV_mesh_shader")
-            has_GL_NV_draw_texture = extensions.Contains("GL_NV_draw_texture")
-            has_GL_ARB_gl_spirv = extensions.Contains("GL_ARB_gl_spirv")
             has_GL_NVX_gpu_memory_info = extensions.Contains("GL_NVX_gpu_memory_info")
 
             If has_GL_NVX_gpu_memory_info Then
@@ -67,8 +61,6 @@ Module modOpenGL
 
             LogThis("GL_NV_representative_fragment_test = {0}", has_GL_NV_representative_fragment_test)
             LogThis("GL_NV_mesh_shader = {0}", has_GL_NV_mesh_shader)
-            LogThis("GL_NV_draw_texture = {0}", has_GL_NV_draw_texture)
-            LogThis("GL_ARB_gl_spirv = {0}", has_GL_ARB_gl_spirv)
             LogThis("GL_NVX_gpu_memory_info = {0}", has_GL_NVX_gpu_memory_info)
 
             LogThis("total_mem_mb = {0}", total_mem_mb)
@@ -234,63 +226,45 @@ Module modOpenGL
     End Sub
 
     Public Sub draw_image_rectangle(rect As RectangleF, image As GLTexture)
-        If USE_NV_DRAW_TEXTURE Then
-            Dim h = frmMain.glControl_main.Height
-            Dim x0 = rect.Left
-            Dim x1 = rect.Right
-            Dim y0 = h - rect.Top
-            Dim y1 = h - rect.Bottom
-            GL.NV.DrawTexture(image.texture_id, 0, x0, y0, x1, y1, 0, 0, 0, 1, 1)
-        Else
-            image2dShader.Use()
-            image.BindUnit(0)
-            GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
-            GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-            GL.Uniform4(image2dShader("rect"),
+        image2dShader.Use()
+        image.BindUnit(0)
+        GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
+        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform4(image2dShader("rect"),
                     rect.Left,
                     -rect.Top,
                     rect.Right,
                     -rect.Bottom)
 
-            defaultVao.Bind()
-            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-            image2dShader.StopUse()
+        defaultVao.Bind()
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        image2dShader.StopUse()
 
-            ' UNBIND
-            GL.BindTextureUnit(0, 0)
-        End If
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
     End Sub
 
     Public Sub draw_image_rectangle_flipY(rect As RectangleF, image As GLTexture)
-        If USE_NV_DRAW_TEXTURE Then
-            Dim h = frmMain.glControl_main.Height
-            Dim x0 = rect.Left
-            Dim x1 = rect.Right
-            Dim y0 = h - rect.Top
-            Dim y1 = h - rect.Bottom
-            GL.NV.DrawTexture(image.texture_id, 0, x0, y0, x1, y1, 0, 0, 0, 1, 1)
-        Else
-            image2dShader.Use()
+        image2dShader.Use()
 
-            image.BindUnit(0)
-            GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
+        image.BindUnit(0)
+        GL.Uniform2(image2dShader("uv_scale"), 1.0F, 1.0F)
 
-            GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-            GL.Uniform4(image2dShader("rect"),
+        GL.UniformMatrix4(image2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform4(image2dShader("rect"),
                         rect.Left,
                         -rect.Bottom,
                         rect.Right,
                         -rect.Top)
 
-            defaultVao.Bind()
-            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-            'GL.BindVertexArray(0)
+        defaultVao.Bind()
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        'GL.BindVertexArray(0)
 
-            image2dShader.StopUse()
+        image2dShader.StopUse()
 
-            ' UNBIND
-            GL.BindTextureUnit(0, 0)
-        End If
+        ' UNBIND
+        GL.BindTextureUnit(0, 0)
     End Sub
 
     Private Function pack_10(x As Single) As UInt32

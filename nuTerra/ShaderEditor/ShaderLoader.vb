@@ -302,22 +302,16 @@ Module ShaderLoader
         If v IsNot Nothing Then
             vertexObject = GL.CreateShader(ShaderType.VertexShader)
 
-            If USE_SPIRV_SHADERS AndAlso File.Exists(v + ".spv") Then
-                Dim vs_buf = File.ReadAllBytes(v + ".spv")
-                GL.ShaderBinary(1, vertexObject, DirectCast(&H9551, BinaryFormat), vs_buf, vs_buf.Length)
-                GL.SpecializeShader(vertexObject, "main", 0, 0, 0)
-            Else
-                Using vs_s As New StreamReader(v)
-                    Dim vs = vs_s.ReadLine() & vbNewLine
-                    For Each item In defines
-                        vs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
-                    Next
-                    vs += vs_s.ReadToEnd()
-                    GL.ShaderSource(vertexObject, vs)
-                End Using
+            Using vs_s As New StreamReader(v)
+                Dim vs = vs_s.ReadLine() & vbCrLf
+                For Each item In defines
+                    vs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
+                Next
+                vs += vs_s.ReadToEnd()
+                GL.ShaderSource(vertexObject, vs)
+            End Using
 
-                GL.Arb.CompileShaderInclude(vertexObject, incPaths.Length, incPaths, incPathLengths)
-            End If
+            GL.Arb.CompileShaderInclude(vertexObject, incPaths.Length, incPaths, incPathLengths)
 
             ' Get & check status after compile
             GL.GetShader(vertexObject, ShaderParameter.CompileStatus, status_code)
@@ -335,22 +329,16 @@ Module ShaderLoader
         If tc IsNot Nothing Then
             tessControlObject = GL.CreateShader(ShaderType.TessControlShader)
 
-            If USE_SPIRV_SHADERS AndAlso File.Exists(tc + ".spv") Then
-                Dim tcs_buf = File.ReadAllBytes(tc + ".spv")
-                GL.ShaderBinary(1, tessControlObject, DirectCast(&H9551, BinaryFormat), tcs_buf, tcs_buf.Length)
-                GL.SpecializeShader(tessControlObject, "main", 0, 0, 0)
-            Else
-                Using tcs_s As New StreamReader(tc)
-                    Dim tcs = tcs_s.ReadLine() & vbNewLine
-                    For Each item In defines
-                        tcs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
-                    Next
-                    tcs += tcs_s.ReadToEnd()
-                    GL.ShaderSource(tessControlObject, tcs)
-                End Using
+            Using tcs_s As New StreamReader(tc)
+                Dim tcs = tcs_s.ReadLine() & vbCrLf
+                For Each item In defines
+                    tcs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
+                Next
+                tcs += tcs_s.ReadToEnd()
+                GL.ShaderSource(tessControlObject, tcs)
+            End Using
 
-                GL.Arb.CompileShaderInclude(tessControlObject, incPaths.Length, incPaths, incPathLengths)
-            End If
+            GL.Arb.CompileShaderInclude(tessControlObject, incPaths.Length, incPaths, incPathLengths)
 
             ' Get & check status after compile
             GL.GetShader(tessControlObject, ShaderParameter.CompileStatus, status_code)
@@ -369,22 +357,16 @@ Module ShaderLoader
         If te IsNot Nothing Then
             tessEvaluationObject = GL.CreateShader(ShaderType.TessEvaluationShader)
 
-            If USE_SPIRV_SHADERS AndAlso File.Exists(te + ".spv") Then
-                Dim tes_buf = File.ReadAllBytes(te + ".spv")
-                GL.ShaderBinary(1, tessEvaluationObject, DirectCast(&H9551, BinaryFormat), tes_buf, tes_buf.Length)
-                GL.SpecializeShader(tessEvaluationObject, "main", 0, 0, 0)
-            Else
-                Using tes_s As New StreamReader(te)
-                    Dim tes = tes_s.ReadLine() & vbNewLine
-                    For Each item In defines
-                        tes += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
-                    Next
-                    tes += tes_s.ReadToEnd()
-                    GL.ShaderSource(tessEvaluationObject, tes)
-                End Using
+            Using tes_s As New StreamReader(te)
+                Dim tes = tes_s.ReadLine() & vbCrLf
+                For Each item In defines
+                    tes += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
+                Next
+                tes += tes_s.ReadToEnd()
+                GL.ShaderSource(tessEvaluationObject, tes)
+            End Using
 
-                GL.Arb.CompileShaderInclude(tessEvaluationObject, incPaths.Length, incPaths, incPathLengths)
-            End If
+            GL.Arb.CompileShaderInclude(tessEvaluationObject, incPaths.Length, incPaths, incPathLengths)
 
             ' Get & check status after compile
             GL.GetShader(tessEvaluationObject, ShaderParameter.CompileStatus, status_code)
@@ -404,22 +386,16 @@ Module ShaderLoader
         If f IsNot Nothing Then
             fragmentObject = GL.CreateShader(ShaderType.FragmentShader)
 
-            If USE_SPIRV_SHADERS AndAlso File.Exists(f + ".spv") Then
-                Dim fs_buf = File.ReadAllBytes(f + ".spv")
-                GL.ShaderBinary(1, fragmentObject, DirectCast(&H9551, BinaryFormat), fs_buf, fs_buf.Length)
-                GL.SpecializeShader(fragmentObject, "main", 0, 0, 0)
-            Else
-                Using fs_s As New StreamReader(f)
-                    Dim fs = fs_s.ReadLine() & vbNewLine
-                    For Each item In defines
-                        fs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
-                    Next
-                    fs += fs_s.ReadToEnd()
-                    GL.ShaderSource(fragmentObject, fs)
-                End Using
+            Using fs_s As New StreamReader(f)
+                Dim fs = fs_s.ReadLine() & vbCrLf
+                For Each item In defines
+                    fs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
+                Next
+                fs += fs_s.ReadToEnd()
+                GL.ShaderSource(fragmentObject, fs)
+            End Using
 
-                GL.Arb.CompileShaderInclude(fragmentObject, incPaths.Length, incPaths, incPathLengths)
-            End If
+            GL.Arb.CompileShaderInclude(fragmentObject, incPaths.Length, incPaths, incPathLengths)
 
             ' Get & check status after compile
             GL.GetShader(fragmentObject, ShaderParameter.CompileStatus, status_code)
@@ -441,9 +417,9 @@ Module ShaderLoader
             geomObject = GL.CreateShader(ShaderType.GeometryShader)
 
             Using gs_s As New StreamReader(g)
-                Dim gs = gs_s.ReadLine() & vbNewLine
+                Dim gs = gs_s.ReadLine() & vbCrLf
                 For Each item In defines
-                    gs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
+                    gs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
                 Next
                 gs += gs_s.ReadToEnd()
                 GL.ShaderSource(geomObject, gs)
@@ -471,22 +447,16 @@ Module ShaderLoader
         If c IsNot Nothing Then
             computeObject = GL.CreateShader(ShaderType.ComputeShader)
 
-            If USE_SPIRV_SHADERS AndAlso File.Exists(c + ".spv") Then
-                Dim cs_buf = File.ReadAllBytes(c + ".spv")
-                GL.ShaderBinary(1, computeObject, DirectCast(&H9551, BinaryFormat), cs_buf, cs_buf.Length)
-                GL.SpecializeShader(computeObject, "main", 0, 0, 0)
-            Else
-                Using cs_s As New StreamReader(c)
-                    Dim cs = cs_s.ReadLine() & vbNewLine
-                    For Each item In defines
-                        cs += String.Format("#define {0} {1}" & vbNewLine, item.Key, item.Value)
-                    Next
-                    cs += cs_s.ReadToEnd()
-                    GL.ShaderSource(computeObject, cs)
-                End Using
+            Using cs_s As New StreamReader(c)
+                Dim cs = cs_s.ReadLine() & vbCrLf
+                For Each item In defines
+                    cs += String.Format("#define {0} {1}" & vbCrLf, item.Key, item.Value)
+                Next
+                cs += cs_s.ReadToEnd()
+                GL.ShaderSource(computeObject, cs)
+            End Using
 
-                GL.Arb.CompileShaderInclude(computeObject, incPaths.Length, incPaths, incPathLengths)
-            End If
+            GL.Arb.CompileShaderInclude(computeObject, incPaths.Length, incPaths, incPathLengths)
 
             ' Get & check status after compile
             GL.GetShader(computeObject, ShaderParameter.CompileStatus, status_code)

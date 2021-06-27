@@ -84,23 +84,4 @@ Public Class GLTexture
         ALL_SIZE -= size
         CheckGLError()
     End Sub
-
-#If DEBUG Then
-    Public ReadOnly Property DEBUG_PARAMS As Dictionary(Of String, String)
-        Get
-            Dim result As New Dictionary(Of String, String)
-            Dim params As New Dictionary(Of GetTextureParameter, System.Type)
-            params(GetTextureParameter.TextureWrapS) = GetType(TextureWrapMode)
-            params(GetTextureParameter.TextureWrapT) = GetType(TextureWrapMode)
-            params(GetTextureParameter.TextureMinFilter) = GetType(TextureMinFilter)
-            params(GetTextureParameter.TextureMagFilter) = GetType(TextureMagFilter)
-            For Each param In params
-                Dim val As Integer
-                GL.GetTextureParameter(texture_id, param.Key, val)
-                result(param.Key.ToString) = [Enum].Parse(param.Value, val).ToString
-            Next
-            Return result
-        End Get
-    End Property
-#End If
 End Class
