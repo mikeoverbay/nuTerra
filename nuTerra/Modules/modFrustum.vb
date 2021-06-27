@@ -87,28 +87,28 @@ Module modFrustum
 
     Public Function CubeInFrustum(bb() As Vector3) As Boolean
         For p = 0 To 5
-            If (frustum(p).X * (bb(0).X) + frustum(p).Y * (bb(0).Y) + frustum(p).Z * (bb(0).Z) + frustum(p).W > 0) Then
+            If Vector3.Dot(frustum(p).Xyz, bb(0)) + frustum(p).W > 0 Then
                 Continue For
             End If
-            If (frustum(p).X * (bb(1).X) + frustum(p).Y * (bb(1).Y) + frustum(p).Z * (bb(1).Z) + frustum(p).W > 0) Then
+            If Vector3.Dot(frustum(p).Xyz, bb(1)) + frustum(p).W > 0 Then
                 Continue For
             End If
-            If (frustum(p).X * (bb(2).X) + frustum(p).Y * (bb(2).Y) + frustum(p).Z * (bb(2).Z) + frustum(p).W > 0) Then
+            If Vector3.Dot(frustum(p).Xyz, bb(2)) + frustum(p).W > 0 Then
                 Continue For
             End If
-            If (frustum(p).X * (bb(3).X) + frustum(p).Y * (bb(3).Y) + frustum(p).Z * (bb(3).Z) + frustum(p).W > 0) Then
+            If Vector3.Dot(frustum(p).Xyz, bb(3)) + frustum(p).W > 0 Then
                 Continue For
             End If
-            If (frustum(p).X * (bb(4).X) + frustum(p).Y * (bb(4).Y) + frustum(p).Z * (bb(4).Z) + frustum(p).W > 0) Then
+            If Vector3.Dot(frustum(p).Xyz, bb(4)) + frustum(p).W > 0 Then
                 Continue For
             End If
-            If (frustum(p).X * (bb(5).X) + frustum(p).Y * (bb(5).Y) + frustum(p).Z * (bb(5).Z) + frustum(p).W > 0) Then
+            If Vector3.Dot(frustum(p).Xyz, bb(5)) + frustum(p).W > 0 Then
                 Continue For
             End If
-            If (frustum(p).X * (bb(6).X) + frustum(p).Y * (bb(6).Y) + frustum(p).Z * (bb(6).Z) + frustum(p).W > 0) Then
+            If Vector3.Dot(frustum(p).Xyz, bb(6)) + frustum(p).W > 0 Then
                 Continue For
             End If
-            If (frustum(p).X * (bb(7).X) + frustum(p).Y * (bb(7).Y) + frustum(p).Z * (bb(7).Z) + frustum(p).W > 0) Then
+            If Vector3.Dot(frustum(p).Xyz, bb(7)) + frustum(p).W > 0 Then
                 Continue For
             End If
             Return True
