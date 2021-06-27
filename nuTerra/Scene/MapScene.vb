@@ -19,6 +19,9 @@ Public Class MapScene
     Public cursor As New MapCursor(Me)
     Public camera As New MapCamera(Me)
 
+    Public CC_LUT_ID As GLTexture
+    Public ENV_BRDF_LUT_ID As GLTexture
+
     Public shadow_mapping_matrix As GLBuffer
 
     Public Sub New(mapName As String)
@@ -136,6 +139,9 @@ Public Class MapScene
 
         ' gl buffers
         shadow_mapping_matrix.Dispose()
+
+        CC_LUT_ID.Dispose()
+        ENV_BRDF_LUT_ID.Dispose()
 
         mouse_timer.Dispose()
     End Sub

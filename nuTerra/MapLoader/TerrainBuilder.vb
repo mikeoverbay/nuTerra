@@ -535,7 +535,7 @@ Module TerrainBuilder
 
         ' get skybox and cube texture paths
         map_scene.sky.skybox_mdl = get_X_model(Application.StartupPath + "\resources\skyDome.x")
-        CUBE_TEXTURE_PATH = "spaces/" + abs_name + "/environments/" + activeEnvironment + "/probes/global/pmrem.dds"
+        map_scene.sky.CUBE_TEXTURE_PATH = "spaces/" + abs_name + "/environments/" + activeEnvironment + "/probes/global/pmrem.dds"
 
         Dim skyBox_visual_path = String.Format("spaces/{0}/environments/{1}/skyDome/forward/skyBox.visual_processed", abs_name, activeEnvironment)
         Dim skyBox_visual = ResMgr.openXML(skyBox_visual_path)
@@ -550,16 +550,15 @@ Module TerrainBuilder
         CommonProperties.ambientColorForward = vector3_from_string(day_night_cycle_node("ambientColorForward").InnerText)
         TIME_OF_DAY = Convert.ToSingle(day_night_cycle_node("starttime").InnerText)
         SUN_SCALE = Convert.ToSingle(day_night_cycle_node("sunScaleForward").InnerText)
-        SUN_TEXTURE_PATH = day_night_cycle_node("sunTextureForward").InnerText
-        SUN_RENDER_COLOR = vector3_from_string(day_night_cycle_node("sunColorForward").InnerText)
+        map_scene.sky.SUN_TEXTURE_PATH = day_night_cycle_node("sunTextureForward").InnerText
 
         If SUN_SCALE = 0 Then
             SUN_SCALE = 5.0F
         End If
 
         'default
-        If SUN_TEXTURE_PATH = "" Then
-            SUN_TEXTURE_PATH = "system/maps/PSF2_ldr.dds"
+        If map_scene.sky.SUN_TEXTURE_PATH = "" Then
+            map_scene.sky.SUN_TEXTURE_PATH = "system/maps/PSF2_ldr.dds"
         End If
 
         'sun rotation/location

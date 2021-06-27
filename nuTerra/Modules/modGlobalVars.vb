@@ -48,27 +48,17 @@ Module modGlobalVars
     Public FXAA_text As String = "FXAA On"
     Public TIME_OF_DAY As Single
     Public SUN_SCALE As Single
-    Public SUN_TEXTURE_PATH As String
-    Public SUN_TEXTURE_ID As GLTexture
-    Public SUN_RENDER_COLOR As Vector3
-    Public CC_LUT_ID As GLTexture
-    Public ENV_BRDF_LUT_ID As GLTexture
-    Public MIXER_LUT As GLTexture
     Public RIPPLE_FRAME_NUMBER As Integer
-    Public RIPPLE_TEXTURES() As GLTexture
-    Public RIPPLE_MASK_TEXTURE As GLTexture
     Public RIPPLE_MASK_TIME As Single
     Public MAX_MAP_HEIGHT As Single
     Public MIN_MAP_HEIGHT As Single
     Public MEAN_MAP_HEIGHT As Double
     Public TOTAL_HEIGHT_COUNT As Integer
+
     '============================================================
     ' this setting tweaks the mip biasing!
     Public GLOBAL_MIP_BIAS As Single = -0.75
-    '============================================================
-    'temp test texture ids
-    Public color_id, normal_id, gmm_id As GLTexture
-    Public m_color_id, m_normal_id, m_gmm_id As GLTexture
+
     '============================================================
     'Render related
     Public T1_Y As Single
@@ -102,8 +92,6 @@ Module modGlobalVars
     Public PROGRESS_BAR_IMAGE_ID As GLTexture
     Public MINI_WORLD_MOUSE_POSITION As Vector2
     Public MINI_MOUSE_CAPTURED As Boolean
-    Public CUBE_TEXTURE_ID As GLTexture
-    Public CUBE_TEXTURE_PATH As String
     '============================================================
     ' background images
     Public nuTERRA_BG_IMAGE As GLTexture
@@ -138,7 +126,6 @@ Module modGlobalVars
     Public M_MOUSE, MOUSE As New Point
     Public SHOW_CURSOR As Integer
     '============================================================
-    Public SUN_CAMERA As New Matrix4
     Public PROJECTIONMATRIX As New Matrix4
     Public VIEWMATRIX As New Matrix4
     '============================================================

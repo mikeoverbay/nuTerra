@@ -290,9 +290,9 @@ Module modRender
         MainFBO.gNormal.BindUnit(1)
         MainFBO.gGMF.BindUnit(2)
         MainFBO.gPosition.BindUnit(3)
-        CUBE_TEXTURE_ID.BindUnit(4)
-        CC_LUT_ID.BindUnit(5)
-        ENV_BRDF_LUT_ID?.BindUnit(6)
+        map_scene.sky.CUBE_TEXTURE_ID.BindUnit(4)
+        map_scene.CC_LUT_ID.BindUnit(5)
+        map_scene.ENV_BRDF_LUT_ID?.BindUnit(6)
 
         If ShadowMappingFBO.ENABLED Then
             ShadowMappingFBO.depth_tex.BindUnit(7)

@@ -85,7 +85,7 @@ Module MapLoader
         'need this for all rendering states
         get_environment_info(map_name)
         '===============================================================
-        SUN_TEXTURE_ID = load_dds_image_from_file(Path.Combine(Application.StartupPath, "resources\sol.dds"))
+        map_scene.sky.SUN_TEXTURE_ID = load_dds_image_from_file(Path.Combine(Application.StartupPath, "resources\sol.dds"))
         'Dim entry = search_pkgs(SUN_TEXTURE_PATH)
         'If entry IsNot Nothing Then
         '    Dim ms As New MemoryStream
@@ -95,14 +95,14 @@ Module MapLoader
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
-            CC_LUT_ID = load_dds_image_from_stream(ms, theMap.lut_path)
+            map_scene.CC_LUT_ID = load_dds_image_from_stream(ms, theMap.lut_path)
         End If
         'get env_brdf
         entry = ResMgr.Lookup("system/maps/env_brdf_lut.dds")
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
-            ENV_BRDF_LUT_ID = load_dds_image_from_stream(ms, "system/maps/env_brdf_lut.dds")
+            map_scene.ENV_BRDF_LUT_ID = load_dds_image_from_stream(ms, "system/maps/env_brdf_lut.dds")
         End If
 
         '===============================================================
@@ -471,7 +471,7 @@ Module MapLoader
         '===============================================================
         'load cube map for PBS_ext lighting,
         'It must happend after terrain load to get the path.
-        load_cube_and_cube_map()
+        map_scene.sky.load_cube_and_cube_map()
         '===============================================================
         'test load of maga textures
         '===============================================================
