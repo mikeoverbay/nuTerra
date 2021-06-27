@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net5.0-windows</TargetFramework>
-    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+	<PlatformTarget>x64</PlatformTarget>
     <OutputType>WinExe</OutputType>
     <StartupObject>nuTerra.My.MyApplication</StartupObject>
     <MyType>WindowsForms</MyType>
@@ -519,16 +519,6 @@
   <PropertyGroup>
     <PostBuildEvent></PostBuildEvent>
   </PropertyGroup>
-  <PropertyGroup>
-    <ProductName>$(AssemblyName)</ProductName>
-    <Version Condition=" '$(RUN_NUMBER)' != '' ">1.0.0.$(RUN_NUMBER)</Version>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <PlatformTarget>x64</PlatformTarget>
-  </PropertyGroup>
-  <ItemGroup>
-    <AssemblyVersionFiles Include="$(MSBuildProjectDirectory)\My Project\AssemblyInfo.vb" />
-  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\nuTerraCPP\nuTerraCPP.vcxproj" />
   </ItemGroup>
@@ -539,11 +529,4 @@
     <PackageReference Include="OpenTK" Version="4.6.4" />
     <PackageReference Include="OpenTK.WinForms.Radegast" Version="0.1.0" />
   </ItemGroup>
-  <Target Name="AssemblyVersion" Inputs="@(AssemblyVersionFiles)" Outputs="UpdatedAssemblyVersionFiles" BeforeTargets="PrepareForBuild">
-    <Attrib Files="%(AssemblyVersionFiles.FullPath)" Normal="true" />
-    <AssemblyInfo CodeLanguage="VB" OutputFile="%(AssemblyVersionFiles.FullPath)" AssemblyProduct="$(ProductName)" AssemblyTitle="$(ProductName)" AssemblyCompany="" AssemblyCopyright="Copyright © 2020-2021" AssemblyVersion="$(Version)" AssemblyFileVersion="$(Version)" AssemblyInformationalVersion="">
-      <Output TaskParameter="OutputFile" ItemName="UpdatedAssemblyVersionFiles" />
-    </AssemblyInfo>
-  </Target>
-  <Import Project="..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets" Condition="Exists('..\packages\MSBuildTasks.1.5.0.235\build\MSBuildTasks.targets')" />
 </Project>
