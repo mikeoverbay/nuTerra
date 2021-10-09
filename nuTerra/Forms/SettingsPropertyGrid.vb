@@ -79,7 +79,7 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
-    <DisplayName("Max Zoom Out"), Category("Camera")>
+    <DisplayName("Max Zoom Out"), Category("Camera"), Browsable(False)>
     Public Property Camera_max_zoom_out As Single
         Set(value As Single)
             map_scene.camera.MAX_ZOOM_OUT = value
@@ -89,14 +89,14 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
-    <DisplayName("Position"), Category("Camera")>
+    <DisplayName("Position"), Category("Camera"), Browsable(False)>
     Public ReadOnly Property Camera_position As String
         Get
             Return map_scene?.camera.CAM_POSITION.ToString.Replace("(", "").Replace(")", "")
         End Get
     End Property
 
-    <DisplayName("Target"), Category("Camera")>
+    <DisplayName("Target"), Category("Camera"), Browsable(False)>
     Public ReadOnly Property Camera_target As String
         Get
             Return map_scene?.camera.CAM_TARGET.ToString.Replace("(", "").Replace(")", "")
@@ -162,7 +162,7 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
-    <DisplayName("Feedback width"), Category("VT")>
+    <DisplayName("Feedback width"), Category("VT"), Browsable(False)>
     Public Property VT_feedback_width As Integer
         Set(value As Integer)
             If 1 <= value AndAlso value <= 128 Then
@@ -175,7 +175,7 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
-    <DisplayName("Feedback height"), Category("VT")>
+    <DisplayName("Feedback height"), Category("VT"), Browsable(False)>
     Public Property VT_feedback_height As Integer
         Set(value As Integer)
             If 1 <= value AndAlso value <= 128 Then
@@ -188,7 +188,7 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
-    <DisplayName("Tile Size"), Category("VT")>
+    <DisplayName("Tile Size"), Category("VT"), Browsable(False)>
     Public Property VT_tile_zise As Integer
         Set(value As Integer)
             If 1 <= value AndAlso value <= 8192 Then
@@ -201,7 +201,7 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
-    <DisplayName("Num pages"), Category("VT")>
+    <DisplayName("Num pages"), Category("VT"), Browsable(False)>
     Public Property VT_num_pages_ As Integer
         Set(value As Integer)
             If 1 <= value AndAlso value <= 4096 Then
@@ -214,7 +214,7 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
-    <DisplayName("Num tiles"), Category("VT")>
+    <DisplayName("Num tiles"), Category("VT"), Browsable(False)>
     Public Property VT_num_tiles_ As Integer
         Set(value As Integer)
             If 1 <= value AndAlso value <= 2048 Then
@@ -227,7 +227,7 @@ Public Class SettingsPropertyGrid
         End Get
     End Property
 
-    <DisplayName("Uploads per frame"), Category("VT")>
+    <DisplayName("Uploads per frame"), Category("VT"), Browsable(False)>
     Public Property VT_uploads_per_frame_ As Integer
         Set(value As Integer)
             If 1 <= value AndAlso value <= 64 Then

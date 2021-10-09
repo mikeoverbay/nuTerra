@@ -543,7 +543,7 @@ try_again:
         GL.ClearDepth(0.0F)
 
         ' Disable VSync
-        glControl_main.Context.SwapInterval = 1
+        glControl_main.Context.SwapInterval = 0
 
         '-----------------------------------------------------------------------------------------
         'Check if the game path is set
