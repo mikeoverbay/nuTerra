@@ -542,6 +542,9 @@ try_again:
         GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
         GL.ClearDepth(0.0F)
 
+        ' Disable VSync
+        glControl_main.Context.SwapInterval = 1
+
         '-----------------------------------------------------------------------------------------
         'Check if the game path is set
         If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
