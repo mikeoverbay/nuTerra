@@ -555,10 +555,7 @@ Module ShaderLoader
     Public Sub gl_error(s As String)
         s = s.Replace(vbLf, vbCrLf)
         s.Replace("0(", vbCrLf + "(")
-        frmShaderError.Show()
-        frmShaderError.er_tb.Text += s
-        frmShaderError.er_tb.SelectionLength = 0
-        frmShaderError.er_tb.SelectionStart = 0
+        LogThis(s)
     End Sub
 
 #End Region

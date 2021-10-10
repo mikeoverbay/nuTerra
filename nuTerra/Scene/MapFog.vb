@@ -31,8 +31,6 @@ Public Class MapFog
         GL.Uniform1(DeferredFogShader("uv_scale"), 4.0F)
         GL.Uniform2(DeferredFogShader("move_vector"), uv_location.X, uv_location.Y)
 
-        Dim ff = frmLightSettings.lighting_fog_level * 100.0
-
         NOISE_id.BindUnit(0)
         MainFBO.gDepth.BindUnit(1)
         MainFBO.gPosition.BindUnit(2)

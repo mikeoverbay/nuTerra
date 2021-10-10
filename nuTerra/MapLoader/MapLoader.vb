@@ -49,11 +49,6 @@ Module MapLoader
         map_scene = New MapScene(map_name)
 
         '===============================================================
-        'get the light settings for this map.
-        frmLightSettings.Init()
-        '===============================================================
-
-        '===============================================================
         'Set draw enable flags
         TERRAIN_LOADED = False
         OUTLAND_LOADED = False

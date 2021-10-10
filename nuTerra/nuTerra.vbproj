@@ -61,21 +61,6 @@
     <Import Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Update="Forms\frmLightSettings.designer.vb">
-      <DependentUpon>frmLightSettings.vb</DependentUpon>
-    </Compile>
-    <Compile Update="Forms\frmGbufferViewer.Designer.vb">
-      <DependentUpon>frmGbufferViewer.vb</DependentUpon>
-    </Compile>
-    <Compile Update="Forms\frmModelViewer.Designer.vb">
-      <DependentUpon>frmModelViewer.vb</DependentUpon>
-    </Compile>
-    <Compile Update="Forms\frmScreenCap.Designer.vb">
-      <DependentUpon>frmScreenCap.vb</DependentUpon>
-    </Compile>
-    <Compile Update="Forms\frmShowText.Designer.vb">
-      <DependentUpon>frmShowText.vb</DependentUpon>
-    </Compile>
     <Compile Update="My Project\Application.Designer.vb">
       <AutoGen>True</AutoGen>
       <DependentUpon>Application.myapp</DependentUpon>
@@ -90,12 +75,6 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
-    </Compile>
-    <Compile Update="Forms\frmProgramEditor.designer.vb">
-      <DependentUpon>frmProgramEditor.vb</DependentUpon>
-    </Compile>
-    <Compile Update="Forms\frmShaderError.Designer.vb">
-      <DependentUpon>frmShaderError.vb</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
@@ -524,7 +503,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DotNetZip" Version="1.15.0" />
-    <PackageReference Include="FCTB" Version="2.16.24" />
     <PackageReference Include="NGettext" Version="0.6.7" />
     <PackageReference Include="OpenTK" Version="4.6.7" />
     <PackageReference Include="OpenTK.WinForms.Radegast" Version="0.1.0" />

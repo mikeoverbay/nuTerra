@@ -166,12 +166,12 @@ Module modOpenGL
             MEAN = CSng(MEAN_MAP_HEIGHT)
 
             'Lighting settings
-            AMBIENT = frmLightSettings.lighting_ambient
-            BRIGHTNESS = frmLightSettings.lighting_terrain_texture
-            SPECULAR = frmLightSettings.lighting_specular_level
-            GRAY_LEVEL = frmLightSettings.lighting_gray_level
-            GAMMA_LEVEL = frmLightSettings.lighting_gamma_level
-            fog_level = frmLightSettings.lighting_fog_level * 100.0F
+            AMBIENT = My.Settings.Ambient_level / 300.0!
+            BRIGHTNESS = My.Settings.Bright_level / 50.0!
+            SPECULAR = My.Settings.Specular_level / 100.0!
+            GRAY_LEVEL = 1.0 - (My.Settings.Gray_level / 100.0!)
+            GAMMA_LEVEL = My.Settings.Gamma_level / 100.0!
+            fog_level = (My.Settings.Fog_level / 10000.0!) * 100.0F
 
             GL.NamedBufferSubData(CommonPropertiesBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(Me), Me)
         End Sub

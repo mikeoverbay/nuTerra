@@ -56,23 +56,9 @@ Public Class frmMain
         'TODO
         'Need to delete all GL stuff too.
         close_megas()
-        If frmGbufferViewer.Visible Then
-            frmGbufferViewer.Visible = False
-            frmGbufferViewer.Dispose()
-        End If
         remove_map_data()
     End Sub
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
-
-        ' If the Program editor is inserted in to frmMain,
-        ' We have to stop key down events while typing in
-        ' the editor's window.
-        If frmProgramEditor IsNot Nothing AndAlso frmProgramEditor.CP_parent = Me.Handle Then
-            If Not glControl_main.Focused Then
-                Return
-            End If
-        End If
-
         'mini map max size
         Dim max_size As Single = 640
 
@@ -131,25 +117,16 @@ Public Class frmMain
                 SHOW_BOUNDING_BOXES = SHOW_BOUNDING_BOXES Xor True
 
             Case Keys.E
-                If frmProgramEditor.CP_parent = Me.Handle Then
-                    Return
-                End If
-                frmProgramEditor.Show()
+                'TODO
 
             Case Keys.G
-                If MAP_LOADED Then frmGbufferViewer.Show()
-                'inialize the sizes
-                frmGbufferViewer.quater_scale.PerformClick()
+                'TODO
 
             Case Keys.I
                 SHOW_CHUNK_IDs = SHOW_CHUNK_IDs Xor True
 
             Case Keys.L
-                If Not frmLightSettings.Visible Then
-                    m_light_settings.PerformClick()
-                Else
-                    frmLightSettings.Visible = False
-                End If
+                'TODO
 
             Case Keys.M
                 DONT_HIDE_MINIMAP = DONT_HIDE_MINIMAP Xor True
@@ -348,11 +325,7 @@ Public Class frmMain
 
     Private Sub m_light_settings_Click(sender As Object, e As EventArgs) Handles m_light_settings.Click
         'Opens light setting window
-        If Not frmLightSettings.Visible Then
-            frmLightSettings.Show()
-        Else
-            frmLightSettings.Hide()
-        End If
+        'TODO
     End Sub
 
     Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
@@ -396,18 +369,12 @@ try_again:
     End Sub
 
     Private Sub m_Log_File_Click(sender As Object, e As EventArgs) Handles m_Log_File.Click
-        frmShowText.Show()
-        frmShowText.FastColoredTextBox1.Text = File.ReadAllText(Path.Combine(TEMP_STORAGE, "nuTerra_log.txt"))
     End Sub
 
     Private Sub m_show_properties_Click(sender As Object, e As EventArgs) Handles m_show_properties.Click
         m_show_properties.Checked = Not m_show_properties.Checked
         If m_show_properties.Checked Then
-            If panel_2_occupied Then
-                frmProgramEditor.Container_panel.Hide()
-            Else
-                frmProgramEditor.Container_panel.Show()
-            End If
+
             SplitContainer1.Panel2Collapsed = False
             PropertyGrid1.Show()
             SP2_Width = 225
@@ -418,10 +385,8 @@ try_again:
         Else
             PropertyGrid1.Hide()
             If panel_2_occupied Then
-                SP2_Width = frmProgramEditor.Container_panel.Width
                 SplitContainer1.Panel2Collapsed = False
                 SplitContainer1.SplitterDistance = (ClientSize.Width - SP2_Width) - SplitContainer1.SplitterWidth
-                frmProgramEditor.Container_panel.Show()
             Else
                 SplitContainer1.Panel2Collapsed = True
 
@@ -605,13 +570,7 @@ try_again:
         glControl_main.BringToFront()
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
-        'Must load and hide frmLighting to access its functions.
-        frmLightSettings.StartPosition = FormStartPosition.CenterParent
-        frmLightSettings.TopMost = False
-        frmLightSettings.SendToBack()
-        frmLightSettings.Show()
-        frmLightSettings.Visible = False
-        frmLightSettings.TopMost = True
+
         '-----------------------------------------------------------------------------------------
         'we are ready for user input so lets enable the menu
         MainMenuStrip.Enabled = True
@@ -972,86 +931,7 @@ try_again:
 
     Private Sub glControl_main_MouseDoubleClick(sender As Object, e As MouseEventArgs) Handles glControl_main.MouseDoubleClick
         If PICK_MODELS AndAlso PICKED_MODEL_INDEX > 0 Then
-            frmModelViewer.SplitContainer1.Panel1.Controls.Clear()
-
-            If frmModelViewer.Model_Loaded Then
-                frmModelViewer.Model_Loaded = False
-                frmModelViewer.modelIndirectBuffer = Nothing
-            End If
-
-            'get the name we need to load
-            Dim ar = PICKED_STRING.Split(":")
-            Dim visual_path = ar(1).Trim.Replace(".primitives", ".visual_processed")
-            'find the package and get the entry from that package as a zipEntry
-            Dim visual = ResMgr.openXML(visual_path)
-            If visual IsNot Nothing Then
-                'This has to be visible for the text highlighting to work.
-                If Not frmModelViewer.Visible Then
-                    frmModelViewer.Visible = True
-                End If
-
-                'Put the visual string in the FCB on the frmModelViwer
-                frmModelViewer.FastColoredTextBox1.Text = ""
-                Application.DoEvents()
-                'make sure the control sets the highlights
-                frmModelViewer.FastColoredTextBox1.Text = visual.InnerXml.Replace("><", ">" + vbCrLf + ">")
-                Application.DoEvents()
-                frmModelViewer.MODEL_NAME_MODELVIEWER = visual_path.Replace("\", "/")
-            Else
-                LogThis("visual not found: {0}", visual_path)
-            End If
-
-            Dim mdlInstance As ModelInstance
-            GL.GetNamedBufferSubData(map_scene.static_models.matrices.buffer_id,
-                                     New IntPtr((PICKED_MODEL_INDEX - 1) * Marshal.SizeOf(mdlInstance)),
-                                     Marshal.SizeOf(mdlInstance),
-                                     mdlInstance)
-
-            Dim mdlLod As ModelLoD
-            GL.GetNamedBufferSubData(map_scene.static_models.lods.buffer_id,
-                                     New IntPtr(mdlInstance.lod_offset * Marshal.SizeOf(mdlLod)),
-                                     Marshal.SizeOf(mdlLod),
-                                     mdlLod)
-
-            frmModelViewer.modelDrawCount = mdlLod.draw_count
-            Dim indirectCommands(mdlLod.draw_count - 1) As DrawElementsIndirectCommand
-            For i = 0 To mdlLod.draw_count - 1
-                Dim draw As CandidateDraw
-                GL.GetNamedBufferSubData(map_scene.static_models.drawCandidates.buffer_id,
-                                         New IntPtr((mdlLod.draw_offset + i) * Marshal.SizeOf(draw)),
-                                         Marshal.SizeOf(draw),
-                                         draw)
-
-                With indirectCommands(i)
-                    .count = draw.count
-                    .instanceCount = 1
-                    .firstIndex = draw.firstIndex
-                    .baseVertex = draw.baseVertex
-                    .baseInstance = draw.baseInstance
-                End With
-
-                ' Add checkbox
-                Dim cb As New CheckBox
-                cb.AutoSize = True
-                cb.TextAlign = ContentAlignment.MiddleCenter
-                cb.Checked = True
-                cb.Text = String.Format("Primitive {0}, Poly Cnt: {1}", i, draw.count)
-                cb.ForeColor = Color.Wheat
-                cb.BackColor = Color.Transparent
-                Dim k = frmModelViewer.SplitContainer1.Panel1.Controls.Count
-                Dim h = cb.Height
-                cb.Location = New Point(3, (k * (h - 3)) + 5)
-                AddHandler cb.CheckedChanged, AddressOf frmModelViewer.update_model_indirect_buffer
-                frmModelViewer.SplitContainer1.Panel1.Controls.Add(cb)
-            Next
-
-            frmModelViewer.modelIndirectBuffer = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "modelIndirectBuffer")
-            frmModelViewer.modelIndirectBuffer.Storage(
-                indirectCommands.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
-                indirectCommands,
-                BufferStorageFlags.DynamicStorageBit Or BufferStorageFlags.ClientStorageBit)
-            frmModelViewer.Model_Loaded = True
-
+            ' TODO
         End If
     End Sub
 #End Region
@@ -1062,7 +942,6 @@ try_again:
     End Sub
 
     Private Sub m_screen_capture_Click(sender As Object, e As EventArgs) Handles m_screen_capture.Click
-        frmScreenCap.ShowDialog()
     End Sub
 
     Private Sub SplitContainer1_SplitterMoved(sender As Object, e As SplitterEventArgs) Handles SplitContainer1.SplitterMoved

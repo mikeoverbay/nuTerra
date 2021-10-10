@@ -165,15 +165,6 @@ Module modRender
 
 
         '===========================================================================
-        'Before we destory the gColor texture using it for other functions.
-        If frmGbufferViewer IsNot Nothing Then
-            If frmGbufferViewer.Visible AndAlso frmGbufferViewer.Viewer_Image_ID = 2 Then
-                frmGbufferViewer.update_screen()
-            End If
-        End If
-
-
-        '===========================================================================
         '===========================================================================
         '===========================================================================
         '===========================================================================
@@ -263,17 +254,6 @@ Module modRender
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
         If _STARTED Then frmMain.glControl_main.SwapBuffers() '=====================
         '===========================================================================
-        If frmGbufferViewer IsNot Nothing Then
-            If frmGbufferViewer.Visible AndAlso frmGbufferViewer.Viewer_Image_ID <> 2 Then
-                frmGbufferViewer.update_screen()
-            End If
-        End If
-
-        If frmModelViewer IsNot Nothing Then
-            If frmModelViewer.Visible Then
-                frmModelViewer.draw_model_view()
-            End If
-        End If
 
         FPS_COUNTER += 1
     End Sub
