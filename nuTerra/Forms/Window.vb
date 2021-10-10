@@ -1,4 +1,5 @@
 ﻿Imports System.IO
+Imports System.Reflection
 Imports System.Runtime.CompilerServices
 Imports System.Runtime.InteropServices
 Imports ImGuiNET
@@ -45,6 +46,31 @@ Public Class Window
             }, GetGLSettings())
         Title = Application.ProductName
         VSync = VSyncMode.Off
+
+        ' BEGIN HACK
+        Dim appIcon = System.Drawing.Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location)
+        Dim bmpIcon = appIcon.ToBitmap()
+
+        Dim data = bmpIcon.LockBits(New Rectangle(0, 0, bmpIcon.Width, bmpIcon.Height),
+            Imaging.ImageLockMode.ReadOnly, Imaging.PixelFormat.Format32bppRgb)
+
+        Dim numbytes = data.Stride * bmpIcon.Height
+        Dim bytes(numbytes) As Byte
+
+        Marshal.Copy(data.Scan0, bytes, 0, numbytes)
+
+        ' BGR TO RGB
+        For i = 0 To numbytes - 1 Step 4
+            Dim tmp = bytes(i)
+            bytes(i) = bytes(i + 2)
+            bytes(i + 2) = tmp
+        Next
+
+        Icon = New Input.WindowIcon(New Input.Image(bmpIcon.Width, bmpIcon.Height, bytes))
+
+        bmpIcon.UnlockBits(data)
+
+        ' END HACK
     End Sub
 
     Protected Overrides Sub OnLoad()
@@ -577,16 +603,20 @@ try_again:
     End Sub
 
     Private Sub SubmitUI()
-        If ImGui.BeginMainMenuBar() Then
-            If ImGui.BeginMenu("File") Then
-                If ImGui.MenuItem("Load map") Then
-                    'Runs Map picking code.
-                    MapMenuScreen.Invalidate()
-                    SHOW_MAPS_SCREEN = True
-                End If
-                ImGui.EndMenu()
+        ImGui.SetNextWindowPos(New Numerics.Vector2(0, 0))
+        If ImGui.Begin("Dummy Window 1", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
+            If ImGui.Button("Load map") Then
+                'Runs Map picking code.
+                MapMenuScreen.Invalidate()
+                SHOW_MAPS_SCREEN = True
             End If
-            ImGui.EndMainMenuBar()
+            ImGui.End()
+        End If
+
+        ImGui.SetNextWindowPos(New Numerics.Vector2(80, 4))
+        If ImGui.Begin("Dummy Window 2", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
+            ImGui.Text(String.Format("VRAM usage: {0,-4}mb of {1}mb", GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
+            ImGui.End()
         End If
 
         If ImGui.Begin("Settings") Then

@@ -238,9 +238,6 @@ Module modRender
         If DONT_HIDE_HUD Then
             '===========================================================================
             'color_correct()
-            '===========================================================================
-            render_HUD() '==============================================================
-            '===========================================================================
 
             '===========================================================================
             'This has to be called last. It changes the PROJECTMATRIX and VIEWMATRIX
@@ -344,40 +341,6 @@ Module modRender
 
         ' UNBIND
         GL.BindTextureUnit(0, 0)
-
-        GL_POP_GROUP()
-    End Sub
-
-    Private Sub render_HUD()
-        GL_PUSH_GROUP("render_HUD")
-
-        temp_timer.Restart()
-        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
-
-        ' Text Rendering ===========================================================
-        'save this.. we may want to use it for debug with a different source for the values.
-        'Dim pos_str As String = " Light Position X, Y, Z: " + LIGHT_POS(0).ToString("00.0000") + ", " + LIGHT_POS(1).ToString("00.0000") + ", " + LIGHT_POS(2).ToString("00.000")
-
-        Dim elapsed = FRAME_TIMER.ElapsedMilliseconds
-
-        Dim txt = String.Format("FPS: {0,-3} | Draw time in Milliseconds: {1,-2} | VRAM usage: {2,-4}mb of {3}mb", FPS_TIME, elapsed, GLCapabilities.memory_usage, GLCapabilities.total_mem_mb)
-        'debug shit
-        'txt = String.Format("mouse {0} {1}", MINI_WORLD_MOUSE_POSITION.X.ToString, MINI_WORLD_MOUSE_POSITION.Y.ToString)
-        'txt = String.Format("HX {0} : HY {1}", HX, HY)
-        draw_text(txt, 5.0F, 5.0F, Color4.Cyan, False, 1)
-        draw_text(PICKED_STRING, 5.0F, 24.0F, Color4.Yellow, False, 1)
-
-        color_keys()
-
-        'draw status of SSAA
-        draw_text(FXAA_text, 5.0F, 62.0F, Color4.Yellow, False, 1)
-        Dim temp_time = temp_timer.ElapsedMilliseconds
-
-        ' Draw Terrain IDs =========================================================
-        If SHOW_CHUNK_IDs AndAlso DONT_BLOCK_TERRAIN Then
-            map_scene.terrain.draw_terrain_ids()
-        End If
-        '===========================================================================
 
         GL_POP_GROUP()
     End Sub
