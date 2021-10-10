@@ -15,21 +15,6 @@ Public Class SettingsPropertyGrid
     Const MIN_SPEED = 0.0
     Const MAX_SPEED = 10000.0
 
-    Public Sub New()
-        CommonProperties.tess_level = 1.0
-        FieldOfView = CSng(Math.PI) * (My.Settings.fov / 180.0F)
-
-        'Get block state of things we want to block loading to speed things up for testing/debugging
-        DONT_BLOCK_BASES = My.Settings.load_bases
-        DONT_BLOCK_DECALS = My.Settings.load_decals
-        DONT_BLOCK_MODELS = My.Settings.load_models
-        DONT_BLOCK_SKY = My.Settings.load_sky
-        DONT_BLOCK_TERRAIN = My.Settings.load_terrain
-        DONT_BLOCK_OUTLAND = My.Settings.load_outland
-        DONT_BLOCK_TREES = My.Settings.load_trees
-        DONT_BLOCK_WATER = My.Settings.load_water
-    End Sub
-
     <DisplayName("FoV"), Category("Camera")>
     Public Property Camera_FoV As Single
         Set(value As Single)

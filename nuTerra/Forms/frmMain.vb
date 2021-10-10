@@ -50,7 +50,6 @@ Public Class frmMain
         'need to kill everything we created.
         'TODO
         'Need to delete all GL stuff too.
-        close_megas()
         remove_map_data()
     End Sub
     Private Sub frmMain_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
@@ -475,6 +474,20 @@ try_again:
             Marshal.SizeOf(CommonProperties),
             BufferStorageFlags.DynamicStorageBit)
         CommonPropertiesBuffer.BindBase(2)
+
+        CommonProperties.tess_level = 1.0
+        FieldOfView = CSng(Math.PI) * (My.Settings.fov / 180.0F)
+
+        'Get block state of things we want to block loading to speed things up for testing/debugging
+        DONT_BLOCK_BASES = My.Settings.load_bases
+        DONT_BLOCK_DECALS = My.Settings.load_decals
+        DONT_BLOCK_MODELS = My.Settings.load_models
+        DONT_BLOCK_SKY = My.Settings.load_sky
+        DONT_BLOCK_TERRAIN = My.Settings.load_terrain
+        DONT_BLOCK_OUTLAND = My.Settings.load_outland
+        DONT_BLOCK_TREES = My.Settings.load_trees
+        DONT_BLOCK_WATER = My.Settings.load_water
+
 
         ShadowMappingFBO.FBO_Initialize()
         LogThis("{0}ms FBO ShadowMapping Created.", launch_timer.ElapsedMilliseconds)
