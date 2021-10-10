@@ -383,8 +383,12 @@ try_again:
 
     Private Sub m_help_Click(sender As Object, e As EventArgs) Handles m_help.Click
         'Opens the index.HTML help/info file in the users default web browser.
-        Dim p = Application.StartupPath + "\HTML\index.html"
-        Process.Start(p)
+        Using proc As New Process
+            proc.StartInfo.UseShellExecute = True
+            proc.StartInfo.FileName = Path.Combine(Application.StartupPath, "HTML", "index.html")
+            Debug.Print(Application.StartupPath)
+            proc.Start()
+        End Using
     End Sub
 
     Private Sub m_shut_down_Click(sender As Object, e As EventArgs) Handles m_shut_down.Click
