@@ -1,4 +1,5 @@
 ﻿Imports System.IO
+Imports System.Runtime.CompilerServices
 Imports System.Runtime.InteropServices
 Imports ImGuiNET
 Imports OpenTK.Graphics
@@ -247,16 +248,16 @@ try_again:
     Protected Overrides Sub OnRenderFrame(args As FrameEventArgs)
         MyBase.OnRenderFrame(args)
 
-        _controller.Update(Me, CSng(args.Time))
-
         DELTA_TIME = args.Time
         FPS_TIME = args.Time
 
-        ForceRender()
+        ForceRender(args.Time)
     End Sub
 
-    Public Sub ForceRender()
+    Public Sub ForceRender(Optional time As Single = 0.0)
         draw_scene()
+
+        _controller.Update(Me, CSng(time))
 
         SubmitUI()
         _controller.Render()
@@ -576,14 +577,29 @@ try_again:
     End Sub
 
     Private Sub SubmitUI()
-        ImGui.Checkbox("DONT_BLOCK_BASES", DONT_BLOCK_BASES)
-        ImGui.Checkbox("DONT_BLOCK_DECALS", DONT_BLOCK_DECALS)
-        ImGui.Checkbox("DONT_BLOCK_MODELS", DONT_BLOCK_MODELS)
-        ImGui.Checkbox("DONT_BLOCK_SKY", DONT_BLOCK_SKY)
-        ImGui.Checkbox("DONT_BLOCK_TERRAIN", DONT_BLOCK_TERRAIN)
-        ImGui.Checkbox("DONT_BLOCK_OUTLAND", DONT_BLOCK_OUTLAND)
-        ImGui.Checkbox("DONT_BLOCK_TREES", DONT_BLOCK_TREES)
-        ImGui.Checkbox("DONT_BLOCK_WATER", DONT_BLOCK_WATER)
+        If ImGui.BeginMainMenuBar() Then
+            If ImGui.BeginMenu("File") Then
+                If ImGui.MenuItem("Load map") Then
+                    'Runs Map picking code.
+                    MapMenuScreen.Invalidate()
+                    SHOW_MAPS_SCREEN = True
+                End If
+                ImGui.EndMenu()
+            End If
+            ImGui.EndMainMenuBar()
+        End If
+
+        If ImGui.Begin("Settings") Then
+            ImGui.Checkbox("DONT_BLOCK_BASES", DONT_BLOCK_BASES)
+            ImGui.Checkbox("DONT_BLOCK_DECALS", DONT_BLOCK_DECALS)
+            ImGui.Checkbox("DONT_BLOCK_MODELS", DONT_BLOCK_MODELS)
+            ImGui.Checkbox("DONT_BLOCK_SKY", DONT_BLOCK_SKY)
+            ImGui.Checkbox("DONT_BLOCK_TERRAIN", DONT_BLOCK_TERRAIN)
+            ImGui.Checkbox("DONT_BLOCK_OUTLAND", DONT_BLOCK_OUTLAND)
+            ImGui.Checkbox("DONT_BLOCK_TREES", DONT_BLOCK_TREES)
+            ImGui.Checkbox("DONT_BLOCK_WATER", DONT_BLOCK_WATER)
+            ImGui.End()
+        End If
     End Sub
 
 End Class
