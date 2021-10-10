@@ -292,6 +292,9 @@ NotInheritable Class MapMenuScreen
                 BLOCK_MOUSE = False
                 BG_VALUE = 0 'reset bar graph
                 SHOW_LOADING_SCREEN = True
+
+                ' HACK
+                load_map(MAP_NAME_NO_PATH)
             End If
         End If
 

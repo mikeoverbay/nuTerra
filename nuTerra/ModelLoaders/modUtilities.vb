@@ -12,7 +12,7 @@ Module modUtilities
 
         'Writes to the log and immediately saves it.
         nuTerra_LOG.AppendLine(String.Format(entry, args))
-        File.WriteAllText(Path.Combine(TEMP_STORAGE, "nuTerra_Log.txt"), nuTerra_LOG.ToString)
+        'File.WriteAllText(Path.Combine(TEMP_STORAGE, "nuTerra_Log.txt"), nuTerra_LOG.ToString)
     End Sub
 
     ' Allows us to split by strings. Not just characters.

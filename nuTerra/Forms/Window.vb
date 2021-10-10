@@ -33,7 +33,13 @@ Public Class Window
     End Function
 
     Public Sub New()
-        MyBase.New(GameWindowSettings.Default, GetGLSettings())
+        MyBase.New(
+            New GameWindowSettings With {
+                .IsMultiThreaded = False,
+                .RenderFrequency = 0.0,
+                .UpdateFrequency = 0.0
+            }, GetGLSettings())
+        Title = Application.ProductName
     End Sub
 
     Protected Overrides Sub OnLoad()
@@ -219,14 +225,25 @@ Public Class Window
         MyBase.OnRenderFrame(args)
 
         DELTA_TIME = args.Time
+        FPS_TIME = args.Time
 
         draw_scene()
-
         SwapBuffers()
     End Sub
 
     Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
         MyBase.OnKeyDown(e)
+
+        Select Case e.Key
+            Case Keys.A
+                WASD_VECTOR.X = -3.0F
+            Case Keys.D
+                WASD_VECTOR.X = 3.0F
+            Case Keys.W
+                WASD_VECTOR.Y = -3.0F
+            Case Keys.S
+                WASD_VECTOR.Y = 3.0F
+        End Select
     End Sub
 
     Protected Overrides Sub OnKeyUp(e As KeyboardKeyEventArgs)
@@ -246,6 +263,33 @@ Public Class Window
         End Select
     End Sub
 
+    Private Sub WASD_movement()
+        If WASD_VECTOR.X <> 0 Or WASD_VECTOR.Y <> 0 Then
+            WASD_SPEED += DELTA_TIME
+            If WASD_SPEED > 0.025F Then
+                WASD_SPEED = 0F
+                Dim MAX = -200.0F
+                If MAX < map_scene.camera.VIEW_RADIUS Then
+                    MAX = map_scene.camera.VIEW_RADIUS
+                End If
+                Dim ms As Single = 0.2F * MAX ' distance away changes speed.. THIS WORKS WELL!
+                Dim t = WASD_VECTOR.X * ms * 0.003
+
+                If WASD_VECTOR.X <> 0 Then
+                    map_scene.camera.LOOK_AT_X -= ((t * ms) * (Math.Cos(map_scene.camera.CAM_X_ANGLE)))
+                    map_scene.camera.LOOK_AT_Z -= ((t * ms) * (-Math.Sin(map_scene.camera.CAM_X_ANGLE)))
+                End If
+
+                t = WASD_VECTOR.Y * ms * 0.003F
+
+                If WASD_VECTOR.Y <> 0 Then
+                    map_scene.camera.LOOK_AT_Z -= ((t * ms) * (Math.Cos(map_scene.camera.CAM_X_ANGLE)))
+                    map_scene.camera.LOOK_AT_X -= ((t * ms) * (Math.Sin(map_scene.camera.CAM_X_ANGLE)))
+                End If
+
+            End If
+        End If
+    End Sub
 
     Private Sub load_assets()
         'setup text renderer
@@ -292,13 +336,6 @@ Public Class Window
 
     End Sub
 
-    Protected Overrides Sub OnMouseDown(e As MouseButtonEventArgs)
-        MyBase.OnMouseDown(e)
-
-        If BLOCK_MOUSE Then Return
-
-    End Sub
-
     Protected Overrides Sub OnUpdateFrame(args As FrameEventArgs)
         MyBase.OnUpdateFrame(args)
 
@@ -336,7 +373,22 @@ Public Class Window
             End If
         End If
 
+        If mouse.IsButtonDown(MouseButton.Right) Then
+            MOVE_CAM_Z = True
+        End If
+
+        If mouse.IsButtonDown(MouseButton.Middle) Then
+            MOVE_MOD = True
+            M_DOWN = True
+        End If
+
+        If mouse.IsButtonDown(MouseButton.Left) Then
+            M_DOWN = True
+        End If
+
         ' HACK!
         mouse_last_pos = New Point(mouse.Position.X, mouse.Position.Y)
+
+        WASD_movement()
     End Sub
 End Class
