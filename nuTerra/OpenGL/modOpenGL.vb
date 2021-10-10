@@ -300,7 +300,7 @@ Module modOpenGL
 
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
 
-        LogThis(String.Format("OpenGL error #{0}: {1}", id, message))
+        LogThis("OpenGL error #{0}: {1}", id, message)
     End Sub
 
     Private stack_pos As Integer = 0

@@ -386,7 +386,6 @@ try_again:
         Using proc As New Process
             proc.StartInfo.UseShellExecute = True
             proc.StartInfo.FileName = Path.Combine(Application.StartupPath, "HTML", "index.html")
-            Debug.Print(Application.StartupPath)
             proc.Start()
         End Using
     End Sub
@@ -443,7 +442,11 @@ try_again:
     End Sub
 
     Private Sub m_appVersion_Click(sender As Object, e As EventArgs) Handles m_appVersion.Click
-        System.Diagnostics.Process.Start("https://github.com/mikeoverbay/nuTerra/actions")
+        Using proc As New Process
+            proc.StartInfo.UseShellExecute = True
+            proc.StartInfo.FileName = "https://github.com/mikeoverbay/nuTerra/releases"
+            proc.Start()
+        End Using
     End Sub
 
 #End Region
@@ -471,7 +474,7 @@ try_again:
         If Not Directory.Exists(TEMP_STORAGE) Then
             Directory.CreateDirectory(TEMP_STORAGE)
         End If
-        LogThis("{0}ms Temp storage is located at: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), TEMP_STORAGE)
+        LogThis("{0}ms Temp storage is located at: {1}", launch_timer.ElapsedMilliseconds, TEMP_STORAGE)
 
         LogThis("Vendor: {0}", GL.GetString(StringName.Vendor))
         LogThis("Renderer: {0}", GL.GetString(StringName.Renderer))
@@ -563,7 +566,7 @@ try_again:
             End If
         End If
 
-        LogThis(String.Format("{0}ms Game Path: {1}", launch_timer.ElapsedMilliseconds.ToString("0000"), My.Settings.GamePath))
+        LogThis("{0}ms Game Path: {1}", launch_timer.ElapsedMilliseconds, My.Settings.GamePath)
 
         ' Create default VAO
         defaultVao = GLVertexArray.Create("defaultVao")
@@ -577,19 +580,19 @@ try_again:
         CommonPropertiesBuffer.BindBase(2)
 
         ShadowMappingFBO.FBO_Initialize()
-        LogThis("{0}ms FBO ShadowMapping Created.", launch_timer.ElapsedMilliseconds.ToString("0000"))
+        LogThis("{0}ms FBO ShadowMapping Created.", launch_timer.ElapsedMilliseconds)
 
         MainFBO.FBO_Initialize()
-        LogThis(String.Format("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+        LogThis("{0}ms FBO Main Created.", launch_timer.ElapsedMilliseconds)
 
         MiniMapFBO.FBO_Initialize(240) '<- default start up size
-        LogThis(String.Format("{0}ms FBO Mini Created.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+        LogThis("{0}ms FBO Mini Created.", launch_timer.ElapsedMilliseconds)
 
         build_shaders()
-        LogThis(String.Format("{0}ms Shaders Built.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+        LogThis("{0}ms Shaders Built.", launch_timer.ElapsedMilliseconds)
 
         load_assets()
-        LogThis(String.Format("{0}ms Assets Loaded.", launch_timer.ElapsedMilliseconds.ToString("0000")))
+        LogThis("{0}ms Assets Loaded.", launch_timer.ElapsedMilliseconds)
 
         resize_fbo_main()
         MapMenuScreen.Invalidate()
@@ -613,8 +616,7 @@ try_again:
         'we are ready for user input so lets enable the menu
         MainMenuStrip.Enabled = True
         '-----------------------------------------------------------------------------------------
-        LogThis(launch_timer.ElapsedMilliseconds.ToString("0000") + "ms " +
-                "Starting Update Thread")
+        LogThis("{0}ms Starting Update Thread", launch_timer.ElapsedMilliseconds)
         _STARTED = True ' I'm ready for update loops!
         '-----------------------------------------------------------------------------------------
         '-----------------------------------------------------------------------------------------
@@ -656,15 +658,15 @@ try_again:
 
         '---------------------------------------------------------
         'background screen image
-        CHECKER_BOARD = load_png_image_from_file(Path.Combine(sp, "resources\CheckerPatternPaper.png"), False, False)
+        CHECKER_BOARD = load_png_image_from_file(Path.Combine(sp, "resources", "CheckerPatternPaper.png"), False, False)
         '---------------------------------------------------------
         'cursor texture
         '---------------------------------------------------------
         'MiniMap position/direction img
-        DIRECTION_TEXTURE_ID = load_png_image_from_file(Path.Combine(sp, "resources\direction.png"), True, False)
+        DIRECTION_TEXTURE_ID = load_png_image_from_file(Path.Combine(sp, "resources", "direction.png"), True, False)
         '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
-        PROGRESS_BAR_IMAGE_ID = load_png_image_from_file(Path.Combine(sp, "resources\progress_bar.png"), False, True)
+        PROGRESS_BAR_IMAGE_ID = load_png_image_from_file(Path.Combine(sp, "resources", "progress_bar.png"), False, True)
 
         '---------------------------------------------------------
         ' build Ascii characters texture.
@@ -690,7 +692,7 @@ try_again:
     End Sub
 
     Private Sub get_GLSL_filter_strings()
-        Dim ts = IO.File.ReadAllText(Application.StartupPath + "\data\glsl_filtered_strings.txt")
+        Dim ts = IO.File.ReadAllText(Path.Combine(Application.StartupPath, "data", "glsl_filtered_strings.txt"))
         Dim f_list = ts.Split(ControlChars.CrLf.ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
         set_GLSL_keywords(f_list)
     End Sub

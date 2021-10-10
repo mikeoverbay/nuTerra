@@ -291,10 +291,6 @@ Module TerrainTextureFunctions
             Next
             'ReDim .TexLayers(section_cnt)
 
-            If _Write_texture_info Then
-                sb.AppendLine("***********************************************")
-                sb.AppendLine(String.Format("*********************************************** MAP ID {0}", map.ToString))
-            End If
             Dim lpnter As Integer = 1
             For i = 0 To 3
                 Dim len = sec_sizes(i)
@@ -344,71 +340,11 @@ Module TerrainTextureFunctions
                     .TexLayers(i).r2_2 = .layer.render_info(cur_layer_info_pnt + 1).r2
 
                     .TexLayers(i).scale_b = .layer.render_info(cur_layer_info_pnt + 1).scale
-                    If _Write_texture_info Then
-
-                        ' part 1 ======================================================
-                        sb.AppendLine(String.Format("T{0} --------------------------------------------", lpnter.ToString))
-
-                        Dim name = theMap.render_set(map).layer.render_info(lpnter - 1).texture_name
-                        If name = "" Then
-                            sb.AppendLine("-= EMPTY =-")
-                        Else
-                            sb.AppendLine(name)
-                        End If
-                        lpnter += 1
-                        sb.Append(String.Format("{0,-8}", "U"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).u)
-
-                        sb.Append(String.Format("{0,-8}", "V"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).v)
-
-                        sb.Append(String.Format("{0,-8}", "V0"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).v1)
-
-                        sb.Append(String.Format("{0,-8}", "V1"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).r1)
-
-                        sb.Append(String.Format("{0,-8}", "V2"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).r2)
-
-                        sb.Append(String.Format("{0,-8}", "V3"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 0).scale)
-
-                        ' part 2 ======================================================
-                        sb.AppendLine(String.Format("T{0} --------------------------------------------", lpnter.ToString))
-                        name = theMap.render_set(map).layer.render_info(lpnter - 1).texture_name
-                        If name = "" Then
-                            sb.AppendLine("-= EMPTY =-")
-                        Else
-                            sb.AppendLine(name)
-                        End If
-                        lpnter += 1
-
-                        sb.Append(String.Format("{0,-8}", "U"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).u)
-
-                        sb.Append(String.Format("{0,-8}", "V"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).v)
-
-                        sb.Append(String.Format("{0,-8}", "V0"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).v1)
-
-                        sb.Append(String.Format("{0,-8}", "V1"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).r1)
-
-                        sb.Append(String.Format("{0,-8}", "V2"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).r2)
-
-                        sb.Append(String.Format("{0,-8}", "V3"))
-                        write_vec4(.layer.render_info(cur_layer_info_pnt + 1).scale)
-                        '=============================================================
-                    End If
 
                     cur_layer_info_pnt += 2
                     .layer_count += 1
                 End If
             Next
-            sb.AppendLine("")
 
             ms2.Dispose()
         End With
@@ -420,10 +356,6 @@ Module TerrainTextureFunctions
         Return Math.Round(v, 2)
     End Function
 
-    Private Sub write_vec4(ByRef v As Vector4)
-        sb.AppendLine(String.Format("{0,-8:F4} {1,-8:F4} {2,-8:F4} {3,-8:F4}",
-                                 v.X.ToString, v.Y.ToString, v.Z.ToString, v.W.ToString))
-    End Sub
     Public Sub make_dummy_4_layer_atlas()
         'makes dummy fill texture for terrain atlases
 

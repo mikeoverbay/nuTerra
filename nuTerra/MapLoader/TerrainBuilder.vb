@@ -4,8 +4,6 @@ Imports System.Text
 Imports OpenTK.Mathematics
 
 Module TerrainBuilder
-    Public sb As New StringBuilder
-    Public _Write_texture_info As Boolean = False
 
 #Region "Terrain Storage"
     Public Map_wetness As wetness_
@@ -275,7 +273,7 @@ Module TerrainBuilder
         'needed for fog rendering
         MEAN_MAP_HEIGHT /= TOTAL_HEIGHT_COUNT
 
-        LogThis(String.Format("Load Terrain Data & build mesh: {0}", SWT.ElapsedMilliseconds.ToString))
+        LogThis("Load Terrain Data & build mesh: {0}", SWT.ElapsedMilliseconds)
         SWT.Restart()
 
         BG_VALUE = 0
@@ -291,10 +289,8 @@ Module TerrainBuilder
             End If
         Next
 
-        LogThis(String.Format("Smooth Seams: {0}", SWT.ElapsedMilliseconds.ToString))
+        LogThis("Smooth Seams: {0}", SWT.ElapsedMilliseconds)
         SWT.Restart()
-
-        sb.Clear()
 
         BG_VALUE = 0
         BG_TEXT = "Reading Terrain Texture data..."
@@ -306,11 +302,8 @@ Module TerrainBuilder
                 Application.DoEvents()
             End If
         Next
-        If _Write_texture_info Then
-            LogThis("Saved Texture transform data")
-            File.WriteAllText(TEMP_STORAGE + "\" + MAP_NAME_NO_PATH + "_Tex_info.txt", sb.ToString)
-        End If
-        LogThis(String.Format("Get Layers data and textures: {0}", SWT.ElapsedMilliseconds.ToString))
+
+        LogThis("Get Layers data and textures: {0}", SWT.ElapsedMilliseconds)
         SWT.Restart()
 
 
@@ -322,7 +315,7 @@ Module TerrainBuilder
 
         build_Terrain_VAO()
 
-        LogThis(String.Format("Build VAO: {0}", SWT.ElapsedMilliseconds.ToString))
+        LogThis("Build VAO: {0}", SWT.ElapsedMilliseconds)
         SWT.Stop()
     End Sub
 
