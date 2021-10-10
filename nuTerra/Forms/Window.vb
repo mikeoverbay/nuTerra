@@ -198,8 +198,8 @@ Public Class Window
     Protected Overrides Sub OnResize(e As ResizeEventArgs)
         MyBase.OnResize(e)
 
-        SCR_WIDTH = ClientSize.X
-        SCR_HEIGHT = ClientSize.Y
+        SCR_WIDTH = Math.Max(1, ClientSize.X)
+        SCR_HEIGHT = Math.Max(1, ClientSize.Y)
 
         If Not WindowState = WindowState.Minimized Then
             MainFBO.FBO_Initialize()
@@ -210,6 +210,9 @@ Public Class Window
         End If
 
         GL.Viewport(0, 0, ClientSize.X, ClientSize.Y)
+
+        draw_scene()
+        SwapBuffers()
     End Sub
 
     Protected Overrides Sub OnRenderFrame(args As FrameEventArgs)
