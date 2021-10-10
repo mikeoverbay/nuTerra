@@ -48,7 +48,7 @@ Public Class Window
 
     Protected Overrides Sub OnLoad()
         MyBase.OnLoad()
-
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance)
         'Check context:
         Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
         Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
