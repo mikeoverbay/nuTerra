@@ -234,8 +234,7 @@ try_again:
 
         GL.Viewport(0, 0, ClientSize.X, ClientSize.Y)
 
-        draw_scene()
-        SwapBuffers()
+        ForceRender()
     End Sub
 
     Protected Overrides Sub OnRenderFrame(args As FrameEventArgs)
@@ -244,6 +243,10 @@ try_again:
         DELTA_TIME = args.Time
         FPS_TIME = args.Time
 
+        ForceRender()
+    End Sub
+
+    Public Sub ForceRender()
         draw_scene()
         SwapBuffers()
     End Sub

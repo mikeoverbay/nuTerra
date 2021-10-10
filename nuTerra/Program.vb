@@ -1,9 +1,10 @@
 Imports System
 
 Module Program
+    Public main_window As Window
+
     Sub Main(args As String())
-        Using wnd As New Window
-            wnd.Run()
-        End Using
+        main_window = New Window
+        main_window.Run()
     End Sub
 End Module

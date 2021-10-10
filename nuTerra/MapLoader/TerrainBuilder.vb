@@ -266,6 +266,7 @@ Module TerrainBuilder
             BG_VALUE = I
             If I Mod 50 = 0 Then
                 Application.DoEvents()
+                main_window.ForceRender()
             End If
         Next
         'needed for fog rendering
@@ -282,6 +283,7 @@ Module TerrainBuilder
             BG_VALUE = i
             If i Mod 50 = 0 Then
                 Application.DoEvents()
+                main_window.ForceRender()
             End If
         Next
 
@@ -295,6 +297,7 @@ Module TerrainBuilder
             BG_VALUE = i
             If i Mod 50 = 0 Then
                 Application.DoEvents()
+                main_window.ForceRender()
             End If
         Next
 
@@ -306,6 +309,7 @@ Module TerrainBuilder
         BG_VALUE = 0
         BG_TEXT = "Building render VAOs..."
         Application.DoEvents()
+        main_window.ForceRender()
 
         build_Terrain_VAO()
 
