@@ -256,7 +256,6 @@ Module TerrainBuilder
         BG_TEXT = "Loading Terrain..."
         BG_MAX_VALUE = theMap.chunks.Length - 1
         BG_VALUE = 0
-        draw_scene()
 
         set_map_bs() 'presets max min values
         For I = 0 To theMap.chunks.Length - 1
@@ -266,7 +265,6 @@ Module TerrainBuilder
             get_mesh(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
             BG_VALUE = I
             If I Mod 50 = 0 Then
-                draw_scene()
                 Application.DoEvents()
             End If
         Next
@@ -278,13 +276,11 @@ Module TerrainBuilder
 
         BG_VALUE = 0
         BG_TEXT = "Smoothing Terrain Normals..."
-        draw_scene()
 
         For i = 0 To theMap.chunks.Length - 1
             smooth_edges(i)
             BG_VALUE = i
             If i Mod 50 = 0 Then
-                draw_scene()
                 Application.DoEvents()
             End If
         Next
@@ -298,7 +294,6 @@ Module TerrainBuilder
             get_layers(i)
             BG_VALUE = i
             If i Mod 50 = 0 Then
-                draw_scene()
                 Application.DoEvents()
             End If
         Next
@@ -310,7 +305,6 @@ Module TerrainBuilder
         'we need to find a way to package the terrains texture info so we can use instance rendering
         BG_VALUE = 0
         BG_TEXT = "Building render VAOs..."
-        draw_scene()
         Application.DoEvents()
 
         build_Terrain_VAO()

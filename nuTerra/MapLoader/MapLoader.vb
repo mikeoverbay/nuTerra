@@ -116,7 +116,6 @@ Module MapLoader
             BG_TEXT = "Loading Models..."
             BG_MAX_VALUE = MAP_MODELS.Length - 1
             BG_VALUE = 0
-            draw_scene()
 
             For i = 0 To MAP_MODELS.Length - 1
                 BG_VALUE = i
@@ -131,7 +130,6 @@ Module MapLoader
                 Next
                 If i Mod 10 = 0 Then
                     Application.DoEvents() '<-- Give some time to this app's UI
-                    draw_scene()
                 End If
             Next
 
@@ -673,7 +671,7 @@ Module MapLoader
         BG_TEXT = "Loading Model Materials..."
         BG_VALUE = 0
         BG_MAX_VALUE = texturePaths.Count
-        draw_scene()
+        Application.DoEvents()
 
         Dim textureHandles As New Dictionary(Of String, UInt64)
         Dim atlasIndexRemaper As New Dictionary(Of String, Dictionary(Of Integer, Integer))
@@ -789,7 +787,6 @@ Module MapLoader
             BG_VALUE += 1
             If BG_VALUE Mod 100 = 0 Then
                 Application.DoEvents() 'stop freezing the UI
-                draw_scene()
             End If
 
             Dim ms As New MemoryStream
@@ -927,9 +924,6 @@ Module MapLoader
 
             'update bargraph
             BG_VALUE += 1
-            If BG_VALUE Mod 50 = 0 Then
-                draw_scene()
-            End If
 
             Dim ms As New MemoryStream
             entry.Extract(ms)
