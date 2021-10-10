@@ -40,6 +40,7 @@ Public Class Window
                 .UpdateFrequency = 0.0
             }, GetGLSettings())
         Title = Application.ProductName
+        VSync = VSyncMode.Off
     End Sub
 
     Protected Overrides Sub OnLoad()
@@ -142,7 +143,7 @@ Public Class Window
         If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
             MsgBox("Path to game is not set!" + vbCrLf +
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
-            ' TODO m_set_game_path.PerformClick()
+            m_set_game_path()
 
             If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
                 MsgBox("This application will be closed because game was not found!")
@@ -199,6 +200,22 @@ Public Class Window
         _STARTED = True ' I'm ready for update loops!
 
         SHOW_MAPS_SCREEN = True '<---- Un-rem to show map menu at startup.
+    End Sub
+
+    Private Sub m_set_game_path()
+        Dim FolderBrowserDialog1 As New FolderBrowserDialog
+
+        'Sets the game path folder
+try_again:
+        If FolderBrowserDialog1.ShowDialog = DialogResult.OK Then
+            My.Settings.GamePath = FolderBrowserDialog1.SelectedPath
+            If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
+                MsgBox("Wrong Folder Path!" + vbCrLf +
+                       "You need to point at the World_of_Tanks folder!",
+                        MsgBoxStyle.Exclamation, "Wrong Path!")
+                GoTo try_again
+            End If
+        End If
     End Sub
 
     Protected Overrides Sub OnResize(e As ResizeEventArgs)
