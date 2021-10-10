@@ -209,6 +209,7 @@ NotInheritable Class MapMenuScreen
     Public Shared Sub gl_pick_map()
         Dim w = frmMain.glControl_main.Width
         Dim h = frmMain.glControl_main.Height
+
         If w = 0 Or h = 0 Then
             Return
         End If

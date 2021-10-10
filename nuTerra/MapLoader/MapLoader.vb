@@ -31,9 +31,6 @@ Module MapLoader
 
     '============================================================================
     Public Sub load_map(map_name As String)
-        'disable main menu
-        frmMain.MainMenuStrip.Enabled = False
-
         MAP_LOADED = False
         SHOW_MAPS_SCREEN = False
         BG_MAX_VALUE = 0
@@ -72,8 +69,6 @@ Module MapLoader
         'Open the space.bin file. If it fails, it closes all packages and lets the user know.
         If Not get_spaceBin(map_name) Then
             MsgBox("Failed to load Space.Bin from the map package.", MsgBoxStyle.Exclamation, "Space.bin!")
-            'Enabled main menu
-            frmMain.MainMenuStrip.Enabled = True
             Return
         End If
         '===============================================================
@@ -504,10 +499,6 @@ Module MapLoader
         '===================================================
 
         map_scene.check_postion_for_update() ' need to initialize cursor altitude
-
-        'Enable main menu
-        frmMain.MainMenuStrip.Enabled = True
-
     End Sub
 
     Public Sub set_light_pos()

@@ -18,7 +18,6 @@ Public Class frmMain
 
     Protected Overrides Sub WndProc(ByRef m As Message)
         If (m.Msg = WM_SYSCOMMAND AndAlso m.WParam.ToInt32 = SC_MAXIMIZE) OrElse (m.Msg = WM_NCLBUTTONDBLCLK AndAlso m.WParam.ToInt32 = HTCAPTION) Then
-            SP2_Width = SplitContainer1.Panel2.Width
             'm.Result = CType(0, IntPtr)
             'Return
         End If
@@ -39,11 +38,7 @@ Public Class frmMain
     Private fps_timer As New System.Diagnostics.Stopwatch
     Private game_clock As New System.Diagnostics.Stopwatch
     Private launch_timer As New System.Diagnostics.Stopwatch
-    Public SP2_Width As Integer
     Dim MINIMIZED As Boolean
-    Public panel_2_occupied As Boolean
-    Public PG_width As Integer
-    Public FE_width As Integer
 
 #Region "Form Events"
 
@@ -139,7 +134,7 @@ Public Class frmMain
                 End If
 
             Case Keys.O
-                m_load_map.PerformClick()
+                'TODO
 
             Case Keys.P
                 PICK_MODELS = PICK_MODELS Xor True
@@ -207,8 +202,6 @@ Public Class frmMain
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
         Text = Application.ProductName
-        m_appVersion.Text = "Version: " & Application.ProductVersion
-        PropertyGrid1.SelectedObject = New SettingsPropertyGrid()
 
         If My.Settings.UpgradeRequired Then
             My.Settings.Upgrade()
@@ -228,22 +221,12 @@ Public Class frmMain
 #End If
 
         Me.glControl_main = New OpenTK.WinForms.GLControl(glSettings)
+        Me.Controls.Add(Me.glControl_main)
 
         '-----------------------------------------------------------------------------------------
         Me.Show()
         Application.DoEvents()
-        'size SplitContainer1
-        SplitContainer1.Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
-        SplitContainer1.Width = Me.ClientSize.Width
-        SplitContainer1.Height = Me.ClientSize.Height - frmMainMenu.Height
-        SplitContainer1.Location = New Point(0, frmMainMenu.Height)
-        SplitContainer1.Panel2Collapsed = True
-        '-----------------------------------------------------------------------------------------
-        SplitContainer1.Panel1.Controls.Add(Me.glControl_main)
-        '-----------------------------------------------------------------------------------------
 
-        ' we dont want menu events while the app is initializing :)
-        MainMenuStrip.Enabled = False
         '-----------------------------------------------------------------------------------------
         'So numbers work in any nation I'm running in.
         Dim nonInvariantCulture As CultureInfo = New CultureInfo("en-US")
@@ -257,7 +240,6 @@ Public Class frmMain
 
 
         '-----------------------------------------------------------------------------------------
-        PropertyGrid1.Parent = SplitContainer1.Panel2
         'Debugger.Break()
         'This timer allows the form to become visible before we initialize everything
         'It is disposed after its done its job.
@@ -309,7 +291,6 @@ Public Class frmMain
         If Me.WindowState = FormWindowState.Minimized Then
             Return
         End If
-        SplitContainer1.SplitterDistance = Math.Max(0, ClientSize.Width - SP2_Width - SplitContainer1.SplitterWidth)
 
         resize_fbo_main()
     End Sub
@@ -323,12 +304,12 @@ Public Class frmMain
 
 #Region "FrmMain menu events"
 
-    Private Sub m_light_settings_Click(sender As Object, e As EventArgs) Handles m_light_settings.Click
+    Private Sub m_light_settings_Click(sender As Object, e As EventArgs)
         'Opens light setting window
         'TODO
     End Sub
 
-    Private Sub m_load_map_Click(sender As Object, e As EventArgs) Handles m_load_map.Click
+    Private Sub m_load_map_Click(sender As Object, e As EventArgs)
 
         If Not MAP_LOADED Then
             Me.Text = Application.ProductName & " " & Application.ProductVersion
@@ -340,7 +321,7 @@ Public Class frmMain
         SHOW_MAPS_SCREEN = True
     End Sub
 
-    Private Sub m_set_game_path_Click(sender As Object, e As EventArgs) Handles m_set_game_path.Click
+    Private Sub m_set_game_path_Click(sender As Object, e As EventArgs)
         'Sets the game path folder
 try_again:
         If FolderBrowserDialog1.ShowDialog = Forms.DialogResult.OK Then
@@ -354,47 +335,6 @@ try_again:
         End If
     End Sub
 
-    Private Sub m_help_Click(sender As Object, e As EventArgs) Handles m_help.Click
-        'Opens the index.HTML help/info file in the users default web browser.
-        Using proc As New Process
-            proc.StartInfo.UseShellExecute = True
-            proc.StartInfo.FileName = Path.Combine(Application.StartupPath, "HTML", "index.html")
-            proc.Start()
-        End Using
-    End Sub
-
-    Private Sub m_shut_down_Click(sender As Object, e As EventArgs) Handles m_shut_down.Click
-        'Closes the app.
-        Me.Close()
-    End Sub
-
-    Private Sub m_Log_File_Click(sender As Object, e As EventArgs) Handles m_Log_File.Click
-    End Sub
-
-    Private Sub m_show_properties_Click(sender As Object, e As EventArgs) Handles m_show_properties.Click
-        m_show_properties.Checked = Not m_show_properties.Checked
-        If m_show_properties.Checked Then
-
-            SplitContainer1.Panel2Collapsed = False
-            PropertyGrid1.Show()
-            SP2_Width = 225
-            SplitContainer1.SplitterDistance = (ClientSize.Width - SP2_Width) - SplitContainer1.SplitterWidth
-            SetLabelColumnWidth(PropertyGrid1, 120)
-            PropertyGrid1.Invalidate()
-            PG_width = SP2_Width
-        Else
-            PropertyGrid1.Hide()
-            If panel_2_occupied Then
-                SplitContainer1.Panel2Collapsed = False
-                SplitContainer1.SplitterDistance = (ClientSize.Width - SP2_Width) - SplitContainer1.SplitterWidth
-            Else
-                SplitContainer1.Panel2Collapsed = True
-
-            End If
-        End If
-        resize_fbo_main()
-    End Sub
-
     Public Shared Sub SetLabelColumnWidth(ByVal grid As PropertyGrid, ByVal width As Integer)
         If grid Is Nothing Then Return
         Dim fi As FieldInfo = grid.[GetType]().GetField("gridView", BindingFlags.Instance Or BindingFlags.NonPublic)
@@ -404,14 +344,6 @@ try_again:
         Dim mi As MethodInfo = view.[GetType]().GetMethod("MoveSplitterTo", BindingFlags.Instance Or BindingFlags.NonPublic)
         If mi Is Nothing Then Return
         mi.Invoke(view, New Object() {width})
-    End Sub
-
-    Private Sub m_appVersion_Click(sender As Object, e As EventArgs) Handles m_appVersion.Click
-        Using proc As New Process
-            proc.StartInfo.UseShellExecute = True
-            proc.StartInfo.FileName = "https://github.com/mikeoverbay/nuTerra/releases"
-            proc.Start()
-        End Using
     End Sub
 
 #End Region
@@ -522,7 +454,7 @@ try_again:
         If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
             MsgBox("Path to game is not set!" + vbCrLf +
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
-            m_set_game_path.PerformClick()
+            ' TODO m_set_game_path.PerformClick()
 
             If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
                 MsgBox("This application will be closed because game was not found!")
@@ -571,9 +503,6 @@ try_again:
         GC.Collect() 'Start a clean up of disposed items
         '-----------------------------------------------------------------------------------------
 
-        '-----------------------------------------------------------------------------------------
-        'we are ready for user input so lets enable the menu
-        MainMenuStrip.Enabled = True
         '-----------------------------------------------------------------------------------------
         LogThis("{0}ms Starting Update Thread", launch_timer.ElapsedMilliseconds)
         _STARTED = True ' I'm ready for update loops!
@@ -939,32 +868,6 @@ try_again:
     Private Sub map_loader_Tick(sender As Object, e As EventArgs) Handles map_loader.Tick
         map_loader.Enabled = False
         load_map(MAP_NAME_NO_PATH)
-    End Sub
-
-    Private Sub m_screen_capture_Click(sender As Object, e As EventArgs) Handles m_screen_capture.Click
-    End Sub
-
-    Private Sub SplitContainer1_SplitterMoved(sender As Object, e As SplitterEventArgs) Handles SplitContainer1.SplitterMoved
-        If Not _STARTED Then Return
-        If Not sp_moved Then Return
-        sp_moved = False
-        SP2_Width = SplitContainer1.Panel2.Width
-        If panel_2_occupied Then
-            FE_width = SP2_Width
-        Else
-            PG_width = SP2_Width
-        End If
-        MainFBO.oldWidth = -1
-        resize_fbo_main()
-    End Sub
-
-    Dim sp_moved As Boolean
-    Private Sub SplitContainer1_SplitterMoving(sender As Object, e As SplitterCancelEventArgs) Handles SplitContainer1.SplitterMoving
-        If Not _STARTED Then Return
-
-
-        sp_moved = True
-
     End Sub
 
 End Class
