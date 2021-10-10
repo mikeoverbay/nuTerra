@@ -78,9 +78,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\.editorconfig">
-      <Link>.editorconfig</Link>
-    </None>
     <None Update="My Project\Application.myapp">
       <Generator>MyApplicationCodeGenerator</Generator>
       <LastGenOutput>Application.Designer.vb</LastGenOutput>
@@ -427,7 +424,6 @@
     <Content Include="HTML\top_frame.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="PBR_Source.txt" />
     <Content Include="Resources\checkerBoard.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
