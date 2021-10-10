@@ -1,5 +1,6 @@
 ﻿Imports System.IO
 Imports System.Runtime.InteropServices
+Imports ImGuiNET
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
@@ -15,6 +16,8 @@ Public Class Window
     Public Shared SCR_WIDTH As Integer = 1200
     Public Shared SCR_HEIGHT As Integer = 800
     Public Shared mouse_last_pos As Point
+
+    Private _controller As ImGuiController
 
     Private Shared Function GetGLSettings() As NativeWindowSettings
         Dim setting As New NativeWindowSettings With {
@@ -200,6 +203,8 @@ Public Class Window
         _STARTED = True ' I'm ready for update loops!
 
         SHOW_MAPS_SCREEN = True '<---- Un-rem to show map menu at startup.
+
+        _controller = New ImGuiController(ClientSize.X, ClientSize.Y)
     End Sub
 
     Private Sub m_set_game_path()
@@ -234,11 +239,15 @@ try_again:
 
         GL.Viewport(0, 0, ClientSize.X, ClientSize.Y)
 
+        _controller.WindowResized(ClientSize.X, ClientSize.Y)
+
         ForceRender()
     End Sub
 
     Protected Overrides Sub OnRenderFrame(args As FrameEventArgs)
         MyBase.OnRenderFrame(args)
+
+        _controller.Update(Me, CSng(args.Time))
 
         DELTA_TIME = args.Time
         FPS_TIME = args.Time
@@ -248,11 +257,19 @@ try_again:
 
     Public Sub ForceRender()
         draw_scene()
+
+        ImGui.ShowDemoWindow()
+        _controller.Render()
+
         SwapBuffers()
     End Sub
 
     Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
         MyBase.OnKeyDown(e)
+
+        If _controller IsNot Nothing AndAlso ImGui.GetIO().WantCaptureKeyboard Then
+            Return
+        End If
 
         Select Case e.Key
             Case Keys.A
@@ -268,6 +285,10 @@ try_again:
 
     Protected Overrides Sub OnKeyUp(e As KeyboardKeyEventArgs)
         MyBase.OnKeyUp(e)
+
+        If _controller IsNot Nothing AndAlso ImGui.GetIO().WantCaptureKeyboard Then
+            Return
+        End If
 
         Z_MOVE = False
         MOVE_MOD = False
@@ -359,6 +380,11 @@ try_again:
     Protected Overrides Sub OnUpdateFrame(args As FrameEventArgs)
         MyBase.OnUpdateFrame(args)
 
+        Dim io = ImGui.GetIO()
+        If _controller IsNot Nothing AndAlso (io.WantCaptureKeyboard OrElse io.WantCaptureMouse) Then
+            Return
+        End If
+
         If Not IsFocused Then
             Return
         End If
@@ -414,6 +440,11 @@ try_again:
 
     Protected Overrides Sub OnMouseMove(e As MouseMoveEventArgs)
         MyBase.OnMouseMove(e)
+
+        Dim io = ImGui.GetIO()
+        If _controller IsNot Nothing AndAlso (io.WantCaptureKeyboard OrElse io.WantCaptureMouse) Then
+            Return
+        End If
 
         If BLOCK_MOUSE Then Return
         M_MOUSE.X = e.X
@@ -522,8 +553,25 @@ try_again:
     Protected Overrides Sub OnMouseUp(e As MouseButtonEventArgs)
         MyBase.OnMouseUp(e)
 
+        Dim io = ImGui.GetIO()
+        If io.WantCaptureKeyboard OrElse io.WantCaptureMouse Then
+            Return
+        End If
+
         M_DOWN = False
         MOVE_CAM_Z = False
         MOVE_MOD = False
+    End Sub
+
+    Protected Overrides Sub OnMouseWheel(e As MouseWheelEventArgs)
+        MyBase.OnMouseWheel(e)
+
+        _controller.MouseScroll(e.Offset)
+    End Sub
+
+    Protected Overrides Sub OnTextInput(e As TextInputEventArgs)
+        MyBase.OnTextInput(e)
+
+        _controller.PressChar(ChrW(e.Unicode))
     End Sub
 End Class

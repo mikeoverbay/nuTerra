@@ -802,7 +802,7 @@ got_it:
                     mat.shader_type = ShaderTypes.FX_lightonly_alpha
                     mat.props = obj
 
-                Case "shaders/custom/coloronly_alpha.fx", "shaders/std_effects/PBS_ext_detail_dual.fx", "shaders/std_effects/PBS_tiled.fx", "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx", "shaders/custom/volumetric_effect_vtx_skinned.fx"
+                Case "shaders/particles/wg_particles.fx", "shaders/custom/coloronly_alpha.fx", "shaders/std_effects/PBS_ext_detail_dual.fx", "shaders/std_effects/PBS_tiled.fx", "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx", "shaders/custom/volumetric_effect_vtx_skinned.fx"
                     mat.shader_type = ShaderTypes.FX_unsupported
 
                 Case Else

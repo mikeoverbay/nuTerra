@@ -212,6 +212,7 @@ Module ShaderLoader
     Public terrainDepthShader As Shader
     Public Terrain_light As Shader
     Public mDepthWrite_light As Shader
+    Public imguiShader As Shader
 #End Region
 
 #Region "Compiler code"
@@ -278,6 +279,7 @@ Module ShaderLoader
         explode_type_1_shader = New Shader("explode_type_1_")
         'shadow shaders
         mDepthWrite_light = New Shader("mDepthWrite_light")
+        imguiShader = New Shader("imgui")
     End Sub
 
     Public Function assemble_shader(v As String,

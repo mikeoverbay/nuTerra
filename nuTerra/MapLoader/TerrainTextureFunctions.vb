@@ -362,7 +362,6 @@ Module TerrainTextureFunctions
         Dim fullWidth As Integer = 12
         Dim fullHeight As Integer = 12
         Dim layer As Single
-        Application.DoEvents() 'stop freezing the UI
         Dim buffer = File.ReadAllBytes(Application.StartupPath + "\resources\blank12x12.dds")
 
         For i = 0 To 3

@@ -30,6 +30,11 @@
     <GenerateManifests>false</GenerateManifests>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="shaders\User_GUI\**" />
+    <EmbeddedResource Remove="shaders\User_GUI\**" />
+    <None Remove="shaders\User_GUI\**" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="Pngcs, Version=1.1.4.1, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>.\Pngcs.dll</HintPath>
@@ -227,6 +232,12 @@
     <None Update="shaders\Trials\cull-raster.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="shaders\Trials\imgui.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="shaders\Trials\imgui.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <Content Include="shaders\Utility\explode_type_1_.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -373,9 +384,6 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="shaders\User_GUI\" />
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="data\filtered_strings.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -475,8 +483,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DotNetZip" Version="1.15.0" />
+    <PackageReference Include="ImGui.NET" Version="1.78.0" />
     <PackageReference Include="NGettext" Version="0.6.7" />
     <PackageReference Include="OpenTK" Version="4.6.7" />
-    <PackageReference Include="OpenTK.WinForms.Radegast" Version="0.1.0" />
   </ItemGroup>
 </Project>
