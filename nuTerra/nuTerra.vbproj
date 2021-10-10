@@ -528,5 +528,6 @@
     <PackageReference Include="NGettext" Version="0.6.7" />
     <PackageReference Include="OpenTK" Version="4.6.7" />
     <PackageReference Include="OpenTK.WinForms.Radegast" Version="0.1.0" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="5.0.0" />
   </ItemGroup>
 </Project>

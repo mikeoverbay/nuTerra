@@ -229,6 +229,8 @@ Public Class frmMain
     End Sub
 
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance)
+
         Text = Application.ProductName
         m_appVersion.Text = "Version: " & Application.ProductVersion
         PropertyGrid1.SelectedObject = New SettingsPropertyGrid()
@@ -384,7 +386,8 @@ try_again:
     Private Sub m_help_Click(sender As Object, e As EventArgs) Handles m_help.Click
         'Opens the index.HTML help/info file in the users default web browser.
         Dim p = Application.StartupPath + "\HTML\index.html"
-        Process.Start(p)
+
+        Process.Start(New ProcessStartInfo("cmd", $"/c start {p}"))
     End Sub
 
     Private Sub m_shut_down_Click(sender As Object, e As EventArgs) Handles m_shut_down.Click
