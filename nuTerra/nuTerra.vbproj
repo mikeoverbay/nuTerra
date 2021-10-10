@@ -3,8 +3,8 @@
     <TargetFramework>net5.0-windows</TargetFramework>
 	<PlatformTarget>x64</PlatformTarget>
     <OutputType>WinExe</OutputType>
-    <StartupObject>nuTerra.My.MyApplication</StartupObject>
-    <MyType>WindowsForms</MyType>
+    <StartupObject>nuTerra.Program</StartupObject>
+    <MyType>WindowsFormsWithCustomSubMain</MyType>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>

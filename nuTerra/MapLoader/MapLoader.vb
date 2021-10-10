@@ -1086,14 +1086,12 @@ Module MapLoader
 
     Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)
 
-        Dim ww = frmMain.glControl_main.ClientRectangle.Width
+        Dim ww = Window.SCR_WIDTH
 
         Dim ls = (1920.0F - ww) / 2.0F
 
         ' Draw Terra Image
         draw_image_rectangle(New RectangleF(0, 0, w, h), id)
-
-        frmMain.glControl_main.SwapBuffers()
     End Sub
 
     Private Function get_spaceBin(ABS_NAME As String) As Boolean

@@ -32,7 +32,7 @@ NotInheritable Class MapMenuScreen
         ImgWidth = 120.0 * My.Settings.UI_map_icon_scale
         ImgHeight = 72.0 * My.Settings.UI_map_icon_scale
 
-        Dim w = frmMain.glControl_main.Width
+        Dim w = Window.SCR_WIDTH
         scrollpane_y = 0
 
         num_columns = Math.Max(1, Math.Min(MAX_NUM_COLUMNS, Math.Floor(w / (ImgWidth + IMG_SPACE))))
@@ -207,8 +207,8 @@ NotInheritable Class MapMenuScreen
     End Sub
 
     Public Shared Sub gl_pick_map()
-        Dim w = frmMain.glControl_main.Width
-        Dim h = frmMain.glControl_main.Height
+        Dim w = Window.SCR_WIDTH
+        Dim h = Window.SCR_HEIGHT
 
         If w = 0 Or h = 0 Then
             Return
@@ -220,7 +220,7 @@ NotInheritable Class MapMenuScreen
         ' find new selected map
         If Not FINISH_MAPS Then
             For i = 0 To MapPickList.Count - 1
-                If MapPickList(i).rect.Contains(MOUSE) Then
+                If MapPickList(i).rect.Contains(Window.mouse_last_pos) Then
                     MAP_NAME_NO_PATH = MapPickList(i).name
                     description_string = MapPickList(i).discription
                     SelectedMap = MapPickList(i)
@@ -276,12 +276,6 @@ NotInheritable Class MapMenuScreen
 
         GL.Disable(EnableCap.Blend)
 
-        'make it visible
-        frmMain.glControl_main.SwapBuffers()
-
-        'we don't need a big fps here
-        Threading.Thread.Sleep(5)
-
         'this checks to see if there are any images drawn oversize
         If FINISH_MAPS Then
             Dim no_stragglers = True
@@ -298,8 +292,6 @@ NotInheritable Class MapMenuScreen
                 BLOCK_MOUSE = False
                 BG_VALUE = 0 'reset bar graph
                 SHOW_LOADING_SCREEN = True
-                frmMain.map_loader.Enabled = True
-
             End If
         End If
 

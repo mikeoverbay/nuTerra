@@ -123,7 +123,7 @@ Module modGlobalVars
     Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE, M_SPIN As Boolean ' mouse control booleans
     Public WASD_SPEED As Single = 0
     Public WASD_VECTOR As Point
-    Public M_MOUSE, MOUSE As New Point
+    Public M_MOUSE As New Point
     Public SHOW_CURSOR As Integer
     '============================================================
     Public PROJECTIONMATRIX As New Matrix4

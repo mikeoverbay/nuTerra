@@ -14,8 +14,6 @@ Public Class ShadowMappingFBO
     Public Shared FRAME_STEP As Integer = 20
 
     Public Shared Sub FBO_Initialize()
-        frmMain.glControl_main.MakeCurrent()
-
         create_textures()
 
         If Not create_fbo() Then

@@ -9,7 +9,7 @@ Module ModelPicker
         ' get pixel
         Dim pixel(1) As UInt16
         MainFBO.fbo.ReadBuffer(ReadBufferMode.ColorAttachment4)
-        GL.ReadPixels(MOUSE.X, viewport(3) - MOUSE.Y, 1, 1, PixelFormat.RedInteger, PixelType.UnsignedInt, pixel)
+        GL.ReadPixels(Window.mouse_last_pos.X, viewport(3) - Window.mouse_last_pos.Y, 1, 1, PixelFormat.RedInteger, PixelType.UnsignedInt, pixel)
         Dim index As UInt32 = pixel(0) ' + (pixel(1) * 255)
 
         If index > 0 AndAlso index < 65535 Then

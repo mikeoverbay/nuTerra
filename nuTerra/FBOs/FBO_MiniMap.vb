@@ -20,7 +20,6 @@ Public Class MiniMapFBO
 
     Public Shared Sub FBO_Initialize(ByVal size As Integer)
         mini_size = size
-        frmMain.glControl_main.MakeCurrent()
 
         ' Stop changing the size becuase of excessive window resize calls.
         If mini_size <> old_mini_size Then
@@ -48,11 +47,11 @@ Public Class MiniMapFBO
     End Sub
 
     Public Shared Sub attach_both()
-        MainFBO.fbo.DrawBuffers(2, at_both)
+        fbo.DrawBuffers(2, at_both)
     End Sub
 
     Public Shared Sub attach_gcolor()
-        MainFBO.fbo.DrawBuffers(1, at_gColor)
+        fbo.DrawBuffers(1, at_gColor)
     End Sub
 
     Public Shared Sub create_textures()

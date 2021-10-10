@@ -248,7 +248,7 @@ Public Class MapStaticModels
         MainFBO.gAUX_Color.BindUnit(1)
 
         'draw full screen quad
-        GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-MainFBO.SCR_HEIGHT), CSng(MainFBO.SCR_WIDTH), 0.0F)
+        GL.Uniform4(glassPassShader("rect"), 0.0F, CSng(-Window.SCR_HEIGHT), CSng(Window.SCR_WIDTH), 0.0F)
 
         defaultVao.Bind()
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)

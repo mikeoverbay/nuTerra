@@ -60,8 +60,8 @@ Public Class MapCamera
     )
 
     Public Sub set_prespective_view()
-        Dim W = CSng(frmMain.glControl_main.Width)
-        Dim H = CSng(frmMain.glControl_main.Height)
+        Dim W = Window.SCR_WIDTH
+        Dim H = Window.SCR_HEIGHT
 
         PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, W, -H, 0.0F, -300.0F, 300.0F)
         Dim sin_x, cos_x, cos_y, sin_y As Single

@@ -3,7 +3,6 @@
 Public Class MainFBO
     Public Shared fbo As GLFramebuffer
 
-    Public Shared SCR_WIDTH, SCR_HEIGHT As Integer
     Public Shared gPick As GLRenderbuffer
     Public Shared gColor_2 As GLRenderbuffer
     Public Shared gColor As GLTexture
@@ -57,11 +56,9 @@ Public Class MainFBO
     }
 
     Public Shared Sub FBO_Initialize()
-        frmMain.glControl_main.MakeCurrent()
         ' Stop changing the size becuase of excessive window resize calls.
-        get_glControl_main_size(SCR_WIDTH, SCR_HEIGHT)
 
-        If oldWidth <> SCR_WIDTH Or oldheight <> SCR_HEIGHT Then
+        If oldWidth <> Window.SCR_WIDTH Or oldheight <> Window.SCR_HEIGHT Then
             delete_textures_and_fbo()
 
             create_textures()
@@ -71,8 +68,8 @@ Public Class MainFBO
                 End
             End If
             'set new size
-            oldWidth = SCR_WIDTH
-            oldheight = SCR_HEIGHT
+            oldWidth = Window.SCR_WIDTH
+            oldheight = Window.SCR_HEIGHT
 
         End If
 
@@ -95,42 +92,42 @@ Public Class MainFBO
         ' gColor ------------------------------------------------------------------------------------------
         ' RGBA8
         gColor = GLTexture.Create(TextureTarget.Texture2D, "gColor")
-        gColor.Storage2D(1, SizedInternalFormat.Rgba8, SCR_WIDTH, SCR_HEIGHT)
+        gColor.Storage2D(1, SizedInternalFormat.Rgba8, Window.SCR_WIDTH, Window.SCR_HEIGHT)
 
         ' AUX_gColor -----------------------------------------------------------------------------------
         ' RGBA8
         gAUX_Color = GLTexture.Create(TextureTarget.Texture2D, "AUX_gColor")
-        gAUX_Color.Storage2D(1, SizedInternalFormat.Rgba8, SCR_WIDTH, SCR_HEIGHT)
+        gAUX_Color.Storage2D(1, SizedInternalFormat.Rgba8, Window.SCR_WIDTH, Window.SCR_HEIGHT)
 
         ' gNormal ------------------------------------------------------------------------------------------
         ' 3 color : normal in RGB
         gNormal = GLTexture.Create(TextureTarget.Texture2D, "gNormal")
-        gNormal.Storage2D(1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+        gNormal.Storage2D(1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), Window.SCR_WIDTH, Window.SCR_HEIGHT)
 
         ' gGM_Flag ------------------------------------------------------------------------------------------
         ' 4 color int : GM in RG : Flag in b : Wetness in a
         gGMF = GLTexture.Create(TextureTarget.Texture2D, "gGMF")
-        gGMF.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+        gGMF.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), Window.SCR_WIDTH, Window.SCR_HEIGHT)
 
         ' gPosition ------------------------------------------------------------------------------------------
         ' RGB16F
         gPosition = GLTexture.Create(TextureTarget.Texture2D, "gPosition")
-        gPosition.Storage2D(1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+        gPosition.Storage2D(1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), Window.SCR_WIDTH, Window.SCR_HEIGHT)
 
         ' gDepth ------------------------------------------------------------------------------------------
         ' DepthComponent32f
         gDepth = GLTexture.Create(TextureTarget.Texture2D, "gDepth")
-        gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), SCR_WIDTH, SCR_HEIGHT)
+        gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), Window.SCR_WIDTH, Window.SCR_HEIGHT)
 
         ' gPick ------------------------------------------------------------------------------------------
         ' R16 uInt
         gPick = GLRenderbuffer.Create("gPick")
-        gPick.Storage(RenderbufferStorage.R16ui, SCR_WIDTH, SCR_HEIGHT)
+        gPick.Storage(RenderbufferStorage.R16ui, Window.SCR_WIDTH, Window.SCR_HEIGHT)
 
         ' gColor_2 ------------------------------------------------------------------------------------------
         ' RGBA8
         gColor_2 = GLRenderbuffer.Create("gColor_2")
-        gColor_2.Storage(RenderbufferStorage.Rgba8, SCR_WIDTH, SCR_HEIGHT)
+        gColor_2.Storage(RenderbufferStorage.Rgba8, Window.SCR_WIDTH, Window.SCR_HEIGHT)
     End Sub
 
     Public Shared Function create_fbo() As Boolean
@@ -156,29 +153,6 @@ Public Class MainFBO
         Return True ' No errors! all is good! :)
     End Function
 
-    Public Shared Sub get_glControl_main_size(ByRef w As Integer, ByRef h As Integer)
-        'returns the size of the render control
-        'We must ensure that the window size is divisible by 2. GL doesn't like odd sized textures!
-
-        'This has to be done this way because of the menu and even size buffer textures.
-        'Just docking the control in fill causes problems.
-        frmMain.glControl_main.Width = frmMain.Width
-        frmMain.glControl_main.Height = frmMain.Height
-        frmMain.glControl_main.Location = New System.Drawing.Point(0, 0)
-
-        Dim w1 = frmMain.glControl_main.Width
-        Dim h1 = frmMain.glControl_main.Height
-        w = w1 + (w1 Mod 2)
-        h = h1 + (h1 Mod 2)
-        frmMain.glControl_main.Width = w
-        frmMain.glControl_main.Height = h
-        Return
-    End Sub
-
-    Public Shared Sub get_glControl_size(ByRef w As Integer, ByRef h As Integer)
-        w = frmMain.glControl_main.Width
-        h = frmMain.glControl_main.Height
-    End Sub
 
     Public Shared Sub attach_CNGP()
         'attach our render buffer textures.

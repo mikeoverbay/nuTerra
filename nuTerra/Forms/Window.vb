@@ -1,6 +1,4 @@
-﻿#If False Then
-
-Imports System.IO
+﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
@@ -135,19 +133,19 @@ Public Class Window
 
         '-----------------------------------------------------------------------------------------
         'Check if the game path is set
-        If Not Directory.Exists(Path.Combine(nuTerra.AppSettings.Default.GamePath, "res")) Then
+        If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
             MsgBox("Path to game is not set!" + vbCrLf +
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
             ' TODO m_set_game_path.PerformClick()
 
-            If Not Directory.Exists(Path.Combine(nuTerra.AppSettings.Default.GamePath, "res")) Then
+            If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
                 MsgBox("This application will be closed because game was not found!")
                 Application.Exit()
                 Return
             End If
         End If
 
-        LogThis("{0}ms Game Path: {1}", launch_timer.ElapsedMilliseconds, nuTerra.AppSettings.Default.GamePath)
+        LogThis("{0}ms Game Path: {1}", launch_timer.ElapsedMilliseconds, My.Settings.GamePath)
 
         ' Create default VAO
         defaultVao = GLVertexArray.Create("defaultVao")
@@ -161,17 +159,17 @@ Public Class Window
         CommonPropertiesBuffer.BindBase(2)
 
         CommonProperties.tess_level = 1.0
-        FieldOfView = CSng(Math.PI) * (nuTerra.AppSettings.Default.fov / 180.0F)
+        FieldOfView = CSng(Math.PI) * (My.Settings.fov / 180.0F)
 
         'Get block state of things we want to block loading to speed things up for testing/debugging
-        DONT_BLOCK_BASES = nuTerra.AppSettings.Default.load_bases
-        DONT_BLOCK_DECALS = nuTerra.AppSettings.Default.load_decals
-        DONT_BLOCK_MODELS = nuTerra.AppSettings.Default.load_models
-        DONT_BLOCK_SKY = nuTerra.AppSettings.Default.load_sky
-        DONT_BLOCK_TERRAIN = nuTerra.AppSettings.Default.load_terrain
-        DONT_BLOCK_OUTLAND = nuTerra.AppSettings.Default.load_outland
-        DONT_BLOCK_TREES = nuTerra.AppSettings.Default.load_trees
-        DONT_BLOCK_WATER = nuTerra.AppSettings.Default.load_water
+        DONT_BLOCK_BASES = My.Settings.load_bases
+        DONT_BLOCK_DECALS = My.Settings.load_decals
+        DONT_BLOCK_MODELS = My.Settings.load_models
+        DONT_BLOCK_SKY = My.Settings.load_sky
+        DONT_BLOCK_TERRAIN = My.Settings.load_terrain
+        DONT_BLOCK_OUTLAND = My.Settings.load_outland
+        DONT_BLOCK_TREES = My.Settings.load_trees
+        DONT_BLOCK_WATER = My.Settings.load_water
 
         'get directory of all shader files
         SHADER_PATHS = Directory.GetFiles(Application.StartupPath + "\shaders\", "*.*", SearchOption.AllDirectories)
@@ -204,7 +202,7 @@ Public Class Window
         SCR_HEIGHT = ClientSize.Y
 
         If Not WindowState = WindowState.Minimized Then
-            MainFBO.FBO_Initialize(ClientSize.X, ClientSize.Y)
+            MainFBO.FBO_Initialize()
         End If
 
         If SHOW_MAPS_SCREEN Then
@@ -253,7 +251,7 @@ Public Class Window
 
         '---------------------------------------------------------
         ' Init packages
-        ResMgr.Init(nuTerra.AppSettings.Default.GamePath)
+        ResMgr.Init(My.Settings.GamePath)
 
         '---------------------------------------------------------
         'Loads the textures for the map selection routines
@@ -339,4 +337,3 @@ Public Class Window
         mouse_last_pos = New Point(mouse.Position.X, mouse.Position.Y)
     End Sub
 End Class
-#End If

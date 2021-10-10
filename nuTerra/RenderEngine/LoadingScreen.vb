@@ -11,16 +11,13 @@ Module LoadingScreen
 #End Region
 
     Public Sub draw_loading_screen()
-        'This is important!
-        frmMain.glControl_main.MakeCurrent()
-
         'really dont need this but to be safe we set the default buffer!
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
 
         'and resize for our needs.
 
         Ortho_main()
-        Dim ww = frmMain.glControl_main.ClientRectangle.Width
+        Dim ww = Window.SCR_WIDTH
         'calculate scaling
         Dim w_Valuev = (BG_VALUE / BG_MAX_VALUE) * (ww)
 
@@ -52,9 +49,6 @@ Module LoadingScreen
                        Color4.Coral, False, False, 700.0)
 
         GL.Disable(EnableCap.Blend)
-
-        ' Make it so!
-        frmMain.glControl_main.SwapBuffers()
     End Sub
 
 End Module
