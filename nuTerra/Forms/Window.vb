@@ -258,7 +258,7 @@ try_again:
     Public Sub ForceRender()
         draw_scene()
 
-        ImGui.ShowDemoWindow()
+        SubmitUI()
         _controller.Render()
 
         SwapBuffers()
@@ -574,4 +574,16 @@ try_again:
 
         _controller.PressChar(ChrW(e.Unicode))
     End Sub
+
+    Private Sub SubmitUI()
+        ImGui.Checkbox("DONT_BLOCK_BASES", DONT_BLOCK_BASES)
+        ImGui.Checkbox("DONT_BLOCK_DECALS", DONT_BLOCK_DECALS)
+        ImGui.Checkbox("DONT_BLOCK_MODELS", DONT_BLOCK_MODELS)
+        ImGui.Checkbox("DONT_BLOCK_SKY", DONT_BLOCK_SKY)
+        ImGui.Checkbox("DONT_BLOCK_TERRAIN", DONT_BLOCK_TERRAIN)
+        ImGui.Checkbox("DONT_BLOCK_OUTLAND", DONT_BLOCK_OUTLAND)
+        ImGui.Checkbox("DONT_BLOCK_TREES", DONT_BLOCK_TREES)
+        ImGui.Checkbox("DONT_BLOCK_WATER", DONT_BLOCK_WATER)
+    End Sub
+
 End Class
