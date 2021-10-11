@@ -483,6 +483,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DotNetZip" Version="1.15.0" />
+    <PackageReference Include="FCTB" Version="2.16.24" />
     <PackageReference Include="ImGui.NET" Version="1.78.0" />
     <PackageReference Include="NGettext" Version="0.6.7" />
     <PackageReference Include="OpenTK" Version="4.6.7" />

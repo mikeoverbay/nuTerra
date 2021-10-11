@@ -73,6 +73,25 @@ Public Class Window
         ' END HACK
     End Sub
 
+    Private Sub get_GLSL_filter_strings()
+        Dim ts = IO.File.ReadAllText(Application.StartupPath + "\data\glsl_filtered_strings.txt")
+        Dim f_list = ts.Split(ControlChars.CrLf.ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
+        set_GLSL_keywords(f_list)
+    End Sub
+
+    Private Sub set_GLSL_keywords(ByRef f_list() As String)
+        GLSL_KEYWORDS = "\b("
+        For Each s In f_list
+            If InStr(s, "#") = 0 Then
+                If s.Length > 2 Then
+                    GLSL_KEYWORDS += s + "|"
+                End If
+            End If
+        Next
+        'this is needed because of the last | in the load loop!
+        GLSL_KEYWORDS += "float)\b"
+    End Sub
+
     Protected Overrides Sub OnLoad()
         MyBase.OnLoad()
         'Check context:
@@ -358,6 +377,11 @@ try_again:
     End Sub
 
     Private Sub load_assets()
+        '---------------------------------------------------------
+        'set up regex strings for the glsl editor.
+        get_GLSL_filter_strings()
+        '---------------------------------------------------------
+
         'setup text renderer
         Dim sp = Application.StartupPath
         '---------------------------------------------------------
@@ -667,10 +691,14 @@ try_again:
                     proc.Start()
                 End Using
             End If
+            If ImGui.Button("Shader Editor") Then
+                Dim frm = New frmProgramEditor
+                frm.Show()
+            End If
             ImGui.End()
-        End If
+            End If
 
-        If ImGui.Begin("Textures viewer") Then
+            If ImGui.Begin("Textures viewer") Then
             Dim size As New Numerics.Vector2
             size.X = ImGui.GetWindowContentRegionWidth()
             size.Y = ClientSize.Y * (size.X / ClientSize.X)
