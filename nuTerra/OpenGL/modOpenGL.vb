@@ -160,11 +160,7 @@ Module modOpenGL
         Public AtlasScale As Single
         Public PageTableSize As Single
 
-        Public Sub update()
-            mapMaxHeight = MAX_MAP_HEIGHT
-            mapMinHeight = MIN_MAP_HEIGHT
-            MEAN = CSng(MEAN_MAP_HEIGHT)
-
+        Public Sub Init()
             'Lighting settings
             AMBIENT = My.Settings.Ambient_level / 300.0!
             BRIGHTNESS = My.Settings.Bright_level / 50.0!
@@ -172,6 +168,14 @@ Module modOpenGL
             GRAY_LEVEL = 1.0 - (My.Settings.Gray_level / 100.0!)
             GAMMA_LEVEL = My.Settings.Gamma_level / 100.0!
             fog_level = (My.Settings.Fog_level / 10000.0!) * 100.0F
+
+            tess_level = 1.0
+        End Sub
+
+        Public Sub update()
+            mapMaxHeight = MAX_MAP_HEIGHT
+            mapMinHeight = MIN_MAP_HEIGHT
+            MEAN = CSng(MEAN_MAP_HEIGHT)
 
             GL.NamedBufferSubData(CommonPropertiesBuffer.buffer_id, IntPtr.Zero, Marshal.SizeOf(Me), Me)
         End Sub

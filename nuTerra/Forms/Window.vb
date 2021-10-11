@@ -195,7 +195,7 @@ Public Class Window
             BufferStorageFlags.DynamicStorageBit)
         CommonPropertiesBuffer.BindBase(2)
 
-        CommonProperties.tess_level = 1.0
+        CommonProperties.Init()
         FieldOfView = CSng(Math.PI) * (My.Settings.fov / 180.0F)
 
         'Get block state of things we want to block loading to speed things up for testing/debugging
@@ -642,8 +642,37 @@ try_again:
             If ImGui.CollapsingHeader("Culling") Then
                 ImGui.Checkbox("Raster culling", USE_RASTER_CULLING)
             End If
-            ImGui.End()
+            If ImGui.CollapsingHeader("Terrain") Then
+                ImGui.Checkbox("Use tessellation", USE_TESSELLATION)
             End If
+            If ImGui.CollapsingHeader("Lighting Settings") Then
+                ImGui.SliderFloat("AMBIENT", CommonProperties.AMBIENT, 0.0, 1.0)
+                ImGui.SliderFloat("BRIGHTNESS", CommonProperties.BRIGHTNESS, 0.0, 1.0)
+                ImGui.SliderFloat("SPECULAR", CommonProperties.SPECULAR, 0.0, 1.0)
+                ImGui.SliderFloat("GRAY_LEVEL", CommonProperties.GRAY_LEVEL, 0.0, 1.0)
+                ImGui.SliderFloat("GAMMA_LEVEL", CommonProperties.GAMMA_LEVEL, 0.0, 1.0)
+                ImGui.SliderFloat("fog_level", CommonProperties.fog_level, 0.0, 1.0)
+                If ImGui.Button("Update") Then
+                    CommonProperties.update()
+                End If
+            End If
+            ImGui.Separator()
+            If ImGui.Button(String.Format("Version {0}", Application.ProductVersion)) Then
+                Using proc As New Process
+                    proc.StartInfo.UseShellExecute = True
+                    proc.StartInfo.FileName = "https://github.com/mikeoverbay/nuTerra/releases"
+                    proc.Start()
+                End Using
+            End If
+            If ImGui.Button("View Help") Then
+                Using proc As New Process
+                    proc.StartInfo.UseShellExecute = True
+                    proc.StartInfo.FileName = Path.Combine(Application.StartupPath, "HTML", "index.html")
+                    proc.Start()
+                End Using
+            End If
+            ImGui.End()
+        End If
     End Sub
 
 End Class
