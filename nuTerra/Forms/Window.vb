@@ -644,17 +644,15 @@ try_again:
             End If
             If ImGui.CollapsingHeader("Terrain") Then
                 ImGui.Checkbox("Use tessellation", USE_TESSELLATION)
+                ImGui.SliderFloat("Tessellation Level", CommonProperties.tess_level, 0.0, 8.0)
             End If
             If ImGui.CollapsingHeader("Lighting Settings") Then
-                ImGui.SliderFloat("AMBIENT", CommonProperties.AMBIENT, 0.0, 1.0)
-                ImGui.SliderFloat("BRIGHTNESS", CommonProperties.BRIGHTNESS, 0.0, 1.0)
-                ImGui.SliderFloat("SPECULAR", CommonProperties.SPECULAR, 0.0, 1.0)
-                ImGui.SliderFloat("GRAY_LEVEL", CommonProperties.GRAY_LEVEL, 0.0, 1.0)
-                ImGui.SliderFloat("GAMMA_LEVEL", CommonProperties.GAMMA_LEVEL, 0.0, 1.0)
-                ImGui.SliderFloat("fog_level", CommonProperties.fog_level, 0.0, 1.0)
-                If ImGui.Button("Update") Then
-                    CommonProperties.update()
-                End If
+                ImGui.SliderFloat("Ambient Level", CommonProperties.AMBIENT, 0.0, 1.0)
+                ImGui.SliderFloat("Bright Level", CommonProperties.BRIGHTNESS, 0.0, 1.0)
+                ImGui.SliderFloat("Spec Level", CommonProperties.SPECULAR, 0.0, 1.0)
+                ImGui.SliderFloat("Gray Level", CommonProperties.GRAY_LEVEL, 0.0, 1.0)
+                ImGui.SliderFloat("Gamma Level", CommonProperties.GAMMA_LEVEL, 0.0, 1.0)
+                ImGui.SliderFloat("Fog Level", CommonProperties.FOG_LEVEL, 0.0, 1.0)
             End If
             ImGui.Separator()
             If ImGui.Button(String.Format("Version {0}", Application.ProductVersion)) Then

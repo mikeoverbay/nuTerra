@@ -239,6 +239,11 @@ Module modRender
             '===========================================================================
             'color_correct()
 
+            ' Draw Terrain IDs =========================================================
+            If SHOW_CHUNK_IDs AndAlso DONT_BLOCK_TERRAIN Then
+                map_scene.terrain.draw_terrain_ids()
+            End If
+
             '===========================================================================
             'This has to be called last. It changes the PROJECTMATRIX and VIEWMATRIX
             If DONT_HIDE_MINIMAP Then map_scene.mini_map.draw_mini_map() '===========================================================

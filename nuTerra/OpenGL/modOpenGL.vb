@@ -140,19 +140,19 @@ Module modOpenGL
         Public waterColor As Vector3
         Public waterAlpha As Single
         Public fog_tint As Vector3
-        Public tess_level As Single
+        Public _tess_level As Single
         Public sunColor As Vector3
         Public mapMaxHeight As Single
         Public ambientColorForward As Vector3
         Public mapMinHeight As Single
         Public map_size As Vector2
         Public MEAN As Single
-        Public AMBIENT As Single
-        Public BRIGHTNESS As Single
-        Public SPECULAR As Single
-        Public GRAY_LEVEL As Single
-        Public GAMMA_LEVEL As Single
-        Public fog_level As Single
+        Public _AMBIENT As Single
+        Public _BRIGHTNESS As Single
+        Public _SPECULAR As Single
+        Public _GRAY_LEVEL As Single
+        Public _GAMMA_LEVEL As Single
+        Public _FOG_LEVEL As Single
         Public blend_macro_influence As Single ' from space.bin/BWT2
         Public blend_global_threshold As Single ' from space.bin/BWT2
 
@@ -160,16 +160,85 @@ Module modOpenGL
         Public AtlasScale As Single
         Public PageTableSize As Single
 
+        Public Property AMBIENT As Single
+            Get
+                Return _AMBIENT
+            End Get
+            Set(value As Single)
+                _AMBIENT = value
+                update()
+            End Set
+        End Property
+
+        Public Property BRIGHTNESS As Single
+            Get
+                Return _BRIGHTNESS
+            End Get
+            Set(value As Single)
+                _BRIGHTNESS = value
+                update()
+            End Set
+        End Property
+
+        Public Property SPECULAR As Single
+            Get
+                Return _SPECULAR
+            End Get
+            Set(value As Single)
+                _SPECULAR = value
+                update()
+            End Set
+        End Property
+
+        Public Property GRAY_LEVEL As Single
+            Get
+                Return _GRAY_LEVEL
+            End Get
+            Set(value As Single)
+                _GRAY_LEVEL = value
+                update()
+            End Set
+        End Property
+
+        Public Property GAMMA_LEVEL As Single
+            Get
+                Return _GAMMA_LEVEL
+            End Get
+            Set(value As Single)
+                _GAMMA_LEVEL = value
+                update()
+            End Set
+        End Property
+
+        Public Property FOG_LEVEL As Single
+            Get
+                Return _FOG_LEVEL
+            End Get
+            Set(value As Single)
+                _FOG_LEVEL = value
+                update()
+            End Set
+        End Property
+
+        Public Property tess_level As Single
+            Get
+                Return _tess_level
+            End Get
+            Set(value As Single)
+                _tess_level = value
+                update()
+            End Set
+        End Property
+
         Public Sub Init()
             'Lighting settings
-            AMBIENT = My.Settings.Ambient_level / 300.0!
-            BRIGHTNESS = My.Settings.Bright_level / 50.0!
-            SPECULAR = My.Settings.Specular_level / 100.0!
-            GRAY_LEVEL = 1.0 - (My.Settings.Gray_level / 100.0!)
-            GAMMA_LEVEL = My.Settings.Gamma_level / 100.0!
-            fog_level = (My.Settings.Fog_level / 10000.0!) * 100.0F
-
-            tess_level = 1.0
+            _AMBIENT = My.Settings.Ambient_level / 300.0!
+            _BRIGHTNESS = My.Settings.Bright_level / 50.0!
+            _SPECULAR = My.Settings.Specular_level / 100.0!
+            _GRAY_LEVEL = 1.0 - (My.Settings.Gray_level / 100.0!)
+            _GAMMA_LEVEL = My.Settings.Gamma_level / 100.0!
+            _FOG_LEVEL = (My.Settings.Fog_level / 10000.0!) * 100.0F
+            _tess_level = 1.0
         End Sub
 
         Public Sub update()

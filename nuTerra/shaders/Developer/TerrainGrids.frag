@@ -12,9 +12,9 @@ layout(binding = 0) uniform sampler2D gGMF;
 uniform vec2 bb_tr;
 uniform vec2 bb_bl;
 uniform float g_size;
-uniform int show_border;
-uniform int show_chunks;
-uniform int show_grid;
+uniform bool show_border;
+uniform bool show_chunks;
+uniform bool show_grid;
 
 in vec2 uv;
 in vec2 V;
@@ -28,7 +28,7 @@ void main (void)
 
     int flag = 0;
 
-if (show_chunks==1){
+if (show_chunks){
     if (uv.x < 0.005 || uv.x > 0.995 || uv.y < 0.005 || uv.y > 0.995)
     {
         gColor = vec4(0.9,0.9,0.9,0.0);
@@ -36,7 +36,7 @@ if (show_chunks==1){
     }
 }//show chunks
 
-if (show_grid==1){
+if (show_grid){
     if (V.x+0.38 >= bb_bl.x && V.x+0.38 <= bb_tr.x)
     {
     if (V.y+0.38>= bb_bl.y && V.y+0.38 <= bb_tr.y)
@@ -53,7 +53,7 @@ if (show_grid==1){
     }
 }//show grid
 
-if(show_border==1){
+if(show_border){
     //X border
     if (V.y +0.28 < bb_tr.y && V.y+1.28 > bb_bl.y){
         if (V.x +0.0 < bb_bl.x && V.x +1.28 > bb_bl.x){
