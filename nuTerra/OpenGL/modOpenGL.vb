@@ -24,7 +24,6 @@ Module modOpenGL
         Public Shared ReadOnly Property memory_usage As Integer
             Get
                 If has_GL_NVX_gpu_memory_info Then
-                    Const GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX As GetPName = &H9049
                     Return total_mem_mb - GL.GetInteger(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX) \ 1024
                 Else
                     Return Nothing

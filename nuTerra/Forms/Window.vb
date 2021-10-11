@@ -75,7 +75,6 @@ Public Class Window
 
     Protected Overrides Sub OnLoad()
         MyBase.OnLoad()
-        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance)
         'Check context:
         Dim majorVersion = GL.GetInteger(GetPName.MajorVersion)
         Dim minorVersion = GL.GetInteger(GetPName.MinorVersion)
@@ -127,7 +126,6 @@ Public Class Window
         Next
 
         ' https://renderdoc.org/docs/getting_started/faq.html#can-i-tell-via-the-graphics-apis-if-renderdoc-Is-present-at-runtime
-        Const GL_DEBUG_TOOL_EXT = &H6789
         Dim debug_tool = GL.IsEnabled(GL_DEBUG_TOOL_EXT)
         GL.GetError() ' Clear last error
 
@@ -673,10 +671,16 @@ try_again:
         End If
 
         If ImGui.Begin("Textures viewer") Then
-            ImGui.Image(New IntPtr(MainFBO.gColor.texture_id), New Numerics.Vector2(ClientSize.X / 3, ClientSize.Y / 3), New Numerics.Vector2(0.0, 1.0), New Numerics.Vector2(1.0, 0.0))
-            ImGui.Image(New IntPtr(MainFBO.gNormal.texture_id), New Numerics.Vector2(ClientSize.X / 3, ClientSize.Y / 3), New Numerics.Vector2(0.0, 1.0), New Numerics.Vector2(1.0, 0.0))
-            ImGui.Image(New IntPtr(MainFBO.gGMF.texture_id), New Numerics.Vector2(ClientSize.X / 3, ClientSize.Y / 3), New Numerics.Vector2(0.0, 1.0), New Numerics.Vector2(1.0, 0.0))
-            ImGui.Image(New IntPtr(MainFBO.gPosition.texture_id), New Numerics.Vector2(ClientSize.X / 3, ClientSize.Y / 3), New Numerics.Vector2(0.0, 1.0), New Numerics.Vector2(1.0, 0.0))
+            Dim size As New Numerics.Vector2
+            size.X = ImGui.GetWindowContentRegionWidth()
+            size.Y = ClientSize.Y * (size.X / ClientSize.X)
+            Dim uv0 = New Numerics.Vector2(0.0, 1.0)
+            Dim uv1 = New Numerics.Vector2(1.0, 0.0)
+
+            ImGui.Image(New IntPtr(MainFBO.gColor.texture_id), size, uv0, uv1)
+            ImGui.Image(New IntPtr(MainFBO.gNormal.texture_id), size, uv0, uv1)
+            ImGui.Image(New IntPtr(MainFBO.gGMF.texture_id), size, uv0, uv1)
+            ImGui.Image(New IntPtr(MainFBO.gPosition.texture_id), size, uv0, uv1)
             ImGui.End()
         End If
     End Sub

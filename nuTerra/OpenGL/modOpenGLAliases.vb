@@ -3,6 +3,8 @@ Imports OpenTK.Graphics.OpenGL4
 
 Public Module modOpenGLAliases
     Public Const GL_REPRESENTATIVE_FRAGMENT_TEST_NV As EnableCap = 37759
+    Public Const GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX As GetPName = &H9049
+    Public Const GL_DEBUG_TOOL_EXT = &H6789
 
     <MethodImpl(MethodImplOptions.AggressiveInlining)>
     Public Sub CheckGLError()
