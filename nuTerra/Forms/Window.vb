@@ -671,6 +671,12 @@ try_again:
             End If
             ImGui.End()
         End If
+
+        If ImGui.Begin("Textures viewer") Then
+            ImGui.Image(New IntPtr(MainFBO.gColor.texture_id), New Numerics.Vector2(300, 300))
+            ImGui.Image(New IntPtr(MainFBO.gNormal.texture_id), New Numerics.Vector2(300, 300))
+            ImGui.End()
+        End If
     End Sub
 
 End Class
