@@ -3,8 +3,7 @@
 Module modMatrix
     Public Function Transform_vertex_by_Matrix4(ByRef v As Vector3, ByRef m As Matrix4) As Vector3
         Dim mm = New Matrix3(m)
-        Dim vo As Vector3
-        vo = Vector3.TransformColumn(mm, v)
+        Dim vo = Vector3.TransformRow(v, mm)
 
         vo.X += m.M41
         vo.Y += m.M42
