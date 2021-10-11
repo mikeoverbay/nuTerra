@@ -82,10 +82,10 @@ Module modGlobalVars
     Public WIRE_TERRAIN As Boolean
     Public WIRE_OUTLAND As Boolean
     'grid display
-    Public SHOW_CHUNKS As Integer
-    Public SHOW_GRID As Integer
-    Public SHOW_BORDER As Integer
-    Public SHOW_CHUNK_IDs As Integer
+    Public SHOW_CHUNKS As Boolean
+    Public SHOW_GRID As Boolean
+    Public SHOW_BORDER As Boolean
+    Public SHOW_CHUNK_IDs As Boolean
     Public SHOW_TEST_TEXTURES As Boolean = False 'show test ourtline on terrain flag. default Off.
     'models
     Public DIRECTION_TEXTURE_ID As GLTexture

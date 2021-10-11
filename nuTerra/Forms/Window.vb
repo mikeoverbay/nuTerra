@@ -620,16 +620,30 @@ try_again:
         End If
 
         If ImGui.Begin("Settings") Then
-            ImGui.Checkbox("DONT_BLOCK_BASES", DONT_BLOCK_BASES)
-            ImGui.Checkbox("DONT_BLOCK_DECALS", DONT_BLOCK_DECALS)
-            ImGui.Checkbox("DONT_BLOCK_MODELS", DONT_BLOCK_MODELS)
-            ImGui.Checkbox("DONT_BLOCK_SKY", DONT_BLOCK_SKY)
-            ImGui.Checkbox("DONT_BLOCK_TERRAIN", DONT_BLOCK_TERRAIN)
-            ImGui.Checkbox("DONT_BLOCK_OUTLAND", DONT_BLOCK_OUTLAND)
-            ImGui.Checkbox("DONT_BLOCK_TREES", DONT_BLOCK_TREES)
-            ImGui.Checkbox("DONT_BLOCK_WATER", DONT_BLOCK_WATER)
+            If ImGui.CollapsingHeader("Map") Then
+                ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
+                ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
+                ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
+                ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
+                ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
+                ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)
+                ImGui.Checkbox("Draw trees", DONT_BLOCK_TREES)
+                ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
+            End If
+            If ImGui.CollapsingHeader("Overlays") Then
+                ImGui.Checkbox("Draw terrain wire", WIRE_TERRAIN)
+                ImGui.Checkbox("Draw model wire", WIRE_MODELS)
+                ImGui.Checkbox("Draw bounding boxes", SHOW_BOUNDING_BOXES)
+                ImGui.Checkbox("Draw chunks", SHOW_CHUNKS)
+                ImGui.Checkbox("Draw grid", SHOW_GRID)
+                ImGui.Checkbox("Draw border", SHOW_BORDER)
+                ImGui.Checkbox("Draw chunk ids", SHOW_CHUNK_IDs)
+            End If
+            If ImGui.CollapsingHeader("Culling") Then
+                ImGui.Checkbox("Raster culling", USE_RASTER_CULLING)
+            End If
             ImGui.End()
-        End If
+            End If
     End Sub
 
 End Class
