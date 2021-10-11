@@ -673,8 +673,10 @@ try_again:
         End If
 
         If ImGui.Begin("Textures viewer") Then
-            ImGui.Image(New IntPtr(MainFBO.gColor.texture_id), New Numerics.Vector2(300, 300))
-            ImGui.Image(New IntPtr(MainFBO.gNormal.texture_id), New Numerics.Vector2(300, 300))
+            ImGui.Image(New IntPtr(MainFBO.gColor.texture_id), New Numerics.Vector2(ClientSize.X / 3, ClientSize.Y / 3), New Numerics.Vector2(0.0, 1.0), New Numerics.Vector2(1.0, 0.0))
+            ImGui.Image(New IntPtr(MainFBO.gNormal.texture_id), New Numerics.Vector2(ClientSize.X / 3, ClientSize.Y / 3), New Numerics.Vector2(0.0, 1.0), New Numerics.Vector2(1.0, 0.0))
+            ImGui.Image(New IntPtr(MainFBO.gGMF.texture_id), New Numerics.Vector2(ClientSize.X / 3, ClientSize.Y / 3), New Numerics.Vector2(0.0, 1.0), New Numerics.Vector2(1.0, 0.0))
+            ImGui.Image(New IntPtr(MainFBO.gPosition.texture_id), New Numerics.Vector2(ClientSize.X / 3, ClientSize.Y / 3), New Numerics.Vector2(0.0, 1.0), New Numerics.Vector2(1.0, 0.0))
             ImGui.End()
         End If
     End Sub
