@@ -273,10 +273,7 @@ Module modRender
         map_scene.sky.CUBE_TEXTURE_ID.BindUnit(4)
         map_scene.CC_LUT_ID.BindUnit(5)
         map_scene.ENV_BRDF_LUT_ID?.BindUnit(6)
-
-        If ShadowMappingFBO.ENABLED Then
-            ShadowMappingFBO.depth_tex.BindUnit(7)
-        End If
+        ShadowMappingFBO.depth_tex.BindUnit(7)
 
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 

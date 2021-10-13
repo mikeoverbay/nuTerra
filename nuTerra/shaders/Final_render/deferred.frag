@@ -16,9 +16,7 @@ layout(binding = 3) uniform sampler2D gPosition;
 layout(binding = 4) uniform samplerCube cubeMap;
 layout(binding = 5) uniform lowp sampler2D lut;
 layout(binding = 6) uniform lowp sampler2D env_brdf_lut;
-#ifdef SHADOW_MAPPING
 layout(binding = 7) uniform sampler2DArrayShadow shadowMap;
-#endif
 
 uniform mat4 ProjectionMatrix;
 uniform vec3 LightPos;
@@ -250,7 +248,8 @@ void main (void)
             // Final Output
             outColor =  correct(final_color,1.4,1.2)*1.6;
 
-#ifdef SHADOW_MAPPING
+            // BEGIN SHADOW MAPPING
+            if (props.use_shadow_mapping) {
             vec4 coords = light_vp_matrix * p;
             coords.xy *= vec2(0.5);
             coords.xy += vec2(0.5);
@@ -274,7 +273,8 @@ void main (void)
 #endif
                 outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
             }
-#endif
+            }
+            // END SHADOW MAPPING
 
             //outColor.a = fogFactor;
             /*===================================================================*/

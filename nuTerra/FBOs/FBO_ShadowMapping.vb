@@ -10,8 +10,19 @@ Public Class ShadowMappingFBO
 
     Public Shared NEAR As Single = 0.1F
     Public Shared FAR As Single = 2000.0F
-    Public Shared ENABLED As Boolean = False
     Public Shared FRAME_STEP As Integer = 20
+
+    Public Shared Property Enabled As Boolean
+        Get
+            Return CommonProperties.USE_SHADOW_MAPPING
+        End Get
+        Set(value As Boolean)
+            If CommonProperties.USE_SHADOW_MAPPING <> value Then
+                CommonProperties.USE_SHADOW_MAPPING = value
+                CommonProperties.update()
+            End If
+        End Set
+    End Property
 
     Public Shared Sub FBO_Initialize()
         create_textures()

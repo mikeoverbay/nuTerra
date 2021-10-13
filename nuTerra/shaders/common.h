@@ -130,6 +130,7 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float VirtualTextureSize;
     float AtlasScale;
     float PageTableSize;
+    bool use_shadow_mapping;
 } props;
 #endif
 

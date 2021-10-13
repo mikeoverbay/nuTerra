@@ -159,13 +159,17 @@ Module modOpenGL
         Public AtlasScale As Single
         Public PageTableSize As Single
 
+        Public USE_SHADOW_MAPPING As Boolean
+
         Public Property AMBIENT As Single
             Get
                 Return _AMBIENT
             End Get
             Set(value As Single)
-                _AMBIENT = value
-                update()
+                If _AMBIENT <> value Then
+                    _AMBIENT = value
+                    update()
+                End If
             End Set
         End Property
 
@@ -174,8 +178,10 @@ Module modOpenGL
                 Return _BRIGHTNESS
             End Get
             Set(value As Single)
-                _BRIGHTNESS = value
-                update()
+                If _BRIGHTNESS <> value Then
+                    _BRIGHTNESS = value
+                    update()
+                End If
             End Set
         End Property
 
@@ -184,8 +190,10 @@ Module modOpenGL
                 Return _SPECULAR
             End Get
             Set(value As Single)
-                _SPECULAR = value
-                update()
+                If _SPECULAR <> value Then
+                    _SPECULAR = value
+                    update()
+                End If
             End Set
         End Property
 
@@ -194,8 +202,10 @@ Module modOpenGL
                 Return _GRAY_LEVEL
             End Get
             Set(value As Single)
-                _GRAY_LEVEL = value
-                update()
+                If _GRAY_LEVEL <> value Then
+                    _GRAY_LEVEL = value
+                    update()
+                End If
             End Set
         End Property
 
@@ -204,8 +214,10 @@ Module modOpenGL
                 Return _GAMMA_LEVEL
             End Get
             Set(value As Single)
-                _GAMMA_LEVEL = value
-                update()
+                If _GAMMA_LEVEL <> value Then
+                    _GAMMA_LEVEL = value
+                    update()
+                End If
             End Set
         End Property
 
@@ -214,8 +226,10 @@ Module modOpenGL
                 Return _FOG_LEVEL
             End Get
             Set(value As Single)
-                _FOG_LEVEL = value
-                update()
+                If _FOG_LEVEL <> value Then
+                    _FOG_LEVEL = value
+                    update()
+                End If
             End Set
         End Property
 
@@ -224,8 +238,10 @@ Module modOpenGL
                 Return _tess_level
             End Get
             Set(value As Single)
-                _tess_level = value
-                update()
+                If _tess_level <> value Then
+                    _tess_level = value
+                    update()
+                End If
             End Set
         End Property
 
