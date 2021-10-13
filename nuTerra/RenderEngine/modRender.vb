@@ -7,28 +7,6 @@ Module modRender
     Dim temp_timer As New Stopwatch
     Public PI As Single = 3.14159274F
 
-    Dim colors() As Color4 = {
-        Color4.Red,
-        Color4.Green,
-        Color4.Blue,
-        Color4.Yellow,
-        Color4.Purple,
-        Color4.Orange,
-        Color4.Coral,
-        Color4.Silver
-        }
-
-    Dim tags() As String = {
-        "Texture 1",
-        "Texture 2",
-        "Texture 3",
-        "Texture 4",
-        "Texture 5",
-        "Texture 6",
-        "Texture 7",
-        "Texture 8"
-        }
-
     Public map_center As Vector3
     Public scale As Vector3
 
@@ -289,17 +267,6 @@ Module modRender
         deferredShader.StopUse()
 
         GL_POP_GROUP()
-    End Sub
-    '=============================================================================================
-    Private Sub color_keys()
-        If Not SHOW_TEST_TEXTURES Then Return
-
-        draw_image_rectangle(New RectangleF(0.0F, 79.0F, 100.0F, 19.0F * 8.0F),
-                                            DUMMY_TEXTURE_ID)
-
-        For i = 0 To 7
-            draw_text(tags(i), 5.0F, 81.0F + (i * 19.0F), colors(i), False, 0)
-        Next
     End Sub
 
     Private Sub copy_default_to_gColor()

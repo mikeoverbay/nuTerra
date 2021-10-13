@@ -159,7 +159,8 @@ Module modOpenGL
         Public AtlasScale As Single
         Public PageTableSize As Single
 
-        Public USE_SHADOW_MAPPING As Boolean
+        Public USE_SHADOW_MAPPING As Integer
+        Public _SHOW_TEST_TEXTURES As Integer
 
         Public Property AMBIENT As Single
             Get
@@ -244,6 +245,20 @@ Module modOpenGL
                 End If
             End Set
         End Property
+
+        Public Property SHOW_TEST_TEXTURES As Boolean
+            Get
+                Return _SHOW_TEST_TEXTURES
+            End Get
+            Set(value As Boolean)
+                If _SHOW_TEST_TEXTURES <> value Then
+                    _SHOW_TEST_TEXTURES = value
+                    update()
+                    map_scene?.terrain.RebuildVTAtlas()
+                End If
+            End Set
+        End Property
+
 
         Public Sub Init()
             'Lighting settings

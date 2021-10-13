@@ -660,6 +660,7 @@ try_again:
                 ImGui.Checkbox("Draw grid", SHOW_GRID)
                 ImGui.Checkbox("Draw border", SHOW_BORDER)
                 ImGui.Checkbox("Draw chunk ids", SHOW_CHUNK_IDs)
+                ImGui.Checkbox("Draw test textures", CommonProperties.SHOW_TEST_TEXTURES)
             End If
             If ImGui.CollapsingHeader("Culling") Then
                 ImGui.Checkbox("Raster culling", USE_RASTER_CULLING)
@@ -701,9 +702,27 @@ try_again:
                 frm.Show()
             End If
             ImGui.End()
-            End If
+        End If
 
-            If ImGui.Begin("Textures viewer") Then
+        If CommonProperties.SHOW_TEST_TEXTURES Then
+            If ImGui.Begin("Test textures") Then
+                Dim colors() As Numerics.Vector4 = {
+                    New Numerics.Vector4(1.0, 0, 0, 1.0),'Color4.Red,
+                    New Numerics.Vector4(0, 1.0, 0, 1.0),'Color4.Green,
+                    New Numerics.Vector4(0, 0, 1.0, 1.0),'Color4.Blue,
+                    New Numerics.Vector4(1.0, 1.0, 0, 1.0),'Color4.Yellow,
+                    New Numerics.Vector4(0.5, 0, 0.5, 1.0),'Color4.Purple,
+                    New Numerics.Vector4(1.0, 0.64453125, 0, 1.0),'Color4.Orange,
+                    New Numerics.Vector4(1.0, 0.49609375, 0.3125, 1.0),'Color4.Coral,
+                    New Numerics.Vector4(0.75, 0.75, 0.75, 1.0)'Color4.Silver
+                }
+                For i = 0 To 7
+                    ImGui.TextColored(colors(i), String.Format("Texture {0}", i + 1))
+                Next
+            End If
+        End If
+
+        If ImGui.Begin("Textures viewer") Then
             Dim size As New Numerics.Vector2
             size.X = ImGui.GetWindowContentRegionWidth()
             size.Y = ClientSize.Y * (size.X / ClientSize.X)
