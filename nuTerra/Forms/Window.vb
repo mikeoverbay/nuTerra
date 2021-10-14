@@ -21,6 +21,9 @@ Public Class Window
 
     Private _controller As ImGuiController
 
+    Private SHOW_SETTINGS_WINDOW As Boolean
+    Private SHOW_TEXTURES_VIEWER_WINDOW As Boolean
+
     Private Shared Function GetGLSettings() As NativeWindowSettings
         Dim setting As New NativeWindowSettings With {
             .Size = New Vector2i(SCR_WIDTH, SCR_HEIGHT),
@@ -300,10 +303,11 @@ try_again:
     Public Sub ForceRender(Optional time As Single = 0.0)
         draw_scene()
 
-        _controller.Update(Me, CSng(time))
-
-        SubmitUI()
-        _controller.Render()
+        If Not SHOW_LOADING_SCREEN Then
+            _controller.Update(Me, CSng(time))
+            SubmitUI()
+            _controller.Render()
+        End If
 
         SwapBuffers()
     End Sub
@@ -632,76 +636,82 @@ try_again:
                 MapMenuScreen.Invalidate()
                 SHOW_MAPS_SCREEN = True
             End If
-            ImGui.End()
-        End If
-
-        ImGui.SetNextWindowPos(New Numerics.Vector2(80, 4))
-        If ImGui.Begin("Dummy Window 2", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
+            ImGui.SameLine()
+            If ImGui.Button("Settings") Then
+                SHOW_SETTINGS_WINDOW = True
+            End If
+            ImGui.SameLine()
+            If ImGui.Button("Textures viewer") Then
+                SHOW_TEXTURES_VIEWER_WINDOW = True
+            End If
+            ImGui.SameLine()
             ImGui.Text(String.Format("VRAM usage: {0,-4}mb of {1}mb", GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
             ImGui.End()
         End If
 
-        If ImGui.Begin("Settings") Then
-            If ImGui.CollapsingHeader("Map") Then
-                ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
-                ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
-                ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
-                ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
-                ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
-                ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)
-                ImGui.Checkbox("Draw trees", DONT_BLOCK_TREES)
-                ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
+        If SHOW_SETTINGS_WINDOW Then
+            If ImGui.Begin("Settings", SHOW_SETTINGS_WINDOW) Then
+                If ImGui.CollapsingHeader("Map") Then
+                    ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
+                    ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
+                    ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
+                    ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
+                    ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
+                    ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)
+                    ImGui.Checkbox("Draw trees", DONT_BLOCK_TREES)
+                    ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
+                End If
+                If ImGui.CollapsingHeader("Overlays") Then
+                    ImGui.Checkbox("Draw terrain wire", WIRE_TERRAIN)
+                    ImGui.Checkbox("Draw model wire", WIRE_MODELS)
+                    ImGui.Checkbox("Draw bounding boxes", SHOW_BOUNDING_BOXES)
+                    ImGui.Checkbox("Draw chunks", SHOW_CHUNKS)
+                    ImGui.Checkbox("Draw grid", SHOW_GRID)
+                    ImGui.Checkbox("Draw border", SHOW_BORDER)
+                    ImGui.Checkbox("Draw chunk ids", SHOW_CHUNK_IDs)
+                    ImGui.Checkbox("Draw test textures", CommonProperties.SHOW_TEST_TEXTURES)
+                End If
+                If ImGui.CollapsingHeader("Culling") Then
+                    ImGui.Checkbox("Raster culling", USE_RASTER_CULLING)
+                End If
+                If ImGui.CollapsingHeader("Terrain") Then
+                    ImGui.Checkbox("Use tessellation", USE_TESSELLATION)
+                    ImGui.SliderFloat("Tessellation Level", CommonProperties.tess_level, 0.0, 8.0)
+                End If
+                If ImGui.CollapsingHeader("Shadow Mapping") Then
+                    ImGui.Checkbox("Enabled", ShadowMappingFBO.Enabled)
+                    ImGui.InputFloat("zNear", ShadowMappingFBO.NEAR)
+                    ImGui.InputFloat("zFar", ShadowMappingFBO.FAR)
+                End If
+                If ImGui.CollapsingHeader("Lighting Settings") Then
+                    ImGui.SliderFloat("Ambient Level", CommonProperties.AMBIENT, 0.0, 1.0)
+                    ImGui.SliderFloat("Bright Level", CommonProperties.BRIGHTNESS, 0.0, 1.0)
+                    ImGui.SliderFloat("Spec Level", CommonProperties.SPECULAR, 0.0, 1.0)
+                    ImGui.SliderFloat("Gray Level", CommonProperties.GRAY_LEVEL, 0.0, 1.0)
+                    ImGui.SliderFloat("Gamma Level", CommonProperties.GAMMA_LEVEL, 0.0, 1.0)
+                    ImGui.SliderFloat("Fog Level", CommonProperties.FOG_LEVEL, 0.0, 1.0)
+                End If
+                ImGui.Separator()
+                If ImGui.Button(String.Format("Version {0}", Application.ProductVersion)) Then
+                    Using proc As New Process
+                        proc.StartInfo.UseShellExecute = True
+                        proc.StartInfo.FileName = "https://github.com/mikeoverbay/nuTerra/releases"
+                        proc.Start()
+                    End Using
+                End If
+                If ImGui.Button("View Help") Then
+                    Using proc As New Process
+                        proc.StartInfo.UseShellExecute = True
+                        proc.StartInfo.FileName = Path.Combine(Application.StartupPath, "HTML", "index.html")
+                        proc.Start()
+                    End Using
+                End If
+                If ImGui.Button("Shader Editor") Then
+                    Dim frm = New frmProgramEditor
+                    frm.Show()
+                End If
+                ImGui.End()
             End If
-            If ImGui.CollapsingHeader("Overlays") Then
-                ImGui.Checkbox("Draw terrain wire", WIRE_TERRAIN)
-                ImGui.Checkbox("Draw model wire", WIRE_MODELS)
-                ImGui.Checkbox("Draw bounding boxes", SHOW_BOUNDING_BOXES)
-                ImGui.Checkbox("Draw chunks", SHOW_CHUNKS)
-                ImGui.Checkbox("Draw grid", SHOW_GRID)
-                ImGui.Checkbox("Draw border", SHOW_BORDER)
-                ImGui.Checkbox("Draw chunk ids", SHOW_CHUNK_IDs)
-                ImGui.Checkbox("Draw test textures", CommonProperties.SHOW_TEST_TEXTURES)
-            End If
-            If ImGui.CollapsingHeader("Culling") Then
-                ImGui.Checkbox("Raster culling", USE_RASTER_CULLING)
-            End If
-            If ImGui.CollapsingHeader("Terrain") Then
-                ImGui.Checkbox("Use tessellation", USE_TESSELLATION)
-                ImGui.SliderFloat("Tessellation Level", CommonProperties.tess_level, 0.0, 8.0)
-            End If
-            If ImGui.CollapsingHeader("Shadow Mapping") Then
-                ImGui.Checkbox("Enabled", ShadowMappingFBO.Enabled)
-                ImGui.InputFloat("zNear", ShadowMappingFBO.NEAR)
-                ImGui.InputFloat("zFar", ShadowMappingFBO.FAR)
-            End If
-            If ImGui.CollapsingHeader("Lighting Settings") Then
-                ImGui.SliderFloat("Ambient Level", CommonProperties.AMBIENT, 0.0, 1.0)
-                ImGui.SliderFloat("Bright Level", CommonProperties.BRIGHTNESS, 0.0, 1.0)
-                ImGui.SliderFloat("Spec Level", CommonProperties.SPECULAR, 0.0, 1.0)
-                ImGui.SliderFloat("Gray Level", CommonProperties.GRAY_LEVEL, 0.0, 1.0)
-                ImGui.SliderFloat("Gamma Level", CommonProperties.GAMMA_LEVEL, 0.0, 1.0)
-                ImGui.SliderFloat("Fog Level", CommonProperties.FOG_LEVEL, 0.0, 1.0)
-            End If
-            ImGui.Separator()
-            If ImGui.Button(String.Format("Version {0}", Application.ProductVersion)) Then
-                Using proc As New Process
-                    proc.StartInfo.UseShellExecute = True
-                    proc.StartInfo.FileName = "https://github.com/mikeoverbay/nuTerra/releases"
-                    proc.Start()
-                End Using
-            End If
-            If ImGui.Button("View Help") Then
-                Using proc As New Process
-                    proc.StartInfo.UseShellExecute = True
-                    proc.StartInfo.FileName = Path.Combine(Application.StartupPath, "HTML", "index.html")
-                    proc.Start()
-                End Using
-            End If
-            If ImGui.Button("Shader Editor") Then
-                Dim frm = New frmProgramEditor
-                frm.Show()
-            End If
-            ImGui.End()
         End If
 
         If CommonProperties.SHOW_TEST_TEXTURES Then
@@ -722,18 +732,20 @@ try_again:
             End If
         End If
 
-        If ImGui.Begin("Textures viewer") Then
-            Dim size As New Numerics.Vector2
-            size.X = ImGui.GetWindowContentRegionWidth()
-            size.Y = ClientSize.Y * (size.X / ClientSize.X)
-            Dim uv0 = New Numerics.Vector2(0.0, 1.0)
-            Dim uv1 = New Numerics.Vector2(1.0, 0.0)
+        If SHOW_TEXTURES_VIEWER_WINDOW Then
+            If ImGui.Begin("Textures viewer", SHOW_TEXTURES_VIEWER_WINDOW) Then
+                Dim size As New Numerics.Vector2
+                size.X = ImGui.GetWindowContentRegionWidth()
+                size.Y = ClientSize.Y * (size.X / ClientSize.X)
+                Dim uv0 = New Numerics.Vector2(0.0, 1.0)
+                Dim uv1 = New Numerics.Vector2(1.0, 0.0)
 
-            ImGui.Image(New IntPtr(MainFBO.gColor.texture_id), size, uv0, uv1)
-            ImGui.Image(New IntPtr(MainFBO.gNormal.texture_id), size, uv0, uv1)
-            ImGui.Image(New IntPtr(MainFBO.gGMF.texture_id), size, uv0, uv1)
-            ImGui.Image(New IntPtr(MainFBO.gPosition.texture_id), size, uv0, uv1)
-            ImGui.End()
+                ImGui.Image(New IntPtr(MainFBO.gColor.texture_id), size, uv0, uv1)
+                ImGui.Image(New IntPtr(MainFBO.gNormal.texture_id), size, uv0, uv1)
+                ImGui.Image(New IntPtr(MainFBO.gGMF.texture_id), size, uv0, uv1)
+                ImGui.Image(New IntPtr(MainFBO.gPosition.texture_id), size, uv0, uv1)
+                ImGui.End()
+            End If
         End If
     End Sub
 
