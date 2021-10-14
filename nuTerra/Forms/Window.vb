@@ -1,6 +1,5 @@
 ﻿Imports System.IO
 Imports System.Reflection
-Imports System.Runtime.CompilerServices
 Imports System.Runtime.InteropServices
 Imports ImGuiNET
 Imports OpenTK.Graphics
@@ -18,6 +17,7 @@ Public Class Window
     Public Shared SCR_WIDTH As Integer = 1200
     Public Shared SCR_HEIGHT As Integer = 800
     Public Shared mouse_last_pos As Point
+    Private fps_timer As New Stopwatch
 
     Private _controller As ImGuiController
 
@@ -252,6 +252,8 @@ Public Class Window
         SHOW_MAPS_SCREEN = True '<---- Un-rem to show map menu at startup.
 
         _controller = New ImGuiController(ClientSize.X, ClientSize.Y)
+
+        fps_timer.Start()
     End Sub
 
     Private Sub m_set_game_path()
@@ -295,7 +297,12 @@ try_again:
         MyBase.OnRenderFrame(args)
 
         DELTA_TIME = args.Time
-        FPS_TIME = args.Time
+
+        If fps_timer.ElapsedMilliseconds > 1000 Then
+            fps_timer.Restart()
+            FPS_TIME = FPS_COUNTER
+            FPS_COUNTER = 0
+        End If
 
         ForceRender(args.Time)
     End Sub
@@ -310,6 +317,7 @@ try_again:
         End If
 
         SwapBuffers()
+        FPS_COUNTER += 1
     End Sub
 
     Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
@@ -645,7 +653,7 @@ try_again:
                 SHOW_TEXTURES_VIEWER_WINDOW = True
             End If
             ImGui.SameLine()
-            ImGui.Text(String.Format("VRAM usage: {0,-4}mb of {1}mb", GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
+            ImGui.Text(String.Format("FPS: {0,-3} | VRAM usage: {1,-4}mb of {2}mb", FPS_TIME, GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
             ImGui.End()
         End If
 
