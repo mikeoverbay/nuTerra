@@ -34,23 +34,13 @@ Public Class Window
             .Profile = ContextProfile.Core,
             .Flags = ContextFlags.ForwardCompatible,
             .DepthBits = 0,
-            .AlphaBits = 0
+            .AlphaBits = 0,
+            .StencilBits = 0,
+            .Title = Application.ProductName
         }
 #If DEBUG Then
         setting.Flags = setting.Flags Or ContextFlags.Debug
 #End If
-        Return setting
-    End Function
-
-    Public Sub New()
-        MyBase.New(
-            New GameWindowSettings With {
-                .IsMultiThreaded = False,
-                .RenderFrequency = 0.0,
-                .UpdateFrequency = 0.0
-            }, GetGLSettings())
-        Title = Application.ProductName
-        VSync = VSyncMode.Off
 
         ' BEGIN HACK
         Dim appIcon = System.Drawing.Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location)
@@ -71,11 +61,22 @@ Public Class Window
             bytes(i + 2) = tmp
         Next
 
-        Icon = New Input.WindowIcon(New Input.Image(bmpIcon.Width, bmpIcon.Height, bytes))
+        setting.Icon = New Input.WindowIcon(New Input.Image(bmpIcon.Width, bmpIcon.Height, bytes))
 
         bmpIcon.UnlockBits(data)
-
         ' END HACK
+
+        Return setting
+    End Function
+
+    Public Sub New()
+        MyBase.New(
+            New GameWindowSettings With {
+                .IsMultiThreaded = False,
+                .RenderFrequency = 0.0,
+                .UpdateFrequency = 0.0
+            }, GetGLSettings())
+        VSync = VSyncMode.Off
     End Sub
 
     Private Sub get_GLSL_filter_strings()
@@ -286,6 +287,10 @@ try_again:
         If OLD_SCR_WIDTH <> SCR_WIDTH OrElse OLD_SCR_HEIGHT <> SCR_HEIGHT Then
             _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
             NEED_TO_INVALIDATE_VIEWPORT = True
+        End If
+
+        If Not IsMultiThreaded Then
+            ForceRender()
         End If
     End Sub
 
