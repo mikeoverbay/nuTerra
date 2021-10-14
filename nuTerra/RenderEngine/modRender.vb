@@ -4,7 +4,6 @@ Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 
 Module modRender
-    Dim temp_timer As New Stopwatch
     Public PI As Single = 3.14159274F
 
     Public map_center As Vector3
@@ -19,9 +18,6 @@ Module modRender
         ' 128 = terrain
         ' 255 = sky dome. We will want to control brightness
         ' more as they are added
-        '===========================================================================
-        'house keeping
-        FRAME_TIMER.Restart()
         '===========================================================================
 
         '===========================================================================
@@ -87,7 +83,7 @@ Module modRender
             End If
         End If
 
-        If ShadowMappingFBO.ENABLED AndAlso FPS_COUNTER Mod ShadowMappingFBO.FRAME_STEP = 0 Then
+        If ShadowMappingFBO.Enabled AndAlso FPS_COUNTER Mod ShadowMappingFBO.FRAME_STEP = 0 Then
             map_scene.ShadowMappingPass()
 
             ' restore main FBO

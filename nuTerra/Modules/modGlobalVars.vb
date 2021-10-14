@@ -66,7 +66,6 @@ Module modGlobalVars
     Public DELTA_TIME As Single
     Public NORMAL_DISPLAY_MODE As Integer ' 0 None, 1 by vertex, 2 by face
     Public SHOW_BOUNDING_BOXES As Boolean
-    Public FRAME_TIMER As New Stopwatch
     Public LOOP_COUNT As Integer = 200
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer

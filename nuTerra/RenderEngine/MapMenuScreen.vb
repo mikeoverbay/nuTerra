@@ -91,7 +91,7 @@ NotInheritable Class MapMenuScreen
             End If
 
             Dim lt = New Point(-ImgWidth / 2 * scale, -ImgHeight / 2 * scale) + location
-            rect = New Rectangle(Math.Max(0, lt.X), lt.Y, ImgWidth * scale, ImgHeight * scale)
+            rect = New Rectangle(Math.Max(0, lt.X), 25 + lt.Y, ImgWidth * scale, ImgHeight * scale)
         End Sub
 
         Public Sub draw()

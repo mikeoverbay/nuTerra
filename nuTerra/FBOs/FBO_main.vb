@@ -3,6 +3,9 @@
 Public Class MainFBO
     Public Shared fbo As GLFramebuffer
 
+    Private Shared width As Integer
+    Private Shared height As Integer
+
     Public Shared gPick As GLRenderbuffer
     Public Shared gColor_2 As GLRenderbuffer
     Public Shared gColor As GLTexture
@@ -11,8 +14,6 @@ Public Class MainFBO
     Public Shared gDepth As GLTexture
     Public Shared gPosition As GLTexture
     Public Shared gAUX_Color As GLTexture
-    Public Shared oldWidth As Integer = 1
-    Public Shared oldheight As Integer = 1
     '========================
     ' Color Attachments
     ' color     = 0
@@ -55,24 +56,17 @@ Public Class MainFBO
         FramebufferAttachment.ColorAttachment6
     }
 
-    Public Shared Sub FBO_Initialize()
-        ' Stop changing the size becuase of excessive window resize calls.
+    Public Shared Sub Initialize(_width As Integer, _height As Integer)
+        width = _width
+        height = _height
 
-        If oldWidth <> Window.SCR_WIDTH Or oldheight <> Window.SCR_HEIGHT Then
-            delete_textures_and_fbo()
+        delete_textures_and_fbo()
+        create_textures()
 
-            create_textures()
-
-            If Not create_fbo() Then
-                MsgBox("Failed to create main FBO" + vbCrLf + "I must shut down!", MsgBoxStyle.Exclamation, "We're Screwed!")
-                End
-            End If
-            'set new size
-            oldWidth = Window.SCR_WIDTH
-            oldheight = Window.SCR_HEIGHT
-
+        If Not create_fbo() Then
+            MsgBox("Failed to create main FBO" + vbCrLf + "I must shut down!", MsgBoxStyle.Exclamation, "We're Screwed!")
+            End
         End If
-
     End Sub
 
     Public Shared Sub delete_textures_and_fbo()
@@ -92,42 +86,42 @@ Public Class MainFBO
         ' gColor ------------------------------------------------------------------------------------------
         ' RGBA8
         gColor = GLTexture.Create(TextureTarget.Texture2D, "gColor")
-        gColor.Storage2D(1, SizedInternalFormat.Rgba8, Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        gColor.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
         ' AUX_gColor -----------------------------------------------------------------------------------
         ' RGBA8
         gAUX_Color = GLTexture.Create(TextureTarget.Texture2D, "AUX_gColor")
-        gAUX_Color.Storage2D(1, SizedInternalFormat.Rgba8, Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        gAUX_Color.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
 
         ' gNormal ------------------------------------------------------------------------------------------
         ' 3 color : normal in RGB
         gNormal = GLTexture.Create(TextureTarget.Texture2D, "gNormal")
-        gNormal.Storage2D(1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        gNormal.Storage2D(1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
 
         ' gGM_Flag ------------------------------------------------------------------------------------------
         ' 4 color int : GM in RG : Flag in b : Wetness in a
         gGMF = GLTexture.Create(TextureTarget.Texture2D, "gGMF")
-        gGMF.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        gGMF.Storage2D(1, DirectCast(InternalFormat.Rgba8, SizedInternalFormat), width, height)
 
         ' gPosition ------------------------------------------------------------------------------------------
         ' RGB16F
         gPosition = GLTexture.Create(TextureTarget.Texture2D, "gPosition")
-        gPosition.Storage2D(1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        gPosition.Storage2D(1, DirectCast(InternalFormat.Rgb16f, SizedInternalFormat), width, height)
 
         ' gDepth ------------------------------------------------------------------------------------------
         ' DepthComponent32f
         gDepth = GLTexture.Create(TextureTarget.Texture2D, "gDepth")
-        gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        gDepth.Storage2D(1, DirectCast(PixelInternalFormat.DepthComponent32f, SizedInternalFormat), width, height)
 
         ' gPick ------------------------------------------------------------------------------------------
         ' R16 uInt
         gPick = GLRenderbuffer.Create("gPick")
-        gPick.Storage(RenderbufferStorage.R16ui, Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        gPick.Storage(RenderbufferStorage.R16ui, width, height)
 
         ' gColor_2 ------------------------------------------------------------------------------------------
         ' RGBA8
         gColor_2 = GLRenderbuffer.Create("gColor_2")
-        gColor_2.Storage(RenderbufferStorage.Rgba8, Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        gColor_2.Storage(RenderbufferStorage.Rgba8, width, height)
     End Sub
 
     Public Shared Function create_fbo() As Boolean

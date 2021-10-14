@@ -17,6 +17,7 @@ Public Class Window
     Public Shared SCR_WIDTH As Integer = 1200
     Public Shared SCR_HEIGHT As Integer = 800
     Public Shared mouse_last_pos As Point
+    Private NEED_TO_INVALIDATE_VIEWPORT As Boolean = True
     Private fps_timer As New Stopwatch
 
     Private _controller As ImGuiController
@@ -275,22 +276,16 @@ try_again:
     Protected Overrides Sub OnResize(e As ResizeEventArgs)
         MyBase.OnResize(e)
 
+        Dim OLD_SCR_WIDTH = SCR_WIDTH
+        Dim OLD_SCR_HEIGHT = SCR_HEIGHT
+
         SCR_WIDTH = Math.Max(1, ClientSize.X)
         SCR_HEIGHT = Math.Max(1, ClientSize.Y)
 
-        If Not WindowState = WindowState.Minimized Then
-            MainFBO.FBO_Initialize()
+        If OLD_SCR_WIDTH <> SCR_WIDTH OrElse OLD_SCR_HEIGHT <> SCR_HEIGHT Then
+            _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
+            NEED_TO_INVALIDATE_VIEWPORT = True
         End If
-
-        If SHOW_MAPS_SCREEN Then
-            MapMenuScreen.Invalidate()
-        End If
-
-        GL.Viewport(0, 0, ClientSize.X, ClientSize.Y)
-
-        _controller.WindowResized(ClientSize.X, ClientSize.Y)
-
-        ForceRender()
     End Sub
 
     Protected Overrides Sub OnRenderFrame(args As FrameEventArgs)
@@ -308,6 +303,15 @@ try_again:
     End Sub
 
     Public Sub ForceRender(Optional time As Single = 0.0)
+        If NEED_TO_INVALIDATE_VIEWPORT Then
+            If SHOW_MAPS_SCREEN Then
+                MapMenuScreen.Invalidate()
+            End If
+            MainFBO.Initialize(SCR_WIDTH, SCR_HEIGHT)
+
+            NEED_TO_INVALIDATE_VIEWPORT = False
+        End If
+
         draw_scene()
 
         If Not SHOW_LOADING_SCREEN Then
@@ -452,10 +456,6 @@ try_again:
 
         Dim input = KeyboardState
         Dim mouse = MouseState
-
-        If SHOW_MAPS_SCREEN Then
-            MapMenuScreen.Scroll(mouse.ScrollDelta.Y)
-        End If
 
         If mouse.IsButtonDown(MouseButton.Left) Then
             If MINI_MOUSE_CAPTURED Then
@@ -626,6 +626,12 @@ try_again:
 
     Protected Overrides Sub OnMouseWheel(e As MouseWheelEventArgs)
         MyBase.OnMouseWheel(e)
+
+        If SHOW_MAPS_SCREEN Then
+            If e.OffsetY <> 0 Then
+                MapMenuScreen.Scroll(e.OffsetY * 20.0)
+            End If
+        End If
 
         _controller.MouseScroll(e.Offset)
     End Sub
