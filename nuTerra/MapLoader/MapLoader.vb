@@ -43,6 +43,11 @@ Module MapLoader
 
         'First we need to remove the loaded data.
         map_scene?.Dispose()
+        PICK_DICTIONARY.Clear()
+
+        'Clear texture cache so we dont returned non-existent textures.
+        imgTbl.Clear()
+
         map_scene = New MapScene(map_name)
 
         '===============================================================
@@ -1110,47 +1115,6 @@ Module MapLoader
         End If
         Return True
     End Function
-
-    Public Sub remove_map_data()
-        'Used to delete all images and display lists.
-
-        MapMenuScreen.Invalidate()
-
-        PICK_DICTIONARY.Clear()
-
-
-
-        'Remove map related textures. Keep Static Textures!
-        Dim img_id = GL.GenTexture()
-        For i = FIRST_UNUSED_TEXTURE To img_id
-            Dim imgHandle = GL.Arb.GetTextureHandle(i)
-            If imgHandle > 0 Then 'trap error
-                If GL.Arb.IsTextureHandleResident(imgHandle) Then
-                    GL.Arb.MakeTextureHandleNonResident(imgHandle)
-                End If
-            End If
-            GL.DeleteTexture(i)
-        Next
-
-        'delete VAOs
-        Dim Lvbo As Integer
-        GL.GenVertexArrays(1, Lvbo)
-        For i = FIRST_UNUSED_VB_OBJECT To Lvbo
-            GL.DeleteVertexArray(i)
-        Next
-
-        theMap.chunks = Nothing
-
-        GC.Collect()
-        GC.WaitForFullGCComplete()
-
-        'Clear texture cache so we dont returned non-existent textures.
-        imgTbl.Clear()
-
-        GC.Collect()
-        GC.WaitForFullGCComplete()
-        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce
-    End Sub
 
 
 End Module
