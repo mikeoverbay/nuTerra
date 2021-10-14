@@ -18,6 +18,7 @@ Public Class Window
     Public Shared SCR_HEIGHT As Integer = 800
     Public Shared mouse_last_pos As Point
     Private NEED_TO_INVALIDATE_VIEWPORT As Boolean = True
+    Private NEED_TO_OPEN_SHADER_EDITOR As Boolean = False
     Private fps_timer As New Stopwatch
 
     Private _controller As ImGuiController
@@ -721,8 +722,7 @@ try_again:
                     End Using
                 End If
                 If ImGui.Button("Shader Editor") Then
-                    Dim frm = New frmProgramEditor
-                    frm.Show()
+                    NEED_TO_OPEN_SHADER_EDITOR = True
                 End If
                 ImGui.End()
             End If
@@ -763,4 +763,13 @@ try_again:
         End If
     End Sub
 
+    Public Overrides Sub ProcessEvents()
+        MyBase.ProcessEvents()
+
+        If NEED_TO_OPEN_SHADER_EDITOR Then
+            Dim frm = New frmProgramEditor()
+            frm.Show()
+            NEED_TO_OPEN_SHADER_EDITOR = False
+        End If
+    End Sub
 End Class
