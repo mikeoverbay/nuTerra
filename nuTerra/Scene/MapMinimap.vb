@@ -35,11 +35,12 @@ Public Class MapMinimap
         GL.DepthMask(False)
         GL.Disable(EnableCap.DepthTest)
 
-        '===========================================================================
-        ' Animate map growth
-        'need to control this so it is not affected by frame rate!
-        Dim s = CInt(150 * DELTA_TIME)
         If MINI_MAP_SIZE <> MINI_MAP_NEW_SIZE Then
+            '===========================================================================
+            ' Animate map growth
+            'need to control this so it is not affected by frame rate!
+            Dim s = CInt(Math.Max(1.0, 300 * DELTA_TIME))
+
             If MINI_MAP_SIZE < MINI_MAP_NEW_SIZE Then
                 MINI_MAP_SIZE += s
                 If MINI_MAP_SIZE > MINI_MAP_NEW_SIZE Then

@@ -673,6 +673,9 @@ try_again:
 
         If SHOW_SETTINGS_WINDOW Then
             If ImGui.Begin("Settings", SHOW_SETTINGS_WINDOW) Then
+                If ImGui.CollapsingHeader("Camera") Then
+                    ImGui.SliderFloat("Speed", My.Settings.speed, 0.001, 10.0)
+                End If
                 If ImGui.CollapsingHeader("Map") Then
                     ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
                     ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
@@ -693,6 +696,19 @@ try_again:
                     ImGui.Checkbox("Draw chunk ids", SHOW_CHUNK_IDs)
                     ImGui.Checkbox("Draw cursor", SHOW_CURSOR)
                     ImGui.Checkbox("Draw test textures", CommonProperties.SHOW_TEST_TEXTURES)
+                    Dim items = {"None", "Face", "Vertex"}
+                    If ImGui.BeginCombo("Draw normals", items(NORMAL_DISPLAY_MODE)) Then
+                        If ImGui.Selectable(items(0)) Then
+                            NORMAL_DISPLAY_MODE = 0
+                        End If
+                        If ImGui.Selectable(items(1)) Then
+                            NORMAL_DISPLAY_MODE = 1
+                        End If
+                        If ImGui.Selectable(items(2)) Then
+                            NORMAL_DISPLAY_MODE = 2
+                        End If
+                        ImGui.EndCombo()
+                    End If
                 End If
                 If ImGui.CollapsingHeader("Culling") Then
                     ImGui.Checkbox("Raster culling", USE_RASTER_CULLING)
@@ -713,6 +729,24 @@ try_again:
                     ImGui.SliderFloat("Gray Level", CommonProperties.GRAY_LEVEL, 0.0, 1.0)
                     ImGui.SliderFloat("Gamma Level", CommonProperties.GAMMA_LEVEL, 0.0, 1.0)
                     ImGui.SliderFloat("Fog Level", CommonProperties.FOG_LEVEL, 0.0, 1.0)
+                End If
+                If ImGui.CollapsingHeader("Minimap") Then
+                    ImGui.Checkbox("Enabled", DONT_HIDE_MINIMAP)
+                    ImGui.SliderInt("Size", MINI_MAP_NEW_SIZE, 128, 640)
+                End If
+                If ImGui.CollapsingHeader("FXAA") Then
+                    ImGui.Checkbox("Enabled", FXAA_enable)
+                End If
+                If ImGui.CollapsingHeader("VT") Then
+                    ImGui.SliderInt("Feedback width ", FEEDBACK_WIDTH, 1, 128)
+                    ImGui.SliderInt("Feedback height ", FEEDBACK_HEIGHT, 1, 128)
+                    ImGui.SliderInt("Tile Size ", TILE_SIZE, 1, 8192)
+                    ImGui.SliderInt("Num pages ", VT_NUM_PAGES, 1, 4096)
+                    ImGui.SliderInt("Num tiles ", NUM_TILES, 1, 2048)
+                    ImGui.SliderInt("Uploads per frame ", UPLOADS_PER_FRAME, 1, 64)
+                    If ImGui.Button("Rebuild VT") Then
+                        map_scene?.terrain.RebuildVTAtlas()
+                    End If
                 End If
                 ImGui.Separator()
                 If ImGui.Button(String.Format("Version {0}", Application.ProductVersion)) Then
