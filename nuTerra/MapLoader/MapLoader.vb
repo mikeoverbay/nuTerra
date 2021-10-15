@@ -1089,7 +1089,7 @@ Module MapLoader
 
     Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)
 
-        Dim ww = Window.SCR_WIDTH
+        Dim ww = MainFBO.width
 
         Dim ls = (1920.0F - ww) / 2.0F
 

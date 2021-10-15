@@ -54,7 +54,7 @@ Module modRender
 
         '===========================================================================
         MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
-        GL.Viewport(0, 0, Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
         '===========================================================================
 
         '===========================================================================
@@ -88,7 +88,7 @@ Module modRender
 
             ' restore main FBO
             MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
-            GL.Viewport(0, 0, Window.SCR_WIDTH, Window.SCR_HEIGHT)
+            GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
         End If
 
         MainFBO.attach_CNGPA()
@@ -253,7 +253,7 @@ Module modRender
 
         GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
 
-        draw_main_Quad(Window.SCR_WIDTH, Window.SCR_HEIGHT) 'render Gbuffer lighting
+        draw_main_Quad(MainFBO.width, MainFBO.height) 'render Gbuffer lighting
 
         ' UNBIND
         unbind_textures(7)
@@ -265,7 +265,7 @@ Module modRender
 
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
-        GL.CopyTextureSubImage2D(MainFBO.gColor.texture_id, 0, 0, 0, 0, 0, Window.SCR_WIDTH, Window.SCR_HEIGHT)
+        GL.CopyTextureSubImage2D(MainFBO.gColor.texture_id, 0, 0, 0, 0, 0, MainFBO.width, MainFBO.height)
     End Sub
 
     Private Sub copy_gColor_2_to_gColor()
@@ -274,8 +274,8 @@ Module modRender
         GL.BlitNamedFramebuffer(
             MainFBO.fbo.fbo_id,
             MainFBO.fbo.fbo_id,
-            0, 0, Window.SCR_WIDTH, Window.SCR_HEIGHT,
-            0, 0, Window.SCR_WIDTH, Window.SCR_HEIGHT,
+            0, 0, MainFBO.width, MainFBO.height,
+            0, 0, MainFBO.width, MainFBO.height,
             ClearBufferMask.ColorBufferBit,
             BlitFramebufferFilter.Nearest)
     End Sub
@@ -290,12 +290,12 @@ Module modRender
 
         GL.UniformMatrix4(FXAAShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
-        GL.Uniform2(FXAAShader("viewportSize"), CSng(Window.SCR_WIDTH), CSng(Window.SCR_HEIGHT))
+        GL.Uniform2(FXAAShader("viewportSize"), CSng(MainFBO.width), CSng(MainFBO.height))
 
         MainFBO.gColor.BindUnit(0)
 
         'draw full screen quad
-        GL.Uniform4(FXAAShader("rect"), 0.0F, CSng(-Window.SCR_HEIGHT), CSng(Window.SCR_WIDTH), 0.0F)
+        GL.Uniform4(FXAAShader("rect"), 0.0F, CSng(-MainFBO.height), CSng(MainFBO.width), 0.0F)
 
         defaultVao.Bind()
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)

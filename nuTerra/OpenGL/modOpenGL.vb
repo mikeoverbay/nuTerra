@@ -283,8 +283,8 @@ Module modOpenGL
     Public CommonPropertiesBuffer As GLBuffer
 
     Public Sub Ortho_main()
-        GL.Viewport(0, 0, Window.SCR_WIDTH, Window.SCR_HEIGHT)
-        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, Window.SCR_WIDTH, -Window.SCR_HEIGHT, 0.0F, -30000.0F, 30000.0F)
+        GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
+        PROJECTIONMATRIX = Matrix4.CreateOrthographicOffCenter(0.0F, MainFBO.width, -MainFBO.height, 0.0F, -30000.0F, 30000.0F)
         VIEWMATRIX = Matrix4.Identity
     End Sub
 

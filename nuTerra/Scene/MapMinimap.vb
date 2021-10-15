@@ -77,8 +77,8 @@ Public Class MapMinimap
         GL.Disable(EnableCap.Blend)
         Ortho_main()
 
-        Dim cx = Window.SCR_WIDTH - MINI_MAP_SIZE
-        Dim cy = Window.SCR_HEIGHT - MINI_MAP_SIZE
+        Dim cx = MainFBO.width - MINI_MAP_SIZE
+        Dim cy = MainFBO.height - MINI_MAP_SIZE
         draw_image_rectangle(New RectangleF(cx, cy,
                                                 MINI_MAP_SIZE, MINI_MAP_SIZE),
                                                 MiniMapFBO.gColor)
@@ -415,8 +415,8 @@ Public Class MapMinimap
     Public Sub get_world_Position_In_Minimap_Window(ByRef pos As Vector2)
         MINI_MOUSE_CAPTURED = False
 
-        Dim left = Window.SCR_WIDTH - MINI_MAP_SIZE
-        Dim top = Window.SCR_HEIGHT - MINI_MAP_SIZE
+        Dim left = MainFBO.width - MINI_MAP_SIZE
+        Dim top = MainFBO.height - MINI_MAP_SIZE
         'Are we over the minimap?
         If M_MOUSE.X < left Then Return
         If M_MOUSE.Y < top Then Return

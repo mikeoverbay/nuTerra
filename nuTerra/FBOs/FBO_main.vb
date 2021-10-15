@@ -3,8 +3,8 @@
 Public Class MainFBO
     Public Shared fbo As GLFramebuffer
 
-    Private Shared width As Integer
-    Private Shared height As Integer
+    Public Shared width As Integer
+    Public Shared height As Integer
 
     Public Shared gPick As GLRenderbuffer
     Public Shared gColor_2 As GLRenderbuffer
