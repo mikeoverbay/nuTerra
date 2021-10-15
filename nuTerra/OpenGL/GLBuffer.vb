@@ -6,7 +6,7 @@ Public Class GLBuffer
     Public Shared ALL_SIZE As Long
     Public buffer_id As Integer
     ReadOnly target As BufferTarget
-    Private size As Integer
+    Public size As Integer
 
     Public Sub New(buffer_id As Integer, target As BufferTarget, name As String)
         Me.buffer_id = buffer_id

@@ -73,6 +73,11 @@ Public Class GLTexture
         CheckGLError()
     End Sub
 
+    Public Sub CompressedSubImage3D(level As Integer, xoffset As Integer, yoffset As Integer, zoffset As Integer, width As Integer, height As Integer, depth As Integer, format As PixelFormat, imageSize As Integer, data As IntPtr)
+        GL.CompressedTextureSubImage3D(texture_id, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data)
+        CheckGLError()
+    End Sub
+
     Public Sub Dispose() Implements IDisposable.Dispose
         Dim imgHandle = GL.Arb.GetTextureHandle(texture_id)
         If imgHandle > 0 Then

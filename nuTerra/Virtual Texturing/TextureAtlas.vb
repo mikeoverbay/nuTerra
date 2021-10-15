@@ -45,11 +45,21 @@ Public Class TextureAtlas
         specular_texture.Storage3D(1, SizedInternalFormat.R8, info.TileSize, info.TileSize, num_tiles)
     End Sub
 
-    Public Sub uploadPage(index As Integer, color_data As Byte(), normal_data As Byte(), specular_data As Byte())
-        ' UPLOAD TILES TO GPU (SHOULD WE USE PBO FOR ASYNC UPLOADING?)
-        color_texture.CompressedSubImage3D(0, 0, 0, index, info.TileSize, info.TileSize, 1, InternalFormat.CompressedRgbaS3tcDxt5Ext, color_data.Length, color_data)
-        normal_texture.CompressedSubImage3D(0, 0, 0, index, info.TileSize, info.TileSize, 1, InternalFormat.CompressedRgbaS3tcDxt5Ext, normal_data.Length, normal_data)
-        GL.TextureSubImage3D(specular_texture.texture_id, 0, 0, 0, index, info.TileSize, info.TileSize, 1, PixelFormat.Red, PixelType.Byte, specular_data)
+    Public Sub uploadPage(index As Integer, color_pbo As GLBuffer, normal_pbo As GLBuffer, specular_data As GLTexture)
+        GL.FlushMappedNamedBufferRange(color_pbo.buffer_id, IntPtr.Zero, color_pbo.size)
+        GL.FlushMappedNamedBufferRange(normal_pbo.buffer_id, IntPtr.Zero, normal_pbo.size)
+
+        GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1)
+
+        color_pbo.Bind(BufferTarget.PixelUnpackBuffer)
+        color_texture.CompressedSubImage3D(0, 0, 0, index, info.TileSize, info.TileSize, 1, InternalFormat.CompressedRgbaS3tcDxt5Ext, color_pbo.size, IntPtr.Zero)
+
+        normal_pbo.Bind(BufferTarget.PixelUnpackBuffer)
+        normal_texture.CompressedSubImage3D(0, 0, 0, index, info.TileSize, info.TileSize, 1, InternalFormat.CompressedRgbaS3tcDxt5Ext, normal_pbo.size, IntPtr.Zero)
+
+        GL.BindBuffer(BufferTarget.PixelUnpackBuffer, 0)
+
+        GL.CopyImageSubData(specular_data.texture_id, ImageTarget.Texture2D, 0, 0, 0, 0, specular_texture.texture_id, ImageTarget.Texture2DArray, 0, 0, 0, index, info.TileSize, info.TileSize, 1)
 
         ' MIP GENERATION (DISABLED NOW, DO WE NEED IT?)
         ' IT CAN BE USEFUL FOR TRILINEAR FILTERING

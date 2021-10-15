@@ -7,9 +7,9 @@ Public Class PageLoader
 
     Class ReadState
         Public Page As Page
-        Public ColorData() As Byte
-        Public NormalData() As Byte
-        Public SpecularData() As Byte
+        Public ColorData As GLBuffer
+        Public NormalData As GLBuffer
+        Public SpecularData As GLTexture
     End Class
 
     Const ChannelCount = 4
@@ -17,19 +17,37 @@ Public Class PageLoader
     Dim indexer As PageIndexer
     Dim uncompColorData() As Byte
     Dim uncompNormalData() As Byte
-    Dim compDataColor() As Byte
-    Dim compDataNormal() As Byte
-    Dim specularData() As Byte
 
-    Public Event loadComplete(p As Page, color_data As Byte(), normal_data As Byte(), specular_data As Byte())
+    Dim compDataColorSize As Integer
+    Dim compDataNormalSize As Integer
+
+    Dim compDataColorPBO As GLBuffer
+    Dim compDataNormalPBO As GLBuffer
+
+    Dim compDataColor As IntPtr
+    Dim compDataNormal As IntPtr
+
+    Public Event loadComplete(p As Page, color_pbo As GLBuffer, normal_pbo As GLBuffer, specular_data As GLTexture)
 
     Public Sub New(indexer As PageIndexer, info As VirtualTextureInfo)
         Me.info = info
         ReDim uncompColorData((info.TileSize * info.TileSize * 4) - 1)
         ReDim uncompNormalData((info.TileSize * info.TileSize * 4) - 1)
-        ReDim specularData((info.TileSize * info.TileSize) - 1)
-        ReDim compDataColor((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
-        ReDim compDataNormal((((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16) - 1)
+
+        compDataColorSize = (((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16)
+        compDataNormalSize = (((info.TileSize + 3) \ 4) * ((info.TileSize + 3) \ 4) * 16)
+
+        compDataColorPBO = GLBuffer.Create(BufferTarget.PixelUnpackBuffer, "compDataColorPBO")
+        compDataColorPBO.Bind(BufferTarget.PixelUnpackBuffer)
+        compDataColorPBO.StorageNullData(compDataColorSize, BufferStorageFlags.DynamicStorageBit Or BufferStorageFlags.MapWriteBit Or BufferStorageFlags.MapReadBit Or BufferStorageFlags.MapPersistentBit)
+        compDataColor = GL.MapNamedBufferRange(compDataColorPBO.buffer_id, IntPtr.Zero, compDataColorSize, BufferAccessMask.MapWriteBit Or BufferAccessMask.MapReadBit Or BufferAccessMask.MapPersistentBit Or BufferAccessMask.MapFlushExplicitBit)
+
+        compDataNormalPBO = GLBuffer.Create(BufferTarget.PixelUnpackBuffer, "compDataNormalPBO")
+        compDataNormalPBO.Bind(BufferTarget.PixelUnpackBuffer)
+        compDataNormalPBO.StorageNullData(compDataNormalSize, BufferStorageFlags.DynamicStorageBit Or BufferStorageFlags.MapWriteBit Or BufferStorageFlags.MapReadBit Or BufferStorageFlags.MapPersistentBit)
+        compDataNormal = GL.MapNamedBufferRange(compDataNormalPBO.buffer_id, IntPtr.Zero, compDataNormalSize, BufferAccessMask.MapWriteBit Or BufferAccessMask.MapReadBit Or BufferAccessMask.MapPersistentBit Or BufferAccessMask.MapFlushExplicitBit)
+
+        GL.BindBuffer(BufferTarget.PixelUnpackBuffer, 0)
 
         VTMixerFBO.FBO_Initialize(info.TileSize, info.TileSize)
     End Sub
@@ -37,9 +55,14 @@ Public Class PageLoader
     Public Sub Dispose() Implements IDisposable.Dispose
         uncompColorData = Nothing
         uncompNormalData = Nothing
-        specularData = Nothing
         compDataColor = Nothing
         compDataNormal = Nothing
+
+        GL.UnmapNamedBuffer(compDataColorPBO.buffer_id)
+        GL.UnmapNamedBuffer(compDataNormalPBO.buffer_id)
+
+        compDataColorPBO?.Dispose()
+        compDataNormalPBO?.Dispose()
     End Sub
 
     Public Sub Submit(request As Page)
@@ -133,19 +156,18 @@ Public Class PageLoader
         GL.GetTextureImage(VTMixerFBO.ColorTex.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompColorData.Length, uncompColorData)
         Dim compColorTask As New Task(Sub()
                                           nuTerraCPP.Utils.CompressDXT5(uncompColorData, compDataColor, info.TileSize, info.TileSize)
-                                          state.ColorData = compDataColor
+                                          state.ColorData = compDataColorPBO
                                       End Sub)
         compColorTask.Start()
 
         GL.GetTextureImage(VTMixerFBO.NormalTex.texture_id, 0, PixelFormat.Rgba, PixelType.UnsignedByte, uncompNormalData.Length, uncompNormalData)
         Dim compNormalTask As New Task(Sub()
                                            nuTerraCPP.Utils.CompressDXT5(uncompNormalData, compDataNormal, info.TileSize, info.TileSize)
-                                           state.NormalData = compDataNormal
+                                           state.NormalData = compDataNormalPBO
                                        End Sub)
         compNormalTask.Start()
 
-        GL.GetTextureImage(VTMixerFBO.SpecularTex.texture_id, 0, PixelFormat.Red, PixelType.UnsignedByte, specularData.Length, specularData)
-        state.SpecularData = specularData
+        state.SpecularData = VTMixerFBO.SpecularTex
 
         Task.WaitAll(compColorTask, compNormalTask)
     End Sub

@@ -19,7 +19,7 @@
         AddHandler loader.loadComplete, AddressOf LoadComplete
     End Sub
 
-    Public Sub LoadComplete(p As Page, color_data As Byte(), normal_data As Byte(), specular_data As Byte())
+    Public Sub LoadComplete(p As Page, color_pbo As GLBuffer, normal_pbo As GLBuffer, specular_data As GLTexture)
         Dim mapping As Integer
 
         If current = num_tiles Then
@@ -35,7 +35,7 @@
             End If
         End If
 
-        atlas.uploadPage(mapping, color_data, normal_data, specular_data)
+        atlas.uploadPage(mapping, color_pbo, normal_pbo, specular_data)
         lru.Add(p, mapping)
 
         RaiseEvent Added(p, mapping)
