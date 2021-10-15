@@ -72,7 +72,7 @@ Public Class Window
     Public Sub New()
         MyBase.New(
             New GameWindowSettings With {
-                .IsMultiThreaded = False,
+                .IsMultiThreaded = True,
                 .RenderFrequency = 0.0,
                 .UpdateFrequency = 0.0
             }, GetGLSettings())
@@ -314,6 +314,10 @@ try_again:
             MainFBO.Initialize(SCR_WIDTH, SCR_HEIGHT)
 
             NEED_TO_INVALIDATE_VIEWPORT = False
+        End If
+
+        If map_scene IsNot Nothing Then
+            map_scene.camera.check_postion_for_update()
         End If
 
         draw_scene()

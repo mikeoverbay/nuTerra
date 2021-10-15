@@ -52,6 +52,39 @@ Public Class MapCamera
         PerViewDataBuffer.BindBase(1)
     End Sub
 
+    Public Sub check_postion_for_update()
+        Dim halfPI = PI * 0.5F
+        If LOOK_AT_X <> U_LOOK_AT_X Then
+            U_LOOK_AT_X = LOOK_AT_X
+        End If
+        If LOOK_AT_Y <> U_LOOK_AT_Y Then
+            U_LOOK_AT_Y = LOOK_AT_Y
+        End If
+        If LOOK_AT_Z <> U_LOOK_AT_Z Then
+            U_LOOK_AT_Z = LOOK_AT_Z
+        End If
+        If CAM_X_ANGLE <> U_CAM_X_ANGLE Then
+            U_CAM_X_ANGLE = CAM_X_ANGLE
+        End If
+        If CAM_Y_ANGLE <> U_CAM_Y_ANGLE Then
+            If CAM_Y_ANGLE > 1.3 Then
+                U_CAM_Y_ANGLE = 1.3
+                CAM_Y_ANGLE = U_CAM_Y_ANGLE
+            End If
+            If CAM_Y_ANGLE < -halfPI Then
+                U_CAM_Y_ANGLE = -halfPI + 0.001
+                CAM_Y_ANGLE = U_CAM_Y_ANGLE
+            End If
+            U_CAM_Y_ANGLE = CAM_Y_ANGLE
+        End If
+        If VIEW_RADIUS <> U_VIEW_RADIUS Then
+            U_VIEW_RADIUS = VIEW_RADIUS
+        End If
+
+        CURSOR_Y = get_Y_at_XZ(U_LOOK_AT_X, U_LOOK_AT_Z)
+
+    End Sub
+
     Private REVERSE As New Matrix4(
         New Vector4(1, 0, 0, 0),
         New Vector4(0, 1, 0, 0),

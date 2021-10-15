@@ -502,7 +502,7 @@ Module MapLoader
         set_light_pos() 'for light rotation animation
         '===================================================
 
-        map_scene.check_postion_for_update() ' need to initialize cursor altitude
+        map_scene.camera.check_postion_for_update() ' need to initialize cursor altitude
     End Sub
 
     Public Sub set_light_pos()

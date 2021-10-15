@@ -27,49 +27,11 @@ Public Class MapScene
     Public Sub New(mapName As String)
         Me.mapName = mapName
 
-        mouse_timer.Interval = 10
-        AddHandler mouse_timer.Tick, AddressOf check_postion_for_update
-        mouse_timer.Start()
-
         shadow_mapping_matrix = GLBuffer.Create(BufferTarget.UniformBuffer, "shadow_mapping_matrix")
         shadow_mapping_matrix.StorageNullData(
             Marshal.SizeOf(Of Matrix4),
             BufferStorageFlags.DynamicStorageBit)
         shadow_mapping_matrix.BindBase(3)
-    End Sub
-
-
-    Public Sub check_postion_for_update()
-        Dim halfPI = PI * 0.5F
-        If camera.LOOK_AT_X <> camera.U_LOOK_AT_X Then
-            camera.U_LOOK_AT_X = camera.LOOK_AT_X
-        End If
-        If camera.LOOK_AT_Y <> camera.U_LOOK_AT_Y Then
-            camera.U_LOOK_AT_Y = camera.LOOK_AT_Y
-        End If
-        If camera.LOOK_AT_Z <> camera.U_LOOK_AT_Z Then
-            camera.U_LOOK_AT_Z = camera.LOOK_AT_Z
-        End If
-        If camera.CAM_X_ANGLE <> camera.U_CAM_X_ANGLE Then
-            camera.U_CAM_X_ANGLE = camera.CAM_X_ANGLE
-        End If
-        If camera.CAM_Y_ANGLE <> camera.U_CAM_Y_ANGLE Then
-            If camera.CAM_Y_ANGLE > 1.3 Then
-                camera.U_CAM_Y_ANGLE = 1.3
-                camera.CAM_Y_ANGLE = camera.U_CAM_Y_ANGLE
-            End If
-            If camera.CAM_Y_ANGLE < -halfPI Then
-                camera.U_CAM_Y_ANGLE = -halfPI + 0.001
-                camera.CAM_Y_ANGLE = camera.U_CAM_Y_ANGLE
-            End If
-            camera.U_CAM_Y_ANGLE = camera.CAM_Y_ANGLE
-        End If
-        If camera.VIEW_RADIUS <> camera.U_VIEW_RADIUS Then
-            camera.U_VIEW_RADIUS = camera.VIEW_RADIUS
-        End If
-
-        CURSOR_Y = get_Y_at_XZ(camera.U_LOOK_AT_X, camera.U_LOOK_AT_Z)
-
     End Sub
 
     Public Sub DrawLightFrustum()

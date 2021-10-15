@@ -27,7 +27,6 @@ Module modGlobalVars
     Public CHECKERTEST As Integer
     'Define these in CAP TEXT
     Public TEST_IDS(7) As GLTexture
-    Public M_POS As Vector2
     '============================================================
     Public nuTerra_LOG As New StringBuilder ' for logging
     '============================================================

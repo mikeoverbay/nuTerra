@@ -70,7 +70,7 @@ Public Class MapMinimap
             draw_mini_position()
         End If
 
-        get_world_Position_In_Minimap_Window(M_POS)
+        get_world_Position_In_Minimap_Window()
         '===========================================================================
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
         '===========================================================================
@@ -412,7 +412,7 @@ Public Class MapMinimap
         GL_POP_GROUP()
     End Sub
 
-    Public Sub get_world_Position_In_Minimap_Window(ByRef pos As Vector2)
+    Public Sub get_world_Position_In_Minimap_Window()
         MINI_MOUSE_CAPTURED = False
 
         Dim left = MainFBO.width - MINI_MAP_SIZE
@@ -421,6 +421,7 @@ Public Class MapMinimap
         If M_MOUSE.X < left Then Return
         If M_MOUSE.Y < top Then Return
 
+        Dim pos As New Vector2
         pos.X = ((M_MOUSE.X - left) / MINI_MAP_SIZE) * 2.0 - 1.0
         pos.Y = ((M_MOUSE.Y - top) / MINI_MAP_SIZE) * 2.0 - 1.0
         Dim pos_v = New Vector4(pos.X, pos.Y, 0.0F, 0.0F)
