@@ -246,8 +246,6 @@ Public Class Window
         load_assets()
         LogThis("{0}ms Assets Loaded.", launch_timer.ElapsedMilliseconds)
 
-        MapMenuScreen.Invalidate()
-
         '-----------------------------------------------------------------------------------------
         LogThis("{0}ms Starting Update Thread", launch_timer.ElapsedMilliseconds)
         _STARTED = True ' I'm ready for update loops!
@@ -285,7 +283,6 @@ try_again:
         SCR_HEIGHT = Math.Max(1, ClientSize.Y)
 
         If OLD_SCR_WIDTH <> SCR_WIDTH OrElse OLD_SCR_HEIGHT <> SCR_HEIGHT Then
-            _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
             NEED_TO_INVALIDATE_VIEWPORT = True
         End If
 
@@ -310,6 +307,7 @@ try_again:
 
     Public Sub ForceRender(Optional time As Single = 0.0)
         If NEED_TO_INVALIDATE_VIEWPORT Then
+            _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
             If SHOW_MAPS_SCREEN Then
                 MapMenuScreen.Invalidate()
             End If
@@ -689,6 +687,7 @@ try_again:
                     ImGui.Checkbox("Draw grid", SHOW_GRID)
                     ImGui.Checkbox("Draw border", SHOW_BORDER)
                     ImGui.Checkbox("Draw chunk ids", SHOW_CHUNK_IDs)
+                    ImGui.Checkbox("Draw cursor", SHOW_CURSOR)
                     ImGui.Checkbox("Draw test textures", CommonProperties.SHOW_TEST_TEXTURES)
                 End If
                 If ImGui.CollapsingHeader("Culling") Then
