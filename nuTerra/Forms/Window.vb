@@ -373,8 +373,8 @@ try_again:
     End Sub
 
     Private Sub WASD_movement()
-        If WASD_VECTOR.X <> 0 Or WASD_VECTOR.Y <> 0 Then
-            WASD_SPEED += DELTA_TIME
+        If WASD_VECTOR.X <> 0 OrElse WASD_VECTOR.Y <> 0 Then
+            WASD_SPEED += DELTA_TIME * 0.01
             If WASD_SPEED > 0.025F Then
                 WASD_SPEED = 0F
                 Dim MAX = -200.0F
