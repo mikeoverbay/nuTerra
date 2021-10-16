@@ -1,4 +1,5 @@
-﻿Imports System.IO
+﻿Imports System.Drawing.Imaging
+Imports System.IO
 Imports System.Reflection
 Imports System.Runtime.InteropServices
 Imports ImGuiNET
@@ -19,6 +20,8 @@ Public Class Window
     Public Shared mouse_last_pos As Point
     Private NEED_TO_INVALIDATE_VIEWPORT As Boolean = True
     Private NEED_TO_OPEN_SHADER_EDITOR As Boolean = False
+    Private NEED_TO_DO_SCREEN_CAPTURE As Boolean = False
+    Private SCREEN_CAPTURE_FILENAME As String = Nothing
     Private fps_timer As New Stopwatch
 
     Private _controller As ImGuiController
@@ -321,6 +324,28 @@ try_again:
         End If
 
         draw_scene()
+
+        If SCREEN_CAPTURE_FILENAME IsNot Nothing Then
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+            GL.PixelStore(PixelStoreParameter.PackAlignment, 1)
+
+            Using bmp As New Bitmap(MainFBO.width, MainFBO.height, Imaging.PixelFormat.Format24bppRgb)
+                Dim bitmapData = bmp.LockBits(New Rectangle(0, 0, bmp.Width, bmp.Height),
+                                          ImageLockMode.WriteOnly,
+                                          bmp.PixelFormat)
+
+                GL.ReadPixels(0, 0, MainFBO.width, MainFBO.height, OpenGL.PixelFormat.Bgr, PixelType.UnsignedByte, bitmapData.Scan0)
+
+                bmp.UnlockBits(bitmapData)
+                bmp.RotateFlip(RotateFlipType.RotateNoneFlipY)
+                bmp.Save(SCREEN_CAPTURE_FILENAME, ImageFormat.Png)
+            End Using
+
+            GL.PixelStore(PixelStoreParameter.PackAlignment, 4)
+            GL.ReadBuffer(ReadBufferMode.Front)
+
+            SCREEN_CAPTURE_FILENAME = Nothing
+        End If
 
         If Not SHOW_LOADING_SCREEN Then
             _controller.Update(Me, CSng(time))
@@ -667,6 +692,10 @@ try_again:
                 SHOW_TEXTURES_VIEWER_WINDOW = True
             End If
             ImGui.SameLine()
+            If ImGui.Button("Screen Capture") Then
+                NEED_TO_DO_SCREEN_CAPTURE = True
+            End If
+            ImGui.SameLine()
             ImGui.Text(String.Format("FPS: {0,-3} | VRAM usage: {1,-4}mb of {2}mb", FPS_TIME, GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
             ImGui.End()
         End If
@@ -812,6 +841,16 @@ try_again:
             Dim frm = New frmProgramEditor()
             frm.Show()
             NEED_TO_OPEN_SHADER_EDITOR = False
+        End If
+
+        If NEED_TO_DO_SCREEN_CAPTURE Then
+            NEED_TO_DO_SCREEN_CAPTURE = False
+            Dim Save_Dialog = New SaveFileDialog()
+            Save_Dialog.Filter = "PNG|*.png"
+            Save_Dialog.Title = "Save PNG"
+            If Save_Dialog.ShowDialog() = Windows.Forms.DialogResult.OK Then
+                SCREEN_CAPTURE_FILENAME = Save_Dialog.FileName
+            End If
         End If
     End Sub
 End Class
