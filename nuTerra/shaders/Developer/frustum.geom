@@ -23,7 +23,7 @@ const vec4 f[8] = vec4[8](
 
 void main(void)
 {
-    mat4 inv = inverse(light_vp_matrix);
+    mat4 inv = inverse(lightSpaceMatrices[0]);
 
     vec4 v[8];
     for (int i = 0; i < 8; i++) {

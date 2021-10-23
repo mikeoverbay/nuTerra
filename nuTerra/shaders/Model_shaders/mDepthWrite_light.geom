@@ -1,32 +1,11 @@
 ﻿#version 450 core
 
-#if defined(GL_NV_geometry_shader_passthrough) && defined(GL_NV_viewport_array2)
-#define USE_MULTICAST
-#endif
+#extension GL_ARB_shading_language_include : require
 
-#ifdef USE_MULTICAST
-#extension GL_NV_viewport_array2 : require
-#extension GL_NV_geometry_shader_passthrough : require
-#endif
+#define USE_PERVIEW_UBO
+#include "common.h" //! #include "../common.h"
 
-layout(triangles) in;
-
-#ifdef USE_MULTICAST
-
-layout(passthrough) in gl_PerVertex {
-    vec4 gl_Position;
-};
-
-layout(viewport_relative) out int gl_Layer;
-
-layout(passthrough) in Block
-{
-    flat uint material_id;
-    vec2 uv;
-} gs_in[];
-
-#else
-
+layout(triangles, invocations = 3) in;
 layout(triangle_strip, max_vertices = 3) out;
 
 in Block
@@ -41,28 +20,17 @@ out Block
     vec2 uv;
 } gs_out;
 
-#endif
-
 void main(void)
 {
+	for (int i = 0; i < 3; ++i)
+	{
+		gl_Position = lightSpaceMatrices[gl_InvocationID] * gl_in[i].gl_Position;
 
-#ifdef USE_MULTICAST
+		gs_out.material_id = gs_in[i].material_id;
+		gs_out.uv = gs_in[i].uv;
 
-    gl_ViewportMask[0] = 1;
-    gl_Layer = 0;
-
-#else
-
-    for (int i = 0; i < gl_in.length(); ++i) {
-        gl_Position = gl_in[i].gl_Position;
-        gs_out.material_id = gs_in[i].material_id;
-        gs_out.uv = gs_in[i].uv;
-        gl_ViewportIndex = 0;
-        gl_Layer = 0;
-        EmitVertex();
-    }
-    EndPrimitive();
-
-#endif
-
+		gl_Layer = gl_InvocationID;
+		EmitVertex();
+	}
+	EndPrimitive();
 }

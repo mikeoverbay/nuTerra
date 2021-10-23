@@ -29,7 +29,7 @@ Public Class MapScene
 
         shadow_mapping_matrix = GLBuffer.Create(BufferTarget.UniformBuffer, "shadow_mapping_matrix")
         shadow_mapping_matrix.StorageNullData(
-            Marshal.SizeOf(Of Matrix4),
+            4 * Marshal.SizeOf(Of Matrix4),
             BufferStorageFlags.DynamicStorageBit)
         shadow_mapping_matrix.BindBase(3)
     End Sub
@@ -51,25 +51,73 @@ Public Class MapScene
         GL_POP_GROUP()
     End Sub
 
+    Private Function getFrustumCornersWorldSpace(proj As Matrix4, view As Matrix4) As List(Of Vector4)
+        Dim inv = Matrix4.Invert(view * proj * Matrix4.Invert(camera.REVERSE))
+
+        Dim frustumCorners As New List(Of Vector4)
+        For x = 0 To 1
+            For y = 0 To 1
+                For z = 0 To 1
+                    Dim pt = New Vector4(2.0F * x - 1.0F, 2.0F * y - 1.0F, 2.0F * z - 1.0F, 1.0F) * inv
+                    frustumCorners.Add(pt / pt.W)
+                Next
+            Next
+        Next
+
+        Return frustumCorners
+    End Function
+
     ' https://docs.nvidia.com/gameworks/content/gameworkslibrary/graphicssamples/opengl_samples/cascadedshadowmapping.htm
+    ' https://learnopengl.com/code_viewer_gh.php?code=src/8.guest/2021/2.csm/shadow_mapping.cpp
+    Private Function getLightSpaceMatrix(nearPlane As Single, farPlane As Single) As Matrix4
+        Dim proj = Matrix4.CreatePerspectiveFieldOfView(
+            FieldOfView,
+            MainFBO.width / MainFBO.height,
+            nearPlane, farPlane) * camera.REVERSE
+
+        Dim corners = getFrustumCornersWorldSpace(proj, camera.PerViewData.view)
+
+        Dim center = Vector3.Zero
+        For Each v In corners
+            center += v.Xyz
+        Next
+        center /= corners.Count
+
+        Dim light_view_matrix = Matrix4.LookAt(LIGHT_POS.Normalized() + center, center, Vector3.UnitY)
+
+        Dim max = Vector3.NegativeInfinity
+        Dim min = Vector3.PositiveInfinity
+        For Each v In corners
+            Dim trf = v * light_view_matrix
+            min = Vector3.ComponentMin(min, trf.Xyz)
+            max = Vector3.ComponentMax(max, trf.Xyz)
+        Next
+
+        Dim light_proj_matrix = Matrix4.CreateOrthographicOffCenter(
+            min.X, max.X, min.Y, max.Y, min.Z, max.Z)
+
+        ' Fix for reversed-z
+        light_proj_matrix.M33 = 1.0F / (max.Z - min.Z)
+        light_proj_matrix.M43 = max.Z / (max.Z - min.Z)
+
+        Return light_view_matrix * light_proj_matrix
+    End Function
+
     Public Sub ShadowMappingPass()
         GL_PUSH_GROUP("MapScene::ShadowMappingPass")
 
-        Dim dist = MathHelper.Clamp(4 * Vector3.Distance(camera.CAM_TARGET, camera.CAM_POSITION), 150, 1000)
-        Dim light_proj_matrix = Matrix4.CreateOrthographic(dist, dist, ShadowMappingFBO.NEAR, ShadowMappingFBO.FAR)
+        Dim vp_cascade0 = getLightSpaceMatrix(My.Settings.near, 25.0F)
+        Dim vp_cascade1 = getLightSpaceMatrix(25.0F, 200.0F)
+        Dim vp_cascade2 = getLightSpaceMatrix(200.0F, 700.0F)
+        Dim vp_cascade3 = getLightSpaceMatrix(700.0F, My.Settings.far)
 
-        ' Fix for reversed-z
-        light_proj_matrix.M33 = 1.0F / (ShadowMappingFBO.FAR - ShadowMappingFBO.NEAR)
-        light_proj_matrix.M43 = ShadowMappingFBO.FAR / (ShadowMappingFBO.FAR - ShadowMappingFBO.NEAR)
-
-        Dim cam_x0z As New Vector3(camera.CAM_TARGET.X, 0.0F, camera.CAM_TARGET.Z)
-        Dim lp_norm = LIGHT_POS.Normalized() * dist
-        Dim light_view_matrix = Matrix4.LookAt(lp_norm + cam_x0z, cam_x0z, Vector3.UnitY)
-        Dim light_vp_matrix = light_view_matrix * light_proj_matrix
-        GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, IntPtr.Zero, Marshal.SizeOf(light_vp_matrix), light_vp_matrix)
+        GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, IntPtr.Zero, Marshal.SizeOf(Of Matrix4), vp_cascade0)
+        GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, New IntPtr(Marshal.SizeOf(Of Matrix4) * 1), Marshal.SizeOf(Of Matrix4), vp_cascade1)
+        GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, New IntPtr(Marshal.SizeOf(Of Matrix4) * 2), Marshal.SizeOf(Of Matrix4), vp_cascade2)
+        GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, New IntPtr(Marshal.SizeOf(Of Matrix4) * 3), Marshal.SizeOf(Of Matrix4), vp_cascade3)
 
         ShadowMappingFBO.fbo.Bind(FramebufferTarget.Framebuffer)
-        GL.ViewportIndexed(0, 0, 0, ShadowMappingFBO.WIDTH, ShadowMappingFBO.HEIGHT)
+        GL.Viewport(0, 0, ShadowMappingFBO.WIDTH, ShadowMappingFBO.HEIGHT)
         GL.Clear(ClearBufferMask.DepthBufferBit)
         GL.DepthFunc(DepthFunction.Greater)
 

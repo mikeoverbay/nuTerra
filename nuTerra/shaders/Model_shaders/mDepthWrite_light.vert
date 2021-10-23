@@ -20,11 +20,11 @@ out Block
 void main(void)
 {
     const CandidateDraw thisDraw = draw[gl_BaseInstanceARB];
-    const mat4 mvp = light_vp_matrix * models[thisDraw.model_id + gl_InstanceID].matrix;
+    const mat4 model = models[thisDraw.model_id + gl_InstanceID].matrix;
 
     vs_out.material_id = thisDraw.material_id;
     vs_out.uv = vertexTexCoord1;
 
     // Calculate vertex position in clip coordinates
-    gl_Position = mvp * vec4(vertexPosition, 1.0f);
+    gl_Position = model * vec4(vertexPosition, 1.0f);
 }

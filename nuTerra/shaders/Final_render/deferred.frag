@@ -250,11 +250,30 @@ void main (void)
 
             // BEGIN SHADOW MAPPING
             if (props.use_shadow_mapping) {
-            vec4 coords = light_vp_matrix * p;
+
+            vec4 fragPosViewSpace = view * p;
+            float depthValue = abs(fragPosViewSpace.z);
+
+            int cascadeCount = 4;
+            int layer = -1;
+            for (int i = 0; i < cascadeCount; ++i)
+            {
+                if (depthValue < cascadePlaneDistances[i])
+                {
+                    layer = i;
+                    break;
+                }
+            }
+            if (layer == -1)
+            {
+                layer = cascadeCount;
+            }
+
+            vec4 coords = lightSpaceMatrices[layer] * p;
             coords.xy *= vec2(0.5);
             coords.xy += vec2(0.5);
             if (coords.z < 1.0 && coords.z > 0.0) {
-                coords.w = 0.0; // layer
+                coords.w = layer; // layer
                 coords = coords.xywz;
 #if 1
                 float shadowDepth = 0.0;

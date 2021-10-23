@@ -85,7 +85,7 @@ Public Class MapCamera
 
     End Sub
 
-    Private REVERSE As New Matrix4(
+    Public REVERSE As New Matrix4(
         New Vector4(1, 0, 0, 0),
         New Vector4(0, 1, 0, 0),
         New Vector4(0, 0, -1, 0),

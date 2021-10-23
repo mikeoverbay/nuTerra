@@ -748,8 +748,6 @@ try_again:
                 End If
                 If ImGui.CollapsingHeader("Shadow Mapping") Then
                     ImGui.Checkbox("Enabled", ShadowMappingFBO.Enabled)
-                    ImGui.InputFloat("zNear", ShadowMappingFBO.NEAR)
-                    ImGui.InputFloat("zFar", ShadowMappingFBO.FAR)
                 End If
                 If ImGui.CollapsingHeader("Lighting Settings") Then
                     ImGui.SliderFloat("Ambient Level", CommonProperties.AMBIENT, 0.0, 1.0)

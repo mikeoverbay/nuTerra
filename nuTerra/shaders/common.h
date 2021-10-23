@@ -103,8 +103,10 @@ layout(binding = PER_VIEW_UBO_BASE, std140) uniform PerView {
 };
 
 layout(binding = SHADOW_MAPPING_UBO_BASE, std140) uniform ShadowMapping {
-    mat4 light_vp_matrix;
+    mat4 lightSpaceMatrices[4];
 };
+
+float cascadePlaneDistances[4] = {25.0, 200.0, 700.0, 25000.0};
 #endif
 
 #ifdef USE_COMMON_PROPERTIES_UBO

@@ -128,6 +128,10 @@ Module modRender
             map_scene.static_models.draw_models()
         End If
 
+        'If ShadowMappingFBO.Enabled Then
+        '   map_scene.DrawLightFrustum()
+        'End If
+
         GL.DepthFunc(DepthFunction.Less)
         '===========================================================================
         If PICK_MODELS AndAlso MODELS_LOADED Then PickModel()
