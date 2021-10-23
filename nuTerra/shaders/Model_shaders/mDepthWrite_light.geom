@@ -5,7 +5,7 @@
 #define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
 
-layout(triangles, invocations = 3) in;
+layout(triangles, invocations = 4) in;
 layout(triangle_strip, max_vertices = 3) out;
 
 in Block
