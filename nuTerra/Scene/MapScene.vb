@@ -93,6 +93,18 @@ Public Class MapScene
             max = Vector3.ComponentMax(max, trf.Xyz)
         Next
 
+        Dim zMult = 10.0F
+        If min.Z < 0 Then
+            min.Z *= zMult
+        Else
+            min.Z /= zMult
+        End If
+        If max.Z < 0 Then
+            max.Z /= zMult
+        Else
+            max.Z *= zMult
+        End If
+
         Dim light_proj_matrix = Matrix4.CreateOrthographicOffCenter(
             min.X, max.X, min.Y, max.Y, min.Z, max.Z)
 
