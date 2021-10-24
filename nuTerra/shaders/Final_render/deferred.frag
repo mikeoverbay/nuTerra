@@ -251,8 +251,7 @@ void main (void)
             // BEGIN SHADOW MAPPING
             if (props.use_shadow_mapping) {
 
-            vec4 fragPosViewSpace = view * p;
-            float depthValue = abs(fragPosViewSpace.z);
+            float depthValue = abs(Position.z);
 
             int layer = -1;
             for (int i = 0; i < cascadeCount; ++i)
