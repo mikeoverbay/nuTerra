@@ -254,7 +254,6 @@ void main (void)
             vec4 fragPosViewSpace = view * p;
             float depthValue = abs(fragPosViewSpace.z);
 
-            int cascadeCount = 4;
             int layer = -1;
             for (int i = 0; i < cascadeCount; ++i)
             {

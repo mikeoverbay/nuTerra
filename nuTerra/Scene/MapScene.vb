@@ -52,7 +52,7 @@ Public Class MapScene
     End Sub
 
     Private Function getFrustumCornersWorldSpace(proj As Matrix4, view As Matrix4) As List(Of Vector4)
-        Dim inv = Matrix4.Invert(view * proj * Matrix4.Invert(camera.REVERSE))
+        Dim inv = Matrix4.Invert(view * proj)
 
         Dim frustumCorners As New List(Of Vector4)
         For x = 0 To 1
@@ -73,7 +73,7 @@ Public Class MapScene
         Dim proj = Matrix4.CreatePerspectiveFieldOfView(
             FieldOfView,
             MainFBO.width / MainFBO.height,
-            nearPlane, farPlane) * camera.REVERSE
+            nearPlane, farPlane)
 
         Dim corners = getFrustumCornersWorldSpace(proj, camera.PerViewData.view)
 
