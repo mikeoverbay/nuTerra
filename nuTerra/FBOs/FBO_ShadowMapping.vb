@@ -5,8 +5,8 @@ Public Class ShadowMappingFBO
     Public Shared depth_tex As GLTexture
 
     Public Const CASCADES = 4
-    Public Const WIDTH = 4096
-    Public Const HEIGHT = 4096
+    Public Const WIDTH = 2048
+    Public Const HEIGHT = 2048
 
     Public Shared FRAME_STEP As Integer = 20
 

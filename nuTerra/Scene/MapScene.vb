@@ -118,8 +118,8 @@ Public Class MapScene
     Public Sub ShadowMappingPass()
         GL_PUSH_GROUP("MapScene::ShadowMappingPass")
 
-        Dim vp_cascade0 = getLightSpaceMatrix(My.Settings.near, 25.0F)
-        Dim vp_cascade1 = getLightSpaceMatrix(25.0F, 200.0F)
+        Dim vp_cascade0 = getLightSpaceMatrix(My.Settings.near, 20.0F)
+        Dim vp_cascade1 = getLightSpaceMatrix(20.0F, 200.0F)
         Dim vp_cascade2 = getLightSpaceMatrix(200.0F, 700.0F)
         Dim vp_cascade3 = getLightSpaceMatrix(700.0F, My.Settings.far)
 

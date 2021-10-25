@@ -106,7 +106,7 @@ layout(binding = SHADOW_MAPPING_UBO_BASE, std140) uniform ShadowMapping {
     mat4 lightSpaceMatrices[4];
 };
 
-const float cascadePlaneDistances[3] = {25.0, 200.0, 700.0};
+const float cascadePlaneDistances[3] = {20.0, 200.0, 700.0};
 const int cascadeCount = 3;
 #endif
 
