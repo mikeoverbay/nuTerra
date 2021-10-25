@@ -5,15 +5,15 @@
 #define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
 
-layout (points) in;
+layout (points, invocations = 4) in;
 layout (line_strip, max_vertices = 24) out;
 
 const vec4 f[8] = vec4[8](
     // near
-    vec4(-1, -1, -1, 1),
-    vec4(1,  -1, -1, 1),
-    vec4(1,   1, -1, 1),
-    vec4(-1,  1, -1, 1),
+    vec4(-1, -1, 0, 1),
+    vec4(1,  -1, 0, 1),
+    vec4(1,   1, 0, 1),
+    vec4(-1,  1, 0, 1),
     // far
     vec4(-1, -1,  1, 1),
     vec4(1,  -1,  1, 1),
@@ -23,7 +23,7 @@ const vec4 f[8] = vec4[8](
 
 void main(void)
 {
-    mat4 inv = inverse(lightSpaceMatrices[0]);
+    mat4 inv = inverse(lightSpaceMatrices[gl_InvocationID]);
 
     vec4 v[8];
     for (int i = 0; i < 8; i++) {

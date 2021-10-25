@@ -129,7 +129,7 @@ Module modRender
         End If
 
         'If ShadowMappingFBO.Enabled Then
-        '   map_scene.DrawLightFrustum()
+        'map_scene.DrawLightFrustum()
         'End If
 
         GL.DepthFunc(DepthFunction.Less)
