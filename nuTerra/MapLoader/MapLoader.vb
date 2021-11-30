@@ -460,7 +460,7 @@ Module MapLoader
         End If 'DONT_BLOCK_TERRAIN
         If DONT_BLOCK_OUTLAND Then
             create_outland()
-
+            OUTLAND_LOADED = True
         End If
         '===============================================================
         'load cube map for PBS_ext lighting,

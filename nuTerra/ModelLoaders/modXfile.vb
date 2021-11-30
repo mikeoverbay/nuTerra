@@ -5,16 +5,14 @@ Imports OpenTK.Mathematics
 Public Class XModel
     Public vao As GLVertexArray
     Public indices_count As Integer
-End Class
 
-Module modXfile
     Private Structure _vertex
         Public v As Vector3
         Public n As Vector3
         Public uv As Vector2
     End Structure
 
-    Public Function get_X_model(file_ As String) As XModel
+    Public Shared Function load_from_file(file_ As String) As XModel
         Dim importer As New AssimpContext
 
         Dim scene = importer.ImportFile(file_)
@@ -72,4 +70,4 @@ Module modXfile
         result.vao.ElementBuffer(mBuffer)
         Return result
     End Function
-End Module
+End Class

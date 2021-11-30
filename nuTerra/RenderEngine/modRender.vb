@@ -93,7 +93,7 @@ Module modRender
 
         MainFBO.attach_CNGPA()
 
-        If DONT_BLOCK_OUTLAND And TERRAIN_LOADED Then
+        If DONT_BLOCK_OUTLAND AndAlso OUTLAND_LOADED Then
             MainFBO.attach_CNGPA()
             'GL.Disable(EnableCap.DepthTest) 'just so we can see all of it
             map_scene.terrain.Draw_outland()
