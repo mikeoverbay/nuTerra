@@ -38,7 +38,7 @@ jobs:
     - name: Zipping
       uses: papeloto/action-zip@v1
       with:
-        files: nuTerra/bin/x64/Release/
+        files: nuTerra/bin/Release/
         dest: nuTerra.zip
 
     - uses: dev-drprasad/delete-older-releases@v0.2.0
