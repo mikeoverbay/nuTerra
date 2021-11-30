@@ -63,7 +63,7 @@ Public Class MapFog
         DeferredFogShader.StopUse()
 
         ' MULTI UNBIND
-        GL.BindTextures(0, 4, {0, 0, 0, 0})
+        unbind_textures(4)
 
         GL_POP_GROUP()
     End Sub
