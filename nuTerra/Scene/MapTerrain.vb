@@ -326,4 +326,56 @@ Public Class MapTerrain
 
         GLOBAL_AM_ID?.Dispose()
     End Sub
+
+    Public Sub Export(scene As Assimp.Scene)
+        Dim num_chunks = theMap.render_set.Length
+        Dim num_verts = vertices_buffer.size / Marshal.SizeOf(Of TerrainVertex)
+        Dim num_indices = indices_buffer.size / Marshal.SizeOf(Of UShort)
+        Dim num_verts_in_chunk = num_verts / num_chunks
+
+        Dim indirectData(num_chunks - 1) As DrawElementsIndirectCommand
+        GL.GetNamedBufferSubData(indirect_buffer.buffer_id, IntPtr.Zero, indirect_buffer.size, indirectData)
+
+        Dim verticesData(num_verts - 1) As TerrainVertex
+        GL.GetNamedBufferSubData(vertices_buffer.buffer_id, IntPtr.Zero, vertices_buffer.size, verticesData)
+
+        Dim indicesData(num_indices - 1) As UShort
+        GL.GetNamedBufferSubData(indices_buffer.buffer_id, IntPtr.Zero, indices_buffer.size, indicesData)
+
+        Dim matricesData(num_chunks - 1) As TerrainChunkInfo
+        GL.GetNamedBufferSubData(matrices.buffer_id, IntPtr.Zero, matrices.size, matricesData)
+
+        For i = 0 To num_chunks - 1
+            Dim chunk_mesh As New Assimp.Mesh(Assimp.PrimitiveType.Triangle)
+
+            Dim baseVertex = indirectData(i).baseVertex
+
+            For j = 0 To num_verts_in_chunk - 1
+                Dim v = verticesData(baseVertex + j)
+                chunk_mesh.Vertices.Add(New Assimp.Vector3D(v.xyz.X, v.xyz.Y, v.xyz.Z))
+            Next
+
+            For j = 0 To num_indices - 1 Step 3
+                Dim a = indicesData(j)
+                Dim b = indicesData(j + 1)
+                Dim c = indicesData(j + 2)
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            Next
+            chunk_mesh.MaterialIndex = 0
+            scene.Meshes.Add(chunk_mesh)
+
+            Dim m = matricesData(i).modelMatrix
+
+            Dim node = New Assimp.Node(String.Format("chunk_{0}", i), scene.RootNode)
+            scene.RootNode.Children.Add(node)
+
+            ' !!!!! doesn't work
+            node.Transform = New Assimp.Matrix4x4(
+                m.M11, m.M12, m.M13, m.M14,
+                m.M21, m.M22, m.M23, m.M24,
+                m.M31, m.M32, m.M33, m.M34,
+                m.M41, m.M42, m.M43, m.M44)
+            node.MeshIndices.Add(i)
+        Next
+    End Sub
 End Class

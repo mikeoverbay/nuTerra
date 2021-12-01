@@ -503,6 +503,9 @@ Module MapLoader
         '===================================================
 
         map_scene.camera.check_postion_for_update() ' need to initialize cursor altitude
+
+        ' uncomment to export scene
+        ' map_scene.ExportToFile("./map_scene.fbx", "fbx")
     End Sub
 
     Public Sub set_light_pos()

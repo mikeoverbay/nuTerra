@@ -167,4 +167,21 @@ Public Class MapScene
 
         mouse_timer.Dispose()
     End Sub
+
+    Public Sub ExportToFile(filename As String, format As String)
+        Dim scene As New Assimp.Scene
+        scene.RootNode = New Assimp.Node("Root")
+
+        If TERRAIN_LOADED Then
+            terrain.Export(scene)
+        End If
+
+        ' dummy material
+        Dim dummy_material As New Assimp.Material
+        dummy_material.Name = "dummy_material"
+        scene.Materials.Add(dummy_material)
+
+        Dim exporter As New Assimp.AssimpContext
+        Debug.Assert(exporter.ExportFile(scene, filename, format))
+    End Sub
 End Class

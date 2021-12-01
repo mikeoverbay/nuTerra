@@ -446,7 +446,7 @@ Module ChunkFunctions
     End Sub
 
     <StructLayout(LayoutKind.Sequential)>
-    Private Structure TerrainVertex
+    Structure TerrainVertex
         Public xyz As Vector3
         Public uv As Vector2
         Public packed_noraml As UInt32
@@ -462,7 +462,7 @@ Module ChunkFunctions
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>
-    Private Structure TerrainChunkInfo
+    Structure TerrainChunkInfo
         Public modelMatrix As Matrix4
         Public g_uv_offset As Vector2
         Public pad1 As UInt32
