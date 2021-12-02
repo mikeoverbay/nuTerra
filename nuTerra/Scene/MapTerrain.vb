@@ -353,6 +353,8 @@ Public Class MapTerrain
             For j = 0 To num_verts_in_chunk - 1
                 Dim v = verticesData(baseVertex + j)
                 chunk_mesh.Vertices.Add(New Assimp.Vector3D(v.xyz.X, v.xyz.Y, v.xyz.Z))
+                chunk_mesh.TextureCoordinateChannels(0).Add(New Assimp.Vector3D(v.uv.X, v.uv.Y, 0.0F))
+                ' TODO: export normals
             Next
 
             For j = 0 To num_indices - 1 Step 3
@@ -364,17 +366,15 @@ Public Class MapTerrain
             chunk_mesh.MaterialIndex = 0
             scene.Meshes.Add(chunk_mesh)
 
-            Dim m = matricesData(i).modelMatrix
-
             Dim node = New Assimp.Node(String.Format("chunk_{0}", i), scene.RootNode)
             scene.RootNode.Children.Add(node)
 
-            ' !!!!! doesn't work
+            Dim m = matricesData(i).modelMatrix
             node.Transform = New Assimp.Matrix4x4(
-                m.M11, m.M12, m.M13, m.M14,
-                m.M21, m.M22, m.M23, m.M24,
-                m.M31, m.M32, m.M33, m.M34,
-                m.M41, m.M42, m.M43, m.M44)
+                m.M11, m.M21, m.M31, m.M41,
+                m.M12, m.M22, m.M32, m.M42,
+                m.M13, m.M23, m.M33, m.M43,
+                m.M14, m.M24, m.M34, m.M44)
             node.MeshIndices.Add(i)
         Next
     End Sub
