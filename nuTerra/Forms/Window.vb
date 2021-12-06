@@ -676,6 +676,8 @@ try_again:
     End Sub
 
     Private Sub SubmitUI()
+        Dim viewport = ImGui.GetMainViewport()
+
         ImGui.SetNextWindowPos(New Numerics.Vector2(0, 0))
         If ImGui.Begin("Dummy Window 1", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
             If ImGui.Button("Load map") Then
@@ -698,6 +700,16 @@ try_again:
             ImGui.SameLine()
             ImGui.Text(String.Format("FPS: {0,-3} | VRAM usage: {1,-4}mb of {2}mb", FPS_TIME, GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
             ImGui.End()
+        End If
+
+        ' Draw Terrain IDs
+        If SHOW_CHUNK_IDs AndAlso DONT_BLOCK_TERRAIN Then
+            ImGui.SetNextWindowPos(viewport.Pos)
+            ImGui.SetNextWindowSize(viewport.Size)
+            If ImGui.Begin("Dummy Window 2", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.NoInputs) Then
+                map_scene.terrain.draw_terrain_ids()
+                ImGui.End()
+            End If
         End If
 
         If SHOW_SETTINGS_WINDOW Then

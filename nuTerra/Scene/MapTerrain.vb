@@ -2,6 +2,7 @@
 Imports OpenTK.Mathematics
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
+Imports ImGuiNET
 
 Public Class MapTerrain
     Implements IDisposable
@@ -290,28 +291,28 @@ Public Class MapTerrain
     End Sub
 
     Public Sub draw_terrain_ids()
-        GL_PUSH_GROUP("draw_terrain_ids")
+        Dim list = ImGui.GetBackgroundDrawList()
+        Dim col = ImGui.GetColorU32(New Numerics.Vector4(1.0, 1.0, 0, 1.0))
 
         For i = 0 To theMap.render_set.Length - 1
-            If theMap.render_set(i).visible Then ' Dont do math on no-visible chunks
+            If Not theMap.render_set(i).visible Then
+                ' Dont do math on no-visible chunks
+                Continue For
+            End If
 
-                Dim v As Vector4
-                v.Y = theMap.v_data(i).avg_heights
-                v.W = 1.0
+            Dim v As Vector4
+            v.Y = theMap.v_data(i).avg_heights
+            v.W = 1.0
 
-                Dim sp = UnProject_Chunk(v, theMap.render_set(i).matrix)
+            Dim sp = UnProject_Chunk(v, theMap.render_set(i).matrix)
 
-                If sp.Z > 0.0F Then
-                    Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
-                    draw_text(s, sp.X, sp.Y, Color4.Yellow, True, 1)
-                    s = String.Format("{0}, {1}", theMap.render_set(i).matrix.Row3(0), theMap.render_set(i).matrix.Row3(2))
-                    draw_text(s, sp.X, sp.Y - 19, Color4.Yellow, True, 1)
-
-                End If
+            If sp.Z > 0.0F Then
+                Dim s = theMap.chunks(i).name + ":" + i.ToString("000")
+                list.AddText(New Numerics.Vector2(sp.X, sp.Y), col, s)
+                s = String.Format("{0}, {1}", theMap.render_set(i).matrix.Row3(0), theMap.render_set(i).matrix.Row3(2))
+                list.AddText(New Numerics.Vector2(sp.X, sp.Y - 19), col, s)
             End If
         Next
-
-        GL_POP_GROUP()
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
