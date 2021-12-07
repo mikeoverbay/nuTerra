@@ -265,7 +265,6 @@ Module TerrainBuilder
             get_mesh(theMap.chunks(I), theMap.v_data(I), theMap.render_set(I))
             BG_VALUE = I
             If I Mod 50 = 0 Then
-                Application.DoEvents()
                 main_window.ForceRender()
             End If
         Next
@@ -282,7 +281,6 @@ Module TerrainBuilder
             smooth_edges(i)
             BG_VALUE = i
             If i Mod 50 = 0 Then
-                Application.DoEvents()
                 main_window.ForceRender()
             End If
         Next
@@ -296,7 +294,6 @@ Module TerrainBuilder
             get_layers(i)
             BG_VALUE = i
             If i Mod 50 = 0 Then
-                Application.DoEvents()
                 main_window.ForceRender()
             End If
         Next
@@ -308,7 +305,6 @@ Module TerrainBuilder
         'we need to find a way to package the terrains texture info so we can use instance rendering
         BG_VALUE = 0
         BG_TEXT = "Building render VAOs..."
-        Application.DoEvents()
         main_window.ForceRender()
 
         build_Terrain_VAO()

@@ -61,7 +61,6 @@ Module TerrainTextureFunctions
                 Dim fullWidth As Integer = 1024
                 Dim fullHeight As Integer = 1024
                 Dim layer As Single
-                Application.DoEvents() 'stop freezing the UI
                 For i = 0 To 3
 
                     Dim dds_entry = ResMgr.Lookup(tex_names(i))
