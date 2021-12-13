@@ -713,8 +713,8 @@ got_it:
                     Dim obj As New MaterialProps_PBS_glass
                     With obj
                         .dirtAlbedoMap = props("dirtAlbedoMap")
-                        .normalMap = props("normalMap")
-                        .glassMap = props("glassMap")
+                        .normalMap = If(props.ContainsKey("normalMap"), props("normalMap").ToLower, props("dirtAlbedoMap").ToLower) ' HACK
+                        .glassMap = If(props.ContainsKey("glassMap"), props("glassMap").ToLower, props("dirtAlbedoMap").ToLower) ' HACK
 
                         If props.ContainsKey("alphaTestEnable") Then
                             .alphaTestEnable = props("alphaTestEnable")
@@ -732,7 +732,7 @@ got_it:
                     mat.props = obj
                     mat.shader_type = ShaderTypes.FX_PBS_glass
 
-                Case "shaders/std_effects/PBS_ext_repaint.fx"
+                Case "shaders/std_effects/PBS_ext_repaint.fx", "shaders/std_effects/PBS_ext_skinned_repaint.fx"
                     Dim knownPropNames As New HashSet(Of String)({
                         "diffuseMap",
                         "normalMap",
@@ -794,7 +794,7 @@ got_it:
                     mat.props = obj
 
 
-                Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx"
+                Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx", "shaders/std_effects/lightonly_dual.fx"
                     Dim obj As New MaterialProps_lightonly_alpha
                     With obj
                         .diffuseMap = props("diffuseMap").ToLower
@@ -802,7 +802,7 @@ got_it:
                     mat.shader_type = ShaderTypes.FX_lightonly_alpha
                     mat.props = obj
 
-                Case "shaders/particles/wg_particles.fx", "shaders/custom/coloronly_alpha.fx", "shaders/std_effects/PBS_ext_detail_dual.fx", "shaders/std_effects/PBS_tiled.fx", "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx", "shaders/custom/volumetric_effect_vtx_skinned.fx"
+                Case "shaders/particles/wg_particles.fx", "shaders/custom/coloronly_alpha.fx", "shaders/std_effects/PBS_ext_detail_dual.fx", "shaders/std_effects/PBS_tiled.fx", "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx", "shaders/custom/volumetric_effect_vtx_skinned.fx", "shaders/std_effects/PBS_sss_skinned.fx", "shaders/std_effects/PBS_hair_skinned.fx", "shaders/std_effects/fur_skinned.fx", "shaders/custom/emissive_playground.fx"
                     mat.shader_type = ShaderTypes.FX_unsupported
 
                 Case Else
