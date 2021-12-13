@@ -389,15 +389,18 @@ Module TerrainBuilder
 
         '==========================================================
         ' get outland bounds
-        With cBWT2.cascades.data(0)
-            theMap.outland_bounds_max = .outland_bb_max
-            theMap.outland_bounds_min = .outland_BB_min
-        End With
-        If cBWT2.cascades.count = 2 Then
-            With cBWT2.cascades.data(1)
-                theMap.outland_Cascade_bounds_max = .outland_bb_max
-                theMap.outland_Cascade_bounds_min = .outland_BB_min
+
+        If cBWT2.cascades.count <> 0 Then
+            With cBWT2.cascades.data(0)
+                theMap.outland_bounds_max = .outland_bb_max
+                theMap.outland_bounds_min = .outland_BB_min
             End With
+            If cBWT2.cascades.count = 2 Then
+                With cBWT2.cascades.data(1)
+                    theMap.outland_Cascade_bounds_max = .outland_bb_max
+                    theMap.outland_Cascade_bounds_min = .outland_BB_min
+                End With
+            End If
         End If
 
         '==========================================================
@@ -488,24 +491,28 @@ Module TerrainBuilder
             End With
         Next
 
-        '==========================================================
-        ' get outland textures
-        CASCADE_LEVELS = cBWT2.cascades.count
-        OUTLAND_TILE_SCALE = cBWT2.cascades.data(0).tileScale
-        OUTLAND_TILE = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).tile_map, False) ' unorm 16
-        OUTLAND_NORMAL_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).normal_map, Nothing) ' dds
-        OUTLAND_height_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).height_map, True) ' float 16
-        If cBWT2.cascades.count = 2 Then
-            OUTLAND_TILE_SCALE_CASCADE = cBWT2.cascades.data(1).tileScale
-            OUTLAND_TILE_CASCADE = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).tile_map, False) ' unorm 16
-            OUTLAND_NORMAL_CASCADE_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).normal_map, Nothing) ' dds
-            OUTLAND_height_CASCADE_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).height_map, True) ' float 16
+        If DONT_BLOCK_OUTLAND Then
+            '==========================================================
+            ' get outland textures
+            CASCADE_LEVELS = cBWT2.cascades.count
+            OUTLAND_TILE_SCALE = cBWT2.cascades.data(0).tileScale
+            OUTLAND_TILE = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).tile_map, False) ' unorm 16
+            OUTLAND_NORMAL_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).normal_map, Nothing) ' dds
+            OUTLAND_height_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).height_map, True) ' float 16
+            If cBWT2.cascades.count = 2 Then
+                OUTLAND_TILE_SCALE_CASCADE = cBWT2.cascades.data(1).tileScale
+                OUTLAND_TILE_CASCADE = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).tile_map, False) ' unorm 16
+                OUTLAND_NORMAL_CASCADE_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).normal_map, Nothing) ' dds
+                OUTLAND_height_CASCADE_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).height_map, True) ' float 16
+            End If
+
+            ReDim OUTLAND_TILES(cBWT2.tiles_fnv.count - 1)
+            For i = 0 To cBWT2.tiles_fnv.count - 1
+                OUTLAND_TILES(i) = find_and_load_texture_from_pkgs(cBWST.find_str(cBWT2.tiles_fnv.data(i))) ' dds
+            Next
         End If
 
-        ReDim OUTLAND_TILES(cBWT2.tiles_fnv.count - 1)
-        For i = 0 To cBWT2.tiles_fnv.count - 1
-            OUTLAND_TILES(i) = find_and_load_texture_from_pkgs(cBWST.find_str(cBWT2.tiles_fnv.data(i))) ' dds
-        Next
+
         '==========================================================
         'remove data now that its unneeded now.
         cBWT2 = Nothing
