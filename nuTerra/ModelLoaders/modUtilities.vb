@@ -9,10 +9,7 @@ Module modUtilities
 #If DEBUG Then
         Debug.Print(entry, args)
 #End If
-
-        'Writes to the log and immediately saves it.
-        nuTerra_LOG.AppendLine(String.Format(entry, args))
-        'File.WriteAllText(Path.Combine(TEMP_STORAGE, "nuTerra_Log.txt"), nuTerra_LOG.ToString)
+        Console.WriteLine(entry, args)
     End Sub
 
     ' Allows us to split by strings. Not just characters.

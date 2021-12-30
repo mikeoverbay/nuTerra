@@ -27,9 +27,6 @@ Module modGlobalVars
     Public CHECKERTEST As Integer
     'Define these in CAP TEXT
     Public TEST_IDS(7) As GLTexture
-    '============================================================
-    Public nuTerra_LOG As New StringBuilder ' for logging
-    '============================================================
 
     ' https://www.khronos.org/registry/OpenGL/extensions/NV/NV_representative_fragment_test.txt
     Public USE_REPRESENTATIVE_TEST As Boolean
