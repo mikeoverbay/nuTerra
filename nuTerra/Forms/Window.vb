@@ -19,7 +19,6 @@ Public Class Window
     Public Shared SCR_HEIGHT As Integer = 800
     Public Shared mouse_last_pos As Point
     Private NEED_TO_INVALIDATE_VIEWPORT As Boolean = True
-    Private NEED_TO_OPEN_SHADER_EDITOR As Boolean = False
     Private NEED_TO_DO_SCREEN_CAPTURE As Boolean = False
     Private SCREEN_CAPTURE_FILENAME As String = Nothing
     Private fps_timer As New Stopwatch
@@ -80,25 +79,6 @@ Public Class Window
                 .UpdateFrequency = 0.0
             }, GetGLSettings())
         VSync = VSyncMode.Off
-    End Sub
-
-    Private Sub get_GLSL_filter_strings()
-        Dim ts = IO.File.ReadAllText(Application.StartupPath + "\data\glsl_filtered_strings.txt")
-        Dim f_list = ts.Split(ControlChars.CrLf.ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
-        set_GLSL_keywords(f_list)
-    End Sub
-
-    Private Sub set_GLSL_keywords(ByRef f_list() As String)
-        GLSL_KEYWORDS = "\b("
-        For Each s In f_list
-            If InStr(s, "#") = 0 Then
-                If s.Length > 2 Then
-                    GLSL_KEYWORDS += s + "|"
-                End If
-            End If
-        Next
-        'this is needed because of the last | in the load loop!
-        GLSL_KEYWORDS += "float)\b"
     End Sub
 
     Protected Overrides Sub OnLoad()
@@ -426,11 +406,6 @@ try_again:
     End Sub
 
     Private Sub load_assets()
-        '---------------------------------------------------------
-        'set up regex strings for the glsl editor.
-        get_GLSL_filter_strings()
-        '---------------------------------------------------------
-
         'setup text renderer
         Dim sp = Application.StartupPath
         '---------------------------------------------------------
@@ -802,9 +777,6 @@ try_again:
                         proc.Start()
                     End Using
                 End If
-                If ImGui.Button("Shader Editor") Then
-                    NEED_TO_OPEN_SHADER_EDITOR = True
-                End If
                 ImGui.End()
             End If
         End If
@@ -846,12 +818,6 @@ try_again:
 
     Public Overrides Sub ProcessEvents()
         MyBase.ProcessEvents()
-
-        If NEED_TO_OPEN_SHADER_EDITOR Then
-            Dim frm = New frmProgramEditor()
-            frm.Show()
-            NEED_TO_OPEN_SHADER_EDITOR = False
-        End If
 
         If NEED_TO_DO_SCREEN_CAPTURE Then
             NEED_TO_DO_SCREEN_CAPTURE = False

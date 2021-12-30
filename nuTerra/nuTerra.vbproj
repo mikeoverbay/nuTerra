@@ -387,9 +387,6 @@
     <Content Include="data\filtered_strings.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="data\glsl_filtered_strings.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="HTML\images\carbon.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -403,9 +400,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="HTML\lower_frame.html">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="HTML\FCTB_HELP.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="HTML\top_frame.html">
@@ -484,7 +478,6 @@
   <ItemGroup>
     <PackageReference Include="AssimpNet" Version="5.0.0-beta1" />
     <PackageReference Include="DotNetZip" Version="1.16.0" />
-    <PackageReference Include="FCTB" Version="2.16.24" />
     <PackageReference Include="ImGui.NET" Version="1.78.0" />
     <PackageReference Include="NGettext" Version="0.6.7" />
     <PackageReference Include="OpenTK" Version="4.6.7" />
