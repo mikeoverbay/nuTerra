@@ -30,11 +30,6 @@
     <GenerateManifests>false</GenerateManifests>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="shaders\User_GUI\**" />
-    <EmbeddedResource Remove="shaders\User_GUI\**" />
-    <None Remove="shaders\User_GUI\**" />
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="Pngcs, Version=1.1.4.1, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>.\Pngcs.dll</HintPath>

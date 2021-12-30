@@ -12,5 +12,7 @@ Module Program
 
         main_window = New Window
         main_window.Run()
+
+        My.Settings.Save()
     End Sub
 End Module
