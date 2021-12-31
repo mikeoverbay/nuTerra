@@ -3,7 +3,6 @@
 Public Class GLBuffer
     Implements IDisposable
 
-    Public Shared ALL_SIZE As Long
     Public buffer_id As Integer
     ReadOnly target As BufferTarget
     Public size As Integer
@@ -36,21 +35,18 @@ Public Class GLBuffer
     Public Sub Storage(Of dataType As Structure)(size As Integer, data() As dataType, flags As BufferStorageFlags)
         GL.NamedBufferStorage(buffer_id, size, data, flags)
         Me.size = size
-        ALL_SIZE += size
         CheckGLError()
     End Sub
 
     Public Sub Storage(Of dataType As Structure)(size As Integer, data As dataType, flags As BufferStorageFlags)
         GL.NamedBufferStorage(buffer_id, size, data, flags)
         Me.size = size
-        ALL_SIZE += size
         CheckGLError()
     End Sub
 
     Public Sub StorageNullData(size As Integer, flags As BufferStorageFlags)
         GL.NamedBufferStorage(buffer_id, size, IntPtr.Zero, flags)
         Me.size = size
-        ALL_SIZE += size
         CheckGLError()
     End Sub
 
@@ -60,7 +56,6 @@ Public Class GLBuffer
 
     Public Sub Dispose() Implements IDisposable.Dispose
         GL.DeleteBuffer(buffer_id)
-        ALL_SIZE -= size
         CheckGLError()
     End Sub
 End Class

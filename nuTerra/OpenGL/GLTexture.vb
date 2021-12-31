@@ -3,10 +3,8 @@
 Public Class GLTexture
     Implements IDisposable
 
-    Public Shared ALL_SIZE As Long
     Public texture_id As Integer
     Public target As TextureTarget
-    Private size As Integer
 
     Public Sub New(texture_id As Integer, target As TextureTarget, name As String)
         Me.texture_id = texture_id
@@ -40,15 +38,11 @@ Public Class GLTexture
 
     Public Sub Storage2D(levels As Integer, iFormat As SizedInternalFormat, width As Integer, height As Integer)
         GL.TextureStorage2D(texture_id, levels, iFormat, width, height)
-        size = width * height
-        ALL_SIZE += size
         CheckGLError()
     End Sub
 
     Public Sub Storage3D(levels As Integer, iFormat As SizedInternalFormat, width As Integer, height As Integer, depth As Integer)
         GL.TextureStorage3D(texture_id, levels, iFormat, width, height, depth)
-        size = width * height * depth
-        ALL_SIZE += size
         CheckGLError()
     End Sub
 
@@ -64,7 +58,6 @@ Public Class GLTexture
 
     Public Sub CompressedSubImage2D(level As Integer, xoffset As Integer, yoffset As Integer, width As Integer, height As Integer, format As PixelFormat, imageSize As Integer, data() As Byte)
         GL.CompressedTextureSubImage2D(texture_id, level, xoffset, yoffset, width, height, format, imageSize, data)
-        ' FAILED on lakeville:
         CheckGLError()
     End Sub
 
@@ -86,7 +79,6 @@ Public Class GLTexture
             End If
         End If
         GL.DeleteTexture(texture_id)
-        ALL_SIZE -= size
         CheckGLError()
     End Sub
 End Class

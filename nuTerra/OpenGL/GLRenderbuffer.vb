@@ -3,9 +3,7 @@
 Public Class GLRenderbuffer
     Implements IDisposable
 
-    Public Shared ALL_SIZE As Long
     Public renderbuffer_id As Integer
-    Private size As Integer
 
     Public Sub New(renderbuffer_id As Integer, name As String)
         Me.renderbuffer_id = renderbuffer_id
@@ -23,13 +21,10 @@ Public Class GLRenderbuffer
 
     Public Sub Storage(internalformat As RenderbufferStorage, width As Integer, height As Integer)
         GL.NamedRenderbufferStorage(renderbuffer_id, internalformat, width, height)
-        size = width * height * 4 ' FXIME
-        ALL_SIZE += size
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
         GL.DeleteRenderbuffer(renderbuffer_id)
-        ALL_SIZE -= size
         CheckGLError()
     End Sub
 End Class
