@@ -691,40 +691,6 @@ Module modSpacedBinVars
     End Structure
 #End Region
 
-#Region "SpTr"
-    'speed tree table
-    Public cSpTr As cSpTr_
-    Public Structure cSpTr_
-        Public Stree As BWArray(Of cStree_)
-
-        Public Sub New(sptrHeader As SectionHeader, br As BinaryReader)
-            ' set stream reader to point at this chunk
-            br.BaseStream.Position = sptrHeader.offset
-
-            ' Check version in header
-            Debug.Assert(sptrHeader.version = 3)
-
-            Stree = New BWArray(Of cStree_)(br)
-        End Sub
-
-        <StructLayout(LayoutKind.Sequential)>
-        Public Structure cStree_
-            Public transform As Matrix4
-            Public spt_fnv As UInt32
-            Public seed As UInt32
-            Public flags As UInt32
-            Public visibility_mask As UInt32
-
-            ReadOnly Property tree_name As String
-                Get
-                    Return cBWST.find_str(spt_fnv)
-                End Get
-            End Property
-        End Structure
-    End Structure
-
-#End Region
-
 #Region "BWWa"
     Public cBWWa As cBWWa_
     Public Structure cBWWa_

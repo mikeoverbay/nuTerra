@@ -78,13 +78,6 @@ Module modSpaceBin
             End Try
 
             Try
-                cSpTr = New cSpTr_(sectionHeaders("SpTr"), br)
-            Catch ex As Exception
-                ShowDecodeFailedMessage(ex, "SpTr")
-                GoTo Failed
-            End Try
-
-            Try
                 get_WGSD(sectionHeaders("WGSD"), br)
             Catch ex As Exception
                 ShowDecodeFailedMessage(ex, "WGSD")
@@ -222,7 +215,6 @@ CleanUp:
         cBSMO = Nothing
         cBSMA = Nothing
         cWGSD = Nothing
-        cSpTr = Nothing
         cBWWa = Nothing
 
         '====================================================
