@@ -36,10 +36,11 @@ jobs:
       run:  msbuild /m /t:${{env.PROJECT_NAME}} /property:Version=1.0.0.${{ github.run_number }} /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
 
     - name: Zipping
-      uses: papeloto/action-zip@v1
+      uses: thedoctor0/zip-release@master
       with:
-        files: nuTerra/bin/Release/
-        dest: nuTerra.zip
+        type: 'zip'
+        path: nuTerra/bin/Release/
+        filename: nuTerra.zip
 
     - uses: dev-drprasad/delete-older-releases@v0.2.0
       continue-on-error: true
