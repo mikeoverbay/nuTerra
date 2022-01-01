@@ -442,6 +442,8 @@ try_again:
         ' needed for terrain atlas textures
         make_dummy_4_layer_atlas()
         '===========================================================================================
+
+        imgTbl.Clear()
     End Sub
 
     Protected Overrides Sub OnUpdateFrame(args As FrameEventArgs)

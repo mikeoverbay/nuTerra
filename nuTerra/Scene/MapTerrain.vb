@@ -339,15 +339,17 @@ Public Class MapTerrain
 
         GLOBAL_AM_ID?.Dispose()
 
-        OUTLAND_NORMAL_MAP?.Dispose()
-        OUTLAND_NORMAL_CASCADE_MAP?.Dispose()
-        OUTLAND_TILE?.Dispose()
-        OUTLAND_TILE_CASCADE?.Dispose()
-        OUTLAND_height_MAP?.Dispose()
-        OUTLAND_height_CASCADE_MAP?.Dispose()
-        For Each it In OUTLAND_TILES
-            it.Dispose()
-        Next
+        If map_scene.OUTLAND_LOADED Then
+            OUTLAND_NORMAL_MAP?.Dispose()
+            OUTLAND_NORMAL_CASCADE_MAP?.Dispose()
+            OUTLAND_TILE?.Dispose()
+            OUTLAND_TILE_CASCADE?.Dispose()
+            OUTLAND_height_MAP?.Dispose()
+            OUTLAND_height_CASCADE_MAP?.Dispose()
+            For Each it In OUTLAND_TILES
+                it.Dispose()
+            Next
+        End If
     End Sub
 
     Public Sub Export(scene As Assimp.Scene)

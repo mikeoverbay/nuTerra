@@ -43,6 +43,9 @@ Module MapLoader
         PICK_DICTIONARY.Clear()
 
         'Clear texture cache so we dont returned non-existent textures.
+        For Each tex In imgTbl
+            tex.Value.Dispose()
+        Next
         imgTbl.Clear()
 
         map_scene = New MapScene(map_name)
