@@ -79,9 +79,6 @@
     <Content Include="shaders\**">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="data\filtered_strings.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="HTML\images\carbon.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

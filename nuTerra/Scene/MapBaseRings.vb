@@ -12,7 +12,7 @@ Public Class MapBaseRings
     End Sub
 
     Public Sub draw_base_rings_deferred()
-        If Not BASE_RINGS_LOADED Then
+        If Not map_scene.BASE_RINGS_LOADED Then
             Return
         End If
         GL_PUSH_GROUP("draw_terrain_base_rings_deferred")

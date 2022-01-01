@@ -181,13 +181,8 @@ Public Class MapMinimap
         GL.Enable(EnableCap.Blend)
 
         '======================================================
-        If BASE_RINGS_LOADED Then
+        If map_scene.BASE_RINGS_LOADED Then
             draw_mini_base_rings()
-        End If
-        '======================================================
-
-        '======================================================
-        If BASE_RINGS_LOADED Then
             draw_mini_base_ids()
         End If
         '======================================================

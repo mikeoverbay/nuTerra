@@ -231,7 +231,6 @@ Public Class Window
 
         '-----------------------------------------------------------------------------------------
         LogThis("{0}ms Starting Update Thread", launch_timer.ElapsedMilliseconds)
-        _STARTED = True ' I'm ready for update loops!
 
         SHOW_MAPS_SCREEN = True '<---- Un-rem to show map menu at startup.
 
@@ -443,11 +442,6 @@ try_again:
         ' needed for terrain atlas textures
         make_dummy_4_layer_atlas()
         '===========================================================================================
-
-        'This gets the first GL texture, vertex array and vertex buffer IDs after the static IDs
-        'ALL STATIC ITEMS NEED TO BE LOADED BEFORE THIS IS CALLED!!!
-        get_start_ID_for_Components_Deletion()
-
     End Sub
 
     Protected Overrides Sub OnUpdateFrame(args As FrameEventArgs)

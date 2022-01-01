@@ -25,6 +25,18 @@ Public Class MapTerrain
 
     Public GLOBAL_AM_ID As GLTexture
 
+    'outland texture ids
+    Public OUTLAND_NORMAL_MAP As GLTexture
+    Public OUTLAND_NORMAL_CASCADE_MAP As GLTexture
+    Public OUTLAND_TILE As GLTexture
+    Public OUTLAND_TILE_CASCADE As GLTexture
+    Public OUTLAND_height_MAP As GLTexture
+    Public OUTLAND_height_CASCADE_MAP As GLTexture
+    Public OUTLAND_TILES() As GLTexture
+    Public CASCADE_LEVELS As Integer = 0
+    Public OUTLAND_TILE_SCALE As Single
+    Public OUTLAND_TILE_SCALE_CASCADE As Single
+
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
@@ -326,6 +338,16 @@ Public Class MapTerrain
         feedback?.Dispose()
 
         GLOBAL_AM_ID?.Dispose()
+
+        OUTLAND_NORMAL_MAP?.Dispose()
+        OUTLAND_NORMAL_CASCADE_MAP?.Dispose()
+        OUTLAND_TILE?.Dispose()
+        OUTLAND_TILE_CASCADE?.Dispose()
+        OUTLAND_height_MAP?.Dispose()
+        OUTLAND_height_CASCADE_MAP?.Dispose()
+        For Each it In OUTLAND_TILES
+            it.Dispose()
+        Next
     End Sub
 
     Public Sub Export(scene As Assimp.Scene)

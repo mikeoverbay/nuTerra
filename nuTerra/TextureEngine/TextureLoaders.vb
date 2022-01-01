@@ -20,18 +20,6 @@ Module TextureLoaders
 
 #End Region
 
-    Public Sub get_start_ID_for_Components_Deletion()
-        'Finds the first texture Id after the static IDs we want to keep.
-        'It is used to delete all map/decal/model related texture Ids.
-        FIRST_UNUSED_TEXTURE = GL.GenTexture
-        GL.DeleteTexture(FIRST_UNUSED_TEXTURE)
-
-        FIRST_UNUSED_VB_OBJECT = GL.GenVertexArray()
-        GL.DeleteVertexArray(FIRST_UNUSED_VB_OBJECT)
-
-        FIRST_UNUSED_V_BUFFER = GL.GenBuffer()
-        GL.DeleteBuffer(FIRST_UNUSED_V_BUFFER)
-    End Sub
     Public Function find_and_load_texture_from_pkgs(ByRef fn As String) As GLTexture
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.

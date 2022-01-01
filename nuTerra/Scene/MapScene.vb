@@ -5,6 +5,17 @@ Imports OpenTK.Graphics.OpenGL4
 Public Class MapScene
     Implements IDisposable
 
+    'Draw Enable Flags. Items wont be rendered if these are False
+    Public TERRAIN_LOADED As Boolean
+    Public OUTLAND_LOADED As Boolean
+    Public TREES_LOADED As Boolean
+    Public DECALS_LOADED As Boolean
+    Public MODELS_LOADED As Boolean
+    Public BASES_LOADED As Boolean
+    Public SKY_LOADED As Boolean
+    Public WATER_LOADED As Boolean
+    Public BASE_RINGS_LOADED As Boolean
+
     Public mouse_timer As New Timer
 
     ReadOnly mapName As String

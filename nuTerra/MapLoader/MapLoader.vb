@@ -25,9 +25,6 @@ Module MapLoader
         Public visibilityBounds As Matrix2x3
     End Structure
 
-#Region "utility functions"
-
-#End Region
 
     '============================================================================
     Public Sub load_map(map_name As String)
@@ -49,18 +46,6 @@ Module MapLoader
         imgTbl.Clear()
 
         map_scene = New MapScene(map_name)
-
-        '===============================================================
-        'Set draw enable flags
-        TERRAIN_LOADED = False
-        OUTLAND_LOADED = False
-        TREES_LOADED = False
-        DECALS_LOADED = False
-        MODELS_LOADED = False
-        BASES_LOADED = False
-        SKY_LOADED = False
-        WATER_LOADED = False
-        '===============================================================
 
 
         '===============================================================
@@ -436,7 +421,7 @@ Module MapLoader
 
             Erase MAP_MODELS
 
-            MODELS_LOADED = True
+            map_scene.MODELS_LOADED = True
         End If ' block DONT_BLOCK_MODELS laoded
 #End Region
         '===============================================================
@@ -455,11 +440,11 @@ Module MapLoader
                 End
             End If
 #End If
-            TERRAIN_LOADED = True
+            map_scene.TERRAIN_LOADED = True
         End If 'DONT_BLOCK_TERRAIN
         If DONT_BLOCK_OUTLAND Then
             create_outland()
-            OUTLAND_LOADED = True
+            map_scene.OUTLAND_LOADED = True
         End If
         '===============================================================
         'load cube map for PBS_ext lighting,
@@ -477,7 +462,7 @@ Module MapLoader
         '===============================================================
         'We need to get the Y location of the rings and stop drawing overly tall cubes.
         'It only needs to happen once!
-        If BASE_RINGS_LOADED Then
+        If map_scene.BASE_RINGS_LOADED Then
             T1_Y = get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)
             T2_Y = get_Y_at_XZ(-TEAM_2.X, TEAM_2.Z)
         End If
@@ -1100,13 +1085,10 @@ Module MapLoader
         space_bin_file.Extract(ms)
         If ms IsNot Nothing Then
             If Not ReadSpaceBinData(ms) Then
-                space_bin_file = Nothing
                 MsgBox("Error decoding Space.bin", MsgBoxStyle.Exclamation, "File Error...")
                 Return False
             End If
-            space_bin_file = Nothing
         Else
-            space_bin_file = Nothing
             MsgBox("Unable to load Space.bin from package", MsgBoxStyle.Exclamation, "File Error...")
             Return False
         End If

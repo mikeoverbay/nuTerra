@@ -94,21 +94,9 @@ Module modGlobalVars
     Public LIGHT_ORBIT_ANGLE As Single
     Public PAUSE_ORBIT As Boolean = True
     Public LIGHT_SPEED As Single = 0.02F
-    '============================================================
-    'outland texture ids
-    Public OUTLAND_NORMAL_MAP As GLTexture
-    Public OUTLAND_NORMAL_CASCADE_MAP As GLTexture
-    Public OUTLAND_TILE As GLTexture
-    Public OUTLAND_TILE_CASCADE As GLTexture
-    Public OUTLAND_height_MAP As GLTexture
-    Public OUTLAND_height_CASCADE_MAP As GLTexture
-    Public OUTLAND_TILES() As GLTexture
-    Public CASCADE_LEVELS As Integer = 0
-    Public OUTLAND_TILE_SCALE As Single
-    Public OUTLAND_TILE_SCALE_CASCADE As Single
-    '============================================================
-    Public _STARTED As Boolean 'Signals UI initialization is complete
 
+
+    '============================================================
     'mouse camera related
     Public MOVE_CAM_Z, M_DOWN, MOVE_MOD, Z_MOVE, M_SPIN As Boolean ' mouse control booleans
     Public WASD_SPEED As Single = 0
@@ -127,28 +115,15 @@ Module modGlobalVars
     Public MAP_NAME_NO_PATH As String = ""
     Public MAP_LOADED As Boolean = False 'Rendering/settings clause
     Public TEMP_STORAGE As String 'Work are on users SSD/HDD
-    Public FIRST_UNUSED_TEXTURE As Integer 'Used for deltion of textures. holds starting texture
-    Public FIRST_UNUSED_VB_OBJECT As Integer 'Used for deltion of VBO
-    Public FIRST_UNUSED_V_BUFFER As Integer 'Used for deltion of V Bufffers
     Public DUMMY_TEXTURE_ID As GLTexture 'texture id 
     Public MAP_SELECT_BACKGROUND_ID As GLTexture 'texture id 
-    Public TEXT_OVERLAY_MAP_PICK As GLTexture 'texture id for text on icons
     '
     Public SHOW_MAPS_SCREEN As Boolean = False 'show pick menu screen
     Public SHOW_LOADING_SCREEN As Boolean = False 'show loading screen flag
     Public BLOCK_MOUSE As Boolean 'pick menu flag
     Public FINISH_MAPS As Boolean 'pick menu flag
     '
-    'Draw Enable Flags. Items wont be rendered if these are False
-    Public TERRAIN_LOADED As Boolean
-    Public OUTLAND_LOADED As Boolean
-    Public TREES_LOADED As Boolean
-    Public DECALS_LOADED As Boolean
-    Public MODELS_LOADED As Boolean
-    Public BASES_LOADED As Boolean
-    Public SKY_LOADED As Boolean
-    Public WATER_LOADED As Boolean
-    Public BASE_RINGS_LOADED As Boolean
+
     'Block loading flags. They are used for skipping loading of data.
     Public DONT_BLOCK_TERRAIN As Boolean
     Public DONT_BLOCK_OUTLAND As Boolean

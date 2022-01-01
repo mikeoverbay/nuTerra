@@ -37,14 +37,14 @@ Module modRender
         map_scene.camera.set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
-        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             '=======================================================================
             map_scene.static_models.frustum_cull() '========================================================
             '=======================================================================
         End If
 
         '===========================================================================
-        If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
+        If map_scene.TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             ExtractFrustum()
             cull_terrain()
 
@@ -72,7 +72,7 @@ Module modRender
         '===========================================================================
 
         'Model depth pass only
-        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             GL.CopyNamedBufferSubData(map_scene.static_models.parameters.buffer_id, map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer))
             GL.GetNamedBufferSubData(map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer), map_scene.static_models.numAfterFrustum)
 
@@ -93,7 +93,7 @@ Module modRender
 
         MainFBO.attach_CNGPA()
 
-        If DONT_BLOCK_OUTLAND AndAlso OUTLAND_LOADED Then
+        If DONT_BLOCK_OUTLAND AndAlso map_scene.OUTLAND_LOADED Then
             MainFBO.attach_CNGPA()
             'GL.Disable(EnableCap.DepthTest) 'just so we can see all of it
             map_scene.terrain.Draw_outland()
@@ -101,7 +101,7 @@ Module modRender
         End If
         MainFBO.attach_CNGPA()
 
-        If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
+        If map_scene.TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             map_scene.terrain.draw_terrain()
 
             If (SHOW_BORDER Or SHOW_CHUNKS Or SHOW_GRID) Then map_scene.terrain.draw_terrain_grids()
@@ -124,7 +124,7 @@ Module modRender
             End If
         End If
 
-        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             map_scene.static_models.draw_models()
         End If
 
@@ -134,7 +134,7 @@ Module modRender
 
         GL.DepthFunc(DepthFunction.Less)
         '===========================================================================
-        If PICK_MODELS AndAlso MODELS_LOADED Then PickModel()
+        If PICK_MODELS AndAlso map_scene.MODELS_LOADED Then PickModel()
         '===========================================================================
 
         '===========================================================================
@@ -177,7 +177,7 @@ Module modRender
 
         '===========================================================================
         'hopefully, this will look like glass :)
-        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             map_scene.static_models.glassPass()
         End If
 
@@ -189,7 +189,7 @@ Module modRender
         MainFBO.attach_C()
 
 
-        If TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
+        If map_scene.TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             GL.Disable(EnableCap.DepthTest)
 
             copy_default_to_gColor()
