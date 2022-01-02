@@ -19,10 +19,10 @@ Public Class MapMinimap
 
     Public Sub New(scene As MapScene)
         Me.scene = scene
-        MINI_LETTERS_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_letters.png"), False, False)
-        MINI_NUMBERS_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_numbers.png"), False, False)
-        MINI_TRIM_VERT_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_trim_vert.png"), False, False)
-        MINI_TRIM_HORZ_ID = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_trim_horz.png"), False, False)
+        MINI_LETTERS_ID = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_letters.png"), False, False)
+        MINI_NUMBERS_ID = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_numbers.png"), False, False)
+        MINI_TRIM_VERT_ID = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_trim_vert.png"), False, False)
+        MINI_TRIM_HORZ_ID = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\mini_trim_horz.png"), False, False)
     End Sub
 
     Public Sub draw_mini_map()

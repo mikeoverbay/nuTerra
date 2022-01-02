@@ -196,7 +196,7 @@ NotInheritable Class MapMenuScreen
             End If
             Using ms As New MemoryStream
                 entry.Extract(ms)
-                thing.map_image = get_map_image(ms, cnt)
+                thing.map_image = TextureMgr.get_map_image(ms, cnt)
             End Using
             cnt += 1
         Next
@@ -205,7 +205,7 @@ NotInheritable Class MapMenuScreen
         Dim entry2 = ResMgr.Lookup("gui/maps/bg.png")
         Using ms As New MemoryStream
             entry2.Extract(ms)
-            MAP_SELECT_BACKGROUND_ID = load_png_image_from_stream(ms, entry2.FileName, False, True)
+            MAP_SELECT_BACKGROUND_ID = TextureMgr.load_png_image_from_stream(ms, entry2.FileName, False, True)
         End Using
 
         'need to create this texture.

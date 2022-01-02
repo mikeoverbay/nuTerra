@@ -5,6 +5,11 @@ Imports OpenTK.Graphics.OpenGL4
 Public Class MapScene
     Implements IDisposable
 
+    'map pick Dictionary
+    Public PICK_DICTIONARY As New Dictionary(Of UInteger, String)
+    Public PICKED_STRING As String = ""
+    Public PICKED_MODEL_INDEX As Integer
+
     'Draw Enable Flags. Items wont be rendered if these are False
     Public TERRAIN_LOADED As Boolean
     Public OUTLAND_LOADED As Boolean
@@ -177,6 +182,8 @@ Public Class MapScene
         ENV_BRDF_LUT_ID.Dispose()
 
         mouse_timer.Dispose()
+
+        PICK_DICTIONARY.Clear()
     End Sub
 
     Public Sub ExportToFile(filename As String, format As String)

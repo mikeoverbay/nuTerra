@@ -12,18 +12,6 @@ Module modGlobalVars
     Public FEEDBACK_WIDTH As Integer = 32
     Public FEEDBACK_HEIGHT As Integer = 32
 
-    '=================================================================================
-    'map pick Dictionary
-    Public PICK_DICTIONARY As New Dictionary(Of UInteger, String)
-    Public PICKED_STRING As String = ""
-    Public PICKED_MODEL_INDEX As Integer
-    '=================================================================================
-
-    '=================================================================================
-    Public CHECKERTEST As Integer
-    'Define these in CAP TEXT
-    Public TEST_IDS(7) As GLTexture
-
     ' https://www.khronos.org/registry/OpenGL/extensions/NV/NV_representative_fragment_test.txt
     Public USE_REPRESENTATIVE_TEST As Boolean
 

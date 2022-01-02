@@ -44,7 +44,7 @@ Module TerrainTextureFunctions
                     .atlas_id = DUMMY_ATLAS
                     Continue For
                 End If
-                Dim id = image_exists(.texture_name) 'Check if this has been loaded already.
+                Dim id = TextureMgr.image_exists(.texture_name) 'Check if this has been loaded already.
                 If id IsNot Nothing Then
                     .atlas_id = id
                     Continue For
@@ -76,7 +76,7 @@ Module TerrainTextureFunctions
                     dds_ms.Position = 0
                     Dim er = GL.GetError
                     Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
-                        Dim dds_header = get_dds_header(dds_br)
+                        Dim dds_header = TextureMgr.get_dds_header(dds_br)
                         dds_ms.Position = 128
 
                         Dim format_info = dds_header.format_info
@@ -100,7 +100,7 @@ Module TerrainTextureFunctions
                 Next
                 atlas_tex.GenerateMipmap()
                 .atlas_id = atlas_tex
-                add_image(.texture_name, .atlas_id)
+                TextureMgr.add_image(.texture_name, .atlas_id)
 
             End With
         Next
@@ -325,7 +325,7 @@ Module TerrainTextureFunctions
 
                     End If
                     'load blend texture
-                    .TexLayers(i).Blend_id = load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
+                    .TexLayers(i).Blend_id = TextureMgr.load_t2_texture_from_stream(br2, .b_x_size, .b_y_size)
 
                     .TexLayers(i).uP1 = .layer.render_info(cur_layer_info_pnt + 0).u
                     .TexLayers(i).vP1 = .layer.render_info(cur_layer_info_pnt + 0).v
@@ -371,7 +371,7 @@ Module TerrainTextureFunctions
 
             Dim er = GL.GetError
             Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
-                Dim dds_header = get_dds_header(dds_br)
+                Dim dds_header = TextureMgr.get_dds_header(dds_br)
                 dds_ms.Position = 128
 
                 Dim format_info = dds_header.format_info

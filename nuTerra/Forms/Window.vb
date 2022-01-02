@@ -419,20 +419,20 @@ try_again:
         '---------------------------------------------------------
 
         '==========================================================
-        DUMMY_TEXTURE_ID = make_dummy_texture()
+        DUMMY_TEXTURE_ID = TextureMgr.make_dummy_texture()
         '==========================================================
 
         '---------------------------------------------------------
         'background screen image
-        CHECKER_BOARD = load_png_image_from_file(Path.Combine(sp, "resources", "CheckerPatternPaper.png"), False, False)
+        CHECKER_BOARD = TextureMgr.load_png_image_from_file(Path.Combine(sp, "resources", "CheckerPatternPaper.png"), False, False)
         '---------------------------------------------------------
         'cursor texture
         '---------------------------------------------------------
         'MiniMap position/direction img
-        DIRECTION_TEXTURE_ID = load_png_image_from_file(Path.Combine(sp, "resources", "direction.png"), True, False)
+        DIRECTION_TEXTURE_ID = TextureMgr.load_png_image_from_file(Path.Combine(sp, "resources", "direction.png"), True, False)
         '---------------------------------------------------------
         'load progress bar gradient image from the GUI package.
-        PROGRESS_BAR_IMAGE_ID = load_png_image_from_file(Path.Combine(sp, "resources", "progress_bar.png"), False, True)
+        PROGRESS_BAR_IMAGE_ID = TextureMgr.load_png_image_from_file(Path.Combine(sp, "resources", "progress_bar.png"), False, True)
 
         '---------------------------------------------------------
         ' build Ascii characters texture.
@@ -443,7 +443,7 @@ try_again:
         make_dummy_4_layer_atlas()
         '===========================================================================================
 
-        imgTbl.Clear()
+        TextureMgr.imgTbl.Clear()
     End Sub
 
     Protected Overrides Sub OnUpdateFrame(args As FrameEventArgs)

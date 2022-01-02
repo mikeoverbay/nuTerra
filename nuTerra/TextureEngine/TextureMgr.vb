@@ -4,23 +4,23 @@ Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
 Imports Hjg.Pngcs
 
-Module TextureLoaders
-    Public imgTbl As New Dictionary(Of String, GLTexture)
+NotInheritable Class TextureMgr
+    Public Shared imgTbl As New Dictionary(Of String, GLTexture)
 
 #Region "imgTbl routines"
 
-    Public Sub add_image(fn As String, id As GLTexture)
+    Public Shared Sub add_image(fn As String, id As GLTexture)
         imgTbl(fn) = id
     End Sub
 
-    Public Function image_exists(fn As String) As GLTexture
+    Public Shared Function image_exists(fn As String) As GLTexture
         If imgTbl.ContainsKey(fn) Then Return imgTbl(fn)
         Return Nothing
     End Function
 
 #End Region
 
-    Public Function find_and_load_texture_from_pkgs(ByRef fn As String) As GLTexture
+    Public Shared Function find_and_load_texture_from_pkgs(ByRef fn As String) As GLTexture
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
         fn = fn.Replace(".png", ".dds")
@@ -40,7 +40,7 @@ Module TextureLoaders
         Return Nothing ' Didn't find it
     End Function
 
-    Public Function find_and_load_texture_from_pkgs_No_Suffix_change(ByRef fn As String, ByVal heightMap As Boolean) As GLTexture
+    Public Shared Function find_and_load_texture_from_pkgs_No_Suffix_change(ByRef fn As String, ByVal heightMap As Boolean) As GLTexture
         fn = fn.Replace("\", "/") ' fix path issue
         'finds and loads and returns the GL texture ID.
         Dim id = image_exists(fn) 'check if this has been loaded.
@@ -62,7 +62,7 @@ Module TextureLoaders
         Return Nothing ' Didn't find it
     End Function
 
-    Public Function find_and_load_UI_texture_from_pkgs(ByRef fn As String) As GLTexture
+    Public Shared Function find_and_load_UI_texture_from_pkgs(ByRef fn As String) As GLTexture
         'This will NOT replace PNG with DDS in the file name.
         'finds and loads and returns the GL texture ID.
         Dim id = image_exists(fn)
@@ -85,7 +85,7 @@ Module TextureLoaders
         Return Nothing ' Didn't find it
     End Function
 
-    Public Function load_t2_texture_from_stream(br As BinaryReader, w As Integer, h As Integer) As GLTexture
+    Public Shared Function load_t2_texture_from_stream(br As BinaryReader, w As Integer, h As Integer) As GLTexture
         Dim image_id = GLTexture.Create(TextureTarget.Texture2D, "blend_Tex")
 
         image_id.Parameter(TextureParameterName.TextureLodBias, GLOBAL_MIP_BIAS)
@@ -253,7 +253,7 @@ Module TextureLoaders
         End Property
     End Class
 
-    Public Function get_dds_header(br As BinaryReader) As DDSHeader
+    Public Shared Function get_dds_header(br As BinaryReader) As DDSHeader
         Dim header As New DDSHeader
         Dim file_code = br.ReadChars(4)
         Debug.Assert(file_code = "DDS ")
@@ -280,7 +280,7 @@ Module TextureLoaders
     End Function
 
     ' Based on https://gist.github.com/tilkinsc/13191c0c1e5d6b25fbe79bbd2288a673
-    Public Function load_dds_image_from_stream(ms As MemoryStream, fn As String) As GLTexture
+    Public Shared Function load_dds_image_from_stream(ms As MemoryStream, fn As String) As GLTexture
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
         If image_id IsNot Nothing Then
@@ -393,7 +393,7 @@ Module TextureLoaders
         Return image_id
     End Function
 
-    Public Function load_16bit_grayscale_png_from_stream(ByRef ms As MemoryStream, ByVal heightMap As Boolean) As GLTexture
+    Public Shared Function load_16bit_grayscale_png_from_stream(ByRef ms As MemoryStream, ByVal heightMap As Boolean) As GLTexture
         'we wont check for if this is loaded already.. It cant be. They are unique.
         ms.Position = 0
         Dim data(100) As Byte
@@ -459,7 +459,7 @@ Module TextureLoaders
 
     End Function
 
-    Public Function load_png_image_from_stream(ms As MemoryStream, fn As String, MIPS As Boolean, NEAREST As Boolean) As GLTexture
+    Public Shared Function load_png_image_from_stream(ms As MemoryStream, fn As String, MIPS As Boolean, NEAREST As Boolean) As GLTexture
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
         If image_id IsNot Nothing Then
@@ -520,7 +520,7 @@ Module TextureLoaders
     End Function
 
 
-    Public Function load_dds_image_from_file(fn As String) As GLTexture
+    Public Shared Function load_dds_image_from_file(fn As String) As GLTexture
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
         If image_id IsNot Nothing Then
@@ -537,7 +537,7 @@ Module TextureLoaders
         End Using
     End Function
 
-    Public Function load_png_image_from_file(fn As String, MIPS As Boolean, NEAREST As Boolean) As GLTexture
+    Public Shared Function load_png_image_from_file(fn As String, MIPS As Boolean, NEAREST As Boolean) As GLTexture
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
         If image_id IsNot Nothing Then
@@ -554,7 +554,7 @@ Module TextureLoaders
         End Using
     End Function
 
-    Public Function make_dummy_texture() As GLTexture
+    Public Shared Function make_dummy_texture() As GLTexture
         'Used to attach to shaders that must have a texture but it doesn't
         'like blend maps or terrain textures.
         Using bmp As New Bitmap(2, 2, Imaging.PixelFormat.Format32bppArgb)
@@ -583,7 +583,7 @@ Module TextureLoaders
         End Using
     End Function
 
-    Public Function get_map_image(ms As MemoryStream, index As Integer) As GLTexture
+    Public Shared Function get_map_image(ms As MemoryStream, index As Integer) As GLTexture
         'all these should be unique textures.. No need to check if they already have been loaded.
 
         ms.Position = 0
@@ -619,11 +619,31 @@ Module TextureLoaders
             image.SubImage2D(0, 0, 0, bmp.Width, bmp.Height, pixelFmt, PixelType.UnsignedByte, bitmapData.Scan0)
 
             ' Unlock The Pixel Data From Memory
-            bmp.UnlockBits(BitmapData)
+            bmp.UnlockBits(bitmapData)
 
             image.GenerateMipmap()
 
             Return image
         End Using
     End Function
-End Module
+
+    Public Shared Function openDDS(path As String) As GLTexture
+        Dim entry = ResMgr.Lookup(path)
+        If entry Is Nothing Then
+            Return Nothing
+        End If
+
+        Dim ms As New MemoryStream
+        entry.Extract(ms)
+
+        Return load_dds_image_from_stream(ms, path)
+    End Function
+
+    Public Shared Sub ClearCache()
+        'Clear texture cache so we dont returned non-existent textures.
+        For Each tex In imgTbl
+            tex.Value.Dispose()
+        Next
+        imgTbl.Clear()
+    End Sub
+End Class

@@ -98,7 +98,7 @@ Public Class MapSky
     Public Sub load_dds_cubemap_from_stream(ms As MemoryStream)
         ms.Position = 0
         Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
-            Dim dds_header = get_dds_header(br)
+            Dim dds_header = TextureMgr.get_dds_header(br)
 
             Debug.Assert((dds_header.caps2 And &H200) = &H200) ' Cubemap ?
 

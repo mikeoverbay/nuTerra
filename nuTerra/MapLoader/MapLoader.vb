@@ -1,24 +1,15 @@
 ﻿Imports System.IO
-Imports System.Runtime
 Imports System.Runtime.InteropServices
-Imports OpenTK.Mathematics
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
+Imports OpenTK.Mathematics
 
 Module MapLoader
-    Public LODMAPSIZE As Integer = 256
-    Public AOMAPSIZE As Integer = 256
     Public HEIGHTMAPSIZE As Integer = 64
-    Public NORMALMAPSIZE As Integer = 256
-    Public HOLEMAPSIZE As Integer = 64
-    Public SHADOWMAPSIZE As Integer = 64
-    Public BLENDMAPSIZE As Integer = 256
 
     '-----------------------------------
     'This stores all models used on a map
     Public MAP_MODELS() As mdl_
-
-
 
     Public Structure mdl_
         Public modelLods() As base_model_holder_
@@ -32,31 +23,13 @@ Module MapLoader
         SHOW_MAPS_SCREEN = False
         BG_MAX_VALUE = 0
 
-        'SHOW_CURSOR = True
-
         SHOW_LOADING_SCREEN = True
-        'For now, we are going to hard wire this name
-        'and call this at startup so skip having to select a menu
 
         'First we need to remove the loaded data.
         map_scene?.Dispose()
-        PICK_DICTIONARY.Clear()
-
-        'Clear texture cache so we dont returned non-existent textures.
-        For Each tex In imgTbl
-            tex.Value.Dispose()
-        Next
-        imgTbl.Clear()
+        TextureMgr.ClearCache()
 
         map_scene = New MapScene(map_name)
-
-
-        '===============================================================
-
-        '===============================================================
-        'load sand texture. This will need to be set by the maps vars at some point.
-        'm_normal_id = find_and_load_texture_from_pkgs("maps/landscape/detail/sand_NM.dds")
-        '===============================================================
 
         '===============================================================
         'Open the space.bin file. If it fails, it closes all packages and lets the user know.
@@ -64,41 +37,13 @@ Module MapLoader
             MsgBox("Failed to load Space.Bin from the map package.", MsgBoxStyle.Exclamation, "Space.bin!")
             Return
         End If
-        '===============================================================
-        'need this for all rendering states
-        get_environment_info(map_name)
-        '===============================================================
-        map_scene.sky.SUN_TEXTURE_ID = load_dds_image_from_file(Path.Combine(Application.StartupPath, "resources\sol.dds"))
-        'Dim entry = search_pkgs(SUN_TEXTURE_PATH)
-        'If entry IsNot Nothing Then
-        '    Dim ms As New MemoryStream
-        '    entry.Extract(ms)
-        'End If
-        Dim entry = ResMgr.Lookup(theMap.lut_path)
-        If entry IsNot Nothing Then
-            Dim ms As New MemoryStream
-            entry.Extract(ms)
-            map_scene.CC_LUT_ID = load_dds_image_from_stream(ms, theMap.lut_path)
-        End If
-        'get env_brdf
-        entry = ResMgr.Lookup("system/maps/env_brdf_lut.dds")
-        If entry IsNot Nothing Then
-            Dim ms As New MemoryStream
-            entry.Extract(ms)
-            map_scene.ENV_BRDF_LUT_ID = load_dds_image_from_stream(ms, "system/maps/env_brdf_lut.dds")
-        End If
 
-        '===============================================================
-        'load ripple textures
-#If False Then
-        Dim rtc = Map_wetness.waveTextureCount - 1
-        ReDim RIPPLE_TEXTURES(rtc)
-        For i = 0 To rtc
-            Dim r_path = Map_wetness.waveTexture + i.ToString("000") + ".dds"
-            RIPPLE_TEXTURES(i) = find_and_load_texture_from_pkgs(r_path)
-        Next
-        RIPPLE_MASK_TEXTURE = find_and_load_texture_from_pkgs(Map_wetness.waveMaskTexture)
-#End If
+        get_environment_info(map_name)
+        map_scene.sky.SUN_TEXTURE_ID = TextureMgr.load_dds_image_from_file(Path.Combine(Application.StartupPath, "resources\sol.dds"))
+        map_scene.CC_LUT_ID = TextureMgr.openDDS(theMap.lut_path)
+        map_scene.ENV_BRDF_LUT_ID = TextureMgr.openDDS("system/maps/env_brdf_lut.dds")
+
+
         '===============================================================
 
 #Region "load models"
@@ -303,7 +248,7 @@ Module MapLoader
                         .lod_count = MAP_MODELS(batch.model_id).modelLods.Count
                         .batch_count = batch.count
                     End With
-                    PICK_DICTIONARY(mLast + i) = Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
+                    map_scene.PICK_DICTIONARY(mLast + i) = Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
                 Next
                 mLast += batch.count
             Next
@@ -693,7 +638,7 @@ Module MapLoader
 
                 dds_ms.Position = 0
                 Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
-                    Dim dds_header = get_dds_header(dds_br)
+                    Dim dds_header = TextureMgr.get_dds_header(dds_br)
                     dds_ms.Position = 128
 
                     Dim format_info = dds_header.format_info
@@ -849,7 +794,7 @@ Module MapLoader
 
                 dds_ms.Position = 0
                 Using dds_br As New BinaryReader(dds_ms, System.Text.Encoding.ASCII)
-                    Dim dds_header = get_dds_header(dds_br)
+                    Dim dds_header = TextureMgr.get_dds_header(dds_br)
                     dds_ms.Position = 128
 
                     Dim format_info = dds_header.format_info
@@ -901,7 +846,7 @@ Module MapLoader
                 'Continue For
             End If
             'dont load images that are already created!
-            Dim image_id = image_exists(texturePath)
+            Dim image_id = TextureMgr.image_exists(texturePath)
             If image_id IsNot Nothing Then
                 'Debug.WriteLine(texturePath)
                 Dim hndl = GL.Arb.GetTextureHandle(image_id.texture_id)
@@ -924,7 +869,7 @@ Module MapLoader
             Dim ms As New MemoryStream
             entry.Extract(ms)
 
-            Dim tex = load_dds_image_from_stream(ms, texturePath)
+            Dim tex = TextureMgr.load_dds_image_from_stream(ms, texturePath)
 
             Dim handle = GL.Arb.GetTextureHandle(tex.texture_id)
             GL.Arb.MakeTextureHandleResident(handle)

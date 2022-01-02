@@ -30,7 +30,7 @@ Module LoadingScreen
         '---------------------------------------------------------
         'loading screen image
         If nuTERRA_BG_IMAGE Is Nothing Then
-            nuTERRA_BG_IMAGE = load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\earth.png"), False, True)
+            nuTERRA_BG_IMAGE = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\earth.png"), False, True)
         End If
 
         ' Draw Terra Image

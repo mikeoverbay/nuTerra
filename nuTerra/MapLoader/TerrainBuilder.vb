@@ -353,7 +353,7 @@ Module TerrainBuilder
         If mm IsNot Nothing Then
             Using mss As New MemoryStream
                 mm.Extract(mss)
-                map_scene.mini_map.MINI_MAP_ID = load_dds_image_from_stream(mss, "spaces/" + ABS_NAME + "/mmap.dds")
+                map_scene.mini_map.MINI_MAP_ID = TextureMgr.load_dds_image_from_stream(mss, "spaces/" + ABS_NAME + "/mmap.dds")
             End Using
         End If
 
@@ -361,14 +361,14 @@ Module TerrainBuilder
         Dim gmm = ResMgr.Lookup(String.Format("spaces/{0}/global_am.dds", ABS_NAME))
         Dim gmss As New MemoryStream
         gmm.Extract(gmss)
-        map_scene.terrain.GLOBAL_AM_ID = load_dds_image_from_stream(gmss, "")
+        map_scene.terrain.GLOBAL_AM_ID = TextureMgr.load_dds_image_from_stream(gmss, "")
         gmss.Dispose()
         GC.Collect()
 
         '==========================================================
         ' getting mini map team icons here
-        map_scene.mini_map.TEAM_1_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_1.png")
-        map_scene.mini_map.TEAM_2_ICON_ID = find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
+        map_scene.mini_map.TEAM_1_ICON_ID = TextureMgr.find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_1.png")
+        map_scene.mini_map.TEAM_2_ICON_ID = TextureMgr.find_and_load_UI_texture_from_pkgs("gui/maps/icons/library/icon_2.png")
         '==========================================================
 
         'I don't expect any maps larger than 1024 chunks (208_bf_epic_normandy)
@@ -496,19 +496,19 @@ Module TerrainBuilder
             ' get outland textures
             map_scene.terrain.CASCADE_LEVELS = cBWT2.cascades.count
             map_scene.terrain.OUTLAND_TILE_SCALE = cBWT2.cascades.data(0).tileScale
-            map_scene.terrain.OUTLAND_TILE = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).tile_map, False) ' unorm 16
-            map_scene.terrain.OUTLAND_NORMAL_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).normal_map, Nothing) ' dds
-            map_scene.terrain.OUTLAND_height_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).height_map, True) ' float 16
+            map_scene.terrain.OUTLAND_TILE = TextureMgr.find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).tile_map, False) ' unorm 16
+            map_scene.terrain.OUTLAND_NORMAL_MAP = TextureMgr.find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).normal_map, Nothing) ' dds
+            map_scene.terrain.OUTLAND_height_MAP = TextureMgr.find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(0).height_map, True) ' float 16
             If cBWT2.cascades.count = 2 Then
                 map_scene.terrain.OUTLAND_TILE_SCALE_CASCADE = cBWT2.cascades.data(1).tileScale
-                map_scene.terrain.OUTLAND_TILE_CASCADE = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).tile_map, False) ' unorm 16
-                map_scene.terrain.OUTLAND_NORMAL_CASCADE_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).normal_map, Nothing) ' dds
-                map_scene.terrain.OUTLAND_height_CASCADE_MAP = find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).height_map, True) ' float 16
+                map_scene.terrain.OUTLAND_TILE_CASCADE = TextureMgr.find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).tile_map, False) ' unorm 16
+                map_scene.terrain.OUTLAND_NORMAL_CASCADE_MAP = TextureMgr.find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).normal_map, Nothing) ' dds
+                map_scene.terrain.OUTLAND_height_CASCADE_MAP = TextureMgr.find_and_load_texture_from_pkgs_No_Suffix_change(cBWT2.cascades.data(1).height_map, True) ' float 16
             End If
 
             ReDim map_scene.terrain.OUTLAND_TILES(cBWT2.tiles_fnv.count - 1)
             For i = 0 To cBWT2.tiles_fnv.count - 1
-                map_scene.terrain.OUTLAND_TILES(i) = find_and_load_texture_from_pkgs(cBWST.find_str(cBWT2.tiles_fnv.data(i))) ' dds
+                map_scene.terrain.OUTLAND_TILES(i) = TextureMgr.find_and_load_texture_from_pkgs(cBWST.find_str(cBWT2.tiles_fnv.data(i))) ' dds
             Next
         End If
 
@@ -534,7 +534,7 @@ Module TerrainBuilder
         Dim skyBox_visual_path = String.Format("spaces/{0}/environments/{1}/skyDome/forward/skyBox.visual_processed", abs_name, activeEnvironment)
         Dim skyBox_visual = ResMgr.openXML(skyBox_visual_path)
         Dim skyBox_diffuseMap = skyBox_visual.SelectSingleNode("renderSet/geometry/primitiveGroup/material/property[contains(text(), 'diffuseMap')]/Texture").InnerText
-        map_scene.sky.texture = find_and_load_texture_from_pkgs(skyBox_diffuseMap)
+        map_scene.sky.texture = TextureMgr.find_and_load_texture_from_pkgs(skyBox_diffuseMap)
 
         ' get sun information and time of day.
         Dim active_environment_xml = ResMgr.openXML(String.Format("spaces/{0}/environments/{1}/environment.xml", abs_name, activeEnvironment))
