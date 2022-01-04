@@ -105,7 +105,11 @@ NotInheritable Class MapMenuScreen
                 For Each item In MapPickList
                     ImGui.Text(item.realname)
                     If ImGui.ImageButton(New IntPtr(item.map_image.texture_id), New Numerics.Vector2(120, 72)) Then
-                        load_map(item.name)
+                        If MAP_LOADED AndAlso MAP_NAME_NO_PATH = item.name Then
+                            SHOW_MAPS_SCREEN = False
+                        Else
+                            load_map(item.name)
+                        End If
                     End If
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip(item.name)
