@@ -29,6 +29,7 @@ Module MapLoader
         map_scene?.Dispose()
         TextureMgr.ClearCache()
 
+        MAP_NAME_NO_PATH = map_name
         map_scene = New MapScene(map_name)
 
         '===============================================================

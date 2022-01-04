@@ -290,9 +290,6 @@ try_again:
     Public Sub ForceRender(Optional time As Single = 0.0)
         If NEED_TO_INVALIDATE_VIEWPORT Then
             _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
-            If SHOW_MAPS_SCREEN Then
-                MapMenuScreen.Invalidate()
-            End If
             MainFBO.Initialize(SCR_WIDTH, SCR_HEIGHT)
 
             NEED_TO_INVALIDATE_VIEWPORT = False
@@ -328,6 +325,9 @@ try_again:
 
         If Not SHOW_LOADING_SCREEN Then
             _controller.Update(Me, CSng(time))
+            If SHOW_MAPS_SCREEN Then
+                MapMenuScreen.SubmitUI()
+            End If
             SubmitUI()
             _controller.Render()
         End If
@@ -466,21 +466,6 @@ try_again:
                 'User clicked on the mini so lets move to that locations in world space
                 map_scene.camera.LOOK_AT_X = MINI_WORLD_MOUSE_POSITION.X
                 map_scene.camera.LOOK_AT_Z = MINI_WORLD_MOUSE_POSITION.Y
-            End If
-
-            If SHOW_MAPS_SCREEN Then
-                If MapMenuScreen.SelectedMap Is Nothing Then
-                    If MAP_LOADED Then
-                        SHOW_MAPS_SCREEN = False
-                        Return
-                    End If
-                Else
-                    BLOCK_MOUSE = True
-                    FINISH_MAPS = True
-                    MAP_LOADED = False
-                    Me.Title = MapMenuScreen.SelectedMap.realname
-                    Return
-                End If
             End If
         End If
 
@@ -631,12 +616,6 @@ try_again:
     Protected Overrides Sub OnMouseWheel(e As MouseWheelEventArgs)
         MyBase.OnMouseWheel(e)
 
-        If SHOW_MAPS_SCREEN Then
-            If e.OffsetY <> 0 Then
-                MapMenuScreen.Scroll(e.OffsetY * 20.0)
-            End If
-        End If
-
         _controller.MouseScroll(e.Offset)
     End Sub
 
@@ -653,7 +632,6 @@ try_again:
         If ImGui.Begin("Dummy Window 1", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
             If ImGui.Button("Load map") Then
                 'Runs Map picking code.
-                MapMenuScreen.Invalidate()
                 SHOW_MAPS_SCREEN = True
             End If
             ImGui.SameLine()

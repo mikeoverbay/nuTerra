@@ -30,10 +30,11 @@ Public Class ImGuiController
 
         Dim context = ImGui.CreateContext()
         ImGui.SetCurrentContext(context)
-        Dim IO = ImGui.GetIO()
-        IO.Fonts.AddFontDefault()
+        Dim io = ImGui.GetIO()
 
-        IO.BackendFlags = IO.BackendFlags Or ImGuiBackendFlags.RendererHasVtxOffset
+        io.Fonts.AddFontFromFileTTF(System.IO.Path.Combine(Application.StartupPath, "resources", "SourceSans3-Regular.ttf"), 20.0F, Nothing, io.Fonts.GetGlyphRangesCyrillic())
+
+        io.BackendFlags = io.BackendFlags Or ImGuiBackendFlags.RendererHasVtxOffset
 
         CreateDeviceResources()
         SetKeyMappings()

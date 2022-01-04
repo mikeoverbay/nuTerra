@@ -67,6 +67,9 @@
     <None Update="Resources\moon.x">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Resources\SourceSans3-Regular.ttf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <Content Include="Resources\blank12x12.dds">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

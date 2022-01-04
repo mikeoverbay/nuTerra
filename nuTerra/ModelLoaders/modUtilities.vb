@@ -12,16 +12,6 @@ Module modUtilities
         Console.WriteLine(entry, args)
     End Sub
 
-    ' Allows us to split by strings. Not just characters.
-    <Extension()>
-    Public Function Split(ByVal input As String,
-                          ParamArray delimiter As String()) As String()
-        Return input.Split(delimiter, StringSplitOptions.None)
-        Dim a(0) As String
-        a(0) = input
-        Return a
-    End Function
-
     Public Sub make_cube()
         Dim verts() As Single = {
              0.5, 0.5, 0.5,
