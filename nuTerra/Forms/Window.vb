@@ -798,7 +798,7 @@ try_again:
         If SHOW_TEXTURES_VIEWER_WINDOW Then
             If ImGui.Begin("Textures viewer", SHOW_TEXTURES_VIEWER_WINDOW) Then
                 Dim size As New Numerics.Vector2
-                size.X = ImGui.GetWindowContentRegionWidth()
+                size.X = ImGui.GetContentRegionAvail().X
                 size.Y = ClientSize.Y * (size.X / ClientSize.X)
                 Dim uv0 = New Numerics.Vector2(0.0, 1.0)
                 Dim uv1 = New Numerics.Vector2(1.0, 0.0)
