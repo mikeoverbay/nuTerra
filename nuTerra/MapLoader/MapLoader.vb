@@ -825,11 +825,6 @@ Module MapLoader
                 End Using
             Next
             atlas_tex.GenerateMipmap()
-            'If atlasPath.ToLower.Contains("Tirpiz_atlas_AM".ToLower) Then
-            '    GL.Clear(ClearBufferMask.ColorBufferBit)
-            '    draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex)
-            '    Stop
-            'End If
 
             handle = GL.Arb.GetTextureHandle(atlas_tex.texture_id)
             GL.Arb.MakeTextureHandleResident(handle)
@@ -1017,16 +1012,6 @@ Module MapLoader
             materialsData,
             BufferStorageFlags.None)
         map_scene.static_models.materials.BindBase(3)
-    End Sub
-
-    Private Sub draw_test_iamge(w As Integer, h As Integer, id As GLTexture)
-
-        Dim ww = MainFBO.width
-
-        Dim ls = (1920.0F - ww) / 2.0F
-
-        ' Draw Terra Image
-        draw_image_rectangle(New RectangleF(0, 0, w, h), id)
     End Sub
 
     Private Function get_spaceBin(ABS_NAME As String) As Boolean

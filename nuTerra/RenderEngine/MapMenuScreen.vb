@@ -96,7 +96,7 @@ NotInheritable Class MapMenuScreen
 
         ImGui.SetNextWindowPos(New Numerics.Vector2(0, 40))
         ImGui.SetNextWindowSize(New Numerics.Vector2(w, h - 40))
-        If ImGui.Begin("MapGrid", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
+        If ImGui.Begin("MapGrid", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.NoBringToFrontOnFocus) Then
             If ImGui.BeginTable("MapGridTable", 7, ImGuiTableFlags.NoSavedSettings) Then
                 For Each item In MapPickList
                     ImGui.Text(item.realname)
