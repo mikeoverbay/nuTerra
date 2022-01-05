@@ -102,9 +102,9 @@ NotInheritable Class MapMenuScreen
 
         ImGui.SetNextWindowPos(New Numerics.Vector2(0, 40))
         ImGui.SetNextWindowSize(New Numerics.Vector2(w, h - 40))
-        If ImGui.Begin("MapGrid", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.NoBringToFrontOnFocus) Then
+        If ImGui.Begin("##MapGrid", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.NoBringToFrontOnFocus) Then
             Dim column = Math.Clamp(CInt(w / 140), 1, 7)
-            If ImGui.BeginTable("MapGridTable", column, ImGuiTableFlags.NoSavedSettings) Then
+            If ImGui.BeginTable("##MapGridTable", column, ImGuiTableFlags.NoSavedSettings) Then
                 For Each item In MapPickList
                     ImGui.Text(item.realname)
                     If ImGui.ImageButton(New IntPtr(item.map_image.texture_id), New Numerics.Vector2(120, 72)) Then

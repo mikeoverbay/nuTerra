@@ -339,7 +339,7 @@ try_again:
         If SHOW_LOADING_SCREEN Then
             ImGui.SetNextWindowPos(viewport.Pos)
             ImGui.SetNextWindowSize(viewport.Size)
-            If ImGui.Begin("Dummy ProgressBar Window", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
+            If ImGui.Begin("##Dummy ProgressBar Window", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
                 ImGui.ProgressBar(BG_VALUE / BG_MAX_VALUE, New Numerics.Vector2(-1.0F, 0.0F))
                 ImGui.Text(BG_TEXT)
                 ImGui.TextWrapped(MapMenuScreen.MAP_DESCRIPTION)
@@ -620,7 +620,7 @@ try_again:
 
     Private Sub SubmitUI(viewport As ImGuiViewportPtr)
         ImGui.SetNextWindowPos(viewport.Pos)
-        If ImGui.Begin("Dummy Window 1", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
+        If ImGui.Begin("##Dummy Window 1", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
             If ImGui.Button("Load map") Then
                 'Runs Map picking code.
                 SHOW_MAPS_SCREEN = True
@@ -646,7 +646,7 @@ try_again:
         If SHOW_CHUNK_IDs AndAlso DONT_BLOCK_TERRAIN Then
             ImGui.SetNextWindowPos(viewport.Pos)
             ImGui.SetNextWindowSize(viewport.Size)
-            If ImGui.Begin("Dummy Window 2", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.NoInputs) Then
+            If ImGui.Begin("##Dummy Window 2", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.NoInputs) Then
                 map_scene.terrain.draw_terrain_ids()
                 ImGui.End()
             End If
