@@ -487,11 +487,10 @@ try_again:
         End If
 
         If BLOCK_MOUSE Then Return
+
         M_MOUSE.X = e.X
         M_MOUSE.Y = e.Y
-        'If check_menu_select() Then ' check if we are over a button
-        '    Return
-        'End If
+
         Dim dead As Integer = 5
         Dim t As Single
         Dim M_Speed As Single = My.Settings.speed
@@ -665,8 +664,8 @@ try_again:
                     ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
                 End If
                 If ImGui.CollapsingHeader("Pick Models") Then
-                    ImGui.Checkbox("Enabled##Object picking", ModelPicker.PICK_MODELS)
-                    If ModelPicker.PICK_MODELS AndAlso map_scene IsNot Nothing AndAlso map_scene.PICKED_STRING <> "" Then
+                    ImGui.Checkbox("Enabled##Object picking", ModelPicker.Enabled)
+                    If ModelPicker.Enabled AndAlso map_scene IsNot Nothing AndAlso map_scene.PICKED_STRING <> "" Then
                         ImGui.TextWrapped(map_scene.PICKED_STRING)
                     End If
                 End If
