@@ -1,10 +1,11 @@
 ﻿Imports System.IO
 Imports ImGuiNET
 Imports NGettext
-Imports OpenTK.Graphics.OpenGL4
 
 NotInheritable Class MapMenuScreen
     Shared MapPickList As New List(Of MapItem)
+
+    Public Shared MAP_TO_LOAD As String
 
     Class MapItem
         Public map_image As GLTexture
@@ -89,14 +90,9 @@ NotInheritable Class MapMenuScreen
         End Using
     End Sub
 
-    Public Shared Sub SubmitUI()
-        Dim w = Window.SCR_WIDTH
-        Dim h = Window.SCR_HEIGHT
-
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
-        Ortho_main()
-
-        draw_image_rectangle(New RectangleF(0, 0, w, h), MAP_SELECT_BACKGROUND_ID)
+    Public Shared Sub SubmitUI(viewport As ImGuiViewportPtr)
+        Dim w = viewport.Size.X
+        Dim h = viewport.Size.Y
 
         ImGui.SetNextWindowPos(New Numerics.Vector2(0, 40))
         ImGui.SetNextWindowSize(New Numerics.Vector2(w, h - 40))
@@ -105,11 +101,7 @@ NotInheritable Class MapMenuScreen
                 For Each item In MapPickList
                     ImGui.Text(item.realname)
                     If ImGui.ImageButton(New IntPtr(item.map_image.texture_id), New Numerics.Vector2(120, 72)) Then
-                        If MAP_LOADED AndAlso MAP_NAME_NO_PATH = item.name Then
-                            SHOW_MAPS_SCREEN = False
-                        Else
-                            load_map(item.name)
-                        End If
+                        MAP_TO_LOAD = item.name
                     End If
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip(item.name)
@@ -119,6 +111,6 @@ NotInheritable Class MapMenuScreen
                 ImGui.EndTable()
             End If
             ImGui.End()
-            End If
+        End If
     End Sub
 End Class

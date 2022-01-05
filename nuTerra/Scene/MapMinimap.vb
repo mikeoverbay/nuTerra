@@ -127,7 +127,6 @@ Public Class MapMinimap
         MINI_NUMBERS_ID.BindUnit(0)
 
         Dim index! = 0
-        Dim cnt! = 10.0F
         Dim step_s! = MINI_MAP_SIZE / 10.0F
         For xp = cx To cx + MINI_MAP_SIZE Step step_s
             GL.Uniform1(TextRenderShader("index"), index)
@@ -148,7 +147,6 @@ Public Class MapMinimap
         GL.Uniform1(TextRenderShader("col_row"), 0) 'draw row
         MINI_LETTERS_ID.BindUnit(0)
 
-        cnt! = 10.0F
         step_s! = MINI_MAP_SIZE / 10.0F
         For yp = cy To cy + MINI_MAP_SIZE Step step_s
             GL.Uniform1(TextRenderShader("index"), index)

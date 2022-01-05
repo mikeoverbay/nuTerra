@@ -23,11 +23,15 @@ Module modRender
         '===========================================================================
 
         GL.FrontFace(FrontFaceDirection.Ccw)
-        If SHOW_MAPS_SCREEN Then
-            Return
-        End If
-        If SHOW_LOADING_SCREEN Then
-            draw_loading_screen()
+        If SHOW_MAPS_SCREEN OrElse SHOW_LOADING_SCREEN Then
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
+            Ortho_main()
+            If SHOW_MAPS_SCREEN Then
+                draw_image_rectangle(New RectangleF(0, 0, Window.SCR_WIDTH, Window.SCR_HEIGHT), MAP_SELECT_BACKGROUND_ID)
+            Else
+                Dim ls = (1920.0F - Window.SCR_WIDTH) / 2.0F
+                draw_image_rectangle(New RectangleF(-ls, 0, 1920, 1080), nuTERRA_BG_IMAGE)
+            End If
             Return
         End If
         '===========================================================================
@@ -336,108 +340,4 @@ Module modRender
         Return True
     End Function
 
-    Public Sub draw_text(ByRef text As String,
-                         ByVal locX As Single,
-                         ByVal locY As Single,
-                         ByRef color As Color4,
-                         ByRef center As Boolean,
-                         ByRef mask As Integer)
-        ' text, loc X, loc Y, color, Center text at X location,
-        ' mask 1 = drak background.
-
-        '=======================================================================
-        'draw text at location.
-        '=======================================================================
-        'setup
-        If text Is Nothing Then Return
-
-        GL.Enable(EnableCap.Blend)
-        TextRenderShader.Use()
-        GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform1(TextRenderShader("divisor"), 162.0F) 'atlas size
-        ASCII_ID.BindUnit(0)
-        GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
-        GL.Uniform4(TextRenderShader("color"), color)
-        GL.Uniform1(TextRenderShader("mask"), mask)
-        '=======================================================================
-        'draw text
-        Dim cntr = 0
-        If center Then
-            cntr = text.Length * 10.0F / 2.0F
-        End If
-        Dim cnt As Integer = 0
-        defaultVao.Bind()
-        For Each l In text
-            Dim idx = ASCII_CHARACTERS.IndexOf(l) + 1
-            Dim tp = (locX + cnt * 10.0) - cntr
-            GL.Uniform1(TextRenderShader("index"), CSng(idx))
-            Dim rect As New RectangleF(tp, locY, 10.0F, 15.0F)
-            GL.Uniform4(TextRenderShader("rect"),
-                      rect.Left,
-                      -rect.Top,
-                      rect.Right,
-                      -rect.Bottom)
-            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-            cnt += 1
-        Next
-        GL.Disable(EnableCap.Blend)
-        TextRenderShader.StopUse()
-        GL.BindTextureUnit(0, 0)
-
-    End Sub
-
-    Public Sub draw_text_Wrap(ByRef text As String,
-                         ByVal locX As Single,
-                         ByVal locY As Single,
-                         ByRef color As Color4,
-                         ByRef center As Boolean,
-                         ByRef mask As Integer,
-                         ByRef wrapWidth As Integer)
-        ' text, loc X, loc Y, color, Center text at X location,
-        ' mask 1 = drak background.
-        ' Width = target size in charaters to wrap at.
-
-        '=======================================================================
-        'draw text at location.
-        '=======================================================================
-        'setup
-        If text Is Nothing Then Return
-
-        GL.Enable(EnableCap.Blend)
-        TextRenderShader.Use()
-        GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
-        GL.Uniform1(TextRenderShader("divisor"), 162.0F) 'atlas size
-        ASCII_ID.BindUnit(0)
-        GL.Uniform1(TextRenderShader("col_row"), 1) 'draw row
-        GL.Uniform4(TextRenderShader("color"), color)
-        GL.Uniform1(TextRenderShader("mask"), mask)
-        '=======================================================================
-        'draw text
-        Dim cntr = 0
-        If center Then
-            cntr = text.Length * 10.0F / 2.0F
-        End If
-        Dim cnt As Integer = 0
-        defaultVao.Bind()
-        For Each l In text
-            Dim idx = ASCII_CHARACTERS.IndexOf(l) + 1
-            Dim tp = (locX + cnt * 10.0) - cntr
-            If tp > wrapWidth AndAlso idx = 0 Then
-                cnt = -1
-                locY += 19
-            End If
-            GL.Uniform1(TextRenderShader("index"), CSng(idx))
-            Dim rect As New RectangleF(tp, locY, 10.0F, 15.0F)
-            GL.Uniform4(TextRenderShader("rect"),
-                      rect.Left,
-                      -rect.Top,
-                      rect.Right,
-                      -rect.Bottom)
-            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-            cnt += 1
-        Next
-        GL.Disable(EnableCap.Blend)
-        TextRenderShader.StopUse()
-        GL.BindTextureUnit(0, 0)
-    End Sub
 End Module

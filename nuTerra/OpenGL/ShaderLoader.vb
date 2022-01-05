@@ -555,9 +555,7 @@ Module ShaderLoader
     End Function
 
     Public Sub gl_error(s As String)
-        s = s.Replace(vbLf, vbCrLf)
-        s.Replace("0(", vbCrLf + "(")
-        LogThis(s)
+        LogThis(s.Replace(vbLf, vbCrLf))
     End Sub
 
 #End Region

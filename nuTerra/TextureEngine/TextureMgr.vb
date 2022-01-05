@@ -627,7 +627,7 @@ NotInheritable Class TextureMgr
         End Using
     End Function
 
-    Public Shared Function openDDS(path As String) As GLTexture
+    Public Shared Function OpenDDS(path As String) As GLTexture
         Dim entry = ResMgr.Lookup(path)
         If entry Is Nothing Then
             Return Nothing

@@ -49,7 +49,7 @@ Public Class Window
         Dim bmpIcon = appIcon.ToBitmap()
 
         Dim data = bmpIcon.LockBits(New Rectangle(0, 0, bmpIcon.Width, bmpIcon.Height),
-            Imaging.ImageLockMode.ReadOnly, Imaging.PixelFormat.Format32bppRgb)
+                                    Imaging.ImageLockMode.ReadOnly, Imaging.PixelFormat.Format32bppRgb)
 
         Dim numbytes = data.Stride * bmpIcon.Height
         Dim bytes(numbytes) As Byte
@@ -323,17 +323,34 @@ try_again:
             SCREEN_CAPTURE_FILENAME = Nothing
         End If
 
-        If Not SHOW_LOADING_SCREEN Then
-            _controller.Update(Me, CSng(time))
-            If SHOW_MAPS_SCREEN Then
-                MapMenuScreen.SubmitUI()
-            End If
-            SubmitUI()
-            _controller.Render()
+        _controller.Update(Me, CSng(time))
+        Dim viewport = ImGui.GetMainViewport()
+
+        If SHOW_MAPS_SCREEN Then
+            MapMenuScreen.SubmitUI(viewport)
         End If
+
+        If SHOW_LOADING_SCREEN Then
+            ImGui.SetNextWindowPos(viewport.Pos)
+            ImGui.SetNextWindowSize(viewport.Size)
+            If ImGui.Begin("Dummy ProgressBar Window", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
+                ImGui.ProgressBar(BG_VALUE / BG_MAX_VALUE, New Numerics.Vector2(-1.0F, 0.0F))
+                ImGui.Text(BG_TEXT)
+            End If
+        Else
+            SubmitUI(viewport)
+        End If
+
+        _controller.Render()
 
         SwapBuffers()
         FPS_COUNTER += 1
+
+        If MapMenuScreen.MAP_TO_LOAD IsNot Nothing Then
+            Dim map_name = MapMenuScreen.MAP_TO_LOAD
+            MapMenuScreen.MAP_TO_LOAD = Nothing
+            load_map(map_name)
+        End If
     End Sub
 
     Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
@@ -405,43 +422,18 @@ try_again:
     End Sub
 
     Private Sub load_assets()
-        'setup text renderer
-        Dim sp = Application.StartupPath
-        '---------------------------------------------------------
-
-        '---------------------------------------------------------
         ' Init packages
         ResMgr.Init(My.Settings.GamePath)
 
-        '---------------------------------------------------------
         'Loads the textures for the map selection routines
         MapMenuScreen.make_map_pick_buttons()
-        '---------------------------------------------------------
 
-        '==========================================================
+        CHECKER_BOARD = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources", "CheckerPatternPaper.png"), False, False)
+        DIRECTION_TEXTURE_ID = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources", "direction.png"), True, False)
+        nuTERRA_BG_IMAGE = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\earth.png"), False, True)
+
         DUMMY_TEXTURE_ID = TextureMgr.make_dummy_texture()
-        '==========================================================
-
-        '---------------------------------------------------------
-        'background screen image
-        CHECKER_BOARD = TextureMgr.load_png_image_from_file(Path.Combine(sp, "resources", "CheckerPatternPaper.png"), False, False)
-        '---------------------------------------------------------
-        'cursor texture
-        '---------------------------------------------------------
-        'MiniMap position/direction img
-        DIRECTION_TEXTURE_ID = TextureMgr.load_png_image_from_file(Path.Combine(sp, "resources", "direction.png"), True, False)
-        '---------------------------------------------------------
-        'load progress bar gradient image from the GUI package.
-        PROGRESS_BAR_IMAGE_ID = TextureMgr.load_png_image_from_file(Path.Combine(sp, "resources", "progress_bar.png"), False, True)
-
-        '---------------------------------------------------------
-        ' build Ascii characters texture.
-        ASCII_ID = build_ascii_characters()
-
-        '===========================================================================================
-        ' needed for terrain atlas textures
         make_dummy_4_layer_atlas()
-        '===========================================================================================
 
         TextureMgr.imgTbl.Clear()
     End Sub
@@ -625,10 +617,8 @@ try_again:
         _controller.PressChar(ChrW(e.Unicode))
     End Sub
 
-    Private Sub SubmitUI()
-        Dim viewport = ImGui.GetMainViewport()
-
-        ImGui.SetNextWindowPos(New Numerics.Vector2(0, 0))
+    Private Sub SubmitUI(viewport As ImGuiViewportPtr)
+        ImGui.SetNextWindowPos(viewport.Pos)
         If ImGui.Begin("Dummy Window 1", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
             If ImGui.Button("Load map") Then
                 'Runs Map picking code.

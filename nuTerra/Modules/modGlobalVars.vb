@@ -4,6 +4,10 @@ Imports OpenTK.Mathematics
 Module modGlobalVars
     Public map_scene As MapScene
 
+    Public BG_MAX_VALUE As Integer
+    Public BG_VALUE As Integer
+    Public BG_TEXT As String
+
     ' VT params
     Public UPLOADS_PER_FRAME As Integer = 1
     Public NUM_TILES As Integer = 1280
@@ -67,7 +71,6 @@ Module modGlobalVars
     Public SHOW_CHUNK_IDs As Boolean
     'models
     Public DIRECTION_TEXTURE_ID As GLTexture
-    Public PROGRESS_BAR_IMAGE_ID As GLTexture
     Public MINI_WORLD_MOUSE_POSITION As Vector2
     Public MINI_MOUSE_CAPTURED As Boolean
     '============================================================

@@ -258,9 +258,6 @@ Public Class ImGuiController
 
             GL.NamedBufferSubData(_indexBuffer.buffer_id, IntPtr.Zero, cmd_list.IdxBuffer.Size * Unsafe.SizeOf(Of UShort), cmd_list.IdxBuffer.Data)
 
-            Dim vtx_offset = 0
-            Dim idx_offset = 0
-
             For cmd_i = 0 To cmd_list.CmdBuffer.Size - 1
                 Dim pcmd = cmd_list.CmdBuffer(cmd_i)
                 If pcmd.UserCallback <> IntPtr.Zero Then
@@ -272,16 +269,13 @@ Public Class ImGuiController
                     GL.Scissor(CInt(clip.X), _windowHeight - CInt(clip.W), CInt(clip.Z - clip.X), CInt(clip.W - clip.Y))
 
                     If (IO.BackendFlags And ImGuiBackendFlags.RendererHasVtxOffset) <> 0 Then
-                        GL.DrawElementsBaseVertex(PrimitiveType.Triangles, CInt(pcmd.ElemCount), DrawElementsType.UnsignedShort, New IntPtr(idx_offset * Unsafe.SizeOf(Of UShort)), vtx_offset)
+                        GL.DrawElementsBaseVertex(PrimitiveType.Triangles, CInt(pcmd.ElemCount), DrawElementsType.UnsignedShort, New IntPtr(pcmd.IdxOffset * Unsafe.SizeOf(Of UShort)), pcmd.VtxOffset)
                     Else
                         GL.DrawElements(BeginMode.Triangles, CInt(pcmd.ElemCount), DrawElementsType.UnsignedShort, CInt(pcmd.IdxOffset) * Unsafe.SizeOf(Of UShort))
                         Stop
                     End If
                 End If
-
-                idx_offset += CInt(pcmd.ElemCount)
             Next
-            vtx_offset += cmd_list.VtxBuffer.Size
         Next
 
         imguiShader.StopUse()

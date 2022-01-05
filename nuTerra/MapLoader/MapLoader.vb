@@ -19,6 +19,11 @@ Module MapLoader
 
     '============================================================================
     Public Sub load_map(map_name As String)
+        If MAP_LOADED AndAlso MAP_NAME_NO_PATH = map_name Then
+            SHOW_MAPS_SCREEN = False
+            Return
+        End If
+
         MAP_LOADED = False
         SHOW_MAPS_SCREEN = False
         BG_MAX_VALUE = 0
@@ -81,7 +86,7 @@ Module MapLoader
             Dim numPrims = 0
             Dim numLods = 0
             For Each batch In MODEL_BATCH_LIST
-                Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Count - 1
+                Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Length - 1
                 Dim SHADOW_MAP_LOD = Math.Min(1, MAX_LOD_ID)
                 For lod_id = 0 To MAX_LOD_ID
                     Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
@@ -151,7 +156,7 @@ Module MapLoader
                 Dim skip = True
                 Dim savedLodOffset = lodLast
 
-                Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Count - 1
+                Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Length - 1
                 Dim SHADOW_MAP_LOD = Math.Min(1, MAX_LOD_ID)
                 For lod_id = 0 To MAX_LOD_ID
                     Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
@@ -195,11 +200,11 @@ Module MapLoader
 
                         baseVert += renderSet.numVertices
 
-                        GL.NamedBufferSubData(map_scene.static_models.verts.buffer_id, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Count * vertex_size, renderSet.buffers.vertexBuffer)
-                        GL.NamedBufferSubData(map_scene.static_models.prims.buffer_id, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Count * tri_size, renderSet.buffers.index_buffer32)
+                        GL.NamedBufferSubData(map_scene.static_models.verts.buffer_id, New IntPtr(vLast * vertex_size), renderSet.buffers.vertexBuffer.Length * vertex_size, renderSet.buffers.vertexBuffer)
+                        GL.NamedBufferSubData(map_scene.static_models.prims.buffer_id, New IntPtr(iLast * tri_size), renderSet.buffers.index_buffer32.Length * tri_size, renderSet.buffers.index_buffer32)
 
                         If renderSet.buffers.uv2 IsNot Nothing Then
-                            GL.NamedBufferSubData(map_scene.static_models.vertsUV2.buffer_id, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Count * uv2_size, renderSet.buffers.uv2)
+                            GL.NamedBufferSubData(map_scene.static_models.vertsUV2.buffer_id, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Length * uv2_size, renderSet.buffers.uv2)
                             Erase renderSet.buffers.uv2
                         End If
 
@@ -246,7 +251,7 @@ Module MapLoader
                         .bmax.X = -MAP_MODELS(batch.model_id).visibilityBounds.Row0.X 'make negative because of GL rendering!
                         .bmax.Yz = MAP_MODELS(batch.model_id).visibilityBounds.Row1.Yz
                         .lod_offset = savedLodOffset + i
-                        .lod_count = MAP_MODELS(batch.model_id).modelLods.Count
+                        .lod_count = MAP_MODELS(batch.model_id).modelLods.Length
                         .batch_count = batch.count
                     End With
                     map_scene.PICK_DICTIONARY(mLast + i) = Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
@@ -423,10 +428,6 @@ Module MapLoader
         '===============================================================
 
         SHOW_LOADING_SCREEN = False
-
-        ' Cleanup loading screen resources
-        nuTERRA_BG_IMAGE?.Dispose()
-        nuTERRA_BG_IMAGE = Nothing
 
         'LOOK_AT_X = 0.001
         'LOOK_AT_Z = 0.001

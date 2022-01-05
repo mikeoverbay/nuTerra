@@ -358,8 +358,6 @@ Module TerrainTextureFunctions
     Public Sub make_dummy_4_layer_atlas()
         'makes dummy fill texture for terrain atlases
 
-        Dim fullWidth As Integer = 12
-        Dim fullHeight As Integer = 12
         Dim layer As Single
         Dim buffer = File.ReadAllBytes(Application.StartupPath + "\resources\blank12x12.dds")
 

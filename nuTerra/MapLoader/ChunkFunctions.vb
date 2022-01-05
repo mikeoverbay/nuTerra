@@ -125,7 +125,7 @@ Module ChunkFunctions
         '=========================================================================
         'From : https://www.iquilezles.org/www/articles/normals/normals.htm
         'Create smoothed normals using IQ's method
-        make_normals_indi32(v_data.indicies_32, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff, v_data.t_buff, v_data.uv_buff, v_data, r_set)
+        make_normals_indi32(v_data.indicies_32, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff, v_data.t_buff, v_data.uv_buff)
         '=========================================================================
 
 
@@ -240,13 +240,13 @@ Module ChunkFunctions
         '=========================================================================
         'From : https://www.iquilezles.org/www/articles/normals/normals.htm
         'Create smoothed normals using IQ's method
-        make_normals(v_data.indicies, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff, v_data.t_buff, v_data.uv_buff, v_data, r_set)
+        make_normals(v_data.indicies, v_data.v_buff_XZ, v_data.v_buff_Y, v_data.n_buff, v_data.t_buff, v_data.uv_buff)
         '=========================================================================
 
 
     End Sub
 
-    Private Sub make_normals_indi32(ByRef indi() As vect3_32, ByRef XY() As Vector2, ByRef Z() As Single, ByRef n_buff() As Vector3, ByRef t_buff() As Vector3, ByRef UV() As Vector2, ByRef v_data As terrain_V_data_, ByRef r_set As chunk_render_data_)
+    Private Sub make_normals_indi32(ByRef indi() As vect3_32, ByRef XY() As Vector2, ByRef Z() As Single, ByRef n_buff() As Vector3, ByRef t_buff() As Vector3, ByRef UV() As Vector2)
         'generate and smooth normals. Amazing code by IQ.
         For i = 0 To indi.Length - 1
             Dim ia As UInt32 = indi(i).z
@@ -302,7 +302,7 @@ Module ChunkFunctions
 
     End Sub
 
-    Private Sub make_normals(ByRef indi() As vect3_16, ByRef XY() As Vector2, ByRef Z() As Single, ByRef n_buff() As Vector3, ByRef t_buff() As Vector3, ByRef UV() As Vector2, ByRef v_data As terrain_V_data_, ByRef r_set As chunk_render_data_)
+    Private Sub make_normals(ByRef indi() As vect3_16, ByRef XY() As Vector2, ByRef Z() As Single, ByRef n_buff() As Vector3, ByRef t_buff() As Vector3, ByRef UV() As Vector2)
         'generate and smooth normals. Amazing code by IQ.
         For i = 0 To indi.Length - 1
             Dim ia As UInt16 = indi(i).z
@@ -638,7 +638,6 @@ Module ChunkFunctions
         Dim uncompressedsize = br.ReadInt32
         Dim buff(uncompressedsize) As Byte
         Dim ps As New MemoryStream(buff)
-        Dim count As UInteger = 0
         Dim total_read As Integer = 0
         'unzip the data
         Using Decompress As Zlib.ZlibStream = New Zlib.ZlibStream(ms, Zlib.CompressionMode.Decompress, False)
@@ -664,7 +663,6 @@ Module ChunkFunctions
         p_rd.Read(data, 0, w * h)
 
         Dim stride = 8
-        count = 0
         If w = 8 Then ' nothing so return empty hole array
             ps.Dispose()
             ms.Dispose()
@@ -765,7 +763,7 @@ Module ChunkFunctions
                 Next
             Next
             Dim xx, yy As Integer
-            xx = 0 : yy = 0
+            yy = 0
             For j = 1 To 68
                 xx = 0
                 For i = 0 To 68
@@ -885,8 +883,6 @@ Module ChunkFunctions
         End If
         If mapBoard Is Nothing Then Return 0.0F
         Dim tlx As Single = 100.0 / 65.0
-        Dim tly As Single = 100.0 / 65.0
-        Dim ts As Single = 65.0 / 100.0
         Dim tl, tr, br, bl, w As Vector3
         Dim xvp, yvp As Integer
         Dim ryp, rxp As Single

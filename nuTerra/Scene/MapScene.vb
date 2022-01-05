@@ -67,7 +67,7 @@ Public Class MapScene
         GL_POP_GROUP()
     End Sub
 
-    Private Function getFrustumCornersWorldSpace(proj As Matrix4, view As Matrix4) As List(Of Vector4)
+    Private Shared Function getFrustumCornersWorldSpace(proj As Matrix4, view As Matrix4) As List(Of Vector4)
         Dim inv = Matrix4.Invert(view * proj)
 
         Dim frustumCorners As New List(Of Vector4)

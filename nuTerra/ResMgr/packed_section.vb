@@ -87,7 +87,7 @@ Public Class PackedSection
         Return Number
     End Function
 
-    Public Function readFloats(reader As BinaryReader, lengthInBytes As Integer) As String
+    Public Shared Function readFloats(reader As BinaryReader, lengthInBytes As Integer) As String
         Dim n As Integer = lengthInBytes / 4
         Dim sb As New StringBuilder
         For i As Integer = 0 To n - 1

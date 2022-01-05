@@ -4,8 +4,8 @@ Imports Ionic.Zip
 
 NotInheritable Class ResMgr
     Shared RES_MODS_PATH As String
-    Shared FILENAME_TO_ZIP_ENTRY As New Dictionary(Of String, ZipEntry)
-    Shared FILE_EXTENSIONS_TO_USE As New HashSet(Of String)({
+    Shared ReadOnly FILENAME_TO_ZIP_ENTRY As New Dictionary(Of String, ZipEntry)
+    Shared ReadOnly FILE_EXTENSIONS_TO_USE As New HashSet(Of String)({
             ".dds", ".model", ".primitives_processed",
             ".visual_processed", ".cdata_processed",
             ".bin", ".xml", ".png", ".settings", ".srt",
