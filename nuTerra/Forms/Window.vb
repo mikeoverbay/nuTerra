@@ -285,6 +285,12 @@ try_again:
         End If
 
         ForceRender(args.Time)
+
+        If MapMenuScreen.MAP_TO_LOAD IsNot Nothing Then
+            Dim map_name = MapMenuScreen.MAP_TO_LOAD
+            MapMenuScreen.MAP_TO_LOAD = Nothing
+            load_map(map_name)
+        End If
     End Sub
 
     Public Sub ForceRender(Optional time As Single = 0.0)
@@ -336,6 +342,7 @@ try_again:
             If ImGui.Begin("Dummy ProgressBar Window", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
                 ImGui.ProgressBar(BG_VALUE / BG_MAX_VALUE, New Numerics.Vector2(-1.0F, 0.0F))
                 ImGui.Text(BG_TEXT)
+                ImGui.TextWrapped(MapMenuScreen.MAP_DESCRIPTION)
             End If
         Else
             SubmitUI(viewport)
@@ -345,12 +352,6 @@ try_again:
 
         SwapBuffers()
         FPS_COUNTER += 1
-
-        If MapMenuScreen.MAP_TO_LOAD IsNot Nothing Then
-            Dim map_name = MapMenuScreen.MAP_TO_LOAD
-            MapMenuScreen.MAP_TO_LOAD = Nothing
-            load_map(map_name)
-        End If
     End Sub
 
     Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
@@ -426,11 +427,11 @@ try_again:
         ResMgr.Init(My.Settings.GamePath)
 
         'Loads the textures for the map selection routines
-        MapMenuScreen.make_map_pick_buttons()
+        MapMenuScreen.Init()
 
-        CHECKER_BOARD = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources", "CheckerPatternPaper.png"), False, False)
-        DIRECTION_TEXTURE_ID = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources", "direction.png"), True, False)
-        nuTERRA_BG_IMAGE = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\earth.png"), False, True)
+        CHECKER_BOARD = TextureMgr.load_png_image_from_file("CheckerPatternPaper.png", False, False)
+        DIRECTION_TEXTURE_ID = TextureMgr.load_png_image_from_file("direction.png", True, False)
+        nuTERRA_BG_IMAGE = TextureMgr.load_png_image_from_file("earth.png", False, True)
 
         DUMMY_TEXTURE_ID = TextureMgr.make_dummy_texture()
         make_dummy_4_layer_atlas()

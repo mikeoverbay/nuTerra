@@ -398,11 +398,6 @@ Module TerrainTextureFunctions
             layer += 1
         Next
         DUMMY_ATLAS.GenerateMipmap()
-        'GL.Clear(ClearBufferMask.ColorBufferBit)
-        'draw_test_iamge(fullWidth / 2, fullHeight / 2, atlas_tex, True)
-        'Stop
-        'End If
-        ' fill ubo
 
     End Sub
 

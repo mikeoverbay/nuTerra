@@ -521,6 +521,8 @@ NotInheritable Class TextureMgr
 
 
     Public Shared Function load_dds_image_from_file(fn As String) As GLTexture
+        fn = Path.Combine(Application.StartupPath, "resources", fn)
+
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
         If image_id IsNot Nothing Then
@@ -538,6 +540,8 @@ NotInheritable Class TextureMgr
     End Function
 
     Public Shared Function load_png_image_from_file(fn As String, MIPS As Boolean, NEAREST As Boolean) As GLTexture
+        fn = Path.Combine(Application.StartupPath, "resources", fn)
+
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
         If image_id IsNot Nothing Then

@@ -13,7 +13,7 @@ Public Class MapFog
 
     Public Sub New(scene As MapScene)
         Me.scene = scene
-        NOISE_id = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "Resources\noise.png"), True, True)
+        NOISE_id = TextureMgr.load_png_image_from_file("noise.png", True, True)
     End Sub
 
     Public Sub global_fog()

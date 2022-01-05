@@ -3,18 +3,19 @@ Imports ImGuiNET
 Imports NGettext
 
 NotInheritable Class MapMenuScreen
-    Shared MapPickList As New List(Of MapItem)
+    Shared ReadOnly MapPickList As New List(Of MapItem)
 
     Public Shared MAP_TO_LOAD As String
+    Public Shared MAP_DESCRIPTION As String
 
     Class MapItem
         Public map_image As GLTexture
         Public name As String
         Public realname As String
-        Public discription As String
+        Public description As String
     End Class
 
-    Public Shared Sub make_map_pick_buttons()
+    Public Shared Sub Init()
         ' open arenas.mo
         Dim arenas_mo_path = Path.Combine(My.Settings.GamePath, "res/text/lc_messages/arenas.mo")
         Dim arenas_mo_catalog As Catalog
@@ -43,29 +44,34 @@ NotInheritable Class MapMenuScreen
                 Continue For
             End If
 
+            ' skip dummy map
+            If name = "1004_test_physics" Then
+                Continue For
+            End If
+
             MapPickList.Add(New MapItem With {
                 .name = name,
                 .realname = arenas_mo_catalog.GetString(String.Format("{0}/name", name)).Replace("Winter ", "Wtr "),
-                .discription = arenas_mo_catalog.GetString(String.Format("{0}/description", name)).Replace(" ", " ").Replace("—", "-")
+                .description = arenas_mo_catalog.GetString(String.Format("{0}/description", name)).Replace(" ", " ").Replace("—", "-")
             })
         Next
 
         MapPickList.Add(New MapItem With {
             .name = "hangar_v3",
             .realname = "hangar_v3",
-            .discription = "hangar_v3"
+            .description = "hangar_v3"
         })
 
         MapPickList.Add(New MapItem With {
             .name = "h31_battle_royale_2020",
             .realname = "h31_battle_royale_2020",
-            .discription = "h31_battle_royale_2020"
+            .description = "h31_battle_royale_2020"
         })
 
         MapPickList.Add(New MapItem With {
             .name = "h30_newyear_2022",
             .realname = "h30_newyear_2022",
-            .discription = "h30_newyear_2022"
+            .description = "h30_newyear_2022"
         })
 
         ' load map images
@@ -97,11 +103,13 @@ NotInheritable Class MapMenuScreen
         ImGui.SetNextWindowPos(New Numerics.Vector2(0, 40))
         ImGui.SetNextWindowSize(New Numerics.Vector2(w, h - 40))
         If ImGui.Begin("MapGrid", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.NoBringToFrontOnFocus) Then
-            If ImGui.BeginTable("MapGridTable", 7, ImGuiTableFlags.NoSavedSettings) Then
+            Dim column = Math.Clamp(CInt(w / 140), 1, 7)
+            If ImGui.BeginTable("MapGridTable", column, ImGuiTableFlags.NoSavedSettings) Then
                 For Each item In MapPickList
                     ImGui.Text(item.realname)
                     If ImGui.ImageButton(New IntPtr(item.map_image.texture_id), New Numerics.Vector2(120, 72)) Then
                         MAP_TO_LOAD = item.name
+                        MAP_DESCRIPTION = item.description
                     End If
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip(item.name)

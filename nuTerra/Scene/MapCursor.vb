@@ -11,7 +11,7 @@ Public Class MapCursor
 
     Public Sub New(scene As MapScene)
         Me.scene = scene
-        CURSOR_TEXTURE_ID = TextureMgr.load_png_image_from_file(Path.Combine(Application.StartupPath, "resources\Cursor.png"), True, False)
+        CURSOR_TEXTURE_ID = TextureMgr.load_png_image_from_file("Cursor.png", True, False)
     End Sub
 
     Public Sub draw_map_cursor()

@@ -528,7 +528,7 @@ Module TerrainBuilder
         Dim activeEnvironment = environments_xml("activeEnvironment").InnerText.Replace(".", "-")
 
         ' get skybox and cube texture paths
-        map_scene.sky.skybox_mdl = XModel.load_from_file(Path.Combine(Application.StartupPath, "resources", "skyDome.x"))
+        map_scene.sky.skybox_mdl = XModel.load_from_file("skyDome.x")
         map_scene.sky.CUBE_TEXTURE_PATH = "spaces/" + abs_name + "/environments/" + activeEnvironment + "/probes/global/pmrem.dds"
 
         Dim skyBox_visual_path = String.Format("spaces/{0}/environments/{1}/skyDome/forward/skyBox.visual_processed", abs_name, activeEnvironment)

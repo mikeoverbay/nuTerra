@@ -20,16 +20,14 @@ Module modRender
         ' more as they are added
         '===========================================================================
 
-        '===========================================================================
-
         GL.FrontFace(FrontFaceDirection.Ccw)
         If SHOW_MAPS_SCREEN OrElse SHOW_LOADING_SCREEN Then
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) ' Use default buffer
             Ortho_main()
             If SHOW_MAPS_SCREEN Then
-                draw_image_rectangle(New RectangleF(0, 0, Window.SCR_WIDTH, Window.SCR_HEIGHT), MAP_SELECT_BACKGROUND_ID)
+                draw_image_rectangle(New RectangleF(0, 0, MainFBO.width, MainFBO.height), MAP_SELECT_BACKGROUND_ID)
             Else
-                Dim ls = (1920.0F - Window.SCR_WIDTH) / 2.0F
+                Dim ls = (1920.0F - MainFBO.width) / 2.0F
                 draw_image_rectangle(New RectangleF(-ls, 0, 1920, 1080), nuTERRA_BG_IMAGE)
             End If
             Return

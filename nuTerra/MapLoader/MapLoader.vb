@@ -45,7 +45,7 @@ Module MapLoader
         End If
 
         get_environment_info(map_name)
-        map_scene.sky.SUN_TEXTURE_ID = TextureMgr.load_dds_image_from_file(Path.Combine(Application.StartupPath, "resources\sol.dds"))
+        map_scene.sky.SUN_TEXTURE_ID = TextureMgr.load_dds_image_from_file("sol.dds")
         map_scene.CC_LUT_ID = TextureMgr.openDDS(theMap.lut_path)
         map_scene.ENV_BRDF_LUT_ID = TextureMgr.openDDS("system/maps/env_brdf_lut.dds")
 
@@ -387,13 +387,6 @@ Module MapLoader
             Create_Terrain()
             PLAYER_FIELD_CELL_SIZE = Math.Abs(MAP_BB_BL.X - MAP_BB_UR.X) / 10.0F
 
-#If False Then
-            If Not Build_Mega_Textures() Then
-                MsgBox("failed to create Virtual Textures on Disc Drive!" + vbCrLf +
-                   "I will close now...", MsgBoxStyle.Exclamation, "Not a good day!")
-                End
-            End If
-#End If
             map_scene.TERRAIN_LOADED = True
         End If 'DONT_BLOCK_TERRAIN
         If DONT_BLOCK_OUTLAND Then

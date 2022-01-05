@@ -1,4 +1,5 @@
-﻿Imports Assimp
+﻿Imports System.IO
+Imports Assimp
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 
@@ -13,6 +14,8 @@ Public Class XModel
     End Structure
 
     Public Shared Function load_from_file(file_ As String) As XModel
+        file_ = Path.Combine(Application.StartupPath, "resources", file_)
+
         Dim importer As New AssimpContext
 
         Dim scene = importer.ImportFile(file_)
