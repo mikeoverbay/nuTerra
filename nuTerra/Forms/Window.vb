@@ -699,7 +699,7 @@ try_again:
                     ImGui.SliderFloat("Tessellation Level", CommonProperties.tess_level, 0.0, 8.0)
                 End If
                 If ImGui.CollapsingHeader("Shadow Mapping") Then
-                    ImGui.Checkbox("Enabled", ShadowMappingFBO.Enabled)
+                    ImGui.Checkbox("Enabled##Shadow Mapping", ShadowMappingFBO.Enabled)
                 End If
                 If ImGui.CollapsingHeader("Lighting Settings") Then
                     ImGui.SliderFloat("Ambient Level", CommonProperties.AMBIENT, 0.0, 1.0)
@@ -710,11 +710,11 @@ try_again:
                     ImGui.SliderFloat("Fog Level", CommonProperties.FOG_LEVEL, 0.0, 1.0)
                 End If
                 If ImGui.CollapsingHeader("Minimap") Then
-                    ImGui.Checkbox("Enabled", DONT_HIDE_MINIMAP)
+                    ImGui.Checkbox("Enabled##Minimap", DONT_HIDE_MINIMAP)
                     ImGui.SliderInt("Size", MINI_MAP_NEW_SIZE, 128, 640)
                 End If
                 If ImGui.CollapsingHeader("FXAA") Then
-                    ImGui.Checkbox("Enabled", FXAA_enable)
+                    ImGui.Checkbox("Enabled##FXAA", FXAA_enable)
                 End If
                 If ImGui.CollapsingHeader("VT") Then
                     ImGui.SliderInt("Feedback width ", FEEDBACK_WIDTH, 1, 128)
