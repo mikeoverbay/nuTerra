@@ -214,9 +214,6 @@ Public Class Window
         DONT_BLOCK_TREES = My.Settings.load_trees
         DONT_BLOCK_WATER = My.Settings.load_water
 
-        'get directory of all shader files
-        SHADER_PATHS = Directory.GetFiles(Application.StartupPath + "\shaders\", "*.*", SearchOption.AllDirectories)
-
         ShadowMappingFBO.FBO_Initialize()
         LogThis("{0}ms FBO ShadowMapping Created.", launch_timer.ElapsedMilliseconds)
 

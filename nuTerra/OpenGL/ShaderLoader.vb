@@ -222,6 +222,9 @@ Module ShaderLoader
     ''' </summary>
     ''' <remarks></remarks>
     Public Sub build_shaders()
+        'get directory of all shader files
+        SHADER_PATHS = Directory.GetFiles(Application.StartupPath + "\shaders\", "*.*", SearchOption.AllDirectories)
+
         If File.Exists("shaders\common.h") Then
             Dim code = File.ReadAllText("shaders\common.h")
             Dim name = "/common.h"
