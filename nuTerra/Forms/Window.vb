@@ -667,6 +667,12 @@ try_again:
                     ImGui.Checkbox("Draw trees", DONT_BLOCK_TREES)
                     ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
                 End If
+                If ImGui.CollapsingHeader("Pick Models") Then
+                    ImGui.Checkbox("Enabled##Object picking", ModelPicker.PICK_MODELS)
+                    If ModelPicker.PICK_MODELS AndAlso map_scene IsNot Nothing AndAlso map_scene.PICKED_STRING <> "" Then
+                        ImGui.TextWrapped(map_scene.PICKED_STRING)
+                    End If
+                End If
                 If ImGui.CollapsingHeader("Overlays") Then
                     ImGui.Checkbox("Draw terrain wire", WIRE_TERRAIN)
                     ImGui.Checkbox("Draw model wire", WIRE_MODELS)

@@ -150,7 +150,7 @@ Public Class MainFBO
 
     Public Shared Sub attach_CNGP()
         'attach our render buffer textures.
-        If PICK_MODELS Then
+        If ModelPicker.PICK_MODELS Then
             fbo.DrawBuffers(5, attach_Color_Normal_GMF)
         Else
             fbo.DrawBuffers(4, attach_Color_Normal_GMF)
@@ -159,7 +159,7 @@ Public Class MainFBO
 
     Public Shared Sub attach_CNGPA()
         'attach our render buffer textures.
-        If PICK_MODELS Then
+        If ModelPicker.PICK_MODELS Then
             fbo.DrawBuffers(6, attach_Color_Normal_GMF_aux_fmask)
         Else
             fbo.DrawBuffers(5, attach_Color_Normal_GMF_aux_fmask)

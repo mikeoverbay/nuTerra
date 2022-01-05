@@ -135,7 +135,7 @@ Module modRender
 
         GL.DepthFunc(DepthFunction.Less)
         '===========================================================================
-        If PICK_MODELS AndAlso map_scene.MODELS_LOADED Then PickModel()
+        If ModelPicker.PICK_MODELS AndAlso map_scene.MODELS_LOADED Then ModelPicker.PickModel()
         '===========================================================================
 
         '===========================================================================
