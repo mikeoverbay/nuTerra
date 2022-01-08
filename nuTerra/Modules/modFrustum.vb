@@ -2,7 +2,7 @@
 Imports OpenTK.Mathematics
 
 Module modFrustum
-    Public frustum(6) As Vector4
+    Public frustum(5) As Vector4
 
     Public Sub cull_terrain()
         For i = 0 To theMap.v_data.Length - 1
@@ -31,55 +31,37 @@ Module modFrustum
         Dim clip = map_scene.camera.PerViewData.viewProj
 
         ' Extract the numbers for the RIGHT plane
-        frustum(0).X = clip.M14 - clip.M11
-        frustum(0).Y = clip.M24 - clip.M21
-        frustum(0).Z = clip.M34 - clip.M31
-        frustum(0).W = clip.M44 - clip.M41
+        frustum(0) = clip.Column3 - clip.Column0
 
         ' Normalize the result
         frustum(0).Normalize()
 
         ' Extract the numbers for the LEFT plane
-        frustum(1).X = clip.M14 + clip.M11
-        frustum(1).Y = clip.M24 + clip.M21
-        frustum(1).Z = clip.M34 + clip.M31
-        frustum(1).W = clip.M44 + clip.M41
+        frustum(1) = clip.Column3 + clip.Column0
 
         ' Normalize the result
         frustum(1).Normalize()
 
         ' Extract the BOTTOM plane
-        frustum(2).X = clip.M14 + clip.M12
-        frustum(2).Y = clip.M24 + clip.M22
-        frustum(2).Z = clip.M34 + clip.M32
-        frustum(2).W = clip.M44 + clip.M42
+        frustum(2) = clip.Column3 + clip.Column1
 
         ' Normalize the result
         frustum(2).Normalize()
 
         ' Extract the TOP plane
-        frustum(3).X = clip.M14 - clip.M12
-        frustum(3).Y = clip.M24 - clip.M22
-        frustum(3).Z = clip.M34 - clip.M32
-        frustum(3).W = clip.M44 - clip.M42
+        frustum(3) = clip.Column3 - clip.Column1
 
         ' Normalize the result
         frustum(3).Normalize()
 
         ' Extract the FAR plane
-        frustum(4).X = clip.M14 - clip.M13
-        frustum(4).Y = clip.M24 - clip.M23
-        frustum(4).Z = clip.M34 - clip.M33
-        frustum(4).W = clip.M44 - clip.M43
+        frustum(4) = clip.Column3 - clip.Column2
 
         ' Normalize the result
         frustum(4).Normalize()
 
         ' Extract the NEAR plane
-        frustum(5).X = clip.M14 + clip.M13
-        frustum(5).Y = clip.M24 + clip.M23
-        frustum(5).Z = clip.M34 + clip.M33
-        frustum(5).W = clip.M44 + clip.M43
+        frustum(5) = clip.Column3 + clip.Column2
 
         ' Normalize the result
         frustum(5).Normalize()
