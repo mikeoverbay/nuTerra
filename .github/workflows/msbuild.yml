@@ -13,7 +13,7 @@ env:
   # Configuration type to build.
   # You can convert this to a build matrix if you need coverage of multiple configuration types.
   # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-  BUILD_CONFIGURATION: Release
+  BUILD_CONFIGURATION: Debug
 
 jobs:
   build:
@@ -39,7 +39,7 @@ jobs:
       uses: thedoctor0/zip-release@master
       with:
         type: 'zip'
-        path: nuTerra/bin/Release/
+        path: nuTerra/bin/Debug/
         filename: nuTerra.zip
 
     - uses: dev-drprasad/delete-older-releases@v0.2.0
