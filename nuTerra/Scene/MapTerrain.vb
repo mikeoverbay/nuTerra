@@ -371,13 +371,17 @@ Public Class MapTerrain
         GL.GetNamedBufferSubData(matrices.buffer_id, IntPtr.Zero, matrices.size, matricesData)
 
         Dim a, b, c, k As Single
+
         Dim scene As New Assimp.Scene
         Dim exporter As New Assimp.AssimpContext
-        For i = 0 To num_chunks - 1
-            scene.Clear()
-            scene.RootNode = New Assimp.Node("Root")
+        Dim chunk_mesh As New Assimp.Mesh(Assimp.PrimitiveType.Triangle)
 
-            Dim chunk_mesh As New Assimp.Mesh(Assimp.PrimitiveType.Triangle)
+        For i = 0 To num_chunks - 1
+
+            scene.Clear()
+            chunk_mesh.Faces.Clear()
+
+            scene.RootNode = New Assimp.Node("Root")
 
             Dim baseVertex = indirectData(i).baseVertex
 
@@ -395,8 +399,6 @@ Public Class MapTerrain
                 ' TODO: export normals
             Next
             'need to add each wall
-            '65 points per edge = 130 triangles
-
 
             For j = 0 To num_indices - 1 Step 3
                 a = indicesData(j)
@@ -404,7 +406,7 @@ Public Class MapTerrain
                 c = indicesData(j + 2)
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             Next
-            'add indices for bottom mesh
+            'add faces for bottom mesh
             For j = 0 To num_indices - 1 Step 3
                 a = indicesData(j) + (num_verts_in_chunk)
                 b = indicesData(j + 1) + (num_verts_in_chunk)
@@ -413,7 +415,6 @@ Public Class MapTerrain
             Next
 
 
-#If True Then
             'add faces south wall
             For j = 0 To (64 * 6) - 1 Step 6
                 't1
@@ -427,15 +428,13 @@ Public Class MapTerrain
                 c = indicesData(j + 2) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             Next
-#End If
+
             Dim stride As Integer = (64 * 6)
-            Dim p = 0
-#If True Then
+
             'add faces north wall
             For j = 0 To (64 * 6) - 1 Step 6
                 't1
                 k = (62 * 65 * 6) + 12 'p * stride
-                p += 1
                 a = indicesData(k + j + 0) + 4225
                 b = indicesData(k + j + 4)
                 c = indicesData(k + j + 4) + 4225
@@ -446,12 +445,10 @@ Public Class MapTerrain
                 c = indicesData(k + j + 0)
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             Next
-#End If
-#If True Then
+
             'add faces east wall
             For j = 0 To (63 * 384) - 1 Step 384
                 't1
-                p += 1
                 a = indicesData(j + 2 + 0) + 4225
                 b = indicesData(j + 2 + 0)
                 c = indicesData(j + 2 + 384) + 4225
@@ -463,6 +460,7 @@ Public Class MapTerrain
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             Next
             'hack to add last 2 faces.
+            't1
             k = 24192 - 384
             a = indicesData(k + 3 + 0) + 4225
             b = indicesData(k + 0 + 0)
@@ -474,12 +472,10 @@ Public Class MapTerrain
             c = indicesData(k + 0 + 384) + 4225
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
 
-#End If
-#If True Then
+
             'add faces west wall
             For j = 378 To (63 * 384) - 1 Step 384
                 't1
-                p += 1
                 a = indicesData(j + 5 + 0) + 4225
                 b = indicesData(j + 5 + 0)
                 c = indicesData(j + 5 + 384) + 4225
@@ -491,6 +487,7 @@ Public Class MapTerrain
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             Next
             'hack to add last 2 faces.
+            't1
             k = 24576 - 6
             a = indicesData(k + 4 + 0) + 4225
             b = indicesData(k + 4 + 0)
@@ -502,13 +499,11 @@ Public Class MapTerrain
             c = indicesData(k + 1)
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
 
-#End If
             chunk_mesh.MaterialIndex = 0
             scene.Meshes.Add(chunk_mesh)
 
             Dim node = New Assimp.Node(String.Format("chunk_{0}", i), scene.RootNode)
             scene.RootNode.Children.Add(node)
-
 
             'matrix - un-needed for now
             Dim m = matricesData(i).modelMatrix
@@ -517,11 +512,13 @@ Public Class MapTerrain
             '    m.M12, m.M22, m.M32, m.M42,
             '    m.M13, m.M23, m.M33, m.M43,
             '    m.M14, m.M24, m.M34, m.M44)
+
+            'unity matrix for now
             node.Transform = New Assimp.Matrix4x4(
-                1.0, m.M21, m.M31, m.M41,
-                m.M12, 1.0, m.M32, m.M42,
-                m.M13, m.M23, 1.0, m.M43,
-                0.0, 0.0, 0.0, 1.0)
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 0.0)
             node.MeshIndices.Add(i)
 
 
