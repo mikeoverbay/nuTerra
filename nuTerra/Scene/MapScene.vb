@@ -186,20 +186,21 @@ Public Class MapScene
         PICK_DICTIONARY.Clear()
     End Sub
 
-    Public Sub ExportToFile(filename As String, format As String)
-        Dim scene As New Assimp.Scene
-        scene.RootNode = New Assimp.Node("Root")
+    Public Sub ExportToFile(path As String)
+        'Dim scene As New Assimp.Scene
+        'scene.RootNode = New Assimp.Node("Root")
 
         If TERRAIN_LOADED Then
-            terrain.Export(scene)
+            terrain.Export(path)
         End If
 
         ' dummy material
-        Dim dummy_material As New Assimp.Material
-        dummy_material.Name = "dummy_material"
-        scene.Materials.Add(dummy_material)
+        'Dim dummy_material As New Assimp.Material
+        'dummy_material.Name = "dummy_material"
+        'dummy_material.ColorDiffuse = New Assimp.Color4D(1.0, 5.0, 5.0, 1.0)
+        'scene.Materials.Add(dummy_material)
 
-        Dim exporter As New Assimp.AssimpContext
-        Debug.Assert(exporter.ExportFile(scene, filename, format))
+        'Dim exporter As New Assimp.AssimpContext
+        'Debug.Assert(exporter.ExportFile(scene, filename + "dum.stl", format))
     End Sub
 End Class

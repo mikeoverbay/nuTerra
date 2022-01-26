@@ -352,7 +352,7 @@ Public Class MapTerrain
         End If
     End Sub
 
-    Public Sub Export(scene As Assimp.Scene)
+    Public Sub Export(ByRef path As String)
         Dim num_chunks = theMap.render_set.Length
         Dim num_verts = vertices_buffer.size / Marshal.SizeOf(Of TerrainVertex)
         Dim num_indices = indices_buffer.size / Marshal.SizeOf(Of UShort)
@@ -370,7 +370,13 @@ Public Class MapTerrain
         Dim matricesData(num_chunks - 1) As TerrainChunkInfo
         GL.GetNamedBufferSubData(matrices.buffer_id, IntPtr.Zero, matrices.size, matricesData)
 
+        Dim a, b, c, k As Single
+        Dim scene As New Assimp.Scene
+        Dim exporter As New Assimp.AssimpContext
         For i = 0 To num_chunks - 1
+            scene.Clear()
+            scene.RootNode = New Assimp.Node("Root")
+
             Dim chunk_mesh As New Assimp.Mesh(Assimp.PrimitiveType.Triangle)
 
             Dim baseVertex = indirectData(i).baseVertex
@@ -381,26 +387,153 @@ Public Class MapTerrain
                 chunk_mesh.TextureCoordinateChannels(0).Add(New Assimp.Vector3D(v.uv.X, v.uv.Y, 0.0F))
                 ' TODO: export normals
             Next
+            'create bottom mesh
+            For j = 0 To num_verts_in_chunk - 1
+                Dim v = verticesData(baseVertex + j)
+                chunk_mesh.Vertices.Add(New Assimp.Vector3D(v.xyz.X, MIN_MAP_HEIGHT - 1.0F, v.xyz.Z))
+                chunk_mesh.TextureCoordinateChannels(0).Add(New Assimp.Vector3D(v.uv.X, v.uv.Y, 0.0F))
+                ' TODO: export normals
+            Next
+            'need to add each wall
+            '65 points per edge = 130 triangles
+
 
             For j = 0 To num_indices - 1 Step 3
-                Dim a = indicesData(j)
-                Dim b = indicesData(j + 1)
-                Dim c = indicesData(j + 2)
+                a = indicesData(j)
+                b = indicesData(j + 1)
+                c = indicesData(j + 2)
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             Next
+            'add indices for bottom mesh
+            For j = 0 To num_indices - 1 Step 3
+                a = indicesData(j) + (num_verts_in_chunk)
+                b = indicesData(j + 1) + (num_verts_in_chunk)
+                c = indicesData(j + 2) + (num_verts_in_chunk)
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            Next
+
+
+#If True Then
+            'add faces south wall
+            For j = 0 To (64 * 6) - 1 Step 6
+                't1
+                a = indicesData(j + 1)
+                b = indicesData(j + 2)
+                c = indicesData(j + 1) + 4225
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                't2
+                a = indicesData(j + 1) + 4225
+                b = indicesData(j + 2)
+                c = indicesData(j + 2) + 4225
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            Next
+#End If
+            Dim stride As Integer = (64 * 6)
+            Dim p = 0
+#If True Then
+            'add faces north wall
+            For j = 0 To (64 * 6) - 1 Step 6
+                't1
+                k = (62 * 65 * 6) + 12 'p * stride
+                p += 1
+                a = indicesData(k + j + 0) + 4225
+                b = indicesData(k + j + 4)
+                c = indicesData(k + j + 4) + 4225
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                't2
+                a = indicesData(k + j + 0) + 4225
+                b = indicesData(k + j + 4)
+                c = indicesData(k + j + 0)
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            Next
+#End If
+#If True Then
+            'add faces east wall
+            For j = 0 To (63 * 384) - 1 Step 384
+                't1
+                p += 1
+                a = indicesData(j + 2 + 0) + 4225
+                b = indicesData(j + 2 + 0)
+                c = indicesData(j + 2 + 384) + 4225
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                't2
+                a = indicesData(j + 2 + 0)
+                b = indicesData(j + 2 + 384)
+                c = indicesData(j + 2 + 384) + 4225
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            Next
+            'hack to add last 2 faces.
+            k = 24192 - 384
+            a = indicesData(k + 3 + 0) + 4225
+            b = indicesData(k + 0 + 0)
+            c = indicesData(k + 0 + 384) + 4225
+            chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            't2
+            a = indicesData(k + 3 + 0)
+            b = indicesData(k + 0 + 384)
+            c = indicesData(k + 0 + 384) + 4225
+            chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+
+#End If
+#If True Then
+            'add faces west wall
+            For j = 378 To (63 * 384) - 1 Step 384
+                't1
+                p += 1
+                a = indicesData(j + 5 + 0) + 4225
+                b = indicesData(j + 5 + 0)
+                c = indicesData(j + 5 + 384) + 4225
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                't2
+                a = indicesData(j + 5 + 0)
+                b = indicesData(j + 5 + 384)
+                c = indicesData(j + 5 + 384) + 4225
+                chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            Next
+            'hack to add last 2 faces.
+            k = 24576 - 6
+            a = indicesData(k + 4 + 0) + 4225
+            b = indicesData(k + 4 + 0)
+            c = indicesData(k + 1) + 4225
+            chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            't2
+            a = indicesData(k + 4)
+            b = indicesData(k + 1) + 4225
+            c = indicesData(k + 1)
+            chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+
+#End If
             chunk_mesh.MaterialIndex = 0
             scene.Meshes.Add(chunk_mesh)
 
             Dim node = New Assimp.Node(String.Format("chunk_{0}", i), scene.RootNode)
             scene.RootNode.Children.Add(node)
 
+
+            'matrix - un-needed for now
             Dim m = matricesData(i).modelMatrix
+            'node.Transform = New Assimp.Matrix4x4(
+            '    m.M11, m.M21, m.M31, m.M41,
+            '    m.M12, m.M22, m.M32, m.M42,
+            '    m.M13, m.M23, m.M33, m.M43,
+            '    m.M14, m.M24, m.M34, m.M44)
             node.Transform = New Assimp.Matrix4x4(
-                m.M11, m.M21, m.M31, m.M41,
-                m.M12, m.M22, m.M32, m.M42,
-                m.M13, m.M23, m.M33, m.M43,
-                m.M14, m.M24, m.M34, m.M44)
+                1.0, m.M21, m.M31, m.M41,
+                m.M12, 1.0, m.M32, m.M42,
+                m.M13, m.M23, 1.0, m.M43,
+                0.0, 0.0, 0.0, 1.0)
             node.MeshIndices.Add(i)
+
+
+            Dim dummy_material As New Assimp.Material
+            dummy_material.Name = "dummy_material"
+            dummy_material.ColorDiffuse = New Assimp.Color4D(1.0, 0.5, 0.5, 1.0)
+            dummy_material.Reflectivity = 0.5
+            dummy_material.ColorAmbient = New Assimp.Color4D(0.15, 0.15, 0.15, 1.0)
+            scene.Materials.Add(dummy_material)
+
+            Debug.Assert(exporter.ExportFile(scene, path + String.Format("chunk_{0}.obj", i), "obj"))
+
         Next
     End Sub
 End Class
