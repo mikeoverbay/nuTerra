@@ -3,7 +3,7 @@ Imports OpenTK.Mathematics
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
 Imports ImGuiNET
-
+Imports System.IO
 Public Class MapTerrain
     Implements IDisposable
 
@@ -352,6 +352,13 @@ Public Class MapTerrain
         End If
     End Sub
 
+    Private Function make_surface_normal(ByVal e1 As Assimp.Vector3D, e2 As Assimp.Vector3D) As Assimp.Vector3D
+        Dim no As Assimp.Vector3D
+
+        no = Assimp.Vector3D.Cross(e1, e2)
+        no.Normalize()
+        Return no
+    End Function
     Public Sub Export(ByRef path As String)
         Dim num_chunks = theMap.render_set.Length
         Dim num_verts = vertices_buffer.size / Marshal.SizeOf(Of TerrainVertex)
@@ -373,29 +380,46 @@ Public Class MapTerrain
         Dim a, b, c, k As Single
 
         Dim scene As New Assimp.Scene
-        Dim exporter As New Assimp.AssimpContext
-        Dim chunk_mesh As New Assimp.Mesh(Assimp.PrimitiveType.Triangle)
+
+        scene.RootNode = New Assimp.Node("Root")
 
         For i = 0 To num_chunks - 1
 
-            scene.Clear()
-            chunk_mesh.Faces.Clear()
+            '=============================================================================
+            'Doing it the direct way in a binary stl
+            If IO.File.Exists(path + MAP_NAME_NO_PATH + "_C" + i.ToString + ".stl") Then
+                IO.File.Delete(path + MAP_NAME_NO_PATH + "_C" + i.ToString + ".stl")
 
-            scene.RootNode = New Assimp.Node("Root")
+            End If
+            Dim file_ = IO.File.OpenWrite(path + MAP_NAME_NO_PATH + "_C" + i.ToString + ".stl")
+            Dim bw As New BinaryWriter(file_)
+            'write 80 bytes for ingored header
+            For ii As Byte = 0 To 79
+                bw.Write(CByte(0))
+            Next
+            '=============================================================================
+
+
+            Dim chunk_mesh As New Assimp.Mesh(Assimp.PrimitiveType.Triangle)
 
             Dim baseVertex = indirectData(i).baseVertex
 
+            '******************************************************
+            'X has to be flipped including the matrix X traslation!
+            '******************************************************
+
             For j = 0 To num_verts_in_chunk - 1
                 Dim v = verticesData(baseVertex + j)
-                chunk_mesh.Vertices.Add(New Assimp.Vector3D(v.xyz.X, v.xyz.Y, v.xyz.Z))
-                chunk_mesh.TextureCoordinateChannels(0).Add(New Assimp.Vector3D(v.uv.X, v.uv.Y, 0.0F))
+                chunk_mesh.Vertices.Add(New Assimp.Vector3D(-v.xyz.X, v.xyz.Y, v.xyz.Z))
+                Dim f = New Assimp.Vector3D(-v.xyz.X, v.xyz.Y, v.xyz.Z)
+                chunk_mesh.TextureCoordinateChannels(0).Add(New Assimp.Vector3D(-v.uv.X, v.uv.Y, 0.0F))
                 ' TODO: export normals
             Next
             'create bottom mesh
             For j = 0 To num_verts_in_chunk - 1
                 Dim v = verticesData(baseVertex + j)
-                chunk_mesh.Vertices.Add(New Assimp.Vector3D(v.xyz.X, MIN_MAP_HEIGHT - 1.0F, v.xyz.Z))
-                chunk_mesh.TextureCoordinateChannels(0).Add(New Assimp.Vector3D(v.uv.X, v.uv.Y, 0.0F))
+                chunk_mesh.Vertices.Add(New Assimp.Vector3D(-v.xyz.X, MIN_MAP_HEIGHT - 1.0F, v.xyz.Z))
+                chunk_mesh.TextureCoordinateChannels(0).Add(New Assimp.Vector3D(-v.uv.X, v.uv.Y, 0.0F))
                 ' TODO: export normals
             Next
             'need to add each wall
@@ -408,35 +432,35 @@ Public Class MapTerrain
             Next
             'add faces for bottom mesh
             For j = 0 To num_indices - 1 Step 3
-                a = indicesData(j) + (num_verts_in_chunk)
-                b = indicesData(j + 1) + (num_verts_in_chunk)
+                b = indicesData(j) + (num_verts_in_chunk)
+                a = indicesData(j + 1) + (num_verts_in_chunk)
                 c = indicesData(j + 2) + (num_verts_in_chunk)
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             Next
 
 
-            'add faces south wall
+            'add faces north wall
             For j = 0 To (64 * 6) - 1 Step 6
                 't1
-                a = indicesData(j + 1)
-                b = indicesData(j + 2)
+                b = indicesData(j + 1)
+                a = indicesData(j + 2)
                 c = indicesData(j + 1) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
                 't2
-                a = indicesData(j + 1) + 4225
-                b = indicesData(j + 2)
+                b = indicesData(j + 1) + 4225
+                a = indicesData(j + 2)
                 c = indicesData(j + 2) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             Next
 
             Dim stride As Integer = (64 * 6)
 
-            'add faces north wall
+            'add faces south wall
             For j = 0 To (64 * 6) - 1 Step 6
                 't1
                 k = (62 * 65 * 6) + 12 'p * stride
-                a = indicesData(k + j + 0) + 4225
-                b = indicesData(k + j + 4)
+                b = indicesData(k + j + 0) + 4225
+                a = indicesData(k + j + 4)
                 c = indicesData(k + j + 4) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
                 't2
@@ -449,26 +473,26 @@ Public Class MapTerrain
             'add faces east wall
             For j = 0 To (63 * 384) - 1 Step 384
                 't1
-                a = indicesData(j + 2 + 0) + 4225
-                b = indicesData(j + 2 + 0)
+                b = indicesData(j + 2 + 0) + 4225
+                a = indicesData(j + 2 + 0)
                 c = indicesData(j + 2 + 384) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
                 't2
-                a = indicesData(j + 2 + 0)
-                b = indicesData(j + 2 + 384)
+                b = indicesData(j + 2 + 0)
+                a = indicesData(j + 2 + 384)
                 c = indicesData(j + 2 + 384) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             Next
             'hack to add last 2 faces.
             't1
             k = 24192 - 384
-            a = indicesData(k + 3 + 0) + 4225
-            b = indicesData(k + 0 + 0)
+            b = indicesData(k + 3 + 0) + 4225
+            a = indicesData(k + 0 + 0)
             c = indicesData(k + 0 + 384) + 4225
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             't2
-            a = indicesData(k + 3 + 0)
-            b = indicesData(k + 0 + 384)
+            b = indicesData(k + 3 + 0)
+            a = indicesData(k + 0 + 384)
             c = indicesData(k + 0 + 384) + 4225
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
 
@@ -489,8 +513,8 @@ Public Class MapTerrain
             'hack to add last 2 faces.
             't1
             k = 24576 - 6
-            a = indicesData(k + 4 + 0) + 4225
-            b = indicesData(k + 4 + 0)
+            b = indicesData(k + 4 + 0) + 4225
+            a = indicesData(k + 4 + 0)
             c = indicesData(k + 1) + 4225
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
             't2
@@ -499,6 +523,62 @@ Public Class MapTerrain
             c = indicesData(k + 1)
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
 
+            Dim m = matricesData(i).modelMatrix
+            Dim mat = New Assimp.Matrix4x4(
+                m.M11, m.M21, m.M31, -m.M41,
+                m.M12, m.M22, m.M32, m.M42,
+                m.M13, m.M23, m.M33, m.M43,
+                m.M14, m.M24, m.M34, m.M44)
+
+
+            Dim faces = chunk_mesh.Faces
+            Dim verts = chunk_mesh.Vertices
+            'Dim normals(chunk_mesh.Vertices.Count) As Assimp.Vector3D
+
+            '=====================================================================
+            bw.Write(CUInt(faces.Count)) 'top  bottom walls
+
+            For j = 0 To faces.Count - 1
+                'reverse winding
+                Dim a1 = faces(j).Indices(0)
+                Dim a2 = faces(j).Indices(1)
+                Dim a3 = faces(j).Indices(2)
+
+                'transform vertices
+                Dim v1 = mat * verts(a1)
+                Dim v2 = mat * verts(a2)
+                Dim v3 = mat * verts(a3)
+
+                Dim no = (make_surface_normal(v1, v2))
+                'write normal
+                bw.Write(no.X)
+                bw.Write(no.Y)
+                bw.Write(no.Z)
+                'write vertex 1
+                bw.Write(v1.X)
+                bw.Write(v1.Z)
+                bw.Write(v1.Y)
+                'write vertex 1
+                bw.Write(v2.X)
+                bw.Write(v2.Z)
+                bw.Write(v2.Y)
+                'write vertex 1
+                bw.Write(v3.X)
+                bw.Write(v3.Z)
+                bw.Write(v3.Y)
+                'write atribute. 0 is fine but can be a color for each face
+                bw.Write(CUShort(0))
+
+            Next
+
+            'this stl is complete so close the file
+            file_.Close()
+            '=====================================================================
+
+
+            'chunk_mesh.Normals.AddRange(normals)
+
+
             chunk_mesh.MaterialIndex = 0
             scene.Meshes.Add(chunk_mesh)
 
@@ -506,21 +586,20 @@ Public Class MapTerrain
             scene.RootNode.Children.Add(node)
 
             'matrix - un-needed for now
-            Dim m = matricesData(i).modelMatrix
-            'node.Transform = New Assimp.Matrix4x4(
-            '    m.M11, m.M21, m.M31, m.M41,
-            '    m.M12, m.M22, m.M32, m.M42,
-            '    m.M13, m.M23, m.M33, m.M43,
-            '    m.M14, m.M24, m.M34, m.M44)
+            m = matricesData(i).modelMatrix
+            node.Transform = New Assimp.Matrix4x4(
+                m.M11, m.M21, m.M31, m.M41,
+                m.M12, m.M22, m.M32, m.M42,
+                m.M13, m.M23, m.M33, m.M43,
+                m.M14, m.M24, m.M34, m.M44)
 
             'unity matrix for now
-            node.Transform = New Assimp.Matrix4x4(
-                1.0, 0.0, 0.0, 0.0,
-                0.0, 1.0, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                0.0, 0.0, 0.0, 0.0)
+            'node.Transform = New Assimp.Matrix4x4(
+            '    1.0, 0.0, 0.0, 0.0,
+            '    0.0, 1.0, 0.0, 0.0,
+            '    0.0, 0.0, 1.0, 0.0,
+            '    0.0, 0.0, 0.0, 0.0)
             node.MeshIndices.Add(i)
-
 
             Dim dummy_material As New Assimp.Material
             dummy_material.Name = "dummy_material"
@@ -529,8 +608,10 @@ Public Class MapTerrain
             dummy_material.ColorAmbient = New Assimp.Color4D(0.15, 0.15, 0.15, 1.0)
             scene.Materials.Add(dummy_material)
 
-            Debug.Assert(exporter.ExportFile(scene, path + String.Format("chunk_{0}.obj", i), "obj"))
 
         Next
+
+        'Dim exporter As New Assimp.AssimpContext
+        'Debug.Assert(exporter.ExportFile(scene, path + MAP_NAME_NO_PATH + ".obj", "obj"))
     End Sub
 End Class

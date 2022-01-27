@@ -431,12 +431,14 @@ Module MapLoader
 
         map_scene.camera.check_postion_for_update() ' need to initialize cursor altitude
 
-        ' uncomment to export scene
-        If Not Directory.Exists("C:\wot_maps") Then
-            Directory.CreateDirectory("C:\wot_maps")
+        ' change to True to export map
+        If True Then
+            If Not Directory.Exists("C:\wot_maps") Then
+                Directory.CreateDirectory("C:\wot_maps")
+            End If
+            'map_scene.ExportToFile("./map_scene.dae", "collada")
+            map_scene.ExportToFile("C:\wot_maps\")
         End If
-        'map_scene.ExportToFile("./map_scene.dae", "collada")
-        map_scene.ExportToFile("C:\wot_maps\")
     End Sub
 
     Public Sub set_light_pos()
