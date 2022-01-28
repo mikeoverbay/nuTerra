@@ -383,6 +383,26 @@ Public Class MapTerrain
 
         scene.RootNode = New Assimp.Node("Root")
 
+
+        If File.Exists(path + MAP_NAME_NO_PATH + ".stl") Then
+            File.Delete(path + MAP_NAME_NO_PATH + ".stl")
+        End If
+        Dim file_h = IO.File.OpenWrite(path + MAP_NAME_NO_PATH + ".stl")
+
+        'Reguardless of your religion, there is always 16896 faces in a solid chunk!
+
+        Dim total_stl_face_count As UInt32 = 16896 * num_chunks
+        Dim header_size As UInt32 = 80
+        Dim face_count_size As UInt32 = 4
+        Dim ent_size As UInt32 = 12 * 4 + 2 '1 normal, 3 vertex, 1 uint16
+        Dim complete_map_data((total_stl_face_count * ent_size) + header_size + face_count_size) As Byte
+        Dim h_bw As New BinaryWriter(file_h)
+        'move to first face location
+        For ii As Byte = 0 To 79
+            h_bw.Write(CByte(0))
+        Next
+        h_bw.Write(total_stl_face_count)
+
         For i = 0 To num_chunks - 1
 
             '=============================================================================
@@ -533,7 +553,7 @@ Public Class MapTerrain
 
             Dim faces = chunk_mesh.Faces
             Dim verts = chunk_mesh.Vertices
-            'Dim normals(chunk_mesh.Vertices.Count) As Assimp.Vector3D
+            Dim normals As New List(Of Assimp.Vector3D)
 
             '=====================================================================
             bw.Write(CUInt(faces.Count)) 'top  bottom walls
@@ -550,6 +570,10 @@ Public Class MapTerrain
                 Dim v3 = mat * verts(a3)
 
                 Dim no = (make_surface_normal(v1, v2))
+                normals.Add(no)
+                normals.Add(no)
+                normals.Add(no)
+                '------------- each chunk
                 'write normal
                 bw.Write(no.X)
                 bw.Write(no.Y)
@@ -568,7 +592,25 @@ Public Class MapTerrain
                 bw.Write(v3.Y)
                 'write atribute. 0 is fine but can be a color for each face
                 bw.Write(CUShort(0))
-
+                '------------- entire map
+                'write normal
+                h_bw.Write(no.X)
+                h_bw.Write(no.Y)
+                h_bw.Write(no.Z)
+                'write vertex 1
+                h_bw.Write(v1.X)
+                h_bw.Write(v1.Z)
+                h_bw.Write(v1.Y)
+                'write vertex 1
+                h_bw.Write(v2.X)
+                h_bw.Write(v2.Z)
+                h_bw.Write(v2.Y)
+                'write vertex 1
+                h_bw.Write(v3.X)
+                h_bw.Write(v3.Z)
+                h_bw.Write(v3.Y)
+                'write atribute. 0 is fine but can be a color for each face
+                h_bw.Write(CUShort(0))
             Next
 
             'this stl is complete so close the file
@@ -576,40 +618,41 @@ Public Class MapTerrain
             '=====================================================================
 
 
+
+
+            'chunk_mesh.MaterialIndex = 0
             'chunk_mesh.Normals.AddRange(normals)
+            'scene.Meshes.Add(chunk_mesh)
 
+            'Dim node = New Assimp.Node(String.Format("chunk_{0}", i), scene.RootNode)
+            'scene.RootNode.Children.Add(node)
+            'node.MeshIndices.Add(i)
 
-            chunk_mesh.MaterialIndex = 0
-            scene.Meshes.Add(chunk_mesh)
-
-            Dim node = New Assimp.Node(String.Format("chunk_{0}", i), scene.RootNode)
-            scene.RootNode.Children.Add(node)
-
-            'matrix - un-needed for now
-            m = matricesData(i).modelMatrix
-            node.Transform = New Assimp.Matrix4x4(
-                m.M11, m.M21, m.M31, m.M41,
-                m.M12, m.M22, m.M32, m.M42,
-                m.M13, m.M23, m.M33, m.M43,
-                m.M14, m.M24, m.M34, m.M44)
-
-            'unity matrix for now
+            ''matrix - un-needed for now
+            'm = matricesData(i).modelMatrix
             'node.Transform = New Assimp.Matrix4x4(
-            '    1.0, 0.0, 0.0, 0.0,
-            '    0.0, 1.0, 0.0, 0.0,
-            '    0.0, 0.0, 1.0, 0.0,
-            '    0.0, 0.0, 0.0, 0.0)
-            node.MeshIndices.Add(i)
+            '    m.M11, m.M21, m.M31, m.M41,
+            '    m.M12, m.M22, m.M32, m.M42,
+            '    m.M13, m.M23, m.M33, m.M43,
+            '    m.M14, m.M24, m.M34, m.M44)
 
-            Dim dummy_material As New Assimp.Material
-            dummy_material.Name = "dummy_material"
-            dummy_material.ColorDiffuse = New Assimp.Color4D(1.0, 0.5, 0.5, 1.0)
-            dummy_material.Reflectivity = 0.5
-            dummy_material.ColorAmbient = New Assimp.Color4D(0.15, 0.15, 0.15, 1.0)
-            scene.Materials.Add(dummy_material)
+            ''unity matrix for now
+            ''node.Transform = New Assimp.Matrix4x4(
+            ''    1.0, 0.0, 0.0, 0.0,
+            ''    0.0, 1.0, 0.0, 0.0,
+            ''    0.0, 0.0, 1.0, 0.0,
+            ''    0.0, 0.0, 0.0, 0.0)
+
+            'Dim dummy_material As New Assimp.Material
+            'dummy_material.Name = "dummy_material"
+            'dummy_material.ColorDiffuse = New Assimp.Color4D(1.0, 0.5, 0.5, 1.0)
+            'dummy_material.Reflectivity = 0.5
+            'dummy_material.ColorAmbient = New Assimp.Color4D(0.15, 0.15, 0.15, 1.0)
+            'scene.Materials.Add(dummy_material)
 
 
         Next
+        file_h.Close()
 
         'Dim exporter As New Assimp.AssimpContext
         'Debug.Assert(exporter.ExportFile(scene, path + MAP_NAME_NO_PATH + ".obj", "obj"))
