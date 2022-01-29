@@ -113,6 +113,7 @@ Module modGlobalVars
     Public BLOCK_MOUSE As Boolean 'pick menu flag
     Public FINISH_MAPS As Boolean 'pick menu flag
     '
+    Public EXPORT_STL_MAP As Boolean
 
     'Block loading flags. They are used for skipping loading of data.
     Public DONT_BLOCK_TERRAIN As Boolean

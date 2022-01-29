@@ -420,25 +420,22 @@ Module MapLoader
         MINI_MAP_SIZE += 1 ' force a redraw of the entire minimap
         '===============================================================
 
-        SHOW_LOADING_SCREEN = False
-
-        'LOOK_AT_X = 0.001
-        'LOOK_AT_Z = 0.001
-        '===================================================
-        ' Set sun location from map data
-        set_light_pos() 'for light rotation animation
-        '===================================================
-
-        map_scene.camera.check_postion_for_update() ' need to initialize cursor altitude
-
-        ' change to True to export map
-        If True Then
+        If EXPORT_STL_MAP Then
             If Not Directory.Exists("C:\wot_maps") Then
                 Directory.CreateDirectory("C:\wot_maps")
             End If
             'map_scene.ExportToFile("./map_scene.dae", "collada")
             map_scene.ExportToFile("C:\wot_maps\")
         End If
+
+        map_scene.camera.check_postion_for_update() ' need to initialize cursor altitude
+        SHOW_LOADING_SCREEN = False
+        'LOOK_AT_X = 0.001
+        'LOOK_AT_Z = 0.001
+        '===================================================
+        ' Set sun location from map data
+        set_light_pos() 'for light rotation animation
+        '===================================================
     End Sub
 
     Public Sub set_light_pos()

@@ -359,6 +359,19 @@ Public Class MapTerrain
         no.Normalize()
         Return no
     End Function
+    Private Function check_map_border(v1 As Assimp.Vector3D) As Boolean
+        Select Case True
+            Case v1.X = (-b_x_max - 1.0F) * 100.0F
+                Return True
+            Case v1.X = -b_x_min * 100.0F
+                Return True
+            Case v1.Z = b_y_max * 100.0F
+                Return True
+            Case v1.Z = (b_y_min - 1.0F) * 100.0F
+                Return True
+        End Select
+        Return False
+    End Function
     Public Sub Export(ByRef path As String)
         Dim num_chunks = theMap.render_set.Length
         Dim num_verts = vertices_buffer.size / Marshal.SizeOf(Of TerrainVertex)
@@ -382,16 +395,18 @@ Public Class MapTerrain
         Dim scene As New Assimp.Scene
 
         scene.RootNode = New Assimp.Node("Root")
-
-
+        If Not Directory.Exists(path + MAP_NAME_NO_PATH) Then
+            Directory.CreateDirectory(path + MAP_NAME_NO_PATH)
+        End If
+        path += MAP_NAME_NO_PATH + "/"
         If File.Exists(path + MAP_NAME_NO_PATH + ".stl") Then
             File.Delete(path + MAP_NAME_NO_PATH + ".stl")
         End If
         Dim file_h = IO.File.OpenWrite(path + MAP_NAME_NO_PATH + ".stl")
 
-        'Reguardless of your religion, there is always 16896 faces in a solid chunk!
-
-        Dim total_stl_face_count As UInt32 = 16896 * num_chunks
+        'top and bottom face count
+        Dim total_stl_face_count As UInt32 = 16384 * num_chunks
+        'add wall count for out side chunks
         Dim header_size As UInt32 = 80
         Dim face_count_size As UInt32 = 4
         Dim ent_size As UInt32 = 12 * 4 + 2 '1 normal, 3 vertex, 1 uint16
@@ -403,6 +418,14 @@ Public Class MapTerrain
         Next
         h_bw.Write(total_stl_face_count)
 
+        BG_MAX_VALUE = num_chunks
+        BG_VALUE = 0
+        BG_TEXT = "Exporting Map..."
+
+
+        '16896 faces per chunk with sides
+        Dim face_type(16896 * num_chunks) As Boolean
+        Dim type_counter As Integer = 0
         For i = 0 To num_chunks - 1
 
             '=============================================================================
@@ -449,6 +472,8 @@ Public Class MapTerrain
                 b = indicesData(j + 1)
                 c = indicesData(j + 2)
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = False
+                type_counter += 1
             Next
             'add faces for bottom mesh
             For j = 0 To num_indices - 1 Step 3
@@ -456,6 +481,8 @@ Public Class MapTerrain
                 a = indicesData(j + 1) + (num_verts_in_chunk)
                 c = indicesData(j + 2) + (num_verts_in_chunk)
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = False
+                type_counter += 1
             Next
 
 
@@ -466,11 +493,15 @@ Public Class MapTerrain
                 a = indicesData(j + 2)
                 c = indicesData(j + 1) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = True
+                type_counter += 1
                 't2
                 b = indicesData(j + 1) + 4225
                 a = indicesData(j + 2)
                 c = indicesData(j + 2) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = True
+                type_counter += 1
             Next
 
             Dim stride As Integer = (64 * 6)
@@ -483,11 +514,15 @@ Public Class MapTerrain
                 a = indicesData(k + j + 4)
                 c = indicesData(k + j + 4) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = True
+                type_counter += 1
                 't2
                 a = indicesData(k + j + 0) + 4225
                 b = indicesData(k + j + 4)
                 c = indicesData(k + j + 0)
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = True
+                type_counter += 1
             Next
 
             'add faces east wall
@@ -497,11 +532,15 @@ Public Class MapTerrain
                 a = indicesData(j + 2 + 0)
                 c = indicesData(j + 2 + 384) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = True
+                type_counter += 1
                 't2
                 b = indicesData(j + 2 + 0)
                 a = indicesData(j + 2 + 384)
                 c = indicesData(j + 2 + 384) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = True
+                type_counter += 1
             Next
             'hack to add last 2 faces.
             't1
@@ -510,11 +549,15 @@ Public Class MapTerrain
             a = indicesData(k + 0 + 0)
             c = indicesData(k + 0 + 384) + 4225
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            face_type(type_counter) = True
+            type_counter += 1
             't2
             b = indicesData(k + 3 + 0)
             a = indicesData(k + 0 + 384)
             c = indicesData(k + 0 + 384) + 4225
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            face_type(type_counter) = True
+            type_counter += 1
 
 
             'add faces west wall
@@ -524,11 +567,15 @@ Public Class MapTerrain
                 b = indicesData(j + 5 + 0)
                 c = indicesData(j + 5 + 384) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = True
+                type_counter += 1
                 't2
                 a = indicesData(j + 5 + 0)
                 b = indicesData(j + 5 + 384)
                 c = indicesData(j + 5 + 384) + 4225
                 chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+                face_type(type_counter) = True
+                type_counter += 1
             Next
             'hack to add last 2 faces.
             't1
@@ -537,11 +584,15 @@ Public Class MapTerrain
             a = indicesData(k + 4 + 0)
             c = indicesData(k + 1) + 4225
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            face_type(type_counter) = True
+            type_counter += 1
             't2
             a = indicesData(k + 4)
             b = indicesData(k + 1) + 4225
             c = indicesData(k + 1)
             chunk_mesh.Faces.Add(New Assimp.Face({a, b, c}))
+            face_type(type_counter) = True
+            type_counter += 1
 
             Dim m = matricesData(i).modelMatrix
             Dim mat = New Assimp.Matrix4x4(
@@ -570,9 +621,9 @@ Public Class MapTerrain
                 Dim v3 = mat * verts(a3)
 
                 Dim no = (make_surface_normal(v1, v2))
-                normals.Add(no)
-                normals.Add(no)
-                normals.Add(no)
+                'normals.Add(no)
+                'normals.Add(no)
+                'normals.Add(no)
                 '------------- each chunk
                 'write normal
                 bw.Write(no.X)
@@ -593,26 +644,53 @@ Public Class MapTerrain
                 'write atribute. 0 is fine but can be a color for each face
                 bw.Write(CUShort(0))
                 '------------- entire map
-                'write normal
-                h_bw.Write(no.X)
-                h_bw.Write(no.Y)
-                h_bw.Write(no.Z)
-                'write vertex 1
-                h_bw.Write(v1.X)
-                h_bw.Write(v1.Z)
-                h_bw.Write(v1.Y)
-                'write vertex 1
-                h_bw.Write(v2.X)
-                h_bw.Write(v2.Z)
-                h_bw.Write(v2.Y)
-                'write vertex 1
-                h_bw.Write(v3.X)
-                h_bw.Write(v3.Z)
-                h_bw.Write(v3.Y)
-                'write atribute. 0 is fine but can be a color for each face
-                h_bw.Write(CUShort(0))
+                'only if map boarder
+                Dim test = check_map_border(v1)
+                test = test Or check_map_border(v2)
+                test = test Or check_map_border(v3)
+                'if this is a top or bottom mesh face, we must add it!
+                If face_type(j) And test Then
+                    total_stl_face_count += 1
+                    'write normal
+                    h_bw.Write(no.X)
+                    h_bw.Write(no.Y)
+                    h_bw.Write(no.Z)
+                    'write vertex 1
+                    h_bw.Write(v1.X)
+                    h_bw.Write(v1.Z)
+                    h_bw.Write(v1.Y)
+                    'write vertex 1
+                    h_bw.Write(v2.X)
+                    h_bw.Write(v2.Z)
+                    h_bw.Write(v2.Y)
+                    'write vertex 1
+                    h_bw.Write(v3.X)
+                    h_bw.Write(v3.Z)
+                    h_bw.Write(v3.Y)
+                    'write atribute. 0 is fine but can be a color for each face
+                    h_bw.Write(CUShort(0))
+                End If
+                If Not face_type(j) Then
+                    'write normal
+                    h_bw.Write(no.X)
+                    h_bw.Write(no.Y)
+                    h_bw.Write(no.Z)
+                    'write vertex 1
+                    h_bw.Write(v1.X)
+                    h_bw.Write(v1.Z)
+                    h_bw.Write(v1.Y)
+                    'write vertex 1
+                    h_bw.Write(v2.X)
+                    h_bw.Write(v2.Z)
+                    h_bw.Write(v2.Y)
+                    'write vertex 1
+                    h_bw.Write(v3.X)
+                    h_bw.Write(v3.Z)
+                    h_bw.Write(v3.Y)
+                    'write atribute. 0 is fine but can be a color for each face
+                    h_bw.Write(CUShort(0))
+                End If
             Next
-
             'this stl is complete so close the file
             file_.Close()
             '=====================================================================
@@ -650,8 +728,11 @@ Public Class MapTerrain
             'dummy_material.ColorAmbient = New Assimp.Color4D(0.15, 0.15, 0.15, 1.0)
             'scene.Materials.Add(dummy_material)
 
-
+            BG_VALUE = i
+            main_window.ForceRender()
         Next
+        h_bw.BaseStream.Position = 80
+        h_bw.Write(total_stl_face_count) ' write total faces
         file_h.Close()
 
         'Dim exporter As New Assimp.AssimpContext

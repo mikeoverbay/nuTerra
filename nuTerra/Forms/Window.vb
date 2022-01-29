@@ -650,8 +650,11 @@ try_again:
 
         If SHOW_SETTINGS_WINDOW Then
             If ImGui.Begin("Settings", SHOW_SETTINGS_WINDOW) Then
+                If ImGui.CollapsingHeader("Export Map") Then
+                    ImGui.Checkbox("Export STLs", EXPORT_STL_MAP)
+                End If
                 If ImGui.CollapsingHeader("Camera") Then
-                    ImGui.SliderFloat("Speed", My.Settings.speed, 0.001, 10.0)
+                    ImGui.SliderFloat("Speed", My.Settings.speed, 0.001, 1.0)
                 End If
                 If ImGui.CollapsingHeader("Map") Then
                     ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
