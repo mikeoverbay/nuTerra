@@ -461,7 +461,7 @@ Public Class MapTerrain
             'create bottom mesh
             For j = 0 To num_verts_in_chunk - 1
                 Dim v = verticesData(baseVertex + j)
-                chunk_mesh.Vertices.Add(New Assimp.Vector3D(-v.xyz.X, MIN_MAP_HEIGHT - 1.0F, v.xyz.Z))
+                chunk_mesh.Vertices.Add(New Assimp.Vector3D(-v.xyz.X, MIN_MAP_HEIGHT - 2.0F, v.xyz.Z))
                 chunk_mesh.TextureCoordinateChannels(0).Add(New Assimp.Vector3D(-v.uv.X, v.uv.Y, 0.0F))
                 ' TODO: export normals
             Next
@@ -670,6 +670,7 @@ Public Class MapTerrain
                     'write atribute. 0 is fine but can be a color for each face
                     h_bw.Write(CUShort(0))
                 End If
+                'we must write top and bottom faces
                 If Not face_type(j) Then
                     'write normal
                     h_bw.Write(no.X)
