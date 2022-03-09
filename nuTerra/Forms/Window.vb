@@ -367,6 +367,9 @@ try_again:
                 WASD_VECTOR.Y = -3.0F
             Case Keys.S
                 WASD_VECTOR.Y = 3.0F
+            Case Keys.LeftShift
+                Z_MOVE = True
+
         End Select
     End Sub
 
