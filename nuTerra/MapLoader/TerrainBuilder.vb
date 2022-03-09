@@ -601,11 +601,10 @@ Module TerrainBuilder
         Dim bb_bottomLeft = arena_xml("boundingBox")("bottomLeft").InnerText.Split(" ")
         Dim bb_upperRight = arena_xml("boundingBox")("upperRight").InnerText.Split(" ")
 
-        Dim scaler As Single = 1.0  'this is debug testing for minimap scale issues.
-        MAP_BB_UR.X = -bb_bottomLeft(0) * scaler
-        MAP_BB_BL.Y = bb_bottomLeft(1) * scaler
-        MAP_BB_BL.X = -bb_upperRight(0) * scaler
-        MAP_BB_UR.Y = bb_upperRight(1) * scaler
+        MAP_BB_UR.X = -Convert.ToSingle(bb_bottomLeft(0))
+        MAP_BB_BL.Y = Convert.ToSingle(bb_bottomLeft(1))
+        MAP_BB_BL.X = -Convert.ToSingle(bb_upperRight(0))
+        MAP_BB_UR.Y = Convert.ToSingle(bb_upperRight(1))
 
         If MAP_BB_UR.Y > 1000 Or MAP_BB_BL.X < -1000 Then
             Dim mmscale = 0.1
