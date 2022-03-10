@@ -369,7 +369,10 @@ try_again:
                 WASD_VECTOR.Y = 3.0F
             Case Keys.LeftShift
                 Z_MOVE = True
-
+            Case Keys.Equal
+                If MINI_MAP_NEW_SIZE < 640 Then mini_map_new_size +=20
+            Case Keys.Minus
+                If MINI_MAP_NEW_SIZE > 240 Then MINI_MAP_NEW_SIZE -= 20
         End Select
     End Sub
 
