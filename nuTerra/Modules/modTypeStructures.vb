@@ -31,7 +31,11 @@ Module modTypeStructures
 #Region "DECAL_INDEX_LIST"
 
     Public DECAL_INDEX_LIST() As DECAL_INDEX_LIST_
+    Public Structure DECAL_INDEX_LIST_A
+        Dim decal_list() As DECAL_INDEX_LIST_
+    End Structure
     Public Structure DECAL_INDEX_LIST_
+        Implements IComparable(Of DECAL_INDEX_LIST_)
         Public uv_wrapping As Vector2
         Public decal_data() As vertex_data_
         Public texture_id As Integer
@@ -61,6 +65,10 @@ Module modTypeStructures
         Public cull_method As Integer
         Public is_parallax As Boolean
         Public is_wet As Boolean
+        Public Function CompareTo(other As DECAL_INDEX_LIST_) As Integer Implements IComparable(Of DECAL_INDEX_LIST_).CompareTo
+            Return Me.priority.CompareTo(other.priority)
+        End Function
+
     End Structure
 
 #End Region

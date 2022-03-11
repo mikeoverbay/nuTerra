@@ -34,7 +34,7 @@ Public Class MapScene
     Public trees As New MapTrees(Me)
     Public cursor As New MapCursor(Me)
     Public camera As New MapCamera(Me)
-
+    Public decals As New MapDecals(Me)
     Public CC_LUT_ID As GLTexture
     Public ENV_BRDF_LUT_ID As GLTexture
 

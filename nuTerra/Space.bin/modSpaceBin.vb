@@ -79,6 +79,7 @@ Module modSpaceBin
 
             Try
                 get_WGSD(sectionHeaders("WGSD"), br)
+                Array.Sort(DECAL_INDEX_LIST)
             Catch ex As Exception
                 ShowDecodeFailedMessage(ex, "WGSD")
                 GoTo Failed

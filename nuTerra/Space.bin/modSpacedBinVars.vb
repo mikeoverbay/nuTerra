@@ -686,8 +686,11 @@ Module modSpacedBinVars
             Public parallax_amplitude As Single
 
             Public s1, s2, s3 As String
-        End Structure
+            Public Sub New(bwsdHeader As SectionHeader, br As BinaryReader)
+                br.BaseStream.Position = bwsdHeader.offset
 
+            End Sub
+        End Structure
     End Structure
 #End Region
 
