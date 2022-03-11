@@ -9,10 +9,16 @@ NotInheritable Class MapMenuScreen
     Public Shared MAP_DESCRIPTION As String
 
     Class MapItem
-        Public map_image As GLTexture
-        Public name As String
+        Implements IComparable(Of MapItem)
+
         Public realname As String
+        Public name As String
+        Public map_image As GLTexture
         Public description As String
+
+        Public Function CompareTo(other As MapItem) As Integer Implements IComparable(Of MapItem).CompareTo
+            Return Me.realname.CompareTo(other.realname)
+        End Function
     End Class
 
     Public Shared Sub Init()
@@ -55,7 +61,6 @@ NotInheritable Class MapMenuScreen
                 .description = arenas_mo_catalog.GetString(String.Format("{0}/description", name)).Replace(" ", " ").Replace("—", "-")
             })
         Next
-
         MapPickList.Add(New MapItem With {
             .name = "hangar_v3",
             .realname = "hangar_v3",
@@ -87,6 +92,8 @@ NotInheritable Class MapMenuScreen
             End Using
             cnt += 1
         Next
+
+        MapPickList.Sort()
 
         ' load background image
         Dim entry2 = ResMgr.Lookup("gui/maps/bg.png")
