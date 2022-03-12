@@ -14,6 +14,8 @@ Public Class MapDecals
 
     Public Sub draw_decals()
         GL_PUSH_GROUP("draw_decals")
+        'Missing a lot a decals and not sure why.
+        GL.Disable(EnableCap.DepthTest)
 
         MainFBO.gDepth.BindUnit(0)
         MainFBO.gGMF.BindUnit(1)
@@ -22,6 +24,9 @@ Public Class MapDecals
         boxDecalsShader.Use()
         GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 14, decals_count)
         boxDecalsShader.StopUse()
+
+
+        GL.Enable(EnableCap.DepthTest)
 
         ' UNBIND
         unbind_textures(2)

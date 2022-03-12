@@ -8,6 +8,7 @@
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
+//layout (location = 1) out vec4 nColor;
 
 layout (binding = 0) uniform sampler2D depthMap;
 layout (binding = 1) uniform sampler2D gGMF;
@@ -55,8 +56,11 @@ void main()
     //Get texture UVs
     WorldPosition.xy += 0.5;
 
-    vec4 color = texture(sampler2D(decals[fs_in.decal_id].color_tex), WorldPosition.xy);
+    vec4 color =  texture(sampler2D(decals[fs_in.decal_id].color_tex),  WorldPosition.xy);
+    // vec4 normal = texture(sampler2D(decals[fs_in.decal_id].normal_tex), WorldPosition.xy);
+
     if (color.a < 0.05) { discard; }
     gColor = color;
     gColor.a = 0.0;
+    // nColor.rgb = normal.rgb;
 }
