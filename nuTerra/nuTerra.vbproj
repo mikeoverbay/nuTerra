@@ -145,9 +145,9 @@
   <ItemGroup>
     <PackageReference Include="AssimpNet" Version="5.0.0-beta1" />
     <PackageReference Include="DotNetZip" Version="1.16.0" />
-    <PackageReference Include="ImGui.NET" Version="1.86.0" />
+    <PackageReference Include="ImGui.NET" Version="1.87.2" />
     <PackageReference Include="NGettext" Version="0.6.7" />
-    <PackageReference Include="OpenTK" Version="4.6.7" />
+    <PackageReference Include="OpenTK" Version="4.7.1" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="5.0.0" />
   </ItemGroup>
 </Project>
