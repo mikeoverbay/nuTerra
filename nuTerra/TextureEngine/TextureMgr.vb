@@ -284,7 +284,7 @@ NotInheritable Class TextureMgr
         'Check if this image has already been loaded.
         Dim image_id = image_exists(fn)
         If image_id IsNot Nothing Then
-            Debug.WriteLine(fn)
+            ' Debug.WriteLine(fn)
             Return image_id
         End If
         Dim e1 = GL.GetError()

@@ -12,13 +12,19 @@ Public Class MapDecals
         Me.scene = scene
     End Sub
 
-    Public Sub draw_boxes()
-        GL_PUSH_GROUP("draw_boxes")
+    Public Sub draw_decals()
+        GL_PUSH_GROUP("draw_decals")
+
+        MainFBO.gDepth.BindUnit(0)
+        MainFBO.gGMF.BindUnit(1)
 
         CUBE_VAO.Bind()
         boxDecalsShader.Use()
         GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 14, decals_count)
         boxDecalsShader.StopUse()
+
+        ' UNBIND
+        unbind_textures(2)
 
         GL_POP_GROUP()
     End Sub

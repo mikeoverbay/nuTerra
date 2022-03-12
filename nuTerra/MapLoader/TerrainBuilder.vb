@@ -512,12 +512,6 @@ Module TerrainBuilder
             Next
         End If
 
-
-        '==========================================================
-        'remove data now that its unneeded now.
-        cBWT2 = Nothing
-        cBWST = Nothing
-
         ReDim Preserve theMap.chunks(cnt - 1)
         ReDim Preserve theMap.v_data(cnt - 1)
         ReDim Preserve theMap.render_set(cnt - 1)

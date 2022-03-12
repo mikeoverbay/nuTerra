@@ -69,6 +69,7 @@ Module modOpenGL
     <StructLayout(LayoutKind.Sequential)>
     Public Structure DecalGLInfo
         Dim matrix As Matrix4
+        Dim color_tex_handle As UInt64
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>

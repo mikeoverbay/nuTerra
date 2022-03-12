@@ -399,8 +399,6 @@ Module MapLoader
             BG_TEXT = "Building Decals..."
             main_window.ForceRender()
             build_decals()
-
-            cWGSD = Nothing
         End If
 
         '===============================================================
@@ -413,6 +411,13 @@ Module MapLoader
         '===============================================================
 
         map_scene.terrain.RebuildVTAtlas()
+
+
+        '==========================================================
+        'remove data now that its unneeded now.
+        cBWT2 = Nothing
+        cBWST = Nothing
+        cWGSD = Nothing
 
         MAP_LOADED = True
 
@@ -462,6 +467,18 @@ Module MapLoader
             data(i).matrix.M21 *= -1.0
             data(i).matrix.M31 *= -1.0
             data(i).matrix.M41 *= -1.0
+
+            Dim diff_fname = cBWST.find_str(cWGSD.decalEntries(i).diff_tex_fnv)
+
+            Dim tex = TextureMgr.OpenDDS(diff_fname)
+
+            Dim handle = GL.Arb.GetTextureHandle(tex.texture_id)
+
+            If Not GL.Arb.IsTextureHandleResident(handle) Then
+                GL.Arb.MakeTextureHandleResident(handle)
+            End If
+
+            data(i).color_tex_handle = handle
         Next
 
         map_scene.decals.decals_ssbo.Storage(Marshal.SizeOf(Of DecalGLInfo) * data.Length, data, OpenGL4.BufferStorageFlags.None)

@@ -22,6 +22,7 @@
 struct DecalGLInfo
 {
     mat4 matrix;
+    uvec2 color_tex;
 };
 
 struct CandidateDraw
