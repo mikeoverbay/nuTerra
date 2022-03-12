@@ -455,6 +455,13 @@ Module MapLoader
         Dim data(cWGSD.decalEntries.Length - 1) As DecalGLInfo
         For i = 0 To cWGSD.decalEntries.Length - 1
             data(i).matrix = cWGSD.decalEntries(i).transform
+
+            'Flip some row values to convert from DirectX to Opengl
+            data(i).matrix.M12 *= -1.0
+            data(i).matrix.M13 *= -1.0
+            data(i).matrix.M21 *= -1.0
+            data(i).matrix.M31 *= -1.0
+            data(i).matrix.M41 *= -1.0
         Next
 
         map_scene.decals.decals_ssbo.Storage(Marshal.SizeOf(Of DecalGLInfo) * data.Length, data, OpenGL4.BufferStorageFlags.None)
