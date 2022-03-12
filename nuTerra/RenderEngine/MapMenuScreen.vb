@@ -77,8 +77,17 @@ NotInheritable Class MapMenuScreen
             .name = "h30_newyear_2022",
             .realname = "h30_newyear_2022",
             .description = "h30_newyear_2022"
+        }
+        )
+        '------- HACK TO FIX BUG ------------
+        MapPickList.Add(New MapItem With {
+            .name = "Your fucking kidding!",
+            .realname = "!_newyear_2022",
+            .description = "h30_newyear_2022"
         })
 
+
+        MapPickList.Sort()
         ' load map images
         Dim cnt = 0
         For Each thing In MapPickList
@@ -93,7 +102,6 @@ NotInheritable Class MapMenuScreen
             cnt += 1
         Next
 
-        MapPickList.Sort()
 
         ' load background image
         Dim entry2 = ResMgr.Lookup("gui/maps/bg.png")
@@ -110,7 +118,7 @@ NotInheritable Class MapMenuScreen
         ImGui.SetNextWindowPos(New Numerics.Vector2(0, 40))
         ImGui.SetNextWindowSize(New Numerics.Vector2(w, h - 40))
         If ImGui.Begin("##MapGrid", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.NoBringToFrontOnFocus) Then
-            Dim column = Math.Clamp(CInt(w / 140), 1, 7)
+            Dim column = Math.Clamp(CInt(w / 140), 1, 8)
             If ImGui.BeginTable("##MapGridTable", column, ImGuiTableFlags.NoSavedSettings) Then
                 For Each item In MapPickList
                     ImGui.Text(item.realname)
