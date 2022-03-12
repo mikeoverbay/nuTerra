@@ -185,6 +185,11 @@ Module modRender
         '===========================================================================
 
         'ortho projection decals
+
+        If map_scene.DECALS_LOADED AndAlso DONT_BLOCK_DECALS Then
+            map_scene.decals.draw_boxes()
+        End If
+
 #If True Then
 
         MainFBO.attach_C()

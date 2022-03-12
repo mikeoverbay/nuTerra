@@ -393,6 +393,16 @@ Module MapLoader
             create_outland()
             map_scene.OUTLAND_LOADED = True
         End If
+
+        If DONT_BLOCK_DECALS Then
+            BG_VALUE = 0
+            BG_TEXT = "Building Decals..."
+            main_window.ForceRender()
+            build_decals()
+
+            cWGSD = Nothing
+        End If
+
         '===============================================================
         'load cube map for PBS_ext lighting,
         'It must happend after terrain load to get the path.
@@ -436,6 +446,20 @@ Module MapLoader
         ' Set sun location from map data
         set_light_pos() 'for light rotation animation
         '===================================================
+    End Sub
+
+    Private Sub build_decals()
+        map_scene.decals.decals_ssbo = GLBuffer.Create(OpenGL4.BufferTarget.ShaderStorageBuffer, "decals")
+        map_scene.decals.decals_count = cWGSD.decalEntries.Length
+
+        Dim data(cWGSD.decalEntries.Length - 1) As DecalGLInfo
+        For i = 0 To cWGSD.decalEntries.Length - 1
+            data(i).matrix = cWGSD.decalEntries(i).transform
+        Next
+
+        map_scene.decals.decals_ssbo.Storage(Marshal.SizeOf(Of DecalGLInfo) * data.Length, data, OpenGL4.BufferStorageFlags.None)
+        map_scene.decals.decals_ssbo.BindBase(11)
+        map_scene.DECALS_LOADED = True
     End Sub
 
     Public Sub set_light_pos()

@@ -174,6 +174,7 @@ Public Class MapScene
         fog.Dispose()
         cursor.Dispose()
         camera.Dispose()
+        decals.Dispose()
 
         ' gl buffers
         shadow_mapping_matrix.Dispose()

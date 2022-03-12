@@ -215,7 +215,7 @@ CleanUp:
         cBSMI = Nothing
         cBSMO = Nothing
         cBSMA = Nothing
-        cWGSD = Nothing
+        'cWGSD = Nothing
         cBWWa = Nothing
 
         '====================================================
