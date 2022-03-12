@@ -15,10 +15,9 @@ Public Class MapDecals
     Public Sub draw_boxes()
         GL_PUSH_GROUP("draw_boxes")
 
-        defaultVao.Bind()
-
+        CUBE_VAO.Bind()
         boxDecalsShader.Use()
-        GL.DrawArrays(PrimitiveType.Points, 0, decals_count)
+        GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 14, decals_count)
         boxDecalsShader.StopUse()
 
         GL_POP_GROUP()
