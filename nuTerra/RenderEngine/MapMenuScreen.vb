@@ -73,13 +73,6 @@ NotInheritable Class MapMenuScreen
             .description = "h31_battle_royale_2020"
         })
 
-        MapPickList.Add(New MapItem With {
-            .name = "h30_newyear_2022",
-            .realname = "h30_newyear_2022",
-            .description = "h30_newyear_2022"
-        }
-        )
-
         MapPickList.Sort()
         ' load map images
         Dim cnt = 0
