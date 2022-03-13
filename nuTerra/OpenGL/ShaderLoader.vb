@@ -5,6 +5,8 @@ Module ShaderLoader
     Private incPaths() As String = {"/"}
     Private incPathLengths() As Integer = {1}
 
+    Private watcher As FileSystemWatcher
+
     Public SHADER_PATHS() As String
 #Region "shader_storage"
 
@@ -285,6 +287,17 @@ Module ShaderLoader
         'shadow shaders
         mDepthWrite_light = New Shader("mDepthWrite_light")
         imguiShader = New Shader("imgui")
+
+        watcher = New FileSystemWatcher(Path.GetFullPath("shaders"))
+        AddHandler watcher.Changed, AddressOf OnChanged
+        watcher.IncludeSubdirectories = True
+        watcher.EnableRaisingEvents = True
+        watcher.Filter = "*"
+    End Sub
+
+    Private Sub OnChanged(sender As Object, e As FileSystemEventArgs)
+        LogThis($"File changed: {e.FullPath}")
+        main_window.SHADER_CHANGED = True
     End Sub
 
     Public Function assemble_shader(v As String,

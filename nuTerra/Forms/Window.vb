@@ -20,6 +20,7 @@ Public Class Window
     Public Shared mouse_last_pos As Point
     Private NEED_TO_INVALIDATE_VIEWPORT As Boolean = True
     Private NEED_TO_DO_SCREEN_CAPTURE As Boolean = False
+    Public SHADER_CHANGED As Boolean = False
     Private SCREEN_CAPTURE_FILENAME As String = Nothing
     Private fps_timer As New Stopwatch
 
@@ -291,6 +292,14 @@ try_again:
     End Sub
 
     Public Sub ForceRender(Optional time As Single = 0.0)
+        If SHADER_CHANGED Then
+            SHADER_CHANGED = False
+
+            For Each sh In shaders
+                sh.UpdateShader()
+            Next
+        End If
+
         If NEED_TO_INVALIDATE_VIEWPORT Then
             _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
             MainFBO.Initialize(SCR_WIDTH, SCR_HEIGHT)
