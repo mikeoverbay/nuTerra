@@ -15,18 +15,38 @@ Public Class MapDecals
     Public Sub draw_decals()
         GL_PUSH_GROUP("draw_decals")
         'Missing a lot a decals and not sure why.
-        GL.Disable(EnableCap.DepthTest)
+        'GL.Disable(EnableCap.DepthTest)
 
+        GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd)
+        GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.SrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha)
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+        GL.Enable(EnableCap.Blend)
+
+        GL.DepthMask(False)
+
+        CUBE_VAO.Bind()
         MainFBO.gDepth.BindUnit(0)
         MainFBO.gGMF.BindUnit(1)
 
-        CUBE_VAO.Bind()
-        boxDecalsShader.Use()
+        boxDecalsColorShader.Use()
+        MainFBO.attach_C()
         GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 14, decals_count)
-        boxDecalsShader.StopUse()
+        boxDecalsColorShader.StopUse()
+
+        GL.Disable(EnableCap.Blend)
+
+        boxDecalsNormalShader.Use()
+
+        MainFBO.attach_N()
+        'MainFBO.attach_Depth()
+        GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 14, decals_count)
+        boxDecalsNormalShader.StopUse()
 
 
-        GL.Enable(EnableCap.DepthTest)
+        GL.DepthMask(True)
+
+
+        'GL.Enable(EnableCap.DepthTest)
 
         ' UNBIND
         unbind_textures(2)

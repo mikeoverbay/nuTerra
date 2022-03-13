@@ -83,6 +83,8 @@
     <Content Include="shaders\**">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Remove="shaders\Developer\box_decals _normal.frag" />
+    <None Remove="shaders\Developer\box_decals_normal.vert" />
     <Content Include="HTML\images\carbon.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

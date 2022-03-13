@@ -472,7 +472,8 @@ Module MapLoader
             data(i).matrix.M41 *= -1.0
 
             Dim diff_fname = cBWST.find_str(cWGSD.decalEntries(i).diff_tex_fnv)
-            'Dim normal_fname = cBWST.find_str(cWGSD.decalEntries(i).bump_tex_fnv)
+            Dim normal_fname = cBWST.find_str(cWGSD.decalEntries(i).bump_tex_fnv)
+
             'Dim gmm_fname = cBWST.find_str(cWGSD.decalEntries(i).hm_tex_fnv)
             ''Not even sure what this is for...
             'Dim add_fname = cBWST.find_str(cWGSD.decalEntries(i).add_tex_fnv)
@@ -480,35 +481,41 @@ Module MapLoader
             'trap wet type decals that have no texture. I think this is the reason for no texture.
             Dim D_tex = DUMMY_TEXTURE_ID
             Dim D_handle = GL.Arb.GetTextureHandle(D_tex.texture_id)
-            'Dim N_tex = DUMMY_TEXTURE_ID
-            'Dim N_handle = GL.Arb.GetTextureHandle(N_tex.texture_id)
+
+            Dim N_tex = DUMMY_TEXTURE_ID
+            Dim N_handle = GL.Arb.GetTextureHandle(N_tex.texture_id)
+
             'Dim G_tex = DUMMY_TEXTURE_ID
             'Dim G_handle = GL.Arb.GetTextureHandle(G_tex.texture_id)
 
 
 
             If diff_fname.Length > 0 Then
+                data(i).good = 1
                 D_tex = TextureMgr.OpenDDS(diff_fname)
                 D_handle = GL.Arb.GetTextureHandle(D_tex.texture_id)
-                'N_tex = TextureMgr.OpenDDS(normal_fname)
-                'N_handle = GL.Arb.GetTextureHandle(N_tex.texture_id)
+
+                N_tex = TextureMgr.OpenDDS(normal_fname)
+                N_handle = GL.Arb.GetTextureHandle(N_tex.texture_id)
+
                 'G_tex = TextureMgr.OpenDDS(gmm_fname)
                 'G_handle = GL.Arb.GetTextureHandle(G_tex.texture_id)
-
+            Else
+                data(i).good = 0
             End If
 
             If Not GL.Arb.IsTextureHandleResident(D_handle) Then
                 GL.Arb.MakeTextureHandleResident(D_handle)
             End If
-            'If Not GL.Arb.IsTextureHandleResident(N_handle) Then
-            '    GL.Arb.MakeTextureHandleResident(N_handle)
-            'End If
+            If Not GL.Arb.IsTextureHandleResident(N_handle) Then
+                GL.Arb.MakeTextureHandleResident(N_handle)
+            End If
             'If Not GL.Arb.IsTextureHandleResident(G_handle) Then
             '    GL.Arb.MakeTextureHandleResident(G_handle)
             'End If
 
             data(i).color_tex_handle = D_handle
-            'data(i).normal_tex_handle = N_handle
+            data(i).normal_tex_handle = N_handle
             'data(i).gmm_tex_handle = G_handle
         Next
 

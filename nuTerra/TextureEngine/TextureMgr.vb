@@ -632,6 +632,10 @@ NotInheritable Class TextureMgr
     End Function
 
     Public Shared Function OpenDDS(path As String) As GLTexture
+        Dim image_id = image_exists(path)
+        If image_id IsNot Nothing Then
+            Return image_id
+        End If
         Dim entry = ResMgr.Lookup(path)
         If entry Is Nothing Then
             Return Nothing

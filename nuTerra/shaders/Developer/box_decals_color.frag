@@ -8,11 +8,13 @@
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
-//layout (location = 1) out vec4 nColor;
+//layout (location = 0) out vec4 gNormal;
+//layout (location = 2) out vec4 gGMF;
 
 layout (binding = 0) uniform sampler2D depthMap;
-layout (binding = 1) uniform sampler2D gGMF;
+layout (binding = 1) uniform sampler2D igGMF;
 
+uniform int mode;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -30,11 +32,12 @@ void clip(vec3 v) {
 
 void main()
 {
+if ( decals[fs_in.decal_id].good == 0) discard;
     // Calculate UVs
     vec2 uv = gl_FragCoord.xy / resolution;
 
     /*==================================================*/
-    bool flag = texture(gGMF,uv).b*255.0 == 64.0;
+    bool flag = texture(igGMF,uv).b*255.0 == 64.0;
     if (flag) discard;
 
     /*==================================================*/
@@ -57,10 +60,18 @@ void main()
     WorldPosition.xy += 0.5;
 
     vec4 color =  texture(sampler2D(decals[fs_in.decal_id].color_tex),  WorldPosition.xy);
-    // vec4 normal = texture(sampler2D(decals[fs_in.decal_id].normal_tex), WorldPosition.xy);
 
-    if (color.a < 0.05) { discard; }
+//    if (color.a < 0.1) { discard; }
     gColor = color;
-    gColor.a = 0.0;
-    // nColor.rgb = normal.rgb;
+//    gColor.a = 0.0;
+
+//    vec3 normalBump;
+//    vec4 normal = texture(sampler2D(decals[fs_in.decal_id].normal_tex), WorldPosition.xy);
+//    normalBump.xy = normal.ag * 2.0 - 1.0;
+//    float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
+//    normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
+//    gNormal.xyz = normalBump.xyz;
+//
 }
+
+
