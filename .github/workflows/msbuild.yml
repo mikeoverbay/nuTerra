@@ -39,7 +39,8 @@ jobs:
       uses: thedoctor0/zip-release@master
       with:
         type: 'zip'
-        path: nuTerra/bin/Release/
+        directory: nuTerra/bin/Release/
+        path: .
         filename: nuTerra.zip
 
     - uses: dev-drprasad/delete-older-releases@v0.2.0
