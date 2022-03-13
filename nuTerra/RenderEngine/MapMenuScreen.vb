@@ -79,13 +79,6 @@ NotInheritable Class MapMenuScreen
             .description = "h30_newyear_2022"
         }
         )
-        '------- HACK TO FIX BUG ------------
-        MapPickList.Add(New MapItem With {
-            .name = "Your fucking kidding!",
-            .realname = "!_newyear_2022",
-            .description = "h30_newyear_2022"
-        })
-
 
         MapPickList.Sort()
         ' load map images
@@ -121,6 +114,7 @@ NotInheritable Class MapMenuScreen
             Dim column = Math.Clamp(CInt(w / 140), 1, 8)
             If ImGui.BeginTable("##MapGridTable", column, ImGuiTableFlags.NoSavedSettings) Then
                 For Each item In MapPickList
+                    ImGui.TableNextColumn()
                     ImGui.Text(item.realname)
                     If ImGui.ImageButton(New IntPtr(item.map_image.texture_id), New Numerics.Vector2(120, 72)) Then
                         MAP_TO_LOAD = item.name
@@ -129,7 +123,6 @@ NotInheritable Class MapMenuScreen
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip(item.name)
                     End If
-                    ImGui.TableNextColumn()
                 Next
                 ImGui.EndTable()
             End If
