@@ -8,6 +8,7 @@ Public Class MainFBO
 
     Public Shared gPick As GLRenderbuffer
     Public Shared gColor_2 As GLRenderbuffer
+    Public Shared gSurfaceNormal As GLTexture
     Public Shared gColor As GLTexture
     Public Shared gNormal As GLTexture
     Public Shared gGMF As GLTexture
@@ -22,6 +23,8 @@ Public Class MainFBO
     ' Position  = 3
     ' Pick      = 4
     ' Aux_Color = 5
+    ' gColor_2  = 6
+    ' SurfaceNormal = 7
     '========================
     Private Shared attach_Color_Normal_GMF() As DrawBuffersEnum = {
         FramebufferAttachment.ColorAttachment0,
@@ -37,6 +40,13 @@ Public Class MainFBO
         FramebufferAttachment.ColorAttachment3,
         FramebufferAttachment.ColorAttachment5,
         FramebufferAttachment.ColorAttachment4
+    }
+    Private Shared attach_Color_SurfaceNormal_Normal_GMF_Position() As DrawBuffersEnum = {
+        FramebufferAttachment.ColorAttachment0,
+        FramebufferAttachment.ColorAttachment1,
+        FramebufferAttachment.ColorAttachment2,
+        FramebufferAttachment.ColorAttachment3,
+        FramebufferAttachment.ColorAttachment7
     }
     Private Shared attach_Color() As DrawBuffersEnum = {
         FramebufferAttachment.ColorAttachment0
@@ -76,6 +86,7 @@ Public Class MainFBO
     Public Shared Sub delete_textures_and_fbo()
         ' as the name says
         gColor?.Dispose()
+        gSurfaceNormal?.Dispose()
         gAUX_Color?.Dispose()
         gNormal?.Dispose()
         gGMF?.Dispose()
@@ -91,6 +102,11 @@ Public Class MainFBO
         ' RGBA8
         gColor = GLTexture.Create(TextureTarget.Texture2D, "gColor")
         gColor.Storage2D(1, SizedInternalFormat.Rgba8, width, height)
+
+        ' gSurfaceNormal ------------------------------------------------------------------------------------------
+        ' RGB
+        gSurfaceNormal = GLTexture.Create(TextureTarget.Texture2D, "gSurfaceNormal")
+        gSurfaceNormal.Storage2D(1, DirectCast(InternalFormat.Rgb8, SizedInternalFormat), width, height)
 
         ' AUX_gColor -----------------------------------------------------------------------------------
         ' RGBA8
@@ -139,6 +155,7 @@ Public Class MainFBO
         fbo.Renderbuffer(FramebufferAttachment.ColorAttachment4, RenderbufferTarget.Renderbuffer, gPick)
         fbo.Texture(FramebufferAttachment.ColorAttachment5, gAUX_Color, 0)
         fbo.Renderbuffer(FramebufferAttachment.ColorAttachment6, RenderbufferTarget.Renderbuffer, gColor_2)
+        fbo.Texture(FramebufferAttachment.ColorAttachment7, gSurfaceNormal, 0)
 
         fbo.Texture(FramebufferAttachment.DepthAttachment, gDepth, 0)
 
@@ -168,6 +185,12 @@ Public Class MainFBO
         Else
             fbo.DrawBuffers(5, attach_Color_Normal_GMF_aux_fmask)
         End If
+    End Sub
+
+    Public Shared Sub attach_CSNGP()
+        'attach our render buffer textures.
+        fbo.DrawBuffers(5, attach_Color_SurfaceNormal_Normal_GMF_Position)
+
     End Sub
 
     Public Shared Sub attach_C()

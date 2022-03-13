@@ -19,6 +19,7 @@ out VS_OUT {
     mat3 TBN;
     vec3 worldPosition;
     vec2 Global_UV;
+    vec3 worldNormal;
 } vs_out;
 
 
@@ -43,7 +44,7 @@ void main(void)
     vec3 worldNormal = normalMatrix * VN;
     vec3 worldTangent = normalMatrix * VT;
     vec3 worldbiNormal = normalMatrix * VB;
-
+    vs_out.worldNormal = worldNormal;
     // make perpendicular
     worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
     worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);

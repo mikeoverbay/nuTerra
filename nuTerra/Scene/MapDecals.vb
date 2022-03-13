@@ -25,6 +25,7 @@ Public Class MapDecals
         CUBE_VAO.Bind()
         MainFBO.gDepth.BindUnit(0)
         MainFBO.gGMF.BindUnit(1)
+        MainFBO.gSurfaceNormal.BindUnit(2)
 
         GL.Enable(EnableCap.Blend)
 
@@ -34,8 +35,8 @@ Public Class MapDecals
 
         For Each decal In all_decals
             GL.UniformMatrix4(boxDecalsColorShader("mvp"), False, decal.matrix * map_scene.camera.PerViewData.viewProj)
-            decal.color_tex.BindUnit(2)
-            decal.normal_tex.BindUnit(3)
+            decal.color_tex.BindUnit(3)
+            decal.normal_tex.BindUnit(4)
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
         Next

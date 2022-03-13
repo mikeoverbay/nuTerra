@@ -11,8 +11,9 @@ layout (location = 1) out vec4 gNormal;
 
 layout (binding = 0) uniform sampler2D depthMap;
 layout (binding = 1) uniform sampler2D igGMF;
-layout (binding = 2) uniform sampler2D color_tex;
+layout (binding = 2) uniform sampler2D SurfaceNormal;
 layout (binding = 3) uniform sampler2D normal_tex;
+layout (binding = 4) uniform sampler2D color_tex;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -27,6 +28,27 @@ void clip(vec3 v) {
     if (v.z > tr.z || v.z < bl.z ) discard;
 }
 
+vec3 getNormal(in vec3 v_Position, in vec3 v_Normal, in vec2 UV1)
+{
+    // Retrieve the tangent space matrix
+    vec3 pos_dx = dFdx(v_Position);
+    vec3 pos_dy = dFdy(v_Position);
+    vec3 tex_dx = dFdx(vec3(UV1, 0.0));
+    vec3 tex_dy = dFdy(vec3(UV1, 0.0));
+    vec3 t = (tex_dy.t * pos_dx - tex_dx.t * pos_dy) / (tex_dx.s * tex_dy.t - tex_dy.s * tex_dx.t);
+    vec3 ng = normalize(v_Normal);
+
+    t = normalize(t - ng * dot(ng, t));
+    vec3 b = normalize(cross(ng, t));
+    mat3 tbn = mat3(t, b, ng);
+    vec3 n = ng;
+    n = texture(normal_tex, UV1, 1.0).rgb*2.0-1.0;
+    n.x*=-1.0;
+    n = normalize(tbn * n);
+    return n;
+}
+
+
 void main()
 {
     // Calculate UVs
@@ -35,7 +57,7 @@ void main()
     /*==================================================*/
     bool flag = texture(igGMF,uv).b*255.0 == 64.0;
     if (flag) discard;
-
+    vec3 snorm = texture(SurfaceNormal,uv).xyz;
     /*==================================================*/
     // sample the Depth from the Depthsampler
     float depth = texture(depthMap, uv).x;
@@ -45,6 +67,7 @@ void main()
 
     // Transform position from screen space to world space
     vec4 WorldPosition = fs_in.invMVP * ScreenPosition;
+    vec4 WP = WorldPosition;
     WorldPosition.xyz /= WorldPosition.w;
     WorldPosition.w = 1.0f;
     // trasform to decal original and size.
@@ -57,13 +80,10 @@ void main()
 
     vec4 color =  texture(color_tex, WorldPosition.xy);
     gColor = color;
-    vec4 normal =  texture(normal_tex, WorldPosition.xy);
-    vec3 normalBump;
-    normalBump.xy = normal.ag * 2.0 - 1.0;
-    float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
-    normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
+    vec3 normal =  getNormal(WP.xyz, snorm, WorldPosition.xy);
 
-    gNormal.xyz = normalize(normalBump) *0.5 + 0.5;
+    gNormal.xyz = normalize(normal) *0.5 + 0.5;
+   
     gNormal.a = color.a;
  
 }

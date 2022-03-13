@@ -12,6 +12,7 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
+layout (location = 7) out vec3 gSurfaceNormal;
 
 
 layout(binding = 0) uniform usampler2D PageTable;
@@ -24,6 +25,7 @@ in VS_OUT {
     mat3 TBN;
     vec3 worldPosition;
     vec2 Global_UV;
+    vec3 worldNormal;
 } fs_in;
 
 
@@ -59,4 +61,5 @@ void main(void)
     gGMF = vec4(0.2, mix(specular_sample1, specular_sample2, mipfract), 128.0/255.0, 0.0);
 
     gPosition = fs_in.worldPosition;
+    gSurfaceNormal = fs_in.worldNormal;
 }

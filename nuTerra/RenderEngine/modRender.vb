@@ -103,7 +103,12 @@ Module modRender
         MainFBO.attach_CNGPA()
 
         If map_scene.TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
+            MainFBO.attach_CSNGP()
+
+
             map_scene.terrain.draw_terrain()
+
+            MainFBO.attach_CNGPA()
 
             If (SHOW_BORDER Or SHOW_CHUNKS Or SHOW_GRID) Then map_scene.terrain.draw_terrain_grids()
             '=======================================================================
