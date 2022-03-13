@@ -26,10 +26,12 @@ Public Class MapDecals
         MainFBO.gDepth.BindUnit(0)
         MainFBO.gGMF.BindUnit(1)
 
+        GL.Enable(EnableCap.Blend)
+
         boxDecalsColorShader.Use()
 
         For Each decal In all_decals
-            GL.UniformMatrix4(boxDecalsColorShader("matrix"), False, decal.matrix)
+            GL.UniformMatrix4(boxDecalsColorShader("mvp"), False, decal.matrix * map_scene.camera.PerViewData.viewProj)
             decal.color_tex.BindUnit(2)
             decal.normal_tex.BindUnit(3)
 
@@ -37,6 +39,8 @@ Public Class MapDecals
         Next
 
         boxDecalsColorShader.StopUse()
+
+        GL.Disable(EnableCap.Blend)
 
         ' UNBIND
         unbind_textures(4)

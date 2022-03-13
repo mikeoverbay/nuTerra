@@ -7,7 +7,7 @@
 
 layout(location = 0) in vec3 vertexPosition;
 
-uniform mat4 matrix;
+uniform mat4 mvp;
 
 out VS_OUT {
     flat mat4 invMVP;
@@ -15,6 +15,6 @@ out VS_OUT {
 
 void main(void)
 {
-    gl_Position = viewProj * matrix * vec4(vertexPosition, 1.0);
-    vs_out.invMVP = inverse(viewProj * matrix);
+    gl_Position = mvp * vec4(vertexPosition, 1.0);
+    vs_out.invMVP = inverse(mvp);
 }
