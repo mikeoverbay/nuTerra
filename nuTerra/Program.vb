@@ -1,8 +1,13 @@
+Imports System.Reflection
+
 Module Program
     Public main_window As Window
 
     Sub Main(args As String())
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance)
+
+        ' preload
+        Dim asm = Assembly.Load("nuTerraCPP")
 
         If My.Settings.UpgradeRequired Then
             My.Settings.Upgrade()
