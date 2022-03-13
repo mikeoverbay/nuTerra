@@ -794,9 +794,15 @@ try_again:
                 Dim uv0 = New Numerics.Vector2(0.0, 1.0)
                 Dim uv1 = New Numerics.Vector2(1.0, 0.0)
 
+                ImGui.Text("gColor")
                 ImGui.Image(New IntPtr(MainFBO.gColor.texture_id), size, uv0, uv1)
+                ImGui.Text("gSurfaceNormal")
+                ImGui.Image(New IntPtr(MainFBO.gSurfaceNormal.texture_id), size, uv0, uv1)
+                ImGui.Text("gNormal")
                 ImGui.Image(New IntPtr(MainFBO.gNormal.texture_id), size, uv0, uv1)
+                ImGui.Text("gGMF")
                 ImGui.Image(New IntPtr(MainFBO.gGMF.texture_id), size, uv0, uv1)
+                ImGui.Text("gPosition")
                 ImGui.Image(New IntPtr(MainFBO.gPosition.texture_id), size, uv0, uv1)
                 ImGui.End()
             End If

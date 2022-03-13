@@ -11,9 +11,11 @@ layout (location = 1) out vec4 gNormal;
 
 layout (binding = 0) uniform sampler2D depthMap;
 layout (binding = 1) uniform sampler2D igGMF;
-layout (binding = 2) uniform sampler2D SurfaceNormal;
-layout (binding = 3) uniform sampler2D normal_tex;
-layout (binding = 4) uniform sampler2D color_tex;
+
+layout (binding = 2) uniform sampler2D normal_tex;
+layout (binding = 3) uniform sampler2D color_tex;
+layout (binding = 4) uniform sampler2D SurfaceNormal;
+layout (binding = 5) uniform sampler2D gposition;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -42,9 +44,16 @@ vec3 getNormal(in vec3 v_Position, in vec3 v_Normal, in vec2 UV1)
     vec3 b = normalize(cross(ng, t));
     mat3 tbn = mat3(t, b, ng);
     vec3 n = ng;
-    n = texture(normal_tex, UV1, 1.0).rgb*2.0-1.0;
-    n.x*=-1.0;
-    n = normalize(tbn * n);
+
+    vec3 normalBump;
+    vec4 normal = texture(normal_tex,UV1);
+    normalBump.xy = normal.ag * 2.0 - 1.0;
+    float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
+    normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
+    normalBump = normalize(normalBump);
+
+    normalBump.x*=-1.0;
+    n = normalize(tbn * normalBump);
     return n;
 }
 
@@ -53,11 +62,10 @@ void main()
 {
     // Calculate UVs
     vec2 uv = gl_FragCoord.xy / resolution;
-
+    vec3 position = texture(gposition,uv).xyz;
     /*==================================================*/
     bool flag = texture(igGMF,uv).b*255.0 == 64.0;
     if (flag) discard;
-    vec3 snorm = texture(SurfaceNormal,uv).xyz;
     /*==================================================*/
     // sample the Depth from the Depthsampler
     float depth = texture(depthMap, uv).x;
@@ -80,10 +88,8 @@ void main()
 
     vec4 color =  texture(color_tex, WorldPosition.xy);
     gColor = color;
-    vec3 normal =  getNormal(WP.xyz, snorm, WorldPosition.xy);
 
-    gNormal.xyz = normalize(normal) *0.5 + 0.5;
-   
+    gNormal.xyz = getNormal(position, texture(SurfaceNormal,uv).xyz, WorldPosition.xy) *0.5 + 0.5;   
     gNormal.a = color.a;
  
 }

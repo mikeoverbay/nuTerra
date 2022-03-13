@@ -59,8 +59,11 @@ Module modRender
         '===========================================================================
 
         '===========================================================================
+        MainFBO.attach_CSNGP()
+        GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
         MainFBO.attach_CNGPA() 'clear ALL gTextures!
         GL.Clear(ClearBufferMask.DepthBufferBit Or ClearBufferMask.ColorBufferBit)
+
         '===========================================================================
 
         '===========================================================================
