@@ -1,12 +1,19 @@
 ﻿Imports OpenTK.Graphics.OpenGL4
+Imports OpenTK.Mathematics
+
+Public Structure DecalGLInfo
+    Dim matrix As Matrix4
+    Dim color_tex As GLTexture
+    Dim normal_tex As GLTexture
+End Structure
+
 
 Public Class MapDecals
     Implements IDisposable
 
     ReadOnly scene As MapScene
 
-    Public decals_ssbo As GLBuffer
-    Public decals_count As Integer
+    Public all_decals As List(Of DecalGLInfo)
 
     Public Sub New(scene As MapScene)
         Me.scene = scene
@@ -14,47 +21,30 @@ Public Class MapDecals
 
     Public Sub draw_decals()
         GL_PUSH_GROUP("draw_decals")
-        'Missing a lot a decals and not sure why.
-        'GL.Disable(EnableCap.DepthTest)
-
-        GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd)
-        GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.SrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha)
-        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
-        GL.Enable(EnableCap.Blend)
-
-        GL.DepthMask(False)
 
         CUBE_VAO.Bind()
         MainFBO.gDepth.BindUnit(0)
         MainFBO.gGMF.BindUnit(1)
 
         boxDecalsColorShader.Use()
-        MainFBO.attach_C()
-        GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 14, decals_count)
+
+        For Each decal In all_decals
+            GL.UniformMatrix4(boxDecalsColorShader("matrix"), False, decal.matrix)
+            decal.color_tex.BindUnit(2)
+            decal.normal_tex.BindUnit(3)
+
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+        Next
+
         boxDecalsColorShader.StopUse()
 
-        GL.Disable(EnableCap.Blend)
-
-        boxDecalsNormalShader.Use()
-
-        MainFBO.attach_N()
-        'MainFBO.attach_Depth()
-        GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 14, decals_count)
-        boxDecalsNormalShader.StopUse()
-
-
-        GL.DepthMask(True)
-
-
-        'GL.Enable(EnableCap.DepthTest)
-
         ' UNBIND
-        unbind_textures(2)
+        unbind_textures(4)
 
         GL_POP_GROUP()
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
-        decals_ssbo?.Dispose()
+        all_decals = Nothing
     End Sub
 End Class

@@ -67,16 +67,6 @@ Module modOpenGL
     End Class
 
     <StructLayout(LayoutKind.Sequential)>
-    Public Structure DecalGLInfo
-        Dim matrix As Matrix4
-        Dim color_tex_handle As UInt64
-        Dim normal_tex_handle As UInt64
-        'Dim gmm_tex_handle As UInt64
-        Dim good As UInt64
-        Dim pad As Int32
-    End Structure
-
-    <StructLayout(LayoutKind.Sequential)>
     Public Structure DrawElementsIndirectCommand
         Dim count As UInt32
         Dim instanceCount As UInt32

@@ -4,21 +4,17 @@
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
-#define USE_DECALS_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
-//layout (location = 0) out vec4 gNormal;
-//layout (location = 2) out vec4 gGMF;
 
 layout (binding = 0) uniform sampler2D depthMap;
 layout (binding = 1) uniform sampler2D igGMF;
-
-uniform int mode;
+layout (binding = 2) uniform sampler2D color_tex;
+layout (binding = 3) uniform sampler2D normal_tex;
 
 in VS_OUT {
     flat mat4 invMVP;
-    flat uint decal_id;
 } fs_in;
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
@@ -32,7 +28,6 @@ void clip(vec3 v) {
 
 void main()
 {
-if ( decals[fs_in.decal_id].good == 0) discard;
     // Calculate UVs
     vec2 uv = gl_FragCoord.xy / resolution;
 
@@ -59,19 +54,9 @@ if ( decals[fs_in.decal_id].good == 0) discard;
     //Get texture UVs
     WorldPosition.xy += 0.5;
 
-    vec4 color =  texture(sampler2D(decals[fs_in.decal_id].color_tex),  WorldPosition.xy);
+    vec4 color =  texture(color_tex, WorldPosition.xy);
 
-//    if (color.a < 0.1) { discard; }
     gColor = color;
-//    gColor.a = 0.0;
-
-//    vec3 normalBump;
-//    vec4 normal = texture(sampler2D(decals[fs_in.decal_id].normal_tex), WorldPosition.xy);
-//    normalBump.xy = normal.ag * 2.0 - 1.0;
-//    float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
-//    normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
-//    gNormal.xyz = normalBump.xyz;
-//
 }
 
 

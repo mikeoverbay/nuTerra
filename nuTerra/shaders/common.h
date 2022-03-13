@@ -17,16 +17,6 @@
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
 #define TERRAIN_CHUNK_INFO_BASE 10
-#define DECALS_BASE 11
-
-struct DecalGLInfo
-{
-    mat4 matrix;
-    uvec2 color_tex;
-    uvec2 normal_tex;
-    //uvec2 gmm_tex;
-    uint good;
-};
 
 struct CandidateDraw
 {
@@ -146,13 +136,6 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     bool use_shadow_mapping;
     bool show_test_textures;
 } props;
-#endif
-
-#ifdef USE_DECALS_SSBO
-layout(binding = DECALS_BASE, std430) buffer DecalInstances
-{
-    DecalGLInfo decals[];
-};
 #endif
 
 #ifdef USE_MODELINSTANCES_SSBO

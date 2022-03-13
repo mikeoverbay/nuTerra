@@ -153,13 +153,6 @@ Module modRender
         '===========================================================================
         '===========================================================================
 
-        'ortho projection decals
-        MainFBO.attach_C()
-
-        If map_scene.DECALS_LOADED AndAlso DONT_BLOCK_DECALS Then
-            map_scene.decals.draw_decals()
-        End If
-
 
         GL.Disable(EnableCap.DepthTest)
 
@@ -190,6 +183,11 @@ Module modRender
 
         '===========================================================================
 
+        'ortho projection decals
+
+        If map_scene.DECALS_LOADED AndAlso DONT_BLOCK_DECALS Then
+            map_scene.decals.draw_decals()
+        End If
 
 #If True Then
 

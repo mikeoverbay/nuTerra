@@ -454,73 +454,38 @@ Module MapLoader
         BG_VALUE = 0
         BG_MAX_VALUE = cWGSD.decalEntries.Length - 1
         BG_TEXT = "Building Decals.."
-        map_scene.decals.decals_ssbo = GLBuffer.Create(OpenGL4.BufferTarget.ShaderStorageBuffer, "decals")
-        map_scene.decals.decals_count = cWGSD.decalEntries.Length
 
-        Dim data(cWGSD.decalEntries.Length - 1) As DecalGLInfo
+        map_scene.decals.all_decals = New List(Of DecalGLInfo)
+
         For i = 0 To cWGSD.decalEntries.Length - 1
             BG_VALUE = i
             main_window.ForceRender()
 
-            data(i).matrix = cWGSD.decalEntries(i).transform
+            Dim decal_item As New DecalGLInfo
+
+            decal_item.matrix = cWGSD.decalEntries(i).transform
 
             'Flip some row values to convert from DirectX to Opengl
-            data(i).matrix.M12 *= -1.0
-            data(i).matrix.M13 *= -1.0
-            data(i).matrix.M21 *= -1.0
-            data(i).matrix.M31 *= -1.0
-            data(i).matrix.M41 *= -1.0
+            decal_item.matrix.M12 *= -1.0
+            decal_item.matrix.M13 *= -1.0
+            decal_item.matrix.M21 *= -1.0
+            decal_item.matrix.M31 *= -1.0
+            decal_item.matrix.M41 *= -1.0
 
             Dim diff_fname = cBWST.find_str(cWGSD.decalEntries(i).diff_tex_fnv)
-            Dim normal_fname = cBWST.find_str(cWGSD.decalEntries(i).bump_tex_fnv)
-
-            'Dim gmm_fname = cBWST.find_str(cWGSD.decalEntries(i).hm_tex_fnv)
-            ''Not even sure what this is for...
-            'Dim add_fname = cBWST.find_str(cWGSD.decalEntries(i).add_tex_fnv)
-
-            'trap wet type decals that have no texture. I think this is the reason for no texture.
-            Dim D_tex = DUMMY_TEXTURE_ID
-            Dim D_handle = GL.Arb.GetTextureHandle(D_tex.texture_id)
-
-            Dim N_tex = DUMMY_TEXTURE_ID
-            Dim N_handle = GL.Arb.GetTextureHandle(N_tex.texture_id)
-
-            'Dim G_tex = DUMMY_TEXTURE_ID
-            'Dim G_handle = GL.Arb.GetTextureHandle(G_tex.texture_id)
-
-
-
             If diff_fname.Length > 0 Then
-                data(i).good = 1
-                D_tex = TextureMgr.OpenDDS(diff_fname)
-                D_handle = GL.Arb.GetTextureHandle(D_tex.texture_id)
+                decal_item.color_tex = TextureMgr.OpenDDS(diff_fname)
 
-                N_tex = TextureMgr.OpenDDS(normal_fname)
-                N_handle = GL.Arb.GetTextureHandle(N_tex.texture_id)
+                Dim normal_fname = cBWST.find_str(cWGSD.decalEntries(i).bump_tex_fnv)
+                decal_item.normal_tex = TextureMgr.OpenDDS(normal_fname)
 
-                'G_tex = TextureMgr.OpenDDS(gmm_fname)
-                'G_handle = GL.Arb.GetTextureHandle(G_tex.texture_id)
+                map_scene.decals.all_decals.Add(decal_item)
             Else
-                data(i).good = 0
+                ' Nothing to do?
             End If
 
-            If Not GL.Arb.IsTextureHandleResident(D_handle) Then
-                GL.Arb.MakeTextureHandleResident(D_handle)
-            End If
-            If Not GL.Arb.IsTextureHandleResident(N_handle) Then
-                GL.Arb.MakeTextureHandleResident(N_handle)
-            End If
-            'If Not GL.Arb.IsTextureHandleResident(G_handle) Then
-            '    GL.Arb.MakeTextureHandleResident(G_handle)
-            'End If
-
-            data(i).color_tex_handle = D_handle
-            data(i).normal_tex_handle = N_handle
-            'data(i).gmm_tex_handle = G_handle
         Next
 
-        map_scene.decals.decals_ssbo.Storage(Marshal.SizeOf(Of DecalGLInfo) * data.Length, data, OpenGL4.BufferStorageFlags.None)
-        map_scene.decals.decals_ssbo.BindBase(11)
         map_scene.DECALS_LOADED = True
     End Sub
 
