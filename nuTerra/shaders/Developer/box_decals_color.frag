@@ -7,6 +7,7 @@
 #include "common.h" //! #include "../common.h"
 
 layout (location = 0) out vec4 gColor;
+layout (location = 1) out vec4 gNormal;
 
 layout (binding = 0) uniform sampler2D depthMap;
 layout (binding = 1) uniform sampler2D igGMF;
@@ -55,8 +56,16 @@ void main()
     WorldPosition.xy += 0.5;
 
     vec4 color =  texture(color_tex, WorldPosition.xy);
-
     gColor = color;
+    vec4 normal =  texture(normal_tex, WorldPosition.xy);
+    vec3 normalBump;
+    normalBump.xy = normal.ag * 2.0 - 1.0;
+    float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
+    normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
+
+    gNormal.xyz = normalize(normalBump) *0.5 + 0.5;
+    gNormal.a = color.a;
+ 
 }
 
 

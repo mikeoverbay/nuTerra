@@ -41,6 +41,10 @@ Public Class MainFBO
     Private Shared attach_Color() As DrawBuffersEnum = {
         FramebufferAttachment.ColorAttachment0
     }
+    Private Shared attach_ColorNormal() As DrawBuffersEnum = {
+        FramebufferAttachment.ColorAttachment0,
+        FramebufferAttachment.ColorAttachment1
+    }
     Private Shared attach_Color_1_2() As DrawBuffersEnum = {
         FramebufferAttachment.ColorAttachment0,
         FramebufferAttachment.ColorAttachment6
@@ -168,6 +172,9 @@ Public Class MainFBO
 
     Public Shared Sub attach_C()
         fbo.DrawBuffers(1, attach_Color)
+    End Sub
+    Public Shared Sub attach_CN()
+        fbo.DrawBuffers(2, attach_ColorNormal)
     End Sub
     Public Shared Sub attach_C1_and_C2()
         fbo.DrawBuffers(2, attach_Color_1_2)

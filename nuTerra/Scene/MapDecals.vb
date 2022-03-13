@@ -28,6 +28,8 @@ Public Class MapDecals
 
         GL.Enable(EnableCap.Blend)
 
+        MainFBO.attach_CN()
+
         boxDecalsColorShader.Use()
 
         For Each decal In all_decals
