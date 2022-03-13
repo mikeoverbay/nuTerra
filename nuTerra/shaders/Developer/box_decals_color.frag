@@ -17,6 +17,9 @@ layout (binding = 3) uniform sampler2D color_tex;
 layout (binding = 4) uniform sampler2D SurfaceNormal;
 layout (binding = 5) uniform sampler2D gposition;
 
+uniform vec2 offset;
+uniform vec2 scale;
+
 in VS_OUT {
     flat mat4 invMVP;
 } fs_in;
@@ -65,7 +68,7 @@ void main()
     vec3 position = texture(gposition,uv).xyz;
     /*==================================================*/
     bool flag = texture(igGMF,uv).b*255.0 == 64.0;
-    if (flag) discard;
+    //if (flag) discard;
     /*==================================================*/
     // sample the Depth from the Depthsampler
     float depth = texture(depthMap, uv).x;
@@ -85,8 +88,9 @@ void main()
     /*==================================================*/
     //Get texture UVs
     WorldPosition.xy += 0.5;
+    vec2 tuv = WorldPosition.xy * scale + offset;
 
-    vec4 color =  texture(color_tex, WorldPosition.xy);
+    vec4 color =  texture(color_tex, tuv);
     gColor = color;
 
     gNormal.xyz = getNormal(position, texture(SurfaceNormal,uv).xyz, WorldPosition.xy) *0.5 + 0.5;   

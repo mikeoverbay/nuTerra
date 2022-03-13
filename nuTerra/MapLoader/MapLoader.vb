@@ -463,6 +463,14 @@ Module MapLoader
 
             Dim decal_item As New DecalGLInfo
 
+            decal_item.offset = cWGSD.decalEntries(i).offsets.Zw
+            decal_item.scale = cWGSD.decalEntries(i).uv_wrapping
+            If decal_item.offset.X > 0 Then
+                Stop
+            End If
+            If decal_item.offset.Y > 0 Then
+                Stop
+            End If
             decal_item.matrix = cWGSD.decalEntries(i).transform
 
             'Flip some row values to convert from DirectX to Opengl

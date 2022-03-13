@@ -6,6 +6,8 @@ Public Structure DecalGLInfo
     Dim color_tex As GLTexture
     Dim normal_tex As GLTexture
     Dim gSurfaceNormal As GLTexture
+    Dim offset As Vector2
+    Dim scale As Vector2
 End Structure
 
 
@@ -41,6 +43,8 @@ Public Class MapDecals
             GL.UniformMatrix4(boxDecalsColorShader("mvp"), False, decal.matrix * map_scene.camera.PerViewData.viewProj)
             decal.color_tex.BindUnit(3)
             decal.normal_tex.BindUnit(2)
+            GL.Uniform2(boxDecalsColorShader("offset"), decal.offset.X, decal.offset.Y)
+            GL.Uniform2(boxDecalsColorShader("scale"), decal.scale.X, decal.scale.Y)
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
         Next
