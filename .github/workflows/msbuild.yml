@@ -41,7 +41,7 @@ jobs:
         type: 'zip'
         directory: nuTerra/bin/Release/
         path: .
-        filename: nuTerra.zip
+        filename: ../../../nuTerra.zip
 
     - uses: dev-drprasad/delete-older-releases@v0.2.0
       continue-on-error: true
