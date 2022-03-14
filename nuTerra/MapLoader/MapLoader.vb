@@ -829,7 +829,18 @@ Module MapLoader
                     If unique.Contains(i) Then
                         old2new_indexes(i) = atlasParts.Count
                         atlasParts.Add(coords)
+                    Else
+                        '
+                        ' HACK HACK HACK!!!!!
+                        '
+                        If atlasPathAndUsage.Key = "content/buildings/00_atlases/eu_castleruins_atlas_mao.atlas" Then
+                            If i = 5 Then
+                                old2new_indexes(9) = atlasParts.Count
+                                atlasParts.Add(coords)
+                            End If
+                        End If
                     End If
+
                     i += 1
                 End While
             End Using
