@@ -8,7 +8,7 @@ Public Structure DecalGLInfo
     Dim gSurfaceNormal As GLTexture
     Dim offset As Vector2
     Dim scale As Vector2
-    Dim normal_only As Int32
+    Dim influence As Int32
     Dim color_only As Int32
     Dim flag3 As UInt32
     Dim material_type As Single
@@ -59,8 +59,7 @@ Public Class MapDecals
             decal.normal_tex.BindUnit(2)
             GL.Uniform2(boxDecalsColorShader("offset"), decal.offset.X, decal.offset.Y)
             GL.Uniform2(boxDecalsColorShader("scale"), decal.scale.X, decal.scale.Y)
-            GL.Uniform1(boxDecalsColorShader("n_only"), decal.normal_only)
-            GL.Uniform1(boxDecalsColorShader("c_only"), decal.color_only)
+            GL.Uniform1(boxDecalsColorShader("enfluence"), decal.influence)
 
 
             GL.Uniform1(boxDecalsColorShader("mtype"), decal.material_type)

@@ -467,9 +467,9 @@ Module MapLoader
             Dim flag = decal.v1 ' And decal.v2
             Dim m = flag ' - &HFFFFFFFF
 
-            decal_item.color_only = m And &HFFFF
+            decal_item.influence = CInt(decal.influenceType)
             decal_item.material_type = CSng(decal.materialType)
-            Debug.WriteLine("flag: " + decal_item.color_only.ToString + " id: " + i.ToString + " Mask: " + decal_item.color_only.ToString)
+            Debug.WriteLine("flag: " + decal_item.influence.ToString + " id: " + i.ToString)
 
 
             'Debug.WriteLine("materialType: " + decal.materialType.ToString)

@@ -19,8 +19,7 @@ layout (binding = 5) uniform sampler2D gposition;
 
 uniform vec2 offset;
 uniform vec2 scale;
-uniform int n_only;
-uniform int c_only;
+uniform int enfluence;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -62,15 +61,23 @@ vec3 getNormal(in vec3 v_Position, in vec3 v_Normal, in vec2 UV1)
     return n;
 }
 
-
+//        ' FLAG INFO
+//        ' 0  = No shading
+//        ' 64  = model 
+//        ' 128 = terrain
+//        ' 255 = sky dome. We will want to control brightness
+//        ' more as they are added
+//
 void main()
 {
     // Calculate UVs
     vec2 uv = gl_FragCoord.xy / resolution;
     vec3 position = texture(gposition,uv).xyz;
     /*==================================================*/
-    bool flag = texture(igGMF,uv).b*255.0 == 64.0;
-    //if (flag) discard;
+    int flag = int(texture(igGMF,uv).b*255.0);
+    if (flag == 64 && enfluence == 2) discard;
+    //if (flag == 128 && enfluence == 34) discard;
+    // influence of 18 seems to be draw on models and terrain.
     /*==================================================*/
     // sample the Depth from the Depthsampler
     float depth = texture(depthMap, uv).x;
@@ -96,25 +103,25 @@ void main()
    //Get texture UVs
     gColor = color;
 
-    if (c_only == 0) {
+    if (enfluence == 2) {
         gColor.rgb = vec3(1.0 ,0.0 ,0.0);
         }
-    if (c_only == 1) {
+    if (enfluence == 18) {
         gColor.rgb = vec3(0.0 ,1.0 ,0.0);
         }
-    if (c_only == 2) {
+    if (enfluence == 34) {
         gColor.rgb = vec3(0.0 ,0.0 ,1.0);
         }
-    if (c_only == 3) {
+    if (enfluence == 3) {
         gColor.rgb = vec3(1.0 ,1.0 ,0.0);
         }
-    if (c_only == 4) {
+    if (enfluence == 4) {
         gColor.rgb = vec3(1.0 ,0.0 ,1.0);
         }
-    if (c_only == 5) {
+    if (enfluence == 5) {
         gColor.rgb = vec3(0.0 ,1.0 ,1.0);
         }
-    if (c_only == 6) {
+    if (enfluence == 6) {
         gColor.rgb = vec3(0.1 ,1.0 ,1.0);
         }
 //    if (c_only == 65535) {
