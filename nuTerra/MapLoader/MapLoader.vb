@@ -464,10 +464,6 @@ Module MapLoader
 
             Dim decal_item As New DecalGLInfo
 
-            decal_item.color_only = 0
-            decal_item.normal_only = 0
-
-
             Dim flag = decal.v1 ' And decal.v2
             Dim m = flag ' - &HFFFFFFFF
 
@@ -495,6 +491,13 @@ Module MapLoader
             decal_item.matrix.M31 *= -1.0
             decal_item.matrix.M41 *= -1.0
 
+            Dim md = decal_item.matrix.Determinant
+            If md < 0 Then
+                decal_item.winding = FrontFaceDirection.Cw
+            Else
+                decal_item.winding = FrontFaceDirection.Ccw
+            End If
+
 
             Dim diff_fname = cBWST.find_str(decal.diff_tex_fnv)
             If diff_fname.Length > 0 Then
@@ -505,7 +508,10 @@ Module MapLoader
 
                 map_scene.decals.all_decals.Add(decal_item)
             Else
-                ' Nothing to do?
+                decal_item.color_tex = DUMMY_ATLAS
+                decal_item.normal_tex = DUMMY_ATLAS
+                map_scene.decals.all_decals.Add(decal_item)
+
             End If
             i += 1
         Next

@@ -12,7 +12,7 @@ Public Structure DecalGLInfo
     Dim color_only As Int32
     Dim flag3 As UInt32
     Dim material_type As Single
-
+    Dim winding As UInt32
 End Structure
 
 
@@ -39,6 +39,8 @@ Public Class MapDecals
         MainFBO.gSurfaceNormal.BindUnit(4)
         MainFBO.gPosition.BindUnit(5)
 
+        'GL.Disable(EnableCap.CullFace)
+
         GL.Enable(EnableCap.Blend)
         GL.DepthMask(False) ' stops decals from Z fighting
 
@@ -49,6 +51,9 @@ Public Class MapDecals
 
         For Each decal In all_decals
             GL.UniformMatrix4(boxDecalsColorShader("mvp"), False, mat * decal.matrix * map_scene.camera.PerViewData.viewProj)
+
+            'because the fucking winding order is wrong on some decals, we have to switch based on determinate 
+            GL.FrontFace(decal.winding)
 
             decal.color_tex.BindUnit(3)
             decal.normal_tex.BindUnit(2)

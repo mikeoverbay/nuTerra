@@ -117,10 +117,10 @@ void main()
     if (c_only == 6) {
         gColor.rgb = vec3(0.1 ,1.0 ,1.0);
         }
-    if (c_only == 65535) {
-        gColor.rgb = vec3(0.0 ,0.0 ,0.0);
-        }
-
+//    if (c_only == 65535) {
+//        gColor.rgb = vec3(0.0 ,0.0 ,0.0);
+//        }
+//
 
     gNormal.a = color.a;
 
