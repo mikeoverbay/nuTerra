@@ -23,6 +23,7 @@ out VS_OUT
     vec3 worldPosition;
     mat3 TBN;
     flat uint material_id;
+    flat vec3 surfaceNormal;
 #ifdef PICK_MODELS
     flat uint model_id;
 #endif
@@ -58,7 +59,7 @@ void main(void)
     vec3 t = normalize(normalMatrix * vertexTangent.xyz);
     vec3 b = normalize(normalMatrix * vertexBinormal.xyz);
     vec3 n = normalize(normalMatrix * vertexNormal.xyz);
-
+    vs_out.surfaceNormal = n;
     vs_out.TBN = mat3(t, b, n);
 
     // Calculate vertex position in clip coordinates

@@ -13,8 +13,10 @@ layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
+layout (location = 4) out vec3 gSurfaceNormals;
+
 #ifdef PICK_MODELS
-layout (location = 4) out uint gPick;
+layout (location = 5) out uint gPick;
 #endif
 
 // Input from vertex shader
@@ -25,6 +27,7 @@ in VS_OUT
     vec3 worldPosition;
     mat3 TBN;
     flat uint material_id;
+    flat vec3 surfaceNormal;
 #ifdef PICK_MODELS
     flat uint model_id;
 #endif
@@ -363,6 +366,7 @@ void main(void)
 
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
+    gSurfaceNormals = fs_in.surfaceNormal;
 
 #ifdef PICK_MODELS
     gPick.r = fs_in.model_id + 1;

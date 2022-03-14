@@ -19,6 +19,8 @@ layout (binding = 5) uniform sampler2D gposition;
 
 uniform vec2 offset;
 uniform vec2 scale;
+uniform int n_only;
+uniform int c_only;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -55,7 +57,7 @@ vec3 getNormal(in vec3 v_Position, in vec3 v_Normal, in vec2 UV1)
     normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
     normalBump = normalize(normalBump);
 
-    normalBump.x*=-1.0;
+    //normalBump.x*=-1.0;
     n = normalize(tbn * normalBump);
     return n;
 }
@@ -86,16 +88,42 @@ void main()
     clip (WorldPosition.xyz);
 
     /*==================================================*/
-    //Get texture UVs
-    WorldPosition.xy += 0.5;
-    vec2 tuv = WorldPosition.xy * scale + offset;
-
-    vec4 color =  texture(color_tex, tuv);
+   WorldPosition.xy += 0.5;
+   WorldPosition.xy *= -1.0;
+   vec2 tuv = WorldPosition.xy * scale + offset;
+   vec4 color =  texture(color_tex, tuv);
+   gNormal.xyz = getNormal(position, texture(SurfaceNormal,uv).xyz, tuv) *0.5 + 0.5;   
+   //Get texture UVs
     gColor = color;
 
-    gNormal.xyz = getNormal(position, texture(SurfaceNormal,uv).xyz, WorldPosition.xy) *0.5 + 0.5;   
+    if (c_only == 0) {
+        gColor.rgb = vec3(1.0 ,0.0 ,0.0);
+        }
+    if (c_only == 1) {
+        gColor.rgb = vec3(0.0 ,1.0 ,0.0);
+        }
+    if (c_only == 2) {
+        gColor.rgb = vec3(0.0 ,0.0 ,1.0);
+        }
+    if (c_only == 3) {
+        gColor.rgb = vec3(1.0 ,1.0 ,0.0);
+        }
+    if (c_only == 4) {
+        gColor.rgb = vec3(1.0 ,0.0 ,1.0);
+        }
+    if (c_only == 5) {
+        gColor.rgb = vec3(0.0 ,1.0 ,1.0);
+        }
+    if (c_only == 6) {
+        gColor.rgb = vec3(0.1 ,1.0 ,1.0);
+        }
+    if (c_only == 65535) {
+        gColor.rgb = vec3(0.0 ,0.0 ,0.0);
+        }
+
+
     gNormal.a = color.a;
- 
+
 }
 
 

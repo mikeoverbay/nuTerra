@@ -31,6 +31,7 @@ Public Class MainFBO
         FramebufferAttachment.ColorAttachment1,
         FramebufferAttachment.ColorAttachment2,
         FramebufferAttachment.ColorAttachment3,
+        FramebufferAttachment.ColorAttachment7,
         FramebufferAttachment.ColorAttachment4
     }
     Private Shared attach_Color_Normal_GMF_aux_fmask() As DrawBuffersEnum = {
@@ -172,9 +173,9 @@ Public Class MainFBO
     Public Shared Sub attach_CNGP()
         'attach our render buffer textures.
         If ModelPicker.Enabled Then
-            fbo.DrawBuffers(5, attach_Color_Normal_GMF)
+            fbo.DrawBuffers(6, attach_Color_Normal_GMF)
         Else
-            fbo.DrawBuffers(4, attach_Color_Normal_GMF)
+            fbo.DrawBuffers(5, attach_Color_Normal_GMF)
         End If
     End Sub
 

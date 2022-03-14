@@ -456,22 +456,37 @@ Module MapLoader
         BG_TEXT = "Building Decals.."
 
         map_scene.decals.all_decals = New List(Of DecalGLInfo)
+        Dim i As Int16 = 0
 
-        For i = 0 To cWGSD.decalEntries.Length - 1
+        For Each decal In cWGSD.decalEntries
             BG_VALUE = i
             main_window.ForceRender()
 
             Dim decal_item As New DecalGLInfo
 
-            decal_item.offset = cWGSD.decalEntries(i).offsets.Zw
-            decal_item.scale = cWGSD.decalEntries(i).uv_wrapping
-            If decal_item.offset.X > 0 Then
+            decal_item.color_only = 0
+            decal_item.normal_only = 0
+
+
+            Dim flag = decal.v1 ' And decal.v2
+            Dim m = flag ' - &HFFFFFFFF
+
+            decal_item.color_only = m And &HFFFF
+            decal_item.material_type = CSng(decal.materialType)
+            Debug.WriteLine("flag: " + decal_item.color_only.ToString + " id: " + i.ToString + " Mask: " + decal_item.color_only.ToString)
+
+
+            'Debug.WriteLine("materialType: " + decal.materialType.ToString)
+
+            decal_item.offset = decal.offsets.Xz 'XY?
+            decal_item.scale = decal.uv_wrapping
+
+            If decal_item.offset.X > 1 Then
                 Stop
             End If
             If decal_item.offset.Y > 0 Then
-                Stop
             End If
-            decal_item.matrix = cWGSD.decalEntries(i).transform
+            decal_item.matrix = decal.transform
 
             'Flip some row values to convert from DirectX to Opengl
             decal_item.matrix.M12 *= -1.0
@@ -480,18 +495,19 @@ Module MapLoader
             decal_item.matrix.M31 *= -1.0
             decal_item.matrix.M41 *= -1.0
 
-            Dim diff_fname = cBWST.find_str(cWGSD.decalEntries(i).diff_tex_fnv)
+
+            Dim diff_fname = cBWST.find_str(decal.diff_tex_fnv)
             If diff_fname.Length > 0 Then
                 decal_item.color_tex = TextureMgr.OpenDDS(diff_fname)
 
-                Dim normal_fname = cBWST.find_str(cWGSD.decalEntries(i).bump_tex_fnv)
+                Dim normal_fname = cBWST.find_str(decal.bump_tex_fnv)
                 decal_item.normal_tex = TextureMgr.OpenDDS(normal_fname)
 
                 map_scene.decals.all_decals.Add(decal_item)
             Else
                 ' Nothing to do?
             End If
-
+            i += 1
         Next
 
         map_scene.DECALS_LOADED = True

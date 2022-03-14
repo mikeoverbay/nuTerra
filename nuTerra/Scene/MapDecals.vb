@@ -8,6 +8,11 @@ Public Structure DecalGLInfo
     Dim gSurfaceNormal As GLTexture
     Dim offset As Vector2
     Dim scale As Vector2
+    Dim normal_only As Int32
+    Dim color_only As Int32
+    Dim flag3 As UInt32
+    Dim material_type As Single
+
 End Structure
 
 
@@ -35,16 +40,26 @@ Public Class MapDecals
         MainFBO.gPosition.BindUnit(5)
 
         GL.Enable(EnableCap.Blend)
-
+        GL.DepthMask(False) ' stops decals from Z fighting
 
         boxDecalsColorShader.Use()
+        ''-- scale up y some so terrain doesn't clip it.
+        Dim mat = Matrix4.Identity
+        mat.M22 = 1.0
 
         For Each decal In all_decals
-            GL.UniformMatrix4(boxDecalsColorShader("mvp"), False, decal.matrix * map_scene.camera.PerViewData.viewProj)
+            GL.UniformMatrix4(boxDecalsColorShader("mvp"), False, mat * decal.matrix * map_scene.camera.PerViewData.viewProj)
+
             decal.color_tex.BindUnit(3)
             decal.normal_tex.BindUnit(2)
             GL.Uniform2(boxDecalsColorShader("offset"), decal.offset.X, decal.offset.Y)
             GL.Uniform2(boxDecalsColorShader("scale"), decal.scale.X, decal.scale.Y)
+            GL.Uniform1(boxDecalsColorShader("n_only"), decal.normal_only)
+            GL.Uniform1(boxDecalsColorShader("c_only"), decal.color_only)
+
+
+            GL.Uniform1(boxDecalsColorShader("mtype"), decal.material_type)
+
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
         Next
@@ -52,6 +67,7 @@ Public Class MapDecals
         boxDecalsColorShader.StopUse()
 
         GL.Disable(EnableCap.Blend)
+        GL.DepthMask(True)
 
         ' UNBIND
         unbind_textures(5)
