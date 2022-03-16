@@ -8,11 +8,13 @@ Public Structure DecalGLInfo
     Dim gSurfaceNormal As GLTexture
     Dim offset As Vector2
     Dim scale As Vector2
-    Dim influence As Int32
-    Dim color_only As Int32
-    Dim flag3 As UInt32
-    Dim material_type As Single
+    Dim influence As UInt32
+    Dim visibility As UInt32
+    Dim v1 As UInt32
+    Dim v2 As UInt32
+    Dim material_type As UInt32
     Dim winding As UInt32
+    Dim wet As UInt32
 End Structure
 
 
@@ -36,10 +38,12 @@ Public Class MapDecals
 
         MainFBO.gDepth.BindUnit(0)
         MainFBO.gGMF.BindUnit(1)
+        MainFBO.gGMF.BindUnit(6)
+
         MainFBO.gSurfaceNormal.BindUnit(4)
         MainFBO.gPosition.BindUnit(5)
 
-        'GL.Disable(EnableCap.CullFace)
+        GL.Disable(EnableCap.CullFace)
 
         GL.Enable(EnableCap.Blend)
         GL.DepthMask(False) ' stops decals from Z fighting
@@ -57,13 +61,19 @@ Public Class MapDecals
 
             decal.color_tex.BindUnit(3)
             decal.normal_tex.BindUnit(2)
+
             GL.Uniform2(boxDecalsColorShader("offset"), decal.offset.X, decal.offset.Y)
             GL.Uniform2(boxDecalsColorShader("scale"), decal.scale.X, decal.scale.Y)
-            GL.Uniform1(boxDecalsColorShader("enfluence"), decal.influence)
 
+            GL.Uniform1(boxDecalsColorShader("influence"), decal.influence)
 
             GL.Uniform1(boxDecalsColorShader("mtype"), decal.material_type)
 
+            GL.Uniform1(boxDecalsColorShader("v1"), decal.v1)
+            GL.Uniform1(boxDecalsColorShader("v2"), decal.v2)
+            GL.Uniform1(boxDecalsColorShader("vis"), decal.visibility)
+
+            GL.Uniform1(boxDecalsColorShader("wet"), decal.wet)
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
         Next

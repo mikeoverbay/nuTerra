@@ -261,9 +261,9 @@ read3_only:
             DECAL_INDEX_LIST(k).decal_extra = cBWST.find_str(cWGSD.decalEntries(k).add_tex_fnv)
 
             DECAL_INDEX_LIST(k).influence = cWGSD.decalEntries(k).influenceType
-            If DECAL_INDEX_LIST(k).influence = 6 Then
-                DECAL_INDEX_LIST(k).influence = 2
-            End If
+            'If DECAL_INDEX_LIST(k).influence = 6 Then
+            '    DECAL_INDEX_LIST(k).influence = 2
+            'End If
 
             DECAL_INDEX_LIST(k).priority = cWGSD.decalEntries(k).priority
         Next

@@ -464,12 +464,25 @@ Module MapLoader
 
             Dim decal_item As New DecalGLInfo
 
-            Dim flag = decal.v1 ' And decal.v2
-            Dim m = flag ' - &HFFFFFFFF
+            decal_item.influence = CUInt(decal.influenceType)
+            decal_item.material_type = CUInt(decal.materialType)
 
-            decal_item.influence = CInt(decal.influenceType)
-            decal_item.material_type = CSng(decal.materialType)
-            Debug.WriteLine("flag: " + decal_item.influence.ToString + " id: " + i.ToString)
+            decal_item.visibility = decal.visibility_mask >> 16 And &HFFFF
+
+            decal_item.v1 = decal.v1 And &HFFFF
+
+            decal_item.v2 = decal.v2 And &HFFFF
+
+            'If decal_item.v2 > &HFF00 Then
+            '    decal_item.v2 = &HFFFF - (decal_item.v2 And &HFFFF) + 32
+            'End If
+
+            'Debug.WriteLine("inf: " + decal_item.influence.ToString +
+            '                "  mat: " + decal_item.material_type.ToString +
+            '                "  vis: " + decal_item.visibility.ToString +
+            '                "  v1: " + decal_item.v1.ToString +
+            '                "  v2: " + decal_item.v2.ToString +
+            '                "  id: " + i.ToString)
 
 
             'Debug.WriteLine("materialType: " + decal.materialType.ToString)
@@ -477,10 +490,11 @@ Module MapLoader
             decal_item.offset = decal.offsets.Xz 'XY?
             decal_item.scale = decal.uv_wrapping
 
-            If decal_item.offset.X > 1 Then
+            If decal_item.offset.X > 0 Then
                 Stop
             End If
             If decal_item.offset.Y > 0 Then
+                Stop
             End If
             decal_item.matrix = decal.transform
 
@@ -508,8 +522,16 @@ Module MapLoader
 
                 map_scene.decals.all_decals.Add(decal_item)
             Else
-                decal_item.color_tex = DUMMY_ATLAS
-                decal_item.normal_tex = DUMMY_ATLAS
+                decal_item.wet = CUInt(1)
+                Dim extra_name = cBWST.find_str(decal.add_tex_fnv)
+                Debug.WriteLine(extra_name)
+                decal_item.color_tex = TextureMgr.OpenDDS(extra_name)
+                Dim normal_fname = cBWST.find_str(decal.bump_tex_fnv)
+                If normal_fname = "" Then
+                    decal_item.normal_tex = TextureMgr.load_png_image_from_file("Ref_normalMap.png", True, False)
+                Else
+                    decal_item.normal_tex = TextureMgr.OpenDDS(normal_fname)
+                End If
                 map_scene.decals.all_decals.Add(decal_item)
 
             End If
@@ -521,7 +543,6 @@ Module MapLoader
 
     Public Sub set_light_pos()
         LIGHT_RADIUS = MAP_SIZE.Length * 100.0
-        'LIGHT_ORBIT_ANGLE_Z += 180.0
         LIGHT_ORBIT_ANGLE_Z = 360 - LIGHT_ORBIT_ANGLE_Z
         LIGHT_ORBIT_ANGLE_Z += 180.0F
 

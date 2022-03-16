@@ -8,6 +8,7 @@
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec4 gNormal;
+layout (location = 6) out vec4 gGMF;
 
 layout (binding = 0) uniform sampler2D depthMap;
 layout (binding = 1) uniform sampler2D igGMF;
@@ -19,10 +20,16 @@ layout (binding = 5) uniform sampler2D gposition;
 
 uniform vec2 offset;
 uniform vec2 scale;
-uniform int enfluence;
+uniform uint influence;
+uniform uint mType;
+uniform uint v1;
+uniform uint v2;
+uniform uint vis;
+uniform uint wet;
 
 in VS_OUT {
     flat mat4 invMVP;
+    flat vec3 s_vector;
 } fs_in;
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
@@ -73,9 +80,14 @@ void main()
     // Calculate UVs
     vec2 uv = gl_FragCoord.xy / resolution;
     vec3 position = texture(gposition,uv).xyz;
+
+    // not sure how to do cliping by angle :(
+    vec3 normal = texture(SurfaceNormal,uv).xyz;
+    float angle = dot(normal,fs_in.s_vector);
+//    if (angle > 0.6) discard;
     /*==================================================*/
-    int flag = int(texture(igGMF,uv).b*255.0);
-    if (flag == 64 && enfluence == 2) discard;
+//    int flag = int(texture(igGMF,uv).b*255.0);
+//    if (flag == 64 && influence == 2) discard;
     //if (flag == 128 && enfluence == 34) discard;
     // influence of 18 seems to be draw on models and terrain.
     /*==================================================*/
@@ -99,38 +111,70 @@ void main()
    WorldPosition.xy *= -1.0;
    vec2 tuv = WorldPosition.xy * scale + offset;
    vec4 color =  texture(color_tex, tuv);
-   gNormal.xyz = getNormal(position, texture(SurfaceNormal,uv).xyz, tuv) *0.5 + 0.5;   
    //Get texture UVs
-    gColor = color;
+   if (wet ==1) {
+       gColor.a = color.r*0.8;
+       gColor.rgb = vec3(0.0);
+       gNormal.a = color.r;
+       gGMF.r = 0.9;
+       }
+   else
+   {
+    gNormal.xyz = getNormal(position, texture(SurfaceNormal,uv).xyz, tuv) *0.5 + 0.5;   
+   gColor = color;
 
-    if (enfluence == 2) {
-        gColor.rgb = vec3(1.0 ,0.0 ,0.0);
-        }
-    if (enfluence == 18) {
-        gColor.rgb = vec3(0.0 ,1.0 ,0.0);
-        }
-    if (enfluence == 34) {
-        gColor.rgb = vec3(0.0 ,0.0 ,1.0);
-        }
-    if (enfluence == 3) {
-        gColor.rgb = vec3(1.0 ,1.0 ,0.0);
-        }
-    if (enfluence == 4) {
-        gColor.rgb = vec3(1.0 ,0.0 ,1.0);
-        }
-    if (enfluence == 5) {
-        gColor.rgb = vec3(0.0 ,1.0 ,1.0);
-        }
-    if (enfluence == 6) {
-        gColor.rgb = vec3(0.1 ,1.0 ,1.0);
-        }
-//    if (c_only == 65535) {
-//        gColor.rgb = vec3(0.0 ,0.0 ,0.0);
+    uint code = v2;
+//
+//    if (code == 0) {
+//        gColor.rgb = vec3(1.0 ,0.0 ,0.0);
 //        }
+//    if (code == 1) {
+//        gColor.rgb = vec3(0.0 ,1.0 ,0.0);
+//        }
+//    if (code == 2) {
+//        gColor.rgb = vec3(0.0 ,0.0 ,1.0);
+//        }
+//    if (code == 3) {
+//        gColor.rgb = vec3(1.0 ,1.0 ,0.0);
+//        }
+//    if (code == 4) {
+//        gColor.rgb = vec3(0.0 ,1.0 ,1.0);
+//        }
+//    if (code == 5) {
+//        gColor.rgb = vec3(1.0 ,1.0 ,1.0);
+//        }
+//    if (code == 6) {
+//        gColor.rgb = vec3(0.1 ,1.0 ,1.0);
+//        }
+//
+     code = v1;
+
+//    if (code == 0) {
+//        gColor.rgb = vec3(1.0 ,0.0 ,0.0);
+//        }
+//    if (code == 1) {
+//        gColor.rgb = vec3(0.0 ,1.0 ,0.0);
+//        }
+//    if (code == 2) {
+//        gColor.rgb = vec3(0.0 ,0.0 ,1.0);
+//        }
+//    if (code == 3) {
+//        gColor.rgb = vec3(1.0 ,1.0 ,0.0);
+//        }
+//    if (code == 4) {
+//        gColor.rgb = vec3(0.0 ,1.0 ,1.0);
+//        }
+//    if (code == 5) {
+//        gColor.rgb = vec3(1.0 ,1.0 ,1.0);
+//        }
+//    if (code == 6) {
+//        gColor.rgb = vec3(0.1 ,1.0 ,1.0);
+//        }
+//
 //
 
     gNormal.a = color.a;
-
+    }
 }
 
 
