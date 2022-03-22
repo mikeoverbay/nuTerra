@@ -156,7 +156,7 @@ void main (void)
             // Only light whats in range
             if (dist < cutoff) {
                 // kill the terrian normals where there is water
-                N = mix(N, blank_n, water_mix*0.7);
+                N = mix(N, blank_n, water_mix);
                 vec3 R = reflect(-L,N);
 
                 float lambertTerm = pow(max(dot(N, L),0.001),GM_in.g);

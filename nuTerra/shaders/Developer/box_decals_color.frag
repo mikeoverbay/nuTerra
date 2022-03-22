@@ -86,9 +86,9 @@ void main()
     float angle = dot(normal,fs_in.s_vector);
 //    if (angle > 0.6) discard;
     /*==================================================*/
-//    int flag = int(texture(igGMF,uv).b*255.0);
-//    if (flag == 64 && influence == 2) discard;
-    //if (flag == 128 && enfluence == 34) discard;
+    int flag = int(texture(igGMF,uv).b*255.0);
+    if (flag == 64 && influence == 2) discard;
+    if (flag == 128 && influence == 34) discard;
     // influence of 18 seems to be draw on models and terrain.
     /*==================================================*/
     // sample the Depth from the Depthsampler

@@ -48,6 +48,10 @@ Public Class MapDecals
         GL.Enable(EnableCap.Blend)
         GL.DepthMask(False) ' stops decals from Z fighting
 
+        'We do not want to write in to the alpha of color.
+        'It screws up decal normal mappping because alpha in gColor is wetness.
+        GL.ColorMask(True, True, True, False)
+
         boxDecalsColorShader.Use()
         ''-- scale up y some so terrain doesn't clip it.
         Dim mat = Matrix4.Identity
@@ -82,6 +86,7 @@ Public Class MapDecals
 
         GL.Disable(EnableCap.Blend)
         GL.DepthMask(True)
+        GL.ColorMask(True, True, True, True)
 
         ' UNBIND
         unbind_textures(5)
