@@ -125,6 +125,9 @@ Module PrimitiveLoader
         Public selfIllumination As Integer
         Public dirtAlbedoMap As String
         Public glassMap As String
+        Public g_detailInfluences As Vector4
+        Public g_detailMap As String
+        Public g_detailRejectTiling As Vector4
     End Structure
 
     Structure MaterialProps_lightonly_alpha

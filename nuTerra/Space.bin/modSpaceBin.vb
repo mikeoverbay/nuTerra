@@ -725,7 +725,7 @@ got_it:
                     mat.props = obj
                     mat.shader_type = ShaderTypes.FX_PBS_glass
 
-                Case "shaders/std_effects/PBS_ext_repaint.fx", "shaders/std_effects/PBS_ext_skinned_repaint.fx"
+                Case "shaders/std_effects/PBS_ext_repaint.fx", "shaders/std_effects/PBS_ext_skinned_repaint.fx", "shaders/std_effects/PBS_ext_detail_repaint.fx"
                     Dim knownPropNames As New HashSet(Of String)({
                         "diffuseMap",
                         "normalMap",
@@ -745,13 +745,19 @@ got_it:
                         "g_useTintColor",
                         "g_tintColor",
                         "texAddressMode",
-                        "g_applyOverlay"
+                        "g_applyOverlay",
+                        "g_detailInfluences",
+                        "g_detailMap",
+                        "g_detailRejectTiling"
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
                             Stop
                         End If
                     Next
+                    If fx = "shaders/std_effects/PBS_ext_detail_repaint.fx" Then
+                        'Stop
+                    End If
                     Dim obj As New MaterialProps_PBS_ext_repaint
                     With obj
                         'If props.ContainsKey("glassMap") Then Stop
@@ -780,6 +786,19 @@ got_it:
                         .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
                         .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
                         .g_enableAO = props("g_enableAO")
+                        If props.ContainsKey("detailinfluences") Then
+                            .g_detailInfluences = props("g_detailInfluences")
+                        End If
+                        If props.ContainsKey("g_detailInfluences") Then
+                            .g_detailInfluences = props("g_detailInfluences")
+                        End If
+                        If props.ContainsKey("g_detailMap") Then
+                            .g_detailMap = props("g_detailMap")
+                        End If
+
+                        If props.ContainsKey("g_detailRejectTiling") Then
+                            .g_detailRejectTiling = props("g_detailRejectTiling")
+                        End If
                         '.g_baseColor = If(props.ContainsKey("g_baseColor"), props("g_baseColor"), New Vector4(0.223529, 0.25098, 0.282353, 1))
 
                     End With

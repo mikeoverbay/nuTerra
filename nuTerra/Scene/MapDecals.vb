@@ -56,6 +56,9 @@ Public Class MapDecals
         ''-- scale up y some so terrain doesn't clip it.
         Dim mat = Matrix4.Identity
         mat.M22 = 1.0
+        Dim cam As Vector3 = map_scene.camera.CAM_POSITION
+
+        GL.Uniform3(boxDecalsColorShader("cam_position"), cam.X, cam.Y, cam.Z)
 
         For Each decal In all_decals
             GL.UniformMatrix4(boxDecalsColorShader("mvp"), False, mat * decal.matrix * map_scene.camera.PerViewData.viewProj)

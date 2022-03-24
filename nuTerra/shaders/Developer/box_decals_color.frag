@@ -26,6 +26,7 @@ uniform uint v1;
 uniform uint v2;
 uniform uint vis;
 uniform uint wet;
+uniform vec3 cam_position;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -34,6 +35,8 @@ in VS_OUT {
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
 const vec3 bl = vec3(-0.5, -0.5, -0.5);
+const float height_scale = 1.0;
+
 
 void clip(vec3 v) {
     if (v.x > tr.x || v.x < bl.x ) discard;
@@ -41,9 +44,7 @@ void clip(vec3 v) {
     if (v.z > tr.z || v.z < bl.z ) discard;
 }
 
-vec3 getNormal(in vec3 v_Position, in vec3 v_Normal, in vec2 UV1)
-{
-    // Retrieve the tangent space matrix
+mat3 get_tbn (in vec3 v_Position, in vec3 v_Normal, in vec2 UV1){
     vec3 pos_dx = dFdx(v_Position);
     vec3 pos_dy = dFdy(v_Position);
     vec3 tex_dx = dFdx(vec3(UV1, 0.0));
@@ -53,20 +54,30 @@ vec3 getNormal(in vec3 v_Position, in vec3 v_Normal, in vec2 UV1)
 
     t = normalize(t - ng * dot(ng, t));
     vec3 b = normalize(cross(ng, t));
-    mat3 tbn = mat3(t, b, ng);
-    vec3 n = ng;
+    return mat3(t, b, ng);
 
+}
+vec3 getNormal( in vec2 UV1)
+{
     vec3 normalBump;
     vec4 normal = texture(normal_tex,UV1);
     normalBump.xy = normal.ag * 2.0 - 1.0;
     float dp = min(dot(normalBump.xy, normalBump.xy),1.0);
     normalBump.z = clamp(sqrt(-dp+1.0),-1.0,1.0);
     normalBump = normalize(normalBump);
-
-    //normalBump.x*=-1.0;
-    n = normalize(tbn * normalBump);
-    return n;
+        //normalBump.x*=-1.0;
+    return normalBump;
 }
+
+
+vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
+{ 
+    float height =  texture(igGMF, texCoords).a;    
+    vec2 p = viewDir.xy / viewDir.z * (height * height_scale);
+    return texCoords - p;    
+} 
+
+
 
 //        ' FLAG INFO
 //        ' 0  = No shading
@@ -111,6 +122,9 @@ void main()
    WorldPosition.xy *= -1.0;
    vec2 tuv = WorldPosition.xy * scale + offset;
    vec4 color =  texture(color_tex, tuv);
+
+
+
    //Get texture UVs
    if (wet ==1) {
        gColor.a = color.r*0.8;
@@ -120,7 +134,16 @@ void main()
        }
    else
    {
-    gNormal.xyz = getNormal(position, texture(SurfaceNormal,uv).xyz, tuv) *0.5 + 0.5;   
+   mat3 TBN = get_tbn(position, texture(SurfaceNormal,uv).xyz, tuv);   
+
+   vec3 view_dir = (TBN * cam_position) - (TBN * position.xyz);
+
+   //tuv = ParallaxMapping( tuv, -view_dir);
+
+   vec4 color =  texture(color_tex, tuv);
+
+    gNormal.xyz = TBN * getNormal(tuv) *0.5 + 0.5;   
+
    gColor = color;
 
     uint code = v2;
