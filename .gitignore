@@ -188,3 +188,8 @@ GeneratedArtifacts/
 _Pvt_Extensions/
 ModelManifest.xml
 /.vs
+
+# Scratch space for assets pulled out of the game packages. Extracted textures
+# and models are redistributable game content and are large - keep them on disk
+# but out of the repo.
+work folder/
