@@ -215,6 +215,12 @@ Public Class Window
         DONT_BLOCK_TREES = My.Settings.load_trees
         DONT_BLOCK_WATER = My.Settings.load_water
 
+        ' Decal edge fading: on, using DecalEdgeProbe's own classification.
+        ' Set here rather than relying on the field initialisers so the startup
+        ' state is unambiguous and sits next to the flags it belongs with.
+        DECAL_EDGE_FADE = True
+        DECAL_EDGE_FADE_INVERT = False
+
         ShadowMappingFBO.FBO_Initialize()
         LogThis("{0}ms FBO ShadowMapping Created.", launch_timer.ElapsedMilliseconds)
 
@@ -712,7 +718,12 @@ try_again:
                 If ImGui.CollapsingHeader("Map") Then
                     ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
                     ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
-                    ImGui.Checkbox("Decal edge fade", DECAL_EDGE_FADE)
+                    ' shown inverted: ticking it turns fading off, so the box sits
+                    ' unchecked in the normal case
+                    Dim no_edge_fade = Not DECAL_EDGE_FADE
+                    If ImGui.Checkbox("Disable decal edge fade", no_edge_fade) Then
+                        DECAL_EDGE_FADE = Not no_edge_fade
+                    End If
                     ImGui.Checkbox("Invert edge fade selection", DECAL_EDGE_FADE_INVERT)
                     ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
                     ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)

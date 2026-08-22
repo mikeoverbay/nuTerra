@@ -19,7 +19,13 @@ Public Class VirtualTexture
 
     ReadOnly toload As List(Of PageCount)
 
-    Dim _mipbias As Integer = 5
+    ' Requested mip is floor(MipLevel(uv) - MipBias), so a bigger bias asks for
+    ' finer pages. Near the camera the result already clamps at mip 0, which is
+    ' why raising this sharpens the distance and leaves the foreground alone.
+    Const MAX_MIP_BIAS As Integer = 6
+    Const MIN_MIP_BIAS As Integer = 0
+
+    Dim _mipbias As Integer = MAX_MIP_BIAS
 
     Public Property MipBias As Integer
         Get
@@ -126,8 +132,20 @@ Public Class VirtualTexture
             For i = 0 To loadcount - 1
                 cache.Request(toload(i).Page)
             Next
+
+            ' Nothing left to fetch and the cache still has room, so we can afford
+            ' to ask for finer pages again. Without this the backoff below only
+            ' ever ratchets one way and the terrain never recovers its sharpness
+            ' after a single busy frame.
+            If toload.Count = 0 AndAlso _mipbias < MAX_MIP_BIAS Then
+                MipBias += 1
+            End If
         Else
-            MipBias -= 1
+            ' the working set does not fit - back off to coarser pages, but not
+            ' past the point where the bias stops meaning anything
+            If _mipbias > MIN_MIP_BIAS Then
+                MipBias -= 1
+            End If
         End If
 
         ' Update the page table
