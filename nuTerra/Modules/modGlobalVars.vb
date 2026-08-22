@@ -126,6 +126,15 @@ Module modGlobalVars
     '''<summary>Tree placements drawn into the shadow map this update.</summary>
     Public TREES_CASTING As Integer
     Public DONT_BLOCK_DECALS As Boolean
+    '''<summary>Fade decals out at the box edge when their texture runs to its border.</summary>
+    Public DECAL_EDGE_FADE As Boolean = True
+    '''<summary>
+    ''' Fade the decals DecalEdgeProbe said did NOT need it, and leave the ones it
+    ''' flagged alone. On by default because it looks better that way: the textures
+    ''' painted with a transparent margin are the ones that read as hard edged in
+    ''' practice, not the ones whose content runs to the border.
+    '''</summary>
+    Public DECAL_EDGE_FADE_INVERT As Boolean = True
     Public DONT_BLOCK_MODELS As Boolean = False
     Public DONT_BLOCK_BASES As Boolean
     Public DONT_BLOCK_SKY As Boolean

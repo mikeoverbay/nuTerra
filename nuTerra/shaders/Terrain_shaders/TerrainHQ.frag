@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #ifdef GL_SPIRV
 #extension GL_GOOGLE_include_directive : require
@@ -62,8 +62,10 @@ void main(void)
     // TRILINEAR FILTERING BETWEEN MIP1 AND MIP2
     const float specular_sample1 = SampleAtlas(SpecularTextureAtlas, page1, fs_in.Global_UV).r;
     const float specular_sample2 = SampleAtlas(SpecularTextureAtlas, page2, fs_in.Global_UV).r;
-    gGMF = vec4(0.2, mix(specular_sample1, specular_sample2, mipfract), 128.0/255.0, 0.0);
+    gGMF = vec4(0.2, mix(specular_sample1, specular_sample2, mipfract), GFLAG_TERRAIN, 0.0);
 
     gPosition = fs_in.worldPosition;
-    gSurfaceNormal = fs_in.worldNormal;
+    // gSurfaceNormal is Rgb8, so it has to carry a 0..1 encoding - writing the
+    // raw signed normal clamps every negative component away.
+    gSurfaceNormal = normalize(fs_in.worldNormal) * 0.5 + 0.5;
 }

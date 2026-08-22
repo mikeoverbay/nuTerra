@@ -147,6 +147,12 @@ Public Class PageLoader
 
         t_mixerShader.StopUse()
 
+        ' Roads are mixed into the page itself, on top of the terrain layers
+        ' that were just written, while the ortho still describes this page.
+        If map_scene.ROADS_LOADED Then
+            map_scene.roads.draw_into_page(proj, state.Page.Mip, left, right, bottom, top)
+        End If
+
         ' UNBIND
         unbind_textures(13)
 

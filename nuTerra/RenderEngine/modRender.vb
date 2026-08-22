@@ -133,9 +133,9 @@ Module modRender
             End If
         End If
 
-        If map_scene.ROADS_LOADED Then
-            map_scene.roads.draw()
-        End If
+        ' Roads are no longer drawn here. They are mixed into the virtual
+        ' texture pages instead, in PageLoader, so by the time the terrain is
+        ' drawn they are already part of it.
 
         If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             map_scene.static_models.draw_models()

@@ -712,6 +712,8 @@ try_again:
                 If ImGui.CollapsingHeader("Map") Then
                     ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
                     ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
+                    ImGui.Checkbox("Decal edge fade", DECAL_EDGE_FADE)
+                    ImGui.Checkbox("Invert edge fade selection", DECAL_EDGE_FADE_INVERT)
                     ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
                     ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
                     ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)

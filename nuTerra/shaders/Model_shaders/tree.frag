@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
@@ -28,7 +28,7 @@ void main(void)
         discard;
     }
 
-    const float renderType = 64.0/255.0; // same as models
+    const float renderType = GFLAG_MODEL;
 
     vec3 n = normalize(fs_in.normal);
     // Leaf cards are two-sided, and the x mirror reverses winding, so trust

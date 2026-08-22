@@ -370,7 +370,7 @@ CleanUp:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            Stop
+                            'Stop
                         End If
                     Next
 

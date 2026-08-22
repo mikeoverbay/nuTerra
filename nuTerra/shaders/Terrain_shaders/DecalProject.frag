@@ -34,7 +34,7 @@ void main()
     vec2 uv = gl_FragCoord.xy / resolution;
 
     /*==================================================*/
-    bool flag = texture(gGMF,uv).b*255.0 == 64.0;
+    bool flag = GBUF_RENDER(texture(gGMF,uv).b) == GBUF_RENDER_MODEL;
     if (flag) discard;
     //if (flag == 96) { discard; }
     //if (flag != 128) { discard; }

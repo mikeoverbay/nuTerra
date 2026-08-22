@@ -1,0 +1,50 @@
+Crater / shell-hole decal textures
+Pulled from C:\Games\World_of_Tanks_NAes\packages\*.pkg  ->  maps/decals_pbs/
+
+dds/  originals, byte for byte, folder structure preserved
+png/  mip 0 decoded to straight RGBA (alpha kept, so the cutout shows as transparency)
+albedo_contact_sheet.png   every _AM composited over sand at full alpha, for comparison
+
+Suffixes
+  _AM   albedo in RGB, coverage in A
+  _NM   normal, DXT5nm: X in ALPHA, Y in GREEN, R and B are zero
+  _GMM  R constant 255, G gloss, B metal, A unknown
+
+Stats are means over the whole mip-0 image. For _NM the rgb=(0,133,0) pattern is
+the empty R/B channels, not a green texture.
+
+00_CA_Decals/PBS_ShellHole_09_DDay_AM.dds     1024x1024 mips=11  DXT5   rgb=(126,113,100) a=131  [128_last_frontier_v.pkg]
+00_CA_Decals/PBS_ShellHole_10_DDay_GMM.dds    1024x1024 mips=11  DXT5   rgb=(188, 11,  1) a=100  [128_last_frontier_v.pkg]
+00_CA_Decals/PBS_ShellHole_10_DDay_NM.dds     1024x1024 mips=11  DXT5   rgb=(  0,127,  0) a=128  [128_last_frontier_v.pkg]
+PBS_ShellHole_08_AM.dds                       1024x1024 mips=11  DXT5   rgb=(128,116,101) a=101  [shared_content_sandbox-part2.pkg]  <-- Abbey
+PBS_ShellHole_08_GMM.dds                      1024x1024 mips=11  DXT5   rgb=(255, 73,  1) a=235  [shared_content_sandbox-part1.pkg]  <-- Abbey
+PBS_ShellHole_08_NM.dds                       1024x1024 mips=11  DXT5   rgb=(  0,133,  0) a=131  [shared_content_sandbox-part1.pkg]  <-- Abbey
+PBS_ShellHole_10_AM.dds                       1024x1024 mips=11  DXT5   rgb=( 90, 80, 72) a=101  [shared_content-part1.pkg]
+PBS_ShellHole_10_DDay_AM.dds                  1024x1024 mips=11  DXT5   rgb=(101, 92, 83) a=131  [shared_content-part2.pkg]
+PBS_ShellHole_10_DDay_GMM.dds                 1024x1024 mips=11  DXT5   rgb=(188, 11,  1) a=108  [shared_content-part2.pkg]
+PBS_ShellHole_10_DDay_NM.dds                  1024x1024 mips=11  DXT5   rgb=(  0,127,  0) a=128  [shared_content-part3.pkg]
+PBS_ShellHole_10_GMM.dds                      1024x1024 mips=11  DXT5   rgb=(230, 51,  1) a=235  [shared_content-part3.pkg]
+PBS_ShellHole_10_Iceland_AM.dds               1024x1024 mips=11  DXT5   rgb=( 40, 40, 39) a=101  [120_graf_zeppelin_scc.pkg]
+PBS_ShellHole_10_NM.dds                       1024x1024 mips=11  DXT5   rgb=(  0,133,  0) a=131  [shared_content-part3.pkg]
+PBS_ShellHole_114_AM.dds                      1024x1024 mips=11  DXT5   rgb=(117,103, 90) a=131  [shared_content-part3.pkg]
+PBS_ShellHole_11_AM.dds                       1024x1024 mips=11  DXT5   rgb=( 76, 72, 71) a=131  [shared_content_sandbox-part1.pkg]
+PBS_ShellHole_11_GMM.dds                      1024x1024 mips=11  DXT5   rgb=(188, 11,  1) a=100  [shared_content_sandbox-part2.pkg]
+PBS_ShellHole_11_NM.dds                       1024x1024 mips=11  DXT5   rgb=(  0,127,  0) a=128  [shared_content_sandbox-part2.pkg]
+PBS_ShellHole_12_AM.dds                       1024x1024 mips=11  DXT5   rgb=(114,111,106) a= 71  [shared_content-part2.pkg]
+PBS_ShellHole_12_GMM.dds                      1024x1024 mips=11  DXT5   rgb=(181, 11,  1) a=104  [shared_content-part3.pkg]
+PBS_ShellHole_12_NM.dds                       1024x1024 mips=11  DXT5   rgb=(  0,127,  0) a=127  [shared_content-part1.pkg]
+PBS_ShellHole_16_AM.dds                       1024x1024 mips=11  DXT5   rgb=( 92, 87, 80) a=131  [shared_content_sandbox-part2.pkg]
+PBS_ShellHole_16_GMM.dds                      1024x1024 mips=11  DXT5   rgb=(188, 11,  1) a=100  [shared_content_sandbox-part1.pkg]
+PBS_ShellHole_16_NM.dds                       1024x1024 mips=11  DXT5   rgb=(  0,127,  0) a=128  [shared_content_sandbox-part1.pkg]
+PBS_ShellHole_Winter_08_AM.dds                1024x1024 mips=11  DXT5   rgb=(123,115,106) a=101  [38_mannerheim_line.pkg]
+PBS_ShellHole_Winter_08_GMM.dds               1024x1024 mips=11  DXT5   rgb=(255, 73,  1) a=109  [38_mannerheim_line.pkg]
+PBS_ShellHole_Winter_08_NM.dds                1024x1024 mips=11  DXT5   rgb=(  0,133,  0) a=131  [38_mannerheim_line.pkg]
+ShellHoleSnow_12_AM.dds                       1024x1024 mips=11  DXT5   rgb=(192,190,190) a=116  [209_wg_epic_suburbia.pkg]
+ShellHoleSnow_12_GMM.dds                      1024x1024 mips=11  DXT5   rgb=(181, 11,  1) a= 54  [209_wg_epic_suburbia.pkg]
+ShellHoleSnow_12_NM.dds                       1024x1024 mips=11  DXT5   rgb=(  0,127,  0) a=127  [209_wg_epic_suburbia.pkg]
+Shell_Hole_00011_AM.dds                       1024x1024 mips=11  DXT5   rgb=(149,145,141) a=125  [shared_content-part1.pkg]
+Shell_Hole_00011_GMM.dds                      1024x1024 mips=11  DXT5   rgb=(242, 68,  0) a=146  [shared_content-part1.pkg]
+Shell_Hole_00011_NM.dds                       1024x1024 mips=11  DXT5   rgb=(  0,127,  0) a=127  [shared_content-part2.pkg]
+Shell_Hole_09_AM.dds                          1024x1024 mips=11  DXT5   rgb=(143,133,118) a=131  [shared_content-part1.pkg]
+Shell_Hole_09_GMM.dds                         1024x1024 mips=11  DXT5   rgb=(188, 11,  1) a=100  [shared_content-part1.pkg]
+Shell_Hole_09_NM.dds                          1024x1024 mips=11  DXT5   rgb=(  0,127,  0) a=128  [shared_content-part3.pkg]

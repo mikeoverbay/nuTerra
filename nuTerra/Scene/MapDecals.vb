@@ -12,9 +12,10 @@ Public Structure DecalGLInfo
     Dim visibility As UInt32
     Dim v1 As UInt32
     Dim v2 As UInt32
-    Dim material_type As UInt32
     Dim winding As UInt32
     Dim wet As UInt32
+    ''' <summary>1 when the texture's content reaches its border - see DecalEdgeProbe.</summary>
+    Dim edge_fade As UInt32
 End Structure
 
 
@@ -74,7 +75,10 @@ Public Class MapDecals
 
             GL.Uniform1(boxDecalsColorShader("influence"), decal.influence)
 
-            GL.Uniform1(boxDecalsColorShader("mtype"), decal.material_type)
+            ' inverting swaps which half of the map fades, so the probe's call can
+            ' be judged against the decals it decided to leave alone
+            Dim ef = If(DECAL_EDGE_FADE_INVERT, 1UI - decal.edge_fade, decal.edge_fade)
+            GL.Uniform1(boxDecalsColorShader("edge_fade"), If(DECAL_EDGE_FADE, ef, 0UI))
 
             GL.Uniform1(boxDecalsColorShader("v1"), decal.v1)
             GL.Uniform1(boxDecalsColorShader("v2"), decal.v2)

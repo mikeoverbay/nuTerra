@@ -6,6 +6,47 @@
 #define COMMON_PROPERTIES_UBO_BASE 2
 #define SHADOW_MAPPING_UBO_BASE 3
 
+// ---------------------------------------------------------------------------
+// gGMF.b packs two unrelated things into one byte, the way the game's
+// texObjKind alpha does: the high bits pick the lighting path in deferred.frag,
+// the low 3 bits name the surface kind for decal masking.
+//
+// A decal's influenceType from space.bin is a bitmask over those kinds, tested
+// as (influence >> kind) & 1. The game runs the same test through a 256x8
+// "bitwise LUT" texture, which is only a precomputed bit extraction - that is
+// why no such texture ships in the packages.
+//
+// Observed influence bits across 453,564 decals on 64 maps: 1, 2, 4 and 5 only.
+// Bit 1 is terrain (97% of all decals). Bits 4 and 5 are two distinct non
+// terrain classes; the texture names point at buildings and paved surfaces,
+// but that split is not confirmed, so roads currently answer to both.
+#define GBUF_RENDER_MASK 248u
+#define GBUF_KIND_MASK     7u
+
+#define KIND_TERRAIN 1u
+#define KIND_MODEL   4u
+#define KIND_ROAD    5u
+
+#define GFLAG_UNLIT   (  0.0 / 255.0)
+#define GFLAG_MODEL   ( 68.0 / 255.0)   //  64 | KIND_MODEL
+#define GFLAG_ROAD    ( 69.0 / 255.0)   //  64 | KIND_ROAD
+#define GFLAG_TERRAIN (129.0 / 255.0)   // 128 | KIND_TERRAIN
+#define GFLAG_SKY     (255.0 / 255.0)
+
+// Decode gGMF.b. Compare the render bits, never the raw byte - the low 3 bits
+// now carry the surface kind, so an == 64 test no longer matches a model.
+#define GBUF_RENDER(b)      (uint((b) * 255.0 + 0.5) & 192u)
+#define GBUF_KIND(b)        (uint((b) * 255.0 + 0.5) & GBUF_KIND_MASK)
+#define GBUF_RENDER_MODEL   64u
+#define GBUF_RENDER_TERRAIN 128u
+
+// Kinds nuTerra actually writes into gGMF.b. A decal whose influence names none
+// of these cannot be resolved - bit 5's surface has no G-buffer representation
+// here, since road meshes bake into the VT page rather than drawing into the
+// G-buffer - so those decals are let through rather than dropped.
+#define GBUF_KNOWN_KINDS ((1u << KIND_TERRAIN) | (1u << KIND_MODEL))
+// ---------------------------------------------------------------------------
+
 // SSBO
 #define MATRICES_BASE 0
 #define DRAW_CANDIDATES_BASE 1
@@ -212,13 +253,28 @@ layout(std430, binding = TERRAIN_CHUNK_INFO_BASE) readonly buffer TerrainChunkIn
 
 #ifdef USE_MIPLEVEL_FUNCTION
 // This function estimates mipmap levels
+// How far the sharp axis may run ahead of the blurred one. The game asks for 4
+// on its own decal atlases in space.settings, so 4 is in keeping.
+const float VT_MAX_ANISO = 4.0;
+
 float MipLevel(vec2 uv, float size)
 {
     vec2 dx = dFdx(uv * size);
     vec2 dy = dFdy(uv * size);
-    float d = max(dot(dx, dx), dot(dy, dy));
 
-    return max(0.5 * log2(d), 0);
+    // Squared lengths of the two axes of the pixel's footprint.
+    const float major = max(dot(dx, dx), dot(dy, dy));
+    float minor = min(dot(dx, dx), dot(dy, dy));
+
+    // Taking the major axis - which is what a plain max() does - picks a mip
+    // coarse enough for the longest direction and blurs the short one to match.
+    // At a glancing angle the footprint is long and thin, so the whole surface
+    // goes soft. Take the minor axis instead, but do not let it run more than
+    // VT_MAX_ANISO ahead of the major or the long direction starts to shimmer.
+    // Squared, because these are squared lengths.
+    minor = max(minor, major / (VT_MAX_ANISO * VT_MAX_ANISO));
+
+    return max(0.5 * log2(minor), 0);
 }
 #endif
 

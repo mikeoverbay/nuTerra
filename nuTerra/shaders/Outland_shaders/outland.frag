@@ -75,6 +75,6 @@ void main(void)
     gColor.a = 0.0;
 
     gPosition = fs_in.vertexPosition;
-    gGMF = vec4(0.2, 0.3, 128.0/255.0, 0.0);
+    gGMF = vec4(0.2, 0.3, GFLAG_TERRAIN, 0.0);
 
 }

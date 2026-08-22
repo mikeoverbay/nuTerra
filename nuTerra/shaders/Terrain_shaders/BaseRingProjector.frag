@@ -18,7 +18,7 @@ void main (void)
     vec2 UV = gl_FragCoord.xy / resolution;
     float Depth = texture(depthMap, UV).x;
 
-    bool flag = texture(gGMF, UV).b * 255.0 == 64.0;
+    bool flag = GBUF_RENDER(texture(gGMF, UV).b) == GBUF_RENDER_MODEL;
     if (flag) discard;
 
     // Calculate Worldposition by recreating it out of the coordinates and depth-sample

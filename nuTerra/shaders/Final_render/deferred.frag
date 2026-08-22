@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
@@ -87,14 +87,14 @@ void main (void)
     // Writen as a float in shaders as f = Flag_value/255.0
     // or just 0.0 to mask any shading.
     //
-    // If FLAG = 0 we want NO shading done to the color.
-    // Models = 64
-    // Dome = 255
+    // If the render bits are 0 we want NO shading done to the color.
+    // Models = 64, terrain = 128, dome = 255. The low 3 bits are the decal
+    // surface kind and must be masked off before comparing - see common.h.
     // Just output gColor to outColor;
-    if (FLAG != 000) {
+    if ((FLAG & GBUF_RENDER_MASK) != 0u) {
         // FLAG VALUES WILL BE DECIDED AS WE NEED THEM BUT..
         // ZERO = JUST PASS THE COLOR TO OUTPUT
-        if (FLAG != 255) {
+        if ((FLAG & GBUF_RENDER_MASK) != GBUF_RENDER_MASK) {
             vec3 Position = texelFetch(gPosition, ivec2(gl_FragCoord), 0).xyz;
 
             vec4 color_in = texelFetch(gColor, ivec2(gl_FragCoord), 0);
@@ -121,7 +121,7 @@ void main (void)
 
             float metal = GM_in.r;
 
-            if (FLAG == 64 || FLAG == 128) {
+            if ((FLAG & 192u) != 0u) {
                 //---------------------------------------------
                 // Poor mans PBR :)
                 // how shinny this is

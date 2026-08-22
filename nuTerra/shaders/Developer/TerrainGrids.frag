@@ -23,7 +23,7 @@ void main (void)
 
     // Calculate UVs
     vec2 uv_ = gl_FragCoord.xy / resolution;
-    bool fg = texture(gGMF,uv_).b * 255.0 == 64.0;
+    bool fg = GBUF_RENDER(texture(gGMF,uv_).b) == GBUF_RENDER_MODEL;
     if (fg) discard;
 
     int flag = 0;

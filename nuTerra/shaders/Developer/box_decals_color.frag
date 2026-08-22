@@ -21,12 +21,24 @@ layout (binding = 5) uniform sampler2D gposition;
 uniform vec2 offset;
 uniform vec2 scale;
 uniform uint influence;
-uniform uint mType;
 uniform uint v1;
 uniform uint v2;
 uniform uint vis;
 uniform uint wet;
 uniform vec3 cam_position;
+
+// 1 when this decal's texture runs opaque content all the way to its border, so
+// the box cuts it off square and we have to fade it ourselves. Textures painted
+// with a transparent margin already fade and must be left alone or they lose
+// their outer detail. Derived at load time by DecalEdgeProbe - space.bin has no
+// flag for it because the artist encodes it in the pixels.
+uniform uint edge_fade;
+
+// How far in from the box edge the fade runs, in the decal's local units. Local
+// XY spans -0.5..0.5, so this is 48% of the half extent, or 24% of the full box
+// width. It scales with the decal: on Abbey's flagged textures that works out
+// at 0.48 to 3.44 metres, median 1.68 on a typical 7 m patch.
+const float EDGE_FADE_WIDTH = 0.24;
 
 in VS_OUT {
     flat mat4 invMVP;
@@ -93,14 +105,18 @@ void main()
     vec3 position = texture(gposition,uv).xyz;
 
     // not sure how to do cliping by angle :(
-    vec3 normal = texture(SurfaceNormal,uv).xyz;
+    vec3 normal = texture(SurfaceNormal,uv).xyz * 2.0 - 1.0;
     float angle = dot(normal,fs_in.s_vector);
 //    if (angle > 0.6) discard;
     /*==================================================*/
-    int flag = int(texture(igGMF,uv).b*255.0);
-    if (flag == 64 && influence == 2) discard;
-    if (flag == 128 && influence == 34) discard;
-    // influence of 18 seems to be draw on models and terrain.
+    // A decal's influenceType is a bitmask over surface kinds, so the rule is
+    // just a bit test. The game does the same thing by sampling a 256x8
+    // "bitwise LUT" texture, which is only a precomputed bit extraction.
+    // Kinds live in the low 3 bits of gGMF.b - see common.h.
+    if ((influence & GBUF_KNOWN_KINDS) != 0u) {
+        uint kind = GBUF_KIND(texture(igGMF, uv).b);
+        if (((influence >> kind) & 1u) == 0u) discard;
+    }
     /*==================================================*/
     // sample the Depth from the Depthsampler
     float depth = texture(depthMap, uv).x;
@@ -116,6 +132,14 @@ void main()
     // trasform to decal original and size.
     // 1 x 1 x 1
     clip (WorldPosition.xyz);
+
+    // distance to the nearest side of the box, before the UV remap moves it:
+    // 0 at the edge, 0.5 at the middle
+    vec2 edge_distance = vec2(0.5) - abs(WorldPosition.xy);
+    float edge_alpha = 1.0;
+    if (edge_fade != 0u) {
+        edge_alpha = clamp(min(edge_distance.x, edge_distance.y) / EDGE_FADE_WIDTH, 0.0, 1.0);
+    }
 
     /*==================================================*/
    WorldPosition.xy += 0.5;
@@ -134,7 +158,7 @@ void main()
        }
    else
    {
-   mat3 TBN = get_tbn(position, texture(SurfaceNormal,uv).xyz, tuv);   
+   mat3 TBN = get_tbn(position, normal, tuv);
 
    vec3 view_dir = (TBN * cam_position) - (TBN * position.xyz);
 
@@ -198,6 +222,9 @@ void main()
 
     gNormal.a = color.a;
     }
+
+    gColor.a  *= edge_alpha;
+    gNormal.a *= edge_alpha;
 }
 
 

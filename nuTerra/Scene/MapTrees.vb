@@ -65,8 +65,6 @@ Public Class MapTrees
         ' Rewritten every frame into the compacted buffers.
         Public visible_base As Integer
         Public visible_count As Integer
-        Public caster_base As Integer
-        Public caster_count As Integer
     End Class
 
     Private vertices_buffer As GLBuffer
@@ -76,11 +74,6 @@ Public Class MapTrees
     '''<summary>Just the placements that survived the frustum, rewritten each frame.</summary>
     Private visible_buffer As GLBuffer
     Private visible As Matrix4()
-    '''<summary>The placements that can cast into the view, for the shadow pass.</summary>
-    Private caster_buffer As GLBuffer
-    Private casters As Matrix4()
-    '''<summary>How far a shadow is allowed to reach, in metres.</summary>
-    Private Const SHADOW_CAST_REACH As Single = 150.0F
     Private vao As GLVertexArray
     Private parts As New List(Of Part)
 
@@ -293,10 +286,6 @@ Public Class MapTrees
         visible_buffer.Storage(tarr.Length * MAT4_SIZE, tarr, BufferStorageFlags.DynamicStorageBit)
         ReDim visible(tarr.Length - 1)
 
-        caster_buffer = GLBuffer.Create(BufferTarget.ArrayBuffer, "treeInstancesCasters")
-        caster_buffer.Storage(tarr.Length * MAT4_SIZE, tarr, BufferStorageFlags.DynamicStorageBit)
-        ReDim casters(tarr.Length - 1)
-
         vao = GLVertexArray.Create("treesVao")
         vao.VertexBuffer(0, vertices_buffer, IntPtr.Zero, stride)
         vao.VertexBuffer(1, instance_buffer, IntPtr.Zero, MAT4_SIZE)
@@ -391,38 +380,6 @@ Public Class MapTrees
         Next
         Return written
     End Function
-    '''<summary>
-    ''' Keeps the placements that can cast into the view.
-    '''
-    ''' Drawing every tree on the map was costing far more than the visible pass:
-    ''' on 19_monastery the camera sees around 1,900 of 7,984 trees, and the
-    ''' geometry stage fans each one out to four cascades, so the shadow pass was
-    ''' doing roughly sixteen times the work of the pass you can actually see.
-    '''
-    ''' A tree matters if its box, swept along the light, reaches the frustum.
-    ''' The sweep is approximated by stretching the box that far toward the light
-    ''' - looser than the real swept volume, but it never drops a caster and it
-    ''' costs six adds per instance.
-    '''</summary>
-    Private Function cull_shadow_casters() As Integer
-        Dim d = LIGHT_POS.Normalized() * SHADOW_CAST_REACH
-        Dim grow_lo As New Vector3(Math.Min(0.0F, d.X), Math.Min(0.0F, d.Y), Math.Min(0.0F, d.Z))
-        Dim grow_hi As New Vector3(Math.Max(0.0F, d.X), Math.Max(0.0F, d.Y), Math.Max(0.0F, d.Z))
-
-        Dim written = 0
-        For Each p In parts
-            p.caster_base = written
-            For k = 0 To p.mats.Length - 1
-                If BoxInFrustum(p.mins(k) + grow_lo, p.maxs(k) + grow_hi) Then
-                    casters(written) = p.mats(k)
-                    written += 1
-                End If
-            Next
-            p.caster_count = written - p.caster_base
-        Next
-        Return written
-    End Function
-
     Public Sub draw()
         If Not scene.TREES_LOADED OrElse vao Is Nothing Then
             Return
@@ -472,6 +429,13 @@ Public Class MapTrees
     '''<summary>
     ''' Depth only pass into the cascades.
     '''
+    ''' Every placement is drawn, culled by nothing. That is deliberate and it
+    ''' is what the models do - indirect_shadow_mapping is built once at load
+    ''' and MultiDrawElementsIndirect walks all of it every time. A caster does
+    ''' not have to be on screen for its shadow to be, so culling the shadow
+    ''' pass against the camera frustum makes shadows wink out as their tree
+    ''' leaves the view.
+    '''
     ''' The fragment stage alpha tests against the leaf atlas, so what lands in
     ''' the shadow map is the outline of the leaves rather than of the cards.
     '''</summary>
@@ -480,24 +444,19 @@ Public Class MapTrees
             Return
         End If
 
-        Dim casting = cull_shadow_casters()
-        TREES_CASTING = casting
-        If casting = 0 Then Return
-
         GL_PUSH_GROUP("trees_shadow_pass")
 
-        caster_buffer.SubData(IntPtr.Zero, casting * 64, casters)
+        TREES_CASTING = TREES_TOTAL
 
         treeDepthShader.Use()
         GL.Disable(EnableCap.CullFace)
 
-        vao.VertexBuffer(1, caster_buffer, IntPtr.Zero, 64)
+        vao.VertexBuffer(1, instance_buffer, IntPtr.Zero, 64)
         vao.Bind()
         For Each p In parts
-            If p.caster_count = 0 Then Continue For
             GL.DrawElementsInstancedBaseVertexBaseInstance(
                 PrimitiveType.Triangles, p.index_count, DrawElementsType.UnsignedInt,
-                New IntPtr(p.index_offset), p.caster_count, p.base_vertex, p.caster_base)
+                New IntPtr(p.index_offset), p.instance_count, p.base_vertex, p.base_instance)
         Next
 
         treeDepthShader.StopUse()
@@ -511,7 +470,6 @@ Public Class MapTrees
         indices_buffer?.Dispose()
         instance_buffer?.Dispose()
         visible_buffer?.Dispose()
-        caster_buffer?.Dispose()
         vao?.Dispose()
     End Sub
 End Class

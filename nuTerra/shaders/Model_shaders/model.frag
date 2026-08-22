@@ -437,7 +437,7 @@ subroutine uniform fn_entry entries[11];
 // ================================================================================
 void main(void)
 {
-    const float renderType = 64.0/255.0; // 64 = PBS, 63 = light/bump
+    const float renderType = GFLAG_MODEL;
 
     entries[thisMaterial.shader_type]();
     gColor.rgb = pow(gColor.rgb, vec3(1.0 / 1.3));
@@ -445,7 +445,7 @@ void main(void)
 
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
-    gSurfaceNormals = fs_in.surfaceNormal;
+    gSurfaceNormals = normalize(fs_in.surfaceNormal) * 0.5 + 0.5;
 
 #ifdef PICK_MODELS
     gPick.r = fs_in.model_id + 1;
