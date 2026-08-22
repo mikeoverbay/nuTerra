@@ -356,7 +356,9 @@ Public Class MapTerrain
         Dim no As Assimp.Vector3D
 
         no = Assimp.Vector3D.Cross(e1, e2)
-        no.Normalize()
+        If no.LengthSquared() > 0.0F Then
+            no.Normalize()
+        End If
         Return no
     End Function
     Private Function check_map_border(v1 As Assimp.Vector3D) As Boolean
@@ -620,7 +622,16 @@ Public Class MapTerrain
                 Dim v2 = mat * verts(a2)
                 Dim v3 = mat * verts(a3)
 
-                Dim no = (make_surface_normal(v1, v2))
+                ' The vertex writes below swap Y and Z, which mirrors the coordinate
+                ' system, so a normal computed from v1/v2/v3 would not match the
+                ' winding actually stored in the file. Build the written positions
+                ' first and take the normal from those.
+                Dim p1 = New Assimp.Vector3D(v1.X, v1.Z, v1.Y)
+                Dim p2 = New Assimp.Vector3D(v2.X, v2.Z, v2.Y)
+                Dim p3 = New Assimp.Vector3D(v3.X, v3.Z, v3.Y)
+
+                ' cross of two EDGES, not of two positions
+                Dim no = make_surface_normal(p2 - p1, p3 - p1)
                 'normals.Add(no)
                 'normals.Add(no)
                 'normals.Add(no)
@@ -732,6 +743,11 @@ Public Class MapTerrain
             BG_VALUE = i
             main_window.ForceRender()
         Next
+        ' Static models go into the combined map only, never the per-chunk files.
+        If Me.scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+            Me.scene.static_models.AppendToStl(h_bw, total_stl_face_count)
+        End If
+
         h_bw.BaseStream.Position = 80
         h_bw.Write(total_stl_face_count) ' write total faces
         file_h.Close()

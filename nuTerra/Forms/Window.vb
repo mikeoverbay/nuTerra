@@ -234,6 +234,11 @@ Public Class Window
 
         _controller = New ImGuiController(ClientSize.X, ClientSize.Y)
 
+        If STARTUP_MAP IsNot Nothing Then
+            MapMenuScreen.MAP_TO_LOAD = STARTUP_MAP
+            MapMenuScreen.MAP_DESCRIPTION = STARTUP_MAP
+        End If
+
         fps_timer.Start()
     End Sub
 
@@ -359,6 +364,34 @@ try_again:
         SwapBuffers()
         FPS_COUNTER += 1
     End Sub
+
+    '''<summary>
+    ''' What survived clipping this frame, against what there is. The model
+    ''' numbers come back from the cull compute shader's atomic counters, the
+    ''' tree number from the CPU box test, and the terrain number from the per
+    ''' chunk visible flag.
+    '''</summary>
+    Private Function clip_counts() As String
+        Dim models = 0, model_total = 0
+        If map_scene IsNot Nothing AndAlso map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+            Dim sm = map_scene.static_models
+            models = sm.numAfterFrustum(0) + sm.numAfterFrustum(1) + sm.numAfterFrustum(2)
+            model_total = sm.numModelInstances
+        End If
+
+        Dim chunks = 0, chunk_total = 0
+        If theMap.render_set IsNot Nothing Then
+            chunk_total = theMap.render_set.Length
+            For i = 0 To chunk_total - 1
+                If theMap.render_set(i).visible Then chunks += 1
+            Next
+        End If
+
+        ' The model figure counts draw commands that survived culling, not
+        ' instances, so it is not a ratio of model_total and is not shown as one.
+        Return String.Format("| model draws {0} of {1} instances | trees {2}/{3} (cast {6}) | chunks {4}/{5}",
+                             models, model_total, TREES_DRAWN, TREES_TOTAL, chunks, chunk_total, TREES_CASTING)
+    End Function
 
     Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
         MyBase.OnKeyDown(e)
@@ -651,7 +684,10 @@ try_again:
                 NEED_TO_DO_SCREEN_CAPTURE = True
             End If
             ImGui.SameLine()
-            ImGui.Text(String.Format("FPS: {0,-3} | VRAM usage: {1,-4}mb of {2}mb", FPS_TIME, GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
+            ImGui.Text(String.Format("FPS: {0,-3} | VRAM: {1}mb of {2}mb", FPS_TIME,
+                                     GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
+            ' own line: the counts run past the end of the bar otherwise
+            ImGui.Text(clip_counts())
             ImGui.End()
         End If
 

@@ -113,11 +113,131 @@ Module modSpaceBinFunctions
     End Sub
 
 
+    ''' <summary>
+    ''' Reads the 127 bytes of a decal record that have been stable since 0.9.12.
+    ''' Leaves the stream positioned right after those 127 bytes; the caller is
+    ''' responsible for skipping any version-specific tail.
+    ''' </summary>
+    Private Sub read_decal_common(br As BinaryReader, k As Integer)
+        cWGSD.decalEntries(k).v1 = br.ReadUInt32
+        cWGSD.decalEntries(k).v2 = br.ReadUInt32
+
+        cWGSD.decalEntries(k).accurate = br.ReadByte
+
+        For i = 0 To 3
+            For j = 0 To 3
+                cWGSD.decalEntries(k).transform(i, j) = br.ReadSingle
+            Next
+        Next
+
+        ' get the texture names
+        cWGSD.decalEntries(k).diff_tex_fnv = br.ReadUInt32
+        cWGSD.decalEntries(k).bump_tex_fnv = br.ReadUInt32
+        cWGSD.decalEntries(k).hm_tex_fnv = br.ReadUInt32
+        cWGSD.decalEntries(k).add_tex_fnv = br.ReadUInt32
+
+        cWGSD.decalEntries(k).priority = br.ReadUInt32
+        cWGSD.decalEntries(k).influenceType = br.ReadByte
+        cWGSD.decalEntries(k).materialType = br.ReadByte
+
+        cWGSD.decalEntries(k).offsets.X = br.ReadSingle
+        cWGSD.decalEntries(k).offsets.Y = br.ReadSingle
+        cWGSD.decalEntries(k).offsets.Z = br.ReadSingle
+        cWGSD.decalEntries(k).offsets.W = br.ReadSingle
+
+        cWGSD.decalEntries(k).uv_wrapping.X = br.ReadSingle
+        cWGSD.decalEntries(k).uv_wrapping.Y = br.ReadSingle
+
+        cWGSD.decalEntries(k).visibility_mask = br.ReadUInt32
+        cWGSD.decalEntries(k).tiles_fade = br.ReadSingle
+
+        DECAL_INDEX_LIST(k).matrix = cWGSD.decalEntries(k).transform
+        DECAL_INDEX_LIST(k).offsets = cWGSD.decalEntries(k).offsets
+        DECAL_INDEX_LIST(k).uv_wrapping = cWGSD.decalEntries(k).uv_wrapping
+
+        ' now we can get the strings from the keys.
+        DECAL_INDEX_LIST(k).decal_texture = cBWST.find_str(cWGSD.decalEntries(k).diff_tex_fnv)
+
+        ' HACK: the normal map for Stone_06 does not exist in the pkg files!!
+        If DECAL_INDEX_LIST(k).decal_texture.Contains("Stone06.") Then
+            DECAL_INDEX_LIST(k).decal_normal = "Stone06_NM.dds"
+        Else
+            DECAL_INDEX_LIST(k).decal_normal = cBWST.find_str(cWGSD.decalEntries(k).bump_tex_fnv)
+        End If
+
+        DECAL_INDEX_LIST(k).decal_gmm = cBWST.find_str(cWGSD.decalEntries(k).hm_tex_fnv)
+        DECAL_INDEX_LIST(k).decal_extra = cBWST.find_str(cWGSD.decalEntries(k).add_tex_fnv)
+
+        DECAL_INDEX_LIST(k).influence = cWGSD.decalEntries(k).influenceType
+        DECAL_INDEX_LIST(k).priority = cWGSD.decalEntries(k).priority
+    End Sub
+
+    ''' <summary>
+    ''' WGSD section version 4 (WoT ~1.22+).
+    ''' Layout:
+    '''     group_count : UInt32
+    '''     per group   : type : UInt32, count : UInt32, entry_size : UInt32
+    '''                   count * entry_size bytes of decal records
+    '''     trailing table (size, count) - not used here
+    ''' The first 127 bytes of every record are the classic layout regardless of
+    ''' entry_size; the tail is type-dependent and currently unused, so we skip it.
+    ''' Observed: type 1 -> 131, type 3 -> 139, type 33 -> 147, type 35 -> 155.
+    ''' Bit 1 of type means "has parallax", bit 5 adds a further 16 bytes.
+    ''' </summary>
+    Private Sub read_WGSD_v4(br As BinaryReader)
+        Const COMMON_SIZE As Integer = 127
+
+        Dim groups_start = br.BaseStream.Position
+        Dim group_count = CInt(br.ReadUInt32())
+
+        ' pass 1: work out how many decals there are in total
+        Dim total As Integer = 0
+        For g = 0 To group_count - 1
+            br.ReadUInt32()                       ' type
+            Dim count = CInt(br.ReadUInt32())
+            Dim entry_size = CInt(br.ReadUInt32())
+            total += count
+            br.BaseStream.Position += CLng(count) * entry_size
+        Next
+
+        ReDim cWGSD.decalEntries(total - 1)
+        ReDim DECAL_INDEX_LIST(total - 1)
+
+        ' pass 2: read them
+        br.BaseStream.Position = groups_start + 4
+        Dim k As Integer = 0
+        For g = 0 To group_count - 1
+            Dim gtype = br.ReadUInt32()
+            Dim count = CInt(br.ReadUInt32())
+            Dim entry_size = CInt(br.ReadUInt32())
+
+            Debug.Assert(entry_size >= COMMON_SIZE, "WGSD entry smaller than the known common layout")
+
+            Dim is_parallax = (gtype And 2UI) <> 0UI
+
+            For i = 0 To count - 1
+                Dim entry_start = br.BaseStream.Position
+                read_decal_common(br, k)
+                DECAL_INDEX_LIST(k).is_parallax = is_parallax
+                ' skip the version/type specific tail
+                br.BaseStream.Position = entry_start + entry_size
+                k += 1
+            Next
+        Next
+
+        Debug.Assert(k = total)
+    End Sub
+
     Public Sub get_WGSD(ByRef wgsdHeader As SectionHeader, br As BinaryReader)
         'get the decal lists
         cWGSD = New cWGSD_
         'set stream reader to point at this chunk
         br.BaseStream.Position = wgsdHeader.offset
+
+        If wgsdHeader.version >= 4 Then
+            read_WGSD_v4(br)
+            Return
+        End If
 
         Dim ty = br.ReadUInt32() 'type?
         Dim vr = br.ReadUInt32() 'version?

@@ -44,6 +44,11 @@ Public Class GLBuffer
         CheckGLError()
     End Sub
 
+    Public Sub SubData(Of dataType As Structure)(offset As IntPtr, size As Integer, data() As dataType)
+        GL.NamedBufferSubData(buffer_id, offset, size, data)
+        CheckGLError()
+    End Sub
+
     Public Sub StorageNullData(size As Integer, flags As BufferStorageFlags)
         GL.NamedBufferStorage(buffer_id, size, IntPtr.Zero, flags)
         Me.size = size

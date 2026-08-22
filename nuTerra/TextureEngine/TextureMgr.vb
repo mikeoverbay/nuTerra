@@ -29,7 +29,7 @@ NotInheritable Class TextureMgr
         If id IsNot Nothing Then
             Return id
         End If
-        Dim entry = ResMgr.Lookup(fn)
+        Dim entry = ResMgr.LookupHD(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -47,7 +47,7 @@ NotInheritable Class TextureMgr
         If id IsNot Nothing Then
             Return id
         End If
-        Dim entry = ResMgr.Lookup(fn)
+        Dim entry = ResMgr.LookupHD(fn)
         If entry IsNot Nothing Then
             Dim ms As New MemoryStream
             entry.Extract(ms)
@@ -636,7 +636,7 @@ NotInheritable Class TextureMgr
         If image_id IsNot Nothing Then
             Return image_id
         End If
-        Dim entry = ResMgr.Lookup(path)
+        Dim entry = ResMgr.LookupHD(path)
         If entry Is Nothing Then
             Return Nothing
         End If

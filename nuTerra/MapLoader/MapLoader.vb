@@ -398,6 +398,10 @@ Module MapLoader
             build_decals()
         End If
 
+        If DONT_BLOCK_TREES Then
+            map_scene.trees.Build()
+        End If
+
         '===============================================================
         'load cube map for PBS_ext lighting,
         'It must happend after terrain load to get the path.
@@ -491,7 +495,7 @@ Module MapLoader
             decal_item.scale = decal.uv_wrapping
 
             If decal_item.offset.X > 0 Then
-                Stop
+                'Stop
             End If
             If decal_item.offset.Y > 0 Then
                 Stop
@@ -689,6 +693,22 @@ Module MapLoader
                     End If
                     texturePaths.Add(mat.props.globalTex)
 
+                Case ShaderTypes.FX_PBS_tiled
+                    texturePaths.Add(mat.props.albedoHeightTile0)
+                    texturePaths.Add(mat.props.normalGlossSpecTile0)
+                    texturePaths.Add(mat.props.metallicAOTile0)
+                    texturePaths.Add(mat.props.albedoHeightTile1)
+                    texturePaths.Add(mat.props.normalGlossSpecTile1)
+                    texturePaths.Add(mat.props.metallicAOTile1)
+                    texturePaths.Add(mat.props.albedoHeightTile2)
+                    texturePaths.Add(mat.props.normalGlossSpecTile2)
+                    texturePaths.Add(mat.props.metallicAOTile2)
+                    texturePaths.Add(mat.props.blendMask)
+                    texturePaths.Add(mat.props.colorTex)
+                    If mat.props.dirtMap IsNot Nothing Then
+                        texturePaths.Add(mat.props.dirtMap)
+                    End If
+
                 Case ShaderTypes.FX_PBS_glass
                     texturePaths.Add(mat.props.dirtAlbedoMap)
                     texturePaths.Add(mat.props.normalMap)
@@ -724,13 +744,10 @@ Module MapLoader
 
             If atlasPathAndUsage.Key.EndsWith(".dds") Then
                 Dim atlasSize = ddsAtlasSizes(atlasPathAndUsage.Key)
-                Dim dds_entry = ResMgr.Lookup(atlasPathAndUsage.Key.Replace(".dds", "_hd.dds"))
+                Dim dds_entry = ResMgr.LookupHD(atlasPathAndUsage.Key)
                 If dds_entry Is Nothing Then
-                    dds_entry = ResMgr.Lookup(atlasPathAndUsage.Key)
-                    If dds_entry Is Nothing Then
-                        Stop
-                        Continue For
-                    End If
+                    Stop
+                    Continue For
                 End If
 
                 Dim dds_ms As New MemoryStream
@@ -845,13 +862,20 @@ Module MapLoader
 
                 Dim unused1 = br.ReadUInt32
                 Debug.Assert({0, 1}.Contains(unused1)) 'boolean flag, compression?
-                Dim magic = br.ReadChars(4)
-                Debug.Assert(magic = "BCVT")
-                Dim unused2 = br.ReadUInt32
-                Debug.Assert(unused2 = 1)
 
-                Dim dds_chunk_size = br.ReadUInt64
-                ms.Position += dds_chunk_size
+                ' Older clients embedded the atlas bitmap here as a "BCVT" chunk.
+                ' Current ones drop it and start the coordinate table straight
+                ' after the header, so only skip a chunk that is actually there.
+                Dim entries_start = ms.Position
+                If ms.Length - ms.Position >= 4 AndAlso New String(br.ReadChars(4)) = "BCVT" Then
+                    Dim unused2 = br.ReadUInt32
+                    Debug.Assert(unused2 = 1)
+
+                    Dim dds_chunk_size = br.ReadUInt64
+                    ms.Position += dds_chunk_size
+                Else
+                    ms.Position = entries_start
+                End If
 
                 Dim i = 0
                 While br.BaseStream.Position < br.BaseStream.Length - 1
@@ -891,13 +915,10 @@ Module MapLoader
             For i = 0 To atlasParts.Count - 1
                 Dim coords = atlasParts(i)
 
-                Dim dds_entry = ResMgr.Lookup(coords.path.Replace(".dds", "_hd.dds"))
+                Dim dds_entry = ResMgr.LookupHD(coords.path)
                 If dds_entry Is Nothing Then
-                    dds_entry = ResMgr.Lookup(coords.path)
-                    If dds_entry Is Nothing Then
-                        Stop
-                        Continue For
-                    End If
+                    Stop
+                    Continue For
                 End If
 
                 Dim dds_ms As New MemoryStream
@@ -956,14 +977,17 @@ Module MapLoader
             If image_id IsNot Nothing Then
                 'Debug.WriteLine(texturePath)
                 Dim hndl = GL.Arb.GetTextureHandle(image_id.texture_id)
-                textureHandles(texturePath) = hndl
+                ' A bindless handle has to be resident before it can be sampled.
+                ' Without this every cache hit samples as solid white.
+                If Not GL.Arb.IsTextureHandleResident(hndl) Then
+                    GL.Arb.MakeTextureHandleResident(hndl)
+                End If
+                ' key on the original path, same as the load path below
+                textureHandles(old_texturePath) = hndl
                 Continue For
             End If
 
-            Dim entry = ResMgr.Lookup(texturePath.Replace(".dds", "_hd.dds"))
-            If entry Is Nothing Then
-                entry = ResMgr.Lookup(texturePath)
-            End If
+            Dim entry = ResMgr.LookupHD(texturePath)
             If entry Is Nothing Then
                 Stop
                 Continue For
@@ -1078,6 +1102,33 @@ Module MapLoader
                         .g_tileUVScale = props.g_tileUVScale
                         .double_sided = 0
 
+                    Case ShaderTypes.FX_PBS_tiled
+                        Dim props As MaterialProps_PBS_tiled = mat.props
+                        ' tile 0 / 1 / 2, each albedoHeight + normalGlossSpec + metallicAO
+                        .map1Handle = textureHandles(props.albedoHeightTile0)
+                        .map2Handle = textureHandles(props.normalGlossSpecTile0)
+                        .map3Handle = textureHandles(props.metallicAOTile0)
+                        .map4Handle = textureHandles(props.albedoHeightTile1)
+                        .map5Handle = textureHandles(props.normalGlossSpecTile1)
+                        .map6Handle = textureHandles(props.metallicAOTile1)
+                        .map7Handle = textureHandles(props.albedoHeightTile2)
+                        .map8Handle = textureHandles(props.normalGlossSpecTile2)
+                        .map9Handle = textureHandles(props.metallicAOTile2)
+                        .map10Handle = textureHandles(props.blendMask)
+                        If props.dirtMap IsNot Nothing Then
+                            .map11Handle = textureHandles(props.dirtMap)
+                        End If
+                        .map12Handle = textureHandles(props.colorTex)
+                        .g_tile0Tint = props.g_tile0Tint
+                        .g_tile1Tint = props.g_tile1Tint
+                        .g_tile2Tint = props.g_tile2Tint
+                        .dirtColor = props.g_dirtColor
+                        .dirtParams = props.g_dirtColorParams
+                        .g_detailInfluences = props.g_fakeShadowsAndDetailParams
+                        .alphaReference = props.alphaReference / 255.0
+                        .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
+                        .double_sided = If(props.doubleSided, 1, 0)
+
                     Case ShaderTypes.FX_PBS_glass
                         Dim props As MaterialProps_PBS_glass = mat.props
                         If props.dirtAlbedoMap IsNot Nothing Then
@@ -1114,6 +1165,12 @@ Module MapLoader
         Next
 
         materials = Nothing
+
+        ' This buffer is read as MaterialProperties in shaders/common.h under std430.
+        ' 10 vec4 (160) + 12 uvec2 (96) + 7 x 4-byte scalars (28) = 284, rounded up
+        ' to the 16-byte struct alignment = 288. Add a field here and you must add
+        ' it to common.h too, or every material reads garbage.
+        Debug.Assert(Marshal.SizeOf(Of GLMaterial) = 288, "GLMaterial no longer matches MaterialProperties in common.h")
 
         map_scene.static_models.materials = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "materials")
         map_scene.static_models.materials.Storage(

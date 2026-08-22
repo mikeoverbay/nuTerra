@@ -5,10 +5,20 @@ Public Class ShadowMappingFBO
     Public Shared depth_tex As GLTexture
 
     Public Const CASCADES = 4
-    Public Const WIDTH = 2048
-    Public Const HEIGHT = 2048
+    '''<summary>
+    ''' 4096 square per cascade. Four of them at 32 bit depth is 268 MB, against
+    ''' 67 MB at 2048 - affordable here, but it also quadruples the pixels the
+    ''' shadow pass has to rasterise, which is why FRAME_STEP matters below.
+    '''</summary>
+    Public Const WIDTH = 4096
+    Public Const HEIGHT = 4096
 
-    Public Shared FRAME_STEP As Integer = 20
+    '''<summary>
+    ''' Frames between shadow map updates. This was briefly 1, on the strength of
+    ''' a benchmark taken from an empty overhead view where it looked free; from
+    ''' a real viewpoint it is not, and at 4096 it is four times less free.
+    '''</summary>
+    Public Shared FRAME_STEP As Integer = 4
 
     Public Shared Property Enabled As Boolean
         Get

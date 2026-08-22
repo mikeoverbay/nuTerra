@@ -67,6 +67,28 @@ Module modFrustum
         frustum(5).Normalize()
     End Sub
 
+    '''<summary>
+    ''' Axis aligned box against the frustum, the same test the models are culled
+    ''' with in cull.comp: for each plane take the box corner furthest along the
+    ''' plane normal, and if even that one is outside then the whole box is.
+    '''
+    ''' Note the sense is the opposite of CubeInFrustum, which returns True for a
+    ''' box that is out.
+    '''</summary>
+    Public Function BoxInFrustum(bmin As Vector3, bmax As Vector3) As Boolean
+        For p = 0 To 5
+            Dim n = frustum(p).Xyz
+            Dim v As Vector3
+            v.X = If(n.X > 0.0F, bmax.X, bmin.X)
+            v.Y = If(n.Y > 0.0F, bmax.Y, bmin.Y)
+            v.Z = If(n.Z > 0.0F, bmax.Z, bmin.Z)
+            If Vector3.Dot(n, v) + frustum(p).W < 0.0F Then
+                Return False
+            End If
+        Next
+        Return True
+    End Function
+
     Public Function CubeInFrustum(bb() As Vector3) As Boolean
         For p = 0 To 5
             If Vector3.Dot(frustum(p).Xyz, bb(0)) + frustum(p).W > 0 Then

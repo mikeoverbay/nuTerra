@@ -85,6 +85,20 @@ Public Class MapScene
 
     ' https://docs.nvidia.com/gameworks/content/gameworkslibrary/graphicssamples/opengl_samples/cascadedshadowmapping.htm
     ' https://learnopengl.com/code_viewer_gh.php?code=src/8.guest/2021/2.csm/shadow_mapping.cpp
+    '''<summary>
+    ''' Light space matrix for one cascade.
+    '''
+    ''' The box is a fixed size and snapped to the shadow map's own texel grid.
+    ''' Fitting it tightly to the frustum corners instead, which is the obvious
+    ''' thing to do, makes the box change size and position every time the camera
+    ''' turns; the depth samples then land on different texels from one frame to
+    ''' the next and every shadow edge crawls. Sizing the box from a sphere round
+    ''' the frustum makes it rotation invariant, and snapping its origin to whole
+    ''' texels makes it translation invariant to within one texel.
+    '''
+    ''' The depth range is still measured from the corners, so casters behind the
+    ''' split stay inside it.
+    '''</summary>
     Private Function getLightSpaceMatrix(nearPlane As Single, farPlane As Single) As Matrix4
         Dim proj = Matrix4.CreatePerspectiveFieldOfView(
             FieldOfView,
@@ -99,8 +113,28 @@ Public Class MapScene
         Next
         center /= corners.Count
 
-        Dim light_view_matrix = Matrix4.LookAt(LIGHT_POS.Normalized() + center, center, Vector3.UnitY)
+        ' A sphere round the split: the same size whichever way the camera faces.
+        Dim radius = 0.0F
+        For Each v In corners
+            radius = Math.Max(radius, (v.Xyz - center).Length)
+        Next
+        radius = CSng(Math.Ceiling(radius * 16.0F) / 16.0F)
 
+        ' Straight up would make LookAt degenerate.
+        Dim light_dir = LIGHT_POS.Normalized()
+        Dim up = If(Math.Abs(light_dir.Y) > 0.99F, Vector3.UnitZ, Vector3.UnitY)
+
+        ' Snap the centre to the texel grid of the map we are about to render.
+        Dim snap_view = Matrix4.LookAt(light_dir + center, center, up)
+        Dim texel = radius * 2.0F / ShadowMappingFBO.WIDTH
+        Dim c = New Vector4(center, 1.0F) * snap_view
+        c.X = CSng(Math.Floor(c.X / texel)) * texel
+        c.Y = CSng(Math.Floor(c.Y / texel)) * texel
+        center = (c * Matrix4.Invert(snap_view)).Xyz
+
+        Dim light_view_matrix = Matrix4.LookAt(light_dir + center, center, up)
+
+        ' Depth still comes from the corners so casters behind the split survive.
         Dim max = Vector3.NegativeInfinity
         Dim min = Vector3.PositiveInfinity
         For Each v In corners
@@ -121,8 +155,11 @@ Public Class MapScene
             max.Z *= zMult
         End If
 
+        Dim c_ls = New Vector4(center, 1.0F) * light_view_matrix
         Dim light_proj_matrix = Matrix4.CreateOrthographicOffCenter(
-            min.X, max.X, min.Y, max.Y, min.Z, max.Z)
+            c_ls.X - radius, c_ls.X + radius,
+            c_ls.Y - radius, c_ls.Y + radius,
+            min.Z, max.Z)
 
         ' Fix for reversed-z
         light_proj_matrix.M33 = 1.0F / (max.Z - min.Z)
@@ -134,10 +171,19 @@ Public Class MapScene
     Public Sub ShadowMappingPass()
         GL_PUSH_GROUP("MapScene::ShadowMappingPass")
 
-        Dim vp_cascade0 = getLightSpaceMatrix(My.Settings.near, 20.0F)
-        Dim vp_cascade1 = getLightSpaceMatrix(20.0F, 200.0F)
-        Dim vp_cascade2 = getLightSpaceMatrix(200.0F, 700.0F)
-        Dim vp_cascade3 = getLightSpaceMatrix(700.0F, My.Settings.far)
+        ' Where one cascade hands over to the next. These MUST match
+        ' cascadePlaneDistances in shaders/common.h - the shader picks the
+        ' cascade with them, so if the two drift apart it samples the wrong map.
+        '
+        ' Doubling the maps to 4096 bought room to push the near cascade twice as
+        ' far for the same sharpness. The old 20/200/700 was badly lopsided too:
+        ' cascade 0 covered 20 m at roughly a centimetre per texel while cascade
+        ' 2 covered 500 m at a quarter of a metre. Spread out, the near detail is
+        ' unchanged and the middle distance is about three times finer.
+        Dim vp_cascade0 = getLightSpaceMatrix(My.Settings.near, 40.0F)
+        Dim vp_cascade1 = getLightSpaceMatrix(40.0F, 150.0F)
+        Dim vp_cascade2 = getLightSpaceMatrix(150.0F, 500.0F)
+        Dim vp_cascade3 = getLightSpaceMatrix(500.0F, My.Settings.far)
 
         GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, IntPtr.Zero, Marshal.SizeOf(Of Matrix4), vp_cascade0)
         GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, New IntPtr(Marshal.SizeOf(Of Matrix4) * 1), Marshal.SizeOf(Of Matrix4), vp_cascade1)
@@ -158,6 +204,10 @@ Public Class MapScene
             static_models.shadow_mapping_pass()
         End If
 
+        If TREES_LOADED AndAlso DONT_BLOCK_TREES Then
+            trees.shadow_pass()
+        End If
+
         GL.Disable(EnableCap.PolygonOffsetFill)
         GL.CullFace(CullFaceMode.Back)
 
@@ -172,6 +222,7 @@ Public Class MapScene
         base_rings.Dispose()
         mini_map.Dispose()
         fog.Dispose()
+        trees.Dispose()
         cursor.Dispose()
         camera.Dispose()
         decals.Dispose()

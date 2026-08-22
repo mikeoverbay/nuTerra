@@ -207,6 +207,8 @@ Module ShaderLoader
     Public TerrainHQShader As Shader
     Public TerrainLQShader As Shader
     Public TerrainVTMIPShader As Shader
+    Public treeShader As Shader
+    Public treeDepthShader As Shader
     Public toLinearShader As Shader
     Public TextRenderShader As Shader
     'particle shaders
@@ -279,6 +281,7 @@ Module ShaderLoader
         TerrainHQShader = New Shader("TerrainHQ") ' High Quality + Tessellation
 
         TerrainVTMIPShader = New Shader("TerrainVTMIP")
+        treeShader = New Shader("tree")
 
         TextRenderShader = New Shader("TextRender")
         toLinearShader = New Shader("toLinear")
@@ -286,6 +289,7 @@ Module ShaderLoader
         explode_type_1_shader = New Shader("explode_type_1_")
         'shadow shaders
         mDepthWrite_light = New Shader("mDepthWrite_light")
+        treeDepthShader = New Shader("treeDepth")
         imguiShader = New Shader("imgui")
 
         watcher = New FileSystemWatcher(Path.GetFullPath("shaders"))

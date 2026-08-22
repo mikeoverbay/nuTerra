@@ -18,6 +18,7 @@ Module PrimitiveLoader
         FX_PBS_ext_repaint = 7
         FX_lightonly_alpha = 8
         FX_unsupported = 9
+        FX_PBS_tiled = 10
     End Enum
 
     Structure MaterialProps_PBS_ext
@@ -98,6 +99,36 @@ Module PrimitiveLoader
         Public g_tileUVScale As Vector4
         Public alphaReference As Integer
         Public alphaTestEnable As Boolean
+    End Structure
+
+    ''' <summary>
+    ''' shaders/std_effects/PBS_tiled.fx
+    ''' Replaced PBS_tiled_atlas.fx: the three tile sets are now discrete
+    ''' textures instead of layers indexed into a shared atlas, so there is
+    ''' no g_atlasIndexes / g_tileUVScale any more.
+    ''' </summary>
+    Structure MaterialProps_PBS_tiled
+        Public albedoHeightTile0 As String
+        Public normalGlossSpecTile0 As String
+        Public metallicAOTile0 As String
+        Public albedoHeightTile1 As String
+        Public normalGlossSpecTile1 As String
+        Public metallicAOTile1 As String
+        Public albedoHeightTile2 As String
+        Public normalGlossSpecTile2 As String
+        Public metallicAOTile2 As String
+        Public blendMask As String
+        Public dirtMap As String
+        Public colorTex As String
+        Public g_tile0Tint As Vector4
+        Public g_tile1Tint As Vector4
+        Public g_tile2Tint As Vector4
+        Public g_dirtColor As Vector4
+        Public g_dirtColorParams As Vector4
+        Public g_fakeShadowsAndDetailParams As Vector4
+        Public alphaReference As Integer
+        Public alphaTestEnable As Boolean
+        Public doubleSided As Boolean
     End Structure
 
     Structure MaterialProps_PBS_glass

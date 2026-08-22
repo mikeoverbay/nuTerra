@@ -1,4 +1,4 @@
-Imports System.Reflection
+﻿Imports System.Reflection
 
 Module Program
     Public main_window As Window
@@ -8,6 +8,11 @@ Module Program
 
         ' preload
         Dim asm = Assembly.Load("nuTerraCPP")
+
+        ' Optional: nuTerra.exe <map_name> loads that map straight away.
+        If args.Length > 0 Then
+            STARTUP_MAP = args(0)
+        End If
 
         If My.Settings.UpgradeRequired Then
             My.Settings.Upgrade()

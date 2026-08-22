@@ -30,7 +30,7 @@
       <Value Profile="(Default)">50</Value>
     </Setting>
     <Setting Name="Gamma_level" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">50</Value>
+      <Value Profile="(Default)">46</Value>
     </Setting>
     <Setting Name="Fog_level" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">0</Value>

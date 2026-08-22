@@ -50,6 +50,26 @@ NotInheritable Class ResMgr
 
     End Sub
 
+    '''<summary>
+    ''' Every space that actually has terrain data in the installed packages.
+    ''' The game's arena list names maps that are not shipped and misses the
+    ''' event and hangar spaces that are, so the menu is built from this instead.
+    '''</summary>
+    Public Shared Function SpaceNames() As List(Of String)
+        Const PREFIX = "spaces/"
+        Const SUFFIX = "/space.bin"
+
+        Dim found As New List(Of String)
+        For Each key In FILENAME_TO_ZIP_ENTRY.Keys
+            If key.StartsWith(PREFIX) AndAlso key.EndsWith(SUFFIX) Then
+                Dim name = key.Substring(PREFIX.Length, key.Length - PREFIX.Length - SUFFIX.Length)
+                If Not name.Contains("/") Then found.Add(name)
+            End If
+        Next
+        found.Sort()
+        Return found
+    End Function
+
     Public Shared Function Lookup(filename As String) As ZipEntry
         If File.Exists(Path.Combine(RES_MODS_PATH, filename)) Then
             Dim tmpZip As New ZipFile
@@ -72,6 +92,37 @@ NotInheritable Class ResMgr
 
         LogThis("file not found: {0}", filename)
         Return Nothing
+    End Function
+
+    ''' <summary>
+    ''' Dictionary-only probe. Unlike Lookup this does not log or break on a
+    ''' miss, so it is safe to use for speculative lookups.
+    ''' </summary>
+    Private Shared Function LookupQuiet(filename As String) As ZipEntry
+        Dim lowered_fn = filename.ToLower.Replace("\", "/")
+        If FILENAME_TO_ZIP_ENTRY.ContainsKey(lowered_fn) Then
+            Return FILENAME_TO_ZIP_ENTRY(lowered_fn)
+        End If
+        Return Nothing
+    End Function
+
+    ''' <summary>
+    ''' Looks up a texture, preferring the high resolution variant when the game
+    ''' ships one. HD textures live in the *_hd.pkg packages under the same path
+    ''' with an "_hd" suffix, at twice the base resolution. Terrain tiles under
+    ''' maps/landscape have no HD variant - they are already 1024x1024 - so this
+    ''' simply falls through to the base file for them.
+    ''' </summary>
+    Public Shared Function LookupHD(filename As String) As ZipEntry
+        If filename.EndsWith(".dds", StringComparison.OrdinalIgnoreCase) AndAlso
+           Not filename.EndsWith("_hd.dds", StringComparison.OrdinalIgnoreCase) Then
+            Dim hd = filename.Substring(0, filename.Length - 4) & "_hd.dds"
+            Dim hd_entry = LookupQuiet(hd)
+            If hd_entry IsNot Nothing Then
+                Return hd_entry
+            End If
+        End If
+        Return Lookup(filename)
     End Function
 
     Public Shared Function openXML(filepath As String) As XmlElement

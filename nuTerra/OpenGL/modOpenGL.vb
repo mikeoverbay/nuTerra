@@ -124,6 +124,15 @@ Module modOpenGL
         Dim map4Handle As UInt64
         Dim map5Handle As UInt64
         Dim map6Handle As UInt64
+        ' PBS_tiled.fx needs 12: 3 tile sets x (albedoHeight, normalGlossSpec, metallicAO)
+        ' plus blendMask, dirtMap and colorTex. Must stay in lockstep with
+        ' MaterialProperties.maps[12] in shaders/common.h (std430).
+        Dim map7Handle As UInt64
+        Dim map8Handle As UInt64
+        Dim map9Handle As UInt64
+        Dim map10Handle As UInt64
+        Dim map11Handle As UInt64
+        Dim map12Handle As UInt64
         Dim shader_type As UInt32
         Dim texAddressMode As UInt32
         Dim alphaReference As Single
@@ -150,6 +159,16 @@ Module modOpenGL
         Public _BRIGHTNESS As Single
         Public _SPECULAR As Single
         Public _GRAY_LEVEL As Single
+        '''<summary>
+        ''' Standard sRGB gamma, 1 / 2.2.
+        '''
+        ''' Not taken from My.Settings.Gamma_level any more. That one is an
+        ''' integer in hundredths, so it cannot express 0.455, and it is never
+        ''' written back - the slider edits GAMMA_LEVEL directly - so every saved
+        ''' config still holds the old 50 and would override a changed default.
+        '''</summary>
+        Public Const DEFAULT_GAMMA As Single = 0.455F
+
         Public _GAMMA_LEVEL As Single
         Public _FOG_LEVEL As Single
         Public blend_macro_influence As Single ' from space.bin/BWT2
@@ -266,9 +285,14 @@ Module modOpenGL
             _BRIGHTNESS = My.Settings.Bright_level / 50.0!
             _SPECULAR = My.Settings.Specular_level / 100.0!
             _GRAY_LEVEL = 1.0 - (My.Settings.Gray_level / 100.0!)
-            _GAMMA_LEVEL = My.Settings.Gamma_level / 100.0!
+            _GAMMA_LEVEL = DEFAULT_GAMMA
             _FOG_LEVEL = (My.Settings.Fog_level / 10000.0!) * 100.0F
             _tess_level = 1.0
+
+            ' Shadows on. Init never touched this, so it sat at the Integer
+            ' default of zero and every session started with them off until the
+            ' checkbox was ticked.
+            USE_SHADOW_MAPPING = 1
         End Sub
 
         Public Sub update()

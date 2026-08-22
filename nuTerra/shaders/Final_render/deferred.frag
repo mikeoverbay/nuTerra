@@ -273,21 +273,29 @@ void main (void)
             if (coords.z < 1.0 && coords.z > 0.0) {
                 coords.w = layer; // layer
                 coords = coords.xywz;
-#if 1
+                // Every cascade shares one 2048 map but covers a very
+                // different slice of the world, so a fixed one-texel 3x3 gives a
+                // hard edge up close and a mush far away. Widening the kernel on
+                // the near cascades spends the taps where the texels are small
+                // enough to be worth filtering.
+                const float kernel[4] = float[4](2.5, 1.5, 1.0, 1.0);
+                float spread = kernel[layer] / float(textureSize(shadowMap, 0).x);
+
+                // Rotate the tap pattern per pixel. Without this the 3x3 leaves
+                // a visible square grain along every shadow edge; with it the
+                // same nine taps read as noise, which the eye forgives.
+                float a = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+                vec2 rc = vec2(cos(a), sin(a));
+
                 float shadowDepth = 0.0;
-                shadowDepth += textureOffset(shadowMap, coords, ivec2(-1,-1));
-                shadowDepth += textureOffset(shadowMap, coords, ivec2( 0,-1));
-                shadowDepth += textureOffset(shadowMap, coords, ivec2( 1,-1));
-                shadowDepth += textureOffset(shadowMap, coords, ivec2(-1, 0));
-                shadowDepth += textureOffset(shadowMap, coords, ivec2( 0, 0));
-                shadowDepth += textureOffset(shadowMap, coords, ivec2( 1, 0));
-                shadowDepth += textureOffset(shadowMap, coords, ivec2(-1, 1));
-                shadowDepth += textureOffset(shadowMap, coords, ivec2( 0, 1));
-                shadowDepth += textureOffset(shadowMap, coords, ivec2( 1, 1));
+                for (int oy = -1; oy <= 1; ++oy)
+                for (int ox = -1; ox <= 1; ++ox)
+                {
+                    vec2 o = vec2(ox, oy);
+                    o = vec2(o.x * rc.x - o.y * rc.y, o.x * rc.y + o.y * rc.x);
+                    shadowDepth += texture(shadowMap, vec4(coords.xy + o * spread, coords.z, coords.w));
+                }
                 shadowDepth /= 9.0;
-#else
-                float shadowDepth = texture(shadowMap, coords);
-#endif
                 outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
             }
             }

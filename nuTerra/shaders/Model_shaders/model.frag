@@ -351,7 +351,86 @@ layout(index = 9) subroutine(fn_entry) void FX_unsupported_entry()
     gColor = vec4(1.0, 1.0, 1.0, 0.0);
 }
 //##################################################################################
-subroutine uniform fn_entry entries[10];
+// shaders/std_effects/PBS_tiled.fx
+// Successor to PBS_tiled_atlas.fx. Same three-way height blend, but each tile
+// set is its own 2D texture instead of a layer indexed into a shared atlas,
+// so there is no g_atlasIndexes / padded atlas UV any more.
+layout(index = 10) subroutine(fn_entry) void FX_PBS_tiled_entry()
+{
+    const sampler2D albedoHeightTile0_sampler    = sampler2D(thisMaterial.maps[0]);
+    const sampler2D normalGlossSpecTile0_sampler = sampler2D(thisMaterial.maps[1]);
+    const sampler2D metallicAOTile0_sampler      = sampler2D(thisMaterial.maps[2]);
+    const sampler2D albedoHeightTile1_sampler    = sampler2D(thisMaterial.maps[3]);
+    const sampler2D normalGlossSpecTile1_sampler = sampler2D(thisMaterial.maps[4]);
+    const sampler2D metallicAOTile1_sampler      = sampler2D(thisMaterial.maps[5]);
+    const sampler2D albedoHeightTile2_sampler    = sampler2D(thisMaterial.maps[6]);
+    const sampler2D normalGlossSpecTile2_sampler = sampler2D(thisMaterial.maps[7]);
+    const sampler2D metallicAOTile2_sampler      = sampler2D(thisMaterial.maps[8]);
+    const sampler2D blendMask_sampler            = sampler2D(thisMaterial.maps[9]);
+
+    // tiles repeat across the surface; the blend mask is unique per model (UV2)
+    const vec2 uv1 = fs_in.TC1;
+
+    vec4 colorAM_x = texture(albedoHeightTile0_sampler, uv1) * thisMaterial.g_tile0Tint;
+    vec4 colorAM_y = texture(albedoHeightTile1_sampler, uv1) * thisMaterial.g_tile1Tint;
+    vec4 colorAM_z = texture(albedoHeightTile2_sampler, uv1) * thisMaterial.g_tile2Tint;
+
+    vec4 blend = textureLod(blendMask_sampler, fs_in.TC2, 0.0);
+
+    // same weighting as FX_PBS_tiled_atlas_entry
+    float b = -blend.y + 1.0;
+    blend.z = clamp(-blend.x + b, 0.0, 1.0);
+    blend.z += 0.01;
+
+    blend.x *= colorAM_x.a;
+    blend.y *= colorAM_y.a;
+    blend.z *= colorAM_z.a;
+
+    blend.xyz *= blend.xyz;
+    blend.xyz *= blend.xyz;
+    blend.xyz *= blend.xyz;
+
+    float d = dot(blend.xyz, vec3(1.0));
+    blend.xyz = blend.xyz / d;
+
+    // pick the dominant tile for the normal / metallic-AO lookup, matching the
+    // atlas path which sampled a single dominant layer rather than blending
+    vec4 GBMT, MAO;
+    if (blend.y > blend.x && blend.y >= blend.z) {
+        GBMT = texture(normalGlossSpecTile1_sampler, uv1);
+        MAO  = texture(metallicAOTile1_sampler, uv1);
+    } else if (blend.z > blend.x && blend.z > blend.y) {
+        GBMT = texture(normalGlossSpecTile2_sampler, uv1);
+        MAO  = texture(metallicAOTile2_sampler, uv1);
+    } else {
+        GBMT = texture(normalGlossSpecTile0_sampler, uv1);
+        MAO  = texture(metallicAOTile0_sampler, uv1);
+    }
+
+    vec4 colorAM;
+    colorAM.xyz  = colorAM_y.xyz * blend.yyy;
+    colorAM.xyz += colorAM_z.xyz * blend.zzz;
+    colorAM.xyz += colorAM_x.xyz * blend.xxx;
+    colorAM.w    = 1.0;
+
+    colorAM.rgb *= MAO.ggg;
+    gColor = colorAM;
+
+    //save Gloss/Metal
+    gGMF.r = GBMT.r;
+    gGMF.g = MAO.r;
+
+    vec3 bump;
+    vec2 tb = vec2(GBMT.ag * 2.0 - 1.0);
+    bump.xy = tb.xy;
+    float dp = min(dot(bump.xy, bump.xy), 1.0);
+    bump.z = clamp(sqrt(-dp + 1.0), -1.0, 1.0);
+    bump = normalize(bump);
+
+    gNormal = normalize(fs_in.TBN * bump) * 0.5 + 0.5;
+}
+//##################################################################################
+subroutine uniform fn_entry entries[11];
 
 // ================================================================================
 // Main start

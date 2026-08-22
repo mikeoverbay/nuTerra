@@ -137,6 +137,10 @@ Module modRender
             map_scene.static_models.draw_models()
         End If
 
+        If map_scene.TREES_LOADED AndAlso DONT_BLOCK_TREES Then
+            map_scene.trees.draw()
+        End If
+
         'If ShadowMappingFBO.Enabled Then
         'map_scene.DrawLightFrustum()
         'End If

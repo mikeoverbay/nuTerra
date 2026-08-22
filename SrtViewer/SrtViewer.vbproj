@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputType>WinExe</OutputType>
+    <StartupObject>Program</StartupObject>
+    <RootNamespace></RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+    <OptionCompare>Text</OptionCompare>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <AssemblyName>SrtViewer</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTK" Version="4.7.1" />
+    <PackageReference Include="DotNetZip" Version="1.16.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="shaders\**">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

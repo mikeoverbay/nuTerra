@@ -68,8 +68,11 @@ Module modSpacedBinVars
             Dim d_length = br.ReadUInt32
             Dim entry_cnt = br.ReadUInt32
 
-            ReDim strs(entry_cnt)
-            ReDim keys(entry_cnt)
+            ' NOTE: these must be exactly entry_cnt long. An extra trailing element
+            ' leaves a 0 key at the end, which breaks the ascending order that
+            ' find_str's Array.BinarySearch relies on and makes some lookups miss.
+            ReDim strs(CInt(entry_cnt) - 1)
+            ReDim keys(CInt(entry_cnt) - 1)
 
             Dim old_pos = br.BaseStream.Position
             Dim start_offset As Long = bwstHeader.offset + (d_length * entry_cnt) + 12
@@ -93,7 +96,7 @@ Module modSpacedBinVars
                 Return strs(index)
             Else
                 Debug.Fail("String in BWST not found!", key.ToString)
-                Return Nothing
+                Return ""
             End If
         End Function
     End Structure
@@ -444,7 +447,9 @@ Module modSpacedBinVars
             br.BaseStream.Position = bsmoHeader.offset
 
             ' Check version in header
-            Debug.Assert(bsmoHeader.version = 2)
+            ' WoT 1.16.1+ bumped this to 3 (fragile_model_info_items grew by 4 bytes
+            ' and three new trailing tables were appended).
+            Debug.Assert(bsmoHeader.version = 3)
 
             ' FIXME: Find a shorter way
             models_loddings = New BWArray(Of ModelLoddingItem_v0_9_12)(br)
@@ -604,12 +609,13 @@ Module modSpacedBinVars
             Public lifetime_effect_fnv As UInt32
             Public effect_fnv As UInt32
             Public decay_effect_fnv As UInt32
-            Public hit_effect_fnv As Single
+            Public hit_effect_fnv As UInt32
             Public _4 As Single
             Public effect_scale As Single
             Public hardpoint_index As UInt32
             Public destroyed_model_index As UInt32
             Public entry_type As UInt32
+            Public unknown As UInt32 ' added in 1.16.1 (stride 36 -> 40)
         End Structure
     End Structure
 #End Region
@@ -654,6 +660,49 @@ Module modSpacedBinVars
             Public vec4_indx As UInt32
         End Structure
 
+    End Structure
+#End Region
+
+#Region "SpTr"
+    ' SpeedTree instance placement.
+    Public cSpTr As cSpTr_
+    Public Structure cSpTr_
+        Public trees As BWArray(Of SpeedTreeInstance_v1_0_0)
+
+        Public Sub New(spTrHeader As SectionHeader, br As BinaryReader)
+            ' set stream reader to point at this chunk
+            br.BaseStream.Position = spTrHeader.offset
+
+            ' Check version in header
+            Debug.Assert(spTrHeader.version = 3)
+
+            trees = New BWArray(Of SpeedTreeInstance_v1_0_0)(br)
+            ' a destructibles table and a small info block follow; unused here
+        End Sub
+
+        '''<summary>
+        '''One placed tree: where it is, which .srt to use and its random seed.
+        '''</summary>
+        <StructLayout(LayoutKind.Sequential)>
+        Public Structure SpeedTreeInstance_v1_0_0
+            Public transform As Matrix4
+            Public spt_fnv As UInt32
+            Public seed As UInt32
+            Public flags As UInt32 ' bit0 castsShadow, bit1 castsLocalShadow, bit2 alwaysDynamic
+            Public visibility_mask As VisbilityFlags
+
+            ReadOnly Property spt_name As String
+                Get
+                    Return cBWST.find_str(spt_fnv)
+                End Get
+            End Property
+
+            ReadOnly Property casts_shadow As Boolean
+                Get
+                    Return (flags And 1UI) <> 0UI
+                End Get
+            End Property
+        End Structure
     End Structure
 #End Region
 
@@ -704,7 +753,8 @@ Module modSpacedBinVars
             br.BaseStream.Position = bwwaHeader.offset
 
             ' Check version in header
-            Debug.Assert(bwwaHeader.version = 2)
+            ' Bumped to 3; the leading bounding-box layout is unchanged.
+            Debug.Assert(bwwaHeader.version = 3)
 
             Dim ds = br.ReadUInt32 'data size per entry in bytes
             Dim tl = br.ReadUInt32 ' number of entries in this table

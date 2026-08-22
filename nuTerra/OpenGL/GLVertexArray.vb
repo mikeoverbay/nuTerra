@@ -35,8 +35,18 @@ Public Class GLVertexArray
         GL.VertexArrayAttribFormat(va_id, attribgindex, size, type, normalized, relativeoffset)
     End Sub
 
+    ' Integer attributes (bindless handles) must not go through the float path.
+    Public Sub AttribIFormat(attribgindex As Integer, size As Integer, type As VertexAttribType, relativeoffset As Integer)
+        GL.VertexArrayAttribIFormat(va_id, attribgindex, size, type, relativeoffset)
+    End Sub
+
     Public Sub AttribBinding(attribgindex As Integer, bindingindex As Integer)
         GL.VertexArrayAttribBinding(va_id, attribgindex, bindingindex)
+    End Sub
+
+    ' Advance this binding once per instance rather than once per vertex.
+    Public Sub BindingDivisor(bindingindex As Integer, divisor As Integer)
+        GL.VertexArrayBindingDivisor(va_id, bindingindex, divisor)
     End Sub
 
     Public Sub EnableAttrib(index As Integer)

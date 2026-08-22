@@ -103,6 +103,7 @@ Module modGlobalVars
     Public MINI_MAP_SIZE As Integer = 240
     Public MINI_MAP_NEW_SIZE As Integer = 240
     Public MAP_NAME_NO_PATH As String = ""
+    Public STARTUP_MAP As String ' optional map name passed on the command line
     Public MAP_LOADED As Boolean = False 'Rendering/settings clause
     Public TEMP_STORAGE As String 'Work are on users SSD/HDD
     Public DUMMY_TEXTURE_ID As GLTexture 'texture id 
@@ -119,6 +120,11 @@ Module modGlobalVars
     Public DONT_BLOCK_TERRAIN As Boolean
     Public DONT_BLOCK_OUTLAND As Boolean
     Public DONT_BLOCK_TREES As Boolean
+    '''<summary>Tree placements that survived the frustum this frame, and in total.</summary>
+    Public TREES_DRAWN As Integer
+    Public TREES_TOTAL As Integer
+    '''<summary>Tree placements drawn into the shadow map this update.</summary>
+    Public TREES_CASTING As Integer
     Public DONT_BLOCK_DECALS As Boolean
     Public DONT_BLOCK_MODELS As Boolean = False
     Public DONT_BLOCK_BASES As Boolean

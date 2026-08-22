@@ -1,4 +1,4 @@
-#define PARAMETERS_BASE 0
+﻿#define PARAMETERS_BASE 0
 
 // Uniforms Blocks
 #define TERRAIN_LAYERS_UBO_BASE 0
@@ -70,7 +70,7 @@ struct MaterialProperties
     vec4 g_tileUVScale;
     vec4 g_detailInfluences;
     vec4 g_detailRejectTiling;
-    uvec2 maps[6];
+    uvec2 maps[12];
     uint shader_type;
     uint texAddressMode;
     float alphaReference;
@@ -106,7 +106,8 @@ layout(binding = SHADOW_MAPPING_UBO_BASE, std140) uniform ShadowMapping {
     mat4 lightSpaceMatrices[4];
 };
 
-const float cascadePlaneDistances[3] = {20.0, 200.0, 700.0};
+// MUST match the splits in MapScene.ShadowMappingPass
+const float cascadePlaneDistances[3] = {40.0, 150.0, 500.0};
 const int cascadeCount = 3;
 #endif
 

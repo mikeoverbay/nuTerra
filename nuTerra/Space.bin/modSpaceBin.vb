@@ -91,6 +91,17 @@ Module modSpaceBin
                 ShowDecodeFailedMessage(ex, "BWWa")
                 GoTo Failed
             End Try
+
+            ' SpeedTree placement. Not fatal: a map without trees still loads.
+            Try
+                If sectionHeaders.ContainsKey("SpTr") Then
+                    cSpTr = New cSpTr_(sectionHeaders("SpTr"), br)
+                End If
+            Catch ex As Exception
+                Debug.Print(ex.ToString)
+                LogThis("SpTr decode failed, trees will be skipped")
+                cSpTr = Nothing
+            End Try
         End Using
 
         ms.Dispose()
@@ -684,6 +695,66 @@ got_it:
                     mat.props = obj
 
 
+                Case "shaders/std_effects/PBS_tiled.fx"
+                    Dim knownPropNames As New HashSet(Of String)({
+                        "albedoHeightTile0", "normalGlossSpecTile0", "metallicAOTile0",
+                        "albedoHeightTile1", "normalGlossSpecTile1", "metallicAOTile1",
+                        "albedoHeightTile2", "normalGlossSpecTile2", "metallicAOTile2",
+                        "blendMask",
+                        "dirtMap",
+                        "colorTex",
+                        "g_tile0Tint",
+                        "g_tile1Tint",
+                        "g_tile2Tint",
+                        "g_dirtColor",
+                        "g_dirtColorParams",
+                        "g_fakeShadowsAndDetailParams",
+                        "g_atlasSizes",
+                        "g_enableTerrainBlending",
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "applyOverlay",
+                        "dynamicObject",
+                        "texAddressMode",
+                        "selfIllumination",
+                        "diffuseMap",
+                        "ditherTestEnable"
+                    })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            Stop
+                        End If
+                    Next
+
+                    Dim obj As New MaterialProps_PBS_tiled
+                    With obj
+                        .albedoHeightTile0 = props("albedoHeightTile0").ToLower
+                        .normalGlossSpecTile0 = props("normalGlossSpecTile0").ToLower
+                        .metallicAOTile0 = props("metallicAOTile0").ToLower
+                        .albedoHeightTile1 = props("albedoHeightTile1").ToLower
+                        .normalGlossSpecTile1 = props("normalGlossSpecTile1").ToLower
+                        .metallicAOTile1 = props("metallicAOTile1").ToLower
+                        .albedoHeightTile2 = props("albedoHeightTile2").ToLower
+                        .normalGlossSpecTile2 = props("normalGlossSpecTile2").ToLower
+                        .metallicAOTile2 = props("metallicAOTile2").ToLower
+                        ' blendMask is always shipped as .png but only exists as .dds
+                        .blendMask = props("blendMask").ToLower.Replace(".png", ".dds")
+                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap").ToLower, Nothing)
+                        .colorTex = props("colorTex").ToLower
+                        .g_tile0Tint = If(props.ContainsKey("g_tile0Tint"), props("g_tile0Tint"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
+                        .g_tile1Tint = If(props.ContainsKey("g_tile1Tint"), props("g_tile1Tint"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
+                        .g_tile2Tint = If(props.ContainsKey("g_tile2Tint"), props("g_tile2Tint"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
+                        .g_dirtColor = If(props.ContainsKey("g_dirtColor"), props("g_dirtColor"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
+                        .g_dirtColorParams = If(props.ContainsKey("g_dirtColorParams"), props("g_dirtColorParams"), New Vector4(0.0F, 1.0F, 1.0F, 0.0F))
+                        .g_fakeShadowsAndDetailParams = If(props.ContainsKey("g_fakeShadowsAndDetailParams"), props("g_fakeShadowsAndDetailParams"), New Vector4(0.0F, 0.0F, 0.0F, 0.0F))
+                        .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
+                        .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
+                        .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
+                    End With
+                    mat.shader_type = ShaderTypes.FX_PBS_tiled
+                    mat.props = obj
+
                 Case "shaders/std_effects/PBS_glass.fx"
                     Dim knownPropNames As New HashSet(Of String)({
                         "dirtAlbedoMap",
@@ -814,7 +885,7 @@ got_it:
                     mat.shader_type = ShaderTypes.FX_lightonly_alpha
                     mat.props = obj
 
-                Case "shaders/particles/wg_particles.fx", "shaders/custom/coloronly_alpha.fx", "shaders/std_effects/PBS_ext_detail_dual.fx", "shaders/std_effects/PBS_tiled.fx", "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx", "shaders/custom/volumetric_effect_vtx_skinned.fx", "shaders/std_effects/PBS_sss_skinned.fx", "shaders/std_effects/PBS_hair_skinned.fx", "shaders/std_effects/fur_skinned.fx", "shaders/custom/emissive_playground.fx"
+                Case "shaders/particles/wg_particles.fx", "shaders/custom/coloronly_alpha.fx", "shaders/std_effects/PBS_ext_detail_dual.fx", "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx", "shaders/custom/volumetric_effect_vtx_skinned.fx", "shaders/std_effects/PBS_sss_skinned.fx", "shaders/std_effects/PBS_hair_skinned.fx", "shaders/std_effects/fur_skinned.fx", "shaders/custom/emissive_playground.fx"
                     mat.shader_type = ShaderTypes.FX_unsupported
 
                 Case Else
