@@ -133,6 +133,10 @@ Module modRender
             End If
         End If
 
+        If map_scene.ROADS_LOADED Then
+            map_scene.roads.draw()
+        End If
+
         If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             map_scene.static_models.draw_models()
         End If

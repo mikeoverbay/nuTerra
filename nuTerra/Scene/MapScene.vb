@@ -14,6 +14,7 @@ Public Class MapScene
     Public TERRAIN_LOADED As Boolean
     Public OUTLAND_LOADED As Boolean
     Public TREES_LOADED As Boolean
+    Public ROADS_LOADED As Boolean
     Public DECALS_LOADED As Boolean
     Public MODELS_LOADED As Boolean
     Public BASES_LOADED As Boolean
@@ -32,6 +33,7 @@ Public Class MapScene
     Public mini_map As New MapMinimap(Me)
     Public fog As New MapFog(Me)
     Public trees As New MapTrees(Me)
+    Public roads As New MapRoads(Me)
     Public cursor As New MapCursor(Me)
     Public camera As New MapCamera(Me)
     Public decals As New MapDecals(Me)
@@ -223,6 +225,7 @@ Public Class MapScene
         mini_map.Dispose()
         fog.Dispose()
         trees.Dispose()
+        roads.Dispose()
         cursor.Dispose()
         camera.Dispose()
         decals.Dispose()

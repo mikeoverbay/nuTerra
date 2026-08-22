@@ -209,6 +209,7 @@ Module ShaderLoader
     Public TerrainVTMIPShader As Shader
     Public treeShader As Shader
     Public treeDepthShader As Shader
+    Public roadShader As Shader
     Public toLinearShader As Shader
     Public TextRenderShader As Shader
     'particle shaders
@@ -282,6 +283,7 @@ Module ShaderLoader
 
         TerrainVTMIPShader = New Shader("TerrainVTMIP")
         treeShader = New Shader("tree")
+        roadShader = New Shader("road")
 
         TextRenderShader = New Shader("TextRender")
         toLinearShader = New Shader("toLinear")

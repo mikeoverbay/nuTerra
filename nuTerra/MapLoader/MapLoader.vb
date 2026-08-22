@@ -402,6 +402,8 @@ Module MapLoader
             map_scene.trees.Build()
         End If
 
+        map_scene.roads.Build(map_name)
+
         '===============================================================
         'load cube map for PBS_ext lighting,
         'It must happend after terrain load to get the path.
