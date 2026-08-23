@@ -1,14 +1,13 @@
 # nuTerra render settings for 105_germany
-# Seeded from 19_monastery - these are the shared baseline, not tuned
-# for this map yet. Adjust in Settings and save, then trim this file
-# down to only the lines that actually differ.
+# Written 2026-08-23T00:02:47. Copy this into nuTerra\MapSettings to keep it.
+# Delete any line to fall back to that setting's default for this map.
 
 ambient=0.4
 ambient_sat=0.05
 sun_tint=0.415
-sun_strength=0.83
-tonemap_exposure=3.552
-brightness=0.658
+sun_strength=2.789
+tonemap_exposure=3.324
+brightness=0.256
 specular=0.356
 gray_level=1
 gamma_level=0.345

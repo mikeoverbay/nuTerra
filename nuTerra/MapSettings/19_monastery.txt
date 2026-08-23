@@ -1,13 +1,13 @@
 # nuTerra render settings for 19_monastery
-# Written 2026-08-22T23:01:46. Copy this into nuTerra\MapSettings to keep it.
+# Written 2026-08-23T00:30:24. Copy this into nuTerra\MapSettings to keep it.
 # Delete any line to fall back to that setting's default for this map.
 
 ambient=0.4
 ambient_sat=0.05
 sun_tint=0.415
-sun_strength=0.83
-tonemap_exposure=3.552
-brightness=0.658
+sun_strength=1.261
+tonemap_exposure=4
+brightness=0.632
 specular=0.356
 gray_level=1
 gamma_level=0.345

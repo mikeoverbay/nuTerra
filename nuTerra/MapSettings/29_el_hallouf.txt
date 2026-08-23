@@ -1,14 +1,13 @@
 # nuTerra render settings for 29_el_hallouf
-# Seeded from 19_monastery - these are the shared baseline, not tuned
-# for this map yet. Adjust in Settings and save, then trim this file
-# down to only the lines that actually differ.
+# Written 2026-08-23T00:23:33. Copy this into nuTerra\MapSettings to keep it.
+# Delete any line to fall back to that setting's default for this map.
 
-ambient=0.4
+ambient=0.134
 ambient_sat=0.05
-sun_tint=0.415
-sun_strength=0.83
+sun_tint=0.593
+sun_strength=3
 tonemap_exposure=3.552
-brightness=0.658
+brightness=0.308
 specular=0.356
 gray_level=1
 gamma_level=0.345
