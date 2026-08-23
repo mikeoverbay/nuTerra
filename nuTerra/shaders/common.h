@@ -183,7 +183,7 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float ambient_sat;
     float blend_height;
     float disabled_blend_height;
-    float _pad_d;
+    float height_contrast;
     float _pad_e;
 } props;
 #endif

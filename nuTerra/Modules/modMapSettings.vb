@@ -113,6 +113,7 @@ Public Module modMapSettings
         Yield ("fog_level", Function() CommonProperties.FOG_LEVEL, Sub(v) CommonProperties.FOG_LEVEL = v)
         Yield ("tess_level", Function() CommonProperties.tess_level, Sub(v) CommonProperties.tess_level = v)
         Yield ("blend_height", Function() CommonProperties.BLEND_HEIGHT, Sub(v) CommonProperties.BLEND_HEIGHT = v)
+        Yield ("height_contrast", Function() CommonProperties.HEIGHT_CONTRAST, Sub(v) CommonProperties.HEIGHT_CONTRAST = v)
 
         ' booleans, stored as 0/1 so the file stays one shape throughout
         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))

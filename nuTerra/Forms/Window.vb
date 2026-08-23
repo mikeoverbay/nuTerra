@@ -302,6 +302,15 @@ try_again:
             Dim map_name = MapMenuScreen.MAP_TO_LOAD
             MapMenuScreen.MAP_TO_LOAD = Nothing
             load_map(map_name)
+
+            ' Both names in the title - the friendly one to read, the space name
+            ' because that is what the settings file and the packages use.
+            Dim pretty = MapMenuScreen.MAP_REALNAME
+            If String.IsNullOrEmpty(pretty) OrElse pretty = map_name Then
+                Title = String.Format("{0} - {1}", Application.ProductName, map_name)
+            Else
+                Title = String.Format("{0} - {1} ({2})", Application.ProductName, pretty, map_name)
+            End If
         End If
     End Sub
 
@@ -692,9 +701,10 @@ try_again:
             If ImGui.Button("Screen Capture") Then
                 NEED_TO_DO_SCREEN_CAPTURE = True
             End If
-            ' Nothing is being rendered behind the map picker, so the counts are
-            ' stale and the FPS is measuring an idle frame - both misleading.
-            If Not SHOW_MAPS_SCREEN Then
+            ' Only while actually looking at a map. Behind the picker, and before
+            ' anything is loaded, the counts are stale and the FPS is measuring an
+            ' idle frame - both misleading.
+            If MAP_LOADED AndAlso Not SHOW_MAPS_SCREEN Then
                 ImGui.SameLine()
                 ImGui.Text(String.Format("FPS: {0,-3} | VRAM: {1}mb of {2}mb", FPS_TIME,
                                          GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
@@ -724,6 +734,8 @@ try_again:
                 End If
                 If ImGui.CollapsingHeader("Map") Then
                     ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)
+                    ImGui.Checkbox("Show GFX markers", SHOW_GFX_MARKERS)
+                    ImGui.SliderFloat("GFX marker size", MapGfxMarkers.size, 0.25, 10.0)
                     ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
                     ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
                     ' shown inverted: ticking it turns fading off, so the box sits
@@ -788,6 +800,13 @@ try_again:
                                              CommonProperties.BLEND_HEIGHT,
                                              CommonProperties.blend_height_authored,
                                              CommonProperties.disabled_blend_height))
+                    ' Exponent on layer height before the blend. 1.0 is the game's
+                    ' behaviour; below 1 stops the winning texture sitting heavy.
+                    Dim v_hc = CommonProperties.HEIGHT_CONTRAST
+                    If ImGui.SliderFloat("Height Contrast", v_hc, 0.25, 12.0) Then
+                        CommonProperties.HEIGHT_CONTRAST = v_hc
+                    End If
+
                     If ImGui.Button("Rebuild VT##blend") Then
                         map_scene?.terrain.RebuildVTAtlas()
                     End If

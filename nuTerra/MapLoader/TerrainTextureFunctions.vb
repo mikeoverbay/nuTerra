@@ -340,6 +340,17 @@ Module TerrainTextureFunctions
 
                     .TexLayers(i).scale_b = .layer.render_info(cur_layer_info_pnt + 1).scale
 
+                    ' DEBUG: is there any rotation in the layer projections?
+                    ' An axis aligned layer has U = (s, 0, 0, o) and
+                    ' V = (0, 0, s, o) - a rotated one puts values in U.z and
+                    ' V.x. |det| is the area scale, and atan2 gives the angle.
+                    Dim uu = .TexLayers(i).uP1
+                    Dim vv = .TexLayers(i).vP1
+                    Dim ang = Math.Atan2(uu.Z, uu.X) * 180.0 / Math.PI
+                    Dim det = uu.X * vv.Z - uu.Z * vv.X
+                    LogThis("  layer {0}: U=({1:0.####} {2:0.####} {3:0.####} {4:0.####}) V=({5:0.####} {6:0.####} {7:0.####} {8:0.####}) angle={9:0.##} det={10:0.####}",
+                            i, uu.X, uu.Y, uu.Z, uu.W, vv.X, vv.Y, vv.Z, vv.W, ang, det)
+
                     cur_layer_info_pnt += 2
                     .layer_count += 1
                 End If

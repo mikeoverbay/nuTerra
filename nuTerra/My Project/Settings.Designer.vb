@@ -272,6 +272,18 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("1")>  _
+        Public Property terrain_height_contrast() As Single
+            Get
+                Return CType(Me("terrain_height_contrast"),Single)
+            End Get
+            Set
+                Me("terrain_height_contrast") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
         Public Property use_sh_ambient() As Boolean
             Get

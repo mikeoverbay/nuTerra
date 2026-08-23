@@ -143,6 +143,9 @@ Module modGlobalVars
     ''' <summary>Use the SH probe for ambient instead of the flat constant.</summary>
     Public USE_SH_AMBIENT As Boolean = True
 
+    '''<summary>Show a quad at every GFX_model placement - the particle scaffolding.</summary>
+    Public SHOW_GFX_MARKERS As Boolean = True
+
     Public DECAL_EDGE_FADE As Boolean = True
     Public DONT_BLOCK_MODELS As Boolean = False
     Public DONT_BLOCK_BASES As Boolean

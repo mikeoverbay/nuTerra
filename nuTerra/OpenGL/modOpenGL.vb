@@ -185,7 +185,7 @@ Module modOpenGL
         ' what makes a transition follow the height maps instead of cross-fading.
         Public _BLEND_HEIGHT As Single
         Public disabled_blend_height As Single
-        Public _pad_d As Single
+        Public _HEIGHT_CONTRAST As Single
         Public _pad_e As Single
 
         ' What the map asked for, kept so the panel can show it next to whatever
@@ -352,6 +352,25 @@ Module modOpenGL
             End Set
         End Property
 
+        '''<summary>
+        ''' Exponent on the terrain layer height before it enters the blend.
+        ''' 1.0 is the game's own behaviour. Below 1 lifts mid heights toward 1,
+        ''' so the splat dominates and the winning texture stops sitting so heavy
+        ''' over a transition. Above 1 pushes them down and makes the boundary
+        ''' follow the relief more sharply.
+        '''</summary>
+        Public Property HEIGHT_CONTRAST As Single
+            Get
+                Return _HEIGHT_CONTRAST
+            End Get
+            Set(value As Single)
+                If _HEIGHT_CONTRAST <> value Then
+                    _HEIGHT_CONTRAST = value
+                    update()
+                End If
+            End Set
+        End Property
+
         Public Property tess_level As Single
             Get
                 Return _tess_level
@@ -396,6 +415,7 @@ Module modOpenGL
             _SUN_STRENGTH = Math.Clamp(My.Settings.light_sun_strength, 0.0F, 3.0F)
             _SUN_TINT = Math.Clamp(My.Settings.light_sun_tint, 0.0F, 1.0F)
             _AMBIENT_SAT = Math.Clamp(My.Settings.light_ambient_sat, 0.0F, 1.0F)
+            _HEIGHT_CONTRAST = Math.Clamp(My.Settings.terrain_height_contrast, 0.25F, 12.0F)
             USE_SH_AMBIENT = My.Settings.use_sh_ambient
             _tess_level = 1.0
 
@@ -420,6 +440,7 @@ Module modOpenGL
             My.Settings.light_sun_strength = _SUN_STRENGTH
             My.Settings.light_sun_tint = _SUN_TINT
             My.Settings.light_ambient_sat = _AMBIENT_SAT
+            My.Settings.terrain_height_contrast = _HEIGHT_CONTRAST
             My.Settings.use_sh_ambient = USE_SH_AMBIENT
         End Sub
 

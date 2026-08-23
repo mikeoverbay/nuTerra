@@ -8,6 +8,8 @@ NotInheritable Class MapMenuScreen
 
     Public Shared MAP_TO_LOAD As String
     Public Shared MAP_DESCRIPTION As String
+    '''<summary>Friendly name of the map being loaded, for the window title.</summary>
+    Public Shared MAP_REALNAME As String
 
     Class MapItem
         Implements IComparable(Of MapItem)
@@ -157,6 +159,7 @@ NotInheritable Class MapMenuScreen
                     If ImGui.ImageButton(New IntPtr(item.map_image.texture_id), New Numerics.Vector2(120, 72)) Then
                         MAP_TO_LOAD = item.name
                         MAP_DESCRIPTION = item.description
+                        MAP_REALNAME = item.realname
                     End If
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip(item.name)

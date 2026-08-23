@@ -226,7 +226,11 @@ void main(void)
     float ma = 0.0;
     for (int i = 0; i < 8; ++i) {
         sw[i] = Mix[i] / ssum;
-        pv[i] = max(t[i].a, 0.00392156886) * sw[i];
+        // height_contrast is ours, not the game's - it runs at 1.0 by default,
+        // which is exactly the formula above. Below 1 lifts mid heights toward
+        // 1 so the splat dominates and the winning texture stops sitting so
+        // heavy across a transition; above 1 makes the boundary hug the relief.
+        pv[i] = pow(max(t[i].a, 0.00392156886), props.height_contrast) * sw[i];
         ma = max(ma, pv[i]);
     }
 

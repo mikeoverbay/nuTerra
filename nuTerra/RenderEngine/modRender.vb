@@ -176,6 +176,10 @@ Module modRender
             map_scene.decals.draw_decals()
         End If
 
+        If SHOW_GFX_MARKERS Then
+            map_scene.gfx_markers.draw()
+        End If
+
         GL.Disable(EnableCap.DepthTest)
 
         MainFBO.attach_C2()

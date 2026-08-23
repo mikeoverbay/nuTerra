@@ -179,6 +179,7 @@ Module ShaderLoader
     Public BaseRingProjectorDeferred As Shader
     Public boxShader As Shader
     Public boxDecalsColorShader As Shader
+    Public gfxMarkerShader As Shader
     Public cullShader As Shader
     Public cullLodClearShader As Shader
     Public cullRasterShader As Shader
@@ -253,6 +254,7 @@ Module ShaderLoader
         BaseRingProjectorDeferred = New Shader("BaseRingProjectorDeferred")
         boxShader = New Shader("box")
         boxDecalsColorShader = New Shader("box_decals_color")
+        gfxMarkerShader = New Shader("gfx_marker")
         cullShader = New Shader("cull")
         cullLodClearShader = New Shader("cullLodClear")
         cullRasterShader = New Shader("cull-raster")
