@@ -35,10 +35,10 @@ uniform vec3 cam_position;
 uniform uint edge_fade;
 
 // How far in from the box edge the fade runs, in the decal's local units. Local
-// XY spans -0.5..0.5, so this is 48% of the half extent, or 24% of the full box
-// width. It scales with the decal: on Abbey's flagged textures that works out
-// at 0.48 to 3.44 metres, median 1.68 on a typical 7 m patch.
-const float EDGE_FADE_WIDTH = 0.24;
+// XY spans -0.5..0.5, so this is 24% of the half extent, or 12% of the full box
+// width. It scales with the decal: on Abbey that works out at roughly 0.24 to
+// 1.7 metres, median 0.84 on a typical 7 m patch.
+const float EDGE_FADE_WIDTH = 0.12;
 
 in VS_OUT {
     flat mat4 invMVP;

@@ -103,6 +103,9 @@ Public Class Window
         End If
         LogThis("{0}ms Temp storage is located at: {1}", launch_timer.ElapsedMilliseconds, TEMP_STORAGE)
 
+        ' Put the shipped per-map settings in place before any map can load.
+        modMapSettings.SeedWorkFolder()
+
         LogThis("Vendor: {0}", GL.GetString(StringName.Vendor))
         LogThis("Renderer: {0}", GL.GetString(StringName.Renderer))
         LogThis("Version: {0}", GL.GetString(StringName.Version))
@@ -219,7 +222,7 @@ Public Class Window
         ' Set here rather than relying on the field initialisers so the startup
         ' state is unambiguous and sits next to the flags it belongs with.
         DECAL_EDGE_FADE = True
-        DECAL_EDGE_FADE_INVERT = False
+        ' USE_SH_AMBIENT is restored from My.Settings by CommonProperties.Init()
 
         ShadowMappingFBO.FBO_Initialize()
         LogThis("{0}ms FBO ShadowMapping Created.", launch_timer.ElapsedMilliseconds)
@@ -689,11 +692,15 @@ try_again:
             If ImGui.Button("Screen Capture") Then
                 NEED_TO_DO_SCREEN_CAPTURE = True
             End If
-            ImGui.SameLine()
-            ImGui.Text(String.Format("FPS: {0,-3} | VRAM: {1}mb of {2}mb", FPS_TIME,
-                                     GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
-            ' own line: the counts run past the end of the bar otherwise
-            ImGui.Text(clip_counts())
+            ' Nothing is being rendered behind the map picker, so the counts are
+            ' stale and the FPS is measuring an idle frame - both misleading.
+            If Not SHOW_MAPS_SCREEN Then
+                ImGui.SameLine()
+                ImGui.Text(String.Format("FPS: {0,-3} | VRAM: {1}mb of {2}mb", FPS_TIME,
+                                         GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
+                ' own line: the counts run past the end of the bar otherwise
+                ImGui.Text(clip_counts())
+            End If
             ImGui.End()
         End If
 
@@ -716,6 +723,7 @@ try_again:
                     ImGui.SliderFloat("Speed", My.Settings.speed, 0.001, 1.0)
                 End If
                 If ImGui.CollapsingHeader("Map") Then
+                    ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)
                     ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
                     ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
                     ' shown inverted: ticking it turns fading off, so the box sits
@@ -724,7 +732,6 @@ try_again:
                     If ImGui.Checkbox("Disable decal edge fade", no_edge_fade) Then
                         DECAL_EDGE_FADE = Not no_edge_fade
                     End If
-                    ImGui.Checkbox("Invert edge fade selection", DECAL_EDGE_FADE_INVERT)
                     ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
                     ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
                     ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
@@ -773,12 +780,84 @@ try_again:
                     ImGui.Checkbox("Enabled##Shadow Mapping", ShadowMappingFBO.Enabled)
                 End If
                 If ImGui.CollapsingHeader("Lighting Settings") Then
-                    ImGui.SliderFloat("Ambient Level", CommonProperties.AMBIENT, 0.0, 1.0)
-                    ImGui.SliderFloat("Bright Level", CommonProperties.BRIGHTNESS, 0.0, 1.0)
-                    ImGui.SliderFloat("Spec Level", CommonProperties.SPECULAR, 0.0, 1.0)
-                    ImGui.SliderFloat("Gray Level", CommonProperties.GRAY_LEVEL, 0.0, 1.0)
-                    ImGui.SliderFloat("Gamma Level", CommonProperties.GAMMA_LEVEL, 0.0, 1.0)
-                    ImGui.SliderFloat("Fog Level", CommonProperties.FOG_LEVEL, 0.0, 1.0)
+                    ' Read into a local, slide that, write back only on change.
+                    ' Passing the property straight to a ByRef parameter relies on
+                    ' VB's copy-back, which is easy to get wrong and impossible to
+                    ' see failing - this way the write is explicit.
+                    Dim v_amb = CommonProperties.AMBIENT
+                    If ImGui.SliderFloat("Ambient Level", v_amb, 0.0, 0.4) Then
+                        CommonProperties.AMBIENT = v_amb
+                    End If
+                    ImGui.Text(String.Format("   AMBIENT={0:0.0000}  SH loaded={1}  SH on={2}  sh0={3:0.00} {4:0.00} {5:0.00}",
+                                             CommonProperties.AMBIENT, SH_AMBIENT_LOADED, USE_SH_AMBIENT,
+                                             SH_AMBIENT(0).X, SH_AMBIENT(0).Y, SH_AMBIENT(0).Z))
+
+                    Dim v_bright = CommonProperties.BRIGHTNESS
+                    If ImGui.SliderFloat("Bright Level", v_bright, 0.0, 2.0) Then
+                        CommonProperties.BRIGHTNESS = v_bright
+                    End If
+
+                    Dim v_spec = CommonProperties.SPECULAR
+                    If ImGui.SliderFloat("Spec Level", v_spec, 0.0, 1.0) Then
+                        CommonProperties.SPECULAR = v_spec
+                    End If
+
+                    Dim v_gray = CommonProperties.GRAY_LEVEL
+                    If ImGui.SliderFloat("Gray Level", v_gray, 0.0, 1.0) Then
+                        CommonProperties.GRAY_LEVEL = v_gray
+                    End If
+
+                    ' Multiplier on the map's sunLightColor, used at full chroma.
+                    Dim v_sun = CommonProperties.SUN_STRENGTH
+                    If ImGui.SliderFloat("Sun Strength", v_sun, 0.0, 3.0) Then
+                        CommonProperties.SUN_STRENGTH = v_sun
+                    End If
+
+                    ' 0 = grey ambient at the same level, 1 = the probe's own colour.
+                    Dim v_asat = CommonProperties.AMBIENT_SAT
+                    If ImGui.SliderFloat("Ambient Sat", v_asat, 0.0, 1.0) Then
+                        CommonProperties.AMBIENT_SAT = v_asat
+                    End If
+
+                    ' 0 = white sun, 1 = sunLightColor at full chroma.
+                    Dim v_tint = CommonProperties.SUN_TINT
+                    If ImGui.SliderFloat("Sun Tint", v_tint, 0.0, 1.0) Then
+                        CommonProperties.SUN_TINT = v_tint
+                    End If
+
+                    ' Gain of the tone curve. 2.61 is where the scene currently
+                    ' sits, a bit past the middle of this range, so there is room
+                    ' to go darker or to push the shadows up without clipping.
+                    Dim v_expo = CommonProperties.TONEMAP_EXPOSURE
+                    If ImGui.SliderFloat("Tone Exposure", v_expo, 0.5, 4.0) Then
+                        CommonProperties.TONEMAP_EXPOSURE = v_expo
+                    End If
+
+                    Dim v_gamma = CommonProperties.GAMMA_LEVEL
+                    If ImGui.SliderFloat("Gamma Level", v_gamma, 0.0, 1.0) Then
+                        CommonProperties.GAMMA_LEVEL = v_gamma
+                    End If
+
+                    Dim v_fog = CommonProperties.FOG_LEVEL
+                    If ImGui.SliderFloat("Fog Level", v_fog, 0.0, 1.0) Then
+                        CommonProperties.FOG_LEVEL = v_fog
+                    End If
+                End If
+                If ImGui.CollapsingHeader("Map Settings") Then
+                    If MAP_LOADED Then
+                        ImGui.Text("Map: " & MAP_NAME_NO_PATH)
+                        If ImGui.Button("Save settings for this map") Then
+                            modMapSettings.Save(MAP_NAME_NO_PATH)
+                        End If
+                        ImGui.Text("Saves to:")
+                        ImGui.TextWrapped(modMapSettings.SaveFilePathFor(MAP_NAME_NO_PATH))
+                        If modMapSettings.LAST_RESULT <> "" Then
+                            ImGui.Separator()
+                            ImGui.TextWrapped(modMapSettings.LAST_RESULT)
+                        End If
+                    Else
+                        ImGui.Text("Load a map first.")
+                    End If
                 End If
                 If ImGui.CollapsingHeader("Minimap") Then
                     ImGui.Checkbox("Enabled##Minimap", DONT_HIDE_MINIMAP)

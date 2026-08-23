@@ -177,6 +177,10 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float PageTableSize;
     bool use_shadow_mapping;
     bool show_test_textures;
+    float tonemap_exposure;
+    float sun_strength;
+    float sun_tint;
+    float ambient_sat;
 } props;
 #endif
 

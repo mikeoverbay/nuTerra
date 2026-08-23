@@ -530,6 +530,11 @@ Module TerrainBuilder
         Dim skyBox_diffuseMap = skyBox_visual.SelectSingleNode("renderSet/geometry/primitiveGroup/material/property[contains(text(), 'diffuseMap')]/Texture").InnerText
         map_scene.sky.texture = TextureMgr.find_and_load_texture_from_pkgs(skyBox_diffuseMap)
 
+        ' Diffuse ambient. The probe next to the pmrem holds 9 L2 spherical
+        ' harmonic coefficients baked from the same environment, so ambient can
+        ' vary with surface orientation instead of being one flat colour.
+        load_sh_ambient(abs_name, activeEnvironment)
+
         ' get sun information and time of day.
         Dim active_environment_xml = ResMgr.openXML(String.Format("spaces/{0}/environments/{1}/environment.xml", abs_name, activeEnvironment))
         Dim day_night_cycle_node = active_environment_xml("day_night_cycle")
@@ -578,6 +583,57 @@ Module TerrainBuilder
             .waveMaskUVScale = Convert.ToSingle(wetness_node("waveMaskUVScale").InnerText)
             .waveMaskSpeed = Convert.ToSingle(wetness_node("waveMaskSpeed").InnerText)
         End With
+    End Sub
+
+    ''' <summary>
+    ''' Reads probes/global/rem_sh.xml - a packed section holding sh0..sh8 as RGB
+    ''' triples, plus dominant_vector and max_lum. Falls back to a flat white DC
+    ''' term if the probe is missing, which evaluates to the old constant ambient
+    ''' so a map without probes still lights.
+    ''' </summary>
+    Private Sub load_sh_ambient(abs_name As String, activeEnvironment As String)
+        SH_AMBIENT_LOADED = False
+        SH_MAX_LUM = 1.0F
+        reset_sh_ambient()
+
+        Try
+            Dim path = String.Format("spaces/{0}/environments/{1}/probes/global/rem_sh.xml",
+                                     abs_name, activeEnvironment)
+            Dim sh_xml = ResMgr.openXML(path)
+            If sh_xml Is Nothing Then
+                LogThis("no SH probe at {0} - ambient stays flat", path)
+                Return
+            End If
+
+            For i = 0 To 8
+                Dim node = sh_xml("sh" & i.ToString())
+                If node Is Nothing Then
+                    LogThis("SH probe {0} has no sh{1} - ambient stays flat", path, i)
+                    reset_sh_ambient()
+                    Return
+                End If
+                SH_AMBIENT(i) = vector3_from_string(node.InnerText)
+            Next
+
+            Dim lum = sh_xml("max_lum")
+            If lum IsNot Nothing Then
+                SH_MAX_LUM = Convert.ToSingle(lum.InnerText)
+            End If
+
+            SH_AMBIENT_LOADED = True
+            LogThis("SH ambient loaded: sh0 = {0} {1} {2}, max_lum = {3}",
+                    SH_AMBIENT(0).X, SH_AMBIENT(0).Y, SH_AMBIENT(0).Z, SH_MAX_LUM)
+        Catch ex As Exception
+            LogThis("SH probe failed to load: {0}", ex.Message)
+            reset_sh_ambient()
+        End Try
+    End Sub
+
+    Private Sub reset_sh_ambient()
+        SH_AMBIENT(0) = New Vector3(1.0F, 1.0F, 1.0F)
+        For i = 1 To 8
+            SH_AMBIENT(i) = Vector3.Zero
+        Next
     End Sub
 
     Private Function vector3_from_string(s As String) As Vector3

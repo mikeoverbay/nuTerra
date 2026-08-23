@@ -100,3 +100,8 @@ are flags and get stripped before the lookup.
 **Decal UVs `frac()` before the atlas remap**, so a decal can tile within its own
 atlas tile. The clamp test afterwards kills any texel whose gradient walked it out
 of the tile.
+
+## See also
+
+- [lighting.md](lighting.md) - the deferred lighting order and the SH ambient probe
+- [map_settings.md](map_settings.md) - per-map render settings

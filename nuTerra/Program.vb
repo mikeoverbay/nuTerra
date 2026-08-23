@@ -23,6 +23,13 @@ Module Program
         main_window = New Window
         main_window.Run()
 
+        ' Per-map settings first - it reads the live values, and only writes
+        ' when something actually moved since the map was loaded.
+        If MAP_LOADED Then
+            modMapSettings.SaveIfChanged(MAP_NAME_NO_PATH)
+        End If
+
+        CommonProperties.SaveToSettings()
         My.Settings.Save()
     End Sub
 End Module

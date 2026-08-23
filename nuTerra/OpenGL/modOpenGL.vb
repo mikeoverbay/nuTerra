@@ -159,15 +159,6 @@ Module modOpenGL
         Public _BRIGHTNESS As Single
         Public _SPECULAR As Single
         Public _GRAY_LEVEL As Single
-        '''<summary>
-        ''' Standard sRGB gamma, 1 / 2.2.
-        '''
-        ''' Not taken from My.Settings.Gamma_level any more. That one is an
-        ''' integer in hundredths, so it cannot express 0.455, and it is never
-        ''' written back - the slider edits GAMMA_LEVEL directly - so every saved
-        ''' config still holds the old 50 and would override a changed default.
-        '''</summary>
-        Public Const DEFAULT_GAMMA As Single = 0.455F
 
         Public _GAMMA_LEVEL As Single
         Public _FOG_LEVEL As Single
@@ -180,6 +171,14 @@ Module modOpenGL
 
         Public USE_SHADOW_MAPPING As Integer
         Public _SHOW_TEST_TEXTURES As Integer
+
+        ' Appended at the end of the block so every existing std140 offset stays
+        ' put. The three spares keep the block a multiple of 16 bytes, which
+        ' std140 requires, and give the next few additions somewhere to go.
+        Public _TONEMAP_EXPOSURE As Single
+        Public _SUN_STRENGTH As Single
+        Public _SUN_TINT As Single
+        Public _AMBIENT_SAT As Single
 
         Public Property AMBIENT As Single
             Get
@@ -253,6 +252,77 @@ Module modOpenGL
             End Set
         End Property
 
+        '''<summary>
+        ''' Gain of the tone curve in deferred.frag. The derivative of
+        ''' 1 - exp(-x * E) at zero is exactly E, so this is the only control
+        ''' over how fast the low end comes up and how soon highlights reach the
+        ''' shoulder. It does not change contrast - that is the pow exponents.
+        '''</summary>
+        Public Property TONEMAP_EXPOSURE As Single
+            Get
+                Return _TONEMAP_EXPOSURE
+            End Get
+            Set(value As Single)
+                If _TONEMAP_EXPOSURE <> value Then
+                    _TONEMAP_EXPOSURE = value
+                    update()
+                End If
+            End Set
+        End Property
+
+        '''<summary>
+        ''' Multiplier on sunLightColor from environment.xml. The colour is used
+        ''' at full chroma now - it used to be mixed 60% toward neutral grey,
+        ''' which left a grey surface grey instead of picking up the warmth of
+        ''' the light falling on it.
+        '''</summary>
+        Public Property SUN_STRENGTH As Single
+            Get
+                Return _SUN_STRENGTH
+            End Get
+            Set(value As Single)
+                If _SUN_STRENGTH <> value Then
+                    _SUN_STRENGTH = value
+                    update()
+                End If
+            End Set
+        End Property
+
+        '''<summary>
+        ''' How much of the map's sunLightColor tints the direct light. 0 is a
+        ''' neutral white sun, 1 is the value from environment.xml at full chroma.
+        '''</summary>
+        Public Property SUN_TINT As Single
+            Get
+                Return _SUN_TINT
+            End Get
+            Set(value As Single)
+                If _SUN_TINT <> value Then
+                    _SUN_TINT = value
+                    update()
+                End If
+            End Set
+        End Property
+
+        '''<summary>
+        ''' How much of the SH probe's colour survives. 1 keeps the bake as it
+        ''' is - Abbey's sh1 is [-0.13, 0.43, 0.99], so shadows go strongly blue
+        ''' because sky fill is genuinely what lights them. 0 flattens the probe
+        ''' to its own luminance, keeping the level and the directionality but
+        ''' dropping the hue.
+        '''</summary>
+        Public Property AMBIENT_SAT As Single
+            Get
+                Return _AMBIENT_SAT
+            End Get
+            Set(value As Single)
+                If _AMBIENT_SAT <> value Then
+                    _AMBIENT_SAT = value
+                    update()
+                End If
+            End Set
+        End Property
+
         Public Property tess_level As Single
             Get
                 Return _tess_level
@@ -280,19 +350,48 @@ Module modOpenGL
 
 
         Public Sub Init()
-            'Lighting settings
-            _AMBIENT = My.Settings.Ambient_level / 300.0!
-            _BRIGHTNESS = My.Settings.Bright_level / 50.0!
-            _SPECULAR = My.Settings.Specular_level / 100.0!
-            _GRAY_LEVEL = 1.0 - (My.Settings.Gray_level / 100.0!)
-            _GAMMA_LEVEL = DEFAULT_GAMMA
-            _FOG_LEVEL = (My.Settings.Fog_level / 10000.0!) * 100.0F
+            ' Lighting settings. These are stored as the actual float the shader
+            ' uses, not the old integer-in-hundredths form - that could not
+            ' represent a gamma of 0.455 and was never written back, so every
+            ' slider reverted on restart.
+            ' Clamped to the slider range. A value saved while a slider was
+            ' temporarily widened would otherwise load pinned at the maximum,
+            ' where dragging can only ever reduce it and the control looks stuck.
+            _AMBIENT = Math.Clamp(My.Settings.light_ambient, 0.0F, 0.4F)
+            _BRIGHTNESS = Math.Clamp(My.Settings.light_bright, 0.0F, 2.0F)
+            _SPECULAR = Math.Clamp(My.Settings.light_specular, 0.0F, 1.0F)
+            _GRAY_LEVEL = Math.Clamp(My.Settings.light_gray, 0.0F, 1.0F)
+            _GAMMA_LEVEL = Math.Clamp(My.Settings.light_gamma, 0.0F, 1.0F)
+            _FOG_LEVEL = Math.Clamp(My.Settings.light_fog, 0.0F, 1.0F)
+            _TONEMAP_EXPOSURE = Math.Clamp(My.Settings.light_tonemap_exposure, 0.5F, 4.0F)
+            _SUN_STRENGTH = Math.Clamp(My.Settings.light_sun_strength, 0.0F, 3.0F)
+            _SUN_TINT = Math.Clamp(My.Settings.light_sun_tint, 0.0F, 1.0F)
+            _AMBIENT_SAT = Math.Clamp(My.Settings.light_ambient_sat, 0.0F, 1.0F)
+            USE_SH_AMBIENT = My.Settings.use_sh_ambient
             _tess_level = 1.0
 
             ' Shadows on. Init never touched this, so it sat at the Integer
             ' default of zero and every session started with them off until the
             ' checkbox was ticked.
             USE_SHADOW_MAPPING = 1
+        End Sub
+
+        ''' <summary>
+        ''' Copies the live lighting values back into My.Settings so they survive
+        ''' a restart. Called on shutdown, just before My.Settings.Save().
+        ''' </summary>
+        Public Sub SaveToSettings()
+            My.Settings.light_ambient = _AMBIENT
+            My.Settings.light_bright = _BRIGHTNESS
+            My.Settings.light_specular = _SPECULAR
+            My.Settings.light_gray = _GRAY_LEVEL
+            My.Settings.light_gamma = _GAMMA_LEVEL
+            My.Settings.light_fog = _FOG_LEVEL
+            My.Settings.light_tonemap_exposure = _TONEMAP_EXPOSURE
+            My.Settings.light_sun_strength = _SUN_STRENGTH
+            My.Settings.light_sun_tint = _SUN_TINT
+            My.Settings.light_ambient_sat = _AMBIENT_SAT
+            My.Settings.use_sh_ambient = USE_SH_AMBIENT
         End Sub
 
         Public Sub update()

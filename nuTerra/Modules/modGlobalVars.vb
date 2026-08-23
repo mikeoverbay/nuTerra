@@ -127,9 +127,23 @@ Module modGlobalVars
     Public TREES_CASTING As Integer
     Public DONT_BLOCK_DECALS As Boolean
     '''<summary>Fade decals out at the box edge when their texture runs to its border.</summary>
+    ''' <summary>
+    ''' L2 spherical harmonics for the map's diffuse ambient, 9 RGB coefficients,
+    ''' read from environments/&lt;env&gt;/probes/global/rem_sh.xml. The game lights
+    ''' ambient with these instead of a flat colour, which is what gives surfaces
+    ''' form in shade - a wall facing the sky picks up blue, one facing the ground
+    ''' picks up warm bounce. Identity fallback is a flat grey so a map without
+    ''' probes still renders.
+    ''' </summary>
+    Public SH_AMBIENT(8) As Vector3
+    ''' <summary>Brightest luminance in the probe, from rem_sh.xml/max_lum.</summary>
+    Public SH_MAX_LUM As Single = 1.0F
+    ''' <summary>True once rem_sh.xml has been read for the current map.</summary>
+    Public SH_AMBIENT_LOADED As Boolean
+    ''' <summary>Use the SH probe for ambient instead of the flat constant.</summary>
+    Public USE_SH_AMBIENT As Boolean = True
+
     Public DECAL_EDGE_FADE As Boolean = True
-    '''<summary>Debug: fade the decals DecalEdgeProbe said did not need it, and vice versa.</summary>
-    Public DECAL_EDGE_FADE_INVERT As Boolean = False
     Public DONT_BLOCK_MODELS As Boolean = False
     Public DONT_BLOCK_BASES As Boolean
     Public DONT_BLOCK_SKY As Boolean

@@ -152,6 +152,138 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0.4")>  _
+        Public Property light_ambient() As Single
+            Get
+                Return CType(Me("light_ambient"),Single)
+            End Get
+            Set
+                Me("light_ambient") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0.789")>  _
+        Public Property light_bright() As Single
+            Get
+                Return CType(Me("light_bright"),Single)
+            End Get
+            Set
+                Me("light_bright") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0.356")>  _
+        Public Property light_specular() As Single
+            Get
+                Return CType(Me("light_specular"),Single)
+            End Get
+            Set
+                Me("light_specular") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("1")>  _
+        Public Property light_gray() As Single
+            Get
+                Return CType(Me("light_gray"),Single)
+            End Get
+            Set
+                Me("light_gray") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0.345")>  _
+        Public Property light_gamma() As Single
+            Get
+                Return CType(Me("light_gamma"),Single)
+            End Get
+            Set
+                Me("light_gamma") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0")>  _
+        Public Property light_fog() As Single
+            Get
+                Return CType(Me("light_fog"),Single)
+            End Get
+            Set
+                Me("light_fog") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("3.552")>  _
+        Public Property light_tonemap_exposure() As Single
+            Get
+                Return CType(Me("light_tonemap_exposure"),Single)
+            End Get
+            Set
+                Me("light_tonemap_exposure") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0.83")>  _
+        Public Property light_sun_strength() As Single
+            Get
+                Return CType(Me("light_sun_strength"),Single)
+            End Get
+            Set
+                Me("light_sun_strength") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0.415")>  _
+        Public Property light_sun_tint() As Single
+            Get
+                Return CType(Me("light_sun_tint"),Single)
+            End Get
+            Set
+                Me("light_sun_tint") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0.05")>  _
+        Public Property light_ambient_sat() As Single
+            Get
+                Return CType(Me("light_ambient_sat"),Single)
+            End Get
+            Set
+                Me("light_ambient_sat") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property use_sh_ambient() As Boolean
+            Get
+                Return CType(Me("use_sh_ambient"),Boolean)
+            End Get
+            Set
+                Me("use_sh_ambient") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("50")>  _
         Public Property Ambient_level() As Integer
             Get

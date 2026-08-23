@@ -14,6 +14,31 @@ layout(binding = 1) uniform sampler2D gNormal;
 layout(binding = 2) uniform sampler2D gGMF;
 layout(binding = 3) uniform sampler2D gPosition;
 layout(binding = 4) uniform samplerCube cubeMap;
+
+// Diffuse ambient as L2 spherical harmonics, baked per map into
+// environments/<env>/probes/global/rem_sh.xml. Nine RGB coefficients let ambient
+// follow the surface normal - sky colour from above, warm bounce from below -
+// instead of the single flat value this used to apply everywhere.
+uniform vec3 sh_ambient[9];
+uniform int  sh_enabled;
+
+// Ramamoorthi & Hanrahan irradiance evaluation. The constants fold the SH basis
+// together with the cosine convolution, so this returns irradiance directly and
+// needs no further scaling.
+vec3 eval_sh_irradiance(vec3 n)
+{
+    const float c1 = 0.429043, c2 = 0.511664, c3 = 0.743125;
+    const float c4 = 0.886227, c5 = 0.247708;
+
+    return c4 * sh_ambient[0]
+         + 2.0 * c2 * (sh_ambient[1] * n.y + sh_ambient[2] * n.z + sh_ambient[3] * n.x)
+         + 2.0 * c1 * (sh_ambient[4] * n.x * n.y
+                     + sh_ambient[5] * n.y * n.z
+                     + sh_ambient[7] * n.x * n.z)
+         + c3 * sh_ambient[6] * n.z * n.z
+         - c5 * sh_ambient[6]
+         + c1 * sh_ambient[8] * (n.x * n.x - n.y * n.y);
+}
 layout(binding = 5) uniform lowp sampler2D lut;
 layout(binding = 6) uniform lowp sampler2D env_brdf_lut;
 layout(binding = 7) uniform sampler2DArrayShadow shadowMap;
@@ -80,6 +105,64 @@ vec4 SRGBtoLINEAR(vec4 srgbIn)
 }
 
 
+// Fraction of the sun reaching this point: 1.0 lit, 0.0 fully shadowed.
+// This used to sit at the end of main and darken the finished pixel, which also
+// darkened the ambient - the one thing that should still be there in shade.
+// Shadow belongs on the direct light only, so it is a factor now, not a filter.
+float sun_shadow_factor(vec3 view_pos)
+{
+    if (!props.use_shadow_mapping) {
+        return 1.0;
+    }
+
+    float depthValue = abs(view_pos.z);
+
+    int layer = -1;
+    for (int i = 0; i < cascadeCount; ++i)
+    {
+        if (depthValue < cascadePlaneDistances[i])
+        {
+            layer = i;
+            break;
+        }
+    }
+    if (layer == -1)
+    {
+        layer = cascadeCount;
+    }
+
+    vec4 coords = lightSpaceMatrices[layer] * (invView * vec4(view_pos, 1.0));
+    coords.xy *= vec2(0.5);
+    coords.xy += vec2(0.5);
+    if (coords.z >= 1.0 || coords.z <= 0.0) {
+        return 1.0;
+    }
+    coords.w = layer;
+    coords = coords.xywz;
+
+    // Every cascade shares one map but covers a very different slice of the
+    // world, so a fixed one-texel 3x3 gives a hard edge up close and a mush far
+    // away. Widening the kernel on the near cascades spends the taps where the
+    // texels are small enough to be worth filtering.
+    const float kernel[4] = float[4](2.5, 1.5, 1.0, 1.0);
+    float spread = kernel[layer] / float(textureSize(shadowMap, 0).x);
+
+    // Rotate the tap pattern per pixel, or the 3x3 leaves a visible square
+    // grain along every shadow edge.
+    float a = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+    vec2 rc = vec2(cos(a), sin(a));
+
+    float shadowDepth = 0.0;
+    for (int oy = -1; oy <= 1; ++oy)
+    for (int ox = -1; ox <= 1; ++ox)
+    {
+        vec2 o = vec2(ox, oy);
+        o = vec2(o.x * rc.x - o.y * rc.y, o.x * rc.y + o.y * rc.x);
+        shadowDepth += texture(shadowMap, vec4(coords.xy + o * spread, coords.z, coords.w));
+    }
+    return shadowDepth / 9.0;
+}
+
 void main (void)
 {
     const uint FLAG = uint(texelFetch(gGMF, ivec2(gl_FragCoord), 0).b * 255.0);
@@ -133,15 +216,65 @@ void main (void)
                 //---------------------------------------------
 
             }
-            vec4 final_color = vec4(0.25, 0.25, 0.25, 1.0) * color_in ;
+            // Ambient. The flat form applies one value to every surface no matter
+            // which way it faces, so nothing in shade has any form. With a probe
+            // loaded, evaluate the SH against the normal instead and keep
+            // props.AMBIENT as the overall strength control.
+            vec4 Ambient_level;
+            if (sh_enabled != 0) {
+                // The probe is baked in world space but N is in view space -
+                // normalMatrix is built from modelView, not model. Evaluating
+                // one against the other rotates the whole ambient environment
+                // with the camera, so the sky's blue lands on whatever happens
+                // to face up on screen and a wall never keeps a stable colour.
+                vec3 N_world = normalize(mat3(invView) * N);
+                vec3 irradiance = max(eval_sh_irradiance(N_world), vec3(0.0));
 
-            vec4 Ambient_level = color_in * vec4(props.AMBIENT * 3.0);
+                // Desaturate toward the probe's own luminance. The bake is
+                // genuinely this blue - sky fill is what lights a shadow - but
+                // it reads stronger here than in the reference, so this pulls
+                // the hue out without touching the level or the direction.
+                float amb_lum = dot(irradiance, vec3(0.299, 0.587, 0.114));
+                irradiance = mix(vec3(amb_lum), irradiance, props.ambient_sat);
+                Ambient_level = vec4(color_in.rgb * irradiance * props.AMBIENT, color_in.a);
+            } else {
+                // the probe already carries the environment's colour, so applying
+                // the forward tint on top of it would double up the warmth
+                Ambient_level = color_in * vec4(props.AMBIENT * 3.0);
+                Ambient_level.rgb *= props.ambientColorForward;
+            }
 
-            Ambient_level.rgb *= props.ambientColorForward;
+            // Ambient fills in wherever direct light does not arrive, and there
+            // are two independent ways for it not to arrive: the face is turned
+            // away from the sun, or something is standing between it and the
+            // sun. Both have to be known before ambient is weighted. Weighting
+            // on facing alone left a sunward wall inside a building's shadow
+            // with no ambient and no sun - black.
+            //
+            //   direct  = how much sun actually lands here
+            //   ambient = the rest
+            //
+            // N and L are both view space, so the dot is consistent. This uses
+            // the raw N.L, not the pow'd lambertTerm - the exponent is material
+            // shaping and has no business deciding how much sky fill lands.
+            float sun_shadow = sun_shadow_factor(Position);
+            float direct_light = max(dot(N, L), 0.0) * sun_shadow;
+            Ambient_level.rgb *= (1.0 - direct_light);
+
+            // Ambient is the base the sun adds on top of. This used to start from
+            // a hardcoded 0.25 grey with Ambient_level only reaching the output
+            // through the distance mix below - at 200 m that is a 2% blend, which
+            // is why the ambient slider appeared to do nothing.
+            vec4 final_color = (sh_enabled != 0) ? Ambient_level
+                                                 : vec4(0.25, 0.25, 0.25, 1.0) * color_in;
 
             float dist = length(LightPosModelView - Position);
             float cutoff = 10000.0;
-            vec4 color = mix(vec4(props.sunColor,0.0),vec4(0.5),0.6);
+            // sunLightColor tints the direct light only - ambient gets its
+            // colour from the SH probe instead. Sun Tint blends between a white
+            // sun and the map's full-chroma value; Sun Strength is the level.
+            vec3 sun_rgb = mix(vec3(1.0), props.sunColor, props.sun_tint);
+            vec4 color = vec4(sun_rgb * props.sun_strength, 0.0);
 
             vec4 t_cam = view * vec4(cameraPos,1.0);
             vec3 V = normalize(t_cam.xyz-Position);
@@ -159,11 +292,21 @@ void main (void)
                 N = mix(N, blank_n, water_mix);
                 vec3 R = reflect(-L,N);
 
-                float lambertTerm = pow(max(dot(N, L),0.001),GM_in.g);
+                // Plain Lambert. GM_in.g used to be the exponent here, but it is
+                // gGMF.y - metal for models, the specular sample for terrain -
+                // and never a diffuse term. Trees write metal 0, so pow(NdotL, 0)
+                // was 1.0 at every angle facing the light and 0.0 the instant it
+                // did not: a step function, which is the hard edge round surfaces
+                // like trunks were showing. N.L falls off smoothly across the
+                // curve and still reaches zero exactly at the terminator.
+                float NdotL = max(dot(N, L), 0.0);
+                float lambertTerm = NdotL;
 
                 float water_spec = max(pow(dot(V,R), 120.0 ),0.0001) * props.SPECULAR;
 
-                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0);
+                // sun_shadow was computed above, before ambient was weighted -
+                // the two have to agree on how much sun arrives here.
+                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0) * sun_shadow;
 
 
 
@@ -192,11 +335,15 @@ void main (void)
 
                 vec3 water_reflect = vec3(water_mix*props.ambientColorForward) * vec3(water_spec)*1.5 * W_prefilteredColor.rgb;
 
-                final_color.xyz += clamp(water_reflect+specular+G_prefilteredColor.xyz,0.0,1.0);
+                final_color.xyz += clamp(water_reflect+specular*sun_shadow+G_prefilteredColor.xyz,0.0,1.0);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance
 
-                final_color = mix(final_color,Ambient_level,dist/cutoff) * props.BRIGHTNESS;
+                // Ambient is already the base final_color started from, so the
+                // old mix toward it here just re-applied 2% of the same value at
+                // any normal view distance. BRIGHTNESS stays: it belongs before
+                // tone mapping, where it acts as exposure gain.
+                final_color = final_color * props.BRIGHTNESS;
                 final_color = lut_color_correction( final_color );
 
             } else {
@@ -246,60 +393,17 @@ void main (void)
 
             /*===================================================================*/
             // Final Output
-            outColor =  correct(final_color,1.4,1.2)*1.6;
-
-            // BEGIN SHADOW MAPPING
-            if (props.use_shadow_mapping) {
-
-            float depthValue = abs(Position.z);
-
-            int layer = -1;
-            for (int i = 0; i < cascadeCount; ++i)
-            {
-                if (depthValue < cascadePlaneDistances[i])
-                {
-                    layer = i;
-                    break;
-                }
-            }
-            if (layer == -1)
-            {
-                layer = cascadeCount;
-            }
-
-            vec4 coords = lightSpaceMatrices[layer] * p;
-            coords.xy *= vec2(0.5);
-            coords.xy += vec2(0.5);
-            if (coords.z < 1.0 && coords.z > 0.0) {
-                coords.w = layer; // layer
-                coords = coords.xywz;
-                // Every cascade shares one 2048 map but covers a very
-                // different slice of the world, so a fixed one-texel 3x3 gives a
-                // hard edge up close and a mush far away. Widening the kernel on
-                // the near cascades spends the taps where the texels are small
-                // enough to be worth filtering.
-                const float kernel[4] = float[4](2.5, 1.5, 1.0, 1.0);
-                float spread = kernel[layer] / float(textureSize(shadowMap, 0).x);
-
-                // Rotate the tap pattern per pixel. Without this the 3x3 leaves
-                // a visible square grain along every shadow edge; with it the
-                // same nine taps read as noise, which the eye forgives.
-                float a = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
-                vec2 rc = vec2(cos(a), sin(a));
-
-                float shadowDepth = 0.0;
-                for (int oy = -1; oy <= 1; ++oy)
-                for (int ox = -1; ox <= 1; ++ox)
-                {
-                    vec2 o = vec2(ox, oy);
-                    o = vec2(o.x * rc.x - o.y * rc.y, o.x * rc.y + o.y * rc.x);
-                    shadowDepth += texture(shadowMap, vec4(coords.xy + o * spread, coords.z, coords.w));
-                }
-                shadowDepth /= 9.0;
-                outColor.xyz = mix(outColor.xyz * 0.5, outColor.xyz, shadowDepth);
-            }
-            }
-            // END SHADOW MAPPING
+            // correct() is a saturating curve - 1 - exp(-x * exposure) can never
+            // exceed 1 - so multiplying its result by 1.6 afterwards clipped
+            // everything above about 0.7 input to flat white. On a lit surface
+            // the sun term alone lands there, which is why the ambient and
+            // brightness sliders looked dead. Folding that gain into the
+            // exposure instead keeps the midtones where they were and lets the
+            // highlights roll off with detail still in them.
+            outColor = correct(final_color, props.tonemap_exposure, 1.2);
+            // Shadowing happens up in the lighting, on the sun term only -
+            // see sun_shadow_factor(). It used to darken the finished pixel here,
+            // which dimmed the ambient along with it.
 
             //outColor.a = fogFactor;
             /*===================================================================*/

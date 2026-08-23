@@ -424,6 +424,12 @@ Module MapLoader
 
         MAP_LOADED = True
 
+        ' Per-map render settings, applied last so they win over whatever the
+        ' environment.xml defaults and the global settings put in place.
+        modMapSettings.Load(map_name)
+        ' Baseline for the on-exit save, taken whether or not a file existed.
+        modMapSettings.Snapshot(map_name)
+
         '===============================================================
         'We need to get the Y location of the rings and stop drawing overly tall cubes.
         'It only needs to happen once!
@@ -532,9 +538,6 @@ Module MapLoader
             If colour_fname.Length > 0 Then
                 decal_item.color_tex = TextureMgr.OpenDDS(colour_fname)
 
-                ' space.bin carries no edge-fade flag, so derive one from the
-                ' texture itself - cached per path inside the probe
-                decal_item.edge_fade = If(DecalEdgeProbe.NeedsEdgeFade(colour_fname), 1UI, 0UI)
 
                 If normal_fname = "" Then
                     decal_item.normal_tex = TextureMgr.load_png_image_from_file("Ref_normalMap.png", True, False)

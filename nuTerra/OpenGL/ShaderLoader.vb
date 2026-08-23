@@ -118,7 +118,17 @@ Module ShaderLoader
                     ' Skip internal glsl uniforms
                     Continue For
                 End If
-                Me.uniforms(uniformName) = GL.GetUniformLocation(program, uniformName)
+                Dim location = GL.GetUniformLocation(program, uniformName)
+                Me.uniforms(uniformName) = location
+
+                ' Drivers report an array uniform as "name[0]", so a caller asking
+                ' for plain "name" missed the dictionary and got -1 back. That is
+                ' indistinguishable from an optimised-out uniform: the following
+                ' GL.Uniform* call silently does nothing and the array stays at
+                ' zero. Register the bare name against the same location as well.
+                If uniformName.EndsWith("[0]") Then
+                    Me.uniforms(uniformName.Substring(0, uniformName.Length - 3)) = location
+                End If
             Next
             loaded = True
         End Sub

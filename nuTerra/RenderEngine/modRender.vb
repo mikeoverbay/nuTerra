@@ -274,6 +274,19 @@ Module modRender
 
         GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
 
+        ' SH ambient. Nine RGB coefficients go up as a flat float array; when the
+        ' map has no probe sh0 is white and the rest zero, which evaluates back to
+        ' the flat constant the shader used before.
+        Static sh_flat(26) As Single
+        For i = 0 To 8
+            sh_flat(i * 3 + 0) = SH_AMBIENT(i).X
+            sh_flat(i * 3 + 1) = SH_AMBIENT(i).Y
+            sh_flat(i * 3 + 2) = SH_AMBIENT(i).Z
+        Next
+        GL.Uniform3(deferredShader("sh_ambient"), 9, sh_flat)
+        GL.Uniform1(deferredShader("sh_enabled"),
+                    CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
+
         draw_main_Quad(MainFBO.width, MainFBO.height) 'render Gbuffer lighting
 
         ' UNBIND

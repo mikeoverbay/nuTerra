@@ -1,0 +1,22 @@
+# nuTerra render settings for 212_epic_random_valley_sm25
+# Seeded from 19_monastery - these are the shared baseline, not tuned
+# for this map yet. Adjust in Settings and save, then trim this file
+# down to only the lines that actually differ.
+
+ambient=0.4
+ambient_sat=0.05
+sun_tint=0.415
+sun_strength=0.83
+tonemap_exposure=3.552
+brightness=0.658
+specular=0.356
+gray_level=1
+gamma_level=0.345
+fog_level=0
+tess_level=1
+use_sh_ambient=1
+decal_edge_fade=1
+draw_decals=1
+draw_trees=1
+draw_water=1
+shadow_mapping=1

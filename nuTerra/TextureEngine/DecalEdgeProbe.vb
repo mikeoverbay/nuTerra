@@ -31,7 +31,19 @@ Public Module DecalEdgeProbe
     ' still 2 texels here - clear of the 1 texel ring we sample.
     Private Const TARGET_SIZE As Integer = 256
 
-    Private ReadOnly cache As New Dictionary(Of String, Boolean)
+    ''' <summary>Probe result: the texture's content stops short of the border.</summary>
+    Public Const NO_FADE As UInteger = 0UI
+    ''' <summary>Probe result: content reaches the border, so the box cuts it off.</summary>
+    Public Const NEEDS_FADE As UInteger = 1UI
+    ''' <summary>
+    ''' Probe result: could not be measured. DXT1 carries no alpha to look at,
+    ''' and the decals that use it drive themselves from the red channel anyway.
+    ''' Distinct from NO_FADE so the invert debug toggle leaves them alone rather
+    ''' than turning a failed measurement into a fade.
+    ''' </summary>
+    Public Const UNKNOWN As UInteger = 2UI
+
+    Private ReadOnly cache As New Dictionary(Of String, UInteger)
 
     Public Sub ClearCache()
         cache.Clear()
@@ -42,13 +54,13 @@ Public Module DecalEdgeProbe
     ''' needs the shader to fade it out at the box edge. Results are cached by
     ''' path - a map reuses the same handful of textures thousands of times.
     ''' </summary>
-    Public Function NeedsEdgeFade(path As String) As Boolean
-        If String.IsNullOrEmpty(path) Then Return False
+    Public Function NeedsEdgeFade(path As String) As UInteger
+        If String.IsNullOrEmpty(path) Then Return UNKNOWN
 
-        Dim hit As Boolean
+        Dim hit As UInteger
         If cache.TryGetValue(path, hit) Then Return hit
 
-        hit = False
+        hit = UNKNOWN
         Try
             Dim entry = ResMgr.LookupHD(path)
             If entry IsNot Nothing Then
@@ -57,9 +69,12 @@ Public Module DecalEdgeProbe
                 hit = MeasureBorder(ms.GetBuffer(), CInt(ms.Length))
             End If
         Catch ex As Exception
-            ' a texture we cannot read is not a texture we should be fading
             Debug.Print("DecalEdgeProbe failed on {0}: {1}", path, ex.Message)
         End Try
+
+        If hit = UNKNOWN Then
+            LogThis("DecalEdgeProbe could not measure {0} - no edge fade either way", path)
+        End If
 
         cache(path) = hit
         Return hit
@@ -69,9 +84,9 @@ Public Module DecalEdgeProbe
     ''' Decodes the alpha plane of a mip near TARGET_SIZE and reports whether its
     ''' outermost one texel ring is opaque often enough to need fading.
     ''' </summary>
-    Private Function MeasureBorder(d() As Byte, length As Integer) As Boolean
-        If length < 128 Then Return False
-        If d(0) <> Asc("D"c) OrElse d(1) <> Asc("D"c) OrElse d(2) <> Asc("S"c) Then Return False
+    Private Function MeasureBorder(d() As Byte, length As Integer) As UInteger
+        If length < 128 Then Return UNKNOWN
+        If d(0) <> Asc("D"c) OrElse d(1) <> Asc("D"c) OrElse d(2) <> Asc("S"c) Then Return UNKNOWN
 
         Dim height = BitConverter.ToInt32(d, 12)
         Dim width = BitConverter.ToInt32(d, 16)
@@ -80,8 +95,8 @@ Public Module DecalEdgeProbe
 
         ' alpha lives in the first 8 bytes of a block for both of these; DXT1
         ' carries no usable alpha so it can never be measured this way
-        If fourcc <> "DXT5" AndAlso fourcc <> "DXT3" Then Return False
-        If width < 8 OrElse height < 8 Then Return False
+        If fourcc <> "DXT5" AndAlso fourcc <> "DXT3" Then Return UNKNOWN
+        If width < 8 OrElse height < 8 Then Return UNKNOWN
         If mips < 1 Then mips = 1
 
         ' walk the chain to the first mip at or below TARGET_SIZE
@@ -93,10 +108,10 @@ Public Module DecalEdgeProbe
             w = Math.Max(1, w \ 2)
             h = Math.Max(1, h \ 2)
         Next
-        If w < 8 OrElse h < 8 Then Return False
+        If w < 8 OrElse h < 8 Then Return UNKNOWN
 
         Dim bx = (w + 3) \ 4, by = (h + 3) \ 4
-        If offset + bx * by * 16 > length Then Return False
+        If offset + bx * by * 16 > length Then Return UNKNOWN
 
         Dim alpha(w * h - 1) As Byte
         Dim tbl(7) As Integer
@@ -151,7 +166,9 @@ Public Module DecalEdgeProbe
             total += 2
         Next
 
-        Return total > 0 AndAlso (CSng(opaque) / CSng(total)) > RING_OPAQUE_FRACTION
+        If total = 0 Then Return UNKNOWN
+        If (CSng(opaque) / CSng(total)) > RING_OPAQUE_FRACTION Then Return NEEDS_FADE
+        Return NO_FADE
     End Function
 
 End Module

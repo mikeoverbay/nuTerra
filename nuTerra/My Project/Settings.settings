@@ -41,6 +41,39 @@
     <Setting Name="Specular_level" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">30</Value>
     </Setting>
+    <Setting Name="light_ambient" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">0.4</Value>
+    </Setting>
+    <Setting Name="light_bright" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">0.789</Value>
+    </Setting>
+    <Setting Name="light_specular" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">0.356</Value>
+    </Setting>
+    <Setting Name="light_gray" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="light_gamma" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">0.345</Value>
+    </Setting>
+    <Setting Name="light_fog" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+    <Setting Name="light_tonemap_exposure" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">3.552</Value>
+    </Setting>
+    <Setting Name="light_sun_strength" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">0.83</Value>
+    </Setting>
+    <Setting Name="light_sun_tint" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">0.415</Value>
+    </Setting>
+    <Setting Name="light_ambient_sat" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">0.05</Value>
+    </Setting>
+    <Setting Name="use_sh_ambient" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
     <Setting Name="load_terrain" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
