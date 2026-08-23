@@ -105,3 +105,4 @@ of the tile.
 
 - [lighting.md](lighting.md) - the deferred lighting order and the SH ambient probe
 - [map_settings.md](map_settings.md) - per-map render settings
+- [terrain_blend.md](terrain_blend.md) - the terrain layer blend, from the game's VT baker

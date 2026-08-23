@@ -181,6 +181,10 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float sun_strength;
     float sun_tint;
     float ambient_sat;
+    float blend_height;
+    float disabled_blend_height;
+    float _pad_d;
+    float _pad_e;
 } props;
 #endif
 

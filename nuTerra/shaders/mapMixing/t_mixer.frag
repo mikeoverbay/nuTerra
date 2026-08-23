@@ -157,8 +157,10 @@ void main(void)
     float th[8];    // am height
     vec4 n[8];      // normal map
     vec4 mn[8];     // macro normal map
-    float f = 0.0;
-    
+    float sw[8];    // splat weight, normalised
+    float pv[8];    // height * splat, the height-blend contender
+    float ssum = 0.0;
+
     float height = 0.0;
     for (int i = 0; i < 8; ++i) {
         // create UV projections
@@ -198,17 +200,42 @@ void main(void)
         t[i].rgb = t[i].rgb * min(L.r2[i].x, 1.0) + mt[i].rgb * (L.r2[i].y + 1.0);
         n[i].rgb = n[i].rgb * min(L.r2[i].x, 1.0) + mn[i].rgb * (L.r2[i].y + 1.0);
 
-        height += t[i].a * Mix[i] * L.r1[i].x;
+        ssum += Mix[i];
+    }
 
-        //t[i].rgb = mt[i].rgb;
-        //n[i].rgb = mn[i].rgb;
-        // months of work to figure this out!
-        Mix[i] *= t[i].a + L.r1[i].x;
+    // Height blend, transcribed from the game's own VT baker
+    // (shaders/terrain/terrain2_5_virtual_texture, blob 13):
+    //
+    //     s = splat / sum(splat)              normalise the splat weights first
+    //     p = max(height, 1/255) * s          contender is the PRODUCT
+    //     ma = max over all 8 of p
+    //     w = max(p + blendHeight - ma, 0) * s    splat applied a second time
+    //     w /= sum(w)
+    //
+    // The second splat multiply is what keeps an unpainted layer out no matter
+    // how tall its height map is, so no explicit gate is needed. The 1/255 floor
+    // on height is the same one the outland shader uses, and the reason the dead
+    // mth[] line in this file has that constant in it.
+    //
+    // What was here before was Mix[i] *= t[i].a + bias, pow(Mix, 1/0.7),
+    // normalise - a plain weighted average. Every painted layer contributed in
+    // proportion always, so two textures interpenetrated across the whole
+    // transition instead of meeting where their height maps cross.
+    ssum = max(ssum, 1e-6);
 
-        const float power = 1.0 / 0.7;
-        Mix[i] = pow(Mix[i], power);
+    float ma = 0.0;
+    for (int i = 0; i < 8; ++i) {
+        sw[i] = Mix[i] / ssum;
+        pv[i] = max(t[i].a, 0.00392156886) * sw[i];
+        ma = max(ma, pv[i]);
+    }
+
+    float f = 0.0;
+    for (int i = 0; i < 8; ++i) {
+        Mix[i] = max(pv[i] + props.blend_height - ma, 0.0) * sw[i];
         f += Mix[i];
     }
+    f = max(f, 1e-6);
 
     vec4 out_n = vec4(0.0);
     vec4 base = vec4(0.0);
@@ -217,6 +244,9 @@ void main(void)
 
         base += t[i] * Mix[i];
         out_n += n[i] * Mix[i];
+
+        // displacement height, weighted the same way the colour is
+        height += t[i].a * Mix[i] * L.r1[i].x;
     }
 
     // global

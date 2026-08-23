@@ -106,3 +106,8 @@ changing one means changing the other.
 of the `CommonProperties` UBO. All three are now spoken for - anything further
 needs the block extended by a `vec4`, in both `modOpenGL.vb` and `common.h`, and
 in the same order.
+
+## See also
+
+- [terrain_blend.md](terrain_blend.md) - the terrain layer blend
+- [game_deferred_decal.md](game_deferred_decal.md) - reading the game's compiled shaders

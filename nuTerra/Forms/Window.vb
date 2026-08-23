@@ -775,6 +775,22 @@ try_again:
                 If ImGui.CollapsingHeader("Terrain") Then
                     ImGui.Checkbox("Use tessellation", USE_TESSELLATION)
                     ImGui.SliderFloat("Tessellation Level", CommonProperties.tess_level, 0.0, 8.0)
+
+                    ' Width of the terrain height blend. Loaded per map from
+                    ' BWT2/blendHeight - Abbey authors it at 0.3. Small is a crisp
+                    ' edge following the height maps, large is a cross-fade.
+                    ' Needs Rebuild VT to show, the mix is baked into the pages.
+                    Dim v_bh = CommonProperties.BLEND_HEIGHT
+                    If ImGui.SliderFloat("Blend Height", v_bh, 0.01, 1.0) Then
+                        CommonProperties.BLEND_HEIGHT = v_bh
+                    End If
+                    ImGui.Text(String.Format("   live={0:0.###}   map authored={1:0.###}   disabled={2:0.###}",
+                                             CommonProperties.BLEND_HEIGHT,
+                                             CommonProperties.blend_height_authored,
+                                             CommonProperties.disabled_blend_height))
+                    If ImGui.Button("Rebuild VT##blend") Then
+                        map_scene?.terrain.RebuildVTAtlas()
+                    End If
                 End If
                 If ImGui.CollapsingHeader("Shadow Mapping") Then
                     ImGui.Checkbox("Enabled##Shadow Mapping", ShadowMappingFBO.Enabled)

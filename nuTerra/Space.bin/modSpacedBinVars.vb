@@ -287,6 +287,9 @@ Module modSpacedBinVars
 
                     CommonProperties.blend_macro_influence = Create.blend_macro_influence
                     CommonProperties.blend_global_threshold = Create.blend_global_threshold
+                    CommonProperties.blend_height = Create.blend_height
+                    TCommonProperties.blend_height_authored = Create.blend_height
+                    CommonProperties.disabled_blend_height = Create.disabled_blend_height
                 End Function
             End Structure
         End Structure

@@ -180,6 +180,18 @@ Module modOpenGL
         Public _SUN_TINT As Single
         Public _AMBIENT_SAT As Single
 
+        ' Terrain blend, from space.bin/BWT2. blend_height is how close a layer
+        ' has to be to the tallest contender before it contributes at all - it is
+        ' what makes a transition follow the height maps instead of cross-fading.
+        Public _BLEND_HEIGHT As Single
+        Public disabled_blend_height As Single
+        Public _pad_d As Single
+        Public _pad_e As Single
+
+        ' What the map asked for, kept so the panel can show it next to whatever
+        ' the slider has been moved to. Not part of the UBO block.
+        Public Shared blend_height_authored As Single
+
         Public Property AMBIENT As Single
             Get
                 Return _AMBIENT
@@ -318,6 +330,23 @@ Module modOpenGL
             Set(value As Single)
                 If _AMBIENT_SAT <> value Then
                     _AMBIENT_SAT = value
+                    update()
+                End If
+            End Set
+        End Property
+
+        '''<summary>
+        ''' Terrain height-blend width. Small values give a crisp edge that
+        ''' follows the layer height maps, large values a soft cross-fade. Set
+        ''' per map from BWT2/blendHeight when a map loads.
+        '''</summary>
+        Public Property BLEND_HEIGHT As Single
+            Get
+                Return _BLEND_HEIGHT
+            End Get
+            Set(value As Single)
+                If _BLEND_HEIGHT <> value Then
+                    _BLEND_HEIGHT = value
                     update()
                 End If
             End Set
