@@ -1,4 +1,4 @@
-# nuTerra render settings for 19_monastery
+﻿# nuTerra render settings for 19_monastery
 # Written 2026-08-23T00:30:24. Copy this into nuTerra\MapSettings to keep it.
 # Delete any line to fall back to that setting's default for this map.
 
@@ -19,3 +19,5 @@ draw_decals=1
 draw_trees=1
 draw_water=1
 shadow_mapping=1
+baked_shadow=1
+horizon_strength=0.7

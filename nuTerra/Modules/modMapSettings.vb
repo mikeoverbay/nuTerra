@@ -114,6 +114,9 @@ Public Module modMapSettings
         Yield ("tess_level", Function() CommonProperties.tess_level, Sub(v) CommonProperties.tess_level = v)
         Yield ("blend_height", Function() CommonProperties.BLEND_HEIGHT, Sub(v) CommonProperties.BLEND_HEIGHT = v)
         Yield ("height_contrast", Function() CommonProperties.HEIGHT_CONTRAST, Sub(v) CommonProperties.HEIGHT_CONTRAST = v)
+        Yield ("macro_fade", Function() CommonProperties.MACRO_FADE, Sub(v) CommonProperties.MACRO_FADE = v)
+        Yield ("horizon_strength", Function() CommonProperties.HORIZON_STRENGTH, Sub(v) CommonProperties.HORIZON_STRENGTH = v)
+        Yield ("shadow_strength", Function() CommonProperties.SHADOW_STRENGTH, Sub(v) CommonProperties.SHADOW_STRENGTH = v)
 
         ' booleans, stored as 0/1 so the file stays one shape throughout
         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))
@@ -122,6 +125,7 @@ Public Module modMapSettings
         Yield ("draw_trees", Function() B2F(DONT_BLOCK_TREES), Sub(v) DONT_BLOCK_TREES = F2B(v))
         Yield ("draw_water", Function() B2F(DONT_BLOCK_WATER), Sub(v) DONT_BLOCK_WATER = F2B(v))
         Yield ("shadow_mapping", Function() B2F(ShadowMappingFBO.Enabled), Sub(v) ShadowMappingFBO.Enabled = F2B(v))
+        Yield ("baked_shadow", Function() B2F(BAKED_SHADOW_ENABLED), Sub(v) BAKED_SHADOW_ENABLED = F2B(v))
     End Function
 
     Private Function B2F(b As Boolean) As Single
@@ -137,6 +141,49 @@ Public Module modMapSettings
     ' float noise below the written precision does not count.
     Private baseline As Dictionary(Of String, String)
     Private baseline_map As String = ""
+
+    ''' <summary>
+    ''' The global defaults, captured once at startup after CommonProperties.Init
+    ''' and the DONT_BLOCK flags have run, before any map is opened.
+    ''' </summary>
+    Private defaults As Dictionary(Of String, Single)
+
+    ''' <summary>
+    ''' Records the startup values as the fallback every map load resets to.
+    ''' Call once, after the global defaults are established and before the first
+    ''' map is loaded.
+    ''' </summary>
+    Public Sub CaptureDefaults()
+        defaults = Fields().ToDictionary(Function(f) f.Name, Function(f) f.Reader())
+        LogThis("Map settings: captured {0} global defaults", defaults.Count)
+    End Sub
+
+    ''' <summary>
+    ''' Puts every setting back to its startup default.
+    '''
+    ''' This exists because Load only applies the keys a file actually contains,
+    ''' and these values live in module state that outlives a map. Without a reset
+    ''' an absent key did not mean "use the default" - it meant "keep whatever the
+    ''' last map set", so opening a tuned map and then an untuned one silently
+    ''' carried the first map's lighting across. The visible symptom was that
+    ''' adding any new setting appeared to require appending it to all 65 files,
+    ''' when the real problem was that a missing key never fell back.
+    '''
+    ''' Call at the very top of load_map, before get_environment_info: map data
+    ''' from environment.xml and space.bin is applied after this and still wins,
+    ''' so a map that authors its own blend_height or fog keeps it. The saved file
+    ''' is applied last of all and overrides both.
+    ''' </summary>
+    Public Sub ResetToDefaults()
+        If defaults Is Nothing Then Return
+
+        For Each f In Fields()
+            Dim v As Single
+            If defaults.TryGetValue(f.Name, v) Then
+                f.Writer.Invoke(v)
+            End If
+        Next
+    End Sub
 
     Private Function CurrentValues() As Dictionary(Of String, String)
         Return Fields().ToDictionary(Function(f) f.Name,

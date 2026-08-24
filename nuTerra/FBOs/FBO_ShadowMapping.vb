@@ -6,12 +6,21 @@ Public Class ShadowMappingFBO
 
     Public Const CASCADES = 4
     '''<summary>
-    ''' 4096 square per cascade. Four of them at 32 bit depth is 268 MB, against
-    ''' 67 MB at 2048 - affordable here, but it also quadruples the pixels the
-    ''' shadow pass has to rasterise, which is why FRAME_STEP matters below.
+    ''' 2048 square per cascade. Four of them at 32 bit depth is 67 MB, against
+    ''' 268 MB at 4096.
+    '''
+    ''' 4096 was affordable on VRAM and still the wrong call. It quadrupled the
+    ''' pixels the shadow pass had to rasterise, and a 268 MB array stood no
+    ''' chance of cache residency under the per-pixel rotated PCF kernel, which
+    ''' has every neighbouring fragment sampling a different tap pattern. Cutting
+    ''' the size helps the pass and the sampling at once.
+    '''
+    ''' CASCADES and the 32f format are deliberately unchanged - only the extent
+    ''' of each map moved. The PCF spread is derived from textureSize() and the
+    ''' texel snap in MapScene reads WIDTH, so both follow this automatically.
     '''</summary>
-    Public Const WIDTH = 4096
-    Public Const HEIGHT = 4096
+    Public Const WIDTH = 2048
+    Public Const HEIGHT = 2048
 
     '''<summary>
     ''' Frames between shadow map updates. This was briefly 1, on the strength of

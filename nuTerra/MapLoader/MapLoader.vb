@@ -37,6 +37,14 @@ Module MapLoader
         MAP_NAME_NO_PATH = map_name
         map_scene = New MapScene(map_name)
 
+        ' Clear the previous map's tuning. These settings live in module state
+        ' that outlives a map, and modMapSettings.Load only applies the keys a
+        ' file actually has - so without this an absent key inherited the last
+        ' map's value instead of falling back to the default. Map data from
+        ' get_environment_info and space.bin is applied after this and still
+        ' wins; the saved file is applied last and overrides both.
+        modMapSettings.ResetToDefaults()
+
         '===============================================================
         'Open the space.bin file. If it fails, it closes all packages and lets the user know.
         If Not get_spaceBin(map_name) Then
@@ -433,6 +441,31 @@ Module MapLoader
         ' Baseline for the on-exit save, taken whether or not a file existed.
         modMapSettings.Snapshot(map_name)
 
+        '===================================================
+        ' Set sun location from map data. This MUST come before the bake below:
+        ' the bake's whole camera is derived from LIGHT_POS, and until this runs
+        ' LIGHT_POS is either zero (first map of the session) or the previous
+        ' map's sun. Zero normalizes to NaN, which makes the entire view matrix
+        ' NaN, which makes every vertex NaN - nothing rasterizes and the depth
+        ' map comes back exactly as it was cleared. That reads as "the bake is
+        ' broken" and is really just an ordering bug.
+        '
+        ' set_light_pos is not idempotent - it flips LIGHT_ORBIT_ANGLE_Z off its
+        ' own previous value - so it is moved here, never called twice.
+        set_light_pos() 'for light rotation animation
+        '===================================================
+
+        ' One map-wide depth render from the sun. Fills what the cascades cannot:
+        ' terrain never casts into them, and they stop at 500 m.
+        '
+        ' Off by default - see BAKED_SHADOW_ENABLED. This has to come AFTER the
+        ' settings load, because that is what decides the flag; baking before it
+        ' would read last map's answer. If it stays off, ready is False, the
+        ' t_mixer block is skipped entirely and the taps cost nothing.
+        If BAKED_SHADOW_ENABLED Then
+            map_scene.sun_shadow.Bake()
+        End If
+
         '===============================================================
         'We need to get the Y location of the rings and stop drawing overly tall cubes.
         'It only needs to happen once!
@@ -459,10 +492,6 @@ Module MapLoader
         SHOW_LOADING_SCREEN = False
         'LOOK_AT_X = 0.001
         'LOOK_AT_Z = 0.001
-        '===================================================
-        ' Set sun location from map data
-        set_light_pos() 'for light rotation animation
-        '===================================================
     End Sub
 
     Private Sub build_decals()

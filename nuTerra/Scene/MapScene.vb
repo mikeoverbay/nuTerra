@@ -38,6 +38,7 @@ Public Class MapScene
     Public camera As New MapCamera(Me)
     Public decals As New MapDecals(Me)
     Public gfx_markers As New MapGfxMarkers(Me)
+    Public sun_shadow As New MapSunShadow(Me)
     Public CC_LUT_ID As GLTexture
     Public ENV_BRDF_LUT_ID As GLTexture
 
@@ -183,10 +184,17 @@ Public Class MapScene
         ' cascade 0 covered 20 m at roughly a centimetre per texel while cascade
         ' 2 covered 500 m at a quarter of a metre. Spread out, the near detail is
         ' unchanged and the middle distance is about three times finer.
-        Dim vp_cascade0 = getLightSpaceMatrix(My.Settings.near, 40.0F)
-        Dim vp_cascade1 = getLightSpaceMatrix(40.0F, 150.0F)
-        Dim vp_cascade2 = getLightSpaceMatrix(150.0F, 500.0F)
-        Dim vp_cascade3 = getLightSpaceMatrix(500.0F, My.Settings.far)
+        ' Halved from 40/150/500. The cascades now carry trees only, so they no
+        ' longer have to reach far enough to cover terrain and buildings - the
+        ' map-wide bake does that, at every distance. Pulling the splits in
+        ' concentrates all four maps on the near field, where foliage detail is
+        ' actually visible, and roughly doubles the texel density at every range.
+        ' The far field past 250 m falls through to the bake, which is what it is
+        ' for.
+        Dim vp_cascade0 = getLightSpaceMatrix(My.Settings.near, 20.0F)
+        Dim vp_cascade1 = getLightSpaceMatrix(20.0F, 75.0F)
+        Dim vp_cascade2 = getLightSpaceMatrix(75.0F, 250.0F)
+        Dim vp_cascade3 = getLightSpaceMatrix(250.0F, My.Settings.far)
 
         GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, IntPtr.Zero, Marshal.SizeOf(Of Matrix4), vp_cascade0)
         GL.NamedBufferSubData(shadow_mapping_matrix.buffer_id, New IntPtr(Marshal.SizeOf(Of Matrix4) * 1), Marshal.SizeOf(Of Matrix4), vp_cascade1)
@@ -202,10 +210,6 @@ Public Class MapScene
 
         GL.Enable(EnableCap.PolygonOffsetFill)
         GL.PolygonOffset(1.1F, 4.0F)
-
-        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
-            static_models.shadow_mapping_pass()
-        End If
 
         If TREES_LOADED AndAlso DONT_BLOCK_TREES Then
             trees.shadow_pass()

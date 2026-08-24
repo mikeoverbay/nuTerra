@@ -1,4 +1,4 @@
-﻿Imports System.IO
+Imports System.IO
 Imports OpenTK.Graphics.OpenGL
 
 Module ShaderLoader
@@ -180,6 +180,8 @@ Module ShaderLoader
     Public boxShader As Shader
     Public boxDecalsColorShader As Shader
     Public gfxMarkerShader As Shader
+    Public sunDepthTerrainShader As Shader
+    Public sunDepthModelShader As Shader
     Public cullShader As Shader
     Public cullLodClearShader As Shader
     Public cullRasterShader As Shader
@@ -199,6 +201,8 @@ Module ShaderLoader
     Public image2dArrayShader As Shader
     Public image2dFlipShader As Shader
     Public image2dShader As Shader
+    Public shadowViewShader As Shader
+    Public msmBlurShader As Shader
     Public MegaMixerShader As Shader
     Public MiniMapRingsShader As Shader
     Public mDepthWriteShader As Shader
@@ -255,6 +259,8 @@ Module ShaderLoader
         boxShader = New Shader("box")
         boxDecalsColorShader = New Shader("box_decals_color")
         gfxMarkerShader = New Shader("gfx_marker")
+        sunDepthTerrainShader = New Shader("sun_depth_terrain")
+        sunDepthModelShader = New Shader("sun_depth_model")
         cullShader = New Shader("cull")
         cullLodClearShader = New Shader("cullLodClear")
         cullRasterShader = New Shader("cull-raster")
@@ -272,6 +278,8 @@ Module ShaderLoader
         image2dArrayShader = New Shader("image2dArray")
         image2dFlipShader = New Shader("image2dFlip")
         image2dShader = New Shader("image2d")
+        shadowViewShader = New Shader("shadow_view")
+        msmBlurShader = New Shader("msm_blur")
         glassPassShader = New Shader("glassPass")
         'unused: gWriterShader = New Shader("gWriter")
         MegaMixerShader = New Shader("MegaMixer")

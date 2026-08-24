@@ -1,4 +1,4 @@
-# nuTerra render settings for 28_desert
+﻿# nuTerra render settings for 28_desert
 # Seeded from 19_monastery - these are the shared baseline, not tuned
 # for this map yet. Adjust in Settings and save, then trim this file
 # down to only the lines that actually differ.
@@ -20,3 +20,5 @@ draw_decals=1
 draw_trees=1
 draw_water=1
 shadow_mapping=1
+baked_shadow=1
+horizon_strength=0.7

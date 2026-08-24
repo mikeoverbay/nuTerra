@@ -43,7 +43,8 @@ Public Class VTMixerFBO
         SpecularTex = GLTexture.Create(TextureTarget.Texture2D, "VTMixerFBO_SpecularTex")
         SpecularTex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
         SpecularTex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
-        SpecularTex.Storage2D(1, SizedInternalFormat.R8, width, height)
+        ' RG8, not R8: R is specular, G carries the baked horizon shadow.
+        SpecularTex.Storage2D(1, SizedInternalFormat.Rg8, width, height)
     End Sub
 
     Public Shared Function create_fbo() As Boolean

@@ -1,4 +1,4 @@
-﻿Imports System.Text
+Imports System.Text
 Imports OpenTK.Mathematics
 
 Module modGlobalVars
@@ -9,8 +9,58 @@ Module modGlobalVars
     Public BG_TEXT As String
 
     ' VT params
+    ' Overlay showing the baked sun depth map, for checking the sun camera
+    ' actually frames the map.
+    Public SHOW_SUN_SHADOW_VIEWER As Boolean = False
+    Public SHADOW_VIEW_LO As Single = 0.0F
+    Public SHADOW_VIEW_HI As Single = 1.0F
+
+    ' Map-wide sun shadow baked into the VT page. ON by default - it measured
+    ' 222 fps against 218 with no shadows at all, so at steady state it is very
+    ' nearly free, and it is the only thing shadowing terrain and static models
+    ' now that the live cascades carry trees alone.
+    '
+    ' The cost it does have is at bake time (4 extra taps per page texel), and a
+    ' page resolves it at its own mip, so neighbouring pages at different mips
+    ' can seam at a chunk edge. Both are open problems, neither is a reason to
+    ' ship it off.
+    '
+    ' This default matters more than it looks: modMapSettings.Load only applies
+    ' keys the file actually contains, so every settings file written before the
+    ' baked_shadow key existed falls through to whatever this says.
+    Public BAKED_SHADOW_ENABLED As Boolean = True
+
+    '''<summary>
+    ''' Use Moment Shadow Maps for the baked shadow instead of PCF over a depth
+    ''' map. Moments are linear, so the map can be blurred and mipmapped once at
+    ''' bake time and sampled with a single trilinear fetch - which is the only
+    ''' way to get soft edges and correct minification without spending taps
+    ''' every frame. Toggling re-bakes.
+    '''</summary>
+    Public MSM_SHADOW_ENABLED As Boolean = False
+
+    ''' <summary>Mix toward a well-conditioned distribution. Raise if the solve
+    ''' goes unstable over flat ground; lower for tighter contact shadows.</summary>
+    Public MSM_MOMENT_BIAS As Single = 0.0003F
+
+    ''' <summary>
+    ''' Penumbra shaping, applied to both shadow paths before the light sees them.
+    ''' Filtering decides how far a transition reaches; these decide how much of
+    ''' that reach is visible, so the footprint can stay wide - which is what
+    ''' keeps minification and antialiasing well behaved - while the edge reads
+    ''' tight. Narrowing the band sharpens; closing it would re-alias, so the
+    ''' shader keeps a floor between them.
+    '''
+    ''' LO doubles as the light-leak control on the moment path.
+    ''' </summary>
+    Public SHADOW_PENUMBRA_LO As Single = 0.15F
+    Public SHADOW_PENUMBRA_HI As Single = 1.0F
     Public UPLOADS_PER_FRAME As Integer = 1
-    Public NUM_TILES As Integer = 1280
+    ' 2048 is the hard ceiling - Texture2DArray depth. At TILE_SIZE 256 the atlas
+    ' costs 256KB a tile (64 colour + 64 normal + 128 uncompressed specular), so
+    ' this is a 512MB resident set. Bigger cache means fewer evictions, which
+    ' means fewer re-bakes - and the bake is the expensive part.
+    Public NUM_TILES As Integer = 2048
     Public VT_NUM_PAGES As Integer = 1024
     Public TILE_SIZE As Integer = 256
     Public FEEDBACK_WIDTH As Integer = 32

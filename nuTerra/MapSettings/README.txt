@@ -1,4 +1,4 @@
-Per-map render settings.
+﻿Per-map render settings.
 
 One file per space, named after the space folder - so Abbey is 19_monastery.txt.
 Everything in here is copied next to the exe on build, and the running app reads
@@ -21,3 +21,5 @@ and lets one map's file serve as a template for the next.
 
 An unrecognised key is ignored and logged, so old files stay loadable after a
 setting is renamed or dropped.
+baked_shadow=1
+horizon_strength=0.7

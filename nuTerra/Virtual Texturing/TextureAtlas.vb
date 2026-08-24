@@ -35,14 +35,14 @@ Public Class TextureAtlas
         normal_texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
         normal_texture.Storage3D(1, InternalFormat.CompressedRgbaS3tcDxt5Ext, info.TileSize, info.TileSize, num_tiles)
 
-        ' R8 w/o compression
-        ' R for specular
+        ' RG8 w/o compression
+        ' R for specular, G for the baked horizon shadow
         specular_texture = GLTexture.Create(TextureTarget.Texture2DArray, "SpecularTextureAtlas")
         specular_texture.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         specular_texture.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         specular_texture.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
         specular_texture.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
-        specular_texture.Storage3D(1, SizedInternalFormat.R8, info.TileSize, info.TileSize, num_tiles)
+        specular_texture.Storage3D(1, SizedInternalFormat.Rg8, info.TileSize, info.TileSize, num_tiles)
     End Sub
 
     Public Sub uploadPage(index As Integer, color_pbo As GLBuffer, normal_pbo As GLBuffer, specular_data As GLTexture)

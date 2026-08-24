@@ -1,4 +1,4 @@
-﻿#version 450 core
+#version 450 core
 
 #extension GL_ARB_shading_language_include : require
 
@@ -56,8 +56,22 @@ void main(void)
     gNormal.xyz = normalize(fs_in.TBN * (mix(n_sample1, n_sample2, mipfract) * 2.0 - 1.0)) * 0.5 + 0.5;
 
     // TRILINEAR FILTERING BETWEEN MIP1 AND MIP2
-    const float specular_sample1 = SampleAtlas(SpecularTextureAtlas, page1, fs_in.Global_UV).r;
-    const float specular_sample2 = SampleAtlas(SpecularTextureAtlas, page2, fs_in.Global_UV).r;
+    const vec2 spec_sample1 = SampleAtlas(SpecularTextureAtlas, page1, fs_in.Global_UV).rg;
+    const vec2 spec_sample2 = SampleAtlas(SpecularTextureAtlas, page2, fs_in.Global_UV).rg;
+    const float specular_sample1 = spec_sample1.r;
+    const float specular_sample2 = spec_sample2.r;
+
+    // The map-wide sun shadow used to be applied here, as gColor.rgb *=
+    // horizon_shade. That was wrong in two ways: albedo feeds the ambient term
+    // as well as the direct one, so it darkened the sky fill that should still
+    // be there in shade, and being a terrain shader it could never reach the
+    // static models. It now lives in deferred.frag as baked_sun_shadow(), which
+    // multiplies the sun term only and covers models as well.
+    //
+    // .g of the specular atlas still carries the game's own horizon angle data
+    // from t_mixer, which is inert today (build_horizon_texture returns Nothing,
+    // so has_horizon is 0 and the value is a flat 1.0). Left in place for when
+    // that format is cracked; deliberately not multiplied into albedo either.
     gGMF = vec4(0.2, mix(specular_sample1, specular_sample2, mipfract), GFLAG_TERRAIN, 0.0);
 
     gPosition = fs_in.worldPosition;

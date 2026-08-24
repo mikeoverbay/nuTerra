@@ -111,11 +111,19 @@ Public Class PageLoader
             -1, 1)
 
         GL.UniformMatrix4(t_mixerShader("Ortho_Project"), False, proj)
+        ' The page's own mip, so the bake can fade micro -> macro with distance
+        ' the way the game does through g_vtTileParams.w.
+        GL.Uniform1(t_mixerShader("page_mip"), CInt(state.Page.Mip))
 
         GL.Disable(EnableCap.DepthTest)
         GL.CullFace(CullFaceMode.Front)
 
         map_scene.terrain.GLOBAL_AM_ID.BindUnit(0)
+
+        ' The map-wide sun shadow used to be bound here and sampled into the page.
+        ' It is applied in deferred.frag now - after the projected decals, and on
+        ' the sun term rather than the albedo - so a page carries no shadow at all
+        ' and toggling the bake no longer has to rebuild the atlas.
 
         For i = 0 To theMap.render_set.Length - 1
             If theMap.v_data(i).BB_Min.X > right Then
@@ -137,6 +145,14 @@ Public Class PageLoader
             With theMap.render_set(i)
                 .layersStd140_ubo.BindBase(0)
 
+                ' Our stand-in for the game's per-block layerMask, which is a
+                ' straight multiplier on the four splat weights (cb0[34]). We do
+                ' not know where the real values live in the terrain file, but we
+                ' do know which slots were actually loaded: each TexLayer fills
+                ' two shader layers, so anything past layer_count * 2 is an unset
+                ' slot with a zeroed projection, and must not reach the mix.
+                GL.Uniform1(t_mixerShader("active_layers"), .layer_count * 2)
+
                 'AM maps
                 theMap.render_set(i).layer.render_info(0).atlas_id.BindUnit(1)
                 theMap.render_set(i).layer.render_info(1).atlas_id.BindUnit(2)
@@ -152,6 +168,15 @@ Public Class PageLoader
                 .TexLayers(1).Blend_id.BindUnit(10)
                 .TexLayers(2).Blend_id.BindUnit(11)
                 .TexLayers(3).Blend_id.BindUnit(12)
+
+                ' Baked horizon shadow for this chunk. Not every chunk has one,
+                ' so fall back to the dummy and let the shader see white.
+                If .horizon_id IsNot Nothing Then
+                    .horizon_id.BindUnit(13)
+                    GL.Uniform1(t_mixerShader("has_horizon"), 1)
+                Else
+                    GL.Uniform1(t_mixerShader("has_horizon"), 0)
+                End If
             End With
 
             'draw chunk
@@ -167,7 +192,7 @@ Public Class PageLoader
         End If
 
         ' UNBIND
-        unbind_textures(13)
+        unbind_textures(15)
 
         ' RESTORE STATE
         GL.CullFace(CullFaceMode.Back)

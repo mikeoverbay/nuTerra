@@ -33,6 +33,17 @@ void main(void)
     vs_out.Global_UV = chunk.g_uv_offset + (vertexTexCoord * props.map_size);
     vs_out.Global_UV *= -1.0;
 
-    // Calculate vertex position in clip coordinates
-    gl_Position = Ortho_Project * (chunk.modelMatrix * vec4(vertexPosition.xyz, 1.0f)).xzyw;
+    // True world position, Y up. The fragment stage projects this through
+    // sunViewProj to look the baked sun shadow up, and sun_depth_terrain.vert
+    // builds that map from the same chunk.modelMatrix * vertexPosition - so the
+    // two have to be the same quantity or the lookup lands nowhere.
+    //
+    // This was declared in VS_OUT and never assigned. The fragment shader read
+    // an undefined varying, so every baked shadow lookup used garbage.
+    const vec4 world = chunk.modelMatrix * vec4(vertexPosition.xyz, 1.0f);
+    vs_out.worldPosition = world.xyz;
+
+    // Calculate vertex position in clip coordinates. The .xzyw swizzle is what
+    // makes this a top-down ortho: world X and Z drive the page, world Y is depth.
+    gl_Position = Ortho_Project * world.xzyw;
 }

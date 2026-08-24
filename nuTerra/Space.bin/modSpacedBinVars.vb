@@ -1,4 +1,4 @@
-﻿Imports System.IO
+Imports System.IO
 Imports System.Runtime.InteropServices
 Imports System.Text
 Imports OpenTK.Mathematics
@@ -287,8 +287,19 @@ Module modSpacedBinVars
 
                     CommonProperties.blend_macro_influence = Create.blend_macro_influence
                     CommonProperties.blend_global_threshold = Create.blend_global_threshold
-                    CommonProperties.blend_height = Create.blend_height
+                    ' The authored value is kept for reference but deliberately
+                    ' NOT used as the mix threshold. The game's terrain shader
+                    ' does not read it there - it thresholds against a hardcoded
+                    ' 0.05, and its own g_blendGlobalThreshold sits outside the
+                    ' constant buffer that shader declares, so it cannot be the
+                    ' source either. Abbey authors blendHeight at 0.3, six times
+                    ' wider: at that width nearly every painted layer clears the
+                    ' threshold, all eight contribute, and the result is an
+                    ' average rather than a dominant texture - which is what made
+                    ' the terrain read washed out. Whatever BWT2/blendHeight
+                    ' drives, it is not this.
                     TCommonProperties.blend_height_authored = Create.blend_height
+                    CommonProperties.blend_height = TCommonProperties.GAME_BLEND_HEIGHT
                     CommonProperties.disabled_blend_height = Create.disabled_blend_height
                 End Function
             End Structure

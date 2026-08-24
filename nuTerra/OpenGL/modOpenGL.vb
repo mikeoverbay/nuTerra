@@ -1,4 +1,4 @@
-﻿Imports System.Runtime.InteropServices
+Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
@@ -186,11 +186,34 @@ Module modOpenGL
         Public _BLEND_HEIGHT As Single
         Public disabled_blend_height As Single
         Public _HEIGHT_CONTRAST As Single
-        Public _pad_e As Single
+        Public _MACRO_FADE As Single
+
+        ' Strength of the baked terrain horizon shadow. 0 keeps it out entirely.
+        Public _HORIZON_STRENGTH As Single
+
+        ' Strength of the live cascade shadow. Took _pad_f, so the UBO layout is
+        ' unchanged. Paired with _HORIZON_STRENGTH these two are the shadow mix:
+        ' the cascades carry trees, the bake carries terrain and static models,
+        ' and deferred.frag multiplies the two together.
+        Public _SHADOW_STRENGTH As Single
+        Public _pad_g As Single
+        Public _pad_h As Single
 
         ' What the map asked for, kept so the panel can show it next to whatever
         ' the slider has been moved to. Not part of the UBO block.
         Public Shared blend_height_authored As Single
+
+        '''<summary>
+        ''' The width of the height-blend band, as the game's terrain shader has
+        ''' it - a hardcoded immediate, not a constant it looks up:
+        '''
+        '''     c_i = max(h_i*w_i + 0.05 - max(h*w), 0) * w_i
+        '''
+        ''' Only layers within this much of the tallest contender contribute at
+        ''' all; the rest are culled to zero, which is what makes a transition
+        ''' follow the height maps instead of cross-fading.
+        '''</summary>
+        Public Const GAME_BLEND_HEIGHT As Single = 0.05F
 
         Public Property AMBIENT As Single
             Get
@@ -371,6 +394,58 @@ Module modOpenGL
             End Set
         End Property
 
+        '''<summary>
+        ''' How fast a VT page fades from the micro texture to the macro one as
+        ''' its mip rises. The game does this per page through g_vtTileParams.w,
+        ''' so distant pages are pure macro; we mixed macro by a fixed per-layer
+        ''' constant at every distance. 0 keeps the old behaviour.
+        '''</summary>
+        Public Property MACRO_FADE As Single
+            Get
+                Return _MACRO_FADE
+            End Get
+            Set(value As Single)
+                If _MACRO_FADE <> value Then
+                    _MACRO_FADE = value
+                    update()
+                End If
+            End Set
+        End Property
+
+        '''<summary>
+        ''' How much of the baked terrain horizon shadow shows. The data is 4 bits
+        ''' per texel at 128 x 128 per chunk, so this is a broad terrain-on-terrain
+        ''' term - hills shading valleys - not a crisp shadow. 0 is off.
+        '''</summary>
+        Public Property HORIZON_STRENGTH As Single
+            Get
+                Return _HORIZON_STRENGTH
+            End Get
+            Set(value As Single)
+                If _HORIZON_STRENGTH <> value Then
+                    _HORIZON_STRENGTH = value
+                    update()
+                End If
+            End Set
+        End Property
+
+        '''<summary>
+        ''' How much of the live cascade shadow shows. The cascades carry trees
+        ''' only - they animate, so they cannot live in a one-off bake - which
+        ''' makes this the foliage half of the shadow mix. 0 is off.
+        '''</summary>
+        Public Property SHADOW_STRENGTH As Single
+            Get
+                Return _SHADOW_STRENGTH
+            End Get
+            Set(value As Single)
+                If _SHADOW_STRENGTH <> value Then
+                    _SHADOW_STRENGTH = value
+                    update()
+                End If
+            End Set
+        End Property
+
         Public Property tess_level As Single
             Get
                 Return _tess_level
@@ -416,6 +491,9 @@ Module modOpenGL
             _SUN_TINT = Math.Clamp(My.Settings.light_sun_tint, 0.0F, 1.0F)
             _AMBIENT_SAT = Math.Clamp(My.Settings.light_ambient_sat, 0.0F, 1.0F)
             _HEIGHT_CONTRAST = Math.Clamp(My.Settings.terrain_height_contrast, 0.25F, 12.0F)
+            _MACRO_FADE = Math.Clamp(My.Settings.terrain_macro_fade, 0.0F, 1.0F)
+            _HORIZON_STRENGTH = Math.Clamp(My.Settings.terrain_horizon_strength, 0.0F, 1.0F)
+            _SHADOW_STRENGTH = Math.Clamp(My.Settings.shadow_strength, 0.0F, 1.0F)
             USE_SH_AMBIENT = My.Settings.use_sh_ambient
             _tess_level = 1.0
 
@@ -441,6 +519,9 @@ Module modOpenGL
             My.Settings.light_sun_tint = _SUN_TINT
             My.Settings.light_ambient_sat = _AMBIENT_SAT
             My.Settings.terrain_height_contrast = _HEIGHT_CONTRAST
+            My.Settings.terrain_macro_fade = _MACRO_FADE
+            My.Settings.terrain_horizon_strength = _HORIZON_STRENGTH
+            My.Settings.shadow_strength = _SHADOW_STRENGTH
             My.Settings.use_sh_ambient = USE_SH_AMBIENT
         End Sub
 

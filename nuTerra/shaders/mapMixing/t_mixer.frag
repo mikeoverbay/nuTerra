@@ -1,4 +1,4 @@
-﻿#version 450 core
+#version 450 core
 
 #extension GL_ARB_shading_language_include : require
 
@@ -8,13 +8,18 @@
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec4 gNormal;
-layout (location = 2) out float gSpecular;
+layout (location = 2) out vec2 gSpecular;   // r specular, g baked horizon shadow
 
 layout(binding = 0) uniform sampler2D global_AM;
 
 layout(binding = 1) uniform sampler2DArray at[8];
 layout(binding = 9) uniform sampler2D mixtexture[4];
+layout(binding = 13) uniform sampler2D horizon_map;
 
+
+uniform int page_mip;
+uniform int active_layers;   // slots actually loaded; see layerMask in the notes
+uniform int has_horizon;
 
 in VS_OUT {
     vec4 Vertex;
@@ -149,6 +154,17 @@ void main(void)
     Mix[6] = texture(mixtexture[3], mix_coords.xy).a;
     Mix[7] = texture(mixtexture[3], mix_coords.xy).g;
 
+    // Slots past the ones this chunk actually loaded carry a zeroed projection,
+    // which samples one fixed texel of whatever happens to be bound, and the
+    // blend map channel behind them is not necessarily zero. Mask them out - the
+    // game does the same thing with layerMask, and layer_count had been tracked
+    // by the loader all along without anything ever reading it.
+    for (int i = 0; i < 8; ++i) {
+        if (i >= active_layers) {
+            Mix[i] = 0.0;
+        }
+    }
+
     const vec4 global = texture(global_AM, fs_in.Global_UV);
 
     vec4 t[8];      // am map
@@ -196,9 +212,32 @@ void main(void)
         t[i].rgb *= n[i].b;
         mt[i].rgb *= mn[i].b;
 
-        // mix macro
-        t[i].rgb = t[i].rgb * min(L.r2[i].x, 1.0) + mt[i].rgb * (L.r2[i].y + 1.0);
-        n[i].rgb = n[i].rgb * min(L.r2[i].x, 1.0) + mn[i].rgb * (L.r2[i].y + 1.0);
+        // Mix macro. The per-layer constants are the close-up blend; on top of
+        // that the game fades the whole thing toward pure macro as a page's mip
+        // rises (g_vtTileParams.w), so distant pages lose the micro detail
+        // entirely instead of tiling it. macro_fade of 0 keeps the old
+        // behaviour at every distance.
+        float macro_blend = clamp(float(page_mip) * props.macro_fade, 0.0, 1.0);
+
+        // L.r2[i].x is the game's blendMacroInfluence: how much of the macro
+        // texture shows through at close range. Fishing Bay reads 0, 0.1, 0.04,
+        // 0.06 across its layers - small, as an influence should be.
+        //
+        // This used to be micro * min(r2.x, 1) + macro * (r2.y + 1). With
+        // r2 = (0, 0) that is 0 * micro + 1 * macro - pure macro, sampled by
+        // crop3 at uv * 0.125, so every layer rendered as its own macro texture
+        // at eight times the scale. On Grass_Lawn_Green_33 that turned poppies
+        // into red patches across the whole map.
+        float macro_inf = clamp(L.r2[i].x, 0.0, 1.0);
+
+        vec3 micro_rgb = mix(t[i].rgb, mt[i].rgb, macro_inf);
+        vec3 micro_n   = mix(n[i].rgb, mn[i].rgb, macro_inf);
+
+        t[i].rgb = mix(micro_rgb, mt[i].rgb, macro_blend);
+        n[i].rgb = mix(micro_n,   mn[i].rgb, macro_blend);
+
+        // the game lerps the height the same way, using the macro alpha
+        t[i].a = mix(t[i].a, mth[i], macro_blend);
 
         ssum += Mix[i];
     }
@@ -241,17 +280,33 @@ void main(void)
     }
     f = max(f, 1e-6);
 
-    vec4 out_n = vec4(0.0);
     vec4 base = vec4(0.0);
+
+    // The winning layer, for the normal. The game does not blend normals at
+    // all: it runs an argmax over the blend weights and takes a single normal
+    // sample from whichever layer won, while albedo blends across all of them.
+    //
+    // Averaging eight normal maps pulls every one of them toward the mean, which
+    // is flat - so the surface loses its relief exactly where two textures meet,
+    // and the terrain reads soft and washed out even when the albedo is right.
+    int win = 0;
+    float win_w = -1.0;
+
     for (int i = 0; i < 8; ++i) {
         Mix[i] /= f;
 
         base += t[i] * Mix[i];
-        out_n += n[i] * Mix[i];
+
+        if (Mix[i] > win_w) {
+            win_w = Mix[i];
+            win = i;
+        }
 
         // displacement height, weighted the same way the colour is
         height += t[i].a * Mix[i] * L.r1[i].x;
     }
+
+    vec4 out_n = n[win];
 
     // global
     float c_l = length(base.rgb) + base.a + global.a+0.25;
@@ -270,7 +325,24 @@ void main(void)
         }
     }
 
-    gSpecular = out_n.r;
+    // Baked terrain self shadowing, straight into the page so it costs nothing
+    // per frame. terrain2/horizonshadows stores a horizon angle per texel, which
+    // is why the game can keep it across a day/night cycle - we use it as a flat
+    // large scale shading term for now.
+    float horizon = 1.0;
+    if (has_horizon != 0) {
+        horizon = texture(horizon_map, mix_coords).r;
+    }
+
+    // The map-wide sun shadow used to be sampled here and folded into
+    // gSpecular.g at page bake time. It now lives in deferred.frag instead.
+    //
+    // A page is baked once, long before anything is drawn on top of it, so a
+    // shadow written here lands ahead of the projected decals - and ahead of the
+    // ambient/direct split, which is the half that made shade read as black.
+    // Sampling in the final render puts it after both, and reaches the static
+    // models as well, which a terrain page never could.
+    gSpecular = vec2(out_n.r, horizon);
 
     //gColor = gColor* 0.001 + r1_8;
     gColor.rgb = base.rgb;

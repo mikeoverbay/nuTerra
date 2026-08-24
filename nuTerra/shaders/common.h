@@ -1,4 +1,4 @@
-﻿#define PARAMETERS_BASE 0
+#define PARAMETERS_BASE 0
 
 // Uniforms Blocks
 #define TERRAIN_LAYERS_UBO_BASE 0
@@ -148,7 +148,7 @@ layout(binding = SHADOW_MAPPING_UBO_BASE, std140) uniform ShadowMapping {
 };
 
 // MUST match the splits in MapScene.ShadowMappingPass
-const float cascadePlaneDistances[3] = {40.0, 150.0, 500.0};
+const float cascadePlaneDistances[3] = {20.0, 75.0, 250.0};
 const int cascadeCount = 3;
 #endif
 
@@ -184,7 +184,11 @@ layout(binding = COMMON_PROPERTIES_UBO_BASE) uniform CommonProperties {
     float blend_height;
     float disabled_blend_height;
     float height_contrast;
-    float _pad_e;
+    float macro_fade;
+    float horizon_strength;
+    float shadow_strength;
+    float _pad_g;
+    float _pad_h;
 } props;
 #endif
 

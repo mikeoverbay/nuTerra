@@ -1,4 +1,5 @@
-﻿Imports System.Runtime.InteropServices
+Imports System.Runtime.InteropServices
+Imports ImGuiNET
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
@@ -245,6 +246,27 @@ Module modRender
 
             '===========================================================================
             'This has to be called last. It changes the PROJECTMATRIX and VIEWMATRIX
+            ' Before the minimap: draw_mini_map changes PROJECTMATRIX/VIEWMATRIX
+            ' on its way out, and this needs the 2D projection still standing.
+            If SHOW_SUN_SHADOW_VIEWER Then
+                If ImGui.Begin("Shadow Map Viewer", SHOW_SUN_SHADOW_VIEWER) Then
+                    Dim sz = Math.Min(ImGui.GetWindowWidth() - 16, ImGui.GetWindowHeight() - 40)
+                    Dim wx = (b_x_max - b_x_min + 1.0F) * 100.0F
+                    Dim wz = (b_y_max - b_y_min + 1.0F) * 100.0F
+                    Dim aspect = wz / wx
+                    Dim w = sz, h = sz * aspect
+                    If h > sz Then
+                        h = sz
+                        w = sz / aspect
+                    End If
+
+                    Dim pos = ImGui.GetCursorScreenPos()
+                    map_scene.sun_shadow.DebugDraw(New RectangleF(pos.X, pos.Y, w, h))
+                    ImGui.Dummy(New System.Numerics.Vector2(w, h))
+                    ImGui.End()
+                End If
+            End If
+
             If DONT_HIDE_MINIMAP Then map_scene.mini_map.draw_mini_map() '===========================================================
             '===========================================================================
         End If
@@ -272,6 +294,32 @@ Module modRender
         map_scene.ENV_BRDF_LUT_ID?.BindUnit(6)
         ShadowMappingFBO.depth_tex.BindUnit(7)
 
+        ' Map-wide baked sun shadow. The cascades carry trees only, so this is
+        ' what shadows terrain and static models - it has to be here rather than
+        ' folded into the terrain albedo at page-bake time, or it reaches neither
+        ' the models nor the ambient/direct split correctly.
+        If map_scene.sun_shadow.ready AndAlso map_scene.sun_shadow.depth_tex IsNot Nothing Then
+            map_scene.sun_shadow.depth_tex.BindUnit(8)
+            GL.UniformMatrix4(deferredShader("sunViewProj"), False, map_scene.sun_shadow.sun_view_proj)
+
+            ' 1 = PCF over the depth map, 2 = moment shadow map. The moment path
+            ' needs its texture to actually exist - msm_ready tracks what the
+            ' last bake built, not what the checkbox currently says.
+            If map_scene.sun_shadow.msm_ready AndAlso map_scene.sun_shadow.moment_tex IsNot Nothing Then
+                map_scene.sun_shadow.moment_tex.BindUnit(9)
+                GL.Uniform1(deferredShader("has_sun_shadow"), 2)
+                GL.Uniform1(deferredShader("msm_moment_bias"), MSM_MOMENT_BIAS)
+            Else
+                GL.Uniform1(deferredShader("has_sun_shadow"), 1)
+            End If
+
+            ' Shared by both paths, so an A/B compares the filtering only.
+            GL.Uniform1(deferredShader("shadow_penumbra_lo"), SHADOW_PENUMBRA_LO)
+            GL.Uniform1(deferredShader("shadow_penumbra_hi"), SHADOW_PENUMBRA_HI)
+        Else
+            GL.Uniform1(deferredShader("has_sun_shadow"), 0)
+        End If
+
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
         Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, map_scene.camera.PerViewData.view)
@@ -294,7 +342,7 @@ Module modRender
         draw_main_Quad(MainFBO.width, MainFBO.height) 'render Gbuffer lighting
 
         ' UNBIND
-        unbind_textures(7)
+        unbind_textures(9)
 
         deferredShader.StopUse()
 

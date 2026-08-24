@@ -31,6 +31,8 @@ Module TerrainTextureFunctions
         ' we have the data so lets get the textures.
         get_layer_textures(map)
 
+        theMap.render_set(map).horizon_id = build_horizon_texture(map)
+
 
     End Sub
 
@@ -60,13 +62,24 @@ Module TerrainTextureFunctions
                 Dim atlas_tex As GLTexture = Nothing
                 Dim fullWidth As Integer = 1024
                 Dim fullHeight As Integer = 1024
-                Dim layer As Single
+
+                ' The slice index is i, not a separate counter. It used to be a
+                ' running "layer" incremented at the bottom of the loop, which
+                ' Continue For skipped - so one missing partner texture shifted
+                ' every later one into the wrong slot: macro AM landing in the
+                ' normal map slice, and one slice never written at all. An
+                ' unwritten slice of a freshly allocated texture is undefined,
+                ' which is what put red over the terrain on 36_fishing_bay.
+                Dim written(3) As Boolean
+                Dim slice_size As Integer = 0
+                Dim slice_format As Integer = 0
+
                 For i = 0 To 3
 
                     Dim dds_entry = ResMgr.Lookup(tex_names(i))
 
                     If dds_entry Is Nothing Then
-                        Stop
+                        LogThis("terrain atlas: {0} not found - slice {1} left blank", tex_names(i), i)
                         Continue For
                     End If
 
@@ -82,7 +95,6 @@ Module TerrainTextureFunctions
                         Dim format_info = dds_header.format_info
 
                         If i = 0 Then 'run once to get new atlas texture
-                            layer = 0
                             'Calculate Max Mip Level based on width or height.. Which ever is larger.
                             Dim numLevels As Integer = 1 + Math.Floor(Math.Log(Math.Max(fullWidth, fullHeight), 2))
                             atlas_tex = get_atlas(numLevels, map, z, format_info.texture_format)
@@ -91,13 +103,37 @@ Module TerrainTextureFunctions
                         Dim size = ((dds_header.width + 3) \ 4) * ((dds_header.height + 3) \ 4) * format_info.components
                         Dim data = dds_br.ReadBytes(size)
 
+                        slice_size = size
+                        slice_format = CInt(format_info.texture_format)
+
                         er = GL.GetError
-                        atlas_tex.CompressedSubImage3D(0, 0, 0, layer, 1024, 1024, 1,
+                        atlas_tex.CompressedSubImage3D(0, 0, 0, i, 1024, 1024, 1,
                                                 DirectCast(format_info.texture_format, OpenGL.PixelFormat), size, data)
                         er = GL.GetError
+                        written(i) = True
                     End Using
-                    layer += 1
                 Next
+
+                ' The AM is slice 0 and creates the atlas - without it there is
+                ' nothing to fill, so fall back to the dummy for the whole layer.
+                If atlas_tex Is Nothing Then
+                    LogThis("terrain atlas: {0} has no usable AM - using the dummy", .texture_name)
+                    .atlas_id = DUMMY_ATLAS
+                    Continue For
+                End If
+
+                ' Anything we could not load gets zeroed rather than left as
+                ' whatever the driver handed us.
+                If slice_size > 0 Then
+                    Dim blank(slice_size - 1) As Byte
+                    For i = 0 To 3
+                        If Not written(i) Then
+                            atlas_tex.CompressedSubImage3D(0, 0, 0, i, 1024, 1024, 1,
+                                                    DirectCast(slice_format, OpenGL.PixelFormat), slice_size, blank)
+                        End If
+                    Next
+                End If
+
                 atlas_tex.GenerateMipmap()
                 .atlas_id = atlas_tex
                 TextureMgr.add_image(.texture_name, .atlas_id)
@@ -168,6 +204,65 @@ Module TerrainTextureFunctions
                 BufferStorageFlags.None)
         End With
     End Sub
+    ''' <summary>
+    ''' Expands terrain2/horizonshadows into a 128x128 R8 texture for one chunk.
+    ''' The section header is "shd", width, height, bits-per-texel, planes - so
+    ''' 128 x 128 at 4 bits, two texels per byte, low nibble first. 16 levels is
+    ''' coarse, but this is a large scale terrain-on-terrain term.
+    ''' </summary>
+    Private Function build_horizon_texture(map As Integer) As GLTexture
+        ' DISABLED - the layout is not cracked yet, and feeding it in produced a
+        ' corduroy pattern across the terrain.
+        '
+        ' What is known: header is "shd", 128, 128, 4, 1, then 8192 bytes. The
+        ' body is NOT 128x128 at 4 bits as the header suggests. Autocorrelation
+        ' puts the record size at 8 bytes and the row at 256 bytes, so 32 x 32
+        ' texels of 8 bytes each. Within a record the first two little-endian
+        ' u16 are coherent terrain-like values in 0..2047 - two 11 bit fields,
+        ' plausibly a pair of horizon angles - and the remaining four bytes do
+        ' not read as anything spatially coherent.
+        '
+        ' Everything downstream of here is wired and works: the RG8 specular
+        ' target and atlas, the bind at unit 13, the sample in t_mixer, and the
+        ' fetch in TerrainLQ/HQ. Return a real texture here once the layout is
+        ' understood and it lights up.
+        Return Nothing
+
+        Dim src = theMap.chunks(map).horizon_data
+        If src Is Nothing OrElse src.Length < 32 Then Return Nothing
+
+        Dim w = BitConverter.ToInt32(src, 4)
+        Dim h = BitConverter.ToInt32(src, 8)
+        Dim bits = BitConverter.ToInt32(src, 12)
+        If w <= 0 OrElse h <= 0 OrElse bits <> 4 Then
+            LogThis("horizonshadows: unexpected header {0}x{1} bits={2} - skipped", w, h, bits)
+            Return Nothing
+        End If
+
+        Dim need = w * h \ 2
+        If src.Length - 32 < need Then
+            LogThis("horizonshadows: {0} body bytes, expected {1} - skipped", src.Length - 32, need)
+            Return Nothing
+        End If
+
+        Dim pix(w * h - 1) As Byte
+        For i = 0 To need - 1
+            Dim b = src(32 + i)
+            pix(i * 2) = CByte((b And &HF) * 17)
+            pix(i * 2 + 1) = CByte((b >> 4) * 17)
+        Next
+
+        Dim t = GLTexture.Create(TextureTarget.Texture2D, String.Format("horizon_{0}", map))
+        t.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+        t.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        t.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+        t.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        t.Storage2D(1, SizedInternalFormat.R8, w, h)
+        GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1)
+        t.SubImage2D(0, 0, 0, w, h, OpenGL.PixelFormat.Red, PixelType.UnsignedByte, pix)
+        Return t
+    End Function
+
     Private Function get_atlas(mipcount As Integer, map As Int32, z As Int32, format As SizedInternalFormat) As GLTexture
         Dim t = GLTexture.Create(TextureTarget.Texture2DArray, "tAtlas" + map.ToString + "_" + z.ToString)
 
@@ -350,6 +445,18 @@ Module TerrainTextureFunctions
                     Dim det = uu.X * vv.Z - uu.Z * vv.X
                     LogThis("  layer {0}: U=({1:0.####} {2:0.####} {3:0.####} {4:0.####}) V=({5:0.####} {6:0.####} {7:0.####} {8:0.####}) angle={9:0.##} det={10:0.####}",
                             i, uu.X, uu.Y, uu.Z, uu.W, vv.X, vv.Y, vv.Z, vv.W, ang, det)
+
+                    ' Candidates for the game's per-block layerMask, tileColor and
+                    ' tileOffset - none of these three is identified yet. A mask
+                    ' would read as 0/1 per layer; a colour as three 0..1 values;
+                    ' an atlas offset as small fractions.
+                    Dim sc = .TexLayers(i).scale_a
+                    Dim v1 = .layer.render_info(cur_layer_info_pnt + 0).v1
+                    Dim rr1 = .TexLayers(i).r1
+                    Dim rr2 = .TexLayers(i).r2
+                    LogThis("           scale=({0:0.####} {1:0.####} {2:0.####} {3:0.####}) v1=({4:0.####} {5:0.####} {6:0.####}) r1=({7:0.####} {8:0.####} {9:0.####} {10:0.####}) r2=({11:0.####} {12:0.####} {13:0.####} {14:0.####})",
+                            sc.X, sc.Y, sc.Z, sc.W, v1.X, v1.Y, v1.Z,
+                            rr1.X, rr1.Y, rr1.Z, rr1.W, rr2.X, rr2.Y, rr2.Z, rr2.W)
 
                     cur_layer_info_pnt += 2
                     .layer_count += 1

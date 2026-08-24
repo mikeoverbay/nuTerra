@@ -83,6 +83,8 @@ Module TerrainBuilder
         Public holes_data() As Byte
         Public layers_data() As Byte
         Public normals_data() As Byte
+        '''<summary>terrain2/horizonshadows - 128x128, 4 bits per texel.</summary>
+        Public horizon_data() As Byte
 
         Public location As Vector4
 
@@ -133,6 +135,8 @@ Module TerrainBuilder
         Public layer As layer_render_info_
         Public b_x_size, b_y_size As Integer
         Public layer_count As Integer
+        '''<summary>Baked horizon shadow for this chunk, or Nothing.</summary>
+        Public horizon_id As GLTexture
         Public visible As Boolean ' frustum clipped flag
         Public quality As TerrainQuality
 
@@ -471,6 +475,18 @@ Module TerrainBuilder
                     'stream.Position = 0
                     'br = New BinaryReader(stream)
                     'theMap.chunks(cnt).normals_data = br.ReadBytes(stream.Length)
+
+                    ' Baked terrain self shadowing. Header is "shd", 128 x 128,
+                    ' 4 bits per texel - it stores a horizon angle, not a shadow
+                    ' image, which is why it survives the day/night cycle.
+                    Dim horizon = t2("terrain2/horizonshadows")
+                    If horizon IsNot Nothing Then
+                        stream = New MemoryStream
+                        horizon.Extract(stream)
+                        stream.Position = 0
+                        br = New BinaryReader(stream)
+                        theMap.chunks(cnt).horizon_data = br.ReadBytes(stream.Length)
+                    End If
 
                     Dim holes = t2("terrain2/holes")
                     If holes IsNot Nothing Then

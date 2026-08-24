@@ -1,4 +1,4 @@
-﻿#version 450 core
+#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
@@ -42,6 +42,30 @@ vec3 eval_sh_irradiance(vec3 n)
 layout(binding = 5) uniform lowp sampler2D lut;
 layout(binding = 6) uniform lowp sampler2D env_brdf_lut;
 layout(binding = 7) uniform sampler2DArrayShadow shadowMap;
+
+// Map-wide baked sun shadow. Sampled here rather than folded into terrain albedo
+// at VT bake time, for two reasons. Albedo is multiplied into the ambient term
+// as well as the direct one, so baking it there darkened the sky fill that
+// should still be present in shade. And the VT page only covers terrain, so a
+// static model standing in a building's shadow received nothing at all - the
+// cascades carry trees only, deliberately, because trees animate.
+layout(binding = 8) uniform sampler2DShadow sun_shadow_map;
+
+// Moment Shadow Map variant of the same bake - four power moments instead of a
+// comparison sampler. Plain sampler2D, mipmapped and pre-blurred.
+layout(binding = 9) uniform sampler2D sun_moment_map;
+
+uniform mat4 sunViewProj;
+
+// 0 = no baked shadow, 1 = PCF over the depth map, 2 = moment shadow map.
+uniform int has_sun_shadow;
+
+uniform float msm_moment_bias;
+
+// Penumbra shaping, applied to both the PCF and the moment path so an A/B
+// between them stays honest.
+uniform float shadow_penumbra_lo;
+uniform float shadow_penumbra_hi;
 
 uniform mat4 ProjectionMatrix;
 uniform vec3 LightPos;
@@ -160,7 +184,139 @@ float sun_shadow_factor(vec3 view_pos)
         o = vec2(o.x * rc.x - o.y * rc.y, o.x * rc.y + o.y * rc.x);
         shadowDepth += texture(shadowMap, vec4(coords.xy + o * spread, coords.z, coords.w));
     }
-    return shadowDepth / 9.0;
+    return mix(1.0, shadowDepth / 9.0, props.shadow_strength);
+}
+
+// Fraction of the sun reaching this point according to the map-wide bake.
+// Same contract as sun_shadow_factor: 1.0 lit, 0.0 fully shadowed, so the two
+// simply multiply.
+//
+// Takes world space. Note gPosition is view space despite every writer calling
+// the varying "worldPosition" - it is view * model * vertex - so callers must
+// pass invView * Position, exactly as sun_shadow_factor does above.
+// Moment Shadow Maps, Peters & Klein 2015.
+//
+// Given the first four power moments of the occluder depth distribution in a
+// filter footprint, this solves the Hamburger moment problem for the tightest
+// bound on how much light reaches frag_z. Returns shadow INTENSITY: 0 lit,
+// 1 fully shadowed.
+//
+// The value of the method is not the reconstruction, it is that moments are
+// linear. A depth comparison must be compared before it is averaged, so a depth
+// map cannot be blurred or mipmapped and PCF must spend taps every frame. These
+// can be, and were - once, at bake time - so sampling is a single trilinear
+// fetch and minification finally has a correct answer instead of aliasing.
+float msm_intensity(vec4 b_in, float frag_z)
+{
+    // Bias toward the moments of a uniform distribution on 0..1. The Hankel
+    // matrix below is singular wherever depth is constant, which is most of a
+    // flat map, so without this the solve blows up across open ground.
+    const vec4 UNIFORM_MOMENTS = vec4(0.5, 1.0 / 3.0, 0.25, 0.2);
+    vec4 b = mix(b_in, UNIFORM_MOMENTS, msm_moment_bias);
+
+    // B = [[1, b1, b2],
+    //      [b1, b2, b3],
+    //      [b2, b3, b4]]   solved by LDL^T, then B*c = (1, z, z^2).
+    float L21 = b.x;
+    float L31 = b.y;
+    float D22 = max(b.y - b.x * b.x, 1e-7);
+    float L32 = (b.z - b.x * b.y) / D22;
+    float D33 = max(b.w - b.y * b.y - L32 * L32 * D22, 1e-7);
+
+    // Forward substitution, L y = (1, z, z^2)
+    float y2 = frag_z - L21;
+    float y3 = frag_z * frag_z - L31 - L32 * y2;
+
+    // Diagonal, then back substitution L^T c = D^-1 y
+    float c3 = y3 / D33;
+    float c2 = (y2 / D22) - L32 * c3;
+    float c1 = 1.0 - L21 * c2 - L31 * c3;
+
+    // Roots of c1 + c2*z + c3*z^2, the two support points of the distribution.
+    float p = c2 / c3;
+    float q = c1 / c3;
+    float r = sqrt(max(p * p * 0.25 - q, 0.0));
+    float z2 = -p * 0.5 - r;
+    float z3 = -p * 0.5 + r;
+
+    vec4 sw = (z3 < frag_z) ? vec4(z2, frag_z, 1.0, 1.0)
+            : ((z2 < frag_z) ? vec4(frag_z, z2, 0.0, 1.0)
+                             : vec4(0.0, 0.0, 0.0, 0.0));
+
+    float denom = (z3 - sw.y) * (frag_z - z2);
+    float quotient = (sw.x * z3 - b.x * (sw.x + z3) + b.y) / (abs(denom) < 1e-7 ? 1e-7 : denom);
+
+    return clamp(sw.z + sw.w * quotient, 0.0, 1.0);
+}
+
+// Reshapes the transition after filtering and before the light sees it.
+//
+// Filtering decides how far a penumbra reaches; this decides how much of that
+// reach is visible. That separation is the useful part - the footprint can stay
+// wide, which is what makes minification and antialiasing behave, while the
+// edge presents as tight.
+//
+// smoothstep, deliberately, not step. A hard cut throws away the sub-pixel
+// gradient the blur and the mip chain just produced and puts the aliasing
+// straight back. Narrow the band to sharpen; never close it.
+//
+// It doubles as the light-leak control on the moment path: raising lo crushes
+// the grey haze that a filterable shadow map leaves in front of an occluder.
+float shape_penumbra(float lit)
+{
+    float lo = shadow_penumbra_lo;
+    float hi = max(shadow_penumbra_hi, lo + 1e-3);
+    return smoothstep(lo, hi, lit);
+}
+
+float baked_sun_shadow(vec3 world_pos)
+{
+    if (has_sun_shadow == 0) {
+        return 1.0;
+    }
+
+    vec4 sp = sunViewProj * vec4(world_pos, 1.0);
+    sp.xyz /= sp.w;
+
+    // Only xy need the -1..1 -> 0..1 remap. ClipDepthMode.ZeroToOne means z
+    // already arrives as 0..1 and sun_view_proj is built to match; remapping it
+    // again would halve it and shadow everything.
+    sp.xy = sp.xy * 0.5 + 0.5;
+
+    // Outside the baked depth range: unshadowed rather than clamped, or the far
+    // side of the map would go black.
+    if (sp.z > 1.0 || sp.z < 0.0) {
+        return 1.0;
+    }
+
+    // Outside the baked footprint entirely - the ortho box is fitted to the
+    // terrain, so anything past it is lit. The depth path gets this from
+    // CLAMP_TO_BORDER with a white border; the moment path has no equivalent,
+    // so it is checked here.
+    if (any(lessThan(sp.xy, vec2(0.0))) || any(greaterThan(sp.xy, vec2(1.0)))) {
+        return 1.0;
+    }
+
+    if (has_sun_shadow == 2) {
+        // One trilinear fetch. The mip chain does the minification filtering
+        // that PCF cannot do at any tap count.
+        vec4 b = texture(sun_moment_map, sp.xy);
+        float lit = shape_penumbra(1.0 - msm_intensity(b, sp.z));
+        return mix(1.0, lit, props.horizon_strength);
+    }
+
+    // 4 taps a texel apart. The bake is coarse relative to a screen pixel, so a
+    // little filtering here is most of the softness available.
+    float texel = 1.0 / float(textureSize(sun_shadow_map, 0).x);
+    float s = 0.0;
+    s += texture(sun_shadow_map, vec3(sp.xy + vec2(-texel, -texel), sp.z));
+    s += texture(sun_shadow_map, vec3(sp.xy + vec2( texel, -texel), sp.z));
+    s += texture(sun_shadow_map, vec3(sp.xy + vec2(-texel,  texel), sp.z));
+    s += texture(sun_shadow_map, vec3(sp.xy + vec2( texel,  texel), sp.z));
+
+    // Same shaping as the moment path, so switching between the two compares
+    // the filtering and nothing else.
+    return mix(1.0, shape_penumbra(s * 0.25), props.horizon_strength);
 }
 
 void main (void)
@@ -257,7 +413,12 @@ void main (void)
             // N and L are both view space, so the dot is consistent. This uses
             // the raw N.L, not the pow'd lambertTerm - the exponent is material
             // shaping and has no business deciding how much sky fill lands.
-            float sun_shadow = sun_shadow_factor(Position);
+            // Live cascades (trees) and the map-wide bake (terrain and static
+            // models) are two halves of one answer, so they multiply into a
+            // single factor. Everything downstream then sees one number and the
+            // ambient/direct split below stays consistent for both.
+            float sun_shadow = sun_shadow_factor(Position)
+                             * baked_sun_shadow((invView * vec4(Position, 1.0)).xyz);
             float direct_light = max(dot(N, L), 0.0) * sun_shadow;
             Ambient_level.rgb *= (1.0 - direct_light);
 

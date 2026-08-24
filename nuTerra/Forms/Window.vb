@@ -1,4 +1,4 @@
-﻿Imports System.Drawing.Imaging
+Imports System.Drawing.Imaging
 Imports System.IO
 Imports System.Reflection
 Imports System.Runtime.InteropServices
@@ -28,6 +28,9 @@ Public Class Window
 
     Private SHOW_SETTINGS_WINDOW As Boolean
     Private SHOW_TEXTURES_VIEWER_WINDOW As Boolean
+    Private prev_SHOW_SETTINGS_WINDOW As Boolean = False
+    Private stats_window_size As System.Numerics.Vector2 = System.Numerics.Vector2.Zero
+    Private stats_window_pos As System.Numerics.Vector2 = System.Numerics.Vector2.Zero
 
     Private Shared Function GetGLSettings() As NativeWindowSettings
         Dim setting As New NativeWindowSettings With {
@@ -224,6 +227,11 @@ Public Class Window
         DECAL_EDGE_FADE = True
         ' USE_SH_AMBIENT is restored from My.Settings by CommonProperties.Init()
 
+        ' Everything modMapSettings manages now has its startup value, so this is
+        ' the point to record what a map with no saved file should fall back to.
+        ' Must come before the first load_map.
+        modMapSettings.CaptureDefaults()
+
         ShadowMappingFBO.FBO_Initialize()
         LogThis("{0}ms FBO ShadowMapping Created.", launch_timer.ElapsedMilliseconds)
 
@@ -371,7 +379,9 @@ try_again:
             If ImGui.Begin("##Dummy ProgressBar Window", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
                 ImGui.ProgressBar(BG_VALUE / BG_MAX_VALUE, New Numerics.Vector2(-1.0F, 0.0F))
                 ImGui.Text(BG_TEXT)
-                ImGui.TextWrapped(MapMenuScreen.MAP_DESCRIPTION)
+                For Each line In split_sentences(MapMenuScreen.MAP_DESCRIPTION)
+                    ImGui.TextWrapped(line)
+                Next
             End If
         Else
             SubmitUI(viewport)
@@ -389,6 +399,100 @@ try_again:
     ''' tree number from the CPU box test, and the terrain number from the per
     ''' chunk visible flag.
     '''</summary>
+    ''' <summary>
+    ''' Breaks a map description into sentences on ". ", putting the period back
+    ''' on each one. A map blurb is a single run-on paragraph otherwise, and
+    ''' TextWrapped gives it no structure to hang on.
+    ''' </summary>
+    Private Function split_sentences(text As String) As List(Of String)
+        Dim out As New List(Of String)
+        If String.IsNullOrWhiteSpace(text) Then Return out
+
+        Dim parts = text.Split(New String() {". "}, StringSplitOptions.None)
+        For i = 0 To parts.Length - 1
+            Dim p = parts(i).Trim()
+            If p.Length = 0 Then Continue For
+
+            ' the split ate the period on everything but the last piece, and the
+            ' last one may already end in its own punctuation
+            If i < parts.Length - 1 Then
+                p &= "."
+            ElseIf Not p.EndsWith(".") AndAlso Not p.EndsWith("!") AndAlso Not p.EndsWith("?") Then
+                p &= "."
+            End If
+
+            out.Add(p)
+        Next
+        Return out
+    End Function
+
+    ' Burnt orange, #CC5500. Opaque enough to kill whatever is behind it.
+    Private Shared ReadOnly SLAB_COLOUR As New Numerics.Vector4(0.8F, 0.333F, 0.0F, 0.88F)
+    Private Shared ReadOnly SLAB_TEXT As New Numerics.Vector4(1.0F, 1.0F, 1.0F, 1.0F)
+
+    ''' <summary>
+    ''' Draws a line of text on a filled slab. The toolbar window is NoBackground,
+    ''' so the stats were being read against whatever terrain happened to be under
+    ''' them - unreadable over bright ground, and worse over the sky. A solid
+    ''' backing gives them one constant surface instead.
+    ''' </summary>
+    Private Sub text_on_slab(s As String)
+        Const PAD_X As Single = 5.0F
+        Const PAD_Y As Single = 2.0F
+
+        Dim pos = ImGui.GetCursorScreenPos()
+        Dim size = ImGui.CalcTextSize(s)
+
+        ' Submitted before the text so it lands behind it - a draw list is
+        ' painted in submission order.
+        ImGui.GetWindowDrawList().AddRectFilled(
+            New Numerics.Vector2(pos.X - PAD_X, pos.Y - PAD_Y),
+            New Numerics.Vector2(pos.X + size.X + PAD_X, pos.Y + size.Y + PAD_Y),
+            ImGui.GetColorU32(SLAB_COLOUR), 3.0F)
+
+        ImGui.TextColored(SLAB_TEXT, s)
+    End Sub
+
+    ''' <summary>
+    ''' Dumps the current render state to the log and forces it to disk.
+    '''
+    ''' The flush is the point. LogThis is Console.WriteLine, and when stdout is
+    ''' redirected to a file that stream is buffered - so a line written mid
+    ''' session can sit unwritten indefinitely, which makes the log useless for
+    ''' anything but post-mortem. This writes a marked block and flushes it, so
+    ''' the file can be read while the app is still running.
+    '''
+    ''' Diagnostics that only fire at map load - the sun shadow bake in
+    ''' particular - can be re-taken from here at any time.
+    ''' </summary>
+    Private Sub write_log_snapshot()
+        LogThis("================ SNAPSHOT {0} ================", Date.Now.ToString("HH:mm:ss"))
+
+        If Not MAP_LOADED OrElse map_scene Is Nothing Then
+            LogThis("  no map loaded")
+            Console.Out.Flush()
+            Return
+        End If
+
+        LogThis("  map: {0}", MAP_NAME_NO_PATH)
+        LogThis("  fps: {0}   vram: {1} of {2} mb", FPS_TIME,
+                GLCapabilities.memory_usage, GLCapabilities.total_mem_mb)
+        LogThis("  {0}", clip_counts())
+
+        ' The shadow mix, both halves, as deferred.frag multiplies them.
+        LogThis("  shadow mix: live={0} strength={1:0.00}   baked={2} strength={3:0.00}",
+                ShadowMappingFBO.Enabled, CommonProperties.SHADOW_STRENGTH,
+                BAKED_SHADOW_ENABLED, CommonProperties.HORIZON_STRENGTH)
+        LogThis("  cascades: {0} x {1}^2, every {2} frames, splits 20/75/250",
+                ShadowMappingFBO.CASCADES, ShadowMappingFBO.WIDTH, ShadowMappingFBO.FRAME_STEP)
+        LogThis("  sun: LIGHT_POS {0:0.0} {1:0.0} {2:0.0}  (len {3:0.0})",
+                LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z, LIGHT_POS.Length)
+
+        map_scene.sun_shadow.LogSnapshot()
+
+        Console.Out.Flush()
+    End Sub
+
     Private Function clip_counts() As String
         Dim models = 0, model_total = 0
         If map_scene IsNot Nothing AndAlso map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
@@ -684,7 +788,12 @@ try_again:
 
     Private Sub SubmitUI(viewport As ImGuiViewportPtr)
         ImGui.SetNextWindowPos(viewport.Pos)
-        If ImGui.Begin("##Dummy Window 1", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings) Then
+        ' AlwaysAutoResize matters here: without a size of its own this window
+        ' auto-fits for its first couple of frames and then latches. It is created
+        ' on the map picker holding nothing but the buttons, so once a map loads
+        ' the FPS and clip counts would be drawn and then clipped straight back
+        ' out again. Auto-resizing every frame lets it grow when they appear.
+        If ImGui.Begin("##Dummy Window 1", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.AlwaysAutoResize) Then
             If ImGui.Button("Load map") Then
                 'Runs Map picking code.
                 SHOW_MAPS_SCREEN = True
@@ -701,16 +810,22 @@ try_again:
             If ImGui.Button("Screen Capture") Then
                 NEED_TO_DO_SCREEN_CAPTURE = True
             End If
+            ImGui.SameLine()
+            If ImGui.Button("Snapshot") Then
+                write_log_snapshot()
+            End If
             ' Only while actually looking at a map. Behind the picker, and before
             ' anything is loaded, the counts are stale and the FPS is measuring an
             ' idle frame - both misleading.
             If MAP_LOADED AndAlso Not SHOW_MAPS_SCREEN Then
                 ImGui.SameLine()
-                ImGui.Text(String.Format("FPS: {0,-3} | VRAM: {1}mb of {2}mb", FPS_TIME,
-                                         GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
+                text_on_slab(String.Format("FPS: {0,-3} | VRAM: {1}mb of {2}mb", FPS_TIME,
+                                          GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
                 ' own line: the counts run past the end of the bar otherwise
-                ImGui.Text(clip_counts())
+                text_on_slab(clip_counts())
             End If
+            stats_window_pos = ImGui.GetWindowPos()
+            stats_window_size = ImGui.GetWindowSize()
             ImGui.End()
         End If
 
@@ -725,6 +840,10 @@ try_again:
         End If
 
         If SHOW_SETTINGS_WINDOW Then
+            If Not prev_SHOW_SETTINGS_WINDOW AndAlso stats_window_size.LengthSquared > 0 Then
+                Dim pos = stats_window_pos + New System.Numerics.Vector2(0, stats_window_size.Y + 5)
+                ImGui.SetNextWindowPos(pos)
+            End If
             If ImGui.Begin("Settings", SHOW_SETTINGS_WINDOW) Then
                 If ImGui.CollapsingHeader("Export Map") Then
                     ImGui.Checkbox("Export STLs", EXPORT_STL_MAP)
@@ -788,16 +907,20 @@ try_again:
                     ImGui.Checkbox("Use tessellation", USE_TESSELLATION)
                     ImGui.SliderFloat("Tessellation Level", CommonProperties.tess_level, 0.0, 8.0)
 
-                    ' Width of the terrain height blend. Loaded per map from
-                    ' BWT2/blendHeight - Abbey authors it at 0.3. Small is a crisp
-                    ' edge following the height maps, large is a cross-fade.
+                    ' Width of the terrain height blend. Starts at the game's
+                    ' hardcoded 0.05, NOT the map-authored BWT2 value - the game
+                    ' does not use the authored one here, and at 0.3 the band is
+                    ' wide enough that all eight layers contribute and the mix
+                    ' averages out. Small is a crisp edge following the height
+                    ' maps, large is a cross-fade.
                     ' Needs Rebuild VT to show, the mix is baked into the pages.
                     Dim v_bh = CommonProperties.BLEND_HEIGHT
                     If ImGui.SliderFloat("Blend Height", v_bh, 0.01, 1.0) Then
                         CommonProperties.BLEND_HEIGHT = v_bh
                     End If
-                    ImGui.Text(String.Format("   live={0:0.###}   map authored={1:0.###}   disabled={2:0.###}",
+                    ImGui.Text(String.Format("   live={0:0.###}   game={1:0.###}   map authored={2:0.###} (unused)   disabled={3:0.###}",
                                              CommonProperties.BLEND_HEIGHT,
+                                             TCommonProperties.GAME_BLEND_HEIGHT,
                                              CommonProperties.blend_height_authored,
                                              CommonProperties.disabled_blend_height))
                     ' Exponent on layer height before the blend. 1.0 is the game's
@@ -807,12 +930,120 @@ try_again:
                         CommonProperties.HEIGHT_CONTRAST = v_hc
                     End If
 
+                    ' Per-page micro -> macro fade. 0 is the old behaviour.
+                    Dim v_mf = CommonProperties.MACRO_FADE
+                    If ImGui.SliderFloat("Macro Fade / mip", v_mf, 0.0, 1.0) Then
+                        CommonProperties.MACRO_FADE = v_mf
+                    End If
+
+                    ' Map-wide baked sun shadow. Sampled per frame in
+                    ' deferred.frag now, not baked into the VT page - so it
+                    ' attenuates the sun term only and reaches models too.
+                    Dim v_hz = CommonProperties.HORIZON_STRENGTH
+                    If ImGui.SliderFloat("Sun Shadow (baked)", v_hz, 0.0, 1.0) Then
+                        CommonProperties.HORIZON_STRENGTH = v_hz
+                    End If
+                    If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.sun_shadow.ready Then
+                        ImGui.Text(String.Format("   {0}x{0} baked", map_scene.sun_shadow.size))
+                    End If
+                    ' No atlas rebuild - the bake is sampled in the final render,
+                    ' so the new depth is picked up on the very next frame.
+                    If ImGui.Button("Re-bake sun shadow") Then
+                        map_scene?.sun_shadow.Bake()
+                    End If
+
                     If ImGui.Button("Rebuild VT##blend") Then
                         map_scene?.terrain.RebuildVTAtlas()
                     End If
                 End If
                 If ImGui.CollapsingHeader("Shadow Mapping") Then
-                    ImGui.Checkbox("Enabled##Shadow Mapping", ShadowMappingFBO.Enabled)
+                    ' The shadow mix. These two are halves of one system and are
+                    ' multiplied together in deferred.frag, so they belong side by
+                    ' side: the cascades carry trees, because trees animate and
+                    ' cannot live in a one-off bake, and the map-wide bake carries
+                    ' terrain and static models at every distance.
+                    '
+                    ' Both strengths save per map - see modMapSettings.
+                    ImGui.Checkbox("Live (cascades)", ShadowMappingFBO.Enabled)
+
+                    ' Re-rendered every FRAME_STEP frames and sampled 9 times per
+                    ' lit pixel, so this one costs every frame.
+                    Dim v_ss = CommonProperties.SHADOW_STRENGTH
+                    If ImGui.SliderFloat("Live strength (trees)", v_ss, 0.0, 1.0) Then
+                        CommonProperties.SHADOW_STRENGTH = v_ss
+                    End If
+
+                    ' Baked map-wide shadow. Toggling only has to re-bake the sun
+                    ' depth now - the shadow is sampled per frame in deferred.frag
+                    ' and never enters a VT page, so the atlas is untouched and
+                    ' this is instant rather than a full rebuild.
+                    If ImGui.Checkbox("Baked (map-wide)", BAKED_SHADOW_ENABLED) Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing Then
+                            If BAKED_SHADOW_ENABLED Then
+                                map_scene.sun_shadow.Bake()
+                            Else
+                                map_scene.sun_shadow.ready = False
+                            End If
+                        End If
+                    End If
+
+                    ' Same value as "Sun Shadow (baked)" under Terrain - mirrored
+                    ' here so the two halves of the mix can be balanced together.
+                    Dim v_hz2 = CommonProperties.HORIZON_STRENGTH
+                    If ImGui.SliderFloat("Baked strength (terrain/models)", v_hz2, 0.0, 1.0) Then
+                        CommonProperties.HORIZON_STRENGTH = v_hz2
+                    End If
+
+                    ' Moment Shadow Maps against PCF, same bake either way, so
+                    ' this is a straight A/B. Needs a re-bake: MSM wants a colour
+                    ' attachment and a mip chain the depth-only path never built.
+                    If ImGui.Checkbox("Moment shadow maps (A/B)", MSM_SHADOW_ENABLED) Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso BAKED_SHADOW_ENABLED Then
+                            map_scene.sun_shadow.Bake()
+                        End If
+                    End If
+                    If MSM_SHADOW_ENABLED Then
+                        ' Raise if the reconstruction goes unstable over flat
+                        ' ground - the Hankel matrix is singular where depth is
+                        ' constant, and open terrain is exactly that.
+                        Dim v_mb = MSM_MOMENT_BIAS
+                        If ImGui.SliderFloat("  moment bias", v_mb, 0.0, 0.01) Then
+                            MSM_MOMENT_BIAS = v_mb
+                        End If
+                    End If
+
+                    ' Penumbra shaping. Applies to both paths, so switching
+                    ' between them compares the filtering and nothing else.
+                    ' Raising LO also crushes the light leak on the moment path.
+                    Dim v_plo = SHADOW_PENUMBRA_LO
+                    If ImGui.SliderFloat("Penumbra clip lo", v_plo, 0.0, 0.95) Then
+                        SHADOW_PENUMBRA_LO = v_plo
+                    End If
+                    Dim v_phi = SHADOW_PENUMBRA_HI
+                    If ImGui.SliderFloat("Penumbra clip hi", v_phi, 0.05, 1.0) Then
+                        SHADOW_PENUMBRA_HI = v_phi
+                    End If
+
+                    If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.sun_shadow.ready Then
+                        ImGui.Text(String.Format("   baked {0}x{0}", map_scene.sun_shadow.size))
+                    End If
+
+                    If ImGui.Button(If(SHOW_SUN_SHADOW_VIEWER, "Hide shadow map", "View shadow map")) Then
+                        SHOW_SUN_SHADOW_VIEWER = Not SHOW_SUN_SHADOW_VIEWER
+                    End If
+                    If SHOW_SUN_SHADOW_VIEWER Then
+                        ' The map occupies a thin slice of the depth range, so
+                        ' without a stretch the panel is a flat grey wash.
+                        Dim v_lo = SHADOW_VIEW_LO
+                        If ImGui.SliderFloat("Depth lo", v_lo, 0.0, 1.0) Then
+                            SHADOW_VIEW_LO = v_lo
+                        End If
+                        Dim v_hi = SHADOW_VIEW_HI
+                        If ImGui.SliderFloat("Depth hi", v_hi, 0.0, 1.0) Then
+                            SHADOW_VIEW_HI = v_hi
+                        End If
+                        ImGui.Text("   all black = sun camera misses the map")
+                    End If
                 End If
                 If ImGui.CollapsingHeader("Lighting Settings") Then
                     ' Read into a local, slide that, write back only on change.
@@ -928,7 +1159,10 @@ try_again:
                     End Using
                 End If
                 ImGui.End()
+                prev_SHOW_SETTINGS_WINDOW = True
             End If
+        Else
+            prev_SHOW_SETTINGS_WINDOW = False
         End If
 
         If CommonProperties.SHOW_TEST_TEXTURES Then
