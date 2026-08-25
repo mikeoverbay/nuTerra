@@ -1,4 +1,4 @@
-﻿Imports System.IO
+Imports System.IO
 Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics

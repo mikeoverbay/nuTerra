@@ -80,14 +80,26 @@ vec4 convertNormal(vec4 norm){
 
 /*===========================================================*/
 
+// The game's own layer projection, transcribed from its terrain shader:
+//
+//     u = dot(U.xyz, worldPos)        (dp3 - W is IGNORED)
+//     v = dot(V.xyz, worldPos)
+//     uv = (u, -v) + 0.5
+//
+// against the REAL world position, height included. What was here before
+// synthesized a flat chunk-local point instead - x recentred by 50 with z not,
+// height zeroed, and the dot taken in vec4 so each layer's U.w/V.w leaked in
+// as a per-layer UV shift. Three separate offsets against the game, which is
+// why no combination of axis flips ever quite matched: the textures were not
+// mirrored, they were displaced.
+//
+// worldPosition is genuine world space in this pass (chunk.modelMatrix only,
+// no camera). The display mirror negates x, so undo it - the projections were
+// authored for game space.
 vec2 get_transformed_uv(in vec4 U, in vec4 V) {
-
-    vec4 vt = vec4(-fs_in.UV.x*100.0+50.0, 0.0, fs_in.UV.y*100.0, 1.0);
-    vt *= vec4(1.0, -1.0, 1.0,  1.0);
-    vec2 out_uv = vec2(dot(U,vt), dot(-V,vt));
-    out_uv += vec2(0.50,0.50);
-    return out_uv;
-    }
+    vec3 wp = vec3(-fs_in.worldPosition.x, fs_in.worldPosition.y, fs_in.worldPosition.z);
+    return vec2(dot(U.xyz, wp), -dot(V.xyz, wp)) + 0.5;
+}
 
 vec4 crop( sampler2DArray samp, in vec2 uv , in float layer, int id)
 {
@@ -231,10 +243,20 @@ void main(void)
         float macro_inf = clamp(L.r2[i].x, 0.0, 1.0);
 
         vec3 micro_rgb = mix(t[i].rgb, mt[i].rgb, macro_inf);
-        vec3 micro_n   = mix(n[i].rgb, mn[i].rgb, macro_inf);
-
         t[i].rgb = mix(micro_rgb, mt[i].rgb, macro_blend);
-        n[i].rgb = mix(micro_n,   mn[i].rgb, macro_blend);
+
+        // All four channels of the normal map, not just rgb.
+        //
+        // This is an AG normal map: convertNormal reads .ag, so X lives in
+        // ALPHA and Y in green - with .r specular and .b ambient occlusion.
+        // Blending only .rgb left the alpha untouched, so at distance, where
+        // macro_blend reaches 1, the normal's Y came from the macro texture
+        // while its X still came from the micro one. Two halves of two
+        // different normals, normalized together into a direction that is
+        // neither. Specular rode along in .r with the same split, and the game
+        // lerps gloss micro-to-macro exactly like the normal.
+        vec4 micro_n = mix(n[i], mn[i], macro_inf);
+        n[i]         = mix(micro_n, mn[i], macro_blend);
 
         // the game lerps the height the same way, using the macro alpha
         t[i].a = mix(t[i].a, mth[i], macro_blend);
@@ -302,10 +324,29 @@ void main(void)
             win = i;
         }
 
-        // displacement height, weighted the same way the colour is
-        height += t[i].a * Mix[i] * L.r1[i].x;
+        // Displacement, weighted the same way the colour is. The game does
+        // not use the raw height: each layer authors a remap -
+        //
+        //     h' = min(h^r1.z, 1) * r1.x + r1.y
+        //
+        // (its VT baker runs exactly this as log/mul/exp/mad against the
+        // microDisplacement constants). The gamma is what lets a layer say
+        // "only my deep grooves displace" or "everything above the base
+        // does". Guarded: a zero gamma would make pow() blow up, and a layer
+        // authored without a remap falls back to the old linear scale.
+        if (L.r1[i].z > 0.001) {
+            height += (min(pow(t[i].a, L.r1[i].z), 1.0) * L.r1[i].x + L.r1[i].y) * Mix[i];
+        } else {
+            height += t[i].a * Mix[i] * L.r1[i].x;
+        }
     }
 
+    // The dominant layer supplies the whole surface response, not just the
+    // normal: .ag is the normal, .r the specular that reaches gSpecular, .b
+    // the ambient occlusion. Taking them from one layer keeps them consistent
+    // with each other - a normal from one texture lit with another's specular
+    // is the kind of mismatch that reads as "wrong material" without ever
+    // looking obviously broken.
     vec4 out_n = n[win];
 
     // global
@@ -346,7 +387,22 @@ void main(void)
 
     //gColor = gColor* 0.001 + r1_8;
     gColor.rgb = base.rgb;
-    gColor.a = global.a * 0.8;
+    // Wetness, and the reason this channel exists.
+    //
+    // The global AM's alpha is a wetness mask - the game samples exactly this
+    // and nothing else uses it. Subtracting the blended layer height is what
+    // makes water pool: it collects in the low parts of the surface relief
+    // instead of coating it evenly, so a cobbled road goes wet between the
+    // stones rather than over them. The 0.4 is the game's constant.
+    //
+    // NOTE: if the global AM is ever loaded as BC1 this is meaningless - DXT1
+    // has no usable alpha, which is why the game gates the whole term on a
+    // g_dxt1FormatGlobalAM flag and forces wetness to zero when it is set.
+    //
+    // The flatness half of the mask is applied in TerrainLQ/HQ, where the
+    // terrain's own surface normal is available; a page has no idea what slope
+    // it will be pasted onto.
+    gColor.a = clamp(global.a - 0.4 * height, 0.0, 1.0);
 
     gNormal.xyz = normalize(convertNormal(out_n).xyz) * 0.5 + 0.5;
     gNormal.w = height;

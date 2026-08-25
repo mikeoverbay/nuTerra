@@ -182,6 +182,7 @@ Module ShaderLoader
     Public gfxMarkerShader As Shader
     Public sunDepthTerrainShader As Shader
     Public sunDepthModelShader As Shader
+    Public sunDepthTreeShader As Shader
     Public cullShader As Shader
     Public cullLodClearShader As Shader
     Public cullRasterShader As Shader
@@ -203,6 +204,8 @@ Module ShaderLoader
     Public image2dShader As Shader
     Public shadowViewShader As Shader
     Public msmBlurShader As Shader
+    Public ssrShader As Shader
+    Public waterShader As Shader
     Public MegaMixerShader As Shader
     Public MiniMapRingsShader As Shader
     Public mDepthWriteShader As Shader
@@ -261,6 +264,7 @@ Module ShaderLoader
         gfxMarkerShader = New Shader("gfx_marker")
         sunDepthTerrainShader = New Shader("sun_depth_terrain")
         sunDepthModelShader = New Shader("sun_depth_model")
+        sunDepthTreeShader = New Shader("sun_depth_tree")
         cullShader = New Shader("cull")
         cullLodClearShader = New Shader("cullLodClear")
         cullRasterShader = New Shader("cull-raster")
@@ -280,6 +284,8 @@ Module ShaderLoader
         image2dShader = New Shader("image2d")
         shadowViewShader = New Shader("shadow_view")
         msmBlurShader = New Shader("msm_blur")
+        ssrShader = New Shader("ssr")
+        waterShader = New Shader("water")
         glassPassShader = New Shader("glassPass")
         'unused: gWriterShader = New Shader("gWriter")
         MegaMixerShader = New Shader("MegaMixer")

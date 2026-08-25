@@ -12,6 +12,38 @@ Module modGlobalVars
     ' Overlay showing the baked sun depth map, for checking the sun camera
     ' actually frames the map.
     Public SHOW_SUN_SHADOW_VIEWER As Boolean = False
+    Public SHOW_STATS_WINDOW As Boolean = False
+
+    '''<summary>
+    ''' Metres added to every water surface at draw time. The data has no such
+    ''' field - Fishing Bay authors exact heights and its mesh matches them to
+    ''' the millimetre - so this is a viewer-side trim for judging by eye,
+    ''' saved per map.
+    '''</summary>
+    Public WATER_Y_OFFSET As Single = 0.0F
+
+    '''<summary>
+    ''' Water is masked out where the pixel beneath it is a MODEL within this
+    ''' many metres below the surface - which is what a boat interior is. The
+    ''' game does this properly with excluded_water hull volumes baked into the
+    ''' models; those are not parsed, and the G-buffer flag channel plus a depth
+    ''' band is the viewer's stand-in. 0 disables. Saved per map.
+    '''</summary>
+    Public WATER_EXCLUDE_BAND As Single = 1.5F
+
+    '''<summary>
+    ''' Screen space reflections on wet surfaces. Reflects the geometry in the
+    ''' frame that was just drawn, which is the only thing on hand that knows
+    ''' where the buildings are - a cubemap cannot, it is the sky.
+    '''</summary>
+    Public SSR_ENABLED As Boolean = True
+    Public SSR_INTENSITY As Single = 0.7F
+    Public SSR_STEPS As Integer = 32
+    '''<summary>Metres a hit may sit behind the ray and still count. Too large
+    ''' smears reflections across depth gaps; too small drops thin geometry.</summary>
+    Public SSR_THICKNESS As Single = 1.5F
+    '''<summary>Metres per march step, before the per-step growth.</summary>
+    Public SSR_STRIDE As Single = 0.35F
     Public SHADOW_VIEW_LO As Single = 0.0F
     Public SHADOW_VIEW_HI As Single = 1.0F
 
@@ -175,6 +207,10 @@ Module modGlobalVars
     Public TREES_TOTAL As Integer
     '''<summary>Tree placements drawn into the shadow map this update.</summary>
     Public TREES_CASTING As Integer
+
+    '''<summary>Visible-tree split by LOD, e.g. "88/210/641", for the stats
+    ''' panel - the direct check that distance is actually demoting geometry.</summary>
+    Public TREES_LOD_TEXT As String = ""
     Public DONT_BLOCK_DECALS As Boolean
     '''<summary>Fade decals out at the box edge when their texture runs to its border.</summary>
     ''' <summary>

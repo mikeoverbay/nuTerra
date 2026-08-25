@@ -1,4 +1,4 @@
-﻿Imports System.IO
+Imports System.IO
 Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
@@ -411,6 +411,10 @@ Module MapLoader
         End If
 
         map_scene.roads.Build(map_name)
+
+        ' Water surface mesh out of BWWa. Needs nothing but the parsed section
+        ' and a GL context, so anywhere after ReadSpaceBinData works.
+        map_scene.water.Build()
 
         '===============================================================
         'load cube map for PBS_ext lighting,

@@ -12,6 +12,9 @@ Module modRender
 
 
     Public Sub draw_scene()
+        ' Flip the query slot before anything issues one.
+        modGpuTimers.NewFrame()
+
         '===========================================================================
         ' FLAG INFO
         ' 0  = No shading
@@ -50,7 +53,9 @@ Module modRender
             ExtractFrustum()
             cull_terrain()
 
+            modGpuTimers.Begin("VT pages")
             map_scene.terrain.terrain_vt_pass()
+            modGpuTimers.Finish()
         End If
         '===========================================================================
 
@@ -69,7 +74,9 @@ Module modRender
 
         '===========================================================================
         MainFBO.attach_C()
+        modGpuTimers.Begin("Sky")
         map_scene.sky.draw_sky()
+        modGpuTimers.Finish()
 
         '===========================================================================
         'GL States 
@@ -81,7 +88,9 @@ Module modRender
             GL.CopyNamedBufferSubData(map_scene.static_models.parameters.buffer_id, map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer))
             GL.GetNamedBufferSubData(map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer), map_scene.static_models.numAfterFrustum)
 
+            modGpuTimers.Begin("Model depth")
             map_scene.static_models.model_depth_pass()
+            modGpuTimers.Finish()
 
             If USE_RASTER_CULLING Then
                 map_scene.static_models.model_cull_raster_pass()
@@ -101,7 +110,9 @@ Module modRender
         If DONT_BLOCK_OUTLAND AndAlso map_scene.OUTLAND_LOADED Then
             MainFBO.attach_CNGPA()
             'GL.Disable(EnableCap.DepthTest) 'just so we can see all of it
+            modGpuTimers.Begin("Outland")
             map_scene.terrain.Draw_outland()
+            modGpuTimers.Finish()
             GL.Enable(EnableCap.DepthTest)
         End If
         MainFBO.attach_CNGPA()
@@ -110,7 +121,9 @@ Module modRender
             MainFBO.attach_CSNGP()
 
 
+            modGpuTimers.Begin("Terrain")
             map_scene.terrain.draw_terrain()
+            modGpuTimers.Finish()
 
             MainFBO.attach_CNGPA()
 
@@ -139,11 +152,15 @@ Module modRender
         ' drawn they are already part of it.
 
         If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+            modGpuTimers.Begin("Models")
             map_scene.static_models.draw_models()
+            modGpuTimers.Finish()
         End If
 
         If map_scene.TREES_LOADED AndAlso DONT_BLOCK_TREES Then
+            modGpuTimers.Begin("Trees")
             map_scene.trees.draw()
+            modGpuTimers.Finish()
         End If
 
         'If ShadowMappingFBO.Enabled Then
@@ -174,7 +191,9 @@ Module modRender
         'ortho projection decals
 
         If map_scene.DECALS_LOADED AndAlso DONT_BLOCK_DECALS Then
+            modGpuTimers.Begin("Decals")
             map_scene.decals.draw_decals()
+            modGpuTimers.Finish()
         End If
 
         If SHOW_GFX_MARKERS Then
@@ -185,10 +204,44 @@ Module modRender
 
         MainFBO.attach_C2()
 
+        modGpuTimers.Begin("Deferred")
         render_deferred_buffers()
+        modGpuTimers.Finish()
         'gAux_color to gColor;
         MainFBO.attach_C1_and_C2()
         copy_gColor_2_to_gColor()
+
+        ' Screen space reflections, after the resolve because they reflect the
+        ' LIT frame - reflecting G-buffer albedo would put unlit building faces
+        ' in the water. Reads gColor, writes gColor_2, then the same blit puts
+        ' it back; gColor cannot be both source and target of one pass.
+        If SSR_ENABLED AndAlso map_scene.TERRAIN_LOADED Then
+            modGpuTimers.Begin("SSR")
+            render_ssr()
+            MainFBO.attach_C1_and_C2()
+            copy_gColor_2_to_gColor()
+            modGpuTimers.Finish()
+        End If
+
+        ' Water, forward over the lit frame. After SSR so puddle reflections sit
+        ' under it, before the default-framebuffer switch so it still has the
+        ' scene depth to test against. MainFBO is still bound; route colour to
+        ' gColor and let the pass manage its own depth/blend state.
+        If map_scene.WATER_LOADED AndAlso DONT_BLOCK_WATER Then
+            modGpuTimers.Begin("Water")
+
+            ' Water reads the lit frame (for SSR reflections of terrain and
+            ' models) while blending over it - one texture cannot be both, so
+            ' it draws into gColor_2 against a fresh copy and blits back. Same
+            ' dance the SSR pass does, for the same reason.
+            copy_gColor_to_gColor_2()
+            MainFBO.attach_C2()
+            map_scene.water.draw()
+            MainFBO.attach_C1_and_C2()
+            copy_gColor_2_to_gColor()
+
+            modGpuTimers.Finish()
+        End If
 
 
         '===========================================================================
@@ -352,6 +405,43 @@ Module modRender
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
         GL.CopyTextureSubImage2D(MainFBO.gColor.texture_id, 0, 0, 0, 0, 0, MainFBO.width, MainFBO.height)
+    End Sub
+
+    Private Sub render_ssr()
+        GL_PUSH_GROUP("render_ssr")
+
+        MainFBO.attach_C2()
+
+        ssrShader.Use()
+
+        MainFBO.gColor.BindUnit(0)      ' the resolved frame - what gets reflected
+        MainFBO.gNormal.BindUnit(1)
+        MainFBO.gGMF.BindUnit(2)        ' .a is the wetness mask
+        MainFBO.gPosition.BindUnit(3)   ' view space
+
+        GL.Uniform1(ssrShader("ssr_intensity"), SSR_INTENSITY)
+        GL.Uniform1(ssrShader("ssr_steps"), SSR_STEPS)
+        GL.Uniform1(ssrShader("ssr_thickness"), SSR_THICKNESS)
+        GL.Uniform1(ssrShader("ssr_stride"), SSR_STRIDE)
+
+        defaultVao.Bind()
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        ssrShader.StopUse()
+        unbind_textures(4)
+
+        GL_POP_GROUP()
+    End Sub
+
+    Private Sub copy_gColor_to_gColor_2()
+        MainFBO.fbo.ReadBuffer(ReadBufferMode.ColorAttachment0)
+        MainFBO.fbo.DrawBuffer(DrawBufferMode.ColorAttachment6)
+        GL.BlitNamedFramebuffer(
+            MainFBO.fbo.fbo_id,
+            MainFBO.fbo.fbo_id,
+            0, 0, MainFBO.width, MainFBO.height,
+            0, 0, MainFBO.width, MainFBO.height,
+            ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest)
     End Sub
 
     Private Sub copy_gColor_2_to_gColor()

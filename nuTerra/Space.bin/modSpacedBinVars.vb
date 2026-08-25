@@ -758,60 +758,136 @@ Module modSpacedBinVars
 #End Region
 
 #Region "BWWa"
+    ' Water bodies. Layout, confirmed against 19_monastery by walking the section
+    ' to its exact end:
+    '
+    '   u32 entry_size (340), u32 count
+    '   count x 340-byte parameter blocks
+    '   four shared streams, each (u32 stride, u32 count, data):
+    '     stride 24  cell boxes   (x,ymin,z)+(x,ymax,z) - culling grid, unused here
+    '     stride 24  vertices     pos xyz + 8 unknown bytes + 1 float (shore/edge)
+    '     stride 4   u32 indices  LOCAL to each body - draw with base vertex
+    '     stride 1   byte stream  not yet identified
+    '
+    ' Each entry carries (start,end) pairs into all four streams at +0x134 -
+    ' prefix sums, the same pattern the rest of space.bin uses. The game ships
+    ' the tessellated water mesh; nothing needs generating.
     Public cBWWa As cBWWa_
     Public Structure cBWWa_
-        Public bwwa_t1() As cbwwa_t1_
+        Public bodies() As WaterBody
+
+        ' Shared pools, sliced per body by the range fields.
+        Public verts() As Vector3
+        Public aux() As Single
+        Public indices() As UInt32
+
+        Public Structure WaterBody
+            ' +0x00: six floats, bbox min then bbox max, with EQUAL Y - the four
+            ' corners of the water rectangle at surface height. The geometry is
+            ' built from these two; the vertex/index streams also present in the
+            ' section are the game's pre-tessellated version with shoreline
+            ' holes, kept parsed but unused until they are wanted.
+            Public bbox_min As Vector3
+            Public bbox_max As Vector3
+            ' Deep-water RGBA at +0xC0. Monastery lake reads (0.171, 0.264,
+            ' 0.36) - authored per body, not derived.
+            Public deep_color As Vector4
+            ' +0xD0: fresnel constant then exponent (lake 0.6 / 8.5).
+            Public fresnel_bias As Single
+            Public fresnel_power As Single
+            ' +0xB0: sun glint exponent and scale (Mines 10/0.6, Monastery 29/0.18).
+            Public sun_power As Single
+            Public sun_scale As Single
+            ' +0xE0: SUN tint, not a reflection tint. Monastery authors it white,
+            ' which is how it masqueraded as a reflection tint through testing;
+            ' Mines authors (1.0, 0.7, 0.3) and multiplying the whole sky by it
+            ' turned the lake orange. It colours the glint only.
+            Public sun_tint As Vector3
+            Public vert_start As Integer
+            Public vert_count As Integer
+            Public idx_start As Integer
+            Public idx_count As Integer
+        End Structure
 
         Public Sub New(bwwaHeader As SectionHeader, br As BinaryReader)
-            'set stream reader to point at this chunk
             br.BaseStream.Position = bwwaHeader.offset
-
-            ' Check version in header
-            ' Bumped to 3; the leading bounding-box layout is unchanged.
             Debug.Assert(bwwaHeader.version = 3)
 
-            Dim ds = br.ReadUInt32 'data size per entry in bytes
-            Dim tl = br.ReadUInt32 ' number of entries in this table
+            Dim ds = br.ReadUInt32 'bytes per entry (340)
+            Dim tl = br.ReadUInt32 'number of water bodies
 
             If tl = 0 Then
-                'no water
                 Return
             End If
 
-            ReDim bwwa_t1(0)
+            ReDim bodies(CInt(tl) - 1)
+            For e = 0 To CInt(tl) - 1
+                Dim base = bwwaHeader.offset + 8 + CLng(e) * ds
 
-            Try
-                Dim bbox_min, bbox_max As Vector3
-                bbox_min.X = br.ReadSingle
-                bbox_min.Y = br.ReadSingle
-                bbox_min.Z = br.ReadSingle
+                br.BaseStream.Position = base
+                bodies(e).bbox_min = New Vector3(br.ReadSingle, br.ReadSingle, br.ReadSingle)
+                bodies(e).bbox_max = New Vector3(br.ReadSingle, br.ReadSingle, br.ReadSingle)
 
-                bbox_max.X = br.ReadSingle
-                bbox_max.Y = br.ReadSingle
-                bbox_max.Z = br.ReadSingle
+                br.BaseStream.Position = base + &HC0
+                bodies(e).deep_color = New Vector4(br.ReadSingle, br.ReadSingle, br.ReadSingle, br.ReadSingle)
+                bodies(e).fresnel_bias = br.ReadSingle
+                bodies(e).fresnel_power = br.ReadSingle
 
-                bwwa_t1(0).position.X = -(bbox_min.X + bbox_max.X) / 2.0!
-                bwwa_t1(0).position.Y = bbox_min.Y
-                bwwa_t1(0).position.Z = (bbox_min.Z + bbox_max.Z) / 2.0!
+                br.BaseStream.Position = base + &HB0
+                bodies(e).sun_power = br.ReadSingle
+                bodies(e).sun_scale = br.ReadSingle
 
-                bwwa_t1(0).width = Math.Abs(bbox_min.X) + Math.Abs(bbox_max.X)
-                bwwa_t1(0).plane = bbox_min.Y
-                bwwa_t1(0).height = Math.Abs(bbox_min.Z) + Math.Abs(bbox_max.Z)
+                br.BaseStream.Position = base + &HE0
+                bodies(e).sun_tint = New Vector3(br.ReadSingle, br.ReadSingle, br.ReadSingle)
 
-                WATER_LINE = bwwa_t1(0).position.Y
-            Catch ex As Exception
-                'FIXME!
-                WATER_LINE = -500.0
-            End Try
+                ' (start,end) pairs into the four streams. Cell boxes and the
+                ' byte stream are read past and dropped - nothing uses them yet.
+                br.BaseStream.Position = base + &H134
+                br.ReadUInt32() : br.ReadUInt32() ' cell boxes
+                Dim vs = br.ReadUInt32() : Dim ve = br.ReadUInt32()
+                Dim isr = br.ReadUInt32() : Dim ie = br.ReadUInt32()
+                bodies(e).vert_start = CInt(vs)
+                bodies(e).vert_count = CInt(ve - vs)
+                bodies(e).idx_start = CInt(isr)
+                bodies(e).idx_count = CInt(ie - isr)
+            Next
+
+            ' The four streams, walked in order.
+            Dim p As Long = bwwaHeader.offset + 8 + CLng(ds) * tl
+
+            ' 1: cell boxes - skip
+            br.BaseStream.Position = p
+            Dim s1 = br.ReadUInt32 : Dim c1 = br.ReadUInt32
+            p += 8 + CLng(s1) * c1
+
+            ' 2: vertices. X is negated on the way in - the whole world is
+            ' mirrored in x for display, same as every other loader here.
+            br.BaseStream.Position = p
+            Dim s2 = br.ReadUInt32 : Dim c2 = br.ReadUInt32
+            Debug.Assert(s2 = 24)
+            ReDim verts(CInt(c2) - 1)
+            ReDim aux(CInt(c2) - 1)
+            For k = 0 To CInt(c2) - 1
+                Dim x = br.ReadSingle : Dim y = br.ReadSingle : Dim z = br.ReadSingle
+                verts(k) = New Vector3(-x, y, z)
+                br.ReadUInt64() ' 8 bytes, grid ids by the look of them
+                aux(k) = br.ReadSingle
+            Next
+            p += 8 + CLng(s2) * c2
+
+            ' 3: indices
+            br.BaseStream.Position = p
+            Dim s3 = br.ReadUInt32 : Dim c3 = br.ReadUInt32
+            Debug.Assert(s3 = 4)
+            ReDim indices(CInt(c3) - 1)
+            For k = 0 To CInt(c3) - 1
+                indices(k) = br.ReadUInt32
+            Next
+
+            ' 4: byte stream - not read.
+
+            WATER_LINE = bodies(0).bbox_min.Y
         End Sub
-
-        Public Structure cbwwa_t1_
-            Public position As Vector3
-            Public width As Single
-            Public height As Single
-            Public plane As Single
-            Public orientation As Single
-        End Structure
     End Structure
 #End Region
 

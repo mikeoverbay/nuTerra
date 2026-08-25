@@ -497,10 +497,13 @@ Module modOpenGL
             USE_SH_AMBIENT = My.Settings.use_sh_ambient
             _tess_level = 1.0
 
-            ' Shadows on. Init never touched this, so it sat at the Integer
-            ' default of zero and every session started with them off until the
-            ' checkbox was ticked.
-            USE_SHADOW_MAPPING = 1
+            ' Live cascades off. The map-wide bake carries everything now,
+            ' trees included, so nothing needs them - and with no UI to turn
+            ' them back on this is what keeps ShadowMappingPass from running.
+            ' The pass, the FBO and the shaders are all still in place; set
+            ' this to 1 and restore the two controls in Window.vb to bring
+            ' them back.
+            USE_SHADOW_MAPPING = 0
         End Sub
 
         ''' <summary>

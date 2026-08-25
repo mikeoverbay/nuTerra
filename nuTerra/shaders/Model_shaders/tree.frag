@@ -1,4 +1,4 @@
-﻿#version 450 core
+#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
@@ -23,16 +23,29 @@ void main(void)
 {
     vec4 albedo = texture(sampler2D(fs_in.texHandle), fs_in.TC);
 
-    // foliage cutout - the leaf atlas is mostly empty space
-    if (albedo.a < 0.5) {
+    // Foliage cutout - the leaf atlas is mostly empty space.
+    //
+    // Which is exactly why a fixed 0.5 test erases trees at distance: alpha
+    // mipmaps average toward the atlas mean (~0.2), so past a few hundred
+    // metres every texel fails the test and the card renders zero fragments.
+    // The geometry was never the problem - the discard was. Lowering the
+    // threshold with the mip level keeps at least the densest texels alive at
+    // any distance, so a far tree stays a tree instead of thinning to nothing.
+    float mip = textureQueryLod(sampler2D(fs_in.texHandle), fs_in.TC).x;
+    float cutoff = 0.5 / (1.0 + mip * 0.55);
+    if (albedo.a < cutoff) {
         discard;
     }
 
     const float renderType = GFLAG_MODEL;
 
     vec3 n = normalize(fs_in.normal);
-    // Leaf cards are two-sided, and the x mirror reverses winding, so trust
-    // facing rather than the stored direction.
+    // Leaf cards are two sided, so a genuine back face wants its normal flipped.
+    //
+    // gl_FrontFacing is inverted for trees - the instance matrix carries a -1 x
+    // scale and a mirror reverses winding - so tree.vert pre-negates the normal
+    // to cancel that. Do not "fix" this by dropping the test: it is correct for
+    // the two sided case, and the mirror is handled where the mirror lives.
     if (!gl_FrontFacing) {
         n = -n;
     }

@@ -1,4 +1,4 @@
-﻿Imports System.IO
+Imports System.IO
 Imports System.Math
 Imports OpenTK.Mathematics
 
@@ -460,6 +460,22 @@ Module PrimitiveLoader
                 End With
             Next
         Next
+
+        ' Skinned formats (the iiiww families - boats, anything with an
+        ' animations folder) come off disk with the OPPOSITE winding to the
+        ' static exports, so the DX-to-GL triangle flip the index loader
+        ' applies to everything is one flip too many for them and they render
+        ' inside out. The indices are loaded before the vertex format is known,
+        ' which is why the correction lives here: put their winding back.
+        If hasIdx Then
+            For k = 0 To renderSet.buffers.index_buffer32.Length - 1
+                With renderSet.buffers.index_buffer32(k)
+                    Dim tmp = .x
+                    .x = .y
+                    .y = tmp
+                End With
+            Next
+        End If
     End Sub
     Public Sub round_signed_to(ByRef n As Single, ByRef places As Integer)
         Dim t As Single = Truncate(n)

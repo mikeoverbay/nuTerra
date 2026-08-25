@@ -47,11 +47,32 @@ Public Class MapTrees
         Public valid As Boolean
     End Class
 
-    '''<summary>One DrawElementsInstanced call - all of a species' LOD0 parts.</summary>
+    '''<summary>
+    ''' One species' draw state: an index range per LOD over the shared buffers,
+    ''' and per frame, one contiguous run of visible instances per LOD.
+    '''
+    ''' The geometry for every LOD is packed at load; which range an instance
+    ''' draws with is decided per frame in cull() from its distance to the
+    ''' camera. Before this, every tree drew its LOD0 at every distance - a
+    ''' forest of full-detail trees at 800 m, which is what made the Trees row
+    ''' the red one in the stats panel.
+    '''</summary>
     Private Class Part
-        Public index_count As Integer
-        '''<summary>Byte offset into the shared index buffer.</summary>
-        Public index_offset As Integer
+        '''<summary>Indices per LOD - count and byte offset into the shared
+        ''' index buffer. An authored LOD with no renderable geometry inherits
+        ''' the previous one's range, so lookup never has to special-case.</summary>
+        Public lod_index_count() As Integer
+        Public lod_index_offset() As Integer
+        Public lod_count As Integer
+
+        ''' <summary>
+        ''' The asset's own LOD profile, header offset 0x30: full detail up to
+        ''' hi, lowest 3D LOD from lo outward, linear in between. Using the
+        ''' authored numbers means a species tuned to degrade early does so.
+        ''' </summary>
+        Public lod_hi As Single
+        Public lod_lo As Single
+
         Public base_vertex As Integer
         '''<summary>Where this species sits in the full, unculled instance buffer.</summary>
         Public base_instance As Integer
@@ -62,10 +83,13 @@ Public Class MapTrees
         Public mins() As Vector3
         Public maxs() As Vector3
 
-        ' Rewritten every frame into the compacted buffers.
-        Public visible_base As Integer
-        Public visible_count As Integer
+        ' Rewritten every frame into the compacted buffers, one run per LOD.
+        Public visible_base() As Integer
+        Public visible_count() As Integer
     End Class
+
+    '''<summary>Per-instance LOD pick, scratch for cull()'s two passes. 255 = culled.</summary>
+    Private bucket() As Byte
 
     Private vertices_buffer As GLBuffer
     Private indices_buffer As GLBuffer
@@ -140,9 +164,11 @@ Public Class MapTrees
     End Sub
 
     Private Function source_triangles() As Integer
+        ' LOD0 only - what a tree costs at close range, which is the number the
+        ' load-time log line has always meant.
         Dim t = 0
         For Each p In parts
-            t += p.index_count \ 3
+            t += p.lod_index_count(0) \ 3
         Next
         Return t
     End Function
@@ -214,35 +240,62 @@ Public Class MapTrees
         For Each sp In list
             sp.base_vertex = verts.Count
             Dim base_instance = transforms.Count
-            Dim first_index = indices.Count * 4
             transforms.AddRange(sp.instances)
 
-            ' Vertex numbering restarts per draw call, so each one is shifted as
-            ' it goes in and the whole species shares one base vertex. The atlas
-            ' rides along per vertex, which lets the parts merge into one call.
-            For Each dc In sp.srt.DrawCalls
-                If dc.Lod <> 0 OrElse Not dc.Renderable Then Continue For
+            ' Every LOD goes in, each recording its own index range. Vertex
+            ' numbering restarts per draw call, so each one is shifted as it
+            ' goes in and the whole species shares one base vertex. The atlas
+            ' rides along per vertex, which lets the parts of one LOD merge
+            ' into one call.
+            Dim n_lods = Math.Max(sp.srt.LodCount, 1)
+            Dim lod_count(n_lods - 1) As Integer
+            Dim lod_offset(n_lods - 1) As Integer
 
-                Dim handle As UInt64
-                If dc.DiffuseTexture = "" OrElse Not sp.declared.TryGetValue(dc.DiffuseTexture, handle) Then
-                    handle = If(dc.Kind = SrtFile.PartKind.Skin, sp.bark_handle, sp.leaf_handle)
+            For lod = 0 To n_lods - 1
+                lod_offset(lod) = indices.Count * 4
+
+                For Each dc In sp.srt.DrawCalls
+                    If dc.Lod <> lod OrElse Not dc.Renderable Then Continue For
+
+                    Dim handle As UInt64
+                    If dc.DiffuseTexture = "" OrElse Not sp.declared.TryGetValue(dc.DiffuseTexture, handle) Then
+                        handle = If(dc.Kind = SrtFile.PartKind.Skin, sp.bark_handle, sp.leaf_handle)
+                    End If
+                    Dim local_base = CUInt(verts.Count - sp.base_vertex)
+
+                    For v = 0 To dc.VertexCount - 1
+                        verts.Add(New TreeVertex With {
+                            .pos = New Vector3(dc.Positions(v * 3), dc.Positions(v * 3 + 1), dc.Positions(v * 3 + 2)),
+                            .normal = New Vector3(dc.Normals(v * 3), dc.Normals(v * 3 + 1), dc.Normals(v * 3 + 2)),
+                            .uv = New Vector2(dc.TexCoords(v * 2), dc.TexCoords(v * 2 + 1)),
+                            .texHandle = handle})
+                    Next
+                    For i = 0 To dc.IndexCount - 1
+                        indices.Add(dc.Indices(i) + local_base)
+                    Next
+                Next
+
+                lod_count(lod) = indices.Count - (lod_offset(lod) \ 4)
+
+                ' An authored LOD with nothing renderable in it inherits the
+                ' previous range, so distance lookup never lands on a hole.
+                If lod_count(lod) = 0 AndAlso lod > 0 Then
+                    lod_count(lod) = lod_count(lod - 1)
+                    lod_offset(lod) = lod_offset(lod - 1)
                 End If
-                Dim local_base = CUInt(verts.Count - sp.base_vertex)
-
-                For v = 0 To dc.VertexCount - 1
-                    verts.Add(New TreeVertex With {
-                        .pos = New Vector3(dc.Positions(v * 3), dc.Positions(v * 3 + 1), dc.Positions(v * 3 + 2)),
-                        .normal = New Vector3(dc.Normals(v * 3), dc.Normals(v * 3 + 1), dc.Normals(v * 3 + 2)),
-                        .uv = New Vector2(dc.TexCoords(v * 2), dc.TexCoords(v * 2 + 1)),
-                        .texHandle = handle})
-                Next
-                For i = 0 To dc.IndexCount - 1
-                    indices.Add(dc.Indices(i) + local_base)
-                Next
             Next
 
-            Dim index_count = indices.Count * 4 - first_index
-            If index_count = 0 Then Continue For
+            If lod_count(0) = 0 Then Continue For
+
+            ' The asset's own LOD profile: full detail out to hi, lowest LOD
+            ' from lo. Some files carry zeros or nonsense here - fall back to
+            ' something sane rather than promoting every tree to LOD0 forever.
+            Dim hi = sp.srt.LodDistances(0)
+            Dim lo = sp.srt.LodDistances(1)
+            If Not (hi > 0.0F AndAlso lo > hi) Then
+                hi = 40.0F
+                lo = 250.0F
+            End If
 
             ' Put each placement's box into world space once, so the per frame
             ' test is the same axis aligned one the models use.
@@ -254,12 +307,17 @@ Public Class MapTrees
             Next
 
             parts.Add(New Part With {
-                .index_count = index_count \ 4,
-                .index_offset = first_index,
+                .lod_index_count = lod_count,
+                .lod_index_offset = lod_offset,
+                .lod_count = n_lods,
+                .lod_hi = hi,
+                .lod_lo = lo,
                 .base_vertex = sp.base_vertex,
                 .base_instance = base_instance,
                 .instance_count = mats.Length,
-                .mats = mats, .mins = mins, .maxs = maxs})
+                .mats = mats, .mins = mins, .maxs = maxs,
+                .visible_base = New Integer(n_lods - 1) {},
+                .visible_count = New Integer(n_lods - 1) {}})
         Next
 
         If verts.Count = 0 OrElse parts.Count = 0 Then
@@ -363,20 +421,70 @@ Public Class MapTrees
     End Sub
 
     '''<summary>
-    ''' Keeps only the placements the camera can see, packed so each species is
-    ''' still one contiguous run and still one draw call.
+    ''' Keeps only the placements the camera can see, packed so each (species,
+    ''' LOD) pair is one contiguous run and so one instanced draw.
+    '''
+    ''' Two passes per part: the first frustum-tests each instance and picks its
+    ''' LOD from distance to the camera, the second writes the matrices into
+    ''' runs laid out from the counts. The pick is remembered in a byte per
+    ''' instance between the passes so the distance maths runs once.
+    '''
+    ''' The mapping honours the asset's authored profile: LOD0 out to lod_hi,
+    ''' the last LOD from lod_lo onward, the rest spread linearly between. There
+    ''' is no far cull - past lod_lo a tree keeps drawing its cheapest LOD,
+    ''' because trees blinking out of a hillside reads as a bug, not a saving.
     '''</summary>
     Private Function cull() As Integer
+        Dim cam = scene.camera.PerViewData.cameraPos
+
+        ' Scratch sized to the largest species, reused across frames.
+        Dim biggest = 0
+        For Each p In parts
+            biggest = Math.Max(biggest, p.mats.Length)
+        Next
+        If bucket Is Nothing OrElse bucket.Length < biggest Then
+            ReDim bucket(biggest - 1)
+        End If
+
         Dim written = 0
         For Each p In parts
-            p.visible_base = written
+            Dim span = Math.Max(p.lod_lo - p.lod_hi, 1.0F)
+
+            For l = 0 To p.lod_count - 1
+                p.visible_count(l) = 0
+            Next
+
+            ' Pass 1: visibility and LOD choice.
             For k = 0 To p.mats.Length - 1
                 If BoxInFrustum(p.mins(k), p.maxs(k)) Then
-                    visible(written) = p.mats(k)
-                    written += 1
+                    ' Row-vector convention: translation lives in Row3.
+                    Dim d = (p.mats(k).Row3.Xyz - cam).Length
+                    Dim f = (d - p.lod_hi) / span
+                    Dim l = Math.Clamp(CInt(Math.Floor(f * p.lod_count)), 0, p.lod_count - 1)
+                    bucket(k) = CByte(l)
+                    p.visible_count(l) += 1
+                Else
+                    bucket(k) = Byte.MaxValue
                 End If
             Next
-            p.visible_count = written - p.visible_base
+
+            ' Lay the runs out back to back, then reuse visible_base as the
+            ' write cursor for pass 2 and restore it afterwards.
+            For l = 0 To p.lod_count - 1
+                p.visible_base(l) = written
+                written += p.visible_count(l)
+            Next
+
+            For k = 0 To p.mats.Length - 1
+                If bucket(k) <> Byte.MaxValue Then
+                    visible(p.visible_base(bucket(k))) = p.mats(k)
+                    p.visible_base(bucket(k)) += 1
+                End If
+            Next
+
+            For l = 0 To p.lod_count - 1
+                p.visible_base(l) -= p.visible_count(l)
+            Next
         Next
         Return written
     End Function
@@ -389,6 +497,19 @@ Public Class MapTrees
 
         Dim shown = cull()
         TREES_DRAWN = shown
+
+        ' The LOD split, for the stats panel. Cheap, and it is the direct check
+        ' that distance is actually demoting geometry rather than everything
+        ' still landing in bucket zero.
+        Dim tally(7) As Integer
+        Dim deepest = 1
+        For Each p In parts
+            deepest = Math.Max(deepest, p.lod_count)
+            For l = 0 To p.lod_count - 1
+                tally(l) += p.visible_count(l)
+            Next
+        Next
+        TREES_LOD_TEXT = String.Join("/"c, tally.Take(deepest))
         If shown > 0 Then
             visible_buffer.SubData(IntPtr.Zero, shown * 64, visible)
 
@@ -410,11 +531,15 @@ Public Class MapTrees
 
             vao.VertexBuffer(1, visible_buffer, IntPtr.Zero, 64)
             vao.Bind()
+            ' One draw per (species, LOD) with anything in it - still a few
+            ' dozen calls, but the far instances now carry far geometry.
             For Each p In parts
-                If p.visible_count = 0 Then Continue For
-                GL.DrawElementsInstancedBaseVertexBaseInstance(
-                    PrimitiveType.Triangles, p.index_count, DrawElementsType.UnsignedInt,
-                    New IntPtr(p.index_offset), p.visible_count, p.base_vertex, p.visible_base)
+                For l = 0 To p.lod_count - 1
+                    If p.visible_count(l) = 0 Then Continue For
+                    GL.DrawElementsInstancedBaseVertexBaseInstance(
+                        PrimitiveType.Triangles, p.lod_index_count(l), DrawElementsType.UnsignedInt,
+                        New IntPtr(p.lod_index_offset(l)), p.visible_count(l), p.base_vertex, p.visible_base(l))
+                Next
             Next
 
             treeShader.StopUse()
@@ -453,14 +578,58 @@ Public Class MapTrees
 
         vao.VertexBuffer(1, instance_buffer, IntPtr.Zero, 64)
         vao.Bind()
+        ' Cheapest LOD: a cascade texel is far coarser than the LOD0/LODn
+        ' difference, so the extra geometry never reached the map anyway.
         For Each p In parts
+            Dim l = p.lod_count - 1
             GL.DrawElementsInstancedBaseVertexBaseInstance(
-                PrimitiveType.Triangles, p.index_count, DrawElementsType.UnsignedInt,
-                New IntPtr(p.index_offset), p.instance_count, p.base_vertex, p.base_instance)
+                PrimitiveType.Triangles, p.lod_index_count(l), DrawElementsType.UnsignedInt,
+                New IntPtr(p.lod_index_offset(l)), p.instance_count, p.base_vertex, p.base_instance)
         Next
 
         treeDepthShader.StopUse()
         GL.Enable(EnableCap.CullFace)
+
+        GL_POP_GROUP()
+    End Sub
+
+    ''' <summary>
+    ''' Depth only pass into the map-wide sun shadow bake.
+    '''
+    ''' Every placement is drawn, culled by nothing - same reasoning as
+    ''' shadow_pass: a caster does not have to be on screen for its shadow to be.
+    ''' It matters more here, because the bake happens once at map load from a
+    ''' camera that has nothing to do with where the player ends up standing.
+    '''
+    ''' Unlike shadow_pass this goes through one ortho projection instead of a
+    ''' geometry stage fanning out to four cascades, so it takes sunViewProj
+    ''' directly. The fragment stage still alpha tests against the leaf atlas, so
+    ''' what lands in the bake is the outline of the leaves and not of the cards.
+    ''' </summary>
+    Public Sub sun_depth_pass(sun_view_proj As Matrix4)
+        If Not scene.TREES_LOADED OrElse vao Is Nothing Then
+            Return
+        End If
+
+        GL_PUSH_GROUP("trees_sun_depth_pass")
+
+        sunDepthTreeShader.Use()
+        GL.UniformMatrix4(sunDepthTreeShader("sunViewProj"), False, sun_view_proj)
+
+        ' Leaf cards are two sided, and the x mirror reverses winding anyway.
+        GL.Disable(EnableCap.CullFace)
+
+        vao.VertexBuffer(1, instance_buffer, IntPtr.Zero, 64)
+        vao.Bind()
+        ' Full-detail LOD0: this runs once per bake, so the cost is nothing and
+        ' the leaf cutout in the shadow is as good as the asset can give.
+        For Each p In parts
+            GL.DrawElementsInstancedBaseVertexBaseInstance(
+                PrimitiveType.Triangles, p.lod_index_count(0), DrawElementsType.UnsignedInt,
+                New IntPtr(p.lod_index_offset(0)), p.instance_count, p.base_vertex, p.base_instance)
+        Next
+
+        sunDepthTreeShader.StopUse()
 
         GL_POP_GROUP()
     End Sub

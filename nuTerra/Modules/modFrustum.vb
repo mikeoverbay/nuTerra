@@ -1,4 +1,4 @@
-﻿Imports System.Math
+Imports System.Math
 Imports OpenTK.Mathematics
 
 Module modFrustum
@@ -12,12 +12,24 @@ Module modFrustum
             'First, find out what chunks are to be drawn as LQ global_AM texturing only.
             '=======================================================================================
             If theMap.render_set(i).visible Then
-                Dim l1 = Abs(theMap.chunks(i).location.X - map_scene.camera.CAM_POSITION.X) 'x
-                Dim l2 = Abs(theMap.v_data(i).avg_heights - map_scene.camera.CAM_POSITION.Y) 'y
-                Dim l3 = Abs(theMap.chunks(i).location.Y - map_scene.camera.CAM_POSITION.Z) 'z
-                Dim v As New Vector3(l1, l2, l3)
-                Dim l = v.Length
-                If l > 300.0F Then 'This value is the distance at which the chunk drawing is swapped.
+                ' Distance to the chunk's BOX, not to its origin corner. The
+                ' corner of a 100 m chunk can be ~141 m from ground that chunk
+                ' owns, so measuring the corner made the HQ set depend on where
+                ' each chunk's origin happened to sit relative to the camera -
+                ' the chunk underfoot could fail its own test while a diagonal
+                ' neighbour passed, and the pattern shifted as the camera moved
+                ' and turned. The 300 m threshold hid the error inside its
+                ' slack; 60 m exposed it. Nearest-point distance is zero for
+                ' the chunk you stand on, always.
+                Dim cam = map_scene.camera.CAM_POSITION
+                Dim l1 = Max(0.0F, Max(theMap.v_data(i).BB_Min.X - cam.X, cam.X - theMap.v_data(i).BB_Max.X))
+                Dim l2 = Max(0.0F, Max(theMap.v_data(i).BB_Min.Y - cam.Y, cam.Y - theMap.v_data(i).BB_Max.Y))
+                Dim l3 = Max(0.0F, Max(theMap.v_data(i).BB_Min.Z - cam.Z, cam.Z - theMap.v_data(i).BB_Max.Z))
+                Dim l = New Vector3(l1, l2, l3).Length
+                ' 60 m, the game's own tessellation envelope (g_tessDistanceRcp
+                ' = 1/60). The tese fades displacement to zero by 60, so a
+                ' chunk crossing this line has nothing left to pop.
+                If l > 60.0F Then
                     theMap.render_set(i).quality = TerrainQuality.LQ
                 Else
                     theMap.render_set(i).quality = If(USE_TESSELLATION, TerrainQuality.HQ, TerrainQuality.LQ)

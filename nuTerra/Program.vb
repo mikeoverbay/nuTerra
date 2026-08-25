@@ -1,4 +1,4 @@
-﻿Imports System.Reflection
+Imports System.Reflection
 
 Module Program
     Public main_window As Window
@@ -29,6 +29,7 @@ Module Program
             modMapSettings.SaveIfChanged(MAP_NAME_NO_PATH)
         End If
 
+        My.Settings.use_tessellation = USE_TESSELLATION
         CommonProperties.SaveToSettings()
         My.Settings.Save()
     End Sub

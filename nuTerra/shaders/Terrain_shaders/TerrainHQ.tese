@@ -15,6 +15,10 @@
 layout (triangles, equal_spacing) in;
 
 layout(binding = 0) uniform usampler2D PageTable;
+// Unit 1 - the albedo atlas, for its alpha only. The eval stage does not
+// shade, but the wetness mask lives in that alpha and displacement has to
+// know about it. Same unit VirtualTexture.Bind() already sets up.
+layout(binding = 1) uniform sampler2DArray ColorTextureAtlas;
 layout(binding = 2) uniform sampler2DArray NormalTextureAtlas;
 
 layout(location = 5) uniform mat3 normalMatrix;
@@ -49,7 +53,17 @@ void main(void)
     tes_out.Global_UV = chunk.g_uv_offset + (uv * props.map_size);
 
     const uvec2 page = SampleTable(PageTable, tes_out.Global_UV, 0);
-    const float height = SampleAtlas(NormalTextureAtlas, page, tes_out.Global_UV).w;
+    float height = SampleAtlas(NormalTextureAtlas, page, tes_out.Global_UV).w;
+
+    // Water levels what it sits in. The page's albedo alpha is the wetness
+    // mask (t_mixer), and the game scales displacement by 0.8 - wetness, so a
+    // puddle fills the relief rather than rippling over it. Costs one extra
+    // fetch in the eval stage; without it, tessellated ground stays bumpy
+    // under standing water, which is the tell that it is painted on.
+    {
+        const float wet = SampleAtlas(ColorTextureAtlas, page, tes_out.Global_UV).a;
+        height *= max(0.8 - wet, 0.0);
+    }
 
     //-------------------------------------------------------
     // Calculate biNormal
@@ -79,7 +93,16 @@ void main(void)
     // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
     tes_out.TBN = mat3(worldTangent, worldbiNormal, normalize(worldNormal));
     
-    pos.xyz += height * VN;
+    // The game's displacement envelope: at most g_tessDisplaceDist = 1 m,
+    // faded to nothing approaching the 60 m tessellation range. The fade is
+    // what makes the HQ-to-LQ handover at 60 m invisible - by the time a
+    // chunk swaps to the flat path its displacement is already zero, so
+    // there is nothing to pop.
+    {
+        float d = length(vec3(view * pos));
+        float fade = 1.0 - smoothstep(40.0, 60.0, d);
+        pos.xyz += clamp(height, -1.0, 1.0) * fade * VN;
+    }
 
     tes_out.worldPosition = vec3(view * pos);
 

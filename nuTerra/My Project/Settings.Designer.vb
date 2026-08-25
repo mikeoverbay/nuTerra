@@ -321,6 +321,18 @@ Namespace My
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property use_tessellation() As Boolean
+            Get
+                Return CType(Me("use_tessellation"),Boolean)
+            End Get
+            Set
+                Me("use_tessellation") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
         Public Property use_sh_ambient() As Boolean
             Get
                 Return CType(Me("use_sh_ambient"),Boolean)

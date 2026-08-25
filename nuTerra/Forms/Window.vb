@@ -29,8 +29,18 @@ Public Class Window
     Private SHOW_SETTINGS_WINDOW As Boolean
     Private SHOW_TEXTURES_VIEWER_WINDOW As Boolean
     Private prev_SHOW_SETTINGS_WINDOW As Boolean = False
-    Private stats_window_size As System.Numerics.Vector2 = System.Numerics.Vector2.Zero
-    Private stats_window_pos As System.Numerics.Vector2 = System.Numerics.Vector2.Zero
+
+    ' Position and size of the menu bar window, recorded each frame so the
+    ' panels below can be parked underneath it. Named for the bar, not for what
+    ' reads them - there is a real stats window now and the old name invited a
+    ' mix-up.
+    Private menubar_size As System.Numerics.Vector2 = System.Numerics.Vector2.Zero
+    Private menubar_pos As System.Numerics.Vector2 = System.Numerics.Vector2.Zero
+
+    '''<summary>Set when the Stats button opens the panel, so it reappears under
+    ''' the bar rather than wherever it was last dragged - which may be off the
+    ''' edge of a since-resized window, i.e. gone.</summary>
+    Private reset_stats_pos As Boolean = True
 
     Private Shared Function GetGLSettings() As NativeWindowSettings
         Dim setting As New NativeWindowSettings With {
@@ -220,6 +230,12 @@ Public Class Window
         DONT_BLOCK_OUTLAND = My.Settings.load_outland
         DONT_BLOCK_TREES = My.Settings.load_trees
         DONT_BLOCK_WATER = My.Settings.load_water
+
+        ' Tessellation persists now. It was session-only for years and so
+        ' effectively always off - meanwhile the game's terrain shaders carry
+        ' hull/domain stages unconditionally: it tessellates always, out to
+        ' ~60 m. On by default to match.
+        USE_TESSELLATION = My.Settings.use_tessellation
 
         ' Decal edge fading: on, using DecalEdgeProbe's own classification.
         ' Set here rather than relying on the field initialisers so the startup
@@ -465,6 +481,111 @@ try_again:
     ''' Diagnostics that only fire at map load - the sun shadow bake in
     ''' particular - can be re-taken from here at any time.
     ''' </summary>
+    ''' <summary>
+    ''' The render stats panel. Everything that used to be crammed onto the menu
+    ''' bar, plus per-pass GPU time, in a window that can be dragged out of the
+    ''' way of whatever is being looked at.
+    '''
+    ''' Deliberately translucent: it sits over the scene it is describing, and an
+    ''' opaque panel hides the thing whose cost it is reporting.
+    ''' </summary>
+    Private Sub draw_stats_window()
+        If Not SHOW_STATS_WINDOW Then Return
+
+        ' Grey, mostly transparent, and a little rounder than the default so it
+        ' reads as an overlay rather than a dialog.
+        ImGui.PushStyleColor(ImGuiCol.WindowBg, New System.Numerics.Vector4(0.1F, 0.1F, 0.1F, 0.55F))
+        ImGui.PushStyleColor(ImGuiCol.TitleBg, New System.Numerics.Vector4(0.15F, 0.15F, 0.15F, 0.7F))
+        ImGui.PushStyleColor(ImGuiCol.TitleBgActive, New System.Numerics.Vector4(0.2F, 0.2F, 0.2F, 0.8F))
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 6.0F)
+
+        ImGui.SetNextWindowSizeConstraints(New System.Numerics.Vector2(260, 0),
+                                           New System.Numerics.Vector2(600, 900))
+
+        ' Park it under the menu bar every time it is opened. A window dragged
+        ' near an edge and then left there is simply gone after the main window
+        ' is resized smaller, with no way back to it - so the open action always
+        ' puts it somewhere on screen rather than restoring where it was.
+        If reset_stats_pos Then
+            Dim vp = ImGui.GetMainViewport()
+            Dim pos = New System.Numerics.Vector2(vp.WorkPos.X + 10.0F, vp.WorkPos.Y + 10.0F)
+            If menubar_size.LengthSquared > 0 Then
+                pos = New System.Numerics.Vector2(menubar_pos.X, menubar_pos.Y + menubar_size.Y + 5.0F)
+            End If
+
+            ' Clamp into the viewport, in case the bar itself is near an edge.
+            pos.X = Math.Min(Math.Max(pos.X, vp.WorkPos.X), vp.WorkPos.X + Math.Max(vp.WorkSize.X - 280.0F, 0.0F))
+            pos.Y = Math.Min(Math.Max(pos.Y, vp.WorkPos.Y), vp.WorkPos.Y + Math.Max(vp.WorkSize.Y - 120.0F, 0.0F))
+
+            ImGui.SetNextWindowPos(pos)
+            reset_stats_pos = False
+        End If
+
+        If ImGui.Begin("Render stats", SHOW_STATS_WINDOW, ImGuiWindowFlags.AlwaysAutoResize) Then
+            ImGui.Text(String.Format("FPS {0}", FPS_TIME))
+            ImGui.Text(String.Format("VRAM {0} / {1} mb",
+                                     GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
+
+            If MAP_LOADED AndAlso Not SHOW_MAPS_SCREEN Then
+                ImGui.Separator()
+                ImGui.TextUnformatted(clip_counts())
+
+                ImGui.Separator()
+                ' GL_TIME_ELAPSED per pass, read a frame late so asking does not
+                ' stall the pipeline it is measuring. See modGpuTimers.
+                ImGui.Text("GPU time per pass (ms)")
+
+                Dim sections = modGpuTimers.Sections
+                If sections.Count = 0 Then
+                    ImGui.TextDisabled("   measuring...")
+                Else
+                    Dim total = modGpuTimers.TotalMs
+                    Dim worst = 0.0
+                    For Each sec In sections
+                        worst = Math.Max(worst, sec.avg_ms)
+                    Next
+
+                    If ImGui.BeginTable("##passtimes", 3, ImGuiTableFlags.SizingFixedFit) Then
+                        For Each sec In sections
+                            ImGui.TableNextRow()
+                            ImGui.TableSetColumnIndex(0)
+                            ImGui.TextUnformatted(sec.name)
+                            ImGui.TableSetColumnIndex(1)
+                            ' The most expensive pass in red, so the thing worth
+                            ' looking at is findable without reading the numbers.
+                            If sec.avg_ms >= worst AndAlso worst > 0.0 Then
+                                ImGui.TextColored(New System.Numerics.Vector4(1.0F, 0.5F, 0.4F, 1.0F),
+                                                  String.Format("{0,7:0.000}", sec.avg_ms))
+                            Else
+                                ImGui.TextUnformatted(String.Format("{0,7:0.000}", sec.avg_ms))
+                            End If
+                            ImGui.TableSetColumnIndex(2)
+                            Dim pct = If(total > 0.0, sec.avg_ms / total * 100.0, 0.0)
+                            ImGui.TextDisabled(String.Format("{0,5:0.0}%", pct))
+                        Next
+                        ImGui.EndTable()
+                    End If
+
+                    ImGui.Separator()
+                    ' Timed passes only. The gap to the frame time is everything
+                    ' not bracketed - post, minimap, ImGui itself, and present.
+                    ImGui.Text(String.Format("timed total {0:0.000} ms", total))
+                End If
+            End If
+
+            ImGui.End()
+        End If
+
+        ImGui.PopStyleVar()
+        ImGui.PopStyleColor(3)
+
+        ' Closing with the title bar X has to stop the queries too.
+        If Not SHOW_STATS_WINDOW Then
+            modGpuTimers.Enabled = False
+            modGpuTimers.Reset()
+        End If
+    End Sub
+
     Private Sub write_log_snapshot()
         LogThis("================ SNAPSHOT {0} ================", Date.Now.ToString("HH:mm:ss"))
 
@@ -490,6 +611,8 @@ try_again:
 
         map_scene.sun_shadow.LogSnapshot()
 
+        LogThis("  water: loaded={0} draw={1}", map_scene.WATER_LOADED, DONT_BLOCK_WATER)
+
         Console.Out.Flush()
     End Sub
 
@@ -511,8 +634,9 @@ try_again:
 
         ' The model figure counts draw commands that survived culling, not
         ' instances, so it is not a ratio of model_total and is not shown as one.
-        Return String.Format("| model draws {0} of {1} instances | trees {2}/{3} (cast {6}) | chunks {4}/{5}",
-                             models, model_total, TREES_DRAWN, TREES_TOTAL, chunks, chunk_total, TREES_CASTING)
+        Return String.Format("| model draws {0} of {1} instances | trees {2}/{3} lods {6} | chunks {4}/{5}",
+                             models, model_total, TREES_DRAWN, TREES_TOTAL, chunks, chunk_total,
+                             If(TREES_LOD_TEXT = "", "-", TREES_LOD_TEXT))
     End Function
 
     Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
@@ -814,18 +938,21 @@ try_again:
             If ImGui.Button("Snapshot") Then
                 write_log_snapshot()
             End If
-            ' Only while actually looking at a map. Behind the picker, and before
-            ' anything is loaded, the counts are stale and the FPS is measuring an
-            ' idle frame - both misleading.
-            If MAP_LOADED AndAlso Not SHOW_MAPS_SCREEN Then
-                ImGui.SameLine()
-                text_on_slab(String.Format("FPS: {0,-3} | VRAM: {1}mb of {2}mb", FPS_TIME,
-                                          GLCapabilities.memory_usage, GLCapabilities.total_mem_mb))
-                ' own line: the counts run past the end of the bar otherwise
-                text_on_slab(clip_counts())
+            ImGui.SameLine()
+            ' The readouts used to live on this bar. They are a panel of their
+            ' own now - the bar is menu items only, and this is the switch.
+            If ImGui.Button(If(SHOW_STATS_WINDOW, "Hide stats", "Stats")) Then
+                SHOW_STATS_WINDOW = Not SHOW_STATS_WINDOW
+                ' Always come back somewhere visible.
+                reset_stats_pos = True
+                ' Issuing timer queries is not free, so they are only live while
+                ' something is looking at them.
+                modGpuTimers.Enabled = SHOW_STATS_WINDOW
+                If Not SHOW_STATS_WINDOW Then modGpuTimers.Reset()
             End If
-            stats_window_pos = ImGui.GetWindowPos()
-            stats_window_size = ImGui.GetWindowSize()
+
+            menubar_pos = ImGui.GetWindowPos()
+            menubar_size = ImGui.GetWindowSize()
             ImGui.End()
         End If
 
@@ -839,9 +966,11 @@ try_again:
             End If
         End If
 
+        draw_stats_window()
+
         If SHOW_SETTINGS_WINDOW Then
-            If Not prev_SHOW_SETTINGS_WINDOW AndAlso stats_window_size.LengthSquared > 0 Then
-                Dim pos = stats_window_pos + New System.Numerics.Vector2(0, stats_window_size.Y + 5)
+            If Not prev_SHOW_SETTINGS_WINDOW AndAlso menubar_size.LengthSquared > 0 Then
+                Dim pos = menubar_pos + New System.Numerics.Vector2(0, menubar_size.Y + 5)
                 ImGui.SetNextWindowPos(pos)
             End If
             If ImGui.Begin("Settings", SHOW_SETTINGS_WINDOW) Then
@@ -869,6 +998,20 @@ try_again:
                     ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)
                     ImGui.Checkbox("Draw trees", DONT_BLOCK_TREES)
                     ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
+                    ' Trim for the water plane, saved per map. The packages
+                    ' author exact heights, so anything nonzero here is taste.
+                    Dim v_wy = WATER_Y_OFFSET
+                    If ImGui.SliderFloat("Water height trim", v_wy, -2.0, 2.0) Then
+                        WATER_Y_OFFSET = v_wy
+                    End If
+                    ' Masks water off model surfaces this close under the plane
+                    ' - boat decks and hull interiors. Tune just deeper than
+                    ' the decks; too deep starts cutting water off submerged
+                    ' hull sides seen through the surface.
+                    Dim v_wx = WATER_EXCLUDE_BAND
+                    If ImGui.SliderFloat("Water exclude depth", v_wx, 0.0, 4.0) Then
+                        WATER_EXCLUDE_BAND = v_wx
+                    End If
                 End If
                 If ImGui.CollapsingHeader("Pick Models") Then
                     ImGui.Checkbox("Enabled##Object picking", ModelPicker.Enabled)
@@ -957,21 +1100,14 @@ try_again:
                     End If
                 End If
                 If ImGui.CollapsingHeader("Shadow Mapping") Then
-                    ' The shadow mix. These two are halves of one system and are
-                    ' multiplied together in deferred.frag, so they belong side by
-                    ' side: the cascades carry trees, because trees animate and
-                    ' cannot live in a one-off bake, and the map-wide bake carries
-                    ' terrain and static models at every distance.
-                    '
-                    ' Both strengths save per map - see modMapSettings.
-                    ImGui.Checkbox("Live (cascades)", ShadowMappingFBO.Enabled)
-
-                    ' Re-rendered every FRAME_STEP frames and sampled 9 times per
-                    ' lit pixel, so this one costs every frame.
-                    Dim v_ss = CommonProperties.SHADOW_STRENGTH
-                    If ImGui.SliderFloat("Live strength (trees)", v_ss, 0.0, 1.0) Then
-                        CommonProperties.SHADOW_STRENGTH = v_ss
-                    End If
+                    ' The live cascades have no controls any more. They are off
+                    ' at startup (CommonProperties.Init) and the map-wide bake
+                    ' carries everything including trees, so there is nothing for
+                    ' a checkbox to switch between. ShadowMappingPass, the FBO and
+                    ' the shaders are all still there - shadow_mapping and
+                    ' shadow_strength also still save per map - so restoring the
+                    ' two controls here and setting USE_SHADOW_MAPPING back to 1
+                    ' is the whole job if trees start animating.
 
                     ' Baked map-wide shadow. Toggling only has to re-bake the sun
                     ' depth now - the shadow is sampled per frame in deferred.frag
@@ -987,10 +1123,10 @@ try_again:
                         End If
                     End If
 
-                    ' Same value as "Sun Shadow (baked)" under Terrain - mirrored
-                    ' here so the two halves of the mix can be balanced together.
+                    ' Same value as "Sun Shadow (baked)" under Terrain, mirrored
+                    ' here because this is where shadow work happens.
                     Dim v_hz2 = CommonProperties.HORIZON_STRENGTH
-                    If ImGui.SliderFloat("Baked strength (terrain/models)", v_hz2, 0.0, 1.0) Then
+                    If ImGui.SliderFloat("Shadow strength", v_hz2, 0.0, 1.0) Then
                         CommonProperties.HORIZON_STRENGTH = v_hz2
                     End If
 
@@ -1011,6 +1147,35 @@ try_again:
                             MSM_MOMENT_BIAS = v_mb
                         End If
                     End If
+
+                    ImGui.Separator()
+                    ' Wet-surface reflections. A cubemap can only ever show sky;
+                    ' this marches the reflected ray through the frame that was
+                    ' just drawn, so it can put actual geometry in a puddle.
+                    ' Not gated on sun shadow - a puddle in shade still reflects
+                    ' the building above it, it just must not glint.
+                    ImGui.Checkbox("SSR (wet reflections)", SSR_ENABLED)
+                    If SSR_ENABLED Then
+                        Dim v_si = SSR_INTENSITY
+                        If ImGui.SliderFloat("  SSR strength", v_si, 0.0, 2.0) Then
+                            SSR_INTENSITY = v_si
+                        End If
+                        Dim v_sn = SSR_STEPS
+                        If ImGui.SliderInt("  SSR steps", v_sn, 8, 96) Then
+                            SSR_STEPS = v_sn
+                        End If
+                        ' Too large smears a reflection across a depth gap, too
+                        ' small drops thin geometry like railings.
+                        Dim v_st = SSR_THICKNESS
+                        If ImGui.SliderFloat("  SSR thickness m", v_st, 0.1, 6.0) Then
+                            SSR_THICKNESS = v_st
+                        End If
+                        Dim v_ss2 = SSR_STRIDE
+                        If ImGui.SliderFloat("  SSR stride m", v_ss2, 0.05, 2.0) Then
+                            SSR_STRIDE = v_ss2
+                        End If
+                    End If
+                    ImGui.Separator()
 
                     ' Penumbra shaping. Applies to both paths, so switching
                     ' between them compares the filtering and nothing else.

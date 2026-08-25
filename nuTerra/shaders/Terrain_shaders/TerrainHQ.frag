@@ -6,6 +6,7 @@
 #extension GL_ARB_shading_language_include : require
 #endif
 
+#define USE_PERVIEW_UBO
 #define USE_COMMON_PROPERTIES_UBO
 #define USE_MIPLEVEL_FUNCTION
 #define USE_VT_FUNCTIONS
@@ -76,7 +77,22 @@ void main(void)
     // from t_mixer, which is inert today (build_horizon_texture returns Nothing,
     // so has_horizon is 0 and the value is a flat 1.0). Left in place for when
     // that format is cracked; deliberately not multiplied into albedo either.
-    gGMF = vec4(0.2, mix(specular_sample1, specular_sample2, mipfract), GFLAG_TERRAIN, 0.0);
+    // Wetness mask, .a - the slot the G-buffer has always documented as
+    // "Wetness in a" and terrain has always written as zero.
+    //
+    // The page carries the height-shaped half in its alpha (see t_mixer). The
+    // other half is slope: water does not cling to a hillside. The game gates
+    // on the terrain normal's up component with a very sharp curve - full
+    // wetness only on near-level ground, everything else floored at 0.6.
+    //
+    // fs_in.worldNormal is a misnomer, like every other one in this renderer:
+    // normalMatrix is view * model, so it arrives in VIEW space. invView takes
+    // it back to world, where .y is actually up.
+    const vec3 n_world = normalize(mat3(invView) * normalize(fs_in.worldNormal));
+    const float flatness = max((n_world.y - 0.99) * 100.0, 0.6);
+    const float wetness = clamp(gColor.a * flatness, 0.0, 1.0);
+
+    gGMF = vec4(0.2, mix(specular_sample1, specular_sample2, mipfract), GFLAG_TERRAIN, wetness);
 
     gPosition = fs_in.worldPosition;
     // gSurfaceNormal is Rgb8, so it has to carry a 0..1 encoding - writing the

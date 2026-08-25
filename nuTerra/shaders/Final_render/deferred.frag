@@ -366,6 +366,19 @@ void main (void)
                 // how shinny this is
                 POWER = max(GM_in.r * 30.0, 3.0);
                 INTENSITY = GM_in.g;
+
+                // Wet is smooth, and smooth means a tight highlight.
+                //
+                // Terrain writes gGMF.r = 0.2, so dry ground runs POWER = 6 -
+                // an extremely broad lobe, which is right for rough dirt and
+                // completely wrong for standing water. Left at 6 a wet patch
+                // reads as a large soft wash instead of a sharp glint, because
+                // the lobe is wider than the puddle.
+                //
+                // GM_in.z is the wetness mask the terrain shaders now write.
+                // WET_POWER is the tuning knob: higher is sharper and smaller.
+                const float WET_POWER = 96.0;
+                POWER = mix(POWER, WET_POWER, clamp(GM_in.z, 0.0, 1.0));
                 // How metalic his is
                 color_in.rgb = mix(color_in.rgb,
                                    color_in.rgb * vec3(0.04), max( metal * 0.25 , 0.00) );
@@ -451,7 +464,22 @@ void main (void)
             if (dist < cutoff) {
                 // kill the terrian normals where there is water
                 N = mix(N, blank_n, water_mix);
+
+                // Two reflect vectors, because they answer different questions.
+                //
+                // R is the mirror of the LIGHT, which is what a Phong lobe
+                // wants: pow(dot(V,R), n) is the highlight of the sun in this
+                // surface. R_env is the mirror of the VIEW, which is what an
+                // environment lookup wants: what the surface shows you depends
+                // on where you are standing.
+                //
+                // Both cubemap lookups used R. That pinned the reflection to
+                // the sun - near enough the same direction for every pixel, so
+                // it returned the same patch of sky everywhere and did not
+                // move with the camera. It read as a sheen rather than a
+                // reflection, and no amount of tuning was going to fix it.
                 vec3 R = reflect(-L,N);
+                vec3 R_env = reflect(-V,N);
 
                 // Plain Lambert. GM_in.g used to be the exponent here, but it is
                 // gGMF.y - metal for models, the specular sample for terrain -
@@ -475,28 +503,59 @@ void main (void)
 
                 float spec = max(pow(dot(V,R), POWER ),0.0000) * props.SPECULAR * INTENSITY;
    
-                R.xz *= -1.0;
+                // Cubemap handedness - the world is mirrored in x for display.
+                R_env.xz *= -1.0;
 
                 vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut,
                             vec2(1.0-lambertTerm * 0.25, 1.0-metal) ));
                 vec3 specular =  (vec3(spec) * brdf.x + brdf.y);
 
 
-                vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
+                vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R_env,
                                         max(8.0-GM_in.g *4.0, 0.0)));
                 // GM_in.b is the alpha channel.
                 prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb +
                                        specular, GM_in.b*0.2*(1.0-color_in.a));
 
-                vec4 W_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
+                vec4 W_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R_env,
                                           max(8.0-water_mix *5.0, 0.0)));
 
-                vec4 G_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R,
-                                          max(3.0-GM_in.z *3.0, 0.0)))*GM_in.z*spec*4.0;
+                // Wetness reflection. The mip drops toward 0 as wetness rises,
+                // so a wet surface samples the sharp end of the cubemap.
+                //
+                // WET_REFLECT was 4.0, tuned back when terrain wrote GM_in.z as
+                // a hard zero and this term could never fire at all. With a real
+                // mask behind it that was too hot.
+                const float WET_REFLECT = 3.0;
+                vec4 G_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R_env,
+                                          max(3.0-GM_in.z *3.0, 0.0)))*GM_in.z*spec*WET_REFLECT;
 
                 vec3 water_reflect = vec3(water_mix*props.ambientColorForward) * vec3(water_spec)*1.5 * W_prefilteredColor.rgb;
 
-                final_color.xyz += clamp(water_reflect+specular*sun_shadow+G_prefilteredColor.xyz,0.0,1.0);
+                // Nothing reflects the sun out of the sun's reach.
+                //
+                // All three of these are sun terms, whatever their names say.
+                // R is reflect(-L, N) - the mirror of the LIGHT - so spec and
+                // water_spec are both the sun's own highlight, and the cubemap
+                // lookups they scale are only standing in for the sky around
+                // it. A puddle inside a building's shadow was still throwing a
+                // hard glint, because only `specular` was ever gated.
+                //
+                // Gate all three on the same factor the diffuse uses, so a wet
+                // surface in shade goes quiet instead of picking out a sun that
+                // cannot see it. What SHOULD survive in shadow is a reflection
+                // of the geometry around it - that needs real reflected colour,
+                // not a sun lobe, and there is none to sample yet.
+                // Soft knee instead of a hard clamp. At the mirror angle the
+                // wet terms peak together - specular plus the cube reflection
+                // that is scaled BY specular - and their sum sails past 1.0.
+                // clamp() turned that overshoot into a flat white patch, which
+                // is exactly the saturation wet ground and track decals were
+                // showing. 1-exp(-x) is linear where the response was already
+                // sane and rolls off the peaks, so a hot glint stays bright
+                // without ever clipping to paper.
+                vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz) * sun_shadow;
+                final_color.xyz += 1.0 - exp(-sun_add);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance
 

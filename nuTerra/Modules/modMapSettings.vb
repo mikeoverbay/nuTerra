@@ -1,4 +1,4 @@
-﻿Imports System.IO
+Imports System.IO
 Imports System.Globalization
 Imports System.Linq
 
@@ -117,6 +117,8 @@ Public Module modMapSettings
         Yield ("macro_fade", Function() CommonProperties.MACRO_FADE, Sub(v) CommonProperties.MACRO_FADE = v)
         Yield ("horizon_strength", Function() CommonProperties.HORIZON_STRENGTH, Sub(v) CommonProperties.HORIZON_STRENGTH = v)
         Yield ("shadow_strength", Function() CommonProperties.SHADOW_STRENGTH, Sub(v) CommonProperties.SHADOW_STRENGTH = v)
+        Yield ("water_y_offset", Function() WATER_Y_OFFSET, Sub(v) WATER_Y_OFFSET = v)
+        Yield ("water_exclude_band", Function() WATER_EXCLUDE_BAND, Sub(v) WATER_EXCLUDE_BAND = v)
 
         ' booleans, stored as 0/1 so the file stays one shape throughout
         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))

@@ -8,16 +8,20 @@ Imports OpenTK.Mathematics
 ''' One orthographic depth render of the whole map from the sun, baked at map load
 ''' and sampled per frame in deferred.frag.
 '''
-''' This and the live cascades are two halves of one system, split by what moves:
-''' the cascades carry trees, because trees will be animated and nothing that
-''' moves can live in a bake that happens once; this carries everything static, at
-''' every distance, where the furthest cascade stops at 250 m.
+''' This is now the only thing casting shadows. The live cascades still exist and
+''' still work, but nothing calls them - see ShadowMappingPass.
 '''
 ''' WHAT GOES IN, and what deliberately does not:
 '''
 '''   terrain chunks   yes - draw_terrain, theMap.render_set
 '''   static models    yes - draw_models, indirect_shadow_mapping
-'''   trees            NO  - they animate; the cascades have them
+'''   trees            yes - draw_trees, alpha tested against the leaf atlas so
+'''                          the shadow is leaf shaped and not card shaped.
+'''                          These were excluded while the cascades carried them,
+'''                          on the grounds that a once-only bake cannot hold
+'''                          anything animated. Nothing animates them yet, and the
+'''                          bake reaches the whole map where the cascades stopped
+'''                          at the last split. Revisit if animation lands.
 '''   outland          NO  - it is backdrop outside the playable footprint, and
 '''                          the ortho box below is fitted to the terrain grid.
 '''                          Enclosing the outland would blow the box up and cost
@@ -271,6 +275,7 @@ Public Class MapSunShadow
 
         draw_terrain()
         draw_models()
+        draw_trees()
 
         If MSM_SHADOW_ENABLED Then filter_moments()
 
@@ -382,6 +387,18 @@ Public Class MapSunShadow
                                      IntPtr.Zero, scene.static_models.indirectShadowMappingDrawCount, 0)
 
         sunDepthModelShader.StopUse()
+    End Sub
+
+    Private Sub draw_trees()
+        If Not scene.TREES_LOADED OrElse Not DONT_BLOCK_TREES Then Return
+
+        ' Trees are in the bake now. They were left out originally because a
+        ' bake happens once and anything animated cannot live in it - but
+        ' nothing animates them yet, and a map-wide bake reaches the whole map
+        ' where the cascades stopped at the last split. If tree animation
+        ' lands later this is the call to drop, and ShadowMappingPass is still
+        ' there to take them back.
+        scene.trees.sun_depth_pass(sun_view_proj)
     End Sub
 
     Private Sub create_target()

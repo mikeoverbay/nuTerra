@@ -1,4 +1,4 @@
-﻿Imports System.IO
+Imports System.IO
 Imports OpenTK.Mathematics
 
 Module modSpaceBin
@@ -227,7 +227,11 @@ CleanUp:
         cBSMO = Nothing
         cBSMA = Nothing
         'cWGSD = Nothing
-        cBWWa = Nothing
+        ' Kept, like the others commented out above: MapWater.Build reads the
+        ' bodies and mesh from it AFTER this function returns. Nulling it here
+        ' is why water silently never appeared - the parse succeeded and the
+        ' data was freed in the same breath. ~100 KB retained per map.
+        'cBWWa = Nothing
 
         '====================================================
         ' Sort and batch the models for instanced drawing
