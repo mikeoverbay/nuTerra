@@ -11,6 +11,21 @@ the reasoning.
 
 ---
 
+## Where this left off
+
+- `master` = `terrain-color-fix` = the same commit; everything is committed,
+  working tree clean. Pushing needs the owner's terminal - the agent shell has
+  no SSH key for the remote - so run `git push -u nuTerra master` there.
+- Verified by the owner this session: tessellation (on, 60 m envelope), the
+  boat winding fix, the waterline pinned by the vertical-depth metric.
+- **Next feature queued: terrain holes.** The data format is fully cracked and
+  documented below; the implementation plan is three steps and half a day.
+- `readme_images/` holds front-page screenshots; the README references
+  `readme_images/nuTerra.png`. Overwriting that file updates the front page
+  with no README edit.
+
+---
+
 ## How to work in this repo
 
 - **Kill the running exe before building.** `Get-Process nuTerra | Stop-Process -Force`.
@@ -25,6 +40,17 @@ the reasoning.
   the log is readable while the app runs. Per-pass GPU times live in the
   **Stats** panel (GL_TIME_ELAPSED, read a frame late so asking does not stall
   the pipeline being measured).
+
+Git specifics that cost real time here:
+
+- **A tracked file cannot be gitignored.** t1.png sat in `.gitignore`-adjacent
+  limbo showing as modified forever; the fix is `git rm --cached` AND the
+  ignore rule - either alone does nothing.
+- **Checkout silently overwrites ignored files.** Switching branches destroyed
+  the local t1.png without a warning, because ignored files get no overwrite
+  protection. Anything ignored-but-precious does not belong in the repo tree.
+- Scratch screenshots at the repo root (`/t[0-9].png`) are ignored; images
+  meant to ship go in `readme_images/`.
 
 ## Engine-wide traps
 
