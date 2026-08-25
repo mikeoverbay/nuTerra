@@ -158,9 +158,18 @@ void main(void)
     // an artifact of the fade otherwise.
     const float SOFT_DEPTH = 2.0;
     vec2 suv = gl_FragCoord.xy / resolution;
-    float sz = texture(scene_pos, suv).z;
-    if (sz < 0.0) {
-        float water_depth = Pv.z - sz;   // both negative into the screen
+    vec3 scene_v = texture(scene_pos, suv).xyz;
+    if (scene_v.z < 0.0) {
+        // VERTICAL water column, not distance along the view ray. The first
+        // cut used Pv.z - scene.z, and that metric changes with the camera by
+        // construction: at a grazing angle the ray travels metres between the
+        // surface and the hull behind it, so the fade and the boat mask read
+        // "deep" far up the hull; from overhead they read "shallow". The
+        // waterline crawled up and down with every camera move - the boats
+        // appeared to sink. Surface Y minus scene-point world Y measures the
+        // same thing from every angle, so the waterline is pinned to the
+        // geometry, where it belongs.
+        float water_depth = fs_in.worldPos.y - (invView * vec4(scene_v, 1.0)).y;
 
         // Boat masking. A pixel whose underlying surface is a MODEL sitting
         // within a couple of metres of the waterline is a deck or hull
