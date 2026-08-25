@@ -1,8 +1,8 @@
-# Handoff — terrain colour, layer mixing, and the sun shadow
+# Handoff — renderer state
 
-Supersedes the previous version of this file, which described an architecture
-that no longer exists. Where it says "was", that is what the old document
-described and what the code actually did.
+Supersedes the previous version. Covers everything through the water system,
+tessellation revival, tree LODs, wetness/SSR, and the boat fixes. Where it
+says "was", that is what the code did before and why it changed.
 
 The owner is the sole developer of nuTerra, a VB.NET / .NET 6 / OpenTK offline
 World of Tanks map viewer. He guides tightly, tests every build himself, and is
@@ -15,269 +15,161 @@ the reasoning.
 
 - **Kill the running exe before building.** `Get-Process nuTerra | Stop-Process -Force`.
 - Build: `MSBuild.exe nuTerra.sln /t:Build /p:Configuration=Debug /p:Platform="Any CPU"`
-  from `C:\nuTerra`. Publishing needs `/p:Platform=x64` (the C++ project fails on
-  `Debug|Win32` — pre-existing, unrelated).
+  from `C:\nuTerra`. Publishing needs `/p:Platform=x64`.
 - **Shaders only validate at runtime.** A clean build proves nothing about GLSL.
   Launch and check stdout for `Shaders Built.` and `didn't compile`.
-- **Run with the working directory set to the bin folder**, not the repo root.
-  `ShaderLoader` resolves `shaders` relative to the CWD, so launching from
-  `C:\nuTerra` dies on `C:\nuTerra\shaders does not exist` before the window opens.
-- Redirect stdout to a file and read it. The log is the primary diagnostic.
-- **Console output is buffered when redirected.** A line logged mid-session can
-  sit unwritten indefinitely. The **Snapshot** button on the menu bar writes the
-  current render state and calls `Console.Out.Flush()`, which is the only reason
-  the log is readable while the app is still running.
+- **Run with the working directory set to the bin folder**, not the repo root -
+  `ShaderLoader` resolves `shaders` relative to the CWD.
+- **Console output is buffered when redirected.** The **Snapshot** button on the
+  menu bar writes the current render state and flushes, which is the only way
+  the log is readable while the app runs. Per-pass GPU times live in the
+  **Stats** panel (GL_TIME_ELAPSED, read a frame late so asking does not stall
+  the pipeline being measured).
+
+## Engine-wide traps
+
+| trap | detail |
+|---|---|
+| Clip control | `ZeroToOne` + `DepthClamp` + reversed-Z (`ClearDepth 0`, `Greater`). Any projection you build must be remapped; wrong ones flatten to 0.0 instead of disappearing. |
+| `gPosition` is VIEW space | Every writer names the varying `worldPosition`; every one stores `view * model * vertex`. Pass `invView * P` when you need world. (`t_mixer.vert` worldPosition IS world - no camera in that pass.) |
+| Shader includes | `#include "common.h" //! #include "../common.h"` - the `//!` half is an editor hint. Changing it breaks the loader. |
+| DX index flip | The index loader reverses every triangle for DX-to-GL. **Skinned formats (iiiww family) ship with the opposite winding** and get their order restored after the vertex format is known (`PrimitiveLoader`). Boats are skinned; that is why they were inside out. |
+| View-ray vs vertical | Any water/depth comparison measured along the view ray changes with the camera by construction. The water shore fade and boat mask measure the VERTICAL column for exactly this reason - the view-ray version made boats appear to sink as the camera moved. |
 
 ---
 
-## Engine-wide state that breaks naive code
+## Shadows
 
-Set **once at startup**, global, and every one of them has caused a bug here.
+**The map-wide bake is the only caster.** Terrain, static models, and trees
+(alpha-tested, so leaf-shaped) all render into one depth bake at map load,
+sampled per frame in `deferred.frag` on the sun term only - never albedo,
+never ambient. Ortho box fitted to the terrain footprint (derived from the
+same expressions PageLoader uses - the axes are asymmetric, do not hand-derive)
+and squared up; near/far bracket the geometry.
 
-| where | what | why it matters |
-|---|---|---|
-| `Forms/Window.vb:176` | `GL.ClipControl(LowerLeft, ZeroToOne)` | Clip-space z must be **0..1**, not −1..1. OpenTK's `CreateOrtho*`/`CreatePerspective*` produce −1..1. Any projection matrix you build must be remapped. |
-| `Forms/Window.vb:179` | `GL.Enable(DepthClamp)` | Geometry outside the depth range is **clamped, not clipped**. A wrong projection silently flattens to 0.0 instead of disappearing — it hides the error. |
-| `Forms/Window.vb:182` | `GL.ClearDepth(0.0)` + `DepthFunc.Greater` | Reversed-Z. If you change either for a local pass, restore **both**. Leaving `ClearDepth` at 1.0 makes the whole scene vanish behind the sky. |
+- `Bake()` must run AFTER `set_light_pos()`. It once ran before: LIGHT_POS was
+  zero, the matrix went NaN, and the log printed `expected~NaN` for a whole
+  session while the camera maths was rewritten around it. Read the instrument.
+- Live cascades are **off** (`USE_SHADOW_MAPPING = 0`) with controls removed.
+  The pass, FBO and shaders remain; restore the two controls and the flag when
+  tree animation lands. Splits were 20/75/250 when last live and must match
+  `cascadePlaneDistances` in common.h.
+- Moment Shadow Maps behind an A/B toggle (Settings -> Shadow Mapping), with
+  penumbra clip lo/hi applied to BOTH paths so the comparison is fair.
+- Bake size is gated by `TARGET_TEXEL`, not `MAX_SIZE`. Currently 0.05 ->
+  pinned at 32768^2 16-bit = 2 GiB. Measured: 8192 vs 16384 showed no visible
+  difference - the sharpness came from moving sampling out of the VT page.
+  `TARGET_TEXEL = 0.25` reclaims ~1.9 GiB and likely looks identical.
 
-One more, which cost most of a session:
+## Terrain
 
-> **`gPosition` holds VIEW space, not world space** — despite every writer naming
-> the varying `worldPosition`. It is `view * model * vertex` in `TerrainLQ.vert`,
-> `model.vert` and `tree.vert` alike. `deferred.frag` compensates with `invView`.
-> Do not trust the name; pass `invView * Position` when you need world.
->
-> `t_mixer.vert`'s `worldPosition` **is** genuine world space — different pass,
-> no camera in it.
+**Layer mixing** (`t_mixer.frag`), matching the game's behaviour:
 
----
+- Height blend is a threshold, not a crossfade: contenders within **0.05** of
+  the tallest survive, weighted by splat TWICE. The map-authored BWT2
+  blendHeight (~0.3) is NOT the mix threshold - feeding it in was the
+  washed-out terrain.
+- The dominant layer supplies the whole surface response - normal, specular,
+  AO. Normals are argmax, never averaged (averaging flattens exactly at
+  transitions).
+- Normal maps are AG format; the macro blend must mix ALL FOUR channels or X
+  and Y of the normal come from different textures at distance.
+- Layer projection: `uv = (dot(U.xyz, wp_game), -dot(V.xyz, wp_game)) + 0.5`,
+  true world position, height included, W ignored. The synthetic chunk-local
+  point it replaced displaced the textures three ways at once - no axis flip
+  could fix it because nothing was mirrored.
 
-## Shadow architecture
+**Tessellation** is on by default and persists (`My.Settings.use_tessellation`).
+Envelope matches the game: HQ within **60 m** (was 300 - all of it subpixel),
+displacement clamped to 1 m and faded to zero by 60 so the HQ/LQ handover
+cannot pop. Per-layer displacement remap `min(h^r1.z,1)*r1.x + r1.y` in the
+page bake, guarded for unauthored layers. HQ/LQ selection measures distance to
+the chunk **AABB** - the old origin-corner distance was wrong by up to ~141 m
+and made the HQ set depend on camera position and heading.
 
-Two halves of one system, split by **what moves**:
+**Wetness**: global AM alpha minus `0.4 x` blended layer height, gated by
+flatness, written to `gGMF.a` ("Wetness in a" was always its documented job).
+Wet ground tightens specular (POWER 6 -> 96 by mask) and the sun-derived sum
+rolls off through `1-exp(-x)` - the hard clamp was the flat white saturation
+on wet ground and track decals. SSR marches the lit frame for wet reflections;
+cubemap fallback. Sun terms are gated by the baked shadow; geometry
+reflections deliberately are not. That is the rule: **sun needs sun,
+geometry does not.**
 
-| | casts | receives | where |
-|---|---|---|---|
-| Live cascades | **trees only** | everything | `MapScene.ShadowMappingPass` |
-| Map-wide bake | terrain + static models | everything | `MapSunShadow.Bake` |
+**Terrain holes - data cracked, NOT implemented.** `terrain2/holes` in the
+per-chunk `.cdata_processed` zips TerrainBuilder already opens:
+`"zip\0" u32 u32-size` wrapping zlib; inflates to `"hol\0" w=64 h=64 ver=1`
+then a 64x64 1-bit mask (8 bytes/row) per 100 m chunk. Himmelsdorf authors it
+in 120 of 121 chunks. Plan: per-map R8 mask texture addressed by Global_UV,
+discard in TerrainLQ/HQ and in the sun bake terrain pass.
 
-Trees stay live because they will be animated, and nothing that moves can live in
-a bake that happens once. Everything static is in the bake, which reaches the
-whole map instead of stopping at the last cascade.
+**Still uncracked**: `terrain2/horizonshadows` (build_horizon_texture returns
+Nothing; notes on the failed layout are in TerrainTextureFunctions).
 
-- Cascade splits are **20 / 75 / 250** (halved from 40/150/500 once the cascades
-  no longer had to cover buildings). These MUST match `cascadePlaneDistances` in
-  `shaders/common.h` — the shader picks its cascade with them, so if the two
-  drift apart it samples the wrong map.
-- The bake is sampled **per frame in `deferred.frag`**, not baked into the VT
-  page. It costs four taps per lit pixel and is folded into the same
-  `sun_shadow` factor as the cascades, so both attenuate the sun term only.
-- Strength controls, both saved per map: **Live strength (trees)** =
-  `shadow_strength`, **Baked strength (terrain/models)** = `horizon_strength`.
-- **Penumbra clip lo/hi** reshapes the transition after filtering and before the
-  light sees it, on **both** paths so an A/B compares the filtering only.
-  `smoothstep`, never `step` — a hard cut discards the sub-pixel gradient and
-  re-aliases the edge.
+## Water
 
-### Why it is sampled in the final render
+Parsed fully from **BWWa**: per-body 340-byte blocks + four shared streams
+(cell boxes / mesh verts / indices / unidentified bytes) addressed by
+**prefix-sum (start,end) pairs at +0x134**. Confirmed offsets: bbox corners at
++0x00 (min/max, equal Y = the surface), sun glint power/scale at +0xB0, deep
+colour at +0xC0, fresnel bias/exponent at +0xD0, **sun tint at +0xE0** - it is
+NOT a reflection tint; Mines authors it orange and multiplying the sky by it
+turned the lake orange. Monastery authors white, which is how it hid.
 
-It **was** sampled while VT pages were built and folded into terrain albedo as
-`gColor.rgb *= horizon_shade`. That was wrong three ways:
+- **`cBWWa` must not be freed in `ReadSpaceBinData` cleanup.** It was - the
+  parse succeeded and the data was nulled in the same function, which was the
+  entire mystery of water never appearing. The null is commented out with the
+  others (BWST/BWT2/WGSD).
+- Geometry: corner quads per body. The tessellated mesh (with shoreline
+  holes) is parsed and waiting in the streams if rectangles ever fall short.
+- Shading: authored fresnel curve, 8-frame ripple loop (two frames blended),
+  SSR geometry reflections with sky fallback, sun glint gated by the baked
+  shadow, vertical-column shore fade, per-map height trim (`water_y_offset`).
+- Boat mask: water discards over **up-facing** model surfaces within
+  `water_exclude_band` metres VERTICALLY below the plane. Both qualifiers are
+  load-bearing: without up-facing, submerged hull sides mask a stripe of
+  water; without vertical depth, the waterline moves with the camera.
+- Not done: flow-map advection (flow_map.dds direction/amplitude pair),
+  foam, per-body 128^2 R32F shore depth maps, the water reflection probes.
 
-1. Albedo feeds the **ambient** term as well as the direct one, so it darkened
-   the sky fill that should still be present in shade.
-2. A VT page only covers terrain, so a static model standing in a building's
-   shadow received nothing at all.
-3. A page is baked once, long before anything is drawn on top of it, so the
-   shadow landed **ahead of the projected decals**.
+## Models
 
-Sampling in `deferred.frag` puts it after all three. As a side effect, toggling
-the bake no longer forces a VT atlas rebuild — the old comment claiming "it only
-enters a page at bake time, so there's no cheaper way" is no longer true.
+- Skinned (iiiww) winding restored after the universal DX flip - see traps.
+- Yacht LODs measured: all four skinned, identical Y ranges. LOD swaps do NOT
+  move geometry; if something near a boat moves with the camera, suspect a
+  view-dependent water metric first.
+- **Open**: `SHADOW_MAP_LOD = min(1, MAX_LOD_ID)` picks LOD 1 but the loop
+  skips `lod.junk` - a model whose LOD 1 is junk emits no bake command at all.
+  A specific model missing its shadow is probably this.
+- **Open**: trees visible through a building (depth/G-buffer, pre-dates
+  everything above).
 
-### Moment Shadow Maps (A/B toggle)
+## Trees
 
-**Settings → Shadow Mapping → Moment shadow maps (A/B)**. Peters & Klein 2015.
-
-The point is that moments are **linear**. A depth comparison must be compared
-before it is averaged, so a depth map can be neither blurred nor mipmapped, and
-PCF must spend taps every frame. Moments can be both — once, at bake time — so
-sampling is a single trilinear fetch plus an LDLᵀ solve.
-
-- `sun_depth_*.frag` write `vec4(z, z², z³, z⁴)` unconditionally; with MSM off
-  the FBO has `DrawBuffer = None` and the writes are discarded.
-- `filter_moments` runs a separable 9-tap Gaussian then `GenerateTextureMipmap`.
-- Capped at `MSM_MAX_SIZE = 4096`, RGBA32F, ~341 MiB with mips.
-  **32F is a prototype choice** — 16F halves it, the paper's 4×8 quantisation
-  quarters it again. Neither is worth debugging until the method is proven.
-- **Light leaking is the failure mode.** Test a building casting onto ground some
-  distance behind it. `Penumbra clip lo` is the knob.
-- **Flat open ground** is the other risk: the Hankel matrix is singular where
-  depth is constant. `moment bias` is the knob.
-
----
-
-## Terrain layer mixing
-
-`t_mixer.frag` reimplements the game's terrain shader. The algorithm, confirmed
-against the shipped one:
-
-```
-w_i   = splat_i * layerMask_i,  normalised over all 8
-hw_i  = max(h_i, 1/255) * w_i
-peak  = max(hw_i) over all 8
-c_i   = max(hw_i + 0.05 - peak, 0) * w_i      <- note w_i appears twice
-result = sum(c_i * albedo_i) / sum(c_i)
-```
-
-It is a **threshold, not a crossfade**: only layers within the band of the
-tallest contender contribute at all, everything else is culled to zero. That is
-what makes a transition follow the height maps instead of smearing.
-
-Two fixes that produced the visible colour improvement:
-
-1. **`blend_height` was fed the map-authored BWT2 value (~0.3).** The game
-   thresholds against a **hardcoded 0.05**. Six times too wide: since the `w_i`
-   sum to 1 the contenders are small numbers, so a 0.3 band admitted nearly every
-   painted layer, all eight contributed, and the result averaged toward mud.
-   Now `TCommonProperties.GAME_BLEND_HEIGHT = 0.05F`.
-
-   The authored value cannot be the game's source either — `g_blendGlobalThreshold`
-   lives at `cb0[360]` and that shader declares only `cb0[351]`, so it is out of
-   reach. Whatever BWT2/`blendHeight` drives, it is not this. It is still loaded
-   into `blend_height_authored` and shown in the panel marked `(unused)`.
-
-2. **Normals were blended across all 8 layers.** The game runs an **argmax** over
-   the blend weights and takes a single normal sample from the winner — albedo
-   blends, normals do not. Averaging eight normal maps pulls them all toward the
-   mean, which is flat, so relief vanished exactly where two textures met.
-
-Other confirmed details, for whoever works on this next:
-
-- **Macro is the same layer at 1/8 scale** — `frac(uv)` vs `frac(uv/8)`, not a
-  separate texture set.
-- `g_vtTileParams.w` is the macro fade (our `macro_fade`); `.x`/`.y` are the
-  micro/macro sample LODs.
-- The **macro blend set has no height threshold** — plain weighted average. Only
-  the micro set is culled. The two are lerped by the macro fade, so transitions
-  soften with distance for free.
-- Blend maps carry **two weights per texture, in `.a` and `.g`** — the two
-  highest-precision channels in BC3. Four textures, eight layers.
-- `layerMask` multiplies **before** normalisation, so masking a layer
-  redistributes its weight rather than darkening the pixel. Our `active_layers`
-  stand-in is not quite the same operation — an open item.
-- `height_contrast` is **ours, not the game's**. 1.0 is game behaviour; below 1
-  lifts mid heights and works against the threshold.
-
----
+- Every SRT LOD is packed at load; instances bucket by distance against the
+  asset's own authored LOD profile (header 0x30), no invented thresholds. No
+  far cull - a tree past the last LOD keeps drawing its cheapest geometry.
+- The foliage alpha test lowers its cutoff with the mip level: alpha mips
+  average toward the mostly-empty atlas mean, so a fixed 0.5 erased whole
+  trees at distance. The card was never the problem; the discard was.
+- Tree instance matrices carry the -1 x display mirror, which inverts
+  gl_FrontFacing; the vertex stage pre-negates the normal by determinant so
+  the two-sided flip in the fragment stage stays correct.
 
 ## Per-map settings
 
-`modMapSettings` saves one text file per space. **A missing key now falls back to
-the global default**, which was not previously true.
-
-`Load` only applies keys a file contains, and these values live in module state
-that outlives a map — so an absent key used to inherit **the previous map's
-value**. Open a tuned map then an untuned one and the first map's lighting
-carried across. The visible symptom was that adding any new setting appeared to
-require appending it to all 65 files.
-
-Fixed properly:
-
-- `CaptureDefaults()` runs once at startup, after `CommonProperties.Init()` and
-  the `DONT_BLOCK_*` flags.
-- `ResetToDefaults()` runs at the **top of `load_map`, before
-  `get_environment_info`** — so map data from `environment.xml` and `space.bin`
-  is applied after the reset and still wins (`blend_height` from BWT2 keeps its
-  authored value), and the saved file is applied last and overrides both.
-
----
-
-## Bugs found and fixed — do not reintroduce
-
-1. **`Bake()` ran before `set_light_pos()`.** The bake was at `MapLoader.vb:444`,
-   `set_light_pos` was the last statement of `load_map` at `:475`. On the first
-   map of a session `LIGHT_POS` is zero, `.Normalized()` gives NaN, the view
-   matrix goes all-NaN, every vertex is NaN, nothing rasterises, and the depth
-   map comes back exactly as cleared.
-
-   **The tell was in the log the whole time:** `expected~NaN`. That field is
-   `(centre · sun_view_proj).Z / .W` — a merely mis-aimed camera gives a finite
-   wrong number, so NaN can only come from a NaN matrix. On a second map load it
-   was finite but stale: the previous map's sun. That is what "you look from
-   point is wrong" was.
-
-   `set_light_pos` is **not idempotent** (it flips `LIGHT_ORBIT_ANGLE_Z` off its
-   own previous value), so it was moved, never duplicated.
-
-2. **The bake's centre was half a chunk out in both axes.** `PageLoader.LoadPage`
-   uses `xMin = 100 * b_x_min` but `yMin = 100 * (b_y_min - 1)` — genuinely
-   asymmetric. Derive the box from those expressions, never by hand.
-
-3. **The ortho box was ~3× deeper than the map**, which left a 16-bit depth
-   buffer with about eleven usable bits and the stair-stepped edges to match. It
-   is now fitted to the map's silhouette at the current sun angle and squared up
-   (a non-square box on a square texture gives anisotropic texels, and the coarse
-   axis is what an edge staircases along).
-
-4. **`unbind_textures(7)` leaked units 7 and 8** — it releases `0..count-1`.
-
-5. **The shader include convention is `#include "common.h" //! #include "../common.h"`.**
-   The `//!` half is an editor hint; the loader resolves the plain name. Changing
-   it to `"../common.h"` breaks it. Every shader in the repo uses this form.
-
----
-
-## Open items
-
-- **The baked shadow is holding 2 GiB.** `TARGET_TEXEL = 0.05` pins it to
-  `MAX_SIZE = 32768`. Measured: 8192 → 16384 changed nothing visible, so the
-  sharpness came from moving the sampling out of the VT page, not from
-  resolution. `TARGET_TEXEL = 0.25` gets back to 8192 at 128 MiB and very likely
-  looks identical. **`TARGET_TEXEL` is the gate, not `MAX_SIZE`.**
-- A VRAM budget (`VRAM_BUDGET = 0.25`) steps the size down a power of two at a
-  time and logs when it does. An oversized allocation does not fail cleanly, it
-  thrashes — which reads as "the baked shadow costs frame time" when it does not.
-- **`layerMask` vs `active_layers`** — see the mixing section.
-- **Washed-out shade** has a second, separate contributor: shadowed pixels are
-  *pure ambient* by construction (`Ambient_level *= (1.0 - direct_light)`, and
-  direct is zero), so every ambient control lands exclusively on them.
-  `ambient_sat` literally desaturates toward luminance. `G_prefilteredColor`
-  (cubemap IBL) is added with no attenuation at all.
-- **Shadow acne / bias.** `PolygonOffset(1.5, 4.0)`. The `factor * slope` term is
-  format-independent and still works; the `units * r` constant term shrank with
-  the tighter depth range, which means less peter-panning for free. If acne
-  appears, the factor is the knob.
-- **Culling mismatch.** `Bake()` does `GL.Disable(CullFace)` for the whole pass;
-  `MapStaticModels.shadow_mapping_pass()` explicitly enables it.
-- **`SHADOW_MAP_LOD = Math.Min(1, MAX_LOD_ID)`** (`MapLoader.vb:90`) picks LOD 1,
-  but the enclosing loop skips `If lod.junk`. Any model whose LOD 1 is junk emits
-  **no shadow command at all** while its LOD 0 renders normally. A specific model
-  missing its shadow is probably this.
-- **Trees visible through a building** that should occlude them. Reported by the
-  owner, never investigated. Depth/G-buffer issue, unrelated to shadows.
-- **`t_mixer`'s `worldPosition` varying now has no reader** — the sun shadow that
-  used it moved to `deferred.frag`. Left in place because `VS_OUT` and the `in`
-  block must match exactly between stages and removing it risks a link error for
-  no measurable gain.
-- **Map picker shows all installed spaces**, including hangars, comp7 and battle
-  royale. Intersecting `scripts/arena_defs/_list_.xml` with the installed set
-  would give rotation-only without the two problems that got that approach
-  rejected before (unshipped maps offered, event spaces hidden). Cheap proxy:
-  the 13 non-rotation spaces are exactly the ones with no
-  `gui/maps/icons/map/stats/<name>.png`, and `MapMenuScreen.Init` already does
-  that lookup.
-- **Diagnostics to remove when done:** the `drew terrain` / `drew models` counts
-  in `MapSunShadow`, the `VT bake #N` logging in `PageLoader.LoadPage`, and
-  layer-projection logging in `TerrainTextureFunctions.vb`.
-
----
+A missing key falls back to the startup default (`CaptureDefaults` once at
+launch, `ResetToDefaults` at the top of `load_map`, BEFORE map data so
+authored values still win and the saved file still overrides both). Adding a
+setting no longer requires touching the 65 files. Water knobs
+(`water_y_offset`, `water_exclude_band`) ride this system.
 
 ## One piece of advice
 
-Unchanged from the last version of this file, and it earned its place again this
-session: every bug in this feature was found by measuring, and every one of them
-survived a round of confident reasoning first. The ordering bug in particular was
-printing `expected~NaN` into the log for an entire session while the camera maths
-around it was rewritten five times. When the owner says something looks wrong,
-instrument it before theorising — and read what the instrument already said.
+Unchanged through three revisions of this file, and it earned its keep again:
+every real bug here was found by measuring, and every one survived a round of
+confident reasoning first. The boats "sank" through two plausible fixes until
+the metric itself was questioned; the water was invisible for a day because a
+cleanup freed the parse in the same function; the ordering bug printed
+`expected~NaN` all session. When something looks wrong, instrument it - and
+read what the instrument already said.
