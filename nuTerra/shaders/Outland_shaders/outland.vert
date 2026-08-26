@@ -1,14 +1,17 @@
-﻿#version 450 core
+#version 450 core
 
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
 
+// The game's PBS_ext_outland VS samples nothing - it draws prebuilt verts and
+// its PS ignores the mesh TBN entirely (the cascade normal map is decoded
+// straight to world space). So this stays a heightmap-displaced grid and the
+// old TBN plumbing is gone; attributes 2/3 in the VAO are simply unused now.
+
 layout(location = 0) in vec2 vertexPosition;
 layout(location = 1) in vec2 UVs;
-layout(location = 2) in vec4 vertexNormal;
-layout(location = 3) in vec3 vertexTangent;
 
 layout(binding = 1) uniform sampler2D height_map;
 
@@ -19,47 +22,24 @@ uniform vec2 scale;
 uniform vec2 center_offset;
 
 layout(location = 0) out VS_OUT {
-    vec3 vertexPosition;
-    mat3 TBN;
+    vec3 viewPosition;
     vec2 UV;
-    float specular;
 } vs_out;
-
 
 void main(void)
 {
+    // Both axes mirrored (REPEAT wrap makes -uv equal 1-uv): this is the
+    // orientation that places the authored maps in nuTerra's X-mirrored world.
     vec2 UV = -UVs;
     vs_out.UV = UV;
-    
-
-    vec3 VT, VB, VN ;
-    VN = normalize(vertexNormal.xyz);
-    VT = normalize(vertexTangent);
-    VT = VT - dot(VN, VT) * VN;
-    VB = cross(VT, VN);
-    // Tangent, biNormal and Normal must be trasformed by the normal Matrix.
-    mat3 normalMatrix = mat3(view);
-    vec3 worldNormal = normalMatrix * VN;
-    vec3 worldTangent = normalMatrix * VT;
-    vec3 worldbiNormal = normalMatrix * VB;
-
-    // make perpendicular
-    worldTangent = normalize(worldTangent - dot(worldNormal, worldTangent) * worldNormal);
-    worldbiNormal = normalize(worldbiNormal - dot(worldNormal, worldbiNormal) * worldNormal);
-
-    // Create the Tangent, BiNormal, Normal Matrix for transforming the normalMap.
-    vs_out.TBN = mat3(worldTangent, worldbiNormal, normalize(worldNormal));
 
     vec3 pos;
     pos.xz = vertexPosition.xy * scale;
-    pos.xz += center_offset ;
-    pos.y = texture(height_map, UV).x;
+    pos.xz += center_offset;
+    // -1.5: sink the sheet slightly so playfield terrain always wins the depth
+    // fight along the seam.
+    pos.y = texture(height_map, UV).x * y_range + y_offset - 1.5;
 
-    pos.y = pos.y;
-
-    pos.y = pos.y * y_range + y_offset-1.5;
-    vs_out.vertexPosition = vec3( view * vec4(pos,1.0) );
-
+    vs_out.viewPosition = vec3(view * vec4(pos, 1.0));
     gl_Position = viewProj * vec4(pos, 1.0);
-
 }

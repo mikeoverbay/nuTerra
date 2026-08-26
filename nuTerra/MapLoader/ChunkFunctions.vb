@@ -469,16 +469,53 @@ Module ChunkFunctions
         Public pad2 As UInt32
     End Structure
 
-    Public Sub build_outland_vao()
-        map_scene.terrain.outland_vao = GLVertexArray.Create("outland_vao")
+    ''' <summary>
+    ''' Index buffer for one outland cascade as a RING: the full 256 grid minus
+    ''' every quad that falls entirely inside the hole rect (world XZ). The game
+    ''' ships prebuilt ring meshes - the near cascade has the playfield cut out,
+    ''' the far cascade has the near cascade cut out - because the coarse outland
+    ''' surface tracks the playfield only approximately and would poke through
+    ''' it. Quads crossing the hole edge are kept, so the ring always tucks a
+    ''' little way under what covers it.
+    ''' scale/center are the same values the draw uniforms use.
+    ''' </summary>
+    Public Function build_outland_ring_indices(scale As Vector2, center As Vector2,
+                                               hole_min As Vector2, hole_max As Vector2) As vect3_32()
+        Dim size = 256
+        Dim stride = size
+        Dim ms = 100.0F / (size - 1)
+        Dim list As New List(Of vect3_32)((size - 1) * (size - 1) * 2)
 
+        For j = 0 To size - 2
+            For i = 0 To size - 2
+                Dim x0 = ((i - 128) * ms + 0.04888F) * scale.X + center.X
+                Dim x1 = ((i + 1 - 128) * ms + 0.04888F) * scale.X + center.X
+                Dim z0 = ((j - 128) * ms + 0.04888F) * scale.Y + center.Y
+                Dim z1 = ((j + 1 - 128) * ms + 0.04888F) * scale.Y + center.Y
+
+                If Math.Min(x0, x1) >= hole_min.X AndAlso Math.Max(x0, x1) <= hole_max.X AndAlso
+                   Math.Min(z0, z1) >= hole_min.Y AndAlso Math.Max(z0, z1) <= hole_max.Y Then
+                    Continue For
+                End If
+
+                list.Add(New vect3_32 With {
+                    .x = CUInt((i + 0) + ((j + 1) * stride)),
+                    .y = CUInt((i + 1) + ((j + 0) * stride)),
+                    .z = CUInt((i + 0) + ((j + 0) * stride))})
+                list.Add(New vect3_32 With {
+                    .x = CUInt((i + 0) + ((j + 1) * stride)),
+                    .y = CUInt((i + 1) + ((j + 1) * stride)),
+                    .z = CUInt((i + 1) + ((j + 0) * stride))})
+            Next
+        Next
+        Return list.ToArray()
+    End Function
+
+    Public Sub build_outland_vao()
         map_scene.terrain.outland_vertices_buffer = GLBuffer.Create(BufferTarget.ArrayBuffer, "outland_vertices")
-        map_scene.terrain.outland_indices_buffer = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "outland_indices")
 
         Dim vcount = theMap.outland_Vdata.v_buff_XZ.Length
         Dim vsize = Marshal.SizeOf(Of OutlandVertex)
-
-        map_scene.terrain.outland_indices_buffer.Storage(theMap.outland_Vdata.indicies_32.Length * 12, theMap.outland_Vdata.indicies_32, BufferStorageFlags.None)
 
         With theMap.outland_Vdata
             Dim vertices(.v_buff_XZ.Length - 1) As OutlandVertex
@@ -497,33 +534,60 @@ Module ChunkFunctions
             .t_buff = Nothing
         End With
 
+        ' Ring index buffers, one per cascade. The near ring's hole is the
+        ' playfield terrain footprint (measured in create_outland, which also
+        ' centres the whole outland on it); the far ring's hole is the near
+        ' cascade's drawn footprint.
+        Dim near_tris = build_outland_ring_indices(theMap.near_scale, theMap.center_offset,
+                                                   theMap.terrain_footprint_min, theMap.terrain_footprint_max)
+        map_scene.terrain.outland_near_index_count = near_tris.Length * 3
+        map_scene.terrain.outland_indices_buffer = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "outland_indices")
+        map_scene.terrain.outland_indices_buffer.Storage(near_tris.Length * 12, near_tris, BufferStorageFlags.None)
+
+        map_scene.terrain.outland_vao = make_outland_vao("outland_vao", vsize, map_scene.terrain.outland_indices_buffer)
+
+        If map_scene.terrain.CASCADE_LEVELS = 2 Then
+            Dim near_half As New Vector2(theMap.near_scale.X * 50.0F, theMap.near_scale.Y * 50.0F)
+            Dim far_tris = build_outland_ring_indices(theMap.far_scale, theMap.center_offset,
+                                                      theMap.center_offset - near_half, theMap.center_offset + near_half)
+            map_scene.terrain.outland_far_index_count = far_tris.Length * 3
+            map_scene.terrain.outland_far_indices_buffer = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "outland_far_indices")
+            map_scene.terrain.outland_far_indices_buffer.Storage(far_tris.Length * 12, far_tris, BufferStorageFlags.None)
+
+            map_scene.terrain.outland_far_vao = make_outland_vao("outland_far_vao", vsize, map_scene.terrain.outland_far_indices_buffer)
+        End If
+    End Sub
+
+    Private Function make_outland_vao(name As String, vsize As Integer, indices As GLBuffer) As GLVertexArray
+        Dim vao = GLVertexArray.Create(name)
+
         ' VERTEX XZ
-        map_scene.terrain.outland_vao.VertexBuffer(0, map_scene.terrain.outland_vertices_buffer, IntPtr.Zero, vsize)
-        map_scene.terrain.outland_vao.AttribFormat(0, 2, VertexAttribType.Float, False, 0)
-        map_scene.terrain.outland_vao.AttribBinding(0, 0)
-        map_scene.terrain.outland_vao.EnableAttrib(0)
+        vao.VertexBuffer(0, map_scene.terrain.outland_vertices_buffer, IntPtr.Zero, vsize)
+        vao.AttribFormat(0, 2, VertexAttribType.Float, False, 0)
+        vao.AttribBinding(0, 0)
+        vao.EnableAttrib(0)
 
         ' UV
-        map_scene.terrain.outland_vao.VertexBuffer(1, map_scene.terrain.outland_vertices_buffer, New IntPtr(8), vsize)
-        map_scene.terrain.outland_vao.AttribFormat(1, 2, VertexAttribType.Float, False, 0)
-        map_scene.terrain.outland_vao.AttribBinding(1, 1)
-        map_scene.terrain.outland_vao.EnableAttrib(1)
+        vao.VertexBuffer(1, map_scene.terrain.outland_vertices_buffer, New IntPtr(8), vsize)
+        vao.AttribFormat(1, 2, VertexAttribType.Float, False, 0)
+        vao.AttribBinding(1, 1)
+        vao.EnableAttrib(1)
 
         ' NORMALS AND HOLES
-        map_scene.terrain.outland_vao.VertexBuffer(2, map_scene.terrain.outland_vertices_buffer, New IntPtr(16), vsize)
-        map_scene.terrain.outland_vao.AttribFormat(2, 4, VertexAttribType.Int2101010Rev, True, 0)
-        map_scene.terrain.outland_vao.AttribBinding(2, 2)
-        map_scene.terrain.outland_vao.EnableAttrib(2)
+        vao.VertexBuffer(2, map_scene.terrain.outland_vertices_buffer, New IntPtr(16), vsize)
+        vao.AttribFormat(2, 4, VertexAttribType.Int2101010Rev, True, 0)
+        vao.AttribBinding(2, 2)
+        vao.EnableAttrib(2)
 
         ' Tangents
-        map_scene.terrain.outland_vao.VertexBuffer(3, map_scene.terrain.outland_vertices_buffer, New IntPtr(20), vsize)
-        map_scene.terrain.outland_vao.AttribFormat(3, 4, VertexAttribType.Int2101010Rev, True, 0)
-        map_scene.terrain.outland_vao.AttribBinding(3, 3)
-        map_scene.terrain.outland_vao.EnableAttrib(3)
+        vao.VertexBuffer(3, map_scene.terrain.outland_vertices_buffer, New IntPtr(20), vsize)
+        vao.AttribFormat(3, 4, VertexAttribType.Int2101010Rev, True, 0)
+        vao.AttribBinding(3, 3)
+        vao.EnableAttrib(3)
 
-
-        map_scene.terrain.outland_vao.ElementBuffer(map_scene.terrain.outland_indices_buffer)
-    End Sub
+        vao.ElementBuffer(indices)
+        Return vao
+    End Function
 
     Public Sub build_Terrain_VAO()
         Dim mapsize As New Vector2(MAP_SIZE.X + 1, MAP_SIZE.Y + 1)

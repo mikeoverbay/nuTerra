@@ -67,6 +67,11 @@ Module TerrainBuilder
         Public Shared outland_locations() As Vector2
         Public Shared outland_cascade_locations() As Vector2
         Public Shared center_offset As Vector2
+        ' Actual chunk-grid footprint in world coords, measured from the placed
+        ' chunk locations. This - not the settings bounds - is what the outland
+        ' centres on and what the near ring's hole is cut to.
+        Public Shared terrain_footprint_min As Vector2
+        Public Shared terrain_footprint_max As Vector2
         Public Shared near_scale As Vector2
         Public Shared far_scale As Vector2
         Public Shared near_y_height As Single
@@ -322,10 +327,27 @@ Module TerrainBuilder
         ' TODO
         ' Build the mesh.. Size to be tweaked later. Currently 1024 x 1024 . 1 to 1 texture size
         get_outland_mesh(theMap.outland_chunk, theMap.outland_Vdata, theMap.outland_render_set)
-        'get Y ranges. Not sure this is even used yet.
-        theMap.center_offset.X = (theMap.bounds_maxX + theMap.bounds_minX) / 2.0 * 100
-        theMap.center_offset.Y = (theMap.bounds_maxY + theMap.bounds_minY) / 2.0 * 100
 
+        ' Centre the outland on the ACTUAL chunk footprint. The cascades are
+        ' authored centred on the terrain in game world; the old settings-based
+        ' centre ((max+min)/2*100 = (-50,-50) on a -7..6 grid) sat half a chunk
+        ' off on both axes, and nuTerra's chunk Z convention (y*100-50 centres)
+        ' shifts the whole frame another 50 m - together the outland was 50/100 m
+        ' out of register with the terrain edge (measured on 05_prohorovka and
+        ' 101_dday: footprint X -700..700, Z -800..600, cascades authored (0,0)).
+        theMap.terrain_footprint_min = New Vector2(Single.MaxValue, Single.MaxValue)
+        theMap.terrain_footprint_max = New Vector2(Single.MinValue, Single.MinValue)
+        For Each c In theMap.chunks
+            theMap.terrain_footprint_min.X = Math.Min(theMap.terrain_footprint_min.X, c.location.X - 50.0F)
+            theMap.terrain_footprint_min.Y = Math.Min(theMap.terrain_footprint_min.Y, c.location.Y - 50.0F)
+            theMap.terrain_footprint_max.X = Math.Max(theMap.terrain_footprint_max.X, c.location.X + 50.0F)
+            theMap.terrain_footprint_max.Y = Math.Max(theMap.terrain_footprint_max.Y, c.location.Y + 50.0F)
+        Next
+        theMap.center_offset = (theMap.terrain_footprint_min + theMap.terrain_footprint_max) / 2.0F
+
+        ' The grid mesh is scaled to 100 units across in get_outland_mesh, so
+        ' world-units-per-mesh-unit is span/100 - the cascade lands exactly on
+        ' its authored BB.
         theMap.near_scale.X = (theMap.outland_bounds_max.X - theMap.outland_bounds_min.X) / 100.0
         theMap.near_scale.Y = (theMap.outland_bounds_max.Z - theMap.outland_bounds_min.Z) / 100.0
 
@@ -338,6 +360,11 @@ Module TerrainBuilder
         theMap.far_y_offset = theMap.outland_Cascade_bounds_min.Y
         'this does not need to be indirect?
         build_outland_vao()
+
+        ' The game's engine bakes tilemap x tile set into one albedo per
+        ' cascade at load and PBS_ext_outland only samples the result -
+        ' textures are already in (get_all_chunk_file_data runs before us).
+        map_scene.terrain.bake_outland_albedo()
     End Sub
 
     '=======================================================================

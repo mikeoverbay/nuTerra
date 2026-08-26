@@ -2,8 +2,9 @@
 
 Supersedes the previous version. Covers everything through the FX pass
 (sorting, shader-variant fidelity, new material families), PBS_tiled_global,
-and the outland reconnaissance that defines the next feature. Where it says
-"was", that is what the code did before and why it changed.
+and the OUTLAND rebuild (implemented this session, uncommitted, owner review
+pending). Where it says "was", that is what the code did before and why it
+changed.
 
 The owner is the sole developer of nuTerra, a VB.NET / .NET 6 / OpenTK offline
 World of Tanks map viewer. He guides tightly, tests every build himself, and is
@@ -14,16 +15,22 @@ the reasoning.
 
 ## Where this left off
 
-- Everything is committed: `3f086ee` ("FX pipeline: depth-sorted bucket,
-  cracked shader variants, new materials") on `master`, which also swept in
-  the previous session's uncommitted FX Stage 0 / camera damping / minimap
-  work. Push from the owner's terminal - the agent shell has no SSH key.
-  `readme_images/test.png` was deliberately left untracked (looked scratch).
-- **Next feature: OUTLAND rendering, rebuilt the way the game does it.** The
-  recon is complete and the plan is at the bottom of this file. Start there.
-- Pending the owner's eyes: `hills_outland_smokes` brightness (stand-in
-  lighting multipliers), Abbey/Prokhorovka smoke after the fade fixes, and
-  the D-Day base smoke sheets.
+- Last commit is `3f086ee` ("FX pipeline: depth-sorted bucket, cracked shader
+  variants, new materials") on `master`. Push from the owner's terminal - the
+  agent shell has no SSH key. `readme_images/test.png` deliberately untracked.
+- **This session's work is UNCOMMITTED: the outland rebuild** (see the OUTLAND
+  section near the bottom - it replaces the old plan and is implemented and
+  verified running). Touched: `outland.vert/frag` (rewritten),
+  `outland_bake_accum.*` / `outland_bake_resolve.*` (new), ShaderLoader
+  (2 registrations), MapTerrain (bake + Draw_outland + fields + dispose),
+  ChunkFunctions (ring index builder + two-VAO build), TerrainBuilder
+  (bake call + scale comment), App.config + Settings.settings
+  (**load_outland False -> True** - it had been shipped off, the outland was
+  never drawing at all).
+- Pending the owner's eyes: the outland on Prokhorovka (good in my screenshots)
+  and D-Day (dark - see the normal-map anomaly note), `hills_outland_smokes`
+  brightness (stand-in lighting multipliers), Abbey/Prokhorovka smoke after
+  the fade fixes, and the D-Day base smoke sheets.
 
 ## How to work in this repo
 
@@ -160,35 +167,87 @@ subtract in TerrainLQ/HQ.frag first). `terrain2/horizonshadows` uncracked.
 
 ---
 
-## NEXT: Outland (recon complete - start here)
+## OUTLAND (implemented this session - verified running, owner review pending)
 
-The outland is a MESH that surrounds the chunk grid, one per
-`OutlandCascade_v1_0_0` (modSpacedBinVars ~line 144: BB min/max, heightmap,
-normal map, tile_map, tileScale; two cascades per map; `tiles_fnv` lists the
-7-8 `*_macro_AM` tile textures). nuTerra already generates the mesh/VAO and
-loads `outland_height` / `outland_tilemap` (TextureMgr); `Draw_outland`
-draws it with `Outland_shaders/outland.vert/frag`.
+Rebuilt the way the game does it. The full fxo recon (both
+`PBS_ext_outland.10/.11.dx11.fxo` disassembled) settled everything:
 
-**The game's shader is `shaders/std_effects/PBS_ext_outland.fx`** (1 VS +
-2 PS, small). Its PS samples ONLY: `albedoSml`, `normalSml` (with
-g_useNormalPackDXT1), `detailAlbedoSml`, plus `g_uvOffsetScale` and
-`g_specularParams`. NO tiles, NO tilemap at runtime - **the game bakes the
-tile set through the tilemap into a single albedo per cascade**, then draws
-simple. That is the plan:
+- **The game bakes at load and draws simple.** No baked albedo ships in any
+  map package; at runtime the PS samples ONLY baked `albedoSml`, `normalSml`,
+  `detailAlbedoSml`. Tier 11 fxo = forward-lit (SH + sun + weak spec + vertex
+  fog); tier 10 = the deferred 5-MRT G-buffer write, which is what nuTerra
+  transcribes: RT0 = const (59,80,0)/255 + matID 4, RT1 = normal*0.5+0.5,
+  RT2 = albedo(+detail combine), RT3 = velocity, RT4 = zeros. The VS samples
+  nothing (prebuilt verts; the mesh TBN is provided but the PS ignores it).
+- **Tilemap encoding cracked** (verified against dday + prohorovka offline):
+  an RGBA4 texel is NOT four weights - nibbles are
+  `r = tile index A, g = tile index B, b = weight A, a = weight B`, indices
+  into the full `tiles_fnv` list (11 tiles on dday, 8 on prohorovka).
+  Blend = (tA*wA + tB*wB)/(wA+wB). Indices must never be filtered.
+- **tileScale is metres per tile repeat** (dday 20/20, prohorovka 90 near /
+  900 far - the only reading sane at 42 km). Bake tiles at span/tileScale
+  repeats.
+- **The cascades are RING meshes.** The near ring's hole = playfield chunk
+  footprint; the far ring's hole = near cascade's drawn footprint. Without
+  the holes the coarse outland surface pokes through the playfield (its
+  heightmap tracks the playfield only to ~74 m mean accuracy). This is why
+  the game ships prebuilt meshes. The R channel of the normal map is an
+  alpha-test cutout in the fx but is ~248 everywhere on dday - the hole is
+  in the game's mesh, not the mask.
+- **Normal decode** (DXT5, AG pack): X = a*2-1, Z = g*2-1,
+  Y = sqrt(1 - min(x^2+z^2, 1)), normalize, world space (no TBN). In
+  nuTerra a NORM_SIGN(-1,-1) rides the decode - forced by the UV = -UVs
+  placement (documented in outland.frag; flip one sign if slopes shade
+  wrong against the sun).
+- **Detail combine** (game-exact, wired but neutral):
+  `color = albedo.rgb + detail.a - 0.5; color = mix(color, detail.rgb,
+  albedo.a);` detailUV = TC * 64 (hardcoded in the game for both cascades).
+  What texture the engine binds as detailAlbedoSml is still unknown
+  (an authored material property, "*_AM" pattern; TerrainSettings1
+  .noise_texture remains the candidate). nuTerra ships a 1x1 neutral
+  (0.5,0.5,0.5,0.5), which makes the whole combine an exact no-op; the
+  bake writes albedo.a = 0. Wiring a real detail texture is one BindUnit(3).
 
-1. Load-time bake per cascade: tilemap weights x tile textures -> one albedo
-   (nuTerra has bake infrastructure: atlas rebuild, VT pages, minimap).
-2. Replace outland.frag with a transcription of the PBS_ext_outland PS:
-   baked albedo x detail overlay, proper AG normal decode (kills the current
-   sign hacks - note `sqrt(1 - x*x + z*z)` in write_normal has a sign bug),
-   G-buffer output.
-3. Transcription unknowns (all answerable from the 3 small blobs): what
-   feeds detailAlbedo (bet: TerrainSettings1.noise_texture), the exact
-   combine, and whether the VS samples the heightmap or trusts prebuilt
-   verts.
+**Implementation**: `outland_bake_accum/resolve` shaders do the bake - one
+additive fullscreen pass per tile into RGBA16F (weight bilinear across
+tilemap texels, indices texelFetched per corner), resolve divides by total
+weight into mipped RGBA8 2048^2 per cascade (~43 MB both) - per-tile passes
+because GLSL cannot index a sampler array with a texture-fetched value.
+`MapTerrain.bake_outland_albedo` runs at the end of `create_outland`;
+`DUMP_OUTLAND_BAKES = True` writes each bake to `%TEMP%\nuTerra\*.png` at
+load for eyeballing. `build_outland_vao` builds the two ring index buffers
+(`build_outland_ring_indices`) over the shared vertex buffer. Draw binds
+baked albedo(0), height(1), normal(2), neutral detail(3). gGMF =
+(0.2314, 0.3137, GFLAG_TERRAIN, 0) - the game's exact RT0 constants; the
+old write was (0.2, 0.3) so deferred needed no change. glGetError clean,
+94 fps, VRAM 4.5/8 on prohorovka.
 
-Current outland.frag defects for reference: only 4 of 7-8 tiles (c_tiles[4]),
-RGBA4 weight blending, mip bias -2 hack, baked-shadow term commented out.
+**Known looks, for the owner's screenshots**:
+- Prokhorovka: good - lit rolling outland, playfield nested seamlessly. Its
+  cascade normal maps are flat 127/128 dummies (all normals up), so it does
+  not exercise NORM_SIGN.
+- D-Day: outland reads DARK. Its cascade-0 normal map genuinely centres at
+  ~56/255 in both AG channels (a uniform ~-0.56 lean after decode - measured,
+  not a decode bug; prohorovka and the CT sm24 variant centre at ~118-128).
+  Compare against the game before "fixing": under the game's own decode the
+  same lean falls out of the same data, so the game may hide it in fog - or
+  read the map through a remap we have not found.
+- Near/far cascade tone difference shows at the near ring's outer edge on
+  prohorovka's upper-left; worth a look.
+
+**load_outland was shipped False in App.config/Settings.settings** (outland
+never drew at all - the "gray ring" in old screenshots was the skydome).
+Both flipped True. The Draw Outland checkbox in Settings still toggles it
+live.
+
+**Placement fix (owner-reported seam misalignment)**: the outland used to
+centre on the settings-derived terrain centre ((max+min)/2*100 = (-50,-50)
+on a -7..6 grid) while the cascades are authored centred on the terrain -
+and nuTerra's chunk-Z convention shifts the frame another 50 m. Measured on
+both test maps: chunk footprint X -700..700, Z -800..600, so the sheet sat
+(50, 50) m out of register - visible as a sky gap plus offset features at
+the map edge. create_outland now measures the real chunk footprint and
+centres the outland (and the near ring's hole) on it.
 
 **Dead ends already checked - do not re-dig:** BWSG/BSGD + BWS2/BSG2 are a
 repacked vertex arena for the REGULAR map models (373/378 overlap with BSMO
@@ -207,3 +266,10 @@ the owner says the game does something different, CRACK THE COMPILED SHADER
 flicker, giant white sheets, fog angles) into four one-line facts, two of
 which were our bugs and two of which were the game's own design. And when a
 "looks wrong" report arrives, get the screenshot before the theory.
+
+The outland session added two more: when a rewrite appears to change
+nothing, CHECK THE ENABLE FLAG before the code (load_outland was shipped
+False; an hour of "why is my bake black" was actually the old build's
+skydome) - and when a decode is in doubt, render the reference offline
+first: the 60-line Python that decoded the tilemap to flat colours settled
+the nibble encoding in one image, before touching a shader.

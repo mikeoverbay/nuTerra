@@ -12,6 +12,12 @@ Public Class MapTerrain
     Public outland_vertices_buffer As GLBuffer
     Public outland_indices_buffer As GLBuffer
     Public outland_vao As GLVertexArray
+    ' The far cascade is its own ring mesh (hole = near cascade footprint), so
+    ' it has its own index buffer and VAO over the shared vertex buffer.
+    Public outland_far_indices_buffer As GLBuffer
+    Public outland_far_vao As GLVertexArray
+    Public outland_near_index_count As Integer
+    Public outland_far_index_count As Integer
 
     Public matrices As GLBuffer
     Public indirect_buffer As GLBuffer
@@ -36,6 +42,16 @@ Public Class MapTerrain
     Public CASCADE_LEVELS As Integer = 0
     Public OUTLAND_TILE_SCALE As Single
     Public OUTLAND_TILE_SCALE_CASCADE As Single
+
+    ' Baked at load by bake_outland_albedo - the game ships no outland albedo,
+    ' its engine bakes tilemap x tile set into one texture per cascade and
+    ' PBS_ext_outland only ever samples the result. The tile set and tilemaps
+    ' are not touched again after this bake.
+    Public OUTLAND_ALBEDO As GLTexture
+    Public OUTLAND_ALBEDO_CASCADE As GLTexture
+    ' 1x1 neutral (0.5, 0.5, 0.5, 0.5) stand-in: makes the game's detail
+    ' combine an exact no-op until a real detail albedo is chosen.
+    Public OUTLAND_DETAIL As GLTexture
 
     Public Sub New(scene As MapScene)
         Me.scene = scene
@@ -105,16 +121,13 @@ Public Class MapTerrain
         ' Cascade near
         outlandShader.Use()
 
+        OUTLAND_ALBEDO.BindUnit(0)
         OUTLAND_height_MAP.BindUnit(1)
         OUTLAND_NORMAL_MAP.BindUnit(2)
-        OUTLAND_TILE.BindUnit(3)
-        'there is something odd with textures when there is far outland terrain.
-        OUTLAND_TILES(7).BindUnit(4)
-        OUTLAND_TILES(6).BindUnit(5)
-        OUTLAND_TILES(5).BindUnit(6)
-        OUTLAND_TILES(4).BindUnit(7)
+        OUTLAND_DETAIL.BindUnit(3)
 
-        GL.Uniform1(outlandShader("tile_scale"), OUTLAND_TILE_SCALE / 10.0F)
+        ' the game hardcodes 64 detail repeats over the cascade
+        GL.Uniform1(outlandShader("detail_tiles"), 64.0F)
 
         GL.Uniform1(outlandShader("y_range"), theMap.near_y_height)
         GL.Uniform1(outlandShader("y_offset"), theMap.near_y_offset)
@@ -126,23 +139,15 @@ Public Class MapTerrain
 
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
-        GL.DrawElements(PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length * 3, DrawElementsType.UnsignedInt, IntPtr.Zero)
-        unbind_textures(7)
+        GL.DrawElements(PrimitiveType.Triangles, outland_near_index_count, DrawElementsType.UnsignedInt, IntPtr.Zero)
 
         '=========================================================
         ' Cascade far
         If CASCADE_LEVELS = 2 Then
 
+            OUTLAND_ALBEDO_CASCADE.BindUnit(0)
             OUTLAND_height_CASCADE_MAP.BindUnit(1)
             OUTLAND_NORMAL_CASCADE_MAP.BindUnit(2)
-            OUTLAND_TILE_CASCADE.BindUnit(3)
-
-            OUTLAND_TILES(0).BindUnit(4)
-            OUTLAND_TILES(1).BindUnit(5)
-            OUTLAND_TILES(2).BindUnit(6)
-            OUTLAND_TILES(3).BindUnit(7)
-
-            GL.Uniform1(outlandShader("tile_scale"), OUTLAND_TILE_SCALE_CASCADE / 10.0F)
 
             GL.Uniform1(outlandShader("y_range"), theMap.far_y_height)
             GL.Uniform1(outlandShader("y_offset"), theMap.far_y_offset)
@@ -150,20 +155,167 @@ Public Class MapTerrain
             GL.Uniform2(outlandShader("scale"), theMap.far_scale.X, theMap.far_scale.Y)
             GL.Uniform2(outlandShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
 
-            outland_vao.Bind()
+            outland_far_vao.Bind()
 
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
-
-            GL.DrawElements(PrimitiveType.Triangles, theMap.outland_Vdata.indicies_32.Length * 3, DrawElementsType.UnsignedInt, IntPtr.Zero)
+            GL.DrawElements(PrimitiveType.Triangles, outland_far_index_count, DrawElementsType.UnsignedInt, IntPtr.Zero)
 
         End If
 
 
         outlandShader.StopUse()
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
-        unbind_textures(7)
+        unbind_textures(3)
         GL_POP_GROUP()
+    End Sub
+
+    ''' <summary>
+    ''' Load-time bake of one albedo per outland cascade, the way the game's
+    ''' engine does it - PBS_ext_outland never sees tiles or tilemap.
+    '''
+    ''' A tilemap texel (RGBA4 nibbles) is two layers, not four weights:
+    ''' r/g = tile indices, b/a = their weights (see outland_bake_accum.frag).
+    ''' One additive fullscreen pass per tile accumulates rgb = tile * w, a = w
+    ''' into RGBA16F; a resolve pass divides by total weight into the final
+    ''' mipped RGBA8. Per-tile passes exist because GLSL cannot index a sampler
+    ''' array by a value fetched from a texture.
+    ''' </summary>
+    Public Sub bake_outland_albedo()
+        GL_PUSH_GROUP("bake_outland_albedo")
+
+        If OUTLAND_DETAIL Is Nothing Then
+            OUTLAND_DETAIL = GLTexture.Create(TextureTarget.Texture2D, "outland_detail_neutral")
+            OUTLAND_DETAIL.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+            OUTLAND_DETAIL.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            OUTLAND_DETAIL.Storage2D(1, SizedInternalFormat.Rgba8, 1, 1)
+            OUTLAND_DETAIL.SubImage2D(0, 0, 0, 1, 1, OpenGL4.PixelFormat.Rgba, PixelType.UnsignedByte, New Byte() {128, 128, 128, 128})
+        End If
+
+        Dim span_near = theMap.outland_bounds_max.X - theMap.outland_bounds_min.X
+        OUTLAND_ALBEDO = bake_one_outland_cascade("outland_albedo_near", OUTLAND_TILE, span_near, OUTLAND_TILE_SCALE)
+
+        If CASCADE_LEVELS = 2 Then
+            Dim span_far = theMap.outland_Cascade_bounds_max.X - theMap.outland_Cascade_bounds_min.X
+            OUTLAND_ALBEDO_CASCADE = bake_one_outland_cascade("outland_albedo_far", OUTLAND_TILE_CASCADE, span_far, OUTLAND_TILE_SCALE_CASCADE)
+        End If
+
+        ' Restore what the frame loop assumes (GL globals leak between passes).
+        GL.Disable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthMask(True)
+        GL.Enable(EnableCap.CullFace)
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+
+        GL_POP_GROUP()
+    End Sub
+
+    Private Function bake_one_outland_cascade(name As String, tile_map As GLTexture, span As Single, tileScale As Single) As GLTexture
+        Const SIZE As Integer = 2048
+        Const MIPS As Integer = 12 ' log2(2048) + 1
+
+        ' tileScale is metres per tile repeat (101_dday authors 20/20,
+        ' 05_prohorovka 90/900 - only m-per-repeat stays sane at 42 km).
+        Dim tile_repeats = span / Math.Max(tileScale, 0.001F)
+
+        Dim accum = GLTexture.Create(TextureTarget.Texture2D, name + "_accum")
+        accum.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+        accum.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        accum.Storage2D(1, SizedInternalFormat.Rgba16f, SIZE, SIZE)
+
+        Dim final = GLTexture.Create(TextureTarget.Texture2D, name)
+        final.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear)
+        final.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        final.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat)
+        final.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)
+        final.Storage2D(MIPS, SizedInternalFormat.Rgba8, SIZE, SIZE)
+
+        Dim fbo = GLFramebuffer.Create(name + "_fbo")
+        GL.NamedFramebufferReadBuffer(fbo.fbo_id, ReadBufferMode.None)
+
+        GL.Disable(EnableCap.DepthTest)
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.CullFace)
+        GL.Viewport(0, 0, SIZE, SIZE)
+
+        ' ---- accumulate: one additive pass per tile -------------------------
+        fbo.Texture(FramebufferAttachment.ColorAttachment0, accum, 0)
+        GL.NamedFramebufferDrawBuffer(fbo.fbo_id, DrawBufferMode.ColorAttachment0)
+        fbo.Bind(FramebufferTarget.Framebuffer)
+
+        GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
+        GL.Clear(ClearBufferMask.ColorBufferBit)
+
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.One, BlendingFactor.One)
+
+        outlandBakeAccumShader.Use()
+        tile_map.BindUnit(0)
+        GL.Uniform1(outlandBakeAccumShader("tile_repeats"), tile_repeats)
+
+        defaultVao.Bind()
+        For i = 0 To OUTLAND_TILES.Length - 1
+            OUTLAND_TILES(i).BindUnit(1)
+            GL.Uniform1(outlandBakeAccumShader("tile_index"), i)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        Next
+        outlandBakeAccumShader.StopUse()
+
+        GL.Disable(EnableCap.Blend)
+
+        ' ---- resolve: divide by total weight --------------------------------
+        fbo.Texture(FramebufferAttachment.ColorAttachment0, final, 0)
+        GL.NamedFramebufferDrawBuffer(fbo.fbo_id, DrawBufferMode.ColorAttachment0)
+        fbo.Bind(FramebufferTarget.Framebuffer)
+
+        outlandBakeResolveShader.Use()
+        accum.BindUnit(0)
+        defaultVao.Bind()
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        outlandBakeResolveShader.StopUse()
+
+        GL.GenerateTextureMipmap(final.texture_id)
+
+        unbind_textures(1)
+        fbo.Dispose()
+        accum.Dispose()
+
+        Console.WriteLine("outland bake {0}: span {1:0} m, tileScale {2:0.#} m -> {3:0.#} repeats, {4} tiles, err={5}",
+                          name, span, tileScale, tile_repeats, OUTLAND_TILES.Length, GL.GetError())
+        If DUMP_OUTLAND_BAKES Then dump_outland_bake(final, SIZE, name)
+        Return final
+    End Function
+
+    ''' <summary>Write each baked outland albedo to %TEMP%\nuTerra\*.png at load,
+    ''' for eyeballing the bake without a debugger. Cheap; flip off when trusted.</summary>
+    Private Const DUMP_OUTLAND_BAKES As Boolean = True
+
+    ''' <summary>Debug dump of a baked outland albedo to %TEMP%\nuTerra\*.png.</summary>
+    Private Sub dump_outland_bake(tex As GLTexture, size As Integer, name As String)
+        Try
+            dump_outland_bake_core(tex, size, name)
+            Console.WriteLine("outland bake dump written: {0}", name)
+        Catch ex As Exception
+            Console.WriteLine("outland bake dump FAILED: {0}: {1}", name, ex.Message)
+        End Try
+    End Sub
+
+    Private Sub dump_outland_bake_core(tex As GLTexture, size As Integer, name As String)
+        Dim px(size * size * 4 - 1) As Byte
+        GL.GetTextureImage(tex.texture_id, 0, OpenGL4.PixelFormat.Rgba, PixelType.UnsignedByte, px.Length, px)
+        ' RGBA -> BGRA for GDI+
+        For i = 0 To px.Length - 4 Step 4
+            Dim r = px(i)
+            px(i) = px(i + 2)
+            px(i + 2) = r
+        Next
+        Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra")
+        IO.Directory.CreateDirectory(dir)
+        Using bmp As New Drawing.Bitmap(size, size, Drawing.Imaging.PixelFormat.Format32bppArgb)
+            Dim bd = bmp.LockBits(New Drawing.Rectangle(0, 0, size, size), Drawing.Imaging.ImageLockMode.WriteOnly, Drawing.Imaging.PixelFormat.Format32bppArgb)
+            Marshal.Copy(px, 0, bd.Scan0, px.Length)
+            bmp.UnlockBits(bd)
+            bmp.Save(IO.Path.Combine(dir, name + ".png"), Drawing.Imaging.ImageFormat.Png)
+        End Using
     End Sub
 
     Public Sub draw_terrain()
@@ -349,6 +501,14 @@ Public Class MapTerrain
             For Each it In OUTLAND_TILES
                 it.Dispose()
             Next
+            OUTLAND_ALBEDO?.Dispose()
+            OUTLAND_ALBEDO_CASCADE?.Dispose()
+            OUTLAND_DETAIL?.Dispose()
+            outland_vertices_buffer?.Dispose()
+            outland_indices_buffer?.Dispose()
+            outland_far_indices_buffer?.Dispose()
+            outland_vao?.Dispose()
+            outland_far_vao?.Dispose()
         End If
     End Sub
 

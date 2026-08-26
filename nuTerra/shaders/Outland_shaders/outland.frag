@@ -1,80 +1,63 @@
-﻿#version 450 core
+#version 450 core
 
-#extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
 
+#define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
 
+// Transcribed from the game's PBS_ext_outland.10.dx11.fxo deferred pixel
+// shader. At runtime the game samples ONLY three textures here - a baked
+// albedo, the cascade normal map, and a detail albedo - the tile set and
+// tilemap exist solely to bake the albedo at load (outland_bake_*).
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
+layout (location = 4) out vec3 gSurfaceNormals; // CA5 under attach_CNGPA, like model.frag
 
+layout(binding = 0) uniform sampler2D baked_albedo;
 layout(binding = 2) uniform sampler2D normal_map;
-layout(binding = 3) uniform sampler2D tile_map;
+layout(binding = 3) uniform sampler2D detail_albedo;
 
+// The game hardcodes detailUV = TC * 64 for both cascades.
+uniform float detail_tiles;
 
-// TODO: use sampler2DArray
-layout(binding =  4) uniform sampler2D c_tiles[4];
+// Map-space -> nuTerra-world sign for the decoded normal XZ. Forced by the
+// placement math: world X = -k*U and world Z = -k*V (UV = -UVs above), so the
+// map's normal axes land negated on both. If sunlit outland slopes shade on
+// the wrong side, this is the knob - flip one sign at a time.
+const vec2 NORM_SIGN = vec2(-1.0, -1.0);
 
-
-uniform float tile_scale;
-
-in VS_OUT {
-    vec3 vertexPosition;
-    mat3 TBN;
+layout(location = 0) in VS_OUT {
+    vec3 viewPosition;
     vec2 UV;
-    float specular;
 } fs_in;
 
-float write_normal(void){
-    vec4 n = texture(normal_map, fs_in.UV);
-    vec3 norm;
-    norm.xz = n.ag;
-    norm.y = clamp(sqrt(1.0-(n.x * n.x) +(n.z * n.z)), -1.0, 1.0);
-    //norm.x *= -1.0;
-    norm.xyz = normalize(fs_in.TBN * norm);
-    gNormal = norm.xyz * 0.5 + 0.5;
-    return n.r;
-}
-
-vec4 get_tile( sampler2D samp, in vec2 uv)
-{
-    vec2 cropped = fract(uv) * vec2(0.875, 0.875) + vec2(0.0625, 0.0625);
-    //set mip bias -2 per games specs
-    return texture( samp, cropped,-2);
-    }
-
 void main(void)
-    {
+{
+    // --- albedo + detail: the game's exact combine --------------------------
+    vec4 alb = texture(baked_albedo, fs_in.UV);
+    vec4 det = texture(detail_albedo, fs_in.UV * detail_tiles);
 
-    float sc = tile_scale/4.0 ;
-    vec2 t_uv = fract(fs_in.UV * sc);
-    //t_uv += vec2 (0.5,0.5);
-    //t_uv = t_uv * vec2(0.875) + vec2(0.0625);
-    t_uv *= vec2 (-1.0, 1.0);
-    vec4 c1,c2,c3,c4;
-    c1 = get_tile(c_tiles[0], t_uv);
-    c2 = get_tile(c_tiles[1], t_uv);
-    c3 = get_tile(c_tiles[2], t_uv);
-    c4 = get_tile(c_tiles[3], t_uv);
-   
-    vec4 mv = texture(tile_map, fs_in.UV);
+    vec3 color = alb.rgb + det.a - 0.5;  // grayscale detail rides in det.a
+    color = mix(color, det.rgb, alb.a);  // alb.a authors where detail rgb shows
 
-    vec3 color = c1.rgb * mv.r;
-    color = mix(color, c2.rgb, mv.g);
-    color = mix(color, c3.rgb, mv.b);
-    color = mix(color, c4.rgb, mv.a);
+    // --- normal: world-space AG decode (DXT5 pack: X in alpha, Z in green) --
+    // The game's r channel here is an alpha-test mask (alphaReference defaults
+    // to 0, so it never cuts) - available if edge cutouts are ever wanted.
+    vec4 nm = texture(normal_map, fs_in.UV);
+    vec3 N;
+    N.xz = (nm.ag * 2.0 - 1.0) * NORM_SIGN;
+    N.y  = sqrt(1.0 - min(dot(N.xz, N.xz), 1.0));
+    N    = normalize(N);
 
+    vec3 vN = normalize(mat3(view) * N);
 
-    float shadow = write_normal();
-    
-    
-    gColor.rgb = color;// * (shadow+0.1);
-    gColor.a = 0.0;
-
-    gPosition = fs_in.vertexPosition;
-    gGMF = vec4(0.2, 0.3, GFLAG_TERRAIN, 0.0);
-
+    gColor   = vec4(color, 0.0);
+    gNormal  = vN * 0.5 + 0.5;
+    // The game's G-buffer write is exactly (59, 80, 0)/255 + material id.
+    gGMF     = vec4(0.2314, 0.3137, GFLAG_TERRAIN, 0.0);
+    gPosition = fs_in.viewPosition;
+    gSurfaceNormals = vN * 0.5 + 0.5;
 }
