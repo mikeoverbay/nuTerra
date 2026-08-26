@@ -481,7 +481,7 @@ CleanUp:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            Stop
+                            'Stop
                         End If
                     Next
 
@@ -759,6 +759,62 @@ got_it:
                     mat.shader_type = ShaderTypes.FX_PBS_tiled
                     mat.props = obj
 
+                Case "shaders/std_effects/PBS_tiled_global.fx"
+                    ' PBS_tiled plus a per-object global set (blend mask,
+                    ' colorTex GCM, globalTex GNM), heavy on the newer maps.
+                    ' Semantics transcribed from the fxo - the tile
+                    ' normalGlossSpec/metallicAO textures are authored but
+                    ' never sampled by the game's techniques, so they are
+                    ' known-listed and skipped.
+                    Dim knownPropNames As New HashSet(Of String)({
+                        "albedoHeightTile0", "normalGlossSpecTile0", "metallicAOTile0",
+                        "albedoHeightTile1", "normalGlossSpecTile1", "metallicAOTile1",
+                        "albedoHeightTile2", "normalGlossSpecTile2", "metallicAOTile2",
+                        "blendMask",
+                        "dirtMap",
+                        "colorTex",
+                        "globalTex",
+                        "g_tileUVScale",
+                        "g_tintParams",
+                        "g_dirtColorParams",
+                        "g_dirtColor",
+                        "g_fakeShadowsAndDetailParams",
+                        "g_enableTerrainBlending",
+                        "applyOverlay",
+                        "alphaReference",
+                        "alphaTestEnable",
+                        "doubleSided",
+                        "dynamicObject",
+                        "texAddressMode",
+                        "ditherTestEnable",
+                        "g_ditherCoeff"
+                    })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            LogThis("PBS_tiled_global: unknown property '{0}' = {1} on {2}", name, props(name), model_name)
+                        End If
+                    Next
+
+                    Dim obj As New MaterialProps_PBS_tiled_global
+                    With obj
+                        .albedoHeightTile0 = props("albedoHeightTile0").ToLower
+                        .albedoHeightTile1 = props("albedoHeightTile1").ToLower
+                        .albedoHeightTile2 = props("albedoHeightTile2").ToLower
+                        ' blendMask is authored as .png but ships as .dds
+                        .blendMask = props("blendMask").ToLower.Replace(".png", ".dds")
+                        .dirtMap = If(props.ContainsKey("dirtMap"), props("dirtMap").ToLower, Nothing)
+                        .colorTex = props("colorTex").ToLower
+                        .globalTex = props("globalTex").ToLower
+                        .g_tileUVScale = If(props.ContainsKey("g_tileUVScale"), props("g_tileUVScale"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
+                        ' Register defaults from the fxo reflection.
+                        .g_tintParams = If(props.ContainsKey("g_tintParams"), props("g_tintParams"), Vector4.Zero)
+                        .g_dirtColorParams = If(props.ContainsKey("g_dirtColorParams"), props("g_dirtColorParams"), New Vector4(0.1F, 0.0F, 0.0F, 0.0F))
+                        .g_dirtColor = If(props.ContainsKey("g_dirtColor"), props("g_dirtColor"), New Vector4(0.47F, 0.43F, 0.38F, 1.0F))
+                        .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
+                    End With
+                    mat.shader_type = ShaderTypes.FX_PBS_tiled_global
+                    mat.props = obj
+
                 Case "shaders/std_effects/PBS_glass.fx"
                     Dim knownPropNames As New HashSet(Of String)({
                         "dirtAlbedoMap",
@@ -881,15 +937,154 @@ got_it:
                     mat.props = obj
 
 
-                Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx", "shaders/std_effects/lightonly_dual.fx"
-                    Dim obj As New MaterialProps_lightonly_alpha
+                Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx", "shaders/std_effects/lightonly_dual.fx", "shaders/std_effects/glow.fx"
+                    ' glow.fx rides this path too: WG uses it for unlit
+                    ' alpha-tested cards (env_19_39_BurntGrass and kin) -
+                    ' diffuse map, cutout, double-sided, no PBS maps.
+                    If fx = "shaders/std_effects/glow.fx" Then
+                        Dim knownPropNames As New HashSet(Of String)({
+                            "diffuseMap",
+                            "alphaTestEnable",
+                            "alphaReference",
+                            "doubleSided"
+                        })
+                        For Each name In props.Keys
+                            If Not knownPropNames.Contains(name) Then
+                                LogThis("glow: unknown property '{0}' on {1}", name, model_name)
+                            End If
+                        Next
+                    End If
+                    If If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False) Then
+                        ' Alpha-TESTED card (burnt grass and kin): deferred
+                        ' cutout path.
+                        Dim obj As New MaterialProps_lightonly_alpha
+                        With obj
+                            .diffuseMap = props("diffuseMap").ToLower
+                            .alphaTestEnable = True
+                            .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
+                            .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
+                        End With
+                        mat.shader_type = ShaderTypes.FX_lightonly_alpha
+                        mat.props = obj
+                    Else
+                        ' Alpha-BLENDED card (hills_outland_smokes and kin):
+                        ' the deferred pass cannot blend, so ride the
+                        ' volumetric forward pass as a static, unwarped,
+                        ' over-blended billboard. Plain alpha variant gives
+                        ' alpha = texA * vertA. Lighting multipliers borrow
+                        ' the vista-smoke authoring (sun 0.15, ambient 0.5)
+                        ' as the stand-in for lightonly's scene lighting.
+                        Dim vobj As New MaterialProps_volumetric
+                        With vobj
+                            .diffuseMap = props("diffuseMap").ToLower
+                            .distortionMap = .diffuseMap ' amount 0 = no-op warp
+                            .TintlColor = New Vector4(1, 1, 1, 1)
+                            .diffuseUVSpeedAlphaOffset = Vector4.Zero
+                            .distortion_UV_Speed_Amount = Vector4.Zero
+                            .lightMultipliers = New Vector4(1, 0.15F, 0.5F, 0)
+                            .selfIllumLight = Vector4.Zero
+                            .FreshnelColor = New Vector4(1, 1, 1, 1)
+                            .alphaFadeAmountFresnel = New Vector4(1, 1, 1, 0)
+                            .alphaFreshnelEnable = False
+                            .destBlend = 6
+                            .fadeMinDistance = 0.01F
+                            .fadeMaxDistance = 1.0F
+                            .alphaAdditiveEnable = False
+                            .enableLighting = True
+                            .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
+                        End With
+                        mat.shader_type = ShaderTypes.FX_volumetric
+                        mat.props = vobj
+                    End If
+
+                Case "shaders/custom/volumetric_effect.fx", "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx"
+                    ' GFX smoke/flame/distortion meshes. Semantics transcribed
+                    ' from the game's volumetric_effect_vtx fxo - see
+                    ' volumetric.vert/frag for who consumes what.
+                    Dim knownPropNames As New HashSet(Of String)({
+                        "diffuseMap",
+                        "distortionMap",
+                        "TintlColor",
+                        "diffuseUVSpeedAlphaOffset",
+                        "distortion_UV_Speed_Amount",
+                        "lightMultipliers",
+                        "selfIllumLight",
+                        "FreshnelColor",
+                        "alphaFadeAmountFresnel",
+                        "alphaAdditiveEnable",
+                        "doubleSided",
+                        "enableLighting",
+                        "alphaTestEnable",
+                        "alphaReference",
+                        "alphaFreshnelEnable",
+                        "destBlend",
+                        "srcBlend",
+                        "fadeMinDistance",
+                        "fadeMaxDistance",
+                        "softFactor"
+                    })
+                    For Each name In props.Keys
+                        If Not knownPropNames.Contains(name) Then
+                            ' Log, not Stop: outside a debugger Stop is a
+                            ' silent no-op and an unknown knob would vanish.
+                            LogThis("volumetric: unknown property '{0}' = {1} on {2}", name, props(name), fx)
+                        End If
+                    Next
+                    Dim obj As New MaterialProps_volumetric
                     With obj
                         .diffuseMap = props("diffuseMap").ToLower
+                        ' No distortion map authored = warp against the
+                        ' diffuse itself, which at amount 0 is a no-op.
+                        .distortionMap = If(props.ContainsKey("distortionMap"), props("distortionMap").ToLower, .diffuseMap)
+                        ' Compiled-shader defaults for everything unauthored.
+                        .TintlColor = New Vector4(1, 1, 1, 1)
+                        .diffuseUVSpeedAlphaOffset = Vector4.Zero
+                        .distortion_UV_Speed_Amount = Vector4.Zero
+                        .lightMultipliers = New Vector4(1, 0, 0, 0)
+                        .selfIllumLight = Vector4.Zero
+                        .FreshnelColor = New Vector4(1, 1, 1, 1)
+                        ' The compiled fxo's register default has gain (y) = 0,
+                        ' which makes every material that does not author this
+                        ' invisible - and the game visibly renders such
+                        ' materials (vista_smoke_01), so the artist-side
+                        ' default must be gain 1. Match the working authored
+                        ' value instead of the dead register default.
+                        .alphaFadeAmountFresnel = New Vector4(1, 1, 1, 0)
+                        If props.ContainsKey("TintlColor") Then .TintlColor = props("TintlColor")
+                        If props.ContainsKey("diffuseUVSpeedAlphaOffset") Then .diffuseUVSpeedAlphaOffset = props("diffuseUVSpeedAlphaOffset")
+                        If props.ContainsKey("distortion_UV_Speed_Amount") Then .distortion_UV_Speed_Amount = props("distortion_UV_Speed_Amount")
+                        If props.ContainsKey("lightMultipliers") Then .lightMultipliers = props("lightMultipliers")
+                        If props.ContainsKey("selfIllumLight") Then .selfIllumLight = props("selfIllumLight")
+                        If props.ContainsKey("FreshnelColor") Then .FreshnelColor = props("FreshnelColor")
+                        If props.ContainsKey("alphaFadeAmountFresnel") Then .alphaFadeAmountFresnel = props("alphaFadeAmountFresnel")
+                        If props.ContainsKey("alphaAdditiveEnable") Then .alphaAdditiveEnable = props("alphaAdditiveEnable")
+                        If props.ContainsKey("doubleSided") Then .doubleSided = props("doubleSided")
+                        If props.ContainsKey("enableLighting") Then .enableLighting = props("enableLighting")
+                        ' Variant selector, default True - that is the variant
+                        ' D-Day's vista smoke renders with (ps blob 8); Abbey's
+                        ' smoke sheets author False (ps blob 9, plain alpha).
+                        .alphaFreshnelEnable = If(props.ContainsKey("alphaFreshnelEnable"), props("alphaFreshnelEnable"), True)
+                        ' D3DBLEND: default 6 = INVSRCALPHA (standard "over").
+                        .destBlend = If(props.ContainsKey("destBlend"), props("destBlend"), 6)
+                        ' Compiled register defaults - past a metre the fade
+                        ' saturates to 1, so unauthored materials are always
+                        ' fully faded in. softFactor is known-listed but
+                        ' unused: it is [unused] in every compiled variant.
+                        .fadeMinDistance = If(props.ContainsKey("fadeMinDistance"), props("fadeMinDistance"), 0.01F)
+                        .fadeMaxDistance = If(props.ContainsKey("fadeMaxDistance"), props("fadeMaxDistance"), 1.0F)
+                        ' srcBlend is known-listed but ignored: the only
+                        ' observed value is 5 = SRCALPHA, which both output
+                        ' paths already implement (rgb is multiplied by alpha
+                        ' in the shader).
                     End With
-                    mat.shader_type = ShaderTypes.FX_lightonly_alpha
+                    mat.shader_type = ShaderTypes.FX_volumetric
                     mat.props = obj
 
-                Case "shaders/particles/wg_particles.fx", "shaders/custom/coloronly_alpha.fx", "shaders/std_effects/PBS_ext_detail_dual.fx", "shaders/custom/volumetric_effect_vtx.fx", "shaders/custom/volumetric_effect_layer_vtx.fx", "shaders/std_effects/glow.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect.fx", "shaders/custom/volumetric_effect_vtx_skinned.fx", "shaders/std_effects/PBS_sss_skinned.fx", "shaders/std_effects/PBS_hair_skinned.fx", "shaders/std_effects/fur_skinned.fx", "shaders/custom/emissive_playground.fx"
+                Case "shaders/particles/wg_particles.fx", "shaders/custom/coloronly_alpha.fx", "shaders/std_effects/PBS_ext_detail_dual.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect_vtx_skinned.fx", "shaders/std_effects/PBS_sss_skinned.fx", "shaders/std_effects/PBS_hair_skinned.fx", "shaders/std_effects/fur_skinned.fx", "shaders/custom/emissive_playground.fx"
+                    ' Names every invisible-by-unsupported-shader model, so a
+                    ' bounding box with nothing in it can be identified from
+                    ' the log instead of guessed at.
+                    LogThis("unsupported fx: {0} on {1}", fx, model_name)
                     mat.shader_type = ShaderTypes.FX_unsupported
 
                 Case Else

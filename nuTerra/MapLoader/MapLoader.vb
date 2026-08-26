@@ -151,6 +151,21 @@ Module MapLoader
                                   numVerts * uv2_size,
                                   BufferStorageFlags.DynamicStorageBit)
 
+            ' Vertex colours, RGBA8. Only meshes with a "colour" stream author
+            ' this; everything else must read WHITE, not zero - the volumetric
+            ' alpha math is (texA + vertexA * fade - 1) * gain, so a zero
+            ' default makes every colour-less volumetric mesh invisible.
+            map_scene.static_models.vertsColour = GLBuffer.Create(BufferTarget.ArrayBuffer, "vertsColour")
+            map_scene.static_models.vertsColour.StorageNullData(
+                                  numVerts * 4,
+                                  BufferStorageFlags.DynamicStorageBit)
+            Dim white_default(numVerts - 1) As UInt32
+            For wi = 0 To numVerts - 1
+                white_default(wi) = &HFFFFFFFFUI
+            Next
+            GL.NamedBufferSubData(map_scene.static_models.vertsColour.buffer_id, IntPtr.Zero, numVerts * 4, white_default)
+            Erase white_default
+
             Dim matrices(map_scene.static_models.numModelInstances - 1) As ModelInstance
             Dim lods(numLods - 1) As ModelLoD
             Dim cmdId = 0
@@ -214,6 +229,11 @@ Module MapLoader
                         If renderSet.buffers.uv2 IsNot Nothing Then
                             GL.NamedBufferSubData(map_scene.static_models.vertsUV2.buffer_id, New IntPtr(vLast * uv2_size), renderSet.buffers.uv2.Length * uv2_size, renderSet.buffers.uv2)
                             Erase renderSet.buffers.uv2
+                        End If
+
+                        If renderSet.buffers.colour IsNot Nothing Then
+                            GL.NamedBufferSubData(map_scene.static_models.vertsColour.buffer_id, New IntPtr(vLast * 4), renderSet.buffers.colour.Length * 4, renderSet.buffers.colour)
+                            Erase renderSet.buffers.colour
                         End If
 
                         vLast += renderSet.buffers.vertexBuffer.Length
@@ -290,6 +310,17 @@ Module MapLoader
                 BufferStorageFlags.DynamicStorageBit)
             map_scene.static_models.visibles_dbl_sided.BindBase(9)
 
+            ' CPU copy of every candidate draw's instance origin - draw_fx
+            ' depth-sorts its bucket with these each frame (the cull shader's
+            ' atomic emission order is nondeterministic, which flickered
+            ' overlapping smoke). Indexed by candidate id (= baseInstance).
+            ReDim map_scene.static_models.candidate_origins(map_scene.static_models.indirectDrawCount - 1)
+            ReDim map_scene.static_models.candidate_model_ids(map_scene.static_models.indirectDrawCount - 1)
+            For i = 0 To map_scene.static_models.indirectDrawCount - 1
+                map_scene.static_models.candidate_origins(i) = matrices(drawCommands(i).model_id).matrix.ExtractTranslation()
+                map_scene.static_models.candidate_model_ids(i) = drawCommands(i).model_id
+            Next
+
             map_scene.static_models.drawCandidates = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "drawCandidates")
             map_scene.static_models.drawCandidates.Storage(
                 map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of CandidateDraw),
@@ -315,6 +346,22 @@ Module MapLoader
                 map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                 BufferStorageFlags.None)
             map_scene.static_models.indirect_dbl_sided.BindBase(6)
+
+            ' Volumetric FX bucket - the cull shader routes shader_type 11 here.
+            ' DynamicStorage because draw_fx writes the bucket back CPU-side
+            ' after depth-sorting it.
+            map_scene.static_models.indirect_fx = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_fx")
+            map_scene.static_models.indirect_fx.StorageNullData(
+                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                BufferStorageFlags.DynamicStorageBit)
+            map_scene.static_models.indirect_fx.BindBase(7)
+
+            ' Host staging for the FX depth sort's readback (parameters_temp
+            ' pattern) - keeps indirect_fx itself resident in VRAM.
+            map_scene.static_models.indirect_fx_staging = GLBuffer.Create(BufferTarget.CopyWriteBuffer, "indirect_fx_staging")
+            map_scene.static_models.indirect_fx_staging.StorageNullData(
+                MapStaticModels.FX_SORT_MAX * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                BufferStorageFlags.ClientStorageBit)
 
             map_scene.static_models.indirect_shadow_mapping = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "indirect_shadow_mapping")
             map_scene.static_models.indirect_shadow_mapping.Storage(
@@ -376,6 +423,12 @@ Module MapLoader
             map_scene.static_models.allMapModels.AttribFormat(5, 2, VertexAttribType.Float, False, 0)
             map_scene.static_models.allMapModels.AttribBinding(5, 5)
             map_scene.static_models.allMapModels.EnableAttrib(5)
+
+            'vertex colour (RGBA8, normalized) - volumetric FX meshes only
+            map_scene.static_models.allMapModels.VertexBuffer(6, map_scene.static_models.vertsColour, IntPtr.Zero, 4)
+            map_scene.static_models.allMapModels.AttribFormat(6, 4, VertexAttribType.UnsignedByte, True, 0)
+            map_scene.static_models.allMapModels.AttribBinding(6, 6)
+            map_scene.static_models.allMapModels.EnableAttrib(6)
 
             map_scene.static_models.allMapModels.ElementBuffer(map_scene.static_models.prims)
 
@@ -670,6 +723,10 @@ Module MapLoader
                         texturePaths.Add(mat.props.g_detailMap)
                     End If
 
+                Case ShaderTypes.FX_volumetric
+                    texturePaths.Add(mat.props.diffuseMap)
+                    texturePaths.Add(mat.props.distortionMap)
+
                 Case ShaderTypes.FX_PBS_tiled_atlas
                     AddAtlas(mat.props.atlasAlbedoHeight,
                              atlasPaths,
@@ -749,6 +806,19 @@ Module MapLoader
                     texturePaths.Add(mat.props.metallicAOTile2)
                     texturePaths.Add(mat.props.blendMask)
                     texturePaths.Add(mat.props.colorTex)
+                    If mat.props.dirtMap IsNot Nothing Then
+                        texturePaths.Add(mat.props.dirtMap)
+                    End If
+
+                Case ShaderTypes.FX_PBS_tiled_global
+                    ' No normalGlossSpec/metallicAO tiles on purpose - the
+                    ' game's techniques never sample them for this fx.
+                    texturePaths.Add(mat.props.albedoHeightTile0)
+                    texturePaths.Add(mat.props.albedoHeightTile1)
+                    texturePaths.Add(mat.props.albedoHeightTile2)
+                    texturePaths.Add(mat.props.blendMask)
+                    texturePaths.Add(mat.props.colorTex)
+                    texturePaths.Add(mat.props.globalTex)
                     If mat.props.dirtMap IsNot Nothing Then
                         texturePaths.Add(mat.props.dirtMap)
                     End If
@@ -1097,6 +1167,65 @@ Module MapLoader
                         .g_detailRejectTiling = props.g_detailRejectTiling
                         .double_sided = If(props.doubleSided, 1, 0)
 
+                    Case ShaderTypes.FX_volumetric
+                        ' Slot mapping - volumetric.frag/vert read these back
+                        ' out of the same generic fields, keep in lockstep:
+                        '   g_colorTint        = TintlColor
+                        '   dirtParams         = diffuseUVSpeedAlphaOffset (w carries alphaFreshnelEnable)
+                        '   dirtColor          = distortion_UV_Speed_Amount
+                        '   g_tile0Tint        = lightMultipliers
+                        '   g_tile1Tint        = selfIllumLight
+                        '   g_tile2Tint        = FreshnelColor
+                        '   g_tileUVScale      = alphaFadeAmountFresnel
+                        '   g_atlasIndexes.xy  = fadeMinDistance / fadeMaxDistance
+                        '   alphaTestEnable    = additive compositing (alphaAdditiveEnable OR destBlend=ONE)
+                        '   g_enableAO         = enableLighting
+                        Dim vprops As MaterialProps_volumetric = mat.props
+                        LogThis("volumetric material {0}: diffuse={1} ({2}) distortion={3} ({4}) additive={5} lit={6} fresnelVariant={7}",
+                                mat.id,
+                                vprops.diffuseMap, If(textureHandles.ContainsKey(vprops.diffuseMap), "ok", "MISSING"),
+                                vprops.distortionMap, If(textureHandles.ContainsKey(vprops.distortionMap), "ok", "MISSING"),
+                                vprops.alphaAdditiveEnable OrElse vprops.destBlend = 2, vprops.enableLighting,
+                                vprops.alphaFreshnelEnable)
+                        ' The alpha-shaping knobs, because an authored-but-odd
+                        ' set here is what makes a sheet invisible (vista_smoke
+                        ' taught that the hard way).
+                        LogThis("    fade/gain/fresExp/fresAlpha={0}  alphaOffset={1}  fresnelColor={2}  lightMul={3}",
+                                vprops.alphaFadeAmountFresnel,
+                                vprops.diffuseUVSpeedAlphaOffset.Z,
+                                vprops.FreshnelColor,
+                                vprops.lightMultipliers)
+                        If Not textureHandles.ContainsKey(vprops.diffuseMap) OrElse
+                           Not textureHandles.ContainsKey(vprops.distortionMap) Then
+                            ' Sampling an invalid bindless handle is undefined
+                            ' behaviour that can take unrelated draws with it -
+                            ' demote to unsupported so the cull never routes it.
+                            .shader_type = ShaderTypes.FX_unsupported
+                            Exit Select
+                        End If
+                        .map1Handle = textureHandles(vprops.diffuseMap)
+                        .map2Handle = textureHandles(vprops.distortionMap)
+                        .g_colorTint = vprops.TintlColor
+                        ' dirtParams.w is unused by the transcription's UV
+                        ' animation, so it carries the variant selector down
+                        ' to volumetric.vert/frag.
+                        Dim uvsp = vprops.diffuseUVSpeedAlphaOffset
+                        uvsp.W = If(vprops.alphaFreshnelEnable, 1, 0)
+                        .dirtParams = uvsp
+                        .dirtColor = vprops.distortion_UV_Speed_Amount
+                        .g_tile0Tint = vprops.lightMultipliers
+                        .g_tile1Tint = vprops.selfIllumLight
+                        .g_tile2Tint = vprops.FreshnelColor
+                        .g_tileUVScale = vprops.alphaFadeAmountFresnel
+                        .g_atlasIndexes = New Vector4(vprops.fadeMinDistance, vprops.fadeMaxDistance, 0, 0)
+                        ' destBlend 2 = D3DBLEND_ONE: the material composites
+                        ' additively even without alphaAdditiveEnable. Both
+                        ' end up as output (rgb*a, 0) under the premultiplied
+                        ' pass blend, which is exactly src*a + dest.
+                        .alphaTestEnable = If(vprops.alphaAdditiveEnable OrElse vprops.destBlend = 2, 1, 0)
+                        .g_enableAO = If(vprops.enableLighting, 1, 0)
+                        .double_sided = If(vprops.doubleSided, 1, 0)
+
                     Case ShaderTypes.FX_PBS_tiled_atlas
                         Dim props As MaterialProps_PBS_tiled_atlas = mat.props
                         .map1Handle = textureHandles(props.atlasAlbedoHeight)
@@ -1173,6 +1302,34 @@ Module MapLoader
                         .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
                         .double_sided = If(props.doubleSided, 1, 0)
 
+                    Case ShaderTypes.FX_PBS_tiled_global
+                        ' Slot mapping, in lockstep with
+                        ' FX_PBS_tiled_global_entry in model.frag:
+                        '   maps[0..2]    = albedoHeightTile0/1/2
+                        '   maps[3]       = blendMask   (A = baked AO)
+                        '   maps[4]       = dirtMap
+                        '   maps[5]       = colorTex    (GCM)
+                        '   maps[6]       = globalTex   (GNM, B*2 = baked shadow)
+                        '   g_tileUVScale = g_tileUVScale
+                        '   g_tile0Tint   = g_dirtColorParams (yzw = per-tile GCM luminance weights)
+                        '   g_tile1Tint   = g_tintParams      (yzw = per-tile GCM chroma weights)
+                        '   g_tile2Tint   = g_dirtColor       (w = dirt curve strength)
+                        Dim props As MaterialProps_PBS_tiled_global = mat.props
+                        .map1Handle = textureHandles(props.albedoHeightTile0)
+                        .map2Handle = textureHandles(props.albedoHeightTile1)
+                        .map3Handle = textureHandles(props.albedoHeightTile2)
+                        .map4Handle = textureHandles(props.blendMask)
+                        If props.dirtMap IsNot Nothing Then
+                            .map5Handle = textureHandles(props.dirtMap)
+                        End If
+                        .map6Handle = textureHandles(props.colorTex)
+                        .map7Handle = textureHandles(props.globalTex)
+                        .g_tileUVScale = props.g_tileUVScale
+                        .g_tile0Tint = props.g_dirtColorParams
+                        .g_tile1Tint = props.g_tintParams
+                        .g_tile2Tint = props.g_dirtColor
+                        .double_sided = If(props.doubleSided, 1, 0)
+
                     Case ShaderTypes.FX_PBS_glass
                         Dim props As MaterialProps_PBS_glass = mat.props
                         If props.dirtAlbedoMap IsNot Nothing Then
@@ -1201,6 +1358,13 @@ Module MapLoader
                     Case ShaderTypes.FX_lightonly_alpha
                         Dim props As MaterialProps_lightonly_alpha = mat.props
                         .map1Handle = textureHandles(props.diffuseMap)
+                        .alphaReference = props.alphaReference / 255.0
+                        .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
+                        .double_sided = If(props.doubleSided, 1, 0)
+                        ' These cards carry no normal map - the depth passes
+                        ' must take the cutout alpha from diffuse.a, not the
+                        ' PBS normal-map red channel.
+                        .alphaFromDiffuse = 1
 
                     Case Else
                         'Stop
@@ -1211,9 +1375,9 @@ Module MapLoader
         materials = Nothing
 
         ' This buffer is read as MaterialProperties in shaders/common.h under std430.
-        ' 10 vec4 (160) + 12 uvec2 (96) + 7 x 4-byte scalars (28) = 284, rounded up
-        ' to the 16-byte struct alignment = 288. Add a field here and you must add
-        ' it to common.h too, or every material reads garbage.
+        ' 10 vec4 (160) + 12 uvec2 (96) + 8 x 4-byte scalars (32) = 288 exactly
+        ' (alphaFromDiffuse took the old tail padding). Add a field here and you
+        ' must add it to common.h too, or every material reads garbage.
         Debug.Assert(Marshal.SizeOf(Of GLMaterial) = 288, "GLMaterial no longer matches MaterialProperties in common.h")
 
         map_scene.static_models.materials = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "materials")

@@ -119,6 +119,7 @@ Public Module modMapSettings
         Yield ("shadow_strength", Function() CommonProperties.SHADOW_STRENGTH, Sub(v) CommonProperties.SHADOW_STRENGTH = v)
         Yield ("water_y_offset", Function() WATER_Y_OFFSET, Sub(v) WATER_Y_OFFSET = v)
         Yield ("water_exclude_band", Function() WATER_EXCLUDE_BAND, Sub(v) WATER_EXCLUDE_BAND = v)
+        Yield ("mouse_damp", Function() ROT_DAMPING, Sub(v) ROT_DAMPING = v)
 
         ' booleans, stored as 0/1 so the file stays one shape throughout
         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))

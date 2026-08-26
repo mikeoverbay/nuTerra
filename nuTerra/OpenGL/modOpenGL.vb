@@ -140,7 +140,10 @@ Module modOpenGL
         Dim alphaTestEnable As UInt32
         Dim g_enableAO As UInt32
         Dim double_sided As UInt32
-        'Dim pad0 As UInt32
+        ' Cutout alpha from diffuse.a (glow/lightonly cards) instead of the
+        ' PBS normal-map red channel. Sits in what was the tail padding, so
+        ' Marshal.SizeOf stays 288 and common.h matches.
+        Dim alphaFromDiffuse As UInt32
     End Structure
 
     <StructLayout(LayoutKind.Sequential)>

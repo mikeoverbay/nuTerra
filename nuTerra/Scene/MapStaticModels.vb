@@ -8,8 +8,8 @@ Public Class MapStaticModels
 
     ReadOnly scene As MapScene
 
-    ' Get data from gpu
-    Public numAfterFrustum(2) As Integer
+    ' Get data from gpu: opaque, double-sided, glass, volumetric FX
+    Public numAfterFrustum(3) As Integer
 
     ' OpenGL buffers used to draw all map models
     ' For map models only!
@@ -24,6 +24,8 @@ Public Class MapStaticModels
     Public indirect As GLBuffer
     Public indirect_glass As GLBuffer
     Public indirect_dbl_sided As GLBuffer
+    Public indirect_fx As GLBuffer
+    Public vertsColour As GLBuffer
     Public indirect_shadow_mapping As GLBuffer
     Public lods As GLBuffer
 
@@ -36,6 +38,42 @@ Public Class MapStaticModels
     Public numModelInstances As Integer
     Public indirectDrawCount As Integer
     Public indirectShadowMappingDrawCount As Integer
+
+    ' World origin of every candidate draw's instance, kept CPU-side by the
+    ' loader. draw_fx sorts its bucket back-to-front with these each frame,
+    ' indexed by the command's baseInstance (= candidate id).
+    Public candidate_origins As Vector3()
+
+    ' Candidate id -> model instance id, so Snapshot can name what is in the
+    ' FX bucket (those draws never touch the pick buffer, so the model
+    ' picker cannot identify them).
+    Public candidate_model_ids As UInteger()
+
+    ' Host-memory staging for the FX sort readback - reading indirect_fx
+    ' directly made the driver demote it to host memory (perf warning
+    ' #131186 every frame). Same pattern as parameters_temp: GPU-copy the
+    ' commands here, read from here, so indirect_fx itself stays in VRAM.
+    Public indirect_fx_staging As GLBuffer
+    Public Const FX_SORT_MAX As Integer = 4096
+
+    ' draw_fx sort scratch, grown on demand so steady state allocates nothing
+    Private fx_cmds As DrawElementsIndirectCommand()
+    Private fx_cmds_sorted As DrawElementsIndirectCommand()
+    Private fx_order As Integer()
+    Private fx_dist As Single()
+    Private fx_sort_overflow_logged As Boolean
+
+    ' Sort hysteresis: a draw keeps its stored distance until the real one
+    ' drifts past this, so near-equidistant plumes do not swap order back and
+    ' forth while the camera orbits - each swap re-composites the overlap,
+    ' which reads as flicker during rotation. 10 m is nothing at plume scale.
+    Private Const FX_SORT_HYSTERESIS As Single = 10.0F
+    Private ReadOnly fx_stored_dist As New Dictionary(Of UInteger, Single)
+
+    ' Instruments for Snapshot: how often the drawn FX order actually changed.
+    Public fx_sort_order_changes As Integer
+    Private fx_prev_order As UInteger()
+    Private fx_prev_order_count As Integer
 
     Public Sub New(scene As MapScene)
         Me.scene = scene
@@ -202,7 +240,10 @@ Public Class MapStaticModels
         Dim numGroups = (numModelInstances + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
         GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
 
-        GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit)
+        ' Command: the indirect draws source these buffers. BufferUpdate:
+        ' draw_fx reads the fx bucket back with GetNamedBufferSubData to
+        ' depth-sort it before drawing.
+        GL.MemoryBarrier(MemoryBarrierFlags.CommandBarrierBit Or MemoryBarrierFlags.BufferUpdateBarrierBit)
 
         cullShader.StopUse()
 
@@ -311,7 +352,12 @@ Public Class MapStaticModels
         'SOLID FILL
         MainFBO.attach_CNGP()
 
-        Dim indices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+        ' Element i selects the subroutine for shader_type i. Element 11
+        ' (FX_volumetric) never draws in this pass - cull routes it to the
+        ' FX bucket - but GL wants every element assigned, so it gets the
+        ' FX_unsupported function (9). Element 12 = FX_PBS_tiled_global,
+        ' whose function carries layout index 11.
+        Dim indices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 11}
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -384,6 +430,171 @@ Public Class MapStaticModels
         GL_POP_GROUP()
     End Sub
 
+    ''' <summary>
+    ''' Volumetric GFX meshes - smoke columns, flame sheets - forward over the
+    ''' lit frame, after water. Translucent: depth-tested against the scene
+    ''' (reversed-Z Greater), no depth write, no cull (the materials are all
+    ''' double sided), standard alpha blend. The shader is a transcription of
+    ''' the game's volumetric_effect_vtx fxo.
+    ''' </summary>
+    ''' <summary>
+    ''' Reorders the FX indirect bucket back-to-front by instance origin.
+    ''' The cull shader emits FX draws in atomic-counter order, which varies
+    ''' frame to frame - with order-dependent "over" blending, overlapping
+    ''' smoke flickered where the plumes crossed. Sorting fixes the flicker
+    ''' (the order is now deterministic) and composites separate plumes in
+    ''' the right depth order. Draws of one instance tie-break on candidate
+    ''' id so their relative order is frame-stable too.
+    ''' </summary>
+    Private Sub sort_fx_draws(count As Integer)
+        If count < 2 OrElse candidate_origins Is Nothing OrElse indirect_fx_staging Is Nothing Then Return
+
+        If count > FX_SORT_MAX Then
+            If Not fx_sort_overflow_logged Then
+                LogThis("draw_fx sort: {0} draws exceeds FX_SORT_MAX {1} - drawing unsorted", count, FX_SORT_MAX)
+                fx_sort_overflow_logged = True
+            End If
+            Return
+        End If
+
+        If fx_cmds Is Nothing OrElse fx_cmds.Length < count Then
+            ReDim fx_cmds(count - 1)
+            ReDim fx_cmds_sorted(count - 1)
+            ReDim fx_order(count - 1)
+            ReDim fx_dist(count - 1)
+        End If
+
+        Dim byte_count = count * Marshal.SizeOf(Of DrawElementsIndirectCommand)
+        GL.CopyNamedBufferSubData(indirect_fx.buffer_id, indirect_fx_staging.buffer_id, IntPtr.Zero, IntPtr.Zero, byte_count)
+        GL.GetNamedBufferSubData(indirect_fx_staging.buffer_id, IntPtr.Zero, byte_count, fx_cmds)
+
+        Dim cam = scene.camera.CAM_POSITION
+        For i = 0 To count - 1
+            Dim candidate = CInt(fx_cmds(i).baseInstance)
+            If candidate >= candidate_origins.Length Then
+                LogThis("draw_fx sort: candidate {0} out of range {1} - drawing unsorted", candidate, candidate_origins.Length)
+                Return
+            End If
+            fx_order(i) = i
+
+            ' Hysteresis: sort on the stored distance, refreshed only when the
+            ' true distance drifts past the window. Keeps near-ties from
+            ' oscillating while the orbit camera moves.
+            Dim d = (candidate_origins(candidate) - cam).Length
+            Dim stored As Single
+            If Not fx_stored_dist.TryGetValue(fx_cmds(i).baseInstance, stored) OrElse
+               Math.Abs(d - stored) > FX_SORT_HYSTERESIS Then
+                stored = d
+                fx_stored_dist(fx_cmds(i).baseInstance) = d
+            End If
+            fx_dist(i) = stored
+        Next
+
+        Array.Sort(fx_order, 0, count, Comparer(Of Integer).Create(
+            Function(a, b)
+                Dim c = fx_dist(b).CompareTo(fx_dist(a)) ' farthest first
+                If c <> 0 Then Return c
+                Return fx_cmds(a).baseInstance.CompareTo(fx_cmds(b).baseInstance)
+            End Function))
+
+        For i = 0 To count - 1
+            fx_cmds_sorted(i) = fx_cmds(fx_order(i))
+        Next
+        GL.NamedBufferSubData(indirect_fx.buffer_id, IntPtr.Zero, byte_count, fx_cmds_sorted)
+
+        ' Instrument: count frames where the drawn sequence differs from the
+        ' previous frame's. Snapshot prints and resets it - churn here while
+        ' the camera moves is what overlap flicker looks like in numbers.
+        If fx_prev_order Is Nothing OrElse fx_prev_order.Length < count Then
+            ReDim Preserve fx_prev_order(count - 1)
+            fx_prev_order_count = -1 ' force one "change" on growth
+        End If
+        Dim changed = count <> fx_prev_order_count
+        If Not changed Then
+            For i = 0 To count - 1
+                If fx_cmds_sorted(i).baseInstance <> fx_prev_order(i) Then
+                    changed = True
+                    Exit For
+                End If
+            Next
+        End If
+        If changed Then
+            fx_sort_order_changes += 1
+            For i = 0 To count - 1
+                fx_prev_order(i) = fx_cmds_sorted(i).baseInstance
+            Next
+            fx_prev_order_count = count
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' Names what the FX bucket holds right now. These draws never touch
+    ''' the pick buffer, so the model picker cannot identify them - Snapshot
+    ''' calls this instead.
+    ''' </summary>
+    Public Sub LogFxBucket()
+        Dim count = Math.Min(numAfterFrustum(3), FX_SORT_MAX)
+        If count = 0 OrElse candidate_model_ids Is Nothing OrElse indirect_fx_staging Is Nothing Then Return
+
+        If fx_cmds Is Nothing OrElse fx_cmds.Length < count Then ReDim fx_cmds(count - 1)
+        Dim byte_count = count * Marshal.SizeOf(Of DrawElementsIndirectCommand)
+        GL.CopyNamedBufferSubData(indirect_fx.buffer_id, indirect_fx_staging.buffer_id, IntPtr.Zero, IntPtr.Zero, byte_count)
+        GL.GetNamedBufferSubData(indirect_fx_staging.buffer_id, IntPtr.Zero, byte_count, fx_cmds)
+
+        Dim by_model As New Dictionary(Of UInteger, Integer)
+        For i = 0 To count - 1
+            Dim cand = CInt(fx_cmds(i).baseInstance)
+            If cand >= candidate_model_ids.Length Then Continue For
+            Dim mid = candidate_model_ids(cand)
+            by_model(mid) = If(by_model.ContainsKey(mid), by_model(mid) + 1, 1)
+        Next
+        For Each kv In by_model
+            Dim name As String = Nothing
+            scene.PICK_DICTIONARY.TryGetValue(kv.Key, name)
+            LogThis("    fx in view: {0} draw(s)  instance {1}  {2}", kv.Value, kv.Key, If(name, "?"))
+        Next
+    End Sub
+
+    Public Sub draw_fx()
+        If numAfterFrustum(3) = 0 Then Return
+
+        GL_PUSH_GROUP("draw_fx")
+
+        sort_fx_draws(numAfterFrustum(3))
+
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthFunc(DepthFunction.Greater)
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.CullFace)
+        ' Premultiplied, so the shader can serve alpha AND additive materials
+        ' in one multidraw: alpha outputs (rgb*a, a), additive (rgb*a, 0).
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha)
+
+        volumetricShader.Use()
+        GL.Uniform1(volumetricShader("fx_time"), FX_TIME)
+
+        allMapModels.Bind()
+        indirect_fx.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(3), 0)
+
+        volumetricShader.StopUse()
+
+        GL.Disable(EnableCap.Blend)
+        ' BlendFunc is global state - put the app's conventional func back so
+        ' later passes that enable blend without setting one (minimap trims,
+        ' text) do not inherit the premultiplied pair.
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+        GL.DepthMask(True)
+        ' The post-water stretch of the frame runs with the depth test OFF -
+        ' leaving it on here made the FXAA fullscreen quad fail the reversed-Z
+        ' test against the cleared depth buffer, which wiped the whole frame
+        ' to the clear colour whenever an FX was on screen.
+        GL.Disable(EnableCap.DepthTest)
+
+        GL_POP_GROUP()
+    End Sub
+
     Public Sub glassPass()
         GL_PUSH_GROUP("perform_GlassPass")
 
@@ -422,6 +633,16 @@ Public Class MapStaticModels
         prims?.Dispose()
         indirect?.Dispose()
         indirect_glass?.Dispose()
+        indirect_fx?.Dispose()
+        indirect_fx_staging?.Dispose()
+        candidate_origins = Nothing
+        fx_cmds = Nothing
+        fx_cmds_sorted = Nothing
+        fx_order = Nothing
+        fx_dist = Nothing
+        fx_stored_dist.Clear()
+        fx_prev_order = Nothing
+        vertsColour?.Dispose()
         indirect_dbl_sided?.Dispose()
         indirect_shadow_mapping?.Dispose()
         lods?.Dispose()

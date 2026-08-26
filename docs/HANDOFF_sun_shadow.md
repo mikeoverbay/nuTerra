@@ -1,8 +1,9 @@
 # Handoff — renderer state
 
 Supersedes the previous version. Covers everything through the water system,
-tessellation revival, tree LODs, wetness/SSR, and the boat fixes. Where it
-says "was", that is what the code did before and why it changed.
+tessellation, tree LODs, wetness/SSR, the camera damping rewrite, and the
+first working FX pass (volumetric smoke). Where it says "was", that is what
+the code did before and why it changed.
 
 The owner is the sole developer of nuTerra, a VB.NET / .NET 6 / OpenTK offline
 World of Tanks map viewer. He guides tightly, tests every build himself, and is
@@ -13,189 +14,202 @@ the reasoning.
 
 ## Where this left off
 
-- `master` = `terrain-color-fix` = the same commit; everything is committed,
-  working tree clean. Pushing needs the owner's terminal - the agent shell has
-  no SSH key for the remote - so run `git push -u nuTerra master` there.
-- Verified by the owner this session: tessellation (on, 60 m envelope), the
-  boat winding fix, the waterline pinned by the vertical-depth metric.
-- **Next feature queued: terrain holes.** The data format is fully cracked and
-  documented below; the implementation plan is three steps and half a day.
-- `readme_images/` holds front-page screenshots; the README references
-  `readme_images/nuTerra.png`. Overwriting that file updates the front page
-  with no README edit.
+- Base commit `87af744` ("Handoff: session close-out"); the working tree holds
+  ALL of 2026-08-25/26's work UNCOMMITTED: FX Stage 0 (volumetric meshes),
+  camera damping, per-map `mouse_damp`, minimap eviction fix, fog/ClearColor
+  fixes, FX diagnostics in Snapshot. Commit/push from the owner's terminal -
+  the agent shell has no SSH key.
+- Verified by the owner: the big vista smoke renders and animates. Pending his
+  eyes: the base smoke sheets (fixed last - alpha-gain default, see FX below),
+  and general FX look.
+- **Terrain holes: NOT implemented.** Was fully built on 2026-08-25 and
+  reverted by the owner the same day. Everything learned is under Terrain
+  below - a re-implementation is one day and one critical one-character fix.
+- `docs/FX_plan.md` - the staged particles/FX plan with every format that was
+  cracked (BWPs placements, effbin, vfxbin recon). Stage 0 of it is what is in
+  the tree; Stage 1 (BWPs markers) is the natural next step.
+- The owner's per-map hand tunes (fog level, lighting, water trims) were LOST
+  on 2026-08-25 - an agent `rm -rf` hit the work MapSettings folder (Git Bash
+  maps `/tmp` to `%TEMP%`; the "stray" copy was the live one). The folder
+  reseeds from shipped baselines, and the shipped baseline has `fog_level=0`
+  on all 65 maps - so every map currently has NO FOG until re-tuned
+  (Settings -> Lighting Settings -> Fog Level, then save).
 
 ---
 
 ## How to work in this repo
 
+- The repo is `C:\nuTerra`; the owner opens `C:\nuTerra\nuTerra.sln` in
+  **VS 2022** and runs Debug|Any CPU -> `bin\Debug\net6.0-windows`. The stale
+  clone at `C:\Users\...\source\repos\mikeoverbay\nuTerra` is dead - never
+  touch it. When the owner "sees no changes", the answer is a stale OUTPUT:
+  rebuild every folder he might launch (x64 Release publishes included).
 - **Kill the running exe before building.** `Get-Process nuTerra | Stop-Process -Force`.
 - Build: `MSBuild.exe nuTerra.sln /t:Build /p:Configuration=Debug /p:Platform="Any CPU"`
-  from `C:\nuTerra`. Publishing needs `/p:Platform=x64`.
-- **Shaders only validate at runtime.** A clean build proves nothing about GLSL.
-  Launch and check stdout for `Shaders Built.` and `didn't compile`.
-- **Run with the working directory set to the bin folder**, not the repo root -
-  `ShaderLoader` resolves `shaders` relative to the CWD.
-- **Console output is buffered when redirected.** The **Snapshot** button on the
-  menu bar writes the current render state and flushes, which is the only way
-  the log is readable while the app runs. Per-pass GPU times live in the
-  **Stats** panel (GL_TIME_ELAPSED, read a frame late so asking does not stall
-  the pipeline being measured).
+  from `C:\nuTerra`. Publishing needs `/p:Platform=x64 /p:RuntimeIdentifier=win-x64`
+  plus `/restore` (the FolderProfile pubxml sits in "My Project" where the SDK
+  never finds it - pass properties explicitly).
+- `nuTerra.exe <space_name>` (e.g. `101_dday`) loads that map straight away.
+  Owner's rule: only agent launches use it; VS launches get the map picker.
+- **Shaders only validate at runtime.** Launch and check stdout for
+  `Shaders Built.` / `didn't compile`.
+- **Run with the working directory set to the bin folder** - `ShaderLoader`
+  resolves `shaders` relative to the CWD.
+- **Console output is buffered when redirected.** The **Snapshot** button
+  flushes; it now also prints the four model cull buckets
+  (`opaque/dbl/glass/fx`) and `glGetError` - the first stop for any "FX broke
+  something" report. Per-pass GPU times live in the **Stats** panel.
 
 Git specifics that cost real time here:
 
-- **A tracked file cannot be gitignored.** t1.png sat in `.gitignore`-adjacent
-  limbo showing as modified forever; the fix is `git rm --cached` AND the
-  ignore rule - either alone does nothing.
-- **Checkout silently overwrites ignored files.** Switching branches destroyed
-  the local t1.png without a warning, because ignored files get no overwrite
-  protection. Anything ignored-but-precious does not belong in the repo tree.
-- Scratch screenshots at the repo root (`/t[0-9].png`) are ignored; images
-  meant to ship go in `readme_images/`.
+- A tracked file cannot be gitignored; `git rm --cached` AND the rule.
+- Checkout silently overwrites ignored files.
+- Scratch screenshots `/t[0-9].png` are ignored; shipping images go in
+  `readme_images/`.
 
 ## Engine-wide traps
 
 | trap | detail |
 |---|---|
-| Clip control | `ZeroToOne` + `DepthClamp` + reversed-Z (`ClearDepth 0`, `Greater`). Any projection you build must be remapped; wrong ones flatten to 0.0 instead of disappearing. |
-| `gPosition` is VIEW space | Every writer names the varying `worldPosition`; every one stores `view * model * vertex`. Pass `invView * P` when you need world. (`t_mixer.vert` worldPosition IS world - no camera in that pass.) |
-| Shader includes | `#include "common.h" //! #include "../common.h"` - the `//!` half is an editor hint. Changing it breaks the loader. |
-| DX index flip | The index loader reverses every triangle for DX-to-GL. **Skinned formats (iiiww family) ship with the opposite winding** and get their order restored after the vertex format is known (`PrimitiveLoader`). Boats are skinned; that is why they were inside out. |
-| View-ray vs vertical | Any water/depth comparison measured along the view ray changes with the camera by construction. The water shore fade and boat mask measure the VERTICAL column for exactly this reason - the view-ray version made boats appear to sink as the camera moved. |
+| Clip control | `ZeroToOne` + `DepthClamp` + reversed-Z (`ClearDepth 0`, `Greater`). Any projection you build must be remapped. |
+| `gPosition` is VIEW space | Every writer names the varying `worldPosition`; every one stores `view * model * vertex`. (`t_mixer.vert` IS world.) |
+| Shader includes | `#include "common.h" //! #include "../common.h"` - the `//!` half is an editor hint. |
+| DX index flip | Universal triangle reversal; skinned formats (iiiww) get their winding restored after the format is known. |
+| View-ray vs vertical | Water/depth comparisons measure the VERTICAL column, never the view ray. |
+| **OnUpdateFrame spins at ~127,000 calls/s** | UpdateFrequency 0 + IsMultiThreaded. `DELTA_TIME` is the RENDER frame's dt and is wrong there by ~600x. Anything time-based in the update loop must run its own Stopwatch (see `rot_clock`). Three damping attempts felt "direct 1:1" before this was measured. |
+| **GL globals leak between passes** | `ClearColor`, `BlendFunc`, `DepthTest`, `CullFace` are process-global. The minimap left ClearColor navy for the whole app's life; the FX pass leaving DepthTest on wiped every frame to that navy (FXAA's fullscreen quad failed reversed-Z against cleared depth). Every pass must restore what the next stretch assumes: post-water runs depth-test OFF, blend func (SrcAlpha, 1-SrcAlpha). |
+| **New ImGui windows go in Window.vb's UI pass** | A window opened from modRender's HUD section never appears. Also always SetNextWindowPos/Size when a toggle turns on - a first-open window is an invisible sliver otherwise. |
+| **VRAM pressure eats write-once caches** | At ~5.6/8 GB the driver evicts; evicted texture content comes back UNDEFINED. The minimap's cached pre-render died this way (white square) - it re-renders per frame now. Never trust a rendered-once texture to survive. `TARGET_TEXEL 0.25` reclaims ~1.9 GiB from the shadow bake if headroom is needed. |
 
 ---
 
+## FX (new - Stage 0 of docs/FX_plan.md)
+
+**Volumetric GFX meshes render.** `shaders/custom/volumetric_effect[.|_vtx.|_layer_vtx.]fx`
+materials (smoke columns, flame sheets) route to `ShaderTypes.FX_volumetric = 11`:
+
+- **Cull bucket 4**: cull.comp routes `shader_type == 11` into `indirect_fx`
+  (SSBO binding 7, atomic counter at parameters offset 12,
+  `numAfterFrustum(3)`). The FX check comes FIRST - these materials are also
+  double-sided and would otherwise vanish into the opaque dbl bucket.
+- **Forward pass** `MapStaticModels.draw_fx`, called in modRender after water:
+  lit frame in gColor, scene depth live, premultiplied blend
+  (ONE, 1-SrcAlpha) so alpha and additive materials share one multidraw
+  (additive outputs `(rgb*a, 0)`). Restores DepthTest OFF and the
+  conventional BlendFunc on exit - both were hard-won (see traps).
+- **Shaders** `Model_shaders/volumetric.vert/.frag` are a TRANSCRIPTION of the
+  game's compiled `volumetric_effect_vtx` fxo. The `.fxo` is a ZIP; its
+  `effect` entry holds DXBC blobs findable by magic; `fxc /dumpbin` (Windows
+  Kits) disassembles them with full reflection - parameter names, offsets,
+  defaults. This is the proven path for any game shader question.
+- **Material params ride generic GLMaterial vec4 slots** - the mapping is
+  commented identically in MapLoader.load_materials and volumetric.vert; keep
+  in lockstep. diffuse=map1, distortion(velocity)=map2.
+- **The "colour" vertex stream is load-bearing**: RGBA8 per vertex
+  (PrimitiveLoader.load_primitives_colour -> vertsColour buffer, VAO attrib 6).
+  The alpha shapes the whole silhouette: `alpha = sat((texA + vertA*fade - 1) * gain)`.
+  Meshes WITHOUT the stream must read WHITE (buffer is white-initialised) -
+  a zero default makes them invisible by construction.
+- **Unauthored `alphaFadeAmountFresnel` defaults to gain 1** (1,1,1,0). The
+  compiled register default is gain 0 - that default is dead on arrival and
+  made `vista_smoke_01` (the base smoke) invisible while `_02` (authoring
+  gain 1) worked.
+- The UV warp trick, kept verbatim from the game: warp amount scales with
+  `|alphaOffset - vertexAlpha|`, so transparent edges billow harder than the
+  core. `FX_TIME` (seconds, wraps hourly) drives all scrolling.
+- Diagnostics: load logs every volumetric material (textures ok/MISSING -
+  missing demotes to unsupported rather than sampling an invalid bindless
+  handle), every unknown material property, and every unsupported-fx model
+  with its name. Snapshot prints bucket counts + glGetError.
+- NOT done: backdrop distortion (heat haze needs the composed frame), skinned
+  volumetrics, fog coupling (fog mask rides gColor.a and smoke now writes
+  alpha there - if fog misbehaves inside plumes, colour-mask the FX pass's
+  alpha writes).
+
+**Cracked FX data (see docs/FX_plan.md for the full chain):** BWPs section =
+288 ambient effect placements on Overlord, 80-byte records {4x4 matrix, BWST
+string key of `particles/environment/.../*.eff`, flags, 0.1f}; `.effbin` =
+forward/deferred `.vfxbin` path pair; `.vfxbin` = WG typed records (LOD blocks,
+emitters, curves) - schema not cracked. Overlord authors NO GFX_models
+placements; its per-map particles.xml registers 666 effect bins.
+
+## Camera
+
+Mouse feel is the three.js OrbitControls damping model, transcribed: input
+accumulates into a pending delta per axis; each frame the camera takes
+`dampingFactor` of the pool and the rest decays. One mechanism = smoothed drag
+AND release coast. Rotate, zoom (log-domain exponent pool - sign can never
+flip), and pan (world-space pool, so a coast holds its heading) all ride it.
+dt comes from `rot_clock`, NOT DELTA_TIME (see the 127 kHz trap). The knob is
+`mouse_damp` - per-map settings key, default 0.1, live slider under
+Settings -> Camera. 1.0 = the old direct response. The old per-event handler
+(dead zones, sin shaping, misbound single-line If/Else) is gone.
+
 ## Shadows
 
-**The map-wide bake is the only caster.** Terrain, static models, and trees
-(alpha-tested, so leaf-shaped) all render into one depth bake at map load,
-sampled per frame in `deferred.frag` on the sun term only - never albedo,
-never ambient. Ortho box fitted to the terrain footprint (derived from the
-same expressions PageLoader uses - the axes are asymmetric, do not hand-derive)
-and squared up; near/far bracket the geometry.
-
-- `Bake()` must run AFTER `set_light_pos()`. It once ran before: LIGHT_POS was
-  zero, the matrix went NaN, and the log printed `expected~NaN` for a whole
-  session while the camera maths was rewritten around it. Read the instrument.
-- Live cascades are **off** (`USE_SHADOW_MAPPING = 0`) with controls removed.
-  The pass, FBO and shaders remain; restore the two controls and the flag when
-  tree animation lands. Splits were 20/75/250 when last live and must match
-  `cascadePlaneDistances` in common.h.
-- Moment Shadow Maps behind an A/B toggle (Settings -> Shadow Mapping), with
-  penumbra clip lo/hi applied to BOTH paths so the comparison is fair.
-- Bake size is gated by `TARGET_TEXEL`, not `MAX_SIZE`. Currently 0.05 ->
-  pinned at 32768^2 16-bit = 2 GiB. Measured: 8192 vs 16384 showed no visible
-  difference - the sharpness came from moving sampling out of the VT page.
-  `TARGET_TEXEL = 0.25` reclaims ~1.9 GiB and likely looks identical.
+Unchanged from the previous handoff and still true: the map-wide bake is the
+only caster (terrain + static models + alpha-tested trees), sampled in
+deferred.frag on the sun term only. Bake() after set_light_pos(). Live
+cascades off but intact. MSM behind the A/B toggle. Bake size gated by
+`TARGET_TEXEL` (0.05 -> pinned 32768^2 = 2 GiB; 0.25 reclaims ~1.9 GiB and
+likely looks identical - now also relevant as VRAM headroom, see traps).
 
 ## Terrain
 
-**Layer mixing** (`t_mixer.frag`), matching the game's behaviour:
+Layer mixing, tessellation (60 m envelope, AABB distance), wetness/SSR: all as
+before - height blend threshold 0.05 weighted by splat twice, dominant layer
+supplies the whole surface response, AG normal maps mixed on all four
+channels, layer projection from true world position. Sun needs sun, geometry
+does not.
 
-- Height blend is a threshold, not a crossfade: contenders within **0.05** of
-  the tallest survive, weighted by splat TWICE. The map-authored BWT2
-  blendHeight (~0.3) is NOT the mix threshold - feeding it in was the
-  washed-out terrain.
-- The dominant layer supplies the whole surface response - normal, specular,
-  AO. Normals are argmax, never averaged (averaging flattens exactly at
-  transitions).
-- Normal maps are AG format; the macro blend must mix ALL FOUR channels or X
-  and Y of the normal come from different textures at distance.
-- Layer projection: `uv = (dot(U.xyz, wp_game), -dot(V.xyz, wp_game)) + 0.5`,
-  true world position, height included, W ignored. The synthetic chunk-local
-  point it replaced displaced the textures three ways at once - no axis flip
-  could fix it because nothing was mirrored.
+**Terrain holes - data cracked, implementation REVERTED (owner's call).**
+`terrain2/holes` per chunk: `"zip\0" u32 u32-size` zlib -> `"hol\0" 64x64
+ver=1` -> 64x64 1-bit mask. What the build-and-revert taught:
 
-**Tessellation** is on by default and persists (`My.Settings.use_tessellation`).
-Envelope matches the game: HQ within **60 m** (was 300 - all of it subpixel),
-displacement clamped to 1 m and faded to zero by 60 so the HQ/LQ handover
-cannot pop. Per-layer displacement remap `min(h^r1.z,1)*r1.x + r1.y` in the
-page bake, guarded for unauthored layers. HQ/LQ selection measures distance to
-the chunk **AABB** - the old origin-corner distance was wrong by up to ~141 m
-and made the HQ set depend on camera position and heading.
+- `get_holes`' `63 - ((x1*8)+q)` X-mirror is WRONG. Proven offline: decode all
+  chunks in Python straight from the pkg, composite on the gui minimap - only
+  bit-index-ascending = +X, row-ascending = +Z lands features on authored
+  lines (wrong orientations paint the out-of-map border). Drop the `63 -`.
+- The owner states the authored holes are NOT the trench cutouts he needs on
+  Overlord; what punches terrain under trench models is still an open
+  question (their visuals carry no cut flag - only a shaderless `s_ramp_0`
+  collision group).
+- The reverted implementation shape, if wanted again: map-wide R8 stamped at
+  `g_uv_offset` origins, white=render, nearest; discard only in a
+  TERRAIN_HOLES compile variant of LQ/HQ (a discard statically kills early-Z,
+  so only chunks with holes pay); never in the shadow bake; never geometry.
 
-**Wetness**: global AM alpha minus `0.4 x` blended layer height, gated by
-flatness, written to `gGMF.a` ("Wetness in a" was always its documented job).
-Wet ground tightens specular (POWER 6 -> 96 by mask) and the sun-derived sum
-rolls off through `1-exp(-x)` - the hard clamp was the flat white saturation
-on wet ground and track decals. SSR marches the lit frame for wet reflections;
-cubemap fallback. Sun terms are gated by the baked shadow; geometry
-reflections deliberately are not. That is the rule: **sun needs sun,
-geometry does not.**
+**VT (virtual texture) - found and REVERTED with the same sweep, must-know:**
+the port is Brad Blanchard's demo (bgfx examples/40-svt is the same code -
+diff against it, not memory). Its stability rests on AddRequestAndParents +
+coarse-first sort. A prebake/pin/burst speed-up broke that and was reverted.
+One REAL divergence was found: the feedback pass subtracts MipBias when
+requesting but the terrain shaders did NOT subtract it when sampling - the
+fix (subtract the same bias in TerrainLQ/HQ.frag) was verified working and
+then swept out in the revert. Whoever touches VT next should re-apply that
+one first. Settle pace = "Uploads per frame" (ctor-bound; Rebuild VT).
 
-**Terrain holes - data cracked, NOT implemented.** `terrain2/holes` in the
-per-chunk `.cdata_processed` zips TerrainBuilder already opens:
-`"zip\0" u32 u32-size` wrapping zlib; inflates to `"hol\0" w=64 h=64 ver=1`
-then a 64x64 1-bit mask (8 bytes/row) per 100 m chunk. Himmelsdorf authors it
-in 120 of 121 chunks. Plan: per-map R8 mask texture addressed by Global_UV,
-discard in TerrainLQ/HQ and in the sun bake terrain pass.
+**Still uncracked**: `terrain2/horizonshadows`.
 
-**Still uncracked**: `terrain2/horizonshadows` (build_horizon_texture returns
-Nothing; notes on the failed layout are in TerrainTextureFunctions).
+## Water / Models / Trees / Per-map settings
 
-## Water
+All as the previous handoff: BWWa fully parsed (sun tint at +0xE0 is not a
+reflection tint; `cBWWa` must not be freed in cleanup), corner-quad bodies,
+vertical shore fade and boat mask; skinned winding restored; SHADOW_MAP_LOD
+junk-LOD gap still open; trees bucket by authored LOD profile with
+mip-compensated alpha test; per-map settings fall back to startup defaults
+(`mouse_damp` rides this now; a missing key means the startup default, which
+is why adding a setting is one Yield in modMapSettings.Fields).
 
-Parsed fully from **BWWa**: per-body 340-byte blocks + four shared streams
-(cell boxes / mesh verts / indices / unidentified bytes) addressed by
-**prefix-sum (start,end) pairs at +0x134**. Confirmed offsets: bbox corners at
-+0x00 (min/max, equal Y = the surface), sun glint power/scale at +0xB0, deep
-colour at +0xC0, fresnel bias/exponent at +0xD0, **sun tint at +0xE0** - it is
-NOT a reflection tint; Mines authors it orange and multiplying the sky by it
-turned the lake orange. Monastery authors white, which is how it hid.
-
-- **`cBWWa` must not be freed in `ReadSpaceBinData` cleanup.** It was - the
-  parse succeeded and the data was nulled in the same function, which was the
-  entire mystery of water never appearing. The null is commented out with the
-  others (BWST/BWT2/WGSD).
-- Geometry: corner quads per body. The tessellated mesh (with shoreline
-  holes) is parsed and waiting in the streams if rectangles ever fall short.
-- Shading: authored fresnel curve, 8-frame ripple loop (two frames blended),
-  SSR geometry reflections with sky fallback, sun glint gated by the baked
-  shadow, vertical-column shore fade, per-map height trim (`water_y_offset`).
-- Boat mask: water discards over **up-facing** model surfaces within
-  `water_exclude_band` metres VERTICALLY below the plane. Both qualifiers are
-  load-bearing: without up-facing, submerged hull sides mask a stripe of
-  water; without vertical depth, the waterline moves with the camera.
-- Not done: flow-map advection (flow_map.dds direction/amplitude pair),
-  foam, per-body 128^2 R32F shore depth maps, the water reflection probes.
-
-## Models
-
-- Skinned (iiiww) winding restored after the universal DX flip - see traps.
-- Yacht LODs measured: all four skinned, identical Y ranges. LOD swaps do NOT
-  move geometry; if something near a boat moves with the camera, suspect a
-  view-dependent water metric first.
-- **Open**: `SHADOW_MAP_LOD = min(1, MAX_LOD_ID)` picks LOD 1 but the loop
-  skips `lod.junk` - a model whose LOD 1 is junk emits no bake command at all.
-  A specific model missing its shadow is probably this.
-- **Open**: trees visible through a building (depth/G-buffer, pre-dates
-  everything above).
-
-## Trees
-
-- Every SRT LOD is packed at load; instances bucket by distance against the
-  asset's own authored LOD profile (header 0x30), no invented thresholds. No
-  far cull - a tree past the last LOD keeps drawing its cheapest geometry.
-- The foliage alpha test lowers its cutoff with the mip level: alpha mips
-  average toward the mostly-empty atlas mean, so a fixed 0.5 erased whole
-  trees at distance. The card was never the problem; the discard was.
-- Tree instance matrices carry the -1 x display mirror, which inverts
-  gl_FrontFacing; the vertex stage pre-negates the normal by determinant so
-  the two-sided flip in the fragment stage stays correct.
-
-## Per-map settings
-
-A missing key falls back to the startup default (`CaptureDefaults` once at
-launch, `ResetToDefaults` at the top of `load_map`, BEFORE map data so
-authored values still win and the saved file still overrides both). Adding a
-setting no longer requires touching the 65 files. Water knobs
-(`water_y_offset`, `water_exclude_band`) ride this system.
+Open from before: trees visible through a building (depth/G-buffer).
 
 ## One piece of advice
 
-Unchanged through three revisions of this file, and it earned its keep again:
-every real bug here was found by measuring, and every one survived a round of
-confident reasoning first. The boats "sank" through two plausible fixes until
-the metric itself was questioned; the water was invisible for a day because a
-cleanup freed the parse in the same function; the ordering bug printed
-`expected~NaN` all session. When something looks wrong, instrument it - and
-read what the instrument already said.
+Four revisions of this file and it is still the only rule that matters: every
+real bug here fell to an instrument, never to an argument. This session alone:
+three "broken" damping attempts were one measurement away from the 127 kHz
+loop; the "FX crash" was a counter line and a glGetError away from being a
+depth-test leak plus an evicted cache; the invisible smoke was one material
+dump away from a dead register default; and the fog was not a bug at all but
+a knob a deleted settings file had reset. When something looks wrong,
+instrument it - and read what the instrument already said.

@@ -55,6 +55,7 @@
 #define LODS_BASE 4
 #define INDIRECT_GLASS_BASE 5
 #define INDIRECT_DBL_SIDED_BASE 6
+#define INDIRECT_FX_BASE 7
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
 #define TERRAIN_CHUNK_INFO_BASE 10
@@ -119,6 +120,10 @@ struct MaterialProperties
     bool alphaTestEnable;
     bool g_enableAO;
     bool double_sided;
+    // Cutout alpha lives in the diffuse's alpha channel (glow/lightonly
+    // cards) instead of the PBS convention of the normal map's red channel.
+    // Occupies what was the struct's tail padding - size stays 288.
+    bool alphaFromDiffuse;
 };
 
 #ifdef USE_TERRAIN_LAYERS_UBO
@@ -231,6 +236,13 @@ layout(binding = INDIRECT_BASE, std430) buffer Indirect
 layout(binding = INDIRECT_GLASS_BASE, std430) writeonly buffer IndirectGlass
 {
     DrawElementsIndirectCommand command_glass[];
+};
+#endif
+
+#ifdef USE_INDIRECT_FX_SSBO
+layout(binding = INDIRECT_FX_BASE, std430) writeonly buffer IndirectFX
+{
+    DrawElementsIndirectCommand command_fx[];
 };
 #endif
 

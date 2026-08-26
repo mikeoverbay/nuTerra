@@ -14,6 +14,13 @@ Module modGlobalVars
     Public SHOW_SUN_SHADOW_VIEWER As Boolean = False
     Public SHOW_STATS_WINDOW As Boolean = False
 
+    ' Mouse damping (Settings -> Camera), the three.js OrbitControls model:
+    ' each frame the camera takes this fraction of the pending mouse delta
+    ' (rotate, zoom and pan all ride it) and the rest carries over. Rides the
+    ' per-map settings as "mouse_damp". OrbitControls ships 0.05; 1.0 is the
+    ' old direct 1:1 response.
+    Public ROT_DAMPING As Single = 0.1F
+
     '''<summary>
     ''' Metres added to every water surface at draw time. The data has no such
     ''' field - Fishing Bay authors exact heights and its mesh matches them to
@@ -115,6 +122,10 @@ Module modGlobalVars
     Public TIME_OF_DAY As Single
     Public SUN_SCALE As Single
     Public RIPPLE_FRAME_NUMBER As Integer
+    ''' <summary>Seconds since launch, for FX UV animation. Wrapped at an hour
+    ''' so Single precision never gets grainy; every consumer uses it inside
+    ''' fract()-like scrolling where the wrap is invisible.</summary>
+    Public FX_TIME As Single
     Public RIPPLE_MASK_TIME As Single
     Public MAX_MAP_HEIGHT As Single
     Public MIN_MAP_HEIGHT As Single

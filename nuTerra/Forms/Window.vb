@@ -42,6 +42,47 @@ Public Class Window
     ''' edge of a since-resized window, i.e. gone.</summary>
     Private reset_stats_pos As Boolean = True
 
+    ' Mouse camera state. OnMouseMove accumulates raw pixel travel here;
+    ' camera_mouse_update consumes it once per frame.
+    Private mouse_dx As Single
+    Private mouse_dy As Single
+
+    ' Rotation damping, transcribed from three.js OrbitControls (MIT,
+    ' mrdoob/three.js, examples/jsm/controls/OrbitControls.js). The whole
+    ' mechanism is one pending-delta accumulator per axis: mouse input adds
+    ' into it, and every frame the camera takes dampingFactor of what is
+    ' pending while the remainder decays -
+    '
+    '     spherical.theta += sphericalDelta.theta * dampingFactor;
+    '     ...
+    '     sphericalDelta.theta *= ( 1 - dampingFactor );
+    '
+    ' Smoothed drag and release-coast are the same three lines: while
+    ' dragging the pending pool fills faster than it drains, and whatever is
+    ' still pending at release plays out as momentum.
+    Private rot_delta_x As Single
+    Private rot_delta_y As Single
+
+    ' Zoom rides the same mechanism, in the log domain: the old step was
+    ' radius *= (1 + 2.4 * dy), so the pending pool holds the exponent and
+    ' each frame applies exp(pending * f). Sign can never flip and the
+    ' compounding stays exact however the frames slice it.
+    Private zoom_delta As Single
+
+    ' Pan (middle / Ctrl+left drag) pends in WORLD metres, converted from
+    ' screen axes at input time - OrbitControls does the same with its
+    ' panOffset - so a coasting pan holds its direction even if the camera
+    ' turns during the glide.
+    Private pan_delta_x As Single
+    Private pan_delta_z As Single
+
+    ' camera_mouse_update's own clock. It runs in OnUpdateFrame, which spins
+    ' unthrottled - measured 127,000 calls per second - so DELTA_TIME (the
+    ' RENDER frame's ~5 ms) is the wrong dt by a factor of ~600 and made
+    ' every damping attempt feel direct. Real elapsed time per call keeps the
+    ' math right at any cadence.
+    Private rot_clock As New Stopwatch
+
     Private Shared Function GetGLSettings() As NativeWindowSettings
         Dim setting As New NativeWindowSettings With {
             .Size = New Vector2i(SCR_WIDTH, SCR_HEIGHT),
@@ -313,6 +354,8 @@ try_again:
         MyBase.OnRenderFrame(args)
 
         DELTA_TIME = args.Time
+        FX_TIME += DELTA_TIME
+        If FX_TIME > 3600.0F Then FX_TIME -= 3600.0F
 
         If fps_timer.ElapsedMilliseconds > 1000 Then
             fps_timer.Restart()
@@ -587,6 +630,24 @@ try_again:
     End Sub
 
     Private Sub write_log_snapshot()
+        ' Tee the block into %TEMP%\nuTerra\snapshot.txt (latest snapshot
+        ' wins) so it can be read from outside the console window.
+        LOG_TEE = New System.Text.StringBuilder
+        Try
+            write_log_snapshot_body()
+        Finally
+            Try
+                Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra")
+                IO.Directory.CreateDirectory(dir)
+                IO.File.WriteAllText(IO.Path.Combine(dir, "snapshot.txt"), LOG_TEE.ToString())
+            Catch
+                ' a locked or unwritable temp file must never break Snapshot
+            End Try
+            LOG_TEE = Nothing
+        End Try
+    End Sub
+
+    Private Sub write_log_snapshot_body()
         LogThis("================ SNAPSHOT {0} ================", Date.Now.ToString("HH:mm:ss"))
 
         If Not MAP_LOADED OrElse map_scene Is Nothing Then
@@ -612,6 +673,24 @@ try_again:
         map_scene.sun_shadow.LogSnapshot()
 
         LogThis("  water: loaded={0} draw={1}", map_scene.WATER_LOADED, DONT_BLOCK_WATER)
+
+        ' FX diagnostics: the four cull buckets (fx is the volumetric pass's
+        ' draw count this frame), and whether anything upset GL since the last
+        ' time someone asked.
+        With map_scene.static_models
+            LogThis("  model buckets: opaque={0} dbl={1} glass={2} fx={3}  (of {4} candidates)",
+                    .numAfterFrustum(0), .numAfterFrustum(1), .numAfterFrustum(2), .numAfterFrustum(3),
+                    .indirectDrawCount)
+            ' Churn in the FX draw order since the last snapshot. A handful is
+            ' normal (culling changes the list); a large number while the
+            ' camera moves means sort-order swaps, which flicker overlaps.
+            LogThis("  fx sort: order changes since last snapshot={0}", .fx_sort_order_changes)
+            .fx_sort_order_changes = 0
+            ' Name every FX model in the bucket - the picker cannot.
+            .LogFxBucket()
+        End With
+        Dim gl_err = GL.GetError()
+        LogThis("  glGetError: {0}", gl_err)
 
         Console.Out.Flush()
     End Sub
@@ -735,6 +814,10 @@ try_again:
     Protected Overrides Sub OnUpdateFrame(args As FrameEventArgs)
         MyBase.OnUpdateFrame(args)
 
+        ' All mouse camera response, once per frame - before the ImGui-capture
+        ' early-out so a flung rotation keeps coasting across the UI.
+        camera_mouse_update()
+
         Dim io = ImGui.GetIO()
         If _controller IsNot Nothing AndAlso (io.WantCaptureKeyboard OrElse io.WantCaptureMouse) Then
             Return
@@ -787,101 +870,121 @@ try_again:
         M_MOUSE.X = e.X
         M_MOUSE.Y = e.Y
 
-        Dim dead As Integer = 5
-        Dim t As Single
-        Dim M_Speed As Single = My.Settings.speed
-        If map_scene IsNot Nothing Then
-            Dim ms As Single = 0.2F * map_scene.camera.VIEW_RADIUS ' distance away changes speed.. THIS WORKS WELL!
-            If M_DOWN Then
-                If e.X > (mouse_last_pos.X + dead) Then
-                    If e.X - mouse_last_pos.X > 100 Then t = (1.0F * M_Speed)
-                Else : t = CSng(Math.Sin((e.X - mouse_last_pos.X) / 100)) * M_Speed
-                    If Not Z_MOVE Then
-                        If MOVE_MOD Then ' check for modifying flag
-                            map_scene.camera.LOOK_AT_X -= ((t * ms) * (Math.Cos(map_scene.camera.CAM_X_ANGLE)))
-                            map_scene.camera.LOOK_AT_Z -= ((t * ms) * (-Math.Sin(map_scene.camera.CAM_X_ANGLE)))
-                        Else
-                            map_scene.camera.CAM_X_ANGLE -= t
-                        End If
-                        If map_scene.camera.CAM_X_ANGLE > (2 * PI) Then map_scene.camera.CAM_X_ANGLE -= (2 * PI)
-                    End If
-                End If
-                If e.X < (mouse_last_pos.X - dead) Then
-                    If mouse_last_pos.X - e.X > 100 Then t = (M_Speed)
-                Else : t = CSng(Math.Sin((mouse_last_pos.X - e.X) / 100)) * M_Speed
-                    If Not Z_MOVE Then
-                        If MOVE_MOD Then ' check for modifying flag
-                            map_scene.camera.LOOK_AT_X += ((t * ms) * (Math.Cos(map_scene.camera.CAM_X_ANGLE)))
-                            map_scene.camera.LOOK_AT_Z += ((t * ms) * (-Math.Sin(map_scene.camera.CAM_X_ANGLE)))
-                        Else
-                            map_scene.camera.CAM_X_ANGLE += t
-                        End If
-                        If map_scene.camera.CAM_X_ANGLE < 0 Then map_scene.camera.CAM_X_ANGLE += (2 * PI)
-                    End If
-                End If
-                ' ------- Y moves ----------------------------------
-                If e.Y > (mouse_last_pos.Y + dead) Then
-                    If e.Y - mouse_last_pos.Y > 100 Then t = (M_Speed)
-                Else : t = CSng(Math.Sin((e.Y - mouse_last_pos.Y) / 100)) * M_Speed
-                    If Z_MOVE Then
-                        map_scene.camera.LOOK_AT_Y -= (t * ms)
-                    Else
-                        If MOVE_MOD Then ' check for modifying flag
-                            map_scene.camera.LOOK_AT_Z -= ((t * ms) * (Math.Cos(map_scene.camera.CAM_X_ANGLE)))
-                            map_scene.camera.LOOK_AT_X -= ((t * ms) * (Math.Sin(map_scene.camera.CAM_X_ANGLE)))
-                        Else
-                            If map_scene.camera.CAM_Y_ANGLE - t < -PI / 2.0 Then
-                                map_scene.camera.CAM_Y_ANGLE = -PI / 2.0 + 0.001
-                            Else
-                                map_scene.camera.CAM_Y_ANGLE -= t
-                            End If
-                        End If
-                        'If CAM_Y_ANGLE < -PI / 2.0 Then CAM_Y_ANGLE = -PI / 2.0 + 0.001
-                    End If
-                End If
-                If e.Y < (mouse_last_pos.Y - dead) Then
-                    If mouse_last_pos.Y - e.Y > 100 Then t = (M_Speed)
-                Else : t = CSng(Math.Sin((mouse_last_pos.Y - e.Y) / 100)) * M_Speed
-                    If Z_MOVE Then
-                        map_scene.camera.LOOK_AT_Y += (t * ms)
-                    Else
-                        If MOVE_MOD Then ' check for modifying flag
-                            map_scene.camera.LOOK_AT_Z += ((t * ms) * (Math.Cos(map_scene.camera.CAM_X_ANGLE)))
-                            map_scene.camera.LOOK_AT_X += ((t * ms) * (Math.Sin(map_scene.camera.CAM_X_ANGLE)))
-                        Else
-                            If map_scene.camera.CAM_Y_ANGLE + t > 1.3 Then
-                                map_scene.camera.CAM_Y_ANGLE = 1.3
-                            Else
-                                map_scene.camera.CAM_Y_ANGLE += t
-                            End If
+        ' The camera no longer responds here. The old per-event handler mixed
+        ' a 5 px dead zone, sin() shaping and a once-per-frame last-position
+        ' hack into visible stepping - and its single-line If/Else bindings
+        ' meant half the branches applied from the other side's Else. All the
+        ' response now lives in camera_mouse_update, once per frame; this only
+        ' accumulates the frame's mouse travel.
+        mouse_dx += e.DeltaX
+        mouse_dy += e.DeltaY
+    End Sub
 
-                        End If
-                        'If CAM_Y_ANGLE > 1.3 Then CAM_Y_ANGLE = 1.3
-                    End If
-                End If
-                Return
+    ''' <summary>
+    ''' Per-frame mouse camera control, fed by the deltas OnMouseMove
+    ''' accumulates. Runs every update, before the ImGui capture early-out,
+    ''' so a flung rotation keeps coasting while the cursor crosses the UI.
+    '''
+    '''   rotate (left drag)      - velocity chases the mouse rate (ROT_ACCEL)
+    '''                             and coasts to a stop on release (ROT_COAST)
+    '''   pan (middle/Ctrl drag)  - direct, as before
+    '''   height (Shift drag)     - direct
+    '''   zoom (right drag)       - direct, radius-scaled
+    '''
+    ''' The velocity is radians per SECOND and every response is dt-corrected:
+    ''' this app runs uncapped, and per-frame impulses at 200+ fps are so
+    ''' small that the first accel/coast attempt was imperceptible.
+    ''' </summary>
+    Private Sub camera_mouse_update()
+        If map_scene Is Nothing Then
+            mouse_dx = 0
+            mouse_dy = 0
+            Return
+        End If
+
+        ' NOT DELTA_TIME: that is the render frame's time, and this runs in
+        ' the unthrottled update loop - see rot_clock.
+        Dim dt As Single = 0.016F
+        If rot_clock.IsRunning Then
+            dt = Math.Clamp(CSng(rot_clock.Elapsed.TotalSeconds), 0.000001F, 0.1F)
+        End If
+        rot_clock.Restart()
+        ' 100 px of travel ~ "speed" radians - the same scale the old
+        ' handler's sin(d/100) gave for ordinary moves.
+        Dim dx = mouse_dx / 100.0F * My.Settings.speed
+        Dim dy = mouse_dy / 100.0F * My.Settings.speed
+        mouse_dx = 0
+        mouse_dy = 0
+
+        Dim ms As Single = 0.2F * map_scene.camera.VIEW_RADIUS ' distance away changes speed.. THIS WORKS WELL!
+        Dim PITCH_MIN As Single = CSng(-PI / 2.0F + 0.001F)
+        Dim PITCH_MAX As Single = 1.3F
+
+        If M_DOWN Then
+            If Z_MOVE Then
+                map_scene.camera.LOOK_AT_Y -= dy * ms
+            ElseIf MOVE_MOD Then
+                ' Pan input joins the pool, already rotated into world axes.
+                Dim ca = CSng(Math.Cos(map_scene.camera.CAM_X_ANGLE))
+                Dim sa = CSng(Math.Sin(map_scene.camera.CAM_X_ANGLE))
+                pan_delta_x -= (dx * ms) * ca + (dy * ms) * sa
+                pan_delta_z -= (dx * ms) * -sa + (dy * ms) * ca
+            Else
+                ' rotateLeft / rotateUp: input only ever adds to the pending
+                ' delta. (OrbitControls scales by 2pi/clientHeight; dx and dy
+                ' already carry this app's traditional px/100 * speed scale.)
+                rot_delta_x -= dx
+                rot_delta_y -= dy
             End If
-            If MOVE_CAM_Z Then
-                Dim vrad = map_scene.camera.VIEW_RADIUS
-                If e.Y < (mouse_last_pos.Y - dead) Then
-                    If e.Y - mouse_last_pos.Y > 100 Then t = (10)
-                Else : t = CSng(Math.Sin((e.Y - mouse_last_pos.Y) / 100)) * 12 * My.Settings.speed
-                    If vrad + (t * (vrad * 0.2)) < map_scene.camera.MAX_ZOOM_OUT Then
-                        vrad = map_scene.camera.MAX_ZOOM_OUT
-                    Else
-                        vrad += (t * (vrad * 0.2))
-                    End If
+        ElseIf MOVE_CAM_Z Then
+            ' Right drag: zoom input joins the pending pool (log-scale, same
+            ' 12 * 0.2 sensitivity the direct handler used). Applied below.
+            zoom_delta += dy * 12.0F * 0.2F
+        End If
+
+        ' The OrbitControls update(), verbatim apart from one deviation: the
+        ' factor is dt-corrected (theirs is per-render-frame; this app runs
+        ' uncapped, and a fixed per-frame factor at 200+ fps drains the pool
+        ' before it can be felt - the same mistake that killed the first two
+        ' attempts at this feature).
+        Dim f = 1.0F - CSng(Math.Pow(1.0F - Math.Min(ROT_DAMPING, 0.999F), dt * 60.0F))
+        With map_scene.camera
+            .CAM_X_ANGLE += rot_delta_x * f
+            .CAM_Y_ANGLE = Math.Clamp(.CAM_Y_ANGLE + rot_delta_y * f, PITCH_MIN, PITCH_MAX)
+
+            If .CAM_X_ANGLE > (2 * PI) Then .CAM_X_ANGLE -= (2 * PI)
+            If .CAM_X_ANGLE < 0 Then .CAM_X_ANGLE += (2 * PI)
+        End With
+        rot_delta_x *= (1.0F - f)
+        rot_delta_y *= (1.0F - f)
+
+        ' Zoom: same apply-and-decay. VIEW_RADIUS is negative and the exp
+        ' factor is positive, so the sign never flips; the clamps are the old
+        ' handler's, and hitting one kills the pending so it cannot grind.
+        If zoom_delta <> 0 Then
+            With map_scene.camera
+                Dim vrad = .VIEW_RADIUS * CSng(Math.Exp(zoom_delta * f))
+                If vrad < .MAX_ZOOM_OUT Then
+                    vrad = .MAX_ZOOM_OUT
+                    zoom_delta = 0
+                ElseIf vrad > -0.1F Then
+                    vrad = -0.1F
+                    zoom_delta = 0
                 End If
-                If e.Y > (mouse_last_pos.Y + dead) Then
-                    If mouse_last_pos.Y - e.Y > 100 Then t = (10)
-                Else : t = CSng(Math.Sin((mouse_last_pos.Y - e.Y) / 100)) * 12 * My.Settings.speed
-                    vrad -= (t * (vrad * 0.2))    ' zoom is factored in to Cam radius
-                    If vrad > -0.01 Then vrad = -0.01
-                End If
-                If vrad > -0.1 Then vrad = -0.1
-                map_scene.camera.VIEW_RADIUS = vrad
-                Return
-            End If
+                .VIEW_RADIUS = vrad
+            End With
+            zoom_delta *= (1.0F - f)
+            If Math.Abs(zoom_delta) < 0.00001F Then zoom_delta = 0
+        End If
+
+        ' Pan: same apply-and-decay, in world metres.
+        If pan_delta_x <> 0 OrElse pan_delta_z <> 0 Then
+            map_scene.camera.LOOK_AT_X += pan_delta_x * f
+            map_scene.camera.LOOK_AT_Z += pan_delta_z * f
+            pan_delta_x *= (1.0F - f)
+            pan_delta_z *= (1.0F - f)
+            If Math.Abs(pan_delta_x) < 0.0001F Then pan_delta_x = 0
+            If Math.Abs(pan_delta_z) < 0.0001F Then pan_delta_z = 0
         End If
     End Sub
 
@@ -979,6 +1082,9 @@ try_again:
                 End If
                 If ImGui.CollapsingHeader("Camera") Then
                     ImGui.SliderFloat("Speed", My.Settings.speed, 0.001, 1.0)
+                    ' The OrbitControls dampingFactor. Low = heavy, glidey.
+                    ' 1.0 = the old direct 1:1 rotation.
+                    ImGui.SliderFloat("Rotation damping", ROT_DAMPING, 0.01, 1.0)
                 End If
                 If ImGui.CollapsingHeader("Map") Then
                     ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)

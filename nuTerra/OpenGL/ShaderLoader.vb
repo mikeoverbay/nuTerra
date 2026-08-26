@@ -224,6 +224,7 @@ Module ShaderLoader
     Public TerrainNormalsHQ As Shader
     Public TerrainHQShader As Shader
     Public TerrainLQShader As Shader
+    Public volumetricShader As Shader
     Public TerrainVTMIPShader As Shader
     Public treeShader As Shader
     Public treeDepthShader As Shader
@@ -307,6 +308,7 @@ Module ShaderLoader
 
         TerrainLQShader = New Shader("TerrainLQ")
         TerrainHQShader = New Shader("TerrainHQ") ' High Quality + Tessellation
+        volumetricShader = New Shader("volumetric") ' GFX smoke/flame meshes
 
         TerrainVTMIPShader = New Shader("TerrainVTMIP")
         treeShader = New Shader("tree")

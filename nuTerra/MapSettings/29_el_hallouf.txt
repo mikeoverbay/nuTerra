@@ -21,3 +21,4 @@ draw_water=1
 shadow_mapping=1
 baked_shadow=1
 horizon_strength=0.7
+mouse_damp=0.1

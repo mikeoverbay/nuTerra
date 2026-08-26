@@ -13,6 +13,7 @@
 #define USE_INDIRECT_SSBO
 #define USE_INDIRECT_GLASS_SSBO
 #define USE_INDIRECT_DOUBLE_SIDED_SSBO
+#define USE_INDIRECT_FX_SSBO
 #include "common.h" //! #include "../common.h"
 
 layout (local_size_variable) in;
@@ -22,6 +23,7 @@ layout (location = 0) uniform int numModelInstances;
 layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounter;
 layout (binding = PARAMETERS_BASE, offset = 4) uniform atomic_uint commandDoubleSidedCounter;
 layout (binding = PARAMETERS_BASE, offset = 8) uniform atomic_uint commandGlassCounter;
+layout (binding = PARAMETERS_BASE, offset = 12) uniform atomic_uint commandFXCounter;
 
 struct Frustum {
     vec4 planes[6];
@@ -84,7 +86,19 @@ void main(void)
         for (int i = 0; i < lod.draw_count; ++i) {
             const CandidateDraw thisDraw = draw[lod.draw_offset + i];
 
-            if (material[thisDraw.material_id].double_sided) {
+            // Volumetric FX first: these materials are also double-sided, so
+            // testing the flag first would swallow them into the opaque
+            // double-sided bucket and they would never reach the forward pass.
+            // Slot order here is atomic-nondeterministic; draw_fx depth-sorts
+            // this bucket on the CPU before drawing, so it does not matter.
+            if (material[thisDraw.material_id].shader_type == 11) {
+                uint outDrawIndex = atomicCounterIncrement(commandFXCounter);
+                command_fx[outDrawIndex].count = thisDraw.count;
+                command_fx[outDrawIndex].instanceCount = 1;
+                command_fx[outDrawIndex].firstIndex = thisDraw.firstIndex;
+                command_fx[outDrawIndex].baseVertex = thisDraw.baseVertex;
+                command_fx[outDrawIndex].baseInstance = thisDraw.baseInstance;
+            } else if (material[thisDraw.material_id].double_sided) {
                 uint outDrawIndex = atomicCounterIncrement(commandDoubleSidedCounter);
                 command_double_sided[outDrawIndex].count = thisDraw.count;
                 command_double_sided[outDrawIndex].instanceCount = 1;

@@ -5,11 +5,17 @@ Imports OpenTK.Graphics.OpenGL4
 Module modUtilities
     Public CUBE_VAO As GLVertexArray
 
+    ' When non-null, every LogThis line is also appended here. Snapshot uses
+    ' it to tee its block into %TEMP%\nuTerra\snapshot.txt - the console is a
+    ' window an agent cannot read.
+    Public LOG_TEE As System.Text.StringBuilder
+
     Public Sub LogThis(entry As String, ParamArray args() As Object)
 #If DEBUG Then
         Debug.Print(entry, args)
 #End If
         Console.WriteLine(entry, args)
+        LOG_TEE?.AppendFormat(entry, args).AppendLine()
     End Sub
 
     Public Sub make_cube()

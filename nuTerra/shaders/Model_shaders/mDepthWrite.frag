@@ -17,7 +17,11 @@ void main(void)
     const MaterialProperties thisMaterial = material[fs_in.material_id];
 
     if (thisMaterial.alphaTestEnable) {
-        float alpha = texture(sampler2D(thisMaterial.maps[1]), fs_in.uv).r;
+        // PBS packs cutout alpha in the normal map's red channel; glow/
+        // lightonly cards carry it in the diffuse's alpha channel.
+        float alpha = thisMaterial.alphaFromDiffuse
+            ? texture(sampler2D(thisMaterial.maps[0]), fs_in.uv).a
+            : texture(sampler2D(thisMaterial.maps[1]), fs_in.uv).r;
         if (alpha < thisMaterial.alphaReference) {
             discard;
         }

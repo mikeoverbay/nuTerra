@@ -133,6 +133,11 @@ Module modTypeStructures
         Public index_buffer32() As vect3_32
         Public vertexBuffer() As ModelVertex
         Public uv2() As Vector2
+        ''' <summary>RGBA8 per vertex, from the "colour" stream section. GFX
+        ''' volumetric meshes shape their whole silhouette with the alpha -
+        ''' white/alpha-0 at sheet edges - so the stream is load-bearing for
+        ''' them and absent on almost everything else.</summary>
+        Public colour() As UInt32
     End Class
 
     Public Class RenderSetEntry

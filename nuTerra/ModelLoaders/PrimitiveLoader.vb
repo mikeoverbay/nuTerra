@@ -19,6 +19,19 @@ Module PrimitiveLoader
         FX_lightonly_alpha = 8
         FX_unsupported = 9
         FX_PBS_tiled = 10
+        ''' <summary>shaders/custom/volumetric_effect*.fx - GFX smoke columns,
+        ''' flame sheets, distortion cards. Translucent, drawn forward after
+        ''' the deferred resolve. Transcribed from the game's compiled
+        ''' volumetric_effect_vtx fxo (see volumetric.vert/frag).</summary>
+        FX_volumetric = 11
+        ''' <summary>shaders/std_effects/PBS_tiled_global.fx - big unique-
+        ''' unwrap rocks/cliffs on the newer maps (Graf Zeppelin, Lost
+        ''' Paradise, ...). Three height-blended detail tiles at
+        ''' uv1 * g_tileUVScale plus a per-object global set at uv2: blend
+        ''' mask (A = baked AO), colorTex GCM (recolours the tiles), and
+        ''' globalTex GNM (global normal, B*2 = baked shadow). Transcribed
+        ''' from the fxo - see FX_PBS_tiled_global_entry in model.frag.</summary>
+        FX_PBS_tiled_global = 12
     End Enum
 
     Structure MaterialProps_PBS_ext
@@ -32,6 +45,33 @@ Module PrimitiveLoader
         'Public g_useTintColor As Boolean
         Public g_colorTint As Vector4
         Public g_enableAO As Boolean
+    End Structure
+
+    Structure MaterialProps_volumetric
+        Public diffuseMap As String
+        Public distortionMap As String
+        Public TintlColor As Vector4
+        Public diffuseUVSpeedAlphaOffset As Vector4
+        Public distortion_UV_Speed_Amount As Vector4
+        Public lightMultipliers As Vector4
+        Public selfIllumLight As Vector4
+        Public FreshnelColor As Vector4          ' WG's own spelling
+        Public alphaFadeAmountFresnel As Vector4
+        Public alphaAdditiveEnable As Boolean
+        Public doubleSided As Boolean
+        Public enableLighting As Boolean
+        ' Selects the compiled shader variant (fxo has both): True = fresnel
+        ' thinning in the VS plus the (x-1)*gain alpha remap in the PS;
+        ' False = no fresnel and plain alpha = texA * vertA * fade.
+        Public alphaFreshnelEnable As Boolean
+        ' Distance fade-in window (register defaults 0.01 / 1.0 = always on
+        ' past a metre). Backdrop sheets author real ranges - SmokeBotton
+        ' 150..400 - so they exist only at distance.
+        Public fadeMinDistance As Single
+        Public fadeMaxDistance As Single
+        ' D3DBLEND dest factor. 2 (ONE) composites additively even when
+        ' alphaAdditiveEnable is not set.
+        Public destBlend As Integer
     End Structure
 
     Structure MaterialProps_PBS_ext_dual
@@ -131,6 +171,28 @@ Module PrimitiveLoader
         Public doubleSided As Boolean
     End Structure
 
+    ''' <summary>
+    ''' shaders/std_effects/PBS_tiled_global.fx
+    ''' PBS_tiled plus a per-object "global" texture set. Materials also
+    ''' author normalGlossSpec/metallicAO tiles, but the game's own compiled
+    ''' techniques never sample them for this fx (the normal comes entirely
+    ''' from the GNM), so they are parsed as known and not loaded.
+    ''' </summary>
+    Structure MaterialProps_PBS_tiled_global
+        Public albedoHeightTile0 As String
+        Public albedoHeightTile1 As String
+        Public albedoHeightTile2 As String
+        Public blendMask As String
+        Public dirtMap As String
+        Public colorTex As String
+        Public globalTex As String
+        Public g_tileUVScale As Vector4
+        Public g_tintParams As Vector4
+        Public g_dirtColorParams As Vector4
+        Public g_dirtColor As Vector4
+        Public doubleSided As Boolean
+    End Structure
+
     Structure MaterialProps_PBS_glass
         Public dirtAlbedoMap As String
         Public normalMap As String
@@ -163,6 +225,9 @@ Module PrimitiveLoader
 
     Structure MaterialProps_lightonly_alpha
         Public diffuseMap As String
+        Public alphaTestEnable As Boolean
+        Public alphaReference As Single
+        Public doubleSided As Boolean
     End Structure
 
     Structure Material
@@ -263,6 +328,10 @@ Module PrimitiveLoader
             Dim uv2SectionName = If(vertsSectionName.Contains("."), vertsSectionName.Split(".")(0) + ".uv2", "uv2")
             If binSections.ContainsKey(uv2SectionName) Then
                 load_primitives_uv2(br, renderSet, binSections(uv2SectionName))
+            End If
+            Dim colourSectionName = If(vertsSectionName.Contains("."), vertsSectionName.Split(".")(0) + ".colour", "colour")
+            If binSections.ContainsKey(colourSectionName) Then
+                load_primitives_colour(br, renderSet, binSections(colourSectionName))
             End If
         Next
     End Sub
@@ -507,6 +576,36 @@ Module PrimitiveLoader
         For i = 0 To uv2_count - 1
             renderSet.buffers.uv2(i).X = br.ReadSingle
             renderSet.buffers.uv2(i).Y = br.ReadSingle
+        Next
+    End Sub
+
+    ''' <summary>
+    ''' The "colour" stream section: BPVScolour header, format string "colour",
+    ''' count, then RGBA8 per vertex. GFX volumetric meshes carry their edge
+    ''' fade in the alpha - without it every smoke sheet is a hard card.
+    ''' </summary>
+    Public Sub load_primitives_colour(br As BinaryReader,
+                                      ByRef renderSet As RenderSetEntry,
+                                      ByRef sectionInfo As BinarySectionInfo)
+        br.BaseStream.Position = sectionInfo.location
+
+        Dim subname As New String(br.ReadChars(64))
+        subname = subname.Remove(subname.IndexOf(vbNullChar, System.StringComparison.Ordinal))
+        Debug.Assert(subname.StartsWith("BPVS"))
+
+        Dim unused = br.ReadUInt32()
+        Debug.Assert(unused = 0)
+
+        Dim colour_format As New String(br.ReadChars(64))
+        colour_format = colour_format.Remove(colour_format.IndexOf(vbNullChar, System.StringComparison.Ordinal))
+        Debug.Assert(colour_format = "colour")
+
+        Dim colour_count = br.ReadUInt32()
+        Debug.Assert(colour_count = renderSet.buffers.vertexBuffer.Length)
+
+        ReDim renderSet.buffers.colour(colour_count - 1)
+        For i = 0 To colour_count - 1
+            renderSet.buffers.colour(i) = br.ReadUInt32
         Next
     End Sub
 

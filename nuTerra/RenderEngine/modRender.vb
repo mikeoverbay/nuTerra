@@ -243,6 +243,17 @@ Module modRender
             modGpuTimers.Finish()
         End If
 
+        ' Volumetric GFX meshes - smoke, flames - forward over the lit frame,
+        ' after water so a column rising out of a lake sits over it. Straight
+        ' into gColor: unlike water and SSR the pass never samples the frame,
+        ' so no copy dance is needed.
+        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+            modGpuTimers.Begin("FX")
+            MainFBO.attach_C()
+            map_scene.static_models.draw_fx()
+            modGpuTimers.Finish()
+        End If
+
 
         '===========================================================================
         'DEFAUL BUFFER ATTACH!!!

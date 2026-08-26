@@ -62,12 +62,27 @@ Public Class MapMinimap
             'render to gcolor and blit it to the screeenTexture buffer
             GL.ClearColor(0.0, 0.0, 0.5, 0.0)
             GL.Clear(ClearBufferMask.ColorBufferBit)
+            ' ClearColor is global state - left at the navy above, every later
+            ' clear in the frame (including the default framebuffer) turns
+            ' navy the moment any pass fails to cover the screen. Put the
+            ' engine's black back.
+            GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
             Draw_mini()
             draw_mini_position()
         Else
             MiniMapFBO.fbo.Bind(FramebufferTarget.Framebuffer)
             Ortho_MiniMap(MINI_MAP_SIZE)
             MiniMapFBO.attach_gcolor()
+            ' Re-render the content every frame instead of trusting the cached
+            ' pre-render. Under VRAM pressure the driver evicts the cache
+            ' texture and it comes back undefined - that was the white-square
+            ' minimap whenever a texture-heavy view direction spiked residency.
+            ' The content is three textured quads and some lines at 240^2;
+            ' re-rendering costs nothing measurable.
+            GL.ClearColor(0.0, 0.0, 0.5, 0.0)
+            GL.Clear(ClearBufferMask.ColorBufferBit)
+            GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
+            Draw_mini()
             draw_mini_position()
         End If
 
