@@ -19,6 +19,30 @@ Public Class MapTerrain
     Public outland_near_index_count As Integer
     Public outland_far_index_count As Integer
 
+    ' One frustum-cull block of a ring index buffer: build_outland_ring_indices
+    ' emits triangles grouped in OUTLAND_CULL_BLOCK^2-quad blocks and records
+    ' where each landed plus its exact world-XZ bounds (same affine the VS
+    ' uses). Draw_outland tests each block against the frustum and issues only
+    ' the survivors.
+    Public Structure OutlandBlock
+        Public first_index As UInt32   ' offset into the cascade's index buffer, in indices
+        Public index_count As UInt32
+        Public min_xz As Vector2
+        Public max_xz As Vector2
+    End Structure
+
+    Public outland_near_blocks() As OutlandBlock
+    Public outland_far_blocks() As OutlandBlock
+    ' Survivor commands, packed CPU-side each frame into these small indirect
+    ' buffers (write-only SubData - never read back, see the demotion trap).
+    Public outland_near_indirect As GLBuffer
+    Public outland_far_indirect As GLBuffer
+    Friend outland_near_cmds() As DrawElementsIndirectCommand
+    Friend outland_far_cmds() As DrawElementsIndirectCommand
+    ' This frame's survivor counts - the Snapshot clip line prints them.
+    Public outland_near_blocks_drawn As Integer
+    Public outland_far_blocks_drawn As Integer
+
     Public matrices As GLBuffer
     Public indirect_buffer As GLBuffer
     Public vertices_buffer As GLBuffer
@@ -59,12 +83,17 @@ Public Class MapTerrain
     Public Const OUTLAND_WELD_BAND As Single = 45.0F
 
     ' Outland grid verts per axis. Memory is trivial (24 B/vert: 1024 = 25 MB)
-    ' - the budget is TRIANGLES, drawn uncullled every frame, roughly
-    ' 2*(grid-1)^2 per cascade ring: 256 = 0.24M total, 512 = 1M, 1024 = 3.9M.
-    ' The heightmap data caps what is useful: 1024 texels on prohorovka
-    ' (5.5 m), 2048 on dday. Watch the Snapshot "Outland" GPU timer when
-    ' raising it.
+    ' - the budget is TRIANGLES, roughly 2*(grid-1)^2 per cascade ring:
+    ' 256 = 0.24M total, 512 = 1M, 1024 = 3.9M - of which only the frustum's
+    ' share draws since the block cull (OUTLAND_CULL_BLOCK). The heightmap
+    ' data caps what is useful: 1024 texels on prohorovka (5.5 m), 2048 on
+    ' dday. Watch the Snapshot "Outland" GPU timer when raising it.
     Public Const OUTLAND_GRID As Integer = 1024
+
+    ' Quads per axis in one cull block: 64 on the 1024 grid = 16x16 blocks per
+    ' cascade, each block one indirect command when its AABB touches the
+    ' frustum (~6% of the cascade span per block, a few hundred metres).
+    Public Const OUTLAND_CULL_BLOCK As Integer = 64
 
     Public Sub New(scene As MapScene)
         Me.scene = scene
@@ -125,10 +154,51 @@ Public Class MapTerrain
         CommonProperties.update()
     End Sub
 
+    ''' <summary>
+    ''' Test one cascade's cull blocks against the view frustum and pack the
+    ''' survivors' draw commands into its indirect buffer. Returns the command
+    ''' count. Y bounds are the cascade's authored range through the VS
+    ''' transform (height * y_range + y_offset - 1.5), padded 2 m.
+    ''' </summary>
+    Private Function cull_outland_blocks(blocks() As OutlandBlock,
+                                         y_offset As Single, y_range As Single,
+                                         indirect As GLBuffer,
+                                         cmds() As DrawElementsIndirectCommand) As Integer
+        Dim y_min = y_offset - 1.5F - 2.0F
+        Dim y_max = y_offset + y_range - 1.5F + 2.0F
+        Dim n = 0
+        For i = 0 To blocks.Length - 1
+            If BoxInFrustum(New Vector3(blocks(i).min_xz.X, y_min, blocks(i).min_xz.Y),
+                            New Vector3(blocks(i).max_xz.X, y_max, blocks(i).max_xz.Y)) Then
+                cmds(n).count = blocks(i).index_count
+                cmds(n).instanceCount = 1
+                cmds(n).firstIndex = blocks(i).first_index
+                cmds(n).baseVertex = 0
+                cmds(n).baseInstance = 0
+                n += 1
+            End If
+        Next
+        If n > 0 Then
+            indirect.SubData(IntPtr.Zero, n * Marshal.SizeOf(Of DrawElementsIndirectCommand), cmds)
+        End If
+        Return n
+    End Function
+
     Public Sub Draw_outland()
         GL_PUSH_GROUP("draw_outland")
         ' EANABLE FACE CULLING
         GL.Disable(EnableCap.CullFace)
+
+        ' Frustum-cull the ring blocks once per frame; the fill and wire draws
+        ' below both issue the same survivor set. ExtractFrustum ran at the top
+        ' of the frame, so the planes match this camera.
+        outland_near_blocks_drawn = cull_outland_blocks(outland_near_blocks,
+            theMap.near_y_offset, theMap.near_y_height, outland_near_indirect, outland_near_cmds)
+        outland_far_blocks_drawn = 0
+        If CASCADE_LEVELS = 2 Then
+            outland_far_blocks_drawn = cull_outland_blocks(outland_far_blocks,
+                theMap.far_y_offset, theMap.far_y_height, outland_far_indirect, outland_far_cmds)
+        End If
 
         '=========================================================
         ' Cascade near
@@ -152,7 +222,11 @@ Public Class MapTerrain
 
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
 
-        GL.DrawElements(PrimitiveType.Triangles, outland_near_index_count, DrawElementsType.UnsignedInt, IntPtr.Zero)
+        If outland_near_blocks_drawn > 0 Then
+            outland_near_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt,
+                                         IntPtr.Zero, outland_near_blocks_drawn, 0)
+        End If
 
         '=========================================================
         ' Cascade far
@@ -170,7 +244,11 @@ Public Class MapTerrain
 
             outland_far_vao.Bind()
 
-            GL.DrawElements(PrimitiveType.Triangles, outland_far_index_count, DrawElementsType.UnsignedInt, IntPtr.Zero)
+            If outland_far_blocks_drawn > 0 Then
+                outland_far_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+                GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt,
+                                             IntPtr.Zero, outland_far_blocks_drawn, 0)
+            End If
 
         End If
 
@@ -194,7 +272,11 @@ Public Class MapTerrain
             GL.Uniform2(outlandWireShader("scale"), theMap.near_scale.X, theMap.near_scale.Y)
             GL.Uniform2(outlandWireShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
             outland_vao.Bind()
-            GL.DrawElements(PrimitiveType.Triangles, outland_near_index_count, DrawElementsType.UnsignedInt, IntPtr.Zero)
+            If outland_near_blocks_drawn > 0 Then
+                outland_near_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+                GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt,
+                                             IntPtr.Zero, outland_near_blocks_drawn, 0)
+            End If
 
             If CASCADE_LEVELS = 2 Then
                 OUTLAND_height_CASCADE_MAP.BindUnit(1)
@@ -204,7 +286,11 @@ Public Class MapTerrain
                 GL.Uniform2(outlandWireShader("scale"), theMap.far_scale.X, theMap.far_scale.Y)
                 GL.Uniform2(outlandWireShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
                 outland_far_vao.Bind()
-                GL.DrawElements(PrimitiveType.Triangles, outland_far_index_count, DrawElementsType.UnsignedInt, IntPtr.Zero)
+                If outland_far_blocks_drawn > 0 Then
+                    outland_far_indirect.Bind(BufferTarget.DrawIndirectBuffer)
+                    GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt,
+                                                 IntPtr.Zero, outland_far_blocks_drawn, 0)
+                End If
             End If
 
             outlandWireShader.StopUse()
@@ -555,6 +641,8 @@ Public Class MapTerrain
             outland_vertices_buffer?.Dispose()
             outland_indices_buffer?.Dispose()
             outland_far_indices_buffer?.Dispose()
+            outland_near_indirect?.Dispose()
+            outland_far_indirect?.Dispose()
             outland_vao?.Dispose()
             outland_far_vao?.Dispose()
         End If

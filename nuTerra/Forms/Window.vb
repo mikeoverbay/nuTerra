@@ -711,11 +711,24 @@ try_again:
             Next
         End If
 
+        ' Outland cull blocks drawn/total per cascade - the counters are only
+        ' fresh while Draw_outland runs, so show them only when it does.
+        Dim outland = ""
+        If map_scene IsNot Nothing AndAlso map_scene.OUTLAND_LOADED AndAlso DONT_BLOCK_OUTLAND AndAlso
+           map_scene.terrain.outland_near_blocks IsNot Nothing Then
+            With map_scene.terrain
+                outland = String.Format(" | outland blocks {0}/{1}+{2}/{3}",
+                                        .outland_near_blocks_drawn, .outland_near_blocks.Length,
+                                        .outland_far_blocks_drawn,
+                                        If(.outland_far_blocks Is Nothing, 0, .outland_far_blocks.Length))
+            End With
+        End If
+
         ' The model figure counts draw commands that survived culling, not
         ' instances, so it is not a ratio of model_total and is not shown as one.
         Return String.Format("| model draws {0} of {1} instances | trees {2}/{3} lods {6} | chunks {4}/{5}",
                              models, model_total, TREES_DRAWN, TREES_TOTAL, chunks, chunk_total,
-                             If(TREES_LOD_TEXT = "", "-", TREES_LOD_TEXT))
+                             If(TREES_LOD_TEXT = "", "-", TREES_LOD_TEXT)) & outland
     End Function
 
     Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)

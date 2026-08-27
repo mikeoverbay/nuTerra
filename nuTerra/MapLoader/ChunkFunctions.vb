@@ -471,7 +471,7 @@ Module ChunkFunctions
     End Structure
 
     ''' <summary>
-    ''' Index buffer for one outland cascade as a RING: the full 256 grid minus
+    ''' Index buffer for one outland cascade as a RING: the full grid minus
     ''' every quad that falls entirely inside the hole rect (world XZ). The game
     ''' ships prebuilt ring meshes - the near cascade has the playfield cut out,
     ''' the far cascade has the near cascade cut out - because the coarse outland
@@ -479,37 +479,70 @@ Module ChunkFunctions
     ''' it. Quads crossing the hole edge are kept, so the ring always tucks a
     ''' little way under what covers it.
     ''' scale/center are the same values the draw uniforms use.
+    '''
+    ''' Triangles come out grouped in OUTLAND_CULL_BLOCK^2-quad blocks (same
+    ''' triangles, block-major order), and blocks() records each non-empty
+    ''' block's index range plus the world-XZ bounds of the quads it actually
+    ''' emitted - so a block straddling the hole gets a tight box. Draw_outland
+    ''' frustum-tests these instead of drawing the whole ring.
     ''' </summary>
     Public Function build_outland_ring_indices(scale As Vector2, center As Vector2,
-                                               hole_min As Vector2, hole_max As Vector2) As vect3_32()
+                                               hole_min As Vector2, hole_max As Vector2,
+                                               ByRef blocks() As MapTerrain.OutlandBlock) As vect3_32()
         Dim size = MapTerrain.OUTLAND_GRID
         Dim half = size \ 2
         Dim stride = size
         Dim ms = 100.0F / (size - 1)
+        Dim bq = MapTerrain.OUTLAND_CULL_BLOCK
+        Dim nblocks = (size - 2 + bq) \ bq   ' ceil((size-1) quads / bq)
         Dim list As New List(Of vect3_32)((size - 1) * (size - 1) * 2)
+        Dim block_list As New List(Of MapTerrain.OutlandBlock)(nblocks * nblocks)
 
-        For j = 0 To size - 2
-            For i = 0 To size - 2
-                Dim x0 = ((i - half) * ms + 0.04888F) * scale.X + center.X
-                Dim x1 = ((i + 1 - half) * ms + 0.04888F) * scale.X + center.X
-                Dim z0 = ((j - half) * ms + 0.04888F) * scale.Y + center.Y
-                Dim z1 = ((j + 1 - half) * ms + 0.04888F) * scale.Y + center.Y
+        For bj = 0 To nblocks - 1
+            For bi = 0 To nblocks - 1
+                Dim first = list.Count * 3
+                Dim mn As New Vector2(Single.MaxValue, Single.MaxValue)
+                Dim mx As New Vector2(Single.MinValue, Single.MinValue)
 
-                If Math.Min(x0, x1) >= hole_min.X AndAlso Math.Max(x0, x1) <= hole_max.X AndAlso
-                   Math.Min(z0, z1) >= hole_min.Y AndAlso Math.Max(z0, z1) <= hole_max.Y Then
-                    Continue For
+                For j = bj * bq To Math.Min((bj + 1) * bq, size - 1) - 1
+                    For i = bi * bq To Math.Min((bi + 1) * bq, size - 1) - 1
+                        Dim x0 = ((i - half) * ms + 0.04888F) * scale.X + center.X
+                        Dim x1 = ((i + 1 - half) * ms + 0.04888F) * scale.X + center.X
+                        Dim z0 = ((j - half) * ms + 0.04888F) * scale.Y + center.Y
+                        Dim z1 = ((j + 1 - half) * ms + 0.04888F) * scale.Y + center.Y
+
+                        If Math.Min(x0, x1) >= hole_min.X AndAlso Math.Max(x0, x1) <= hole_max.X AndAlso
+                           Math.Min(z0, z1) >= hole_min.Y AndAlso Math.Max(z0, z1) <= hole_max.Y Then
+                            Continue For
+                        End If
+
+                        mn.X = Math.Min(mn.X, Math.Min(x0, x1))
+                        mn.Y = Math.Min(mn.Y, Math.Min(z0, z1))
+                        mx.X = Math.Max(mx.X, Math.Max(x0, x1))
+                        mx.Y = Math.Max(mx.Y, Math.Max(z0, z1))
+
+                        list.Add(New vect3_32 With {
+                            .x = CUInt((i + 0) + ((j + 1) * stride)),
+                            .y = CUInt((i + 1) + ((j + 0) * stride)),
+                            .z = CUInt((i + 0) + ((j + 0) * stride))})
+                        list.Add(New vect3_32 With {
+                            .x = CUInt((i + 0) + ((j + 1) * stride)),
+                            .y = CUInt((i + 1) + ((j + 1) * stride)),
+                            .z = CUInt((i + 1) + ((j + 0) * stride))})
+                    Next
+                Next
+
+                ' Blocks fully swallowed by the hole emit nothing - drop them.
+                If list.Count * 3 > first Then
+                    block_list.Add(New MapTerrain.OutlandBlock With {
+                        .first_index = CUInt(first),
+                        .index_count = CUInt(list.Count * 3 - first),
+                        .min_xz = mn,
+                        .max_xz = mx})
                 End If
-
-                list.Add(New vect3_32 With {
-                    .x = CUInt((i + 0) + ((j + 1) * stride)),
-                    .y = CUInt((i + 1) + ((j + 0) * stride)),
-                    .z = CUInt((i + 0) + ((j + 0) * stride))})
-                list.Add(New vect3_32 With {
-                    .x = CUInt((i + 0) + ((j + 1) * stride)),
-                    .y = CUInt((i + 1) + ((j + 1) * stride)),
-                    .z = CUInt((i + 1) + ((j + 0) * stride))})
             Next
         Next
+        blocks = block_list.ToArray()
         Return list.ToArray()
     End Function
 
@@ -541,24 +574,50 @@ Module ChunkFunctions
         ' centres the whole outland on it); the far ring's hole is the near
         ' cascade's drawn footprint.
         Dim near_tris = build_outland_ring_indices(theMap.near_scale, theMap.center_offset,
-                                                   theMap.terrain_footprint_min, theMap.terrain_footprint_max)
+                                                   theMap.terrain_footprint_min, theMap.terrain_footprint_max,
+                                                   map_scene.terrain.outland_near_blocks)
         map_scene.terrain.outland_near_index_count = near_tris.Length * 3
         map_scene.terrain.outland_indices_buffer = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "outland_indices")
         map_scene.terrain.outland_indices_buffer.Storage(near_tris.Length * 12, near_tris, BufferStorageFlags.None)
 
         map_scene.terrain.outland_vao = make_outland_vao("outland_vao", vsize, map_scene.terrain.outland_indices_buffer)
 
+        map_scene.terrain.outland_near_indirect = make_outland_indirect("outland_near_indirect",
+                                                                        map_scene.terrain.outland_near_blocks)
+        ReDim map_scene.terrain.outland_near_cmds(map_scene.terrain.outland_near_blocks.Length - 1)
+
         If map_scene.terrain.CASCADE_LEVELS = 2 Then
             Dim near_half As New Vector2(theMap.near_scale.X * 50.0F, theMap.near_scale.Y * 50.0F)
             Dim far_tris = build_outland_ring_indices(theMap.far_scale, theMap.center_offset,
-                                                      theMap.center_offset - near_half, theMap.center_offset + near_half)
+                                                      theMap.center_offset - near_half, theMap.center_offset + near_half,
+                                                      map_scene.terrain.outland_far_blocks)
             map_scene.terrain.outland_far_index_count = far_tris.Length * 3
             map_scene.terrain.outland_far_indices_buffer = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "outland_far_indices")
             map_scene.terrain.outland_far_indices_buffer.Storage(far_tris.Length * 12, far_tris, BufferStorageFlags.None)
 
             map_scene.terrain.outland_far_vao = make_outland_vao("outland_far_vao", vsize, map_scene.terrain.outland_far_indices_buffer)
+
+            map_scene.terrain.outland_far_indirect = make_outland_indirect("outland_far_indirect",
+                                                                           map_scene.terrain.outland_far_blocks)
+            ReDim map_scene.terrain.outland_far_cmds(map_scene.terrain.outland_far_blocks.Length - 1)
         End If
+
+        LogThis("outland cull blocks: near {0} far {1}",
+                map_scene.terrain.outland_near_blocks.Length,
+                If(map_scene.terrain.outland_far_blocks Is Nothing, 0, map_scene.terrain.outland_far_blocks.Length))
     End Sub
+
+    ''' <summary>
+    ''' Indirect command buffer sized for one cascade's cull blocks, filled by
+    ''' Draw_outland each frame with the frustum survivors (SubData writes only
+    ''' - never read back).
+    ''' </summary>
+    Private Function make_outland_indirect(name As String, blocks() As MapTerrain.OutlandBlock) As GLBuffer
+        Dim buf = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, name)
+        buf.StorageNullData(blocks.Length * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                            BufferStorageFlags.DynamicStorageBit)
+        Return buf
+    End Function
 
     Private Function make_outland_vao(name As String, vsize As Integer, indices As GLBuffer) As GLVertexArray
         Dim vao = GLVertexArray.Create(name)
