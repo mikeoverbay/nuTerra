@@ -42,7 +42,27 @@ void main(void)
     vec4 p6 = MVP * vec4(bmin, 1.0);
     vec4 p7 = MVP * vec4(bmin.x, bmax.y, bmin.z, 1.0);
     vec4 p8 = MVP * vec4(bmax.xy, bmin.z, 1.0);
-    
+
+    // A camera inside (or right at) the box breaks the occlusion test's
+    // conservative logic: the box's near walls are behind the eye and its far
+    // walls are behind the model's own visible surface, so the proxy can
+    // rasterize nothing in front of the depth buffer and the model culls
+    // ITSELF - the outland megaprops (km-scale glacier/mountain tiles the
+    // camera practically lives inside) vanished view-dependently on Mountain
+    // Pass. Clip w is the view-forward distance, so any corner with small or
+    // negative w means the box reaches the eye plane: mark it visible and
+    // skip the raster test entirely.
+    float wmin = min(min(min(p1.w, p2.w), min(p3.w, p4.w)),
+                     min(min(p5.w, p6.w), min(p7.w, p8.w)));
+    if (wmin < 1.0) {
+        if (objid >= numAfterFrustum) {
+            visibles_dbl_sided[objid - numAfterFrustum] = 1;
+        } else {
+            visibles[objid] = 1;
+        }
+        return;
+    }
+
     gl_Position = p4;
     EmitVertex();
 
