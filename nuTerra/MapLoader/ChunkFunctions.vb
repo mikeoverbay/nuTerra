@@ -1170,6 +1170,73 @@ Module ChunkFunctions
         Dim ghalf = gsize / 2.0F
         Dim gms = 100.0F / (gsize - 1.0F)
 
+        ' Exact terrain minimum per heightmap texel. Point-sampling the terrain
+        ' at texel centres (or any sparse pattern) misses narrow ravines - the
+        ' first attempt still left midpoints up to 8.5 m above the gully floor
+        ' on prohorovka. Instead walk every terrain board vertex (the 100/64 m
+        ' grid is anchored at the footprint corner, so stepping it hits the
+        ' vertices exactly) and min it into every texel whose bilinear support
+        ' contains it (radius one texel). Each texel below the min of its
+        ' support puts the whole interpolated sheet below the terrain,
+        ' triangulation included.
+        Const BOARD_STEP As Single = 100.0F / 64.0F
+        Dim min_map(w * h - 1) As Single
+        For i = 0 To min_map.Length - 1
+            min_map(i) = Single.MaxValue
+        Next
+        Dim nbx = CInt(Math.Floor((fmax.X - fmin.X) / BOARD_STEP)) + 1
+        Dim nbz = CInt(Math.Floor((fmax.Y - fmin.Y) / BOARD_STEP)) + 1
+        For iz = 0 To nbz - 1
+            Dim bz = fmin.Y + iz * BOARD_STEP
+            Dim szw = Math.Clamp(bz, fmin.Y + 0.5F, fmax.Y - 0.5F)
+            Dim vv = (((bz - theMap.center_offset.Y) / theMap.near_scale.Y - 0.04888F) / gms + ghalf) / gsize
+            Dim fy = (1.0F - vv) * h - 0.5F
+            Dim ty0 = Math.Max(0, CInt(Math.Ceiling(fy - 1.0F)))
+            Dim ty1 = Math.Min(h - 1, CInt(Math.Floor(fy + 1.0F)))
+            For ix = 0 To nbx - 1
+                Dim bx = fmin.X + ix * BOARD_STEP
+                Dim sxw = Math.Clamp(bx, fmin.X + 0.5F, fmax.X - 0.5F)
+                Dim vy = get_Y_at_XZ_fast(sxw, szw)
+                Dim uu = (((bx - theMap.center_offset.X) / theMap.near_scale.X - 0.04888F) / gms + ghalf) / gsize
+                Dim fx = (1.0F - uu) * w - 0.5F
+                Dim tx0 = Math.Max(0, CInt(Math.Ceiling(fx - 1.0F)))
+                Dim tx1 = Math.Min(w - 1, CInt(Math.Floor(fx + 1.0F)))
+                For tyi = ty0 To ty1
+                    For txi = tx0 To tx1
+                        If vy < min_map(tyi * w + txi) Then min_map(tyi * w + txi) = vy
+                    Next
+                Next
+            Next
+        Next
+
+        ' The cascade's authored Y range can sit ABOVE the terrain's deepest
+        ' spots (prohorovka's river gorge bottoms out ~9 m below the authored
+        ' floor): the tuck encode then clamps at 0, the sheet rides its floor
+        ' and cuts through the valley - no weld target can fix an unencodable
+        ' height, which is exactly what the crossing audit kept catching at
+        ' +8.46 m with pxL=0. Extend the encoded floor below the terrain
+        ' minimum and re-encode the whole map into the new frame; the draw
+        ' reads y_offset/range from theMap every frame so the shader follows.
+        Dim terrain_min As Single = Single.MaxValue
+        For i = 0 To min_map.Length - 1
+            If min_map(i) < terrain_min Then terrain_min = min_map(i)
+        Next
+        Dim need_floor = terrain_min - 2.0F
+        If terrain_min < Single.MaxValue AndAlso need_floor < y_off Then
+            Dim top = y_off + y_range
+            Dim new_range = top - need_floor
+            For i = 0 To px.Length - 1
+                Dim wy = px(i) / 65535.0F * y_range + y_off
+                px(i) = CUShort(Math.Clamp((wy - need_floor) / new_range, 0.0F, 1.0F) * 65535.0F)
+            Next
+            Console.WriteLine("outland Y floor extended: {0:0.0} -> {1:0.0} m (terrain min {2:0.0})",
+                              y_off, need_floor, terrain_min)
+            y_off = need_floor
+            y_range = new_range
+            theMap.near_y_offset = y_off
+            theMap.near_y_height = y_range
+        End If
+
         For ty = 0 To h - 1
             ' texel centre -> vertex uv -> mesh xy -> world (inverting the
             ' shader's -uv REPEAT sampling and the grid's affine uv map;
@@ -1194,9 +1261,21 @@ Module ChunkFunctions
 
                 Dim target As Single
                 If d <= 0.0F Then
-                    ' tucked band: flush at the line, small lip further in
-                    Dim lip = 0.5F * Math.Clamp(-d / 10.0F, 0.0F, 1.0F)
-                    target = terrain_y - lip
+                    ' Tucked band. The sheet must stay under the terrain
+                    ' EVERYWHERE inside the footprint, not just at texel
+                    ' centres: between centres the terrain dips into trenches
+                    ' and ravines while the sheet's interpolation floats
+                    ' across and pokes out - those pixels win the depth test
+                    ' honestly in either draw order, and the winner flips as
+                    ' the camera settles: the far-field shading flicker.
+                    ' min_map holds the exact terrain minimum over this
+                    ' texel's support; the lip keeps a small floor even at
+                    ' the footprint line.
+                    Dim tmin = terrain_y
+                    Dim mm = min_map(ty * w + tx)
+                    If mm < Single.MaxValue Then tmin = Math.Min(tmin, mm)
+                    Dim lip = 0.15F + 0.6F * Math.Clamp(-d / 10.0F, 0.0F, 1.0F)
+                    target = tmin - lip
                 Else
                     Dim t = d / band
                     t = t * t * (3.0F - 2.0F * t)
@@ -1216,6 +1295,39 @@ Module ChunkFunctions
         LogThis("outland heightmap patch: {0} of {1}x{2} texels welded in {3} ms (fast-lookup check: {4:0.000} m)",
                 n, w, h, sw.ElapsedMilliseconds, worst)
         Console.WriteLine("outland heightmap patch: {0} texels in {1} ms (check {2:0.000} m)", n, sw.ElapsedMilliseconds, worst)
+
+        ' ---- crossing audit -----------------------------------------------
+        ' Does the PATCHED sheet still rise above the terrain anywhere between
+        ' texel centres? Checks the bilinear midpoint of each interior texel
+        ' pair against the terrain there. Any positive count here is pixels
+        ' that can z-fight the playfield.
+        Dim cross_n = 0
+        Dim cross_max As Single = 0
+        For ty = 0 To h - 1
+            Dim v = 1.0F - (ty + 0.5F) / h
+            Dim my = ((v * gsize) - ghalf) * gms + 0.04888F
+            Dim world_z = my * theMap.near_scale.Y + theMap.center_offset.Y
+            If world_z < fmin.Y + 1.0F OrElse world_z > fmax.Y - 1.0F Then Continue For
+            For tx = 0 To w - 2
+                Dim u = 1.0F - (tx + 1.0F) / w   ' midpoint between tx and tx+1
+                Dim mx = ((u * gsize) - ghalf) * gms + 0.04888F
+                Dim world_x = mx * theMap.near_scale.X + theMap.center_offset.X
+                If world_x < fmin.X + 1.0F OrElse world_x > fmax.X - 1.0F Then Continue For
+                Dim sheet = (CSng(px(ty * w + tx)) + CSng(px(ty * w + tx + 1))) * 0.5F / 65535.0F * y_range + y_off - 1.5F
+                Dim excess = sheet - get_Y_at_XZ_fast(world_x, world_z)
+                If excess > 0.0F Then
+                    cross_n += 1
+                    cross_max = Math.Max(cross_max, excess)
+                    If cross_n <= 5 Then
+                        Console.WriteLine("  crossing: tx={0} ty={1} world=({2:0.0},{3:0.0}) sheet={4:0.00} terrain={5:0.00} pxL={6} pxR={7} minmapL={8:0.00} minmapR={9:0.00}",
+                                          tx, ty, world_x, world_z, sheet, get_Y_at_XZ_fast(world_x, world_z),
+                                          px(ty * w + tx), px(ty * w + tx + 1),
+                                          min_map(ty * w + tx), min_map(ty * w + tx + 1))
+                    End If
+                End If
+            Next
+        Next
+        Console.WriteLine("outland crossing audit: {0} midpoints above terrain (worst +{1:0.00} m)", cross_n, cross_max)
 
         ' ---- second ring: weld the FAR cascade to the near one --------------
         ' The far heightmap is coarse and authored independently; at the near
