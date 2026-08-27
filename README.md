@@ -24,6 +24,11 @@
   console Snapshot, wireframe overlays, a VT page debug view with a colour
   key, and load-time audits that print what the data actually says.
 
+The decimated outland in the wireframe view - dense where the terrain is,
+sparse where it is not:
+
+![Outland decimation](readme_images/outland%20decimation%20test.png)
+
 ## Third-party credits
 
 Algorithms adapted from other projects and papers:
