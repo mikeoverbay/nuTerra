@@ -107,16 +107,6 @@ Module modRender
 
         MainFBO.attach_CNGPA()
 
-        If DONT_BLOCK_OUTLAND AndAlso map_scene.OUTLAND_LOADED Then
-            MainFBO.attach_CNGPA()
-            'GL.Disable(EnableCap.DepthTest) 'just so we can see all of it
-            modGpuTimers.Begin("Outland")
-            map_scene.terrain.Draw_outland()
-            modGpuTimers.Finish()
-            GL.Enable(EnableCap.DepthTest)
-        End If
-        MainFBO.attach_CNGPA()
-
         If map_scene.TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
             MainFBO.attach_CSNGP()
 
@@ -126,6 +116,26 @@ Module modRender
             modGpuTimers.Finish()
 
             MainFBO.attach_CNGPA()
+        End If
+
+        ' The outland draws AFTER the playfield terrain, deliberately. The
+        ' heightmap weld makes the sheet FLUSH with the terrain at the
+        ' footprint line, and with the strict Greater depth test two writers
+        ' at equal depth flip winners as the camera moves sub-pixel - the
+        ' outland's bake albedo and its own normals shading through
+        ' intermittently was the "settling-in" lighting flicker on the far
+        ' terrain. Drawing terrain first makes it win every tie by
+        ' construction (and early-Z discards the tucked-under outland free).
+        If DONT_BLOCK_OUTLAND AndAlso map_scene.OUTLAND_LOADED Then
+            MainFBO.attach_CNGPA()
+            modGpuTimers.Begin("Outland")
+            map_scene.terrain.Draw_outland()
+            modGpuTimers.Finish()
+            GL.Enable(EnableCap.DepthTest)
+        End If
+        MainFBO.attach_CNGPA()
+
+        If map_scene.TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
 
             If (SHOW_BORDER Or SHOW_CHUNKS Or SHOW_GRID) Then map_scene.terrain.draw_terrain_grids()
             '=======================================================================
