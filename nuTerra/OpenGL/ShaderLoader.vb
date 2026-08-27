@@ -217,6 +217,7 @@ Module ShaderLoader
     Public outlandShader As Shader
     Public outlandBakeAccumShader As Shader
     Public outlandBakeResolveShader As Shader
+    Public outlandWireShader As Shader
     Public outlandNormalsShader As Shader
     Public rect2dShader As Shader
     Public SkyDomeShader As Shader
@@ -302,6 +303,7 @@ Module ShaderLoader
         outlandShader = New Shader("outland")
         outlandBakeAccumShader = New Shader("outland_bake_accum")
         outlandBakeResolveShader = New Shader("outland_bake_resolve")
+        outlandWireShader = New Shader("outlandWire")
         outlandNormalsShader = New Shader("outlandNormals")
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")

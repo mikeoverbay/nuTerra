@@ -489,6 +489,12 @@ Module MapLoader
 
         MAP_LOADED = True
 
+        ' Data weld: stitch the near cascade's heightmap onto the terrain edge.
+        ' Must come after MAP_LOADED (needs the chunk height tables).
+        If DONT_BLOCK_OUTLAND AndAlso map_scene.OUTLAND_LOADED Then
+            patch_outland_heightmap()
+        End If
+
         ' Per-map render settings, applied last so they win over whatever the
         ' environment.xml defaults and the global settings put in place.
         ' Where the particle effects belong - scaffolding for the particle work.

@@ -5,6 +5,7 @@ Imports Hjg.Pngcs
 Imports Ionic
 Imports OpenTK.Mathematics
 Imports OpenTK.Graphics.OpenGL
+Imports GL4 = OpenTK.Graphics.OpenGL4
 
 Module ChunkFunctions
     Public b_x_min As Single
@@ -30,7 +31,7 @@ Module ChunkFunctions
         'get_translated_bb_terrain(v_data.BB, v_data)
         r_set.matrix = Matrix4.Identity
 
-        Dim size = 256
+        Dim size = MapTerrain.OUTLAND_GRID
         Dim indi_count = (size - 1) * (size - 1) * 2
         Dim vert_count = size * size
         ' 64 * 64 * 2  = 8192 indi count
@@ -481,17 +482,18 @@ Module ChunkFunctions
     ''' </summary>
     Public Function build_outland_ring_indices(scale As Vector2, center As Vector2,
                                                hole_min As Vector2, hole_max As Vector2) As vect3_32()
-        Dim size = 256
+        Dim size = MapTerrain.OUTLAND_GRID
+        Dim half = size \ 2
         Dim stride = size
         Dim ms = 100.0F / (size - 1)
         Dim list As New List(Of vect3_32)((size - 1) * (size - 1) * 2)
 
         For j = 0 To size - 2
             For i = 0 To size - 2
-                Dim x0 = ((i - 128) * ms + 0.04888F) * scale.X + center.X
-                Dim x1 = ((i + 1 - 128) * ms + 0.04888F) * scale.X + center.X
-                Dim z0 = ((j - 128) * ms + 0.04888F) * scale.Y + center.Y
-                Dim z1 = ((j + 1 - 128) * ms + 0.04888F) * scale.Y + center.Y
+                Dim x0 = ((i - half) * ms + 0.04888F) * scale.X + center.X
+                Dim x1 = ((i + 1 - half) * ms + 0.04888F) * scale.X + center.X
+                Dim z0 = ((j - half) * ms + 0.04888F) * scale.Y + center.Y
+                Dim z1 = ((j + 1 - half) * ms + 0.04888F) * scale.Y + center.Y
 
                 If Math.Min(x0, x1) >= hole_min.X AndAlso Math.Max(x0, x1) <= hole_max.X AndAlso
                    Math.Min(z0, z1) >= hole_min.Y AndAlso Math.Max(z0, z1) <= hole_max.Y Then
@@ -938,6 +940,154 @@ Module ChunkFunctions
         End With
 
 
+    End Sub
+
+    ''' <summary>
+    ''' get_Y_at_XZ without the mapBoard scan: the board cell is computed
+    ''' directly from the world position, then the same bilinear/triangle
+    ''' sample runs on the chunk height table. Local state only - safe to call
+    ''' a few hundred thousand times at load (the scanning original is far
+    ''' slower per call; bulk lookups through it are what froze the load).
+    ''' </summary>
+    Public Function get_Y_at_XZ_fast(ByVal Lx As Double, ByVal Lz As Double) As Single
+        If mapBoard Is Nothing Then Return 0.0F
+
+        Lx += 0.01
+        Lz += 0.01
+
+        ' chunk x covers (x*100, x*100+100]; chunk z covers (y*100-100, y*100]
+        Dim cx = CInt(Math.Ceiling(Lx / 100.0)) - 1
+        Dim cy = CInt(Math.Ceiling(Lz / 100.0))
+        Const centre = MAP_BOARD_SIZE \ 2
+        Dim bx = cx + centre
+        Dim by = cy + centre
+        If bx < 0 OrElse by < 0 OrElse bx >= MAP_BOARD_SIZE OrElse by >= MAP_BOARD_SIZE Then Return 0.0F
+        If Not mapBoard(bx, by).occupied Then Return 0.0F
+        Dim map = mapBoard(bx, by).map_id
+
+        Dim tlx As Single = 100.0 / 65.0
+        Dim vxp As Double = ((((Lx) / 100)) - Truncate((Truncate(Lx) / 100))) * 65.0
+        Dim vyp As Double = ((((Lz) / 100)) - Truncate((Truncate(Lz) / 100))) * 65.0
+        If vyp < 0.0 Then vyp = 65.0 + vyp
+        If vxp < 0 Then vxp = 65.0 + vxp
+        vxp = Round(vxp, 12)
+        vyp = Round(vyp, 12)
+
+        Dim rxp As Single = Floor(vxp) * tlx
+        Dim ryp As Single = Floor(vyp) * tlx
+
+        Dim w, tl, tr, br, bl As Vector3
+        w.X = (vxp * tlx)
+        w.Y = (vyp * tlx)
+
+        Dim hx = CInt(Floor(vxp))
+        Dim hy = CInt(Floor(vyp))
+        If hx + 1 > 65 Then Return 0
+        hx += 3
+        hy += 2
+
+        tl.X = rxp : tl.Y = ryp
+        tl.Z = theMap.v_data(map).heightsTBL(hx, hy)
+        tr.X = rxp + tlx : tr.Y = ryp
+        tr.Z = theMap.v_data(map).heightsTBL(hx + 1, hy)
+        br.X = rxp + tlx : br.Y = ryp + tlx
+        br.Z = theMap.v_data(map).heightsTBL(hx + 1, hy + 1)
+        bl.X = rxp : bl.Y = ryp + tlx
+        bl.Z = theMap.v_data(map).heightsTBL(hx, hy + 1)
+
+        Dim agl = Atan2(w.Y - tr.Y, w.X - tr.X)
+        If agl <= PI * 0.75 Then
+            Return find_altitude(tr, bl, br, w)
+        End If
+        Return find_altitude(tr, tl, bl, w)
+    End Function
+
+    ''' <summary>
+    ''' The data weld: rewrites the near cascade's heightmap texels in and
+    ''' around the terrain footprint with the terrain's own surface height, so
+    ''' the outland lands on the terrain edge BY DATA - at any mesh density.
+    ''' Inside the footprint the sheet tucks under the terrain (small lip);
+    ''' exactly at the footprint line it matches the terrain; over
+    ''' OUTLAND_WELD_BAND metres outside it blends back to the authored
+    ''' outland. Values are stored +1.5 to cancel the VS's seam sink.
+    ''' Runs after MAP_LOADED (needs the chunk height tables).
+    ''' </summary>
+    Public Sub patch_outland_heightmap()
+        Dim tex = map_scene.terrain.OUTLAND_height_MAP
+        If tex Is Nothing Then Return
+
+        Dim sw = Diagnostics.Stopwatch.StartNew()
+        Dim w, h As Integer
+        GL4.GL.GetTextureLevelParameter(tex.texture_id, 0, GL4.GetTextureParameter.TextureWidth, w)
+        GL4.GL.GetTextureLevelParameter(tex.texture_id, 0, GL4.GetTextureParameter.TextureHeight, h)
+        Dim px(w * h - 1) As UShort
+        GL4.GL.GetTextureImage(tex.texture_id, 0, GL4.PixelFormat.Red, GL4.PixelType.UnsignedShort, px.Length * 2, px)
+
+        ' sanity: the fast lookup must agree with the scanning original
+        Dim worst As Single = 0
+        For i = 0 To 8
+            Dim sxw = theMap.terrain_footprint_min.X + 10 + i * (theMap.terrain_footprint_max.X - theMap.terrain_footprint_min.X - 20) / 8.0F
+            Dim szw = theMap.terrain_footprint_min.Y + 10 + i * (theMap.terrain_footprint_max.Y - theMap.terrain_footprint_min.Y - 20) / 8.0F
+            worst = Math.Max(worst, Math.Abs(get_Y_at_XZ_fast(sxw, szw) - get_Y_at_XZ(sxw, szw)))
+        Next
+
+        Dim fmin = theMap.terrain_footprint_min
+        Dim fmax = theMap.terrain_footprint_max
+        Dim band = MapTerrain.OUTLAND_WELD_BAND
+        Dim y_range = theMap.near_y_height
+        Dim y_off = theMap.near_y_offset
+        Dim n = 0
+
+        Dim gsize = CSng(MapTerrain.OUTLAND_GRID)
+        Dim ghalf = gsize / 2.0F
+        Dim gms = 100.0F / (gsize - 1.0F)
+
+        For ty = 0 To h - 1
+            ' texel centre -> vertex uv -> mesh xy -> world (inverting the
+            ' shader's -uv REPEAT sampling and the grid's affine uv map;
+            ' MUST use the same OUTLAND_GRID affine the mesh is built with)
+            Dim v = 1.0F - (ty + 0.5F) / h
+            Dim my = ((v * gsize) - ghalf) * gms + 0.04888F
+            Dim world_z = my * theMap.near_scale.Y + theMap.center_offset.Y
+            Dim dz = Math.Max(fmin.Y - world_z, world_z - fmax.Y)
+            If dz > band Then Continue For
+
+            For tx = 0 To w - 1
+                Dim u = 1.0F - (tx + 0.5F) / w
+                Dim mx = ((u * gsize) - ghalf) * gms + 0.04888F
+                Dim world_x = mx * theMap.near_scale.X + theMap.center_offset.X
+                Dim dx = Math.Max(fmin.X - world_x, world_x - fmax.X)
+                Dim d = Math.Max(dx, dz)
+                If d > band Then Continue For
+
+                Dim cxw = Math.Clamp(world_x, fmin.X + 0.5F, fmax.X - 0.5F)
+                Dim czw = Math.Clamp(world_z, fmin.Y + 0.5F, fmax.Y - 0.5F)
+                Dim terrain_y = get_Y_at_XZ_fast(cxw, czw)
+
+                Dim target As Single
+                If d <= 0.0F Then
+                    ' tucked band: flush at the line, small lip further in
+                    Dim lip = 0.5F * Math.Clamp(-d / 10.0F, 0.0F, 1.0F)
+                    target = terrain_y - lip
+                Else
+                    Dim t = d / band
+                    t = t * t * (3.0F - 2.0F * t)
+                    Dim authored = px(ty * w + tx) / 65535.0F * y_range + y_off - 1.5F
+                    target = terrain_y * (1.0F - t) + authored * t
+                End If
+
+                ' +1.5 cancels the VS seam sink so `target` is what renders
+                Dim enc = (target + 1.5F - y_off) / y_range
+                px(ty * w + tx) = CUShort(Math.Clamp(enc, 0.0F, 1.0F) * 65535.0F)
+                n += 1
+            Next
+        Next
+
+        GL4.GL.TextureSubImage2D(tex.texture_id, 0, 0, 0, w, h, GL4.PixelFormat.Red, GL4.PixelType.UnsignedShort, px)
+
+        LogThis("outland heightmap patch: {0} of {1}x{2} texels welded in {3} ms (fast-lookup check: {4:0.000} m)",
+                n, w, h, sw.ElapsedMilliseconds, worst)
+        Console.WriteLine("outland heightmap patch: {0} texels in {1} ms (check {2:0.000} m)", n, sw.ElapsedMilliseconds, worst)
     End Sub
 
     Public Function get_Y_at_XZ(ByVal Lx As Double, ByVal Lz As Double) As Single

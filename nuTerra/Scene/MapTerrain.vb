@@ -53,6 +53,19 @@ Public Class MapTerrain
     ' combine an exact no-op until a real detail albedo is chosen.
     Public OUTLAND_DETAIL As GLTexture
 
+    ' Width in metres of the heightmap data-weld band: patch_outland_heightmap
+    ' blends the near cascade from terrain height at the footprint line back
+    ' to the authored outland over this distance.
+    Public Const OUTLAND_WELD_BAND As Single = 45.0F
+
+    ' Outland grid verts per axis. Memory is trivial (24 B/vert: 1024 = 25 MB)
+    ' - the budget is TRIANGLES, drawn uncullled every frame, roughly
+    ' 2*(grid-1)^2 per cascade ring: 256 = 0.24M total, 512 = 1M, 1024 = 3.9M.
+    ' The heightmap data caps what is useful: 1024 texels on prohorovka
+    ' (5.5 m), 2048 on dday. Watch the Snapshot "Outland" GPU timer when
+    ' raising it.
+    Public Const OUTLAND_GRID As Integer = 1024
+
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
@@ -163,6 +176,39 @@ Public Class MapTerrain
 
 
         outlandShader.StopUse()
+
+        ' Wireframe view, riding the same checkbox as the terrain wire and
+        ' using the same trick: colour + GFLAG_UNLIT into attach_CF so the
+        ' deferred pass leaves the lines alone. Cyan, vs the terrain's yellow.
+        If WIRE_TERRAIN Then
+            GL_PUSH_GROUP("draw_outland: wire")
+            MainFBO.attach_CF()
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
+
+            outlandWireShader.Use()
+
+            OUTLAND_height_MAP.BindUnit(1)
+            GL.Uniform1(outlandWireShader("y_range"), theMap.near_y_height)
+            GL.Uniform1(outlandWireShader("y_offset"), theMap.near_y_offset)
+            GL.Uniform2(outlandWireShader("scale"), theMap.near_scale.X, theMap.near_scale.Y)
+            GL.Uniform2(outlandWireShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
+            outland_vao.Bind()
+            GL.DrawElements(PrimitiveType.Triangles, outland_near_index_count, DrawElementsType.UnsignedInt, IntPtr.Zero)
+
+            If CASCADE_LEVELS = 2 Then
+                OUTLAND_height_CASCADE_MAP.BindUnit(1)
+                GL.Uniform1(outlandWireShader("y_range"), theMap.far_y_height)
+                GL.Uniform1(outlandWireShader("y_offset"), theMap.far_y_offset)
+                GL.Uniform2(outlandWireShader("scale"), theMap.far_scale.X, theMap.far_scale.Y)
+                GL.Uniform2(outlandWireShader("center_offset"), theMap.center_offset.X, theMap.center_offset.Y)
+                outland_far_vao.Bind()
+                GL.DrawElements(PrimitiveType.Triangles, outland_far_index_count, DrawElementsType.UnsignedInt, IntPtr.Zero)
+            End If
+
+            outlandWireShader.StopUse()
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+            GL_POP_GROUP()
+        End If
 
         unbind_textures(3)
         GL_POP_GROUP()
