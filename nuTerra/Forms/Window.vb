@@ -1149,6 +1149,17 @@ try_again:
                     ' The OrbitControls dampingFactor. Low = heavy, glidey.
                     ' 1.0 = the old direct 1:1 rotation.
                     ImGui.SliderFloat("Rotation damping", ROT_DAMPING, 0.01, 1.0)
+                    ' Preset degrees only. Projection rebuilds every frame,
+                    ' so this is instant, and it persists on exit.
+                    If ImGui.BeginCombo("FOV", CInt(My.Settings.fov).ToString) Then
+                        For Each deg In {35, 40, 45, 50, 55, 60, 65, 70}
+                            If ImGui.Selectable(deg.ToString) Then
+                                My.Settings.fov = deg
+                                FieldOfView = CSng(Math.PI) * (deg / 180.0F)
+                            End If
+                        Next
+                        ImGui.EndCombo()
+                    End If
                 End If
                 If ImGui.CollapsingHeader("Map") Then
                     ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)
