@@ -11,6 +11,12 @@ layout (location = 2) out vec4 gGMF;
 layout (location = 3) out vec3 gPosition;
 layout (location = 4) out vec3 gSurfaceNormals;
 
+#ifdef PICK_MODELS
+layout (location = 5) out uint gPick;
+// One id per species draw (TREE_PICK_BASE band), set by MapTrees.draw.
+uniform uint pick_id;
+#endif
+
 in VS_OUT
 {
     vec2 TC;
@@ -58,4 +64,9 @@ void main(void)
     gGMF.a = 0.0;
     gPosition = fs_in.worldPosition;
     gSurfaceNormals = n * 0.5 + 0.5;
+
+#ifdef PICK_MODELS
+    // The leaf cutout discards above, so picks land on visible foliage only.
+    gPick = pick_id;
+#endif
 }

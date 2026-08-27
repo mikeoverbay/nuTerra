@@ -45,6 +45,8 @@ Public Class MapTrees
         Public cull_min As Vector3
         Public cull_max As Vector3
         Public valid As Boolean
+        '''<summary>The .srt path, for the picker.</summary>
+        Public path As String
     End Class
 
     '''<summary>
@@ -64,6 +66,8 @@ Public Class MapTrees
         Public lod_index_count() As Integer
         Public lod_index_offset() As Integer
         Public lod_count As Integer
+        '''<summary>Species .srt path, shown by the picker.</summary>
+        Public name As String
 
         ''' <summary>
         ''' The asset's own LOD profile, header offset 0x30: full detail up to
@@ -175,7 +179,7 @@ Public Class MapTrees
 
     '''<summary>Decodes one .srt and resolves its textures.</summary>
     Private Shared Function load_species(srt_path As String) As Species
-        Dim sp As New Species With {.valid = False}
+        Dim sp As New Species With {.valid = False, .path = srt_path}
         If String.IsNullOrEmpty(srt_path) Then Return sp
 
         Dim entry = ResMgr.Lookup(srt_path)
@@ -310,6 +314,7 @@ Public Class MapTrees
                 .lod_index_count = lod_count,
                 .lod_index_offset = lod_offset,
                 .lod_count = n_lods,
+                .name = sp.path,
                 .lod_hi = hi,
                 .lod_lo = lo,
                 .base_vertex = sp.base_vertex,
@@ -488,6 +493,12 @@ Public Class MapTrees
         Next
         Return written
     End Function
+    '''<summary>Species name for a picked tree-band id (0-based part index).</summary>
+    Public Function pick_name(part_index As Integer) As String
+        If part_index < 0 OrElse part_index >= parts.Count Then Return "tree ?"
+        Return parts(part_index).name
+    End Function
+
     Public Sub draw()
         If Not scene.TREES_LOADED OrElse vao Is Nothing Then
             Return
@@ -533,13 +544,21 @@ Public Class MapTrees
             vao.Bind()
             ' One draw per (species, LOD) with anything in it - still a few
             ' dozen calls, but the far instances now carry far geometry.
+            Dim part_idx = 0
             For Each p In parts
+                ' Picker: one id per species, in the tree band above the model
+                ' ids. Whatever LOD is on screen is what gets picked - the far
+                ' billboards included, which keeps the pick pass free.
+                If ModelPicker.Enabled Then
+                    GL.Uniform1(treeShader("pick_id"), CUInt(ModelPicker.TREE_PICK_BASE + part_idx + 1))
+                End If
                 For l = 0 To p.lod_count - 1
                     If p.visible_count(l) = 0 Then Continue For
                     GL.DrawElementsInstancedBaseVertexBaseInstance(
                         PrimitiveType.Triangles, p.lod_index_count(l), DrawElementsType.UnsignedInt,
                         New IntPtr(p.lod_index_offset(l)), p.visible_count(l), p.base_vertex, p.visible_base(l))
                 Next
+                part_idx += 1
             Next
 
             treeShader.StopUse()
