@@ -701,7 +701,11 @@ got_it:
                     mat.props = obj
 
 
-                Case "shaders/std_effects/PBS_tiled.fx"
+                Case "shaders/std_effects/PBS_tiled.fx", "shaders/std_effects/PBS_tiled_skinned.fx"
+                    ' The skinned variant rides the same path as its static
+                    ' kin (the PBS_ext / atlas_rigid_skinned precedent): the
+                    ' iiiww vertex formats already parse, and a viewer renders
+                    ' the bind pose.
                     Dim knownPropNames As New HashSet(Of String)({
                         "albedoHeightTile0", "normalGlossSpecTile0", "metallicAOTile0",
                         "albedoHeightTile1", "normalGlossSpecTile1", "metallicAOTile1",
