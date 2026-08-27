@@ -76,6 +76,11 @@ Public Class MapTerrain
     ' 1x1 neutral (0.5, 0.5, 0.5, 0.5) stand-in: makes the game's detail
     ' combine an exact no-op until a real detail albedo is chosen.
     Public OUTLAND_DETAIL As GLTexture
+    ' The candidate real binding: TerrainSettings1.noise_texture (the fxo recon
+    ' left detailAlbedoSml an authored material property; this is the standing
+    ' guess). Loaded once at bake; the Settings checkbox A/Bs it against the
+    ' neutral live.
+    Public OUTLAND_DETAIL_REAL As GLTexture
 
     ' Width in metres of the heightmap data-weld band: patch_outland_heightmap
     ' blends the near cascade from terrain height at the footprint line back
@@ -252,10 +257,20 @@ Public Class MapTerrain
         OUTLAND_ALBEDO.BindUnit(0)
         OUTLAND_height_MAP.BindUnit(1)
         OUTLAND_NORMAL_MAP.BindUnit(2)
-        OUTLAND_DETAIL.BindUnit(3)
+        ' Neutral makes the game's detail combine an exact no-op; the real
+        ' candidate rides the Settings checkbox for a live A/B.
+        If OUTLAND_USE_DETAIL AndAlso OUTLAND_DETAIL_REAL IsNot Nothing Then
+            OUTLAND_DETAIL_REAL.BindUnit(3)
+        Else
+            OUTLAND_DETAIL.BindUnit(3)
+        End If
 
-        ' the game hardcodes 64 detail repeats over the cascade
-        GL.Uniform1(outlandShader("detail_tiles"), 64.0F)
+        ' The game's detail uv is v1 * uvOffsetScale.zw / g_chunks * 64 with
+        ' engine-fed per-map values we do not have (fxo defaults make it x2)
+        ' - so the repeat count is a live slider until the candidate is judged.
+        GL.Uniform1(outlandShader("detail_tiles"), OUTLAND_DETAIL_TILES)
+        GL.Uniform1(outlandShader("pbr_from_nm"), If(OUTLAND_PBR_NM, 1, 0))
+        GL.Uniform1(outlandShader("outland_spec"), OUTLAND_SPEC)
 
         GL.Uniform1(outlandShader("y_range"), theMap.near_y_height)
         GL.Uniform1(outlandShader("y_offset"), theMap.near_y_offset)
@@ -369,12 +384,30 @@ Public Class MapTerrain
             OUTLAND_DETAIL.SubImage2D(0, 0, 0, 1, 1, OpenGL4.PixelFormat.Rgba, PixelType.UnsignedByte, New Byte() {128, 128, 128, 128})
         End If
 
+        ' The candidate real detail albedo, once per map. Falls back to the
+        ' neutral silently; the log names what happened either way.
+        If OUTLAND_DETAIL_REAL Is Nothing AndAlso cBWT2.settings.noise_texture_fnv <> 0 Then
+            Dim nz = cBWST.find_str(cBWT2.settings.noise_texture_fnv)
+            If nz <> "" Then
+                OUTLAND_DETAIL_REAL = TextureMgr.find_and_load_texture_from_pkgs(nz)
+            End If
+            Console.WriteLine("outland detail candidate: {0} -> {1}",
+                              If(nz = "", "(no name)", nz),
+                              If(OUTLAND_DETAIL_REAL Is Nothing, "NOT loaded, neutral stays", "loaded"))
+        End If
+
+        ' Live re-bakes (the tint A/B toggle) replace these - drop the old ones.
+        OUTLAND_ALBEDO?.Dispose()
+        OUTLAND_ALBEDO_CASCADE?.Dispose()
+
         Dim span_near = theMap.outland_bounds_max.X - theMap.outland_bounds_min.X
-        OUTLAND_ALBEDO = bake_one_outland_cascade("outland_albedo_near", OUTLAND_TILE, span_near, OUTLAND_TILE_SCALE)
+        OUTLAND_ALBEDO = bake_one_outland_cascade("outland_albedo_near", OUTLAND_TILE, span_near, OUTLAND_TILE_SCALE,
+                                                  theMap.near_scale, theMap.center_offset)
 
         If CASCADE_LEVELS = 2 Then
             Dim span_far = theMap.outland_Cascade_bounds_max.X - theMap.outland_Cascade_bounds_min.X
-            OUTLAND_ALBEDO_CASCADE = bake_one_outland_cascade("outland_albedo_far", OUTLAND_TILE_CASCADE, span_far, OUTLAND_TILE_SCALE_CASCADE)
+            OUTLAND_ALBEDO_CASCADE = bake_one_outland_cascade("outland_albedo_far", OUTLAND_TILE_CASCADE, span_far, OUTLAND_TILE_SCALE_CASCADE,
+                                                              theMap.far_scale, theMap.center_offset)
         End If
 
         ' Restore what the frame loop assumes (GL globals leak between passes).
@@ -388,7 +421,8 @@ Public Class MapTerrain
         GL_POP_GROUP()
     End Sub
 
-    Private Function bake_one_outland_cascade(name As String, tile_map As GLTexture, span As Single, tileScale As Single) As GLTexture
+    Private Function bake_one_outland_cascade(name As String, tile_map As GLTexture, span As Single, tileScale As Single,
+                                              scale As Vector2, center As Vector2) As GLTexture
         Const SIZE As Integer = 2048
         Const MIPS As Integer = 12 ' log2(2048) + 1
 
@@ -448,6 +482,36 @@ Public Class MapTerrain
 
         outlandBakeResolveShader.Use()
         accum.BindUnit(0)
+
+        ' The same global_AM blend t_mixer bakes into every playfield page,
+        ' so the outland continues the field's tone instead of stepping to
+        ' raw tile colour at the map edge. World sample clamps to the
+        ' footprint; Global_UV frame derived from the terrain's own
+        ' g_uv_offset math (the per-chunk offset cancels to a pure affine).
+        Dim tint = OUTLAND_GLOBAL_TINT AndAlso GLOBAL_AM_ID IsNot Nothing
+        GL.Uniform1(outlandBakeResolveShader("apply_global"), If(tint, 1, 0))
+        GL.Uniform1(outlandBakeResolveShader("global_base"), OUTLAND_GLOBAL_BASE)
+        If tint Then
+            GLOBAL_AM_ID.BindUnit(1)
+            Dim gsize = CSng(OUTLAND_GRID)
+            Dim ghalf = gsize / 2.0F
+            Dim gms = 100.0F / (gsize - 1.0F)
+            ' albedo uv -> world (mirrored affine, per axis A*uv + B)
+            GL.Uniform4(outlandBakeResolveShader("world_from_uv"),
+                        -gsize * gms * scale.X, -gsize * gms * scale.Y,
+                        (ghalf * gms + 0.04888F) * scale.X + center.X,
+                        (ghalf * gms + 0.04888F) * scale.Y + center.Y)
+            GL.Uniform4(outlandBakeResolveShader("field_rect"),
+                        theMap.terrain_footprint_min.X + 1.0F, theMap.terrain_footprint_min.Y + 1.0F,
+                        theMap.terrain_footprint_max.X - 1.0F, theMap.terrain_footprint_max.Y - 1.0F)
+            ' world -> Global_UV (t_mixer's frame): guv = -(world/100 - corner)/mapsize
+            Dim msx = MAP_SIZE.X + 1.0F
+            Dim msy = MAP_SIZE.Y + 1.0F
+            GL.Uniform4(outlandBakeResolveShader("global_uv_aff"),
+                        -1.0F / (100.0F * msx), -1.0F / (100.0F * msy),
+                        b_x_min / msx, b_y_max / msy - 1.0F)
+        End If
+
         defaultVao.Bind()
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
         outlandBakeResolveShader.StopUse()

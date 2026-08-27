@@ -23,6 +23,13 @@ layout(binding = 3) uniform sampler2D detail_albedo;
 // The game hardcodes detailUV = TC * 64 for both cascades.
 uniform float detail_tiles;
 
+// Per-pixel PBR from the cascade normal map: R as shine (gGMF.y), B as
+// metal (gGMF.x). The game's compiled shader writes the (59,80)/255
+// constants instead and only alpha-tests R - this is the owner's call to
+// use the channels, A/B'd against the faithful constants via Settings.
+uniform int pbr_from_nm;
+uniform float outland_spec;
+
 // Map-space -> nuTerra-world sign for the decoded normal XZ. Forced by the
 // placement math: world X = -k*U and world Z = -k*V (UV = -UVs above), so the
 // map's normal axes land negated on both. If sunlit outland slopes shade on
@@ -70,8 +77,15 @@ void main(void)
 
     gColor   = vec4(color, 0.0);
     gNormal  = vN * 0.5 + 0.5;
-    // The game's G-buffer write is exactly (59, 80, 0)/255 + material id.
-    gGMF     = vec4(0.2314, 0.3137, GFLAG_TERRAIN, 0.0);
+    // In THIS deferred, gGMF.x shapes the specular lobe (terrain writes 0.2)
+    // and .y is the specular intensity (field sand pages run ~0.1-0.2). The
+    // game's raw (59,80)/255 through our BRDF reads shinier than the field,
+    // so the lobe matches the terrain and the intensity is a live slider.
+    // pbr_from_nm (R as shine, B as metal) stays as an experiment lever -
+    // on Sand River R is the cutout mask (~0.91), which runs hot.
+    gGMF     = (pbr_from_nm != 0)
+             ? vec4(nm.b, nm.r, GFLAG_TERRAIN, 0.0)
+             : vec4(0.2, outland_spec, GFLAG_TERRAIN, 0.0);
     gPosition = fs_in.viewPosition;
     gSurfaceNormals = vN * 0.5 + 0.5;
 }

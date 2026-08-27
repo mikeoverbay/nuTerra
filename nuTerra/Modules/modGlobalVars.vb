@@ -98,6 +98,27 @@ Module modGlobalVars
     ' Instrument (default off): per-bake page identity + per-frame VT stats
     ' in the log, for VT churn hunts.
     Public VT_BAKE_TRACE As Boolean
+    ' Per-pixel outland PBR from the cascade normal map (R = shine, B =
+    ' metal) instead of constants. Default OFF: on Sand River R is the
+    ' cutout mask (~0.91) and B is dead - it runs the sun spec hot.
+    Public OUTLAND_PBR_NM As Boolean = False
+    ' Outland specular intensity (gGMF.y) for the constant path - the field's
+    ' sand pages run ~0.1-0.2 through this deferred; dial to match by eye.
+    Public OUTLAND_SPEC As Single = 0.15F
+    ' The candidate real detailAlbedoSml (TerrainSettings1.noise_texture) on
+    ' the outland, A/B against the exact-no-op neutral. Repeats is a live
+    ' slider because the game's factor (64 / g_chunks * uvScale) is engine-fed.
+    Public OUTLAND_USE_DETAIL As Boolean = True
+    Public OUTLAND_DETAIL_TILES As Single = 64.0F
+    ' Blend the map-wide global_AM into the outland albedo bake, the same way
+    ' t_mixer bakes it into every playfield VT page - without it the field is
+    ' pulled toward the global map's tone and the outland stays raw tile
+    ' colour: a visible colour step at the map edge.
+    Public OUTLAND_GLOBAL_TINT As Boolean = True
+    ' How much raw global remains blended in at full distance (the seam is
+    ' always 100% global, matching the game's distant-terrain shader which
+    ' writes g_globalAlbedoMap verbatim).
+    Public OUTLAND_GLOBAL_BASE As Single = 0.35F
     ' Background outland decimation: threshold edge collapse per cull block
     ' after the weld, swapping in a new index buffer when done (91-94% fewer
     ' triangles at eps 0.25 in the offline prototype). eps is the max mean

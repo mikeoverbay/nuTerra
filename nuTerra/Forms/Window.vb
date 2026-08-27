@@ -1166,6 +1166,32 @@ try_again:
                     ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
                     ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
                     ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)
+                    ' A/B lever: re-bakes the outland albedo on toggle (fast,
+                    ' a few fullscreen passes) so the seam tint can be judged
+                    ' live against the playfield.
+                    If ImGui.Checkbox("Outland global tint", OUTLAND_GLOBAL_TINT) Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.OUTLAND_LOADED Then
+                            map_scene.terrain.bake_outland_albedo()
+                        End If
+                    End If
+                    ' Residual global at range (the seam is always 100%).
+                    ' Re-bake on release so dragging is not a bake storm.
+                    ImGui.SliderFloat("Global at range", OUTLAND_GLOBAL_BASE, 0.0F, 1.0F)
+                    If ImGui.IsItemDeactivatedAfterEdit() Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.OUTLAND_LOADED Then
+                            map_scene.terrain.bake_outland_albedo()
+                        End If
+                    End If
+                    ' The noise_texture candidate as detailAlbedoSml - applies
+                    ' at draw, so both of these are instant.
+                    ImGui.Checkbox("Outland detail (test)", OUTLAND_USE_DETAIL)
+                    ImGui.SliderFloat("Detail repeats", OUTLAND_DETAIL_TILES, 1.0F, 256.0F)
+                    ' Per-pixel shine/metal from the cascade NM's R/B against
+                    ' the constant path - instant A/B.
+                    ImGui.Checkbox("Outland PBR from NM", OUTLAND_PBR_NM)
+                    ' Specular intensity of the constant path - dial the sun
+                    ' response until the sheet matches the field. Instant.
+                    ImGui.SliderFloat("Outland spec", OUTLAND_SPEC, 0.0F, 0.6F)
                     ImGui.Checkbox("Draw trees", DONT_BLOCK_TREES)
                     ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
                     ' Trim for the water plane, saved per map. The packages

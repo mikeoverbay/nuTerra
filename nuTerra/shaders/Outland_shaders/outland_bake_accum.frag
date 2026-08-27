@@ -36,18 +36,32 @@ float corner_weight(ivec2 tc, ivec2 tmax)
          + ((n.y == tile_index) ? float(n.w) : 0.0);
 }
 
+float weight_at(vec2 p, ivec2 tmax)
+{
+    ivec2 p0 = ivec2(floor(p));
+    vec2 f = fract(p);
+    return mix(mix(corner_weight(p0,               tmax),
+                   corner_weight(p0 + ivec2(1, 0), tmax), f.x),
+               mix(corner_weight(p0 + ivec2(0, 1), tmax),
+                   corner_weight(p0 + ivec2(1, 1), tmax), f.x), f.y);
+}
+
 void main(void)
 {
     ivec2 tms = textureSize(tile_map, 0);
     vec2 p = texCoord * vec2(tms) - 0.5;
-    ivec2 p0 = ivec2(floor(p));
-    vec2 f = fract(p);
     ivec2 tmax = tms - 1;
 
-    float w = mix(mix(corner_weight(p0,               tmax),
-                      corner_weight(p0 + ivec2(1, 0), tmax), f.x),
-                  mix(corner_weight(p0 + ivec2(0, 1), tmax),
-                      corner_weight(p0 + ivec2(1, 1), tmax), f.x), f.y);
+    // The 4-bit weights staircase authored ramps: adjacent texels differ by
+    // whole levels, so every high-contrast tile transition bakes as a stack
+    // of contour rings (the near-sheet "banding" - it is in the TEXTURE, not
+    // the mesh). A one-texel tent - four bilinear taps at half-texel offsets
+    // - reconstructs the smooth ramp the authors quantized, at the cost of
+    // ~a texel of tile-boundary softness nothing can see at outland range.
+    float w = 0.25 * (weight_at(p + vec2(-0.5, -0.5), tmax)
+                    + weight_at(p + vec2( 0.5, -0.5), tmax)
+                    + weight_at(p + vec2(-0.5,  0.5), tmax)
+                    + weight_at(p + vec2( 0.5,  0.5), tmax));
     w /= 15.0;
 
     vec3 c = texture(tile, texCoord * tile_repeats).rgb;
