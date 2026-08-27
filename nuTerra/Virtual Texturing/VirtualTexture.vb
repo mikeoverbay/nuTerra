@@ -33,7 +33,8 @@ Public Class VirtualTexture
         End Get
         Set
             _mipbias = Value
-            ' LogThis("MipBias: {0}", _mipbias)
+            LogThis("MipBias: {0}", _mipbias)
+            Console.Out.Flush()
         End Set
     End Property
 
@@ -102,6 +103,8 @@ Public Class VirtualTexture
         cache.Clear()
     End Sub
 
+    Dim trace_frame As Integer
+
     Public Sub Update(requests As Dictionary(Of Page, Integer))
         toload.Clear()
 
@@ -121,6 +124,14 @@ Public Class VirtualTexture
                 touched += 1
             End If
         Next
+
+        trace_frame += 1
+        If VT_BAKE_TRACE AndAlso trace_frame Mod 120 = 0 Then
+            Dim cam = map_scene.camera.CAM_POSITION
+            LogThis("vt frame: requests={0} touched={1} toload={2} bias={3} cam={4:0.000},{5:0.000},{6:0.000}",
+                    requests.Count, touched, toload.Count, _mipbias, cam.X, cam.Y, cam.Z)
+            Console.Out.Flush()
+        End If
 
         ' Check to make sure we don't thrash
         If touched < num_tiles Then

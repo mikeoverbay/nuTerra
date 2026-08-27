@@ -319,4 +319,27 @@ vec4 SampleAtlas(sampler2DArray atlas, uvec2 page, vec2 uv)
     uv = fract(uv * props.PageTableSize / mipsize);
     return texture(atlas, vec3(uv, page.x));
 }
+
+// Debug view: colour by the RESIDENT page actually on screen (SampleTable's
+// .y is the mip of the page backing this texel, fallbacks included) - one
+// colour per mip, checkered by page cell so individual page boundaries show.
+// The key window in the app lists the same colours - keep them in sync.
+vec3 VTDebugColor(uvec2 page, vec2 uv)
+{
+    const vec3 mip_colors[11] = vec3[11](
+        vec3(1.00, 0.15, 0.15),  // 0  red
+        vec3(1.00, 0.55, 0.10),  // 1  orange
+        vec3(1.00, 1.00, 0.15),  // 2  yellow
+        vec3(0.25, 0.90, 0.20),  // 3  green
+        vec3(0.15, 0.90, 0.90),  // 4  cyan
+        vec3(0.20, 0.40, 1.00),  // 5  blue
+        vec3(0.60, 0.30, 1.00),  // 6  violet
+        vec3(1.00, 0.25, 1.00),  // 7  magenta
+        vec3(0.60, 0.40, 0.20),  // 8  brown
+        vec3(0.90, 0.90, 0.90),  // 9  white
+        vec3(0.35, 0.35, 0.35)); // 10 grey
+    vec2 pg = floor(uv * props.PageTableSize / exp2(float(page.y)));
+    float checker = mod(pg.x + pg.y, 2.0) < 1.0 ? 1.0 : 0.72;
+    return mip_colors[min(page.y, 10u)] * checker;
+}
 #endif

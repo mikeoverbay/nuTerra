@@ -532,6 +532,48 @@ try_again:
     ''' Deliberately translucent: it sits over the scene it is describing, and an
     ''' opaque panel hides the thing whose cost it is reporting.
     ''' </summary>
+    ' Colour key for the VT page debug view (Settings -> VT -> Page debug
+    ' view). Must match VTDebugColor in shaders/common.h.
+    Private Shared ReadOnly VT_DEBUG_COLORS As Single()() = {
+        New Single() {1.0F, 0.15F, 0.15F}, New Single() {1.0F, 0.55F, 0.1F},
+        New Single() {1.0F, 1.0F, 0.15F}, New Single() {0.25F, 0.9F, 0.2F},
+        New Single() {0.15F, 0.9F, 0.9F}, New Single() {0.2F, 0.4F, 1.0F},
+        New Single() {0.6F, 0.3F, 1.0F}, New Single() {1.0F, 0.25F, 1.0F},
+        New Single() {0.6F, 0.4F, 0.2F}, New Single() {0.9F, 0.9F, 0.9F},
+        New Single() {0.35F, 0.35F, 0.35F}}
+
+    Private Sub draw_vt_debug_key()
+        If Not VT_PAGE_DEBUG Then Return
+        ImGui.SetNextWindowPos(New System.Numerics.Vector2(12, 90), ImGuiCond.FirstUseEver)
+        ImGui.SetNextWindowSize(New System.Numerics.Vector2(230, 395), ImGuiCond.FirstUseEver)
+        If ImGui.Begin("VT page key", VT_PAGE_DEBUG) Then
+            ' Flip the overlay without leaving the window - the scene keeps
+            ' rendering normally underneath, so before/after is one click.
+            ImGui.Checkbox("Colour overlay", VT_PAGE_DEBUG_COLOR)
+            ImGui.SliderFloat("Blend", VT_PAGE_DEBUG_MIX, 0.0F, 1.0F)
+            ' Greyscale mipfract instead of page colours: the moving bands ARE
+            ' the trilinear blend sweeping between two coarse pages.
+            ImGui.Checkbox("Show mip blend", VT_DEBUG_MIPFRACT)
+            ' Affects REAL rendering, not just the overlay: snap trilinear to
+            ' the nearest page. Flicker gone with this on = the morph between
+            ' independently-baked coarse mips is the flicker.
+            ImGui.Checkbox("Nearest mip (test)", VT_NEAREST_MIP)
+            ImGui.Separator()
+            ImGui.TextUnformatted("colour = resident page mip")
+            ImGui.TextUnformatted("checker = page cells")
+            ImGui.Separator()
+            For m = 0 To VT_DEBUG_COLORS.Length - 1
+                Dim c = VT_DEBUG_COLORS(m)
+                ImGui.ColorButton("##vtkey" & m,
+                                  New System.Numerics.Vector4(c(0), c(1), c(2), 1.0F))
+                ImGui.SameLine()
+                ' One page covers 256 * 2^mip virtual texels per side.
+                ImGui.TextUnformatted(String.Format("mip {0}  ({1}^2 texels)", m, TILE_SIZE << m))
+            Next
+        End If
+        ImGui.End()
+    End Sub
+
     Private Sub draw_stats_window()
         If Not SHOW_STATS_WINDOW Then Return
 
@@ -970,6 +1012,14 @@ try_again:
         End With
         rot_delta_x *= (1.0F - f)
         rot_delta_y *= (1.0F - f)
+        ' Rest snap, the same treatment zoom and pan get below. Without it the
+        ' pool only ever decays exponentially, so the camera keeps crawling
+        ' sub-pixel for seconds after release - the VT feedback slides with it
+        ' and re-bakes a trickle of far pages, popping the big distant patches
+        ' the whole time the view "settles in". 0.0005 rad is under one screen
+        ' pixel of remaining travel, so the truncation is invisible.
+        If Math.Abs(rot_delta_x) < 0.0005F Then rot_delta_x = 0
+        If Math.Abs(rot_delta_y) < 0.0005F Then rot_delta_y = 0
 
         ' Zoom: same apply-and-decay. VIEW_RADIUS is negative and the exp
         ' factor is positive, so the sign never flips; the clamps are the old
@@ -1083,6 +1133,7 @@ try_again:
         End If
 
         draw_stats_window()
+        draw_vt_debug_key()
 
         If SHOW_SETTINGS_WINDOW Then
             If Not prev_SHOW_SETTINGS_WINDOW AndAlso menubar_size.LengthSquared > 0 Then
@@ -1426,6 +1477,9 @@ try_again:
                     If ImGui.Button("Rebuild VT") Then
                         map_scene?.terrain.RebuildVTAtlas()
                     End If
+                    ' Terrain coloured by the resident page's mip, with a key
+                    ' window - the instrument for the settling-flicker hunt.
+                    ImGui.Checkbox("Page debug view", VT_PAGE_DEBUG)
                 End If
                 ImGui.Separator()
                 If ImGui.Button(String.Format("Version {0}", Application.ProductVersion)) Then

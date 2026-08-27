@@ -81,6 +81,13 @@ Public Class PageLoader
 
     Private Sub LoadPage(state As ReadState)
         bake_count += 1
+        ' Churn trace: one line per bake with the page identity, to tell LRU
+        ' rotation (same pages repeating) from wandering requests (always-new
+        ' pages). Temporary instrument for the settled-view lighting flicker.
+        If VT_BAKE_TRACE Then
+            LogThis("bake {0} {1} m{2}", state.Page.X, state.Page.Y, state.Page.Mip)
+            Console.Out.Flush()
+        End If
         If CommonProperties.BLEND_HEIGHT <> last_reported OrElse (bake_count Mod 200) = 0 Then
             last_reported = CommonProperties.BLEND_HEIGHT
             LogThis("VT bake #{0}: blend_height={1:0.###} height_contrast={2:0.###}",

@@ -460,6 +460,10 @@ Public Class MapTerrain
 
         ' BIND LQ SHADER
         TerrainLQShader.Use()
+        GL.Uniform1(TerrainLQShader("vt_debug"), If(VT_PAGE_DEBUG AndAlso VT_PAGE_DEBUG_COLOR, 1, 0))
+        GL.Uniform1(TerrainLQShader("vt_debug_mix"), VT_PAGE_DEBUG_MIX)
+        GL.Uniform1(TerrainLQShader("vt_debug_mode"), If(VT_DEBUG_MIPFRACT, 1, 0))
+        GL.Uniform1(TerrainLQShader("vt_nearest_mip"), If(VT_NEAREST_MIP, 1, 0))
 
         ' BIND VT TEXTURES
         vt.Bind()
@@ -488,6 +492,10 @@ Public Class MapTerrain
 
             ' BIND HQ SHADER
             TerrainHQShader.Use()
+            GL.Uniform1(TerrainHQShader("vt_debug"), If(VT_PAGE_DEBUG AndAlso VT_PAGE_DEBUG_COLOR, 1, 0))
+            GL.Uniform1(TerrainHQShader("vt_debug_mix"), VT_PAGE_DEBUG_MIX)
+            GL.Uniform1(TerrainHQShader("vt_debug_mode"), If(VT_DEBUG_MIPFRACT, 1, 0))
+            GL.Uniform1(TerrainHQShader("vt_nearest_mip"), If(VT_NEAREST_MIP, 1, 0))
 
             For i = 0 To theMap.render_set.Length - 1
                 If theMap.render_set(i).visible AndAlso theMap.render_set(i).quality = TerrainQuality.HQ Then

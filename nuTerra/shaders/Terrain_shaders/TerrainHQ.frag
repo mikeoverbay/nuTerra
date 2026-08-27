@@ -25,6 +25,11 @@ layout(binding = 1) uniform sampler2DArray ColorTextureAtlas;
 layout(binding = 2) uniform sampler2DArray NormalTextureAtlas;
 layout(binding = 3) uniform sampler2DArray SpecularTextureAtlas;
 
+uniform int vt_debug;
+uniform float vt_debug_mix;
+uniform int vt_debug_mode;   // 0 = page colours, 1 = mip-blend greyscale
+uniform int vt_nearest_mip;  // test lever: snap the trilinear blend off
+
 
 layout(location = 0) in TES_OUT {
     mat3 TBN;
@@ -42,7 +47,12 @@ void main(void)
 
     const float mip1 = floor(miplevel);
     const float mip2 = mip1 + 1;
-    const float mipfract = miplevel - mip1; // FRACTAL PART OF MIPLEVEL
+    // FRACTAL PART OF MIPLEVEL. The nearest-mip lever exists because coarse
+    // pages are baked independently and adjacent mips can pick different
+    // layer mixes - sweeping this blend during a camera glide morphs the far
+    // field ("settling-in" shading flicker). Snapping isolates that carrier.
+    float mipfract = miplevel - mip1;
+    if (vt_nearest_mip != 0) mipfract = mipfract < 0.5 ? 0.0 : 1.0;
 
     // GET PAGES FOR TRILINEAR FILTERING
     // PAGE1 : MIP1
@@ -98,4 +108,14 @@ void main(void)
     // gSurfaceNormal is Rgb8, so it has to carry a 0..1 encoding - writing the
     // raw signed normal clamps every negative component away.
     gSurfaceNormal = normalize(fs_in.worldNormal) * 0.5 + 0.5;
+
+    // VT page debug (Settings -> VT, toggled from the key window): tint the
+    // albedo by the resident page's colour but leave the normal/spec writes
+    // and the lighting path alone, so whatever is flickering keeps flickering
+    // visibly under the tint.
+    if (vt_debug != 0) {
+        vec3 dbg = (vt_debug_mode == 1) ? vec3(mipfract)
+                                        : VTDebugColor(page1, fs_in.Global_UV);
+        gColor.rgb = mix(gColor.rgb, dbg, vt_debug_mix);
+    }
 }

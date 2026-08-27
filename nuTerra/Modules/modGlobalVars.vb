@@ -95,6 +95,22 @@ Module modGlobalVars
     Public SHADOW_PENUMBRA_LO As Single = 0.15F
     Public SHADOW_PENUMBRA_HI As Single = 1.0F
     Public UPLOADS_PER_FRAME As Integer = 1
+    ' Instrument (default off): per-bake page identity + per-frame VT stats
+    ' in the log, for VT churn hunts.
+    Public VT_BAKE_TRACE As Boolean
+    ' Debug view: terrain tinted by the resident VT page's mip (checker =
+    ' page cells), with a colour-key window. Settings -> VT shows the window;
+    ' the window's own checkbox flips the overlay, its slider sets the blend.
+    Public VT_PAGE_DEBUG As Boolean
+    Public VT_PAGE_DEBUG_COLOR As Boolean = True
+    Public VT_PAGE_DEBUG_MIX As Single = 0.45F
+    ' Overlay shows mipfract greyscale instead of page colours - the moving
+    ' bands are the trilinear blend sweeping between two coarse pages.
+    Public VT_DEBUG_MIPFRACT As Boolean
+    ' Test lever, affects REAL rendering: snap the VT trilinear blend to the
+    ' nearest page mip. If the settling flicker dies with this on, the
+    ' between-mips morph is the carrier.
+    Public VT_NEAREST_MIP As Boolean
     ' 2048 is the hard ceiling - Texture2DArray depth. At TILE_SIZE 256 the atlas
     ' costs 256KB a tile (64 colour + 64 normal + 128 uncompressed specular), so
     ' this is a 512MB resident set. Bigger cache means fewer evictions, which
