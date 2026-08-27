@@ -1038,6 +1038,75 @@ Module ChunkFunctions
         Dim y_off = theMap.near_y_offset
         Dim n = 0
 
+        ' ---- orientation audit --------------------------------------------
+        ' Scores the four possible heightmap mirrorings against the terrain's
+        ' own edge heights, 128 samples around the footprint boundary. The
+        ' winner should be "mirror-both" (the -uv REPEAT convention the
+        ' shaders use); if another orientation wins the mapping is wrong for
+        ' this map and the seam builds cliffs.
+        Dim gsize_a = CSng(MapTerrain.OUTLAND_GRID)
+        Dim ghalf_a = gsize_a / 2.0F
+        Dim gms_a = 100.0F / (gsize_a - 1.0F)
+        Dim onames = {"mirror-both", "no-mirror", "mirror-x-only", "mirror-z-only"}
+        Dim edge_err(3) As Double
+        Dim edge_max(3) As Double
+        For o = 0 To 3
+            Dim errsum As Double = 0
+            Dim ns = 0
+            If o = 0 Then
+                For k = 0 To 3
+                    edge_err(k) = 0 : edge_max(k) = 0
+                Next
+            End If
+            For k = 0 To 127
+                Dim t = (k Mod 32) / 31.0F
+                Dim wx, wz As Single
+                Select Case k \ 32
+                    Case 0 : wx = fmin.X + t * (fmax.X - fmin.X) : wz = fmin.Y + 1.0F
+                    Case 1 : wx = fmin.X + t * (fmax.X - fmin.X) : wz = fmax.Y - 1.0F
+                    Case 2 : wx = fmin.X + 1.0F : wz = fmin.Y + t * (fmax.Y - fmin.Y)
+                    Case Else : wx = fmax.X - 1.0F : wz = fmin.Y + t * (fmax.Y - fmin.Y)
+                End Select
+                Dim ty_ = get_Y_at_XZ_fast(wx, wz)
+                ' world -> mesh -> vertex uv
+                Dim mxa = (wx - theMap.center_offset.X) / theMap.near_scale.X
+                Dim mza = (wz - theMap.center_offset.Y) / theMap.near_scale.Y
+                Dim ua = ((mxa - 0.04888F) / gms_a + ghalf_a) / gsize_a
+                Dim va = ((mza - 0.04888F) / gms_a + ghalf_a) / gsize_a
+                ' orientation variants of the texture lookup
+                Dim tu = Math.Clamp(If(o = 0 OrElse o = 2, 1.0F - ua, ua), 0.0F, 1.0F)
+                Dim tv = Math.Clamp(If(o = 0 OrElse o = 3, 1.0F - va, va), 0.0F, 1.0F)
+                Dim fx = tu * w - 0.5F
+                Dim fy = tv * h - 0.5F
+                Dim xi = CInt(Math.Floor(fx)) : Dim yi = CInt(Math.Floor(fy))
+                Dim ax = fx - xi : Dim ay = fy - yi
+                Dim x1i = ((xi + 1) Mod w + w) Mod w : Dim y1i = ((yi + 1) Mod h + h) Mod h
+                xi = ((xi Mod w) + w) Mod w : yi = ((yi Mod h) + h) Mod h
+                Dim hs = (px(yi * w + xi) * (1 - ax) + px(yi * w + x1i) * ax) * (1 - ay) +
+                         (px(y1i * w + xi) * (1 - ax) + px(y1i * w + x1i) * ax) * ay
+                Dim oy = CSng(hs / 65535.0F * y_range + y_off - 1.5F)
+                Dim d_ = Math.Abs(oy - ty_)
+                errsum += d_
+                If o = 0 Then
+                    edge_err(k \ 32) += d_
+                    edge_max(k \ 32) = Math.Max(edge_max(k \ 32), d_)
+                End If
+                ns += 1
+            Next
+            Console.WriteLine("outland orientation {0}: mean seam error {1:0.0} m", onames(o), errsum / ns)
+        Next
+        Console.WriteLine("outland seam by edge (current orientation): N mean {0:0.0} max {1:0.0} | S mean {2:0.0} max {3:0.0} | W mean {4:0.0} max {5:0.0} | E mean {6:0.0} max {7:0.0}",
+                          edge_err(0) / 32, edge_max(0), edge_err(1) / 32, edge_max(1),
+                          edge_err(2) / 32, edge_max(2), edge_err(3) / 32, edge_max(3))
+
+        ' Adaptive blend band: bridging the seam's worst mismatch inside the
+        ' default 45 m band builds near-vertical smeared walls on alpine maps
+        ' (lakeville: 210 m spikes). Spread the blend over ~2.5x the worst
+        ' mismatch instead, capped so farm maps keep their tight seam.
+        Dim gmax = Math.Max(Math.Max(edge_max(0), edge_max(1)), Math.Max(edge_max(2), edge_max(3)))
+        band = Math.Clamp(CSng(gmax) * 2.5F, MapTerrain.OUTLAND_WELD_BAND, 400.0F)
+        Console.WriteLine("outland weld band: {0:0} m (worst seam mismatch {1:0.0} m)", band, gmax)
+
         Dim gsize = CSng(MapTerrain.OUTLAND_GRID)
         Dim ghalf = gsize / 2.0F
         Dim gms = 100.0F / (gsize - 1.0F)
@@ -1088,7 +1157,188 @@ Module ChunkFunctions
         LogThis("outland heightmap patch: {0} of {1}x{2} texels welded in {3} ms (fast-lookup check: {4:0.000} m)",
                 n, w, h, sw.ElapsedMilliseconds, worst)
         Console.WriteLine("outland heightmap patch: {0} texels in {1} ms (check {2:0.000} m)", n, sw.ElapsedMilliseconds, worst)
+
+        ' ---- second ring: weld the FAR cascade to the near one --------------
+        ' The far heightmap is coarse and authored independently; at the near
+        ' cascade's outer edge the two can disagree by 100-200 m on alpine
+        ' maps, which drew a smeared wall around the whole near cascade. Same
+        ' data-weld: far texels near the near-cascade rect are dragged to the
+        ' near cascade's RENDERED height (post-patch), blending back to the
+        ' far cascade's own data over an adaptive band.
+        If map_scene.terrain.CASCADE_LEVELS <> 2 OrElse map_scene.terrain.OUTLAND_height_CASCADE_MAP Is Nothing Then Return
+
+        Dim tex2 = map_scene.terrain.OUTLAND_height_CASCADE_MAP
+        Dim w2, h2 As Integer
+        GL4.GL.GetTextureLevelParameter(tex2.texture_id, 0, GL4.GetTextureParameter.TextureWidth, w2)
+        GL4.GL.GetTextureLevelParameter(tex2.texture_id, 0, GL4.GetTextureParameter.TextureHeight, h2)
+        Dim px2(w2 * h2 - 1) As UShort
+        GL4.GL.GetTextureImage(tex2.texture_id, 0, GL4.PixelFormat.Red, GL4.PixelType.UnsignedShort, px2.Length * 2, px2)
+        Dim yr2 = theMap.far_y_height
+        Dim yo2 = theMap.far_y_offset
+
+        ' the near cascade's drawn world rect (mesh spans -ghalf*gms..+ghalf*gms)
+        Dim mesh_lo = (0.0F - ghalf) * gms + 0.04888F
+        Dim mesh_hi = (gsize - 1.0F - ghalf) * gms + 0.04888F
+        Dim nmin As New Vector2(theMap.center_offset.X + mesh_lo * theMap.near_scale.X,
+                                theMap.center_offset.Y + mesh_lo * theMap.near_scale.Y)
+        Dim nmax As New Vector2(theMap.center_offset.X + mesh_hi * theMap.near_scale.X,
+                                theMap.center_offset.Y + mesh_hi * theMap.near_scale.Y)
+
+        ' audit the ring - all four far-map orientations, in case the far
+        ' cascade is registered differently - then set the blend band from
+        ' the winning orientation's worst mismatch
+        Dim ring_max As Double = 0
+        For o = 0 To 3
+            Dim omax As Double = 0
+            Dim osum As Double = 0
+            For k = 0 To 63
+                Dim t = (k Mod 16) / 15.0F
+                Dim wx, wz As Single
+                Select Case k \ 16
+                    Case 0 : wx = nmin.X + t * (nmax.X - nmin.X) : wz = nmin.Y + 2.0F
+                    Case 1 : wx = nmin.X + t * (nmax.X - nmin.X) : wz = nmax.Y - 2.0F
+                    Case 2 : wx = nmin.X + 2.0F : wz = nmin.Y + t * (nmax.Y - nmin.Y)
+                    Case Else : wx = nmax.X - 2.0F : wz = nmin.Y + t * (nmax.Y - nmin.Y)
+                End Select
+                Dim nh = sample_outland_px(px, w, h, wx, wz, theMap.near_scale, y_range, y_off)
+                Dim fh = sample_outland_px_oriented(px2, w2, h2, wx, wz, theMap.far_scale, yr2, yo2, o)
+                omax = Math.Max(omax, Math.Abs(nh - fh))
+                osum += Math.Abs(nh - fh)
+            Next
+            Console.WriteLine("outland far ring orientation {0}: mean {1:0.0} max {2:0.0} m",
+                              {"mirror-both", "no-mirror", "mirror-x", "mirror-z"}(o), osum / 64.0, omax)
+            If o = 0 Then ring_max = omax
+        Next
+        Dim band2 = Math.Clamp(CSng(ring_max) * 2.5F, 150.0F, 1200.0F)
+
+        ' calibration probe: all three surfaces must roughly agree at centre
+        Dim cxp = theMap.center_offset.X
+        Dim czp = theMap.center_offset.Y
+        Console.WriteLine("outland centre probe: terrain {0:0.0}  near {1:0.0}  far {2:0.0}  (far y_off {3:0.0} range {4:0.0})",
+                          get_Y_at_XZ_fast(cxp, czp),
+                          sample_outland_px(px, w, h, cxp, czp, theMap.near_scale, y_range, y_off),
+                          sample_outland_px(px2, w2, h2, cxp, czp, theMap.far_scale, yr2, yo2),
+                          yo2, yr2)
+
+        Dim n2 = 0
+        For ty = 0 To h2 - 1
+            Dim v = 1.0F - (ty + 0.5F) / h2
+            Dim mz2 = ((v * gsize) - ghalf) * gms + 0.04888F
+            Dim wz2 = mz2 * theMap.far_scale.Y + theMap.center_offset.Y
+            Dim dz2 = Math.Max(nmin.Y - wz2, wz2 - nmax.Y)
+            If dz2 > band2 Then Continue For
+            For tx = 0 To w2 - 1
+                Dim u = 1.0F - (tx + 0.5F) / w2
+                Dim mx2 = ((u * gsize) - ghalf) * gms + 0.04888F
+                Dim wx2 = mx2 * theMap.far_scale.X + theMap.center_offset.X
+                Dim dx2 = Math.Max(nmin.X - wx2, wx2 - nmax.X)
+                Dim d2 = Math.Max(dx2, dz2)
+                If d2 > band2 Then Continue For
+
+                Dim cx2 = Math.Clamp(wx2, nmin.X + 1.0F, nmax.X - 1.0F)
+                Dim cz2 = Math.Clamp(wz2, nmin.Y + 1.0F, nmax.Y - 1.0F)
+                Dim near_h = sample_outland_px(px, w, h, cx2, cz2, theMap.near_scale, y_range, y_off)
+
+                Dim target2 As Single
+                If d2 <= 0.0F Then
+                    Dim lip2 = 1.0F * Math.Clamp(-d2 / 60.0F, 0.0F, 1.0F)
+                    target2 = near_h - lip2
+                Else
+                    Dim t2 = d2 / band2
+                    t2 = t2 * t2 * (3.0F - 2.0F * t2)
+                    Dim authored2 = CSng(px2(ty * w2 + tx) / 65535.0F * yr2 + yo2 - 1.5F)
+                    target2 = near_h * (1.0F - t2) + authored2 * t2
+                End If
+
+                Dim enc2 = (target2 + 1.5F - yo2) / yr2
+                px2(ty * w2 + tx) = CUShort(Math.Clamp(enc2, 0.0F, 1.0F) * 65535.0F)
+                n2 += 1
+            Next
+        Next
+
+        GL4.GL.TextureSubImage2D(tex2.texture_id, 0, 0, 0, w2, h2, GL4.PixelFormat.Red, GL4.PixelType.UnsignedShort, px2)
+        Console.WriteLine("outland far-cascade weld: {0} texels, band {1:0} m (ring mismatch {2:0.0} m)", n2, band2, ring_max)
+
+        dump_heightmap_png(px, w, h, "outland_height_near_patched")
+        dump_heightmap_png(px2, w2, h2, "outland_height_far_patched")
     End Sub
+
+    ''' <summary>Debug: 8-bit visualisation of a heightmap to %TEMP%\nuTerra.</summary>
+    Private Sub dump_heightmap_png(px As UShort(), w As Integer, h As Integer, name As String)
+        Try
+            Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra")
+            IO.Directory.CreateDirectory(dir)
+            Using bmp As New Drawing.Bitmap(w, h, Drawing.Imaging.PixelFormat.Format32bppArgb)
+                Dim bd = bmp.LockBits(New Drawing.Rectangle(0, 0, w, h), Drawing.Imaging.ImageLockMode.WriteOnly, Drawing.Imaging.PixelFormat.Format32bppArgb)
+                Dim rowbuf(w * 4 - 1) As Byte
+                For y = 0 To h - 1
+                    For x = 0 To w - 1
+                        Dim g = CByte(px(y * w + x) >> 8)
+                        rowbuf(x * 4 + 0) = g
+                        rowbuf(x * 4 + 1) = g
+                        rowbuf(x * 4 + 2) = g
+                        rowbuf(x * 4 + 3) = 255
+                    Next
+                    Marshal.Copy(rowbuf, 0, bd.Scan0 + y * bd.Stride, w * 4)
+                Next
+                bmp.UnlockBits(bd)
+                bmp.Save(IO.Path.Combine(dir, name + ".png"), Drawing.Imaging.ImageFormat.Png)
+            End Using
+        Catch ex As Exception
+            Console.WriteLine("heightmap dump failed: {0}", ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>sample_outland_px under one of the four mirror orientations -
+    ''' audit use only (0 = mirror-both, the shader's own convention).</summary>
+    Private Function sample_outland_px_oriented(px As UShort(), w As Integer, h As Integer,
+                                                wx As Single, wz As Single,
+                                                scale As Vector2, y_range As Single, y_off As Single,
+                                                o As Integer) As Single
+        Dim gsize = CSng(MapTerrain.OUTLAND_GRID)
+        Dim ghalf = gsize / 2.0F
+        Dim gms = 100.0F / (gsize - 1.0F)
+        Dim mx = (wx - theMap.center_offset.X) / scale.X
+        Dim mz = (wz - theMap.center_offset.Y) / scale.Y
+        Dim u = ((mx - 0.04888F) / gms + ghalf) / gsize
+        Dim v = ((mz - 0.04888F) / gms + ghalf) / gsize
+        Dim tu = Math.Clamp(If(o = 0 OrElse o = 2, 1.0F - u, u), 0.0F, 1.0F)
+        Dim tv = Math.Clamp(If(o = 0 OrElse o = 3, 1.0F - v, v), 0.0F, 1.0F)
+        Dim fx = tu * w - 0.5F
+        Dim fy = tv * h - 0.5F
+        Dim x0 = CInt(Math.Floor(fx)) : Dim y0 = CInt(Math.Floor(fy))
+        Dim ax = fx - x0 : Dim ay = fy - y0
+        Dim x1 = Math.Clamp(x0 + 1, 0, w - 1) : Dim y1 = Math.Clamp(y0 + 1, 0, h - 1)
+        x0 = Math.Clamp(x0, 0, w - 1) : y0 = Math.Clamp(y0, 0, h - 1)
+        Dim s = (px(y0 * w + x0) * (1 - ax) + px(y0 * w + x1) * ax) * (1 - ay) +
+                (px(y1 * w + x0) * (1 - ax) + px(y1 * w + x1) * ax) * ay
+        Return CSng(s / 65535.0F * y_range + y_off - 1.5F)
+    End Function
+
+    ''' <summary>RENDERED height of a cascade heightmap at a world position -
+    ''' the same -uv REPEAT sampling and -1.5 sink the vertex shader applies.</summary>
+    Private Function sample_outland_px(px As UShort(), w As Integer, h As Integer,
+                                       wx As Single, wz As Single,
+                                       scale As Vector2, y_range As Single, y_off As Single) As Single
+        Dim gsize = CSng(MapTerrain.OUTLAND_GRID)
+        Dim ghalf = gsize / 2.0F
+        Dim gms = 100.0F / (gsize - 1.0F)
+        Dim mx = (wx - theMap.center_offset.X) / scale.X
+        Dim mz = (wz - theMap.center_offset.Y) / scale.Y
+        Dim u = ((mx - 0.04888F) / gms + ghalf) / gsize
+        Dim v = ((mz - 0.04888F) / gms + ghalf) / gsize
+        Dim tu = Math.Clamp(1.0F - u, 0.0F, 1.0F)
+        Dim tv = Math.Clamp(1.0F - v, 0.0F, 1.0F)
+        Dim fx = tu * w - 0.5F
+        Dim fy = tv * h - 0.5F
+        Dim x0 = CInt(Math.Floor(fx)) : Dim y0 = CInt(Math.Floor(fy))
+        Dim ax = fx - x0 : Dim ay = fy - y0
+        Dim x1 = Math.Clamp(x0 + 1, 0, w - 1) : Dim y1 = Math.Clamp(y0 + 1, 0, h - 1)
+        x0 = Math.Clamp(x0, 0, w - 1) : y0 = Math.Clamp(y0, 0, h - 1)
+        Dim s = (px(y0 * w + x0) * (1 - ax) + px(y0 * w + x1) * ax) * (1 - ay) +
+                (px(y1 * w + x0) * (1 - ax) + px(y1 * w + x1) * ax) * ay
+        Return CSng(s / 65535.0F * y_range + y_off - 1.5F)
+    End Function
 
     Public Function get_Y_at_XZ(ByVal Lx As Double, ByVal Lz As Double) As Single
 
@@ -1266,3 +1516,5 @@ domath:
     End Function
 
 End Module
+
+

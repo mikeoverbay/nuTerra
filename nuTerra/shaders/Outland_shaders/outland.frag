@@ -36,17 +36,31 @@ layout(location = 0) in VS_OUT {
 
 void main(void)
 {
+    // The mirror as 1-u (fs_in.UV is the negated uv, so 1+UV), half-texel
+    // clamped - fract(-u) collapses the u=0 edge rows onto the opposite side
+    // of the map. The detail sample keeps its wrap - it is meant to tile.
+    vec2 base_uv = 1.0 + fs_in.UV;
+    vec2 a_ts = vec2(textureSize(baked_albedo, 0));
+    vec2 n_ts = vec2(textureSize(normal_map, 0));
+    vec2 auv = clamp(base_uv, 0.5 / a_ts, 1.0 - 0.5 / a_ts);
+    vec2 nuv = clamp(base_uv, 0.5 / n_ts, 1.0 - 0.5 / n_ts);
+
     // --- albedo + detail: the game's exact combine --------------------------
-    vec4 alb = texture(baked_albedo, fs_in.UV);
+    vec4 alb = texture(baked_albedo, auv);
     vec4 det = texture(detail_albedo, fs_in.UV * detail_tiles);
 
     vec3 color = alb.rgb + det.a - 0.5;  // grayscale detail rides in det.a
     color = mix(color, det.rgb, alb.a);  // alb.a authors where detail rgb shows
 
     // --- normal: world-space AG decode (DXT5 pack: X in alpha, Z in green) --
-    // The game's r channel here is an alpha-test mask (alphaReference defaults
-    // to 0, so it never cuts) - available if edge cutouts are ever wanted.
-    vec4 nm = texture(normal_map, fs_in.UV);
+    vec4 nm = texture(normal_map, nuv);
+
+    // The compiled PBS_ext_outland variants alpha-test on the normal map's R
+    // channel, but the material's alphaReference defaults to 0 - never cuts -
+    // and lakeville's authored value is unknown. A guessed 0.5 threshold
+    // punched sky holes through its outland (the walls it was meant to hide
+    // were the fract(-u) mirror bug all along), so no cut until a real
+    // reference value is recovered from the map data.
     vec3 N;
     N.xz = (nm.ag * 2.0 - 1.0) * NORM_SIGN;
     N.y  = sqrt(1.0 - min(dot(N.xz, N.xz), 1.0));

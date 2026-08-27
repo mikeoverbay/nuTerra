@@ -188,6 +188,7 @@ Public Class MapTerrain
             outlandWireShader.Use()
 
             OUTLAND_height_MAP.BindUnit(1)
+            GL.Uniform3(outlandWireShader("wire_color"), 0.0F, 1.0F, 1.0F) ' near: cyan
             GL.Uniform1(outlandWireShader("y_range"), theMap.near_y_height)
             GL.Uniform1(outlandWireShader("y_offset"), theMap.near_y_offset)
             GL.Uniform2(outlandWireShader("scale"), theMap.near_scale.X, theMap.near_scale.Y)
@@ -197,6 +198,7 @@ Public Class MapTerrain
 
             If CASCADE_LEVELS = 2 Then
                 OUTLAND_height_CASCADE_MAP.BindUnit(1)
+                GL.Uniform3(outlandWireShader("wire_color"), 1.0F, 0.0F, 1.0F) ' far: magenta
                 GL.Uniform1(outlandWireShader("y_range"), theMap.far_y_height)
                 GL.Uniform1(outlandWireShader("y_offset"), theMap.far_y_offset)
                 GL.Uniform2(outlandWireShader("scale"), theMap.far_scale.X, theMap.far_scale.Y)

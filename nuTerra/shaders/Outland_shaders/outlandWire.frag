@@ -6,8 +6,10 @@
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec4 gGMF;
 
+uniform vec3 wire_color;
+
 void main()
 {
-    gColor = vec4(0.0, 1.0, 1.0, 1.0);
+    gColor = vec4(wire_color, 1.0);
     gGMF = vec4(0.0);
 }

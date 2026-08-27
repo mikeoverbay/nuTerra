@@ -71,12 +71,28 @@ void main(void)
     // its reflection vector. If the sun sits on the wrong side of the water,
     // this sign is the first suspect.
     vec3 R_cube = vec3(-R.x, R.y, R.z);
+    // The env cube carries the baked ground in its lower hemisphere; rays
+    // dipping below the horizon smear that ground (orange scrub on
+    // prohorovka) across the water wherever SSR misses. Clamp the lookup to
+    // the horizon ring - below-horizon reflections are SSR's job, and real
+    // water probes are the eventual replacement.
+    R_cube.y = max(R_cube.y, 0.02);
 
     // The sky, untinted. This used to be multiplied by the +0xE0 colour on the
     // theory it was a reflection tint; Mines authors that field (1.0,0.7,0.3)
     // and the whole lake went orange. It is the SUN tint, and it belongs on
     // the glint below - Monastery only got away with it by authoring white.
     vec3 refl = texture(sky, R_cube).rgb;
+
+    // The cube carries the sun disc and the bright horizon at full strength;
+    // reflected through an authored fresnel bias of ~0.6 they saturate whole
+    // stretches of water. Soft-clamp the reflection - scale, not clip, so the
+    // hue survives - and let the analytic glint below carry the sparkle.
+    const float REFL_MAX = 0.80;
+    float refl_peak = max(refl.r, max(refl.g, refl.b));
+    if (refl_peak > REFL_MAX) {
+        refl *= REFL_MAX / refl_peak;
+    }
 
     // Terrain and models, by marching the reflected ray through the frame -
     // same technique as the wet-terrain SSR, and water is its best case: the
@@ -141,8 +157,9 @@ void main(void)
     // stay authored, the constants put them in this pipeline's range.
     const float GLINT_SHARPEN = 8.0;   // higher = tighter sparkle
     const float GLINT_LEVEL   = 0.30;  // overall brightness
-    float glint = pow(max(dot(R, sun_dir), 0.0), sun_glint.x * GLINT_SHARPEN)
-                * sun_glint.y * GLINT_LEVEL * shade;
+    const float GLINT_CAP     = 0.35;  // ceiling on what the glint may ADD
+    float glint = min(pow(max(dot(R, sun_dir), 0.0), sun_glint.x * GLINT_SHARPEN)
+                * sun_glint.y * GLINT_LEVEL, GLINT_CAP) * shade;
 
     vec3 col = mix(deep_color.rgb, refl, F) + sun_tint * glint;
 

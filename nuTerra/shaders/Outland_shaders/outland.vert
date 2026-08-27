@@ -36,9 +36,17 @@ void main(void)
     vec3 pos;
     pos.xz = vertexPosition.xy * scale;
     pos.xz += center_offset;
+    // The mirror written directly as 1-u, NOT as fract(-u): fract collapses
+    // u=0 to 0 instead of 1, so the sheet's -X/-Z edge rows sampled the
+    // OPPOSITE side of the heightmap (REPEAT even blended the two borders
+    // 50/50) - a one-row vertical wall on exactly two edges, hundreds of
+    // metres tall on alpine maps. 1-u is continuous; the half-texel clamp
+    // keeps bilinear off the border texels.
+    vec2 hts = vec2(textureSize(height_map, 0));
+    vec2 huv = clamp(1.0 - UVs, 0.5 / hts, 1.0 - 0.5 / hts);
     // -1.5: sink the sheet slightly so playfield terrain always wins the depth
     // fight along the seam.
-    pos.y = texture(height_map, UV).x * y_range + y_offset - 1.5;
+    pos.y = texture(height_map, huv).x * y_range + y_offset - 1.5;
 
     vs_out.viewPosition = vec3(view * vec4(pos, 1.0));
     gl_Position = viewProj * vec4(pos, 1.0);

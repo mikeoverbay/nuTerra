@@ -1,4 +1,4 @@
-Imports System.Runtime.InteropServices
+﻿Imports System.Runtime.InteropServices
 Imports OpenTK.Mathematics
 Imports OpenTK.Graphics.OpenGL4
 
@@ -98,6 +98,104 @@ Public Class MapWater
             LogThis("Water: body at x {0:0}..{1:0}  z {2:0}..{3:0}  y {4:0.00}  colour ({5:0.00} {6:0.00} {7:0.00})",
                     x0, x1, z0, z1, y, b.deep_color.X, b.deep_color.Y, b.deep_color.Z)
         Next
+
+        ' -------------------------------------------------------------------
+        ' Outland water. The game fills the world past the map edge with its
+        ' instanced water clipmap at the open water's level - any outland
+        ' ground below it reads as sea or river, ground above it occludes.
+        ' The stand-in: if any body touches or crosses the terrain footprint
+        ' (that is what makes it OPEN water - closed ponds do not), lay a ring
+        ' of sheets at that level over the whole outland, hole-cut at the
+        ' footprint, clipped against body rects that poke past the edge so
+        ' nothing coplanar double-draws. The outland heightmap (terrain-
+        ' patched at the seam, authored seabed beyond) does the rest.
+        If DONT_BLOCK_OUTLAND AndAlso map_scene.OUTLAND_LOADED AndAlso bodies.Count > 0 Then
+            Const EDGE_EPS As Single = 2.0F
+            Dim fmin = theMap.terrain_footprint_min
+            Dim fmax = theMap.terrain_footprint_max
+            Dim half = If(map_scene.terrain.CASCADE_LEVELS = 2,
+                          New Vector2(theMap.far_scale.X, theMap.far_scale.Y) * 50.0F,
+                          New Vector2(theMap.near_scale.X, theMap.near_scale.Y) * 50.0F)
+            Dim omin = theMap.center_offset - half
+            Dim omax = theMap.center_offset + half
+
+            ' the open-water level and look: the lowest edge-touching body
+            Dim open_body As Integer = -1
+            Dim sea_y As Single = Single.MaxValue
+            Dim body_rects As New List(Of Vector4)
+            For e = 0 To cBWWa.bodies.Length - 1
+                Dim b = cBWWa.bodies(e)
+                Dim bx0 = Math.Min(-b.bbox_min.X, -b.bbox_max.X)
+                Dim bx1 = Math.Max(-b.bbox_min.X, -b.bbox_max.X)
+                Dim bz0 = b.bbox_min.Z
+                Dim bz1 = b.bbox_max.Z
+                body_rects.Add(New Vector4(bx0, bz0, bx1, bz1))
+                If bx0 <= fmin.X + EDGE_EPS OrElse bx1 >= fmax.X - EDGE_EPS OrElse
+                   bz0 <= fmin.Y + EDGE_EPS OrElse bz1 >= fmax.Y - EDGE_EPS Then
+                    If b.bbox_min.Y < sea_y Then
+                        sea_y = b.bbox_min.Y
+                        open_body = e
+                    End If
+                End If
+            Next
+
+            If open_body >= 0 Then
+                ' four strips around the footprint, out to the outland extent
+                Dim strips As New List(Of Vector4) From {
+                    New Vector4(omin.X, omin.Y, omax.X, fmin.Y),
+                    New Vector4(omin.X, fmax.Y, omax.X, omax.Y),
+                    New Vector4(omin.X, fmin.Y, fmin.X, fmax.Y),
+                    New Vector4(fmax.X, fmin.Y, omax.X, fmax.Y)
+                }
+                ' subtract every body rect (only their outside-the-footprint
+                ' overhangs actually intersect)
+                For Each brc As Vector4 In body_rects
+                    Dim out_list As New List(Of Vector4)
+                    For Each sr As Vector4 In strips
+                        If brc.X >= sr.Z OrElse brc.Z <= sr.X OrElse brc.Y >= sr.W OrElse brc.W <= sr.Y Then
+                            out_list.Add(sr) ' no overlap
+                            Continue For
+                        End If
+                        ' split the strip around the body rect
+                        If brc.Y > sr.Y Then out_list.Add(New Vector4(sr.X, sr.Y, sr.Z, brc.Y))
+                        If brc.W < sr.W Then out_list.Add(New Vector4(sr.X, brc.W, sr.Z, sr.W))
+                        Dim mz0 = Math.Max(sr.Y, brc.Y)
+                        Dim mz1 = Math.Min(sr.W, brc.W)
+                        If brc.X > sr.X Then out_list.Add(New Vector4(sr.X, mz0, brc.X, mz1))
+                        If brc.Z < sr.Z Then out_list.Add(New Vector4(brc.Z, mz0, sr.Z, mz1))
+                    Next
+                    strips = out_list
+                Next
+
+                Dim ob = cBWWa.bodies(open_body)
+                Dim added = 0
+                For Each sr As Vector4 In strips
+                    If sr.Z - sr.X < 0.5F OrElse sr.W - sr.Y < 0.5F Then Continue For
+                    Dim bv = varr.Count
+                    varr.Add(New WaterVertex With {.pos = New Vector3(sr.X, sea_y, sr.Y)})
+                    varr.Add(New WaterVertex With {.pos = New Vector3(sr.Z, sea_y, sr.Y)})
+                    varr.Add(New WaterVertex With {.pos = New Vector3(sr.Z, sea_y, sr.W)})
+                    varr.Add(New WaterVertex With {.pos = New Vector3(sr.X, sea_y, sr.W)})
+                    Dim bi = iarr.Count
+                    For Each ix In {0UI, 1UI, 2UI, 0UI, 2UI, 3UI}
+                        iarr.Add(ix)
+                    Next
+                    bodies.Add(New Body With {
+                        .idx_byte_offset = bi * 4,
+                        .idx_count = 6,
+                        .base_vertex = bv,
+                        .deep_color = ob.deep_color,
+                        .fresnel_bias = ob.fresnel_bias,
+                        .fresnel_power = ob.fresnel_power,
+                        .sun_power = ob.sun_power,
+                        .sun_scale = ob.sun_scale,
+                        .sun_tint = ob.sun_tint})
+                    added += 1
+                Next
+                LogThis("Water: outland sheet at y {0:0.00} from body {1} - {2} strips over x {3:0}..{4:0} z {5:0}..{6:0}",
+                        sea_y, open_body, added, omin.X, omax.X, omin.Y, omax.Y)
+            End If
+        End If
 
         Dim stride = Marshal.SizeOf(Of WaterVertex)
         Dim va = varr.ToArray()
@@ -215,3 +313,4 @@ Public Class MapWater
         Next
     End Sub
 End Class
+

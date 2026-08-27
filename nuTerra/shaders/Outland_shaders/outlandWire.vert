@@ -27,7 +27,10 @@ void main(void)
     vec3 pos;
     pos.xz = vertexPosition.xy * scale;
     pos.xz += center_offset;
-    pos.y = texture(height_map, UV).x * y_range + y_offset - 1.5 + 0.2;
+    // mirror as 1-u with half-texel clamp, same as outland.vert
+    vec2 hts = vec2(textureSize(height_map, 0));
+    vec2 huv = clamp(1.0 - UVs, 0.5 / hts, 1.0 - 0.5 / hts);
+    pos.y = texture(height_map, huv).x * y_range + y_offset - 1.5 + 0.2;
 
     gl_Position = viewProj * vec4(pos, 1.0);
 }
