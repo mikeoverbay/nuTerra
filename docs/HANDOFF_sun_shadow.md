@@ -2,9 +2,10 @@
 
 Supersedes the previous version. Covers everything through the FX pass
 (sorting, shader-variant fidelity, new material families), PBS_tiled_global,
-and the OUTLAND rebuild (implemented this session, uncommitted, owner review
-pending). Where it says "was", that is what the code did before and why it
-changed.
+and the OUTLAND rebuild - now COMPLETE and committed through three commits:
+game-faithful bake + ring meshes, heightmap data-weld + 1024 grid +
+wireframe, and outland water + the two-edge wall fix. Where it says "was",
+that is what the code did before and why it changed.
 
 The owner is the sole developer of nuTerra, a VB.NET / .NET 6 / OpenTK offline
 World of Tanks map viewer. He guides tightly, tests every build himself, and is
@@ -15,20 +16,25 @@ the reasoning.
 
 ## Where this left off
 
-- Last commit is `3f086ee` ("FX pipeline: depth-sorted bucket, cracked shader
-  variants, new materials") on `master`. Push from the owner's terminal - the
-  agent shell has no SSH key. `readme_images/test.png` deliberately untracked.
-- **This session's work is UNCOMMITTED: the outland rebuild** (see the OUTLAND
-  section near the bottom - it replaces the old plan and is implemented and
-  verified running). Touched: `outland.vert/frag` (rewritten),
-  `outland_bake_accum.*` / `outland_bake_resolve.*` (new), ShaderLoader
-  (2 registrations), MapTerrain (bake + Draw_outland + fields + dispose),
-  ChunkFunctions (ring index builder + two-VAO build), TerrainBuilder
-  (bake call + scale comment), App.config + Settings.settings
-  (**load_outland False -> True** - it had been shipped off, the outland was
-  never drawing at all).
-- Pending the owner's eyes: the outland on Prokhorovka (good in my screenshots)
-  and D-Day (dark - see the normal-map anomaly note), `hills_outland_smokes`
+- Outland work landed as three commits on `master`: `b504394` (bake, ring
+  meshes, PBS_ext_outland transcription, placement fix, load_outland
+  False -> True), `f757d11` (heightmap data-weld, OUTLAND_GRID 1024,
+  wireframe view), `d39fc12` (outland water sheet, water saturation clamps,
+  the fract(-u) two-edge wall fix, far-cascade weld, seam audits). The first
+  two are pushed; `d39fc12` may still need a push from the owner's terminal -
+  the agent shell has no SSH key. A README third-party credits section rode
+  along in f757d11.
+- One same-day REVERT sits between b504394 and f757d11: a per-vertex weld +
+  8x seam subdivision and a load-time port of Blender's QEM decimator (froze
+  the load twice - likely quadratic dead-face growth, prune never verified).
+  The owner called it: small provable steps, prototype heavy mesh work
+  offline first. The Blender port notes live in the session scratchpad;
+  Garland-Heckbert + the collapse guards are worth revisiting OFFLINE if
+  triangle counts ever matter (400k drawn today, his card does 180 fps).
+- The outland verified good by the owner's own eyes on prohorovka, dday,
+  lakeville. Verify next on a snow map and a desert map (different tile
+  sets), and the two BIG epic maps (208/209 - 1024-chunk grids).
+- Still pending the owner's eyes from last session: `hills_outland_smokes`
   brightness (stand-in lighting multipliers), Abbey/Prokhorovka smoke after
   the fade fixes, and the D-Day base smoke sheets.
 
@@ -167,7 +173,7 @@ subtract in TerrainLQ/HQ.frag first). `terrain2/horizonshadows` uncracked.
 
 ---
 
-## OUTLAND (implemented this session - verified running, owner review pending)
+## OUTLAND (complete - owner-verified on prohorovka, dday, lakeville)
 
 Rebuilt the way the game does it. The full fxo recon (both
 `PBS_ext_outland.10/.11.dx11.fxo` disassembled) settled everything:
@@ -222,18 +228,67 @@ baked albedo(0), height(1), normal(2), neutral detail(3). gGMF =
 old write was (0.2, 0.3) so deferred needed no change. glGetError clean,
 94 fps, VRAM 4.5/8 on prohorovka.
 
-**Known looks, for the owner's screenshots**:
-- Prokhorovka: good - lit rolling outland, playfield nested seamlessly. Its
-  cascade normal maps are flat 127/128 dummies (all normals up), so it does
-  not exercise NORM_SIGN.
-- D-Day: outland reads DARK. Its cascade-0 normal map genuinely centres at
-  ~56/255 in both AG channels (a uniform ~-0.56 lean after decode - measured,
-  not a decode bug; prohorovka and the CT sm24 variant centre at ~118-128).
-  Compare against the game before "fixing": under the game's own decode the
-  same lean falls out of the same data, so the game may hide it in fog - or
-  read the map through a remap we have not found.
-- Near/far cascade tone difference shows at the near ring's outer edge on
-  prohorovka's upper-left; worth a look.
+**Since the first commit** (f757d11 + d39fc12):
+
+- **THE -UV MIRROR TRAP (the big one).** The mirrored sampling must be
+  written as `1-u`, never `fract(-u)`: fract collapses u=0 to 0 instead of
+  1, so the sheet's -X/-Z EDGE ROWS sampled the OPPOSITE side of the
+  heightmap (REPEAT even blended the two borders 50/50). Invisible on flat
+  maps whose sides match; a 400 m one-row wall on exactly two edges of
+  lakeville. Fixed in outland.vert/frag, outlandWire.vert and the CPU
+  samplers, all with a half-texel clamp. Any NEW outland code must use the
+  1-u form.
+- **Heightmap data-weld**: `patch_outland_heightmap` (ChunkFunctions)
+  rewrites the near cascade's texels in/near the terrain footprint with the
+  terrain's own surface (`get_Y_at_XZ_fast` - board cell computed directly,
+  ~74k texels in 24 ms; NEVER bulk-call the scanning `get_Y_at_XZ`, it
+  froze the load). Flush at the footprint line, tucked with a small lip
+  inside, blended out over an ADAPTIVE band (2.5x the audited worst seam
+  mismatch, 45..400 m). Values stored +1.5 to cancel the VS sink. Runs
+  after MAP_LOADED.
+- **Far cascade weld**: same idea one ring out - the far heightmap is
+  dragged to the near cascade's rendered heights at the near rect, adaptive
+  band 150..1200 m. Lakeville's authored near/far ring mismatch is REAL
+  (~180 m mean) even after the mirror fix.
+- **OUTLAND_GRID = 1024** (MapTerrain const) drives mesh gen, ring cutter
+  and the patch affine together - they must never diverge. ~3.9M outland
+  tris, +75 MB VRAM; owner measures 180 fps. 512 is the fallback knob.
+- **Outland water** (MapWater.Build): a body touching the terrain footprint
+  is OPEN water; a ring of sheets at its level covers the outland, hole-cut
+  at the footprint and clipped around body overhangs. Fills dday's Channel
+  and prohorovka's river valleys exactly where outland ground sits below
+  the level - the game's water clipmap equivalent. Water look fixes in
+  water.frag: sky-reflection soft-clamp REFL_MAX 0.8, GLINT_CAP 0.35, and
+  the cube lookup clamped to the horizon ring (the env cube's lower half
+  carries baked ground that smeared orange across water).
+- **Wireframe**: "Draw terrain wire" also draws the outland - near cyan,
+  far magenta - the instrument that identified the wall's owner.
+- **Load-time audits print on every load**: orientation scores (mirror-both
+  must win), per-edge seam stats, chosen weld bands, and the patched
+  heightmaps + bakes dump to %TEMP%\nuTerra as PNGs. Deliberately left on.
+
+**Known data facts / open threads**:
+- D-Day's cascade-0 normal map genuinely centres at ~56/255 in both AG
+  channels (uniform lean; prohorovka ships flat 127/128 dummies, CT's sm24
+  ~118). Compare against the game before "fixing" - same data, same decode.
+- Lakeville AUTHORS the R-channel cutout mask (5.2% of blocks dark, in
+  mountain shapes) but the material's alphaReference is unknown; a guessed
+  0.5 threshold punched sky holes, so the cut is REMOVED (comment in
+  outland.frag keeps the lead). If the authored reference ever surfaces
+  (space.bin material data), restore the discard with it.
+- detailAlbedoSml is still the 1x1 neutral stand-in; the real binding is an
+  authored material property (*_AM pattern; TerrainSettings1.noise_texture
+  is the candidate). One BindUnit(3) to experiment.
+- Outland tiles have NO _hd variants anywhere (all 173 are 1024^2 DXT5,
+  both clients); the content/Outland/hd_out_* MODEL textures do, and they
+  already load through LookupHD.
+- BWWa body records are ~70% unparsed: +0x9C centre/size, +0xEC the
+  map-wide water bounds (feeds g_worldXZBounds in the water shaders),
+  +0xB8 eight authored flag bytes - set on open-water bodies, zero on the
+  closed pond, exact meaning undecoded.
+- The game's to-horizon sea is `shaders/water/water_clipmap_instanced` -
+  camera-following instanced patches + terrain_height_renderer for shore
+  culling. The per-map sea level is engine-fed; nuTerra's sheet stands in.
 
 **load_outland was shipped False in App.config/Settings.settings** (outland
 never drew at all - the "gray ring" in old screenshots was the skydome).
@@ -267,9 +322,18 @@ flicker, giant white sheets, fog angles) into four one-line facts, two of
 which were our bugs and two of which were the game's own design. And when a
 "looks wrong" report arrives, get the screenshot before the theory.
 
-The outland session added two more: when a rewrite appears to change
-nothing, CHECK THE ENABLE FLAG before the code (load_outland was shipped
-False; an hour of "why is my bake black" was actually the old build's
-skydome) - and when a decode is in doubt, render the reference offline
+The outland session added more: when a rewrite appears to change nothing,
+CHECK THE ENABLE FLAG before the code (load_outland was shipped False; an
+hour of "why is my bake black" was actually the old build's skydome) - and
+when a decode is in doubt, render the reference offline
 first: the 60-line Python that decoded the tilemap to flat colours settled
 the nibble encoding in one image, before touching a shader.
+
+The wall hunt closed the day with three keepers. The owner's OBSERVATION
+was the instrument that mattered ("a wall of the opposite side of the
+map" named fract(-u) after four of my measurements circled it); colour
+your debug views (near cyan / far magenta answered "whose wall?" in one
+frame); and heavy mesh work does not belong in the load path - the QEM
+decimator froze the load twice and was reverted whole. Small provable
+steps: the day's wins each shipped as one small committed change the owner
+could see with his own eyes.
