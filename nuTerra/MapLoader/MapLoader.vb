@@ -178,6 +178,9 @@ Module MapLoader
             For Each batch In MODEL_BATCH_LIST
                 Dim skip = True
                 Dim savedLodOffset = lodLast
+                ' Audit trail: one entry per lods() row group actually appended
+                ' for this batch, holding that lod's emitted prim-group count.
+                Dim lodRows As New List(Of Integer)
 
                 Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Length - 1
                 Dim SHADOW_MAP_LOD = Math.Min(1, MAX_LOD_ID)
@@ -266,10 +269,25 @@ Module MapLoader
                             End With
                             lodLast += 1
                         Next
+                        lodRows.Add(countPrimGroups)
                     End If
                 Next
 
                 If skip Then Continue For
+
+                ' LOD-table audit. cull.comp picks a lods() row by camera
+                ' distance (bands 50/100/150 m) and clamps to lod_count-1.
+                ' A row with draw_count 0 makes every instance VANISH in that
+                ' band; fewer rows than authored lods sends the far bands past
+                ' this batch's rows into a neighbour's. Outland models are
+                ' always viewed from beyond 150 m, so they live in the last
+                ' band permanently.
+                If lodRows.Count < MAX_LOD_ID + 1 OrElse lodRows.Contains(0) Then
+                    LogThis("  lod audit: {0}  authored {1} rows {2} counts [{3}] x{4}",
+                            Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name),
+                            MAX_LOD_ID + 1, lodRows.Count,
+                            String.Join(",", lodRows), batch.count)
+                End If
 
                 For i = 0 To batch.count - 1
                     With matrices(mLast + i)

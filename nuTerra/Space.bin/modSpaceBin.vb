@@ -208,7 +208,9 @@ Module modSpaceBin
             MODEL_INDEX_LIST(j).matrix.M41 *= -1.0
             j += 1
         Next
-        Array.Resize(MODEL_INDEX_LIST, j - 1)
+        ' j entries were filled (0..j-1), so the length is j - resizing to
+        ' j - 1 silently dropped the last accepted instance on every map.
+        Array.Resize(MODEL_INDEX_LIST, j)
 
         ReadSpaceBinData = True
         GoTo CleanUp
