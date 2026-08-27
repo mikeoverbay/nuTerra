@@ -472,7 +472,12 @@ Public Class MapStaticModels
         For i = 0 To count - 1
             Dim candidate = CInt(fx_cmds(i).baseInstance)
             If candidate >= candidate_origins.Length Then
-                LogThis("draw_fx sort: candidate {0} out of range {1} - drawing unsorted", candidate, candidate_origins.Length)
+                ' Latched like the overflow above - this runs per frame and
+                ' would spam for as long as the condition holds.
+                If Not fx_sort_overflow_logged Then
+                    LogThis("draw_fx sort: candidate {0} out of range {1} - drawing unsorted", candidate, candidate_origins.Length)
+                    fx_sort_overflow_logged = True
+                End If
                 Return
             End If
             fx_order(i) = i

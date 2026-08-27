@@ -33,8 +33,10 @@ Public Class VirtualTexture
         End Get
         Set
             _mipbias = Value
-            LogThis("MipBias: {0}", _mipbias)
-            Console.Out.Flush()
+            If VT_BAKE_TRACE Then
+                LogThis("MipBias: {0}", _mipbias)
+                Console.Out.Flush()
+            End If
         End Set
     End Property
 

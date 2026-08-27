@@ -73,25 +73,12 @@ Public Class PageLoader
         RaiseEvent loadComplete(state.Page, state.ColorData, state.NormalData, state.SpecularData)
     End Sub
 
-    ' DEBUG: how many pages get baked, and what blend values they see. If the
-    ' count does not climb when a slider moves + Rebuild VT, nothing is being
-    ' re-baked and the shader change cannot show. Remove when answered.
-    Private Shared bake_count As Integer
-    Private Shared last_reported As Single = -999.0F
-
     Private Sub LoadPage(state As ReadState)
-        bake_count += 1
-        ' Churn trace: one line per bake with the page identity, to tell LRU
-        ' rotation (same pages repeating) from wandering requests (always-new
-        ' pages). Temporary instrument for the settled-view lighting flicker.
+        ' Churn trace (VT_BAKE_TRACE, default off): one line per bake with the
+        ' page identity, to tell LRU rotation from wandering requests.
         If VT_BAKE_TRACE Then
             LogThis("bake {0} {1} m{2}", state.Page.X, state.Page.Y, state.Page.Mip)
             Console.Out.Flush()
-        End If
-        If CommonProperties.BLEND_HEIGHT <> last_reported OrElse (bake_count Mod 200) = 0 Then
-            last_reported = CommonProperties.BLEND_HEIGHT
-            LogThis("VT bake #{0}: blend_height={1:0.###} height_contrast={2:0.###}",
-                    bake_count, CommonProperties.BLEND_HEIGHT, CommonProperties.HEIGHT_CONTRAST)
         End If
 
         VTMixerFBO.fbo.Bind(FramebufferTarget.Framebuffer)
