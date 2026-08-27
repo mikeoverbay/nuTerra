@@ -1,25 +1,29 @@
-﻿# nuTerra render settings for 115_sweden
-# Seeded from 19_monastery - these are the shared baseline, not tuned
-# for this map yet. Adjust in Settings and save, then trim this file
-# down to only the lines that actually differ.
+# nuTerra render settings for 115_sweden
+# Written 2026-08-27T18:12:35. Copy this into nuTerra\MapSettings to keep it.
+# Delete any line to fall back to that setting's default for this map.
 
 ambient=0.4
 ambient_sat=0.05
-sun_tint=0.415
-sun_strength=0.83
-tonemap_exposure=3.552
-brightness=0.658
-specular=0.356
+sun_tint=0.291
+sun_strength=2.152
+tonemap_exposure=2.064
+brightness=1.131
+specular=0.336
 gray_level=1
-gamma_level=0.345
-fog_level=0
+gamma_level=0.311
+fog_level=0.07
 tess_level=1
+blend_height=0.05
+height_contrast=6.048
+macro_fade=0.222
+horizon_strength=1
+shadow_strength=1
+water_y_offset=0
+water_exclude_band=1.5
+mouse_damp=0.1
 use_sh_ambient=1
 decal_edge_fade=1
 draw_decals=1
 draw_trees=1
 draw_water=1
-shadow_mapping=1
 baked_shadow=1
-horizon_strength=0.7
-mouse_damp=0.1
