@@ -27,6 +27,12 @@ Public Class MapTrees
         Public uv As Vector2
         '''<summary>Bark or leaf atlas. Per vertex, so one species draws in one call.</summary>
         Public texHandle As UInt64
+        '''<summary>Bit 0 = bark (Skin part): bark is NEVER alpha-tested. Some
+        ''' species author a spec-style mask in the bark alpha (Scots Pine's
+        ''' bark AM averages 0.11, every texel under 0.5) and the leaf cutout
+        ''' shredded their trunks to dashes - in geometry, shadows and casts.
+        ''' Sits after the 8-byte handle so existing attrib offsets hold.</summary>
+        Public flags As UInt32
     End Structure
 
     '''<summary>One species' decoded geometry and its two textures.</summary>
@@ -218,6 +224,20 @@ Public Class MapTrees
 
         measure_species(sp)
         sp.valid = True
+
+        ' Decode trace: the part classifier is heuristic (palmetto and olive
+        ' both misfiled trunks before), so print every draw call's verdict
+        ' when a species is under suspicion.
+        If TREES_DECODE_TRACE Then
+            LogThis("Trees decode: {0}", srt_path)
+            For Each dc In sp.srt.DrawCalls
+                Dim unique = dc.VertexCount - dc.DuplicateVerts
+                LogThis("  lod {0} kind {1,-9} verts {2,5} unique {3,5} idx {4,6} tex '{5}'",
+                        dc.Lod, dc.Kind.ToString(), dc.VertexCount, unique,
+                        dc.IndexCount, dc.DiffuseTexture)
+            Next
+            Console.Out.Flush()
+        End If
         Return sp
     End Function
 
@@ -267,12 +287,14 @@ Public Class MapTrees
                     End If
                     Dim local_base = CUInt(verts.Count - sp.base_vertex)
 
+                    Dim vflags = If(dc.Kind = SrtFile.PartKind.Skin, 1UI, 0UI)
                     For v = 0 To dc.VertexCount - 1
                         verts.Add(New TreeVertex With {
                             .pos = New Vector3(dc.Positions(v * 3), dc.Positions(v * 3 + 1), dc.Positions(v * 3 + 2)),
                             .normal = New Vector3(dc.Normals(v * 3), dc.Normals(v * 3 + 1), dc.Normals(v * 3 + 2)),
                             .uv = New Vector2(dc.TexCoords(v * 2), dc.TexCoords(v * 2 + 1)),
-                            .texHandle = handle})
+                            .texHandle = handle,
+                            .flags = vflags})
                     Next
                     For i = 0 To dc.IndexCount - 1
                         indices.Add(dc.Indices(i) + local_base)
@@ -373,6 +395,12 @@ Public Class MapTrees
         vao.AttribIFormat(3, 2, VertexAttribType.UnsignedInt, 32)
         vao.AttribBinding(3, 0)
         vao.EnableAttrib(3)
+
+        'flags (bit 0 = bark, exempt from the leaf cutout) - after the
+        'instance-matrix locations 4..7
+        vao.AttribIFormat(8, 1, VertexAttribType.UnsignedInt, 40)
+        vao.AttribBinding(8, 0)
+        vao.EnableAttrib(8)
 
         ' per-instance transform, one mat4 as four vec4 slots
         For row = 0 To 3

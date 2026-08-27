@@ -13,6 +13,7 @@ layout(location = 1) in vec3 vertexNormal;
 layout(location = 2) in vec2 vertexTexCoord;
 layout(location = 3) in uvec2 vertexTexHandle; // bindless bark or leaf atlas
 layout(location = 4) in mat4 instanceMatrix;   // occupies 4..7
+layout(location = 8) in uint vertexFlags;      // bit 0 = bark (no alpha test)
 
 out VS_OUT
 {
@@ -20,12 +21,14 @@ out VS_OUT
     vec3 worldPosition;
     vec3 normal;
     flat uvec2 texHandle;
+    flat uint flags;
 } vs_out;
 
 void main(void)
 {
     vs_out.TC = vertexTexCoord;
     vs_out.texHandle = vertexTexHandle;
+    vs_out.flags = vertexFlags;
 
     vec4 world = instanceMatrix * vec4(vertexPosition, 1.0);
     vec4 viewPos = view * world;

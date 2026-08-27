@@ -23,6 +23,7 @@ in VS_OUT
     vec3 worldPosition;
     vec3 normal;
     flat uvec2 texHandle;
+    flat uint flags;
 } fs_in;
 
 void main(void)
@@ -37,10 +38,15 @@ void main(void)
     // The geometry was never the problem - the discard was. Lowering the
     // threshold with the mip level keeps at least the densest texels alive at
     // any distance, so a far tree stays a tree instead of thinning to nothing.
-    float mip = textureQueryLod(sampler2D(fs_in.texHandle), fs_in.TC).x;
-    float cutoff = 0.5 / (1.0 + mip * 0.55);
-    if (albedo.a < cutoff) {
-        discard;
+    // Bark (flag bit 0) is exempt: it is opaque surface, and some species
+    // author a spec-style mask in the bark alpha (Scots Pine averages 0.11)
+    // that would shred the trunk to dashes under this test.
+    if ((fs_in.flags & 1u) == 0u) {
+        float mip = textureQueryLod(sampler2D(fs_in.texHandle), fs_in.TC).x;
+        float cutoff = 0.5 / (1.0 + mip * 0.55);
+        if (albedo.a < cutoff) {
+            discard;
+        }
     }
 
     const float renderType = GFLAG_MODEL;

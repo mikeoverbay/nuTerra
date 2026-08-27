@@ -98,6 +98,9 @@ Module modGlobalVars
     ' Instrument (default off): per-bake page identity + per-frame VT stats
     ' in the log, for VT churn hunts.
     Public VT_BAKE_TRACE As Boolean
+    ' Trace every tree species' draw-call classification at load (the part
+    ' classifier is heuristic and has misfiled trunks before).
+    Public TREES_DECODE_TRACE As Boolean
     ' Multiplier on the authored water-fog inverse depth (BWWa +0x70) -
     ' above 1 the water goes opaque sooner, below 1 it clears up.
     Public WATER_FOG_MUL As Single = 1.0F

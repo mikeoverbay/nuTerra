@@ -12,12 +12,14 @@ in Block
 {
     vec2 uv;
     flat uvec2 texHandle;
+    flat uint flags;
 } gs_in[];
 
 out Block
 {
     vec2 uv;
     flat uvec2 texHandle;
+    flat uint flags;
 } gs_out;
 
 void main(void)
@@ -28,6 +30,7 @@ void main(void)
 
         gs_out.uv = gs_in[i].uv;
         gs_out.texHandle = gs_in[i].texHandle;
+        gs_out.flags = gs_in[i].flags;
 
         gl_Layer = gl_InvocationID;
         EmitVertex();
