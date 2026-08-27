@@ -89,6 +89,15 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
  // https://defold.com/tutorials/grading/
  vec4 lut_color_correction(in vec4 px)
  {
+    // The strip is authored for [0,1]. This runs before the tonemapper, so
+    // a sunlit white overshoots 1.0 and the cell math below walks off the
+    // texture into the wrong blue slice - blown-out whites came back cyan.
+    // Grade the colour's direction and carry the overflow through as
+    // magnitude, so the tonemapper still gets a highlight to roll off.
+    // At or below 1.0 nothing changes.
+    float mag = max(max(px.r, max(px.g, px.b)), 1.0);
+    px.rgb /= mag;
+
     float cell = px.b * MAXCOLOR;
 
     float cell_l = floor(cell);
@@ -106,6 +115,7 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
     vec4 graded_color_h = textureLod(lut, lut_pos_h, 0);
 
     vec4 graded_color = mix(graded_color_l, graded_color_h, fract(cell));
+    graded_color.rgb *= mag;
 
     return graded_color;
  
