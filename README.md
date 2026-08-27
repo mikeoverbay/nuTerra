@@ -6,6 +6,24 @@
 
 ![nuTerra](readme_images/nuTerra.png)
 
+## Highlights
+
+- Deferred renderer with reversed-Z, virtual-textured terrain (the game's
+  own layer mixing baked into pages on demand), baked map-wide sun shadow
+  with an MSM/PCF A/B path, water, trees, roads, decals and the game's
+  volumetric FX pass with faithful shader-variant selection.
+- Game-faithful **outland** backdrop: tilemap albedo baked at load the way
+  the game's engine does it, ring meshes with the playfield cut out,
+  heightmap data-welds that keep the sheet mathematically under the
+  terrain (audited on every load), and background threshold decimation
+  that drops the two cascades from ~4M to well under 1M triangles with
+  sub-metre error - the load path never blocks, the full grid draws until
+  the decimated mesh swaps in.
+- GPU frustum + raster occlusion culling for models, CPU block culling for
+  terrain and outland, and instruments everywhere: per-pass GPU timers, a
+  console Snapshot, wireframe overlays, a VT page debug view with a colour
+  key, and load-time audits that print what the data actually says.
+
 ## Third-party credits
 
 Algorithms adapted from other projects and papers:
@@ -16,6 +34,9 @@ Algorithms adapted from other projects and papers:
   sun-shadow path.
 - **Inigo Quilez** - the smoothed terrain normal generation follows
   <https://iquilezles.org/articles/normals/>
+- **Garland & Heckbert** - the outland mesh decimation follows their
+  quadric error metric (Surface Simplification Using Quadric Error
+  Metrics, SIGGRAPH 1997), threshold-driven with subset placement.
 
 Libraries:
 
