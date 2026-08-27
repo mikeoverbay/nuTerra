@@ -18,9 +18,12 @@ hours.
 
 ## Where this left off
 
-- Nine commits this session (plus two still unpushed from the previous one),
-  all owner-verified, ending `42494c2` (README). The owner pushes from his
-  terminal - the agent shell has no SSH key.
+- The session continued past the flicker close-out into the OUTLAND LOOK:
+  the colour step at the map edge, run to ground by ripping terrain2_5
+  (see the Outland look section - the one-line revelation: at range the
+  game's field IS g_globalAlbedoMap sampled raw). Ended "good enough for
+  now" by the owner at `858023a`. The owner pushes from his terminal - the
+  agent shell has no SSH key.
 - The "settling-in lighting flicker on larger far away patches" is DEAD. It
   was three stacked causes, found in this order:
   1. z-fights between the welded outland sheet and far terrain (fixed: draw
@@ -166,10 +169,65 @@ session, in draw order of importance:
   y_off, y_range, scale.xy, center.xy; then u16s) for offline mesh work -
   the PNG dumps are 8-bit and useless for geometry.
 
-Open threads unchanged: detailAlbedoSml still the 1x1 neutral stand-in
-(TerrainSettings1.noise_texture the candidate); lakeville's authored
-R-channel cutout waiting on its alphaReference; BWWa bodies ~70% unparsed;
-the game's to-horizon sea is water_clipmap_instanced.
+### Outland look (the colour-step session, ended "good enough for now")
+
+The owner reported a major colour difference between the field and the
+outland, then banding, then lighting - three layers, each settled by
+ripping the game's shaders or the data rather than guessing (two guessed
+tint formulas were baked, inspected in the dumps, and thrown away):
+
+- **The reference truth** (terrain2_5.10 low-LOD PS, 15 instructions):
+  at range the game's field albedo = `g_globalAlbedoMap` sampled RAW.
+  Also: the game applies global at DRAW (bound in terrain2_5, absent from
+  their VT page baker - nuTerra's t_mixer stanza is a bake-time
+  approximation), and dxt1FormatGlobalAM gates the global's alpha.
+- **The bake now continues raw global at the seam**
+  (outland_bake_resolve.frag): plain mix toward the clamped global
+  sample - 100% at the footprint line, relaxing to the "Global at range"
+  slider (default 0.35) so tile character owns the far mountains. The
+  clamped sample is taken through a heavy mip: `mix(5.5, 8.0,
+  min(fade*2.5,1))` - the frozen border rows otherwise project as
+  streaks, light blurs leave soft streaks, and pulling the sample point
+  toward the centre drags features into comets (all three failure modes
+  were observed in dumps; the schedule is the survivor).
+- **The near-sheet contour banding was IN THE BAKE**: 4-bit tilemap
+  weights staircase authored ramps - one ring per level at high-contrast
+  transitions. Fixed in outland_bake_accum.frag with a one-texel tent
+  over the weight field (weight_at x4 at half-texel offsets) plus a
+  half-LSB interleaved-gradient dither in the resolve. Mesh/UVs/decimator
+  were exonerated by construction (uv is an exact affine of XZ; any
+  sub-triangulation interpolates it exactly).
+- **detailAlbedoSml is settled with data**: noise_texture resolves empty
+  on every map checked, and a 206-package sweep found NO detail albedo
+  asset in the entire install - the 1x1 neutral IS the faithful binding.
+  The loader auto-loads a candidate if any map ever authors one
+  ("Outland detail (test)" checkbox + "Detail repeats" slider, live).
+- **Material**: in THIS deferred, gGMF.x shapes the spec lobe (terrain
+  writes 0.2) and .y is intensity (field sand pages ~0.1-0.2). The
+  game's raw (59,80)/255 runs shinier through our BRDF, and the
+  R-as-shine/B-as-metal experiment runs HOT (R is the cutout mask ~0.91
+  on Sand River; B is zero everywhere) - so the constant path writes
+  (0.2, "Outland spec" slider, default 0.15) and the "Outland PBR from
+  NM" lever defaults off.
+- **Settings -> Overlays levers** (all live; tint/range re-bake):
+  Draw Outland, Outland global tint, Global at range, Outland detail
+  (test), Detail repeats, Outland PBR from NM, Outland spec.
+- Facts banked: no shipped outland albedo anywhere (206 pkgs) - the
+  engine bakes at load, closed code; the cascade record has exactly three
+  texture-name slots; tilemaps are 16-bit PNGs with all four nibbles
+  packed per texel; Sand River authors 8 tiles but only 6 carry weight
+  (indices 2,3 dead); the cascade NM's B channel is all-zero on both
+  cascades. **Lead for exact tile placement**: terrain2_5's cbuffer has
+  `g_outlandTileLayout {borderSize, tileScale, tileOffset[8]}` - per-tile
+  UV offsets, unused in the variant read, consumed by some other variant.
+  That plus the outland VS's `(mesh_uv - uvOffsetScale.xy/g_chunks) *
+  (g_chunks/uvOffsetScale.zw)` transform (engine-fed values) is the
+  next dig if placement fidelity ever matters.
+
+Open threads: lakeville's authored R-channel cutout waiting on its
+alphaReference; BWWa bodies ~70% unparsed; the game's to-horizon sea is
+water_clipmap_instanced; the BWSG ring-mesh vertex dig (real authored
+UVs) parked.
 
 ## Models / culling
 
@@ -244,3 +302,12 @@ they were not THE bug. When an audit prints a weird detail (pxL=0), that
 detail IS the root cause talking. And the offline-first rule for heavy mesh
 work went from advice to proof: the decimator that froze the load in-engine
 shipped clean the same day it was prototyped in 150 lines of numpy.
+
+The colour-step hunt added two more. When your reconstruction of closed
+engine code fails the owner's eye twice, STOP TUNING AND RIP THE SHADER
+THAT PRODUCES THE REFERENCE - fifteen instructions of terrain2_5 ended a
+day of tint-formula guessing ("you need to rip their shaders apart" was
+the correct order). And artifacts live where you bake them: dump the
+intermediate texture and ZOOM IT before blaming mesh or UVs - the banding
+was sitting in the albedo dump in perfect contour rings, which exonerated
+the decimator in one image and named the 4-bit weights in the next.
