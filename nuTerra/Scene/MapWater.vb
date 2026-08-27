@@ -37,6 +37,7 @@ Public Class MapWater
         Public sun_power As Single
         Public sun_scale As Single
         Public sun_tint As Vector3
+        Public fog_inv_depth As Single
     End Class
 
     Private vertices_buffer As GLBuffer
@@ -93,7 +94,8 @@ Public Class MapWater
                 .fresnel_power = b.fresnel_power,
                 .sun_power = b.sun_power,
                 .sun_scale = b.sun_scale,
-                .sun_tint = b.sun_tint})
+                .sun_tint = b.sun_tint,
+                .fog_inv_depth = b.fog_inv_depth})
 
             LogThis("Water: body at x {0:0}..{1:0}  z {2:0}..{3:0}  y {4:0.00}  colour ({5:0.00} {6:0.00} {7:0.00})",
                     x0, x1, z0, z1, y, b.deep_color.X, b.deep_color.Y, b.deep_color.Z)
@@ -189,7 +191,8 @@ Public Class MapWater
                         .fresnel_power = ob.fresnel_power,
                         .sun_power = ob.sun_power,
                         .sun_scale = ob.sun_scale,
-                        .sun_tint = ob.sun_tint})
+                        .sun_tint = ob.sun_tint,
+                        .fog_inv_depth = ob.fog_inv_depth})
                     added += 1
                 Next
                 LogThis("Water: outland sheet at y {0:0.00} from body {1} - {2} strips over x {3:0}..{4:0} z {5:0}..{6:0}",
@@ -284,6 +287,7 @@ Public Class MapWater
         vao.Bind()
         For Each b In bodies
             GL.Uniform4(waterShader("deep_color"), b.deep_color.X, b.deep_color.Y, b.deep_color.Z, b.deep_color.W)
+            GL.Uniform1(waterShader("fog_inv_depth"), b.fog_inv_depth * WATER_FOG_MUL)
             GL.Uniform2(waterShader("fresnel"), b.fresnel_bias, b.fresnel_power)
             GL.Uniform2(waterShader("sun_glint"), Math.Max(b.sun_power, 1.0F), b.sun_scale)
             GL.Uniform3(waterShader("sun_tint"), b.sun_tint.X, b.sun_tint.Y, b.sun_tint.Z)

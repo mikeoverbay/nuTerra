@@ -98,6 +98,9 @@ Module modGlobalVars
     ' Instrument (default off): per-bake page identity + per-frame VT stats
     ' in the log, for VT churn hunts.
     Public VT_BAKE_TRACE As Boolean
+    ' Multiplier on the authored water-fog inverse depth (BWWa +0x70) -
+    ' above 1 the water goes opaque sooner, below 1 it clears up.
+    Public WATER_FOG_MUL As Single = 1.0F
     ' Per-pixel outland PBR from the cascade normal map (R = shine, B =
     ' metal) instead of constants. Default OFF: on Sand River R is the
     ' cutout mask (~0.91) and B is dead - it runs the sun spec hot.

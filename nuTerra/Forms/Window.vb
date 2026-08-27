@@ -1194,6 +1194,9 @@ try_again:
                     ImGui.SliderFloat("Outland spec", OUTLAND_SPEC, 0.0F, 0.6F)
                     ImGui.Checkbox("Draw trees", DONT_BLOCK_TREES)
                     ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
+                    ' Multiplier on the authored water-fog density (BWWa
+                    ' +0x70): >1 = murkier sooner, <1 = clearer. Instant.
+                    ImGui.SliderFloat("Water fog x", WATER_FOG_MUL, 0.25F, 4.0F)
                     ' Trim for the water plane, saved per map. The packages
                     ' author exact heights, so anything nonzero here is taste.
                     Dim v_wy = WATER_Y_OFFSET

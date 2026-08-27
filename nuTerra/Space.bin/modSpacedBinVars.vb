@@ -803,6 +803,12 @@ Module modSpacedBinVars
             ' Mines authors (1.0, 0.7, 0.3) and multiplying the whole sky by it
             ' turned the lake orange. It colours the glint only.
             Public sun_tint As Vector3
+            ' +0x70: the water-fog inverse depth (the water shaders' cbuffer
+            ' names the concept g_fogColorAndInvDepth). Clear monastery lake
+            ' authors 0.18 (~90% opaque by 13 m of column), the muddy Sand
+            ' River 0.5 (opaque by ~4.6 m) - transparency falls off as
+            ' exp(-water_depth * this).
+            Public fog_inv_depth As Single
             Public vert_start As Integer
             Public vert_count As Integer
             Public idx_start As Integer
@@ -839,6 +845,9 @@ Module modSpacedBinVars
 
                 br.BaseStream.Position = base + &HE0
                 bodies(e).sun_tint = New Vector3(br.ReadSingle, br.ReadSingle, br.ReadSingle)
+
+                br.BaseStream.Position = base + &H70
+                bodies(e).fog_inv_depth = br.ReadSingle
 
                 ' (start,end) pairs into the four streams. Cell boxes and the
                 ' byte stream are read past and dropped - nothing uses them yet.

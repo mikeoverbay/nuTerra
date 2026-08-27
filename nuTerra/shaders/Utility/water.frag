@@ -29,6 +29,7 @@ uniform vec4 deep_color;
 uniform vec2 fresnel;       // x bias, y exponent
 uniform vec2 sun_glint;     // x exponent, y scale - authored per body at +0xB0
 uniform vec3 sun_tint;      // +0xE0 - colours the GLINT, never the sky
+uniform float fog_inv_depth; // +0x70 - water-fog 1/depth (transparency falloff)
 uniform vec3 sun_dir;
 uniform mat4 sunViewProj;
 uniform int has_sun_shadow;
@@ -211,6 +212,15 @@ void main(void)
                 discard;
             }
         }
+
+        // Water fog, the game's own transparency model (the water shaders'
+        // cbuffer names it g_fogColorAndInvDepth): what transmits through the
+        // column falls off as exp(-depth * inv_depth), authored per body at
+        // +0x70 of the BWWa record - the clear monastery lake writes 0.18,
+        // the muddy Sand River 0.5. Shallow edges keep the old look; depth
+        // goes opaque toward deep_color.
+        float column = exp(-max(water_depth, 0.0) * fog_inv_depth);
+        alpha = 1.0 - (1.0 - alpha) * column;
 
         float soft = smoothstep(0.0, SOFT_DEPTH, water_depth);
         alpha *= soft;
