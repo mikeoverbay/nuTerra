@@ -98,6 +98,12 @@ Module modGlobalVars
     ' Instrument (default off): per-bake page identity + per-frame VT stats
     ' in the log, for VT churn hunts.
     Public VT_BAKE_TRACE As Boolean
+    ' Background outland decimation: threshold edge collapse per cull block
+    ' after the weld, swapping in a new index buffer when done (91-94% fewer
+    ' triangles at eps 0.25 in the offline prototype). eps is the max mean
+    ' surface deviation in metres; the far cascade runs at 2x.
+    Public OUTLAND_DECIMATE As Boolean = True
+    Public OUTLAND_DECIMATE_EPS As Single = 0.25F
     ' Debug view: terrain tinted by the resident VT page's mip (checker =
     ' page cells), with a colour-key window. Settings -> VT shows the window;
     ' the window's own checkbox flips the overlay, its slider sets the blend.

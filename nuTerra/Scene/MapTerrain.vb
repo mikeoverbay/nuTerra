@@ -184,10 +184,55 @@ Public Class MapTerrain
         Return n
     End Function
 
+    ''' <summary>
+    ''' Swap in a finished background decimation. Index buffer only - the
+    ''' shared vertex buffer and the VS height sampling are untouched, and
+    ''' the block table shrinks to the surviving blocks (bounds unchanged,
+    ''' so the frustum cull carries straight over).
+    ''' </summary>
+    Private Sub apply_decimation(dc As OutlandDecimator.DecimatedCascade, is_far As Boolean)
+        Dim buf = GLBuffer.Create(BufferTarget.ElementArrayBuffer,
+                                  If(is_far, "outland_far_indices_dec", "outland_indices_dec"))
+        buf.Storage(dc.tris.Length * 12, dc.tris, BufferStorageFlags.None)
+        If is_far Then
+            outland_far_vao.ElementBuffer(buf)
+            outland_far_indices_buffer?.Dispose()
+            outland_far_indices_buffer = buf
+            outland_far_index_count = dc.tris.Length * 3
+            outland_far_blocks = dc.blocks
+            ReDim outland_far_cmds(Math.Max(0, dc.blocks.Length - 1))
+        Else
+            outland_vao.ElementBuffer(buf)
+            outland_indices_buffer?.Dispose()
+            outland_indices_buffer = buf
+            outland_near_index_count = dc.tris.Length * 3
+            outland_near_blocks = dc.blocks
+            ReDim outland_near_cmds(Math.Max(0, dc.blocks.Length - 1))
+        End If
+        LogThis("outland decimated ({0}): {1} -> {2} tris in {3} ms",
+                If(is_far, "far", "near"), dc.source_tris, dc.tris.Length, dc.ms)
+    End Sub
+
     Public Sub Draw_outland()
         GL_PUSH_GROUP("draw_outland")
         ' EANABLE FACE CULLING
         GL.Disable(EnableCap.CullFace)
+
+        ' Pick up finished background decimations on the GL thread.
+        Dim take_near As OutlandDecimator.DecimatedCascade = Nothing
+        Dim take_far As OutlandDecimator.DecimatedCascade = Nothing
+        SyncLock OutlandDecimator.pending_lock
+            take_near = OutlandDecimator.pending_near
+            OutlandDecimator.pending_near = Nothing
+            take_far = OutlandDecimator.pending_far
+            OutlandDecimator.pending_far = Nothing
+        End SyncLock
+        If take_near IsNot Nothing AndAlso take_near.gen = OutlandDecimator.current_gen Then
+            apply_decimation(take_near, False)
+        End If
+        If take_far IsNot Nothing AndAlso take_far.gen = OutlandDecimator.current_gen Then
+            apply_decimation(take_far, True)
+        End If
 
         ' Frustum-cull the ring blocks once per frame; the fill and wire draws
         ' below both issue the same survivor set. ExtractFrustum ran at the top

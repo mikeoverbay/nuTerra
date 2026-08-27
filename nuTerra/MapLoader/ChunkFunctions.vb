@@ -1329,6 +1329,26 @@ Module ChunkFunctions
         Next
         Console.WriteLine("outland crossing audit: {0} midpoints above terrain (worst +{1:0.00} m)", cross_n, cross_max)
 
+        ' Raw 16-bit dump of the PATCHED near heightmap for offline mesh work
+        ' (the PNG dumps are 8-bit - ~6 m steps, useless for geometry).
+        ' Header: i32 w, i32 h, f32 y_off, f32 y_range, f32 scale.xy,
+        ' f32 center.xy, then w*h u16 rows.
+        Try
+            Dim rawdir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra")
+            IO.Directory.CreateDirectory(rawdir)
+            Using bw As New IO.BinaryWriter(IO.File.Create(IO.Path.Combine(rawdir, "outland_height_near_patched.raw")))
+                bw.Write(w) : bw.Write(h)
+                bw.Write(y_off) : bw.Write(y_range)
+                bw.Write(theMap.near_scale.X) : bw.Write(theMap.near_scale.Y)
+                bw.Write(theMap.center_offset.X) : bw.Write(theMap.center_offset.Y)
+                For Each v16 In px
+                    bw.Write(v16)
+                Next
+            End Using
+        Catch
+            ' a locked temp file must never break the load
+        End Try
+
         ' ---- second ring: weld the FAR cascade to the near one --------------
         ' The far heightmap is coarse and authored independently; at the near
         ' cascade's outer edge the two can disagree by 100-200 m on alpine
@@ -1336,7 +1356,10 @@ Module ChunkFunctions
         ' data-weld: far texels near the near-cascade rect are dragged to the
         ' near cascade's RENDERED height (post-patch), blending back to the
         ' far cascade's own data over an adaptive band.
-        If map_scene.terrain.CASCADE_LEVELS <> 2 OrElse map_scene.terrain.OUTLAND_height_CASCADE_MAP Is Nothing Then Return
+        If map_scene.terrain.CASCADE_LEVELS <> 2 OrElse map_scene.terrain.OUTLAND_height_CASCADE_MAP Is Nothing Then
+            kick_outland_decimation(px, w, h, Nothing, 0, 0)
+            Return
+        End If
 
         Dim tex2 = map_scene.terrain.OUTLAND_height_CASCADE_MAP
         Dim w2, h2 As Integer
@@ -1432,6 +1455,10 @@ Module ChunkFunctions
 
         dump_heightmap_png(px, w, h, "outland_height_near_patched")
         dump_heightmap_png(px2, w2, h2, "outland_height_far_patched")
+
+        ' Both welds are final - hand the patched grids to the background
+        ' decimator. The full-res grid keeps drawing until it finishes.
+        kick_outland_decimation(px, w, h, px2, w2, h2)
     End Sub
 
     ''' <summary>Debug: 8-bit visualisation of a heightmap to %TEMP%\nuTerra.</summary>
@@ -1488,9 +1515,9 @@ Module ChunkFunctions
 
     ''' <summary>RENDERED height of a cascade heightmap at a world position -
     ''' the same -uv REPEAT sampling and -1.5 sink the vertex shader applies.</summary>
-    Private Function sample_outland_px(px As UShort(), w As Integer, h As Integer,
-                                       wx As Single, wz As Single,
-                                       scale As Vector2, y_range As Single, y_off As Single) As Single
+    Public Function sample_outland_px(px As UShort(), w As Integer, h As Integer,
+                                      wx As Single, wz As Single,
+                                      scale As Vector2, y_range As Single, y_off As Single) As Single
         Dim gsize = CSng(MapTerrain.OUTLAND_GRID)
         Dim ghalf = gsize / 2.0F
         Dim gms = 100.0F / (gsize - 1.0F)
