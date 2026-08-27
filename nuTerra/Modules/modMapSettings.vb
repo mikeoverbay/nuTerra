@@ -127,7 +127,15 @@ Public Module modMapSettings
         Yield ("draw_decals", Function() B2F(DONT_BLOCK_DECALS), Sub(v) DONT_BLOCK_DECALS = F2B(v))
         Yield ("draw_trees", Function() B2F(DONT_BLOCK_TREES), Sub(v) DONT_BLOCK_TREES = F2B(v))
         Yield ("draw_water", Function() B2F(DONT_BLOCK_WATER), Sub(v) DONT_BLOCK_WATER = F2B(v))
-        Yield ("shadow_mapping", Function() B2F(ShadowMappingFBO.Enabled), Sub(v) ShadowMappingFBO.Enabled = F2B(v))
+        ' shadow_mapping is deliberately NOT here any more. The live cascades
+        ' are parked - no UI, off at startup (CommonProperties.Init) - but old
+        ' per-map files still carry shadow_mapping=1 from when they had a
+        ' checkbox, and restoring it silently re-enabled the whole pass with
+        ' nothing on screen saying so. The cascades refit to the camera every
+        ' FRAME_STEP frames, and that periodic refit pulsing the far-field
+        ' shading during camera glides was the "settling-in lighting flicker".
+        ' Load() logs old files' stray key as unknown and skips it; re-add the
+        ' Yield here when the cascade controls come back.
         Yield ("baked_shadow", Function() B2F(BAKED_SHADOW_ENABLED), Sub(v) BAKED_SHADOW_ENABLED = F2B(v))
     End Function
 
