@@ -52,13 +52,15 @@ void main(void)
     const float renderType = GFLAG_MODEL;
 
     vec3 n = normalize(fs_in.normal);
-    // Leaf cards are two sided, so a genuine back face wants its normal flipped.
-    //
-    // gl_FrontFacing is inverted for trees - the instance matrix carries a -1 x
-    // scale and a mirror reverses winding - so tree.vert pre-negates the normal
-    // to cancel that. Do not "fix" this by dropping the test: it is correct for
-    // the two sided case, and the mirror is handled where the mirror lives.
-    if (!gl_FrontFacing) {
+    // Two sided foliage: light the side being looked at. gl_FrontFacing was
+    // the previous arbiter, with a vert-stage pre-negation to cancel the
+    // world mirror's winding flip - a chain of sign assumptions that only
+    // has to be wrong once for whole canopies to light backwards, which is
+    // exactly what they did. The viewer test assumes nothing: any surface
+    // a camera can see faces the camera (opaque bark included, by its own
+    // occlusion), so point the normal at the viewer. View space - the
+    // camera sits at the origin, so the fragment position IS the view ray.
+    if (dot(n, fs_in.worldPosition) > 0.0) {
         n = -n;
     }
 

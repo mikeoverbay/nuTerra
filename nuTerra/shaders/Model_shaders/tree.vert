@@ -39,20 +39,12 @@ void main(void)
     // M = R * diag(-1,1,1) the inverse transpose equals mat3(M), so the mirrored
     // normal already points outward and needs no special handling.
     //
-    // The winding is another matter. Every instance carries a -1 x scale - the
-    // whole world is mirrored for display - and a mirror reverses triangle
-    // winding, so gl_FrontFacing in the fragment stage reports the opposite of
-    // the truth for every tree. The fragment stage flips the normal on a back
-    // face, because leaf cards are two sided and that is the right thing to do
-    // for a genuine back face; fed an inverted facing it flipped every FRONT
-    // face instead and the whole canopy lit backwards to the sun.
-    //
-    // Pre-negating here cancels that. Driven off the determinant rather than
-    // assumed, so an instance that is not mirrored still behaves.
+    // No winding games here any more. The old scheme pre-negated the normal
+    // on mirrored instances so the fragment stage's gl_FrontFacing flip
+    // would cancel it - a sign chain that lit canopies backwards whenever
+    // any link was off. The fragment stage now orients the normal toward
+    // the viewer directly, which needs no knowledge of the mirror at all.
     vec3 nrm = normalize(mat3(instanceMatrix) * vertexNormal);
-    if (determinant(mat3(instanceMatrix)) < 0.0) {
-        nrm = -nrm;
-    }
     vs_out.normal = mat3(view) * nrm;
 
     gl_Position = projection * viewPos;
