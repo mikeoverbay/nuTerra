@@ -442,8 +442,22 @@ void main (void)
             // ambient/direct split below stays consistent for both.
             float sun_shadow = sun_shadow_factor(Position)
                              * baked_sun_shadow((invView * vec4(Position, 1.0)).xyz);
-            float direct_light = max(dot(N, L), 0.0) * sun_shadow;
-            Ambient_level.rgb *= (1.0 - direct_light);
+
+            // The lighting contract, both halves of it:
+            //   - no sun, and no sun tint, in shadow
+            //   - no ambient in sunlit areas
+            // One factor decides which regime a pixel is in: how much sun
+            // actually arrives (facing times shadow), pushed through a short
+            // smoothstep so the regimes stay mutually exclusive. The old
+            // linear (1 - N.L*shadow) weight diluted instead of deciding:
+            // half-shadow pixels showed half the sun's tint, and sunlit
+            // ground at a mid sun elevation kept a third of the ambient.
+            // Below the band a pixel is pure ambient, above it pure sun;
+            // the band itself is the only place the two cross-fade, kept
+            // narrow so it reads as a penumbra and not a mixed regime.
+            float sun_reach = max(dot(N, L), 0.0) * sun_shadow;
+            float sun_lit = smoothstep(0.05, 0.35, sun_reach);
+            Ambient_level.rgb *= (1.0 - sun_lit);
 
             // Ambient is the base the sun adds on top of. This used to start from
             // a hardcoded 0.25 grey with Ambient_level only reaching the output
@@ -503,9 +517,11 @@ void main (void)
 
                 float water_spec = max(pow(dot(V,R), 120.0 ),0.0001) * props.SPECULAR;
 
-                // sun_shadow was computed above, before ambient was weighted -
-                // the two have to agree on how much sun arrives here.
-                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0) * sun_shadow;
+                // Gated by sun_lit, not raw sun_shadow - the same factor that
+                // removed the ambient must be the one that grants the sun, or
+                // penumbra pixels end up with a share of both. Lambert still
+                // shapes the lit side; the gate only decides the regime.
+                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0) * sun_lit;
 
 
 
@@ -564,7 +580,9 @@ void main (void)
                 // showing. 1-exp(-x) is linear where the response was already
                 // sane and rolls off the peaks, so a hot glint stays bright
                 // without ever clipping to paper.
-                vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz) * sun_shadow;
+                // Same gate as the diffuse: sun spec has no business showing
+                // its tint in a shadow either.
+                vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz) * sun_lit;
                 final_color.xyz += 1.0 - exp(-sun_add);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance
