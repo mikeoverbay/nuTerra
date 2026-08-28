@@ -119,7 +119,26 @@ Public Module modMapSettings
         Yield ("shadow_strength", Function() CommonProperties.SHADOW_STRENGTH, Sub(v) CommonProperties.SHADOW_STRENGTH = v)
         Yield ("water_y_offset", Function() WATER_Y_OFFSET, Sub(v) WATER_Y_OFFSET = v)
         Yield ("water_exclude_band", Function() WATER_EXCLUDE_BAND, Sub(v) WATER_EXCLUDE_BAND = v)
+        Yield ("water_fog_mul", Function() WATER_FOG_MUL, Sub(v) WATER_FOG_MUL = v)
         Yield ("mouse_damp", Function() ROT_DAMPING, Sub(v) ROT_DAMPING = v)
+        Yield ("gfx_marker_size", Function() MapGfxMarkers.size, Sub(v) MapGfxMarkers.size = v)
+
+        ' Outland look. The tint/base pair feeds the albedo bake, which runs
+        ' after settings are applied at load, so no re-bake hook is needed.
+        Yield ("outland_global_base", Function() OUTLAND_GLOBAL_BASE, Sub(v) OUTLAND_GLOBAL_BASE = v)
+        Yield ("outland_detail_tiles", Function() OUTLAND_DETAIL_TILES, Sub(v) OUTLAND_DETAIL_TILES = v)
+        Yield ("outland_spec", Function() OUTLAND_SPEC, Sub(v) OUTLAND_SPEC = v)
+
+        ' Shadow filtering and wet reflections.
+        Yield ("msm_moment_bias", Function() MSM_MOMENT_BIAS, Sub(v) MSM_MOMENT_BIAS = v)
+        Yield ("ssr_intensity", Function() SSR_INTENSITY, Sub(v) SSR_INTENSITY = v)
+        Yield ("ssr_steps", Function() CSng(SSR_STEPS), Sub(v) SSR_STEPS = CInt(v))
+        Yield ("ssr_thickness", Function() SSR_THICKNESS, Sub(v) SSR_THICKNESS = v)
+        Yield ("ssr_stride", Function() SSR_STRIDE, Sub(v) SSR_STRIDE = v)
+        Yield ("penumbra_lo", Function() SHADOW_PENUMBRA_LO, Sub(v) SHADOW_PENUMBRA_LO = v)
+        Yield ("penumbra_hi", Function() SHADOW_PENUMBRA_HI, Sub(v) SHADOW_PENUMBRA_HI = v)
+
+        Yield ("minimap_size", Function() CSng(MINI_MAP_NEW_SIZE), Sub(v) MINI_MAP_NEW_SIZE = CInt(v))
 
         ' booleans, stored as 0/1 so the file stays one shape throughout
         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))
@@ -127,6 +146,21 @@ Public Module modMapSettings
         Yield ("draw_decals", Function() B2F(DONT_BLOCK_DECALS), Sub(v) DONT_BLOCK_DECALS = F2B(v))
         Yield ("draw_trees", Function() B2F(DONT_BLOCK_TREES), Sub(v) DONT_BLOCK_TREES = F2B(v))
         Yield ("draw_water", Function() B2F(DONT_BLOCK_WATER), Sub(v) DONT_BLOCK_WATER = F2B(v))
+        Yield ("draw_bases", Function() B2F(DONT_BLOCK_BASES), Sub(v) DONT_BLOCK_BASES = F2B(v))
+        Yield ("draw_models", Function() B2F(DONT_BLOCK_MODELS), Sub(v) DONT_BLOCK_MODELS = F2B(v))
+        Yield ("draw_sky", Function() B2F(DONT_BLOCK_SKY), Sub(v) DONT_BLOCK_SKY = F2B(v))
+        Yield ("draw_terrain", Function() B2F(DONT_BLOCK_TERRAIN), Sub(v) DONT_BLOCK_TERRAIN = F2B(v))
+        Yield ("draw_outland", Function() B2F(DONT_BLOCK_OUTLAND), Sub(v) DONT_BLOCK_OUTLAND = F2B(v))
+        Yield ("show_gfx_markers", Function() B2F(SHOW_GFX_MARKERS), Sub(v) SHOW_GFX_MARKERS = F2B(v))
+        Yield ("outland_global_tint", Function() B2F(OUTLAND_GLOBAL_TINT), Sub(v) OUTLAND_GLOBAL_TINT = F2B(v))
+        Yield ("outland_use_detail", Function() B2F(OUTLAND_USE_DETAIL), Sub(v) OUTLAND_USE_DETAIL = F2B(v))
+        Yield ("outland_pbr_nm", Function() B2F(OUTLAND_PBR_NM), Sub(v) OUTLAND_PBR_NM = F2B(v))
+        Yield ("use_raster_culling", Function() B2F(USE_RASTER_CULLING), Sub(v) USE_RASTER_CULLING = F2B(v))
+        Yield ("use_tessellation", Function() B2F(USE_TESSELLATION), Sub(v) USE_TESSELLATION = F2B(v))
+        Yield ("msm_shadow", Function() B2F(MSM_SHADOW_ENABLED), Sub(v) MSM_SHADOW_ENABLED = F2B(v))
+        Yield ("ssr_enabled", Function() B2F(SSR_ENABLED), Sub(v) SSR_ENABLED = F2B(v))
+        Yield ("draw_minimap", Function() B2F(DONT_HIDE_MINIMAP), Sub(v) DONT_HIDE_MINIMAP = F2B(v))
+        Yield ("fxaa", Function() B2F(FXAA_enable), Sub(v) FXAA_enable = F2B(v))
         ' shadow_mapping is deliberately NOT here any more. The live cascades
         ' are parked - no UI, off at startup (CommonProperties.Init) - but old
         ' per-map files still carry shadow_mapping=1 from when they had a
