@@ -580,10 +580,33 @@ Public Class MapStaticModels
 
         volumetricShader.Use()
         GL.Uniform1(volumetricShader("fx_time"), FX_TIME)
+        ' Scene position for the soft-particle fade. gPosition is view space,
+        ' despite every writer calling it world. Sampling it while it is still
+        ' ATTACHED to the bound framebuffer is a feedback loop - the driver
+        ' raised GL_INVALID_OPERATION - so detach it for the pass and put it
+        ' back afterwards. Being merely absent from the draw buffers is not
+        ' enough.
+        MainFBO.fbo.Texture(FramebufferAttachment.ColorAttachment3, Nothing, 0)
+        MainFBO.gPosition.BindUnit(3)
+
+        ' Same ambient probe the deferred pass uses, so the smoke and the
+        ' ground beneath it are lit from one source.
+        Dim sh_flat(26) As Single
+        For i = 0 To 8
+            sh_flat(i * 3 + 0) = SH_AMBIENT(i).X
+            sh_flat(i * 3 + 1) = SH_AMBIENT(i).Y
+            sh_flat(i * 3 + 2) = SH_AMBIENT(i).Z
+        Next
+        GL.Uniform3(volumetricShader("sh_ambient"), 9, sh_flat)
+        GL.Uniform1(volumetricShader("sh_enabled"),
+                    CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
 
         allMapModels.Bind()
         indirect_fx.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(3), 0)
+
+        ' Put gPosition back before anything downstream expects to write it.
+        MainFBO.fbo.Texture(FramebufferAttachment.ColorAttachment3, MainFBO.gPosition, 0)
 
         volumetricShader.StopUse()
 

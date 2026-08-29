@@ -1255,6 +1255,7 @@ Module MapLoader
                                 vprops.diffuseUVSpeedAlphaOffset.W,
                                 vprops.FreshnelColor,
                                 vprops.lightMultipliers)
+                        LogThis("    softFactor={0}", vprops.softFactor)
                         LogThis("    alphaTrim(alphaAdditiveEnable)={0}  destBlend={1}  -> variant={2}",
                                 vprops.alphaAdditiveEnable, vprops.destBlend,
                                 If(vprops.alphaAdditiveEnable, "trim/cutout", "multiply/soft"))
@@ -1292,8 +1293,10 @@ Module MapLoader
                         ' instead sent Abbey's smoke down the trim path, where
                         ' vertA <= 0.29 makes texA + vertA - 1 negative almost
                         ' everywhere: measured 24 lit pixels against 571.
+                        ' .w = softFactor, the soft-particle fade distance.
                         .g_atlasIndexes = New Vector4(vprops.fadeMinDistance, vprops.fadeMaxDistance,
-                                                      If(vprops.alphaAdditiveEnable, 1, 0), 0)
+                                                      If(vprops.alphaAdditiveEnable, 1, 0),
+                                                      vprops.softFactor)
                         ' destBlend 2 = D3DBLEND_ONE: the material composites
                         ' additively even without alphaAdditiveEnable. Both
                         ' end up as output (rgb*a, 0) under the premultiplied

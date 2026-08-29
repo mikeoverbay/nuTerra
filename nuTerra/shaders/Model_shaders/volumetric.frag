@@ -17,6 +17,10 @@
 
 layout (location = 0) out vec4 outColor;
 
+// Scene position for the soft-particle fade, view space despite the name its
+// writers use. Unit 3, matching deferred.frag.
+layout (binding = 3) uniform sampler2D gPosition;
+
 in VS_OUT
 {
     vec4 diffUV_negAmt;
@@ -62,16 +66,27 @@ void main(void)
     // blobs 8 and 9, selected by ALPHA TRIM (g_atlasIndexes.z) - the fxo's
     // annotations label alphaAdditiveEnable "Use Alpha Trim", and that is the
     // switch, not alphaFreshnelEnable. Trim on is the fire cutout; trim off is
-    // soft smoke. Both variants also carry a soft-particle term we have no
-    // scene-depth bind for yet:
+    // soft smoke.
+    // Soft particles. The game fades a card out as it approaches whatever is
+    // behind it, which is what stops a sheet cutting a hard straight line
+    // where it meets the ground:
     //     softFade = sat((sceneDepth - viewDist) / softFactor)
-    // It only ever REDUCES alpha near intersecting geometry, so leaving it out
-    // errs toward too much smoke, never too little.
+    // Nothing drawn at this pixel leaves gPosition at zero - that is sky, not
+    // geometry one metre away, so it must read as infinitely far or every card
+    // seen against the sky would vanish.
+    const vec3 scenePos = texelFetch(gPosition, ivec2(gl_FragCoord.xy), 0).xyz;
+    const float sceneDist = (abs(scenePos.z) < 1e-6) ? 1e30 : -scenePos.z;
+    const float softFade = clamp((sceneDist - fs_in.viewDist)
+                                 / max(mat.g_atlasIndexes.w, 1e-4), 0.0, 1.0);
+
+    // The vertex-alpha term both variants share, softened.
+    const float lit = fs_in.litColor.a * fade * softFade;
+
     float alpha;
     if (mat.g_atlasIndexes.z != 0.0) {
-        alpha = clamp((tex.a + fs_in.litColor.a * fade - 1.0) * gain, 0.0, 1.0);
+        alpha = clamp((tex.a + lit - 1.0) * gain, 0.0, 1.0);
     } else {
-        alpha = clamp(tex.a * fs_in.litColor.a * fade, 0.0, 1.0);
+        alpha = clamp(tex.a * lit, 0.0, 1.0);
     }
 
     const vec3 rgb = tex.rgb * fs_in.litColor.rgb;

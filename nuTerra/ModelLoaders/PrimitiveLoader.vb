@@ -76,6 +76,12 @@ Module PrimitiveLoader
         ' 150..400 - so they exist only at distance.
         Public fadeMinDistance As Single
         Public fadeMaxDistance As Single
+        ''' <summary>
+        ''' Soft-particle fade distance. cb0[81].x, used by BOTH compiled pixel
+        ''' variants - it is only [unused] in the vertex shader, which is what
+        ''' made it look dead.
+        ''' </summary>
+        Public softFactor As Single
         ' D3DBLEND dest factor. 2 (ONE) composites additively even when
         ' alphaAdditiveEnable is not set.
         Public destBlend As Integer

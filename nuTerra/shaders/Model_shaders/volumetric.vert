@@ -31,6 +31,30 @@ layout(location = 6) in vec4 vertexColour;
 
 uniform float fx_time;
 
+// The ambient probe, same coefficients the deferred pass lights the scene
+// with, so smoke and the ground it sits on agree about the sky.
+uniform vec3 sh_ambient[9];
+uniform int  sh_enabled;
+
+// Ramamoorthi & Hanrahan irradiance, identical to deferred.frag's. The game
+// evaluates only the constant and linear bands here (a dp4 against
+// (1, n.x, n.y, n.z)); using the full set costs nothing and keeps this in
+// lockstep with the scene rather than introducing a second ambient.
+vec3 fx_sh_irradiance(vec3 n)
+{
+    const float c1 = 0.429043, c2 = 0.511664, c3 = 0.743125;
+    const float c4 = 0.886227, c5 = 0.247708;
+
+    return c4 * sh_ambient[0]
+         + 2.0 * c2 * (sh_ambient[1] * n.y + sh_ambient[2] * n.z + sh_ambient[3] * n.x)
+         + 2.0 * c1 * (sh_ambient[4] * n.x * n.y
+                     + sh_ambient[5] * n.y * n.z
+                     + sh_ambient[7] * n.x * n.z)
+         + c3 * sh_ambient[6] * n.z * n.z
+         - c5 * sh_ambient[6]
+         + c1 * sh_ambient[8] * (n.x * n.x - n.y * n.y);
+}
+
 out VS_OUT
 {
     vec4 diffUV_negAmt;   // xy scrolled diffuse UV (+half warp), zw -warp amount
@@ -76,12 +100,16 @@ void main(void)
     vs_out.diffUV_negAmt.zw = -amt;
     vs_out.distUV = fx_time * mat.dirtColor.xy + vertexTexCoord1;
 
-    // Lighting. The game evaluates constant+linear SH here; nuTerra stands in
-    // with its forward ambient shaped by the normal's up component plus the
-    // sun colour, through the same lightMultipliers roles (y sun, z ambient).
+    // Lighting, through the same lightMultipliers roles the game uses
+    // (y sun, z ambient). The ambient comes from the SH probe, as it does in
+    // the game - the flat ambientColorForward stand-in that used to be here
+    // landed on almost exactly ground brightness (smoke 67 against ground 69),
+    // so the smoke had no contrast to be seen by however correct its alpha was.
     vec3 light = vec3(1.0);
     if (mat.g_enableAO) { // slot carries enableLighting
-        const vec3 ambient = props.ambientColorForward * (0.6 + 0.4 * max(N.y, 0.0));
+        vec3 ambient = (sh_enabled != 0)
+                     ? max(fx_sh_irradiance(N), vec3(0.0))
+                     : props.ambientColorForward * (0.6 + 0.4 * max(N.y, 0.0));
         light = max(ambient, vec3(0.0001)) * mat.g_tile0Tint.z
               + mat.g_tile0Tint.y * props.sunColor;
     }

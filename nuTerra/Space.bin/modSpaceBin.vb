@@ -1229,10 +1229,16 @@ got_it:
                         .destBlend = If(props.ContainsKey("destBlend"), props("destBlend"), 6)
                         ' Compiled register defaults - past a metre the fade
                         ' saturates to 1, so unauthored materials are always
-                        ' fully faded in. softFactor is known-listed but
-                        ' unused: it is [unused] in every compiled variant.
+                        ' fully faded in.
                         .fadeMinDistance = If(props.ContainsKey("fadeMinDistance"), props("fadeMinDistance"), 0.01F)
                         .fadeMaxDistance = If(props.ContainsKey("fadeMaxDistance"), props("fadeMaxDistance"), 1.0F)
+                        ' softFactor is cb0[81].x and IS live in both pixel
+                        ' variants - the "[unused]" that made it look dead is
+                        ' the VERTEX shader's listing. It sets the distance over
+                        ' which a card fades out as it approaches whatever is
+                        ' behind it, which is what stops the sheet cutting a
+                        ' hard straight line where it intersects the ground.
+                        .softFactor = If(props.ContainsKey("softFactor"), props("softFactor"), 1.0F)
                         ' srcBlend is known-listed but ignored: the only
                         ' observed value is 5 = SRCALPHA, which both output
                         ' paths already implement (rgb is multiplied by alpha
