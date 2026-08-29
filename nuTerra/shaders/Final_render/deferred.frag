@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
@@ -445,8 +445,17 @@ void main (void)
 
             vec3 N = normalize(texelFetch(gNormal, ivec2(gl_FragCoord), 0).xyz * 2.0 - 1.0); // convert to -1.0 to 1.0
 
-            float POWER;
-            float INTENSITY;
+            // Assigned inside the (FLAG & 192u) block below, which the glow
+            // flag does not enter - and multiplying an undefined value by
+            // zero still leaves NaN. Safe defaults, overwritten for every
+            // flag that does enter.
+            float POWER = 3.0;
+            float INTENSITY = 0.0;
+
+            // glow.fx: an emissive card. It carries its own light, so neither
+            // the sun nor the ambient applies - but fog and the tonemapper
+            // still do, which is why it is not the GFLAG_UNLIT passthrough.
+            const bool is_glow = (FLAG & GBUF_RENDER_MASK) == GBUF_RENDER_GLOW;
 
             float metal = GM_in.r;
 
@@ -534,7 +543,16 @@ void main (void)
             float sun_shadow = sun_shadow_factor(Position)
                              * baked_sun_shadow((invView * vec4(Position, 1.0)).xyz);
             float direct_light = max(dot(N, L), 0.0) * sun_shadow;
-            Ambient_level.rgb *= (1.0 - direct_light);
+
+            if (is_glow) {
+                // The card IS the light. sun_shadow 0 also mutes every sun
+                // term downstream - diffuse, specular and the wet reflections.
+                Ambient_level = vec4(color_in.rgb, color_in.a);
+                sun_shadow = 0.0;
+                direct_light = 0.0;
+            } else {
+                Ambient_level.rgb *= (1.0 - direct_light);
+            }
 
             // Ambient is the base the sun adds on top of. This used to start from
             // a hardcoded 0.25 grey with Ambient_level only reaching the output

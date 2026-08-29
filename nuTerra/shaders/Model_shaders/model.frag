@@ -522,18 +522,49 @@ layout(index = 11) subroutine(fn_entry) void FX_PBS_tiled_global_entry()
     gNormal = normalize(fs_in.TBN * bump) * 0.5 + 0.5;
 }
 //##################################################################################
+// shaders/std_effects/glow.fx - an unlit EMISSIVE card.
+//
+// Transcribed from the compiled pixel shader: sample diffuse, alpha test
+// against alphaReference/255, decode to linear, multiply by g_tintColor and
+// by (selfIllumination + 1), and that is the whole of it - no normal, no sun,
+// no ambient. The loader folds the (selfIllumination + 1) into g_colorTint,
+// which nothing else on this path uses.
+//
+// gGMF.b is stamped GFLAG_GLOW in main() so deferred.frag skips lighting it
+// but still applies fog and the tonemapper.
+layout(index = 12) subroutine(fn_entry) void FX_glow_entry()
+{
+    const sampler2D diffuseMap_sampler = sampler2D(thisMaterial.maps[0]);
+
+    vec4 diffuse = texture(diffuseMap_sampler, fs_in.TC1);
+    if (thisMaterial.alphaTestEnable && diffuse.a < thisMaterial.alphaReference) {
+        discard;
+    }
+
+    // The game decodes to linear here. gColor is 8 bit and the deferred pass
+    // reads it back as-is, so the decode is left out and the authored colour
+    // is carried through with only the emissive gain applied - anything
+    // brighter than white clips either way.
+    gColor = vec4(diffuse.rgb * thisMaterial.g_colorTint.rgb, 0.0);
+    gGMF.rg = vec2(0.0);
+    gNormal.xyz = normalize(fs_in.TBN[2]) * 0.5 + 0.5;
+}
+//##################################################################################
 // Element 11 (FX_volumetric) never reaches this pass - the cull shader
 // routes those draws to the forward FX bucket - but every subroutine
 // uniform element still needs a valid function, so draw_models points it
 // at FX_unsupported.
-subroutine uniform fn_entry entries[13];
+subroutine uniform fn_entry entries[14];
 
 // ================================================================================
 // Main start
 // ================================================================================
 void main(void)
 {
-    const float renderType = GFLAG_MODEL;
+    // Emissive cards get their own render bit so the resolve can tell them
+    // apart from a lit model.
+    const float renderType = (thisMaterial.shader_type == SHADER_TYPE_GLOW)
+                           ? GFLAG_GLOW : GFLAG_MODEL;
 
     entries[thisMaterial.shader_type]();
     gColor.rgb = pow(gColor.rgb, vec3(1.0 / 1.3));

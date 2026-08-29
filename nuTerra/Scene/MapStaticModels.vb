@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
@@ -357,7 +357,8 @@ Public Class MapStaticModels
         ' FX bucket - but GL wants every element assigned, so it gets the
         ' FX_unsupported function (9). Element 12 = FX_PBS_tiled_global,
         ' whose function carries layout index 11.
-        Dim indices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 11}
+        ' Element 13 = FX_glow, whose function carries layout index 12.
+        Dim indices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 11, 12}
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
@@ -420,6 +421,7 @@ Public Class MapStaticModels
             GL.Disable(EnableCap.DepthTest)
 
             boxShader.Use()
+            GL.Uniform1(boxShader("box_filter"), CInt(If(BOXES_VOLUMETRIC_ONLY, 1, 0)))
 
             defaultVao.Bind()
             GL.DrawArrays(PrimitiveType.Points, 0, numModelInstances)

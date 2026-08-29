@@ -1,4 +1,4 @@
-Imports System.Reflection
+﻿Imports System.Reflection
 
 Module Program
     Public main_window As Window
@@ -9,10 +9,42 @@ Module Program
         ' preload
         Dim asm = Assembly.Load("nuTerraCPP")
 
-        ' Optional: nuTerra.exe <map_name> loads that map straight away.
-        If args.Length > 0 Then
-            STARTUP_MAP = args(0)
-        End If
+        ' nuTerra.exe <map_name> [cam=r,ax,ay,lx,ly,lz] [freezefx] [clean] [snap|snapquit]
+        '
+        ' The cam form is exactly what Snapshot prints, so a view can be set up
+        ' by hand, saved, and reproduced verbatim on every later launch. That
+        ' makes an automated before/after screenshot diff meaningful - without
+        ' a fixed viewpoint the camera moves between runs and the comparison is
+        ' worthless.
+        For Each a In args
+            If a.StartsWith("cam=", StringComparison.OrdinalIgnoreCase) Then
+                Dim parts = a.Substring(4).Split(","c)
+                If parts.Length = 6 Then
+                    Dim v(5) As Single
+                    Dim ok = True
+                    For i = 0 To 5
+                        If Not Single.TryParse(parts(i), Globalization.NumberStyles.Float,
+                                               Globalization.CultureInfo.InvariantCulture, v(i)) Then ok = False
+                    Next
+                    If ok Then STARTUP_CAM = v
+                End If
+            ElseIf a.Equals("freezefx", StringComparison.OrdinalIgnoreCase) Then
+                FREEZE_FX = True
+            ElseIf a.Equals("clean", StringComparison.OrdinalIgnoreCase) Then
+                CLEAN_VIEW = True
+            ElseIf a.Equals("half", StringComparison.OrdinalIgnoreCase) Then
+                HALF_SIZE_WINDOW = True
+            ElseIf a.Equals("blackfx", StringComparison.OrdinalIgnoreCase) Then
+                BLACK_BEFORE_FX = True
+            ElseIf a.Equals("snap", StringComparison.OrdinalIgnoreCase) Then
+                AUTO_SNAP_FRAMES = 150
+            ElseIf a.Equals("snapquit", StringComparison.OrdinalIgnoreCase) Then
+                AUTO_SNAP_FRAMES = 150
+                AUTO_SNAP_QUIT = True
+            ElseIf STARTUP_MAP Is Nothing Then
+                STARTUP_MAP = a
+            End If
+        Next
 
         If My.Settings.UpgradeRequired Then
             My.Settings.Upgrade()

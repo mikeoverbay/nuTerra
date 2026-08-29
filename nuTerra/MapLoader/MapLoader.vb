@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL
@@ -289,6 +289,11 @@ Module MapLoader
                             String.Join(",", lodRows), batch.count)
                 End If
 
+                ' Hoisted: it was recomputed per instance for PICK_DICTIONARY,
+                ' and the bounding-box filter needs it too.
+                Dim model_dir = Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
+                Dim is_volumetric As UInt32 = If(VOLUMETRIC_MODEL_DIRS.Contains(model_dir), 1UI, 0UI)
+
                 For i = 0 To batch.count - 1
                     With matrices(mLast + i)
                         .matrix = MODEL_INDEX_LIST(batch.offset + i).matrix
@@ -299,8 +304,11 @@ Module MapLoader
                         .lod_offset = savedLodOffset + i
                         .lod_count = MAP_MODELS(batch.model_id).modelLods.Length
                         .batch_count = batch.count
+                        ' Marks a GFX/volumetric instance so the bounding-box
+                        ' overlay can show only those.
+                        .reserverd1 = is_volumetric
                     End With
-                    map_scene.PICK_DICTIONARY(mLast + i) = Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
+                    map_scene.PICK_DICTIONARY(mLast + i) = model_dir
                 Next
                 mLast += batch.count
             Next
@@ -506,6 +514,24 @@ Module MapLoader
         cWGSD = Nothing
 
         MAP_LOADED = True
+
+        ' A camera handed in on the command line, applied once the map is up
+        ' (loading resets the view, so it cannot be set any earlier). Cleared
+        ' after use so loading a second map by hand does not snap back to it.
+        If STARTUP_CAM IsNot Nothing AndAlso map_scene IsNot Nothing Then
+            With map_scene.camera
+                .VIEW_RADIUS = STARTUP_CAM(0)
+                .CAM_X_ANGLE = STARTUP_CAM(1)
+                .CAM_Y_ANGLE = STARTUP_CAM(2)
+                .LOOK_AT_X = STARTUP_CAM(3)
+                .LOOK_AT_Y = STARTUP_CAM(4)
+                .LOOK_AT_Z = STARTUP_CAM(5)
+            End With
+            LogThis("startup camera applied: {0:0.####},{1:0.####},{2:0.####},{3:0.####},{4:0.####},{5:0.####}  freezefx={6}",
+                    STARTUP_CAM(0), STARTUP_CAM(1), STARTUP_CAM(2),
+                    STARTUP_CAM(3), STARTUP_CAM(4), STARTUP_CAM(5), FREEZE_FX)
+            STARTUP_CAM = Nothing
+        End If
 
         ' Data weld: stitch the near cascade's heightmap onto the terrain edge.
         ' Must come after MAP_LOADED (needs the chunk height tables).
@@ -854,7 +880,7 @@ Module MapLoader
                     texturePaths.Add(mat.props.normalMap)
                     texturePaths.Add(mat.props.metallicGlossMap)
 
-                Case ShaderTypes.FX_lightonly_alpha
+                Case ShaderTypes.FX_lightonly_alpha, ShaderTypes.FX_glow
                     texturePaths.Add(mat.props.diffuseMap)
 
                 Case Else
@@ -1208,14 +1234,30 @@ Module MapLoader
                                 vprops.distortionMap, If(textureHandles.ContainsKey(vprops.distortionMap), "ok", "MISSING"),
                                 vprops.alphaAdditiveEnable OrElse vprops.destBlend = 2, vprops.enableLighting,
                                 vprops.alphaFreshnelEnable)
+                        ' Distance fade window. A backdrop sheet authors a real
+                        ' range and is therefore INVISIBLE closer than fadeMin -
+                        ' which is the whole answer to "where is the smoke".
+                        ' TintlColor lands in g_colorTint and multiplies the
+                        ' whole litColor INCLUDING alpha, so a zero .w makes
+                        ' litColor.a zero and the remap collapses to
+                        ' sat(texA - 1) = 0 - invisible, with no other symptom.
+                        LogThis("    TintlColor={0}  selfIllum={1}  vertAlphaPath: fresnel={2}",
+                                vprops.TintlColor, vprops.selfIllumLight,
+                                vprops.alphaFreshnelEnable)
+                        LogThis("    fadeMin={0} fadeMax={1}  lightMul.x gain={2}",
+                                vprops.fadeMinDistance, vprops.fadeMaxDistance,
+                                vprops.lightMultipliers.X)
                         ' The alpha-shaping knobs, because an authored-but-odd
                         ' set here is what makes a sheet invisible (vista_smoke
                         ' taught that the hard way).
-                        LogThis("    fade/gain/fresExp/fresAlpha={0}  alphaOffset={1}  fresnelColor={2}  lightMul={3}",
+                        LogThis("    fade/trimAmount/fresExp/fresAlpha={0}  alphaOffset={1}  fresnelColor={2}  lightMul={3}",
                                 vprops.alphaFadeAmountFresnel,
-                                vprops.diffuseUVSpeedAlphaOffset.Z,
+                                vprops.diffuseUVSpeedAlphaOffset.W,
                                 vprops.FreshnelColor,
                                 vprops.lightMultipliers)
+                        LogThis("    alphaTrim(alphaAdditiveEnable)={0}  destBlend={1}  -> variant={2}",
+                                vprops.alphaAdditiveEnable, vprops.destBlend,
+                                If(vprops.alphaAdditiveEnable, "trim/cutout", "multiply/soft"))
                         If Not textureHandles.ContainsKey(vprops.diffuseMap) OrElse
                            Not textureHandles.ContainsKey(vprops.distortionMap) Then
                             ' Sampling an invalid bindless handle is undefined
@@ -1238,7 +1280,20 @@ Module MapLoader
                         .g_tile1Tint = vprops.selfIllumLight
                         .g_tile2Tint = vprops.FreshnelColor
                         .g_tileUVScale = vprops.alphaFadeAmountFresnel
-                        .g_atlasIndexes = New Vector4(vprops.fadeMinDistance, vprops.fadeMaxDistance, 0, 0)
+                        ' .z carries ALPHA TRIM. The fxo's own annotations name
+                        ' the bools in order - enableLighting / alphaFreshnelEnable
+                        ' / alphaAdditiveEnable / g_useTime - against the labels
+                        ' "Enable Lighting" / "Useb Alpha Freshnel" / "Use Alpha
+                        ' Trim" / "Use Time". So alphaAdditiveEnable is the ALPHA
+                        ' TRIM switch, and it is what picks the fxo's two pixel
+                        ' variants: trim on = sat((texA + vertA - 1) * amount)
+                        ' (blob 8, the fire cutout), trim off = sat(texA * vertA)
+                        ' (blob 9, soft smoke). Selecting on alphaFreshnelEnable
+                        ' instead sent Abbey's smoke down the trim path, where
+                        ' vertA <= 0.29 makes texA + vertA - 1 negative almost
+                        ' everywhere: measured 24 lit pixels against 571.
+                        .g_atlasIndexes = New Vector4(vprops.fadeMinDistance, vprops.fadeMaxDistance,
+                                                      If(vprops.alphaAdditiveEnable, 1, 0), 0)
                         ' destBlend 2 = D3DBLEND_ONE: the material composites
                         ' additively even without alphaAdditiveEnable. Both
                         ' end up as output (rgb*a, 0) under the premultiplied
@@ -1386,6 +1441,20 @@ Module MapLoader
                         ' must take the cutout alpha from diffuse.a, not the
                         ' PBS normal-map red channel.
                         .alphaFromDiffuse = 1
+
+                    Case ShaderTypes.FX_glow
+                        Dim props As MaterialProps_lightonly_alpha = mat.props
+                        .map1Handle = textureHandles(props.diffuseMap)
+                        .alphaReference = props.alphaReference / 255.0
+                        .alphaTestEnable = If(props.alphaTestEnable, 1, 0)
+                        .double_sided = If(props.doubleSided, 1, 0)
+                        .alphaFromDiffuse = 1
+                        ' The emissive multiplier rides in g_colorTint, which
+                        ' nothing else on this path uses. The compiled shader
+                        ' multiplies by (selfIllumination + 1), so 0 is a
+                        ' no-op and Abbey's burnt grass is a x16.
+                        Dim illum = props.selfIllumination + 1.0F
+                        .g_colorTint = New Vector4(illum, illum, illum, 1.0F)
 
                     Case Else
                         'Stop

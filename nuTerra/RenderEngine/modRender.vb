@@ -263,7 +263,22 @@ Module modRender
         If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             modGpuTimers.Begin("FX")
             MainFBO.attach_C()
+            ' Colour only - the depth buffer must survive or the FX loses its
+            ' depth test against the scene and cards show through terrain.
+            If BLACK_BEFORE_FX Then
+                GL.ClearColor(0.0F, 0.0F, 0.0F, 1.0F)
+                GL.Clear(ClearBufferMask.ColorBufferBit)
+            End If
+            ' Read the target either side of the pass. Screenshots go through
+            ' the tonemap and the LUT, so a value read off one is not what the
+            ' shader wrote and cannot be reasoned about numerically; this is
+            ' the raw buffer, and it answers the only question that matters -
+            ' did the FX pass change any pixel, and by how much.
+            Dim fx_before As Byte() = Nothing
+            If FX_DIFF_THIS_FRAME Then fx_before = grab_colour_buffer()
             map_scene.static_models.draw_fx()
+            If FX_DIFF_THIS_FRAME Then report_fx_diff(fx_before)
+            trace_gcolor("draw_fx")
             modGpuTimers.Finish()
         End If
 
@@ -274,10 +289,13 @@ Module modRender
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
         '===========================================================================
 
+        trace_gcolor("default fb clear")
+
         If FXAA_enable Then
             perform_SSAA_Pass()
             copy_default_to_gColor()
         End If
+        trace_gcolor("FXAA (on=" & FXAA_enable.ToString() & ")")
 
         '===========================================================================
         'hopefully, this will look like glass :)
@@ -297,17 +315,23 @@ Module modRender
             GL.Disable(EnableCap.DepthTest)
 
             copy_default_to_gColor()
+            trace_gcolor("copy_default_to_gColor")
             GL.DepthMask(False)
             'GL.FrontFace(FrontFaceDirection.Cw)
             GL.Enable(EnableCap.Blend)
             GL.Enable(EnableCap.CullFace)
 
             map_scene.base_rings.draw_base_rings_deferred()
+            trace_gcolor("base_rings")
 
             'hopefully, this will look like FOG :)
             GL.Disable(EnableCap.Blend)
             copy_default_to_gColor()
-            map_scene.fog.global_fog()
+            trace_gcolor("copy_default (pre-fog)")
+            ' Fog against a blacked scene drives every FX pixel to zero, which
+            ' makes the isolated view useless. Skip it while isolating.
+            If Not BLACK_BEFORE_FX Then map_scene.fog.global_fog()
+            trace_gcolor("global_fog")
 
             GL.Disable(EnableCap.DepthTest)
             GL.DepthMask(True)
@@ -350,8 +374,108 @@ Module modRender
         GL.DepthMask(True)
         GL.Disable(EnableCap.Blend)
 
+        trace_gcolor("end of frame")
+        FX_DIFF_THIS_FRAME = False
+
         '===========================================================================
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0) '================
+    End Sub
+
+    ''' <summary>
+    ''' RGBA8 copy of the currently attached colour buffer, straight off the GPU.
+    ''' </summary>
+    Private Function grab_colour_buffer() As Byte()
+        Dim w = MainFBO.width, h = MainFBO.height
+        Dim buf(w * h * 4 - 1) As Byte
+        ' Name the read buffer explicitly. ReadPixels otherwise takes whatever
+        ' the FBO's read buffer happens to be, which is not the attachment the
+        ' FX pass draws into - it returned an unchanging image and reported
+        ' "wrote 0 pixels" even for a shader outputting solid magenta.
+        ' gColor is ColorAttachment0.
+        MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
+        GL.ReadBuffer(ReadBufferMode.ColorAttachment0)
+        GL.ReadPixels(0, 0, w, h, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, buf)
+        Return buf
+    End Function
+
+    ' Byte offsets of the pixels the FX pass actually changed this frame, so the
+    ' later stages can be judged on the FX alone. Whole-frame counts are useless
+    ' for that: in a normal render the scene lights every pixel and swamps them.
+    Private fx_pixels As Integer() = Nothing
+
+    Private Sub trace_gcolor(label As String)
+        If Not FX_DIFF_THIS_FRAME OrElse fx_pixels Is Nothing Then Return
+        Dim buf = grab_colour_buffer()
+        Dim nz = 0, mx = 0, sum As Long = 0
+        For Each i In fx_pixels
+            Dim v = Math.Max(CInt(buf(i)), Math.Max(CInt(buf(i + 1)), CInt(buf(i + 2))))
+            If v > 0 Then nz += 1
+            sum += v
+            If v > mx Then mx = v
+        Next
+        LogThis("    FX pixels after {0,-24} still lit={1,5} of {2}  max={3,3}/255  mean={4:0.0}",
+                label, nz, fx_pixels.Length, mx, sum / CDbl(Math.Max(1, fx_pixels.Length)))
+    End Sub
+
+    Private Sub report_fx_diff(before As Byte())
+        If before Is Nothing Then Return
+        Dim after = grab_colour_buffer()
+        Dim changed = 0, max_delta = 0, sum_delta As Long = 0
+        Dim hits As New List(Of Integer)
+        For i = 0 To before.Length - 1 Step 4
+            Dim d = Math.Max(Math.Abs(CInt(after(i)) - CInt(before(i))),
+                    Math.Max(Math.Abs(CInt(after(i + 1)) - CInt(before(i + 1))),
+                             Math.Abs(CInt(after(i + 2)) - CInt(before(i + 2)))))
+            If d > 0 Then
+                changed += 1
+                sum_delta += d
+                hits.Add(i)
+                If d > max_delta Then max_delta = d
+            End If
+        Next
+        fx_pixels = hits.ToArray()
+        Dim total = before.Length \ 4
+        LogThis("  FX pass wrote {0} of {1} pixels ({2:0.000}%)  max delta={3}/255  mean delta={4:0.0}",
+                changed, total, 100.0 * changed / total, max_delta,
+                If(changed > 0, sum_delta / CDbl(changed), 0.0))
+        dump_fx_pass(after)
+    End Sub
+
+    ''' <summary>
+    ''' Save gColor as it stands immediately after the FX pass. The screen is
+    ''' not a usable record of this: the SSAA round trip through the 8-bit back
+    ''' buffer crushes small values (a measured 23/255 came back as 1/255), so
+    ''' a faint effect that the pass really drew never reaches a screenshot.
+    ''' </summary>
+    Private Sub dump_fx_pass(buf As Byte())
+        Try
+            Dim w = MainFBO.width, h = MainFBO.height
+            Using bmp As New Bitmap(w, h, Imaging.PixelFormat.Format32bppArgb)
+                Dim d = bmp.LockBits(New Rectangle(0, 0, w, h),
+                                     Imaging.ImageLockMode.WriteOnly,
+                                     Imaging.PixelFormat.Format32bppArgb)
+                Dim row(w * 4 - 1) As Byte
+                For y = 0 To h - 1
+                    ' GL origin is bottom-left, GDI+ top-left: flip, and swap
+                    ' RGBA to the BGRA that Format32bppArgb expects.
+                    Dim src = (h - 1 - y) * w * 4
+                    For x = 0 To w - 1
+                        row(x * 4 + 0) = buf(src + x * 4 + 2)
+                        row(x * 4 + 1) = buf(src + x * 4 + 1)
+                        row(x * 4 + 2) = buf(src + x * 4 + 0)
+                        row(x * 4 + 3) = 255
+                    Next
+                    Marshal.Copy(row, 0, IntPtr.Add(d.Scan0, y * d.Stride), row.Length)
+                Next
+                bmp.UnlockBits(d)
+                Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra")
+                IO.Directory.CreateDirectory(dir)
+                bmp.Save(IO.Path.Combine(dir, "fx_pass.png"), Imaging.ImageFormat.Png)
+            End Using
+            LogThis("  wrote fx_pass.png (gColor straight after the FX pass)")
+        Catch ex As Exception
+            LogThis("  fx_pass.png failed: {0}", ex.Message)
+        End Try
     End Sub
 
     '=============================================================================================

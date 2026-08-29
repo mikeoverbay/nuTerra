@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
@@ -54,9 +54,22 @@ void main(void)
     float fade = clamp((fs_in.viewDist - mat.g_atlasIndexes.x)
                      / (mat.g_atlasIndexes.y - mat.g_atlasIndexes.x), 0.0, 1.0);
     fade = clamp(fade + mat.g_tileUVScale.x, 0.0, 1.0);
+    // alphaFadeAmountFresnel.y is the remap gain (fxo: mul_sat r0.w, r0.w,
+    // cb0[80].y). Abbey's smoke authors 1, the fires 2..60.
+    const float gain = mat.g_tileUVScale.y;
+
+    // The two compiled pixel variants, verified against volumetric_effect_vtx
+    // blobs 8 and 9, selected by ALPHA TRIM (g_atlasIndexes.z) - the fxo's
+    // annotations label alphaAdditiveEnable "Use Alpha Trim", and that is the
+    // switch, not alphaFreshnelEnable. Trim on is the fire cutout; trim off is
+    // soft smoke. Both variants also carry a soft-particle term we have no
+    // scene-depth bind for yet:
+    //     softFade = sat((sceneDepth - viewDist) / softFactor)
+    // It only ever REDUCES alpha near intersecting geometry, so leaving it out
+    // errs toward too much smoke, never too little.
     float alpha;
-    if (mat.dirtParams.w != 0.0) {
-        alpha = clamp((tex.a + fs_in.litColor.a * fade - 1.0) * mat.g_tileUVScale.y, 0.0, 1.0);
+    if (mat.g_atlasIndexes.z != 0.0) {
+        alpha = clamp((tex.a + fs_in.litColor.a * fade - 1.0) * gain, 0.0, 1.0);
     } else {
         alpha = clamp(tex.a * fs_in.litColor.a * fade, 0.0, 1.0);
     }

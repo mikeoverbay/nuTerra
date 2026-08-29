@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports OpenTK.Mathematics
 
 Module modSpaceBin
@@ -24,7 +24,114 @@ Module modSpaceBin
         MsgBox(String.Format("{0} decode Failed", magic), MsgBoxStyle.Exclamation, "Oh NO!!")
     End Sub
 
+    ''' <summary>
+    ''' Debug trap for the material loader's unhandled cases.
+    '''
+    ''' Every one of these was a bare Stop, and outside a debugger Stop is a
+    ''' silent no-op - so an unsupported fx, an unknown material property or a
+    ''' new property type simply vanished and the model rendered wrong with
+    ''' nothing said anywhere.
+    '''
+    ''' Recorded once per distinct message, with a count: a property that shows
+    ''' up on ten thousand models would otherwise bury the log. DumpTraps prints
+    ''' the tally when the space.bin finishes loading.
+    ''' </summary>
+    Private ReadOnly TRAPPED As New Dictionary(Of String, Integer)
+    Private ReadOnly TRAP_FIRST As New Dictionary(Of String, String)
+    Private ReadOnly TRAP_MAPS As New Dictionary(Of String, HashSet(Of String))
+
+    ''' <summary>Directories of models carrying a glow material, so the
+    ''' placements can be counted and located once MODEL_INDEX_LIST exists.</summary>
+    Private ReadOnly GLOW_MODEL_DIRS As New HashSet(Of String)
+    Public ReadOnly VOLUMETRIC_MODEL_DIRS As New HashSet(Of String)
+
+    Public Sub Trap(kind As String, detail As String, context As String)
+        Dim key = kind & ": " & detail
+
+        ' Which maps a case turns up on is the useful part when hunting: a
+        ' property on one event space is a different problem from one on
+        ' every map in the game.
+        If Not TRAP_MAPS.ContainsKey(key) Then
+            TRAP_MAPS(key) = New HashSet(Of String)
+        End If
+        TRAP_MAPS(key).Add(MAP_NAME_NO_PATH)
+
+        If TRAPPED.ContainsKey(key) Then
+            TRAPPED(key) += 1
+            Return
+        End If
+        TRAPPED(key) = 1
+        TRAP_FIRST(key) = context
+    End Sub
+
+    ''' <summary>
+    ''' Where the glow cards actually are. They are small alpha-cut props, so
+    ''' "is it working" is unanswerable without knowing whether any are even
+    ''' placed, and where to go and look.
+    ''' </summary>
+    Public Sub ReportGlowPlacements()
+        If GLOW_MODEL_DIRS.Count = 0 Then Return
+
+        ReportPlacements("glow", GLOW_MODEL_DIRS)
+    End Sub
+
+    ''' <summary>
+    ''' How many instances of a set of models are actually placed. A material
+    ''' existing proves only that the loader saw it; without a placement count
+    ''' there is no telling "not drawn" from "drawn but invisible".
+    ''' </summary>
+    Private Sub ReportPlacements(kind As String, dirs As HashSet(Of String))
+        If dirs.Count = 0 Then Return
+        Dim per As New Dictionary(Of String, Integer)
+        Dim first_pos As New Dictionary(Of String, String)
+        Dim total = 0
+        For Each entry In MODEL_INDEX_LIST
+            If entry.model_index < 0 OrElse entry.model_index >= MAP_MODELS.Length Then Continue For
+            Dim lods = MAP_MODELS(entry.model_index).modelLods
+            If lods Is Nothing OrElse lods.Length = 0 Then Continue For
+            Dim sets = lods(0).render_sets
+            If sets Is Nothing OrElse sets.Count = 0 Then Continue For
+            Dim dir = IO.Path.GetDirectoryName(sets(0).verts_name)
+            If Not dirs.Contains(dir) Then Continue For
+
+            Dim leaf = IO.Path.GetFileName(dir)
+            If per.ContainsKey(leaf) Then per(leaf) += 1 Else per(leaf) = 1
+
+            total += 1
+            ' One position per distinct model, not the first three overall -
+            ' otherwise a model with many instances hides every other one, and
+            ' there is no way to cross-check a known landmark's coordinates
+            ' against what the camera's LOOK_AT uses.
+            If Not first_pos.ContainsKey(leaf) Then
+                Dim pos = entry.matrix.Row3
+                first_pos(leaf) = String.Format("({0:0.#}, {1:0.#}, {2:0.#})", pos.X, pos.Y, pos.Z)
+            End If
+        Next
+        For Each kv In per
+            LogThis("   {0}: {1,3} x {2,-42} first at {3}", kind, kv.Value, kv.Key, first_pos(kv.Key))
+        Next
+        LogThis("{0} placements: {1} instance(s) from {2} model(s)", kind, total, dirs.Count)
+    End Sub
+
+    ''' <summary>Everything the loader could not handle, most frequent first.</summary>
+    Public Sub DumpTraps()
+        If TRAPPED.Count = 0 Then
+            LogThis("loader traps: none - every fx, property and property type was handled")
+            Return
+        End If
+
+        LogThis("loader traps: {0} distinct case(s) the material loader does not handle", TRAPPED.Count)
+        Dim keys As New List(Of String)(TRAPPED.Keys)
+        keys.Sort(Function(a, b) TRAPPED(b).CompareTo(TRAPPED(a)))
+        For Each k In keys
+            LogThis("   x{0}  {1}", TRAPPED(k), k)
+            LogThis("        maps: {0}", String.Join(", ", TRAP_MAPS(k)))
+            LogThis("        first seen on {0}", TRAP_FIRST(k))
+        Next
+    End Sub
+
     Public Function ReadSpaceBinData(ByRef ms As MemoryStream) As Boolean
+
 
         Using br As New BinaryReader(ms)
             br.BaseStream.Position = &H14
@@ -283,6 +390,12 @@ CleanUp:
             MODEL_BATCH_LIST.Add(batch)
             offset += it.Value
         Next
+
+        ReportGlowPlacements()
+        ReportPlacements("volumetric", VOLUMETRIC_MODEL_DIRS)
+
+        ' Everything the material loader could not account for, in one place.
+        DumpTraps()
     End Function
 
     Private Sub apply_material_for_pgroup(pGroup As PrimitiveGroup, material_id As Integer, ByVal model_name As String)
@@ -328,8 +441,8 @@ CleanUp:
                             props(.property_name_string) = .val_int
 
                         Case 4
-                            ' ?
-                            Stop
+                            ' Never seen in the wild - trapped so it cannot pass silently.
+                                Trap("property type", "type 4 on " & .property_name_string, model_name)
 
                         Case 5
                             ' Vector4
@@ -351,7 +464,7 @@ CleanUp:
                                 End If
                             End If
                         Case Else
-                            Stop
+                                Trap("property type", "type " & .property_type.ToString() & " on " & .property_name_string, model_name)
                     End Select
                 End With
             Next
@@ -390,7 +503,7 @@ CleanUp:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            'Stop
+                            Trap("unknown property", fx & " -> " & name, model_name)
                         End If
                     Next
 
@@ -439,7 +552,7 @@ CleanUp:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            Stop
+                            Trap("unknown property", fx & " -> " & name, model_name)
                         End If
                     Next
 
@@ -457,7 +570,7 @@ CleanUp:
                         .g_colorTint = If(props.ContainsKey("g_colorTint"), props("g_colorTint"), New Vector4(1.0F, 1.0F, 1.0F, 1.0F))
                         If props.ContainsKey("g_useTintColor") Then
                             If props("g_useTintColor") = "True" Then
-                                'Stop
+                                Trap("unexpected prop", fx & " -> g_useTintColor=True", model_name)
                             End If
                         End If
                     End With
@@ -497,7 +610,7 @@ CleanUp:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            'Stop
+                            Trap("unknown property", fx & " -> " & name, model_name)
                         End If
                     Next
 
@@ -549,7 +662,7 @@ CleanUp:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            Stop
+                            Trap("unknown property", fx & " -> " & name, model_name)
                         End If
                     Next
 
@@ -582,7 +695,7 @@ CleanUp:
                         .g_tileUVScale = If(props.ContainsKey("g_tileUVScale"), props("g_tileUVScale"), New Vector4(1.0, 1.0, 1.0, 1.0))
 
                         If props.ContainsKey("g_tintColor") Then
-                            Stop
+                            Trap("unexpected prop", fx & " -> g_tintColor", model_name)
                         End If
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas
@@ -619,7 +732,7 @@ CleanUp:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            Stop
+                            Trap("unknown property", fx & " -> " & name, model_name)
                         End If
                     Next
 
@@ -708,7 +821,7 @@ got_it:
                         .g_tileUVScale = If(props.ContainsKey("g_tileUVScale"), props("g_tileUVScale"), New Vector4(1.0, 1.0, 1.0, 1.0))
 
                         If props.ContainsKey("g_tintColor") Then 'Just in case. Remove after serious testing!
-                            Stop
+                            Trap("unexpected prop", fx & " -> g_tintColor", model_name)
                         End If
                     End With
                     mat.shader_type = ShaderTypes.FX_PBS_tiled_atlas_global
@@ -747,7 +860,7 @@ got_it:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            Stop
+                            Trap("unknown property", fx & " -> " & name, model_name)
                         End If
                     Next
 
@@ -851,7 +964,7 @@ got_it:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            Stop
+                            Trap("unknown property", fx & " -> " & name, model_name)
                         End If
                     Next
                     Dim obj As New MaterialProps_PBS_glass
@@ -903,11 +1016,11 @@ got_it:
                     })
                     For Each name In props.Keys
                         If Not knownPropNames.Contains(name) Then
-                            Stop
+                            Trap("unknown property", fx & " -> " & name, model_name)
                         End If
                     Next
                     If fx = "shaders/std_effects/PBS_ext_detail_repaint.fx" Then
-                        'Stop
+                        Trap("fx variant", fx, model_name)
                     End If
                     Dim obj As New MaterialProps_PBS_ext_repaint
                     With obj
@@ -957,23 +1070,51 @@ got_it:
                     mat.props = obj
 
 
-                Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx", "shaders/std_effects/lightonly_dual.fx", "shaders/std_effects/glow.fx"
-                    ' glow.fx rides this path too: WG uses it for unlit
-                    ' alpha-tested cards (env_19_39_BurntGrass and kin) -
-                    ' diffuse map, cutout, double-sided, no PBS maps.
-                    If fx = "shaders/std_effects/glow.fx" Then
-                        Dim knownPropNames As New HashSet(Of String)({
-                            "diffuseMap",
-                            "alphaTestEnable",
-                            "alphaReference",
-                            "doubleSided"
-                        })
-                        For Each name In props.Keys
-                            If Not knownPropNames.Contains(name) Then
-                                LogThis("glow: unknown property '{0}' on {1}", name, model_name)
-                            End If
-                        Next
-                    End If
+                Case "shaders/std_effects/glow.fx"
+                    ' Emissive card, its own family now. The compiled shader is
+                    ' diffuse -> alpha test -> gamma decode -> * g_tintColor
+                    ' * (selfIllumination + 1) * g_envLumMultipliers.x -> fog,
+                    ' with no lighting and a single render target. It used to
+                    ' ride the lightonly case, which lit it and threw the
+                    ' multiplier away - on Abbey's burnt grass that is a x16.
+                    Dim knownGlowProps As New HashSet(Of String)({
+                        "diffuseMap",
+                        "alphaTestEnable",
+                        "alphaReference",
+                        "doubleSided",
+                        "selfIllumination",
+                        "g_tintColor"
+                    })
+                    For Each name In props.Keys
+                        If Not knownGlowProps.Contains(name) Then
+                            Trap("unknown property", fx & " -> " & name, model_name)
+                        End If
+                    Next
+
+                    Dim gobj As New MaterialProps_lightonly_alpha
+                    With gobj
+                        .diffuseMap = props("diffuseMap").ToLower
+                        .alphaTestEnable = If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False)
+                        .alphaReference = If(props.ContainsKey("alphaReference"), props("alphaReference"), 0)
+                        .doubleSided = If(props.ContainsKey("doubleSided"), props("doubleSided"), False)
+                        .selfIllumination = If(props.ContainsKey("selfIllumination"), CSng(props("selfIllumination")), 0.0F)
+                    End With
+                    mat.shader_type = ShaderTypes.FX_glow
+                    mat.props = gobj
+                    GLOW_MODEL_DIRS.Add(model_name)
+                    ' Same reporting the volumetric materials get - without it
+                    ' there is no way to tell whether a glow card was even
+                    ' classified, let alone what multiplier it ended up with.
+                    LogThis("glow material {0}: diffuse={1} selfIllum={2} (x{3}) alphaRef={4} doubleSided={5} on {6}",
+                            material_id, gobj.diffuseMap, gobj.selfIllumination,
+                            gobj.selfIllumination + 1.0F, gobj.alphaReference,
+                            gobj.doubleSided, model_name)
+
+                Case "shaders/std_effects/lightonly_alpha.fx", "shaders/std_effects/lightonly.fx", "shaders/std_effects/normalmap_specmap.fx", "shaders/std_effects/lightonly_dual.fx"
+                    ' Unlit alpha-tested cards - diffuse map, cutout,
+                    ' double-sided, no PBS maps. glow.fx used to ride this
+                    ' path; it has its own case above now, because it is
+                    ' emissive and this one is not.
                     If If(props.ContainsKey("alphaTestEnable"), props("alphaTestEnable"), False) Then
                         ' Alpha-TESTED card (burnt grass and kin): deferred
                         ' cutout path.
@@ -1099,6 +1240,11 @@ got_it:
                     End With
                     mat.shader_type = ShaderTypes.FX_volumetric
                     mat.props = obj
+                    ' Which MODEL a volumetric material belongs to. Without this
+                    ' the material log stands alone and there is no telling the
+                    ' smoke sheet from the fire sheets.
+                    LogThis("volumetric material {0} <- {1}", material_id, model_name)
+                    VOLUMETRIC_MODEL_DIRS.Add(model_name)
 
                 Case "shaders/particles/wg_particles.fx", "shaders/custom/coloronly_alpha.fx", "shaders/std_effects/PBS_ext_detail_dual.fx", "shaders/custom/emissive.fx", "shaders/custom/volumetric_effect_vtx_skinned.fx", "shaders/std_effects/PBS_sss_skinned.fx", "shaders/std_effects/PBS_hair_skinned.fx", "shaders/std_effects/fur_skinned.fx", "shaders/custom/emissive_playground.fx"
                     ' Names every invisible-by-unsupported-shader model, so a
@@ -1108,7 +1254,9 @@ got_it:
                     mat.shader_type = ShaderTypes.FX_unsupported
 
                 Case Else
-                    Stop
+                        ' An fx the loader has never seen. shader_type stays 0, which is
+                        ' model.frag's default_entry - it renders RED, so it is visible too.
+                        Trap("unhandled fx", fx, model_name)
             End Select
 
             materials(material_id) = mat

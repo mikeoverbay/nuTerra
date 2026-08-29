@@ -1,4 +1,4 @@
-Imports System.Drawing.Imaging
+﻿Imports System.Drawing.Imaging
 Imports System.IO
 Imports System.Reflection
 Imports System.Runtime.InteropServices
@@ -84,6 +84,14 @@ Public Class Window
     Private rot_clock As New Stopwatch
 
     Private Shared Function GetGLSettings() As NativeWindowSettings
+        ' Harness runs open at half size: a quarter of the pixels to render,
+        ' read back and analyse per iteration, and nothing in the FX maths
+        ' depends on resolution.
+        If HALF_SIZE_WINDOW Then
+            SCR_WIDTH = Math.Max(320, SCR_WIDTH \ 2)
+            SCR_HEIGHT = Math.Max(240, SCR_HEIGHT \ 2)
+        End If
+
         Dim setting As New NativeWindowSettings With {
             .Size = New Vector2i(SCR_WIDTH, SCR_HEIGHT),
             .API = Common.ContextAPI.OpenGL,
@@ -354,8 +362,23 @@ try_again:
         MyBase.OnRenderFrame(args)
 
         DELTA_TIME = args.Time
-        FX_TIME += DELTA_TIME
-        If FX_TIME > 3600.0F Then FX_TIME -= 3600.0F
+        If Not FREEZE_FX Then
+            FX_TIME += DELTA_TIME
+            If FX_TIME > 3600.0F Then FX_TIME -= 3600.0F
+        End If
+
+        ' Unattended Snapshot. Counted in frames, not seconds, so it cannot
+        ' fire before the cull buckets have been filled at least once.
+        If AUTO_SNAP_FRAMES > 0 AndAlso MAP_LOADED Then
+            AUTO_SNAP_FRAMES -= 1
+            ' One frame earlier than the Snapshot, so the readback's own stall
+            ' cannot distort the timings the Snapshot prints.
+            If AUTO_SNAP_FRAMES = 1 Then FX_DIFF_THIS_FRAME = True
+            If AUTO_SNAP_FRAMES = 0 Then
+                write_log_snapshot()
+                If AUTO_SNAP_QUIT Then Close()
+            End If
+        End If
 
         If fps_timer.ElapsedMilliseconds > 1000 Then
             fps_timer.Restart()
@@ -699,6 +722,13 @@ try_again:
         End If
 
         LogThis("  map: {0}", MAP_NAME_NO_PATH)
+        ' Printed in the exact form the launch argument takes, so a saved
+        ' snapshot can be pasted straight back onto the command line and the
+        ' identical view comes up again.
+        LogThis("  cam={0:0.####},{1:0.####},{2:0.####},{3:0.####},{4:0.####},{5:0.####}",
+                map_scene.camera.VIEW_RADIUS, map_scene.camera.CAM_X_ANGLE,
+                map_scene.camera.CAM_Y_ANGLE, map_scene.camera.LOOK_AT_X,
+                map_scene.camera.LOOK_AT_Y, map_scene.camera.LOOK_AT_Z)
         LogThis("  fps: {0}   vram: {1} of {2} mb", FPS_TIME,
                 GLCapabilities.memory_usage, GLCapabilities.total_mem_mb)
         LogThis("  {0}", clip_counts())
@@ -1077,6 +1107,8 @@ try_again:
     End Sub
 
     Private Sub SubmitUI(viewport As ImGuiViewportPtr)
+        If CLEAN_VIEW Then Return
+
         ImGui.SetNextWindowPos(viewport.Pos)
         ' AlwaysAutoResize matters here: without a size of its own this window
         ' auto-fits for its first couple of frames and then latches. It is created
@@ -1231,6 +1263,9 @@ try_again:
                     ImGui.Checkbox("Draw terrain wire", WIRE_TERRAIN)
                     ImGui.Checkbox("Draw model wire", WIRE_MODELS)
                     ImGui.Checkbox("Draw bounding boxes", SHOW_BOUNDING_BOXES)
+                    If SHOW_BOUNDING_BOXES Then
+                        ImGui.Checkbox("   volumetric/GFX only", BOXES_VOLUMETRIC_ONLY)
+                    End If
                     ImGui.Checkbox("Draw chunks", SHOW_CHUNKS)
                     ImGui.Checkbox("Draw grid", SHOW_GRID)
                     ImGui.Checkbox("Draw border", SHOW_BORDER)

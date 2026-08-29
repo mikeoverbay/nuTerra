@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Math
 Imports OpenTK.Mathematics
 
@@ -18,6 +18,13 @@ Module PrimitiveLoader
         FX_PBS_ext_repaint = 7
         FX_lightonly_alpha = 8
         FX_unsupported = 9
+        ''' <summary>shaders/std_effects/glow.fx - an unlit emissive card.
+        ''' The compiled shader is diffuse, alpha test, gamma decode, then
+        ''' rgb * g_tintColor * (selfIllumination + 1) * g_envLumMultipliers.x
+        ''' with fog - no lighting of any kind, one render target. Shares
+        ''' MaterialProps_lightonly_alpha, which already carries everything
+        ''' it needs.</summary>
+        FX_glow = 13
         FX_PBS_tiled = 10
         ''' <summary>shaders/custom/volumetric_effect*.fx - GFX smoke columns,
         ''' flame sheets, distortion cards. Translucent, drawn forward after
@@ -228,6 +235,9 @@ Module PrimitiveLoader
         Public alphaTestEnable As Boolean
         Public alphaReference As Single
         Public doubleSided As Boolean
+        ''' <summary>glow.fx only. The shader multiplies by (this + 1), so 0
+        ''' is the neutral default and every other family leaves it there.</summary>
+        Public selfIllumination As Single
     End Structure
 
     Structure Material

@@ -9,9 +9,16 @@
 layout (points) in;
 layout (line_strip, max_vertices = 24) out;
 
+// 0 = every instance, 1 = only instances tagged volumetric (reserved1).
+uniform int box_filter;
+
 void main(void)
 {
     const ModelInstance thisModel = models[gl_PrimitiveIDIn];
+
+    if (box_filter != 0 && thisModel.reserved1 == 0u) {
+        return;
+    }
 
     const mat4 MVP = viewProj * thisModel.matrix;
     const vec3 bmin = thisModel.bmin;

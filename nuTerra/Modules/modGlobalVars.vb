@@ -1,4 +1,4 @@
-Imports System.Text
+﻿Imports System.Text
 Imports OpenTK.Mathematics
 
 Module modGlobalVars
@@ -175,6 +175,57 @@ Module modGlobalVars
     ''' so Single precision never gets grainy; every consumer uses it inside
     ''' fract()-like scrolling where the wrap is invisible.</summary>
     Public FX_TIME As Single
+
+    ''' <summary>
+    ''' Freeze the FX clock. The volumetric UV scroll rides FX_TIME, so two
+    ''' captures of the same scene never match pixel for pixel while it runs -
+    ''' which makes an automated before/after diff useless. Frozen, the only
+    ''' thing that can move between two shots is the change under test.
+    ''' </summary>
+    Public FREEZE_FX As Boolean = False
+
+    ''' <summary>
+    ''' Camera handed in on the command line, applied once the map is up.
+    ''' Format: cam=radius,xangle,yangle,lookX,lookY,lookZ - exactly the six
+    ''' values Snapshot prints, so a saved snapshot can be pasted straight back.
+    ''' </summary>
+    Public STARTUP_CAM As Single() = Nothing
+
+    ''' <summary>
+    ''' Frames to wait after the map is up before firing Snapshot on its own,
+    ''' then quitting. Zero means never. The harness cannot click the button,
+    ''' so without this every automated run is judged from pixels alone - and
+    ''' pixels cannot say whether a draw was even issued.
+    ''' </summary>
+    Public AUTO_SNAP_FRAMES As Integer = 0
+    Public AUTO_SNAP_QUIT As Boolean = False
+
+    ''' <summary>
+    ''' Set for one frame to make the FX pass measure itself: the colour buffer
+    ''' is read back either side of draw_fx and the difference logged. Two
+    ''' glReadPixels stall the pipeline hard, so this is never left on.
+    ''' </summary>
+    Public FX_DIFF_THIS_FRAME As Boolean = False
+
+    ''' <summary>Open at half the usual size - harness runs only.</summary>
+    Public HALF_SIZE_WINDOW As Boolean = False
+
+    ''' <summary>
+    ''' Clear the colour buffer to black immediately before the FX pass, so the
+    ''' frame contains the effects and nothing else. Done as a clear rather than
+    ''' by editing deferred.frag: no shader is touched, and a rebuild cannot
+    ''' silently undo it (copying shaders/ over bin/ did exactly that).
+    ''' </summary>
+    Public BLACK_BEFORE_FX As Boolean = False
+
+    ''' <summary>
+    ''' Strip the on-screen furniture - minimap and menu bar - for harness runs.
+    ''' A frame meant to show one faint effect against black is ruined by UI
+    ''' chrome: it dominates any pixel statistic taken over the whole frame.
+    ''' Applied AFTER the per-map settings load, which would otherwise switch
+    ''' the minimap back on.
+    ''' </summary>
+    Public CLEAN_VIEW As Boolean = False
     Public RIPPLE_MASK_TIME As Single
     Public MAX_MAP_HEIGHT As Single
     Public MIN_MAP_HEIGHT As Single
@@ -192,6 +243,8 @@ Module modGlobalVars
     Public DELTA_TIME As Single
     Public NORMAL_DISPLAY_MODE As Integer ' 0 None, 1 by vertex, 2 by face
     Public SHOW_BOUNDING_BOXES As Boolean
+    '''<summary>Restrict the box overlay to GFX/volumetric instances.</summary>
+    Public BOXES_VOLUMETRIC_ONLY As Boolean = True
     Public LOOP_COUNT As Integer = 200
     Public FPS_COUNTER As Integer
     Public FPS_TIME As Integer

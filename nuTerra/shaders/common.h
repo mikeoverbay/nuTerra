@@ -1,4 +1,4 @@
-#define PARAMETERS_BASE 0
+﻿#define PARAMETERS_BASE 0
 
 // Uniforms Blocks
 #define TERRAIN_LAYERS_UBO_BASE 0
@@ -32,6 +32,10 @@
 #define GFLAG_ROAD    ( 69.0 / 255.0)   //  64 | KIND_ROAD
 #define GFLAG_TERRAIN (129.0 / 255.0)   // 128 | KIND_TERRAIN
 #define GFLAG_SKY     (255.0 / 255.0)
+// glow.fx: an emissive card. Its own render bit (32) so the resolve can tell
+// it apart from a lit model and skip the lighting while still fogging and
+// tonemapping it - GFLAG_UNLIT would skip those too.
+#define GFLAG_GLOW    ( 36.0 / 255.0)   //  32 | KIND_MODEL
 
 // Decode gGMF.b. Compare the render bits, never the raw byte - the low 3 bits
 // now carry the surface kind, so an == 64 test no longer matches a model.
@@ -39,6 +43,10 @@
 #define GBUF_KIND(b)        (uint((b) * 255.0 + 0.5) & GBUF_KIND_MASK)
 #define GBUF_RENDER_MODEL   64u
 #define GBUF_RENDER_TERRAIN 128u
+#define GBUF_RENDER_GLOW    32u
+
+// ShaderTypes.FX_glow - model.frag picks the flag from this.
+#define SHADER_TYPE_GLOW    13u
 
 // Kinds nuTerra actually writes into gGMF.b. A decal whose influence names none
 // of these cannot be resolved - bit 5's surface has no G-buffer representation

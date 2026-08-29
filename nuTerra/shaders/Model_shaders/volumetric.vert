@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shader_draw_parameters : require
@@ -88,4 +88,13 @@ void main(void)
     light += mat.g_tile1Tint.rgb; // selfIllumLight
 
     vs_out.litColor = vec4(vcol.rgb * light, vcol.a) * mat.g_colorTint;
+
+    // lightMultipliers.x is a FINAL gain on the whole lit colour, applied
+    // after the tint and OUTSIDE the lighting branch, so it counts even for
+    // an unlit material. The fxo's vertex shader ends on exactly this:
+    //     mul o3.xyz, r1.xyzx, cb0[77].xxxx
+    // rgb only - alpha is untouched. Leaving it out made every fire material
+    // render at the same brightness, though Abbey authors them from x2 to
+    // x60, which is what flattened the flames.
+    vs_out.litColor.rgb *= mat.g_tile0Tint.x;
 }
