@@ -107,6 +107,31 @@ NotInheritable Class ResMgr
     End Function
 
     ''' <summary>
+    ''' The one entry in a folder whose name ends with a given suffix, or Nothing.
+    '''
+    ''' Some assets are named with a content hash the caller cannot know - the SH
+    ''' probe grid ships as &lt;hash&gt;_sh_grid.dds, and while 80 of the 64-odd
+    ''' installed spaces use an all-zero hash, maps with several environments
+    ''' (Murovanka, North America) give each one its own. The environment folder
+    ''' holds exactly one of each kind, so match on the suffix and take it.
+    ''' </summary>
+    Public Shared Function LookupBySuffix(folder As String, suffix As String) As ZipEntry
+        Dim f = folder.ToLower.Replace("\", "/")
+        If Not f.EndsWith("/") Then f &= "/"
+        Dim s = suffix.ToLower
+
+        For Each kv In FILENAME_TO_ZIP_ENTRY
+            If kv.Key.StartsWith(f) AndAlso kv.Key.EndsWith(s) Then
+                ' Direct children only - no nested folder between the two.
+                If Not kv.Key.Substring(f.Length).Contains("/") Then
+                    Return kv.Value
+                End If
+            End If
+        Next
+        Return Nothing
+    End Function
+
+    ''' <summary>
     ''' Looks up a texture, preferring the high resolution variant when the game
     ''' ships one. HD textures live in the *_hd.pkg packages under the same path
     ''' with an "_hd" suffix, at twice the base resolution. Terrain tiles under

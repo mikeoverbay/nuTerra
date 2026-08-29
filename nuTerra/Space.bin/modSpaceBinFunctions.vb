@@ -1,7 +1,49 @@
 ﻿Imports System.IO
 Imports System.Text
+Imports OpenTK.Mathematics
 
 Module modSpaceBinFunctions
+    ''' <summary>
+    ''' WGSH - the world box the SH probe grid was baked over. 40 bytes:
+    '''
+    '''     i32 payload_size (32)   i32 version (1)   i32 count (1)
+    '''     vec3 centre             vec3 size         f32 fadeDistance
+    '''
+    ''' Verified on Abbey: centre (0,0,0), size (1400, 200, 1400), fade 15.
+    ''' The grid texture is 280x280 and 1400/280 is exactly 5.00 m per probe,
+    ''' which is what ties the texture to world space.
+    '''
+    ''' Absence is not fatal - a map with no grid still lights from the single
+    ''' global probe.
+    ''' </summary>
+    Public Sub get_WGSH(ByRef wgshHeader As SectionHeader, br As BinaryReader)
+        WGSH_LOADED = False
+        br.BaseStream.Position = wgshHeader.offset
+
+        Dim payload_size = br.ReadInt32()
+        Dim version = br.ReadInt32()
+        Dim count = br.ReadInt32()
+
+        If count < 1 Then
+            LogThis("WGSH: count {0} - no probe grid box", count)
+            Return
+        End If
+
+        SH_GRID_CENTRE = New Vector3(br.ReadSingle(), br.ReadSingle(), br.ReadSingle())
+        SH_GRID_SIZE = New Vector3(br.ReadSingle(), br.ReadSingle(), br.ReadSingle())
+        SH_GRID_FADE = br.ReadSingle()
+
+        If SH_GRID_SIZE.X <= 0.0F OrElse SH_GRID_SIZE.Z <= 0.0F Then
+            LogThis("WGSH: degenerate box {0} x {1} - ignoring", SH_GRID_SIZE.X, SH_GRID_SIZE.Z)
+            Return
+        End If
+
+        WGSH_LOADED = True
+        LogThis("WGSH v{0}: centre ({1:0.#} {2:0.#} {3:0.#}) size ({4:0.#} {5:0.#} {6:0.#}) fade {7:0.#} m",
+                version, SH_GRID_CENTRE.X, SH_GRID_CENTRE.Y, SH_GRID_CENTRE.Z,
+                SH_GRID_SIZE.X, SH_GRID_SIZE.Y, SH_GRID_SIZE.Z, SH_GRID_FADE)
+    End Sub
+
     Public Sub get_BSMA(ByRef bsmaHeader As SectionHeader, br As BinaryReader)
         ' set stream reader to point at this chunk
         br.BaseStream.Position = bsmaHeader.offset

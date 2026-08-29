@@ -39,6 +39,91 @@ vec3 eval_sh_irradiance(vec3 n)
          - c5 * sh_ambient[6]
          + c1 * sh_ambient[8] * (n.x * n.x - n.y * n.y);
 }
+
+// ---------------------------------------------------------------------------
+// The baked probe FIELD - probes/sh_grid, an RGBA16F volume, 8 slices, one
+// probe every 5 m. Where sh_ambient above is ONE probe stretched over the
+// whole map, this varies with POSITION too, because the bake saw the buildings.
+//
+// A probe is 32 numbers, and they are stored a CHANNEL per slice:
+//   slice 0,1,2 = red, green, blue  -> (constant, L.y, L.z, L.x)
+//   slice 3,4,5 = red, green, blue  -> quadratic (xy, yz, zz, xz)
+//   slice 6     = the (x^2-y^2) coefficient for r,g,b, and .w = REF HEIGHT (m)
+//   slice 7     = not read by the game's resolve
+//
+// It replaces the global probe's irradiance and nothing else. With
+// sh_grid_enabled at 0 not one instruction here runs.
+// ---------------------------------------------------------------------------
+layout(binding = 11) uniform sampler3D sh_grid;
+uniform int   sh_grid_enabled;
+uniform vec4  sh_grid_uv;     // xy = offset, zw = 1/size, the game's packing
+uniform float sh_grid_fade;   // 1 / fade distance in metres
+uniform float sh_grid_offset; // metres to push the lookup along the normal
+uniform float sh_grid_edge;   // uv width of the ease-out at the box edge
+uniform vec3  sh_grid_sh9[9]; // the FIELD's own companion probe, not the global
+
+// Separate from eval_sh_irradiance on purpose: the working path above is left
+// byte for byte alone.
+vec3 eval_sh_grid_fallback(vec3 n)
+{
+    const float c1 = 0.429043, c2 = 0.511664, c3 = 0.743125;
+    const float c4 = 0.886227, c5 = 0.247708;
+
+    return c4 * sh_grid_sh9[0]
+         + 2.0 * c2 * (sh_grid_sh9[1] * n.y + sh_grid_sh9[2] * n.z + sh_grid_sh9[3] * n.x)
+         + 2.0 * c1 * (sh_grid_sh9[4] * n.x * n.y
+                     + sh_grid_sh9[5] * n.y * n.z
+                     + sh_grid_sh9[7] * n.x * n.z)
+         + c3 * sh_grid_sh9[6] * n.z * n.z
+         - c5 * sh_grid_sh9[6]
+         + c1 * sh_grid_sh9[8] * (n.x * n.x - n.y * n.y);
+}
+
+// Irradiance from the field, easing out to its companion probe when the point
+// leaves the grid in XZ or climbs above the probe's reference height.
+vec3 eval_sh_grid(vec3 world_pos, vec3 n)
+{
+    // The offset moves the LOOKUP only, never the height test below.
+    //
+    // Probes near geometry are much darker than open ones - measured on Abbey
+    // the darkest sit around 0.03 against a grid mean of 0.77 - so a wall's
+    // surface, which lands close to that boundary, can pull a dark neighbour
+    // into its bilinear tap. Pushing the lookup outward biases the sample
+    // toward open air. Only the horizontal part can move a lookup, so flat
+    // ground (n.xz ~ 0) is unaffected and a wall takes the whole push.
+    vec3 sample_pos = world_pos + n * sh_grid_offset;
+    vec2 uv = sample_pos.xz * sh_grid_uv.zw - sh_grid_uv.xy;
+
+    // Slice centres of an 8 deep texture, so a Linear filter never straddles
+    // two coefficient vectors.
+    const float S = 1.0 / 8.0;
+    vec4 c0 = textureLod(sh_grid, vec3(uv, 0.5 * S), 0.0);
+    vec4 c1 = textureLod(sh_grid, vec3(uv, 1.5 * S), 0.0);
+    vec4 c2 = textureLod(sh_grid, vec3(uv, 2.5 * S), 0.0);
+    vec4 c3 = textureLod(sh_grid, vec3(uv, 3.5 * S), 0.0);
+    vec4 c4 = textureLod(sh_grid, vec3(uv, 4.5 * S), 0.0);
+    vec4 c5 = textureLod(sh_grid, vec3(uv, 5.5 * S), 0.0);
+    vec4 c6 = textureLod(sh_grid, vec3(uv, 6.5 * S), 0.0);
+
+    // Eased over a couple of probes, not switched: the grid stops well inside
+    // the outland and a hard test draws a ring across the terrain there.
+    vec2  edge    = min(uv, 1.0 - uv);
+    float outside = 1.0 - smoothstep(0.0, sh_grid_edge, min(edge.x, edge.y));
+
+    // c6.w is the probe's stored reference height in metres, not a coefficient.
+    float height_fade = clamp((world_pos.y - c6.w) * sh_grid_fade, 0.0, 1.0);
+    float blend = outside * (1.0 - height_fade) + height_fade;
+
+    // The game's own pre-convolved packing - one dot per band.
+    vec3 lin  = vec3(dot(c0.wyz, n), dot(c1.wyz, n), dot(c2.wyz, n));
+    vec4 q    = vec4(n.y * n.x, n.z * n.y, n.z * n.z, n.x * n.z);
+    vec3 quad = vec3(dot(c3, q), dot(c4, q), dot(c5, q))
+              + c6.xyz * (n.x * n.x - n.y * n.y);
+    vec3 local = max(vec3(c0.x, c1.x, c2.x) + lin + quad, vec3(0.0));
+
+    // Both ends of the blend evaluated the same way, or the mix would step.
+    return mix(local, max(eval_sh_grid_fallback(n), vec3(0.0)), blend);
+}
 layout(binding = 5) uniform lowp sampler2D lut;
 layout(binding = 6) uniform lowp sampler2D env_brdf_lut;
 layout(binding = 7) uniform sampler2DArrayShadow shadowMap;
@@ -77,27 +162,18 @@ uniform vec3 LightPos;
 
 /*========================== FUNCTIONS =============================*/
 // This helps to even out overall levels of brightness and adjusts gamma.
-vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){  
+vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
     // Exposure tone mapping
     vec3 mapped = vec3(1.0) - exp(-hdrColor.rgb * exposure);
-    // Gamma correction 
-    mapped.rgb = pow(mapped.rgb, vec3(1.0 / gamma_level));  
-    mapped.rgb = pow(mapped.rgb, vec3(1.0 / props.GAMMA_LEVEL*0.5));  
+    // Gamma correction
+    mapped.rgb = pow(mapped.rgb, vec3(1.0 / gamma_level));
+    mapped.rgb = pow(mapped.rgb, vec3(1.0 / props.GAMMA_LEVEL*0.5));
     return vec4 (mapped, hdrColor.a);
 }
 
  // https://defold.com/tutorials/grading/
  vec4 lut_color_correction(in vec4 px)
  {
-    // The strip is authored for [0,1]. This runs before the tonemapper, so
-    // a sunlit white overshoots 1.0 and the cell math below walks off the
-    // texture into the wrong blue slice - blown-out whites came back cyan.
-    // Grade the colour's direction and carry the overflow through as
-    // magnitude, so the tonemapper still gets a highlight to roll off.
-    // At or below 1.0 nothing changes.
-    float mag = max(max(px.r, max(px.g, px.b)), 1.0);
-    px.rgb /= mag;
-
     float cell = px.b * MAXCOLOR;
 
     float cell_l = floor(cell);
@@ -115,10 +191,9 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
     vec4 graded_color_h = textureLod(lut, lut_pos_h, 0);
 
     vec4 graded_color = mix(graded_color_l, graded_color_h, fract(cell));
-    graded_color.rgb *= mag;
 
     return graded_color;
- 
+
  }
 /*===================================================================*/
 #define MANUAL_SRGB ;
@@ -360,7 +435,7 @@ void main (void)
             GM_in.rg = mix(GM_in.rg,vec2(0.4,0.8), color_in.a);
 
             vec3 LightPosModelView = LightPos.xyz;
-           
+
             vec3 L = normalize(LightPosModelView-Position.xyz); // light direction
 
             vec3 N = normalize(texelFetch(gNormal, ivec2(gl_FragCoord), 0).xyz * 2.0 - 1.0); // convert to -1.0 to 1.0
@@ -409,6 +484,16 @@ void main (void)
                 vec3 N_world = normalize(mat3(invView) * N);
                 vec3 irradiance = max(eval_sh_irradiance(N_world), vec3(0.0));
 
+                // The field answers the same question with position as well as
+                // normal, so where it exists it replaces the single global
+                // probe. This is the ONLY place it touches the lighting -
+                // everything below is unchanged, and with the grid off the
+                // branch never runs.
+                if (sh_grid_enabled != 0) {
+                    vec3 wp = (invView * vec4(Position, 1.0)).xyz;
+                    irradiance = max(eval_sh_grid(wp, N_world), vec3(0.0));
+                }
+
                 // Desaturate toward the probe's own luminance. The bake is
                 // genuinely this blue - sky fill is what lights a shadow - but
                 // it reads stronger here than in the reference, so this pulls
@@ -442,22 +527,8 @@ void main (void)
             // ambient/direct split below stays consistent for both.
             float sun_shadow = sun_shadow_factor(Position)
                              * baked_sun_shadow((invView * vec4(Position, 1.0)).xyz);
-
-            // The lighting contract, both halves of it:
-            //   - no sun, and no sun tint, in shadow
-            //   - no ambient in sunlit areas
-            // One factor decides which regime a pixel is in: how much sun
-            // actually arrives (facing times shadow), pushed through a short
-            // smoothstep so the regimes stay mutually exclusive. The old
-            // linear (1 - N.L*shadow) weight diluted instead of deciding:
-            // half-shadow pixels showed half the sun's tint, and sunlit
-            // ground at a mid sun elevation kept a third of the ambient.
-            // Below the band a pixel is pure ambient, above it pure sun;
-            // the band itself is the only place the two cross-fade, kept
-            // narrow so it reads as a penumbra and not a mixed regime.
-            float sun_reach = max(dot(N, L), 0.0) * sun_shadow;
-            float sun_lit = smoothstep(0.05, 0.35, sun_reach);
-            Ambient_level.rgb *= (1.0 - sun_lit);
+            float direct_light = max(dot(N, L), 0.0) * sun_shadow;
+            Ambient_level.rgb *= (1.0 - direct_light);
 
             // Ambient is the base the sun adds on top of. This used to start from
             // a hardcoded 0.25 grey with Ambient_level only reaching the output
@@ -478,7 +549,7 @@ void main (void)
             vec3 V = normalize(t_cam.xyz-Position);
 
             float perceptualRoughness = 0.2;
-            
+
             //create a up facing normal that translates properly.
             vec3 blank_n = mat3(inverse(transpose(view))) * normalize(vec3(0.0, 1.0, 0.0));
 
@@ -517,18 +588,16 @@ void main (void)
 
                 float water_spec = max(pow(dot(V,R), 120.0 ),0.0001) * props.SPECULAR;
 
-                // Gated by sun_lit, not raw sun_shadow - the same factor that
-                // removed the ambient must be the one that grants the sun, or
-                // penumbra pixels end up with a share of both. Lambert still
-                // shapes the lit side; the gate only decides the regime.
-                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0) * sun_lit;
+                // sun_shadow was computed above, before ambient was weighted -
+                // the two have to agree on how much sun arrives here.
+                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0) * sun_shadow;
 
 
 
                 vec3 halfwayDir = normalize(L + V);
 
                 float spec = max(pow(dot(V,R), POWER ),0.0000) * props.SPECULAR * INTENSITY;
-   
+
                 // Cubemap handedness - the world is mirrored in x for display.
                 R_env.xz *= -1.0;
 
@@ -580,9 +649,7 @@ void main (void)
                 // showing. 1-exp(-x) is linear where the response was already
                 // sane and rolls off the peaks, so a hot glint stays bright
                 // without ever clipping to paper.
-                // Same gate as the diffuse: sun spec has no business showing
-                // its tint in a shadow either.
-                vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz) * sun_lit;
+                vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz) * sun_shadow;
                 final_color.xyz += 1.0 - exp(-sun_add);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance
@@ -612,12 +679,12 @@ void main (void)
             vec4 ts_cam = view * vec4(cameraPos,1.0);
             vec4 p = invView * vec4(Position.xyz,1.0);
             float viewDistance = length(ts_cam.xyz - Position);
-            float z = viewDistance*0.75 ; 
-   
+            float z = viewDistance*0.75 ;
+
             float height = 0.0;
-           
+
             if( p.y <= props.MEAN ){
-            
+
             height = 1.0-(p.y + -props.mapMinHeight) / (-props.mapMinHeight + props.MEAN);
             height = sin(1.5708*height); // change to a curve to improve depth.
             }

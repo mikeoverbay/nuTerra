@@ -1161,10 +1161,8 @@ try_again:
                         ImGui.EndCombo()
                     End If
                 End If
-                If ImGui.CollapsingHeader("Map") Then
+                If ImGui.CollapsingHeader("Section Visibility") Then
                     ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)
-                    ImGui.Checkbox("Show GFX markers", SHOW_GFX_MARKERS)
-                    ImGui.SliderFloat("GFX marker size", MapGfxMarkers.size, 0.25, 10.0)
                     ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
                     ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
                     ' shown inverted: ticking it turns fading off, so the box sits
@@ -1289,16 +1287,8 @@ try_again:
                         CommonProperties.MACRO_FADE = v_mf
                     End If
 
-                    ' Map-wide baked sun shadow. Sampled per frame in
-                    ' deferred.frag now, not baked into the VT page - so it
-                    ' attenuates the sun term only and reaches models too.
-                    Dim v_hz = CommonProperties.HORIZON_STRENGTH
-                    If ImGui.SliderFloat("Sun Shadow (baked)", v_hz, 0.0, 1.0) Then
-                        CommonProperties.HORIZON_STRENGTH = v_hz
-                    End If
-                    If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.sun_shadow.ready Then
-                        ImGui.Text(String.Format("   {0}x{0} baked", map_scene.sun_shadow.size))
-                    End If
+                    ' The strength slider lives under PBR shading now, with the
+                    ' rest of the lighting. This is the bake operation only.
                     ' No atlas rebuild - the bake is sampled in the final render,
                     ' so the new depth is picked up on the very next frame.
                     If ImGui.Button("Re-bake sun shadow") Then
@@ -1331,13 +1321,6 @@ try_again:
                                 map_scene.sun_shadow.ready = False
                             End If
                         End If
-                    End If
-
-                    ' Same value as "Sun Shadow (baked)" under Terrain, mirrored
-                    ' here because this is where shadow work happens.
-                    Dim v_hz2 = CommonProperties.HORIZON_STRENGTH
-                    If ImGui.SliderFloat("Shadow strength", v_hz2, 0.0, 1.0) Then
-                        CommonProperties.HORIZON_STRENGTH = v_hz2
                     End If
 
                     ' Moment Shadow Maps against PCF, same bake either way, so
@@ -1420,7 +1403,7 @@ try_again:
                         ImGui.Text("   all black = sun camera misses the map")
                     End If
                 End If
-                If ImGui.CollapsingHeader("Lighting Settings") Then
+                If ImGui.CollapsingHeader("PBR shading") Then
                     ' Read into a local, slide that, write back only on change.
                     ' Passing the property straight to a ByRef parameter relies on
                     ' VB's copy-back, which is easy to get wrong and impossible to
@@ -1432,6 +1415,33 @@ try_again:
                     ImGui.Text(String.Format("   AMBIENT={0:0.0000}  SH loaded={1}  SH on={2}  sh0={3:0.00} {4:0.00} {5:0.00}",
                                              CommonProperties.AMBIENT, SH_AMBIENT_LOADED, USE_SH_AMBIENT,
                                              SH_AMBIENT(0).X, SH_AMBIENT(0).Y, SH_AMBIENT(0).Z))
+
+                    ' ---- SH probe FIELD -------------------------------------
+                    ' Loaded, uploaded and sampled, but NOT wired into the
+                    ' lighting. "show probe field" paints the raw field so its
+                    ' placement can be checked before anything consumes it.
+                    ImGui.Separator()
+                    If SH_GRID_LOADED Then
+                        ImGui.Checkbox("SH probe grid (loaded, not mixed)", USE_SH_GRID)
+
+                        ' Swaps the whole lighting program for probe_field.frag.
+                        ' Nothing about this view can touch the real shading.
+                        ImGui.Checkbox("   show probe field", SH_GRID_DEBUG)
+                        If SH_GRID_DEBUG Then
+                            ImGui.SliderFloat("      exposure", SH_GRID_EXPOSURE, 0.02F, 2.0F)
+                            ImGui.Checkbox("      probe lattice", SH_GRID_SHOW_LATTICE)
+                            ImGui.Text("      red = outside box, amber = above bake")
+                        End If
+
+                        ImGui.SliderFloat("   normal offset m", SH_GRID_OFFSET, 0.0F, 5.0F)
+                        ImGui.Text(String.Format("   {0:0.#} m box, {1:0.00} m spacing, fade {2:0.#} m",
+                                                 SH_GRID_SIZE.X, SH_GRID_SPACING, SH_GRID_FADE))
+                        ImGui.Text(String.Format("   grid probe sh0={0:0.00} {1:0.00} {2:0.00}",
+                                                 SH_GRID_SH9(0).X, SH_GRID_SH9(0).Y, SH_GRID_SH9(0).Z))
+                    Else
+                        ImGui.Text("SH probe grid: not loaded for this map")
+                    End If
+                    ImGui.Separator()
 
                     Dim v_bright = CommonProperties.BRIGHTNESS
                     If ImGui.SliderFloat("Bright Level", v_bright, 0.0, 2.0) Then
@@ -1452,6 +1462,24 @@ try_again:
                     Dim v_sun = CommonProperties.SUN_STRENGTH
                     If ImGui.SliderFloat("Sun Strength", v_sun, 0.0, 3.0) Then
                         CommonProperties.SUN_STRENGTH = v_sun
+                    End If
+
+                    ' The shadow mix, moved here from Terrain and Shadow Mapping
+                    ' where it sat as two sliders writing the same value.
+                    '
+                    ' 1 is the full shadow. Below that it lifts the shadow back
+                    ' toward lit, and deferred.frag applies it ONLY where the sun
+                    ' actually reaches - a fully occluded pixel stays fully
+                    ' occluded at any setting. It softens a penumbra; it can no
+                    ' longer put sunlight inside a shadow.
+                    Dim v_hz = CommonProperties.HORIZON_STRENGTH
+                    If ImGui.SliderFloat("Shadow Mix", v_hz, 0.0, 1.0) Then
+                        CommonProperties.HORIZON_STRENGTH = v_hz
+                    End If
+                    If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.sun_shadow.ready Then
+                        ImGui.Text(String.Format("   baked {0}x{0}", map_scene.sun_shadow.size))
+                    Else
+                        ImGui.Text("   no baked sun shadow")
                     End If
 
                     ' 0 = grey ambient at the same level, 1 = the probe's own colour.
@@ -1484,7 +1512,7 @@ try_again:
                         CommonProperties.FOG_LEVEL = v_fog
                     End If
                 End If
-                If ImGui.CollapsingHeader("Map Settings") Then
+                If ImGui.CollapsingHeader("Save Map Settings") Then
                     If MAP_LOADED Then
                         ImGui.Text("Map: " & MAP_NAME_NO_PATH)
                         If ImGui.Button("Save settings for this map") Then

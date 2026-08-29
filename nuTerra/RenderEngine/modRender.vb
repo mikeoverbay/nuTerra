@@ -206,16 +206,19 @@ Module modRender
             modGpuTimers.Finish()
         End If
 
-        If SHOW_GFX_MARKERS Then
-            map_scene.gfx_markers.draw()
-        End If
-
         GL.Disable(EnableCap.DepthTest)
 
         MainFBO.attach_C2()
 
+        ' The shader fork. "show probe field" swaps the whole lighting program
+        ' for the inspector rather than adding a branch inside deferred.frag,
+        ' so the real lighting path has no knowledge of the probe grid at all.
         modGpuTimers.Begin("Deferred")
-        render_deferred_buffers()
+        If SH_GRID_DEBUG AndAlso SH_GRID_LOADED AndAlso SH_GRID_ID IsNot Nothing Then
+            render_probe_field()
+        Else
+            render_deferred_buffers()
+        End If
         modGpuTimers.Finish()
         'gAux_color to gColor;
         MainFBO.attach_C1_and_C2()
@@ -413,10 +416,46 @@ Module modRender
         GL.Uniform1(deferredShader("sh_enabled"),
                     CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
 
+        ' The baked probe FIELD. Uploaded and sampled, but deferred.frag does
+        ' not fold it into the lighting yet - only the debug view reads it.
+        Dim grid_on = USE_SH_GRID AndAlso SH_GRID_LOADED AndAlso SH_GRID_ID IsNot Nothing
+        If grid_on Then
+            SH_GRID_ID.BindUnit(11)
+
+            ' The shader computes uv = world.xz * scale - offset. Our world is
+            ' mirrored in x for display and the bake is not, so x runs backwards:
+            '   z : uv = (w - min)/size  -> scale =  1/size, offset =  min/size
+            '   x : uv = (max - w)/size  -> scale = -1/size, offset = -max/size
+            Dim scale_z = 1.0F / SH_GRID_SIZE.Z
+            Dim offset_z = (SH_GRID_CENTRE.Z - SH_GRID_SIZE.Z * 0.5F) * scale_z
+            Dim scale_x = -1.0F / SH_GRID_SIZE.X
+            Dim offset_x = -(SH_GRID_CENTRE.X + SH_GRID_SIZE.X * 0.5F) / SH_GRID_SIZE.X
+
+            GL.Uniform4(deferredShader("sh_grid_uv"), offset_x, offset_z, scale_x, scale_z)
+            GL.Uniform1(deferredShader("sh_grid_fade"), 1.0F / Math.Max(SH_GRID_FADE, 0.001F))
+            GL.Uniform1(deferredShader("sh_grid_offset"), SH_GRID_OFFSET)
+            ' Ease the box edge over a couple of probes instead of switching -
+            ' the grid stops well inside the outland and a hard test would draw
+            ' a ring across the terrain there.
+            GL.Uniform1(deferredShader("sh_grid_edge"),
+                        2.0F * SH_GRID_SPACING / Math.Max(SH_GRID_SIZE.X, 1.0F))
+
+            Static grid_sh_flat(26) As Single
+            For i = 0 To 8
+                grid_sh_flat(i * 3 + 0) = SH_GRID_SH9(i).X
+                grid_sh_flat(i * 3 + 1) = SH_GRID_SH9(i).Y
+                grid_sh_flat(i * 3 + 2) = SH_GRID_SH9(i).Z
+            Next
+            GL.Uniform3(deferredShader("sh_grid_sh9"), 9, grid_sh_flat)
+        End If
+        GL.Uniform1(deferredShader("sh_grid_enabled"), CInt(If(grid_on, 1, 0)))
+        GL.Uniform1(deferredShader("sh_grid_debug"),
+                    CInt(If(grid_on AndAlso SH_GRID_DEBUG, 1, 0)))
+
         draw_main_Quad(MainFBO.width, MainFBO.height) 'render Gbuffer lighting
 
         ' UNBIND
-        unbind_textures(9)
+        unbind_textures(12)
 
         deferredShader.StopUse()
 
@@ -506,9 +545,67 @@ Module modRender
     End Sub
 
     Private Sub draw_main_Quad(w As Integer, h As Integer)
-        GL.Uniform4(deferredShader("rect"), 0.0F, CSng(-h), CSng(w), 0.0F)
+        draw_main_Quad(deferredShader, w, h)
+    End Sub
+
+    ''' <summary>
+    ''' The same full-screen quad against whichever program is bound - the probe
+    ''' field view is a second program that needs an identical draw.
+    ''' </summary>
+    Private Sub draw_main_Quad(shader As Shader, w As Integer, h As Integer)
+        GL.Uniform4(shader("rect"), 0.0F, CSng(-h), CSng(w), 0.0F)
         defaultVao.Bind()
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+    End Sub
+
+    ''' <summary>
+    ''' Probe field inspector - a COMPLETE replacement for the deferred pass,
+    ''' selected by the "show probe field" checkbox.
+    '''
+    ''' Forking at the program level rather than branching inside deferred.frag
+    ''' is the whole point: the lighting shader never references the grid, so
+    ''' turning this view on cannot change how the scene actually renders.
+    ''' </summary>
+    Private Sub render_probe_field()
+        GL_PUSH_GROUP("render_probe_field")
+
+        probeFieldShader.Use()
+
+        MainFBO.gColor.BindUnit(0)
+        MainFBO.gNormal.BindUnit(1)
+        MainFBO.gGMF.BindUnit(2)
+        MainFBO.gPosition.BindUnit(3)
+        SH_GRID_ID.BindUnit(11)
+
+        ' Same world mapping the loader established: our world is mirrored in x
+        ' for display and the bake is not, so x runs backwards.
+        Dim scale_z = 1.0F / SH_GRID_SIZE.Z
+        Dim offset_z = (SH_GRID_CENTRE.Z - SH_GRID_SIZE.Z * 0.5F) * scale_z
+        Dim scale_x = -1.0F / SH_GRID_SIZE.X
+        Dim offset_x = -(SH_GRID_CENTRE.X + SH_GRID_SIZE.X * 0.5F) / SH_GRID_SIZE.X
+
+        GL.Uniform4(probeFieldShader("sh_grid_uv"), offset_x, offset_z, scale_x, scale_z)
+        GL.Uniform1(probeFieldShader("sh_grid_fade"), 1.0F / Math.Max(SH_GRID_FADE, 0.001F))
+        GL.Uniform1(probeFieldShader("sh_grid_offset"), SH_GRID_OFFSET)
+        GL.Uniform1(probeFieldShader("probe_exposure"), SH_GRID_EXPOSURE)
+        GL.Uniform1(probeFieldShader("probe_show_grid"), CInt(If(SH_GRID_SHOW_LATTICE, 1, 0)))
+
+        Static grid_sh_flat(26) As Single
+        For i = 0 To 8
+            grid_sh_flat(i * 3 + 0) = SH_GRID_SH9(i).X
+            grid_sh_flat(i * 3 + 1) = SH_GRID_SH9(i).Y
+            grid_sh_flat(i * 3 + 2) = SH_GRID_SH9(i).Z
+        Next
+        GL.Uniform3(probeFieldShader("sh_grid_sh9"), 9, grid_sh_flat)
+
+        GL.UniformMatrix4(probeFieldShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+
+        draw_main_Quad(probeFieldShader, MainFBO.width, MainFBO.height)
+
+        unbind_textures(12)
+        probeFieldShader.StopUse()
+
+        GL_POP_GROUP()
     End Sub
 
     Public Function cube_point_intersection(ByRef rot As Matrix4, ByRef scale As Matrix4, ByRef translate As Matrix4, ByRef point As Vector3) As Boolean

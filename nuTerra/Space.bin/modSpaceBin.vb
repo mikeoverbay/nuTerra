@@ -92,6 +92,20 @@ Module modSpaceBin
                 GoTo Failed
             End Try
 
+            ' World box of the SH probe grid. Not fatal: a map without a baked
+            ' probe field still lights from the single global probe.
+            Try
+                If sectionHeaders.ContainsKey("WGSH") Then
+                    get_WGSH(sectionHeaders("WGSH"), br)
+                Else
+                    WGSH_LOADED = False
+                End If
+            Catch ex As Exception
+                Debug.Print(ex.ToString)
+                LogThis("WGSH decode failed, the probe grid will be skipped")
+                WGSH_LOADED = False
+            End Try
+
             ' SpeedTree placement. Not fatal: a map without trees still loads.
             Try
                 If sectionHeaders.ContainsKey("SpTr") Then

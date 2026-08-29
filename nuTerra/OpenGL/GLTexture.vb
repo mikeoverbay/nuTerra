@@ -56,6 +56,11 @@ Public Class GLTexture
         CheckGLError()
     End Sub
 
+    Public Sub SubImage3D(level As Integer, xoffset As Integer, yoffset As Integer, zoffset As Integer, width As Integer, height As Integer, depth As Integer, format As PixelFormat, type As PixelType, pixels() As Byte)
+        GL.TextureSubImage3D(texture_id, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels)
+        CheckGLError()
+    End Sub
+
     Public Sub CompressedSubImage2D(level As Integer, xoffset As Integer, yoffset As Integer, width As Integer, height As Integer, format As PixelFormat, imageSize As Integer, data() As Byte)
         GL.CompressedTextureSubImage2D(texture_id, level, xoffset, yoffset, width, height, format, imageSize, data)
         CheckGLError()

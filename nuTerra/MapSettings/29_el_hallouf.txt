@@ -1,4 +1,4 @@
-# nuTerra render settings for 29_el_hallouf
+﻿# nuTerra render settings for 29_el_hallouf
 # Written 2026-08-27T21:52:11. Copy this into nuTerra\MapSettings to keep it.
 # Delete any line to fall back to that setting's default for this map.
 
@@ -22,7 +22,6 @@ water_y_offset=0
 water_exclude_band=1.5
 water_fog_mul=1
 mouse_damp=0.1
-gfx_marker_size=1.5
 outland_global_base=0.35
 outland_detail_tiles=64
 outland_spec=0.15
@@ -44,7 +43,6 @@ draw_models=1
 draw_sky=1
 draw_terrain=1
 draw_outland=1
-show_gfx_markers=1
 outland_global_tint=1
 outland_use_detail=1
 outland_pbr_nm=0

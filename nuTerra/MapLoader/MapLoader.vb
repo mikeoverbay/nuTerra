@@ -515,9 +515,6 @@ Module MapLoader
 
         ' Per-map render settings, applied last so they win over whatever the
         ' environment.xml defaults and the global settings put in place.
-        ' Where the particle effects belong - scaffolding for the particle work.
-        map_scene.gfx_markers.Collect()
-
         modMapSettings.Load(map_name)
         ' Baseline for the on-exit save, taken whether or not a file existed.
         modMapSettings.Snapshot(map_name)

@@ -179,7 +179,6 @@ Module ShaderLoader
     Public BaseRingProjectorDeferred As Shader
     Public boxShader As Shader
     Public boxDecalsColorShader As Shader
-    Public gfxMarkerShader As Shader
     Public sunDepthTerrainShader As Shader
     Public sunDepthModelShader As Shader
     Public sunDepthTreeShader As Shader
@@ -193,6 +192,8 @@ Module ShaderLoader
     Public colorOnlyShader As Shader
     Public DecalProject As Shader
     Public deferredShader As Shader
+    ''' <summary>Stands in for deferredShader while the probe field view is on.</summary>
+    Public probeFieldShader As Shader
     Public DeferredFogShader As Shader
     Public FF_BillboardShader As Shader
     Public FXAAShader As Shader
@@ -265,7 +266,6 @@ Module ShaderLoader
         BaseRingProjectorDeferred = New Shader("BaseRingProjectorDeferred")
         boxShader = New Shader("box")
         boxDecalsColorShader = New Shader("box_decals_color")
-        gfxMarkerShader = New Shader("gfx_marker")
         sunDepthTerrainShader = New Shader("sun_depth_terrain")
         sunDepthModelShader = New Shader("sun_depth_model")
         sunDepthTreeShader = New Shader("sun_depth_tree")
@@ -305,6 +305,7 @@ Module ShaderLoader
         outlandBakeResolveShader = New Shader("outland_bake_resolve")
         outlandWireShader = New Shader("outlandWire")
         outlandNormalsShader = New Shader("outlandNormals")
+        probeFieldShader = New Shader("probe_field")
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")
         t_mixerShader = New Shader("t_mixer")

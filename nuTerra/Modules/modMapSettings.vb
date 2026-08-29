@@ -121,7 +121,6 @@ Public Module modMapSettings
         Yield ("water_exclude_band", Function() WATER_EXCLUDE_BAND, Sub(v) WATER_EXCLUDE_BAND = v)
         Yield ("water_fog_mul", Function() WATER_FOG_MUL, Sub(v) WATER_FOG_MUL = v)
         Yield ("mouse_damp", Function() ROT_DAMPING, Sub(v) ROT_DAMPING = v)
-        Yield ("gfx_marker_size", Function() MapGfxMarkers.size, Sub(v) MapGfxMarkers.size = v)
 
         ' Outland look. The tint/base pair feeds the albedo bake, which runs
         ' after settings are applied at load, so no re-bake hook is needed.
@@ -151,7 +150,6 @@ Public Module modMapSettings
         Yield ("draw_sky", Function() B2F(DONT_BLOCK_SKY), Sub(v) DONT_BLOCK_SKY = F2B(v))
         Yield ("draw_terrain", Function() B2F(DONT_BLOCK_TERRAIN), Sub(v) DONT_BLOCK_TERRAIN = F2B(v))
         Yield ("draw_outland", Function() B2F(DONT_BLOCK_OUTLAND), Sub(v) DONT_BLOCK_OUTLAND = F2B(v))
-        Yield ("show_gfx_markers", Function() B2F(SHOW_GFX_MARKERS), Sub(v) SHOW_GFX_MARKERS = F2B(v))
         Yield ("outland_global_tint", Function() B2F(OUTLAND_GLOBAL_TINT), Sub(v) OUTLAND_GLOBAL_TINT = F2B(v))
         Yield ("outland_use_detail", Function() B2F(OUTLAND_USE_DETAIL), Sub(v) OUTLAND_USE_DETAIL = F2B(v))
         Yield ("outland_pbr_nm", Function() B2F(OUTLAND_PBR_NM), Sub(v) OUTLAND_PBR_NM = F2B(v))

@@ -37,7 +37,6 @@ Public Class MapScene
     Public cursor As New MapCursor(Me)
     Public camera As New MapCamera(Me)
     Public decals As New MapDecals(Me)
-    Public gfx_markers As New MapGfxMarkers(Me)
     Public sun_shadow As New MapSunShadow(Me)
     Public CC_LUT_ID As GLTexture
     Public ENV_BRDF_LUT_ID As GLTexture
@@ -234,7 +233,6 @@ Public Class MapScene
         cursor.Dispose()
         camera.Dispose()
         decals.Dispose()
-        gfx_markers.Dispose()
 
         ' gl buffers
         shadow_mapping_matrix.Dispose()

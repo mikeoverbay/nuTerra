@@ -289,8 +289,64 @@ Module modGlobalVars
     ''' <summary>Use the SH probe for ambient instead of the flat constant.</summary>
     Public USE_SH_AMBIENT As Boolean = True
 
-    '''<summary>Show a quad at every GFX_model placement - the particle scaffolding.</summary>
-    Public SHOW_GFX_MARKERS As Boolean = True
+    ' ------------------------------------------------------------------------
+    ' SH probe FIELD - probes/sh_grid/<hash>_sh_grid.dds
+    '
+    ' Where SH_AMBIENT above is ONE probe stretched over the whole map, this is
+    ' a baked grid of them: an RGBA16F volume, 8 slices, one probe every 5 m
+    ' (Abbey is 280x280 over a 1400 m box). Seven slices carry a probe's packed
+    ' SH9; slice 6's alpha is that probe's reference height; slice 7 is padding.
+    '
+    ' LOADED AND UPLOADED, BUT NOT YET USED BY THE LIGHTING. deferred.frag
+    ' samples it into a local and deliberately does not fold it into the ambient
+    ' term - that integration is a separate, deliberate step.
+    ' ------------------------------------------------------------------------
+
+    '''<summary>The volume texture, Nothing when the map ships no grid.</summary>
+    Public SH_GRID_ID As GLTexture
+    '''<summary>True once both WGSH and the volume have loaded for this map.</summary>
+    Public SH_GRID_LOADED As Boolean
+    '''<summary>Master switch for sampling the field at all.</summary>
+    Public USE_SH_GRID As Boolean = True
+
+    '''<summary>World box of the bake, from the space.bin WGSH section.</summary>
+    Public SH_GRID_CENTRE As Vector3
+    Public SH_GRID_SIZE As Vector3
+    '''<summary>Metres over which the field fades out to the global probe.</summary>
+    Public SH_GRID_FADE As Single = 15.0F
+    '''<summary>Metres between probes - size.x / grid width. 5 m on most maps.</summary>
+    Public SH_GRID_SPACING As Single = 5.0F
+    '''<summary>True once the WGSH section has been read.</summary>
+    Public WGSH_LOADED As Boolean
+
+    ''' <summary>
+    ''' The FIELD'S OWN fallback probe, from the rem_sh.xml sitting beside the
+    ''' grid texture. Emphatically not probes/global/rem_sh.xml - on Abbey the
+    ''' global one is about 1.8x brighter, and fading the field out to it put a
+    ''' bright band across the top of every wall.
+    ''' </summary>
+    Public SH_GRID_SH9(8) As Vector3
+
+    ''' <summary>
+    ''' Metres to push the lookup along the surface normal. At 5 m spacing a
+    ''' good number of probes sit INSIDE buildings and bake to near black; a
+    ''' wall's surface lands on the boundary between those and the open-air
+    ''' probes, so the tap mixes lit against black. Pushing the lookup outward
+    ''' samples open air only. Moves the LOOKUP, never the height test.
+    ''' </summary>
+    Public SH_GRID_OFFSET As Single = 1.5F
+
+    ''' <summary>
+    ''' Replace the deferred pass with the probe field inspector - a separate
+    ''' shader program, so nothing about this view can reach the real lighting.
+    ''' </summary>
+    Public SH_GRID_DEBUG As Boolean = False
+
+    '''<summary>Display gain for the inspector. Raw irradiance runs past 1.</summary>
+    Public SH_GRID_EXPOSURE As Single = 0.25F
+
+    '''<summary>Draw one line per probe, for counting cells against the world.</summary>
+    Public SH_GRID_SHOW_LATTICE As Boolean = True
 
     Public DECAL_EDGE_FADE As Boolean = True
     Public DONT_BLOCK_MODELS As Boolean = False

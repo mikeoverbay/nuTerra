@@ -1,6 +1,8 @@
 ﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports System.Text
+Imports OpenTK.Graphics
+Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 
 Module TerrainBuilder
@@ -585,6 +587,10 @@ Module TerrainBuilder
         ' vary with surface orientation instead of being one flat colour.
         load_sh_ambient(abs_name, activeEnvironment)
 
+        ' The baked probe FIELD beside it. Loaded and uploaded, but nothing in
+        ' the lighting reads it yet - see load_sh_grid.
+        load_sh_grid(abs_name, activeEnvironment)
+
         ' get sun information and time of day.
         Dim active_environment_xml = ResMgr.openXML(String.Format("spaces/{0}/environments/{1}/environment.xml", abs_name, activeEnvironment))
         Dim day_night_cycle_node = active_environment_xml("day_night_cycle")
@@ -683,6 +689,143 @@ Module TerrainBuilder
         SH_AMBIENT(0) = New Vector3(1.0F, 1.0F, 1.0F)
         For i = 1 To 8
             SH_AMBIENT(i) = Vector3.Zero
+        Next
+    End Sub
+
+    ''' <summary>
+    ''' Reads probes/sh_grid - the baked probe FIELD, an RGBA16F volume texture
+    ''' with 8 slices. Seven carry one probe's packed SH9; slice 6's alpha is
+    ''' that probe's reference height; slice 7 is padding. Abbey ships 280x280
+    ''' probes over the 1400 m WGSH box, so exactly 5 m apart.
+    '''
+    ''' Where load_sh_ambient gives one probe for the whole map, this varies
+    ''' with POSITION as well as normal, because the bake saw the buildings.
+    '''
+    ''' NOTHING IN THE LIGHTING READS THIS YET. It is loaded, uploaded and
+    ''' sampled by deferred.frag into a local variable that is deliberately not
+    ''' folded into the ambient term - the "show probe field" view is there to
+    ''' confirm it is live and correctly placed before any of that happens.
+    '''
+    ''' The general DDS loader has no volume path, so the read is bespoke.
+    ''' </summary>
+    Private Sub load_sh_grid(abs_name As String, activeEnvironment As String)
+        SH_GRID_ID?.Dispose()
+        SH_GRID_ID = Nothing
+        SH_GRID_LOADED = False
+        reset_sh_grid_probe()
+
+        ' The box has to be known first - without WGSH there is no way to map
+        ' the texture onto the world.
+        If Not WGSH_LOADED Then
+            LogThis("no WGSH box - probe grid skipped")
+            Return
+        End If
+
+        Try
+            Dim folder = String.Format("spaces/{0}/environments/{1}/probes/sh_grid",
+                                       abs_name, activeEnvironment)
+
+            ' Named with a content hash the caller cannot know, so match the
+            ' suffix - the environment folder holds exactly one.
+            Dim entry = ResMgr.LookupBySuffix(folder, "_sh_grid.dds")
+            If entry Is Nothing Then
+                LogThis("no probe grid in {0} - ambient stays on the global probe", folder)
+                Return
+            End If
+
+            Dim ms As New MemoryStream
+            entry.Extract(ms)
+            ms.Position = 0
+
+            Dim w As Integer, h As Integer, d As Integer
+            Dim pixels() As Byte
+            Using br As New BinaryReader(ms)
+                Dim dds_header = TextureMgr.get_dds_header(br)
+                w = dds_header.width
+                h = dds_header.height
+                d = Math.Max(dds_header.depth, 1)
+
+                ' RGBA16F only - that is what every shipped grid is, and a
+                ' silent mis-read here would look like a lighting bug later.
+                If dds_header.FourCC <> "q" & vbNullChar & vbNullChar & vbNullChar Then
+                    LogThis("probe grid is not RGBA16F (fourCC '{0}') - skipped", dds_header.FourCC)
+                    Return
+                End If
+
+                Dim expected = w * h * d * 8
+                ms.Position = 128
+                pixels = br.ReadBytes(expected)
+                If pixels.Length <> expected Then
+                    LogThis("probe grid truncated: {0} of {1} bytes - skipped", pixels.Length, expected)
+                    Return
+                End If
+            End Using
+
+            Dim tex = GLTexture.Create(TextureTarget.Texture3D, "sh_grid")
+            tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+            tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            ' Clamp on every axis. Wrapping would fetch the far side of the map
+            ' at the edges, and on the slice axis it would blend two different
+            ' coefficient vectors together.
+            tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+            tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+            tex.Parameter(TextureParameterName.TextureWrapR, TextureWrapMode.ClampToEdge)
+            tex.Storage3D(1, SizedInternalFormat.Rgba16f, w, h, d)
+            tex.SubImage3D(0, 0, 0, 0, w, h, d, PixelFormat.Rgba, PixelType.HalfFloat, pixels)
+
+            SH_GRID_ID = tex
+            SH_GRID_SPACING = SH_GRID_SIZE.X / Math.Max(w, 1)
+
+            ' The field's OWN fallback probe, from the rem_sh.xml beside it -
+            ' NOT probes/global. On Abbey the global one is about 1.8x brighter,
+            ' and fading out to it banded the top of every wall.
+            load_sh_grid_probe(folder)
+
+            SH_GRID_LOADED = True
+            LogThis("SH probe grid: {0}x{1}x{2}, {3:0.00} m spacing over a {4:0.#} m box",
+                    w, h, d, SH_GRID_SPACING, SH_GRID_SIZE.X)
+        Catch ex As Exception
+            LogThis("probe grid failed to load: {0}", ex.Message)
+            SH_GRID_ID?.Dispose()
+            SH_GRID_ID = Nothing
+            SH_GRID_LOADED = False
+        End Try
+    End Sub
+
+    ''' <summary>The grid's companion probe - same folder, same hash prefix.</summary>
+    Private Sub load_sh_grid_probe(folder As String)
+        Dim entry = ResMgr.LookupBySuffix(folder, "_rem_sh.xml")
+        If entry Is Nothing Then
+            LogThis("probe grid has no companion rem_sh.xml - falling back to the global probe")
+            SH_GRID_SH9 = DirectCast(SH_AMBIENT.Clone(), Vector3())
+            Return
+        End If
+
+        Dim sh_xml = ResMgr.openXML(entry)
+        If sh_xml Is Nothing Then
+            SH_GRID_SH9 = DirectCast(SH_AMBIENT.Clone(), Vector3())
+            Return
+        End If
+
+        For i = 0 To 8
+            Dim node = sh_xml("sh" & i.ToString())
+            If node Is Nothing Then
+                LogThis("companion probe has no sh{0} - falling back to the global probe", i)
+                SH_GRID_SH9 = DirectCast(SH_AMBIENT.Clone(), Vector3())
+                Return
+            End If
+            SH_GRID_SH9(i) = vector3_from_string(node.InnerText)
+        Next
+
+        LogThis("  grid probe sh0 = {0:0.000} {1:0.000} {2:0.000}  (global sh0 = {3:0.000} {4:0.000} {5:0.000})",
+                SH_GRID_SH9(0).X, SH_GRID_SH9(0).Y, SH_GRID_SH9(0).Z,
+                SH_AMBIENT(0).X, SH_AMBIENT(0).Y, SH_AMBIENT(0).Z)
+    End Sub
+
+    Private Sub reset_sh_grid_probe()
+        SH_GRID_SH9(0) = New Vector3(1.0F, 1.0F, 1.0F)
+        For i = 1 To 8
+            SH_GRID_SH9(i) = Vector3.Zero
         Next
     End Sub
 
