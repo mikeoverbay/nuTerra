@@ -1238,7 +1238,17 @@ got_it:
                         ' which a card fades out as it approaches whatever is
                         ' behind it, which is what stops the sheet cutting a
                         ' hard straight line where it intersects the ground.
-                        .softFactor = If(props.ContainsKey("softFactor"), props("softFactor"), 1.0F)
+                        ' No material on any map read so far authors this, and the
+                        ' compiled register default could not be recovered, so the
+                        ' fallback is tuned rather than sourced. Note the sense:
+                        ' softFade = sat(distance_behind / softFactor), so a LARGER
+                        ' value fades MORE. At 1.0 m every part of a ground-hugging
+                        ' smoke sheet is inside the fade and it cost 27% of the
+                        ' smoke's contrast against the ground (+11.1 -> +8.7).
+                        ' 0.25 m still removes the hard line where a card cuts into
+                        ' terrain, which is only a few pixels wide, without thinning
+                        ' the body of the sheet.
+                        .softFactor = If(props.ContainsKey("softFactor"), props("softFactor"), 0.25F)
                         ' srcBlend is known-listed but ignored: the only
                         ' observed value is 5 = SRCALPHA, which both output
                         ' paths already implement (rgb is multiplied by alpha
