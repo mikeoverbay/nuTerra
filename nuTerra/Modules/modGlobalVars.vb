@@ -342,6 +342,14 @@ Module modGlobalVars
     ''' </summary>
     Public SH_GRID_DEBUG As Boolean = False
 
+    ''' <summary>
+    ''' How far the ambient travels from the global probe toward the field.
+    ''' 0 is the global probe alone, 1 is the field exactly, and above 1 keeps
+    ''' going - exaggerating how far the field departs from the flat global
+    ''' probe. Past 1 it is not physical, but this is a viewer.
+    ''' </summary>
+    Public SH_GRID_MIX As Single = 1.0F
+
     '''<summary>Display gain for the inspector. Raw irradiance runs past 1.</summary>
     Public SH_GRID_EXPOSURE As Single = 0.25F
 

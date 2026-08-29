@@ -62,6 +62,11 @@ uniform float sh_grid_offset; // metres to push the lookup along the normal
 uniform float sh_grid_edge;   // uv width of the ease-out at the box edge
 uniform vec3  sh_grid_sh9[9]; // the FIELD's own companion probe, not the global
 
+// How far to travel from the global probe toward the field. 1 is the field
+// exactly; above 1 keeps going, exaggerating how far the field departs from
+// the flat global probe. Not physical past 1, but this is a viewer.
+uniform float sh_grid_mix;
+
 // Separate from eval_sh_irradiance on purpose: the working path above is left
 // byte for byte alone.
 vec3 eval_sh_grid_fallback(vec3 n)
@@ -491,7 +496,8 @@ void main (void)
                 // branch never runs.
                 if (sh_grid_enabled != 0) {
                     vec3 wp = (invView * vec4(Position, 1.0)).xyz;
-                    irradiance = max(eval_sh_grid(wp, N_world), vec3(0.0));
+                    vec3 grid_irr = max(eval_sh_grid(wp, N_world), vec3(0.0));
+                    irradiance = max(mix(irradiance, grid_irr, sh_grid_mix), vec3(0.0));
                 }
 
                 // Desaturate toward the probe's own luminance. The bake is

@@ -1433,6 +1433,10 @@ try_again:
                             ImGui.Text("      red = outside box, amber = above bake")
                         End If
 
+                        ' 0 = global probe alone, 1 = the field exactly, above 1
+                        ' exaggerates how far the field departs from the flat
+                        ' global probe.
+                        ImGui.SliderFloat("   probe mix", SH_GRID_MIX, 0.0F, 3.0F)
                         ImGui.SliderFloat("   normal offset m", SH_GRID_OFFSET, 0.0F, 5.0F)
                         ImGui.Text(String.Format("   {0:0.#} m box, {1:0.00} m spacing, fade {2:0.#} m",
                                                  SH_GRID_SIZE.X, SH_GRID_SPACING, SH_GRID_FADE))
@@ -1597,14 +1601,17 @@ try_again:
                 Dim uv0 = New Numerics.Vector2(0.0, 1.0)
                 Dim uv1 = New Numerics.Vector2(1.0, 0.0)
 
-                ImGui.Text("gColor")
-                ImGui.Image(New IntPtr(MainFBO.gColor.texture_id), size, uv0, uv1)
+                ' gColor and gGMF go through their opaque views - both carry a
+                ' mask in alpha and ImGui blends, so the raw textures draw as
+                ' empty. The views share the same storage; only alpha differs.
+                ImGui.Text("gColor  (rgb albedo, a = water mix)")
+                ImGui.Image(New IntPtr(MainFBO.gColor_opaque), size, uv0, uv1)
                 ImGui.Text("gSurfaceNormal")
                 ImGui.Image(New IntPtr(MainFBO.gSurfaceNormal.texture_id), size, uv0, uv1)
                 ImGui.Text("gNormal")
                 ImGui.Image(New IntPtr(MainFBO.gNormal.texture_id), size, uv0, uv1)
-                ImGui.Text("gGMF")
-                ImGui.Image(New IntPtr(MainFBO.gGMF.texture_id), size, uv0, uv1)
+                ImGui.Text("gGMF  (r gloss, g metal/spec, b flag, a wetness)")
+                ImGui.Image(New IntPtr(MainFBO.gGMF_opaque), size, uv0, uv1)
                 ImGui.Text("gPosition")
                 ImGui.Image(New IntPtr(MainFBO.gPosition.texture_id), size, uv0, uv1)
                 ImGui.End()

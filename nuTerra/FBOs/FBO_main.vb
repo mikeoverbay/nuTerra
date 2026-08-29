@@ -15,6 +15,17 @@ Public Class MainFBO
     Public Shared gDepth As GLTexture
     Public Shared gPosition As GLTexture
     Public Shared gAUX_Color As GLTexture
+
+    ''' <summary>
+    ''' Views onto gColor and gGMF with alpha forced to 1, for the Textures
+    ''' viewer ONLY. Both buffers carry a MASK in alpha - water mix in gColor,
+    ''' wetness in gGMF - and ImGui.Image alpha-blends, so on a dry map the
+    ''' whole of gGMF drew as empty and gColor lost every model. A texture view
+    ''' shares the SAME storage and overrides only the swizzle, so nothing that
+    ''' samples the real texture can be affected.
+    ''' </summary>
+    Public Shared gColor_opaque As Integer
+    Public Shared gGMF_opaque As Integer
     '========================
     ' Color Attachments
     ' color     = 0
@@ -85,6 +96,16 @@ Public Class MainFBO
     End Sub
 
     Public Shared Sub delete_textures_and_fbo()
+        ' Views first - they borrow the storage the textures below own.
+        If gColor_opaque <> 0 Then
+            GL.DeleteTexture(gColor_opaque)
+            gColor_opaque = 0
+        End If
+        If gGMF_opaque <> 0 Then
+            GL.DeleteTexture(gGMF_opaque)
+            gGMF_opaque = 0
+        End If
+
         ' as the name says
         gColor?.Dispose()
         gSurfaceNormal?.Dispose()
@@ -143,7 +164,28 @@ Public Class MainFBO
         ' RGBA8
         gColor_2 = GLRenderbuffer.Create("gColor_2")
         gColor_2.Storage(RenderbufferStorage.Rgba8, width, height)
+
+        ' Viewer-only views. Must come after the textures they borrow.
+        gColor_opaque = make_opaque_view(gColor)
+        gGMF_opaque = make_opaque_view(gGMF)
     End Sub
+
+    ''' <summary>
+    ''' An Rgba8 view onto an existing immutable texture, alpha swizzled to 1.
+    '''
+    ''' GenTextures, not CreateTextures: glTextureView requires a name that has
+    ''' never had storage of its own. The view then points at the source's
+    ''' storage, so there is no copy and no way for this to alter what the
+    ''' shaders read.
+    ''' </summary>
+    Private Shared Function make_opaque_view(src As GLTexture) As Integer
+        Dim id As Integer
+        GL.GenTextures(1, id)
+        GL.TextureView(id, TextureTarget.Texture2D, src.texture_id,
+                       PixelInternalFormat.Rgba8, 0, 1, 0, 1)
+        GL.TextureParameter(id, TextureParameterName.TextureSwizzleA, CInt(All.One))
+        Return id
+    End Function
 
     Public Shared Function create_fbo() As Boolean
         fbo = GLFramebuffer.Create("mainFBO")

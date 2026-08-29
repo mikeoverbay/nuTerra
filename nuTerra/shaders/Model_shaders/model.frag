@@ -541,6 +541,13 @@ void main(void)
 
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
+    // Models have no wetness, and .a MUST be written. deferred.frag reads it
+    // as the wetness mask, and most entries above never touch it - undefined
+    // alpha randomly pushed the specular lobe to WET_POWER 96 and switched on
+    // the wetness cubemap. Two entries DO write it (detail leaves gloss there,
+    // repaint a computed term), which is just as wrong; this runs after them
+    // and overwrites both.
+    gGMF.a = 0.0;
     gSurfaceNormals = normalize(fs_in.surfaceNormal) * 0.5 + 0.5;
 
 #ifdef PICK_MODELS

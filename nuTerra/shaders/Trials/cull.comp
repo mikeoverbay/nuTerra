@@ -77,10 +77,14 @@ void main(void)
         // Save mvp
         models[gl_GlobalInvocationID.x].cached_mvp = MVP;
 
+        // Each band pushed out 50 m - models were dropping detail too close.
+        // Note distToCamera is measured to the NEAR EDGE of the bounding
+        // sphere, not its centre, so a large building already switches later
+        // than its centre distance suggests.
         const uint lod_id = min(
-            distToCamera < 50 ? 0 :
-            distToCamera < 100 ? 1 :
-            distToCamera < 150 ? 2 : 3, thisModel.lod_count - 1);
+            distToCamera < 100 ? 0 :
+            distToCamera < 150 ? 1 :
+            distToCamera < 200 ? 2 : 3, thisModel.lod_count - 1);
         const ModelLoD lod = lods[thisModel.lod_offset + thisModel.batch_count * lod_id];
 
         for (int i = 0; i < lod.draw_count; ++i) {
