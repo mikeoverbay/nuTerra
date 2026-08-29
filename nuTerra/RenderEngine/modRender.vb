@@ -1,4 +1,4 @@
-Imports System.Runtime.InteropServices
+﻿Imports System.Runtime.InteropServices
 Imports ImGuiNET
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
@@ -262,6 +262,12 @@ Module modRender
         ' so no copy dance is needed.
         If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             modGpuTimers.Begin("FX")
+            ' Bind explicitly. attach_C only names the draw buffer (DSA); it
+            ' does not bind, so this pass was landing in whatever framebuffer
+            ' the previous one left bound. It went unnoticed because the
+            ' debug readback bound MainFBO as a side effect on exactly the
+            ' frame anyone was measuring.
+            MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
             MainFBO.attach_C()
             ' Colour only - the depth buffer must survive or the FX loses its
             ' depth test against the scene and cards show through terrain.
@@ -392,9 +398,15 @@ Module modRender
         ' FX pass draws into - it returned an unchanging image and reported
         ' "wrote 0 pixels" even for a shader outputting solid magenta.
         ' gColor is ColorAttachment0.
+        ' Save and RESTORE the binding. Leaving MainFBO bound sent the rest of
+        ' the frame's draws to the wrong framebuffer and produced a run of
+        ' GL_INVALID_OPERATION "the required buffer is missing" - the harness
+        ' was corrupting the very frame it measured.
+        Dim prev_fbo = GL.GetInteger(GetPName.FramebufferBinding)
         MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
         GL.ReadBuffer(ReadBufferMode.ColorAttachment0)
         GL.ReadPixels(0, 0, w, h, OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, buf)
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, prev_fbo)
         Return buf
     End Function
 

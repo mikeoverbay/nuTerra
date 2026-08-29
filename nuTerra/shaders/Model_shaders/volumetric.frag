@@ -89,7 +89,26 @@ void main(void)
         alpha = clamp(tex.a * lit, 0.0, 1.0);
     }
 
-    const vec3 rgb = tex.rgb * fs_in.litColor.rgb;
+    // Highlight compression, hue preserving.
+    //
+    // These materials author light multipliers from x2 to x60, so a fire
+    // legitimately produces colours near (10, 3.5, 0). gColor is Rgba8 with no
+    // HDR path, so writing that clips PER CHANNEL to (1, 1, 0): flat yellow,
+    // and the hue the artist authored is destroyed. Measured against a capture
+    // of the game at the same fire, 35.4% of our fire pixels had R and G both
+    // pinned against 0.0% of the game's.
+    //
+    // Reinhard on LUMINANCE rather than per channel divides all three by the
+    // same factor, so the ratio between them survives: (10, 3.5, 0) becomes
+    // about (1, 0.62, 0) - orange that clips only in red - where per-channel
+    // clipping gave pure yellow. The game reaches this with a real HDR buffer
+    // and a filmic curve; this is the closest an 8-bit target gets without
+    // restructuring the frame, and it is judged against that capture rather
+    // than by eye.
+    vec3 fx_rgb = tex.rgb * fs_in.litColor.rgb;
+    const float fx_lum = dot(fx_rgb, vec3(0.2126, 0.7152, 0.0722));
+    fx_rgb /= (1.0 + fx_lum);
+    const vec3 rgb = fx_rgb;
 
     if (mat.alphaTestEnable) { // slot carries alphaAdditiveEnable
         outColor = vec4(rgb * alpha, 0.0);
