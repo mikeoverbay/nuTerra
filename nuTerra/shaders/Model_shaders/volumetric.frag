@@ -107,7 +107,14 @@ void main(void)
     // than by eye.
     vec3 fx_rgb = tex.rgb * fs_in.litColor.rgb;
     const float fx_lum = dot(fx_rgb, vec3(0.2126, 0.7152, 0.0722));
-    fx_rgb /= (1.0 + fx_lum);
+    // Divide by max(1, luminance), NOT by 1 + luminance. Anything already
+    // inside the displayable range passes through UNCHANGED; only what would
+    // have clipped is brought down, and by a single factor for all three
+    // channels so the hue survives. Dividing by 1 + luminance dimmed
+    // everything, which cost about a quarter of the smoke's contrast - and the
+    // smoke only clears the ground it covers by a couple of levels to begin
+    // with, so it went back to invisible.
+    fx_rgb /= max(1.0, fx_lum);
     const vec3 rgb = fx_rgb;
 
     if (mat.alphaTestEnable) { // slot carries alphaAdditiveEnable
