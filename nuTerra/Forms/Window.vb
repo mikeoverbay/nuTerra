@@ -367,12 +367,6 @@ try_again:
             If FX_TIME > 3600.0F Then FX_TIME -= 3600.0F
         End If
 
-        ' Particles ride the same freeze as the rest of the FX so a frozen
-        ' frame really is reproducible.
-        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso Not FREEZE_FX Then
-            map_scene.particles.Update(CSng(DELTA_TIME))
-        End If
-
         ' Unattended Snapshot. Counted in frames, not seconds, so it cannot
         ' fire before the cull buckets have been filled at least once.
         If AUTO_SNAP_FRAMES > 0 AndAlso MAP_LOADED Then

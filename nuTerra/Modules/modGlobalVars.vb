@@ -208,15 +208,6 @@ Module modGlobalVars
     Public FX_DIFF_THIS_FRAME As Boolean = False
 
     ''' <summary>Open at half the usual size - harness runs only.</summary>
-    ''' <summary>
-    ''' Draw the card particle system. OFF until the frame-blacking issue in
-    ''' MapParticles.Draw is found - see the note at the call site.
-    ''' </summary>
-    Public PARTICLES_ENABLED As Boolean = True
-
-    ''' <summary>Particle effect placements read from space.bin's BWPs section.</summary>
-    Public PFX_PLACEMENTS As List(Of modParticles.PfxPlacement) = Nothing
-
     Public HALF_SIZE_WINDOW As Boolean = False
 
     ''' <summary>

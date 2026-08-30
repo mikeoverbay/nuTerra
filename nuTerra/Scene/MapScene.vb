@@ -32,7 +32,6 @@ Public Class MapScene
     Public base_rings As New MapBaseRings(Me)
     Public mini_map As New MapMinimap(Me)
     Public fog As New MapFog(Me)
-    Public particles As New MapParticles
     Public trees As New MapTrees(Me)
     Public roads As New MapRoads(Me)
     Public cursor As New MapCursor(Me)

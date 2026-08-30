@@ -513,9 +513,6 @@ Module MapLoader
         cBWST = Nothing
         cWGSD = Nothing
 
-        ' Particles need ResMgr and the GL context, so they load last.
-        If map_scene IsNot Nothing Then map_scene.particles.Load()
-
         MAP_LOADED = True
 
         ' A camera handed in on the command line, applied once the map is up
@@ -1484,75 +1481,11 @@ Module MapLoader
         map_scene.static_models.materials.BindBase(3)
     End Sub
 
-    ''' <summary>
-    ''' What the particle readers found. Logged rather than drawn for now: the
-    ''' 32-bit effect id in each placement is not resolved to a file yet, so a
-    ''' placement cannot be matched to its .vfxbin in general.
-    ''' </summary>
-    Private Sub report_pfx_placements()
-        If PFX_PLACEMENTS Is Nothing OrElse PFX_PLACEMENTS.Count = 0 Then
-            LogThis("particles: no BWPs placements")
-            Return
-        End If
-        Dim ids As New Dictionary(Of UInteger, Integer)
-        For Each p In PFX_PLACEMENTS
-            If ids.ContainsKey(p.effectId) Then ids(p.effectId) += 1 Else ids(p.effectId) = 1
-        Next
-        LogThis("particles: {0} placement(s), {1} distinct effect id(s)", PFX_PLACEMENTS.Count, ids.Count)
-        For Each kv In ids
-            LogThis("   effect {0:x8} x{1}", kv.Key, kv.Value)
-        Next
-        Dim shown = 0
-        For Each p In PFX_PLACEMENTS
-            If shown >= 6 Then Exit For
-            Dim t = p.transform.Row3
-            LogThis("   at ({0:0.##}, {1:0.##}, {2:0.##})  effect {3:x8}", t.X, t.Y, t.Z, p.effectId)
-            shown += 1
-        Next
-
-        ' Verify the .vfxbin reader in-engine against the offline decode.
-        For Each nm In {"Big", "Med", "Small", "Ash_black"}
-            Dim rel = String.Format(
-                "particles/content_deferred/PFX/Environment/Buildings/Bld_19_01_Vhouse_05_Smoke_{0}.vfxbin", nm)
-            Dim entry = ResMgr.Lookup(rel)
-            If entry Is Nothing Then
-                LogThis("   pfx {0}: NOT FOUND", nm)
-                Continue For
-            End If
-            Using ms As New MemoryStream
-                entry.Extract(ms)
-                Dim eff = modParticles.LoadVfx(ms.ToArray(), rel)
-                If eff Is Nothing Then
-                    LogThis("   pfx {0}: parse failed", nm)
-                    Continue For
-                End If
-                LogThis("   pfx {0}: {1} emitter(s)", nm, eff.emitters.Count)
-                For Each em In eff.emitters
-                    LogThis("      {0,-12} rate={1,-5:0.##} box=({2:0.##},{3:0.##},{4:0.##}) spread={5:0.#}deg size={6:0.###}..{7:0.###} life={8:0.##}..{9:0.##} atlas={10}x{11}@{12:0.#}",
-                            em.name, em.rate, em.boxHalf.X, em.boxHalf.Y, em.boxHalf.Z,
-                            em.spread * 57.2958F, em.sizeMin, em.sizeMax,
-                            em.lifeMin, em.lifeMax, em.atlasCols, em.atlasRows, em.atlasFps)
-                    If em.scaleTrack IsNot Nothing Then
-                        LogThis("         scale  {0} -> {1}   colour keys={2}",
-                                em.scaleTrack.Sample(0.0F, 0), em.scaleTrack.Sample(1.0F, 0),
-                                If(em.colourTrack Is Nothing, 0, em.colourTrack.times.Length))
-                    End If
-                    LogThis("         tex    {0}", em.diffuse)
-                Next
-            End Using
-        Next
-    End Sub
-
     Private Function get_spaceBin(ABS_NAME As String) As Boolean
         Dim space_bin_file = ResMgr.Lookup(String.Format("spaces/{0}/space.bin", ABS_NAME))
         Dim ms As New MemoryStream
         space_bin_file.Extract(ms)
         If ms IsNot Nothing Then
-            ' Particle effect placements (BWPs). Read BEFORE ReadSpaceBinData,
-            ' which closes the stream on its way out.
-            PFX_PLACEMENTS = modParticles.LoadPlacements(ms)
-            report_pfx_placements()
-
             If Not ReadSpaceBinData(ms) Then
                 MsgBox("Error decoding Space.bin", MsgBoxStyle.Exclamation, "File Error...")
                 Return False
