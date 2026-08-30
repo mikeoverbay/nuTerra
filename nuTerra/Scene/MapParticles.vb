@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
@@ -165,7 +165,6 @@ Public Class MapParticles
     ''' cannot reproduce. STRETCH below stands in for that.
     ''' </summary>
     Private Const SPEED_GAIN As Single = 4.0F     ' on the authored speed curve
-    Private Const SIZE_GAIN As Single = 0.55F     ' tame the 12x growth
     Private Const STRETCH As Single = 1.6F        ' elongate along travel
 
     ''' <summary>
@@ -213,10 +212,7 @@ Public Class MapParticles
                         .life = Rand(em.lifeMin, em.lifeMax),
                         .baseSize = Rand(em.sizeMin, em.sizeMax),
                         .frameSeed = CSng(rng.NextDouble()),
-                        .pos = s.origin + New Vector3(
-                            Rand(-em.boxHalf.X, em.boxHalf.X),
-                            Rand(-em.boxHalf.Y, em.boxHalf.Y),
-                            Rand(-em.boxHalf.Z, em.boxHalf.Z))
+                        .pos = s.origin
                     }
                     ' Rise, cone-limited by the authored spread.
                     Dim ang = Rand(0.0F, em.spread)
@@ -247,7 +243,7 @@ Public Class MapParticles
         For Each p In live
             If n >= MAX_PARTICLES Then Exit For
             Dim t = If(p.life > 0.0F, p.age / p.life, 1.0F)
-            Dim scale = If(p.em.scaleTrack Is Nothing, 1.0F, p.em.scaleTrack.Sample(t, 0))
+            Dim scale = If(p.em.sizeTrack Is Nothing, 1.0F, p.em.sizeTrack.Sample(t, 0))
 
             Dim col As New Vector4(1.0F, 1.0F, 1.0F, 1.0F)
             If p.em.colourTrack IsNot Nothing AndAlso p.em.colourTrack.values IsNot Nothing AndAlso
@@ -255,7 +251,12 @@ Public Class MapParticles
                 col = New Vector4(p.em.colourTrack.Sample(t, 0), p.em.colourTrack.Sample(t, 1),
                                   p.em.colourTrack.Sample(t, 2), p.em.colourTrack.Sample(t, 3))
             End If
-            If col.W <= 0.002F Then Continue For
+            If PARTICLES_WIRE Then
+                ' Age as colour: green at birth, red at death.
+                col = New Vector4(t, 1.0F - t, 0.25F, 1.0F)
+            ElseIf col.W <= 0.002F Then
+                Continue For
+            End If
 
             ' Sub-UV: step through the atlas at the authored fps, wrapping.
             Dim cells = p.em.atlasCols * p.em.atlasRows
@@ -264,35 +265,23 @@ Public Class MapParticles
                 frame = CInt(Math.Floor(p.age * p.em.atlasFps + p.frameSeed * cells)) Mod cells
                 If frame < 0 Then frame += cells
             End If
-            Dim cx = frame Mod p.em.atlasCols
-            Dim cy = frame \ p.em.atlasCols
+            Dim cellX = frame Mod p.em.atlasCols
+            Dim cellY = frame \ p.em.atlasCols     ' 0 = TOP row of the sheet
 
-            ' eff_tex.dds is a SHARED 4096x4096 sheet holding many unrelated
-            ' sprite sheets, so an emitter needs both WHICH region is its sheet
-            ' and how that region divides into frames.
-            '
-            ' The region encoding is NOT solved. The four authored floats
-            ' (999 +192..+204, all multiples of 1/8) do not yield a coherent
-            ' sheet under any rect reading tried - as (x,y,w,h) the smoke's
-            ' region straddles puffs, a star flare and an ellipse, and
-            ' smoke_Big's leading 1.0 cannot be an origin or a width if the
-            ' others are. See docs/VFXBIN_PARTICLE_FORMAT.md.
-            '
-            ' So the sheet below is a STAND-IN, found by inspecting the atlas:
-            ' a clean 8x8 grid of smoke puffs at u 0.25..0.50, v 0.00..0.25,
-            ' cells of 1/32. Everything else about the particle - rate, size,
-            ' lifetime, scale curve, colour curve - is real authored data. Only
-            ' the choice of sprite region is guessed, and this is the one place
-            ' to fix when the encoding is understood.
-            Const SHEET_U0 As Single = 0.25F, SHEET_V0 As Single = 0.0F
-            Const SHEET_W As Single = 0.25F, SHEET_H As Single = 0.25F
-            Dim cellW = SHEET_W / p.em.atlasCols
-            Dim cellH = SHEET_H / p.em.atlasRows
+            Dim cellW = (p.em.uMax - p.em.uMin) / p.em.atlasCols
+            Dim cellH = (p.em.vMax - p.em.vMin) / p.em.atlasRows
+            ' The atlas stores v measured up from the bottom of the image as
+            ' displayed, but TextureMgr uploads the DDS rows unflipped, so the
+            ' file's TOP row lands on v = 0. Sampling v is therefore the
+            ' complement of the stored value, and rows walk DOWN in sampler v.
+            Dim uOff = p.em.uMin + cellX * cellW
+            Dim vOff = (1.0F - p.em.vMax) + cellY * cellH
+
             instances(n) = New Inst With {
                 .pos = p.pos,
-                .size = p.baseSize * scale * 0.5F * SIZE_GAIN,
+                .size = p.baseSize * scale * 0.5F,
                 .colour = col,
-                .uvOff = New Vector2(SHEET_U0 + cx * cellW, SHEET_V0 + cy * cellH),
+                .uvOff = New Vector2(uOff, vOff),
                 .uvScale = New Vector2(cellW, cellH)
             }
             n += 1
@@ -310,23 +299,57 @@ Public Class MapParticles
 
     ''' <summary>Put back every piece of state this pass changes.</summary>
     ''' <summary>
-    ''' The committed restore, with the depth mask CLOSED.
+    ''' Save and restore the GL state this pass touches.
     '''
-    ''' Depth test off is what keeps the frame from going black. The mask is
-    ''' the separate half: leaving it OPEN let glassPass - which runs next and
-    ''' draws real geometry - write into gDepth, and the base-ring projector
-    ''' reconstructs world position from gDepth, so its rings collapsed into
-    ''' solid squares. Closing the mask is a one-variable change from the
-    ''' state that was known to render.
+    ''' Measured, not assumed. draw_fx leaves test=False mask=True cull=False
+    ''' blend=False src=SRC_ALPHA dst=ONE_MINUS_SRC_ALPHA; this pass was leaving
+    ''' test=True mask=False src=ONE. The blend function is what broke the base
+    ''' rings and the minimap: both enable blend and INHERIT the function, so a
+    ''' premultiplied ONE composites them at full intensity whatever their alpha
+    ''' says - solid squares, white minimap.
     ''' </summary>
-    Private Sub RestoreState()
-        particleShader.StopUse()
-        defaultVao.Bind()
-        GL.BindTextureUnit(0, 0)
-        GL.Disable(EnableCap.Blend)
-        GL.Enable(EnableCap.CullFace)
-        GL.DepthMask(False)
-        GL.Disable(EnableCap.DepthTest)
+    Private Structure GlState
+        Public test As Boolean, cull As Boolean, blend As Boolean, mask As Boolean
+        Public func As Integer, srcRGB As Integer, dstRGB As Integer
+        Public srcA As Integer, dstA As Integer
+        Public prog As Integer, vao As Integer, tex0 As Integer
+        Public polyMode As Integer
+    End Structure
+
+    Private Function SaveState() As GlState
+        Dim g As GlState
+        Dim dm(0) As Boolean
+        GL.GetBoolean(GetPName.DepthWritemask, dm)
+        g.mask = dm(0)
+        g.test = GL.IsEnabled(EnableCap.DepthTest)
+        g.cull = GL.IsEnabled(EnableCap.CullFace)
+        g.blend = GL.IsEnabled(EnableCap.Blend)
+        g.func = GL.GetInteger(GetPName.DepthFunc)
+        g.srcRGB = GL.GetInteger(GetPName.BlendSrcRgb)
+        g.dstRGB = GL.GetInteger(GetPName.BlendDstRgb)
+        g.srcA = GL.GetInteger(GetPName.BlendSrcAlpha)
+        g.dstA = GL.GetInteger(GetPName.BlendDstAlpha)
+        g.prog = GL.GetInteger(GetPName.CurrentProgram)
+        g.vao = GL.GetInteger(GetPName.VertexArrayBinding)
+        g.tex0 = GL.GetInteger(GetPName.TextureBinding2D)
+        Dim pm(1) As Integer
+        GL.GetInteger(GetPName.PolygonMode, pm)
+        g.polyMode = pm(0)
+        Return g
+    End Function
+
+    Private Sub RestoreState(g As GlState)
+        If g.test Then GL.Enable(EnableCap.DepthTest) Else GL.Disable(EnableCap.DepthTest)
+        If g.cull Then GL.Enable(EnableCap.CullFace) Else GL.Disable(EnableCap.CullFace)
+        If g.blend Then GL.Enable(EnableCap.Blend) Else GL.Disable(EnableCap.Blend)
+        GL.DepthFunc(CType(g.func, DepthFunction))
+        GL.DepthMask(g.mask)
+        GL.BlendFuncSeparate(CType(g.srcRGB, BlendingFactorSrc), CType(g.dstRGB, BlendingFactorDest),
+                             CType(g.srcA, BlendingFactorSrc), CType(g.dstA, BlendingFactorDest))
+        GL.UseProgram(g.prog)
+        GL.BindVertexArray(g.vao)
+        GL.BindTextureUnit(0, g.tex0)
+        GL.PolygonMode(MaterialFace.FrontAndBack, CType(g.polyMode, PolygonMode))
     End Sub
 
     Private Sub Probe(label As String, announce As Boolean)
@@ -341,6 +364,8 @@ Public Class MapParticles
         Dim n = BuildInstances(camPos)
         If n = 0 Then Return
 
+        Dim saved = SaveState()
+
         GL.NamedBufferSubData(vbo.buffer_id, IntPtr.Zero, n * Marshal.SizeOf(Of Inst), instances)
 
         GL.Enable(EnableCap.DepthTest)
@@ -351,10 +376,13 @@ Public Class MapParticles
         GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha)
 
         particleShader.Use()
+        GL.Uniform1(particleShader("wireMode"), CInt(If(PARTICLES_WIRE, 1, 0)))
+        If PARTICLES_WIRE Then GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
         texture.BindUnit(0)
         vao.Bind()
         GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 4, n)
-        RestoreState()
+
+        RestoreState(saved)
     End Sub
 
 End Class

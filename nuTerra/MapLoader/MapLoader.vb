@@ -1532,9 +1532,9 @@ Module MapLoader
                             em.name, em.rate, em.boxHalf.X, em.boxHalf.Y, em.boxHalf.Z,
                             em.spread * 57.2958F, em.sizeMin, em.sizeMax,
                             em.lifeMin, em.lifeMax, em.atlasCols, em.atlasRows, em.atlasFps)
-                    If em.scaleTrack IsNot Nothing Then
-                        LogThis("         scale  {0} -> {1}   colour keys={2}",
-                                em.scaleTrack.Sample(0.0F, 0), em.scaleTrack.Sample(1.0F, 0),
+                    If em.sizeTrack IsNot Nothing Then
+                        LogThis("         size x {0} -> {1}   colour keys={2}",
+                                em.sizeTrack.Sample(0.0F, 0), em.sizeTrack.Sample(1.0F, 0),
                                 If(em.colourTrack Is Nothing, 0, em.colourTrack.times.Length))
                     End If
                     LogThis("         tex    {0}", em.diffuse)

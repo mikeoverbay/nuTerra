@@ -1278,6 +1278,7 @@ try_again:
                     ImGui.Checkbox("Draw chunk ids", SHOW_CHUNK_IDs)
                     ImGui.Checkbox("Draw cursor", SHOW_CURSOR)
                     ImGui.Checkbox("Draw test textures", CommonProperties.SHOW_TEST_TEXTURES)
+                    ImGui.Checkbox("Particle cards as wireframe", PARTICLES_WIRE)
                     Dim items = {"None", "Face", "Vertex"}
                     If ImGui.BeginCombo("Draw normals", items(NORMAL_DISPLAY_MODE)) Then
                         If ImGui.Selectable(items(0)) Then

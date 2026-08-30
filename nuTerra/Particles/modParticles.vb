@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports OpenTK.Mathematics
 
 ''' <summary>
@@ -55,12 +55,26 @@ Module modParticles
         Public lifeMin As Single, lifeMax As Single      ' seconds
         Public atlasCols As Integer, atlasRows As Integer
         Public atlasFps As Single
-        Public uvRect As Vector4
+        ''' <summary>
+        ''' The sprite sheet's region in the (shared) atlas. Stored in the file
+        ''' as (u_max, v_min, u_min, v_max) - right, top, left, bottom.
+        ''' </summary>
+        Public uMin As Single, uMax As Single, vMin As Single, vMax As Single
 
-        ' Fixed 8-track schema. Only these three are identified; see the doc.
-        Public scaleTrack As PfxTrack      ' track 0, scale over life
+        ' Fixed 8-track schema.
+        ''' <summary>
+        ''' Track 5: size over life, NORMALISED 0..1. The authored size range is
+        ''' the FINAL size and this is the ramp toward it - every emitter's curve
+        ''' ends within a per cent of its own maximum (9.94 of 10.00, 3.98 of
+        ''' 4.00, 0.20 of 0.20), and it is flat at 1 for most emitters in the
+        ''' game, i.e. no growth at all. Track 0 was used for this at first and
+        ''' is wrong: it multiplies PAST the authored range, ending a 10 m smoke
+        ''' puff at 72 m across.
+        ''' </summary>
+        Public sizeTrack As PfxTrack       ' track 5
         Public speedTrack As PfxTrack      ' track 3, speed over life (decays)
         Public colourTrack As PfxTrack     ' track 6, rgba over life
+        Public track0 As PfxTrack          ' rises 0.66 -> 3.07 typical; UNIDENTIFIED
     End Class
 
     Public Class PfxEffect
@@ -213,15 +227,32 @@ Module modParticles
         em.sizeMax = F32(b, par + 180)
         em.lifeMin = F32(b, par + 184)
         em.lifeMax = F32(b, par + 188)
-        em.uvRect = New Vector4(F32(b, par + 192), F32(b, par + 196), F32(b, par + 200), F32(b, par + 204))
-        em.atlasCols = Math.Max(CInt(U32(b, par + 220)), 1)
-        em.atlasRows = Math.Max(CInt(U32(b, par + 224)), 1)
+        ' Stored (v_max, u_min, v_min, u_max), with v in GL convention
+        ' (0 at the bottom). Settled against the grid catalogue in
+        ' Tank-Exporter-PY-master/cust_tools/extract_wot_fire_atlas.py, which
+        ' lists ten atlas regions identified by eye with their cols/rows: over
+        ' 2404 emitters this ordering lands 297 regions exactly on a catalogued
+        ' grid, 260 of them with a matching grid size - the best of all 24
+        ' permutations. It is also the only one that is semantically right:
+        ' smoke_Big resolves to pixels (1024, 0, 2048, 1024), which the
+        ' catalogue names smoke_white 8x8 @128px, matching its declared 8x8.
+        ' The previous reading put smoke on fire_BIG - smoke drawn with the fire
+        ' sheet, which is exactly what it looked like.
+        em.vMax = F32(b, par + 192)
+        em.uMin = F32(b, par + 196)
+        em.vMin = F32(b, par + 200)
+        em.uMax = F32(b, par + 204)
+        ' +220 is ROWS and +224 is COLS, verified over 3348 emitters by matching
+        ' each region's aspect to its grid assuming square cells.
+        em.atlasRows = Math.Max(CInt(U32(b, par + 220)), 1)
+        em.atlasCols = Math.Max(CInt(U32(b, par + 224)), 1)
         em.atlasFps = F32(b, par + 228)
 
         Dim tracks = ReadTracks(b, par, e)
         If tracks.Count >= 7 Then
-            em.scaleTrack = tracks(0)
+            em.track0 = tracks(0)
             em.speedTrack = tracks(3)
+            em.sizeTrack = tracks(5)
             em.colourTrack = tracks(6)
         End If
         Return em

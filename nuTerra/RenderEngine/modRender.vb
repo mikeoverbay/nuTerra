@@ -283,14 +283,11 @@ Module modRender
             Dim fx_before As Byte() = Nothing
             If FX_DIFF_THIS_FRAME Then fx_before = grab_colour_buffer()
             map_scene.static_models.draw_fx()
-            ' Card particles. OFF by default: the simulation and both readers
-            ' are verified, but issuing this draw blacks the whole frame for a
-            ' reason not yet isolated - it is not the VAO (restoring defaultVao
-            ' afterwards does not help) and not the gPosition feedback loop
-            ' (removing that sample does not help either). The particle itself
-            ' is correct at that point: one card, half-size 0.7 m, at the house.
-            If PARTICLES_ENABLED Then map_scene.particles.Draw(map_scene.camera.CAM_POSITION)
-
+            trace_state("draw_fx")
+            If PARTICLES_ENABLED Then
+                map_scene.particles.Draw(map_scene.camera.CAM_POSITION)
+                trace_state("particles")
+            End If
             If FX_DIFF_THIS_FRAME Then report_fx_diff(fx_before)
             trace_gcolor("draw_fx")
             modGpuTimers.Finish()
@@ -346,6 +343,7 @@ Module modRender
             ' makes the isolated view useless. Skip it while isolating.
             If Not BLACK_BEFORE_FX Then map_scene.fog.global_fog()
             trace_gcolor("global_fog")
+
 
             GL.Disable(EnableCap.DepthTest)
             GL.DepthMask(True)
@@ -422,6 +420,25 @@ Module modRender
     ' later stages can be judged on the FX alone. Whole-frame counts are useless
     ' for that: in a normal render the scene lights every pixel and swamps them.
     Private fx_pixels As Integer() = Nothing
+
+    ''' <summary>
+    ''' Log the GL state a pass leaves behind. Used to make the particle pass
+    ''' leave EXACTLY what draw_fx leaves, by measurement rather than argument -
+    ''' guessing an exit state broke the frame, the base-ring projector and the
+    ''' minimap in turn.
+    ''' </summary>
+    Private Sub trace_state(label As String)
+        If Not FX_DIFF_THIS_FRAME Then Return
+        Dim dm(0) As Boolean
+        GL.GetBoolean(GetPName.DepthWritemask, dm)
+        LogThis("    STATE after {0,-10} test={1,-5} func={2} mask={3,-5} cull={4,-5} blend={5,-5} src={6} dst={7} prog={8} vao={9} tex0={10}",
+                label,
+                GL.IsEnabled(EnableCap.DepthTest), GL.GetInteger(GetPName.DepthFunc), dm(0),
+                GL.IsEnabled(EnableCap.CullFace), GL.IsEnabled(EnableCap.Blend),
+                GL.GetInteger(GetPName.BlendSrcRgb), GL.GetInteger(GetPName.BlendDstRgb),
+                GL.GetInteger(GetPName.CurrentProgram), GL.GetInteger(GetPName.VertexArrayBinding),
+                GL.GetInteger(GetPName.TextureBinding2D))
+    End Sub
 
     Private Sub trace_gcolor(label As String)
         If Not FX_DIFF_THIS_FRAME OrElse fx_pixels Is Nothing Then Return

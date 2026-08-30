@@ -9,6 +9,7 @@
 // volumetric FX pass so both composite the same way.
 
 layout (binding = 0) uniform sampler2D atlas;
+uniform int wireMode;   // debug: draw untextured so motion can be judged alone
 layout (binding = 3) uniform sampler2D gPosition;   // view space, for soft edges
 
 layout (location = 0) out vec4 outColor;
@@ -22,6 +23,13 @@ in VS_OUT
 
 void main(void)
 {
+    if (wireMode != 0) {
+        // Opaque, no texture, no soft fade - just the card outline. The colour
+        // carries the particle's age so flow is readable: green new, red old.
+        outColor = vec4(fs_in.colour.rgb, 1.0);
+        return;
+    }
+
     const vec4 tex = texture(atlas, fs_in.uv);
 
     // Soft particles, the same rule the volumetric pass uses: fade a card out

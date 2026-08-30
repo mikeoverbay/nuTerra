@@ -214,6 +214,14 @@ Module modGlobalVars
     ''' </summary>
     Public PARTICLES_ENABLED As Boolean = True
 
+    ''' <summary>
+    ''' Draw particle cards as untextured wireframe, coloured by age (green new,
+    ''' red old). Separates "is the simulation flowing correctly" from "are the
+    ''' sprites right" - which is how the size bug was found: textured, a wrong
+    ''' size track just looked like grey soup. Toggle in Settings -> Debug.
+    ''' </summary>
+    Public PARTICLES_WIRE As Boolean = False
+
     ''' <summary>Particle effect placements read from space.bin's BWPs section.</summary>
     Public PFX_PLACEMENTS As List(Of modParticles.PfxPlacement) = Nothing
 
