@@ -283,6 +283,14 @@ Module modRender
             Dim fx_before As Byte() = Nothing
             If FX_DIFF_THIS_FRAME Then fx_before = grab_colour_buffer()
             map_scene.static_models.draw_fx()
+            ' Card particles. OFF by default: the simulation and both readers
+            ' are verified, but issuing this draw blacks the whole frame for a
+            ' reason not yet isolated - it is not the VAO (restoring defaultVao
+            ' afterwards does not help) and not the gPosition feedback loop
+            ' (removing that sample does not help either). The particle itself
+            ' is correct at that point: one card, half-size 0.7 m, at the house.
+            If PARTICLES_ENABLED Then map_scene.particles.Draw(map_scene.camera.CAM_POSITION)
+
             If FX_DIFF_THIS_FRAME Then report_fx_diff(fx_before)
             trace_gcolor("draw_fx")
             modGpuTimers.Finish()

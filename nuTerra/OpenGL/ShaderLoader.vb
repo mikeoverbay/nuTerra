@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports OpenTK.Graphics.OpenGL
 
 Module ShaderLoader
@@ -235,6 +235,7 @@ Module ShaderLoader
     Public roadShader As Shader
     Public roadMixShader As Shader
     Public toLinearShader As Shader
+    Public particleShader As Shader
     Public TextRenderShader As Shader
     'particle shaders
     Public explode_type_1_shader As Shader
@@ -324,6 +325,7 @@ Module ShaderLoader
 
         TextRenderShader = New Shader("TextRender")
         toLinearShader = New Shader("toLinear")
+        particleShader = New Shader("particle")
         'particle shaders
         explode_type_1_shader = New Shader("explode_type_1_")
         'shadow shaders
