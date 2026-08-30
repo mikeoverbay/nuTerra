@@ -10,34 +10,46 @@ Fire and the **volumetric smoke model FX** work and are locked. Nothing in
 without walking the full call path and its state assumptions first. The card
 particle system is a *separate* path and is not covered by the lockdown.
 
-Corollary that cost time this session: the puffs visible above the monastery
-house are drawn by the **volumetric FX mesh**, not by particle cards. Do not
-attribute pixels to the particle path without an A/B — toggle
-`PARTICLES_ENABLED` off and on at a fixed camera and diff the frames.
+Corollary that cost time this session: **do not attribute pixels to either
+path without an A/B.** Toggle `PARTICLES_ENABLED` off and on at a fixed camera
+and diff the frames. It was claimed mid-session that the puffs above the
+monastery house belong to the volumetric FX mesh; that claim was made from
+inference and is probably WRONG. The evidence now points the other way:
+`fx_pass.png` is captured after `particles.Draw` so it includes cards;
+`Fire_monastery_big.visual_processed` declares only four FIRE materials and
+the snapshot reports exactly four fx draws; the map's only smoke mesh,
+`Grass_fire\SmokeBotton_02`, sits ~150 m away by the tank wrecks; and `rate`
+is 1-5/s, so cards do spawn. Those puffs are most likely the cards, which
+would mean the v fix landed visibly. **Unverified either way - run the A/B
+first.**
 
-## Uncommitted work
+## Commit state
 
-Everything below is working-tree only. Nothing from this session is committed.
+Committed as `4ceb3da` on `particles-cardtest`, on top of `da3d753`:
 
 ```
- M nuTerra/Forms/Window.vb
- M nuTerra/MapLoader/MapLoader.vb
- M nuTerra/Modules/modGlobalVars.vb
- M nuTerra/Particles/modParticles.vb
- M nuTerra/RenderEngine/modRender.vb
- M nuTerra/Scene/MapParticles.vb
- M nuTerra/shaders/Model_shaders/particle.frag
+nuTerra/Forms/Window.vb            nuTerra/Scene/MapParticles.vb
+nuTerra/MapLoader/MapLoader.vb     nuTerra/Particles/modParticles.vb
+nuTerra/Modules/modGlobalVars.vb   nuTerra/RenderEngine/modRender.vb
+nuTerra/shaders/Model_shaders/particle.frag
+docs/PARTICLES_HANDOFF.md
 ```
+
+That commit also swept up earlier branch work that had never been committed:
+the measured GL save/restore (`GlState` / `SaveState` / `RestoreState`), the
+size-track fix (track 5, not track 0), the atlas region ordering, and the
+`PARTICLES_WIRE` debug switch.
 
 Builds clean — only pre-existing warnings (NETSDK1138, DotNetZip NU1903,
 `IsMultiThreaded` obsolete).
 
-Carried in from earlier in the branch, also uncommitted: the measured GL
-save/restore (`GlState` / `SaveState` / `RestoreState`), the size-track fix
-(track 5, not track 0), the atlas region ordering, and the `PARTICLES_WIRE`
-debug switch.
+**Neither of this session's two changes has been confirmed on screen.** The
+commit message for `4ceb3da` asserts the monastery puffs are the volumetric FX
+mesh; see the Lockdown section above — that assertion is probably wrong and
+this document supersedes it.
 
-**Neither of this session's two changes has been confirmed on screen.**
+Untracked and deliberately left out: `readme_images/fire test.png` and
+`readme_images/fire_ref.png`.
 
 ## Solved this session
 
