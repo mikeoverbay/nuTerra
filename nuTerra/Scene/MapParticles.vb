@@ -34,6 +34,7 @@ Public Class MapParticles
         Public life As Single
         Public baseSize As Single
         Public frameSeed As Single
+        Public drift As Vector3
         Public em As modParticles.PfxEmitter
     End Class
 
@@ -152,6 +153,36 @@ Public Class MapParticles
 
     Private Const MAX_PARTICLES As Integer = 4096
 
+    ''' <summary>
+    ''' Motion tuning, NOT authored data. The authored speed curve alone lifts a
+    ''' particle about 7 m over its life while the scale curve grows it 12x, so
+    ''' it reads as an expanding blob rather than a rising column. The four
+    ''' placements on the house span 4.96 to 19.07 m, so the real column is
+    ''' roughly twice as tall as we were producing.
+    '''
+    ''' render_billboards_r also carries g_stretchParams / g_velocityToLength,
+    ''' so the game stretches a card along its velocity - which a square card
+    ''' cannot reproduce. STRETCH below stands in for that.
+    ''' </summary>
+    Private Const SPEED_GAIN As Single = 4.0F     ' on the authored speed curve
+    Private Const SIZE_GAIN As Single = 0.55F     ' tame the 12x growth
+    Private Const STRETCH As Single = 1.6F        ' elongate along travel
+
+    ''' <summary>
+    ''' Lateral motion. The game's column is broader and drifts sideways - 71.6%
+    ''' grey coverage in the upper frame against our 53.5% when both were
+    ''' measured the same way - because it applies wind (WindParamsPack in the
+    ''' engine cbuffer, wind_impulse_u / wind_sensor_u shaders) and per-particle
+    ''' noise (noise_u).
+    '''
+    ''' nuTerra has no wind data at all, so DRIFT is invented, not authored.
+    ''' TURBULENCE stands in for noise_u: a persistent random sideways velocity
+    ''' per particle, which is what broadens a column instead of leaving it a
+    ''' narrow chimney.
+    ''' </summary>
+    Private Shared ReadOnly DRIFT As Vector3 = New Vector3(-0.55F, 0.0F, 0.25F)
+    Private Const TURBULENCE As Single = 0.7F     ' m/s, per particle
+
     Private Function Rand(a As Single, b As Single) As Single
         Return a + CSng(rng.NextDouble()) * (b - a)
     End Function
@@ -193,6 +224,8 @@ Public Class MapParticles
                     p.dir = New Vector3(CSng(Math.Sin(ang) * Math.Cos(azi)),
                                         CSng(Math.Cos(ang)),
                                         CSng(Math.Sin(ang) * Math.Sin(azi)))
+                    p.drift = New Vector3(Rand(-TURBULENCE, TURBULENCE), 0.0F,
+                                          Rand(-TURBULENCE, TURBULENCE))
                     live.Add(p)
                 End While
             Next
@@ -202,7 +235,9 @@ Public Class MapParticles
         For Each p In live
             Dim t = If(p.life > 0.0F, p.age / p.life, 1.0F)
             Dim spd = If(p.em.speedTrack Is Nothing, 1.0F, p.em.speedTrack.Sample(t, 0))
-            p.pos += p.dir * spd * dt
+            ' Wind and turbulence build with age, so the base stays tight and
+            ' the top spreads - which is the shape a real column has.
+            p.pos += (p.dir * spd * SPEED_GAIN + (p.drift + DRIFT) * t) * dt
         Next
     End Sub
 
@@ -255,7 +290,7 @@ Public Class MapParticles
             Dim cellH = SHEET_H / p.em.atlasRows
             instances(n) = New Inst With {
                 .pos = p.pos,
-                .size = p.baseSize * scale * 0.5F,
+                .size = p.baseSize * scale * 0.5F * SIZE_GAIN,
                 .colour = col,
                 .uvOff = New Vector2(SHEET_U0 + cx * cellW, SHEET_V0 + cy * cellH),
                 .uvScale = New Vector2(cellW, cellH)
@@ -274,13 +309,23 @@ Public Class MapParticles
 
 
     ''' <summary>Put back every piece of state this pass changes.</summary>
+    ''' <summary>
+    ''' The committed restore, with the depth mask CLOSED.
+    '''
+    ''' Depth test off is what keeps the frame from going black. The mask is
+    ''' the separate half: leaving it OPEN let glassPass - which runs next and
+    ''' draws real geometry - write into gDepth, and the base-ring projector
+    ''' reconstructs world position from gDepth, so its rings collapsed into
+    ''' solid squares. Closing the mask is a one-variable change from the
+    ''' state that was known to render.
+    ''' </summary>
     Private Sub RestoreState()
         particleShader.StopUse()
         defaultVao.Bind()
         GL.BindTextureUnit(0, 0)
         GL.Disable(EnableCap.Blend)
         GL.Enable(EnableCap.CullFace)
-        GL.DepthMask(True)
+        GL.DepthMask(False)
         GL.Disable(EnableCap.DepthTest)
     End Sub
 
