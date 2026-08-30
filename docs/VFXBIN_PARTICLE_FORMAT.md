@@ -49,9 +49,47 @@ and the 1001 at 240 has size 1844, and 80+2004 == 240+1844 == 2084.
 | +48.. | diffuse texture path, NUL-terminated |
 | +176,+180 | **size min/max, metres** |
 | +184,+188 | **lifetime min/max, seconds** |
-| +192..+204 | sub-rect into the atlas, 4 floats (all multiples of 1/8 for an 8x8) |
-| +220,+224 | **atlas columns, rows** (stored as u32) |
+| +192 | **u_max** of the sprite sheet's region in the atlas |
+| +196 | **v_min** |
+| +200 | **u_min** |
+| +204 | **v_max** |
+| +220 | **rows** (u32) |
+| +224 | **cols** (u32) |
 | +228 | atlas animation rate, fps |
+
+### The atlas region - SOLVED
+
+The four floats are a rect, but the ordering is **(u_max, v_min, u_min, v_max)**
+- right, top, left, bottom - which is why every reading of them as (x, y, w, h)
+or (u0, v0, u1, v1) produced nonsense. The tell is that across the 309 distinct
+quads in a 350-file sample, the first value is ALWAYS greater than the third and
+the second ALWAYS less than the fourth. Scoring candidate rects against atlas
+content had already ruled the obvious orderings out: only 32-58 of 300 quads
+even formed a valid rect under them.
+
+Read correctly the regions are clean squares on the sheet:
+
+| emitter | u | v | size |
+|---------|---|---|------|
+| smoke_Slow | 0.125 .. 0.375 | 0.50 .. 0.75 | 0.25 x 0.25 |
+| smoke_Big | 0.75 .. 1.00 | 0.25 .. 0.50 | 0.25 x 0.25 |
+| commonest quad in the game | 0.562 .. 0.625 | 0.00 .. 0.062 | 1/16 x 1/16 |
+
+and cropping smoke_Big's region out of `eff_tex.dds` gives exactly an 8x8 grid
+of smoke puffs, matching its declared grid.
+
+**+220 is ROWS and +224 is COLS**, not the other way round. Fire_2 breaks the
+tie: its region is 96 x 256 px (aspect 3/8) with a declared "8, 3", so the grid
+must be 3 wide by 8 tall. Checked across 3348 emitters by comparing each
+region's aspect ratio against the grid on the assumption of square cells:
+
+    +220=rows, +224=cols    median error 0.0000   87% within 2%
+    +220=cols, +224=rows    median error 0.0161   53% within 2%
+
+`eff_tex.dds` is a shared 4096x4096 sheet and is not the only one - a 350-file
+sample also uses `eff_tex_long.dds`, `eff_tex_distortion.dds`, `eff_dirt.dds`,
+`eff_tex_water.dds` and others, 82 distinct textures in all. Grids vary widely:
+4x4, 1x1, 8x8, 8x4, 2x1, 2x2, 1x2, 8x2, 4x3, 4x2.
 | +272.. | pixel shader path (`\data\shaders\ps.fx`) |
 
 ## Keyframe tracks
@@ -147,6 +185,9 @@ offsets are right.
 
 - The header u32s at +8..+27 of each record.
 - Tracks 4 and 7, and the +84/+88 pair in the emitter block (see above).
+- `999+216` is a bitfield, not a count or an index: a 350-file sample gives 47
+  distinct values including 0, 1, 2, 3, 5..8, 65, 67, 69 and 0x04000002 /
+  0x0C000002. Flags, meaning unknown.
 - Gravity and rotation are not identified. Track 4 goes negative and is the
   only plausible home for rotation, but the naming evidence contradicts it.
 - Emitter block +8/+12 hold `0x47435000` twice; purpose unknown.
@@ -210,3 +251,45 @@ against a global resource table built elsewhere. Cracking it is a prerequisite
 for placing effects **generally**; it is NOT a prerequisite for the burning
 house, where the four ids can be matched to the four effects in that building's
 folder by elimination.
+
+
+## The engine's own particle shaders
+
+`shaders/gpu_particles/` holds 50 shaders that ARE the particle system, with
+suffixes `_u` update, `_s` source/shape, `_r` renderer:
+
+```
+basic_update_u  physical_movement_u  external_force_u  wind_impulse_u
+initial_direction_property_u  rotation_u  noise_u  vector_field_u
+cone_s  cuboid_s  disk_s  ellipsoid_s  hemisphere_s  line_s  point_s
+render_billboards_r  six_way_r  heat_haze_r  emissive_r  resolve_oit
+terrain_collision_u  depth_collision_u  kill_by_condition_u
+```
+
+Their reflection data names the whole property model. Every "over lifetime"
+property is a single float - an index into `g_particleCurves`, a float4
+texture2darray - gated by a matching `g_useXxx` bool:
+
+```
+sizeOverLifetime      colorOverLifetime     animationOverLifetime
+velocityOverLifetime  dragOverLifetime      rotationOverLifetime
+gravityOverLifetime   noiseOverLifetime     forceOverLifetime
+spiralOverLifetime    heightOverLifetime    accelerationOverLifetime
+```
+
+plus `g_flipbookParams0`, `g_uvFlip`, `g_stretchParams`, `g_velocityToLength`,
+`g_lengthFromVelocity`, `g_rotationParams0..2`, `g_pivotOffset`, `g_tintColor`,
+`g_dragCoefficient`, `g_applyGravity`, `g_accelerate`.
+
+That is the vocabulary our 8-track schema is drawn from, and it gives much
+better candidates for the unidentified slots than guessing: track 4 (often 0,
+sometimes negative) fits rotation; track 7 (0 -> 3.467 nearly everywhere) fits
+animation progress.
+
+**Caveat:** this is the NEWER GPU system. Our .vfxbin names
+`\data\shaders\ps.fx`, the older CPU path, whose renderer is
+`shaders/wg_particles/default_particles` and `std_effects/sprite_particle`.
+That older vertex shader takes POSITION, COLOR, TEXCOORD and passes UV straight
+through, so in the old system the atlas rect and frame are computed host-side -
+which is why the region had to be decoded from the .vfxbin rather than read out
+of a shader constant.

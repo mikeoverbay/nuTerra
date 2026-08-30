@@ -52,6 +52,19 @@ if __name__=="__main__":
             p=block999(d,s,e)
             if p is None: continue
             print("=== %s / %s ===" % (fn, nm))
+            # Atlas. The rect is stored (u_max, v_min, u_min, v_max) - right,
+            # top, left, bottom; every other ordering gives regions that
+            # straddle unrelated sprite sheets. And +220 is ROWS, +224 is COLS,
+            # verified over 3348 emitters by matching each region's aspect
+            # against the grid assuming square cells (median error 0.0000, 87%
+            # within 2%, against 0.0161 / 53% the other way round).
+            umax, vmin, umin, vmax = (f32(d,p+192), f32(d,p+196),
+                                      f32(d,p+200), f32(d,p+204))
+            print("  atlas  u %.4g..%.4g  v %.4g..%.4g   %d cols x %d rows @ %.4g fps"
+                  % (umin, umax, vmin, vmax,
+                     u32(d,p+224), u32(d,p+220), f32(d,p+228)))
+            print("  size %.4g..%.4g m   life %.4g..%.4g s"
+                  % (f32(d,p+176), f32(d,p+180), f32(d,p+184), f32(d,p+188)))
             for i,(n,stride,t,v) in enumerate(tracks(d,p,e)):
                 kind = "rgba " if stride==4 else "float"
                 vs = ", ".join("(%s)"%" ".join("%.3f"%x for x in k) if stride==4 else "%.4g"%k[0] for k in v)
