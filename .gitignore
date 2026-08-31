@@ -199,3 +199,5 @@ work folder/
 # untracked or the ignore does nothing.
 /t1.png
 /t[0-9].png
+/readme_images/fire test.png
+/readme_images/fire_ref.png
