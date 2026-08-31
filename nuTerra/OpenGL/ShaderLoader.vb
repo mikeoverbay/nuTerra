@@ -203,6 +203,8 @@ Module ShaderLoader
     Public deferredShader As Shader
     ''' <summary>Stands in for deferredShader while the probe field view is on.</summary>
     Public probeFieldShader As Shader
+    ''' <summary>Rolls the accumulated FX buffer off and composites it over gColor.</summary>
+    Public fxCompositeShader As Shader
     Public DeferredFogShader As Shader
     Public FF_BillboardShader As Shader
     Public FXAAShader As Shader
@@ -316,6 +318,7 @@ Module ShaderLoader
         outlandWireShader = New Shader("outlandWire")
         outlandNormalsShader = New Shader("outlandNormals")
         probeFieldShader = New Shader("probe_field")
+        fxCompositeShader = New Shader("fx_composite")
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")
         t_mixerShader = New Shader("t_mixer")

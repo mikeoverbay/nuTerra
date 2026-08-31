@@ -17,6 +17,31 @@ Public Class MainFBO
     Public Shared gAUX_Color As GLTexture
 
     ''' <summary>
+    ''' The FX pass's own accumulation buffer, Rgba16f, plus the framebuffer
+    ''' that targets it. It SHARES gDepth with the main FBO, so the FX still
+    ''' depth-test against the scene exactly as before (both FX passes run
+    ''' DepthMask(False), so nothing writes depth and sharing is safe).
+    '''
+    ''' Why the FX composite through here instead of straight into gColor:
+    ''' gColor is Rgba8, and draw_fx runs AFTER deferred.frag has already
+    ''' tonemapped. Every additive card therefore summed into a fixed-point
+    ''' buffer that CLAMPS at 1.0 after each blend. Fire is roughly
+    ''' (1.0, 0.6, 0.2), so the sum hit the ceiling in red first, green then
+    ''' climbed to meet it, and orange turned into yellow and then white -
+    ''' measured at a third of all fire pixels pinned at R=G=255, against one
+    ''' such pixel in the game's own frame.
+    '''
+    ''' Accumulating in float16 first removes the per-step clamp. This is
+    ''' sound rather than merely convenient: premultiplied "over" is
+    ''' ASSOCIATIVE, so compositing the FX among themselves and then over the
+    ''' scene gives the same answer as compositing them one at a time over the
+    ''' scene. Additive materials emit alpha 0, so they add and attenuate
+    ''' nothing, in either arrangement.
+    ''' </summary>
+    Public Shared gFX_HDR As GLTexture
+    Public Shared fx_fbo As GLFramebuffer
+
+    ''' <summary>
     ''' Views onto gColor and gGMF with alpha forced to 1, for the Textures
     ''' viewer ONLY. Both buffers carry a MASK in alpha - water mix in gColor,
     ''' wetness in gGMF - and ImGui.Image alpha-blends, so on a dry map the
@@ -37,6 +62,12 @@ Public Class MainFBO
     ' gColor_2  = 6
     ' SurfaceNormal = 7
     '========================
+    ' The FX accumulation buffer's only draw buffer. Both FX fragment shaders
+    ' declare a single layout(location = 0) out, so one entry is all they need.
+    Private Shared attach_FX_only() As DrawBuffersEnum = {
+        DrawBuffersEnum.ColorAttachment0
+    }
+
     Private Shared attach_Color_Normal_GMF() As DrawBuffersEnum = {
         FramebufferAttachment.ColorAttachment0,
         FramebufferAttachment.ColorAttachment1,
@@ -116,6 +147,9 @@ Public Class MainFBO
         gPick?.Dispose()
         gColor_2?.Dispose()
         gPosition?.Dispose()
+        gFX_HDR?.Dispose()
+        ' Before fbo: fx_fbo borrows gDepth, which fbo owns.
+        fx_fbo?.Dispose()
         fbo?.Dispose()
     End Sub
 
@@ -165,6 +199,17 @@ Public Class MainFBO
         gColor_2 = GLRenderbuffer.Create("gColor_2")
         gColor_2.Storage(RenderbufferStorage.Rgba8, width, height)
 
+        ' gFX_HDR ------------------------------------------------------------------------------------------
+        ' RGBA16F - the FX accumulation target. Float on purpose: the whole
+        ' point is that sums above 1.0 survive to be rolled off with their hue
+        ' intact instead of being clamped channel by channel.
+        gFX_HDR = GLTexture.Create(TextureTarget.Texture2D, "gFX_HDR")
+        gFX_HDR.Storage2D(1, DirectCast(InternalFormat.Rgba16f, SizedInternalFormat), width, height)
+        gFX_HDR.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        gFX_HDR.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        gFX_HDR.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+        gFX_HDR.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+
         ' Viewer-only views. Must come after the textures they borrow.
         gColor_opaque = make_opaque_view(gColor)
         gGMF_opaque = make_opaque_view(gGMF)
@@ -203,6 +248,19 @@ Public Class MainFBO
         fbo.Texture(FramebufferAttachment.DepthAttachment, gDepth, 0)
 
         If Not fbo.IsComplete Then
+            Return False
+        End If
+
+        ' The FX accumulation framebuffer. One colour attachment and the SHARED
+        ' depth texture - shared, not copied, so the FX depth-test against the
+        ' scene the main pass just drew. Both FX passes run DepthMask(False),
+        ' so neither can write through this alias.
+        fx_fbo = GLFramebuffer.Create("fxFBO")
+        fx_fbo.Texture(FramebufferAttachment.ColorAttachment0, gFX_HDR, 0)
+        fx_fbo.Texture(FramebufferAttachment.DepthAttachment, gDepth, 0)
+        fx_fbo.DrawBuffers(1, attach_FX_only)
+
+        If Not fx_fbo.IsComplete Then
             Return False
         End If
 

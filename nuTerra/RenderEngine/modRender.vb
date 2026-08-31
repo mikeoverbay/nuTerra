@@ -318,12 +318,39 @@ Module modRender
             '
             ' DO NOT move the particle call back above draw_fx - the
             ' fire-after-smoke rule breaks silently, with no error.
+            '
+            ' Both passes now draw into gFX_HDR, not gColor. gColor is Rgba8 and
+            ' this pass runs AFTER deferred.frag has tonemapped, so every blend
+            ' clamped at 1.0 and overlapping additive cards saturated channel by
+            ' channel - fire is about (1.0, 0.6, 0.2), so red pinned first and
+            ' green climbed to meet it, turning orange into yellow and then
+            ' white. Accumulating in float16 and rolling the SUM off once, in
+            ' composite_fx, is what keeps the hue.
+            '
+            ' The order above is unaffected by the move, and so is the result of
+            ' the ordering: premultiplied "over" is associative, so compositing
+            ' the FX among themselves and then over the scene is the same
+            ' arrangement as compositing them one at a time over the scene.
+            MainFBO.fx_fbo.Bind(FramebufferTarget.Framebuffer)
+            ' Fully TRANSPARENT, not black: rgb carries premultiplied colour and
+            ' alpha carries accumulated coverage, and composite_fx consumes both.
+            ' Colour only - gDepth is SHARED with the main FBO and clearing it
+            ' here would throw away the scene depth the FX test against.
+            GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
+            GL.Clear(ClearBufferMask.ColorBufferBit)
+
             If PARTICLES_ENABLED Then
                 map_scene.particles.Draw(map_scene.camera.CAM_POSITION)
                 trace_state("particles")
             End If
             map_scene.static_models.draw_fx()
             trace_state("draw_fx")
+
+            ' Back to the lit frame and fold the accumulated FX in.
+            MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
+            MainFBO.attach_C()
+            composite_fx()
+
             If FX_DIFF_THIS_FRAME Then report_fx_diff(fx_before)
             trace_gcolor("draw_fx")
             modGpuTimers.Finish()
@@ -512,6 +539,42 @@ Module modRender
                 changed, total, 100.0 * changed / total, max_delta,
                 If(changed > 0, sum_delta / CDbl(changed), 0.0))
         dump_fx_pass(after)
+    End Sub
+
+    ''' <summary>
+    ''' Roll the accumulated FX buffer back into range and composite it over the
+    ''' lit frame, in one pass.
+    '''
+    ''' gFX_HDR holds PREMULTIPLIED colour in rgb and accumulated coverage in a,
+    ''' which is exactly what One / OneMinusSrcAlpha consumes - so alpha smoke
+    ''' still attenuates the scene and additive fire, which emits alpha 0, still
+    ''' only adds. The shader divides rgb by max(1, luminance), the same
+    ''' operator volumetric.frag applies per card, now applied once to the sum.
+    ''' </summary>
+    Private Sub composite_fx()
+        GL_PUSH_GROUP("composite_fx")
+
+        fxCompositeShader.Use()
+        MainFBO.gFX_HDR.BindUnit(0)
+
+        ' The quad covers the screen and must not be depth-tested against the
+        ' scene it is compositing over.
+        GL.Disable(EnableCap.DepthTest)
+        GL.DepthMask(False)
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha)
+
+        GL.UniformMatrix4(fxCompositeShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        draw_main_Quad(fxCompositeShader, MainFBO.width, MainFBO.height)
+
+        GL.Disable(EnableCap.Blend)
+        ' Put the app's conventional blend func back, as draw_fx does, so later
+        ' passes that enable blend without setting one do not inherit this pair.
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+        GL.DepthMask(True)
+
+        fxCompositeShader.StopUse()
+        GL_POP_GROUP()
     End Sub
 
     ''' <summary>
