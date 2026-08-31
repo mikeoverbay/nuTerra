@@ -601,11 +601,10 @@ Module modRender
         ' Gaussian with itself N times widens it by sqrt(N) AND fills in the
         ' gaps a wide radius leaves, which is the whole reason to spend them.
         '
-        ' Clamped rather than trusted: these are live ImGui values and a
-        ' negative or absurd count would either skip the ping-pong entirely,
-        ' leaving the raw un-blurred bright pass in A, or stall the frame.
-        Dim passes = Math.Max(1, Math.Min(FX_GLOW_PASSES, 6))
-        For i = 1 To passes
+        ' The clamp that used to guard this is gone with the slider:
+        ' FX_GLOW_PASSES is a Const now, so there is no longer a path by which
+        ' it can arrive as 0 and leave the raw un-blurred bright pass in A.
+        For i = 1 To FX_GLOW_PASSES
             ' horizontal: A -> B
             MainFBO.bloom_fbo.Texture(FramebufferAttachment.ColorAttachment0, MainFBO.gFX_BloomB, 0)
             GL.NamedFramebufferDrawBuffer(MainFBO.bloom_fbo.fbo_id, DrawBufferMode.ColorAttachment0)

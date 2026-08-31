@@ -448,30 +448,49 @@ Module modGlobalVars
     ''' Bloom on the FX pass - the halo around fire.
     '''
     ''' Only possible now that the FX accumulate into a float target: the glow
-    ''' is built from the energy ABOVE 1.0, which is exactly what used to be
-    ''' thrown away when the pass blended straight into Rgba8. Against the old
-    ''' path there was nothing left to glow with - every hot pixel had already
-    ''' been flattened to white.
+    ''' is built from energy the old Rgba8 path had already flattened away.
+    ''' Blending straight into an 8 bit buffer left nothing to glow with -
+    ''' every hot pixel was white by the time the pass was done.
     ''' </summary>
     Public FX_GLOW As Boolean = True
 
-    ''' <summary>
-    ''' How much of the blurred over-range energy to add back. 1.0 adds it at
-    ''' the strength it was actually emitted; the useful range is well under
-    ''' that, because the glow covers far more pixels than the core does.
-    ''' </summary>
-    Public FX_GLOW_STRENGTH As Single = 0.55F
+    ' ----------------------------------------------------------------------
+    ' Glow shape. HARD WIRED at the owner's call, after tuning them live
+    ' against the fire on 19_monastery. Const, not variables: these are a
+    ' settled look, and the sliders that set them are gone. Change them here
+    ' and rebuild, or put the sliders back to re-tune.
+    ' ----------------------------------------------------------------------
 
     ''' <summary>
-    ''' Where the bright pass starts keeping energy. 1.0 is the principled
-    ''' value, not a tuned one: gFX_HDR holds the premultiplied sum before
-    ''' composite_fx scales it back, so above 1.0 is precisely the energy that
-    ''' used to clip. Below 1.0 starts glowing smoke.
+    ''' How much of the blurred energy to add back. 1.0 would add it at the
+    ''' strength it was emitted; 2.0 deliberately overdrives it, because the
+    ''' halo is spread over far more pixels than the core it came from and at
+    ''' unity it reads as a soft edge rather than as light coming off a fire.
     ''' </summary>
-    Public FX_GLOW_THRESHOLD As Single = 1.0F
+    Public Const FX_GLOW_STRENGTH As Single = 2.0F
 
     ''' <summary>
-    ''' How far the glow reaches, as a multiple of the original radius.
+    ''' Where the bright pass starts keeping energy.
+    '''
+    ''' NOTE THIS IS BELOW 1.0, and that is a deliberate look choice, not an
+    ''' oversight. 1.0 is the principled value - gFX_HDR holds the
+    ''' premultiplied sum before composite_fx scales it back, so above 1.0 is
+    ''' exactly the energy that used to clip against Rgba8, and glowing only
+    ''' that is defensible from first principles.
+    '''
+    ''' 0.42 reaches below it, so SMOKE GLOWS TOO - and that is the point of
+    ''' the exact value. It is a FLOOR found by eye, not a midpoint: under 0.42
+    ''' the smoke starts glowing badly, and at 0.42 it is only lightly lit,
+    ''' which is what was wanted. Lower it and the smoke will bloom; there is
+    ''' no headroom below this number.
+    '''
+    ''' Any comment claiming the bright pass ignores smoke is describing the
+    ''' 1.0 threshold, not this one.
+    ''' </summary>
+    Public Const FX_GLOW_THRESHOLD As Single = 0.42F
+
+    ''' <summary>
+    ''' How far the glow reaches, as a multiple of one blur texel.
     '''
     ''' Scales the STEP between the blur's taps. The kernel is a fixed 9 taps,
     ''' so widening this way costs nothing at all - but it also spreads those 9
@@ -479,11 +498,11 @@ Module modGlobalVars
     ''' show faint rings. FX_GLOW_PASSES is the cure for that, not a smaller
     ''' radius.
     '''
-    ''' The taps land on texel centres at whole numbers and between them at
+    ''' Taps land on texel centres at whole numbers and between them at
     ''' fractional ones, where the Linear filter averages two texels and hides
-    ''' the gaps - so 2.5 is a better-behaved value than 2.0 or 3.0.
+    ''' the gaps - which is why this is 2.7 and not 3.
     ''' </summary>
-    Public FX_GLOW_RADIUS As Single = 2.5F
+    Public Const FX_GLOW_RADIUS As Single = 2.7F
 
     ''' <summary>
     ''' How many horizontal+vertical blur pairs to run.
@@ -491,10 +510,10 @@ Module modGlobalVars
     ''' Convolving a Gaussian with itself N times widens it by sqrt(N), so this
     ''' is a much more expensive way to buy radius than FX_GLOW_RADIUS - but it
     ''' adds taps rather than spreading them, so it is what fills in a wide
-    ''' radius that has started to band. Each pass is two quarter-resolution
-    ''' fullscreen draws, so a couple more is cheap.
+    ''' radius that has started to band. Three pairs is six quarter-resolution
+    ''' fullscreen draws, which is nothing.
     ''' </summary>
-    Public FX_GLOW_PASSES As Integer = 2
+    Public Const FX_GLOW_PASSES As Integer = 3
 
     ''' <summary>
     ''' Replace the deferred pass with the probe field inspector - a separate

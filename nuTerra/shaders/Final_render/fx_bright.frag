@@ -2,15 +2,22 @@
 
 // Bright pass for the FX glow.
 //
-// Reads the accumulated FX buffer and keeps only the energy that is ABOVE
-// displayable range. That threshold is not a tuning guess: gFX_HDR holds the
-// premultiplied sum before composite_fx scales it back down, so everything
-// over 1.0 here is exactly the energy that used to clip against Rgba8 and turn
-// the fire white. Glowing precisely that is what makes a hot core read as hot
-// instead of merely bright.
+// Reads the accumulated FX buffer and keeps the energy above `threshold`.
 //
-// Smoke sums well below 1.0 and so contributes nothing, which is why this is a
-// subtract rather than a multiply - no separate "is this smoke" test is needed.
+// 1.0 is the principled setting: gFX_HDR holds the premultiplied sum before
+// composite_fx scales it back down, so above 1.0 is exactly the energy that
+// used to clip against Rgba8 and turn the fire white. At that setting smoke,
+// which sums well below 1.0, contributes nothing and no separate "is this
+// smoke" test is needed.
+//
+// THE SHIPPED VALUE IS LOWER THAN THAT (FX_GLOW_THRESHOLD, hard wired at
+// 0.42), so smoke DOES glow here - lightly, which is what was wanted.
+//
+// 0.42 is a FLOOR found by eye, not a midpoint: below it the smoke starts to
+// bloom badly, and at it the smoke is only just lit. There is no headroom
+// underneath. Do not "fix" it back to 1.0 on the strength of the paragraph
+// above, and do not lower it expecting more glow - lower it and you get
+// glowing smoke, not a hotter fire.
 //
 // Runs at reduced resolution. The quad covers the whole viewport, and the
 // source is sampled Linear, so this doubles as the downsample - the box
