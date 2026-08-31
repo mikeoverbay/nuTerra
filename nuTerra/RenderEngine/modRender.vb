@@ -613,8 +613,16 @@ Module modRender
         GL.Uniform1(deferredShader("sh_enabled"),
                     CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
 
-        ' The baked probe FIELD. Uploaded and sampled, but deferred.frag does
-        ' not fold it into the lighting yet - only the debug view reads it.
+        ' The baked probe FIELD, folded into the real lighting: deferred.frag
+        ' blends it over the flat global probe with
+        ' mix(irradiance, grid_irr, sh_grid_mix), inside the sh_grid_enabled
+        ' branch, and its own comment there notes that is the ONLY place the
+        ' field touches lighting.
+        '
+        ' This comment used to say the opposite - that only the debug view read
+        ' the field. That was true before the grid was wired in and is not any
+        ' more; it survived long enough to nearly cause a wrong conclusion about
+        ' whether sh_grid_mix does anything. It does.
         Dim grid_on = USE_SH_GRID AndAlso SH_GRID_LOADED AndAlso SH_GRID_ID IsNot Nothing
         If grid_on Then
             SH_GRID_ID.BindUnit(11)
