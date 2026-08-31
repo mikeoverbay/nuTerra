@@ -15,6 +15,12 @@ layout(location = 2) in vec4 vertexTangent;
 layout(location = 3) in vec4 vertexBinormal;
 layout(location = 4) in vec2 vertexTexCoord1;
 layout(location = 5) in vec2 vertexTexCoord2;
+#ifdef SHOW_VERTEX_COLOURS
+// The map-wide colour stream. Attribute 6 is always enabled on this VAO and
+// defaults to white for every mesh that ships no colour section, so a model
+// with no stream reads as plain white rather than black.
+layout(location = 6) in vec4 vertexColour;
+#endif
 
 out VS_OUT
 {
@@ -29,6 +35,9 @@ out VS_OUT
 #endif
 #ifdef SHOW_LOD_COLORS
     flat uint lod_level;
+#endif
+#ifdef SHOW_VERTEX_COLOURS
+    vec4 vcol;
 #endif
 } vs_out;
 
@@ -45,6 +54,9 @@ void main(void)
 #endif
 #ifdef SHOW_LOD_COLORS
     vs_out.lod_level = thisDraw.lod_level;
+#endif
+#ifdef SHOW_VERTEX_COLOURS
+    vs_out.vcol = vertexColour;
 #endif
 
     vs_out.TC1 = vertexTexCoord1;
