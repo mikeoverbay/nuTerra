@@ -24,6 +24,10 @@ layout(binding = 0) uniform usampler2D PageTable;
 layout(binding = 1) uniform sampler2DArray ColorTextureAtlas;
 layout(binding = 2) uniform sampler2DArray NormalTextureAtlas;
 layout(binding = 3) uniform sampler2DArray SpecularTextureAtlas;
+// Map-wide terrain hole mask, one texel per authored hole cell. Red != 0
+// means this texel is inside a hole and the terrain must not be drawn
+// there. NEAREST filtered, so the test is an exact boolean.
+layout(binding = 4) uniform sampler2D HoleMask;
 
 uniform int vt_debug;
 uniform float vt_debug_mix;
@@ -41,6 +45,12 @@ layout(location = 0) in TES_OUT {
 
 void main(void)
 {
+    // Terrain holes. The mask is authored per chunk and stamped into one
+    // map-wide texture at load; discarding here is what actually cuts the
+    // terrain, and it must happen BEFORE the G-buffer writes below so the
+    // hole takes depth with it. Without this the hole data is decoded,
+    // uploaded and ignored, which is why trenches kept their ground.
+    if (texture(HoleMask, fs_in.Global_UV).r > 0.5) discard;
     // CALC MIP LEVEL
     float miplevel = MipLevel(fs_in.Global_UV, props.VirtualTextureSize);
     miplevel = clamp(miplevel, 0, log2(props.PageTableSize) - 1);
