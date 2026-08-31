@@ -16,7 +16,6 @@ layout (binding = 1) uniform sampler2D igGMF;
 layout (binding = 2) uniform sampler2D normal_tex;
 layout (binding = 3) uniform sampler2D color_tex;
 layout (binding = 4) uniform sampler2D SurfaceNormal;
-layout (binding = 5) uniform sampler2D gposition;
 
 uniform vec2 offset;
 uniform vec2 scale;
@@ -25,7 +24,6 @@ uniform uint v1;
 uniform uint v2;
 uniform uint vis;
 uniform uint wet;
-uniform vec3 cam_position;
 
 // The decal's projection axis - decal-local +Z, the thickness axis named in the
 // vert - rotated into VIEW space and normalized on the CPU. VIEW space because
@@ -37,7 +35,6 @@ uniform vec3 decal_axis;
 
 // The decal's UV tangent - decal-local +X, the direction tuv.s increases along
 // - rotated into VIEW space and normalized on the CPU, exactly like decal_axis.
-//
 // This exists because the tangent frame must NOT come from screen-space
 // derivatives. get_tbn used to build it from dFdx/dFdy of a UV that is
 // reconstructed from the DEPTH BUFFER, so the UV Jacobian it divides by
@@ -46,7 +43,6 @@ uniform vec3 decal_axis;
 // alternated pixel to pixel and painted a 1-pixel checkerboard over the ground.
 // Measured on 101_dday: signed checker energy +0.540, gone (-0.002) once the
 // frame stopped being derived.
-//
 // A decal's UV mapping is affine in its own box, so this direction is exact,
 // constant across the decal, and free. Uploaded as zero when the transform is
 // degenerate, which makes get_tbn fall back to an arbitrary perpendicular.
@@ -67,18 +63,15 @@ const float EDGE_FADE_WIDTH = 0.12;
 
 // Grazing-angle rejection. c = |dot(surface normal, projection axis)| is the
 // cosine of the angle between them, so the test is on that angle directly.
-//
 // Cutoff is 45 degrees, by the owner's call: a face more than 45 deg away from
 // facing the decal does not receive it. 45 is the symmetric point - measured
 // from the axis or from the face plane it is the same threshold - so there is
 // no convention to get wrong. cos(45) = 0.7071 is the half-alpha point.
-//
 // Note this is NOT an anisotropy threshold. The UV stretches by 1/c, so 45 deg
 // cuts at only 1.41x stretch, which the aniso sampler would resolve fine. It is
 // a stronger, simpler rule than "where does it visibly smear": faces must face
 // the decal. That is deliberate - the earlier 87 deg setting cleared the worst
 // streaks but left the moderately-angled ones.
-//
 // Fade rather than discard: no MainFBO attachment is multisampled, so a hard
 // cut is a binary per-pixel decision with no coverage to soften it, and the
 // boundary sits exactly where the Rgb8 normal is noisiest. The 40-50 deg band
@@ -93,8 +86,6 @@ in VS_OUT {
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
 const vec3 bl = vec3(-0.5, -0.5, -0.5);
-const float height_scale = 1.0;
-
 
 void clip(vec3 v) {
     if (v.x > tr.x || v.x < bl.x ) discard;
@@ -143,28 +134,16 @@ vec3 getNormal( in vec2 UV1)
     return normalBump;
 }
 
-
-vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
-{ 
-    float height =  texture(igGMF, texCoords).a;    
-    vec2 p = viewDir.xy / viewDir.z * (height * height_scale);
-    return texCoords - p;    
-} 
-
-
-
 //        ' FLAG INFO
 //        ' 0  = No shading
 //        ' 64  = model 
 //        ' 128 = terrain
 //        ' 255 = sky dome. We will want to control brightness
 //        ' more as they are added
-//
 void main()
 {
     // Calculate UVs
     vec2 uv = gl_FragCoord.xy / resolution;
-    vec3 position = texture(gposition,uv).xyz;
 
     // Grazing-angle rejection - the fix for decals smearing down faces they
     // only skim. gSurfaceNormal is VIEW space and Rgb8, so decode and then
@@ -226,8 +205,6 @@ void main()
    vec2 tuv = WorldPosition.xy * scale + offset;
    vec4 color =  texture(color_tex, tuv);
 
-
-
    //Get texture UVs
    if (wet ==1) {
        gColor.a = color.r*0.8;
@@ -239,65 +216,9 @@ void main()
    {
    mat3 TBN = get_tbn(normal, decal_tangent);
 
-   vec3 view_dir = (TBN * cam_position) - (TBN * position.xyz);
-
-   //tuv = ParallaxMapping( tuv, -view_dir);
-
-   vec4 color =  texture(color_tex, tuv);
-
     gNormal.xyz = TBN * getNormal(tuv) *0.5 + 0.5;   
 
    gColor = color;
-
-    uint code = v2;
-//
-//    if (code == 0) {
-//        gColor.rgb = vec3(1.0 ,0.0 ,0.0);
-//        }
-//    if (code == 1) {
-//        gColor.rgb = vec3(0.0 ,1.0 ,0.0);
-//        }
-//    if (code == 2) {
-//        gColor.rgb = vec3(0.0 ,0.0 ,1.0);
-//        }
-//    if (code == 3) {
-//        gColor.rgb = vec3(1.0 ,1.0 ,0.0);
-//        }
-//    if (code == 4) {
-//        gColor.rgb = vec3(0.0 ,1.0 ,1.0);
-//        }
-//    if (code == 5) {
-//        gColor.rgb = vec3(1.0 ,1.0 ,1.0);
-//        }
-//    if (code == 6) {
-//        gColor.rgb = vec3(0.1 ,1.0 ,1.0);
-//        }
-//
-     code = v1;
-
-//    if (code == 0) {
-//        gColor.rgb = vec3(1.0 ,0.0 ,0.0);
-//        }
-//    if (code == 1) {
-//        gColor.rgb = vec3(0.0 ,1.0 ,0.0);
-//        }
-//    if (code == 2) {
-//        gColor.rgb = vec3(0.0 ,0.0 ,1.0);
-//        }
-//    if (code == 3) {
-//        gColor.rgb = vec3(1.0 ,1.0 ,0.0);
-//        }
-//    if (code == 4) {
-//        gColor.rgb = vec3(0.0 ,1.0 ,1.0);
-//        }
-//    if (code == 5) {
-//        gColor.rgb = vec3(1.0 ,1.0 ,1.0);
-//        }
-//    if (code == 6) {
-//        gColor.rgb = vec3(0.1 ,1.0 ,1.0);
-//        }
-//
-//
 
     gNormal.a = color.a;
     }
@@ -305,5 +226,4 @@ void main()
     gColor.a  *= edge_alpha * angle_alpha;
     gNormal.a *= edge_alpha * angle_alpha;
 }
-
 

@@ -54,7 +54,6 @@ Public Class MapDecals
         MainFBO.gGMF.BindUnit(6)
 
         MainFBO.gSurfaceNormal.BindUnit(4)
-        MainFBO.gPosition.BindUnit(5)
 
         GL.Disable(EnableCap.CullFace)
 
@@ -69,15 +68,12 @@ Public Class MapDecals
         ''-- scale up y some so terrain doesn't clip it.
         Dim mat = Matrix4.Identity
         mat.M22 = 1.0
-        Dim cam As Vector3 = map_scene.camera.CAM_POSITION
 
         ' gSurfaceNormal is VIEW space in every writer, so the decal's projection
         ' axis has to be rotated into view space before it can be dotted against
         ' it. The view matrix is a LookAt and carries no scale, so the plain
         ' upper-left 3x3 is the right rotation for a direction. Loop-invariant.
         Dim view3 As Matrix3 = New Matrix3(map_scene.camera.PerViewData.view)
-
-        GL.Uniform3(boxDecalsColorShader("cam_position"), cam.X, cam.Y, cam.Z)
 
         For Each decal In all_decals
             Dim m As Matrix4 = mat * decal.matrix
