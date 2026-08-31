@@ -168,10 +168,18 @@ A/B on 19_monastery at the close fire camera, `freezefx settle=200`:
 | cutout on vs off | **3 px**, all brighter, max delta 24 |
 
 So the path is live and signed correctly - a cutout can only *remove* shadow,
-and every changed pixel got brighter. But three pixels is a smoke test, not a
-demonstration: that camera barely sees any alpha-tested caster's shadow.
-**Still wanted: a viewpoint with fences or foliage casting onto open ground.**
-The owner naming a spot is far cheaper than hunting for one headlessly.
+and every changed pixel got brighter. Three pixels is only a smoke test: that
+camera barely sees any alpha-tested caster's shadow.
+
+**Confirmed on screen by the owner (2026-08-31): fences cast their own shape.**
+That was the one gap the commit was parked on, and it is now closed.
+
+The dependency to remember: the cutout only does anything if the models are
+actually in the bake. `draw_models` in `MapSunShadow.vb:378` returns early
+unless `DONT_BLOCK_MODELS` is true, and that flag also gates the model *load*
+(`MapLoader.vb:65`). With "Draw models" off the bake holds no model geometry
+at all, so fences neither cast a solid silhouette nor a cut one - a null
+result there means the models were absent, not that the cutout failed.
 
 One thing to know: for `FX_volumetric` materials `alphaTestEnable` is
 overloaded to mean *additive*, not *alpha tested* (`MapLoader.vb:1517`), and
