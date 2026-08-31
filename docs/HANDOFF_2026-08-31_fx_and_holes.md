@@ -140,16 +140,76 @@ lip. No vertex colour appears in the blending pass at all.
 nuTerra": every input already exists, and `g_enableTerrainBlending` needs to
 reach the G-buffer flag channel.
 
-## Parked work - branch `wip/parked-2026-08-31`
+## Parked work - LANDED
 
-Two finished-but-unlanded changes, off master so they cannot be lost:
+Both changes that were parked on `wip/parked-2026-08-31` are now on master.
+The branch is left in place as the record of why they were held back.
 
-- `581e57e` alpha cutout in the baked shadow map's model pass. Builds, bake
-  runs clean, never eyeballed.
-- `793824c` "Show vertex colours" debug view. Parked because the owner saw a
-  non-stop `#131222` shadow-sampler warning while using it, which I could NOT
-  reproduce headlessly - cause unproven, best hypothesis is the live
-  `SetDefine` recompile, which `ModelPicker` shares.
+| commit | what |
+|---|---|
+| `9b7adc8` | alpha cutout in the baked shadow map's model pass |
+| `afab033` | "Show vertex colours" debug view |
+
+### Alpha cutout - verified live, effect is real but small
+
+Structural claims all check out: `CandidateDraw.material_id` exists
+(`common.h:74`), attribute 4 (texcoord1) *is* enabled on the `allMapModels`
+VAO that `draw_models` binds, and the test is character for character the one
+in `mDepthWrite.frag`.
+
+Runtime: `Shaders Built.`, zero `didn't compile`, `sun shadow: drew models
+(425 commands)`, `glGetError: NoError`.
+
+A/B on 19_monastery at the close fire camera, `freezefx settle=200`:
+
+| | |
+|---|---|
+| null control, same build twice | **0 px** - bit identical |
+| cutout on vs off | **3 px**, all brighter, max delta 24 |
+
+So the path is live and signed correctly - a cutout can only *remove* shadow,
+and every changed pixel got brighter. But three pixels is a smoke test, not a
+demonstration: that camera barely sees any alpha-tested caster's shadow.
+**Still wanted: a viewpoint with fences or foliage casting onto open ground.**
+The owner naming a spot is far cheaper than hunting for one headlessly.
+
+One thing to know: for `FX_volumetric` materials `alphaTestEnable` is
+overloaded to mean *additive*, not *alpha tested* (`MapLoader.vb:1517`), and
+the shadow draw list carries every non-`no_draw` prim group with no shader-type
+filter. So FX meshes in the bake now run a cutout test against an unrelated
+channel. That is **not new** - `mDepthWrite.frag` has always done exactly this
+for the cascades - so the change brings the bake into parity rather than
+introducing a class of bug. Worth fixing in both places, together, later.
+
+### Vertex colour view - the parking reason did not reproduce
+
+It was parked over a non-stop `#131222 ... depth comparisons disabled ...
+shadow sampler` warning, cause unproven, best hypothesis the live `SetDefine`
+recompile.
+
+That hypothesis was tested directly this session. A temporary hook drove
+`SetDefine`/`UnsetDefine` on the model shader every 10 frames for 600 frames -
+about 60 live recompiles, the define flipping on and off throughout. The
+capture confirms the hook really fired (59% of pixels differ from a known-off
+frame, i.e. the view was active at capture). **Zero `#131222`.** GL debug
+output is definitely reaching the log: `#131154` appears 9 times in the same
+run.
+
+Also ruled out: the warning does not appear with the shadow map viewer forced
+open either, which was the other plausible trigger, since `DebugDraw` turns
+`TextureCompareMode` off on `depth_tex` for its draw.
+
+The negative control for the view itself is **bit-identical** - same sha256
+with the toggle off - which is the bar the probe-grid work had to clear.
+
+What is still unexplained is the owner's original sighting. The best lead is
+now `ShaderLoader.vb`'s own `StopUse` comment, which documents this exact
+warning from the **water** shader and attributes it to a program left bound,
+its sampler declarations validated against unrelated texture state at whatever
+GL call comes next. That is a pre-existing hazard, unrelated to this view.
+Only `deferred.frag` and `water.frag` declare a `sampler2DShadow` at all, and
+neither is the model shader. If it recurs, look for a pass that returns
+between `Use()` and `StopUse()`.
 
 ## Environment traps re-confirmed this session
 
