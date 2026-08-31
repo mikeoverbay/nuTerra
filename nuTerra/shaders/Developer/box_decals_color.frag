@@ -35,6 +35,23 @@ uniform vec3 cam_position;
 // zero when the decal's transform is degenerate, which disables the gate.
 uniform vec3 decal_axis;
 
+// The decal's UV tangent - decal-local +X, the direction tuv.s increases along
+// - rotated into VIEW space and normalized on the CPU, exactly like decal_axis.
+//
+// This exists because the tangent frame must NOT come from screen-space
+// derivatives. get_tbn used to build it from dFdx/dFdy of a UV that is
+// reconstructed from the DEPTH BUFFER, so the UV Jacobian it divides by
+// collapses toward zero wherever the surface is near grazing - and the driver's
+// fine derivatives differ between even and odd pixels, so the exploded tangent
+// alternated pixel to pixel and painted a 1-pixel checkerboard over the ground.
+// Measured on 101_dday: signed checker energy +0.540, gone (-0.002) once the
+// frame stopped being derived.
+//
+// A decal's UV mapping is affine in its own box, so this direction is exact,
+// constant across the decal, and free. Uploaded as zero when the transform is
+// degenerate, which makes get_tbn fall back to an arbitrary perpendicular.
+uniform vec3 decal_tangent;
+
 // 1 when this decal's texture runs opaque content all the way to its border, so
 // the box cuts it off square and we have to fade it ourselves. Textures painted
 // with a transparent margin already fade and must be left alone or they lose
@@ -85,18 +102,34 @@ void clip(vec3 v) {
     if (v.z > tr.z || v.z < bl.z ) discard;
 }
 
-mat3 get_tbn (in vec3 v_Position, in vec3 v_Normal, in vec2 UV1){
-    vec3 pos_dx = dFdx(v_Position);
-    vec3 pos_dy = dFdy(v_Position);
-    vec3 tex_dx = dFdx(vec3(UV1, 0.0));
-    vec3 tex_dy = dFdy(vec3(UV1, 0.0));
-    vec3 t = (tex_dy.t * pos_dx - tex_dx.t * pos_dy) / (tex_dx.s * tex_dy.t - tex_dy.s * tex_dx.t);
+// Tangent frame for the decal's normal map. The tangent comes in from the CPU
+// (see decal_tangent) rather than from screen-space derivatives - deriving it
+// from a depth-reconstructed UV is what produced the checkerboard.
+mat3 get_tbn (in vec3 v_Normal, in vec3 v_Tangent){
     vec3 ng = normalize(v_Normal);
 
-    t = normalize(t - ng * dot(ng, t));
+    // Zero means the CPU found the decal transform degenerate. Any fixed
+    // perpendicular will do: the normal map's rotation is then arbitrary, but it
+    // is STABLE, which is the whole point - the derived frame was not.
+    vec3 t = v_Tangent;
+    if (dot(t, t) < 0.5) {
+        t = abs(ng.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    }
+
+    // Gram-Schmidt against the REAL surface normal, so the frame lies in the
+    // surface the decal landed on rather than in the decal's own plane.
+    t = t - ng * dot(ng, t);
+    float len2 = dot(t, t);
+    if (len2 < 1e-8) {
+        // Tangent parallel to the normal - the decal is projecting edge-on.
+        t = abs(ng.z) < 0.9 ? cross(ng, vec3(0.0, 0.0, 1.0))
+                            : cross(ng, vec3(1.0, 0.0, 0.0));
+        len2 = max(dot(t, t), 1e-8);
+    }
+    t *= inversesqrt(len2);
+
     vec3 b = normalize(cross(ng, t));
     return mat3(t, b, ng);
-
 }
 vec3 getNormal( in vec2 UV1)
 {
@@ -204,7 +237,7 @@ void main()
        }
    else
    {
-   mat3 TBN = get_tbn(position, normal, tuv);
+   mat3 TBN = get_tbn(normal, decal_tangent);
 
    vec3 view_dir = (TBN * cam_position) - (TBN * position.xyz);
 

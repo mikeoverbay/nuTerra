@@ -100,6 +100,25 @@ Public Class MapDecals
             End If
             GL.Uniform3(boxDecalsColorShader("decal_axis"), axis.X, axis.Y, axis.Z)
 
+            ' The decal's UV TANGENT - the direction tuv.s increases along -
+            ' uploaded for the same reason decal_axis is: so the fragment stage
+            ' never has to derive a frame from screen-space derivatives. It used
+            ' to, from a UV reconstructed out of the depth buffer, and the
+            ' Jacobian it divided by collapses at grazing angles - which painted
+            ' a 1-pixel checkerboard across the ground. See get_tbn.
+            '
+            ' Row0 is local +X, the same convention Row2 is local +Z above. The
+            ' shader builds tuv as -(local.xy + 0.5) * scale + offset, so s runs
+            ' along local -X, and flips once more when uv_wrapping.X is negative.
+            Dim tan_sign As Single = If(decal.scale.X < 0.0F, 1.0F, -1.0F)
+            Dim tangent As Vector3 = Vector3.TransformRow(m.Row0.Xyz * tan_sign, view3)
+            If tangent.LengthSquared > 0.000000000001F Then
+                tangent.Normalize()
+            Else
+                tangent = Vector3.Zero
+            End If
+            GL.Uniform3(boxDecalsColorShader("decal_tangent"), tangent.X, tangent.Y, tangent.Z)
+
             'because the fucking winding order is wrong on some decals, we have to switch based on determinate 
             GL.FrontFace(decal.winding)
 
