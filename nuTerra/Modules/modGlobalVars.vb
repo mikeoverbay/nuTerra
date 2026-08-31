@@ -201,6 +201,15 @@ Module modGlobalVars
     Public AUTO_SNAP_QUIT As Boolean = False
 
     ''' <summary>
+    ''' Override for AUTO_SNAP_FRAMES, from the settle=N launch argument.
+    ''' Zero means use the default. Raised when a capture has to wait for a
+    ''' particle column to reach steady state - the emitters run at 1-5 per
+    ''' second against 3-6 s lifetimes, so the default 150 frames catches a
+    ''' column that is still filling.
+    ''' </summary>
+    Public SETTLE_FRAMES As Integer = 0
+
+    ''' <summary>
     ''' Set for one frame to make the FX pass measure itself: the colour buffer
     ''' is read back either side of draw_fx and the difference logged. Two
     ''' glReadPixels stall the pipeline hard, so this is never left on.
@@ -208,6 +217,23 @@ Module modGlobalVars
     Public FX_DIFF_THIS_FRAME As Boolean = False
 
     ''' <summary>Open at half the usual size - harness runs only.</summary>
+    ''' <summary>
+    ''' Draw the card particle system. OFF until the frame-blacking issue in
+    ''' MapParticles.Draw is found - see the note at the call site.
+    ''' </summary>
+    Public PARTICLES_ENABLED As Boolean = True
+
+    ''' <summary>
+    ''' Draw particle cards as untextured wireframe, coloured by age (green new,
+    ''' red old). Separates "is the simulation flowing correctly" from "are the
+    ''' sprites right" - which is how the size bug was found: textured, a wrong
+    ''' size track just looked like grey soup. Toggle in Settings -> Debug.
+    ''' </summary>
+    Public PARTICLES_WIRE As Boolean = False
+
+    ''' <summary>Particle effect placements read from space.bin's BWPs section.</summary>
+    Public PFX_PLACEMENTS As List(Of modParticles.PfxPlacement) = Nothing
+
     Public HALF_SIZE_WINDOW As Boolean = False
 
     ''' <summary>
@@ -350,9 +376,10 @@ Module modGlobalVars
     ' (Abbey is 280x280 over a 1400 m box). Seven slices carry a probe's packed
     ' SH9; slice 6's alpha is that probe's reference height; slice 7 is padding.
     '
-    ' LOADED AND UPLOADED, BUT NOT YET USED BY THE LIGHTING. deferred.frag
-    ' samples it into a local and deliberately does not fold it into the ambient
-    ' term - that integration is a separate, deliberate step.
+    ' FOLDED INTO THE REAL LIGHTING. deferred.frag evaluates the field and
+    ' blends it over the flat global probe's irradiance by sh_grid_mix, inside
+    ' the sh_grid_enabled branch. USE_SH_GRID_FX extends the same field to the
+    ' FX volumetrics so smoke and the ground under it agree.
     ' ------------------------------------------------------------------------
 
     '''<summary>The volume texture, Nothing when the map ships no grid.</summary>
@@ -390,6 +417,105 @@ Module modGlobalVars
     Public SH_GRID_OFFSET As Single = 1.5F
 
     ''' <summary>
+    ''' Light the FX volumetrics from the baked field as well as the ground.
+    '''
+    ''' DEFAULT OFF, and it is a look decision, not a bug fix. The field is
+    ''' measurably darker than the flat global probe the FX uses today, so lit
+    ''' smoke gets dimmer and shifts hue when this is on. Some of the smoke's
+    ''' current visibility is the accident that the ground is already
+    ''' grid-darkened and the smoke is not; this removes that. The smoke was
+    ''' fought back from invisible once, which is why the owner turns this on,
+    ''' not the code.
+    '''
+    ''' Only lit materials move - the ambient sits inside volumetric.vert's
+    ''' g_enableAO gate, which additive fire usually authors False. On maps
+    ''' that author additive AND lit together this DOES change fire.
+    ''' </summary>
+    Public USE_SH_GRID_FX As Boolean = False
+
+    ''' <summary>
+    ''' The FX pass's own normal push, SEPARATE from SH_GRID_OFFSET and zero by
+    ''' default. The 1.5 m push exists to keep a wall's lookup out of the
+    ''' near-black probes baked inside buildings - a job a smoke card floating
+    ''' in open air does not have. Its normals are not a coherent billboard, so
+    ''' a per-normal push scatters neighbouring vertices' lookups by up to a
+    ''' whole probe cell and splits one column left to right. Kept as a
+    ''' variable only so it can be A/B'd; 0 is the answer.
+    ''' </summary>
+    Public SH_GRID_OFFSET_FX As Single = 0.0F
+
+    ''' <summary>
+    ''' Bloom on the FX pass - the halo around fire.
+    '''
+    ''' Only possible now that the FX accumulate into a float target: the glow
+    ''' is built from energy the old Rgba8 path had already flattened away.
+    ''' Blending straight into an 8 bit buffer left nothing to glow with -
+    ''' every hot pixel was white by the time the pass was done.
+    ''' </summary>
+    Public FX_GLOW As Boolean = True
+
+    ' ----------------------------------------------------------------------
+    ' Glow shape. HARD WIRED at the owner's call, after tuning them live
+    ' against the fire on 19_monastery. Const, not variables: these are a
+    ' settled look, and the sliders that set them are gone. Change them here
+    ' and rebuild, or put the sliders back to re-tune.
+    ' ----------------------------------------------------------------------
+
+    ''' <summary>
+    ''' How much of the blurred energy to add back. 1.0 would add it at the
+    ''' strength it was emitted; 2.0 deliberately overdrives it, because the
+    ''' halo is spread over far more pixels than the core it came from and at
+    ''' unity it reads as a soft edge rather than as light coming off a fire.
+    ''' </summary>
+    Public Const FX_GLOW_STRENGTH As Single = 2.0F
+
+    ''' <summary>
+    ''' Where the bright pass starts keeping energy.
+    '''
+    ''' NOTE THIS IS BELOW 1.0, and that is a deliberate look choice, not an
+    ''' oversight. 1.0 is the principled value - gFX_HDR holds the
+    ''' premultiplied sum before composite_fx scales it back, so above 1.0 is
+    ''' exactly the energy that used to clip against Rgba8, and glowing only
+    ''' that is defensible from first principles.
+    '''
+    ''' 0.42 reaches below it, so SMOKE GLOWS TOO - and that is the point of
+    ''' the exact value. It is a FLOOR found by eye, not a midpoint: under 0.42
+    ''' the smoke starts glowing badly, and at 0.42 it is only lightly lit,
+    ''' which is what was wanted. Lower it and the smoke will bloom; there is
+    ''' no headroom below this number.
+    '''
+    ''' Any comment claiming the bright pass ignores smoke is describing the
+    ''' 1.0 threshold, not this one.
+    ''' </summary>
+    Public Const FX_GLOW_THRESHOLD As Single = 0.42F
+
+    ''' <summary>
+    ''' How far the glow reaches, as a multiple of one blur texel.
+    '''
+    ''' Scales the STEP between the blur's taps. The kernel is a fixed 9 taps,
+    ''' so widening this way costs nothing at all - but it also spreads those 9
+    ''' taps thinner, and far enough out they stop overlapping and the halo can
+    ''' show faint rings. FX_GLOW_PASSES is the cure for that, not a smaller
+    ''' radius.
+    '''
+    ''' Taps land on texel centres at whole numbers and between them at
+    ''' fractional ones, where the Linear filter averages two texels and hides
+    ''' the gaps - which is why this is 2.7 and not 3.
+    ''' </summary>
+    Public Const FX_GLOW_RADIUS As Single = 2.7F
+
+    ''' <summary>
+    ''' How many horizontal+vertical blur pairs to run.
+    '''
+    ''' Convolving a Gaussian with itself N times widens it by sqrt(N), so this
+    ''' is a much more expensive way to buy radius than FX_GLOW_RADIUS - but it
+    ''' adds taps rather than spreading them, so it is what fills in a wide
+    ''' radius that has started to band. Three pairs is six quarter-resolution
+    ''' fullscreen draws, which is nothing.
+    ''' </summary>
+    Public Const FX_GLOW_PASSES As Integer = 3
+
+    ''' <summary>
     ''' Replace the deferred pass with the probe field inspector - a separate
     ''' shader program, so nothing about this view can reach the real lighting.
     ''' </summary>
@@ -400,8 +526,16 @@ Module modGlobalVars
     ''' 0 is the global probe alone, 1 is the field exactly, and above 1 keeps
     ''' going - exaggerating how far the field departs from the flat global
     ''' probe. Past 1 it is not physical, but this is a viewer.
+    '''
+    ''' FIXED at 0.5 - half way between the global probe and the field - by the
+    ''' owner's call, not by derivation. It was 1.0, behind a "probe mix" slider
+    ''' that has been removed, so this line is now the only thing that sets it:
+    ''' nothing persists it and no UI moves it. Do not "restore" it to the field
+    ''' value on the assumption that 1.0 is the correct one; 0.5 is the chosen
+    ''' look. Put the slider back next to "normal offset m" in Window.vb if it
+    ''' ever needs exploring again.
     ''' </summary>
-    Public SH_GRID_MIX As Single = 1.0F
+    Public SH_GRID_MIX As Single = 0.5F
 
     '''<summary>Display gain for the inspector. Raw irradiance runs past 1.</summary>
     Public SH_GRID_EXPOSURE As Single = 0.25F
@@ -411,6 +545,16 @@ Module modGlobalVars
 
     Public DECAL_EDGE_FADE As Boolean = True
     Public DONT_BLOCK_MODELS As Boolean = False
+    ''' <summary>
+    ''' Draw the FX pass at all - the volumetric fire/smoke meshes AND the
+    ''' particle cards, which modRender brackets together as one pass. Named for
+    ''' the DONT_BLOCK_* convention the rest of Section Visibility uses.
+    '''
+    ''' Skipping the pass is safe for the state downstream inherits: draw_fx
+    ''' already returns early when nothing is in the frustum, so the base rings
+    ''' and the minimap cannot have been relying on the state it leaves.
+    ''' </summary>
+    Public DONT_BLOCK_FX As Boolean = True
     Public DONT_BLOCK_BASES As Boolean
     Public DONT_BLOCK_SKY As Boolean
     Public DONT_BLOCK_WATER As Boolean

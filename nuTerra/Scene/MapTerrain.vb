@@ -55,6 +55,20 @@ Public Class MapTerrain
 
     Public GLOBAL_AM_ID As GLTexture
 
+    ''' <summary>
+    ''' Map-wide terrain hole mask, one texel per authored hole cell, 64 per
+    ''' chunk edge. Red = 1 means "do not draw this terrain texel": the terrain
+    ''' fragment shaders sample it by Global_UV and discard before writing the
+    ''' G-buffers, which is where the game masks too.
+    '''
+    ''' Laid out from each chunk's own g_uv_offset, the SAME value the shader
+    ''' samples with, so the placement cannot drift from the lookup.
+    '''
+    ''' NEAREST filtered on purpose - a hole is a hard boolean and linear
+    ''' filtering would bleed half-open texels around every edge.
+    ''' </summary>
+    Public HOLE_MASK_ID As GLTexture
+
     'outland texture ids
     Public OUTLAND_NORMAL_MAP As GLTexture
     Public OUTLAND_NORMAL_CASCADE_MAP As GLTexture
@@ -576,6 +590,21 @@ Public Class MapTerrain
 
         ' BIND VT TEXTURES
         vt.Bind()
+
+        ' The terrain hole mask, unit 4. Both TerrainLQ.frag and TerrainHQ.frag
+        ' sample it by Global_UV and discard, so it has to be bound for every
+        ' terrain draw in this pass, HQ and LQ alike. vt.Bind() takes units 0-3.
+        ' The ELSE IS NOT OPTIONAL. Both terrain fragment shaders sample unit 4
+        ' unconditionally, so skipping the bind does not mean "no mask" - it
+        ' means the terrain discards against whatever the previous pass left on
+        ' that unit. That is exactly how SunShadowDepth ended up being sampled
+        ' by the particle shader. DUMMY_TEXTURE_ID is 2x2 RGBA8 cleared to zero
+        ' (TextureMgr.make_dummy_texture), so .r = 0 and nothing is ever cut.
+        If HOLE_MASK_ID IsNot Nothing Then
+            HOLE_MASK_ID.BindUnit(4)
+        Else
+            DUMMY_TEXTURE_ID.BindUnit(4)
+        End If
 
         ' BIND TERRAIN VAO
         all_chunks_vao.Bind()

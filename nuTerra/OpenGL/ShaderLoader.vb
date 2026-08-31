@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports OpenTK.Graphics.OpenGL
 
 Module ShaderLoader
@@ -86,7 +86,16 @@ Module ShaderLoader
             End If
             is_used = False
 #End If
-            ' GL.UseProgram(0)
+            ' Unbind. Leaving the program bound means its sampler declarations
+            ' keep being validated against unrelated texture state for the rest
+            ' of the frame, and the driver reports that as undefined behaviour
+            ' at whatever GL command validates next - even a glClear that does
+            ' not use the program at all. That is what produced a flood of
+            ' "#131222 ... depth comparisons ... shadow sampler" warnings from
+            ' the water shader, long after the water pass had finished, varying
+            ' with camera angle because it depended on whether draw_fx had run
+            ' and rebound unit 3.
+            GL.UseProgram(0)
         End Sub
 
         Sub UpdateShader()
@@ -194,6 +203,10 @@ Module ShaderLoader
     Public deferredShader As Shader
     ''' <summary>Stands in for deferredShader while the probe field view is on.</summary>
     Public probeFieldShader As Shader
+    ''' <summary>Rolls the accumulated FX buffer off and composites it over gColor.</summary>
+    Public fxCompositeShader As Shader
+    ''' <summary>Keeps only the FX energy above 1.0, for the glow.</summary>
+    Public fxBrightShader As Shader
     Public DeferredFogShader As Shader
     Public FF_BillboardShader As Shader
     Public FXAAShader As Shader
@@ -235,6 +248,7 @@ Module ShaderLoader
     Public roadShader As Shader
     Public roadMixShader As Shader
     Public toLinearShader As Shader
+    Public particleShader As Shader
     Public TextRenderShader As Shader
     'particle shaders
     Public explode_type_1_shader As Shader
@@ -306,6 +320,8 @@ Module ShaderLoader
         outlandWireShader = New Shader("outlandWire")
         outlandNormalsShader = New Shader("outlandNormals")
         probeFieldShader = New Shader("probe_field")
+        fxCompositeShader = New Shader("fx_composite")
+        fxBrightShader = New Shader("fx_bright")
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")
         t_mixerShader = New Shader("t_mixer")
@@ -324,6 +340,7 @@ Module ShaderLoader
 
         TextRenderShader = New Shader("TextRender")
         toLinearShader = New Shader("toLinear")
+        particleShader = New Shader("particle")
         'particle shaders
         explode_type_1_shader = New Shader("explode_type_1_")
         'shadow shaders

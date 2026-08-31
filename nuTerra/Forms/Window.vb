@@ -367,6 +367,12 @@ try_again:
             If FX_TIME > 3600.0F Then FX_TIME -= 3600.0F
         End If
 
+        ' Particles ride the same freeze as the rest of the FX so a frozen
+        ' frame really is reproducible.
+        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso Not FREEZE_FX Then
+            map_scene.particles.Update(CSng(DELTA_TIME))
+        End If
+
         ' Unattended Snapshot. Counted in frames, not seconds, so it cannot
         ' fire before the cull buckets have been filled at least once.
         If AUTO_SNAP_FRAMES > 0 AndAlso MAP_LOADED Then
@@ -745,6 +751,16 @@ try_again:
         map_scene.sun_shadow.LogSnapshot()
 
         LogThis("  water: loaded={0} draw={1}", map_scene.WATER_LOADED, DONT_BLOCK_WATER)
+
+        ' The probe field's state, including what the FX pass gets as opposed to
+        ' the deferred pass. offset is printed as deferred/fx because they are
+        ' deliberately different: the 1.5 m wall push is wrong for smoke cards.
+        ' Without this line a control run has no in-band proof the FX pass was
+        ' actually handed the same field as the ground.
+        LogThis("  sh grid: loaded={0} use={1} fx={2} mix={3:0.00} offset={4:0.0}/{5:0.0} fade={6:0.0} centre=({7:0.#},{8:0.#}) size=({9:0.#},{10:0.#})",
+                SH_GRID_LOADED, USE_SH_GRID, USE_SH_GRID_FX, SH_GRID_MIX,
+                SH_GRID_OFFSET, SH_GRID_OFFSET_FX, SH_GRID_FADE,
+                SH_GRID_CENTRE.X, SH_GRID_CENTRE.Z, SH_GRID_SIZE.X, SH_GRID_SIZE.Z)
 
         ' FX diagnostics: the four cull buckets (fx is the volumetric pass's
         ' draw count this frame), and whether anything upset GL since the last
@@ -1204,6 +1220,24 @@ try_again:
                         DECAL_EDGE_FADE = Not no_edge_fade
                     End If
                     ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
+                    ' The whole FX pass, meshes and cards together, which is how
+                    ' modRender brackets them. Independent of DONT_BLOCK_MODELS -
+                    ' hiding the models leaves the fire and smoke drawing. It does
+                    ' still need MODELS_LOADED: the FX meshes are model geometry and
+                    ' the load itself sits inside DONT_BLOCK_MODELS (MapLoader.vb:65),
+                    ' so a map loaded with models off has no FX to show.
+                    ImGui.Checkbox("Draw FX", DONT_BLOCK_FX)
+                    If DONT_BLOCK_FX Then
+                        ImGui.Checkbox("   Particle cards as wireframe", PARTICLES_WIRE)
+                        ' Glow. Only possible because the FX accumulate into a
+                        ' float buffer - the halo is built from energy the old
+                        ' Rgba8 path had already flattened away.
+                        '
+                        ' Shape is hard wired (see modGlobalVars); the sliders
+                        ' that tuned strength, radius, passes and threshold are
+                        ' deliberately gone. This is on/off only.
+                        ImGui.Checkbox("   Glow", FX_GLOW)
+                    End If
                     ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
                     ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
                     ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)
@@ -1457,7 +1491,11 @@ try_again:
                     ' placement can be checked before anything consumes it.
                     ImGui.Separator()
                     If SH_GRID_LOADED Then
-                        ImGui.Checkbox("SH probe grid (loaded, not mixed)", USE_SH_GRID)
+                        ImGui.Checkbox("SH probe grid", USE_SH_GRID)
+                        ImGui.Checkbox("   light FX from the field", USE_SH_GRID_FX)
+                        If USE_SH_GRID_FX Then
+                            ImGui.SliderFloat("      FX normal offset m", SH_GRID_OFFSET_FX, 0.0F, 5.0F)
+                        End If
 
                         ' Swaps the whole lighting program for probe_field.frag.
                         ' Nothing about this view can touch the real shading.
@@ -1468,10 +1506,6 @@ try_again:
                             ImGui.Text("      red = outside box, amber = above bake")
                         End If
 
-                        ' 0 = global probe alone, 1 = the field exactly, above 1
-                        ' exaggerates how far the field departs from the flat
-                        ' global probe.
-                        ImGui.SliderFloat("   probe mix", SH_GRID_MIX, 0.0F, 3.0F)
                         ImGui.SliderFloat("   normal offset m", SH_GRID_OFFSET, 0.0F, 5.0F)
                         ImGui.Text(String.Format("   {0:0.#} m box, {1:0.00} m spacing, fade {2:0.#} m",
                                                  SH_GRID_SIZE.X, SH_GRID_SPACING, SH_GRID_FADE))

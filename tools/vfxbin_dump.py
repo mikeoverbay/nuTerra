@@ -52,13 +52,20 @@ if __name__=="__main__":
             p=block999(d,s,e)
             if p is None: continue
             print("=== %s / %s ===" % (fn, nm))
-            # Atlas. The rect is stored (u_max, v_min, u_min, v_max) - right,
-            # top, left, bottom; every other ordering gives regions that
-            # straddle unrelated sprite sheets. And +220 is ROWS, +224 is COLS,
-            # verified over 3348 emitters by matching each region's aspect
+            # Atlas. The rect is stored (v_max, u_min, v_min, u_max).
+            #
+            # This tool used to read it as (u_max, v_min, u_min, v_max) and say
+            # so here. That was the reading at the time; it was superseded by
+            # the working implementation, which resolves smoke_Big to pixels
+            # (1024, 0, 2048, 1024) on the sheet and renders correctly. See the
+            # read at +192..+204 in modParticles.ParseEmitter - if the two ever
+            # disagree again, the renderer is the one that is checkable.
+            #
+            # +220 is ROWS, +224 is COLS - the one thing both readings agreed
+            # on, verified over 3348 emitters by matching each region's aspect
             # against the grid assuming square cells (median error 0.0000, 87%
             # within 2%, against 0.0161 / 53% the other way round).
-            umax, vmin, umin, vmax = (f32(d,p+192), f32(d,p+196),
+            vmax, umin, vmin, umax = (f32(d,p+192), f32(d,p+196),
                                       f32(d,p+200), f32(d,p+204))
             print("  atlas  u %.4g..%.4g  v %.4g..%.4g   %d cols x %d rows @ %.4g fps"
                   % (umin, umax, vmin, vmax,

@@ -42,7 +42,10 @@ Module modRender
         map_scene.camera.set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
-        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        ' The FX pass draws cull bucket 3 out of this same cull, so it has to run
+        ' whenever EITHER the models or the FX are being drawn - hiding the models
+        ' must not starve draw_fx of its bucket.
+        If map_scene.MODELS_LOADED AndAlso (DONT_BLOCK_MODELS OrElse DONT_BLOCK_FX) Then
             '=======================================================================
             map_scene.static_models.frustum_cull() '========================================================
             '=======================================================================
@@ -83,11 +86,17 @@ Module modRender
         GL.DepthFunc(DepthFunction.Greater)
         '===========================================================================
 
-        'Model depth pass only
-        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        ' Per-bucket counts from the cull, read back CPU-side. draw_fx opens with
+        ' "If numAfterFrustum(3) = 0 Then Return", so this has to follow the cull
+        ' rather than the model passes, or hiding the models leaves the FX bucket
+        ' reading a stale zero and the pass silently draws nothing.
+        If map_scene.MODELS_LOADED AndAlso (DONT_BLOCK_MODELS OrElse DONT_BLOCK_FX) Then
             GL.CopyNamedBufferSubData(map_scene.static_models.parameters.buffer_id, map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer))
             GL.GetNamedBufferSubData(map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer), map_scene.static_models.numAfterFrustum)
+        End If
 
+        'Model depth pass only
+        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             modGpuTimers.Begin("Model depth")
             map_scene.static_models.model_depth_pass()
             modGpuTimers.Finish()
@@ -260,7 +269,11 @@ Module modRender
         ' after water so a column rising out of a lake sits over it. Straight
         ' into gColor: unlike water and SSR the pass never samples the frame,
         ' so no copy dance is needed.
-        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        ' MODELS_LOADED, not DONT_BLOCK_MODELS: the FX meshes are model geometry
+        ' and cannot draw if the loader never read them (the load itself sits
+        ' inside DONT_BLOCK_MODELS, MapLoader.vb:65), but once they ARE loaded,
+        ' hiding the models must not hide them.
+        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_FX Then
             modGpuTimers.Begin("FX")
             ' Bind explicitly. attach_C only names the draw buffer (DSA); it
             ' does not bind, so this pass was landing in whatever framebuffer
@@ -282,7 +295,71 @@ Module modRender
             ' did the FX pass change any pixel, and by how much.
             Dim fx_before As Byte() = Nothing
             If FX_DIFF_THIS_FRAME Then fx_before = grab_colour_buffer()
+            ' ORDER IS LOAD-BEARING: cards FIRST, FX meshes SECOND.
+            '
+            ' The card pass is pure alpha "over" - particle.frag emits
+            ' (rgb*a, a) unconditionally, there is no additive branch - so it
+            ' ATTENUATES whatever is already in gColor. That is what was drowning
+            ' the fire. The FX meshes are additive: volumetric.frag takes the
+            ' mat.alphaTestEnable branch and emits (rgb*a, 0), which under this
+            ' pass's premultiplied One / OneMinusSrcAlpha reduces to dst + src -
+            ' it adds light and attenuates nothing.
+            '
+            ' So drawing the meshes LAST is the only order in which card smoke
+            ' cannot wash the fire out, and it costs the additive draws nothing,
+            ' because addition does not depend on what came before it.
+            '
+            ' Neither pass writes depth (both DepthMask(False)), so this is a
+            ' compositing order only - no fragment's visibility changes and
+            ' terrain still occludes both exactly as before. State is identical
+            ' either way: the particle pass is a SaveState/RestoreState identity,
+            ' and draw_fx sets everything it uses and resets blend and depth on
+            ' exit, so whichever runs last hands downstream the same state.
+            '
+            ' DO NOT move the particle call back above draw_fx - the
+            ' fire-after-smoke rule breaks silently, with no error.
+            '
+            ' Both passes now draw into gFX_HDR, not gColor. gColor is Rgba8 and
+            ' this pass runs AFTER deferred.frag has tonemapped, so every blend
+            ' clamped at 1.0 and overlapping additive cards saturated channel by
+            ' channel - fire is about (1.0, 0.6, 0.2), so red pinned first and
+            ' green climbed to meet it, turning orange into yellow and then
+            ' white. Accumulating in float16 and rolling the SUM off once, in
+            ' composite_fx, is what keeps the hue.
+            '
+            ' The order above is unaffected by the move, and so is the result of
+            ' the ordering: premultiplied "over" is associative, so compositing
+            ' the FX among themselves and then over the scene is the same
+            ' arrangement as compositing them one at a time over the scene.
+            MainFBO.fx_fbo.Bind(FramebufferTarget.Framebuffer)
+            ' Fully TRANSPARENT, not black: rgb carries premultiplied colour and
+            ' alpha carries accumulated coverage, and composite_fx consumes both.
+            ' Colour only - gDepth is SHARED with the main FBO and clearing it
+            ' here would throw away the scene depth the FX test against.
+            GL.ClearColor(0.0F, 0.0F, 0.0F, 0.0F)
+            GL.Clear(ClearBufferMask.ColorBufferBit)
+
+            If PARTICLES_ENABLED Then
+                map_scene.particles.Draw(map_scene.camera.CAM_POSITION)
+                trace_state("particles")
+            End If
             map_scene.static_models.draw_fx()
+            trace_state("draw_fx")
+
+            ' Glow, built from the accumulated buffer while it is still float.
+            ' Must run BEFORE the composite: composite_fx scales the sum back
+            ' into range, and after that the over-range energy the glow is made
+            ' of no longer exists.
+            If FX_GLOW Then build_fx_glow()
+
+            ' Back to the lit frame and fold the accumulated FX in. The
+            ' viewport is restored explicitly - build_fx_glow runs at a
+            ' fraction of the resolution and does not put it back itself.
+            MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
+            MainFBO.attach_C()
+            GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
+            composite_fx()
+
             If FX_DIFF_THIS_FRAME Then report_fx_diff(fx_before)
             trace_gcolor("draw_fx")
             modGpuTimers.Finish()
@@ -338,6 +415,7 @@ Module modRender
             ' makes the isolated view useless. Skip it while isolating.
             If Not BLACK_BEFORE_FX Then map_scene.fog.global_fog()
             trace_gcolor("global_fog")
+
 
             GL.Disable(EnableCap.DepthTest)
             GL.DepthMask(True)
@@ -415,6 +493,25 @@ Module modRender
     ' for that: in a normal render the scene lights every pixel and swamps them.
     Private fx_pixels As Integer() = Nothing
 
+    ''' <summary>
+    ''' Log the GL state a pass leaves behind. Used to make the particle pass
+    ''' leave EXACTLY what draw_fx leaves, by measurement rather than argument -
+    ''' guessing an exit state broke the frame, the base-ring projector and the
+    ''' minimap in turn.
+    ''' </summary>
+    Private Sub trace_state(label As String)
+        If Not FX_DIFF_THIS_FRAME Then Return
+        Dim dm(0) As Boolean
+        GL.GetBoolean(GetPName.DepthWritemask, dm)
+        LogThis("    STATE after {0,-10} test={1,-5} func={2} mask={3,-5} cull={4,-5} blend={5,-5} src={6} dst={7} prog={8} vao={9} tex0={10}",
+                label,
+                GL.IsEnabled(EnableCap.DepthTest), GL.GetInteger(GetPName.DepthFunc), dm(0),
+                GL.IsEnabled(EnableCap.CullFace), GL.IsEnabled(EnableCap.Blend),
+                GL.GetInteger(GetPName.BlendSrcRgb), GL.GetInteger(GetPName.BlendDstRgb),
+                GL.GetInteger(GetPName.CurrentProgram), GL.GetInteger(GetPName.VertexArrayBinding),
+                GL.GetInteger(GetPName.TextureBinding2D))
+    End Sub
+
     Private Sub trace_gcolor(label As String)
         If Not FX_DIFF_THIS_FRAME OrElse fx_pixels Is Nothing Then Return
         Dim buf = grab_colour_buffer()
@@ -451,6 +548,128 @@ Module modRender
                 changed, total, 100.0 * changed / total, max_delta,
                 If(changed > 0, sum_delta / CDbl(changed), 0.0))
         dump_fx_pass(after)
+    End Sub
+
+    ''' <summary>
+    ''' Build the FX glow: keep the over-range energy, blur it, leave it in
+    ''' gFX_BloomA for composite_fx to add.
+    '''
+    ''' Runs at 1/BLOOM_DIV on each axis. That is what gives the glow its
+    ''' radius as much as it saves work - the blur is a fixed 9 tap kernel, so
+    ''' its reach in screen pixels is whatever one texel at this size is worth.
+    '''
+    ''' Leaves the viewport at the reduced size; the caller restores it.
+    ''' </summary>
+    Private Sub build_fx_glow()
+        GL_PUSH_GROUP("build_fx_glow")
+
+        Dim bw = MainFBO.bloom_width, bh = MainFBO.bloom_height
+
+        ' Full-screen quads, no geometry: nothing here wants depth, culling or
+        ' blending. Each pass fully overwrites its target, so none of them need
+        ' a clear either.
+        GL.Disable(EnableCap.DepthTest)
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.CullFace)
+        GL.Disable(EnableCap.Blend)
+        GL.Viewport(0, 0, bw, bh)
+        defaultVao.Bind()
+
+        ' --- bright pass: gFX_HDR -> BloomA, downsampling on the way ---
+        MainFBO.bloom_fbo.Texture(FramebufferAttachment.ColorAttachment0, MainFBO.gFX_BloomA, 0)
+        GL.NamedFramebufferDrawBuffer(MainFBO.bloom_fbo.fbo_id, DrawBufferMode.ColorAttachment0)
+        MainFBO.bloom_fbo.Bind(FramebufferTarget.Framebuffer)
+        fxBrightShader.Use()
+        MainFBO.gFX_HDR.BindUnit(0)
+        GL.Uniform1(fxBrightShader("threshold"), FX_GLOW_THRESHOLD)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        fxBrightShader.StopUse()
+
+        ' --- separable blur, ping-ponging between the pair ---
+        ' msmBlurShader is reused as-is. It is a plain 9 tap Gaussian along a
+        ' uniform direction over a sampler2D - nothing in it is specific to
+        ' shadow moments, and duplicating it would just be a second copy to
+        ' keep in step.
+        msmBlurShader.Use()
+        ' FX_GLOW_RADIUS spreads the 9 fixed taps further apart, which widens
+        ' the halo for free. Far enough out the taps stop overlapping and the
+        ' halo can ring - more passes, not a smaller radius, is the cure.
+        Dim step_x = FX_GLOW_RADIUS / CSng(bw)
+        Dim step_y = FX_GLOW_RADIUS / CSng(bh)
+
+        ' Each pass is one horizontal and one vertical blur. Convolving a
+        ' Gaussian with itself N times widens it by sqrt(N) AND fills in the
+        ' gaps a wide radius leaves, which is the whole reason to spend them.
+        '
+        ' The clamp that used to guard this is gone with the slider:
+        ' FX_GLOW_PASSES is a Const now, so there is no longer a path by which
+        ' it can arrive as 0 and leave the raw un-blurred bright pass in A.
+        For i = 1 To FX_GLOW_PASSES
+            ' horizontal: A -> B
+            MainFBO.bloom_fbo.Texture(FramebufferAttachment.ColorAttachment0, MainFBO.gFX_BloomB, 0)
+            GL.NamedFramebufferDrawBuffer(MainFBO.bloom_fbo.fbo_id, DrawBufferMode.ColorAttachment0)
+            MainFBO.bloom_fbo.Bind(FramebufferTarget.Framebuffer)
+            MainFBO.gFX_BloomA.BindUnit(0)
+            GL.Uniform2(msmBlurShader("direction"), step_x, 0.0F)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+            ' vertical: B -> A, so the result always lands back in A
+            MainFBO.bloom_fbo.Texture(FramebufferAttachment.ColorAttachment0, MainFBO.gFX_BloomA, 0)
+            GL.NamedFramebufferDrawBuffer(MainFBO.bloom_fbo.fbo_id, DrawBufferMode.ColorAttachment0)
+            MainFBO.bloom_fbo.Bind(FramebufferTarget.Framebuffer)
+            MainFBO.gFX_BloomB.BindUnit(0)
+            GL.Uniform2(msmBlurShader("direction"), 0.0F, step_y)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        Next
+
+        msmBlurShader.StopUse()
+        GL.BindTextureUnit(0, 0)
+
+        GL_POP_GROUP()
+    End Sub
+
+    ''' <summary>
+    ''' Roll the accumulated FX buffer back into range and composite it over the
+    ''' lit frame, in one pass.
+    '''
+    ''' gFX_HDR holds PREMULTIPLIED colour in rgb and accumulated coverage in a,
+    ''' which is exactly what One / OneMinusSrcAlpha consumes - so alpha smoke
+    ''' still attenuates the scene and additive fire, which emits alpha 0, still
+    ''' only adds. The shader divides rgb by max(1, luminance), the same
+    ''' operator volumetric.frag applies per card, now applied once to the sum.
+    ''' </summary>
+    Private Sub composite_fx()
+        GL_PUSH_GROUP("composite_fx")
+
+        fxCompositeShader.Use()
+        MainFBO.gFX_HDR.BindUnit(0)
+        ' Always bound, even with the glow off. The shader declares this
+        ' sampler unconditionally, so leaving unit 1 to whatever the frame
+        ' happened to park there is the same hazard that had the particle
+        ' shader reading SunShadowDepth. With the glow off the strength below
+        ' is 0, so its contents cannot matter - but it must be a real texture.
+        MainFBO.gFX_BloomA.BindUnit(1)
+        GL.Uniform1(fxCompositeShader("glow_strength"),
+                    If(FX_GLOW, FX_GLOW_STRENGTH, 0.0F))
+
+        ' The quad covers the screen and must not be depth-tested against the
+        ' scene it is compositing over.
+        GL.Disable(EnableCap.DepthTest)
+        GL.DepthMask(False)
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha)
+
+        GL.UniformMatrix4(fxCompositeShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        draw_main_Quad(fxCompositeShader, MainFBO.width, MainFBO.height)
+
+        GL.Disable(EnableCap.Blend)
+        ' Put the app's conventional blend func back, as draw_fx does, so later
+        ' passes that enable blend without setting one do not inherit this pair.
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+        GL.DepthMask(True)
+
+        fxCompositeShader.StopUse()
+        GL_POP_GROUP()
     End Sub
 
     ''' <summary>
@@ -552,8 +771,16 @@ Module modRender
         GL.Uniform1(deferredShader("sh_enabled"),
                     CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
 
-        ' The baked probe FIELD. Uploaded and sampled, but deferred.frag does
-        ' not fold it into the lighting yet - only the debug view reads it.
+        ' The baked probe FIELD, folded into the real lighting: deferred.frag
+        ' blends it over the flat global probe with
+        ' mix(irradiance, grid_irr, sh_grid_mix), inside the sh_grid_enabled
+        ' branch, and its own comment there notes that is the ONLY place the
+        ' field touches lighting.
+        '
+        ' This comment used to say the opposite - that only the debug view read
+        ' the field. That was true before the grid was wired in and is not any
+        ' more; it survived long enough to nearly cause a wrong conclusion about
+        ' whether sh_grid_mix does anything. It does.
         Dim grid_on = USE_SH_GRID AndAlso SH_GRID_LOADED AndAlso SH_GRID_ID IsNot Nothing
         If grid_on Then
             SH_GRID_ID.BindUnit(11)
@@ -700,8 +927,12 @@ Module modRender
     ''' selected by the "show probe field" checkbox.
     '''
     ''' Forking at the program level rather than branching inside deferred.frag
-    ''' is the whole point: the lighting shader never references the grid, so
-    ''' turning this view on cannot change how the scene actually renders.
+    ''' keeps the inspector out of the lighting path, so turning this view on
+    ''' cannot perturb how the scene renders.
+    '''
+    ''' It is NOT a preview of the lit result. deferred.frag folds the field
+    ''' into the ambient by sh_grid_mix; this view shows the field raw, so the
+    ''' two are not expected to match pixel for pixel.
     ''' </summary>
     Private Sub render_probe_field()
         GL_PUSH_GROUP("render_probe_field")

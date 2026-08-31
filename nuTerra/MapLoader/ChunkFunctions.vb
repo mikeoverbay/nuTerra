@@ -196,7 +196,14 @@ Module ChunkFunctions
                 bottomleft.vert.Y = (j + 1) - h_
                 bottomleft.uv.X = (i) * uvScale
                 bottomleft.uv.Y = (j + 1) * uvScale
-                topleft.hole = v_data.holes(topleft.uv.X * hole_size, topleft.uv.Y * hole_size)
+                ' Was assigning topleft.hole a second time, from topleft.uv, so
+                ' bottomleft.hole was never written anywhere in the program.
+                ' topleft/bottomleft are module-level shared structs
+                ' (TerrainBuilder.vb:35-38), so it held its initial False for the
+                ' whole map build and every j+1 row of every chunk got hole = 0.
+                ' Half the grid could never be cut, which is why wide holes
+                ' survived but one-cell trenches never opened.
+                bottomleft.hole = v_data.holes(bottomleft.uv.X * hole_size, bottomleft.uv.Y * hole_size)
 
                 '         I
                 '  TL --------- TR
@@ -673,6 +680,15 @@ Module ChunkFunctions
         map_scene.terrain.vertices_buffer.StorageNullData(vcount * vsize, BufferStorageFlags.DynamicStorageBit)
         map_scene.terrain.indices_buffer.Storage(theMap.v_data(0).indicies.Length * 6, theMap.v_data(0).indicies, BufferStorageFlags.None)
 
+        ' Terrain hole mask. 64 hole cells per chunk edge, so the map-wide
+        ' texture is chunks * 64 on each axis. R8: one byte per cell, 0 = solid,
+        ' 255 = hole.
+        Dim hole_cells = 64
+        Dim hole_w = CInt(mapsize.X) * hole_cells
+        Dim hole_h = CInt(mapsize.Y) * hole_cells
+        Dim hole_px(Math.Max(hole_w * hole_h, 1) - 1) As Byte
+        Dim hole_count = 0
+
         For i = 0 To theMap.chunks.Length - 1
             With theMap.v_data(i)
                 Debug.Assert(.n_buff.Length = .h_buff.Length)
@@ -686,6 +702,27 @@ Module ChunkFunctions
                 terrainMatrices(i).modelMatrix = theMap.render_set(i).matrix
                 terrainMatrices(i).g_uv_offset = Vector2.Divide((((theMap.chunks(i).location.Xy - New Vector2(50.0)) / 100.0) - New Vector2(b_x_min, b_y_max)), mapsize)
                 terrainMatrices(i).g_uv_offset.Y += 1.0
+
+                ' Stamp this chunk's holes into the map-wide mask, positioned by
+                ' the very g_uv_offset just computed above. Deriving the texel
+                ' origin from the shader's own UV is the point: any error in the
+                ' chunk grid maths cancels, because both sides use one value.
+                If .holes IsNot Nothing Then
+                    Dim ox = CInt(Math.Round(terrainMatrices(i).g_uv_offset.X * hole_w))
+                    Dim oy = CInt(Math.Round(terrainMatrices(i).g_uv_offset.Y * hole_h))
+                    For hz = 0 To hole_cells - 1
+                        Dim ty = oy + hz
+                        If ty < 0 OrElse ty >= hole_h Then Continue For
+                        For hx = 0 To hole_cells - 1
+                            Dim tx = ox + hx
+                            If tx < 0 OrElse tx >= hole_w Then Continue For
+                            If .holes(hx, hz) <> 0 Then
+                                hole_px(ty * hole_w + tx) = 255
+                                hole_count += 1
+                            End If
+                        Next
+                    Next
+                End If
 
                 Dim vertices(.n_buff.Length - 1) As TerrainVertex
                 For j = 0 To .n_buff.Length - 1
@@ -710,6 +747,19 @@ Module ChunkFunctions
                 .t_buff = Nothing
             End With
         Next
+
+        ' The hole mask, built above. NEAREST both ways - a hole is boolean and
+        ' any filtering would feather its edge across a whole terrain cell.
+        Dim hm = GLTexture.Create(TextureTarget.Texture2D, "terrain_hole_mask")
+        hm.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        hm.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        hm.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+        hm.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        hm.Storage2D(1, SizedInternalFormat.R8, hole_w, hole_h)
+        GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1)
+        hm.SubImage2D(0, 0, 0, hole_w, hole_h, PixelFormat.Red, PixelType.UnsignedByte, hole_px)
+        map_scene.terrain.HOLE_MASK_ID = hm
+        LogThis("terrain hole mask: {0}x{1}, {2} hole cells set", hole_w, hole_h, hole_count)
 
         ' VERTEX XYZ
         map_scene.terrain.all_chunks_vao.VertexBuffer(0, map_scene.terrain.vertices_buffer, IntPtr.Zero, vsize)
@@ -744,6 +794,7 @@ Module ChunkFunctions
         map_scene.terrain.matrices.Storage(terrainMatrices.Length * Marshal.SizeOf(Of TerrainChunkInfo), terrainMatrices, BufferStorageFlags.None)
         map_scene.terrain.matrices.BindBase(10)
     End Sub
+
 
     Public Sub get_holes(ByRef c As chunk_, ByRef v As terrain_V_data_)
 
@@ -797,14 +848,30 @@ Module ChunkFunctions
         hole_size = h * 2 - 1
         'This will be used to punch holes
         'in the map to speed up rendering and allow for sub terrain items.
-        'Each bit in the 8 bit grey scale 8 bit image is a hole.
-        'We must bit shift >> 1 to get each value.
+        'Each bit of each byte is one hole cell, LSB-first, 8 cells per byte.
         For z1 = 0 To (h * 2) - 1
             For x1 = 0 To (stride) - 1
                 Dim val = data((z1 * stride) + x1)
                 For q = 0 To 7
                     Dim b = (1 And (val >> q))
                     If b > 0 Then b = 1
+                    ' X is mirrored WITHIN the chunk; Z is written straight.
+                    '
+                    ' This 63-x is ORIGINAL code. It was removed once, on the
+                    ' strength of a comparison image that was itself rendered
+                    ' mirrored - global_AM maps to world through a NEGATIVE affine
+                    ' on BOTH axes (the world_from_uv uniform in MapTerrain.vb),
+                    ' which that image ignored.
+                    ' Judged against a correctly oriented render the mirror is
+                    ' right, so it was restored. Do not remove it again without
+                    ' re-deriving the orientation from the terrain, not from a
+                    ' picture of global_AM.
+                    '
+                    ' Verified from the bytes, not inferred: the block is
+                    ' 'hol' + a NUL byte, 64x64, version 1, 512 bytes at 8 per
+                    ' row, and the bit order within each byte is LSB-first -
+                    ' MSB-first shatters continuous cliff curves into 8-pixel
+                    ' sawtooth.
                     v.holes(63 - ((x1 * 8) + q), z1) = b
                 Next
             Next

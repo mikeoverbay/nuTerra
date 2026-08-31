@@ -701,10 +701,10 @@ Module TerrainBuilder
     ''' Where load_sh_ambient gives one probe for the whole map, this varies
     ''' with POSITION as well as normal, because the bake saw the buildings.
     '''
-    ''' NOTHING IN THE LIGHTING READS THIS YET. It is loaded, uploaded and
-    ''' sampled by deferred.frag into a local variable that is deliberately not
-    ''' folded into the ambient term - the "show probe field" view is there to
-    ''' confirm it is live and correctly placed before any of that happens.
+    ''' THE LIGHTING READS THIS. deferred.frag blends the field over the flat
+    ''' global probe's irradiance by sh_grid_mix, and with USE_SH_GRID_FX on the
+    ''' FX volumetrics sample the same field. The "show probe field" view is a
+    ''' separate program that displays the field raw, for checking placement.
     '''
     ''' The general DDS loader has no volume path, so the read is bespoke.
     ''' </summary>

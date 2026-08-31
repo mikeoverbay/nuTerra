@@ -11,9 +11,11 @@
 //
 // A COMPLETE REPLACEMENT for the deferred pass, selected by the "show probe
 // field" checkbox. It exists so the baked SH grid can be checked for placement
-// and orientation WITHOUT any of it living in deferred.frag - the real
-// lighting path never references the grid, so this view can never change how
-// the scene renders.
+// and orientation in isolation. Being a separate program, turning this view on
+// cannot perturb the lighting path.
+//
+// It is NOT a preview of the lit result: deferred.frag folds the field into
+// the ambient by sh_grid_mix, while this view shows the field raw.
 //
 // What it draws, per pixel of scene geometry:
 //   * the field's irradiance evaluated against that surface's normal

@@ -342,9 +342,13 @@ Module MapLoader
             ' overlapping smoke). Indexed by candidate id (= baseInstance).
             ReDim map_scene.static_models.candidate_origins(map_scene.static_models.indirectDrawCount - 1)
             ReDim map_scene.static_models.candidate_model_ids(map_scene.static_models.indirectDrawCount - 1)
+            ReDim map_scene.static_models.candidate_material_ids(map_scene.static_models.indirectDrawCount - 1)
             For i = 0 To map_scene.static_models.indirectDrawCount - 1
                 map_scene.static_models.candidate_origins(i) = matrices(drawCommands(i).model_id).matrix.ExtractTranslation()
                 map_scene.static_models.candidate_model_ids(i) = drawCommands(i).model_id
+                ' Kept for the FX composite class, which load_materials derives
+                ' later - drawCommands is erased a few lines below.
+                map_scene.static_models.candidate_material_ids(i) = drawCommands(i).material_id
             Next
 
             map_scene.static_models.drawCandidates = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "drawCandidates")
@@ -513,6 +517,9 @@ Module MapLoader
         cBWST = Nothing
         cWGSD = Nothing
 
+        ' Particles need ResMgr and the GL context, so they load last.
+        If map_scene IsNot Nothing Then map_scene.particles.Load()
+
         MAP_LOADED = True
 
         ' A camera handed in on the command line, applied once the map is up
@@ -614,6 +621,9 @@ Module MapLoader
 
             decal_item.influence = CUInt(decal.influenceType)
 
+            decal_item.priority = decal.priority
+            decal_item.load_index = CInt(i)
+
             decal_item.visibility = decal.visibility_mask >> 16 And &HFFFF
 
             decal_item.v1 = decal.v1 And &HFFFF
@@ -685,6 +695,26 @@ Module MapLoader
             End If
             i += 1
         Next
+
+        ' Authored draw order, finally applied. The WGSD record carries a
+        ' priority per decal and draw_decals composites in list order with Blend
+        ' on and DepthMask(False) (MapDecals.vb:47-48), so the order of this
+        ' list IS the order they stack. Ascending, which is the intent already
+        ' encoded in DECAL_INDEX_LIST_.CompareTo: higher priority draws later,
+        ' and therefore on top.
+        '
+        ' Until now the priority was read, copied into DECAL_INDEX_LIST, sorted
+        ' there - and thrown away, because DECAL_INDEX_LIST is never read by
+        ' anything. This list, built from cWGSD.decalEntries in raw file order,
+        ' is what actually reaches the GPU.
+        map_scene.decals.all_decals.Sort(
+            Function(a, b)
+                Dim c = a.priority.CompareTo(b.priority)
+                If c <> 0 Then Return c
+                Return a.load_index.CompareTo(b.load_index)
+            End Function)
+
+
 
         map_scene.DECALS_LOADED = True
     End Sub
@@ -1479,6 +1509,112 @@ Module MapLoader
             materialsData,
             BufferStorageFlags.None)
         map_scene.static_models.materials.BindBase(3)
+
+        ' ---- FX composite class, derived once, read by the sort every frame ----
+        ' additive = the volumetric fragment shader takes the mat.alphaTestEnable
+        ' branch (volumetric.frag:120) and emits (rgb*a, 0). Under the FX pass
+        ' blend One / OneMinusSrcAlpha with src.a = 0 that is dst + src: it adds
+        ' light and attenuates nothing, so it is safe to composite LAST and it is
+        ' the only class that can be moved without changing anything else.
+        '
+        ' GATED ON FX_volumetric. On every other shader type the alphaTestEnable
+        ' slot is a real alpha TEST, so reading it unguarded would misclassify
+        ' ordinary opaque geometry as fire.
+        Dim mat_fx_additive(materialsData.Length - 1) As Boolean
+        For mi = 0 To materialsData.Length - 1
+            mat_fx_additive(mi) = (materialsData(mi).shader_type = CUInt(ShaderTypes.FX_volumetric) AndAlso
+                                   materialsData(mi).alphaTestEnable = 1)
+        Next
+
+        With map_scene.static_models
+            If .candidate_material_ids IsNot Nothing AndAlso .candidate_model_ids IsNot Nothing Then
+                ' Fold to per-INSTANCE first: an instance counts as additive if
+                ' ANY of its draws is. That keeps every mesh contiguous in the
+                ' sorted bucket instead of splitting its authored layer stack.
+                Dim inst_additive As New Dictionary(Of UInteger, Boolean)
+                For i = 0 To .candidate_material_ids.Length - 1
+                    Dim mid_ = .candidate_model_ids(i)
+                    Dim add_ = False
+                    If .candidate_material_ids(i) < CUInt(mat_fx_additive.Length) Then
+                        add_ = mat_fx_additive(CInt(.candidate_material_ids(i)))
+                    End If
+                    Dim cur_ As Boolean
+                    If inst_additive.TryGetValue(mid_, cur_) Then
+                        inst_additive(mid_) = cur_ OrElse add_
+                    Else
+                        inst_additive(mid_) = add_
+                    End If
+                Next
+
+                ReDim .candidate_fx_additive(.candidate_material_ids.Length - 1)
+                Dim n_add = 0
+                For i = 0 To .candidate_material_ids.Length - 1
+                    .candidate_fx_additive(i) = inst_additive(.candidate_model_ids(i))
+                    If .candidate_fx_additive(i) Then n_add += 1
+                Next
+                LogThis("FX composite class: {0} of {1} candidates additive (fire), rest alpha (smoke)",
+                        n_add, .candidate_fx_additive.Length)
+            End If
+        End With
+    End Sub
+
+    ''' <summary>
+    ''' What the particle readers found. Logged rather than drawn for now: the
+    ''' 32-bit effect id in each placement is not resolved to a file yet, so a
+    ''' placement cannot be matched to its .vfxbin in general.
+    ''' </summary>
+    Private Sub report_pfx_placements()
+        If PFX_PLACEMENTS Is Nothing OrElse PFX_PLACEMENTS.Count = 0 Then
+            LogThis("particles: no BWPs placements")
+            Return
+        End If
+        Dim ids As New Dictionary(Of UInteger, Integer)
+        For Each p In PFX_PLACEMENTS
+            If ids.ContainsKey(p.effectId) Then ids(p.effectId) += 1 Else ids(p.effectId) = 1
+        Next
+        LogThis("particles: {0} placement(s), {1} distinct effect id(s)", PFX_PLACEMENTS.Count, ids.Count)
+        For Each kv In ids
+            LogThis("   effect {0:x8} x{1}", kv.Key, kv.Value)
+        Next
+        Dim shown = 0
+        For Each p In PFX_PLACEMENTS
+            If shown >= 6 Then Exit For
+            Dim t = p.transform.Row3
+            LogThis("   at ({0:0.##}, {1:0.##}, {2:0.##})  effect {3:x8}", t.X, t.Y, t.Z, p.effectId)
+            shown += 1
+        Next
+
+        ' Verify the .vfxbin reader in-engine against the offline decode.
+        For Each nm In {"Big", "Med", "Small", "Ash_black"}
+            Dim rel = String.Format(
+                "particles/content_deferred/PFX/Environment/Buildings/Bld_19_01_Vhouse_05_Smoke_{0}.vfxbin", nm)
+            Dim entry = ResMgr.Lookup(rel)
+            If entry Is Nothing Then
+                LogThis("   pfx {0}: NOT FOUND", nm)
+                Continue For
+            End If
+            Using ms As New MemoryStream
+                entry.Extract(ms)
+                Dim eff = modParticles.LoadVfx(ms.ToArray(), rel)
+                If eff Is Nothing Then
+                    LogThis("   pfx {0}: parse failed", nm)
+                    Continue For
+                End If
+                LogThis("   pfx {0}: {1} emitter(s)", nm, eff.emitters.Count)
+                For Each em In eff.emitters
+                    LogThis("      {0,-12} rate={1,-5:0.##} box=({2:0.##},{3:0.##},{4:0.##}) spread={5:0.#}deg size={6:0.###}..{7:0.###} life={8:0.##}..{9:0.##} atlas={10}x{11}@{12:0.#}",
+                            em.name, em.rate, em.boxHalf.X, em.boxHalf.Y, em.boxHalf.Z,
+                            em.spread * 57.2958F, em.sizeMin, em.sizeMax,
+                            em.lifeMin, em.lifeMax, em.atlasCols, em.atlasRows, em.atlasFps)
+                    If em.sizeTrack IsNot Nothing Then
+                        LogThis("         size x {0} -> {1}   colour keys={2}",
+                                em.sizeTrack.Sample(0.0F, 0), em.sizeTrack.Sample(1.0F, 0),
+                                If(em.colourTrack Is Nothing, 0, em.colourTrack.times.Length))
+                    End If
+                    LogThis("         tex    {0}", em.diffuse)
+                Next
+            End Using
+        Next
     End Sub
 
     Private Function get_spaceBin(ABS_NAME As String) As Boolean
@@ -1486,6 +1622,11 @@ Module MapLoader
         Dim ms As New MemoryStream
         space_bin_file.Extract(ms)
         If ms IsNot Nothing Then
+            ' Particle effect placements (BWPs). Read BEFORE ReadSpaceBinData,
+            ' which closes the stream on its way out.
+            PFX_PLACEMENTS = modParticles.LoadPlacements(ms)
+            report_pfx_placements()
+
             If Not ReadSpaceBinData(ms) Then
                 MsgBox("Error decoding Space.bin", MsgBoxStyle.Exclamation, "File Error...")
                 Return False

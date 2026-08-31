@@ -5,11 +5,14 @@ Imports Ionic.Zip
 NotInheritable Class ResMgr
     Shared RES_MODS_PATH As String
     Shared ReadOnly FILENAME_TO_ZIP_ENTRY As New Dictionary(Of String, ZipEntry)
+    ' .vfxbin is a particle effect definition, .effbin the wrapper naming its
+    ' forward/deferred .vfx. Indexed so the particle loader can find them.
     Shared ReadOnly FILE_EXTENSIONS_TO_USE As New HashSet(Of String)({
             ".dds", ".model", ".primitives_processed",
             ".visual_processed", ".cdata_processed",
             ".bin", ".xml", ".png", ".settings", ".srt",
-            ".texformat", ".atlas_processed"
+            ".texformat", ".atlas_processed",
+            ".vfxbin", ".effbin"
             })
 
     Public Shared Sub Init(wot_path As String)

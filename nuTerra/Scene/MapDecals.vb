@@ -14,6 +14,20 @@ Public Structure DecalGLInfo
     Dim v2 As UInt32
     Dim winding As UInt32
     Dim wet As UInt32
+    ''' <summary>
+    ''' Authored draw order, from the WGSD decal record - see
+    ''' modSpaceBinFunctions.vb:181. all_decals is sorted by this at load, and
+    ''' draw_decals composites in list order, so this is the real draw order.
+    ''' </summary>
+    Dim priority As UInt32
+    ''' <summary>
+    ''' Position in the WGSD file, kept only to break ties in that sort.
+    ''' List(Of T).Sort is introsort and therefore unstable; without a tie-break
+    ''' the equal-priority decals - which is most of them - would land in a
+    ''' different order on every load and the frame would stop being
+    ''' reproducible.
+    ''' </summary>
+    Dim load_index As Int32
 End Structure
 
 
@@ -57,10 +71,34 @@ Public Class MapDecals
         mat.M22 = 1.0
         Dim cam As Vector3 = map_scene.camera.CAM_POSITION
 
+        ' gSurfaceNormal is VIEW space in every writer, so the decal's projection
+        ' axis has to be rotated into view space before it can be dotted against
+        ' it. The view matrix is a LookAt and carries no scale, so the plain
+        ' upper-left 3x3 is the right rotation for a direction. Loop-invariant.
+        Dim view3 As Matrix3 = New Matrix3(map_scene.camera.PerViewData.view)
+
         GL.Uniform3(boxDecalsColorShader("cam_position"), cam.X, cam.Y, cam.Z)
 
         For Each decal In all_decals
-            GL.UniformMatrix4(boxDecalsColorShader("mvp"), False, mat * decal.matrix * map_scene.camera.PerViewData.viewProj)
+            Dim m As Matrix4 = mat * decal.matrix
+            GL.UniformMatrix4(boxDecalsColorShader("mvp"), False, m * map_scene.camera.PerViewData.viewProj)
+
+            ' Row2 is the world-space image of decal-local +Z under OpenTK's
+            ' row-vector convention - the projection axis. Taken from the same
+            ' matrix that feeds mvp, so it already carries build_decals' DirectX
+            ' to OpenGL element flips; local (0,0,1) is invariant under that
+            ' sign change, so do NOT compensate for it again here.
+            '
+            ' It must be normalized - decal boxes are non-uniformly scaled and
+            ' the raw row length varies by orders of magnitude. A degenerate row
+            ' uploads zero, which the shader reads as "skip the gate".
+            Dim axis As Vector3 = Vector3.TransformRow(m.Row2.Xyz, view3)
+            If axis.LengthSquared > 0.000000000001F Then
+                axis.Normalize()
+            Else
+                axis = Vector3.Zero
+            End If
+            GL.Uniform3(boxDecalsColorShader("decal_axis"), axis.X, axis.Y, axis.Z)
 
             'because the fucking winding order is wrong on some decals, we have to switch based on determinate 
             GL.FrontFace(decal.winding)

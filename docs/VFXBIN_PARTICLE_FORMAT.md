@@ -4,9 +4,11 @@ Reverse engineered from `particles.pkg`, using the four
 `Bld_19_01_Vhouse_05_Smoke_*` effects (the burning house on Abbey) as the
 sample. `tools/vfxbin_dump.py` reproduces every number below.
 
-nuTerra does not implement particles. This is the data a first implementation
-would need, and is the ONLY route to the smoke rising from a burning building -
-that smoke is not geometry, so no volumetric-shader work can produce it.
+nuTerra implements card particles on branch `particles-cardtest` (see
+`nuTerra/Scene/MapParticles.vb` and `docs/PARTICLES_HANDOFF.md`). This document
+is the format reference behind that. Particles are the ONLY route to the smoke
+rising from a burning building - that smoke is not geometry, so no
+volumetric-shader work can produce it.
 
 ## Container
 
@@ -49,47 +51,10 @@ and the 1001 at 240 has size 1844, and 80+2004 == 240+1844 == 2084.
 | +48.. | diffuse texture path, NUL-terminated |
 | +176,+180 | **size min/max, metres** |
 | +184,+188 | **lifetime min/max, seconds** |
-| +192 | **u_max** of the sprite sheet's region in the atlas |
-| +196 | **v_min** |
-| +200 | **u_min** |
-| +204 | **v_max** |
-| +220 | **rows** (u32) |
-| +224 | **cols** (u32) |
+| +192..+204 | sub-rect into the atlas, 4 floats, ordered **(v_max, u_min, v_min, u_max)**. All multiples of 1/8 for an 8x8. The ordering was settled after this table was first written - see `modParticles.ParseEmitter` |
+| +216 | a bitfield of SHADER FEATURE SELECTORS, not a rank. 64 distinct values, live bits only {0,1,2,3,5,6,7,8,26,27}. Bit 26 is set on 100% of `ps_long.fx` emitters and 0% of every other pixel shader; bit 3 on 100% of `ps_water_displacement.fx` and `ps_foam.fx`; bit 6 is strictly nested inside bit 0. It was previously nominated here as the likely home of a sort order - it is not, see "Render order" below |
+| +220,+224 | **atlas rows, then columns** (stored as u32). This table said columns-then-rows in the first pass. The swap was settled over 3348 emitters by matching each region's aspect to its grid assuming square cells, and `modParticles` reads it rows-first. Invisible on the square 8x8 smoke sheets; wrong on `Fire_2` and `AshSmall` |
 | +228 | atlas animation rate, fps |
-
-### The atlas region - SOLVED
-
-The four floats are a rect, but the ordering is **(u_max, v_min, u_min, v_max)**
-- right, top, left, bottom - which is why every reading of them as (x, y, w, h)
-or (u0, v0, u1, v1) produced nonsense. The tell is that across the 309 distinct
-quads in a 350-file sample, the first value is ALWAYS greater than the third and
-the second ALWAYS less than the fourth. Scoring candidate rects against atlas
-content had already ruled the obvious orderings out: only 32-58 of 300 quads
-even formed a valid rect under them.
-
-Read correctly the regions are clean squares on the sheet:
-
-| emitter | u | v | size |
-|---------|---|---|------|
-| smoke_Slow | 0.125 .. 0.375 | 0.50 .. 0.75 | 0.25 x 0.25 |
-| smoke_Big | 0.75 .. 1.00 | 0.25 .. 0.50 | 0.25 x 0.25 |
-| commonest quad in the game | 0.562 .. 0.625 | 0.00 .. 0.062 | 1/16 x 1/16 |
-
-and cropping smoke_Big's region out of `eff_tex.dds` gives exactly an 8x8 grid
-of smoke puffs, matching its declared grid.
-
-**+220 is ROWS and +224 is COLS**, not the other way round. Fire_2 breaks the
-tie: its region is 96 x 256 px (aspect 3/8) with a declared "8, 3", so the grid
-must be 3 wide by 8 tall. Checked across 3348 emitters by comparing each
-region's aspect ratio against the grid on the assumption of square cells:
-
-    +220=rows, +224=cols    median error 0.0000   87% within 2%
-    +220=cols, +224=rows    median error 0.0161   53% within 2%
-
-`eff_tex.dds` is a shared 4096x4096 sheet and is not the only one - a 350-file
-sample also uses `eff_tex_long.dds`, `eff_tex_distortion.dds`, `eff_dirt.dds`,
-`eff_tex_water.dds` and others, 82 distinct textures in all. Grids vary widely:
-4x4, 1x1, 8x8, 8x4, 2x1, 2x2, 1x2, 8x2, 4x3, 4x2.
 | +272.. | pixel shader path (`\data\shaders\ps.fx`) |
 
 ## Keyframe tracks
@@ -111,16 +76,45 @@ the schema is fixed and the slot index is the property.
 
 | track | role | evidence |
 |-------|------|----------|
-| 0 | **scale over life** | rises in 4017 of 5785 emitters, falls in 380; median 0.66 -> 3.07 |
+| 0 | **scale over life** - SETTLED, see below | rises in 4017 of 5785 emitters, falls in 380; median 0.66 -> 3.07 |
 | 1 | unused | empty in all but 6 of 5785 |
 | 2 | usually constant 1 | |
 | 3 | **speed over life, with drag** | **falls in 5574 of 5785 (96%)**, median 4.81 -> 0.67. The best candidate for actual velocity, since the +84/+88 pair is zero for categories that must move |
 | 4 | unidentified | flat in 3305, falling in 2231, median 0 -> 0. Goes negative. Emitters *named* `_rotation` all carry the same (0, 0.444) as unrelated ones, so rotation is NOT supported |
-| 5 | usually constant 1 | flat in 4322 of 5785 |
+| 5 | a tool default - SETTLED, see below | flat in 4322 of 5785, and byte-identical across every emitter checked |
 | 6 | **colour + alpha over life**, RGBA per key | unambiguous: sparks run warm white -> orange, fire white -> dark red, smoke grey -> blue, all with alpha rising from 0 and returning to 0 |
 | 7 | a tool default, not authored | rises in 5484 of 5785 and ends on the *same* 3.467 nearly everywhere, so its meaning cannot be inferred from variation |
 
-The **scale-over-life** track is the one that answers "start size / end scale".
+**Track 0 is the size track. Settled.** `modParticles.vb` used track 5 for a
+while, on the argument that "every emitter's curve ends within a per cent of its
+own maximum". That argument is circular - dump all eight tracks for the seven
+smoke emitters of the three burning-house effects and tracks 2, 4, 5 and 7 come
+back byte-identical every time:
+
+```
+track 2   t = 0, 1                      v = 1, 1
+track 4   t = 0, 0.252, 1               v = 0.4462, 0.4781, 0.5737
+track 5   t = 0, 0.27, 0.666, 1         v = 0.1576, 0.4524, 0.8714, 0.9938
+track 7   t = 0, 0.0547, 1              v = 0, 0, 3.467
+```
+
+Track 5 always ends at 0.9938, so `0.9938 * sizeMax` is 99% of `sizeMax` for
+every emitter you test - the observation carries no information. Track 0 by
+contrast varies in values, key count AND knot times per emitter, which is what
+authored data looks like:
+
+| emitter | keys | knots | start -> end |
+|---|---|---|---|
+| Big/`smoke_Slow` | 5 | 0, .021, .124, .367, 1 | 0.572 -> 7.173 |
+| Big/`smoke_Fast` | 4 | 0, .121, .475, 1 | 0.774 -> 2.740 |
+| Med/`smoke_Slow` | 5 | 0, .076, .407, .813, 1 | 0.572 -> 7.172 |
+| Small/`smoke_Fast` | 4 | 0, .236, .699, 1 | 0.774 -> 2.740 |
+
+It is read **raw**, not normalised: the authored size range is the size at
+track 0 = 1, and the curve carries the card past it. An A/B on a fixed camera
+settles that too - normalising leaves separated puffs, raw closes them into the
+game's continuous column.
+
 For `smoke_Big`:
 
 ```
@@ -185,13 +179,58 @@ offsets are right.
 
 - The header u32s at +8..+27 of each record.
 - Tracks 4 and 7, and the +84/+88 pair in the emitter block (see above).
-- `999+216` is a bitfield, not a count or an index: a 350-file sample gives 47
-  distinct values including 0, 1, 2, 3, 5..8, 65, 67, 69 and 0x04000002 /
-  0x0C000002. Flags, meaning unknown.
 - Gravity and rotation are not identified. Track 4 goes negative and is the
   only plausible home for rotation, but the naming evidence contradicts it.
 - Emitter block +8/+12 hold `0x47435000` twice; purpose unknown.
-- Blend mode, sort order and world-vs-local space are not located at all.
+- World-vs-local space is not located in the file. The engine has shader-side
+  selectors for it - `g_localSpaceParticles` in `render_billboards_r` and
+  `g_particleTransformMode` in `default_particles` - but neither appears in any
+  `.vfxbin`.
+
+## Render order - there isn't one, and that is the answer
+
+Searched exhaustively and **there is no authored draw order, sort key, priority,
+layer or sort-mode enum for FX or particles anywhere in the shipped data.** Do
+not go looking again; this section is here to stop that.
+
+What was checked and came back empty: every 4-byte slot of block 999's fixed
+1280-byte parameter area and block 1000's fixed 148 bytes, read as u32/i32/f32
+across all emitter records in `particles.pkg`; the record headers of ids 999,
+1000, 1001, 1003 and 1004; the LOD record; the named property table of the
+GPU-particle branch (all 271 distinct property names); the `.effbin` wrappers;
+and the FX material definitions.
+
+Two candidates that look right and are not:
+
+- `+216`, covered in the table above. Flag lattice, not a rank. Its sibling
+  values inside `Bld_19_01_Vhouse_05_Smoke_Big.vfxbin` are 0x02/0x01/0x41/0x02/
+  0x41 - duplicated and non-dense, which no sort key is.
+- `1000+40`, a 0..6 integer that varies between emitters. Killed by the
+  rank-density test: it is all-distinct within a file in only 176 of 3670
+  multi-emitter effects, and its commonest tuples are (1,1,1,1,1,1) and (0,0).
+
+The reason none exists: **the game composites particles with order-independent
+transparency** - moment-based OIT on the high quality preset, weighted-blended
+on the low one - selected by a global preset, not per effect. Its GPU cull
+appends visible particles with an atomic counter, which scrambles order
+outright. A per-effect priority would have nothing to act on.
+
+Blend mode IS in the file, but carries no information: `srcBlend` = 5 and
+`destBlend` = 6 in every instance of the GPU branch. The only authored value in
+FX content that constrains compositing order is the per-material blend pair in
+`.visual_processed`, where `destBlend` runs [(2,718),(6,15),(7,8),(9,1),(3,1)] -
+`destBlend=2` is additive and order-free, so the large majority of FX geometry
+is order-independent by construction.
+
+Authored render order does exist in this engine, just not for FX: GPU decals
+carry `sortOrder` in their `.prefab` (`BW::GpuDecalComponent`), and space.bin's
+WGSD decal record carries a priority u32. BigWorld's material schema also has a
+`Sorted` bool, which survives on exactly two shipped materials - `footprint.mfm`
+and `splodge.mfm` - and on no FX or particle material.
+
+nuTerra therefore sorts by distance as a substitute for OIT, not as a port of
+anything: `MapStaticModels.sort_fx_draws` for the FX meshes and
+`MapParticles.BuildInstances` for the cards.
 - `content_forward` copies exist alongside `content_deferred` and were not
   compared.
 
@@ -251,45 +290,3 @@ against a global resource table built elsewhere. Cracking it is a prerequisite
 for placing effects **generally**; it is NOT a prerequisite for the burning
 house, where the four ids can be matched to the four effects in that building's
 folder by elimination.
-
-
-## The engine's own particle shaders
-
-`shaders/gpu_particles/` holds 50 shaders that ARE the particle system, with
-suffixes `_u` update, `_s` source/shape, `_r` renderer:
-
-```
-basic_update_u  physical_movement_u  external_force_u  wind_impulse_u
-initial_direction_property_u  rotation_u  noise_u  vector_field_u
-cone_s  cuboid_s  disk_s  ellipsoid_s  hemisphere_s  line_s  point_s
-render_billboards_r  six_way_r  heat_haze_r  emissive_r  resolve_oit
-terrain_collision_u  depth_collision_u  kill_by_condition_u
-```
-
-Their reflection data names the whole property model. Every "over lifetime"
-property is a single float - an index into `g_particleCurves`, a float4
-texture2darray - gated by a matching `g_useXxx` bool:
-
-```
-sizeOverLifetime      colorOverLifetime     animationOverLifetime
-velocityOverLifetime  dragOverLifetime      rotationOverLifetime
-gravityOverLifetime   noiseOverLifetime     forceOverLifetime
-spiralOverLifetime    heightOverLifetime    accelerationOverLifetime
-```
-
-plus `g_flipbookParams0`, `g_uvFlip`, `g_stretchParams`, `g_velocityToLength`,
-`g_lengthFromVelocity`, `g_rotationParams0..2`, `g_pivotOffset`, `g_tintColor`,
-`g_dragCoefficient`, `g_applyGravity`, `g_accelerate`.
-
-That is the vocabulary our 8-track schema is drawn from, and it gives much
-better candidates for the unidentified slots than guessing: track 4 (often 0,
-sometimes negative) fits rotation; track 7 (0 -> 3.467 nearly everywhere) fits
-animation progress.
-
-**Caveat:** this is the NEWER GPU system. Our .vfxbin names
-`\data\shaders\ps.fx`, the older CPU path, whose renderer is
-`shaders/wg_particles/default_particles` and `std_effects/sprite_particle`.
-That older vertex shader takes POSITION, COLOR, TEXCOORD and passes UV straight
-through, so in the old system the atlas rect and frame are computed host-side -
-which is why the region had to be decoded from the .vfxbin rather than read out
-of a shader constant.
