@@ -342,9 +342,13 @@ Module MapLoader
             ' overlapping smoke). Indexed by candidate id (= baseInstance).
             ReDim map_scene.static_models.candidate_origins(map_scene.static_models.indirectDrawCount - 1)
             ReDim map_scene.static_models.candidate_model_ids(map_scene.static_models.indirectDrawCount - 1)
+            ReDim map_scene.static_models.candidate_material_ids(map_scene.static_models.indirectDrawCount - 1)
             For i = 0 To map_scene.static_models.indirectDrawCount - 1
                 map_scene.static_models.candidate_origins(i) = matrices(drawCommands(i).model_id).matrix.ExtractTranslation()
                 map_scene.static_models.candidate_model_ids(i) = drawCommands(i).model_id
+                ' Kept for the FX composite class, which load_materials derives
+                ' later - drawCommands is erased a few lines below.
+                map_scene.static_models.candidate_material_ids(i) = drawCommands(i).material_id
             Next
 
             map_scene.static_models.drawCandidates = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "drawCandidates")
@@ -617,6 +621,9 @@ Module MapLoader
 
             decal_item.influence = CUInt(decal.influenceType)
 
+            decal_item.priority = decal.priority
+            decal_item.load_index = CInt(i)
+
             decal_item.visibility = decal.visibility_mask >> 16 And &HFFFF
 
             decal_item.v1 = decal.v1 And &HFFFF
@@ -688,6 +695,26 @@ Module MapLoader
             End If
             i += 1
         Next
+
+        ' Authored draw order, finally applied. The WGSD record carries a
+        ' priority per decal and draw_decals composites in list order with Blend
+        ' on and DepthMask(False) (MapDecals.vb:47-48), so the order of this
+        ' list IS the order they stack. Ascending, which is the intent already
+        ' encoded in DECAL_INDEX_LIST_.CompareTo: higher priority draws later,
+        ' and therefore on top.
+        '
+        ' Until now the priority was read, copied into DECAL_INDEX_LIST, sorted
+        ' there - and thrown away, because DECAL_INDEX_LIST is never read by
+        ' anything. This list, built from cWGSD.decalEntries in raw file order,
+        ' is what actually reaches the GPU.
+        map_scene.decals.all_decals.Sort(
+            Function(a, b)
+                Dim c = a.priority.CompareTo(b.priority)
+                If c <> 0 Then Return c
+                Return a.load_index.CompareTo(b.load_index)
+            End Function)
+
+
 
         map_scene.DECALS_LOADED = True
     End Sub
@@ -1482,6 +1509,53 @@ Module MapLoader
             materialsData,
             BufferStorageFlags.None)
         map_scene.static_models.materials.BindBase(3)
+
+        ' ---- FX composite class, derived once, read by the sort every frame ----
+        ' additive = the volumetric fragment shader takes the mat.alphaTestEnable
+        ' branch (volumetric.frag:120) and emits (rgb*a, 0). Under the FX pass
+        ' blend One / OneMinusSrcAlpha with src.a = 0 that is dst + src: it adds
+        ' light and attenuates nothing, so it is safe to composite LAST and it is
+        ' the only class that can be moved without changing anything else.
+        '
+        ' GATED ON FX_volumetric. On every other shader type the alphaTestEnable
+        ' slot is a real alpha TEST, so reading it unguarded would misclassify
+        ' ordinary opaque geometry as fire.
+        Dim mat_fx_additive(materialsData.Length - 1) As Boolean
+        For mi = 0 To materialsData.Length - 1
+            mat_fx_additive(mi) = (materialsData(mi).shader_type = CUInt(ShaderTypes.FX_volumetric) AndAlso
+                                   materialsData(mi).alphaTestEnable = 1)
+        Next
+
+        With map_scene.static_models
+            If .candidate_material_ids IsNot Nothing AndAlso .candidate_model_ids IsNot Nothing Then
+                ' Fold to per-INSTANCE first: an instance counts as additive if
+                ' ANY of its draws is. That keeps every mesh contiguous in the
+                ' sorted bucket instead of splitting its authored layer stack.
+                Dim inst_additive As New Dictionary(Of UInteger, Boolean)
+                For i = 0 To .candidate_material_ids.Length - 1
+                    Dim mid_ = .candidate_model_ids(i)
+                    Dim add_ = False
+                    If .candidate_material_ids(i) < CUInt(mat_fx_additive.Length) Then
+                        add_ = mat_fx_additive(CInt(.candidate_material_ids(i)))
+                    End If
+                    Dim cur_ As Boolean
+                    If inst_additive.TryGetValue(mid_, cur_) Then
+                        inst_additive(mid_) = cur_ OrElse add_
+                    Else
+                        inst_additive(mid_) = add_
+                    End If
+                Next
+
+                ReDim .candidate_fx_additive(.candidate_material_ids.Length - 1)
+                Dim n_add = 0
+                For i = 0 To .candidate_material_ids.Length - 1
+                    .candidate_fx_additive(i) = inst_additive(.candidate_model_ids(i))
+                    If .candidate_fx_additive(i) Then n_add += 1
+                Next
+                LogThis("FX composite class: {0} of {1} candidates additive (fire), rest alpha (smoke)",
+                        n_add, .candidate_fx_additive.Length)
+            End If
+        End With
     End Sub
 
     ''' <summary>

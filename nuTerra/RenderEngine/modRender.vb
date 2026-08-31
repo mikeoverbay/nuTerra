@@ -42,7 +42,10 @@ Module modRender
         map_scene.camera.set_prespective_view() ' <-- sets camera and prespective view ==============
         '===========================================================================
 
-        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        ' The FX pass draws cull bucket 3 out of this same cull, so it has to run
+        ' whenever EITHER the models or the FX are being drawn - hiding the models
+        ' must not starve draw_fx of its bucket.
+        If map_scene.MODELS_LOADED AndAlso (DONT_BLOCK_MODELS OrElse DONT_BLOCK_FX) Then
             '=======================================================================
             map_scene.static_models.frustum_cull() '========================================================
             '=======================================================================
@@ -83,11 +86,17 @@ Module modRender
         GL.DepthFunc(DepthFunction.Greater)
         '===========================================================================
 
-        'Model depth pass only
-        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        ' Per-bucket counts from the cull, read back CPU-side. draw_fx opens with
+        ' "If numAfterFrustum(3) = 0 Then Return", so this has to follow the cull
+        ' rather than the model passes, or hiding the models leaves the FX bucket
+        ' reading a stale zero and the pass silently draws nothing.
+        If map_scene.MODELS_LOADED AndAlso (DONT_BLOCK_MODELS OrElse DONT_BLOCK_FX) Then
             GL.CopyNamedBufferSubData(map_scene.static_models.parameters.buffer_id, map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer))
             GL.GetNamedBufferSubData(map_scene.static_models.parameters_temp.buffer_id, IntPtr.Zero, map_scene.static_models.numAfterFrustum.Length * Marshal.SizeOf(Of Integer), map_scene.static_models.numAfterFrustum)
+        End If
 
+        'Model depth pass only
+        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
             modGpuTimers.Begin("Model depth")
             map_scene.static_models.model_depth_pass()
             modGpuTimers.Finish()
@@ -260,7 +269,11 @@ Module modRender
         ' after water so a column rising out of a lake sits over it. Straight
         ' into gColor: unlike water and SSR the pass never samples the frame,
         ' so no copy dance is needed.
-        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+        ' MODELS_LOADED, not DONT_BLOCK_MODELS: the FX meshes are model geometry
+        ' and cannot draw if the loader never read them (the load itself sits
+        ' inside DONT_BLOCK_MODELS, MapLoader.vb:65), but once they ARE loaded,
+        ' hiding the models must not hide them.
+        If map_scene.MODELS_LOADED AndAlso DONT_BLOCK_FX Then
             modGpuTimers.Begin("FX")
             ' Bind explicitly. attach_C only names the draw buffer (DSA); it
             ' does not bind, so this pass was landing in whatever framebuffer
@@ -282,12 +295,35 @@ Module modRender
             ' did the FX pass change any pixel, and by how much.
             Dim fx_before As Byte() = Nothing
             If FX_DIFF_THIS_FRAME Then fx_before = grab_colour_buffer()
-            map_scene.static_models.draw_fx()
-            trace_state("draw_fx")
+            ' ORDER IS LOAD-BEARING: cards FIRST, FX meshes SECOND.
+            '
+            ' The card pass is pure alpha "over" - particle.frag emits
+            ' (rgb*a, a) unconditionally, there is no additive branch - so it
+            ' ATTENUATES whatever is already in gColor. That is what was drowning
+            ' the fire. The FX meshes are additive: volumetric.frag takes the
+            ' mat.alphaTestEnable branch and emits (rgb*a, 0), which under this
+            ' pass's premultiplied One / OneMinusSrcAlpha reduces to dst + src -
+            ' it adds light and attenuates nothing.
+            '
+            ' So drawing the meshes LAST is the only order in which card smoke
+            ' cannot wash the fire out, and it costs the additive draws nothing,
+            ' because addition does not depend on what came before it.
+            '
+            ' Neither pass writes depth (both DepthMask(False)), so this is a
+            ' compositing order only - no fragment's visibility changes and
+            ' terrain still occludes both exactly as before. State is identical
+            ' either way: the particle pass is a SaveState/RestoreState identity,
+            ' and draw_fx sets everything it uses and resets blend and depth on
+            ' exit, so whichever runs last hands downstream the same state.
+            '
+            ' DO NOT move the particle call back above draw_fx - the
+            ' fire-after-smoke rule breaks silently, with no error.
             If PARTICLES_ENABLED Then
                 map_scene.particles.Draw(map_scene.camera.CAM_POSITION)
                 trace_state("particles")
             End If
+            map_scene.static_models.draw_fx()
+            trace_state("draw_fx")
             If FX_DIFF_THIS_FRAME Then report_fx_diff(fx_before)
             trace_gcolor("draw_fx")
             modGpuTimers.Finish()

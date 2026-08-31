@@ -49,6 +49,29 @@ Public Class MapStaticModels
     ' picker cannot identify them).
     Public candidate_model_ids As UInteger()
 
+    ' Candidate id -> material id. Kept CPU-side because drawCommands is erased
+    ' right after its buffer upload (MapLoader.vb:356), but the FX composite
+    ' class cannot be derived until load_materials has run.
+    Public candidate_material_ids As UInteger()
+
+    ''' <summary>
+    ''' Candidate id -> FX composite class, fixed at load. True means this draw's
+    ''' MODEL INSTANCE carries an additive volumetric material: volumetric.frag
+    ''' takes the mat.alphaTestEnable branch and emits (rgb*a, 0), which under
+    ''' this pass's premultiplied One / OneMinusSrcAlpha reduces to dst + src -
+    ''' it adds light and attenuates nothing.
+    '''
+    ''' Alpha materials emit (rgb*a, a) and DO attenuate, which is why they have
+    ''' to composite FIRST. That is the whole "fire after smoke" rule.
+    '''
+    ''' Per INSTANCE, not per draw: every draw of one instance shares a
+    ''' candidate_origin, so they already compare equal on distance and tie-break
+    ''' on baseInstance = authored prim-group order. Classing per draw would
+    ''' split a mesh that mixes an alpha layer with additive layers and silently
+    ''' reorder the authored layer stack inside content that is known to work.
+    ''' </summary>
+    Public candidate_fx_additive As Boolean()
+
     ' Host-memory staging for the FX sort readback - reading indirect_fx
     ' directly made the driver demote it to host memory (perf warning
     ' #131186 every frame). Same pattern as parameters_temp: GPU-copy the
@@ -61,7 +84,12 @@ Public Class MapStaticModels
     Private fx_cmds_sorted As DrawElementsIndirectCommand()
     Private fx_order As Integer()
     Private fx_dist As Single()
+    ' Composite class per sorted entry: 0 = alpha (smoke), 1 = additive (fire).
+    Private fx_class As Integer()
     Private fx_sort_overflow_logged As Boolean
+    ' Separate latch. Sharing one flag with the overflow above meant whichever
+    ' condition fired first silenced the other for the rest of the session.
+    Private fx_sort_range_logged As Boolean
 
     ' Sort hysteresis: a draw keeps its stored distance until the real one
     ' drifts past this, so near-equidistant plumes do not swap order back and
@@ -464,6 +492,7 @@ Public Class MapStaticModels
             ReDim fx_cmds_sorted(count - 1)
             ReDim fx_order(count - 1)
             ReDim fx_dist(count - 1)
+            ReDim fx_class(count - 1)
         End If
 
         Dim byte_count = count * Marshal.SizeOf(Of DrawElementsIndirectCommand)
@@ -475,10 +504,11 @@ Public Class MapStaticModels
             Dim candidate = CInt(fx_cmds(i).baseInstance)
             If candidate >= candidate_origins.Length Then
                 ' Latched like the overflow above - this runs per frame and
-                ' would spam for as long as the condition holds.
-                If Not fx_sort_overflow_logged Then
+                ' would spam for as long as the condition holds. Its OWN latch:
+                ' sharing the overflow flag hid whichever fault came second.
+                If Not fx_sort_range_logged Then
                     LogThis("draw_fx sort: candidate {0} out of range {1} - drawing unsorted", candidate, candidate_origins.Length)
-                    fx_sort_overflow_logged = True
+                    fx_sort_range_logged = True
                 End If
                 Return
             End If
@@ -495,10 +525,30 @@ Public Class MapStaticModels
                 fx_stored_dist(fx_cmds(i).baseInstance) = d
             End If
             fx_dist(i) = stored
+
+            ' Composite class. Deliberately NOT part of the early-return guard
+            ' above: a missing array degrades to class 0 for everything, which is
+            ' exactly today's behaviour. Turning it into a Return instead would
+            ' leave the bucket in the cull shader's nondeterministic atomic
+            ' order, which is the flicker this sort exists to kill.
+            fx_class(i) = 0
+            If candidate_fx_additive IsNot Nothing AndAlso
+               candidate < candidate_fx_additive.Length AndAlso
+               candidate_fx_additive(candidate) Then
+                fx_class(i) = 1
+            End If
         Next
 
         Array.Sort(fx_order, 0, count, Comparer(Of Integer).Create(
             Function(a, b)
+                ' PRIMARY KEY: composite class. Alpha (0) before additive (1), so
+                ' smoke can never attenuate fire. Additive draws are
+                ' order-independent - they add light and attenuate nothing - so
+                ' moving them last changes no other draw's result.
+                Dim k = fx_class(a).CompareTo(fx_class(b))
+                If k <> 0 Then Return k
+                ' Within a class, unchanged: farthest first, tie-break on the
+                ' authored prim-group order.
                 Dim c = fx_dist(b).CompareTo(fx_dist(a)) ' farthest first
                 If c <> 0 Then Return c
                 Return fx_cmds(a).baseInstance.CompareTo(fx_cmds(b).baseInstance)

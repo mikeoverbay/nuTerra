@@ -86,7 +86,16 @@ Module ShaderLoader
             End If
             is_used = False
 #End If
-            ' GL.UseProgram(0)
+            ' Unbind. Leaving the program bound means its sampler declarations
+            ' keep being validated against unrelated texture state for the rest
+            ' of the frame, and the driver reports that as undefined behaviour
+            ' at whatever GL command validates next - even a glClear that does
+            ' not use the program at all. That is what produced a flood of
+            ' "#131222 ... depth comparisons ... shadow sampler" warnings from
+            ' the water shader, long after the water pass had finished, varying
+            ' with camera angle because it depended on whether draw_fx had run
+            ' and rebound unit 3.
+            GL.UseProgram(0)
         End Sub
 
         Sub UpdateShader()

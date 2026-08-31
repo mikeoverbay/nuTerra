@@ -201,6 +201,15 @@ Module modGlobalVars
     Public AUTO_SNAP_QUIT As Boolean = False
 
     ''' <summary>
+    ''' Override for AUTO_SNAP_FRAMES, from the settle=N launch argument.
+    ''' Zero means use the default. Raised when a capture has to wait for a
+    ''' particle column to reach steady state - the emitters run at 1-5 per
+    ''' second against 3-6 s lifetimes, so the default 150 frames catches a
+    ''' column that is still filling.
+    ''' </summary>
+    Public SETTLE_FRAMES As Integer = 0
+
+    ''' <summary>
     ''' Set for one frame to make the FX pass measure itself: the colour buffer
     ''' is read back either side of draw_fx and the difference logged. Two
     ''' glReadPixels stall the pipeline hard, so this is never left on.
@@ -417,8 +426,16 @@ Module modGlobalVars
     ''' 0 is the global probe alone, 1 is the field exactly, and above 1 keeps
     ''' going - exaggerating how far the field departs from the flat global
     ''' probe. Past 1 it is not physical, but this is a viewer.
+    '''
+    ''' FIXED at 0.5 - half way between the global probe and the field - by the
+    ''' owner's call, not by derivation. It was 1.0, behind a "probe mix" slider
+    ''' that has been removed, so this line is now the only thing that sets it:
+    ''' nothing persists it and no UI moves it. Do not "restore" it to the field
+    ''' value on the assumption that 1.0 is the correct one; 0.5 is the chosen
+    ''' look. Put the slider back next to "normal offset m" in Window.vb if it
+    ''' ever needs exploring again.
     ''' </summary>
-    Public SH_GRID_MIX As Single = 1.0F
+    Public SH_GRID_MIX As Single = 0.5F
 
     '''<summary>Display gain for the inspector. Raw irradiance runs past 1.</summary>
     Public SH_GRID_EXPOSURE As Single = 0.25F
@@ -428,6 +445,16 @@ Module modGlobalVars
 
     Public DECAL_EDGE_FADE As Boolean = True
     Public DONT_BLOCK_MODELS As Boolean = False
+    ''' <summary>
+    ''' Draw the FX pass at all - the volumetric fire/smoke meshes AND the
+    ''' particle cards, which modRender brackets together as one pass. Named for
+    ''' the DONT_BLOCK_* convention the rest of Section Visibility uses.
+    '''
+    ''' Skipping the pass is safe for the state downstream inherits: draw_fx
+    ''' already returns early when nothing is in the frustum, so the base rings
+    ''' and the minimap cannot have been relying on the state it leaves.
+    ''' </summary>
+    Public DONT_BLOCK_FX As Boolean = True
     Public DONT_BLOCK_BASES As Boolean
     Public DONT_BLOCK_SKY As Boolean
     Public DONT_BLOCK_WATER As Boolean

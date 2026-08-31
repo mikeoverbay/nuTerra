@@ -27,6 +27,14 @@ uniform uint vis;
 uniform uint wet;
 uniform vec3 cam_position;
 
+// The decal's projection axis - decal-local +Z, the thickness axis named in the
+// vert - rotated into VIEW space and normalized on the CPU. VIEW space because
+// gSurfaceNormal is view space in every writer that fills it; TerrainHQ.frag:98
+// spells that out. Local Z because the decal face is local XY and the UV below
+// is built from XY only, so Z is the direction we project along. Uploaded as
+// zero when the decal's transform is degenerate, which disables the gate.
+uniform vec3 decal_axis;
+
 // 1 when this decal's texture runs opaque content all the way to its border, so
 // the box cuts it off square and we have to fade it ourselves. Textures painted
 // with a transparent margin already fade and must be left alone or they lose
@@ -40,9 +48,30 @@ uniform uint edge_fade;
 // 1.7 metres, median 0.84 on a typical 7 m patch.
 const float EDGE_FADE_WIDTH = 0.12;
 
+// Grazing-angle rejection. c = |dot(surface normal, projection axis)| is the
+// cosine of the angle between them, so the test is on that angle directly.
+//
+// Cutoff is 45 degrees, by the owner's call: a face more than 45 deg away from
+// facing the decal does not receive it. 45 is the symmetric point - measured
+// from the axis or from the face plane it is the same threshold - so there is
+// no convention to get wrong. cos(45) = 0.7071 is the half-alpha point.
+//
+// Note this is NOT an anisotropy threshold. The UV stretches by 1/c, so 45 deg
+// cuts at only 1.41x stretch, which the aniso sampler would resolve fine. It is
+// a stronger, simpler rule than "where does it visibly smear": faces must face
+// the decal. That is deliberate - the earlier 87 deg setting cleared the worst
+// streaks but left the moderately-angled ones.
+//
+// Fade rather than discard: no MainFBO attachment is multisampled, so a hard
+// cut is a binary per-pixel decision with no coverage to soften it, and the
+// boundary sits exactly where the Rgb8 normal is noisiest. The 40-50 deg band
+// is ~25x wider than that quantization jitter (~0.4 deg), so the edge reads
+// smooth rather than speckled.
+const float ANGLE_FADE_MIN = 0.642788;   // 50 deg off axis - fully rejected
+const float ANGLE_FADE_MAX = 0.766044;   // 40 deg off axis - fully kept
+
 in VS_OUT {
     flat mat4 invMVP;
-    flat vec3 s_vector;
 } fs_in;
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
@@ -104,10 +133,27 @@ void main()
     vec2 uv = gl_FragCoord.xy / resolution;
     vec3 position = texture(gposition,uv).xyz;
 
-    // not sure how to do cliping by angle :(
-    vec3 normal = texture(SurfaceNormal,uv).xyz * 2.0 - 1.0;
-    float angle = dot(normal,fs_in.s_vector);
-//    if (angle > 0.6) discard;
+    // Grazing-angle rejection - the fix for decals smearing down faces they
+    // only skim. gSurfaceNormal is VIEW space and Rgb8, so decode and then
+    // RENORMALIZE: quantization leaves the length off unity, and only a unit
+    // vector makes the dot product an actual cosine.
+    vec3 normal = texture(SurfaceNormal, uv).xyz * 2.0 - 1.0;
+    float n_len2 = dot(normal, normal);
+    normal *= inversesqrt(max(n_len2, 1e-8));
+
+    // A pixel no G-buffer writer touched holds the clear, which decodes to
+    // (-1,-1,-1) and has length^2 = 3, not 1. Outland ground is the real case:
+    // its normal output lands in gAUX_Color rather than here. Those fragments
+    // get no gate at all rather than a wrong one, preserving old behaviour.
+    float angle_alpha = 1.0;
+    if (abs(n_len2 - 1.0) < 0.05 && dot(decal_axis, decal_axis) > 0.5) {
+        // abs() because the axis points down INTO the surface on essentially
+        // every ground decal while the view-space normal faces the camera, so
+        // the raw dot is systematically negative - a signed test rejects
+        // everything. The smear depends on |cos|, not on which side we are on.
+        float c = abs(dot(normal, decal_axis));
+        angle_alpha = smoothstep(ANGLE_FADE_MIN, ANGLE_FADE_MAX, c);
+    }
     /*==================================================*/
     // A decal's influenceType is a bitmask over surface kinds, so the rule is
     // just a bit test. The game does the same thing by sampling a 256x8
@@ -223,8 +269,8 @@ void main()
     gNormal.a = color.a;
     }
 
-    gColor.a  *= edge_alpha;
-    gNormal.a *= edge_alpha;
+    gColor.a  *= edge_alpha * angle_alpha;
+    gNormal.a *= edge_alpha * angle_alpha;
 }
 
 

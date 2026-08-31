@@ -33,7 +33,6 @@ Public Class MapParticles
         Public age As Single
         Public life As Single
         Public baseSize As Single
-        Public frameSeed As Single
         Public drift As Vector3
         Public em As modParticles.PfxEmitter
     End Class
@@ -51,6 +50,11 @@ Public Class MapParticles
     Private vao As GLVertexArray
     Private vbo As GLBuffer
     Private instances As Inst()
+    ''' <summary>
+    ''' Back-to-front sort keys for the emitted instances, one per filled slot.
+    ''' Preallocated with the instance array so a frame allocates nothing.
+    ''' </summary>
+    Private sortKeys As Single()
     Private texture As GLTexture = Nothing
     Private ready As Boolean = False
     Private logged_once As Boolean = False
@@ -130,6 +134,7 @@ Public Class MapParticles
         End If
 
         ReDim instances(MAX_PARTICLES - 1)
+        ReDim sortKeys(MAX_PARTICLES - 1)
         vbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "pfx_instances")
         vbo.StorageNullData(MAX_PARTICLES * Marshal.SizeOf(Of Inst), BufferStorageFlags.DynamicStorageBit)
         vao = GLVertexArray.Create("pfx")
@@ -154,18 +159,25 @@ Public Class MapParticles
     Private Const MAX_PARTICLES As Integer = 4096
 
     ''' <summary>
-    ''' Motion tuning, NOT authored data. The authored speed curve alone lifts a
-    ''' particle about 7 m over its life while the scale curve grows it 12x, so
-    ''' it reads as an expanding blob rather than a rising column. The four
-    ''' placements on the house span 4.96 to 19.07 m, so the real column is
-    ''' roughly twice as tall as we were producing.
+    ''' Motion tuning, NOT authored data. The authored speed curve alone lifts
+    ''' a particle about 7 m over its life, against four placements on the house
+    ''' spanning 4.96 to 19.07 m, so the real column is roughly twice as tall as
+    ''' we were producing.
+    '''
+    ''' The 4.0 was tuned when track 0 drove size and grew a card 12x over its
+    ''' life. That premise HOLDS: size is track 0 read raw again, 0.572 -> 7.173
+    ''' for Big/smoke_Slow, so the tuning context is the one it was set under and
+    ''' the re-tune this note used to demand is not owed. It is still not
+    ''' authored data - the game's own rise comes from the speed curve alone -
+    ''' so treat it as a knob, just not an urgent one.
     '''
     ''' render_billboards_r also carries g_stretchParams / g_velocityToLength,
-    ''' so the game stretches a card along its velocity - which a square card
-    ''' cannot reproduce. STRETCH below stands in for that.
+    ''' so the game stretches a card along its velocity, which a square card
+    ''' cannot reproduce. STRETCH was meant to stand in for that and is NOT
+    ''' WIRED UP - nothing reads it.
     ''' </summary>
     Private Const SPEED_GAIN As Single = 4.0F     ' on the authored speed curve
-    Private Const STRETCH As Single = 1.6F        ' elongate along travel
+    Private Const STRETCH As Single = 1.6F        ' UNUSED - see above
 
     ''' <summary>
     ''' Lateral motion. The game's column is broader and drifts sideways - 71.6%
@@ -211,7 +223,6 @@ Public Class MapParticles
                         .age = 0.0F,
                         .life = Rand(em.lifeMin, em.lifeMax),
                         .baseSize = Rand(em.sizeMin, em.sizeMax),
-                        .frameSeed = CSng(rng.NextDouble()),
                         .pos = s.origin
                     }
                     ' Rise, cone-limited by the authored spread.
@@ -243,6 +254,25 @@ Public Class MapParticles
         For Each p In live
             If n >= MAX_PARTICLES Then Exit For
             Dim t = If(p.life > 0.0F, p.age / p.life, 1.0F)
+            ' Size over life is track 0 read RAW - the authored size range at
+            ' 999+176/+180 is the size at track 0 = 1, not the final size, and
+            ' the curve carries the card well past it. Measured diameters, mean
+            ' over 40 cards:
+            '
+            '   emitter      authored   start   t=0.25   end
+            '   smoke_Slow       7.37    4.88    29.80   52.77
+            '   smoke_Big        2.91    1.96    14.01   20.84
+            '   smoke_Fast       4.72    3.70     7.35   12.93
+            '
+            ' Settled by A/B on a fixed camera. Normalising track 0 so a card
+            ' ends at its authored size leaves the same separated puffs we had
+            ' before; reading it raw closes them into the continuous column the
+            ' game shows.
+            '
+            ' The old objection to track 0 was that 52-72 m cards are absurd.
+            ' They are not, because alpha is 0 at t = 1 - a card is fully
+            ' transparent at its maximum. At peak alpha, t ~ 0.19, smoke_Slow
+            ' is about 37 m, which is the scale of the real column.
             Dim scale = If(p.em.sizeTrack Is Nothing, 1.0F, p.em.sizeTrack.Sample(t, 0))
 
             Dim col As New Vector4(1.0F, 1.0F, 1.0F, 1.0F)
@@ -258,12 +288,31 @@ Public Class MapParticles
                 Continue For
             End If
 
-            ' Sub-UV: step through the atlas at the authored fps, wrapping.
+            ' Sub-UV: the sheet is ONE rise-and-fade puff lifecycle, so it
+            ' plays across the particle's life exactly once and never wraps.
+            ' The alpha-gutter scan of the slow/fast sheet reads its eight rows
+            ' as a single rise and fade - mean alpha 36.7, 49.7, 50.9, 45.2,
+            ' 37.9, 29.8, 20.6, 9.7 - which is a lifecycle, not a loop.
+            '
+            ' Wrapping is what made cards look like they restarted in mid-air:
+            ' the index fell back to the small opening cell while the card kept
+            ' rising, so one card read as a second one being born up there. It
+            ' wrapped for two reasons - a random frameSeed * cells offset at
+            ' birth, and smoke_Fast needing 96 frames (16 fps over a 6 s life)
+            ' from a 64-cell sheet.
+            '
+            ' This ignores the authored fps at 999+228. For two of the three
+            ' smoke emitters fps and life are already near-equivalent over a
+            ' 64-cell sheet - smoke_Fast 16 fps x 4 s = 64, smoke_Big 15 fps x
+            ' 3.5 s = 53 - so the authored intent looks like one pass either
+            ' way. smoke_Slow at 2 fps would show only 8 of its 64 cells, which
+            ' is the reading that does not survive contact with the sheet.
             Dim cells = p.em.atlasCols * p.em.atlasRows
             Dim frame = 0
             If cells > 1 Then
-                frame = CInt(Math.Floor(p.age * p.em.atlasFps + p.frameSeed * cells)) Mod cells
-                If frame < 0 Then frame += cells
+                frame = CInt(Math.Floor(t * cells))
+                If frame < 0 Then frame = 0
+                If frame >= cells Then frame = cells - 1
             End If
             Dim cellX = frame Mod p.em.atlasCols
             Dim cellY = frame \ p.em.atlasCols     ' 0 = TOP row of the sheet
@@ -277,6 +326,11 @@ Public Class MapParticles
             Dim uOff = p.em.uMin + cellX * cellW
             Dim vOff = (1.0F - p.em.vMax) + cellY * cellH
 
+            ' Negated so an ascending sort puts the FARTHEST card first. Squared,
+            ' because only the ordering matters and a sqrt per card per frame
+            ' does not.
+            sortKeys(n) = -(p.pos - camPos).LengthSquared
+
             instances(n) = New Inst With {
                 .pos = p.pos,
                 .size = p.baseSize * scale * 0.5F,
@@ -286,18 +340,38 @@ Public Class MapParticles
             }
             n += 1
         Next
+
+        ' Back-to-front. Every card is order-dependent: particle.frag emits
+        ' vec4(rgb * alpha, alpha) unconditionally - there is no additive branch -
+        ' and the pass blends premultiplied ONE / ONE_MINUS_SRC_ALPHA with
+        ' DepthMask(False), so depth cannot resolve card-against-card and the
+        ' buffer order IS the composite order. Before this, that order was spawn
+        ' order, which is a real compositing error rather than a cosmetic one.
+        '
+        ' The game itself needs no such sort: its particles go through
+        ' order-independent transparency (moment-based on the high preset,
+        ' weighted-blended on the low one), and its GPU cull appends visible
+        ' particles with an atomic counter that scrambles order outright. There
+        ' is no authored draw-order field anywhere in the .vfxbin to honour -
+        ' that was searched for and is not there. Distance sorting is our
+        ' substitute for OIT, not a port of anything.
+        '
+        ' Sorts the FILLED range only. Cards whose alpha rounded to nothing were
+        ' skipped above and never occupied a slot.
+        If n > 1 Then Array.Sort(sortKeys, instances, 0, n)
+
         Return n
     End Function
 
-    ' Staged bring-up. Each stage adds one more GL call and holds for 5
-    ' seconds, so a series of captures shows exactly which call blacks the
-    ' frame. glGetError is read after every step and the live particle count is
-    ' printed, which also settles whether spawning is keeping up at all.
+    ' Left over from the staged bring-up that found the black-frame bug: each
+    ' stage added one more GL call and held for 5 seconds, so a run of captures
+    ' showed which call blacked the frame. That staging is GONE - Draw now
+    ' issues the whole sequence. Load still writes these two and nothing reads
+    ' them, and Probe below is never called.
     Private stageWatch As Stopwatch = Stopwatch.StartNew()
     Private lastStage As Integer = -1
 
 
-    ''' <summary>Put back every piece of state this pass changes.</summary>
     ''' <summary>
     ''' Save and restore the GL state this pass touches.
     '''
@@ -368,6 +442,31 @@ Public Class MapParticles
 
         GL.NamedBufferSubData(vbo.buffer_id, IntPtr.Zero, n * Marshal.SizeOf(Of Inst), instances)
 
+        ' Scene position for the soft-edge fade that particle.frag texelFetches
+        ' at binding 3. This pass used to bind NOTHING to unit 3 and read
+        ' whatever the frame happened to leave there, which was never correct in
+        ' either branch:
+        '
+        '   draw_fx ran        -> it left gPosition on unit 3 but RE-ATTACHED it
+        '                         (MapStaticModels.vb:613), so sampling it is the
+        '                         feedback loop draw_fx's own comment says raised
+        '                         GL_INVALID_OPERATION.
+        '   draw_fx skipped    -> it early-returns on an empty FX bucket
+        '                         (numAfterFrustum(3) = 0) without touching unit
+        '                         3, leaving the water pass's SunShadowDepth
+        '                         (MapWater.vb:257) - a depth texture with
+        '                         comparison enabled, read through a plain
+        '                         sampler2D. The driver reports that as undefined
+        '                         behaviour, and it appears and disappears as the
+        '                         FX meshes enter and leave the frustum.
+        '
+        ' Same detach / bind / re-attach as draw_fx, for the same reason: being
+        ' merely absent from the draw buffers is not enough. attach_C names one
+        ' draw buffer and it is not this attachment, but the feedback rule is
+        ' about ATTACHMENT, not about being written.
+        MainFBO.fbo.Texture(FramebufferAttachment.ColorAttachment3, Nothing, 0)
+        MainFBO.gPosition.BindUnit(3)
+
         GL.Enable(EnableCap.DepthTest)
         GL.DepthFunc(DepthFunction.Greater)   ' reversed Z, same as the FX pass
         GL.DepthMask(False)
@@ -381,6 +480,11 @@ Public Class MapParticles
         texture.BindUnit(0)
         vao.Bind()
         GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 4, n)
+
+        ' Put gPosition back before anything downstream expects to write it.
+        ' There is no early return between the detach above and here, so this
+        ' cannot be skipped.
+        MainFBO.fbo.Texture(FramebufferAttachment.ColorAttachment3, MainFBO.gPosition, 0)
 
         RestoreState(saved)
     End Sub

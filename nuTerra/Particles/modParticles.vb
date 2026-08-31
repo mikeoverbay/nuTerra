@@ -57,24 +57,43 @@ Module modParticles
         Public atlasFps As Single
         ''' <summary>
         ''' The sprite sheet's region in the (shared) atlas. Stored in the file
-        ''' as (u_max, v_min, u_min, v_max) - right, top, left, bottom.
+        ''' as (v_max, u_min, v_min, u_max) - see the read at +192..+204 in
+        ''' ParseEmitter for how that ordering was settled.
+        '''
+        ''' These are the values AS STORED, which are NOT sampler coordinates:
+        ''' the DDS is uploaded unflipped, so sampling v takes the complement.
+        ''' MapParticles.BuildInstances does that conversion.
         ''' </summary>
         Public uMin As Single, uMax As Single, vMin As Single, vMax As Single
 
         ' Fixed 8-track schema.
         ''' <summary>
-        ''' Track 5: size over life, NORMALISED 0..1. The authored size range is
-        ''' the FINAL size and this is the ramp toward it - every emitter's curve
-        ''' ends within a per cent of its own maximum (9.94 of 10.00, 3.98 of
-        ''' 4.00, 0.20 of 0.20), and it is flat at 1 for most emitters in the
-        ''' game, i.e. no growth at all. Track 0 was used for this at first and
-        ''' is wrong: it multiplies PAST the authored range, ending a 10 m smoke
-        ''' puff at 72 m across.
+        ''' Track 0: size over life. SETTLED against the data - dump all eight
+        ''' tracks for the seven smoke emitters of the three burning-house
+        ''' effects and tracks 2, 4, 5 and 7 come back byte-identical every
+        ''' time. Track 5 is always
+        '''
+        '''     t = 0, 0.27, 0.666, 1     v = 0.1576, 0.4524, 0.8714, 0.9938
+        '''
+        ''' so it is a tool default, not authored data. Track 0 varies in
+        ''' values, key count AND knot times per emitter - Big/smoke_Slow is 5
+        ''' keys 0.572 -> 7.173, Big/smoke_Fast 4 keys 0.774 -> 2.740,
+        ''' Med/smoke_Slow the same end values on different knots - which is
+        ''' what authored data looks like.
+        '''
+        ''' Track 5 was chosen at first because "every emitter's curve ends
+        ''' within a per cent of its own maximum". That argument is circular:
+        ''' track 5 ends at 0.9938 for everything, so 0.9938 * sizeMax is 99%
+        ''' of sizeMax whichever emitter you test.
+        '''
+        ''' Read RAW, not normalised - the authored size range at 999+176/+180
+        ''' is the size at track 0 = 1 and the curve carries the card past it.
+        ''' Settled by A/B; see MapParticles.BuildInstances for the measured
+        ''' diameters and why 52-72 m cards are not the absurdity they look.
         ''' </summary>
-        Public sizeTrack As PfxTrack       ' track 5
+        Public sizeTrack As PfxTrack       ' track 0
         Public speedTrack As PfxTrack      ' track 3, speed over life (decays)
         Public colourTrack As PfxTrack     ' track 6, rgba over life
-        Public track0 As PfxTrack          ' rises 0.66 -> 3.07 typical; UNIDENTIFIED
     End Class
 
     Public Class PfxEffect
@@ -227,8 +246,11 @@ Module modParticles
         em.sizeMax = F32(b, par + 180)
         em.lifeMin = F32(b, par + 184)
         em.lifeMax = F32(b, par + 188)
-        ' Stored (v_max, u_min, v_min, u_max), with v in GL convention
-        ' (0 at the bottom). Settled against the grid catalogue in
+        ' Stored (v_max, u_min, v_min, u_max). The stored v is authored in
+        ' the GL convention, 0 at the bottom of the sheet as displayed - but
+        ' that is NOT the sampler v: the DDS uploads unflipped, so the file's
+        ' top row lands on v = 0 and BuildInstances takes the complement.
+        ' Settled against the grid catalogue in
         ' Tank-Exporter-PY-master/cust_tools/extract_wot_fire_atlas.py, which
         ' lists ten atlas regions identified by eye with their cols/rows: over
         ' 2404 emitters this ordering lands 297 regions exactly on a catalogued
@@ -250,9 +272,8 @@ Module modParticles
 
         Dim tracks = ReadTracks(b, par, e)
         If tracks.Count >= 7 Then
-            em.track0 = tracks(0)
+            em.sizeTrack = tracks(0)
             em.speedTrack = tracks(3)
-            em.sizeTrack = tracks(5)
             em.colourTrack = tracks(6)
         End If
         Return em

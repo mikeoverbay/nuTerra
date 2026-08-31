@@ -18,7 +18,6 @@ const float DECAL_SLACK = 2.5;
 
 out VS_OUT {
     flat mat4 invMVP;
-    flat vec3 s_vector;
 } vs_out;
 
 void main(void)
@@ -32,5 +31,4 @@ void main(void)
 
     gl_Position = m * vec4(vertexPosition, 1.0);
     vs_out.invMVP = inverse(m);
-    vs_out.s_vector = vec3( mvp * vec4( 0.0 ,1.0 ,0.0 ,0.0) );
 }

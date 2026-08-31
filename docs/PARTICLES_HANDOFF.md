@@ -37,8 +37,8 @@ docs/PARTICLES_HANDOFF.md
 
 That commit also swept up earlier branch work that had never been committed:
 the measured GL save/restore (`GlState` / `SaveState` / `RestoreState`), the
-size-track fix (track 5, not track 0), the atlas region ordering, and the
-`PARTICLES_WIRE` debug switch.
+size-track fix (track 5, not track 0 - **since reversed, see below**), the atlas
+region ordering, and the `PARTICLES_WIRE` debug switch.
 
 Builds clean — only pre-existing warnings (NETSDK1138, DotNetZip NU1903,
 `IsMultiThreaded` obsolete).
@@ -180,16 +180,35 @@ next thing to chase.
 **`SPEED_GAIN = 4.0`** in `MapParticles.vb` is a hand-tuned fudge from before
 the size track was fixed. Re-evaluate — it may no longer be needed.
 
-**No depth sorting** for particle cards.
+~~**No depth sorting** for particle cards.~~ Done. `BuildInstances` fills a
+preallocated `sortKeys` with `-(pos - camPos).LengthSquared` per emitted
+instance and `Array.Sort(sortKeys, instances, 0, n)` orders the filled range
+farthest-first before upload. Measured on a populated column: 13 cards,
+36.88 m -> 32.39 m, descending throughout. It is needed because `particle.frag`
+emits `vec4(rgb * alpha, alpha)` unconditionally - no additive branch - so every
+card is order-dependent under the pass blend.
 
-**Still unidentified:** tracks 0, 4, 7 (track 0 rises 0.66 → 3.07 typical);
-the `999+216` bitfield; the `1000+84/+88` pair; the effect-id hash (not a path
-hash — tested 10 algorithms across 19,039 strings).
+**Still unidentified:** the `1000+84/+88` pair, and the effect-id hash (not a
+path hash — tested 10 algorithms across 19,039 strings).
 
-**Stale comment:** `modParticles.vb` still describes the rect as stored "with
-v in GL convention (0 at the bottom)". True of the stored value, but
-misleading now that the unflipped upload is understood. Reword when next in
-that file.
+Closed since: **track 0 is size over life**, read raw, and tracks 2/4/5/7 are
+tool defaults — byte-identical across all seven smoke emitters of the three
+burning-house effects, so they carry no information. The `999+216` bitfield is
+a lattice of shader-feature selectors, not a rank: bit 26 is set on 100% of
+`ps_long.fx` emitters and 0% of every other pixel shader. See
+`VFXBIN_PARTICLE_FORMAT.md`.
+
+**There is no authored render order for FX or particles** — swept exhaustively
+and it is not in the data. The game composites with order-independent
+transparency and its GPU cull appends with an atomic counter that scrambles
+order outright. Do not go looking; the format doc's "Render order" section
+records what was checked.
+
+**Atlas animation** now runs once across a particle's life rather than looping
+at the authored fps: `frame = floor(t * cells)`, clamped, with the random
+`frameSeed` start offset removed. The wrap it replaced made cards appear to
+restart in mid-air, which is what the "respawning where they died" report turned
+out to be. The authored fps at `999+228` is decoded but no longer used.
 
 ## Testing
 

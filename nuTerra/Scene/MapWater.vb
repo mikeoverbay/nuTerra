@@ -253,8 +253,17 @@ Public Class MapWater
         ' The rule, applied to water: no sun out of the sun's reach. The glint
         ' is gated by the same baked map everything else uses. Sky reflection
         ' stays in shadow - shade blocks the sun, not the sky.
-        If scene.sun_shadow.ready AndAlso scene.sun_shadow.depth_tex IsNot Nothing Then
+        ' Bind unit 3 whenever the texture exists, NOT only when the shadow is
+        ' usable. water.frag declares binding 3 as sampler2DShadow, and the
+        ' driver validates the bound texture against the sampler TYPE at draw
+        ' time - it does not care that has_sun_shadow branches around the fetch.
+        ' Leaving whatever the previous pass put there is undefined behaviour,
+        ' and unit 3 is contended: draw_fx, the particle pass and the deferred
+        ' resolve all bind gPosition to it, which is not a depth format.
+        If scene.sun_shadow.depth_tex IsNot Nothing Then
             scene.sun_shadow.depth_tex.BindUnit(3)
+        End If
+        If scene.sun_shadow.ready AndAlso scene.sun_shadow.depth_tex IsNot Nothing Then
             GL.UniformMatrix4(waterShader("sunViewProj"), False, scene.sun_shadow.sun_view_proj)
             GL.Uniform1(waterShader("has_sun_shadow"), 1)
         Else

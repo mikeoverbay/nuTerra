@@ -9,7 +9,20 @@ Module Program
         ' preload
         Dim asm = Assembly.Load("nuTerraCPP")
 
-        ' nuTerra.exe <map_name> [cam=r,ax,ay,lx,ly,lz] [freezefx] [clean] [snap|snapquit]
+        ' nuTerra.exe <map_name> [cam=r,ax,ay,lx,ly,lz] [freezefx] [clean]
+        '                        [snap|snapquit] [settle=N]
+        '
+        ' settle=N overrides how many frames to wait after MAP_LOADED before the
+        ' automatic Snapshot fires. The default 150 is about 2.5 s at 60 fps,
+        ' which is NOT long enough for a particle column to fill: the emitters
+        ' run at 1-5 per second against 3-6 s lifetimes, so a steady-state column
+        ' needs several seconds of simulation before it is representative.
+        ' Capturing at 150 photographs a column that is still building.
+        '
+        ' Note the sim advances on REAL dt while this counts FRAMES, so the
+        ' amount of smoke at capture depends on the frame rate unless the
+        ' timestep is pinned. For a bit-exact before/after, pin the timestep as
+        ' well as raising this.
         '
         ' The cam form is exactly what Snapshot prints, so a view can be set up
         ' by hand, saved, and reproduced verbatim on every later launch. That
@@ -36,6 +49,14 @@ Module Program
                 HALF_SIZE_WINDOW = True
             ElseIf a.Equals("blackfx", StringComparison.OrdinalIgnoreCase) Then
                 BLACK_BEFORE_FX = True
+            ElseIf a.StartsWith("settle=", StringComparison.OrdinalIgnoreCase) Then
+                ' Parsed independently of snap/snapquit and applied after the
+                ' loop, so the order of the arguments on the command line does
+                ' not matter.
+                Dim n As Integer
+                If Integer.TryParse(a.Substring(7), n) AndAlso n > 0 Then
+                    SETTLE_FRAMES = n
+                End If
             ElseIf a.Equals("snap", StringComparison.OrdinalIgnoreCase) Then
                 AUTO_SNAP_FRAMES = 150
             ElseIf a.Equals("snapquit", StringComparison.OrdinalIgnoreCase) Then
@@ -45,6 +66,13 @@ Module Program
                 STARTUP_MAP = a
             End If
         Next
+
+        ' Applied after the loop so "settle=600 snapquit" and "snapquit
+        ' settle=600" behave the same. Only meaningful when a snap was asked
+        ' for at all.
+        If SETTLE_FRAMES > 0 AndAlso AUTO_SNAP_FRAMES > 0 Then
+            AUTO_SNAP_FRAMES = SETTLE_FRAMES
+        End If
 
         If My.Settings.UpgradeRequired Then
             My.Settings.Upgrade()

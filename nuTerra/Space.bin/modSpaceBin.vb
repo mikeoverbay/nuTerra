@@ -186,7 +186,11 @@ Module modSpaceBin
 
             Try
                 get_WGSD(sectionHeaders("WGSD"), br)
-                Array.Sort(DECAL_INDEX_LIST)
+                ' The decal priority sort used to happen here, on
+                ' DECAL_INDEX_LIST. That array is written and never read by
+                ' anything, so the sort had no effect on what was drawn. The
+                ' real one is in MapLoader.build_decals, on the all_decals list
+                ' the renderer actually walks.
             Catch ex As Exception
                 ShowDecodeFailedMessage(ex, "WGSD")
                 GoTo Failed

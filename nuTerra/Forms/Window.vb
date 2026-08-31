@@ -1210,6 +1210,16 @@ try_again:
                         DECAL_EDGE_FADE = Not no_edge_fade
                     End If
                     ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
+                    ' The whole FX pass, meshes and cards together, which is how
+                    ' modRender brackets them. Independent of DONT_BLOCK_MODELS -
+                    ' hiding the models leaves the fire and smoke drawing. It does
+                    ' still need MODELS_LOADED: the FX meshes are model geometry and
+                    ' the load itself sits inside DONT_BLOCK_MODELS (MapLoader.vb:65),
+                    ' so a map loaded with models off has no FX to show.
+                    ImGui.Checkbox("Draw FX", DONT_BLOCK_FX)
+                    If DONT_BLOCK_FX Then
+                        ImGui.Checkbox("   Particle cards as wireframe", PARTICLES_WIRE)
+                    End If
                     ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
                     ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
                     ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)
@@ -1278,7 +1288,6 @@ try_again:
                     ImGui.Checkbox("Draw chunk ids", SHOW_CHUNK_IDs)
                     ImGui.Checkbox("Draw cursor", SHOW_CURSOR)
                     ImGui.Checkbox("Draw test textures", CommonProperties.SHOW_TEST_TEXTURES)
-                    ImGui.Checkbox("Particle cards as wireframe", PARTICLES_WIRE)
                     Dim items = {"None", "Face", "Vertex"}
                     If ImGui.BeginCombo("Draw normals", items(NORMAL_DISPLAY_MODE)) Then
                         If ImGui.Selectable(items(0)) Then
@@ -1475,10 +1484,6 @@ try_again:
                             ImGui.Text("      red = outside box, amber = above bake")
                         End If
 
-                        ' 0 = global probe alone, 1 = the field exactly, above 1
-                        ' exaggerates how far the field departs from the flat
-                        ' global probe.
-                        ImGui.SliderFloat("   probe mix", SH_GRID_MIX, 0.0F, 3.0F)
                         ImGui.SliderFloat("   normal offset m", SH_GRID_OFFSET, 0.0F, 5.0F)
                         ImGui.Text(String.Format("   {0:0.#} m box, {1:0.00} m spacing, fade {2:0.#} m",
                                                  SH_GRID_SIZE.X, SH_GRID_SPACING, SH_GRID_FADE))
