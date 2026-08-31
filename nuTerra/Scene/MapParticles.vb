@@ -176,6 +176,28 @@ Public Class MapParticles
     ''' cannot reproduce. STRETCH was meant to stand in for that and is NOT
     ''' WIRED UP - nothing reads it.
     ''' </summary>
+    ''' <summary>
+    ''' Amplitude of the size-over-life curve, NOT authored data.
+    '''
+    ''' Track 0 read raw grows a card about 12x over its life (0.572 -> 7.173
+    ''' for Big/smoke_Slow), which closed the separated puffs into a continuous
+    ''' column - that part was right. But the peak was too large against the
+    ''' game: cards expanded well past the fire they belong to.
+    '''
+    ''' Applied to the curve rather than clamped, so the growth keeps its SHAPE
+    ''' instead of growing a flat top partway through the life. Halving here
+    ''' halves the peak, and the birth size with it - the two stay in the
+    ''' authored ratio.
+    '''
+    ''' Card overlap is also what drives the FX pass into clipping: gColor is
+    ''' Rgba8 and draw_fx composites AFTER deferred.frag has already tonemapped,
+    ''' so N overlapping additive cards sum in 8 bits and clip channel by
+    ''' channel - red first for fire, which turns orange into yellow and then
+    ''' white. Fewer/smaller cards means less accumulation and more surviving
+    ''' hue, but the clipping itself is structural and is not fixed here.
+    ''' </summary>
+    Private Const CARD_SIZE_SCALE As Single = 0.5F
+
     Private Const SPEED_GAIN As Single = 4.0F     ' on the authored speed curve
     Private Const STRETCH As Single = 1.6F        ' UNUSED - see above
 
@@ -273,7 +295,9 @@ Public Class MapParticles
             ' They are not, because alpha is 0 at t = 1 - a card is fully
             ' transparent at its maximum. At peak alpha, t ~ 0.19, smoke_Slow
             ' is about 37 m, which is the scale of the real column.
-            Dim scale = If(p.em.sizeTrack Is Nothing, 1.0F, p.em.sizeTrack.Sample(t, 0))
+            ' CARD_SIZE_SCALE halves the peak - the cards were expanding far
+            ' past the fire they belong to.
+            Dim scale = If(p.em.sizeTrack Is Nothing, 1.0F, p.em.sizeTrack.Sample(t, 0)) * CARD_SIZE_SCALE
 
             Dim col As New Vector4(1.0F, 1.0F, 1.0F, 1.0F)
             If p.em.colourTrack IsNot Nothing AndAlso p.em.colourTrack.values IsNot Nothing AndAlso
