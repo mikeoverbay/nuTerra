@@ -1296,6 +1296,17 @@ try_again:
                 If ImGui.CollapsingHeader("Overlays") Then
                     ImGui.Checkbox("Draw terrain wire", WIRE_TERRAIN)
                     ImGui.Checkbox("Draw model wire", WIRE_MODELS)
+                    ' Vertex colour as albedo, on every model. Toggling
+                    ' RECOMPILES the model program - the view is #ifdef-gated so
+                    ' that with it off the shader is byte for byte the one that
+                    ' ships. Same mechanism ModelPicker uses for PICK_MODELS.
+                    If ImGui.Checkbox("Show vertex colours", SHOW_VERTEX_COLOURS) Then
+                        If SHOW_VERTEX_COLOURS Then
+                            modelShader.SetDefine("SHOW_VERTEX_COLOURS")
+                        Else
+                            modelShader.UnsetDefine("SHOW_VERTEX_COLOURS")
+                        End If
+                    End If
                     ImGui.Checkbox("Draw bounding boxes", SHOW_BOUNDING_BOXES)
                     If SHOW_BOUNDING_BOXES Then
                         ImGui.Checkbox("   volumetric/GFX only", BOXES_VOLUMETRIC_ONLY)

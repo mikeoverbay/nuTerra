@@ -452,6 +452,21 @@ Module modGlobalVars
     ''' Blending straight into an 8 bit buffer left nothing to glow with -
     ''' every hot pixel was white by the time the pass was done.
     ''' </summary>
+    ''' <summary>
+    ''' Debug view: render every model's VERTEX COLOUR stream as its albedo.
+    '''
+    ''' The stream is mostly unused - it defaults to white for any mesh that
+    ''' ships no colour section - but it is load-bearing on the GFX volumetric
+    ''' meshes, and it is the authored signal behind g_vertexColorMode. On the
+    ''' D-Day trenches it marks a thin band of dark verts around the top rim at
+    ''' ground level, which is the lip that dissolves into the terrain.
+    '''
+    ''' Driven by a #ifdef, not a uniform, so with the view off the shader
+    ''' compiles to exactly the program it did before. Toggling recompiles, the
+    ''' same way ModelPicker toggles PICK_MODELS.
+    ''' </summary>
+    Public SHOW_VERTEX_COLOURS As Boolean = False
+
     Public FX_GLOW As Boolean = True
 
     ' ----------------------------------------------------------------------

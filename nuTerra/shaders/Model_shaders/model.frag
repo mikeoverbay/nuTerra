@@ -34,6 +34,9 @@ in VS_OUT
 #ifdef SHOW_LOD_COLORS
     flat uint lod_level;
 #endif
+#ifdef SHOW_VERTEX_COLOURS
+    vec4 vcol;
+#endif
 } fs_in;
 
 // globals
@@ -590,5 +593,21 @@ void main(void)
     if (fs_in.lod_level == 1)      { gColor.r += 0.4; }
     else if (fs_in.lod_level == 2) { gColor.g += 0.4; }
     else if (fs_in.lod_level == 3) { gColor.b += 0.4; }
+#endif
+
+#ifdef SHOW_VERTEX_COLOURS
+    // Show the raw vertex colour stream as albedo. Written LAST so it beats
+    // every material branch above without any of them having to know.
+    //
+    // SWIZZLED .bgr: the stream is D3DCOLOR, so the bytes sit in memory as
+    // B,G,R,A and the normalized UnsignedByte attribute delivers them to
+    // .r,.g,.b in that order. Invisible on the greyscale streams that
+    // prompted this view, but wrong on anything actually coloured.
+    //
+    // Still lit - this replaces albedo, it does not bypass the deferred pass.
+    // Good enough to see WHERE the dark verts are; if exact values are needed
+    // the view has to skip lighting too.
+    gColor = vec4(fs_in.vcol.bgr, 1.0);
+    gGMF.rg = vec2(0.0, 0.0);
 #endif
 }
