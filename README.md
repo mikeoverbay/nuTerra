@@ -45,6 +45,7 @@ Start with the handoff for whichever area you are touching.
 | `PARTICLES_HANDOFF.md` | Card particle simulation and emitter data |
 | `VFXBIN_PARTICLE_FORMAT.md` | The `.vfxbin` effect format, cracked from the packages |
 | `terrain_holes.md` | Hole block format, the per-chunk mirror, the mask and the discard |
+| `terrain_blending_edge.md` | How the game merges models into terrain - a post-pass, NOT holes |
 | `terrain_blend.md` | The game's eight-layer terrain blend, transcribed from its VT baker |
 | `GAME_LIGHTING_MODEL.md` | The game's lighting model as read out of its shaders |
 | `HANDOFF_2026-08-28_lighting.md` | Lighting work - probes, SH grid, tonemapping |

@@ -118,6 +118,39 @@ The pattern is the same every time: a plausible mechanism, no measurement, or a
 measurement whose control had drifted. `FX_PIPELINE.md` ends with the metric
 and the exact commands that settle these.
 
+## Late finding: terrain blending is not holes
+
+Decoded at the end of the session from the game's own
+`terrain_blending_edge.10.dx11.fxo`, written up in **`terrain_blending_edge.md`**.
+
+**The game never punches holes for trenches.** A fullscreen post-process paints
+terrain albedo and normal *onto the model's* G-buffer pixels, faded by height
+above the terrain and dithered with a triplanar noise. The model merges into
+the ground because its lower edge is rewritten to be ground.
+
+That kills the approach we were heading toward - masking terrain by a model's
+footprint is wrong in kind, not just in precision - and it explains why D-Day's
+trenches have no authored holes while the cliffs do. The two systems are
+unrelated. `terrain_holes.md` still stands for cliffs.
+
+`g_vertexColorMode = 2` is a *separate* mechanism dissolving the model's own
+lip. No vertex colour appears in the blending pass at all.
+
+**Next step** is in `terrain_blending_edge.md` under "Implementing it in
+nuTerra": every input already exists, and `g_enableTerrainBlending` needs to
+reach the G-buffer flag channel.
+
+## Parked work - branch `wip/parked-2026-08-31`
+
+Two finished-but-unlanded changes, off master so they cannot be lost:
+
+- `581e57e` alpha cutout in the baked shadow map's model pass. Builds, bake
+  runs clean, never eyeballed.
+- `793824c` "Show vertex colours" debug view. Parked because the owner saw a
+  non-stop `#131222` shadow-sampler warning while using it, which I could NOT
+  reproduce headlessly - cause unproven, best hypothesis is the live
+  `SetDefine` recompile, which `ModelPicker` shares.
+
 ## Environment traps re-confirmed this session
 
 - **Never build through the Bash tool** — git-bash rewrites MSBuild's
