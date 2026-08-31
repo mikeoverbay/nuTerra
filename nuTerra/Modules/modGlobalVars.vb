@@ -376,9 +376,10 @@ Module modGlobalVars
     ' (Abbey is 280x280 over a 1400 m box). Seven slices carry a probe's packed
     ' SH9; slice 6's alpha is that probe's reference height; slice 7 is padding.
     '
-    ' LOADED AND UPLOADED, BUT NOT YET USED BY THE LIGHTING. deferred.frag
-    ' samples it into a local and deliberately does not fold it into the ambient
-    ' term - that integration is a separate, deliberate step.
+    ' FOLDED INTO THE REAL LIGHTING. deferred.frag evaluates the field and
+    ' blends it over the flat global probe's irradiance by sh_grid_mix, inside
+    ' the sh_grid_enabled branch. USE_SH_GRID_FX extends the same field to the
+    ' FX volumetrics so smoke and the ground under it agree.
     ' ------------------------------------------------------------------------
 
     '''<summary>The volume texture, Nothing when the map ships no grid.</summary>
@@ -414,6 +415,34 @@ Module modGlobalVars
     ''' samples open air only. Moves the LOOKUP, never the height test.
     ''' </summary>
     Public SH_GRID_OFFSET As Single = 1.5F
+
+    ''' <summary>
+    ''' Light the FX volumetrics from the baked field as well as the ground.
+    '''
+    ''' DEFAULT OFF, and it is a look decision, not a bug fix. The field is
+    ''' measurably darker than the flat global probe the FX uses today, so lit
+    ''' smoke gets dimmer and shifts hue when this is on. Some of the smoke's
+    ''' current visibility is the accident that the ground is already
+    ''' grid-darkened and the smoke is not; this removes that. The smoke was
+    ''' fought back from invisible once, which is why the owner turns this on,
+    ''' not the code.
+    '''
+    ''' Only lit materials move - the ambient sits inside volumetric.vert's
+    ''' g_enableAO gate, which additive fire usually authors False. On maps
+    ''' that author additive AND lit together this DOES change fire.
+    ''' </summary>
+    Public USE_SH_GRID_FX As Boolean = False
+
+    ''' <summary>
+    ''' The FX pass's own normal push, SEPARATE from SH_GRID_OFFSET and zero by
+    ''' default. The 1.5 m push exists to keep a wall's lookup out of the
+    ''' near-black probes baked inside buildings - a job a smoke card floating
+    ''' in open air does not have. Its normals are not a coherent billboard, so
+    ''' a per-normal push scatters neighbouring vertices' lookups by up to a
+    ''' whole probe cell and splits one column left to right. Kept as a
+    ''' variable only so it can be A/B'd; 0 is the answer.
+    ''' </summary>
+    Public SH_GRID_OFFSET_FX As Single = 0.0F
 
     ''' <summary>
     ''' Replace the deferred pass with the probe field inspector - a separate

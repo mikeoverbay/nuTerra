@@ -769,8 +769,12 @@ Module modRender
     ''' selected by the "show probe field" checkbox.
     '''
     ''' Forking at the program level rather than branching inside deferred.frag
-    ''' is the whole point: the lighting shader never references the grid, so
-    ''' turning this view on cannot change how the scene actually renders.
+    ''' keeps the inspector out of the lighting path, so turning this view on
+    ''' cannot perturb how the scene renders.
+    '''
+    ''' It is NOT a preview of the lit result. deferred.frag folds the field
+    ''' into the ambient by sh_grid_mix; this view shows the field raw, so the
+    ''' two are not expected to match pixel for pixel.
     ''' </summary>
     Private Sub render_probe_field()
         GL_PUSH_GROUP("render_probe_field")

@@ -752,6 +752,16 @@ try_again:
 
         LogThis("  water: loaded={0} draw={1}", map_scene.WATER_LOADED, DONT_BLOCK_WATER)
 
+        ' The probe field's state, including what the FX pass gets as opposed to
+        ' the deferred pass. offset is printed as deferred/fx because they are
+        ' deliberately different: the 1.5 m wall push is wrong for smoke cards.
+        ' Without this line a control run has no in-band proof the FX pass was
+        ' actually handed the same field as the ground.
+        LogThis("  sh grid: loaded={0} use={1} fx={2} mix={3:0.00} offset={4:0.0}/{5:0.0} fade={6:0.0} centre=({7:0.#},{8:0.#}) size=({9:0.#},{10:0.#})",
+                SH_GRID_LOADED, USE_SH_GRID, USE_SH_GRID_FX, SH_GRID_MIX,
+                SH_GRID_OFFSET, SH_GRID_OFFSET_FX, SH_GRID_FADE,
+                SH_GRID_CENTRE.X, SH_GRID_CENTRE.Z, SH_GRID_SIZE.X, SH_GRID_SIZE.Z)
+
         ' FX diagnostics: the four cull buckets (fx is the volumetric pass's
         ' draw count this frame), and whether anything upset GL since the last
         ' time someone asked.
@@ -1473,7 +1483,11 @@ try_again:
                     ' placement can be checked before anything consumes it.
                     ImGui.Separator()
                     If SH_GRID_LOADED Then
-                        ImGui.Checkbox("SH probe grid (loaded, not mixed)", USE_SH_GRID)
+                        ImGui.Checkbox("SH probe grid", USE_SH_GRID)
+                        ImGui.Checkbox("   light FX from the field", USE_SH_GRID_FX)
+                        If USE_SH_GRID_FX Then
+                            ImGui.SliderFloat("      FX normal offset m", SH_GRID_OFFSET_FX, 0.0F, 5.0F)
+                        End If
 
                         ' Swaps the whole lighting program for probe_field.frag.
                         ' Nothing about this view can touch the real shading.

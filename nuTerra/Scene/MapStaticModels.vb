@@ -651,6 +651,66 @@ Public Class MapStaticModels
         GL.Uniform1(volumetricShader("sh_enabled"),
                     CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
 
+        ' The baked probe FIELD, the same one deferred.frag folds into the
+        ' ground's ambient. Mirror of the block in modRender.draw_deferred with
+        ' the shader swapped, and it MUST stay a mirror: if these values ever
+        ' diverge from the ones the deferred shader gets, the smoke and the
+        ' ground under it are lit by two different fields and this has no point.
+        '
+        ' Two deliberate divergences, both argued in volumetric.vert:
+        '   sh_grid_enabled - also gated on USE_SH_GRID_FX (default False).
+        '   sh_grid_offset  - sent as SH_GRID_OFFSET_FX, which is 0. The 1.5 m
+        '                     normal push is tuned for wall SURFACES; a smoke
+        '                     card's normals span far too wide an arc, so
+        '                     inheriting it scatters neighbouring lookups by a
+        '                     whole probe cell and splits one column.
+        '
+        ' The BIND is not gated on the FX toggle. Fire and smoke are one
+        ' MultiDrawElementsIndirect through one program, so a declared sampler3D
+        ' against an unbound unit 11 is an incomplete-texture condition for the
+        ' WHOLE draw, fire included. Bind whenever the texture exists; the only
+        ' remaining unbound case is a map with no grid at all, where the
+        ' deferred pass sits in exactly the same state today.
+        Dim fx_grid_on = USE_SH_GRID AndAlso USE_SH_GRID_FX AndAlso
+                         SH_GRID_LOADED AndAlso SH_GRID_ID IsNot Nothing
+        If SH_GRID_ID IsNot Nothing Then SH_GRID_ID.BindUnit(11)
+        If fx_grid_on Then
+            ' The shader computes uv = world.xz * scale - offset. Our world is
+            ' mirrored in x for display and the bake is not, so x runs
+            ' backwards - scale_x is NEGATIVE and the x offset is built from
+            ' centre PLUS half size. Copied from the deferred upload rather
+            ' than re-derived.
+            '   z : uv = (w - min)/size  -> scale =  1/size, offset =  min/size
+            '   x : uv = (max - w)/size  -> scale = -1/size, offset = -max/size
+            Dim scale_z = 1.0F / SH_GRID_SIZE.Z
+            Dim offset_z = (SH_GRID_CENTRE.Z - SH_GRID_SIZE.Z * 0.5F) * scale_z
+            Dim scale_x = -1.0F / SH_GRID_SIZE.X
+            Dim offset_x = -(SH_GRID_CENTRE.X + SH_GRID_SIZE.X * 0.5F) / SH_GRID_SIZE.X
+
+            GL.Uniform4(volumetricShader("sh_grid_uv"), offset_x, offset_z, scale_x, scale_z)
+            GL.Uniform1(volumetricShader("sh_grid_fade"), 1.0F / Math.Max(SH_GRID_FADE, 0.001F))
+            GL.Uniform1(volumetricShader("sh_grid_offset"), SH_GRID_OFFSET_FX)
+            GL.Uniform1(volumetricShader("sh_grid_mix"), SH_GRID_MIX)
+            ' There is no SH_GRID_EDGE global - it is derived, so the
+            ' expression has to be recomputed here, not read.
+            GL.Uniform1(volumetricShader("sh_grid_edge"),
+                        2.0F * SH_GRID_SPACING / Math.Max(SH_GRID_SIZE.X, 1.0F))
+
+            Static grid_sh_flat(26) As Single
+            For i = 0 To 8
+                grid_sh_flat(i * 3 + 0) = SH_GRID_SH9(i).X
+                grid_sh_flat(i * 3 + 1) = SH_GRID_SH9(i).Y
+                grid_sh_flat(i * 3 + 2) = SH_GRID_SH9(i).Z
+            Next
+            GL.Uniform3(volumetricShader("sh_grid_sh9"), 9, grid_sh_flat)
+        End If
+        ' UNCONDITIONAL, outside the If, exactly as the deferred upload does it.
+        ' volumetricShader is a separate program object with its own uniform
+        ' state, and draw_fx early-returns above when nothing is in view, so
+        ' loading a grid-less map after a grid map would otherwise leave
+        ' sh_grid_enabled = 1 and a stale sh_grid_uv against an unbound unit 11.
+        GL.Uniform1(volumetricShader("sh_grid_enabled"), CInt(If(fx_grid_on, 1, 0)))
+
         allMapModels.Bind()
         indirect_fx.Bind(BufferTarget.DrawIndirectBuffer)
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(3), 0)

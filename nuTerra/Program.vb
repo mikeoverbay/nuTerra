@@ -47,6 +47,19 @@ Module Program
                 CLEAN_VIEW = True
             ElseIf a.Equals("half", StringComparison.OrdinalIgnoreCase) Then
                 HALF_SIZE_WINDOW = True
+            ElseIf a.Equals("gridfx", StringComparison.OrdinalIgnoreCase) Then
+                ' Light the FX volumetrics from the baked probe field. Off by
+                ' default, so a run WITHOUT this argument is the bit-identical
+                ' negative control for free.
+                USE_SH_GRID_FX = True
+            ElseIf a.StartsWith("gridfxoffset=", StringComparison.OrdinalIgnoreCase) Then
+                ' Only for A/B'ing the normal push against 0. See
+                ' SH_GRID_OFFSET_FX - 0 is the shipped answer.
+                Dim gf As Single
+                If Single.TryParse(a.Substring(13), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, gf) Then
+                    SH_GRID_OFFSET_FX = gf
+                End If
             ElseIf a.Equals("blackfx", StringComparison.OrdinalIgnoreCase) Then
                 BLACK_BEFORE_FX = True
             ElseIf a.StartsWith("settle=", StringComparison.OrdinalIgnoreCase) Then
