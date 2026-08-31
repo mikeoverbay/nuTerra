@@ -1,7 +1,10 @@
 # Card particle system — handoff
 
-**Merged to `master`** (`97ef7a7`). The branch `particles-cardtest` is now a
-subset of master and can be deleted.
+**Merged to `master`** (`97ef7a7`). The branch `particles-cardtest` still
+exists and git does **not** consider it merged - its tip `46b9a98` is not an
+ancestor of master. The entire content delta is two `.gitignore` lines for
+test images, so nothing of substance is stranded there - but check that for
+yourself rather than trusting this sentence.
 
 This document covers the particle **simulation** and the `.vfxbin` data behind
 it. How the FX are lit, accumulated, tonemapped, glowed and composited is a

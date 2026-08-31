@@ -3,8 +3,16 @@
 Companion to `HANDOFF_sun_shadow.md` (current through 21c56d1) and
 `GAME_LIGHTING_MODEL.md` (the transcription of the game's own resolve).
 
-Everything below is **uncommitted**: 12 files, ~978 insertions, plus two new
-shaders and two new docs. The tree builds clean and runs.
+> **STATUS: historical. Read section 9 first, then weigh sections 2-8 against
+> it.** This was written mid-session, so "uncommitted" below means uncommitted
+> *that day*. What survived landed in `30b77bb`; much of sections 7 and 8 was
+> reverted. The probe grid is real and shipped; the resolve rewrite is not.
+> Current renderer truth lives in `HANDOFF_2026-08-31_fx_and_holes.md` and
+> `FX_PIPELINE.md`.
+
+Everything below was **uncommitted at the time of writing**: 12 files, ~978
+insertions, plus two new shaders and two new docs. The tree builds clean and
+runs.
 
 ---
 

@@ -31,6 +31,10 @@ Two safety tags: **`pre-hdr`** (before the FX compositing work) and
 - **`VFXBIN_PARTICLE_FORMAT.md`** — the `.vfxbin` format. Unchanged this
   session but now the single source for the atlas rect ordering.
 - **`FX_plan.md`** — historical recon. Carries a status banner now.
+- **`decals.md`** — the decal pass end to end, and why its tangent frame is
+  not allowed to come from screen-space derivatives. New, later the same day.
+- **`terrain_blending_edge.md`** — the game's own terrain-onto-model blend,
+  decoded. A specification, not an implementation.
 
 ## The headline result
 
@@ -218,6 +222,37 @@ GL call comes next. That is a pre-existing hazard, unrelated to this view.
 Only `deferred.frag` and `water.frag` declare a `sampler2DShadow` at all, and
 neither is the model shader. If it recurs, look for a pass that returns
 between `Use()` and `StopUse()`.
+
+## Later the same day: the decal checkerboard
+
+The owner reported "weird banding on decals, looks like Z fighting, any cam
+movement changes the banding" on 101_dday. It was not depth ordering at all.
+
+`get_tbn` in `box_decals_color.frag` built the decal's tangent frame from
+`dFdx`/`dFdy` and divided by the UV Jacobian determinant. That UV is
+reconstructed from the depth buffer, so at grazing angles the determinant
+collapses and the tangent explodes - and NVIDIA's fine derivatives differ
+between the even and odd pixels of a quad, so it alternated pixel to pixel and
+wrote a 1-pixel checker into `gNormal`.
+
+Fixed in `5908570` by taking the tangent from the CPU, where it is exact: a
+decal's UV mapping is affine in its own box. `301b369` then removed the parallax
+chain that fix orphaned, including a `gPosition` sample the pass had no business
+making. Full write-up in **`decals.md`**.
+
+Signed checker energy at the owner's camera: **+0.540 -> -0.003**, null control
+0 px. Owner confirmed on screen: "no more swimming".
+
+Two method notes, both of which nearly produced a wrong answer:
+
+- **`DecalProject.frag` is not the decal shader.** It is the 3D map cursor
+  (`MapCursor.vb`). Patching it produced a bit-identical frame, which looks
+  exactly like "my change did nothing" rather than "I edited the wrong file".
+- **A build that fails still leaves you a runnable exe.** MSBuild could not
+  replace `nuTerra.exe` while the owner had it open, and the resulting
+  "bit-identical" verification was the *old* binary rendering. Check the build
+  succeeded before believing a null result - the bin copy of the shader is the
+  quickest tell.
 
 ## Environment traps re-confirmed this session
 
