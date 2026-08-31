@@ -4,9 +4,11 @@ Reverse engineered from `particles.pkg`, using the four
 `Bld_19_01_Vhouse_05_Smoke_*` effects (the burning house on Abbey) as the
 sample. `tools/vfxbin_dump.py` reproduces every number below.
 
-nuTerra implements card particles on branch `particles-cardtest` (see
+nuTerra implements card particles on `master` (see
 `nuTerra/Scene/MapParticles.vb` and `docs/PARTICLES_HANDOFF.md`). This document
-is the format reference behind that. Particles are the ONLY route to the smoke
+is the format reference behind that, and `tools/vfxbin_dump.py` reads the atlas
+rect in the same order this document gives - if the two ever disagree again,
+the renderer is the checkable one. Particles are the ONLY route to the smoke
 rising from a burning building - that smoke is not geometry, so no
 volumetric-shader work can produce it.
 

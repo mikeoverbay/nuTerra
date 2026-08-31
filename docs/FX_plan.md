@@ -1,5 +1,18 @@
 # FX plan — particles, flames, smoke
 
+> **STATUS: this is a historical recon document, kept for the format work in
+> it. The plan part is done.** Stage 0 (volumetric meshes), stage 2 (.vfxbin
+> cracked), stage 3 (CPU billboard particles) and most of stage 4 (flipbook
+> atlas, curves, soft particles) all landed. Current truth lives in
+> `FX_PIPELINE.md` (compositing, glow, lighting), `PARTICLES_HANDOFF.md`
+> (simulation) and `VFXBIN_PARTICLE_FORMAT.md` (the format).
+>
+> The open question below about where flipbook atlas frame tables live is
+> **answered**: they are in the emitter block itself, not a sidecar — the sheet
+> rect is 4 floats at `999+192..+204` ordered `(v_max, u_min, v_min, u_max)`,
+> with rows at `+220` and cols at `+224`. The `#Fire` group tags turned out not
+> to be needed.
+
 Recon of 2026-08-25 against 101_dday + shared packages. Everything below was
 read straight out of the game files; offsets verified in Python before being
 written down.

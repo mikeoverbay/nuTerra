@@ -1,7 +1,12 @@
 # Card particle system — handoff
 
-State as of the end of the atlas/UV session. Branch `particles-cardtest`, on
-top of `da3d753`.
+**Merged to `master`** (`97ef7a7`). The branch `particles-cardtest` is now a
+subset of master and can be deleted.
+
+This document covers the particle **simulation** and the `.vfxbin` data behind
+it. How the FX are lit, accumulated, tonemapped, glowed and composited is a
+separate document: **`FX_PIPELINE.md`**. Read that one first if the question is
+about how FX *look* rather than how they move.
 
 ## Lockdown
 
@@ -10,46 +15,37 @@ Fire and the **volumetric smoke model FX** work and are locked. Nothing in
 without walking the full call path and its state assumptions first. The card
 particle system is a *separate* path and is not covered by the lockdown.
 
-Corollary that cost time this session: **do not attribute pixels to either
-path without an A/B.** Toggle `PARTICLES_ENABLED` off and on at a fixed camera
-and diff the frames. It was claimed mid-session that the puffs above the
-monastery house belong to the volumetric FX mesh; that claim was made from
-inference and is probably WRONG. The evidence now points the other way:
-`fx_pass.png` is captured after `particles.Draw` so it includes cards;
-`Fire_monastery_big.visual_processed` declares only four FIRE materials and
-the snapshot reports exactly four fx draws; the map's only smoke mesh,
-`Grass_fire\SmokeBotton_02`, sits ~150 m away by the tank wrecks; and `rate`
-is 1-5/s, so cards do spawn. Those puffs are most likely the cards, which
-would mean the v fix landed visibly. **Unverified either way - run the A/B
-first.**
+Corollary that cost time: **do not attribute pixels to either path without an
+A/B.** Toggle `PARTICLES_ENABLED` off and on at a fixed camera and diff the
+frames.
+
+SETTLED: the smoke above the monastery house is **cards**, not the volumetric
+mesh. An earlier claim to the contrary was made from inference and was wrong.
+`Fire_monastery_big.visual_processed` declares only four FIRE materials and the
+snapshot reports exactly four fx draws; the map's only smoke mesh,
+`Grass_fire\SmokeBotton_02`, sits ~150 m away by the tank wrecks. Since smoke
+pixels can now come from either path, always name which one you mean.
+
+Second corollary, learned the hard way on the glow: **the sim is
+non-deterministic run to run**, so an A/B across two live runs measures sim
+drift as much as the change. Pin it with `freezefx`.
 
 ## Commit state
 
-Committed as `4ceb3da` on `particles-cardtest`, on top of `da3d753`:
-
-```
-nuTerra/Forms/Window.vb            nuTerra/Scene/MapParticles.vb
-nuTerra/MapLoader/MapLoader.vb     nuTerra/Particles/modParticles.vb
-nuTerra/Modules/modGlobalVars.vb   nuTerra/RenderEngine/modRender.vb
-nuTerra/shaders/Model_shaders/particle.frag
-docs/PARTICLES_HANDOFF.md
-```
-
-That commit also swept up earlier branch work that had never been committed:
-the measured GL save/restore (`GlState` / `SaveState` / `RestoreState`), the
-size-track fix (track 5, not track 0 - **since reversed, see below**), the atlas
-region ordering, and the `PARTICLES_WIRE` debug switch.
+On `master`. The merge commit `97ef7a7` un-reverted the whole card particle
+system, which master had deliberately removed in `86c977b`.
 
 Builds clean — only pre-existing warnings (NETSDK1138, DotNetZip NU1903,
 `IsMultiThreaded` obsolete).
 
-**Neither of this session's two changes has been confirmed on screen.** The
-commit message for `4ceb3da` asserts the monastery puffs are the volumetric FX
-mesh; see the Lockdown section above — that assertion is probably wrong and
-this document supersedes it.
-
-Untracked and deliberately left out: `readme_images/fire test.png` and
-`readme_images/fire_ref.png`.
+**Merging across that revert has a trap in it.** Git flagged 7 conflicts, but
+that was not the whole story: master's revert had deleted lines the branch
+never touched, so the automatic merge silently took the deletion on five more
+files it did *not* flag — `Window.vb`, `ShaderLoader.vb`, `ResMgr.vb`,
+`MapScene.vb`, and `particle.vert`, which went missing entirely. That tree
+compiled `MapParticles.vb` against a non-existent vertex shader. If you ever
+merge across a revert again, diff the merged tree against the source branch;
+the conflict list understates it.
 
 ## Solved this session
 
@@ -177,8 +173,20 @@ many more emitter instances than the three `.vfxbin` files we read; `rate` is
 scaled by something not yet found; or LOD/quality multiplies it. This is the
 next thing to chase.
 
-**`SPEED_GAIN = 4.0`** in `MapParticles.vb` is a hand-tuned fudge from before
-the size track was fixed. Re-evaluate — it may no longer be needed.
+**`SPEED_GAIN = 4.0`** in `MapParticles.vb` is motion tuning, not authored
+data. Its premise still holds — it was set when track 0 drove size, and track 0
+drives size again — so the re-tune it once demanded is not owed. Still a knob,
+just not an urgent one.
+
+**`CARD_SIZE_SCALE = 0.5`** halves the peak of the size curve. Track 0 read raw
+grows a card about 12x over its life, which is what closes the separated puffs
+into a continuous column, but the peak was larger than the game's. Applied to
+the curve rather than clamped, so the growth keeps its shape instead of
+growing a flat top partway through the life; birth size halves with the peak,
+so the two stay in the authored ratio.
+
+Smaller cards also mean less overlap, which mattered when the FX composited
+into an 8 bit buffer. It matters less now — see `FX_PIPELINE.md`.
 
 ~~**No depth sorting** for particle cards.~~ Done. `BuildInstances` fills a
 preallocated `sortKeys` with `-(pos - camPos).LengthSquared` per emitted
@@ -213,9 +221,18 @@ out to be. The authored fps at `999+228` is decoded but no longer used.
 ## Testing
 
 Launch args (`Program.vb`): `<map> [cam=r,ax,ay,lx,ly,lz] [freezefx] [clean]
-[half] [blackfx] [snap|snapquit]`. The `cam=` form is exactly what Snapshot
-prints, so a view can be set up by hand, saved, and reproduced verbatim on
-every later launch.
+[half] [blackfx] [snap|snapquit] [settle=N] [gridfx] [gridfxoffset=F]
+[noglow]`. The `cam=` form is exactly what Snapshot prints, so a view can be
+set up by hand, saved, and reproduced verbatim on every later launch.
+
+- `settle=N` overrides the 150-frame wait before the automatic snapshot. The
+  emitters run at 1-5/s against 3-6 s lifetimes, so a steady-state column needs
+  several seconds — 150 frames photographs a column that is still filling.
+  `settle=600` is a reasonable full column.
+- `freezefx` pins `FX_TIME` at 0 **and** stops particles spawning, so only the
+  meshes render. This is what makes an A/B deterministic.
+- `noglow` / `gridfx` toggle the two FX features that have no other headless
+  writer.
 
 ```
 nuTerra.exe 19_monastery cam=-51.1409,6.1232,0.1388,142.8446,11.8214,29.2966 half clean snapquit
@@ -235,7 +252,10 @@ Kill `nuTerra.exe` before building, or the exe copy fails with MSB3027.
 ## Traps
 
 - Screenshots are **post-tonemap**. Alpha ×1/×8/×64 read back 105/127/146.
-  Never reason numerically about pixel values from a capture.
+  Never reason numerically about pixel values from a capture. `fx_pass.png` is
+  the exception — it is the raw buffer straight off the GPU.
+- **The sim is non-deterministic.** Two live runs differ. Pin with `freezefx`
+  before comparing anything.
 - `attach_*` names draw buffers but does **not** bind. Readbacks must restore
   the framebuffer binding.
 - All 8 G-buffer attachments are in use; `gAUX_Color` only looks free.
