@@ -22,6 +22,11 @@
 
 layout(binding = 0) uniform sampler2D fxBuffer;
 
+// The blurred over-range energy from fx_bright + msm_blur. Reduced resolution
+// and sampled Linear, so this read is also the upsample.
+layout(binding = 1) uniform sampler2D bloomBuffer;
+uniform float glow_strength;
+
 layout(location = 0) out vec4 outColor;
 
 void main(void)
@@ -48,6 +53,27 @@ void main(void)
     //
     // rgb is premultiplied, so scaling it alone is correct - coverage must not
     // be scaled with it or the smoke would stop attenuating the scene.
+    // Glow goes in BEFORE the roll-off, so that everything the pass emits is
+    // rolled off exactly once, together.
+    //
+    // Adding it afterwards is the obvious arrangement and it is wrong: the sum
+    // goes straight back over 1.0 and clips on the write to Rgba8, which
+    // measured 0.50% -> 1.70% of fire pixels blown and gave back part of what
+    // the float accumulation had just won.
+    //
+    // The worry that folding it in first would "scale the glow away" does not
+    // survive contact with what the roll-off does. It is a pure rescale by the
+    // peak channel, so out in the halo - where the fire is absent and the glow
+    // IS the signal - the peak is the glow's own small value and nothing is
+    // scaled. In the core, glow and fire scale together and the hue is kept.
+    //
+    // Added to rgb only, with coverage still taken from the FX buffer's own
+    // alpha. Where the glow spills onto pixels the FX never covered, alpha is
+    // 0, so One / OneMinusSrcAlpha leaves the scene intact and simply adds
+    // light to it - which is what a glow is.
+    vec2 uv = gl_FragCoord.xy / vec2(textureSize(fxBuffer, 0));
+    fx.rgb += texture(bloomBuffer, uv).rgb * glow_strength;
+
     const float peak = max(fx.r, max(fx.g, fx.b));
     fx.rgb /= max(1.0, peak);
 

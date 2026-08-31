@@ -445,6 +445,32 @@ Module modGlobalVars
     Public SH_GRID_OFFSET_FX As Single = 0.0F
 
     ''' <summary>
+    ''' Bloom on the FX pass - the halo around fire.
+    '''
+    ''' Only possible now that the FX accumulate into a float target: the glow
+    ''' is built from the energy ABOVE 1.0, which is exactly what used to be
+    ''' thrown away when the pass blended straight into Rgba8. Against the old
+    ''' path there was nothing left to glow with - every hot pixel had already
+    ''' been flattened to white.
+    ''' </summary>
+    Public FX_GLOW As Boolean = True
+
+    ''' <summary>
+    ''' How much of the blurred over-range energy to add back. 1.0 adds it at
+    ''' the strength it was actually emitted; the useful range is well under
+    ''' that, because the glow covers far more pixels than the core does.
+    ''' </summary>
+    Public FX_GLOW_STRENGTH As Single = 0.55F
+
+    ''' <summary>
+    ''' Where the bright pass starts keeping energy. 1.0 is the principled
+    ''' value, not a tuned one: gFX_HDR holds the premultiplied sum before
+    ''' composite_fx scales it back, so above 1.0 is precisely the energy that
+    ''' used to clip. Below 1.0 starts glowing smoke.
+    ''' </summary>
+    Public FX_GLOW_THRESHOLD As Single = 1.0F
+
+    ''' <summary>
     ''' Replace the deferred pass with the probe field inspector - a separate
     ''' shader program, so nothing about this view can reach the real lighting.
     ''' </summary>

@@ -47,6 +47,18 @@ Module Program
                 CLEAN_VIEW = True
             ElseIf a.Equals("half", StringComparison.OrdinalIgnoreCase) Then
                 HALF_SIZE_WINDOW = True
+            ElseIf a.Equals("noglow", StringComparison.OrdinalIgnoreCase) Then
+                ' Turn the FX glow off, so a run WITH and a run WITHOUT this
+                ' argument are an A/B of the glow at one camera. There is no
+                ' other headless way to move it - FX_GLOW's only other writer
+                ' is the ImGui checkbox.
+                FX_GLOW = False
+            ElseIf a.StartsWith("glowstrength=", StringComparison.OrdinalIgnoreCase) Then
+                Dim gs As Single
+                If Single.TryParse(a.Substring(13), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, gs) Then
+                    FX_GLOW_STRENGTH = gs
+                End If
             ElseIf a.Equals("gridfx", StringComparison.OrdinalIgnoreCase) Then
                 ' Light the FX volumetrics from the baked probe field. Off by
                 ' default, so a run WITHOUT this argument is the bit-identical

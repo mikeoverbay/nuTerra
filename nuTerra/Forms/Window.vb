@@ -1229,6 +1229,17 @@ try_again:
                     ImGui.Checkbox("Draw FX", DONT_BLOCK_FX)
                     If DONT_BLOCK_FX Then
                         ImGui.Checkbox("   Particle cards as wireframe", PARTICLES_WIRE)
+                        ' Glow. Only meaningful because the FX now accumulate
+                        ' into a float buffer - the halo is built from the
+                        ' energy above 1.0, which the old Rgba8 path threw away.
+                        ImGui.Checkbox("   Glow", FX_GLOW)
+                        If FX_GLOW Then
+                            ImGui.SliderFloat("      Glow strength", FX_GLOW_STRENGTH, 0.0F, 2.0F)
+                            ' Below 1.0 starts glowing smoke, which is usually
+                            ' not what is wanted - 1.0 is exactly the energy
+                            ' that used to clip.
+                            ImGui.SliderFloat("      Glow threshold", FX_GLOW_THRESHOLD, 0.25F, 4.0F)
+                        End If
                     End If
                     ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
                     ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)

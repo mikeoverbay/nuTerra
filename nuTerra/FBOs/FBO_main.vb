@@ -42,6 +42,24 @@ Public Class MainFBO
     Public Shared fx_fbo As GLFramebuffer
 
     ''' <summary>
+    ''' Glow ping-pong pair and the framebuffer that drives them, at
+    ''' BLOOM_DIV of the main resolution.
+    '''
+    ''' Reduced resolution is not only a cost saving - it is what gives the
+    ''' glow its radius. The blur is a fixed 9 tap kernel, so its reach in
+    ''' SCREEN pixels is whatever one texel here is worth. At full resolution
+    ''' the same kernel would be a barely visible smudge.
+    ''' </summary>
+    Public Shared gFX_BloomA As GLTexture
+    Public Shared gFX_BloomB As GLTexture
+    Public Shared bloom_fbo As GLFramebuffer
+    Public Shared bloom_width As Integer
+    Public Shared bloom_height As Integer
+
+    ''' <summary>Glow works at 1/this of the main buffer on each axis.</summary>
+    Public Const BLOOM_DIV As Integer = 4
+
+    ''' <summary>
     ''' Views onto gColor and gGMF with alpha forced to 1, for the Textures
     ''' viewer ONLY. Both buffers carry a MASK in alpha - water mix in gColor,
     ''' wetness in gGMF - and ImGui.Image alpha-blends, so on a dry map the
@@ -148,6 +166,9 @@ Public Class MainFBO
         gColor_2?.Dispose()
         gPosition?.Dispose()
         gFX_HDR?.Dispose()
+        gFX_BloomA?.Dispose()
+        gFX_BloomB?.Dispose()
+        bloom_fbo?.Dispose()
         ' Before fbo: fx_fbo borrows gDepth, which fbo owns.
         fx_fbo?.Dispose()
         fbo?.Dispose()
@@ -210,6 +231,16 @@ Public Class MainFBO
         gFX_HDR.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
         gFX_HDR.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
 
+        ' Glow ping-pong. LINEAR, unlike gFX_HDR: these are read at a different
+        ' resolution than they are written, so the filter IS the down and
+        ' upsample. Nearest here would make the glow blocky.
+        ' ClampToEdge so a bright fire at the screen edge does not wrap its
+        ' glow around to the far side.
+        bloom_width = Math.Max(1, width \ BLOOM_DIV)
+        bloom_height = Math.Max(1, height \ BLOOM_DIV)
+        gFX_BloomA = make_bloom_target("gFX_BloomA")
+        gFX_BloomB = make_bloom_target("gFX_BloomB")
+
         ' Viewer-only views. Must come after the textures they borrow.
         gColor_opaque = make_opaque_view(gColor)
         gGMF_opaque = make_opaque_view(gGMF)
@@ -223,6 +254,17 @@ Public Class MainFBO
     ''' storage, so there is no copy and no way for this to alter what the
     ''' shaders read.
     ''' </summary>
+    ''' <summary>One half of the glow ping-pong pair.</summary>
+    Private Shared Function make_bloom_target(name As String) As GLTexture
+        Dim t = GLTexture.Create(TextureTarget.Texture2D, name)
+        t.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+        t.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+        t.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+        t.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        t.Storage2D(1, DirectCast(InternalFormat.Rgba16f, SizedInternalFormat), bloom_width, bloom_height)
+        Return t
+    End Function
+
     Private Shared Function make_opaque_view(src As GLTexture) As Integer
         Dim id As Integer
         GL.GenTextures(1, id)
@@ -263,6 +305,14 @@ Public Class MainFBO
         If Not fx_fbo.IsComplete Then
             Return False
         End If
+
+        ' The glow framebuffer swaps its colour attachment between the two
+        ' bloom targets as the passes ping-pong, so it is created here without
+        ' one. No depth: the glow passes are full-screen quads with the depth
+        ' test off. ReadBuffer None, as the moment blur does, so nothing can
+        ' read back from an attachment that is about to be written.
+        bloom_fbo = GLFramebuffer.Create("bloomFBO")
+        GL.NamedFramebufferReadBuffer(bloom_fbo.fbo_id, ReadBufferMode.None)
 
         attach_CNGP()
 

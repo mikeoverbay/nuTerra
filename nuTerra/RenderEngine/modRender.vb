@@ -346,9 +346,18 @@ Module modRender
             map_scene.static_models.draw_fx()
             trace_state("draw_fx")
 
-            ' Back to the lit frame and fold the accumulated FX in.
+            ' Glow, built from the accumulated buffer while it is still float.
+            ' Must run BEFORE the composite: composite_fx scales the sum back
+            ' into range, and after that the over-range energy the glow is made
+            ' of no longer exists.
+            If FX_GLOW Then build_fx_glow()
+
+            ' Back to the lit frame and fold the accumulated FX in. The
+            ' viewport is restored explicitly - build_fx_glow runs at a
+            ' fraction of the resolution and does not put it back itself.
             MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
             MainFBO.attach_C()
+            GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
             composite_fx()
 
             If FX_DIFF_THIS_FRAME Then report_fx_diff(fx_before)
@@ -542,6 +551,77 @@ Module modRender
     End Sub
 
     ''' <summary>
+    ''' Build the FX glow: keep the over-range energy, blur it, leave it in
+    ''' gFX_BloomA for composite_fx to add.
+    '''
+    ''' Runs at 1/BLOOM_DIV on each axis. That is what gives the glow its
+    ''' radius as much as it saves work - the blur is a fixed 9 tap kernel, so
+    ''' its reach in screen pixels is whatever one texel at this size is worth.
+    '''
+    ''' Leaves the viewport at the reduced size; the caller restores it.
+    ''' </summary>
+    Private Sub build_fx_glow()
+        GL_PUSH_GROUP("build_fx_glow")
+
+        Dim bw = MainFBO.bloom_width, bh = MainFBO.bloom_height
+
+        ' Full-screen quads, no geometry: nothing here wants depth, culling or
+        ' blending. Each pass fully overwrites its target, so none of them need
+        ' a clear either.
+        GL.Disable(EnableCap.DepthTest)
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.CullFace)
+        GL.Disable(EnableCap.Blend)
+        GL.Viewport(0, 0, bw, bh)
+        defaultVao.Bind()
+
+        ' --- bright pass: gFX_HDR -> BloomA, downsampling on the way ---
+        MainFBO.bloom_fbo.Texture(FramebufferAttachment.ColorAttachment0, MainFBO.gFX_BloomA, 0)
+        GL.NamedFramebufferDrawBuffer(MainFBO.bloom_fbo.fbo_id, DrawBufferMode.ColorAttachment0)
+        MainFBO.bloom_fbo.Bind(FramebufferTarget.Framebuffer)
+        fxBrightShader.Use()
+        MainFBO.gFX_HDR.BindUnit(0)
+        GL.Uniform1(fxBrightShader("threshold"), FX_GLOW_THRESHOLD)
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        fxBrightShader.StopUse()
+
+        ' --- separable blur, ping-ponging between the pair ---
+        ' msmBlurShader is reused as-is. It is a plain 9 tap Gaussian along a
+        ' uniform direction over a sampler2D - nothing in it is specific to
+        ' shadow moments, and duplicating it would just be a second copy to
+        ' keep in step.
+        msmBlurShader.Use()
+        Dim step_x = 1.0F / CSng(bw)
+        Dim step_y = 1.0F / CSng(bh)
+
+        ' Two iterations. One 9 tap pass at this size is still a tight halo;
+        ' the second widens it to something that reads as a glow rather than as
+        ' a soft edge, and is far cheaper than a wider kernel would be.
+        For i = 1 To 2
+            ' horizontal: A -> B
+            MainFBO.bloom_fbo.Texture(FramebufferAttachment.ColorAttachment0, MainFBO.gFX_BloomB, 0)
+            GL.NamedFramebufferDrawBuffer(MainFBO.bloom_fbo.fbo_id, DrawBufferMode.ColorAttachment0)
+            MainFBO.bloom_fbo.Bind(FramebufferTarget.Framebuffer)
+            MainFBO.gFX_BloomA.BindUnit(0)
+            GL.Uniform2(msmBlurShader("direction"), step_x, 0.0F)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+            ' vertical: B -> A, so the result always lands back in A
+            MainFBO.bloom_fbo.Texture(FramebufferAttachment.ColorAttachment0, MainFBO.gFX_BloomA, 0)
+            GL.NamedFramebufferDrawBuffer(MainFBO.bloom_fbo.fbo_id, DrawBufferMode.ColorAttachment0)
+            MainFBO.bloom_fbo.Bind(FramebufferTarget.Framebuffer)
+            MainFBO.gFX_BloomB.BindUnit(0)
+            GL.Uniform2(msmBlurShader("direction"), 0.0F, step_y)
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        Next
+
+        msmBlurShader.StopUse()
+        GL.BindTextureUnit(0, 0)
+
+        GL_POP_GROUP()
+    End Sub
+
+    ''' <summary>
     ''' Roll the accumulated FX buffer back into range and composite it over the
     ''' lit frame, in one pass.
     '''
@@ -556,6 +636,14 @@ Module modRender
 
         fxCompositeShader.Use()
         MainFBO.gFX_HDR.BindUnit(0)
+        ' Always bound, even with the glow off. The shader declares this
+        ' sampler unconditionally, so leaving unit 1 to whatever the frame
+        ' happened to park there is the same hazard that had the particle
+        ' shader reading SunShadowDepth. With the glow off the strength below
+        ' is 0, so its contents cannot matter - but it must be a real texture.
+        MainFBO.gFX_BloomA.BindUnit(1)
+        GL.Uniform1(fxCompositeShader("glow_strength"),
+                    If(FX_GLOW, FX_GLOW_STRENGTH, 0.0F))
 
         ' The quad covers the screen and must not be depth-tested against the
         ' scene it is compositing over.

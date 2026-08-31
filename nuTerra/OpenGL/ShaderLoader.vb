@@ -205,6 +205,8 @@ Module ShaderLoader
     Public probeFieldShader As Shader
     ''' <summary>Rolls the accumulated FX buffer off and composites it over gColor.</summary>
     Public fxCompositeShader As Shader
+    ''' <summary>Keeps only the FX energy above 1.0, for the glow.</summary>
+    Public fxBrightShader As Shader
     Public DeferredFogShader As Shader
     Public FF_BillboardShader As Shader
     Public FXAAShader As Shader
@@ -319,6 +321,7 @@ Module ShaderLoader
         outlandNormalsShader = New Shader("outlandNormals")
         probeFieldShader = New Shader("probe_field")
         fxCompositeShader = New Shader("fx_composite")
+        fxBrightShader = New Shader("fx_bright")
         rect2dShader = New Shader("rect2d")
         SkyDomeShader = New Shader("skyDome")
         t_mixerShader = New Shader("t_mixer")
