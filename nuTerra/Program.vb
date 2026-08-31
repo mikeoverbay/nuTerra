@@ -53,6 +53,17 @@ Module Program
                 ' other headless way to move it - FX_GLOW's only other writer
                 ' is the ImGui checkbox.
                 FX_GLOW = False
+            ElseIf a.StartsWith("glowradius=", StringComparison.OrdinalIgnoreCase) Then
+                Dim gr As Single
+                If Single.TryParse(a.Substring(11), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, gr) Then
+                    FX_GLOW_RADIUS = gr
+                End If
+            ElseIf a.StartsWith("glowpasses=", StringComparison.OrdinalIgnoreCase) Then
+                Dim gp As Integer
+                If Integer.TryParse(a.Substring(11), gp) Then
+                    FX_GLOW_PASSES = gp
+                End If
             ElseIf a.StartsWith("glowstrength=", StringComparison.OrdinalIgnoreCase) Then
                 Dim gs As Single
                 If Single.TryParse(a.Substring(13), Globalization.NumberStyles.Float,

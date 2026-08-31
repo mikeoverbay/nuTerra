@@ -591,13 +591,21 @@ Module modRender
         ' shadow moments, and duplicating it would just be a second copy to
         ' keep in step.
         msmBlurShader.Use()
-        Dim step_x = 1.0F / CSng(bw)
-        Dim step_y = 1.0F / CSng(bh)
+        ' FX_GLOW_RADIUS spreads the 9 fixed taps further apart, which widens
+        ' the halo for free. Far enough out the taps stop overlapping and the
+        ' halo can ring - more passes, not a smaller radius, is the cure.
+        Dim step_x = FX_GLOW_RADIUS / CSng(bw)
+        Dim step_y = FX_GLOW_RADIUS / CSng(bh)
 
-        ' Two iterations. One 9 tap pass at this size is still a tight halo;
-        ' the second widens it to something that reads as a glow rather than as
-        ' a soft edge, and is far cheaper than a wider kernel would be.
-        For i = 1 To 2
+        ' Each pass is one horizontal and one vertical blur. Convolving a
+        ' Gaussian with itself N times widens it by sqrt(N) AND fills in the
+        ' gaps a wide radius leaves, which is the whole reason to spend them.
+        '
+        ' Clamped rather than trusted: these are live ImGui values and a
+        ' negative or absurd count would either skip the ping-pong entirely,
+        ' leaving the raw un-blurred bright pass in A, or stall the frame.
+        Dim passes = Math.Max(1, Math.Min(FX_GLOW_PASSES, 6))
+        For i = 1 To passes
             ' horizontal: A -> B
             MainFBO.bloom_fbo.Texture(FramebufferAttachment.ColorAttachment0, MainFBO.gFX_BloomB, 0)
             GL.NamedFramebufferDrawBuffer(MainFBO.bloom_fbo.fbo_id, DrawBufferMode.ColorAttachment0)

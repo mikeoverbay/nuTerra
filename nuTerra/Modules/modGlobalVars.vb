@@ -471,6 +471,32 @@ Module modGlobalVars
     Public FX_GLOW_THRESHOLD As Single = 1.0F
 
     ''' <summary>
+    ''' How far the glow reaches, as a multiple of the original radius.
+    '''
+    ''' Scales the STEP between the blur's taps. The kernel is a fixed 9 taps,
+    ''' so widening this way costs nothing at all - but it also spreads those 9
+    ''' taps thinner, and far enough out they stop overlapping and the halo can
+    ''' show faint rings. FX_GLOW_PASSES is the cure for that, not a smaller
+    ''' radius.
+    '''
+    ''' The taps land on texel centres at whole numbers and between them at
+    ''' fractional ones, where the Linear filter averages two texels and hides
+    ''' the gaps - so 2.5 is a better-behaved value than 2.0 or 3.0.
+    ''' </summary>
+    Public FX_GLOW_RADIUS As Single = 2.5F
+
+    ''' <summary>
+    ''' How many horizontal+vertical blur pairs to run.
+    '''
+    ''' Convolving a Gaussian with itself N times widens it by sqrt(N), so this
+    ''' is a much more expensive way to buy radius than FX_GLOW_RADIUS - but it
+    ''' adds taps rather than spreading them, so it is what fills in a wide
+    ''' radius that has started to band. Each pass is two quarter-resolution
+    ''' fullscreen draws, so a couple more is cheap.
+    ''' </summary>
+    Public FX_GLOW_PASSES As Integer = 2
+
+    ''' <summary>
     ''' Replace the deferred pass with the probe field inspector - a separate
     ''' shader program, so nothing about this view can reach the real lighting.
     ''' </summary>

@@ -1235,6 +1235,13 @@ try_again:
                         ImGui.Checkbox("   Glow", FX_GLOW)
                         If FX_GLOW Then
                             ImGui.SliderFloat("      Glow strength", FX_GLOW_STRENGTH, 0.0F, 2.0F)
+                            ' Reach. Free to widen - it only spreads the same 9
+                            ' taps - so this is the knob to reach for first.
+                            ImGui.SliderFloat("      Glow radius", FX_GLOW_RADIUS, 1.0F, 6.0F)
+                            ' Quality knob for a wide radius. Widens by sqrt(N)
+                            ' as a side effect, but its real job is filling in
+                            ' the gaps a large radius leaves between taps.
+                            ImGui.SliderInt("      Glow passes", FX_GLOW_PASSES, 1, 6)
                             ' Below 1.0 starts glowing smoke, which is usually
                             ' not what is wanted - 1.0 is exactly the energy
                             ' that used to clip.
