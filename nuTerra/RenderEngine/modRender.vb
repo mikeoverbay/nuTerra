@@ -714,6 +714,22 @@ Module modRender
     End Sub
 
     '=============================================================================================
+    ' A 1x1 depth texture with depth comparison enabled, for shadow samplers
+    ' that have nothing real to point at. Created once, on first use.
+    Private DUMMY_SHADOW_TEX As GLTexture
+
+    Private Function dummy_shadow() As GLTexture
+        If DUMMY_SHADOW_TEX Is Nothing Then
+            DUMMY_SHADOW_TEX = GLTexture.Create(TextureTarget.Texture2D, "DummyShadow")
+            DUMMY_SHADOW_TEX.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            DUMMY_SHADOW_TEX.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            DUMMY_SHADOW_TEX.Parameter(TextureParameterName.TextureCompareMode, CInt(TextureCompareMode.CompareRefToTexture))
+            DUMMY_SHADOW_TEX.Parameter(TextureParameterName.TextureCompareFunc, CInt(All.Lequal))
+            DUMMY_SHADOW_TEX.Storage2D(1, DirectCast(InternalFormat.DepthComponent16, SizedInternalFormat), 1, 1)
+        End If
+        Return DUMMY_SHADOW_TEX
+    End Function
+
     Private Sub render_deferred_buffers()
         GL_PUSH_GROUP("render_deferred_buffers")
         '===========================================================================
@@ -758,6 +774,19 @@ Module modRender
             GL.Uniform1(deferredShader("shadow_penumbra_hi"), SHADOW_PENUMBRA_HI)
         Else
             GL.Uniform1(deferredShader("has_sun_shadow"), 0)
+
+            ' Bind a valid depth texture anyway.
+            '
+            ' has_sun_shadow gates whether the shader SAMPLES this, but GL
+            ' validates the bound state either way: a sampler2DShadow left
+            ' pointing at texture 0 is "undefined behavior" and the driver
+            ' logs error 131222 on EVERY draw. With baked shadows off that is
+            ' a non-stop spew that buries every other message in the console.
+            '
+            ' A 1x1 depth texture with comparison enabled costs nothing and
+            ' makes the bound state legal. Unit 9 is a plain sampler2D, so
+            ' texture 0 there is not a type mismatch and needs no dummy.
+            dummy_shadow().BindUnit(8)
         End If
 
         GL.Uniform1(deferredShader("water_depth"), WATER_DEPTH)
