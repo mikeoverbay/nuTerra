@@ -11,7 +11,7 @@ handoff's status banner before trusting it.
 
 | you want | read |
 |---|---|
-| current state of the renderer | `HANDOFF_2026-08-31_fx_and_holes.md` |
+| current state of the renderer | `HANDOFF_2026-08-31_pbr_glow_water.md` |
 | how fire, smoke and glow are composited | `FX_PIPELINE.md` |
 | how the deferred resolve is ordered | `lighting.md` |
 
@@ -44,7 +44,8 @@ specifications and evidence, not descriptions of this renderer.
 
 | document | covers | status |
 |---|---|---|
-| `HANDOFF_2026-08-31_fx_and_holes.md` | terrain holes, FX HDR composite, glow, the parked branch landing, the decal checkerboard | current |
+| `HANDOFF_2026-08-31_pbr_glow_water.md` | PBS_tank decode, PBR specular, glow depth-test, pooled water | **current** |
+| `HANDOFF_2026-08-31_fx_and_holes.md` | terrain holes, FX HDR composite, glow, the parked branch landing, the decal checkerboard | earlier the same day |
 | `HANDOFF_2026-08-28_lighting.md` | the lighting/probe-grid session | **historical** - read its section 9 first; much of sections 7-8 was reverted |
 | `HANDOFF_sun_shadow.md` | the sun shadow bake, flicker hunt, outland cull | older, still largely accurate |
 | `FX_plan.md` | original FX recon | **historical** - the plan part is done |
