@@ -161,6 +161,26 @@ Public Class MapDecals
             GL.ColorMask(0, True, True, True, decal.wet = CUInt(1))
             GL.ColorMask(2, False, False, False, decal.wet = CUInt(1))
 
+            ' MAX, not the pass default, on the wetness channel.
+            '
+            ' gGMF.a is the wetness and this pass blends SrcAlpha /
+            ' OneMinusSrcAlpha, so what lands is src.a*src.a + dst.a*(1-src.a) -
+            ' the source SQUARED. Wherever the puddle texture is mid valued that
+            ' comes out BELOW the terrain's own wetness: 0.5 over 0.9 gives 0.7.
+            ' So the middle of a puddle read as DRIER than the damp cobbles
+            ' ringing it, the resolve's pooling threshold dropped out from under
+            ' it, and the puddle rendered as a black hole in a reflective sheet.
+            ' Colour keying pool against wet_flat showed it exactly: the puddles
+            ' came out green - wetness present, pooling gone.
+            '
+            ' Max takes whichever of puddle and terrain is wetter, so a decal can
+            ' only ever ADD water to the ground it sits on.
+            If decal.wet = CUInt(1) Then
+                GL.BlendEquation(2, BlendEquationMode.Max)
+            Else
+                GL.BlendEquation(2, BlendEquationMode.FuncAdd)
+            End If
+
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
         Next
 
@@ -169,6 +189,8 @@ Public Class MapDecals
         GL.Disable(EnableCap.Blend)
         GL.DepthMask(True)
         GL.ColorMask(True, True, True, True)
+        ' BlendEquation is global state, like BlendFunc - hand it back.
+        GL.BlendEquation(BlendEquationMode.FuncAdd)
 
         ' UNBIND
         unbind_textures(5)

@@ -685,7 +685,25 @@ void main (void)
                 // made no visible difference in the fountain courtyard; on a
                 // slope it is the whole point.
                 float wet_flat = clamp(GM_in.z, 0.0, 1.0);
-                N = normalize(mix(N, surf_n, wet_flat));
+
+                // A level wet surface is WATER, and water has no bumps. Using the
+                // raw value left the ground showing through twice over: gGMF.a
+                // tops out near 0.93 even on a fully wet, dead level courtyard, so
+                // a straight mix kept 7% of the cobble normal AND the reflection
+                // mix stayed weak enough head-on to read the cobble albedo through
+                // it. Both leaks are the same mistake - treating an almost-full
+                // mask as almost-full instead of as full.
+                //
+                // smoothstep across the top of the range instead. 0.756 is what
+                // the drier cobbles at the edge of this courtyard measure and 0.91
+                // to 0.95 is level standing water, so this leaves damp ground
+                // looking like ground and turns the level wet sheet fully into
+                // water. POOL_LO is the knob that decides where damp becomes wet.
+                const float POOL_LO = 0.70;
+                const float POOL_HI = 0.92;
+                float pool = smoothstep(POOL_LO, POOL_HI, wet_flat);
+
+                N = normalize(mix(N, surf_n, pool));
 
                 // Two reflect vectors, because they answer different questions.
                 //
@@ -865,19 +883,25 @@ void main (void)
                 // ground and never on a slope. The Fresnel keeps a floor rather
                 // than falling to nothing head-on: this has to read as water from
                 // every angle, not only at grazing.
-                const float ENV_MAX   = 0.80;
-                const float ENV_FLOOR = 0.25;
-                if (wet_flat > 0.0) {
+                // The ground must read THROUGH the water, only darker - you can see
+                // the bed of a puddle. So this is a FLOOR on the reflection, not a
+                // replacement: head-on you get ENV_FLOOR of sky over the darkened
+                // terrain; a grazing angle takes it toward a mirror. What must NOT
+                // survive is the BUMP - the normal is flattened to the slope at full
+                // strength above, so cobble RELIEF goes while cobble COLOUR stays.
+                const float ENV_MAX   = 0.80;
+                const float ENV_FLOOR = 0.35;
+                if (pool > 0.0) {
                     vec3 R_w = mat3(invView) * R_env;
                     R_w = vec3(-R_w.x, R_w.y, R_w.z);
                     R_w.y = max(R_w.y, 0.02);
                     vec3 env = SRGBtoLINEAR(textureLod(cubeMap, R_w,
-                               max(4.0 - wet_flat * 4.0, 0.0))).rgb;
+                               max(4.0 - pool * 4.0, 0.0))).rgb;
                     float pk = max(env.r, max(env.g, env.b));
                     if (pk > ENV_MAX) env *= ENV_MAX / pk;
                     float F = pow(1.0 - clamp(dot(V, N), 0.0, 1.0), 5.0);
                     final_color.xyz = mix(final_color.xyz, env,
-                                          wet_flat * mix(ENV_FLOOR, 1.0, F));
+                                          pool * mix(ENV_FLOOR, 1.0, F));
                 }
 
                 vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz) * sun_shadow;
