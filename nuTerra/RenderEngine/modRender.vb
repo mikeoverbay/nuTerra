@@ -581,6 +581,7 @@ Module modRender
         MainFBO.bloom_fbo.Bind(FramebufferTarget.Framebuffer)
         fxBrightShader.Use()
         MainFBO.gFX_HDR.BindUnit(0)
+        MainFBO.gDepth.BindUnit(1)
         GL.Uniform1(fxBrightShader("threshold"), FX_GLOW_THRESHOLD)
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
         fxBrightShader.StopUse()
@@ -651,6 +652,9 @@ Module modRender
         MainFBO.gFX_BloomA.BindUnit(1)
         GL.Uniform1(fxCompositeShader("glow_strength"),
                     If(FX_GLOW, FX_GLOW_STRENGTH, 0.0F))
+        MainFBO.gDepth.BindUnit(2)
+        GL.Uniform1(fxCompositeShader("glow_occlusion"), FX_GLOW_OCCLUSION)
+        GL.Uniform1(fxCompositeShader("glow_occlusion_bias"), FX_GLOW_OCCLUSION_BIAS)
 
         ' The quad covers the screen and must not be depth-tested against the
         ' scene it is compositing over.

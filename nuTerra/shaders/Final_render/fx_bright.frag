@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 // Bright pass for the FX glow.
 //
@@ -25,6 +25,16 @@
 
 layout(binding = 0) uniform sampler2D fxBuffer;
 
+// The scene depth behind the FX. Carried in this pass's spare ALPHA so the
+// blur spreads it alongside the energy and the composite can tell whether the
+// surface it is about to light sits in FRONT of the glow that made it.
+//
+// The FX cards themselves are already occluded - fx_fbo borrows gDepth and the
+// FX passes depth-TEST - so a fire behind a building contributes nothing at
+// that building's pixels. What leaks is this blur, which spreads sideways in
+// screen space long after that test, with the composite adding it fullscreen.
+layout(binding = 1) uniform sampler2D depthMap;
+
 uniform float threshold;
 
 in vec2 texCoord;
@@ -39,5 +49,15 @@ void main(void)
     // already in gamut. Alpha is not carried: the glow ADDS light and must
     // never attenuate the scene, so the composite adds it with coverage taken
     // from the FX buffer, not from here.
-    fragColor = vec4(max(c - vec3(threshold), vec3(0.0)), 1.0);
+    vec3 e = max(c - vec3(threshold), vec3(0.0));
+
+    // Depth is written ONLY where there is energy; everywhere else it is 1.0,
+    // the far plane. That matters: the blur averages this channel, so an empty
+    // neighbour must not drag the result toward whatever happens to be behind
+    // it. Far is the safe default because the test below only ever suppresses
+    // when the receiving surface is NEARER than the glow.
+    float lit = any(greaterThan(e, vec3(0.0))) ? 1.0 : 0.0;
+    float d   = mix(1.0, texture(depthMap, texCoord).r, lit);
+
+    fragColor = vec4(e, d);
 }

@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 // Composite the accumulated FX buffer over the lit frame.
 //
@@ -26,6 +26,19 @@ layout(binding = 0) uniform sampler2D fxBuffer;
 // and sampled Linear, so this read is also the upsample.
 layout(binding = 1) uniform sampler2D bloomBuffer;
 uniform float glow_strength;
+
+// Scene depth, full resolution.
+layout(binding = 2) uniform sampler2D depthMap;
+
+// How much of the glow a nearer surface blocks. 0 is the shipped behaviour -
+// a fullscreen add with no depth test at all, which lights the faces of a
+// building turned AWAY from the fire behind it. 1 blocks it completely.
+//
+// Deliberately not hard wired to 1: veiling glare over a foreground silhouette
+// is a real camera effect, so some spill is correct and removing all of it
+// reads flat. The bias is the depth gap over which the block fades in.
+uniform float glow_occlusion;
+uniform float glow_occlusion_bias;
 
 layout(location = 0) out vec4 outColor;
 
@@ -72,7 +85,17 @@ void main(void)
     // 0, so One / OneMinusSrcAlpha leaves the scene intact and simply adds
     // light to it - which is what a glow is.
     vec2 uv = gl_FragCoord.xy / vec2(textureSize(fxBuffer, 0));
-    fx.rgb += texture(bloomBuffer, uv).rgb * glow_strength;
+    vec4 bloom = texture(bloomBuffer, uv);
+
+    // bloom.a is the blurred depth of whatever produced this glow. If the
+    // surface here sits in front of it, the glow is coming from something this
+    // surface is hiding, and adding it lights a face that can see no source.
+    float sceneD = texelFetch(depthMap, ivec2(gl_FragCoord.xy), 0).r;
+    float infront = smoothstep(0.0, max(glow_occlusion_bias, 1e-6),
+                               bloom.a - sceneD);
+    float pass_through = mix(1.0, 1.0 - glow_occlusion, infront);
+
+    fx.rgb += bloom.rgb * glow_strength * pass_through;
 
     const float peak = max(fx.r, max(fx.g, fx.b));
     fx.rgb /= max(1.0, peak);

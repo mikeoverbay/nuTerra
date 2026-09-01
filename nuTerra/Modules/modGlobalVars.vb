@@ -469,6 +469,23 @@ Module modGlobalVars
 
     Public FX_GLOW As Boolean = True
 
+    ''' <summary>
+    ''' How much of the FX glow a nearer surface blocks.
+    '''
+    ''' The FX cards are already depth-tested - fx_fbo borrows gDepth - so fire
+    ''' behind a building is correctly hidden. The BLUR is not: it spreads in
+    ''' screen space after that test and the composite adds it fullscreen, so
+    ''' glow lands on building faces turned away from the fire that made it.
+    '''
+    ''' 0 is the shipped behaviour. 1 blocks it entirely. Not defaulted to 1
+    ''' because glare over a foreground silhouette is a real camera effect and
+    ''' removing all of it reads flat.
+    ''' </summary>
+    Public FX_GLOW_OCCLUSION As Single = 0.0F
+
+    ''' <summary>Depth gap over which the block fades in.</summary>
+    Public FX_GLOW_OCCLUSION_BIAS As Single = 0.002F
+
     ' ----------------------------------------------------------------------
     ' Glow shape. HARD WIRED at the owner's call, after tuning them live
     ' against the fire on 19_monastery. Const, not variables: these are a

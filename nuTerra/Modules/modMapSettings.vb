@@ -147,6 +147,8 @@ Public Module modMapSettings
         Yield ("sh_grid_curve", Function() SH_GRID_CURVE, Sub(v) SH_GRID_CURVE = v)
         Yield ("sh_grid_floor", Function() SH_GRID_FLOOR, Sub(v) SH_GRID_FLOOR = v)
         Yield ("pbr_spec", Function() B2F(PBR_SPEC), Sub(v) PBR_SPEC = F2B(v))
+        Yield ("fx_glow_occlusion", Function() FX_GLOW_OCCLUSION, Sub(v) FX_GLOW_OCCLUSION = v)
+        Yield ("fx_glow_occl_bias", Function() FX_GLOW_OCCLUSION_BIAS, Sub(v) FX_GLOW_OCCLUSION_BIAS = v)
 
         ' booleans, stored as 0/1 so the file stays one shape throughout
         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))
