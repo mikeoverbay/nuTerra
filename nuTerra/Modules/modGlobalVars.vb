@@ -43,6 +43,12 @@ Module modGlobalVars
     ''' frame that was just drawn, which is the only thing on hand that knows
     ''' where the buildings are - a cubemap cannot, it is the sky.
     '''</summary>
+    ' Pooled water, driven by the global map's wet channel. Both are live
+    ' sliders because the balance between them is an eye judgement: the
+    ' reflection says surface and the bed darkening says depth, and how much
+    ' of each a map wants is not something a measurement settles.
+    Public WATER_ALPHA As Single = 0.18F   ' reflection kept looking straight down
+    Public WATER_DEPTH As Single = 0.45F   ' bed brightness under full water
     Public SSR_ENABLED As Boolean = True
     Public SSR_INTENSITY As Single = 0.7F
     Public SSR_STEPS As Integer = 32

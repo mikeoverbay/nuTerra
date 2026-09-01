@@ -16,6 +16,12 @@ layout(binding = 3) uniform sampler2D gPosition;
 // The GEOMETRIC surface normal, VIEW space, Rgb8 so 0..1 encoded. gNormal is
 // the bumped one; this is the slope underneath it.
 layout(binding = 10) uniform sampler2D gSurfaceNormal;
+
+// Pooled water, live from the UI. water_alpha is how much sky survives when
+// you look straight down at it; water_depth is how much of the bed survives
+// under full water.
+uniform float water_alpha;
+uniform float water_depth;
 layout(binding = 4) uniform samplerCube cubeMap;
 
 // Diffuse ambient as L2 spherical harmonics, baked per map into
@@ -724,7 +730,14 @@ void main (void)
                 const float LEVEL_MAX = 0.999;   // ~2.5 degrees
                 float cos_slope = dot(surf_n, normalize(blank_n));
                 float level     = smoothstep(LEVEL_MIN, LEVEL_MAX, cos_slope);
-                float bump_kill = clamp(color_in.a, 0.0, 1.0) * level;
+                // smoothstep, not the raw alpha. color_in.a tops out around
+                // 0.93 even where the map authors full wetness, so using it
+                // straight left about 7% of the cobble relief standing in
+                // water that should be perfectly smooth. Saturating the top
+                // of the range is what takes the last of the bump out.
+                const float WET_LO = 0.60;
+                const float WET_HI = 0.90;
+                float bump_kill = smoothstep(WET_LO, WET_HI, color_in.a) * level;
 
                 N = normalize(mix(N, surf_n, bump_kill));
 
@@ -912,8 +925,9 @@ void main (void)
                 // terrain; a grazing angle takes it toward a mirror. What must NOT
                 // survive is the BUMP - the normal is flattened to the slope at full
                 // strength above, so cobble RELIEF goes while cobble COLOUR stays.
-                const float ENV_MAX   = 0.80;
-                const float ENV_FLOOR = 0.18;
+                const float ENV_MAX   = 0.80;
+
+                float ENV_FLOOR = water_alpha;
                 // 0.05 is the physically honest number for water viewed head-on,
                 // and it looked wrong: ALL reflection disappeared looking down and
                 // the pool went flat. 0.35 the other way turned the courtyard into
@@ -928,7 +942,8 @@ void main (void)
                 // only at a grazing angle - that is the Fresnel curve, and it is
                 // the whole reason a puddle reads as a puddle rather than as a
                 // sheet of blue. At 0.35 every downward view mixed a third of the
-                // sky over the ground and the courtyard came out as a lake.
+                // sky over the ground and the courtyard came out as a lake.
+
                 if (pool > 0.0) {
                     vec3 R_w = mat3(invView) * R_env;
                     R_w = vec3(-R_w.x, R_w.y, R_w.z);
@@ -951,7 +966,7 @@ void main (void)
                     // Driven by pool, which is the global map WET CHANNEL gated by
                     // flatness - so the deeper the standing water the map authors,
                     // the more of the bed it swallows. Nothing to do with decals.
-                    const float POOL_DEPTH = 0.45;  // bed brightness under full water
+                    float POOL_DEPTH = water_depth;  // bed brightness under full water
                     vec3 bed = final_color.xyz * mix(1.0, POOL_DEPTH, pool);
 
                     // Then the surface over the top of it, by Fresnel.
@@ -959,7 +974,21 @@ void main (void)
                                           pool * mix(ENV_FLOOR, 1.0, F));
                 }
 
-                vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz) * sun_shadow;
+                // The TERRAIN stops being lit where water covers it.
+                //
+                // These three are the ground's own sun response - a Phong lobe and
+                // two cubemap terms scaled by it. They are computed from the
+                // terrain material and they were being added straight over the
+                // finished water surface, which put cobble-shaped highlights on
+                // top of a mirror. The surface is smooth; it was the SHADING that
+                // still had the ground in it.
+                //
+                // Under standing water the ground does not get its own specular -
+                // the water surface above it is what reflects, and that has
+                // already been done above. So fade the terrain response out by the
+                // same pool factor that faded its albedo and its bump.
+                vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz)
+                               * sun_shadow * (1.0 - pool);
                 final_color.xyz += 1.0 - exp(-sun_add);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance

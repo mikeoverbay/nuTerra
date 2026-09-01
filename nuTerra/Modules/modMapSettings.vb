@@ -130,6 +130,8 @@ Public Module modMapSettings
 
         ' Shadow filtering and wet reflections.
         Yield ("msm_moment_bias", Function() MSM_MOMENT_BIAS, Sub(v) MSM_MOMENT_BIAS = v)
+        Yield ("water_alpha", Function() WATER_ALPHA, Sub(v) WATER_ALPHA = v)
+        Yield ("water_depth", Function() WATER_DEPTH, Sub(v) WATER_DEPTH = v)
         Yield ("ssr_intensity", Function() SSR_INTENSITY, Sub(v) SSR_INTENSITY = v)
         Yield ("ssr_steps", Function() CSng(SSR_STEPS), Sub(v) SSR_STEPS = CInt(v))
         Yield ("ssr_thickness", Function() SSR_THICKNESS, Sub(v) SSR_THICKNESS = v)
