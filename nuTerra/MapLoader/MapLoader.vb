@@ -670,14 +670,26 @@ Module MapLoader
             End If
 
 
-            ' A decal with no diffuse drives itself from the add texture instead
-            ' and writes no colour, only gloss and a normal.
+            ' materialType 8 is the authored wet type - the pooled-water path.
+            ' Surveyed across 21 maps it is exactly the set of W_*_wetness
+            ' decals, it never combines with another value, and only 0, 1 and 8
+            ' occur at all.
+            '
+            ' This was INFERRED from a decal having no diffuse texture. The
+            ' guess is right almost everywhere, because a wetness decal normally
+            ' carries its texture in the add slot - but 23_westfeld authors one
+            ' of its 40 with the same W_puddle_01_wetness.dds in the DIFFUSE
+            ' slot, and the guess rendered that one as ordinary albedo.
+            decal_item.wet = If(decal.materialType = 8, CUInt(1), CUInt(0))
+
+            ' Independent of the wet flag: a decal with no diffuse drives itself
+            ' from the add texture instead and writes no colour, only gloss and
+            ' a normal.
             Dim diff_fname = cBWST.find_str(decal.diff_tex_fnv)
             Dim normal_fname = cBWST.find_str(decal.bump_tex_fnv)
 
             Dim colour_fname = diff_fname
             If colour_fname.Length = 0 Then
-                decal_item.wet = CUInt(1)
                 colour_fname = cBWST.find_str(decal.add_tex_fnv)
             End If
 
@@ -697,17 +709,18 @@ Module MapLoader
         Next
 
         ' Wet decals are the pooled-water path, and how many a map has is the
-        ' first thing worth knowing when it does not appear. The flag is
-        ' INFERRED from a decal having no diffuse texture, not read from the
-        ' data - measured, that finds 36 of 2326 on 19_monastery and ZERO on
-        ' both 101_dday (5669) and 08_ruinberg (7834), which is not credible for
-        ' those maps. WGSD carries a materialType byte that nothing reads; that
-        ' is the likely real signal. See the handoff.
+        ' first thing worth knowing when it does not appear. Read from the
+        ' authored materialType now, not guessed.
+        '
+        ' Six of the 21 maps surveyed carry any: 29_el_hallouf 47, 23_westfeld
+        ' 40, 19_monastery 36, 01_karelia 18, 34_redshire 14, 11_murovanka 8.
+        ' The other fifteen - 101_dday and 08_ruinberg among them - author NONE.
+        ' A zero here is normal and is not evidence of a broken classifier.
         Dim wet_decals = 0
         For Each d_ In map_scene.decals.all_decals
             If d_.wet = CUInt(1) Then wet_decals += 1
         Next
-        LogThis("decals: {0} total, {1} flagged wet (inferred from no diffuse texture)",
+        LogThis("decals: {0} total, {1} wet (materialType 8)",
                 map_scene.decals.all_decals.Count, wet_decals)
 
         ' Authored draw order, finally applied. The WGSD record carries a

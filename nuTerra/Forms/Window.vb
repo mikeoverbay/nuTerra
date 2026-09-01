@@ -750,7 +750,19 @@ try_again:
 
         map_scene.sun_shadow.LogSnapshot()
 
-        LogThis("  water: loaded={0} draw={1}", map_scene.WATER_LOADED, DONT_BLOCK_WATER)
+        ' Pooled water rides entirely on wet-flagged decals, so a map that
+        ' authors none can never show any. Worth reading off a snapshot before
+        ' anyone goes hunting the shader for it - fifteen of the 21 maps
+        ' surveyed are a legitimate zero.
+        Dim wet_n = 0, dec_n = 0
+        If map_scene.decals IsNot Nothing AndAlso map_scene.decals.all_decals IsNot Nothing Then
+            dec_n = map_scene.decals.all_decals.Count
+            For Each d_ In map_scene.decals.all_decals
+                If d_.wet = CUInt(1) Then wet_n += 1
+            Next
+        End If
+        LogThis("  water: loaded={0} draw={1}   wet decals {2} of {3}",
+                map_scene.WATER_LOADED, DONT_BLOCK_WATER, wet_n, dec_n)
 
         ' The probe field's state, including what the FX pass gets as opposed to
         ' the deferred pass. offset is printed as deferred/fx because they are
