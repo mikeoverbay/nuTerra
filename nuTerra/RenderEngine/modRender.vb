@@ -725,6 +725,10 @@ Module modRender
         MainFBO.gNormal.BindUnit(1)
         MainFBO.gGMF.BindUnit(2)
         MainFBO.gPosition.BindUnit(3)
+        ' The GEOMETRIC surface normal, for the wet path. gNormal carries the
+        ' bump detail; this is the slope those bumps sit on, which is what a
+        ' sheet of water actually lies along.
+        MainFBO.gSurfaceNormal.BindUnit(10)
         map_scene.sky.CUBE_TEXTURE_ID.BindUnit(4)
         map_scene.CC_LUT_ID.BindUnit(5)
         map_scene.ENV_BRDF_LUT_ID?.BindUnit(6)

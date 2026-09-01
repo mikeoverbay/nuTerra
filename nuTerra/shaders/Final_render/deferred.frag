@@ -13,6 +13,9 @@ layout(binding = 0) uniform sampler2D gColor;
 layout(binding = 1) uniform sampler2D gNormal;
 layout(binding = 2) uniform sampler2D gGMF;
 layout(binding = 3) uniform sampler2D gPosition;
+// The GEOMETRIC surface normal, VIEW space, Rgb8 so 0..1 encoded. gNormal is
+// the bumped one; this is the slope underneath it.
+layout(binding = 10) uniform sampler2D gSurfaceNormal;
 layout(binding = 4) uniform samplerCube cubeMap;
 
 // Diffuse ambient as L2 spherical harmonics, baked per map into
@@ -656,7 +659,24 @@ void main (void)
             // Only light whats in range
             if (dist < cutoff) {
                 // kill the terrian normals where there is water
-                N = mix(N, blank_n, water_mix);
+                // Water fills the bumps in. The more level the ground, the more
+                // the wet surface REPLACES the bump mapping - and what it is
+                // replaced BY is the SLOPE, not world up.
+                //
+                // This used to mix toward blank_n, world up in view space, which
+                // is only right where the ground happens to be level. On a slope
+                // it stood the normal up off the hillside and lit it as though it
+                // faced the sky. gSurfaceNormal is the geometric normal the bumps
+                // sit on: straight up on flat ground, following the slope
+                // elsewhere, which is what a sheet of water does.
+                //
+                // The flatness half of the mask is already inside water_mix -
+                // TerrainHQ multiplies by it - so level ground carries more
+                // wetness and therefore loses more of its bump. The two agree
+                // instead of fighting.
+                vec3 surf_n = normalize(texelFetch(gSurfaceNormal,
+                                        ivec2(gl_FragCoord), 0).xyz * 2.0 - 1.0);
+                N = mix(N, surf_n, water_mix);
 
                 // Two reflect vectors, because they answer different questions.
                 //
