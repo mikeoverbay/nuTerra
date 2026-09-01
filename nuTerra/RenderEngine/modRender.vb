@@ -798,6 +798,8 @@ Module modRender
             GL.Uniform1(deferredShader("sh_grid_fade"), 1.0F / Math.Max(SH_GRID_FADE, 0.001F))
             GL.Uniform1(deferredShader("sh_grid_offset"), SH_GRID_OFFSET)
             GL.Uniform1(deferredShader("sh_grid_mix"), SH_GRID_MIX)
+            GL.Uniform1(deferredShader("sh_grid_curve"), SH_GRID_CURVE)
+            GL.Uniform1(deferredShader("sh_grid_floor"), SH_GRID_FLOOR)
             ' Ease the box edge over a couple of probes instead of switching -
             ' the grid stops well inside the outland and a hard test would draw
             ' a ring across the terrain there.

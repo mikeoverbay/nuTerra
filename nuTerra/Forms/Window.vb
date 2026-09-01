@@ -1497,9 +1497,13 @@ try_again:
                                              SH_AMBIENT(0).X, SH_AMBIENT(0).Y, SH_AMBIENT(0).Z))
 
                     ' ---- SH probe FIELD -------------------------------------
-                    ' Loaded, uploaded and sampled, but NOT wired into the
-                    ' lighting. "show probe field" paints the raw field so its
-                    ' placement can be checked before anything consumes it.
+                    ' WIRED INTO THE LIGHTING: deferred.frag blends the field
+                    ' over the flat global probe by sh_grid_mix. This comment
+                    ' used to say it was not, which is how the mix slider went
+                    ' missing for a while without anyone noticing the feature
+                    ' was still live. modRender.vb carries the same warning.
+                    ' "show probe field" paints the raw field instead, so its
+                    ' placement can be checked independently of the shading.
                     ImGui.Separator()
                     If SH_GRID_LOADED Then
                         ImGui.Checkbox("SH probe grid", USE_SH_GRID)
@@ -1517,6 +1521,26 @@ try_again:
                             ImGui.Text("      red = outside box, amber = above bake")
                         End If
 
+                        ' 0 = global probe alone, 1 = the field exactly, above 1
+                        ' exaggerates how far the field departs from the flat
+                        ' global probe.
+                        '
+                        ' This slider was deleted as collateral in 64a15b4, a
+                        ' commit about particles and decal ordering. The value
+                        ' stayed live at its 0.5 default the whole time, so the
+                        ' field was permanently at half strength with no way to
+                        ' reach it - the parked-feature shape exactly.
+                        ImGui.SliderFloat("   probe mix", SH_GRID_MIX, 0.0F, 3.0F)
+
+                        ' Both reshape the field's departure from the global
+                        ' probe BEFORE the mix, so where they agree nothing
+                        ' moves. Curve below 1 lifts the dark end - probes next
+                        ' to geometry bake very dark and a straight mix drove
+                        ' contact shade to near black. Floor is the blunt
+                        ' version: the field may not go under this fraction of
+                        ' the global probe. 1.0 / 0.0 is the identity.
+                        ImGui.SliderFloat("   probe curve", SH_GRID_CURVE, 0.2F, 2.0F)
+                        ImGui.SliderFloat("   probe floor", SH_GRID_FLOOR, 0.0F, 1.0F)
                         ImGui.SliderFloat("   normal offset m", SH_GRID_OFFSET, 0.0F, 5.0F)
                         ImGui.Text(String.Format("   {0:0.#} m box, {1:0.00} m spacing, fade {2:0.#} m",
                                                  SH_GRID_SIZE.X, SH_GRID_SPACING, SH_GRID_FADE))

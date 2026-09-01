@@ -67,6 +67,21 @@ uniform vec3  sh_grid_sh9[9]; // the FIELD's own companion probe, not the global
 // the flat global probe. Not physical past 1, but this is a viewer.
 uniform float sh_grid_mix;
 
+// Shape of the field's departure from the global probe, applied BEFORE the
+// mix. Probes baked close to geometry are far darker than open ones - the
+// darkest on Abbey sit near 0.03 against a grid mean of 0.77 - so a straight
+// mix drives contact shade well below anything the global probe would give and
+// it reads black rather than shaded.
+//
+// Both act on the RATIO field/global, so the point where the two agree is a
+// fixed point and only the departure is reshaped:
+//   sh_grid_curve  1 = identity, BELOW 1 lifts the darks, above 1 deepens them
+//   sh_grid_floor  0 = off, otherwise the field may not fall below this
+//                  fraction of the global probe
+// At curve 1 / floor 0 this block is the identity and the frame is unchanged.
+uniform float sh_grid_curve;
+uniform float sh_grid_floor;
+
 // Separate from eval_sh_irradiance on purpose: the working path above is left
 // byte for byte alone.
 vec3 eval_sh_grid_fallback(vec3 n)
@@ -506,6 +521,18 @@ void main (void)
                 if (sh_grid_enabled != 0) {
                     vec3 wp = (invView * vec4(Position, 1.0)).xyz;
                     vec3 grid_irr = max(eval_sh_grid(wp, N_world), vec3(0.0));
+
+                    // Reshape the field against the global probe before mixing.
+                    // The reference is floored off zero so an unlit global probe
+                    // cannot produce a divide by zero or a NaN ratio.
+                    vec3 ref = max(irradiance, vec3(1e-4));
+                    if (sh_grid_curve != 1.0) {
+                        grid_irr = ref * pow(grid_irr / ref, vec3(sh_grid_curve));
+                    }
+                    if (sh_grid_floor > 0.0) {
+                        grid_irr = max(grid_irr, ref * sh_grid_floor);
+                    }
+
                     irradiance = max(mix(irradiance, grid_irr, sh_grid_mix), vec3(0.0));
                 }
 

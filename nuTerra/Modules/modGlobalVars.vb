@@ -552,6 +552,19 @@ Module modGlobalVars
     ''' </summary>
     Public SH_GRID_MIX As Single = 0.5F
 
+    ''' <summary>
+    ''' Shape of the probe field's departure from the global probe, applied
+    ''' before SH_GRID_MIX. Probes baked next to geometry are far darker than
+    ''' open ones, so a straight mix drove contact shade to near black.
+    '''
+    ''' Both work on the RATIO field/global, so where the two agree nothing
+    ''' moves. CURVE below 1 lifts the darks; FLOOR bounds how far under the
+    ''' global probe the field may pull. The defaults are the identity, so the
+    ''' frame is unchanged until one of them is moved.
+    ''' </summary>
+    Public SH_GRID_CURVE As Single = 1.0F
+    Public SH_GRID_FLOOR As Single = 0.0F
+
     '''<summary>Display gain for the inspector. Raw irradiance runs past 1.</summary>
     Public SH_GRID_EXPOSURE As Single = 0.25F
 

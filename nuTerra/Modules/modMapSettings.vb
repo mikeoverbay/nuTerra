@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Globalization
 Imports System.Linq
 
@@ -138,6 +138,14 @@ Public Module modMapSettings
         Yield ("penumbra_hi", Function() SHADOW_PENUMBRA_HI, Sub(v) SHADOW_PENUMBRA_HI = v)
 
         Yield ("minimap_size", Function() CSng(MINI_MAP_NEW_SIZE), Sub(v) MINI_MAP_NEW_SIZE = CInt(v))
+
+        ' The probe field's two look controls. Neither was persisted, so every
+        ' launch reset the mix to 0.5 and the offset to its default - a tuning
+        ' pass could not survive being closed.
+        Yield ("sh_grid_mix", Function() SH_GRID_MIX, Sub(v) SH_GRID_MIX = v)
+        Yield ("sh_grid_offset", Function() SH_GRID_OFFSET, Sub(v) SH_GRID_OFFSET = v)
+        Yield ("sh_grid_curve", Function() SH_GRID_CURVE, Sub(v) SH_GRID_CURVE = v)
+        Yield ("sh_grid_floor", Function() SH_GRID_FLOOR, Sub(v) SH_GRID_FLOOR = v)
 
         ' booleans, stored as 0/1 so the file stays one shape throughout
         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))
