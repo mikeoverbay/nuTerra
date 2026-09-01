@@ -913,7 +913,16 @@ void main (void)
                 // survive is the BUMP - the normal is flattened to the slope at full
                 // strength above, so cobble RELIEF goes while cobble COLOUR stays.
                 const float ENV_MAX   = 0.80;
-                const float ENV_FLOOR = 0.05;
+                const float ENV_FLOOR = 0.18;
+                // 0.05 is the physically honest number for water viewed head-on,
+                // and it looked wrong: ALL reflection disappeared looking down and
+                // the pool went flat. 0.35 the other way turned the courtyard into
+                // a lake. 0.18 keeps a reading of the sky from directly above while
+                // still letting the Fresnel take it to a mirror at grazing.
+                //
+                // The bed darkening added alongside this is what lets the floor be
+                // modest: the pool no longer depends on the reflection alone to say
+                // that it is water.
                 // 0.05, not 0.35. Water reflects about 2-5%% of what is above it
                 // when you look straight down at it and approaches a full mirror
                 // only at a grazing angle - that is the Fresnel curve, and it is
