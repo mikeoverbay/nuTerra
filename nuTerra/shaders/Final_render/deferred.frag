@@ -703,7 +703,30 @@ void main (void)
                 const float POOL_HI = 0.92;
                 float pool = smoothstep(POOL_LO, POOL_HI, wet_flat);
 
-                N = normalize(mix(N, surf_n, pool));
+                // How much BUMP survives is decided by the TERRAIN angle.
+                //
+                // Flatter ground takes less bump in the wet area; as the terrain
+                // tilts the relief comes back. Nothing here depends on where the
+                // camera is: surf_n is the terrain's own geometric normal and
+                // blank_n is world up, both carried in view space, so the dot of
+                // the two is cos(terrain slope) and is invariant as the camera
+                // moves. That is the terrain angle, not the view angle.
+                //
+                // pool cannot do this job. It is built from GM_in.z, which is
+                // global.a times TerrainHQ's flatness - and that flatness FLOORS
+                // AT 0.6, so it never fully lets go of a slope and would sand the
+                // relief off hillsides that should keep it.
+                //
+                // Scaled by color_in.a - the global map alpha - because dry level
+                // ground must keep all of its relief. Flat AND wet is water; flat
+                // and dry is just flat.
+                const float LEVEL_MIN = 0.985;   // ~10 degrees of slope
+                const float LEVEL_MAX = 0.999;   // ~2.5 degrees
+                float cos_slope = dot(surf_n, normalize(blank_n));
+                float level     = smoothstep(LEVEL_MIN, LEVEL_MAX, cos_slope);
+                float bump_kill = clamp(color_in.a, 0.0, 1.0) * level;
+
+                N = normalize(mix(N, surf_n, bump_kill));
 
                 // Two reflect vectors, because they answer different questions.
                 //
@@ -890,7 +913,13 @@ void main (void)
                 // survive is the BUMP - the normal is flattened to the slope at full
                 // strength above, so cobble RELIEF goes while cobble COLOUR stays.
                 const float ENV_MAX   = 0.80;
-                const float ENV_FLOOR = 0.35;
+                const float ENV_FLOOR = 0.05;
+                // 0.05, not 0.35. Water reflects about 2-5%% of what is above it
+                // when you look straight down at it and approaches a full mirror
+                // only at a grazing angle - that is the Fresnel curve, and it is
+                // the whole reason a puddle reads as a puddle rather than as a
+                // sheet of blue. At 0.35 every downward view mixed a third of the
+                // sky over the ground and the courtyard came out as a lake.
                 if (pool > 0.0) {
                     vec3 R_w = mat3(invView) * R_env;
                     R_w = vec3(-R_w.x, R_w.y, R_w.z);
