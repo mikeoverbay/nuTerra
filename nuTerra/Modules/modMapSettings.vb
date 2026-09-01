@@ -146,6 +146,7 @@ Public Module modMapSettings
         Yield ("sh_grid_offset", Function() SH_GRID_OFFSET, Sub(v) SH_GRID_OFFSET = v)
         Yield ("sh_grid_curve", Function() SH_GRID_CURVE, Sub(v) SH_GRID_CURVE = v)
         Yield ("sh_grid_floor", Function() SH_GRID_FLOOR, Sub(v) SH_GRID_FLOOR = v)
+        Yield ("pbr_spec", Function() B2F(PBR_SPEC), Sub(v) PBR_SPEC = F2B(v))
 
         ' booleans, stored as 0/1 so the file stays one shape throughout
         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))

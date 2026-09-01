@@ -82,6 +82,17 @@ uniform float sh_grid_mix;
 uniform float sh_grid_curve;
 uniform float sh_grid_floor;
 
+// Swap the specular model for the game's, ported from GAME_LIGHTING_MODEL.md
+// sections 3 and 4. At 0 not one instruction of it runs and the frame is the
+// one that shipped - that is the bar, and it is checked by sha256, not by eye.
+//
+// NOTE ON CHANNELS. In this shader the local named `metal` is NOT metal: it is
+// GM_in.r = gGMF.r = GLOSS. Metal lives in GM_in.g and is currently spent as
+// `INTENSITY`. model.frag writes `gGMF.rg = gm.rg` from the metallicGlossMap,
+// which the PBS_tank decode proves is (GLOSS, METALLIC). The block below uses
+// its own g_gloss / g_metal so the mistake cannot ride along.
+uniform int pbr_spec;
+
 // Separate from eval_sh_irradiance on purpose: the working path above is left
 // byte for byte alone.
 vec3 eval_sh_grid_fallback(vec3 n)
@@ -647,21 +658,90 @@ void main (void)
 
                 vec3 halfwayDir = normalize(L + V);
 
-                float spec = max(pow(dot(V,R), POWER ),0.0000) * props.SPECULAR * INTENSITY;
+                // Kept before the handedness flip below: the PBR path has to
+                // build its dominant direction from N and an UNflipped R_env,
+                // then flip the result, or it mixes two different spaces.
+                vec3 R_env_raw = R_env;
 
                 // Cubemap handedness - the world is mirrored in x for display.
                 R_env.xz *= -1.0;
 
-                vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut,
-                            vec2(1.0-lambertTerm * 0.25, 1.0-metal) ));
-                vec3 specular =  (vec3(spec) * brdf.x + brdf.y);
+                // Hoisted: the wet reflection below multiplies by this Phong
+                // scalar in BOTH modes. Only the specular MODEL is swapped
+                // here, not the wetness term, so spec stays common.
+                float spec = max(pow(dot(V,R), POWER ),0.0000) * props.SPECULAR * INTENSITY;
 
+                vec3 specular;
+                vec4 prefilteredColor;
 
-                vec4 prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R_env,
-                                        max(8.0-GM_in.g *4.0, 0.0)));
-                // GM_in.b is the alpha channel.
-                prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb +
-                                       specular, GM_in.b*0.2*(1.0-color_in.a));
+                if (pbr_spec != 0) {
+                    // ---- the game's specular, sections 3 and 4 -------------
+                    // Channels named straight - see the uniform's comment.
+                    float g_gloss = clamp(GM_in.r, 0.0, 1.0);
+                    float g_metal = clamp(GM_in.g, 0.0, 1.0);
+
+                    float alphaR = 1.0 - g_gloss * g_gloss;
+                    float NdotV  = abs(dot(N, V));
+
+                    // metal is the F0 MAGNITUDE here and specTint is the hue,
+                    // which is why a coloured metal keeps its colour while a
+                    // dielectric does not tint its highlight.
+                    float amax = max(max(color_in.r, color_in.g), color_in.b);
+                    vec3 specTint = mix(vec3(1.0), color_in.rgb / (amax + 1e-4),
+                                        clamp(g_metal * g_metal * 3.2, 0.0, 1.0));
+
+                    // The reflected direction is bent toward N as the surface
+                    // roughens rather than leaving the mip to carry all of it.
+                    vec3 Rdom = normalize(mix(N, R_env_raw,
+                                              clamp(g_gloss * 1.35, 0.0, 1.0)));
+                    Rdom.xz *= -1.0;
+
+                    // Grazing angles blur. nuTerra's cube is 8 mips and is not
+                    // PMREM-encoded, so the mip curve is the game's shape
+                    // against this cube's range - the DECODE is left alone.
+                    float mip = alphaR * alphaR * 8.0
+                              * (min(2.0 * NdotV, 1.0) * 0.5 + 0.5);
+                    vec4 c = SRGBtoLINEAR(textureLod(cubeMap, Rdom,
+                                          clamp(mip, 0.0, 8.0)));
+
+                    // The LUT is (alphaRoughness, NdotV): R scales the specular
+                    // colour, G is an additive bias. The path below indexes it
+                    // (1 - NdotL*0.25, 1 - gloss), which is neither axis.
+                    vec2 ab = texture(env_brdf_lut, vec2(alphaR, NdotV)).xy;
+                    vec3 specAmbient = c.rgb * (specTint * ab.x + ab.y);
+
+                    // Direct sun: GGX D, Schlick-Gaussian F, Smith-Schlick Vis.
+                    vec3  H     = normalize(L + V);
+                    float NdotH = clamp(dot(N, H), 0.0, 1.0);
+                    float LdotH = dot(L, H);
+
+                    float a  = alphaR * alphaR + max(0.3 - 1.3 * g_gloss, 0.0);
+                    float m  = max(a, 0.015979);
+                    float m4 = m * m * m * m;
+                    float den = NdotH * NdotH * (m4 - 1.0) + 1.0;
+                    float D  = m4 / (3.14159265 * den * den);
+
+                    float Fexp = exp2((-5.55473 * LdotH - 6.98316) * LdotH);
+                    vec3  F    = specTint * g_metal
+                               + (1.0 - g_metal * specTint) * Fexp;
+
+                    float k   = a * a * 0.5;
+                    float Vis = 0.25 / max((NdotV * (1.0 - k) + k)
+                                         * (lambertTerm * (1.0 - k) + k), 1e-4);
+
+                    specular = lambertTerm * D * Vis * F * props.SPECULAR;
+                    prefilteredColor = vec4(specAmbient, c.a);
+                } else {
+                    vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut,
+                                vec2(1.0-lambertTerm * 0.25, 1.0-metal) ));
+                    specular =  (vec3(spec) * brdf.x + brdf.y);
+
+                    prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R_env,
+                                            max(8.0-GM_in.g *4.0, 0.0)));
+                    // GM_in.b is the alpha channel.
+                    prefilteredColor.rgb = mix(vec3(specular), prefilteredColor.rgb +
+                                           specular, GM_in.b*0.2*(1.0-color_in.a));
+                }
 
                 vec4 W_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R_env,
                                           max(8.0-water_mix *5.0, 0.0)));

@@ -771,6 +771,8 @@ Module modRender
         GL.Uniform1(deferredShader("sh_enabled"),
                     CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
 
+        GL.Uniform1(deferredShader("pbr_spec"), CInt(If(PBR_SPEC, 1, 0)))
+
         ' The baked probe FIELD, folded into the real lighting: deferred.frag
         ' blends it over the flat global probe with
         ' mix(irradiance, grid_irr, sh_grid_mix), inside the sh_grid_enabled

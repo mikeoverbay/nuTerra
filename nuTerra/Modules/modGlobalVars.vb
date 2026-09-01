@@ -562,6 +562,16 @@ Module modGlobalVars
     ''' global probe the field may pull. The defaults are the identity, so the
     ''' frame is unchanged until one of them is moved.
     ''' </summary>
+    ''' <summary>
+    ''' Swap deferred.frag's specular for the game's model - GGX D, Schlick-
+    ''' Gaussian Fresnel, Smith-Schlick visibility, and an env lookup indexed
+    ''' (alphaRoughness, NdotV) instead of the current Phong lobe.
+    '''
+    ''' Off by default. The bar is that with it off the frame is bit-identical
+    ''' to the one that shipped, which is checked by sha256.
+    ''' </summary>
+    Public PBR_SPEC As Boolean = False
+
     Public SH_GRID_CURVE As Single = 1.0F
     Public SH_GRID_FLOOR As Single = 0.0F
 

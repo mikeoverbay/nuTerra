@@ -1496,6 +1496,13 @@ try_again:
                                              CommonProperties.AMBIENT, SH_AMBIENT_LOADED, USE_SH_AMBIENT,
                                              SH_AMBIENT(0).X, SH_AMBIENT(0).Y, SH_AMBIENT(0).Z))
 
+                    ' ---- specular model -------------------------------------
+                    ImGui.Separator()
+                    If ImGui.Checkbox("PBR specular (game model)", PBR_SPEC) Then
+                    End If
+                    ImGui.Text("   GGX + Schlick-Gaussian F + Smith-Schlick Vis")
+                    ImGui.Text("   env LUT indexed (alphaRoughness, NdotV)")
+
                     ' ---- SH probe FIELD -------------------------------------
                     ' WIRED INTO THE LIGHTING: deferred.frag blends the field
                     ' over the flat global probe by sh_grid_mix. This comment
