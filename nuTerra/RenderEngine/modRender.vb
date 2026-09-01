@@ -760,7 +760,6 @@ Module modRender
             GL.Uniform1(deferredShader("has_sun_shadow"), 0)
         End If
 
-        GL.Uniform1(deferredShader("water_alpha"), WATER_ALPHA)
         GL.Uniform1(deferredShader("water_depth"), WATER_DEPTH)
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 

@@ -1439,10 +1439,6 @@ try_again:
                     ' Fresnel takes it to a mirror at a grazing angle whatever
                     ' this is set to. Depth is how much of the bed survives
                     ' under full water; lower is deeper and darker.
-                    Dim v_wa = WATER_ALPHA
-                    If ImGui.SliderFloat("Water alpha", v_wa, 0.0, 1.0) Then
-                        WATER_ALPHA = v_wa
-                    End If
                     Dim v_wd = WATER_DEPTH
                     If ImGui.SliderFloat("Water depth", v_wd, 0.0, 1.0) Then
                         WATER_DEPTH = v_wd

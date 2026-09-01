@@ -17,10 +17,8 @@ layout(binding = 3) uniform sampler2D gPosition;
 // the bumped one; this is the slope underneath it.
 layout(binding = 10) uniform sampler2D gSurfaceNormal;
 
-// Pooled water, live from the UI. water_alpha is how much sky survives when
-// you look straight down at it; water_depth is how much of the bed survives
-// under full water.
-uniform float water_alpha;
+// Pooled water, live from the UI: how much of the bed survives under full
+// water. Lower is deeper and darker.
 uniform float water_depth;
 layout(binding = 4) uniform samplerCube cubeMap;
 
@@ -899,79 +897,26 @@ void main (void)
                 // showing. 1-exp(-x) is linear where the response was already
                 // sane and rolls off the peaks, so a hot glint stays bright
                 // without ever clipping to paper.
-                // Level wet ground mirrors the world. Sky comes from here; the
-                // buildings arrive later from the SSR pass, which is already
-                // gated on this same gGMF.a.
+                // Standing water has DEPTH, and the bed reads through it.
                 //
-                // Ported from water.frag, which solved this for lakes:
-                //   WORLD SPACE   R_env is built from view space V and N, so it
-                //                 must come back out through invView before a
-                //                 world oriented cubemap means anything. Every
-                //                 other cube lookup in this shader skips that.
-                //   HORIZON CLAMP a level mirror at a grazing angle points into
-                //                 the dark horizon ring. water.frag pins R.y up
-                //                 off it, and without that a puddle comes out
-                //                 DARKER than the bumpy ground beside it.
-                //   SOFT CEILING  scaled, not clipped, so the hue survives.
-                //   NOT SUN GATED shade blocks the sun, not the sky.
+                // A pool is not a mirror laid on the ground - it is a body of
+                // water you can see into, and what you see is the terrain
+                // underneath, absorbed and therefore darker. That absorption is
+                // what makes it read as deep rather than as painted-on shine.
                 //
-                // Scaled by the flatness-gated wetness, so it appears on level
-                // ground and never on a slope. The Fresnel keeps a floor rather
-                // than falling to nothing head-on: this has to read as water from
-                // every angle, not only at grazing.
-                // The ground must read THROUGH the water, only darker - you can see
-                // the bed of a puddle. So this is a FLOOR on the reflection, not a
-                // replacement: head-on you get ENV_FLOOR of sky over the darkened
-                // terrain; a grazing angle takes it toward a mirror. What must NOT
-                // survive is the BUMP - the normal is flattened to the slope at full
-                // strength above, so cobble RELIEF goes while cobble COLOUR stays.
-                const float ENV_MAX   = 0.80;
-
-                float ENV_FLOOR = water_alpha;
-                // 0.05 is the physically honest number for water viewed head-on,
-                // and it looked wrong: ALL reflection disappeared looking down and
-                // the pool went flat. 0.35 the other way turned the courtyard into
-                // a lake. 0.18 keeps a reading of the sky from directly above while
-                // still letting the Fresnel take it to a mirror at grazing.
+                // NO CUBEMAP HERE, deliberately. An environment reflection used to
+                // be mixed in at this point and it threw the colour off: nuTerra's
+                // cube is NOT PMREM encoded the way the game's is, so sampling it
+                // for a mirror-like surface returns the wrong thing. The PBR port
+                // already declined to bring the game's cubemap decode across for
+                // exactly that reason, and this path had quietly gone and sampled
+                // the cube anyway.
                 //
-                // The bed darkening added alongside this is what lets the floor be
-                // modest: the pool no longer depends on the reflection alone to say
-                // that it is water.
-                // 0.05, not 0.35. Water reflects about 2-5%% of what is above it
-                // when you look straight down at it and approaches a full mirror
-                // only at a grazing angle - that is the Fresnel curve, and it is
-                // the whole reason a puddle reads as a puddle rather than as a
-                // sheet of blue. At 0.35 every downward view mixed a third of the
-                // sky over the ground and the courtyard came out as a lake.
-
+                // Reflections come from ssr.frag instead. It marches the real
+                // frame, so it cannot have the decode problem, and it is already
+                // gated on this same wetness. Its strength is the SSR slider.
                 if (pool > 0.0) {
-                    vec3 R_w = mat3(invView) * R_env;
-                    R_w = vec3(-R_w.x, R_w.y, R_w.z);
-                    R_w.y = max(R_w.y, 0.02);
-                    vec3 env = SRGBtoLINEAR(textureLod(cubeMap, R_w,
-                               max(4.0 - pool * 4.0, 0.0))).rgb;
-                    float pk = max(env.r, max(env.g, env.b));
-                    if (pk > ENV_MAX) env *= ENV_MAX / pk;
-                    float F = pow(1.0 - clamp(dot(V, N), 0.0, 1.0), 5.0);
-                    // Standing water has DEPTH, and the bed reads through it.
-                    //
-                    // A pool is not a mirror laid on the ground - it is a body of
-                    // water you can see into, and what you see is the terrain
-                    // underneath, absorbed and therefore darker. That absorption is
-                    // what makes a pool read as deep rather than as painted-on
-                    // shine, and it is why the reflection can stay physically weak
-                    // head-on and still look like water: the darkening carries the
-                    // pool where the reflection does not.
-                    //
-                    // Driven by pool, which is the global map WET CHANNEL gated by
-                    // flatness - so the deeper the standing water the map authors,
-                    // the more of the bed it swallows. Nothing to do with decals.
-                    float POOL_DEPTH = water_depth;  // bed brightness under full water
-                    vec3 bed = final_color.xyz * mix(1.0, POOL_DEPTH, pool);
-
-                    // Then the surface over the top of it, by Fresnel.
-                    final_color.xyz = mix(bed, env,
-                                          pool * mix(ENV_FLOOR, 1.0, F));
+                    final_color.xyz *= mix(1.0, water_depth, pool);
                 }
 
                 // The TERRAIN stops being lit where water covers it.
@@ -987,8 +932,21 @@ void main (void)
                 // the water surface above it is what reflects, and that has
                 // already been done above. So fade the terrain response out by the
                 // same pool factor that faded its albedo and its bump.
-                vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz)
-                               * sun_shadow * (1.0 - pool);
+                // ENVIRONMENT REFLECTIONS ARE OUT OF THE WET PATH.
+                //
+                // water_reflect and G_prefilteredColor are both cubemap lookups -
+                // W_prefilteredColor and another textureLod on cubeMap, scaled by
+                // sun lobes. nuTerra's cube is not PMREM encoded the way the
+                // game's is, so sampling it for wet surfaces threw the colour off,
+                // which is what showed up as messed up colouring on wet terrain.
+                //
+                // specular stays: it is the analytic BRDF lobe and touches no
+                // cubemap. Real reflections come from ssr.frag, which marches the
+                // frame and is gated on the same wetness.
+                //
+                // Still faded by (1 - pool): under standing water the ground does
+                // not get its own sun highlight either.
+                vec3 sun_add = specular * sun_shadow * (1.0 - pool);
                 final_color.xyz += 1.0 - exp(-sun_add);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance
