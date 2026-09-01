@@ -116,6 +116,15 @@ Public Class MainFBO
         FramebufferAttachment.ColorAttachment0,
         FramebufferAttachment.ColorAttachment1
     }
+    ' Colour + normal + gGMF, for the decal pass. gGMF is ColorAttachment2
+    ' and every G-buffer writer declares it at output location 2, so it has
+    ' to sit at index 2 here for a decal to reach it at all. The decal pass
+    ' masks it to alpha only, and only while a wet decal draws.
+    Private Shared attach_ColorNormalGMF() As DrawBuffersEnum = {
+        FramebufferAttachment.ColorAttachment0,
+        FramebufferAttachment.ColorAttachment1,
+        FramebufferAttachment.ColorAttachment2
+    }
     Private Shared attach_Color_1_2() As DrawBuffersEnum = {
         FramebufferAttachment.ColorAttachment0,
         FramebufferAttachment.ColorAttachment6
@@ -349,6 +358,9 @@ Public Class MainFBO
     End Sub
     Public Shared Sub attach_CN()
         fbo.DrawBuffers(2, attach_ColorNormal)
+    End Sub
+    Public Shared Sub attach_CNG()
+        fbo.DrawBuffers(3, attach_ColorNormalGMF)
     End Sub
     Public Shared Sub attach_C1_and_C2()
         fbo.DrawBuffers(2, attach_Color_1_2)

@@ -47,7 +47,7 @@ Public Class MapDecals
 
         CUBE_VAO.Bind()
 
-        MainFBO.attach_CN()
+        MainFBO.attach_CNG()
 
         MainFBO.gDepth.BindUnit(0)
         MainFBO.gGMF.BindUnit(1)
@@ -72,8 +72,15 @@ Public Class MapDecals
         ' gColor.rgb black.
         '
         ' So the mask is per-draw-buffer and per-decal now: off by default,
-        ' switched on for buffer 0 only while a wet decal draws.
+        ' switched on for buffers 0 and 2 only while a wet decal draws.
         GL.ColorMask(True, True, True, False)
+
+        ' gGMF is in the draw buffers so a wet decal can write the SSR wetness
+        ' mask into its alpha. Nothing else in this pass has any business
+        ' touching it - gloss, metal and the surface-kind flags all live in RGB
+        ' and the deferred pass and the kind test both read them - so it is off
+        ' entirely by default and never opens beyond alpha.
+        GL.ColorMask(2, False, False, False, False)
 
         boxDecalsColorShader.Use()
         ''-- scale up y some so terrain doesn't clip it.
@@ -152,6 +159,7 @@ Public Class MapDecals
             ' Let the wetness through for this decal only. Everything else keeps
             ' the pass default, so non-wet decals render exactly as before.
             GL.ColorMask(0, True, True, True, decal.wet = CUInt(1))
+            GL.ColorMask(2, False, False, False, decal.wet = CUInt(1))
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
         Next

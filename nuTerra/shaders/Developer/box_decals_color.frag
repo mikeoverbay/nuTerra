@@ -8,7 +8,10 @@
 
 layout (location = 0) out vec4 gColor;
 layout (location = 1) out vec4 gNormal;
-layout (location = 6) out vec4 gGMF;
+// gGMF is ColorAttachment2 and TerrainHQ.frag:18 / model.frag:14 both bind it
+// at location 2. This said 6 - the ATTACHMENT number, not the output location -
+// so the write fell off the end of the draw buffer list and vanished.
+layout (location = 2) out vec4 gGMF;
 
 layout (binding = 0) uniform sampler2D depthMap;
 layout (binding = 1) uniform sampler2D igGMF;
@@ -210,7 +213,34 @@ void main()
        gColor.a = color.r*0.8;
        gColor.rgb = vec3(0.0);
        gNormal.a = color.r;
-       gGMF.r = 0.9;
+
+       // A puddle is a flat mirror, so give it a flat mirror's normal.
+       //
+       // This branch used to leave gNormal.xyz UNWRITTEN while the pass left
+       // buffer 1's RGB open, so a wet decal scribbled an undefined normal over
+       // the ground it sat on. deferred.frag hid that - it does
+       // N = mix(N, blank_n, water_mix), flattening toward up in proportion to
+       // wetness, so the resolve never saw the garbage. ssr.frag has no such
+       // step: it reads gNormal raw, and a wrong normal there sends the
+       // reflected ray somewhere the puddle cannot see, or straight back at the
+       // camera where SSR gives up (R.z > -0.02).
+       //
+       // World up in view space, which is the same vector deferred.frag builds
+       // as blank_n. The view matrix is a LookAt and carries no scale, so the
+       // plain upper-left 3x3 is the right rotation and the inverse-transpose
+       // is unnecessary.
+       gNormal.xyz = normalize(mat3(view) * vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
+
+       // The SSR wetness mask. ssr.frag samples gGMF.A and scales the whole
+       // reflection by it, so a puddle that does not write this channel is
+       // invisible to SSR no matter how wet the rest of the G-buffer says it
+       // is. This used to write gGMF.r, which is GLOSS, into an attachment
+       // the decal pass had not enabled - it could never have worked.
+       //
+       // Faded here rather than in the shared tail below because the else
+       // branch never writes gGMF at all, and the pass masks the channel off
+       // for those decals.
+       gGMF.a = color.r * edge_alpha * angle_alpha;
        }
    else
    {
