@@ -916,7 +916,36 @@ void main (void)
                 // frame, so it cannot have the decode problem, and it is already
                 // gated on this same wetness. Its strength is the SSR slider.
                 if (pool > 0.0) {
+                    // The bed, absorbed by depth.
                     final_color.xyz *= mix(1.0, water_depth, pool);
+
+                    // And the sky in the surface. SSR cannot supply this - it
+                    // skips sky by design ("nothing to hit") - so without a cube
+                    // lookup a pool viewed from above has nothing to reflect at
+                    // all, which is what taking the environment out entirely did.
+                    //
+                    // R_env is reflect(-V,N) in VIEW space, so invView puts it
+                    // back into world for a world-oriented cube. NO handedness
+                    // flip: water.frag negates .x for its own convention and
+                    // copying that here sampled the wrong side of the sky, which
+                    // is the likely source of the bad colour.
+                    vec3 R_w = normalize(mat3(invView) * R_env);
+                    R_w.y = max(R_w.y, 0.02);   // never below the horizon ring
+
+                    vec3 env = SRGBtoLINEAR(textureLod(cubeMap, R_w,
+                               max(4.0 - pool * 4.0, 0.0))).rgb;
+
+                    // Scale, not clip, so the hue survives the ceiling.
+                    const float ENV_MAX = 0.80;
+                    float pk = max(env.r, max(env.g, env.b));
+                    if (pk > ENV_MAX) env *= ENV_MAX / pk;
+
+                    // Fresnel with a floor: a mirror at grazing, a reading of the
+                    // sky looking straight down.
+                    const float ENV_FLOOR = 0.15;
+                    float F = pow(1.0 - clamp(dot(V, N), 0.0, 1.0), 5.0);
+                    final_color.xyz = mix(final_color.xyz, env,
+                                          pool * mix(ENV_FLOOR, 1.0, F));
                 }
 
                 // The TERRAIN stops being lit where water covers it.
