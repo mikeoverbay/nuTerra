@@ -915,7 +915,20 @@ void main (void)
                 // Reflections come from ssr.frag instead. It marches the real
                 // frame, so it cannot have the decode problem, and it is already
                 // gated on this same wetness. Its strength is the SSR slider.
-                if (pool > 0.0) {
+                // Sky is not wet ground.
+                //
+                // Nothing writes gGMF for a sky pixel, so GM_in.z there is",
+                // whatever the buffer happened to hold - and it read high enough
+                // that pool came out non-zero and this block ran on the SKY,
+                // mixing a cubemap reflection into it off a meaningless normal.
+                // That is what the swirling marbled "waves" were: not the water
+                // at all, but the sky being treated as a pool. It only became
+                // obvious looking UP, where the sky fills the frame.
+                //
+                // gPosition.z >= 0 means nothing was drawn here. ssr.frag has
+                // guarded on exactly this from the start; the resolve did not.
+                bool is_sky = (Position.z >= 0.0);
+                if (pool > 0.0 && !is_sky && dot(V, surf_n) > 0.0) {
                     // The bed, absorbed by depth.
                     final_color.xyz *= mix(1.0, water_depth, pool);
 
@@ -929,7 +942,18 @@ void main (void)
                     // flip: water.frag negates .x for its own convention and
                     // copying that here sampled the wrong side of the sky, which
                     // is the likely source of the bad colour.
-                    vec3 R_w = normalize(mat3(invView) * R_env);
+                    // Reflect off the FLAT normal, not the mixed one.
+                    //
+                    // R_env is built from N, which is only PARTLY flattened where
+                    // bump_kill is partial - so the reflection direction swept
+                    // across the cubemap from pixel to pixel and the pool came out
+                    // marbled. Seen from underneath it reads as a swirling oil
+                    // slick, which is what the "waves" are: not an animation, just
+                    // a mirror whose normal will not sit still.
+                    //
+                    // A sheet of water lies along the slope, full stop. Take the
+                    // direction from surf_n and the surface reflects as one piece.
+                    vec3 R_w = normalize(mat3(invView) * reflect(-V, surf_n));
                     R_w.y = max(R_w.y, 0.02);   // never below the horizon ring
 
                     vec3 env = SRGBtoLINEAR(textureLod(cubeMap, R_w,
@@ -942,8 +966,15 @@ void main (void)
 
                     // Fresnel with a floor: a mirror at grazing, a reading of the
                     // sky looking straight down.
+                    // NdotV against the FLAT normal, and unclamped on the low side.
+                    //
+                    // clamp(dot(V,N), 0, 1) turns every BACK FACING pixel into
+                    // F = 1, a full mirror. Looking up at the underside of a wet
+                    // area that lit the whole thing as a hard reflection - the
+                    // clamp was hiding a sign, not guarding a range.
                     const float ENV_FLOOR = 0.15;
-                    float F = pow(1.0 - clamp(dot(V, N), 0.0, 1.0), 5.0);
+                    float NdotV = dot(V, surf_n);
+                    float F = (NdotV > 0.0) ? pow(1.0 - NdotV, 5.0) : 0.0;
                     final_color.xyz = mix(final_color.xyz, env,
                                           pool * mix(ENV_FLOOR, 1.0, F));
                 }
