@@ -929,7 +929,24 @@ void main (void)
                     float pk = max(env.r, max(env.g, env.b));
                     if (pk > ENV_MAX) env *= ENV_MAX / pk;
                     float F = pow(1.0 - clamp(dot(V, N), 0.0, 1.0), 5.0);
-                    final_color.xyz = mix(final_color.xyz, env,
+                    // Standing water has DEPTH, and the bed reads through it.
+                    //
+                    // A pool is not a mirror laid on the ground - it is a body of
+                    // water you can see into, and what you see is the terrain
+                    // underneath, absorbed and therefore darker. That absorption is
+                    // what makes a pool read as deep rather than as painted-on
+                    // shine, and it is why the reflection can stay physically weak
+                    // head-on and still look like water: the darkening carries the
+                    // pool where the reflection does not.
+                    //
+                    // Driven by pool, which is the global map WET CHANNEL gated by
+                    // flatness - so the deeper the standing water the map authors,
+                    // the more of the bed it swallows. Nothing to do with decals.
+                    const float POOL_DEPTH = 0.45;  // bed brightness under full water
+                    vec3 bed = final_color.xyz * mix(1.0, POOL_DEPTH, pool);
+
+                    // Then the surface over the top of it, by Fresnel.
+                    final_color.xyz = mix(bed, env,
                                           pool * mix(ENV_FLOOR, 1.0, F));
                 }
 
