@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #ifdef GL_SPIRV
 #extension GL_GOOGLE_include_directive : require
@@ -111,6 +111,28 @@ void main(void)
     const vec3 n_world = normalize(mat3(invView) * normalize(fs_in.worldNormal));
     const float flatness = max((n_world.y - 0.99) * 100.0, 0.6);
     const float wetness = clamp(gColor.a * flatness, 0.0, 1.0);
+
+    // Water fills the bumps in, and it has to happen HERE - in the G-buffer -
+    // not later in the resolve.
+    //
+    // deferred.frag flattening its own local copy of N is not enough: ssr.frag
+    // is a separate pass and reads gNormal straight from the buffer, so it was
+    // marching reflected rays off the raw cobble bump. Colour keying its
+    // early-outs showed the result as pixel-level noise - hit, miss and
+    // ray-points-back-at-camera speckled together across the whole wet area -
+    // which is why no building ever appeared in a pool. A mirror cannot be
+    // built out of normals that scatter every pixel.
+    //
+    // Writing the flattened normal into the buffer makes every consumer agree.
+    //
+    // The angle band is wider than the wetness gate above uses on purpose:
+    // 0.985 is about 10 degrees and 0.999 about 2.5, so relief comes back as
+    // the ground tilts instead of switching off at a hard edge.
+    const vec3  n_geom     = normalize(fs_in.worldNormal);
+    const float level      = smoothstep(0.985, 0.999, n_world.y);
+    const float bump_kill  = smoothstep(0.60, 0.90, gColor.a) * level;
+    gNormal.xyz = normalize(mix(gNormal.xyz * 2.0 - 1.0, n_geom, bump_kill))
+                  * 0.5 + 0.5;
 
     gGMF = vec4(0.2, mix(specular_sample1, specular_sample2, mipfract), GFLAG_TERRAIN, wetness);
 
