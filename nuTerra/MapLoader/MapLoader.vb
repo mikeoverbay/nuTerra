@@ -696,6 +696,20 @@ Module MapLoader
             i += 1
         Next
 
+        ' Wet decals are the pooled-water path, and how many a map has is the
+        ' first thing worth knowing when it does not appear. The flag is
+        ' INFERRED from a decal having no diffuse texture, not read from the
+        ' data - measured, that finds 36 of 2326 on 19_monastery and ZERO on
+        ' both 101_dday (5669) and 08_ruinberg (7834), which is not credible for
+        ' those maps. WGSD carries a materialType byte that nothing reads; that
+        ' is the likely real signal. See the handoff.
+        Dim wet_decals = 0
+        For Each d_ In map_scene.decals.all_decals
+            If d_.wet = CUInt(1) Then wet_decals += 1
+        Next
+        LogThis("decals: {0} total, {1} flagged wet (inferred from no diffuse texture)",
+                map_scene.decals.all_decals.Count, wet_decals)
+
         ' Authored draw order, finally applied. The WGSD record carries a
         ' priority per decal and draw_decals composites in list order with Blend
         ' on and DepthMask(False) (MapDecals.vb:47-48), so the order of this

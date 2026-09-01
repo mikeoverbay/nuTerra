@@ -60,8 +60,19 @@ Public Class MapDecals
         GL.Enable(EnableCap.Blend)
         GL.DepthMask(False) ' stops decals from Z fighting
 
-        'We do not want to write in to the alpha of color.
-        'It screws up decal normal mappping because alpha in gColor is wetness.
+        ' Ordinary decals must not write the alpha of gColor - that channel is
+        ' WETNESS, which deferred.frag reads as water_mix, and a decal scribbling
+        ' on it breaks decal normal mapping downstream.
+        '
+        ' But a WET decal has nothing else to say. Its whole output is
+        ' gColor.a = add.r * 0.8, so this mask silently threw the entire pooled
+        ' water feature away: the wet branch also sets gGMF.r, which cannot land
+        ' either because attach_CN enables only ColorAttachment0 and 1 and that
+        ' output is at location 6. All a wet decal managed to do was paint
+        ' gColor.rgb black.
+        '
+        ' So the mask is per-draw-buffer and per-decal now: off by default,
+        ' switched on for buffer 0 only while a wet decal draws.
         GL.ColorMask(True, True, True, False)
 
         boxDecalsColorShader.Use()
@@ -137,6 +148,10 @@ Public Class MapDecals
             GL.Uniform1(boxDecalsColorShader("vis"), decal.visibility)
 
             GL.Uniform1(boxDecalsColorShader("wet"), decal.wet)
+
+            ' Let the wetness through for this decal only. Everything else keeps
+            ' the pass default, so non-wet decals render exactly as before.
+            GL.ColorMask(0, True, True, True, decal.wet = CUInt(1))
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
         Next
