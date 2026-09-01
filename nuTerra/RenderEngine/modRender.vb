@@ -750,12 +750,28 @@ Module modRender
         map_scene.ENV_BRDF_LUT_ID?.BindUnit(6)
         ShadowMappingFBO.depth_tex.BindUnit(7)
 
+        ' The baked sun shadow map is ALWAYS bound. Whether shadows get
+        ' APPLIED is decided in the shader, by has_sun_shadow - see
+        ' baked_sun_shadow() in deferred.frag, which returns 1.0 and never
+        ' touches the sampler when the flag is 0.
+        '
+        ' Binding and enabling are separate concerns. Leaving a
+        ' sampler2DShadow unbound is not a way to switch a feature off - it
+        ' is simply an illegal GL state, and the driver says so on every
+        ' single draw (131222, undefined behavior: shadow sampler on a
+        ' non-depth texture). The 1x1 stand-in exists only so there is
+        ' always something legal there; it is never read.
+        If map_scene.sun_shadow IsNot Nothing AndAlso map_scene.sun_shadow.depth_tex IsNot Nothing Then
+            map_scene.sun_shadow.depth_tex.BindUnit(8)
+        Else
+            dummy_shadow().BindUnit(8)
+        End If
+
         ' Map-wide baked sun shadow. The cascades carry trees only, so this is
         ' what shadows terrain and static models - it has to be here rather than
         ' folded into the terrain albedo at page-bake time, or it reaches neither
         ' the models nor the ambient/direct split correctly.
         If map_scene.sun_shadow.ready AndAlso map_scene.sun_shadow.depth_tex IsNot Nothing Then
-            map_scene.sun_shadow.depth_tex.BindUnit(8)
             GL.UniformMatrix4(deferredShader("sunViewProj"), False, map_scene.sun_shadow.sun_view_proj)
 
             ' 1 = PCF over the depth map, 2 = moment shadow map. The moment path
@@ -773,20 +789,9 @@ Module modRender
             GL.Uniform1(deferredShader("shadow_penumbra_lo"), SHADOW_PENUMBRA_LO)
             GL.Uniform1(deferredShader("shadow_penumbra_hi"), SHADOW_PENUMBRA_HI)
         Else
+            ' Shadows off. The map stays bound above; this is the whole of
+            ' switching them off.
             GL.Uniform1(deferredShader("has_sun_shadow"), 0)
-
-            ' Bind a valid depth texture anyway.
-            '
-            ' has_sun_shadow gates whether the shader SAMPLES this, but GL
-            ' validates the bound state either way: a sampler2DShadow left
-            ' pointing at texture 0 is "undefined behavior" and the driver
-            ' logs error 131222 on EVERY draw. With baked shadows off that is
-            ' a non-stop spew that buries every other message in the console.
-            '
-            ' A 1x1 depth texture with comparison enabled costs nothing and
-            ' makes the bound state legal. Unit 9 is a plain sampler2D, so
-            ' texture 0 there is not a type mismatch and needs no dummy.
-            dummy_shadow().BindUnit(8)
         End If
 
         GL.Uniform1(deferredShader("water_depth"), WATER_DEPTH)
