@@ -676,7 +676,16 @@ void main (void)
                 // instead of fighting.
                 vec3 surf_n = normalize(texelFetch(gSurfaceNormal,
                                         ivec2(gl_FragCoord), 0).xyz * 2.0 - 1.0);
-                N = mix(N, surf_n, water_mix);
+                // Driven by GM_in.z, the FLATNESS-GATED wetness, not by
+                // color_in.a. color_in.a is the raw page alpha - height term only
+                // - so it says "wet" on a hillside just as loudly as on the
+                // level. gGMF.a is that same value AFTER TerrainHQ multiplies in
+                // the slope gate, so it is the one that actually means "level and
+                // wet". On flat ground the two are identical, which is why this
+                // made no visible difference in the fountain courtyard; on a
+                // slope it is the whole point.
+                float wet_flat = clamp(GM_in.z, 0.0, 1.0);
+                N = normalize(mix(N, surf_n, wet_flat));
 
                 // Two reflect vectors, because they answer different questions.
                 //
@@ -836,6 +845,41 @@ void main (void)
                 // showing. 1-exp(-x) is linear where the response was already
                 // sane and rolls off the peaks, so a hot glint stays bright
                 // without ever clipping to paper.
+                // Level wet ground mirrors the world. Sky comes from here; the
+                // buildings arrive later from the SSR pass, which is already
+                // gated on this same gGMF.a.
+                //
+                // Ported from water.frag, which solved this for lakes:
+                //   WORLD SPACE   R_env is built from view space V and N, so it
+                //                 must come back out through invView before a
+                //                 world oriented cubemap means anything. Every
+                //                 other cube lookup in this shader skips that.
+                //   HORIZON CLAMP a level mirror at a grazing angle points into
+                //                 the dark horizon ring. water.frag pins R.y up
+                //                 off it, and without that a puddle comes out
+                //                 DARKER than the bumpy ground beside it.
+                //   SOFT CEILING  scaled, not clipped, so the hue survives.
+                //   NOT SUN GATED shade blocks the sun, not the sky.
+                //
+                // Scaled by the flatness-gated wetness, so it appears on level
+                // ground and never on a slope. The Fresnel keeps a floor rather
+                // than falling to nothing head-on: this has to read as water from
+                // every angle, not only at grazing.
+                const float ENV_MAX   = 0.80;
+                const float ENV_FLOOR = 0.25;
+                if (wet_flat > 0.0) {
+                    vec3 R_w = mat3(invView) * R_env;
+                    R_w = vec3(-R_w.x, R_w.y, R_w.z);
+                    R_w.y = max(R_w.y, 0.02);
+                    vec3 env = SRGBtoLINEAR(textureLod(cubeMap, R_w,
+                               max(4.0 - wet_flat * 4.0, 0.0))).rgb;
+                    float pk = max(env.r, max(env.g, env.b));
+                    if (pk > ENV_MAX) env *= ENV_MAX / pk;
+                    float F = pow(1.0 - clamp(dot(V, N), 0.0, 1.0), 5.0);
+                    final_color.xyz = mix(final_color.xyz, env,
+                                          wet_flat * mix(ENV_FLOOR, 1.0, F));
+                }
+
                 vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz) * sun_shadow;
                 final_color.xyz += 1.0 - exp(-sun_add);
                 //final_color.xyz += spec;
