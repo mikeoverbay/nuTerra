@@ -37,6 +37,7 @@ specifications and evidence, not descriptions of this renderer.
 |---|---|
 | `GAME_LIGHTING_MODEL.md` | the game's `resolve_lighting` - BRDF, probe packing, `_GMM` |
 | `terrain_blending_edge.md` | the game paints terrain **onto models**; it does not punch holes for trenches. Not implemented here |
+| `game_PBS_tank.md` | the game's **tank** shader: G-buffer packing, material composite order, decal systems, and the permutation model |
 | `game_deferred_decal.md` | the game's `deferred_decal.fx` |
 
 ## Handoffs, newest first
