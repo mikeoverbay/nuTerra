@@ -462,8 +462,44 @@ void main (void)
 
             vec3 GM_in = texelFetch(gGMF, ivec2(gl_FragCoord), 0).xya;
 
-            //water overides GM values
-            GM_in.rg = mix(GM_in.rg,vec2(0.4,0.8), color_in.a);
+            // Wet surfaces, the way BigWorld does it - and it does NOT have a
+            // water path.
+            //
+            // resolve_lighting.10 carries no puddle branch anywhere. Wetness is
+            // a MATERIAL modifier and the ordinary IBL makes the reflection.
+            // Decoded out of it, wetness generates a (1 - w) factor and a
+            // (1.5 - 0.5*w) factor, selected on the surface kind byte. Those two
+            // shapes are the entire model:
+            //
+            //   DARKER   water absorbs, so a wet surface loses albedo. This is
+            //            why the game's wet ground is never the brightest thing
+            //            in the frame - and why a bright mirror laid on top of
+            //            the terrain reads as wrong at any distance.
+            //   SMOOTHER gloss rises, so the specular and cubemap path already
+            //            in this shader tightens by itself. There is no second
+            //            reflection term to add, and adding one was the mistake.
+            //
+            // HONESTY: the exact BRDF inputs those two multiply were NOT pinned.
+            // They merge through a movc across material classes inside a 1600
+            // line shader. The SHAPES are ported; the constants below are
+            // nuTerra's own and are the tuning knobs.
+            //
+            // GM_in.r is GLOSS and GM_in.g is METAL, whatever the names
+            // downstream say - see the channel note in the PBR block.
+            const float WET_ALBEDO = 0.70;  // albedo kept at full wetness
+            // 0.35 was far too deep. 19_monastery authors ~0.9 wetness across
+            // the whole fountain courtyard, so a 65%% cut there crushed an
+            // already shadowed square to near black. Real wet ground loses
+            // about a third of its albedo, and the reflection it gains is what
+            // pays that back - in shade there is little reflection to collect,
+            // so the darkening has to be the gentler half of the pair.
+            const float WET_GLOSS  = 0.85;  // gloss reached at full wetness
+            const float WET_METAL  = 0.80;  // unchanged from the old override
+
+            float wet = clamp(color_in.a, 0.0, 1.0);
+
+            GM_in.rg = mix(GM_in.rg, vec2(WET_GLOSS, WET_METAL), wet);
+            color_in.rgb *= mix(1.0, WET_ALBEDO, wet);
 
             vec3 LightPosModelView = LightPos.xyz;
 
