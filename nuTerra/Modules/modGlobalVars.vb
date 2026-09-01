@@ -477,14 +477,20 @@ Module modGlobalVars
     ''' screen space after that test and the composite adds it fullscreen, so
     ''' glow lands on building faces turned away from the fire that made it.
     '''
-    ''' 0 is the shipped behaviour. 1 blocks it entirely. Not defaulted to 1
-    ''' because glare over a foreground silhouette is a real camera effect and
-    ''' removing all of it reads flat.
+    ''' 0 would be the old behaviour and 1 blocks it entirely. 0.85 is the
+    ''' owner's tuning, judged on screen: it stops the glow reading as light on
+    ''' faces turned away from the fire while leaving a little spill, because
+    ''' glare over a foreground silhouette is a real camera effect and removing
+    ''' all of it reads flat.
     ''' </summary>
-    Public FX_GLOW_OCCLUSION As Single = 0.0F
+    Public Const FX_GLOW_OCCLUSION As Single = 0.85F
 
-    ''' <summary>Depth gap over which the block fades in.</summary>
-    Public FX_GLOW_OCCLUSION_BIAS As Single = 0.002F
+    ''' <summary>
+    ''' Depth gap over which the block fades in, in raw depth-buffer units.
+    ''' Non-linear, so it is coarse far away and fine up close - which is the
+    ''' right way round, since that is where the artefact is visible.
+    ''' </summary>
+    Public Const FX_GLOW_OCCLUSION_BIAS As Single = 0.003F
 
     ' ----------------------------------------------------------------------
     ' Glow shape. HARD WIRED at the owner's call, after tuning them live

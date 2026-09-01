@@ -1503,10 +1503,6 @@ try_again:
                     ImGui.Text("   GGX + Schlick-Gaussian F + Smith-Schlick Vis")
                     ImGui.Text("   env LUT indexed (alphaRoughness, NdotV)")
 
-                    ImGui.Separator()
-                    ImGui.SliderFloat("FX glow occlusion", FX_GLOW_OCCLUSION, 0.0F, 1.0F)
-                    ImGui.SliderFloat("   occlusion bias", FX_GLOW_OCCLUSION_BIAS, 0.0001F, 0.02F, "%.4f")
-                    ImGui.Text("   0 = glow ignores depth (shipped), 1 = fully blocked")
 
                     ' ---- SH probe FIELD -------------------------------------
                     ' WIRED INTO THE LIGHTING: deferred.frag blends the field
