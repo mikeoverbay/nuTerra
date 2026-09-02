@@ -65,11 +65,13 @@ HEAD_SMOOTH = 10.0   # metres of smoothing on the heading. Shorter, because
                      # heading IS the direction of travel and lagging it too
                      # much makes the camera look sideways out of a turn.
 
-ALT_SMOOTH = 24.0    # metres of smoothing on altitude, so the camera does not
-                     # copy every bump in the terrain
+ALT_SMOOTH = 9.0     # metres of smoothing on altitude. Short, because at 1 m
+                     # the camera is meant to TRACK the ground, not float over
+                     # it - the long window that suited a 25 m flight would
+                     # leave it 10 m up in a dip.
 TERRACE_RAMP = 30.0  # metres over which a terrace step is ramped, so the
                      # camera climbs into it instead of teleporting
-ALT_LEAD = 14.0      # metres of running-maximum before smoothing, so a climb
+ALT_LEAD = 5.0      # metres of running-maximum before smoothing, so a climb
                      # begins ahead of the rise that needs it
 MAX_TILT = 16.0      # degrees. The cap exists because tilt is a DERIVATIVE and
                      # derivatives of terrain-following curves have long tails.

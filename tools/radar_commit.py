@@ -35,15 +35,16 @@ from PIL import Image, ImageDraw
 # Flight envelope
 # --------------------------------------------------------------------------
 
-AGL = 4.0            # metres over the ground of whatever terrace we are on
-MARGIN = 1.5         # headroom kept under the camera
+AGL = 1.0            # metres over the terrain, tracked continuously
+MARGIN = 0.5         # headroom kept under the camera. Must be under AGL,
+                     # or BLOCK_H goes negative and everything blocks.
 BLOCK_H = AGL - MARGIN   # 3.5 m - anything shorter is simply flown over
-BODY_R = 8.0         # standoff kept from a blocking cell, metres. Doubled from
-                     # 4 - at 4 the measured minimum clearance was 3.87 m, which
-                     # WAS the dilation, so the camera rode its own safety
-                     # margin with nothing spare on top of it.
-
-# Level flight. The camera holds ONE world Y for the whole route instead of
+BODY_R = 6.0         # standoff kept from a blocking cell, metres.
+                     # 8 was the ask, and 8 does not fit at 1 m altitude: it
+                     # fragments the map into disconnected pockets (largest
+                     # connected free region 73.7% of free space, against 97.2%
+                     # at 6) and no route exists at all. Village gaps are not
+                     # 16 m wide.
 # riding 5 m over whatever the ground does.
 #
 # This makes the obstacle test trivial and, more importantly, exact: `top`
@@ -51,7 +52,7 @@ BODY_R = 8.0         # standoff kept from a blocking cell, metres. Doubled from
 # tower with the same comparison and the navigator never needs to know which is
 # which. Terrain-following needed obstacle height, which is a DIFFERENCE of two
 # baked layers and carries both their errors.
-LEVEL_FLIGHT = True
+LEVEL_FLIGHT = False
 LEVEL_Y = None       # None = auto. A number here forces ONE level for the route.
 LEVEL_CLEAR = 6.0    # metres of air over the highest ground the course crosses
 LEVEL_STEP = 4.0     # how much to raise the level when the loop will not close
@@ -65,7 +66,7 @@ LEVEL_TRIES = 6
 # Abbey put the camera 28 m up and above almost everything - nothing left to
 # avoid. Terraces keep it near the ground where the ground is flat, which is
 # most of the route, and only climb where the terrain actually climbs.
-TERRACED = True
+TERRACED = False
 TERRACE_BAND = 6.0    # ground spread a terrace tolerates before it must step
 TERRACE_MIN_M = 70.0  # shortest terrace. Without a floor a noisy hillside
                       # shatters the route into a staircase of one-step terraces.
@@ -120,6 +121,15 @@ POST_SAMPLES = 3
 # barn; you only need to not scrape a hillside you are already above.
 OBJECT_MIN_H = 2.0   # stands this far over its own ground -> it is an object
 TERRAIN_R = 3.0      # standoff from ground that merely reaches the level
+
+# Centring on openings. A gap this wide or wider counts as open country and
+# the camera just follows its course; anything tighter pulls it toward the
+# middle, in proportion.
+GAP_WIDE_M = 55.0
+GAP_PULL = 0.75      # how much of the way to the centre to go at full pull.
+                     # Not 1.0 - going all the way makes the camera swing to
+                     # the middle of every doorway it passes rather than the
+                     # one it is going through.
 
 SWEEP_STEP = 4.0     # degrees between candidate bearings
 MAX_DETOUR = 700.0   # metres on one detour before the guard fires
@@ -285,8 +295,6 @@ class Radar:
         standing there. Small number: the ground has drifted a little over the
         level and will drift back.
         """
-        if self.level is None:
-            return 1e9
         tot = 0.0
         cnt = 0
         for k in range(POST_SAMPLES + 1):
@@ -295,7 +303,17 @@ class Radar:
             c, r = self.bake.texel_of(px, pz)
             ci = int(min(max(int(round(c)), 0), self.w - 1))
             ri = int(min(max(int(round(r)), 0), self.h - 1))
-            tot += float(self.bake.top[ri, ci]) - self.level
+            # Reference is the height the camera would be at THERE. With a
+            # terrace that is its level; tracking the terrain it is the local
+            # ground plus AGL.
+            #
+            # Returning a huge number when there was no level, as this did, made
+            # every hit an object and the trap rule refuse every bearing - 274
+            # reversals at 1 m against 5 with the rule off. The test was not
+            # wrong, it simply had nothing to measure against.
+            ref = (self.level if self.level is not None
+                   else float(self.bake.floor[ri, ci]) + AGL)
+            tot += float(self.bake.top[ri, ci]) - ref
             cnt += 1
         return tot / max(cnt, 1)
 
@@ -501,6 +519,35 @@ def bearing_ok(radar, x, z, a, two_point):
     return True
 
 
+def open_gaps(radar, fan, x, z, two_point):
+    """Contiguous runs of acceptable bearings in the radar fan.
+
+    Returns (centre, width_m, depth) per run. Centring in an opening rather than
+    taking its first acceptable bearing is what stops the camera hugging one
+    wall: the middle of a gap has the most room on both sides, which is steadier
+    to fly and safer at the same time.
+
+    Width is measured in METRES at the run's shallowest return, not in degrees.
+    A gap that is wide in angle but close in front of you is a small gap.
+    """
+    ok = [bearing_ok(radar, x, z, a, two_point) for a, _r in fan]
+    runs = []
+    n = len(fan)
+    i = 0
+    while i < n:
+        if not ok[i]:
+            i += 1
+            continue
+        j = i
+        while j + 1 < n and ok[j + 1]:
+            j += 1
+        a0, a1 = fan[i][0], fan[j][0]
+        depth = min(fan[k][1] for k in range(i, j + 1))
+        runs.append((0.5 * (a0 + a1), abs(a1 - a0) * max(depth, 1.0), depth))
+        i = j + 1
+    return runs
+
+
 def ang_norm(a):
     while a > math.pi:
         a -= 2.0 * math.pi
@@ -638,6 +685,21 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
         if mode == "TRACK":
             if bearing_ok(radar, x, z, want, two_point):
                 new_h = want
+
+                # Centre on the opening we are flying through. The pull is
+                # strongest when the gap is tight and fades away when it is
+                # wide, so in open country the camera just follows the course
+                # and in a gateway it lines up with the middle of it.
+                gaps = open_gaps(radar, fan, x, z, two_point)
+                here = [g for g in gaps
+                        if abs(ang_norm(g[0] - want)) <= 0.5 * math.radians(RADAR_FOV)]
+                if here:
+                    centre, width_m, _d = min(
+                        here, key=lambda g: abs(ang_norm(g[0] - want)))
+                    pull = min(1.0, max(0.0, 1.0 - width_m / GAP_WIDE_M))
+                    cand = want + ang_norm(centre - want) * pull * GAP_PULL
+                    if bearing_ok(radar, x, z, cand, two_point):
+                        new_h = cand
             else:
                 # Blocked. Decide the side ONCE. For each side take the first
                 # bearing that passes the trap test, then ask the radar HOW FAR
@@ -1134,7 +1196,16 @@ def build_world(bake, level):
     # Two standoffs, not one. Split the blocked set by whether something is
     # STANDING there or the ground itself has reached the flight level, and
     # dilate them separately.
-    standing = (bake.top - bake.floor) > OBJECT_MIN_H
+    #
+    # Tracking the terrain, that split is unnecessary and wrong: the test is
+    # top MINUS floor, which is zero on bare ground, so terrain can never block
+    # and everything that does block is by definition standing on something.
+    # Sending half of it down the 3 m terrain path would quietly halve the
+    # standoff from real objects.
+    if level is None:
+        standing = np.ones_like(raw)
+    else:
+        standing = (bake.top - bake.floor) > OBJECT_MIN_H
     pad = max(1, int(round(BODY_R / cell_m)))
     tpad = max(1, int(round(TERRAIN_R / cell_m)))
     plan = (ndimage.binary_dilation(raw & standing, iterations=pad)

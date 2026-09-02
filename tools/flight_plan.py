@@ -36,7 +36,13 @@ from PIL import Image, ImageDraw
 AGL_MIN = 25.0      # metres above bare terrain, never less than this
 CLEARANCE = 15.0    # metres above whatever the corridor's tallest obstacle is
 CLIMB_LIMIT = 55.0  # an obstacle taller than this is flown AROUND, not over
-BODY_RADIUS = 8.0   # horizontal half-width kept clear of a hard obstacle
+BODY_RADIUS = 6.0   # horizontal half-width kept clear of a hard obstacle.
+                    # 6, not 8. Measured at 1 m altitude: at 8 m the dilation
+                    # fragments Abbey - the largest connected free region falls
+                    # to 73.7% of free space, so whole pockets become
+                    # unreachable and no route exists between two waypoints. At
+                    # 6 it is 97.2% connected. The gaps in a village are simply
+                    # not 16 m wide.
 CORRIDOR = 18.0     # metres either side of the path the altitude must clear
 
 N_WAYPOINTS = 14    # control points on the circuit
@@ -46,7 +52,24 @@ R_MIN_FRAC = 0.22   # circuit radius floor, as a fraction of the map half-extent
 R_MAX_FRAC = 0.80   # and its ceiling
 SAMPLE_STEP = 4.0   # metres between samples along the flown curve
 
-ROUTE_GRID = 256    # cells on a side for the routing pass
+ROUTE_GRID = 512    # cells on a side for the routing pass. 512, not 256: the
+                    # grid max-pools, so at 256 a 5.5 m cell holding one fence
+                    # post blocks the whole cell. That is tolerable when the
+                    # route only has to clear 55 m towers and fatal when it has
+                    # to thread between hedges.
+
+# The rule the NAVIGATOR will fly by. The course has to be routable at the
+# altitude it will actually be flown at.
+#
+# This was the bug that cost the most: the course was planned avoiding only
+# things over CLIMB_LIMIT, on the reasoning that the navigator would sort out
+# the rest. It cannot - it thrashed for 3496 reversals and never closed. A
+# standoff sweep settled it: at 1 m altitude the loop failed to close at 8, 6,
+# 4, 3 AND 2 m of standoff, so the standoff was never the binding constraint.
+# The course was simply running through buildings.
+FLIGHT_AGL = 1.0
+FLIGHT_MARGIN = 0.5
+FLIGHT_BLOCK_H = FLIGHT_AGL - FLIGHT_MARGIN
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +174,7 @@ def build_cost(bake):
     o = bake.obstacle[:g * fy, :g * fx].reshape(g, fy, g, fx).max(axis=(1, 3))
 
     cell_m = (bake.wx_max - bake.wx_min) / g
-    blocked = o > CLIMB_LIMIT
+    blocked = o > FLIGHT_BLOCK_H
 
     # Keep clear of hard obstacles by the body radius.
     pad = max(1, int(round(BODY_RADIUS / cell_m)))
@@ -169,6 +192,9 @@ def build_cost(bake):
     cost = 1.0
     cost = cost + 0.06 * np.minimum(o, CLIMB_LIMIT)      # prefer open ground
     cost = cost + 14.0 / (dist + 1.5)                    # prefer elbow room
+    # Cheap where there is room to fly, so the course threads the open gaps a
+    # low navigator can actually use rather than skimming every wall.
+    cost = cost + 26.0 / (dist + 1.0)
     cost[blocked] = np.inf
 
     return o, blocked, cost, cell_m
@@ -220,17 +246,34 @@ def dijkstra(cost, start, goal):
     return out
 
 
-def nearest_free(blocked, rc):
-    """Nudge a waypoint off an obstacle onto the closest cell that is not one."""
-    if not blocked[rc]:
+def largest_free_region(blocked):
+    """The biggest connected patch of flyable space.
+
+    Waypoints have to land in THIS, not merely on a cell that is not blocked.
+    Free and reachable are different things: an enclosed courtyard is free, and
+    dropping a waypoint in one makes the router report no route between two
+    points that both look perfectly fine. At a 6 m standoff Abbey has 523
+    disconnected free regions and only one of them is the map.
+    """
+    free = ~blocked
+    lab, n = ndimage.label(free)
+    if n <= 1:
+        return free
+    sizes = ndimage.sum(free, lab, range(1, n + 1))
+    return lab == (1 + int(np.argmax(sizes)))
+
+
+def nearest_free(ok, rc):
+    """Nudge a waypoint onto the closest cell in the reachable region."""
+    if ok[rc]:
         return rc
-    free = np.argwhere(~blocked)
+    free = np.argwhere(ok)
     d = (free[:, 0] - rc[0]) ** 2 + (free[:, 1] - rc[1]) ** 2
     r, c = free[int(np.argmin(d))]
     return (int(r), int(c))
 
 
-def pick_waypoints(coarse, blocked, g, cell_m):
+def pick_waypoints(coarse, blocked, g, cell_m, reachable=None):
     """Control points on an orbit whose RADIUS follows the map's content.
 
     A fixed ring gave an eight-pointed star that never went near the monastery -
@@ -317,11 +360,12 @@ def pick_waypoints(coarse, blocked, g, cell_m):
     ker /= ker.sum()
     radii = np.convolve(pad, ker, mode="same")[k:-k]
 
+    ok = reachable if reachable is not None else ~blocked
     pts = []
     for a, rad in zip(angles, radii):
         r = int(round(np.clip(cr - rad * np.cos(a), 0, g - 1)))
         c = int(round(np.clip(cc + rad * np.sin(a), 0, g - 1)))
-        pts.append(nearest_free(blocked, (r, c)))
+        pts.append(nearest_free(ok, (r, c)))
     return pts
 
 
@@ -534,7 +578,10 @@ def main():
     print(f"  routing on {g}x{g} ({cell_m:.1f} m per cell), "
           f"{100.0 * blocked.mean():.1f}% blocked at the {CLIMB_LIMIT:.0f} m climb limit")
 
-    wps = pick_waypoints(coarse, blocked, g, cell_m)
+    reach = largest_free_region(blocked)
+    print(f"  reachable space: {100.0 * reach.sum() / max(1, (~blocked).sum()):.1f}% "
+          f"of the free cells are in one connected region")
+    wps = pick_waypoints(coarse, blocked, g, cell_m, reachable=reach)
     cells = route_loop(cost, blocked, wps)
 
     # coarse cell -> world, through the same mapping the bake documented
