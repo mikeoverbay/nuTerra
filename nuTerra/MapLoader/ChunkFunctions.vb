@@ -933,7 +933,22 @@ Module ChunkFunctions
         HEIGHTMAPSIZE = mapsize
 
 
-        ReDim v.heightsTBL(69, 69)
+        ' Sized from the DATA, like v.heights on the next line.
+        '
+        ' This was hard wired to (69, 69) in 2020 and every map shipped a 69x69
+        ' heightmap, so it went unnoticed for years. 101_dday ships 133x133 -
+        ' all 196 of its chunks - and the write below indexes by mapsize, so it
+        ' ran straight off the end: IndexOutOfRangeException in this loop, before
+        ' the map could finish loading.
+        ' At least 69 on each axis, and larger when the data is larger.
+        '
+        ' Both bounds are load bearing and they pull opposite ways. Sizing it to
+        ' mapsize alone breaks 06_ensk: its heightmap is 37x37, and the averaging
+        ' branch below UPSCALES a small map into a 69 grid, writing heightsTBL as
+        ' far as (68, 68). Leaving it at a flat 69 breaks 101_dday and
+        ' 23_westfeld, which now ship 133x133 and index it by mapsize.
+        Dim tbl_size = CInt(Math.Max(69UI, mapsize))
+        ReDim v.heightsTBL(tbl_size, tbl_size)
         ReDim v.heights(mapsize, mapsize)
         For j As UInt32 = 0 To mapsize - 1
             For i As UInt32 = 0 To mapsize - 1
