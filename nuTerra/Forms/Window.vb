@@ -1391,6 +1391,31 @@ try_again:
                         map_scene?.terrain.RebuildVTAtlas()
                     End If
                 End If
+                If ImGui.CollapsingHeader("Water") Then
+                    ' Pooled water from the global map's wet channel. Alpha is
+                    ' how much sky survives looking straight DOWN at it - the
+                    ' Fresnel takes it to a mirror at a grazing angle whatever
+                    ' this is set to. Depth is how much of the bed survives
+                    ' under full water; lower is deeper and darker.
+                    Dim v_wd = WATER_DEPTH
+                    If ImGui.SliderFloat("Water depth", v_wd, 0.0, 1.0) Then
+                        WATER_DEPTH = v_wd
+                    End If
+
+                    ' A water body yields where the global map already says wet - the
+                    ' terrain path draws pooled water there, and a body on top is a
+                    ' second, disagreeing water on the same pixels. Also drops water
+                    ' that has no bed behind it, which from below covered the SKY.
+                    ImGui.Checkbox("Water yields to wet terrain", WATER_MASK_WET)
+                    If WATER_MASK_WET Then
+                        Dim v_wm = WATER_MASK_MIN
+                        If ImGui.SliderFloat("  yield above wetness", v_wm, 0.0, 1.0) Then
+                            WATER_MASK_MIN = v_wm
+                        End If
+                    End If
+
+                End If
+
                 If ImGui.CollapsingHeader("Shadow Mapping") Then
                     ' The live cascades have no controls any more. They are off
                     ' at startup (CommonProperties.Init) and the map-wide bake
@@ -1430,38 +1455,6 @@ try_again:
                         Dim v_mb = MSM_MOMENT_BIAS
                         If ImGui.SliderFloat("  moment bias", v_mb, 0.0, 0.01) Then
                             MSM_MOMENT_BIAS = v_mb
-                        End If
-                    End If
-
-                    ImGui.Separator()
-                    ' Pooled water from the global map's wet channel. Alpha is
-                    ' how much sky survives looking straight DOWN at it - the
-                    ' Fresnel takes it to a mirror at a grazing angle whatever
-                    ' this is set to. Depth is how much of the bed survives
-                    ' under full water; lower is deeper and darker.
-                    Dim v_wd = WATER_DEPTH
-                    If ImGui.SliderFloat("Water depth", v_wd, 0.0, 1.0) Then
-                        WATER_DEPTH = v_wd
-                    End If
-
-                    ' Lowest elevation the reflection samples from the cube, as
-                    ' sin(angle) - 0.02 is about 1 degree, 0.25 about 14. The env
-                    ' map has buildings painted into its horizon band; raise this
-                    ' until a grazing reflection stops picking them up.
-                    Dim v_sf = SKY_FLOOR
-                    If ImGui.SliderFloat("Sky floor", v_sf, 0.0, 0.6) Then
-                        SKY_FLOOR = v_sf
-                    End If
-
-                    ' A water body yields where the global map already says wet - the
-                    ' terrain path draws pooled water there, and a body on top is a
-                    ' second, disagreeing water on the same pixels. Also drops water
-                    ' that has no bed behind it, which from below covered the SKY.
-                    ImGui.Checkbox("Water yields to wet terrain", WATER_MASK_WET)
-                    If WATER_MASK_WET Then
-                        Dim v_wm = WATER_MASK_MIN
-                        If ImGui.SliderFloat("  yield above wetness", v_wm, 0.0, 1.0) Then
-                            WATER_MASK_MIN = v_wm
                         End If
                     End If
 

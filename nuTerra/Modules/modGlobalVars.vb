@@ -53,10 +53,6 @@ Module modGlobalVars
     ' bed that IS flagged wet would lose its lake.
     Public WATER_MASK_WET As Boolean = False
     Public WATER_MASK_MIN As Single = 0.5F
-    ' Lowest elevation the pooled-water reflection samples from the cube,
-    ' as sin(angle). The environment map has buildings painted into its
-    ' horizon band; raise this until a grazing reflection stops hitting them.
-    Public SKY_FLOOR As Single = 0.02F
     Public WATER_DEPTH As Single = 0.45F   ' bed brightness under full water
     Public SSR_ENABLED As Boolean = True
     Public SSR_INTENSITY As Single = 0.7F

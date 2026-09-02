@@ -21,11 +21,7 @@ layout(binding = 10) uniform sampler2D gSurfaceNormal;
 // water. Lower is deeper and darker.
 uniform float water_depth;
 
-// Lowest elevation the pooled-water reflection may sample from the cube,
-// as sin(angle): 0.02 is about 1 degree, 0.25 about 14. The environment
-// map has BUILDINGS painted into its horizon band, and a grazing
-// reflection samples straight into them - raise this until they drop out.
-uniform float sky_floor;
+
 layout(binding = 4) uniform samplerCube cubeMap;
 
 // Diffuse ambient as L2 spherical harmonics, baked per map into
@@ -977,7 +973,19 @@ void main (void)
                     vec3 R_w = normalize(mat3(invView) * reflect(-V, surf_n));
                     // Floor the elevation, then RE-NORMALISE - raising .y on its
                     // own lengthens the vector and skews the x/z direction with it.
-                    R_w.y = max(R_w.y, sky_floor);
+                    // Lowest elevation the reflection may sample from the cube, as
+                    // sin(angle) - 0.4 is about 24 degrees. The environment map has
+                    // the sunset and BUILDINGS painted into its horizon band, and a
+                    // grazing reflection samples straight into them: that is the
+                    // orange/yellow that was smearing through the water. Isolated
+                    // before it was fixed - with ssr_enabled=0 the orange REMAINED,
+                    // so it was never SSR - and 0.6 cleared it completely, 0.2 did
+                    // not. 0.4 is the settled value.
+                    //
+                    // Hard wired, not a slider: it is a property of how the cube is
+                    // painted, not something to tune per camera.
+                    const float SKY_FLOOR = 0.4;
+                    R_w.y = max(R_w.y, SKY_FLOOR);
                     R_w = normalize(R_w);
 
                     vec3 env = SRGBtoLINEAR(textureLod(cubeMap, R_w,
