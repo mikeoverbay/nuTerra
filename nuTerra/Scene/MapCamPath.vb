@@ -48,6 +48,21 @@ Public Class MapCamPath
     Private vbo As GLBuffer
     Private vertex_count As Integer
 
+    ''' <summary>How much of the route is blanked around the eye while flying,
+    ''' in metres. Inside HIDE_NEAR the line is discarded outright; from there it
+    ''' fades up, reaching full strength at HIDE_FAR.
+    '''
+    ''' By distance from the eye, not by position along the route. Cutting a
+    ''' fixed stretch of route ahead has to guess how much of it is on screen,
+    ''' and 45 m of it left nothing to fly by. Distance cuts exactly what is
+    ''' close, wants no special case where the loop joins, and also blanks a
+    ''' later lap that happens to pass nearby.
+    '''
+    ''' The fade is the part that matters. A hard edge alone either leaves the
+    ''' line in your face or deletes so much there is nothing to follow.</summary>
+    Private Const HIDE_NEAR As Single = 0.5F
+    Private Const HIDE_FAR As Single = 2.5F
+
     ' Metres of heading tick drawn at every TICK_EVERY points. Long enough to
     ' read the direction off the screen, short enough not to become the picture.
     Private Const TICK_LEN As Single = 6.0F
@@ -222,28 +237,57 @@ Public Class MapCamPath
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
-        ' The ghost pass is deliberately strong - 0.35, not the 0.18 it started
-        ' at. The route runs 1 m over the ground, so the depth-tested pass below
-        ' z-fights the terrain and loses more and more of the line the further
-        ' the camera pulls back: the path appeared to vanish on zoom out. This
-        ' pass has no depth test at all, so whatever the depth buffer does, the
-        ' route stays visible.
-        GL.Disable(EnableCap.DepthTest)
-        GL.Uniform1(campathShader("alpha_mul"), 0.35F)
-        GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
+        ' Blank the piece of route the camera is standing on. While flying the
+        ' path runs THROUGH the eye, so its near end lies down the middle of the
+        ' screen and hides the thing it was drawn to show. The cut is a distance
+        ' test in the fragment shader - see campath.frag.
+        '
+        ' Nothing here rebuilds the buffer. The geometry is static and only the
+        ' eye moves, so the whole buffer is drawn every frame either way and the
+        ' fragment stage decides what survives.
+        Dim flying = FLY_CAM_PATH AndAlso map_scene IsNot Nothing AndAlso map_scene.camera.FLYING
+        Dim eye = If(flying, map_scene.camera.CAM_POSITION, Vector3.Zero)
+        GL.Uniform3(campathShader("hide_from"), eye.X, eye.Y, eye.Z)
+        GL.Uniform1(campathShader("hide_near"), If(flying, HIDE_NEAR, 0.0F))
+        GL.Uniform1(campathShader("hide_far"), If(flying, HIDE_FAR, 0.0F))
 
-        ' And bias the depth-tested pass toward the camera so it stops fighting
-        ' in the first place. POSITIVE offset, because the engine runs reversed-Z
-        ' (DepthFunc.Greater, ClearDepth 0) where nearer means a LARGER depth
-        ' value - the opposite sign to the usual advice for overlay lines.
-        GL.Enable(EnableCap.PolygonOffsetLine)
-        GL.PolygonOffset(1.0F, 2.0F)
+        If flying Then
+            ' Flying, ONE pass and no depth test.
+            '
+            ' The ghost/solid split below is noise from in here. At 1 m the view
+            ' along the route is grazing, so every rise between here and there
+            ' occludes it: the line spends most of its length ghosted and snaps
+            ' to full colour wherever the ground happens to fall away. Both
+            ' answers are correct and the flicker between them is unreadable.
+            GL.Disable(EnableCap.DepthTest)
+            GL.Uniform1(campathShader("alpha_mul"), 1.0F)
+            GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
+        Else
+            ' Inspecting, the split is the entire point - solid where the route
+            ' is really in view, ghosted where something is in front of it, which
+            ' is how its HEIGHT gets checked by eye.
+            '
+            ' The ghost is deliberately strong at 0.35. Seen from far enough
+            ' away the route grazes the ground it runs over and loses the depth
+            ' test along most of its length, so without a strong ghost the path
+            ' appeared to vanish on zoom out.
+            GL.Disable(EnableCap.DepthTest)
+            GL.Uniform1(campathShader("alpha_mul"), 0.35F)
+            GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
+
+            ' No polygon offset here. There used to be, meant to bias this pass
+            ' toward the camera, and it never did anything: polygon offset
+            ' applies to POLYGONS, and this is GL_LINES. Nothing needs it -
+            ' depth is 32f reversed-Z, which resolves the 1 m the route sits
+            ' above the ground with room to spare at any range.
+            GL.Enable(EnableCap.DepthTest)
+            GL.Uniform1(campathShader("alpha_mul"), 1.0F)
+            GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
+        End If
+
+        ' Leave the depth test on however we got here - the flying branch turned
+        ' it off and everything drawn after this expects it back.
         GL.Enable(EnableCap.DepthTest)
-        GL.Uniform1(campathShader("alpha_mul"), 1.0F)
-        GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
-        GL.Disable(EnableCap.PolygonOffsetLine)
-        GL.PolygonOffset(0.0F, 0.0F)
-
         GL.LineWidth(1.0F)
         GL.Disable(EnableCap.Blend)
         campathShader.StopUse()
