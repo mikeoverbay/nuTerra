@@ -299,6 +299,14 @@ class Radar:
             cnt += 1
         return tot / max(cnt, 1)
 
+    def post_samples(self, x, z, ux, uz, hit_r):
+        """World positions of the hit cell and the POST_SAMPLES behind it -
+        the points solidity() averages over. Drawn so the classification can
+        be checked by eye rather than taken on trust."""
+        return [(x + ux * (hit_r + k * self.cell),
+                 z + uz * (hit_r + k * self.cell))
+                for k in range(POST_SAMPLES + 1)]
+
     def clear(self, x, z, ux, uz, dist):
         """Is the whole segment of length dist flyable?"""
         return self.march(x, z, ux, uz, dist + 1e-6) >= dist - 1e-6
@@ -617,7 +625,14 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
         want = math.atan2(tz - z, tx - x)
         fan = radar.fan(x, z, heading)
         if record_fans:
-            fans.append((x, z, heading, fan, mode))
+            probes = []
+            for a_, rng_ in fan:
+                if rng_ < RADAR_RANGE - 0.5:
+                    ux_, uz_ = math.cos(a_), math.sin(a_)
+                    probes.append((rng_,
+                                   radar.post_samples(x, z, ux_, uz_, rng_),
+                                   radar.solidity(x, z, ux_, uz_, rng_)))
+            fans.append((x, z, heading, fan, mode, probes))
 
         # --- steering ------------------------------------------------------
         if mode == "TRACK":
@@ -955,7 +970,7 @@ def draw(bake, res, sc, nx, nz, out_png, worlds=None, terrace_of=None):
     do = ImageDraw.Draw(ov)
     fans = res["fans"]
     for k in range(0, len(fans), 16):
-        x, z, heading, fan, mode = fans[k]
+        x, z, heading, fan, mode, probes = fans[k]
         a0 = T(x, z)
         for a, rng in fan:
             a1 = T(x + math.cos(a) * rng, z + math.sin(a) * rng)
@@ -965,6 +980,22 @@ def draw(bake, res, sc, nx, nz, out_png, worlds=None, terrace_of=None):
             if hit:
                 do.ellipse([a1[0] - 1.6, a1[1] - 1.6, a1[0] + 1.6, a1[1] + 1.6],
                            fill=(255, 215, 120, 170))
+
+        # The three extra samples taken PAST each hit, drawn in red. This is the
+        # object-versus-terrain test made visible: bright red where the average
+        # says something is standing there, dim orange where it says the ground
+        # has merely drifted over the flight level and will drift back.
+        for (rng, spts, solid) in probes:
+            solid_hit = solid >= SOLID_H
+            tail = [T(px, pz) for (px, pz) in spts]
+            do.line(tail, fill=(255, 40, 40, 170) if solid_hit else (255, 150, 90, 70),
+                    width=2 if solid_hit else 1)
+            for j, pt in enumerate(tail):
+                if j == 0:
+                    continue
+                rr = 2.0 if solid_hit else 1.3
+                do.ellipse([pt[0] - rr, pt[1] - rr, pt[0] + rr, pt[1] + rr],
+                           fill=(255, 45, 45, 215) if solid_hit else (255, 160, 100, 110))
     im = Image.alpha_composite(im, ov)
     d = ImageDraw.Draw(im)
 
@@ -1047,6 +1078,10 @@ def draw(bake, res, sc, nx, nz, out_png, worlds=None, terrace_of=None):
                        if FLIGHT_Y is not None
                        else ("flown over   obstacle < %.1f m" % BLOCK_H)),
         ((110, 240, 230), "radar fan, no return in %.0f m" % RADAR_RANGE),
+        ((255, 45, 45), "%d samples past a hit - OBJECT (avg > %.0f m over level)"
+                        % (POST_SAMPLES, SOLID_H)),
+        ((255, 160, 100), "%d samples past a hit - terrain grazing the level"
+                          % POST_SAMPLES),
         ((255, 205, 105), "radar return - first blocking cell"),
         ((255, 175, 55), "side committed here"),
         ((255, 90, 150), "reversal"),
