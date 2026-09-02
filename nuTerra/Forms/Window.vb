@@ -1444,6 +1444,15 @@ try_again:
                         WATER_DEPTH = v_wd
                     End If
 
+                    ' Lowest elevation the reflection samples from the cube, as
+                    ' sin(angle) - 0.02 is about 1 degree, 0.25 about 14. The env
+                    ' map has buildings painted into its horizon band; raise this
+                    ' until a grazing reflection stops picking them up.
+                    Dim v_sf = SKY_FLOOR
+                    If ImGui.SliderFloat("Sky floor", v_sf, 0.0, 0.6) Then
+                        SKY_FLOOR = v_sf
+                    End If
+
                     ' A water body yields where the global map already says wet - the
                     ' terrain path draws pooled water there, and a body on top is a
                     ' second, disagreeing water on the same pixels. Also drops water

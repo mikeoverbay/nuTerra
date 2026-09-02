@@ -795,6 +795,7 @@ Module modRender
         End If
 
         GL.Uniform1(deferredShader("water_depth"), WATER_DEPTH)
+        GL.Uniform1(deferredShader("sky_floor"), SKY_FLOOR)
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
         Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, map_scene.camera.PerViewData.view)

@@ -20,6 +20,12 @@ layout(binding = 10) uniform sampler2D gSurfaceNormal;
 // Pooled water, live from the UI: how much of the bed survives under full
 // water. Lower is deeper and darker.
 uniform float water_depth;
+
+// Lowest elevation the pooled-water reflection may sample from the cube,
+// as sin(angle): 0.02 is about 1 degree, 0.25 about 14. The environment
+// map has BUILDINGS painted into its horizon band, and a grazing
+// reflection samples straight into them - raise this until they drop out.
+uniform float sky_floor;
 layout(binding = 4) uniform samplerCube cubeMap;
 
 // Diffuse ambient as L2 spherical harmonics, baked per map into
@@ -467,7 +473,22 @@ void main (void)
             //fog level... this should be on the controller
             float fog_alpha = 0.5;
 
-            vec3 GM_in = texelFetch(gGMF, ivec2(gl_FragCoord), 0).xya;
+            vec4 GMF_raw = texelFetch(gGMF, ivec2(gl_FragCoord), 0);
+            vec3 GM_in = GMF_raw.xya;
+
+            // Only TERRAIN can be wet ground.
+            //
+            // GM_in is .xya and skips blue, which is where the render class and
+            // surface kind live. Fire is the case that made this matter: an FX
+            // card writes GFLAG_GLOW into gGMF.b and nothing meaningful into
+            // .a, so the wet path read stale alpha on burning pixels and shaded
+            // the FIRE as standing water. Models and sky have the same problem
+            // for the same reason.
+            //
+            // Testing the RENDER CLASS rather than the wetness value excludes
+            // all three at once and does not depend on what happens to be left
+            // in a channel nobody wrote.
+            bool is_terrain = (GBUF_RENDER(GMF_raw.b) == GBUF_RENDER_TERRAIN);
 
             // Wet surfaces, the way BigWorld does it - and it does NOT have a
             // water path.
@@ -928,7 +949,7 @@ void main (void)
                 // gPosition.z >= 0 means nothing was drawn here. ssr.frag has
                 // guarded on exactly this from the start; the resolve did not.
                 bool is_sky = (Position.z >= 0.0);
-                if (pool > 0.0 && !is_sky && dot(V, surf_n) > 0.0) {
+                if (pool > 0.0 && is_terrain && !is_sky && dot(V, surf_n) > 0.0) {
                     // The bed, absorbed by depth.
                     final_color.xyz *= mix(1.0, water_depth, pool);
 
@@ -954,7 +975,10 @@ void main (void)
                     // A sheet of water lies along the slope, full stop. Take the
                     // direction from surf_n and the surface reflects as one piece.
                     vec3 R_w = normalize(mat3(invView) * reflect(-V, surf_n));
-                    R_w.y = max(R_w.y, 0.02);   // never below the horizon ring
+                    // Floor the elevation, then RE-NORMALISE - raising .y on its
+                    // own lengthens the vector and skews the x/z direction with it.
+                    R_w.y = max(R_w.y, sky_floor);
+                    R_w = normalize(R_w);
 
                     vec3 env = SRGBtoLINEAR(textureLod(cubeMap, R_w,
                                max(4.0 - pool * 4.0, 0.0))).rgb;
