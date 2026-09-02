@@ -1444,6 +1444,18 @@ try_again:
                         WATER_DEPTH = v_wd
                     End If
 
+                    ' A water body yields where the global map already says wet - the
+                    ' terrain path draws pooled water there, and a body on top is a
+                    ' second, disagreeing water on the same pixels. Also drops water
+                    ' that has no bed behind it, which from below covered the SKY.
+                    ImGui.Checkbox("Water yields to wet terrain", WATER_MASK_WET)
+                    If WATER_MASK_WET Then
+                        Dim v_wm = WATER_MASK_MIN
+                        If ImGui.SliderFloat("  yield above wetness", v_wm, 0.0, 1.0) Then
+                            WATER_MASK_MIN = v_wm
+                        End If
+                    End If
+
                     ImGui.Separator()
                     ' Wet-surface reflections. A cubemap can only ever show sky;
                     ' this marches the reflected ray through the frame that was
