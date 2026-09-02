@@ -61,3 +61,8 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+# Baked camera paths are binary. Without this, `* text=auto` can misdetect a
+# float-heavy file as text and rewrite CRLF inside it, which corrupts it
+# silently - it still loads, the numbers are just wrong.
+*.campath binary

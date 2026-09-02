@@ -201,3 +201,7 @@ work folder/
 /t[0-9].png
 /readme_images/fire test.png
 /readme_images/fire_ref.png
+
+# Python bytecode from the tools/ scripts importing each other
+__pycache__/
+*.pyc
