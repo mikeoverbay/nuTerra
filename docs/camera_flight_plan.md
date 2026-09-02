@@ -36,8 +36,29 @@ GPU readback. It is integer indexing into three small arrays.
 | # | map | contents | blend |
 |---|---|---|---|
 | 1 | **top height** | highest surface at that texel, terrain AND objects | `Max` |
-| 2 | **floor height** | underside of overhangs - the ceiling you can fly beneath | `Min` |
+| 2 | **floor height** | bare terrain alone, with no objects on it | `Min` |
 | 3 | **mask / kind** | obstacle vs bare terrain | — |
+
+Map 2 was originally specified as the *underside of overhangs* - a ceiling you
+could fly beneath, so `floor < y < ceiling` would find archways and gates. **That
+idea is dead, and it is worth knowing why before anyone re-invents it.**
+
+The bake for it is easy: models only, no terrain, front faces culled so only
+undersides rasterise, keep the lowest. The reasoning was that a solid building
+has its bottom slab at ground level, so the ceiling would land on the floor,
+headroom would be zero, and the building would block with no special case.
+
+**WoT building models have no bottom faces.** They are hollow shells that sit on
+the terrain, and the underside is never seen, so the art does not have one. The
+lowest back face in a building's column is therefore the INSIDE OF ITS ROOF. The
+ceiling map would report the entire interior as flyable headroom and route the
+camera straight through solid buildings - not failing safe, but confidently
+wrong, which is worse.
+
+There is no cheap fix. Depth peeling would find the real surfaces but a
+height-field cannot store them, and a hollow shell has no interior to peel. If
+flying through arches ever matters, it needs a different representation
+entirely, not a third texture.
 
 Different blend equations per attachment in one pass is `glBlendEquationi`.
 There is precedent in this codebase: `MapDecals.draw_decals` uses exactly that
@@ -140,12 +161,16 @@ clusters all clearly separated from open ground.
 
 ## Known limits, decided rather than discovered
 
-**A height field is 2.5D.** One height per texel stores only the top of things.
-This is why the floor map exists - without it, a stone arch reads as "solid at
-12 m" and the camera refuses clear air at 3 m. Two layers handle an arch or a
-bridge. They do NOT handle genuinely stacked geometry (a multi-storey interior);
-that would need a voxel or portal structure, and is not worth reaching for until
-the simple version is seen to fail.
+**A height field is 2.5D, and there is no second layer to rescue it.** One
+height per texel stores only the top of things, so a stone arch reads as "solid
+at 12 m" and the camera will not take the clear air underneath it. The ceiling
+map was supposed to fix exactly this and cannot, for the reason recorded under
+step 2 above.
+
+So the accepted limit is: **the camera flies OVER what it can clear and AROUND
+what it cannot, and never through anything.** Arches, gates and bridges are
+flown around. That is a real loss of a nice shot, and it is a deliberate trade
+rather than an oversight.
 
 **Coarse texels are conservative, and that has a cost.** Each texel takes the
 max height in its cell, so one 12 m lamppost makes its whole 10 m cell read as

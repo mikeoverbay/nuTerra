@@ -39,6 +39,13 @@ Public Class MapStaticModels
     Public indirectDrawCount As Integer
     Public indirectShadowMappingDrawCount As Integer
 
+    ''' <summary>How many of the shadow commands at the END of the array belong
+    ''' to outland models. The array is partitioned inland-then-outland, so a
+    ''' pass that does not want them draws indirectShadowMappingDrawCount minus
+    ''' this and simply stops before the tail - no second buffer, and every
+    ''' other draw site keeps passing the full count untouched.</summary>
+    Public indirectShadowOutlandDrawCount As Integer
+
     ' World origin of every candidate draw's instance, kept CPU-side by the
     ' loader. draw_fx sorts its bucket back-to-front with these each frame,
     ' indexed by the command's baseInstance (= candidate id).

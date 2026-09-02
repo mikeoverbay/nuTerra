@@ -53,6 +53,10 @@ Module MapLoader
         End If
 
         get_environment_info(map_name)
+
+        ' Before the models load, because batching them needs MAP_BB to tell
+        ' outland scenery from map content. Terrain reads the same file later.
+        read_arena_bb()
         map_scene.sky.SUN_TEXTURE_ID = TextureMgr.load_dds_image_from_file("sol.dds")
         map_scene.CC_LUT_ID = TextureMgr.openDDS(theMap.lut_path)
         map_scene.ENV_BRDF_LUT_ID = TextureMgr.openDDS("system/maps/env_brdf_lut.dds")
@@ -173,6 +177,15 @@ Module MapLoader
             Dim vLast = 0
             Dim iLast = 0
             Dim mLast = 0
+            ' Shadow commands are collected into two lists and concatenated
+            ' inland-then-outland, so the array ends with a contiguous outland
+            ' tail a pass can stop short of. See MapSunShadow.draw_models.
+            Dim shadowInland As New List(Of DrawElementsIndirectCommand)
+            Dim shadowOutland As New List(Of DrawElementsIndirectCommand)
+            Dim outland_batches = 0
+            Dim outland_instances = 0
+            Dim outland_names As New List(Of String)
+
             Dim lodLast = 0
             Dim baseVert = 0
             For Each batch In MODEL_BATCH_LIST
@@ -184,6 +197,20 @@ Module MapLoader
 
                 Dim MAX_LOD_ID = MAP_MODELS(batch.model_id).modelLods.Length - 1
                 Dim SHADOW_MAP_LOD = Math.Min(1, MAX_LOD_ID)
+
+                Dim batch_outland = batch_is_outland(batch)
+                If batch_outland Then
+                    outland_batches += 1
+                    outland_instances += batch.count
+                    Try
+                        outland_names.Add(String.Format("{0} x{1}",
+                            IO.Path.GetFileName(IO.Path.GetDirectoryName(
+                                MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)),
+                            batch.count))
+                    Catch
+                    End Try
+                End If
+
                 For lod_id = 0 To MAX_LOD_ID
                     Dim lod = MAP_MODELS(batch.model_id).modelLods(lod_id)
 
@@ -211,13 +238,18 @@ Module MapLoader
                                 .lod_level = lod_id
                             End With
                             If lod_id = SHADOW_MAP_LOD Then
-                                With shadowMappingDrawCommands(shadow_cmdId)
-                                    .baseVertex = drawCommands(cmdId).baseVertex
-                                    .firstIndex = drawCommands(cmdId).firstIndex
-                                    .instanceCount = batch.count
-                                    .count = drawCommands(cmdId).count
+                                Dim scmd As New DrawElementsIndirectCommand With {
+                                    .baseVertex = drawCommands(cmdId).baseVertex,
+                                    .firstIndex = drawCommands(cmdId).firstIndex,
+                                    .instanceCount = batch.count,
+                                    .count = drawCommands(cmdId).count,
                                     .baseInstance = cmdId
-                                End With
+                                }
+                                If batch_outland Then
+                                    shadowOutland.Add(scmd)
+                                Else
+                                    shadowInland.Add(scmd)
+                                End If
                                 shadow_cmdId += 1
                             End If
                             cmdId += 1
@@ -392,6 +424,27 @@ Module MapLoader
             map_scene.static_models.indirect_fx_staging.StorageNullData(
                 MapStaticModels.FX_SORT_MAX * Marshal.SizeOf(Of DrawElementsIndirectCommand),
                 BufferStorageFlags.ClientStorageBit)
+
+            ' Partition: inland first, outland last. Nothing downstream depends
+            ' on the order - each command carries its own baseVertex, firstIndex
+            ' and baseInstance - so this only decides where the tail starts.
+            If shadowInland.Count + shadowOutland.Count <> shadowMappingDrawCommands.Length Then
+                LogThis("outland: shadow command count mismatch, {0}+{1} vs {2} - not partitioning",
+                        shadowInland.Count, shadowOutland.Count, shadowMappingDrawCommands.Length)
+                shadowInland.AddRange(shadowOutland)
+                shadowOutland.Clear()
+            End If
+            shadowInland.CopyTo(shadowMappingDrawCommands, 0)
+            shadowOutland.CopyTo(shadowMappingDrawCommands, shadowInland.Count)
+            map_scene.static_models.indirectShadowOutlandDrawCount = shadowOutland.Count
+
+            LogThis("outland: {0} of {1} model batches outland ({2} instances), {3} of {4} shadow commands in the tail",
+                    outland_batches, MODEL_BATCH_LIST.Count, outland_instances,
+                    shadowOutland.Count, shadowMappingDrawCommands.Length)
+            If outland_names.Count > 0 Then
+                LogThis("outland: excluded {0}", String.Join(", ", outland_names))
+            End If
+            report_outland_frames()
 
             map_scene.static_models.indirect_shadow_mapping = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "indirect_shadow_mapping")
             map_scene.static_models.indirect_shadow_mapping.Storage(
@@ -1650,6 +1703,76 @@ Module MapLoader
                 Next
             End Using
         Next
+    End Sub
+
+    ''' <summary>Slack around the arena bounds. A model sitting a few metres
+    ''' outside is a boundary wall, not scenery.</summary>
+    Private Const OUTLAND_MARGIN As Single = 25.0F
+
+    ''' <summary>
+    ''' Does EVERY instance of this batch sit outside the arena's play area?
+    '''
+    ''' Geometric rather than by model directory, because the naming is not
+    ''' reliable across maps and the position is the thing actually being asked
+    ''' about.
+    '''
+    ''' ALL instances outside, not any, because the shadow commands are one per
+    ''' model TYPE with instanceCount covering the lot - a type used both inside
+    ''' and outside the arena cannot be split, so it stays in and keeps its
+    ''' shadow. Errs toward shadowing too much, which is the harmless direction.
+    '''
+    ''' MAP_BB is in a NEGATED X frame relative to the world X that model
+    ''' matrices carry - hence -p.X. report_outland_frames measures both
+    ''' conventions at load so that is a checked claim, not a chain of reasoning
+    ''' about sign flips.
+    ''' </summary>
+    Private Function batch_is_outland(batch As ModelBatch) As Boolean
+        ' No arena bounds means no claim: keep everything.
+        If MAP_BB_UR.X <= MAP_BB_BL.X OrElse MAP_BB_UR.Y <= MAP_BB_BL.Y Then
+            Return False
+        End If
+
+        For i = 0 To batch.count - 1
+            Dim idx = batch.offset + i
+            If idx < 0 OrElse idx >= MODEL_INDEX_LIST.Length Then Return False
+            Dim p = MODEL_INDEX_LIST(idx).matrix.Row3
+            If -p.X >= MAP_BB_BL.X - OUTLAND_MARGIN AndAlso -p.X <= MAP_BB_UR.X + OUTLAND_MARGIN AndAlso
+                p.Z >= MAP_BB_BL.Y - OUTLAND_MARGIN AndAlso p.Z <= MAP_BB_UR.Y + OUTLAND_MARGIN Then
+                Return False
+            End If
+        Next
+        Return True
+    End Function
+
+    ''' <summary>
+    ''' Log what each X sign convention would classify, so the choice in
+    ''' batch_is_outland is confirmed by a number rather than assumed. Most of a
+    ''' map's models are inside its own play area, so the convention with the
+    ''' LARGER inside count is the right one. If they are close, or both are
+    ''' tiny, MAP_BB is not what this code thinks it is and the filter should be
+    ''' switched off rather than trusted.
+    ''' </summary>
+    Private Sub report_outland_frames()
+        Dim lo_x = Single.MaxValue, hi_x = Single.MinValue
+        Dim lo_z = Single.MaxValue, hi_z = Single.MinValue
+        Dim inside_pos = 0, inside_neg = 0, total = 0
+
+        For Each entry In MODEL_INDEX_LIST
+            Dim p = entry.matrix.Row3
+            lo_x = Math.Min(lo_x, p.X) : hi_x = Math.Max(hi_x, p.X)
+            lo_z = Math.Min(lo_z, p.Z) : hi_z = Math.Max(hi_z, p.Z)
+            Dim z_ok = p.Z >= MAP_BB_BL.Y AndAlso p.Z <= MAP_BB_UR.Y
+            If z_ok AndAlso p.X >= MAP_BB_BL.X AndAlso p.X <= MAP_BB_UR.X Then inside_pos += 1
+            If z_ok AndAlso -p.X >= MAP_BB_BL.X AndAlso -p.X <= MAP_BB_UR.X Then inside_neg += 1
+            total += 1
+        Next
+
+        LogThis("outland: arena BB x {0:0} .. {1:0}, z {2:0} .. {3:0}",
+                MAP_BB_BL.X, MAP_BB_UR.X, MAP_BB_BL.Y, MAP_BB_UR.Y)
+        LogThis("outland: model instances x {0:0} .. {1:0}, z {2:0} .. {3:0} ({4} total)",
+                lo_x, hi_x, lo_z, hi_z, total)
+        LogThis("outland: inside the BB with +x {0}, with -x {1}  <- the bigger one is the frame in use",
+                inside_pos, inside_neg)
     End Sub
 
     Private Function get_spaceBin(ABS_NAME As String) As Boolean

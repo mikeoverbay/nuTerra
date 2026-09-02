@@ -838,9 +838,16 @@ Module TerrainBuilder
         )
     End Function
 
-    Private Function get_team_locations_and_field_BB(name As String) As Boolean
-        Dim arena_xml = ResMgr.openXML(String.Format("scripts/arena_defs/{0}.xml", name))
-
+    ''' <summary>
+    ''' The arena's play area, out of scripts/arena_defs. Split out of
+    ''' get_team_locations_and_field_BB because the MODEL loader needs MAP_BB to
+    ''' tell outland scenery from map content, and that runs long before terrain
+    ''' is built. Same parse, read earlier.
+    '''
+    ''' Note the X negation as it reads: MAP_BB is in a NEGATED X frame relative
+    ''' to the world X that model matrices and the camera carry.
+    ''' </summary>
+    Private Sub set_arena_bb(arena_xml As Xml.XmlNode)
         Dim bb_bottomLeft = arena_xml("boundingBox")("bottomLeft").InnerText.Split(" ")
         Dim bb_upperRight = arena_xml("boundingBox")("upperRight").InnerText.Split(" ")
 
@@ -856,6 +863,27 @@ Module TerrainBuilder
             MAP_BB_BL.X *= mmscale
             MAP_BB_UR.Y *= mmscale
         End If
+    End Sub
+
+    ''' <summary>
+    ''' Read the arena bounds early, before models are batched. Failing is not
+    ''' fatal - MAP_BB stays zero, batch_is_outland then finds nothing outside a
+    ''' zero-size box, and every model keeps its shadow exactly as before.
+    ''' </summary>
+    Public Sub read_arena_bb()
+        Try
+            Dim abs_name = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
+            set_arena_bb(ResMgr.openXML(String.Format("scripts/arena_defs/{0}.xml", abs_name)))
+        Catch ex As Exception
+            LogThis("arena bb: not read for {0} - outland models keep their shadows ({1})",
+                    MAP_NAME_NO_PATH, ex.Message)
+        End Try
+    End Sub
+
+    Private Function get_team_locations_and_field_BB(name As String) As Boolean
+        Dim arena_xml = ResMgr.openXML(String.Format("scripts/arena_defs/{0}.xml", name))
+
+        set_arena_bb(arena_xml)
 
         Dim ctf_teamBasePositions_node = arena_xml.SelectSingleNode("gameplayTypes/ctf/teamBasePositions")
         If ctf_teamBasePositions_node Is Nothing Then

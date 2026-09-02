@@ -1,4 +1,4 @@
-Imports System.Runtime.InteropServices
+﻿Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics.OpenGL4
 Imports System.Drawing
 
@@ -66,6 +66,10 @@ Public Class MapSunShadow
     ''' it, and an allocation that big does not fail cleanly - it thrashes, which
     ''' would read as "the baked shadow costs frame time" when it does not.
     '''</summary>
+    ''' <summary>Leave outland models out of the map-wide bake. Field rather
+    ''' than a constant so it can be flipped for an A/B without a rebuild.</summary>
+    Public Shared SKIP_OUTLAND As Boolean = True
+
     Public Shared MAX_SIZE As Integer = 32768
 
     '''<summary>
@@ -382,9 +386,33 @@ Public Class MapSunShadow
 
         scene.static_models.allMapModels.Bind()
         scene.static_models.indirect_shadow_mapping.Bind(BufferTarget.DrawIndirectBuffer)
-        LogThis("sun shadow: drew models ({0} commands)", scene.static_models.indirectShadowMappingDrawCount)
+
+        ' Outland models are left out of the map-wide bake. They are the distant
+        ' cliffs and mountains ringing the arena - 160 m tall on Abbey - and they
+        ' cast across the playable map from outside it, which is scenery
+        ' shadowing gameplay space.
+        '
+        ' It does NOT buy any depth precision, which was the first guess and is
+        ' measurably false: the box above is fitted from MIN/MAX_MAP_HEIGHT,
+        ' which are TERRAIN heights out of the chunk loader, so no model has ever
+        ' influenced the near/far range. Abbey bakes 1319..3307 m either way.
+        '
+        ' No second buffer and no change at any other draw site: the command
+        ' array is partitioned at load with the outland ones last, so drawing
+        ' fewer commands simply stops before the tail. The cascades in
+        ' MapStaticModels.shadow_mapping_pass still draw the lot.
+        Dim n = scene.static_models.indirectShadowMappingDrawCount
+        Dim skipped = 0
+        If SKIP_OUTLAND Then
+            skipped = scene.static_models.indirectShadowOutlandDrawCount
+            n -= skipped
+        End If
+
+        LogThis("sun shadow: drew models ({0} of {1} commands, {2} outland skipped)",
+                n, scene.static_models.indirectShadowMappingDrawCount, skipped)
+
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt,
-                                     IntPtr.Zero, scene.static_models.indirectShadowMappingDrawCount, 0)
+                                     IntPtr.Zero, n, 0)
 
         sunDepthModelShader.StopUse()
     End Sub
