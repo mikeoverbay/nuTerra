@@ -67,6 +67,8 @@ HEAD_SMOOTH = 10.0   # metres of smoothing on the heading. Shorter, because
 
 ALT_SMOOTH = 24.0    # metres of smoothing on altitude, so the camera does not
                      # copy every bump in the terrain
+TERRACE_RAMP = 30.0  # metres over which a terrace step is ramped, so the
+                     # camera climbs into it instead of teleporting
 ALT_LEAD = 14.0      # metres of running-maximum before smoothing, so a climb
                      # begins ahead of the rise that needs it
 MAX_TILT = 16.0      # degrees. The cap exists because tilt is a DERIVATIVE and
@@ -108,22 +110,41 @@ def build(map_name):
     # here. They WERE duplicated, and that is exactly how an exported path ends
     # up flown against a different obstacle set from the one that planned it -
     # the two drift apart the first time either is tuned, and nothing complains.
-    level = None
-    if nav.LEVEL_FLIGHT:
-        level = nav.LEVEL_Y if nav.LEVEL_Y is not None else nav.pick_level(bake, nx, nz)
+    terrace_of = None
+    if nav.TERRACED:
+        terrace_of, tlevels = nav.plan_terraces(bake, nx, nz)
+        worlds = []
+        for lv in tlevels:
+            raw_i, plan_i, dist_i, _ = nav.build_world(bake, lv)
+            worlds.append((lv, plan_i, raw_i, dist_i))
+        radar = nav.Radar(bake, worlds[0][1], worlds[0][2], cell_m,
+                          levels=[(w[0], w[1], w[2]) for w in worlds])
+        nav.FLIGHT_Y = None
+        res = nav.fly(bake, radar, nx, nz, two_point=True, record_fans=False,
+                      terrace_of=terrace_of)
+        raw = worlds[0][2]
+        level = None
+        print(f"  {len(tlevels)} terraces, Y = "
+              + ", ".join(f"{v:.0f}" for v in tlevels))
+    else:
+        worlds = None
+        level = None
+        if nav.LEVEL_FLIGHT:
+            level = nav.LEVEL_Y if nav.LEVEL_Y is not None else nav.pick_level(bake, nx, nz)
 
-    res = None
-    for _ in range(nav.LEVEL_TRIES):
-        nav.FLIGHT_Y = level
-        raw, plan, dist_m, pad = nav.build_world(bake, level)
-        radar = nav.Radar(bake, plan, raw, cell_m)
-        res = nav.fly(bake, radar, nx, nz, two_point=True, record_fans=False)
-        if res["closed"] or level is None:
-            break
-        level += nav.LEVEL_STEP
+        res = None
+        for _ in range(nav.LEVEL_TRIES):
+            nav.FLIGHT_Y = level
+            raw, plan, dist_m, pad = nav.build_world(bake, level)
+            radar = nav.Radar(bake, plan, raw, cell_m)
+            res = nav.fly(bake, radar, nx, nz, two_point=True, record_fans=False)
+            if res["closed"] or level is None:
+                break
+            level += nav.LEVEL_STEP
 
-    if level is not None:
-        print(f"  level Y = {level:.1f} m, {100.0 * raw.mean():.2f}% of the map reaches it")
+        if level is not None:
+            print(f"  level Y = {level:.1f} m, "
+                  f"{100.0 * raw.mean():.2f}% of the map reaches it")
 
     path = np.asarray(res["path"], dtype=float)
     x = path[:, 0]
@@ -145,7 +166,23 @@ def build(map_name):
     # --------------------------------------------------------------- altitude
     ground = np.array([bake.sample(bake.floor, x[i], z[i]) for i in range(n)])
 
-    if level is not None:
+    if worlds is not None:
+        # Terraced. The flown level is piecewise constant, so a raw copy would
+        # teleport the camera at every step. Running maximum over a lead window
+        # first, then smooth: the climb starts before the step and the ramp
+        # never sits below either of the two levels it joins, which a plain
+        # smoothing would do right at the boundary - exactly where the higher
+        # terrace's ground is.
+        flown = np.array([float(v) for v in res["levels"]], dtype=float)
+        # Twice the ramp, not once. With the two equal, the smoothing kernel
+        # still reaches past the held maximum at the centre of a step and pulls
+        # the camera under its own terrace - measured at 2.59 m above ground
+        # where 4 was asked for. Holding the max across the whole kernel costs
+        # only a slightly earlier climb.
+        lead = max(1, int(round(2.0 * TERRACE_RAMP / step_m)))
+        need = np.stack([np.roll(flown, k) for k in range(-lead, lead + 1)]).max(axis=0)
+        y = periodic_smooth(need, TERRACE_RAMP, step_m, closed)
+    elif level is not None:
         # Locked. Nothing to smooth and nothing to lead - the whole point of a
         # level flight is that the camera does not move vertically at all, so
         # the tilt below comes out as the bias alone and the horizon holds still.
@@ -202,22 +239,30 @@ def build(map_name):
             float(heading[i]), float(tilt[i]), float(roll[i]),
             float(s[i]), float(speed[i])) for i in range(n)]
 
-    return bake, raw, res, pts, total, closed, step_m, level
+    return bake, raw, res, pts, total, closed, step_m, level, worlds
 
 
-def check_clips(bake, raw, pts):
+def check_clips(bake, raw, pts, worlds=None, levels=None):
     """The exported positions must still be collision-free.
 
     Positions are passed through untouched, so this should be zero by
     construction - which is exactly why it is worth asserting. If a future
     change starts resmoothing them, this is what says so.
     """
+    by_level = {}
+    if worlds:
+        for (lvl, pl, rw, dm) in worlds:
+            by_level[round(float(lvl), 3)] = rw
+
     bad = 0
-    for (px, py, pz, *_rest) in pts:
+    for k, (px, py, pz, *_rest) in enumerate(pts):
         c, r = bake.texel_of(px, pz)
         ci = int(np.clip(round(c), 0, bake.w - 1))
         ri = int(np.clip(round(r), 0, bake.h - 1))
-        if raw[ri, ci]:
+        m = raw
+        if levels is not None and k < len(levels) and levels[k] is not None:
+            m = by_level.get(round(float(levels[k]), 3), raw)
+        if m[ri, ci]:
             bad += 1
     return bad
 
@@ -263,7 +308,7 @@ def draw(bake, raw, pts, out_png):
 def main():
     map_name = sys.argv[1] if len(sys.argv) > 1 else nav.MAP
 
-    bake, raw, res, pts, total, closed, step_m, level = build(map_name)
+    bake, raw, res, pts, total, closed, step_m, level, worlds = build(map_name)
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out_dir = os.path.join(root, "nuTerra", "cam_paths")
@@ -285,15 +330,16 @@ def main():
     if not ok:
         raise SystemExit("the file does not read back as what was written")
 
-    clips = check_clips(bake, raw, pts)
+    clips = check_clips(bake, raw, pts, worlds=worlds, levels=res.get("levels"))
     print(f"  clips on the exported positions: {clips}")
 
     agl = sorted(p[1] - bake.sample(bake.floor, p[0], p[2]) for p in pts)
     med = agl[len(agl) // 2]
     p90 = agl[int(len(agl) * 0.9)]
     sat = sum(1 for p in pts if abs(math.degrees(p[4])) >= MAX_TILT - 0.01)
-    asked = (f"locked at Y = {level:.1f}" if level is not None
-             else f"asked for {nav.AGL:.1f} AGL")
+    asked = ("terraced" if worlds is not None
+             else (f"locked at Y = {level:.1f}" if level is not None
+                   else f"asked for {nav.AGL:.1f} AGL"))
     print(f"  height above ground {agl[0]:.2f} .. {agl[-1]:.2f} m "
           f"(median {med:.1f}, 90th {p90:.1f}, {asked})")
     print(f"  tilt at the {MAX_TILT:.0f} deg cap: {100 * sat / len(pts):.1f}% of the path")

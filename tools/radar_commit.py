@@ -35,7 +35,7 @@ from PIL import Image, ImageDraw
 # Flight envelope
 # --------------------------------------------------------------------------
 
-AGL = 5.0            # metres above bare terrain
+AGL = 4.0            # metres over the ground of whatever terrace we are on
 MARGIN = 1.5         # headroom kept under the camera
 BLOCK_H = AGL - MARGIN   # 3.5 m - anything shorter is simply flown over
 BODY_R = 4.0         # standoff kept from a blocking cell, metres
@@ -49,10 +49,23 @@ BODY_R = 4.0         # standoff kept from a blocking cell, metres
 # which. Terrain-following needed obstacle height, which is a DIFFERENCE of two
 # baked layers and carries both their errors.
 LEVEL_FLIGHT = True
-LEVEL_Y = None       # None = auto, see pick_level
+LEVEL_Y = None       # None = auto. A number here forces ONE level for the route.
 LEVEL_CLEAR = 6.0    # metres of air over the highest ground the course crosses
 LEVEL_STEP = 4.0     # how much to raise the level when the loop will not close
 LEVEL_TRIES = 6
+
+# Terraced flight. The camera holds a level and steps to a new one only where
+# the ground makes a real jump, instead of either riding every bump or picking
+# one height for the whole map.
+#
+# A single level had to clear the highest GROUND the route crosses, which on
+# Abbey put the camera 28 m up and above almost everything - nothing left to
+# avoid. Terraces keep it near the ground where the ground is flat, which is
+# most of the route, and only climb where the terrain actually climbs.
+TERRACED = True
+TERRACE_BAND = 6.0    # ground spread a terrace tolerates before it must step
+TERRACE_MIN_M = 70.0  # shortest terrace. Without a floor a noisy hillside
+                      # shatters the route into a staircase of one-step terraces.
 
 # Set by main once the level is settled, so score and draw can read it without
 # threading it through every signature. One number, constant for a whole run.
@@ -149,12 +162,24 @@ class Bake:
 # metres and the DDA needs no anisotropic fiddling.
 
 class Radar:
-    def __init__(self, bake, mask_plan, mask_raw, cell_m):
+    def __init__(self, bake, mask_plan, mask_raw, cell_m, levels=None):
+        # levels: list of (level, plan, raw) - one obstacle world per terrace.
+        # The mask MUST follow the level. Planning at 28 m and then flying a
+        # terrace at 4 m would route the camera round nothing and straight
+        # through every building under 28 m on the way.
+        self.levels = levels
         self.plan = mask_plan      # blocked, dilated by the body radius
         self.raw = mask_raw        # blocked, undilated - the clip test
+        self.level = None
         self.bake = bake
         self.cell = cell_m
         self.h, self.w = mask_plan.shape
+
+    def set_level(self, k):
+        if not self.levels:
+            return
+        k = max(0, min(k, len(self.levels) - 1))
+        self.level, self.plan, self.raw = self.levels[k]
 
     def march(self, x, z, ux, uz, max_m, mask=None):
         """Range in metres to the first blocking cell along the ray, or max_m."""
@@ -226,6 +251,62 @@ class Radar:
         return out
 
 
+def plan_terraces(bake, nx, nz):
+    """Split the nominal course into stretches of near-constant ground.
+
+    Walk the course accumulating the ground spread. While it stays inside
+    TERRACE_BAND the terrain has not really changed and the camera holds its
+    level; the moment the spread would exceed it, that is the rapid jump, and a
+    new terrace starts at the new ground. TERRACE_MIN_M stops a rough hillside
+    turning into a staircase of one-step terraces.
+
+    Returns (terrace index per nominal sample, level per terrace). The level is
+    the HIGHEST ground in the terrace plus AGL, not the average - the camera has
+    to clear the whole stretch it is holding that height over, so the low end of
+    a terrace simply sits further above the ground than the high end. That is
+    the cost of being level, and it is bounded by TERRACE_BAND.
+    """
+    n = len(nx)
+    g = np.array([bake.sample(bake.floor, nx[i], nz[i]) for i in range(n)])
+    spacing = float(np.mean(np.hypot(np.diff(nx, append=nx[0]),
+                                     np.diff(nz, append=nz[0]))))
+    min_pts = max(2, int(round(TERRACE_MIN_M / max(spacing, 1e-6))))
+
+    seg_of = np.zeros(n, dtype=int)
+    start = 0
+    lo = hi = float(g[0])
+    seg = 0
+    for i in range(1, n):
+        nlo = min(lo, float(g[i]))
+        nhi = max(hi, float(g[i]))
+        if (nhi - nlo) > TERRACE_BAND and (i - start) >= min_pts:
+            seg += 1
+            start = i
+            lo = hi = float(g[i])
+        else:
+            lo, hi = nlo, nhi
+        seg_of[i] = seg
+
+    # The route is a loop, so the last terrace runs into the first. If the tail
+    # is too short to stand on its own, fold it into terrace 0 rather than
+    # leaving a step at the seam that the camera takes once per lap.
+    nseg = seg + 1
+    if nseg > 1 and int(np.sum(seg_of == seg)) < min_pts:
+        seg_of[seg_of == seg] = 0
+        nseg -= 1
+        # renumber so the ids stay contiguous
+        used = sorted(set(int(v) for v in seg_of))
+        remap = {v: k for k, v in enumerate(used)}
+        seg_of = np.array([remap[int(v)] for v in seg_of])
+        nseg = len(used)
+
+    levels = []
+    for k in range(nseg):
+        m = seg_of == k
+        levels.append(float(g[m].max()) + AGL)
+    return seg_of, levels
+
+
 def pick_level(bake, nx, nz):
     """The single Y the camera holds: the highest ground the nominal course
     crosses, plus clearance.
@@ -277,7 +358,7 @@ def load_plan(path):
     return np.array(xs), np.array(zs)
 
 
-def fly(bake, radar, nx, nz, two_point, record_fans=True):
+def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
     n = len(nx)
     spacing = float(np.mean(np.hypot(np.diff(nx), np.diff(nz))))
 
@@ -288,6 +369,9 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True):
         f = i - i0
         i1 = (i0 + 1) % n
         return (nx[i0] * (1 - f) + nx[i1] * f, nz[i0] * (1 - f) + nz[i1] * f)
+
+    if terrace_of is not None:
+        radar.set_level(int(terrace_of[0]))
 
     # start on the course, nudged off anything blocking
     sx, sz = nx[0], nz[0]
@@ -308,6 +392,7 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True):
     detour_start = None
 
     path = [(x, z)]
+    levels = [radar.level]
     fans = []
     events = []           # (x, z, kind) markers for the picture
     reversals = 0
@@ -339,6 +424,13 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True):
             prog = best_i
             last_adv = steps
 
+        # The obstacle world follows the terrace. Done off progress along the
+        # NOMINAL course rather than off the camera's own position, so a long
+        # detour keeps the level of the stretch it is detouring around instead
+        # of picking up the level of wherever it happens to have wandered.
+        if terrace_of is not None:
+            radar.set_level(int(terrace_of[int(prog) % n]))
+
         if total_advance > (n - 2) * spacing and math.hypot(x - sx, z - sz) < 25.0:
             # Genuinely all the way round: the whole course has been passed and
             # the camera is back at the start. Fly the last few metres home if
@@ -347,6 +439,7 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True):
             gap = math.hypot(sx - x, sz - z)
             if gap > 1e-3 and radar.clear(x, z, (sx - x) / gap, (sz - z) / gap, gap):
                 path.append((sx, sz))
+                levels.append(radar.level)
             closed = True
             break
 
@@ -464,6 +557,7 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True):
         nx_, nz_ = x + math.cos(heading) * STEP, z + math.sin(heading) * STEP
         x, z = nx_, nz_
         path.append((x, z))
+        levels.append(radar.level)
         if mode == "TRACK":
             skip = 0.0
         else:
@@ -494,7 +588,7 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True):
             events.append((x, z, "guard", side))
 
     return {
-        "path": path, "fans": fans, "events": events, "closed": closed,
+        "path": path, "levels": levels, "fans": fans, "events": events, "closed": closed,
         "reversals": reversals, "trap_entries": trap_entries,
         "detours": detours, "guard_fires": guard_fires, "stuck": stuck,
         "steps": steps, "start": (sx, sz),
@@ -505,8 +599,27 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True):
 # Scoring
 # --------------------------------------------------------------------------
 
-def score(bake, radar, res, nx, nz, dist_m):
+def score(bake, radar, res, nx, nz, dist_m, worlds=None):
+    """Measure the flight.
+
+    With terraces, every test here has to use the world of the terrace that
+    point was flown on. Scoring a 4 m terrace against the 28 m obstacle mask
+    would report a clean flight through a building, which is the one failure
+    this function exists to catch.
+    """
     path = res["path"]
+    lv = res.get("levels")
+    by_level = {}
+    if worlds:
+        for (lvl, pl, rw, dm) in worlds:
+            by_level[round(float(lvl), 3)] = (rw, dm)
+
+    def world_at(k):
+        if lv is not None and k < len(lv) and lv[k] is not None:
+            w = by_level.get(round(float(lv[k]), 3))
+            if w is not None:
+                return w
+        return radar.raw, dist_m
     length = sum(math.hypot(path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1])
                  for i in range(len(path) - 1))
 
@@ -519,7 +632,8 @@ def score(bake, radar, res, nx, nz, dist_m):
         seg = math.hypot(x1 - x0, z1 - z0)
         if seg <= 0:
             continue
-        rng = radar.march(x0, z0, (x1 - x0) / seg, (z1 - z0) / seg, seg, mask=radar.raw)
+        rw, _ = world_at(i)
+        rng = radar.march(x0, z0, (x1 - x0) / seg, (z1 - z0) / seg, seg, mask=rw)
         if rng < seg - 1e-6:
             clips += 1
             clip_at.append(path[i])
@@ -536,7 +650,7 @@ def score(bake, radar, res, nx, nz, dist_m):
     dev = []
     clr = []
     alt_margin = []          # camera altitude minus the top surface under it
-    for (x, z) in path:
+    for k, (x, z) in enumerate(path):
         AP = np.stack([x - A[:, 0], z - A[:, 1]], axis=1)
         t = np.clip((AP * AB).sum(axis=1) / L2, 0.0, 1.0)
         proj = A + AB * t[:, None]
@@ -545,16 +659,23 @@ def score(bake, radar, res, nx, nz, dist_m):
         c, r = bake.texel_of(x, z)
         ci = int(np.clip(round(c), 0, bake.w - 1))
         ri = int(np.clip(round(r), 0, bake.h - 1))
-        clr.append(float(dist_m[ri, ci]))
+        _, dm = world_at(k)
+        clr.append(float(dm[ri, ci]))
 
         # the flight rule itself - everything under the camera must be below it
-        alt = FLIGHT_Y if FLIGHT_Y is not None else bake.floor[ri, ci] + AGL
+        if lv is not None and k < len(lv) and lv[k] is not None:
+            alt = lv[k]
+        elif FLIGHT_Y is not None:
+            alt = FLIGHT_Y
+        else:
+            alt = bake.floor[ri, ci] + AGL
         alt_margin.append(float(alt - bake.top[ri, ci]))
 
     return {
         "length": length, "clips": clips, "clip_at": clip_at,
         "max_dev": max(dev), "dev": dev, "min_clear": min(clr),
         "min_alt_margin": min(alt_margin),
+        "levels_used": sorted(set(round(float(v), 1) for v in (lv or []) if v is not None)),
     }
 
 
@@ -576,7 +697,7 @@ def _font(size):
     return ImageFont.load_default()
 
 
-def draw(bake, res, sc, nx, nz, out_png):
+def draw(bake, res, sc, nx, nz, out_png, worlds=None, terrace_of=None):
     """The obstacle map with the sensor picture on it.
 
     Shaded by obstacle HEIGHT rather than the binary mask, and split at the
@@ -589,7 +710,32 @@ def draw(bake, res, sc, nx, nz, out_png):
     # above or below that line. Shading by obstacle height here would colour a
     # 20 m building on a hilltop the same as one in the valley, and only one of
     # them is in the way.
-    if FLIGHT_Y is not None:
+    if worlds and terrace_of is not None:
+        # Terraced: shade every cell against the terrace that actually passes
+        # NEAREST to it, not against one level for the whole map.
+        #
+        # The first version shaded against the lowest terrace on the grounds
+        # that it could not under-report. It was useless: at 2.7 m most of
+        # Abbey is above the camera, so seventy percent of the picture came out
+        # amber and the map read as a solid wall with a route threaded through
+        # it. Conservative and uninformative is still wrong.
+        n = len(nx)
+        idx = np.full((bake.h, bake.w), -1, dtype=np.int32)
+        for i in range(n):
+            c, r = bake.texel_of(nx[i], nz[i])
+            ci = int(np.clip(round(c), 0, bake.w - 1))
+            ri = int(np.clip(round(r), 0, bake.h - 1))
+            idx[ri, ci] = i
+        _, inds = ndimage.distance_transform_edt(idx < 0, return_indices=True)
+        nearest = idx[inds[0], inds[1]]
+        lut = np.array([w[0] for w in worlds], dtype=float)
+        level_img = lut[np.asarray(terrace_of)[nearest]]
+
+        o = bake.top - (level_img - MARGIN)
+        cut = 0.0
+        span = 20.0
+        exists = bake.top > bake.floor + 0.5
+    elif FLIGHT_Y is not None:
         o = bake.top - (FLIGHT_Y - MARGIN)
         cut = 0.0
         span = 20.0
@@ -730,13 +876,17 @@ def draw(bake, res, sc, nx, nz, out_png):
     f = _font(17)
     fb = _font(21)
     rows = [
-        (PINK, ("flown level at Y = %.1f m   %.0f m" % (FLIGHT_Y, sc["length"]))
-               if FLIGHT_Y is not None
-               else ("flown at %.0f m AGL   %.0f m" % (AGL, sc["length"]))),
+        (PINK, ("flown terraced, %.0f m over each terrace   %.0f m" % (AGL, sc["length"]))
+               if (sc.get("levels_used"))
+               else (("flown level at Y = %.1f m   %.0f m" % (FLIGHT_Y, sc["length"]))
+                     if FLIGHT_Y is not None
+                     else ("flown at %.0f m AGL   %.0f m" % (AGL, sc["length"])))),
         (NOMINAL, "nominal course   1345 m"),
-        ((196, 146, 40), ("must fly around   reaches above Y - %.1f m" % MARGIN)
-                         if FLIGHT_Y is not None
-                         else ("must fly around   obstacle > %.1f m" % BLOCK_H)),
+        ((196, 146, 40), "must fly around   reaches its own terrace's level"
+                         if (sc.get("levels_used"))
+                         else (("must fly around   reaches above Y - %.1f m" % MARGIN)
+                               if FLIGHT_Y is not None
+                               else ("must fly around   obstacle > %.1f m" % BLOCK_H))),
         ((70, 76, 86), "flown over   everything below that line"
                        if FLIGHT_Y is not None
                        else ("flown over   obstacle < %.1f m" % BLOCK_H)),
@@ -748,9 +898,12 @@ def draw(bake, res, sc, nx, nz, out_png):
     bw, bh = 340, 44 + 24 * len(rows)
     box = Image.new("RGBA", (bw, bh), (10, 12, 20, 205))
     im.alpha_composite(box, (14, 14))
+    lu = sc.get("levels_used") or []
     d.text((26, 22),
-           ("level radar navigator   Y = %.1f m" % FLIGHT_Y) if FLIGHT_Y is not None
-           else "5 m AGL radar navigator",
+           ("terraced radar navigator   %d levels, Y = %s" %
+            (len(lu), ", ".join("%.0f" % v for v in lu))) if lu
+           else (("level radar navigator   Y = %.1f m" % FLIGHT_Y) if FLIGHT_Y is not None
+                 else "5 m AGL radar navigator"),
            fill=(240, 240, 250, 255), font=fb)
     for i, (col, label) in enumerate(rows):
         y = 54 + 24 * i
@@ -793,6 +946,56 @@ def main():
     bake = Bake(FOLDER, MAP)
     cell_m = bake.mx
     nx, nz = load_plan(os.path.join(FOLDER, MAP + "_plan.csv"))
+
+    terrace_of = None
+    worlds = None
+
+    if TERRACED:
+        terrace_of, tlevels = plan_terraces(bake, nx, nz)
+        worlds = [build_world(bake, lv)[:3] + (0,) for lv in tlevels]
+        # build_world returns (raw, plan, dist, pad) - reorder to
+        # (level, plan, raw, dist), which is what Radar and score want.
+        worlds = []
+        for lv in tlevels:
+            raw_i, plan_i, dist_i, pad_i = build_world(bake, lv)
+            worlds.append((lv, plan_i, raw_i, dist_i))
+
+        spacing = float(np.mean(np.hypot(np.diff(nx, append=nx[0]),
+                                         np.diff(nz, append=nz[0]))))
+        print(f"{len(tlevels)} terrace(s) at {AGL:.0f} m over their ground, "
+              f"band {TERRACE_BAND:.0f} m:")
+        for k, lv in enumerate(tlevels):
+            m = terrace_of == k
+            print(f"  terrace {k}: Y = {lv:6.1f} m over {int(m.sum()) * spacing:5.0f} m "
+                  f"of course, {100.0 * worlds[k][2].mean():5.2f}% of the map reaches it")
+
+        radar = Radar(bake, worlds[0][1], worlds[0][2], cell_m,
+                      levels=[(w[0], w[1], w[2]) for w in worlds])
+        dist_m = worlds[0][3]
+        FLIGHT_Y = None
+
+        probe = fly(bake, radar, nx, nz, two_point, record_fans=False,
+                    terrace_of=terrace_of)
+        if not probe["closed"]:
+            print("  the loop does not close on these terraces")
+
+        runs = {}
+        for tag, tp in (("trap rule OFF", False), ("trap rule ON", True)):
+            res = fly(bake, radar, nx, nz, tp, record_fans=(tp == two_point),
+                      terrace_of=terrace_of)
+            sc = score(bake, radar, res, nx, nz, dist_m, worlds=worlds)
+            runs[tp] = (res, sc)
+            print(f"{tag:14s} closed={res['closed']} len={sc['length']:7.0f} m  "
+                  f"clips={sc['clips']}  reversals={res['reversals']}  "
+                  f"trap_entries={res['trap_entries']}  detours={res['detours']}  "
+                  f"boxed={res['stuck']}  guard={res['guard_fires']}  "
+                  f"maxdev={sc['max_dev']:.1f} m  minclr={sc['min_clear']:.2f} m  "
+                  f"worst headroom under the camera={sc['min_alt_margin']:.2f} m")
+
+        res, sc = runs[two_point]
+        draw(bake, res, sc, nx, nz, OUT_PNG, worlds=worlds, terrace_of=terrace_of)
+        print("wrote " + OUT_PNG)
+        return
 
     level = None
     if LEVEL_FLIGHT:
