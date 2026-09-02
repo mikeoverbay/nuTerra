@@ -11,6 +11,8 @@ handoff's status banner before trusting it.
 
 | you want | read |
 |---|---|
+| **what is still open** | `open_threads.md` |
+| the automated camera flight design | `camera_flight_plan.md` |
 | current state of the renderer | `HANDOFF_2026-08-31_pbr_glow_water.md` |
 | how fire, smoke and glow are composited | `FX_PIPELINE.md` |
 | how the deferred resolve is ordered | `lighting.md` |

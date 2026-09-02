@@ -112,6 +112,32 @@ Two things fall out of using a curve that make the rest simpler:
 Sample the curve at a fixed arc length rather than fixed t, or speed varies
 with control point spacing and the flight visibly slows through tight sections.
 
+## Why the bake must be its own pass
+
+Proved the hard way on 2026-09-02 by trying to shortcut it: the G-buffer
+already carries a surface-kind byte, so a top-down beauty render was
+reinterpreted as a collision mask. It took three attempts to get a binary
+image, and every failure was post-resolve machinery contaminating the result:
+
+1. **Water drew over it.** MapWater is a FORWARD pass after the resolve, so the
+   river painted itself blue straight onto the mask.
+2. **SSR added on top.** Reflections tinted the supposedly binary output grey.
+   Also after the resolve.
+3. **The tonemap ate the white.** deferred.frag outputs
+   `correct(final_color, exposure, 1.2)` - a saturating curve - so a written
+   1.0 arrived as mid grey. Writing at the very END of main bypasses it. Note
+   there are TWO other branches that also write outColor from gColor; a patch
+   that only touches the lit path silently misses them.
+
+None of these can touch a dedicated top-down FBO pass that writes height and
+coverage into its own targets. That is the argument for step 2 being real work
+rather than a reinterpretation of the beauty pass - the shortcut LOOKS cheaper
+and is where all the contamination lives.
+
+The one-off mask did confirm the data is there and sane: Abbey came out 25%
+obstacle coverage, with the walled town centre, the tree lines and the rock
+clusters all clearly separated from open ground.
+
 ## Known limits, decided rather than discovered
 
 **A height field is 2.5D.** One height per texel stores only the top of things.
