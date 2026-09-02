@@ -38,7 +38,10 @@ from PIL import Image, ImageDraw
 AGL = 4.0            # metres over the ground of whatever terrace we are on
 MARGIN = 1.5         # headroom kept under the camera
 BLOCK_H = AGL - MARGIN   # 3.5 m - anything shorter is simply flown over
-BODY_R = 4.0         # standoff kept from a blocking cell, metres
+BODY_R = 8.0         # standoff kept from a blocking cell, metres. Doubled from
+                     # 4 - at 4 the measured minimum clearance was 3.87 m, which
+                     # WAS the dilation, so the camera rode its own safety
+                     # margin with nothing spare on top of it.
 
 # Level flight. The camera holds ONE world Y for the whole route instead of
 # riding 5 m over whatever the ground does.
@@ -66,6 +69,10 @@ TERRACED = True
 TERRACE_BAND = 6.0    # ground spread a terrace tolerates before it must step
 TERRACE_MIN_M = 70.0  # shortest terrace. Without a floor a noisy hillside
                       # shatters the route into a staircase of one-step terraces.
+TERRACE_LIFT = 3.0    # metres to raise every terrace by when the loop will not
+                      # close. Doubling BODY_R to 8 m sealed the gaps the route
+                      # used and it ran to the step limit; more air reopens them.
+TERRACE_TRIES = 6
 
 # Set by main once the level is settled, so score and draw can read it without
 # threading it through every signature. One number, constant for a whole run.
@@ -251,7 +258,7 @@ class Radar:
         return out
 
 
-def plan_terraces(bake, nx, nz):
+def plan_terraces(bake, nx, nz, extra=0.0):
     """Split the nominal course into stretches of near-constant ground.
 
     Walk the course accumulating the ground spread. While it stays inside
@@ -303,8 +310,48 @@ def plan_terraces(bake, nx, nz):
     levels = []
     for k in range(nseg):
         m = seg_of == k
-        levels.append(float(g[m].max()) + AGL)
+        levels.append(float(g[m].max()) + AGL + extra)
     return seg_of, levels
+
+
+def plan_flight(bake, nx, nz, two_point, verbose=True):
+    """Terraces, obstacle worlds and a radar that can switch between them.
+
+    Lives here, and both radar_commit and export_cam_path call it, because the
+    two used to build this separately - which is how an exported path ends up
+    flown against a different obstacle set from the one that planned it.
+
+    Raises every terrace together until the loop closes. Raising them as a block
+    rather than individually keeps the steps between them where the terrain put
+    them; lifting only the offending terrace would invent a step that no ground
+    feature justifies.
+    """
+    cell_m = bake.mx
+    extra = 0.0
+    for attempt in range(TERRACE_TRIES):
+        terrace_of, tlevels = plan_terraces(bake, nx, nz, extra)
+        worlds = []
+        for lv in tlevels:
+            raw_i, plan_i, dist_i, pad_i = build_world(bake, lv)
+            worlds.append((lv, plan_i, raw_i, dist_i))
+
+        radar = Radar(bake, worlds[0][1], worlds[0][2], cell_m,
+                      levels=[(w[0], w[1], w[2]) for w in worlds])
+
+        probe = fly(bake, radar, nx, nz, two_point, record_fans=False,
+                    terrace_of=terrace_of)
+        if probe["closed"]:
+            if verbose and extra > 0.0:
+                print(f"  needed +{extra:.0f} m over the whole route to close "
+                      f"at a {BODY_R:.0f} m standoff")
+            return terrace_of, tlevels, worlds, radar, extra
+
+        if verbose:
+            print(f"  will not close at +{extra:.0f} m, raising every terrace "
+                  f"by {TERRACE_LIFT:.0f} m")
+        extra += TERRACE_LIFT
+
+    return terrace_of, tlevels, worlds, radar, extra
 
 
 def pick_level(bake, nx, nz):
@@ -951,14 +998,7 @@ def main():
     worlds = None
 
     if TERRACED:
-        terrace_of, tlevels = plan_terraces(bake, nx, nz)
-        worlds = [build_world(bake, lv)[:3] + (0,) for lv in tlevels]
-        # build_world returns (raw, plan, dist, pad) - reorder to
-        # (level, plan, raw, dist), which is what Radar and score want.
-        worlds = []
-        for lv in tlevels:
-            raw_i, plan_i, dist_i, pad_i = build_world(bake, lv)
-            worlds.append((lv, plan_i, raw_i, dist_i))
+        terrace_of, tlevels, worlds, radar, extra = plan_flight(bake, nx, nz, two_point)
 
         spacing = float(np.mean(np.hypot(np.diff(nx, append=nx[0]),
                                          np.diff(nz, append=nz[0]))))
@@ -969,15 +1009,8 @@ def main():
             print(f"  terrace {k}: Y = {lv:6.1f} m over {int(m.sum()) * spacing:5.0f} m "
                   f"of course, {100.0 * worlds[k][2].mean():5.2f}% of the map reaches it")
 
-        radar = Radar(bake, worlds[0][1], worlds[0][2], cell_m,
-                      levels=[(w[0], w[1], w[2]) for w in worlds])
         dist_m = worlds[0][3]
         FLIGHT_Y = None
-
-        probe = fly(bake, radar, nx, nz, two_point, record_fans=False,
-                    terrace_of=terrace_of)
-        if not probe["closed"]:
-            print("  the loop does not close on these terraces")
 
         runs = {}
         for tag, tp in (("trap rule OFF", False), ("trap rule ON", True)):

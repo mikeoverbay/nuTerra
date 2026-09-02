@@ -112,20 +112,19 @@ def build(map_name):
     # the two drift apart the first time either is tuned, and nothing complains.
     terrace_of = None
     if nav.TERRACED:
-        terrace_of, tlevels = nav.plan_terraces(bake, nx, nz)
-        worlds = []
-        for lv in tlevels:
-            raw_i, plan_i, dist_i, _ = nav.build_world(bake, lv)
-            worlds.append((lv, plan_i, raw_i, dist_i))
-        radar = nav.Radar(bake, worlds[0][1], worlds[0][2], cell_m,
-                          levels=[(w[0], w[1], w[2]) for w in worlds])
+        # Same planner the navigator uses, including its lift search. Calling it
+        # rather than repeating it is the whole point - a second copy here is
+        # how the exported path ends up flown against different obstacles.
+        terrace_of, tlevels, worlds, radar, extra = nav.plan_flight(
+            bake, nx, nz, two_point=True)
         nav.FLIGHT_Y = None
         res = nav.fly(bake, radar, nx, nz, two_point=True, record_fans=False,
                       terrace_of=terrace_of)
         raw = worlds[0][2]
         level = None
-        print(f"  {len(tlevels)} terraces, Y = "
-              + ", ".join(f"{v:.0f}" for v in tlevels))
+        print(f"  {len(tlevels)} terraces at {nav.BODY_R:.0f} m standoff"
+              + (f" (+{extra:.0f} m lift)" if extra else "")
+              + ", Y = " + ", ".join(f"{v:.0f}" for v in tlevels))
     else:
         worlds = None
         level = None
