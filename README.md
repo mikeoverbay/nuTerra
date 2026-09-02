@@ -58,6 +58,31 @@ A note on how these are written: they record what was **measured**, and they
 call out claims that were believed and later disproved rather than quietly
 deleting them. If a doc says something is settled, it says how it was settled.
 
+## Game data, trademarks and attribution
+
+**World of Tanks<sup>&reg;</sup> and all of its data - models, textures,
+terrain, shaders, effects and sounds - are the property of Wargaming Group
+Limited.** nuTerra ships none of it. It reads a World of Tanks installation
+you already own, in place and strictly read-only: the only paths it ever
+writes are its own temp and settings folders, never the game directory.
+
+The engine World of Tanks is built on is **BigWorld Technology**, originally
+by BigWorld Pty Ltd of Sydney, which Wargaming acquired in 2012. Much of what
+this viewer does is a reimplementation of that engine's behaviour - the
+terrain layer mixing, the deferred G-buffer packing, the virtual texture
+scheme, the effect and particle formats - worked out by reading the shipped
+data and shaders. Those formats and the rendering model they describe are
+BigWorld's and Wargaming's work. The credit for how World of Tanks looks
+belongs to them; what is original here is only the reimplementation.
+
+nuTerra is an unofficial, non-commercial project. It is not affiliated with,
+endorsed by, or sponsored by Wargaming.
+
+World of Tanks<sup>&reg;</sup> and Wargaming.net<sup>&reg;</sup> are
+registered trademarks of Wargaming Group Limited. BigWorld and BigWorld
+Technology are trademarks of Wargaming. All other trademarks are the property
+of their respective owners.
+
 ## Third-party credits
 
 Algorithms adapted from other projects and papers:
