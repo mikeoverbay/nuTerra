@@ -639,6 +639,9 @@ Module modGlobalVars
     Public FLY_CAM_PATH As Boolean = False
     ''' <summary>Draw the baked camera path in the world.</summary>
     Public SHOW_CAM_PATH As Boolean = False
+    ''' <summary>How much of the baked bank angle to actually apply. 0 flies
+    ''' the path with the horizon level, 1 uses the exported roll as-is.</summary>
+    Public CAM_ROLL_SCALE As Single = 1.0F
 
     Public MAP_BB_UR As Vector2
     Public MAP_BB_BL As Vector2

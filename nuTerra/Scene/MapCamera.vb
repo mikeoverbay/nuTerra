@@ -10,6 +10,11 @@ Public Class MapCamera
     Public CAM_POSITION As Vector3
     Public CAM_TARGET As Vector3
 
+    ''' <summary>Bank, radians, positive banks right. Set by flight playback
+    ''' and zero the rest of the time - the orbit rig has no roll of its own
+    ''' and nothing else should be tilting the horizon.</summary>
+    Public CAM_ROLL As Single
+
     ' camara start up position
     Public VIEW_RADIUS As Single = -500.0F
     Public CAM_X_ANGLE As Single = PI / 4.0F
@@ -151,6 +156,7 @@ Public Class MapCamera
         ' Roll is read and NOT applied. The view matrix below is a LookAt with a
         ' fixed world up, which has no roll axis - banking needs that replaced
         ' with a full basis. The data is there; the rig is not, yet.
+        CAM_ROLL = 0.0F
         If FLY_CAM_PATH AndAlso scene.cam_path IsNot Nothing AndAlso scene.cam_path.loaded Then
             Dim fpos As Vector3
             Dim fh, ft, fr As Single
@@ -160,6 +166,7 @@ Public Class MapCamera
                                         CSng(Math.Cos(ft) * Math.Cos(fh)))
                 CAM_POSITION = fpos
                 CAM_TARGET = fpos + look * 50.0F
+                CAM_ROLL = fr * CAM_ROLL_SCALE
             End If
         End If
 
@@ -168,7 +175,30 @@ Public Class MapCamera
                                    W / H,
                                    My.Settings.near, My.Settings.far) * REVERSE
         PerViewData.cameraPos = CAM_POSITION
-        PerViewData.view = Matrix4.LookAt(CAM_POSITION, CAM_TARGET, Vector3.UnitY)
+        ' Roll about the VIEW axis, by rotating the up vector around forward
+        ' rather than by post-multiplying a Z rotation onto the finished view.
+        '
+        ' Same result, but this way the roll is part of the basis LookAt builds,
+        ' so everything downstream that reads PerViewData.view - the deferred
+        ' resolve, SSR, the sky, billboards - banks with it and stays consistent.
+        ' A rotation bolted on afterwards would tilt the image while leaving the
+        ' reconstructed view rays pointing the old way.
+        '
+        ' Sign is MEASURED, not derived. Forcing +0.35 rad and looking at the
+        ' frame put the horizon higher on the right, which is a right bank - so
+        ' positive rolls right, matching what the .campath format documents. The
+        ' chain of conventions through OpenTK's LookAt basis is not worth
+        ' trusting; one screenshot settles it.
+        Dim up = Vector3.UnitY
+        If Math.Abs(CAM_ROLL) > 0.0001F Then
+            Dim fwd = CAM_TARGET - CAM_POSITION
+            If fwd.LengthSquared > 1.0E-8F Then
+                fwd = Vector3.Normalize(fwd)
+                up = Vector3.Normalize(Vector3.Transform(
+                        up, Quaternion.FromAxisAngle(fwd, CAM_ROLL)))
+            End If
+        End If
+        PerViewData.view = Matrix4.LookAt(CAM_POSITION, CAM_TARGET, up)
         PerViewData.viewProj = PerViewData.view * PerViewData.projection
         PerViewData.invViewProj = PerViewData.viewProj.Inverted()
         PerViewData.invView = PerViewData.view.Inverted()
