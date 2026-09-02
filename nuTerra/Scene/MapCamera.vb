@@ -113,6 +113,27 @@ Public Class MapCamera
         CAM_POSITION.Y = cam_y + LOOK_Y
         CAM_POSITION.Z = cam_z + U_LOOK_AT_Z
 
+        ' Keep the eye above the ground.
+        '
+        ' 2.5 m - a tall person - hard wired rather than exposed, because it is
+        ' a physical constant of standing on the map, not a look to be tuned.
+        '
+        ' The camera already sampled the terrain at the PIVOT (CURSOR_Y above);
+        ' it just never did it for the eye, so orbiting low or pushing the
+        ' radius in put the viewpoint underground and the frame filled with the
+        ' terrain backface. get_Y_at_XZ_fast is the no-scan lookup, cheap enough
+        ' to call per frame.
+        '
+        ' The TARGET is deliberately left alone. Lifting only the eye tilts the
+        ' view slightly as it slides up the terrain, which reads as the camera
+        ' riding the ground - moving the pivot instead would swing the whole
+        ' framing and feel like the map moved.
+        If MAP_LOADED Then
+            Const EYE_CLEARANCE As Single = 2.5F
+            Dim ground = get_Y_at_XZ_fast(CAM_POSITION.X, CAM_POSITION.Z) + EYE_CLEARANCE
+            If CAM_POSITION.Y < ground Then CAM_POSITION.Y = ground
+        End If
+
         CAM_TARGET = New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
 
         PerViewData.projection = Matrix4.CreatePerspectiveFieldOfView(
