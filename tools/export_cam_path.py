@@ -47,6 +47,9 @@ SMOOTH = True        # collision-checked shortcut + Chaikin on the flown path
 SMOOTH_REACH = 40    # points a shortcut may span. Bounded, or a loop shortcuts
                      # across its own middle and stops being a loop.
 SMOOTH_ITERS = 4     # Chaikin passes. Four is well past visually curved.
+SPIKE_DEG = 55.0     # turn sharper than this is a candidate zig-zag spike
+CORNER_STANDOFF = 3.0  # metres a rounded CORNER may come to an obstacle, against
+                       # the full standoff on the straights
 MIN_RADIUS = 12.0    # metres. Reported, not enforced - a corner too tight to
                      # fly is a speed problem, not a geometry one.
 
@@ -183,9 +186,29 @@ def build(map_name):
                        for i in range(len(p) if closed else len(p) - 1))
 
         r0, t0 = smooth_path.curvature_ok(flown, MIN_RADIUS, closed)
-        sm, kept = smooth_path.smooth(flown, seg_clear, nav.STEP, closed=closed,
-                                      reach=SMOOTH_REACH, iterations=SMOOTH_ITERS)
+        # A second, thinner mask used ONLY for rounding corners. Straights keep
+        # the full standoff; a corner may spend down to CORNER_STANDOFF, because
+        # a corner is the one place the path must bulge sideways and it is where
+        # sharpness shows most.
+        keep_r = nav.BODY_R
+        nav.BODY_R = CORNER_STANDOFF
+        c_raw, c_plan, _cd, _cp = nav.build_world(bake, None)
+        nav.BODY_R = keep_r
+        c_radar = nav.Radar(bake, c_plan, c_raw, cell_m)
+
+        def corner_clear(x0, z0, x1, z1):
+            d = math.hypot(x1 - x0, z1 - z0)
+            if d < 1e-6:
+                return True
+            return c_radar.clear(x0, z0, (x1 - x0) / d, (z1 - z0) / d, d)
+
+        sm, kept, spikes, refused = smooth_path.smooth(
+            flown, seg_clear, nav.STEP, closed=closed,
+            reach=SMOOTH_REACH, iterations=SMOOTH_ITERS, tight_deg=SPIKE_DEG,
+            corner_clear=corner_clear)
         r1, t1 = smooth_path.curvature_ok(sm, MIN_RADIUS, closed)
+        print(f"  despiked {spikes[0]} before the shortcut, {spikes[1]} after; "
+              f"Chaikin refused {refused} corner cuts as unsafe")
         print(f"  smoothed: {len(flown)} -> {kept} shortcut -> {len(sm)} points, "
               f"{plen(flown):.0f} -> {plen(sm):.0f} m")
         print(f"  tightest turn {r0:.1f} -> {r1:.1f} m, "

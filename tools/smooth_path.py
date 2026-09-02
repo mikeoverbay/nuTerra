@@ -30,9 +30,93 @@ flyable. Nothing here knows about bakes or radars.
 
 import math
 
+# Chaikin cut ratios, tried in order. 0.25 is the classic corner cut; the rest
+# are fallbacks for corners where it would clip.
+CUT_RATIOS = (0.25, 0.15, 0.08, 0.04)
+
 
 def _seg_clear(clear, a, b):
     return clear(a[0], a[1], b[0], b[1])
+
+
+def despike(pts, clear, closed=True, tight_deg=55.0, passes=6):
+    """Drop zig-zag spikes: points where the path doubles back instead of turning.
+
+    Three consecutive points a, b, c. Two tests, and b is removed only if both
+    pass and the shortcut is legal:
+
+      1. The turn at b is tighter than tight_deg. A gentle bend is a corner, not
+         a spike, and rounding those is Chaikin's job.
+
+      2. Take the LONGER of a->b and b->c and build the circle on it as a
+         DIAMETER. If the remaining point falls inside, the three points have
+         doubled back on themselves.
+
+         That circle test is exactly "does the far point see the long leg at
+         more than 90 degrees" - the inscribed angle in a semicircle is a right
+         angle, so inside means obtuse. It is a cheap, scale-free way of asking
+         whether c came back toward a rather than carrying on past b, which is
+         what a spike is and what an honest corner is not. Written as a dot
+         product rather than a distance to a centre: (q-A).(q-B) < 0.
+
+      3. a->c is collision free. Without this the filter cheerfully cuts the
+         corner into the thing the navigator was avoiding - a spike is often a
+         spike BECAUSE something was in the way.
+
+    Repeated until nothing more comes out, because removing one point can expose
+    the next. Neighbours removed in the same pass are skipped so a run of spikes
+    cannot collapse into a segment nobody checked.
+    """
+    tight = math.radians(tight_deg)
+    cur = list(pts)
+    total = 0
+
+    for _ in range(max(1, passes)):
+        n = len(cur)
+        if n < 5:
+            break
+        keep = [True] * n
+        removed = 0
+        rng = range(n) if closed else range(1, n - 1)
+
+        for i in rng:
+            if not keep[i]:
+                continue
+            ia, ic = (i - 1) % n, (i + 1) % n
+            if not keep[ia] or not keep[ic]:
+                continue
+            a, b, c = cur[ia], cur[i], cur[ic]
+
+            ux, uz = b[0] - a[0], b[1] - a[1]
+            vx, vz = c[0] - b[0], c[1] - b[1]
+            lu = math.hypot(ux, uz)
+            lv = math.hypot(vx, vz)
+            if lu < 1e-6 or lv < 1e-6:
+                continue
+
+            dot = (ux * vx + uz * vz) / (lu * lv)
+            if math.acos(min(max(dot, -1.0), 1.0)) < tight:
+                continue
+
+            if lu >= lv:
+                A, B, q = a, b, c
+            else:
+                A, B, q = b, c, a
+            if ((q[0] - A[0]) * (q[0] - B[0]) + (q[1] - A[1]) * (q[1] - B[1])) >= 0.0:
+                continue
+
+            if not _seg_clear(clear, a, c):
+                continue
+
+            keep[i] = False
+            removed += 1
+
+        if removed == 0:
+            break
+        cur = [p for p, k in zip(cur, keep) if k]
+        total += removed
+
+    return cur, total
 
 
 def shortcut(pts, clear, closed=True, max_reach=None):
@@ -72,7 +156,7 @@ def shortcut(pts, clear, closed=True, max_reach=None):
     return out
 
 
-def chaikin(pts, clear, closed=True, iterations=4):
+def chaikin(pts, clear, closed=True, iterations=4, corner_clear=None):
     """Chaikin corner cutting, with every generated point checked.
 
     One pass replaces each edge with its quarter and three-quarter points. Four
@@ -83,7 +167,13 @@ def chaikin(pts, clear, closed=True, iterations=4):
     stays sharp rather than being rounded into an obstacle. That is why this
     cannot be replaced by scipy's splprep, which has no way to refuse.
     """
+    # Corners may be checked against a MORE PERMISSIVE mask than the straights.
+    # A corner is where a standoff costs the most - it is the only place the
+    # path has to bulge sideways - so spending part of the margin there buys
+    # smoothness where sharpness is most visible. Defaults to the same mask.
+    corner_clear = corner_clear or clear
     cur = list(pts)
+    refused = 0
     for _ in range(max(0, iterations)):
         n = len(cur)
         if n < 3:
@@ -95,18 +185,50 @@ def chaikin(pts, clear, closed=True, iterations=4):
         for i in rng:
             a = cur[i]
             b = cur[(i + 1) % n]
-            q = (a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25)
-            r = (a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75)
-            if _seg_clear(clear, a, q) and _seg_clear(clear, q, r) and _seg_clear(clear, r, b):
-                nxt.append(q)
-                nxt.append(r)
-            else:
+
+            # Chaikin's classic cut is at a quarter and three quarters. When
+            # that is refused, retry GENTLER rather than giving up: a smaller
+            # cut moves the path less, so it is more likely to stay clear, and a
+            # partly rounded corner is worth more than a sharp one.
+            #
+            # Refusing outright left 25 corners uncut on Abbey and the tightest
+            # turn at 2.2 m. Those are exactly the corners the camera has to
+            # throw itself round.
+            done = False
+            for t in CUT_RATIOS:
+                q = (a[0] * (1 - t) + b[0] * t, a[1] * (1 - t) + b[1] * t)
+                r = (a[0] * t + b[0] * (1 - t), a[1] * t + b[1] * (1 - t))
+                if (_seg_clear(corner_clear, a, q) and _seg_clear(corner_clear, q, r)
+                        and _seg_clear(corner_clear, r, b)):
+                    nxt.append(q)
+                    nxt.append(r)
+                    done = True
+                    break
+            if not done:
                 nxt.append(a)
                 nxt.append(b)
+                refused += 1
         if not closed:
             nxt.append(cur[-1])
-        cur = nxt
-    return cur
+
+        # The CORNER CHORD - from one edge's r to the next edge's q - straddles
+        # the old vertex and is the segment that actually cuts the corner. The
+        # per-edge tests above never touch it, so a corner could be rounded
+        # straight through an obstacle and nothing here would notice. Check it,
+        # and put the old vertex back where it fails.
+        m = len(nxt)
+        fixed = []
+        for k in range(m):
+            fixed.append(nxt[k])
+            if k % 2 == 1 and (closed or k + 1 < m):
+                nk = (k + 1) % m
+                if not _seg_clear(corner_clear, nxt[k], nxt[nk]):
+                    # restore the vertex this pair was cut from
+                    src = cur[((k // 2) + 1) % len(cur)]
+                    fixed.append(src)
+                    refused += 1
+        cur = fixed
+    return cur, refused
 
 
 def resample(pts, step_m, closed=True):
@@ -176,8 +298,27 @@ def curvature_ok(pts, min_radius_m, closed=True):
     return worst, tight
 
 
-def smooth(pts, clear, step_m, closed=True, reach=None, iterations=4):
-    """The whole pipeline: shortcut, cut corners, resample evenly."""
-    a = shortcut(pts, clear, closed=closed, max_reach=reach)
-    b = chaikin(a, clear, closed=closed, iterations=iterations)
-    return resample(b, step_m, closed=closed), len(a)
+def smooth(pts, clear, step_m, closed=True, reach=None, iterations=4,
+           tight_deg=55.0, corner_clear=None):
+    """The whole pipeline: despike, shortcut, cut corners, resample evenly.
+
+    Despike FIRST. It removes the doubling-back that the shortcut would
+    otherwise have to reach across, and it is the pass that targets what is
+    actually visible - a sharp zig is far more obvious in flight than a route
+    that is a few metres longer than it needs to be.
+    """
+    d, s1 = despike(pts, clear, closed=closed, tight_deg=tight_deg)
+    a = shortcut(d, clear, closed=closed, max_reach=reach)
+
+    # Despike AGAIN, after the shortcut. This is where it actually bites.
+    #
+    # On the raw path every leg is one STEP long, so the circle-on-a-diameter
+    # test only fires on a near-complete reversal and finds nothing - measured,
+    # 0 points on Abbey. After string-pulling the vertices are tens of metres
+    # apart and a genuine zig finally looks like a spike at this scale, which is
+    # the scale it is visible at in flight.
+    a, s2 = despike(a, clear, closed=closed, tight_deg=tight_deg)
+
+    b, refused = chaikin(a, clear, closed=closed, iterations=iterations,
+                         corner_clear=corner_clear)
+    return resample(b, step_m, closed=closed), len(a), (s1, s2), refused
