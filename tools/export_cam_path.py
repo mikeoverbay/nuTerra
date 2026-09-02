@@ -36,11 +36,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import radar_commit as nav
 import cam_path
+import smooth_path
 
 
 # --------------------------------------------------------------------------
 # Camera behaviour. These are the numbers worth arguing about.
 # --------------------------------------------------------------------------
+
+SMOOTH = True        # collision-checked shortcut + Chaikin on the flown path
+SMOOTH_REACH = 40    # points a shortcut may span. Bounded, or a loop shortcuts
+                     # across its own middle and stops being a loop.
+SMOOTH_ITERS = 4     # Chaikin passes. Four is well past visually curved.
+MIN_RADIUS = 12.0    # metres. Reported, not enforced - a corner too tight to
+                     # fly is a speed problem, not a geometry one.
 
 CRUISE = 12.0        # metres per second along the path
 TILT_BIAS = -4.0     # degrees. Negative looks slightly down, like a person
@@ -147,13 +155,40 @@ def build(map_name):
             print(f"  level Y = {level:.1f} m, "
                   f"{100.0 * raw.mean():.2f}% of the map reaches it")
 
-    path = np.asarray(res["path"], dtype=float)
+    closed = bool(res["closed"])
+    flown = [(float(a), float(b)) for (a, b) in res["path"]]
+    print(f"  {len(flown)} points, closed={closed}, "
+          f"{res['detours']} detours, {res['reversals']} reversals")
+
+    if SMOOTH:
+        # Checked against the SAME dilated mask the navigator flew by, so a
+        # shortcut or a cut corner keeps the standoff rather than trading it for
+        # smoothness.
+        def seg_clear(x0, z0, x1, z1):
+            d = math.hypot(x1 - x0, z1 - z0)
+            if d < 1e-6:
+                return True
+            return radar.clear(x0, z0, (x1 - x0) / d, (z1 - z0) / d, d)
+
+        def plen(p):
+            return sum(math.hypot(p[(i + 1) % len(p)][0] - p[i][0],
+                                  p[(i + 1) % len(p)][1] - p[i][1])
+                       for i in range(len(p) if closed else len(p) - 1))
+
+        r0, t0 = smooth_path.curvature_ok(flown, MIN_RADIUS, closed)
+        sm, kept = smooth_path.smooth(flown, seg_clear, nav.STEP, closed=closed,
+                                      reach=SMOOTH_REACH, iterations=SMOOTH_ITERS)
+        r1, t1 = smooth_path.curvature_ok(sm, MIN_RADIUS, closed)
+        print(f"  smoothed: {len(flown)} -> {kept} shortcut -> {len(sm)} points, "
+              f"{plen(flown):.0f} -> {plen(sm):.0f} m")
+        print(f"  tightest turn {r0:.1f} -> {r1:.1f} m, "
+              f"corners under {MIN_RADIUS:.0f} m: {t0} -> {t1}")
+        flown = sm
+
+    path = np.asarray(flown, dtype=float)
     x = path[:, 0]
     z = path[:, 1]
     n = len(x)
-    closed = bool(res["closed"])
-    print(f"  {n} points, closed={closed}, "
-          f"{res['detours']} detours, {res['reversals']} reversals")
 
     # ---------------------------------------------------------------- arc len
     dx = np.diff(x, append=x[0] if closed else x[-1])
@@ -331,7 +366,9 @@ def main():
     if not ok:
         raise SystemExit("the file does not read back as what was written")
 
-    clips = check_clips(bake, raw, pts, worlds=worlds, levels=res.get("levels"))
+    # Not res["levels"] - after smoothing the point count has changed and that
+    # array no longer lines up with pts. Terrain-following has one world anyway.
+    clips = check_clips(bake, raw, pts, worlds=worlds if not SMOOTH else None)
     print(f"  clips on the exported positions: {clips}")
 
     agl = sorted(p[1] - bake.sample(bake.floor, p[0], p[2]) for p in pts)
