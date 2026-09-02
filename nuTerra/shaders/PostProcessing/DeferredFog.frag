@@ -139,13 +139,35 @@ void main()
 
     //gColor.rgb = deferred_mix.rgb;
     // terrain painting
-    gColor.rgb = mix(deferred_mix.rgb, color.rgb, 0.95-deferred_mix.a);
+    //
+    // The factor MUST be clamped. deferred_mix.a arrives in 0..1, so
+    // 0.95 - a reaches -0.05 - and a negative mix factor is not a weaker
+    // blend, it EXTRAPOLATES away from color. color.rgb here reaches about 5
+    // (noise * fog_tint * 6), so -0.05 of it subtracts roughly 0.25 from the
+    // scene: invisible on a bright pixel, and enough to push a dark one below
+    // zero. The pow() below then takes a fractional power of a negative
+    // number, which is UNDEFINED in GLSL - NaN - so the pixel blacks out or
+    // goes to garbage colour.
+    //
+    // That is why this broke as BRIGHTNESS came down. BRIGHTNESS scales
+    // final_color in deferred.frag long before this runs, so it decides
+    // whether the scene sits above or below that 0.25 - the fog itself never
+    // changed. Fixed here rather than by constraining BRIGHTNESS, which is a
+    // separate control and should stay independent of the fog.
+    //
+    // Where deferred_mix.a <= 0.95 the clamp is inert and the result is
+    // bit-identical to before, so this cannot alter a view that already looked
+    // right.
+    gColor.rgb = mix(deferred_mix.rgb, color.rgb, clamp(0.95 - deferred_mix.a, 0.0, 1.0));
     // Add some top level fog
     gColor.rgb = mix(gColor.rgb, props.fog_tint.rgb, 1.0-deferred_mix.a );
     
     //gamma the hell out of the fog.
+    // max() because pow(negative, fractional) is undefined. The clamp above
+    // removes the one known source; this keeps any future one a visibly wrong
+    // colour rather than a field of NaN.
     float gamma = 2.2;
-    gColor.rgb = pow(gColor.rgb, vec3(1.0/gamma));
+    gColor.rgb = pow(max(gColor.rgb, 0.0), vec3(1.0/gamma));
     gColor.rgb = mix(deferred_mix.rgb, gColor.rgb, props.fog_level);
 
 }
