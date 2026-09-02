@@ -395,7 +395,16 @@ Public Class MapMinimap
     '''   builds its projection over -MAP_BB_UR.Y .. -MAP_BB_BL.Y. That is why
     '''   every rect in this file is passed as (Left, -Top, Right, -Bottom).
     '''
-    ''' Net: a world point (wx, wz) goes to the shader as (-wx, -wz).
+    ''' Net: a world point (wx, wz) goes to the shader as (wx, -wz). X passes
+    ''' through UNNEGATED, which is not what the chain above predicts and is
+    ''' what the map actually does - Ortho_MiniMap is built REVERSED
+    ''' (left=UR.X, right=BL.X), and that reversal cancels the world-to-MAP_BB
+    ''' flip. Deriving it gives the mirror image and looks perfectly convincing
+    ''' on a roughly symmetric map.
+    '''
+    ''' Settled against a landmark rather than algebra: Abbey's lake is at world
+    ''' x about -460 and draws on the RIGHT of the minimap, so world +X is to
+    ''' the LEFT. Any future change here should be checked the same way.
     '''
     ''' Decimated. The path is 2 m apart and the minimap is a couple of
     ''' hundred pixels across a 1400 m map, so consecutive points land on the
@@ -428,7 +437,7 @@ Public Class MapMinimap
             If i = j Then Exit While
             Dim a = cp.points(i).pos
             Dim b = cp.points(j).pos
-            GL.Uniform4(coloredline2dShader("rect"), -a.X, -a.Z, -b.X, -b.Z)
+            GL.Uniform4(coloredline2dShader("rect"), a.X, -a.Z, b.X, -b.Z)
             GL.DrawArrays(PrimitiveType.Lines, 0, 2)
             i = j
             If j = n - 1 Then Exit While
@@ -439,7 +448,7 @@ Public Class MapMinimap
         If cp.closed Then
             Dim a = cp.points(n - 1).pos
             Dim b = cp.points(0).pos
-            GL.Uniform4(coloredline2dShader("rect"), -a.X, -a.Z, -b.X, -b.Z)
+            GL.Uniform4(coloredline2dShader("rect"), a.X, -a.Z, b.X, -b.Z)
             GL.DrawArrays(PrimitiveType.Lines, 0, 2)
         End If
 
@@ -454,9 +463,9 @@ Public Class MapMinimap
         Dim sp = cp.points(0).pos
         Dim arm = Math.Max(8.0F, span * 0.018F)
         GL.Uniform4(coloredline2dShader("color"), New Color4(0.35F, 1.0F, 0.55F, 1.0F))
-        GL.Uniform4(coloredline2dShader("rect"), -sp.X - arm, -sp.Z, -sp.X + arm, -sp.Z)
+        GL.Uniform4(coloredline2dShader("rect"), sp.X - arm, -sp.Z, sp.X + arm, -sp.Z)
         GL.DrawArrays(PrimitiveType.Lines, 0, 2)
-        GL.Uniform4(coloredline2dShader("rect"), -sp.X, -sp.Z - arm, -sp.X, -sp.Z + arm)
+        GL.Uniform4(coloredline2dShader("rect"), sp.X, -sp.Z - arm, sp.X, -sp.Z + arm)
         GL.DrawArrays(PrimitiveType.Lines, 0, 2)
 
         coloredline2dShader.StopUse()
