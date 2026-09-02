@@ -1,4 +1,5 @@
 ﻿Imports System.IO
+Imports System.IO.Compression
 Imports System.Runtime.InteropServices
 Imports System.Text
 Imports OpenTK.Graphics
@@ -377,6 +378,22 @@ Module TerrainBuilder
     End Sub
 
     '=======================================================================
+    ' <summary>
+    ' One entry of a chunk archive as bytes, or Nothing when it is not there.
+    ' Matches what DotNetZip's t2("name") indexer returned for a miss, so the
+    ' optional entries (horizonshadows, holes) keep behaving the same way.
+    ' </summary>
+    Private Function chunk_bytes(archive As ZipArchive, name As String) As Byte()
+        Dim e = archive.GetEntry(name)
+        If e Is Nothing Then Return Nothing
+        Using src = e.Open()
+            Using ms As New MemoryStream
+                src.CopyTo(ms)
+                Return ms.ToArray()
+            End Using
+        End Using
+    End Function
+
     Public Sub get_all_chunk_file_data()
         ' Reads and stores the contents of each cdata_processed
         Dim ABS_NAME = Path.GetFileNameWithoutExtension(MAP_NAME_NO_PATH)
@@ -472,68 +489,26 @@ Module TerrainBuilder
 
                 Dim cms As New MemoryStream(theMap.chunks(cnt).cdata)
                 cms.Position = 0
-                Using t2 As Ionic.Zip.ZipFile = Ionic.Zip.ZipFile.Read(cms)
+                ' The chunk blob is itself a zip. Read it with ZipArchive; the seven
+                ' near-identical extract blocks that used to live here collapse into
+                ' chunk_bytes(), which returns Nothing for an absent entry exactly as
+                ' the old t2("name") indexer did.
+                Using t2 As New ZipArchive(cms, ZipArchiveMode.Read)
 
-                    Dim stream = New MemoryStream
-                    br = New BinaryReader(stream)
-
-                    Dim blend = t2("terrain2/blend_textures")
-                    stream = New MemoryStream
-                    blend.Extract(stream)
-                    stream.Position = 0
-                    br = New BinaryReader(stream)
-                    theMap.chunks(cnt).blend_textures_data = br.ReadBytes(stream.Length)
-
-                    Dim dominate = t2("terrain2/dominanttextures")
-                    stream = New MemoryStream
-                    dominate.Extract(stream)
-                    stream.Position = 0
-                    br = New BinaryReader(stream)
-                    theMap.chunks(cnt).dominateTestures_data = br.ReadBytes(stream.Length)
-
-                    Dim heights = t2("terrain2/heights")
-                    stream = New MemoryStream
-                    heights.Extract(stream)
-                    stream.Position = 0
-                    br = New BinaryReader(stream)
-                    theMap.chunks(cnt).heights_data = br.ReadBytes(stream.Length)
-
-                    Dim layers = t2("terrain2/layers")
-                    stream = New MemoryStream
-                    layers.Extract(stream)
-                    stream.Position = 0
-                    br = New BinaryReader(stream)
-                    theMap.chunks(cnt).layers_data = br.ReadBytes(stream.Length)
-
-                    'Dim normals = t2("terrain2/normals")
-                    'stream = New MemoryStream
-                    'normals.Extract(stream)
-                    'stream.Position = 0
-                    'br = New BinaryReader(stream)
-                    'theMap.chunks(cnt).normals_data = br.ReadBytes(stream.Length)
+                    theMap.chunks(cnt).blend_textures_data = chunk_bytes(t2, "terrain2/blend_textures")
+                    theMap.chunks(cnt).dominateTestures_data = chunk_bytes(t2, "terrain2/dominanttextures")
+                    theMap.chunks(cnt).heights_data = chunk_bytes(t2, "terrain2/heights")
+                    theMap.chunks(cnt).layers_data = chunk_bytes(t2, "terrain2/layers")
 
                     ' Baked terrain self shadowing. Header is "shd", 128 x 128,
                     ' 4 bits per texel - it stores a horizon angle, not a shadow
                     ' image, which is why it survives the day/night cycle.
-                    Dim horizon = t2("terrain2/horizonshadows")
-                    If horizon IsNot Nothing Then
-                        stream = New MemoryStream
-                        horizon.Extract(stream)
-                        stream.Position = 0
-                        br = New BinaryReader(stream)
-                        theMap.chunks(cnt).horizon_data = br.ReadBytes(stream.Length)
-                    End If
+                    theMap.chunks(cnt).horizon_data = chunk_bytes(t2, "terrain2/horizonshadows")
 
-                    Dim holes = t2("terrain2/holes")
+                    Dim holes = chunk_bytes(t2, "terrain2/holes")
+                    theMap.chunks(cnt).has_holes = holes IsNot Nothing
                     If holes IsNot Nothing Then
-                        theMap.chunks(cnt).has_holes = True
-                        stream = New MemoryStream
-                        holes.Extract(stream)
-                        stream.Position = 0
-                        br = New BinaryReader(stream)
-                        theMap.chunks(cnt).holes_data = br.ReadBytes(stream.Length)
-                    Else
-                        theMap.chunks(cnt).has_holes = False
+                        theMap.chunks(cnt).holes_data = holes
                     End If
                 End Using
                 theMap.chunks(cnt).cdata = Nothing ' Free up memory now that its processed

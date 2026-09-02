@@ -1,8 +1,8 @@
 ﻿Imports System.IO
+Imports System.IO.Compression
 Imports System.Math
 Imports System.Runtime.InteropServices
 Imports Hjg.Pngcs
-Imports Ionic
 Imports OpenTK.Mathematics
 Imports OpenTK.Graphics.OpenGL
 Imports GL4 = OpenTK.Graphics.OpenGL4
@@ -816,8 +816,12 @@ Module ChunkFunctions
         Dim ps As New MemoryStream(buff)
         Dim total_read As Integer = 0
         'unzip the data
-        Using Decompress As Zlib.ZlibStream = New Zlib.ZlibStream(ms, Zlib.CompressionMode.Decompress, False)
-            Decompress.BufferSize = 65536
+        ' System.IO.Compression.ZLibStream, new in .NET 6, replaces
+        ' Ionic.Zlib.ZlibStream. Same zlib framing, same Decompress mode, same
+        ' leaveOpen:=False. Ionic BufferSize property has no counterpart and is
+        ' dropped: it only sized Ionic own internal buffer, and the 64 KiB read
+        ' buffer below - which is what actually paces this loop - is unchanged.
+        Using Decompress As New ZLibStream(ms, CompressionMode.Decompress, False)
             Dim buffer(65536) As Byte
             Dim numRead As Integer
             numRead = Decompress.Read(buffer, 0, buffer.Length)
