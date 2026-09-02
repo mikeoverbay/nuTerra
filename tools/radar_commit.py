@@ -74,6 +74,21 @@ TERRACE_LIFT = 3.0    # metres to raise every terrace by when the loop will not
                       # used and it ran to the step limit; more air reopens them.
 TERRACE_TRIES = 6
 
+# Push nominal course samples that sit inside an obstacle out to the nearest
+# free cell before flying.
+#
+# OFF, and kept because the finding is worth more than the code. The diagnosis
+# was right - at +0 lift, terrace 9 had 23 of its 24 course samples inside an
+# obstacle at its own level, because flight_plan routed at altitude and only
+# avoided things over 55 m. But repairing them did NOT make the loop close, and
+# made everything else worse: minimum clearance 6.84 -> 3.06 m, reversals
+# 0 -> 63, length 1355 -> 1804 m. The repaired samples land just barely outside
+# the planning mask and the flight then hugs them.
+#
+# The real fix is upstream - flight_plan should route the nominal course at the
+# altitude it will be flown at, instead of being repaired afterwards.
+REPAIR_COURSE = False
+
 # Set by main once the level is settled, so score and draw can read it without
 # threading it through every signature. One number, constant for a whole run.
 FLIGHT_Y = None
@@ -86,6 +101,25 @@ LOOKAHEAD = 14.0     # metres ahead on the nominal course we aim at
 RADAR_FOV = 150.0    # total fan width, degrees
 RADAR_RAYS = 41      # rays in the fan
 RADAR_RANGE = 90.0   # maximum radar range, metres
+
+# How far a hit must stand above the flight level, AVERAGED over the hit cell
+# and the samples behind it, before it counts as a real object.
+#
+# A single cell at the hit cannot tell a barn from a hillside grazing the
+# level - both read as blocked. Sampling PAST the hit separates them: a
+# building stands well clear and keeps standing, terrain that merely brushes
+# the level stays barely over it all the way through.
+SOLID_H = 3.0
+POST_SAMPLES = 3
+
+# Standoff is for OBJECTS. Terrain gets its own, much smaller.
+#
+# Dilating both by 8 m is what sealed Abbey and forced the camera 9 m up: at a
+# low terrace most blocked cells are ground, not things, and pushing 8 m back
+# from every slope closes every gap on the map. You want to be well clear of a
+# barn; you only need to not scrape a hillside you are already above.
+OBJECT_MIN_H = 2.0   # stands this far over its own ground -> it is an object
+TERRAIN_R = 3.0      # standoff from ground that merely reaches the level
 
 SWEEP_STEP = 4.0     # degrees between candidate bearings
 MAX_DETOUR = 700.0   # metres on one detour before the guard fires
@@ -243,6 +277,28 @@ class Radar:
             if m[iy, ix]:
                 return t * self.cell
 
+    def solidity(self, x, z, ux, uz, hit_r):
+        """Mean height above the flight level over the hit cell and the next
+        POST_SAMPLES cells along the ray.
+
+        This is the object-versus-terrain test. Big number: something is
+        standing there. Small number: the ground has drifted a little over the
+        level and will drift back.
+        """
+        if self.level is None:
+            return 1e9
+        tot = 0.0
+        cnt = 0
+        for k in range(POST_SAMPLES + 1):
+            d = hit_r + k * self.cell
+            px, pz = x + ux * d, z + uz * d
+            c, r = self.bake.texel_of(px, pz)
+            ci = int(min(max(int(round(c)), 0), self.w - 1))
+            ri = int(min(max(int(round(r)), 0), self.h - 1))
+            tot += float(self.bake.top[ri, ci]) - self.level
+            cnt += 1
+        return tot / max(cnt, 1)
+
     def clear(self, x, z, ux, uz, dist):
         """Is the whole segment of length dist flyable?"""
         return self.march(x, z, ux, uz, dist + 1e-6) >= dist - 1e-6
@@ -335,23 +391,57 @@ def plan_flight(bake, nx, nz, two_point, verbose=True):
             raw_i, plan_i, dist_i, pad_i = build_world(bake, lv)
             worlds.append((lv, plan_i, raw_i, dist_i))
 
+        # Repair the nominal course before flying it.
+        #
+        # The course came from flight_plan, which planned at altitude and only
+        # avoided things over 55 m - so at 4 m over the ground it runs straight
+        # through buildings. Measured on Abbey: terrace 9 had 23 of its 24
+        # course samples sitting INSIDE an obstacle at that terrace's own level.
+        #
+        # That is not something the navigator can fly around, because the thing
+        # it is trying to reach is the thing in the way; it thrashed for 2944
+        # reversals and never closed. Raising the whole route by 9 m hid it.
+        # Pushing the unreachable samples out to the nearest free cell fixes the
+        # course instead, and leaves the camera where it was asked to be.
+        cx, cz = np.array(nx, dtype=float), np.array(nz, dtype=float)
+        moved = 0
+        free_cache = {}
+        for i in range(len(cx) if REPAIR_COURSE else 0):
+            k = int(terrace_of[i])
+            plan_k = worlds[k][1]
+            c, r = bake.texel_of(cx[i], cz[i])
+            ci = int(np.clip(round(c), 0, bake.w - 1))
+            ri = int(np.clip(round(r), 0, bake.h - 1))
+            if not plan_k[ri, ci]:
+                continue
+            if k not in free_cache:
+                free_cache[k] = np.argwhere(~plan_k)
+            free = free_cache[k]
+            d = (free[:, 0] - ri) ** 2 + (free[:, 1] - ci) ** 2
+            fr, fc = free[int(np.argmin(d))]
+            cx[i], cz[i] = bake.world_of(fc, fr)
+            moved += 1
+        if verbose and moved:
+            print(f"  repaired {moved} of {len(cx)} course samples that sat "
+                  f"inside an obstacle at their own terrace")
+
         radar = Radar(bake, worlds[0][1], worlds[0][2], cell_m,
                       levels=[(w[0], w[1], w[2]) for w in worlds])
 
-        probe = fly(bake, radar, nx, nz, two_point, record_fans=False,
+        probe = fly(bake, radar, cx, cz, two_point, record_fans=False,
                     terrace_of=terrace_of)
         if probe["closed"]:
             if verbose and extra > 0.0:
                 print(f"  needed +{extra:.0f} m over the whole route to close "
                       f"at a {BODY_R:.0f} m standoff")
-            return terrace_of, tlevels, worlds, radar, extra
+            return terrace_of, tlevels, worlds, radar, extra, cx, cz
 
         if verbose:
             print(f"  will not close at +{extra:.0f} m, raising every terrace "
                   f"by {TERRACE_LIFT:.0f} m")
         extra += TERRACE_LIFT
 
-    return terrace_of, tlevels, worlds, radar, extra
+    return terrace_of, tlevels, worlds, radar, extra, cx, cz
 
 
 def pick_level(bake, nx, nz):
@@ -365,6 +455,9 @@ def pick_level(bake, nx, nz):
     """
     g = [bake.sample(bake.floor, nx[i], nz[i]) for i in range(len(nx))]
     return float(max(g)) + LEVEL_CLEAR
+
+
+TRAP_STATS = {"object": 0, "terrain": 0}
 
 
 def bearing_ok(radar, x, z, a, two_point):
@@ -381,7 +474,23 @@ def bearing_ok(radar, x, z, a, two_point):
         return False
     if not two_point:
         return True
-    return radar.clear(x, z, ux, uz, FAR_D)
+    if radar.clear(x, z, ux, uz, FAR_D):
+        return True
+
+    # The far point is blocked - but by WHAT? Shoot past the hit and average.
+    #
+    # Terrain that merely grazes the flight level is not a trap, it is the
+    # ground doing what ground does, and refusing those bearings is what turned
+    # the trap rule from load bearing at a 4 m standoff into a cost at 8 m: the
+    # far probe sits 22 m out, and with the dilation widened it lands on a
+    # grazing slope constantly. Only a real object closes a bearing.
+    r = radar.march(x, z, ux, uz, FAR_D)
+    solid = radar.solidity(x, z, ux, uz, r)
+    if solid >= SOLID_H:
+        TRAP_STATS["object"] += 1
+        return False
+    TRAP_STATS["terrain"] += 1
+    return True
 
 
 def ang_norm(a):
@@ -978,8 +1087,14 @@ def build_world(bake, level):
     else:
         raw = bake.obstacle > BLOCK_H
 
+    # Two standoffs, not one. Split the blocked set by whether something is
+    # STANDING there or the ground itself has reached the flight level, and
+    # dilate them separately.
+    standing = (bake.top - bake.floor) > OBJECT_MIN_H
     pad = max(1, int(round(BODY_R / cell_m)))
-    plan = ndimage.binary_dilation(raw, iterations=pad)
+    tpad = max(1, int(round(TERRAIN_R / cell_m)))
+    plan = (ndimage.binary_dilation(raw & standing, iterations=pad)
+            | ndimage.binary_dilation(raw & ~standing, iterations=tpad))
     plan[:4, :] = plan[-4:, :] = True
     plan[:, :4] = plan[:, -4:] = True
     dist_m = ndimage.distance_transform_edt(~raw) * cell_m
@@ -998,7 +1113,7 @@ def main():
     worlds = None
 
     if TERRACED:
-        terrace_of, tlevels, worlds, radar, extra = plan_flight(bake, nx, nz, two_point)
+        terrace_of, tlevels, worlds, radar, extra, nx, nz = plan_flight(bake, nx, nz, two_point)
 
         spacing = float(np.mean(np.hypot(np.diff(nx, append=nx[0]),
                                          np.diff(nz, append=nz[0]))))
@@ -1014,8 +1129,16 @@ def main():
 
         runs = {}
         for tag, tp in (("trap rule OFF", False), ("trap rule ON", True)):
+            TRAP_STATS["object"] = TRAP_STATS["terrain"] = 0
             res = fly(bake, radar, nx, nz, tp, record_fans=(tp == two_point),
                       terrace_of=terrace_of)
+            if tp:
+                tot = TRAP_STATS["object"] + TRAP_STATS["terrain"]
+                if tot:
+                    print(f"  far-probe hits: {TRAP_STATS['object']} object "
+                          f"({100.0 * TRAP_STATS['object'] / tot:.0f}%), "
+                          f"{TRAP_STATS['terrain']} terrain graze - "
+                          f"grazes no longer close a bearing")
             sc = score(bake, radar, res, nx, nz, dist_m, worlds=worlds)
             runs[tp] = (res, sc)
             print(f"{tag:14s} closed={res['closed']} len={sc['length']:7.0f} m  "

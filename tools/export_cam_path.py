@@ -115,7 +115,7 @@ def build(map_name):
         # Same planner the navigator uses, including its lift search. Calling it
         # rather than repeating it is the whole point - a second copy here is
         # how the exported path ends up flown against different obstacles.
-        terrace_of, tlevels, worlds, radar, extra = nav.plan_flight(
+        terrace_of, tlevels, worlds, radar, extra, nx, nz = nav.plan_flight(
             bake, nx, nz, two_point=True)
         nav.FLIGHT_Y = None
         res = nav.fly(bake, radar, nx, nz, two_point=True, record_fans=False,
