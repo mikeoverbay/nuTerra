@@ -136,6 +136,33 @@ Public Class MapCamera
 
         CAM_TARGET = New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
 
+        ' Flight playback replaces the orbit rig outright rather than driving it.
+        '
+        ' Driving it looked tidier - set LOOK_AT and the two angles so the eye
+        ' lands on the path point - but the pivot's height is CURSOR_Y plus
+        ' U_LOOK_AT_Y, and CURSOR_Y is the terrain under the MOUSE. The flight
+        ' would have been quietly offset by wherever the pointer happened to be.
+        '
+        ' The ground clamp above is skipped with it on purpose: the path is
+        ' already 5 m above terrain by construction and re-clamping here would
+        ' fight its descent into a dip using a different height function from
+        ' the one that planned it.
+        '
+        ' Roll is read and NOT applied. The view matrix below is a LookAt with a
+        ' fixed world up, which has no roll axis - banking needs that replaced
+        ' with a full basis. The data is there; the rig is not, yet.
+        If FLY_CAM_PATH AndAlso scene.cam_path IsNot Nothing AndAlso scene.cam_path.loaded Then
+            Dim fpos As Vector3
+            Dim fh, ft, fr As Single
+            If scene.cam_path.Sample(DELTA_TIME, fpos, fh, ft, fr) Then
+                Dim look As New Vector3(CSng(Math.Cos(ft) * Math.Sin(fh)),
+                                        CSng(Math.Sin(ft)),
+                                        CSng(Math.Cos(ft) * Math.Cos(fh)))
+                CAM_POSITION = fpos
+                CAM_TARGET = fpos + look * 50.0F
+            End If
+        End If
+
         PerViewData.projection = Matrix4.CreatePerspectiveFieldOfView(
                                    FieldOfView,
                                    W / H,

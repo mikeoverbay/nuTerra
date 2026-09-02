@@ -635,6 +635,11 @@ Module modGlobalVars
     '---------------------
     Public TEAM_1 As Vector3
     Public TEAM_2 As Vector3
+    ''' <summary>Fly the camera along the baked path in cam_paths.</summary>
+    Public FLY_CAM_PATH As Boolean = False
+    ''' <summary>Draw the baked camera path in the world.</summary>
+    Public SHOW_CAM_PATH As Boolean = False
+
     Public MAP_BB_UR As Vector2
     Public MAP_BB_BL As Vector2
 

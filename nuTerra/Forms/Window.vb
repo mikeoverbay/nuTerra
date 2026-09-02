@@ -1220,6 +1220,10 @@ try_again:
                         Next
                         ImGui.EndCombo()
                     End If
+
+                    ImGui.Separator()
+                    ImGui.Checkbox("FLY", FLY_CAM_PATH)
+                    ImGui.Checkbox("Show Path", SHOW_CAM_PATH)
                 End If
                 If ImGui.CollapsingHeader("Section Visibility") Then
                     ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)

@@ -638,6 +638,10 @@ Module MapLoader
             map_scene.flight_bake.Bake()
         End If
 
+        ' The baked camera flight for this map, if one has been exported.
+        ' Missing is not an error - most maps do not have one.
+        map_scene.cam_path.Load(MAP_NAME_NO_PATH)
+
         '===============================================================
         'We need to get the Y location of the rings and stop drawing overly tall cubes.
         'It only needs to happen once!

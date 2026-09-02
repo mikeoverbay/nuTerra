@@ -40,6 +40,7 @@ Public Class MapScene
     Public decals As New MapDecals(Me)
     Public sun_shadow As New MapSunShadow(Me)
     Public flight_bake As New MapFlightBake(Me)
+    Public cam_path As New MapCamPath
     Public CC_LUT_ID As GLTexture
     Public ENV_BRDF_LUT_ID As GLTexture
 

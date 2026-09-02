@@ -416,6 +416,10 @@ Module modRender
             If Not BLACK_BEFORE_FX Then map_scene.fog.global_fog()
             trace_gcolor("global_fog")
 
+            ' After the fog on purpose. It is a debug overlay, and fog mixing it
+            ' toward the fog tint would make a distant leg of the route look
+            ' like it faded out rather than like it is far away.
+            If SHOW_CAM_PATH Then map_scene.cam_path.DrawPath()
 
             GL.Disable(EnableCap.DepthTest)
             GL.DepthMask(True)
