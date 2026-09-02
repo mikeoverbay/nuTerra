@@ -577,6 +577,14 @@ Module MapLoader
             map_scene.sun_shadow.Bake()
         End If
 
+        ' Top-down height and obstacle bake for the camera flight planner. Has to
+        ' be here, after terrain, models and trees are all up, because it renders
+        ' all three. Independent of the sun - it looks straight down - so it does
+        ' not care whether the shadow bake above ran.
+        If MapFlightBake.BAKE_AT_LOAD Then
+            map_scene.flight_bake.Bake()
+        End If
+
         '===============================================================
         'We need to get the Y location of the rings and stop drawing overly tall cubes.
         'It only needs to happen once!
