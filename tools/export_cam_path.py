@@ -102,16 +102,28 @@ def build(map_name):
     print("fly")
     bake = nav.Bake(nav.FOLDER, map_name)
     cell_m = bake.mx
-
-    raw = bake.obstacle > nav.BLOCK_H
-    pad = max(1, int(round(nav.BODY_R / cell_m)))
-    plan = ndimage.binary_dilation(raw, iterations=pad)
-    plan[:4, :] = plan[-4:, :] = True
-    plan[:, :4] = plan[:, -4:] = True
-
-    radar = nav.Radar(bake, plan, raw, cell_m)
     nx, nz = nav.load_plan(os.path.join(nav.FOLDER, map_name + "_plan.csv"))
-    res = nav.fly(bake, radar, nx, nz, two_point=True, record_fans=False)
+
+    # The level and the masks come from the navigator, not from a second copy
+    # here. They WERE duplicated, and that is exactly how an exported path ends
+    # up flown against a different obstacle set from the one that planned it -
+    # the two drift apart the first time either is tuned, and nothing complains.
+    level = None
+    if nav.LEVEL_FLIGHT:
+        level = nav.LEVEL_Y if nav.LEVEL_Y is not None else nav.pick_level(bake, nx, nz)
+
+    res = None
+    for _ in range(nav.LEVEL_TRIES):
+        nav.FLIGHT_Y = level
+        raw, plan, dist_m, pad = nav.build_world(bake, level)
+        radar = nav.Radar(bake, plan, raw, cell_m)
+        res = nav.fly(bake, radar, nx, nz, two_point=True, record_fans=False)
+        if res["closed"] or level is None:
+            break
+        level += nav.LEVEL_STEP
+
+    if level is not None:
+        print(f"  level Y = {level:.1f} m, {100.0 * raw.mean():.2f}% of the map reaches it")
 
     path = np.asarray(res["path"], dtype=float)
     x = path[:, 0]
@@ -133,18 +145,22 @@ def build(map_name):
     # --------------------------------------------------------------- altitude
     ground = np.array([bake.sample(bake.floor, x[i], z[i]) for i in range(n)])
 
-    # Running maximum over a window FIRST, then smooth. Not smooth-then-clamp:
-    # clamping afterwards puts the terrain's sharp edges straight back into the
-    # curve the smoothing just removed, and the tilt is a derivative of this -
-    # the first version of this ran to 45 degrees of pitch off 2 m steps.
-    #
-    # The running max also means the climb STARTS before the rise rather than
-    # at it, which is the same trick the altitude planner uses and is what stops
-    # the camera pitching up into a slope it is already on.
-    lead = max(1, int(round(ALT_LEAD / step_m)))
-    need = ground + nav.AGL
-    need = np.stack([np.roll(need, k) for k in range(-lead, lead + 1)]).max(axis=0)
-    y = periodic_smooth(need, ALT_SMOOTH, step_m, closed)
+    if level is not None:
+        # Locked. Nothing to smooth and nothing to lead - the whole point of a
+        # level flight is that the camera does not move vertically at all, so
+        # the tilt below comes out as the bias alone and the horizon holds still.
+        y = np.full(n, float(level))
+    else:
+
+        # Running maximum over a window FIRST, then smooth. Not
+        # smooth-then-clamp: clamping afterwards puts the terrain's sharp edges
+        # straight back into the curve the smoothing just removed, and tilt is a
+        # derivative of this - the first version ran to 45 degrees of pitch off
+        # 2 m steps.
+        lead = max(1, int(round(ALT_LEAD / step_m)))
+        need = ground + nav.AGL
+        need = np.stack([np.roll(need, k) for k in range(-lead, lead + 1)]).max(axis=0)
+        y = periodic_smooth(need, ALT_SMOOTH, step_m, closed)
 
     # ---------------------------------------------------------------- heading
     heading_raw = np.arctan2(dx, dz)
@@ -186,7 +202,7 @@ def build(map_name):
             float(heading[i]), float(tilt[i]), float(roll[i]),
             float(s[i]), float(speed[i])) for i in range(n)]
 
-    return bake, raw, res, pts, total, closed, step_m
+    return bake, raw, res, pts, total, closed, step_m, level
 
 
 def check_clips(bake, raw, pts):
@@ -218,7 +234,7 @@ def draw(bake, raw, pts, out_png):
     img[..., 1] = (19 + 26 * gn).astype(np.uint8)
     img[..., 2] = (26 + 34 * gn).astype(np.uint8)
 
-    low = (o > 0.5) & (o <= nav.BLOCK_H)
+    low = (o > 0.5) & (~raw)
     img[low] = (70, 74, 80)
     img[raw] = (196, 150, 40)
 
@@ -247,7 +263,7 @@ def draw(bake, raw, pts, out_png):
 def main():
     map_name = sys.argv[1] if len(sys.argv) > 1 else nav.MAP
 
-    bake, raw, res, pts, total, closed, step_m = build(map_name)
+    bake, raw, res, pts, total, closed, step_m, level = build(map_name)
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out_dir = os.path.join(root, "nuTerra", "cam_paths")
@@ -276,8 +292,10 @@ def main():
     med = agl[len(agl) // 2]
     p90 = agl[int(len(agl) * 0.9)]
     sat = sum(1 for p in pts if abs(math.degrees(p[4])) >= MAX_TILT - 0.01)
+    asked = (f"locked at Y = {level:.1f}" if level is not None
+             else f"asked for {nav.AGL:.1f} AGL")
     print(f"  height above ground {agl[0]:.2f} .. {agl[-1]:.2f} m "
-          f"(median {med:.1f}, 90th {p90:.1f}, asked for {nav.AGL:.1f})")
+          f"(median {med:.1f}, 90th {p90:.1f}, {asked})")
     print(f"  tilt at the {MAX_TILT:.0f} deg cap: {100 * sat / len(pts):.1f}% of the path")
     if clips:
         raise SystemExit("exported path passes through an obstacle")

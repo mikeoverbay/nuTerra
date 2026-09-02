@@ -40,6 +40,24 @@ MARGIN = 1.5         # headroom kept under the camera
 BLOCK_H = AGL - MARGIN   # 3.5 m - anything shorter is simply flown over
 BODY_R = 4.0         # standoff kept from a blocking cell, metres
 
+# Level flight. The camera holds ONE world Y for the whole route instead of
+# riding 5 m over whatever the ground does.
+#
+# This makes the obstacle test trivial and, more importantly, exact: `top`
+# already includes terrain, so `top > level - MARGIN` blocks a hill and a bell
+# tower with the same comparison and the navigator never needs to know which is
+# which. Terrain-following needed obstacle height, which is a DIFFERENCE of two
+# baked layers and carries both their errors.
+LEVEL_FLIGHT = True
+LEVEL_Y = None       # None = auto, see pick_level
+LEVEL_CLEAR = 6.0    # metres of air over the highest ground the course crosses
+LEVEL_STEP = 4.0     # how much to raise the level when the loop will not close
+LEVEL_TRIES = 6
+
+# Set by main once the level is settled, so score and draw can read it without
+# threading it through every signature. One number, constant for a whole run.
+FLIGHT_Y = None
+
 STEP = 2.0           # metres per simulation step
 NEAR_D = 9.0         # first lookahead point, metres
 FAR_D = 22.0         # second lookahead point - the trap test
@@ -206,6 +224,19 @@ class Radar:
             r = self.march(x, z, math.cos(a), math.sin(a), RADAR_RANGE)
             out.append((a, r))
         return out
+
+
+def pick_level(bake, nx, nz):
+    """The single Y the camera holds: the highest ground the nominal course
+    crosses, plus clearance.
+
+    Off the NOMINAL course rather than the whole map, because the map includes
+    the outland mountains and a level above those would be a satellite pass.
+    If the route then cannot get round at that height, main raises it - the
+    starting guess only has to be close.
+    """
+    g = [bake.sample(bake.floor, nx[i], nz[i]) for i in range(len(nx))]
+    return float(max(g)) + LEVEL_CLEAR
 
 
 def bearing_ok(radar, x, z, a, two_point):
@@ -516,9 +547,8 @@ def score(bake, radar, res, nx, nz, dist_m):
         ri = int(np.clip(round(r), 0, bake.h - 1))
         clr.append(float(dist_m[ri, ci]))
 
-        # the flight rule itself: 5 m over the bare terrain at this sample, and
-        # everything under the camera must be below that
-        alt = bake.floor[ri, ci] + AGL
+        # the flight rule itself - everything under the camera must be below it
+        alt = FLIGHT_Y if FLIGHT_Y is not None else bake.floor[ri, ci] + AGL
         alt_margin.append(float(alt - bake.top[ri, ci]))
 
     return {
@@ -554,7 +584,21 @@ def draw(bake, res, sc, nx, nz, out_png):
     camera clears and a barn it cannot are not the same thing and must not look
     the same.
     """
-    o = bake.obstacle
+    # In level flight the question is not how TALL a thing is, it is whether it
+    # reaches the height the camera holds - so shade by how far each cell rises
+    # above or below that line. Shading by obstacle height here would colour a
+    # 20 m building on a hilltop the same as one in the valley, and only one of
+    # them is in the way.
+    if FLIGHT_Y is not None:
+        o = bake.top - (FLIGHT_Y - MARGIN)
+        cut = 0.0
+        span = 20.0
+        exists = bake.top > bake.floor + 0.5
+    else:
+        o = bake.obstacle
+        cut = BLOCK_H
+        span = 30.0
+        exists = o > 0.5
     img = np.zeros((bake.h, bake.w, 3), dtype=np.uint8)
 
     g = bake.floor
@@ -564,16 +608,17 @@ def draw(bake, res, sc, nx, nz, out_png):
     img[..., 2] = (26 + 35 * gn).astype(np.uint8)
 
     # exists, but is FLOWN OVER: fences, low walls, rubble, small rocks
-    low = (o > 0.5) & (o <= BLOCK_H)
-    sh = np.clip(o / BLOCK_H, 0, 1)
+    low = exists & (o <= cut)
+    sh = np.clip((o - cut) / -max(span, 1e-6) if FLIGHT_Y is not None
+                 else o / max(cut, 1e-6), 0, 1)
     img[low, 0] = (48 + 34 * sh[low]).astype(np.uint8)
     img[low, 1] = (52 + 38 * sh[low]).astype(np.uint8)
     img[low, 2] = (58 + 42 * sh[low]).astype(np.uint8)
 
     # must be flown AROUND, shaded by height so a hedge and a bell tower read
     # as different obstacles
-    hard = o > BLOCK_H
-    t = np.clip((o - BLOCK_H) / 30.0, 0, 1)
+    hard = o > cut
+    t = np.clip((o - cut) / span, 0, 1)
     img[hard, 0] = (146 + 109 * t[hard]).astype(np.uint8)
     img[hard, 1] = (106 + 94 * t[hard]).astype(np.uint8)
     img[hard, 2] = (18 + 42 * t[hard]).astype(np.uint8)
@@ -685,10 +730,16 @@ def draw(bake, res, sc, nx, nz, out_png):
     f = _font(17)
     fb = _font(21)
     rows = [
-        (PINK, "flown at %.0f m AGL   %.0f m" % (AGL, sc["length"])),
+        (PINK, ("flown level at Y = %.1f m   %.0f m" % (FLIGHT_Y, sc["length"]))
+               if FLIGHT_Y is not None
+               else ("flown at %.0f m AGL   %.0f m" % (AGL, sc["length"]))),
         (NOMINAL, "nominal course   1345 m"),
-        ((196, 146, 40), "must fly around   obstacle > %.1f m" % BLOCK_H),
-        ((70, 76, 86), "flown over   obstacle < %.1f m" % BLOCK_H),
+        ((196, 146, 40), ("must fly around   reaches above Y - %.1f m" % MARGIN)
+                         if FLIGHT_Y is not None
+                         else ("must fly around   obstacle > %.1f m" % BLOCK_H)),
+        ((70, 76, 86), "flown over   everything below that line"
+                       if FLIGHT_Y is not None
+                       else ("flown over   obstacle < %.1f m" % BLOCK_H)),
         ((110, 240, 230), "radar fan, no return in %.0f m" % RADAR_RANGE),
         ((255, 205, 105), "radar return - first blocking cell"),
         ((255, 175, 55), "side committed here"),
@@ -697,7 +748,10 @@ def draw(bake, res, sc, nx, nz, out_png):
     bw, bh = 340, 44 + 24 * len(rows)
     box = Image.new("RGBA", (bw, bh), (10, 12, 20, 205))
     im.alpha_composite(box, (14, 14))
-    d.text((26, 22), "5 m AGL radar navigator", fill=(240, 240, 250, 255), font=fb)
+    d.text((26, 22),
+           ("level radar navigator   Y = %.1f m" % FLIGHT_Y) if FLIGHT_Y is not None
+           else "5 m AGL radar navigator",
+           fill=(240, 240, 250, 255), font=fb)
     for i, (col, label) in enumerate(rows):
         y = 54 + 24 * i
         d.rectangle([26, y + 4, 46, y + 12], fill=col + (255,))
@@ -716,23 +770,61 @@ def draw(bake, res, sc, nx, nz, out_png):
 
 # --------------------------------------------------------------------------
 
-def main():
-    two_point = "--no-trap-rule" not in sys.argv
-
-    bake = Bake(FOLDER, MAP)
+def build_world(bake, level):
+    """Blocked mask, dilated planning mask and clearance field for one level."""
     cell_m = bake.mx
-    raw = bake.obstacle > BLOCK_H
+    if level is not None:
+        raw = bake.top > (level - MARGIN)
+    else:
+        raw = bake.obstacle > BLOCK_H
+
     pad = max(1, int(round(BODY_R / cell_m)))
     plan = ndimage.binary_dilation(raw, iterations=pad)
     plan[:4, :] = plan[-4:, :] = True
     plan[:, :4] = plan[:, -4:] = True
     dist_m = ndimage.distance_transform_edt(~raw) * cell_m
+    return raw, plan, dist_m, pad
 
-    print(f"blocked at {BLOCK_H:.1f} m: {100.0 * raw.mean():.2f}% of the map, "
-          f"{100.0 * plan.mean():.2f}% after {pad}-cell standoff")
 
-    radar = Radar(bake, plan, raw, cell_m)
+def main():
+    global FLIGHT_Y
+    two_point = "--no-trap-rule" not in sys.argv
+
+    bake = Bake(FOLDER, MAP)
+    cell_m = bake.mx
     nx, nz = load_plan(os.path.join(FOLDER, MAP + "_plan.csv"))
+
+    level = None
+    if LEVEL_FLIGHT:
+        level = LEVEL_Y if LEVEL_Y is not None else pick_level(bake, nx, nz)
+
+    # Raise the level until the loop actually closes, rather than picking one
+    # and reporting a failure. A level low enough to be interesting is often a
+    # metre or two below feasible, and the search costs one flight per try.
+    radar = None
+    for attempt in range(LEVEL_TRIES):
+        FLIGHT_Y = level
+        raw, plan, dist_m, pad = build_world(bake, level)
+
+        if level is None:
+            print(f"blocked at {BLOCK_H:.1f} m: {100.0 * raw.mean():.2f}% of the map, "
+                  f"{100.0 * plan.mean():.2f}% after {pad}-cell standoff")
+            radar = Radar(bake, plan, raw, cell_m)
+            break
+
+        print(f"level Y = {level:6.1f} m: {100.0 * raw.mean():5.2f}% of the map reaches it, "
+              f"{100.0 * plan.mean():5.2f}% after {pad}-cell standoff", end="")
+
+        radar = Radar(bake, plan, raw, cell_m)
+        probe = fly(bake, radar, nx, nz, two_point, record_fans=False)
+        if probe["closed"]:
+            print("  -> loop closes")
+            break
+        print(f"  -> boxed in, raising by {LEVEL_STEP:.0f} m")
+        level += LEVEL_STEP
+    else:
+        print("could not find a level the loop closes at")
+        return
 
     runs = {}
     for tag, tp in (("trap rule OFF", False), ("trap rule ON", True)):

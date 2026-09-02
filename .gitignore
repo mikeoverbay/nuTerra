@@ -205,3 +205,6 @@ work folder/
 # Python bytecode from the tools/ scripts importing each other
 __pycache__/
 *.pyc
+
+# Diagnostic images the tools/ scripts draw next to themselves
+tools/*.png
