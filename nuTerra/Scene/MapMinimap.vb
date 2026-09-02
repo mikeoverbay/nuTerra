@@ -324,6 +324,20 @@ Public Class MapMinimap
         GL.Enable(EnableCap.Blend)
         GL_PUSH_GROUP("draw_mini_position")
 
+        ' Where the indicator should sit. Normally the orbit pivot, but during
+        ' flight playback the orbit params are stale - playback writes eye and
+        ' target straight into the camera and never touches them - so the arrow
+        ' would sit wherever the mouse last left it while the camera flew off
+        ' across the map.
+        Dim ind_x = scene.camera.U_LOOK_AT_X
+        Dim ind_z = scene.camera.U_LOOK_AT_Z
+        Dim ind_a = scene.camera.U_CAM_X_ANGLE
+        If scene.camera.FLYING Then
+            ind_x = scene.camera.CAM_POSITION.X
+            ind_z = scene.camera.CAM_POSITION.Z
+            ind_a = scene.camera.FLY_HEADING
+        End If
+
         MiniMapFBO.attach_both()
         MiniMapFBO.blit_to_gBuffer() ' copy prerendered to screenTexture
         MiniMapFBO.attach_gcolor()
@@ -335,8 +349,8 @@ Public Class MapMinimap
         Dim i_size = 32
         Dim pos As New RectangleF(-i_size, -i_size, i_size * 2, i_size * 2)
 
-        Dim model_X = Matrix4.CreateTranslation(scene.camera.U_LOOK_AT_X, -scene.camera.U_LOOK_AT_Z, 0.0F)
-        Dim model_R = Matrix4.CreateRotationZ(scene.camera.U_CAM_X_ANGLE)
+        Dim model_X = Matrix4.CreateTranslation(ind_x, -ind_z, 0.0F)
+        Dim model_R = Matrix4.CreateRotationZ(ind_a)
         Dim modelMatrix = model_R * model_X
 
         DIRECTION_TEXTURE_ID.BindUnit(0)
@@ -370,7 +384,7 @@ Public Class MapMinimap
             m_size.Right,
             -m_size.Bottom)
 
-        GL.Uniform2(MiniMapRingsShader("center"), -scene.camera.U_LOOK_AT_X, scene.camera.U_LOOK_AT_Z)
+        GL.Uniform2(MiniMapRingsShader("center"), -ind_x, ind_z)
         GL.Uniform4(MiniMapRingsShader("color"), Color4.White)
 
         defaultVao.Bind()

@@ -222,14 +222,27 @@ Public Class MapCamPath
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
-        ' occluded first, so the solid pass lands on top of its own ghost
+        ' The ghost pass is deliberately strong - 0.35, not the 0.18 it started
+        ' at. The route runs 1 m over the ground, so the depth-tested pass below
+        ' z-fights the terrain and loses more and more of the line the further
+        ' the camera pulls back: the path appeared to vanish on zoom out. This
+        ' pass has no depth test at all, so whatever the depth buffer does, the
+        ' route stays visible.
         GL.Disable(EnableCap.DepthTest)
-        GL.Uniform1(campathShader("alpha_mul"), 0.18F)
+        GL.Uniform1(campathShader("alpha_mul"), 0.35F)
         GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
 
+        ' And bias the depth-tested pass toward the camera so it stops fighting
+        ' in the first place. POSITIVE offset, because the engine runs reversed-Z
+        ' (DepthFunc.Greater, ClearDepth 0) where nearer means a LARGER depth
+        ' value - the opposite sign to the usual advice for overlay lines.
+        GL.Enable(EnableCap.PolygonOffsetLine)
+        GL.PolygonOffset(1.0F, 2.0F)
         GL.Enable(EnableCap.DepthTest)
         GL.Uniform1(campathShader("alpha_mul"), 1.0F)
         GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
+        GL.Disable(EnableCap.PolygonOffsetLine)
+        GL.PolygonOffset(0.0F, 0.0F)
 
         GL.LineWidth(1.0F)
         GL.Disable(EnableCap.Blend)

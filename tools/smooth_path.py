@@ -67,6 +67,10 @@ def despike(pts, clear, closed=True, tight_deg=55.0, passes=6):
     the next. Neighbours removed in the same pass are skipped so a run of spikes
     cannot collapse into a segment nobody checked.
     """
+    # On a closed path the index range is the FULL n, so i=0 tests the triple
+    # (last, first, second) and i=n-1 tests (n-2, n-1, first). The seam gets the
+    # same test as everywhere else rather than being skipped as an end - which
+    # is what range(1, n-1) would do, and is right only for an open path.
     tight = math.radians(tight_deg)
     cur = list(pts)
     total = 0
@@ -153,6 +157,27 @@ def shortcut(pts, clear, closed=True, max_reach=None):
     # A closed loop must still close: the last kept point has to see the first.
     if closed and len(out) > 2 and not _seg_clear(clear, out[-1], out[0]):
         out.append(pts[-1])
+
+    # THE SEAM. The walk above runs 0 -> n-1 in a straight line, so the corner
+    # AT the start is never shortcut across: point 0 survives as a vertex
+    # whatever shape it is in. On a closed loop that leaves exactly one corner
+    # the rest of the pipeline cannot improve, at the one place every lap goes
+    # through - and it is the corner most likely to be sharp, because it is the
+    # join between the end of the route and the beginning.
+    #
+    # Same test as everywhere else: if the point before it can see the point
+    # after it, the middle one is not carrying its weight. Repeated, because
+    # dropping the seam exposes its neighbour to the same question.
+    if closed:
+        for _ in range(4):
+            if len(out) <= 3:
+                break
+            if _seg_clear(clear, out[-1], out[1]):
+                out = out[1:]
+            elif _seg_clear(clear, out[-2], out[0]):
+                out = out[:-1]
+            else:
+                break
     return out
 
 

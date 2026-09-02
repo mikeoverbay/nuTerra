@@ -10,6 +10,15 @@ Public Class MapCamera
     Public CAM_POSITION As Vector3
     Public CAM_TARGET As Vector3
 
+    ''' <summary>True on any frame the flight actually drove the camera. The
+    ''' orbit params (U_LOOK_AT_*, U_CAM_X_ANGLE) are NOT updated during
+    ''' playback - it writes eye and target directly - so anything that reads
+    ''' those to find the camera, like the minimap indicator, needs this and
+    ''' the two below instead.</summary>
+    Public FLYING As Boolean
+    ''' <summary>Flight heading, radians, same convention as CAM_X_ANGLE.</summary>
+    Public FLY_HEADING As Single
+
     ''' <summary>Bank, radians, positive banks right. Set by flight playback
     ''' and zero the rest of the time - the orbit rig has no roll of its own
     ''' and nothing else should be tilting the horizon.</summary>
@@ -157,6 +166,7 @@ Public Class MapCamera
         ' fixed world up, which has no roll axis - banking needs that replaced
         ' with a full basis. The data is there; the rig is not, yet.
         CAM_ROLL = 0.0F
+        FLYING = False
         If FLY_CAM_PATH AndAlso scene.cam_path IsNot Nothing AndAlso scene.cam_path.loaded Then
             Dim fpos As Vector3
             Dim fh, ft, fr As Single
@@ -167,6 +177,8 @@ Public Class MapCamera
                 CAM_POSITION = fpos
                 CAM_TARGET = fpos + look * 50.0F
                 CAM_ROLL = fr * CAM_ROLL_SCALE
+                FLY_HEADING = fh
+                FLYING = True
             End If
         End If
 
