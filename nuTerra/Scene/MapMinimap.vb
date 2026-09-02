@@ -204,6 +204,10 @@ Public Class MapMinimap
         draw_mini_grids_lines()
         '======================================================
 
+        '======================================================
+        If SHOW_CAM_PATH Then draw_mini_cam_path()
+        '======================================================
+
         'now, bilt this to screenTexture
         MiniMapFBO.attach_both()
         MiniMapFBO.blit_to_screenTexture()
@@ -373,6 +377,89 @@ Public Class MapMinimap
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         MiniMapRingsShader.StopUse()
+
+        GL_POP_GROUP()
+    End Sub
+
+    ''' <summary>
+    ''' The baked flight path, drawn over the minimap.
+    '''
+    ''' Two frame changes, and both are easy to get wrong because each one
+    ''' looks like it works on a symmetric map:
+    '''
+    '''   world -> MAP_BB: X is NEGATED, Z passes through as Y. Same flip
+    '''   get_team_locations_and_field_BB applies on the way in, and the same
+    '''   one draw_mini_position uses for the camera ring.
+    '''
+    '''   MAP_BB -> the shader: Y is negated again, because Ortho_MiniMap
+    '''   builds its projection over -MAP_BB_UR.Y .. -MAP_BB_BL.Y. That is why
+    '''   every rect in this file is passed as (Left, -Top, Right, -Bottom).
+    '''
+    ''' Net: a world point (wx, wz) goes to the shader as (-wx, -wz).
+    '''
+    ''' Decimated. The path is 2 m apart and the minimap is a couple of
+    ''' hundred pixels across a 1400 m map, so consecutive points land on the
+    ''' same pixel - drawing all 1191 would be 1190 draw calls a frame to
+    ''' produce something indistinguishable from 150.
+    ''' </summary>
+    Public Sub draw_mini_cam_path()
+        Dim cp = scene.cam_path
+        If cp Is Nothing OrElse Not cp.loaded OrElse cp.points Is Nothing Then Return
+        Dim n = cp.points.Length
+        If n < 2 Then Return
+
+        GL_PUSH_GROUP("draw_mini_cam_path")
+
+        ' Roughly one segment per 2 minimap pixels, never finer than the data.
+        Dim span = Math.Max(1.0F, Math.Abs(MAP_BB_UR.X - MAP_BB_BL.X))
+        Dim m_per_px = span / Math.Max(1, MINI_MAP_SIZE)
+        Dim stride = CInt(Math.Max(1, Math.Floor(2.0F * m_per_px / 2.0F)))
+
+        coloredline2dShader.Use()
+        GL.UniformMatrix4(coloredline2dShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        defaultVao.Bind()
+
+        Dim co As Color4 = New Color4(1.0F, 0.18F, 0.66F, 0.95F)
+        GL.Uniform4(coloredline2dShader("color"), co)
+
+        Dim i = 0
+        While i < n
+            Dim j = Math.Min(i + stride, n - 1)
+            If i = j Then Exit While
+            Dim a = cp.points(i).pos
+            Dim b = cp.points(j).pos
+            GL.Uniform4(coloredline2dShader("rect"), -a.X, -a.Z, -b.X, -b.Z)
+            GL.DrawArrays(PrimitiveType.Lines, 0, 2)
+            i = j
+            If j = n - 1 Then Exit While
+        End While
+
+        ' Close the loop back to the start, so a closed route reads as closed
+        ' rather than as one that stops just short of where it began.
+        If cp.closed Then
+            Dim a = cp.points(n - 1).pos
+            Dim b = cp.points(0).pos
+            GL.Uniform4(coloredline2dShader("rect"), -a.X, -a.Z, -b.X, -b.Z)
+            GL.DrawArrays(PrimitiveType.Lines, 0, 2)
+        End If
+
+        ' Start marker, as a cross on the SAME shader and the SAME convention as
+        ' the line above.
+        '
+        ' It was a ring on MiniMapRingsShader first, and that shader takes its
+        ' centre as (-worldX, +worldZ) while the line shader takes (-worldX,
+        ' -worldZ) - so the marker landed about a grid column away from the path
+        ' it was supposed to mark. Two conventions for one picture is one too
+        ' many; this way there is nothing left to get out of step.
+        Dim sp = cp.points(0).pos
+        Dim arm = Math.Max(8.0F, span * 0.018F)
+        GL.Uniform4(coloredline2dShader("color"), New Color4(0.35F, 1.0F, 0.55F, 1.0F))
+        GL.Uniform4(coloredline2dShader("rect"), -sp.X - arm, -sp.Z, -sp.X + arm, -sp.Z)
+        GL.DrawArrays(PrimitiveType.Lines, 0, 2)
+        GL.Uniform4(coloredline2dShader("rect"), -sp.X, -sp.Z - arm, -sp.X, -sp.Z + arm)
+        GL.DrawArrays(PrimitiveType.Lines, 0, 2)
+
+        coloredline2dShader.StopUse()
 
         GL_POP_GROUP()
     End Sub
