@@ -59,6 +59,13 @@ BANK_GAIN = 0.85     # scales the coordinated-turn angle. 1.0 is physically
                      # correct for an aircraft and slightly too much for a
                      # camera, which has no passengers to keep level.
 
+ROLL_FLATTEN = 55.0  # metres of smoothing on a copy of the path used ONLY to
+                     # work out the bank. Curvature is a second derivative, so
+                     # every small wiggle the navigator left behind becomes a
+                     # visible twitch in the horizon while barely moving the
+                     # camera at all. Flattening only for roll keeps the flown
+                     # position honest and the horizon calm.
+
 BANK_LEAD = 14.0     # metres. Roll STARTS this far before the curve arrives,
                      # which is what makes it read as flying INTO a turn rather
                      # than reacting to one. This is the "in and out" of the
@@ -247,17 +254,34 @@ def build(map_name):
     tilt = np.clip(tilt, -math.radians(MAX_TILT), math.radians(MAX_TILT))
 
     # ------------------------------------------------------------------- roll
-    # Curvature is the rate of heading change per metre. From the UNWRAPPED
-    # heading, or every seam crossing reads as an infinitely tight corner.
-    dh = np.diff(heading, append=heading[0] if closed else heading[-1])
+    # Curvature comes from a FLATTENED copy of the path, not the flown one. The
+    # camera still flies every metre of the real route; only the bank is worked
+    # out from the smoothed version.
+    fx = periodic_smooth(x, ROLL_FLATTEN, step_m, closed)
+    fz = periodic_smooth(z, ROLL_FLATTEN, step_m, closed)
+    fdx = np.diff(fx, append=fx[0] if closed else fx[-1])
+    fdz = np.diff(fz, append=fz[0] if closed else fz[-1])
+    fseg = np.maximum(np.hypot(fdx, fdz), 1e-6)
+
+    # From the UNWRAPPED heading, or every seam crossing reads as an infinitely
+    # tight corner.
+    fh = periodic_smooth(unwrap_heading(np.arctan2(fdx, fdz)),
+                         HEAD_SMOOTH, step_m, closed)
+    dh = np.diff(fh, append=fh[0] if closed else fh[-1])
     if closed:
-        dh[-1] = ((heading[0] - heading[-1] + math.pi) % (2 * math.pi)) - math.pi
-    curvature = dh / np.maximum(seg, 1e-6)
+        dh[-1] = ((fh[0] - fh[-1] + math.pi) % (2 * math.pi)) - math.pi
+    curvature = dh / fseg
 
     # Coordinated turn: the bank that would keep a drink level in the cup.
     # atan(v^2 * k / g). Physically motivated rather than a made-up curve, so
     # the gain and the cap are the only arbitrary numbers.
-    bank = np.arctan(CRUISE * CRUISE * curvature / 9.81) * BANK_GAIN
+    #
+    # NEGATED, and this was a real bug: heading is atan2(dx, dz), so INCREASING
+    # heading turns toward +X - and looking down +Z, LookAt puts screen-right at
+    # -X, which makes that a LEFT turn. Positive roll was measured to bank
+    # RIGHT. So the raw sign banked out of every corner, the way a car leans,
+    # instead of into it the way anything flying does.
+    bank = -np.arctan(CRUISE * CRUISE * curvature / 9.81) * BANK_GAIN
     bank = np.clip(bank, -math.radians(MAX_BANK), math.radians(MAX_BANK))
 
     # Lead it, THEN smooth. Rolling in before the corner and out the far side is
