@@ -13,6 +13,15 @@ layout(binding = 0) uniform sampler2D gColor;
 layout(binding = 1) uniform sampler2D gNormal;
 layout(binding = 2) uniform sampler2D gGMF;
 layout(binding = 3) uniform sampler2D gPosition;
+// The GEOMETRIC surface normal, VIEW space, Rgb8 so 0..1 encoded. gNormal is
+// the bumped one; this is the slope underneath it.
+layout(binding = 10) uniform sampler2D gSurfaceNormal;
+
+// Pooled water, live from the UI: how much of the bed survives under full
+// water. Lower is deeper and darker.
+uniform float water_depth;
+
+
 layout(binding = 4) uniform samplerCube cubeMap;
 
 // Diffuse ambient as L2 spherical harmonics, baked per map into
@@ -460,10 +469,61 @@ void main (void)
             //fog level... this should be on the controller
             float fog_alpha = 0.5;
 
-            vec3 GM_in = texelFetch(gGMF, ivec2(gl_FragCoord), 0).xya;
+            vec4 GMF_raw = texelFetch(gGMF, ivec2(gl_FragCoord), 0);
+            vec3 GM_in = GMF_raw.xya;
 
-            //water overides GM values
-            GM_in.rg = mix(GM_in.rg,vec2(0.4,0.8), color_in.a);
+            // Only TERRAIN can be wet ground.
+            //
+            // GM_in is .xya and skips blue, which is where the render class and
+            // surface kind live. Fire is the case that made this matter: an FX
+            // card writes GFLAG_GLOW into gGMF.b and nothing meaningful into
+            // .a, so the wet path read stale alpha on burning pixels and shaded
+            // the FIRE as standing water. Models and sky have the same problem
+            // for the same reason.
+            //
+            // Testing the RENDER CLASS rather than the wetness value excludes
+            // all three at once and does not depend on what happens to be left
+            // in a channel nobody wrote.
+            bool is_terrain = (GBUF_RENDER(GMF_raw.b) == GBUF_RENDER_TERRAIN);
+
+            // Wet surfaces, the way BigWorld does it - and it does NOT have a
+            // water path.
+            //
+            // resolve_lighting.10 carries no puddle branch anywhere. Wetness is
+            // a MATERIAL modifier and the ordinary IBL makes the reflection.
+            // Decoded out of it, wetness generates a (1 - w) factor and a
+            // (1.5 - 0.5*w) factor, selected on the surface kind byte. Those two
+            // shapes are the entire model:
+            //
+            //   DARKER   water absorbs, so a wet surface loses albedo. This is
+            //            why the game's wet ground is never the brightest thing
+            //            in the frame - and why a bright mirror laid on top of
+            //            the terrain reads as wrong at any distance.
+            //   SMOOTHER gloss rises, so the specular and cubemap path already
+            //            in this shader tightens by itself. There is no second
+            //            reflection term to add, and adding one was the mistake.
+            //
+            // HONESTY: the exact BRDF inputs those two multiply were NOT pinned.
+            // They merge through a movc across material classes inside a 1600
+            // line shader. The SHAPES are ported; the constants below are
+            // nuTerra's own and are the tuning knobs.
+            //
+            // GM_in.r is GLOSS and GM_in.g is METAL, whatever the names
+            // downstream say - see the channel note in the PBR block.
+            const float WET_ALBEDO = 0.70;  // albedo kept at full wetness
+            // 0.35 was far too deep. 19_monastery authors ~0.9 wetness across
+            // the whole fountain courtyard, so a 65%% cut there crushed an
+            // already shadowed square to near black. Real wet ground loses
+            // about a third of its albedo, and the reflection it gains is what
+            // pays that back - in shade there is little reflection to collect,
+            // so the darkening has to be the gentler half of the pair.
+            const float WET_GLOSS  = 0.85;  // gloss reached at full wetness
+            const float WET_METAL  = 0.80;  // unchanged from the old override
+
+            float wet = clamp(color_in.a, 0.0, 1.0);
+
+            GM_in.rg = mix(GM_in.rg, vec2(WET_GLOSS, WET_METAL), wet);
+            color_in.rgb *= mix(1.0, WET_ALBEDO, wet);
 
             vec3 LightPosModelView = LightPos.xyz;
 
@@ -620,7 +680,81 @@ void main (void)
             // Only light whats in range
             if (dist < cutoff) {
                 // kill the terrian normals where there is water
-                N = mix(N, blank_n, water_mix);
+                // Water fills the bumps in. The more level the ground, the more
+                // the wet surface REPLACES the bump mapping - and what it is
+                // replaced BY is the SLOPE, not world up.
+                //
+                // This used to mix toward blank_n, world up in view space, which
+                // is only right where the ground happens to be level. On a slope
+                // it stood the normal up off the hillside and lit it as though it
+                // faced the sky. gSurfaceNormal is the geometric normal the bumps
+                // sit on: straight up on flat ground, following the slope
+                // elsewhere, which is what a sheet of water does.
+                //
+                // The flatness half of the mask is already inside water_mix -
+                // TerrainHQ multiplies by it - so level ground carries more
+                // wetness and therefore loses more of its bump. The two agree
+                // instead of fighting.
+                vec3 surf_n = normalize(texelFetch(gSurfaceNormal,
+                                        ivec2(gl_FragCoord), 0).xyz * 2.0 - 1.0);
+                // Driven by GM_in.z, the FLATNESS-GATED wetness, not by
+                // color_in.a. color_in.a is the raw page alpha - height term only
+                // - so it says "wet" on a hillside just as loudly as on the
+                // level. gGMF.a is that same value AFTER TerrainHQ multiplies in
+                // the slope gate, so it is the one that actually means "level and
+                // wet". On flat ground the two are identical, which is why this
+                // made no visible difference in the fountain courtyard; on a
+                // slope it is the whole point.
+                float wet_flat = clamp(GM_in.z, 0.0, 1.0);
+
+                // A level wet surface is WATER, and water has no bumps. Using the
+                // raw value left the ground showing through twice over: gGMF.a
+                // tops out near 0.93 even on a fully wet, dead level courtyard, so
+                // a straight mix kept 7% of the cobble normal AND the reflection
+                // mix stayed weak enough head-on to read the cobble albedo through
+                // it. Both leaks are the same mistake - treating an almost-full
+                // mask as almost-full instead of as full.
+                //
+                // smoothstep across the top of the range instead. 0.756 is what
+                // the drier cobbles at the edge of this courtyard measure and 0.91
+                // to 0.95 is level standing water, so this leaves damp ground
+                // looking like ground and turns the level wet sheet fully into
+                // water. POOL_LO is the knob that decides where damp becomes wet.
+                const float POOL_LO = 0.70;
+                const float POOL_HI = 0.92;
+                float pool = smoothstep(POOL_LO, POOL_HI, wet_flat);
+
+                // How much BUMP survives is decided by the TERRAIN angle.
+                //
+                // Flatter ground takes less bump in the wet area; as the terrain
+                // tilts the relief comes back. Nothing here depends on where the
+                // camera is: surf_n is the terrain's own geometric normal and
+                // blank_n is world up, both carried in view space, so the dot of
+                // the two is cos(terrain slope) and is invariant as the camera
+                // moves. That is the terrain angle, not the view angle.
+                //
+                // pool cannot do this job. It is built from GM_in.z, which is
+                // global.a times TerrainHQ's flatness - and that flatness FLOORS
+                // AT 0.6, so it never fully lets go of a slope and would sand the
+                // relief off hillsides that should keep it.
+                //
+                // Scaled by color_in.a - the global map alpha - because dry level
+                // ground must keep all of its relief. Flat AND wet is water; flat
+                // and dry is just flat.
+                const float LEVEL_MIN = 0.985;   // ~10 degrees of slope
+                const float LEVEL_MAX = 0.999;   // ~2.5 degrees
+                float cos_slope = dot(surf_n, normalize(blank_n));
+                float level     = smoothstep(LEVEL_MIN, LEVEL_MAX, cos_slope);
+                // smoothstep, not the raw alpha. color_in.a tops out around
+                // 0.93 even where the map authors full wetness, so using it
+                // straight left about 7% of the cobble relief standing in
+                // water that should be perfectly smooth. Saturating the top
+                // of the range is what takes the last of the bump out.
+                const float WET_LO = 0.60;
+                const float WET_HI = 0.90;
+                float bump_kill = smoothstep(WET_LO, WET_HI, color_in.a) * level;
+
+                N = normalize(mix(N, surf_n, bump_kill));
 
                 // Two reflect vectors, because they answer different questions.
                 //
@@ -780,7 +914,131 @@ void main (void)
                 // showing. 1-exp(-x) is linear where the response was already
                 // sane and rolls off the peaks, so a hot glint stays bright
                 // without ever clipping to paper.
-                vec3 sun_add = (water_reflect + specular + G_prefilteredColor.xyz) * sun_shadow;
+                // Standing water has DEPTH, and the bed reads through it.
+                //
+                // A pool is not a mirror laid on the ground - it is a body of
+                // water you can see into, and what you see is the terrain
+                // underneath, absorbed and therefore darker. That absorption is
+                // what makes it read as deep rather than as painted-on shine.
+                //
+                // NO CUBEMAP HERE, deliberately. An environment reflection used to
+                // be mixed in at this point and it threw the colour off: nuTerra's
+                // cube is NOT PMREM encoded the way the game's is, so sampling it
+                // for a mirror-like surface returns the wrong thing. The PBR port
+                // already declined to bring the game's cubemap decode across for
+                // exactly that reason, and this path had quietly gone and sampled
+                // the cube anyway.
+                //
+                // Reflections come from ssr.frag instead. It marches the real
+                // frame, so it cannot have the decode problem, and it is already
+                // gated on this same wetness. Its strength is the SSR slider.
+                // Sky is not wet ground.
+                //
+                // Nothing writes gGMF for a sky pixel, so GM_in.z there is",
+                // whatever the buffer happened to hold - and it read high enough
+                // that pool came out non-zero and this block ran on the SKY,
+                // mixing a cubemap reflection into it off a meaningless normal.
+                // That is what the swirling marbled "waves" were: not the water
+                // at all, but the sky being treated as a pool. It only became
+                // obvious looking UP, where the sky fills the frame.
+                //
+                // gPosition.z >= 0 means nothing was drawn here. ssr.frag has
+                // guarded on exactly this from the start; the resolve did not.
+                bool is_sky = (Position.z >= 0.0);
+                if (pool > 0.0 && is_terrain && !is_sky && dot(V, surf_n) > 0.0) {
+                    // The bed, absorbed by depth.
+                    final_color.xyz *= mix(1.0, water_depth, pool);
+
+                    // And the sky in the surface. SSR cannot supply this - it
+                    // skips sky by design ("nothing to hit") - so without a cube
+                    // lookup a pool viewed from above has nothing to reflect at
+                    // all, which is what taking the environment out entirely did.
+                    //
+                    // R_env is reflect(-V,N) in VIEW space, so invView puts it
+                    // back into world for a world-oriented cube. NO handedness
+                    // flip: water.frag negates .x for its own convention and
+                    // copying that here sampled the wrong side of the sky, which
+                    // is the likely source of the bad colour.
+                    // Reflect off the FLAT normal, not the mixed one.
+                    //
+                    // R_env is built from N, which is only PARTLY flattened where
+                    // bump_kill is partial - so the reflection direction swept
+                    // across the cubemap from pixel to pixel and the pool came out
+                    // marbled. Seen from underneath it reads as a swirling oil
+                    // slick, which is what the "waves" are: not an animation, just
+                    // a mirror whose normal will not sit still.
+                    //
+                    // A sheet of water lies along the slope, full stop. Take the
+                    // direction from surf_n and the surface reflects as one piece.
+                    vec3 R_w = normalize(mat3(invView) * reflect(-V, surf_n));
+                    // Floor the elevation, then RE-NORMALISE - raising .y on its
+                    // own lengthens the vector and skews the x/z direction with it.
+                    // Lowest elevation the reflection may sample from the cube, as
+                    // sin(angle) - 0.4 is about 24 degrees. The environment map has
+                    // the sunset and BUILDINGS painted into its horizon band, and a
+                    // grazing reflection samples straight into them: that is the
+                    // orange/yellow that was smearing through the water. Isolated
+                    // before it was fixed - with ssr_enabled=0 the orange REMAINED,
+                    // so it was never SSR - and 0.6 cleared it completely, 0.2 did
+                    // not. 0.4 is the settled value.
+                    //
+                    // Hard wired, not a slider: it is a property of how the cube is
+                    // painted, not something to tune per camera.
+                    const float SKY_FLOOR = 0.4;
+                    R_w.y = max(R_w.y, SKY_FLOOR);
+                    R_w = normalize(R_w);
+
+                    vec3 env = SRGBtoLINEAR(textureLod(cubeMap, R_w,
+                               max(4.0 - pool * 4.0, 0.0))).rgb;
+
+                    // Scale, not clip, so the hue survives the ceiling.
+                    const float ENV_MAX = 0.80;
+                    float pk = max(env.r, max(env.g, env.b));
+                    if (pk > ENV_MAX) env *= ENV_MAX / pk;
+
+                    // Fresnel with a floor: a mirror at grazing, a reading of the
+                    // sky looking straight down.
+                    // NdotV against the FLAT normal, and unclamped on the low side.
+                    //
+                    // clamp(dot(V,N), 0, 1) turns every BACK FACING pixel into
+                    // F = 1, a full mirror. Looking up at the underside of a wet
+                    // area that lit the whole thing as a hard reflection - the
+                    // clamp was hiding a sign, not guarding a range.
+                    const float ENV_FLOOR = 0.15;
+                    float NdotV = dot(V, surf_n);
+                    float F = (NdotV > 0.0) ? pow(1.0 - NdotV, 5.0) : 0.0;
+                    final_color.xyz = mix(final_color.xyz, env,
+                                          pool * mix(ENV_FLOOR, 1.0, F));
+                }
+
+                // The TERRAIN stops being lit where water covers it.
+                //
+                // These three are the ground's own sun response - a Phong lobe and
+                // two cubemap terms scaled by it. They are computed from the
+                // terrain material and they were being added straight over the
+                // finished water surface, which put cobble-shaped highlights on
+                // top of a mirror. The surface is smooth; it was the SHADING that
+                // still had the ground in it.
+                //
+                // Under standing water the ground does not get its own specular -
+                // the water surface above it is what reflects, and that has
+                // already been done above. So fade the terrain response out by the
+                // same pool factor that faded its albedo and its bump.
+                // ENVIRONMENT REFLECTIONS ARE OUT OF THE WET PATH.
+                //
+                // water_reflect and G_prefilteredColor are both cubemap lookups -
+                // W_prefilteredColor and another textureLod on cubeMap, scaled by
+                // sun lobes. nuTerra's cube is not PMREM encoded the way the
+                // game's is, so sampling it for wet surfaces threw the colour off,
+                // which is what showed up as messed up colouring on wet terrain.
+                //
+                // specular stays: it is the analytic BRDF lobe and touches no
+                // cubemap. Real reflections come from ssr.frag, which marches the
+                // frame and is gated on the same wetness.
+                //
+                // Still faded by (1 - pool): under standing water the ground does
+                // not get its own sun highlight either.
+                vec3 sun_add = specular * sun_shadow * (1.0 - pool);
                 final_color.xyz += 1.0 - exp(-sun_add);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance

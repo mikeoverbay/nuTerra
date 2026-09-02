@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
 
@@ -23,6 +23,12 @@ layout(binding = 6) uniform sampler2D scene_gmf;   // .b carries the surface fla
 layout(binding = 7) uniform sampler2D scene_nrm;   // view space, 0..1 encoded
 
 uniform float exclude_band;
+
+// Confine the water to ground the MAP says is wet.
+// mask_wet 0 = off (a body covers its whole authored extent, as before).
+// mask_min is the wetness below which no water is drawn.
+uniform int   mask_wet;
+uniform float mask_min;
 
 uniform float frame_lerp;
 uniform vec4 deep_color;
@@ -177,6 +183,23 @@ void main(void)
     const float SOFT_DEPTH = 2.0;
     vec2 suv = gl_FragCoord.xy / resolution;
     vec3 scene_v = texture(scene_pos, suv).xyz;
+
+    // No bed behind the fragment means no body in front of it.
+    //
+    // This MUST sit outside the block below. That block is guarded on
+    // scene_v.z < 0.0 - "something was drawn here" - so a sky test placed
+    // inside it can never fire: it would be asking whether the pixel is sky
+    // from inside a branch that only runs when it is not. An earlier attempt
+    // at this did exactly that and had no effect in either direction.
+    //
+    // The pass is deliberately double sided (MapWater.vb disables CullFace),
+    // so the underside draws, and looking UP the plane covers the sky. That is
+    // what put a swirling marbled sheet over the whole upward view and broke
+    // the sky reflection.
+    if (mask_wet != 0 && scene_v.z >= 0.0) {
+        discard;
+    }
+
     if (scene_v.z < 0.0) {
         // VERTICAL water column, not distance along the view ray. The first
         // cut used Pv.z - scene.z, and that metric changes with the camera by
@@ -209,6 +232,43 @@ void main(void)
             vec3 n_view = texture(scene_nrm, suv).xyz * 2.0 - 1.0;
             float up = (mat3(invView) * n_view).y;
             if (up > 0.6) {
+                discard;
+            }
+        }
+
+        // Mask the body by the WET CHANNEL.
+        //
+        // A water body draws its whole authored extent, so where that extent
+        // runs out over dry ground the plane still covers the frame - and
+        // from underneath it covers the SKY, which is what produced the
+        // swirling marbled pattern over this square and the bug in the sky
+        // reflection. Turning draw_water off removed both, which is what
+        // pointed here.
+        //
+        // gGMF.a is the wetness the terrain wrote: global map alpha times
+        // the flatness gate, and the wet DECALS write the same channel. So
+        // one test covers both - water appears only where the map actually
+        // says there is water, and follows the authored puddle outlines for
+        // free.
+        //
+        // Off by default. A lake bed is not necessarily flagged wet by the
+        // global map, and if it is not, masking on it would delete the lake.
+        // That has to be judged per map before it can be a default.
+        if (mask_wet != 0) {
+            // Where the map says WET, the terrain already drew the water.
+            //
+            // The deferred wet path renders pooled water off the global map
+            // alpha - darkened bed, flattened normal, its own reflection. A
+            // water body drawing over the same pixels is the SECOND water on
+            // that ground, and the two do not agree: different normals,
+            // different reflection, and the body wins because it is a forward
+            // pass over the top.
+            //
+            // So the body yields. gGMF.a is that same wetness - global map
+            // alpha times the flatness gate - and the wet DECALS write the same
+            // channel, so one test hands both the wet areas AND the puddles to
+            // the terrain path, along their authored outlines.
+            if (texture(scene_gmf, suv).a >= mask_min) {
                 discard;
             }
         }

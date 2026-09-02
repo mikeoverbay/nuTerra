@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
 
@@ -67,7 +67,20 @@ void main(void)
     // Fresnel: a wet surface is a mirror at a glancing angle and nearly clear
     // looking straight down. Without this every puddle reflects equally hard
     // from directly above, which is the tell that it is a screen effect.
-    float fresnel = pow(1.0 - max(dot(-V, N), 0.0), 4.0);
+    // NdotV unclamped, and back faces rejected outright.
+    //
+    // max(x, 0.0) does not guard a range here - it hides a SIGN. On a surface
+    // facing away from the camera dot(-V,N) is negative, max() turns it into 0,
+    // and fresnel comes out at 1: FULL strength SSR on a back face. The
+    // reflected ray then lands anywhere it likes and smears the lit frame
+    // across the surface, which is what showed up as a swirling marbled "wave"
+    // pattern when looking up at the underside of a wet area. There is no
+    // animation involved and never was.
+    float NdotV = dot(-V, N);
+    if (NdotV <= 0.0) {
+        return;              // back facing - nothing here can reflect
+    }
+    float fresnel = pow(1.0 - NdotV, 4.0);
 
     vec3  pos = P;
     float hit = 0.0;

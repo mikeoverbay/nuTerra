@@ -43,6 +43,17 @@ Module modGlobalVars
     ''' frame that was just drawn, which is the only thing on hand that knows
     ''' where the buildings are - a cubemap cannot, it is the sky.
     '''</summary>
+    ' Pooled water, driven by the global map's wet channel. Both are live
+    ' sliders because the balance between them is an eye judgement: the
+    ' reflection says surface and the bed darkening says depth, and how much
+    ' of each a map wants is not something a measurement settles.
+    ' Let a water body YIELD where the global map already says the ground is
+    ' wet - the deferred wet path draws pooled water there, and a body over
+    ' the top is the second water on the same pixels. Off by default: a lake
+    ' bed that IS flagged wet would lose its lake.
+    Public WATER_MASK_WET As Boolean = False
+    Public WATER_MASK_MIN As Single = 0.5F
+    Public WATER_DEPTH As Single = 0.45F   ' bed brightness under full water
     Public SSR_ENABLED As Boolean = True
     Public SSR_INTENSITY As Single = 0.7F
     Public SSR_STEPS As Integer = 32

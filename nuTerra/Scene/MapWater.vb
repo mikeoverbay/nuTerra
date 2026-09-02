@@ -282,6 +282,8 @@ Public Class MapWater
         ' And its normal - the boat mask needs to tell decks from hull sides.
         MainFBO.gNormal.BindUnit(7)
         GL.Uniform1(waterShader("exclude_band"), WATER_EXCLUDE_BAND)
+        GL.Uniform1(waterShader("mask_wet"), If(WATER_MASK_WET, 1, 0))
+        GL.Uniform1(waterShader("mask_min"), WATER_MASK_MIN)
 
         ' Reversed-Z depth test against the scene, no write - water is the last
         ' thing into the frame and nothing tests against it.

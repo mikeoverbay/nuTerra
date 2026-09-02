@@ -714,6 +714,22 @@ Module modRender
     End Sub
 
     '=============================================================================================
+    ' A 1x1 depth texture with depth comparison enabled, for shadow samplers
+    ' that have nothing real to point at. Created once, on first use.
+    Private DUMMY_SHADOW_TEX As GLTexture
+
+    Private Function dummy_shadow() As GLTexture
+        If DUMMY_SHADOW_TEX Is Nothing Then
+            DUMMY_SHADOW_TEX = GLTexture.Create(TextureTarget.Texture2D, "DummyShadow")
+            DUMMY_SHADOW_TEX.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            DUMMY_SHADOW_TEX.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            DUMMY_SHADOW_TEX.Parameter(TextureParameterName.TextureCompareMode, CInt(TextureCompareMode.CompareRefToTexture))
+            DUMMY_SHADOW_TEX.Parameter(TextureParameterName.TextureCompareFunc, CInt(All.Lequal))
+            DUMMY_SHADOW_TEX.Storage2D(1, DirectCast(InternalFormat.DepthComponent16, SizedInternalFormat), 1, 1)
+        End If
+        Return DUMMY_SHADOW_TEX
+    End Function
+
     Private Sub render_deferred_buffers()
         GL_PUSH_GROUP("render_deferred_buffers")
         '===========================================================================
@@ -725,17 +741,37 @@ Module modRender
         MainFBO.gNormal.BindUnit(1)
         MainFBO.gGMF.BindUnit(2)
         MainFBO.gPosition.BindUnit(3)
+        ' The GEOMETRIC surface normal, for the wet path. gNormal carries the
+        ' bump detail; this is the slope those bumps sit on, which is what a
+        ' sheet of water actually lies along.
+        MainFBO.gSurfaceNormal.BindUnit(10)
         map_scene.sky.CUBE_TEXTURE_ID.BindUnit(4)
         map_scene.CC_LUT_ID.BindUnit(5)
         map_scene.ENV_BRDF_LUT_ID?.BindUnit(6)
         ShadowMappingFBO.depth_tex.BindUnit(7)
+
+        ' The baked sun shadow map is ALWAYS bound. Whether shadows get
+        ' APPLIED is decided in the shader, by has_sun_shadow - see
+        ' baked_sun_shadow() in deferred.frag, which returns 1.0 and never
+        ' touches the sampler when the flag is 0.
+        '
+        ' Binding and enabling are separate concerns. Leaving a
+        ' sampler2DShadow unbound is not a way to switch a feature off - it
+        ' is simply an illegal GL state, and the driver says so on every
+        ' single draw (131222, undefined behavior: shadow sampler on a
+        ' non-depth texture). The 1x1 stand-in exists only so there is
+        ' always something legal there; it is never read.
+        If map_scene.sun_shadow IsNot Nothing AndAlso map_scene.sun_shadow.depth_tex IsNot Nothing Then
+            map_scene.sun_shadow.depth_tex.BindUnit(8)
+        Else
+            dummy_shadow().BindUnit(8)
+        End If
 
         ' Map-wide baked sun shadow. The cascades carry trees only, so this is
         ' what shadows terrain and static models - it has to be here rather than
         ' folded into the terrain albedo at page-bake time, or it reaches neither
         ' the models nor the ambient/direct split correctly.
         If map_scene.sun_shadow.ready AndAlso map_scene.sun_shadow.depth_tex IsNot Nothing Then
-            map_scene.sun_shadow.depth_tex.BindUnit(8)
             GL.UniformMatrix4(deferredShader("sunViewProj"), False, map_scene.sun_shadow.sun_view_proj)
 
             ' 1 = PCF over the depth map, 2 = moment shadow map. The moment path
@@ -753,9 +789,12 @@ Module modRender
             GL.Uniform1(deferredShader("shadow_penumbra_lo"), SHADOW_PENUMBRA_LO)
             GL.Uniform1(deferredShader("shadow_penumbra_hi"), SHADOW_PENUMBRA_HI)
         Else
+            ' Shadows off. The map stays bound above; this is the whole of
+            ' switching them off.
             GL.Uniform1(deferredShader("has_sun_shadow"), 0)
         End If
 
+        GL.Uniform1(deferredShader("water_depth"), WATER_DEPTH)
         GL.UniformMatrix4(deferredShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
 
         Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, map_scene.camera.PerViewData.view)
