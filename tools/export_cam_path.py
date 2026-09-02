@@ -54,27 +54,50 @@ MIN_RADIUS = 12.0    # metres. Reported, not enforced - a corner too tight to
                      # fly is a speed problem, not a geometry one.
 
 CRUISE = 12.0        # metres per second along the path
-TILT_BIAS = -4.0     # degrees. Negative looks slightly down, like a person
-                     # walking. Pure tangent tilt stares at the horizon.
+TILT_LOOKAHEAD = 30.0  # metres. Tilt aims at the path THIS far ahead, rather
+                       # than at the local climb rate.
+                       #
+                       # The climb-rate version was right at 25 m and useless at
+                       # 1: measured, it never looked up at all, averaging -0.2
+                       # deg on rising ground and -6.7 deg on falling, which at
+                       # 1 m altitude is staring at the dirt 8 m in front. Aiming
+                       # ahead levels out over a dip, because the point 30 m away
+                       # is at roughly your own height even when the ground
+                       # between you drops.
+TILT_BIAS = 0.0        # degrees on top of that. At 1 m there is nothing to gain
+                       # from looking down.
 
-MAX_BANK = 28.0      # degrees. Beyond this a flythrough reads as aerobatics.
+MAX_BANK = 40.0      # degrees. Was 28, and that was the binding limit on the
+                     # sharp corners: a 12 m radius turn at 12 m/s asks for
+                     # atan(v^2/rg) = 50.7 degrees, so the cap was refusing most
+                     # of the bank exactly where it should be most obvious.
+                     # Taste, not correctness - drop it if it reads as
+                     # aerobatics.
 BANK_GAIN = 0.85     # scales the coordinated-turn angle. 1.0 is physically
                      # correct for an aircraft and slightly too much for a
                      # camera, which has no passengers to keep level.
 
-ROLL_FLATTEN = 55.0  # metres of smoothing on a copy of the path used ONLY to
+ROLL_FLATTEN = 22.0
+ROLL_FLATTEN_FINE = 7.0  # the responsive companion to the above, see below
+TIGHT_K = 1.0 / 45.0     # curvature (1/m) at which the fine version fully wins  # metres of smoothing on a copy of the path used ONLY to
                      # work out the bank. Curvature is a second derivative, so
                      # every small wiggle the navigator left behind becomes a
                      # visible twitch in the horizon while barely moving the
                      # camera at all. Flattening only for roll keeps the flown
                      # position honest and the horizon calm.
+                     #
+                     # 22 m, down from 55. The 55 was tuned against the RAW
+                     # reactive path, which was jagged; the path is now
+                     # shortcut and Chaikin-smoothed before this runs, so its
+                     # curvature is already clean and that much flattening only
+                     # stopped the roll keeping up with a sharp turn.
 
 BANK_LEAD = 14.0     # metres. Roll STARTS this far before the curve arrives,
                      # which is what makes it read as flying INTO a turn rather
                      # than reacting to one. This is the "in and out" of the
                      # ask - without it the bank is centred on the corner and
                      # looks like a flinch.
-BANK_SMOOTH = 26.0   # metres of smoothing on the bank. Long, because curvature
+BANK_SMOOTH = 9.0   # metres of smoothing on the bank. Long, because curvature
                      # off a stepped path is noisy and a twitching horizon is
                      # far more obvious than a slightly late roll.
 
@@ -270,9 +293,18 @@ def build(map_name):
     heading = periodic_smooth(unwrap_heading(heading_raw), HEAD_SMOOTH, step_m, closed)
 
     # ------------------------------------------------------------------- tilt
-    dy = np.diff(y, append=y[0] if closed else y[-1])
-    climb = np.arctan2(dy, np.maximum(seg, 1e-6))
-    tilt = periodic_smooth(climb, TILT_SMOOTH, step_m, closed) + math.radians(TILT_BIAS)
+    # Aim at the path ahead, not at the local climb rate. Over a dip the point
+    # 30 m along is near your own height, so the camera holds level instead of
+    # following the ground down and staring at it.
+    la = max(1, int(round(TILT_LOOKAHEAD / step_m)))
+    if closed:
+        ax, ay, az = np.roll(x, -la), np.roll(y, -la), np.roll(z, -la)
+    else:
+        idx = np.minimum(np.arange(n) + la, n - 1)
+        ax, ay, az = x[idx], y[idx], z[idx]
+    horiz = np.maximum(np.hypot(ax - x, az - z), 1e-6)
+    tilt = np.arctan2(ay - y, horiz)
+    tilt = periodic_smooth(tilt, TILT_SMOOTH, step_m, closed) + math.radians(TILT_BIAS)
     # A flythrough that pitches past this is not framing anything any more.
     tilt = np.clip(tilt, -math.radians(MAX_TILT), math.radians(MAX_TILT))
 
@@ -280,20 +312,33 @@ def build(map_name):
     # Curvature comes from a FLATTENED copy of the path, not the flown one. The
     # camera still flies every metre of the real route; only the bank is worked
     # out from the smoothed version.
-    fx = periodic_smooth(x, ROLL_FLATTEN, step_m, closed)
-    fz = periodic_smooth(z, ROLL_FLATTEN, step_m, closed)
-    fdx = np.diff(fx, append=fx[0] if closed else fx[-1])
-    fdz = np.diff(fz, append=fz[0] if closed else fz[-1])
-    fseg = np.maximum(np.hypot(fdx, fdz), 1e-6)
+    def curvature_at(flatten):
+        gx = periodic_smooth(x, flatten, step_m, closed)
+        gz = periodic_smooth(z, flatten, step_m, closed)
+        gdx = np.diff(gx, append=gx[0] if closed else gx[-1])
+        gdz = np.diff(gz, append=gz[0] if closed else gz[-1])
+        gseg = np.maximum(np.hypot(gdx, gdz), 1e-6)
+        # From the UNWRAPPED heading, or every seam crossing reads as an
+        # infinitely tight corner.
+        gh = periodic_smooth(unwrap_heading(np.arctan2(gdx, gdz)),
+                             HEAD_SMOOTH, step_m, closed)
+        d = np.diff(gh, append=gh[0] if closed else gh[-1])
+        if closed:
+            d[-1] = ((gh[0] - gh[-1] + math.pi) % (2 * math.pi)) - math.pi
+        return d / gseg
 
-    # From the UNWRAPPED heading, or every seam crossing reads as an infinitely
-    # tight corner.
-    fh = periodic_smooth(unwrap_heading(np.arctan2(fdx, fdz)),
-                         HEAD_SMOOTH, step_m, closed)
-    dh = np.diff(fh, append=fh[0] if closed else fh[-1])
-    if closed:
-        dh[-1] = ((fh[0] - fh[-1] + math.pi) % (2 * math.pi)) - math.pi
-    curvature = dh / fseg
+    # Two curvatures, blended by how tight the turn is.
+    #
+    # One flattening length cannot serve both jobs: enough smoothing to keep the
+    # horizon still on a straight also clips the peak off a sharp corner, and
+    # the roll then arrives 33% short of the coordinated angle exactly where the
+    # bank should be most obvious. So take the calm version on straights and
+    # hand over to the responsive one as the corner tightens - finer resolution
+    # only where it is needed.
+    calm = curvature_at(ROLL_FLATTEN)
+    fine = curvature_at(ROLL_FLATTEN_FINE)
+    w = np.clip(np.abs(calm) / TIGHT_K, 0.0, 1.0)
+    curvature = calm * (1.0 - w) + fine * w
 
     # Coordinated turn: the bank that would keep a drink level in the cup.
     # atan(v^2 * k / g). Physically motivated rather than a made-up curve, so
