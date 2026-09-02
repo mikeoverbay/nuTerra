@@ -5,6 +5,12 @@ Imports NGettext
 
 NotInheritable Class MapMenuScreen
     Shared ReadOnly MapPickList As New List(Of MapItem)
+    ''' <summary>Installed spaces whose arena_def declares no team bases: Battle
+    ''' Royale cities, Epic and Frontline, comp7 and seasonal cuts, hangars.
+    ''' Real data, never a normal two-team battle - offered in a dropdown rather
+    ''' than mixed into the grid.</summary>
+    Shared ReadOnly OtherPickList As New List(Of MapItem)
+    Private Shared other_sel As Integer = -1
 
     Public Shared MAP_TO_LOAD As String
     Public Shared MAP_DESCRIPTION As String
@@ -52,7 +58,19 @@ NotInheritable Class MapMenuScreen
 
         Disambiguate(MapPickList)
         MapPickList.Sort()
-        LogThis("Maps: {0} spaces installed", MapPickList.Count)
+
+        Dim battle = LoadBattleArenas()
+        If battle.Count > 0 Then
+            For i = MapPickList.Count - 1 To 0 Step -1
+                If Not battle.Contains(MapPickList(i).name) Then
+                    OtherPickList.Insert(0, MapPickList(i))
+                    MapPickList.RemoveAt(i)
+                End If
+            Next
+        End If
+
+        LogThis("Maps: {0} battle arenas, {1} other spaces", MapPickList.Count, OtherPickList.Count)
+        ExportSplit()
         ' load map images
         Dim cnt = 0
         For Each thing In MapPickList
@@ -82,6 +100,70 @@ NotInheritable Class MapMenuScreen
     ''' labelled the same. Whatever the folder names do not have in common is
     ''' appended so they can be told apart.
     '''</summary>
+    ''' <summary>
+    ''' Spaces whose arena_def declares team base positions - a standard
+    ''' two-team battle arena.
+    '''
+    ''' Per-map scripts/arena_defs/&lt;space&gt;.xml, not _list_.xml. The list file
+    ''' was tried first and is useless for this: it names every installed space,
+    ''' all 73 of them, so it split nothing. What actually separates them is
+    ''' teamBasePositions - Battle Royale, Epic, Frontline and the hangars have
+    ''' no such node, while dday and tundra do, which is right: those two are
+    ''' ordinary maps that happen to be out of rotation.
+    '''
+    ''' The same node get_team_locations_and_field_BB already reads to place the
+    ''' base rings, so this asks the game a question it already answers.
+    '''
+    ''' Empty on failure, and the caller then shows everything - a map browser
+    ''' that hides maps because a file moved is worse than one showing extras.
+    ''' </summary>
+    Private Shared Function LoadBattleArenas() As HashSet(Of String)
+        Dim ok As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+        Dim missing = 0
+        For Each m In MapPickList
+            ' Every battle arena is named NN_something. Measured: all 44 that
+            ' declare team bases start with a digit, and the four that do not -
+            ' the h33_ and hangar_ spaces - are already excluded by the node
+            ' test. So this changes nothing today and is here as a guard: a
+            ' future hangar that happens to declare bases stays out of the grid.
+            If m.name.Length = 0 OrElse Not Char.IsDigit(m.name(0)) Then Continue For
+            Try
+                Dim x = ResMgr.openXML("scripts/arena_defs/" & m.name & ".xml")
+                If x Is Nothing Then
+                    missing += 1
+                ElseIf x.SelectSingleNode(".//teamBasePositions") IsNot Nothing Then
+                    ok.Add(m.name)
+                End If
+            Catch
+                missing += 1
+            End Try
+        Next
+        If missing > 0 Then
+            LogThis("Maps: {0} spaces had no readable arena_def", missing)
+        End If
+        Return ok
+    End Function
+
+    ''' <summary>Write the split under TEMP so Path Studio uses the same answer
+    ''' rather than carrying its own packed-XML reader.</summary>
+    Private Shared Sub ExportSplit()
+        Try
+            Dim dir = Path.Combine(Path.GetTempPath(), "nuTerra")
+            Directory.CreateDirectory(dir)
+            Dim sb As New Text.StringBuilder
+            sb.AppendLine("# split by whether scripts/arena_defs/<space>.xml declares teamBasePositions")
+            For Each m In MapPickList
+                sb.AppendLine("battle=" & m.name)
+            Next
+            For Each m In OtherPickList
+                sb.AppendLine("other=" & m.name)
+            Next
+            File.WriteAllText(Path.Combine(dir, "map_split.txt"), sb.ToString())
+        Catch ex As Exception
+            LogThis("Maps: split export failed: {0}", ex.Message)
+        End Try
+    End Sub
+
     Private Shared Sub Disambiguate(items As List(Of MapItem))
         For Each g In items.GroupBy(Function(i) i.realname).Where(Function(x) x.Count() > 1)
             Dim group = g.ToList()
@@ -167,6 +249,33 @@ NotInheritable Class MapMenuScreen
                 Next
                 ImGui.EndTable()
             End If
+
+            If OtherPickList.Count > 0 Then
+                ImGui.Dummy(New Numerics.Vector2(0, 12))
+                ImGui.Separator()
+                ImGui.Text(String.Format("Other spaces ({0}) - no team bases, so never a normal battle",
+                                         OtherPickList.Count))
+                ImGui.SetNextItemWidth(420)
+                Dim preview = If(other_sel >= 0 AndAlso other_sel < OtherPickList.Count,
+                                 OtherPickList(other_sel).realname, "pick one to load")
+                If ImGui.BeginCombo("##OtherMaps", preview) Then
+                    For i = 0 To OtherPickList.Count - 1
+                        Dim it = OtherPickList(i)
+                        ' Single-argument Selectable: the two-argument overloads
+                        ' differ only by ByRef on the Boolean, which VB cannot
+                        ' disambiguate. The tick is drawn by hand instead.
+                        Dim mark = If(other_sel = i, "* ", "   ")
+                        If ImGui.Selectable(mark & it.realname & "   (" & it.name & ")") Then
+                            other_sel = i
+                            MAP_TO_LOAD = it.name
+                            MAP_DESCRIPTION = it.description
+                            MAP_REALNAME = it.realname
+                        End If
+                    Next
+                    ImGui.EndCombo()
+                End If
+            End If
+
             ImGui.End()
         End If
     End Sub
