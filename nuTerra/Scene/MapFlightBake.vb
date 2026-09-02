@@ -155,7 +155,11 @@ Public Class MapFlightBake
                 SIZE, wx_max - wx_min, wz_max - wz_min,
                 (wx_max - wx_min) / SIZE, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT)
 
+        ' Terrain only, so this must run BEFORE the water goes in - it probes
+        ' the floor against get_Y_at_XZ_fast, which knows nothing about water.
         verify_against_cpu()
+
+        add_water()
         report_coverage()
         export()
     End Sub
@@ -202,6 +206,68 @@ Public Class MapFlightBake
         If best <> 0 Then
             LogThis("flight bake: WRONG ORIENTATION - the mapping should be {0}", names(best))
         End If
+    End Sub
+
+    ''' <summary>
+    ''' Raise floor and top to the water surface wherever a body covers a cell.
+    '''
+    ''' Water is a forward pass in MapWater and appears in NEITHER depth pass,
+    ''' so without this the bake reports the LAKE BED. A quarter of Abbey has
+    ''' terrain below y=0, and a flight planned 4 m over that floor is 4 m over
+    ''' the bed - underwater, and nothing downstream could tell.
+    '''
+    ''' Both layers, for different reasons. FLOOR so that 'so many metres above
+    ''' the ground' means above the surface you can actually see. TOP so that a
+    ''' flight level below the surface is correctly blocked rather than reading
+    ''' as open water.
+    '''
+    ''' Bodies are axis-aligned rectangles at a fixed height - MapWater.Build
+    ''' makes each one two triangles from its bbox corners, with the same X
+    ''' mirror applied - so this is a rectangle fill, not a rasteriser. The
+    ''' mirror is repeated here rather than assumed away; getting it wrong puts
+    ''' every lake on the opposite side of the map.
+    ''' </summary>
+    Private Sub add_water()
+        If cBWWa.bodies Is Nothing OrElse cBWWa.bodies.Length = 0 Then
+            LogThis("flight bake: no water bodies")
+            Return
+        End If
+
+        Dim raised = 0
+        Dim wsum = 0.0
+        For Each b In cBWWa.bodies
+            Dim x0 = Math.Min(-b.bbox_min.X, -b.bbox_max.X)
+            Dim x1 = Math.Max(-b.bbox_min.X, -b.bbox_max.X)
+            Dim z0 = Math.Min(b.bbox_min.Z, b.bbox_max.Z)
+            Dim z1 = Math.Max(b.bbox_min.Z, b.bbox_max.Z)
+            Dim y = b.bbox_min.Y
+
+            ' world -> texel, the mapping the exported header documents
+            Dim c0 = CInt(Math.Floor((x0 - wx_min) / (wx_max - wx_min) * SIZE))
+            Dim c1 = CInt(Math.Ceiling((x1 - wx_min) / (wx_max - wx_min) * SIZE))
+            Dim r0 = CInt(Math.Floor((wz_max - z1) / (wz_max - wz_min) * SIZE))
+            Dim r1 = CInt(Math.Ceiling((wz_max - z0) / (wz_max - wz_min) * SIZE))
+
+            c0 = Math.Max(0, c0) : c1 = Math.Min(SIZE, c1)
+            r0 = Math.Max(0, r0) : r1 = Math.Min(SIZE, r1)
+
+            For r = r0 To r1 - 1
+                Dim row = r * SIZE
+                For c = c0 To c1 - 1
+                    Dim i = row + c
+                    If y > floor_m(i) Then
+                        floor_m(i) = y
+                        raised += 1
+                    End If
+                    If y > top_m(i) Then top_m(i) = y
+                Next
+            Next
+            wsum += y
+        Next
+
+        LogThis("flight bake: {0} water bodies raised {1} cells ({2:0.00}% of the map), mean surface {3:0.0} m",
+                cBWWa.bodies.Length, raised, 100.0 * raised / (SIZE * SIZE),
+                wsum / Math.Max(1, cBWWa.bodies.Length))
     End Sub
 
     ''' <summary>How much of the map the mask calls blocked, and how tall the
