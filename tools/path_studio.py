@@ -256,13 +256,14 @@ class Studio:
         self.maps.bind("<<ListboxSelect>>", lambda e: self.load_selected())
 
         # The odd spaces, after the rotation list rather than mixed into it.
-        self.other_maps = []
+        self.row_names = []
+        self.other_names = []
+        self.baked = set()
         self.other_lbl = ttk.Label(left, text="Other spaces", foreground="#777")
         self.other_lbl.grid(row=2, column=0, sticky="w")
         self.other_combo = ttk.Combobox(left, width=24, state="readonly")
         self.other_combo.grid(row=3, column=0, sticky="we", pady=(0, 8))
-        self.other_combo.bind("<<ComboboxSelected>>",
-                              lambda e: self.load_named(self.other_combo.get()))
+        self.other_combo.bind("<<ComboboxSelected>>", self._pick_other)
 
         r = 4
         self.vars = {}
@@ -363,6 +364,11 @@ class Studio:
 
     # ---------------------------------------------------------------- maps
 
+    def _pick_other(self, _e=None):
+        i = self.other_combo.current()
+        if 0 <= i < len(self.other_names):
+            self.load_named(self.other_names[i])
+
     def read_split(self):
         """nuTerra's battle/other split, if it has run.
 
@@ -386,41 +392,63 @@ class Studio:
         return battle, other
 
     def find_maps(self):
-        names = []
+        """List the same maps nuTerra does, not just the ones already baked.
+
+        Listing only baked maps showed a single entry and gave no idea what else
+        was possible. The split file names all 73 spaces, so the list mirrors
+        nuTerra's grid - battle arenas here, the rest in the dropdown - and the
+        ones without a bake are MARKED rather than hidden. A map that cannot be
+        planned yet is still worth seeing, along with why.
+        """
+        baked = set()
         if os.path.isdir(FOLDER):
-            for f in sorted(os.listdir(FOLDER)):
+            for f in os.listdir(FOLDER):
                 if f.endswith("_meta.txt"):
-                    names.append(f[:-9])
+                    baked.add(f[:-9])
+        self.baked = baked
 
         battle, other = self.read_split()
         if battle:
-            listed = [n for n in names if n in battle]
-            self.other_maps = [n for n in names if n in other]
-            # A bake with no opinion either way still has to be reachable.
-            self.other_maps += [n for n in names if n not in battle and n not in other]
+            listed = sorted(battle)
+            others = sorted(other | (baked - battle - other))
         else:
-            listed, self.other_maps = names, []
+            # No split written yet - nuTerra has not run. Fall back to bakes.
+            listed, others = sorted(baked), []
 
+        self.row_names = listed
         for n in listed:
-            self.maps.insert("end", n)
-        self.other_combo.configure(values=self.other_maps)
-        self.other_combo.state(["!disabled"] if self.other_maps else ["disabled"])
+            self.maps.insert("end", n if n in baked else n + "    (no bake)")
+
+        self.other_names = others
+        self.other_combo.configure(
+            values=[n if n in baked else n + "    (no bake)" for n in others])
+        self.other_combo.state(["!disabled"] if others else ["disabled"])
         self.other_lbl.configure(
-            text="Other spaces (%d) - no team bases" % len(self.other_maps)
-            if self.other_maps else "Other spaces - none baked")
-        names = listed
-        if not names:
-            self.status.set("No bakes in %TEMP%\\nuTerra\\flight. Open a map in "
-                            "nuTerra first - it writes the bake on load.")
+            text="Other spaces (%d) - no team bases" % len(others)
+            if others else "Other spaces - none")
+
+        n_ready = len([n for n in listed if n in baked])
+        if not listed:
+            self.status.set("No map list and no bakes. Open a map in nuTerra - "
+                            "it writes both.")
+        else:
+            self.status.set("%d battle arenas, %d baked and ready. Open a map in "
+                            "nuTerra to bake it." % (len(listed), n_ready))
 
     def load_selected(self):
         sel = self.maps.curselection()
         if not sel or self.busy:
             return
-        self.load_named(self.maps.get(sel[0]))
+        i = sel[0]
+        self.load_named(self.row_names[i] if i < len(self.row_names)
+                        else self.maps.get(i))
 
     def load_named(self, name):
         if self.busy or not name:
+            return
+        if name not in getattr(self, "baked", ()):  # nothing to draw or plan
+            self.status.set("%s has no bake yet - open it once in nuTerra, "
+                            "which writes one on map load." % name)
             return
         self.status.set("loading " + name)
         self.root.update_idletasks()
