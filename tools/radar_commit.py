@@ -953,7 +953,11 @@ def draw(bake, res, sc, nx, nz, out_png, worlds=None, terrace_of=None):
     side_px = max(c1 - c0, r1 - r0)
     c0 = max(0, min(c0, bake.w - side_px)); r0 = max(0, min(r0, bake.h - side_px))
 
-    SC = 1800.0 / side_px
+    # 3000 px, not 1800. The three post-hit samples span about 4 m of world -
+    # one bake cell apart - and at 1800 that is a handful of pixels, which is
+    # not a drawing anyone can read. Markers below scale with SC so they stay
+    # proportionate rather than becoming blobs.
+    SC = 3000.0 / side_px
     base = base.crop((c0, r0, c0 + side_px, r0 + side_px)).resize(
         (int(side_px * SC), int(side_px * SC)), Image.LANCZOS)
     W, H = base.size
@@ -969,7 +973,9 @@ def draw(bake, res, sc, nx, nz, out_png, worlds=None, terrace_of=None):
     ov = Image.new("RGBA", im.size, (0, 0, 0, 0))
     do = ImageDraw.Draw(ov)
     fans = res["fans"]
-    for k in range(0, len(fans), 16):
+    # Fewer sweeps at this size, or the post-hit tails of neighbouring fans
+    # merge into a wash and the thing being drawn bigger is lost again.
+    for k in range(0, len(fans), 26):
         x, z, heading, fan, mode, probes = fans[k]
         a0 = T(x, z)
         for a, rng in fan:
@@ -985,17 +991,20 @@ def draw(bake, res, sc, nx, nz, out_png, worlds=None, terrace_of=None):
         # object-versus-terrain test made visible: bright red where the average
         # says something is standing there, dim orange where it says the ground
         # has merely drifted over the flight level and will drift back.
+        dot = max(3.0, 1.9 * SC)
+        wide = max(3, int(round(1.2 * SC)))
         for (rng, spts, solid) in probes:
             solid_hit = solid >= SOLID_H
             tail = [T(px, pz) for (px, pz) in spts]
-            do.line(tail, fill=(255, 40, 40, 170) if solid_hit else (255, 150, 90, 70),
-                    width=2 if solid_hit else 1)
+            do.line(tail, fill=(255, 40, 40, 190) if solid_hit else (255, 150, 90, 105),
+                    width=wide if solid_hit else max(2, wide - 1))
             for j, pt in enumerate(tail):
                 if j == 0:
                     continue
-                rr = 2.0 if solid_hit else 1.3
+                rr = dot if solid_hit else dot * 0.72
                 do.ellipse([pt[0] - rr, pt[1] - rr, pt[0] + rr, pt[1] + rr],
-                           fill=(255, 45, 45, 215) if solid_hit else (255, 160, 100, 110))
+                           fill=(255, 45, 45, 230) if solid_hit else (255, 165, 105, 150),
+                           outline=(120, 0, 0, 200) if solid_hit else None)
     im = Image.alpha_composite(im, ov)
     d = ImageDraw.Draw(im)
 
