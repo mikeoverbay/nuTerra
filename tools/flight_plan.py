@@ -18,6 +18,7 @@ Outputs, alongside the bake:
 """
 
 import csv
+import math
 import os
 import struct
 import sys
@@ -25,6 +26,13 @@ import heapq
 
 import numpy as np
 from scipy import ndimage
+
+# How much of a texel's own slope-span to forgive as 'not an obstacle'.
+# 1.25 rather than 1.0 - the two depth passes can disagree by a little more
+# than the nominal span at a texel edge, and under-forgiving puts phantom
+# walls back on every hillside.
+SLOPE_TOL = 1.25
+
 from scipy.interpolate import splprep, splev
 from PIL import Image, ImageDraw
 
@@ -111,10 +119,29 @@ class Bake:
             self.floor[self.no_data] = fill
             self.top[self.no_data] = fill
 
-        self.obstacle = np.maximum(self.top - self.floor, 0.0)
-
         self.mx = (self.wx_max - self.wx_min) / self.w   # metres per column
         self.mz = (self.wz_max - self.wz_min) / self.h   # metres per row
+
+        self.obstacle = np.maximum(self.top - self.floor, 0.0)
+
+        # Discount the terrain's OWN slope from the obstacle height.
+        #
+        # top and floor are two separate depth passes over the same terrain, and
+        # on a slope they win their depth tests at slightly different points
+        # inside a texel - so their difference reads as an obstacle when nothing
+        # is standing there at all. Measured on Abbey: at 30-45 degrees a texel
+        # spans 1.04 m of height and the obstacle reads 1.18 m, a ratio of 1.14.
+        # It IS the slope. 32% of steep cells reported 0.5-3 m of phantom
+        # obstacle, and 85% of ground steeper than 45 degrees came out blocked.
+        #
+        # A fast height change with nothing standing on it is not a collision -
+        # the camera simply flies over it. Subtract what the ground itself
+        # accounts for and keep only the remainder.
+        gy, gx = np.gradient(self.floor, self.mz, self.mx)
+        self.slope_span = np.hypot(gx, gy) * max(self.mx, self.mz)
+        self.obstacle = np.maximum(
+            self.obstacle - self.slope_span * SLOPE_TOL, 0.0)
+
 
     def _r32(self, path):
         with open(path, "rb") as f:
@@ -198,6 +225,91 @@ def build_cost(bake):
     cost[blocked] = np.inf
 
     return o, blocked, cost, cell_m
+
+
+def astar(cost, start, goal, stats=None):
+    """Shortest path over the cost grid - Dijkstra with a heuristic.
+
+    Identical answer, a fraction of the work. Dijkstra expands outward in every
+    direction until it stumbles on the goal; A* expands the node with the lowest
+    ESTIMATED TOTAL - cost so far plus an optimistic guess of what is left - so
+    the search leans toward the goal instead of flooding the map.
+
+    The heuristic is straight-line distance in cells, and it is ADMISSIBLE here,
+    which is what makes the answer identical rather than merely close. A step
+    costs its length times the cell weight, and build_cost never produces a
+    weight below 1.0 (it starts at 1.0 and only adds), so a straight line at
+    weight 1.0 is the cheapest any remaining path could possibly be. Never
+    overestimating is the whole condition for optimality.
+
+    It is also consistent - the estimate cannot drop by more than the step taken
+    - so a node is never reached more cheaply after being settled, and no
+    reopening is needed.
+    """
+    g = cost.shape[0]
+    INF = float("inf")
+    dist = np.full(cost.shape, INF)
+    prev = np.full(cost.shape + (2,), -1, dtype=np.int32)
+    done = np.zeros(cost.shape, dtype=bool)
+    dist[start] = 0.0
+    gr, gc = goal
+
+    # Scale the estimate by the CHEAPEST cell anywhere on the grid.
+    #
+    # Still admissible - no path can cost less per unit length than the cheapest
+    # weight there is - but far better informed. Plain straight-line distance
+    # assumes a weight of 1.0 while build_cost never goes below about 1.8, so it
+    # under-guessed by half and A* fell back toward flooding the map: 18% of the
+    # grid expanded for only a 1.5x gain. A tighter admissible estimate is free
+    # accuracy.
+    finite = cost[np.isfinite(cost)]
+    wmin = float(finite.min()) if finite.size else 1.0
+
+    def est(r, c):
+        return math.hypot(r - gr, c - gc) * wmin
+
+    pq = [(est(start[0], start[1]), 0.0, start[0], start[1])]
+    nbr = [(-1, 0, 1.0), (1, 0, 1.0), (0, -1, 1.0), (0, 1, 1.0),
+           (-1, -1, 1.4142), (-1, 1, 1.4142), (1, -1, 1.4142), (1, 1, 1.4142)]
+    expanded = 0
+
+    while pq:
+        _f, d, r, c = heapq.heappop(pq)
+        if done[r, c]:
+            continue
+        done[r, c] = True
+        expanded += 1
+        if (r, c) == goal:
+            break
+        for dr, dc, step in nbr:
+            nr, nc = r + dr, c + dc
+            if not (0 <= nr < g and 0 <= nc < g) or done[nr, nc]:
+                continue
+            w = cost[nr, nc]
+            if not np.isfinite(w):
+                continue
+            nd = d + step * w
+            if nd < dist[nr, nc]:
+                dist[nr, nc] = nd
+                prev[nr, nc] = (r, c)
+                heapq.heappush(pq, (nd + est(nr, nc), nd, nr, nc))
+
+    if stats is not None:
+        stats["expanded"] = expanded
+        stats["cost"] = float(dist[goal])
+
+    if not np.isfinite(dist[goal]):
+        return None
+
+    out = []
+    cur = goal
+    while cur != start:
+        out.append(cur)
+        pv = prev[cur[0], cur[1]]
+        cur = (int(pv[0]), int(pv[1]))
+    out.append(start)
+    out.reverse()
+    return out
 
 
 def dijkstra(cost, start, goal):
@@ -376,7 +488,7 @@ def route_loop(cost, blocked, waypoints):
     for i in range(n):
         a = waypoints[i]
         b = waypoints[(i + 1) % n]
-        leg = dijkstra(cost, a, b)
+        leg = astar(cost, a, b)
         if leg is None:
             raise RuntimeError(f"no route from {a} to {b}")
         path.extend(leg[:-1])       # drop the duplicated joint

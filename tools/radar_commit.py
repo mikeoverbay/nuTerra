@@ -29,6 +29,13 @@ import sys
 
 import numpy as np
 from scipy import ndimage
+
+# How much of a texel's own slope-span to forgive as 'not an obstacle'.
+# 1.25 rather than 1.0 - the two depth passes can disagree by a little more
+# than the nominal span at a texel edge, and under-forgiving puts phantom
+# walls back on every hillside.
+SLOPE_TOL = 1.25
+
 from PIL import Image, ImageDraw
 
 # --------------------------------------------------------------------------
@@ -100,7 +107,13 @@ FAR_D = 22.0         # second lookahead point - the trap test
 LOOKAHEAD = 14.0     # metres ahead on the nominal course we aim at
 
 RADAR_FOV = 150.0    # total fan width, degrees
-RADAR_RAYS = 41      # rays in the fan
+RADAR_RAYS = 121     # rays in the fan. Tripled - this runs offline once, so a
+                     # denser sweep is free. It does NOT make the flight safer:
+                     # the ray march is a DDA over cells and cannot skip one
+                     # between rays. What it buys is better DECISIONS - gap
+                     # centring and the side choice both read the fan, and at 41
+                     # rays over 150 degrees adjacent rays are 5.7 m apart at
+                     # full range, which is wide enough to miss a gap.
 RADAR_RANGE = 90.0   # maximum radar range, metres
 
 # How far a hit must stand above the flight level, AVERAGED over the hit cell
@@ -120,6 +133,21 @@ POST_SAMPLES = 3
 # from every slope closes every gap on the map. You want to be well clear of a
 # barn; you only need to not scrape a hillside you are already above.
 OBJECT_MIN_H = 2.0   # stands this far over its own ground -> it is an object
+
+# Canopy repair. Trees rasterise into the bake as DOTS.
+#
+# Measured on Abbey: 3134 separate tall blobs with a MEDIAN SIZE OF ONE CELL,
+# 1834 of them single cells, where a real canopy is 5-8 m across. A leaf card
+# only sets a texel when it covers the texel CENTRE, so sparse foliage records a
+# holey, undersized footprint - and closing the mask at 4 m recovers 19% more
+# area, which is how much of it is holes.
+#
+# The planner was therefore holding its 6 m standoff from a 1.4 m dot, leaving
+# 2-3 m to the actual leaves. That is what was clipping trees, and no amount of
+# extra radar rays would have found it - the obstacle was not in the data.
+CANOPY_H = 3.0       # over this tall, treat the footprint as under-recorded
+CANOPY_CLOSE = 2     # cells of morphological closing, to fill the holes
+CANOPY_PAD = 2       # cells of extra spread, for foliage that missed every centre
 TERRAIN_R = 3.0      # standoff from ground that merely reaches the level
 
 # Centring on openings. A gap this wide or wider counts as open country and
@@ -174,9 +202,29 @@ class Bake:
             self.floor[self.no_data] = fill
             self.top[self.no_data] = fill
 
-        self.obstacle = np.maximum(self.top - self.floor, 0.0)
         self.mx = (self.wx_max - self.wx_min) / self.w
         self.mz = (self.wz_max - self.wz_min) / self.h
+
+        self.obstacle = np.maximum(self.top - self.floor, 0.0)
+
+        # Discount the terrain's OWN slope from the obstacle height.
+        #
+        # top and floor are two separate depth passes over the same terrain, and
+        # on a slope they win their depth tests at slightly different points
+        # inside a texel - so their difference reads as an obstacle when nothing
+        # is standing there at all. Measured on Abbey: at 30-45 degrees a texel
+        # spans 1.04 m of height and the obstacle reads 1.18 m, a ratio of 1.14.
+        # It IS the slope. 32% of steep cells reported 0.5-3 m of phantom
+        # obstacle, and 85% of ground steeper than 45 degrees came out blocked.
+        #
+        # A fast height change with nothing standing on it is not a collision -
+        # the camera simply flies over it. Subtract what the ground itself
+        # accounts for and keep only the remainder.
+        gy, gx = np.gradient(self.floor, self.mz, self.mx)
+        self.slope_span = np.hypot(gx, gy) * max(self.mx, self.mz)
+        self.obstacle = np.maximum(
+            self.obstacle - self.slope_span * SLOPE_TOL, 0.0)
+
 
     def _r32(self, path):
         with open(path, "rb") as f:
@@ -1192,6 +1240,16 @@ def build_world(bake, level):
         raw = bake.top > (level - MARGIN)
     else:
         raw = bake.obstacle > BLOCK_H
+
+    # Give tall things back the footprint the rasteriser lost. Close first to
+    # fill the holes inside a canopy, then spread, because closing alone cannot
+    # recover foliage that missed every texel centre it passed over.
+    canopy = (bake.top - bake.floor) > CANOPY_H
+    if CANOPY_CLOSE > 0:
+        canopy = ndimage.binary_closing(canopy, iterations=CANOPY_CLOSE)
+    if CANOPY_PAD > 0:
+        canopy = ndimage.binary_dilation(canopy, iterations=CANOPY_PAD)
+    raw = raw | canopy
 
     # Two standoffs, not one. Split the blocked set by whether something is
     # STANDING there or the ground itself has reached the flight level, and

@@ -434,6 +434,15 @@ def draw(bake, raw, pts, out_png):
 
 
 def main():
+    """Raises RuntimeError on a bad export, NOT SystemExit.
+
+    This module is imported and called as a library by path_studio, and
+    SystemExit inherits from BaseException rather than Exception - so a normal
+    `except Exception` around the call does not catch it. The worker thread died
+    silently, neither the done nor the failed handler ran, and the Generate
+    button stayed disabled forever with nothing said. A library should raise
+    something a caller can reasonably catch.
+    """
     map_name = sys.argv[1] if len(sys.argv) > 1 else nav.MAP
 
     bake, raw, res, pts, total, closed, step_m, level, worlds = build(map_name)
@@ -456,7 +465,7 @@ def main():
     print(f"  {binp}  {size} bytes")
     print(f"  round trip: {'OK' if ok else 'FAILED'} - {why}")
     if not ok:
-        raise SystemExit("the file does not read back as what was written")
+        raise RuntimeError("the file does not read back as what was written")
 
     # Not res["levels"] - after smoothing the point count has changed and that
     # array no longer lines up with pts. Terrain-following has one world anyway.
@@ -474,7 +483,7 @@ def main():
           f"(median {med:.1f}, 90th {p90:.1f}, {asked})")
     print(f"  tilt at the {MAX_TILT:.0f} deg cap: {100 * sat / len(pts):.1f}% of the path")
     if clips:
-        raise SystemExit("exported path passes through an obstacle")
+        raise RuntimeError("exported path passes through an obstacle")
 
     with open(csvp, "w", newline="") as f:
         w = csv.writer(f)
