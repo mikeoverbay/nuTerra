@@ -34,6 +34,12 @@ import math
 # are fallbacks for corners where it would clip.
 CUT_RATIOS = (0.25, 0.15, 0.08, 0.04)
 
+RELAX_PASSES = 60      # a relax nudge is deliberately small, so give it room
+RELAX_STRENGTH = 0.35  # fraction of the way to the neighbours' midpoint per
+                       # pass. Small on purpose: every move is collision
+                       # checked, and a big step just gets refused near
+                       # geometry instead of finding the part of it that fits.
+
 
 def _seg_clear(clear, a, b):
     return clear(a[0], a[1], b[0], b[1])
@@ -291,10 +297,34 @@ def resample(pts, step_m, closed=True):
     return out
 
 
+def radius_at(pts, i):
+    """Turn radius at vertex i, from the angle between its two edges.
+
+    ONE definition, used by both the check and the relaxation below. If the
+    thing that measures a corner and the thing that fixes it disagree even
+    slightly, the fix chases a target it can never hit.
+    """
+    n = len(pts)
+    a = pts[(i - 1) % n]
+    b = pts[i]
+    c = pts[(i + 1) % n]
+    ux, uz = b[0] - a[0], b[1] - a[1]
+    vx, vz = c[0] - b[0], c[1] - b[1]
+    lu = math.hypot(ux, uz)
+    lv = math.hypot(vx, vz)
+    if lu < 1e-6 or lv < 1e-6:
+        return 1e9
+    cross = (ux * vz - uz * vx) / (lu * lv)
+    cross = min(max(cross, -1.0), 1.0)
+    dth = abs(math.asin(cross))
+    if dth < 1e-9:
+        return 1e9
+    return (0.5 * (lu + lv)) / dth
+
+
 def curvature_ok(pts, min_radius_m, closed=True):
-    """Worst turn radius on the path, and how much of it is tighter than the
-    limit. Reported rather than enforced - a camera that cannot make a corner is
-    a speed problem, not a geometry one."""
+    """Worst turn radius on the path, and how many corners are tighter than the
+    limit."""
     n = len(pts)
     if n < 3:
         return 1e9, 0
@@ -302,29 +332,66 @@ def curvature_ok(pts, min_radius_m, closed=True):
     tight = 0
     rng = range(n) if closed else range(1, n - 1)
     for i in rng:
-        a = pts[(i - 1) % n]
-        b = pts[i]
-        c = pts[(i + 1) % n]
-        ux, uz = b[0] - a[0], b[1] - a[1]
-        vx, vz = c[0] - b[0], c[1] - b[1]
-        lu = math.hypot(ux, uz)
-        lv = math.hypot(vx, vz)
-        if lu < 1e-6 or lv < 1e-6:
-            continue
-        cross = (ux * vz - uz * vx) / (lu * lv)
-        cross = min(max(cross, -1.0), 1.0)
-        dth = abs(math.asin(cross))
-        if dth < 1e-9:
-            continue
-        r = (0.5 * (lu + lv)) / dth
+        r = radius_at(pts, i)
         worst = min(worst, r)
         if r < min_radius_m:
             tight += 1
     return worst, tight
 
 
+def relax_tight(pts, clear, min_radius_m, closed=True,
+                passes=RELAX_PASSES, strength=RELAX_STRENGTH):
+    """Pull out corners tighter than min_radius_m, and report what would not go.
+
+    curvature_ok only ever REPORTED these. That is the right answer when a
+    corner is tight because the GAP is tight - the geometry is holding it, and
+    forcing it open flies the camera into a wall. But most tight corners are not
+    that. They are a kink the earlier passes happened to leave, nothing is
+    holding them, and a kink nothing is holding can simply be relaxed away.
+
+    So try, and let the collision check decide which kind each one is. A vertex
+    moves a fraction of the way toward the midpoint of its neighbours, both new
+    segments are checked, and a move that fails is dropped. A corner the map
+    genuinely needs refuses every pass and survives untouched, which is why this
+    cannot make a route unflyable.
+
+    Returns (points, passes_used, moves_made, corners_left).
+    """
+    p = [tuple(q) for q in pts]
+    n = len(p)
+    if n < 5:
+        return p, 0, 0, 0
+
+    rng = list(range(n)) if closed else list(range(1, n - 1))
+    used = 0
+    moves = 0
+    for _ in range(max(0, passes)):
+        tight = [i for i in rng if radius_at(p, i) < min_radius_m]
+        if not tight:
+            break
+        used += 1
+        moved_this_pass = 0
+        for i in tight:
+            a = p[(i - 1) % n]
+            b = p[i]
+            c = p[(i + 1) % n]
+            nb = (b[0] + (0.5 * (a[0] + c[0]) - b[0]) * strength,
+                  b[1] + (0.5 * (a[1] + c[1]) - b[1]) * strength)
+            if _seg_clear(clear, a, nb) and _seg_clear(clear, nb, c):
+                p[i] = nb
+                moved_this_pass += 1
+        moves += moved_this_pass
+        # Nothing moved and corners remain: every one left is held by the map,
+        # so more passes cannot help.
+        if moved_this_pass == 0:
+            break
+
+    left = sum(1 for i in rng if radius_at(p, i) < min_radius_m)
+    return p, used, moves, left
+
+
 def smooth(pts, clear, step_m, closed=True, reach=None, iterations=4,
-           tight_deg=55.0, corner_clear=None):
+           tight_deg=55.0, corner_clear=None, min_radius_m=None):
     """The whole pipeline: despike, shortcut, cut corners, resample evenly.
 
     Despike FIRST. It removes the doubling-back that the shortcut would
@@ -346,4 +413,23 @@ def smooth(pts, clear, step_m, closed=True, reach=None, iterations=4,
 
     b, refused = chaikin(a, clear, closed=closed, iterations=iterations,
                          corner_clear=corner_clear)
-    return resample(b, step_m, closed=closed), len(a), (s1, s2), refused
+    out = resample(b, step_m, closed=closed)
+
+    # Relax AFTER the resample, not before. Chaikin leaves points bunched in the
+    # corners, and a relaxation run on bunched points moves the crowd rather
+    # than the corner - evenly spaced vertices are what make one nudge mean the
+    # same thing everywhere. Resample again afterwards to take up the slack the
+    # moves leave behind.
+    #
+    # Corner standoff, like Chaikin's cut. Relaxing a corner IS a corner
+    # operation, and holding it to the full straight-line standoff would refuse
+    # exactly the corners that most need opening.
+    relaxed = (0, 0, 0)
+    if min_radius_m:
+        out, rp, rm, left = relax_tight(out, corner_clear or clear, min_radius_m,
+                                        closed=closed)
+        relaxed = (rp, rm, left)
+        if rm:
+            out = resample(out, step_m, closed=closed)
+
+    return out, len(a), (s1, s2), refused, relaxed

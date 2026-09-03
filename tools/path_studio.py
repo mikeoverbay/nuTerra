@@ -200,9 +200,33 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
     log("flying it - this is the slow part")
     argv = sys.argv
     sys.argv = ["export_cam_path.py", map_name]
+
+    # Forward the exporter's own diagnostics into the Studio log. They are the
+    # only report of what the smoothing actually achieved - tightest turn,
+    # corners relaxed, corners the map would not give up - and they were going
+    # to a console that nobody running the GUI ever sees.
+    class _Tee:
+        def __init__(self, sink):
+            self.sink = sink
+            self.buf = ""
+
+        def write(self, chunk):
+            self.sink.write(chunk)
+            self.buf += chunk
+            while "\n" in self.buf:
+                line, self.buf = self.buf.split("\n", 1)
+                if line.strip():
+                    log("  " + line.strip())
+
+        def flush(self):
+            self.sink.flush()
+
+    real_stdout = sys.stdout
+    sys.stdout = _Tee(real_stdout)
     try:
         ex.main()
     finally:
+        sys.stdout = real_stdout
         sys.argv = argv
 
     return os.path.join(FOLDER, map_name + "_campath.csv")

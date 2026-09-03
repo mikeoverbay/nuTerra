@@ -50,7 +50,7 @@ SMOOTH_ITERS = 4     # Chaikin passes. Four is well past visually curved.
 SPIKE_DEG = 55.0     # turn sharper than this is a candidate zig-zag spike
 CORNER_STANDOFF = 3.0  # metres a rounded CORNER may come to an obstacle, against
                        # the full standoff on the straights
-MIN_RADIUS = 12.0    # metres. Reported, not enforced - a corner too tight to
+MIN_RADIUS = 12.0    # metres. Relaxed where nothing is holding the corner,
                      # fly is a speed problem, not a geometry one.
 
 CRUISE = 12.0        # metres per second along the path
@@ -255,10 +255,10 @@ def build(map_name):
                 return True
             return c_radar.clear(x0, z0, (x1 - x0) / d, (z1 - z0) / d, d)
 
-        sm, kept, spikes, refused = smooth_path.smooth(
+        sm, kept, spikes, refused, relaxed = smooth_path.smooth(
             flown, seg_clear, nav.STEP, closed=closed,
             reach=SMOOTH_REACH, iterations=SMOOTH_ITERS, tight_deg=SPIKE_DEG,
-            corner_clear=corner_clear)
+            corner_clear=corner_clear, min_radius_m=MIN_RADIUS)
         r1, t1 = smooth_path.curvature_ok(sm, MIN_RADIUS, closed)
         print(f"  despiked {spikes[0]} before the shortcut, {spikes[1]} after; "
               f"Chaikin refused {refused} corner cuts as unsafe")
@@ -266,6 +266,10 @@ def build(map_name):
               f"{plen(flown):.0f} -> {plen(sm):.0f} m")
         print(f"  tightest turn {r0:.1f} -> {r1:.1f} m, "
               f"corners under {MIN_RADIUS:.0f} m: {t0} -> {t1}")
+        rp, rm, left = relaxed
+        print(f"  relaxed tight corners: {rm} nudges over {rp} passes, "
+              f"{left} still under {MIN_RADIUS:.0f} m "
+              f"({'held by the map' if left else 'all clear'})")
         flown = sm
 
     path = np.asarray(flown, dtype=float)
