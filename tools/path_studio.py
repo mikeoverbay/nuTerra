@@ -211,7 +211,9 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
             self.buf = ""
 
         def write(self, chunk):
-            self.sink.write(chunk)
+            # sink is None under pythonw.exe, which has no stdout at all.
+            if self.sink is not None:
+                self.sink.write(chunk)
             self.buf += chunk
             while "\n" in self.buf:
                 line, self.buf = self.buf.split("\n", 1)
@@ -219,7 +221,8 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
                     log("  " + line.strip())
 
         def flush(self):
-            self.sink.flush()
+            if self.sink is not None:
+                self.sink.flush()
 
     real_stdout = sys.stdout
     sys.stdout = _Tee(real_stdout)
