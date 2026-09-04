@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Linq
 Imports System.Runtime.InteropServices
 Imports OpenTK.Mathematics
@@ -481,7 +481,13 @@ Public Class MapTrees
 
         Dim written = 0
         For Each p In parts
-            Dim span = Math.Max(p.lod_lo - p.lod_hi, 1.0F)
+            ' The asset's own profile, stretched by the global scale so trees
+            ' and models change detail at the same kind of distance. Scale both
+            ' ends, not just the far one: moving lod_lo alone would widen the
+            ' band and slow the whole transition rather than push it out.
+            Dim hi = p.lod_hi * LOD_DISTANCE_SCALE
+            Dim lo = p.lod_lo * LOD_DISTANCE_SCALE
+            Dim span = Math.Max(lo - hi, 1.0F)
 
             For l = 0 To p.lod_count - 1
                 p.visible_count(l) = 0
@@ -492,7 +498,7 @@ Public Class MapTrees
                 If BoxInFrustum(p.mins(k), p.maxs(k)) Then
                     ' Row-vector convention: translation lives in Row3.
                     Dim d = (p.mats(k).Row3.Xyz - cam).Length
-                    Dim f = (d - p.lod_hi) / span
+                    Dim f = (d - hi) / span
                     Dim l = Math.Clamp(CInt(Math.Floor(f * p.lod_count)), 0, p.lod_count - 1)
                     bucket(k) = CByte(l)
                     p.visible_count(l) += 1

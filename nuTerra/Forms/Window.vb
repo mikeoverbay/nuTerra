@@ -1421,14 +1421,36 @@ try_again:
                 End If
 
                 If ImGui.CollapsingHeader("Shadow Mapping") Then
-                    ' The live cascades have no controls any more. They are off
-                    ' at startup (CommonProperties.Init) and the map-wide bake
-                    ' carries everything including trees, so there is nothing for
-                    ' a checkbox to switch between. ShadowMappingPass, the FBO and
-                    ' the shaders are all still there - shadow_mapping and
-                    ' shadow_strength also still save per map - so restoring the
-                    ' two controls here and setting USE_SHADOW_MAPPING back to 1
-                    ' is the whole job if trees start animating.
+                    ' TWO shadow systems, one box each, and they do not touch.
+                    '
+                    '   Cascades  - live, re-rendered every FRAME_STEP frames from
+                    '               the camera, four splits at 20/75/250 m.
+                    '   Baked     - one map-wide render from the sun at load,
+                    '               covering the whole arena at a fixed texel.
+                    '
+                    ' deferred.frag multiplies the two factors, so either can be on
+                    ' without the other and both on is legal.
+                    '
+                    ' Moments is NOT a third system and never was. It is how the
+                    ' BAKED map is stored - four power moments instead of a depth
+                    ' map - so it lives under Baked and does nothing without it.
+
+                    ' Live cascades. Off at startup in CommonProperties.Init; the
+                    ' pass, FBO and shaders were always here, this is the control
+                    ' that went missing when the bake took over tree shadows.
+                    Dim v_csm = ShadowMappingFBO.Enabled
+                    If ImGui.Checkbox("Cascades (live)", v_csm) Then
+                        ' The setter writes USE_SHADOW_MAPPING and pushes the UBO,
+                        ' so nothing else has to happen here.
+                        ShadowMappingFBO.Enabled = v_csm
+                    End If
+                    If ShadowMappingFBO.Enabled Then
+                        Dim v_ss = CommonProperties.SHADOW_STRENGTH
+                        If ImGui.SliderFloat("  cascade strength", v_ss, 0.0, 1.0) Then
+                            CommonProperties.SHADOW_STRENGTH = v_ss
+                            CommonProperties.update()
+                        End If
+                    End If
 
                     ' Baked map-wide shadow. Toggling only has to re-bake the sun
                     ' depth now - the shadow is sampled per frame in deferred.frag
@@ -1444,12 +1466,19 @@ try_again:
                         End If
                     End If
 
-                    ' Moment Shadow Maps against PCF, same bake either way, so
-                    ' this is a straight A/B. Needs a re-bake: MSM wants a colour
-                    ' attachment and a mip chain the depth-only path never built.
-                    If ImGui.Checkbox("Moment shadow maps (A/B)", MSM_SHADOW_ENABLED) Then
-                        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso BAKED_SHADOW_ENABLED Then
-                            map_scene.sun_shadow.Bake()
+                    ' Only offered when there is a bake for it to change the
+                    ' format of. Shown nested rather than greyed out, the same way
+                    ' the moment bias below is only shown when moments are on -
+                    ' a box that cannot do anything is worse than no box.
+                    If BAKED_SHADOW_ENABLED Then
+                        ' Moment Shadow Maps against PCF, same bake either way, so
+                        ' this is a straight A/B of the FILTERING. Needs a re-bake:
+                        ' MSM wants a colour attachment and a mip chain the
+                        ' depth-only path never built.
+                        If ImGui.Checkbox("  store as moment maps (A/B)", MSM_SHADOW_ENABLED) Then
+                            If MAP_LOADED AndAlso map_scene IsNot Nothing Then
+                                map_scene.sun_shadow.Bake()
+                            End If
                         End If
                     End If
                     If MSM_SHADOW_ENABLED Then

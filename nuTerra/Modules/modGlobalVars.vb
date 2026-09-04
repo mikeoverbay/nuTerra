@@ -643,6 +643,22 @@ Module modGlobalVars
     ''' the path with the horizon level, 1 uses the exported roll as-is.</summary>
     Public CAM_ROLL_SCALE As Single = 1.0F
 
+    ''' <summary>
+    ''' Multiplies every LOD switch distance, for models and trees alike. 1 is
+    ''' what the assets and the cull shader ask for; 2 holds each level of
+    ''' detail twice as far out.
+    '''
+    ''' One knob for both on purpose. Models and trees stand next to each other
+    ''' in every shot, so a building that keeps its detail to 200 m beside a
+    ''' tree that drops its at 60 m looks worse than either setting does alone.
+    '''
+    ''' It is not free, and the cost lands on trees rather than models: there
+    ''' are far more of them, and the reason the per-distance LOD was added at
+    ''' all was a forest drawing full detail at 800 m, which is what made Trees
+    ''' the red row in the stats panel. Watch that row when raising this.
+    ''' </summary>
+    Public LOD_DISTANCE_SCALE As Single = 2.0F
+
     Public MAP_BB_UR As Vector2
     Public MAP_BB_BL As Vector2
 

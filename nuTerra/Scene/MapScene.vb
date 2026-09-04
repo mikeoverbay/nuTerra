@@ -213,6 +213,16 @@ Public Class MapScene
         GL.Enable(EnableCap.PolygonOffsetFill)
         GL.PolygonOffset(1.1F, 4.0F)
 
+        ' Models first, then trees. Both go in: a cascade that carries only
+        ' trees drops every building shadow inside 250 m, which is the near field
+        ' the cascades exist to serve.
+        '
+        ' Same guards the bake uses for each, so 'don't draw models' and 'don't
+        ' draw trees' mean the same thing here as everywhere else.
+        If MODELS_LOADED AndAlso DONT_BLOCK_MODELS Then
+            static_models.shadow_mapping_pass()
+        End If
+
         If TREES_LOADED AndAlso DONT_BLOCK_TREES Then
             trees.shadow_pass()
         End If

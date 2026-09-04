@@ -172,8 +172,14 @@ layout(binding = 7) uniform sampler2DArrayShadow shadowMap;
 // at VT bake time, for two reasons. Albedo is multiplied into the ambient term
 // as well as the direct one, so baking it there darkened the sky fill that
 // should still be present in shade. And the VT page only covers terrain, so a
-// static model standing in a building's shadow received nothing at all - the
-// cascades carry trees only, deliberately, because trees animate.
+// static model standing in a building's shadow received nothing at all.
+//
+// This bake carries TREES as well - MapSunShadow.Bake draws terrain, models and
+// trees. The cascades used to own tree shadows, because trees animate, and that
+// stopped being true when the bake took them over. They are still a separate
+// system with their own switch: USE_SHADOW_MAPPING is 0 at startup, so by
+// default sun_shadow_factor returns 1.0 and the baked term below is the whole
+// answer, but turning the cascades on multiplies a second, moving factor in.
 layout(binding = 8) uniform sampler2DShadow sun_shadow_map;
 
 // Moment Shadow Map variant of the same bake - four power moments instead of a

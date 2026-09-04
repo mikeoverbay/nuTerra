@@ -271,6 +271,7 @@ Public Class MapStaticModels
         cullShader.Use()
 
         GL.Uniform1(cullShader("numModelInstances"), numModelInstances)
+        GL.Uniform1(cullShader("lod_scale"), LOD_DISTANCE_SCALE)
 
         Dim numGroups = (numModelInstances + WORK_GROUP_SIZE - 1) \ WORK_GROUP_SIZE
         GL.Arb.DispatchComputeGroupSize(numGroups, 1, 1, WORK_GROUP_SIZE, 1, 1)
@@ -331,19 +332,50 @@ Public Class MapStaticModels
         GL_POP_GROUP()
     End Sub
 
+    ''' <summary>
+    ''' Models into the live cascades. Depth only, through mDepthWrite_light,
+    ''' whose geometry stage is what puts a triangle into all four layers.
+    ''' </summary>
     Public Sub shadow_mapping_pass()
         GL_PUSH_GROUP("MapStaticModels::shadow_mapping_pass")
 
         mDepthWrite_light.Use()
 
-        GL.Enable(EnableCap.CullFace)
+        ' Culling OFF, matching the map-wide bake rather than the front-face
+        ' culling ShadowMappingPass sets up for the trees.
+        '
+        ' Front-face culling is the textbook way to keep shadow acne off a
+        ' caster, and it assumes CLOSED geometry. WoT models are hollow shells
+        ' with no bottom faces, so culling their front faces leaves the sun's ray
+        ' able to pass straight through the floor and out again - the shadow
+        ' would start at the far wall, or not start at all. The bake draws these
+        ' same meshes with culling off and leans on PolygonOffset instead, which
+        ' is already set here.
+        GL.Disable(EnableCap.CullFace)
 
         allMapModels.Bind()
 
+        ' Outland models are left out, exactly as MapSunShadow.draw_models leaves
+        ' them out of the map-wide bake. They are the distant cliffs and
+        ' mountains ringing the arena and they would cast across playable space
+        ' from outside it.
+        '
+        ' No second buffer and no filtering: MapLoader partitions the command
+        ' array at load with the outland ones LAST, so drawing fewer commands
+        ' simply stops before the tail. If that partition ever fails to add up
+        ' MapLoader merges the lists and sets the tail to zero, so this subtracts
+        ' nothing rather than trimming real draws.
+        Dim n = indirectShadowMappingDrawCount
+        If MapSunShadow.SKIP_OUTLAND Then n -= indirectShadowOutlandDrawCount
+
         indirect_shadow_mapping.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, indirectShadowMappingDrawCount, 0)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, n, 0)
 
         mDepthWrite_light.StopUse()
+
+        ' Back the way ShadowMappingPass left it - the trees below expect front
+        ' culling to still be the standing state.
+        GL.Enable(EnableCap.CullFace)
 
         GL_POP_GROUP()
     End Sub

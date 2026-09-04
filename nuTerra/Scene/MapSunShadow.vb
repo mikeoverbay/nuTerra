@@ -265,6 +265,24 @@ Public Class MapSunShadow
         GL.ClearDepth(1.0)
         GL.Clear(ClearBufferMask.DepthBufferBit)
 
+        ' The MSM colour attachment has to be cleared SEPARATELY. The depth
+        ' clear above does not touch it, so without this the moments start as
+        ' undefined memory - and undefined is not merely wrong in the uncovered
+        ' texels, it spreads: filter_moments blurs the whole map and then builds
+        ' a mip chain over it, so garbage in the 100 m margin around the terrain
+        ' reaches every texel by the time the deferred pass takes its one
+        ' trilinear fetch. Zeros reconstruct through a singular Hankel matrix,
+        ' which is how "MSM is on and nothing shows" happens.
+        '
+        ' Clear to the moments of z = 1, the far plane under the plain depth
+        ' ordering used here: (z, z^2, z^3, z^4) of a point mass at 1 is all
+        ' ones. That reads as nothing occluding, so an uncovered texel is lit -
+        ' matching what the depth path gets from its white CLAMP_TO_BORDER.
+        If MSM_SHADOW_ENABLED Then
+            Dim far_moments() As Single = {1.0F, 1.0F, 1.0F, 1.0F}
+            GL.ClearBuffer(ClearBuffer.Color, 0, far_moments)
+        End If
+
         ' Plain depth ordering here, not the reversed-Z the main pass uses. Both
         ' ClearDepth and DepthFunc are global and set once at startup for
         ' reversed-Z, so they have to go back exactly as they were - leaving
@@ -306,7 +324,8 @@ Public Class MapSunShadow
     ''' </summary>
     Public Sub LogSnapshot()
         If Not ready OrElse depth_tex Is Nothing Then
-            LogThis("  sun shadow: not baked (BAKED_SHADOW_ENABLED={0})", BAKED_SHADOW_ENABLED)
+            LogThis("  sun shadow: not baked (baked={0}, moments={1})",
+                    BAKED_SHADOW_ENABLED, MSM_SHADOW_ENABLED)
             Return
         End If
 
@@ -397,10 +416,11 @@ Public Class MapSunShadow
         ' which are TERRAIN heights out of the chunk loader, so no model has ever
         ' influenced the near/far range. Abbey bakes 1319..3307 m either way.
         '
-        ' No second buffer and no change at any other draw site: the command
-        ' array is partitioned at load with the outland ones last, so drawing
-        ' fewer commands simply stops before the tail. The cascades in
-        ' MapStaticModels.shadow_mapping_pass still draw the lot.
+        ' No second buffer: the command array is partitioned at load with the
+        ' outland ones last, so drawing fewer commands simply stops before the
+        ' tail. MapStaticModels.shadow_mapping_pass trims the same tail the same
+        ' way, so the rule holds for the live cascades too - it used to draw the
+        ' lot, and outland cliffs cast into the near field because of it.
         Dim n = scene.static_models.indirectShadowMappingDrawCount
         Dim skipped = 0
         If SKIP_OUTLAND Then
