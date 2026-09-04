@@ -34,6 +34,20 @@ import math
 # are fallbacks for corners where it would clip.
 CUT_RATIOS = (0.25, 0.15, 0.08, 0.04)
 
+# Furthest a corner cut may reach along an edge, in METRES.
+#
+# Chaikin cuts a FRACTION of each edge, which is right when the control polygon
+# is evenly spaced and wrong here. The shortcut collapses a route to its corners
+# - one real case went 332 points to 7 - so the legs are tens of metres and a
+# quarter-edge cut rounds 20 m off every corner, compounding with each pass into
+# a single continuous arc. The camera then never stops turning, and every corner
+# appears to begin long before it arrives.
+#
+# Capping the cut in metres makes the corner radius a property of the CORNER
+# rather than of the leg that happens to lead into it. Short edges are unaffected
+# and still behave like textbook Chaikin.
+CUT_MAX_M = 8.0
+
 
 def _seg_clear(clear, a, b):
     return clear(a[0], a[1], b[0], b[1])
@@ -219,8 +233,16 @@ def chaikin(pts, clear, closed=True, iterations=4, corner_clear=None):
             # Refusing outright left 25 corners uncut on Abbey and the tightest
             # turn at 2.2 m. Those are exactly the corners the camera has to
             # throw itself round.
+            # Cap the ratio by distance. On a short edge the cap is larger
+            # than the ratio and nothing changes; on a long leg it is the cap
+            # that decides, so the corner is rounded over the same few metres
+            # whatever the leg length.
+            elen = math.hypot(b[0] - a[0], b[1] - a[1])
+            cap = (CUT_MAX_M / elen) if elen > 1e-6 else 0.5
+
             done = False
-            for t in CUT_RATIOS:
+            for ratio in CUT_RATIOS:
+                t = min(ratio, cap)
                 q = (a[0] * (1 - t) + b[0] * t, a[1] * (1 - t) + b[1] * t)
                 r = (a[0] * t + b[0] * (1 - t), a[1] * t + b[1] * (1 - t))
                 if (_seg_clear(corner_clear, a, q) and _seg_clear(corner_clear, q, r)

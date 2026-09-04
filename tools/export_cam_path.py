@@ -46,7 +46,23 @@ import smooth_path
 SMOOTH = True        # collision-checked shortcut + Chaikin on the flown path
 SMOOTH_REACH = 40    # points a shortcut may span. Bounded, or a loop shortcuts
                      # across its own middle and stops being a loop.
-SMOOTH_ITERS = 4     # Chaikin passes. Four is well past visually curved.
+SMOOTH_ITERS = 2     # Chaikin passes. Each one rounds every corner further,
+                     # and the rounding IS when the camera starts to turn - it
+                     # cannot turn later than the path does.
+                     #
+                     # Measured on one route, same seed, only this changed:
+                     #
+                     #   passes   turn starts before the corner   banked >5 deg
+                     #      4        10, 18, 62 m                     66%
+                     #      2        14,  6,  6 m                     43%
+                     #      1         4,  4,  6 m                     26%
+                     #
+                     # At four the whole loop is one continuous curve and the
+                     # camera never stops rotating, which reads as turning long
+                     # before any corner arrives. Two keeps the corners readable
+                     # without making the route a sequence of flinches; one is
+                     # available if it still feels late, at the cost of 2.6 m
+                     # corners that pin the bank at MAX_BANK.
 SPIKE_DEG = 55.0     # turn sharper than this is a candidate zig-zag spike
 CORNER_STANDOFF = 3.0  # metres a rounded CORNER may come to an obstacle, against
                        # the full standoff on the straights
