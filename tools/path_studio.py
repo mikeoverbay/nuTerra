@@ -77,6 +77,12 @@ def existing_plan(map_name):
 CANVAS = 780         # starting size only - the map scales with the window
 MIN_VIEW = 240
 
+# Wheel zoom. 1.0 fits the whole map in the square; MAX_ZOOM 16 leaves a 64
+# texel window, about 87 m across, which is closer than any routing decision
+# needs. A step of 1.2 is roughly a doubling every four notches.
+MAX_ZOOM = 16.0
+ZOOM_STEP = 1.2
+
 
 # --------------------------------------------------------------------------
 # The seed
@@ -231,17 +237,29 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
     class _Tee:
         def __init__(self, sink):
             self.sink = sink
+            self.busy = False
             self.buf = ""
 
         def write(self, chunk):
             # sink is None under pythonw.exe, which has no stdout at all.
             if self.sink is not None:
                 self.sink.write(chunk)
+            # Re-entrancy guard. Each finished line is forwarded to log(), and
+            # if that callback ever writes to stdout - a print left in while
+            # debugging - the write lands back here and recurses until the
+            # stack blows. The Studio's own _log posts to Tk and is safe; a
+            # caller's need not be, and a hung generate is a bad way to find out.
+            if self.busy:
+                return
             self.buf += chunk
             while "\n" in self.buf:
                 line, self.buf = self.buf.split("\n", 1)
                 if line.strip():
-                    log("  " + line.strip())
+                    self.busy = True
+                    try:
+                        log("  " + line.strip())
+                    finally:
+                        self.busy = False
 
         def flush(self):
             if self.sink is not None:
@@ -304,6 +322,13 @@ class Studio:
         self.mask_full = None    # the mask at bake resolution, resized to fit
         self.view = CANVAS       # side of the square the map is drawn in
         self.ox = self.oy = 0    # where that square sits in the canvas
+
+        # The visible window into the bake, in TEXELS: origin plus a side
+        # length. Texels rather than pixels because the window survives a
+        # resize - the canvas can change size without moving the map.
+        self.zoom = 1.0
+        self.cx = 0.0
+        self.cy = 0.0
         self._resize_job = None
 
         left = ttk.Frame(root, padding=8)
@@ -388,6 +413,7 @@ class Studio:
         self.canvas.bind("<B1-Motion>", self.on_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
         self.canvas.bind("<Button-3>", self.on_target)
+        self.canvas.bind("<MouseWheel>", self.on_wheel)
         # Bound on the ROOT, not the canvas - a Canvas only sees key events when
         # it holds focus, and clicking a slider takes focus away, so bound there
         # Backspace would work until the moment you touched a control.
@@ -529,6 +555,9 @@ class Studio:
         # planning it again from scratch without meaning to; showing the route
         # but not the seed invites the same thing one step later, because there
         # is nothing to adjust - only something to admire.
+        self.zoom = 1.0
+        self.cx = self.cy = 0.0
+
         self.route, seed = existing_plan(name)
         self.route_saved = self.route is not None
         self.targets = []
@@ -589,7 +618,13 @@ class Studio:
     def repaint(self):
         if self.mask_full is None:
             return
-        im = self.mask_full.resize((self.view, self.view), Image.LANCZOS)
+        # Resize FROM a box rather than cropping first: the box takes
+        # floats, so the visible window does not have to snap to whole texels
+        # and the transforms above stay exact at every zoom.
+        crop = self.crop_side()
+        im = self.mask_full.resize((self.view, self.view), Image.LANCZOS,
+                                   box=(self.cx, self.cy,
+                                        self.cx + crop, self.cy + crop))
         d = ImageDraw.Draw(im)
 
         if self.route:
@@ -639,16 +674,62 @@ class Studio:
 
     # ------------------------------------------------------------ transforms
 
+    def crop_side(self):
+        """Side of the visible window, in texels."""
+        return float(self.bake.w) / self.zoom
+
     def to_view(self, wx, wz):
         """World -> pixels INSIDE the map square (what gets drawn into)."""
         c, r = self.bake.texel_of(wx, wz)
-        s = self.view / float(self.bake.w)
-        return (c * s, r * s)
+        crop = self.crop_side()
+        s = self.view / crop
+        return ((c - self.cx) * s, (r - self.cy) * s)
 
     def to_world(self, px, py):
         """Canvas pixels -> world. Takes the letterbox offset off first."""
-        s = float(self.bake.w) / self.view
-        return self.bake.world_of((px - self.ox) * s, (py - self.oy) * s)
+        crop = self.crop_side()
+        s = crop / self.view
+        return self.bake.world_of((px - self.ox) * s + self.cx,
+                                  (py - self.oy) * s + self.cy)
+
+    def clamp_window(self):
+        """Keep the visible window inside the bake.
+
+        Without this, zooming out at the edge walks the window off the map and
+        leaves a band of whatever PIL pads with, which reads as terrain that
+        is not there.
+        """
+        crop = self.crop_side()
+        hi = max(0.0, float(self.bake.w) - crop)
+        self.cx = min(max(self.cx, 0.0), hi)
+        self.cy = min(max(self.cy, 0.0), hi)
+
+    def on_wheel(self, e):
+        """Zoom about the cursor: the texel under it does not move."""
+        if self.bake is None:
+            return
+
+        # Position inside the map square, not the canvas - the square is
+        # letterboxed, so those differ whenever the window is not square.
+        vx = e.x - self.ox
+        vy = e.y - self.oy
+        if not (0 <= vx <= self.view and 0 <= vy <= self.view):
+            return
+
+        crop = self.crop_side()
+        # The texel under the cursor, which is the whole point: solve for the
+        # new origin that puts this same texel back under the same pixel.
+        tx = self.cx + (vx / self.view) * crop
+        ty = self.cy + (vy / self.view) * crop
+
+        step = ZOOM_STEP if e.delta > 0 else 1.0 / ZOOM_STEP
+        self.zoom = min(max(self.zoom * step, 1.0), MAX_ZOOM)
+
+        new_crop = self.crop_side()
+        self.cx = tx - (vx / self.view) * new_crop
+        self.cy = ty - (vy / self.view) * new_crop
+        self.clamp_window()
+        self.repaint()
 
     # ---------------------------------------------------------------- input
 
