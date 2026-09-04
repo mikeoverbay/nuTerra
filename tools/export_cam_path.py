@@ -93,32 +93,13 @@ BANK_GAIN = 0.85     # scales the coordinated-turn angle. 1.0 is physically
                      # correct for an aircraft and slightly too much for a
                      # camera, which has no passengers to keep level.
 
-ROLL_FLATTEN = 70.0  # metres the path is flattened over before curvature is
-                     # taken. This is the LEAD IN AND OUT of the roll: it sets
-                     # how wide the corner looks to the bank, and therefore how
-                     # long the camera takes to reach the angle and to come back
-                     # level.
-                     #
-                     # Raising it costs nothing in bank strength, which is the
-                     # useful part - the two-curvature blend still lets the fine
-                     # copy win at the tight part of a corner, so the peak
-                     # survives while the calm copy stretches the approach.
-                     # Measured, one route, same seed:
-                     #
-                     #   flatten   roll in   roll out   peak      banked >3 deg
-                     #      22      1.22 s    1.67 s    37.6 deg      50%
-                     #      70      1.67 s    2.00 s    37.6 deg      62%
-                     #     100      5.67 s    2.67 s    37.6 deg      82%
-                     #
-                     # 70 rather than more because past it the camera is banked
-                     # for most of the lap and never settles level, which is the
-                     # same complaint as an over-rounded corner wearing a
-                     # different hat.
-                     #
-                     # BANK_SMOOTH lengthens the ramp further - 25 buys another
-                     # 0.4 s - but it averages the peak down to 31.6 deg,
-                     # because it filters the ANGLE rather than widening the
-                     # corner. Reach for this one first.
+ROLL_FLATTEN = 22.0  # metres the path is flattened over before curvature is
+                     # taken. Back to 22 from the 70 it was briefly raised to:
+                     # with the roll rate limiter in place this makes NO
+                     # measurable difference - 22, 45 and 70 give the same peak,
+                     # the same lead and the same level fraction, because the
+                     # rate is what governs the ramp now, not the width of the
+                     # corner the curvature sees.
 ROLL_FLATTEN_FINE = 7.0  # the responsive companion to the above, see below
 TIGHT_K = 1.0 / 45.0     # curvature (1/m) at which the fine version fully wins  # metres of smoothing on a copy of the path used ONLY to
                      # work out the bank. Curvature is a second derivative, so
@@ -132,6 +113,22 @@ TIGHT_K = 1.0 / 45.0     # curvature (1/m) at which the fine version fully wins 
                      # shortcut and Chaikin-smoothed before this runs, so its
                      # curvature is already clean and that much flattening only
                      # stopped the roll keeping up with a sharp turn.
+
+ROLL_RATE = 12.0     # degrees per second the camera may roll.
+                     #
+                     # This is the physical statement, and it replaces a fixed
+                     # lead in metres. An aircraft cannot be at a bank angle the
+                     # instant it needs one - it has to START rolling early
+                     # enough to ARRIVE at the angle as the turn begins, and it
+                     # is still rolling out after the turn has ended. So the
+                     # lead is not a distance, it is bank / rate: a shallow turn
+                     # needs almost none and a steep one needs a lot, which a
+                     # single BANK_LEAD could never express.
+                     #
+                     # 12 deg/s is unhurried - an airliner is 10 to 15. At
+                     # 12 m/s a 35 degree bank therefore takes about 2.9 s to
+                     # establish, so the roll begins some 35 m before the corner
+                     # and finishes about as far past it.
 
 BANK_LEAD = 0.0      # metres the roll runs AHEAD of the curvature it is
                      # answering. Zero: the bank belongs to the point it was
@@ -183,6 +180,47 @@ def periodic_smooth(a, metres, step_m, closed=True):
         return np.convolve(pad, ker, mode="same")[k:-k]
     pad = np.concatenate([np.full(k, a[0]), a, np.full(k, a[-1])])
     return np.convolve(pad, ker, mode="same")[k:-k]
+
+
+def roll_rate_limit(bank, step_m, rate_rad_per_sample, closed=True):
+    """Spread a bank demand out to what a finite roll rate can actually fly.
+
+    The demand says what angle the corner wants; it says nothing about getting
+    there. A real aircraft rolls IN before the turn so it is established when
+    the turn arrives, and rolls OUT after the turn has finished. Both fall out
+    of one rule - the angle may only change so fast - applied in both directions.
+
+    Grown from each peak rather than clamped from one end. A one-directional
+    slew limiter can only ever lag, because it starts from where it already is;
+    running the same cone backwards is what produces the lead. The result passes
+    through every peak untouched, so the bank a corner asks for still arrives.
+
+    Positive and negative banks are grown separately and the larger magnitude
+    wins. Sharing one pass would let a left turn eat the roll-in of the right
+    turn that follows it.
+    """
+    n = len(bank)
+    d = float(rate_rad_per_sample)
+    if n < 3 or d <= 0.0:
+        return bank.copy()
+
+    up = bank.copy()
+    dn = bank.copy()
+
+    # Two laps of each direction, because on a ring the first pass has no
+    # history when it starts and the second one does.
+    laps = 2 if closed else 1
+    for _ in range(laps):
+        for i in range(n):
+            j = (i - 1) % n if closed else max(i - 1, 0)
+            up[i] = max(up[i], up[j] - d)
+            dn[i] = min(dn[i], dn[j] + d)
+        for i in range(n - 1, -1, -1):
+            j = (i + 1) % n if closed else min(i + 1, n - 1)
+            up[i] = max(up[i], up[j] - d)
+            dn[i] = min(dn[i], dn[j] + d)
+
+    return np.where(np.abs(up) >= np.abs(dn), up, dn)
 
 
 def central_diff(a, closed=True):
@@ -462,13 +500,27 @@ def build(map_name):
     bank = -np.arctan(CRUISE * CRUISE * curvature / 9.81) * BANK_GAIN
     bank = np.clip(bank, -math.radians(MAX_BANK), math.radians(MAX_BANK))
 
-    # Lead it, THEN smooth. Rolling in before the corner and out the far side is
-    # the whole point; smoothing after the shift keeps the entry and exit soft
-    # instead of stepping to the led value.
+    # Rate limit, THEN smooth.
+    #
+    # The limiter produces the lead and the lag together and in proportion to
+    # the angle, which is the behaviour a fixed BANK_LEAD was reaching for and
+    # could not have: it shifted every corner by the same distance whether the
+    # bank was two degrees or forty.
+    #
+    # BANK_LEAD survives at 0 for the case where a deliberate offset is wanted
+    # on top of the physics - it is applied first so the limiter still gets the
+    # last word on how fast the angle may move.
     lead = int(round(BANK_LEAD / step_m))
     if lead > 0:
         bank = np.roll(bank, -lead) if closed else np.concatenate(
             [bank[lead:], np.full(lead, bank[-1])])
+
+    # deg/s -> radians per SAMPLE, through the speed the path is flown at.
+    d = math.radians(ROLL_RATE) * step_m / max(0.1, CRUISE)
+    bank = roll_rate_limit(bank, step_m, d, closed)
+
+    # Smoothing still earns its place: the limiter's ramps meet the peak at a
+    # corner, and a corner in the roll ANGLE is a visible flick of the horizon.
     roll = periodic_smooth(bank, BANK_SMOOTH, step_m, closed)
 
     speed = np.full(n, CRUISE)
