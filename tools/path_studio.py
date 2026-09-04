@@ -55,23 +55,24 @@ import cam_path as cp
 FOLDER = nav.FOLDER
 
 
-def existing_route(map_name):
-    """The route already saved for this map, as [(x, z)], or None.
+def existing_plan(map_name):
+    """The saved route AND the clicks behind it: ([(x, z)], seed) or (None, None).
 
     Reads the .campath, not the CSV beside the bake. The .campath is the artefact
     that actually ships, so this shows what nuTerra would fly rather than what the
-    last run in this folder happened to leave behind.
+    last run in this folder happened to leave behind - and since version 2 it is
+    the only place the seed exists at all.
     """
     path = os.path.join(cp.campath_dir(), map_name + ".campath")
     if not os.path.exists(path):
-        return None
+        return None, None
     try:
-        _hdr, pts = cp.read_path(path)
+        meta, pts = cp.read_path(path)
     except Exception:
         # A half written or older-format file is not worth refusing to open the
         # map over. Draw nothing and let a regenerate replace it.
-        return None
-    return [(p[0], p[2]) for p in pts]
+        return None, None
+    return [(p[0], p[2]) for p in pts], meta["seed"]
 
 CANVAS = 780         # starting size only - the map scales with the window
 MIN_VIEW = 240
@@ -523,15 +524,31 @@ class Studio:
         self.map_name = name
         self.start = self.heading = self.route = None
 
-        # Show the route this map already has. Opening a map planned weeks ago
-        # and being shown a blank mask invites planning it again from scratch
-        # without meaning to.
-        self.route = existing_route(name)
+        # Show the route this map already has, AND the clicks that made it.
+        # Opening a map planned weeks ago and being shown a blank mask invites
+        # planning it again from scratch without meaning to; showing the route
+        # but not the seed invites the same thing one step later, because there
+        # is nothing to adjust - only something to admire.
+        self.route, seed = existing_plan(name)
         self.route_saved = self.route is not None
+        self.targets = []
         # Whatever was generated belonged to the previous map.
         self.pending = None
 
+        if seed:
+            self.start = seed["start"]
+            # Only meaningful with a start to depart from.
+            self.heading = seed["heading"] if seed["start"] else None
+            self.targets = list(seed["targets"])
+            if seed["radius"]:
+                self.vars["radius"].set(int(round(seed["radius"])))
+            if seed["waypoints"]:
+                self.vars["waypoints"].set(int(seed["waypoints"]))
+            if seed["side"]:
+                self.side.set(int(seed["side"]))
+
         self.render_mask()
+        self.update_enabled()
         self.go.state(["!disabled"])
         if self.route_saved:
             self.status.set("%s loaded, showing the saved path (%d points). "
@@ -603,6 +620,17 @@ class Studio:
                 dv = (self.drag[0] - self.ox, self.drag[1] - self.oy)
                 d.line([(px, py), dv], fill=(80, 255, 130), width=3)
                 d.ellipse([dv[0] - 4, dv[1] - 4, dv[0] + 4, dv[1] + 4],
+                          fill=(255, 255, 255))
+            elif self.heading is not None:
+                # The departure heading, drawn the same way the drag shows it.
+                # Taken 60 m out in WORLD space and then projected, so it lands
+                # where the route actually leaves rather than at some angle that
+                # only looks right at one zoom level.
+                hx = self.start[0] + 60.0 * math.sin(self.heading)
+                hz = self.start[1] + 60.0 * math.cos(self.heading)
+                hv = self.to_view(hx, hz)
+                d.line([(px, py), hv], fill=(80, 255, 130), width=3)
+                d.ellipse([hv[0] - 4, hv[1] - 4, hv[0] + 4, hv[1] + 4],
                           fill=(255, 255, 255))
 
         self.photo = ImageTk.PhotoImage(im)

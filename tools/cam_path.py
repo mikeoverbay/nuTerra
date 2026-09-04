@@ -44,7 +44,11 @@ Header - 128 bytes, little endian
                               a point's heading
    84  float32  seed_radius   loop radius asked for, metres
    88  uint32   seed_points   waypoints asked for around the ring
-   92  uint32   seed_side     0 = left turn, 1 = right
+   92  int32    seed_side     the turn direction verbatim as Path Studio
+                              carries it: +1 left, -1 right. SIGNED, and
+                              stored without translation - mapping it to
+                              0/1 lost the distinction, because -1 is
+                              truthy and both sides came out the same.
    96  char[32] reserved      zeroed
 
 Read `header_size` and `stride` and skip by them rather than assuming. A later
@@ -147,7 +151,7 @@ HEADER_SIZE = 128
 STRIDE = 32
 SEED_STRIDE = 12
 
-HEAD_FMT = "<4sHHIIf40sIqIIffII32s"
+HEAD_FMT = "<4sHHIIf40sIqIIffIi32s"
 
 FLAG_CLOSED = 1
 
@@ -155,18 +159,6 @@ SEED_START = 0
 SEED_TARGET = 1
 
 LAYOUT_DOC = __doc__
-
-
-def _side_code(side):
-    """0 for a left turn, 1 for a right one.
-
-    Accepts whatever the caller has - Path Studio carries this as a string, the
-    file wants an integer, and a silent wrong turn direction would be very hard
-    to spot in a regenerated route.
-    """
-    if isinstance(side, str):
-        return 1 if side.strip().lower().startswith("r") else 0
-    return 1 if int(side) else 0
 
 
 def pack_seed(start=None, heading=0.0, radius=0.0, waypoints=0, side=0,
@@ -177,7 +169,9 @@ def pack_seed(start=None, heading=0.0, radius=0.0, waypoints=0, side=0,
         "heading": float(heading),
         "radius": float(radius),
         "waypoints": int(waypoints),
-        "side": _side_code(side),
+        # Verbatim. See the header note - translating this threw the
+        # distinction away.
+        "side": int(side),
         "targets": [tuple(t) for t in (targets or ())],
     }
 
@@ -376,7 +370,7 @@ def describe(path):
         lines.append(
             f"  seed  start {sd['start'][0]:.1f}, {sd['start'][1]:.1f}  "
             f"heading {math.degrees(sd['heading']):.1f} deg  "
-            f"{'right' if sd['side'] else 'left'}  "
+            f"{'left' if sd['side'] > 0 else 'right'}  "
             f"radius {sd['radius']:.0f} m  {sd['waypoints']} waypoints")
     else:
         lines.append("  seed  none recorded")
