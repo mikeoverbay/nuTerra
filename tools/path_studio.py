@@ -40,8 +40,9 @@ import traceback
 import numpy as np
 from scipy import ndimage
 
+import shutil
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from PIL import Image, ImageTk, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -248,7 +249,16 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
     real_stdout = sys.stdout
     sys.stdout = _Tee(real_stdout)
     try:
-        ex.main()
+        # Into the scratch folder beside the other diagnostics, NOT cam_paths.
+        # Generating used to publish, so one stray click on a map that already
+        # had a good route replaced it with nothing to undo from.
+        # The clicks go into the file with the route they produced. A flown
+        # path cannot be reversed back into the start and targets that made
+        # it, so without this the intent behind a route exists nowhere.
+        ex.main(out_dir=FOLDER,
+                seed=cp.pack_seed(start=start_xz, heading=heading,
+                                  radius=radius, waypoints=waypoints,
+                                  side=side, targets=targets))
     finally:
         sys.stdout = real_stdout
         sys.argv = argv
@@ -355,6 +365,11 @@ class Studio:
         self.go = ttk.Button(left, text="Generate path", command=self.generate)
         self.go.grid(row=r, column=0, sticky="we", pady=(10, 4))
         self.go.state(["disabled"])
+        r += 1
+
+        self.save_btn = ttk.Button(left, text="Save path", command=self.save_path)
+        self.save_btn.grid(row=r, column=0, sticky="we", pady=(0, 4))
+        self.save_btn.state(["disabled"])
         r += 1
 
         self.status = tk.StringVar(value="pick a map")
@@ -513,6 +528,8 @@ class Studio:
         # without meaning to.
         self.route = existing_route(name)
         self.route_saved = self.route is not None
+        # Whatever was generated belonged to the previous map.
+        self.pending = None
 
         self.render_mask()
         self.go.state(["!disabled"])
@@ -614,6 +631,11 @@ class Studio:
         self.drag = (e.x, e.y)
         self.heading = None
         self.route = None
+        # The route just went away, so anything that depends on there being one
+        # has to be told. Without this a Save left enabled by an earlier
+        # Generate stayed enabled with nothing on screen, and would have
+        # published a route the window was no longer showing.
+        self.update_enabled()
         self.repaint()
 
     def on_drag(self, e):
@@ -646,6 +668,51 @@ class Studio:
         self.update_enabled()
         self.repaint()
 
+    def save_path(self):
+        """Publish the generated route to cam_paths.
+
+        The one place that writes the file nuTerra flies. Generate leaves its
+        result in the scratch folder and this copies it over, after asking -
+        the whole point of the split is that replacing a tuned route should be
+        a decision rather than a side effect.
+        """
+        src = getattr(self, "pending", None)
+        if not src or not os.path.exists(src):
+            self.status.set("nothing generated to save")
+            return
+
+        dst_dir = cp.campath_dir()
+        os.makedirs(dst_dir, exist_ok=True)
+        dst = os.path.join(dst_dir, self.map_name + ".campath")
+
+        if os.path.exists(dst):
+            # Say what is about to be lost, not just that something is. "Are
+            # you sure" with no subject is a question nobody can answer.
+            try:
+                hdr, pts = cp.read_path(dst)
+                have = "%d points over %.0f m" % (len(pts), hdr["total_len"])
+            except Exception:
+                have = "an unreadable file"
+            if not messagebox.askyesno(
+                    "Overwrite the saved path?",
+                    "%s already has a saved path - %s.\n\n"
+                    "Replace it with the one just generated?\n\n"
+                    "This is the file nuTerra flies. There is no undo."
+                    % (self.map_name, have),
+                    icon="warning", default="no", parent=self.root):
+                self.status.set("kept the existing path for " + self.map_name)
+                return
+
+        try:
+            shutil.copyfile(src, dst)
+        except Exception as e:
+            self.status.set("could not save: %s" % e)
+            return
+
+        self.route_saved = True
+        self.update_enabled()
+        self.status.set("saved to " + dst)
+
     def update_enabled(self):
         """Grey out the ring controls when targets are driving the route.
 
@@ -654,6 +721,13 @@ class Studio:
         ignored is worse than no control. Right-clicking a target used to
         silently kill the Left/Right buttons with no sign of it.
         """
+        # Only when there is something generated and not yet published. A
+        # route loaded from disk is already saved and Save has nothing to do.
+        can_save = (getattr(self, "pending", None) is not None
+                    and not getattr(self, "route_saved", False)
+                    and not self.busy)
+        self.save_btn.state(["!disabled" if can_save else "disabled"])
+
         ring = not self.targets
         state = "!disabled" if ring else "disabled"
         for b in self.side_btns:
@@ -727,9 +801,8 @@ class Studio:
             import csv as _csv
             rows = list(_csv.DictReader(open(csv_path)))
             route = [(float(r["x"]), float(r["z"])) for r in rows]
-            # The same resolver the exporter just used, so the path
-            # reported is the path actually written.
-            out = os.path.join(cp.campath_dir(), self.map_name + ".campath")
+            # The scratch copy Generate just wrote. Save publishes it.
+            out = os.path.join(FOLDER, self.map_name + ".campath")
             self.root.after(0, lambda: self._done(route, len(rows), out))
         except BaseException:
             # BaseException, not Exception. Anything that escapes this thread
@@ -742,6 +815,7 @@ class Studio:
     def _done(self, route, n, out):
         self.route = route
         self.route_saved = False
+        self.pending = out
         self.busy = False
         self.go.state(["!disabled"])
         self.update_enabled()

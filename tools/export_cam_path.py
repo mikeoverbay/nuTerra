@@ -462,8 +462,13 @@ def draw(bake, raw, pts, out_png):
     im.save(out_png)
 
 
-def main():
+def main(out_dir=None, seed=None):
     """Raises RuntimeError on a bad export, NOT SystemExit.
+
+    out_dir overrides where the .campath lands. Path Studio passes a scratch
+    folder so that generating a route does not publish it - the file in
+    cam_paths is what nuTerra flies, and replacing it should be a decision,
+    not a side effect of pressing Generate.
 
     This module is imported and called as a library by path_studio, and
     SystemExit inherits from BaseException rather than Exception - so a normal
@@ -476,7 +481,7 @@ def main():
 
     bake, raw, res, pts, total, closed, step_m, level, worlds = build(map_name)
 
-    out_dir = cam_path.campath_dir()
+    out_dir = out_dir or cam_path.campath_dir()
     os.makedirs(out_dir, exist_ok=True)
 
     # Only the .campath goes in the project folder - that directory is copied
@@ -487,9 +492,12 @@ def main():
     pngp = os.path.join(nav.FOLDER, map_name + "_bank.png")
 
     print("write")
-    size = cam_path.write_path(binp, pts, map_name, closed=closed, total_len=total)
+    size = cam_path.write_path(binp, pts, map_name, closed=closed,
+                               total_len=total, seed=seed)
 
-    ok, why = cam_path.verify(binp, pts)
+    # Verify the SEED too. It is the half nothing downstream reads, so a
+    # bug in it would sit in every file until someone tried to reuse one.
+    ok, why = cam_path.verify(binp, pts, seed=seed)
     print(f"  {binp}  {size} bytes")
     print(f"  round trip: {'OK' if ok else 'FAILED'} - {why}")
     if not ok:
