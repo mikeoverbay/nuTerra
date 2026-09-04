@@ -170,7 +170,20 @@ Public Class MapCamera
         If FLY_CAM_PATH AndAlso scene.cam_path IsNot Nothing AndAlso scene.cam_path.loaded Then
             Dim fpos As Vector3
             Dim fh, ft, fr As Single
-            If scene.cam_path.Sample(DELTA_TIME, fpos, fh, ft, fr) Then
+            ' Fixed step while recording, so the distance covered per FRAME is
+            ' constant and the motion in the file is even. DELTA_TIME otherwise,
+            ' which is what makes it real time when a person is flying it.
+            Dim fly_dt = DELTA_TIME
+            If FLY_FIXED_STEP OrElse RECORD_FLIGHT Then
+                fly_dt = 1.0F / CSng(Math.Max(1, CAPTURE_FPS))
+            End If
+
+            ' Held still while the recorder waits for the terrain to finish
+            ' streaming. Gated on RECORD_FLIGHT as well as the flag, so a hold
+            ' left standing when recording stops cannot strand the camera.
+            If RECORD_FLIGHT AndAlso RECORD_HOLD Then fly_dt = 0.0F
+
+            If scene.cam_path.Sample(fly_dt, fpos, fh, ft, fr) Then
                 Dim look As New Vector3(CSng(Math.Cos(ft) * Math.Sin(fh)),
                                         CSng(Math.Sin(ft)),
                                         CSng(Math.Cos(ft) * Math.Cos(fh)))

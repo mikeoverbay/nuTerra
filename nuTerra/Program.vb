@@ -72,6 +72,26 @@ Module Program
                 End If
             ElseIf a.Equals("blackfx", StringComparison.OrdinalIgnoreCase) Then
                 BLACK_BEFORE_FX = True
+            ElseIf a.Equals("fullscreen", StringComparison.OrdinalIgnoreCase) Then
+                FULLSCREEN_WINDOW = True
+            ElseIf a.Equals("fly", StringComparison.OrdinalIgnoreCase) Then
+                ' Start on the baked path the moment the map finishes loading.
+                FLY_CAM_PATH = True
+            ElseIf a.Equals("record", StringComparison.OrdinalIgnoreCase) Then
+                ' Implies fly - the recorder only writes while the flight is
+                ' actually driving the camera, so 'record' alone would sit there
+                ' producing nothing.
+                FLY_CAM_PATH = True
+                RECORD_FLIGHT = True
+            ElseIf a.StartsWith("out=", StringComparison.OrdinalIgnoreCase) Then
+                RECORD_DIR = a.Substring(4)
+            ElseIf a.StartsWith("still=", StringComparison.OrdinalIgnoreCase) Then
+                ' Record N frames from wherever the camera starts, no flight.
+                ' Pair it with cam= to test the same view twice.
+                Dim sn As Integer
+                If Integer.TryParse(a.Substring(6), sn) AndAlso sn > 0 Then
+                    RECORD_STILL = sn
+                End If
             ElseIf a.StartsWith("settle=", StringComparison.OrdinalIgnoreCase) Then
                 ' Parsed independently of snap/snapquit and applied after the
                 ' loop, so the order of the arguments on the command line does

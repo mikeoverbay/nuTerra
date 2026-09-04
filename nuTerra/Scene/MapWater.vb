@@ -48,7 +48,10 @@ Public Class MapWater
     ' The shared 8-frame ripple loop from maps/water/. Two frames bound per
     ' draw, blended by the fractional frame position.
     Private ripple(7) As GLTexture
-    Private ReadOnly clock As New Stopwatch
+    ' The ripple used to run off a Stopwatch. A wall clock is wrong for
+    ' capture - a recorded frame costs far more real time than the 1/60 s it
+    ' stands for, so the water raced. It rides ANIM_TIME now, like the rest of
+    ' the animation.
 
     Public Sub New(scene As MapScene)
         Me.scene = scene
@@ -229,7 +232,6 @@ Public Class MapWater
                 String.Format("maps/water/ripple_short_8_frames_normal_animation/normal00{0}.dds", i), False)
         Next
 
-        clock.Start()
         scene.WATER_LOADED = True
         LogThis("Water: {0} bodies as corner quads", bodies.Count)
     End Sub
@@ -242,7 +244,7 @@ Public Class MapWater
         waterShader.Use()
 
         ' 8 frames looping at 8 fps, adjacent pair blended.
-        Dim t = clock.Elapsed.TotalSeconds * 8.0
+        Dim t = ANIM_TIME * 8.0
         Dim fi = CInt(Math.Floor(t)) Mod 8
         ripple(fi)?.BindUnit(0)
         ripple((fi + 1) Mod 8)?.BindUnit(1)

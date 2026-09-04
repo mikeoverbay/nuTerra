@@ -92,6 +92,16 @@ Public Class Window
             SCR_HEIGHT = Math.Max(240, SCR_HEIGHT \ 2)
         End If
 
+        ' Borderless at the monitor's size rather than an exclusive fullscreen
+        ' mode switch. A mode switch would fight the ImGui viewports and can
+        ' leave the desktop resolution changed if the process is killed - and a
+        ' capture run is exactly the thing likely to be killed part way.
+        If FULLSCREEN_WINDOW Then
+            Dim b = Windows.Forms.Screen.PrimaryScreen.Bounds
+            SCR_WIDTH = b.Width
+            SCR_HEIGHT = b.Height
+        End If
+
         Dim setting As New NativeWindowSettings With {
             .Size = New Vector2i(SCR_WIDTH, SCR_HEIGHT),
             .API = Common.ContextAPI.OpenGL,
@@ -130,6 +140,11 @@ Public Class Window
 
         bmpIcon.UnlockBits(data)
         ' END HACK
+
+        If FULLSCREEN_WINDOW Then
+            setting.WindowBorder = WindowBorder.Hidden
+            setting.Location = New Vector2i(0, 0)
+        End If
 
         Return setting
     End Function
@@ -362,15 +377,35 @@ try_again:
         MyBase.OnRenderFrame(args)
 
         DELTA_TIME = args.Time
+
+        ' The clock everything animated runs on. Worked out once, here, so the
+        ' FX, the particles, the fog and the water cannot disagree about how much
+        ' time this frame was worth.
+        '
+        '   recording or fixed step -> exactly one video frame
+        '   waiting for the VT      -> nothing at all
+        '   otherwise               -> the real frame time
+        ANIM_DELTA = CSng(DELTA_TIME)
+        If RECORD_FLIGHT OrElse FLY_FIXED_STEP OrElse RECORD_STILL > 0 Then
+            ANIM_DELTA = 1.0F / CSng(Math.Max(1, CAPTURE_FPS))
+        End If
+        If (RECORD_FLIGHT OrElse RECORD_STILL > 0) AndAlso RECORD_HOLD Then ANIM_DELTA = 0.0F
+        ANIM_TIME += ANIM_DELTA
+
         If Not FREEZE_FX Then
-            FX_TIME += DELTA_TIME
+            FX_TIME += ANIM_DELTA
             If FX_TIME > 3600.0F Then FX_TIME -= 3600.0F
         End If
 
         ' Particles ride the same freeze as the rest of the FX so a frozen
         ' frame really is reproducible.
-        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso Not FREEZE_FX Then
-            map_scene.particles.Update(CSng(DELTA_TIME))
+        '
+        ' SKIPPED outright at zero rather than called with dt = 0. Update treats
+        ' a non-positive dt as a load hitch and substitutes 0.016, so passing
+        ' zero to hold the smoke still would advance it 16 ms instead.
+        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso
+           Not FREEZE_FX AndAlso ANIM_DELTA > 0.0F Then
+            map_scene.particles.Update(ANIM_DELTA)
         End If
 
         ' Unattended Snapshot. Counted in frames, not seconds, so it cannot
@@ -452,6 +487,21 @@ try_again:
             GL.ReadBuffer(ReadBufferMode.Front)
 
             SCREEN_CAPTURE_FILENAME = Nothing
+        End If
+
+        ' Frame sequence capture, for video.
+        '
+        ' Deliberately HERE, in the same place as the single shot above: after
+        ' draw_scene and before _controller.Render, so the settings window and the
+        ' menu bar are not baked into the recording. Capturing the finished
+        ' backbuffer instead would put the UI in every frame.
+        ' MAP_LOADED is not optional here. Without it a still capture started from
+        ' the command line begins on the LOADING SCREEN - 180 frames of a
+        ' progress bar over the earth, which measures as a moving, sharpening
+        ' image and looks like working FX until you view one.
+        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso
+           (RECORD_STILL > 0 OrElse (RECORD_FLIGHT AndAlso map_scene.camera.FLYING)) Then
+            save_record_frame()
         End If
 
         _controller.Update(Me, CSng(time))
@@ -1201,6 +1251,89 @@ try_again:
                 ImGui.SetNextWindowPos(pos)
             End If
             If ImGui.Begin("Settings", SHOW_SETTINGS_WINDOW) Then
+                If ImGui.CollapsingHeader("Display") Then
+                    ' Screen sync. OpenTK's VSync property is the GLFW swap
+                    ' interval, which has to be set on the thread holding the
+                    ' context - and SubmitUI runs inside OnRenderFrame, so this
+                    ' is that thread. Setting it from anywhere else would either
+                    ' do nothing or hit the wrong context.
+                    '
+                    ' Off since the window was constructed, and that default is
+                    ' deliberate: a frame rate capped at the refresh hides what a
+                    ' change actually costs, which is no good when the stats
+                    ' panel is the point. Turn it on to LOOK at the map - without
+                    ' it the image tears across every pan.
+                    Dim v_vs = (VSync <> VSyncMode.Off)
+                    If ImGui.Checkbox("Screen sync (VSync)", v_vs) Then
+                        VSync = If(v_vs, VSyncMode.On, VSyncMode.Off)
+                    End If
+                    ImGui.SameLine()
+                    ImGui.TextDisabled(If(VSync = VSyncMode.Off, "uncapped", "capped to refresh"))
+
+                    ImGui.Separator()
+
+                    ' Even motion without writing anything. Worth having on its
+                    ' own when an external recorder is doing the capturing - it
+                    ' fixes the judder, which is in the flight, not the recorder.
+                    ImGui.Checkbox("Fixed step flight", FLY_FIXED_STEP)
+
+                    ' Writes a PNG per rendered frame while FLY is running.
+                    If ImGui.Checkbox("Record flight frames", RECORD_FLIGHT) Then
+                        RECORD_FRAME_INDEX = 0
+                    End If
+                    If RECORD_FLIGHT OrElse FLY_FIXED_STEP Then
+                        Dim v_fps = CAPTURE_FPS
+                        If ImGui.SliderInt("  capture fps", v_fps, 24, 120) Then
+                            CAPTURE_FPS = v_fps
+                        End If
+                    End If
+                    ImGui.Checkbox("  stop flying at the end", RECORD_STOP_AT_END)
+
+                    ' One button for the whole thing: rewind to the start of the
+                    ' path, start flying, start writing. Doing it by hand meant
+                    ' ticking FLY first and catching the path wherever it already
+                    ' was, so the capture began part way round.
+                    If ImGui.Button(If(RECORD_FLIGHT, "Stop capture", "Start capture")) Then
+                        If RECORD_FLIGHT Then
+                            RECORD_FLIGHT = False
+                            RECORD_HOLD = False
+                        ElseIf map_scene IsNot Nothing AndAlso map_scene.cam_path.loaded Then
+                            map_scene.cam_path.travelled = 0.0F
+                            RECORD_FRAME_INDEX = 0
+                            RECORD_HOLD = False
+                            ' The route overlay is a debug aid drawn along the
+                            ' exact line being flown. Left on it is a coloured
+                            ' streak through every frame of the video.
+                            SHOW_CAM_PATH = False
+                            FLY_CAM_PATH = True
+                            RECORD_FLIGHT = True
+                        End If
+                    End If
+
+                    ' Hold the camera where it is and record. For checking
+                    ' animation - on a flight everything moves at once and a fire
+                    ' looping correctly looks the same as a fire being dragged
+                    ' past the lens.
+                    Dim v_sc = RECORD_STILL_COUNT
+                    If ImGui.SliderInt("  still frames", v_sc, 30, 600) Then
+                        RECORD_STILL_COUNT = v_sc
+                    End If
+                    If ImGui.Button(If(RECORD_STILL > 0, "Stop still capture", "Capture still frames")) Then
+                        If RECORD_STILL > 0 Then
+                            RECORD_STILL = 0
+                        Else
+                            RECORD_FRAME_INDEX = 0
+                            RECORD_HOLD = False
+                            RECORD_STILL = RECORD_STILL_COUNT
+                        End If
+                    End If
+
+                    If RECORD_FLIGHT OrElse RECORD_STILL > 0 Then
+                        ImGui.TextDisabled(String.Format("{0} frames written, {1} still to go",
+                                                         RECORD_FRAME_INDEX, RECORD_STILL))
+                        ImGui.TextDisabled(RECORD_DIR)
+                    End If
+                End If
                 If ImGui.CollapsingHeader("Export Map") Then
                     ImGui.Checkbox("Export STLs", EXPORT_STL_MAP)
                 End If
@@ -1799,6 +1932,119 @@ try_again:
                 ImGui.End()
             End If
         End If
+    End Sub
+
+    ''' <summary>
+    ''' One numbered PNG per rendered frame, for encoding into video afterwards.
+    '''
+    ''' Same readback the single screen capture uses. It stalls the pipeline hard
+    ''' and PNG encoding is not quick, so this runs well below real time - which
+    ''' is the point rather than a cost. Nothing here is sampling a clock, so a
+    ''' frame that took 200 ms to write is still exactly one frame of output.
+    ''' </summary>
+    ' Consecutive settled VT updates required before shooting. 30, not 3: the
+    ' feedback buffer runs a frame or more behind the render, the bias ratchets a
+    ' step at a time, and pages upload at uploadsperframe - so convergence is a
+    ' process with a tail, not an event. A short run catches the middle of it.
+    Private Const RECORD_SETTLE_RUN As Integer = 30
+
+    ' Give up waiting after this many frames and shoot anyway. Generous, because
+    ' the FIRST frame of a capture has the whole view to stream where later ones
+    ' only have the 20 cm the camera moved. Without a ceiling at all, a map whose
+    ' working set never fits at the finest bias thrashes forever and an
+    ' unattended capture silently stops producing frames.
+    Private Const RECORD_WAIT_MAX As Integer = 900
+
+    Private record_wait_frames As Integer
+
+    Private Sub save_record_frame()
+        Try
+            ' Wait for the virtual texture before shooting. Terrain arrives over
+            ' several frames, so without this the early part of a flight is
+            ' recorded mid-stream and the ground visibly sharpens on playback.
+            ' No virtual texture yet means NOT settled, not "no objection". The
+            ' terrain object exists long before its vt does, so defaulting this
+            ' optimistically waved the capture through during load.
+            Dim settled = 0
+            If map_scene.terrain IsNot Nothing AndAlso map_scene.terrain.vt IsNot Nothing Then
+                settled = map_scene.terrain.vt.SettledFrames
+            End If
+
+            If settled < RECORD_SETTLE_RUN AndAlso record_wait_frames < RECORD_WAIT_MAX Then
+                record_wait_frames += 1
+                RECORD_HOLD = True
+                Return
+            End If
+
+            If record_wait_frames >= RECORD_WAIT_MAX Then
+                LogThis("record: frame {0} shot with the VT still unsettled after {1} frames",
+                        RECORD_FRAME_INDEX, record_wait_frames)
+            End If
+
+            RECORD_HOLD = False
+            record_wait_frames = 0
+
+            ' A still test goes in its own folder. Sharing the flight's
+            ' folder would interleave frame numbers with a 24k sequence.
+            Dim dir = If(RECORD_STILL > 0, IO.Path.Combine(RECORD_DIR, "still"), RECORD_DIR)
+            If RECORD_FRAME_INDEX = 0 Then IO.Directory.CreateDirectory(dir)
+
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+            GL.PixelStore(PixelStoreParameter.PackAlignment, 1)
+
+            Using bmp As New Bitmap(MainFBO.width, MainFBO.height, Imaging.PixelFormat.Format24bppRgb)
+                Dim bits = bmp.LockBits(New Rectangle(0, 0, bmp.Width, bmp.Height),
+                                        ImageLockMode.WriteOnly, bmp.PixelFormat)
+                GL.ReadPixels(0, 0, MainFBO.width, MainFBO.height,
+                              OpenGL.PixelFormat.Bgr, PixelType.UnsignedByte, bits.Scan0)
+                bmp.UnlockBits(bits)
+                bmp.RotateFlip(RotateFlipType.RotateNoneFlipY)
+                bmp.Save(IO.Path.Combine(dir,
+                                         String.Format("frame_{0:00000000}.png", RECORD_FRAME_INDEX)),
+                         ImageFormat.Png)
+            End Using
+
+            GL.PixelStore(PixelStoreParameter.PackAlignment, 4)
+            GL.ReadBuffer(ReadBufferMode.Front)
+
+            RECORD_FRAME_INDEX += 1
+
+            ' Still capture: count down and stop. Returns before the lap check
+            ' below, which is about the flight and means nothing here.
+            If RECORD_STILL > 0 Then
+                RECORD_STILL -= 1
+                If RECORD_STILL = 0 Then
+                    LogThis("record: still capture done, {0} frames at {1} fps in {2}",
+                            RECORD_FRAME_INDEX, CAPTURE_FPS, IO.Path.Combine(RECORD_DIR, "still"))
+                End If
+                Return
+            End If
+
+            ' Stop after one lap. A closed path never ends on its own, and an
+            ' unattended capture that runs until the disk fills is worse than
+            ' one that stops a frame early.
+            Dim cp = map_scene.cam_path
+            If cp.closed AndAlso cp.total_len > 0.0F AndAlso
+               cp.points IsNot Nothing AndAlso cp.points.Length > 0 Then
+                Dim spd = Math.Max(0.1F, cp.points(0).speed)
+                Dim lap = CInt(Math.Ceiling(cp.total_len / spd * CAPTURE_FPS))
+                If RECORD_FRAME_INDEX >= lap Then
+                    RECORD_FLIGHT = False
+                    RECORD_HOLD = False
+                    ' Land it. Left flying, the camera carries on round a route
+                    ' that is already recorded, and the last thing on screen is
+                    ' not the last thing in the file.
+                    If RECORD_STOP_AT_END Then FLY_CAM_PATH = False
+                    LogThis("record: lap complete, {0} frames at {1} fps in {2}",
+                            RECORD_FRAME_INDEX, CAPTURE_FPS, RECORD_DIR)
+                End If
+            End If
+
+        Catch ex As Exception
+            ' Stop rather than throw one error per frame for the rest of the lap.
+            RECORD_FLIGHT = False
+            LogThis("record: stopped after {0} frames - {1}", RECORD_FRAME_INDEX, ex.Message)
+        End Try
     End Sub
 
     Public Overrides Sub ProcessEvents()

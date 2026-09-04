@@ -107,6 +107,37 @@ Public Class VirtualTexture
 
     Dim trace_frame As Integer
 
+    Private _settled_frames As Integer
+
+    ''' <summary>
+    ''' How many CONSECUTIVE Update calls have had nothing left to fetch. Zero
+    ''' means work is outstanding; a long run means the terrain has stopped
+    ''' changing.
+    '''
+    ''' Counted inside Update on purpose, and not readable as a bare boolean,
+    ''' because every cheaper test is wrong:
+    '''
+    ''' - toload.Count = 0 alone is wrong. It empties one frame BEFORE the bias
+    '''   ratchets a step finer, and that step immediately asks for a fresh set
+    '''   of pages, so it reads settled one refinement early.
+    '''
+    ''' - Adding the bias test is STILL wrong on its own, and this was the real
+    '''   bug: _mipbias is initialised to MAX_MIP_BIAS and toload starts empty,
+    '''   so before a single page has streamed both halves are already true. A
+    '''   capture gated on it fired on frame one, against bare terrain.
+    '''
+    ''' requests.Count > 0 is what rules that out - it means the feedback buffer
+    ''' has actually reported on a rendered frame, so there is something for
+    ''' "nothing outstanding" to be a statement about. And counting a RUN rather
+    ''' than an instant covers the readback lag: the feedback buffer is a frame
+    ''' or more behind the render, so one settled report describes an older view.
+    ''' </summary>
+    Public ReadOnly Property SettledFrames As Integer
+        Get
+            Return _settled_frames
+        End Get
+    End Property
+
     Public Sub Update(requests As Dictionary(Of Page, Integer))
         toload.Clear()
 
@@ -159,6 +190,13 @@ Public Class VirtualTexture
             If _mipbias > MIN_MIP_BIAS Then
                 MipBias -= 1
             End If
+        End If
+
+        ' Has anything been asked for that is not here yet? See SettledFrames.
+        If requests.Count > 0 AndAlso toload.Count = 0 AndAlso _mipbias >= MAX_MIP_BIAS Then
+            _settled_frames += 1
+        Else
+            _settled_frames = 0
         End If
 
         ' Update the page table

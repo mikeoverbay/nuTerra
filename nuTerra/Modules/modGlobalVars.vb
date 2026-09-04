@@ -278,6 +278,28 @@ Module modGlobalVars
     Public T1_Y As Single
     Public T2_Y As Single
     Public DELTA_TIME As Single
+
+    ''' <summary>
+    ''' The step EVERYTHING animated advances by this frame. Set once per frame
+    ''' in OnRenderFrame; read by the FX clock, the particles, the fog and the
+    ''' water.
+    '''
+    ''' Not DELTA_TIME, because a capture frame does not take the time it
+    ''' represents. A recorded frame stands for 1/60 s of video but costs about
+    ''' 285 ms of wall clock to render, read back and encode - so anything riding
+    ''' the real frame time runs roughly seventeen times too fast in the finished
+    ''' file. Smoke boiling away while the camera creeps forward is exactly that.
+    '''
+    ''' Zero while the recorder is waiting for the virtual texture. The wait is
+    ''' not part of the flight, so no time may pass during it - otherwise the
+    ''' smoke advances by however long the terrain happened to take to stream,
+    ''' which differs at every point on the route.
+    ''' </summary>
+    Public ANIM_DELTA As Single
+
+    ''' <summary>Accumulated ANIM_DELTA. For animation that wants a clock rather
+    ''' than a step - the water ripple loop reads this.</summary>
+    Public ANIM_TIME As Double
     Public NORMAL_DISPLAY_MODE As Integer ' 0 None, 1 by vertex, 2 by face
     Public SHOW_BOUNDING_BOXES As Boolean
     '''<summary>Restrict the box overlay to GFX/volumetric instances.</summary>
@@ -639,6 +661,87 @@ Module modGlobalVars
     Public FLY_CAM_PATH As Boolean = False
     ''' <summary>Draw the baked camera path in the world.</summary>
     Public SHOW_CAM_PATH As Boolean = False
+
+    ''' <summary>
+    ''' Advance the flight by a FIXED step per rendered frame instead of by the
+    ''' wall clock.
+    '''
+    ''' This is the whole of why a recorded flight judders. MapCamera samples the
+    ''' path with DELTA_TIME, so the camera's speed IS the frame time - a VT page
+    ''' streaming in, a shader compiling, anything that costs 30 ms instead of 16
+    ''' moves the camera twice as far that frame. No recorder can fix that,
+    ''' because the motion really was uneven.
+    '''
+    ''' With a fixed step every frame is the same distance along the route, so the
+    ''' motion is even whatever the frame took. The trade is that it is no longer
+    ''' tied to real time: at CAPTURE_FPS 60 the flight runs at true speed only
+    ''' while the app holds 60 fps, and drifts slow or fast otherwise. That is the
+    ''' right trade for capture and the wrong one for flying around, so it is off
+    ''' by default and forced on while recording.
+    ''' </summary>
+    Public FLY_FIXED_STEP As Boolean = False
+
+    ''' <summary>Frames per second the fixed step represents, and the rate the
+    ''' written sequence is meant to be encoded at.</summary>
+    Public CAPTURE_FPS As Integer = 60
+
+    ''' <summary>
+    ''' Write every rendered frame to disk while the flight is running.
+    '''
+    ''' The reliable way to get smooth video: an external recorder samples the
+    ''' screen on its own clock and duplicates or drops frames whenever the app
+    ''' does not match it. Writing each rendered frame means the sequence is
+    ''' complete by construction - encode it at CAPTURE_FPS and every frame is
+    ''' exactly one frame. It runs far below real time, which does not matter,
+    ''' because nothing is sampling a clock.
+    ''' </summary>
+    Public RECORD_FLIGHT As Boolean = False
+
+    ''' <summary>Frames written since recording was switched on.</summary>
+    Public RECORD_FRAME_INDEX As Integer = 0
+
+    ''' <summary>
+    ''' Freeze the flight for a frame. The recorder raises this while it waits
+    ''' for the virtual texture to finish streaming.
+    '''
+    ''' The camera has to stop, not just the shutter. Letting it keep moving
+    ''' while pages load means the view has changed by the time they arrive, so
+    ''' the streaming never catches up and the wait never ends.
+    ''' </summary>
+    Public RECORD_HOLD As Boolean = False
+
+    ''' <summary>Set by the capture button: stop the flight when the lap is
+    ''' recorded, instead of looping round and overwriting nothing.</summary>
+    Public RECORD_STOP_AT_END As Boolean = True
+
+    ''' <summary>
+    ''' Frames left to record from a STILL camera - no flight, the view held
+    ''' where it is. Counts down to zero and stops.
+    '''
+    ''' This is how the animation gets checked. On a flight everything moves at
+    ''' once and there is no telling a fire looping correctly from a fire being
+    ''' dragged past the lens; held still, the only thing moving is the thing
+    ''' being tested. It writes to a 'still' subfolder so a test cannot land in
+    ''' the middle of a flight sequence.
+    ''' </summary>
+    Public RECORD_STILL As Integer = 0
+
+    ''' <summary>How many frames the still-capture button asks for.</summary>
+    Public RECORD_STILL_COUNT As Integer = 180
+
+    ''' <summary>
+    ''' Open borderless at the monitor's size. The capture reads the framebuffer,
+    ''' so the window size IS the video size - this is how a recording gets made
+    ''' at screen resolution instead of whatever the window happened to be.
+    ''' </summary>
+    Public FULLSCREEN_WINDOW As Boolean = False
+
+    ''' <summary>
+    ''' Where the frame sequence goes. A real drive, not %TEMP% - a lap is tens
+    ''' of thousands of PNGs and tens of GB, which is not something to leave in a
+    ''' temp folder. Overridable with out= on the command line.
+    ''' </summary>
+    Public RECORD_DIR As String = "G:\nuTerra_ScreenCaps"
     ''' <summary>How much of the baked bank angle to actually apply. 0 flies
     ''' the path with the horizon level, 1 uses the exported roll as-is.</summary>
     Public CAM_ROLL_SCALE As Single = 1.0F
