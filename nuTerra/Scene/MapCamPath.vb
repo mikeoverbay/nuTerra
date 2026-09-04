@@ -70,6 +70,10 @@ Public Class MapCamPath
     Public total_len As Single
     Public map_name As String = ""
 
+    ''' <summary>The file this came from. Two folders can hold one, so which is
+    ''' worth knowing when the route is not the one you just saved.</summary>
+    Public source_file As String = ""
+
     ''' <summary>Distance travelled along the path, metres. Advanced by Fly.</summary>
     Public travelled As Single
 
@@ -106,15 +110,52 @@ Public Class MapCamPath
     Private Const TICK_LEN As Single = 6.0F
     Private Const TICK_EVERY As Integer = 8
 
+    ''' <summary>
+    ''' Where this map's .campath actually is, or Nothing.
+    '''
+    ''' TWO places can hold one and they are routinely different. The build
+    ''' copies cam_paths beside the exe, which is also where an install puts it -
+    ''' but Path Studio writes to the PROJECT folder the build copies FROM. So
+    ''' the file saved next door and the file played here were not the same file,
+    ''' re-reading found the same stale copy every time, and the only thing that
+    ''' appeared to help was restarting after a build had quietly copied one over
+    ''' the other.
+    '''
+    ''' Take whichever is NEWER rather than preferring a location. Installed,
+    ''' only one exists and the question does not arise; in a working tree the
+    ''' one just saved wins, which is the whole point.
+    ''' </summary>
+    Private Shared Function resolve_campath(map As String) As String
+        Dim best As String = Nothing
+        Dim best_t = DateTime.MinValue
+
+        Dim dir = New IO.DirectoryInfo(Application.StartupPath)
+        While dir IsNot Nothing
+            For Each cand In {IO.Path.Combine(dir.FullName, "cam_paths", map & ".campath"),
+                              IO.Path.Combine(dir.FullName, "nuTerra", "cam_paths", map & ".campath")}
+                If IO.File.Exists(cand) Then
+                    Dim t = IO.File.GetLastWriteTimeUtc(cand)
+                    If t > best_t Then
+                        best_t = t
+                        best = cand
+                    End If
+                End If
+            Next
+            dir = dir.Parent
+        End While
+
+        Return best
+    End Function
+
     Public Sub Load(map As String)
         Dispose_gl()
         loaded = False
         points = Nothing
         travelled = 0.0F
 
-        Dim path = IO.Path.Combine(Application.StartupPath, "cam_paths", map & ".campath")
-        If Not File.Exists(path) Then
-            LogThis("cam path: none for {0} ({1})", map, path)
+        Dim path = resolve_campath(map)
+        If path Is Nothing Then
+            LogThis("cam path: none for {0}", map)
             Return
         End If
 
@@ -206,6 +247,7 @@ Public Class MapCamPath
             Next
 
             loaded = True
+            source_file = path
             build_geometry()
 
             ' Report what was read rather than what was expected. A path that
@@ -252,6 +294,7 @@ Public Class MapCamPath
                 If(created > 0,
                    DateTimeOffset.FromUnixTimeSeconds(created).LocalDateTime.ToString("yyyy-MM-dd HH:mm"),
                    "unknown"))
+        LogThis("  cam path: from {0}", source_file)
     End Sub
 
     ''' <summary>

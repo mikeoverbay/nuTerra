@@ -92,11 +92,21 @@ TIGHT_K = 1.0 / 45.0     # curvature (1/m) at which the fine version fully wins 
                      # curvature is already clean and that much flattening only
                      # stopped the roll keeping up with a sharp turn.
 
-BANK_LEAD = 14.0     # metres. Roll STARTS this far before the curve arrives,
-                     # which is what makes it read as flying INTO a turn rather
-                     # than reacting to one. This is the "in and out" of the
-                     # ask - without it the bank is centred on the corner and
-                     # looks like a flinch.
+BANK_LEAD = 0.0      # metres the roll runs AHEAD of the curvature it is
+                     # answering. Zero: the bank belongs to the point it was
+                     # computed at.
+                     #
+                     # It was 14, on the argument that rolling in before a
+                     # corner reads as flying INTO a turn rather than reacting
+                     # to one. That is true of an aircraft and false here,
+                     # because the camera is ON the line and the corner is
+                     # visible well before it arrives - so the horizon tilting
+                     # a second early does not anticipate the turn, it just
+                     # disagrees with what the viewer can plainly see.
+                     #
+                     # BANK_SMOOTH still spreads the roll either side of the
+                     # corner, so it eases rather than snapping; what is gone
+                     # is the systematic shift.
 BANK_SMOOTH = 9.0   # metres of smoothing on the bank. Long, because curvature
                      # off a stepped path is noisy and a twitching horizon is
                      # far more obvious than a slightly late roll.

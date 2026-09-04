@@ -1352,7 +1352,16 @@ try_again:
                         End If
                     End If
 
-                    ImGui.Checkbox("Show Path", SHOW_CAM_PATH)
+                    ' Show Path re-reads too, but ONLY when not flying. Load
+                    ' rewinds travelled, so doing it mid-flight would snap the
+                    ' camera back to the start of the route - switching an
+                    ' overlay on should not move the shot.
+                    If ImGui.Checkbox("Show Path", SHOW_CAM_PATH) AndAlso
+                       SHOW_CAM_PATH AndAlso Not FLY_CAM_PATH Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing Then
+                            map_scene.cam_path.Load(MAP_NAME_NO_PATH)
+                        End If
+                    End If
                 End If
                 If ImGui.CollapsingHeader("Section Visibility") Then
                     ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)
