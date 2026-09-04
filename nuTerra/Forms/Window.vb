@@ -810,6 +810,7 @@ try_again:
                 LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z, LIGHT_POS.Length)
 
         map_scene.sun_shadow.LogSnapshot()
+        map_scene.cam_path.LogSnapshot()
 
         ' Pooled water rides entirely on wet-flagged decals, so a map that
         ' authors none can never show any. Worth reading off a snapshot before

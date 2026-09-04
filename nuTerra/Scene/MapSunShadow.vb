@@ -77,6 +77,14 @@ Public Class MapSunShadow
     ''' a power of two at a time until it fits, and says so in the log.
     '''</summary>
     Public Shared VRAM_BUDGET As Single = 0.25F
+
+    '''<summary>
+    ''' Ceiling as a fraction of what is still FREE when the bake runs. The
+    ''' fraction of total above cannot see the VT atlas, the cascades and the
+    ''' models that are already on the card by then, which is the memory that
+    ''' actually matters.
+    '''</summary>
+    Public Shared FREE_BUDGET As Single = 0.5F
     Public Shared MIN_SIZE As Integer = 2048
 
     '''<summary>
@@ -125,10 +133,23 @@ Public Class MapSunShadow
         ' Step back down until it fits the VRAM budget. Better a smaller bake
         ' than an allocation that evicts everything else on the card.
         If GLCapabilities.total_mem_mb > 0 Then
-            Dim budget = CLng(GLCapabilities.total_mem_mb) * 1024L * 1024L
-            budget = CLng(budget * VRAM_BUDGET)
+            Dim budget = CLng(CLng(GLCapabilities.total_mem_mb) * 1024L * 1024L * VRAM_BUDGET)
+
+            ' Against what is FREE as well, not just a share of the board.
+            ' A quarter of an 8 GB card is 2 GiB, which is exactly what 32768
+            ' costs - so on a big map the bake passed the budget test by fitting
+            ' it precisely and took every byte of it, with the VT atlas, the
+            ' cascades and the models already resident. 38_mannerheim_line came
+            ' out at 7842 of 8192 MiB used.
+            If GLCapabilities.free_mem_mb > 0 Then
+                budget = Math.Min(budget,
+                    CLng(CLng(GLCapabilities.free_mem_mb) * 1024L * 1024L * FREE_BUDGET))
+            End If
+
             Dim asked = s
-            While s > MIN_SIZE AndAlso depth_bytes(s) > budget
+            ' >= , not >. Something that exactly consumes the budget has left
+            ' nothing over, and "fits" is not the test - "fits with room" is.
+            While s > MIN_SIZE AndAlso depth_bytes(s) >= budget
                 s \= 2
             End While
             If s <> asked Then

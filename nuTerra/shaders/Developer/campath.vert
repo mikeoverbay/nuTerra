@@ -12,12 +12,14 @@
 layout(location = 0) in vec3 vPos;
 layout(location = 1) in vec4 vCol;
 
-out vec4 fCol;
-out vec3 fWorld;
+// To the GEOMETRY stage, not the fragment one - campath.geom widens each
+// segment into a screen-space quad and forwards these along.
+out vec4 gsCol;
+out vec3 gsWorld;
 
 void main(void)
 {
-    fCol = vCol;
-    fWorld = vPos;
+    gsCol = vCol;
+    gsWorld = vPos;
     gl_Position = viewProj * vec4(vPos, 1.0);
 }

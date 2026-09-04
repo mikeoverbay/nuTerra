@@ -1,4 +1,4 @@
-Imports System.Runtime.InteropServices
+﻿Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
@@ -21,6 +21,18 @@ Module modOpenGL
         Public Shared has_GL_NV_mesh_shader As Boolean
         Public Shared has_GL_NVX_gpu_memory_info As Boolean
 
+        '''<summary>MiB the driver still has free, or 0 when it will not say.
+        ''' Anything sizing a large allocation wants THIS, not total - the
+        ''' interesting question is what is left, not what the board has.</summary>
+        Public Shared ReadOnly Property free_mem_mb As Integer
+            Get
+                If has_GL_NVX_gpu_memory_info Then
+                    Return GL.GetInteger(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX) \ 1024
+                End If
+                Return 0
+            End Get
+        End Property
+
         Public Shared ReadOnly Property memory_usage As Integer
             Get
                 If has_GL_NVX_gpu_memory_info Then
@@ -33,6 +45,13 @@ Module modOpenGL
 
         Public Shared Sub Init(extensions As List(Of String))
             maxTextureSize = GL.GetInteger(GetPName.MaxTextureSize)
+
+            ' Worth knowing and never queried before. A core profile is only
+            ' required to support width 1, so glLineWidth(2) is commonly clamped
+            ' with no error - which is what made the flight path shimmer.
+            Dim lw(1) As Single
+            GL.GetFloat(GetPName.AliasedLineWidthRange, lw)
+            LogThis("aliased line width range = {0} .. {1}", lw(0), lw(1))
             maxArrayTextureLayers = GL.GetInteger(GetPName.MaxArrayTextureLayers)
             maxUniformBufferBindings = GL.GetInteger(GetPName.MaxUniformBufferBindings)
             maxColorAttachments = GL.GetInteger(GetPName.MaxColorAttachments)

@@ -22,9 +22,18 @@ Imports OpenTK.Graphics.OpenGL4
 Public Class MapCamPath
     Implements IDisposable
 
-    Private Const MAGIC As UInteger = &H3150434EUI   ' "NCP1" little endian
-    Private Const HEADER_SIZE As Integer = 64
-    Private Const V1_STRIDE As Integer = 32
+    ' "NCP2" little endian. The magic changed with version 2 rather than only
+    ' the version field, and deliberately: the header grew 64 -> 128 bytes, so a
+    ' version 1 reader would take its points from offset 64 - the middle of the
+    ' header - and fly plausible garbage. Refusing to load is the better failure.
+    Private Const MAGIC As UInteger = &H3250434EUI
+    Private Const MAGIC_V1 As UInteger = &H3150434EUI
+
+    Private Const HEADER_SIZE As Integer = 128
+    Private Const POINT_STRIDE As Integer = 32
+    Private Const SEED_STRIDE As Integer = 12
+
+    Private Const SEED_START As UInteger = 0UI
 
     Public Structure CamPoint
         Public pos As Vector3
@@ -34,6 +43,26 @@ Public Class MapCamPath
         Public s As Single            ' metres from the first point
         Public speed As Single        ' metres per second
     End Structure
+
+    ''' <summary>
+    ''' A point that was CLICKED in Path Studio, as opposed to flown.
+    '''
+    ''' nuTerra does not need these to fly - the route is the route - but they
+    ''' are what the path was planned from, and having them here means the
+    ''' overlay can show what a route was asked to do rather than only what it
+    ''' ended up doing.
+    ''' </summary>
+    Public Structure SeedPoint
+        Public x As Single
+        Public z As Single
+        Public is_start As Boolean
+    End Structure
+
+    Public seeds() As SeedPoint
+    ''' <summary>Departure heading the route was planned with, radians.</summary>
+    Public seed_heading As Single
+    ''' <summary>When the file was written. Unix seconds UTC, 0 if unknown.</summary>
+    Public created As Long
 
     Public points() As CamPoint
     Public loaded As Boolean
@@ -63,6 +92,15 @@ Public Class MapCamPath
     Private Const HIDE_NEAR As Single = 0.5F
     Private Const HIDE_FAR As Single = 2.5F
 
+    ''' <summary>
+    ''' Ribbon width in PIXELS. Not glLineWidth - a core profile only has to
+    ''' support width 1, so that call is commonly clamped to a hairline with no
+    ''' error reported, and a hairline's brightness and apparent thickness then
+    ''' change with the angle it crosses the pixel grid at. campath.geom widens
+    ''' each segment to a quad this many pixels across instead.
+    ''' </summary>
+    Private Const LINE_PX As Single = 3.0F
+
     ' Metres of heading tick drawn at every TICK_EVERY points. Long enough to
     ' read the direction off the screen, short enough not to become the picture.
     Private Const TICK_LEN As Single = 6.0F
@@ -88,6 +126,13 @@ Public Class MapCamPath
             End If
 
             Dim magic = BitConverter.ToUInt32(raw, 0)
+            If magic = MAGIC_V1 Then
+                ' Named rather than lumped in with "bad magic", because this one
+                ' has a fix: it is an old file, and Path Studio writes the new
+                ' one. A version 1 file carries no seed and cannot be upgraded.
+                LogThis("cam path: {0} is version 1 - regenerate it in Path Studio", path)
+                Return
+            End If
             If magic <> MAGIC Then
                 LogThis("cam path: bad magic in {0}", path)
                 Return
@@ -101,12 +146,30 @@ Public Class MapCamPath
             map_name = Text.Encoding.ASCII.GetString(raw, 20, 40).TrimEnd(ChrW(0))
             closed = (flags And 1) <> 0
 
-            If stride < V1_STRIDE Then
-                LogThis("cam path: stride {0} is smaller than version 1's {1}", stride, V1_STRIDE)
+            ' Take the header size FROM the header. The format's own rule is to
+            ' skip by the sizes it declares rather than the ones this build was
+            ' compiled against, which is what lets it grow again without this
+            ' code needing to know.
+            Dim head_size = CInt(BitConverter.ToUInt32(raw, 60))
+            created = BitConverter.ToInt64(raw, 64)
+            Dim seed_count = CInt(BitConverter.ToUInt32(raw, 72))
+            Dim seed_stride = CInt(BitConverter.ToUInt32(raw, 76))
+            seed_heading = BitConverter.ToSingle(raw, 80)
+
+            If stride < POINT_STRIDE Then
+                LogThis("cam path: point stride {0} is smaller than {1}", stride, POINT_STRIDE)
+                Return
+            End If
+            If head_size < HEADER_SIZE Then
+                LogThis("cam path: header size {0} is smaller than {1}", head_size, HEADER_SIZE)
+                Return
+            End If
+            If seed_count > 0 AndAlso seed_stride < SEED_STRIDE Then
+                LogThis("cam path: seed stride {0} is smaller than {1}", seed_stride, SEED_STRIDE)
                 Return
             End If
 
-            Dim want = HEADER_SIZE + count * stride
+            Dim want = head_size + count * stride + seed_count * seed_stride
             If raw.Length <> want Then
                 LogThis("cam path: {0} is {1} bytes, the header says {2}", path, raw.Length, want)
                 Return
@@ -119,7 +182,7 @@ Public Class MapCamPath
 
             ReDim points(count - 1)
             For i = 0 To count - 1
-                Dim o = HEADER_SIZE + i * stride
+                Dim o = head_size + i * stride
                 points(i).pos = New Vector3(BitConverter.ToSingle(raw, o),
                                             BitConverter.ToSingle(raw, o + 4),
                                             BitConverter.ToSingle(raw, o + 8))
@@ -128,6 +191,18 @@ Public Class MapCamPath
                 points(i).roll = BitConverter.ToSingle(raw, o + 20)
                 points(i).s = BitConverter.ToSingle(raw, o + 24)
                 points(i).speed = BitConverter.ToSingle(raw, o + 28)
+            Next
+
+            ' The seeds sit after the points. Read but not required - a file
+            ' written by the command line exporter has none, and the flight is
+            ' identical either way.
+            ReDim seeds(Math.Max(0, seed_count) - 1)
+            Dim seed_base = head_size + count * stride
+            For i = 0 To seed_count - 1
+                Dim o = seed_base + i * seed_stride
+                seeds(i).x = BitConverter.ToSingle(raw, o)
+                seeds(i).z = BitConverter.ToSingle(raw, o + 4)
+                seeds(i).is_start = BitConverter.ToUInt32(raw, o + 8) = SEED_START
             Next
 
             loaded = True
@@ -148,11 +223,35 @@ Public Class MapCamPath
                     If(closed, "closed loop", "open"),
                     lo.X, hi.X, lo.Y, hi.Y, lo.Z, hi.Z,
                     maxroll * 180.0F / CSng(Math.PI))
+            LogThis("cam path: {0} seed point(s), planned heading {1:0.0} deg, written {2}",
+                    seed_count, seed_heading * 180.0F / CSng(Math.PI),
+                    If(created > 0,
+                       DateTimeOffset.FromUnixTimeSeconds(created).LocalDateTime.ToString("yyyy-MM-dd HH:mm"),
+                       "unknown"))
 
         Catch ex As Exception
             LogThis("cam path: failed to read {0}: {1}", path, ex.Message)
             loaded = False
         End Try
+    End Sub
+
+    ''' <summary>
+    ''' Re-report the loaded path on demand. Same facts Load logs, but the boot
+    ''' log is long gone by the time anyone looks - Snapshot only tees what it
+    ''' writes itself, so anything worth reading later has to be written here.
+    ''' </summary>
+    Public Sub LogSnapshot()
+        If Not loaded Then
+            LogThis("  cam path: none loaded")
+            Return
+        End If
+        LogThis("  cam path: {0} v2, {1} points over {2:0} m ({3}), {4} seed point(s), written {5}",
+                map_name, points.Length, total_len,
+                If(closed, "closed", "open"),
+                If(seeds Is Nothing, 0, seeds.Length),
+                If(created > 0,
+                   DateTimeOffset.FromUnixTimeSeconds(created).LocalDateTime.ToString("yyyy-MM-dd HH:mm"),
+                   "unknown"))
     End Sub
 
     ''' <summary>
@@ -233,7 +332,11 @@ Public Class MapCamPath
 
         campathShader.Use()
         vao.Bind()
-        GL.LineWidth(2.0F)
+
+        ' The geometry stage needs the viewport to size the ribbon in pixels.
+        ' Read every frame rather than cached - the window resizes.
+        GL.Uniform2(campathShader("viewport"), CSng(MainFBO.width), CSng(MainFBO.height))
+        GL.Uniform1(campathShader("line_px"), LINE_PX)
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
 
@@ -251,44 +354,30 @@ Public Class MapCamPath
         GL.Uniform1(campathShader("hide_near"), If(flying, HIDE_NEAR, 0.0F))
         GL.Uniform1(campathShader("hide_far"), If(flying, HIDE_FAR, 0.0F))
 
-        If flying Then
-            ' Flying, ONE pass and no depth test.
-            '
-            ' The ghost/solid split below is noise from in here. At 1 m the view
-            ' along the route is grazing, so every rise between here and there
-            ' occludes it: the line spends most of its length ghosted and snaps
-            ' to full colour wherever the ground happens to fall away. Both
-            ' answers are correct and the flicker between them is unreadable.
-            GL.Disable(EnableCap.DepthTest)
-            GL.Uniform1(campathShader("alpha_mul"), 1.0F)
-            GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
-        Else
-            ' Inspecting, the split is the entire point - solid where the route
-            ' is really in view, ghosted where something is in front of it, which
-            ' is how its HEIGHT gets checked by eye.
-            '
-            ' The ghost is deliberately strong at 0.35. Seen from far enough
-            ' away the route grazes the ground it runs over and loses the depth
-            ' test along most of its length, so without a strong ghost the path
-            ' appeared to vanish on zoom out.
-            GL.Disable(EnableCap.DepthTest)
-            GL.Uniform1(campathShader("alpha_mul"), 0.35F)
-            GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
-
-            ' No polygon offset here. There used to be, meant to bias this pass
-            ' toward the camera, and it never did anything: polygon offset
-            ' applies to POLYGONS, and this is GL_LINES. Nothing needs it -
-            ' depth is 32f reversed-Z, which resolves the 1 m the route sits
-            ' above the ground with room to spare at any range.
-            GL.Enable(EnableCap.DepthTest)
-            GL.Uniform1(campathShader("alpha_mul"), 1.0F)
-            GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
-        End If
+        ' ONE pass, no depth test, full alpha - whether flying or not.
+        '
+        ' There used to be two: a 0.35 ghost with the depth test off, and a solid
+        ' pass with it on, so the route read solid where it was really visible
+        ' and ghosted where something stood in front of it. That is a genuine
+        ' height cue and it was worth having while this was a debugging aid.
+        '
+        ' It cannot survive the camera moving, though. Pull back and the route's
+        ' pixels increasingly land on terrain that is NEARER than the route -
+        ' a metre of clearance is well under a pixel at map scale - so the solid
+        ' pass loses the depth test along more and more of its length and the
+        ' whole path fades toward the ghost. Nothing about the route changed;
+        ' only how much of it wins a depth comparison. The same effect made it
+        ' flicker while flying, where the view along the route is grazing.
+        '
+        ' A route overlay that changes brightness with zoom is worse than one
+        ' that cannot tell you its height. Draw it once, unlit, over everything.
+        GL.Disable(EnableCap.DepthTest)
+        GL.Uniform1(campathShader("alpha_mul"), 1.0F)
+        GL.DrawArrays(PrimitiveType.Lines, 0, vertex_count)
 
         ' Leave the depth test on however we got here - the flying branch turned
         ' it off and everything drawn after this expects it back.
         GL.Enable(EnableCap.DepthTest)
-        GL.LineWidth(1.0F)
         GL.Disable(EnableCap.Blend)
         campathShader.StopUse()
 

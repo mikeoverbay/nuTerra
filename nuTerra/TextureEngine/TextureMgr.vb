@@ -377,14 +377,32 @@ NotInheritable Class TextureMgr
                         image_id.SubImage2D(i, 0, 0, w, h, format_info.pixel_format, format_info.pixel_type, data)
                     End If
 
-                    w /= 2
-                    h /= 2
+                    ' INTEGER division, clamped at 1. GL defines mip level i as
+                    ' max(1, floor(w / 2^i)), and VB's / is FLOATING POINT - so
+                    ' assigning it back to an Integer ROUNDS. A 7 wide level
+                    ' became 4 instead of 3 and an 11 became 6 instead of 5, which
+                    ' is both the wrong size passed to CompressedSubImage2D and
+                    ' the wrong number of bytes read, so every remaining mip in
+                    ' that file was read from the wrong offset.
+                    '
+                    ' The clamp matters for non-square textures: 8x2 goes 4x1 then
+                    ' 2x0 without it, and GL wants 2x1.
+                    w = Math.Max(1, w \ 2)
+                    h = Math.Max(1, h \ 2)
                 Next
                 image_id.Parameter(TextureParameterName.TextureMaxLevel, mipMapCount - 1)
             End If
 
             Dim e2 = GL.GetError()
             If e2 > 0 Then
+                ' Say WHICH texture and what shape it was. This trap was a bare
+                ' Stop, so it only spoke to a debugger - and the answer needed is
+                ' always the file, which the break alone does not give.
+                LogThis("texture: GL {0} loading {1} ({2}x{3}, {4} mips, {5}{6})",
+                        e2, fn, dds_header.width, dds_header.height,
+                        dds_header.mipMapCount,
+                        If(format_info.compressed, "compressed ", ""),
+                        dds_header.FourCC.Trim(ChrW(0)))
                 Stop
             End If
         End Using

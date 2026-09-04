@@ -3,6 +3,10 @@
 in vec4 fCol;
 in vec3 fWorld;
 
+// -1 .. +1 across the width of the ribbon, from campath.geom.
+in float fEdge;
+uniform float line_px;
+
 // Set below 1 for the pass that draws the occluded part of the path. Drawing
 // it twice - once depth tested, once not - is what makes the overlay readable:
 // solid where the route is actually visible, ghosted where a hill or a building
@@ -37,5 +41,11 @@ void main(void)
 
     float vis = (hide_far > hide_near) ? smoothstep(hide_near, hide_far, d) : 1.0;
 
-    fragColor = vec4(fCol.rgb, fCol.a * alpha_mul * vis);
+    // Feather the two long edges over roughly one pixel. Without this the
+    // ribbon is a hard-edged polygon and picks the shimmer straight back up -
+    // a constant WIDTH is only half the problem, the other half is that a hard
+    // edge lands differently on the pixel grid every frame.
+    float aa = clamp((1.0 - abs(fEdge)) * max(1.0, line_px * 0.5), 0.0, 1.0);
+
+    fragColor = vec4(fCol.rgb, fCol.a * alpha_mul * vis * aa);
 }
