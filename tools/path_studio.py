@@ -49,8 +49,29 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import radar_commit as nav
 import flight_plan as fp
 import export_cam_path as ex
+import cam_path as cp
 
 FOLDER = nav.FOLDER
+
+
+def existing_route(map_name):
+    """The route already saved for this map, as [(x, z)], or None.
+
+    Reads the .campath, not the CSV beside the bake. The .campath is the artefact
+    that actually ships, so this shows what nuTerra would fly rather than what the
+    last run in this folder happened to leave behind.
+    """
+    path = os.path.join(cp.campath_dir(), map_name + ".campath")
+    if not os.path.exists(path):
+        return None
+    try:
+        _hdr, pts = cp.read_path(path)
+    except Exception:
+        # A half written or older-format file is not worth refusing to open the
+        # map over. Draw nothing and let a regenerate replace it.
+        return None
+    return [(p[0], p[2]) for p in pts]
+
 CANVAS = 780         # starting size only - the map scales with the window
 MIN_VIEW = 240
 
@@ -486,10 +507,22 @@ class Studio:
             return
         self.map_name = name
         self.start = self.heading = self.route = None
+
+        # Show the route this map already has. Opening a map planned weeks ago
+        # and being shown a blank mask invites planning it again from scratch
+        # without meaning to.
+        self.route = existing_route(name)
+        self.route_saved = self.route is not None
+
         self.render_mask()
         self.go.state(["!disabled"])
-        self.status.set("%s loaded. Left-drag sets start and heading, "
-                        "right click adds a target, Backspace undoes one." % name)
+        if self.route_saved:
+            self.status.set("%s loaded, showing the saved path (%d points). "
+                            "Left-drag a new start to replace it." %
+                            (name, len(self.route)))
+        else:
+            self.status.set("%s loaded. Left-drag sets start and heading, "
+                            "right click adds a target, Backspace undoes one." % name)
 
     # -------------------------------------------------------------- drawing
 
@@ -694,9 +727,9 @@ class Studio:
             import csv as _csv
             rows = list(_csv.DictReader(open(csv_path)))
             route = [(float(r["x"]), float(r["z"])) for r in rows]
-            out = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                "nuTerra", "cam_paths", self.map_name + ".campath")
+            # The same resolver the exporter just used, so the path
+            # reported is the path actually written.
+            out = os.path.join(cp.campath_dir(), self.map_name + ".campath")
             self.root.after(0, lambda: self._done(route, len(rows), out))
         except BaseException:
             # BaseException, not Exception. Anything that escapes this thread
@@ -708,6 +741,7 @@ class Studio:
 
     def _done(self, route, n, out):
         self.route = route
+        self.route_saved = False
         self.busy = False
         self.go.state(["!disabled"])
         self.update_enabled()

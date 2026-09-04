@@ -429,7 +429,10 @@ Module modRender
 #End If
 
         '===========================================================================
-        If DONT_HIDE_HUD Then
+        ' The whole block, not just the minimap. The shadow-map viewer below
+        ' draws through DebugDraw at a screen rect, straight into the frame, so
+        ' it would be captured too if it happened to be open.
+        If DONT_HIDE_HUD AndAlso Not HUD_HIDDEN_FOR_CAPTURE Then
             '===========================================================================
             'color_correct()
 

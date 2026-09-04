@@ -9,6 +9,10 @@ Module Program
         ' preload
         Dim asm = Assembly.Load("nuTerraCPP")
 
+        ' A one-off out= must not become the saved preference, so it is
+        ' remembered and skipped when the settings are written back.
+        Dim record_dir_from_cli = False
+
         ' nuTerra.exe <map_name> [cam=r,ax,ay,lx,ly,lz] [freezefx] [clean]
         '                        [snap|snapquit] [settle=N]
         '
@@ -85,6 +89,7 @@ Module Program
                 RECORD_FLIGHT = True
             ElseIf a.StartsWith("out=", StringComparison.OrdinalIgnoreCase) Then
                 RECORD_DIR = a.Substring(4)
+                record_dir_from_cli = True
             ElseIf a.StartsWith("still=", StringComparison.OrdinalIgnoreCase) Then
                 ' Record N frames from wherever the camera starts, no flight.
                 ' Pair it with cam= to test the same view twice.
@@ -123,6 +128,15 @@ Module Program
             My.Settings.Save()
         End If
 
+        ' AFTER the upgrade, or a fresh install reads the pre-upgrade store. The
+        ' guard is what makes the setting survive a first run: an install with no
+        ' record_dir yet falls through to the default already in RECORD_DIR
+        ' rather than being handed an empty string.
+        If Not record_dir_from_cli AndAlso
+           Not String.IsNullOrWhiteSpace(My.Settings.record_dir) Then
+            RECORD_DIR = My.Settings.record_dir
+        End If
+
         main_window = New Window
         main_window.Run()
 
@@ -132,6 +146,7 @@ Module Program
             modMapSettings.SaveIfChanged(MAP_NAME_NO_PATH)
         End If
 
+        If Not record_dir_from_cli Then My.Settings.record_dir = RECORD_DIR
         My.Settings.use_tessellation = USE_TESSELLATION
         CommonProperties.SaveToSettings()
         My.Settings.Save()

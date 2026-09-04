@@ -683,7 +683,7 @@ Module modGlobalVars
 
     ''' <summary>Frames per second the fixed step represents, and the rate the
     ''' written sequence is meant to be encoded at.</summary>
-    Public CAPTURE_FPS As Integer = 60
+    Public CAPTURE_FPS As Integer = 30
 
     ''' <summary>
     ''' Write every rendered frame to disk while the flight is running.
@@ -726,8 +726,53 @@ Module modGlobalVars
     ''' </summary>
     Public RECORD_STILL As Integer = 0
 
-    ''' <summary>How many frames the still-capture button asks for.</summary>
+    ''' <summary>How many frames the still-capture button asks for. Fixed - a
+    ''' still is a burst for checking animation, and the exact length of it has
+    ''' never been the interesting variable. still=N on the command line still
+    ''' sets it for an automated run.</summary>
     Public RECORD_STILL_COUNT As Integer = 180
+
+    ''' <summary>
+    ''' Hold each captured frame until the virtual texture has finished
+    ''' streaming, and freeze the flight while it does.
+    '''
+    ''' On by default, because it is the difference between a video whose
+    ''' terrain is sharp throughout and one that visibly resolves as it goes.
+    ''' Off is worth having: it is roughly twice the throughput, which matters
+    ''' for a rough pass over a long route, and on a map whose working set never
+    ''' fits it is the only way to avoid waiting out the ceiling on every frame.
+    ''' </summary>
+    Public WAIT_VT As Boolean = True
+
+    ''' <summary>
+    ''' Capture paused - space bar, or the button in Flight Render.
+    '''
+    ''' Freezes the flight and every animated clock along with the shutter, so a
+    ''' pause costs nothing but time. Resuming continues the same file at the
+    ''' next frame number: nothing about the output records that it happened.
+    ''' </summary>
+    Public RECORD_PAUSED As Boolean = False
+
+    ''' <summary>Drop the on-screen HUD while capturing, so it stays out of the
+    ''' video.</summary>
+    Public RECORD_HIDE_HUD As Boolean = True
+
+    ''' <summary>
+    ''' True when the HUD must be suppressed because a capture is running.
+    '''
+    ''' The ImGui panels are already safe - the frame is read back before the
+    ''' controller renders. The HUD is not: the minimap and the shadow-map viewer
+    ''' are drawn by modRender inside draw_scene, on the wrong side of the
+    ''' readback, so they land in the file.
+    '''
+    ''' Derived rather than stored, so nothing has to remember to put
+    ''' DONT_HIDE_HUD back when a capture stops or is cancelled.
+    ''' </summary>
+    Public ReadOnly Property HUD_HIDDEN_FOR_CAPTURE As Boolean
+        Get
+            Return RECORD_HIDE_HUD AndAlso (RECORD_FLIGHT OrElse RECORD_STILL > 0)
+        End Get
+    End Property
 
     ''' <summary>
     ''' Open borderless at the monitor's size. The capture reads the framebuffer,
@@ -737,11 +782,19 @@ Module modGlobalVars
     Public FULLSCREEN_WINDOW As Boolean = False
 
     ''' <summary>
-    ''' Where the frame sequence goes. A real drive, not %TEMP% - a lap is tens
-    ''' of thousands of PNGs and tens of GB, which is not something to leave in a
-    ''' temp folder. Overridable with out= on the command line.
+    ''' Where the frame sequence goes.
+    '''
+    ''' A folder on a real drive, not %TEMP% - a lap is tens of thousands of
+    ''' PNGs and tens of GB, which is not something to leave in a temp folder.
+    ''' The root of C: rather than under Documents or AppData for the same
+    ''' reason: it has to be somewhere obvious that can be pointed at another
+    ''' drive when it fills.
+    '''
+    ''' This value is only the fallback. The real one is My.Settings.record_dir,
+    ''' loaded over it at startup, so a folder chosen once survives a restart.
+    ''' out= on the command line beats both and is NOT written back.
     ''' </summary>
-    Public RECORD_DIR As String = "G:\nuTerra_ScreenCaps"
+    Public RECORD_DIR As String = "C:\nuTerra_ScreenCaps"
     ''' <summary>How much of the baked bank angle to actually apply. 0 flies
     ''' the path with the horizon level, 1 uses the exported roll as-is.</summary>
     Public CAM_ROLL_SCALE As Single = 1.0F

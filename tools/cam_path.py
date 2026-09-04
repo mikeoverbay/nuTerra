@@ -56,7 +56,50 @@ change later is far more expensive than eight unused bytes now - but playing it
 back needs a roll added to the view matrix, which does not exist today.
 """
 
+import os
 import struct
+
+
+def campath_dir():
+    """The folder .campath files live in.
+
+    SEARCHED, not computed. It used to be two directories up from this file plus
+    "nuTerra/cam_paths", which is right in the repo and wrong everywhere else -
+    running from the copy PathStudio deploys, it resolved to
+    PathStudio\\bin\\Debug\\net6.0-windows\\nuTerra\\cam_paths, a folder that
+    does not exist. Path Studio then found no saved path to draw, and the
+    exporter would have written new ones into bin.
+
+    Walk up from this file and take the first that exists:
+
+        <dir>/nuTerra/cam_paths   the repo, and a deployed copy under it
+        <dir>/cam_paths           installed beside nuTerra.exe
+
+    When neither exists yet - a first run on a fresh install - fall back to
+    whichever candidate has a parent that does, so the first export lands
+    somewhere sensible instead of creating a stray tree.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    d = here
+    while True:
+        for cand in (os.path.join(d, "nuTerra", "cam_paths"),
+                     os.path.join(d, "cam_paths")):
+            if os.path.isdir(cand):
+                return cand
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+
+    d = here
+    while True:
+        if os.path.isdir(os.path.join(d, "nuTerra")):
+            return os.path.join(d, "nuTerra", "cam_paths")
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return os.path.join(os.path.dirname(here), "cam_paths")
 
 MAGIC = b"NCP1"
 VERSION = 1

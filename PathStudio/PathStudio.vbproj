@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputType>WinExe</OutputType>
+    <StartupObject>Program</StartupObject>
+    <RootNamespace></RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+    <OptionCompare>Text</OptionCompare>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <AssemblyName>PathStudio</AssemblyName>
+  </PropertyGroup>
+
+  <!--
+    The Python tools ARE the application - this project is the launcher and the
+    installer's carrier for them. Linked rather than moved, so tools\ stays the
+    one place the scripts live and nothing that already refers to them breaks.
+
+    PreserveNewest, not Always: these change often during tuning and there is no
+    reason to rewrite unchanged files on every build.
+  -->
+  <ItemGroup>
+    <Content Include="..\tools\*.py" Link="tools\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

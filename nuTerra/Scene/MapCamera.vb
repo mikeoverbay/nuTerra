@@ -181,7 +181,7 @@ Public Class MapCamera
             ' Held still while the recorder waits for the terrain to finish
             ' streaming. Gated on RECORD_FLIGHT as well as the flag, so a hold
             ' left standing when recording stops cannot strand the camera.
-            If RECORD_FLIGHT AndAlso RECORD_HOLD Then fly_dt = 0.0F
+            If RECORD_FLIGHT AndAlso (RECORD_HOLD OrElse RECORD_PAUSED) Then fly_dt = 0.0F
 
             If scene.cam_path.Sample(fly_dt, fpos, fh, ft, fr) Then
                 Dim look As New Vector3(CSng(Math.Cos(ft) * Math.Sin(fh)),

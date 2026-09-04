@@ -20,6 +20,7 @@ Public Class Window
     Public Shared mouse_last_pos As Point
     Private NEED_TO_INVALIDATE_VIEWPORT As Boolean = True
     Private NEED_TO_DO_SCREEN_CAPTURE As Boolean = False
+    Private NEED_TO_PICK_RECORD_DIR As Boolean = False
     Public SHADER_CHANGED As Boolean = False
     Private SCREEN_CAPTURE_FILENAME As String = Nothing
     Private fps_timer As New Stopwatch
@@ -28,6 +29,15 @@ Public Class Window
 
     Private SHOW_SETTINGS_WINDOW As Boolean
     Private SHOW_TEXTURES_VIEWER_WINDOW As Boolean
+    Private SHOW_FLIGHT_RENDER_WINDOW As Boolean
+
+    ' Capture rates offered in Flight Render. Three, not a slider: the number
+    ' decides how many frames a route costs and how long the encode takes, and
+    ' the useful answers are 15 for a rough pass, 30 for a finished video and 60
+    ' for something that will be slowed down. Shared arrays so the combo is not
+    ' rebuilding them every frame.
+    Private Shared ReadOnly FPS_VALUES() As Integer = {15, 30, 60}
+    Private Shared ReadOnly FPS_LABELS() As String = {"15", "30", "60"}
     Private prev_SHOW_SETTINGS_WINDOW As Boolean = False
 
     ' Position and size of the menu bar window, recorded each frame so the
@@ -389,7 +399,8 @@ try_again:
         If RECORD_FLIGHT OrElse FLY_FIXED_STEP OrElse RECORD_STILL > 0 Then
             ANIM_DELTA = 1.0F / CSng(Math.Max(1, CAPTURE_FPS))
         End If
-        If (RECORD_FLIGHT OrElse RECORD_STILL > 0) AndAlso RECORD_HOLD Then ANIM_DELTA = 0.0F
+        If (RECORD_FLIGHT OrElse RECORD_STILL > 0) AndAlso
+           (RECORD_HOLD OrElse RECORD_PAUSED) Then ANIM_DELTA = 0.0F
         ANIM_TIME += ANIM_DELTA
 
         If Not FREEZE_FX Then
@@ -889,6 +900,26 @@ try_again:
         End If
 
         Select Case e.Key
+            ' Capture control. Both are inert unless something is recording, so
+            ' neither steals a key from ordinary use - and Escape in particular
+            ' does NOT quit, it only stops the capture.
+            Case Keys.F9
+                start_path_studio()
+            Case Keys.Space
+                If RECORD_FLIGHT OrElse RECORD_STILL > 0 Then
+                    RECORD_PAUSED = Not RECORD_PAUSED
+                    LogThis("record: {0} at frame {1}",
+                            If(RECORD_PAUSED, "paused", "resumed"), RECORD_FRAME_INDEX)
+                End If
+            Case Keys.Escape
+                If RECORD_FLIGHT OrElse RECORD_STILL > 0 Then
+                    LogThis("record: stopped by Escape at frame {0}", RECORD_FRAME_INDEX)
+                    RECORD_FLIGHT = False
+                    RECORD_STILL = 0
+                    RECORD_HOLD = False
+                    RECORD_PAUSED = False
+                    If RECORD_STOP_AT_END Then FLY_CAM_PATH = False
+                End If
             Case Keys.A
                 WASD_VECTOR.X = -3.0F
             Case Keys.D
@@ -1211,6 +1242,15 @@ try_again:
                 NEED_TO_DO_SCREEN_CAPTURE = True
             End If
             ImGui.SameLine()
+            If ImGui.Button("Flight Render") Then
+                SHOW_FLIGHT_RENDER_WINDOW = True
+            End If
+            ImGui.SameLine()
+            If ImGui.Button("Path Studio") Then
+                start_path_studio()
+            End If
+            If ImGui.IsItemHovered() Then ImGui.SetTooltip("F9")
+            ImGui.SameLine()
             If ImGui.Button("Snapshot") Then
                 write_log_snapshot()
             End If
@@ -1270,69 +1310,10 @@ try_again:
                     ImGui.SameLine()
                     ImGui.TextDisabled(If(VSync = VSyncMode.Off, "uncapped", "capped to refresh"))
 
-                    ImGui.Separator()
-
-                    ' Even motion without writing anything. Worth having on its
-                    ' own when an external recorder is doing the capturing - it
-                    ' fixes the judder, which is in the flight, not the recorder.
-                    ImGui.Checkbox("Fixed step flight", FLY_FIXED_STEP)
-
-                    ' Writes a PNG per rendered frame while FLY is running.
-                    If ImGui.Checkbox("Record flight frames", RECORD_FLIGHT) Then
-                        RECORD_FRAME_INDEX = 0
-                    End If
-                    If RECORD_FLIGHT OrElse FLY_FIXED_STEP Then
-                        Dim v_fps = CAPTURE_FPS
-                        If ImGui.SliderInt("  capture fps", v_fps, 24, 120) Then
-                            CAPTURE_FPS = v_fps
-                        End If
-                    End If
-                    ImGui.Checkbox("  stop flying at the end", RECORD_STOP_AT_END)
-
-                    ' One button for the whole thing: rewind to the start of the
-                    ' path, start flying, start writing. Doing it by hand meant
-                    ' ticking FLY first and catching the path wherever it already
-                    ' was, so the capture began part way round.
-                    If ImGui.Button(If(RECORD_FLIGHT, "Stop capture", "Start capture")) Then
-                        If RECORD_FLIGHT Then
-                            RECORD_FLIGHT = False
-                            RECORD_HOLD = False
-                        ElseIf map_scene IsNot Nothing AndAlso map_scene.cam_path.loaded Then
-                            map_scene.cam_path.travelled = 0.0F
-                            RECORD_FRAME_INDEX = 0
-                            RECORD_HOLD = False
-                            ' The route overlay is a debug aid drawn along the
-                            ' exact line being flown. Left on it is a coloured
-                            ' streak through every frame of the video.
-                            SHOW_CAM_PATH = False
-                            FLY_CAM_PATH = True
-                            RECORD_FLIGHT = True
-                        End If
-                    End If
-
-                    ' Hold the camera where it is and record. For checking
-                    ' animation - on a flight everything moves at once and a fire
-                    ' looping correctly looks the same as a fire being dragged
-                    ' past the lens.
-                    Dim v_sc = RECORD_STILL_COUNT
-                    If ImGui.SliderInt("  still frames", v_sc, 30, 600) Then
-                        RECORD_STILL_COUNT = v_sc
-                    End If
-                    If ImGui.Button(If(RECORD_STILL > 0, "Stop still capture", "Capture still frames")) Then
-                        If RECORD_STILL > 0 Then
-                            RECORD_STILL = 0
-                        Else
-                            RECORD_FRAME_INDEX = 0
-                            RECORD_HOLD = False
-                            RECORD_STILL = RECORD_STILL_COUNT
-                        End If
-                    End If
-
-                    If RECORD_FLIGHT OrElse RECORD_STILL > 0 Then
-                        ImGui.TextDisabled(String.Format("{0} frames written, {1} still to go",
-                                                         RECORD_FRAME_INDEX, RECORD_STILL))
-                        ImGui.TextDisabled(RECORD_DIR)
-                    End If
+                    ' The capture controls used to sit here. They are their own
+                    ' window now - Flight Render, on the menu bar beside Screen
+                    ' Capture - because rendering a flight is a job of its own,
+                    ' not a display preference.
                 End If
                 If ImGui.CollapsingHeader("Export Map") Then
                     ImGui.Checkbox("Export STLs", EXPORT_STL_MAP)
@@ -1908,6 +1889,147 @@ try_again:
             End If
         End If
 
+        If SHOW_FLIGHT_RENDER_WINDOW Then
+            ImGui.SetNextWindowPos(New System.Numerics.Vector2(260, 90), ImGuiCond.FirstUseEver)
+            ImGui.SetNextWindowSize(New System.Numerics.Vector2(340, 300), ImGuiCond.FirstUseEver)
+            If ImGui.Begin("Flight Render", SHOW_FLIGHT_RENDER_WINDOW) Then
+
+                ' Frames per second the capture represents. It is NOT a speed
+                ' limit - the app renders as fast as it can and each frame
+                ' stands for 1/fps of video whatever it cost. It sets how far
+                ' the flight and everything animated advance per frame, so it
+                ' decides both the length of the file and how many frames the
+                ' route costs.
+                Dim fps_idx = Array.IndexOf(FPS_VALUES, CAPTURE_FPS)
+                ' A value from a settings file or still= that is not on the list
+                ' would index -1 and throw, so fall back to the default rather
+                ' than trusting what came in.
+                If fps_idx < 0 Then fps_idx = Array.IndexOf(FPS_VALUES, 30)
+                If ImGui.Combo("fps", fps_idx, FPS_LABELS, FPS_LABELS.Length) Then
+                    CAPTURE_FPS = FPS_VALUES(fps_idx)
+                End If
+
+                ' The gate. Each frame waits for the terrain to finish streaming
+                ' and the flight is frozen while it waits, so the pages have a
+                ' still view to catch up with.
+                ImGui.Checkbox("Wait VT", WAIT_VT)
+                If ImGui.IsItemHovered() Then
+                    ImGui.SetTooltip("On: sharp terrain in every frame, about half the throughput." & vbLf &
+                                     "Off: shoots immediately, terrain resolves during the video.")
+                End If
+
+                ImGui.Checkbox("Fixed step flight", FLY_FIXED_STEP)
+                ImGui.Checkbox("Stop flying at the end", RECORD_STOP_AT_END)
+                ImGui.Checkbox("Hide HUD while capturing", RECORD_HIDE_HUD)
+                If ImGui.IsItemHovered() Then
+                    ImGui.SetTooltip("The minimap and the shadow viewer are drawn into the scene," & vbLf &
+                                     "so unlike the ImGui panels they would end up in the video.")
+                End If
+
+                ' Where the frames go.
+                '
+                ' The dialog cannot open from here. This runs inside the render
+                ' frame, and a modal Win32 dialog would block the GL thread part
+                ' way through building one - so it raises a flag and ProcessEvents
+                ' opens it between frames, exactly as Screen Capture does.
+                If ImGui.Button("Browse...") Then
+                    NEED_TO_PICK_RECORD_DIR = True
+                End If
+                ImGui.SameLine()
+
+                ' Straight from here rather than deferred like the Browse dialog.
+                ' Explorer is launched and forgotten - nothing modal, nothing to
+                ' block the render thread on - so there is no reason to wait for
+                ' ProcessEvents.
+                If ImGui.Button("Open Path") Then
+                    Try
+                        ' Created on demand. On a first run the folder does not
+                        ' exist until the first frame is written, and Explorer
+                        ' would just report a missing path.
+                        IO.Directory.CreateDirectory(RECORD_DIR)
+                        ' UseShellExecute MUST be set. It defaults to False on
+                        ' .NET 6, and without it this tries to EXECUTE the
+                        ' directory instead of opening it, and throws.
+                        System.Diagnostics.Process.Start(
+                            New System.Diagnostics.ProcessStartInfo(RECORD_DIR) With {
+                                .UseShellExecute = True})
+                    Catch ex As Exception
+                        LogThis("record: cannot open {0} - {1}", RECORD_DIR, ex.Message)
+                    End Try
+                End If
+                ImGui.TextWrapped(RECORD_DIR)
+
+                ImGui.Separator()
+
+                ' Rewinds to the start of the path, starts flying, starts
+                ' writing. By hand it meant ticking FLY first and catching the
+                ' path wherever it already was, so a capture began part way
+                ' round.
+                If ImGui.Button(If(RECORD_FLIGHT, "Stop capture", "Start capture"), New System.Numerics.Vector2(150, 0)) Then
+                    If RECORD_FLIGHT Then
+                        RECORD_FLIGHT = False
+                        RECORD_HOLD = False
+                    ElseIf map_scene IsNot Nothing AndAlso map_scene.cam_path.loaded Then
+                        map_scene.cam_path.travelled = 0.0F
+                        RECORD_FRAME_INDEX = 0
+                        RECORD_HOLD = False
+                        ' The route overlay is drawn along the exact line being
+                        ' flown. Left on, it is a coloured streak through every
+                        ' frame of the video.
+                        SHOW_CAM_PATH = False
+                        FLY_CAM_PATH = True
+                        RECORD_FLIGHT = True
+                    End If
+                End If
+
+                ' Held camera, for checking animation. On a flight everything
+                ' moves at once and a fire looping correctly looks the same as a
+                ' fire being dragged past the lens.
+                If ImGui.Button(If(RECORD_STILL > 0, "Stop still capture", "Capture still"), New System.Numerics.Vector2(150, 0)) Then
+                    If RECORD_STILL > 0 Then
+                        RECORD_STILL = 0
+                    Else
+                        RECORD_FRAME_INDEX = 0
+                        RECORD_HOLD = False
+                        RECORD_STILL = RECORD_STILL_COUNT
+                    End If
+                End If
+
+                ImGui.Separator()
+
+                If map_scene IsNot Nothing AndAlso map_scene.cam_path.loaded Then
+                    Dim spd = 12.0F
+                    If map_scene.cam_path.points IsNot Nothing AndAlso map_scene.cam_path.points.Length > 0 Then
+                        spd = Math.Max(0.1F, map_scene.cam_path.points(0).speed)
+                    End If
+                    Dim secs = map_scene.cam_path.total_len / spd
+                    ImGui.Text(String.Format("path {0:0} m, {1:0} s, {2} frames",
+                                             map_scene.cam_path.total_len, secs,
+                                             CInt(Math.Ceiling(secs * CAPTURE_FPS))))
+                Else
+                    ImGui.TextDisabled("no path loaded")
+                End If
+
+                If RECORD_FLIGHT OrElse RECORD_STILL > 0 Then
+                    ImGui.SameLine()
+                    If ImGui.Button(If(RECORD_PAUSED, "Resume", "Pause")) Then
+                        RECORD_PAUSED = Not RECORD_PAUSED
+                    End If
+
+                    ImGui.Text(String.Format("{0} frames written{1}",
+                                             RECORD_FRAME_INDEX,
+                                             If(RECORD_STILL > 0, String.Format(", {0} to go", RECORD_STILL), "")))
+                    If RECORD_PAUSED Then
+                        ImGui.TextDisabled("PAUSED - space to resume")
+                    ElseIf RECORD_HOLD Then
+                        ImGui.TextDisabled("waiting for the VT")
+                    End If
+                End If
+                ImGui.TextDisabled("space pauses, escape stops")
+            End If
+            ImGui.End()
+        End If
+
         If SHOW_TEXTURES_VIEWER_WINDOW Then
             If ImGui.Begin("Textures viewer", SHOW_TEXTURES_VIEWER_WINDOW) Then
                 Dim size As New Numerics.Vector2
@@ -1959,14 +2081,24 @@ try_again:
 
     Private Sub save_record_frame()
         Try
+            ' Paused writes nothing and touches no counter, so the sequence
+            ' picks up exactly where it left off.
+            If RECORD_PAUSED Then Return
+
             ' Wait for the virtual texture before shooting. Terrain arrives over
             ' several frames, so without this the early part of a flight is
             ' recorded mid-stream and the ground visibly sharpens on playback.
             ' No virtual texture yet means NOT settled, not "no objection". The
             ' terrain object exists long before its vt does, so defaulting this
             ' optimistically waved the capture through during load.
+            '
+            ' WAIT_VT off skips the wait entirely - Integer.MaxValue rather than
+            ' a branch around the block, so the counters below still reset the
+            ' same way on every path through.
             Dim settled = 0
-            If map_scene.terrain IsNot Nothing AndAlso map_scene.terrain.vt IsNot Nothing Then
+            If Not WAIT_VT Then
+                settled = Integer.MaxValue
+            ElseIf map_scene.terrain IsNot Nothing AndAlso map_scene.terrain.vt IsNot Nothing Then
                 settled = map_scene.terrain.vt.SettledFrames
             End If
 
@@ -2047,8 +2179,84 @@ try_again:
         End Try
     End Sub
 
+    ' <summary>
+    ''' Start Path Studio - F9, or the button on the menu bar.
+    '''
+    ''' One of only two things nuTerra and Path Studio share; the other is the
+    ''' .campath file Path Studio writes and MapCamPath reads. Deliberately no
+    ''' deeper coupling than launching an exe.
+    '''
+    ''' Nothing is redirected and nothing is waited on. Path Studio owns its own
+    ''' window and reports its own errors - including a missing Python, which is
+    ''' its launcher's job to explain, not this one's.
+    ''' </summary>
+    Private Sub start_path_studio()
+        Try
+            Dim exe = find_path_studio()
+            If exe Is Nothing Then
+                LogThis("Path Studio: PathStudio.exe not found beside nuTerra or in the solution")
+                Return
+            End If
+            Diagnostics.Process.Start(New Diagnostics.ProcessStartInfo(exe) With {
+                .UseShellExecute = False,
+                .WorkingDirectory = IO.Path.GetDirectoryName(exe)})
+            LogThis("Path Studio: started {0}", exe)
+        Catch ex As Exception
+            LogThis("Path Studio: could not start - {0}", ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' PathStudio.exe, installed beside nuTerra or built elsewhere in the tree.
+    '''
+    ''' Beside the exe is the installed layout. The bin paths are what make this
+    ''' work from a development build, where the two projects have separate
+    ''' output folders - and Debug is checked before Release because a developer
+    ''' running nuTerra from Debug means the Debug one.
+    ''' </summary>
+    Private Function find_path_studio() As String
+        Dim dir = New IO.DirectoryInfo(AppContext.BaseDirectory)
+        While dir IsNot Nothing
+            Dim here = IO.Path.Combine(dir.FullName, "PathStudio.exe")
+            If IO.File.Exists(here) Then Return here
+            For Each cfg In {"Debug", "Release"}
+                Dim built = IO.Path.Combine(dir.FullName, "PathStudio", "bin", cfg,
+                                            "net6.0-windows", "PathStudio.exe")
+                If IO.File.Exists(built) Then Return built
+            Next
+            dir = dir.Parent
+        End While
+        Return Nothing
+    End Function
+
     Public Overrides Sub ProcessEvents()
         MyBase.ProcessEvents()
+
+        If NEED_TO_PICK_RECORD_DIR Then
+            NEED_TO_PICK_RECORD_DIR = False
+            Using dlg As New FolderBrowserDialog()
+                dlg.Description = "Where to write the captured frames"
+                dlg.UseDescriptionForTitle = True
+                ' Start where the current setting points, when it still exists -
+                ' otherwise the dialog opens at the desktop and the drive with
+                ' the room on it has to be found again every time.
+                ' Open somewhere real. On a first run the folder has not been
+                ' created yet - it is made on the first frame - so fall back to
+                ' its parent rather than dropping the user at the desktop.
+                If IO.Directory.Exists(RECORD_DIR) Then
+                    dlg.SelectedPath = RECORD_DIR
+                Else
+                    Dim parent = IO.Path.GetDirectoryName(RECORD_DIR)
+                    If parent IsNot Nothing AndAlso IO.Directory.Exists(parent) Then
+                        dlg.SelectedPath = parent
+                    End If
+                End If
+                If dlg.ShowDialog() = Windows.Forms.DialogResult.OK Then
+                    RECORD_DIR = dlg.SelectedPath
+                    LogThis("record: output folder set to {0}", RECORD_DIR)
+                End If
+            End Using
+        End If
 
         If NEED_TO_DO_SCREEN_CAPTURE Then
             NEED_TO_DO_SCREEN_CAPTURE = False

@@ -476,8 +476,7 @@ def main():
 
     bake, raw, res, pts, total, closed, step_m, level, worlds = build(map_name)
 
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    out_dir = os.path.join(root, "nuTerra", "cam_paths")
+    out_dir = cam_path.campath_dir()
     os.makedirs(out_dir, exist_ok=True)
 
     # Only the .campath goes in the project folder - that directory is copied
