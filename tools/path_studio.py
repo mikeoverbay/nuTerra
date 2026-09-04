@@ -329,6 +329,7 @@ class Studio:
         self.zoom = 1.0
         self.cx = 0.0
         self.cy = 0.0
+        self.pan_from = None     # (mouse x, mouse y, cx, cy) while panning
         self._resize_job = None
 
         left = ttk.Frame(root, padding=8)
@@ -414,6 +415,12 @@ class Studio:
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
         self.canvas.bind("<Button-3>", self.on_target)
         self.canvas.bind("<MouseWheel>", self.on_wheel)
+
+        # MIDDLE button to pan. Left already sets the start and drags the
+        # heading, right adds a target - both are placements, and stealing
+        # either for navigation would mean every pan risked moving the plan.
+        self.canvas.bind("<Button-2>", self.on_pan_press)
+        self.canvas.bind("<B2-Motion>", self.on_pan_drag)
         # Bound on the ROOT, not the canvas - a Canvas only sees key events when
         # it holds focus, and clicking a slider takes focus away, so bound there
         # Backspace would work until the moment you touched a control.
@@ -612,7 +619,19 @@ class Studio:
         # Kept at bake resolution. Resizing on paint costs a LANCZOS pass and
         # keeps every zoom level sharp; re-deriving the shading each time would
         # redo the numpy work for nothing.
-        self.mask_full = Image.fromarray(img, "RGB")
+        # MIRRORED on X for display.
+        #
+        # The bake is not wrong - its meta says col 0 is wx_min, world_of and
+        # texel_of are exact inverses of that, MapFlightBake probes the mapping
+        # against the CPU height function at load, and every route planned
+        # through it flies real geometry with no clips. Drawn straight, though,
+        # it comes out mirrored against how the map reads in nuTerra, and a
+        # planning view that disagrees with the view you fly is worse than
+        # useless - you would place a start on the wrong side of the map.
+        #
+        # Flip the picture once, here, and mirror the column in to_view and
+        # to_world so clicks land where they look. Nothing else has to know.
+        self.mask_full = Image.fromarray(img[:, ::-1], "RGB")
         self.repaint()
 
     def repaint(self):
@@ -678,9 +697,14 @@ class Studio:
         """Side of the visible window, in texels."""
         return float(self.bake.w) / self.zoom
 
+    def mirror_col(self, c):
+        """Bake column <-> display column. Its own inverse."""
+        return (self.bake.w - 1) - c
+
     def to_view(self, wx, wz):
         """World -> pixels INSIDE the map square (what gets drawn into)."""
         c, r = self.bake.texel_of(wx, wz)
+        c = self.mirror_col(c)
         crop = self.crop_side()
         s = self.view / crop
         return ((c - self.cx) * s, (r - self.cy) * s)
@@ -689,8 +713,8 @@ class Studio:
         """Canvas pixels -> world. Takes the letterbox offset off first."""
         crop = self.crop_side()
         s = crop / self.view
-        return self.bake.world_of((px - self.ox) * s + self.cx,
-                                  (py - self.oy) * s + self.cy)
+        c = self.mirror_col((px - self.ox) * s + self.cx)
+        return self.bake.world_of(c, (py - self.oy) * s + self.cy)
 
     def clamp_window(self):
         """Keep the visible window inside the bake.
@@ -703,6 +727,33 @@ class Studio:
         hi = max(0.0, float(self.bake.w) - crop)
         self.cx = min(max(self.cx, 0.0), hi)
         self.cy = min(max(self.cy, 0.0), hi)
+
+    def on_pan_press(self, e):
+        """Anchor the pan: where the mouse was, and where the window was."""
+        if self.bake is None:
+            return
+        self.pan_from = (e.x, e.y, self.cx, self.cy)
+
+    def on_pan_drag(self, e):
+        """Drag the map under the cursor.
+
+        Anchored to the press rather than accumulated per motion event: adding
+        up deltas drifts, because the window gets clamped at the map edge and a
+        clamped step is smaller than the mouse actually moved. Solving from the
+        original anchor every time means running into an edge and coming back
+        leaves the map exactly where it started.
+        """
+        if self.bake is None or self.pan_from is None:
+            return
+        ax, ay, acx, acy = self.pan_from
+
+        # Pixels to texels. Negative because the map follows the cursor: drag
+        # right and the window has to move LEFT to bring the map with it.
+        s = self.crop_side() / self.view
+        self.cx = acx - (e.x - ax) * s
+        self.cy = acy - (e.y - ay) * s
+        self.clamp_window()
+        self.repaint()
 
     def on_wheel(self, e):
         """Zoom about the cursor: the texel under it does not move."""
