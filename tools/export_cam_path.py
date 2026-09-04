@@ -93,7 +93,32 @@ BANK_GAIN = 0.85     # scales the coordinated-turn angle. 1.0 is physically
                      # correct for an aircraft and slightly too much for a
                      # camera, which has no passengers to keep level.
 
-ROLL_FLATTEN = 22.0
+ROLL_FLATTEN = 70.0  # metres the path is flattened over before curvature is
+                     # taken. This is the LEAD IN AND OUT of the roll: it sets
+                     # how wide the corner looks to the bank, and therefore how
+                     # long the camera takes to reach the angle and to come back
+                     # level.
+                     #
+                     # Raising it costs nothing in bank strength, which is the
+                     # useful part - the two-curvature blend still lets the fine
+                     # copy win at the tight part of a corner, so the peak
+                     # survives while the calm copy stretches the approach.
+                     # Measured, one route, same seed:
+                     #
+                     #   flatten   roll in   roll out   peak      banked >3 deg
+                     #      22      1.22 s    1.67 s    37.6 deg      50%
+                     #      70      1.67 s    2.00 s    37.6 deg      62%
+                     #     100      5.67 s    2.67 s    37.6 deg      82%
+                     #
+                     # 70 rather than more because past it the camera is banked
+                     # for most of the lap and never settles level, which is the
+                     # same complaint as an over-rounded corner wearing a
+                     # different hat.
+                     #
+                     # BANK_SMOOTH lengthens the ramp further - 25 buys another
+                     # 0.4 s - but it averages the peak down to 31.6 deg,
+                     # because it filters the ANGLE rather than widening the
+                     # corner. Reach for this one first.
 ROLL_FLATTEN_FINE = 7.0  # the responsive companion to the above, see below
 TIGHT_K = 1.0 / 45.0     # curvature (1/m) at which the fine version fully wins  # metres of smoothing on a copy of the path used ONLY to
                      # work out the bank. Curvature is a second derivative, so
