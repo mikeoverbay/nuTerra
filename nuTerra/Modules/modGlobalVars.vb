@@ -795,9 +795,6 @@ Module modGlobalVars
     ''' out= on the command line beats both and is NOT written back.
     ''' </summary>
     Public RECORD_DIR As String = "C:\nuTerra_ScreenCaps"
-    ''' <summary>How much of the baked bank angle to actually apply. 0 flies
-    ''' the path with the horizon level, 1 uses the exported roll as-is.</summary>
-    Public CAM_ROLL_SCALE As Single = 1.0F
 
     ''' <summary>
     ''' Multiplies every LOD switch distance, for models and trees alike. 1 is

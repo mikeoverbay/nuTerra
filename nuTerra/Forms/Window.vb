@@ -1337,7 +1337,21 @@ try_again:
                     End If
 
                     ImGui.Separator()
-                    ImGui.Checkbox("FLY", FLY_CAM_PATH)
+
+                    ' Re-read the file when FLY is switched ON.
+                    '
+                    ' The path is loaded once at map load, and Path Studio is a
+                    ' separate program writing the same file - so without this
+                    ' the only way to fly a route just saved next door was to
+                    ' reload the whole map. Load also rewinds travelled, so it
+                    ' starts at the beginning rather than wherever the last
+                    ' flight stopped.
+                    If ImGui.Checkbox("FLY", FLY_CAM_PATH) AndAlso FLY_CAM_PATH Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing Then
+                            map_scene.cam_path.Load(MAP_NAME_NO_PATH)
+                        End If
+                    End If
+
                     ImGui.Checkbox("Show Path", SHOW_CAM_PATH)
                 End If
                 If ImGui.CollapsingHeader("Section Visibility") Then
