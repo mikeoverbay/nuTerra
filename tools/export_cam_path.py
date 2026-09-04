@@ -160,6 +160,22 @@ def periodic_smooth(a, metres, step_m, closed=True):
     return np.convolve(pad, ker, mode="same")[k:-k]
 
 
+def central_diff(a, closed=True):
+    """Centred difference with WRAP: (a[i+1] - a[i-1]) / 2.
+
+    On a closed loop the ends are neighbours, so np.roll is the whole story and
+    the first and last points get the same treatment as everything else - which
+    matters, because the seam is where an asymmetry would show as a jolt once
+    per lap. On an open path the two ends have nothing on one side, so they fall
+    back to the one-sided difference they can actually compute.
+    """
+    d = (np.roll(a, -1) - np.roll(a, 1)) * 0.5
+    if not closed:
+        d[0] = a[1] - a[0]
+        d[-1] = a[-1] - a[-2]
+    return d
+
+
 def unwrap_heading(h):
     """Continuous heading, so smoothing does not average across the +/-pi seam.
 
@@ -345,7 +361,18 @@ def build(map_name):
         y = periodic_smooth(need, ALT_SMOOTH, step_m, closed)
 
     # ---------------------------------------------------------------- heading
-    heading_raw = np.arctan2(dx, dz)
+    # CENTRED on the point, looking one sample back and one forward.
+    #
+    # dx/dz above are forward differences, x[i+1] - x[i]. That is the direction
+    # of the segment AHEAD of point i, which is the tangent at i+0.5, not at i -
+    # so a heading built from it is systematically half a step early, and stays
+    # that way through the symmetric smoothing below. Centring removes the
+    # offset instead of trying to smooth it out.
+    #
+    # They cannot share one difference: seg above is a segment LENGTH and has to
+    # stay one-sided, or the arc length is wrong.
+    cdx, cdz = central_diff(x, closed), central_diff(z, closed)
+    heading_raw = np.arctan2(cdx, cdz)
     heading = smooth_heading(heading_raw, HEAD_SMOOTH, step_m, closed)
 
     # ------------------------------------------------------------------- tilt
@@ -371,8 +398,11 @@ def build(map_name):
     def curvature_at(flatten):
         gx = periodic_smooth(x, flatten, step_m, closed)
         gz = periodic_smooth(z, flatten, step_m, closed)
-        gdx = np.diff(gx, append=gx[0] if closed else gx[-1])
-        gdz = np.diff(gz, append=gz[0] if closed else gz[-1])
+        # Centred here too, so the curvature - and therefore the BANK - is
+        # attributed to the point it was measured at rather than half a step
+        # ahead of it.
+        gdx = central_diff(gx, closed)
+        gdz = central_diff(gz, closed)
         gseg = np.maximum(np.hypot(gdx, gdz), 1e-6)
         # From the UNWRAPPED heading, or every seam crossing reads as an
         # infinitely tight corner.
