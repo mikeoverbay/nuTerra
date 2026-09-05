@@ -798,6 +798,29 @@ Module modGlobalVars
     ''' </summary>
     Public SHOW_CAM_LIGHTS As Boolean = False
 
+    ''' <summary>
+    ''' Intensity scale on the .campath's point lights.
+    '''
+    ''' A light's authored level is 0..1 - a fraction, not an amount of light -
+    ''' and inverse-square falloff turns a level of 1 into roughly 0.03 on the
+    ''' ground under the lamp. That is a real contribution and an invisible one
+    ''' next to daylight. This is the missing quantity, kept as one number so
+    ''' the 0..1 authoring range keeps its meaning.
+    '''
+    ''' 8 makes a level 1, 12 m lamp read clearly on ground beneath it without
+    ''' blowing out. It is a starting point, not a measurement.
+    ''' </summary>
+    Public PATH_LIGHT_GAIN As Single = 100.0F
+
+    ''' <summary>
+    ''' Paint the point lights' contribution solid red.
+    '''
+    ''' On by default while this is being brought up: the first question is
+    ''' whether the light reaches the surface at all, and a warm lamp on brown
+    ''' ground in daylight cannot answer it.
+    ''' </summary>
+    Public PATH_LIGHT_DEBUG_RED As Boolean = True
+
     Public CAPTURE_W As Integer = 1920
     Public CAPTURE_H As Integer = 1080
 

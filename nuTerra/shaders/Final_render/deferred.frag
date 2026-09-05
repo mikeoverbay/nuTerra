@@ -102,6 +102,39 @@ uniform float sh_grid_floor;
 // its own g_gloss / g_metal so the mistake cannot ride along.
 uniform int pbr_spec;
 
+// --------------------------------------------------------------------------
+// Point lights loaded from the map's .campath, placed in Path Studio.
+// --------------------------------------------------------------------------
+// WORLD space, exactly as the file stores them plus the terrain height the CPU
+// resolved. Not view space: the loop below already has to build a world normal
+// and a world position for its own use, and doing it that way means the upload
+// is a straight copy with no matrix convention to get wrong on the way in.
+//
+// light_count 0 is the off switch. The loop is skipped whole, so a map with no
+// lights costs one comparison and the frame is the one that shipped.
+#define MAX_PATH_LIGHTS 32
+uniform int light_count;
+uniform vec4 pl_pos_range[MAX_PATH_LIGHTS];    // xyz world position, w range in metres
+uniform vec4 pl_color_level[MAX_PATH_LIGHTS];  // rgb colour as authored (sRGB), a level
+
+// Intensity scale for the whole set.
+//
+// "Level" is authored 0..1, which is a fraction, not a quantity of light. Run
+// through inverse-square falloff a level of 1 puts about 0.03 on ground three
+// metres under the lamp - real against daylight sitting at 0.3 to 0.6, and
+// completely invisible. Engines that do this properly carry intensity in the
+// hundreds; this is the same number, kept as one slider so the 0..1 authoring
+// range stays meaningful.
+uniform float light_gain;
+
+// Paint every light's contribution solid RED, ignoring its colour, the albedo
+// under it and the whole BRDF - only the falloff and N.L shape survive.
+//
+// A diagnostic, not a look. The question "is this light reaching this surface
+// at all" cannot be answered by a warm light on brown ground in daylight, and
+// it is answered instantly by red.
+uniform int light_debug_red;
+
 // Separate from eval_sh_irradiance on purpose: the working path above is left
 // byte for byte alone.
 vec3 eval_sh_grid_fallback(vec3 n)
@@ -220,6 +253,21 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
  // https://defold.com/tutorials/grading/
  vec4 lut_color_correction(in vec4 px)
  {
+    // The LUT's domain is 0..1, and nothing was holding the input to it.
+    //
+    // This is a 3D LUT packed as a STRIP of blue slices: blue picks the slice,
+    // red picks a column within that slice. A red above 1 walks the sample past
+    // the end of its own slice and into the NEXT one, which returns a colour
+    // with no relation to the pixel - dark teal, in the case that found this.
+    // Speckled, because only the pixels that actually exceed 1 do it. Blue
+    // above 1 runs off the end of the strip entirely.
+    //
+    // A point light made this easy to see, but it is not about lights: a bright
+    // sun with Bright Level up does the same thing, and always could.
+    // gColor is Rgba8 with no headroom above 1 (see docs/lighting.md), so
+    // clamping here throws away nothing that would have survived the frame.
+    px = clamp(px, 0.0, 1.0);
+
     float cell = px.b * MAXCOLOR;
 
     float cell_l = floor(cell);
@@ -449,6 +497,99 @@ float baked_sun_shadow(vec3 world_pos)
     // the filtering and nothing else.
     return mix(1.0, shape_penumbra(s * 0.25), props.horizon_strength);
 }
+
+// The point light contribution, and NOTHING else.
+//
+// No ambient, no sun, no environment - this returns only what these lights add,
+// and the caller adds it on top of a frame that is already complete without it.
+// That is deliberate: with light_count 0 the result is exactly vec3(0) and the
+// image is unchanged, which is the property that makes this safe to leave in.
+//
+// The BRDF is DUPLICATED from the pbr_spec block above rather than factored out
+// of it. Refactoring would have meant editing the sun path to share code with
+// this, and the sun path is the one that currently works.
+vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
+                 vec3 albedo, float gloss, float metal)
+{
+    if (light_count <= 0) return vec3(0.0);
+
+    // Once per PIXEL, not once per light. Everything below is world space.
+    vec3 P = (invView * vec4(P_view, 1.0)).xyz;
+    vec3 N = normalize(mat3(invView) * N_view);
+    vec3 V = normalize(mat3(invView) * V_view);
+
+    float alphaR = 1.0 - gloss * gloss;
+    float a = alphaR * alphaR + max(0.3 - 1.3 * gloss, 0.0);
+    float m = max(a, 0.015979);
+    float m4 = m * m * m * m;
+    float k = a * a * 0.5;
+    float NdotV = abs(dot(N, V));
+
+    float amax = max(max(albedo.r, albedo.g), albedo.b);
+    vec3 specTint = mix(vec3(1.0), albedo / (amax + 1e-4),
+                        clamp(metal * metal * 3.2, 0.0, 1.0));
+
+    // Metals take almost no diffuse. The sun path is missing this and reads as
+    // bright plastic on metal - see docs/lighting.md - so it is not repeated
+    // here just to match.
+    float kd = 1.0 - min(metal * metal * 3.2, 1.0);
+
+    vec3 sum = vec3(0.0);
+
+    for (int i = 0; i < light_count && i < MAX_PATH_LIGHTS; ++i)
+    {
+        vec3  d    = pl_pos_range[i].xyz - P;
+        float r    = max(pl_pos_range[i].w, 0.01);
+        float dist = length(d);
+        if (dist >= r) continue;
+
+        vec3 L = d / max(dist, 1e-4);
+        float NdotL = dot(N, L);
+        if (NdotL <= 0.0) continue;
+
+        // Inverse square, windowed so it reaches EXACTLY zero at the range.
+        // Without the window a light is still contributing a little at its
+        // stated edge, and the sphere drawn in the overlay would be telling
+        // the truth about the radius and a lie about where it stops.
+        float t = dist / r;
+        float t4 = t * t * t * t;
+        float win = clamp(1.0 - t4, 0.0, 1.0);
+        float atten = (win * win) / (dist * dist + 1.0);
+
+        if (light_debug_red != 0)
+        {
+            // Straight out, past the albedo and the BRDF. Multiplying by a dark
+            // surface is exactly what makes a weak light invisible, so the
+            // diagnostic must not do it.
+            sum += vec3(1.0, 0.0, 0.0) * NdotL * atten
+                 * pl_color_level[i].a * light_gain;
+            continue;
+        }
+
+        // sRGB as authored - the file says so, and everything else authored is
+        // linearised on load rather than being stored pre-linearised.
+        vec3 radiance = pow(pl_color_level[i].rgb, vec3(2.2))
+                      * pl_color_level[i].a * atten * light_gain;
+
+        vec3  H     = normalize(L + V);
+        float NdotH = clamp(dot(N, H), 0.0, 1.0);
+        float LdotH = dot(L, H);
+
+        float den = NdotH * NdotH * (m4 - 1.0) + 1.0;
+        float D   = m4 / (3.14159265 * den * den);
+
+        float Fexp = exp2((-5.55473 * LdotH - 6.98316) * LdotH);
+        vec3  F    = specTint * metal + (1.0 - metal * specTint) * Fexp;
+
+        float Vis = 0.25 / max((NdotV * (1.0 - k) + k)
+                             * (NdotL * (1.0 - k) + k), 1e-4);
+
+        sum += (albedo * kd + D * Vis * F) * NdotL * radiance;
+    }
+
+    return sum;
+}
+
 
 void main (void)
 {
@@ -1046,6 +1187,21 @@ void main (void)
                 // not get its own sun highlight either.
                 vec3 sun_add = specular * sun_shadow * (1.0 - pool);
                 final_color.xyz += 1.0 - exp(-sun_add);
+
+                // The .campath's own lights. Added AFTER the sun and BEFORE
+                // BRIGHTNESS, so they sit in the same linear space the sun term
+                // does and take the same exposure - anywhere later and they
+                // would be graded and tone mapped differently from everything
+                // around them.
+                //
+                // GM_in.r is GLOSS and GM_in.g is METAL. The names in this
+                // shader lie about that; see docs/lighting.md section 1.
+                // Passed explicitly so the mistake cannot travel in here.
+                // Computed HERE, where N, V and the material are in scope,
+                // but added further down - after Bright Level. See below.
+                vec3 lights_add = path_lights(N, V, Position, color_in.rgb,
+                                              clamp(GM_in.r, 0.0, 1.0),
+                                              clamp(GM_in.g, 0.0, 1.0));
                 //final_color.xyz += spec;
                 // Fade to ambient over distance
 
@@ -1054,6 +1210,20 @@ void main (void)
                 // any normal view distance. BRIGHTNESS stays: it belongs before
                 // tone mapping, where it acts as exposure gain.
                 final_color = final_color * props.BRIGHTNESS;
+
+                // The lamps go on AFTER Bright Level, on purpose.
+                //
+                // Bright Level is a pre-exposure gain on the SCENE - the sun,
+                // the ambient, the sky. A lamp is its own source and does not
+                // get brighter because the frame was turned up, so putting it
+                // before that multiply made the two controls fight: raising
+                // Bright Level to see the scene also raised the lights, and
+                // their balance against it never changed.
+                //
+                // No ambient is added anywhere in path_lights. A lamp
+                // contributes its own diffuse and specular and nothing else.
+                final_color.xyz += 1.0 - exp(-lights_add);
+
                 final_color = lut_color_correction( final_color );
 
             } else {

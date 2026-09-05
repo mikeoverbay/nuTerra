@@ -824,6 +824,8 @@ Module modRender
 
         GL.Uniform1(deferredShader("pbr_spec"), CInt(If(PBR_SPEC, 1, 0)))
 
+        upload_path_lights()
+
         ' The baked probe FIELD, folded into the real lighting: deferred.frag
         ' blends it over the flat global probe with
         ' mix(irradiance, grid_irr, sh_grid_mix), inside the sh_grid_enabled
@@ -1054,5 +1056,78 @@ Module modRender
 
         Return True
     End Function
+
+    ''' <summary>
+    ''' Push the loaded .campath's lights to the deferred shader.
+    '''
+    ''' WORLD space and unconverted - the shader builds a world position and a
+    ''' world normal for its own use anyway, so sending them raw means there is
+    ''' no matrix convention to get wrong between here and there.
+    '''
+    ''' Uploaded every frame rather than cached on load. It is 32 lights at
+    ''' most, the ground height under one can change as terrain streams in, and
+    ''' a cache that missed an edit would be a bug nobody could see the cause of.
+    ''' </summary>
+    Private Const MAX_PATH_LIGHTS As Integer = 32
+    ' Not Shared: everything in a Module already is, and saying so is an error.
+    Private pl_locs_logged As Boolean = False
+    Private pl_pos(MAX_PATH_LIGHTS * 4 - 1) As Single
+    Private pl_col(MAX_PATH_LIGHTS * 4 - 1) As Single
+
+    Private Sub upload_path_lights()
+        Dim n As Integer = 0
+
+        If map_scene IsNot Nothing AndAlso map_scene.cam_path IsNot Nothing AndAlso
+           map_scene.cam_path.loaded AndAlso map_scene.cam_path.lights IsNot Nothing Then
+
+            Dim src = map_scene.cam_path.lights
+            n = Math.Min(src.Length, MAX_PATH_LIGHTS)
+
+            For i = 0 To n - 1
+                ' y in the file is metres ABOVE THE TERRAIN - Path Studio places
+                ' on a 2D map and cannot know the ground - so it is resolved
+                ' here, the same way the overlay spheres are placed.
+                Dim wx = src(i).pos.X
+                Dim wz = src(i).pos.Z
+                Dim wy = get_Y_at_XZ_fast(wx, wz) + src(i).pos.Y
+
+                pl_pos(i * 4 + 0) = wx
+                pl_pos(i * 4 + 1) = wy
+                pl_pos(i * 4 + 2) = wz
+                pl_pos(i * 4 + 3) = Math.Max(0.1F, src(i).range_m)
+
+                pl_col(i * 4 + 0) = src(i).color.X
+                pl_col(i * 4 + 1) = src(i).color.Y
+                pl_col(i * 4 + 2) = src(i).color.Z
+                pl_col(i * 4 + 3) = src(i).level
+            Next
+        End If
+
+        ' Say ONCE whether the binding actually resolved.
+        '
+        ' A uniform the shader cache cannot find returns -1, and glUniform on -1
+        ' is a defined no-op - so a typo here would upload nothing, light
+        ' nothing, and look exactly like "the lights are too dim". That is the
+        ' failure that made the SH ambient silently zero; see docs/lighting.md.
+        If Not pl_locs_logged Then
+            pl_locs_logged = True
+            LogThis("path lights: light_count={0} pos={1} col={2} (-1 means the uniform was not found)",
+                    deferredShader("light_count"),
+                    deferredShader("pl_pos_range"),
+                    deferredShader("pl_color_level"))
+        End If
+
+        ' The count goes up even when it is zero: that is the shader's off
+        ' switch, and leaving a stale non-zero count behind would light a map
+        ' with the previous map's lights.
+        GL.Uniform1(deferredShader("light_count"), n)
+        GL.Uniform1(deferredShader("light_gain"), PATH_LIGHT_GAIN)
+        GL.Uniform1(deferredShader("light_debug_red"),
+                    CInt(If(PATH_LIGHT_DEBUG_RED, 1, 0)))
+        If n > 0 Then
+            GL.Uniform4(deferredShader("pl_pos_range"), n, pl_pos)
+            GL.Uniform4(deferredShader("pl_color_level"), n, pl_col)
+        End If
+    End Sub
 
 End Module

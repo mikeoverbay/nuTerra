@@ -1875,6 +1875,25 @@ try_again:
                         CommonProperties.SUN_STRENGTH = v_sun
                     End If
 
+                    ' Intensity of the .campath's point lights. Runs to 200
+                    ' because inverse-square falloff eats most of it: a lamp is
+                    ' only bright where it is close, which is the point of it.
+                    ' At 0 the lights contribute nothing and the frame is the
+                    ' one without them.
+                    If ImGui.SliderFloat("Light Gain", PATH_LIGHT_GAIN, 0.0, 500.0) Then
+                    End If
+                    ImGui.Checkbox("Lights solid red (debug)", PATH_LIGHT_DEBUG_RED)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Paints each light's contribution red, past the albedo" & vbLf &
+                                         "and the BRDF - only the falloff and N.L shape remain." & vbLf &
+                                         "Answers 'is it reaching this surface' in one look.")
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Intensity of the lights placed in Path Studio." & vbLf &
+                                         "Their level is authored 0..1, which is a fraction -" & vbLf &
+                                         "this is the amount of light that fraction is OF.")
+                    End If
+
                     ' The shadow mix, moved here from Terrain and Shadow Mapping
                     ' where it sat as two sliders writing the same value.
                     '

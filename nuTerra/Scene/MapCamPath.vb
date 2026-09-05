@@ -658,9 +658,17 @@ Public Class MapCamPath
         Return a
     End Function
 
+    ''' <summary>
+    ''' Release the PATH's buffers. Called on every Load, not just at teardown.
+    '''
+    ''' The light sphere is deliberately NOT freed here. It belongs to the
+    ''' renderer, not to the route - the same unit mesh serves every light on
+    ''' every map - and tearing it down when a path reloads is exactly what
+    ''' broke Show Lights: the buffers were disposed but the fields were left
+    ''' non-Nothing, so build_sphere's "already built" guard skipped the rebuild
+    ''' and every light afterwards drew from a dead VAO.
+    ''' </summary>
     Private Sub Dispose_gl()
-        sphere_vao?.Dispose()
-        sphere_vbo?.Dispose()
         vao?.Dispose()
         vbo?.Dispose()
         vao = Nothing
@@ -670,6 +678,15 @@ Public Class MapCamPath
 
     Public Sub Dispose() Implements IDisposable.Dispose
         Dispose_gl()
+        ' The sphere outlives any single path, so it is freed HERE and only
+        ' here. Nulled as well as disposed, so a rebuild is possible if this
+        ' object is ever reused - a disposed handle that still reads as
+        ' "present" is the bug this replaced.
+        sphere_vao?.Dispose()
+        sphere_vbo?.Dispose()
+        sphere_vao = Nothing
+        sphere_vbo = Nothing
+        sphere_verts = 0
         GC.SuppressFinalize(Me)
     End Sub
 End Class
