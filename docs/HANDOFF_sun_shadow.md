@@ -270,7 +270,12 @@ UVs) parked.
 
 ## Shadows
 
-- Baked map-wide sun shadow is the ONLY caster path. The live CSM cascades
+**Superseded as a reference by [shadows.md](shadows.md)**, which covers all
+three casters, the lamp cubes added since, and the traps they share. Kept here
+for the session history.
+
+- Baked map-wide sun shadow is the only SUN caster path. Lamps have their own
+  baked cubes now - see shadows.md. The live CSM cascades
   are PARKED: no UI, off at startup, and modMapSettings no longer
   saves/applies `shadow_mapping` (see trap #1 - restoring the controls
   means re-adding that Yield AND the checkbox). MSM behind the A/B toggle;

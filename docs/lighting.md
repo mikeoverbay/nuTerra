@@ -12,7 +12,8 @@ was transcribed from World of Tanks' own compiled `resolve_lighting`.
 
 ```
  1  N, L, Position                         geometry, all view space
- 2  sun_shadow = sun_shadow_factor(Pos)    cascaded shadow lookup
+ 2  sun_shadow = sun_shadow_factor(Pos)    BAKED map-wide lookup, not the
+                                           cascades - see shadows.md
  3  direct_light = N.L * sun_shadow        how much sun actually lands
  4  Ambient_level  = SH irradiance * AMBIENT
  5  Ambient_level *= (1 - direct_light)    ambient fills what the sun misses
@@ -20,10 +21,26 @@ was transcribed from World of Tanks' own compiled `resolve_lighting`.
  7  += lambertTerm * albedo * sun * sun_shadow
  8  += 1 - exp(-specular * sun_shadow)     saturating, see below
  9  *= BRIGHTNESS                          pre-exposure gain
-10  lut_color_correction()                 the map's own grading LUT
-11  grey level, fog
-12  outColor = correct(final_color, tonemap_exposure, 1.2)
+10  += path_lights(), peak-rolled           the .campath lamps - AFTER
+                                           BRIGHTNESS on purpose, see below
+11  lut_color_correction()                 the map's own grading LUT
+12  grey level, fog
+13  outColor = correct(final_color, tonemap_exposure, 1.2)
 ```
+
+Step 10 is after step 9 deliberately. BRIGHTNESS is a pre-exposure gain on the
+SCENE - sun, ambient, sky. A lamp is its own source and does not get brighter
+because the frame was turned up; before the multiply, raising Bright Level to
+see the scene raised the lamps with it and their balance never changed.
+
+It is also rolled off on its PEAK CHANNEL rather than per channel. `gColor` is
+Rgba8, so a lamp bright enough to look at clips red first, then green, then
+blue, and arrives white - the authored colour survived only in the fringe.
+Scaling all three by one factor preserves the ratio, which is the colour. That
+roll-off is also what gives each light's authored `level` something to do:
+two levels that both saturate produce identical pixels.
+
+Lamps are shadowed against a baked depth cube each - [shadows.md](shadows.md).
 
 Steps 2 and 3 **must** precede step 5. Weighting ambient on facing alone leaves a
 wall that faces the sun but stands in shadow with neither term - it gets no sun
