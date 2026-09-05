@@ -642,6 +642,13 @@ Module MapLoader
         ' Missing is not an error - most maps do not have one.
         map_scene.cam_path.Load(MAP_NAME_NO_PATH)
 
+        ' A depth cube per lamp. Has to be AFTER the path load, because that is
+        ' where the lamps come from, and after terrain/models/trees because it
+        ' renders all three. Costs nothing on a map with no lamps - Bake returns
+        ' on the empty list before it allocates anything.
+        If LAMP_SHADOW_ENABLED Then map_scene.lamp_shadow.Bake()
+        map_scene.cam_path.lights_dirty = False
+
         '===============================================================
         'We need to get the Y location of the rings and stop drawing overly tall cubes.
         'It only needs to happen once!

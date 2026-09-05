@@ -141,6 +141,34 @@ uniform int light_debug_red;
 // than a constant so it can be tuned without a rebuild.
 uniform float light_falloff;
 
+// --------------------------------------------------------------------------
+// One depth cube per lamp, baked in MapLampShadow.
+// --------------------------------------------------------------------------
+// A cube rather than a downward cone: a lamp 6 m up with a 50 m range throws
+// light almost horizontally at the edge of its radius, so no cone is wide
+// enough to cover its own pool.
+//
+// lamp_shadow_count is how many lights have a cube. Lights past it are lit
+// UNSHADOWED, not skipped - a bake that has not run must not delete the light.
+layout(binding = 12) uniform samplerCubeArrayShadow lamp_shadow_map;
+uniform int lamp_shadow_count;
+uniform float lamp_shadow_near;
+uniform float lamp_shadow_bias;
+uniform float lamp_shadow_normal_bias;
+
+// Show the shadow term itself instead of the lit frame: white where a lamp can
+// see the surface, black where something is in the way, and the mid greys are
+// the hardware PCF straddling an edge.
+//
+// A lamp pool that comes out wrong is two questions - is the light reaching
+// here, and is the shading of it right - and only this separates them.
+uniform int lamp_shadow_debug;
+
+// What the last light's visibility test returned, for the debug view above.
+// A global because path_lights returns a colour and the debug wants a number
+// out of the middle of it.
+float dbg_lamp_vis = -1.0;
+
 // Where the lamp contribution starts being compressed instead of added.
 //
 // Below this it is added verbatim, so level and gain are exactly linear over
@@ -561,6 +589,34 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
         float NdotL = dot(N, L);
         if (NdotL <= 0.0) continue;
 
+        // Is the lamp actually visible from here?
+        float vis = 1.0;
+        if (i < lamp_shadow_count)
+        {
+            // Sampled from a point pushed along the NORMAL, not just biased in
+            // depth. A depth bias has to grow with the slope to stop acne on
+            // grazing surfaces, and by the time it is big enough there, the
+            // contact shadow has lifted off everywhere else. Moving the sample
+            // off the surface fixes the grazing case and leaves face-on alone.
+            vec3 sp = P + N * lamp_shadow_normal_bias;
+            vec3 sd = sp - pl_pos_range[i].xyz;
+
+            // The cube was rendered with world-axis-aligned faces, so this
+            // world space direction is already the lookup vector.
+            //
+            // t is the distance along the MAJOR AXIS, which is what the face's
+            // own projection saw - not length(sd). Inverting
+            //     z01 = (F - F*N/t) / (F - N)
+            // from MapLampShadow.face_view_proj gives the reference to compare.
+            float t = max(max(abs(sd.x), abs(sd.y)), abs(sd.z));
+            float nz = lamp_shadow_near;
+            float ref = (r - r * nz / max(t, nz)) / max(r - nz, 1e-4);
+
+            vis = texture(lamp_shadow_map, vec4(sd, float(i)), ref - lamp_shadow_bias);
+            dbg_lamp_vis = max(dbg_lamp_vis, vis);
+        }
+        if (vis <= 0.0) continue;
+
         // Falloff in NORMALISED distance, so range sets the SIZE of the light.
         //
         // This was 1/(d*d + 1) in absolute metres, with the range only used as
@@ -611,7 +667,7 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
         float Vis = 0.25 / max((NdotV * (1.0 - k) + k)
                              * (NdotL * (1.0 - k) + k), 1e-4);
 
-        sum += (albedo * kd + D * Vis * F) * NdotL * radiance;
+        sum += (albedo * kd + D * Vis * F) * NdotL * radiance * vis;
     }
 
     return sum;
@@ -1307,6 +1363,18 @@ void main (void)
                     lamp *= (LAMP_KNEE + head * over / (over + head)) / lamp_pk;
                 }
                 final_color.xyz += lamp;
+
+                // Straight out, past the grade and the tone curve below, so
+                // what is on screen is the number and not a picture of it.
+                // -1 is "no lamp reaches this pixel at all" and stays blue, so
+                // the lit set is visible as well as the shadowed set.
+                if (lamp_shadow_debug != 0)
+                {
+                    final_color = (dbg_lamp_vis < 0.0)
+                                ? vec4(0.0, 0.0, 0.35, 1.0)
+                                : vec4(vec3(dbg_lamp_vis), 1.0);
+                    return;
+                }
 
                 final_color = lut_color_correction( final_color );
 

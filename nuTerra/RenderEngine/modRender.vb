@@ -114,6 +114,23 @@ Module modRender
             GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
         End If
 
+        ' A Path Studio save, re-read through any of the campath checkboxes,
+        ' leaves the lamp cubes describing where the lamps used to be.
+        '
+        ' Checked HERE, at the top of the frame, and not inside the deferred
+        ' pass: Bake binds its own framebuffer and switches the global depth
+        ' state out of reversed-Z and back, which is not safe to do with a pass
+        ' already bound. Same reason ShadowMappingPass sits here.
+        If LAMP_SHADOW_ENABLED AndAlso map_scene.cam_path IsNot Nothing AndAlso
+           map_scene.cam_path.lights_dirty Then
+            map_scene.cam_path.lights_dirty = False
+            map_scene.lamp_shadow.Bake()
+
+            ' restore main FBO
+            MainFBO.fbo.Bind(FramebufferTarget.Framebuffer)
+            GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
+        End If
+
         MainFBO.attach_CNGPA()
 
         If map_scene.TERRAIN_LOADED AndAlso DONT_BLOCK_TERRAIN Then
@@ -738,6 +755,29 @@ Module modRender
         Return DUMMY_SHADOW_TEX
     End Function
 
+    Private DUMMY_LAMP_SHADOW_TEX As GLTexture
+
+    ''' <summary>
+    ''' A legal 1x1 cube array for unit 12 when there is no lamp bake.
+    '''
+    ''' Same reason as dummy_shadow: leaving a shadow sampler unbound is not a
+    ''' way to switch a feature off, it is an illegal GL state the driver
+    ''' complains about on every draw. Never read - lamp_shadow_count is 0 and
+    ''' the shader skips the fetch.
+    ''' </summary>
+    Private Function dummy_lamp_shadow() As GLTexture
+        If DUMMY_LAMP_SHADOW_TEX Is Nothing Then
+            DUMMY_LAMP_SHADOW_TEX = GLTexture.Create(TextureTarget.TextureCubeMapArray, "DummyLampShadow")
+            DUMMY_LAMP_SHADOW_TEX.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            DUMMY_LAMP_SHADOW_TEX.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            DUMMY_LAMP_SHADOW_TEX.Parameter(TextureParameterName.TextureCompareMode, CInt(TextureCompareMode.CompareRefToTexture))
+            DUMMY_LAMP_SHADOW_TEX.Parameter(TextureParameterName.TextureCompareFunc, CInt(All.Lequal))
+            ' Six layers, because a cube array's depth is a multiple of six.
+            DUMMY_LAMP_SHADOW_TEX.Storage3D(1, DirectCast(InternalFormat.DepthComponent16, SizedInternalFormat), 1, 1, 6)
+        End If
+        Return DUMMY_LAMP_SHADOW_TEX
+    End Function
+
     Private Sub render_deferred_buffers()
         GL_PUSH_GROUP("render_deferred_buffers")
         '===========================================================================
@@ -773,6 +813,14 @@ Module modRender
             map_scene.sun_shadow.depth_tex.BindUnit(8)
         Else
             dummy_shadow().BindUnit(8)
+        End If
+
+        ' The lamp cubes, on the same always-bound rule as the sun above.
+        If LAMP_SHADOW_ENABLED AndAlso map_scene.lamp_shadow IsNot Nothing AndAlso
+           map_scene.lamp_shadow.ready AndAlso map_scene.lamp_shadow.depth_tex IsNot Nothing Then
+            map_scene.lamp_shadow.depth_tex.BindUnit(12)
+        Else
+            dummy_lamp_shadow().BindUnit(12)
         End If
 
         ' Map-wide baked sun shadow. The cascades carry trees only, so this is
@@ -876,7 +924,9 @@ Module modRender
         draw_main_Quad(MainFBO.width, MainFBO.height) 'render Gbuffer lighting
 
         ' UNBIND
-        unbind_textures(12)
+        ' 13, not 12 - the lamp shadow cube array sits on unit 12, so the old
+        ' count stopped one short of it and left it bound into the next pass.
+        unbind_textures(13)
 
         deferredShader.StopUse()
 
@@ -1115,12 +1165,33 @@ Module modRender
                     deferredShader("light_count"),
                     deferredShader("pl_pos_range"),
                     deferredShader("pl_color_level"))
+            LogThis("lamp shadow uniforms: count={0} near={1} bias={2} nbias={3} (-1 means not found)",
+                    deferredShader("lamp_shadow_count"),
+                    deferredShader("lamp_shadow_near"),
+                    deferredShader("lamp_shadow_bias"),
+                    deferredShader("lamp_shadow_normal_bias"))
         End If
 
         ' The count goes up even when it is zero: that is the shader's off
         ' switch, and leaving a stale non-zero count behind would light a map
         ' with the previous map's lights.
         GL.Uniform1(deferredShader("light_count"), n)
+
+        ' How many of those lights have a baked cube behind them. Lights past
+        ' this are lit UNSHADOWED rather than skipped: a bake that has not
+        ' happened yet, or ran out of layers, must not delete the light.
+        Dim shadowed = 0
+        If LAMP_SHADOW_ENABLED AndAlso map_scene.lamp_shadow IsNot Nothing AndAlso
+           map_scene.lamp_shadow.ready Then
+            shadowed = Math.Min(n, map_scene.lamp_shadow.layers)
+        End If
+        GL.Uniform1(deferredShader("lamp_shadow_count"), shadowed)
+        GL.Uniform1(deferredShader("lamp_shadow_near"), MapLampShadow.NEAR_M)
+        GL.Uniform1(deferredShader("lamp_shadow_bias"), LAMP_SHADOW_BIAS)
+        GL.Uniform1(deferredShader("lamp_shadow_normal_bias"), LAMP_SHADOW_NORMAL_BIAS)
+        GL.Uniform1(deferredShader("lamp_shadow_debug"),
+                    CInt(If(LAMP_SHADOW_DEBUG, 1, 0)))
+
         GL.Uniform1(deferredShader("light_gain"), PATH_LIGHT_GAIN)
         GL.Uniform1(deferredShader("light_falloff"), PATH_LIGHT_FALLOFF)
         GL.Uniform1(deferredShader("light_debug_red"),

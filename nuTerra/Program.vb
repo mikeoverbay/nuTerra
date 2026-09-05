@@ -114,6 +114,25 @@ Module Program
                                    Globalization.CultureInfo.InvariantCulture, g) Then
                     PATH_LIGHT_GAIN = Math.Max(0.0F, g)
                 End If
+            ElseIf a.Equals("lampdebug", StringComparison.OrdinalIgnoreCase) Then
+                ' Draw the lamp shadow term rather than the frame.
+                LAMP_SHADOW_DEBUG = True
+            ElseIf a.Equals("nolampshadow", StringComparison.OrdinalIgnoreCase) Then
+                ' The null control for the whole feature: a run WITHOUT this
+                ' argument and a run with it differ only by the shadow term.
+                LAMP_SHADOW_ENABLED = False
+            ElseIf a.StartsWith("lampbias=", StringComparison.OrdinalIgnoreCase) Then
+                Dim b As Single
+                If Single.TryParse(a.Substring(9), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, b) Then
+                    LAMP_SHADOW_BIAS = b
+                End If
+            ElseIf a.StartsWith("lampnbias=", StringComparison.OrdinalIgnoreCase) Then
+                Dim b As Single
+                If Single.TryParse(a.Substring(10), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, b) Then
+                    LAMP_SHADOW_NORMAL_BIAS = b
+                End If
             ElseIf a.StartsWith("falloff=", StringComparison.OrdinalIgnoreCase) Then
                 ' Companion to lightgain: how tight the core is inside the
                 ' radius. Same reason - it is a shader constant otherwise.

@@ -184,9 +184,25 @@ Public Class MapCamPath
         Return best
     End Function
 
+    ''' <summary>
+    ''' Set by every Load, cleared by whoever re-bakes off the back of it.
+    '''
+    ''' The lamp shadow cubes are baked from these lights, so a Path Studio save
+    ''' picked up through the FLY / Show Path / Show Lights checkboxes moves the
+    ''' lamps and leaves the cubes describing where they used to be. A flag
+    ''' rather than a call from each of those three: they are UI code, a bake
+    ''' binds its own framebuffer and rewrites the global depth state, and the
+    ''' fourth caller that forgets is only a matter of time.
+    ''' </summary>
+    Public lights_dirty As Boolean
+
     Public Sub Load(map As String)
         Dispose_gl()
         loaded = False
+        ' Set at the TOP so every exit path below is covered, including the ones
+        ' that leave no lights at all - "no lamps now" invalidates a bake just
+        ' as surely as "lamps somewhere else".
+        lights_dirty = True
         points = Nothing
         travelled = 0.0F
 

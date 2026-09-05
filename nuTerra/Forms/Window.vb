@@ -1716,6 +1716,42 @@ try_again:
                         End If
                     End If
 
+                    ' A depth cube per .campath lamp. Separate from the sun's
+                    ' bake above because it answers a different question and can
+                    ' be wanted without it - a night shot lit only by lamps has
+                    ' no sun shadow to draw.
+                    '
+                    ' Toggling off keeps the cubes allocated and simply stops
+                    ' sampling them, so it is a free A/B rather than a rebuild.
+                    If ImGui.Checkbox("Lamp shadows (baked)", LAMP_SHADOW_ENABLED) Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso
+                           LAMP_SHADOW_ENABLED AndAlso Not map_scene.lamp_shadow.ready Then
+                            map_scene.lamp_shadow.Bake()
+                        End If
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Without this a lamp has no visibility term at all" & vbLf &
+                                         "and lights through walls - measured, a range 50 lamp" & vbLf &
+                                         "lit 65% of the frame. Baked once per lamp at load," & vbLf &
+                                         "re-baked when Path Studio saves a new placement.")
+                    End If
+                    If LAMP_SHADOW_ENABLED AndAlso MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso
+                       map_scene.lamp_shadow.ready Then
+                        ImGui.Text(String.Format("   {0} lamp(s), {1}x{1}, {2:0.0} MiB, baked in {3} ms",
+                                                 map_scene.lamp_shadow.layers,
+                                                 MapLampShadow.FACE_SIZE,
+                                                 MapLampShadow.bytes_for(map_scene.lamp_shadow.layers) / (1024.0 * 1024.0),
+                                                 map_scene.lamp_shadow.bake_ms))
+                        Dim v_lb = LAMP_SHADOW_BIAS
+                        If ImGui.SliderFloat("  lamp depth bias", v_lb, 0.0, 0.01) Then
+                            LAMP_SHADOW_BIAS = v_lb
+                        End If
+                        Dim v_ln = LAMP_SHADOW_NORMAL_BIAS
+                        If ImGui.SliderFloat("  lamp normal bias (m)", v_ln, 0.0, 0.5) Then
+                            LAMP_SHADOW_NORMAL_BIAS = v_ln
+                        End If
+                    End If
+
                     ImGui.Separator()
                     ' Wet-surface reflections. A cubemap can only ever show sky;
                     ' this marches the reflected ray through the frame that was
@@ -2192,6 +2228,43 @@ try_again:
                     End Try
                 End If
                 ImGui.TextWrapped(RECORD_DIR)
+
+                ImGui.Separator()
+
+                ' Re-read the .campath from disk.
+                '
+                ' Path Studio is a separate program writing the same file, so
+                ' picking up a save meant ticking one of the campath checkboxes
+                ' over in Overlays and knowing which of them happens to re-read.
+                ' This is the explicit version, next to the panel that flies it.
+                '
+                ' Load sets lights_dirty, so the lamp shadow cubes re-bake on
+                ' the next frame - this does not have to know they exist.
+                If ImGui.Button("Reload Cam Path", New System.Numerics.Vector2(150, 0)) Then
+                    If MAP_LOADED AndAlso map_scene IsNot Nothing Then
+                        map_scene.cam_path.Load(MAP_NAME_NO_PATH)
+                    End If
+                End If
+                If ImGui.IsItemHovered() Then
+                    ImGui.SetTooltip("Re-read the route and its lamps after a Path Studio save." & vbLf &
+                                     "Rewinds to the start of the route, so mid-flight this" & vbLf &
+                                     "puts the camera back at the beginning." & vbLf &
+                                     "Lamp shadows re-bake on the next frame.")
+                End If
+
+                ' Say what is actually loaded, so a reload that found nothing is
+                ' visible as such rather than looking like a button that does
+                ' nothing. A path saved for another map lands here as 0 points.
+                If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.cam_path IsNot Nothing Then
+                    Dim cp_pts = If(map_scene.cam_path.points Is Nothing, 0, map_scene.cam_path.points.Length)
+                    Dim cp_lts = If(map_scene.cam_path.lights Is Nothing, 0, map_scene.cam_path.lights.Length)
+                    If map_scene.cam_path.loaded Then
+                        ImGui.Text(String.Format("   {0} points, {1:0} m, {2} lamp(s)",
+                                                 cp_pts, map_scene.cam_path.total_len, cp_lts))
+                    Else
+                        ImGui.Text("   no cam path for this map")
+                    End If
+                End If
 
                 ' Sits with the folder controls rather than the other
                 ' checkboxes: it is a statement about that folder, not about

@@ -799,6 +799,40 @@ Module modGlobalVars
     Public SHOW_CAM_LIGHTS As Boolean = False
 
     ''' <summary>
+    ''' Shadow the .campath lamps against a depth cube baked per lamp.
+    '''
+    ''' On by default, unlike the sun's BAKED_SHADOW_ENABLED. Without it a lamp
+    ''' has no visibility term at all and lights straight through walls, which
+    ''' is not a look anyone would choose - measured, a range 50 lamp lit 65% of
+    ''' the frame. Maps with no lamps pay nothing: the bake returns on the empty
+    ''' list before allocating.
+    ''' </summary>
+    Public LAMP_SHADOW_ENABLED As Boolean = True
+
+    ''' <summary>
+    ''' Constant depth bias, in the 0..1 encoding the cube stores.
+    ''' Raise if lit surfaces stipple; lower if contact shadows float.
+    ''' </summary>
+    Public LAMP_SHADOW_BIAS As Single = 0.0015F
+
+    ''' <summary>
+    ''' How far along the surface normal the shadow is sampled from, metres.
+    '''
+    ''' Does the work a depth bias does badly. Depth bias has to grow with the
+    ''' slope to stop acne on grazing surfaces, and by the time it is large
+    ''' enough there the contact shadow has lifted off everywhere else. Moving
+    ''' the sample point off the surface fixes the grazing case and leaves the
+    ''' face-on case where it was.
+    ''' </summary>
+    Public LAMP_SHADOW_NORMAL_BIAS As Single = 0.06F
+
+    ''' <summary>
+    ''' Draw the lamp shadow term instead of the lit frame. White is visible to
+    ''' a lamp, black is occluded, blue is out of every lamp's range.
+    ''' </summary>
+    Public LAMP_SHADOW_DEBUG As Boolean = False
+
+    ''' <summary>
     ''' Intensity scale on the .campath's point lights.
     '''
     ''' A light's authored level is 0..1 - a fraction, not an amount of light -
