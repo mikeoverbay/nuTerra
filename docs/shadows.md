@@ -151,6 +151,34 @@ Bake-side, `PolygonOffset(2.5, 8.0)` — steeper than the sun's `1.5, 4.0`,
 because a lamp sits metres from what it lights rather than kilometres, so the
 same depth slope covers far fewer texels.
 
+### Penumbra
+
+`LAMP_SHADOW_SOFT` is the blur radius **in metres at the receiver**, sampled as
+a 12-point Poisson disc in the plane perpendicular to the lookup. `sd` runs from
+the lamp to the pixel, so adding a perpendicular vector of length *s* moves the
+sampled point *s* metres sideways at that pixel's distance — world units, no
+division needed.
+
+The reference depth is deliberately **not** recomputed per tap. That is what
+makes it a PCF average of one receiver depth against twelve neighbouring
+occluder depths, rather than twelve separate shadow tests. The slope error that
+leaves is what the normal bias is for.
+
+The disc is irregular and **not** rotated per pixel. A regular ring of the same
+count bands visibly along a soft edge, and the usual fix — rotating by a
+per-pixel hash — trades banding for grain that *crawls* as the camera moves.
+These are recorded flights, so a fixed irregular set is the right trade.
+
+Not PCSS: the blur does not widen with the occluder's distance. That needs a
+blocker search per pixel, and constant width is the part of a penumbra that
+actually reads at these throws.
+
+Measured at 0.15 m over three lamps: **no cost at all** — 177 fps with the taps
+and 177 without. At the shadow boundary the mean gradient falls 22.5 → 19.9 per
+pixel and the 90th percentile 66 → 57, about a 13% softening. That is subtle;
+the slider runs to 1 m. `lampsoft=0` restores the single fetch, which makes it
+its own A/B and its own cost measurement.
+
 ### Re-baking
 
 `MapCamPath.Load` sets `lights_dirty`; `modRender` checks it at the top of the
@@ -215,6 +243,7 @@ instead of six.
 | ↳ moment bias | raise if reconstruction goes unstable over flat ground |
 | **Lamp shadows (baked)** | the lamp cubes; off keeps them allocated and stops sampling, so it is a free A/B |
 | ↳ lamp depth bias / lamp normal bias | see Bias above |
+| ↳ lamp penumbra (m) | blur radius at the receiver; 0 is one fetch and a hard edge |
 
 **Menu → Flight Recorder → Reload Cam Path** re-reads the route and its lamps
 after a Path Studio save, and the cubes re-bake on the next frame.
@@ -225,7 +254,7 @@ after a Path Studio save, and the cubes re-bake on the next frame.
 |---|---|
 | `nolampshadow` | the null control for the whole feature — a run with and without differ only by the shadow term |
 | `lampdebug` | draw the shadow term itself: white visible, black occluded, blue out of every lamp's range |
-| `lampbias=` / `lampnbias=` | sweep both biases without a rebuild |
+| `lampbias=` / `lampnbias=` / `lampsoft=` | sweep the biases and the penumbra without a rebuild |
 | `lightgain=` / `falloff=` | the lamp intensity controls, same reason |
 
 A lamp pool that comes out wrong is two questions — *is light reaching here* and

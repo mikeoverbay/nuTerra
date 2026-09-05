@@ -127,6 +127,14 @@ Module Program
                                    Globalization.CultureInfo.InvariantCulture, b) Then
                     LAMP_SHADOW_BIAS = b
                 End If
+            ElseIf a.StartsWith("lampsoft=", StringComparison.OrdinalIgnoreCase) Then
+                ' 0 is the hard edged single fetch, which is the A/B partner for
+                ' any softened value AND the way to price the twelve taps.
+                Dim b As Single
+                If Single.TryParse(a.Substring(9), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, b) Then
+                    LAMP_SHADOW_SOFT = Math.Max(0.0F, b)
+                End If
             ElseIf a.StartsWith("lampnbias=", StringComparison.OrdinalIgnoreCase) Then
                 Dim b As Single
                 If Single.TryParse(a.Substring(10), Globalization.NumberStyles.Float,

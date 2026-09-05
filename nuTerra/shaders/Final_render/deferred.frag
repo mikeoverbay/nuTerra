@@ -156,6 +156,31 @@ uniform float lamp_shadow_near;
 uniform float lamp_shadow_bias;
 uniform float lamp_shadow_normal_bias;
 
+// Radius of the softening disc, in METRES at the receiver.
+//
+// The cube gives a hard edge with a 2x2 hardware compare, which at 512 a face
+// and a few metres of throw is a visibly aliased staircase - and a street lamp
+// has no business casting a knife edge anyway. 0 falls back to the single
+// fetch, so this is also its own A/B.
+//
+// Not PCSS: the blur does not grow with the occluder's distance. That needs a
+// blocker search per pixel, and a constant width is the part of a penumbra
+// that actually reads at these distances.
+uniform float lamp_shadow_soft;
+
+// Twelve points on a Poisson disc, taken in the plane facing the lamp.
+//
+// Irregular on purpose. A regular ring of the same count bands visibly along a
+// soft edge, and the usual fix - rotating the pattern per pixel by a hash -
+// trades the banding for grain that CRAWLS as the camera moves. These are
+// recorded flights, so a fixed irregular set is the right trade: slight
+// structure that holds still beats sparkle that does not.
+const vec2 LAMP_PCF[12] = vec2[12](
+    vec2(-0.326, -0.406), vec2(-0.840, -0.074), vec2(-0.696,  0.457),
+    vec2(-0.203,  0.621), vec2( 0.962, -0.195), vec2( 0.473, -0.480),
+    vec2( 0.519,  0.767), vec2( 0.185, -0.893), vec2( 0.507,  0.064),
+    vec2( 0.896,  0.412), vec2(-0.322, -0.933), vec2(-0.792, -0.598));
+
 // Show the shadow term itself instead of the lit frame: white where a lamp can
 // see the surface, black where something is in the way, and the mid greys are
 // the hardware PCF straddling an edge.
@@ -610,9 +635,42 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
             // from MapLampShadow.face_view_proj gives the reference to compare.
             float t = max(max(abs(sd.x), abs(sd.y)), abs(sd.z));
             float nz = lamp_shadow_near;
-            float ref = (r - r * nz / max(t, nz)) / max(r - nz, 1e-4);
+            float ref = (r - r * nz / max(t, nz)) / max(r - nz, 1e-4) - lamp_shadow_bias;
 
-            vis = texture(lamp_shadow_map, vec4(sd, float(i)), ref - lamp_shadow_bias);
+            if (lamp_shadow_soft <= 0.0)
+            {
+                vis = texture(lamp_shadow_map, vec4(sd, float(i)), ref);
+            }
+            else
+            {
+                // A disc of taps in the plane perpendicular to the lookup.
+                //
+                // sd runs from the lamp to this pixel, so adding a
+                // PERPENDICULAR vector of length s moves the sampled point s
+                // metres sideways AT THIS PIXEL's distance - the offsets are
+                // world metres at the receiver without any division.
+                //
+                // The reference is deliberately NOT recomputed per tap. That is
+                // what makes it a PCF average of one receiver depth against
+                // twelve neighbouring occluder depths, rather than twelve
+                // separate shadow tests. The slope error it leaves is what the
+                // normal bias above is for.
+                vec3 dn = normalize(sd);
+                vec3 up = (abs(dn.y) < 0.99) ? vec3(0.0, 1.0, 0.0)
+                                             : vec3(1.0, 0.0, 0.0);
+                vec3 tx = normalize(cross(up, dn)) * lamp_shadow_soft;
+                vec3 ty = cross(dn, tx);
+
+                float s = 0.0;
+                for (int k = 0; k < 12; ++k)
+                {
+                    s += texture(lamp_shadow_map,
+                                 vec4(sd + tx * LAMP_PCF[k].x + ty * LAMP_PCF[k].y,
+                                      float(i)),
+                                 ref);
+                }
+                vis = s * (1.0 / 12.0);
+            }
             dbg_lamp_vis = max(dbg_lamp_vis, vis);
         }
         if (vis <= 0.0) continue;

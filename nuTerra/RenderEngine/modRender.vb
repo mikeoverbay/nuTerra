@@ -1189,6 +1189,7 @@ Module modRender
         GL.Uniform1(deferredShader("lamp_shadow_near"), MapLampShadow.NEAR_M)
         GL.Uniform1(deferredShader("lamp_shadow_bias"), LAMP_SHADOW_BIAS)
         GL.Uniform1(deferredShader("lamp_shadow_normal_bias"), LAMP_SHADOW_NORMAL_BIAS)
+        GL.Uniform1(deferredShader("lamp_shadow_soft"), LAMP_SHADOW_SOFT)
         GL.Uniform1(deferredShader("lamp_shadow_debug"),
                     CInt(If(LAMP_SHADOW_DEBUG, 1, 0)))
 
