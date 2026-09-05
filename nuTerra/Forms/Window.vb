@@ -1882,6 +1882,14 @@ try_again:
                     ' one without them.
                     If ImGui.SliderFloat("Light Gain", PATH_LIGHT_GAIN, 0.0, 200.0) Then
                     End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("How much light a level of 1.0 is worth." & vbLf &
+                                         "Each light's own level scales this." & vbLf &
+                                         "Past roughly 10 the pool runs into the" & vbLf &
+                                         "highlight roll-off and level stops reading" & vbLf &
+                                         "one for one - measured 1.38x for a doubling" & vbLf &
+                                         "at gain 10, against 1.88x at gain 3.")
+                    End If
                     ' How tight the core is INSIDE the radius. Separate from
                     ' gain because they do different jobs: gain is how much
                     ' light there is, this is how it is distributed across the

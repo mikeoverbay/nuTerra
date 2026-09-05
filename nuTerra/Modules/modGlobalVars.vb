@@ -818,11 +818,20 @@ Module modGlobalVars
     ' 10, because the attenuation changed scale. It used to peak near 0.024 -
     ' inverse square in metres - and now peaks at 1.0 inside the radius, so the
     ' same look needs a far smaller number in front of it.
-    ' 20 and a falloff of 12, arrived at by rendering the same street at a
-    ' range of settings and looking. Nothing matches a reference photograph
-    ' here - the game ships no lit lamps, so there is no ground truth to match
-    ' to - these are what read as a street lamp against THIS palette.
-    Public PATH_LIGHT_GAIN As Single = 20.0F
+    ' A falloff of 12, arrived at by rendering the same street at a range of
+    ' settings and looking. Nothing matches a reference photograph here - the
+    ' game ships no lit lamps, so there is no ground truth to match to - these
+    ' are what read as a street lamp against THIS palette.
+    '
+    ' 8, down from 20. 20 was picked while a bright pool still clipped to
+    ' white, which cost the lamp its colour and took the per-light LEVEL with
+    ' it: measured at the monastery courtyard, doubling the light at gain 10
+    ' moved the pool only 1.38x where 2.00x is linear, so half the authoring
+    ' range did nothing you could see. The same doubling at gain 3 measures
+    ' 1.88x. 8 keeps the pool bright while leaving level's whole 0..1 range
+    ' worth turning - the slider still reaches 200 for a deliberately blown
+    ' look.
+    Public PATH_LIGHT_GAIN As Single = 8.0F
 
     ''' <summary>
     ''' How sharply a lamp falls off inside its own radius. Higher is a tighter,

@@ -64,9 +64,11 @@ Public Class MapCamPath
     ''' <summary>
     ''' A light placed in Path Studio, read from the tail of the .campath.
     '''
-    ''' Read and stored only - nothing renders these yet. They are here so the
-    ''' data survives the trip and can be looked at, rather than being invented
-    ''' again when the lighting work starts.
+    ''' Every field here reaches the deferred shader - position and range as
+    ''' pl_pos_range, colour and level as pl_color_level - via
+    ''' modRender.upload_path_lights. DrawLights below draws the same records
+    ''' as overlay spheres, so what is authored, what is drawn and what lights
+    ''' the ground are all one set of numbers.
     ''' </summary>
     Public Structure CamLight
         ''' <summary>World position. Y is metres ABOVE THE TERRAIN, not
@@ -77,6 +79,10 @@ Public Class MapCamPath
         ''' <summary>Colour 0..1, sRGB as authored in the picker - NOT linear.
         ''' Linearise before lighting with it.</summary>
         Public color As Vector3
+        ''' <summary>Authored 0..1. A FRACTION, not an amount of light - it
+        ''' scales PATH_LIGHT_GAIN, which carries the quantity. Multiplies the
+        ''' radiance linearly, so half the level really is half the light
+        ''' reaching a surface.</summary>
         Public level As Single
         ''' <summary>Radius of influence in metres, 0.1 .. 50.</summary>
         Public range_m As Single

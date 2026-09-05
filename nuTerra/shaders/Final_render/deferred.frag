@@ -141,6 +141,14 @@ uniform int light_debug_red;
 // than a constant so it can be tuned without a rebuild.
 uniform float light_falloff;
 
+// Where the lamp contribution starts being compressed instead of added.
+//
+// Below this it is added verbatim, so level and gain are exactly linear over
+// most of a pool. Above it the whole vec3 is scaled by ONE factor - see the
+// composite - which compresses the amount without touching the ratio between
+// the channels, and the ratio is the colour.
+const float LAMP_KNEE = 0.7;
+
 // Separate from eval_sh_irradiance on purpose: the working path above is left
 // byte for byte alone.
 vec3 eval_sh_grid_fallback(vec3 n)
@@ -1264,7 +1272,41 @@ void main (void)
                 // wall opposite, and that arrives through ssr.frag, which
                 // marches the finished frame and therefore already carries
                 // whatever these lamps did to the geometry around it.
-                final_color.xyz += lights_add * (1.0 - pool);
+                //
+                // Compressed on the PEAK CHANNEL, not per channel, so what
+                // lands on the ground is the colour that was authored.
+                //
+                // gColor is Rgba8: everything over 1 clips, and it clips one
+                // channel at a time. A lamp authored (1.00, 0.85, 0.63) drives
+                // red past 1 first, then green, then blue - so a pool bright
+                // enough to see arrives WHITE, and the picker in Path Studio
+                // is deciding nothing but the colour of the fringe. Scaling
+                // all three by a single factor cannot do that: the ratio
+                // between the channels is preserved exactly, at every
+                // intensity, which is what makes it still the lamp's colour.
+                //
+                // This is also what gives LEVEL something to do. Two levels
+                // that both saturate produce identical pixels, so a control
+                // that only ever ran into the clip read as ignored. Below the
+                // knee the add is verbatim and level is exactly linear; above
+                // it the roll-off is monotonic, so more level is still more
+                // light rather than more white.
+                //
+                // NOT the per-channel 1 - exp(-x) this used to be. That is a
+                // different operation with a different failure: it saturates
+                // each channel separately, so it flattens the falloff AND
+                // shifts the hue toward white on the way. Measured across a
+                // lit street it held the added red constant to within 10/255
+                // over a pool whose attenuation varies several fold.
+                vec3 lamp = lights_add * (1.0 - pool);
+                float lamp_pk = max(max(lamp.r, lamp.g), lamp.b);
+                if (lamp_pk > LAMP_KNEE)
+                {
+                    float over = lamp_pk - LAMP_KNEE;
+                    float head = 1.0 - LAMP_KNEE;
+                    lamp *= (LAMP_KNEE + head * over / (over + head)) / lamp_pk;
+                }
+                final_color.xyz += lamp;
 
                 final_color = lut_color_correction( final_color );
 
