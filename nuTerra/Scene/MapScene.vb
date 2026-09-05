@@ -40,6 +40,7 @@ Public Class MapScene
     Public decals As New MapDecals(Me)
     Public sun_shadow As New MapSunShadow(Me)
     Public lamp_shadow As New MapLampShadow(Me)
+    Public lamp_fog As New MapLampFog(Me)
     Public flight_bake As New MapFlightBake(Me)
     Public cam_path As New MapCamPath
     Public CC_LUT_ID As GLTexture
@@ -252,6 +253,7 @@ Public Class MapScene
         ' app; a cube array per lamp is up to 96 MiB and leaking that on every
         ' map change is not something to inherit deliberately.
         lamp_shadow.Dispose()
+        lamp_fog.Dispose()
 
         ' gl buffers
         shadow_mapping_matrix.Dispose()

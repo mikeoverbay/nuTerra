@@ -433,6 +433,14 @@ Module modRender
             If Not BLACK_BEFORE_FX Then map_scene.fog.global_fog()
             trace_gcolor("global_fog")
 
+            ' The lamps' light scattered by the fog - the shafts.
+            '
+            ' AFTER the fog, because this is light in the air in FRONT of what
+            ' the fog has already tinted, and it is additive: scattering puts
+            ' light into the air, it does not cover what is behind it.
+            map_scene.lamp_fog.Draw()
+            trace_gcolor("lamp_fog")
+
             ' After the fog on purpose. It is a debug overlay, and fog mixing it
             ' toward the fog tint would make a distant leg of the route look
             ' like it faded out rather than like it is far away.
@@ -765,6 +773,14 @@ Module modRender
     ''' complains about on every draw. Never read - lamp_shadow_count is 0 and
     ''' the shader skips the fetch.
     ''' </summary>
+    ''' <summary>
+    ''' The 1x1 stand-in, for any pass that has to keep a cube-array shadow
+    ''' sampler legal when there is no bake. Same texture, one owner.
+    ''' </summary>
+    Friend Function lamp_shadow_stand_in() As GLTexture
+        Return dummy_lamp_shadow()
+    End Function
+
     Private Function dummy_lamp_shadow() As GLTexture
         If DUMMY_LAMP_SHADOW_TEX Is Nothing Then
             DUMMY_LAMP_SHADOW_TEX = GLTexture.Create(TextureTarget.TextureCubeMapArray, "DummyLampShadow")

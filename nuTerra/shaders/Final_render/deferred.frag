@@ -1448,9 +1448,19 @@ void main (void)
                 // the lit set is visible as well as the shadowed set.
                 if (lamp_shadow_debug != 0)
                 {
-                    final_color = (dbg_lamp_vis < 0.0)
-                                ? vec4(0.0, 0.0, 0.35, 1.0)
-                                : vec4(vec3(dbg_lamp_vis), 1.0);
+                    // outColor, NOT final_color. This wrote final_color and
+                    // returned before the one assignment to outColor further
+                    // down, so the output was never written at all and the
+                    // whole frame came back undefined - black in practice.
+                    //
+                    // Worth remembering what that cost: the view was used to
+                    // conclude that a lamp was walled in, and it was showing
+                    // nothing at all. A diagnostic that fails to black is
+                    // indistinguishable from the thing it is diagnosing
+                    // returning zero.
+                    outColor = (dbg_lamp_vis < 0.0)
+                             ? vec4(0.0, 0.0, 0.35, 1.0)
+                             : vec4(vec3(dbg_lamp_vis), 1.0);
                     return;
                 }
 

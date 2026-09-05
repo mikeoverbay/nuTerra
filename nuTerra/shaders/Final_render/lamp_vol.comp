@@ -1,0 +1,71 @@
+#version 450 core
+
+// Bake one lamp's light field into a 3D volume.
+//
+// The lamps do not move and neither does the geometry, so how much of a lamp
+// reaches any given point IN THE AIR is fixed for the life of the map. The fog
+// march was asking the shadow cube that question again at every step of every
+// pixel of every frame; this answers it once per voxel, at load.
+//
+// Two things fall out of that, and the second is the reason to do it:
+//
+//   - the march's inner loop becomes a single 3D texture fetch
+//   - the fetch is TRILINEAR, so the visibility it returns is already smoothed
+//     between voxels. A shadow cube gives a hard yes/no per step and the march
+//     turns that into stair-stepped banding; interpolating a baked field gives
+//     a soft shaft edge for nothing, which is what a beam in fog looks like.
+//
+// One voxel is 2*range/VRES metres, so a 20 m lamp at 64 lands on ~0.6 m. That
+// is coarse for a hard shadow and about right for fog, which has no hard edges.
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout(binding = 0) uniform samplerCubeArrayShadow lamp_shadow_map;
+layout(binding = 0, r8) uniform writeonly image3D vol;
+
+uniform int   lamp_index;
+uniform int   vres;
+uniform float lamp_range;
+
+// The same encoding MapLampShadow.face_view_proj wrote, inverted here exactly
+// as path_lights and the fog march invert it.
+uniform float lamp_shadow_near;
+uniform float lamp_shadow_bias;
+
+void main(void)
+{
+    ivec3 c = ivec3(gl_GlobalInvocationID);
+    if (any(greaterThanEqual(c, ivec3(vres)))) return;
+
+    // The voxel's centre, as an offset from the lamp. The volume spans the
+    // lamp's bounding CUBE, so its corners sit outside the sphere - those
+    // voxels bake to zero and the sphere test in the march never reaches them.
+    vec3 uvw = (vec3(c) + 0.5) / float(vres);
+    vec3 sd = (uvw * 2.0 - 1.0) * lamp_range;
+
+    float dist = length(sd);
+
+    float vis = 0.0;
+    if (dist <= 1e-3)
+    {
+        // At the bulb. There is no direction to look up and nothing can occlude
+        // a point from itself.
+        vis = 1.0;
+    }
+    else if (dist < lamp_range)
+    {
+        // No normal offset - there is no surface here to bias off, and fog does
+        // not self-shadow, so a plain depth bias is all this needs.
+        float mt = max(max(abs(sd.x), abs(sd.y)), abs(sd.z));
+        float nz = lamp_shadow_near;
+        float ref = (lamp_range - lamp_range * nz / max(mt, nz))
+                  / max(lamp_range - nz, 1e-4);
+        vis = texture(lamp_shadow_map, vec4(sd, float(lamp_index)),
+                      ref - lamp_shadow_bias);
+    }
+
+    // Lamps are stacked along Z in one volume - the same trick the SH probe
+    // grid uses for its slices - so the march needs one sampler and one fetch
+    // whichever lamp it is asking about.
+    imageStore(vol, ivec3(c.xy, lamp_index * vres + c.z), vec4(vis));
+}

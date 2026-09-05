@@ -1,4 +1,4 @@
-Imports System.Runtime.InteropServices
+﻿Imports System.Runtime.InteropServices
 Imports OpenTK.Graphics.OpenGL4
 
 Imports OpenTK.Mathematics
@@ -50,8 +50,25 @@ Public Class MapLampShadow
 
     Public Shared MAX_LAMPS As Integer = 32
 
+    ''' <summary>
+    ''' Edge of each lamp's baked light VOLUME, in voxels.
+    '''
+    ''' A separate thing from the shadow cube and derived from it: the cube
+    ''' answers "is this direction occluded", the volume answers "how much of
+    ''' this lamp reaches this point in the air", which is fixed for a static
+    ''' lamp in static geometry and so is worth baking once.
+    '''
+    ''' 64 over a 20 m range is ~0.6 m a voxel - coarse for a hard shadow, and
+    ''' right for fog, which has no hard edges. R8, so 262 KiB a lamp.
+    ''' </summary>
+    Public Shared VOL_RES As Integer = 64
+
     Public fbo As GLFramebuffer
     Public depth_tex As GLTexture
+    ''' <summary>Every lamp's light field, stacked along Z - lamp i occupies
+    ''' z in [i*VOL_RES, (i+1)*VOL_RES). Sampled TRILINEAR, which is what makes
+    ''' a marched shaft soft instead of stair-stepped.</summary>
+    Public vol_tex As GLTexture
     ''' <summary>How many lamps have a cube in the array. Layer i is light i.</summary>
     Public layers As Integer
     Public ready As Boolean
@@ -160,6 +177,8 @@ Public Class MapLampShadow
                 n, FACE_SIZE, bytes_for(n) / (1024.0 * 1024.0), bake_ms)
 
         verify(0)
+
+        bake_volumes(n)
     End Sub
 
     ''' <summary>
@@ -289,6 +308,113 @@ Public Class MapLampShadow
         scene.trees.sun_depth_pass(vp)
     End Sub
 
+    ''' <summary>
+    ''' Turn the cubes into a light field per lamp, with a compute pass.
+    '''
+    ''' One shadow lookup per voxel, once, instead of one per march step per
+    ''' pixel per frame. The win that matters is not the arithmetic saved - it
+    ''' is that a 3D texture FILTERS: the march reads a smoothly interpolated
+    ''' visibility and the shaft edge comes out soft, where sampling the cube
+    ''' per step gives a hard yes/no and the steps show as bands.
+    ''' </summary>
+    Private Sub bake_volumes(n As Integer)
+        If depth_tex Is Nothing OrElse n <= 0 Then Return
+
+        Dim clock = Stopwatch.StartNew()
+
+        If vol_tex Is Nothing Then
+            vol_tex = GLTexture.Create(TextureTarget.Texture3D, "LampLightVolume")
+            vol_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+            vol_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            ' ClampToEdge on every axis. A voxel outside the sphere is zero, so
+            ' clamping repeats zero and a ray leaving the volume simply stops
+            ' being lit - wrapping would light it from the far side instead.
+            vol_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+            vol_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+            vol_tex.Parameter(TextureParameterName.TextureWrapR, TextureWrapMode.ClampToEdge)
+            vol_tex.Storage3D(1, SizedInternalFormat.R8, VOL_RES, VOL_RES, VOL_RES * n)
+        End If
+
+        lampVolShader.Use()
+        depth_tex.BindUnit(0)
+        GL.BindImageTexture(0, vol_tex.texture_id, 0, True, 0,
+                            TextureAccess.WriteOnly, SizedInternalFormat.R8)
+
+        GL.Uniform1(lampVolShader("vres"), VOL_RES)
+        GL.Uniform1(lampVolShader("lamp_shadow_near"), NEAR_M)
+        GL.Uniform1(lampVolShader("lamp_shadow_bias"), LAMP_SHADOW_BIAS)
+
+        Dim groups = (VOL_RES + 3) \ 4
+        For i = 0 To n - 1
+            GL.Uniform1(lampVolShader("lamp_index"), i)
+            GL.Uniform1(lampVolShader("lamp_range"),
+                        Math.Max(scene.cam_path.lights(i).range_m, 1.0F))
+            GL.DispatchCompute(groups, groups, groups)
+        Next
+
+        ' The march samples this as a TEXTURE next frame, not as an image, so
+        ' the texture-fetch barrier is the one that matters here.
+        GL.MemoryBarrier(MemoryBarrierFlags.TextureFetchBarrierBit Or
+                         MemoryBarrierFlags.ShaderImageAccessBarrierBit)
+        lampVolShader.StopUse()
+
+        clock.Stop()
+        LogThis("lamp shadow: light volumes {0}^3 x {1} lamp(s) ({2:0.0} MiB) in {3} ms",
+                VOL_RES, n,
+                CLng(VOL_RES) * VOL_RES * VOL_RES * n / (1024.0 * 1024.0),
+                clock.ElapsedMilliseconds)
+
+        report_volume(0)
+    End Sub
+
+    ''' <summary>
+    ''' Say how much of a lamp's light field is actually SHADOWED.
+    '''
+    ''' This is the number that separates "the shafts are broken" from "there is
+    ''' nothing here to cast one". A beam is the boundary between lit air and
+    ''' unlit air, so if every voxel inside the sphere comes back lit there is no
+    ''' boundary anywhere and no march, however tuned, will draw one. A lamp in
+    ''' the open genuinely has no shaft to find - it needs an occluder between
+    ''' itself and the air.
+    '''
+    ''' Counted over the inscribed SPHERE, not the cube: the cube's corners are
+    ''' outside the range and always bake to zero, and letting them into the
+    ''' average reports about 48% shadowed on a lamp with no occluders at all.
+    ''' </summary>
+    Private Sub report_volume(i As Integer)
+        If vol_tex Is Nothing OrElse i >= layers Then Return
+
+        Dim vox(VOL_RES * VOL_RES * VOL_RES - 1) As Byte
+        GL.GetTextureSubImage(vol_tex.texture_id, 0,
+                              0, 0, i * VOL_RES, VOL_RES, VOL_RES, VOL_RES,
+                              PixelFormat.Red, PixelType.UnsignedByte,
+                              vox.Length, vox)
+
+        Dim inside = 0, lit = 0, part = 0
+        Dim half = (VOL_RES - 1) * 0.5F
+        For z = 0 To VOL_RES - 1
+            For y = 0 To VOL_RES - 1
+                For x = 0 To VOL_RES - 1
+                    Dim dx = (x - half) / half, dy = (y - half) / half, dz = (z - half) / half
+                    If dx * dx + dy * dy + dz * dz > 1.0F Then Continue For
+                    inside += 1
+                    Dim v = vox((z * VOL_RES + y) * VOL_RES + x)
+                    If v > 240 Then
+                        lit += 1
+                    ElseIf v > 15 Then
+                        part += 1
+                    End If
+                Next
+            Next
+        Next
+
+        If inside = 0 Then Return
+        LogThis("lamp shadow: lamp {0} light field - {1:0.0}% lit, {2:0.0}% partly, {3:0.0}% SHADOWED " &
+                "(all lit = nothing to cast a shaft)",
+                i, 100.0 * lit / inside, 100.0 * part / inside,
+                100.0 * (inside - lit - part) / inside)
+    End Sub
+
     Private Sub create_target()
         depth_tex = GLTexture.Create(TextureTarget.TextureCubeMapArray, "LampShadowDepth")
         depth_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
@@ -311,6 +437,8 @@ Public Class MapLampShadow
     Private Sub Dispose_gl()
         depth_tex?.Dispose()
         depth_tex = Nothing
+        vol_tex?.Dispose()
+        vol_tex = Nothing
         fbo?.Dispose()
         fbo = Nothing
         layers = 0

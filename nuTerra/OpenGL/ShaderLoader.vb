@@ -197,6 +197,8 @@ Module ShaderLoader
     Public cullInvalidateShader As Shader
     Public campathShader As Shader
     Public camlightShader As Shader
+    Public lampFogShader As Shader
+    Public lampVolShader As Shader
     Public colorCorrectShader As Shader
     Public coloredline2dShader As Shader
     Public colorMaskShader As Shader
@@ -291,6 +293,8 @@ Module ShaderLoader
         cullInvalidateShader = New Shader("cull-invalidate")
         campathShader = New Shader("campath")
         camlightShader = New Shader("camlight")
+        lampFogShader = New Shader("lamp_fog")
+        lampVolShader = New Shader("lamp_vol")
         colorCorrectShader = New Shader("colorCorrect")
         coloredline2dShader = New Shader("coloredLine2d")
         colorMaskShader = New Shader("ColorMask")

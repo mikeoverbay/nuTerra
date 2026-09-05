@@ -324,6 +324,11 @@ Module MapLoader
                 ' Hoisted: it was recomputed per instance for PICK_DICTIONARY,
                 ' and the bounding-box filter needs it too.
                 Dim model_dir = Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
+                Static found_models As Integer = 0
+                If FIND_MODEL IsNot Nothing AndAlso model_dir IsNot Nothing AndAlso
+                   model_dir.IndexOf(FIND_MODEL, StringComparison.OrdinalIgnoreCase) >= 0 Then
+                    LogThis("findmodel: batch {0} x{1}  {2}", batch.model_id, batch.count, model_dir)
+                End If
                 Dim is_volumetric As UInt32 = If(VOLUMETRIC_MODEL_DIRS.Contains(model_dir), 1UI, 0UI)
 
                 For i = 0 To batch.count - 1
@@ -341,6 +346,21 @@ Module MapLoader
                         .reserverd1 = is_volumetric
                     End With
                     map_scene.PICK_DICTIONARY(mLast + i) = model_dir
+
+                    ' Where is this thing, actually. See FIND_MODEL.
+                    If FIND_MODEL IsNot Nothing AndAlso found_models < 60 AndAlso
+                       model_dir IsNot Nothing AndAlso
+                       model_dir.IndexOf(FIND_MODEL, StringComparison.OrdinalIgnoreCase) >= 0 Then
+                        Dim mm = MODEL_INDEX_LIST(batch.offset + i).matrix
+                        ' Row3 is the translation under this engine's row-vector
+                        ' convention. X is reported BOTH ways because the loader
+                        ' negates X for the bounds two lines up, and a position
+                        ' that is silently mirrored is worse than one that is
+                        ' obviously ambiguous.
+                        LogThis("findmodel: {0}  at ({1:0.0}, {2:0.0}, {3:0.0})   -x = {4:0.0}",
+                                model_dir, mm.Row3.X, mm.Row3.Y, mm.Row3.Z, -mm.Row3.X)
+                        found_models += 1
+                    End If
                 Next
                 mLast += batch.count
             Next

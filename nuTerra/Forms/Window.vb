@@ -1729,6 +1729,46 @@ try_again:
                             map_scene.lamp_shadow.Bake()
                         End If
                     End If
+                    If ImGui.Checkbox("Lamp shafts (fog)", LAMP_FOG) Then
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Scatters each lamp's light through the fog." & vbLf &
+                                         "The only pass that shades EMPTY AIR - everything" & vbLf &
+                                         "else runs at a surface, which is why turning fog" & vbLf &
+                                         "up alone never made a beam." & vbLf &
+                                         "Needs the shadow cubes: they carve the shaft.")
+                    End If
+                    If LAMP_FOG Then
+                        Dim v_fg = LAMP_FOG_GAIN
+                        If ImGui.SliderFloat("  shaft strength", v_fg, 0.0, 3.0) Then
+                            LAMP_FOG_GAIN = v_fg
+                        End If
+                        Dim v_fd = LAMP_FOG_DENSITY
+                        If ImGui.SliderFloat("  air density", v_fd, 0.0, 0.3) Then
+                            LAMP_FOG_DENSITY = v_fd
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Extinction per metre. This is what makes the" & vbLf &
+                                             "march converge, so one strength works whether" & vbLf &
+                                             "the camera is inside a lamp's radius or outside." & vbLf &
+                                             "Higher is thicker air and a shorter, denser shaft.")
+                        End If
+                        Dim v_fp = LAMP_FOG_PHASE
+                        If ImGui.SliderFloat("  forward scatter", v_fp, 0.0, 0.9) Then
+                            LAMP_FOG_PHASE = v_fp
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("0 is isotropic - flat haze around the lamp." & vbLf &
+                                             "Higher throws the light along the view ray," & vbLf &
+                                             "so looking toward a lamp is brighter.")
+                        End If
+                        Dim v_fs = LAMP_FOG_STEPS
+                        If ImGui.SliderInt("  march steps", v_fs, 4, 64) Then
+                            LAMP_FOG_STEPS = v_fs
+                        End If
+                    End If
+                    ImGui.Separator()
+
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Without this a lamp has no visibility term at all" & vbLf &
                                          "and lights through walls - measured, a range 50 lamp" & vbLf &

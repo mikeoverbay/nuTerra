@@ -114,6 +114,35 @@ Module Program
                                    Globalization.CultureInfo.InvariantCulture, g) Then
                     PATH_LIGHT_GAIN = Math.Max(0.0F, g)
                 End If
+            ElseIf a.StartsWith("findmodel=", StringComparison.OrdinalIgnoreCase) Then
+                FIND_MODEL = a.Substring(10)
+            ElseIf a.Equals("nolampfog", StringComparison.OrdinalIgnoreCase) Then
+                ' Null control for the shafts: a run with and without this
+                ' differ only by the scattering pass.
+                LAMP_FOG = False
+            ElseIf a.StartsWith("foggain=", StringComparison.OrdinalIgnoreCase) Then
+                Dim g As Single
+                If Single.TryParse(a.Substring(8), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, g) Then
+                    LAMP_FOG_GAIN = Math.Max(0.0F, g)
+                End If
+            ElseIf a.StartsWith("fogdens=", StringComparison.OrdinalIgnoreCase) Then
+                Dim g As Single
+                If Single.TryParse(a.Substring(8), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, g) Then
+                    LAMP_FOG_DENSITY = Math.Max(0.0F, g)
+                End If
+            ElseIf a.StartsWith("fogphase=", StringComparison.OrdinalIgnoreCase) Then
+                Dim g As Single
+                If Single.TryParse(a.Substring(9), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, g) Then
+                    LAMP_FOG_PHASE = g
+                End If
+            ElseIf a.StartsWith("fogsteps=", StringComparison.OrdinalIgnoreCase) Then
+                Dim n As Integer
+                If Integer.TryParse(a.Substring(9), n) AndAlso n > 0 Then
+                    LAMP_FOG_STEPS = n
+                End If
             ElseIf a.Equals("lampdebug", StringComparison.OrdinalIgnoreCase) Then
                 ' Draw the lamp shadow term rather than the frame.
                 LAMP_SHADOW_DEBUG = True
