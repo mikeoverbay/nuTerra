@@ -1122,6 +1122,7 @@ Module modRender
         ' with the previous map's lights.
         GL.Uniform1(deferredShader("light_count"), n)
         GL.Uniform1(deferredShader("light_gain"), PATH_LIGHT_GAIN)
+        GL.Uniform1(deferredShader("light_falloff"), PATH_LIGHT_FALLOFF)
         GL.Uniform1(deferredShader("light_debug_red"),
                     CInt(If(PATH_LIGHT_DEBUG_RED, 1, 0)))
         If n > 0 Then

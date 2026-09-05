@@ -1880,7 +1880,17 @@ try_again:
                     ' only bright where it is close, which is the point of it.
                     ' At 0 the lights contribute nothing and the frame is the
                     ' one without them.
-                    If ImGui.SliderFloat("Light Gain", PATH_LIGHT_GAIN, 0.0, 500.0) Then
+                    If ImGui.SliderFloat("Light Gain", PATH_LIGHT_GAIN, 0.0, 200.0) Then
+                    End If
+                    ' How tight the core is INSIDE the radius. Separate from
+                    ' gain because they do different jobs: gain is how much
+                    ' light there is, this is how it is distributed across the
+                    ' range - and the two are the whole shape of a lamp.
+                    If ImGui.SliderFloat("Light Falloff", PATH_LIGHT_FALLOFF, 0.0, 60.0) Then
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("High is a tight bright core; low spreads it toward" & vbLf &
+                                         "a flat disc that fills the whole radius evenly.")
                     End If
                     ImGui.Checkbox("Lights solid red (debug)", PATH_LIGHT_DEBUG_RED)
                     If ImGui.IsItemHovered() Then

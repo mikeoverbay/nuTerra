@@ -102,6 +102,26 @@ Module Program
                 If Integer.TryParse(a.Substring(6), sn) AndAlso sn > 0 Then
                     RECORD_STILL = 1
                 End If
+            ElseIf a.StartsWith("lightgain=", StringComparison.OrdinalIgnoreCase) Then
+                ' Intensity of the .campath lamps, headless.
+                '
+                ' PATH_LIGHT_GAIN's only other writer is the ImGui slider, so
+                ' without this every trial of a value costs a rebuild. Tuning a
+                ' look means a dozen trials, and a dozen rebuilds is how tuning
+                ' stops happening.
+                Dim g As Single
+                If Single.TryParse(a.Substring(10), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, g) Then
+                    PATH_LIGHT_GAIN = Math.Max(0.0F, g)
+                End If
+            ElseIf a.StartsWith("falloff=", StringComparison.OrdinalIgnoreCase) Then
+                ' Companion to lightgain: how tight the core is inside the
+                ' radius. Same reason - it is a shader constant otherwise.
+                Dim k As Single
+                If Single.TryParse(a.Substring(8), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, k) Then
+                    PATH_LIGHT_FALLOFF = Math.Max(0.0F, k)
+                End If
             ElseIf a.StartsWith("settle=", StringComparison.OrdinalIgnoreCase) Then
                 ' Parsed independently of snap/snapquit and applied after the
                 ' loop, so the order of the arguments on the command line does

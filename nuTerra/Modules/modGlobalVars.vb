@@ -810,7 +810,25 @@ Module modGlobalVars
     ''' 8 makes a level 1, 12 m lamp read clearly on ground beneath it without
     ''' blowing out. It is a starting point, not a measurement.
     ''' </summary>
-    Public PATH_LIGHT_GAIN As Single = 100.0F
+    ' 30, not 100. 100 was tuned when the debug path bypassed the albedo AND
+    ' the contribution went through a saturating curve that hid how large it
+    ' was. Added linearly against a real albedo, 30 puts a lamp's pool near the
+    ' top of the range without pushing it past 1 and clipping the falloff off
+    ' again at the other end.
+    ' 10, because the attenuation changed scale. It used to peak near 0.024 -
+    ' inverse square in metres - and now peaks at 1.0 inside the radius, so the
+    ' same look needs a far smaller number in front of it.
+    ' 20 and a falloff of 12, arrived at by rendering the same street at a
+    ' range of settings and looking. Nothing matches a reference photograph
+    ' here - the game ships no lit lamps, so there is no ground truth to match
+    ' to - these are what read as a street lamp against THIS palette.
+    Public PATH_LIGHT_GAIN As Single = 20.0F
+
+    ''' <summary>
+    ''' How sharply a lamp falls off inside its own radius. Higher is a tighter,
+    ''' brighter core; lower spreads it toward a flat disc.
+    ''' </summary>
+    Public PATH_LIGHT_FALLOFF As Single = 12.0F
 
     ''' <summary>
     ''' Paint the point lights' contribution solid red.
@@ -819,7 +837,10 @@ Module modGlobalVars
     ''' whether the light reaches the surface at all, and a warm lamp on brown
     ''' ground in daylight cannot answer it.
     ''' </summary>
-    Public PATH_LIGHT_DEBUG_RED As Boolean = True
+    ' Off now. It answered its question - the light arrives, and it arrives
+    ' where the overlay sphere says it does - and a real colour is what the
+    ' look has to be judged on from here.
+    Public PATH_LIGHT_DEBUG_RED As Boolean = False
 
     Public CAPTURE_W As Integer = 1920
     Public CAPTURE_H As Integer = 1080

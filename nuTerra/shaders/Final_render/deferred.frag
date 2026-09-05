@@ -135,6 +135,12 @@ uniform float light_gain;
 // it is answered instantly by red.
 uniform int light_debug_red;
 
+// How sharply a light falls off inside its own radius. Higher is a tighter,
+// brighter core; lower spreads it toward a flat disc. 20 puts roughly a
+// seventh of the centre's brightness at half the radius. A uniform rather
+// than a constant so it can be tuned without a rebuild.
+uniform float light_falloff;
+
 // Separate from eval_sh_irradiance on purpose: the working path above is left
 // byte for byte alone.
 vec3 eval_sh_grid_fallback(vec3 n)
@@ -547,29 +553,42 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
         float NdotL = dot(N, L);
         if (NdotL <= 0.0) continue;
 
-        // Inverse square, windowed so it reaches EXACTLY zero at the range.
-        // Without the window a light is still contributing a little at its
-        // stated edge, and the sphere drawn in the overlay would be telling
-        // the truth about the radius and a lie about where it stops.
-        float t = dist / r;
-        float t4 = t * t * t * t;
-        float win = clamp(1.0 - t4, 0.0, 1.0);
-        float atten = (win * win) / (dist * dist + 1.0);
+        // Falloff in NORMALISED distance, so range sets the SIZE of the light.
+        //
+        // This was 1/(d*d + 1) in absolute metres, with the range only used as
+        // a cutoff. That is physically honest and useless to author with: the
+        // light is already dim past ten metres whatever its range, so range
+        // could only ever clip a tail that was too faint to see. Measured at
+        // one camera, taking a light from 12 m to 30 m grew the lit area 1.59x
+        // where the geometry says 8x - which reads as the control doing
+        // nothing.
+        //
+        // Dividing by the range first makes the profile the same SHAPE at any
+        // size and the radius mean what the overlay sphere already draws. The
+        // inverse-square feel is kept in s rather than in metres: bright core,
+        // long tail, hard zero at the edge.
+        float s = dist / r;
+        float s4 = s * s * s * s;
+        float win = clamp(1.0 - s4, 0.0, 1.0);
+        float atten = (win * win) / (1.0 + light_falloff * s * s);
 
-        if (light_debug_red != 0)
-        {
-            // Straight out, past the albedo and the BRDF. Multiplying by a dark
-            // surface is exactly what makes a weak light invisible, so the
-            // diagnostic must not do it.
-            sum += vec3(1.0, 0.0, 0.0) * NdotL * atten
-                 * pl_color_level[i].a * light_gain;
-            continue;
-        }
-
+        // Debug red replaces the light's COLOUR and nothing else.
+        //
+        // It used to short-circuit the whole BRDF as well. That answered the
+        // only question worth asking at the time - is any light arriving here -
+        // but it drew a flat disc: no response to the normal map, no highlight,
+        // nothing that tells you how the surface is actually being lit. Inside
+        // the radius the full shading now runs either way, so the bump and the
+        // specular lobe are both visible and red is just an unmissable colour
+        // to see them in.
+        //
         // sRGB as authored - the file says so, and everything else authored is
         // linearised on load rather than being stored pre-linearised.
-        vec3 radiance = pow(pl_color_level[i].rgb, vec3(2.2))
-                      * pl_color_level[i].a * atten * light_gain;
+        vec3 base = (light_debug_red != 0)
+                  ? vec3(1.0, 0.0, 0.0)
+                  : pow(pl_color_level[i].rgb, vec3(2.2));
+
+        vec3 radiance = base * pl_color_level[i].a * atten * light_gain;
 
         vec3  H     = normalize(L + V);
         float NdotH = clamp(dot(N, H), 0.0, 1.0);
@@ -1222,7 +1241,30 @@ void main (void)
                 //
                 // No ambient is added anywhere in path_lights. A lamp
                 // contributes its own diffuse and specular and nothing else.
-                final_color.xyz += 1.0 - exp(-lights_add);
+                //
+                // Added LINEARLY. It used to go through 1 - exp(-x) the way the
+                // sun term does, and that is what made a lamp read as a flat
+                // red coating instead of a light: the curve saturates, so
+                // lights_add of 1 and of 6 both land near 1.0 and the whole
+                // falloff is compressed out. Measured across a lit street, the
+                // added red was constant to within 10/255 over the entire pool
+                // while the attenuation across it varies several fold.
+                //
+                // The frame already has a tone curve at the end - correct() -
+                // so putting one here compressed the lights TWICE. The sun gets
+                // away with it because sun_add is small enough to stay on the
+                // straight part of the curve; a lamp at any useful gain is not.
+                // Faded by (1 - pool), exactly as the sun term above is.
+                //
+                // Under standing water the GROUND does not get its own light
+                // response - the surface above it is what you see, and that is
+                // a mirror. Tinting it here replaced the reflection with the
+                // lamp's colour, so a puddle went orange instead of showing an
+                // orange BUILDING in it. What should light a puddle is the lit
+                // wall opposite, and that arrives through ssr.frag, which
+                // marches the finished frame and therefore already carries
+                // whatever these lamps did to the geometry around it.
+                final_color.xyz += lights_add * (1.0 - pool);
 
                 final_color = lut_color_correction( final_color );
 
