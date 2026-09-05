@@ -1190,6 +1190,10 @@ Module modRender
         GL.Uniform1(deferredShader("lamp_shadow_bias"), LAMP_SHADOW_BIAS)
         GL.Uniform1(deferredShader("lamp_shadow_normal_bias"), LAMP_SHADOW_NORMAL_BIAS)
         GL.Uniform1(deferredShader("lamp_shadow_soft"), LAMP_SHADOW_SOFT)
+        ' One texel's angular size on a cube face: a face spans 90 degrees, so
+        ' it covers 2t across FACE_SIZE texels at major-axis distance t.
+        GL.Uniform1(deferredShader("lamp_shadow_texel"),
+                    2.0F / CSng(MapLampShadow.FACE_SIZE))
         GL.Uniform1(deferredShader("lamp_shadow_debug"),
                     CInt(If(LAMP_SHADOW_DEBUG, 1, 0)))
 

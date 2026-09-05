@@ -153,11 +153,23 @@ same depth slope covers far fewer texels.
 
 ### Penumbra
 
-`LAMP_SHADOW_SOFT` is the blur radius **in metres at the receiver**, sampled as
-a 12-point Poisson disc in the plane perpendicular to the lookup. `sd` runs from
+`LAMP_SHADOW_SOFT` is the blur radius **in shadow-map texels**, sampled as a
+12-point Poisson disc in the plane perpendicular to the lookup. `sd` runs from
 the lamp to the pixel, so adding a perpendicular vector of length *s* moves the
 sampled point *s* metres sideways at that pixel's distance — world units, no
-division needed.
+division needed — and the radius is built from the texel size at that distance:
+
+```
+radius = LAMP_SHADOW_SOFT * t * 2/FACE_SIZE
+```
+
+**Texels, not metres, and this was got wrong first.** The artefact is a
+texel-scale staircase, so the cure has to be texel-scale. A fixed metre radius
+spans a different number of texels at every distance, and worst where it hurts
+most: texels are *smallest* close to the lamp, which is exactly where the shadow
+detail is finest. Shipped at 0.15 m it stopped reading as a soft edge and
+started reading as lost detail. In texels the blur scales with the thing it is
+smoothing.
 
 The reference depth is deliberately **not** recomputed per tap. That is what
 makes it a PCF average of one receiver depth against twelve neighbouring
@@ -173,11 +185,12 @@ Not PCSS: the blur does not widen with the occluder's distance. That needs a
 blocker search per pixel, and constant width is the part of a penumbra that
 actually reads at these throws.
 
-Measured at 0.15 m over three lamps: **no cost at all** — 177 fps with the taps
-and 177 without. At the shadow boundary the mean gradient falls 22.5 → 19.9 per
-pixel and the 90th percentile 66 → 57, about a 13% softening. That is subtle;
-the slider runs to 1 m. `lampsoft=0` restores the single fetch, which makes it
-its own A/B and its own cost measurement.
+Measured over three lamps: **no cost at all** — 177 fps with the taps and 177
+without. `lampsoft=0` restores the single fetch, which makes the control its own
+A/B and its own cost measurement.
+
+1 texel is a gentle smoothing on top of the hardware 2×2; past about 3 it starts
+to spread rather than soften.
 
 ### Re-baking
 

@@ -156,17 +156,29 @@ uniform float lamp_shadow_near;
 uniform float lamp_shadow_bias;
 uniform float lamp_shadow_normal_bias;
 
-// Radius of the softening disc, in METRES at the receiver.
+// Radius of the softening disc, in SHADOW MAP TEXELS.
 //
-// The cube gives a hard edge with a 2x2 hardware compare, which at 512 a face
-// and a few metres of throw is a visibly aliased staircase - and a street lamp
-// has no business casting a knife edge anyway. 0 falls back to the single
-// fetch, so this is also its own A/B.
+// Texels, not metres. The artefact being fixed is a texel-scale staircase on
+// the shadow edge, so the cure has to be texel-scale too. A fixed metre radius
+// covers a different number of texels at every distance - and worst where it
+// hurts most, because texels are SMALLEST close to the lamp, which is exactly
+// where the shadow detail is finest. Measured that way at 0.15 m it stopped
+// being a soft edge and started being a loss of detail.
 //
-// Not PCSS: the blur does not grow with the occluder's distance. That needs a
-// blocker search per pixel, and a constant width is the part of a penumbra
-// that actually reads at these distances.
+// A texel is 2t/FACE_SIZE metres at major-axis distance t - a cube face spans
+// 90 degrees, so it covers 2t across its edge. That makes the blur scale with
+// the thing it is smoothing: gentle up close, wider out at the range where the
+// texels are coarse and the aliasing is actually visible.
+//
+// 0 falls back to the single fetch, so this is also its own A/B.
+//
+// Not PCSS: the blur does not grow with the OCCLUDER's distance. That needs a
+// blocker search per pixel, and this is about aliasing, not contact hardening.
 uniform float lamp_shadow_soft;
+
+// 2 / FACE_SIZE - one texel's angular size on a cube face, so the shader can
+// turn the texel radius above into a world offset without knowing the size.
+uniform float lamp_shadow_texel;
 
 // Twelve points on a Poisson disc, taken in the plane facing the lamp.
 //
@@ -647,18 +659,26 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
                 //
                 // sd runs from the lamp to this pixel, so adding a
                 // PERPENDICULAR vector of length s moves the sampled point s
-                // metres sideways AT THIS PIXEL's distance - the offsets are
-                // world metres at the receiver without any division.
+                // metres sideways AT THIS PIXEL's distance - so the radius is
+                // built in world units and needs no division.
+                //
+                // The radius itself is derived from the TEXEL size at this
+                // distance: t * 2/FACE_SIZE is one texel in metres, so the disc
+                // stays the same number of texels wherever it lands. That is
+                // what keeps it a blur on the edge instead of a smear over the
+                // detail - see the uniform's comment.
                 //
                 // The reference is deliberately NOT recomputed per tap. That is
                 // what makes it a PCF average of one receiver depth against
                 // twelve neighbouring occluder depths, rather than twelve
                 // separate shadow tests. The slope error it leaves is what the
                 // normal bias above is for.
+                float radius = lamp_shadow_soft * t * lamp_shadow_texel;
+
                 vec3 dn = normalize(sd);
                 vec3 up = (abs(dn.y) < 0.99) ? vec3(0.0, 1.0, 0.0)
                                              : vec3(1.0, 0.0, 0.0);
-                vec3 tx = normalize(cross(up, dn)) * lamp_shadow_soft;
+                vec3 tx = normalize(cross(up, dn)) * radius;
                 vec3 ty = cross(dn, tx);
 
                 float s = 0.0;

@@ -1751,14 +1751,15 @@ try_again:
                             LAMP_SHADOW_NORMAL_BIAS = v_ln
                         End If
                         Dim v_ls = LAMP_SHADOW_SOFT
-                        If ImGui.SliderFloat("  lamp penumbra (m)", v_ls, 0.0, 1.0) Then
+                        If ImGui.SliderFloat("  lamp penumbra (texels)", v_ls, 0.0, 4.0) Then
                             LAMP_SHADOW_SOFT = v_ls
                         End If
                         If ImGui.IsItemHovered() Then
                             ImGui.SetTooltip("Softens the shadow edge with a 12 tap disc." & vbLf &
-                                             "0 is one fetch and a hard edge - so this is" & vbLf &
-                                             "also the A/B, and the cost measurement." & vbLf &
-                                             "Width is metres at the lit surface.")
+                                             "Measured in SHADOW MAP TEXELS, so the blur" & vbLf &
+                                             "scales with the thing it is smoothing instead" & vbLf &
+                                             "of erasing fine detail near the lamp." & vbLf &
+                                             "0 is one fetch and a hard edge - the A/B.")
                         End If
                     End If
 

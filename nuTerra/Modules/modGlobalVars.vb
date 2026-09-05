@@ -833,18 +833,22 @@ Module modGlobalVars
     Public LAMP_SHADOW_DEBUG As Boolean = False
 
     ''' <summary>
-    ''' Penumbra width on the lamp shadows, metres at the receiver.
+    ''' Penumbra width on the lamp shadows, in SHADOW MAP TEXELS.
     '''
-    ''' The cube's own 2x2 hardware compare gives a hard, visibly aliased edge -
-    ''' at 512 a face and a few metres of throw a shadow boundary staircases.
-    ''' 0.15 m is roughly four texels on a 9 m lamp, enough to read as a soft
-    ''' edge rather than a jagged one.
+    ''' Texels rather than metres. The thing being fixed is a texel-scale
+    ''' staircase on the shadow edge, and a fixed metre radius spans a different
+    ''' number of texels at every distance - most of them close to the lamp,
+    ''' where the texels are smallest and the shadow detail is finest. At 0.15 m
+    ''' that stopped reading as a soft edge and started reading as lost detail.
+    '''
+    ''' 1 texel is a gentle smoothing on top of the hardware 2x2. Past about 3
+    ''' it starts to spread rather than soften.
     '''
     ''' 0 turns the disc off and falls back to the single fetch, which makes the
     ''' slider its own A/B - and its own cost measurement, since the twelve taps
     ''' are the only thing that changes.
     ''' </summary>
-    Public LAMP_SHADOW_SOFT As Single = 0.15F
+    Public LAMP_SHADOW_SOFT As Single = 1.0F
 
     ''' <summary>
     ''' Intensity scale on the .campath's point lights.
