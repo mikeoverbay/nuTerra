@@ -715,22 +715,23 @@ Module modGlobalVars
     Public RECORD_STOP_AT_END As Boolean = True
 
     ''' <summary>
-    ''' Frames left to record from a STILL camera - no flight, the view held
-    ''' where it is. Counts down to zero and stops.
+    ''' A single still is pending - one frame from the camera where it stands,
+    ''' no flight. Set to 1 to ask for it; cleared the moment it is written.
     '''
-    ''' This is how the animation gets checked. On a flight everything moves at
-    ''' once and there is no telling a fire looping correctly from a fire being
-    ''' dragged past the lens; held still, the only thing moving is the thing
-    ''' being tested. It writes to a 'still' subfolder so a test cannot land in
-    ''' the middle of a flight sequence.
+    ''' ONE frame, not a burst. It was a burst of 180 because the feature was
+    ''' built for one job - watching fire and smoke loop at a fixed camera,
+    ''' where a run of frames is the only way to see whether an animation is
+    ''' actually running. That job is finished, and a thing called "still" that
+    ''' writes 180 files is not a still.
+    '''
+    ''' Still an Integer rather than a Boolean: it is tested as RECORD_STILL > 0
+    ''' in the animation clock, the HUD gate and the capture gate, and those
+    ''' read the same either way.
+    '''
+    ''' Writes to a 'still' subfolder so a test can never land in the middle of
+    ''' a flight sequence.
     ''' </summary>
     Public RECORD_STILL As Integer = 0
-
-    ''' <summary>How many frames the still-capture button asks for. Fixed - a
-    ''' still is a burst for checking animation, and the exact length of it has
-    ''' never been the interesting variable. still=N on the command line still
-    ''' sets it for an automated run.</summary>
-    Public RECORD_STILL_COUNT As Integer = 180
 
     ''' <summary>
     ''' Hold each captured frame until the virtual texture has finished
@@ -745,7 +746,7 @@ Module modGlobalVars
     Public WAIT_VT As Boolean = True
 
     ''' <summary>
-    ''' Capture paused - space bar, or the button in Flight Render.
+    ''' Capture paused - space bar, or the button in Flight Recorder.
     '''
     ''' Freezes the flight and every animated clock along with the shutter, so a
     ''' pause costs nothing but time. Resuming continues the same file at the
@@ -756,6 +757,84 @@ Module modGlobalVars
     ''' <summary>Drop the on-screen HUD while capturing, so it stays out of the
     ''' video.</summary>
     Public RECORD_HIDE_HUD As Boolean = True
+
+    ''' <summary>
+    ''' Leave the frames already in the output folder alone when a capture
+    ''' starts. OFF by default, which means the folder is emptied first.
+    '''
+    ''' A capture is the input to one encode and the PNGs have no life after
+    ''' it - a lap is thousands of files and several gigabytes, and letting
+    ''' those pile up silently is how a drive fills. Clearing is therefore the
+    ''' default and keeping is the deliberate choice.
+    '''
+    ''' Keeping is not merely untidy. Frames are numbered from zero every run,
+    ''' so a shorter capture overwrites the head of a longer one and leaves its
+    ''' tail behind; an encoder reading the folder then splices the end of an
+    ''' old flight onto the new one, and nothing about the files says so.
+    ''' </summary>
+    Public RECORD_KEEP_PNGS As Boolean = False
+
+    ''' <summary>
+    ''' Client area a capture runs at. 0 means "leave the window alone".
+    '''
+    ''' The window is resized to this when a capture starts and put back the
+    ''' moment it ends - size, position and border all restored. Nothing about
+    ''' the window itself is persisted, ONLY this choice, which is what stops a
+    ''' 640x360 selection from becoming a window too small to reach the menu
+    ''' that would change it back.
+    '''
+    ''' Resizing the window rather than rendering to an off-screen target of
+    ''' this size is the deliberately unambitious option: OnResize already
+    ''' rebuilds MainFBO and the ImGui surface correctly, where a fixed-size
+    ''' render target would mean moving the whole composite tail off
+    ''' framebuffer 0 - which is the locked-down FX path.
+    ''' </summary>
+    ''' <summary>
+    ''' Draw the .campath's lights as translucent spheres at their range.
+    '''
+    ''' Sits with SHOW_CAM_PATH rather than with the Overlays group: both are
+    ''' overlays of the SAME FILE, and both have to re-read it when switched on
+    ''' because a Save in Path Studio is what changes it.
+    ''' </summary>
+    Public SHOW_CAM_LIGHTS As Boolean = False
+
+    Public CAPTURE_W As Integer = 1920
+    Public CAPTURE_H As Integer = 1080
+
+    ''' <summary>
+    ''' An mp4 assembly is running on a background thread.
+    '''
+    ''' Read by the UI to show progress, and to refuse to start a capture while
+    ''' it is set: a capture clears the folder, and the encoder is reading the
+    ''' very frames it would delete.
+    ''' </summary>
+    Public ENCODE_RUNNING As Boolean = False
+
+    ''' <summary>Frames encoded so far, and the number there are to do.</summary>
+    Public ENCODE_DONE As Integer = 0
+    Public ENCODE_TOTAL As Integer = 0
+
+    ''' <summary>
+    ''' What the last assembly did - the file it wrote, or why it stopped.
+    ''' Shown in the panel so a failure is not something to go and find in
+    ''' the log.
+    ''' </summary>
+    Public ENCODE_MESSAGE As String = Nothing
+
+    ''' <summary>
+    ''' Frames in this capture that were shot with the virtual texture still
+    ''' unsettled, because the wait hit its ceiling rather than because the
+    ''' terrain arrived.
+    '''
+    ''' The settle gate is a rule with an escape hatch: a map whose working set
+    ''' never fits at the finest bias would otherwise wait for ever and the
+    ''' capture would silently stop producing frames. Taking the escape is the
+    ''' right call - but it means the footage contains frames the rule was
+    ''' supposed to prevent, and a single log line is not where that belongs.
+    ''' Counted so the capture can say so afterwards, in capture.txt and on
+    ''' screen.
+    ''' </summary>
+    Public RECORD_FORCED_FRAMES As Integer = 0
 
     ''' <summary>
     ''' True when the HUD must be suppressed because a capture is running.

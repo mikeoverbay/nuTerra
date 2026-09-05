@@ -56,7 +56,9 @@ FOLDER = nav.FOLDER
 
 
 def existing_plan(map_name):
-    """The saved route AND the clicks behind it: ([(x, z)], seed) or (None, None).
+    """The saved route, the clicks behind it, and its lights.
+
+    Returns ([(x, z)], seed, [light dicts]) or (None, None, []).
 
     Reads the .campath, not the CSV beside the bake. The .campath is the artefact
     that actually ships, so this shows what nuTerra would fly rather than what the
@@ -65,14 +67,101 @@ def existing_plan(map_name):
     """
     path = os.path.join(cp.campath_dir(), map_name + ".campath")
     if not os.path.exists(path):
-        return None, None
+        return None, None, []
     try:
         meta, pts = cp.read_path(path)
     except Exception:
         # A half written or older-format file is not worth refusing to open the
         # map over. Draw nothing and let a regenerate replace it.
-        return None, None
-    return [(p[0], p[2]) for p in pts], meta["seed"]
+        return None, None, []
+
+    # Back into the shape the editor works in. The file keeps colour as three
+    # floats because that is what a renderer wants; a colour picker speaks hex.
+    lights = []
+    for lt in meta.get("lights", ()):
+        lights.append({
+            "x": lt["x"],
+            "z": lt["z"],
+            "height": lt["y"],
+            "color": "#%02x%02x%02x" % (
+                max(0, min(255, int(round(lt["r"] * 255.0)))),
+                max(0, min(255, int(round(lt["g"] * 255.0)))),
+                max(0, min(255, int(round(lt["b"] * 255.0))))),
+            "level": lt["level"],
+            "range": lt["range"],
+        })
+    return [(p[0], p[2]) for p in pts], meta["seed"], lights
+
+# --------------------------------------------------------------------------
+# Dark theme
+# --------------------------------------------------------------------------
+# The canvas has always been near black (#11141c) because a terrain mask reads
+# better against dark. The panel beside it was system grey, so the window had a
+# bright wall down one side and your eye kept re-adapting between them.
+
+BG = "#171a23"       # window and panel
+PANEL = "#1f2430"    # inputs, list, buttons
+EDGE = "#2c3242"     # borders and separators
+FG = "#d7dce6"       # body text
+MUTED = "#8a93a6"    # hints, secondary labels
+ACCENT = "#4ab3d8"   # selection, focus
+
+
+def apply_dark(root):
+    """Restyle ttk and the classic tk widgets for a dark window.
+
+    "clam" is the theme to build on: the Windows native themes draw from OS
+    bitmaps and ignore most colour options, so a dark palette on those silently
+    does nothing to half the widgets.
+
+    Classic tk widgets - Listbox, and the Combobox's dropdown, which is a tk
+    Listbox in disguise - do not follow ttk styles at all and are coloured
+    directly. That asymmetry is the whole reason this is fiddly.
+    """
+    root.configure(bg=BG)
+    st = ttk.Style(root)
+    try:
+        st.theme_use("clam")
+    except tk.TclError:
+        pass
+
+    st.configure(".", background=BG, foreground=FG, fieldbackground=PANEL,
+                 bordercolor=EDGE, lightcolor=EDGE, darkcolor=EDGE,
+                 troughcolor="#11141c", focuscolor=ACCENT, insertcolor=FG)
+    st.configure("TFrame", background=BG)
+    st.configure("TLabel", background=BG, foreground=FG)
+    st.configure("Muted.TLabel", background=BG, foreground=MUTED)
+    st.configure("Note.TLabel", background=BG, foreground=MUTED,
+                 font=("Consolas", 8))
+    st.configure("Head.TLabel", background=BG, foreground=ACCENT)
+
+    st.configure("TButton", background=PANEL, foreground=FG,
+                 bordercolor=EDGE, focusthickness=1, padding=4)
+    st.map("TButton",
+           background=[("pressed", "#39415a"), ("active", "#2b3244"),
+                       ("disabled", "#1a1d26")],
+           foreground=[("disabled", "#586074")])
+
+    st.configure("TScale", background=BG, troughcolor="#11141c",
+                 bordercolor=EDGE, lightcolor=ACCENT, darkcolor=ACCENT)
+    st.configure("TSeparator", background=EDGE)
+    st.configure("TRadiobutton", background=BG, foreground=FG)
+    st.map("TRadiobutton", background=[("active", BG)],
+           indicatorcolor=[("selected", ACCENT)])
+
+    st.configure("TCombobox", fieldbackground=PANEL, background=PANEL,
+                 foreground=FG, arrowcolor=FG, bordercolor=EDGE)
+    st.map("TCombobox",
+           fieldbackground=[("readonly", PANEL)],
+           foreground=[("readonly", FG)],
+           background=[("readonly", PANEL)])
+
+    # The dropdown is a tk Listbox and only listens to the option database.
+    root.option_add("*TCombobox*Listbox.background", PANEL)
+    root.option_add("*TCombobox*Listbox.foreground", FG)
+    root.option_add("*TCombobox*Listbox.selectBackground", ACCENT)
+    root.option_add("*TCombobox*Listbox.selectForeground", "#0b0d12")
+
 
 CANVAS = 780         # starting size only - the map scales with the window
 MIN_VIEW = 240
@@ -289,6 +378,17 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
 # Window
 # --------------------------------------------------------------------------
 
+def _hex_rgb(h):
+    """#rrggbb -> (r, g, b). PIL will not take the string form for a fill."""
+    h = h.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    try:
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    except (ValueError, IndexError):
+        return (255, 217, 160)
+
+
 def dashed(d, a, b, fill, on=9.0, off=7.0, width=1):
     """A dashed line between two points, dashed along its own length."""
     ax, ay = a
@@ -309,6 +409,9 @@ class Studio:
     def __init__(self, root):
         self.root = root
         root.title("nuTerra Path Studio")
+        # Before any widget is built - a style set afterwards leaves whatever
+        # was created first wearing the old one.
+        apply_dark(root)
         self.bake = None
         self.map_name = None
         self.base = None
@@ -332,11 +435,32 @@ class Studio:
         self.pan_from = None     # (mouse x, mouse y, cx, cy) while panning
         self._resize_job = None
 
+        # Light entities. Each is {"x", "z", "color", "level"} in WORLD metres,
+        # like every other placement here - view coordinates change with zoom and
+        # a light must not move because the map was scrolled.
+        self.lights = []
+
+        # What is selected, as (kind, index): ("light", i), ("target", i) or
+        # ("start", 0). One selection, because dragging two things at once has
+        # no meaning and a list would only invite it.
+        self.selection = None
+        self.moving = False      # a selection is being dragged right now
+        self.add_light = False   # next left click drops a light
+
+        # Lights have been touched since the last save. Tracked separately from
+        # the route because they are saved by a different route: the path is
+        # published from a freshly generated scratch file, lights can be edited
+        # on a route that was loaded from disk and has no scratch file at all.
+        self.lights_dirty = False
+
         left = ttk.Frame(root, padding=8)
         left.grid(row=0, column=0, sticky="ns")
         ttk.Label(left, text="Maps with a bake").grid(row=0, column=0, sticky="w")
 
-        self.maps = tk.Listbox(left, width=26, height=18, exportselection=False)
+        self.maps = tk.Listbox(left, width=26, height=18, exportselection=False,
+                               bg=PANEL, fg=FG, selectbackground=ACCENT,
+                               selectforeground="#0b0d12", highlightthickness=0,
+                               borderwidth=0, activestyle="none")
         self.maps.grid(row=1, column=0, pady=(2, 2))
         self.maps.bind("<<ListboxSelect>>", lambda e: self.load_selected())
 
@@ -344,7 +468,7 @@ class Studio:
         self.row_names = []
         self.other_names = []
         self.baked = set()
-        self.other_lbl = ttk.Label(left, text="Other spaces", foreground="#777")
+        self.other_lbl = ttk.Label(left, text="Other spaces", style="Muted.TLabel")
         self.other_lbl.grid(row=2, column=0, sticky="w")
         self.other_combo = ttk.Combobox(left, width=24, state="readonly")
         self.other_combo.grid(row=3, column=0, sticky="we", pady=(0, 8))
@@ -378,7 +502,7 @@ class Studio:
             ttk.Radiobutton(f, text="Right", variable=self.side, value=-1)]
         for b in self.side_btns:
             b.pack(side="left")
-        self.ring_lbl = ttk.Label(left, text="", foreground="#777",
+        self.ring_lbl = ttk.Label(left, text="", style="Muted.TLabel",
                                   wraplength=210, justify="left")
         r += 2
 
@@ -399,9 +523,96 @@ class Studio:
         self.save_btn.state(["disabled"])
         r += 1
 
+        # ---- lights -------------------------------------------------------
+        # A mode rather than a modifier: placing several lights in a row is the
+        # normal case, and holding a key through all of them is not.
+        self.light_btn = ttk.Button(left, text="Add Light",
+                                    command=self.toggle_add_light)
+        self.light_btn.grid(row=r, column=0, sticky="we", pady=(10, 2))
+        r += 1
+
+        # The swatch IS the button - a colour control that does not show its
+        # colour makes you click it to find out what it is set to.
+        self.light_color = "#ffd9a0"
+        self.color_btn = tk.Button(left, text="Colour", command=self.pick_color,
+                                   bg=self.light_color, activebackground=self.light_color,
+                                   relief="groove", bd=2)
+        self.color_btn.grid(row=r, column=0, sticky="we", pady=(0, 2))
+        r += 1
+
+        ttk.Label(left, text="Level").grid(row=r, column=0, sticky="w")
+        self.light_level = tk.DoubleVar(value=1.0)
+        self.level_lbl = ttk.Label(left, text="1.00")
+        self.level_lbl.grid(row=r, column=1, sticky="w", padx=(6, 0))
+        r += 1
+        ttk.Scale(left, from_=0.0, to=1.0, variable=self.light_level,
+                  orient="horizontal", length=200,
+                  command=lambda *_: self.on_level_change()
+                  ).grid(row=r, column=0, sticky="we")
+        r += 1
+
+        ttk.Label(left, text="Range (m)").grid(row=r, column=0, sticky="w")
+        self.light_range = tk.DoubleVar(value=12.0)
+        self.range_lbl = ttk.Label(left, text="12.0")
+        self.range_lbl.grid(row=r, column=1, sticky="w", padx=(6, 0))
+        r += 1
+        # 0.1 to 50. The top end is a guess and will stay one until nuTerra is
+        # wired for multiple lights and the number can be looked at rather than
+        # reasoned about - 50 m is almost certainly too much for a point light
+        # on this scale of map.
+        ttk.Scale(left, from_=0.1, to=50.0, variable=self.light_range,
+                  orient="horizontal", length=200,
+                  command=lambda *_: self.on_range_change()
+                  ).grid(row=r, column=0, sticky="we")
+        r += 1
+
+        ttk.Label(left, text="Height (m)").grid(row=r, column=0, sticky="w")
+        self.light_height = tk.DoubleVar(value=3.0)
+        self.height_lbl = ttk.Label(left, text="3.0")
+        self.height_lbl.grid(row=r, column=1, sticky="w", padx=(6, 0))
+        r += 1
+        # Metres ABOVE THE TERRAIN, not absolute. Path Studio is a 2D map and
+        # has no idea what the ground does under a click, so the height is an
+        # offset and nuTerra resolves the ground when it places the light.
+        # 0 puts it on the dirt; 3 is about a street lamp.
+        ttk.Scale(left, from_=0.0, to=30.0, variable=self.light_height,
+                  orient="horizontal", length=200,
+                  command=lambda *_: self.on_height_change()
+                  ).grid(row=r, column=0, sticky="we")
+        r += 1
+
+        ttk.Separator(left, orient="horizontal").grid(
+            row=r, column=0, columnspan=2, sticky="we", pady=(10, 8))
+        r += 1
+
         self.status = tk.StringVar(value="pick a map")
         ttk.Label(left, textvariable=self.status, wraplength=210,
                   justify="left").grid(row=r, column=0, columnspan=2, sticky="w")
+        r += 1
+
+        # The controls, written down. Every one of these is a mouse gesture or a
+        # bare key with nothing on screen to discover it from - the buttons
+        # above document themselves, this half does not.
+        ttk.Separator(left, orient="horizontal").grid(
+            row=r, column=0, columnspan=2, sticky="we", pady=(12, 6))
+        r += 1
+        ttk.Label(left, text="Notes", style="Head.TLabel").grid(
+            row=r, column=0, sticky="w")
+        r += 1
+        ttk.Label(left, justify="left", style="Note.TLabel", text=(
+            "Left drag      start + heading\n"
+            "Right click    add a target\n"
+            "Backspace      remove the last target,\n"
+            "               or the last LIGHT while\n"
+            "               Add Light is armed\n"
+            "\n"
+            "Shift + click  select a light or a point\n"
+            "Drag           move what is selected\n"
+            "Esc            drop it / stop placing\n"
+            "\n"
+            "Middle drag    pan\n"
+            "Wheel          zoom at the cursor")
+        ).grid(row=r, column=0, columnspan=2, sticky="w")
 
         self.canvas = tk.Canvas(root, width=CANVAS, height=CANVAS,
                                 bg="#11141c", highlightthickness=0)
@@ -426,6 +637,9 @@ class Studio:
         # Backspace would work until the moment you touched a control.
         root.bind("<BackSpace>", self.on_undo_target)
         root.bind("<Delete>", self.on_undo_target)
+        # Same reason as Backspace above: bound on the ROOT so it still fires
+        # after a slider has taken focus away from the canvas.
+        root.bind("<Escape>", self.on_escape)
 
         self.find_maps()
 
@@ -565,7 +779,21 @@ class Studio:
         self.zoom = 1.0
         self.cx = self.cy = 0.0
 
-        self.route, seed = existing_plan(name)
+        # Cleared on EVERY load, whether the new map has lights or not.
+        #
+        # Leaving them would be worse than losing them: the list would still
+        # hold the last map's lights, at the last map's world coordinates, and
+        # the next Save would write them onto this map's file. Selection goes
+        # with them - an index into a list that has been replaced.
+        self.lights = []
+        self.selection = None
+        self.moving = False
+        self.add_light = False
+
+        self.route, seed, self.lights = existing_plan(name)
+        # Just read from the file, so by definition they match it.
+        self.lights_dirty = False
+        self.refresh_light_ui()
         self.route_saved = self.route is not None
         self.targets = []
         # Whatever was generated belonged to the previous map.
@@ -687,6 +915,40 @@ class Studio:
                 d.ellipse([hv[0] - 4, hv[1] - 4, hv[0] + 4, hv[1] + 4],
                           fill=(255, 255, 255))
 
+        # Lights last, so they sit above the route and its waypoints - they
+        # are the thing being edited when they are on screen at all.
+        for i, lt in enumerate(self.lights):
+            lx, ly = self.to_view(lt["x"], lt["z"])
+            rgb = _hex_rgb(lt["color"])
+            lvl = max(0.0, min(1.0, float(lt["level"])))
+            # Level shown as SIZE as well as fill, because a dim light and a
+            # dark-coloured light look identical otherwise.
+            rad = 4.0 + 5.0 * lvl
+            body = tuple(int(c * (0.25 + 0.75 * lvl)) for c in rgb)
+            # The range as a ring in WORLD metres, so it scales with zoom
+            # and can be judged against the map rather than against the icon.
+            rm = float(lt.get("range", 12.0))
+            ex, ey = self.to_view(lt["x"] + rm, lt["z"])
+            rr = abs(ex - lx)
+            if rr > 1.5:
+                d.ellipse([lx - rr, ly - rr, lx + rr, ly + rr], outline=rgb)
+
+            d.ellipse([lx - rad, ly - rad, lx + rad, ly + rad],
+                      fill=body, outline=(255, 255, 255))
+            if self.selection == ("light", i):
+                d.ellipse([lx - rad - 4, ly - rad - 4, lx + rad + 4, ly + rad + 4],
+                          outline=(255, 255, 255))
+
+        # A selected path point gets the same ring, so "selected" looks like one
+        # thing whatever kind of thing it is.
+        if self.selection and self.selection[0] in ("target", "start"):
+            kind, i = self.selection
+            w = self.targets[i] if kind == "target" else self.start
+            if w is not None:
+                sx, sy = self.to_view(*w)
+                d.ellipse([sx - 11, sy - 11, sx + 11, sy + 11],
+                          outline=(255, 255, 255))
+
         self.photo = ImageTk.PhotoImage(im)
         self.canvas.delete("all")
         self.canvas.create_image(self.ox, self.oy, anchor="nw", image=self.photo)
@@ -784,9 +1046,195 @@ class Studio:
 
     # ---------------------------------------------------------------- input
 
+    # ---------------------------------------------------------------- lights
+
+    def toggle_add_light(self):
+        """Arm or disarm light placement."""
+        self.add_light = not self.add_light
+        # Placing and selecting are different intentions; being in one should
+        # not leave the other half-active.
+        if self.add_light:
+            self.selection = None
+        self.refresh_light_ui()
+        self.status.set("click to place a light - Esc to stop" if self.add_light
+                        else "%d light%s" % (len(self.lights),
+                                             "" if len(self.lights) == 1 else "s"))
+        self.repaint()
+
+    def refresh_light_ui(self):
+        self.light_btn.configure(
+            text="Placing... (Esc)" if self.add_light else "Add Light")
+        self.color_btn.configure(bg=self.light_color,
+                                 activebackground=self.light_color)
+
+    def selected_light(self):
+        """The selected light dict, or None when the selection is not a light."""
+        if self.selection and self.selection[0] == "light":
+            return self.lights[self.selection[1]]
+        return None
+
+    def pick_color(self):
+        from tkinter import colorchooser
+        rgb, hx = colorchooser.askcolor(color=self.light_color,
+                                        title="Light colour")
+        if not hx:
+            return
+        self.light_color = hx
+        # Editing the selected light if there is one, otherwise setting what the
+        # NEXT light will be. The control does double duty because a separate
+        # "apply to selection" button would be a click with no decision in it.
+        lt = self.selected_light()
+        if lt is not None:
+            lt["color"] = hx
+            self.lights_dirty = True
+            self.update_enabled()
+        self.refresh_light_ui()
+        self.repaint()
+
+    def on_level_change(self):
+        v = float(self.light_level.get())
+        self.level_lbl.configure(text="%.2f" % v)
+        lt = self.selected_light()
+        if lt is not None:
+            lt["level"] = v
+            self.lights_dirty = True
+            self.update_enabled()
+            self.repaint()
+
+    def on_range_change(self):
+        v = float(self.light_range.get())
+        self.range_lbl.configure(text="%.1f" % v)
+        lt = self.selected_light()
+        if lt is not None:
+            lt["range"] = v
+            self.lights_dirty = True
+            self.update_enabled()
+            self.repaint()
+
+    def on_height_change(self):
+        v = float(self.light_height.get())
+        self.height_lbl.configure(text="%.1f" % v)
+        lt = self.selected_light()
+        if lt is not None:
+            lt["height"] = v
+            self.lights_dirty = True
+            self.update_enabled()
+            # No repaint: height is not drawn. A 2D map cannot show it, and
+            # pretending otherwise with a size change would collide with the
+            # range ring, which IS a distance on this map.
+            self.status.set("height %.1f m" % v)
+
+    def to_canvas(self, wx, wz):
+        """World -> CANVAS pixels, which is what a mouse event is in."""
+        vx, vy = self.to_view(wx, wz)
+        return (vx + self.ox, vy + self.oy)
+
+    def pick_entity(self, e, radius=11.0):
+        """Nearest light or path point to the click, or None.
+
+        Lights are tested first and win ties: they sit on top visually, and a
+        light dropped on a waypoint would otherwise be unreachable.
+        """
+        best = None
+        best_d = radius
+        for i, lt in enumerate(self.lights):
+            cx, cy = self.to_canvas(lt["x"], lt["z"])
+            d = math.hypot(cx - e.x, cy - e.y)
+            if d <= best_d:
+                best, best_d = ("light", i), d
+        if best is not None:
+            return best
+        for i, (tx, tz) in enumerate(self.targets):
+            cx, cy = self.to_canvas(tx, tz)
+            d = math.hypot(cx - e.x, cy - e.y)
+            if d <= best_d:
+                best, best_d = ("target", i), d
+        if self.start is not None:
+            cx, cy = self.to_canvas(*self.start)
+            if math.hypot(cx - e.x, cy - e.y) <= best_d:
+                best = ("start", 0)
+        return best
+
+    def move_selection(self, e):
+        """Put the selected entity under the cursor."""
+        if not self.selection:
+            return
+        wx, wz = self.to_world(e.x, e.y)
+        kind, i = self.selection
+        if kind == "light":
+            self.lights[i]["x"], self.lights[i]["z"] = wx, wz
+            self.lights_dirty = True
+            self.update_enabled()
+        elif kind == "target":
+            self.targets[i] = (wx, wz)
+            # The generated route no longer matches the targets it was built
+            # from, so it must not stay on screen claiming otherwise.
+            self.route = None
+            self.update_enabled()
+        else:
+            self.start = (wx, wz)
+            self.route = None
+            self.update_enabled()
+
+    def on_escape(self, _e=None):
+        """Drop the selection and leave placement mode."""
+        self.add_light = False
+        self.selection = None
+        self.moving = False
+        self.refresh_light_ui()
+        self.repaint()
+
+    # ---------------------------------------------------------------- mouse
+
     def on_press(self, e):
         if self.bake is None or self.busy:
             return
+
+        # SHIFT selects, and never places. Held down, the click cannot set the
+        # start, cannot drop a light, and cannot clear the route - it only picks
+        # what is already there.
+        if e.state & 0x0001:
+            self.selection = self.pick_entity(e)
+            self.moving = self.selection is not None
+            if self.selection:
+                lt = self.selected_light()
+                if lt is not None:
+                    # Bring the controls to the light rather than the other way
+                    # round, so editing it does not first overwrite it.
+                    self.light_color = lt["color"]
+                    self.light_level.set(lt["level"])
+                    self.level_lbl.configure(text="%.2f" % lt["level"])
+                    # .get with a default: a light placed before the range
+                    # slider existed has no such key.
+                    rng = float(lt.get("range", 12.0))
+                    self.light_range.set(rng)
+                    self.range_lbl.configure(text="%.1f" % rng)
+                    hgt = float(lt.get("height", 3.0))
+                    self.light_height.set(hgt)
+                    self.height_lbl.configure(text="%.1f" % hgt)
+                    self.refresh_light_ui()
+                self.status.set("%s selected - drag to move, Esc to drop"
+                                % self.selection[0])
+            else:
+                self.status.set("nothing under the cursor")
+            self.repaint()
+            return
+
+        if self.add_light:
+            wx, wz = self.to_world(e.x, e.y)
+            self.lights.append({"x": wx, "z": wz,
+                                "color": self.light_color,
+                                "level": float(self.light_level.get()),
+                                "range": float(self.light_range.get()),
+                                "height": float(self.light_height.get())})
+            self.lights_dirty = True
+            self.update_enabled()
+            self.status.set("%d light%s - Esc to stop placing"
+                            % (len(self.lights),
+                               "" if len(self.lights) == 1 else "s"))
+            self.repaint()
+            return
+
         self.start = self.to_world(e.x, e.y)
         self.drag = (e.x, e.y)
         self.heading = None
@@ -799,13 +1247,29 @@ class Studio:
         self.repaint()
 
     def on_drag(self, e):
-        if self.start is None or self.busy:
+        if self.busy:
+            return
+        # Moving a selection takes precedence over the heading drag - they are
+        # both left-button drags and only one of them can own the gesture.
+        if self.moving:
+            self.move_selection(e)
+            self.repaint()
+            return
+        if self.start is None:
             return
         self.drag = (e.x, e.y)
         self.repaint()
 
     def on_release(self, e):
-        if self.start is None or self.busy:
+        if self.busy:
+            return
+        # A move ends here but the selection SURVIVES, so the colour and level
+        # controls still act on what was just placed.
+        if self.moving:
+            self.moving = False
+            self.repaint()
+            return
+        if self.start is None:
             return
         wx, wz = self.to_world(e.x, e.y)
         dx, dz = wx - self.start[0], wz - self.start[1]
@@ -836,14 +1300,36 @@ class Studio:
         the whole point of the split is that replacing a tuned route should be
         a decision rather than a side effect.
         """
-        src = getattr(self, "pending", None)
-        if not src or not os.path.exists(src):
-            self.status.set("nothing generated to save")
-            return
-
         dst_dir = cp.campath_dir()
         os.makedirs(dst_dir, exist_ok=True)
         dst = os.path.join(dst_dir, self.map_name + ".campath")
+
+        src = getattr(self, "pending", None)
+        fresh = bool(src and os.path.exists(src))
+
+        if not fresh:
+            # Lights only. The route on disk is not touched and not re-asked
+            # about: nothing is being replaced except the light block, which is
+            # what the user just edited.
+            #
+            # src and dst are the same file on purpose. copy_with_lights reads
+            # the whole thing before it opens the output, so reading and
+            # writing one path is safe - and rewriting only the light block is
+            # what keeps the route bit for bit identical.
+            if not os.path.exists(dst):
+                self.status.set("nothing generated to save")
+                return
+            try:
+                cp.copy_with_lights(dst, dst, self.light_rows())
+            except Exception as e:
+                self.status.set("could not save lights: %s" % e)
+                return
+            self.lights_dirty = False
+            self.update_enabled()
+            self.status.set("saved %d light%s to %s"
+                            % (len(self.lights),
+                               "" if len(self.lights) == 1 else "s", dst))
+            return
 
         if os.path.exists(dst):
             # Say what is about to be lost, not just that something is. "Are
@@ -864,14 +1350,31 @@ class Studio:
                 return
 
         try:
-            shutil.copyfile(src, dst)
+            # Not a plain copy any more: the generated file in scratch knows
+            # nothing about lights, which are placed after it was made.
+            cp.copy_with_lights(src, dst, self.light_rows())
         except Exception as e:
             self.status.set("could not save: %s" % e)
             return
 
         self.route_saved = True
         self.update_enabled()
-        self.status.set("saved to " + dst)
+        self.status.set("saved to %s (%d light%s)"
+                        % (dst, len(self.lights),
+                           "" if len(self.lights) == 1 else "s"))
+
+    def light_rows(self):
+        """The lights in the shape cam_path.pack_light takes.
+
+        One place, used by both save paths. The editor's key names and the
+        writer's argument names differ - "range" is a builtin and "height" is
+        an offset, not a coordinate - and translating that in two places is how
+        they drift.
+        """
+        return [{"x": lt["x"], "z": lt["z"], "color": lt["color"],
+                 "level": lt["level"], "rng": lt.get("range", 12.0),
+                 "y": lt.get("height", 3.0)}
+                for lt in self.lights]
 
     def update_enabled(self):
         """Grey out the ring controls when targets are driving the route.
@@ -883,9 +1386,16 @@ class Studio:
         """
         # Only when there is something generated and not yet published. A
         # route loaded from disk is already saved and Save has nothing to do.
-        can_save = (getattr(self, "pending", None) is not None
-                    and not getattr(self, "route_saved", False)
-                    and not self.busy)
+        # Two independent reasons to enable Save, because there are two
+        # things that can be unsaved. Without the second one, lights could be
+        # placed on a route loaded from disk and never written anywhere - the
+        # button stayed grey and the only way out was to regenerate the path.
+        fresh_route = (getattr(self, "pending", None) is not None
+                       and not getattr(self, "route_saved", False))
+        dirty_lights = (self.lights_dirty and self.map_name is not None
+                        and os.path.exists(os.path.join(
+                            cp.campath_dir(), self.map_name + ".campath")))
+        can_save = (fresh_route or dirty_lights) and not self.busy
         self.save_btn.state(["!disabled" if can_save else "disabled"])
 
         ring = not self.targets
@@ -899,8 +1409,36 @@ class Studio:
             "Turn, radius and waypoints are unused - your targets set the route.")
 
     def on_undo_target(self, _e=None):
-        """Backspace or Delete drops the most recently placed target."""
-        if self.busy or not self.targets:
+        """Backspace or Delete drops the most recently placed thing.
+
+        WHICH thing depends on the mode. While placing lights it is the last
+        light - the key that undoes a placement has to undo the placement you
+        are actually making, or it quietly eats a waypoint out of the route
+        while you are looking at the lights.
+        """
+        if self.busy:
+            return
+
+        if self.add_light:
+            if not self.lights:
+                self.status.set("no lights to remove")
+                return
+            self.lights.pop()
+            # A selected LIGHT may have been the one just removed, or may now
+            # index past the end of a shorter list. A selected target is not
+            # affected and is left alone.
+            if self.selection and self.selection[0] == "light":
+                self.selection = None
+                self.moving = False
+            self.lights_dirty = True
+            n = len(self.lights)
+            self.status.set("removed the last light - %d left" % n if n
+                            else "removed the last light - none left")
+            self.update_enabled()
+            self.repaint()
+            return
+
+        if not self.targets:
             return
         self.targets.pop()
         self.route = None

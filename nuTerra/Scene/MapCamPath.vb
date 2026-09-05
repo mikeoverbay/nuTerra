@@ -32,6 +32,7 @@ Public Class MapCamPath
     Private Const HEADER_SIZE As Integer = 128
     Private Const POINT_STRIDE As Integer = 32
     Private Const SEED_STRIDE As Integer = 12
+    Private Const LIGHT_STRIDE As Integer = 32
 
     Private Const SEED_START As UInteger = 0UI
 
@@ -59,6 +60,29 @@ Public Class MapCamPath
     End Structure
 
     Public seeds() As SeedPoint
+
+    ''' <summary>
+    ''' A light placed in Path Studio, read from the tail of the .campath.
+    '''
+    ''' Read and stored only - nothing renders these yet. They are here so the
+    ''' data survives the trip and can be looked at, rather than being invented
+    ''' again when the lighting work starts.
+    ''' </summary>
+    Public Structure CamLight
+        ''' <summary>World position. Y is metres ABOVE THE TERRAIN, not
+        ''' absolute - Path Studio places lights on a 2D map and writes 0, so
+        ''' the ground height has to be resolved here. This is the one field
+        ''' that does not follow the point record's convention.</summary>
+        Public pos As Vector3
+        ''' <summary>Colour 0..1, sRGB as authored in the picker - NOT linear.
+        ''' Linearise before lighting with it.</summary>
+        Public color As Vector3
+        Public level As Single
+        ''' <summary>Radius of influence in metres, 0.1 .. 50.</summary>
+        Public range_m As Single
+    End Structure
+
+    Public lights() As CamLight
     ''' <summary>Departure heading the route was planned with, radians.</summary>
     Public seed_heading As Single
     ''' <summary>When the file was written. Unix seconds UTC, 0 if unknown.</summary>
@@ -79,6 +103,13 @@ Public Class MapCamPath
 
     Private vao As GLVertexArray
     Private vbo As GLBuffer
+
+    ' One unit sphere, shared by every light. Built on first use and kept for
+    ' the life of the map - it does not depend on the path, so reloading a
+    ' route must not throw it away.
+    Private sphere_vao As GLVertexArray
+    Private sphere_vbo As GLBuffer
+    Private sphere_verts As Integer
     Private vertex_count As Integer
 
     ''' <summary>How much of the route is blanked around the eye while flying,
@@ -197,6 +228,12 @@ Public Class MapCamPath
             Dim seed_stride = CInt(BitConverter.ToUInt32(raw, 76))
             seed_heading = BitConverter.ToSingle(raw, 80)
 
+            ' Lights live in what version 2 originally reserved, so a file
+            ' written before they existed has zeros here and reads as none -
+            ' no version test, no special case.
+            Dim light_count = CInt(BitConverter.ToUInt32(raw, 96))
+            Dim light_stride = CInt(BitConverter.ToUInt32(raw, 100))
+
             If stride < POINT_STRIDE Then
                 LogThis("cam path: point stride {0} is smaller than {1}", stride, POINT_STRIDE)
                 Return
@@ -209,8 +246,14 @@ Public Class MapCamPath
                 LogThis("cam path: seed stride {0} is smaller than {1}", seed_stride, SEED_STRIDE)
                 Return
             End If
+            ' A count with no stride is a corrupt header, not an old file.
+            If light_count > 0 AndAlso light_stride < LIGHT_STRIDE Then
+                LogThis("cam path: light stride {0} is smaller than {1}", light_stride, LIGHT_STRIDE)
+                Return
+            End If
 
-            Dim want = head_size + count * stride + seed_count * seed_stride
+            Dim want = head_size + count * stride + seed_count * seed_stride _
+                       + light_count * light_stride
             If raw.Length <> want Then
                 LogThis("cam path: {0} is {1} bytes, the header says {2}", path, raw.Length, want)
                 Return
@@ -246,6 +289,23 @@ Public Class MapCamPath
                 seeds(i).is_start = BitConverter.ToUInt32(raw, o + 8) = SEED_START
             Next
 
+            ' Lights sit after the seeds. Optional in exactly the same way -
+            ' a file with none is not a lesser file, and the flight is
+            ' identical either way.
+            ReDim lights(Math.Max(0, light_count) - 1)
+            Dim light_base = head_size + count * stride + seed_count * seed_stride
+            For i = 0 To light_count - 1
+                Dim o = light_base + i * light_stride
+                lights(i).pos = New Vector3(BitConverter.ToSingle(raw, o),
+                                            BitConverter.ToSingle(raw, o + 4),
+                                            BitConverter.ToSingle(raw, o + 8))
+                lights(i).color = New Vector3(BitConverter.ToSingle(raw, o + 12),
+                                              BitConverter.ToSingle(raw, o + 16),
+                                              BitConverter.ToSingle(raw, o + 20))
+                lights(i).level = BitConverter.ToSingle(raw, o + 24)
+                lights(i).range_m = BitConverter.ToSingle(raw, o + 28)
+            Next
+
             loaded = True
             source_file = path
             build_geometry()
@@ -265,11 +325,17 @@ Public Class MapCamPath
                     If(closed, "closed loop", "open"),
                     lo.X, hi.X, lo.Y, hi.Y, lo.Z, hi.Z,
                     maxroll * 180.0F / CSng(Math.PI))
-            LogThis("cam path: {0} seed point(s), planned heading {1:0.0} deg, written {2}",
-                    seed_count, seed_heading * 180.0F / CSng(Math.PI),
+            LogThis("cam path: {0} seed point(s), {1} light(s), planned heading {2:0.0} deg, written {3}",
+                    seed_count, light_count, seed_heading * 180.0F / CSng(Math.PI),
                     If(created > 0,
                        DateTimeOffset.FromUnixTimeSeconds(created).LocalDateTime.ToString("yyyy-MM-dd HH:mm"),
                        "unknown"))
+            For i = 0 To light_count - 1
+                LogThis("cam path: light {0} at ({1:0.0}, {2:0.0}) rgb ({3:0.00}, {4:0.00}, {5:0.00}) level {6:0.00} range {7:0.0} m",
+                        i, lights(i).pos.X, lights(i).pos.Z,
+                        lights(i).color.X, lights(i).color.Y, lights(i).color.Z,
+                        lights(i).level, lights(i).range_m)
+            Next
 
         Catch ex As Exception
             LogThis("cam path: failed to read {0}: {1}", path, ex.Message)
@@ -368,6 +434,121 @@ Public Class MapCamPath
     ''' straight through the monastery and there is no way to tell whether it is
     ''' at the right height. Both together answer the question this exists for.
     ''' </summary>
+    ''' <summary>
+    ''' Build the unit sphere every light is drawn with.
+    '''
+    ''' A plain UV sphere, non-indexed. 16 x 24 is 768 triangles, which is
+    ''' nothing next to a map and saves an index buffer and its bookkeeping
+    ''' for a mesh that is uploaded once and never touched again.
+    ''' </summary>
+    Private Sub build_sphere()
+        If sphere_vao IsNot Nothing Then Return
+
+        Const RINGS As Integer = 16
+        Const SECTORS As Integer = 24
+        Dim v As New List(Of Single)(RINGS * SECTORS * 6 * 3)
+
+        For i = 0 To RINGS - 1
+            Dim p0 = CSng(Math.PI) * i / RINGS
+            Dim p1 = CSng(Math.PI) * (i + 1) / RINGS
+            For j = 0 To SECTORS - 1
+                Dim t0 = CSng(Math.PI * 2.0) * j / SECTORS
+                Dim t1 = CSng(Math.PI * 2.0) * (j + 1) / SECTORS
+
+                Dim a = sphere_point(p0, t0)
+                Dim b = sphere_point(p1, t0)
+                Dim c = sphere_point(p1, t1)
+                Dim d = sphere_point(p0, t1)
+
+                For Each p In {a, b, c, a, c, d}
+                    v.Add(p.X) : v.Add(p.Y) : v.Add(p.Z)
+                Next
+            Next
+        Next
+
+        Dim arr = v.ToArray()
+        sphere_verts = arr.Length \ 3
+
+        sphere_vbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "camLightSphere")
+        sphere_vbo.Storage(arr.Length * 4, arr, BufferStorageFlags.None)
+
+        sphere_vao = GLVertexArray.Create("camLightVao")
+        sphere_vao.VertexBuffer(0, sphere_vbo, IntPtr.Zero, 3 * 4)
+        sphere_vao.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
+        sphere_vao.AttribBinding(0, 0)
+        sphere_vao.EnableAttrib(0)
+    End Sub
+
+    Private Shared Function sphere_point(phi As Single, theta As Single) As Vector3
+        Dim sp = CSng(Math.Sin(phi))
+        Return New Vector3(sp * CSng(Math.Cos(theta)),
+                           CSng(Math.Cos(phi)),
+                           sp * CSng(Math.Sin(theta)))
+    End Function
+
+    ''' <summary>
+    ''' Draw each light as a translucent sphere the size of its range.
+    '''
+    ''' Nothing is LIT by these - they show what was authored in Path Studio,
+    ''' at the size it was authored at, which is the only way to judge whether
+    ''' a range is sensible before there is any lighting to look at.
+    ''' </summary>
+    Public Sub DrawLights()
+        If Not loaded OrElse lights Is Nothing OrElse lights.Length = 0 Then Return
+
+        build_sphere()
+        If sphere_vao Is Nothing Then Return
+
+        GL_PUSH_GROUP("MapCamPath::DrawLights")
+
+        camlightShader.Use()
+        sphere_vao.Bind()
+
+        Dim eye = If(map_scene IsNot Nothing, map_scene.camera.CAM_POSITION, Vector3.Zero)
+        GL.Uniform3(camlightShader("eye"), eye.X, eye.Y, eye.Z)
+
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
+
+        ' Depth TEST on, depth WRITE off. The test is what lets terrain in front
+        ' of a light hide it, which is most of the height cue; the write is what
+        ' would make the nearest sphere punch a hole in every one behind it, and
+        ' in the scene drawn after this.
+        GL.DepthMask(False)
+
+        ' Culling off. A 50 m range is bigger than the camera's distance to it
+        ' more often than not, and with back faces culled a light you are INSIDE
+        ' vanishes completely - the one moment its size is most worth seeing.
+        GL.Disable(EnableCap.CullFace)
+
+        For i = 0 To lights.Length - 1
+            ' y in the file is metres ABOVE THE TERRAIN - Path Studio places on
+            ' a 2D map and writes 0 - so the ground is resolved here. Without
+            ' this every light sits at world zero, which on most maps is under
+            ' the landscape and invisible.
+            Dim gx = lights(i).pos.X
+            Dim gz = lights(i).pos.Z
+            Dim gy = get_Y_at_XZ_fast(gx, gz) + lights(i).pos.Y
+
+            GL.Uniform3(camlightShader("centre"), gx, gy, gz)
+            GL.Uniform1(camlightShader("radius"), Math.Max(0.1F, lights(i).range_m))
+            GL.Uniform3(camlightShader("light_color"),
+                        lights(i).color.X, lights(i).color.Y, lights(i).color.Z)
+            ' Level drives opacity. A light turned down should look turned down,
+            ' not merely be labelled that way.
+            GL.Uniform1(camlightShader("alpha"),
+                        0.10F + 0.35F * Math.Max(0.0F, Math.Min(1.0F, lights(i).level)))
+            GL.DrawArrays(PrimitiveType.Triangles, 0, sphere_verts)
+        Next
+
+        GL.Enable(EnableCap.CullFace)
+        GL.DepthMask(True)
+        GL.Disable(EnableCap.Blend)
+        camlightShader.StopUse()
+
+        GL_POP_GROUP()
+    End Sub
+
     Public Sub DrawPath()
         If Not loaded OrElse vao Is Nothing Then Return
 
@@ -478,6 +659,8 @@ Public Class MapCamPath
     End Function
 
     Private Sub Dispose_gl()
+        sphere_vao?.Dispose()
+        sphere_vbo?.Dispose()
         vao?.Dispose()
         vbo?.Dispose()
         vao = Nothing

@@ -49,7 +49,13 @@ Header - 128 bytes, little endian
                               stored without translation - mapping it to
                               0/1 lost the distinction, because -1 is
                               truthy and both sides came out the same.
-   96  char[32] reserved      zeroed
+   96  uint32   light_count   number of light records, may be 0
+  100  uint32   light_stride  bytes per light record, 32
+  104  char[24] reserved      zeroed
+
+The light fields come out of what version 2 already reserved, so the header is
+still 128 bytes and this is still NCP2. Every file written before lights existed
+has zeros there and reads back as "no lights" without a special case.
 
 Read `header_size` and `stride` and skip by them rather than assuming. A later
 version can grow either end without breaking a reader that respects them.
@@ -83,6 +89,24 @@ them plus the terrain, and cannot be reversed back into them, which is why they
 are stored rather than derived. With the seed in the file a route can be
 reproduced, adjusted and regenerated later; without it, the only record of the
 intent was in the operator's head.
+
+--------------------------------------------------------------------------
+Light record - 32 bytes, 8 x float32, at header_size + count * stride
+                                        + seed_count * seed_stride
+--------------------------------------------------------------------------
+    0  x, y, z   world metres. y is metres ABOVE THE TERRAIN, not absolute -
+                 Path Studio places lights on a 2D map and has no height
+                 control, so it writes 0 and nuTerra resolves the ground.
+                 This is the one field here that does NOT match the point
+                 record's convention, and it is deliberate.
+   12  r, g, b   colour, 0..1, sRGB as authored in the picker. Not linear -
+                 linearise on load, the same as any other authored colour.
+   24  level     brightness, 0..1
+   28  range     radius of influence in metres, 0.1 .. 50
+
+Lights sit at the TAIL, after the seeds, so a reader that only wants the flight
+path can stop at seed_count and never know they are there. Their block is found
+by arithmetic from the header, never by seeking from the end.
 
 --------------------------------------------------------------------------
 Angle conventions, spelled out because they are where this will go wrong
@@ -150,8 +174,11 @@ VERSION = 2
 HEADER_SIZE = 128
 STRIDE = 32
 SEED_STRIDE = 12
+LIGHT_STRIDE = 32
 
-HEAD_FMT = "<4sHHIIf40sIqIIffIi32s"
+# The trailing 24s is what is LEFT of version 2's 32 reserved bytes after the
+# two light fields were taken from the front of it. Total is still 128.
+HEAD_FMT = "<4sHHIIf40sIqIIffIiII24s"
 
 FLAG_CLOSED = 1
 
@@ -176,13 +203,33 @@ def pack_seed(start=None, heading=0.0, radius=0.0, waypoints=0, side=0,
     }
 
 
+def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0):
+    """One light, in the tuple order the record is written in.
+
+    `color` may be "#rrggbb" or an (r, g, b) triple of 0..1 floats. Path Studio
+    holds the hex form because that is what a colour picker speaks.
+    """
+    if isinstance(color, str):
+        h = color.lstrip("#")
+        if len(h) == 3:
+            h = "".join(c * 2 for c in h)
+        rgb = tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+    else:
+        rgb = tuple(float(c) for c in color)
+    return (float(x), float(y), float(z),
+            rgb[0], rgb[1], rgb[2],
+            float(level), float(rng))
+
+
 def write_path(path, points, map_name, closed=True, total_len=None,
-               seed=None, created=None):
+               seed=None, created=None, lights=()):
     """Write a .campath.
 
     points: sequence of (x, y, z, heading, tilt, roll, s, speed).
     seed:   the dict pack_seed returns, or None when there is nothing to record
             - a command line export has no clicks behind it.
+    lights: sequence of 8-tuples from pack_light, or empty. Written after the
+            seeds, and counted in the header so a reader knows without probing.
     """
     n = len(points)
     if n == 0:
@@ -208,6 +255,7 @@ def write_path(path, points, map_name, closed=True, total_len=None,
         when, len(rows), SEED_STRIDE,
         float(seed.get("heading", 0.0)), float(seed.get("radius", 0.0)),
         int(seed.get("waypoints", 0)), int(seed.get("side", 0)),
+        len(lights), LIGHT_STRIDE if lights else 0,
         b"")
     assert len(head) == HEADER_SIZE, len(head)
 
@@ -219,8 +267,13 @@ def write_path(path, points, map_name, closed=True, total_len=None,
             f.write(struct.pack("<8f", *[float(v) for v in p]))
         for (x, z, kind) in rows:
             f.write(struct.pack("<ffI", float(x), float(z), int(kind)))
+        for lt in lights:
+            if len(lt) != 8:
+                raise ValueError(f"light needs 8 fields, got {len(lt)}")
+            f.write(struct.pack("<8f", *[float(v) for v in lt]))
 
-    return HEADER_SIZE + n * STRIDE + len(rows) * SEED_STRIDE
+    return (HEADER_SIZE + n * STRIDE + len(rows) * SEED_STRIDE
+            + len(lights) * LIGHT_STRIDE)
 
 
 def read_path(path):
@@ -243,14 +296,23 @@ def read_path(path):
 
     (_magic, version, flags, count, stride, total_len, name, header_size,
      created, seed_count, seed_stride, seed_heading, seed_radius,
-     seed_points, seed_side, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
+     seed_points, seed_side, light_count, light_stride,
+     _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
+
+    # A file written before lights existed has zeros in both, which reads as no
+    # lights without a version test. A count with no stride is a corrupt header,
+    # not an old file, so say so rather than reading garbage.
+    if light_count and light_stride < LIGHT_STRIDE:
+        raise ValueError(f"light_count {light_count} with light_stride "
+                         f"{light_stride}, expected at least {LIGHT_STRIDE}")
 
     if stride < STRIDE:
         raise ValueError(f"stride {stride} is smaller than version 2's {STRIDE}")
     if header_size < HEADER_SIZE:
         raise ValueError(f"header_size {header_size} is smaller than {HEADER_SIZE}")
 
-    want = header_size + count * stride + seed_count * seed_stride
+    want = (header_size + count * stride + seed_count * seed_stride
+            + light_count * light_stride)
     if len(raw) != want:
         raise ValueError(f"file is {len(raw)} bytes, header implies {want}")
 
@@ -269,6 +331,15 @@ def read_path(path):
             start = (x, z)
         else:
             targets.append((x, z))
+
+    lbase = header_size + count * stride + seed_count * seed_stride
+    lights = []
+    for i in range(light_count):
+        off = lbase + i * light_stride
+        x, y, z, r, g, b, level, rng = struct.unpack(
+            "<8f", raw[off:off + LIGHT_STRIDE])
+        lights.append({"x": x, "y": y, "z": z, "r": r, "g": g, "b": b,
+                       "level": level, "range": rng})
 
     meta = {
         "version": version,
@@ -290,8 +361,47 @@ def read_path(path):
             "side": seed_side,
             "targets": targets,
         },
+        # In meta rather than a third return value, so every existing caller of
+        # read_path keeps working unchanged.
+        "lights": lights,
     }
     return meta, pts
+
+
+def copy_with_lights(src, dst, lights=()):
+    """Copy a generated .campath to its destination, with lights attached.
+
+    Surgical on purpose. Reading the file and writing it out again through
+    write_path would round-trip every header field through Python floats and
+    risk losing one; this replaces only the light block and patches the two
+    header words that describe it. Everything else is copied byte for byte.
+    """
+    with open(src, "rb") as f:
+        raw = f.read()
+    if len(raw) < HEADER_SIZE or raw[:4] != MAGIC:
+        raise ValueError("source is not a version 2 .campath")
+
+    (_m, _v, _fl, count, stride, _tl, _nm, header_size, _cr,
+     seed_count, seed_stride, _sh, _sr, _sp, _sd,
+     _lc, _ls, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
+
+    # Truncate at the end of the seeds - anything past that is a light block
+    # from a previous save and must not be appended to.
+    body_end = header_size + count * stride + seed_count * seed_stride
+    if body_end > len(raw):
+        raise ValueError("source header describes more data than the file holds")
+
+    rows = [pack_light(**lt) if isinstance(lt, dict) else lt for lt in lights]
+    head = bytearray(raw[:HEADER_SIZE])
+    struct.pack_into("<II", head, 96, len(rows), LIGHT_STRIDE if rows else 0)
+
+    with open(dst, "wb") as f:
+        f.write(bytes(head))
+        f.write(raw[HEADER_SIZE:body_end])
+        for lt in rows:
+            f.write(struct.pack("<8f", *[float(v) for v in lt]))
+
+    return body_end + len(rows) * LIGHT_STRIDE
 
 
 def verify(path, points, seed=None, tol=1e-3):

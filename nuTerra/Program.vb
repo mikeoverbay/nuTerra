@@ -91,11 +91,16 @@ Module Program
                 RECORD_DIR = a.Substring(4)
                 record_dir_from_cli = True
             ElseIf a.StartsWith("still=", StringComparison.OrdinalIgnoreCase) Then
-                ' Record N frames from wherever the camera starts, no flight.
-                ' Pair it with cam= to test the same view twice.
+                ' Take ONE still from wherever the camera starts, no flight.
+                ' Pair it with cam= to shoot the same view twice.
+                '
+                ' The count is parsed and then ignored - still capture is a
+                ' single frame now, not a burst. The argument keeps its shape so
+                ' an existing script still runs instead of failing to parse, and
+                ' any positive number means the same thing: take one.
                 Dim sn As Integer
                 If Integer.TryParse(a.Substring(6), sn) AndAlso sn > 0 Then
-                    RECORD_STILL = sn
+                    RECORD_STILL = 1
                 End If
             ElseIf a.StartsWith("settle=", StringComparison.OrdinalIgnoreCase) Then
                 ' Parsed independently of snap/snapquit and applied after the
@@ -137,6 +142,35 @@ Module Program
             RECORD_DIR = My.Settings.record_dir
         End If
 
+        ' The rest of the Flight Recorder panel. Restored AFTER the command line
+        ' has been parsed would undo an explicit switch, so anything settable
+        ' from the command line has to guard itself the way record_dir does -
+        ' none of these are, today.
+        '
+        ' capture_fps is validated rather than trusted: the combo can only
+        ' offer 15, 30 and 60, but a hand-edited user.config can hold anything,
+        ' and a rate the UI cannot represent would show an empty combo and
+        ' encode at a speed nothing asked for.
+        If My.Settings.capture_fps = 15 OrElse My.Settings.capture_fps = 30 OrElse
+           My.Settings.capture_fps = 60 Then
+            CAPTURE_FPS = My.Settings.capture_fps
+        End If
+        WAIT_VT = My.Settings.wait_vt
+        RECORD_HIDE_HUD = My.Settings.record_hud
+        FLY_FIXED_STEP = My.Settings.fixed_step
+        RECORD_STOP_AT_END = My.Settings.stop_at_end
+        RECORD_KEEP_PNGS = My.Settings.keep_pngs
+
+        ' Validated against the offered list, not trusted. A hand-edited config
+        ' could otherwise ask for a size the combo cannot show, and the capture
+        ' would run at a resolution nothing in the UI admits to - the combo
+        ' would fall back to displaying "Window" while the capture used
+        ' something else entirely.
+        If Window.is_offered_capture_size(My.Settings.capture_w, My.Settings.capture_h) Then
+            CAPTURE_W = My.Settings.capture_w
+            CAPTURE_H = My.Settings.capture_h
+        End If
+
         main_window = New Window
         main_window.Run()
 
@@ -147,6 +181,14 @@ Module Program
         End If
 
         If Not record_dir_from_cli Then My.Settings.record_dir = RECORD_DIR
+        My.Settings.capture_fps = CAPTURE_FPS
+        My.Settings.wait_vt = WAIT_VT
+        My.Settings.record_hud = RECORD_HIDE_HUD
+        My.Settings.fixed_step = FLY_FIXED_STEP
+        My.Settings.stop_at_end = RECORD_STOP_AT_END
+        My.Settings.keep_pngs = RECORD_KEEP_PNGS
+        My.Settings.capture_w = CAPTURE_W
+        My.Settings.capture_h = CAPTURE_H
         My.Settings.use_tessellation = USE_TESSELLATION
         CommonProperties.SaveToSettings()
         My.Settings.Save()

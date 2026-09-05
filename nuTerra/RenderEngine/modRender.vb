@@ -420,6 +420,7 @@ Module modRender
             ' toward the fog tint would make a distant leg of the route look
             ' like it faded out rather than like it is far away.
             If SHOW_CAM_PATH Then map_scene.cam_path.DrawPath()
+            If SHOW_CAM_LIGHTS Then map_scene.cam_path.DrawLights()
 
             GL.Disable(EnableCap.DepthTest)
             GL.DepthMask(True)

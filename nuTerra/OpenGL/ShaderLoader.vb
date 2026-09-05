@@ -196,6 +196,7 @@ Module ShaderLoader
     Public cullRasterShader As Shader
     Public cullInvalidateShader As Shader
     Public campathShader As Shader
+    Public camlightShader As Shader
     Public colorCorrectShader As Shader
     Public coloredline2dShader As Shader
     Public colorMaskShader As Shader
@@ -289,6 +290,7 @@ Module ShaderLoader
         cullRasterShader = New Shader("cull-raster")
         cullInvalidateShader = New Shader("cull-invalidate")
         campathShader = New Shader("campath")
+        camlightShader = New Shader("camlight")
         colorCorrectShader = New Shader("colorCorrect")
         coloredline2dShader = New Shader("coloredLine2d")
         colorMaskShader = New Shader("ColorMask")

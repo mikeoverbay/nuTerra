@@ -134,5 +134,29 @@
     <Setting Name="record_dir" Type="System.String" Scope="User">
       <Value Profile="(Default)">C:\nuTerra_ScreenCaps</Value>
     </Setting>
+    <Setting Name="capture_fps" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">30</Value>
+    </Setting>
+    <Setting Name="wait_vt" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="record_hud" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="fixed_step" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="stop_at_end" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="keep_pngs" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="capture_w" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1920</Value>
+    </Setting>
+    <Setting Name="capture_h" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1080</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

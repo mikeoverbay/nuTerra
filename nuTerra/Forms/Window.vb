@@ -21,9 +21,19 @@ Public Class Window
     Private NEED_TO_INVALIDATE_VIEWPORT As Boolean = True
     Private NEED_TO_DO_SCREEN_CAPTURE As Boolean = False
     Private NEED_TO_PICK_RECORD_DIR As Boolean = False
+    Private NEED_TO_CONFIRM_CAPTURE As Boolean = False
     Public SHADER_CHANGED As Boolean = False
     Private SCREEN_CAPTURE_FILENAME As String = Nothing
     Private fps_timer As New Stopwatch
+
+    ''' <summary>
+    ''' Wall clock time spent on the capture in progress, paused along with it.
+    '''
+    ''' Reset when a capture starts and left standing when one ends, so the
+    ''' finished figure is still readable afterwards and is cleared by the next
+    ''' run rather than by the end of this one.
+    ''' </summary>
+    Private record_clock As New Stopwatch
 
     Private _controller As ImGuiController
 
@@ -31,14 +41,56 @@ Public Class Window
     Private SHOW_TEXTURES_VIEWER_WINDOW As Boolean
     Private SHOW_FLIGHT_RENDER_WINDOW As Boolean
 
-    ' Capture rates offered in Flight Render. Three, not a slider: the number
+    ' Capture rates offered in Flight Recorder. Three, not a slider: the number
     ' decides how many frames a route costs and how long the encode takes, and
     ' the useful answers are 15 for a rough pass, 30 for a finished video and 60
     ' for something that will be slowed down. Shared arrays so the combo is not
     ' rebuilding them every frame.
     Private Shared ReadOnly FPS_VALUES() As Integer = {15, 30, 60}
     Private Shared ReadOnly FPS_LABELS() As String = {"15", "30", "60"}
+
+    ' Capture sizes. 16:9 throughout, every height EVEN, each a clean fraction
+    ' of 1920x1080 - H.264 refuses odd dimensions, and the 1920x1009 that
+    ' started all of this came from a window someone had dragged to a size.
+    ' A fixed list is how that stops happening by accident.
+    '
+    ' Index 0 leaves the window exactly as it is.
+    Private Shared ReadOnly CAP_SIZES_W() As Integer = {0, 640, 960, 1280, 1600, 1920}
+    Private Shared ReadOnly CAP_SIZES_H() As Integer = {0, 360, 540, 720, 900, 1080}
+    Private Shared ReadOnly CAP_SIZE_LABELS() As String =
+        {"Window", "640 x 360", "960 x 540", "1280 x 720", "1600 x 900", "1920 x 1080"}
+
+    ' Window geometry held across a capture. See CAPTURE_W - none of this is
+    ' persisted, so even a crash mid-capture cannot strand the window.
+    Private saved_win_size As Vector2i
+    Private saved_win_pos As Vector2i
+    Private saved_win_border As WindowBorder
+    Private win_resized_for_capture As Boolean = False
+    Private prev_RECORD_FLIGHT As Boolean = False
     Private prev_SHOW_SETTINGS_WINDOW As Boolean = False
+
+    ''' <summary>
+    ''' Put Flight Recorder back where it belongs on the next frame.
+    '''
+    ''' Set by the menu button, cleared by the panel that consumes it. A saved
+    ''' layout can leave the panel off the side of the screen, or shrunk small
+    ''' enough to hide the controls at the bottom of it - and in both cases
+    ''' pressing the button that opens it is how someone asks for it back.
+    ''' </summary>
+    Private RESET_FLIGHT_RENDER_LAYOUT As Boolean = False
+
+    ''' <summary>
+    ''' What the output folder currently holds, sampled at most once a second.
+    '''
+    ''' Both of these come off the disk, and the panel that shows them is
+    ''' rebuilt every frame. Reading capture.txt and listing a directory sixty
+    ''' times a second to print one number and one file name is a cost that
+    ''' never announces itself - it just sits in the frame time forever.
+    ''' </summary>
+    Private folder_facts_dir As String = Nothing
+    Private folder_facts_at As DateTime = DateTime.MinValue
+    Private folder_fps As Integer = 0
+    Private folder_newest_mp4 As String = Nothing
 
     ' Position and size of the menu bar window, recorded each frame so the
     ' panels below can be parked underneath it. Named for the bar, not for what
@@ -107,7 +159,7 @@ Public Class Window
         ' leave the desktop resolution changed if the process is killed - and a
         ' capture run is exactly the thing likely to be killed part way.
         If FULLSCREEN_WINDOW Then
-            Dim b = Windows.Forms.Screen.PrimaryScreen.Bounds
+            Dim b = System.Windows.Forms.Screen.PrimaryScreen.Bounds
             SCR_WIDTH = b.Width
             SCR_HEIGHT = b.Height
         End If
@@ -480,7 +532,10 @@ try_again:
 
         If SCREEN_CAPTURE_FILENAME IsNot Nothing Then
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
-            GL.PixelStore(PixelStoreParameter.PackAlignment, 1)
+            ' See save_record_frame: GDI+ pads 24bpp rows to 4 bytes and only
+            ' alignment 4 matches it. A still keeps its odd dimensions though -
+            ' nothing encodes it, and a screenshot should be what was on screen.
+            GL.PixelStore(PixelStoreParameter.PackAlignment, 4)
 
             Using bmp As New Bitmap(MainFBO.width, MainFBO.height, Imaging.PixelFormat.Format24bppRgb)
                 Dim bitmapData = bmp.LockBits(New Rectangle(0, 0, bmp.Width, bmp.Height),
@@ -510,6 +565,21 @@ try_again:
         ' the command line begins on the LOADING SCREEN - 180 frames of a
         ' progress bar over the earth, which measures as a moving, sharpening
         ' image and looks like working FX until you view one.
+        ' Drive the capture clock from here, rather than from each of the
+        ' places that start, pause, resume or stop a capture - there are five
+        ' of those, and a clock that misses one reads wrong for the rest of the
+        ' run. Start and Stop are both no-ops on a Stopwatch already in that
+        ' state, so asking every frame costs less than remembering.
+        If RECORD_FLIGHT AndAlso Not RECORD_PAUSED Then
+            record_clock.Start()
+        Else
+            record_clock.Stop()
+        End If
+
+        ' Hand the window back the instant a capture stops, however it stopped.
+        If prev_RECORD_FLIGHT AndAlso Not RECORD_FLIGHT Then restore_window_size()
+        prev_RECORD_FLIGHT = RECORD_FLIGHT
+
         If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso
            (RECORD_STILL > 0 OrElse (RECORD_FLIGHT AndAlso map_scene.camera.FLYING)) Then
             save_record_frame()
@@ -1243,8 +1313,11 @@ try_again:
                 NEED_TO_DO_SCREEN_CAPTURE = True
             End If
             ImGui.SameLine()
-            If ImGui.Button("Flight Render") Then
+            If ImGui.Button("Flight Recorder") Then
                 SHOW_FLIGHT_RENDER_WINDOW = True
+                ' Every press, not just the first. The panel is consulted while
+                ' a capture is set up and it should always be findable.
+                RESET_FLIGHT_RENDER_LAYOUT = True
             End If
             ImGui.SameLine()
             If ImGui.Button("Path Studio") Then
@@ -1312,7 +1385,7 @@ try_again:
                     ImGui.TextDisabled(If(VSync = VSyncMode.Off, "uncapped", "capped to refresh"))
 
                     ' The capture controls used to sit here. They are their own
-                    ' window now - Flight Render, on the menu bar beside Screen
+                    ' window now - Flight Recorder, on the menu bar beside Screen
                     ' Capture - because rendering a flight is a job of its own,
                     ' not a display preference.
                 End If
@@ -1361,6 +1434,20 @@ try_again:
                         If MAP_LOADED AndAlso map_scene IsNot Nothing Then
                             map_scene.cam_path.Load(MAP_NAME_NO_PATH)
                         End If
+                    End If
+
+                    ' Same file, same reload rule, so it lives here rather than
+                    ' under Overlays - that group is for the renderer's own
+                    ' structures, and these are authored content.
+                    If ImGui.Checkbox("Show Lights", SHOW_CAM_LIGHTS) AndAlso
+                       SHOW_CAM_LIGHTS AndAlso Not FLY_CAM_PATH Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing Then
+                            map_scene.cam_path.Load(MAP_NAME_NO_PATH)
+                        End If
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("The lights placed in Path Studio, drawn at their range." & vbLf &
+                                         "Nothing is lit by them yet - this is what was authored.")
                     End If
                 End If
                 If ImGui.CollapsingHeader("Section Visibility") Then
@@ -1914,9 +2001,77 @@ try_again:
         End If
 
         If SHOW_FLIGHT_RENDER_WINDOW Then
-            ImGui.SetNextWindowPos(New System.Numerics.Vector2(260, 90), ImGuiCond.FirstUseEver)
-            ImGui.SetNextWindowSize(New System.Numerics.Vector2(340, 300), ImGuiCond.FirstUseEver)
-            If ImGui.Begin("Flight Render", SHOW_FLIGHT_RENDER_WINDOW) Then
+            ' Tall enough for everything in it. At 300 the panel grew past its
+            ' own height as controls were added and Build MP4 sat below its
+            ' bottom edge - present, reachable only by scrolling, and so
+            ' effectively missing.
+            Dim want_size = New System.Numerics.Vector2(380, 500)
+
+            If RESET_FLIGHT_RENDER_LAYOUT Then
+                RESET_FLIGHT_RENDER_LAYOUT = False
+
+                ' Top left, under the menu bar rather than beneath it - the same
+                ' placement Settings uses when it opens. menubar_* are read a
+                ' few lines above this in the same frame, so they are current;
+                ' the fallback is only for the frame before the bar has drawn
+                ' once.
+                Dim pos = If(menubar_size.LengthSquared > 0,
+                             menubar_pos + New System.Numerics.Vector2(0, menubar_size.Y + 5.0F),
+                             New System.Numerics.Vector2(0, 47))
+
+                ' No condition argument on either call, so both apply NOW and
+                ' override whatever imgui.ini remembered.
+                '
+                ' The size is reset along with the position deliberately. A
+                ' panel left shrunk hides the buttons at the bottom of it, which
+                ' is indistinguishable from their not existing - that is exactly
+                ' how Build MP4 came to be reported missing when it was three
+                ' rows below the visible edge.
+                ImGui.SetNextWindowPos(pos)
+                ImGui.SetNextWindowSize(want_size)
+            Else
+                ImGui.SetNextWindowPos(New System.Numerics.Vector2(260, 90), ImGuiCond.FirstUseEver)
+                ImGui.SetNextWindowSize(want_size, ImGuiCond.FirstUseEver)
+            End If
+
+            ' Progress goes in the title bar so it stays readable with the panel
+            ' collapsed, and from further away than the body text.
+            '
+            ' Everything after ### is the window's ID and is not drawn. Without
+            ' it, a caption that changes every frame would be an ID that changes
+            ' every frame, and ImGui would treat each tick as a brand new window
+            ' - losing its position, size and collapsed state continuously.
+            Dim title = "Flight Recorder###FlightRender"
+            If ENCODE_RUNNING Then
+                title = String.Format("Flight Recorder  encoding {0}/{1}###FlightRender",
+                                      ENCODE_DONE, ENCODE_TOTAL)
+            Else
+            ' RECORD_FRAME_INDEX survives the end of a capture and is zeroed by
+            ' the start of the next, so the finished tally stays up to be read
+            ' and is cleared when a new run begins rather than the instant this
+            ' one stops.
+                If RECORD_FLIGHT OrElse RECORD_FRAME_INDEX > 0 Then
+                ' Only a flight has a known end. A still run counts down against
+                ' its own total, and quoting the lap length at it would be a
+                ' denominator the capture is not working towards.
+                Dim total = If(RECORD_FLIGHT, lap_frames(), 0)
+                Dim el = record_clock.Elapsed
+                ' Hours only once there are any. Yesterday's lap took 85 minutes,
+                ' so they do happen, but a leading 0: on every short capture is
+                ' noise in a title bar.
+                Dim clock = If(el.TotalHours >= 1.0,
+                               String.Format("{0}:{1:00}:{2:00}",
+                                             CInt(Math.Floor(el.TotalHours)), el.Minutes, el.Seconds),
+                               String.Format("{0}:{1:00}", el.Minutes, el.Seconds))
+                title = String.Format("Flight Recorder  {0}{1}  {2}{3}###FlightRender",
+                                      RECORD_FRAME_INDEX,
+                                      If(total > 0, "/" & total.ToString(), ""),
+                                      clock,
+                                      If(RECORD_PAUSED, "  PAUSED", ""))
+                End If
+            End If
+
+            If ImGui.Begin(title, SHOW_FLIGHT_RENDER_WINDOW) Then
 
                 ' Frames per second the capture represents. It is NOT a speed
                 ' limit - the app renders as fast as it can and each frame
@@ -1931,20 +2086,38 @@ try_again:
                 If fps_idx < 0 Then fps_idx = Array.IndexOf(FPS_VALUES, 30)
                 If ImGui.Combo("fps", fps_idx, FPS_LABELS, FPS_LABELS.Length) Then
                     CAPTURE_FPS = FPS_VALUES(fps_idx)
+                    save_render_settings()
+                End If
+
+                ' Matched on WIDTH rather than on a stored index, so the list
+                ' can gain or lose an entry without a settings file silently
+                ' meaning a different size than it did before.
+                Dim cap_idx = Array.IndexOf(CAP_SIZES_W, CAPTURE_W)
+                If cap_idx < 0 Then cap_idx = 0
+                If ImGui.Combo("size", cap_idx, CAP_SIZE_LABELS, CAP_SIZE_LABELS.Length) Then
+                    CAPTURE_W = CAP_SIZES_W(cap_idx)
+                    CAPTURE_H = CAP_SIZES_H(cap_idx)
+                    save_render_settings()
+                End If
+                If ImGui.IsItemHovered() Then
+                    ImGui.SetTooltip("The window is resized to this while capturing and put back" & vbLf &
+                                     "afterwards - size, position and border. 1920 x 1080 drops the" & vbLf &
+                                     "border, because a 1080 client will not fit under a title bar" & vbLf &
+                                     "on a 1080 screen.")
                 End If
 
                 ' The gate. Each frame waits for the terrain to finish streaming
                 ' and the flight is frozen while it waits, so the pages have a
                 ' still view to catch up with.
-                ImGui.Checkbox("Wait VT", WAIT_VT)
+                If ImGui.Checkbox("Wait VT", WAIT_VT) Then save_render_settings()
                 If ImGui.IsItemHovered() Then
                     ImGui.SetTooltip("On: sharp terrain in every frame, about half the throughput." & vbLf &
                                      "Off: shoots immediately, terrain resolves during the video.")
                 End If
 
-                ImGui.Checkbox("Fixed step flight", FLY_FIXED_STEP)
-                ImGui.Checkbox("Stop flying at the end", RECORD_STOP_AT_END)
-                ImGui.Checkbox("Hide HUD while capturing", RECORD_HIDE_HUD)
+                If ImGui.Checkbox("Fixed step flight", FLY_FIXED_STEP) Then save_render_settings()
+                If ImGui.Checkbox("Stop flying at the end", RECORD_STOP_AT_END) Then save_render_settings()
+                If ImGui.Checkbox("Hide HUD while capturing", RECORD_HIDE_HUD) Then save_render_settings()
                 If ImGui.IsItemHovered() Then
                     ImGui.SetTooltip("The minimap and the shadow viewer are drawn into the scene," & vbLf &
                                      "so unlike the ImGui panels they would end up in the video.")
@@ -1983,6 +2156,110 @@ try_again:
                 End If
                 ImGui.TextWrapped(RECORD_DIR)
 
+                ' Sits with the folder controls rather than the other
+                ' checkboxes: it is a statement about that folder, not about
+                ' how the flight is shot.
+                If ImGui.Checkbox("Keep PNGs", RECORD_KEEP_PNGS) Then save_render_settings()
+                If ImGui.IsItemHovered() Then
+                    ImGui.SetTooltip("Off: the frames are deleted once the mp4 has been built." & vbLf &
+                                     "On: they are kept, for a second render or a look at a frame." & vbLf &
+                                     vbLf &
+                                     "Either way the folder is cleared when a capture STARTS -" & vbLf &
+                                     "that is housekeeping, not a preference.")
+                End If
+
+                ImGui.Separator()
+
+                ' Assemble whatever is already in the folder.
+                '
+                ' A capture ends by doing this itself, so the button is for the
+                ' folder that is already full - a run whose encode failed, one
+                ' shot before this existed, or a second render of the same
+                ' frames at a different rate.
+                If Not ENCODE_RUNNING AndAlso Not RECORD_FLIGHT Then
+                    ' Cached, not read per frame - see refresh_folder_facts.
+                    refresh_folder_facts(RECORD_DIR)
+
+                    ' The rate the frames were SHOT at wins over the combo.
+                    '
+                    ' The combo says what the NEXT capture will run at, which is
+                    ' a different question from what these frames already are.
+                    ' Reading it here once produced a 97 second video of a 48
+                    ' second flight, at half speed, with nothing to say so.
+                    Dim use_fps = If(folder_fps > 0, folder_fps, CAPTURE_FPS)
+
+                    If ImGui.Button("Build MP4", New System.Numerics.Vector2(150, 0)) Then
+                        start_mp4_encode(RECORD_DIR, use_fps)
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Assemble frame_*.png in the folder above into an mp4." & vbLf &
+                                         "The frames are left alone.")
+                    End If
+
+                    ' Play the newest render in whatever the system uses for mp4.
+                    '
+                    ' Only drawn when there is one, and only outside an encode:
+                    ' the newest file DURING an encode is the one being written,
+                    ' which has no index yet and opens in nothing. That is the
+                    ' 0xC00D36C4 an in-progress file gives, and offering it
+                    ' would be offering that error.
+                    If folder_newest_mp4 IsNot Nothing Then
+                        ImGui.SameLine()
+                        If ImGui.Button("Play MP4", New System.Numerics.Vector2(120, 0)) Then
+                            Try
+                                ' UseShellExecute is what hands the file to the
+                                ' registered player. Without it .NET tries to
+                                ' EXECUTE the mp4 and throws - the same trap the
+                                ' Open Path button documents above.
+                                System.Diagnostics.Process.Start(
+                                    New System.Diagnostics.ProcessStartInfo(folder_newest_mp4) With {
+                                        .UseShellExecute = True})
+                            Catch ex As Exception
+                                LogThis("play: cannot open {0} - {1}", folder_newest_mp4, ex.Message)
+                            End Try
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Play " & IO.Path.GetFileName(folder_newest_mp4))
+                        End If
+                    End If
+
+                    ' Say which rate, and where it came from. A number that
+                    ' silently disagrees with the combo above it has to explain
+                    ' itself on screen, not in a log.
+                    If folder_fps > 0 Then
+                        ImGui.Text(String.Format("{0} fps  (as captured)", folder_fps))
+                    Else
+                        ImGui.Text(String.Format("{0} fps  (folder does not say - using the combo)",
+                                                 use_fps))
+                    End If
+
+                    ' A capture that broke the settle rule says so here, and
+                    ' keeps saying it until the next one starts. Buried in a log
+                    ' it would be found after the video had been kept.
+                    If RECORD_FORCED_FRAMES > 0 Then
+                        ImGui.TextColored(New System.Numerics.Vector4(1.0F, 0.55F, 0.2F, 1.0F),
+                                          String.Format("{0} frames shot with the VT unsettled",
+                                                        RECORD_FORCED_FRAMES))
+                    End If
+
+                    ' Name what Play would open. Two renders of one flight differ
+                    ' only in the timestamp in the name, so "the newest one" is
+                    ' not something to have to take on trust.
+                    If folder_newest_mp4 IsNot Nothing Then
+                        ImGui.TextWrapped("newest: " & IO.Path.GetFileName(folder_newest_mp4))
+                    End If
+                ElseIf ENCODE_RUNNING Then
+                    ImGui.Text(String.Format("Encoding {0} / {1}", ENCODE_DONE, ENCODE_TOTAL))
+                    If ENCODE_TOTAL > 0 Then
+                        ImGui.ProgressBar(ENCODE_DONE / CSng(ENCODE_TOTAL),
+                                          New System.Numerics.Vector2(-1.0F, 0.0F))
+                    End If
+                End If
+
+                If ENCODE_MESSAGE IsNot Nothing Then
+                    ImGui.TextWrapped(ENCODE_MESSAGE)
+                End If
+
                 ImGui.Separator()
 
                 ' Rewinds to the start of the path, starts flying, starts
@@ -1994,29 +2271,29 @@ try_again:
                         RECORD_FLIGHT = False
                         RECORD_HOLD = False
                     ElseIf map_scene IsNot Nothing AndAlso map_scene.cam_path.loaded Then
-                        map_scene.cam_path.travelled = 0.0F
-                        RECORD_FRAME_INDEX = 0
-                        RECORD_HOLD = False
-                        ' The route overlay is drawn along the exact line being
-                        ' flown. Left on, it is a coloured streak through every
-                        ' frame of the video.
-                        SHOW_CAM_PATH = False
-                        FLY_CAM_PATH = True
-                        RECORD_FLIGHT = True
+                        ' Ask first, and start from the answer.
+                        '
+                        ' A capture runs unattended for minutes, throws away
+                        ' whatever frames were in the folder, and is only found
+                        ' to be wrong once it is already spent. One click is too
+                        ' little standing between that and a stray press. The
+                        ' dialog cannot open from here - see Browse - so this
+                        ' raises a flag and ProcessEvents does the asking, and
+                        ' the starting, between frames.
+                        NEED_TO_CONFIRM_CAPTURE = True
                     End If
                 End If
 
-                ' Held camera, for checking animation. On a flight everything
-                ' moves at once and a fire looping correctly looks the same as a
-                ' fire being dragged past the lens.
-                If ImGui.Button(If(RECORD_STILL > 0, "Stop still capture", "Capture still"), New System.Numerics.Vector2(150, 0)) Then
-                    If RECORD_STILL > 0 Then
-                        RECORD_STILL = 0
-                    Else
-                        RECORD_FRAME_INDEX = 0
-                        RECORD_HOLD = False
-                        RECORD_STILL = RECORD_STILL_COUNT
-                    End If
+                ' One frame at the held camera. Waits for the VT exactly as a
+                ' flight frame does, so a still is a fair picture of the terrain
+                ' rather than of whatever had streamed by the time it was asked
+                ' for. Goes to a "still" subfolder, never into a flight's frames.
+                ' No Stop counterpart: one frame completes on the next pass,
+                ' so a button to interrupt it could never be pressed in time.
+                If ImGui.Button("Capture still", New System.Numerics.Vector2(150, 0)) Then
+                    RECORD_FRAME_INDEX = 0
+                    RECORD_HOLD = False
+                    RECORD_STILL = 1
                 End If
 
                 ImGui.Separator()
@@ -2103,6 +2380,520 @@ try_again:
 
     Private record_wait_frames As Integer
 
+    ''' <summary>
+    ''' Frames one lap of the loaded route costs at the current capture rate,
+    ''' or 0 when there is no closed route to measure.
+    '''
+    ''' One function rather than the same arithmetic in two places. The stop
+    ''' test and the confirmation prompt have to agree, and two copies of a
+    ''' formula reading CAPTURE_FPS are exactly the pair that quietly stops
+    ''' agreeing.
+    ''' </summary>
+    Private Function lap_frames() As Integer
+        If map_scene Is Nothing Then Return 0
+        Dim cp = map_scene.cam_path
+        If cp Is Nothing OrElse Not cp.closed Then Return 0
+        If cp.total_len <= 0.0F Then Return 0
+        If cp.points Is Nothing OrElse cp.points.Length = 0 Then Return 0
+        Dim spd = Math.Max(0.1F, cp.points(0).speed)
+        Return CInt(Math.Ceiling(cp.total_len / spd * CAPTURE_FPS))
+    End Function
+
+    ''' <summary>
+    ''' Assemble a folder of frames into an mp4, on a background thread.
+    '''
+    ''' Off the render thread because it takes minutes: run inline it would
+    ''' freeze the window solid, and the app would look hung at exactly the
+    ''' moment it is doing the thing that was asked for.
+    '''
+    ''' The name carries the date and the rate, so successive renders never
+    ''' overwrite each other and no video is ever lost to a second capture.
+    ''' It also puts the frame rate in the file name, where it can be checked
+    ''' against what was intended.
+    ''' </summary>
+    ''' <summary>Name of the note a capture leaves beside its frames.</summary>
+    Private Const CAPTURE_INFO As String = "capture.txt"
+
+    ''' <summary>
+    ''' Record what the frames in this folder are, and what produced them.
+    '''
+    ''' A PNG sequence carries no frame rate - the rate is a decision made when
+    ''' it is played, and nothing in the files remembers the one it was shot
+    ''' for. Assembling later from whatever the fps combo happened to say is how
+    ''' a 60 fps capture became a 97 second video of a 48 second flight.
+    '''
+    ''' Everything else here is for the same reason one step out: a folder of
+    ''' 3000 PNGs found weeks later should be able to say which map it is, which
+    ''' route, how fast the camera flew it and whether the terrain was allowed to
+    ''' finish streaming - because two captures that differ only in Wait VT look
+    ''' identical in a file listing and are not the same footage at all.
+    '''
+    ''' Plain key=value text on purpose: as much for a person opening it as for
+    ''' the code reading it back. frames=0 means a capture that has started and
+    ''' not yet finished.
+    ''' </summary>
+    Private Sub write_capture_info(dir As String, w As Integer, h As Integer, frames As Integer)
+        Try
+            Dim sb As New Text.StringBuilder()
+            sb.AppendLine("# nuTerra flight capture")
+            sb.AppendLine("fps=" & CAPTURE_FPS)
+            sb.AppendLine(String.Format("size={0}x{1}", w, h))
+            sb.AppendLine("frames=" & frames)
+            sb.AppendLine("map=" & MAP_NAME_NO_PATH)
+            sb.AppendLine(String.Format("started={0:yyyy-MM-dd HH:mm:ss}", DateTime.Now))
+
+            ' The route, so the footage can be tied back to the path that made
+            ' it - a .campath is edited and re-saved constantly.
+            If map_scene IsNot Nothing AndAlso map_scene.cam_path IsNot Nothing AndAlso
+               map_scene.cam_path.loaded Then
+                Dim cp = map_scene.cam_path
+                sb.AppendLine(String.Format("path_len_m={0:0.0}", cp.total_len))
+                sb.AppendLine("path_points=" & If(cp.points Is Nothing, 0, cp.points.Length))
+                sb.AppendLine("path_closed=" & If(cp.closed, 1, 0))
+                If cp.points IsNot Nothing AndAlso cp.points.Length > 0 Then
+                    sb.AppendLine(String.Format("speed_mps={0:0.00}", cp.points(0).speed))
+                End If
+                ' Empty, not Nothing, when no file was involved - the field is
+                ' initialised to "" so a null check would write a blank line.
+                If Not String.IsNullOrEmpty(cp.source_file) Then
+                    sb.AppendLine("path_file=" & cp.source_file)
+                End If
+            End If
+
+            ' The switches that change what the footage looks like. Wait VT in
+            ' particular is the difference between sharp terrain and terrain
+            ' resolving on camera, and nothing in the frames says which it was.
+            sb.AppendLine("wait_vt=" & If(WAIT_VT, 1, 0))
+            ' What the gate was set to, and whether it ever gave way. A capture
+            ' with forced_frames above 0 contains terrain that had not finished
+            ' streaming, which is exactly the thing Wait VT is turned on to
+            ' prevent - and it is invisible in the frames until it is looked at.
+            sb.AppendLine("vt_settle_run=" & RECORD_SETTLE_RUN)
+            sb.AppendLine("vt_wait_max=" & RECORD_WAIT_MAX)
+            sb.AppendLine("forced_frames=" & RECORD_FORCED_FRAMES)
+            sb.AppendLine("hide_hud=" & If(RECORD_HIDE_HUD, 1, 0))
+            sb.AppendLine("fixed_step=" & If(FLY_FIXED_STEP, 1, 0))
+            sb.AppendLine("stop_at_end=" & If(RECORD_STOP_AT_END, 1, 0))
+            sb.AppendLine("keep_pngs=" & If(RECORD_KEEP_PNGS, 1, 0))
+
+            IO.File.WriteAllText(IO.Path.Combine(dir, CAPTURE_INFO), sb.ToString())
+        Catch ex As Exception
+            ' Losing the note costs the default rate later, never the capture.
+            LogThis("record: could not write {0} - {1}", CAPTURE_INFO, ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' The rate the frames in a folder were CAPTURED at, or 0 when the folder
+    ''' does not say - a sequence shot before this note existed, or copied in
+    ''' from somewhere else.
+    ''' </summary>
+    Private Function captured_fps(dir As String) As Integer
+        Try
+            Dim p = IO.Path.Combine(dir, CAPTURE_INFO)
+            If Not IO.File.Exists(p) Then Return 0
+            For Each line In IO.File.ReadAllLines(p)
+                Dim t = line.Trim()
+                If t.StartsWith("fps=", StringComparison.OrdinalIgnoreCase) Then
+                    Dim v As Integer
+                    If Integer.TryParse(t.Substring(4).Trim(), v) AndAlso v > 0 Then Return v
+                End If
+            Next
+        Catch
+            ' Unreadable is the same as absent: fall back to the combo.
+        End Try
+        Return 0
+    End Function
+
+    ''' <summary>
+    ''' The most recently written mp4 in a folder, or Nothing.
+    '''
+    ''' By write time rather than by name: the names carry a timestamp, but a
+    ''' folder can also hold files put there by hand, and the newest thing is
+    ''' what someone means by "the one I just made".
+    ''' </summary>
+    Private Function newest_mp4(dir As String) As String
+        Try
+            Dim best As String = Nothing
+            Dim best_t = DateTime.MinValue
+            For Each f In IO.Directory.GetFiles(dir, "*.mp4")
+                Dim t = IO.File.GetLastWriteTimeUtc(f)
+                If t > best_t Then
+                    best_t = t
+                    best = f
+                End If
+            Next
+            Return best
+        Catch
+            Return Nothing
+        End Try
+    End Function
+
+    ''' <summary>
+    ''' Re-sample the output folder, no more than once a second.
+    '''
+    ''' Also re-samples immediately when the folder itself changes, so picking a
+    ''' new one in Browse does not show a second of the old one's facts.
+    ''' </summary>
+    Private Sub refresh_folder_facts(dir As String)
+        If dir = folder_facts_dir AndAlso
+           (DateTime.Now - folder_facts_at).TotalSeconds < 1.0 Then Return
+
+        folder_facts_dir = dir
+        folder_facts_at = DateTime.Now
+        folder_fps = captured_fps(dir)
+        folder_newest_mp4 = newest_mp4(dir)
+    End Sub
+
+    ''' <summary>
+    ''' The next free still_NNN.png in a folder, counting up from 000.
+    '''
+    ''' Scanned for the first gap rather than kept in a counter, because the
+    ''' FOLDER outlives the process: stills taken in an earlier session are
+    ''' still sitting there, and a counter starting from zero would write
+    ''' straight over them.
+    '''
+    ''' Numbered rather than timestamped so the files sort and read the way a
+    ''' set of stills should. Naming them from the frame index cannot work - it
+    ''' restarts at zero for every capture, so every still would be still_000.
+    ''' </summary>
+    Private Function next_still_path(dir As String) As String
+        Try
+            For i = 0 To 9999
+                Dim p = IO.Path.Combine(dir, String.Format("still_{0:000}.png", i))
+                If Not IO.File.Exists(p) Then Return p
+            Next
+        Catch
+        End Try
+        ' 10000 stills in one folder is not a real case, but silently failing to
+        ' save would be. Fall back to the clock rather than lose the frame.
+        Return IO.Path.Combine(dir, String.Format("still_{0:yyyyMMdd_HHmmss_fff}.png", DateTime.Now))
+    End Function
+
+    ''' <summary>
+    ''' Delete every captured frame in a folder. Returns how many went.
+    '''
+    ''' One implementation for both ends of the job - housekeeping when a
+    ''' capture starts, and the tidy-up when an mp4 has been built from them -
+    ''' so the two can never disagree about what counts as a frame.
+    '''
+    ''' frame_*.png only, never *.*. The mp4 lives in this folder too, and so
+    ''' does capture.txt and any still_NNN.png; a sweep that took those would
+    ''' destroy the very thing the frames existed to produce.
+    ''' </summary>
+    ''' <summary>
+    ''' Write the Flight Recorder panel's settings to disk, immediately.
+    '''
+    ''' Called from each control as it CHANGES, not on the way out. The exit
+    ''' path only runs on a clean shutdown, and this app is force killed often
+    ''' enough - to free the exe for a build, or when a capture is abandoned -
+    ''' that "saved on exit" means "usually lost". That is exactly how the
+    ''' output folder kept reverting to C: after being pointed at G:.
+    '''
+    ''' My.Settings.Save rewrites the whole user.config, so this is a file write
+    ''' per toggle. That is the right trade: these are things a person clicks a
+    ''' handful of times, not values that move per frame.
+    ''' </summary>
+    ''' <summary>
+    ''' Is this exactly one of the sizes the combo offers?
+    '''
+    ''' The panel finds its selection by matching CAPTURE_W against the table,
+    ''' and falls back to "Window" when it cannot. Without this check a settings
+    ''' file holding an unlisted size would show "Window" in the combo while the
+    ''' capture ran at that size - the UI and the behaviour disagreeing, with
+    ''' the UI being the one that is wrong.
+    ''' </summary>
+    Public Shared Function is_offered_capture_size(w As Integer, h As Integer) As Boolean
+        For i = 0 To CAP_SIZES_W.Length - 1
+            If CAP_SIZES_W(i) = w AndAlso CAP_SIZES_H(i) = h Then Return True
+        Next
+        Return False
+    End Function
+
+    ''' <summary>
+    ''' Put the window at the capture size, remembering what it was.
+    '''
+    ''' A 1080-tall CLIENT area does not fit under a title bar on a 1080 screen
+    ''' - it needs about 1111px of screen - so at that size the border comes off
+    ''' for the duration. Moved to the top left corner so the whole client area
+    ''' is certainly on screen; a resized window left where it was can hang off
+    ''' an edge, and what hangs off is part of the frame.
+    ''' </summary>
+    Private Sub apply_capture_size()
+        win_resized_for_capture = False
+        If CAPTURE_W <= 0 OrElse CAPTURE_H <= 0 Then Return
+        If ClientSize.X = CAPTURE_W AndAlso ClientSize.Y = CAPTURE_H Then Return
+
+        saved_win_size = New Vector2i(ClientSize.X, ClientSize.Y)
+        saved_win_pos = Location
+        saved_win_border = WindowBorder
+        win_resized_for_capture = True
+
+        Try
+            If CAPTURE_H >= 1080 Then WindowBorder = WindowBorder.Hidden
+            Location = New Vector2i(0, 0)
+            Size = New Vector2i(CAPTURE_W, CAPTURE_H)
+            LogThis("record: window {0}x{1} -> {2}x{3} for the capture",
+                    saved_win_size.X, saved_win_size.Y, CAPTURE_W, CAPTURE_H)
+        Catch ex As Exception
+            LogThis("record: could not resize the window - {0}", ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Give the window back exactly as it was - size, position and border.
+    '''
+    ''' Called from the RECORD_FLIGHT transition rather than from each of the
+    ''' places a capture can end. There are four of those - the lap finishing,
+    ''' Stop, Esc and the error path - and the one that gets forgotten is the
+    ''' one that leaves the window 640x360 with the menu out of reach.
+    ''' </summary>
+    Private Sub restore_window_size()
+        If Not win_resized_for_capture Then Return
+        win_resized_for_capture = False
+        Try
+            WindowBorder = saved_win_border
+            Size = saved_win_size
+            Location = saved_win_pos
+            LogThis("record: window restored to {0}x{1}", saved_win_size.X, saved_win_size.Y)
+        Catch ex As Exception
+            LogThis("record: could not restore the window - {0}", ex.Message)
+        End Try
+    End Sub
+
+    Private Sub save_render_settings()
+        Try
+            My.Settings.capture_fps = CAPTURE_FPS
+            My.Settings.wait_vt = WAIT_VT
+            My.Settings.record_hud = RECORD_HIDE_HUD
+            My.Settings.fixed_step = FLY_FIXED_STEP
+            My.Settings.stop_at_end = RECORD_STOP_AT_END
+            My.Settings.keep_pngs = RECORD_KEEP_PNGS
+            My.Settings.capture_w = CAPTURE_W
+            My.Settings.capture_h = CAPTURE_H
+            My.Settings.Save()
+        Catch ex As Exception
+            ' Never let a settings write break the panel it was drawn from.
+            LogThis("record: could not save render settings - {0}", ex.Message)
+        End Try
+    End Sub
+
+    Private Function clear_frames(dir As String) As Integer
+        Dim gone = 0
+        Try
+            For Each f In IO.Directory.GetFiles(dir, "frame_*.png")
+                Try
+                    IO.File.Delete(f)
+                    gone += 1
+                Catch ex As Exception
+                    ' One locked file - an open viewer, a sync client - is not a
+                    ' reason to abandon the job. Name it and carry on.
+                    LogThis("record: could not delete {0} - {1}",
+                            IO.Path.GetFileName(f), ex.Message)
+                End Try
+            Next
+        Catch ex As Exception
+            LogThis("record: could not clear {0} - {1}", dir, ex.Message)
+        End Try
+        Return gone
+    End Function
+
+    Private Sub start_mp4_encode(dir As String, fps As Integer)
+        If ENCODE_RUNNING Then Return
+
+        Dim out_path = IO.Path.Combine(
+            dir, String.Format("flight_{0:yyyy-MM-dd_HHmm}_{1}fps.mp4", DateTime.Now, fps))
+
+        Dim total = 0
+        Try
+            If IO.Directory.Exists(dir) Then
+                total = IO.Directory.GetFiles(dir, "frame_*.png").Length
+            End If
+        Catch
+        End Try
+        If total = 0 Then
+            ENCODE_MESSAGE = "no frames to assemble"
+            LogThis("encode: {0}", ENCODE_MESSAGE)
+            Return
+        End If
+
+        ENCODE_TOTAL = total
+        ENCODE_DONE = 0
+        ENCODE_MESSAGE = Nothing
+        ENCODE_RUNNING = True
+        LogThis("encode: {0} frames at {1} fps -> {2}", total, fps, IO.Path.GetFileName(out_path))
+
+        Dim started_at = DateTime.Now
+        Threading.Tasks.Task.Run(
+            Sub()
+                Dim err As String = Nothing
+                Try
+                    err = Mp4Encoder.EncodeFolder(dir, fps, out_path,
+                                                  Sub(n) ENCODE_DONE = n)
+                Catch ex As Exception
+                    err = ex.Message
+                End Try
+
+                Dim took = DateTime.Now - started_at
+                If err Is Nothing Then
+                    Dim mb = 0L
+                    Try : mb = New IO.FileInfo(out_path).Length \ (1024L * 1024L) : Catch : End Try
+                    ENCODE_MESSAGE = String.Format("{0}  ({1} MB, {2:0} s)",
+                                                   IO.Path.GetFileName(out_path), mb, took.TotalSeconds)
+                    LogThis("encode: done - {0}", ENCODE_MESSAGE)
+
+                    ' The frames have served their purpose. Deleted here and
+                    ' ONLY here - after a successful encode, never after a
+                    ' failed one, because a failure is exactly when they are
+                    ' still needed to try again.
+                    If Not RECORD_KEEP_PNGS Then
+                        Dim gone = clear_frames(dir)
+                        LogThis("encode: cleared {0} frames from {1}", gone, dir)
+                        ENCODE_MESSAGE &= String.Format("  -  {0} frames cleared", gone)
+                    End If
+                Else
+                    ENCODE_MESSAGE = "failed: " & err
+                    LogThis("encode: {0}", ENCODE_MESSAGE)
+                    ' A half written mp4 has no index and opens in nothing. It
+                    ' would sit in the folder looking like a result.
+                    Try
+                        If IO.File.Exists(out_path) Then IO.File.Delete(out_path)
+                    Catch
+                    End Try
+                End If
+                ENCODE_RUNNING = False
+            End Sub)
+    End Sub
+
+    ''' <summary>
+    ''' Second chance before a capture, and the folder flush that goes with it.
+    '''
+    ''' Runs from ProcessEvents, not the UI pass, for the same reason the folder
+    ''' picker does: a modal Win32 dialog opened part way through building a
+    ''' frame blocks the GL thread inside it.
+    ''' </summary>
+    Private Sub confirm_and_start_capture()
+        If map_scene Is Nothing OrElse Not map_scene.cam_path.loaded Then Return
+
+        ' Not while an assembly is running. Starting a capture clears the
+        ' folder, and the encoder is part way through reading the frames that
+        ' would be deleted - the video would end wherever the deletion caught
+        ' up with it, and nothing about the file would say so.
+        If ENCODE_RUNNING Then
+            System.Windows.Forms.MessageBox.Show(
+                "An mp4 is still being assembled from the frames in this folder." & vbCrLf & vbCrLf &
+                "Starting a capture now would delete them out from under it.",
+                "Flight Recorder",
+                System.Windows.Forms.MessageBoxButtons.OK,
+                System.Windows.Forms.MessageBoxIcon.Warning)
+            Return
+        End If
+
+        Dim existing As String() = New String() {}
+        Try
+            If IO.Directory.Exists(RECORD_DIR) Then
+                ' frame_*.png, never *.*. The finished mp4 usually lives in this
+                ' same folder, and a flush that swept that away would destroy
+                ' the one thing the frames exist to produce.
+                existing = IO.Directory.GetFiles(RECORD_DIR, "frame_*.png")
+            End If
+        Catch ex As Exception
+            LogThis("record: cannot list {0} - {1}", RECORD_DIR, ex.Message)
+        End Try
+
+        ' Say what is about to happen in the terms it happens in - how many
+        ' frames, how long that is, where they land, what it costs. A prompt
+        ' that only asks "are you sure" moves the click without informing it.
+        Dim lap = lap_frames()
+        Dim msg As New Text.StringBuilder()
+        msg.AppendLine("Start capture?")
+        msg.AppendLine()
+        If lap > 0 Then
+            msg.AppendLine(String.Format("{0} frames at {1} fps - {2:0.0} seconds of video",
+                                         lap, CAPTURE_FPS, lap / CSng(Math.Max(1, CAPTURE_FPS))))
+        End If
+        msg.AppendLine("To: " & RECORD_DIR)
+        If CAPTURE_W > 0 AndAlso CAPTURE_H > 0 Then
+            msg.AppendLine(String.Format("The window will resize to {0} x {1}, and back afterwards.",
+                                         CAPTURE_W, CAPTURE_H))
+        End If
+        msg.AppendLine()
+
+        If existing.Length = 0 Then
+            msg.AppendLine("The folder has no frames in it to clear.")
+        Else
+            msg.AppendLine(String.Format("Clearing the {0} frames already there.", existing.Length))
+        End If
+        msg.AppendLine()
+        ' Say what happens to the NEW frames too. The line above is about what
+        ' is being destroyed now; this is what will be left behind afterwards,
+        ' and they are governed by different things.
+        If RECORD_KEEP_PNGS Then
+            msg.AppendLine("The new frames will be KEPT after the mp4 is built.")
+        Else
+            msg.AppendLine("The new frames will be deleted once the mp4 is built.")
+        End If
+
+        ' Defaulting to No. The costly answer should never be the one a return
+        ' key already under a finger will give.
+        If System.Windows.Forms.MessageBox.Show(
+               msg.ToString(), "Flight Recorder",
+               System.Windows.Forms.MessageBoxButtons.YesNo,
+               System.Windows.Forms.MessageBoxIcon.Question,
+               System.Windows.Forms.MessageBoxDefaultButton.Button2) <>
+           System.Windows.Forms.DialogResult.Yes Then
+            LogThis("record: capture cancelled")
+            Return
+        End If
+
+        ' ALWAYS clear first, whatever Keep PNGs says.
+        '
+        ' This is housekeeping, not a preference. Frames are numbered from zero
+        ' every run, so a shorter capture landing on a longer one's frames
+        ' leaves the old tail in place and an encoder splices the end of a
+        ' previous flight onto this one, with nothing in the files admitting it.
+        ' Keep PNGs decides whether the NEW frames survive once the mp4 is
+        ' built - a different question, asked at the other end of the job.
+        If existing.Length > 0 Then
+            Dim gone = clear_frames(RECORD_DIR)
+            LogThis("record: cleared {0} of {1} frames from {2}",
+                    gone, existing.Length, RECORD_DIR)
+        End If
+
+        map_scene.cam_path.travelled = 0.0F
+
+        ' Resize BEFORE the settled run is cleared, not after. The resize
+        ' rebuilds MainFBO and with it the VT feedback buffer, which invalidates
+        ' the run for the same reason the teleport below does - clearing first
+        ' and then resizing would leave the gate reading a count earned at the
+        ' old resolution.
+        apply_capture_size()
+
+        ' The rewind above is a teleport, so the VT's settled run describes a
+        ' view that no longer exists - and it is high, because the camera has
+        ' been sitting still while this panel was being set up. Left alone it
+        ' waves frame 0 straight through the settle gate, and the first frame
+        ' of every capture is shot against terrain that was never requested.
+        '
+        ' Cleared here rather than inside the gate: the gate's job is to wait
+        ' for a run, and it cannot tell a run that was earned at this position
+        ' from one earned at the last one.
+        If map_scene.terrain IsNot Nothing AndAlso map_scene.terrain.vt IsNot Nothing Then
+            map_scene.terrain.vt.ResetSettled()
+        End If
+
+        RECORD_FRAME_INDEX = 0
+        RECORD_HOLD = False
+        RECORD_FORCED_FRAMES = 0
+        ' Cleared here, at the start, rather than at the end of the last run.
+        record_clock.Reset()
+        ' The route overlay is drawn along the exact line being flown. Left on,
+        ' it is a coloured streak through every frame of the video.
+        SHOW_CAM_PATH = False
+        FLY_CAM_PATH = True
+        RECORD_FLIGHT = True
+    End Sub
+
     Private Sub save_record_frame()
         Try
             ' Paused writes nothing and touches no counter, so the sequence
@@ -2133,6 +2924,10 @@ try_again:
             End If
 
             If record_wait_frames >= RECORD_WAIT_MAX Then
+                ' Counted, not just logged. This frame breaks the settle rule,
+                ' and whether the finished video contains any such frames is a
+                ' property of the footage - it has to outlive the log buffer.
+                RECORD_FORCED_FRAMES += 1
                 LogThis("record: frame {0} shot with the VT still unsettled after {1} frames",
                         RECORD_FRAME_INDEX, record_wait_frames)
             End If
@@ -2143,21 +2938,53 @@ try_again:
             ' A still test goes in its own folder. Sharing the flight's
             ' folder would interleave frame numbers with a 24k sequence.
             Dim dir = If(RECORD_STILL > 0, IO.Path.Combine(RECORD_DIR, "still"), RECORD_DIR)
-            If RECORD_FRAME_INDEX = 0 Then IO.Directory.CreateDirectory(dir)
+
+            ' H.264 has no odd dimensions. In a window the framebuffer is
+            ' whatever the client area happens to be - 1920x1009 in the run
+            ' that found this - and libx264 and Media Foundation BOTH refuse
+            ' it outright, so an entire sequence becomes unencodable after the
+            ' fact, with no way to tell until the capture is already spent.
+            '
+            ' Round DOWN rather than up. Dropping a row is a genuine crop of
+            ' what was rendered; padding invents a black line and scaling to
+            ' fit resamples every frame in the lap.
+            Dim cap_w = MainFBO.width - (MainFBO.width Mod 2)
+            Dim cap_h = MainFBO.height - (MainFBO.height Mod 2)
+
+            If RECORD_FRAME_INDEX = 0 Then
+                IO.Directory.CreateDirectory(dir)
+                ' Say the size ONCE, at the top of the sequence. The dimensions
+                ' decide whether the frames can be assembled at all, and finding
+                ' that out from the encoder afterwards is too late.
+                LogThis("record: {0}x{1} at {2} fps -> {3}", cap_w, cap_h, CAPTURE_FPS, dir)
+                write_capture_info(dir, cap_w, cap_h, 0)
+            End If
+
+            ' Where this frame goes, decided before the readback so the log
+            ' below can name it. A still is numbered in its own sequence; a
+            ' flight frame is numbered by its place in the video.
+            Dim out_file = If(RECORD_STILL > 0,
+                              next_still_path(dir),
+                              IO.Path.Combine(dir, String.Format("frame_{0:00000000}.png",
+                                                                 RECORD_FRAME_INDEX)))
 
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
-            GL.PixelStore(PixelStoreParameter.PackAlignment, 1)
+            ' Alignment 4, not 1. GDI+ pads every 24bpp row out to a 4 byte
+            ' boundary, and alignment 4 is what makes GL pad it the same way.
+            ' At 1 the two agree only when the width is a multiple of 4: 1920
+            ' is, which is why this never showed, but a 1918 wide window would
+            ' have sheared every row. Now that widths other than 1920 reach
+            ' here, that stops being hypothetical.
+            GL.PixelStore(PixelStoreParameter.PackAlignment, 4)
 
-            Using bmp As New Bitmap(MainFBO.width, MainFBO.height, Imaging.PixelFormat.Format24bppRgb)
+            Using bmp As New Bitmap(cap_w, cap_h, Imaging.PixelFormat.Format24bppRgb)
                 Dim bits = bmp.LockBits(New Rectangle(0, 0, bmp.Width, bmp.Height),
                                         ImageLockMode.WriteOnly, bmp.PixelFormat)
-                GL.ReadPixels(0, 0, MainFBO.width, MainFBO.height,
+                GL.ReadPixels(0, 0, cap_w, cap_h,
                               OpenGL.PixelFormat.Bgr, PixelType.UnsignedByte, bits.Scan0)
                 bmp.UnlockBits(bits)
                 bmp.RotateFlip(RotateFlipType.RotateNoneFlipY)
-                bmp.Save(IO.Path.Combine(dir,
-                                         String.Format("frame_{0:00000000}.png", RECORD_FRAME_INDEX)),
-                         ImageFormat.Png)
+                bmp.Save(out_file, ImageFormat.Png)
             End Using
 
             GL.PixelStore(PixelStoreParameter.PackAlignment, 4)
@@ -2165,35 +2992,43 @@ try_again:
 
             RECORD_FRAME_INDEX += 1
 
-            ' Still capture: count down and stop. Returns before the lap check
-            ' below, which is about the flight and means nothing here.
+            ' One frame and done. Returns before the lap check below, which is
+            ' about the flight and means nothing here.
             If RECORD_STILL > 0 Then
-                RECORD_STILL -= 1
-                If RECORD_STILL = 0 Then
-                    LogThis("record: still capture done, {0} frames at {1} fps in {2}",
-                            RECORD_FRAME_INDEX, CAPTURE_FPS, IO.Path.Combine(RECORD_DIR, "still"))
-                End If
+                RECORD_STILL = 0
+                LogThis("record: still saved - {0}", out_file)
                 Return
             End If
 
             ' Stop after one lap. A closed path never ends on its own, and an
             ' unattended capture that runs until the disk fills is worse than
             ' one that stops a frame early.
-            Dim cp = map_scene.cam_path
-            If cp.closed AndAlso cp.total_len > 0.0F AndAlso
-               cp.points IsNot Nothing AndAlso cp.points.Length > 0 Then
-                Dim spd = Math.Max(0.1F, cp.points(0).speed)
-                Dim lap = CInt(Math.Ceiling(cp.total_len / spd * CAPTURE_FPS))
-                If RECORD_FRAME_INDEX >= lap Then
-                    RECORD_FLIGHT = False
-                    RECORD_HOLD = False
-                    ' Land it. Left flying, the camera carries on round a route
-                    ' that is already recorded, and the last thing on screen is
-                    ' not the last thing in the file.
-                    If RECORD_STOP_AT_END Then FLY_CAM_PATH = False
-                    LogThis("record: lap complete, {0} frames at {1} fps in {2}",
-                            RECORD_FRAME_INDEX, CAPTURE_FPS, RECORD_DIR)
+            '
+            ' Through lap_frames, which is what the confirmation quoted too:
+            ' the number agreed to has to be the number written.
+            Dim lap = lap_frames()
+            If lap > 0 AndAlso RECORD_FRAME_INDEX >= lap Then
+                RECORD_FLIGHT = False
+                RECORD_HOLD = False
+                ' Land it. Left flying, the camera carries on round a route
+                ' that is already recorded, and the last thing on screen is
+                ' not the last thing in the file.
+                If RECORD_STOP_AT_END Then FLY_CAM_PATH = False
+                LogThis("record: lap complete, {0} frames at {1} fps in {2}",
+                        RECORD_FRAME_INDEX, CAPTURE_FPS, RECORD_DIR)
+                If RECORD_FORCED_FRAMES > 0 Then
+                    LogThis("record: WARNING {0} of {1} frames were shot with the VT unsettled",
+                            RECORD_FORCED_FRAMES, RECORD_FRAME_INDEX)
                 End If
+                ' Again, now that the count is known. Written at the start too,
+                ' so a capture that is stopped or crashes still leaves a folder
+                ' that says what is in it - just with frames=0 meaning unknown.
+                write_capture_info(RECORD_DIR, cap_w, cap_h, RECORD_FRAME_INDEX)
+                ' Straight into the assembly. The frames exist to become a
+                ' video and the capture knows the rate they were shot at -
+                ' leaving that to be remembered later is how the first one
+                ' came out at 60 fps when it was captured for 30.
+                start_mp4_encode(RECORD_DIR, CAPTURE_FPS)
             End If
 
         Catch ex As Exception
@@ -2275,11 +3110,37 @@ try_again:
                         dlg.SelectedPath = parent
                     End If
                 End If
-                If dlg.ShowDialog() = Windows.Forms.DialogResult.OK Then
+                If dlg.ShowDialog() = System.Windows.Forms.DialogResult.OK Then
                     RECORD_DIR = dlg.SelectedPath
                     LogThis("record: output folder set to {0}", RECORD_DIR)
+                    ' Persist HERE, and not only in the exit path.
+                    '
+                    ' A capture run is exactly when this app is least likely to
+                    ' shut down politely - it gets force killed to free the exe
+                    ' for a build, or it dies mid lap - and My.Settings.Save on
+                    ' the way out never runs in either case. The folder then
+                    ' reverts silently, and the next several gigabytes land on
+                    ' the default drive with nothing on screen saying so.
+                    '
+                    ' Choosing a folder is a deliberate act by the user. It
+                    ' should survive on its own, the instant it is made, rather
+                    ' than depending on how the process happens to end. Saved
+                    ' even when a -dir argument started this run: a UI pick is a
+                    ' decision, where the command line switch is a one off.
+                    Try
+                        My.Settings.record_dir = RECORD_DIR
+                        My.Settings.Save()
+                    Catch ex As Exception
+                        ' Never let a settings write take the capture down.
+                        LogThis("record: could not persist output folder - {0}", ex.Message)
+                    End Try
                 End If
             End Using
+        End If
+
+        If NEED_TO_CONFIRM_CAPTURE Then
+            NEED_TO_CONFIRM_CAPTURE = False
+            confirm_and_start_capture()
         End If
 
         If NEED_TO_DO_SCREEN_CAPTURE Then
@@ -2287,7 +3148,7 @@ try_again:
             Dim Save_Dialog = New SaveFileDialog()
             Save_Dialog.Filter = "PNG|*.png"
             Save_Dialog.Title = "Save PNG"
-            If Save_Dialog.ShowDialog() = Windows.Forms.DialogResult.OK Then
+            If Save_Dialog.ShowDialog() = System.Windows.Forms.DialogResult.OK Then
                 SCREEN_CAPTURE_FILENAME = Save_Dialog.FileName
             End If
         End If

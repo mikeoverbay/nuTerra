@@ -581,6 +581,102 @@ Namespace My
                 Me("record_dir") = value
             End Set
         End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("30")>  _
+        Public Property capture_fps() As Integer
+            Get
+                Return CType(Me("capture_fps"),Integer)
+            End Get
+            Set
+                Me("capture_fps") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property wait_vt() As Boolean
+            Get
+                Return CType(Me("wait_vt"),Boolean)
+            End Get
+            Set
+                Me("wait_vt") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property record_hud() As Boolean
+            Get
+                Return CType(Me("record_hud"),Boolean)
+            End Get
+            Set
+                Me("record_hud") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property fixed_step() As Boolean
+            Get
+                Return CType(Me("fixed_step"),Boolean)
+            End Get
+            Set
+                Me("fixed_step") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property stop_at_end() As Boolean
+            Get
+                Return CType(Me("stop_at_end"),Boolean)
+            End Get
+            Set
+                Me("stop_at_end") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property keep_pngs() As Boolean
+            Get
+                Return CType(Me("keep_pngs"),Boolean)
+            End Get
+            Set
+                Me("keep_pngs") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("1920")>  _
+        Public Property capture_w() As Integer
+            Get
+                Return CType(Me("capture_w"),Integer)
+            End Get
+            Set
+                Me("capture_w") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("1080")>  _
+        Public Property capture_h() As Integer
+            Get
+                Return CType(Me("capture_h"),Integer)
+            End Get
+            Set
+                Me("capture_h") = value
+            End Set
+        End Property
     End Class
 End Namespace
 

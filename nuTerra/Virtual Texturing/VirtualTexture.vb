@@ -138,6 +138,31 @@ Public Class VirtualTexture
         End Get
     End Property
 
+    ''' <summary>
+    ''' Throw away the settled run, because the view it described no longer
+    ''' exists.
+    '''
+    ''' SettledFrames is a statement about a CAMERA POSITION, not about the
+    ''' cache: it counts Updates during which the current view asked for
+    ''' nothing missing. Teleport the camera and that count is still describing
+    ''' where it used to be, and stays high for as long as the feedback buffer
+    ''' takes to catch up - which is a frame or more, because the readback is
+    ''' behind the render by design.
+    '''
+    ''' That window is small and it is exactly where a capture starts. Rewinding
+    ''' to the head of a flight path and shooting immediately gave a first frame
+    ''' whose terrain had never been requested, waved through by a counter that
+    ''' had been earned somewhere else entirely.
+    '''
+    ''' Anything that moves the camera discontinuously should call this. Ordinary
+    ''' flying must not - the count is only meaningful because it is consecutive,
+    ''' and resetting it every frame would mean it never reached the run length
+    ''' anything waits for.
+    ''' </summary>
+    Public Sub ResetSettled()
+        _settled_frames = 0
+    End Sub
+
     Public Sub Update(requests As Dictionary(Of Page, Integer))
         toload.Clear()
 

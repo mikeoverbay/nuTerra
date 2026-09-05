@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net6.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
 	<PlatformTarget>x64</PlatformTarget>
     <OutputType>WinExe</OutputType>
     <StartupObject>nuTerra.Program</StartupObject>
@@ -155,5 +155,6 @@
     <PackageReference Include="NGettext" Version="0.6.7" />
     <PackageReference Include="OpenTK" Version="4.7.1" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="5.0.0" />
+    <PackageReference Include="Vortice.MediaFoundation" Version="3.8.3" />
   </ItemGroup>
 </Project>
