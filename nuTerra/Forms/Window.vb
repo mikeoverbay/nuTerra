@@ -624,7 +624,11 @@ try_again:
                     ImGui.TextWrapped(line)
                 Next
             End If
-        Else
+        ElseIf Not SHOW_MAPS_SCREEN Then
+            ' The menu bar and its panels belong to a loaded map. The map
+            ' picker is a full-screen choice of its own and used to have the
+            ' bar drawn over the top of it; the loader clears SHOW_MAPS_SCREEN
+            ' once a map is picked, and only then does the bar come back.
             SubmitUI(viewport)
         End If
 

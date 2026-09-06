@@ -12,6 +12,12 @@ draws into nothing.
 Add the call next to the other `draw_*` panels, and a `SHOW_*` boolean in
 `modGlobalVars` for the menu-bar button to toggle.
 
+Neither the bar nor any panel `SubmitUI` owns is drawn while the map picker or
+the loading screen is up: `OnRenderFrame` skips `SubmitUI` for both. The picker
+is a full-screen choice of its own, and the loader clears `SHOW_MAPS_SCREEN`
+once a map is picked. A panel that must show over the picker has to be called
+from `OnRenderFrame` directly, the way `draw_lamp_inspector` is.
+
 ## Placement: use the helpers, not numbers
 
 ```vb
