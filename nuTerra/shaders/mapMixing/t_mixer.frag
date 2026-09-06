@@ -179,87 +179,78 @@ void main(void)
 
     const vec4 global = texture(global_AM, fs_in.Global_UV);
 
-    vec4 t[8];      // am map
-    vec4 mt[8];     // am macro 
-    float mth[8];   // macro height in alpha
-    float th[8];    // am height
-    vec4 n[8];      // normal map
-    vec4 mn[8];     // macro normal map
-    float sw[8];    // splat weight, normalised
-    float pv[8];    // height * splat, the height-blend contender
+    // How far this page has faded toward pure macro - the game's
+    // g_vtTileParams.w. 0 for the pages under the camera; macro_fade of 0 keeps
+    // it there at every distance.
+    const float m = clamp(float(page_mip) * props.macro_fade, 0.0, 1.0);
+
+    vec4 t[8];        // micro AM: albedo rgb, height a
+    vec4 mt[8];       // macro AM
+    vec4 n[8];        // micro NM: spec r, normal ga, AO b
+    vec4 mn[8];       // macro NM
+    vec3 avg_c[8];    // average colour of the micro AM   - the game's tileColor
+    vec3 avg_mc[8];   // average colour of the macro AM   - tileMacroColor.rgb
+    float avg_ms[8];  // average macro gloss              - tileMacroColor.w
+    float sw[8];      // splat weight, normalised
+    float pv[8];      // height * splat, the height-blend contender
     float ssum = 0.0;
 
     float height = 0.0;
     for (int i = 0; i < 8; ++i) {
         // create UV projections
-        const vec2 tuv = get_transformed_uv(L.U[i], L.V[i]); 
+        const vec2 tuv = get_transformed_uv(L.U[i], L.V[i]);
 
         // Get AM maps,crop and set Test outline blend flag
-        t[i] = crop(at[i], tuv, 0.0, i);
-
+        t[i]  = crop(at[i], tuv, 0.0, i);
         mt[i] = crop3(at[i], tuv, 2.0);
-
-    //u_xlat10 = max(u_xlat10, vec4(0.00392156886, 0.00392156886, 0.00392156886, 0.00392156886));
-        mth[i] = max(mt[i].w,0.00392156886);
-
-    //u_xlat14.xyz = u_xlat12.xyz;
-        vec3 tv = mt[i].xyz;
-
-    //u_xlat14.xyz = clamp(u_xlat14.xyz, 0.0, 1.0);
-        tv = clamp(tv, vec3(0.0), vec3(1.0));
-
-    //u_xlat14.xyz = (-u_xlat12.xyz) + u_xlat14.xyz;
-        tv = -mt[i].xyz + tv;
-
-    //u_xlat12.xyz = g_blockDataPS[1].blendMacroInfluence[3].xxx * u_xlat14.xyz + u_xlat12.xyz;
-        mt[i].xyz = L.r2[i].xxx * tv + mt[i].xyz;
 
         // specular is in red channel of the normal maps.
         // Ambient occlusion is in the Blue channel.
         // Green and Alpha are normal values.
-        n[i] = crop2(at[i], tuv, 1.0);
+        n[i]  = crop2(at[i], tuv, 1.0);
         mn[i] = crop3(at[i], tuv, 3.0);
 
-        // get the ambient occlusion
+        // The per-layer averages the game keeps as constants (tileColor,
+        // tileMacroColor). The atlas is 1024 with eleven levels, so level 10 is
+        // the 1x1 mip: the mean of the whole tile, border included, which is a
+        // wrap copy and so does not skew it.
+        avg_c[i]  = textureLod(at[i], vec3(0.5, 0.5, 0.0), 10.0).rgb;
+        avg_mc[i] = textureLod(at[i], vec3(0.5, 0.5, 2.0), 10.0).rgb;
+        avg_ms[i] = textureLod(at[i], vec3(0.5, 0.5, 3.0), 10.0).r;
+
+        // Ambient occlusion into the micro albedo. The game carries AO to the
+        // G-buffer and applies it at lighting; this G-buffer has no slot for
+        // it, so it stays baked into the colour as it always was.
         t[i].rgb *= n[i].b;
-        mt[i].rgb *= mn[i].b;
 
-        // Mix macro. The per-layer constants are the close-up blend; on top of
-        // that the game fades the whole thing toward pure macro as a page's mip
-        // rises (g_vtTileParams.w), so distant pages lose the micro detail
-        // entirely instead of tiling it. macro_fade of 0 keeps the old
-        // behaviour at every distance.
-        float macro_blend = clamp(float(page_mip) * props.macro_fade, 0.0, 1.0);
-
-        // L.r2[i].x is the game's blendMacroInfluence: how much of the macro
-        // texture shows through at close range. Fishing Bay reads 0, 0.1, 0.04,
-        // 0.06 across its layers - small, as an influence should be.
+        // The macro combine, transcribed from the game (terrain2_5 blob 05 and
+        // the VT baker, blob 13):
         //
-        // This used to be micro * min(r2.x, 1) + macro * (r2.y + 1). With
-        // r2 = (0, 0) that is 0 * micro + 1 * macro - pure macro, sampled by
-        // crop3 at uv * 0.125, so every layer rendered as its own macro texture
-        // at eight times the scale. On Grass_Lawn_Green_33 that turned poppies
-        // into red patches across the whole map.
-        float macro_inf = clamp(L.r2[i].x, 0.0, 1.0);
-
-        vec3 micro_rgb = mix(t[i].rgb, mt[i].rgb, macro_inf);
-        t[i].rgb = mix(micro_rgb, mt[i].rgb, macro_blend);
-
-        // All four channels of the normal map, not just rgb.
+        //     macro_term = lerp(m * macro,
+        //                       saturate(macro - tileMacroColor * (1 - m)),
+        //                       blendMacroInfluence.x)
+        //     albedo     = (1 - m) * micro + macro_term
         //
-        // This is an AG normal map: convertNormal reads .ag, so X lives in
-        // ALPHA and Y in green - with .r specular and .b ambient occlusion.
-        // Blending only .rgb left the alpha untouched, so at distance, where
-        // macro_blend reaches 1, the normal's Y came from the macro texture
-        // while its X still came from the micro one. Two halves of two
-        // different normals, normalized together into a direction that is
-        // neither. Specular rode along in .r with the same split, and the game
-        // lerps gloss micro-to-macro exactly like the normal.
-        vec4 micro_n = mix(n[i], mn[i], macro_inf);
-        n[i]         = mix(micro_n, mn[i], macro_blend);
+        // Close up (m = 0) that is micro + influence * max(macro - mean, 0): the
+        // macro adds only the variation above its own average, and every texel
+        // of micro detail survives. What was here before was
+        // mix(micro, macro, influence) - with Rock_4 authored at influence 1.0
+        // (0.8 was read out of the wrong field, see below) the rock was mostly
+        // the macro texture at eight times the tile size, 5 cm per texel, in
+        // both colour and normal. That was the smeared rock.
+        //
+        // The influence is L.s - the last four floats of the layer record,
+        // parsed as "scale" and never read until now. L.r2 is the game's
+        // macroDisplacement (scale, offset, gamma), which is why it carries
+        // negatives and why reading its .x as an influence was wrong.
+        const vec4 inf = L.s[i];
+        const vec3 macro_term = mix(m * mt[i].rgb,
+                                    clamp(mt[i].rgb - avg_mc[i] * (1.0 - m), 0.0, 1.0),
+                                    clamp(inf.x, 0.0, 1.0));
+        t[i].rgb = (1.0 - m) * t[i].rgb + macro_term;
 
         // the game lerps the height the same way, using the macro alpha
-        t[i].a = mix(t[i].a, mth[i], macro_blend);
+        t[i].a = mix(t[i].a, max(mt[i].a, 0.00392156886), m);
 
         ssum += Mix[i];
     }
@@ -275,13 +266,7 @@ void main(void)
     //
     // The second splat multiply is what keeps an unpainted layer out no matter
     // how tall its height map is, so no explicit gate is needed. The 1/255 floor
-    // on height is the same one the outland shader uses, and the reason the dead
-    // mth[] line in this file has that constant in it.
-    //
-    // What was here before was Mix[i] *= t[i].a + bias, pow(Mix, 1/0.7),
-    // normalise - a plain weighted average. Every painted layer contributed in
-    // proportion always, so two textures interpenetrated across the whole
-    // transition instead of meeting where their height maps cross.
+    // on height is the same one the outland shader uses.
     ssum = max(ssum, 1e-6);
 
     float ma = 0.0;
@@ -303,6 +288,7 @@ void main(void)
     f = max(f, 1e-6);
 
     vec4 base = vec4(0.0);
+    vec3 tile_avg = vec3(0.0);   // splat-weighted tileColor, for the global term
 
     // The winning layer, for the normal. The game does not blend normals at
     // all: it runs an argmax over the blend weights and takes a single normal
@@ -318,6 +304,7 @@ void main(void)
         Mix[i] /= f;
 
         base += t[i] * Mix[i];
+        tile_avg += avg_c[i] * sw[i];
 
         if (Mix[i] > win_w) {
             win_w = Mix[i];
@@ -341,20 +328,42 @@ void main(void)
         }
     }
 
-    // The dominant layer supplies the whole surface response, not just the
-    // normal: .ag is the normal, .r the specular that reaches gSpecular, .b
-    // the ambient occlusion. Taking them from one layer keeps them consistent
-    // with each other - a normal from one texture lit with another's specular
-    // is the kind of mismatch that reads as "wrong material" without ever
-    // looking obviously broken.
-    vec4 out_n = n[win];
+    // The dominant layer supplies the whole surface response: normal, gloss.
+    // Taking them from one layer keeps them consistent with each other.
+    //
+    // Normal, the game's way (terrain2_5 blob 05): the micro normal at full
+    // strength, fading flat as the page fades to macro; the macro normal faded
+    // IN from flat by blendMacroInfluence.y (reaching 1 with the page fade);
+    // the two combined by summing xy and multiplying z, then normalised.
+    // mix(micro, macro, influence) - what was here - flattened the micro.
+    const vec4 inf_w = L.s[win];
+    vec3 nm_micro = convertNormal(n[win]).xyz;
+    vec3 nm_macro = convertNormal(mn[win]).xyz;
+    nm_micro = mix(nm_micro, vec3(0.0, 0.0, 1.0), m);
+    const float k = mix(min(inf_w.y, 1.0), 1.0, m);
+    nm_macro = mix(vec3(0.0, 0.0, 1.0), nm_macro, k);
+    const vec3 nm = normalize(vec3(nm_micro.xy + nm_macro.xy, nm_micro.z * nm_macro.z));
 
-    // global
-    float c_l = length(base.rgb) + base.a + global.a+0.25;
-    float g_l = length(global.rgb) - global.a-base.a;
+    // Gloss: micro plus influence.z times the macro's deviation from its
+    // average, then toward pure macro with the page fade. Same shader, same
+    // instruction group as the normal.
+    float spec = clamp(n[win].r + inf_w.z * (mn[win].r - avg_ms[win]), 0.0, 1.0);
+    spec = mix(spec, mn[win].r, m);
 
-    // rem to remove global content
-    base.rgb = (base.rgb * c_l + global.rgb * g_l) / 1.8;
+    // The global map, the game's way: it is not mixed in, it is added as its
+    // DEVIATION from the splat-weighted tile average, and only where the
+    // winning layer's height sits below blendGlobalThreshold - the low parts
+    // of the relief - or as the page fades to macro with distance.
+    //
+    //     g      = saturate((threshold - h_win) / threshold) + m
+    //     albedo += g * (global - tileColorAvg * (1 - m))
+    //
+    // What was here before - (base * c_l + global * g_l) / 1.8 with invented
+    // weights - laid the 34 cm per texel global map over every page at every
+    // distance, which is the blotching that sat on top of the smear.
+    const float thr = max(props.blend_global_threshold, 1e-3);
+    const float g = clamp(clamp((thr - t[win].a) / thr, 0.0, 1.0) + m, 0.0, 1.0);
+    base.rgb += g * (global.rgb - tile_avg * (1.0 - m));
 
     // wetness
     base = blend(base, base.a+0.75, vec4(props.waterColor, props.waterAlpha), global.a);
@@ -383,7 +392,7 @@ void main(void)
     // ambient/direct split, which is the half that made shade read as black.
     // Sampling in the final render puts it after both, and reaches the static
     // models as well, which a terrain page never could.
-    gSpecular = vec2(out_n.r, horizon);
+    gSpecular = vec2(spec, horizon);
 
     //gColor = gColor* 0.001 + r1_8;
     gColor.rgb = base.rgb;
@@ -404,6 +413,6 @@ void main(void)
     // it will be pasted onto.
     gColor.a = clamp(global.a - 0.4 * height, 0.0, 1.0);
 
-    gNormal.xyz = normalize(convertNormal(out_n).xyz) * 0.5 + 0.5;
+    gNormal.xyz = nm * 0.5 + 0.5;
     gNormal.w = height;
 }

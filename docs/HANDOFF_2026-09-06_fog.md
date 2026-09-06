@@ -194,3 +194,20 @@ other three). Open ground shows the AM; obstacle cells keep the mask colours.
 
 Verified headlessly: Himmelsdorf baked and loaded from nothing; monastery
 composite shows the orange obstacles sitting on the AM town.
+
+## 6. The smeared rock: the mixer's macro combine
+
+The owner's rock at `cam=-23.3694,3.495,-0.7712,...` read as a blur next to
+crisp cobbles. Cause in `t_mixer.frag`: `mix(micro, macro, influence)` on both
+albedo and normal, with the influence read from `L.r2.x` (the macro
+displacement scale) - Rock_4 came out 80 to 100 percent macro, at 5 cm per
+texel. The game adds `influence * max(macro - mean, 0)` on top of the full micro
+and sums the normals. Transcribed from `terrain2_5` blob 05 and the VT baker
+blob 13; the field map and formulas are in `terrain_blend.md`, "Macro, normal
+and global map". The global AM term was rebuilt to the game's height-gated
+deviation form at the same time. Rebuild VT picks it up; nothing outside the
+shader and the docs changed.
+
+Observed, not chased: `run.log` fills with `GL Error InvalidValue` every frame
+once the page atlas reports full. It predates this change (a shader edit cannot
+raise a GL API error) but nobody has looked at it.

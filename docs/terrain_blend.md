@@ -70,8 +70,8 @@ height-aware without ever producing an edge.
 From `space.bin`/BWT2, per map. Abbey:
 
 ```
-blendMacroInfluence    1.00    in the UBO; the per-layer array is what the game
-                               actually uses, the global one is unused there too
+blendMacroInfluence    1.00    in the UBO; the per-layer quad is what the game
+                               actually uses (see "Macro, normal and global map")
 blendGlobalThreshold   0.30    in the UBO, still unused here
 blendHeight            0.30
 disabledBlendHeight    0.05
@@ -109,3 +109,87 @@ before you read any assembly.
 
 See also [game_deferred_decal.md](game_deferred_decal.md) for the same treatment
 of the decal effect.
+
+## Macro, normal and global map
+
+Transcribed 2026-09-06 from the same VT baker (blob 13) and from the near-field
+pass `shaders/terrain/terrain2_5.10.dx11.fxo`, blob 05 (the eight-layer,
+shadowed permutation, 389 instructions). The two agree on the albedo path; the
+normal and gloss path lives only in the near-field pass, because the game does
+per-pixel layer blending at screen resolution under the camera and uses the VT
+for the distance.
+
+### The layer record's last three quads
+
+`terrain2/layers` per layer, after the two projection vectors and the flags
+word: three zero floats, then three float4s. The loader names them `r1`, `r2`,
+`scale`; the game's constant buffer names them
+
+```
+r1     microDisplacement   (scale, offset, gamma, 1)   tessellation remap
+r2     macroDisplacement   (scale, offset, gamma, 1)   the macro's remap
+scale  blendMacroInfluence (albedo, normal, gloss, 1)  0..1, no negatives
+```
+
+Across all 1289 monastery records the third quad never goes negative and never
+exceeds 1; the first two carry the negative offsets a displacement needs. The
+mixer had been reading `r2.x` - a displacement scale - as the macro influence,
+and never read `L.s` at all, though the loader has uploaded it all along.
+
+### Albedo
+
+```
+m          = page mip fade toward macro (g_vtTileParams.w; ours: page_mip * macro_fade)
+macro_term = lerp(m * macro, saturate(macro - tileMacroColor * (1 - m)), influence.x)
+albedo     = (1 - m) * micro + macro_term
+```
+
+Close up, `m = 0`: `micro + influence.x * max(macro - mean, 0)`. The macro adds
+only its variation above its own average. Every texel of micro detail survives,
+whatever the influence. `tileMacroColor` is a per-layer constant the game feeds
+in; the 1x1 mip of the macro AM stands in for it here (the tile border is a wrap
+copy, so it does not skew the mean).
+
+What was there before, `mix(micro, macro, influence)`, replaced the micro with
+the macro in proportion. Rock_4 is authored at influence 1.0 on Abbey and its
+macro tiles at eight times the micro, 56 m per repeat, 5 cm per texel: the rock
+was mostly a blurred macro, in colour and in normal. That was the smeared rock.
+
+### Normal and gloss
+
+Winner-take-all, as before, then
+
+```
+micro  = decode(microNM.ag)                 fades to (0,0,1) with m
+k      = lerp(min(influence.y, 1), 1, m)
+macro  = lerp((0,0,1), decode(macroNM.ag), k)
+n      = normalize(micro.xy + macro.xy, micro.z * macro.z)
+
+gloss  = saturate(micro.r + influence.z * (macro.r - tileMacroColor.w))
+         then toward macro.r with m
+```
+
+The macro normal is added as detail on top of the micro, never lerped over it.
+
+### Global map
+
+```
+g      = saturate((blendGlobalThreshold - h_win) / blendGlobalThreshold) + m
+albedo += g * (global - tileColorAvg * (1 - m))
+```
+
+`h_win` is the winning layer's (micro/macro lerped) height, `tileColorAvg` the
+splat-weighted per-layer average colour (1x1 mip of the micro AM). Under the
+camera the global map only shows where the relief is low - the crevices - and
+only as its deviation from the tile colour. It is not mixed in. The old
+`(base * c_l + global * g_l) / 1.8` laid the 34 cm per texel global over every
+page at every distance.
+
+### Still ours, not the game's
+
+- AO is multiplied into the micro albedo at bake. The game carries it to the
+  G-buffer and applies it at lighting; this G-buffer has no slot for it.
+- The game's near-field pass blends per pixel with anisotropic `sample_d`; we
+  bake once into 5 mm VT texels, which is sharp enough under the camera.
+- Rock_4 authors 0.3 to 0.8 m of micro displacement. With tessellation off none
+  of the game's relief on that rock can appear.
