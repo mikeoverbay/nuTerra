@@ -950,7 +950,11 @@ class Studio:
         # scored: of the four flips, only this one puts the obstacle mask on
         # the AM's high-frequency detail (buildings), gradient ratio 1.25
         # against under 1.0 for the other three, on 19_monastery.
-        self.am_img = np.asarray(im.resize((b.w, b.h), Image.LANCZOS))[::-1, :, :].copy()
+        # Both axes flipped. The vertical flip was scored on monastery; the
+        # horizontal one showed up on Himmelsdorf, whose hill sat on the wrong
+        # side, and on the owner screen - monastery is symmetric enough that
+        # the score could not see it.
+        self.am_img = np.asarray(im.resize((b.w, b.h), Image.LANCZOS))[::-1, ::-1, :].copy()
         return True
 
     def render_mask(self):
