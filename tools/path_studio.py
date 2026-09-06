@@ -958,10 +958,14 @@ class Studio:
         o = b.obstacle
         img = np.zeros((b.h, b.w, 3), dtype=np.uint8)
         g = b.floor
-        gn = (g - g.min()) / max(1e-6, (g.max() - g.min()))
-        img[..., 0] = (14 + 22 * gn).astype(np.uint8)
-        img[..., 1] = (18 + 27 * gn).astype(np.uint8)
-        img[..., 2] = (26 + 35 * gn).astype(np.uint8)
+        # Percentile stretch, and a wider tonal range than before. The absolute
+        # min and max belong to the border chunks, so the playable ground sat in
+        # the darkest sixth of the range and a terrain-only bake read as black.
+        lo, hi = np.percentile(g, (2.0, 98.0))
+        gn = np.clip((g - lo) / max(1e-6, hi - lo), 0.0, 1.0)
+        img[..., 0] = (14 + 70 * gn).astype(np.uint8)
+        img[..., 1] = (18 + 76 * gn).astype(np.uint8)
+        img[..., 2] = (26 + 84 * gn).astype(np.uint8)
 
         cut = max(0.1, self.vars["agl"].get() - nav.MARGIN)
         low = (o > 0.4) & (o <= cut)
