@@ -109,6 +109,35 @@ float get_dom_mix(vec3 b) {
  // Dispacted Functions #############################################################
  //##################################################################################
 subroutine void fn_entry();
+// Baked occlusion and the fake self-shadow, carried to the resolve. The game
+// keeps occlusion in GB1.w and runs it through two curves in the lighting
+// pass - one for the ambient, one for the sun. Here it rides in gGMF.a, which
+// models never used (deferred.frag reads it as wetness for TERRAIN only), and
+// the fake shadow rides in gColor.a, likewise unused for models. Entries that
+// have neither leave both at 0: no occlusion, no shadow.
+float model_occl = 0.0;   // 1 = fully occluded, the game's convention
+float model_fake = 0.0;   // 1 = fully in the lee of a height-map ridge
+
+// Toward the sun, view space - the space the TBN is built in.
+uniform vec3 sun_dir_view;
+
+// The game's fake self-shadow (PBS_tiled / PBS_tiled_atlas .10, deferred PS):
+// the dominant tile's height map is sampled a second time, pushed toward the
+// sun in tangent space by 0.01 * params.x, and compared with the height under
+// the pixel. Where the pushed sample is higher the pixel sits behind a ridge.
+// params = (push, range, enable): g_fakeShadowsAndDetailParams.xyz on
+// PBS_tiled, the g_fakeShadowsParams default (0.5, 0.15, 1) on the atlas fx.
+vec2 fake_shadow_push(float strength)
+{
+    const vec3 sun_ts = normalize(transpose(fs_in.TBN) * sun_dir_view);
+    return sun_ts.xy * vec2(0.01, -0.01) * strength;
+}
+float fake_shadow(float h_here, float h_pushed, vec3 params)
+{
+    if (params.z <= 0.0) return 0.0;
+    return clamp((h_pushed - h_here) / max(params.y, 1e-4), 0.0, 1.0);
+}
+
 layout(index = 0) subroutine(fn_entry) void default_entry()
 {
     gColor = vec4(1, 0, 0, 0);
@@ -233,8 +262,18 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
         gloss = mix(gloss, gloss * thisMaterial.dirtParams.x, dirt);
     }
 
-    colorAM.rgb *= MAO.ggg;
-    colorAM *= blend.a;
+    // Occlusion to the G-buffer, the game's 1 - blend.a * MAO.g. It used to be
+    // multiplied into the albedo here, which darkened the sun as much as the
+    // ambient; the resolve now applies it through the game's two curves.
+    model_occl = 1.0 - blend.a * MAO.g;
+    {
+        const vec3 fp = vec3(0.5, 0.15, 1.0);
+        const vec2 uvp = padSize + fract(fs_in.TC1 + fake_shadow_push(fp.x)) * (1.0 - padSize * 2.0);
+        const float h_here = (blend.x >= blend.y && blend.x >= blend.z) ? colorAM_x.a
+                           : (blend.y >= blend.z ? colorAM_y.a : colorAM_z.a);
+        const float h_push = texture(atlasAlbedoHeight_sampler, vec3(uvp, dom_id)).a;
+        model_fake = fake_shadow(h_here, h_push, fp);
+    }
     gColor = colorAM;
 
     //save Gloss.Metal
@@ -319,8 +358,18 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
         gloss = mix(gloss, gloss * thisMaterial.dirtParams.x, dirt);
     }
 
-    colorAM.rgb *= MAO.ggg;
-    colorAM *= blend.a;
+    // Occlusion to the G-buffer, the game's 1 - blend.a * MAO.g. It used to be
+    // multiplied into the albedo here, which darkened the sun as much as the
+    // ambient; the resolve now applies it through the game's two curves.
+    model_occl = 1.0 - blend.a * MAO.g;
+    {
+        const vec3 fp = vec3(0.5, 0.15, 1.0);
+        const vec2 uvp = padSize + fract(fs_in.TC1 + fake_shadow_push(fp.x)) * (1.0 - padSize * 2.0);
+        const float h_here = (blend.x >= blend.y && blend.x >= blend.z) ? colorAM_x.a
+                           : (blend.y >= blend.z ? colorAM_y.a : colorAM_z.a);
+        const float h_push = texture(atlasAlbedoHeight_sampler, vec3(uvp, dom_id)).a;
+        model_fake = fake_shadow(h_here, h_push, fp);
+    }
     gColor = colorAM;
 
     //save Gloss.Metal
@@ -501,7 +550,18 @@ layout(index = 10) subroutine(fn_entry) void FX_PBS_tiled_entry()
         gloss = mix(gloss, gloss * thisMaterial.dirtParams.x, dirt);
     }
 
-    colorAM.rgb *= MAO.ggg;
+    // Occlusion to the G-buffer (game: 1 - blendMask.a * MAO.g), no longer
+    // multiplied into the albedo - see the note at the top of the file.
+    model_occl = 1.0 - blend.a * MAO.g;
+    {
+        const vec3 fp = thisMaterial.g_detailInfluences.xyz;
+        const vec2 uvp = uv1 + fake_shadow_push(fp.x);
+        float h_push;
+        if (blend.y > blend.x && blend.y >= blend.z)      h_push = texture(albedoHeightTile1_sampler, uvp).a;
+        else if (blend.z > blend.x && blend.z > blend.y)  h_push = texture(albedoHeightTile2_sampler, uvp).a;
+        else                                              h_push = texture(albedoHeightTile0_sampler, uvp).a;
+        model_fake = fake_shadow(h_dom, h_push, fp);
+    }
     gColor = colorAM;
 
     //save Gloss/Metal
@@ -632,7 +692,8 @@ void main(void)
 
     entries[thisMaterial.shader_type]();
     gColor.rgb = pow(gColor.rgb, vec3(1.0 / 1.3));
-    gColor.a = 0.0;
+    // Fake self-shadow for the resolve; 0 for every entry that has none.
+    gColor.a = model_fake;
 
     gPosition = fs_in.worldPosition;
     gGMF.b = renderType;
@@ -642,7 +703,9 @@ void main(void)
     // the wetness cubemap. Two entries DO write it (detail leaves gloss there,
     // repaint a computed term), which is just as wrong; this runs after them
     // and overwrites both.
-    gGMF.a = 0.0;
+    // ...so it carries the baked occlusion instead, 0 where an entry has none.
+    // deferred.frag reads it as occlusion for the MODEL class only.
+    gGMF.a = model_occl;
     gSurfaceNormals = normalize(fs_in.surfaceNormal) * 0.5 + 0.5;
 
 #ifdef PICK_MODELS

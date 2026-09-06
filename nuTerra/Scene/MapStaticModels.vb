@@ -430,6 +430,15 @@ Public Class MapStaticModels
         modelShader.Use()  '<------------------------------- Shader Bind
         '------------------------------------------------
 
+        ' Toward the sun in view space, for the fake self-shadow push in
+        ' model.frag. The TBN there is built from modelView, so this has to be
+        ' in the same space. Taken as the difference of two transformed points
+        ' so the helper's convention does not matter.
+        Dim vw = scene.camera.PerViewData.view
+        Dim sun_v = Transform_vertex_by_Matrix4(LIGHT_POS, vw) - Transform_vertex_by_Matrix4(Vector3.Zero, vw)
+        sun_v.Normalize()
+        GL.Uniform3(modelShader("sun_dir_view"), sun_v.X, sun_v.Y, sun_v.Z)
+
         'assign subroutines
         GL.UniformSubroutines(ShaderType.FragmentShader, indices.Length, indices)
 

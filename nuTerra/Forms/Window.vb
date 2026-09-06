@@ -2193,6 +2193,26 @@ try_again:
                         CommonProperties.SPECULAR = v_spec
                     End If
 
+                    ' ---- baked occlusion on models ---------------------------
+                    Dim v_aop = MODEL_AO_POWER
+                    If ImGui.SliderFloat("Model AO -> ambient", v_aop, 0.25, 4.0) Then
+                        MODEL_AO_POWER = v_aop
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Ambient on models is scaled by 1 - occlusion^power." & vbLf &
+                                         "1 is linear; higher keeps more sky fill in the creases.")
+                    End If
+                    Dim v_aos = MODEL_AO_SUN
+                    If ImGui.SliderFloat("Model AO -> sun", v_aos, 0.0, 2.0) Then
+                        MODEL_AO_SUN = v_aos
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Sun on models is scaled by 1 - occlusion * this." & vbLf &
+                                         "0 leaves the sun alone; 1 lets a fully occluded" & vbLf &
+                                         "crease go fully into shadow. The height-map" & vbLf &
+                                         "self-shadow is applied to the sun regardless.")
+                    End If
+
                     ' ---- SH probe FIELD -------------------------------------
                     ' WIRED INTO THE LIGHTING: deferred.frag blends the field
                     ' over the flat global probe by sh_grid_mix. This comment

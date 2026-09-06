@@ -29,6 +29,12 @@ layout(binding = 4) uniform samplerCube cubeMap;
 // follow the surface normal - sky colour from above, warm bounce from below -
 // instead of the single flat value this used to apply everywhere.
 uniform vec3 sh_ambient[9];
+
+// Baked occlusion on models, the game's two curves (GAME_LIGHTING_MODEL.md,
+// section 1 and the occlusion gate): ambient * (1 - occl^power), sun *
+// (1 - saturate(occl * mult)). Settings -> Surfaces.
+uniform float model_ao_power;
+uniform float model_ao_sun;
 uniform int  sh_enabled;
 
 // Ramamoorthi & Hanrahan irradiance evaluation. The constants fold the SH basis
@@ -794,6 +800,15 @@ void main (void)
             // in a channel nobody wrote.
             bool is_terrain = (GBUF_RENDER(GMF_raw.b) == GBUF_RENDER_TERRAIN);
 
+            // Models carry their baked occlusion in gGMF.a and the fake
+            // self-shadow in gColor.a (model.frag main). Read them out for the
+            // MODEL class and zero the channels so nothing downstream reads
+            // either as wetness.
+            const bool is_model = (GBUF_RENDER(GMF_raw.b) == GBUF_RENDER_MODEL);
+            const float model_occl = is_model ? clamp(GM_in.z, 0.0, 1.0) : 0.0;
+            const float model_fake = is_model ? clamp(color_in.a, 0.0, 1.0) : 0.0;
+            if (!is_terrain) { color_in.a = 0.0; GM_in.z = 0.0; }
+
             // Wet surfaces, the way BigWorld does it - and it does NOT have a
             // water path.
             //
@@ -948,6 +963,10 @@ void main (void)
             // ambient/direct split below stays consistent for both.
             float sun_shadow = sun_shadow_factor(Position)
                              * baked_sun_shadow((invView * vec4(Position, 1.0)).xyz);
+            // Baked occlusion and the height-map self-shadow take the sun away
+            // the way a shadow does. The ambient gets its own, softer curve
+            // below.
+            sun_shadow *= (1.0 - clamp(model_occl * model_ao_sun, 0.0, 1.0)) * (1.0 - model_fake);
             float direct_light = max(dot(N, L), 0.0) * sun_shadow;
 
             if (is_glow) {
@@ -957,6 +976,7 @@ void main (void)
                 sun_shadow = 0.0;
                 direct_light = 0.0;
             } else {
+                Ambient_level.rgb *= 1.0 - min(pow(model_occl, max(model_ao_power, 1e-3)), 1.0);
                 Ambient_level.rgb *= (1.0 - direct_light);
             }
 

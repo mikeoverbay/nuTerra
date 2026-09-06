@@ -145,6 +145,13 @@ Module modGlobalVars
     ''' <summary>How fast the fog noise drifts, in noise units per second.
     ''' 0 holds it still; 0.03 was the hard-coded value it had.</summary>
     Public FOG_SPEED As Single = 0.03F
+
+    ''' <summary>Baked occlusion on models, the game's two curves. Ambient is
+    ''' scaled by 1 - occl^power: 1 is linear, higher keeps more ambient in
+    ''' the creases. Sun is scaled by 1 - occl * mult: 0 leaves the sun alone,
+    ''' 1 lets full occlusion put a surface fully in shadow.</summary>
+    Public MODEL_AO_POWER As Single = 1.0F
+    Public MODEL_AO_SUN As Single = 1.0F
     Public FOG_TINT_R As Single = -1.0F
     Public FOG_TINT_G As Single = -1.0F
     Public FOG_TINT_B As Single = -1.0F

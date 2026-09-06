@@ -872,6 +872,8 @@ Module modRender
         Dim lp = Transform_vertex_by_Matrix4(LIGHT_POS, map_scene.camera.PerViewData.view)
 
         GL.Uniform3(deferredShader("LightPos"), lp.X, lp.Y, lp.Z)
+        GL.Uniform1(deferredShader("model_ao_power"), MODEL_AO_POWER)
+        GL.Uniform1(deferredShader("model_ao_sun"), MODEL_AO_SUN)
 
         ' SH ambient. Nine RGB coefficients go up as a flat float array; when the
         ' map has no probe sh0 is white and the rest zero, which evaluates back to
