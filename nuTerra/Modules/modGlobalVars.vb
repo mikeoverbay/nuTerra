@@ -877,7 +877,10 @@ Module modGlobalVars
     ''' Beer-Lambert makes it converge.
     '''
     ''' 0.06 puts the half-light distance around 12 m, which is the scale of a
-    ''' street. Higher is thicker air and a shorter, denser shaft.
+    ''' street. Higher is thicker air: a shorter, FAINTER shaft. It only ever
+    ''' dims - the integrand has no scattering coefficient of its own, the
+    ''' strength slider stands in for it, so density cannot make the air read
+    ''' as denser near the bulb. Turn strength up for that.
     ''' </summary>
     ' 0.02, not 0.06. At 0.06 the rim of a 20 m lamp keeps only exp(-1.19)
     ' = 30% of what the bulb scatters, which shrinks the visible glow on top of

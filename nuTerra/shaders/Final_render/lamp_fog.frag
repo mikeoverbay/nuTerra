@@ -150,15 +150,27 @@ void main(void)
     vec3 base = pow(lamp_color, vec3(2.2)) * lamp_level;
 
     vec3 acc = vec3(0.0);
-    // How much of what is scattered at the current step still reaches the eye.
-    // Falls as the march walks away from the camera.
-    float trans = 1.0;
-    float step_trans = exp(-fog_density * dt);
 
     for (int i = 0; i < steps; ++i)
     {
         float t = t0 + (float(i) + jitter) * dt;
         vec3 p = ro + rd * t;
+
+        // How much of what is scattered at THIS point still reaches the eye.
+        //
+        // From the sample's own position, not accumulated step by step. The
+        // accumulated form was advanced after the accumulate, so every
+        // `continue` below - a step in shadow, a step outside the range -
+        // skipped it, and the eye-ward path only lost light across the LIT
+        // steps. Air in shadow extinguishes just the same: lit fog seen
+        // through 10 m of a wall's shadow came out twice as bright as the same
+        // fog seen in the clear. Evaluating at t also puts the transmittance
+        // at the jittered sample rather than at the step start, which removes
+        // a fixed 4x4 brightness pattern the Bayer offset was leaving behind.
+        float trans = exp(-fog_density * (t - t0));
+        // Nothing past here can reach the eye, so stop walking. Checked before
+        // the continues so a shadowed tail cannot keep the march alive.
+        if (trans < 0.002) break;
 
         vec3 d = lamp_pos - p;
         float dist = length(d);
@@ -196,10 +208,6 @@ void main(void)
 
         acc += base * atten * vis
              * henyey_greenstein(cos_t, fog_phase) * to_lamp * trans * dt;
-
-        trans *= step_trans;
-        // Nothing past here can reach the eye, so stop walking.
-        if (trans < 0.002) break;
     }
 
     vec3 lit = acc * fog_gain;

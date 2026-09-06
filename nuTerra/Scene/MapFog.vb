@@ -55,7 +55,12 @@ Public Class MapFog
 
         ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
         Dim rotate = Matrix4.CreateRotationX(1.570796)
-        'GL.Enable(EnableCap.CullFace)
+        ' DeferredFog.frag discards front faces and draws the box's BACK faces,
+        ' which only exist if culling is off. It used to be off here only
+        ' because draw_base_rings_deferred had just disabled it - and that
+        ' routine returns early on spaces with no team bases, leaving culling
+        ' on and this pass drawing nothing at all.
+        GL.Disable(EnableCap.CullFace)
 
         GL.UniformMatrix4(DeferredFogShader("DecalMatrix"), False, rotate * model_S * model_X)
 

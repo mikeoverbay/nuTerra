@@ -178,6 +178,13 @@ Public Class MapLampView
         Dim was_blend = GL.IsEnabled(EnableCap.Blend)
         Dim was_depth = GL.IsEnabled(EnableCap.DepthTest)
         Dim was_cull = GL.IsEnabled(EnableCap.CullFace)
+        ' ClearColor is global too. Left at the slate below, the NEXT frame's
+        ' G-buffer clear painted gPosition with it, and lamp_fog.frag reads a
+        ' zero gPosition as "sky" - so every sky pixel became a surface 0.2 m
+        ' from the eye and the shafts against the sky vanished while this
+        ' panel was open. MapMinimap learned the same lesson with navy.
+        Dim prev_clear(3) As Single
+        GL.GetFloat(GetPName.ColorClearValue, prev_clear)
 
         fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Disable(EnableCap.Blend)
@@ -202,6 +209,7 @@ Public Class MapLampView
         If was_cull Then GL.Enable(EnableCap.CullFace) Else GL.Disable(EnableCap.CullFace)
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, prev_fbo)
         GL.Viewport(prev_vp(0), prev_vp(1), prev_vp(2), prev_vp(3))
+        GL.ClearColor(prev_clear(0), prev_clear(1), prev_clear(2), prev_clear(3))
         GL_POP_GROUP()
     End Sub
 

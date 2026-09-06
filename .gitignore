@@ -208,3 +208,4 @@ __pycache__/
 
 # Diagnostic images the tools/ scripts draw next to themselves
 tools/*.png
+*.avif

@@ -2007,7 +2007,8 @@ try_again:
                             ImGui.SetTooltip("Extinction per metre. This is what makes the" & vbLf &
                                              "march converge, so one strength works whether" & vbLf &
                                              "the camera is inside a lamp's radius or outside." & vbLf &
-                                             "Higher is thicker air and a shorter, denser shaft.")
+                                             "Higher is thicker air: a shorter, FAINTER shaft." & vbLf &
+                                             "It only dims. For a denser glow, raise strength.")
                         End If
                         Dim v_fp = LAMP_FOG_PHASE
                         If ImGui.SliderFloat("  forward scatter", v_fp, 0.0, 0.9) Then

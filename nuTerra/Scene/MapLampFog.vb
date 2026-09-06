@@ -58,7 +58,13 @@ Public Class MapLampFog
         ' The shadow CUBE. The baked volume was tried here and reverted: at
         ' 0.6 m a voxel it cannot hold the shadow of a lamp FIXTURE, which is
         ' the occluder a street lamp's god rays are made of.
-        Dim have_vol = scene.lamp_shadow IsNot Nothing AndAlso
+        ' LAMP_SHADOW_ENABLED first, the same gate the surfaces use
+        ' (upload_path_lights zeroes lamp_shadow_count when it is off). Without
+        ' it, unticking "Lamp shadows" unshadowed the pools and left the shafts
+        ' carved - and a cam-path reload while it was off skipped the re-bake,
+        ' so the shafts kept sampling cubes baked for the OLD lamp positions.
+        Dim have_vol = LAMP_SHADOW_ENABLED AndAlso
+                       scene.lamp_shadow IsNot Nothing AndAlso
                        scene.lamp_shadow.ready AndAlso
                        scene.lamp_shadow.depth_tex IsNot Nothing
         If have_vol Then
@@ -100,6 +106,12 @@ Public Class MapLampFog
         ' build_sphere's winding runs the opposite way to the engine's Ccw
         ' front-face setting. Do not "correct" this to Front on the strength of
         ' the name; test it from inside a lamp.
+        ' Set, not assumed. The decal pass sets FrontFace per decal from the
+        ' sign of its matrix determinant and does not put Ccw back, and nothing
+        ' between it and this pass resets it - so on a map whose last decal is
+        ' mirrored the Back cull below kept the NEAR faces and the shafts died
+        ' from inside a lamp, exactly the symptom described above.
+        GL.FrontFace(FrontFaceDirection.Ccw)
         GL.Enable(EnableCap.CullFace)
         GL.CullFace(CullFaceMode.Back)
 
