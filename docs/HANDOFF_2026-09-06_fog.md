@@ -177,10 +177,14 @@ int32 millimetres - and writes the same four bake files MapFlightBake does, with
 `source=python-terrain` in the meta. TERRAIN ONLY: top equals floor, the mask is
 empty, no models or trees. The chunk-to-world mapping was SEARCHED, not derived:
 every orientation, mirror, span and offset rasterised and compared with nuTerra
-own 19_monastery floor.r32; the winner (X mirrored per chunk and per map, 69
-samples over 106.25 m with a two-sample margin) matches it to 1.67 m RMS over
-1048576 cells. The button never replaces a nuTerra bake without asking. Game
-path comes from nuTerra user.config (`GamePath`).
+own floors; the winner (X mirrored per chunk and per map, 69 samples over
+106.25 m with a two-sample margin) plus the water raise (BWWa bodies out of
+space.bin, rectangles lifted to their surface as MapFlightBake does) matches
+nuTerra to 0.00-0.04 m RMS on every map that has a real bake. The residual
+before the water raise WAS the water: dry maps matched to 0.00 m, wet ones did
+not. The button never replaces a nuTerra bake without asking; if one was, open
+the map in nuTerra and it writes the real one back. Game path comes from
+nuTerra user.config (`GamePath`).
 
 **global_AM underlay.** Checkbox plus blend slider on the left panel. The pkg
 global_AM.dds (4096 DXT5, Pillow decodes it) is resized to the bake grid and

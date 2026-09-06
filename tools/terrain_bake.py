@@ -27,13 +27,14 @@ HOW THE HEIGHTS ARE FOUND
     world_x = -(cx + 1) * 100 .. -cx * 100, world_z = cz * 100 .. (cz + 1) * 100.
     That mapping was not derived - it was SEARCHED: every orientation, mirror,
     span and offset was rasterised and compared against nuTerra's own
-    19_monastery floor.r32; the winner matches it to 1.67 m RMS over 1048576
-    cells (nuTerra's bake is a rasterised mesh, this is a bilinear sample of
-    the grid). Do not change it without re-running that comparison.
+    19_monastery floor.r32; with the water raise below, the winner matches
+    nuTerra's floors to 0.00-0.04 m RMS on every map that has one (karelia,
+    airfield, mannerheim, poland, westfeld, desert, monastery). Do not change
+    it without re-running that comparison.
 
 GAME PATH
     Read from nuTerra's own user.config files under %LOCALAPPDATA%\\nuTerra
-    (setting GAME_PATH); every root found is tried. Or pass it.
+    (setting GamePath); every root found is tried. Or pass it.
 
     python tools/terrain_bake.py <map> [--game <root>] [--size 1024]
 """
