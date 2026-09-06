@@ -52,6 +52,7 @@ import flight_plan as fp
 import export_cam_path as ex
 import cam_path as cp
 import fog_curve as fc
+import terrain_bake as tb
 
 FOLDER = nav.FOLDER
 
@@ -442,6 +443,12 @@ class Studio:
         # a light must not move because the map was scrolled.
         self.lights = []
 
+        # The map the list points at, whether or not it has a bake - the Bake
+        # button works on this. And the global_AM picture for the loaded map,
+        # on the bake grid, loaded the first time the underlay is switched on.
+        self.selected_name = None
+        self.am_img = None
+
         # What is selected, as (kind, index): ("light", i), ("target", i) or
         # ("start", 0). One selection, because dragging two things at once has
         # no meaning and a list would only invite it.
@@ -476,7 +483,29 @@ class Studio:
         self.other_combo.grid(row=3, column=0, sticky="we", pady=(0, 8))
         self.other_combo.bind("<<ComboboxSelected>>", self._pick_other)
 
-        r = 4
+        # A bake for a map nuTerra has never opened. TERRAIN ONLY - it reads
+        # the heights out of the pkg, so there are no models or trees in it
+        # and the obstacle mask is empty. Enough to see the map and place
+        # lights; open the map in nuTerra for the real bake, which replaces it.
+        self.bake_btn = ttk.Button(left, text="Bake terrain (Python)",
+                                   command=self.bake_selected)
+        self.bake_btn.grid(row=4, column=0, sticky="we", pady=(0, 4))
+        self.bake_btn.state(["disabled"])
+
+        # The map's global_AM - the game's own top-down picture of the ground -
+        # under the mask, so the map is recognisable while placing things.
+        # Open ground shows it; obstacle cells keep the mask colours.
+        f_am = ttk.Frame(left)
+        f_am.grid(row=5, column=0, columnspan=2, sticky="we", pady=(0, 6))
+        self.show_am = tk.BooleanVar(value=False)
+        ttk.Checkbutton(f_am, text="global_AM", variable=self.show_am,
+                        command=self.on_am_toggle).pack(side="left")
+        self.am_blend = tk.DoubleVar(value=0.7)
+        ttk.Scale(f_am, from_=0.0, to=1.0, variable=self.am_blend,
+                  orient="horizontal", length=110,
+                  command=lambda *_: self.on_am_toggle()).pack(side="left", padx=(6, 0))
+
+        r = 6
         self.vars = {}
         for key, label, lo, hi, init in (
                 ("radius", "Loop radius (m)", 60, 600, 260),
@@ -785,9 +814,12 @@ class Studio:
     def load_named(self, name):
         if self.busy or not name:
             return
+        self.selected_name = name
+        self.bake_btn.state(["!disabled"])
         if name not in getattr(self, "baked", ()):  # nothing to draw or plan
-            self.status.set("%s has no bake yet - open it once in nuTerra, "
-                            "which writes one on map load." % name)
+            self.status.set("%s has no bake yet. Bake terrain (Python) writes a "
+                            "terrain-only one now; opening it once in nuTerra "
+                            "writes the real one." % name)
             return
         self.status.set("loading " + name)
         self.root.update_idletasks()
@@ -798,6 +830,7 @@ class Studio:
             return
         self.map_name = name
         self.start = self.heading = self.route = None
+        self.am_img = None          # a different map, a different picture
 
         # Show the route this map already has, AND the clicks that made it.
         # Opening a map planned weeks ago and being shown a blank mask invites
@@ -852,6 +885,73 @@ class Studio:
 
     # -------------------------------------------------------------- drawing
 
+    # ------------------------------------------------------- terrain bake
+
+    def bake_selected(self):
+        """Terrain-only bake from the pkg, for the map the list points at.
+
+        Runs in a thread - reading 196 chunk zips and rasterising takes a few
+        seconds - and reports through the status line. A real nuTerra bake is
+        never replaced without asking: it has the models and trees this cannot.
+        """
+        name = self.selected_name
+        if not name or self.busy:
+            return
+        if name in self.baked and not tb.bake_is_python(FOLDER, name):
+            if not messagebox.askyesno(
+                    "Replace the real bake?",
+                    "%s already has a bake written by nuTerra, with the models and "
+                    "trees in it.\n\nReplace it with a TERRAIN-ONLY bake?" % name):
+                return
+        self.busy = True
+        self.bake_btn.state(["disabled"])
+        self.status.set("baking %s from the pkg..." % name)
+
+        def work():
+            try:
+                tb.bake(name, log=lambda m: self.root.after(0, self.status.set, m))
+                self.root.after(0, self._bake_done, name, None)
+            except Exception as e:
+                self.root.after(0, self._bake_done, name, str(e))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _bake_done(self, name, err):
+        self.busy = False
+        self.bake_btn.state(["!disabled"])
+        if err:
+            self.status.set("bake failed: %s" % err)
+            return
+        self.find_maps()
+        self.load_named(name)
+        self.status.set("%s: terrain-only bake written - no models or trees in "
+                        "it. Open the map in nuTerra for the real one." % name)
+
+    # ---------------------------------------------------------- global_AM
+
+    def on_am_toggle(self):
+        if self.bake is not None:
+            self.render_mask()
+
+    def load_am(self):
+        """The map's global_AM on the bake grid, cached per map. False if none."""
+        if self.am_img is not None:
+            return self.am_img is not False
+        try:
+            im = tb.load_global_am(self.map_name)
+        except Exception as e:
+            self.status.set("global_AM: %s" % e)
+            im = None
+        if im is None:
+            self.am_img = False
+            return False
+        b = self.bake
+        # Resized to the bake grid and flipped VERTICALLY. Not derived -
+        # scored: of the four flips, only this one puts the obstacle mask on
+        # the AM's high-frequency detail (buildings), gradient ratio 1.25
+        # against under 1.0 for the other three, on 19_monastery.
+        self.am_img = np.asarray(im.resize((b.w, b.h), Image.LANCZOS))[::-1, :, :].copy()
+        return True
+
     def render_mask(self):
         """The collision mask, shaded the same way the navigator's picture is."""
         b = self.bake
@@ -887,6 +987,15 @@ class Studio:
         #
         # Flip the picture once, here, and mirror the column in to_view and
         # to_world so clicks land where they look. Nothing else has to know.
+        # The global_AM under the OPEN ground. Obstacles and the low band keep
+        # their mask colours, so what the planner sees stays legible on top of
+        # what the map looks like.
+        if self.show_am.get() and self.load_am():
+            k = float(self.am_blend.get())
+            open_ = ~(low | hard)
+            mixed = self.am_img.astype(np.float32) * k + img.astype(np.float32) * (1.0 - k)
+            img = np.where(open_[..., None], mixed, img.astype(np.float32)).astype(np.uint8)
+
         self.mask_full = Image.fromarray(img[:, ::-1], "RGB")
         self.repaint()
 

@@ -163,3 +163,30 @@ retries later with an error that looks like a compile problem.
 request. `nuTerra.exe 19_monastery cam=<snapshot line>`.
 
 **The owner pushes. The agent never does.**
+
+---
+
+## 5. Later the same day: Path Studio bakes and shows the map
+
+Two additions to `tools/path_studio.py`, both pure Python, no nuTerra involved.
+
+**Bake terrain (Python).** `tools/terrain_bake.py` reads a map that nuTerra has
+never opened straight from its pkg - `spaces/<map>/<xxxx><yyyy>o.cdata_processed`,
+one zip per 100 m chunk, `terrain2/heights` = 36-byte header + 69x69 RGBA PNG of
+int32 millimetres - and writes the same four bake files MapFlightBake does, with
+`source=python-terrain` in the meta. TERRAIN ONLY: top equals floor, the mask is
+empty, no models or trees. The chunk-to-world mapping was SEARCHED, not derived:
+every orientation, mirror, span and offset rasterised and compared with nuTerra
+own 19_monastery floor.r32; the winner (X mirrored per chunk and per map, 69
+samples over 106.25 m with a two-sample margin) matches it to 1.67 m RMS over
+1048576 cells. The button never replaces a nuTerra bake without asking. Game
+path comes from nuTerra user.config (`GamePath`).
+
+**global_AM underlay.** Checkbox plus blend slider on the left panel. The pkg
+global_AM.dds (4096 DXT5, Pillow decodes it) is resized to the bake grid and
+flipped VERTICALLY - scored, not assumed: only that flip puts the obstacle mask
+on the AM high-frequency detail (gradient ratio 1.25 against under 1.0 for the
+other three). Open ground shows the AM; obstacle cells keep the mask colours.
+
+Verified headlessly: Himmelsdorf baked and loaded from nothing; monastery
+composite shows the orange obstacles sitting on the AM town.
