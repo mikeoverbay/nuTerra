@@ -2119,6 +2119,9 @@ try_again:
                     End If
                 End If
                 If ImGui.CollapsingHeader("PBR shading") Then
+
+                    ImGui.Separator()
+                    ImGui.TextDisabled("Sun and ambient")
                     ' Read into a local, slide that, write back only on change.
                     ' Passing the property straight to a ByRef parameter relies on
                     ' VB's copy-back, which is easy to get wrong and impossible to
@@ -2131,13 +2134,54 @@ try_again:
                                              CommonProperties.AMBIENT, SH_AMBIENT_LOADED, USE_SH_AMBIENT,
                                              SH_AMBIENT(0).X, SH_AMBIENT(0).Y, SH_AMBIENT(0).Z))
 
-                    ' ---- specular model -------------------------------------
+                    ' 0 = grey ambient at the same level, 1 = the probe's own colour.
+                    Dim v_asat = CommonProperties.AMBIENT_SAT
+                    If ImGui.SliderFloat("Ambient Sat", v_asat, 0.0, 1.0) Then
+                        CommonProperties.AMBIENT_SAT = v_asat
+                    End If
+
+                    ' Multiplier on the map's sunLightColor, used at full chroma.
+                    Dim v_sun = CommonProperties.SUN_STRENGTH
+                    If ImGui.SliderFloat("Sun Strength", v_sun, 0.0, 3.0) Then
+                        CommonProperties.SUN_STRENGTH = v_sun
+                    End If
+
+                    ' 0 = white sun, 1 = sunLightColor at full chroma.
+                    Dim v_tint = CommonProperties.SUN_TINT
+                    If ImGui.SliderFloat("Sun Tint", v_tint, 0.0, 1.0) Then
+                        CommonProperties.SUN_TINT = v_tint
+                    End If
+
+                    ' The shadow mix, moved here from Terrain and Shadow Mapping
+                    ' where it sat as two sliders writing the same value.
+                    '
+                    ' 1 is the full shadow. Below that it lifts the shadow back
+                    ' toward lit, and deferred.frag applies it ONLY where the sun
+                    ' actually reaches - a fully occluded pixel stays fully
+                    ' occluded at any setting. It softens a penumbra; it can no
+                    ' longer put sunlight inside a shadow.
+                    Dim v_hz = CommonProperties.HORIZON_STRENGTH
+                    If ImGui.SliderFloat("Shadow Mix", v_hz, 0.0, 1.0) Then
+                        CommonProperties.HORIZON_STRENGTH = v_hz
+                    End If
+                    If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.sun_shadow.ready Then
+                        ImGui.Text(String.Format("   baked {0}x{0}", map_scene.sun_shadow.size))
+                    Else
+                        ImGui.Text("   no baked sun shadow")
+                    End If
+
                     ImGui.Separator()
+                    ImGui.TextDisabled("Surfaces")
+                    ' ---- specular model -------------------------------------
                     If ImGui.Checkbox("PBR specular (game model)", PBR_SPEC) Then
                     End If
                     ImGui.Text("   GGX + Schlick-Gaussian F + Smith-Schlick Vis")
                     ImGui.Text("   env LUT indexed (alphaRoughness, NdotV)")
 
+                    Dim v_spec = CommonProperties.SPECULAR
+                    If ImGui.SliderFloat("Spec Level", v_spec, 0.0, 1.0) Then
+                        CommonProperties.SPECULAR = v_spec
+                    End If
 
                     ' ---- SH probe FIELD -------------------------------------
                     ' WIRED INTO THE LIGHTING: deferred.frag blends the field
@@ -2147,7 +2191,6 @@ try_again:
                     ' was still live. modRender.vb carries the same warning.
                     ' "show probe field" paints the raw field instead, so its
                     ' placement can be checked independently of the shading.
-                    ImGui.Separator()
                     If SH_GRID_LOADED Then
                         ImGui.Checkbox("SH probe grid", USE_SH_GRID)
                         ImGui.Checkbox("   light FX from the field", USE_SH_GRID_FX)
@@ -2192,16 +2235,12 @@ try_again:
                     Else
                         ImGui.Text("SH probe grid: not loaded for this map")
                     End If
-                    ImGui.Separator()
 
+                    ImGui.Separator()
+                    ImGui.TextDisabled("Tone")
                     Dim v_bright = CommonProperties.BRIGHTNESS
                     If ImGui.SliderFloat("Bright Level", v_bright, 0.0, 2.0) Then
                         CommonProperties.BRIGHTNESS = v_bright
-                    End If
-
-                    Dim v_spec = CommonProperties.SPECULAR
-                    If ImGui.SliderFloat("Spec Level", v_spec, 0.0, 1.0) Then
-                        CommonProperties.SPECULAR = v_spec
                     End If
 
                     Dim v_gray = CommonProperties.GRAY_LEVEL
@@ -2209,12 +2248,21 @@ try_again:
                         CommonProperties.GRAY_LEVEL = v_gray
                     End If
 
-                    ' Multiplier on the map's sunLightColor, used at full chroma.
-                    Dim v_sun = CommonProperties.SUN_STRENGTH
-                    If ImGui.SliderFloat("Sun Strength", v_sun, 0.0, 3.0) Then
-                        CommonProperties.SUN_STRENGTH = v_sun
+                    ' Gain of the tone curve. 2.61 is where the scene currently
+                    ' sits, a bit past the middle of this range, so there is room
+                    ' to go darker or to push the shadows up without clipping.
+                    Dim v_expo = CommonProperties.TONEMAP_EXPOSURE
+                    If ImGui.SliderFloat("Tone Exposure", v_expo, 0.5, 4.0) Then
+                        CommonProperties.TONEMAP_EXPOSURE = v_expo
                     End If
 
+                    Dim v_gamma = CommonProperties.GAMMA_LEVEL
+                    If ImGui.SliderFloat("Gamma Level", v_gamma, 0.0, 1.0) Then
+                        CommonProperties.GAMMA_LEVEL = v_gamma
+                    End If
+
+                    ImGui.Separator()
+                    ImGui.TextDisabled("Lamps")
                     ' Intensity of the .campath's point lights. Runs to 200
                     ' because inverse-square falloff eats most of it: a lamp is
                     ' only bright where it is close, which is the point of it.
@@ -2246,55 +2294,9 @@ try_again:
                                          "and the BRDF - only the falloff and N.L shape remain." & vbLf &
                                          "Answers 'is it reaching this surface' in one look.")
                     End If
-                    If ImGui.IsItemHovered() Then
-                        ImGui.SetTooltip("Intensity of the lights placed in Path Studio." & vbLf &
-                                         "Their level is authored 0..1, which is a fraction -" & vbLf &
-                                         "this is the amount of light that fraction is OF.")
-                    End If
 
-                    ' The shadow mix, moved here from Terrain and Shadow Mapping
-                    ' where it sat as two sliders writing the same value.
-                    '
-                    ' 1 is the full shadow. Below that it lifts the shadow back
-                    ' toward lit, and deferred.frag applies it ONLY where the sun
-                    ' actually reaches - a fully occluded pixel stays fully
-                    ' occluded at any setting. It softens a penumbra; it can no
-                    ' longer put sunlight inside a shadow.
-                    Dim v_hz = CommonProperties.HORIZON_STRENGTH
-                    If ImGui.SliderFloat("Shadow Mix", v_hz, 0.0, 1.0) Then
-                        CommonProperties.HORIZON_STRENGTH = v_hz
-                    End If
-                    If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.sun_shadow.ready Then
-                        ImGui.Text(String.Format("   baked {0}x{0}", map_scene.sun_shadow.size))
-                    Else
-                        ImGui.Text("   no baked sun shadow")
-                    End If
-
-                    ' 0 = grey ambient at the same level, 1 = the probe's own colour.
-                    Dim v_asat = CommonProperties.AMBIENT_SAT
-                    If ImGui.SliderFloat("Ambient Sat", v_asat, 0.0, 1.0) Then
-                        CommonProperties.AMBIENT_SAT = v_asat
-                    End If
-
-                    ' 0 = white sun, 1 = sunLightColor at full chroma.
-                    Dim v_tint = CommonProperties.SUN_TINT
-                    If ImGui.SliderFloat("Sun Tint", v_tint, 0.0, 1.0) Then
-                        CommonProperties.SUN_TINT = v_tint
-                    End If
-
-                    ' Gain of the tone curve. 2.61 is where the scene currently
-                    ' sits, a bit past the middle of this range, so there is room
-                    ' to go darker or to push the shadows up without clipping.
-                    Dim v_expo = CommonProperties.TONEMAP_EXPOSURE
-                    If ImGui.SliderFloat("Tone Exposure", v_expo, 0.5, 4.0) Then
-                        CommonProperties.TONEMAP_EXPOSURE = v_expo
-                    End If
-
-                    Dim v_gamma = CommonProperties.GAMMA_LEVEL
-                    If ImGui.SliderFloat("Gamma Level", v_gamma, 0.0, 1.0) Then
-                        CommonProperties.GAMMA_LEVEL = v_gamma
-                    End If
-
+                    ImGui.Separator()
+                    ImGui.TextDisabled("Fog")
                     Dim v_fog = CommonProperties.FOG_LEVEL
                     If ImGui.SliderFloat("Fog Level", v_fog, 0.0, 1.0) Then
                         CommonProperties.FOG_LEVEL = v_fog
@@ -2312,7 +2314,7 @@ try_again:
                                          "about 58 m; the sky is treated as infinitely far.")
                     End If
                     Dim v_fh = FOG_HEIGHT
-                    If ImGui.SliderFloat("  fog height (m)", v_fh, 1.0, 300.0) Then
+                    If ImGui.SliderFloat("  fog height (m)", v_fh, 1.0, 100.0) Then
                         FOG_HEIGHT = v_fh
                     End If
                     If ImGui.IsItemHovered() Then
@@ -2332,7 +2334,7 @@ try_again:
                                          "0 is a smooth haze.")
                     End If
                     Dim v_fm = FOG_NOISE_M
-                    If ImGui.SliderFloat("  fog noise size (m)", v_fm, 10.0, 600.0) Then
+                    If ImGui.SliderFloat("  fog noise size (m)", v_fm, 10.0, 250.0) Then
                         FOG_NOISE_M = v_fm
                     End If
                     If ImGui.IsItemHovered() Then
