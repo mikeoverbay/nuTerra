@@ -20,17 +20,24 @@ Imports OpenTK.Mathematics
 ''' nothing. Ortho makes screen distance proportional to metres, which is what
 ''' lets the cursor be placed by eye and trusted.
 '''
-''' Draws from the MAP's shared vertex and index buffers via MODEL_GEOM, so a
-''' map has to be loaded. That is the cheap route: the geometry is already
-''' resident, and the CPU-side arrays are Erased at load, so re-reading the
-''' .primitives would mean a second loader path for no gain.
+''' Draws from LAMP_MESHES - its OWN small position+normal copy of each light
+''' model, taken alongside the main upload at load time. The models stay in the
+''' shared buffers and render exactly as before; nothing is moved out of the
+''' main path.
+'''
+''' Its own buffers rather than a range into the shared ones, because the shared
+''' vertex buffer is 56 bytes a vertex in a layout the main shaders expect, and
+''' a viewer reading it would have to match that layout and stay matched. 24
+''' bytes of position and normal owes the renderer nothing.
 ''' </summary>
 Public Class MapLampView
     Implements IDisposable
 
-    ''' <summary>Edge of one of the four panes, pixels. The texture is 2x2 of
-    ''' these.</summary>
-    Public Shared PANE As Integer = 320
+    ''' <summary>Current render target size, in pixels. Follows the ImGui
+    ''' pane it is drawn into, so it changes whenever the splitter moves or the
+    ''' window is resized.</summary>
+    Public tex_w As Integer = 0
+    Public tex_h As Integer = 0
 
     Public fbo As GLFramebuffer
     Public color_tex As GLTexture
@@ -61,7 +68,7 @@ Public Class MapLampView
         model_id = -1
         ready = False
         If MAP_MODELS Is Nothing OrElse id < 0 OrElse id >= MAP_MODELS.Length Then Return
-        If Not MODEL_GEOM.ContainsKey(id) Then Return
+        If Not LAMP_MESHES.ContainsKey(id) Then Return
 
         Dim vb = MAP_MODELS(id).visibilityBounds
         bounds_min = New Vector3(Math.Min(vb.Row0.X, vb.Row1.X),
@@ -137,38 +144,82 @@ Public Class MapLampView
     ''' Render all four panes into the one texture. Call once a frame while the
     ''' panel is open; it binds and restores its own framebuffer.
     ''' </summary>
-    Public Sub Render()
-        If Not ready OrElse map_scene Is Nothing Then Return
-        If Not MODEL_GEOM.ContainsKey(model_id) Then Return
+    ''' <summary>
+    ''' Draw into the target at the given size. Called with the ImGui pane's
+    ''' available region, so the surface always matches the pane exactly rather
+    ''' than being scaled into it.
+    '''
+    ''' Always clears, even with no model. An empty pane that is a LIVE cleared
+    ''' surface and an empty pane that is a dead texture look identical, and
+    ''' only one of them means the GL side is working.
+    ''' </summary>
+    Public Sub Render(w As Integer, h As Integer)
+        If w < 8 OrElse h < 8 Then Return
 
-        create_target()
-        build_cursor()
+        create_target(w, h)
+        If fbo Is Nothing Then Return
 
         GL_PUSH_GROUP("MapLampView::Render")
 
-        fbo.Bind(FramebufferTarget.Framebuffer)
+        ' SAVE EVERYTHING THIS PASS TOUCHES.
+        '
+        ' Learned the hard way: an earlier version bound framebuffer 0 on the
+        ' way out and left depth test on and blending off. That was harmless
+        ' while it early-returned with no model loaded, and took the whole UI
+        ' down the moment it started running every frame - ImGui draws blended
+        ' with the depth test off, into whatever framebuffer was bound.
+        '
+        ' Binding 0 is the specific mistake: it assumes the default framebuffer
+        ' was the target, and it is not - the engine renders into MainFBO. Ask
+        ' what was bound and put THAT back.
+        Dim prev_fbo = GL.GetInteger(GetPName.FramebufferBinding)
+        Dim prev_vp(3) As Integer
+        GL.GetInteger(GetPName.Viewport, prev_vp)
+        Dim was_blend = GL.IsEnabled(EnableCap.Blend)
+        Dim was_depth = GL.IsEnabled(EnableCap.DepthTest)
+        Dim was_cull = GL.IsEnabled(EnableCap.CullFace)
 
-        ' Plain depth ordering, and put it BACK. The engine runs reversed-Z
-        ' globally - same trap the shadow bakes have.
-        GL.DepthFunc(DepthFunction.Less)
-        GL.Enable(EnableCap.DepthTest)
-        GL.DepthMask(True)
+        fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Disable(EnableCap.Blend)
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthFunc(DepthFunction.Less)
+        GL.DepthMask(True)
+        GL.ClearColor(0.10F, 0.11F, 0.14F, 1.0F)
+        GL.ClearDepth(1.0)
+        GL.Viewport(0, 0, tex_w, tex_h)
+        GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
+
+        If ready AndAlso LAMP_MESHES.ContainsKey(model_id) Then
+            draw_model_panes()
+        End If
+
+        ' Back exactly as found. The reversed-Z pair are global engine state,
+        ' the rest belongs to whatever pass was interrupted.
+        GL.DepthFunc(DepthFunction.Greater)
+        GL.ClearDepth(0.0F)
+        If was_blend Then GL.Enable(EnableCap.Blend) Else GL.Disable(EnableCap.Blend)
+        If was_depth Then GL.Enable(EnableCap.DepthTest) Else GL.Disable(EnableCap.DepthTest)
+        If was_cull Then GL.Enable(EnableCap.CullFace) Else GL.Disable(EnableCap.CullFace)
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, prev_fbo)
+        GL.Viewport(prev_vp(0), prev_vp(1), prev_vp(2), prev_vp(3))
+        GL_POP_GROUP()
+    End Sub
+
+    Private Sub draw_model_panes()
+        build_cursor()
+
         ' Hollow shells with no bottom faces: culling turns a view from
         ' underneath into a hole. The shader lights both sides instead.
         GL.Disable(EnableCap.CullFace)
 
-        GL.ClearColor(0.12F, 0.13F, 0.16F, 1.0F)
-        GL.ClearDepth(1.0)
-        GL.Viewport(0, 0, PANE * 2, PANE * 2)
-        GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
-
-        Dim ranges = MODEL_GEOM(model_id)
+        Dim meshes = LAMP_MESHES(model_id)
+        Dim half_w = tex_w \ 2
+        Dim half_h = tex_h \ 2
 
         For pane = 0 To 3
-            Dim px = (pane Mod 2) * PANE
-            Dim py = (1 - (pane \ 2)) * PANE
-            GL.Viewport(px, py, PANE, PANE)
+            Dim px = (pane Mod 2) * half_w
+            Dim py = (1 - (pane \ 2)) * half_h
+            GL.Viewport(px, py, half_w, half_h)
 
             Dim vp = pane_matrix(pane)
             Dim eye = pane_eye(pane)
@@ -184,11 +235,10 @@ Public Class MapLampView
             Dim ld = Vector3.Normalize(eye - centre() + New Vector3(0.3F, 0.9F, 0.2F))
             GL.Uniform3(lampViewShader("light_dir"), ld.X, ld.Y, ld.Z)
 
-            map_scene.static_models.allMapModels.Bind()
-            For Each g In ranges
-                GL.DrawElementsBaseVertex(PrimitiveType.Triangles, g.count,
-                                          DrawElementsType.UnsignedInt,
-                                          New IntPtr(CLng(g.firstIndex) * 4L), g.baseVertex)
+            For Each mesh In meshes
+                mesh.vao.Bind()
+                GL.DrawElements(PrimitiveType.Triangles, mesh.index_count,
+                                DrawElementsType.UnsignedInt, IntPtr.Zero)
             Next
             lampViewShader.StopUse()
 
@@ -206,13 +256,6 @@ Public Class MapLampView
             GL.Enable(EnableCap.DepthTest)
         Next
 
-        ' restore the engine's global state
-        GL.DepthFunc(DepthFunction.Greater)
-        GL.ClearDepth(0.0F)
-        GL.Enable(EnableCap.CullFace)
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
-
-        GL_POP_GROUP()
     End Sub
 
     ''' <summary>Three axis-aligned segments through the cursor, sized to the
@@ -239,18 +282,31 @@ Public Class MapLampView
         GL.NamedBufferSubData(cursor_vbo.buffer_id, IntPtr.Zero, v.Length * 4, v)
     End Sub
 
-    Private Sub create_target()
-        If color_tex IsNot Nothing Then Return
+    ''' <summary>
+    ''' Make or remake the target at w x h.
+    '''
+    ''' Recreated whenever the size changes, because the pane is resizable and
+    ''' a fixed target would either be scaled - blurring the very lines this is
+    ''' meant to measure - or cropped.
+    ''' </summary>
+    Private Sub create_target(w As Integer, h As Integer)
+        If color_tex IsNot Nothing AndAlso tex_w = w AndAlso tex_h = h Then Return
+
+        color_tex?.Dispose() : color_tex = Nothing
+        depth_rb?.Dispose() : depth_rb = Nothing
+        fbo?.Dispose() : fbo = Nothing
+        tex_w = w
+        tex_h = h
 
         color_tex = GLTexture.Create(TextureTarget.Texture2D, "LampViewColor")
         color_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
         color_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         color_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
         color_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
-        color_tex.Storage2D(1, SizedInternalFormat.Rgba8, PANE * 2, PANE * 2)
+        color_tex.Storage2D(1, SizedInternalFormat.Rgba8, tex_w, tex_h)
 
         depth_rb = GLRenderbuffer.Create("LampViewDepth")
-        depth_rb.Storage(RenderbufferStorage.DepthComponent24, PANE * 2, PANE * 2)
+        depth_rb.Storage(RenderbufferStorage.DepthComponent24, tex_w, tex_h)
 
         fbo = GLFramebuffer.Create("LampViewFBO")
         fbo.Texture(FramebufferAttachment.ColorAttachment0, color_tex, 0)

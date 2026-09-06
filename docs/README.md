@@ -1,4 +1,4 @@
-# docs
+﻿# docs
 
 Two kinds of document live here, and they age differently.
 
@@ -60,6 +60,7 @@ specifications and evidence, not descriptions of this renderer.
 | `HANDOFF_2026-08-31_fx_and_holes.md` | terrain holes, FX HDR composite, glow, the parked branch landing, the decal checkerboard | earlier the same day |
 | `HANDOFF_2026-08-28_lighting.md` | the lighting/probe-grid session | **historical** - read its section 9 first; much of sections 7-8 was reverted |
 | `HANDOFF_sun_shadow.md` | the sun shadow bake, flicker hunt, outland cull | older, still largely accurate |
+| `HANDOFF_2026-09-06_lights.md` | lamp lighting, shadows, volumetric shafts, the light catalogue and the Bulb Placer | **current** - read its rules section |
 | `FX_plan.md` | original FX recon | **historical** - the plan part is done |
 
 ## House rules these documents assume

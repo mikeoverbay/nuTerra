@@ -20,18 +20,58 @@ Module modTypeStructures
 
     Public MODEL_BATCH_LIST As List(Of ModelBatch)
 
-    ''' <summary>Where one render set of a model sits in the shared vertex and
-    ''' index buffers. Recorded at load because the CPU-side arrays are Erased
-    ''' the moment they reach the card - see MapLoader - so this is the only
-    ''' way to draw a single model again afterwards.</summary>
-    Public Structure ModelGeomRange
-        Public count As Integer
-        Public firstIndex As Integer
-        Public baseVertex As Integer
+    ''' <summary>
+    ''' Position and normal only, for the Light Bulb Placer's own copy of a
+    ''' lamp mesh. 24 bytes a vertex against the main ModelVertex's 56 - there
+    ''' are no tangents, binormals or UVs here because the placer draws flat
+    ''' grey and cannot use them.
+    ''' </summary>
+    <StructLayout(LayoutKind.Sequential)>
+    Public Structure LampVertex
+        Public pos As Vector3
+        Public nrm As Vector3
     End Structure
 
-    ''' <summary>model_id -> its LOD 0 draw ranges. For the lamp inspector.</summary>
-    Public MODEL_GEOM As New Dictionary(Of Integer, List(Of ModelGeomRange))
+    ''' <summary>
+    ''' One render set of a light model, as its own small indexed buffer.
+    '''
+    ''' A COPY, taken alongside the main upload and not instead of it. The
+    ''' models stay in the shared buffers and render exactly as before; this is
+    ''' a few hundred vertices per lamp sitting beside them so the placer can
+    ''' draw one model on its own without knowing anything about the map's
+    ''' indirect-draw machinery or its vertex layout.
+    '''
+    ''' Taken at LOAD because the CPU-side arrays are Erased the moment they
+    ''' reach the card - see MapLoader - so this is the only chance.
+    ''' </summary>
+    Public Class LampMesh
+        Public vao As GLVertexArray
+        Public vbo As GLBuffer
+        Public ibo As GLBuffer
+        Public index_count As Integer
+
+        Public Sub Dispose()
+            vao?.Dispose() : vao = Nothing
+            vbo?.Dispose() : vbo = Nothing
+            ibo?.Dispose() : ibo = Nothing
+        End Sub
+    End Class
+
+    ''' <summary>model_id -> its LOD 0 render sets, as standalone meshes. Only
+    ''' light models are in here; everything else would be dead weight.</summary>
+    Public LAMP_MESHES As New Dictionary(Of Integer, List(Of LampMesh))
+
+    ''' <summary>
+    ''' Is this asset something the Light Bulb Placer should keep a copy of.
+    ''' Loose on purpose - a model missed here is only missing from a picker.
+    ''' </summary>
+    Public Function is_light_model(verts_name As String) As Boolean
+        If verts_name Is Nothing Then Return False
+        Dim low = verts_name.ToLowerInvariant()
+        Return low.Contains("lamp") OrElse low.Contains("lantern") OrElse
+               low.Contains("fonar") OrElse low.Contains("fire")
+    End Function
+
     Public Class ModelBatch
         Public model_id As Integer
         Public offset As Integer

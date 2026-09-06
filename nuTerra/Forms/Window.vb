@@ -594,6 +594,17 @@ try_again:
             save_record_frame()
         End If
 
+        ' The bulb pane's own surface, drawn BEFORE the UI is built.
+        '
+        ' Not from inside the panel: that binds a framebuffer and changes
+        ' pipeline state halfway through building the UI, and ImGui then draws
+        ' into whatever was left. It uses the size the panel recorded last
+        ' frame, which lags a splitter drag by one frame and is invisible.
+        If SHOW_LAMP_VIEW AndAlso map_scene IsNot Nothing AndAlso
+           lamp_pane_w > 0 AndAlso lamp_pane_h > 0 Then
+            map_scene.lamp_view.Render(lamp_pane_w, lamp_pane_h)
+        End If
+
         _controller.Update(Me, CSng(time))
         Dim viewport = ImGui.GetMainViewport()
 
@@ -1216,122 +1227,108 @@ try_again:
     ''' data - it is 6.50 m for every model right now, taken from a single lamp
     ''' on a single map - and there are 19 street lamp models.
     ''' </summary>
+    ''' <summary>
+    ''' The Light Bulb Placer window: a splitter, and nothing else yet.
+    '''
+    ''' Stripped back deliberately. The previous contents - the four ortho
+    ''' views, the cursor sliders and the readouts - are in git at 50b30724 and
+    ''' come back inside the right pane once the frame is right.
+    ''' </summary>
     Private Sub draw_lamp_inspector()
         If Not SHOW_LAMP_VIEW Then Return
-        If Not MAP_LOADED OrElse map_scene Is Nothing Then Return
 
         ImGui.SetNextWindowPos(panel_origin(), ImGuiCond.FirstUseEver)
-        ImGui.SetNextWindowSize(panel_size(300, 560), ImGuiCond.FirstUseEver)
+        ImGui.SetNextWindowSize(panel_size(560, 520), ImGuiCond.FirstUseEver)
 
-        ' CONSTRAINTS, every frame, not just a FirstUseEver size.
-        '
-        ' FirstUseEver loses to imgui.ini. This window was first created at
-        ' 700x840, ImGui wrote that to the ini, and every smaller size asked
-        ' for afterwards was ignored - which is why it kept opening taller than
-        ' the client area with its own controls off the bottom of the screen.
-        ' A constraint is applied by Begin whatever the ini says, and still
-        ' leaves the window resizable inside the limit.
+        ' Constrained every frame, not FirstUseEver - imgui.ini beats
+        ' FirstUseEver and this window has been oversized in it before.
+        ' See docs/ui_panels.md.
         Dim o = panel_origin()
         ImGui.SetNextWindowSizeConstraints(
-            New System.Numerics.Vector2(260, 200),
-            New System.Numerics.Vector2(Math.Max(260.0F, CSng(ClientSize.X) - o.X - 15.0F),
-                                        Math.Max(200.0F, CSng(ClientSize.Y) - o.Y - 15.0F)))
+            New System.Numerics.Vector2(320, 240),
+            New System.Numerics.Vector2(Math.Max(320.0F, CSng(ClientSize.X) - o.X - 15.0F),
+                                        Math.Max(240.0F, CSng(ClientSize.Y) - o.Y - 15.0F)))
 
-        ' ###BulbPlacer, not ###LampView. The id is what the ini is keyed on,
-        ' so changing it is what abandons the stale 700x840 entry the old name
-        ' left behind. Renaming the window alone would have kept it.
         If ImGui.Begin("Light Bulb Placer###BulbPlacer", SHOW_LAMP_VIEW) Then
 
-            ' The light models on THIS map. Rebuilt only when the map changes:
-            ' walking every batch and comparing strings per frame would be a
-            ' real cost for a list that never moves.
-            If lamp_view_map <> MAP_NAME_NO_PATH Then
-                lamp_view_map = MAP_NAME_NO_PATH
-                rebuild_lamp_list()
+            ' A DRAGGABLE SPLITTER between two panes.
+            '
+            ' ImGui has no splitter widget. The idiom is a thin button between
+            ' two children: while it is held, the frame's mouse delta is added
+            ' to the left pane's width, and the right pane takes whatever is
+            ' left by asking for a width of 0.
+            '
+            ' bulb_split is the LEFT pane's width and the only state here. It
+            ' is clamped every frame rather than only while dragging, so
+            ' shrinking the window cannot strand the divider outside it.
+            Dim avail = ImGui.GetContentRegionAvail()
+            Const BAR As Single = 6.0F
+            Const MIN_PANE As Single = 90.0F
+            bulb_split = Math.Max(MIN_PANE, Math.Min(bulb_split, avail.X - BAR - MIN_PANE))
+
+            ImGui.BeginChild("##bulbleft", New System.Numerics.Vector2(bulb_split, 0), True)
+            ImGui.EndChild()
+
+            ' Zero spacing either side of the bar, or ImGui's item spacing sits
+            ' between the panes as well and the divider does not line up with
+            ' what it moves.
+            ImGui.SameLine(0.0F, 0.0F)
+
+            ImGui.Button("##bulbsplit", New System.Numerics.Vector2(BAR, -1.0F))
+            If ImGui.IsItemActive() Then
+                bulb_split += ImGui.GetIO().MouseDelta.X
+            End If
+            If ImGui.IsItemHovered() OrElse ImGui.IsItemActive() Then
+                ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeEW)
             End If
 
-            If lamp_list.Count = 0 Then
-                ImGui.TextWrapped("No lamp or fire models on this map.")
-            Else
-                ' A LIST, not a dropdown. There are 19 street lamp models to
-                ' work through and the job is comparing them - a combo hides
-                ' every option but the one already chosen, which is the wrong
-                ' shape for picking your way down a list.
-                ImGui.Text(String.Format("{0} light model(s) on this map", lamp_list.Count))
-                Dim names = lamp_list.Select(Function(e) e.label).ToArray()
-                Dim sel = lamp_sel
-                Dim rows = Math.Min(5, Math.Max(3, lamp_list.Count))
-                If ImGui.ListBox("##lampmodels", sel, names, names.Length, rows) Then
-                    lamp_sel = sel
-                    map_scene.lamp_view.Show(lamp_list(lamp_sel).model_id)
-                End If
-                If Not map_scene.lamp_view.ready Then
-                    map_scene.lamp_view.Show(lamp_list(lamp_sel).model_id)
-                End If
-            End If
+            ImGui.SameLine(0.0F, 0.0F)
 
-            If map_scene.lamp_view.ready Then
-                map_scene.lamp_view.Render()
-
-                ' Drawn at less than the texture's own size. The panes are
-                ' rendered at PANE each so the lines stay crisp when scaled
-                ' down; showing them 1:1 made the window bigger than the
-                ' screen. One number to change if it wants to be larger.
-                Const SHOWN As Single = 248.0F
-                Dim side = SHOWN
-                ' V flipped: GL's origin is bottom left, ImGui's is top left.
-                ImGui.Image(New IntPtr(map_scene.lamp_view.color_tex.texture_id),
-                            New System.Numerics.Vector2(side, side),
-                            New System.Numerics.Vector2(0, 1),
-                            New System.Numerics.Vector2(1, 0))
-                ImGui.TextDisabled("  top   |   left")
-                ImGui.TextDisabled("  right |   iso")
-
-                ImGui.Separator()
-
-                Dim bmin = map_scene.lamp_view.bounds_min
-                Dim bmax = map_scene.lamp_view.bounds_max
-                ImGui.Text(String.Format("box  x {0:0.00}..{1:0.00}   y {2:0.00}..{3:0.00}   z {4:0.00}..{5:0.00}",
-                                         bmin.X, bmax.X, bmin.Y, bmax.Y, bmin.Z, bmax.Z))
-                ImGui.Text(String.Format("height {0:0.00} m", bmax.Y - bmin.Y))
-
-                ImGui.Separator()
-                ImGui.Text("3D cursor - put it at the bulb")
-
-                Dim span = Math.Max(1.0F, Math.Max(bmax.X - bmin.X,
-                                    Math.Max(bmax.Y - bmin.Y, bmax.Z - bmin.Z)))
-                Dim c = map_scene.lamp_view.cursor
-                Dim cx = c.X, cy = c.Y, cz = c.Z
-                Dim moved = False
-                If ImGui.SliderFloat("cursor x", cx, bmin.X - span * 0.1F, bmax.X + span * 0.1F) Then moved = True
-                If ImGui.SliderFloat("cursor y", cy, bmin.Y - span * 0.1F, bmax.Y + span * 0.1F) Then moved = True
-                If ImGui.SliderFloat("cursor z", cz, bmin.Z - span * 0.1F, bmax.Z + span * 0.1F) Then moved = True
-                If moved Then
-                    map_scene.lamp_view.cursor = New OpenTK.Mathematics.Vector3(cx, cy, cz)
-                End If
-
-                c = map_scene.lamp_view.cursor
-                ImGui.Separator()
-                ImGui.Text(String.Format("cursor  ({0:0.000}, {1:0.000}, {2:0.000})", c.X, c.Y, c.Z))
-                ' The number that matters. bulb is measured from the model's
-                ' ORIGIN, because that is what the catalogue stores and what
-                ' placement adds to an instance position. NOT from the bottom
-                ' of the bounding box - a different thing entirely whenever the
-                ' artist did not put the origin on the ground, which the box
-                ' line above will show.
-                ImGui.Text(String.Format("bulb = {0:0.000}   <- the catalogue value", c.Y))
-                ImGui.Text(String.Format("(box floor is y {0:0.000}, so {1:0.000} m above it)",
-                                         bmin.Y, c.Y - bmin.Y))
-                If ImGui.Button("copy bulb", New System.Numerics.Vector2(160, 0)) Then
-                    Try
-                        System.Windows.Forms.Clipboard.SetText(c.Y.ToString("0.000"))
-                    Catch ex As Exception
-                    End Try
+            ' ---- RIGHT: a GL surface, sized to this pane ----------------
+            '
+            ' ImGui cannot be given a second GL context, and would not want
+            ' one: the whole UI is drawn by this one. What a pane CAN have is
+            ' its own render target - an FBO drawn each frame and shown as an
+            ' image - which is the same thing in practice and shares the
+            ' textures and buffers the rest of the engine has already loaded.
+            '
+            ' Sized to the pane's available region rather than scaled into it.
+            ' Scaling would blur the model edges and the cursor crosshair,
+            ' which are the only things this window exists to let you read.
+            ImGui.BeginChild("##bulbright", New System.Numerics.Vector2(0, 0), True)
+            If map_scene IsNot Nothing Then
+                Dim rgn = ImGui.GetContentRegionAvail()
+                Dim rw = CInt(Math.Max(8.0F, rgn.X))
+                Dim rh = CInt(Math.Max(8.0F, rgn.Y))
+                ' RECORDED, not rendered. The GL work happens before the UI
+                ' pass - see the call in OnRenderFrame - because issuing it
+                ' from here means changing framebuffer and pipeline state in
+                ' the middle of building the UI, which is what broke the whole
+                ' window. One frame of lag while dragging the splitter; nobody
+                ' can see it.
+                lamp_pane_w = rw
+                lamp_pane_h = rh
+                If map_scene.lamp_view.color_tex IsNot Nothing Then
+                    ' V flipped: GL's origin is bottom left, ImGui's is top left.
+                    ImGui.Image(New IntPtr(map_scene.lamp_view.color_tex.texture_id),
+                                New System.Numerics.Vector2(rw, rh),
+                                New System.Numerics.Vector2(0, 1),
+                                New System.Numerics.Vector2(1, 0))
                 End If
             End If
+            ImGui.EndChild()
         End If
         ImGui.End()
     End Sub
+
+    ''' <summary>Width of the splitter's LEFT pane, in pixels. The only state
+    ''' the splitter keeps.</summary>
+    Private bulb_split As Single = 190.0F
+
+    ''' <summary>Size the bulb pane wants, recorded by the panel and consumed
+    ''' by the render call before the next UI pass.</summary>
+    Private lamp_pane_w As Integer = 0
+    Private lamp_pane_h As Integer = 0
 
     Private Structure LampListEntry
         Public model_id As Integer
@@ -1355,7 +1352,7 @@ try_again:
         For Each batch In MODEL_BATCH_LIST
             If seen.Contains(batch.model_id) Then Continue For
             If batch.model_id < 0 OrElse batch.model_id >= MAP_MODELS.Length Then Continue For
-            If Not MODEL_GEOM.ContainsKey(batch.model_id) Then Continue For
+            If Not LAMP_MESHES.ContainsKey(batch.model_id) Then Continue For
             Dim lods = MAP_MODELS(batch.model_id).modelLods
             If lods Is Nothing OrElse lods.Length = 0 Then Continue For
             If lods(0).render_sets Is Nothing OrElse lods(0).render_sets.Count = 0 Then Continue For
