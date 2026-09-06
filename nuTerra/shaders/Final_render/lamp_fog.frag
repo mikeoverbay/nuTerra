@@ -48,6 +48,11 @@ uniform int   lamp_index;    // layer in the cube array, -1 if it has no bake
 
 uniform float fog_gain;      // scattering strength
 uniform float fog_phase;     // Henyey-Greenstein g
+// Share of the scattering that is ISOTROPIC, 0..1. Pure Henyey-Greenstein at
+// g 0.55 scores 0.61 looking into the lamp and 0.037 across it - sixteen
+// times dimmer - so a shaft was only there when the camera was in it. Real fog
+// has a fat isotropic base under its forward lobe; this is that base.
+uniform float fog_iso;
 
 // Extinction per metre - how fast the air swallows light.
 //
@@ -196,6 +201,13 @@ float henyey_greenstein(float cos_t, float g)
     return (1.0 - g2) / (4.0 * PI * pow(max(d, 1e-4), 1.5));
 }
 
+// The two-lobe phase: the forward lobe for the sparkle looking toward a lamp,
+// the isotropic share so the beam is still there from the side.
+float phase_fn(float cos_t)
+{
+    return mix(henyey_greenstein(cos_t, fog_phase), 1.0 / (4.0 * PI), fog_iso);
+}
+
 void main(void)
 {
     // fWorld is a point on this pixel's view ray - the sphere's far surface -
@@ -309,7 +321,7 @@ void main(void)
         float dr = mix(drift[ki], drift[ki + 1], u - float(ki));
 
         acc += base * atten * vis * dr
-             * henyey_greenstein(cos_t, fog_phase) * to_lamp * trans * dt;
+             * phase_fn(cos_t) * to_lamp * trans * dt;
     }
 
     vec3 lit = acc * fog_gain;

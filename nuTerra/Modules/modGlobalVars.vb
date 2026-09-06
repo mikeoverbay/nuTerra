@@ -945,6 +945,12 @@ Module modGlobalVars
     ''' </summary>
     Public LAMP_FOG_PHASE As Single = 0.55F
 
+    ''' <summary>Isotropic share of the shaft scattering, 0..1. At 0 the phase
+    ''' is pure Henyey-Greenstein and a beam is sixteen times dimmer from the
+    ''' side than looking into it - so it was only there with the camera in it.
+    ''' 0.35 keeps a side view at about a third of the head-on brightness.</summary>
+    Public LAMP_FOG_ISO As Single = 0.35F
+
     ''' <summary>
     ''' Steps along the ray, inside the sphere only. Too few shows as shells;
     ''' the ordered dither in the shader hides a lot of that, which is what

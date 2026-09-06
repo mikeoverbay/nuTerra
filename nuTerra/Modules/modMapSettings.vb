@@ -127,6 +127,7 @@ Public Module modMapSettings
         Yield ("shaft_gain", Function() LAMP_FOG_GAIN, Sub(v) LAMP_FOG_GAIN = v)
         Yield ("shaft_density", Function() LAMP_FOG_DENSITY, Sub(v) LAMP_FOG_DENSITY = v)
         Yield ("shaft_phase", Function() LAMP_FOG_PHASE, Sub(v) LAMP_FOG_PHASE = v)
+        Yield ("shaft_iso", Function() LAMP_FOG_ISO, Sub(v) LAMP_FOG_ISO = v)
         Yield ("shaft_steps", Function() CSng(LAMP_FOG_STEPS), Sub(v) LAMP_FOG_STEPS = CInt(v))
         Yield ("light_gain", Function() PATH_LIGHT_GAIN, Sub(v) PATH_LIGHT_GAIN = v)
         Yield ("lamp_shadows", Function() B2F(LAMP_SHADOW_ENABLED), Sub(v) LAMP_SHADOW_ENABLED = F2B(v))

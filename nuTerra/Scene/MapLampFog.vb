@@ -87,6 +87,7 @@ Public Class MapLampFog
 
         GL.Uniform1(lampFogShader("fog_gain"), LAMP_FOG_GAIN)
         GL.Uniform1(lampFogShader("fog_phase"), LAMP_FOG_PHASE)
+        GL.Uniform1(lampFogShader("fog_iso"), LAMP_FOG_ISO)
         GL.Uniform1(lampFogShader("fog_density"), LAMP_FOG_DENSITY)
         GL.Uniform1(lampFogShader("fog_steps"), LAMP_FOG_STEPS)
         ' The global fog's drift, shared: same control, same scroll, same scale

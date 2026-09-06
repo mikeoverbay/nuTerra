@@ -2015,6 +2015,16 @@ try_again:
                                              "Higher throws the light along the view ray," & vbLf &
                                              "so looking toward a lamp is brighter.")
                         End If
+                        Dim v_fi = LAMP_FOG_ISO
+                        If ImGui.SliderFloat("  side scatter", v_fi, 0.0, 1.0) Then
+                            LAMP_FOG_ISO = v_fi
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Isotropic share of the scattering. 0 is the pure" & vbLf &
+                                             "forward lobe: a beam is 16x dimmer from the side" & vbLf &
+                                             "than looking into it. Higher keeps it visible" & vbLf &
+                                             "from any angle; 1 is a flat glow with no beam.")
+                        End If
                         Dim v_fs = LAMP_FOG_STEPS
                         If ImGui.SliderInt("  march steps", v_fs, 4, 64) Then
                             LAMP_FOG_STEPS = v_fs
