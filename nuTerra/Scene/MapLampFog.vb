@@ -70,7 +70,7 @@ Public Class MapLampFog
         GL.Uniform1(lampFogShader("fog_gain"), LAMP_FOG_GAIN)
         GL.Uniform1(lampFogShader("fog_phase"), LAMP_FOG_PHASE)
         GL.Uniform1(lampFogShader("fog_density"), LAMP_FOG_DENSITY)
-        GL.Uniform1(lampFogShader("light_falloff"), PATH_LIGHT_FALLOFF)
+        GL.Uniform1(lampFogShader("fog_falloff"), LAMP_FOG_FALLOFF)
         GL.Uniform1(lampFogShader("fog_steps"), LAMP_FOG_STEPS)
         GL.Uniform1(lampFogShader("lamp_shadow_near"), MapLampShadow.NEAR_M)
         GL.Uniform1(lampFogShader("lamp_shadow_bias"), LAMP_SHADOW_BIAS)

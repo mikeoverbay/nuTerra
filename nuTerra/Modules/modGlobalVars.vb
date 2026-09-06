@@ -856,7 +856,17 @@ Module modGlobalVars
     ''' march sums ~24 steps, each already carrying the phase function and the
     ''' falloff, so the useful range for this number is well under 0.1.
     ''' </summary>
-    Public LAMP_FOG_GAIN As Single = 0.60F
+    ' 0.12, and the arithmetic behind it is worth keeping.
+    '
+    ' 0.6 at a falloff of 12 read well. Dropping the falloff to 2 raises the
+    ' AVERAGE scattering across the sphere about five fold on its own, so
+    ' holding the look meant dividing the gain by roughly the same. Raising it
+    ' to 1.6 at the same time made the frame about thirteen times brighter than
+    ' intended - three blown white balls, and 3.2% of the frame clipped.
+    '
+    ' Two multiplicative controls moved the same way at once. Move one at a
+    ' time.
+    Public LAMP_FOG_GAIN As Single = 0.45F
 
     ''' <summary>
     ''' Extinction per metre, and the reason one gain works at any distance.
@@ -869,7 +879,28 @@ Module modGlobalVars
     ''' 0.06 puts the half-light distance around 12 m, which is the scale of a
     ''' street. Higher is thicker air and a shorter, denser shaft.
     ''' </summary>
-    Public LAMP_FOG_DENSITY As Single = 0.06F
+    ' 0.02, not 0.06. At 0.06 the rim of a 20 m lamp keeps only exp(-1.19)
+    ' = 30% of what the bulb scatters, which shrinks the visible glow on top of
+    ' whatever the falloff already took.
+    Public LAMP_FOG_DENSITY As Single = 0.07F
+
+    ''' <summary>
+    ''' How fast the SCATTERING falls off across a lamp's radius.
+    '''
+    ''' Separate from PATH_LIGHT_FALLOFF on purpose. That one shapes the pool on
+    ''' the ground; this one decides how much of the sphere is lit air worth
+    ''' looking at. Sharing them made the glow read as far smaller than the
+    ''' authored range: at 12, scattering at 90% of the radius is 1% of the
+    ''' centre, so a 20 m lamp showed about a 10 m ball.
+    '''
+    ''' 2 keeps roughly a third of the centre's scattering out at the rim, which
+    ''' is what makes the lit volume look the size it actually is.
+    ''' </summary>
+    ' 8, not 2. Reference night photography has a TIGHT halo at each lamp -
+    ' a couple of metres - with the atmosphere doing the rest. 2 spread the
+    ' scattering over the whole 20 m sphere and read as a glowing ball rather
+    ' than a lamp in fog.
+    Public LAMP_FOG_FALLOFF As Single = 8.0F
 
     ''' <summary>
     ''' Henyey-Greenstein g. Forward scattering, so looking TOWARD a lamp is

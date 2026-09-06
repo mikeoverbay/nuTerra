@@ -126,6 +126,12 @@ Module Program
                                    Globalization.CultureInfo.InvariantCulture, g) Then
                     LAMP_FOG_GAIN = Math.Max(0.0F, g)
                 End If
+            ElseIf a.StartsWith("fogfall=", StringComparison.OrdinalIgnoreCase) Then
+                Dim g As Single
+                If Single.TryParse(a.Substring(8), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, g) Then
+                    LAMP_FOG_FALLOFF = Math.Max(0.0F, g)
+                End If
             ElseIf a.StartsWith("fogdens=", StringComparison.OrdinalIgnoreCase) Then
                 Dim g As Single
                 If Single.TryParse(a.Substring(8), Globalization.NumberStyles.Float,

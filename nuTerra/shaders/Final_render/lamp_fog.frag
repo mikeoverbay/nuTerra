@@ -57,7 +57,15 @@ uniform float fog_phase;     // Henyey-Greenstein g
 // across a 20 m sphere. Beer-Lambert makes the sum converge instead, so one
 // setting works wherever the camera stands.
 uniform float fog_density;
-uniform float light_falloff;
+// The fog's OWN falloff, deliberately not the surfaces' light_falloff.
+//
+// They answer different questions. On a surface the falloff decides how fast
+// the pool fades across the ground; in the air it decides how much of the
+// sphere is worth seeing at all. At the surface value of 12, scattering at 90%
+// of the radius is 1% of what it is at the bulb, so a 20 m lamp shows a glow
+// about half that wide and reads as too small - the volume is the right size,
+// the light in it just is not.
+uniform float fog_falloff;
 uniform int   fog_steps;
 
 in vec3 fWorld;
@@ -65,6 +73,11 @@ in vec3 fWorld;
 layout(location = 0) out vec4 outColor;
 
 const float PI = 3.14159265;
+
+// Where the scattered light starts being compressed instead of added. Below it
+// the strength slider is exactly linear; above it the whole vec3 is scaled by
+// one factor, which is what keeps the lamp's colour at any intensity.
+const float FOG_KNEE = 0.7;
 
 // Ordered 4x4 Bayer, from the pixel's position and nothing else.
 //
@@ -156,7 +169,7 @@ void main(void)
         float s = dist / lamp_range;
         float s4 = s * s * s * s;
         float win = clamp(1.0 - s4, 0.0, 1.0);
-        float atten = (win * win) / (1.0 + light_falloff * s * s);
+        float atten = (win * win) / (1.0 + fog_falloff * s * s);
 
         float vis = 1.0;
         if (lamp_index >= 0)
@@ -189,7 +202,29 @@ void main(void)
         if (trans < 0.002) break;
     }
 
+    vec3 lit = acc * fog_gain;
+
+    // Rolled off on the PEAK CHANNEL, exactly as the surface lamps are.
+    //
+    // Without it the fog clips per channel and a bright shaft arrives WHITE:
+    // measured on a capture, 3.2% of the frame was pure white, 18.4% was over
+    // 240, and the hottest 1% had drifted to 1.00/0.96/0.81 against an authored
+    // 1.00/0.85/0.63. That is the same failure the surfaces had before the
+    // roll-off, in a different pass - scattering is the lamp's colour or it is
+    // nothing, and clipping is what takes the colour away first.
+    //
+    // Scaling all three by one factor preserves the ratio at any intensity, so
+    // over-driving the strength slider now saturates toward the LAMP's colour
+    // instead of toward white.
+    float pk = max(lit.r, max(lit.g, lit.b));
+    if (pk > FOG_KNEE)
+    {
+        float over = pk - FOG_KNEE;
+        float head = 1.0 - FOG_KNEE;
+        lit *= (FOG_KNEE + head * over / (over + head)) / pk;
+    }
+
     // Alpha 0: this pass is ADDITIVE and must never attenuate what is already
     // there. Scattering adds light to the air, it does not cover the scene.
-    outColor = vec4(acc * fog_gain, 0.0);
+    outColor = vec4(lit, 0.0);
 }

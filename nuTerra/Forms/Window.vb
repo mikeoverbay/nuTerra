@@ -1167,6 +1167,32 @@ try_again:
             Return
         End If
 
+        ' THE MOUSE DOES NOT MOVE THE CAMERA WHILE A CAPTURE IS RUNNING.
+        '
+        ' A capture is a promise that the frames are of the view that was set
+        ' up. A nudged mouse re-aims it mid-sequence and leaves no trace: the
+        ' footage is simply of somewhere else, a still silently becomes a
+        ' different shot, and an A/B against an earlier capture compares two
+        ' cameras instead of two settings.
+        '
+        ' The pending deltas are cleared too, not just the new input - the
+        ' rotation damping coasts, so a flick started a moment before the
+        ' capture would otherwise keep turning the camera into it.
+        '
+        ' Escape still stops a capture; that is OnKeyDown, not here. Nothing
+        ' about this locks the cursor or the UI - the panel stays usable, it
+        ' just cannot aim the camera.
+        If RECORD_FLIGHT OrElse RECORD_STILL > 0 Then
+            mouse_dx = 0
+            mouse_dy = 0
+            rot_delta_x = 0
+            rot_delta_y = 0
+            zoom_delta = 0
+            pan_delta_x = 0
+            pan_delta_z = 0
+            Return
+        End If
+
         ' NOT DELTA_TIME: that is the render frame's time, and this runs in
         ' the unthrottled update loop - see rot_clock.
         Dim dt As Single = 0.016F
@@ -1742,6 +1768,16 @@ try_again:
                         Dim v_fg = LAMP_FOG_GAIN
                         If ImGui.SliderFloat("  shaft strength", v_fg, 0.0, 3.0) Then
                             LAMP_FOG_GAIN = v_fg
+                        End If
+                        Dim v_ff = LAMP_FOG_FALLOFF
+                        If ImGui.SliderFloat("  shaft falloff", v_ff, 0.0, 20.0) Then
+                            LAMP_FOG_FALLOFF = v_ff
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("How fast the SCATTERING dies across the radius." & vbLf &
+                                             "Not the pool's falloff - this one decides how" & vbLf &
+                                             "big the lit air looks. High makes a 20 m lamp" & vbLf &
+                                             "read as a 10 m ball; 0 fills the whole sphere.")
                         End If
                         Dim v_fd = LAMP_FOG_DENSITY
                         If ImGui.SliderFloat("  air density", v_fd, 0.0, 0.3) Then
