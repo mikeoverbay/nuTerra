@@ -511,9 +511,10 @@ class Studio:
                 ("radius", "Loop radius (m)", 60, 600, 260),
                 ("waypoints", "Waypoints", 6, 28, 14),
                 ("agl", "Height over ground (m)", 1, 30, int(nav.AGL)),
-                ("standoff", "Standoff (m)", 2, 14, int(nav.BODY_R))):
+                ("standoff", "Standoff (m)", 0.5, 6, min(6.0, max(0.5, round(nav.BODY_R * 2) / 2.0)))):
             ttk.Label(left, text=label).grid(row=r, column=0, sticky="w")
-            v = tk.IntVar(value=init)
+            # Standoff moves in half metres; the others are whole numbers.
+            v = tk.DoubleVar(value=init) if key == "standoff" else tk.IntVar(value=init)
             self.vars[key] = v
             sc = ttk.Scale(left, from_=lo, to=hi, variable=v, orient="horizontal",
                            length=200, command=lambda *_: self.refresh_labels())
@@ -1624,8 +1625,13 @@ class Studio:
         self.repaint()
 
     def refresh_labels(self):
-        for k in ("radius", "waypoints", "agl", "standoff"):
+        for k in ("radius", "waypoints", "agl"):
             self.vars[k + "_lbl"].configure(text=str(self.vars[k].get()))
+        # Snap standoff to 0.5 m steps and show it that way.
+        so = round(float(self.vars["standoff"].get()) * 2.0) / 2.0
+        if abs(so - float(self.vars["standoff"].get())) > 1e-9:
+            self.vars["standoff"].set(so)
+        self.vars["standoff_lbl"].configure(text="%.1f" % so)
         if self.mask_full is not None and not self.busy:
             self.render_mask()
 
