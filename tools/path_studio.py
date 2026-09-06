@@ -525,80 +525,89 @@ class Studio:
         self.save_btn.state(["disabled"])
         r += 1
 
-        # ---- lights -------------------------------------------------------
+        # ---- lights: their own panel, RIGHT of the map -------------------
+        # They used to continue the left column and ran off the bottom of a
+        # short screen - the fog curve picker and the editor button were
+        # never on screen at all. Path controls stay left, lights go right.
+        right = ttk.Frame(root, padding=8)
+        right.grid(row=0, column=2, sticky="ns")
+        rr = 0
+        ttk.Label(right, text="Lights", style="Head.TLabel").grid(
+            row=rr, column=0, sticky="w")
+        rr += 1
         # A mode rather than a modifier: placing several lights in a row is the
         # normal case, and holding a key through all of them is not.
-        self.light_btn = ttk.Button(left, text="Add Light",
+        self.light_btn = ttk.Button(right, text="Add Light",
                                     command=self.toggle_add_light)
-        self.light_btn.grid(row=r, column=0, sticky="we", pady=(10, 2))
-        r += 1
+        self.light_btn.grid(row=rr, column=0, sticky="we", pady=(4, 2))
+        rr += 1
 
         # The swatch IS the button - a colour control that does not show its
         # colour makes you click it to find out what it is set to.
         self.light_color = "#ffd9a0"
-        self.color_btn = tk.Button(left, text="Colour", command=self.pick_color,
+        self.color_btn = tk.Button(right, text="Colour", command=self.pick_color,
                                    bg=self.light_color, activebackground=self.light_color,
                                    relief="groove", bd=2)
-        self.color_btn.grid(row=r, column=0, sticky="we", pady=(0, 2))
-        r += 1
+        self.color_btn.grid(row=rr, column=0, sticky="we", pady=(0, 2))
+        rr += 1
 
-        ttk.Label(left, text="Level").grid(row=r, column=0, sticky="w")
+        ttk.Label(right, text="Level").grid(row=rr, column=0, sticky="w")
         self.light_level = tk.DoubleVar(value=1.0)
-        self.level_lbl = ttk.Label(left, text="1.00")
-        self.level_lbl.grid(row=r, column=1, sticky="w", padx=(6, 0))
-        r += 1
-        ttk.Scale(left, from_=0.0, to=1.0, variable=self.light_level,
+        self.level_lbl = ttk.Label(right, text="1.00")
+        self.level_lbl.grid(row=rr, column=1, sticky="w", padx=(6, 0))
+        rr += 1
+        ttk.Scale(right, from_=0.0, to=1.0, variable=self.light_level,
                   orient="horizontal", length=200,
                   command=lambda *_: self.on_level_change()
-                  ).grid(row=r, column=0, sticky="we")
-        r += 1
+                  ).grid(row=rr, column=0, sticky="we")
+        rr += 1
 
-        ttk.Label(left, text="Range (m)").grid(row=r, column=0, sticky="w")
+        ttk.Label(right, text="Range (m)").grid(row=rr, column=0, sticky="w")
         self.light_range = tk.DoubleVar(value=12.0)
-        self.range_lbl = ttk.Label(left, text="12.0")
-        self.range_lbl.grid(row=r, column=1, sticky="w", padx=(6, 0))
-        r += 1
+        self.range_lbl = ttk.Label(right, text="12.0")
+        self.range_lbl.grid(row=rr, column=1, sticky="w", padx=(6, 0))
+        rr += 1
         # 0.1 to 50. The top end is a guess and will stay one until nuTerra is
         # wired for multiple lights and the number can be looked at rather than
         # reasoned about - 50 m is almost certainly too much for a point light
         # on this scale of map.
-        ttk.Scale(left, from_=0.1, to=50.0, variable=self.light_range,
+        ttk.Scale(right, from_=0.1, to=50.0, variable=self.light_range,
                   orient="horizontal", length=200,
                   command=lambda *_: self.on_range_change()
-                  ).grid(row=r, column=0, sticky="we")
-        r += 1
+                  ).grid(row=rr, column=0, sticky="we")
+        rr += 1
 
-        ttk.Label(left, text="Height (m)").grid(row=r, column=0, sticky="w")
+        ttk.Label(right, text="Height (m)").grid(row=rr, column=0, sticky="w")
         self.light_height = tk.DoubleVar(value=3.0)
-        self.height_lbl = ttk.Label(left, text="3.0")
-        self.height_lbl.grid(row=r, column=1, sticky="w", padx=(6, 0))
-        r += 1
+        self.height_lbl = ttk.Label(right, text="3.0")
+        self.height_lbl.grid(row=rr, column=1, sticky="w", padx=(6, 0))
+        rr += 1
         # Metres ABOVE THE TERRAIN, not absolute. Path Studio is a 2D map and
         # has no idea what the ground does under a click, so the height is an
         # offset and nuTerra resolves the ground when it places the light.
         # 0 puts it on the dirt; 3 is about a street lamp.
-        ttk.Scale(left, from_=0.0, to=30.0, variable=self.light_height,
+        ttk.Scale(right, from_=0.0, to=30.0, variable=self.light_height,
                   orient="horizontal", length=200,
                   command=lambda *_: self.on_height_change()
-                  ).grid(row=r, column=0, sticky="we")
-        r += 1
+                  ).grid(row=rr, column=0, sticky="we")
+        rr += 1
 
         # Which fog falloff curve the lamp's SHAFT uses: 0, 1 or 2, a row of
         # VM_FOG_Curve_<n>.png beside the .campath. Per light, because a street
         # lamp and a burning barrel want different shapes; the curves
         # themselves are shared, and edited in the window the button opens.
-        ttk.Label(left, text="Fog curve").grid(row=r, column=0, sticky="w")
+        ttk.Label(right, text="Fog curve").grid(row=rr, column=0, sticky="w")
         self.light_curve = tk.IntVar(value=0)
-        cur = ttk.Frame(left)
-        cur.grid(row=r, column=1, sticky="w", padx=(6, 0))
+        cur = ttk.Frame(right)
+        cur.grid(row=rr, column=1, sticky="w", padx=(6, 0))
         for k in range(fc.N_CURVES):
             ttk.Radiobutton(cur, text=str(k), value=k, variable=self.light_curve,
                             command=self.on_curve_change).pack(side="left")
-        r += 1
-        ttk.Button(left, text="Curve editor...",
+        rr += 1
+        ttk.Button(right, text="Curve editor...",
                    command=self.open_curve_editor).grid(
-            row=r, column=0, sticky="we", pady=(2, 4))
-        r += 1
+            row=rr, column=0, sticky="we", pady=(2, 4))
+        rr += 1
 
         ttk.Separator(left, orient="horizontal").grid(
             row=r, column=0, columnspan=2, sticky="we", pady=(10, 8))
