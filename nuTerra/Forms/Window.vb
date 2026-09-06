@@ -713,10 +713,47 @@ try_again:
         New Single() {0.6F, 0.4F, 0.2F}, New Single() {0.9F, 0.9F, 0.9F},
         New Single() {0.35F, 0.35F, 0.35F}}
 
+    ''' <summary>
+    ''' Where a panel should open: 15 px in from the client edge, and 15 px
+    ''' below the LAST LINE OF TEXT on the menu bar.
+    '''
+    ''' Measured, not guessed. The bar auto-resizes - it grows when the fps and
+    ''' clip counts appear once a map loads - so a hard coded y is right on the
+    ''' map picker and wrong everywhere else. menubar_pos/size are captured at
+    ''' the end of SubmitUI for exactly this.
+    '''
+    ''' Falls back to a fixed offset only before the bar has ever been drawn.
+    ''' </summary>
+    Private Function panel_origin() As System.Numerics.Vector2
+        Const MARGIN As Single = 15.0F
+        If menubar_size.LengthSquared > 0 Then
+            Return New System.Numerics.Vector2(MARGIN,
+                                               menubar_pos.Y + menubar_size.Y + MARGIN)
+        End If
+        Return New System.Numerics.Vector2(MARGIN, 90.0F)
+    End Function
+
+    ''' <summary>
+    ''' A panel size that fits: never taller or wider than what is left of the
+    ''' client area below the menu bar, with the same 15 px margin kept on the
+    ''' far side.
+    '''
+    ''' The Lamp Inspector asked for 840 px of height on a client that is often
+    ''' shorter than that, which put its controls off the bottom of the screen
+    ''' with no way to reach them.
+    ''' </summary>
+    Private Function panel_size(want_w As Single, want_h As Single) As System.Numerics.Vector2
+        Const MARGIN As Single = 15.0F
+        Dim o = panel_origin()
+        Dim max_w = Math.Max(200.0F, CSng(ClientSize.X) - o.X - MARGIN)
+        Dim max_h = Math.Max(200.0F, CSng(ClientSize.Y) - o.Y - MARGIN)
+        Return New System.Numerics.Vector2(Math.Min(want_w, max_w), Math.Min(want_h, max_h))
+    End Function
+
     Private Sub draw_vt_debug_key()
         If Not VT_PAGE_DEBUG Then Return
-        ImGui.SetNextWindowPos(New System.Numerics.Vector2(12, 90), ImGuiCond.FirstUseEver)
-        ImGui.SetNextWindowSize(New System.Numerics.Vector2(230, 395), ImGuiCond.FirstUseEver)
+        ImGui.SetNextWindowPos(panel_origin(), ImGuiCond.FirstUseEver)
+        ImGui.SetNextWindowSize(panel_size(230, 395), ImGuiCond.FirstUseEver)
         If ImGui.Begin("VT page key", VT_PAGE_DEBUG) Then
             ' Flip the overlay without leaving the window - the scene keeps
             ' rendering normally underneath, so before/after is one click.
@@ -1172,7 +1209,7 @@ try_again:
     ''' small that the first accel/coast attempt was imperceptible.
     ''' </summary>
     ''' <summary>
-    ''' The lamp inspector: four orthographic views of one model with a 3D
+    ''' The Light Bulb Placer: four orthographic views of one model with a 3D
     ''' cursor, for reading where a lamp's bulb sits on its post.
     '''
     ''' That number is the one thing the light catalogue cannot get from the
@@ -1183,10 +1220,27 @@ try_again:
         If Not SHOW_LAMP_VIEW Then Return
         If Not MAP_LOADED OrElse map_scene Is Nothing Then Return
 
-        ImGui.SetNextWindowSize(New System.Numerics.Vector2(700, 840), ImGuiCond.FirstUseEver)
-        ImGui.SetNextWindowPos(New System.Numerics.Vector2(60, 60), ImGuiCond.FirstUseEver)
+        ImGui.SetNextWindowPos(panel_origin(), ImGuiCond.FirstUseEver)
+        ImGui.SetNextWindowSize(panel_size(300, 560), ImGuiCond.FirstUseEver)
 
-        If ImGui.Begin("Lamp Inspector###LampView", SHOW_LAMP_VIEW) Then
+        ' CONSTRAINTS, every frame, not just a FirstUseEver size.
+        '
+        ' FirstUseEver loses to imgui.ini. This window was first created at
+        ' 700x840, ImGui wrote that to the ini, and every smaller size asked
+        ' for afterwards was ignored - which is why it kept opening taller than
+        ' the client area with its own controls off the bottom of the screen.
+        ' A constraint is applied by Begin whatever the ini says, and still
+        ' leaves the window resizable inside the limit.
+        Dim o = panel_origin()
+        ImGui.SetNextWindowSizeConstraints(
+            New System.Numerics.Vector2(260, 200),
+            New System.Numerics.Vector2(Math.Max(260.0F, CSng(ClientSize.X) - o.X - 15.0F),
+                                        Math.Max(200.0F, CSng(ClientSize.Y) - o.Y - 15.0F)))
+
+        ' ###BulbPlacer, not ###LampView. The id is what the ini is keyed on,
+        ' so changing it is what abandons the stale 700x840 entry the old name
+        ' left behind. Renaming the window alone would have kept it.
+        If ImGui.Begin("Light Bulb Placer###BulbPlacer", SHOW_LAMP_VIEW) Then
 
             ' The light models on THIS map. Rebuilt only when the map changes:
             ' walking every batch and comparing strings per frame would be a
@@ -1199,9 +1253,15 @@ try_again:
             If lamp_list.Count = 0 Then
                 ImGui.TextWrapped("No lamp or fire models on this map.")
             Else
+                ' A LIST, not a dropdown. There are 19 street lamp models to
+                ' work through and the job is comparing them - a combo hides
+                ' every option but the one already chosen, which is the wrong
+                ' shape for picking your way down a list.
+                ImGui.Text(String.Format("{0} light model(s) on this map", lamp_list.Count))
                 Dim names = lamp_list.Select(Function(e) e.label).ToArray()
                 Dim sel = lamp_sel
-                If ImGui.Combo("model", sel, names, names.Length) Then
+                Dim rows = Math.Min(5, Math.Max(3, lamp_list.Count))
+                If ImGui.ListBox("##lampmodels", sel, names, names.Length, rows) Then
                     lamp_sel = sel
                     map_scene.lamp_view.Show(lamp_list(lamp_sel).model_id)
                 End If
@@ -1213,14 +1273,19 @@ try_again:
             If map_scene.lamp_view.ready Then
                 map_scene.lamp_view.Render()
 
-                Dim side = CSng(MapLampView.PANE)
+                ' Drawn at less than the texture's own size. The panes are
+                ' rendered at PANE each so the lines stay crisp when scaled
+                ' down; showing them 1:1 made the window bigger than the
+                ' screen. One number to change if it wants to be larger.
+                Const SHOWN As Single = 248.0F
+                Dim side = SHOWN
                 ' V flipped: GL's origin is bottom left, ImGui's is top left.
                 ImGui.Image(New IntPtr(map_scene.lamp_view.color_tex.texture_id),
                             New System.Numerics.Vector2(side, side),
                             New System.Numerics.Vector2(0, 1),
                             New System.Numerics.Vector2(1, 0))
-                ImGui.TextDisabled("    top      |     left")
-                ImGui.TextDisabled("    right    |     iso")
+                ImGui.TextDisabled("  top   |   left")
+                ImGui.TextDisabled("  right |   iso")
 
                 ImGui.Separator()
 
@@ -1308,7 +1373,7 @@ try_again:
             End If
         Next
         lamp_list.Sort(Function(a, b) String.Compare(a.label, b.label, StringComparison.OrdinalIgnoreCase))
-        LogThis("lamp inspector: {0} light model(s) on {1}", lamp_list.Count, MAP_NAME_NO_PATH)
+        LogThis("bulb placer: {0} light model(s) on {1}", lamp_list.Count, MAP_NAME_NO_PATH)
     End Sub
 
     Private Sub camera_mouse_update()
@@ -1497,7 +1562,7 @@ try_again:
                 RESET_FLIGHT_RENDER_LAYOUT = True
             End If
             ImGui.SameLine()
-            If ImGui.Button("Lamp Inspector") Then
+            If ImGui.Button("Light Bulb Placer") Then
                 SHOW_LAMP_VIEW = Not SHOW_LAMP_VIEW
             End If
             If ImGui.Button("Path Studio") Then

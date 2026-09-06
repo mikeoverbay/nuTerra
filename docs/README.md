@@ -17,6 +17,7 @@ handoff's status banner before trusting it.
 | how fire, smoke and glow are composited | `FX_PIPELINE.md` |
 | **how surfaces are shaded, and where we differ from the game** | `lighting.md` |
 | **anything that casts or receives a shadow** | `shadows.md` |
+| **adding or fixing an ImGui panel** | `ui_panels.md` |
 
 **Shading work starts at `lighting.md`.** It covers `deferred.frag` end to end:
 the resolve order, the two channel names that lie, both specular models and the
@@ -36,6 +37,7 @@ one is the specification, this one is what we actually do with it.
 | `terrain_blend.md` | how `t_mixer.frag` bakes eight terrain layers into VT pages |
 | `lighting.md` | `deferred.frag` - resolve order, channel traps, both specular models, and the term-by-term comparison against the game's BRDF |
 | `shadows.md` | all three casters: the baked sun map, the baked lamp cubes, the parked cascades - and the traps they share |
+| `ui_panels.md` | ImGui panels: where they live, the placement helpers, and why `imgui.ini` beats `FirstUseEver` |
 | `map_settings.md` | per-map render settings: where they live, how they load |
 
 ## Decoded from the game
