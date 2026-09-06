@@ -110,6 +110,30 @@ Ranked by value for effort.
 
 ---
 
+## 3. Falloff curves (added 2026-09-06)
+
+The shaft's radial falloff is no longer the one analytic shape scaled by
+`fog_falloff`. Each lamp names a curve, 0..2, and the shader samples
+`VM_FOG_Curve_<n>.png` by `s = dist / range`:
+
+- **Files** live beside the `.campath` files (`nuTerra/cam_paths/`), because
+  both sides already resolve that folder the same way. nuTerra re-reads them on
+  the same Reload Cam Path that re-reads the lamps (`MapCamPath.load_gen`,
+  `MapLampFog.ensure_curves`); a missing file falls back to the old
+  `(1 - s^4)^2 / (1 + 8 s^2)` so nothing changes until a curve is saved.
+- **Format**: 256 wide, greyscale, row 0 is the curve; the five handles that
+  made it are in the PNG's text metadata (`nuTerra.handles`) so the editor
+  re-opens them. `tools/fog_curve.py` holds the math (monotone cubic through
+  five handles: start at s = 0, two transitions, falloff start, end at s = 1
+  defaulting to 0) and the Tk editor Path Studio opens from **Curve editor...**.
+- **Record**: the campath light record grew 32 -> 36 bytes with a `uint32
+  curve`; readers go by `light_stride`, so old files read as curve 0.
+- **Why**: one number moved the whole curve, so a longer shaft was always a
+  brighter core. Item 7 of `volumetric_fog_audit.md` (density only dims) is the
+  other half of that complaint and still stands.
+
+---
+
 ## Sources
 
 - Wronski, *Assassin's Creed 4: Black Flag — Lighting, Weather and Atmospheric

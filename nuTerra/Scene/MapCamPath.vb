@@ -86,6 +86,10 @@ Public Class MapCamPath
         Public level As Single
         ''' <summary>Radius of influence in metres, 0.1 .. 50.</summary>
         Public range_m As Single
+        ''' <summary>Which fog falloff curve the SHAFT uses: 0, 1 or 2, a row
+        ''' of VM_FOG_Curve_&lt;n&gt;.png beside the .campath. Files written
+        ''' before the field are 32 bytes a light and read as 0.</summary>
+        Public curve As Integer
     End Structure
 
     Public lights() As CamLight
@@ -195,6 +199,14 @@ Public Class MapCamPath
     ''' fourth caller that forgets is only a matter of time.
     ''' </summary>
     Public lights_dirty As Boolean
+    ''' <summary>Bumped on every Load. Consumers that build something from the
+    ''' file - the shaft falloff curves - compare against it rather than being
+    ''' called from each of the UI paths that re-read the route.</summary>
+    Public load_gen As Integer
+    ''' <summary>Folder the .campath was read from. VM_FOG_Curve_&lt;n&gt;.png
+    ''' live beside it, so a Path Studio save of a curve is picked up by the
+    ''' same Reload Cam Path that picks up the lamps.</summary>
+    Public curve_dir As String
 
     Public Sub Load(map As String)
         Dispose_gl()
@@ -203,6 +215,7 @@ Public Class MapCamPath
         ' that leave no lights at all - "no lamps now" invalidates a bake just
         ' as surely as "lamps somewhere else".
         lights_dirty = True
+        load_gen += 1
         points = Nothing
         travelled = 0.0F
 
@@ -211,6 +224,7 @@ Public Class MapCamPath
             LogThis("cam path: none for {0}", map)
             Return
         End If
+        curve_dir = IO.Path.GetDirectoryName(path)
 
         Try
             Dim raw = File.ReadAllBytes(path)
@@ -326,6 +340,11 @@ Public Class MapCamPath
                                               BitConverter.ToSingle(raw, o + 20))
                 lights(i).level = BitConverter.ToSingle(raw, o + 24)
                 lights(i).range_m = BitConverter.ToSingle(raw, o + 28)
+                ' By the stride the file declares, not by the record size this
+                ' version knows: a file from before the curve field is 32 bytes
+                ' a light and reads as curve 0 without a special case.
+                lights(i).curve = If(light_stride >= 36,
+                                     CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 32))), 0)
             Next
 
             loaded = True

@@ -50,7 +50,7 @@ Header - 128 bytes, little endian
                               0/1 lost the distinction, because -1 is
                               truthy and both sides came out the same.
    96  uint32   light_count   number of light records, may be 0
-  100  uint32   light_stride  bytes per light record, 32
+  100  uint32   light_stride  bytes per light record, 36 (32 before `curve`)
   104  char[24] reserved      zeroed
 
 The light fields come out of what version 2 already reserved, so the header is
@@ -91,7 +91,7 @@ reproduced, adjusted and regenerated later; without it, the only record of the
 intent was in the operator's head.
 
 --------------------------------------------------------------------------
-Light record - 32 bytes, 8 x float32, at header_size + count * stride
+Light record - 36 bytes, 8 x float32 + uint32, at header_size + count * stride
                                         + seed_count * seed_stride
 --------------------------------------------------------------------------
     0  x, y, z   world metres. y is metres ABOVE THE TERRAIN, not absolute -
@@ -103,6 +103,10 @@ Light record - 32 bytes, 8 x float32, at header_size + count * stride
                  linearise on load, the same as any other authored colour.
    24  level     brightness, 0..1
    28  range     radius of influence in metres, 0.1 .. 50
+   32  curve     which fog falloff curve the lamp's SHAFT uses, 0..2 - a row
+                 of VM_FOG_Curve_<n>.png beside the .campath (tools/fog_curve.py).
+                 Files written before this field are 32 bytes a light and read
+                 back as curve 0; readers go by light_stride, never by 32.
 
 Lights sit at the TAIL, after the seeds, so a reader that only wants the flight
 path can stop at seed_count and never know they are there. Their block is found
@@ -174,7 +178,8 @@ VERSION = 2
 HEADER_SIZE = 128
 STRIDE = 32
 SEED_STRIDE = 12
-LIGHT_STRIDE = 32
+LIGHT_STRIDE = 36        # what this writer emits: 8 floats + the curve
+LIGHT_STRIDE_MIN = 32    # what a reader must accept: files from before `curve`
 
 # The trailing 24s is what is LEFT of version 2's 32 reserved bytes after the
 # two light fields were taken from the front of it. Total is still 128.
@@ -203,7 +208,7 @@ def pack_seed(start=None, heading=0.0, radius=0.0, waypoints=0, side=0,
     }
 
 
-def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0):
+def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0, curve=0):
     """One light, in the tuple order the record is written in.
 
     `color` may be "#rrggbb" or an (r, g, b) triple of 0..1 floats. Path Studio
@@ -218,7 +223,7 @@ def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0):
         rgb = tuple(float(c) for c in color)
     return (float(x), float(y), float(z),
             rgb[0], rgb[1], rgb[2],
-            float(level), float(rng))
+            float(level), float(rng), int(curve))
 
 
 def write_path(path, points, map_name, closed=True, total_len=None,
@@ -228,7 +233,7 @@ def write_path(path, points, map_name, closed=True, total_len=None,
     points: sequence of (x, y, z, heading, tilt, roll, s, speed).
     seed:   the dict pack_seed returns, or None when there is nothing to record
             - a command line export has no clicks behind it.
-    lights: sequence of 8-tuples from pack_light, or empty. Written after the
+    lights: sequence of 9-tuples from pack_light, or empty. Written after the
             seeds, and counted in the header so a reader knows without probing.
     """
     n = len(points)
@@ -268,9 +273,9 @@ def write_path(path, points, map_name, closed=True, total_len=None,
         for (x, z, kind) in rows:
             f.write(struct.pack("<ffI", float(x), float(z), int(kind)))
         for lt in lights:
-            if len(lt) != 8:
-                raise ValueError(f"light needs 8 fields, got {len(lt)}")
-            f.write(struct.pack("<8f", *[float(v) for v in lt]))
+            if len(lt) != 9:
+                raise ValueError(f"light needs 9 fields, got {len(lt)}")
+            f.write(struct.pack("<8fI", *[float(v) for v in lt[:8]], int(lt[8])))
 
     return (HEADER_SIZE + n * STRIDE + len(rows) * SEED_STRIDE
             + len(lights) * LIGHT_STRIDE)
@@ -302,9 +307,9 @@ def read_path(path):
     # A file written before lights existed has zeros in both, which reads as no
     # lights without a version test. A count with no stride is a corrupt header,
     # not an old file, so say so rather than reading garbage.
-    if light_count and light_stride < LIGHT_STRIDE:
+    if light_count and light_stride < LIGHT_STRIDE_MIN:
         raise ValueError(f"light_count {light_count} with light_stride "
-                         f"{light_stride}, expected at least {LIGHT_STRIDE}")
+                         f"{light_stride}, expected at least {LIGHT_STRIDE_MIN}")
 
     if stride < STRIDE:
         raise ValueError(f"stride {stride} is smaller than version 2's {STRIDE}")
@@ -336,10 +341,13 @@ def read_path(path):
     lights = []
     for i in range(light_count):
         off = lbase + i * light_stride
-        x, y, z, r, g, b, level, rng = struct.unpack(
-            "<8f", raw[off:off + LIGHT_STRIDE])
+        x, y, z, r, g, b, level, rng = struct.unpack("<8f", raw[off:off + 32])
+        # The curve came after the 32-byte record. Go by the stride the file
+        # declares: an old file reads as curve 0, a new one as written.
+        curve = (struct.unpack("<I", raw[off + 32:off + 36])[0]
+                 if light_stride >= 36 else 0)
         lights.append({"x": x, "y": y, "z": z, "r": r, "g": g, "b": b,
-                       "level": level, "range": rng})
+                       "level": level, "range": rng, "curve": int(curve)})
 
     meta = {
         "version": version,
@@ -399,7 +407,7 @@ def copy_with_lights(src, dst, lights=()):
         f.write(bytes(head))
         f.write(raw[HEADER_SIZE:body_end])
         for lt in rows:
-            f.write(struct.pack("<8f", *[float(v) for v in lt]))
+            f.write(struct.pack("<8fI", *[float(v) for v in lt[:8]], int(lt[8])))
 
     return body_end + len(rows) * LIGHT_STRIDE
 

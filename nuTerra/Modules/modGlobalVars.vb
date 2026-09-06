@@ -903,6 +903,9 @@ Module modGlobalVars
     ' a couple of metres - with the atmosphere doing the rest. 2 spread the
     ' scattering over the whole 20 m sphere and read as a glowing ball rather
     ' than a lamp in fog.
+    ' RETIRED 2026-09-06: the shaft reads a per-light curve texture instead
+    ' (VM_FOG_Curve_<n>.png, MapLampFog.ensure_curves). Kept so fogfall= on an
+    ' old command line still parses; nothing reads it.
     Public LAMP_FOG_FALLOFF As Single = 8.0F
 
     ''' <summary>

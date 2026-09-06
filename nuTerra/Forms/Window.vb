@@ -1989,16 +1989,12 @@ try_again:
                         If ImGui.SliderFloat("  shaft strength", v_fg, 0.0, 3.0) Then
                             LAMP_FOG_GAIN = v_fg
                         End If
-                        Dim v_ff = LAMP_FOG_FALLOFF
-                        If ImGui.SliderFloat("  shaft falloff", v_ff, 0.0, 20.0) Then
-                            LAMP_FOG_FALLOFF = v_ff
-                        End If
-                        If ImGui.IsItemHovered() Then
-                            ImGui.SetTooltip("How fast the SCATTERING dies across the radius." & vbLf &
-                                             "Not the pool's falloff - this one decides how" & vbLf &
-                                             "big the lit air looks. High makes a 20 m lamp" & vbLf &
-                                             "read as a 10 m ball; 0 fills the whole sphere.")
-                        End If
+                        ' The falloff slider is gone: the shape is a per-light
+                        ' CURVE now (VM_FOG_Curve_<n>.png beside the .campath),
+                        ' authored in Path Studio's curve editor and re-read by
+                        ' Reload Cam Path. One number could not lengthen a shaft
+                        ' without brightening its core.
+                        ImGui.TextDisabled("  falloff: per-light curve, edited in Path Studio")
                         Dim v_fd = LAMP_FOG_DENSITY
                         If ImGui.SliderFloat("  air density", v_fd, 0.0, 0.3) Then
                             LAMP_FOG_DENSITY = v_fd

@@ -57,15 +57,16 @@ uniform float fog_phase;     // Henyey-Greenstein g
 // across a 20 m sphere. Beer-Lambert makes the sum converge instead, so one
 // setting works wherever the camera stands.
 uniform float fog_density;
-// The fog's OWN falloff, deliberately not the surfaces' light_falloff.
-//
-// They answer different questions. On a surface the falloff decides how fast
-// the pool fades across the ground; in the air it decides how much of the
-// sphere is worth seeing at all. At the surface value of 12, scattering at 90%
-// of the radius is 1% of what it is at the bulb, so a 20 m lamp shows a glow
-// about half that wide and reads as too small - the volume is the right size,
-// the light in it just is not.
-uniform float fog_falloff;
+// The fog's OWN falloff, deliberately not the surfaces' light_falloff - and a
+// CURVE, not one number. They answer different questions: on a surface the
+// falloff decides how fast the pool fades across the ground; in the air it
+// decides how much of the sphere is worth seeing at all. One analytic shape
+// could not lengthen a shaft without brightening its core, which is what the
+// curve is for. Authored in Path Studio's curve editor, one 256-sample row per
+// curve in VM_FOG_Curve_<n>.png beside the .campath; each lamp picks a row.
+// Sampled by s = dist / range, 0 at the bulb, 1 at the edge of the range.
+layout(binding = 2) uniform sampler2D fog_curve;   // 256 x N_CURVES, R8
+uniform int   lamp_curve;    // this lamp's row
 uniform int   fog_steps;
 
 in vec3 fWorld;
@@ -176,12 +177,14 @@ void main(void)
         float dist = length(d);
         if (dist >= lamp_range) continue;
 
-        // The same falloff shape the surfaces get, so a shaft and the pool it
-        // lands in agree about where the light stops.
+        // The lamp's falloff curve, by normalised distance. Sampled at the
+        // row's centre so the linear filter never blends two curves. The
+        // curves are authored to reach zero at s = 1, where the surfaces'
+        // window also stops, so shaft and pool still agree about where the
+        // light ends even though they no longer share a shape.
         float s = dist / lamp_range;
-        float s4 = s * s * s * s;
-        float win = clamp(1.0 - s4, 0.0, 1.0);
-        float atten = (win * win) / (1.0 + fog_falloff * s * s);
+        float atten = texture(fog_curve, vec2(s,
+                              (float(lamp_curve) + 0.5) / float(textureSize(fog_curve, 0).y))).r;
 
         float vis = 1.0;
         if (lamp_index >= 0)

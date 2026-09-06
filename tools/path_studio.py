@@ -51,6 +51,7 @@ import radar_commit as nav
 import flight_plan as fp
 import export_cam_path as ex
 import cam_path as cp
+import fog_curve as fc
 
 FOLDER = nav.FOLDER
 
@@ -89,6 +90,7 @@ def existing_plan(map_name):
                 max(0, min(255, int(round(lt["b"] * 255.0))))),
             "level": lt["level"],
             "range": lt["range"],
+            "curve": int(lt.get("curve", 0)),
         })
     return [(p[0], p[2]) for p in pts], meta["seed"], lights
 
@@ -579,6 +581,23 @@ class Studio:
                   orient="horizontal", length=200,
                   command=lambda *_: self.on_height_change()
                   ).grid(row=r, column=0, sticky="we")
+        r += 1
+
+        # Which fog falloff curve the lamp's SHAFT uses: 0, 1 or 2, a row of
+        # VM_FOG_Curve_<n>.png beside the .campath. Per light, because a street
+        # lamp and a burning barrel want different shapes; the curves
+        # themselves are shared, and edited in the window the button opens.
+        ttk.Label(left, text="Fog curve").grid(row=r, column=0, sticky="w")
+        self.light_curve = tk.IntVar(value=0)
+        cur = ttk.Frame(left)
+        cur.grid(row=r, column=1, sticky="w", padx=(6, 0))
+        for k in range(fc.N_CURVES):
+            ttk.Radiobutton(cur, text=str(k), value=k, variable=self.light_curve,
+                            command=self.on_curve_change).pack(side="left")
+        r += 1
+        ttk.Button(left, text="Curve editor...",
+                   command=self.open_curve_editor).grid(
+            row=r, column=0, sticky="we", pady=(2, 4))
         r += 1
 
         ttk.Separator(left, orient="horizontal").grid(
@@ -1124,6 +1143,26 @@ class Studio:
             # range ring, which IS a distance on this map.
             self.status.set("height %.1f m" % v)
 
+    def on_curve_change(self):
+        k = int(self.light_curve.get())
+        lt = self.selected_light()
+        if lt is not None:
+            lt["curve"] = k
+            self.lights_dirty = True
+            self.update_enabled()
+        self.status.set("fog curve %d" % k)
+
+    def open_curve_editor(self):
+        """The shared falloff curves, in their own window.
+
+        Saved beside the .campath files, because that is the folder both sides
+        already agree on: nuTerra resolves it the way it finds the route, and
+        its Reload Cam Path re-reads the curves along with the lamps.
+        """
+        fc.CurveEditor(self.root, cp.campath_dir(),
+                       on_saved=lambda p: self.status.set(
+                           "saved %s - Reload Cam Path in nuTerra" % os.path.basename(p)))
+
     def to_canvas(self, wx, wz):
         """World -> CANVAS pixels, which is what a mouse event is in."""
         vx, vy = self.to_view(wx, wz)
@@ -1212,6 +1251,7 @@ class Studio:
                     hgt = float(lt.get("height", 3.0))
                     self.light_height.set(hgt)
                     self.height_lbl.configure(text="%.1f" % hgt)
+                    self.light_curve.set(int(lt.get("curve", 0)))
                     self.refresh_light_ui()
                 self.status.set("%s selected - drag to move, Esc to drop"
                                 % self.selection[0])
@@ -1226,7 +1266,8 @@ class Studio:
                                 "color": self.light_color,
                                 "level": float(self.light_level.get()),
                                 "range": float(self.light_range.get()),
-                                "height": float(self.light_height.get())})
+                                "height": float(self.light_height.get()),
+                                "curve": int(self.light_curve.get())})
             self.lights_dirty = True
             self.update_enabled()
             self.status.set("%d light%s - Esc to stop placing"
@@ -1373,7 +1414,8 @@ class Studio:
         """
         return [{"x": lt["x"], "z": lt["z"], "color": lt["color"],
                  "level": lt["level"], "rng": lt.get("range", 12.0),
-                 "y": lt.get("height", 3.0)}
+                 "y": lt.get("height", 3.0),
+                 "curve": int(lt.get("curve", 0))}
                 for lt in self.lights]
 
     def update_enabled(self):

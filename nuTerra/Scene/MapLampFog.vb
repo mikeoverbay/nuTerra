@@ -29,6 +29,16 @@ Public Class MapLampFog
     Private sphere_vbo As GLBuffer
     Private sphere_verts As Integer
 
+    ' The shaft falloff curves: one R8 row per curve, 256 wide, three rows,
+    ' read from VM_FOG_Curve_<n>.png beside the .campath (authored in Path
+    ' Studio's curve editor, tools/fog_curve.py). A missing file gets the
+    ' analytic shape the shader used before curves existed, so a folder with
+    ' no PNGs renders exactly as it did.
+    Private curve_tex As GLTexture
+    Private curve_gen As Integer = -1
+    Public Const N_CURVES As Integer = 3
+    Public Const CURVE_SAMPLES As Integer = 256
+
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
@@ -45,6 +55,7 @@ Public Class MapLampFog
 
         build_sphere()
         If sphere_vao Is Nothing Then Return
+        ensure_curves(cp)
 
         GL_PUSH_GROUP("MapLampFog::Draw")
 
@@ -52,6 +63,7 @@ Public Class MapLampFog
         sphere_vao.Bind()
 
         MainFBO.gPosition.BindUnit(0)
+        curve_tex.BindUnit(2)
         ' Always bound, even with no bake - a shadow sampler left unbound is an
         ' illegal state the driver reports on every draw, not a way to switch
         ' the test off. lamp_index does that, per lamp, below.
@@ -76,7 +88,6 @@ Public Class MapLampFog
         GL.Uniform1(lampFogShader("fog_gain"), LAMP_FOG_GAIN)
         GL.Uniform1(lampFogShader("fog_phase"), LAMP_FOG_PHASE)
         GL.Uniform1(lampFogShader("fog_density"), LAMP_FOG_DENSITY)
-        GL.Uniform1(lampFogShader("fog_falloff"), LAMP_FOG_FALLOFF)
         GL.Uniform1(lampFogShader("fog_steps"), LAMP_FOG_STEPS)
         GL.Uniform1(lampFogShader("lamp_shadow_near"), MapLampShadow.NEAR_M)
         GL.Uniform1(lampFogShader("lamp_shadow_bias"), LAMP_SHADOW_BIAS)
@@ -131,6 +142,7 @@ Public Class MapLampFog
             GL.Uniform1(lampFogShader("lamp_range"), r)
             GL.Uniform3(lampFogShader("lamp_color"), l.color.X, l.color.Y, l.color.Z)
             GL.Uniform1(lampFogShader("lamp_level"), l.level)
+            GL.Uniform1(lampFogShader("lamp_curve"), l.curve)
             ' -1 means "no cube for this lamp" and the march skips the shadow
             ' test rather than the lamp: a missing bake must not delete light.
             GL.Uniform1(lampFogShader("lamp_index"),
@@ -153,6 +165,69 @@ Public Class MapLampFog
 
         GL_POP_GROUP()
     End Sub
+
+    ''' <summary>
+    ''' (Re)build the curve texture whenever the cam path has been (re)loaded -
+    ''' the same Reload Cam Path that moves the lamps re-reads the curves.
+    ''' </summary>
+    Private Sub ensure_curves(cp As MapCamPath)
+        If curve_tex IsNot Nothing AndAlso curve_gen = cp.load_gen Then Return
+        curve_gen = cp.load_gen
+
+        Dim px(CURVE_SAMPLES * N_CURVES - 1) As Byte
+        For k = 0 To N_CURVES - 1
+            Array.Copy(curve_row(cp.curve_dir, k), 0, px, k * CURVE_SAMPLES, CURVE_SAMPLES)
+        Next
+
+        If curve_tex Is Nothing Then
+            curve_tex = GLTexture.Create(TextureTarget.Texture2D, "LampFogCurves")
+            curve_tex.Storage2D(1, SizedInternalFormat.R8, CURVE_SAMPLES, N_CURVES)
+            ' Linear along s so 256 samples read as a curve, not stairs;
+            ' clamped so s = 1 does not wrap round to the bulb.
+            curve_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+            curve_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            curve_tex.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+            curve_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        End If
+        curve_tex.SubImage2D(0, 0, 0, CURVE_SAMPLES, N_CURVES,
+                             OpenTK.Graphics.OpenGL4.PixelFormat.Red, PixelType.UnsignedByte, px)
+    End Sub
+
+    ''' <summary>
+    ''' Row 0 of VM_FOG_Curve_k.png as 256 bytes, or the built-in shape.
+    ''' Resampled by nearest column if the file is not 256 wide.
+    ''' </summary>
+    Private Function curve_row(dir As String, k As Integer) As Byte()
+        Dim row(CURVE_SAMPLES - 1) As Byte
+        Dim file As String = Nothing
+        If dir IsNot Nothing Then file = IO.Path.Combine(dir, String.Format("VM_FOG_Curve_{0}.png", k))
+
+        If file IsNot Nothing AndAlso IO.File.Exists(file) Then
+            Try
+                Using bmp As New System.Drawing.Bitmap(file)
+                    For x = 0 To CURVE_SAMPLES - 1
+                        Dim sx = CInt(Math.Round(x * (bmp.Width - 1) / CDbl(CURVE_SAMPLES - 1)))
+                        row(x) = bmp.GetPixel(sx, 0).R
+                    Next
+                End Using
+                LogThis("lamp fog: curve {0} from {1}", k, file)
+                Return row
+            Catch ex As Exception
+                LogThis("lamp fog: curve {0} unreadable ({1}) - using the built-in shape", k, ex.Message)
+            End Try
+        Else
+            LogThis("lamp fog: curve {0} not found beside the cam path - using the built-in shape", k)
+        End If
+
+        ' (1 - s^4)^2 / (1 + 8 s^2): what the shader computed before curves.
+        For x = 0 To CURVE_SAMPLES - 1
+            Dim s = x / CDbl(CURVE_SAMPLES - 1)
+            Dim s4 = s * s * s * s
+            Dim win = Math.Max(0.0, 1.0 - s4)
+            row(x) = CByte(Math.Round(255.0 * (win * win) / (1.0 + 8.0 * s * s)))
+        Next
+        Return row
+    End Function
 
     ' Its own sphere rather than MapCamPath's. That one is private to the debug
     ' overlay, and coupling a render pass to an overlay's lifetime is how the
@@ -207,6 +282,8 @@ Public Class MapLampFog
         sphere_vao = Nothing
         sphere_vbo?.Dispose()
         sphere_vbo = Nothing
+        curve_tex?.Dispose()
+        curve_tex = Nothing
         GC.SuppressFinalize(Me)
     End Sub
 End Class
