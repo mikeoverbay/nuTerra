@@ -69,6 +69,15 @@ layout(binding = 2) uniform sampler2D fog_curve;   // 256 x N_CURVES, R8
 uniform int   lamp_curve;    // this lamp's row
 uniform int   fog_steps;
 
+// The GLOBAL fog's drift, so the shafts breathe with the haze around them.
+// Same noise function, keyed on the same world XZ, scrolled by the same
+// offset MapFog advances each frame; fog_noise is the same control, 0 = smooth.
+// The two media are still separate - this ties them by their motion, which is
+// what the eye actually reads, not by their physics.
+uniform float fog_noise;
+uniform vec2  noise_scroll;
+uniform float noise_scale;
+
 in vec3 fWorld;
 
 layout(location = 0) out vec4 outColor;
@@ -100,6 +109,48 @@ float bayer(ivec2 p)
 // Forward scattering. Without it fog lit by a lamp is a flat glow with no
 // direction; this is what makes looking TOWARD a lamp brighter than looking
 // across it, which is most of what reads as a beam.
+// Copied from DeferredFog.frag so both passes see one cloud. Four octaves
+// here, not eight: it is evaluated at four points per pixel and lerped per
+// step, and a shaft is soft enough that the fine octaves never showed.
+float shaft_hash(in vec2 p, in float scale)
+{
+    p = mod(p, scale);
+    return fract(sin(dot(p, vec2(35.6898, 24.3563))) * 353753.373453);
+}
+
+float shaft_cell(in vec2 x, in float scale)
+{
+    x *= scale;
+    vec2 p = floor(x);
+    vec2 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(shaft_hash(p, scale), shaft_hash(p + vec2(1.0, 0.0), scale), f.x),
+               mix(shaft_hash(p + vec2(0.0, 1.0), scale), shaft_hash(p + vec2(1.0, 1.0), scale), f.x), f.y);
+}
+
+float shaft_fbm(in vec2 p)
+{
+    float cells = 8.0;
+    p = mod(p, vec2(cells));
+    float f = 0.0, amp = 0.5, sum = 0.0;
+    for (int i = 0; i < 4; i++)
+    {
+        f += shaft_cell(p, cells) * amp;
+        sum += amp;
+        amp *= 0.5;
+        cells *= 2.0;
+    }
+    return f / sum;
+}
+
+// The drift factor at a world point: 1 at fog_noise 0, +-40% at 1, mean ~1.
+float drift_at(vec3 wp)
+{
+    if (fog_noise <= 0.0) return 1.0;
+    float n = shaft_fbm(wp.xz / 350.0 * noise_scale + noise_scroll);
+    return mix(1.0, 0.6 + 0.8 * n, fog_noise);
+}
+
 float henyey_greenstein(float cos_t, float g)
 {
     float g2 = g * g;
@@ -143,6 +194,12 @@ void main(void)
 
     int steps = max(fog_steps, 1);
     float dt = (t1 - t0) / float(steps);
+
+    // The drift, at four points along the chord; each step lerps between
+    // them. Four noise evaluations a pixel instead of forty-eight.
+    float drift[4];
+    for (int k = 0; k < 4; ++k)
+        drift[k] = drift_at(ro + rd * (t0 + (t1 - t0) * float(k) / 3.0));
 
     // Offset the first step by a fraction of dt, so the shells land at a
     // different depth on neighbouring pixels and average out.
@@ -209,7 +266,11 @@ void main(void)
         // of a pool as bright as the near side.
         float to_lamp = exp(-fog_density * dist);
 
-        acc += base * atten * vis
+        float u = clamp((t - t0) / max(t1 - t0, 1e-4), 0.0, 1.0) * 3.0;
+        int   ki = int(min(u, 2.0));
+        float dr = mix(drift[ki], drift[ki + 1], u - float(ki));
+
+        acc += base * atten * vis * dr
              * henyey_greenstein(cos_t, fog_phase) * to_lamp * trans * dt;
     }
 

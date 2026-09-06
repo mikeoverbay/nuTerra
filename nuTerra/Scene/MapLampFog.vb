@@ -89,6 +89,11 @@ Public Class MapLampFog
         GL.Uniform1(lampFogShader("fog_phase"), LAMP_FOG_PHASE)
         GL.Uniform1(lampFogShader("fog_density"), LAMP_FOG_DENSITY)
         GL.Uniform1(lampFogShader("fog_steps"), LAMP_FOG_STEPS)
+        ' The global fog's drift, shared: same control, same scroll, same scale
+        ' MapFog uploads, so the shafts and the haze move as one cloud.
+        GL.Uniform1(lampFogShader("fog_noise"), FOG_NOISE)
+        GL.Uniform2(lampFogShader("noise_scroll"), scene.fog.uv_location.X, scene.fog.uv_location.Y)
+        GL.Uniform1(lampFogShader("noise_scale"), 4.0F)
         GL.Uniform1(lampFogShader("lamp_shadow_near"), MapLampShadow.NEAR_M)
         GL.Uniform1(lampFogShader("lamp_shadow_bias"), LAMP_SHADOW_BIAS)
 
