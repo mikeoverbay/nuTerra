@@ -21,7 +21,7 @@ Public Class MapFog
 
         ' ANIM_DELTA, not DELTA_TIME - see modGlobalVars. On a capture frame
         ' the two differ by about 17x.
-        Dim s = 0.03F * ANIM_DELTA ' <---- How fast the fog moves
+        Dim s = FOG_SPEED * ANIM_DELTA ' <---- How fast the fog moves; the slider owns it now
 
         'this is in the game data somewhere!
         Dim move_vector = New Vector2(0.3, 0.7) ' <----  Direction the fog moves

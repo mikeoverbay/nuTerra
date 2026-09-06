@@ -142,6 +142,9 @@ Module modGlobalVars
     ''' <summary>Fog noise cell size in metres. Small is billows at street
     ''' scale; large is slow rolls across the map.</summary>
     Public FOG_NOISE_M As Single = 350.0F
+    ''' <summary>How fast the fog noise drifts, in noise units per second.
+    ''' 0 holds it still; 0.03 was the hard-coded value it had.</summary>
+    Public FOG_SPEED As Single = 0.03F
     Public FOG_TINT_R As Single = -1.0F
     Public FOG_TINT_G As Single = -1.0F
     Public FOG_TINT_B As Single = -1.0F

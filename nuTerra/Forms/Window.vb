@@ -2352,6 +2352,14 @@ try_again:
                                          "scale; large is slow rolls across the whole map." & vbLf &
                                          "Shared by the global fog and the lamp shafts.")
                     End If
+                    Dim v_fsp = FOG_SPEED
+                    If ImGui.SliderFloat("  fog drift speed", v_fsp, 0.0, 0.2) Then
+                        FOG_SPEED = v_fsp
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("How fast the banks drift. 0 holds them still;" & vbLf &
+                                         "0.03 is the old fixed speed. The shafts drift with it.")
+                    End If
                     Dim v_fs = FOG_SKY
                     If ImGui.SliderFloat("  fog on sky", v_fs, 0.0, 1.0) Then
                         FOG_SKY = v_fs
