@@ -497,10 +497,10 @@ class Studio:
         # Open ground shows it; obstacle cells keep the mask colours.
         f_am = ttk.Frame(left)
         f_am.grid(row=5, column=0, columnspan=2, sticky="we", pady=(0, 6))
-        self.show_am = tk.BooleanVar(value=False)
+        self.show_am = tk.BooleanVar(value=True)
         ttk.Checkbutton(f_am, text="global_AM", variable=self.show_am,
                         command=self.on_am_toggle).pack(side="left")
-        self.am_blend = tk.DoubleVar(value=0.7)
+        self.am_blend = tk.DoubleVar(value=0.5)
         ttk.Scale(f_am, from_=0.0, to=1.0, variable=self.am_blend,
                   orient="horizontal", length=110,
                   command=lambda *_: self.on_am_toggle()).pack(side="left", padx=(6, 0))
@@ -994,11 +994,13 @@ class Studio:
         # The global_AM under the OPEN ground. Obstacles and the low band keep
         # their mask colours, so what the planner sees stays legible on top of
         # what the map looks like.
+        # A straight mix over EVERY cell: 0 is the depth shading alone, 1 is
+        # the AM alone. The obstacles fade with it, which is what a slider
+        # that promises full AM has to do; park it near the middle to see both.
         if self.show_am.get() and self.load_am():
             k = float(self.am_blend.get())
-            open_ = ~(low | hard)
-            mixed = self.am_img.astype(np.float32) * k + img.astype(np.float32) * (1.0 - k)
-            img = np.where(open_[..., None], mixed, img.astype(np.float32)).astype(np.uint8)
+            img = (self.am_img.astype(np.float32) * k
+                   + img.astype(np.float32) * (1.0 - k)).astype(np.uint8)
 
         self.mask_full = Image.fromarray(img[:, ::-1], "RGB")
         self.repaint()
