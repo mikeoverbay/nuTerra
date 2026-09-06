@@ -139,6 +139,9 @@ Module modGlobalVars
     ''' <summary>How much fog the sky gets, 0..1 of fog_level. Less than 1
     ''' keeps the sky texture showing through the haze.</summary>
     Public FOG_SKY As Single = 0.6F
+    ''' <summary>Fog noise cell size in metres. Small is billows at street
+    ''' scale; large is slow rolls across the map.</summary>
+    Public FOG_NOISE_M As Single = 350.0F
     Public FOG_TINT_R As Single = -1.0F
     Public FOG_TINT_G As Single = -1.0F
     Public FOG_TINT_B As Single = -1.0F

@@ -2331,6 +2331,15 @@ try_again:
                         ImGui.SetTooltip("How much the drifting noise patches the fog." & vbLf &
                                          "0 is a smooth haze.")
                     End If
+                    Dim v_fm = FOG_NOISE_M
+                    If ImGui.SliderFloat("  fog noise size (m)", v_fm, 10.0, 600.0) Then
+                        FOG_NOISE_M = v_fm
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Metres per noise cell. Small is billows at street" & vbLf &
+                                         "scale; large is slow rolls across the whole map." & vbLf &
+                                         "Shared by the global fog and the lamp shafts.")
+                    End If
                     Dim v_fs = FOG_SKY
                     If ImGui.SliderFloat("  fog on sky", v_fs, 0.0, 1.0) Then
                         FOG_SKY = v_fs

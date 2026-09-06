@@ -94,6 +94,7 @@ Public Class MapLampFog
         GL.Uniform1(lampFogShader("fog_noise"), FOG_NOISE)
         GL.Uniform2(lampFogShader("noise_scroll"), scene.fog.uv_location.X, scene.fog.uv_location.Y)
         GL.Uniform1(lampFogShader("noise_scale"), 4.0F)
+        GL.Uniform1(lampFogShader("noise_metres"), FOG_NOISE_M)
         GL.Uniform1(lampFogShader("lamp_shadow_near"), MapLampShadow.NEAR_M)
         GL.Uniform1(lampFogShader("lamp_shadow_bias"), LAMP_SHADOW_BIAS)
 

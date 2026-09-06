@@ -116,6 +116,7 @@ Public Module modMapSettings
         Yield ("fog_floor", Function() FOG_FLOOR_OFFSET, Sub(v) FOG_FLOOR_OFFSET = v)
         Yield ("fog_noise", Function() FOG_NOISE, Sub(v) FOG_NOISE = v)
         Yield ("fog_sky", Function() FOG_SKY, Sub(v) FOG_SKY = v)
+        Yield ("fog_noise_m", Function() FOG_NOISE_M, Sub(v) FOG_NOISE_M = v)
         Yield ("fog_tint_r", Function() FOG_TINT_R, Sub(v) FOG_TINT_R = v)
         Yield ("fog_tint_g", Function() FOG_TINT_G, Sub(v) FOG_TINT_G = v)
         Yield ("fog_tint_b", Function() FOG_TINT_B, Sub(v) FOG_TINT_B = v)

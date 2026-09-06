@@ -77,6 +77,7 @@ uniform int   fog_steps;
 uniform float fog_noise;
 uniform vec2  noise_scroll;
 uniform float noise_scale;
+uniform float noise_metres;   // cell size, shared with the global fog
 
 in vec3 fWorld;
 
@@ -147,8 +148,8 @@ float shaft_fbm(in vec2 p)
 float drift_at(vec3 wp)
 {
     if (fog_noise <= 0.0) return 1.0;
-    float n = shaft_fbm(wp.xz / 350.0 * noise_scale + noise_scroll);
-    return mix(1.0, 0.6 + 0.8 * n, fog_noise);
+    float n = shaft_fbm(wp.xz / max(noise_metres, 1.0) * noise_scale + noise_scroll);
+    return mix(1.0, 0.4 + 1.2 * n, fog_noise);
 }
 
 float henyey_greenstein(float cos_t, float g)

@@ -38,6 +38,9 @@ uniform vec3  fog_tint_ovr;  // sRGB; the map's colour unless overridden
 // every ray, but replacing the dome outright wiped the sky texture; this
 // mixes the tint over it and leaves the sky showing through.
 uniform float fog_sky;
+// Size of the noise, metres per cell. Small billows at street scale, large
+// rolls across the map.
+uniform float fog_noise_m;
 
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
@@ -124,9 +127,10 @@ void main()
     {
         // World XZ, in units of ~350 m per noise cell so the drift reads at
         // street scale rather than per-metre grain.
-        vec2 loc = (invView * vec4(vpos, 1.0)).xz / 350.0 * uv_scale + move_vector;
+        vec2 loc = (invView * vec4(vpos, 1.0)).xz / max(fog_noise_m, 1.0) * uv_scale + move_vector;
         float n = NoiseFBM(loc, 8.0, 8);               // 0..1, mean ~0.5
-        f *= mix(1.0, 0.6 + 0.8 * n, fog_noise);
+        // 0.4 .. 1.6 at full strength: billows, not a tremor. Mean stays 1.
+        f *= mix(1.0, 0.4 + 1.2 * n, fog_noise);
     }
 
     // Smoke and fire are in front of whatever they cover; fog them by their

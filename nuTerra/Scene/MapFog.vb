@@ -41,6 +41,7 @@ Public Class MapFog
         GL.Uniform1(DeferredFogShader("fog_floor"), CommonProperties.MEAN + FOG_FLOOR_OFFSET)
         GL.Uniform1(DeferredFogShader("fog_noise"), FOG_NOISE)
         GL.Uniform1(DeferredFogShader("fog_sky"), FOG_SKY)
+        GL.Uniform1(DeferredFogShader("fog_noise_m"), FOG_NOISE_M)
         ' Tint: the map's own colour unless every override component is set.
         If FOG_TINT_R >= 0.0F AndAlso FOG_TINT_G >= 0.0F AndAlso FOG_TINT_B >= 0.0F Then
             GL.Uniform3(DeferredFogShader("fog_tint_ovr"), FOG_TINT_R, FOG_TINT_G, FOG_TINT_B)
