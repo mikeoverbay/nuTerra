@@ -1,4 +1,4 @@
-﻿# docs
+# docs
 
 Two kinds of document live here, and they age differently.
 
@@ -13,7 +13,8 @@ handoff's status banner before trusting it.
 |---|---|
 | **what is still open** | `open_threads.md` |
 | the automated camera flight design | `camera_flight_plan.md` |
-| current state of the renderer | `HANDOFF_2026-08-31_pbr_glow_water.md` |
+| the newest handoff: lamps, shadows, shafts, the Bulb Placer | `HANDOFF_2026-09-06_lights.md` |
+| current state of the renderer's shading and water | `HANDOFF_2026-08-31_pbr_glow_water.md` |
 | how fire, smoke and glow are composited | `FX_PIPELINE.md` |
 | **how surfaces are shaded, and where we differ from the game** | `lighting.md` |
 | **anything that casts or receives a shadow** | `shadows.md` |
@@ -56,11 +57,11 @@ specifications and evidence, not descriptions of this renderer.
 
 | document | covers | status |
 |---|---|---|
-| `HANDOFF_2026-08-31_pbr_glow_water.md` | PBS_tank decode, PBR specular, glow depth-test, pooled water | **current** |
+| `HANDOFF_2026-09-06_lights.md` | lamp lighting, shadows, volumetric shafts, the light catalogue and the Bulb Placer | **current** - read its status banner, then its rules section |
+| `HANDOFF_2026-08-31_pbr_glow_water.md` | PBS_tank decode, PBR specular, glow depth-test, pooled water | still accurate for what it covers |
 | `HANDOFF_2026-08-31_fx_and_holes.md` | terrain holes, FX HDR composite, glow, the parked branch landing, the decal checkerboard | earlier the same day |
 | `HANDOFF_2026-08-28_lighting.md` | the lighting/probe-grid session | **historical** - read its section 9 first; much of sections 7-8 was reverted |
-| `HANDOFF_sun_shadow.md` | the sun shadow bake, flicker hunt, outland cull | older, still largely accurate |
-| `HANDOFF_2026-09-06_lights.md` | lamp lighting, shadows, volumetric shafts, the light catalogue and the Bulb Placer | **current** - read its rules section |
+| `HANDOFF_sun_shadow.md` | the sun shadow bake, flicker hunt, outland cull | older, still largely accurate; superseded as a reference by `shadows.md` |
 | `FX_plan.md` | original FX recon | **historical** - the plan part is done |
 
 ## House rules these documents assume

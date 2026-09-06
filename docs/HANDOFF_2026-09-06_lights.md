@@ -1,6 +1,13 @@
 # Handoff — lamp lighting, shafts, and the light catalogue
 
-Covers `54d98f95` .. `50b30724` plus uncommitted work. Written 2026-09-06.
+Covers `54d98f95` .. `50b30724` plus the work that landed as `f94b3c4e`.
+Written 2026-09-06.
+
+> **Status, later the same day.** Section 2 was written while uncommitted; it
+> landed as `f94b3c4e` (the splitter, the GL-state restore, `tools/vbsplice.py`).
+> `c82a2611` since then only re-authored `cam_paths/19_monastery.campath`, which
+> the lamp cubes bake from. Section 4 records what a read of the code at
+> `c82a2611` settled about the open items — read, not measured.
 
 Everything here was measured. Where a number appears, it came from a render or
 a readback, not from reasoning — and several times the measurement contradicted
@@ -132,7 +139,7 @@ Placer exists to replace.
 
 ---
 
-## 2. Uncommitted, and where it stands
+## 2. What was in flight (landed as `f94b3c4e`), and where it stands
 
 `Window.vb`, `MapLoader.vb`, `modTypeStructures.vb`, `MapLampView.vb`.
 
@@ -168,6 +175,8 @@ Two changes, both needed:
    frame of lag on a splitter drag, invisible.
 
 ### Open
+
+As written on the day. Section 4 says what the code settled about each.
 
 - Left pane list of the current map's lamps; click loads that model on demand.
 - The lamp list came back **empty on 19_monastery**, which has lamps. Not yet
@@ -225,7 +234,9 @@ frame ~13× brighter than intended and blew out three lamps.
 
 **Restore global GL state.** Reversed-Z (`DepthFunc(Greater)`, `ClearDepth(0)`)
 is global; the bakes switch it and must switch it back. So is `BlendFunc`, which
-`Disable(Blend)` does *not* undo. Restore the framebuffer that *was* bound.
+`Disable(Blend)` does *not* undo. So is `ClearColor` — `MapMinimap` puts black
+back after its navy clear; `MapLampView.Render` does not yet (section 4).
+Restore the framebuffer that *was* bound.
 
 **Read the owner's snapshot BEFORE starting a render.** `snap`/`snapquit` write
 `%TEMP%\nuTerra\snapshot.txt` too, and an agent render overwrites the camera he
@@ -236,3 +247,56 @@ in the output — six renders were compared against the wrong view before he
 spotted the angle. Say it is missing and stop.
 
 **The owner pushes. The agent never does** — the shell has no key.
+
+---
+
+## 4. Review addendum — what the code says about the open items
+
+Added 2026-09-06 after reading the tree at `c82a2611`. Nothing here was rendered
+or measured; each entry says where to look and what would confirm it.
+
+- **The empty lamp list is not the name test.** `map_lights.xml` lists two
+  street lamp models on 19_monastery with `StreetLamp` in their paths, and the
+  `lamp` substring matches both. Today the list is empty by construction:
+  `rebuild_lamp_list` gates on `LAMP_MESHES.ContainsKey`, only `build_lamp_mesh`
+  fills that dictionary, and neither has a caller since the UI strip. At
+  `50b30724` the gate was `MODEL_GEOM`, filled for every LOD-0 model at upload,
+  so of the two suspects only the timing survives: the rebuild fired from inside
+  the panel on the first frame the map name changed, and a panel open during a
+  load would run it before `MODEL_BATCH_LIST` was rebuilt and never again for
+  that map. Rebuild at the end of load, not from the panel.
+- **"Build the slim mesh on selection" cannot work as written.** Section 2 says
+  both that `build_lamp_mesh` is to be driven by a list selection and that the
+  copy must be taken at load because the CPU arrays are `Erase`d. The second
+  wins: `MapLoader` erases every render set's `vertexBuffer` and
+  `index_buffer32` right after the upload, unconditionally, so a later call finds
+  nothing to copy. Take the copy at load for models that pass the name test — a
+  handful per map — or re-read the `.primitives` on selection.
+- **The X sign has an answer in the loader.** The scan writer emits raw space.bin
+  X and its doc comment says so: everything else in `MapLoader` negates X on the
+  way to world space — the `visibilityBounds` assignment, the team spawns
+  (`get_Y_at_XZ(-TEAM_1.X, TEAM_1.Z)`), the outland test (`-p.X` against
+  `MAP_BB`). A catalogue loader must negate X. The one-light test above is still
+  the confirmation.
+- **The suburbia scan failure is two dictionary reads.** Both PBS_tiled parsers
+  in `modSpaceBin` index `props("colorTex")` directly while the optional keys
+  around them use `ContainsKey` with a default; the `PBS_tiled_global` branch
+  reads `globalTex` the same way. A material without the key throws exactly the
+  quoted message. The handle lookups in `MapLoader`
+  (`textureHandles(props.colorTex)`) then need a fallback for an empty path.
+- **`MapLampView.Render` does not restore everything it touches.** It restores
+  framebuffer, viewport, blend, depth test and cull, but sets
+  `ClearColor(0.10, 0.11, 0.14, 1)` and never puts it back. `ClearColor` is
+  global; the next frame's first clears — the VT feedback target and the
+  G-buffer in `modRender` — set no colour of their own. `MapMinimap` hit the
+  same trap and restores black. Unmeasured: while the placer is open, those
+  buffers clear to dark slate with alpha 1.
+- **The light-volume bake still runs.** `bake_volumes` is called unconditionally
+  at the end of `MapLampShadow.Bake`, allocates the R8 volume, dispatches the
+  compute and reads one lamp's volume back to the CPU. Nothing samples it;
+  `lamp_fog.frag` declares only the shadow-cube sampler. Dead work on every Path
+  Studio save — gate it or drop it.
+- **Splice artefacts.** `scan_all_spaces_for_lights` lost its doc comment to
+  `build_lamp_mesh`, which now carries two `<summary>` blocks;
+  `draw_lamp_inspector` and `MapLampView.Render` carry stacked summaries too.
+  No documentation file is generated, so the compiler does not say.

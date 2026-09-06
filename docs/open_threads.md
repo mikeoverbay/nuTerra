@@ -1,6 +1,6 @@
 # Open threads
 
-Loose ends as of **2026-09-02**, written down so a compacted session or a new
+Loose ends as of **2026-09-06**, written down so a compacted session or a new
 one can pick them up cold. Each entry says what is known, what is NOT known,
 and what the next concrete step is.
 
@@ -122,3 +122,36 @@ Two known-imperfect things in the shipped water:
 Step 1 (the 2.5 m ground clamp) is built. Steps 2-4 are designed and not
 started - see `camera_flight_plan.md`, which includes why the bake has to be
 its own FBO pass rather than a reinterpretation of the beauty pass.
+
+## 9. Lamps: the Bulb Placer, the catalogue loader, the X sign
+
+The lamp work of `54d98f95`..`f94b3c4e` is recorded in
+`HANDOFF_2026-09-06_lights.md`; its "Open" list and the review addendum after
+its rules are the detail. In brief:
+
+- **The Light Bulb Placer is a splitter and nothing else.** Left pane empty, a
+  GL surface on the right. The four ortho views, cursor sliders and readouts
+  are in git at `50b30724` and come back into the right pane. Nothing calls
+  `rebuild_lamp_list` or `build_lamp_mesh` today, so the list is empty by
+  construction - and the slim mesh copy has to be taken at load, because the
+  CPU vertex arrays are `Erase`d the moment they are uploaded.
+- **No loader yet reads `light_catalogue.xml`** and places lights. Every value
+  in it except name/kind/primitives is a guess, `bulb` included.
+- **X must be negated on the way in.** `map_lights.xml` stores raw space.bin X
+  and says so; everything else in `MapLoader` negates X to reach world space.
+  Confirm with one placed light before auto-placement.
+- `209_wg_epic_suburbia` fails to scan: both PBS_tiled parsers in
+  `modSpaceBin` index `props("colorTex")` (and `globalTex`) directly instead
+  of defaulting a missing key.
+- Occlusion, glow around the fixture itself, `gColor` to Rgba16f.
+
+## 10. Dead work and a leaked GL state, read from the code
+
+Neither measured yet:
+
+- `MapLampView.Render` sets `ClearColor` and does not restore it. The next
+  frame's VT feedback and G-buffer clears set no colour of their own and run
+  with it while the placer is open. `MapMinimap` restores black after the same
+  mistake.
+- `MapLampShadow.Bake` still calls `bake_volumes` - the 3D light field the
+  shafts no longer sample - on every re-bake, with a CPU readback in it.

@@ -130,10 +130,13 @@ lamp shadow: lamp 0 ground below reads 6.52 m, authored height 6.55 m
 The 3 cm is D16 quantisation plus the polygon offset. Do not remove this check;
 a rendered frame only looks *slightly* off when any of those four is wrong.
 
-It has already earned its keep for a second reason: it stayed correct while the
-first test lamp came out completely black, which proved the lookup was fine and
-the lamp was simply walled in. A correct shadow on a badly placed lamp is
-indistinguishable from a broken shadow until something says otherwise.
+It also stayed correct while the first test lamp came out completely black,
+which was read at the time as "the lookup is fine, the lamp is walled in". That
+reading was wrong: the debug view was writing `final_color` and returning before
+`outColor` was assigned, so it produced an undefined black frame whatever the
+lamp did (`HANDOFF_2026-09-06_lights.md`). The self-test was right; the
+conclusion drawn next to it was not. A diagnostic that fails to black is
+indistinguishable from the thing it measures returning zero.
 
 ### Bias
 
@@ -202,12 +205,25 @@ depth state, and the fifth caller that forgets is only a matter of time.
 
 Re-baking is per lamp, so nudging one lamp in Path Studio costs one lamp's work.
 
+### The light volume that nothing reads
+
+`Bake()` ends by calling `bake_volumes`: a 64³ R8 field per lamp filled by
+`lamp_vol.comp` from the cube, then a CPU readback of lamp 0 for one log line.
+It was built for the shafts and reverted there — 64³ over a lamp's bounding cube
+is ~0.6 m a voxel and a lamp pole is 0.3-0.5 m, below the resolution entirely —
+so `lamp_fog.frag` marches the cube directly and declares no 3D sampler. The
+bake still runs on every re-bake. Sub-millisecond and small, but dead work with
+a readback stall in it; gate it or drop it before someone takes it for
+load-bearing.
+
 ### What it cannot do
 
 - **Nothing dynamic.** Vehicles and particles cast nothing.
 - **No bloom or glow** around the lamp fixture itself — separate problem.
 - A lamp inside or behind geometry goes fully dark, correctly, and looks exactly
-  like a bug. Check the debug view before assuming the shadow is broken.
+  like a bug. Check the debug view (`lampdebug`) before assuming the shadow is
+  broken — and first check that the debug view is drawing anything other than
+  black. It once was not; see the self-test note above.
 
 ---
 
@@ -242,6 +258,12 @@ instead of six.
    11 SH grid, **12 lamp cubes**. `unbind_textures(n)` at the end of the deferred
    pass must cover them — it was 12 and left unit 12 bound into the next pass.
 
+5. **`ClearColor` is global too.** `MapMinimap` clears to navy and puts the
+   engine's black back, because every later clear in the frame inherits it.
+   `MapLampView.Render` sets a dark-slate clear for the Bulb Placer's surface
+   and, as of 2026-09-06, does not restore it — the next frame's VT feedback and
+   G-buffer clears run with it. Read from the code, not yet measured.
+
 ---
 
 ## Controls
@@ -256,7 +278,7 @@ instead of six.
 | ↳ moment bias | raise if reconstruction goes unstable over flat ground |
 | **Lamp shadows (baked)** | the lamp cubes; off keeps them allocated and stops sampling, so it is a free A/B |
 | ↳ lamp depth bias / lamp normal bias | see Bias above |
-| ↳ lamp penumbra (m) | blur radius at the receiver; 0 is one fetch and a hard edge |
+| ↳ lamp penumbra (texels) | blur radius in shadow-map texels at the receiver; 0 is one fetch and a hard edge |
 
 **Menu → Flight Recorder → Reload Cam Path** re-reads the route and its lamps
 after a Path Studio save, and the cubes re-bake on the next frame.

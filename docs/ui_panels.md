@@ -61,9 +61,9 @@ the bottom of the screen and no way to reach them. Asking for 300x600 with
    ```vb
    Dim o = panel_origin()
    ImGui.SetNextWindowSizeConstraints(
-       New System.Numerics.Vector2(260, 200),
-       New System.Numerics.Vector2(CSng(ClientSize.X) - o.X - 15.0F,
-                                   CSng(ClientSize.Y) - o.Y - 15.0F))
+       New System.Numerics.Vector2(320, 240),
+       New System.Numerics.Vector2(Math.Max(320.0F, CSng(ClientSize.X) - o.X - 15.0F),
+                                   Math.Max(240.0F, CSng(ClientSize.Y) - o.Y - 15.0F)))
    ```
 
    This is the one that keeps a panel on screen permanently. Add it to any
@@ -87,9 +87,29 @@ immediately.
 
 An ImGui window scrolls content that does not fit, so a too-tall *window* is a
 placement bug, not a content bug. Render-to-texture panels are the usual cause
-of one: draw the texture at a chosen display size rather than its native size,
-and keep that size in one named constant.
+of one, and there are two honest ways to size the texture:
 
-The Light Bulb Placer renders its four panes at 320 px each and displays the
-result at 248, so the lines stay crisp when scaled down instead of going
-blocky. One constant, `SHOWN`, changes it.
+- **Fixed render size, chosen display size.** Draw at a fixed resolution and
+  show it scaled, keeping the display size in one named constant. Fine for a
+  picture; the scaling blurs thin lines.
+- **Render at the pane's size.** Read `GetContentRegionAvail()` in the panel,
+  record it, and re-create the target when it changes. Nothing is scaled, so
+  edges and hairlines stay crisp. The Light Bulb Placer does this since
+  `f94b3c4e`: its right pane is a GL surface sized to the pane, and the model
+  silhouette and cursor crosshair it exists to let you read are drawn 1:1.
+
+## Keep GL out of the UI pass
+
+A render-to-texture panel must NOT draw its texture from inside the ImGui pass.
+Binding a framebuffer and changing pipeline state halfway through building the
+UI leaves ImGui drawing into whatever was left bound, with whatever depth and
+blend state was left set — the Bulb Placer took the entire UI down this way.
+The panel only records the size it wants (`lamp_pane_w/h`); `OnRenderFrame`
+renders the surface before `_controller.Update`, and the panel shows last
+frame's texture. One frame of lag on a splitter drag, invisible.
+
+Whatever the render touches, it saves and restores by asking GL what was there
+— framebuffer binding, viewport, blend, depth test, cull face. Never assume the
+target was framebuffer 0; the engine renders into `MainFBO`. `ClearColor` is
+global state too, and is the one thing `MapLampView.Render` still leaves
+changed (see `shadows.md`, traps).
