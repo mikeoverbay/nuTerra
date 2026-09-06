@@ -52,6 +52,12 @@ Public Class MapFog
         MainFBO.gDepth.BindUnit(1)
         MainFBO.gPosition.BindUnit(2)
         MainFBO.gColor.BindUnit(3)
+        ' FX coverage, so smoke over the sky is not fogged out of existence.
+        ' Same gate as the FX block in modRender: when it did not run this
+        ' frame the buffer is stale and the shader must ignore it.
+        MainFBO.gFX_HDR.BindUnit(4)
+        GL.Uniform1(DeferredFogShader("fx_cover"),
+                    If(map_scene.MODELS_LOADED AndAlso DONT_BLOCK_FX, 1.0F, 0.0F))
         'FBOm.gColor_2.BindUnit(4)
 
         map_center.X = 100.0F * (theMap.bounds_minX + theMap.bounds_maxX) / 2.0F
@@ -85,7 +91,7 @@ Public Class MapFog
         DeferredFogShader.StopUse()
 
         ' MULTI UNBIND
-        unbind_textures(4)
+        unbind_textures(5)
 
         GL_POP_GROUP()
     End Sub

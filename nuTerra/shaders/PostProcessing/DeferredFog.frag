@@ -12,7 +12,14 @@ layout (binding = 0) uniform sampler2D noiseMap;
 layout (binding = 1) uniform sampler2D depthMap;
 layout (binding = 2) uniform sampler2D gPosition;
 layout (binding = 3) uniform sampler2D gColor_in;
-//layout (binding = 4) uniform sampler2D gColor_in_2;
+// The FX accumulation (smoke, fire): premultiplied colour, coverage in alpha.
+// FX cards write colour but no position, so over the dome they inherited the
+// sky's full fog and vanished. Where the FX cover a pixel, the fog is scaled
+// back by that coverage - the card keeps its own look, the sky behind it
+// still fogs. fx_cover is 0 on frames where the FX block did not run, so a
+// stale buffer is never read.
+layout (binding = 4) uniform sampler2D gFX_cover;
+uniform float fx_cover;
 
 uniform float uv_scale;
 uniform float time;
@@ -122,6 +129,10 @@ void main()
         float n = NoiseFBM(loc, 8.0, 8);               // 0..1, mean ~0.5
         f *= mix(1.0, 0.6 + 0.8 * n, fog_noise);
     }
+
+    // Smoke and fire are in front of whatever they cover; fog them by their
+    // coverage, not by the sky behind them.
+    f *= 1.0 - clamp(texture(gFX_cover, uv).a, 0.0, 1.0) * fx_cover;
 
     // Both inputs are display-referred, so the mix is done there and the
     // tint is the sRGB colour as authored. No gamma pass on top.
