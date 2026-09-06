@@ -10,8 +10,10 @@ WHAT THIS IS
     writes the same four files.
 
 WHAT IT IS NOT
-    Terrain only. There are no models and no trees here, so `top` equals
-    `floor` and the obstacle mask is empty. A route planned on this bake flies
+    Terrain plus water. Water bodies are raised to their surface as
+    MapFlightBake does, so rivers read as a flat surface, not a trench. There
+    are no models and no trees here, so `top` equals `floor` and the obstacle
+    mask is empty. A route planned on this bake flies
     the ground and knows nothing about buildings. Open the map once in nuTerra
     for the real bake; this one is enough to place lights and see the map.
     meta.txt says `source=python-terrain` so nothing mistakes one for the other.
@@ -139,6 +141,61 @@ def rasterise(chunks, size=SIZE):
     return out, (wx_min, wx_max, wz_min, wz_max)
 
 
+def read_water(pkg, map_name):
+    """Water bodies from space.bin's BWWa section: [(x0, x1, z0, z1, y)] in
+    world metres, X already mirrored the way every loader here mirrors it.
+
+    space.bin: at 0x14 an int32 table size, then 24-byte entries of
+    magic(4) version(i32) offset(i64) length(i64). BWWa (version 3): u32 entry
+    size, u32 count, then count entries whose first six floats are bbox min and
+    bbox max with equal Y - the water rectangle at surface height."""
+    z = zipfile.ZipFile(pkg)
+    want = ("spaces/%s/space.bin" % map_name).lower()
+    name = next((n for n in z.namelist() if n.lower() == want), None)
+    if name is None:
+        return []
+    raw = z.read(name)
+    (table,) = struct.unpack_from("<i", raw, 0x14)
+    pos = 0x18
+    sections = {}
+    for _ in range(table):
+        magic = raw[pos:pos + 4].decode("ascii", "replace")
+        version, offset, length = struct.unpack_from("<iqq", raw, pos + 4)
+        sections[magic] = (version, offset, length)
+        pos += 24
+    if "BWWa" not in sections:
+        return []
+    _ver, off, _len = sections["BWWa"]
+    ds, count = struct.unpack_from("<II", raw, off)
+    bodies = []
+    for e in range(count):
+        base = off + 8 + e * ds
+        x0, y0, z0, x1, y1, z1 = struct.unpack_from("<6f", raw, base)
+        bodies.append((min(-x0, -x1), max(-x0, -x1), min(z0, z1), max(z0, z1), y0))
+    return bodies
+
+
+def add_water(floor, fp, bodies):
+    """Raise floor to each body's surface inside its rectangle - MapFlightBake
+    does the same, so a river reads as a flat surface, not a trench. Returns the
+    number of cells raised."""
+    size = floor.shape[0]
+    wx_min, wx_max, wz_min, wz_max = fp
+    raised = 0
+    for x0, x1, z0, z1, y in bodies:
+        c0 = max(0, int(np.floor((x0 - wx_min) / (wx_max - wx_min) * size)))
+        c1 = min(size, int(np.ceil((x1 - wx_min) / (wx_max - wx_min) * size)))
+        r0 = max(0, int(np.floor((wz_max - z1) / (wz_max - wz_min) * size)))
+        r1 = min(size, int(np.ceil((wz_max - z0) / (wz_max - wz_min) * size)))
+        if c1 <= c0 or r1 <= r0:
+            continue
+        block = floor[r0:r1, c0:c1]
+        low = (block < y) & (block > EMPTY + 1)
+        raised += int(low.sum())
+        block[low] = y
+    return raised
+
+
 def write_bake(map_name, floor, fp, folder=FOLDER):
     os.makedirs(folder, exist_ok=True)
     stem = os.path.join(folder, map_name)
@@ -177,6 +234,9 @@ def bake(map_name, game=None, size=SIZE, folder=FOLDER, log=print):
     chunks = read_chunks(pkg, map_name)
     log("terrain bake: %d chunks" % len(chunks))
     floor, fp = rasterise(chunks, size)
+    bodies = read_water(pkg, map_name)
+    raised = add_water(floor, fp, bodies)
+    log("terrain bake: %d water bodies raised %d cells" % (len(bodies), raised))
     stem = write_bake(map_name, floor, fp, folder)
     log("terrain bake: wrote %s_{floor,top}.r32 / _mask.png / _meta.txt  footprint x %.0f..%.0f z %.0f..%.0f"
         % (stem, fp[0], fp[1], fp[2], fp[3]))
