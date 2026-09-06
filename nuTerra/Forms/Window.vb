@@ -3552,10 +3552,13 @@ try_again:
     ''' running nuTerra from Debug means the Debug one.
     ''' </summary>
     Private Function find_path_studio() As String
+        ' The PROJECT build first, the copy beside nuTerra.exe last. A copy
+        ' beside the exe is a hand deploy that nothing refreshes; from a
+        ' development tree it opened a Path Studio hours behind the source,
+        ' with its own stale tools folder. The project build is rebuilt with
+        ' the solution and its launcher runs the repo tools.
         Dim dir = New IO.DirectoryInfo(AppContext.BaseDirectory)
         While dir IsNot Nothing
-            Dim here = IO.Path.Combine(dir.FullName, "PathStudio.exe")
-            If IO.File.Exists(here) Then Return here
             For Each cfg In {"Debug", "Release"}
                 Dim built = IO.Path.Combine(dir.FullName, "PathStudio", "bin", cfg,
                                             "net6.0-windows", "PathStudio.exe")
@@ -3563,6 +3566,8 @@ try_again:
             Next
             dir = dir.Parent
         End While
+        Dim here = IO.Path.Combine(AppContext.BaseDirectory, "PathStudio.exe")
+        If IO.File.Exists(here) Then Return here
         Return Nothing
     End Function
 
