@@ -75,12 +75,23 @@ Module Program
     ''' that count breaks the moment the output path changes.
     ''' </summary>
     Private Function FindScript() As String
-        Dim dir = New DirectoryInfo(AppContext.BaseDirectory)
+        ' SOURCE FIRST. The copy beside the exe is refreshed only when this
+        ' project is rebuilt, so from a development tree it lags every edit to
+        ' tools\*.py - the button opened a Path Studio without the curve editor,
+        ' the Bake button or the global_AM underlay hours after they landed.
+        ' Walk up from the folder ABOVE the exe and take the first tools\ found:
+        ' that is the repo when the exe sits in bin\Debug\..., and nothing when
+        ' the exe is installed on its own, in which case the copy beside it is
+        ' the only one and is used.
+        Dim exe_dir = New DirectoryInfo(AppContext.BaseDirectory)
+        Dim dir = exe_dir.Parent
         While dir IsNot Nothing
             Dim p = Path.Combine(dir.FullName, "tools", SCRIPT)
             If File.Exists(p) Then Return p
             dir = dir.Parent
         End While
+        Dim beside = Path.Combine(exe_dir.FullName, "tools", SCRIPT)
+        If File.Exists(beside) Then Return beside
         Return Nothing
     End Function
 
