@@ -13,7 +13,8 @@ handoff's status banner before trusting it.
 |---|---|
 | **what is still open** | `open_threads.md` |
 | the automated camera flight design | `camera_flight_plan.md` |
-| the newest handoff: lamps, shadows, shafts, the Bulb Placer | `HANDOFF_2026-09-06_lights.md` |
+| **the newest handoff: the fog rebuilt, curves, monastery tuned** | `HANDOFF_2026-09-06_fog.md` |
+| the lamps, shadows, shafts and Bulb Placer session before it | `HANDOFF_2026-09-06_lights.md` |
 | current state of the renderer's shading and water | `HANDOFF_2026-08-31_pbr_glow_water.md` |
 | how fire, smoke and glow are composited | `FX_PIPELINE.md` |
 | **how surfaces are shaded, and where we differ from the game** | `lighting.md` |
@@ -41,7 +42,7 @@ one is the specification, this one is what we actually do with it.
 | `lighting.md` | `deferred.frag` - resolve order, channel traps, both specular models, and the term-by-term comparison against the game's BRDF |
 | `shadows.md` | all three casters: the baked sun map, the baked lamp cubes, the parked cascades - and the traps they share |
 | `volumetric_fog.md` | froxel grids, per-light marching and analytic airlight against `lamp_fog.frag`; ranked changes, with sources |
-| `volumetric_fog_audit.md` | read-only audit of the shafts, the cube and both global fogs: 6 defects, 6 model errors, nits, perf, with line cites and how to confirm each |
+| `volumetric_fog_audit.md` | read-only audit of the shafts, the cube and both global fogs: 6 defects, 6 model errors, nits, perf, with line cites and how to confirm each; status banner says what is fixed |
 | `ui_panels.md` | ImGui panels: where they live, the placement helpers, and why `imgui.ini` beats `FirstUseEver` |
 | `map_settings.md` | per-map render settings: where they live, how they load |
 
@@ -61,7 +62,8 @@ specifications and evidence, not descriptions of this renderer.
 
 | document | covers | status |
 |---|---|---|
-| `HANDOFF_2026-09-06_lights.md` | lamp lighting, shadows, volumetric shafts, the light catalogue and the Bulb Placer | **current** - read its status banner, then its rules section |
+| `HANDOFF_2026-09-06_fog.md` | global fog rebuilt from gPosition, per-light falloff curves, the noise lessons, monastery tuned to a reference, the still runner | **current** - read its rules section |
+| `HANDOFF_2026-09-06_lights.md` | lamp lighting, shadows, volumetric shafts, the light catalogue and the Bulb Placer | same day, earlier; its open items are settled in section 4 and the fog handoff |
 | `HANDOFF_2026-08-31_pbr_glow_water.md` | PBS_tank decode, PBR specular, glow depth-test, pooled water | still accurate for what it covers |
 | `HANDOFF_2026-08-31_fx_and_holes.md` | terrain holes, FX HDR composite, glow, the parked branch landing, the decal checkerboard | earlier the same day |
 | `HANDOFF_2026-08-28_lighting.md` | the lighting/probe-grid session | **historical** - read its section 9 first; much of sections 7-8 was reverted |

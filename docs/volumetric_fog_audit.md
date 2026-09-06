@@ -5,12 +5,11 @@ they sample (`MapLampShadow`) and the two global fogs, done 2026-09-06 against
 `master` at `f6da9047`. Companion to `volumetric_fog.md` (the literature) and
 `shadows.md` (the cube).
 
-> **Status 2026-09-06, later.** Items 1, 3 (the ClearColor restore), 4, 5, 6 and
-> the item 7 texts are FIXED in the commit after `3a1fc537`. Still open: item 2
-> and items 8-12 (where scattering is added and in what space, the bias growth,
-> the LOD of the bake), the edge cases, and the AlphaBits question. The fixes
-> are reasoned like the findings; the confirming renders listed per item have
-> not been made.
+> **Status 2026-09-06, end of day.** Items 1, 3, 4, 5, 6 and the item 7 texts are
+> fixed (`c7382c36`). The AlphaBits question is settled and the global fog pass
+> rebuilt (`251a27c1` and after) - see `HANDOFF_2026-09-06_fog.md`. The FXAA-off
+> suspicion was wrong. Still open: item 2 (shaft colour space), items 8-12, the
+> edge cases. Fixes were judged from headless stills at the owner's camera.
 
 **Nothing here was rendered.** Every item was verified by reading the code at
 the cited line; consequences are reasoned, and each says what render would
