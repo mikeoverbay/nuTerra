@@ -118,6 +118,16 @@ Public Module modMapSettings
         Yield ("fog_tint_r", Function() FOG_TINT_R, Sub(v) FOG_TINT_R = v)
         Yield ("fog_tint_g", Function() FOG_TINT_G, Sub(v) FOG_TINT_G = v)
         Yield ("fog_tint_b", Function() FOG_TINT_B, Sub(v) FOG_TINT_B = v)
+
+        ' The lamp shafts and the lamp gain. Until 2026-09-06 these were command
+        ' line only, so a tune that took an hour was gone at exit.
+        Yield ("lamp_shafts", Function() B2F(LAMP_FOG), Sub(v) LAMP_FOG = F2B(v))
+        Yield ("shaft_gain", Function() LAMP_FOG_GAIN, Sub(v) LAMP_FOG_GAIN = v)
+        Yield ("shaft_density", Function() LAMP_FOG_DENSITY, Sub(v) LAMP_FOG_DENSITY = v)
+        Yield ("shaft_phase", Function() LAMP_FOG_PHASE, Sub(v) LAMP_FOG_PHASE = v)
+        Yield ("shaft_steps", Function() CSng(LAMP_FOG_STEPS), Sub(v) LAMP_FOG_STEPS = CInt(v))
+        Yield ("light_gain", Function() PATH_LIGHT_GAIN, Sub(v) PATH_LIGHT_GAIN = v)
+        Yield ("lamp_shadows", Function() B2F(LAMP_SHADOW_ENABLED), Sub(v) LAMP_SHADOW_ENABLED = F2B(v))
         Yield ("tess_level", Function() CommonProperties.tess_level, Sub(v) CommonProperties.tess_level = v)
         Yield ("blend_height", Function() CommonProperties.BLEND_HEIGHT, Sub(v) CommonProperties.BLEND_HEIGHT = v)
         Yield ("height_contrast", Function() CommonProperties.HEIGHT_CONTRAST, Sub(v) CommonProperties.HEIGHT_CONTRAST = v)
