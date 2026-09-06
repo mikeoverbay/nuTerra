@@ -1,4 +1,4 @@
-﻿# nuTerra render settings for 06_ensk
+# nuTerra render settings for 06_ensk
 # Written 2026-09-01T22:18:29. Copy this into nuTerra\MapSettings to keep it.
 # Delete any line to fall back to that setting's default for this map.
 
@@ -61,3 +61,33 @@ ssr_enabled=1
 draw_minimap=1
 fxaa=1
 baked_shadow=1
+
+# fog, shafts, lamp shadows, probe field, FX - added 2026-09-06 at their defaults
+fog_density=0.012
+fog_height=40
+fog_floor=0
+fog_noise=0.15
+fog_sky=0.6
+fog_noise_m=350
+fog_speed=0.03
+fog_tint_r=-1
+fog_tint_g=-1
+fog_tint_b=-1
+lamp_shafts=1
+shaft_gain=0.45
+shaft_density=0.07
+shaft_phase=0.55
+shaft_iso=0.35
+shaft_steps=48
+light_gain=8
+lamp_shadows=1
+lamp_shadow_bias=0.0015
+lamp_shadow_nbias=0.06
+lamp_shadow_soft=1
+light_falloff=12
+use_sh_grid=1
+sh_grid_fx=0
+sh_grid_offset_fx=0
+fx_glow=1
+draw_fx=1
+boxes_volumetric_only=1
