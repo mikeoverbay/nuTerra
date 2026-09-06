@@ -18,6 +18,16 @@ uniform float uv_scale;
 uniform float time;
 uniform vec2 move_vector;
 
+// The fog's shape. Computed HERE from gPosition, not read from the frame's
+// alpha: that alpha travelled through the window's back buffer, which has no
+// alpha bits, so it arrived as 1.0 and the pass was a flat gamma lift with no
+// depth in it. Measured: fog_level 0.55 and 1.0 rendered the same frame.
+uniform float fog_density;   // per metre, distance term 1 - exp(-d * dist)
+uniform float fog_height;    // metres above the floor to thin to 1/e
+uniform float fog_floor;     // world Y, resolved by the caller from MEAN + offset
+uniform float fog_noise;     // 0..1, how much the drifting noise patches it
+uniform vec3  fog_tint_ovr;  // sRGB; the map's colour unless overridden
+
 in VS_OUT {
     flat mat4 invMVP;
     flat mat4 invDecal;
@@ -84,90 +94,37 @@ void main()
 {
     if ( gl_FrontFacing ) discard;
 
-    // Calculate UVs
     vec2 uv = gl_FragCoord.xy / resolution;
+    vec3 vpos = texture(gPosition, uv).rgb;            // VIEW space
+    vec4 deferred_mix = texture(gColor_in, uv);        // display-referred
 
-    vec3 position = texture(gPosition,uv).rgb;
+    // Sky leaves gPosition at its clear value. It is the far end of every
+    // ray, so it gets the full distance term rather than none.
+    float dist = length(vpos);
+    bool  sky  = dist < 0.001;
 
+    // Distance: Beer-Lambert toward the tint.
+    float f = sky ? 1.0 : 1.0 - exp(-fog_density * dist);
 
-    vec4 deferred_mix = texture(gColor_in,uv);
+    // Height: full below the floor, thinning by fog_height above it. The ray
+    // is judged at its end point; for a ground-hugging camera that is the
+    // surface, which is where the fog sits.
+    float wy = sky ? fog_floor : (invView * vec4(vpos, 1.0)).y;
+    f *= exp(-max(0.0, wy - fog_floor) / max(fog_height, 1.0));
 
-    /*==================================================*/
-//    bool flag = texture(gGMF,uv).b*255.0 == 64.0;
-//    if (flag) discard;
-    //if (flag == 96) { discard; }
-    //if (flag != 128) { discard; }
+    // Drift. The old pass multiplied a fractal cloud by six and mixed it in
+    // as colour, which is what read as cloudy patchiness. Now a gentle
+    // modulation of the amount, off the sky, and adjustable down to zero.
+    if (fog_noise > 0.0 && !sky)
+    {
+        vec4 dp = fs_in.invDecal * vec4(vpos, 1.0);
+        vec2 loc = (dp.xy + 0.5) * vec2(uv_scale) + move_vector;
+        float n = NoiseFBM(loc, 8.0, 8);               // 0..1, mean ~0.5
+        f *= mix(1.0, 0.6 + 0.8 * n, fog_noise);
+    }
 
-    /*==================================================*/
-    // sample the Depth from the Depthsampler
-    float depth = texture(depthMap, uv).x;
-
-    // Calculate clip space by recreating it out of the coordinates and depth-sample
-    vec4 ScreenPosition = vec4(uv*2.0-1.0, depth, 1.0);
-    // Transform position from screen space to world space
-    vec4 WorldPosition = fs_in.invMVP * ScreenPosition;
-    vec4 ModelPosition = WorldPosition;
-
-    WorldPosition.xyz /= WorldPosition.w;
-    WorldPosition.w = 1.0f;
-    
-    vec3 vPos = position;
-
-    //vPos.y += 30.1;
-
-    WorldPosition= fs_in.invDecal * vec4(vPos.xyz,1.0);
-
-    // transform to decal original and size.
-    // 1 x 1 x 1
-    clip (WorldPosition.xyz);
-
-    /*==================================================*/
-    //Get texture UVs
-    WorldPosition.xy += 0.5;
-
-    vec2 loc = vec2( (WorldPosition.xy * vec2(uv_scale)) + move_vector);
-    vec4 noise_ = texture(noiseMap,WorldPosition.xy);
-
-    vec4 color = noise_;
-    // Do the noise cloud (fractal Brownian motion)
-    float c = NoiseFBM( loc , 8.0, 8) * 0.5 + 0.5;
-    c = c * c;
-    color = ( color * vec4(c,c,c,1.0) )* 2.0 ;
-
-    color.xyz *= props.fog_tint * deferred_mix.a *6.0;
-    
-
-    //gColor.rgb = deferred_mix.rgb;
-    // terrain painting
-    //
-    // The factor MUST be clamped. deferred_mix.a arrives in 0..1, so
-    // 0.95 - a reaches -0.05 - and a negative mix factor is not a weaker
-    // blend, it EXTRAPOLATES away from color. color.rgb here reaches about 5
-    // (noise * fog_tint * 6), so -0.05 of it subtracts roughly 0.25 from the
-    // scene: invisible on a bright pixel, and enough to push a dark one below
-    // zero. The pow() below then takes a fractional power of a negative
-    // number, which is UNDEFINED in GLSL - NaN - so the pixel blacks out or
-    // goes to garbage colour.
-    //
-    // That is why this broke as BRIGHTNESS came down. BRIGHTNESS scales
-    // final_color in deferred.frag long before this runs, so it decides
-    // whether the scene sits above or below that 0.25 - the fog itself never
-    // changed. Fixed here rather than by constraining BRIGHTNESS, which is a
-    // separate control and should stay independent of the fog.
-    //
-    // Where deferred_mix.a <= 0.95 the clamp is inert and the result is
-    // bit-identical to before, so this cannot alter a view that already looked
-    // right.
-    gColor.rgb = mix(deferred_mix.rgb, color.rgb, clamp(0.95 - deferred_mix.a, 0.0, 1.0));
-    // Add some top level fog
-    gColor.rgb = mix(gColor.rgb, props.fog_tint.rgb, 1.0-deferred_mix.a );
-    
-    //gamma the hell out of the fog.
-    // max() because pow(negative, fractional) is undefined. The clamp above
-    // removes the one known source; this keeps any future one a visibly wrong
-    // colour rather than a field of NaN.
-    float gamma = 2.2;
-    gColor.rgb = pow(max(gColor.rgb, 0.0), vec3(1.0/gamma));
-    gColor.rgb = mix(deferred_mix.rgb, gColor.rgb, props.fog_level);
-
+    // Both inputs are display-referred, so the mix is done there and the
+    // tint is the sRGB colour as authored. No gamma pass on top.
+    gColor = vec4(mix(deferred_mix.rgb, fog_tint_ovr, clamp(f * props.fog_level, 0.0, 1.0)),
+                  deferred_mix.a);
 }

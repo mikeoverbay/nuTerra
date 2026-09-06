@@ -2299,6 +2299,53 @@ try_again:
                     If ImGui.SliderFloat("Fog Level", v_fog, 0.0, 1.0) Then
                         CommonProperties.FOG_LEVEL = v_fog
                     End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Overall strength of the global fog. The shape" & vbLf &
+                                         "comes from the controls below; this scales it.")
+                    End If
+                    Dim v_fd = FOG_DENSITY
+                    If ImGui.SliderFloat("  fog density (/m)", v_fd, 0.0, 0.08) Then
+                        FOG_DENSITY = v_fd
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Extinction per metre. 0.012 halves the scene at" & vbLf &
+                                         "about 58 m; the sky is treated as infinitely far.")
+                    End If
+                    Dim v_fh = FOG_HEIGHT
+                    If ImGui.SliderFloat("  fog height (m)", v_fh, 1.0, 300.0) Then
+                        FOG_HEIGHT = v_fh
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Metres above the floor over which the fog thins" & vbLf &
+                                         "to 1/e. Large is a uniform fog.")
+                    End If
+                    Dim v_ff = FOG_FLOOR_OFFSET
+                    If ImGui.SliderFloat("  fog floor (m vs mean)", v_ff, -60.0, 60.0) Then
+                        FOG_FLOOR_OFFSET = v_ff
+                    End If
+                    Dim v_fn = FOG_NOISE
+                    If ImGui.SliderFloat("  fog noise", v_fn, 0.0, 1.0) Then
+                        FOG_NOISE = v_fn
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("How much the drifting noise patches the fog." & vbLf &
+                                         "0 is a smooth haze.")
+                    End If
+                    If FOG_TINT_R < 0.0F Then
+                        If ImGui.Button("Override map fog tint") Then
+                            FOG_TINT_R = CommonProperties.fog_tint.X
+                            FOG_TINT_G = CommonProperties.fog_tint.Y
+                            FOG_TINT_B = CommonProperties.fog_tint.Z
+                        End If
+                    Else
+                        Dim tint = New System.Numerics.Vector3(FOG_TINT_R, FOG_TINT_G, FOG_TINT_B)
+                        If ImGui.ColorEdit3("  fog tint", tint) Then
+                            FOG_TINT_R = tint.X : FOG_TINT_G = tint.Y : FOG_TINT_B = tint.Z
+                        End If
+                        If ImGui.Button("Use the map's fog tint") Then
+                            FOG_TINT_R = -1.0F : FOG_TINT_G = -1.0F : FOG_TINT_B = -1.0F
+                        End If
+                    End If
                 End If
                 If ImGui.CollapsingHeader("Save Map Settings") Then
                     If MAP_LOADED Then

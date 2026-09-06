@@ -33,6 +33,21 @@ Public Class MapFog
         GL.Uniform1(DeferredFogShader("uv_scale"), 4.0F)
         GL.Uniform2(DeferredFogShader("move_vector"), uv_location.X, uv_location.Y)
 
+        ' The fog's own shape. Distance and height come from gPosition in the
+        ' shader; these decide how fast and how high. The floor is relative to
+        ' the map's mean height so one number reads the same on every map.
+        GL.Uniform1(DeferredFogShader("fog_density"), FOG_DENSITY)
+        GL.Uniform1(DeferredFogShader("fog_height"), FOG_HEIGHT)
+        GL.Uniform1(DeferredFogShader("fog_floor"), CommonProperties.MEAN + FOG_FLOOR_OFFSET)
+        GL.Uniform1(DeferredFogShader("fog_noise"), FOG_NOISE)
+        ' Tint: the map's own colour unless every override component is set.
+        If FOG_TINT_R >= 0.0F AndAlso FOG_TINT_G >= 0.0F AndAlso FOG_TINT_B >= 0.0F Then
+            GL.Uniform3(DeferredFogShader("fog_tint_ovr"), FOG_TINT_R, FOG_TINT_G, FOG_TINT_B)
+        Else
+            GL.Uniform3(DeferredFogShader("fog_tint_ovr"),
+                        CommonProperties.fog_tint.X, CommonProperties.fog_tint.Y, CommonProperties.fog_tint.Z)
+        End If
+
         NOISE_id.BindUnit(0)
         MainFBO.gDepth.BindUnit(1)
         MainFBO.gPosition.BindUnit(2)

@@ -115,6 +115,30 @@ Module modGlobalVars
     ' Multiplier on the authored water-fog inverse depth (BWWa +0x70) -
     ' above 1 the water goes opaque sooner, below 1 it clears up.
     Public WATER_FOG_MUL As Single = 1.0F
+
+    ' ---- global fog (DeferredFog.frag / MapFog.vb) ----------------------
+    ' The pass used to read its fog amount from the frame's alpha, which
+    ' travels through the window's back buffer - requested with no alpha bits -
+    ' so it arrived as 1.0 and the "fog" was a flat gamma lift with no depth in
+    ' it at all (measured: fog_level 0.55 and 1.0 rendered the same frame).
+    ' It now computes its own factor from gPosition, and these shape it.
+    ''' <summary>Extinction per metre for the distance term, 1 - exp(-d*dist).
+    ''' 0.012 halves the scene at ~58 m.</summary>
+    Public FOG_DENSITY As Single = 0.012F
+    ''' <summary>Metres above the fog floor over which the fog thins to 1/e.
+    ''' Large = uniform fog.</summary>
+    Public FOG_HEIGHT As Single = 40.0F
+    ''' <summary>Fog floor, metres relative to the map's MEAN height. Below it
+    ''' the height term is 1.</summary>
+    Public FOG_FLOOR_OFFSET As Single = 0.0F
+    ''' <summary>How much the drifting noise modulates the fog, 0..1. 0 is a
+    ''' smooth haze; 1 is +-40% patches.</summary>
+    Public FOG_NOISE As Single = 0.15F
+    ''' <summary>Fog tint override, sRGB 0..1. Any component below 0 means
+    ''' "use the map's own fog colour" (CommonProperties.fog_tint).</summary>
+    Public FOG_TINT_R As Single = -1.0F
+    Public FOG_TINT_G As Single = -1.0F
+    Public FOG_TINT_B As Single = -1.0F
     ' Per-pixel outland PBR from the cascade normal map (R = shine, B =
     ' metal) instead of constants. Default OFF: on Sand River R is the
     ' cutout mask (~0.91) and B is dead - it runs the sun spec hot.

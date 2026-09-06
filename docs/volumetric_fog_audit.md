@@ -223,11 +223,18 @@ display-referred (tonemapped, LUT-graded, FXAA'd), requested with
 
 ## Seen in passing, outside the fog
 
-- With FXAA unticked (`FXAA_enable`, per-map key `fxaa`), nothing draws the lit
-  frame into FB 0 before `copy_default_to_gColor` at `modRender.vb:417`, so the
-  frame would come back as the clear colour plus fog, shafts and HUD. Reasoned;
-  a ten-second toggle confirms or refutes it. The FXAA shader has a
-  `pass_through` mode that suggests the call was once unconditional.
+- The FXAA-off suspicion was WRONG. A capture with `fxaa=0` (run 0 of the
+  2026-09-06 tuning session) rendered the full frame; the copy-back path is
+  fed by something the audit did not trace. Struck, not proved.
+
+## Resolved after the audit
+
+- The alpha-mask question is settled by measurement: fog level 0.55 and 1.0
+  rendered the same frame, a flat lift with no depth in it, exactly the
+  degenerate case predicted. `DeferredFog.frag` now computes its own factor from
+  gPosition (distance + height), fogs the sky as the far end of the ray, keeps a
+  small adjustable noise, and takes a tint override; `fog_density`,
+  `fog_height`, `fog_floor`, `fog_noise`, `fog_tint_r/g/b` are map settings.
 
 ---
 
