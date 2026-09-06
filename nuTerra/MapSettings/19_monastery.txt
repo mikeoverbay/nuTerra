@@ -1,18 +1,18 @@
-﻿# nuTerra render settings for 19_monastery
-# Written 2026-09-02T21:55:04. Copy this into nuTerra\MapSettings to keep it.
-# Delete any line to fall back to that setting's default for this map.
+# nuTerra render settings for 19_monastery
+# Written 2026-09-06. Tuned headlessly from the saved camera against the fog reference:
+# warm smooth haze, one glowing lamp with shafts. Delete any line to fall back to its default.
 
-ambient=0.282
-ambient_sat=0.05
-sun_tint=0.607
-sun_strength=0.959
-tonemap_exposure=3.627
-brightness=0.762
-specular=0.127
+ambient=0.10
+ambient_sat=0.021
+sun_tint=0.536
+sun_strength=0.2
+tonemap_exposure=1.0
+brightness=0.6
+specular=0.103
 gray_level=1
 gamma_level=0.445
-fog_level=0.096
-tess_level=1.794
+fog_level=0.95
+tess_level=1.025
 blend_height=0.01
 height_contrast=1.598
 macro_fade=0
@@ -25,7 +25,7 @@ mouse_damp=0.1
 outland_global_base=0.35
 outland_detail_tiles=64
 outland_spec=0.15
-msm_moment_bias=0.0003
+msm_moment_bias=0
 water_depth=0.45
 water_mask_wet=1
 water_mask_min=0.5
@@ -36,8 +36,8 @@ ssr_stride=0.35
 penumbra_lo=0.331
 penumbra_hi=0.56
 minimap_size=240
-sh_grid_mix=1.238
-sh_grid_offset=1.5
+sh_grid_mix=2.24
+sh_grid_offset=2.382
 sh_grid_curve=0.2
 sh_grid_floor=0
 pbr_spec=1
@@ -55,9 +55,22 @@ outland_global_tint=1
 outland_use_detail=1
 outland_pbr_nm=0
 use_raster_culling=1
-use_tessellation=0
+use_tessellation=1
 msm_shadow=0
 ssr_enabled=1
 draw_minimap=1
-fxaa=1
+fxaa=0
 baked_shadow=1
+fog_density=0.012
+fog_height=40
+fog_noise=0.1
+fog_tint_r=0.45
+fog_tint_g=0.28
+fog_tint_b=0.18
+lamp_shafts=1
+shaft_gain=1.5
+shaft_density=0.03
+shaft_phase=0.55
+shaft_steps=48
+light_gain=8
+lamp_shadows=1
