@@ -114,6 +114,11 @@ Module Program
                                    Globalization.CultureInfo.InvariantCulture, g) Then
                     PATH_LIGHT_GAIN = Math.Max(0.0F, g)
                 End If
+            ElseIf a.StartsWith("scanlights=", StringComparison.OrdinalIgnoreCase) Then
+                ' Scan EVERY installed space for light-emitting models and write
+                ' the tables to this path, then quit. space.bin only - no map is
+                ' ever fully loaded, so this is seconds per space.
+                SCAN_LIGHTS_OUT = a.Substring(11)
             ElseIf a.StartsWith("findmodel=", StringComparison.OrdinalIgnoreCase) Then
                 FIND_MODEL = a.Substring(10)
             ElseIf a.Equals("nolampfog", StringComparison.OrdinalIgnoreCase) Then

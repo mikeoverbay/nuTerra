@@ -931,6 +931,14 @@ Module modGlobalVars
     ''' </summary>
     Public FIND_MODEL As String = Nothing
 
+    ' Where scanlights= writes its per-map tables. Nothing means do not scan.
+    Public SCAN_LIGHTS_OUT As String = Nothing
+
+    ''' <summary>The lamp inspector - four ortho views of one model with a 3D
+    ''' cursor, for reading a bulb's height off the mesh instead of guessing
+    ''' it.</summary>
+    Public SHOW_LAMP_VIEW As Boolean = False
+
     ''' <summary>
     ''' Penumbra width on the lamp shadows, in SHADOW MAP TEXELS.
     '''

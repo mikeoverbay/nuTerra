@@ -19,6 +19,19 @@ Module modTypeStructures
 #Region "Model_Batch_list"
 
     Public MODEL_BATCH_LIST As List(Of ModelBatch)
+
+    ''' <summary>Where one render set of a model sits in the shared vertex and
+    ''' index buffers. Recorded at load because the CPU-side arrays are Erased
+    ''' the moment they reach the card - see MapLoader - so this is the only
+    ''' way to draw a single model again afterwards.</summary>
+    Public Structure ModelGeomRange
+        Public count As Integer
+        Public firstIndex As Integer
+        Public baseVertex As Integer
+    End Structure
+
+    ''' <summary>model_id -> its LOD 0 draw ranges. For the lamp inspector.</summary>
+    Public MODEL_GEOM As New Dictionary(Of Integer, List(Of ModelGeomRange))
     Public Class ModelBatch
         Public model_id As Integer
         Public offset As Integer

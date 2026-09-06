@@ -237,6 +237,23 @@ Module MapLoader
                                 .baseInstance = cmdId
                                 .lod_level = lod_id
                             End With
+                            ' LOD 0 geometry ranges, per model, for the lamp
+                            ' inspector. The CPU-side vertex and index arrays are
+                            ' Erased a few lines below once they are on the card,
+                            ' so this is the only chance to record WHERE a model
+                            ' lives in the shared buffer. Three integers each -
+                            ' the geometry itself is not copied.
+                            If lod_id = 0 Then
+                                Dim gl_ As List(Of ModelGeomRange) = Nothing
+                                If Not MODEL_GEOM.TryGetValue(batch.model_id, gl_) Then
+                                    gl_ = New List(Of ModelGeomRange)
+                                    MODEL_GEOM(batch.model_id) = gl_
+                                End If
+                                gl_.Add(New ModelGeomRange With {
+                                    .count = drawCommands(cmdId).count,
+                                    .firstIndex = drawCommands(cmdId).firstIndex,
+                                    .baseVertex = drawCommands(cmdId).baseVertex})
+                            End If
                             If lod_id = SHADOW_MAP_LOD Then
                                 Dim scmd As New DrawElementsIndirectCommand With {
                                     .baseVertex = drawCommands(cmdId).baseVertex,
@@ -325,9 +342,15 @@ Module MapLoader
                 ' and the bounding-box filter needs it too.
                 Dim model_dir = Path.GetDirectoryName(MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
                 Static found_models As Integer = 0
+                ' findmodel=* dumps everything - the survey that a light
+                ' database has to start from, because the .primitives path is
+                ' the only stable identity a lamp model has across maps.
                 If FIND_MODEL IsNot Nothing AndAlso model_dir IsNot Nothing AndAlso
-                   model_dir.IndexOf(FIND_MODEL, StringComparison.OrdinalIgnoreCase) >= 0 Then
-                    LogThis("findmodel: batch {0} x{1}  {2}", batch.model_id, batch.count, model_dir)
+                   (FIND_MODEL = "*" OrElse
+                    model_dir.IndexOf(FIND_MODEL, StringComparison.OrdinalIgnoreCase) >= 0) Then
+                    Dim rs0 = MAP_MODELS(batch.model_id).modelLods(0).render_sets(0)
+                    LogThis("MODEL|{0}|{1}|{2}|{3}",
+                            batch.count, batch.model_id, rs0.verts_name, rs0.prims_name)
                 End If
                 Dim is_volumetric As UInt32 = If(VOLUMETRIC_MODEL_DIRS.Contains(model_dir), 1UI, 0UI)
 
@@ -348,8 +371,8 @@ Module MapLoader
                     map_scene.PICK_DICTIONARY(mLast + i) = model_dir
 
                     ' Where is this thing, actually. See FIND_MODEL.
-                    If FIND_MODEL IsNot Nothing AndAlso found_models < 60 AndAlso
-                       model_dir IsNot Nothing AndAlso
+                    If FIND_MODEL IsNot Nothing AndAlso FIND_MODEL <> "*" AndAlso
+                       found_models < 60 AndAlso model_dir IsNot Nothing AndAlso
                        model_dir.IndexOf(FIND_MODEL, StringComparison.OrdinalIgnoreCase) >= 0 Then
                         Dim mm = MODEL_INDEX_LIST(batch.offset + i).matrix
                         ' Row3 is the translation under this engine's row-vector
@@ -1805,6 +1828,230 @@ Module MapLoader
         LogThis("outland: inside the BB with +x {0}, with -x {1}  <- the bigger one is the frame in use",
                 inside_pos, inside_neg)
     End Sub
+
+    ''' <summary>
+    ''' Walk EVERY installed space and write out the light-emitting models it
+    ''' contains, as one table per map.
+    '''
+    ''' Reads space.bin only - no terrain, no virtual texture, no model upload,
+    ''' no GL. A full map load is the better part of a minute and there are
+    ''' dozens of spaces; the model list is in space.bin and that is all a
+    ''' catalogue needs, so this is seconds per map instead of minutes.
+    '''
+    ''' The .primitives path is the key. It is the one identity a model has that
+    ''' survives across maps - batch and model ids are per space, and there is no
+    ''' display name in the data at all.
+    '''
+    ''' POSITIONS: x is written exactly as space.bin stores it. Everything else
+    ''' in this loader negates x on the way to world space - see the
+    ''' visibilityBounds assignment, "make negative because of GL rendering" - so
+    ''' whatever consumes this file has to negate it too. Left raw rather than
+    ''' guessed at: a silently mirrored map is far worse than one that states
+    ''' which frame it is in.
+    ''' </summary>
+    Public Sub scan_all_spaces_for_lights(out_path As String)
+        Dim spaces = ResMgr.SpaceNames()
+        LogThis("scanlights: {0} space_name(s) to scan", spaces.Count)
+
+        ' Substrings that mark a model as something that should emit light.
+        ' Deliberately broad: a name missed here is a lamp that never lights and
+        ' nobody can see why, while a false positive is obvious the moment
+        ' anyone reads the table.
+        Dim LAMP_PATTERNS = {"streetlamp", "street_lamp", "lamp", "fonar", "lantern"}
+        Dim FIRE_PATTERNS = {"fire", "ogon", "torch", "smokebotton", "campfire"}
+
+        ' Checked FIRST, and it does most of the work. Matching on "fire" alone
+        ' classified 2877 of 5376 hits wrongly on the first pass over 59 maps -
+        ' firewood, woodpiles, fire stairs, fire shields, a fire tower, and 210
+        ' FIREPLUGS, which are hydrants. Substring matching on asset names picks
+        ' up every compound word the artists used, and the only cure is to say
+        ' which ones.
+        '
+        ' The judgement calls, written down so they can be argued with:
+        '   kept    - fire_window, fire_tank_wheel, fire_gasoline, bonfire,
+        '             ground/grass fire, firegrass, smokebotton. These burn.
+        '   dropped - lamp_glare, a billboard card standing in for a glare and
+        '             not a light source; headlight_*, which is a vehicle, not
+        '             a street light; smoke_end_fire, which is the smoke a fire
+        '             leaves behind rather than the fire.
+        Dim NOT_A_LIGHT = {"firewood", "firewoodstack", "firewoodpile",
+                           "firestairs", "fireplug", "fireshield", "firetower",
+                           "firezone", "smoke_end_fire", "lamp_glare",
+                           "headlight"}
+
+        Dim sb As New Text.StringBuilder()
+        sb.AppendLine("<?xml version=""1.0"" encoding=""utf-8""?>")
+        sb.AppendLine("<light_maps generated=""" & Date.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") & "Z"">")
+
+        Dim scanned = 0, failed = 0, with_lights = 0
+        For Each space_name In spaces
+            Dim ok = False
+            Try
+                ok = get_spaceBin(space_name)
+            Catch ex As Exception
+                LogThis("scanlights: {0} FAILED - {1}", space_name, ex.Message)
+            End Try
+            If Not ok OrElse MODEL_BATCH_LIST Is Nothing OrElse MAP_MODELS Is Nothing Then
+                failed += 1
+                Continue For
+            End If
+            scanned += 1
+
+            ' Material shader type per material id, once per space. THE FX NAME
+            ' IS THE REAL CLASSIFIER - the asset name is a guess.
+            '
+            ' Matching "fire" in a filename put 2877 of 5376 hits in the wrong
+            ' bucket: firewood, woodpiles, fire stairs, fire shields, a fire
+            ' tower and 210 fireplugs, which are hydrants. The material knows
+            ' what the thing IS:
+            '
+            '   FX_volumetric  shaders/custom/volumetric_effect*.fx - the GFX
+            '                  flame sheets and smoke columns. A fire.
+            '   FX_glow        shaders/std_effects/glow.fx - an unlit emissive
+            '                  card. This is what a lit lamp glass is, and it
+            '                  is the closest thing in the data to "this model
+            '                  emits light".
+            Dim shader_of As New Dictionary(Of Integer, Integer)
+            If materials IsNot Nothing Then
+                For Each mv In materials.Values
+                    shader_of(mv.id) = CInt(mv.shader_type)
+                Next
+            End If
+            Dim rows As New List(Of String)
+            Dim total = 0
+            For Each batch In MODEL_BATCH_LIST
+                If batch.model_id < 0 OrElse batch.model_id >= MAP_MODELS.Length Then Continue For
+                Dim lods = MAP_MODELS(batch.model_id).modelLods
+                If lods Is Nothing OrElse lods.Length = 0 Then Continue For
+                Dim sets0 = lods(0).render_sets
+                If sets0 Is Nothing OrElse sets0.Count = 0 Then Continue For
+
+                Dim verts = sets0(0).verts_name
+                If verts Is Nothing Then Continue For
+                Dim prim = verts
+                If prim.EndsWith("/vertices") Then prim = prim.Substring(0, prim.Length - 9)
+
+                ' What the MATERIALS say this is, across every render set of
+                ' lod 0. Checked before the name, because the name lies.
+                ' ALL the groups, not any of them.
+                '
+                ' "Contains a volumetric material" is not "is a fire": a burning
+                ' house carries fire sheets as one render set among its walls
+                ' and roof, and matching on any put 24446 instances in the fire
+                ' bucket - including hd_bld_EU_015_Tohouse_01, which is a house.
+                ' A GFX flame sheet is volumetric all the way through.
+                Dim n_groups = 0, n_vol = 0, n_glow = 0
+                For Each rs In sets0
+                    If rs.primitiveGroups Is Nothing Then Continue For
+                    For Each pg In rs.primitiveGroups.Values
+                        n_groups += 1
+                        Dim st = 0
+                        If shader_of.TryGetValue(pg.material_id, st) Then
+                            If st = CInt(ShaderTypes.FX_volumetric) Then n_vol += 1
+                            If st = CInt(ShaderTypes.FX_glow) Then n_glow += 1
+                        End If
+                    Next
+                Next
+                Dim has_vol = (n_groups > 0 AndAlso n_vol = n_groups)
+                Dim has_glow = (n_groups > 0 AndAlso n_glow > 0 AndAlso n_vol = 0)
+
+                Dim low = prim.ToLowerInvariant()
+
+                ' BOTH signals, because neither is enough on its own.
+                '
+                ' volumetric_effect.fx is the shader for every GFX sheet, not
+                ' just flame: foam, dust, oil and smoke come back volumetric
+                ' too, which is how building_wall1, foam and oil_bridge landed
+                ' in the fire bucket. And the NAME alone was worse - it caught
+                ' firewood and fireplugs.
+                '
+                ' So the material narrows it to effect sheets, and the name
+                ' picks the burning ones out of those. A thing has to look like
+                ' a fire AND be built like one.
+                Dim name_says_fire = False
+                For Each p In FIRE_PATTERNS
+                    If low.Contains(p) Then
+                        name_says_fire = True
+                        Exit For
+                    End If
+                Next
+                For Each p In NOT_A_LIGHT
+                    If low.Contains(p) Then
+                        name_says_fire = False
+                        Exit For
+                    End If
+                Next
+
+                Dim kind As String = Nothing
+                If has_vol Then
+                    If name_says_fire Then kind = "fire"
+                ElseIf has_glow Then
+                    kind = "glow"
+                End If
+
+                ' Only if no material said anything. Kept because plenty of
+                ' lamp POSTS are ordinary PBS geometry with the emissive part
+                ' as a separate model, and those are still where a light goes.
+                If kind Is Nothing Then
+                    Dim excluded = False
+                    For Each p In NOT_A_LIGHT
+                        If low.Contains(p) Then
+                            excluded = True
+                            Exit For
+                        End If
+                    Next
+                    If Not excluded Then
+                        For Each p In LAMP_PATTERNS
+                            If low.Contains(p) Then
+                                kind = "lamp"
+                                Exit For
+                            End If
+                        Next
+                    End If
+                End If
+                If kind Is Nothing Then Continue For
+
+                rows.Add(String.Format(
+                    "    <model kind=""{0}"" fx=""{1}"" count=""{2}"" primitives=""{3}"">",
+                    kind, If(has_vol, "volumetric", If(has_glow, "glow", "none")),
+                    batch.count, esc_xml(prim)))
+                For i = 0 To batch.count - 1
+                    Dim idx = batch.offset + i
+                    If idx < 0 OrElse idx >= MODEL_INDEX_LIST.Length Then Continue For
+                    Dim m = MODEL_INDEX_LIST(idx).matrix
+                    rows.Add(String.Format("      <at x=""{0:0.00}"" y=""{1:0.00}"" z=""{2:0.00}"" />",
+                                           m.Row3.X, m.Row3.Y, m.Row3.Z))
+                Next
+                rows.Add("    </model>")
+                total += batch.count
+            Next
+
+            If rows.Count = 0 Then Continue For
+            with_lights += 1
+            sb.AppendLine(String.Format("  <map name=""{0}"" lights=""{1}"">", esc_xml(space_name), total))
+            For Each r In rows
+                sb.AppendLine(r)
+            Next
+            sb.AppendLine("  </map>")
+            LogThis("scanlights: {0} - {1} light model instance(s)", space_name, total)
+        Next
+
+        sb.AppendLine("</light_maps>")
+
+        Try
+            IO.Directory.CreateDirectory(IO.Path.GetDirectoryName(out_path))
+            IO.File.WriteAllText(out_path, sb.ToString())
+            LogThis("scanlights: {0} scanned, {1} with lights, {2} failed -> {3}",
+                    scanned, with_lights, failed, out_path)
+        Catch ex As Exception
+            LogThis("scanlights: could not write {0} - {1}", out_path, ex.Message)
+        End Try
+    End Sub
+
+    Private Function esc_xml(s As String) As String
+        If s Is Nothing Then Return ""
+        Return s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("""", "&quot;")
+    End Function
 
     Private Function get_spaceBin(ABS_NAME As String) As Boolean
         Dim space_bin_file = ResMgr.Lookup(String.Format("spaces/{0}/space.bin", ABS_NAME))

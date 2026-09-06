@@ -389,6 +389,15 @@ Public Class Window
         '-----------------------------------------------------------------------------------------
         LogThis("{0}ms Starting Update Thread", launch_timer.ElapsedMilliseconds)
 
+        ' Every space's lights, then out. Here because it needs the packages
+        ' open - load_assets above - and nothing else: no GL, no map.
+        If SCAN_LIGHTS_OUT IsNot Nothing Then
+            scan_all_spaces_for_lights(SCAN_LIGHTS_OUT)
+            write_log_snapshot()
+            Close()
+            Return
+        End If
+
         SHOW_MAPS_SCREEN = True '<---- Un-rem to show map menu at startup.
 
         _controller = New ImGuiController(ClientSize.X, ClientSize.Y)
@@ -591,6 +600,8 @@ try_again:
         If SHOW_MAPS_SCREEN Then
             MapMenuScreen.SubmitUI(viewport)
         End If
+
+        draw_lamp_inspector()
 
         If SHOW_LOADING_SCREEN Then
             ImGui.SetNextWindowPos(viewport.Pos)
@@ -1160,6 +1171,146 @@ try_again:
     ''' this app runs uncapped, and per-frame impulses at 200+ fps are so
     ''' small that the first accel/coast attempt was imperceptible.
     ''' </summary>
+    ''' <summary>
+    ''' The lamp inspector: four orthographic views of one model with a 3D
+    ''' cursor, for reading where a lamp's bulb sits on its post.
+    '''
+    ''' That number is the one thing the light catalogue cannot get from the
+    ''' data - it is 6.50 m for every model right now, taken from a single lamp
+    ''' on a single map - and there are 19 street lamp models.
+    ''' </summary>
+    Private Sub draw_lamp_inspector()
+        If Not SHOW_LAMP_VIEW Then Return
+        If Not MAP_LOADED OrElse map_scene Is Nothing Then Return
+
+        ImGui.SetNextWindowSize(New System.Numerics.Vector2(700, 840), ImGuiCond.FirstUseEver)
+        ImGui.SetNextWindowPos(New System.Numerics.Vector2(60, 60), ImGuiCond.FirstUseEver)
+
+        If ImGui.Begin("Lamp Inspector###LampView", SHOW_LAMP_VIEW) Then
+
+            ' The light models on THIS map. Rebuilt only when the map changes:
+            ' walking every batch and comparing strings per frame would be a
+            ' real cost for a list that never moves.
+            If lamp_view_map <> MAP_NAME_NO_PATH Then
+                lamp_view_map = MAP_NAME_NO_PATH
+                rebuild_lamp_list()
+            End If
+
+            If lamp_list.Count = 0 Then
+                ImGui.TextWrapped("No lamp or fire models on this map.")
+            Else
+                Dim names = lamp_list.Select(Function(e) e.label).ToArray()
+                Dim sel = lamp_sel
+                If ImGui.Combo("model", sel, names, names.Length) Then
+                    lamp_sel = sel
+                    map_scene.lamp_view.Show(lamp_list(lamp_sel).model_id)
+                End If
+                If Not map_scene.lamp_view.ready Then
+                    map_scene.lamp_view.Show(lamp_list(lamp_sel).model_id)
+                End If
+            End If
+
+            If map_scene.lamp_view.ready Then
+                map_scene.lamp_view.Render()
+
+                Dim side = CSng(MapLampView.PANE)
+                ' V flipped: GL's origin is bottom left, ImGui's is top left.
+                ImGui.Image(New IntPtr(map_scene.lamp_view.color_tex.texture_id),
+                            New System.Numerics.Vector2(side, side),
+                            New System.Numerics.Vector2(0, 1),
+                            New System.Numerics.Vector2(1, 0))
+                ImGui.TextDisabled("    top      |     left")
+                ImGui.TextDisabled("    right    |     iso")
+
+                ImGui.Separator()
+
+                Dim bmin = map_scene.lamp_view.bounds_min
+                Dim bmax = map_scene.lamp_view.bounds_max
+                ImGui.Text(String.Format("box  x {0:0.00}..{1:0.00}   y {2:0.00}..{3:0.00}   z {4:0.00}..{5:0.00}",
+                                         bmin.X, bmax.X, bmin.Y, bmax.Y, bmin.Z, bmax.Z))
+                ImGui.Text(String.Format("height {0:0.00} m", bmax.Y - bmin.Y))
+
+                ImGui.Separator()
+                ImGui.Text("3D cursor - put it at the bulb")
+
+                Dim span = Math.Max(1.0F, Math.Max(bmax.X - bmin.X,
+                                    Math.Max(bmax.Y - bmin.Y, bmax.Z - bmin.Z)))
+                Dim c = map_scene.lamp_view.cursor
+                Dim cx = c.X, cy = c.Y, cz = c.Z
+                Dim moved = False
+                If ImGui.SliderFloat("cursor x", cx, bmin.X - span * 0.1F, bmax.X + span * 0.1F) Then moved = True
+                If ImGui.SliderFloat("cursor y", cy, bmin.Y - span * 0.1F, bmax.Y + span * 0.1F) Then moved = True
+                If ImGui.SliderFloat("cursor z", cz, bmin.Z - span * 0.1F, bmax.Z + span * 0.1F) Then moved = True
+                If moved Then
+                    map_scene.lamp_view.cursor = New OpenTK.Mathematics.Vector3(cx, cy, cz)
+                End If
+
+                c = map_scene.lamp_view.cursor
+                ImGui.Separator()
+                ImGui.Text(String.Format("cursor  ({0:0.000}, {1:0.000}, {2:0.000})", c.X, c.Y, c.Z))
+                ' The number that matters. bulb is measured from the model's
+                ' ORIGIN, because that is what the catalogue stores and what
+                ' placement adds to an instance position. NOT from the bottom
+                ' of the bounding box - a different thing entirely whenever the
+                ' artist did not put the origin on the ground, which the box
+                ' line above will show.
+                ImGui.Text(String.Format("bulb = {0:0.000}   <- the catalogue value", c.Y))
+                ImGui.Text(String.Format("(box floor is y {0:0.000}, so {1:0.000} m above it)",
+                                         bmin.Y, c.Y - bmin.Y))
+                If ImGui.Button("copy bulb", New System.Numerics.Vector2(160, 0)) Then
+                    Try
+                        System.Windows.Forms.Clipboard.SetText(c.Y.ToString("0.000"))
+                    Catch ex As Exception
+                    End Try
+                End If
+            End If
+        End If
+        ImGui.End()
+    End Sub
+
+    Private Structure LampListEntry
+        Public model_id As Integer
+        Public label As String
+    End Structure
+
+    Private lamp_list As New List(Of LampListEntry)
+    Private lamp_sel As Integer = 0
+    Private lamp_view_map As String = ""
+
+    ''' <summary>
+    ''' Which models on this map are lamps or fires. Loose on purpose - a model
+    ''' missed here is only missing from a picker, not from the render.
+    ''' </summary>
+    Private Sub rebuild_lamp_list()
+        lamp_list.Clear()
+        lamp_sel = 0
+        If MODEL_BATCH_LIST Is Nothing OrElse MAP_MODELS Is Nothing Then Return
+
+        Dim seen As New HashSet(Of Integer)
+        For Each batch In MODEL_BATCH_LIST
+            If seen.Contains(batch.model_id) Then Continue For
+            If batch.model_id < 0 OrElse batch.model_id >= MAP_MODELS.Length Then Continue For
+            If Not MODEL_GEOM.ContainsKey(batch.model_id) Then Continue For
+            Dim lods = MAP_MODELS(batch.model_id).modelLods
+            If lods Is Nothing OrElse lods.Length = 0 Then Continue For
+            If lods(0).render_sets Is Nothing OrElse lods(0).render_sets.Count = 0 Then Continue For
+            Dim vn = lods(0).render_sets(0).verts_name
+            If vn Is Nothing Then Continue For
+            Dim low = vn.ToLowerInvariant()
+            If low.Contains("lamp") OrElse low.Contains("lantern") OrElse
+               low.Contains("fonar") OrElse low.Contains("fire") Then
+                seen.Add(batch.model_id)
+                Dim nm = vn.Replace("/vertices", "")
+                nm = nm.Substring(nm.LastIndexOf("/"c) + 1)
+                lamp_list.Add(New LampListEntry With {
+                    .model_id = batch.model_id,
+                    .label = String.Format("{0}  (x{1})", nm, batch.count)})
+            End If
+        Next
+        lamp_list.Sort(Function(a, b) String.Compare(a.label, b.label, StringComparison.OrdinalIgnoreCase))
+        LogThis("lamp inspector: {0} light model(s) on {1}", lamp_list.Count, MAP_NAME_NO_PATH)
+    End Sub
+
     Private Sub camera_mouse_update()
         If map_scene Is Nothing Then
             mouse_dx = 0
@@ -1346,6 +1497,9 @@ try_again:
                 RESET_FLIGHT_RENDER_LAYOUT = True
             End If
             ImGui.SameLine()
+            If ImGui.Button("Lamp Inspector") Then
+                SHOW_LAMP_VIEW = Not SHOW_LAMP_VIEW
+            End If
             If ImGui.Button("Path Studio") Then
                 start_path_studio()
             End If

@@ -199,6 +199,8 @@ Module ShaderLoader
     Public camlightShader As Shader
     Public lampFogShader As Shader
     Public lampVolShader As Shader
+    Public lampViewShader As Shader
+    Public lampCursorShader As Shader
     Public colorCorrectShader As Shader
     Public coloredline2dShader As Shader
     Public colorMaskShader As Shader
@@ -295,6 +297,8 @@ Module ShaderLoader
         camlightShader = New Shader("camlight")
         lampFogShader = New Shader("lamp_fog")
         lampVolShader = New Shader("lamp_vol")
+        lampViewShader = New Shader("lampview")
+        lampCursorShader = New Shader("lampcursor")
         colorCorrectShader = New Shader("colorCorrect")
         coloredline2dShader = New Shader("coloredLine2d")
         colorMaskShader = New Shader("ColorMask")

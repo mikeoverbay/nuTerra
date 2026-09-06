@@ -80,6 +80,9 @@
     <Content Include="MapSettings\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="lights\**\*.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="cam_paths\**\*.campath">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
