@@ -174,7 +174,6 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     const sampler2DArray atlasNormalGlossSpec_sampler = sampler2DArray(thisMaterial.maps[1]);
     const sampler2DArray atlasMetallicAO_sampler = sampler2DArray(thisMaterial.maps[2]);
     const sampler2DArray atlasBlend_sampler = sampler2DArray(thisMaterial.maps[3]);
-    const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[4]);
 
     const float padSize = 0.0625;
     const vec2 uv1 = padSize + fract(fs_in.TC1) * (1.0 - padSize * 2.0);
@@ -207,28 +206,39 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     vec4 GBMT = texture(atlasNormalGlossSpec_sampler, vec3(uv1, dom_id));
     vec4 MAO  = texture(atlasMetallicAO_sampler, vec3(uv1, dom_id));
 
-    //need to sort this out!
-    vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
-    float dirt_blend = thisMaterial.dirtParams.x;
-
-    vec4 DIRT = textureLod(dirtMap_sampler, fs_in.TC1, get_mip_map_level(dirtMap_sampler));
-    //DIRT.rgb *= thisMaterial.dirtColor.rgb;
-    DIRT.rgb *= DIRT.a;
-    //============================================
-    vec4 colorAM, r0;
-
+    vec4 colorAM;
     colorAM.xyz =  colorAM_y.xyz * blend.yyy;
     colorAM.xyz += colorAM_z.xyz * blend.zzz;
     colorAM.xyz += colorAM_x.xyz * blend.xxx;
 
-    //colorAM.rgb = mix(colorAM.rgb,colorAM.rgb * DIRT.rgb, dirtLevel *0.5);
+    float gloss = GBMT.r;
+
+    // Dirt, the game's way (PBS_tiled_atlas .10 blob 01; _global is the same).
+    // The blend map's B is a signed dirt mask. A height-aware curve, with its
+    // strength in g_dirtColor.w, decides how much of the dirt texture replaces
+    // the albedo, and g_dirtParams.x scales the gloss under it. The game never
+    // reads dirtColor.rgb. This used to be a flat mix at dirtLevel * 0.35, or
+    // commented out entirely - which is why the buildings stayed clean.
+    if (thisMaterial.maps[4] != uvec2(0)) {
+        const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[4]);
+        // height of the dominant tile, tint alpha included, as the game has it
+        const float h = (blend.x >= blend.y && blend.x >= blend.z) ? colorAM_x.a
+                      : (blend.y >= blend.z ? colorAM_y.a : colorAM_z.a);
+        const float d = dirtLevel * 2.0 - 1.0;
+        const float t = clamp(d * 10.0, 0.0, 1.0) * (2.0 * h - 1.0) + (1.0 - h);
+        float dirt = clamp((d * d - t) * (thisMaterial.dirtColor.w * 6.0) + d * d, 0.0, 1.0);
+        const vec4 DIRT = texture(dirtMap_sampler, fs_in.TC1);
+        dirt *= DIRT.a;
+        colorAM.rgb = mix(colorAM.rgb, DIRT.rgb, dirt);
+        gloss = mix(gloss, gloss * thisMaterial.dirtParams.x, dirt);
+    }
 
     colorAM.rgb *= MAO.ggg;
     colorAM *= blend.a;
     gColor = colorAM;
 
     //save Gloss.Metal
-    gGMF.r = GBMT.r;
+    gGMF.r = gloss;
     gGMF.g = MAO.r;
 
     vec3 bump;
@@ -248,7 +258,6 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     const sampler2DArray atlasNormalGlossSpec_sampler = sampler2DArray(thisMaterial.maps[1]);
     const sampler2DArray atlasMetallicAO_sampler = sampler2DArray(thisMaterial.maps[2]);
     const sampler2DArray atlasBlend_sampler = sampler2DArray(thisMaterial.maps[3]);
-    const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[4]);
     const sampler2D globalTex_sampler = sampler2D(thisMaterial.maps[5]);
 
     vec4 globalTex = texture(globalTex_sampler, fs_in.TC2);
@@ -283,29 +292,39 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     vec4 GBMT = texture(atlasNormalGlossSpec_sampler, vec3(uv1, dom_id));
     vec4 MAO  = texture(atlasMetallicAO_sampler, vec3(uv1, dom_id));
 
-    //need to sort this out!
-    vec2 dirt_scale = vec2(thisMaterial.dirtParams.y,thisMaterial.dirtParams.z);
-    float dirt_blend = thisMaterial.dirtParams.x;
-
-    vec4 DIRT = textureLod(dirtMap_sampler, fs_in.TC1, get_mip_map_level(dirtMap_sampler));
-    DIRT.rgb *= thisMaterial.dirtColor.rgb;
-    DIRT.rgb *= DIRT.a;
-    //============================================
-
     vec4 colorAM;
     colorAM.xyz =  colorAM_y.xyz * blend.yyy;
     colorAM.xyz += colorAM_z.xyz * blend.zzz;
     colorAM.xyz += colorAM_x.xyz * blend.xxx;
 
-    colorAM.rgb = mix(colorAM.rgb, DIRT.rgb, dirtLevel *0.35);
- 
+    float gloss = GBMT.r;
+
+    // Dirt, the game's way (PBS_tiled_atlas .10 blob 01; _global is the same).
+    // The blend map's B is a signed dirt mask. A height-aware curve, with its
+    // strength in g_dirtColor.w, decides how much of the dirt texture replaces
+    // the albedo, and g_dirtParams.x scales the gloss under it. The game never
+    // reads dirtColor.rgb. This used to be a flat mix at dirtLevel * 0.35, or
+    // commented out entirely - which is why the buildings stayed clean.
+    if (thisMaterial.maps[4] != uvec2(0)) {
+        const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[4]);
+        // height of the dominant tile, tint alpha included, as the game has it
+        const float h = (blend.x >= blend.y && blend.x >= blend.z) ? colorAM_x.a
+                      : (blend.y >= blend.z ? colorAM_y.a : colorAM_z.a);
+        const float d = dirtLevel * 2.0 - 1.0;
+        const float t = clamp(d * 10.0, 0.0, 1.0) * (2.0 * h - 1.0) + (1.0 - h);
+        float dirt = clamp((d * d - t) * (thisMaterial.dirtColor.w * 6.0) + d * d, 0.0, 1.0);
+        const vec4 DIRT = texture(dirtMap_sampler, fs_in.TC1);
+        dirt *= DIRT.a;
+        colorAM.rgb = mix(colorAM.rgb, DIRT.rgb, dirt);
+        gloss = mix(gloss, gloss * thisMaterial.dirtParams.x, dirt);
+    }
 
     colorAM.rgb *= MAO.ggg;
     colorAM *= blend.a;
     gColor = colorAM;
 
     //save Gloss.Metal
-    gGMF.r = GBMT.r;
+    gGMF.r = gloss;
     gGMF.g = MAO.r;
 
     vec3 bump;
@@ -397,6 +416,9 @@ layout(index = 10) subroutine(fn_entry) void FX_PBS_tiled_entry()
 
     vec4 blend = textureLod(blendMask_sampler, fs_in.TC2, 0.0);
 
+    // B of the blend mask is the signed dirt mask; keep it before .z is reused
+    const float dirtLevel = blend.z;
+
     // same weighting as FX_PBS_tiled_atlas_entry
     float b = -blend.y + 1.0;
     blend.z = clamp(-blend.x + b, 0.0, 1.0);
@@ -416,15 +438,19 @@ layout(index = 10) subroutine(fn_entry) void FX_PBS_tiled_entry()
     // pick the dominant tile for the normal / metallic-AO lookup, matching the
     // atlas path which sampled a single dominant layer rather than blending
     vec4 GBMT, MAO;
+    float h_dom;
     if (blend.y > blend.x && blend.y >= blend.z) {
         GBMT = texture(normalGlossSpecTile1_sampler, uv1);
         MAO  = texture(metallicAOTile1_sampler, uv1);
+        h_dom = colorAM_y.a;
     } else if (blend.z > blend.x && blend.z > blend.y) {
         GBMT = texture(normalGlossSpecTile2_sampler, uv1);
         MAO  = texture(metallicAOTile2_sampler, uv1);
+        h_dom = colorAM_z.a;
     } else {
         GBMT = texture(normalGlossSpecTile0_sampler, uv1);
         MAO  = texture(metallicAOTile0_sampler, uv1);
+        h_dom = colorAM_x.a;
     }
 
     vec4 colorAM;
@@ -433,19 +459,54 @@ layout(index = 10) subroutine(fn_entry) void FX_PBS_tiled_entry()
     colorAM.xyz += colorAM_x.xyz * blend.xxx;
     colorAM.w    = 1.0;
 
-    colorAM.rgb *= MAO.ggg;
-    gColor = colorAM;
-
-    //save Gloss/Metal
-    gGMF.r = GBMT.r;
-    gGMF.g = MAO.r;
-
     vec3 bump;
     vec2 tb = vec2(GBMT.ag * 2.0 - 1.0);
     bump.xy = tb.xy;
     float dp = min(dot(bump.xy, bump.xy), 1.0);
     bump.z = clamp(sqrt(-dp + 1.0), -1.0, 1.0);
     bump = normalize(bump);
+
+    float gloss = GBMT.r;
+
+    // The rest is PBS_tiled.10 blob 01, the deferred pixel shader, transcribed.
+    // Material constants arrive renamed by the loader:
+    //   dirtParams         = g_dirtColorParams   x gloss under dirt, yzw per-tile GCM weights
+    //   dirtColor          = g_dirtColor         x GCM weight on the dirt, w dirt curve strength
+    //   g_detailInfluences = g_fakeShadowsAndDetailParams   w GCM UV push by the normal
+    //   maps[10] dirtMap, maps[11] colorTex (the GCM, on UV2)
+    //
+    // GCM: the per-object colour texture modulates the albedo as
+    // 1 + w * (gcm * 2 - 1), where w is the blend-weighted per-tile weight.
+    const float gcm_w = dot(blend.xyz, thisMaterial.dirtParams.yzw);
+    vec3 gcm = vec3(0.0);
+    if (thisMaterial.maps[11] != uvec2(0)) {
+        const sampler2D colorTex_sampler = sampler2D(thisMaterial.maps[11]);
+        const vec2 uv_gcm = fs_in.TC2 + bump.yx * thisMaterial.g_detailInfluences.w;
+        gcm = texture(colorTex_sampler, uv_gcm).rgb * 2.0 - 1.0;
+        colorAM.rgb *= gcm_w * gcm + 1.0;
+    }
+
+    // Dirt: the same height-aware curve the tiled-atlas entries use. The dirt
+    // texture takes the GCM modulation too, scaled by g_dirtColor.x. Nothing
+    // read the dirt map here before, so every PBS_tiled building was clean.
+    if (thisMaterial.maps[10] != uvec2(0)) {
+        const sampler2D dirtMap_sampler = sampler2D(thisMaterial.maps[10]);
+        const float d = dirtLevel * 2.0 - 1.0;
+        const float t = clamp(d * 10.0, 0.0, 1.0) * (2.0 * h_dom - 1.0) + (1.0 - h_dom);
+        float dirt = clamp((d * d - t) * (thisMaterial.dirtColor.w * 6.0) + d * d, 0.0, 1.0);
+        const vec4 DIRT = texture(dirtMap_sampler, uv1);
+        dirt *= DIRT.a;
+        const vec3 dirt_rgb = DIRT.rgb * (gcm_w * thisMaterial.dirtColor.x * gcm + 1.0);
+        colorAM.rgb = mix(colorAM.rgb, dirt_rgb, dirt);
+        gloss = mix(gloss, gloss * thisMaterial.dirtParams.x, dirt);
+    }
+
+    colorAM.rgb *= MAO.ggg;
+    gColor = colorAM;
+
+    //save Gloss/Metal
+    gGMF.r = gloss;
+    gGMF.g = MAO.r;
 
     gNormal = normalize(fs_in.TBN * bump) * 0.5 + 0.5;
 }

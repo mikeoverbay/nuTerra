@@ -211,3 +211,14 @@ shader and the docs changed.
 Observed, not chased: `run.log` fills with `GL Error InvalidValue` every frame
 once the page atlas reports full. It predates this change (a shader edit cannot
 raise a GL API error) but nobody has looked at it.
+
+## 7. Clean buildings: the dirt map was never read
+
+The monastery church (`cam=-35.1191,2.57,-0.3107,...`) had none of the grime
+the game shows. Its materials are `PBS_tiled`; `FX_PBS_tiled_entry` loaded the
+dirt map into `maps[10]` and never sampled it, and had no GCM either. The two
+tiled-atlas entries mixed dirt at a flat `dirtLevel * 0.35` or had it commented
+out. All three now run the game's height-aware dirt curve, transcribed from the
+`.10` deferred pixel shaders (the `.11` fxo builds hold only the forward last-LOD
+variants) - see `game_PBS_tiled.md`. `MapLoader` also gave tile 1 tile 2's tint
+in both atlas cases; fixed.

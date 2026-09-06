@@ -39,6 +39,7 @@ one is the specification, this one is what we actually do with it.
 | `decals.md` | the decal pass, its two easily-confused shaders, and its tangent frame |
 | `terrain_holes.md` | hole block format, the per-chunk X mirror, the map-wide mask |
 | `terrain_blend.md` | how `t_mixer.frag` bakes eight terrain layers into VT pages |
+| `game_PBS_tiled.md` | the game's `PBS_tiled` / `PBS_tiled_atlas` dirt curve and GCM modulation, transcribed; which material constant is which |
 | `lighting.md` | `deferred.frag` - resolve order, channel traps, both specular models, and the term-by-term comparison against the game's BRDF |
 | `shadows.md` | all three casters: the baked sun map, the baked lamp cubes, the parked cascades - and the traps they share |
 | `volumetric_fog.md` | froxel grids, per-light marching and analytic airlight against `lamp_fog.frag`; ranked changes, with sources |

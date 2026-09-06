@@ -1479,7 +1479,7 @@ Module MapLoader
                         .dirtColor = props.dirtColor
                         .dirtParams = props.dirtParams
                         .g_tile0Tint = props.g_tile0Tint
-                        .g_tile1Tint = props.g_tile2Tint
+                        .g_tile1Tint = props.g_tile1Tint
                         .g_tile2Tint = props.g_tile2Tint
                         .g_tileUVScale = props.g_tileUVScale
                         .double_sided = 0
@@ -1504,7 +1504,7 @@ Module MapLoader
                         .dirtColor = props.dirtColor
                         .dirtParams = props.dirtParams
                         .g_tile0Tint = props.g_tile0Tint
-                        .g_tile1Tint = props.g_tile2Tint
+                        .g_tile1Tint = props.g_tile1Tint
                         .g_tile2Tint = props.g_tile2Tint
                         .g_tileUVScale = props.g_tileUVScale
                         .double_sided = 0
