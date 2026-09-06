@@ -2331,6 +2331,14 @@ try_again:
                         ImGui.SetTooltip("How much the drifting noise patches the fog." & vbLf &
                                          "0 is a smooth haze.")
                     End If
+                    Dim v_fs = FOG_SKY
+                    If ImGui.SliderFloat("  fog on sky", v_fs, 0.0, 1.0) Then
+                        FOG_SKY = v_fs
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("How much of the fog the sky dome takes." & vbLf &
+                                         "1 replaces it with the tint; less keeps it showing.")
+                    End If
                     If FOG_TINT_R < 0.0F Then
                         If ImGui.Button("Override map fog tint") Then
                             FOG_TINT_R = CommonProperties.fog_tint.X

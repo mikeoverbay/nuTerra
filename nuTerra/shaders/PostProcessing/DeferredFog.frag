@@ -34,11 +34,10 @@ uniform float fog_height;    // metres above the floor to thin to 1/e
 uniform float fog_floor;     // world Y, resolved by the caller from MEAN + offset
 uniform float fog_noise;     // 0..1, how much the drifting noise patches it
 uniform vec3  fog_tint_ovr;  // sRGB; the map's colour unless overridden
-
-in VS_OUT {
-    flat mat4 invMVP;
-    flat mat4 invDecal;
-} fs_in;
+// How much fog the SKY gets, 0..1, times fog_level. The sky is the far end of
+// every ray, but replacing the dome outright wiped the sky texture; this
+// mixes the tint over it and leaves the sky showing through.
+uniform float fog_sky;
 
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
@@ -99,8 +98,6 @@ float NoiseFBM(in vec2 p, float numCells, int octaves)
 
 void main()
 {
-    if ( gl_FrontFacing ) discard;
-
     vec2 uv = gl_FragCoord.xy / resolution;
     vec3 vpos = texture(gPosition, uv).rgb;            // VIEW space
     vec4 deferred_mix = texture(gColor_in, uv);        // display-referred
@@ -110,8 +107,9 @@ void main()
     float dist = length(vpos);
     bool  sky  = dist < 0.001;
 
-    // Distance: Beer-Lambert toward the tint.
-    float f = sky ? 1.0 : 1.0 - exp(-fog_density * dist);
+    // Distance: Beer-Lambert toward the tint. The sky takes fog_sky instead
+    // of the full term, so the dome shows through the haze.
+    float f = sky ? fog_sky : 1.0 - exp(-fog_density * dist);
 
     // Height: full below the floor, thinning by fog_height above it. The ray
     // is judged at its end point; for a ground-hugging camera that is the
@@ -124,8 +122,9 @@ void main()
     // modulation of the amount, off the sky, and adjustable down to zero.
     if (fog_noise > 0.0 && !sky)
     {
-        vec4 dp = fs_in.invDecal * vec4(vpos, 1.0);
-        vec2 loc = (dp.xy + 0.5) * vec2(uv_scale) + move_vector;
+        // World XZ, in units of ~350 m per noise cell so the drift reads at
+        // street scale rather than per-metre grain.
+        vec2 loc = (invView * vec4(vpos, 1.0)).xz / 350.0 * uv_scale + move_vector;
         float n = NoiseFBM(loc, 8.0, 8);               // 0..1, mean ~0.5
         f *= mix(1.0, 0.6 + 0.8 * n, fog_noise);
     }

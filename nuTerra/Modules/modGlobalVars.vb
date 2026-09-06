@@ -136,6 +136,9 @@ Module modGlobalVars
     Public FOG_NOISE As Single = 0.15F
     ''' <summary>Fog tint override, sRGB 0..1. Any component below 0 means
     ''' "use the map's own fog colour" (CommonProperties.fog_tint).</summary>
+    ''' <summary>How much fog the sky gets, 0..1 of fog_level. Less than 1
+    ''' keeps the sky texture showing through the haze.</summary>
+    Public FOG_SKY As Single = 0.6F
     Public FOG_TINT_R As Single = -1.0F
     Public FOG_TINT_G As Single = -1.0F
     Public FOG_TINT_B As Single = -1.0F

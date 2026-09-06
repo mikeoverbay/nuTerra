@@ -1,22 +1,23 @@
-﻿#version 450 core
+#version 450 core
 
-#extension GL_ARB_shading_language_include : require
+// Full-screen quad, the same recipe as FXAA.vert: four corners from `rect`
+// through the ortho ProjectionMatrix the post passes run under.
+//
+// It used to be a box the size of the map, drawn inside-out with the front
+// faces discarded. That only fogged pixels the box covered on screen, so the
+// outland beyond the map's bounds - and the sky above the box - could go
+// unfogged depending on where the camera stood. Fog is a property of every
+// pixel; a screen quad says so.
 
-#define USE_PERVIEW_UBO
-#include "common.h" //! #include "../common.h"
-
-layout(location = 0) in vec3 vertexPosition;
-
-uniform mat4 DecalMatrix;
-
-out VS_OUT {
-    flat mat4 invMVP;
-    flat mat4 invDecal;
-} vs_out;
+layout (location = 0) uniform mat4 ProjectionMatrix;
+layout (location = 1) uniform vec4 rect;
 
 void main(void)
 {
-    gl_Position = viewProj * DecalMatrix * vec4(vertexPosition, 1.0);
-    vs_out.invMVP = inverse(viewProj * DecalMatrix);
-    vs_out.invDecal = inverse(view * DecalMatrix);
+    vec2 co;
+    if (gl_VertexID == 0)      co = rect.xw;
+    else if (gl_VertexID == 1) co = rect.xy;
+    else if (gl_VertexID == 2) co = rect.zw;
+    else                       co = rect.zy;
+    gl_Position = ProjectionMatrix * vec4(co, 0.0, 1.0);
 }

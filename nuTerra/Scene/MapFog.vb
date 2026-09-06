@@ -40,6 +40,7 @@ Public Class MapFog
         GL.Uniform1(DeferredFogShader("fog_height"), FOG_HEIGHT)
         GL.Uniform1(DeferredFogShader("fog_floor"), CommonProperties.MEAN + FOG_FLOOR_OFFSET)
         GL.Uniform1(DeferredFogShader("fog_noise"), FOG_NOISE)
+        GL.Uniform1(DeferredFogShader("fog_sky"), FOG_SKY)
         ' Tint: the map's own colour unless every override component is set.
         If FOG_TINT_R >= 0.0F AndAlso FOG_TINT_G >= 0.0F AndAlso FOG_TINT_B >= 0.0F Then
             GL.Uniform3(DeferredFogShader("fog_tint_ovr"), FOG_TINT_R, FOG_TINT_G, FOG_TINT_B)
@@ -60,33 +61,15 @@ Public Class MapFog
                     If(map_scene.MODELS_LOADED AndAlso DONT_BLOCK_FX, 1.0F, 0.0F))
         'FBOm.gColor_2.BindUnit(4)
 
-        map_center.X = 100.0F * (theMap.bounds_minX + theMap.bounds_maxX) / 2.0F
-        map_center.Y = 1.0F
-        map_center.Z = 100.0F * (theMap.bounds_minY + theMap.bounds_maxY) / 2.0F
-        map_center.X += 50.0F
-        map_center.Z += 50.0F
-
-        scale.X = 100.0F * (Abs(theMap.bounds_minX) + Abs(theMap.bounds_maxX) + 1.0F)
-        scale.Y = 1000.0F
-        scale.Z = 100.0F * (Abs(theMap.bounds_minY) + Abs(theMap.bounds_maxY) + 1.0F)
-
-        'scale *= 0.1
-        Dim model_X = Matrix4.CreateTranslation(map_center)
-        Dim model_S = Matrix4.CreateScale(scale)
-
-        ' I spent 2 hours making boxes in AC3D and no matter what, it still needs rotated!
-        Dim rotate = Matrix4.CreateRotationX(1.570796)
-        ' DeferredFog.frag discards front faces and draws the box's BACK faces,
-        ' which only exist if culling is off. It used to be off here only
-        ' because draw_base_rings_deferred had just disabled it - and that
-        ' routine returns early on spaces with no team bases, leaving culling
-        ' on and this pass drawing nothing at all.
+        ' A full-screen quad, the same way FXAA draws. The map-sized box this
+        ' used to draw only fogged the pixels it covered on screen, so the
+        ' outland beyond the bounds and the sky above the box could go
+        ' unfogged depending on where the camera stood. Every pixel has a fog.
         GL.Disable(EnableCap.CullFace)
-
-        GL.UniformMatrix4(DeferredFogShader("DecalMatrix"), False, rotate * model_S * model_X)
-
-        CUBE_VAO.Bind()
-        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 14)
+        GL.UniformMatrix4(DeferredFogShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
+        GL.Uniform4(DeferredFogShader("rect"), 0.0F, CSng(-MainFBO.height), CSng(MainFBO.width), 0.0F)
+        defaultVao.Bind()
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
 
         DeferredFogShader.StopUse()
 
