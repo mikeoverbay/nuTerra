@@ -1,10 +1,10 @@
 ﻿Imports System.IO
 Imports System.Xml
-Imports Ionic.Zip
+Imports System.IO.Compression
 
 NotInheritable Class ResMgr
     Shared RES_MODS_PATH As String
-    Shared ReadOnly FILENAME_TO_ZIP_ENTRY As New Dictionary(Of String, ZipEntry)
+    Shared ReadOnly FILENAME_TO_ZIP_ENTRY As New Dictionary(Of String, PkgEntry)
     ' .vfxbin is a particle effect definition, .effbin the wrapper naming its
     ' forward/deferred .vfx. Indexed so the particle loader can find them.
     Shared ReadOnly FILE_EXTENSIONS_TO_USE As New HashSet(Of String)({
@@ -35,20 +35,31 @@ NotInheritable Class ResMgr
             End If
 
             Dim pkgPath = Path.Combine(wot_path, pkg)
-            Using entry As New ZipFile(pkgPath)
-                For Each file In entry.Entries
-                    If file.IsDirectory Then
+
+            ' The archive is opened once here and DELIBERATELY left open - see
+            ' PkgEntry. It used to be a Using block, which worked only because a
+            ' DotNetZip ZipEntry could reopen its own file; a ZipArchiveEntry
+            ' cannot, and the entries indexed here outlive this loop by the whole
+            ' run of the program.
+            '
+            ' A directory entry in a zip is one whose name ends in "/" - there is
+            ' no IsDirectory flag on ZipArchiveEntry. The extension filter below
+            ' would reject them anyway; the test is kept so the intent stays
+            ' readable.
+            Dim archive = PkgEntry.ArchiveFor(pkgPath)
+            For Each file In archive.Entries
+                Dim raw_name = file.FullName
+                If raw_name.EndsWith("/") Then
+                    Continue For
+                End If
+                Dim lowered_fn = raw_name.ToLower
+                If FILE_EXTENSIONS_TO_USE.Contains(Path.GetExtension(lowered_fn)) Then
+                    If FILENAME_TO_ZIP_ENTRY.ContainsKey(lowered_fn) Then
                         Continue For
                     End If
-                    Dim lowered_fn = file.FileName.ToLower
-                    If FILE_EXTENSIONS_TO_USE.Contains(Path.GetExtension(lowered_fn)) Then
-                        If FILENAME_TO_ZIP_ENTRY.ContainsKey(lowered_fn) Then
-                            Continue For
-                        End If
-                        FILENAME_TO_ZIP_ENTRY.Add(lowered_fn, file)
-                    End If
-                Next
-            End Using
+                    FILENAME_TO_ZIP_ENTRY.Add(lowered_fn, PkgEntry.FromPackage(pkgPath, raw_name))
+                End If
+            Next
         Next
 
     End Sub
@@ -73,15 +84,16 @@ NotInheritable Class ResMgr
         Return found
     End Function
 
-    Public Shared Function Lookup(filename As String) As ZipEntry
-        If File.Exists(Path.Combine(RES_MODS_PATH, filename)) Then
-            Dim tmpZip As New ZipFile
-            tmpZip.AddFile(Path.Combine(RES_MODS_PATH, filename), filename)
-            Dim tmpMs As New MemoryStream
-            tmpZip.Save(tmpMs)
-            tmpMs.Position = 0
-            tmpZip = ZipFile.Read(tmpMs)
-            Return tmpZip.Entries(0)
+    Public Shared Function Lookup(filename As String) As PkgEntry
+        ' A res_mods override wins over the packaged file.
+        '
+        ' This used to build a NEW zip in memory, add the loose file to it, save
+        ' it, re-read it and return entry zero - the only place anything in the
+        ' program wrote a zip, and it existed purely because ZipEntry was the
+        ' currency every caller expected. It is a file read now.
+        Dim mod_path = Path.Combine(RES_MODS_PATH, filename)
+        If File.Exists(mod_path) Then
+            Return PkgEntry.FromFile(mod_path, filename)
         End If
 
         Dim lowered_fn = filename.ToLower.Replace("\", "/")
@@ -101,7 +113,7 @@ NotInheritable Class ResMgr
     ''' Dictionary-only probe. Unlike Lookup this does not log or break on a
     ''' miss, so it is safe to use for speculative lookups.
     ''' </summary>
-    Private Shared Function LookupQuiet(filename As String) As ZipEntry
+    Private Shared Function LookupQuiet(filename As String) As PkgEntry
         Dim lowered_fn = filename.ToLower.Replace("\", "/")
         If FILENAME_TO_ZIP_ENTRY.ContainsKey(lowered_fn) Then
             Return FILENAME_TO_ZIP_ENTRY(lowered_fn)
@@ -118,7 +130,7 @@ NotInheritable Class ResMgr
     ''' (Murovanka, North America) give each one its own. The environment folder
     ''' holds exactly one of each kind, so match on the suffix and take it.
     ''' </summary>
-    Public Shared Function LookupBySuffix(folder As String, suffix As String) As ZipEntry
+    Public Shared Function LookupBySuffix(folder As String, suffix As String) As PkgEntry
         Dim f = folder.ToLower.Replace("\", "/")
         If Not f.EndsWith("/") Then f &= "/"
         Dim s = suffix.ToLower
@@ -141,7 +153,7 @@ NotInheritable Class ResMgr
     ''' maps/landscape have no HD variant - they are already 1024x1024 - so this
     ''' simply falls through to the base file for them.
     ''' </summary>
-    Public Shared Function LookupHD(filename As String) As ZipEntry
+    Public Shared Function LookupHD(filename As String) As PkgEntry
         If filename.EndsWith(".dds", StringComparison.OrdinalIgnoreCase) AndAlso
            Not filename.EndsWith("_hd.dds", StringComparison.OrdinalIgnoreCase) Then
             Dim hd = filename.Substring(0, filename.Length - 4) & "_hd.dds"
@@ -158,7 +170,7 @@ NotInheritable Class ResMgr
         Return openXML(entry)
     End Function
 
-    Public Shared Function openXML(entry As ZipEntry) As XmlElement
+    Public Shared Function openXML(entry As PkgEntry) As XmlElement
         If entry Is Nothing Then
             Return Nothing
         End If

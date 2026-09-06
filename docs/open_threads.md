@@ -29,7 +29,7 @@ dimension or a zero-size buffer is the first place to look.
 
 Next step: run one of them under the debugger and read the fault address.
 
-## 2. drop-dotnetzip is finished and unmerged
+## 2. drop-dotnetzip - MERGED 2026-09-06
 
 Branch `drop-dotnetzip`, commit `7fb84c3`. Replaces DotNetZip with
 System.IO.Compression and closes both Dependabot alerts.
@@ -43,7 +43,9 @@ The reported CVE was never reachable here: it is a directory traversal on
 extract-to-DISK and every extract in this codebase went to a MemoryStream.
 This is hygiene, not an incident.
 
-Merge when convenient. It has not been rebased since master moved.
+Merged into master on 2026-09-06 with no conflicts; the frame from the saved
+monastery camera is bit-identical to the DotNetZip build (0 of 960000 pixels
+differ) and no DotNetZip DLL remains in the output. Only comments still name it.
 
 ## 3. water_mask_wet is on in settings, off in code
 

@@ -1,6 +1,6 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Xml
-Imports Ionic.Zip
+Imports System.IO.Compression
 
 ''' <summary>
 ''' Minimal read only index of the World of Tanks packages, just enough to pull
@@ -9,8 +9,10 @@ Imports Ionic.Zip
 ''' </summary>
 Public Class PkgIndex
 
-    Private ReadOnly map As New Dictionary(Of String, ZipEntry)(StringComparer.OrdinalIgnoreCase)
-    Private ReadOnly zips As New List(Of ZipFile)
+    Private ReadOnly map As New Dictionary(Of String, ZipArchiveEntry)(StringComparer.OrdinalIgnoreCase)
+    ' Held open on purpose: a ZipArchiveEntry is only valid while its
+    ' ZipArchive lives, and the entries in `map` outlive TryOpen.
+    Private ReadOnly zips As New List(Of ZipArchive)
 
     Public Property GamePath As String
     Public ReadOnly Property Count As Integer
@@ -40,13 +42,17 @@ Public Class PkgIndex
             If Not File.Exists(full) Then Continue For
 
             Try
-                Dim z As New ZipFile(full)
+                Dim fs As New FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read)
+                Dim z As New ZipArchive(fs, ZipArchiveMode.Read, leaveOpen:=False)
                 idx.zips.Add(z)
                 For Each e In z.Entries
-                    If e.IsDirectory Then Continue For
-                    Dim ext = IO.Path.GetExtension(e.FileName).ToLower
+                    ' A directory entry is one whose name ends in "/" - there is no
+                    ' IsDirectory on ZipArchiveEntry. The extension test below would
+                    ' reject them anyway; kept so the intent stays readable.
+                    If e.FullName.EndsWith("/") Then Continue For
+                    Dim ext = IO.Path.GetExtension(e.FullName).ToLower
                     If ext <> ".srt" AndAlso ext <> ".dds" Then Continue For
-                    Dim key = e.FileName.Replace("\", "/").ToLower
+                    Dim key = e.FullName.Replace("\", "/").ToLower
                     If Not idx.map.ContainsKey(key) Then idx.map.Add(key, e)
                 Next
             Catch
@@ -56,10 +62,10 @@ Public Class PkgIndex
         Return idx
     End Function
 
-    Public Function Lookup(name As String) As ZipEntry
+    Public Function Lookup(name As String) As ZipArchiveEntry
         If name Is Nothing Then Return Nothing
         Dim key = name.Replace("\", "/").ToLower
-        Dim e As ZipEntry = Nothing
+        Dim e As ZipArchiveEntry = Nothing
         If map.TryGetValue(key, e) Then Return e
         Return Nothing
     End Function
@@ -68,7 +74,7 @@ Public Class PkgIndex
     ''' Prefers the high resolution variant. HD textures live in the *_hd.pkg
     ''' packages under the same path with an _hd suffix, at twice the resolution.
     ''' </summary>
-    Public Function LookupHD(name As String) As ZipEntry
+    Public Function LookupHD(name As String) As ZipArchiveEntry
         If name Is Nothing Then Return Nothing
         If name.EndsWith(".dds", StringComparison.OrdinalIgnoreCase) AndAlso
            Not name.EndsWith("_hd.dds", StringComparison.OrdinalIgnoreCase) Then
@@ -79,11 +85,13 @@ Public Class PkgIndex
         Return Lookup(name)
     End Function
 
-    Public Function Read(entry As ZipEntry) As Byte()
+    Public Function Read(entry As ZipArchiveEntry) As Byte()
         If entry Is Nothing Then Return Nothing
-        Using ms As New MemoryStream
-            entry.Extract(ms)
-            Return ms.ToArray()
+        Using src = entry.Open()
+            Using ms As New MemoryStream
+                src.CopyTo(ms)
+                Return ms.ToArray()
+            End Using
         End Using
     End Function
 
