@@ -132,6 +132,18 @@ Public Module modMapSettings
         Yield ("shaft_steps", Function() CSng(LAMP_FOG_STEPS), Sub(v) LAMP_FOG_STEPS = CInt(v))
         Yield ("light_gain", Function() PATH_LIGHT_GAIN, Sub(v) PATH_LIGHT_GAIN = v)
         Yield ("lamp_shadows", Function() B2F(LAMP_SHADOW_ENABLED), Sub(v) LAMP_SHADOW_ENABLED = F2B(v))
+        ' The rest of the look the panel can change, added 2026-09-06 after an
+        ' audit found 30 panel values unsaved; these are the ten that alter the frame.
+        Yield ("lamp_shadow_bias", Function() LAMP_SHADOW_BIAS, Sub(v) LAMP_SHADOW_BIAS = v)
+        Yield ("lamp_shadow_nbias", Function() LAMP_SHADOW_NORMAL_BIAS, Sub(v) LAMP_SHADOW_NORMAL_BIAS = v)
+        Yield ("lamp_shadow_soft", Function() LAMP_SHADOW_SOFT, Sub(v) LAMP_SHADOW_SOFT = v)
+        Yield ("light_falloff", Function() PATH_LIGHT_FALLOFF, Sub(v) PATH_LIGHT_FALLOFF = v)
+        Yield ("use_sh_grid", Function() B2F(USE_SH_GRID), Sub(v) USE_SH_GRID = F2B(v))
+        Yield ("sh_grid_fx", Function() B2F(USE_SH_GRID_FX), Sub(v) USE_SH_GRID_FX = F2B(v))
+        Yield ("sh_grid_offset_fx", Function() SH_GRID_OFFSET_FX, Sub(v) SH_GRID_OFFSET_FX = v)
+        Yield ("fx_glow", Function() B2F(FX_GLOW), Sub(v) FX_GLOW = F2B(v))
+        Yield ("draw_fx", Function() B2F(DONT_BLOCK_FX), Sub(v) DONT_BLOCK_FX = F2B(v))
+        Yield ("boxes_volumetric_only", Function() B2F(BOXES_VOLUMETRIC_ONLY), Sub(v) BOXES_VOLUMETRIC_ONLY = F2B(v))
         Yield ("tess_level", Function() CommonProperties.tess_level, Sub(v) CommonProperties.tess_level = v)
         Yield ("blend_height", Function() CommonProperties.BLEND_HEIGHT, Sub(v) CommonProperties.BLEND_HEIGHT = v)
         Yield ("height_contrast", Function() CommonProperties.HEIGHT_CONTRAST, Sub(v) CommonProperties.HEIGHT_CONTRAST = v)
