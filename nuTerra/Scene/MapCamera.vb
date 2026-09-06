@@ -145,7 +145,36 @@ Public Class MapCamera
         If MAP_LOADED Then
             Const EYE_CLEARANCE As Single = 2.5F
             Dim ground = get_Y_at_XZ_fast(CAM_POSITION.X, CAM_POSITION.Z) + EYE_CLEARANCE
-            If CAM_POSITION.Y < ground Then CAM_POSITION.Y = ground
+            If CAM_POSITION.Y < ground Then
+                ' Clamp the ANGLE, not just the eye. Lifting the position alone
+                ' left CAM_Y_ANGLE free to keep pitching under the ground while
+                ' the eye sat pinned at the clearance, so the stored angle and
+                ' the picture disagreed - and pitching back up did nothing until
+                ' the angle had climbed all the way out of the dead zone, then
+                ' the view jumped. Solve the pitch that puts the eye exactly at
+                ' the clearance and write it back, so the rotation stops at the
+                ' ground and releases the instant the mouse reverses.
+                Dim s = (ground - LOOK_Y) / Math.Max(VIEW_RADIUS, 0.001F)
+                If s < 1.0F Then
+                    Dim a = CSng(Math.Asin(Math.Max(-1.0F, s)))
+                    If a > CAM_Y_ANGLE Then
+                        CAM_Y_ANGLE = a
+                        U_CAM_Y_ANGLE = a
+                        sin_y = Math.Sin(a)
+                        cos_y = Math.Cos(a)
+                        cam_y = sin_y * VIEW_RADIUS
+                        cam_x = cos_y * sin_x * VIEW_RADIUS
+                        cam_z = cos_y * cos_x * VIEW_RADIUS
+                        CAM_POSITION.X = cam_x + U_LOOK_AT_X
+                        CAM_POSITION.Y = cam_y + LOOK_Y
+                        CAM_POSITION.Z = cam_z + U_LOOK_AT_Z
+                    End If
+                End If
+                ' The eye's XZ moved a little with the new pitch, so the ground
+                ' under it may differ; keep the position clamp as the last word.
+                ground = get_Y_at_XZ_fast(CAM_POSITION.X, CAM_POSITION.Z) + EYE_CLEARANCE
+                If CAM_POSITION.Y < ground Then CAM_POSITION.Y = ground
+            End If
         End If
 
         CAM_TARGET = New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
