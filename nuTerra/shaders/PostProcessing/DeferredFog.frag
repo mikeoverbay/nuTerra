@@ -163,9 +163,21 @@ void main()
     {
         // World XZ, in units of ~350 m per noise cell so the drift reads at
         // street scale rather than per-metre grain.
+        // Along the RAY, not at the surface. Sampled only where the ray ends,
+        // the field was painted onto the walls as mottle - fog with a wall's
+        // shape. The banks live in the air between the eye and the wall, so
+        // the amount is the average of the field over that path: four points
+        // from a fifth of the way out to the surface.
         vec3 wp = (invView * vec4(vpos, 1.0)).xyz;
-        vec3 q = wp / max(fog_noise_m, 1.0) * (uv_scale * 8.0) + vec3(move_vector.x, 0.0, move_vector.y) * 8.0;
-        float n = fog_fbm3(q);                          // 0..1, mean ~0.5
+        vec3 scroll = vec3(move_vector.x, 0.0, move_vector.y) * 8.0;
+        float k = (uv_scale * 8.0) / max(fog_noise_m, 1.0);
+        float n = 0.0;
+        for (int i = 1; i <= 4; ++i)
+        {
+            vec3 pw = mix(cameraPos, wp, float(i) * 0.25);
+            n += fog_fbm3(pw * k + scroll);
+        }
+        n *= 0.25;                                       // 0..1, mean ~0.5
         // 0.4 .. 1.6 at full strength: billows, not a tremor. Mean stays 1.
         f *= mix(1.0, 0.4 + 1.2 * n, fog_noise);
     }
