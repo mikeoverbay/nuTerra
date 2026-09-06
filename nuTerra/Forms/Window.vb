@@ -1844,7 +1844,7 @@ try_again:
                     ' Exponent on layer height before the blend. 1.0 is the game's
                     ' behaviour; below 1 stops the winning texture sitting heavy.
                     Dim v_hc = CommonProperties.HEIGHT_CONTRAST
-                    If ImGui.SliderFloat("Height Contrast", v_hc, 0.25, 12.0) Then
+                    If ImGui.SliderFloat("Height Contrast", v_hc, 0.01, 12.0, "%.3f", ImGuiSliderFlags.Logarithmic) Then
                         CommonProperties.HEIGHT_CONTRAST = v_hc
                     End If
 
