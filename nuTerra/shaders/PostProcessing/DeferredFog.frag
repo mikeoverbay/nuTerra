@@ -99,6 +99,42 @@ float NoiseFBM(in vec2 p, float numCells, int octaves)
     return f / sum;
 }
 
+// 3D value noise. The 2D field varied over the ground plane only, so every
+// point up a wall shared one value and facades striped vertically. Three
+// axes, trilinear, four octaves; the scroll moves it along XZ.
+float fog_noise_hash3(vec3 p)
+{
+    return fract(sin(dot(p, vec3(35.6898, 24.3563, 51.2117))) * 353753.373453);
+}
+
+float fog_noise_cell3(vec3 x)
+{
+    vec3 p = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    float c000 = fog_noise_hash3(p), c100 = fog_noise_hash3(p + vec3(1, 0, 0));
+    float c010 = fog_noise_hash3(p + vec3(0, 1, 0)), c110 = fog_noise_hash3(p + vec3(1, 1, 0));
+    float c001 = fog_noise_hash3(p + vec3(0, 0, 1)), c101 = fog_noise_hash3(p + vec3(1, 0, 1));
+    float c011 = fog_noise_hash3(p + vec3(0, 1, 1)), c111 = fog_noise_hash3(p + vec3(1, 1, 1));
+    return mix(mix(mix(c000, c100, f.x), mix(c010, c110, f.x), f.y),
+               mix(mix(c001, c101, f.x), mix(c011, c111, f.x), f.y), f.z);
+}
+
+// p in cells. Same base scale as the 2D field had (32 cells per noise_m), so
+// a tuned map keeps its look; the octaves halve in size and weight.
+float fog_fbm3(vec3 p)
+{
+    float f = 0.0, amp = 0.5, sum = 0.0;
+    for (int i = 0; i < 4; i++)
+    {
+        f += fog_noise_cell3(p) * amp;
+        sum += amp;
+        amp *= 0.5;
+        p *= 2.0;
+    }
+    return f / sum;
+}
+
 void main()
 {
     vec2 uv = gl_FragCoord.xy / resolution;
@@ -127,8 +163,9 @@ void main()
     {
         // World XZ, in units of ~350 m per noise cell so the drift reads at
         // street scale rather than per-metre grain.
-        vec2 loc = (invView * vec4(vpos, 1.0)).xz / max(fog_noise_m, 1.0) * uv_scale + move_vector;
-        float n = NoiseFBM(loc, 8.0, 8);               // 0..1, mean ~0.5
+        vec3 wp = (invView * vec4(vpos, 1.0)).xyz;
+        vec3 q = wp / max(fog_noise_m, 1.0) * (uv_scale * 8.0) + vec3(move_vector.x, 0.0, move_vector.y) * 8.0;
+        float n = fog_fbm3(q);                          // 0..1, mean ~0.5
         // 0.4 .. 1.6 at full strength: billows, not a tremor. Mean stays 1.
         f *= mix(1.0, 0.4 + 1.2 * n, fog_noise);
     }

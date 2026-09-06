@@ -144,11 +144,48 @@ float shaft_fbm(in vec2 p)
     return f / sum;
 }
 
-// The drift factor at a world point: 1 at fog_noise 0, +-40% at 1, mean ~1.
+// 3D value noise. The 2D field varied over the ground plane only, so every
+// point up a wall shared one value and facades striped vertically. Three
+// axes, trilinear, four octaves; the scroll moves it along XZ.
+float shaft_noise_hash3(vec3 p)
+{
+    return fract(sin(dot(p, vec3(35.6898, 24.3563, 51.2117))) * 353753.373453);
+}
+
+float shaft_noise_cell3(vec3 x)
+{
+    vec3 p = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    float c000 = shaft_noise_hash3(p), c100 = shaft_noise_hash3(p + vec3(1, 0, 0));
+    float c010 = shaft_noise_hash3(p + vec3(0, 1, 0)), c110 = shaft_noise_hash3(p + vec3(1, 1, 0));
+    float c001 = shaft_noise_hash3(p + vec3(0, 0, 1)), c101 = shaft_noise_hash3(p + vec3(1, 0, 1));
+    float c011 = shaft_noise_hash3(p + vec3(0, 1, 1)), c111 = shaft_noise_hash3(p + vec3(1, 1, 1));
+    return mix(mix(mix(c000, c100, f.x), mix(c010, c110, f.x), f.y),
+               mix(mix(c001, c101, f.x), mix(c011, c111, f.x), f.y), f.z);
+}
+
+// p in cells. Same base scale as the 2D field had (32 cells per noise_m), so
+// a tuned map keeps its look; the octaves halve in size and weight.
+float shaft_fbm3(vec3 p)
+{
+    float f = 0.0, amp = 0.5, sum = 0.0;
+    for (int i = 0; i < 4; i++)
+    {
+        f += shaft_noise_cell3(p) * amp;
+        sum += amp;
+        amp *= 0.5;
+        p *= 2.0;
+    }
+    return f / sum;
+}
+
+// The drift factor at a world point: 1 at fog_noise 0, mean ~1.
 float drift_at(vec3 wp)
 {
     if (fog_noise <= 0.0) return 1.0;
-    float n = shaft_fbm(wp.xz / max(noise_metres, 1.0) * noise_scale + noise_scroll);
+    vec3 q = wp / max(noise_metres, 1.0) * (noise_scale * 8.0) + vec3(noise_scroll.x, 0.0, noise_scroll.y) * 8.0;
+    float n = shaft_fbm3(q);
     return mix(1.0, 0.4 + 1.2 * n, fog_noise);
 }
 
