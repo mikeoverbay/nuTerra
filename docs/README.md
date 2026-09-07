@@ -1,4 +1,4 @@
-# docs
+﻿# docs
 
 Two kinds of document live here, and they age differently.
 
@@ -60,6 +60,7 @@ specifications and evidence, not descriptions of this renderer.
 | `terrain_blending_edge.md` | the game paints terrain **onto models**; it does not punch holes for trenches. Not implemented here |
 | `game_PBS_tank.md` | the game's **tank** shader: G-buffer packing, material composite order, decal systems, and the permutation model |
 | `game_deferred_decal.md` | the game's `deferred_decal.fx` |
+| `game_water.md` | the game's WATER: its own G-buffer with a per-body id, flow-mapped six-tap normals, a half-res lighting pass with both shadow atlases, and the depth-ramp sub-pipeline |
 
 ## Handoffs, newest first
 
