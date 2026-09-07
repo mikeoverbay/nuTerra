@@ -74,7 +74,7 @@ Public Class BulbPlacer
     Private ortho As Integer = 0
     Private ortho_half As Single = 5.0F
     Private Const FOV As Single = 0.9F
-    Private ldrag, rdrag As Boolean
+    Private ldrag, mdrag, rdrag As Boolean
 
     ' ------------------------------------------------------- bulbs, editing
     ''' <summary>Working copy of THIS model's bulbs. Other models' bulbs stay in
@@ -482,6 +482,8 @@ Public Class BulbPlacer
 
     Private Sub draw_view()
         ' Snap buttons, then the surface fills what is left.
+        If ImGui.SmallButton("3D") Then ortho = 0
+        ImGui.SameLine()
         If ImGui.SmallButton("Top") Then ortho = 1
         ImGui.SameLine()
         If ImGui.SmallButton("Front") Then ortho = 2
@@ -490,9 +492,11 @@ Public Class BulbPlacer
         ImGui.SameLine()
         If ImGui.SmallButton("Frame") Then frame_model()
         ImGui.SameLine()
-        ImGui.TextDisabled(If(ortho = 0, "perspective", {"", "top (ortho)", "front (ortho)", "side (ortho)"}(ortho)))
-        ImGui.SameLine()
-        ImGui.TextDisabled(" | LMB orbit  wheel zoom  RMB move bulb  Shift+RMB up/down")
+        If ortho = 0 Then
+            ImGui.TextDisabled("3D | LMB orbit  MMB/wheel zoom  RMB move  Shift+RMB up/down")
+        Else
+            ImGui.TextDisabled({"", "top", "front", "side"}(ortho) & " | LMB move in this plane  MMB/wheel zoom  RMB pan")
+        End If
 
         Dim rgn = ImGui.GetContentRegionAvail()
         Dim rw = CInt(Math.Max(8.0F, rgn.X))
@@ -511,27 +515,49 @@ Public Class BulbPlacer
         ' even when the pointer leaves it - a drag that stops at the edge is
         ' the most irritating thing a viewport can do.
         If hovered AndAlso ImGui.IsMouseClicked(ImGuiMouseButton.Left) Then ldrag = True
+        If hovered AndAlso ImGui.IsMouseClicked(ImGuiMouseButton.Middle) Then mdrag = True
         If hovered AndAlso ImGui.IsMouseClicked(ImGuiMouseButton.Right) Then rdrag = True
         If Not ImGui.IsMouseDown(ImGuiMouseButton.Left) Then ldrag = False
+        If Not ImGui.IsMouseDown(ImGuiMouseButton.Middle) Then mdrag = False
         If Not ImGui.IsMouseDown(ImGuiMouseButton.Right) Then rdrag = False
 
-        If ldrag Then
-            Dim d = io.MouseDelta
-            If d.X <> 0 OrElse d.Y <> 0 Then
-                ortho = 0
+        Dim d = io.MouseDelta
+        Dim moved = d.X <> 0 OrElse d.Y <> 0
+
+        ' Zoom: the wheel, or a middle-button drag, in every view.
+        Dim zoom_f As Single = 1.0F
+        If hovered AndAlso io.MouseWheel <> 0 Then zoom_f *= CSng(Math.Exp(-io.MouseWheel * 0.15))
+        If mdrag AndAlso moved Then zoom_f *= CSng(Math.Exp(d.Y * 0.01))
+        If zoom_f <> 1.0F Then
+            dist = Math.Clamp(dist * zoom_f, 0.2F, 500.0F)
+            ortho_half = Math.Clamp(ortho_half * zoom_f, 0.1F, 250.0F)
+        End If
+
+        If ortho = 0 Then
+            ' 3D: left orbits, right moves the marker on the ground plane, or
+            ' up and down with Shift.
+            If ldrag AndAlso moved Then
                 yaw -= d.X * 0.008F
                 pitch = Math.Clamp(pitch + d.Y * 0.008F, -1.5F, 1.5F)
             End If
+            If rdrag AndAlso moved AndAlso has_model AndAlso cur >= 0 Then move_marker(d.X, d.Y, io.KeyShift)
+        Else
+            ' A plane view: left DRAGS THE MARKER in that plane - it never
+            ' drops you back to 3D, the 3D button does that. Right pans.
+            If ldrag AndAlso moved AndAlso has_model AndAlso cur >= 0 Then move_marker(d.X, d.Y, False)
+            If rdrag AndAlso moved Then pan_view(d.X, d.Y)
         End If
-        If hovered AndAlso io.MouseWheel <> 0 Then
-            Dim f = CSng(Math.Exp(-io.MouseWheel * 0.15))
-            dist = Math.Clamp(dist * f, 0.2F, 500.0F)
-            ortho_half = Math.Clamp(ortho_half * f, 0.1F, 250.0F)
-        End If
-        If rdrag AndAlso has_model AndAlso cur >= 0 Then
-            Dim d = io.MouseDelta
-            If d.X <> 0 OrElse d.Y <> 0 Then move_marker(d.X, d.Y, io.KeyShift)
-        End If
+    End Sub
+
+    ''' <summary>Slide an ortho view along its own axes by a mouse delta.</summary>
+    Private Sub pan_view(dx As Single, dy As Single)
+        Dim eye, up As Vector3
+        camera(eye, up)
+        Dim fwd = Vector3.Normalize(target - eye)
+        Dim right = Vector3.Normalize(Vector3.Cross(fwd, up))
+        Dim cam_up = Vector3.Cross(right, fwd)
+        Dim m_per_px = 2.0F * ortho_half / Math.Max(1, tex_h)
+        target -= right * (dx * m_per_px) - cam_up * (dy * m_per_px)
     End Sub
 
     ''' <summary>
