@@ -221,8 +221,12 @@ Public Class BulbPlacer
             .primitive_name = e.primitive_name,
             .render_sets = New List(Of RenderSetEntry)}
         For i = 0 To e.prims_names.Count - 1
+            ' primitiveGroups must exist: load_primitives_indices writes each
+            ' group it finds into it, and a Nothing dictionary threw on the
+            ' first model anyone picked.
             holder.render_sets.Add(New RenderSetEntry With {
-                .verts_name = e.verts_names(i), .prims_name = e.prims_names(i)})
+                .verts_name = e.verts_names(i), .prims_name = e.prims_names(i),
+                .primitiveGroups = New Dictionary(Of Integer, PrimitiveGroup)})
         Next
 
         Dim filename = e.prims_names(0).Replace(".primitives", ".primitives_processed")
@@ -230,6 +234,7 @@ Public Class BulbPlacer
         Dim entry = ResMgr.Lookup(filename)
         If entry Is Nothing Then
             status = "not in any pkg: " & filename
+            LogThis("bulb placer: {0}", status)
             Return
         End If
         Try
@@ -239,6 +244,7 @@ Public Class BulbPlacer
             End Using
         Catch ex As Exception
             status = "could not read " & Path.GetFileName(filename) & ": " & ex.Message
+            LogThis("bulb placer: {0}", status)
             Return
         End Try
 
@@ -279,8 +285,11 @@ Public Class BulbPlacer
         has_model = meshes.Count > 0
         If Not has_model Then
             status = "no geometry in " & Path.GetFileName(filename)
+            LogThis("bulb placer: {0}", status)
             Return
         End If
+        LogThis("bulb placer: {0} - {1} mesh(es), box {2:0.00} x {3:0.00} x {4:0.00} m",
+                e.label, meshes.Count, bmax.X - bmin.X, bmax.Y - bmin.Y, bmax.Z - bmin.Z)
         shown_id = e.model_id
         frame_model()
     End Sub
@@ -434,6 +443,9 @@ Public Class BulbPlacer
             rebuild_list()
             clear_model()
             edits.Clear() : cur = -1
+            ' The first model straight away, so the view is never empty and a
+            ' loader problem shows in the log without anyone clicking.
+            If entries.Count > 0 Then select_entry(0)
         End If
         If entries.Count = 0 Then
             ImGui.TextWrapped("No lamp or fire models on this map.")
