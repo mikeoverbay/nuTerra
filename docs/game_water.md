@@ -165,6 +165,66 @@ not a flat tint - INFERRED from the names, not followed through the assembly.
 `g_normalsGGXRough` says the surface uses **GGX**, the same specular model the
 rest of the game's PBR uses.
 
+## Why ours reads too light and too transparent - MEASURED
+
+The owner's two complaints have one cause between them, and it is not a
+constant that needs tuning.
+
+**Their water is lit with the scene. Ours is painted on after it is finished.**
+
+```
+deferred.frag:1579   final_color = mix(final_color, f_color, ...fog_level)   FOG
+deferred.frag:1592   outColor    = correct(final_color, tonemap_exposure)    TONE CURVE
+modRender.vb:253     SSR            "after the resolve"
+modRender.vb:278     water.draw()   "forward over the lit frame"
+```
+
+By the time `MapWater.draw` runs, `gColor` has already been fogged and put
+through `correct()`. It is display space. The water then alpha-blends an
+authored colour straight over it, and so receives **no exposure, no tone curve
+and no distance fog** - none of the three transforms every other surface in the
+frame went through.
+
+That is the whole of "the colour is wrong, too light":
+
+- Lakeville's body authors `deep_color = (0.19, 0.51, 0.66)` (MEASURED, from
+  the load log). In the game that number is an input to a scattering model in
+  linear HDR which the composition pass then tone-maps. Here it is used as the
+  final display-space colour: `col = mix(deep_color.rgb, refl, F)`,
+  `water.frag:171`, never linearised and never tone-mapped.
+- Distance fog is the visible half. The scene fades toward the fog colour with
+  distance; the water does not, because the fog was applied a pass earlier. So
+  a far lake stays vivid while the land around it goes flat, which reads as the
+  water being too bright even when the near water looks right.
+
+And "far too transparent":
+
+- Our opacity is a hand-picked constant - `alpha = clamp(0.72 + 0.28 * F)`,
+  `water.frag:175`.
+- The depth extinction that should be driving it (`column = exp(-water_depth *
+  fog_inv_depth)`, `water.frag:282`) is real and correctly modelled on
+  `g_fogColorAndInvDepth`, but it sits inside `if (scene_v.z < 0.0)` - it only
+  runs where the G-buffer holds a scene position. It is a correction applied to
+  a guess, rather than the thing that decides opacity.
+- The game does not have an alpha at all. Transmittance is
+  `exp(-depth * invDepth)` against the **refracted** scene - hence
+  `copy_back_buffer` - evaluated in HDR before any tone curve, with depth from
+  a whole sub-pipeline (`water_depth_map`, `terrain_height_renderer`, `ramp`,
+  `g_rampDepth`, `g_softDepth`) rather than from whatever the G-buffer happens
+  to hold.
+
+There is also a model gap underneath the plumbing. Theirs has
+`m_scatterColorSunExp` (a sun-facing scattering exponent), `m_colorEdgeFog` (a
+separate edge colour) and `g_normalsGGXRough`. Ours is one flat `deep_color`
+lerped toward the reflection by Fresnel, so our water colour does not change
+with sun angle, view angle or depth - only its opacity does.
+
+**The honest fix is architectural**: water has to be resolved with the scene
+rather than after it, so it inherits exposure, tone curve and fog. Short of
+that, anything done to `deep_color` or to the alpha constant is compensating in
+display space for a transform that was never applied, and will only hold at one
+exposure and one distance.
+
 ## What this means for nuTerra
 
 Ours is a different architecture, so none of this drops in. The gaps this
