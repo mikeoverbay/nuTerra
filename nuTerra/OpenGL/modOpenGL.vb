@@ -679,6 +679,14 @@ Module modOpenGL
         If id = 131185 Then Return
         If id = 1281 Then Return
         If id = 131218 Then Return
+        ' "Pixel transfer is synchronized with 3D rendering." NVIDIA's hint that
+        ' a glReadPixels stalled the pipeline waiting for the frame - which is
+        ' the whole point of the two places that do it. The still capture reads
+        ' the finished frame back on a keypress, and the model picker reads one
+        ' pixel under the cursor; both WANT the frame that is on screen, both
+        ' happen once rather than per frame, and a PBO would buy a frame of
+        ' latency to save a stall nobody is timing. Not a defect, so not logged.
+        If id = 131154 Then Return
 
         Dim message = Marshal.PtrToStringAnsi(messagePtr)
 
