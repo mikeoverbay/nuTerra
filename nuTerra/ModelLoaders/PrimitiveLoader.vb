@@ -344,6 +344,16 @@ Module PrimitiveLoader
             Dim uv2SectionName = If(vertsSectionName.Contains("."), vertsSectionName.Split(".")(0) + ".uv2", "uv2")
             If binSections.ContainsKey(uv2SectionName) Then
                 load_primitives_uv2(br, renderSet, binSections(uv2SectionName))
+            ElseIf UV2_AUDIT Then
+                ' Say so. TC2 is the per-object unwrap the tiled-atlas families
+                ' key their blend mask, dirt and global maps to, and their baked
+                ' AO rides in that mask's alpha. Without uv2 TC2 is zero, all of
+                ' those read a single texel, one tile wins the whole object and
+                ' its occlusion is flat - which looks like a shading bug and is
+                ' actually missing vertex data. Names every section that has no
+                ' uv2 so the ones that MATTER can be told from the ones that
+                ' never wanted it.
+                LogThis("uv2 audit: no {0} section for {1}", uv2SectionName, renderSet.verts_name)
             End If
             Dim colourSectionName = If(vertsSectionName.Contains("."), vertsSectionName.Split(".")(0) + ".colour", "colour")
             If binSections.ContainsKey(colourSectionName) Then

@@ -353,11 +353,43 @@ Public Module modMapSettings
     ''' when there is nothing saved, which is not an error - the map just keeps
     ''' the values its environment.xml and the global defaults gave it.
     ''' </summary>
+    ''' <summary>
+    ''' Per-map values forced from the command line, applied AFTER the saved
+    ''' file so they actually stick.
+    '''
+    ''' A launch argument that writes one of these globals directly is silently
+    ''' undone the moment the map's own settings load over it, and a headless
+    ''' A/B that measures nothing is worse than no A/B at all - it reads as
+    ''' "the value makes no difference".
+    '''
+    ''' NOTE: lightgain= still writes PATH_LIGHT_GAIN directly, and "light_gain"
+    ''' IS in Fields() below - so on any map whose settings file carries that
+    ''' key, the argument is already being overwritten before the first frame.
+    ''' Same for every other per-map value with a command line twin. Route them
+    ''' through here when someone next needs one of them to work.
+    ''' </summary>
+    Public CLI_FORCED As New Dictionary(Of String, Single)
+
+    Private Sub ApplyOverrides()
+        If CLI_FORCED.Count = 0 Then Return
+        Dim setters = Fields().ToDictionary(Function(f) f.Name, Function(f) f.Writer)
+        For Each kv In CLI_FORCED
+            Dim setter As Action(Of Single) = Nothing
+            If setters.TryGetValue(kv.Key, setter) Then
+                setter(kv.Value)
+                LogThis("  map settings: '{0}' FORCED to {1} from the command line", kv.Key, kv.Value)
+            Else
+                LogThis("  map settings: command line override for unknown key '{0}'", kv.Key)
+            End If
+        Next
+    End Sub
+
     Public Function Load(map_name As String) As Boolean
         If String.IsNullOrEmpty(map_name) Then Return False
         Dim path = LoadFilePathFor(map_name)
         If path Is Nothing Then
             LogThis("No saved settings for {0} - using defaults", SafeName(map_name))
+            ApplyOverrides()
             Return False
         End If
         LogThis("Reading map settings from {0}", path)
@@ -393,6 +425,7 @@ Public Module modMapSettings
             Next
 
             LogThis("Applied {0} saved settings for {1}", applied, SafeName(map_name))
+            ApplyOverrides()
             LAST_RESULT = String.Format("Loaded {0} settings from {1}", applied, path)
             Return True
         Catch ex As Exception

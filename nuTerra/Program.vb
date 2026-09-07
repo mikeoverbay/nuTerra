@@ -56,7 +56,7 @@ Module Program
                 ' argument are an A/B of the glow at one camera. There is no
                 ' other headless way to move it - FX_GLOW's only other writer
                 ' is the ImGui checkbox.
-                FX_GLOW = False
+                CLI_FORCED("fx_glow") = 0.0F
             ' glowradius= / glowpasses= / glowstrength= are gone with the
             ' sliders - those three are Const now and cannot be assigned.
             ' noglow survives because FX_GLOW is still a real toggle, and it is
@@ -65,14 +65,14 @@ Module Program
                 ' Light the FX volumetrics from the baked probe field. Off by
                 ' default, so a run WITHOUT this argument is the bit-identical
                 ' negative control for free.
-                USE_SH_GRID_FX = True
+                CLI_FORCED("sh_grid_fx") = 1.0F
             ElseIf a.StartsWith("gridfxoffset=", StringComparison.OrdinalIgnoreCase) Then
                 ' Only for A/B'ing the normal push against 0. See
                 ' SH_GRID_OFFSET_FX - 0 is the shipped answer.
                 Dim gf As Single
                 If Single.TryParse(a.Substring(13), Globalization.NumberStyles.Float,
                                    Globalization.CultureInfo.InvariantCulture, gf) Then
-                    SH_GRID_OFFSET_FX = gf
+                    CLI_FORCED("sh_grid_offset_fx") = gf
                 End If
             ElseIf a.Equals("blackfx", StringComparison.OrdinalIgnoreCase) Then
                 BLACK_BEFORE_FX = True
@@ -105,6 +105,32 @@ Module Program
                 If Integer.TryParse(a.Substring(6), sn) AndAlso sn > 0 Then
                     RECORD_STILL = 1
                 End If
+            ElseIf a.Equals("uv2audit", StringComparison.OrdinalIgnoreCase) Then
+                ' Name every render set loading without a uv2 section.
+                UV2_AUDIT = True
+            ElseIf a.StartsWith("modelao=", StringComparison.OrdinalIgnoreCase) Then
+                ' Model baked AO, headless: modelao=<power>,<sun>.
+                '
+                ' Same reason lightgain= exists below. These two are the only
+                ' controls over how much of a model's baked occlusion reaches
+                ' the frame, their defaults of 1/1 were a guess, and answering
+                ' "is the AO arriving at all" means shooting the same view at
+                ' several values. Without this each value costs a rebuild.
+                ' Through CLI_FORCED, not straight at the globals:
+                ' both are per-map fields and the map's own file loads after
+                ' this, so a direct write is undone before the first frame.
+                Dim parts = a.Substring(8).Split(","c)
+                Dim p As Single, s As Single
+                If parts.Length > 0 AndAlso
+                   Single.TryParse(parts(0), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, p) Then
+                    CLI_FORCED("model_ao_power") = Math.Max(0.0F, p)
+                End If
+                If parts.Length > 1 AndAlso
+                   Single.TryParse(parts(1), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, s) Then
+                    CLI_FORCED("model_ao_sun") = Math.Max(0.0F, s)
+                End If
             ElseIf a.StartsWith("lightgain=", StringComparison.OrdinalIgnoreCase) Then
                 ' Intensity of the .campath lamps, headless.
                 '
@@ -115,7 +141,7 @@ Module Program
                 Dim g As Single
                 If Single.TryParse(a.Substring(10), Globalization.NumberStyles.Float,
                                    Globalization.CultureInfo.InvariantCulture, g) Then
-                    PATH_LIGHT_GAIN = Math.Max(0.0F, g)
+                    CLI_FORCED("light_gain") = Math.Max(0.0F, g)
                 End If
             ElseIf a.StartsWith("scanlights=", StringComparison.OrdinalIgnoreCase) Then
                 ' Scan EVERY installed space for light-emitting models and write
@@ -127,12 +153,12 @@ Module Program
             ElseIf a.Equals("nolampfog", StringComparison.OrdinalIgnoreCase) Then
                 ' Null control for the shafts: a run with and without this
                 ' differ only by the scattering pass.
-                LAMP_FOG = False
+                CLI_FORCED("lamp_shafts") = 0.0F
             ElseIf a.StartsWith("foggain=", StringComparison.OrdinalIgnoreCase) Then
                 Dim g As Single
                 If Single.TryParse(a.Substring(8), Globalization.NumberStyles.Float,
                                    Globalization.CultureInfo.InvariantCulture, g) Then
-                    LAMP_FOG_GAIN = Math.Max(0.0F, g)
+                    CLI_FORCED("shaft_gain") = Math.Max(0.0F, g)
                 End If
             ElseIf a.StartsWith("fogfall=", StringComparison.OrdinalIgnoreCase) Then
                 Dim g As Single
@@ -144,18 +170,18 @@ Module Program
                 Dim g As Single
                 If Single.TryParse(a.Substring(8), Globalization.NumberStyles.Float,
                                    Globalization.CultureInfo.InvariantCulture, g) Then
-                    LAMP_FOG_DENSITY = Math.Max(0.0F, g)
+                    CLI_FORCED("shaft_density") = Math.Max(0.0F, g)
                 End If
             ElseIf a.StartsWith("fogphase=", StringComparison.OrdinalIgnoreCase) Then
                 Dim g As Single
                 If Single.TryParse(a.Substring(9), Globalization.NumberStyles.Float,
                                    Globalization.CultureInfo.InvariantCulture, g) Then
-                    LAMP_FOG_PHASE = g
+                    CLI_FORCED("shaft_phase") = g
                 End If
             ElseIf a.StartsWith("fogsteps=", StringComparison.OrdinalIgnoreCase) Then
                 Dim n As Integer
                 If Integer.TryParse(a.Substring(9), n) AndAlso n > 0 Then
-                    LAMP_FOG_STEPS = n
+                    CLI_FORCED("shaft_steps") = CSng(n)
                 End If
             ElseIf a.Equals("lampdebug", StringComparison.OrdinalIgnoreCase) Then
                 ' Draw the lamp shadow term rather than the frame.
@@ -163,12 +189,12 @@ Module Program
             ElseIf a.Equals("nolampshadow", StringComparison.OrdinalIgnoreCase) Then
                 ' The null control for the whole feature: a run WITHOUT this
                 ' argument and a run with it differ only by the shadow term.
-                LAMP_SHADOW_ENABLED = False
+                CLI_FORCED("lamp_shadows") = 0.0F
             ElseIf a.StartsWith("lampbias=", StringComparison.OrdinalIgnoreCase) Then
                 Dim b As Single
                 If Single.TryParse(a.Substring(9), Globalization.NumberStyles.Float,
                                    Globalization.CultureInfo.InvariantCulture, b) Then
-                    LAMP_SHADOW_BIAS = b
+                    CLI_FORCED("lamp_shadow_bias") = b
                 End If
             ElseIf a.StartsWith("lampsoft=", StringComparison.OrdinalIgnoreCase) Then
                 ' 0 is the hard edged single fetch, which is the A/B partner for
@@ -176,13 +202,13 @@ Module Program
                 Dim b As Single
                 If Single.TryParse(a.Substring(9), Globalization.NumberStyles.Float,
                                    Globalization.CultureInfo.InvariantCulture, b) Then
-                    LAMP_SHADOW_SOFT = Math.Max(0.0F, b)
+                    CLI_FORCED("lamp_shadow_soft") = Math.Max(0.0F, b)
                 End If
             ElseIf a.StartsWith("lampnbias=", StringComparison.OrdinalIgnoreCase) Then
                 Dim b As Single
                 If Single.TryParse(a.Substring(10), Globalization.NumberStyles.Float,
                                    Globalization.CultureInfo.InvariantCulture, b) Then
-                    LAMP_SHADOW_NORMAL_BIAS = b
+                    CLI_FORCED("lamp_shadow_nbias") = b
                 End If
             ElseIf a.StartsWith("falloff=", StringComparison.OrdinalIgnoreCase) Then
                 ' Companion to lightgain: how tight the core is inside the
@@ -190,7 +216,7 @@ Module Program
                 Dim k As Single
                 If Single.TryParse(a.Substring(8), Globalization.NumberStyles.Float,
                                    Globalization.CultureInfo.InvariantCulture, k) Then
-                    PATH_LIGHT_FALLOFF = Math.Max(0.0F, k)
+                    CLI_FORCED("light_falloff") = Math.Max(0.0F, k)
                 End If
             ElseIf a.StartsWith("settle=", StringComparison.OrdinalIgnoreCase) Then
                 ' Parsed independently of snap/snapquit and applied after the

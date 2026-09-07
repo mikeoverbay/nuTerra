@@ -152,6 +152,11 @@ Module modGlobalVars
     ''' 1 lets full occlusion put a surface fully in shadow.</summary>
     Public MODEL_AO_POWER As Single = 1.0F
     Public MODEL_AO_SUN As Single = 1.0F
+
+    ''' <summary>Log every render set that has no uv2 section. Off by default -
+    ''' it is one line per section and most models neither have nor want one.
+    ''' Turned on by the uv2audit launch argument.</summary>
+    Public UV2_AUDIT As Boolean = False
     Public FOG_TINT_R As Single = -1.0F
     Public FOG_TINT_G As Single = -1.0F
     Public FOG_TINT_B As Single = -1.0F
