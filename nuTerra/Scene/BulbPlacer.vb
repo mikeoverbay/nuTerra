@@ -820,8 +820,8 @@ Public Class BulbPlacer
         draw_lines(New List(Of Single)({0, 0, 0, 0, 1, 0}), 0.3F, 0.9F, 0.3F, 1.0F)
         draw_lines(New List(Of Single)({0, 0, 0, 0, 0, 1}), 0.3F, 0.5F, 1.0F, 1.0F)
 
-        ' The lights, drawn through the model so they are never buried in it.
-        GL.Disable(EnableCap.DepthTest)
+        ' The lights, depth tested like the model, so a bulb inside a hood reads
+        ' as inside it and one behind the post is behind it.
         For i = 0 To edits.Count - 1
             Dim b = edits(i)
             Dim a = If(i = cur, 1.0F, 0.45F)
@@ -876,7 +876,6 @@ Public Class BulbPlacer
                     b.aim.X, b.aim.Y, b.aim.Z - al, b.aim.X, b.aim.Y, b.aim.Z + al}), 1.0F, 1.0F, 1.0F, a)
             End If
         Next
-        GL.Enable(EnableCap.DepthTest)
         lampCursorShader.StopUse()
     End Sub
 
