@@ -543,6 +543,10 @@ Module MapLoader
 
             load_materials()
 
+            ' The Bulb Placer collects the light models NOW, while the table is
+            ' still here - see BulbPlacer.CollectLightModels.
+            BulbPlacer.CollectLightModels()
+
             Erase MAP_MODELS
 
             map_scene.MODELS_LOADED = True
@@ -1832,75 +1836,6 @@ Module MapLoader
     ''' guessed at: a silently mirrored map is far worse than one that states
     ''' which frame it is in.
     ''' </summary>
-    ''' <summary>
-    ''' Copy one render set into its own small indexed buffer for the Light
-    ''' Bulb Placer.
-    '''
-    ''' Its OWN buffers, not a range into the shared ones. The shared vertex
-    ''' buffer is 56 bytes a vertex with a layout the main shaders expect; a
-    ''' viewer that reads it has to match that layout and stay matched. Twenty
-    ''' four bytes of position and normal in a buffer of its own costs a few
-    ''' hundred kilobytes for every lamp on a map and owes nothing to the
-    ''' renderer.
-    '''
-    ''' The normal arrives as a packed half4. It is widened to float here, once
-    ''' at load, rather than in the viewer's vertex layout - half attributes
-    ''' would work, but this is read by one shader that does not care and the
-    ''' explicit float is one less thing to get wrong.
-    ''' </summary>
-    Private Sub build_lamp_mesh(model_id As Integer, renderSet As RenderSetEntry)
-        Try
-            Dim src = renderSet.buffers.vertexBuffer
-            Dim tris = renderSet.buffers.index_buffer32
-            If src.Length = 0 OrElse tris.Length = 0 Then Return
-
-            Dim verts(src.Length - 1) As LampVertex
-            For i = 0 To src.Length - 1
-                verts(i).pos = src(i).pos
-                verts(i).nrm = New Vector3(CSng(src(i).normal.X),
-                                           CSng(src(i).normal.Y),
-                                           CSng(src(i).normal.Z))
-            Next
-
-            ' Flattened to a plain index list. The source is a triangle array of
-            ' three UInt32 each, which is the same bytes - this only spells it
-            ' out so DrawElements can be handed a count rather than a stride.
-            Dim idx(tris.Length * 3 - 1) As UInteger
-            For i = 0 To tris.Length - 1
-                idx(i * 3 + 0) = tris(i).x
-                idx(i * 3 + 1) = tris(i).y
-                idx(i * 3 + 2) = tris(i).z
-            Next
-
-            Dim m As New LampMesh With {.index_count = idx.Length}
-
-            m.vbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "lampMeshVbo")
-            m.vbo.Storage(verts.Length * Marshal.SizeOf(Of LampVertex), verts, BufferStorageFlags.None)
-
-            m.ibo = GLBuffer.Create(BufferTarget.ElementArrayBuffer, "lampMeshIbo")
-            m.ibo.Storage(idx.Length * 4, idx, BufferStorageFlags.None)
-
-            m.vao = GLVertexArray.Create("lampMeshVao")
-            m.vao.VertexBuffer(0, m.vbo, IntPtr.Zero, Marshal.SizeOf(Of LampVertex))
-            m.vao.ElementBuffer(m.ibo)
-            m.vao.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
-            m.vao.AttribBinding(0, 0)
-            m.vao.EnableAttrib(0)
-            m.vao.AttribFormat(1, 3, VertexAttribType.Float, False, 12)
-            m.vao.AttribBinding(1, 0)
-            m.vao.EnableAttrib(1)
-
-            Dim lst As List(Of LampMesh) = Nothing
-            If Not LAMP_MESHES.TryGetValue(model_id, lst) Then
-                lst = New List(Of LampMesh)
-                LAMP_MESHES(model_id) = lst
-            End If
-            lst.Add(m)
-        Catch ex As Exception
-            LogThis("bulb placer: could not copy mesh for model {0} - {1}", model_id, ex.Message)
-        End Try
-    End Sub
-
     Public Sub scan_all_spaces_for_lights(out_path As String)
         Dim spaces = ResMgr.SpaceNames()
         LogThis("scanlights: {0} space_name(s) to scan", spaces.Count)

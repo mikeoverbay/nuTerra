@@ -57,9 +57,6 @@ Module modTypeStructures
         End Sub
     End Class
 
-    ''' <summary>model_id -> its LOD 0 render sets, as standalone meshes. Only
-    ''' light models are in here; everything else would be dead weight.</summary>
-    Public LAMP_MESHES As New Dictionary(Of Integer, List(Of LampMesh))
 
     ''' <summary>
     ''' Is this asset something the Light Bulb Placer should keep a copy of.

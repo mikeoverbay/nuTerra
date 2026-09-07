@@ -87,6 +87,9 @@ Module Program
                 ' producing nothing.
                 FLY_CAM_PATH = True
                 RECORD_FLIGHT = True
+            ElseIf a.Equals("placer=1", StringComparison.OrdinalIgnoreCase) Then
+                ' Open the Light Bulb Placer as soon as the map is up.
+                SHOW_LAMP_VIEW = True
             ElseIf a.StartsWith("out=", StringComparison.OrdinalIgnoreCase) Then
                 RECORD_DIR = a.Substring(4)
                 record_dir_from_cli = True
