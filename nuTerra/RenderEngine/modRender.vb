@@ -363,6 +363,11 @@ Module modRender
             map_scene.static_models.draw_fx()
             trace_state("draw_fx")
 
+            ' The lamps' own visible sources, into the same buffer and BEFORE
+            ' the glow is built - the halo is the whole point of drawing them.
+            draw_lamp_bulbs()
+            trace_state("lamp bulbs")
+
             ' Glow, built from the accumulated buffer while it is still float.
             ' Must run BEFORE the composite: composite_fx scales the sum back
             ' into range, and after that the over-range energy the glow is made
@@ -593,6 +598,73 @@ Module modRender
     '''
     ''' Leaves the viewport at the reduced size; the caller restores it.
     ''' </summary>
+    ''' <summary>
+    ''' Draw every visible lamp's own bulb into the FX buffer.
+    '''
+    ''' A lamp lit the ground and the pole but was not itself present - light
+    ''' with no source. This puts a small, fierce disc where the bulb is, into
+    ''' gFX_HDR, so `build_fx_glow`'s bright pass finds it and the blur turns it
+    ''' into a halo. The halo's SIZE comes from that blur at quarter
+    ''' resolution, not from LAMP_BULB_SIZE - which is why the bulb can stay as
+    ''' small as a real one and still read from across a map.
+    '''
+    ''' Must run before build_fx_glow. After it, composite_fx has already
+    ''' rolled the sum back into range and the over-range energy the halo is
+    ''' made of no longer exists.
+    '''
+    ''' Depth TEST on, depth WRITE off: a lamp housing in front of its own bulb
+    ''' has to hide it - which also means a bulb placed up inside a closed hood
+    ''' will never be seen, and belongs at the glass instead.
+    ''' </summary>
+    Private Sub draw_lamp_bulbs()
+        If Not LAMP_BULB Then Return
+        If map_scene Is Nothing OrElse map_scene.cam_path Is Nothing Then Return
+        Dim cp = map_scene.cam_path
+        If Not cp.loaded OrElse cp.lights Is Nothing OrElse cp.lights.Length = 0 Then Return
+
+        GL_PUSH_GROUP("draw_lamp_bulbs")
+
+        lampBulbShader.Use()
+        ' No vertex data - the quad comes from gl_VertexID. Core profile still
+        ' insists on a bound VAO, and this is the one kept for exactly that.
+        defaultVao.Bind()
+
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.CullFace)
+        ' Premultiplied, matching the rest of the FX buffer. The shader emits
+        ' alpha 0, which makes this dst + src: adds light, attenuates nothing.
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha)
+
+        GL.Uniform1(lampBulbShader("radius"), Math.Max(0.001F, LAMP_BULB_SIZE))
+        GL.Uniform1(lampBulbShader("min_px"), Math.Max(0.0F, LAMP_BULB_MIN_PX))
+
+        ' The same set, in the same order, as the surface lighting and the
+        ' shafts. A lamp that is lit should have a bulb, and one that lost its
+        ' slot should not.
+        Dim vis = cp.visible_lights(map_scene.camera.CAM_POSITION, MAX_PATH_LIGHTS)
+        For k = 0 To vis.Length - 1
+            Dim i = vis(k)
+            Dim w = cp.world_pos(i)
+            GL.Uniform3(lampBulbShader("centre"), w.X, w.Y, w.Z)
+            GL.Uniform3(lampBulbShader("bulb_color"),
+                        cp.lights(i).color.X, cp.lights(i).color.Y, cp.lights(i).color.Z)
+            ' Scaled by the light's own level, so a lamp turned down has a
+            ' dimmer bulb rather than the same glare over a darker pool.
+            GL.Uniform1(lampBulbShader("bulb_gain"),
+                        LAMP_BULB_GAIN * Math.Max(0.0F, cp.lights(i).level))
+            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+        Next
+
+        GL.Enable(EnableCap.CullFace)
+        GL.DepthMask(True)
+        GL.Disable(EnableCap.Blend)
+        lampBulbShader.StopUse()
+
+        GL_POP_GROUP()
+    End Sub
+
     Private Sub build_fx_glow()
         GL_PUSH_GROUP("build_fx_glow")
 

@@ -2170,6 +2170,39 @@ try_again:
                         ImGui.SetTooltip("High is a tight bright core; low spreads it toward" & vbLf &
                                          "a flat disc that fills the whole radius evenly.")
                     End If
+                    ' The lamp's own visible source. Separate from Light Gain
+                    ' because they are different things: gain is how much light
+                    ' the lamp THROWS, these are what the lamp LOOKS like.
+                    ImGui.Checkbox("Bulbs", LAMP_BULB)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("A small very bright disc at each lamp, drawn into" & vbLf &
+                                         "the FX buffer so the glow blur turns it into a halo." & vbLf &
+                                         "Needs Draw FX and its Glow on to bloom." & vbLf &
+                                         "Depth tested: a bulb inside a closed hood is hidden,"  & vbLf &
+                                         "so place it at the glass.")
+                    End If
+                    If LAMP_BULB Then
+                        If ImGui.SliderFloat("Bulb Size", LAMP_BULB_SIZE, 0.01, 1.0, "%.3f m") Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("The bulb itself, in metres. Keep it small - the" & vbLf &
+                                             "halo's size comes from the glow blur, not from here.")
+                        End If
+                        If ImGui.SliderFloat("Bulb Gain", LAMP_BULB_GAIN, 0.0, 400.0) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("How fierce the core is. Well over 1 on purpose:" & vbLf &
+                                             "the halo is built from the energy above the glow" & vbLf &
+                                             "threshold, so this is what there is to bloom." & vbLf &
+                                             "Each light's own level scales it.")
+                        End If
+                        If ImGui.SliderFloat("Bulb Min Px", LAMP_BULB_MIN_PX, 0.0, 8.0, "%.1f px") Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Floor on the bulb's on-screen size. A sub-pixel" & vbLf &
+                                             "bulb flickers as the camera moves.")
+                        End If
+                    End If
                     ImGui.Checkbox("Lights solid red (debug)", PATH_LIGHT_DEBUG_RED)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Paints each light's contribution red, past the albedo" & vbLf &

@@ -41,13 +41,41 @@ why the FX target is a second framebuffer rather than attachment 8.
 
 ```
   [particles.Draw]      alpha cards       ─┐
-                                           ├─→ gFX_HDR   (cleared to 0,0,0,0)
-  [draw_fx]             volumetric meshes ─┘
+                                           │
+  [draw_fx]             volumetric meshes ─┼─→ gFX_HDR   (cleared to 0,0,0,0)
+                                           │
+  [draw_lamp_bulbs]     lamp sources      ─┘
         │
   [build_fx_glow]       bright pass → blur ping-pong → gFX_BloomA
         │
   [composite_fx]        gFX_HDR + glow, rolled off, blended over gColor
 ```
+
+### Lamp bulbs are FX
+
+`draw_lamp_bulbs` puts a small, very bright, camera-facing disc where each
+visible lamp's bulb is. It is in this pass and not the deferred one because
+what is wanted from it is the **halo**, and the halo is what `build_fx_glow`
+makes out of over-range energy — so the bulb has to be in `gFX_HDR` while the
+buffer is still float and before `composite_fx` rolls the sum back into range.
+
+It emits `vec4(rgb, 0.0)`, the volumetric-mesh contract: adds light, attenuates
+nothing, contributes no coverage — a light source is not a surface.
+
+The bulb's own size is small (`LAMP_BULB_SIZE`, 0.11 m by default). **The
+halo's size comes from the quarter-resolution blur, not from the bulb**, which
+is why a real-sized bulb still reads from across a map. `LAMP_BULB_GAIN` is far
+over 1 on purpose: the bright pass keeps what is above `FX_GLOW_THRESHOLD`, so
+that is the material the halo is built from.
+
+Depth tested, depth write off, so a lamp housing in front of its own bulb hides
+it. That also means **a bulb placed up inside a closed hood is never seen** —
+it belongs at the glass. `LAMP_BULB_MIN_PX` holds a floor on the on-screen
+radius, because a sub-pixel bulb flickers as the camera moves and a real street
+lamp does not go out when you walk away from it.
+
+Checkbox and three sliders under **Lamps**; `LAMP_BULB` off restores the frame
+without them.
 
 ### Cards first, meshes second — load-bearing
 

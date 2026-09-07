@@ -201,6 +201,7 @@ Module ShaderLoader
     Public cullInvalidateShader As Shader
     Public campathShader As Shader
     Public camlightShader As Shader
+    Public lampBulbShader As Shader
     Public lampFogShader As Shader
     Public lampVolShader As Shader
     Public lampViewShader As Shader
@@ -299,6 +300,7 @@ Module ShaderLoader
         cullInvalidateShader = New Shader("cull-invalidate")
         campathShader = New Shader("campath")
         camlightShader = New Shader("camlight")
+        lampBulbShader = New Shader("lamp_bulb")
         lampFogShader = New Shader("lamp_fog")
         lampVolShader = New Shader("lamp_vol")
         lampViewShader = New Shader("lampview")

@@ -1051,6 +1051,35 @@ Module modGlobalVars
     Public PATH_LIGHT_FALLOFF As Single = 12.0F
 
     ''' <summary>
+    ''' Draw the visible SOURCE of each lamp - a small very bright disc at the
+    ''' bulb - into the FX buffer, where the existing bright pass and blur turn
+    ''' it into glare. Without it a lamp lights the ground and the pole but the
+    ''' lamp itself is not there, which reads as light with no source.
+    ''' </summary>
+    Public LAMP_BULB As Boolean = True
+
+    ''' <summary>
+    ''' The bulb's size in metres. SMALL on purpose: the look wanted is a
+    ''' fierce little point that blooms into a halo, not a lit ball. The halo's
+    ''' size comes from the glow blur, not from this.
+    ''' </summary>
+    Public LAMP_BULB_SIZE As Single = 0.11F
+
+    ''' <summary>
+    ''' How bright the bulb is. Far over 1: the FX buffer is float16 and the
+    ''' bright pass keeps what is above FX_GLOW_THRESHOLD, so the halo is made
+    ''' out of exactly the energy that would otherwise have clipped.
+    ''' </summary>
+    Public LAMP_BULB_GAIN As Single = 60.0F
+
+    ''' <summary>
+    ''' Floor on the bulb's on-screen radius, in pixels. A sub-pixel bulb
+    ''' flickers as the camera moves and the sample point crosses it; a real
+    ''' street lamp does not go out when you walk away from it either.
+    ''' </summary>
+    Public LAMP_BULB_MIN_PX As Single = 2.0F
+
+    ''' <summary>
     ''' Paint the point lights' contribution solid red.
     '''
     ''' On by default while this is being brought up: the first question is
