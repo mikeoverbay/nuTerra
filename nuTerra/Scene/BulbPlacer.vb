@@ -198,6 +198,14 @@ Public Class BulbPlacer
         Next
         entries.Sort(Function(a, b) String.Compare(a.kind & a.label, b.kind & b.label, StringComparison.OrdinalIgnoreCase))
         LogThis("bulb placer: {0} light model(s) on {1}", entries.Count, MAP_NAME_NO_PATH)
+        ' Name every one, with the .primitives path in full. That path is the
+        ' KEY a bulb record is filed under - ExpandBulbs matches on it and
+        ' nothing else - so without this line there is no way to author or
+        ' check a bulb table outside the panel, or to see why a bulb that
+        ' looked right matched no model on this map.
+        For Each e In entries
+            LogThis("bulb placer:   [{0}] x{1}  {2}", e.kind, e.count, e.primitives)
+        Next
     End Sub
 
     ' =====================================================================
