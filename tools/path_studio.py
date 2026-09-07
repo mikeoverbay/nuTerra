@@ -63,8 +63,13 @@ FOLDER = nav.FOLDER
 # case and nothing more. These were a Waypoints slider and a Left/Right pair of
 # radio buttons, greyed out the moment a point existed, which is most of the
 # time. A control that is disabled whenever anyone would want it is not a
-# control. Loop radius keeps its slider because it also sets the departure leg
-# length, which runs on every generate.
+# control, and Loop radius went the same way for the same reason - its slider
+# is Path smoothing now.
+#
+# RING_RADIUS is still read on every generate, not only by the ring: the
+# departure leg walks max(30, min(radius * 0.4, 90)) metres out along the
+# heading, so at 260 that is a 90 m leg.
+RING_RADIUS = 260.0     # metres
 RING_WAYPOINTS = 14     # points around the ring
 RING_SIDE = 1           # +1 turns left out of the departure leg, -1 right
 
@@ -256,7 +261,8 @@ def ring_after(bake, reach, g, start_xz, heading, leg_end, radius, count, side):
     return out
 
 
-def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets, log):
+def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets, log,
+                   smooth_passes=2):
     """Seed -> nominal course -> flown route -> .campath. Reuses the pipeline."""
     log("loading bake")
     bake = fp.Bake(FOLDER, map_name)
@@ -329,6 +335,20 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
             w.writerow([j, round(j * fp.SAMPLE_STEP, 2),
                         round(float(x[j]), 3), 0.0, round(float(z[j]), 3),
                         round(float(math.atan2(dx[j], dz[j])), 5)])
+
+    # How hard to round the flown route's corners.
+    #
+    # SMOOTH_ITERS is Chaikin passes over the flown path, each one cutting
+    # every corner again, and it is the only knob that changes how abrupt a
+    # turn the camera makes - MIN_RADIUS next to it is reported and not
+    # enforced, so it describes the problem rather than fixing it. It was a
+    # hard 2. The slider that used to set the loop radius drives it now: the
+    # ring that radius shaped is only ever laid when no points were placed,
+    # and clicking places points, so the control was doing nothing on the
+    # routes anyone actually generates.
+    ex.SMOOTH_ITERS = int(smooth_passes)
+    log("smoothing: %d Chaikin pass%s"
+        % (ex.SMOOTH_ITERS, "" if ex.SMOOTH_ITERS == 1 else "es"))
 
     log("flying it - this is the slow part")
     argv = sys.argv
@@ -520,7 +540,7 @@ class Studio:
         r = 6
         self.vars = {}
         for key, label, lo, hi, init in (
-                ("radius", "Loop radius (m)", 60, 600, 260),
+                ("smooth", "Path smoothing", 0, 6, 2),
                 ("agl", "Height over ground (m)", 1, 30, int(nav.AGL)),
                 ("standoff", "Standoff (m)", 0.5, 6, min(6.0, max(0.5, round(nav.BODY_R * 2) / 2.0)))):
             ttk.Label(left, text=label).grid(row=r, column=0, sticky="w")
@@ -869,13 +889,17 @@ class Studio:
             # Only meaningful with a start to depart from.
             self.heading = seed["heading"] if seed["start"] else None
             self.targets = list(seed["targets"])
-            if seed["radius"]:
-                self.vars["radius"].set(int(round(seed["radius"])))
-            # The file still records the ring's waypoint count and turn
-            # direction - cam_path writes them and older seeds carry real
-            # values - but neither has a control any more (RING_WAYPOINTS /
-            # RING_SIDE). Read and ignored rather than dropped from the format,
-            # so a seed written by an older Path Studio still loads.
+            # The file still records the ring's radius, waypoint count and turn
+            # direction - cam_path writes all three and older seeds carry real
+            # values - but none of them has a control any more (RING_RADIUS,
+            # RING_WAYPOINTS, RING_SIDE). Read and ignored rather than dropped
+            # from the format, so a seed written by an older Path Studio still
+            # loads.
+            #
+            # Setting them was a KeyError the moment their sliders went, and it
+            # threw HERE, before render_mask, so selecting any map with a saved
+            # seed drew nothing at all. Anything restoring UI state from a file
+            # has to be checked against the UI that still exists.
 
         self.render_mask()
         self.update_enabled()
@@ -1614,11 +1638,9 @@ class Studio:
         # left click places points now, so in practice it never is. Loop radius
         # is the one ring control left with a slider; the turn direction and the
         # ring waypoint count are RING_SIDE / RING_WAYPOINTS.
-        ring = not self.targets
-        self.vars["radius_w"].state(["!disabled" if ring else "disabled"])
-        self.ring_lbl.configure(
-            text="" if ring else
-            "Loop radius is unused - your points set the route.")
+        # Path smoothing applies to every route, points or ring, so nothing
+        # here is greyed out any more. The ring's radius is RING_RADIUS.
+        self.ring_lbl.configure(text="")
 
     def on_undo_target(self, _e=None):
         """Backspace or Delete drops the most recently placed thing.
@@ -1670,7 +1692,7 @@ class Studio:
         self.repaint()
 
     def refresh_labels(self):
-        for k in ("radius", "agl"):
+        for k in ("smooth", "agl"):
             self.vars[k + "_lbl"].configure(text=str(self.vars[k].get()))
         # Snap standoff to 0.5 m steps and show it that way.
         so = round(float(self.vars["standoff"].get()) * 2.0) / 2.0
@@ -1710,8 +1732,9 @@ class Studio:
 
             csv_path = plan_from_seed(
                 self.map_name, self.start, self.heading,
-                float(self.vars["radius"].get()), RING_SIDE,
-                RING_WAYPOINTS, list(self.targets), self._log)
+                RING_RADIUS, RING_SIDE,
+                RING_WAYPOINTS, list(self.targets), self._log,
+                smooth_passes=int(self.vars["smooth"].get()))
 
             import csv as _csv
             rows = list(_csv.DictReader(open(csv_path)))
