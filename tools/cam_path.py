@@ -51,7 +51,9 @@ Header - 128 bytes, little endian
                               truthy and both sides came out the same.
    96  uint32   light_count   number of light records, may be 0
   100  uint32   light_stride  bytes per light record, 36 (32 before `curve`)
-  104  char[24] reserved      zeroed
+  104  uint32   bulb_count    number of bulb records, may be 0
+  108  uint32   bulb_stride   bytes per bulb record, 224
+  112  char[16] reserved      zeroed
 
 The light fields come out of what version 2 already reserved, so the header is
 still 128 bytes and this is still NCP2. Every file written before lights existed
@@ -91,6 +93,29 @@ reproduced, adjusted and regenerated later; without it, the only record of the
 intent was in the operator's head.
 
 --------------------------------------------------------------------------
+Bulb record - 224 bytes, after the lights. A BULB is a light attached to a
+MODEL: it is placed once, in the model's own space, by the Light Bulb Placer,
+and nuTerra puts one at every instance of that model on the map. The lights
+above are placed on the map by Path Studio; these are placed on a model. Both
+end up in the same lamp path.
+
+  off  type       field
+    0  char[160]  primitives  the model's .primitives path, UTF-8, NUL padded.
+                              The only identity a model has across maps, and
+                              the key the Placer's list shows.
+  160  uint32     type        0 point, 1 cone, 2 inverse cone (omni EXCEPT
+                              inside the cone - a cowled street lamp)
+  164  float32x3  pos         model space, metres from the model origin
+  176  float32x3  aim         model space point the cone looks at. Ignored
+                              for a point light.
+  188  float32    cone        full cone angle, degrees
+  192  float32    blend       0..1, how much of the cone is soft edge
+  196  float32x3  color       sRGB 0..1, as the picker holds it
+  208  float32    level       0..1, fraction of the global light gain
+  212  float32    range       metres
+  216  float32    vol_mix     0..1, how much it scatters into fog
+  220  uint32     curve       shaft falloff curve, 0..2
+
 Light record - 36 bytes, 8 x float32 + uint32, at header_size + count * stride
                                         + seed_count * seed_stride
 --------------------------------------------------------------------------
@@ -180,10 +205,15 @@ STRIDE = 32
 SEED_STRIDE = 12
 LIGHT_STRIDE = 36        # what this writer emits: 8 floats + the curve
 LIGHT_STRIDE_MIN = 32    # what a reader must accept: files from before `curve`
+BULB_STRIDE = 224        # 160-byte name + 16 words
+BULB_NAME_LEN = 160
+BULB_POINT, BULB_CONE, BULB_INVERSE_CONE = 0, 1, 2
 
-# The trailing 24s is what is LEFT of version 2's 32 reserved bytes after the
-# two light fields were taken from the front of it. Total is still 128.
-HEAD_FMT = "<4sHHIIf40sIqIIffIiII24s"
+# The trailing 16s is what is LEFT of version 2's 32 reserved bytes after the
+# light pair and then the bulb pair were taken from the front of it. Total is
+# still 128 and this is still NCP2: a file from before either reads zeros there.
+HEAD_FMT = "<4sHHIIf40sIqIIffIiIIII16s"
+BULB_FMT = "<160sI3f3fff3ffffI"
 
 FLAG_CLOSED = 1
 
@@ -226,8 +256,51 @@ def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0, curve=0):
             float(level), float(rng), int(curve))
 
 
+def pack_bulb(primitives, type=BULB_POINT, pos=(0.0, 0.0, 0.0), aim=(0.0, -1.0, 0.0),
+              cone=150.0, blend=0.35, color="#ffffff", level=0.5, rng=20.0,
+              vol_mix=0.45, curve=0):
+    """One bulb, as the dict the reader returns and the writer takes."""
+    if isinstance(color, str):
+        h = color.lstrip("#")
+        if len(h) == 3:
+            h = "".join(c * 2 for c in h)
+        rgb = tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+    else:
+        rgb = tuple(float(c) for c in color)
+    return {"primitives": primitives, "type": int(type),
+            "pos": tuple(float(v) for v in pos), "aim": tuple(float(v) for v in aim),
+            "cone": float(cone), "blend": float(blend), "color": rgb,
+            "level": float(level), "range": float(rng), "vol_mix": float(vol_mix),
+            "curve": int(curve)}
+
+
+def bulb_bytes(b):
+    """One bulb record, BULB_STRIDE bytes."""
+    name = b["primitives"].encode("utf-8")[:BULB_NAME_LEN - 1]
+    return struct.pack(BULB_FMT, name, int(b["type"]),
+                       *[float(v) for v in b["pos"]], *[float(v) for v in b["aim"]],
+                       float(b["cone"]), float(b["blend"]),
+                       *[float(v) for v in b["color"]],
+                       float(b["level"]), float(b["range"]), float(b["vol_mix"]),
+                       int(b["curve"]))
+
+
+def read_bulbs(raw, off, count, stride):
+    """The bulb block of a file, as a list of pack_bulb dicts."""
+    out = []
+    for i in range(count):
+        o = off + i * stride
+        (name, typ, px, py, pz, ax, ay, az, cone, blend, r, g, b,
+         level, rng, vol_mix, curve) = struct.unpack(BULB_FMT, raw[o:o + BULB_STRIDE])
+        out.append({"primitives": name.split(b"\0", 1)[0].decode("utf-8", "replace"),
+                    "type": typ, "pos": (px, py, pz), "aim": (ax, ay, az),
+                    "cone": cone, "blend": blend, "color": (r, g, b),
+                    "level": level, "range": rng, "vol_mix": vol_mix, "curve": curve})
+    return out
+
+
 def write_path(path, points, map_name, closed=True, total_len=None,
-               seed=None, created=None, lights=()):
+               seed=None, created=None, lights=(), bulbs=()):
     """Write a .campath.
 
     points: sequence of (x, y, z, heading, tilt, roll, s, speed).
@@ -261,6 +334,7 @@ def write_path(path, points, map_name, closed=True, total_len=None,
         float(seed.get("heading", 0.0)), float(seed.get("radius", 0.0)),
         int(seed.get("waypoints", 0)), int(seed.get("side", 0)),
         len(lights), LIGHT_STRIDE if lights else 0,
+        len(bulbs), BULB_STRIDE if bulbs else 0,
         b"")
     assert len(head) == HEADER_SIZE, len(head)
 
@@ -276,9 +350,11 @@ def write_path(path, points, map_name, closed=True, total_len=None,
             if len(lt) != 9:
                 raise ValueError(f"light needs 9 fields, got {len(lt)}")
             f.write(struct.pack("<8fI", *[float(v) for v in lt[:8]], int(lt[8])))
+        for b in bulbs:
+            f.write(bulb_bytes(b))
 
     return (HEADER_SIZE + n * STRIDE + len(rows) * SEED_STRIDE
-            + len(lights) * LIGHT_STRIDE)
+            + len(lights) * LIGHT_STRIDE + len(bulbs) * BULB_STRIDE)
 
 
 def read_path(path):
@@ -302,7 +378,11 @@ def read_path(path):
     (_magic, version, flags, count, stride, total_len, name, header_size,
      created, seed_count, seed_stride, seed_heading, seed_radius,
      seed_points, seed_side, light_count, light_stride,
-     _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
+     bulb_count, bulb_stride, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
+
+    if bulb_count and bulb_stride < BULB_STRIDE:
+        raise ValueError(f"bulb_count {bulb_count} with bulb_stride "
+                         f"{bulb_stride}, expected at least {BULB_STRIDE}")
 
     # A file written before lights existed has zeros in both, which reads as no
     # lights without a version test. A count with no stride is a corrupt header,
@@ -317,7 +397,7 @@ def read_path(path):
         raise ValueError(f"header_size {header_size} is smaller than {HEADER_SIZE}")
 
     want = (header_size + count * stride + seed_count * seed_stride
-            + light_count * light_stride)
+            + light_count * light_stride + bulb_count * bulb_stride)
     if len(raw) != want:
         raise ValueError(f"file is {len(raw)} bytes, header implies {want}")
 
@@ -349,6 +429,8 @@ def read_path(path):
         lights.append({"x": x, "y": y, "z": z, "r": r, "g": g, "b": b,
                        "level": level, "range": rng, "curve": int(curve)})
 
+    bulbs = read_bulbs(raw, lbase + light_count * light_stride, bulb_count, bulb_stride)
+
     meta = {
         "version": version,
         "closed": bool(flags & FLAG_CLOSED),
@@ -372,17 +454,46 @@ def read_path(path):
         # In meta rather than a third return value, so every existing caller of
         # read_path keeps working unchanged.
         "lights": lights,
+        # Model-attached lights, see the bulb record above. Placed by the Light
+        # Bulb Placer in nuTerra; Path Studio only carries them through.
+        "bulbs": bulbs,
     }
     return meta, pts
 
 
-def copy_with_lights(src, dst, lights=()):
+def _bulb_block(path):
+    """The raw bulb records of a file, and how many - or (b"", 0)."""
+    if not path or not os.path.exists(path):
+        return b"", 0
+    with open(path, "rb") as f:
+        raw = f.read()
+    if len(raw) < HEADER_SIZE or raw[:4] != MAGIC:
+        return b"", 0
+    (_m, _v, _fl, count, stride, _tl, _nm, header_size, _cr,
+     seed_count, seed_stride, _sh, _sr, _sp, _sd,
+     lc, ls, bc, bs, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
+    if not bc or bs < BULB_STRIDE:
+        return b"", 0
+    off = header_size + count * stride + seed_count * seed_stride + lc * ls
+    end = off + bc * bs
+    if end > len(raw):
+        return b"", 0
+    return raw[off:end], bc
+
+
+def copy_with_lights(src, dst, lights=(), bulbs=None):
     """Copy a generated .campath to its destination, with lights attached.
 
     Surgical on purpose. Reading the file and writing it out again through
     write_path would round-trip every header field through Python floats and
     risk losing one; this replaces only the light block and patches the two
     header words that describe it. Everything else is copied byte for byte.
+
+    BULBS ARE KEPT. Path Studio does not edit them - the Light Bulb Placer in
+    nuTerra does - so unless a list is passed, the bulb block already in the
+    DESTINATION survives a route regenerate or a light save, and a fresh
+    generated source with none cannot wipe them. Pass bulbs=() to drop them
+    on purpose.
     """
     with open(src, "rb") as f:
         raw = f.read()
@@ -391,7 +502,15 @@ def copy_with_lights(src, dst, lights=()):
 
     (_m, _v, _fl, count, stride, _tl, _nm, header_size, _cr,
      seed_count, seed_stride, _sh, _sr, _sp, _sd,
-     _lc, _ls, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
+     _lc, _ls, _bc, _bs, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
+
+    if bulbs is None:
+        bulb_raw, bulb_n = _bulb_block(dst)
+        if not bulb_n:
+            bulb_raw, bulb_n = _bulb_block(src)
+    else:
+        bulb_raw = b"".join(bulb_bytes(b) for b in bulbs)
+        bulb_n = len(bulbs)
 
     # Truncate at the end of the seeds - anything past that is a light block
     # from a previous save and must not be appended to.
@@ -402,14 +521,16 @@ def copy_with_lights(src, dst, lights=()):
     rows = [pack_light(**lt) if isinstance(lt, dict) else lt for lt in lights]
     head = bytearray(raw[:HEADER_SIZE])
     struct.pack_into("<II", head, 96, len(rows), LIGHT_STRIDE if rows else 0)
+    struct.pack_into("<II", head, 104, bulb_n, BULB_STRIDE if bulb_n else 0)
 
     with open(dst, "wb") as f:
         f.write(bytes(head))
         f.write(raw[HEADER_SIZE:body_end])
         for lt in rows:
             f.write(struct.pack("<8fI", *[float(v) for v in lt[:8]], int(lt[8])))
+        f.write(bulb_raw)
 
-    return body_end + len(rows) * LIGHT_STRIDE
+    return body_end + len(rows) * LIGHT_STRIDE + len(bulb_raw)
 
 
 def verify(path, points, seed=None, tol=1e-3):

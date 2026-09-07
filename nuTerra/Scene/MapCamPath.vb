@@ -33,6 +33,8 @@ Public Class MapCamPath
     Private Const POINT_STRIDE As Integer = 32
     Private Const SEED_STRIDE As Integer = 12
     Private Const LIGHT_STRIDE As Integer = 32
+    Private Const BULB_STRIDE As Integer = 224
+    Private Const BULB_NAME_LEN As Integer = 160
 
     Private Const SEED_START As UInteger = 0UI
 
@@ -93,6 +95,48 @@ Public Class MapCamPath
     End Structure
 
     Public lights() As CamLight
+
+    ''' <summary>
+    ''' A BULB: a light attached to a MODEL, placed once in the model's own
+    ''' space by the Light Bulb Placer. At load nuTerra puts one at every
+    ''' instance of that model on the map. The CamLights above are placed on
+    ''' the map by Path Studio; these are placed on a model. Both feed the same
+    ''' lamp path. Record layout: tools/cam_path.py, "Bulb record".
+    ''' </summary>
+    Public Structure CamBulb
+        ''' <summary>The model's .primitives path - the key. The only identity
+        ''' a model has that survives across maps.</summary>
+        Public primitives As String
+        ''' <summary>0 point, 1 cone, 2 inverse cone (omni EXCEPT inside the
+        ''' cone: a cowled street lamp lights everything but its own hood).</summary>
+        Public kind As Integer
+        ''' <summary>Model space, metres from the model origin.</summary>
+        Public pos As Vector3
+        ''' <summary>Model space point a cone looks at. Ignored for a point.</summary>
+        Public aim As Vector3
+        ''' <summary>Full cone angle, degrees.</summary>
+        Public cone As Single
+        ''' <summary>0..1, how much of the cone is soft edge.</summary>
+        Public blend As Single
+        ''' <summary>sRGB 0..1 as the picker holds it - NOT linear.</summary>
+        Public color As Vector3
+        ''' <summary>0..1, fraction of the global light gain.</summary>
+        Public level As Single
+        Public range_m As Single
+        ''' <summary>0..1, how much this light scatters into fog.</summary>
+        Public vol_mix As Single
+        ''' <summary>Shaft falloff curve, 0..2.</summary>
+        Public curve As Integer
+    End Structure
+
+    Public Const BULB_POINT As Integer = 0
+    Public Const BULB_CONE As Integer = 1
+    Public Const BULB_INVERSE_CONE As Integer = 2
+
+    ''' <summary>Model-attached lights read from the file. Empty, never
+    ''' Nothing, once Load has run.</summary>
+    Public bulbs() As CamBulb = {}
+
     ''' <summary>Departure heading the route was planned with, radians.</summary>
     Public seed_heading As Single
     ''' <summary>When the file was written. Unix seconds UTC, 0 if unknown.</summary>
@@ -208,6 +252,78 @@ Public Class MapCamPath
     ''' same Reload Cam Path that picks up the lamps.</summary>
     Public curve_dir As String
 
+
+    ''' <summary>
+    ''' Write the bulb block of the loaded .campath and nothing else. The
+    ''' points, seeds and lights are copied byte for byte; the two header words
+    ''' at 104 and 108 are patched; the bulb records follow. Same surgery as
+    ''' Path Studio's copy_with_lights, from the other side: Path Studio owns
+    ''' the route and the map lights, nuTerra owns the bulbs, and each rewrites
+    ''' only its own block.
+    '''
+    ''' Returns a one-line status for the panel.
+    ''' </summary>
+    Public Function SaveBulbs(new_bulbs() As CamBulb) As String
+        If source_file = "" OrElse Not File.Exists(source_file) Then
+            Return "no .campath loaded to save into"
+        End If
+        Try
+            Dim raw = File.ReadAllBytes(source_file)
+            If raw.Length < HEADER_SIZE OrElse BitConverter.ToUInt32(raw, 0) <> MAGIC Then
+                Return "not a version 2 .campath"
+            End If
+            Dim count = CInt(BitConverter.ToUInt32(raw, 8))
+            Dim stride = CInt(BitConverter.ToUInt32(raw, 12))
+            Dim head_size = CInt(BitConverter.ToUInt32(raw, 60))
+            Dim seed_count = CInt(BitConverter.ToUInt32(raw, 72))
+            Dim seed_stride = CInt(BitConverter.ToUInt32(raw, 76))
+            Dim light_count = CInt(BitConverter.ToUInt32(raw, 96))
+            Dim light_stride = CInt(BitConverter.ToUInt32(raw, 100))
+            Dim body_end = head_size + count * stride + seed_count * seed_stride _
+                           + light_count * light_stride
+            If body_end > raw.Length Then Return "header describes more data than the file holds"
+
+            Dim n = If(new_bulbs Is Nothing, 0, new_bulbs.Length)
+            Using ms As New MemoryStream()
+                Dim head(HEADER_SIZE - 1) As Byte
+                Array.Copy(raw, head, HEADER_SIZE)
+                Array.Copy(BitConverter.GetBytes(CUInt(n)), 0, head, 104, 4)
+                Array.Copy(BitConverter.GetBytes(CUInt(If(n > 0, BULB_STRIDE, 0))), 0, head, 108, 4)
+                ms.Write(head, 0, HEADER_SIZE)
+                ms.Write(raw, HEADER_SIZE, body_end - HEADER_SIZE)
+
+                Using bw As New BinaryWriter(ms, Text.Encoding.UTF8, True)
+                    For i = 0 To n - 1
+                        Dim b = new_bulbs(i)
+                        Dim name(BULB_NAME_LEN - 1) As Byte
+                        Dim enc = Text.Encoding.UTF8.GetBytes(If(b.primitives, ""))
+                        Array.Copy(enc, name, Math.Min(enc.Length, BULB_NAME_LEN - 1))
+                        bw.Write(name)
+                        bw.Write(CUInt(b.kind))
+                        bw.Write(b.pos.X) : bw.Write(b.pos.Y) : bw.Write(b.pos.Z)
+                        bw.Write(b.aim.X) : bw.Write(b.aim.Y) : bw.Write(b.aim.Z)
+                        bw.Write(b.cone)
+                        bw.Write(b.blend)
+                        bw.Write(b.color.X) : bw.Write(b.color.Y) : bw.Write(b.color.Z)
+                        bw.Write(b.level)
+                        bw.Write(b.range_m)
+                        bw.Write(b.vol_mix)
+                        bw.Write(CUInt(b.curve))
+                    Next
+                    bw.Flush()
+                End Using
+                File.WriteAllBytes(source_file, ms.ToArray())
+            End Using
+
+            bulbs = If(new_bulbs, New CamBulb() {})
+            lights_dirty = True
+            LogThis("cam path: wrote {0} bulb(s) to {1}", n, source_file)
+            Return String.Format("saved {0} bulb(s) to {1}", n, IO.Path.GetFileName(source_file))
+        Catch ex As Exception
+            Return "save failed: " & ex.Message
+        End Try
+    End Function
+
     Public Sub Load(map As String)
         Dispose_gl()
         loaded = False
@@ -217,6 +333,7 @@ Public Class MapCamPath
         lights_dirty = True
         load_gen += 1
         points = Nothing
+        bulbs = New CamBulb() {}
         travelled = 0.0F
 
         Dim path = resolve_campath(map)
@@ -269,6 +386,9 @@ Public Class MapCamPath
             ' no version test, no special case.
             Dim light_count = CInt(BitConverter.ToUInt32(raw, 96))
             Dim light_stride = CInt(BitConverter.ToUInt32(raw, 100))
+            ' Bulbs took the next two words of the reserve; same rule.
+            Dim bulb_count = CInt(BitConverter.ToUInt32(raw, 104))
+            Dim bulb_stride = CInt(BitConverter.ToUInt32(raw, 108))
 
             If stride < POINT_STRIDE Then
                 LogThis("cam path: point stride {0} is smaller than {1}", stride, POINT_STRIDE)
@@ -287,9 +407,13 @@ Public Class MapCamPath
                 LogThis("cam path: light stride {0} is smaller than {1}", light_stride, LIGHT_STRIDE)
                 Return
             End If
+            If bulb_count > 0 AndAlso bulb_stride < BULB_STRIDE Then
+                LogThis("cam path: bulb stride {0} is smaller than {1}", bulb_stride, BULB_STRIDE)
+                Return
+            End If
 
             Dim want = head_size + count * stride + seed_count * seed_stride _
-                       + light_count * light_stride
+                       + light_count * light_stride + bulb_count * bulb_stride
             If raw.Length <> want Then
                 LogThis("cam path: {0} is {1} bytes, the header says {2}", path, raw.Length, want)
                 Return
@@ -347,6 +471,34 @@ Public Class MapCamPath
                                      CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 32))), 0)
             Next
 
+            ' Bulbs sit after the lights: lights a model carries, one record per
+            ' model, expanded onto every instance at load. Optional like the
+            ' rest - a file from before them has zeros in the header.
+            ReDim bulbs(Math.Max(0, bulb_count) - 1)
+            Dim bulb_base = light_base + light_count * light_stride
+            For i = 0 To bulb_count - 1
+                Dim o = bulb_base + i * bulb_stride
+                Dim nlen = Array.IndexOf(raw, CByte(0), o, BULB_NAME_LEN)
+                If nlen < 0 Then nlen = o + BULB_NAME_LEN
+                bulbs(i).primitives = Text.Encoding.UTF8.GetString(raw, o, nlen - o)
+                bulbs(i).kind = CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 160)))
+                bulbs(i).pos = New Vector3(BitConverter.ToSingle(raw, o + 164),
+                                           BitConverter.ToSingle(raw, o + 168),
+                                           BitConverter.ToSingle(raw, o + 172))
+                bulbs(i).aim = New Vector3(BitConverter.ToSingle(raw, o + 176),
+                                           BitConverter.ToSingle(raw, o + 180),
+                                           BitConverter.ToSingle(raw, o + 184))
+                bulbs(i).cone = BitConverter.ToSingle(raw, o + 188)
+                bulbs(i).blend = BitConverter.ToSingle(raw, o + 192)
+                bulbs(i).color = New Vector3(BitConverter.ToSingle(raw, o + 196),
+                                             BitConverter.ToSingle(raw, o + 200),
+                                             BitConverter.ToSingle(raw, o + 204))
+                bulbs(i).level = BitConverter.ToSingle(raw, o + 208)
+                bulbs(i).range_m = BitConverter.ToSingle(raw, o + 212)
+                bulbs(i).vol_mix = BitConverter.ToSingle(raw, o + 216)
+                bulbs(i).curve = CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 220)))
+            Next
+
             loaded = True
             source_file = path
             build_geometry()
@@ -366,11 +518,11 @@ Public Class MapCamPath
                     If(closed, "closed loop", "open"),
                     lo.X, hi.X, lo.Y, hi.Y, lo.Z, hi.Z,
                     maxroll * 180.0F / CSng(Math.PI))
-            LogThis("cam path: {0} seed point(s), {1} light(s), planned heading {2:0.0} deg, written {3}",
+            LogThis("cam path: {0} seed point(s), {1} light(s), {4} bulb(s), planned heading {2:0.0} deg, written {3}",
                     seed_count, light_count, seed_heading * 180.0F / CSng(Math.PI),
                     If(created > 0,
                        DateTimeOffset.FromUnixTimeSeconds(created).LocalDateTime.ToString("yyyy-MM-dd HH:mm"),
-                       "unknown"))
+                       "unknown"), bulb_count)
             For i = 0 To light_count - 1
                 LogThis("cam path: light {0} at ({1:0.0}, {2:0.0}) rgb ({3:0.00}, {4:0.00}, {5:0.00}) level {6:0.00} range {7:0.0} m",
                         i, lights(i).pos.X, lights(i).pos.Z,
