@@ -315,11 +315,27 @@ Public Class MapCamPath
     ''' appeared to help was restarting after a build had quietly copied one over
     ''' the other.
     '''
-    ''' Take whichever is NEWER rather than preferring a location. Installed,
-    ''' only one exists and the question does not arise; in a working tree the
-    ''' one just saved wins, which is the whole point.
+    ''' Take whichever is NEWER rather than preferring a location - but only
+    ''' among files in the SOURCE tree. Build output is scanned solely as a
+    ''' fallback, because Application.StartupPath IS bin\Debug\&lt;tfm&gt; and a
+    ''' plain newest-wins walk therefore picks the copy MSBuild just dropped
+    ''' beside the exe. That copy is gitignored and is replaced by the next
+    ''' PreserveNewest copy, so a bulb table saved into it is invisible to git
+    ''' and one Path Studio regenerate away from being gone. A build output
+    ''' copy is a COPY; the master lives in the source tree.
+    '''
+    ''' Installed, there is no source tree - the only copy sits beside the exe
+    ''' and it IS the master - which is what the fallback pass is for.
     ''' </summary>
     Private Shared Function resolve_campath(map As String) As String
+        Dim best = scan_campaths(map, False)
+        If best Is Nothing Then best = scan_campaths(map, True)
+        Return best
+    End Function
+
+    ''' <summary>Newest &lt;dir&gt;\cam_paths\&lt;map&gt;.campath walking up from the
+    ''' exe, either skipping build output or allowing it.</summary>
+    Private Shared Function scan_campaths(map As String, allow_output As Boolean) As String
         Dim best As String = Nothing
         Dim best_t = DateTime.MinValue
 
@@ -327,7 +343,7 @@ Public Class MapCamPath
         While dir IsNot Nothing
             For Each cand In {IO.Path.Combine(dir.FullName, "cam_paths", map & ".campath"),
                               IO.Path.Combine(dir.FullName, "nuTerra", "cam_paths", map & ".campath")}
-                If IO.File.Exists(cand) Then
+                If (allow_output OrElse Not is_build_output(cand)) AndAlso IO.File.Exists(cand) Then
                     Dim t = IO.File.GetLastWriteTimeUtc(cand)
                     If t > best_t Then
                         best_t = t
@@ -339,6 +355,12 @@ Public Class MapCamPath
         End While
 
         Return best
+    End Function
+
+    ''' <summary>True when a path runs through a bin or obj directory.</summary>
+    Private Shared Function is_build_output(path As String) As Boolean
+        Dim p = "\" & path.Replace("/"c, "\"c).ToLowerInvariant() & "\"
+        Return p.Contains("\bin\") OrElse p.Contains("\obj\")
     End Function
 
     ''' <summary>
@@ -558,6 +580,9 @@ Public Class MapCamPath
             LogThis("cam path: none for {0}", map)
             Return
         End If
+        ' In full, because "which of the copies is this" cost an evening once:
+        ' the file being played and the file being saved were not the same one.
+        LogThis("cam path: reading {0}", path)
         curve_dir = IO.Path.GetDirectoryName(path)
 
         Try
