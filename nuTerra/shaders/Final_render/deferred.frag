@@ -122,22 +122,42 @@ uniform int pbr_spec;
 uniform int light_count;
 uniform vec4 pl_pos_range[MAX_PATH_LIGHTS];    // xyz world position, w range in metres
 uniform vec4 pl_color_level[MAX_PATH_LIGHTS];  // rgb colour as authored (sRGB), a level
-uniform vec4 pl_dir_cos[MAX_PATH_LIGHTS];      // xyz world aim direction, w cos(half cone)
-uniform vec4 pl_kind_blend[MAX_PATH_LIGHTS];   // x kind (0 point, 1 cone, 2 inverse cone), y edge blend, z fog mix
+uniform vec4 pl_dir_cos[MAX_PATH_LIGHTS];      // xyz world aim direction, w cos(OUTER half angle)
+uniform vec4 pl_kind_blend[MAX_PATH_LIGHTS];   // x kind, y edge blend, z fog mix, w cos(INNER half angle)
 
 // How much of lamp i reaches a direction. 1 for a point light; a soft-edged
 // cone toward the aim for a cone; everything BUT that cone for an inverse cone
-// - a cowled street lamp, dark into its own hood, lit everywhere else. The
-// blend is the fraction of the cone that is soft edge: 0 is a hard circle.
+// - a cowled street lamp, dark into its own hood, lit everywhere else; and for
+// a DUAL COWLED lamp the band between two lobes on one axis - a lamp on a
+// vertical post, dark up into its cap and dark down along its post, lit in a
+// ring around itself.
+//
+// The two cosines arrive already resolved: MapCamPath.cone_cosines works out
+// the inner and outer half angles once, on the CPU, for both this pass and the
+// shaft pass, so a beam always matches the pool of light under it. cos_in is
+// the LARGER, because cosine falls as the angle grows.
 // from_lamp is unit, lamp -> target.
 float lamp_cone_mask(int i, vec3 from_lamp)
 {
     int kind = int(pl_kind_blend[i].x + 0.5);
     if (kind == 0) return 1.0;
-    float edge  = pl_dir_cos[i].w;
-    float inner = mix(edge, 1.0, clamp(pl_kind_blend[i].y, 0.0, 1.0));
-    float c = dot(from_lamp, pl_dir_cos[i].xyz);
-    float m = smoothstep(edge, max(inner, edge + 1e-4), c);
+
+    float c       = dot(from_lamp, pl_dir_cos[i].xyz);
+    float cos_out = pl_dir_cos[i].w;
+    float cos_in  = max(pl_kind_blend[i].w, cos_out + 1e-4);
+
+    if (kind == 3)
+    {
+        // Each cut carries its own soft edge, in cosine space, the same way a
+        // single cone's does. cap is 1 inside the top lobe, base is 1 inside
+        // the bottom cut; the lit band is what neither of them swallows.
+        float bl   = clamp(pl_kind_blend[i].y, 0.0, 1.0);
+        float cap  = smoothstep(cos_in,  max(mix(cos_in,  1.0, bl), cos_in  + 1e-4), c);
+        float base = smoothstep(cos_out, max(mix(cos_out, 1.0, bl), cos_out + 1e-4), c);
+        return (1.0 - cap) * base;
+    }
+
+    float m = smoothstep(cos_out, cos_in, c);
     return (kind == 1) ? m : 1.0 - m;
 }
 

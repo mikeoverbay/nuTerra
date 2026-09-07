@@ -99,7 +99,7 @@ Public Class BulbPlacer
     Private split_left As Single = 210.0F
     Private split_right As Single = 300.0F
 
-    Private Shared ReadOnly KIND_NAMES As String() = {"point", "cone", "inverse cone"}
+    Private Shared ReadOnly KIND_NAMES As String() = {"point", "cone", "inverse cone", "dual cowl"}
 
     ' =====================================================================
     '  The list
@@ -344,6 +344,10 @@ Public Class BulbPlacer
     Private Function new_bulb() As MapCamPath.CamBulb
         ' Top centre of the box: within a metre of the bulb on every street
         ' lamp in the game. The aim looks straight down from there.
+        '
+        ' ang0 / ang1 start at 0 / 0, which every consumer reads as "derive the
+        ' shape from cone and blend". The sliders seed themselves from that the
+        ' moment the light stops being a point.
         Dim top = New Vector3((bmin.X + bmax.X) * 0.5F, bmax.Y, (bmin.Z + bmax.Z) * 0.5F)
         Dim b As New MapCamPath.CamBulb With {
             .primitives = If(sel >= 0, entries(sel).primitives, ""),
@@ -351,6 +355,7 @@ Public Class BulbPlacer
             .pos = top,
             .aim = top - New Vector3(0.0F, Math.Max(1.0F, bmax.Y - bmin.Y), 0.0F),
             .cone = 120.0F, .blend = 0.35F,
+            .ang0 = 0.0F, .ang1 = 0.0F,
             .color = New Vector3(1.0F, 0.85F, 0.63F),
             .level = 0.5F, .range_m = 20.0F, .vol_mix = 0.45F, .curve = 0}
         If entries.Count > 0 AndAlso sel >= 0 AndAlso entries(sel).kind = "fire" Then
@@ -359,6 +364,27 @@ Public Class BulbPlacer
         End If
         Return b
     End Function
+
+    ''' <summary>
+    ''' Give the two angle sliders real numbers to show. A bulb authored before
+    ''' the ang0 / ang1 pair carries 0 / 0, which the renderer reads as "fall
+    ''' back to cone and blend" - correct, but a slider pinned at zero looks
+    ''' broken. Seed them from the pair the bulb already has, so what the
+    ''' sliders show is what is on screen. Nothing is written to the file until
+    ''' something is actually edited.
+    ''' </summary>
+    Private Shared Sub ensure_angles(ByRef b As MapCamPath.CamBulb)
+        If b.ang1 > b.ang0 AndAlso b.ang1 > 0.0F Then Return
+        If b.kind = MapCamPath.BULB_DUAL_COWL Then
+            b.ang0 = 20.0F
+            b.ang1 = 160.0F
+        Else
+            Dim cos_in, cos_out As Single
+            MapCamPath.cone_cosines(b.kind, b.cone, b.blend, 0.0F, 0.0F, cos_in, cos_out)
+            b.ang1 = CSng(Math.Acos(Math.Clamp(cos_out, -1.0F, 1.0F)) * 180.0 / Math.PI)
+            b.ang0 = CSng(Math.Acos(Math.Clamp(cos_in, -1.0F, 1.0F)) * 180.0 / Math.PI)
+        End If
+    End Sub
 
     Private Sub save()
         If map_scene Is Nothing OrElse sel < 0 Then Return
@@ -633,7 +659,8 @@ Public Class BulbPlacer
         For i = 0 To edits.Count - 1
             Dim b = edits(i)
             Dim lbl = String.Format("{0}{1}: {2} at ({3:0.00}, {4:0.00}, {5:0.00})", If(i = cur, "> ", "  "), i + 1,
-                                    KIND_NAMES(Math.Clamp(b.kind, 0, 2)), b.pos.X, b.pos.Y, b.pos.Z)
+                                    KIND_NAMES(Math.Clamp(b.kind, 0, MapCamPath.BULB_KIND_MAX)),
+                                    b.pos.X, b.pos.Y, b.pos.Z)
             If ImGui.Selectable(lbl) Then cur = i
         Next
         If ImGui.Button("Add light") Then
@@ -653,16 +680,35 @@ Public Class BulbPlacer
             Dim changed = False
             ImGui.Separator()
 
+            ' Type, as radio buttons: four kinds is few enough to show them all
+            ' at once, and picking one is a click instead of a click-and-pick.
             Dim k = b.kind
-            ImGui.PushItemWidth(-1)
-            If ImGui.Combo("##kind", k, KIND_NAMES, KIND_NAMES.Length) Then b.kind = k : changed = True
-            ImGui.PopItemWidth()
-            If ImGui.IsItemHovered() Then
-                ImGui.SetTooltip("point:        every direction" & vbLf &
-                                 "cone:         only inside the cone, toward the aim" & vbLf &
-                                 "inverse cone: every direction EXCEPT inside the cone -" & vbLf &
-                                 "              a cowled lamp, dark into its own hood")
-            End If
+            ImGui.TextDisabled("type")
+            For kk = 0 To MapCamPath.BULB_KIND_MAX
+                If kk = 1 OrElse kk = 3 Then ImGui.SameLine()
+                If ImGui.RadioButton(KIND_NAMES(kk), k, kk) AndAlso b.kind <> kk Then
+                    b.kind = kk
+                    ' A lamp switched to dual cowl with no band yet would be
+                    ' black. Give it one the first time, and leave it alone
+                    ' after that.
+                    If kk = MapCamPath.BULB_DUAL_COWL AndAlso Not (b.ang1 > b.ang0) Then
+                        b.ang0 = 20.0F : b.ang1 = 160.0F
+                    End If
+                    changed = True
+                End If
+                ' On EVERY button, not after the loop - IsItemHovered only ever
+                ' refers to the last item drawn, so a tooltip parked outside
+                ' would answer for one quarter of the control.
+                If ImGui.IsItemHovered() Then
+                    ImGui.SetTooltip("point:        every direction" & vbLf &
+                                     "cone:         only inside the cone, toward the aim" & vbLf &
+                                     "inverse cone: every direction EXCEPT inside the cone -" & vbLf &
+                                     "              a cowled lamp, dark into its own hood" & vbLf &
+                                     "dual cowl:    two of those on ONE axis, so what is lit is" & vbLf &
+                                     "              the BAND between them - a lamp on a vertical" & vbLf &
+                                     "              post, dark up into its cap and down its post")
+                End If
+            Next
 
             ImGui.TextDisabled("move with the right mouse:")
             Dim mv = If(move_aim, 1, 0)
@@ -683,12 +729,46 @@ Public Class BulbPlacer
             End If
             If b.kind <> MapCamPath.BULB_POINT Then
                 Dim a = New System.Numerics.Vector3(b.aim.X, b.aim.Y, b.aim.Z)
-                ImGui.TextDisabled("aim point")
+                ImGui.TextDisabled(If(b.kind = MapCamPath.BULB_DUAL_COWL,
+                                      "aim point - the AXIS both lobes share", "aim point"))
                 If ImGui.InputFloat3("##aim", a, "%.3f") Then b.aim = New Vector3(a.X, a.Y, a.Z) : changed = True
-                Dim cn = b.cone
-                If ImGui.SliderFloat("##cone", cn, 2.0F, 178.0F, "cone %.0f deg") Then b.cone = cn : changed = True
-                Dim bl = b.blend
-                If ImGui.SliderFloat("##blend", bl, 0.0F, 1.0F, "edge blend %.2f") Then b.blend = bl : changed = True
+
+                ' Two half angles from the axis. What they mean depends on the
+                ' kind; the labels say which, so the numbers are never guesses.
+                ensure_angles(b)
+                Dim a0 = b.ang0, a1 = b.ang1
+                If b.kind = MapCamPath.BULB_DUAL_COWL Then
+                    ImGui.TextDisabled("the band: lit between these two")
+                    If ImGui.SliderFloat("##ang0", a0, 0.0F, 179.0F, "cap cut %.0f deg") Then
+                        b.ang0 = Math.Min(a0, b.ang1 - 1.0F) : changed = True
+                    End If
+                    If ImGui.SliderFloat("##ang1", a1, 1.0F, 180.0F, "base cut %.0f deg") Then
+                        b.ang1 = Math.Max(a1, b.ang0 + 1.0F) : changed = True
+                    End If
+                    ImGui.TextDisabled(String.Format("band {0:0} deg wide", b.ang1 - b.ang0))
+                    ' Blend is the softness of BOTH cuts here, and it is the
+                    ' only control for it - two cuts would need four angles to
+                    ' say it any other way.
+                    Dim bl = b.blend
+                    If ImGui.SliderFloat("##blend", bl, 0.0F, 1.0F, "edge blend %.2f") Then b.blend = bl : changed = True
+                Else
+                    If ImGui.SliderFloat("##ang0", a0, 0.0F, 89.0F, "inner %.0f deg") Then
+                        b.ang0 = Math.Min(a0, b.ang1 - 0.5F) : changed = True
+                    End If
+                    If ImGui.SliderFloat("##ang1", a1, 0.5F, 89.5F, "outer %.0f deg") Then
+                        b.ang1 = Math.Max(a1, b.ang0 + 0.5F)
+                        ' Keep the legacy full-angle field truthful: it is what
+                        ' a build from before these two sliders would read.
+                        b.cone = Math.Clamp(b.ang1 * 2.0F, 2.0F, 178.0F)
+                        changed = True
+                    End If
+                    ' No blend slider here on purpose: inner-to-outer IS the
+                    ' soft edge for these two, and a control that changes
+                    ' nothing is worse than one that is absent. The stored
+                    ' blend still drives the shape of any bulb whose angles
+                    ' have never been touched.
+                    ImGui.TextDisabled("soft edge = inner to outer")
+                End If
             End If
 
             Dim col = New System.Numerics.Vector3(b.color.X, b.color.Y, b.color.Z)
@@ -849,32 +929,49 @@ Public Class BulbPlacer
             draw_lines(s, b.color.X, b.color.Y, b.color.Z, 0.35F * a)
 
             If b.kind <> MapCamPath.BULB_POINT Then
-                ' Cone: the axis to the aim, and a ring of rays at the half
-                ' angle, out to the range. Inverse cone in a cooler colour -
-                ' it is the DARK part.
+                ' The axis to the aim, and a ring of rays at each half angle,
+                ' out to the range. A cone gets one rim; a DUAL COWL gets two,
+                ' because what it lights is the band between them. Inverse
+                ' shapes are drawn in a cooler colour - they are the DARK part.
                 Dim axis = b.aim - b.pos
                 If axis.LengthSquared < 1.0E-6F Then axis = -Vector3.UnitY
                 axis.Normalize()
                 Dim c As New List(Of Single)
                 c.AddRange({b.pos.X, b.pos.Y, b.pos.Z, b.aim.X, b.aim.Y, b.aim.Z})
-                Dim half = CSng(Math.Clamp(b.cone, 1.0F, 179.0F) * 0.5 * Math.PI / 180.0)
                 Dim side = Vector3.Cross(axis, If(Math.Abs(axis.Y) < 0.9F, Vector3.UnitY, Vector3.UnitX))
                 side.Normalize()
                 Dim side2 = Vector3.Cross(axis, side)
+
+                ' The same two cosines the renderer will use, so the wire is
+                ' the shape that actually lights.
+                Dim cos_in, cos_out As Single
+                MapCamPath.cone_cosines(b.kind, b.cone, b.blend, b.ang0, b.ang1, cos_in, cos_out)
+
+                ' Outer rim always; the inner one only where it is a real cut
+                ' rather than the soft edge of a single cone.
+                Dim halves As New List(Of Single)({CSng(Math.Acos(Math.Clamp(cos_out, -1.0F, 1.0F)))})
+                If b.kind = MapCamPath.BULB_DUAL_COWL Then
+                    halves.Add(CSng(Math.Acos(Math.Clamp(cos_in, -1.0F, 1.0F))))
+                End If
+
                 Const N As Integer = 24
-                Dim rim(N - 1) As Vector3
-                For k = 0 To N - 1
-                    Dim t = k * 2.0 * Math.PI / N
-                    Dim dir = axis * CSng(Math.Cos(half)) + (side * CSng(Math.Cos(t)) + side2 * CSng(Math.Sin(t))) * CSng(Math.Sin(half))
-                    rim(k) = b.pos + dir * r
-                Next
-                For k = 0 To N - 1
-                    Dim q = rim((k + 1) Mod N)
-                    c.AddRange({rim(k).X, rim(k).Y, rim(k).Z, q.X, q.Y, q.Z})
-                    If k Mod 3 = 0 Then c.AddRange({b.pos.X, b.pos.Y, b.pos.Z, rim(k).X, rim(k).Y, rim(k).Z})
+                For Each half In halves
+                    Dim rim(N - 1) As Vector3
+                    For k = 0 To N - 1
+                        Dim t = k * 2.0 * Math.PI / N
+                        Dim dir = axis * CSng(Math.Cos(half)) + (side * CSng(Math.Cos(t)) + side2 * CSng(Math.Sin(t))) * CSng(Math.Sin(half))
+                        rim(k) = b.pos + dir * r
+                    Next
+                    For k = 0 To N - 1
+                        Dim q = rim((k + 1) Mod N)
+                        c.AddRange({rim(k).X, rim(k).Y, rim(k).Z, q.X, q.Y, q.Z})
+                        If k Mod 3 = 0 Then c.AddRange({b.pos.X, b.pos.Y, b.pos.Z, rim(k).X, rim(k).Y, rim(k).Z})
+                    Next
                 Next
                 If b.kind = MapCamPath.BULB_INVERSE_CONE Then
                     draw_lines(c, 0.35F, 0.55F, 1.0F, a)
+                ElseIf b.kind = MapCamPath.BULB_DUAL_COWL Then
+                    draw_lines(c, 0.45F, 0.95F, 0.75F, a)
                 Else
                     draw_lines(c, 1.0F, 0.95F, 0.6F, a)
                 End If

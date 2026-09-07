@@ -30,12 +30,15 @@ as soon as the map is up. It waits for the load to finish.
   right-drag** moves it up and down; in an ortho view a drag moves along the
   view's own axes and a pixel is a fixed number of metres. The range is a wire
   sphere in the light's colour, a cone is a wire cone to the aim point, an
-  inverse cone the same in blue - it is the DARK part.
+  inverse cone the same in blue - it is the DARK part - and a dual cowl is TWO
+  wire rims in green, one per cut, because what it lights is the band between
+  them.
 - **Right**: the lights on this model. Add, Duplicate, Remove. For the selected
-  one: type, which marker the right mouse moves (bulb or aim point), position
-  and aim as numbers, cone angle, edge blend, colour, level, range, fog mix,
-  shaft curve. **Save to campath** writes this model's lights into the table;
-  other models' bulbs, the route and the map lights are copied through.
+  one: type as four **radio buttons**, which marker the right mouse moves (bulb
+  or aim point), position and aim as numbers, the **two half angles**, edge
+  blend, colour, level, range, fog mix, shaft curve. **Save to campath** writes
+  this model's lights into the table; other models' bulbs, the route and the
+  map lights are copied through.
 
 The view is STANDALONE: the model is read again from the pkg by its own small
 loader - position and normal, 24 bytes a vertex - and drawn by
@@ -69,27 +72,74 @@ are baked for the map lights only** (`MapLampShadow.Bake` uses
 lit unshadowed. Cubes for the nearest bulbs would need a rebake whenever the
 set changes - not done.
 
-## Cone and inverse cone
+## The four shapes
 
-`deferred.frag` `lamp_cone_mask` and `lamp_fog.frag` `cone_mask`, the same
-function on a surface and in the air:
+Every bulb carries TWO half angles from its axis, `ang0` and `ang1`, and each
+kind reads them differently:
+
+| kind | lit where | ang0 | ang1 |
+|---|---|---|---|
+| 0 point | everywhere | - | - |
+| 1 cone | inside ang1 | inner hot edge | outer edge |
+| 2 inverse cone | outside ang0 | dark edge | soft-out edge |
+| 3 dual cowl | BETWEEN ang0 and ang1 | the cap cut | the base cut |
+
+The **dual cowl** is two inverse lobes on ONE shared axis, so what it lights is
+a toroidal band. It is the shape of a lamp on a vertical post: the cap swallows
+the light going up, the post blocks it going down, and what escapes is a ring.
+Band width is `ang1 - ang0`, and `blend` softens both of its edges.
+
+`ang0 = ang1 = 0` means "derive the shape from `cone` and `blend`" - what every
+bulb authored before these fields carries, and what a Path Studio map light
+always carries. Those render exactly as they did.
+
+**`MapCamPath.cone_cosines` is the one place that resolves the pair**, on the
+CPU, for both upload paths. `deferred.frag` `lamp_cone_mask` and
+`lamp_fog.frag` `cone_mask` are the same function on a surface and in the air,
+and a shaft has the shape of the light that casts it - two copies of this
+arithmetic would drift and the beam would stop matching its own pool.
 
 ```
-c     = dot(from_lamp, dir)               1 on the axis
-edge  = cos(cone / 2)
-inner = mix(edge, 1, blend)
-m     = smoothstep(edge, inner, c)
-mask  = point: 1 | cone: m | inverse cone: 1 - m
+c       = dot(from_lamp, dir)                 1 on the axis
+cos_in  = cos(ang0)   cos_out = cos(ang1)     cos_in is the LARGER
+m       = smoothstep(cos_out, cos_in, c)
+cap     = smoothstep(cos_in,  mix(cos_in,  1, blend), c)
+base    = smoothstep(cos_out, mix(cos_out, 1, blend), c)
+mask    = point: 1 | cone: m | inverse: 1 - m | dual cowl: (1 - cap) * base
 ```
 
 Multiplied into the lamp's visibility before the shadow, so a shadowed cone
 stays a cone. `vol_mix` scales what a lamp scatters into fog; a map light has 1.
 
-## Uniforms added
+## Uniforms
 
-`deferred.frag`: `pl_dir_cos[32]` (xyz aim, w cos half), `pl_kind_blend[32]`
-(x kind, y blend, z vol_mix). `lamp_fog.frag`: `lamp_dir`, `lamp_cos_half`,
-`lamp_kind`, `lamp_blend`, `lamp_vol_mix`.
+`deferred.frag`: `pl_dir_cos[32]` (xyz aim, **w cos of the OUTER half angle**),
+`pl_kind_blend[32]` (x kind, y blend, z vol_mix, **w cos of the INNER half
+angle**). The second angle needed no new uniform array: that `w` was uploaded
+as a hard 0 and never read. `lamp_fog.frag`: `lamp_dir`, `lamp_cos_out`,
+`lamp_cos_in`, `lamp_kind`, `lamp_blend`, `lamp_vol_mix`.
+
+## Growing the bulb record
+
+The record went 224 -> 232 bytes for `ang0` / `ang1`, and that is the part to
+be careful with. **Three readers had to be made stride-tolerant first**, or an
+existing file would have been destroyed rather than upgraded:
+
+- `MapCamPath.vb` guarded on `bulb_stride < BULB_STRIDE` and `Return`ed - which
+  abandons the WHOLE campath, route and map lights included, not just the
+  bulbs. It now guards on `BULB_STRIDE_MIN` (224) and reads the two angles only
+  when the stride covers them.
+- `cam_path.py` `_bulb_block` refused an older stride and reported "no bulbs",
+  so a Path Studio route regenerate would have **silently wiped placed bulbs**.
+  It now accepts anything from `BULB_STRIDE_MIN` up.
+- `copy_with_lights` stamped the CURRENT stride onto a block copied at the
+  file's own stride. It now carries the source stride through, so 224-byte
+  records are never described as 232.
+
+The precedent is the light record's `curve` field: the reader goes by the
+stride the FILE declares, never by the size this build happens to write, and
+the VB constant is the minimum accepted rather than what the writer emits. Any
+future field follows the same rule.
 
 ## Not done
 

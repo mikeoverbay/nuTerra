@@ -52,7 +52,8 @@ Header - 128 bytes, little endian
    96  uint32   light_count   number of light records, may be 0
   100  uint32   light_stride  bytes per light record, 36 (32 before `curve`)
   104  uint32   bulb_count    number of bulb records, may be 0
-  108  uint32   bulb_stride   bytes per bulb record, 224
+  108  uint32   bulb_stride   bytes per bulb record, 232 (224 before the two
+                              angles). Skip by THIS, never by the constant.
   112  char[16] reserved      zeroed
 
 The light fields come out of what version 2 already reserved, so the header is
@@ -93,7 +94,7 @@ reproduced, adjusted and regenerated later; without it, the only record of the
 intent was in the operator's head.
 
 --------------------------------------------------------------------------
-Bulb record - 224 bytes, after the lights. A BULB is a light attached to a
+Bulb record - 232 bytes, after the lights. A BULB is a light attached to a
 MODEL: it is placed once, in the model's own space, by the Light Bulb Placer,
 and nuTerra puts one at every instance of that model on the map. The lights
 above are placed on the map by Path Studio; these are placed on a model. Both
@@ -104,7 +105,8 @@ end up in the same lamp path.
                               The only identity a model has across maps, and
                               the key the Placer's list shows.
   160  uint32     type        0 point, 1 cone, 2 inverse cone (omni EXCEPT
-                              inside the cone - a cowled street lamp)
+                              inside the cone - a cowled street lamp),
+                              3 dual cowled (see ang0 / ang1)
   164  float32x3  pos         model space, metres from the model origin
   176  float32x3  aim         model space point the cone looks at. Ignored
                               for a point light.
@@ -115,6 +117,29 @@ end up in the same lamp path.
   212  float32    range       metres
   216  float32    vol_mix     0..1, how much it scatters into fog
   220  uint32     curve       shaft falloff curve, 0..2
+  224  float32    ang0        HALF angle from the axis, degrees - see below
+  228  float32    ang1        the second half angle, degrees
+
+ang0 and ang1 are read per type, and one pair of fields serves all three aimed
+kinds:
+
+  type            lit where              ang0            ang1
+  0 point         everywhere             -               -
+  1 cone          inside ang1            inner hot edge  outer edge
+  2 inverse cone  outside ang0           dark edge       soft-out edge
+  3 dual cowled   BETWEEN ang0 and ang1  the cap cut     the base cut
+
+The DUAL COWLED lamp is two inverse lobes on ONE shared axis, so what it lights
+is a toroidal band: a lamp on a vertical post, where the cap blocks the light
+going up and the post blocks it going down. With the axis pointing up, ang0 is
+how much of straight-up the cap swallows and ang1 is where the post cuts the
+band off on the way down; the band's width is ang1 - ang0, and `blend` softens
+both of its edges.
+
+A file written before these two fields is 224 bytes a bulb and reads back with
+ang0 = ang1 = 0, which means "fall back to `blend`" and renders exactly as it
+did. Readers go by the bulb_stride in the header, never by 232 - the same rule
+the light record's `curve` field follows.
 
 Light record - 36 bytes, 8 x float32 + uint32, at header_size + count * stride
                                         + seed_count * seed_stride
@@ -205,15 +230,21 @@ STRIDE = 32
 SEED_STRIDE = 12
 LIGHT_STRIDE = 36        # what this writer emits: 8 floats + the curve
 LIGHT_STRIDE_MIN = 32    # what a reader must accept: files from before `curve`
-BULB_STRIDE = 224        # 160-byte name + 16 words
+BULB_STRIDE = 232        # what this writer emits: the 224 below + ang0, ang1
+BULB_STRIDE_MIN = 224    # what a reader must accept: 160-byte name + 16 words,
+                         # files from before the two angles
 BULB_NAME_LEN = 160
-BULB_POINT, BULB_CONE, BULB_INVERSE_CONE = 0, 1, 2
+BULB_POINT, BULB_CONE, BULB_INVERSE_CONE, BULB_DUAL_COWL = 0, 1, 2, 3
 
 # The trailing 16s is what is LEFT of version 2's 32 reserved bytes after the
 # light pair and then the bulb pair were taken from the front of it. Total is
 # still 128 and this is still NCP2: a file from before either reads zeros there.
 HEAD_FMT = "<4sHHIIf40sIqIIffIiIIII16s"
-BULB_FMT = "<160sI3f3fff3ffffI"
+# The record through `curve`, which every bulb file ever written has, and the
+# full one. Unpack the first from any file and take the angles only when the
+# stride says they are there.
+BULB_FMT_MIN = "<160sI3f3fff3ffffI"
+BULB_FMT = BULB_FMT_MIN + "2f"
 
 FLAG_CLOSED = 1
 
@@ -258,8 +289,13 @@ def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0, curve=0):
 
 def pack_bulb(primitives, type=BULB_POINT, pos=(0.0, 0.0, 0.0), aim=(0.0, -1.0, 0.0),
               cone=150.0, blend=0.35, color="#ffffff", level=0.5, rng=20.0,
-              vol_mix=0.45, curve=0):
-    """One bulb, as the dict the reader returns and the writer takes."""
+              vol_mix=0.45, curve=0, ang0=0.0, ang1=0.0):
+    """One bulb, as the dict the reader returns and the writer takes.
+
+    ang0 / ang1 are the two half angles from the axis, in degrees, read per
+    type - see the Bulb record in the module doc. Both 0 means "fall back to
+    `blend`", which is what a file from before them reads back as.
+    """
     if isinstance(color, str):
         h = color.lstrip("#")
         if len(h) == 3:
@@ -271,7 +307,7 @@ def pack_bulb(primitives, type=BULB_POINT, pos=(0.0, 0.0, 0.0), aim=(0.0, -1.0, 
             "pos": tuple(float(v) for v in pos), "aim": tuple(float(v) for v in aim),
             "cone": float(cone), "blend": float(blend), "color": rgb,
             "level": float(level), "range": float(rng), "vol_mix": float(vol_mix),
-            "curve": int(curve)}
+            "curve": int(curve), "ang0": float(ang0), "ang1": float(ang1)}
 
 
 def bulb_bytes(b):
@@ -282,20 +318,33 @@ def bulb_bytes(b):
                        float(b["cone"]), float(b["blend"]),
                        *[float(v) for v in b["color"]],
                        float(b["level"]), float(b["range"]), float(b["vol_mix"]),
-                       int(b["curve"]))
+                       int(b["curve"]),
+                       float(b.get("ang0", 0.0)), float(b.get("ang1", 0.0)))
 
 
 def read_bulbs(raw, off, count, stride):
-    """The bulb block of a file, as a list of pack_bulb dicts."""
+    """The bulb block of a file, as a list of pack_bulb dicts.
+
+    By the stride the file DECLARES, not by the record size this version
+    knows. A file from before the two angles is 224 bytes a bulb and reads
+    back with ang0 = ang1 = 0, the same way a pre-`curve` light reads as
+    curve 0.
+    """
     out = []
     for i in range(count):
         o = off + i * stride
         (name, typ, px, py, pz, ax, ay, az, cone, blend, r, g, b,
-         level, rng, vol_mix, curve) = struct.unpack(BULB_FMT, raw[o:o + BULB_STRIDE])
+         level, rng, vol_mix, curve) = struct.unpack(BULB_FMT_MIN,
+                                                     raw[o:o + BULB_STRIDE_MIN])
+        if stride >= BULB_STRIDE:
+            ang0, ang1 = struct.unpack("<2f", raw[o + BULB_STRIDE_MIN:o + BULB_STRIDE])
+        else:
+            ang0 = ang1 = 0.0
         out.append({"primitives": name.split(b"\0", 1)[0].decode("utf-8", "replace"),
                     "type": typ, "pos": (px, py, pz), "aim": (ax, ay, az),
                     "cone": cone, "blend": blend, "color": (r, g, b),
-                    "level": level, "range": rng, "vol_mix": vol_mix, "curve": curve})
+                    "level": level, "range": rng, "vol_mix": vol_mix, "curve": curve,
+                    "ang0": ang0, "ang1": ang1})
     return out
 
 
@@ -380,9 +429,9 @@ def read_path(path):
      seed_points, seed_side, light_count, light_stride,
      bulb_count, bulb_stride, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
 
-    if bulb_count and bulb_stride < BULB_STRIDE:
+    if bulb_count and bulb_stride < BULB_STRIDE_MIN:
         raise ValueError(f"bulb_count {bulb_count} with bulb_stride "
-                         f"{bulb_stride}, expected at least {BULB_STRIDE}")
+                         f"{bulb_stride}, expected at least {BULB_STRIDE_MIN}")
 
     # A file written before lights existed has zeros in both, which reads as no
     # lights without a version test. A count with no stride is a corrupt header,
@@ -462,23 +511,31 @@ def read_path(path):
 
 
 def _bulb_block(path):
-    """The raw bulb records of a file, and how many - or (b"", 0)."""
+    """The raw bulb records of a file, how many, and the stride they are at.
+
+    The STRIDE comes back with the bytes because the two travel together: a
+    file written before the ang0 / ang1 pair holds 224-byte records, and
+    stamping this version's 232 on them would make every record after the
+    first read at the wrong offset. Accept anything from BULB_STRIDE_MIN up -
+    rejecting an older stride here would report "no bulbs" and quietly drop
+    the operator's placed lights on the next route regenerate.
+    """
     if not path or not os.path.exists(path):
-        return b"", 0
+        return b"", 0, 0
     with open(path, "rb") as f:
         raw = f.read()
     if len(raw) < HEADER_SIZE or raw[:4] != MAGIC:
-        return b"", 0
+        return b"", 0, 0
     (_m, _v, _fl, count, stride, _tl, _nm, header_size, _cr,
      seed_count, seed_stride, _sh, _sr, _sp, _sd,
      lc, ls, bc, bs, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
-    if not bc or bs < BULB_STRIDE:
-        return b"", 0
+    if not bc or bs < BULB_STRIDE_MIN:
+        return b"", 0, 0
     off = header_size + count * stride + seed_count * seed_stride + lc * ls
     end = off + bc * bs
     if end > len(raw):
-        return b"", 0
-    return raw[off:end], bc
+        return b"", 0, 0
+    return raw[off:end], bc, bs
 
 
 def copy_with_lights(src, dst, lights=(), bulbs=None):
@@ -505,12 +562,13 @@ def copy_with_lights(src, dst, lights=(), bulbs=None):
      _lc, _ls, _bc, _bs, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
 
     if bulbs is None:
-        bulb_raw, bulb_n = _bulb_block(dst)
+        bulb_raw, bulb_n, bulb_s = _bulb_block(dst)
         if not bulb_n:
-            bulb_raw, bulb_n = _bulb_block(src)
+            bulb_raw, bulb_n, bulb_s = _bulb_block(src)
     else:
         bulb_raw = b"".join(bulb_bytes(b) for b in bulbs)
         bulb_n = len(bulbs)
+        bulb_s = BULB_STRIDE
 
     # Truncate at the end of the seeds - anything past that is a light block
     # from a previous save and must not be appended to.
@@ -521,7 +579,9 @@ def copy_with_lights(src, dst, lights=(), bulbs=None):
     rows = [pack_light(**lt) if isinstance(lt, dict) else lt for lt in lights]
     head = bytearray(raw[:HEADER_SIZE])
     struct.pack_into("<II", head, 96, len(rows), LIGHT_STRIDE if rows else 0)
-    struct.pack_into("<II", head, 104, bulb_n, BULB_STRIDE if bulb_n else 0)
+    # The stride the copied BYTES are at, not the one this version writes -
+    # see _bulb_block.
+    struct.pack_into("<II", head, 104, bulb_n, bulb_s if bulb_n else 0)
 
     with open(dst, "wb") as f:
         f.write(bytes(head))

@@ -46,18 +46,35 @@ uniform vec3  lamp_color;    // sRGB as authored
 uniform float lamp_level;
 uniform int   lamp_index;    // layer in the cube array, -1 if it has no bake
 uniform vec3  lamp_dir;      // world unit aim direction (cones)
-uniform float lamp_cos_half; // cos of the half angle
-uniform int   lamp_kind;     // 0 point, 1 cone, 2 inverse cone
+uniform float lamp_cos_out;  // cos of the OUTER half angle
+uniform float lamp_cos_in;   // cos of the INNER half angle, the larger of the two
+uniform int   lamp_kind;     // 0 point, 1 cone, 2 inverse cone, 3 dual cowled
 uniform float lamp_blend;    // soft edge fraction
 uniform float lamp_vol_mix;  // how much this lamp scatters into fog, 1 for a map light
 
 // Same mask as deferred.frag's lamp_cone_mask, for the air instead of the
-// surfaces: a shaft has the shape of the light that makes it.
+// surfaces: a shaft has the shape of the light that makes it. Both are fed by
+// MapCamPath.cone_cosines, so the two cannot drift apart - if you change one,
+// change the other.
 float cone_mask(vec3 from_lamp)
 {
     if (lamp_kind == 0) return 1.0;
-    float inner = mix(lamp_cos_half, 1.0, clamp(lamp_blend, 0.0, 1.0));
-    float m = smoothstep(lamp_cos_half, max(inner, lamp_cos_half + 1e-4), dot(from_lamp, lamp_dir));
+
+    float c       = dot(from_lamp, lamp_dir);
+    float cos_out = lamp_cos_out;
+    float cos_in  = max(lamp_cos_in, cos_out + 1e-4);
+
+    if (lamp_kind == 3)
+    {
+        // Two lobes on one axis: the shaft is a skirt around the lamp rather
+        // than a beam under it.
+        float bl   = clamp(lamp_blend, 0.0, 1.0);
+        float cap  = smoothstep(cos_in,  max(mix(cos_in,  1.0, bl), cos_in  + 1e-4), c);
+        float base = smoothstep(cos_out, max(mix(cos_out, 1.0, bl), cos_out + 1e-4), c);
+        return (1.0 - cap) * base;
+    }
+
+    float m = smoothstep(cos_out, cos_in, c);
     return (lamp_kind == 1) ? m : 1.0 - m;
 }
 

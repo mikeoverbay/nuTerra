@@ -1141,8 +1141,11 @@ Module modRender
     Private pl_locs_logged As Boolean = False
     Private pl_pos(MAX_PATH_LIGHTS * 4 - 1) As Single
     Private pl_col(MAX_PATH_LIGHTS * 4 - 1) As Single
-    Private pl_dir(MAX_PATH_LIGHTS * 4 - 1) As Single   ' xyz aim, w cos(half cone)
-    Private pl_kb(MAX_PATH_LIGHTS * 4 - 1) As Single    ' x kind, y blend, z vol_mix
+    Private pl_dir(MAX_PATH_LIGHTS * 4 - 1) As Single   ' xyz aim, w cos(OUTER half angle)
+    ' x kind, y blend, z vol_mix, w cos(INNER half angle). The w was uploaded
+    ' as a hard 0 and never read until the two angles arrived - which is why
+    ' the second angle needed no new uniform array.
+    Private pl_kb(MAX_PATH_LIGHTS * 4 - 1) As Single
 
     Private Sub upload_path_lights()
         Dim n As Integer = 0
@@ -1173,16 +1176,20 @@ Module modRender
                 pl_col(k * 4 + 2) = src(i).color.Z
                 pl_col(k * 4 + 3) = src(i).level
 
-                Dim half = Math.Clamp(src(i).cone, 1.0F, 179.0F) * 0.5 * Math.PI / 180.0
+                ' Both cone cosines from the one place that knows how to derive
+                ' them, so this pass and the shaft pass cannot drift apart.
+                Dim cos_in, cos_out As Single
+                MapCamPath.cone_cosines(src(i).kind, src(i).cone, src(i).blend,
+                                        src(i).ang0, src(i).ang1, cos_in, cos_out)
                 pl_dir(k * 4 + 0) = src(i).dir.X
                 pl_dir(k * 4 + 1) = src(i).dir.Y
                 pl_dir(k * 4 + 2) = src(i).dir.Z
-                pl_dir(k * 4 + 3) = CSng(Math.Cos(half))
+                pl_dir(k * 4 + 3) = cos_out
 
                 pl_kb(k * 4 + 0) = src(i).kind
                 pl_kb(k * 4 + 1) = src(i).blend
                 pl_kb(k * 4 + 2) = src(i).vol_mix
-                pl_kb(k * 4 + 3) = 0.0F
+                pl_kb(k * 4 + 3) = cos_in
             Next
         End If
 

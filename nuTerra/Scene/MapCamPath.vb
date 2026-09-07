@@ -33,7 +33,15 @@ Public Class MapCamPath
     Private Const POINT_STRIDE As Integer = 32
     Private Const SEED_STRIDE As Integer = 12
     Private Const LIGHT_STRIDE As Integer = 32
-    Private Const BULB_STRIDE As Integer = 224
+    ''' <summary>What SaveBulbs emits: the 224 below plus ang0 and ang1.</summary>
+    Private Const BULB_STRIDE As Integer = 232
+    ''' <summary>What a reader must ACCEPT - a file written before the two
+    ''' angles is 224 bytes a bulb and is not a lesser file. Guarding on
+    ''' BULB_STRIDE instead would refuse the whole campath, route and map
+    ''' lights included, the moment the record grew. Same rule as
+    ''' LIGHT_STRIDE above, which is likewise the minimum, not the size this
+    ''' version writes.</summary>
+    Private Const BULB_STRIDE_MIN As Integer = 224
     Private Const BULB_NAME_LEN As Integer = 160
 
     Private Const SEED_START As UInteger = 0UI
@@ -96,7 +104,7 @@ Public Class MapCamPath
         ' The fields below exist for BULB lights - lights a model carries, one
         ' per instance (ExpandBulbs). A map light from the file has kind 0,
         ' vol_mix 1 and absolute False.
-        ''' <summary>0 point, 1 cone, 2 inverse cone.</summary>
+        ''' <summary>0 point, 1 cone, 2 inverse cone, 3 dual cowled.</summary>
         Public kind As Integer
         ''' <summary>World unit direction a cone looks along.</summary>
         Public dir As Vector3
@@ -104,6 +112,11 @@ Public Class MapCamPath
         Public cone As Single
         ''' <summary>0..1, soft edge fraction of the cone.</summary>
         Public blend As Single
+        ''' <summary>The two HALF angles from the axis, degrees. Read per kind -
+        ''' see CamBulb.ang0 below, which is where these come from. Both 0
+        ''' means "fall back to blend".</summary>
+        Public ang0 As Single
+        Public ang1 As Single
         ''' <summary>Scales what this light scatters into fog.</summary>
         Public vol_mix As Single
         ''' <summary>True when pos.Y is absolute world height, not metres
@@ -130,7 +143,8 @@ Public Class MapCamPath
         ''' a model has that survives across maps.</summary>
         Public primitives As String
         ''' <summary>0 point, 1 cone, 2 inverse cone (omni EXCEPT inside the
-        ''' cone: a cowled street lamp lights everything but its own hood).</summary>
+        ''' cone: a cowled street lamp lights everything but its own hood),
+        ''' 3 dual cowled - see ang0.</summary>
         Public kind As Integer
         ''' <summary>Model space, metres from the model origin.</summary>
         Public pos As Vector3
@@ -149,11 +163,84 @@ Public Class MapCamPath
         Public vol_mix As Single
         ''' <summary>Shaft falloff curve, 0..2.</summary>
         Public curve As Integer
+        ''' <summary>
+        ''' The two HALF angles from the axis, in degrees. One pair of fields
+        ''' serves all three aimed kinds, read differently by each:
+        '''
+        '''   kind            lit where              ang0            ang1
+        '''   0 point         everywhere             -               -
+        '''   1 cone          inside ang1            inner hot edge  outer edge
+        '''   2 inverse cone  outside ang0           dark edge       soft-out edge
+        '''   3 dual cowled   BETWEEN ang0 and ang1  the cap cut     the base cut
+        '''
+        ''' The DUAL COWLED lamp is two inverse lobes on ONE shared axis, so
+        ''' what it lights is a toroidal band - a lamp on a vertical post,
+        ''' where the cap swallows the light going up and the post blocks it
+        ''' going down. Band width is ang1 - ang0 and blend softens both edges.
+        '''
+        ''' Both 0 means "fall back to blend", which is what a file written
+        ''' before these fields reads back as, so nothing already authored
+        ''' changes appearance.
+        ''' </summary>
+        Public ang0 As Single
+        Public ang1 As Single
     End Structure
 
     Public Const BULB_POINT As Integer = 0
     Public Const BULB_CONE As Integer = 1
     Public Const BULB_INVERSE_CONE As Integer = 2
+    ''' <summary>Two inverse lobes on one axis: a lit band. See CamBulb.ang0.</summary>
+    Public Const BULB_DUAL_COWL As Integer = 3
+    ''' <summary>The highest kind this build understands, for the clamps that
+    ''' keep a hand-edited or future file from indexing off the end.</summary>
+    Public Const BULB_KIND_MAX As Integer = 3
+
+    ''' <summary>
+    ''' The two cosines every cone mask needs: cos of the INNER half angle and
+    ''' cos of the OUTER one. cos_in is the LARGER of the two, because cosine
+    ''' falls as the angle grows.
+    '''
+    ''' One function, called from both upload paths, because deferred.frag and
+    ''' lamp_fog.frag run the SAME mask - one on a surface, one in the air -
+    ''' and a shaft has the shape of the light that casts it. Two copies of
+    ''' this arithmetic would eventually disagree and the beam would stop
+    ''' matching its own pool of light.
+    '''
+    ''' With ang0 / ang1 unset - every bulb authored before those fields, and
+    ''' every Path Studio map light - a cone falls back to the shipped
+    ''' cone-plus-blend pair and renders exactly as it did.
+    ''' </summary>
+    Public Shared Sub cone_cosines(kind As Integer, cone As Single, blend As Single,
+                                   ang0 As Single, ang1 As Single,
+                                   ByRef cos_in As Single, ByRef cos_out As Single)
+        Dim bl = Math.Clamp(blend, 0.0F, 1.0F)
+        Dim have_pair = ang1 > ang0 AndAlso ang1 > 0.0F
+
+        If kind = BULB_DUAL_COWL Then
+            ' Two lobes on one axis; the lit part is the band between them. A
+            ' bulb switched to this kind before its angles were set gets a wide
+            ' band rather than a black lamp.
+            Dim a0 = If(have_pair, ang0, 20.0F)
+            Dim a1 = If(have_pair, ang1, 160.0F)
+            cos_in = CSng(Math.Cos(Math.Clamp(a0, 0.0F, 179.0F) * Math.PI / 180.0))
+            cos_out = CSng(Math.Cos(Math.Clamp(a1, 1.0F, 180.0F) * Math.PI / 180.0))
+            Return
+        End If
+
+        ' Cone and inverse cone. `cone` is the FULL angle, so half of it is the
+        ' outer edge when no explicit pair was authored.
+        Dim outer = If(have_pair, ang1, Math.Clamp(cone, 1.0F, 179.0F) * 0.5F)
+        cos_out = CSng(Math.Cos(Math.Clamp(outer, 0.5F, 89.5F) * Math.PI / 180.0))
+        If ang0 > 0.0F AndAlso ang0 < outer Then
+            cos_in = CSng(Math.Cos(Math.Clamp(ang0, 0.0F, 89.0F) * Math.PI / 180.0))
+        Else
+            ' The shipped soft edge: a fraction of the way from the rim to the
+            ' axis, in cosine space.
+            cos_in = cos_out + (1.0F - cos_out) * bl
+        End If
+        ' smoothstep needs the two edges apart; equal ones give a hard rim.
+        cos_in = Math.Max(cos_in, cos_out + 0.0001F)
+    End Sub
 
     ''' <summary>Model-attached lights read from the file. Empty, never
     ''' Nothing, once Load has run.</summary>
@@ -331,6 +418,8 @@ Public Class MapCamPath
                         bw.Write(b.range_m)
                         bw.Write(b.vol_mix)
                         bw.Write(CUInt(b.curve))
+                        bw.Write(b.ang0)
+                        bw.Write(b.ang1)
                     Next
                     bw.Flush()
                 End Using
@@ -437,7 +526,8 @@ Public Class MapCamPath
                             .pos = wp, .absolute = True,
                             .color = b.color, .level = b.level, .range_m = b.range_m,
                             .curve = b.curve, .kind = b.kind, .dir = dir,
-                            .cone = b.cone, .blend = b.blend, .vol_mix = b.vol_mix})
+                            .cone = b.cone, .blend = b.blend, .vol_mix = b.vol_mix,
+                            .ang0 = b.ang0, .ang1 = b.ang1})
                         placed += 1
                     Next
                 Next
@@ -534,8 +624,8 @@ Public Class MapCamPath
                 LogThis("cam path: light stride {0} is smaller than {1}", light_stride, LIGHT_STRIDE)
                 Return
             End If
-            If bulb_count > 0 AndAlso bulb_stride < BULB_STRIDE Then
-                LogThis("cam path: bulb stride {0} is smaller than {1}", bulb_stride, BULB_STRIDE)
+            If bulb_count > 0 AndAlso bulb_stride < BULB_STRIDE_MIN Then
+                LogThis("cam path: bulb stride {0} is smaller than {1}", bulb_stride, BULB_STRIDE_MIN)
                 Return
             End If
 
@@ -610,7 +700,7 @@ Public Class MapCamPath
                 Dim nlen = Array.IndexOf(raw, CByte(0), o, BULB_NAME_LEN)
                 If nlen < 0 Then nlen = o + BULB_NAME_LEN
                 bulbs(i).primitives = Text.Encoding.UTF8.GetString(raw, o, nlen - o)
-                bulbs(i).kind = CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 160)))
+                bulbs(i).kind = CInt(Math.Min(CUInt(BULB_KIND_MAX), BitConverter.ToUInt32(raw, o + 160)))
                 bulbs(i).pos = New Vector3(BitConverter.ToSingle(raw, o + 164),
                                            BitConverter.ToSingle(raw, o + 168),
                                            BitConverter.ToSingle(raw, o + 172))
@@ -626,6 +716,17 @@ Public Class MapCamPath
                 bulbs(i).range_m = BitConverter.ToSingle(raw, o + 212)
                 bulbs(i).vol_mix = BitConverter.ToSingle(raw, o + 216)
                 bulbs(i).curve = CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 220)))
+                ' By the stride the FILE declares, not by the record size this
+                ' version knows: a file from before the two angles is 224 bytes
+                ' a bulb and reads as 0 / 0, which every consumer treats as
+                ' "fall back to blend". Same rule as the light record's curve.
+                If bulb_stride >= BULB_STRIDE Then
+                    bulbs(i).ang0 = BitConverter.ToSingle(raw, o + 224)
+                    bulbs(i).ang1 = BitConverter.ToSingle(raw, o + 228)
+                Else
+                    bulbs(i).ang0 = 0.0F
+                    bulbs(i).ang1 = 0.0F
+                End If
             Next
 
             path_lights = lights

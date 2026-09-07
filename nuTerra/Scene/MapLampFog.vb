@@ -143,9 +143,13 @@ Public Class MapLampFog
             Dim w = cp.world_pos(i)
             Dim wx = w.X, wy = w.Y, wz = w.Z
             Dim r = Math.Max(0.1F, l.range_m)
-            Dim half = Math.Clamp(l.cone, 1.0F, 179.0F) * 0.5 * Math.PI / 180.0
+            ' The same two cosines the surface pass uploads, from the same
+            ' function - a shaft has the shape of the light that casts it.
+            Dim cos_in, cos_out As Single
+            MapCamPath.cone_cosines(l.kind, l.cone, l.blend, l.ang0, l.ang1, cos_in, cos_out)
             GL.Uniform3(lampFogShader("lamp_dir"), l.dir.X, l.dir.Y, l.dir.Z)
-            GL.Uniform1(lampFogShader("lamp_cos_half"), CSng(Math.Cos(half)))
+            GL.Uniform1(lampFogShader("lamp_cos_out"), cos_out)
+            GL.Uniform1(lampFogShader("lamp_cos_in"), cos_in)
             GL.Uniform1(lampFogShader("lamp_kind"), l.kind)
             GL.Uniform1(lampFogShader("lamp_blend"), l.blend)
             GL.Uniform1(lampFogShader("lamp_vol_mix"), l.vol_mix)
