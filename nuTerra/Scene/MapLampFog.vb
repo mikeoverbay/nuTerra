@@ -136,7 +136,11 @@ Public Class MapLampFog
         ' The same set, in the same order, as the surface lighting uploads:
         ' map lights first, then the nearest bulb lights. world_pos is the one
         ' place that resolves a light's height.
-        Dim vis = cp.visible_lights(scene.camera.CAM_POSITION, MapLampShadow.MAX_LAMPS)
+        ' The SAME cap the surface pass uses, not the shadow cube count. These
+        ' two upload the same set in the same order every frame; if they
+        ' disagreed on how many, a lamp would light the ground with no shaft
+        ' above it, or the reverse.
+        Dim vis = cp.visible_lights(scene.camera.CAM_POSITION, MAX_PATH_LIGHTS)
         For k = 0 To vis.Length - 1
             Dim i = vis(k)
             Dim l = cp.lights(i)

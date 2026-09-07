@@ -1132,13 +1132,53 @@ Module modRender
     ''' world normal for its own use anyway, so sending them raw means there is
     ''' no matrix convention to get wrong between here and there.
     '''
-    ''' Uploaded every frame rather than cached on load. It is 32 lights at
-    ''' most, the ground height under one can change as terrain streams in, and
-    ''' a cache that missed an edit would be a bug nobody could see the cause of.
+    ''' Uploaded every frame rather than cached on load. It is a few dozen
+    ''' lights at most, the ground height under one can change as terrain
+    ''' streams in, and a cache that missed an edit would be a bug nobody could
+    ''' see the cause of.
     ''' </summary>
-    Private Const MAX_PATH_LIGHTS As Integer = 32
+    Public MAX_PATH_LIGHTS As Integer = 32
+
+    ''' <summary>Practical ceiling. The per-pixel loop runs to light_count, not
+    ''' to this, so an unused slot costs uniform space and nothing per frame -
+    ''' but visible_lights sorts the candidate list every frame, and a map with
+    ''' hundreds of lamps within reach would start to show there.</summary>
+    Private Const PATH_LIGHT_SLOTS_MAX As Integer = 256
+    ''' <summary>Fragment vec4s left for everything else in deferred.frag,
+    ''' which is a big shader. Generous on purpose: overshooting costs a link
+    ''' failure and a black screen, undershooting costs a few lamp slots.</summary>
+    Private Const PATH_LIGHT_UNIFORM_RESERVE As Integer = 512
+
+    ''' <summary>
+    ''' How many lamp slots the driver will hold, decided once at startup.
+    '''
+    ''' deferred.frag carries FOUR vec4 arrays per light, so a slot is 4 of the
+    ''' fragment stage's uniform vectors. Ask the driver what it has, keep a
+    ''' reserve back for the rest of the shader, and cap the result somewhere
+    ''' sane. The number is injected into the shader as MAX_PATH_LIGHTS and the
+    ''' CPU-side arrays are sized to match - they must agree or the upload
+    ''' writes past what the shader declared.
+    '''
+    ''' Logged, because "why are only N lamps lit" is otherwise unanswerable.
+    ''' </summary>
+    Public Sub init_light_slots()
+        Dim max_vec4 = GL.GetInteger(GetPName.MaxFragmentUniformVectors)
+        Dim fits = (max_vec4 - PATH_LIGHT_UNIFORM_RESERVE) \ 4
+        MAX_PATH_LIGHTS = Math.Clamp(fits, 32, PATH_LIGHT_SLOTS_MAX)
+
+        ReDim pl_pos(MAX_PATH_LIGHTS * 4 - 1)
+        ReDim pl_col(MAX_PATH_LIGHTS * 4 - 1)
+        ReDim pl_dir(MAX_PATH_LIGHTS * 4 - 1)
+        ReDim pl_kb(MAX_PATH_LIGHTS * 4 - 1)
+
+        LogThis("path lights: {0} slot(s) - driver has {1} fragment vec4s, {2} reserved, capped at {3}",
+                MAX_PATH_LIGHTS, max_vec4, PATH_LIGHT_UNIFORM_RESERVE, PATH_LIGHT_SLOTS_MAX)
+    End Sub
+
     ' Not Shared: everything in a Module already is, and saying so is an error.
     Private pl_locs_logged As Boolean = False
+    ' Re-sized by init_light_slots before the first frame; these initial
+    ' lengths only cover the window before it runs.
     Private pl_pos(MAX_PATH_LIGHTS * 4 - 1) As Single
     Private pl_col(MAX_PATH_LIGHTS * 4 - 1) As Single
     Private pl_dir(MAX_PATH_LIGHTS * 4 - 1) As Single   ' xyz aim, w cos(OUTER half angle)

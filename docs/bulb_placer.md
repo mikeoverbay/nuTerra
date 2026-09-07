@@ -63,11 +63,34 @@ which outlive the load. `world_pos(i)` is the ONE place a light's height is
 resolved: metres above the terrain for a map light, already absolute for a bulb.
 The surface lighting, the shadow bake, the shafts and the overlay all call it.
 
-**The 32-slot cap.** The resolve has 32 light slots. `visible_lights(cam, 32)`
-returns the map lights first, in file order, then the bulb lights nearest the
-camera until the slots are full; `modRender.upload_path_lights` and
-`MapLampFog` upload exactly that set in that order every frame. **Shadow cubes
-are baked for the map lights only** (`MapLampShadow.Bake` uses
+**The slot cap, sized from the driver.** `modRender.init_light_slots` runs once
+at startup, asks for `GL_MAX_FRAGMENT_UNIFORM_VECTORS`, keeps 512 vec4 back for
+the rest of `deferred.frag`, divides the remainder by 4 (that is how many vec4
+arrays a light costs) and clamps to 32..256. The number is injected into the
+shader as `MAX_PATH_LIGHTS` and the CPU arrays are sized to match - **they must
+agree or the upload writes past what the shader declared**. It is logged:
+
+```
+path lights: 128 slot(s) - driver has 1024 fragment vec4s, 512 reserved, capped at 256
+```
+
+An unused slot costs uniform space and nothing per frame: the per-pixel loop
+runs to `light_count`, which is what was actually uploaded. 32 was the old
+fixed budget and monastery alone wants 54 - one bulb on a model with 47
+instances is 47 lights - so lamps switched on and off as the camera moved.
+
+`visible_lights(cam, MAX_PATH_LIGHTS)` returns the map lights first, in file
+order, then the bulb lights nearest the camera until the slots are full;
+`modRender.upload_path_lights` and `MapLampFog` upload exactly that set in that
+order every frame, **and must be given the same cap** or a lamp lights the
+ground with no shaft above it.
+
+The sort is by distance from the camera alone - no view direction - so with
+more lights than slots, a lamp behind you can still take a slot from one on
+screen. Culling candidates against the frustum by their light sphere first
+would fix that; not done, and moot while everything fits.
+
+**Shadow cubes are baked for the map lights only** (`MapLampShadow.Bake` uses
 `path_light_count`), so layer i is light i in every consumer; bulb lights are
 lit unshadowed. Cubes for the nearest bulbs would need a rebake whenever the
 set changes - not done.

@@ -118,7 +118,13 @@ uniform int pbr_spec;
 //
 // light_count 0 is the off switch. The loop is skipped whole, so a map with no
 // lights costs one comparison and the frame is the one that shipped.
+// Sized at startup from GL_MAX_FRAGMENT_UNIFORM_VECTORS and injected as a
+// define by modRender.init_light_slots - see there for how the number is
+// picked. This fallback is the old fixed budget, for the case where nothing
+// injected one.
+#ifndef MAX_PATH_LIGHTS
 #define MAX_PATH_LIGHTS 32
+#endif
 uniform int light_count;
 uniform vec4 pl_pos_range[MAX_PATH_LIGHTS];    // xyz world position, w range in metres
 uniform vec4 pl_color_level[MAX_PATH_LIGHTS];  // rgb colour as authored (sRGB), a level

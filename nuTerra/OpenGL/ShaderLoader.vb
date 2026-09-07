@@ -106,9 +106,13 @@ Module ShaderLoader
             If program > 0 Then
                 GL.UseProgram(0)
                 GL.DeleteProgram(program)
-                Dim status_code As Integer
-                GL.GetShader(program, ShaderParameter.DeleteStatus, status_code)
-                Debug.Assert(status_code = 0)
+                ' No DeleteStatus query here. It used to call GL.GetShader -
+                ' glGetShaderiv - on a PROGRAM name, and on one that had just
+                ' been deleted: a program not in use has its name freed
+                ' immediately, so the query could only ever raise
+                ' GL_INVALID_VALUE. It went unnoticed because nothing called
+                ' SetDefine before the first frame, and the sticky error flag
+                ' surfaced at whatever checked next.
             End If
 
             program = assemble_shader(vertex, tc, te, geo, compute, fragment, name, defines)
@@ -306,6 +310,12 @@ Module ShaderLoader
         DecalProject = New Shader("DecalProject")
         DeferredFogShader = New Shader("DeferredFog")
         deferredShader = New Shader("deferred")
+        ' The lamp slot count is a property of THIS driver, so the shader is
+        ' told what it is rather than carrying a number somebody guessed. Must
+        ' happen before the first frame: the CPU arrays are sized to the same
+        ' figure and the two have to agree.
+        init_light_slots()
+        deferredShader.SetDefine("MAX_PATH_LIGHTS", MAX_PATH_LIGHTS.ToString())
         FF_BillboardShader = New Shader("FF_billboard")
         FXAAShader = New Shader("FXAA")
         frustumShader = New Shader("frustum")
