@@ -337,6 +337,13 @@ Module MapLoader
                 End If
                 Dim is_volumetric As UInt32 = If(VOLUMETRIC_MODEL_DIRS.Contains(model_dir), 1UI, 0UI)
 
+                ' Everything the double-click diagnostic reports, taken NOW.
+                ' MAP_MODELS is erased at the end of this load, so the render
+                ' sets, their primitive groups and the materials behind them
+                ' are only reachable from here. Same reason CollectLightModels
+                ' runs where it does.
+                ModelInfo.Capture(batch.model_id, mLast, batch.offset, batch.count, model_dir)
+
                 For i = 0 To batch.count - 1
                     With matrices(mLast + i)
                         .matrix = MODEL_INDEX_LIST(batch.offset + i).matrix

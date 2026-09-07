@@ -794,6 +794,54 @@ try_again:
         ImGui.End()
     End Sub
 
+    ' The report of the last double-clicked model, held as text so the window
+    ' shows the same thing until the next double click - the picker itself
+    ' re-reads under the cursor every frame, and a panel that changed as the
+    ' mouse drifted would be unreadable.
+    Private model_info_text As String = ""
+    Private model_info_open As Boolean = False
+
+    ''' <summary>
+    ''' Double-click a model with Pick Models on and get everything known about
+    ''' it, in a window whose text can be selected and copied.
+    '''
+    ''' The pick itself already runs every frame (ModelPicker.PickModel, from
+    ''' modRender); this only decides when to freeze what it found. The
+    ''' WantCaptureMouse test keeps a double click inside any ImGui panel from
+    ''' counting - otherwise picking a slider apart would open this.
+    ''' </summary>
+    Private Sub draw_model_info()
+        If ModelPicker.Enabled AndAlso map_scene IsNot Nothing AndAlso
+           Not ImGui.GetIO().WantCaptureMouse AndAlso
+           ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left) Then
+            Dim report = ModelInfo.Report(CUInt(Math.Max(0, map_scene.PICKED_MODEL_INDEX)))
+            If report <> "" Then
+                model_info_text = report
+                model_info_open = True
+                ImGui.SetNextWindowSize(New System.Numerics.Vector2(720, 620), ImGuiCond.FirstUseEver)
+            End If
+        End If
+
+        If Not model_info_open OrElse model_info_text = "" Then Return
+
+        If ImGui.Begin("Model Info###ModelInfo", model_info_open) Then
+            If ImGui.Button("Copy all") Then ImGui.SetClipboardText(model_info_text)
+            ImGui.SameLine()
+            If ImGui.Button("Close") Then model_info_open = False
+            ImGui.SameLine()
+            ImGui.TextDisabled("double-click another model to replace this")
+
+            ' ReadOnly multiline rather than Text: an InputText is selectable
+            ' and copyable, which is the point of the window. -1 for both sizes
+            ' fills whatever the user has dragged the window to.
+            Dim buf = model_info_text
+            ImGui.InputTextMultiline("##modelinfo", buf, CUInt(buf.Length + 1),
+                                     New System.Numerics.Vector2(-1, -1),
+                                     ImGuiInputTextFlags.ReadOnly)
+        End If
+        ImGui.End()
+    End Sub
+
     Private Sub draw_stats_window()
         If Not SHOW_STATS_WINDOW Then Return
 
@@ -1456,6 +1504,7 @@ try_again:
 
         draw_stats_window()
         draw_vt_debug_key()
+        draw_model_info()
 
         If SHOW_SETTINGS_WINDOW Then
             If Not prev_SHOW_SETTINGS_WINDOW AndAlso menubar_size.LengthSquared > 0 Then
@@ -1628,6 +1677,9 @@ try_again:
                 End If
                 If ImGui.CollapsingHeader("Pick Models") Then
                     ImGui.Checkbox("Enabled##Object picking", ModelPicker.Enabled)
+                    If ModelPicker.Enabled Then
+                        ImGui.TextDisabled("double-click a model for all of its info")
+                    End If
                     If ModelPicker.Enabled AndAlso map_scene IsNot Nothing AndAlso map_scene.PICKED_STRING <> "" Then
                         ImGui.TextWrapped(map_scene.PICKED_STRING)
                     End If
@@ -2014,6 +2066,23 @@ try_again:
                         CommonProperties.SUN_TINT = v_tint
                     End If
 
+                    ' The master level over both of the above, and it belongs
+                    ' here rather than under Tone where it used to sit: it
+                    ' multiplies the RESOLVED lighting and the ambient
+                    ' (deferred.frag ~1442 and ~1539), which happens BEFORE
+                    ' correct() runs the tone curve. It scales how much light
+                    ' there is, not how that light is rolled off - so it reads
+                    ' against Ambient Level and Sun Strength, not against
+                    ' Exposure and Gamma.
+                    Dim v_bright = CommonProperties.BRIGHTNESS
+                    If ImGui.SliderFloat("Bright Level", v_bright, 0.0, 2.0) Then
+                        CommonProperties.BRIGHTNESS = v_bright
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Overall multiplier on the lit scene and the ambient," & vbLf &
+                                         "applied before the tone curve. 1.0 is neutral.")
+                    End If
+
                     ' The shadow mix, moved here from Terrain and Shadow Mapping
                     ' where it sat as two sliders writing the same value.
                     '
@@ -2120,11 +2189,6 @@ try_again:
 
                     ImGui.Separator()
                     ImGui.TextDisabled("Tone")
-                    Dim v_bright = CommonProperties.BRIGHTNESS
-                    If ImGui.SliderFloat("Bright Level", v_bright, 0.0, 2.0) Then
-                        CommonProperties.BRIGHTNESS = v_bright
-                    End If
-
                     Dim v_gray = CommonProperties.GRAY_LEVEL
                     If ImGui.SliderFloat("Gray Level", v_gray, 0.0, 1.0) Then
                         CommonProperties.GRAY_LEVEL = v_gray

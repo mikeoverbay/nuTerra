@@ -264,6 +264,7 @@ Public Class MapScene
         mouse_timer.Dispose()
 
         PICK_DICTIONARY.Clear()
+        ModelInfo.Reset()
     End Sub
 
     Public Sub ExportToFile(path As String)
