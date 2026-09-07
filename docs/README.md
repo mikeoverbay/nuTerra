@@ -14,6 +14,7 @@ handoff's status banner before trusting it.
 | **what is still open** | `open_threads.md` |
 | the automated camera flight design | `camera_flight_plan.md` |
 | **the newest handoff: the fog rebuilt, curves, monastery tuned** | `HANDOFF_2026-09-06_fog.md` |
+| **start here for the next session** - terrain mixer, dirt, model AO, the finished Bulb Placer | `HANDOFF_2026-09-06_bulb_placer.md` |
 | the lamps, shadows, shafts and Bulb Placer session before it | `HANDOFF_2026-09-06_lights.md` |
 | current state of the renderer's shading and water | `HANDOFF_2026-08-31_pbr_glow_water.md` |
 | how fire, smoke and glow are composited | `FX_PIPELINE.md` |
