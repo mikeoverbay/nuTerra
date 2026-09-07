@@ -45,6 +45,21 @@ uniform float lamp_range;
 uniform vec3  lamp_color;    // sRGB as authored
 uniform float lamp_level;
 uniform int   lamp_index;    // layer in the cube array, -1 if it has no bake
+uniform vec3  lamp_dir;      // world unit aim direction (cones)
+uniform float lamp_cos_half; // cos of the half angle
+uniform int   lamp_kind;     // 0 point, 1 cone, 2 inverse cone
+uniform float lamp_blend;    // soft edge fraction
+uniform float lamp_vol_mix;  // how much this lamp scatters into fog, 1 for a map light
+
+// Same mask as deferred.frag's lamp_cone_mask, for the air instead of the
+// surfaces: a shaft has the shape of the light that makes it.
+float cone_mask(vec3 from_lamp)
+{
+    if (lamp_kind == 0) return 1.0;
+    float inner = mix(lamp_cos_half, 1.0, clamp(lamp_blend, 0.0, 1.0));
+    float m = smoothstep(lamp_cos_half, max(inner, lamp_cos_half + 1e-4), dot(from_lamp, lamp_dir));
+    return (lamp_kind == 1) ? m : 1.0 - m;
+}
 
 uniform float fog_gain;      // scattering strength
 uniform float fog_phase;     // Henyey-Greenstein g
@@ -255,7 +270,7 @@ void main(void)
     // different depth on neighbouring pixels and average out.
     float jitter = bayer(ivec2(gl_FragCoord.xy));
 
-    vec3 base = pow(lamp_color, vec3(2.2)) * lamp_level;
+    vec3 base = pow(lamp_color, vec3(2.2)) * lamp_level * lamp_vol_mix;
 
     vec3 acc = vec3(0.0);
 
@@ -293,7 +308,9 @@ void main(void)
         float atten = texture(fog_curve, vec2(s,
                               (float(lamp_curve) + 0.5) / float(textureSize(fog_curve, 0).y))).r;
 
-        float vis = 1.0;
+        // Outside the cone the air is not lit by this lamp at all.
+        float vis = cone_mask(-d / max(dist, 1e-4));
+        if (vis <= 0.0) continue;
         if (lamp_index >= 0)
         {
             // No normal offset - there is no surface here to bias off, and fog
@@ -303,8 +320,8 @@ void main(void)
             float nz = lamp_shadow_near;
             float ref = (lamp_range - lamp_range * nz / max(mt, nz))
                       / max(lamp_range - nz, 1e-4);
-            vis = texture(lamp_shadow_map, vec4(sd, float(lamp_index)),
-                          ref - lamp_shadow_bias);
+            vis *= texture(lamp_shadow_map, vec4(sd, float(lamp_index)),
+                           ref - lamp_shadow_bias);
         }
         if (vis <= 0.0) continue;
 

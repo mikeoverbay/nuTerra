@@ -122,6 +122,24 @@ uniform int pbr_spec;
 uniform int light_count;
 uniform vec4 pl_pos_range[MAX_PATH_LIGHTS];    // xyz world position, w range in metres
 uniform vec4 pl_color_level[MAX_PATH_LIGHTS];  // rgb colour as authored (sRGB), a level
+uniform vec4 pl_dir_cos[MAX_PATH_LIGHTS];      // xyz world aim direction, w cos(half cone)
+uniform vec4 pl_kind_blend[MAX_PATH_LIGHTS];   // x kind (0 point, 1 cone, 2 inverse cone), y edge blend, z fog mix
+
+// How much of lamp i reaches a direction. 1 for a point light; a soft-edged
+// cone toward the aim for a cone; everything BUT that cone for an inverse cone
+// - a cowled street lamp, dark into its own hood, lit everywhere else. The
+// blend is the fraction of the cone that is soft edge: 0 is a hard circle.
+// from_lamp is unit, lamp -> target.
+float lamp_cone_mask(int i, vec3 from_lamp)
+{
+    int kind = int(pl_kind_blend[i].x + 0.5);
+    if (kind == 0) return 1.0;
+    float edge  = pl_dir_cos[i].w;
+    float inner = mix(edge, 1.0, clamp(pl_kind_blend[i].y, 0.0, 1.0));
+    float c = dot(from_lamp, pl_dir_cos[i].xyz);
+    float m = smoothstep(edge, max(inner, edge + 1e-4), c);
+    return (kind == 1) ? m : 1.0 - m;
+}
 
 // Intensity scale for the whole set.
 //
@@ -632,6 +650,10 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
         float NdotL = dot(N, L);
         if (NdotL <= 0.0) continue;
 
+        // The cone, before the shadow: outside it there is nothing to shade.
+        float cone = lamp_cone_mask(i, -L);
+        if (cone <= 0.0) continue;
+
         // Is the lamp actually visible from here?
         float vis = 1.0;
         if (i < lamp_shadow_count)
@@ -699,6 +721,7 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
             }
             dbg_lamp_vis = max(dbg_lamp_vis, vis);
         }
+        vis *= cone;
         if (vis <= 0.0) continue;
 
         // Falloff in NORMALISED distance, so range sets the SIZE of the light.

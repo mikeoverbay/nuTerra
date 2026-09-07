@@ -1141,6 +1141,8 @@ Module modRender
     Private pl_locs_logged As Boolean = False
     Private pl_pos(MAX_PATH_LIGHTS * 4 - 1) As Single
     Private pl_col(MAX_PATH_LIGHTS * 4 - 1) As Single
+    Private pl_dir(MAX_PATH_LIGHTS * 4 - 1) As Single   ' xyz aim, w cos(half cone)
+    Private pl_kb(MAX_PATH_LIGHTS * 4 - 1) As Single    ' x kind, y blend, z vol_mix
 
     Private Sub upload_path_lights()
         Dim n As Integer = 0
@@ -1148,26 +1150,39 @@ Module modRender
         If map_scene IsNot Nothing AndAlso map_scene.cam_path IsNot Nothing AndAlso
            map_scene.cam_path.loaded AndAlso map_scene.cam_path.lights IsNot Nothing Then
 
-            Dim src = map_scene.cam_path.lights
-            n = Math.Min(src.Length, MAX_PATH_LIGHTS)
+            Dim cp = map_scene.cam_path
+            Dim src = cp.lights
+            ' The map lights first, then the bulb lights nearest the camera,
+            ' until the 32 slots are full. The position comes from world_pos,
+            ' the ONE place that knows whether a light's Y is above the terrain
+            ' (a Path Studio light) or absolute (a bulb on an instance).
+            Dim vis = cp.visible_lights(map_scene.camera.CAM_POSITION, MAX_PATH_LIGHTS)
+            n = vis.Length
 
-            For i = 0 To n - 1
-                ' y in the file is metres ABOVE THE TERRAIN - Path Studio places
-                ' on a 2D map and cannot know the ground - so it is resolved
-                ' here, the same way the overlay spheres are placed.
-                Dim wx = src(i).pos.X
-                Dim wz = src(i).pos.Z
-                Dim wy = get_Y_at_XZ_fast(wx, wz) + src(i).pos.Y
+            For k = 0 To n - 1
+                Dim i = vis(k)
+                Dim w = cp.world_pos(i)
 
-                pl_pos(i * 4 + 0) = wx
-                pl_pos(i * 4 + 1) = wy
-                pl_pos(i * 4 + 2) = wz
-                pl_pos(i * 4 + 3) = Math.Max(0.1F, src(i).range_m)
+                pl_pos(k * 4 + 0) = w.X
+                pl_pos(k * 4 + 1) = w.Y
+                pl_pos(k * 4 + 2) = w.Z
+                pl_pos(k * 4 + 3) = Math.Max(0.1F, src(i).range_m)
 
-                pl_col(i * 4 + 0) = src(i).color.X
-                pl_col(i * 4 + 1) = src(i).color.Y
-                pl_col(i * 4 + 2) = src(i).color.Z
-                pl_col(i * 4 + 3) = src(i).level
+                pl_col(k * 4 + 0) = src(i).color.X
+                pl_col(k * 4 + 1) = src(i).color.Y
+                pl_col(k * 4 + 2) = src(i).color.Z
+                pl_col(k * 4 + 3) = src(i).level
+
+                Dim half = Math.Clamp(src(i).cone, 1.0F, 179.0F) * 0.5 * Math.PI / 180.0
+                pl_dir(k * 4 + 0) = src(i).dir.X
+                pl_dir(k * 4 + 1) = src(i).dir.Y
+                pl_dir(k * 4 + 2) = src(i).dir.Z
+                pl_dir(k * 4 + 3) = CSng(Math.Cos(half))
+
+                pl_kb(k * 4 + 0) = src(i).kind
+                pl_kb(k * 4 + 1) = src(i).blend
+                pl_kb(k * 4 + 2) = src(i).vol_mix
+                pl_kb(k * 4 + 3) = 0.0F
             Next
         End If
 
@@ -1222,6 +1237,8 @@ Module modRender
         If n > 0 Then
             GL.Uniform4(deferredShader("pl_pos_range"), n, pl_pos)
             GL.Uniform4(deferredShader("pl_color_level"), n, pl_col)
+            GL.Uniform4(deferredShader("pl_dir_cos"), n, pl_dir)
+            GL.Uniform4(deferredShader("pl_kind_blend"), n, pl_kb)
         End If
     End Sub
 

@@ -92,9 +92,31 @@ Public Class MapCamPath
         ''' of VM_FOG_Curve_&lt;n&gt;.png beside the .campath. Files written
         ''' before the field are 32 bytes a light and read as 0.</summary>
         Public curve As Integer
+
+        ' The fields below exist for BULB lights - lights a model carries, one
+        ' per instance (ExpandBulbs). A map light from the file has kind 0,
+        ' vol_mix 1 and absolute False.
+        ''' <summary>0 point, 1 cone, 2 inverse cone.</summary>
+        Public kind As Integer
+        ''' <summary>World unit direction a cone looks along.</summary>
+        Public dir As Vector3
+        ''' <summary>Full cone angle, degrees.</summary>
+        Public cone As Single
+        ''' <summary>0..1, soft edge fraction of the cone.</summary>
+        Public blend As Single
+        ''' <summary>Scales what this light scatters into fog.</summary>
+        Public vol_mix As Single
+        ''' <summary>True when pos.Y is absolute world height, not metres
+        ''' above the terrain.</summary>
+        Public absolute As Boolean
     End Structure
 
+    ''' <summary>Every light: the file's map lights first, then one per bulb
+    ''' instance. Rebuilt by ExpandBulbs.</summary>
     Public lights() As CamLight
+    ''' <summary>The file's own map lights, as read. The shadow cubes are
+    ''' baked for these.</summary>
+    Public path_lights() As CamLight = {}
 
     ''' <summary>
     ''' A BULB: a light attached to a MODEL, placed once in the model's own
@@ -316,6 +338,7 @@ Public Class MapCamPath
             End Using
 
             bulbs = If(new_bulbs, New CamBulb() {})
+            ExpandBulbs()
             lights_dirty = True
             LogThis("cam path: wrote {0} bulb(s) to {1}", n, source_file)
             Return String.Format("saved {0} bulb(s) to {1}", n, IO.Path.GetFileName(source_file))
@@ -323,6 +346,109 @@ Public Class MapCamPath
             Return "save failed: " & ex.Message
         End Try
     End Function
+
+
+    ''' <summary>
+    ''' The world position of light i, resolved ONE way for every consumer -
+    ''' the surface lighting, the shadow bake, the shafts and the overlay. A
+    ''' Path Studio light stores Y as metres above the terrain; a bulb light
+    ''' is already absolute, transformed through its instance.
+    ''' </summary>
+    Public Function world_pos(i As Integer) As Vector3
+        Dim l = lights(i)
+        If l.absolute Then Return l.pos
+        Return New Vector3(l.pos.X, get_Y_at_XZ_fast(l.pos.X, l.pos.Z) + l.pos.Y, l.pos.Z)
+    End Function
+
+    ''' <summary>How many of the lights are the file's own map lights. They come
+    ''' first in the array, so the shadow cubes - baked for these only - line up
+    ''' with the first indices everywhere.</summary>
+    Public Function path_light_count() As Integer
+        Return If(path_lights Is Nothing, 0, path_lights.Length)
+    End Function
+
+    ''' <summary>
+    ''' The lights worth uploading this frame, as indices into lights(): every
+    ''' map light first, in file order, then the bulb lights nearest the camera
+    ''' until the shader's 32 slots are full. A map with 145 street lamps
+    ''' cannot light them all at once; the ones near the camera are the ones
+    ''' that show.
+    ''' </summary>
+    Public Function visible_lights(cam As Vector3, max_n As Integer) As Integer()
+        If lights Is Nothing OrElse lights.Length = 0 Then Return New Integer() {}
+        Dim np = Math.Min(path_light_count(), max_n)
+        Dim out As New List(Of Integer)(max_n)
+        For i = 0 To np - 1
+            out.Add(i)
+        Next
+        If lights.Length > np AndAlso out.Count < max_n Then
+            Dim rest = Enumerable.Range(np, lights.Length - np).ToList()
+            rest.Sort(Function(a, b)
+                          Dim da = (lights(a).pos - cam).LengthSquared - lights(a).range_m * lights(a).range_m
+                          Dim db = (lights(b).pos - cam).LengthSquared - lights(b).range_m * lights(b).range_m
+                          Return da.CompareTo(db)
+                      End Function)
+            For Each r In rest
+                If out.Count >= max_n Then Exit For
+                out.Add(r)
+            Next
+        End If
+        Return out.ToArray()
+    End Function
+
+    ''' <summary>
+    ''' lights() = the file's map lights, then one light per INSTANCE of every
+    ''' bulb's model on this map. Needs the load's model tables - LIGHT_MODELS
+    ''' for the model id behind a primitives path, MODEL_BATCH_LIST and
+    ''' MODEL_INDEX_LIST for the instance transforms - which are all there by
+    ''' the time the cam path is read, and stay there. Called from Load and
+    ''' after SaveBulbs; every consumer sees the new set on the next frame and
+    ''' lights_dirty rebakes the cubes.
+    ''' </summary>
+    Public Sub ExpandBulbs()
+        Dim all As New List(Of CamLight)
+        If path_lights IsNot Nothing Then all.AddRange(path_lights)
+
+        Dim placed = 0, unmatched = 0
+        If bulbs IsNot Nothing AndAlso MODEL_BATCH_LIST IsNot Nothing AndAlso MODEL_INDEX_LIST IsNot Nothing Then
+            For Each b In bulbs
+                Dim model_id = -1
+                For Each e In BulbPlacer.LIGHT_MODELS
+                    If String.Equals(e.primitives, b.primitives, StringComparison.OrdinalIgnoreCase) Then
+                        model_id = e.model_id
+                        Exit For
+                    End If
+                Next
+                If model_id < 0 Then
+                    unmatched += 1
+                    Continue For
+                End If
+                For Each batch In MODEL_BATCH_LIST
+                    If batch.model_id <> model_id Then Continue For
+                    For i = 0 To batch.count - 1
+                        Dim idx = batch.offset + i
+                        If idx < 0 OrElse idx >= MODEL_INDEX_LIST.Length Then Continue For
+                        Dim m = MODEL_INDEX_LIST(idx).matrix
+                        Dim wp = Vector3.TransformPosition(b.pos, m)
+                        Dim wa = Vector3.TransformPosition(b.aim, m)
+                        Dim dir = wa - wp
+                        If dir.LengthSquared < 1.0E-8F Then dir = -Vector3.UnitY Else dir.Normalize()
+                        all.Add(New CamLight With {
+                            .pos = wp, .absolute = True,
+                            .color = b.color, .level = b.level, .range_m = b.range_m,
+                            .curve = b.curve, .kind = b.kind, .dir = dir,
+                            .cone = b.cone, .blend = b.blend, .vol_mix = b.vol_mix})
+                        placed += 1
+                    Next
+                Next
+            Next
+        End If
+        lights = all.ToArray()
+        If bulbs IsNot Nothing AndAlso bulbs.Length > 0 Then
+            LogThis("cam path: {0} bulb(s) placed {1} light(s) on {2} instance(s); {3} bulb(s) matched no model on this map",
+                    bulbs.Length, placed, placed, unmatched)
+        End If
+    End Sub
 
     Public Sub Load(map As String)
         Dispose_gl()
@@ -334,6 +460,7 @@ Public Class MapCamPath
         load_gen += 1
         points = Nothing
         bulbs = New CamBulb() {}
+        path_lights = New CamLight() {}
         travelled = 0.0F
 
         Dim path = resolve_campath(map)
@@ -469,6 +596,8 @@ Public Class MapCamPath
                 ' a light and reads as curve 0 without a special case.
                 lights(i).curve = If(light_stride >= 36,
                                      CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 32))), 0)
+                lights(i).vol_mix = 1.0F
+                lights(i).dir = -Vector3.UnitY
             Next
 
             ' Bulbs sit after the lights: lights a model carries, one record per
@@ -498,6 +627,9 @@ Public Class MapCamPath
                 bulbs(i).vol_mix = BitConverter.ToSingle(raw, o + 216)
                 bulbs(i).curve = CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 220)))
             Next
+
+            path_lights = lights
+            ExpandBulbs()
 
             loaded = True
             source_file = path
@@ -719,11 +851,9 @@ Public Class MapCamPath
             ' a 2D map and writes 0 - so the ground is resolved here. Without
             ' this every light sits at world zero, which on most maps is under
             ' the landscape and invisible.
-            Dim gx = lights(i).pos.X
-            Dim gz = lights(i).pos.Z
-            Dim gy = get_Y_at_XZ_fast(gx, gz) + lights(i).pos.Y
+            Dim g = world_pos(i)
 
-            GL.Uniform3(camlightShader("centre"), gx, gy, gz)
+            GL.Uniform3(camlightShader("centre"), g.X, g.Y, g.Z)
             GL.Uniform1(camlightShader("radius"), Math.Max(0.1F, lights(i).range_m))
             GL.Uniform3(camlightShader("light_color"),
                         lights(i).color.X, lights(i).color.Y, lights(i).color.Z)

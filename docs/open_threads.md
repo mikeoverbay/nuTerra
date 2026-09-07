@@ -142,9 +142,9 @@ per-light falloff curves and tuned monastery; the lights session before it is
   Proper fix fogs it by emitter distance.
 - **The height fog inside deferred.frag** (~1480-1510, hard-coded density
   0.005) still runs pre-tonemap when fog_level > 0. Redundant now; remove.
-- **Bulb Placer**: still a splitter with a GL surface. The list needs a caller
-  and the slim mesh copy must be taken at load (the CPU arrays are erased after
-  upload); the four ortho views and cursor are in git at `50b30724`.
+- **Bulb Placer**: done as `BulbPlacer.vb` - see `bulb_placer.md`. Bulbs live
+  in the campath and light every instance. Open: no shadow cubes for bulb
+  lights; only the 32 nearest to the camera are lit.
 - **No loader yet reads `light_catalogue.xml`**; every value in it is a guess.
 - **X must be negated** when placing from `map_lights.xml`; one placed light
   confirms. `209_wg_epic_suburbia` fails to scan on `props("colorTex")`.

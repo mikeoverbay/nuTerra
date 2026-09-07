@@ -133,15 +133,22 @@ Public Class MapLampFog
         GL.Enable(EnableCap.CullFace)
         GL.CullFace(CullFaceMode.Back)
 
-        Dim n = Math.Min(cp.lights.Length, MapLampShadow.MAX_LAMPS)
-        For i = 0 To n - 1
+        ' The same set, in the same order, as the surface lighting uploads:
+        ' map lights first, then the nearest bulb lights. world_pos is the one
+        ' place that resolves a light's height.
+        Dim vis = cp.visible_lights(scene.camera.CAM_POSITION, MapLampShadow.MAX_LAMPS)
+        For k = 0 To vis.Length - 1
+            Dim i = vis(k)
             Dim l = cp.lights(i)
-            ' The same world position the surface lighting and the bake use -
-            ' the file's Y is metres ABOVE THE TERRAIN.
-            Dim wx = l.pos.X
-            Dim wz = l.pos.Z
-            Dim wy = get_Y_at_XZ_fast(wx, wz) + l.pos.Y
+            Dim w = cp.world_pos(i)
+            Dim wx = w.X, wy = w.Y, wz = w.Z
             Dim r = Math.Max(0.1F, l.range_m)
+            Dim half = Math.Clamp(l.cone, 1.0F, 179.0F) * 0.5 * Math.PI / 180.0
+            GL.Uniform3(lampFogShader("lamp_dir"), l.dir.X, l.dir.Y, l.dir.Z)
+            GL.Uniform1(lampFogShader("lamp_cos_half"), CSng(Math.Cos(half)))
+            GL.Uniform1(lampFogShader("lamp_kind"), l.kind)
+            GL.Uniform1(lampFogShader("lamp_blend"), l.blend)
+            GL.Uniform1(lampFogShader("lamp_vol_mix"), l.vol_mix)
 
             GL.Uniform3(lampFogShader("centre"), wx, wy, wz)
             GL.Uniform1(lampFogShader("radius"), r)

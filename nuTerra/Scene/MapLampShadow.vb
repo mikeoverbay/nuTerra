@@ -114,7 +114,14 @@ Public Class MapLampShadow
             Return
         End If
 
-        Dim n = Math.Min(cp.lights.Length, MAX_LAMPS)
+        ' Cubes for the MAP lights only - they come first in lights(), so layer
+        ' i is light i everywhere. Bulb lights are lit unshadowed; a map with
+        ' 145 street lamps cannot carry 145 cubes.
+        Dim n = Math.Min(cp.path_light_count(), MAX_LAMPS)
+        If n = 0 Then
+            LogThis("lamp shadow: no map lamps to bake ({0} bulb light(s) lit unshadowed)", cp.lights.Length)
+            Return
+        End If
         Dim clock = Stopwatch.StartNew()
 
         If depth_tex Is Nothing OrElse layers <> n Then
@@ -189,8 +196,7 @@ Public Class MapLampShadow
     ''' the scene from a lamp that is not there.
     ''' </summary>
     Private Function lamp_world_pos(i As Integer) As Vector3
-        Dim l = scene.cam_path.lights(i)
-        Return New Vector3(l.pos.X, get_Y_at_XZ_fast(l.pos.X, l.pos.Z) + l.pos.Y, l.pos.Z)
+        Return scene.cam_path.world_pos(i)
     End Function
 
     ''' <summary>

@@ -222,3 +222,16 @@ out. All three now run the game's height-aware dirt curve, transcribed from the
 `.10` deferred pixel shaders (the `.11` fxo builds hold only the forward last-LOD
 variants) - see `game_PBS_tiled.md`. `MapLoader` also gave tile 1 tile 2's tint
 in both atlas cases; fixed.
+
+## 8. Light Bulb Placer, finished as a campath table
+
+Bulbs - lights attached to a model - are a new table in the `.campath`
+(header words 104/108, 224-byte records), placed in `BulbPlacer.vb` and
+expanded to one light per instance by `MapCamPath.ExpandBulbs`. Cone and
+inverse cone masks in `deferred.frag` and `lamp_fog.frag`. The whole of it is in
+`bulb_placer.md`. The old four-view inspector, `MapLampView.vb`, the catalogue
+writer and the load-time mesh copy are gone; `light_catalogue.xml` is unread.
+
+Also this session, on the same commit stack: the AO/self-shadow work of
+section 7 is committed with defaults 1 / 1 that are a starting point, not the
+game's constants.
