@@ -508,8 +508,17 @@ Public Class BulbPlacer
         pane_h = rh
         If color_tex Is Nothing Then Return
 
-        ImGui.Image(New IntPtr(color_tex.texture_id), New System.Numerics.Vector2(rw, rh),
-                    New System.Numerics.Vector2(0, 1), New System.Numerics.Vector2(1, 0))
+        ' An INVISIBLE BUTTON under the picture, not ImGui.Image. An Image is
+        ' not an item that takes the mouse, so a drag over it was a drag on the
+        ' window: the panel moved with the cursor. The button claims all three
+        ' buttons and the picture is painted into its rectangle.
+        Dim p0 = ImGui.GetCursorScreenPos()
+        Dim sz = New System.Numerics.Vector2(rw, rh)
+        ImGui.InvisibleButton("##bulbview", sz,
+                              ImGuiButtonFlags.MouseButtonLeft Or ImGuiButtonFlags.MouseButtonRight Or
+                              ImGuiButtonFlags.MouseButtonMiddle)
+        ImGui.GetWindowDrawList().AddImage(New IntPtr(color_tex.texture_id), p0, p0 + sz,
+                                           New System.Numerics.Vector2(0, 1), New System.Numerics.Vector2(1, 0))
         Dim hovered = ImGui.IsItemHovered()
         Dim io = ImGui.GetIO()
 
