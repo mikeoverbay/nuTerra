@@ -197,6 +197,27 @@ layout(index = 3) subroutine(fn_entry) void FX_PBS_ext_detail_entry()
     gNormal.rgb = get_detail_normal(nmap)*0.5+0.5;
     }
 //##################################################################################
+// How often the atlas detail tile repeats across the unwrap.
+//
+// Both atlas families ignored g_tileUVScale and sampled bare fract(TC1) - ONE
+// repeat stretched over the whole object. The value was parsed, uploaded and
+// sitting in the material struct the whole time; nothing read it. On
+// 07_lakeville's hd_env_EU_001_Cliff_rock_01_half the LOD 0 material authors
+// (128, 128, 0, 0), so its rock face was showing a single smeared repeat where
+// the game shows 128 - which is the entire difference between our smooth
+// cliffs and the game's crisp ones. FX_PBS_tiled_global (index 11) had it
+// right all along: "Detail tiles repeat at TC1 * g_tileUVScale.xy".
+//
+// Guarded because zw are 0 on these materials and some authored x or y could
+// be too; a scale of 0 collapses the whole unwrap onto one texel.
+vec2 tile_uv_scale()
+{
+    vec2 s = thisMaterial.g_tileUVScale.xy;
+    if (abs(s.x) < 1e-6) s.x = 1.0;
+    if (abs(s.y) < 1e-6) s.y = 1.0;
+    return s;
+}
+
 layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
 {
     const sampler2DArray atlasAlbedoHeight_sampler = sampler2DArray(thisMaterial.maps[0]);
@@ -205,7 +226,7 @@ layout(index = 4) subroutine(fn_entry) void FX_PBS_tiled_atlas_entry()
     const sampler2DArray atlasBlend_sampler = sampler2DArray(thisMaterial.maps[3]);
 
     const float padSize = 0.0625;
-    const vec2 uv1 = padSize + fract(fs_in.TC1) * (1.0 - padSize * 2.0);
+    const vec2 uv1 = padSize + fract(fs_in.TC1 * tile_uv_scale()) * (1.0 - padSize * 2.0);
 
     vec4 colorAM_x = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.x)) * thisMaterial.g_tile0Tint;
     vec4 colorAM_y = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.y)) * thisMaterial.g_tile1Tint;
@@ -302,7 +323,7 @@ layout(index = 5) subroutine(fn_entry) void FX_PBS_tiled_atlas_global_entry()
     vec4 globalTex = texture(globalTex_sampler, fs_in.TC2);
 
     const float padSize = 0.0625;
-    const vec2 uv1 = padSize + fract(fs_in.TC1) * (1.0 - padSize * 2.0);
+    const vec2 uv1 = padSize + fract(fs_in.TC1 * tile_uv_scale()) * (1.0 - padSize * 2.0);
 
     vec4 colorAM_x = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.x)) * thisMaterial.g_tile0Tint;
     vec4 colorAM_y = texture(atlasAlbedoHeight_sampler, vec3(uv1, thisMaterial.g_atlasIndexes.y)) * thisMaterial.g_tile1Tint;
