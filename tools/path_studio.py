@@ -56,6 +56,18 @@ import terrain_bake as tb
 
 FOLDER = nav.FOLDER
 
+# The invented ring's shape, when there is nothing to go on.
+#
+# plan_from_seed only lays a ring when NO points were placed - targets replace
+# it entirely - and left click places points now, so the ring is the empty-hands
+# case and nothing more. These were a Waypoints slider and a Left/Right pair of
+# radio buttons, greyed out the moment a point existed, which is most of the
+# time. A control that is disabled whenever anyone would want it is not a
+# control. Loop radius keeps its slider because it also sets the departure leg
+# length, which runs on every generate.
+RING_WAYPOINTS = 14     # points around the ring
+RING_SIDE = 1           # +1 turns left out of the departure leg, -1 right
+
 
 def existing_plan(map_name):
     """The saved route, the clicks behind it, and its lights.
@@ -509,7 +521,6 @@ class Studio:
         self.vars = {}
         for key, label, lo, hi, init in (
                 ("radius", "Loop radius (m)", 60, 600, 260),
-                ("waypoints", "Waypoints", 6, 28, 14),
                 ("agl", "Height over ground (m)", 1, 30, int(nav.AGL)),
                 ("standoff", "Standoff (m)", 0.5, 6, min(6.0, max(0.5, round(nav.BODY_R * 2) / 2.0)))):
             ttk.Label(left, text=label).grid(row=r, column=0, sticky="w")
@@ -525,15 +536,6 @@ class Studio:
             self.vars[key + "_lbl"] = lbl
             r += 2
 
-        self.side = tk.IntVar(value=1)
-        ttk.Label(left, text="Turn").grid(row=r, column=0, sticky="w")
-        f = ttk.Frame(left)
-        f.grid(row=r + 1, column=0, sticky="w")
-        self.side_btns = [
-            ttk.Radiobutton(f, text="Left", variable=self.side, value=1),
-            ttk.Radiobutton(f, text="Right", variable=self.side, value=-1)]
-        for b in self.side_btns:
-            b.pack(side="left")
         self.ring_lbl = ttk.Label(left, text="", style="Muted.TLabel",
                                   wraplength=210, justify="left")
         r += 2
@@ -658,9 +660,10 @@ class Studio:
             row=r, column=0, sticky="w")
         r += 1
         ttk.Label(left, justify="left", style="Note.TLabel", text=(
-            "Left drag      start + heading\n"
-            "Right click    add a target\n"
-            "Backspace      remove the last target,\n"
+            "Left drag      start + heading (first)\n"
+            "Left click     add a point\n"
+            "Right click    add a point\n"
+            "Backspace      remove the last point,\n"
             "               or the last LIGHT while\n"
             "               Add Light is armed\n"
             "\n"
@@ -868,10 +871,11 @@ class Studio:
             self.targets = list(seed["targets"])
             if seed["radius"]:
                 self.vars["radius"].set(int(round(seed["radius"])))
-            if seed["waypoints"]:
-                self.vars["waypoints"].set(int(seed["waypoints"]))
-            if seed["side"]:
-                self.side.set(int(seed["side"]))
+            # The file still records the ring's waypoint count and turn
+            # direction - cam_path writes them and older seeds carry real
+            # values - but neither has a control any more (RING_WAYPOINTS /
+            # RING_SIDE). Read and ignored rather than dropped from the format,
+            # so a seed written by an older Path Studio still loads.
 
         self.render_mask()
         self.update_enabled()
@@ -946,15 +950,25 @@ class Studio:
             self.am_img = False
             return False
         b = self.bake
-        # Resized to the bake grid and flipped VERTICALLY. Not derived -
-        # scored: of the four flips, only this one puts the obstacle mask on
-        # the AM's high-frequency detail (buildings), gradient ratio 1.25
-        # against under 1.0 for the other three, on 19_monastery.
-        # Both axes flipped. The vertical flip was scored on monastery; the
-        # horizontal one showed up on Himmelsdorf, whose hill sat on the wrong
-        # side, and on the owner screen - monastery is symmetric enough that
-        # the score could not see it.
-        self.am_img = np.asarray(im.resize((b.w, b.h), Image.LANCZOS))[::-1, ::-1, :].copy()
+        # Resized to the bake grid and flipped on X only.
+        #
+        # It used to flip BOTH axes. The vertical flip was picked by scoring
+        # the four options on 19_monastery, and the note admitted monastery is
+        # symmetric enough that the score could not see the horizontal one -
+        # which is a fair warning that the score could not see the vertical one
+        # either. Re-scored on asymmetric maps it is worthless: gradient ratios
+        # land within 0.9-1.1 of each other on lakeville, himmelsdorf and
+        # monastery and disagree about the winner, and correlating AM relief
+        # against terrain relief comes out at 0.00-0.08, which is noise.
+        #
+        # The mapping settles it instead. global_AM reaches world through a
+        # NEGATIVE affine on both axes - t_mixer.vert does Global_UV *= -1.0,
+        # and ChunkFunctions.vb says so in as many words. But the bake grid
+        # already runs row 0 at wz_max with rows going z-DECREASING, while a
+        # PIL image runs row 0 at v = 0. That row convention is itself a
+        # vertical flip, so applying the affine's on top of it made two, and
+        # two cancel. X has no such double count, so it keeps its flip.
+        self.am_img = np.asarray(im.resize((b.w, b.h), Image.LANCZOS))[:, ::-1, :].copy()
         return True
 
     def render_mask(self):
@@ -1405,6 +1419,19 @@ class Studio:
             self.repaint()
             return
 
+        # With a start already placed, a left click ADDS A POINT - it does not
+        # begin a new course.
+        #
+        # It used to always reset: one stray click after ten minutes of placing
+        # points threw the lot away, silently, with no undo beyond Backspace
+        # one at a time. Starting over is rare and Clear says so explicitly;
+        # adding another point is the common act, and the common act is what
+        # the plain click should do. Right click still adds one too, so old
+        # habits keep working.
+        if self.start is not None:
+            self.add_point(e)
+            return
+
         self.start = self.to_world(e.x, e.y)
         self.drag = (e.x, e.y)
         self.heading = None
@@ -1451,16 +1478,30 @@ class Studio:
                         % (self.start[0], self.start[1], math.degrees(self.heading)))
         self.repaint()
 
-    def on_target(self, e):
-        """Right click adds a target the route must visit, in click order."""
-        if self.bake is None or self.busy:
-            return
+    def add_point(self, e):
+        """Append a point the route must visit, in click order.
+
+        Both buttons land here once a start exists. Kept separate from on_press
+        so the left-click path and the right-click path cannot drift apart.
+        """
         self.targets.append(self.to_world(e.x, e.y))
         self.route = None
-        self.status.set("%d target%s - right click to add, Clear to start over"
+        self.status.set("%d point%s - click to add, Backspace to undo, "
+                        "Clear to start over"
                         % (len(self.targets), "" if len(self.targets) == 1 else "s"))
         self.update_enabled()
         self.repaint()
+
+    def on_target(self, e):
+        """Right click adds a point the route must visit.
+
+        Left click does the same once a start is placed - see on_press. Right
+        click also works BEFORE there is a start, which left click cannot: the
+        first left click has to set the start and drag its heading.
+        """
+        if self.bake is None or self.busy:
+            return
+        self.add_point(e)
 
     def save_path(self):
         """Publish the generated route to cam_paths.
@@ -1569,15 +1610,15 @@ class Studio:
         can_save = (fresh_route or dirty_lights) and not self.busy
         self.save_btn.state(["!disabled" if can_save else "disabled"])
 
+        # The ring is only ever used when there are no points to visit, and
+        # left click places points now, so in practice it never is. Loop radius
+        # is the one ring control left with a slider; the turn direction and the
+        # ring waypoint count are RING_SIDE / RING_WAYPOINTS.
         ring = not self.targets
-        state = "!disabled" if ring else "disabled"
-        for b in self.side_btns:
-            b.state([state])
-        for k in ("radius", "waypoints"):
-            self.vars[k + "_w"].state([state])
+        self.vars["radius_w"].state(["!disabled" if ring else "disabled"])
         self.ring_lbl.configure(
             text="" if ring else
-            "Turn, radius and waypoints are unused - your targets set the route.")
+            "Loop radius is unused - your points set the route.")
 
     def on_undo_target(self, _e=None):
         """Backspace or Delete drops the most recently placed thing.
@@ -1624,12 +1665,12 @@ class Studio:
             return
         self.targets = []
         self.route = None
-        self.status.set("targets cleared - Turn, radius and waypoints apply again")
+        self.status.set("points cleared - click to place a start again")
         self.update_enabled()
         self.repaint()
 
     def refresh_labels(self):
-        for k in ("radius", "waypoints", "agl"):
+        for k in ("radius", "agl"):
             self.vars[k + "_lbl"].configure(text=str(self.vars[k].get()))
         # Snap standoff to 0.5 m steps and show it that way.
         so = round(float(self.vars["standoff"].get()) * 2.0) / 2.0
@@ -1669,8 +1710,8 @@ class Studio:
 
             csv_path = plan_from_seed(
                 self.map_name, self.start, self.heading,
-                float(self.vars["radius"].get()), self.side.get(),
-                int(self.vars["waypoints"].get()), list(self.targets), self._log)
+                float(self.vars["radius"].get()), RING_SIDE,
+                RING_WAYPOINTS, list(self.targets), self._log)
 
             import csv as _csv
             rows = list(_csv.DictReader(open(csv_path)))
