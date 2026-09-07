@@ -334,6 +334,10 @@ Public Class BulbPlacer
         For Each b In map_scene.cam_path.bulbs
             If String.Equals(b.primitives, key, StringComparison.OrdinalIgnoreCase) Then edits.Add(b)
         Next
+        ' A model with no lights yet gets one, unsaved, at the top of its box,
+        ' so there is always a crosshair to pick up and drag. Nothing reaches
+        ' the file until Save.
+        If edits.Count = 0 AndAlso has_model Then edits.Add(new_bulb())
         If edits.Count > 0 Then cur = 0
     End Sub
 
@@ -489,8 +493,6 @@ Public Class BulbPlacer
         If ImGui.SmallButton("Front") Then ortho = 2
         ImGui.SameLine()
         If ImGui.SmallButton("Side") Then ortho = 3
-        ImGui.SameLine()
-        If ImGui.SmallButton("Frame") Then frame_model()
         ImGui.SameLine()
         If ortho = 0 Then
             ImGui.TextDisabled("3D | LMB orbit  MMB/wheel zoom  RMB move  Shift+RMB up/down")
