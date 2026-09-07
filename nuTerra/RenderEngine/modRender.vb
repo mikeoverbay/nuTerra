@@ -629,7 +629,12 @@ Module modRender
         ' insists on a bound VAO, and this is the one kept for exactly that.
         defaultVao.Bind()
 
-        GL.Enable(EnableCap.DepthTest)
+        ' Depth test OFF, and the shader tests one point against the depth
+        ' buffer instead. Per-PIXEL depth cut the middle out of every disc: the
+        ' bulb sits inside its fixture, the housing in front of it is nearer, so
+        ' all that survived was the rim overhanging the silhouette - a donut
+        ' where the glare should be.
+        GL.Disable(EnableCap.DepthTest)
         GL.DepthMask(False)
         GL.Disable(EnableCap.CullFace)
         ' Premultiplied, matching the rest of the FX buffer. The shader emits
@@ -637,8 +642,10 @@ Module modRender
         GL.Enable(EnableCap.Blend)
         GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha)
 
+        MainFBO.gDepth.BindUnit(0)
         GL.Uniform1(lampBulbShader("radius"), Math.Max(0.001F, LAMP_BULB_SIZE))
         GL.Uniform1(lampBulbShader("min_px"), Math.Max(0.0F, LAMP_BULB_MIN_PX))
+        GL.Uniform1(lampBulbShader("see_thru"), Math.Max(0.0F, LAMP_BULB_SEE_THRU))
 
         ' The same set, in the same order, as the surface lighting and the
         ' shafts. A lamp that is lit should have a bulb, and one that lost its
@@ -658,6 +665,7 @@ Module modRender
         Next
 
         GL.Enable(EnableCap.CullFace)
+        GL.Enable(EnableCap.DepthTest)
         GL.DepthMask(True)
         GL.Disable(EnableCap.Blend)
         lampBulbShader.StopUse()

@@ -1073,11 +1073,31 @@ Module modGlobalVars
     Public LAMP_BULB_GAIN As Single = 60.0F
 
     ''' <summary>
-    ''' Floor on the bulb's on-screen radius, in pixels. A sub-pixel bulb
-    ''' flickers as the camera moves and the sample point crosses it; a real
-    ''' street lamp does not go out when you walk away from it either.
+    ''' Floor on the bulb's on-screen radius, in FULL RESOLUTION pixels. A
+    ''' sub-pixel bulb flickers as the camera moves and the sample point crosses
+    ''' it; a real street lamp does not go out when you walk away from it.
+    '''
+    ''' 10, not 2. The floor has to be read against the GLOW buffer, not the
+    ''' screen: gFX_BloomA is quarter resolution on each axis, so one bloom
+    ''' texel is four pixels here, and msm_blur spaces its nine taps
+    ''' FX_GLOW_RADIUS - 2.7 - texels apart. At a 2 px floor the core was half
+    ''' a bloom texel and the taps mostly missed it, so what came out was the
+    ''' KERNEL's own dot pattern rather than a halo. It showed on zooming out,
+    ''' because that is when every bulb is down at the floor. 10 px is two and
+    ''' a half bloom texels, which the taps overlap properly.
     ''' </summary>
-    Public LAMP_BULB_MIN_PX As Single = 2.0F
+    Public LAMP_BULB_MIN_PX As Single = 10.0F
+
+    ''' <summary>
+    ''' How deep an occluder a bulb still shines through, in metres.
+    '''
+    ''' A bulb is INSIDE its fixture, so the depth buffer in front of it holds
+    ''' the housing. Testing against the bulb's own depth hides it; testing per
+    ''' pixel carves the disc into a donut. The test is against a point this
+    ''' far in FRONT of the bulb, so it shines through its own glass and hood
+    ''' and a wall still stops it. Roughly the depth of a lamp fixture.
+    ''' </summary>
+    Public LAMP_BULB_SEE_THRU As Single = 0.45F
 
     ''' <summary>
     ''' Paint the point lights' contribution solid red.

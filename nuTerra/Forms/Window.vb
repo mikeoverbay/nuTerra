@@ -2196,11 +2196,24 @@ try_again:
                                              "threshold, so this is what there is to bloom." & vbLf &
                                              "Each light's own level scales it.")
                         End If
-                        If ImGui.SliderFloat("Bulb Min Px", LAMP_BULB_MIN_PX, 0.0, 8.0, "%.1f px") Then
+                        If ImGui.SliderFloat("Bulb Min Px", LAMP_BULB_MIN_PX, 0.0, 40.0, "%.1f px") Then
                         End If
                         If ImGui.IsItemHovered() Then
-                            ImGui.SetTooltip("Floor on the bulb's on-screen size. A sub-pixel" & vbLf &
-                                             "bulb flickers as the camera moves.")
+                            ImGui.SetTooltip("Floor on the bulb's on-screen size, in full-res pixels." & vbLf &
+                                             "Read it against the GLOW buffer, which is QUARTER" & vbLf &
+                                             "resolution: 4 px here is one bloom texel, and the" & vbLf &
+                                             "blur spaces its taps 2.7 texels apart. Below about" & vbLf &
+                                             "8 the taps miss the core and you get the kernel's" & vbLf &
+                                             "own grid instead of a halo - worst when zoomed out," & vbLf &
+                                             "where every bulb sits at this floor.")
+                        End If
+                        If ImGui.SliderFloat("Bulb See Thru", LAMP_BULB_SEE_THRU, 0.0, 2.0, "%.2f m") Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("How deep an occluder a bulb still shines through." & vbLf &
+                                             "A bulb sits INSIDE its fixture, so without this the" & vbLf &
+                                             "housing hides it. About the depth of a lamp hood." & vbLf &
+                                             "Too high and bulbs shine through walls.")
                         End If
                     End If
                     ImGui.Checkbox("Lights solid red (debug)", PATH_LIGHT_DEBUG_RED)

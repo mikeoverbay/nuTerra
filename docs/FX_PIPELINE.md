@@ -68,13 +68,41 @@ is why a real-sized bulb still reads from across a map. `LAMP_BULB_GAIN` is far
 over 1 on purpose: the bright pass keeps what is above `FX_GLOW_THRESHOLD`, so
 that is the material the halo is built from.
 
-Depth tested, depth write off, so a lamp housing in front of its own bulb hides
-it. That also means **a bulb placed up inside a closed hood is never seen** —
-it belongs at the glass. `LAMP_BULB_MIN_PX` holds a floor on the on-screen
-radius, because a sub-pixel bulb flickers as the camera moves and a real street
-lamp does not go out when you walk away from it.
+#### The pixel floor, and why the bulb dims as it grows
 
-Checkbox and three sliders under **Lamps**; `LAMP_BULB` off restores the frame
+`LAMP_BULB_MIN_PX` (10) is a floor on the on-screen radius, and it exists for
+the **glow buffer**, not the screen. `gFX_BloomA` is quarter resolution, so one
+bloom texel is 4 pixels here, and `msm_blur` spaces its nine taps
+`FX_GLOW_RADIUS` = 2.7 texels apart. At the original 2 px floor a core was half
+a bloom texel, the taps straddled it, and what came out was **the kernel's own
+grid** — a checkerboard over the whole lamp cluster, worst zoomed out where
+every bulb sits at the floor.
+
+A floor on its own then made every distant bulb identical in size, so a town
+seen from above was a heap of the same ball. The bulb is therefore **dimmed by
+however much the floor inflated it** (`vDim`, by the radius ratio). The halo is
+whatever clears the glow threshold, so a dimmer core leaves a smaller halo and
+the lamp goes on shrinking to the eye while keeping the footprint the blur
+needs. By the radius ratio and not the area: conserving energy properly is the
+area ratio, and that erases a lamp two streets away.
+
+#### Occlusion is per SPRITE, not per pixel
+
+The pass runs with the **depth test off** and tests one point in the shader.
+
+Per-pixel depth produced donuts. A bulb sits *inside* its fixture, the housing
+in front of it is nearer, so the test cut the middle out of every disc and left
+only the rim overhanging the silhouette. Testing the centre alone is no better
+— it hides the bulb outright.
+
+So the comparison is against a point `LAMP_BULB_SEE_THRU` (0.45 m, about a lamp
+hood) **in front** of the bulb: it shines through its own glass and hood, and a
+wall still stops it. That threshold is computed in the vertex stage, where the
+projection is to hand, so the fragment stage never inverts it and the test stays
+correct whatever near and far are. Five taps, so a bulb passing behind a pole
+fades over a few pixels instead of snapping off.
+
+Checkbox and four sliders under **Lamps**; `LAMP_BULB` off restores the frame
 without them.
 
 ### Cards first, meshes second — load-bearing
