@@ -1771,14 +1771,89 @@ try_again:
                     End If
                 End If
                 If ImGui.CollapsingHeader("Water") Then
-                    ' Pooled water from the global map's wet channel. Alpha is
-                    ' how much sky survives looking straight DOWN at it - the
-                    ' Fresnel takes it to a mirror at a grazing angle whatever
-                    ' this is set to. Depth is how much of the bed survives
-                    ' under full water; lower is deeper and darker.
+                    ' Two unrelated waters share this section, and until now they
+                    ' shared a name as well.
+                    '
+                    ' POOLED water is the wet channel of the global map, resolved
+                    ' in deferred.frag. A water BODY is the authored lake plane,
+                    ' a forward pass in water.frag drawn after the resolve. The
+                    ' slider below used to read "Water depth" and drives only the
+                    ' pooled path - its one consumer is gated on
+                    ' `pool > 0.0 && is_terrain` - so on a map with no wet decals
+                    ' it does nothing at all, and it has never had any effect on
+                    ' a lake. That cost an hour.
+                    ImGui.TextDisabled("pooled water (wet terrain)")
+
+                    ' How much of the bed survives under full pooled water;
+                    ' lower is deeper and darker.
                     Dim v_wd = WATER_DEPTH
-                    If ImGui.SliderFloat("Water depth", v_wd, 0.0, 1.0) Then
+                    If ImGui.SliderFloat("Pool bed darkness", v_wd, 0.0, 1.0) Then
                         WATER_DEPTH = v_wd
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("POOLED WATER ONLY - the wet channel of the global map." & vbLf &
+                                         "How much of the bed survives; lower is darker." & vbLf &
+                                         "Does NOTHING to a lake or river: those are water" & vbLf &
+                                         "bodies, drawn by a different pass. Inert on a map" & vbLf &
+                                         "with no wet decals - the load logs how many.")
+                    End If
+
+                    ImGui.Separator()
+                    ImGui.TextDisabled("water bodies (lakes, rivers)")
+
+                    ' The body's opacity with depth, and the only lever on it.
+                    '
+                    ' What transmits through the column is exp(-depth *
+                    ' fog_inv_depth), the game's own model, with fog_inv_depth
+                    ' authored per body in the BWWa record. This multiplies it.
+                    '
+                    ' It matters more than it looks: 07_lakeville authors 0.051,
+                    ' which puts the water 90% opaque at FORTY-FIVE METRES. No
+                    ' lake is that deep, so at 1.0 the depth term does nothing
+                    ' and the body is a flat wash at its alpha floor - which is
+                    ' what "far too transparent" was. The load line prints the
+                    ' authored value and the 90% depth for the map in front of
+                    ' you.
+                    Dim v_wfm = WATER_FOG_MUL
+                    If ImGui.SliderFloat("Body murk", v_wfm, 0.0, 20.0, "%.2f x") Then
+                        WATER_FOG_MUL = v_wfm
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Multiplies the authored fog_inv_depth, so the body" & vbLf &
+                                         "goes opaque over a shorter depth. 1.0 is as" & vbLf &
+                                         "authored." & vbLf &
+                                         "The load logs the authored value and where the" & vbLf &
+                                         "water reaches 90% opaque - if that reads tens of" & vbLf &
+                                         "metres, the depth term is doing nothing at 1.0.")
+                    End If
+
+                    ' How much sky ends up in the water. The bias is the
+                    ' reflectance looking straight DOWN - lakeville authors
+                    ' 0.200 where real water is about 0.02 - and the cube it
+                    ' reflects is a linear lighting input sampled by a pass that
+                    ' runs after the tone curve, so it lands brighter than the
+                    ' sky on screen. Pull this down to get the water's own
+                    ' colour back from above.
+                    Dim v_wfr = WATER_FRESNEL_MUL
+                    If ImGui.SliderFloat("Sky in water", v_wfr, 0.0, 2.0, "%.2f x bias") Then
+                        WATER_FRESNEL_MUL = v_wfr
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Scales the authored fresnel BIAS - how much sky is" & vbLf &
+                                         "reflected looking straight down. 1.0 is as authored." & vbLf &
+                                         "0 leaves only the grazing-angle reflection." & vbLf &
+                                         "The load line prints the authored bias and power.")
+                    End If
+
+                    Dim v_wfp = WATER_FRESNEL_POW
+                    If ImGui.SliderFloat("Sky falloff", v_wfp, 0.25, 4.0, "%.2f x power") Then
+                        WATER_FRESNEL_POW = v_wfp
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Scales the authored fresnel EXPONENT. Higher keeps" & vbLf &
+                                         "the reflection to grazing angles only, so looking" & vbLf &
+                                         "down gives water and looking along it still gives" & vbLf &
+                                         "a mirror.")
                     End If
 
                     ' A water body yields where the global map already says wet - the

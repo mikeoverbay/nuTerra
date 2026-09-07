@@ -155,6 +155,8 @@ Public Module modMapSettings
         Yield ("water_y_offset", Function() WATER_Y_OFFSET, Sub(v) WATER_Y_OFFSET = v)
         Yield ("water_exclude_band", Function() WATER_EXCLUDE_BAND, Sub(v) WATER_EXCLUDE_BAND = v)
         Yield ("water_fog_mul", Function() WATER_FOG_MUL, Sub(v) WATER_FOG_MUL = v)
+        Yield ("water_fresnel_mul", Function() WATER_FRESNEL_MUL, Sub(v) WATER_FRESNEL_MUL = v)
+        Yield ("water_fresnel_pow", Function() WATER_FRESNEL_POW, Sub(v) WATER_FRESNEL_POW = v)
         Yield ("mouse_damp", Function() ROT_DAMPING, Sub(v) ROT_DAMPING = v)
 
         ' Outland look. The tint/base pair feeds the albedo bake, which runs

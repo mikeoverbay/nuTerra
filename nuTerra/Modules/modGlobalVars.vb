@@ -114,7 +114,27 @@ Module modGlobalVars
     Public TREES_DECODE_TRACE As Boolean
     ' Multiplier on the authored water-fog inverse depth (BWWa +0x70) -
     ' above 1 the water goes opaque sooner, below 1 it clears up.
-    Public WATER_FOG_MUL As Single = 1.0F
+    Public WATER_FOG_MUL As Single = 10.0F
+
+    ''' <summary>
+    ''' Scales a water body's authored fresnel BIAS - the reflectance looking
+    ''' straight down, and so how much sky is in the water from above.
+    '''
+    ''' 07_lakeville authors 0.200. Real water is about 0.02, and the sky cube
+    ''' the reflection comes from is a LINEAR lighting input being sampled by a
+    ''' pass that runs after the tone curve, so it arrives brighter than the
+    ''' sky actually drawn. Between them that is most of why the water reads
+    ''' washed out from above. 1.0 is as authored; 0 removes the floor and
+    ''' leaves only the grazing-angle reflection the exponent gives.
+    ''' </summary>
+    Public WATER_FRESNEL_MUL As Single = 0.5F
+
+    ''' <summary>
+    ''' Scales a water body's authored fresnel EXPONENT. Higher confines the
+    ''' reflection to grazing angles, so looking down you get water and looking
+    ''' along it you still get a mirror. 07_lakeville authors 20.
+    ''' </summary>
+    Public WATER_FRESNEL_POW As Single = 1.0F
 
     ' ---- global fog (DeferredFog.frag / MapFog.vb) ----------------------
     ' The pass used to read its fog amount from the frame's alpha, which

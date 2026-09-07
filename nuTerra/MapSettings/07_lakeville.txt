@@ -1,4 +1,4 @@
-# nuTerra render settings for 07_lakeville
+﻿# nuTerra render settings for 07_lakeville
 
 # Written 2026-09-01T21:40:00. Copied from 19_monastery (Abbey).
 
@@ -46,7 +46,9 @@ water_y_offset=0
 
 water_exclude_band=1.5
 
-water_fog_mul=1
+water_fog_mul=10
+water_fresnel_mul=0.5
+water_fresnel_pow=1
 
 mouse_damp=0.1
 

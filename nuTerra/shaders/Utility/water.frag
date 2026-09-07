@@ -168,7 +168,14 @@ void main(void)
     float glint = min(pow(max(dot(R, sun_dir), 0.0), sun_glint.x * GLINT_SHARPEN)
                 * sun_glint.y * GLINT_LEVEL, GLINT_CAP) * shade;
 
-    vec3 col = mix(deep_color.rgb, refl, F) + sun_tint * glint;
+    // deep_color squared. The authored colour is an sRGB-ish number meant to
+    // feed a scattering model in linear HDR, and this pass uses it as a final
+    // display-space colour instead (see docs/game_water.md) - so it arrives
+    // far too light. Multiplying it by itself is a gamma 2.0 decode, near
+    // enough to the 2.2 the rest of the authored colours get, and it costs one
+    // multiply. Lakeville's (0.19, 0.51, 0.66) becomes (0.036, 0.260, 0.436).
+    vec3 deep = deep_color.rgb * deep_color.rgb;
+    vec3 col = mix(deep, refl, F) + sun_tint * glint;
 
     // More transparent looking straight down, near opaque at a grazing angle -
     // which is also where the reflection is, so the two arrive together.
@@ -285,6 +292,26 @@ void main(void)
         float soft = smoothstep(0.0, SOFT_DEPTH, water_depth);
         alpha *= soft;
         col -= sun_tint * glint * (1.0 - soft);
+    } else if (V.y > 0.0) {
+        // No bed behind the water, looked at from ABOVE.
+        //
+        // On a real map that is not empty space, it is an authored terrain
+        // HOLE: 07_lakeville sets 72019 hole cells, and the game punches the
+        // terrain away under its water bodies because its own water pipeline
+        // supplies the bed (terrain_height_renderer -> water_depth_map) and
+        // its water is opaque deferred geometry. Nothing shows through.
+        //
+        // Ours had no bed to measure against, skipped the whole depth block,
+        // and fell back to the alpha floor - so the hole read as sky seen
+        // through the lake. No bed means the light never came back from one,
+        // which is a column of unbounded depth: opaque.
+        //
+        // Gated on looking DOWN at the surface. The pass is double sided
+        // (MapWater.vb disables CullFace) so the underside draws too, and
+        // forcing that opaque would put a lid over the sky when the camera is
+        // beneath the water - the thing the mask_wet discard above exists to
+        // prevent.
+        alpha = 1.0;
     }
 
     fragColor = vec4(col, alpha);

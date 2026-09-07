@@ -100,8 +100,22 @@ Public Class MapWater
                 .sun_tint = b.sun_tint,
                 .fog_inv_depth = b.fog_inv_depth})
 
-            LogThis("Water: body at x {0:0}..{1:0}  z {2:0}..{3:0}  y {4:0.00}  colour ({5:0.00} {6:0.00} {7:0.00})",
-                    x0, x1, z0, z1, y, b.deep_color.X, b.deep_color.Y, b.deep_color.Z)
+            ' fog_inv_depth is the transparency falloff - what transmits through
+            ' the column is exp(-depth * this). Logged because it decides where
+            ' the water goes opaque, and until now the only way to know its
+            ' value was to read the BWWa record by hand. The 90% depth is the
+            ' useful form of it: below that the bed contributes a tenth.
+            Dim d90 = If(b.fog_inv_depth > 0.0001F,
+                         CSng(Math.Log(10.0) / b.fog_inv_depth), Single.PositiveInfinity)
+            LogThis("Water: body at x {0:0}..{1:0}  z {2:0}..{3:0}  y {4:0.00}  colour ({5:0.00} {6:0.00} {7:0.00})  fog_inv_depth {8:0.0000} -> 90% opaque at {9:0.0} m",
+                    x0, x1, z0, z1, y, b.deep_color.X, b.deep_color.Y, b.deep_color.Z,
+                    b.fog_inv_depth, d90)
+            ' The Fresnel pair, because it is what makes the water change with
+            ' the camera. bias is the reflectance looking straight DOWN: real
+            ' water is about 0.02, so anything near 0.5 is a mirror from every
+            ' angle and the depth colour never gets a look in.
+            LogThis("Water:   fresnel bias {0:0.000} power {1:0.00}   (straight-down reflectance = bias; water is ~0.02)",
+                    b.fresnel_bias, b.fresnel_power)
         Next
 
         ' -------------------------------------------------------------------
@@ -301,7 +315,13 @@ Public Class MapWater
         For Each b In bodies
             GL.Uniform4(waterShader("deep_color"), b.deep_color.X, b.deep_color.Y, b.deep_color.Z, b.deep_color.W)
             GL.Uniform1(waterShader("fog_inv_depth"), b.fog_inv_depth * WATER_FOG_MUL)
-            GL.Uniform2(waterShader("fresnel"), b.fresnel_bias, b.fresnel_power)
+            ' Authored bias and exponent, each scaled by its own control. The
+            ' bias is how much sky is in the water looking straight down, which
+            ' is the one that washes it out; the exponent decides how quickly
+            ' the reflection takes over toward grazing.
+            GL.Uniform2(waterShader("fresnel"),
+                        Math.Clamp(b.fresnel_bias * WATER_FRESNEL_MUL, 0.0F, 1.0F),
+                        Math.Max(0.1F, b.fresnel_power * WATER_FRESNEL_POW))
             GL.Uniform2(waterShader("sun_glint"), Math.Max(b.sun_power, 1.0F), b.sun_scale)
             GL.Uniform3(waterShader("sun_tint"), b.sun_tint.X, b.sun_tint.Y, b.sun_tint.Z)
             GL.DrawElementsBaseVertex(PrimitiveType.Triangles, b.idx_count,
