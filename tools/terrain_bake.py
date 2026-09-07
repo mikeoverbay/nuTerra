@@ -43,7 +43,12 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-SIZE = 1024
+# 2048, not 1024. Over a 1200 m map that is 0.59 m per texel instead of
+# 1.17 - a 3 m wall is five cells across rather than two, which is the
+# difference between the router seeing a building and seeing a smudge.
+# flight_plan.Bake reads width/height out of the meta, so a bake at any
+# size still loads and old files keep working.
+SIZE = 2048
 FOLDER = os.path.join(os.environ.get("TEMP", "."), "nuTerra", "flight")
 EMPTY = -9999.0
 CHUNK_M = 100.0
@@ -197,13 +202,16 @@ def add_water(floor, fp, bodies):
     return raised
 
 
-def write_bake(map_name, floor, fp, folder=FOLDER):
+def write_bake(map_name, floor, fp, folder=FOLDER, top=None, n_boxes=0):
     os.makedirs(folder, exist_ok=True)
     stem = os.path.join(folder, map_name)
     size = floor.shape[0]
     f32 = floor.astype("<f4")
     open(stem + "_floor.r32", "wb").write(f32.tobytes())
-    open(stem + "_top.r32", "wb").write(f32.tobytes())      # terrain only: nothing stands on it
+    # top carries the model boxes when there are any; without them it is the
+    # ground again and the router sees a map with nothing standing on it.
+    t32 = f32 if top is None else top.astype("<f4")
+    open(stem + "_top.r32", "wb").write(t32.tobytes())
     Image.fromarray(np.zeros((size, size), np.uint8), "L").convert("RGBA").save(stem + "_mask.png")
     wx_min, wx_max, wz_min, wz_max = fp
     lines = [
@@ -214,11 +222,26 @@ def write_bake(map_name, floor, fp, folder=FOLDER):
         "wz_min=%.3f" % wz_min, "wz_max=%.3f" % wz_max,
         "empty=%.3f" % EMPTY,
         "obstacle_min_h=1.000",
-        "source=python-terrain",
+        "source=" + ("python-boxes" if top is not None else "python-terrain"),
+        "model_boxes=%d" % n_boxes,
         "#",
+    ] + ([
+        "# TERRAIN + MODEL BOXES - written by tools/terrain_bake.py.",
+        "# top is the ground raised to each placed model's visibility box, read",
+        "# from the map's own space.bin (BSMI transforms, BSMO bounds). Trees",
+        "# are NOT in it - those live in the SpTr section and are not read yet.",
+        "#",
+        "# A box is not geometry. Visibility bounds carry culling margin and are",
+        "# solid where the model is not, so this marks noticeably more ground",
+        "# blocked than nuTerra's GPU bake, which rasterises real triangles:",
+        "# measured 41.7%% against 24.1%% on 07_lakeville. It errs toward calling",
+        "# ground blocked, which is the right way round for a router, but open",
+        "# the map in nuTerra when you can - that bake is the accurate one.",
+    ] if top is not None else [
         "# TERRAIN ONLY - written by tools/terrain_bake.py from the pkg heights.",
         "# top equals floor: no models, no trees, no obstacles. Open the map once",
         "# in nuTerra for the real bake, which overwrites this one.",
+    ]) + [
         "#",
         "# row 0 is the wz_max edge, rows increase toward wz_min",
         "# col 0 is the wx_min edge, cols increase toward wx_max",
@@ -238,7 +261,22 @@ def bake(map_name, game=None, size=SIZE, folder=FOLDER, log=print):
     bodies = read_water(pkg, map_name)
     raised = add_water(floor, fp, bodies)
     log("terrain bake: %d water bodies raised %d cells" % (len(bodies), raised))
-    stem = write_bake(map_name, floor, fp, folder)
+
+    # Models, as their visibility boxes out of space.bin. Without these the
+    # router sees no buildings at all and will plan straight through a town.
+    top = None
+    n_boxes = 0
+    try:
+        import space_models
+        inst = space_models.read_instances(pkg, map_name)
+        top = floor.copy()
+        n_boxes = space_models.stamp(top, fp, inst)
+        log("terrain bake: %d model instances, %d boxes stamped" % (len(inst), n_boxes))
+    except Exception as e:
+        top = None
+        log("terrain bake: no model boxes (%s) - top will equal floor" % e)
+
+    stem = write_bake(map_name, floor, fp, folder, top=top, n_boxes=n_boxes)
     log("terrain bake: wrote %s_{floor,top}.r32 / _mask.png / _meta.txt  footprint x %.0f..%.0f z %.0f..%.0f"
         % (stem, fp[0], fp[1], fp[2], fp[3]))
     return stem

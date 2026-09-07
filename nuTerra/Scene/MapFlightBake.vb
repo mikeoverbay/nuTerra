@@ -31,10 +31,11 @@ Public Class MapFlightBake
 
     ReadOnly scene As MapScene
 
-    ''' <summary>Texels on a side. 1024 over a ~1 km map is about a metre per
-    ''' texel - fine enough that one lamppost cannot blank a whole cell, coarse
-    ''' enough that both layers together are 8 MB.</summary>
-    Public Const SIZE As Integer = 1024
+    ''' <summary>Texels a side. 2048 over a 1200 m map is 0.59 m per texel;
+    ''' at 1024 it was 1.17 and a 3 m wall covered two cells. Path Studio
+    ''' reads width and height from the meta, so this can move without
+    ''' breaking bakes already on disk.</summary>
+    Public Const SIZE As Integer = 2048
 
     ''' <summary>Height above the terrain at which something counts as an
     ''' obstacle in the exported mask. The mask is for eyeballing only - the
@@ -329,7 +330,17 @@ Public Class MapFlightBake
     End Sub
 
     Private Sub draw_models(vp As Matrix4)
-        If Not scene.MODELS_LOADED OrElse Not DONT_BLOCK_MODELS Then Return
+        If Not scene.MODELS_LOADED OrElse Not DONT_BLOCK_MODELS Then
+            LogThis("flight bake: models NOT baked - loaded={0} enabled={1}",
+                    scene.MODELS_LOADED, DONT_BLOCK_MODELS)
+            Return
+        End If
+
+        ' The count comes from the SUN SHADOW cull, which was run for the sun's
+        ' frustum rather than for this top-down ortho. If it is 0 here the bake
+        ' has no buildings in it at all and Path Studio cannot see them.
+        LogThis("flight bake: models drawn from the shadow indirect buffer, {0} draw(s)",
+                scene.static_models.indirectShadowMappingDrawCount)
 
         sunDepthModelShader.Use()
         GL.UniformMatrix4(sunDepthModelShader("sunViewProj"), False, vp)
