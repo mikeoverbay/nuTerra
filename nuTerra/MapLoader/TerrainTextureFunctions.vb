@@ -316,17 +316,24 @@ Module TerrainTextureFunctions
                 .layer.render_info(i).count = br.ReadUInt32 ' always 8
                 If .layer.render_info(i).count <> 8 Then Stop
 
-                'texture projection transforms
-                .layer.render_info(i).u.X = round_4(br.ReadSingle)
+                ' Texture projection transforms, VERBATIM. These used to go
+                ' through a round_4() that was in fact Math.Round(v, 2), which
+                ' quantised the pkg's own numbers to 0.01: 07_lakeville authors
+                ' 0.2564 and 0.3325, and the rotation components suffered worst
+                ' - one layer's 0.0233 became 0.02, a 14% error in its angle.
+                ' Anything under 0.005 would have rounded to zero outright and
+                ' collapsed that layer's UV to a single texel. Never round data
+                ' that came out of a pkg.
+                .layer.render_info(i).u.X = br.ReadSingle
                 .layer.render_info(i).u.Y = 0.0
                 br.ReadSingle()
-                .layer.render_info(i).u.Z = round_4(br.ReadSingle)
+                .layer.render_info(i).u.Z = br.ReadSingle
                 .layer.render_info(i).u.W = br.ReadSingle
 
-                .layer.render_info(i).v.X = round_4(br.ReadSingle)
+                .layer.render_info(i).v.X = br.ReadSingle
                 .layer.render_info(i).v.Y = 0.0
                 br.ReadSingle()
-                .layer.render_info(i).v.Z = round_4(br.ReadSingle)
+                .layer.render_info(i).v.Z = br.ReadSingle
                 .layer.render_info(i).v.W = br.ReadSingle
 
                 .layer.render_info(i).flags = br.ReadUInt32 'always 59
@@ -467,10 +474,6 @@ Module TerrainTextureFunctions
         End With
 
         Return True
-    End Function
-
-    Private Function round_4(v As Single) As Single
-        Return Math.Round(v, 2)
     End Function
 
     Public Sub make_dummy_4_layer_atlas()
