@@ -14,6 +14,124 @@ Public Class MapStaticModels
     ' OpenGL buffers used to draw all map models
     ' For map models only!
     Public materials As GLBuffer
+
+    ''' <summary>
+    ''' The material array as it was uploaded, kept on the CPU.
+    '''
+    ''' Only so a live override can be UNDONE. Without the authored values
+    ''' there is nothing to put back, and a diagnostic you cannot switch off is
+    ''' a diagnostic that has to be reasoned around for the rest of the session.
+    ''' 288 bytes a material, so a map's worth is under a megabyte.
+    ''' </summary>
+    ' Friend, not Public: GLMaterial is internal to the project, and a Public
+    ' field cannot expose it. Every consumer is in here anyway.
+    Friend material_cpu As GLMaterial()
+
+    ''' <summary>
+    ''' Force one material's cutout on or off, live, without a reload.
+    '''
+    ''' slot is the COMPACT material id a primitive group carries, which is what
+    ''' indexes this buffer - see ModelInfo for why that is not the same number
+    ''' as the space.bin key.
+    '''
+    ''' This exists because alphaTestEnable arrives from space.bin's BSMA, not
+    ''' from the .visual_processed - so a res_mods visual edit changes what the
+    ''' GAME does and nothing about what nuTerra does. Editing the BSMA to try a
+    ''' cutout is a binary rewrite per map; this is a checkbox.
+    '''
+    ''' reference is 0..255 as authored, divided here exactly as MapLoader does,
+    ''' so a value tried in this window means the same as one baked into a file.
+    ''' </summary>
+    Public Sub set_material_alpha(slot As Integer, enable As Boolean, reference As Integer)
+        If materials Is Nothing OrElse material_cpu Is Nothing Then Return
+        If slot < 0 OrElse slot >= material_cpu.Length Then Return
+
+        Dim stride = Marshal.SizeOf(Of GLMaterial)()
+        Dim base_at = New IntPtr(CLng(slot) * stride)
+
+        ' Offsets asked of the runtime rather than counted by hand. The struct is
+        ' LayoutKind.Sequential and has been re-packed once already (alphaFromDiffuse
+        ' took the tail padding); a hand-counted offset would survive that silently
+        ' and write into the wrong field.
+        Dim off_ref = Marshal.OffsetOf(Of GLMaterial)("alphaReference").ToInt64()
+        Dim off_en = Marshal.OffsetOf(Of GLMaterial)("alphaTestEnable").ToInt64()
+
+        Dim r(0) As Single
+        r(0) = Math.Max(0, reference) / 255.0F
+        Dim e(0) As UInteger
+        e(0) = If(enable, 1UI, 0UI)
+
+        GL.NamedBufferSubData(materials.buffer_id, New IntPtr(base_at.ToInt64() + off_ref), 4, r)
+        GL.NamedBufferSubData(materials.buffer_id, New IntPtr(base_at.ToInt64() + off_en), 4, e)
+    End Sub
+
+    ''' <summary>
+    ''' Cut the glass out of the street lamps, or put it back.
+    '''
+    ''' The three settings only make sense together and are worthless apart, so
+    ''' they are applied as one thing rather than left as three checkboxes to be
+    ''' got right by hand: the cutout does nothing without a threshold, and the
+    ''' hole it opens looks into empty space unless the shell draws both sides.
+    '''
+    ''' 63 is fixed, not a slider. It arrives as 63/255 = 0.247 and the painted
+    ''' channel is 0 inside the glass and 255 outside, so anything in the middle
+    ''' of that range picks the same texels - the number is not a look to tune,
+    ''' it is a side to fall on.
+    '''
+    ''' OFF restores what the material was authored with rather than forcing
+    ''' false, so a lamp that already had a cutout keeps it.
+    ''' </summary>
+    Public Const LAMP_ALPHA_REFERENCE As Integer = 63
+
+    Public Sub set_lamp_glass_cut(cut As Boolean)
+        If materials Is Nothing OrElse material_cpu Is Nothing Then Return
+        For Each slot In ModelInfo.LAMP_SLOTS
+            If cut Then
+                set_material_alpha(slot, True, LAMP_ALPHA_REFERENCE)
+                set_material_double_sided(slot, True)
+            Else
+                reset_material_alpha(slot)
+                reset_material_double_sided(slot)
+            End If
+        Next
+    End Sub
+
+    ''' <summary>
+    ''' Force one material double sided, live.
+    '''
+    ''' This one moves a DRAW, not just a shading branch: cull.comp reads
+    ''' material[].double_sided every frame and routes the command into
+    ''' command_double_sided, which draw_models issues with culling disabled.
+    ''' Because the partition is rebuilt per frame rather than at load, writing
+    ''' the flag is enough - nothing has to be re-culled by hand.
+    '''
+    ''' Wanted the moment a cutout opens a hole: through it you are looking at
+    ''' the BACK of the far side of the same shell, and a single sided model has
+    ''' nothing there to draw.
+    ''' </summary>
+    Public Sub set_material_double_sided(slot As Integer, enable As Boolean)
+        If materials Is Nothing OrElse material_cpu Is Nothing Then Return
+        If slot < 0 OrElse slot >= material_cpu.Length Then Return
+        Dim at = CLng(slot) * Marshal.SizeOf(Of GLMaterial)() +
+                 Marshal.OffsetOf(Of GLMaterial)("double_sided").ToInt64()
+        Dim v(0) As UInteger
+        v(0) = If(enable, 1UI, 0UI)
+        GL.NamedBufferSubData(materials.buffer_id, New IntPtr(at), 4, v)
+    End Sub
+
+    ''' <summary>Put one material's authored double sided flag back.</summary>
+    Public Sub reset_material_double_sided(slot As Integer)
+        If material_cpu Is Nothing OrElse slot < 0 OrElse slot >= material_cpu.Length Then Return
+        set_material_double_sided(slot, material_cpu(slot).double_sided <> 0UI)
+    End Sub
+
+    ''' <summary>Put one material's authored cutout back.</summary>
+    Public Sub reset_material_alpha(slot As Integer)
+        If material_cpu Is Nothing OrElse slot < 0 OrElse slot >= material_cpu.Length Then Return
+        set_material_alpha(slot,
+                           material_cpu(slot).alphaTestEnable <> 0UI,
+                           CInt(Math.Round(material_cpu(slot).alphaReference * 255.0F)))
+    End Sub
     Public parameters As GLBuffer
     Public parameters_temp As GLBuffer
     Public matrices As GLBuffer

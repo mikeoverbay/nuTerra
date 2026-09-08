@@ -1170,6 +1170,9 @@ try_again:
     Private Sub load_assets()
         ' Init packages
         ResMgr.Init(My.Settings.GamePath)
+        ' Our texture edits, read once. Must be before any map loads, since
+        ' they are applied as each texture comes out of its package.
+        TexturePatch.Init()
 
         'Loads the textures for the map selection routines
         MapMenuScreen.Init()
@@ -1607,6 +1610,25 @@ try_again:
                     If ImGui.Checkbox("Disable decal edge fade", no_edge_fade) Then
                         DECAL_EDGE_FADE = Not no_edge_fade
                     End If
+                    ' from: bulbs on models, and the cam path's own. Nothing unloads.
+                    ' Both are switches over the LIGHTS, split by where they come
+                    ImGui.Checkbox("Street lights", STREET_LIGHTS_ON)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("The BULB lights - one per instance of every" & vbLf &
+                                         "model a bulb is placed on." & vbLf &
+                                         "Pools and shafts together; they come from one" & vbLf &
+                                         "list so they cannot disagree." & vbLf &
+                                         "Nothing is unloaded and no cube is re-baked.")
+                    End If
+                    ImGui.Checkbox("Path lights", PATH_LIGHTS_ON)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("The .campath file's own lights, placed in" & vbLf &
+                                         "Path Studio - NOT the bulbs." & vbLf &
+                                         "These are the ones the shadow cubes are baked" & vbLf &
+                                         "for. Same deal: left out of the upload, not" & vbLf &
+                                         "destroyed.")
+                    End If
+                    ImGui.Separator()
                     ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
                     ' The whole FX pass, meshes and cards together, which is how
                     ' modRender brackets them. Independent of DONT_BLOCK_MODELS -

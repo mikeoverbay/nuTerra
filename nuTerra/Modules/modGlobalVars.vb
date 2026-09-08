@@ -872,6 +872,23 @@ Module modGlobalVars
     ''' the frame. Maps with no lamps pay nothing: the bake returns on the empty
     ''' list before allocating.
     ''' </summary>
+    ''' <summary>
+    ''' The BULB lights - one per instance of every model a bulb is placed on,
+    ''' which on 19_monastery is 55 street lamps from 3 bulb records.
+    '''
+    ''' Off simply leaves them out of the upload. Nothing is unloaded, the bulb
+    ''' table is untouched and the baked shadow cubes stay where they are, so
+    ''' turning it back on costs one frame and no re-bake.
+    ''' </summary>
+    Public STREET_LIGHTS_ON As Boolean = True
+
+    ''' <summary>
+    ''' The .campath file's OWN lights - the ones placed in Path Studio, which
+    ''' come first in lights() and are what the shadow cubes are baked for.
+    ''' Same deal: left out of the upload, nothing destroyed.
+    ''' </summary>
+    Public PATH_LIGHTS_ON As Boolean = True
+
     Public LAMP_SHADOW_ENABLED As Boolean = True
 
     ''' <summary>

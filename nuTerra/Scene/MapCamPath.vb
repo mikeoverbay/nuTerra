@@ -495,10 +495,19 @@ Public Class MapCamPath
         If lights Is Nothing OrElse lights.Length = 0 Then Return New Integer() {}
         Dim np = Math.Min(path_light_count(), max_n)
         Dim out As New List(Of Integer)(max_n)
-        For i = 0 To np - 1
-            out.Add(i)
-        Next
-        If lights.Length > np AndAlso out.Count < max_n Then
+
+        ' The two switches live HERE, in the one function both the surface pass
+        ' and the shaft pass ask, so they cannot disagree about which lights are
+        ' on. A light left out is simply not uploaded: the cam path, the bulb
+        ' table and the baked cubes are all untouched, and the packed cube layer
+        ' travels with the light rather than with its slot, so dropping some
+        ' does not shift anyone else's shadow.
+        If PATH_LIGHTS_ON Then
+            For i = 0 To np - 1
+                out.Add(i)
+            Next
+        End If
+        If STREET_LIGHTS_ON AndAlso lights.Length > np AndAlso out.Count < max_n Then
             Dim rest = Enumerable.Range(np, lights.Length - np).ToList()
             rest.Sort(Function(a, b)
                           Dim da = (lights(a).pos - cam).LengthSquared - lights(a).range_m * lights(a).range_m

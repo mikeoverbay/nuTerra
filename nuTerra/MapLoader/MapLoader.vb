@@ -1326,6 +1326,11 @@ Module MapLoader
             Dim ms As New MemoryStream
             entry.Extract(ms)
 
+            ' Our own edits, laid over the game's file before the DDS reader
+            ' sees it - so the reader, the mip walk and the upload all behave as
+            ' though the game had shipped it this way. See TexturePatch.
+            TexturePatch.Apply(texturePath, ms)
+
             Dim tex = TextureMgr.load_dds_image_from_stream(ms, texturePath)
 
             Dim handle = GL.Arb.GetTextureHandle(tex.texture_id)
@@ -1639,11 +1644,23 @@ Module MapLoader
         ' must add it to common.h too, or every material reads garbage.
         Debug.Assert(Marshal.SizeOf(Of GLMaterial) = 288, "GLMaterial no longer matches MaterialProperties in common.h")
 
+        ' Kept so a live cutout override has authored values to restore.
+        map_scene.static_models.material_cpu = materialsData
+        ' New materials: whatever the lamp glass was set to last map does not
+        ' apply to these, so make the next frame apply it again.
+        modRender.reset_lamp_glass_state()
+
         map_scene.static_models.materials = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "materials")
+        ' DynamicStorageBit, so the buffer can be written after creation.
+        ' NamedBufferStorage with None is IMMUTABLE: a later NamedBufferSubData
+        ' is GL_INVALID_OPERATION and the driver drops the write without a word,
+        ' which is exactly how the live cutout override failed - the checkbox
+        ' moved, the SSBO did not. Nothing else about the buffer changes; it is
+        ' still uploaded once at load and only read per frame.
         map_scene.static_models.materials.Storage(
             materialsData.Length * Marshal.SizeOf(Of GLMaterial),
             materialsData,
-            BufferStorageFlags.None)
+            BufferStorageFlags.DynamicStorageBit)
         map_scene.static_models.materials.BindBase(3)
 
         ' ---- FX composite class, derived once, read by the sort every frame ----

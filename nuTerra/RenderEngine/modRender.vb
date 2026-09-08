@@ -14,6 +14,9 @@ Module modRender
     Public Sub draw_scene()
         ' Flip the query slot before anything issues one.
         modGpuTimers.NewFrame()
+        ' The lamps' cutout follows the Street lights switch. Cheap: an integer
+        ' compare, and it only writes the SSBO when the answer changed.
+        sync_lamp_glass()
 
         '===========================================================================
         ' FLAG INFO
@@ -1274,6 +1277,37 @@ Module modRender
     ' as a hard 0 and never read until the two angles arrived - which is why
     ' the second angle needed no new uniform array.
     Private pl_kb(MAX_PATH_LIGHTS * 4 - 1) As Single
+
+    ''' <summary>
+    ''' Last state the lamp glass was set to, or -1 for "never applied".
+    '''
+    ''' Compared once a frame rather than hooked to the checkbox, because the
+    ''' material buffer does not exist until a map has loaded - so the switch
+    ''' being ON at startup still has to reach the materials afterwards, and a
+    ''' map change has to re-apply it to the new ones.
+    ''' </summary>
+    Private lamp_glass_state As Integer = -1
+
+    Friend Sub sync_lamp_glass()
+        If map_scene Is Nothing OrElse map_scene.static_models Is Nothing Then Return
+        ' Nothing to apply to yet. Frames are drawn DURING the load - the first
+        ' one lands before a single model has been captured - and latching
+        ' "applied" against an empty list would leave the glass uncut for the
+        ' whole session on any path that does not happen to reset it after.
+        If ModelInfo.LAMP_SLOTS.Count = 0 Then Return
+        Dim want = If(STREET_LIGHTS_ON, 1, 0)
+        If want = lamp_glass_state Then Return
+        map_scene.static_models.set_lamp_glass_cut(STREET_LIGHTS_ON)
+        lamp_glass_state = want
+        LogThis("street lamps: glass {0} on {1} material(s)",
+                If(STREET_LIGHTS_ON, "cut", "restored"), ModelInfo.LAMP_SLOTS.Count)
+    End Sub
+
+    ''' <summary>Forget the applied state, so the next frame re-applies it to a
+    ''' freshly loaded map's materials.</summary>
+    Friend Sub reset_lamp_glass_state()
+        lamp_glass_state = -1
+    End Sub
 
     Private Sub upload_path_lights()
         Dim n As Integer = 0

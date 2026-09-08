@@ -31,6 +31,8 @@ Public Class ModelInfo
         FACTS.Clear()
         OWNER.Clear()
         XFORM.Clear()
+        SLOTS.Clear()
+        LAMP_SLOTS.Clear()
         INSTANCE_OF = Nothing
         BY_SLOT = Nothing
         BY_SLOT_N = -1
@@ -74,11 +76,29 @@ Public Class ModelInfo
             XFORM(CUInt(first_instance + i)) = first_xform + i
         Next
         If FACTS.ContainsKey(model_id) Then Return
-        FACTS(model_id) = build_model_facts(model_id, count, model_dir)
+        ' NOT named slots. VB is case insensitive, so a local by that name IS
+        ' the shared SLOTS dictionary, and the assignment below would index the
+        ' list with a model id instead of filling the map.
+        Dim slot_list As New List(Of Integer)
+        FACTS(model_id) = build_model_facts(model_id, count, model_dir, slot_list)
+        SLOTS(model_id) = slot_list
+
+        If model_dir IsNot Nothing Then
+            Dim low = model_dir.ToLowerInvariant().Replace("\", "/")
+            For Each d In LAMP_DIRS
+                If low.Contains(d) Then
+                    For Each sl In slot_list
+                        If Not LAMP_SLOTS.Contains(sl) Then LAMP_SLOTS.Add(sl)
+                    Next
+                    Exit For
+                End If
+            Next
+        End If
     End Sub
 
     Private Shared Function build_model_facts(model_id As Integer, count As Integer,
-                                             model_dir As String) As String
+                                             model_dir As String,
+                                             slot_list As List(Of Integer)) As String
         Dim sb As New StringBuilder()
         Try
             Dim m = MAP_MODELS(model_id)
@@ -110,7 +130,7 @@ Public Class ModelInfo
                     sb.AppendLine("  render sets    : " & If(sets Is Nothing, 0, sets.Count).ToString())
                     If sets Is Nothing Then Continue For
                     For si = 0 To sets.Count - 1
-                        append_render_set(sb, sets(si), si)
+                        append_render_set(sb, sets(si), si, slot_list)
                     Next
                 Next
             End If
@@ -120,7 +140,8 @@ Public Class ModelInfo
         Return sb.ToString()
     End Function
 
-    Private Shared Sub append_render_set(sb As StringBuilder, rs As RenderSetEntry, si As Integer)
+    Private Shared Sub append_render_set(sb As StringBuilder, rs As RenderSetEntry, si As Integer,
+                                         slot_list As List(Of Integer))
         sb.AppendLine("")
         sb.AppendLine("  [render set " & si.ToString() & "]")
         If rs Is Nothing Then
@@ -162,6 +183,7 @@ Public Class ModelInfo
                           " startVertex=" & pg.startVertex.ToString() &
                           " nVertices=" & pg.nVertices.ToString() &
                           " no_draw=" & pg.no_draw.ToString())
+            If Not slot_list.Contains(pg.material_id) Then slot_list.Add(pg.material_id)
             append_material(sb, pg.material_id)
         Next
     End Sub
@@ -186,6 +208,37 @@ Public Class ModelInfo
     ''' Rebuilt whenever the table has GROWN, because this runs during the load
     ''' and modSpaceBin is still adding materials while models are read.
     ''' </summary>
+    ''' <summary>Material slots a model draws with, in the order the report
+    ''' lists them, so the info window can offer a control per material.</summary>
+    Private Shared SLOTS As New Dictionary(Of Integer, List(Of Integer))
+
+    ''' <summary>
+    ''' Material slots belonging to the street lamps the glass cut is authored
+    ''' for - see TexturePatch and tools/make_lamp_patch.py.
+    '''
+    ''' Collected here because this is the one pass that already has a model's
+    ''' directory AND walks its primitive groups, and both are gone by the end of
+    ''' the load. Matching is on the directory rather than the map, so the same
+    ''' lamps are found on any space that places them.
+    ''' </summary>
+    Public Shared ReadOnly LAMP_SLOTS As New List(Of Integer)
+
+    ' These match because a render set's verts_name ends in "/vertices", so
+    ' Path.GetDirectoryName leaves the .primitives path WITH the model name on
+    ' it - not the folder, as the variable's name suggests.
+    Private Shared ReadOnly LAMP_DIRS As String() = {
+        "env_19_08_streetlamp01", "env_19_08_streetlamp02"}
+
+    ''' <summary>The material slots behind a picked instance, or Nothing.</summary>
+    Public Shared Function SlotsForPick(pick_id As UInteger) As List(Of Integer)
+        If pick_id = 0 Then Return Nothing
+        Dim model_id As Integer
+        If Not OWNER.TryGetValue(pick_id - 1UI, model_id) Then Return Nothing
+        Dim l As List(Of Integer) = Nothing
+        If SLOTS.TryGetValue(model_id, l) Then Return l
+        Return Nothing
+    End Function
+
     Private Shared BY_SLOT As Dictionary(Of Integer, Material) = Nothing
     Private Shared BY_SLOT_N As Integer = -1
 
