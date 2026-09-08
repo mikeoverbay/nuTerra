@@ -42,11 +42,11 @@ horizon_strength=1
 
 shadow_strength=1
 
-water_y_offset=0
+water_y_offset=0.623
 
-water_exclude_band=1.5
+water_exclude_band=0
 
-water_fog_mul=1
+water_fog_mul=1.987
 
 mouse_damp=0.1
 
