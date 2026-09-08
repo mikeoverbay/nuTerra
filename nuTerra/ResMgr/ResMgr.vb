@@ -4,6 +4,24 @@ Imports System.IO.Compression
 
 NotInheritable Class ResMgr
     Shared RES_MODS_PATH As String
+
+    ''' <summary>
+    ''' Every file under res_mods, catalogued once at startup.
+    '''
+    ''' Lookup has always preferred a res_mods file over the packaged one, but it
+    ''' asked the FILE SYSTEM on every single call - one File.Exists per lookup,
+    ''' for every model, texture, visual and cdata a map loads, and almost all of
+    ''' them miss because almost nothing is overridden. That is a disk round trip
+    ''' to be told no.
+    '''
+    ''' res_mods is small and static for a session, so it is walked once and the
+    ''' answer is a set membership test after that. In the catalogue means it is
+    ''' on disk.
+    '''
+    ''' Keys are lowered and forward-slashed, the same shape FILENAME_TO_ZIP_ENTRY
+    ''' uses, so the two can be probed with one key.
+    ''' </summary>
+    Shared ReadOnly RES_MODS_FILES As New HashSet(Of String)
     Shared ReadOnly FILENAME_TO_ZIP_ENTRY As New Dictionary(Of String, PkgEntry)
     ' .vfxbin is a particle effect definition, .effbin the wrapper naming its
     ' forward/deferred .vfx. Indexed so the particle loader can find them.
@@ -20,6 +38,7 @@ NotInheritable Class ResMgr
         xDoc.Load(Path.Combine(wot_path, "paths.xml"))
         Dim first_path = xDoc.SelectSingleNode("//Paths/Path").InnerText.Remove(0, 2)
         RES_MODS_PATH = Path.Combine(wot_path, first_path)
+        scan_res_mods()
 
         For Each pkgNode In xDoc.SelectNodes("//Paths/Packages/Package")
             Dim pkg = pkgNode.InnerText.Remove(0, 2)
@@ -84,19 +103,87 @@ NotInheritable Class ResMgr
         Return found
     End Function
 
+    ''' <summary>
+    ''' Walk res_mods once and remember what is in it.
+    '''
+    ''' RES_MODS_PATH is the FIRST &lt;Path&gt; in paths.xml, which is the version
+    ''' folder the game itself is using - 2.4.0.0 today, beside thirteen older
+    ''' ones that are inert. Nothing here has to know the version.
+    '''
+    ''' Filtered to the extensions the package index already keeps, so a readme
+    ''' or a stray .txt cannot shadow anything, and the names are logged because
+    ''' an override that silently replaces a game asset is exactly the thing you
+    ''' want named when a model comes out wrong.
+    ''' </summary>
+    Private Shared Sub scan_res_mods()
+        RES_MODS_FILES.Clear()
+        If String.IsNullOrEmpty(RES_MODS_PATH) OrElse Not Directory.Exists(RES_MODS_PATH) Then
+            LogThis("res_mods: {0} is not there - no overrides", RES_MODS_PATH)
+            Return
+        End If
+
+        Dim clock = Diagnostics.Stopwatch.StartNew()
+        Dim skipped = 0
+        Dim root = RES_MODS_PATH.TrimEnd("\"c, "/"c)
+        Try
+            For Each f In Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                Dim rel = f.Substring(root.Length).TrimStart("\"c, "/"c).
+                          ToLower().Replace("\", "/")
+                If Not FILE_EXTENSIONS_TO_USE.Contains(Path.GetExtension(rel)) Then
+                    skipped += 1
+                    Continue For
+                End If
+                RES_MODS_FILES.Add(rel)
+            Next
+        Catch ex As Exception
+            ' A missing or unreadable res_mods must not stop a map loading -
+            ' everything still resolves out of the packages without it.
+            LogThis("res_mods: scan failed ({0}) - carrying on with packages only", ex.Message)
+        End Try
+        clock.Stop()
+
+        LogThis("res_mods: {0} override(s) in {1} ({2} other file(s) ignored) in {3} ms",
+                RES_MODS_FILES.Count, root, skipped, clock.ElapsedMilliseconds)
+
+        ' Named, up to a point. A handful of overrides is the normal case and
+        ' worth reading in full; a mod pack with thousands is not.
+        Dim shown = 0
+        For Each r In RES_MODS_FILES
+            If shown >= 40 Then
+                LogThis("res_mods:   ... and {0} more", RES_MODS_FILES.Count - shown)
+                Exit For
+            End If
+            LogThis("res_mods:   {0}", r)
+            shown += 1
+        Next
+    End Sub
+
+    ''' <summary>
+    ''' The res_mods file behind a name, or Nothing. No disk access on a miss.
+    '''
+    ''' The logical name keeps the CALLER's casing - only the catalogue key is
+    ''' lowered - because that name travels on with the entry and some callers
+    ''' split it back apart to find a section.
+    ''' </summary>
+    Private Shared Function res_mods_entry(filename As String, lowered_fn As String) As PkgEntry
+        If Not RES_MODS_FILES.Contains(lowered_fn) Then Return Nothing
+        Return PkgEntry.FromFile(Path.Combine(RES_MODS_PATH, lowered_fn.Replace("/", "\")), filename)
+    End Function
+
     Public Shared Function Lookup(filename As String) As PkgEntry
+        Dim lowered_fn = filename.ToLower.Replace("\", "/")
+
         ' A res_mods override wins over the packaged file.
         '
         ' This used to build a NEW zip in memory, add the loose file to it, save
         ' it, re-read it and return entry zero - the only place anything in the
         ' program wrote a zip, and it existed purely because ZipEntry was the
-        ' currency every caller expected. It is a file read now.
-        Dim mod_path = Path.Combine(RES_MODS_PATH, filename)
-        If File.Exists(mod_path) Then
-            Return PkgEntry.FromFile(mod_path, filename)
-        End If
+        ' currency every caller expected. It is a file read now, and the question
+        ' "is there one" is answered from the catalogue rather than by asking the
+        ' disk on every lookup that was ever going to miss.
+        Dim over = res_mods_entry(filename, lowered_fn)
+        If over IsNot Nothing Then Return over
 
-        Dim lowered_fn = filename.ToLower.Replace("\", "/")
         If FILENAME_TO_ZIP_ENTRY.ContainsKey(lowered_fn) Then
             Return FILENAME_TO_ZIP_ENTRY(lowered_fn)
         End If
@@ -115,6 +202,11 @@ NotInheritable Class ResMgr
     ''' </summary>
     Private Shared Function LookupQuiet(filename As String) As PkgEntry
         Dim lowered_fn = filename.ToLower.Replace("\", "/")
+        ' res_mods here too. Its one caller is the HD texture probe, so without
+        ' this an overridden <name>_hd.dds was catalogued, found on disk, and then
+        ' quietly passed over in favour of the packaged one.
+        Dim over = res_mods_entry(filename, lowered_fn)
+        If over IsNot Nothing Then Return over
         If FILENAME_TO_ZIP_ENTRY.ContainsKey(lowered_fn) Then
             Return FILENAME_TO_ZIP_ENTRY(lowered_fn)
         End If
