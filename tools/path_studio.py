@@ -453,6 +453,9 @@ class Studio:
         self.photo = None
         self.start = None
         self.heading = None
+        # Metres from the start to where the heading drag was released. The
+        # marker is redrawn at that distance so it stays where it was dropped.
+        self.heading_len = None
         self.drag = None
         self.route = None
         self.targets = []
@@ -854,6 +857,7 @@ class Studio:
             return
         self.map_name = name
         self.start = self.heading = self.route = None
+        self.heading_len = None
         self.am_img = None          # a different map, a different picture
 
         # Show the route this map already has, AND the clicks that made it.
@@ -1091,11 +1095,16 @@ class Studio:
                           fill=(255, 255, 255))
             elif self.heading is not None:
                 # The departure heading, drawn the same way the drag shows it.
-                # Taken 60 m out in WORLD space and then projected, so it lands
-                # where the route actually leaves rather than at some angle that
-                # only looks right at one zoom level.
-                hx = self.start[0] + 60.0 * math.sin(self.heading)
-                hz = self.start[1] + 60.0 * math.cos(self.heading)
+                # In WORLD space and then projected, so it holds its place on
+                # the map through a pan or a zoom rather than only looking
+                # right at one of them.
+                #
+                # At the length it was dragged to. A seed loaded from disk
+                # carries the angle but not the length, so that falls back to
+                # 60 m.
+                hlen = self.heading_len if self.heading_len else 60.0
+                hx = self.start[0] + hlen * math.sin(self.heading)
+                hz = self.start[1] + hlen * math.cos(self.heading)
                 hv = self.to_view(hx, hz)
                 d.line([(px, py), hv], fill=(80, 255, 130), width=3)
                 d.ellipse([hv[0] - 4, hv[1] - 4, hv[0] + 4, hv[1] + 4],
@@ -1459,6 +1468,7 @@ class Studio:
         self.start = self.to_world(e.x, e.y)
         self.drag = (e.x, e.y)
         self.heading = None
+        self.heading_len = None
         self.route = None
         # The route just went away, so anything that depends on there being one
         # has to be told. Without this a Save left enabled by an earlier
@@ -1498,6 +1508,14 @@ class Studio:
             self.status.set("drag further - the line sets the heading")
             return
         self.heading = math.atan2(dx, dz)
+        self.heading_len = math.hypot(dx, dz)
+        # LOCKED. self.drag is canvas pixels and used to be left set after the
+        # release, so the branch that draws it kept winning and the end point
+        # was pinned to the SCREEN - pan or zoom and it slid across the map.
+        # Clearing it hands the drawing to the world-space branch, which now
+        # uses heading_len so the marker stays exactly where it was dropped
+        # instead of snapping to a fixed 60 m.
+        self.drag = None
         self.status.set("start (%.0f, %.0f) heading %.0f deg. Generate when ready."
                         % (self.start[0], self.start[1], math.degrees(self.heading)))
         self.repaint()
