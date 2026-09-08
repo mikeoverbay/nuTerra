@@ -1,4 +1,4 @@
-Imports System.Reflection
+﻿Imports System.Reflection
 Imports System.Text
 Imports OpenTK.Mathematics
 
@@ -31,12 +31,39 @@ Public Class ModelInfo
         FACTS.Clear()
         OWNER.Clear()
         XFORM.Clear()
+        INSTANCE_OF = Nothing
     End Sub
 
     ''' <summary>
     ''' Called once per batch from the loader, while MAP_MODELS is still alive.
     ''' first_instance is the same counter PICK_DICTIONARY is keyed by.
     ''' </summary>
+    ''' <summary>
+    ''' The GPU instance carrying a given MODEL_INDEX_LIST entry, or -1.
+    '''
+    ''' XFORM runs the other way - instance to transform - because that is the
+    ''' direction a PICKED instance needs. The lamp shadow bake needs this one:
+    ''' a bulb light knows which transform placed it, and has to name the
+    ''' instance to leave out of its own cube. The two index spaces are NOT the
+    ''' same - MapLoader fills the instance buffer at a running mLast while it
+    ''' reads transforms at batch.offset - so one cannot stand in for the other.
+    '''
+    ''' Built on first ask and dropped with the rest of the tables on Clear.
+    ''' </summary>
+    Private Shared INSTANCE_OF As Dictionary(Of Integer, Integer) = Nothing
+
+    Public Shared Function instance_of_xform(xform_index As Integer) As Integer
+        If INSTANCE_OF Is Nothing Then
+            INSTANCE_OF = New Dictionary(Of Integer, Integer)(XFORM.Count)
+            For Each kv In XFORM
+                INSTANCE_OF(kv.Value) = CInt(kv.Key)
+            Next
+        End If
+        Dim inst As Integer
+        If INSTANCE_OF.TryGetValue(xform_index, inst) Then Return inst
+        Return -1
+    End Function
+
     Public Shared Sub Capture(model_id As Integer, first_instance As Integer,
                               first_xform As Integer, count As Integer,
                               model_dir As String)

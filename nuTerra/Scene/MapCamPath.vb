@@ -122,6 +122,12 @@ Public Class MapCamPath
         ''' <summary>True when pos.Y is absolute world height, not metres
         ''' above the terrain.</summary>
         Public absolute As Boolean
+        ''' <summary>The model instance carrying this light, or -1 when no model
+        ''' does. The lamp shadow bake leaves this instance out of THIS light's
+        ''' cube, because a fixture must not shadow the bulb inside it.
+        ''' Runtime only - ExpandBulbs sets it, nothing writes it to the
+        ''' file.</summary>
+        Public host_instance As Integer
     End Structure
 
     ''' <summary>Every light: the file's map lights first, then one per bulb
@@ -549,7 +555,8 @@ Public Class MapCamPath
                             .color = b.color, .level = b.level, .range_m = b.range_m,
                             .curve = b.curve, .kind = b.kind, .dir = dir,
                             .cone = b.cone, .blend = b.blend, .vol_mix = b.vol_mix,
-                            .ang0 = b.ang0, .ang1 = b.ang1})
+                            .ang0 = b.ang0, .ang1 = b.ang1,
+                            .host_instance = ModelInfo.instance_of_xform(idx)})
                         placed += 1
                     Next
                 Next
@@ -713,6 +720,10 @@ Public Class MapCamPath
                                      CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 32))), 0)
                 lights(i).vol_mix = 1.0F
                 lights(i).dir = -Vector3.UnitY
+                ' -1, explicitly, NOT the structure's zero - a map light is carried
+                ' by no model, and zero is a real instance index that would then be
+                ' dropped from the light's cube.
+                lights(i).host_instance = -1
             Next
 
             ' Bulbs sit after the lights: lights a model carries, one record per

@@ -4,7 +4,8 @@ Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 
 ''' <summary>
-''' One depth cube per .campath lamp, baked once and sampled per frame in
+''' One depth cube per light - the map's own lamps AND the bulbs'
+''' per-instance lights alike - baked once and sampled per frame in
 ''' deferred.frag. Without it every lamp lights through every wall - path_lights
 ''' had no visibility term at all, which is why a range 50 lamp lit 65% of the
 ''' frame instead of making a pool.
@@ -32,13 +33,21 @@ Public Class MapLampShadow
 
     ''' <summary>
     ''' Edge of one cube face. Memory is 6 faces x 2 bytes x this squared PER
-    ''' LAMP - 3 MiB each at 512, so 32 lamps is 96 MiB and one lamp is nothing.
-    ''' Only as many layers as there are lamps are ever allocated.
+    ''' LAMP - 0.75 MiB each at 256, so 128 lamps is 96 MiB and one lamp is
+    ''' nothing. Only as many layers as there are lamps are ever allocated.
     '''
-    ''' 512 puts about 0.2 m on a texel at 50 m and 0.05 m at 12 m. A lamp pool
-    ''' is soft edged by nature, so resolution buys less here than for the sun.
+    ''' 256 rather than the 512 this carried while it baked MAP lamps only, and
+    ''' that is not a quality cut - it is the same world-space texel at the range
+    ''' these lights actually have. A face spans 90 degrees, so one texel is
+    ''' 2t / FACE_SIZE metres at distance t: 512 over a 50 m map lamp put 0.20 m
+    ''' on a texel at its edge, and 256 over a 20 m bulb puts 0.16 m on one at
+    ''' its edge. Short range is what buys the resolution back, and bulbs are
+    ''' short range.
+    '''
+    ''' Trading it back is one number - 512 here quadruples the memory, and
+    ''' MAX_LAMPS has to come down to match.
     ''' </summary>
-    Public Shared FACE_SIZE As Integer = 512
+    Public Shared FACE_SIZE As Integer = 256
 
     ''' <summary>
     ''' Near plane, metres. A perspective depth buffer spends most of its
@@ -48,7 +57,15 @@ Public Class MapLampShadow
     ''' </summary>
     Public Shared NEAR_M As Single = 0.5F
 
-    Public Shared MAX_LAMPS As Integer = 32
+    ''' <summary>
+    ''' Cube layers, and so the most lights that can be shadowed at once.
+    '''
+    ''' 128 because 128 is what the fragment uniform budget allows to be LIT at
+    ''' once anyway - see init_light_slots - so a cube per slot is the most that
+    ''' could ever be sampled in a frame. At FACE_SIZE 256 that is 96 MiB, the
+    ''' same bill 32 lamps ran up at 512.
+    ''' </summary>
+    Public Shared MAX_LAMPS As Integer = 128
 
     ''' <summary>
     ''' Edge of each lamp's baked light VOLUME, in voxels.
@@ -114,13 +131,25 @@ Public Class MapLampShadow
             Return
         End If
 
-        ' Cubes for the MAP lights only - they come first in lights(), so layer
-        ' i is light i everywhere. Bulb lights are lit unshadowed; a map with
-        ' 145 street lamps cannot carry 145 cubes.
-        Dim n = Math.Min(cp.path_light_count(), MAX_LAMPS)
-        If n = 0 Then
-            LogThis("lamp shadow: no map lamps to bake ({0} bulb light(s) lit unshadowed)", cp.lights.Length)
-            Return
+        ' Cubes for EVERY light in lights() - the file's own map lamps and the
+        ' bulbs' per-instance lights alike - so layer i is light i and this side
+        ' needs no lookup table.
+        '
+        ' It was map lamps only, which on a map authored entirely in the Bulb
+        ' Placer meant nothing was shadowed at all: 19_monastery carries 0 map
+        ' lamps and 64 bulb lights, and logged "no map lamps to bake" on every
+        ' load while all 64 of them lit straight through walls.
+        '
+        ' What this DOES need is the indirection on the shader side. Layer i is
+        ' light i here, but the upload is sorted nearest-first, so a slot index
+        ' is not a light index - see the packing note in deferred.frag.
+        '
+        ' Past MAX_LAMPS the extras are lit unshadowed rather than dropped, which
+        ' is the degradation this has always had at its limit.
+        Dim n = Math.Min(cp.lights.Length, MAX_LAMPS)
+        If cp.lights.Length > n Then
+            LogThis("lamp shadow: {0} light(s) past the {1} cube limit are lit unshadowed",
+                    cp.lights.Length - n, MAX_LAMPS)
         End If
         Dim clock = Stopwatch.StartNew()
 
@@ -162,7 +191,7 @@ Public Class MapLampShadow
 
                 Dim vp = face_view_proj(lp, face, far_m)
                 draw_terrain(vp)
-                draw_models(vp)
+                draw_models(vp, cp.lights(i).host_instance)
                 draw_trees(vp)
             Next
         Next
@@ -184,6 +213,8 @@ Public Class MapLampShadow
                 n, FACE_SIZE, bytes_for(n) / (1024.0 * 1024.0), bake_ms)
 
         verify(0)
+        report_enclosure(0)
+        report_enclosure(layers \ 2)
 
         bake_volumes(n)
     End Sub
@@ -235,8 +266,8 @@ Public Class MapLampShadow
     ''' This one number checks the whole chain at once - face order, the up
     ''' vectors' handedness, the perspective remap and the depth encoding. The
     ''' -Y face looks at the ground directly under the lamp, and the lamp's
-    ''' authored Y IS its height above that ground, so measured and expected
-    ''' must agree. They disagree loudly if any link is wrong, where a rendered
+    ''' height above that ground is known, so measured and expected must agree.
+    ''' They disagree loudly if any link is wrong, where a rendered
     ''' frame would only look slightly off.
     ''' </summary>
     Private Sub verify(i As Integer)
@@ -261,10 +292,66 @@ Public Class MapLampShadow
         ' Invert z01 = (F - F*N/t) / (F - N)
         Dim denom = far_m - z * (far_m - NEAR_M)
         Dim measured = If(Math.Abs(denom) < 0.0001F, -1.0F, far_m * NEAR_M / denom)
-        Dim expected = scene.cam_path.lights(i).pos.Y
+        ' Height ABOVE THE TERRAIN, resolved the same way for both kinds of
+        ' light. A Path Studio light stores its Y as exactly that, so this read
+        ' pos.Y straight - but a bulb light is ABSOLUTE, already transformed
+        ' through its model instance, so on a map made entirely of bulbs that
+        ' compared a distance against a world Y and reported the mismatch as a
+        ' failure of the bake. world_pos is the one place that knows which kind
+        ' a light is; this is the same trap it exists to close.
+        Dim wp = scene.cam_path.world_pos(i)
+        Dim expected = wp.Y - get_Y_at_XZ_fast(wp.X, wp.Z)
 
         LogThis("lamp shadow: lamp {0} ground below reads {1:0.00} m, authored height {2:0.00} m (agreement = the cube is the right way round)",
                 i, measured, expected)
+    End Sub
+
+    ''' <summary>
+    ''' How much of a lamp's own sky is taken up by whatever sits within a metre
+    ''' of it - which for a bulb is its own fixture.
+    '''
+    ''' A Path Studio lamp is a point floating in the air with nothing near it to
+    ''' occlude. A bulb is authored INSIDE a light model, and that model draws
+    ''' into the cube like any other, so it shadows the light it is carrying.
+    ''' This is the number that says whether that is happening, and it is not
+    ''' readable off a frame: a bulb sealed inside its own housing and a bulb
+    ''' with the wrong range both look like a lamp that does not light.
+    '''
+    ''' The distance is along the MAJOR AXIS, which is what the face's own
+    ''' projection stored - so it reads short by up to root 3 in the corners.
+    ''' That is fine for a threshold at 1 m and worth knowing before quoting it.
+    ''' </summary>
+    Private Sub report_enclosure(i As Integer)
+        If Not ready OrElse depth_tex Is Nothing OrElse i >= layers Then Return
+
+        Dim n = FACE_SIZE * FACE_SIZE * 6
+        Dim px(n - 1) As Single
+        GL.GetTextureSubImage(depth_tex.texture_id, 0,
+                              0, 0, i * 6, FACE_SIZE, FACE_SIZE, 6,
+                              PixelFormat.DepthComponent, PixelType.Float,
+                              n * 4, px)
+
+        Dim far_m = Math.Max(scene.cam_path.lights(i).range_m, 1.0F)
+        Dim empty_n = 0, near_n = 0, mid_n = 0, hit_n = 0
+        Dim sum_d As Double = 0.0
+        For k = 0 To n - 1
+            Dim z = px(k)
+            If z >= 0.9999F Then
+                empty_n += 1
+                Continue For
+            End If
+            Dim denom = far_m - z * (far_m - NEAR_M)
+            If Math.Abs(denom) < 0.0001F Then Continue For
+            Dim dm = far_m * NEAR_M / denom
+            hit_n += 1
+            sum_d += dm
+            If dm < 1.0F Then near_n += 1
+            If dm < 3.0F Then mid_n += 1
+        Next
+
+        LogThis("lamp shadow: lamp {0} enclosure - {1:0.0}% open sky, {2:0.0}% blocked inside 1 m, {3:0.0}% inside 3 m, mean occluder {4:0.00} m, range {5:0.0} m",
+                i, 100.0 * empty_n / n, 100.0 * near_n / n, 100.0 * mid_n / n,
+                If(hit_n > 0, sum_d / hit_n, 0.0), far_m)
     End Sub
 
     ' The three draws below are duplicated from MapSunShadow rather than shared
@@ -289,11 +376,31 @@ Public Class MapLampShadow
         sunDepthTerrainShader.StopUse()
     End Sub
 
-    Private Sub draw_models(vp As Matrix4)
+    ''' <summary>
+    ''' skip_instance is the model instance carrying THIS lamp, left out of its
+    ''' own cube - or -1 to draw everything, which is what the sun bake wants.
+    '''
+    ''' A bulb is authored INSIDE a light fixture, which a Path Studio lamp
+    ''' floating in the air never was, and the fixture draws into the cube like
+    ''' any other model - so it sealed its own bulb in. Measured on 19_monastery
+    ''' before this: one street lamp saw an occluder across 100% of its cube at
+    ''' the near plane and another across 57% of it within a metre, and with the
+    ''' models left out of the bake both dropped to 0% and half open sky. The
+    ''' terrain and the trees contribute nothing at that range; it is entirely
+    ''' the models, and overwhelmingly each lamp's own.
+    '''
+    ''' The cost is that a lamp no longer casts the shadow of its own post. That
+    ''' is the trade every engine makes here, and it buys back the pool of light
+    ''' underneath, which is the entire point of the lamp.
+    ''' </summary>
+    Private Sub draw_models(vp As Matrix4, skip_instance As Integer)
         If Not scene.MODELS_LOADED OrElse Not DONT_BLOCK_MODELS Then Return
 
         sunDepthModelShader.Use()
         GL.UniformMatrix4(sunDepthModelShader("sunViewProj"), False, vp)
+        ' Biased by one on the way in - see the uniform's own note. Always set,
+        ' never left over: this shader is shared with the sun bake.
+        GL.Uniform1(sunDepthModelShader("skip_instance_p1"), skip_instance + 1)
 
         scene.static_models.allMapModels.Bind()
         scene.static_models.indirect_shadow_mapping.Bind(BufferTarget.DrawIndirectBuffer)

@@ -129,7 +129,26 @@ uniform int light_count;
 uniform vec4 pl_pos_range[MAX_PATH_LIGHTS];    // xyz world position, w range in metres
 uniform vec4 pl_color_level[MAX_PATH_LIGHTS];  // rgb colour as authored (sRGB), a level
 uniform vec4 pl_dir_cos[MAX_PATH_LIGHTS];      // xyz world aim direction, w cos(OUTER half angle)
-uniform vec4 pl_kind_blend[MAX_PATH_LIGHTS];   // x kind, y edge blend, z fog mix, w cos(INNER half angle)
+uniform vec4 pl_kind_blend[MAX_PATH_LIGHTS];   // x kind + shadow layer, y edge blend, z fog mix, w cos(INNER half angle)
+
+// pl_kind_blend.x carries TWO numbers: the kind in the low three bits, and the
+// light's shadow-cube layer above them, biased by one so that zero reads as
+// "this light has no cube".
+//
+// The layer used to be the loop index, and that was only ever right by
+// accident of ordering: the shadowed lights were the MAP lamps, which are
+// uploaded first, in file order, so slot i really was light i. Bulb lights are
+// uploaded NEAREST FIRST, so slot 0 is whichever bulb the camera is closest to
+// and its cube is somewhere else entirely. The layer has to travel with the
+// light.
+//
+// Packed instead of given its own uniform array because a fifth vec4 per light
+// would cost slots, not just space: the count is (fragment vec4s - reserve) / 4,
+// so a fifth divisor takes 128 lamps down to 102 on this driver. Three bits
+// leaves room for kinds 4..7; the layer above them stays exact in a float well
+// past any cube count the memory would allow.
+int lamp_kind(int i)  { return int(pl_kind_blend[i].x + 0.5) & 7; }
+int lamp_layer(int i) { return (int(pl_kind_blend[i].x + 0.5) >> 3) - 1; }
 
 // How much of lamp i reaches a direction. 1 for a point light; a soft-edged
 // cone toward the aim for a cone; everything BUT that cone for an inverse cone
@@ -145,7 +164,7 @@ uniform vec4 pl_kind_blend[MAX_PATH_LIGHTS];   // x kind, y edge blend, z fog mi
 // from_lamp is unit, lamp -> target.
 float lamp_cone_mask(int i, vec3 from_lamp)
 {
-    int kind = int(pl_kind_blend[i].x + 0.5);
+    int kind = lamp_kind(i);
     if (kind == 0) return 1.0;
 
     float c       = dot(from_lamp, pl_dir_cos[i].xyz);
@@ -198,8 +217,10 @@ uniform float light_falloff;
 // light almost horizontally at the edge of its radius, so no cone is wide
 // enough to cover its own pool.
 //
-// lamp_shadow_count is how many lights have a cube. Lights past it are lit
-// UNSHADOWED, not skipped - a bake that has not run must not delete the light.
+// lamp_shadow_count is how DEEP the cube array is - not how many of the
+// uploaded lights are shadowed, which is now per light. Lights with no cube
+// carry layer -1 and are lit UNSHADOWED, not skipped - a bake that has not run
+// must not delete the light.
 layout(binding = 12) uniform samplerCubeArrayShadow lamp_shadow_map;
 uniform int lamp_shadow_count;
 uniform float lamp_shadow_near;
@@ -682,7 +703,8 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
 
         // Is the lamp actually visible from here?
         float vis = 1.0;
-        if (i < lamp_shadow_count)
+        int slayer = lamp_layer(i);
+        if (slayer >= 0 && slayer < lamp_shadow_count)
         {
             // Sampled from a point pushed along the NORMAL, not just biased in
             // depth. A depth bias has to grow with the slope to stop acne on
@@ -705,7 +727,7 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
 
             if (lamp_shadow_soft <= 0.0)
             {
-                vis = texture(lamp_shadow_map, vec4(sd, float(i)), ref);
+                vis = texture(lamp_shadow_map, vec4(sd, float(slayer)), ref);
             }
             else
             {
@@ -740,7 +762,7 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
                 {
                     s += texture(lamp_shadow_map,
                                  vec4(sd + tx * LAMP_PCF[k].x + ty * LAMP_PCF[k].y,
-                                      float(i)),
+                                      float(slayer)),
                                  ref);
                 }
                 vis = s * (1.0 / 12.0);

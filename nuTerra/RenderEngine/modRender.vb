@@ -443,7 +443,15 @@ Module modRender
             ' AFTER the fog, because this is light in the air in FRONT of what
             ' the fog has already tinted, and it is additive: scattering puts
             ' light into the air, it does not cover what is behind it.
+            '
+            ' Timed, because it was the ONE pass in the frame that was not.
+            ' Sky, Terrain, Models, Trees, Decals, Deferred, SSR, Water and FX
+            ' all report; this one marches 48 steps a pixel per lamp with a cube
+            ' lookup at every step and reported nothing, so "are the shafts
+            ' expensive" had no answer but a guess.
+            modGpuTimers.Begin("Lamp fog")
             map_scene.lamp_fog.Draw()
+            modGpuTimers.Finish()
             trace_gcolor("lamp_fog")
 
             ' After the fog on purpose. It is a debug overlay, and fog mixing it
@@ -1269,6 +1277,9 @@ Module modRender
 
     Private Sub upload_path_lights()
         Dim n As Integer = 0
+        ' How deep the cube array is. Read BEFORE the upload loop, because the
+        ' layer is packed per light below rather than inferred from the slot.
+        Dim shadow_layers As Integer = 0
 
         If map_scene IsNot Nothing AndAlso map_scene.cam_path IsNot Nothing AndAlso
            map_scene.cam_path.loaded AndAlso map_scene.cam_path.lights IsNot Nothing Then
@@ -1281,6 +1292,11 @@ Module modRender
             ' (a Path Studio light) or absolute (a bulb on an instance).
             Dim vis = cp.visible_lights(map_scene.camera.CAM_POSITION, MAX_PATH_LIGHTS)
             n = vis.Length
+
+            If LAMP_SHADOW_ENABLED AndAlso map_scene.lamp_shadow IsNot Nothing AndAlso
+               map_scene.lamp_shadow.ready Then
+                shadow_layers = map_scene.lamp_shadow.layers
+            End If
 
             For k = 0 To n - 1
                 Dim i = vis(k)
@@ -1306,7 +1322,18 @@ Module modRender
                 pl_dir(k * 4 + 2) = src(i).dir.Z
                 pl_dir(k * 4 + 3) = cos_out
 
-                pl_kb(k * 4 + 0) = src(i).kind
+                ' The kind in the low three bits, the cube layer above it, biased
+                ' by one so that zero reads as "no cube for this light".
+                '
+                ' The layer has to travel WITH the light. The bake numbers its
+                ' layers by light index and visible_lights sorts the bulbs
+                ' nearest-first, so slot k is not light i. While only the map
+                ' lamps had cubes the two agreed by accident - those are uploaded
+                ' first, in file order - and the shader read its loop index as the
+                ' layer. With bulbs shadowed that reads whichever cube the sort
+                ' happened to put in that slot.
+                Dim layer = If(i < shadow_layers, i, -1)
+                pl_kb(k * 4 + 0) = CSng(src(i).kind) + 8.0F * CSng(layer + 1)
                 pl_kb(k * 4 + 1) = src(i).blend
                 pl_kb(k * 4 + 2) = src(i).vol_mix
                 pl_kb(k * 4 + 3) = cos_in
@@ -1337,15 +1364,12 @@ Module modRender
         ' with the previous map's lights.
         GL.Uniform1(deferredShader("light_count"), n)
 
-        ' How many of those lights have a baked cube behind them. Lights past
-        ' this are lit UNSHADOWED rather than skipped: a bake that has not
-        ' happened yet, or ran out of layers, must not delete the light.
-        Dim shadowed = 0
-        If LAMP_SHADOW_ENABLED AndAlso map_scene.lamp_shadow IsNot Nothing AndAlso
-           map_scene.lamp_shadow.ready Then
-            shadowed = Math.Min(n, map_scene.lamp_shadow.layers)
-        End If
-        GL.Uniform1(deferredShader("lamp_shadow_count"), shadowed)
+        ' The DEPTH of the cube array, not a count of shadowed lights - which
+        ' lights are shadowed is the packed layer's business now, per light.
+        ' Zero is still the off switch: no bake, no layers, every layer -1.
+        ' A light with no cube is lit UNSHADOWED rather than skipped, because a
+        ' bake that has not run yet must not delete the light.
+        GL.Uniform1(deferredShader("lamp_shadow_count"), shadow_layers)
         GL.Uniform1(deferredShader("lamp_shadow_near"), MapLampShadow.NEAR_M)
         GL.Uniform1(deferredShader("lamp_shadow_bias"), LAMP_SHADOW_BIAS)
         GL.Uniform1(deferredShader("lamp_shadow_normal_bias"), LAMP_SHADOW_NORMAL_BIAS)
