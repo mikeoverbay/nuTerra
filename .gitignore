@@ -193,6 +193,7 @@ ModelManifest.xml
 # and models are redistributable game content and are large - keep them on disk
 # but out of the repo.
 work folder/
+test_textures/
 
 # Scratch screenshots at the repo root. t1.png was committed by accident in
 # faa3143 and then showed as forever-modified - ignored files must also be
