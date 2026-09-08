@@ -26,6 +26,8 @@ layout(binding = 0) uniform sampler2D fxBuffer;
 // and sampled Linear, so this read is also the upsample.
 layout(binding = 1) uniform sampler2D bloomBuffer;
 uniform float glow_strength;
+// Undoes the scaling fx_bright applied to fit the 8-bit blur targets.
+uniform float glow_range;
 
 // Scene depth, full resolution.
 layout(binding = 2) uniform sampler2D depthMap;
@@ -95,7 +97,7 @@ void main(void)
                                bloom.a - sceneD);
     float pass_through = mix(1.0, 1.0 - glow_occlusion, infront);
 
-    fx.rgb += bloom.rgb * glow_strength * pass_through;
+    fx.rgb += bloom.rgb * glow_range * glow_strength * pass_through;
 
     const float peak = max(fx.r, max(fx.g, fx.b));
     fx.rgb /= max(1.0, peak);

@@ -19,9 +19,9 @@
 // above, and do not lower it expecting more glow - lower it and you get
 // glowing smoke, not a hotter fire.
 //
-// Runs at reduced resolution. The quad covers the whole viewport, and the
-// source is sampled Linear, so this doubles as the downsample - the box
-// averaging that comes free with a smaller destination is wanted here.
+// Runs at reduced resolution. The quad covers the whole viewport, so this
+// pass is also the DOWNSAMPLE, and it has to be a real one - see the box
+// average in main().
 
 layout(binding = 0) uniform sampler2D fxBuffer;
 
@@ -36,13 +36,44 @@ layout(binding = 0) uniform sampler2D fxBuffer;
 layout(binding = 1) uniform sampler2D depthMap;
 
 uniform float threshold;
+// The blur targets are 8 bit now, so the over-range energy is scaled into
+// 0..1 here and scaled back in fx_composite. The blur between them is linear,
+// so where the scaling happens makes no difference to the result.
+uniform float glow_range;
+
+// How many source texels make one destination texel on each axis - BLOOM_DIV.
+// A uniform rather than a hard wired 4 so the tap offsets below cannot quietly
+// stop covering the block if that constant is ever changed.
+uniform float bloom_div;
 
 in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
 
 void main(void)
 {
-    vec3 c = texture(fxBuffer, texCoord).rgb;
+    // A REAL box average of the whole BLOOM_DIV x BLOOM_DIV block.
+    //
+    // One texture() call here read ONE source pixel per block and threw the
+    // other fifteen away - the source was Nearest, whatever this file used to
+    // claim. That is the bloom flicker: a bulb core a few pixels across either
+    // landed on that one sampled pixel or it did not, and since the threshold
+    // below is a hard subtract with no knee, hitting it lit the whole halo and
+    // missing it extinguished the halo completely. Still camera, same pixel
+    // sampled every frame, rock steady. Moving camera, sub pixel drift, and the
+    // halo strobed. The sprite itself never flickered because nothing else in
+    // the frame goes through this reduction, which is exactly why it read as
+    // 'only the blur'.
+    //
+    // Four BILINEAR taps, not sixteen point ones. With the source Linear, a tap
+    // placed on the boundary between two texels returns their average, so a tap
+    // at each quadrant centre of the block - offset a quarter of a destination
+    // texel, which is bloom_div/4 source texels - averages that quadrant's 2x2
+    // exactly. Four of those cover all sixteen source texels at four fetches.
+    vec2 o = (bloom_div * 0.25) / vec2(textureSize(fxBuffer, 0));
+    vec3 c = ( texture(fxBuffer, texCoord + vec2(-o.x, -o.y)).rgb
+             + texture(fxBuffer, texCoord + vec2( o.x, -o.y)).rgb
+             + texture(fxBuffer, texCoord + vec2(-o.x,  o.y)).rgb
+             + texture(fxBuffer, texCoord + vec2( o.x,  o.y)).rgb ) * 0.25;
 
     // Soft knee would round the shoulder, but a hard subtract keeps the glow
     // anchored to real over-range energy and cannot lift anything that was
@@ -59,5 +90,5 @@ void main(void)
     float lit = any(greaterThan(e, vec3(0.0))) ? 1.0 : 0.0;
     float d   = mix(1.0, texture(depthMap, texCoord).r, lit);
 
-    fragColor = vec4(e, d);
+    fragColor = vec4(e / max(glow_range, 1e-6), d);
 }

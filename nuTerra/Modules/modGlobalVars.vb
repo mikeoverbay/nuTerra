@@ -588,7 +588,11 @@ Module modGlobalVars
     ''' Non-linear, so it is coarse far away and fine up close - which is the
     ''' right way round, since that is where the artefact is visible.
     ''' </summary>
-    Public Const FX_GLOW_OCCLUSION_BIAS As Single = 0.003F
+    ''' <summary>Raised from 0.003 when the blur targets went 8-bit: one step of
+    ''' an 8-bit alpha is 1/255 = 0.0039, so the old bias was NARROWER THAN ONE
+    ''' QUANTUM and the smoothstep collapsed to a hard flip. 0.012 spans three
+    ''' steps, which is the least that still fades.</summary>
+    Public Const FX_GLOW_OCCLUSION_BIAS As Single = 0.012F
 
     ' ----------------------------------------------------------------------
     ' Glow shape. HARD WIRED at the owner's call, after tuning them live
@@ -626,6 +630,21 @@ Module modGlobalVars
     Public Const FX_GLOW_THRESHOLD As Single = 0.42F
 
     ''' <summary>
+    ''' Encode range for the 8-bit blur targets.
+    '''
+    ''' fx_bright divides by this and fx_composite multiplies back, so energy up
+    ''' to this many times over-range survives a buffer that only holds 0..1.
+    ''' Anything brighter clips - which is the old Rgba8 failure, just moved to
+    ''' a threshold we choose rather than sitting at 1.0.
+    '''
+    ''' 4 because the bright pass has already SUBTRACTED the threshold, so what
+    ''' reaches here is the excess, not the absolute value - a fire at 4.4 in
+    ''' gFX_HDR arrives as 4.0. Raising it buys headroom at the cost of
+    ''' precision in the faint halo, which is where banding lives.
+    ''' </summary>
+    Public Const FX_GLOW_RANGE As Single = 4.0F
+
+    ''' <summary>
     ''' How far the glow reaches, as a multiple of one blur texel.
     '''
     ''' Scales the STEP between the blur's taps. The kernel is a fixed 9 taps,
@@ -638,7 +657,23 @@ Module modGlobalVars
     ''' fractional ones, where the Linear filter averages two texels and hides
     ''' the gaps - which is why this is 2.7 and not 3.
     ''' </summary>
-    Public Const FX_GLOW_RADIUS As Single = 2.7F
+    ' ONE TEXEL PER TAP, which is what these weights were built for.
+    '
+    ' msm_blur is a 9 tap sigma~2 Gaussian with the standard weights
+    ' 0.227/0.195/0.122/0.054/0.016 - the same kernel Tank Exporter uses, which
+    ' has no banding. The difference was here: TE steps by 1.0/textureSize, one
+    ' texel per tap, and this stepped by 2.7.
+    '
+    ' Stretching the taps apart while KEEPING the weights does not widen the
+    ' Gaussian, it turns it into a comb: samples land at 0, +-2.7, +-5.4, +-8.1,
+    ' +-10.8 texels and nothing between them is ever read. That is the banding -
+    ' the kernel drawing its own spacing, not a precision or pass-count problem.
+    '
+    ' Radius comes from the REDUCED RESOLUTION instead, which is free: at
+    ' BLOOM_DIV 4 one bloom texel is 4 screen pixels, so 4 taps reach 16 pixels
+    ' and each extra pass widens that by root 2. Buy more halo with passes or a
+    ' smaller BLOOM_DIV, never by spreading these taps.
+    Public Const FX_GLOW_RADIUS As Single = 1.0F
 
     ''' <summary>
     ''' How many horizontal+vertical blur pairs to run.
@@ -649,7 +684,24 @@ Module modGlobalVars
     ''' radius that has started to band. Three pairs is six quarter-resolution
     ''' fullscreen draws, which is nothing.
     ''' </summary>
-    Public Const FX_GLOW_PASSES As Integer = 3
+    ' SIX, not three. At radius 2.7 the nine taps are far enough apart that
+    ' three pairs leave visible concentric rings in the halo - measured by
+    ' differencing a still against the same frame with noglow, which isolates
+    ' the bloom and shows them plainly at 6x gain. Convolving the Gaussian with
+    ' itself fills the gaps between taps; a smaller radius would too, but it
+    ' would also shrink the halo, and the halo is the point.
+    '
+    ' Six pairs is twelve quarter-resolution fullscreen draws. At 1/4 on each
+    ' axis that is 12/16 of one full-screen pass in total - still nothing.
+    ''' <summary>
+    ''' Horizontal+vertical blur pairs. TWO.
+    '''
+    ''' Was six while the targets were float, to fill the gaps a 2.7 texel tap
+    ''' spacing leaves between taps. Two is the owner's call alongside the 8-bit
+    ''' move; if the concentric ringing comes back this is the number that cured
+    ''' it before, and a smaller FX_GLOW_RADIUS is the other lever.
+    ''' </summary>
+    Public Const FX_GLOW_PASSES As Integer = 2
 
     ''' <summary>
     ''' Replace the deferred pass with the probe field inspector - a separate

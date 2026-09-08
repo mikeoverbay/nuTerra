@@ -810,6 +810,9 @@ Module modRender
         MainFBO.gFX_HDR.BindUnit(0)
         MainFBO.gDepth.BindUnit(1)
         GL.Uniform1(fxBrightShader("threshold"), FX_GLOW_THRESHOLD)
+        GL.Uniform1(fxBrightShader("glow_range"), FX_GLOW_RANGE)
+        ' The block this pass averages over, so its taps track BLOOM_DIV.
+        GL.Uniform1(fxBrightShader("bloom_div"), CSng(MainFBO.BLOOM_DIV))
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
         fxBrightShader.StopUse()
 
@@ -877,6 +880,7 @@ Module modRender
         ' shader reading SunShadowDepth. With the glow off the strength below
         ' is 0, so its contents cannot matter - but it must be a real texture.
         MainFBO.gFX_BloomA.BindUnit(1)
+        GL.Uniform1(fxCompositeShader("glow_range"), FX_GLOW_RANGE)
         GL.Uniform1(fxCompositeShader("glow_strength"),
                     If(FX_GLOW, FX_GLOW_STRENGTH, 0.0F))
         MainFBO.gDepth.BindUnit(2)

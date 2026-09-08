@@ -235,8 +235,19 @@ Public Class MainFBO
         ' intact instead of being clamped channel by channel.
         gFX_HDR = GLTexture.Create(TextureTarget.Texture2D, "gFX_HDR")
         gFX_HDR.Storage2D(1, DirectCast(InternalFormat.Rgba16f, SizedInternalFormat), width, height)
-        gFX_HDR.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
-        gFX_HDR.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        ' LINEAR, and it matters: fx_bright reads this at 1/BLOOM_DIV to build
+        ' the glow, so the filter is half of that downsample. On Nearest it was
+        ' point sampling one pixel per 4x4 block and dropping the other fifteen,
+        ' which is what made the bloom FLICKER whenever the camera moved: a bulb
+        ' core a few pixels wide either landed on the sampled pixel or missed it
+        ' entirely, and the hard threshold downstream turned that into a halo
+        ' that popped on and off. fx_bright's own comment claimed Linear all
+        ' along; it just was not true here.
+        '
+        ' Safe for the other reader: fx_composite takes this with texelFetch,
+        ' which ignores filter state entirely.
+        gFX_HDR.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+        gFX_HDR.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
         gFX_HDR.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
         gFX_HDR.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
 
