@@ -213,6 +213,44 @@ explaining the principle; they say so explicitly.
 `FX_GLOW` itself is still a live Boolean — checkbox under **Draw FX**, plus the
 `noglow` launch argument, which is the only headless way to A/B the glow.
 
+## Output dither — added 2026-09-08
+
+`FX_DITHER`, a **live Single**, default `1.0`. Slider **Output dither** in
+Settings → Section Visibility, sitting *after* the Draw FX block rather than
+inside it. Range 0..4, in destination LSBs; 0 is off without losing the amount,
+which is what makes it an A/B — drag to 0 and back with a plume on screen.
+
+**What it is for.** Everything downstream of the composite is 8 bit. `gColor`
+is Rgba8, and the frame then round trips through the 8-bit default back buffer
+more than once — `perform_SSAA_Pass`, then `copy_default_to_gColor` before the
+base rings and again before the fog. Nothing in that chain dithered. Smoke is
+the one thing in the frame that cannot survive that: a wide, smooth, low
+amplitude gradient is exactly what 256 levels turns into contour bands. It
+looks perfect in the gFX_HDR viewer right up to the moment it lands in 8 bits,
+which is why the banding first read as a bloom problem when **the bloom has no
+smoke in it at all**.
+
+Triangular PDF, from a positional hash, **not animated** — a still has to be
+reproducible at a given `cam=` or a before/after diff is worthless. Same
+reasoning as `lamp_fog`'s Bayer.
+
+**It lives in `DeferredFog.frag`, on the final `gColor` write, and it must.**
+It was first put in `fx_composite.frag` and that is wrong: the composite does
+not own its pixel. It **blends**, `One / OneMinusSrcAlpha`, and its rgb is
+PREMULTIPLIED. A dither added to `fx.rgb` breaks the `rgb = colour × coverage`
+invariant, so partially covered smoke composites brighter than its coverage
+allows, and on every pixel the FX never touched (`rgb 0, alpha 0`) the term
+lands as unconditional additive noise across the whole frame. Scaling by
+`fx.a` fixes the algebra but then under-dithers exactly where the banding is
+worst — thin smoke has low alpha and the smoothest gradient. The fog pass
+writes `gColor` outright, owns the whole pixel, and the amplitude is genuinely
+in the destination's units. `fx_composite.frag` carries a comment saying all
+this so it does not get moved back.
+
+**Not yet confirmed to be the cause.** See `open_threads.md` §10 — the
+competing explanation is the fog misclassifying smoke as sky, and the
+discriminator is cheap.
+
 ## FX lit from the baked probe field
 
 `USE_SH_GRID_FX`, **off by default**. `volumetric.vert` carries the same

@@ -645,6 +645,20 @@ Module modGlobalVars
     Public Const FX_GLOW_RANGE As Single = 4.0F
 
     ''' <summary>
+    ''' Dither added as the FX leave float, in destination LSBs. 0 is off.
+    '''
+    ''' A variable and not a Const because it exists to be A/B'd: the question
+    ''' is whether the banding on smoke goes away, and that is judged by
+    ''' toggling it with the plume on screen, not by reading a number. See the
+    ''' note in fx_composite.frag for why that pass is the right place.
+    '''
+    ''' 1 LSB is the textbook TPDF amplitude - enough to decorrelate the
+    ''' quantisation error completely, small enough to sit under what the eye
+    ''' picks out of a moving frame.
+    ''' </summary>
+    Public FX_DITHER As Single = 1.0F
+
+    ''' <summary>
     ''' How far the glow reaches, as a multiple of one blur texel.
     '''
     ''' Scales the STEP between the blur's taps. The kernel is a fixed 9 taps,

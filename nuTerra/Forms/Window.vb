@@ -1648,6 +1648,24 @@ try_again:
                         ' deliberately gone. This is on/off only.
                         ImGui.Checkbox("   Glow", FX_GLOW)
                     End If
+                    ' NOT under Draw FX, even though smoke is what it was found
+                    ' for: it lives in the fog pass and dithers the whole frame,
+                    ' so hiding it with the FX off would hide a control that is
+                    ' still doing something. A slider and not a checkbox so 0 is
+                    ' reachable without losing the amount - drag to 0 and back
+                    ' with the plume on screen and that is the A/B.
+                    If ImGui.SliderFloat("Output dither", FX_DITHER, 0.0, 4.0, "%.2f LSB") Then
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Breaks up 8-bit banding, smoke worst of all." & vbLf &
+                                         "gColor is Rgba8 and the frame round trips" & vbLf &
+                                         "through the 8-bit back buffer more than once," & vbLf &
+                                         "none of it dithered. A wide smooth gradient is" & vbLf &
+                                         "what 256 levels turns into contours." & vbLf &
+                                         "Applied in the fog pass, the last one that owns" & vbLf &
+                                         "the whole pixel." & vbLf &
+                                         "0 = off. 1 LSB is the textbook amount.")
+                    End If
                     ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
                     ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
                     ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)

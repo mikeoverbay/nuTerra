@@ -42,6 +42,21 @@ layout(binding = 2) uniform sampler2D depthMap;
 uniform float glow_occlusion;
 uniform float glow_occlusion_bias;
 
+// NO DITHER IN THIS PASS. It was tried here and it is wrong, for a reason
+// worth leaving on the record.
+//
+// This pass does not own its pixel - it BLENDS, One / OneMinusSrcAlpha, and
+// rgb is PREMULTIPLIED. A dither added to rgb alone breaks that invariant:
+// rgb stops being colour*coverage, so partially covered smoke composites as
+// though it were brighter than its own coverage allows, and on the pixels the
+// FX never touched at all (alpha 0, rgb 0) the term lands as unconditional
+// additive noise over the whole frame. Scaling it by fx.a fixes the algebra
+// but then under-dithers exactly where the banding is worst - thin smoke has
+// low alpha and the smoothest gradient.
+//
+// The dither belongs in a pass that owns the whole pixel. It is in
+// DeferredFog.frag, which writes gColor outright.
+
 layout(location = 0) out vec4 outColor;
 
 void main(void)

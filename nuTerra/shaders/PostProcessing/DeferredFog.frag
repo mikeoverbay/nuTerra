@@ -42,6 +42,22 @@ uniform float fog_sky;
 // rolls across the map.
 uniform float fog_noise_m;
 
+// Sub-LSB dither amplitude in DESTINATION LSBs, 0 to disable. See the note at
+// the write in main().
+uniform float dither_amt;
+
+// One value per pixel, from the pixel's position and nothing else.
+//
+// Deliberately NOT animated. A still has to be reproducible - two runs at the
+// same cam= must differ only by the thing being tested - and a time term makes
+// every capture its own image. Same reasoning as lamp_fog's Bayer.
+float hash12(vec2 p)
+{
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
 
 const vec3 tr = vec3 (0.5 ,0.5 , 0.5);
 const vec3 bl = vec3(-0.5, -0.5, -0.5);
@@ -195,6 +211,32 @@ void main()
 
     // Both inputs are display-referred, so the mix is done there and the
     // tint is the sRGB colour as authored. No gamma pass on top.
-    gColor = vec4(mix(deferred_mix.rgb, fog_tint_ovr, clamp(f * props.fog_level, 0.0, 1.0)),
-                  deferred_mix.a);
+    vec3 out_rgb = mix(deferred_mix.rgb, fog_tint_ovr, clamp(f * props.fog_level, 0.0, 1.0));
+
+    // Sub-LSB dither, because everything from here on is 8 bit.
+    //
+    // gColor is Rgba8 and the frame round trips through the 8 bit default back
+    // buffer more than once (perform_SSAA_Pass, then copy_default_to_gColor
+    // before the base rings and again before this pass). Nothing in that chain
+    // dithers, and smoke is the one thing that cannot survive it - a wide,
+    // smooth, low amplitude gradient is exactly what 256 levels turns into
+    // contour bands. It looks perfect in the gFX_HDR viewer right up to the
+    // moment it lands in 8 bits, which is why the banding read as a bloom
+    // problem when the bloom has no smoke in it at all.
+    //
+    // HERE and not in fx_composite: that pass BLENDS premultiplied colour, so
+    // a dither on its rgb breaks the rgb = colour * coverage invariant and
+    // lands as additive noise on every pixel the FX never covered. This pass
+    // writes gColor outright and owns the whole pixel, so the amount is in the
+    // destination's own units and nothing else has to hold.
+    //
+    // Triangular PDF, not uniform: uniform dither leaves the noise floor
+    // modulated by the signal, TPDF at 1 LSB does not.
+    if (dither_amt > 0.0) {
+        float r1 = hash12(gl_FragCoord.xy);
+        float r2 = hash12(gl_FragCoord.xy + 17.0);
+        out_rgb += (r1 + r2 - 1.0) * (dither_amt / 255.0);
+    }
+
+    gColor = vec4(out_rgb, deferred_mix.a);
 }
