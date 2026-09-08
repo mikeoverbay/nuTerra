@@ -1,4 +1,4 @@
-﻿# docs
+# docs
 
 Two kinds of document live here, and they age differently.
 
@@ -12,7 +12,9 @@ handoff's status banner before trusting it.
 | you want | read |
 |---|---|
 | **what is still open** | `open_threads.md` |
-| **the newest handoff: bulb sprites, emissive panes, the bloom chain, banding on smoke** | `HANDOFF_2026-09-08_bloom_and_bulbs.md` |
+| **START HERE: the shading pass built, measured and REVERTED - what was learned, the patch, the pick-up** | `HANDOFF_2026-09-08_shading_pass.md` |
+| **the newest handoff: bulb sprites, emissive panes, the bloom chain, banding on smoke** | `HANDOFF_2026-09-08_shading_pass.md` | environment specular, energy conservation, the Tank Exporter gloss/metal curves, Fresnel and wet-spec sliders: built, measured, reverted; the diff is `docs/patches/shading_pass_2026-09-08.patch` | **current** - read section 3 before touching the resolve |
+| `HANDOFF_2026-09-08_bloom_and_bulbs.md` |
 | the automated camera flight design | `camera_flight_plan.md` |
 | **the newest handoff: the fog rebuilt, curves, monastery tuned** | `HANDOFF_2026-09-06_fog.md` |
 | **start here for the next session** - terrain mixer, dirt, model AO, the finished Bulb Placer | `HANDOFF_2026-09-06_bulb_placer.md` |

@@ -1,0 +1,540 @@
+﻿diff --git a/docs/lighting.md b/docs/lighting.md
+index 04680fe2..aafa6397 100644
+--- a/docs/lighting.md
++++ b/docs/lighting.md
+@@ -152,7 +152,71 @@ Metal is the **F0 magnitude** and `specTint` the hue, which is why a coloured
+ metal keeps its colour in its highlight while a dielectric does not. This part
+ is correct and matches the game term for term.
+ 
+-## 4. Environment specular is computed and thrown away
++### The gloss / metal curves — added 2026-09-08
++
++With **GMM curves (Tank Exporter)** on (`GMM_CURVE`, default on, persisted as
++`gmm_curve`) the PBR path reads a model's map through the curves the owner
++settled on in Tank Exporter:
++
++```
++gloss = pow(R / 0.8, 7)                 floored at 0.02
++metal = min(pow(G / 0.5, 5) * 1.5, 1)
++```
++
++Both slow-then-fast: they crush the low end and pull the top out, which is
++what makes the dynamic range of these maps show - the owner's finding, judged
++"better" on the monastery at first look. The game does the same in kind for
++metal: GB0.x is gamma-encoded and decoded with a pow, and its default metal of
++0.231 - the green channel sits at 60/255 on plain surfaces in every monastery
++map - only lands near a dielectric after such a curve. Without one every
++default surface carried metal 0.23 and read as chrome.
++
++Models only; terrain packs its own values into these channels. Off is the
++linear reading, for the A/B. The energy conservation and the specular block
++read the curved values through one pair (`pbr_gloss` / `pbr_metal`), so they
++cannot disagree.
++
++Checked while settling this: the blue channel is all zero in every one of the
++18 gloss/metal maps and the one metal/AO atlas in the monastery package. The
++building maps average 0.35 to 0.42 in red, so with the 0.8 pivot most plaster
++and stone sits at the gloss floor and only the bright-red details come up
++glossy.
++
++## 4. Environment specular — connected 2026-09-08
++
++**Status.** The term below is now added to the output when `pbr_spec = 1`,
++scaled by the `Env specular` slider (`ENV_SPEC`, per map, 0 = off). The rest
++of this section is the history and the trap it hid; read it, because the
++premise it argues from was wrong and the fix was the opposite of what it says.
++
++What actually happened, measured at one camera with `freezefx` and a
++zero-pixel null control on both builds:
++
++* The cube nuTerra loads **is** the game's `probes/global/pmrem.dds`
++  (`TerrainBuilder.vb`), DXT5, 6 faces, 8 mips, with the HDR exponent in
++  alpha - the monastery one spans alpha 25..255 over 231 values. It was never
++  "not PMREM-encoded"; it was being read through `SRGBtoLINEAR`. Decoded the
++  game's way (`pmrem_decode`, `rgb² · 2^(9a) / 8`) its mean is 2.8 against
++  0.64 read as sRGB.
++* Connected raw, the frame went 116 levels brighter on average - cobbles at
++  199, a white-out. Two corrections, both in the term: the cube takes the same
++  `props.AMBIENT` scale the probe takes, since both are baked in the same HDR
++  units; and F0 is `specTint * metal`, as the sun term builds it, so a
++  dielectric reflects only through the LUT bias. The transcript in
++  GAME_LIGHTING_MODEL §3 writes `specTint * brdf.x` with no metal, taken as an
++  omission - **REASONED**, not read off the disassembly. With both, the lift
++  is +12 levels mean: cobbles +17 to +20, milk cans +19, the matte wall +4.
++* The direction goes through `invView` with no handedness flip, as the
++  pooled-water path does. The legacy path still samples in view space.
++* Occluded by the luminance ratio of the local probe to the global one where
++  the field exists, and by the model AO through the ambient's curve. Faded
++  under standing water like the sun lobe. Not gated on direct light.
++
++Still reading the cube as sRGB: the wet, water and pooled-water taps, whose
++gains were tuned against that reading. Moving them to `pmrem_decode` is a
++separate, measured change.
++
++### History: why it was disconnected
+ 
+ **In both paths.** `prefilteredColor` is assigned at deferred.frag:873 (PBR:
+ the game's full `specAmbient`) and at :879 (legacy: a cube tap blended with the
+@@ -177,20 +241,24 @@ environment term was pulled out of the composite rather than shipped wrong.
+ **Connecting env specular therefore means fixing the cube first, not the
+ shader.** That is the largest single gap between this renderer and the game's.
+ 
++*(2026-09-08: the cube was right all along - see the status at the top of this
++section. Kept as written because the conclusion was reached from a plausible
++reading of the wrong colours, and the next person will be tempted the same way.)*
++
+ ## 5. Ours against the game, term by term
+ 
+ | term | the game | nuTerra |
+ |---|---|---|
+ | diffuse | Burley / PI | Lambert |
+-| metal energy conservation | `Fd *= 1 - min(metal²·3.2, 1)` | **absent** - metals get full diffuse |
++| metal energy conservation | `Fd *= 1 - min(metal²·3.2, 1)` | same, `pbr_spec = 1`, models only - terrain writes its specular sample into that channel |
+ | specular D | GGX | same, `pbr_spec = 1` only |
+ | specular F | Schlick-Gaussian, metal = F0 magnitude | same, `pbr_spec = 1` only |
+ | specular Vis | Smith-Schlick | same, `pbr_spec = 1` only |
+ | legacy specular | — | Phong + BRDF LUT on the wrong axes |
+ | BRDF LUT axes | `(alphaR, NdotV)` | correct in PBR path, wrong in legacy |
+-| environment specular | PMREM × split-sum LUT | **computed, discarded** (§4) |
+-| PMREM decode | `rgb² · 2^(9a) / 8` | not applied; plain sRGB cube |
+-| reflection occlusion | `env *= min(local/global irradiance, 1)` | not implemented |
++| environment specular | PMREM × split-sum LUT | connected 2026-09-08, `pbr_spec = 1` only, `Env specular` gain (§4) |
++| PMREM decode | `rgb² · 2^(9a) / 8` | `pmrem_decode`, in the env term only; wet and water taps still read sRGB |
++| reflection occlusion | `env *= min(local/global irradiance, 1)` | luminance ratio of local to global probe, plus model AO |
+ | ambient | always added, scaled by AO only | multiplied by `(1 - direct_light)` |
+ | ambient tint | `m_ambientTint`, ambient only | `AMBIENT_SAT` toward probe luminance |
+ | sun colour | `m_color * HDRParams.y`, no blend | blended toward white by `SUN_TINT` |
+@@ -284,6 +352,11 @@ changing one means changing the other.
+ | Tone Exposure | 0.5 - 4 | gain of the tone curve; cannot clip |
+ | Bright Level | 0 - 2 | pre-exposure gain on the whole composite |
+ | PBR specular | on/off | swaps §3's two models; off is byte-identical to shipped |
++| Env specular | 0 - 2 | gain on the environment reflection from the PMREM cube; 0 off, 1 the game's level. PBR path only. Persisted as `env_spec` |
++| GMM curves (Tank Exporter) | on/off | the gloss/metal curves in §3; off is the linear reading. Models only. Persisted as `gmm_curve` |
++| Fresnel | 0 - 1 | gain on both grazing rises of the PBR path - the LUT bias in the env term and the Schlick-Gaussian rise in the sun lobe. 1 is the game's. Persisted as `pbr_fresnel` |
++| Spec Level | 0 - 1 | the specular lobe on solid surfaces only, since 2026-09-08. With `pbr_spec = 1` it is the physical level at 1 |
++| Wet Spec Level | 0 - 1 | the water highlight and the wet reflection, split off Spec Level 2026-09-08 so the lobe can come up without the puddles flaring. Persisted as `wet_specular`; seeded at 0.024 |
+ 
+ `SUN_STRENGTH`, `SUN_TINT` and `AMBIENT_SAT` reuse pad floats appended to the end
+ of the `CommonProperties` UBO. All three are now spoken for - anything further
+@@ -294,12 +367,14 @@ in the same order.
+ 
+ Ranked by how much they would change the image, largest first:
+ 
+-1. **PMREM-decode the cubemap and connect §4.** General surfaces have no
+-   environment reflection at all. This is the biggest visible gap and the
+-   shader side of it is already written.
++1. ~~PMREM-decode the cubemap and connect §4.~~ **Done 2026-09-08**, see §4.
++   Left from it: the wet, water and pooled-water cube taps still read the cube
++   as sRGB with gains tuned to that reading; moving them to `pmrem_decode` is a
++   measured change of its own. And the F0 question in §4 wants settling against
++   the disassembly.
+ 2. **Widen `gColor` to Rgba16f.** Everything downstream clips at 1 today.
+-3. **Metal energy conservation in the diffuse** - one multiply, and metals stop
+-   reading as bright plastic.
++3. ~~Metal energy conservation in the diffuse~~ **Done 2026-09-08**, PBR path,
++   models only.
+ 4. **Fix the legacy BRDF LUT axes**, or retire the legacy path once `pbr_spec`
+    has been shipped on by default.
+ 5. **Directional ambient**, which is what would let the `(1 - direct_light)`
+diff --git a/docs/open_threads.md b/docs/open_threads.md
+index 1225778d..56e46f22 100644
+--- a/docs/open_threads.md
++++ b/docs/open_threads.md
+@@ -102,6 +102,11 @@ rotate with the camera for **every** specular surface in the scene.
+ Only the pooled-water path was fixed (it converts through `invView` and clamps
+ the horizon). The general specular path still has it.
+ 
++2026-09-08: the environment specular term connected in `lighting.md` §4 also
++converts through `invView`, with the pooled water's no-flip convention. The
++legacy path (`pbr_spec = 0`) still samples the cube in view space; it is the
++path that is meant to be retired.
++
+ Pre-existing, not introduced by any of this work, and not measured - it is
+ visible in the code, not in a screenshot. Worth an A/B before believing it
+ matters.
+diff --git a/nuTerra/Forms/Window.vb b/nuTerra/Forms/Window.vb
+index fefcd369..4c8e2d5a 100644
+--- a/nuTerra/Forms/Window.vb
++++ b/nuTerra/Forms/Window.vb
+@@ -2277,10 +2277,56 @@ try_again:
+                     ImGui.Text("   GGX + Schlick-Gaussian F + Smith-Schlick Vis")
+                     ImGui.Text("   env LUT indexed (alphaRoughness, NdotV)")
+ 
++                    ' ---- environment specular --------------------------------
++                    ' The game's specAmbient: the map's PMREM cube, decoded,
++                    ' times the split-sum LUT. deferred.frag computed it for
++                    ' weeks and never added it; connected 2026-09-08. PBR path
++                    ' only - with the checkbox above off this does nothing.
++                    If ImGui.SliderFloat("Env specular", ENV_SPEC, 0.0, 2.0) Then
++                    End If
++                    If ImGui.IsItemHovered() Then
++                        ImGui.SetTooltip("Environment reflection on every lit surface, from the" & vbLf &
++                                         "map's own PMREM cube. 0 = off, the A/B. 1 is the" & vbLf &
++                                         "game's level. Occluded by the probe field and by" & vbLf &
++                                         "the model AO; needs PBR specular on.")
++                    End If
++
++                    ' ---- gloss / metal curves --------------------------------
++                    ' The Tank Exporter curves, behind a switch so the linear
++                    ' reading is one click away for the A/B.
++                    If ImGui.Checkbox("GMM curves (Tank Exporter)", GMM_CURVE) Then
++                    End If
++                    If ImGui.IsItemHovered() Then
++                        ImGui.SetTooltip("Curve the model gloss/metal map before use:" & vbLf &
++                                         "gloss = pow(R / 0.8, 7), metal = pow(G / 0.5, 5) x 1.5." & vbLf &
++                                         "Slow then fast - crushes the low end, pulls the top out." & vbLf &
++                                         "Off is the linear reading. Models only.")
++                    End If
++                    If ImGui.SliderFloat("Fresnel", PBR_FRESNEL, 0.0, 1.0) Then
++                    End If
++                    If ImGui.IsItemHovered() Then
++                        ImGui.SetTooltip("The grazing rise, in the sun lobe and the environment" & vbLf &
++                                         "term together. 1 is the game's Fresnel; lower it" & vbLf &
++                                         "when silhouettes flare. PBR path only.")
++                    End If
++
+                     Dim v_spec = CommonProperties.SPECULAR
+                     If ImGui.SliderFloat("Spec Level", v_spec, 0.0, 1.0) Then
+                         CommonProperties.SPECULAR = v_spec
+                     End If
++                    If ImGui.IsItemHovered() Then
++                        ImGui.SetTooltip("The specular lobe on solid surfaces - models and" & vbLf &
++                                         "terrain. Water and wetness have their own below." & vbLf &
++                                         "With PBR specular on, 1 is the physical level.")
++                    End If
++                    ' Water and wetness used to ride the same slider, so the
++                    ' lobe could not come up without the puddles flaring.
++                    If ImGui.SliderFloat("Wet Spec Level", WET_SPECULAR, 0.0, 1.0) Then
++                    End If
++                    If ImGui.IsItemHovered() Then
++                        ImGui.SetTooltip("The water highlight and the wet reflection only." & vbLf &
++                                         "Split off Spec Level so the two can be set apart.")
++                    End If
+ 
+                     ' ---- baked occlusion on models ---------------------------
+                     Dim v_aop = MODEL_AO_POWER
+diff --git a/nuTerra/Modules/modGlobalVars.vb b/nuTerra/Modules/modGlobalVars.vb
+index f0d07501..8c0a1c2f 100644
+--- a/nuTerra/Modules/modGlobalVars.vb
++++ b/nuTerra/Modules/modGlobalVars.vb
+@@ -805,6 +805,38 @@ Module modGlobalVars
+     ''' </summary>
+     Public PBR_SPEC As Boolean = False
+ 
++    ''' <summary>
++    ''' Gain on the environment specular the PBR path adds - the game's
++    ''' specAmbient: the map's PMREM cube, decoded, times the split-sum LUT.
++    ''' 0 is off (the A/B), 1 is the game's own level. Per map, persisted as
++    ''' env_spec. Does nothing with PBR_SPEC off.
++    ''' </summary>
++    Public ENV_SPEC As Single = 1.0F
++
++    ''' <summary>
++    ''' The Tank Exporter curves on a model's gloss/metal map in the PBR path:
++    ''' gloss = pow(R / 0.8, 7), metal = min(pow(G / 0.5, 5) * 1.5, 1). The
++    ''' owner's finding for pulling the dynamic range out of these maps. Off
++    ''' is the linear decode reading. Models only. Persisted as gmm_curve.
++    ''' </summary>
++    Public GMM_CURVE As Boolean = True
++
++    ''' <summary>
++    ''' Gain on the grazing Fresnel rise in the PBR path, in both the sun lobe
++    ''' and the environment term. 1 is the game's Fresnel; lower it when rims
++    ''' flare. Persisted as pbr_fresnel.
++    ''' </summary>
++    Public PBR_FRESNEL As Single = 1.0F
++
++    ''' <summary>
++    ''' Specular level for water and wetness - the water highlight and the wet
++    ''' reflection - split off Spec Level 2026-09-08 so the solid-surface lobe
++    ''' can come up without the puddles flaring. Seeded at the monastery's
++    ''' Spec Level of the day so no map changes until it is moved; each map
++    ''' saves its own as wet_specular.
++    ''' </summary>
++    Public WET_SPECULAR As Single = 0.024F
++
+     Public SH_GRID_CURVE As Single = 1.0F
+     Public SH_GRID_FLOOR As Single = 0.0F
+ 
+diff --git a/nuTerra/Modules/modMapSettings.vb b/nuTerra/Modules/modMapSettings.vb
+index 5f9197fc..6cf873d3 100644
+--- a/nuTerra/Modules/modMapSettings.vb
++++ b/nuTerra/Modules/modMapSettings.vb
+@@ -193,6 +193,10 @@ Public Module modMapSettings
+         Yield ("sh_grid_curve", Function() SH_GRID_CURVE, Sub(v) SH_GRID_CURVE = v)
+         Yield ("sh_grid_floor", Function() SH_GRID_FLOOR, Sub(v) SH_GRID_FLOOR = v)
+         Yield ("pbr_spec", Function() B2F(PBR_SPEC), Sub(v) PBR_SPEC = F2B(v))
++        Yield ("env_spec", Function() ENV_SPEC, Sub(v) ENV_SPEC = v)
++        Yield ("gmm_curve", Function() B2F(GMM_CURVE), Sub(v) GMM_CURVE = F2B(v))
++        Yield ("pbr_fresnel", Function() PBR_FRESNEL, Sub(v) PBR_FRESNEL = v)
++        Yield ("wet_specular", Function() WET_SPECULAR, Sub(v) WET_SPECULAR = v)
+ 
+         ' booleans, stored as 0/1 so the file stays one shape throughout
+         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))
+diff --git a/nuTerra/RenderEngine/modRender.vb b/nuTerra/RenderEngine/modRender.vb
+index 8a25dc0f..46030126 100644
+--- a/nuTerra/RenderEngine/modRender.vb
++++ b/nuTerra/RenderEngine/modRender.vb
+@@ -1087,6 +1087,10 @@ Module modRender
+                     CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
+ 
+         GL.Uniform1(deferredShader("pbr_spec"), CInt(If(PBR_SPEC, 1, 0)))
++        GL.Uniform1(deferredShader("env_spec"), ENV_SPEC)
++        GL.Uniform1(deferredShader("gmm_curve"), CInt(If(GMM_CURVE, 1, 0)))
++        GL.Uniform1(deferredShader("pbr_fresnel"), PBR_FRESNEL)
++        GL.Uniform1(deferredShader("wet_specular"), WET_SPECULAR)
+ 
+         upload_path_lights()
+ 
+diff --git a/nuTerra/shaders/Final_render/deferred.frag b/nuTerra/shaders/Final_render/deferred.frag
+index b4ead9f9..c16edc7a 100644
+--- a/nuTerra/shaders/Final_render/deferred.frag
++++ b/nuTerra/shaders/Final_render/deferred.frag
+@@ -108,6 +108,42 @@ uniform float sh_grid_floor;
+ // its own g_gloss / g_metal so the mistake cannot ride along.
+ uniform int pbr_spec;
+ 
++// Gain on the environment specular the PBR path adds - the game's specAmbient,
++// the PMREM cube decoded times the split-sum LUT. 0 is off, which is the A/B;
++// 1 is the game's own level. Lighting Settings -> Surfaces -> Env specular.
++uniform float env_spec;
++
++// The Tank Exporter curves on a model's gloss/metal map - the owner's finding
++// from working the tanks by eye (reference: relaxed-bartik-61760d/shaders/
++// mesh.frag, the only thing taken from it):
++//     gloss = pow(R / 0.8, 7)                 floored at 0.02
++//     metal = min(pow(G / 0.5, 5) * 1.5, 1)
++// Both slow-then-fast: they crush the low end and pull the top out, which is
++// what makes the dynamic range of these maps show. The game does the same in
++// kind for metal - GB0.x is gamma-encoded and decoded with a pow - and its
++// default metal of 0.231 only lands near a dielectric after such a curve.
++// 0 = linear, the PBS_tank decode reading, for the A/B. Models only; terrain
++// packs its own values into these channels.
++uniform int gmm_curve;
++
++// Gain on the two grazing rises of the PBR path - the LUT bias in the
++// environment term and the Schlick-Gaussian rise in the sun lobe, which
++// reaches 1 at the silhouette for every material. 1 is the game's own
++// Fresnel; the owner's read on the monastery milk cans was "too much
++// Fresnel going on" against the game's aluminium, so this is the lever.
++// Checked before adding it: the LUT axes are right - decoded, its bias peaks
++// at smooth-and-grazing and the loader uploads rows unflipped, so
++// (alphaR, NdotV) reads it as the transcript says.
++uniform float pbr_fresnel;
++
++// The specular level for WATER and WETNESS, split off props.SPECULAR on
++// 2026-09-08. One slider used to drive the solid-surface lobe AND the water
++// highlight AND the wet reflection, so the lobe could not come up without the
++// puddles flaring. Spec Level now reaches the GGX / Phong lobe only; this
++// reaches water_spec and the wet reflection's Phong scalar. Lighting Settings
++// -> Surfaces -> Wet Spec Level.
++uniform float wet_specular;
++
+ // --------------------------------------------------------------------------
+ // Point lights loaded from the map's .campath, placed in Path Studio.
+ // --------------------------------------------------------------------------
+@@ -441,6 +477,28 @@ vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){
+  }
+ /*===================================================================*/
+ #define MANUAL_SRGB ;
++// The environment cube is the game's own probes/global/pmrem.dds, and it is
++// NOT an sRGB image: DXT5 with the HDR EXPONENT in alpha,
++//     env = rgb^2 * 2^(9a) / 8
++// which is the decode the game's resolve_lighting runs (GAME_LIGHTING_MODEL.md
++// section 3). Read through SRGBtoLINEAR it lands at a fraction of its level on
++// the wrong curve - that is what threw the colour off on wet terrain and got
++// the whole environment term pulled out of the composite. Checked on the
++// monastery cube: alpha runs 25..255 over 231 distinct values, decoded mean
++// 2.8 against 0.64 read as sRGB.
++//
++// Only the environment specular reads it this way so far. The wet, water and
++// pooled-water taps below still go through SRGBtoLINEAR, because their gains
++// were tuned against that reading; moving them is a separate, measured change.
++vec3 pmrem_decode(vec4 c)
++{
++    return c.rgb * c.rgb * exp2(9.0 * c.a) * 0.125;
++}
++
++// The two curves - see gmm_curve.
++float gmm_gloss(float r) { return clamp(pow(max(r, 0.0) / 0.8, 7.0), 0.02, 1.0); }
++float gmm_metal(float g) { return clamp(pow(max(g, 0.0) / 0.5, 5.0) * 1.5, 0.0, 1.0); }
++
+ vec4 SRGBtoLINEAR(vec4 srgbIn)
+ {
+     #ifdef MANUAL_SRGB
+@@ -968,6 +1026,10 @@ void main (void)
+             // which way it faces, so nothing in shade has any form. With a probe
+             // loaded, evaluate the SH against the normal instead and keep
+             // props.AMBIENT as the overall strength control.
++            // Reflection occlusion for the environment specular further down:
++            // how much darker the local probe is than the global one, the
++            // game's env *= min(local / global, 1). 1 where there is no field.
++            float env_occl = 1.0;
+             vec4 Ambient_level;
+             if (sh_enabled != 0) {
+                 // The probe is baked in world space but N is in view space -
+@@ -991,6 +1053,11 @@ void main (void)
+                     // The reference is floored off zero so an unlit global probe
+                     // cannot produce a divide by zero or a NaN ratio.
+                     vec3 ref = max(irradiance, vec3(1e-4));
++                    // Raw local against global, BEFORE the reshape below - the
++                    // game's own ratio - on luminance so a hue difference
++                    // cannot flip it.
++                    const vec3 env_lumw = vec3(0.299, 0.587, 0.114);
++                    env_occl = min(dot(grid_irr, env_lumw) / max(dot(ref, env_lumw), 1e-4), 1.0);
+                     if (sh_grid_curve != 1.0) {
+                         grid_irr = ref * pow(grid_irr / ref, vec3(sh_grid_curve));
+                     }
+@@ -1181,11 +1248,34 @@ void main (void)
+                 float NdotL = max(dot(N, L), 0.0);
+                 float lambertTerm = NdotL;
+ 
+-                float water_spec = max(pow(dot(V,R), 120.0 ),0.0001) * props.SPECULAR;
++                float water_spec = max(pow(dot(V,R), 120.0 ),0.0001) * wet_specular;
+ 
+                 // sun_shadow was computed above, before ambient was weighted -
+                 // the two have to agree on how much sun arrives here.
+-                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0) * sun_shadow;
++                // Metal energy conservation, the game's
++                //     Fd *= 1 - min(metal^2 * 3.2, 1)
++                // (GAME_LIGHTING_MODEL.md section 4): a metal has almost no
++                // diffuse, its colour lives in the specular. Without it a metal
++                // took full Lambert AND a lobe on top and read as bright
++                // plastic. PBR path only, so the legacy path stays byte for
++                // byte, and models only: terrain writes its specular sample
++                // into gGMF.g, not metal, and would lose diffuse for nothing.
++                // GM_in.g is METAL - see docs/lighting.md section 1.
++                // The gloss and metal the PBR path works from, read ONCE here
++                // so the energy conservation below and the specular block
++                // agree on them. GM_in.r is GLOSS and GM_in.g is METAL - the
++                // names in this shader lie (docs/lighting.md section 1).
++                float pbr_gloss = clamp(GM_in.r, 0.0, 1.0);
++                float pbr_metal = clamp(GM_in.g, 0.0, 1.0);
++                if (gmm_curve != 0 && is_model) {
++                    pbr_gloss = gmm_gloss(pbr_gloss);
++                    pbr_metal = gmm_metal(pbr_metal);
++                }
++                float diff_energy = 1.0;
++                if (pbr_spec != 0 && !is_terrain) {
++                    diff_energy = 1.0 - min(pbr_metal * pbr_metal * 3.2, 1.0);
++                }
++                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0) * sun_shadow * diff_energy;
+ 
+ 
+ 
+@@ -1203,6 +1293,10 @@ void main (void)
+                 // scalar in BOTH modes. Only the specular MODEL is swapped
+                 // here, not the wetness term, so spec stays common.
+                 float spec = max(pow(dot(V,R), POWER ),0.0000) * props.SPECULAR * INTENSITY;
++                // The same Phong scalar on the WET level, for the wet reflection
++                // below. spec itself stays on Spec Level: the legacy path's
++                // specular is built from it and is meant to stay as it shipped.
++                float wet_phong = max(pow(dot(V,R), POWER ),0.0000) * wet_specular * INTENSITY;
+ 
+                 vec3 specular;
+                 vec4 prefilteredColor;
+@@ -1210,8 +1304,8 @@ void main (void)
+                 if (pbr_spec != 0) {
+                     // ---- the game's specular, sections 3 and 4 -------------
+                     // Channels named straight - see the uniform's comment.
+-                    float g_gloss = clamp(GM_in.r, 0.0, 1.0);
+-                    float g_metal = clamp(GM_in.g, 0.0, 1.0);
++                    float g_gloss = pbr_gloss;
++                    float g_metal = pbr_metal;
+ 
+                     float alphaR = 1.0 - g_gloss * g_gloss;
+                     float NdotV  = abs(dot(N, V));
+@@ -1227,21 +1321,37 @@ void main (void)
+                     // roughens rather than leaving the mip to carry all of it.
+                     vec3 Rdom = normalize(mix(N, R_env_raw,
+                                               clamp(g_gloss * 1.35, 0.0, 1.0)));
+-                    Rdom.xz *= -1.0;
+-
+-                    // Grazing angles blur. nuTerra's cube is 8 mips and is not
+-                    // PMREM-encoded, so the mip curve is the game's shape
+-                    // against this cube's range - the DECODE is left alone.
++                    // N, V and R_env_raw are VIEW space and the cube is world
++                    // oriented, so invView puts the direction back into world -
++                    // the way the pooled-water path does it, and like that
++                    // path with NO handedness flip: the .xz negation that used
++                    // to sit here was the legacy path's convention and, on the
++                    // water, sampled the wrong side of the sky. Left in view
++                    // space the reflection turned with the camera
++                    // (open_threads.md section 6).
++                    Rdom = normalize(mat3(invView) * Rdom);
++
++                    // Grazing angles blur. The cube has 8 mips, so the game's
++                    // g_PMREMMipsNumber pair is (8, 0) here.
+                     float mip = alphaR * alphaR * 8.0
+                               * (min(2.0 * NdotV, 1.0) * 0.5 + 0.5);
+-                    vec4 c = SRGBtoLINEAR(textureLod(cubeMap, Rdom,
+-                                          clamp(mip, 0.0, 8.0)));
++                    // PMREM decode, not sRGB - see pmrem_decode above.
++                    vec4 c = textureLod(cubeMap, Rdom, clamp(mip, 0.0, 8.0));
++                    vec3 env = pmrem_decode(c);
+ 
+                     // The LUT is (alphaRoughness, NdotV): R scales the specular
+                     // colour, G is an additive bias. The path below indexes it
+                     // (1 - NdotL*0.25, 1 - gloss), which is neither axis.
+                     vec2 ab = texture(env_brdf_lut, vec2(alphaR, NdotV)).xy;
+-                    vec3 specAmbient = c.rgb * (specTint * ab.x + ab.y);
++                    // F0 for the ambient term the way the sun term builds it:
++                    // specTint * metal. A dielectric then reflects only through
++                    // the LUT bias - the grazing rise - and a metal through the
++                    // full scaled lobe. The GAME_LIGHTING_MODEL transcript
++                    // writes specTint * brdf.x with no metal in it; taken here
++                    // as an omission in the transcript, because with it a
++                    // matte wall came out as a mirror. REASONED, not read off
++                    // the disassembly - see the measured frames in lighting.md.
++                    vec3 specAmbient = env * (specTint * g_metal * ab.x + ab.y * pbr_fresnel);
+ 
+                     // Direct sun: GGX D, Schlick-Gaussian F, Smith-Schlick Vis.
+                     vec3  H     = normalize(L + V);
+@@ -1254,7 +1364,7 @@ void main (void)
+                     float den = NdotH * NdotH * (m4 - 1.0) + 1.0;
+                     float D  = m4 / (3.14159265 * den * den);
+ 
+-                    float Fexp = exp2((-5.55473 * LdotH - 6.98316) * LdotH);
++                    float Fexp = exp2((-5.55473 * LdotH - 6.98316) * LdotH) * pbr_fresnel;
+                     vec3  F    = specTint * g_metal
+                                + (1.0 - g_metal * specTint) * Fexp;
+ 
+@@ -1287,7 +1397,7 @@ void main (void)
+                 // mask behind it that was too hot.
+                 const float WET_REFLECT = 3.0;
+                 vec4 G_prefilteredColor = SRGBtoLINEAR(textureLod(cubeMap, R_env,
+-                                          max(3.0-GM_in.z *3.0, 0.0)))*GM_in.z*spec*WET_REFLECT;
++                                          max(3.0-GM_in.z *3.0, 0.0)))*GM_in.z*wet_phong*WET_REFLECT;
+ 
+                 vec3 water_reflect = vec3(water_mix*props.ambientColorForward) * vec3(water_spec)*1.5 * W_prefilteredColor.rgb;
+ 
+@@ -1440,6 +1550,29 @@ void main (void)
+                 vec3 sun_add = specular * sun_shadow * (1.0 - pool);
+                 final_color.xyz += 1.0 - exp(-sun_add);
+ 
++                // Environment specular - the game's specAmbient (section 3 of
++                // GAME_LIGHTING_MODEL.md), which this shader computed into
++                // prefilteredColor and then never read. Connected for the PBR
++                // path; the legacy path stays byte for byte. Occluded the way
++                // the game occludes it: by the local/global probe ratio where
++                // there is a field, and by the model's baked AO through the
++                // same curve the ambient takes. Faded under standing water
++                // like the sun lobe above - the water surface reflects there,
++                // not the ground under it. NOT gated on direct light: the sky
++                // shows in a sunlit surface too. Before Bright Level, so it
++                // scales with the scene rather than sitting on top of it.
++                if (pbr_spec != 0 && !is_glow) {
++                    float env_ao = 1.0 - min(pow(model_occl, max(model_ao_power, 1e-3)), 1.0);
++                    // props.AMBIENT is the scale that brings the probe, baked
++                    // in the same HDR units as this cube, into the range the
++                    // rest of the resolve works in. The cube takes the same
++                    // scale so the two ambients keep their ratio. Without it
++                    // the first measured frame was 116 levels brighter on
++                    // average, cobbles included.
++                    final_color.xyz += prefilteredColor.rgb * props.AMBIENT
++                                     * env_occl * env_ao * env_spec * (1.0 - pool);
++                }
++
+                 // The .campath's own lights. Added AFTER the sun and BEFORE
+                 // BRIGHTNESS, so they sit in the same linear space the sun term
+                 // does and take the same exposure - anywhere later and they
