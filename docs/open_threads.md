@@ -1,4 +1,4 @@
-# Open threads
+﻿# Open threads
 
 Loose ends as of **2026-09-06**, written down so a compacted session or a new
 one can pick them up cold. Each entry says what is known, what is NOT known,
@@ -139,7 +139,10 @@ per-light falloff curves and tuned monastery; the lights session before it is
   fog between eye and lamp. Small version: scale each shaft by the global fog
   factor at its distance.
 - **Smoke is exempt from fog by coverage**, so distant smoke reads too clear.
-  Proper fix fogs it by emitter distance.
+  Proper fix fogs it by emitter distance. Walked in full 2026-09-08 -
+  see `fx_fog_interaction.md` for the mechanism and two routes. Additive FX
+  are worse off than smoke: they carry alpha 0 by contract, so the coverage
+  term never sees them and they take the full background fog.
 - **The height fog inside deferred.frag** (~1480-1510, hard-coded density
   0.005) still runs pre-tonemap when fog_level > 0. Redundant now; remove.
 - **Bulb Placer**: done as `BulbPlacer.vb` - see `bulb_placer.md`. Bulbs live
@@ -152,6 +155,63 @@ per-light falloff curves and tuned monastery; the lights session before it is
   cube baked from LOD 1.
 - `fog_noise_m` makes cells 32x smaller than its number says. Rename/rescale.
 - Path Studio's left column is 952 px tall; the notes block should move.
+
+## 10. The bloom chain - what is still open after 2026-09-08
+
+Session handoff is `HANDOFF_2026-09-08_bloom_and_bulbs.md`. The bloom flicker
+under camera motion is fixed (the bright pass was point-sampling one pixel in
+sixteen); these are what it left behind.
+
+- **The glow-occlusion test is inverted for reversed-Z.**
+  `fx_composite.frag:96` computes `bloom.a - sceneD` where the convention
+  stated in `lamp_bulb.frag:61` wants `sceneD - bloom.a`. REASONED: this pins
+  `pass_through` near 0.15 across the halo, so the bloom runs at about 15% and
+  `FX_GLOW_STRENGTH = 2.0` is partly compensating. Fixing it makes the halo
+  ~6.7x brighter and needs the strength re-tuned in the same commit. Measure
+  first.
+- **`fx_bright.frag`'s depth default calls 1.0 "the far plane".** Under
+  reversed-Z it is the NEAR plane. The number happens to be the right safe
+  default; the reasoning in the comment is not.
+- **The blur targets are Rgba16f again.** The Rgba8 pair was never committed
+  and a revert took it. `FX_GLOW_RANGE` and the encode/decode in
+  `fx_bright` / `fx_composite` are still in the tree with nothing to fit.
+- **`shaft_fbm3` octave 4 is below the shaft march's Nyquist limit.** At
+  `fog_noise_m = 250` the octaves are 7.8 / 3.9 / 1.95 / 0.98 m against a
+  0.83 m step for a 20 m lamp. It can only alias. Drop to 3 octaves if the
+  Lamp fog timer needs it - the noise is now sampled per step, not four times
+  per ray.
+- **Bulb sprite occlusion has never been verified** with a lamp behind a wall.
+
+### Banding on smoke — open, two candidates, 2026-09-08 evening
+
+Owner reports smoke clean in the **gFX_HDR** viewer and banded on screen.
+Confirmed by inspection: **gFX_BloomA contains no smoke at all**, so the bloom
+chain cannot be the source, and the glow-occlusion smoothstep above is ruled
+out for this symptom. `msm_blur` is a plain linear 9-tap on all four channels
+and is also clear. `colorCorrect.frag` — a 16-step 3D LUT that would band
+beautifully — is **not in the frame**: `color_correct()` is commented out at
+`modRender.vb:481`.
+
+Two live candidates, not yet separated:
+
+1. **8-bit quantisation with no dither.** `gColor` is Rgba8 and the frame
+   round trips through the 8-bit back buffer more than once. Nothing dithered.
+   Addressed by `FX_DITHER` — see `FX_PIPELINE.md` "Output dither". Landed and
+   building, but **not confirmed to be the cause**.
+2. **The fog classifies smoke as sky.** `DeferredFog.frag:163` decides sky by
+   `dist < 0.001` on `gPosition`, and **FX cards never write `gPosition`** — so
+   a smoke pixel against the sky takes `f = fog_sky` and gets mixed toward
+   `fog_tint_ovr`. The `gFX_cover` term at line 210 is the only thing holding
+   it back, and it is weakest where it matters: thin smoke has low alpha, and
+   additive FX carry alpha 0 by contract so fire takes the **full** sky fog.
+   The amount then varies with the smoke's own alpha ramp, which would put the
+   contours exactly where they are seen. This is §9 / `fx_fog_interaction.md`
+   showing up as a visible artefact rather than a design note.
+
+**The discriminator, no rebuild:** drag `fog_level` (or `fog_sky`) to 0 with a
+plume on screen. Bands vanish → candidate 2, and the dither is treating a
+symptom. Bands survive → candidate 1. Do this before building anything else.
+
 **Resolved 2026-09-08 evening, from the owner's stills.** The Still button was
 writing all along — to `G:\nuTerra_ScreenCaps\still`, the `record_dir` in the
 user settings, not the C: drive the handoff looked at. `still_049` to

@@ -12,6 +12,7 @@ handoff's status banner before trusting it.
 | you want | read |
 |---|---|
 | **what is still open** | `open_threads.md` |
+| **the newest handoff: bulb sprites, emissive panes, the bloom chain, banding on smoke** | `HANDOFF_2026-09-08_bloom_and_bulbs.md` |
 | the automated camera flight design | `camera_flight_plan.md` |
 | **the newest handoff: the fog rebuilt, curves, monastery tuned** | `HANDOFF_2026-09-06_fog.md` |
 | **start here for the next session** - terrain mixer, dirt, model AO, the finished Bulb Placer | `HANDOFF_2026-09-06_bulb_placer.md` |
@@ -34,7 +35,8 @@ one is the specification, this one is what we actually do with it.
 
 | document | subject |
 |---|---|
-| `FX_PIPELINE.md` | the FX pass: accumulation, HDR composite, glow, probe lighting. **What is locked, and how to measure it.** |
+| `FX_PIPELINE.md` | the FX pass: accumulation, HDR composite, glow, probe lighting, output dither, the lit smoke cards. **What is locked, and how to measure it.** |
+| `fx_fog_interaction.md` | why the fog pass cannot fog the FX correctly - the order, the coverage hack, and two routes out. Nothing in it is implemented |
 | `PARTICLES_HANDOFF.md` | the card particle *simulation* and emitter data (a reference despite the name) |
 | `VFXBIN_PARTICLE_FORMAT.md` | the `.vfxbin` container - the single source for atlas rect ordering |
 | `decals.md` | the decal pass, its two easily-confused shaders, and its tangent frame |
@@ -66,7 +68,8 @@ specifications and evidence, not descriptions of this renderer.
 
 | document | covers | status |
 |---|---|---|
-| `HANDOFF_2026-09-06_fog.md` | global fog rebuilt from gPosition, per-light falloff curves, the noise lessons, monastery tuned to a reference, the still runner | **current** - read its rules section |
+| `HANDOFF_2026-09-08_bloom_and_bulbs.md` | texture views, the bloom flicker, lamp fog steps and noise, emissive lamp panes, the bulb sprite, output dither, and what the banding on smoke turned out to be | **current** - committed in seven pieces, see its top banner |
+| `HANDOFF_2026-09-06_fog.md` | global fog rebuilt from gPosition, per-light falloff curves, the noise lessons, monastery tuned to a reference, the still runner | read its rules section |
 | `HANDOFF_2026-09-06_lights.md` | lamp lighting, shadows, volumetric shafts, the light catalogue and the Bulb Placer | same day, earlier; its open items are settled in section 4 and the fog handoff |
 | `HANDOFF_2026-08-31_pbr_glow_water.md` | PBS_tank decode, PBR specular, glow depth-test, pooled water | still accurate for what it covers |
 | `HANDOFF_2026-08-31_fx_and_holes.md` | terrain holes, FX HDR composite, glow, the parked branch landing, the decal checkerboard | earlier the same day |
