@@ -111,6 +111,13 @@ NotInheritable Class TextureMgr
     End Function
 
     Public Class DDSHeader
+        ''' <summary>DXGI format from the DX10 extension block, 0 when there is
+        ''' none. Only meaningful when FourCC is "DX10".</summary>
+        Public dxgiFormat As UInteger
+        ''' <summary>Byte offset of the first mip: 128 normally, 148 when a DX10
+        ''' extension block sits in between.</summary>
+        Public data_start As Integer = 128
+
         Public Enum DdsPixelFormatFlag
             AlphaFlag = &H1
             FourCCFlag = &H4
@@ -152,6 +159,129 @@ NotInheritable Class TextureMgr
             Public components As Integer
             Public compressed As Boolean
         End Class
+
+        ''' <summary>
+        ''' The GL format behind a DX10 file's DXGI enum.
+        '''
+        ''' Block sizes drop straight into `components`, which the loader uses as
+        ''' bytes per 4x4 block: BC7 and BC6H are 16 like DXT5, BC4 is 8 like
+        ''' DXT1, so the size arithmetic upstream needs nothing.
+        '''
+        ''' Everything here is core GL 4.2 or older, and the engine asks for 4.5.
+        ''' </summary>
+        Private Function dx10_format_info() As FormatInfo
+            Select Case dxgiFormat
+                Case 98UI, 99UI   ' BC7_UNORM, BC7_UNORM_SRGB
+                    ' 777 of the 786 DX10 files. sRGB is taken as UNORM on
+                    ' purpose: everything else here is uploaded unconverted and
+                    ' the shaders do their own decode, so honouring it on this
+                    ' one path would make these textures the odd ones out.
+                    Return New FormatInfo With {
+                        .pixel_format = -1,
+                        .texture_format = InternalFormat.CompressedRgbaBptcUnorm,
+                        .pixel_type = -1,
+                        .components = 16,
+                        .compressed = True
+                    }
+                Case 95UI, 96UI   ' BC6H_UF16, BC6H_SF16
+                    Return New FormatInfo With {
+                        .pixel_format = -1,
+                        .texture_format = If(dxgiFormat = 95UI,
+                                             InternalFormat.CompressedRgbBptcUnsignedFloat,
+                                             InternalFormat.CompressedRgbBptcSignedFloat),
+                        .pixel_type = -1,
+                        .components = 16,
+                        .compressed = True
+                    }
+                Case 80UI, 81UI   ' BC4_UNORM, BC4_SNORM
+                    Return New FormatInfo With {
+                        .pixel_format = -1,
+                        .texture_format = If(dxgiFormat = 80UI,
+                                             InternalFormat.CompressedRedRgtc1,
+                                             InternalFormat.CompressedSignedRedRgtc1),
+                        .pixel_type = -1,
+                        .components = 8,
+                        .compressed = True
+                    }
+                Case 83UI, 84UI   ' BC5_UNORM, BC5_SNORM
+                    Return New FormatInfo With {
+                        .pixel_format = -1,
+                        .texture_format = If(dxgiFormat = 83UI,
+                                             InternalFormat.CompressedRgRgtc2,
+                                             InternalFormat.CompressedSignedRgRgtc2),
+                        .pixel_type = -1,
+                        .components = 16,
+                        .compressed = True
+                    }
+                Case 71UI, 72UI   ' BC1
+                    Return New FormatInfo With {
+                        .pixel_format = -1,
+                        .texture_format = InternalFormat.CompressedRgbaS3tcDxt1Ext,
+                        .pixel_type = -1,
+                        .components = 8,
+                        .compressed = True
+                    }
+                Case 74UI, 75UI   ' BC2
+                    Return New FormatInfo With {
+                        .pixel_format = -1,
+                        .texture_format = InternalFormat.CompressedRgbaS3tcDxt3Ext,
+                        .pixel_type = -1,
+                        .components = 16,
+                        .compressed = True
+                    }
+                Case 77UI, 78UI   ' BC3
+                    Return New FormatInfo With {
+                        .pixel_format = -1,
+                        .texture_format = InternalFormat.CompressedRgbaS3tcDxt5Ext,
+                        .pixel_type = -1,
+                        .components = 16,
+                        .compressed = True
+                    }
+                Case 61UI         ' R8_UNORM - three files, all patterns
+                    Return New FormatInfo With {
+                        .pixel_format = OpenGL.PixelFormat.Red,
+                        .texture_format = InternalFormat.R8,
+                        .pixel_type = PixelType.UnsignedByte,
+                        .components = 1,
+                        .compressed = False
+                    }
+                Case 28UI, 29UI   ' R8G8B8A8_UNORM(_SRGB)
+                    Return New FormatInfo With {
+                        .pixel_format = OpenGL.PixelFormat.Rgba,
+                        .texture_format = InternalFormat.Rgba8,
+                        .pixel_type = PixelType.UnsignedByte,
+                        .components = 4,
+                        .compressed = False
+                    }
+                Case 87UI         ' B8G8R8A8_UNORM
+                    Return New FormatInfo With {
+                        .pixel_format = OpenGL.PixelFormat.Bgra,
+                        .texture_format = InternalFormat.Rgba8,
+                        .pixel_type = PixelType.UnsignedByte,
+                        .components = 4,
+                        .compressed = False
+                    }
+                Case 10UI         ' R16G16B16A16_FLOAT
+                    Return New FormatInfo With {
+                        .pixel_format = OpenGL.PixelFormat.Rgba,
+                        .texture_format = InternalFormat.Rgba16f,
+                        .pixel_type = PixelType.HalfFloat,
+                        .components = 8,
+                        .compressed = False
+                    }
+                Case 2UI          ' R32G32B32A32_FLOAT
+                    Return New FormatInfo With {
+                        .pixel_format = OpenGL.PixelFormat.Rgba,
+                        .texture_format = InternalFormat.Rgba32f,
+                        .pixel_type = PixelType.Float,
+                        .components = 16,
+                        .compressed = False
+                    }
+                Case Else
+                    LogThis("dds: unhandled DXGI format {0} - texture skipped", dxgiFormat)
+                    Return Nothing
+            End Select
+        End Function
 
         ReadOnly Property format_info As FormatInfo
             Get
@@ -199,8 +329,35 @@ NotInheritable Class TextureMgr
                                 .components = 8,
                                 .compressed = False
                             }
+                        Case "ATI1"
+                            ' BC4 under its pre-DX10 name. Four files ship this way.
+                            Return New FormatInfo With {
+                                .pixel_format = -1,
+                                .texture_format = InternalFormat.CompressedRedRgtc1,
+                                .pixel_type = -1,
+                                .components = 8,
+                                .compressed = True
+                            }
+                        Case "r" & vbNullChar & vbNullChar & vbNullChar
+                            ' D3DFMT_R32F (114)
+                            Return New FormatInfo With {
+                                .pixel_format = OpenGL.PixelFormat.Red,
+                                .texture_format = InternalFormat.R32f,
+                                .pixel_type = PixelType.Float,
+                                .components = 4,
+                                .compressed = False
+                            }
+                        Case "DX10"
+                            Return dx10_format_info()
+
                         Case Else
-                            Stop
+                            ' Named, not Stop. A breakpoint helps nobody in a
+                            ' release build, and Nothing here is dereferenced
+                            ' downstream - so an unknown format used to crash
+                            ' somewhere else entirely, with nothing saying what
+                            ' it was.
+                            LogThis("dds: unhandled fourCC {0} ({1}) - texture skipped",
+                                    FourCC, BitConverter.ToString(Text.Encoding.ASCII.GetBytes(FourCC)))
                             Return Nothing
                     End Select
                 Else
@@ -276,6 +433,30 @@ NotInheritable Class TextureMgr
         header.alphaMask = br.ReadUInt32()
         header.caps = br.ReadUInt32()
         header.caps2 = br.ReadUInt32()
+
+        ' The DX10 extension. When the fourCC is literally "DX10" the real format
+        ' is a DXGI enum in a 20 byte block AFTER the 124 byte header, and the
+        ' pixels start at 148 rather than 128.
+        '
+        ' That offset is the trap. Every other branch here fails loudly on a
+        ' format it does not know; getting the DATA START wrong instead succeeds
+        ' and produces a texture built from the wrong bytes - every mip shifted
+        ' by 20 - which looks like a corrupt asset rather than a loader bug.
+        '
+        ' 786 of the 106594 DDS files in the packages are DX10, and 777 of those
+        ' are BC7. The rest of the tail is 5 BC4, 3 R8 and one BC6H.
+        header.data_start = 128
+        header.dxgiFormat = 0UI
+        If header.FourCC = "DX10" Then
+            br.BaseStream.Position = 128
+            header.dxgiFormat = br.ReadUInt32()
+            br.ReadUInt32()   ' resourceDimension
+            br.ReadUInt32()   ' miscFlag
+            br.ReadUInt32()   ' arraySize
+            br.ReadUInt32()   ' miscFlags2
+            header.data_start = 148
+        End If
+
         Return header
     End Function
 
@@ -292,7 +473,8 @@ NotInheritable Class TextureMgr
         ms.Position = 0
         Using br As New BinaryReader(ms, System.Text.Encoding.ASCII)
             Dim dds_header = get_dds_header(br)
-            ms.Position = 128
+            ' 148 for a DX10 file, 128 otherwise - see DDSHeader.data_start.
+            ms.Position = dds_header.data_start
 
             'Select Case dds_header.caps
             '    Case &H1000
