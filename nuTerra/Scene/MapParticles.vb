@@ -35,6 +35,7 @@ Public Class MapParticles
         Public baseSize As Single
         Public drift As Vector3
         Public em As modParticles.PfxEmitter
+        Public big As Boolean          ' emitter name contains "big" - CARD_ALPHA_BIG applies
     End Class
 
     Private Class SystemInst
@@ -242,6 +243,7 @@ Public Class MapParticles
                     s.accum(em) -= 1.0F
                     Dim p As New Particle With {
                         .em = em,
+                        .big = em.name.ToLower().Contains("big"),
                         .age = 0.0F,
                         .life = Rand(em.lifeMin, em.lifeMax),
                         .baseSize = Rand(em.sizeMin, em.sizeMax),
@@ -305,6 +307,11 @@ Public Class MapParticles
                 col = New Vector4(p.em.colourTrack.Sample(t, 0), p.em.colourTrack.Sample(t, 1),
                                   p.em.colourTrack.Sample(t, 2), p.em.colourTrack.Sample(t, 3))
             End If
+            ' Per-emitter opacity, the owner's call from the monastery plume
+            ' once the cards were lit: smoke_Big - the emitter whose colour
+            ' track drifts blue - too thin, the grey slow/fast cards too solid.
+            ' A gain on the authored alpha, clamped, live from the sliders.
+            col.W = Math.Min(1.0F, col.W * If(p.big, CARD_ALPHA_BIG, CARD_ALPHA_SMALL))
             If PARTICLES_WIRE Then
                 ' Age as colour: green at birth, red at death.
                 col = New Vector4(t, 1.0F - t, 0.25F, 1.0F)
@@ -500,6 +507,29 @@ Public Class MapParticles
 
         particleShader.Use()
         GL.Uniform1(particleShader("wireMode"), CInt(If(PARTICLES_WIRE, 1, 0)))
+
+        ' Soft fade as a fraction of the card's half-extent - particle.frag.
+        GL.Uniform1(particleShader("soft_frac"), CARD_SOFT_FRAC)
+
+        ' Lighting. The same probe draw_fx hands the volumetric meshes, so a
+        ' card and the smoke mesh beside it read one sky. Flat probe only:
+        ' the baked FIELD is deliberately not ported here. A card's position
+        ' is to hand, but the field fades to the companion probe with height
+        ' and a plume lives in exactly that fade, so it would dim the column
+        ' for nothing the silhouette problem needs. USE_SH_GRID_FX is off by
+        ' default on the meshes for the same reason.
+        Dim sh_flat(26) As Single
+        For i = 0 To 8
+            sh_flat(i * 3 + 0) = SH_AMBIENT(i).X
+            sh_flat(i * 3 + 1) = SH_AMBIENT(i).Y
+            sh_flat(i * 3 + 2) = SH_AMBIENT(i).Z
+        Next
+        GL.Uniform3(particleShader("sh_ambient"), 9, sh_flat)
+        GL.Uniform1(particleShader("sh_enabled"),
+                    CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
+        GL.Uniform1(particleShader("card_lit"), CInt(If(CARD_LIT, 1, 0)))
+        GL.Uniform1(particleShader("card_ambient"), CARD_AMBIENT)
+        GL.Uniform1(particleShader("card_sun"), CARD_SUN)
         If PARTICLES_WIRE Then GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
         texture.BindUnit(0)
         vao.Bind()

@@ -152,3 +152,15 @@ per-light falloff curves and tuned monastery; the lights session before it is
   cube baked from LOD 1.
 - `fog_noise_m` makes cells 32x smaller than its number says. Rename/rescale.
 - Path Studio's left column is 952 px tall; the notes block should move.
+**Resolved 2026-09-08 evening, from the owner's stills.** The Still button was
+writing all along — to `G:\nuTerra_ScreenCaps\still`, the `record_dir` in the
+user settings, not the C: drive the handoff looked at. `still_049` to
+`still_052` from 15:03 settled it, and it was neither candidate: the live
+settings had `fog_level = 0` (candidate 2 inert) and scanlines through the
+plume showed no plateau longer than 5 px (candidate 1 absent; the dither is
+working). The edges were (a) cards cut along the roof plane with a fixed
+0.5 m soft fade, and (b) grey cards silhouetted over blue ones — the two
+emitters author very different colour tracks and the cards were unlit. Both
+addressed in the card pass; see `FX_PIPELINE.md` "Card lighting and the
+size-relative soft fade". Still open from it: centre-sorted card order, which
+the lighting hides rather than removes.

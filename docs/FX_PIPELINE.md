@@ -251,6 +251,67 @@ this so it does not get moved back.
 competing explanation is the fog misclassifying smoke as sky, and the
 discriminator is cheap.
 
+## Card lighting and the size-relative soft fade — added 2026-09-08
+
+Two changes to the card pass only: `shaders/Model_shaders/particle.{vert,frag}`
+and the uploads in `MapParticles.Draw`. Neither touches the locked volumetric
+path. Both came out of the "harsh bands" on the monastery plume, which the
+owner's 15:03 stills that evening pinned to two mechanisms — and to neither of
+the two candidates `open_threads.md` §10 had listed:
+
+* **The fog was off.** The live monastery settings had `fog_level = 0`, so the
+  fog pass mixed nothing.
+* **The quantiser was clean.** Scanlines through the plume showed no plateau
+  longer than 5 px; the dither is doing its job.
+
+What the edges actually were:
+
+1. **A card cut by a roof.** A card is a plane at one view depth. Where it
+   crosses a roof plane the depth test cuts it along their intersection — a
+   straight line — and the soft-particle fade was a fixed 0.5 m, two or three
+   pixels wide on a roof seen at that angle. Now `soft_frac` × the card's
+   half-extent, floored at 0.5 m. `CARD_SOFT_FRAC`, slider **Card soft fade**
+   under Draw FX, default 0.35 of the radius.
+
+2. **A card over a card of a different colour.** Every card was one flat
+   colour: texture × the authored tint, unlit, unexposed, untonemapped, pasted
+   onto a frame the deferred pass had already put through `correct()`. The
+   monastery's `smoke_Big` emitter authors a colour track that drifts to
+   (0.55, 0.68, 0.88) over the card's life while `smoke_Slow` / `smoke_Fast`
+   stay grey, so wherever a grey card sat in front of a blue one, the grey
+   sprite's silhouette punched a hard-edged hole. Centre-sorted "over" doing
+   exactly what it does; it only showed because the colours differed so much.
+
+   The game lights these sprites — the blue is a tint on the lighting, not a
+   display colour. The cards now take the same probe the ground and the
+   volumetric meshes read (`sh_ambient`, evaluated for an up-facing normal;
+   one normal for every card on purpose, so tints converge), the same
+   `AMBIENT` and `ambient_sat` chain `deferred.frag` applies to it, a flat
+   share of the sun built the way the deferred pass builds it, and then a copy
+   of `correct()`. `CARD_LIT` (checkbox **Card lighting**) off is the old path
+   byte for byte, which is the A/B. `CARD_AMBIENT` (default 1.0) and `CARD_SUN`
+   (default 0.3) are the two gains.
+
+   The baked probe FIELD is deliberately not ported to the cards: it fades to
+   the companion probe with height, and a plume lives in exactly that fade.
+
+What this does NOT fix: the cards are still composited in centre-sorted order,
+so a large card that sorts behind a small one is still cut by its silhouette.
+Lit to one tone the cut is far less visible; making it invisible is
+order-independent transparency, the next step if it still shows.
+
+**Per-emitter opacity.** With the cards lit the owner's read was "close":
+the blue too thin, the grey too solid. Two gains on the authored alpha, keyed
+on the emitter name because the colour is a track and not a tag:
+`CARD_ALPHA_BIG` (default 1.6) for any emitter whose name contains "big" -
+`smoke_Big`, the one that drifts blue - and `CARD_ALPHA_SMALL` (default 0.6)
+for the rest. Sliders **Card alpha: smoke_Big** and **Card alpha: slow/fast**
+under Draw FX. Applied in `BuildInstances`, clamped to 1, live.
+
+**Status:** landed and building 2026-09-08 evening. The owner judged the
+lighting "close" on the monastery plume; the gains above are the first
+adjustment. Nothing yet compared against the game.
+
 ## FX lit from the baked probe field
 
 `USE_SH_GRID_FX`, **off by default**. `volumetric.vert` carries the same

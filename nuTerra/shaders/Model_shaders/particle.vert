@@ -17,6 +17,7 @@ out VS_OUT
     vec2 uv;
     vec4 colour;
     float viewDist;
+    float halfSize;   // world half-extent, for the size-relative soft fade
 } vs_out;
 
 void main(void)
@@ -34,4 +35,5 @@ void main(void)
     vs_out.uv       = inUV.xy + (corner * 0.5 + 0.5) * inUV.zw;
     vs_out.colour   = inColour;
     vs_out.viewDist = -centreView.z;
+    vs_out.halfSize = inPosSize.w;
 }

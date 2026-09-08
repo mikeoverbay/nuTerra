@@ -307,6 +307,52 @@ Module modGlobalVars
     ''' </summary>
     Public PARTICLES_WIRE As Boolean = False
 
+    ''' <summary>
+    ''' Light the particle cards. OFF restores the old path exactly - texture
+    ''' times the authored tint, no probe, no exposure, no tone curve - which
+    ''' is the A/B for the smoke silhouettes. See particle.frag for why the
+    ''' unlit path cuts hard edges where two tints overlap.
+    ''' </summary>
+    Public CARD_LIT As Boolean = True
+
+    ''' <summary>
+    ''' Gain on the probe term of the card lighting, on top of the AMBIENT and
+    ''' ambient_sat scaling the ground already gets. 1 puts a white card at the
+    ''' ground's own ambient level.
+    ''' </summary>
+    Public CARD_AMBIENT As Single = 1.0F
+
+    ''' <summary>
+    ''' Flat share of the sun a card receives. Smoke has no normal to take a
+    ''' cosine against and is not shadowed, so this is a fraction of
+    ''' sunColor * sun_strength, not a dot product. 0 is sky light alone.
+    ''' </summary>
+    Public CARD_SUN As Single = 0.3F
+
+    ''' <summary>
+    ''' Soft-particle fade range as a fraction of the card's half-extent,
+    ''' floored at 0.5 m in the shader. The fixed 0.5 m it replaces was a
+    ''' knife edge where a 14 m card crossed a roof plane.
+    ''' </summary>
+    Public CARD_SOFT_FRAC As Single = 0.35F
+
+    ''' <summary>
+    ''' Opacity gain on the cards of any emitter whose name contains "big" -
+    ''' on the monastery house that is smoke_Big, the emitter whose colour
+    ''' track drifts blue over the card's life. The owner's call once the cards
+    ''' were lit: the blue read too thin behind the grey. 1 is as authored.
+    ''' Keyed on the emitter name because that is the only handle the data
+    ''' offers - the colour is a track, not a tag.
+    ''' </summary>
+    Public CARD_ALPHA_BIG As Single = 1.6F
+
+    ''' <summary>
+    ''' Opacity gain on every other smoke emitter's cards - smoke_Slow and
+    ''' smoke_Fast on the monastery house, the grey ones. Same call, the other
+    ''' way: the grey read too solid. 1 is as authored.
+    ''' </summary>
+    Public CARD_ALPHA_SMALL As Single = 0.6F
+
     ''' <summary>Particle effect placements read from space.bin's BWPs section.</summary>
     Public PFX_PLACEMENTS As List(Of modParticles.PfxPlacement) = Nothing
 

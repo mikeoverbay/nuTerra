@@ -1639,6 +1639,59 @@ try_again:
                     ImGui.Checkbox("Draw FX", DONT_BLOCK_FX)
                     If DONT_BLOCK_FX Then
                         ImGui.Checkbox("   Particle cards as wireframe", PARTICLES_WIRE)
+                        ' The card lighting, its two gains, and the soft fade.
+                        ' Under Draw FX because they touch the card pass only.
+                        ' The checkbox is the A/B: off is the old unlit,
+                        ' un-exposed card exactly.
+                        ImGui.Checkbox("   Card lighting", CARD_LIT)
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Light the smoke cards with the scene's probe and" & vbLf &
+                                             "put them through the same exposure and tone" & vbLf &
+                                             "curve as the ground. Off is the old path: the" & vbLf &
+                                             "authored tint pasted on unlit, which is why a" & vbLf &
+                                             "blue card and a grey card cut hard edges into" & vbLf &
+                                             "each other.")
+                        End If
+                        If CARD_LIT Then
+                            If ImGui.SliderFloat("   Card ambient", CARD_AMBIENT, 0.0, 3.0) Then
+                            End If
+                            If ImGui.IsItemHovered() Then
+                                ImGui.SetTooltip("Gain on the probe term. 1 puts a white card at" & vbLf &
+                                                 "the ground's own ambient level.")
+                            End If
+                            If ImGui.SliderFloat("   Card sun", CARD_SUN, 0.0, 1.0) Then
+                            End If
+                            If ImGui.IsItemHovered() Then
+                                ImGui.SetTooltip("Flat share of the sun a card receives - no" & vbLf &
+                                                 "normal, no shadow. 0 is sky light only.")
+                            End If
+                        End If
+                        If ImGui.SliderFloat("   Card soft fade", CARD_SOFT_FRAC, 0.0, 1.0, "%.2f of radius") Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("How far behind a card the scene must be before" & vbLf &
+                                             "the card is fully visible, as a fraction of the" & vbLf &
+                                             "card's radius. Floored at 0.5 m. Was a fixed" & vbLf &
+                                             "0.5 m - a knife edge where a 14 m card crosses" & vbLf &
+                                             "a roof.")
+                        End If
+                        ' Per-emitter opacity. smoke_Big is the emitter whose
+                        ' colour track drifts blue on the monastery house; the
+                        ' slow and fast emitters stay grey. The owner's call
+                        ' after the lighting landed: blue too thin, grey too
+                        ' solid. Keyed on the authored emitter name.
+                        If ImGui.SliderFloat("   Card alpha: smoke_Big", CARD_ALPHA_BIG, 0.0, 3.0) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Opacity gain on the smoke_Big emitter's cards -" & vbLf &
+                                             "the ones whose colour drifts blue. 1 is authored.")
+                        End If
+                        If ImGui.SliderFloat("   Card alpha: slow/fast", CARD_ALPHA_SMALL, 0.0, 3.0) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Opacity gain on every other smoke emitter's cards -" & vbLf &
+                                             "the grey ones. 1 is authored.")
+                        End If
                         ' Glow. Only possible because the FX accumulate into a
                         ' float buffer - the halo is built from energy the old
                         ' Rgba8 path had already flattened away.
