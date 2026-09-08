@@ -32,6 +32,8 @@ Public Class ModelInfo
         OWNER.Clear()
         XFORM.Clear()
         INSTANCE_OF = Nothing
+        BY_SLOT = Nothing
+        BY_SLOT_N = -1
     End Sub
 
     ''' <summary>
@@ -164,15 +166,53 @@ Public Class ModelInfo
         Next
     End Sub
 
+    ''' <summary>
+    ''' The material a primitive group's material_id names - which is NOT the
+    ''' key the materials dictionary is built on.
+    '''
+    ''' modSpaceBin keys `materials` by the space.bin BSMA index, but hands each
+    ''' Material a COMPACT id of 0..count-1 in arrival order, and it is the
+    ''' compact one a primitive group carries - because that is what indexes the
+    ''' GPU array. MapLoader builds materialsData(mat.id) and the shaders read
+    ''' material[material_id], so the two agree; only this report did not.
+    '''
+    ''' Looking the dictionary up by a group's id lands on whichever material
+    ''' happens to hold THAT BSMA index - a real material with real texture
+    ''' paths, belonging to something else entirely - so the report named the
+    ''' wrong textures and named them confidently. It never missed loudly,
+    ''' which is why it went unnoticed. BulbPlacer.CollectLightModels re-keys by
+    ''' .id for exactly this reason.
+    '''
+    ''' Rebuilt whenever the table has GROWN, because this runs during the load
+    ''' and modSpaceBin is still adding materials while models are read.
+    ''' </summary>
+    Private Shared BY_SLOT As Dictionary(Of Integer, Material) = Nothing
+    Private Shared BY_SLOT_N As Integer = -1
+
+    ' TryGet rather than returning the Material, because Material is a
+    ' STRUCTURE - a value type has no Nothing to hand back as a miss.
+    Private Shared Function try_material_by_slot(slot As Integer, ByRef m As Material) As Boolean
+        If materials Is Nothing Then Return False
+        If BY_SLOT Is Nothing OrElse BY_SLOT_N <> materials.Count Then
+            BY_SLOT = New Dictionary(Of Integer, Material)(materials.Count)
+            For Each mv In materials.Values
+                BY_SLOT(mv.id) = mv
+            Next
+            BY_SLOT_N = materials.Count
+        End If
+        Return BY_SLOT.TryGetValue(slot, m)
+    End Function
+
     Private Shared Sub append_material(sb As StringBuilder, material_id As Integer)
-        sb.AppendLine("        material_id : " & material_id.ToString())
+        sb.AppendLine("        material_id : " & material_id.ToString() &
+                      "  (slot in the GPU material array, not the BSMA index)")
         If materials Is Nothing Then
             sb.AppendLine("        (no material table)")
             Return
         End If
         Dim mat As Material = Nothing
-        If Not materials.TryGetValue(CUInt(material_id), mat) Then
-            sb.AppendLine("        (material not in the table)")
+        If Not try_material_by_slot(material_id, mat) Then
+            sb.AppendLine("        (no material in slot " & material_id.ToString() & ")")
             Return
         End If
         sb.AppendLine("        shader      : " & mat.shader_type.ToString() &
