@@ -274,14 +274,37 @@ void main(void)
     if (scene_t > 0.001) t1 = min(t1, scene_t);
     if (t1 <= t0) discard;
 
-    int steps = max(fog_steps, 1);
-    float dt = (t1 - t0) / float(steps);
-
-    // The drift, at four points along the chord; each step lerps between
-    // them. Four noise evaluations a pixel instead of forty-eight.
-    float drift[4];
-    for (int k = 0; k < 4; ++k)
-        drift[k] = drift_at(ro + rd * (t0 + (t1 - t0) * float(k) / 3.0));
+    // A FIXED step LENGTH, with the COUNT varying to suit the chord - not a
+    // fixed count stretched over whatever chord this pixel happened to get.
+    //
+    // t1 was clipped to the scene surface a few lines up, so dividing by a
+    // fixed count made the step length a function of the distance to whatever
+    // this pixel is looking at. Two consequences, and both of them read as
+    // FLICKER the moment the camera moves:
+    //
+    //   - Across a silhouette, neighbouring pixels got completely different
+    //     step lengths. The Bayer offset below is there to make neighbours
+    //     average out, and it cannot do that between two pixels whose samples
+    //     sit at unrelated depths in the first place.
+    //
+    //   - A centimetre of camera movement changes scene_t, and with the chord
+    //     re-divided every frame that moved ALL the samples on that pixel
+    //     rather than just the last one. Every sample crossed a different bit
+    //     of the shadow cube, so the sum walked.
+    //
+    // Pinning the length to the lamp's own DIAMETER fixes both: the sampling
+    // density is now uniform across the screen, and every sample is anchored
+    // to t0, so a change in scene_t only adds or drops steps at the far end of
+    // the march - where the extinction has already made them dim.
+    //
+    // fog_steps is therefore a step count across a FULL diameter, which is the
+    // worst case, so the old value still buys the same peak cost. Rays that
+    // clip the sphere or stop early at a wall now cost proportionally less
+    // instead of spending all 48 on a chord a few centimetres long.
+    int   max_steps = max(fog_steps, 1);
+    float dt = (2.0 * lamp_range) / float(max_steps);
+    int   steps = min(max_steps,
+                      max(1, int(ceil((t1 - t0) / max(dt, 1e-6)))));
 
     // Offset the first step by a fraction of dt, so the shells land at a
     // different depth on neighbouring pixels and average out.
@@ -294,6 +317,12 @@ void main(void)
     for (int i = 0; i < steps; ++i)
     {
         float t = t0 + (float(i) + jitter) * dt;
+        // ceil() above rounds the count UP, and the jitter pushes the last
+        // sample further still, so the tail can overshoot t1 - which is the
+        // surface. Sampling past it is exactly the leak the scene_t clip
+        // exists to prevent, so stop instead. What is given up is at most a
+        // fraction of one step's energy at the far, dim end of the march.
+        if (t > t1) break;
         vec3 p = ro + rd * t;
 
         // How much of what is scattered at THIS point still reaches the eye.
@@ -350,9 +379,37 @@ void main(void)
         // of a pool as bright as the near side.
         float to_lamp = exp(-fog_density * dist);
 
-        float u = clamp((t - t0) / max(t1 - t0, 1e-4), 0.0, 1.0) * 3.0;
-        int   ki = int(min(u, 2.0));
-        float dr = mix(drift[ki], drift[ki + 1], u - float(ki));
+        // The drift at THIS POINT IN THE WORLD.
+        //
+        // This used to be four drift_at() evaluations placed at fractions of
+        // the chord - t0 + (t1 - t0) * k/3 - with every step lerping between
+        // them. Four noise fetches a pixel instead of forty-eight, which is a
+        // real saving and the wrong axis to save it on: it anchors the noise
+        // to THE RAY rather than to the world, and the ray is made out of the
+        // camera.
+        //
+        // t0 is the sphere entry measured from the eye and t1 is clipped to
+        // the scene surface, so that lattice both SLID and STRETCHED as the
+        // camera moved. Two things followed, and together they are the fog
+        // 'moving weird' that no amount of fixing the step spacing could
+        // reach:
+        //
+        //   - Sliding: a fixed lump of fog in the world was read from a
+        //     different place on the lattice every frame, so its brightness
+        //     changed while the fog itself had not moved. The whole field
+        //     boiled whenever the camera did anything at all.
+        //
+        //   - Stretching: the four taps always spanned the chord, so a ray
+        //     with 40 m of air got its noise smeared over 40 m and a ray that
+        //     hit a wall at 2 m got the same four taps squeezed into 2 m -
+        //     a different noise FREQUENCY either side of every silhouette.
+        //
+        // drift_at() was never the problem: it maps a world point through
+        // noise_metres and the shared scroll, so the same world point gives
+        // the same answer from any camera. Handing it p - the position this
+        // step is actually integrating - is all it ever needed, and it puts
+        // the shafts back in the same cloud DeferredFog is sampling.
+        float dr = drift_at(p);
 
         acc += base * atten * vis * dr
              * phase_fn(cos_t) * to_lamp * trans * dt;
