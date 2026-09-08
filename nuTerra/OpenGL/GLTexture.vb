@@ -6,6 +6,14 @@ Public Class GLTexture
     Public texture_id As Integer
     Public target As TextureTarget
 
+    ''' <summary>
+    ''' What Storage2D/3D actually allocated. Recorded because GL will not tell
+    ''' us cheaply and because glTextureView needs it: a view MUST name a format
+    ''' in the source's own class, and a caller passing that by hand gets it
+    ''' wrong the moment the source's format changes under it. Ask the texture.
+    ''' </summary>
+    Public storage_format As SizedInternalFormat
+
     Public Sub New(texture_id As Integer, target As TextureTarget, name As String)
         Me.texture_id = texture_id
         Me.target = target
@@ -37,11 +45,13 @@ Public Class GLTexture
     End Sub
 
     Public Sub Storage2D(levels As Integer, iFormat As SizedInternalFormat, width As Integer, height As Integer)
+        storage_format = iFormat
         GL.TextureStorage2D(texture_id, levels, iFormat, width, height)
         CheckGLError()
     End Sub
 
     Public Sub Storage3D(levels As Integer, iFormat As SizedInternalFormat, width As Integer, height As Integer, depth As Integer)
+        storage_format = iFormat
         GL.TextureStorage3D(texture_id, levels, iFormat, width, height, depth)
         CheckGLError()
     End Sub

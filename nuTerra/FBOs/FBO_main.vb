@@ -51,6 +51,10 @@ Public Class MainFBO
     ''' the same kernel would be a barely visible smudge.
     ''' </summary>
     Public Shared gFX_BloomA As GLTexture
+    ''' <summary>Viewer-only alpha-1 views of the two glow buffers. See the
+    ''' note where they are made.</summary>
+    Public Shared gFX_HDR_opaque As Integer
+    Public Shared gFX_BloomA_opaque As Integer
     Public Shared gFX_BloomB As GLTexture
     Public Shared bloom_fbo As GLFramebuffer
     Public Shared bloom_width As Integer
@@ -155,14 +159,10 @@ Public Class MainFBO
 
     Public Shared Sub delete_textures_and_fbo()
         ' Views first - they borrow the storage the textures below own.
-        If gColor_opaque <> 0 Then
-            GL.DeleteTexture(gColor_opaque)
-            gColor_opaque = 0
-        End If
-        If gGMF_opaque <> 0 Then
-            GL.DeleteTexture(gGMF_opaque)
-            gGMF_opaque = 0
-        End If
+        delete_view(gColor_opaque)
+        delete_view(gGMF_opaque)
+        delete_view(gFX_HDR_opaque)
+        delete_view(gFX_BloomA_opaque)
 
         ' as the name says
         gColor?.Dispose()
@@ -253,16 +253,15 @@ Public Class MainFBO
         ' Viewer-only views. Must come after the textures they borrow.
         gColor_opaque = make_opaque_view(gColor)
         gGMF_opaque = make_opaque_view(gGMF)
+        ' The FX pair need this MORE than the two above, not less: gFX_HDR is
+        ' written with alpha ZERO on purpose - the additive contract, adds light
+        ' and covers nothing - and gFX_BloomA's alpha is blurred depth. ImGui
+        ' alpha-blends, so both drew as empty and read as "the buffer has no
+        ' content" when in fact they were full.
+        gFX_HDR_opaque = make_opaque_view(gFX_HDR)
+        gFX_BloomA_opaque = make_opaque_view(gFX_BloomA)
     End Sub
 
-    ''' <summary>
-    ''' An Rgba8 view onto an existing immutable texture, alpha swizzled to 1.
-    '''
-    ''' GenTextures, not CreateTextures: glTextureView requires a name that has
-    ''' never had storage of its own. The view then points at the source's
-    ''' storage, so there is no copy and no way for this to alter what the
-    ''' shaders read.
-    ''' </summary>
     ''' <summary>One half of the glow ping-pong pair.</summary>
     Private Shared Function make_bloom_target(name As String) As GLTexture
         Dim t = GLTexture.Create(TextureTarget.Texture2D, name)
@@ -274,14 +273,48 @@ Public Class MainFBO
         Return t
     End Function
 
+    ''' <summary>
+    ''' A view onto an existing immutable texture with ALPHA SWIZZLED TO 1, for
+    ''' the texture viewer. ImGui alpha-blends what it draws, and several of
+    ''' these buffers carry something other than coverage in alpha - gFX_HDR is
+    ''' written alpha ZERO by the additive contract, gFX_BloomA's alpha is
+    ''' blurred depth - so without this they draw as nothing and read as "the
+    ''' buffer is empty" when in fact they are full.
+    '''
+    ''' GenTextures, not CreateTextures: glTextureView requires a name that has
+    ''' never had storage of its own. The view then points at the source's
+    ''' storage, so there is no copy and no way for this to alter what the
+    ''' shaders read.
+    '''
+    ''' THE FORMAT COMES FROM THE SOURCE, never from the caller. glTextureView
+    ''' only permits a view inside the source's own format class, and this used
+    ''' to take it as a parameter defaulting to Rgba8 - a 32-bit class format,
+    ''' and therefore illegal over the 64-bit Rgba16f bloom targets. That
+    ''' default does not fail visibly: glTextureView raises INVALID_OPERATION
+    ''' and leaves the generated NAME with no object behind it, the swizzle
+    ''' below then fails on the same name, and ImGui's bind of an invalid name
+    ''' is a no-op that leaves the PREVIOUS texture bound - so the panel
+    ''' cheerfully painted ImGui's own font atlas into the gFX_BloomA slot.
+    ''' </summary>
     Private Shared Function make_opaque_view(src As GLTexture) As Integer
         Dim id As Integer
         GL.GenTextures(1, id)
+        ' Same numeric enum values, two different OpenTK enum types.
+        Dim fmt = CType(CInt(src.storage_format), PixelInternalFormat)
         GL.TextureView(id, TextureTarget.Texture2D, src.texture_id,
-                       PixelInternalFormat.Rgba8, 0, 1, 0, 1)
+                       fmt, 0, 1, 0, 1)
         GL.TextureParameter(id, TextureParameterName.TextureSwizzleA, CInt(All.One))
         Return id
     End Function
+
+    ''' <summary>Delete a view and clear the handle. A view borrows its source's
+    ''' storage, so every one must go BEFORE the texture it borrows.</summary>
+    Private Shared Sub delete_view(ByRef id As Integer)
+        If id <> 0 Then
+            GL.DeleteTexture(id)
+            id = 0
+        End If
+    End Sub
 
     Public Shared Function create_fbo() As Boolean
         fbo = GLFramebuffer.Create("mainFBO")

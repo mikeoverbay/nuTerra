@@ -2929,6 +2929,14 @@ try_again:
                 ImGui.Image(New IntPtr(MainFBO.gGMF_opaque), size, uv0, uv1)
                 ImGui.Text("gPosition")
                 ImGui.Image(New IntPtr(MainFBO.gPosition.texture_id), size, uv0, uv1)
+                ' The two the FX glow is made of. gFX_HDR is what fx_bright reads
+                ' and gFX_BloomA is what it wrote - so a thing that is lit but not
+                ' glowing shows up as present in one and absent from the other,
+                ' which is the question these two exist to answer.
+                ImGui.Text("gFX_HDR  (the FX buffer the bloom is built from)")
+                ImGui.Image(New IntPtr(MainFBO.gFX_HDR_opaque), size, uv0, uv1)
+                ImGui.Text("gFX_BloomA  (the blurred glow, quarter res)")
+                ImGui.Image(New IntPtr(MainFBO.gFX_BloomA_opaque), size, uv0, uv1)
                 ImGui.End()
             End If
         End If
