@@ -1098,7 +1098,19 @@ Module modGlobalVars
     ''' it into glare. Without it a lamp lights the ground and the pole but the
     ''' lamp itself is not there, which reads as light with no source.
     ''' </summary>
-    Public LAMP_BULB As Boolean = True
+    ''' <summary>
+    ''' The bulb sprite - the ball at the light's position, and the glow_star
+    ''' glare with it. OFF by default now that the pane itself is emissive.
+    '''
+    ''' It was the whole lamp at distance: min_px holds the ball at a ten pixel
+    ''' floor however far away it is, so once the pane shrank past that the ball
+    ''' was all that was left, and it read as a bead sitting in front of the
+    ''' lantern rather than as the lantern being lit. The pane does that job now
+    ''' and does it at the right size.
+    '''
+    ''' Off, not removed - the Bulbs checkbox brings the whole path back.
+    ''' </summary>
+    Public LAMP_BULB As Boolean = False
 
     ''' <summary>
     ''' The bulb's size in metres. SMALL on purpose: the look wanted is a
@@ -1129,6 +1141,41 @@ Module modGlobalVars
     ''' a half bloom texels, which the taps overlap properly.
     ''' </summary>
     Public LAMP_BULB_MIN_PX As Single = 10.0F
+
+    ''' <summary>How far the glare reaches, as a multiple of the bulb's own
+    ''' radius. Only the quad grows; the core keeps its size inside it.</summary>
+    ''' <summary>How hard a street lamp's glass glows. Multiplies the pane's
+    ''' OWN albedo, which is already warm, so the glow keeps the art's variation
+    ''' instead of reading as a printed rectangle.</summary>
+    Public LAMP_PANE_GAIN As Single = 3.0F
+
+    ''' <summary>How much of a lit pane reaches the BLOOM. Separate from the
+    ''' pane's own brightness because the two land in different buffers: the pane
+    ''' is a G-buffer surface and the glow is built from gFX_HDR, so one gain
+    ''' cannot serve both.</summary>
+    Public LAMP_PANE_GLOW As Single = 4.0F
+
+    Public LAMP_BULB_GLARE As Single = 6.0F
+
+    ''' <summary>The wide soft surround, relative to the core. Small on purpose -
+    ''' a halo that washes the fixture out takes away the ironwork silhouette,
+    ''' which is most of what reads as a lamp.</summary>
+    Public LAMP_BULB_HALO As Single = 0.02F
+
+    ''' <summary>The four-armed cross, relative to the core. Fades with the
+    ''' SQUARE of distance so only near lamps flare.</summary>
+    ''' <summary>
+    ''' The glow_star glare sprite, off by default.
+    '''
+    ''' Zero rather than removed: the texture still loads and the sprite still
+    ''' draws, so raising this brings it straight back. It is a LENS artefact -
+    ''' right for a dry night, wrong for the fog references, where the rays come
+    ''' from scattering in the air and are the shaft pass's job.
+    ''' </summary>
+    Public LAMP_BULB_SPIKE As Single = 0.0F
+
+    ''' <summary>Thinness of the cross arms. Higher is thinner.</summary>
+    Public LAMP_BULB_SPIKE_SHARP As Single = 12.0F
 
     ''' <summary>
     ''' How deep an occluder a bulb still shines through, in metres.

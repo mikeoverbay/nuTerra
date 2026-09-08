@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_shading_language_include : require
 
@@ -15,10 +15,14 @@
 uniform vec3 centre;    // world position of the bulb
 uniform float radius;   // its size in metres
 uniform float min_px;   // ... but never smaller than this on screen
+// How far the glare reaches, as a multiple of the core's radius. The QUAD
+// grows by this; the core does not - see the frag, which rescales d.
+uniform float glare_ext;
 uniform float see_thru; // how deep an occluder a bulb still shines through, m
 
 out vec2 vOffset;       // -1..1 across the disc
 out float vDim;         // how much the pixel floor inflated this bulb
+out float vDepth;       // the centre's own 0..1 depth, for the core's z test
 out vec4 vCentre;       // clip-space CENTRE, for the occlusion test
 out float vThresh;      // window depth the occlusion test compares against
 
@@ -49,7 +53,11 @@ void main(void)
     // fragment stage never has to invert it - which also keeps this correct
     // whatever near and far are.
     vec4 nc = projection * vec4(0.0, 0.0, -max(dist - see_thru, 0.01), 1.0);
-    vThresh = (nc.z / nc.w) * 0.5 + 0.5;
+    // NO 0.5 remap. The engine runs ClipControl(..., ZeroToOne), so clip depth
+    // is ALREADY 0..1 and *0.5+0.5 squashed every threshold into the top half
+    // of the range - which is why this only ever let a bulb through when
+    // something very near was in front of it.
+    vThresh = nc.z / nc.w;
 
     // A bulb is small, and a small thing far away lands inside a single pixel,
     // where it flickers as the camera moves and the sample point crosses on
@@ -75,6 +83,14 @@ void main(void)
     // plainly visible.
     vDim = min(r_true / r, 1.0);
 
-    vc.xy += c * r;
+    // The quad carries the halo and the spikes as well as the core, so it is
+    // the full glare radius. The core keeps its own size inside it.
+    vc.xy += c * r * max(glare_ext, 1.0);
     gl_Position = projection * vc;
+
+    // The bulb's OWN depth, taken at its centre rather than per corner: the
+    // quad is a billboard standing in for a point, so every pixel of it is
+    // at the same distance as far as occlusion is concerned. Already 0..1,
+    // ClipControl being ZeroToOne.
+    vDepth = vCentre.z / max(vCentre.w, 1e-6);
 }

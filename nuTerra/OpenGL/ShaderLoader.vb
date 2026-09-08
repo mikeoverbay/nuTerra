@@ -202,6 +202,8 @@ Module ShaderLoader
     Public campathShader As Shader
     Public camlightShader As Shader
     Public lampBulbShader As Shader
+    Public lampPaneShader As Shader
+    Public lampPaneGlowShader As Shader
     Public lampFogShader As Shader
     Public lampVolShader As Shader
     Public lampViewShader As Shader
@@ -301,6 +303,8 @@ Module ShaderLoader
         campathShader = New Shader("campath")
         camlightShader = New Shader("camlight")
         lampBulbShader = New Shader("lamp_bulb")
+        lampPaneShader = New Shader("model_lamp")
+        lampPaneGlowShader = New Shader("model_lamp_glow")
         lampFogShader = New Shader("lamp_fog")
         lampVolShader = New Shader("lamp_vol")
         lampViewShader = New Shader("lampview")

@@ -12,6 +12,7 @@
 #define USE_LODS_SSBO
 #define USE_INDIRECT_SSBO
 #define USE_INDIRECT_GLASS_SSBO
+#define USE_INDIRECT_LAMP_SSBO
 #define USE_INDIRECT_DOUBLE_SIDED_SSBO
 #define USE_INDIRECT_FX_SSBO
 #include "common.h" //! #include "../common.h"
@@ -27,6 +28,7 @@ layout (binding = PARAMETERS_BASE, offset = 0) uniform atomic_uint commandCounte
 layout (binding = PARAMETERS_BASE, offset = 4) uniform atomic_uint commandDoubleSidedCounter;
 layout (binding = PARAMETERS_BASE, offset = 8) uniform atomic_uint commandGlassCounter;
 layout (binding = PARAMETERS_BASE, offset = 12) uniform atomic_uint commandFXCounter;
+layout (binding = PARAMETERS_BASE, offset = 16) uniform atomic_uint commandLampCounter;
 
 struct Frustum {
     vec4 planes[6];
@@ -111,6 +113,17 @@ void main(void)
                 command_fx[outDrawIndex].firstIndex = thisDraw.firstIndex;
                 command_fx[outDrawIndex].baseVertex = thisDraw.baseVertex;
                 command_fx[outDrawIndex].baseInstance = thisDraw.baseInstance;
+            // Tested AHEAD of double_sided. The lamps are double sided - that
+            // is what lets you see the far panes through the near ones once the
+            // glass is cut - so leaving this until after would swallow every one
+            // of them and they would never reach their own shader.
+            } else if (material[thisDraw.material_id].shader_type == 14u) {
+                uint outDrawIndex = atomicCounterIncrement(commandLampCounter);
+                command_lamp[outDrawIndex].count = thisDraw.count;
+                command_lamp[outDrawIndex].instanceCount = 1;
+                command_lamp[outDrawIndex].firstIndex = thisDraw.firstIndex;
+                command_lamp[outDrawIndex].baseVertex = thisDraw.baseVertex;
+                command_lamp[outDrawIndex].baseInstance = thisDraw.baseInstance;
             } else if (material[thisDraw.material_id].double_sided) {
                 uint outDrawIndex = atomicCounterIncrement(commandDoubleSidedCounter);
                 command_double_sided[outDrawIndex].count = thisDraw.count;

@@ -67,6 +67,8 @@
 #define VISIBLES_BASE 8
 #define VISIBLES_DBL_SIDED_BASE 9
 #define TERRAIN_CHUNK_INFO_BASE 10
+// The lamp pane bucket. 11 because 0..10 are taken.
+#define INDIRECT_LAMP_BASE 11
 
 struct CandidateDraw
 {
@@ -237,6 +239,13 @@ layout(binding = LODS_BASE, std430) readonly buffer ModelLoDs
 layout(binding = INDIRECT_BASE, std430) buffer Indirect
 {
     DrawElementsIndirectCommand command[];
+};
+#endif
+
+#ifdef USE_INDIRECT_LAMP_SSBO
+layout(binding = INDIRECT_LAMP_BASE, std430) writeonly buffer IndirectLamp
+{
+    DrawElementsIndirectCommand command_lamp[];
 };
 #endif
 

@@ -368,6 +368,8 @@ Module modRender
 
             ' The lamps' own visible sources, into the same buffer and BEFORE
             ' the glow is built - the halo is the whole point of drawing them.
+            draw_lamp_panes_glow()
+            trace_state("lamp panes glow")
             draw_lamp_bulbs()
             trace_state("lamp bulbs")
 
@@ -627,6 +629,94 @@ Module modRender
     ''' has to hide it - which also means a bulb placed up inside a closed hood
     ''' will never be seen, and belongs at the glass instead.
     ''' </summary>
+    ''' <summary>
+    ''' The game's own lens glare sprite, loaded once and kept.
+    '''
+    ''' particles/content_deferred/PFX_textures/glow_star.dds - 256x256 BC7, which
+    ''' is why the DDS loader had to learn the DX10 header first. Greyscale, so it
+    ''' is a shape to be tinted rather than a colour.
+    '''
+    ''' Nothing is unloaded on a map change: it lives in particles.pkg, not in any
+    ''' map, and re-reading it per map would be work for no reason.
+    ''' </summary>
+    Private star_tex As GLTexture = Nothing
+    Private star_tried As Boolean = False
+
+    Private Function get_star_tex() As GLTexture
+        If star_tried Then Return star_tex
+        star_tried = True
+        Try
+            Dim e = ResMgr.Lookup("particles/content_deferred/PFX_textures/glow_star.dds")
+            If e Is Nothing Then
+                LogThis("lamp bulbs: glow_star.dds not found - the glare will be black")
+                Return Nothing
+            End If
+            Dim ms As New IO.MemoryStream
+            e.Extract(ms)
+            star_tex = TextureMgr.load_dds_image_from_stream(ms, "lamp_glow_star")
+        Catch ex As Exception
+            LogThis("lamp bulbs: glow_star.dds failed to load ({0})", ex.Message)
+            star_tex = Nothing
+        End Try
+        LogThis("lamp bulbs: glare sprite {0}",
+                If(star_tex Is Nothing, "MISSING", "id " & star_tex.texture_id.ToString()))
+        Return star_tex
+    End Function
+
+    ''' <summary>
+    ''' The lit panes again, into the FX buffer, so they reach the bloom.
+    '''
+    ''' model_lamp.frag writes the G-BUFFER and the bloom is built from a
+    ''' different buffer - fx_bright.frag reads gFX_HDR - so a pane that only
+    ''' writes the G-buffer is lit but never glows. Drawing it once more here is
+    ''' cheaper and far less invasive than plumbing the G-buffer into the bright
+    ''' pass, which would drag every emissive surface on the map in with it.
+    '''
+    ''' Depth test ON, unlike the bulb sprite: this is real geometry at a real
+    ''' place, so the hardware test against the shared gDepth hides it behind a
+    ''' wall exactly. DepthMask off - the scene's depth is already correct and
+    ''' this pass must not touch it.
+    ''' </summary>
+    Private Sub draw_lamp_panes_glow()
+        If map_scene Is Nothing OrElse map_scene.static_models Is Nothing Then Return
+        If map_scene.static_models.numAfterFrustum(4) <= 0 Then Return
+        If LAMP_PANE_GLOW <= 0.0F Then Return
+
+        GL_PUSH_GROUP("draw_lamp_panes_glow")
+
+        lampPaneGlowShader.Use()
+        map_scene.static_models.allMapModels.Bind()
+
+        ' GEQUAL, not Greater. These panes already laid their own depth in the
+        ' G-buffer pass, so this second draw is the SAME geometry at the SAME
+        ' depth - and under reversed Z a strict Greater fails on equality and
+        ' rejects nearly every fragment. It does not fail loudly: a handful of
+        ' pixels survive on rounding, which reads as "the glow is very dim"
+        ' rather than as a depth bug.
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthFunc(DepthFunction.Gequal)
+        GL.DepthMask(False)
+        GL.Disable(EnableCap.CullFace)
+        GL.Enable(EnableCap.Blend)
+        GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha)
+
+        GL.Uniform1(lampPaneGlowShader("pane_gain"), LAMP_PANE_GAIN)
+        GL.Uniform1(lampPaneGlowShader("glow_gain"), LAMP_PANE_GLOW)
+        Dim pc = map_scene.static_models.lamp_pane_colour_public()
+        GL.Uniform3(lampPaneGlowShader("pane_color"), pc.X, pc.Y, pc.Z)
+
+        map_scene.static_models.indirect_lamp.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt,
+                                     IntPtr.Zero, map_scene.static_models.numAfterFrustum(4), 0)
+
+        lampPaneGlowShader.StopUse()
+        ' Back to the standing state - the rest of the FX block assumes Greater.
+        GL.DepthFunc(DepthFunction.Greater)
+        GL.Enable(EnableCap.CullFace)
+
+        GL_POP_GROUP()
+    End Sub
+
     Private Sub draw_lamp_bulbs()
         If Not LAMP_BULB Then Return
         If map_scene Is Nothing OrElse map_scene.cam_path Is Nothing Then Return
@@ -654,9 +744,22 @@ Module modRender
         GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha)
 
         MainFBO.gDepth.BindUnit(0)
+        ' Unit 1 is the glare sprite. Bound even when it is missing - a sampler
+        ' left unbound is an illegal state the driver reports on every draw, not
+        ' a way to switch a term off.
+        Dim stex = get_star_tex()
+        If stex IsNot Nothing Then
+            stex.BindUnit(1)
+        Else
+            MainFBO.gDepth.BindUnit(1)
+        End If
         GL.Uniform1(lampBulbShader("radius"), Math.Max(0.001F, LAMP_BULB_SIZE))
         GL.Uniform1(lampBulbShader("min_px"), Math.Max(0.0F, LAMP_BULB_MIN_PX))
         GL.Uniform1(lampBulbShader("see_thru"), Math.Max(0.0F, LAMP_BULB_SEE_THRU))
+        GL.Uniform1(lampBulbShader("glare_ext"), Math.Max(1.0F, LAMP_BULB_GLARE))
+        GL.Uniform1(lampBulbShader("halo_gain"), Math.Max(0.0F, LAMP_BULB_HALO))
+        GL.Uniform1(lampBulbShader("spike_gain"), Math.Max(0.0F, LAMP_BULB_SPIKE))
+        GL.Uniform1(lampBulbShader("spike_sharp"), Math.Max(1.0F, LAMP_BULB_SPIKE_SHARP))
 
         ' The same set, in the same order, as the surface lighting and the
         ' shafts. A lamp that is lit should have a bulb, and one that lost its

@@ -436,6 +436,12 @@ Module MapLoader
                 BufferStorageFlags.None)
             map_scene.static_models.indirect_glass.BindBase(5)
 
+            map_scene.static_models.indirect_lamp = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_lamp")
+            map_scene.static_models.indirect_lamp.StorageNullData(
+                map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),
+                BufferStorageFlags.None)
+            map_scene.static_models.indirect_lamp.BindBase(11)
+
             map_scene.static_models.indirect_dbl_sided = GLBuffer.Create(BufferTarget.ShaderStorageBuffer, "indirect_dbl_sided")
             map_scene.static_models.indirect_dbl_sided.StorageNullData(
                 map_scene.static_models.indirectDrawCount * Marshal.SizeOf(Of DrawElementsIndirectCommand),

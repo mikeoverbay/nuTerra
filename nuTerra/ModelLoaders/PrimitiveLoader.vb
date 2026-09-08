@@ -25,6 +25,13 @@ Module PrimitiveLoader
         ''' MaterialProps_lightonly_alpha, which already carries everything
         ''' it needs.</summary>
         FX_glow = 13
+        ''' <summary>
+        ''' Not a game shader. nuTerra's own: a street lamp drawn with its glass
+        ''' emissive, in its own cull bucket and its own shader so the branch it
+        ''' needs stays out of model.frag. Set on a material at RUNTIME by the
+        ''' Street lights switch - nothing in space.bin carries it.
+        ''' </summary>
+        FX_lamp_pane = 14
         FX_PBS_tiled = 10
         ''' <summary>shaders/custom/volumetric_effect*.fx - GFX smoke columns,
         ''' flame sheets, distortion cards. Translucent, drawn forward after

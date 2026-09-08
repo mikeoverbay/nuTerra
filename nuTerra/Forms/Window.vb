@@ -1018,9 +1018,9 @@ try_again:
         ' draw count this frame), and whether anything upset GL since the last
         ' time someone asked.
         With map_scene.static_models
-            LogThis("  model buckets: opaque={0} dbl={1} glass={2} fx={3}  (of {4} candidates)",
+            LogThis("  model buckets: opaque={0} dbl={1} glass={2} fx={3} lamp={4}  (of {5} candidates)",
                     .numAfterFrustum(0), .numAfterFrustum(1), .numAfterFrustum(2), .numAfterFrustum(3),
-                    .indirectDrawCount)
+                    .numAfterFrustum(4), .indirectDrawCount)
             ' Churn in the FX draw order since the last snapshot. A handful is
             ' normal (culling changes the list); a large number while the
             ' camera moves means sort-order swaps, which flicker overlaps.
@@ -2356,6 +2356,47 @@ try_again:
                                              "the halo is built from the energy above the glow" & vbLf &
                                              "threshold, so this is what there is to bloom." & vbLf &
                                              "Each light's own level scales it.")
+                        End If
+                        If ImGui.SliderFloat("Pane Gain", LAMP_PANE_GAIN, 0.0, 20.0) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("How hard the lamp GLASS glows." & vbLf &
+                                             "A G-buffer surface, so it gets fog and the" & vbLf &
+                                             "tonemapper - it softens with distance on its own.")
+                        End If
+                        If ImGui.SliderFloat("Pane Glow", LAMP_PANE_GLOW, 0.0, 20.0) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("How much of the pane reaches the BLOOM." & vbLf &
+                                             "Separate from Pane Gain because the two land in" & vbLf &
+                                             "different buffers: the pane is a G-buffer surface," & vbLf &
+                                             "the glow is built from gFX_HDR." & vbLf &
+                                             "Below the bright pass threshold it contributes" & vbLf &
+                                             "nothing at all, so it has a floor, not a fade.")
+                        End If
+                        ImGui.Separator()
+                        If ImGui.SliderFloat("Bulb Glare", LAMP_BULB_GLARE, 1.0, 20.0, "x%.1f core") Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("How far the halo and the cross reach." & vbLf &
+                                             "Only the quad grows - the bulb core keeps its size.")
+                        End If
+                        If ImGui.SliderFloat("Bulb Halo", LAMP_BULB_HALO, 0.0, 0.5) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("The wide soft surround, against the core." & vbLf &
+                                             "Keep it low: a halo that washes the fixture out" & vbLf &
+                                             "loses the ironwork silhouette, which is most of" & vbLf &
+                                             "what makes it read as a lamp.")
+                        End If
+                        If ImGui.SliderFloat("Bulb Cross", LAMP_BULB_SPIKE, 0.0, 0.6) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Four screen-aligned arms." & vbLf &
+                                             "Fades with the SQUARE of distance, so lamps down" & vbLf &
+                                             "the street stay plain blobs and only near ones flare.")
+                        End If
+                        If ImGui.SliderFloat("Cross Sharpness", LAMP_BULB_SPIKE_SHARP, 1.0, 40.0) Then
                         End If
                         If ImGui.SliderFloat("Bulb Min Px", LAMP_BULB_MIN_PX, 0.0, 40.0, "%.1f px") Then
                         End If

@@ -8,8 +8,10 @@ Public Class MapStaticModels
 
     ReadOnly scene As MapScene
 
-    ' Get data from gpu: opaque, double-sided, glass, volumetric FX
-    Public numAfterFrustum(3) As Integer
+    ' Get data from gpu: opaque, double-sided, glass, volumetric FX, lamp panes.
+    ' Every buffer is sized from this array's LENGTH, so growing it grows the
+    ' atomic counter block and its readback along with it.
+    Public numAfterFrustum(4) As Integer
 
     ' OpenGL buffers used to draw all map models
     ' For map models only!
@@ -87,11 +89,18 @@ Public Class MapStaticModels
         If materials Is Nothing OrElse material_cpu Is Nothing Then Return
         For Each slot In ModelInfo.LAMP_SLOTS
             If cut Then
+                ' alphaTestEnable is still set even though the main view no
+                ' longer cuts anything: the SHADOW bakes read it, and the cutout
+                ' there is what lets the bulb's light out through the glass.
+                ' The main view never sees it, because cull routes these
+                ' materials away from the prepass entirely.
                 set_material_alpha(slot, True, LAMP_ALPHA_REFERENCE)
                 set_material_double_sided(slot, True)
+                set_material_shader_type(slot, CUInt(ShaderTypes.FX_lamp_pane))
             Else
                 reset_material_alpha(slot)
                 reset_material_double_sided(slot)
+                set_material_shader_type(slot, material_cpu(slot).shader_type)
             End If
         Next
     End Sub
@@ -119,6 +128,24 @@ Public Class MapStaticModels
         GL.NamedBufferSubData(materials.buffer_id, New IntPtr(at), 4, v)
     End Sub
 
+    ''' <summary>
+    ''' Move one material into a different draw bucket, live.
+    '''
+    ''' cull.comp partitions on shader_type every frame, so writing it here is
+    ''' enough to reroute a model to another shader with no re-cull and no
+    ''' reload. FX_lamp_pane (14) is nuTerra's own value - nothing in space.bin
+    ''' carries it, so only materials named here can ever land in that bucket.
+    ''' </summary>
+    Public Sub set_material_shader_type(slot As Integer, value As UInteger)
+        If materials Is Nothing OrElse material_cpu Is Nothing Then Return
+        If slot < 0 OrElse slot >= material_cpu.Length Then Return
+        Dim at = CLng(slot) * Marshal.SizeOf(Of GLMaterial)() +
+                 Marshal.OffsetOf(Of GLMaterial)("shader_type").ToInt64()
+        Dim v(0) As UInteger
+        v(0) = value
+        GL.NamedBufferSubData(materials.buffer_id, New IntPtr(at), 4, v)
+    End Sub
+
     ''' <summary>Put one material's authored double sided flag back.</summary>
     Public Sub reset_material_double_sided(slot As Integer)
         If material_cpu Is Nothing OrElse slot < 0 OrElse slot >= material_cpu.Length Then Return
@@ -141,6 +168,42 @@ Public Class MapStaticModels
     Public prims As GLBuffer
     Public indirect As GLBuffer
     Public indirect_glass As GLBuffer
+    ''' <summary>
+    ''' The colour the panes glow, taken from the lights themselves.
+    '''
+    ''' Averaged over the BULB lights, because the pane is a property of the
+    ''' material and one MultiDraw covers every instance - there is no per-lamp
+    ''' slot to put a colour in. In practice a map's street lamps share one bulb
+    ''' record and one colour, so the average IS that colour; it only matters if
+    ''' someone authors two lamp types in different colours, and then it lands
+    ''' between them rather than picking a winner.
+    '''
+    ''' Linearised here, the same 2.2 every other authored lamp colour gets, so
+    ''' the pane and the pool it casts agree.
+    ''' </summary>
+    Friend Function lamp_pane_colour_public() As Vector3
+        Return lamp_pane_colour()
+    End Function
+
+    Private Function lamp_pane_colour() As Vector3
+        Dim cp = scene.cam_path
+        If cp Is Nothing OrElse Not cp.loaded OrElse cp.lights Is Nothing Then Return Vector3.One
+        Dim acc = Vector3.Zero
+        Dim n = 0
+        For i = cp.path_light_count() To cp.lights.Length - 1
+            acc += cp.lights(i).color
+            n += 1
+        Next
+        If n = 0 Then Return Vector3.One
+        acc /= CSng(n)
+        Return New Vector3(CSng(Math.Pow(acc.X, 2.2)),
+                           CSng(Math.Pow(acc.Y, 2.2)),
+                           CSng(Math.Pow(acc.Z, 2.2)))
+    End Function
+
+    ''' <summary>Street lamps, drawn with their glass emissive. See
+    ''' shaders/Model_shaders/model_lamp.frag.</summary>
+    Public indirect_lamp As GLBuffer
     Public indirect_dbl_sided As GLBuffer
     Public indirect_fx As GLBuffer
     Public vertsColour As GLBuffer
@@ -543,6 +606,16 @@ Public Class MapStaticModels
         ' FX_unsupported function (9). Element 12 = FX_PBS_tiled_global,
         ' whose function carries layout index 11.
         ' Element 13 = FX_glow, whose function carries layout index 12.
+        ' FOURTEEN entries, matching `subroutine uniform fn_entry entries[14]`
+        ' in model.frag, and it has to match EXACTLY.
+        ' glUniformSubroutinesuiv requires count == the shader's active
+        ' subroutine uniform location count; a mismatch raises GL_INVALID_VALUE
+        ' and throws the WHOLE call away, so no subroutine is assigned at all and
+        ' every model on the map renders through the wrong entry function. It
+        ' does not fail where the mistake is - the frame just comes out wrong.
+        '
+        ' FX_lamp_pane (14) is deliberately NOT here. It never draws in this
+        ' pass; cull routes it to its own bucket and its own shader.
         Dim indices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 11, 12}
         '------------------------------------------------
         modelShader.Use()  '<------------------------------- Shader Bind
@@ -587,6 +660,20 @@ Public Class MapStaticModels
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, IntPtr.Zero, numAfterFrustum(2), 0)
 
         modelGlassShader.StopUse()
+
+        ' The lamp panes, in the same depth state the glass just used: GREATER
+        ' with DepthMask TRUE, because like glass they are not in the prepass and
+        ' so lay their own depth rather than match it.
+        If numAfterFrustum(4) > 0 Then
+            lampPaneShader.Use()
+            GL.Uniform1(lampPaneShader("pane_gain"), LAMP_PANE_GAIN)
+            Dim pc = lamp_pane_colour()
+            GL.Uniform3(lampPaneShader("pane_color"), pc.X, pc.Y, pc.Z)
+            indirect_lamp.Bind(BufferTarget.DrawIndirectBuffer)
+            GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt,
+                                         IntPtr.Zero, numAfterFrustum(4), 0)
+            lampPaneShader.StopUse()
+        End If
 
         MainFBO.attach_CNGP()
         GL.DepthMask(False)
@@ -951,6 +1038,7 @@ Public Class MapStaticModels
         vertsColour?.Dispose()
         indirect_dbl_sided?.Dispose()
         indirect_shadow_mapping?.Dispose()
+        indirect_lamp?.Dispose()
         lods?.Dispose()
 
         visibles?.Dispose()

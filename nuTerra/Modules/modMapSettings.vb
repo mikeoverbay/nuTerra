@@ -127,6 +127,12 @@ Public Module modMapSettings
         ' The lamp shafts and the lamp gain. Until 2026-09-06 these were command
         ' line only, so a tune that took an hour was gone at exit.
         Yield ("lamp_shafts", Function() B2F(LAMP_FOG), Sub(v) LAMP_FOG = F2B(v))
+        Yield ("pane_gain", Function() LAMP_PANE_GAIN, Sub(v) LAMP_PANE_GAIN = v)
+        Yield ("pane_glow", Function() LAMP_PANE_GLOW, Sub(v) LAMP_PANE_GLOW = v)
+        Yield ("bulb_glare", Function() LAMP_BULB_GLARE, Sub(v) LAMP_BULB_GLARE = v)
+        Yield ("bulb_halo", Function() LAMP_BULB_HALO, Sub(v) LAMP_BULB_HALO = v)
+        Yield ("bulb_cross", Function() LAMP_BULB_SPIKE, Sub(v) LAMP_BULB_SPIKE = v)
+        Yield ("bulb_cross_sharp", Function() LAMP_BULB_SPIKE_SHARP, Sub(v) LAMP_BULB_SPIKE_SHARP = v)
         Yield ("shaft_gain", Function() LAMP_FOG_GAIN, Sub(v) LAMP_FOG_GAIN = v)
         Yield ("shaft_density", Function() LAMP_FOG_DENSITY, Sub(v) LAMP_FOG_DENSITY = v)
         Yield ("shaft_phase", Function() LAMP_FOG_PHASE, Sub(v) LAMP_FOG_PHASE = v)
