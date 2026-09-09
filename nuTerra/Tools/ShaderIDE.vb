@@ -40,6 +40,10 @@ Public Class ShaderIDE
         Public text As String = ""
         Public original As String = ""
         Public dirty As Boolean
+        ''' <summary>True when the file on disk started with a UTF-8 BOM.
+        ''' Remembered so writing it back does not quietly change bytes the
+        ''' operator never touched - see WriteText.</summary>
+        Public hadBom As Boolean
         ''' <summary>The editor widget. It keeps its own text, cursor,
         ''' selection and undo stack across frames, so it is per stage and
         ''' lives as long as the stage does.</summary>
@@ -60,6 +64,11 @@ Public Class ShaderIDE
     Private Shared pendingClose As Boolean = False
     Private Shared pendingSwitch As Shader = Nothing
     Private Shared askRevert As Boolean = False
+
+    ''' <summary>The button row plus the separators around it, pixels.</summary>
+    Private Const BUTTON_ROW_H As Single = 48.0F
+    ''' <summary>The compiler-output box when it is shown, pixels.</summary>
+    Private Const ERROR_BOX_H As Single = 80.0F
 
     ' ---- colours (ABGR as ImGui packs them) --------------------------------
     Private Shared ReadOnly C_DEFAULT As UInteger = Pack(214, 214, 214)
@@ -82,9 +91,29 @@ Public Class ShaderIDE
     Public Shared Sub Draw()
         If Not Open Then Return
 
-        ImGui.SetNextWindowSize(New Num.Vector2(1100, 760), ImGuiCond.FirstUseEver)
+        Dim vp = ImGui.GetMainViewport()
+        ImGui.SetNextWindowSize(New Num.Vector2(Math.Min(1100.0F, vp.WorkSize.X - 80.0F),
+                                                Math.Min(760.0F, vp.WorkSize.Y - 80.0F)), ImGuiCond.FirstUseEver)
+        ImGui.SetNextWindowPos(vp.WorkPos + New Num.Vector2(40.0F, 40.0F), ImGuiCond.FirstUseEver)
         Dim keepOpen = True
         If ImGui.Begin("Shader IDE###ShaderIDE", keepOpen, ImGuiWindowFlags.NoCollapse) Then
+            ' Drag it back on screen if it is not. The size and position are
+            ' remembered in imgui.ini between runs, and a stored position from a
+            ' bigger window - or one saved while the app was a different shape -
+            ' can leave the title bar above the top edge. There is no way to
+            ' grab a title bar that is not on screen, so without this the window
+            ' is stuck off the top for good and the shader picker is the first
+            ' thing to disappear under it. Only applied when it is actually out
+            ' of bounds, so dragging still works normally.
+            Dim sz = ImGui.GetWindowSize()
+            Dim fit = New Num.Vector2(Math.Min(sz.X, vp.WorkSize.X), Math.Min(sz.Y, vp.WorkSize.Y))
+            If fit.X <> sz.X OrElse fit.Y <> sz.Y Then ImGui.SetWindowSize(fit)
+
+            Dim pos = ImGui.GetWindowPos()
+            Dim onScreen = New Num.Vector2(Math.Min(Math.Max(pos.X, vp.WorkPos.X), vp.WorkPos.X + vp.WorkSize.X - fit.X),
+                                           Math.Min(Math.Max(pos.Y, vp.WorkPos.Y), vp.WorkPos.Y + vp.WorkSize.Y - fit.Y))
+            If onScreen.X <> pos.X OrElse onScreen.Y <> pos.Y Then ImGui.SetWindowPos(onScreen)
+
             DrawPicker()
             ImGui.Separator()
             DrawTabs()
@@ -153,10 +182,9 @@ Public Class ShaderIDE
     Private Shared Sub DrawTabs()
         If current Is Nothing Then
             ImGui.TextDisabled("No shader selected.")
-            ImGui.Dummy(New Num.Vector2(0, ImGui.GetContentRegionAvail().Y - 130))
+            ImGui.Dummy(New Num.Vector2(0, ImGui.GetContentRegionAvail().Y - BottomBarHeight()))
             Return
         End If
-        Dim editorH = ImGui.GetContentRegionAvail().Y - 130
         If ImGui.BeginTabBar("##stages", ImGuiTabBarFlags.None) Then
             For Each st In stages
                 Dim title = st.label & If(st.dirty, "*", "") & "###tab_" & st.label
@@ -167,7 +195,7 @@ Public Class ShaderIDE
                 ' close button", so asking for the flag would put an X on every
                 ' tab. The failing stage is named in the status line instead.
                 If ImGui.BeginTabItem(title) Then
-                    DrawEditor(st, editorH)
+                    DrawEditor(st)
                     ImGui.EndTabItem()
                 End If
             Next
@@ -176,7 +204,14 @@ Public Class ShaderIDE
     End Sub
 
     ''' <summary>The editor widget for one stage.</summary>
-    Private Shared Sub DrawEditor(st As Stage, height As Single)
+    Private Shared Sub DrawEditor(st As Stage)
+        ' Measured HERE, inside the tab, not before the tab bar was submitted -
+        ' the bar is an item like any other and has already taken its ~26 px out
+        ' of the content region by now. Taking the height earlier left the
+        ' editor a tab-bar too tall and pushed the button row off the bottom
+        ' edge of the window. Asking at the point of use cannot drift.
+        Dim height = Math.Max(80.0F, ImGui.GetContentRegionAvail().Y - BottomBarHeight())
+
         Dim mono = ImGuiController.HAS_MONO
         If mono Then ImGui.PushFont(ImGuiController.MONO_FONT)
 
@@ -219,13 +254,26 @@ Public Class ShaderIDE
         ImGui.SameLine()
         ImGui.TextColored(If(lastBuildOk, okColor, badColor), status)
 
-        ' The compiler's words, scrollable.
-        Dim errBuf = If(errorText = "", "", errorText)
-        ImGui.PushStyleColor(ImGuiCol.Text, If(lastBuildOk, New Num.Vector4(0.75F, 0.75F, 0.75F, 1), badColor))
-        ImGui.InputTextMultiline("##errors", errBuf, CUInt(Math.Max(1, errBuf.Length + 1)),
-                                 New Num.Vector2(-1, 80), ImGuiInputTextFlags.ReadOnly)
-        ImGui.PopStyleColor()
+        ' The compiler's words, scrollable - and ONLY when it said something.
+        ' Drawn unconditionally it is an empty box the height of five lines,
+        ' filled with the theme's frame colour, sitting under the buttons with
+        ' nothing to explain it. The status line beside the buttons already
+        ' says whether the last compile passed.
+        If errorText <> "" Then
+            Dim errBuf = errorText
+            ImGui.PushStyleColor(ImGuiCol.Text, If(lastBuildOk, New Num.Vector4(0.75F, 0.75F, 0.75F, 1), badColor))
+            ImGui.InputTextMultiline("##errors", errBuf, CUInt(Math.Max(1, errBuf.Length + 1)),
+                                     New Num.Vector2(-1, ERROR_BOX_H), ImGuiInputTextFlags.ReadOnly)
+            ImGui.PopStyleColor()
+        End If
     End Sub
+
+    ''' <summary>What DrawTabs must leave below the editor: the button row, and
+    ''' the compiler's box when there is one. Both callers ask, so the editor
+    ''' cannot drift out of step with what is actually drawn.</summary>
+    Private Shared Function BottomBarHeight() As Single
+        Return BUTTON_ROW_H + If(errorText = "", 0.0F, ERROR_BOX_H + 8.0F)
+    End Function
 
     ' ------------------------------------------------------------------------
     ''' <summary>Read every stage the program has, from the bin copy, and remember the text as the revert point.</summary>
@@ -237,6 +285,7 @@ Public Class ShaderIDE
             Dim st As New Stage With {.label = pair.l, .ext = Path.GetExtension(pair.p), .binPath = pair.p}
             st.srcPath = SourcePathFor(pair.p)
             st.text = File.ReadAllText(pair.p)
+            st.hadBom = StartsWithBom(pair.p)
             st.original = st.text
             st.dirty = False
             st.editor = NewEditor(st.text)
@@ -249,6 +298,32 @@ Public Class ShaderIDE
         errorText = ""
         status = String.Format("{0}: {1} stage(s) loaded{2}", s.name, stages.Count,
                                If(stages.Count > 0 AndAlso stages(0).srcPath Is Nothing, "  (project copy not found - bin only)", ""))
+    End Sub
+
+    ''' <summary>Does the file begin with a UTF-8 BOM?</summary>
+    Private Shared Function StartsWithBom(path As String) As Boolean
+        Try
+            Dim head(2) As Byte
+            Using fs = File.OpenRead(path)
+                If fs.Read(head, 0, 3) < 3 Then Return False
+            End Using
+            Return head(0) = &HEF AndAlso head(1) = &HBB AndAlso head(2) = &HBF
+        Catch
+            Return False
+        End Try
+    End Function
+
+    ''' <summary>
+    ''' Write a stage back the way it was read.
+    '''
+    ''' File.ReadAllText eats a UTF-8 BOM and File.WriteAllText does not put one
+    ''' back, so the plain pair silently drops three bytes off the front of
+    ''' every file the IDE saves or reverts. That showed up as every touched
+    ''' shader appearing modified in git with one changed line and no visible
+    ''' difference. The IDE has no business changing bytes nobody asked it to.
+    ''' </summary>
+    Private Shared Sub WriteText(path As String, text As String, bom As Boolean)
+        File.WriteAllText(path, text, New Text.UTF8Encoding(bom))
     End Sub
 
     ''' <summary>
@@ -333,7 +408,7 @@ Public Class ShaderIDE
         Dim tmp As New Dictionary(Of String, String)
         For Each st In stages
             Dim p = Path.Combine(tmpDir, current.name & st.ext)
-            File.WriteAllText(p, st.text)
+            WriteText(p, st.text, st.hadBom)
             tmp(st.label) = p
         Next
         Dim pick = Function(l As String) If(tmp.ContainsKey(l), tmp(l), Nothing)
@@ -355,8 +430,8 @@ Public Class ShaderIDE
         ' It links. Now the real files, then the live program from them.
         Dim wrote As New StringBuilder
         For Each st In stages
-            File.WriteAllText(st.binPath, st.text)
-            If st.srcPath IsNot Nothing Then File.WriteAllText(st.srcPath, st.text)
+            WriteText(st.binPath, st.text, st.hadBom)
+            If st.srcPath IsNot Nothing Then WriteText(st.srcPath, st.text, st.hadBom)
             st.dirty = False
             wrote.Append(st.label).Append(" ")
         Next
@@ -414,6 +489,9 @@ Public Class ShaderIDE
             End If
             If stage Is Nothing Then Continue For
 
+            ' Line 0 is the driver saying "the file", not a line - an EOF
+            ' error reports it. There is nothing to put a marker on, so the
+            ' message stays in the box below and out of the gutter.
             Dim n = LineNumberIn(line)
             If n <= 0 Then Continue For
             If Not marks.ContainsKey(stage.label) Then marks(stage.label) = New Dictionary(Of Integer, Object)
@@ -471,8 +549,12 @@ Public Class ShaderIDE
 
     ''' <summary>The source line a driver message names, or -1.</summary>
     Private Shared Function LineNumberIn(line As String) As Integer
-        ' NVIDIA: 0(123) : error C1503: ...
-        Dim m = Text.RegularExpressions.Regex.Match(line, "^\d+\((\d+)\)")
+        ' NVIDIA: "0(123) : error C1503: ..." - and the source-string index in
+        ' front is NOT always there. A whole-file complaint comes back as
+        ' "(0) : error C0000: syntax error, unexpected $end" with nothing before
+        ' the bracket, so the index has to be optional or every message from
+        ' this driver is skipped. Seen on a real GeForce, not guessed.
+        Dim m = Text.RegularExpressions.Regex.Match(line, "^\s*\d*\((\d+)\)\s*:")
         If m.Success Then Return CInt(m.Groups(1).Value)
         ' Mesa / AMD: ERROR: 0:123: ...
         m = Text.RegularExpressions.Regex.Match(line, "^(?:ERROR|WARNING):\s*\d+:(\d+):")
@@ -486,8 +568,8 @@ Public Class ShaderIDE
         For Each st In stages
             SetStageText(st, st.original)
             st.dirty = False
-            File.WriteAllText(st.binPath, st.original)
-            If st.srcPath IsNot Nothing Then File.WriteAllText(st.srcPath, st.original)
+            WriteText(st.binPath, st.original, st.hadBom)
+            If st.srcPath IsNot Nothing Then WriteText(st.srcPath, st.original, st.hadBom)
         Next
         LAST_SHADER_ERROR = ""
         current.UpdateShader()

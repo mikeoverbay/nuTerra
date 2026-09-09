@@ -92,6 +92,45 @@ just gets no marker.
 Markers are cleared at the top of every compile, so a fixed error stops being
 flagged the moment it compiles.
 
+**The source-string index in front of NVIDIA's line number is not always
+there.** A complaint about a specific line comes back as
+`0(22) : error C0000: syntax error`, but a whole-file one - an unexpected EOF -
+comes back as `(0) : error C0000:` with nothing before the bracket. Both were
+seen from the same driver in one session, so the index is matched as optional.
+Line 0 means "the file", not a line: it gets no marker and stays in the box.
+
+## Files are written back as they were read
+
+`File.ReadAllText` eats a UTF-8 BOM and `File.WriteAllText` does not put one
+back, so the obvious pair silently drops three bytes off the front of every
+file the IDE saves or reverts. It showed up as every shader the IDE had touched
+appearing modified in git, one changed line, no visible difference.
+
+`LoadStages` records `hadBom` per stage and every write goes through
+`WriteText`, which re-encodes with `New UTF8Encoding(bom)`. The trial's temp
+copies too, so what is compiled is what will be written.
+
+## Window placement
+
+Size and position live in `imgui.ini` between runs, and a stored position can
+put the title bar above the top edge - at which point there is nothing left to
+grab and the window is stuck off-screen for good, taking the shader picker with
+it. After `Begin`, the window is clamped back into the viewport's work area,
+and its size capped to it. Only when it is actually out of bounds, so dragging
+still behaves normally.
+
+The editor's height is worked out **inside** the tab, not before the tab bar is
+submitted - the bar is an item like any other and has already taken its ~26 px
+out of the content region by then. Measuring earlier left the editor a tab-bar
+too tall and pushed the button row off the bottom of the window.
+
+The compiler's box is drawn **only when it has something to say**. Drawn
+unconditionally it is an empty box five lines tall, filled with the theme's
+frame colour, sitting under the buttons with nothing to explain it; the status
+line beside the buttons already says whether the last compile passed.
+`BottomBarHeight` is what both the editor and the bar agree on, so they cannot
+drift.
+
 ## Core touch points
 
 Four, all small: `LAST_SHADER_ERROR` and `gl_error` appending to it, and the
