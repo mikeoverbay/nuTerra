@@ -98,6 +98,34 @@ better but needs more specular"; then the revert.
 * **REASONED, unmeasured:** the wet, water and pooled-water cube taps still
   read the cube through `SRGBtoLINEAR` with gains tuned to that reading.
 
+### 3b. Found after the revert, then reverted again: we light in gamma space
+
+Nothing in `nuTerra/shaders` linearises the albedo. The game decodes it with
+`pow(GB2.rgb, gamma)` (and the metal with `pow(GB0.x, gamma)`) before it
+lights anything and encodes for the display once at the end; ours lit the
+sRGB value straight from the texture and, through `correct()`, encoded by a
+total exponent of about 0.93. The whole pipeline runs in gamma space. This is
+the structural "something different from the game's shader" the owner asked
+about, and the reason his empirical channel curves were needed - his Tank
+Exporter shader even squared the diffuse before lighting.
+
+It was landed as a `Linear lighting (game)` switch (albedo `pow 2.2` at the
+top of the lit branch, `pow 1/2.2` in `correct()` in place of the two legacy
+pows, the gloss-as-metal albedo darkening at ~line 962 skipped, the smoke
+cards on the same curve), together with his two curve lines at 1213-1214 and
+then a re-land of the environment specular, energy conservation and Fresnel
+gain. The owner's verdict: "the entire lighting is going south", and
+everything was reverted to `2422e1e8`. That diff is
+`docs/patches/linear_lighting_and_env_reland_2026-09-08.patch`. **Every
+lighting slider feels different in linear space and nothing was re-tuned or
+measured before the verdict** - if this comes back, re-tune Exposure, Ambient
+Level and Sun Strength first, at one camera, with the still protocol below,
+and expect the levels tuned for gamma-space lighting to be wrong.
+
+The scene lighting in the tree is now exactly what it was at the start of
+2026-09-08; the only lighting change of the day still in is the smoke-card
+pass (`75005e11`), which the owner approved.
+
 ## 4. How the measurement was done — reuse it
 
 ```
