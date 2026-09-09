@@ -33,6 +33,7 @@ be planned.
 
 import math
 import os
+import struct
 import sys
 import threading
 import traceback
@@ -109,6 +110,15 @@ def existing_plan(map_name):
             "level": lt["level"],
             "range": lt["range"],
             "curve": int(lt.get("curve", 0)),
+            # The shape - the same fields a street lamp bulb carries. A file
+            # from before them reads back as a point light aimed down.
+            "kind": int(lt.get("kind", 0)),
+            "aim": tuple(lt.get("aim", (0.0, -1.0, 0.0))),
+            "cone": float(lt.get("cone", 0.0)),
+            "blend": float(lt.get("blend", 0.0)),
+            "ang0": float(lt.get("ang0", 0.0)),
+            "ang1": float(lt.get("ang1", 0.0)),
+            "vol_mix": float(lt.get("vol_mix", 1.0)),
         })
     return [(p[0], p[2]) for p in pts], meta["seed"], lights
 
@@ -125,6 +135,8 @@ EDGE = "#2c3242"     # borders and separators
 FG = "#d7dce6"       # body text
 MUTED = "#8a93a6"    # hints, secondary labels
 ACCENT = "#4ab3d8"   # selection, focus
+BUTTON = "#3f4d68"   # buttons: blue-grey
+BUTTON_OFF = "#252a36"  # and the same button disabled - darker, flatter
 
 
 def apply_dark(root):
@@ -155,12 +167,16 @@ def apply_dark(root):
                  font=("Consolas", 8))
     st.configure("Head.TLabel", background=BG, foreground=ACCENT)
 
-    st.configure("TButton", background=PANEL, foreground=FG,
-                 bordercolor=EDGE, focusthickness=1, padding=4)
+    # Blue-grey buttons, and a disabled state that reads as OFF rather than
+    # as a slightly different button: darker face, dim text, flat border.
+    # "disabled" is listed first because the first matching state wins.
+    st.configure("TButton", background=BUTTON, foreground=FG,
+                 bordercolor="#55637f", focusthickness=1, padding=4)
     st.map("TButton",
-           background=[("pressed", "#39415a"), ("active", "#2b3244"),
-                       ("disabled", "#1a1d26")],
-           foreground=[("disabled", "#586074")])
+           background=[("disabled", BUTTON_OFF), ("pressed", "#33405a"),
+                       ("active", "#4d5d7d")],
+           foreground=[("disabled", "#5a6272")],
+           bordercolor=[("disabled", "#2a2f3c")])
 
     st.configure("TScale", background=BG, troughcolor="#11141c",
                  bordercolor=EDGE, lightcolor=ACCENT, darkcolor=ACCENT)
@@ -440,6 +456,501 @@ def dashed(d, a, b, fill, on=9.0, off=7.0, width=1):
         t = t2 + off
 
 
+# --------------------------------------------------------------------------
+# Lights: the same shape controls as the street lamps
+# --------------------------------------------------------------------------
+# A map light carries the same fields a street lamp bulb does (cam_path.py,
+# "Light record"), and the editor below shows the same controls the Light Bulb
+# Placer in nuTerra shows for one - type, aim, the two half angles, blend,
+# colour, level, range, fog mix, shaft curve - plus the height over the terrain
+# a map light needs, and our fog curve editor.
+
+KIND_NAMES = ("point", "cone", "inverse cone", "dual cowl")
+KIND_POINT, KIND_CONE, KIND_INVERSE, KIND_DUAL = 0, 1, 2, 3
+
+LIGHT_DEFAULTS = {"kind": KIND_POINT, "aim": (0.0, -1.0, 0.0), "cone": 0.0,
+                  "blend": 0.0, "ang0": 0.0, "ang1": 0.0, "vol_mix": 1.0,
+                  "level": 1.0, "range": 12.0, "height": 3.0, "curve": 0,
+                  "color": "#ffd9a0"}
+
+
+def new_light(x, z, **over):
+    lt = dict(LIGHT_DEFAULTS)
+    lt["x"], lt["z"] = x, z
+    lt.update(over)
+    return lt
+
+
+def _write_cur(path, im, hot):
+    """A classic .cur: BITMAPINFOHEADER, 32-bit XOR bitmap, 1-bit AND mask.
+    Written by hand because Tk loads cursors through the OS, which does not
+    take the PNG-compressed entries Pillow writes into an .ico."""
+    w, h = im.size
+    px = im.load()
+    xor = bytearray()
+    for y in range(h - 1, -1, -1):              # bottom-up rows
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            xor += bytes((b, g, r, a))
+    row = ((w + 31) // 32) * 4
+    andm = bytearray()
+    for y in range(h - 1, -1, -1):
+        bits = bytearray(row)
+        for x in range(w):
+            if px[x, y][3] < 128:
+                bits[x // 8] |= 0x80 >> (x % 8)
+        andm += bits
+    bih = struct.pack("<IiiHHIIiiII", 40, w, h * 2, 1, 32, 0,
+                      len(xor) + len(andm), 0, 0, 0, 0)
+    img = bih + bytes(xor) + bytes(andm)
+    head = struct.pack("<HHH", 0, 2, 1)
+    entry = struct.pack("<BBBBHHII", w, h, 0, 0, hot[0], hot[1], len(img), 22)
+    with open(path, "wb") as f:
+        f.write(head + entry + img)
+
+
+def bulb_cursor():
+    """A light-bulb mouse cursor for Add Light mode, drawn once into the
+    flight folder. Tk on Windows takes a .cur by path; anywhere that fails
+    the crosshair stands in."""
+    path = os.path.join(FOLDER, "bulb.cur")
+    try:
+        if not os.path.exists(path):
+            os.makedirs(FOLDER, exist_ok=True)
+            im = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+            d = ImageDraw.Draw(im)
+            ink = (30, 30, 36, 255)
+            glass = (255, 228, 140, 255)
+            d.ellipse([9, 3, 23, 17], fill=glass, outline=ink)          # glass
+            d.rectangle([13, 17, 19, 21], fill=glass, outline=ink)      # neck
+            d.rectangle([12, 21, 20, 26], fill=(160, 165, 178, 255), outline=ink)  # cap
+            d.line([12, 23, 20, 23], fill=ink)
+            d.line([12, 25, 20, 25], fill=ink)
+            for a, b in (((2, 10), (6, 10)), ((26, 10), (30, 10)),
+                         ((4, 3), (7, 6)), ((28, 3), (25, 6)), ((16, 0), (16, 1))):
+                d.line([a, b], fill=(255, 245, 190, 255), width=2)
+            _write_cur(path, im, (16, 24))
+        return "@" + path.replace("\\", "/")
+    except Exception:
+        return "crosshair"
+
+
+class ShapeView:
+    """The light's shape, drawn the way the Bulb Placer draws it but flat: a
+    side elevation through the aim axis. Range as a dashed circle, a cone as
+    its edges with the lit wedge tinted, an inverse cone as the DARK wedge (in
+    blue, as the Placer draws it - it is the part that is NOT lit), a dual
+    cowl as the lit band between its two cuts with green rims."""
+
+    SIZE = 360
+
+    def __init__(self, editor):
+        self.editor = editor
+        top = tk.Toplevel(editor.top)
+        self.top = top
+        top.title("Light shape")
+        top.configure(bg=BG)
+        top.resizable(False, False)
+        top.protocol("WM_DELETE_WINDOW", self.close)
+        self.c = tk.Canvas(top, width=self.SIZE, height=self.SIZE, bg="#11141c",
+                           highlightthickness=0)
+        self.c.pack()
+        self.redraw(editor.work)
+
+    def close(self):
+        self.editor.shape = None
+        self.top.destroy()
+
+    def redraw(self, w):
+        c = self.c
+        c.delete("all")
+        S = self.SIZE
+        rng = max(0.1, float(w.get("range", 12.0)))
+        scale = (S * 0.40) / rng                  # px per metre
+        lx, ly = S * 0.5, S * 0.42
+        col = w.get("color", "#ffd9a0")
+        kind = int(w.get("kind", KIND_POINT))
+
+        # the ground, `height` metres under the light
+        h = float(w.get("height", 3.0))
+        gy = ly + h * scale
+        if gy < S - 6:
+            c.create_line(8, gy, S - 8, gy, fill="#6b5d3a", dash=(4, 3))
+            c.create_text(S - 10, gy - 8, text="ground", fill=MUTED,
+                          anchor="e", font=("Consolas", 8))
+
+        R = rng * scale
+        c.create_oval(lx - R, ly - R, lx + R, ly + R, outline=col, dash=(3, 3))
+
+        # the aim axis in this plane: x right = the horizontal part of the
+        # aim, y down = minus its vertical part
+        ax, ay, az = w.get("aim", (0.0, -1.0, 0.0))
+        horiz = math.hypot(ax, az)
+        L = math.hypot(horiz, ay)
+        if L < 1e-6:
+            horiz, ay, L = 0.0, -1.0, 1.0
+        ux, uy = horiz / L, -ay / L
+
+        def at(theta_deg, length):
+            t = math.radians(theta_deg)
+            ex = ux * math.cos(t) - uy * math.sin(t)
+            ey = ux * math.sin(t) + uy * math.cos(t)
+            return lx + ex * length, ly + ey * length
+
+        def wedge(a_from, a_to, length):
+            pts = [(lx, ly)]
+            n = max(2, int(abs(a_to - a_from) / 3.0))
+            for k in range(n + 1):
+                pts.append(at(a_from + (a_to - a_from) * k / n, length))
+            return pts
+
+        if kind == KIND_POINT:
+            c.create_oval(lx - R, ly - R, lx + R, ly + R, fill=col,
+                          stipple="gray25", outline="")
+            note = "point - lights every direction"
+        else:
+            a0 = float(w.get("ang0", 0.0))
+            a1 = float(w.get("ang1", 0.0))
+            c.create_line(lx, ly, *at(0, R * 1.02), fill="#8fd0ff", arrow="last")
+            if kind == KIND_CONE:
+                c.create_polygon(wedge(-a1, a1, R), fill=col, stipple="gray25", outline="")
+                for s in (1, -1):
+                    c.create_line(lx, ly, *at(s * a1, R), fill=col, width=2)
+                    c.create_line(lx, ly, *at(s * a0, R), fill=col, dash=(2, 3))
+                note = "cone - lit inside %.0f deg, hot inside %.0f deg" % (a1, a0)
+            elif kind == KIND_INVERSE:
+                c.create_oval(lx - R, ly - R, lx + R, ly + R, fill=col,
+                              stipple="gray25", outline="")
+                c.create_polygon(wedge(-a1, a1, R * 1.01), fill="#11141c", outline="")
+                c.create_polygon(wedge(-a0, a0, R * 1.01), fill="#2a3d78",
+                                 stipple="gray50", outline="")
+                for s in (1, -1):
+                    c.create_line(lx, ly, *at(s * a0, R), fill="#5d8bff", width=2)
+                    c.create_line(lx, ly, *at(s * a1, R), fill="#5d8bff", dash=(2, 3))
+                note = "inverse cone - DARK inside %.0f deg, soft to %.0f deg" % (a0, a1)
+            else:
+                for s in (1, -1):
+                    c.create_polygon(wedge(s * a0, s * a1, R), fill=col,
+                                     stipple="gray25", outline="")
+                    c.create_line(lx, ly, *at(s * a0, R), fill="#6ff0a0", width=2)
+                    c.create_line(lx, ly, *at(s * a1, R), fill="#6ff0a0", width=2)
+                note = "dual cowl - lit BETWEEN %.0f and %.0f deg (band %.0f)" % (
+                    a0, a1, a1 - a0)
+
+        c.create_oval(lx - 5, ly - 5, lx + 5, ly + 5, fill="#ffffff", outline="")
+        c.create_text(10, S - 26, text=note, fill=FG, anchor="w", font=("Consolas", 9))
+        c.create_text(10, S - 12, text="range %.1f m   level %.2f   fog mix %.2f" % (
+            rng, float(w.get("level", 1.0)), float(w.get("vol_mix", 1.0))),
+            fill=MUTED, anchor="w", font=("Consolas", 9))
+
+
+class LightEditor:
+    """One light's controls, in their own window.
+
+    The same set the Light Bulb Placer shows for a street lamp, with the
+    height over the terrain a map light needs and our fog curve editor. Works
+    on a COPY: OK writes it back to the light, Cancel or the window's X drops
+    it - asking first if anything was changed - and so does leaving Add Light
+    mode, which is why the Studio can close this from outside.
+    """
+
+    def __init__(self, studio, index, light, on_ok, on_close):
+        self.studio = studio
+        self.index = index
+        self.work = dict(LIGHT_DEFAULTS)
+        self.work.update(light)
+        self.work["aim"] = tuple(self.work.get("aim", (0.0, -1.0, 0.0)))
+        self.on_ok = on_ok
+        self.on_close = on_close
+        self.changed = False
+        self.shape = None
+        self._quiet = False        # a programmatic slider set must not count
+        self.vars = {}
+
+        top = tk.Toplevel(studio.root)
+        self.top = top
+        top.title("Light %d" % (index + 1))
+        top.configure(bg=BG)
+        top.transient(studio.root)
+        top.resizable(False, False)
+        top.protocol("WM_DELETE_WINDOW", self.cancel)
+        # Backspace and Delete reach the Studio from here too - the editor
+        # holds the keyboard while it is up, and the light it is on is the
+        # selected one. Not while an aim number is being typed, though.
+        top.bind("<BackSpace>", self._key_delete)
+        top.bind("<Delete>", self._key_delete)
+
+        f = ttk.Frame(top, padding=10)
+        f.grid(row=0, column=0, sticky="nsew")
+        self.f = f
+        r = 0
+
+        # Type, as radio buttons: four kinds is few enough to show them all.
+        ttk.Label(f, text="type", style="Muted.TLabel").grid(row=r, column=0, sticky="w")
+        r += 1
+        self.kind = tk.IntVar(value=int(self.work["kind"]))
+        kf = ttk.Frame(f)
+        kf.grid(row=r, column=0, columnspan=2, sticky="w")
+        r += 1
+        for k, name in enumerate(KIND_NAMES):
+            ttk.Radiobutton(kf, text=name, value=k, variable=self.kind,
+                            command=self.on_kind).grid(row=k // 2, column=k % 2,
+                                                       sticky="w", padx=(0, 12))
+
+        # The aim, as numbers, the way the Placer shows its aim point - but as
+        # an OFFSET from the light in metres, so moving the light on the map
+        # does not re-aim it.
+        self.aim_lbl = ttk.Label(f, text="aim - metres from the light: x, y, z (down is 0, -1, 0)",
+                                 style="Muted.TLabel")
+        self.aim_lbl.grid(row=r, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        r += 1
+        af = ttk.Frame(f)
+        af.grid(row=r, column=0, columnspan=2, sticky="w")
+        r += 1
+        self.aim_vars = []
+        self.aim_entries = []
+        for j in range(3):
+            v = tk.StringVar(value="%.2f" % self.work["aim"][j])
+            e = ttk.Entry(af, textvariable=v, width=8)
+            e.grid(row=0, column=j, padx=(0, 4))
+            e.bind("<FocusOut>", self.on_aim)
+            e.bind("<Return>", self.on_aim)
+            self.aim_vars.append(v)
+            self.aim_entries.append(e)
+
+        # The angles - rebuilt whenever the kind changes, because what the two
+        # numbers mean depends on it and the labels have to say which.
+        self.ang_frame = ttk.Frame(f)
+        self.ang_frame.grid(row=r, column=0, columnspan=2, sticky="we", pady=(6, 0))
+        r += 1
+
+        # Colour: the swatch IS the button.
+        self.color_btn = tk.Button(f, text="Colour", command=self.pick_color,
+                                   bg=self.work["color"], activebackground=self.work["color"],
+                                   relief="groove", bd=2)
+        self.color_btn.grid(row=r, column=0, columnspan=2, sticky="we", pady=(8, 2))
+        r += 1
+
+        r = self.slider(f, r, "Level", "level", 0.0, 1.0, "%.2f")
+        r = self.slider(f, r, "Range (m)", "range", 0.1, 50.0, "%.1f")
+        # Metres ABOVE THE TERRAIN. Path Studio is a 2D map and has no idea
+        # what the ground does under a click, so the height is an offset and
+        # nuTerra resolves the ground when it places the light.
+        r = self.slider(f, r, "Height over ground (m)", "height", 0.0, 30.0, "%.1f")
+        r = self.slider(f, r, "Fog mix", "vol_mix", 0.0, 1.0, "%.2f")
+
+        # Which fog falloff curve the lamp's SHAFT uses, and the editor for
+        # the curves themselves.
+        ttk.Label(f, text="Shaft curve").grid(row=r, column=0, sticky="w")
+        self.curve = tk.IntVar(value=int(self.work["curve"]))
+        cf = ttk.Frame(f)
+        cf.grid(row=r, column=1, sticky="w", padx=(6, 0))
+        for k in range(fc.N_CURVES):
+            ttk.Radiobutton(cf, text=str(k), value=k, variable=self.curve,
+                            command=self.on_curve).pack(side="left")
+        r += 1
+        ttk.Button(f, text="Curve editor...", command=studio.open_curve_editor).grid(
+            row=r, column=0, columnspan=2, sticky="we", pady=(2, 2))
+        r += 1
+        ttk.Button(f, text="Show shape", command=self.toggle_shape).grid(
+            row=r, column=0, columnspan=2, sticky="we", pady=(0, 8))
+        r += 1
+
+        bf = ttk.Frame(f)
+        bf.grid(row=r, column=0, columnspan=2, sticky="we")
+        for col in range(3):
+            bf.columnconfigure(col, weight=1)
+        ttk.Button(bf, text="OK", command=self.ok).grid(row=0, column=0, sticky="we", padx=(0, 3))
+        # Save applies AND writes the lights to the .campath, and the window
+        # stays open - the light is on disk, keep tweaking it. OK applies and
+        # closes; Save path on the main panel is the same write.
+        ttk.Button(bf, text="Save", command=self.save).grid(row=0, column=1, sticky="we", padx=3)
+        ttk.Button(bf, text="Cancel", command=self.cancel).grid(row=0, column=2, sticky="we", padx=(3, 0))
+
+        self.rebuild_angles()
+
+        # Beside the main window rather than on top of the map.
+        top.update_idletasks()
+        rx = studio.root.winfo_rootx() + studio.root.winfo_width() - top.winfo_width() - 30
+        ry = studio.root.winfo_rooty() + 60
+        top.geometry("+%d+%d" % (max(0, rx), max(0, ry)))
+
+    # ---- widgets ------------------------------------------------------
+
+    def slider(self, parent, row, label, key, lo, hi, fmt, length=220):
+        ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w")
+        v = tk.DoubleVar(value=float(self.work[key]))
+        lbl = ttk.Label(parent, text=fmt % float(self.work[key]))
+        lbl.grid(row=row, column=1, sticky="w", padx=(6, 0))
+        ttk.Scale(parent, from_=lo, to=hi, variable=v, orient="horizontal",
+                  length=length, command=lambda *_: self.on_slider(key)
+                  ).grid(row=row + 1, column=0, sticky="we")
+        self.vars[key] = (v, lbl, fmt)
+        return row + 2
+
+    def set_slider(self, key, val):
+        v, lbl, fmt = self.vars[key]
+        self._quiet = True
+        try:
+            v.set(val)
+        finally:
+            self._quiet = False
+        lbl.configure(text=fmt % val)
+
+    def gap(self):
+        return 1.0 if self.work["kind"] == KIND_DUAL else 0.5
+
+    def on_slider(self, key):
+        if self._quiet or key not in self.vars:
+            return
+        v, lbl, fmt = self.vars[key]
+        val = float(v.get())
+        # The two half angles keep their order, the way the Placer keeps it.
+        if key == "ang0":
+            val = min(val, float(self.work["ang1"]) - self.gap())
+        elif key == "ang1":
+            val = max(val, float(self.work["ang0"]) + self.gap())
+            if self.work["kind"] in (KIND_CONE, KIND_INVERSE):
+                # Keep the legacy full-angle field truthful: it is what a
+                # build from before the two sliders would read.
+                self.work["cone"] = max(2.0, min(178.0, val * 2.0))
+        if abs(val - float(v.get())) > 1e-9:
+            self.set_slider(key, val)
+        else:
+            lbl.configure(text=fmt % val)
+        self.work[key] = val
+        if key in ("ang0", "ang1") and self.band_lbl is not None:
+            self.band_lbl.configure(text="band %.0f deg wide" % (
+                float(self.work["ang1"]) - float(self.work["ang0"])))
+        self.touched()
+
+    def rebuild_angles(self):
+        for ch in self.ang_frame.winfo_children():
+            ch.destroy()
+        for key in ("ang0", "ang1", "blend"):
+            self.vars.pop(key, None)
+        self.band_lbl = None
+        kind = int(self.work["kind"])
+        aimed = kind != KIND_POINT
+        for e in self.aim_entries:
+            e.state(["!disabled" if aimed else "disabled"])
+        self.aim_lbl.configure(text=(
+            "aim - the AXIS both lobes share: metres from the light, x y z"
+            if kind == KIND_DUAL else
+            "aim - metres from the light: x, y, z (down is 0, -1, 0)"
+            if aimed else "aim - a point light has none"))
+        af = self.ang_frame
+        r = 0
+        if not aimed:
+            ttk.Label(af, text="lights every direction", style="Muted.TLabel").grid(
+                row=0, column=0, sticky="w")
+            return
+        if kind == KIND_DUAL:
+            # A lamp switched to dual cowl with no band yet would be black.
+            if not (float(self.work["ang1"]) > float(self.work["ang0"])):
+                self.work["ang0"], self.work["ang1"] = 20.0, 160.0
+            ttk.Label(af, text="the band: lit between these two",
+                      style="Muted.TLabel").grid(row=r, column=0, sticky="w")
+            r += 1
+            r = self.slider(af, r, "Cap cut (deg)", "ang0", 0.0, 179.0, "%.0f")
+            r = self.slider(af, r, "Base cut (deg)", "ang1", 1.0, 180.0, "%.0f")
+            self.band_lbl = ttk.Label(af, text="band %.0f deg wide" % (
+                float(self.work["ang1"]) - float(self.work["ang0"])), style="Muted.TLabel")
+            self.band_lbl.grid(row=r, column=0, sticky="w")
+            r += 1
+            # Blend is the softness of BOTH cuts here, and the only control
+            # for it - two cuts would need four angles to say it otherwise.
+            r = self.slider(af, r, "Edge blend", "blend", 0.0, 1.0, "%.2f")
+        else:
+            if not (float(self.work["ang1"]) > float(self.work["ang0"])):
+                self.work["ang0"], self.work["ang1"] = 20.0, 30.0
+                self.work["cone"] = 60.0
+            r = self.slider(af, r, "Inner (deg)", "ang0", 0.0, 89.0, "%.0f")
+            r = self.slider(af, r, "Outer (deg)", "ang1", 0.5, 89.5, "%.0f")
+            # No blend slider on purpose: inner-to-outer IS the soft edge for
+            # these two, as the Placer says.
+            ttk.Label(af, text="soft edge = inner to outer", style="Muted.TLabel").grid(
+                row=r, column=0, sticky="w")
+
+    # ---- handlers -----------------------------------------------------
+
+    def touched(self):
+        self.changed = True
+        if self.shape is not None:
+            self.shape.redraw(self.work)
+
+    def on_kind(self):
+        k = int(self.kind.get())
+        if k == self.work["kind"]:
+            return
+        self.work["kind"] = k
+        self.rebuild_angles()
+        self.touched()
+
+    def on_aim(self, _e=None):
+        try:
+            aim = tuple(float(v.get()) for v in self.aim_vars)
+        except ValueError:
+            for j, v in enumerate(self.aim_vars):
+                v.set("%.2f" % self.work["aim"][j])
+            return
+        if aim != tuple(self.work["aim"]):
+            self.work["aim"] = aim
+            self.touched()
+
+    def on_curve(self):
+        self.work["curve"] = int(self.curve.get())
+        self.touched()
+
+    def pick_color(self):
+        from tkinter import colorchooser
+        _rgb, hx = colorchooser.askcolor(color=self.work["color"], title="Light colour",
+                                         parent=self.top)
+        if not hx:
+            return
+        self.work["color"] = hx
+        self.color_btn.configure(bg=hx, activebackground=hx)
+        self.touched()
+
+    def toggle_shape(self):
+        if self.shape is not None:
+            self.shape.close()
+        else:
+            self.shape = ShapeView(self)
+
+    def ok(self):
+        self.on_aim()
+        work = dict(self.work)
+        self.destroy()
+        self.on_ok(self.index, work)
+
+    def _key_delete(self, _e=None):
+        if isinstance(self.top.focus_get(), (ttk.Entry, tk.Entry)):
+            return
+        self.studio.on_undo_target()
+
+    def save(self):
+        """Apply the working copy to the light and write every light to the
+        .campath, without closing. After this there is nothing to discard."""
+        self.on_aim()
+        self.studio.apply_and_save_light(self.index, dict(self.work))
+        self.changed = False
+
+    def cancel(self):
+        if self.changed and not messagebox.askyesno(
+                "Discard the light edits?",
+                "This light has changes that were not applied.\n\nClose and lose them?",
+                icon="warning", default="no", parent=self.top):
+            return
+        self.destroy()
+        self.on_close()
+
+    def destroy(self):
+        if self.shape is not None:
+            self.shape.close()
+        self.top.destroy()
+
+
 class Studio:
     def __init__(self, root):
         self.root = root
@@ -497,11 +1008,29 @@ class Studio:
         # on a route that was loaded from disk and has no scratch file at all.
         self.lights_dirty = False
 
+        # The path is LOCKED until Edit path is pressed: a route loaded from
+        # disk survives a stray click, and every control that would change it
+        # is greyed until the lock is off. Lights are not part of the lock.
+        self.edit_path = False
+        # The one open light editor window, or None.
+        self.editor = None
+        self.light_color = "#ffd9a0"    # colour the NEXT light is placed with
+        self.bulb_cursor = bulb_cursor()
+
         left = ttk.Frame(root, padding=8)
         left.grid(row=0, column=0, sticky="ns")
-        ttk.Label(left, text="Maps with a bake").grid(row=0, column=0, sticky="w")
 
-        self.maps = tk.Listbox(left, width=26, height=18, exportselection=False,
+        # Live search over every space - the arenas in the list and the odd
+        # ones in the dropdown - typed above a SHORT list. The list used to be
+        # 18 rows under a "Maps with a bake" label; five rows and a filter find
+        # a map faster than scrolling ever did.
+        self.search = tk.StringVar()
+        self.search_box = ttk.Entry(left, textvariable=self.search, width=26)
+        self.search_box.grid(row=0, column=0, sticky="we", pady=(0, 2))
+        self.search.trace_add("write", lambda *_: self.refill_maps())
+        self.visible_names = []
+
+        self.maps = tk.Listbox(left, width=26, height=5, exportselection=False,
                                bg=PANEL, fg=FG, selectbackground=ACCENT,
                                selectforeground="#0b0d12", highlightthickness=0,
                                borderwidth=0, activestyle="none")
@@ -540,7 +1069,12 @@ class Studio:
                   orient="horizontal", length=110,
                   command=lambda *_: self.on_am_toggle()).pack(side="left", padx=(6, 0))
 
-        r = 6
+        # Edit path is the lock on everything below it and on the map clicks
+        # that place the start and the points. Off, all of it is greyed.
+        self.edit_btn = ttk.Button(left, text="Edit path", command=self.toggle_edit_path)
+        self.edit_btn.grid(row=6, column=0, sticky="we", pady=(4, 6))
+
+        r = 7
         self.vars = {}
         for key, label, lo, hi, init in (
                 ("smooth", "Path smoothing", 0, 6, 2),
@@ -563,8 +1097,8 @@ class Studio:
                                   wraplength=210, justify="left")
         r += 2
 
-        ttk.Button(left, text="Clear targets", command=self.clear_targets
-                   ).grid(row=r, column=0, sticky="we", pady=(8, 0))
+        self.clear_btn = ttk.Button(left, text="Clear targets", command=self.clear_targets)
+        self.clear_btn.grid(row=r, column=0, sticky="we", pady=(8, 0))
         r += 1
 
         self.ring_lbl.grid(row=r, column=0, columnspan=2, sticky="w")
@@ -581,9 +1115,9 @@ class Studio:
         r += 1
 
         # ---- lights: their own panel, RIGHT of the map -------------------
-        # They used to continue the left column and ran off the bottom of a
-        # short screen - the fog curve picker and the editor button were
-        # never on screen at all. Path controls stay left, lights go right.
+        # Path controls stay left, lights go right. The per-light controls are
+        # not here any more: a light opens its editor in its own window, with
+        # the same set the Light Bulb Placer shows for a street lamp.
         right = ttk.Frame(root, padding=8)
         right.grid(row=0, column=2, sticky="ns")
         rr = 0
@@ -591,78 +1125,57 @@ class Studio:
             row=rr, column=0, sticky="w")
         rr += 1
         # A mode rather than a modifier: placing several lights in a row is the
-        # normal case, and holding a key through all of them is not.
+        # normal case. While it is on the cursor is a light bulb, and every
+        # click drops a light and opens its editor.
         self.light_btn = ttk.Button(right, text="Add Light",
                                     command=self.toggle_add_light)
         self.light_btn.grid(row=rr, column=0, sticky="we", pady=(4, 2))
         rr += 1
-
-        # The swatch IS the button - a colour control that does not show its
-        # colour makes you click it to find out what it is set to.
-        self.light_color = "#ffd9a0"
-        self.color_btn = tk.Button(right, text="Colour", command=self.pick_color,
-                                   bg=self.light_color, activebackground=self.light_color,
-                                   relief="groove", bd=2)
-        self.color_btn.grid(row=rr, column=0, sticky="we", pady=(0, 2))
-        rr += 1
-
-        ttk.Label(right, text="Level").grid(row=rr, column=0, sticky="w")
-        self.light_level = tk.DoubleVar(value=1.0)
-        self.level_lbl = ttk.Label(right, text="1.00")
-        self.level_lbl.grid(row=rr, column=1, sticky="w", padx=(6, 0))
-        rr += 1
-        ttk.Scale(right, from_=0.0, to=1.0, variable=self.light_level,
-                  orient="horizontal", length=200,
-                  command=lambda *_: self.on_level_change()
-                  ).grid(row=rr, column=0, sticky="we")
-        rr += 1
-
-        ttk.Label(right, text="Range (m)").grid(row=rr, column=0, sticky="w")
-        self.light_range = tk.DoubleVar(value=12.0)
-        self.range_lbl = ttk.Label(right, text="12.0")
-        self.range_lbl.grid(row=rr, column=1, sticky="w", padx=(6, 0))
-        rr += 1
-        # 0.1 to 50. The top end is a guess and will stay one until nuTerra is
-        # wired for multiple lights and the number can be looked at rather than
-        # reasoned about - 50 m is almost certainly too much for a point light
-        # on this scale of map.
-        ttk.Scale(right, from_=0.1, to=50.0, variable=self.light_range,
-                  orient="horizontal", length=200,
-                  command=lambda *_: self.on_range_change()
-                  ).grid(row=rr, column=0, sticky="we")
-        rr += 1
-
-        ttk.Label(right, text="Height (m)").grid(row=rr, column=0, sticky="w")
-        self.light_height = tk.DoubleVar(value=3.0)
-        self.height_lbl = ttk.Label(right, text="3.0")
-        self.height_lbl.grid(row=rr, column=1, sticky="w", padx=(6, 0))
-        rr += 1
-        # Metres ABOVE THE TERRAIN, not absolute. Path Studio is a 2D map and
-        # has no idea what the ground does under a click, so the height is an
-        # offset and nuTerra resolves the ground when it places the light.
-        # 0 puts it on the dirt; 3 is about a street lamp.
-        ttk.Scale(right, from_=0.0, to=30.0, variable=self.light_height,
-                  orient="horizontal", length=200,
-                  command=lambda *_: self.on_height_change()
-                  ).grid(row=rr, column=0, sticky="we")
-        rr += 1
-
-        # Which fog falloff curve the lamp's SHAFT uses: 0, 1 or 2, a row of
-        # VM_FOG_Curve_<n>.png beside the .campath. Per light, because a street
-        # lamp and a burning barrel want different shapes; the curves
-        # themselves are shared, and edited in the window the button opens.
-        ttk.Label(right, text="Fog curve").grid(row=rr, column=0, sticky="w")
-        self.light_curve = tk.IntVar(value=0)
-        cur = ttk.Frame(right)
-        cur.grid(row=rr, column=1, sticky="w", padx=(6, 0))
-        for k in range(fc.N_CURVES):
-            ttk.Radiobutton(cur, text=str(k), value=k, variable=self.light_curve,
-                            command=self.on_curve_change).pack(side="left")
+        self.edit_light_btn = ttk.Button(right, text="Edit light...",
+                                         command=self.edit_selected_light)
+        self.edit_light_btn.grid(row=rr, column=0, sticky="we", pady=(0, 2))
         rr += 1
         ttk.Button(right, text="Curve editor...",
                    command=self.open_curve_editor).grid(
-            row=rr, column=0, sticky="we", pady=(2, 4))
+            row=rr, column=0, sticky="we", pady=(0, 4))
         rr += 1
+
+        # Notes at the BOTTOM of this panel, anchored there: a spacer row
+        # takes the slack, so the lamp controls stay at the top and the notes
+        # sit under them however tall the window is.
+        right.rowconfigure(rr, weight=1)
+        rr += 1
+        ttk.Separator(right, orient="horizontal").grid(
+            row=rr, column=0, sticky="we", pady=(12, 6))
+        rr += 1
+        ttk.Label(right, text="Notes", style="Head.TLabel").grid(
+            row=rr, column=0, sticky="sw")
+        rr += 1
+        # The controls, written down. Every one of these is a mouse gesture or
+        # a bare key with nothing on screen to discover it from - the buttons
+        # document themselves, this half does not.
+        ttk.Label(right, justify="left", style="Note.TLabel", text=(
+            "Edit path      unlock the path controls\n"
+            "Left drag      start + heading (first)\n"
+            "Left click     add a point\n"
+            "Right click    add a point\n"
+            "Backspace /    remove the selected LIGHT,\n"
+            "Delete         or the last placed one in\n"
+            "               Add Light; else the last\n"
+            "               point, then the start\n"
+            "\n"
+            "Add Light      click the map to place\n"
+            "               one - its editor opens.\n"
+            "               Add Light again closes\n"
+            "               it and drops the edits\n"
+            "Shift + click  select a light (opens\n"
+            "               its editor) or a point\n"
+            "Drag           move what is selected\n"
+            "Esc            drop it / stop placing\n"
+            "\n"
+            "Middle drag    pan\n"
+            "Wheel          zoom at the cursor")
+        ).grid(row=rr, column=0, sticky="sw")
 
         ttk.Separator(left, orient="horizontal").grid(
             row=r, column=0, columnspan=2, sticky="we", pady=(10, 8))
@@ -672,31 +1185,6 @@ class Studio:
         ttk.Label(left, textvariable=self.status, wraplength=210,
                   justify="left").grid(row=r, column=0, columnspan=2, sticky="w")
         r += 1
-
-        # The controls, written down. Every one of these is a mouse gesture or a
-        # bare key with nothing on screen to discover it from - the buttons
-        # above document themselves, this half does not.
-        ttk.Separator(left, orient="horizontal").grid(
-            row=r, column=0, columnspan=2, sticky="we", pady=(12, 6))
-        r += 1
-        ttk.Label(left, text="Notes", style="Head.TLabel").grid(
-            row=r, column=0, sticky="w")
-        r += 1
-        ttk.Label(left, justify="left", style="Note.TLabel", text=(
-            "Left drag      start + heading (first)\n"
-            "Left click     add a point\n"
-            "Right click    add a point\n"
-            "Backspace      remove the last point,\n"
-            "               or the last LIGHT while\n"
-            "               Add Light is armed\n"
-            "\n"
-            "Shift + click  select a light or a point\n"
-            "Drag           move what is selected\n"
-            "Esc            drop it / stop placing\n"
-            "\n"
-            "Middle drag    pan\n"
-            "Wheel          zoom at the cursor")
-        ).grid(row=r, column=0, columnspan=2, sticky="w")
 
         self.canvas = tk.Canvas(root, width=CANVAS, height=CANVAS,
                                 bg="#11141c", highlightthickness=0)
@@ -725,6 +1213,9 @@ class Studio:
         # after a slider has taken focus away from the canvas.
         root.bind("<Escape>", self.on_escape)
 
+        # Everything starts locked and greyed; a map load and Edit path
+        # open things up from here.
+        self.update_enabled()
         self.find_maps()
 
     # -------------------------------------------------------------- resize
@@ -811,10 +1302,9 @@ class Studio:
             listed, others = sorted(baked), []
 
         self.row_names = listed
-        for n in listed:
-            self.maps.insert("end", n if n in baked else n + "    (no bake)")
-
         self.other_names = others
+        self.refill_maps()
+
         self.other_combo.configure(
             values=[n if n in baked else n + "    (no bake)" for n in others])
         self.other_combo.state(["!disabled"] if others else ["disabled"])
@@ -830,13 +1320,30 @@ class Studio:
             self.status.set("%d battle arenas, %d baked and ready. Open a map in "
                             "nuTerra to bake it." % (len(listed), n_ready))
 
+    def refill_maps(self):
+        """Fill the list from the search box: the arenas when it is empty,
+        every space whose name contains the text when it is not."""
+        q = self.search.get().strip().lower()
+        if q:
+            names = [n for n in self.row_names + self.other_names if q in n.lower()]
+        else:
+            names = list(self.row_names)
+        self.visible_names = names
+        self.maps.delete(0, "end")
+        for n in names:
+            self.maps.insert("end", n if n in self.baked else n + "    (no bake)")
+        if self.selected_name in names:
+            k = names.index(self.selected_name)
+            self.maps.selection_set(k)
+            self.maps.see(k)
+
     def load_selected(self):
         sel = self.maps.curselection()
         if not sel or self.busy:
             return
         i = sel[0]
-        self.load_named(self.row_names[i] if i < len(self.row_names)
-                        else self.maps.get(i))
+        if i < len(self.visible_names):
+            self.load_named(self.visible_names[i])
 
     def load_named(self, name):
         if self.busy or not name:
@@ -874,10 +1381,15 @@ class Studio:
         # hold the last map's lights, at the last map's world coordinates, and
         # the next Save would write them onto this map's file. Selection goes
         # with them - an index into a list that has been replaced.
+        self.close_editor(ask=False)
         self.lights = []
         self.selection = None
         self.moving = False
         self.add_light = False
+        # A freshly loaded map is locked: what it has is what it has until
+        # Edit path says otherwise.
+        self.edit_path = False
+        self.edit_btn.configure(text="Edit path")
 
         self.route, seed, self.lights = existing_plan(name)
         # Just read from the file, so by definition they match it.
@@ -907,14 +1419,12 @@ class Studio:
 
         self.render_mask()
         self.update_enabled()
-        self.go.state(["!disabled"])
         if self.route_saved:
             self.status.set("%s loaded, showing the saved path (%d points). "
-                            "Left-drag a new start to replace it." %
-                            (name, len(self.route)))
+                            "Edit path unlocks it." % (name, len(self.route)))
         else:
-            self.status.set("%s loaded. Left-drag sets start and heading, "
-                            "right click adds a target, Backspace undoes one." % name)
+            self.status.set("%s loaded. Edit path, then left-drag sets start and "
+                            "heading, click adds a point, Backspace undoes one." % name)
 
     # -------------------------------------------------------------- drawing
 
@@ -1127,6 +1637,15 @@ class Studio:
             rr = abs(ex - lx)
             if rr > 1.5:
                 d.ellipse([lx - rr, ly - rr, lx + rr, ly + rr], outline=rgb)
+            # An aimed light with any horizontal aim shows it as a tick out
+            # to half its range; straight down has nothing to show on a map.
+            if int(lt.get("kind", 0)) != KIND_POINT:
+                ax, _ay, az = lt.get("aim", (0.0, -1.0, 0.0))
+                hl = math.hypot(ax, az)
+                if hl > 0.05 and rr > 1.5:
+                    tx, ty = self.to_view(lt["x"] + ax / hl * rm * 0.5,
+                                          lt["z"] + az / hl * rm * 0.5)
+                    d.line([(lx, ly), (tx, ty)], fill=rgb, width=2)
 
             d.ellipse([lx - rad, ly - rad, lx + rad, ly + rad],
                       fill=body, outline=(255, 255, 255))
@@ -1244,23 +1763,33 @@ class Studio:
     # ---------------------------------------------------------------- lights
 
     def toggle_add_light(self):
-        """Arm or disarm light placement."""
-        self.add_light = not self.add_light
-        # Placing and selecting are different intentions; being in one should
-        # not leave the other half-active.
+        """Arm or disarm light placement.
+
+        Disarming closes the open editor and drops its edits - after asking,
+        if there were any. If the answer is to keep them, the mode stays on.
+        """
         if self.add_light:
+            if not self.close_editor(ask=True):
+                return
+            self.add_light = False
+        else:
+            self.add_light = True
+            # Placing and selecting are different intentions; being in one
+            # should not leave the other half-active.
             self.selection = None
         self.refresh_light_ui()
-        self.status.set("click to place a light - Esc to stop" if self.add_light
+        self.status.set("click to place a light - Add Light or Esc to stop"
+                        if self.add_light
                         else "%d light%s" % (len(self.lights),
                                              "" if len(self.lights) == 1 else "s"))
+        self.update_enabled()
         self.repaint()
 
     def refresh_light_ui(self):
         self.light_btn.configure(
-            text="Placing... (Esc)" if self.add_light else "Add Light")
-        self.color_btn.configure(bg=self.light_color,
-                                 activebackground=self.light_color)
+            text="Placing... (click to stop)" if self.add_light else "Add Light")
+        # The cursor says what a click will do.
+        self.canvas.configure(cursor=self.bulb_cursor if self.add_light else "")
 
     def selected_light(self):
         """The selected light dict, or None when the selection is not a light."""
@@ -1268,65 +1797,69 @@ class Studio:
             return self.lights[self.selection[1]]
         return None
 
-    def pick_color(self):
-        from tkinter import colorchooser
-        rgb, hx = colorchooser.askcolor(color=self.light_color,
-                                        title="Light colour")
-        if not hx:
-            return
-        self.light_color = hx
-        # Editing the selected light if there is one, otherwise setting what the
-        # NEXT light will be. The control does double duty because a separate
-        # "apply to selection" button would be a click with no decision in it.
-        lt = self.selected_light()
-        if lt is not None:
-            lt["color"] = hx
+    # ---- the light editor window --------------------------------------
+
+    def open_light_editor(self, i):
+        """Open the editor on light i, replacing one already open on another
+        light (asking about its edits first). False if the user kept it."""
+        if self.editor is not None and self.editor.index == i:
+            self.editor.top.lift()
+            return True
+        if not self.close_editor(ask=True):
+            return False
+        self.editor = LightEditor(self, i, self.lights[i],
+                                  on_ok=self._editor_ok, on_close=self._editor_closed)
+        return True
+
+    def edit_selected_light(self):
+        if self.selected_light() is not None:
+            self.open_light_editor(self.selection[1])
+
+    def close_editor(self, ask=True):
+        """Close the editor if one is open. True when it is closed or was not
+        open, False when the user chose to keep editing."""
+        if self.editor is None:
+            return True
+        if ask and self.editor.changed:
+            if not messagebox.askyesno(
+                    "Discard the light edits?",
+                    "The light editor has changes that were not applied.\n\n"
+                    "Close it and lose them?",
+                    icon="warning", default="no", parent=self.root):
+                return False
+        ed = self.editor
+        self.editor = None
+        ed.destroy()
+        self.update_enabled()
+        return True
+
+    def _editor_ok(self, i, work):
+        """OK in the editor: the working copy becomes the light, and its
+        colour becomes the colour the next light is placed with."""
+        self.editor = None
+        if 0 <= i < len(self.lights):
+            self.lights[i].update(work)
+            self.light_color = work.get("color", self.light_color)
             self.lights_dirty = True
-            self.update_enabled()
-        self.refresh_light_ui()
+        self.update_enabled()
         self.repaint()
 
-    def on_level_change(self):
-        v = float(self.light_level.get())
-        self.level_lbl.configure(text="%.2f" % v)
-        lt = self.selected_light()
-        if lt is not None:
-            lt["level"] = v
-            self.lights_dirty = True
-            self.update_enabled()
-            self.repaint()
+    def _editor_closed(self):
+        """The editor closed itself - Cancel, or the window's X."""
+        self.editor = None
+        self.update_enabled()
 
-    def on_range_change(self):
-        v = float(self.light_range.get())
-        self.range_lbl.configure(text="%.1f" % v)
-        lt = self.selected_light()
-        if lt is not None:
-            lt["range"] = v
+    def apply_and_save_light(self, i, work):
+        """Save in the editor: the working copy becomes the light and the
+        lights go to the .campath now, through the same save the panel
+        button runs. The editor stays open."""
+        if 0 <= i < len(self.lights):
+            self.lights[i].update(work)
+            self.light_color = work.get("color", self.light_color)
             self.lights_dirty = True
-            self.update_enabled()
-            self.repaint()
-
-    def on_height_change(self):
-        v = float(self.light_height.get())
-        self.height_lbl.configure(text="%.1f" % v)
-        lt = self.selected_light()
-        if lt is not None:
-            lt["height"] = v
-            self.lights_dirty = True
-            self.update_enabled()
-            # No repaint: height is not drawn. A 2D map cannot show it, and
-            # pretending otherwise with a size change would collide with the
-            # range ring, which IS a distance on this map.
-            self.status.set("height %.1f m" % v)
-
-    def on_curve_change(self):
-        k = int(self.light_curve.get())
-        lt = self.selected_light()
-        if lt is not None:
-            lt["curve"] = k
-            self.lights_dirty = True
-            self.update_enabled()
-        self.status.set("fog curve %d" % k)
+        self.update_enabled()
+        self.repaint()
+        self.save_path()
 
     def open_curve_editor(self):
         """The shared falloff curves, in their own window.
@@ -1359,6 +1892,9 @@ class Studio:
                 best, best_d = ("light", i), d
         if best is not None:
             return best
+        # Path points are only there to pick while the path is unlocked.
+        if not self.edit_path:
+            return None
         for i, (tx, tz) in enumerate(self.targets):
             cx, cy = self.to_canvas(tx, tz)
             d = math.hypot(cx - e.x, cy - e.y)
@@ -1392,11 +1928,15 @@ class Studio:
             self.update_enabled()
 
     def on_escape(self, _e=None):
-        """Drop the selection and leave placement mode."""
+        """Drop the selection and leave placement mode - closing the light
+        editor too, after asking if it has edits."""
+        if not self.close_editor(ask=True):
+            return
         self.add_light = False
         self.selection = None
         self.moving = False
         self.refresh_light_ui()
+        self.update_enabled()
         self.repaint()
 
     # ---------------------------------------------------------------- mouse
@@ -1412,41 +1952,30 @@ class Studio:
             self.selection = self.pick_entity(e)
             self.moving = self.selection is not None
             if self.selection:
-                lt = self.selected_light()
-                if lt is not None:
-                    # Bring the controls to the light rather than the other way
+                if self.selection[0] == "light":
+                    # The editor comes to the light rather than the other way
                     # round, so editing it does not first overwrite it.
-                    self.light_color = lt["color"]
-                    self.light_level.set(lt["level"])
-                    self.level_lbl.configure(text="%.2f" % lt["level"])
-                    # .get with a default: a light placed before the range
-                    # slider existed has no such key.
-                    rng = float(lt.get("range", 12.0))
-                    self.light_range.set(rng)
-                    self.range_lbl.configure(text="%.1f" % rng)
-                    hgt = float(lt.get("height", 3.0))
-                    self.light_height.set(hgt)
-                    self.height_lbl.configure(text="%.1f" % hgt)
-                    self.light_curve.set(int(lt.get("curve", 0)))
-                    self.refresh_light_ui()
+                    self.open_light_editor(self.selection[1])
                 self.status.set("%s selected - drag to move, Esc to drop"
                                 % self.selection[0])
             else:
                 self.status.set("nothing under the cursor")
+            self.update_enabled()
             self.repaint()
             return
 
         if self.add_light:
+            # The editor for the light placed before this one may still be
+            # open with edits in it; it has to go before the next one opens.
+            if not self.close_editor(ask=True):
+                return
             wx, wz = self.to_world(e.x, e.y)
-            self.lights.append({"x": wx, "z": wz,
-                                "color": self.light_color,
-                                "level": float(self.light_level.get()),
-                                "range": float(self.light_range.get()),
-                                "height": float(self.light_height.get()),
-                                "curve": int(self.light_curve.get())})
+            self.lights.append(new_light(wx, wz, color=self.light_color))
             self.lights_dirty = True
+            self.selection = ("light", len(self.lights) - 1)
+            self.open_light_editor(len(self.lights) - 1)
             self.update_enabled()
-            self.status.set("%d light%s - Esc to stop placing"
+            self.status.set("%d light%s - editor open; Add Light or Esc to stop placing"
                             % (len(self.lights),
                                "" if len(self.lights) == 1 else "s"))
             self.repaint()
@@ -1461,6 +1990,12 @@ class Studio:
         # adding another point is the common act, and the common act is what
         # the plain click should do. Right click still adds one too, so old
         # habits keep working.
+        # Everything from here down changes the path, and the path is locked
+        # until Edit path says otherwise.
+        if not self.edit_path:
+            self.status.set("the path is locked - press Edit path to change it")
+            return
+
         if self.start is not None:
             self.add_point(e)
             return
@@ -1486,7 +2021,7 @@ class Studio:
             self.move_selection(e)
             self.repaint()
             return
-        if self.start is None:
+        if self.start is None or not self.edit_path:
             return
         self.drag = (e.x, e.y)
         self.repaint()
@@ -1500,7 +2035,9 @@ class Studio:
             self.moving = False
             self.repaint()
             return
-        if self.start is None:
+        # Locked, a release must not set a heading either - a plain click on
+        # the locked map gets here with a start on file.
+        if self.start is None or not self.edit_path or self.drag is None:
             return
         wx, wz = self.to_world(e.x, e.y)
         dx, dz = wx - self.start[0], wz - self.start[1]
@@ -1542,6 +2079,9 @@ class Studio:
         first left click has to set the start and drag its heading.
         """
         if self.bake is None or self.busy:
+            return
+        if not self.edit_path:
+            self.status.set("the path is locked - press Edit path to change it")
             return
         self.add_point(e)
 
@@ -1627,7 +2167,14 @@ class Studio:
         return [{"x": lt["x"], "z": lt["z"], "color": lt["color"],
                  "level": lt["level"], "rng": lt.get("range", 12.0),
                  "y": lt.get("height", 3.0),
-                 "curve": int(lt.get("curve", 0))}
+                 "curve": int(lt.get("curve", 0)),
+                 "kind": int(lt.get("kind", 0)),
+                 "aim": tuple(lt.get("aim", (0.0, -1.0, 0.0))),
+                 "cone": float(lt.get("cone", 0.0)),
+                 "blend": float(lt.get("blend", 0.0)),
+                 "ang0": float(lt.get("ang0", 0.0)),
+                 "ang1": float(lt.get("ang1", 0.0)),
+                 "vol_mix": float(lt.get("vol_mix", 1.0))}
                 for lt in self.lights]
 
     def update_enabled(self):
@@ -1660,6 +2207,19 @@ class Studio:
         # here is greyed out any more. The ring's radius is RING_RADIUS.
         self.ring_lbl.configure(text="")
 
+        # The path lock. Everything that can change the path follows
+        # edit_path; the map has to be loaded and nothing running.
+        loaded = self.bake is not None and not self.busy
+        unlocked = loaded and self.edit_path
+        self.edit_btn.state(["!disabled" if loaded else "disabled"])
+        for k in ("smooth", "agl", "standoff"):
+            self.vars[k + "_w"].state(["!disabled" if unlocked else "disabled"])
+        self.clear_btn.state(["!disabled" if unlocked else "disabled"])
+        self.go.state(["!disabled" if unlocked else "disabled"])
+        self.edit_light_btn.state(
+            ["!disabled" if (self.selected_light() is not None and not self.busy)
+             else "disabled"])
+
     def on_undo_target(self, _e=None):
         """Backspace or Delete drops the most recently placed thing.
 
@@ -1671,40 +2231,107 @@ class Studio:
         if self.busy:
             return
 
-        if self.add_light:
-            if not self.lights:
-                self.status.set("no lights to remove")
-                return
-            self.lights.pop()
-            # A selected LIGHT may have been the one just removed, or may now
-            # index past the end of a shorter list. A selected target is not
-            # affected and is left alone.
-            if self.selection and self.selection[0] == "light":
-                self.selection = None
-                self.moving = False
+        # A SELECTED light goes first, whatever mode we are in - it is the
+        # thing on screen with a ring round it and, usually, its editor open.
+        # With none selected, Add Light mode drops the last one placed. Neither
+        # is behind the path lock: lights are not part of the path.
+        li = None
+        if self.selection and self.selection[0] == "light":
+            li = self.selection[1]
+        elif self.add_light and self.lights:
+            li = len(self.lights) - 1
+        if li is not None and 0 <= li < len(self.lights):
+            # Its editor has nothing left to edit; an editor on a light above
+            # it in the list keeps its light, one index down.
+            if self.editor is not None:
+                if self.editor.index == li:
+                    self.close_editor(ask=False)
+                elif self.editor.index > li:
+                    self.editor.index -= 1
+            self.lights.pop(li)
+            self.selection = None
+            self.moving = False
             self.lights_dirty = True
             n = len(self.lights)
-            self.status.set("removed the last light - %d left" % n if n
-                            else "removed the last light - none left")
+            self.status.set("removed the light - %d left" % n if n
+                            else "removed the light - none left")
             self.update_enabled()
             self.repaint()
             return
+        if self.add_light:
+            self.status.set("no lights to remove")
+            return
+
+        if not self.edit_path:
+            self.status.set("the path is locked - press Edit path to change it")
+            return
 
         if not self.targets:
+            # Backed all the way out: the one thing left to undo is the start
+            # itself, with its heading. Backspace used to stop here and leave
+            # it, so the only way to lose a start was the Clear button.
+            if self.start is None:
+                return
+            self.start = None
+            self.heading = None
+            self.drag = None
+            self.route = None
+            if self.selection and self.selection[0] == "start":
+                self.selection = None
+                self.moving = False
+            self.status.set("removed the start - click to place one again")
+            self.update_enabled()
+            self.repaint()
             return
         self.targets.pop()
         self.route = None
+        # A selected target that was the one just popped now indexes past the
+        # end of the list; drop the selection rather than let repaint reach it.
+        if (self.selection and self.selection[0] == "target"
+                and self.selection[1] >= len(self.targets)):
+            self.selection = None
+            self.moving = False
         n = len(self.targets)
         self.status.set("removed the last target - %d left"
                         % n if n else "removed the last target - none left")
         self.update_enabled()
         self.repaint()
 
+    def toggle_edit_path(self):
+        """The lock on the path. Off, every path control and every map click
+        that would place or move the start or a point is greyed or ignored;
+        the lights are not part of it."""
+        if self.busy or self.bake is None:
+            return
+        self.edit_path = not self.edit_path
+        self.edit_btn.configure(
+            text="Editing path (click to lock)" if self.edit_path else "Edit path")
+        if not self.edit_path and self.selection and self.selection[0] in ("target", "start"):
+            self.selection = None
+            self.moving = False
+        self.status.set("path unlocked - drag a start, click points, Generate"
+                        if self.edit_path else "path locked")
+        self.update_enabled()
+        self.repaint()
+
     def clear_targets(self):
-        if self.busy:
+        """Clear every point - the targets AND the start with its heading.
+
+        The status line always promised "click to place a start again", but
+        the start survived the button; only the targets went. Clear means
+        start over, and starting over includes the click that began it.
+        """
+        if self.busy or not self.edit_path:
             return
         self.targets = []
+        self.start = None
+        self.heading = None
+        self.drag = None
         self.route = None
+        # Whatever was selected is gone now, whichever kind it was.
+        if self.selection and self.selection[0] in ("target", "start"):
+            self.selection = None
+            self.moving = False
         self.status.set("points cleared - click to place a start again")
         self.update_enabled()
         self.repaint()
@@ -1723,7 +2350,7 @@ class Studio:
     # ------------------------------------------------------------- generate
 
     def generate(self):
-        if self.busy or self.bake is None:
+        if self.busy or self.bake is None or not self.edit_path:
             return
         if self.start is None or self.heading is None:
             self.status.set("click a start and drag a heading first")
@@ -1773,14 +2400,12 @@ class Studio:
         self.route_saved = False
         self.pending = out
         self.busy = False
-        self.go.state(["!disabled"])
         self.update_enabled()
         self.repaint()
         self.status.set("wrote %d points to %s" % (n, out))
 
     def _failed(self, msg):
         self.busy = False
-        self.go.state(["!disabled"])
         self.update_enabled()
         self.status.set("failed: " + msg)
 

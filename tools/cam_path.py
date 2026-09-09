@@ -50,7 +50,8 @@ Header - 128 bytes, little endian
                               0/1 lost the distinction, because -1 is
                               truthy and both sides came out the same.
    96  uint32   light_count   number of light records, may be 0
-  100  uint32   light_stride  bytes per light record, 36 (32 before `curve`)
+  100  uint32   light_stride  bytes per light record, 72 (36 before the
+                              shape fields, 32 before `curve`)
   104  uint32   bulb_count    number of bulb records, may be 0
   108  uint32   bulb_stride   bytes per bulb record, 232 (224 before the two
                               angles). Skip by THIS, never by the constant.
@@ -141,8 +142,8 @@ ang0 = ang1 = 0, which means "fall back to `blend`" and renders exactly as it
 did. Readers go by the bulb_stride in the header, never by 232 - the same rule
 the light record's `curve` field follows.
 
-Light record - 36 bytes, 8 x float32 + uint32, at header_size + count * stride
-                                        + seed_count * seed_stride
+Light record - 72 bytes, at header_size + count * stride + seed_count * seed_stride
+              (36 before the shape fields, 32 before `curve`)
 --------------------------------------------------------------------------
     0  x, y, z   world metres. y is metres ABOVE THE TERRAIN, not absolute -
                  Path Studio places lights on a 2D map and has no height
@@ -157,6 +158,23 @@ Light record - 36 bytes, 8 x float32 + uint32, at header_size + count * stride
                  of VM_FOG_Curve_<n>.png beside the .campath (tools/fog_curve.py).
                  Files written before this field are 32 bytes a light and read
                  back as curve 0; readers go by light_stride, never by 32.
+   36  kind      uint32. 0 point, 1 cone, 2 inverse cone, 3 dual cowled - the
+                 same kinds as the bulb record, with the same meaning.
+   40  aim       x, y, z: metres FROM THE LIGHT to the point it looks at, on
+                 the world axes. (0, -1, 0) is straight down. An OFFSET, not a
+                 point, so the light can be moved without re-aiming it; a
+                 reader normalises it into the direction. Ignored for a point.
+   52  cone      full cone angle, degrees - the legacy field, kept truthful as
+                 2 * ang1 for a cone, as the Bulb Placer does.
+   56  blend     0..1 soft edge; for a dual cowl the softness of both cuts.
+   60  ang0      the two HALF angles from the axis, degrees, read per kind
+   64  ang1      exactly as the bulb record's (see there). Both 0 means
+                 "fall back to blend".
+   68  vol_mix   0..1, how much the light scatters into fog.
+                 Files written before these are 36 bytes a light (32 before
+                 curve) and read back as a point light aimed straight down
+                 with vol_mix 1 - which is what nuTerra assumed for every map
+                 light until now, so nothing already authored changes.
 
 Lights sit at the TAIL, after the seeds, so a reader that only wants the flight
 path can stop at seed_count and never know they are there. Their block is found
@@ -228,8 +246,12 @@ VERSION = 2
 HEADER_SIZE = 128
 STRIDE = 32
 SEED_STRIDE = 12
-LIGHT_STRIDE = 36        # what this writer emits: 8 floats + the curve
+LIGHT_STRIDE = 72        # what this writer emits: the 36 below + kind, aim,
+                         # cone, blend, ang0, ang1, vol_mix
 LIGHT_STRIDE_MIN = 32    # what a reader must accept: files from before `curve`
+LIGHT_FMT = "<8fII3f5f"  # x y z r g b level range | curve | kind | aim xyz |
+                         # cone blend ang0 ang1 vol_mix  = 72 bytes
+LIGHT_FIELDS = 18
 BULB_STRIDE = 232        # what this writer emits: the 224 below + ang0, ang1
 BULB_STRIDE_MIN = 224    # what a reader must accept: 160-byte name + 16 words,
                          # files from before the two angles
@@ -269,11 +291,15 @@ def pack_seed(start=None, heading=0.0, radius=0.0, waypoints=0, side=0,
     }
 
 
-def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0, curve=0):
+def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0, curve=0,
+               kind=0, aim=(0.0, -1.0, 0.0), cone=0.0, blend=0.0,
+               ang0=0.0, ang1=0.0, vol_mix=1.0):
     """One light, in the tuple order the record is written in.
 
     `color` may be "#rrggbb" or an (r, g, b) triple of 0..1 floats. Path Studio
-    holds the hex form because that is what a colour picker speaks.
+    holds the hex form because that is what a colour picker speaks. The shape
+    arguments default to what every light was before they existed: a point,
+    aimed down, fully in the fog.
     """
     if isinstance(color, str):
         h = color.lstrip("#")
@@ -284,7 +310,17 @@ def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0, curve=0):
         rgb = tuple(float(c) for c in color)
     return (float(x), float(y), float(z),
             rgb[0], rgb[1], rgb[2],
-            float(level), float(rng), int(curve))
+            float(level), float(rng), int(curve),
+            int(kind), float(aim[0]), float(aim[1]), float(aim[2]),
+            float(cone), float(blend), float(ang0), float(ang1), float(vol_mix))
+
+
+def light_bytes(lt):
+    """The record for one pack_light tuple. One place, used by every writer."""
+    if len(lt) != LIGHT_FIELDS:
+        raise ValueError(f"light needs {LIGHT_FIELDS} fields, got {len(lt)}")
+    return struct.pack(LIGHT_FMT, *[float(v) for v in lt[:8]], int(lt[8]),
+                       int(lt[9]), *[float(v) for v in lt[10:18]])
 
 
 def pack_bulb(primitives, type=BULB_POINT, pos=(0.0, 0.0, 0.0), aim=(0.0, -1.0, 0.0),
@@ -355,7 +391,7 @@ def write_path(path, points, map_name, closed=True, total_len=None,
     points: sequence of (x, y, z, heading, tilt, roll, s, speed).
     seed:   the dict pack_seed returns, or None when there is nothing to record
             - a command line export has no clicks behind it.
-    lights: sequence of 9-tuples from pack_light, or empty. Written after the
+    lights: sequence of tuples from pack_light, or empty. Written after the
             seeds, and counted in the header so a reader knows without probing.
     """
     n = len(points)
@@ -396,9 +432,7 @@ def write_path(path, points, map_name, closed=True, total_len=None,
         for (x, z, kind) in rows:
             f.write(struct.pack("<ffI", float(x), float(z), int(kind)))
         for lt in lights:
-            if len(lt) != 9:
-                raise ValueError(f"light needs 9 fields, got {len(lt)}")
-            f.write(struct.pack("<8fI", *[float(v) for v in lt[:8]], int(lt[8])))
+            f.write(light_bytes(lt))
         for b in bulbs:
             f.write(bulb_bytes(b))
 
@@ -475,8 +509,20 @@ def read_path(path):
         # declares: an old file reads as curve 0, a new one as written.
         curve = (struct.unpack("<I", raw[off + 32:off + 36])[0]
                  if light_stride >= 36 else 0)
+        # The shape came after the 36-byte record. Same rule: by the stride,
+        # and an older file reads as the point light aimed down it always was.
+        if light_stride >= 72:
+            (kind, ax, ay, az, cone, blend,
+             ang0, ang1, vol_mix) = struct.unpack("<I3f5f", raw[off + 36:off + 72])
+        else:
+            kind, (ax, ay, az) = 0, (0.0, -1.0, 0.0)
+            cone = blend = ang0 = ang1 = 0.0
+            vol_mix = 1.0
         lights.append({"x": x, "y": y, "z": z, "r": r, "g": g, "b": b,
-                       "level": level, "range": rng, "curve": int(curve)})
+                       "level": level, "range": rng, "curve": int(curve),
+                       "kind": int(kind), "aim": (ax, ay, az), "cone": cone,
+                       "blend": blend, "ang0": ang0, "ang1": ang1,
+                       "vol_mix": vol_mix})
 
     bulbs = read_bulbs(raw, lbase + light_count * light_stride, bulb_count, bulb_stride)
 
@@ -587,7 +633,7 @@ def copy_with_lights(src, dst, lights=(), bulbs=None):
         f.write(bytes(head))
         f.write(raw[HEADER_SIZE:body_end])
         for lt in rows:
-            f.write(struct.pack("<8fI", *[float(v) for v in lt[:8]], int(lt[8])))
+            f.write(light_bytes(lt))
         f.write(bulb_raw)
 
     return body_end + len(rows) * LIGHT_STRIDE + len(bulb_raw)

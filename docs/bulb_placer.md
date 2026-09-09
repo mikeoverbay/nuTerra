@@ -172,3 +172,19 @@ future field follows the same rule.
 - `light_catalogue.xml` and `map_lights.xml` are the earlier, guessed,
   per-model table and the scan of every map. Nothing reads them; the bulb table
   is the thing that lights lamps now.
+
+## Map lights carry the same shape (2026-09-09)
+
+The lights Path Studio places on the 2D map now carry the same shape fields a
+bulb does - kind, aim, the two half angles, blend, fog mix - in a 72-byte
+light record (`tools/cam_path.py`, "Light record"; 36 bytes before, 32 before
+`curve`). Path Studio shows them in a per-light editor window with the same
+controls this panel has, a "Show shape" side view, and the fog curve editor.
+The aim is stored as an OFFSET from the light in metres, not a point, so a
+light can be moved without re-aiming it; a reader normalises it.
+
+**`MapCamPath.vb` does not read the new fields yet.** It goes by
+`light_stride` and reads the first 36 bytes, so every map light still lands as
+a point aimed down with `vol_mix` 1 - exactly as before - until the reader is
+extended to take kind, dir, cone, blend, ang0, ang1 and vol_mix from offset 36
+when the stride is 72 or more.
