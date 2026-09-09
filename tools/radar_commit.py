@@ -19,6 +19,23 @@ Two rules are load bearing:
                   wall. The side is chosen once, from the radar returns, and
                   held until the rejoin test passes.
 
+Two more, added 2026-09-09 for the lanes a tank can drive through:
+
+  the bend      - the far probe of the trap rule is a straight line, and a lane
+                  that turns inside FAR_D read as a pocket to it. From the near
+                  point a continuation within BEND_MAX is now tried before a
+                  bearing is refused. A real pocket still has no continuation.
+
+  slight turns  - the heading moves at most TURN_STEP a step, and the step is
+  and backing up  tested on the heading it will actually be flown on. When it
+                  does not fit, the camera backs up BACKUP_STEPS of its own
+                  track, turning one TURN_STEP as it goes, and tries again -
+                  a reversing arc, from further back, where the turn has room.
+                  There was no reverse before this: the only retreat was a
+                  180 degree snap, and in a lane that thrashed - 891 and 2051
+                  reversals on two straight courses through the monastery
+                  village, neither closing.
+
     python radar_commit.py [--no-trap-rule]
 """
 
@@ -160,6 +177,36 @@ GAP_PULL = 0.75      # how much of the way to the centre to go at full pull.
                      # one it is going through.
 
 SWEEP_STEP = 4.0     # degrees between candidate bearings
+
+# The bend in the trap rule. When the straight far probe hits an OBJECT, look
+# for a continuation from the near point before calling the bearing a trap:
+# every BEND_STEP out to BEND_MAX either way, each one marched for the rest of
+# FAR_D. A lane with a corner in it passes; a courtyard with a wall does not.
+BEND_MAX_DEG = 75.0
+BEND_STEP_DEG = 15.0
+
+# Slight turns, and backing up when a turn does not fit.
+#
+# TURN_STEP is the most the heading may change in one STEP - at 2 m a step,
+# 8 degrees is a 14 m radius, and the steering choice is reached over several
+# steps rather than snapped to. The step is then tested on the heading it is
+# actually flown on, and when it does not fit the camera backs up
+# BACKUP_STEPS locations along its own track AND turns one TURN_STEP toward
+# the bearing the steering chose while it does - a reversing arc, the way a
+# tank backs out of a corner - then tries the step again. The backed-over
+# points are dropped from the path, so what is left is a turn that bends as
+# sharply as the corner needed and no sharper.
+#
+# The budget only escalates when that is not working: after every
+# BACKUP_ESCALATE fruitless backups the per-step cap grows by one TURN_STEP,
+# and it decays one TURN_STEP for every BACKUP_DECAY steps that fit. The first
+# version escalated on every backup and decayed on every step, and that
+# oscillated between 8 and 16 degrees forever in a tight spot - 1872 backups
+# on one course and no way out.
+TURN_STEP_DEG = 8.0
+BACKUP_STEPS = 2
+BACKUP_ESCALATE = 4
+BACKUP_DECAY = 3
 MAX_DETOUR = 700.0   # metres on one detour before the guard fires
 MAX_STEPS = 6000
 
@@ -531,7 +578,7 @@ def pick_level(bake, nx, nz):
     return float(max(g)) + LEVEL_CLEAR
 
 
-TRAP_STATS = {"object": 0, "terrain": 0}
+TRAP_STATS = {"object": 0, "terrain": 0, "bend": 0}
 
 
 def bearing_ok(radar, x, z, a, two_point):
@@ -560,11 +607,26 @@ def bearing_ok(radar, x, z, a, two_point):
     # grazing slope constantly. Only a real object closes a bearing.
     r = radar.march(x, z, ux, uz, FAR_D)
     solid = radar.solidity(x, z, ux, uz, r)
-    if solid >= SOLID_H:
-        TRAP_STATS["object"] += 1
-        return False
-    TRAP_STATS["terrain"] += 1
-    return True
+    if solid < SOLID_H:
+        TRAP_STATS["terrain"] += 1
+        return True
+
+    # An object, straight ahead of the near point. But the probe is a straight
+    # line and a lane is not: a corridor that turns inside FAR_D looked exactly
+    # like a pocket to it, and that is what kept the camera out of every lane
+    # a tank can drive through. From the near point, try a continuation
+    # either side, out to BEND_MAX, for the rest of the distance. A pocket
+    # still fails - there is no direction out of it that runs that far.
+    px, pz = x + ux * NEAR_D, z + uz * NEAR_D
+    rest = FAR_D - NEAR_D
+    for k in range(1, int(BEND_MAX_DEG / BEND_STEP_DEG) + 1):
+        for s in (1, -1):
+            b = a + s * math.radians(k * BEND_STEP_DEG)
+            if radar.clear(px, pz, math.cos(b), math.sin(b), rest):
+                TRAP_STATS["bend"] += 1
+                return True
+    TRAP_STATS["object"] += 1
+    return False
 
 
 def open_gaps(radar, fan, x, z, two_point):
@@ -659,6 +721,9 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
     detours = 0
     guard_fires = 0
     stuck = 0
+    backups = 0           # times the camera reversed along its own track
+    backup_streak = 0     # fruitless backups, less decay - the turn budget
+    ok_run = 0            # steps that fitted since the last backup
     skip = 0.0            # extra course distance to write off, set by the guard
     last_adv = 0          # step number at which progress last increased
 
@@ -668,6 +733,7 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
 
     while steps < MAX_STEPS:
         steps += 1
+        force_backup = False   # set when nothing in the fan is flyable at all
 
         # --- progress: nearest nominal sample in a forward window only, so the
         # loop cannot be "completed" by drifting backwards or circling a point.
@@ -820,29 +886,81 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
                     events.append((x, z, "boxed", side))
                     stuck += 1
                     if new_h is None:
-                        new_h = heading + math.pi   # reverse out
+                        # Nothing flyable in any direction. This used to be a
+                        # 180 degree snap on the spot; now it is a reverse along
+                        # the track we came in on, which is the one line known
+                        # to be clear.
+                        force_backup = True
+                        new_h = heading
 
         if new_h is None:
             new_h = want
 
-        turn = ang_norm(new_h - heading)
-        if abs(turn) > math.radians(100.0):
-            reversals += 1
-            events.append((x, z, "reverse", side))
+        # --- slight turns, and backing up when the turn does not fit ------
+        # The steering above chose a bearing; the heading moves toward it by
+        # at most the budget - TURN_STEP, plus one more TURN_STEP for every
+        # backup in the current streak - and the step is tested on the heading
+        # it will ACTUALLY be flown on. Before this the heading snapped to the
+        # chosen bearing in one step and the step itself was never tested,
+        # which held only because the bearing had been probed NEAR_D out.
+        want_turn = ang_norm(new_h - heading)
+        step_rad = math.radians(TURN_STEP_DEG)
+        cap = min(math.pi, step_rad * (1 + backup_streak // BACKUP_ESCALATE))
+        turn = max(-cap, min(cap, want_turn))
+        cand_h = ang_norm(heading + turn)
+        fits = (not force_backup) and radar.clear(x, z, math.cos(cand_h),
+                                                   math.sin(cand_h), STEP)
+        stepped = False
+        if not fits and len(path) > 1:
+            # Back up BACKUP_STEPS locations along our own track - known clear,
+            # we just flew it - turning one TURN_STEP toward the bearing the
+            # steering chose as we go, and try the step again from there.
+            n_back = min(BACKUP_STEPS, len(path) - 1)
+            for _ in range(n_back):
+                path.pop()
+                levels.pop()
+            x, z = path[-1]
+            if want_turn != 0.0:
+                heading = ang_norm(heading + math.copysign(
+                    min(step_rad, abs(want_turn)), want_turn))
+            backups += 1
+            backup_streak += 1
+            ok_run = 0
+            events.append((x, z, "backup", side))
             if mode == "DETOUR":
-                trap_entries += 1
+                detour_len = max(0.0, detour_len - n_back * STEP)
+        else:
+            if not fits:
+                # nothing behind us to back into: take the whole turn and go
+                turn = want_turn
+                cand_h = ang_norm(heading + turn)
+            # Slow decay: the budget a corner needed is held for a few steps
+            # past it, so the turn is completed rather than dropped mid-way.
+            ok_run += 1
+            if ok_run >= BACKUP_DECAY and backup_streak > 0:
+                backup_streak -= 1
+                ok_run = 0
 
-        heading = ang_norm(new_h)
+            if abs(turn) > math.radians(100.0):
+                reversals += 1
+                events.append((x, z, "reverse", side))
+                if mode == "DETOUR":
+                    trap_entries += 1
 
-        # --- step, then the guards ----------------------------------------
-        nx_, nz_ = x + math.cos(heading) * STEP, z + math.sin(heading) * STEP
-        x, z = nx_, nz_
-        path.append((x, z))
-        levels.append(radar.level)
+            heading = cand_h
+
+            # --- step -----------------------------------------------------
+            nx_, nz_ = x + math.cos(heading) * STEP, z + math.sin(heading) * STEP
+            x, z = nx_, nz_
+            path.append((x, z))
+            levels.append(radar.level)
+            stepped = True
+
+        # --- the guards ---------------------------------------------------
         if mode == "TRACK":
             skip = 0.0
         else:
-            detour_len += STEP
+            detour_len += STEP if stepped else 0.0
             if detour_len > MAX_DETOUR:
                 # the boundary follow has gone a very long way without rejoining
                 # - the committed side was the wrong one. This is the only place
@@ -872,6 +990,7 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
         "path": path, "levels": levels, "fans": fans, "events": events, "closed": closed,
         "reversals": reversals, "trap_entries": trap_entries,
         "detours": detours, "guard_fires": guard_fires, "stuck": stuck,
+        "backups": backups,
         "steps": steps, "start": (sx, sz),
     }
 
@@ -1161,6 +1280,9 @@ def draw(bake, res, sc, nx, nz, out_png, worlds=None, terrace_of=None):
                       outline=(255, 245, 90, 255), width=2)
         elif kind == "reverse":
             d.ellipse([px - 3, py - 3, px + 3, py + 3], fill=(255, 90, 150, 255))
+        elif kind == "backup":
+            # a short amber dash: the camera reversed along its track here
+            d.line([(px - 4, py), (px + 4, py)], fill=(255, 200, 60, 255), width=2)
 
     for (cx, cz) in sc["clip_at"]:
         px, py = T(cx, cz)
@@ -1302,7 +1424,7 @@ def main():
 
         runs = {}
         for tag, tp in (("trap rule OFF", False), ("trap rule ON", True)):
-            TRAP_STATS["object"] = TRAP_STATS["terrain"] = 0
+            TRAP_STATS["object"] = TRAP_STATS["terrain"] = TRAP_STATS["bend"] = 0
             res = fly(bake, radar, nx, nz, tp, record_fans=(tp == two_point),
                       terrace_of=terrace_of)
             if tp:
@@ -1310,14 +1432,15 @@ def main():
                 if tot:
                     print(f"  far-probe hits: {TRAP_STATS['object']} object "
                           f"({100.0 * TRAP_STATS['object'] / tot:.0f}%), "
-                          f"{TRAP_STATS['terrain']} terrain graze - "
-                          f"grazes no longer close a bearing")
+                          f"{TRAP_STATS['terrain']} terrain graze, "
+                          f"{TRAP_STATS['bend']} passed round a bend - "
+                          f"grazes and bends no longer close a bearing")
             sc = score(bake, radar, res, nx, nz, dist_m, worlds=worlds)
             runs[tp] = (res, sc)
             print(f"{tag:14s} closed={res['closed']} len={sc['length']:7.0f} m  "
                   f"clips={sc['clips']}  reversals={res['reversals']}  "
                   f"trap_entries={res['trap_entries']}  detours={res['detours']}  "
-                  f"boxed={res['stuck']}  guard={res['guard_fires']}  "
+                  f"boxed={res['stuck']}  guard={res['guard_fires']}  backups={res['backups']}  "
                   f"maxdev={sc['max_dev']:.1f} m  minclr={sc['min_clear']:.2f} m  "
                   f"worst headroom under the camera={sc['min_alt_margin']:.2f} m")
 
@@ -1366,7 +1489,7 @@ def main():
         print(f"{tag:14s} closed={res['closed']} len={sc['length']:7.0f} m  "
               f"clips={sc['clips']}  reversals={res['reversals']}  "
               f"trap_entries={res['trap_entries']}  detours={res['detours']}  "
-              f"boxed={res['stuck']}  guard={res['guard_fires']}  "
+              f"boxed={res['stuck']}  guard={res['guard_fires']}  backups={res['backups']}  "
               f"maxdev={sc['max_dev']:.1f} m  minclr={sc['min_clear']:.2f} m  "
               f"worst headroom under the camera={sc['min_alt_margin']:.2f} m")
 

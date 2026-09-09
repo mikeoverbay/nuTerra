@@ -133,6 +133,62 @@ Two things fall out of using a curve that make the rest simpler:
 Sample the curve at a fixed arc length rather than fixed t, or speed varies
 with control point spacing and the flight visibly slows through tight sections.
 
+## Step 4b — lanes: the bend, slight turns, backing up (2026-09-09)
+
+The navigator that flies the course is `tools/radar_commit.py`; its module
+docstring is the authority on the rules. What changed, and why:
+
+**The camera would not enter a lane a tank can drive through.** Measured on
+the monastery at a 2 m standoff, with four synthetic courses drawn straight
+through the village (`there and back`, so the navigator has to find the
+lanes): two of four never closed, at 891 and 2051 reversals. Three things
+stacked up against a lane, and only the third is the navigator:
+
+1. The A* that lays the nominal course (`flight_plan.build_cost`) works on a
+   2.7 m grid, max-pooled, with the standoff dilated on top, and charges
+   `14/(d+1.5) + 26/(d+1)` for closeness to a wall. It seals anything under
+   ~5.5 m and routes round anything narrow when a wider way exists. 16 % of
+   the monastery's free space sits in corridors 6 m or narrower. **Not
+   changed** - it is a route-shape preference, and the shipped routes are
+   tuned to it.
+2. The navigator's own standoff (`BODY_R`, the Studio's Standoff slider): at
+   6 m a lane must be 12 m wide. **Not changed**; it is the slider.
+3. The trap rule. Its far probe is a straight 22 m line, and a lane that
+   bends inside 22 m read as a pocket. **Changed**: when the straight probe
+   hits an object, a continuation is tried from the near point out to
+   `BEND_MAX` (75°) in `BEND_STEP` (15°) steps for the rest of the distance.
+   A pocket still has no continuation.
+
+**And there was no reverse.** The only retreat was a 180° snap when boxed
+in, and the heading snapped to whatever bearing the sweep chose in one 2 m
+step. Now:
+
+- the heading moves at most `TURN_STEP_DEG` (8°, a 14 m radius at 2 m steps)
+  per step toward the chosen bearing;
+- the step is tested on the heading it is actually flown on;
+- when it does not fit, the camera backs up `BACKUP_STEPS` (2) locations of
+  its own track, turning one `TURN_STEP` as it goes - a reversing arc - and
+  tries again. The backed-over points are dropped, so the path that remains
+  bends as sharply as the corner needed and no sharper;
+- the per-step cap escalates one `TURN_STEP` per `BACKUP_ESCALATE` (4)
+  fruitless backups and decays one per `BACKUP_DECAY` (3) steps that fit.
+  Escalating on every backup and decaying on every step oscillated 8°/16°
+  forever in a tight spot.
+
+Result on the same four courses: 3 of 4 close, reversals 3236 → 0, the one
+that closed at 12 000 m now closes at 420 m with 10 backups. The fourth is a
+straight line through a tree cluster and failed before as well.
+
+**The cost of slight turns**: the shipped monastery route now deviates up to
+26 m from its nominal at the hook after the departure leg (was 4 m), with no
+detour and no backup - a 14 m radius cannot follow that hairpin, so the
+camera overshoots and comes round. 12°/step only brings it to 15 m. That is a
+property of the course shape, not the navigator; a route drawn without a
+hairpin does not show it.
+
+`radar_commit.py` prints `backups=` in its summary and draws each one as a
+short amber dash.
+
 ## Why the bake must be its own pass
 
 Proved the hard way on 2026-09-02 by trying to shortcut it: the G-buffer
