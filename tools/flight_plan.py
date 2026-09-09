@@ -44,7 +44,16 @@ from PIL import Image, ImageDraw
 AGL_MIN = 25.0      # metres above bare terrain, never less than this
 CLEARANCE = 15.0    # metres above whatever the corridor's tallest obstacle is
 CLIMB_LIMIT = 55.0  # an obstacle taller than this is flown AROUND, not over
-BODY_RADIUS = 6.0   # horizontal half-width kept clear of a hard obstacle.
+CLEAR_FULL = 8.0    # metres of clearance past which elbow room is free
+CLEAR_W = 3.0       # most the clearance preference can add to a cell's weight
+BODY_RADIUS = 0.5   # horizontal half-width kept clear of a hard obstacle.
+                    # 0.5, not 6: anywhere a tank can drive, the camera should
+                    # be able to fly. 6 m demanded a 12 m lane and left 60.5%
+                    # of the map flyable; 0.5 m demands 1 m and leaves 86.3%.
+                    # A real tank is ~3.5 m wide, so 1.75 m would be the
+                    # literal equivalent (78.5%) - this is deliberately more
+                    # permissive than that, and the flier's own radar keeps it
+                    # off walls at flight time by centring in gaps.
                     # 6, not 8. Measured at 1 m altitude: at 8 m the dilation
                     # fragments Abbey - the largest connected free region falls
                     # to 73.7% of free space, so whole pockets become
@@ -60,11 +69,32 @@ R_MIN_FRAC = 0.22   # circuit radius floor, as a fraction of the map half-extent
 R_MAX_FRAC = 0.80   # and its ceiling
 SAMPLE_STEP = 4.0   # metres between samples along the flown curve
 
-ROUTE_GRID = 512    # cells on a side for the routing pass. 512, not 256: the
-                    # grid max-pools, so at 256 a 5.5 m cell holding one fence
-                    # post blocks the whole cell. That is tolerable when the
-                    # route only has to clear 55 m towers and fatal when it has
-                    # to thread between hedges.
+ROUTE_GRID = 2048   # cells on a side for the routing pass - the bake's own
+                    # resolution, 0.68 m a cell. It was 512 (2.73 m), and that
+                    # is a resolution FLOOR on the standoff: the dilation is a
+                    # whole number of cells, so the smallest clearance 512 can
+                    # express is 2.73 m however small BODY_RADIUS is set. The
+                    # old standoff sweep - "failed to close at 8, 6, 4, 3 AND
+                    # 2 m" - never actually left that floor, which is why it
+                    # concluded standoff was not the binding constraint.
+                    #
+                    # Measured on 19_monastery, against clearance computed at
+                    # the bake's native resolution: of the space a 0.5 m body
+                    # can genuinely fly, 512 keeps 79.8%, 1024 keeps 90.4% and
+                    # 2048 keeps 96.4%. Everything the coarse grids lose is
+                    # corridor - 100% of it under 12 m wide. Pooling a finer
+                    # clearance field back down does not help: a 1 m lane
+                    # either blocks (conservative pooling) or breaks into
+                    # dashes (centre sampling). The grid has to resolve the
+                    # corridor.
+                    #
+                    # Cost: A* is pure Python over a heap, and one worst-case
+                    # corner-to-corner leg measured 1.75 s at 512, 8.8 s at
+                    # 1024 and 41 s at 2048. Routing is a one-off click, not a
+                    # per-frame cost. If it becomes too slow, the answer is a
+                    # coarse pass to find the corridor and a fine pass banded
+                    # around it - NOT a coarser grid, which puts the floor
+                    # back.
 
 # The rule the NAVIGATOR will fly by. The course has to be routable at the
 # altitude it will actually be flown at.
@@ -203,8 +233,12 @@ def build_cost(bake):
     cell_m = (bake.wx_max - bake.wx_min) / g
     blocked = o > FLIGHT_BLOCK_H
 
-    # Keep clear of hard obstacles by the body radius.
-    pad = max(1, int(round(BODY_RADIUS / cell_m)))
+    # Keep clear of hard obstacles by the body radius. CEIL, not round: round
+    # gives LESS clearance than was asked for whenever the radius is not a
+    # whole number of cells - at 512 a 6 m radius became 5.47 m - and a
+    # standoff that quietly shrinks is the one kind of error the flier cannot
+    # recover from.
+    pad = max(1, int(math.ceil(BODY_RADIUS / cell_m)))
     blocked = ndimage.binary_dilation(blocked, iterations=pad)
 
     # Stay off the very edge of the map - there is nothing to look at out there
@@ -212,16 +246,29 @@ def build_cost(bake):
     blocked[:2, :] = blocked[-2:, :] = True
     blocked[:, :2] = blocked[:, -2:] = True
 
-    # Distance to the nearest hard obstacle, in cells. Routing downhill on the
-    # reciprocal of this keeps the path off walls without forbidding a squeeze.
-    dist = ndimage.distance_transform_edt(~blocked)
+    # Distance to the nearest hard obstacle, IN METRES. It used to be in
+    # cells, which quietly made the whole cost function depend on ROUTE_GRID:
+    # the same wall four times further away in cell units at 2048 than at 512,
+    # so raising the resolution alone would have gutted the clearance term
+    # without anyone changing a weight.
+    dist_m = ndimage.distance_transform_edt(~blocked) * cell_m
 
+    # Clearance is a CONSTRAINT, not a tax.
+    #
+    # The old pair - 14/(d+1.5) + 26/(d+1) on cell distance - reached about 19x
+    # the base weight one cell from a wall. That prices a passable lane like an
+    # obstacle, so A* went round every one of them, and the navigator's lane
+    # handling never got a course that entered a lane to handle. The hard part
+    # is already done by `blocked` above, which is dilated by the body radius:
+    # anything left is flyable by definition.
+    #
+    # So what remains is only a PREFERENCE, and it saturates: full penalty
+    # against a wall, nothing at all beyond CLEAR_FULL, linear between. Open
+    # ground still wins when there is a choice; a lane is merely second best
+    # instead of unaffordable.
     cost = 1.0
     cost = cost + 0.06 * np.minimum(o, CLIMB_LIMIT)      # prefer open ground
-    cost = cost + 14.0 / (dist + 1.5)                    # prefer elbow room
-    # Cheap where there is room to fly, so the course threads the open gaps a
-    # low navigator can actually use rather than skimming every wall.
-    cost = cost + 26.0 / (dist + 1.0)
+    cost = cost + CLEAR_W * (1.0 - np.minimum(dist_m, CLEAR_FULL) / CLEAR_FULL)
     cost[blocked] = np.inf
 
     return o, blocked, cost, cell_m

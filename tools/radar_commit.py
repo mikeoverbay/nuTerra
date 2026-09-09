@@ -63,12 +63,21 @@ AGL = 1.0            # metres over the terrain, tracked continuously
 MARGIN = 0.5         # headroom kept under the camera. Must be under AGL,
                      # or BLOCK_H goes negative and everything blocks.
 BLOCK_H = AGL - MARGIN   # 3.5 m - anything shorter is simply flown over
-BODY_R = 6.0         # standoff kept from a blocking cell, metres.
-                     # 8 was the ask, and 8 does not fit at 1 m altitude: it
-                     # fragments the map into disconnected pockets (largest
-                     # connected free region 73.7% of free space, against 97.2%
-                     # at 6) and no route exists at all. Village gaps are not
-                     # 16 m wide.
+BODY_R = 0.5         # standoff kept from a blocking cell, metres.
+                     # Anywhere a tank can drive, the camera should be able to
+                     # fly. The history here is a ratchet downward: 8 does not
+                     # fit at 1 m altitude at all - it fragments the map into
+                     # pockets (largest connected free region 73.7% of free
+                     # space, against 97.2% at 6) - and 6 still demands a 12 m
+                     # lane, which a village does not have. Measured on
+                     # 19_monastery: 6 m leaves 60.5% of the map flyable, 1.75
+                     # (a real tank's half-width) leaves 78.5%, 0.5 leaves
+                     # 86.3%.
+                     #
+                     # This MUST match flight_plan.BODY_RADIUS. They are the
+                     # same physical rule read by two stages, and when the
+                     # router plans a lane the flier will not enter, the course
+                     # is unflyable in exactly the places it was cleverest.
 # riding 5 m over whatever the ground does.
 #
 # This makes the obstacle test trivial and, more importantly, exact: `top`
@@ -170,6 +179,29 @@ TERRAIN_R = 3.0      # standoff from ground that merely reaches the level
 # Centring on openings. A gap this wide or wider counts as open country and
 # the camera just follows its course; anything tighter pulls it toward the
 # middle, in proportion.
+# If the line to the aim point is clear, fly it, and let no gap the camera is
+# not going through pull it off.
+#
+# OFF, and it should stay off unless something changes. It sounds obviously
+# right - go to the next point when nothing is in the way - and it measures as
+# very nearly nothing: 3 m off a 458 m route, no change in deviation at all.
+# What it actually does is skip the gap centring, and the centring was earning
+# its keep. Measured with a clearance field taken from the UNDILATED mask at
+# the bake's own resolution:
+#
+#            length   max dev   min clearance   10th pct
+#   off       458 m     6.5 m        4.32 m       5.87 m
+#   on        455 m     6.5 m        3.49 m       5.21 m
+#
+# Three metres of path for eight hundred millimetres of worst-case clearance.
+# The camera shaves past the edges of openings instead of going through their
+# middles, and it reads on screen long before it reads in a number.
+#
+# Note WHY this was nearly shipped: score()'s min_clear reports 0.97 m in every
+# run, floored by the one-cell standoff, so the only metric that could have
+# caught it is blind by construction. Do not tune clearance on that field.
+DIRECT_TO_TARGET = False
+
 GAP_WIDE_M = 55.0
 GAP_PULL = 0.75      # how much of the way to the centre to go at full pull.
                      # Not 1.0 - going all the way makes the camera swing to
@@ -203,7 +235,26 @@ BEND_STEP_DEG = 15.0
 # version escalated on every backup and decayed on every step, and that
 # oscillated between 8 and 16 degrees forever in a tight spot - 1872 backups
 # on one course and no way out.
-TURN_STEP_DEG = 8.0
+# 32, not 8. At a 2 m step 8 degrees is a 14.3 m turning circle, and a course
+# that doubles back on itself - an out-and-back up a corridor, which is what
+# placing two targets in a lane produces - asks for a 180 degree reversal in
+# the width of the corridor. A 14 m radius cannot do it, so the camera swung
+# wide, logged a detour, backed up and came round; that was the whole of a
+# 22 m deviation that no amount of probe or lookahead tuning would shift.
+#
+# Measured on a 538 m monastery loop where 40 of its 135 points sit within 3 m
+# of a distant part of itself (the closest pair 0.34 m apart):
+#
+#   deg   radius   max dev   mean dev   detours   backups
+#     8    14.3 m    22.2 m     1.36 m       2         4
+#    16     7.2 m     8.3 m     0.53 m       0         1
+#    32     3.6 m     6.5 m     0.36 m       0         0
+#    45     2.6 m     4.2 m     0.25 m       0         0
+#
+# 45 tracks best and 32 is the compromise: still zero fighting, and a gentler
+# arc for a camera that has to look like it meant it. Raise it if a route
+# doubles back harder than this one.
+TURN_STEP_DEG = 32.0
 BACKUP_STEPS = 2
 BACKUP_ESCALATE = 4
 BACKUP_DECAY = 3
@@ -800,11 +851,31 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
             if bearing_ok(radar, x, z, want, two_point):
                 new_h = want
 
+                # IF THE WAY TO THE AIM POINT IS CLEAR, JUST GO TO IT.
+                #
+                # bearing_ok only says the bearing survives two probes at
+                # NEAR_D and FAR_D; it says nothing about the aim point, which
+                # is a different distance away. So the centring below used to
+                # run on every accepted bearing, and its pull is non-zero for
+                # any gap under GAP_WIDE_M - 55 m, which in a village is all of
+                # them. The camera was being pulled off a straight, empty,
+                # collision-free line to the next point almost every step,
+                # because it was passing a doorway at the time.
+                #
+                # Centring is for threading something. March the actual
+                # distance to the aim point, and when that comes back clear,
+                # fly it: no gap the camera is not going through gets a say.
+                d_t = math.hypot(tx - x, tz - z)
+                if (DIRECT_TO_TARGET
+                        and radar.clear(x, z, math.cos(want), math.sin(want), d_t)):
+                    gaps = []
+                else:
+                    gaps = open_gaps(radar, fan, x, z, two_point)
+
                 # Centre on the opening we are flying through. The pull is
                 # strongest when the gap is tight and fades away when it is
                 # wide, so in open country the camera just follows the course
                 # and in a gateway it lines up with the middle of it.
-                gaps = open_gaps(radar, fan, x, z, two_point)
                 here = [g for g in gaps
                         if abs(ang_norm(g[0] - want)) <= 0.5 * math.radians(RADAR_FOV)]
                 if here:

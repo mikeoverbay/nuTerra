@@ -189,6 +189,81 @@ hairpin does not show it.
 `radar_commit.py` prints `backups=` in its summary and draws each one as a
 short amber dash.
 
+## Step 4c - the grid was the constraint all along (2026-09-09)
+
+`ROUTE_GRID` 512 -> 2048, `BODY_RADIUS` / `BODY_R` 6.0 -> 0.5,
+`TURN_STEP_DEG` 8 -> 32.
+
+**The grid is a floor on the standoff.** The dilation is a whole number of
+cells, so at 512 (2.73 m a cell) the smallest clearance that can be expressed
+is 2.73 m however small the body radius is set. The old standoff sweep -
+"failed to close at 8, 6, 4, 3 AND 2 m of standoff, so the standoff was never
+the binding constraint" - never left that floor. 2 m and 3 m were the same
+number to it.
+
+Measured on 19_monastery, against clearance computed at the bake's own
+resolution, of the space a 0.5 m body can genuinely fly:
+
+| grid | cell | keeps | what it loses |
+|---|---|---|---|
+| 512 | 2.73 m | 79.8 % | 100 % of it corridor under 12 m |
+| 1024 | 1.37 m | 90.4 % | same |
+| 2048 | 0.68 m | 96.4 % | same |
+
+The coarse grid does not lose the map - it loses **exactly the lanes**.
+Computing clearance finely and pooling it down does not help: a 1 m lane either
+blocks (conservative pooling) or breaks into dashes (centre sampling). The grid
+has to resolve the corridor. Cost is ~41 s for a worst-case A* leg at 2048
+against 1.75 s at 512, and routing is a one-off click. If that ever matters,
+the answer is a coarse pass to find the corridor and a fine pass banded around
+it, NOT a coarser grid - that puts the floor back.
+
+**Standoff.** 6 m demands a 12 m lane and leaves 60.5 % of the map flyable;
+1.75 m (a real tank's half-width) leaves 78.5 %; 0.5 m demands 1 m and leaves
+86.3 %. Anywhere a tank can drive, the camera should fly.
+
+**Turning circle.** At a 2 m step, 8 degrees is a 14.3 m circle. A course that
+doubles back on itself - which is what placing two targets up one corridor
+produces - asks for a 180 degree reversal in the width of that corridor, and a
+14 m radius cannot do it. It swings wide, logs a detour and backs up. On a
+538 m loop where 40 of its 135 points sit within 3 m of a distant part of
+itself:
+
+| deg | radius | max dev | mean dev | detours | backups |
+|---|---|---|---|---|---|
+| 8 | 14.3 m | 22.2 m | 1.36 m | 2 | 4 |
+| 16 | 7.2 m | 8.3 m | 0.53 m | 0 | 1 |
+| 32 | 3.6 m | 6.5 m | 0.36 m | 0 | 0 |
+| 45 | 2.6 m | 4.2 m | 0.25 m | 0 | 0 |
+
+45 tracks best; 32 is the compromise that still fights nothing and gives a
+gentler arc for a camera that has to look like it meant it.
+
+### Three bugs found while measuring
+
+- **The dilation used `round`.** That gives LESS clearance than was asked for
+  whenever the radius is not a whole number of cells - at 512 a 6 m radius
+  became 5.47 m. `ceil` now.
+- **The clearance cost was computed on distance in CELLS**, so it silently
+  depended on `ROUTE_GRID`: the same wall is four times further away in cell
+  units at 2048 than at 512, and raising the resolution alone would have gutted
+  the term without anyone touching a weight. Metres now.
+- **The clearance term priced lanes out.** `14/(d+1.5) + 26/(d+1)` reaches
+  about 19x the base weight one cell from a wall, so A* went round every
+  passable lane. `blocked` is already dilated by the body radius, so what is
+  left is a *preference*, and it saturates: full penalty against a wall,
+  nothing beyond `CLEAR_FULL`, linear between.
+
+### `min_clear` is blind - do not tune on it
+
+`score()`'s `min_clear` reports 0.97 m in every run, floored by the one-cell
+standoff. It cannot report "flew closer to a wall". `DIRECT_TO_TARGET` was
+nearly shipped because of this: flying straight at the aim point when the line
+is clear measures as 3 m off a 458 m route and no change in deviation, and the
+gap centring it skips was worth 4.32 m -> 3.49 m of worst-case clearance.
+Measured against the UNDILATED mask at the bake's resolution, which is what
+that comparison needs. The switch is in and OFF.
+
 ## Why the bake must be its own pass
 
 Proved the hard way on 2026-09-02 by trying to shortcut it: the G-buffer
