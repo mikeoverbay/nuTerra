@@ -53,6 +53,13 @@ Module ShaderLoader
             End Get
         End Property
 
+        ''' <summary>A copy of the current defines, so the shader IDE can trial-assemble with the same ones.</summary>
+        Public ReadOnly Property DefinesCopy As Dictionary(Of String, String)
+            Get
+                Return New Dictionary(Of String, String)(defines)
+            End Get
+        End Property
+
         Sub SetDefine(key As String, Optional value As String = "")
             defines(key) = value
             UpdateShader()
@@ -660,8 +667,16 @@ Module ShaderLoader
         Return program
     End Function
 
+    ''' <summary>
+    ''' The last compile / link message, for the in-app shader IDE. gl_error
+    ''' appends to it; the IDE clears it before a trial assemble and reads it
+    ''' after. The log line is unchanged.
+    ''' </summary>
+    Public LAST_SHADER_ERROR As String = ""
+
     Public Sub gl_error(s As String)
         LogThis(s.Replace(vbLf, vbCrLf))
+        LAST_SHADER_ERROR &= s.Replace(vbLf, vbCrLf) & vbCrLf
     End Sub
 
 #End Region

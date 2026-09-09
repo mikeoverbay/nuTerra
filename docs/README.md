@@ -51,6 +51,8 @@ one is the specification, this one is what we actually do with it.
 | `volumetric_fog.md` | froxel grids, per-light marching and analytic airlight against `lamp_fog.frag`; ranked changes, with sources |
 | `volumetric_fog_audit.md` | read-only audit of the shafts, the cube and both global fogs: 6 defects, 6 model errors, nits, perf, with line cites and how to confirm each; status banner says what is fixed |
 | `ui_panels.md` | ImGui panels: where they live, the placement helpers, and why `imgui.ini` beats `FirstUseEver` |
+| `shader_ide.md` | the in-app shader IDE: a tab per stage, the trial-compile that keeps a broken shader out of the frame, the revert guard, the overlay highlighter |
+| `Tank Docs\` | the tank module - a vehicle loaded straight from the packages, kept out of the core: design paper, loader notes, verified formats |
 | `map_settings.md` | per-map render settings: where they live, how they load |
 
 ## Decoded from the game

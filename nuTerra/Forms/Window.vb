@@ -1469,6 +1469,11 @@ try_again:
             If ImGui.Button("Light Bulb Placer") Then
                 SHOW_LAMP_VIEW = Not SHOW_LAMP_VIEW
             End If
+            ImGui.SameLine()
+            If ImGui.Button("Shader IDE") Then
+                ShaderIDE.Open = Not ShaderIDE.Open
+            End If
+            If ImGui.IsItemHovered() Then ImGui.SetTooltip("Edit and recompile any shader in place - Tools\ShaderIDE.vb")
             If ImGui.Button("Path Studio") Then
                 start_path_studio()
             End If
@@ -1508,6 +1513,7 @@ try_again:
         draw_stats_window()
         draw_vt_debug_key()
         draw_model_info()
+        ShaderIDE.Draw()
 
         If SHOW_SETTINGS_WINDOW Then
             If Not prev_SHOW_SETTINGS_WINDOW AndAlso menubar_size.LengthSquared > 0 Then

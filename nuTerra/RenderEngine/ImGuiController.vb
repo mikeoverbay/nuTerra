@@ -23,6 +23,10 @@ Public Class ImGuiController
 
     Private _scaleFactor As System.Numerics.Vector2 = System.Numerics.Vector2.One
 
+    ''' <summary>The monospaced font the shader IDE edits in, when Consolas was found.</summary>
+    Public Shared MONO_FONT As ImFontPtr
+    Public Shared HAS_MONO As Boolean = False
+
     Public Sub New(width As Integer, height As Integer)
 
         _windowWidth = width
@@ -33,6 +37,16 @@ Public Class ImGuiController
         Dim io = ImGui.GetIO()
 
         io.Fonts.AddFontFromFileTTF(System.IO.Path.Combine(Application.StartupPath, "resources", "SourceSans3-Regular.ttf"), 20.0F, Nothing, io.Fonts.GetGlyphRangesCyrillic())
+
+        ' A monospaced face for the shader IDE. Its highlight is painted over
+        ' the text box column by column, which only lines up in a fixed-pitch
+        ' font. Consolas ships with Windows; when it is missing the IDE says so
+        ' and falls back to the UI font.
+        Dim mono = "C:\Windows\Fonts\consola.ttf"
+        If System.IO.File.Exists(mono) Then
+            MONO_FONT = io.Fonts.AddFontFromFileTTF(mono, 17.0F)
+            HAS_MONO = True
+        End If
 
         io.BackendFlags = io.BackendFlags Or ImGuiBackendFlags.RendererHasVtxOffset
 
