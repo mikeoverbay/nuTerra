@@ -32,15 +32,21 @@ Public Class MapCamPath
     Private Const HEADER_SIZE As Integer = 128
     Private Const POINT_STRIDE As Integer = 32
     Private Const SEED_STRIDE As Integer = 12
-    Private Const LIGHT_STRIDE As Integer = 32
+    ''' <summary>What Path Studio emits: the 36 below plus kind, aim, cone,
+    ''' blend, the two angles and vol_mix.</summary>
+    Private Const LIGHT_STRIDE As Integer = 72
+    ''' <summary>What a reader must ACCEPT - a light from before `curve` is 32
+    ''' bytes and is not a lesser light. The two are different numbers and the
+    ''' guard below wants this one; comparing against LIGHT_STRIDE would refuse
+    ''' every campath written before the shape fields, route included.</summary>
+    Private Const LIGHT_STRIDE_MIN As Integer = 32
     ''' <summary>What SaveBulbs emits: the 224 below plus ang0 and ang1.</summary>
     Private Const BULB_STRIDE As Integer = 232
     ''' <summary>What a reader must ACCEPT - a file written before the two
     ''' angles is 224 bytes a bulb and is not a lesser file. Guarding on
     ''' BULB_STRIDE instead would refuse the whole campath, route and map
     ''' lights included, the moment the record grew. Same rule as
-    ''' LIGHT_STRIDE above, which is likewise the minimum, not the size this
-    ''' version writes.</summary>
+    ''' LIGHT_STRIDE_MIN above.</summary>
     Private Const BULB_STRIDE_MIN As Integer = 224
     Private Const BULB_NAME_LEN As Integer = 160
 
@@ -101,9 +107,12 @@ Public Class MapCamPath
         ''' before the field are 32 bytes a light and read as 0.</summary>
         Public curve As Integer
 
-        ' The fields below exist for BULB lights - lights a model carries, one
-        ' per instance (ExpandBulbs). A map light from the file has kind 0,
-        ' vol_mix 1 and absolute False.
+        ' The fields below are shared with BULB lights - lights a model
+        ' carries, one per instance (ExpandBulbs) - and are read from the file
+        ' for a map light too, from the 72-byte record. A light written before
+        ' those fields existed reads back as kind 0 aimed down with vol_mix 1,
+        ' which is what every map light was until the record grew. `absolute`
+        ' stays False either way: a map light's Y is always above the terrain.
         ''' <summary>0 point, 1 cone, 2 inverse cone, 3 dual cowled.</summary>
         Public kind As Integer
         ''' <summary>World unit direction a cone looks along.</summary>
@@ -661,8 +670,8 @@ Public Class MapCamPath
                 Return
             End If
             ' A count with no stride is a corrupt header, not an old file.
-            If light_count > 0 AndAlso light_stride < LIGHT_STRIDE Then
-                LogThis("cam path: light stride {0} is smaller than {1}", light_stride, LIGHT_STRIDE)
+            If light_count > 0 AndAlso light_stride < LIGHT_STRIDE_MIN Then
+                LogThis("cam path: light stride {0} is smaller than {1}", light_stride, LIGHT_STRIDE_MIN)
                 Return
             End If
             If bulb_count > 0 AndAlso bulb_stride < BULB_STRIDE_MIN Then
@@ -727,8 +736,40 @@ Public Class MapCamPath
                 ' a light and reads as curve 0 without a special case.
                 lights(i).curve = If(light_stride >= 36,
                                      CInt(Math.Min(2UI, BitConverter.ToUInt32(raw, o + 32))), 0)
-                lights(i).vol_mix = 1.0F
-                lights(i).dir = -Vector3.UnitY
+                ' The shape fields came after the 36-byte record, and the
+                ' same rule again: by the stride the file declares. Until this
+                ' read existed every map light was a point aimed straight down
+                ' no matter what Path Studio had authored, so a file from
+                ' before them takes exactly the values nuTerra used to assume
+                ' and nothing already on a map changes.
+                If light_stride >= LIGHT_STRIDE Then
+                    lights(i).kind = CInt(Math.Min(CUInt(BULB_KIND_MAX),
+                                                   BitConverter.ToUInt32(raw, o + 36)))
+                    ' aim is an OFFSET from the light in metres, not the point it
+                    ' looks at, so a light can be dragged around the map without
+                    ' being re-aimed. dir is the unit direction every consumer
+                    ' reads, so the normalise happens once, here. A zero offset
+                    ' is "never aimed" rather than a direction: normalising it
+                    ' would put a NaN into the cone test and unlight the light.
+                    Dim aim = New Vector3(BitConverter.ToSingle(raw, o + 40),
+                                          BitConverter.ToSingle(raw, o + 44),
+                                          BitConverter.ToSingle(raw, o + 48))
+                    lights(i).dir = If(aim.LengthSquared > 0.000001F,
+                                       Vector3.Normalize(aim), -Vector3.UnitY)
+                    lights(i).cone = BitConverter.ToSingle(raw, o + 52)
+                    lights(i).blend = BitConverter.ToSingle(raw, o + 56)
+                    lights(i).ang0 = BitConverter.ToSingle(raw, o + 60)
+                    lights(i).ang1 = BitConverter.ToSingle(raw, o + 64)
+                    lights(i).vol_mix = BitConverter.ToSingle(raw, o + 68)
+                Else
+                    lights(i).kind = 0
+                    lights(i).dir = -Vector3.UnitY
+                    lights(i).cone = 0.0F
+                    lights(i).blend = 0.0F
+                    lights(i).ang0 = 0.0F
+                    lights(i).ang1 = 0.0F
+                    lights(i).vol_mix = 1.0F
+                End If
                 ' -1, explicitly, NOT the structure's zero - a map light is carried
                 ' by no model, and zero is a real instance index that would then be
                 ' dropped from the light's cube.

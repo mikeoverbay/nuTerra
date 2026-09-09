@@ -183,8 +183,17 @@ controls this panel has, a "Show shape" side view, and the fog curve editor.
 The aim is stored as an OFFSET from the light in metres, not a point, so a
 light can be moved without re-aiming it; a reader normalises it.
 
-**`MapCamPath.vb` does not read the new fields yet.** It goes by
-`light_stride` and reads the first 36 bytes, so every map light still lands as
-a point aimed down with `vol_mix` 1 - exactly as before - until the reader is
-extended to take kind, dir, cone, blend, ang0, ang1 and vol_mix from offset 36
-when the stride is 72 or more.
+`MapCamPath.vb` reads them. When `light_stride >= LIGHT_STRIDE` (72) the
+loader takes kind, aim, cone, blend, ang0, ang1 and vol_mix from offset 36 and
+normalises the aim offset into `dir`; a shorter stride still reads back as the
+point aimed down with `vol_mix` 1 that every map light was before, so nothing
+already authored changes. From there a map light and a bulb light are the same
+record: `upload_path_lights` and the shaft pass read `kind` / `dir` / the
+angles through `cone_cosines` without caring which one placed it.
+
+The guard on the header used to compare `light_stride` against a constant
+named `LIGHT_STRIDE` that held 32 - the minimum, not the size. It is now
+`LIGHT_STRIDE_MIN` 32 for the guard and `LIGHT_STRIDE` 72 for the "has the
+shape fields" test, matching the bulb record's pair. Collapsing the two would
+refuse every campath written before the shape fields, route included - the
+same trap `BULB_STRIDE_MIN` was split to avoid.
