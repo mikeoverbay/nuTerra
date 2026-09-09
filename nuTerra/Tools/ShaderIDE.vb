@@ -57,7 +57,11 @@ Public Class ShaderIDE
     Private Shared pendingClose As Boolean = False
     Private Shared pendingSwitch As Shader = Nothing
     Private Shared askRevert As Boolean = False
-    Private Const MAX_TEXT As UInteger = 1024 * 1024
+    ''' <summary>The smallest native buffer an editor asks for. The real one
+    ''' is sized to the file - see DrawEditor.</summary>
+    Private Const MIN_TEXT_CAP As Long = 64 * 1024
+    ''' <summary>Space either side of the line numbers, pixels.</summary>
+    Private Const GUTTER_PAD As Single = 6.0F
 
     ' ---- colours (ABGR as ImGui packs them) --------------------------------
     Private Shared ReadOnly C_DEFAULT As UInteger = Pack(214, 214, 214)
@@ -68,6 +72,7 @@ Public Class ShaderIDE
     Private Shared ReadOnly C_COMMENT As UInteger = Pack(106, 153, 85)
     Private Shared ReadOnly C_PREPROC As UInteger = Pack(197, 134, 192)
     Private Shared ReadOnly C_STRING As UInteger = Pack(206, 145, 120)
+    Private Shared ReadOnly C_GUTTER As UInteger = Pack(110, 118, 128)
 
     Private Shared Function Pack(r As Integer, g As Integer, b As Integer) As UInteger
         Return CUInt(&HFF000000UI Or (CUInt(b) << 16) Or (CUInt(g) << 8) Or CUInt(r))
@@ -184,20 +189,42 @@ Public Class ShaderIDE
         End If
     End Sub
 
-    ''' <summary>The editable box with the highlight painted over it.</summary>
+    ''' <summary>The line-number gutter, the editable box, and the highlight
+    ''' painted over it.</summary>
     Private Shared Sub DrawEditor(st As Stage, height As Single)
         Dim mono = ImGuiController.HAS_MONO
         If mono Then ImGui.PushFont(ImGuiController.MONO_FONT)
 
         Dim label = "##src_" & st.label
+
+        ' The gutter is RESERVED here, before the box, rather than painted over
+        ' it - so the numbers and the text can never overlap however long a
+        ' line gets - and its width follows the line count, because a
+        ' four-figure shader needs a wider column than a two-figure one. The
+        ' tokens are wanted for the count anyway; EnsureHighlight is the same
+        ' call the paint makes and returns immediately the second time.
+        EnsureHighlight(st)
+        Dim charW = ImGui.CalcTextSize("M").X
+        Dim digits = Math.Max(3, st.lines.Count.ToString().Length)
+        Dim gutterW = charW * digits + 2.0F * GUTTER_PAD
+        Dim gutterX = ImGui.GetCursorScreenPos().X
+        ImGui.Dummy(New Num.Vector2(gutterW, height))
+        ImGui.SameLine(0.0F, 0.0F)
+
         Dim size As New Num.Vector2(-1, height)
 
         ' The input draws its own text transparent; the overlay below draws it
         ' coloured. Cursor and selection stay ImGui's, in the normal colours.
         ImGui.PushStyleColor(ImGuiCol.Text, New Num.Vector4(0, 0, 0, 0))
-        Dim before = st.text
         Dim buf = st.text
-        Dim edited = ImGui.InputTextMultiline(label, buf, MAX_TEXT, size, ImGuiInputTextFlags.AllowTabInput)
+        ' Sized to the FILE, not a flat megabyte. This overload copies the text
+        ' into a native buffer of the size asked for - and a second one beside
+        ' it to diff against - on every frame the editor is open, so a fixed
+        ' 1 MB cap meant two megabyte allocations and two megabyte copies per
+        ' stage per frame while typing. Twice the text plus a page of headroom
+        ' leaves room to paste into and grows with what is there.
+        Dim cap = CUInt(Math.Max(MIN_TEXT_CAP, CLng(st.text.Length) * 2L + 4096L))
+        Dim edited = ImGui.InputTextMultiline(label, buf, cap, size, ImGuiInputTextFlags.AllowTabInput)
         ImGui.PopStyleColor()
         If edited Then
             st.text = buf
@@ -226,27 +253,57 @@ Public Class ShaderIDE
         ' position, size and flags are only applied on a window's first Begin
         ' of the frame - so the geometry stays the input's, and the flags below
         ' matter only in the case where the input was clipped away entirely.
+        '
+        ' The numbers cannot be painted in here with the text: this child clips
+        ' to the text area and the gutter is outside it. What the paint works
+        ' out about scroll and geometry is carried back out instead, so the two
+        ' read the same origin and cannot drift apart.
+        Dim haveView = False
+        Dim originY As Single = 0.0F, lineH As Single = 0.0F
+        Dim firstLine As Integer = 0, lastLine As Integer = -1
+        Dim boxTop As Single = 0.0F, boxBot As Single = 0.0F
+
         Dim flags = ImGuiWindowFlags.NoScrollbar Or ImGuiWindowFlags.NoScrollWithMouse Or ImGuiWindowFlags.NoNav Or ImGuiWindowFlags.NoInputs
         If ImGui.BeginChild(label, New Num.Vector2(0, 0), False, flags) Then
             Dim dl = ImGui.GetWindowDrawList()
             Dim pad = ImGui.GetStyle().FramePadding
             Dim origin = ImGui.GetWindowPos() + pad - New Num.Vector2(ImGui.GetScrollX(), ImGui.GetScrollY())
-            Dim lineH = ImGui.GetTextLineHeight()
-            Dim charW = ImGui.CalcTextSize("M").X
+            lineH = ImGui.GetTextLineHeight()
             Dim viewTop = ImGui.GetWindowPos().Y
             Dim viewBot = viewTop + ImGui.GetWindowSize().Y
 
-            EnsureHighlight(st)
-            Dim firstLine = Math.Max(0, CInt(Math.Floor((viewTop - origin.Y) / lineH)) - 1)
-            Dim lastLine = Math.Min(st.lines.Count - 1, CInt(Math.Ceiling((viewBot - origin.Y) / lineH)) + 1)
+            firstLine = Math.Max(0, CInt(Math.Floor((viewTop - origin.Y) / lineH)) - 1)
+            lastLine = Math.Min(st.lines.Count - 1, CInt(Math.Ceiling((viewBot - origin.Y) / lineH)) + 1)
             For i = firstLine To lastLine
                 Dim y = origin.Y + i * lineH
                 For Each t In st.lines(i)
                     dl.AddText(New Num.Vector2(origin.X + t.col * charW, y), t.color, t.text)
                 Next
             Next
+
+            originY = origin.Y
+            boxTop = viewTop
+            boxBot = viewBot
+            haveView = True
         End If
         ImGui.EndChild()
+
+        ' The numbers, in the PARENT window's draw list, on the text's own
+        ' baseline and the text's own scroll - so a number cannot slide off its
+        ' line - clipped to the box so they stop at its top and bottom edges,
+        ' and right aligned, which is how an editor sets them. Only the lines
+        ' the paint above decided were visible.
+        If haveView Then
+            Dim gdl = ImGui.GetWindowDrawList()
+            gdl.PushClipRect(New Num.Vector2(gutterX, boxTop),
+                             New Num.Vector2(gutterX + gutterW, boxBot), True)
+            For i = firstLine To lastLine
+                Dim n = (i + 1).ToString()
+                gdl.AddText(New Num.Vector2(gutterX + gutterW - GUTTER_PAD - n.Length * charW,
+                                            originY + i * lineH), C_GUTTER, n)
+            Next
+            gdl.PopClipRect()
+        End If
 
         If mono Then ImGui.PopFont()
         If Not mono Then ImGui.TextDisabled("(no monospaced font found - highlight positions are approximate)")
