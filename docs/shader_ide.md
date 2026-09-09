@@ -10,9 +10,9 @@ frame.
   folder its files live in under `shaders\` (`Final_render`, `Model_shaders`,
   `Tanks`, ...). The current one is marked `>`.
 * **A tab per stage** the program has: `vert`, `tesc`, `tese`, `geom`, `comp`,
-  `frag`. A `*` on the tab means edited since the last compile. Each tab is an
-  editable text box with GLSL highlighting and a line-number gutter; Tab
-  inserts a tab.
+  `frag`. A `*` on the tab means edited since the last compile. Each tab is a
+  full editor - line numbers, syntax colouring, selection, undo/redo, and
+  error markers on the lines a failed compile named.
 * **Bottom bar**: Compile, Reload from disk, Revert to opened copy, Exit, the
   status, and the compiler's own message in a scrollable box.
 
@@ -41,57 +41,56 @@ asks whether to revert first: *Revert then continue*, *Keep files*, or
 *Cancel*. The files on disk at that point hold the last text that compiled
 this session, never the failed one.
 
-## The highlighter
+## The editor
 
-`InputTextMultiline` cannot colour its own text. The box is drawn with a
-transparent text colour and the tokens are painted over it in the same
-monospaced font at the same scroll, by re-entering the input's own child
-window and reading its scroll. Cursor and selection are ImGui's.
+The text box is **ImGuiColorTextEditNet** (`TextEditor`), the C# port of
+ImGuiColorTextEdit. One instance per stage, created in `LoadStages` by
+`NewEditor` and kept for the life of the stage - it holds its own text, cursor,
+selection and undo stack across frames, so it is state, not an immediate-mode
+call.
 
-**Re-enter that child BY LABEL, never by id.** A child window's identity is
-its title, and `BeginChildEx` builds it two ways: `parent/name_id` when it is
-given a name, `parent/id` when it is not. `InputTextEx` makes its multiline
-child with `BeginChildEx(label, id, ...)` - it passes the label on purpose, so
-the window reads sensibly in the metrics view - while the `BeginChild` overload
-taking an `ImGuiID` passes no name at all. Matching the id alone therefore
-misses, and what looks like a re-entry silently opens a SECOND child at the
-parent's cursor, below the box: every line of highlight lands in the strip at
-the bottom of the window and the editor, whose own text is transparent, looks
-empty. Appending to the right window is a supported path - `EndChild` checks
-`BeginCount > 1` and skips re-emitting the item into the parent, and position,
-size and flags apply only on a window's first `Begin` of the frame, so the
-geometry stays the input's. Only the
-visible lines are painted; the whole text is re-tokenised when it changes,
-which is a few thousand lines in well under a millisecond. Block comments
-carry across lines; everything else is per line. Tabs are expanded to four
-columns for both the measurement and the paint, which is how ImGui lays them
-out.
+It draws its own line-number gutter, cursor, selection, current-line highlight
+and error markers, and handles its own keys. Nothing is painted over it.
 
-## The gutter
+- **Reading the text back** costs a join of every line, so it happens only when
+  `editor.Version` changes - that counter ticks on each modification.
+- **Writing text in** from outside - a load, a revert - must go through
+  `SetStageText`, which sets both `st.text` and `editor.AllText`. Set one
+  without the other and the widget keeps showing what it had, then the next
+  keystroke writes the stale copy back.
+- The palette is set to the colours the old hand-rolled highlighter used, so
+  the swap did not also change what the code looks like.
 
-Reserved to the left of the box with a `Dummy` before it, never painted over
-it, so numbers and text cannot collide however long a line gets. Its width
-follows the line count - three figures minimum, wider when the file needs it.
+### GLSL is highlighted as C, and why
 
-The numbers go in the PARENT window's draw list, not the input's child: the
-child clips to the text area and the gutter is outside that. So the paint
-inside the child carries its origin, line height, scroll and visible line span
-back out, and the gutter draws on exactly the same baseline - a number cannot
-slide off its line, because both come from one set of numbers. They are
-clipped to the box's top and bottom edges and right aligned.
+`CStyleHighlighter` is the only highlighter the package ships. It carries a
+`LanguageDefinition.Glsl()`, but **nothing in the package consumes a
+`LanguageDefinition`** - the regex-driven highlighting was never ported from
+the C++ original.
 
-## The edit buffer
+Writing our own is not possible from VB: `ISyntaxHighlighter.Colorize` takes a
+`Span(Of Glyph)`, and VB has no way to name a ByRef-like type in a signature.
+So comments, strings, numbers, the preprocessor and C's keywords colour
+correctly, while GLSL's own types and builtins - `vec3`, `mat4`, `normalize` -
+read as plain identifiers. Recovering those means a small C# assembly holding
+that one interface, which is the only reason this project would need one.
 
-`InputTextMultiline`'s `ref string` overload copies the text into a native
-buffer of the size asked for, plus a second one beside it to diff against, on
-**every frame** the editor is open. The cap is therefore sized to the file -
-twice its length plus a page - rather than a flat megabyte, which cost two
-megabyte allocations and two megabyte copies per stage per frame while typing.
+## Compile errors land on their lines
 
-The monospaced face is Consolas from `C:\Windows\Fonts`, added in
-`ImGuiController` when present (`ImGuiController.MONO_FONT`). Without it the
-IDE falls back to the UI font and says so - the highlight will drift on long
-lines because the columns no longer line up.
+A failed compile puts each driver message on the line it names, as an error
+marker in the gutter with the message as its tooltip, and scrolls that stage's
+editor to the first one. The status line names the stage and line.
+
+Two things make this possible. `ShaderLoader.gl_error` prefixes each stage's
+log with `<name>_vertex didn't compile!` and the like, so the text arrives
+already divided by stage - that header is what says which editor a line number
+belongs to. And the line itself is matched against both vendor spellings:
+NVIDIA's `0(123) : error C1503:` and the Mesa / AMD family's
+`ERROR: 0:123:`. Anything matching neither still shows in the box below; it
+just gets no marker.
+
+Markers are cleared at the top of every compile, so a fixed error stops being
+flagged the moment it compiles.
 
 ## Core touch points
 
@@ -102,21 +101,12 @@ Four, all small: `LAST_SHADER_ERROR` and `gl_error` appending to it, and the
 
 ## Not yet
 
-Undo beyond ImGui's own, find/replace, jumping to the line an error names,
-editing `common.h` (an include, not a program). Those want a real text-editor
-widget rather than `InputTextMultiline`, which has no API for the cursor
-position, the selection or an undo stack - see the note below.
+Find/replace, and editing `common.h` (an include, not a program). Undo/redo,
+a line-number gutter and go-to-the-failing-line arrived with the editor swap.
 
-## If this needs to become a real editor
-
-`InputTextMultiline` gives no way to read the caret, the selection or an undo
-history, so find/replace and go-to-line cannot be built on it honestly. Two
-ways out, neither taken yet:
-
-* **ImGuiColorTextEdit**, the usual answer, is C++. It would have to be built
-  into `nuTerraCPP` and hand-bound, against the same ImGui build ImGui.NET
-  1.87.2 wraps - and ImGui.NET exposes no pointer-taking overloads that VB can
-  call, so the binding would have to carry its own surface.
-* **A separate editor window** - ScintillaNET or AvalonEdit in a WinForms
-  form - gets line numbers, folding, find/replace and undo for free, at the
-  cost of leaving the in-app overlay the IDE was built to be.
+Selecting a tab from code is also out of reach: it needs
+`ImGuiTabItemFlags.SetSelected`, and every ImGui.NET `BeginTabItem` overload
+that takes flags also takes `p_open` by reference, with no way to pass the null
+ImGui reads as "no close button". Asking for the flag would put an X on every
+tab, so a failed compile names its stage in the status line instead of jumping
+to it.

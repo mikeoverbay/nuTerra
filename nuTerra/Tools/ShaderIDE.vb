@@ -2,6 +2,8 @@
 Imports System.Text
 Imports System.Windows.Forms
 Imports ImGuiNET
+Imports ImGuiColorTextEditNet
+Imports ImGuiColorTextEditNet.Syntax
 Imports OpenTK.Graphics.OpenGL4
 Imports Num = System.Numerics
 
@@ -38,15 +40,16 @@ Public Class ShaderIDE
         Public text As String = ""
         Public original As String = ""
         Public dirty As Boolean
-        Public lines As New List(Of List(Of Token))   ' highlight cache
-        Public cachedFor As String = Nothing
+        ''' <summary>The editor widget. It keeps its own text, cursor,
+        ''' selection and undo stack across frames, so it is per stage and
+        ''' lives as long as the stage does.</summary>
+        Public editor As TextEditor
+        ''' <summary>The editor's Version at the last pull. It ticks on every
+        ''' modification, so comparing it is how we know to read AllText back
+        ''' - which joins every line and is not something to do per frame.
+        ''' </summary>
+        Public lastVersion As Long
     End Class
-
-    Private Structure Token
-        Public col As Integer
-        Public text As String
-        Public color As UInteger
-    End Structure
 
     Private Shared current As Shader = Nothing
     Private Shared stages As New List(Of Stage)
@@ -57,11 +60,6 @@ Public Class ShaderIDE
     Private Shared pendingClose As Boolean = False
     Private Shared pendingSwitch As Shader = Nothing
     Private Shared askRevert As Boolean = False
-    ''' <summary>The smallest native buffer an editor asks for. The real one
-    ''' is sized to the file - see DrawEditor.</summary>
-    Private Const MIN_TEXT_CAP As Long = 64 * 1024
-    ''' <summary>Space either side of the line numbers, pixels.</summary>
-    Private Const GUTTER_PAD As Single = 6.0F
 
     ' ---- colours (ABGR as ImGui packs them) --------------------------------
     Private Shared ReadOnly C_DEFAULT As UInteger = Pack(214, 214, 214)
@@ -78,24 +76,6 @@ Public Class ShaderIDE
         Return CUInt(&HFF000000UI Or (CUInt(b) << 16) Or (CUInt(g) << 8) Or CUInt(r))
     End Function
 
-    Private Shared ReadOnly KEYWORDS As New HashSet(Of String)({
-        "if", "else", "for", "while", "do", "return", "discard", "break", "continue", "switch", "case", "default",
-        "in", "out", "inout", "uniform", "layout", "const", "flat", "smooth", "noperspective", "varying", "attribute",
-        "buffer", "shared", "subroutine", "precision", "highp", "mediump", "lowp", "struct", "true", "false",
-        "binding", "location", "std140", "std430", "early_fragment_tests", "readonly", "writeonly", "coherent", "volatile", "restrict"})
-    Private Shared ReadOnly TYPES As New HashSet(Of String)({
-        "void", "bool", "int", "uint", "float", "double",
-        "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4", "uvec2", "uvec3", "uvec4", "bvec2", "bvec3", "bvec4", "dvec2", "dvec3", "dvec4",
-        "mat2", "mat3", "mat4", "mat2x2", "mat3x3", "mat4x4", "mat3x4", "mat4x3",
-        "sampler1D", "sampler2D", "sampler3D", "samplerCube", "sampler2DArray", "samplerCubeArray", "sampler2DShadow", "samplerCubeArrayShadow", "sampler2DArrayShadow",
-        "isampler2D", "usampler2D", "image2D", "atomic_uint"})
-    Private Shared ReadOnly BUILTINS As New HashSet(Of String)({
-        "gl_Position", "gl_FragCoord", "gl_VertexID", "gl_InstanceID", "gl_FragDepth", "gl_PointSize", "gl_BaseInstanceARB", "gl_DrawID",
-        "texture", "textureLod", "texelFetch", "textureSize", "textureGrad", "textureProj",
-        "normalize", "dot", "cross", "mix", "clamp", "pow", "exp", "exp2", "log", "log2", "sqrt", "inversesqrt",
-        "max", "min", "abs", "sign", "length", "distance", "reflect", "refract", "smoothstep", "step", "fract", "floor", "ceil", "round", "mod",
-        "sin", "cos", "tan", "asin", "acos", "atan", "inverse", "transpose", "dFdx", "dFdy", "fwidth", "any", "all", "not",
-        "greaterThan", "lessThan", "equal", "atomicCounterIncrement", "imageStore", "imageLoad", "barrier", "main"})
 
     ' ------------------------------------------------------------------------
     ''' <summary>Draw the window. Called once per ImGui frame from Window.vb.</summary>
@@ -180,6 +160,12 @@ Public Class ShaderIDE
         If ImGui.BeginTabBar("##stages", ImGuiTabBarFlags.None) Then
             For Each st In stages
                 Dim title = st.label & If(st.dirty, "*", "") & "###tab_" & st.label
+                ' The plain overload, deliberately. Selecting a tab from code
+                ' needs ImGuiTabItemFlags.SetSelected, and every ImGui.NET
+                ' BeginTabItem overload that takes flags also takes p_open by
+                ' reference - it has no way to pass the null ImGui reads as "no
+                ' close button", so asking for the flag would put an X on every
+                ' tab. The failing stage is named in the status line instead.
                 If ImGui.BeginTabItem(title) Then
                     DrawEditor(st, editorH)
                     ImGui.EndTabItem()
@@ -189,124 +175,28 @@ Public Class ShaderIDE
         End If
     End Sub
 
-    ''' <summary>The line-number gutter, the editable box, and the highlight
-    ''' painted over it.</summary>
+    ''' <summary>The editor widget for one stage.</summary>
     Private Shared Sub DrawEditor(st As Stage, height As Single)
         Dim mono = ImGuiController.HAS_MONO
         If mono Then ImGui.PushFont(ImGuiController.MONO_FONT)
 
-        Dim label = "##src_" & st.label
+        ' The widget draws its own gutter, cursor, selection and highlight, and
+        ' handles its own keys - so there is nothing to paint over it and no
+        ' scroll to chase. Width 0 is ImGui's "fill what is left".
+        st.editor.Renderer.IsShowingWhitespace = False
+        st.editor.Render("##src_" & st.label, New Num.Vector2(0, height))
 
-        ' The gutter is RESERVED here, before the box, rather than painted over
-        ' it - so the numbers and the text can never overlap however long a
-        ' line gets - and its width follows the line count, because a
-        ' four-figure shader needs a wider column than a two-figure one. The
-        ' tokens are wanted for the count anyway; EnsureHighlight is the same
-        ' call the paint makes and returns immediately the second time.
-        EnsureHighlight(st)
-        Dim charW = ImGui.CalcTextSize("M").X
-        Dim digits = Math.Max(3, st.lines.Count.ToString().Length)
-        Dim gutterW = charW * digits + 2.0F * GUTTER_PAD
-        Dim gutterX = ImGui.GetCursorScreenPos().X
-        ImGui.Dummy(New Num.Vector2(gutterW, height))
-        ImGui.SameLine(0.0F, 0.0F)
-
-        Dim size As New Num.Vector2(-1, height)
-
-        ' The input draws its own text transparent; the overlay below draws it
-        ' coloured. Cursor and selection stay ImGui's, in the normal colours.
-        ImGui.PushStyleColor(ImGuiCol.Text, New Num.Vector4(0, 0, 0, 0))
-        Dim buf = st.text
-        ' Sized to the FILE, not a flat megabyte. This overload copies the text
-        ' into a native buffer of the size asked for - and a second one beside
-        ' it to diff against - on every frame the editor is open, so a fixed
-        ' 1 MB cap meant two megabyte allocations and two megabyte copies per
-        ' stage per frame while typing. Twice the text plus a page of headroom
-        ' leaves room to paste into and grows with what is there.
-        Dim cap = CUInt(Math.Max(MIN_TEXT_CAP, CLng(st.text.Length) * 2L + 4096L))
-        Dim edited = ImGui.InputTextMultiline(label, buf, cap, size, ImGuiInputTextFlags.AllowTabInput)
-        ImGui.PopStyleColor()
-        If edited Then
-            st.text = buf
+        ' Pull the text back only when it actually changed. Version ticks on
+        ' every edit; AllText joins every line, so reading it per frame would
+        ' cost the same as the megabyte copy this widget replaced.
+        If st.editor.Version <> st.lastVersion Then
+            st.lastVersion = st.editor.Version
+            st.text = st.editor.AllText
             st.dirty = (st.text <> st.original)
         End If
 
-        ' Re-enter the input's own child window to paint at its scroll.
-        '
-        ' BY LABEL, not by ID. A child window's identity is its TITLE, and
-        ' BeginChildEx builds that title two different ways: "parent/name_id"
-        ' when it is given a name, "parent/id" when it is not. InputTextEx
-        ' makes its multiline child with BeginChildEx(label, id, ...) - it
-        ' passes the label deliberately, so the window is readable in the
-        ' metrics window - and the ImGui.BeginChild overload that takes an
-        ' ImGuiID passes no name at all. Matching only the id therefore misses:
-        ' the two titles differ, so instead of re-entering the editor's child
-        ' this opened a SECOND child at the parent's cursor, below the box.
-        ' Every line of highlight landed in that strip at the bottom of the
-        ' window and the editor - whose own text is drawn transparent - looked
-        ' empty. The string overload hashes this same label for the id and
-        ' passes it as the name, so both halves of the title match and this is
-        ' an append to the window the input already opened.
-        '
-        ' Appending is a supported path, not a trick: EndChild checks
-        ' BeginCount > 1 and skips re-emitting the item into the parent, and
-        ' position, size and flags are only applied on a window's first Begin
-        ' of the frame - so the geometry stays the input's, and the flags below
-        ' matter only in the case where the input was clipped away entirely.
-        '
-        ' The numbers cannot be painted in here with the text: this child clips
-        ' to the text area and the gutter is outside it. What the paint works
-        ' out about scroll and geometry is carried back out instead, so the two
-        ' read the same origin and cannot drift apart.
-        Dim haveView = False
-        Dim originY As Single = 0.0F, lineH As Single = 0.0F
-        Dim firstLine As Integer = 0, lastLine As Integer = -1
-        Dim boxTop As Single = 0.0F, boxBot As Single = 0.0F
-
-        Dim flags = ImGuiWindowFlags.NoScrollbar Or ImGuiWindowFlags.NoScrollWithMouse Or ImGuiWindowFlags.NoNav Or ImGuiWindowFlags.NoInputs
-        If ImGui.BeginChild(label, New Num.Vector2(0, 0), ImGuiChildFlags.None, flags) Then
-            Dim dl = ImGui.GetWindowDrawList()
-            Dim pad = ImGui.GetStyle().FramePadding
-            Dim origin = ImGui.GetWindowPos() + pad - New Num.Vector2(ImGui.GetScrollX(), ImGui.GetScrollY())
-            lineH = ImGui.GetTextLineHeight()
-            Dim viewTop = ImGui.GetWindowPos().Y
-            Dim viewBot = viewTop + ImGui.GetWindowSize().Y
-
-            firstLine = Math.Max(0, CInt(Math.Floor((viewTop - origin.Y) / lineH)) - 1)
-            lastLine = Math.Min(st.lines.Count - 1, CInt(Math.Ceiling((viewBot - origin.Y) / lineH)) + 1)
-            For i = firstLine To lastLine
-                Dim y = origin.Y + i * lineH
-                For Each t In st.lines(i)
-                    dl.AddText(New Num.Vector2(origin.X + t.col * charW, y), t.color, t.text)
-                Next
-            Next
-
-            originY = origin.Y
-            boxTop = viewTop
-            boxBot = viewBot
-            haveView = True
-        End If
-        ImGui.EndChild()
-
-        ' The numbers, in the PARENT window's draw list, on the text's own
-        ' baseline and the text's own scroll - so a number cannot slide off its
-        ' line - clipped to the box so they stop at its top and bottom edges,
-        ' and right aligned, which is how an editor sets them. Only the lines
-        ' the paint above decided were visible.
-        If haveView Then
-            Dim gdl = ImGui.GetWindowDrawList()
-            gdl.PushClipRect(New Num.Vector2(gutterX, boxTop),
-                             New Num.Vector2(gutterX + gutterW, boxBot), True)
-            For i = firstLine To lastLine
-                Dim n = (i + 1).ToString()
-                gdl.AddText(New Num.Vector2(gutterX + gutterW - GUTTER_PAD - n.Length * charW,
-                                            originY + i * lineH), C_GUTTER, n)
-            Next
-            gdl.PopClipRect()
-        End If
-
         If mono Then ImGui.PopFont()
-        If Not mono Then ImGui.TextDisabled("(no monospaced font found - highlight positions are approximate)")
+        If Not mono Then ImGui.TextDisabled("(no monospaced font found - the editor is drawn in the UI font)")
     End Sub
 
     ' ------------------------------------------------------------------------
@@ -349,6 +239,8 @@ Public Class ShaderIDE
             st.text = File.ReadAllText(pair.p)
             st.original = st.text
             st.dirty = False
+            st.editor = NewEditor(st.text)
+            st.lastVersion = st.editor.Version
             stages.Add(st)
         Next
         current = s
@@ -357,6 +249,59 @@ Public Class ShaderIDE
         errorText = ""
         status = String.Format("{0}: {1} stage(s) loaded{2}", s.name, stages.Count,
                                If(stages.Count > 0 AndAlso stages(0).srcPath Is Nothing, "  (project copy not found - bin only)", ""))
+    End Sub
+
+    ''' <summary>
+    ''' A fresh editor holding <paramref name="text"/>.
+    '''
+    ''' The highlighter is the library's C-style one. It is the ONLY one that
+    ''' ships: the package carries a LanguageDefinition.Glsl() but nothing in
+    ''' it consumes a LanguageDefinition - the regex-driven highlighting was
+    ''' never ported from the C++ original - and ISyntaxHighlighter cannot be
+    ''' implemented here, because its Colorize takes a Span(Of Glyph) and VB
+    ''' has no way to name a ByRef-like type in a signature. So GLSL gets
+    ''' C's comments, strings, numbers, preprocessor and keywords, and its own
+    ''' types and builtins - vec3, normalize - read as plain identifiers.
+    ''' Recovering those means a C# assembly for the one interface.
+    ''' </summary>
+    Private Shared Function NewEditor(text As String) As TextEditor
+        Dim ed As New TextEditor()
+        ed.SyntaxHighlighter = New CStyleHighlighter(True)
+        ed.Options.TabSize = 4
+        ed.Options.IndentWithSpaces = False
+        ed.AllText = If(text, "")
+
+        ' Keep the colours the hand-rolled highlighter used, so the swap does
+        ' not also change what the code looks like.
+        ed.SetColor(PaletteIndex.Default, C_DEFAULT)
+        ed.SetColor(PaletteIndex.Keyword, C_KEYWORD)
+        ed.SetColor(PaletteIndex.KnownIdentifier, C_TYPE)
+        ed.SetColor(PaletteIndex.Identifier, C_DEFAULT)
+        ed.SetColor(PaletteIndex.PreprocIdentifier, C_BUILTIN)
+        ed.SetColor(PaletteIndex.Number, C_NUMBER)
+        ed.SetColor(PaletteIndex.String, C_STRING)
+        ed.SetColor(PaletteIndex.CharLiteral, C_STRING)
+        ed.SetColor(PaletteIndex.Comment, C_COMMENT)
+        ed.SetColor(PaletteIndex.MultiLineComment, C_COMMENT)
+        ed.SetColor(PaletteIndex.Preprocessor, C_PREPROC)
+
+        ' The marker's tooltip is the compiler's own line, verbatim.
+        ed.ErrorMarkers.ErrorMarkerFormatter = Function(o As Object) Convert.ToString(o)
+        Return ed
+    End Function
+
+    ''' <summary>Put <paramref name="text"/> into both the stage and its
+    ''' editor. Anything that changes the text from outside the editor - a
+    ''' load, a revert - has to come through here, or the widget keeps showing
+    ''' what it had and the next keystroke writes the stale copy back.</summary>
+    Private Shared Sub SetStageText(st As Stage, text As String)
+        st.text = text
+        If st.editor Is Nothing Then
+            st.editor = NewEditor(text)
+        Else
+            st.editor.AllText = text
+        End If
+        st.lastVersion = st.editor.Version
     End Sub
 
     ''' <summary>
@@ -396,11 +341,13 @@ Public Class ShaderIDE
         LAST_SHADER_ERROR = ""
         Dim trial = assemble_shader(pick("vert"), pick("tesc"), pick("tese"), pick("geom"), pick("comp"), pick("frag"),
                                     current.name & " (ide)", current.DefinesCopy)
+        ClearErrorMarkers()
         If trial = 0 Then
             lastBuildOk = False
             everCompiled = True
             errorText = LAST_SHADER_ERROR.Replace(vbCrLf, vbLf).Replace(vbLf, vbCrLf)
             status = "compile FAILED - nothing written, the old program is still running"
+            MarkErrors(errorText)
             Return
         End If
         GL.DeleteProgram(trial)
@@ -430,11 +377,114 @@ Public Class ShaderIDE
                                If(stages(0).srcPath Is Nothing, " (bin only)", " (bin + project)"))
     End Sub
 
+    Private Shared Sub ClearErrorMarkers()
+        For Each st In stages
+            If st.editor IsNot Nothing Then st.editor.ErrorMarkers.SetErrorMarkers(New Dictionary(Of Integer, Object))
+        Next
+    End Sub
+
+    ''' <summary>
+    ''' Put the driver's complaints on the lines they name.
+    '''
+    ''' ShaderLoader.gl_error prefixes each stage's log with "&lt;name&gt;_vertex
+    ''' didn't compile!" and the like, so the text arrives already divided by
+    ''' stage - that header is what says WHICH editor a line number belongs to,
+    ''' and without it a number is just a number.
+    '''
+    ''' Two line formats, because the vendors disagree: NVIDIA writes
+    ''' "0(123) : error C1503:" and the Mesa / AMD family writes
+    ''' "ERROR: 0:123: ...". Anything that matches neither is still shown in
+    ''' the box below; it simply gets no marker.
+    ''' </summary>
+    Private Shared Sub MarkErrors(text As String)
+        If String.IsNullOrEmpty(text) OrElse stages.Count = 0 Then Return
+
+        Dim marks As New Dictionary(Of String, Dictionary(Of Integer, Object))
+        Dim stage As Stage = Nothing
+        Dim firstBad As String = Nothing
+        Dim firstLine As Integer = -1
+
+        For Each raw In text.Replace(vbCrLf, vbLf).Split(ControlChars.Lf)
+            Dim line = raw.Trim()
+            If line.Length = 0 Then Continue For
+
+            If line.IndexOf("didn't compile!", StringComparison.OrdinalIgnoreCase) >= 0 Then
+                stage = StageForHeader(line)
+                Continue For
+            End If
+            If stage Is Nothing Then Continue For
+
+            Dim n = LineNumberIn(line)
+            If n <= 0 Then Continue For
+            If Not marks.ContainsKey(stage.label) Then marks(stage.label) = New Dictionary(Of Integer, Object)
+            ' First complaint per line wins - later ones are usually knock-ons
+            ' of the same mistake and the marker shows one string.
+            If Not marks(stage.label).ContainsKey(n) Then marks(stage.label)(n) = line
+            If firstBad Is Nothing Then
+                firstBad = stage.label
+                firstLine = n
+            End If
+        Next
+
+        For Each st In stages
+            If st.editor Is Nothing Then Continue For
+            If marks.ContainsKey(st.label) Then st.editor.ErrorMarkers.SetErrorMarkers(marks(st.label))
+        Next
+
+        ' Say where it went wrong, and park that editor at the line so the
+        ' tab is already showing it when it is clicked.
+        If firstBad IsNot Nothing Then
+            For Each st In stages
+                If st.label = firstBad AndAlso st.editor IsNot Nothing Then st.editor.ScrollToLine(firstLine)
+            Next
+            status = String.Format("compile FAILED in {0} at line {1} - nothing written, the old program is still running",
+                                   firstBad, firstLine)
+        End If
+    End Sub
+
+    ''' <summary>Which stage a "... didn't compile!" header is talking about.
+    ''' The vertex, fragment and geometry logs are named by gl_error from the
+    ''' program name; the tessellation ones carry the file name, so match on
+    ''' the extension there.</summary>
+    Private Shared Function StageForHeader(header As String) As Stage
+        Dim h = header.ToLowerInvariant()
+        Dim want As String = Nothing
+        If h.Contains("_vertex") OrElse h.Contains(".vert") Then
+            want = "vert"
+        ElseIf h.Contains("_fragment") OrElse h.Contains(".frag") Then
+            want = "frag"
+        ElseIf h.Contains("_geo") OrElse h.Contains(".geom") Then
+            want = "geom"
+        ElseIf h.Contains(".tesc") Then
+            want = "tesc"
+        ElseIf h.Contains(".tese") Then
+            want = "tese"
+        ElseIf h.Contains("_comp") OrElse h.Contains(".comp") Then
+            want = "comp"
+        End If
+        If want Is Nothing Then Return Nothing
+        For Each st In stages
+            If st.label = want Then Return st
+        Next
+        Return Nothing
+    End Function
+
+    ''' <summary>The source line a driver message names, or -1.</summary>
+    Private Shared Function LineNumberIn(line As String) As Integer
+        ' NVIDIA: 0(123) : error C1503: ...
+        Dim m = Text.RegularExpressions.Regex.Match(line, "^\d+\((\d+)\)")
+        If m.Success Then Return CInt(m.Groups(1).Value)
+        ' Mesa / AMD: ERROR: 0:123: ...
+        m = Text.RegularExpressions.Regex.Match(line, "^(?:ERROR|WARNING):\s*\d+:(\d+):")
+        If m.Success Then Return CInt(m.Groups(1).Value)
+        Return -1
+    End Function
+
     ''' <summary>Put the opened copy back - in the editor, on disk, and in the live program.</summary>
     Private Shared Sub RevertToOriginal()
         If current Is Nothing Then Return
         For Each st In stages
-            st.text = st.original
+            SetStageText(st, st.original)
             st.dirty = False
             File.WriteAllText(st.binPath, st.original)
             If st.srcPath IsNot Nothing Then File.WriteAllText(st.srcPath, st.original)
@@ -509,97 +559,4 @@ Public Class ShaderIDE
         End If
     End Sub
 
-    ' ------------------------------------------------------------------------
-    ' Highlighting. Re-tokenised only when the text changed; block comments
-    ' carry across lines, everything else is per line.
-    ' ------------------------------------------------------------------------
-    Private Shared Sub EnsureHighlight(st As Stage)
-        If ReferenceEquals(st.cachedFor, st.text) Then Return
-        st.lines.Clear()
-        Dim inBlock = False
-        For Each raw In st.text.Split(ControlChars.Lf)
-            Dim line = raw.TrimEnd(ControlChars.Cr)
-            st.lines.Add(TokenizeLine(line, inBlock))
-        Next
-        st.cachedFor = st.text
-    End Sub
-
-    Private Shared Function TokenizeLine(line As String, ByRef inBlock As Boolean) As List(Of Token)
-        Dim toks As New List(Of Token)
-        Dim n = line.Length
-        Dim i = 0
-        ' Tabs: ImGui renders a tab as up to 4 columns; keep the overlay in step
-        ' by expanding to spaces for both measurement and drawing.
-        If line.IndexOf(ControlChars.Tab) >= 0 Then
-            Dim sb As New StringBuilder
-            For Each ch In line
-                If ch = ControlChars.Tab Then sb.Append(" "c, 4 - (sb.Length Mod 4)) Else sb.Append(ch)
-            Next
-            line = sb.ToString() : n = line.Length
-        End If
-        Dim trimmed = line.TrimStart()
-        If Not inBlock AndAlso trimmed.StartsWith("#") Then
-            toks.Add(New Token With {.col = 0, .text = line, .color = C_PREPROC})
-            Return toks
-        End If
-        While i < n
-            If inBlock Then
-                Dim e = line.IndexOf("*/", i, StringComparison.Ordinal)
-                Dim stop_ = If(e < 0, n, e + 2)
-                toks.Add(New Token With {.col = i, .text = line.Substring(i, stop_ - i), .color = C_COMMENT})
-                i = stop_
-                If e >= 0 Then inBlock = False
-                Continue While
-            End If
-            Dim c = line(i)
-            If c = "/"c AndAlso i + 1 < n AndAlso line(i + 1) = "/"c Then
-                toks.Add(New Token With {.col = i, .text = line.Substring(i), .color = C_COMMENT})
-                Exit While
-            End If
-            If c = "/"c AndAlso i + 1 < n AndAlso line(i + 1) = "*"c Then
-                inBlock = True
-                Continue While
-            End If
-            If c = """"c Then
-                Dim e = line.IndexOf(""""c, i + 1)
-                Dim stop_ = If(e < 0, n, e + 1)
-                toks.Add(New Token With {.col = i, .text = line.Substring(i, stop_ - i), .color = C_STRING})
-                i = stop_
-                Continue While
-            End If
-            If Char.IsLetter(c) OrElse c = "_"c Then
-                Dim s = i
-                While i < n AndAlso (Char.IsLetterOrDigit(line(i)) OrElse line(i) = "_"c)
-                    i += 1
-                End While
-                Dim w = line.Substring(s, i - s)
-                Dim col = C_DEFAULT
-                If TYPES.Contains(w) Then
-                    col = C_TYPE
-                ElseIf KEYWORDS.Contains(w) Then
-                    col = C_KEYWORD
-                ElseIf BUILTINS.Contains(w) OrElse w.StartsWith("gl_") Then
-                    col = C_BUILTIN
-                End If
-                toks.Add(New Token With {.col = s, .text = w, .color = col})
-                Continue While
-            End If
-            If Char.IsDigit(c) OrElse (c = "."c AndAlso i + 1 < n AndAlso Char.IsDigit(line(i + 1))) Then
-                Dim s = i
-                While i < n AndAlso (Char.IsLetterOrDigit(line(i)) OrElse line(i) = "."c)
-                    i += 1
-                End While
-                toks.Add(New Token With {.col = s, .text = line.Substring(s, i - s), .color = C_NUMBER})
-                Continue While
-            End If
-            ' punctuation and spaces: emit runs in the default colour
-            Dim ps = i
-            While i < n AndAlso Not (Char.IsLetterOrDigit(line(i)) OrElse line(i) = "_"c OrElse line(i) = "/"c OrElse line(i) = """"c)
-                i += 1
-            End While
-            If i = ps Then i += 1   ' a lone '/' that is not a comment
-            toks.Add(New Token With {.col = ps, .text = line.Substring(ps, i - ps), .color = C_DEFAULT})
-        End While
-        Return toks
-    End Function
 End Class
