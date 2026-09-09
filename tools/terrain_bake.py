@@ -123,6 +123,28 @@ def footprint(chunks):
     return wx_min, wx_max, wz_min, wz_max
 
 
+def footprint_of(map_name, game=None):
+    """The map's world bounds, from the pkg's chunk NAMES alone.
+
+    read_chunks + footprint gives the same answer and decodes every chunk's
+    height png to do it, which is the slow part of a bake. The bounds are in
+    the file names - one namelist and some hex - so a map with no bake can
+    still be placed in the world and drawn.
+    """
+    pkg = find_pkg(map_name, game)
+    pat = re.compile(r"spaces/%s/([0-9a-f]{4})([0-9a-f]{4})o\.cdata_processed$"
+                     % re.escape(map_name), re.I)
+    coords = []
+    with zipfile.ZipFile(pkg) as z:
+        for n in z.namelist():
+            m = pat.match(n)
+            if m:
+                coords.append((_s16(m.group(1)), _s16(m.group(2))))
+    if not coords:
+        raise ValueError("no terrain chunks in " + pkg)
+    return footprint(dict.fromkeys(coords))
+
+
 def rasterise(chunks, size=SIZE):
     """Floor heights on a size x size grid over the footprint; row 0 = wz_max."""
     wx_min, wx_max, wz_min, wz_max = footprint(chunks)
@@ -285,7 +307,13 @@ def bake(map_name, game=None, size=SIZE, folder=FOLDER, log=print):
 def bake_is_python(folder, map_name):
     p = os.path.join(folder, map_name + "_meta.txt")
     try:
-        return "source=python-terrain" in open(p, encoding="utf-8", errors="replace").read()
+        # ANY python source, not one exact spelling. The writer emits
+        # "source=python-boxes" now that it records model boxes, and this
+        # still looked for "source=python-terrain" - so every python bake
+        # reported as a nuTerra one, and the "replace the real bake?" guard
+        # in Path Studio warned about overwriting something it had written
+        # itself while giving no warning for the case it exists to catch.
+        return "source=python" in open(p, encoding="utf-8", errors="replace").read()
     except OSError:
         return False
 
