@@ -45,7 +45,21 @@ this session, never the failed one.
 `InputTextMultiline` cannot colour its own text. The box is drawn with a
 transparent text colour and the tokens are painted over it in the same
 monospaced font at the same scroll, by re-entering the input's own child
-window and reading its scroll. Cursor and selection are ImGui's. Only the
+window and reading its scroll. Cursor and selection are ImGui's.
+
+**Re-enter that child BY LABEL, never by id.** A child window's identity is
+its title, and `BeginChildEx` builds it two ways: `parent/name_id` when it is
+given a name, `parent/id` when it is not. `InputTextEx` makes its multiline
+child with `BeginChildEx(label, id, ...)` - it passes the label on purpose, so
+the window reads sensibly in the metrics view - while the `BeginChild` overload
+taking an `ImGuiID` passes no name at all. Matching the id alone therefore
+misses, and what looks like a re-entry silently opens a SECOND child at the
+parent's cursor, below the box: every line of highlight lands in the strip at
+the bottom of the window and the editor, whose own text is transparent, looks
+empty. Appending to the right window is a supported path - `EndChild` checks
+`BeginCount > 1` and skips re-emitting the item into the parent, and position,
+size and flags apply only on a window's first `Begin` of the frame, so the
+geometry stays the input's. Only the
 visible lines are painted; the whole text is re-tokenised when it changes,
 which is a few thousand lines in well under a millisecond. Block comments
 carry across lines; everything else is per line. Tabs are expanded to four

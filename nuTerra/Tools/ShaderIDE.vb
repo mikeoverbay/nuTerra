@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Text
 Imports System.Windows.Forms
 Imports ImGuiNET
@@ -205,9 +205,29 @@ Public Class ShaderIDE
         End If
 
         ' Re-enter the input's own child window to paint at its scroll.
-        Dim childId = ImGui.GetID(label)
+        '
+        ' BY LABEL, not by ID. A child window's identity is its TITLE, and
+        ' BeginChildEx builds that title two different ways: "parent/name_id"
+        ' when it is given a name, "parent/id" when it is not. InputTextEx
+        ' makes its multiline child with BeginChildEx(label, id, ...) - it
+        ' passes the label deliberately, so the window is readable in the
+        ' metrics window - and the ImGui.BeginChild overload that takes an
+        ' ImGuiID passes no name at all. Matching only the id therefore misses:
+        ' the two titles differ, so instead of re-entering the editor's child
+        ' this opened a SECOND child at the parent's cursor, below the box.
+        ' Every line of highlight landed in that strip at the bottom of the
+        ' window and the editor - whose own text is drawn transparent - looked
+        ' empty. The string overload hashes this same label for the id and
+        ' passes it as the name, so both halves of the title match and this is
+        ' an append to the window the input already opened.
+        '
+        ' Appending is a supported path, not a trick: EndChild checks
+        ' BeginCount > 1 and skips re-emitting the item into the parent, and
+        ' position, size and flags are only applied on a window's first Begin
+        ' of the frame - so the geometry stays the input's, and the flags below
+        ' matter only in the case where the input was clipped away entirely.
         Dim flags = ImGuiWindowFlags.NoScrollbar Or ImGuiWindowFlags.NoScrollWithMouse Or ImGuiWindowFlags.NoNav Or ImGuiWindowFlags.NoInputs
-        If ImGui.BeginChild(childId, New Num.Vector2(0, 0), False, flags) Then
+        If ImGui.BeginChild(label, New Num.Vector2(0, 0), False, flags) Then
             Dim dl = ImGui.GetWindowDrawList()
             Dim pad = ImGui.GetStyle().FramePadding
             Dim origin = ImGui.GetWindowPos() + pad - New Num.Vector2(ImGui.GetScrollX(), ImGui.GetScrollY())
