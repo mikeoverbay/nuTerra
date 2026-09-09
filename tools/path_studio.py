@@ -57,6 +57,11 @@ import terrain_bake as tb
 
 FOLDER = nav.FOLDER
 
+# Sweeps drawn for the radar overlay. Every step would be 664 fans of 121 rays
+# on a monastery route - eighty thousand lines, which is both unreadable and
+# slow. Sixty is enough to see where the returns come from.
+RADAR_SWEEPS = 60
+
 # The invented ring's shape, when there is nothing to go on.
 #
 # plan_from_seed only lays a ring when NO points were placed - targets replace
@@ -951,6 +956,34 @@ class LightEditor:
         self.top.destroy()
 
 
+class AmGrid:
+    """Just enough of a Bake for the canvas to draw and locate a click.
+
+    A map with no height bake still has a global_AM in its pkg and a world
+    footprint in its chunk names, which is everything the view needs: a size to
+    crop against and the two transforms between world and texel. It has no
+    floor, no top and no obstacle, so nothing that plans a route will touch it
+    - self.bake stays None for exactly that reason, and every planning guard in
+    here already tests that.
+    """
+
+    def __init__(self, w, h, wx_min, wx_max, wz_min, wz_max):
+        self.w = w
+        self.h = h
+        self.wx_min, self.wx_max = wx_min, wx_max
+        self.wz_min, self.wz_max = wz_min, wz_max
+        self.mx = (wx_max - wx_min) / w
+        self.mz = (wz_max - wz_min) / h
+
+    def world_of(self, col, row):
+        return (self.wx_min + (col + 0.5) * self.mx,
+                self.wz_max - (row + 0.5) * self.mz)
+
+    def texel_of(self, x, z):
+        return ((x - self.wx_min) / self.mx - 0.5,
+                (self.wz_max - z) / self.mz - 0.5)
+
+
 class Studio:
     def __init__(self, root):
         self.root = root
@@ -959,6 +992,10 @@ class Studio:
         # was created first wearing the old one.
         apply_dark(root)
         self.bake = None
+        # What the CANVAS draws against. The bake when there is one, an AmGrid
+        # when the map has only a global_AM. Kept apart from self.bake so that
+        # every "is there a height map" guard stays a test of self.bake.
+        self.view_grid = None
         self.map_name = None
         self.base = None
         self.photo = None
@@ -971,7 +1008,17 @@ class Studio:
         self.route = None
         self.targets = []
         self.busy = False
+        # A map picked while something else was running. The click is still the
+        # signal - it just cannot be served at that instant - so it is held
+        # here and honoured the moment the machine is free.
+        self.pending_pick = None
         self.mask_full = None    # the mask at bake resolution, resized to fit
+        # The radar overlay's cache. Casting 121 rays at 60 places along the
+        # route is a second of Python, which is fine once and far too slow on
+        # every pan - so it is computed when something it depends on changes
+        # and redrawn from world coordinates after that.
+        self.radar_fans = None
+        self.radar_key = None
         self.view = CANVAS       # side of the square the map is drawn in
         self.ox = self.oy = 0    # where that square sits in the canvas
 
@@ -993,6 +1040,11 @@ class Studio:
         # button works on this. And the global_AM picture for the loaded map,
         # on the bake grid, loaded the first time the underlay is switched on.
         self.selected_name = None
+        # True while refill_maps is rebuilding the Listbox. Tk fires
+        # <<ListboxSelect>> for a selection set from code exactly as it does
+        # for a click, so without this the list cannot be refiltered without
+        # loading a map nobody asked for - see load_selected.
+        self._refilling = False
         self.am_img = None
 
         # What is selected, as (kind, index): ("light", i), ("target", i) or
@@ -1030,22 +1082,33 @@ class Studio:
         self.search.trace_add("write", lambda *_: self.refill_maps())
         self.visible_names = []
 
-        self.maps = tk.Listbox(left, width=26, height=5, exportselection=False,
+        self.maps = tk.Listbox(left, width=26, height=8, exportselection=False,
                                bg=PANEL, fg=FG, selectbackground=ACCENT,
                                selectforeground="#0b0d12", highlightthickness=0,
                                borderwidth=0, activestyle="none")
         self.maps.grid(row=1, column=0, pady=(2, 2))
-        self.maps.bind("<<ListboxSelect>>", lambda e: self.load_selected())
+        self.maps.bind("<<ListboxSelect>>",
+                       lambda e: (self._trace("raw <<ListboxSelect>>"),
+                                  self.load_selected()))
 
-        # The odd spaces, after the rotation list rather than mixed into it.
+        # TWO pickers, and that is fine.
+        #
+        # Both are event sources and both do exactly one thing: hand a map NAME
+        # to load_named. Nothing else comes out of either. Having two was never
+        # the fault - the fault was each one deriving that name from a
+        # selection INDEX into its own parallel list, and load_named writing
+        # back into whichever widget had not caused the load. Neither happens
+        # now: each reads its own text, and nothing writes back to either.
         self.row_names = []
         self.other_names = []
         self.baked = set()
-        self.other_lbl = ttk.Label(left, text="Other spaces", style="Muted.TLabel")
-        self.other_lbl.grid(row=2, column=0, sticky="w")
+        self.count_lbl = ttk.Label(left, text="", style="Muted.TLabel")
+        self.count_lbl.grid(row=2, column=0, sticky="w", pady=(0, 2))
         self.other_combo = ttk.Combobox(left, width=24, state="readonly")
         self.other_combo.grid(row=3, column=0, sticky="we", pady=(0, 8))
-        self.other_combo.bind("<<ComboboxSelected>>", self._pick_other)
+        self.other_combo.bind("<<ComboboxSelected>>",
+                              lambda e: (self._trace("raw <<ComboboxSelected>>"),
+                                         self._pick_other(e)))
 
         # A bake for a map nuTerra has never opened. TERRAIN ONLY - it reads
         # the heights out of the pkg, so there are no models or trees in it
@@ -1061,13 +1124,35 @@ class Studio:
         # Open ground shows it; obstacle cells keep the mask colours.
         f_am = ttk.Frame(left)
         f_am.grid(row=5, column=0, columnspan=2, sticky="we", pady=(0, 6))
+        # TWO stacked rows inside the one grid cell, NOT one long row.
+        #
+        # This frame spans the left column, and a grid column is as wide as its
+        # widest child. Packing the blend labels and the radar checkbox beside
+        # global_AM made this row ~360 px against a 271 px panel, which widened
+        # the column and shoved the map Listbox out of alignment - the map list
+        # stopped being clickable where it looked. Stack instead of spread.
+        am_row = ttk.Frame(f_am)
+        am_row.pack(side="top", fill="x")
+        radar_row = ttk.Frame(f_am)
+        radar_row.pack(side="top", fill="x", pady=(3, 0))
+
         self.show_am = tk.BooleanVar(value=True)
-        ttk.Checkbutton(f_am, text="global_AM", variable=self.show_am,
+        ttk.Checkbutton(am_row, text="global_AM", variable=self.show_am,
                         command=self.on_am_toggle).pack(side="left")
         self.am_blend = tk.DoubleVar(value=0.5)
-        ttk.Scale(f_am, from_=0.0, to=1.0, variable=self.am_blend,
-                  orient="horizontal", length=110,
-                  command=lambda *_: self.on_am_toggle()).pack(side="left", padx=(6, 0))
+        ttk.Label(am_row, text="map").pack(side="left", padx=(6, 2))
+        ttk.Scale(am_row, from_=0.0, to=1.0, variable=self.am_blend,
+                  orient="horizontal", length=90,
+                  command=lambda *_: self.on_am_toggle()).pack(side="left")
+        ttk.Label(am_row, text="mask").pack(side="left", padx=(2, 0))
+
+        # What the navigator could SEE along the route it flew. The mask says
+        # where the walls are; this says which of them the radar actually had a
+        # return from, which is the difference between "there was a gap there"
+        # and "it knew there was a gap there".
+        self.show_radar = tk.BooleanVar(value=False)
+        ttk.Checkbutton(radar_row, text="Radar scan", variable=self.show_radar,
+                        command=self.on_radar_toggle).pack(side="left")
 
         # Edit path is the lock on everything below it and on the map clicks
         # that place the start and the points. Off, all of it is greyed.
@@ -1250,11 +1335,6 @@ class Studio:
 
     # ---------------------------------------------------------------- maps
 
-    def _pick_other(self, _e=None):
-        i = self.other_combo.current()
-        if 0 <= i < len(self.other_names):
-            self.load_named(self.other_names[i])
-
     def read_split(self):
         """nuTerra's battle/other split, if it has run.
 
@@ -1277,7 +1357,51 @@ class Studio:
             pass
         return battle, other
 
+    # ---------------------------------------------------------------- trace
+    #
+    # Who fired what, in what state, and who called it. The pickers kept being
+    # "hit again" by code rather than by the operator, and the source could not
+    # be reasoned out of the file: Tk delivers a selection made from code and a
+    # selection made by a click through the SAME virtual event. So record the
+    # call chain through this file at every entry point that touches either
+    # widget, and the state of both widgets as it was seen.
+    #
+    # Off unless PS_PICK_LOG names a file.
+
+    def _trace(self, tag, extra=""):
+        path = os.environ.get("PS_PICK_LOG")
+        if not path:
+            return
+        try:
+            frames = [f for f in traceback.extract_stack()[:-1]
+                      if f.filename.replace(chr(92), "/").endswith("path_studio.py")]
+            chain = " < ".join("%s:%d" % (f.name, f.lineno)
+                               for f in reversed(frames[-7:]))
+            try:
+                sel = self.maps.curselection()
+                i = sel[0] if sel else -1
+                row = self.maps.get(i) if i >= 0 else ""
+            except Exception:
+                i, row = -2, "?"
+            try:
+                combo = self.other_combo.get()
+            except Exception:
+                combo = "?"
+            self._trace_n = getattr(self, "_trace_n", 0) + 1
+            line = ("#%03d %-16s sel=%-3d row=%-22r combo=%-22r busy=%-5s "
+                    "refill=%-5s loaded=%-20r %s%s%s"
+                    % (self._trace_n, tag, i, row, combo,
+                       getattr(self, "busy", "?"), getattr(self, "_refilling", "?"),
+                       getattr(self, "selected_name", None),
+                       ("[" + extra + "] ") if extra else "",
+                       "<- ", chain))
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line + chr(10))
+        except Exception:
+            pass
+
     def find_maps(self):
+        self._trace("find_maps")
         """List the same maps nuTerra does, not just the ones already baked.
 
         Listing only baked maps showed a single entry and gave no idea what else
@@ -1305,55 +1429,273 @@ class Studio:
         self.other_names = others
         self.refill_maps()
 
-        self.other_combo.configure(
-            values=[n if n in baked else n + "    (no bake)" for n in others])
+        # Names only. Nothing to parse back out of a value later.
+        self.other_combo.configure(values=others)
         self.other_combo.state(["!disabled"] if others else ["disabled"])
-        self.other_lbl.configure(
-            text="Other spaces (%d) - no team bases" % len(others)
-            if others else "Other spaces - none")
 
-        n_ready = len([n for n in listed if n in baked])
-        if not listed:
+        n_all = len(listed) + len(others)
+        n_ready = len([n for n in listed + others if n in baked])
+        # SHORT. This label shares the left grid column with the map list, and
+        # a grid column is as wide as its widest child - a long line here
+        # widens the column and shifts the Listbox, which has no sticky, off to
+        # the right. Clicks then land beside the rows instead of on them.
+        self.count_lbl.configure(text="%d maps, %d baked" % (n_all, n_ready))
+        if not n_all:
             self.status.set("No map list and no bakes. Open a map in nuTerra - "
                             "it writes both.")
         else:
-            self.status.set("%d battle arenas, %d baked and ready. Open a map in "
-                            "nuTerra to bake it." % (len(listed), n_ready))
+            self.status.set("%d maps, %d ready to plan. The rest have no height "
+                            "map yet - pick one and it offers to make it."
+                            % (n_all, n_ready))
+
+    def _pick_other(self, _e=None):
+        """The dropdown changed. Pass the name on, same as a click in the list."""
+        self._trace("COMBO-EVENT")
+        name = self._row_name(self.other_combo.get())
+        if not name:
+            return
+        if self.busy:
+            self.pending_pick = name
+            self.status.set("%s: picked - loading when the bake finishes" % name)
+            return
+        if name == self.selected_name and self.bake is not None:
+            return
+        self.load_named(name)
+
+    def mark_row_baked(self, name):
+        self._trace("mark_row_baked")
+        """Restore one row to the has-a-height-map colour, in place.
+
+        Only touches the row's COLOUR. No delete, no insert, no selection, no
+        scroll - see _bake_done for what rebuilding the list costs.
+        """
+        try:
+            for i in range(self.maps.size()):
+                if self._row_name(self.maps.get(i)) == name:
+                    self.maps.itemconfig(i, foreground=FG)
+                    break
+        except Exception:
+            pass
+        n_all = len(self.row_names) + len(self.other_names)
+        n_ready = len([n for n in self.row_names + self.other_names
+                       if n in self.baked])
+        self.count_lbl.configure(
+            text="%d maps, %d with a height map" % (n_all, n_ready))
 
     def refill_maps(self):
-        """Fill the list from the search box: the arenas when it is empty,
-        every space whose name contains the text when it is not."""
+        self._trace("refill_maps")
+        """Fill the list from the search box.
+
+        EVERY map, always - the battle arenas first, then the spaces with no
+        team bases. The two used to live in separate widgets and the empty
+        search showed only the arenas, which meant a map you could see in the
+        dropdown was not in the list and vice versa. One list cannot disagree
+        with itself.
+        """
         q = self.search.get().strip().lower()
+        names = self.row_names + self.other_names
         if q:
-            names = [n for n in self.row_names + self.other_names if q in n.lower()]
-        else:
-            names = list(self.row_names)
+            names = [n for n in names if q in n.lower()]
         self.visible_names = names
-        self.maps.delete(0, "end")
-        for n in names:
-            self.maps.insert("end", n if n in self.baked else n + "    (no bake)")
-        if self.selected_name in names:
-            k = names.index(self.selected_name)
-            self.maps.selection_set(k)
-            self.maps.see(k)
+        # Rebuild with the select handler muted. delete() clears the selection
+        # and selection_set() re-makes it, and BOTH fire <<ListboxSelect>> -
+        # indistinguishable from a click. Every keystroke in the search box
+        # therefore fired a load, against a list that had just been refiltered
+        # and rescrolled underneath it, so the map that arrived was whatever
+        # now sat at that index rather than the one that looked selected.
+        # Filtering rebuilds the rows and NOTHING else. It does not restore a
+        # selection from selected_name and it does not scroll to it: that is
+        # downstream state reaching back into the control that produced it, and
+        # re-selecting a row fires the load handler as if it had been clicked.
+        # After a refill nothing is selected, which is the truth - the list has
+        # just changed under whatever was chosen before.
+        #
+        # Still muted, because delete() clears the selection and that fires the
+        # event too.
+        self._refilling = True
+        try:
+            self.maps.delete(0, "end")
+            for i, n in enumerate(names):
+                # The row text is the map name and NOTHING else.
+                #
+                # It used to carry a "    (no bake)" suffix, which meant every
+                # read of the list had to strip a magic string, and the strip
+                # only worked while its literal matched the one that built the
+                # row - two copies, in two methods, forever. A row that says
+                # what it is cannot be misread. Bake state is shown by colour
+                # instead, which no parser can get wrong.
+                self.maps.insert("end", n)
+                if n not in self.baked:
+                    self.maps.itemconfig(i, foreground=MUTED)
+        finally:
+            self._refilling = False
+
+    def _row_name(self, text):
+        """The map name a row or dropdown entry stands for - which is its text.
+
+        Taken from the WIDGET'S OWN TEXT, never from an index into a parallel
+        list. Both load paths used to read a selection index and look it up in
+        a list built alongside the widget, and the two only agree while nothing
+        has touched either since the last rebuild; when they disagree the index
+        still resolves, silently, to the wrong map.
+
+        There is nothing to decode here either - see refill_maps on why the
+        rows no longer carry a "(no bake)" suffix.
+        """
+        return (text or "").strip()
 
     def load_selected(self):
-        sel = self.maps.curselection()
-        if not sel or self.busy:
+        self._trace("LISTBOX-EVENT")
+        # Only a real click loads. A selection the code just made is not a
+        # request for anything.
+        if self._refilling:
             return
-        i = sel[0]
-        if i < len(self.visible_names):
-            self.load_named(self.visible_names[i])
+        sel = self.maps.curselection()
+        if not sel:
+            return
+        name = self._row_name(self.maps.get(sel[0]))
+        if not name:
+            return
+
+        # BUSY IS NOT A REASON TO DISCARD THE CLICK.
+        #
+        # It used to return here and the click was gone - while Tk had still
+        # moved the highlight, because that is the widget's own doing. So:
+        # answer Yes to a bake, click another map while it runs, and the bake
+        # finishes and loads ITS map over the top. The list showed the map you
+        # picked and the app had loaded a different one. That is "it picks the
+        # wrong map after I do".
+        #
+        # Hold it instead. Whatever finishes will honour the last thing picked.
+        if self.busy:
+            self.pending_pick = name
+            self.status.set("%s: picked - loading when the bake finishes" % name)
+            return
+
+        # Already showing it - a re-selection of the same row is not a reload.
+        if name == self.selected_name and self.bake is not None:
+            return
+        self.load_named(name)
+
+    def show_without_bake(self, name):
+        self._trace("show_without_bake")
+        """A map with no height bake: draw its global_AM and offer to make one.
+
+        The picture comes straight out of the pkg and the world footprint out
+        of the chunk names, so this needs nothing that a bake would have
+        provided. self.bake stays None, which is what keeps every planning
+        control switched off - there is no terrain to plan against, and a route
+        drawn over a picture would be a route through geometry nobody has
+        measured.
+        """
+        self.map_name = name
+        self.bake = None
+        self.am_img = None
+        self.start = self.heading = self.route = None
+        self.heading_len = None
+        self.zoom = 1.0
+        self.cx = self.cy = 0.0
+        self.close_editor(ask=False)
+        self.lights = []
+        self.selection = None
+        self.moving = False
+        self.add_light = False
+        self.edit_path = False
+        self.edit_btn.configure(text="Edit path")
+        self.targets = []
+        self.pending = None
+        self.route_saved = False
+        self.lights_dirty = False
+        self.refresh_light_ui()
+
+        self.status.set("%s: no height map - showing the game's own picture" % name)
+        self.root.update_idletasks()
+
+        try:
+            im = tb.load_global_am(name)
+            if im is None:
+                raise ValueError("this map has no global_AM in its pkg")
+            wx0, wx1, wz0, wz1 = tb.footprint_of(name)
+        except Exception as e:
+            self.view_grid = None
+            self.mask_full = None
+            self.canvas.delete("all")
+            self.status.set("%s: no height map, and no picture either (%s)" % (name, e))
+            self.root.after_idle(self.ask_to_bake, name,
+                                 "Its picture could not be read either.")
+            return
+
+        # Square, like the bake grid, and mirrored on X for display the same
+        # way render_mask mirrors - so a click lands where it looks here too.
+        side = max(im.size)
+        im = im.resize((side, side), Image.LANCZOS)
+        self.view_grid = AmGrid(side, side, wx0, wx1, wz0, wz1)
+        self.mask_full = Image.fromarray(
+            np.asarray(im.convert("RGB"))[:, ::-1, :].copy(), "RGB")
+        self.update_enabled()
+        self.repaint()
+        # AFTER the click is finished being processed, never inside it.
+        #
+        # askyesno runs its own event loop, so opening it from within the
+        # <<ListboxSelect>> handler stops Tk halfway through delivering the
+        # click and pumps the rest of it - button release, the Listbox's own
+        # class bindings - underneath the modal. Those land on the list when
+        # the dialog closes, and the selection walks to the next row. Saying
+        # No to a bake moved the highlight down one, every time.
+        #
+        # after_idle lets the click finish first. The dialog then opens with
+        # nothing left in flight to apply behind it.
+        self.root.after_idle(self.ask_to_bake, name)
+
+    def ask_to_bake(self, name, extra=""):
+        """Tell them there is no height map, and offer to make one."""
+        self._trace("ask_to_bake", "for=" + repr(name))
+
+        # ONLY about the map they are still on.
+        #
+        # This is queued with after_idle so it cannot open inside the click
+        # handler, which means an unknown amount of time passes first - and
+        # load_named calls update_idletasks() to paint its "loading" line,
+        # which FLUSHES that queue from the middle of the next load. Traced
+        # live: picked 29_el_hallouf (no bake), picked 34_redshire before the
+        # dialog appeared, and the dialog then asked about 29_el_hallouf
+        # while 34_redshire was on screen. Answer Yes to that and you bake a
+        # map you are not looking at.
+        if name != self.selected_name:
+            self._trace("ask_to_bake SKIPPED", "stale=" + repr(name))
+            return
+        lines = ["%s has no height map, so it cannot be planned yet." % name, ""]
+        if extra:
+            lines += [extra, ""]
+        lines += [
+            "Make a terrain-only one now?",
+            "",
+            "It takes a few seconds and reads the map's own pkg. It has no "
+            "models and no trees in it - opening the map once in nuTerra "
+            "writes the full one.",
+        ]
+        if messagebox.askyesno("No height map", chr(10).join(lines)):
+            self.bake_selected()
 
     def load_named(self, name):
+        self._trace("load_named", "want=" + repr(name))
         if self.busy or not name:
             return
         self.selected_name = name
+
+        # NOTHING here touches the map list or the dropdown.
+        #
+        # The list is a SIGNAL SOURCE. A click on it starts everything
+        # downstream - the bake, the mask, the route, the lights - and none of
+        # that is ever allowed back up to change the selection that caused it.
+        # Every version of this bug came from breaking that: a selection set
+        # from code fires <<ListboxSelect>> exactly as a click does, so writing
+        # back to the widget re-enters the very handler that called you, with
+        # whatever the list looks like by then.
         self.bake_btn.state(["!disabled"])
-        if name not in getattr(self, "baked", ()):  # nothing to draw or plan
-            self.status.set("%s has no bake yet. Bake terrain (Python) writes a "
-                            "terrain-only one now; opening it once in nuTerra "
-                            "writes the real one." % name)
+        if name not in getattr(self, "baked", ()):
+            # No height map. Show the map anyway and say what is missing.
+            self.show_without_bake(name)
             return
         self.status.set("loading " + name)
         self.root.update_idletasks()
@@ -1362,6 +1704,8 @@ class Studio:
         except Exception as e:
             self.status.set("could not load: %s" % e)
             return
+        # With a height map the canvas draws against the bake itself.
+        self.view_grid = self.bake
         self.map_name = name
         self.start = self.heading = self.route = None
         self.heading_len = None
@@ -1431,6 +1775,7 @@ class Studio:
     # ------------------------------------------------------- terrain bake
 
     def bake_selected(self):
+        self._trace("bake_selected")
         """Terrain-only bake from the pkg, for the map the list points at.
 
         Runs in a thread - reading 196 chunk zips and rasterising takes a few
@@ -1459,17 +1804,108 @@ class Studio:
         threading.Thread(target=work, daemon=True).start()
 
     def _bake_done(self, name, err):
+        self._trace("BAKE-DONE", "baked=" + repr(name))
         self.busy = False
         self.bake_btn.state(["!disabled"])
         if err:
             self.status.set("bake failed: %s" % err)
             return
-        self.find_maps()
-        self.load_named(name)
-        self.status.set("%s: terrain-only bake written - no models or trees in "
-                        "it. Open the map in nuTerra for the real one." % name)
+        # DO NOT call find_maps() here.
+        #
+        # find_maps rebuilds the list - delete every row, insert them again -
+        # and a bake runs on a THREAD, so that landed whenever it landed:
+        # seconds after the click that started it, while the operator was
+        # scrolling or about to click something else. The rows moved under the
+        # cursor and the next click picked a different map. That is the whole
+        # of "I pick monastery and it switches to el_hallouf".
+        #
+        # Nothing about the list needs rebuilding anyway. One map gained a
+        # height map; the only thing that changed is its colour, and the row
+        # is already there. Update the fact, repaint that one row if it happens
+        # to be on screen, and leave the scroll and the selection alone.
+        self.baked = set(self.baked) | {name}
+        self.mark_row_baked(name)
+
+        # Whatever was picked LAST wins. If they moved on while this baked,
+        # load that one - the bake still happened and its row is already
+        # marked, but the map on screen is the one they actually asked for.
+        want = self.pending_pick or name
+        self.pending_pick = None
+        self.load_named(want)
+        if want != name:
+            self.status.set("%s baked; showing %s, which you picked while it ran"
+                            % (name, want))
+        else:
+            self.status.set("%s: terrain-only bake written - no models or trees "
+                            "in it. Open the map in nuTerra for the real one."
+                            % name)
 
     # ---------------------------------------------------------- global_AM
+
+    ''' RADAR OVERLAY '''
+
+    def on_radar_toggle(self):
+        self.radar_fans = None
+        self.repaint()
+
+    def ensure_radar_fans(self):
+        """Cast the navigator's fan along the route and cache it.
+
+        Rebuilt only when something it depends on moves: the route itself, or
+        either slider that changes what counts as an obstacle. Everything is
+        kept in WORLD coordinates so pan and zoom are free - the drawing side
+        only transforms.
+        """
+        if not self.show_radar.get() or self.bake is None or not self.route:
+            self.radar_fans = None
+            return
+        key = (len(self.route), self.route[0], self.route[-1],
+               round(float(self.vars["agl"].get()), 3),
+               round(float(self.vars["standoff"].get()), 3))
+        if self.radar_fans is not None and self.radar_key == key:
+            return
+
+        # Drive the navigator's own globals from the sliders, exactly the way
+        # generate does, so the picture is of THIS setting and not of whatever
+        # the module happens to default to - then put them back. An overlay
+        # that leaves the navigator reconfigured would change the next route
+        # the operator generated without telling them.
+        saved = (nav.AGL, nav.MARGIN, nav.BLOCK_H, nav.BODY_R)
+        try:
+            nav.AGL = float(self.vars["agl"].get())
+            nav.MARGIN = min(0.5, nav.AGL * 0.5)
+            nav.BLOCK_H = nav.AGL - nav.MARGIN
+            nav.BODY_R = float(self.vars["standoff"].get())
+
+            raw, plan_m, _dist, _pad = nav.build_world(self.bake, None)
+            radar = nav.Radar(self.bake, plan_m, raw, self.bake.mx)
+
+            pts = self.route
+            n = len(pts)
+            step = max(1, n // RADAR_SWEEPS)
+            fans = []
+            for i in range(0, n, step):
+                x, z = pts[i]
+                x1, z1 = pts[(i + step) % n]
+                # The radar's bearing convention is its own: march takes a
+                # direction as (cos a, sin a) in world (x, z), so a is
+                # atan2(dz, dx). It is NOT the campath's heading, which is
+                # atan2(dx, dz) and would put the fan 90 degrees off.
+                if x1 == x and z1 == z:
+                    continue
+                heading = math.atan2(z1 - z, x1 - x)
+                rays = []
+                for a, r in radar.fan(x, z, heading):
+                    rays.append((x + math.cos(a) * r, z + math.sin(a) * r,
+                                 r < nav.RADAR_RANGE - 0.5))
+                fans.append((x, z, rays))
+            self.radar_fans = fans
+            self.radar_key = key
+        except Exception as exc:
+            self.radar_fans = None
+            self.status.set("radar scan failed: %s" % exc)
+        finally:
+            nav.AGL, nav.MARGIN, nav.BLOCK_H, nav.BODY_R = saved
 
     def on_am_toggle(self):
         if self.bake is not None:
@@ -1551,11 +1987,13 @@ class Studio:
         # The global_AM under the OPEN ground. Obstacles and the low band keep
         # their mask colours, so what the planner sees stays legible on top of
         # what the map looks like.
-        # A straight mix over EVERY cell: 0 is the depth shading alone, 1 is
-        # the AM alone. The obstacles fade with it, which is what a slider
-        # that promises full AM has to do; park it near the middle to see both.
+        # A straight mix over EVERY cell. The slider reads LEFT = the map
+        # photo, RIGHT = the mask the navigator actually sees - so pushing it
+        # right brings up the thing being debugged rather than hiding it,
+        # which is the way round it is reached for. The stored value is still
+        # "amount of mask", so it is inverted once, here, into the AM's share.
         if self.show_am.get() and self.load_am():
-            k = float(self.am_blend.get())
+            k = 1.0 - float(self.am_blend.get())
             img = (self.am_img.astype(np.float32) * k
                    + img.astype(np.float32) * (1.0 - k)).astype(np.uint8)
 
@@ -1573,6 +2011,36 @@ class Studio:
                                    box=(self.cx, self.cy,
                                         self.cx + crop, self.cy + crop))
         d = ImageDraw.Draw(im)
+
+        # Under everything else: it is context, not the answer. RGBA on an RGB
+        # image so hundreds of overlapping rays add up into a wash instead of
+        # painting the map out.
+        self.ensure_radar_fans()
+        if self.show_radar.get() and self.radar_fans:
+            # Fades with the same slider as the mask. All the way to the map
+            # photo and the rays are gone with it; all the way to the mask and
+            # they are at full strength. One control for "how much of what the
+            # navigator sees am I looking at", rather than a second one that
+            # has to be found and reasoned about separately. With global_AM off
+            # there is no blend to ride, so they are simply full.
+            fade = float(self.am_blend.get()) if self.show_am.get() else 1.0
+            if fade > 0.02:
+                dr = ImageDraw.Draw(im, "RGBA")
+                a_hit = max(1, int(60 * fade))
+                a_open = max(1, int(26 * fade))
+                a_dot = max(1, int(200 * fade))
+                for (x, z, rays) in self.radar_fans:
+                    px, py = self.to_view(x, z)
+                    for (ex, ez, hit) in rays:
+                        vx, vy = self.to_view(ex, ez)
+                        dr.line([px, py, vx, vy],
+                                fill=(255, 90, 70, a_hit) if hit
+                                else (90, 200, 255, a_open))
+                for (x, z, rays) in self.radar_fans:
+                    for (ex, ez, hit) in rays:
+                        if hit:
+                            vx, vy = self.to_view(ex, ez)
+                            dr.point([vx, vy], fill=(255, 210, 120, a_dot))
 
         if self.route:
             pts = [self.to_view(x, z) for (x, z) in self.route]
@@ -1671,15 +2139,15 @@ class Studio:
 
     def crop_side(self):
         """Side of the visible window, in texels."""
-        return float(self.bake.w) / self.zoom
+        return float(self.view_grid.w) / self.zoom
 
     def mirror_col(self, c):
         """Bake column <-> display column. Its own inverse."""
-        return (self.bake.w - 1) - c
+        return (self.view_grid.w - 1) - c
 
     def to_view(self, wx, wz):
         """World -> pixels INSIDE the map square (what gets drawn into)."""
-        c, r = self.bake.texel_of(wx, wz)
+        c, r = self.view_grid.texel_of(wx, wz)
         c = self.mirror_col(c)
         crop = self.crop_side()
         s = self.view / crop
@@ -1690,7 +2158,7 @@ class Studio:
         crop = self.crop_side()
         s = crop / self.view
         c = self.mirror_col((px - self.ox) * s + self.cx)
-        return self.bake.world_of(c, (py - self.oy) * s + self.cy)
+        return self.view_grid.world_of(c, (py - self.oy) * s + self.cy)
 
     def clamp_window(self):
         """Keep the visible window inside the bake.
@@ -1700,13 +2168,13 @@ class Studio:
         is not there.
         """
         crop = self.crop_side()
-        hi = max(0.0, float(self.bake.w) - crop)
+        hi = max(0.0, float(self.view_grid.w) - crop)
         self.cx = min(max(self.cx, 0.0), hi)
         self.cy = min(max(self.cy, 0.0), hi)
 
     def on_pan_press(self, e):
         """Anchor the pan: where the mouse was, and where the window was."""
-        if self.bake is None:
+        if self.view_grid is None:
             return
         self.pan_from = (e.x, e.y, self.cx, self.cy)
 
@@ -1719,7 +2187,7 @@ class Studio:
         original anchor every time means running into an edge and coming back
         leaves the map exactly where it started.
         """
-        if self.bake is None or self.pan_from is None:
+        if self.view_grid is None or self.pan_from is None:
             return
         ax, ay, acx, acy = self.pan_from
 
@@ -1733,7 +2201,7 @@ class Studio:
 
     def on_wheel(self, e):
         """Zoom about the cursor: the texel under it does not move."""
-        if self.bake is None:
+        if self.view_grid is None:
             return
 
         # Position inside the map square, not the canvas - the square is

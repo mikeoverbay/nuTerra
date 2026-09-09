@@ -51,6 +51,7 @@ one is the specification, this one is what we actually do with it.
 | `shadows.md` | all three casters: the baked sun map, the baked lamp cubes, the parked cascades - and the traps they share |
 | `volumetric_fog.md` | froxel grids, per-light marching and analytic airlight against `lamp_fog.frag`; ranked changes, with sources |
 | `volumetric_fog_audit.md` | read-only audit of the shafts, the cube and both global fogs: 6 defects, 6 model errors, nits, perf, with line cites and how to confirm each; status banner says what is fixed |
+| `tk_event_traps.md` | Path Studio's Tk pickers: why a click loaded the wrong map, four times over - write-back, a threaded rebuild, a modal inside the handler, and a discarded click - and the trace that found them |
 | `ui_panels.md` | ImGui panels: where they live, the placement helpers, and why `imgui.ini` beats `FirstUseEver` |
 | `shader_ide.md` | the in-app shader IDE: a tab per stage, the trial-compile that keeps a broken shader out of the frame, the revert guard, the overlay highlighter |
 | `Tank Docs\` | the tank module - a vehicle loaded straight from the packages, kept out of the core: design paper, loader notes, verified formats |
