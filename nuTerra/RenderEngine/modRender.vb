@@ -196,6 +196,15 @@ Module modRender
             modGpuTimers.Finish()
         End If
 
+        ' The tank module (nuTerra\Tanks). One call: it loads itself on first
+        ' use and draws into the G-buffer after the models, with the same
+        ' convention, so the resolve lights it like any of them.
+        If DONT_BLOCK_MODELS Then
+            modGpuTimers.Begin("Tanks")
+            map_scene.tanks.Draw()
+            modGpuTimers.Finish()
+        End If
+
         If map_scene.TREES_LOADED AndAlso DONT_BLOCK_TREES Then
             modGpuTimers.Begin("Trees")
             map_scene.trees.draw()

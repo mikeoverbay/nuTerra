@@ -41,6 +41,9 @@ Public Class MapScene
     Public sun_shadow As New MapSunShadow(Me)
     Public lamp_shadow As New MapLampShadow(Me)
     Public lamp_fog As New MapLampFog(Me)
+    ' The tank module, nuTerra\Tanks. This field and one call in draw_scene are
+    ' its only hooks into the core; everything else lives in its own folder.
+    Public tanks As New MapTanks(Me)
     Public flight_bake As New MapFlightBake(Me)
     Public cam_path As New MapCamPath
     Public CC_LUT_ID As GLTexture
@@ -254,6 +257,7 @@ Public Class MapScene
         ' map change is not something to inherit deliberately.
         lamp_shadow.Dispose()
         lamp_fog.Dispose()
+        tanks.Dispose()
 
         ' gl buffers
         shadow_mapping_matrix.Dispose()
