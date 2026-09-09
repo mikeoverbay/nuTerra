@@ -621,6 +621,10 @@ try_again:
                     ImGui.TextWrapped(line)
                 Next
             End If
+            ' The loading screen's own window had no End() either. It is only
+            ' submitted while a map is loading, which is why this was the one
+            ' that fired first.
+            ImGui.End()
         ElseIf Not SHOW_MAPS_SCREEN Then
             ' The menu bar and its panels belong to a loaded map. The map
             ' picker is a full-screen choice of its own and used to have the
@@ -926,8 +930,12 @@ try_again:
                 End If
             End If
 
-            ImGui.End()
         End If
+        ' OUTSIDE the If: Begin is paired with End however it returned.
+        ' A collapsed or clipped window makes Begin false, and an End
+        ' skipped then leaves ImGui inside this window for the rest of
+        ' the frame - it aborts at NewFrame with "Missing End()".
+        ImGui.End()
 
         ImGui.PopStyleVar()
         ImGui.PopStyleColor(3)
@@ -1497,8 +1505,8 @@ try_again:
 
             menubar_pos = ImGui.GetWindowPos()
             menubar_size = ImGui.GetWindowSize()
-            ImGui.End()
         End If
+        ImGui.End()
 
         ' Draw Terrain IDs
         If SHOW_CHUNK_IDs AndAlso DONT_BLOCK_TERRAIN Then
@@ -1506,8 +1514,8 @@ try_again:
             ImGui.SetNextWindowSize(viewport.Size)
             If ImGui.Begin("##Dummy Window 2", Nothing, ImGuiWindowFlags.NoBackground Or ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoSavedSettings Or ImGuiWindowFlags.NoInputs) Then
                 map_scene.terrain.draw_terrain_ids()
-                ImGui.End()
             End If
+            ImGui.End()
         End If
 
         draw_stats_window()
@@ -2633,9 +2641,9 @@ try_again:
                         proc.Start()
                     End Using
                 End If
-                ImGui.End()
                 prev_SHOW_SETTINGS_WINDOW = True
             End If
+            ImGui.End()
         Else
             prev_SHOW_SETTINGS_WINDOW = False
         End If
@@ -2656,6 +2664,10 @@ try_again:
                     ImGui.TextColored(colors(i), String.Format("Texture {0}", i + 1))
                 Next
             End If
+            ' This window had no End() at all, which never showed because the
+            ' Debug "Draw test textures" box is off by default - the one frame
+            ' it was ticked would have aborted on any ImGui version.
+            ImGui.End()
         End If
 
         If SHOW_FLIGHT_RENDER_WINDOW Then
@@ -3055,8 +3067,8 @@ try_again:
                 ImGui.Image(New IntPtr(MainFBO.gFX_HDR_opaque), size, uv0, uv1)
                 ImGui.Text("gFX_BloomA  (the blurred glow, quarter res)")
                 ImGui.Image(New IntPtr(MainFBO.gFX_BloomA_opaque), size, uv0, uv1)
-                ImGui.End()
             End If
+            ImGui.End()
         End If
     End Sub
 

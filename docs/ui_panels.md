@@ -119,3 +119,60 @@ Whatever the render touches, it saves and restores by asking GL what was there
 target was framebuffer 0; the engine renders into `MainFBO`. `ClearColor` is
 global state too, and is the one thing `MapLampView.Render` still leaves
 changed (see `shadows.md`, traps).
+
+## `Begin` is paired with `End` however it returned
+
+```vb
+If ImGui.Begin("Panel", SHOW_IT) Then
+    ...
+End If
+ImGui.End()          ' OUTSIDE the If. Always.
+```
+
+`Begin` returns false when the window is collapsed or fully clipped, and the
+`End` is still required - it is what pops the window off ImGui's stack. Put it
+inside the `If` and a single collapsed panel leaves ImGui inside that window
+for the rest of the frame; it aborts at the next `NewFrame` with
+**"Missing End()"**, naming no window, from a native assert dialog.
+
+This is the opposite of every other `Begin*`: `BeginChild` is likewise always
+matched with `EndChild`, but `BeginTable`, `BeginCombo`, `BeginTabItem`,
+`BeginPopupModal` and friends are ended **only when they returned true**.
+
+Six panels had it wrong and two - the loading-screen progress bar and the Debug
+"Draw test textures" window - never called `End` at all. None of it showed
+until the 1.91 upgrade, because the older native build had asserts compiled
+out. To check the whole file at a glance, the counts must match:
+
+```
+grep -cE "ImGui\.Begin\(" nuTerra/Forms/Window.vb
+grep -cE "^\s*ImGui\.End\(\)" nuTerra/Forms/Window.vb
+```
+
+## The ImGui.NET version, and what the 1.91 move changed
+
+`ImGui.NET 1.91.6.1` (Dear ImGui 1.91.6), moved up from 1.87.2. What broke:
+
+- **`io.KeyMap` and `io.KeysDown` are gone** (1.90). A backend posts events -
+  `io.AddKeyEvent`, `AddMousePosEvent`, `AddMouseButtonEvent`,
+  `AddMouseWheelEvent` - and ImGui keeps the state. `ImGuiController.KEY_PAIRS`
+  is the OpenTK-key-to-`ImGuiKey` table, built once at class load; anything
+  ImGui has no name for maps to `ImGuiKey.None` and is not forwarded.
+- **Modifiers are no longer set by hand.** Since 1.89 ImGui derives
+  `io.KeyCtrl` and the rest from the Left/Right key states during `NewFrame`,
+  and those arrive through the table like any other key. Writing them too
+  would be a second source of truth.
+- **`DeltaTime` must be strictly positive** (1.88; 1.87 allowed exactly zero).
+  `ForceRender` defaults `time` to `0.0` when it repaints during a load, so
+  `SetPerFrameImGuiData` floors it at an epsilon - one choke point rather than
+  every caller.
+- **`draw_data.CmdListsRange(i)`** became `draw_data.CmdLists(i)` (1.90).
+- **`BeginChild`'s `Boolean border`** became `ImGuiChildFlags` (1.90):
+  `ImGuiChildFlags.Borders` or `.None`.
+- **`ImageButton` wants an explicit string id** (1.89); it used to take it from
+  the texture handle.
+- **`ReadOnlySpan(Of Char)` overloads were added**, so a VB call that needed a
+  narrowing conversion on another argument became ambiguous rather than
+  quietly widening - which is what turned `SHOW_CURSOR` from `Integer` into the
+  `Boolean` it always meant.
+

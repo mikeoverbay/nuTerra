@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports ImGuiNET
 Imports OpenTK.Graphics.OpenGL4
@@ -434,7 +434,7 @@ Public Class BulbPlacer
             split_right = Math.Max(MIN_PANE, Math.Min(split_right, avail.X - 2 * BAR - split_left - MIN_PANE))
 
             ' ---- LEFT: the list --------------------------------------------
-            ImGui.BeginChild("##bulb_left", New System.Numerics.Vector2(split_left, 0), True)
+            ImGui.BeginChild("##bulb_left", New System.Numerics.Vector2(split_left, 0), ImGuiChildFlags.Borders)
             draw_list()
             ImGui.EndChild()
 
@@ -444,7 +444,7 @@ Public Class BulbPlacer
 
             ' ---- CENTRE: the view --------------------------------------------
             Dim centre_w = avail.X - split_left - split_right - 2 * BAR
-            ImGui.BeginChild("##bulb_view", New System.Numerics.Vector2(centre_w, 0), True)
+            ImGui.BeginChild("##bulb_view", New System.Numerics.Vector2(centre_w, 0), ImGuiChildFlags.Borders)
             draw_view()
             ImGui.EndChild()
 
@@ -453,7 +453,7 @@ Public Class BulbPlacer
             ImGui.SameLine(0.0F, 0.0F)
 
             ' ---- RIGHT: settings and tools ------------------------------------
-            ImGui.BeginChild("##bulb_right", New System.Numerics.Vector2(0, 0), True)
+            ImGui.BeginChild("##bulb_right", New System.Numerics.Vector2(0, 0), ImGuiChildFlags.Borders)
             draw_tools()
             ImGui.EndChild()
         End If
@@ -497,7 +497,7 @@ Public Class BulbPlacer
         ' A list, with the kind as a tag and the instance count: the job is
         ' working down the lamps one after another.
         Dim rgn = ImGui.GetContentRegionAvail()
-        ImGui.BeginChild("##bulb_names", New System.Numerics.Vector2(0, rgn.Y), False)
+        ImGui.BeginChild("##bulb_names", New System.Numerics.Vector2(0, rgn.Y), ImGuiChildFlags.None)
         For i = 0 To entries.Count - 1
             Dim e = entries(i)
             Dim has = False

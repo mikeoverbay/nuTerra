@@ -457,7 +457,11 @@ Module modGlobalVars
     Public WASD_SPEED As Single = 0
     Public WASD_VECTOR As Point
     Public M_MOUSE As New Point
-    Public SHOW_CURSOR As Integer
+    ' Boolean, not Integer. Its only two uses are a checkbox and an If;
+    ' ImGui.NET 1.91 added ReadOnlySpan(Of Char) overloads, so passing an
+    ' Integer to Checkbox's ByRef Boolean became an ambiguous narrowing
+    ' call rather than the quiet copy-in/copy-out it used to be.
+    Public SHOW_CURSOR As Boolean
     '============================================================
     Public PROJECTIONMATRIX As New Matrix4
     Public VIEWMATRIX As New Matrix4

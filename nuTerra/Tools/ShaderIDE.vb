@@ -264,7 +264,7 @@ Public Class ShaderIDE
         Dim boxTop As Single = 0.0F, boxBot As Single = 0.0F
 
         Dim flags = ImGuiWindowFlags.NoScrollbar Or ImGuiWindowFlags.NoScrollWithMouse Or ImGuiWindowFlags.NoNav Or ImGuiWindowFlags.NoInputs
-        If ImGui.BeginChild(label, New Num.Vector2(0, 0), False, flags) Then
+        If ImGui.BeginChild(label, New Num.Vector2(0, 0), ImGuiChildFlags.None, flags) Then
             Dim dl = ImGui.GetWindowDrawList()
             Dim pad = ImGui.GetStyle().FramePadding
             Dim origin = ImGui.GetWindowPos() + pad - New Num.Vector2(ImGui.GetScrollX(), ImGui.GetScrollY())

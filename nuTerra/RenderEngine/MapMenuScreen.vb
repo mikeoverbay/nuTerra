@@ -238,7 +238,11 @@ NotInheritable Class MapMenuScreen
                 For Each item In MapPickList
                     ImGui.TableNextColumn()
                     ImGui.Text(item.realname)
-                    If ImGui.ImageButton(New IntPtr(item.map_image.texture_id), New Numerics.Vector2(120, 72)) Then
+                    ' ImageButton took its id from the texture until 1.89; it now wants an
+                    ' explicit one, and the map name is the id that is actually unique
+                    ' here - two maps sharing a placeholder image would otherwise be
+                    ' one button.
+                    If ImGui.ImageButton("##map_" & item.name, New IntPtr(item.map_image.texture_id), New Numerics.Vector2(120, 72)) Then
                         MAP_TO_LOAD = item.name
                         MAP_DESCRIPTION = item.description
                         MAP_REALNAME = item.realname
@@ -275,8 +279,13 @@ NotInheritable Class MapMenuScreen
                     ImGui.EndCombo()
                 End If
             End If
-
-            ImGui.End()
         End If
+        ' OUTSIDE the If. Begin must be paired with End however it returned -
+        ' unlike BeginTable / BeginCombo above, which are only ended when they
+        ' returned true. A collapsed or fully clipped window makes Begin false
+        ' and then this End is the only thing keeping the window stack level;
+        ' skipping it leaves ImGui inside this window for the rest of the frame
+        ' and it aborts at NewFrame with "Missing End()".
+        ImGui.End()
     End Sub
 End Class

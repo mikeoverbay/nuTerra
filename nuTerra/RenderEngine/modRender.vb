@@ -508,8 +508,11 @@ Module modRender
                     Dim pos = ImGui.GetCursorScreenPos()
                     map_scene.sun_shadow.DebugDraw(New RectangleF(pos.X, pos.Y, w, h))
                     ImGui.Dummy(New System.Numerics.Vector2(w, h))
-                    ImGui.End()
                 End If
+                ' OUTSIDE the If - see MapMenuScreen. This window has a title
+                ' bar, so the user can collapse it, which is exactly when Begin
+                ' returns false and the End was being skipped.
+                ImGui.End()
             End If
 
             If DONT_HIDE_MINIMAP Then map_scene.mini_map.draw_mini_map() '===========================================================
