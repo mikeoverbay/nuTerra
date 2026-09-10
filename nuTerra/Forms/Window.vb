@@ -594,6 +594,16 @@ try_again:
             save_record_frame()
         End If
 
+        ' Ctrl+C, serviced HERE - the same point in the frame the recorder
+        ' shoots from, and for the same reason: it is after the scene and the
+        ' minimap are drawn and before the ImGui panels go up, so a copied
+        ' frame is the picture without the debug UI over it. Cleared before the
+        ' grab, so a failure cannot leave the flag set and re-fire every frame.
+        If copy_frame_request Then
+            copy_frame_request = False
+            copy_frame_to_clipboard()
+        End If
+
         ' The bulb pane's own surface, drawn BEFORE the UI is built.
         '
         ' Not from inside the panel: that binds a framebuffer and changes
@@ -1119,6 +1129,12 @@ try_again:
                 Z_MOVE = True
             Case Keys.LeftControl
                 MOVE_MOD = True
+            Case Keys.C
+                ' Ctrl+C copies the frame. Flagged, not grabbed: this is the
+                ' input callback and the readback has to happen in the render
+                ' loop, at the point the recorder shoots from, or it reads a
+                ' framebuffer that is halfway through the next frame.
+                If MOVE_MOD Then copy_frame_request = True
             Case Keys.Equal
                 If MINI_MAP_NEW_SIZE < 640 Then mini_map_new_size +=20
             Case Keys.Minus
@@ -1641,6 +1657,26 @@ try_again:
                                          "These are the ones the shadow cubes are baked" & vbLf &
                                          "for. Same deal: left out of the upload, not" & vbLf &
                                          "destroyed.")
+                    End If
+                    ImGui.Separator()
+                    ' The tank's shading is its OWN - it writes GFLAG_UNLIT and
+                    ' the resolve does not touch it - so these four are the
+                    ' whole rig. Same names and same 1.0 defaults as the Tank
+                    ' Exporter's Light / Ambient sliders and NMap / AO boxes,
+                    ' because it is the same shader.
+                    If ImGui.CollapsingHeader("Tank shading") Then
+                        ImGui.SliderFloat("Light", TANK_LIGHT, 0.0, 3.0)
+                        ImGui.SliderFloat("Ambient", TANK_AMBIENT, 0.0, 3.0)
+                        ImGui.Checkbox("Normal map", TANK_NORMAL_MAP)
+                        ImGui.Checkbox("AO", TANK_AO)
+                        ImGui.Checkbox("Environment (IBL)", TANK_IBL)
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Irradiance, the raw cube and the BRDF LUT." & vbLf &
+                                             "Off, metal reflects nothing and the whole" & vbLf &
+                                             "vehicle reads as plastic - which is exactly" & vbLf &
+                                             "how the first port looked before this was" & vbLf &
+                                             "wired.")
+                        End If
                     End If
                     ImGui.Separator()
                     ImGui.Checkbox("Look-at cube", DEBUG_CUBE_ON)
@@ -3620,6 +3656,74 @@ try_again:
         SHOW_CAM_PATH = False
         FLY_CAM_PATH = True
         RECORD_FLIGHT = True
+    End Sub
+
+    Private copy_frame_request As Boolean
+
+    ''' <summary>
+    ''' The current frame onto the Windows clipboard, for Ctrl+C.
+    '''
+    ''' Same readback as save_record_frame: default framebuffer, BGR bytes,
+    ''' PackAlignment 4 because GDI+ pads every 24bpp row to a 4 byte boundary
+    ''' and at alignment 1 the two only agree when the width is a multiple of
+    ''' 4, then flipped because GL counts rows from the bottom and a Bitmap
+    ''' counts from the top.
+    '''
+    ''' Unlike the recorder it does NOT round the size down to even. That rule
+    ''' is H.264's, and nothing here is going through an encoder - a clipboard
+    ''' image keeps every row and column that was on screen.
+    ''' </summary>
+    Private Sub copy_frame_to_clipboard()
+        Try
+            Dim w = MainFBO.width
+            Dim h = MainFBO.height
+            If w <= 0 OrElse h <= 0 Then Return
+
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+            GL.PixelStore(PixelStoreParameter.PackAlignment, 4)
+            ' Say WHICH buffer. save_record_frame leaves the read buffer on
+            ' Front when it finishes, so after any still or flight capture this
+            ' session a read that inherited that state would copy the PREVIOUS
+            ' frame. Neither sub sets it on the way in; this one does.
+            GL.ReadBuffer(ReadBufferMode.Back)
+
+            Using bmp As New Bitmap(w, h, Imaging.PixelFormat.Format24bppRgb)
+                Dim bits = bmp.LockBits(New Rectangle(0, 0, bmp.Width, bmp.Height),
+                                        ImageLockMode.WriteOnly, bmp.PixelFormat)
+                GL.ReadPixels(0, 0, w, h,
+                              OpenGL.PixelFormat.Bgr, PixelType.UnsignedByte, bits.Scan0)
+                bmp.UnlockBits(bits)
+                bmp.RotateFlip(RotateFlipType.RotateNoneFlipY)
+
+                ' THE CLIPBOARD IS STA ONLY, and this thread is not.
+                '
+                ' Program.vb carries no <STAThread>, so the OpenTK loop runs
+                ' MTA and Clipboard.SetImage throws ThreadStateException on it.
+                ' One short lived STA thread does the handover; Join keeps the
+                ' Bitmap alive until SetImage has copied it, which the Using
+                ' block below would otherwise dispose out from under it.
+                Dim err As Exception = Nothing
+                Dim t As New System.Threading.Thread(
+                    Sub()
+                        Try
+                            System.Windows.Forms.Clipboard.SetImage(bmp)
+                        Catch ex As Exception
+                            err = ex
+                        End Try
+                    End Sub)
+                t.SetApartmentState(System.Threading.ApartmentState.STA)
+                t.Start()
+                t.Join()
+
+                If err IsNot Nothing Then
+                    LogThis("clipboard: copy failed - {0}", err.Message)
+                Else
+                    LogThis("clipboard: {0}x{1} frame copied", w, h)
+                End If
+            End Using
+        Catch ex As Exception
+            LogThis("clipboard: copy failed - {0}", ex.Message)
+        End Try
     End Sub
 
     Private Sub save_record_frame()

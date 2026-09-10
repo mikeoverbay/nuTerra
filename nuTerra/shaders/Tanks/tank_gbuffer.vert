@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 #extension GL_ARB_shading_language_include : require
 
 #define USE_PERVIEW_UBO
@@ -25,13 +25,24 @@ layout(location = 7) in vec2  a_uv1;
 uniform mat4 u_model;
 uniform int  normal_mode;   // 1: a_normal is 8/8/8 bytes (b/127.5 - 1); 0: a_normal.x carries a packed 11/10/10 (unused so far)
 
+// TWO FRAMES, ON PURPOSE.
+//
+// The G-buffer wants VIEW space - gPosition and gNormal are read that way by
+// ssr, lamp_fog, probe_field, the particles and the resolve itself. The tank's
+// own shading is the exporter's, and that is written in WORLD space: the light
+// rig, the crash tile's position hash and the muzzle flash all take world
+// positions, and the environment cube is a world direction. Carrying both is
+// two extra varyings and removes every chance of mixing them up.
 out VS_OUT
 {
     vec2 TC1;
     vec2 TC2;
     vec3 viewPosition;
-    mat3 TBN;
+    mat3 TBN;              // VIEW space, for the G-buffer normal
     flat vec3 surfaceNormal;
+    vec3 worldPosition;
+    mat3 worldTBN;         // WORLD space, for the exporter's shading
+    vec3 worldNormal;      // un-perturbed; the exporter reflects off THIS
 } vs_out;
 
 // The exporter's unpackNormal, bit for bit: x in bits 0..10, y in 11..20,
@@ -60,16 +71,25 @@ void main(void)
 
     mat4 modelView = view * u_model;
     mat3 normalMatrix = mat3(transpose(inverse(modelView)));
+    mat3 worldNormalMatrix = mat3(transpose(inverse(u_model)));
 
     vec3 n = normalize(normalMatrix * n_local);
     vec3 t = normalize(normalMatrix * t_local);
     vec3 b = normalize(normalMatrix * b_local);
+
+    vec3 wn = normalize(worldNormalMatrix * n_local);
+    vec3 wt = normalize(worldNormalMatrix * t_local);
+    vec3 wb = normalize(worldNormalMatrix * b_local);
     // A stream without tangents unpacks to (0,0,1): build a frame from the
     // normal alone so the normal map still reads as "flat" rather than junk.
     if (a_tangent == 0u) {
         vec3 up = abs(n.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
         t = normalize(cross(up, n));
         b = cross(n, t);
+
+        vec3 wup = abs(wn.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+        wt = normalize(cross(wup, wn));
+        wb = cross(wn, wt);
     }
 
     vs_out.TC1 = a_uv0;
@@ -77,6 +97,9 @@ void main(void)
     vs_out.viewPosition = vec3(modelView * vec4(a_pos, 1.0));
     vs_out.TBN = mat3(t, b, n);
     vs_out.surfaceNormal = n;
+    vs_out.worldPosition = vec3(u_model * vec4(a_pos, 1.0));
+    vs_out.worldTBN = mat3(wt, wb, wn);
+    vs_out.worldNormal = wn;
 
     gl_Position = projection * modelView * vec4(a_pos, 1.0);
 }

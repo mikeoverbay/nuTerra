@@ -1018,6 +1018,27 @@ Module modGlobalVars
     ''' </summary>
     Public DEBUG_CUBE_ON As Boolean = False
 
+    ''' <summary>
+    ''' The tank's own shading, ported from the Tank Exporter's mesh.frag. The
+    ''' tank writes GFLAG_UNLIT and lights itself, so these are its ENTIRE
+    ''' lighting rig - nothing in the map reaches it.
+    '''
+    ''' TANK_LIGHT is the exporter's metal_scale ("Light" slider): direct light
+    ''' from the three-point rig. TANK_AMBIENT is shine_scale ("Ambient"): the
+    ''' flat fill. Both default to 1.0, which is what the exporter's sliders
+    ''' start at, so nuTerra opens on the look the exporter opens on.
+    ''' </summary>
+    Public TANK_LIGHT As Single = 1.0F
+    Public TANK_AMBIENT As Single = 1.0F
+    Public TANK_NORMAL_MAP As Boolean = True
+    Public TANK_AO As Boolean = True
+    ''' <summary>
+    ''' The environment half of the tank's PBR: irradiance, the raw cube and the
+    ''' BRDF LUT. Off, metal has nothing to reflect and the whole vehicle reads
+    ''' as plastic - which is exactly how it looked before this was wired.
+    ''' </summary>
+    Public TANK_IBL As Boolean = True
+
     Public LAMP_SHADOW_ENABLED As Boolean = True
 
     ''' <summary>
