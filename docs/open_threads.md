@@ -130,11 +130,13 @@ Two known-imperfect things in the shipped water:
   `R_w = vec3(-R_w.x, R_w.y, R_w.z)` to the pool's cube lookup; `63af7051`
   deleted the whole block when it took the cube out of the wet path, and the
   block written to replace it never got the sign back. That is why the
-  environment read backwards in pools. Restored 2026-09-10. The sign is needed
-  because the cube comes from the game, which is DirectX: D3D lays its cube
-  faces out left handed and GL samples them right handed, so a correct world
-  direction lands on the mirrored face. `water.frag:80` does the same thing and
-  its comment has pointed at deferred the whole time.
+  environment read backwards in pools. Restored 2026-09-10 and **confirmed by
+  the owner the same day at a camera with real standing water** - the earlier
+  A/B could not see it (see the measurement below). The sign is needed because
+  the cube comes from the game, which is DirectX: D3D lays its cube faces out
+  left handed and GL samples them right handed, so a correct world direction
+  lands on the mirrored face. `water.frag:80` does the same thing and its
+  comment has pointed at deferred the whole time.
 - **`water.frag` clamps its cube lookup at `y >= 0.02`, deferred at `0.4`.**
   Deferred's `SKY_FLOOR` exists because the cube has a sunset and BUILDINGS
   painted into its horizon band - the Look-at cube shows that band plainly - and
@@ -145,7 +147,11 @@ Two known-imperfect things in the shipped water:
 nobody re-derives it: the pool block passes its guard on **508 px, 0.1% of the
 frame**, at negligible mix weight, and the forward water pass draws **0 px**.
 Neither is what paints the wet-looking ground in that view. Any A/B of a pool
-change needs a camera with real pooled water on screen - that one has none.
+change needs a camera with real pooled water on screen - that one has none, and
+that is why a fix which visibly works reported zero changed pixels here. **No
+cam string for a pooled-water view is recorded yet; the flip was confirmed by
+eye.** Writing one down would turn this from a look into a still-for-still
+regression test, which is what the rest of this repo measures with.
 
 ## 8. Camera flight
 
