@@ -106,6 +106,14 @@ Pre-existing, not introduced by any of this work, and not measured - it is
 visible in the code, not in a screenshot. Worth an A/B before believing it
 matters.
 
+**2026-09-10.** Still open, and there is now an instrument for it: the
+**Look-at cube** checkbox (Section Visibility) draws the environment cubemap as
+a 1 m box standing on the look-at point, each face showing the matching face of
+the cube. A reflection argument that used to be about an invisible vector is now
+something to look at. `Rdom.xz *= -1.0` sits on top of the view-space lookup as
+a fudge; it is a 180 degree yaw, not a mirror, and it should go when the space
+is fixed rather than being tuned.
+
 ## 7. Pooled water: rim and reflection content
 
 Two known-imperfect things in the shipped water:
@@ -118,6 +126,26 @@ Two known-imperfect things in the shipped water:
   water.frag MIXES, so an SSR building hit lands on top of the sky reflection
   instead of replacing it. Making SSR mix for pool pixels is the fix, and the
   surface-kind byte now identifies those pixels cheaply.
+- **The handedness flip was lost and is back.** `af1a4e3c` added
+  `R_w = vec3(-R_w.x, R_w.y, R_w.z)` to the pool's cube lookup; `63af7051`
+  deleted the whole block when it took the cube out of the wet path, and the
+  block written to replace it never got the sign back. That is why the
+  environment read backwards in pools. Restored 2026-09-10. The sign is needed
+  because the cube comes from the game, which is DirectX: D3D lays its cube
+  faces out left handed and GL samples them right handed, so a correct world
+  direction lands on the mirrored face. `water.frag:80` does the same thing and
+  its comment has pointed at deferred the whole time.
+- **`water.frag` clamps its cube lookup at `y >= 0.02`, deferred at `0.4`.**
+  Deferred's `SKY_FLOOR` exists because the cube has a sunset and BUILDINGS
+  painted into its horizon band - the Look-at cube shows that band plainly - and
+  0.02 samples straight into it. The forward water pass never got that fix.
+  Untested: no camera to hand renders both passes at once.
+
+**Measured 2026-09-10 at `cam=-16.2835,3.7183,-0.2196,158.1983,0,4.9512`,** so
+nobody re-derives it: the pool block passes its guard on **508 px, 0.1% of the
+frame**, at negligible mix weight, and the forward water pass draws **0 px**.
+Neither is what paints the wet-looking ground in that view. Any A/B of a pool
+change needs a camera with real pooled water on screen - that one has none.
 
 ## 8. Camera flight
 

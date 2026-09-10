@@ -1005,6 +1005,19 @@ Module modGlobalVars
     ''' </summary>
     Public PATH_LIGHTS_ON As Boolean = True
 
+    ''' <summary>
+    ''' The environment cubemap, drawn as a 1 m box standing on the look-at
+    ''' point. Each of its six faces shows the matching face of the cube, so
+    ''' the map's orientation is something you can look at rather than argue
+    ''' about - the edges name the axes (red X, green Y, blue Z, bright for
+    ''' positive). It is what caught the missing handedness flip in the pool
+    ''' reflection; see the DEBUG block at the foot of deferred.frag.
+    '''
+    ''' Off by default, and off costs nothing: the shader skips the whole
+    ''' block on a uniform test.
+    ''' </summary>
+    Public DEBUG_CUBE_ON As Boolean = False
+
     Public LAMP_SHADOW_ENABLED As Boolean = True
 
     ''' <summary>

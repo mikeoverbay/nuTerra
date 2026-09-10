@@ -1100,6 +1100,23 @@ Module modRender
 
         GL.Uniform1(deferredShader("pbr_spec"), CInt(If(PBR_SPEC, 1, 0)))
 
+        ' The environment cube, drawn as a 1 m box on the look-at point.
+        '
+        ' The POINT goes up every frame whether the box is on or not - it is
+        ' three floats and it means the box is already in the right place on the
+        ' frame the checkbox is ticked, instead of standing at the origin until
+        ' the camera next moves. CAM_TARGET is the orbit rig's pivot and is
+        ' also what flight playback writes, so the box follows a flight too.
+        GL.Uniform1(deferredShader("debug_cube"),
+                    CInt(If(DEBUG_CUBE_ON, 1, 0)))
+        If map_scene IsNot Nothing Then
+            ' Three scalars, not the Vector3 overload - every other Uniform3 in
+            ' the engine is written this way and it cannot pick the float-array
+            ' overload by mistake.
+            Dim ct As Vector3 = map_scene.camera.CAM_TARGET
+            GL.Uniform3(deferredShader("debug_cube_at"), ct.X, ct.Y, ct.Z)
+        End If
+
         upload_path_lights()
 
         ' The baked probe FIELD, folded into the real lighting: deferred.frag

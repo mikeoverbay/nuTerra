@@ -659,8 +659,12 @@ float baked_sun_shadow(vec3 world_pos)
 // of it. Refactoring would have meant editing the sun path to share code with
 // this, and the sun path is the one that currently works.
 vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
-                 vec3 albedo, float gloss, float metal)
+                 vec3 albedo, float gloss, float metal,
+                 out vec3 spec_out)
 {
+    // Written before any early return: an out parameter left unwritten is
+    // undefined, and the caller adds it straight to the frame.
+    spec_out = vec3(0.0);
     if (light_count <= 0) return vec3(0.0);
 
     // Once per PIXEL, not once per light. Everything below is world space.
@@ -822,12 +826,81 @@ vec3 path_lights(vec3 N_view, vec3 V_view, vec3 P_view,
         float Vis = 0.25 / max((NdotV * (1.0 - k) + k)
                              * (NdotL * (1.0 - k) + k), 1e-4);
 
-        sum += (albedo * kd + D * Vis * F) * NdotL * radiance * vis;
+        // SPLIT, because the two halves belong to two different surfaces.
+        //
+        // albedo * kd is the GROUND responding to the lamp. D * Vis * F is the
+        // lamp REFLECTED off whatever sits on top of it - and when that is
+        // standing water, the reflection is the only one of the two that
+        // should survive. See the caller.
+        vec3 spec_i = D * Vis * F * NdotL * radiance * vis;
+        spec_out += spec_i;
+        sum += albedo * kd * NdotL * radiance * vis + spec_i;
     }
 
     return sum;
 }
 
+
+
+// ---------------------------------------------------------------------------
+// DEBUG: the environment cube, drawn as a 1 m box in the world.
+//
+// A cubemap has no orientation you can look at. Every argument about whether a
+// reflection is mirrored ends up being about a vector nobody can see, so this
+// puts the cube itself in the scene: a 1 m box whose six faces each show what
+// the cubemap holds in that direction, with a coloured edge naming the axis.
+// If the sunset turns up on the face pointing AWAY from the sun, the sampling
+// is flipped - visible rather than inferred.
+//
+// A ray-box intersection IN THE FRAGMENT SHADER, not a mesh. It began that way
+// because MSBuild on this machine cannot build the C++ project and a shader is
+// a Content file the build only copies - but it is the better shape anyway: no
+// VAO, no draw call, no state to save and restore, and it lands in the deferred
+// pass where gPosition is already bound, so the box is occluded by the scene
+// for free.
+//
+// Edges: RED = X, GREEN = Y, BLUE = Z. Bright = positive, dim = negative.
+//
+// Both of these come from the app: the checkbox in Section Visibility, and the
+// orbit rig's own CAM_TARGET, so the box follows wherever you are looking.
+uniform int  debug_cube;      // 0 = off, and the whole block is skipped
+uniform vec3 debug_cube_at;   // MapCamera.CAM_TARGET, the look-at point
+const float DEBUG_CUBE_HALF = 0.5;   // a 1 m box
+
+// IT RESTS ON THE LOOK-AT POINT, it is not centred on it.
+//
+// The orbit rig's pivot is terrain height under the cursor plus U_LOOK_AT_Y,
+// so the look-at usually sits ON the ground. A box centred there is half
+// buried - which is exactly how the first one was lost: centred on y = 0 where
+// the terrain bake reads 1.467 m, it was a metre under the cobbles and drew
+// nothing while the projection was provably correct. Half a box up puts it on
+// the surface, standing where you are looking.
+vec3 debug_cube_centre()
+{
+    return debug_cube_at + vec3(0.0, DEBUG_CUBE_HALF, 0.0);
+}
+
+bool debug_cube_hit(vec3 ro, vec3 rd, out float hit_t, out vec3 hit_n)
+{
+    vec3 C   = debug_cube_centre();
+    vec3 inv = 1.0 / rd;
+    vec3 lo  = (C - DEBUG_CUBE_HALF - ro) * inv;
+    vec3 hi  = (C + DEBUG_CUBE_HALF - ro) * inv;
+    vec3 tsm = min(lo, hi);
+    vec3 tbg = max(lo, hi);
+    float tn = max(max(tsm.x, tsm.y), tsm.z);
+    float tf = min(min(tbg.x, tbg.y), tbg.z);
+    if (tf < max(tn, 0.0)) return false;
+    hit_t = (tn > 0.0) ? tn : tf;
+
+    // Which slab we entered on is the face, and its sign.
+    vec3 p = ro + rd * hit_t - C;
+    vec3 a = abs(p);
+    hit_n = (a.x > a.y && a.x > a.z) ? vec3(sign(p.x), 0.0, 0.0)
+          : (a.y > a.z)              ? vec3(0.0, sign(p.y), 0.0)
+                                     : vec3(0.0, 0.0, sign(p.z));
+    return true;
+}
 
 void main (void)
 {
@@ -1370,6 +1443,23 @@ void main (void)
                     // A sheet of water lies along the slope, full stop. Take the
                     // direction from surf_n and the surface reflects as one piece.
                     vec3 R_w = normalize(mat3(invView) * reflect(-V, surf_n));
+
+                    // UNDO THE DISPLAY MIRROR. The cube is authored left handed.
+                    //
+                    // mat3(invView) already puts the reflection in world space,
+                    // so in a matching convention no sign would be needed. It is
+                    // needed because the env cube comes from the game, which is
+                    // DirectX: D3D's cube faces are laid out for a LEFT handed
+                    // frame and GL samples them right handed, so a world
+                    // direction lands on the mirrored face. Negating x is the
+                    // correction. water.frag:80 does exactly this and its
+                    // comment says "same reason deferred flips its reflection
+                    // vector" - deferred did, at af1a4e3c, and 63af7051 deleted
+                    // the whole block when it took the cube out of the wet path.
+                    // The block that replaced it was written without the sign,
+                    // which is why the environment now reads backwards in pools.
+                    R_w.x = -R_w.x;
+
                     // Floor the elevation, then RE-NORMALISE - raising .y on its
                     // own lengthens the vector and skews the x/z direction with it.
                     // Lowest elevation the reflection may sample from the cube, as
@@ -1451,9 +1541,11 @@ void main (void)
                 // Passed explicitly so the mistake cannot travel in here.
                 // Computed HERE, where N, V and the material are in scope,
                 // but added further down - after Bright Level. See below.
+                vec3 lights_spec;
                 vec3 lights_add = path_lights(N, V, Position, color_in.rgb,
                                               clamp(GM_in.r, 0.0, 1.0),
-                                              clamp(GM_in.g, 0.0, 1.0));
+                                              clamp(GM_in.g, 0.0, 1.0),
+                                              lights_spec);
                 //final_color.xyz += spec;
                 // Fade to ambient over distance
 
@@ -1523,7 +1615,33 @@ void main (void)
                 // shifts the hue toward white on the way. Measured across a
                 // lit street it held the added red constant to within 10/255
                 // over a pool whose attenuation varies several fold.
-                vec3 lamp = lights_add * (1.0 - pool);
+                // A STREET LAMP IN A PUDDLE IS A REFLECTION, NOT A TINT.
+                //
+                // This was lights_add * (1.0 - pool) - the whole lamp term,
+                // diffuse AND specular, multiplied out by the pool. The
+                // reasoning above is right about the DIFFUSE half: the ground
+                // under standing water does not get its own light response,
+                // and tinting it there turned a puddle orange instead of
+                // reflecting anything.
+                //
+                // But it took the specular lobe with it, and that lobe IS the
+                // reflection. Nothing else could supply one. The env term is
+                // the sky cubemap, which contains no lamps; and ssr.frag
+                // marches the frame BEFORE the lamp glow is composited -
+                // render_ssr sits ahead of the FX passes in modRender.vb - so
+                // the lamps are not in the pixels it reflects either. Measured
+                // on 19_monastery at night: the pool reflects the buildings
+                // clearly and the two lit lamps above it not at all.
+                //
+                // The gloss feeding that lobe is already the WET one - GM_in.rg
+                // was mixed toward WET_GLOSS further up - so this is a tight
+                // water highlight, not a broad dry one.
+                //
+                // Note what this does NOT change: at pool = 0 the result is
+                // (diffuse + specular) * 1, exactly as before. Dry ground
+                // cannot regress from this.
+                vec3 lamp = lights_add * (1.0 - pool)
+                          + lights_spec * pool;
                 float lamp_pk = max(max(lamp.r, lamp.g), lamp.b);
                 if (lamp_pk > LAMP_KNEE)
                 {
@@ -1628,4 +1746,80 @@ void main (void)
     }
 
     //outColor.a = 1.0;
+
+    if (debug_cube != 0)
+    {
+        vec2 res = vec2(resolution);
+        vec2 ndc = (gl_FragCoord.xy / res) * 2.0 - 1.0;
+
+        // THE RAY, FROM THE PROJECTION DIAGONAL. No matrix inverted, no
+        // depth convention assumed.
+        //
+        // Two earlier attempts went through invViewProj - unprojecting the far
+        // plane, then unprojecting both ends and differencing. Neither drew
+        // anything, while the crosshair (which uses viewProj) landed exactly
+        // on the target. That isolates it: the forward matrix is right and the
+        // ray was wrong, so stop using the inverse at all.
+        //
+        // For a standard perspective matrix the view-space direction through a
+        // pixel is (ndc.x / P[0][0], ndc.y / P[1][1], -1) - straight out of the
+        // definition, no far plane and no clip range in it. invView rotates
+        // that into the world; cameraPos is the origin, from the UBO.
+        vec3 rd_view = vec3(ndc.x / projection[0][0],
+                            ndc.y / projection[1][1],
+                            -1.0);
+        vec3 ro = cameraPos;
+        vec3 rd = normalize(mat3(invView) * rd_view);
+
+        float t;
+        vec3  n;
+        if (debug_cube_hit(ro, rd, t, n))
+        {
+            // gPosition is VIEW space (lamp_fog, ssr and probe_field all say
+            // so despite every writer naming the varying worldPosition), so
+            // the eye is its origin and its length is the distance to what was
+            // drawn. Nothing drawn leaves it at zero, and in view space
+            // everything in front of the camera has z < 0 - so z >= 0 is sky.
+            vec3  vp    = texelFetch(gPosition, ivec2(gl_FragCoord), 0).xyz;
+            float scene = (vp.z >= 0.0) ? 1e30 : length(vp);
+
+            // Occluded means occluded: the box is a thing standing in the
+            // world and the wall in front of it wins. The yellow silhouette
+            // that used to be drawn here was a diagnostic for the buried case
+            // and has done its job.
+            if (t < scene)
+            {
+                vec3  p  = ro + rd * t - debug_cube_centre();
+
+                // THE BOX AS A CUBEMAP VIEWER, not six flat swatches.
+                //
+                // Sampling by the face NORMAL returns one texel per face, so
+                // the box came back as six solid colours - it showed which way
+                // is up and nothing else. Sampling by the direction from the
+                // box CENTRE through the surface point is what a cubemap
+                // already is: each face of the box renders the matching face
+                // of the cube, undistorted, because the major axis of that
+                // direction IS the face. Now the box is a window.
+                //
+                // Sampling by rd instead would be no better than the normal -
+                // a 1 m box at 16 m spans about 3.5 degrees, so rd barely
+                // moves across it and the window would be flat again.
+                vec3 c = SRGBtoLINEAR(textureLod(cubeMap, normalize(p),
+                                                 0.0)).rgb;
+
+                vec3  ap = abs(p) / DEBUG_CUBE_HALF;
+                float e  = max(max(min(ap.x, ap.y), min(ap.y, ap.z)),
+                               min(ap.x, ap.z));
+                vec3 axis = (abs(n.x) > 0.5) ? vec3(1.0, 0.15, 0.15)
+                          : (abs(n.y) > 0.5) ? vec3(0.15, 1.0, 0.15)
+                                             : vec3(0.25, 0.4, 1.0);
+                axis *= ((n.x + n.y + n.z) > 0.0) ? 1.0 : 0.35;
+
+                vec3 shown = mix(c, axis, smoothstep(0.86, 0.94, e));
+                outColor = correct(vec4(shown, 1.0),
+                                   props.tonemap_exposure, 1.2);
+                outColor.a = 1.0;
+            }
+        }
+    }
 }

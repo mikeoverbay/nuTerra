@@ -1643,6 +1643,19 @@ try_again:
                                          "destroyed.")
                     End If
                     ImGui.Separator()
+                    ImGui.Checkbox("Look-at cube", DEBUG_CUBE_ON)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("The environment cubemap as a 1 m box," & vbLf &
+                                         "standing on whatever you are looking at." & vbLf &
+                                         "Each face shows the matching face of the" & vbLf &
+                                         "cube, so a mirrored env map is something" & vbLf &
+                                         "you can SEE instead of infer." & vbLf &
+                                         "Edges name the axes: red X, green Y," & vbLf &
+                                         "blue Z, bright for positive." & vbLf &
+                                         "It is drawn in the deferred pass and is" & vbLf &
+                                         "occluded by the scene like anything else.")
+                    End If
+                    ImGui.Separator()
                     ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
                     ' The whole FX pass, meshes and cards together, which is how
                     ' modRender brackets them. Independent of DONT_BLOCK_MODELS -
