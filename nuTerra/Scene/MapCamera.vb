@@ -31,6 +31,11 @@ Public Class MapCamera
 
     Public LOOK_AT_X As Single
     Public LOOK_AT_Y As Single
+
+    ''' <summary>How close to the ground the orbit pivot may get, in metres.
+    ''' U_LOOK_AT_Y is measured from the terrain under the pivot, so this is a
+    ''' clearance, not an altitude.</summary>
+    Public Const MIN_LOOK_AGL As Single = 0.24F
     Public LOOK_AT_Z As Single
 
     Public U_VIEW_RADIUS As Single
@@ -72,6 +77,21 @@ Public Class MapCamera
             U_LOOK_AT_X = LOOK_AT_X
         End If
         If LOOK_AT_Y <> U_LOOK_AT_Y Then
+            ' The pivot never goes below the ground it is standing on.
+            '
+            ' LOOK_Y is CURSOR_Y + U_LOOK_AT_Y further down, and CURSOR_Y is the
+            ' terrain height at the pivot's own XZ - so U_LOOK_AT_Y IS the height
+            ' above ground, and nothing stopped it going negative. Dragging down
+            ' with Z_MOVE walked the look-at under the terrain, which puts the
+            ' orbit centre inside the hill: the camera swings through solid
+            ' ground and anything drawn AT the pivot is buried.
+            '
+            ' Written back to LOOK_AT_Y as well, not just to U_LOOK_AT_Y. The
+            ' mouse accumulates into LOOK_AT_Y, so clamping only the copy would
+            ' let it run to -30 unseen and the pivot would then ignore thirty
+            ' metres of upward drag before it moved. Same shape as the
+            ' CAM_Y_ANGLE clamp below, for the same reason.
+            LOOK_AT_Y = Math.Max(LOOK_AT_Y, MIN_LOOK_AGL)
             U_LOOK_AT_Y = LOOK_AT_Y
         End If
         If LOOK_AT_Z <> U_LOOK_AT_Z Then
@@ -127,55 +147,30 @@ Public Class MapCamera
         CAM_POSITION.Y = cam_y + LOOK_Y
         CAM_POSITION.Z = cam_z + U_LOOK_AT_Z
 
-        ' Keep the eye above the ground.
+        ' THE GROUND DOES NOT MOVE THE CAMERA. Removed on the owner's word,
+        ' twice: "remove the auto cam rotation crap", then "cam still tilts up
+        ' when i get close to terra".
         '
-        ' 2.5 m - a tall person - hard wired rather than exposed, because it is
-        ' a physical constant of standing on the map, not a look to be tuned.
+        ' Two things used to live here and BOTH had to go, because each caused
+        ' one half of what he was seeing:
         '
-        ' The camera already sampled the terrain at the PIVOT (CURSOR_Y above);
-        ' it just never did it for the eye, so orbiting low or pushing the
-        ' radius in put the viewpoint underground and the frame filled with the
-        ' terrain backface. get_Y_at_XZ_fast is the no-scan lookup, cheap enough
-        ' to call per frame.
+        '   The angle write-back solved the pitch that put the eye at a 2.5 m
+        '   clearance and stored it into CAM_Y_ANGLE. That destroyed the angle
+        '   he had set, so pulling the radius back out never restored his
+        '   framing - the "locked to the ground when backing off".
         '
-        ' The TARGET is deliberately left alone. Lifting only the eye tilts the
-        ' view slightly as it slides up the terrain, which reads as the camera
-        ' riding the ground - moving the pivot instead would swing the whole
-        ' framing and feel like the map moved.
-        If MAP_LOADED Then
-            Const EYE_CLEARANCE As Single = 2.5F
-            Dim ground = get_Y_at_XZ_fast(CAM_POSITION.X, CAM_POSITION.Z) + EYE_CLEARANCE
-            If CAM_POSITION.Y < ground Then
-                ' Clamp the ANGLE, not just the eye. Lifting the position alone
-                ' left CAM_Y_ANGLE free to keep pitching under the ground while
-                ' the eye sat pinned at the clearance, so the stored angle and
-                ' the picture disagreed - and pitching back up did nothing until
-                ' the angle had climbed all the way out of the dead zone, then
-                ' the view jumped. Solve the pitch that puts the eye exactly at
-                ' the clearance and write it back, so the rotation stops at the
-                ' ground and releases the instant the mouse reverses.
-                Dim s = (ground - LOOK_Y) / Math.Max(VIEW_RADIUS, 0.001F)
-                If s < 1.0F Then
-                    Dim a = CSng(Math.Asin(Math.Max(-1.0F, s)))
-                    If a > CAM_Y_ANGLE Then
-                        CAM_Y_ANGLE = a
-                        U_CAM_Y_ANGLE = a
-                        sin_y = Math.Sin(a)
-                        cos_y = Math.Cos(a)
-                        cam_y = sin_y * VIEW_RADIUS
-                        cam_x = cos_y * sin_x * VIEW_RADIUS
-                        cam_z = cos_y * cos_x * VIEW_RADIUS
-                        CAM_POSITION.X = cam_x + U_LOOK_AT_X
-                        CAM_POSITION.Y = cam_y + LOOK_Y
-                        CAM_POSITION.Z = cam_z + U_LOOK_AT_Z
-                    End If
-                End If
-                ' The eye's XZ moved a little with the new pitch, so the ground
-                ' under it may differ; keep the position clamp as the last word.
-                ground = get_Y_at_XZ_fast(CAM_POSITION.X, CAM_POSITION.Z) + EYE_CLEARANCE
-                If CAM_POSITION.Y < ground Then CAM_POSITION.Y = ground
-            End If
-        End If
+        '   The position clamp then lifted CAM_POSITION.Y on its own while
+        '   CAM_TARGET stayed where it was. Moving one end of a look-at vector
+        '   and not the other IS a rotation: that is the tilt that remained
+        '   after the first removal, and the comment that used to sit here
+        '   admitted it - "lifting only the eye tilts the view slightly as it
+        '   slides up the terrain".
+        '
+        ' The cost is real and accepted: the eye can now go below the terrain
+        ' and the frame fills with backface. That is the operator flying where
+        ' he pointed, which is what he asked for. get_Y_at_XZ_fast is no longer
+        ' called from this routine at all.
+        '
 
         CAM_TARGET = New Vector3(U_LOOK_AT_X, LOOK_Y, U_LOOK_AT_Z)
 

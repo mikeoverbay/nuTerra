@@ -62,13 +62,29 @@ Public Class MapTanks
             vehicles.Add(v)
 
             ' Base 1, the way the ring draws it: X negated, height from the terrain.
-            Dim x = -TEAM_1.X
-            Dim z = TEAM_1.Z
+            '
+            ' Then STOOD BACK from it. Parked on the base marker the vehicle sits
+            ' inside the base model and the two intersect; BASE_STANDOFF walks it
+            ' along its own backward axis so both can be looked at.
+            '
+            ' Backward is derived from the heading rather than hard wired to a
+            ' world axis, so it still means "behind the tank" if the heading ever
+            ' stops being zero. At heading 0 that is world -Z.
+            Const BASE_STANDOFF As Single = 10.0F
+            Dim heading = 0.0F
+            Dim back_x = -CSng(Math.Sin(heading)) * BASE_STANDOFF
+            Dim back_z = -CSng(Math.Cos(heading)) * BASE_STANDOFF
+
+            Dim x = -TEAM_1.X + back_x
+            Dim z = TEAM_1.Z + back_z
+            ' Height sampled AFTER the move - the ground 10 m away is not the
+            ' ground at the marker, and sampling first would bury or float it.
             Dim y = get_Y_at_XZ(x, z)
             instances.Add(New TankInstance With {
-                .vehicle = v, .position = New Vector3(x, y, z), .headingRad = 0.0F,
+                .vehicle = v, .position = New Vector3(x, y, z), .headingRad = heading,
                 .team = TankTeam.Green, .label = "M53/M55"})
-            LogThis("tank: placed {0} at base 1 ({1:0.00}, {2:0.00}, {3:0.00})", v.tag, x, y, z)
+            LogThis("tank: placed {0} at base 1 + {1:0.0} m back ({2:0.00}, {3:0.00}, {4:0.00})",
+                    v.tag, BASE_STANDOFF, x, y, z)
         Catch ex As Exception
             failed = True
             LogThis("tank: load failed - {0}", ex.Message)
@@ -114,20 +130,6 @@ Public Class MapTanks
                         model = Matrix4.CreateScale(1.0F, 1.0F, -1.0F) * partModel
                     End If
                     GL.UniformMatrix4(shader("u_model"), False, model)
-
-                    ' WHERE THE AO LIVES IS A PROPERTY OF THE MESH.
-                    '
-                    ' viewer.py 15656: mesh.ao_in_diffuse_alpha = has_bones. A
-                    ' skinned mesh - hull, turret, tracks - carries its ambient
-                    ' occlusion in the DIFFUSE ALPHA; a rigid one uses the
-                    ' separate AO map if it has one. Uploading a blanket 0 here
-                    ' meant no AO reached the shader at all: measured at the
-                    ' owner's camera, ao came back median 0.992 over 140k tank
-                    ' pixels, which is the flat plastic look with the cavity
-                    ' shading missing.
-                    GL.Uniform1(shader("ao_in_diffuse_alpha"),
-                                CInt(If(m.layout.offBoneIdx >= 0, 1, 0)))
-
                     Dim mat = part.MaterialFor(m)
                     BindMaterial(mat)
                     m.vao.Bind()
@@ -161,8 +163,7 @@ Public Class MapTanks
         GL.Uniform1(shader("shine_scale"), TANK_AMBIENT)
         GL.Uniform1(shader("apply_normal_map"), CInt(If(TANK_NORMAL_MAP, 1, 0)))
         GL.Uniform1(shader("apply_ao"), CInt(If(TANK_AO, 1, 0)))
-        GL.Uniform1(shader("game_curves"), CInt(If(TANK_GAME_CURVES, 1, 0)))
-        GL.Uniform1(shader("stock_tonemap"), CInt(If(TANK_STOCK_TONEMAP, 1, 0)))
+        GL.Uniform1(shader("spec_scale"), TANK_SPECULAR)
 
         ' THE ENVIRONMENT. Without it metal reflects nothing and the vehicle
         ' reads as plastic - not a figure of speech, it is what the first port
@@ -207,8 +208,7 @@ Public Class MapTanks
         GL.Uniform1(shader("has_armor_color"), 0)
         GL.Uniform1(shader("u_mflash_intensity"), 0.0F)
         GL.Uniform1(shader("alpha_in_normal_red"), 0)
-        ' ao_in_diffuse_alpha is NOT set here - it is per mesh, not per frame,
-        ' and the draw loop uploads it from the mesh's own bone layout.
+        GL.Uniform1(shader("ao_in_diffuse_alpha"), 0)
     End Sub
 
     ''' <summary>
@@ -222,14 +222,42 @@ Public Class MapTanks
     ''' wrong side entirely.
     ''' </summary>
     Private Sub upload_lights(centre As Vector3)
-        Const LIGHT_RADIUS As Single = 10.0F
-        Const LIGHT_HEIGHT As Single = 10.0F
+        Const FILL_RADIUS As Single = 10.0F
+        Const FILL_HEIGHT As Single = 10.0F
         Static lp(8) As Single
-        For i = 0 To 2
-            Dim a = CSng(i * (2.0 * Math.PI / 3.0))
-            lp(i * 3 + 0) = centre.X + LIGHT_RADIUS * CSng(Math.Cos(a))
-            lp(i * 3 + 1) = centre.Y + LIGHT_HEIGHT
-            lp(i * 3 + 2) = centre.Z + LIGHT_RADIUS * CSng(Math.Sin(a))
+
+        ' LIGHT 0 IS THE MAP'S SUN. The other two are fill, placed relative to
+        ' it rather than to the world axes.
+        '
+        ' The exporter's rig is three lights on a ring at FIXED angles, because
+        ' its tank stands alone on a turntable and there is no sun to disagree
+        ' with. Carried across unchanged it lit a tank standing in a MAP from
+        ' wherever world +X happens to point - no relation to the map's sun,
+        ' which is why the angle to it read as mirrored.
+        '
+        ' LIGHT_POS is a point on a sphere about the world ORIGIN - MapLoader
+        ' ~870 builds it from the orbit angles times LIGHT_RADIUS - so it is a
+        ' direction, not a place. Pushed far out from the tank it gives the same
+        ' direction deferred.frag uses for the terrain, and the shader treats
+        ' its lights as directional anyway (no falloff), so the distance only
+        ' has to be large enough not to skew across the hull.
+        Dim sun = LIGHT_POS
+        If sun.LengthSquared < 0.000001F Then sun = New Vector3(0.0F, 1.0F, 0.0F)
+        sun = Vector3.Normalize(sun)
+
+        lp(0) = centre.X + sun.X * 1000.0F
+        lp(1) = centre.Y + sun.Y * 1000.0F
+        lp(2) = centre.Z + sun.Z * 1000.0F
+
+        ' The fills keep the exporter's 120 degree spacing, but measured from
+        ' the SUN's azimuth, so they read as fill around the key light instead
+        ' of two more suns aimed at world +X.
+        Dim az = Math.Atan2(sun.Z, sun.X)
+        For i = 1 To 2
+            Dim a = CSng(az + i * (2.0 * Math.PI / 3.0))
+            lp(i * 3 + 0) = centre.X + FILL_RADIUS * CSng(Math.Cos(a))
+            lp(i * 3 + 1) = centre.Y + FILL_HEIGHT
+            lp(i * 3 + 2) = centre.Z + FILL_RADIUS * CSng(Math.Sin(a))
         Next
         GL.Uniform3(shader("light_pos"), 3, lp)
     End Sub

@@ -1630,6 +1630,44 @@ try_again:
                                          "Nothing is lit by them yet - this is what was authored.")
                     End If
                 End If
+                If ImGui.CollapsingHeader("Tank Lighting") Then
+                    ' THE TANK LIGHTS ITSELF. It writes GFLAG_UNLIT and the
+                    ' resolve passes its pixels through, so nothing here is
+                    ' shared with the map - this is the vehicle's whole rig.
+                    ' Its own header rather than a corner of Section Visibility,
+                    ' which is about what is DRAWN and none of this is.
+                    ImGui.SliderFloat("Light", TANK_LIGHT, 0.0, 3.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Direct light. Key light is the map's sun" & vbLf &
+                                         "(LIGHT_POS) with two fills at 120 degrees" & vbLf &
+                                         "from its azimuth." & vbLf &
+                                         "IBL is deliberately not scaled by this -" & vbLf &
+                                         "a brighter sun is not a brighter sky.")
+                    End If
+                    ImGui.SliderFloat("Ambient", TANK_AMBIENT, 0.0, 3.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Flat diffuse fill. Not physical - it lifts" & vbLf &
+                                         "the shaded side without touching the sun" & vbLf &
+                                         "or the environment.")
+                    End If
+                    ImGui.SliderFloat("Specular", TANK_SPECULAR, 0.0, 2.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Highlight level - the Phong scratch and the" & vbLf &
+                                         "microfacet lobe. Never the diffuse, so the" & vbLf &
+                                         "paint's brightness does not move with it." & vbLf &
+                                         "1.0 is the original's own weight.")
+                    End If
+
+                    ImGui.Separator()
+                    ImGui.Checkbox("Normal map", TANK_NORMAL_MAP)
+                    ImGui.Checkbox("AO", TANK_AO)
+                    ImGui.Checkbox("Environment (IBL)", TANK_IBL)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Irradiance, the raw cube and the BRDF LUT." & vbLf &
+                                         "Off, metal reflects nothing and the whole" & vbLf &
+                                         "vehicle reads as plastic.")
+                    End If
+                End If
                 If ImGui.CollapsingHeader("Section Visibility") Then
                     ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)
                     ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
@@ -1657,44 +1695,6 @@ try_again:
                                          "These are the ones the shadow cubes are baked" & vbLf &
                                          "for. Same deal: left out of the upload, not" & vbLf &
                                          "destroyed.")
-                    End If
-                    ImGui.Separator()
-                    ' The tank's shading is its OWN - it writes GFLAG_UNLIT and
-                    ' the resolve does not touch it - so these four are the
-                    ' whole rig. Same names and same 1.0 defaults as the Tank
-                    ' Exporter's Light / Ambient sliders and NMap / AO boxes,
-                    ' because it is the same shader.
-                    If ImGui.CollapsingHeader("Tank shading") Then
-                        ImGui.SliderFloat("Light", TANK_LIGHT, 0.0, 3.0)
-                        ImGui.SliderFloat("Ambient", TANK_AMBIENT, 0.0, 3.0)
-                        ImGui.Checkbox("Normal map", TANK_NORMAL_MAP)
-                        ImGui.Checkbox("AO", TANK_AO)
-                        ImGui.Checkbox("Environment (IBL)", TANK_IBL)
-                        ImGui.Checkbox("Game curves", TANK_GAME_CURVES)
-                        ImGui.Checkbox("Stock ACES", TANK_STOCK_TONEMAP)
-                        If ImGui.IsItemHovered() Then
-                            ImGui.SetTooltip("Narkowicz's published constants." & vbLf &
-                                             "Off uses mesh.frag's variant, whose" & vbLf &
-                                             "e = 0.001 knees at an input near 0.05" & vbLf &
-                                             "while this shader delivers about 0.22 -" & vbLf &
-                                             "18% of the tank came out at white.")
-                        End If
-                        If ImGui.IsItemHovered() Then
-                            ImGui.SetTooltip("Gloss, metal and albedo as PBS_tank.fx" & vbLf &
-                                             "writes them - raw and linear, decoded once." & vbLf &
-                                             "Off uses the Tank Exporter's own curves:" & vbLf &
-                                             "albedo squared before an sRGB decode, and" & vbLf &
-                                             "gloss through pow(r/0.8, 7), which turns a" & vbLf &
-                                             "raw 0.5 into 0.037." & vbLf &
-                                             "See docs/game_PBS_tank.md.")
-                        End If
-                        If ImGui.IsItemHovered() Then
-                            ImGui.SetTooltip("Irradiance, the raw cube and the BRDF LUT." & vbLf &
-                                             "Off, metal reflects nothing and the whole" & vbLf &
-                                             "vehicle reads as plastic - which is exactly" & vbLf &
-                                             "how the first port looked before this was" & vbLf &
-                                             "wired.")
-                        End If
                     End If
                     ImGui.Separator()
                     ImGui.Checkbox("Look-at cube", DEBUG_CUBE_ON)
