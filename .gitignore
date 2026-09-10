@@ -210,3 +210,18 @@ __pycache__/
 # Diagnostic images the tools/ scripts draw next to themselves
 tools/*.png
 *.avif
+
+# Still captures, wherever `out=` was aimed.
+#
+# nuTerra.exe ... still=1 out=<dir> writes <dir>/still/still_NNN.png beside a
+# capture.txt, and an A/B is several of those. Point out= outside the repo -
+# CLAUDE.md already says keep it off G:
+uTerra_ScreenCaps - but ignore the
+# shape as well, because two sessions share this checkout and one session's
+# 11 MB of frames showing up in the other's `git status` is how a real change
+# gets lost in the noise. Nothing tracked lives under a still/ folder.
+**/still/
+
+# Agent scratch space at the repo root. Same reason: intermediate frames, diff
+# maps and one-off probe scripts belong beside the session, not in the tree.
+/scratchpad/
