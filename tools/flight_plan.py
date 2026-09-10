@@ -293,7 +293,14 @@ def astar(cost, start, goal, stats=None):
     - so a node is never reached more cheaply after being settled, and no
     reopening is needed.
     """
-    g = cost.shape[0]
+    # BOTH dimensions. This read cost.shape[0] for the COLUMN bound too,
+    # which is right only while the grid is square - ROUTE_GRID always is,
+    # so it never showed here. A caller passing a WINDOW of the map
+    # (radar_tangent's bounded detour search) gets a rectangle, and every
+    # column past the row count was treated as off the grid: the goal came
+    # back unreachable by construction, for a crossing that was plainly
+    # open. Identical behaviour for a square grid.
+    H, W = cost.shape
     INF = float("inf")
     dist = np.full(cost.shape, INF)
     prev = np.full(cost.shape + (2,), -1, dtype=np.int32)
@@ -330,7 +337,7 @@ def astar(cost, start, goal, stats=None):
             break
         for dr, dc, step in nbr:
             nr, nc = r + dr, c + dc
-            if not (0 <= nr < g and 0 <= nc < g) or done[nr, nc]:
+            if not (0 <= nr < H and 0 <= nc < W) or done[nr, nc]:
                 continue
             w = cost[nr, nc]
             if not np.isfinite(w):
@@ -362,7 +369,14 @@ def astar(cost, start, goal, stats=None):
 def dijkstra(cost, start, goal):
     """Shortest path over an 8-connected cost grid. Small enough at 256^2 that a
     plain heap beats anything cleverer."""
-    g = cost.shape[0]
+    # BOTH dimensions. This read cost.shape[0] for the COLUMN bound too,
+    # which is right only while the grid is square - ROUTE_GRID always is,
+    # so it never showed here. A caller passing a WINDOW of the map
+    # (radar_tangent's bounded detour search) gets a rectangle, and every
+    # column past the row count was treated as off the grid: the goal came
+    # back unreachable by construction, for a crossing that was plainly
+    # open. Identical behaviour for a square grid.
+    H, W = cost.shape
     INF = float("inf")
     dist = np.full(cost.shape, INF)
     prev = np.full(cost.shape + (2,), -1, dtype=np.int32)
@@ -380,7 +394,7 @@ def dijkstra(cost, start, goal):
             break
         for dr, dc, step in nbr:
             nr, nc = r + dr, c + dc
-            if not (0 <= nr < g and 0 <= nc < g):
+            if not (0 <= nr < H and 0 <= nc < W):
                 continue
             w = cost[nr, nc]
             if not np.isfinite(w):

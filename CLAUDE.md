@@ -41,6 +41,49 @@ The app is the Python in `tools/`; `PathStudio/Program.vb` only launches it.
 flight rules; `docs/camera_flight_plan.md` is the design. `tools/lane_test.py`
 is the harness that measures a navigator change (step 4b there).
 
+### The map picker
+
+The owner's rule: nothing happens to the map list after a name is clicked. It
+signals everything downstream and is never gone back to. The only thing that
+leaves either picker is a map NAME.
+
+Six bugs got it there and `docs/tk_event_traps.md` has all of them. Four came
+from code with no business near a picker, and the last one was not our code at
+all - it was Tk's `<B1-Motion>` class binding walking the selection while the
+button is down.
+
+Do not fence it off - that was tried and removed. Test it instead, the way a
+person uses it: `python tools/picker_click_test.py` clicks 25 rows with the
+pointer drifting after every press. A clean press was never the failure, so a
+clean test proves nothing.
+
+### Testing the Studio: no mouse, and take the lock
+
+Never test by driving the pointer or the keyboard - no synthetic clicks,
+scrolls or keystrokes, and never bring a window to the front to do it. The
+owner is at the machine. A click meant for the Studio has landed in a browser,
+and a wheel event over the map list fired two real map loads and left a modal
+open; a harness misfire like that reads exactly like an app bug and has cost
+hours.
+
+Drive it IN-PROCESS instead. `tools/live_trace_probe.py` is the worked
+example: import `path_studio`, build `Studio(root)` on a Tk root parked at
+`+4000+4000`, call the methods a click would call, and pump `root.update()`.
+To capture the canvas, wrap `ImageTk.PhotoImage` and keep the PIL image it is
+handed - that is the exact frame, no screenshot, no focus taken.
+
+And take the lock while you have it:
+
+```python
+studio.set_test_lock(True, "why")   # ...work...   set_test_lock(False)
+```
+
+or `PS_TEST_LOCK=1` / `--test-lock` at launch. It strips every widget's
+bindtags, so no binding fires at all - the widget's own, or its class's - the
+title says `LOCKED, a test has it`, and unlocking puts every tag back.
+`after()` callbacks are untouched, so a trace already running carries on.
+`python tools/test_lock_test.py` proves it holds and lifts.
+
 ## Measurement
 
 A still: `nuTerra.exe 19_monastery cam=... freezefx still=1 out=<dir>`, one

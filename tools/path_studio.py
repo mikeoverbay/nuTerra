@@ -1,5 +1,5 @@
 """
-Path Studio - pick a map, click a start, drag a heading, generate a flight.
+Path Studio - pick a map, click a start, click the points, generate a flight.
 
     python path_studio.py
 
@@ -36,6 +36,7 @@ import os
 import struct
 import sys
 import threading
+import time
 import traceback
 
 import numpy as np
@@ -49,6 +50,9 @@ from PIL import Image, ImageTk, ImageDraw
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import radar_commit as nav
+import smooth_path
+import radar_tangent as tang
+import path_cards as pcd
 import flight_plan as fp
 import export_cam_path as ex
 import cam_path as cp
@@ -72,12 +76,17 @@ RADAR_SWEEPS = 60
 # control, and Loop radius went the same way for the same reason - its slider
 # is Path smoothing now.
 #
-# RING_RADIUS is still read on every generate, not only by the ring: the
-# departure leg walks max(30, min(radius * 0.4, 90)) metres out along the
-# heading, so at 260 that is a 90 m leg.
-RING_RADIUS = 260.0     # metres
-RING_WAYPOINTS = 14     # points around the ring
-RING_SIDE = 1           # +1 turns left out of the departure leg, -1 right
+# The ring and the departure leg are GONE, and with them the drag.
+#
+# Both existed to invent a route shape out of a click and a dragged heading,
+# from the days when there was nothing else to go on. There is now: the
+# points. A heading that is only ever used to aim a leg at the first point is
+# a worse way of saying where the first point is, and it also served as the
+# route's end - one gesture doing two unrelated jobs, badly.
+#
+# cam_path still writes seed_heading, seed_radius, seed_waypoints and
+# seed_side into the campath - a binary format with old files in the wild -
+# so they stay in the FILE at their defaults. Nothing here reads them.
 
 
 def existing_plan(map_name):
@@ -218,73 +227,19 @@ ZOOM_STEP = 1.2
 # The seed
 # --------------------------------------------------------------------------
 
-def departure_leg(bake, blocked, g, start_xz, heading, want_m):
-    """A straight leg from the click along the heading, as far as it stays clear.
+# The map the Studio opens on when nothing else is asked for. A name, or
+# None for the picker. Overridden by a positional argument.
+START_MAP = "19_monastery"
 
-    CONSTRUCTED, not routed, and that is the whole point. Dijkstra minimises
-    cost, and the cost field rewards elbow room, so near the start it pulls away
-    from whatever direction was asked for and heads wherever the map is open.
-    Measured: seeding the ring tangent to 90 degrees produced a route leaving at
-    351, and no amount of spline tuning or re-indexing changed it, because the
-    router was never trying to honour the heading in the first place.
 
-    Walking the leg ourselves makes the drag exact by construction. The router
-    then picks it up from the far end, where it is free to do as it likes.
+def plan_from_seed(map_name, start_xz, targets, log,
+                   smooth_passes=2, on_step=None, average_n=0):
+    """Start + points -> nominal course -> flown route -> .campath.
+
+    No heading. The course runs from the start through the points in click
+    order and back, and the direction it leaves in is simply the direction of
+    the first point.
     """
-    sx, sz = start_xz
-    dxh, dzh = math.sin(heading), math.cos(heading)
-    fy, fx = bake.h // g, bake.w // g
-    step = bake.mx * fx * 0.5
-
-    def cell(wx, wz):
-        c, r = bake.texel_of(wx, wz)
-        return (int(np.clip(round(r / fy), 0, g - 1)),
-                int(np.clip(round(c / fx), 0, g - 1)))
-
-    pts = [(sx, sz)]
-    t = 0.0
-    while t < want_m:
-        t += step
-        wx, wz = sx + dxh * t, sz + dzh * t
-        if blocked[cell(wx, wz)]:
-            t -= step
-            break
-        pts.append((wx, wz))
-    return pts, t
-
-
-def ring_after(bake, reach, g, start_xz, heading, leg_end, radius, count, side):
-    """Ring waypoints from the end of the departure leg back round to the start.
-
-    The circle is still tangent to the heading at the click, so the leg lies
-    along it and the loop carries on in the same direction rather than doubling
-    back on itself.
-    """
-    sx, sz = start_xz
-    nx_, nz_ = (math.cos(heading), -math.sin(heading)) if side > 0 else                (-math.cos(heading), math.sin(heading))
-    cx, cz = sx + nx_ * radius, sz + nz_ * radius
-    a0 = math.atan2(sz - cz, sx - cx)
-    sweep = -1.0 if side > 0 else 1.0
-
-    fy, fx = bake.h // g, bake.w // g
-
-    def cell(wx, wz):
-        c, r = bake.texel_of(wx, wz)
-        return (int(np.clip(round(r / fy), 0, g - 1)),
-                int(np.clip(round(c / fx), 0, g - 1)))
-
-    out = []
-    for i in range(1, count):
-        a = a0 + sweep * (2.0 * math.pi * i / count)
-        out.append(fp.nearest_free(reach, cell(cx + math.cos(a) * radius,
-                                               cz + math.sin(a) * radius)))
-    out.append(fp.nearest_free(reach, cell(sx, sz)))
-    return out
-
-
-def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets, log,
-                   smooth_passes=2):
-    """Seed -> nominal course -> flown route -> .campath. Reuses the pipeline."""
     log("loading bake")
     bake = fp.Bake(FOLDER, map_name)
 
@@ -304,28 +259,15 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
         raise RuntimeError("the start point is inside an obstacle - "
                            "click somewhere clear")
 
-    log("walking the departure leg")
-    want = max(30.0, min(radius * 0.4, 90.0))
-    leg, got = departure_leg(bake, blocked, g, start_xz, heading, want)
-    if got < 12.0:
-        raise RuntimeError("that heading is blocked %.0f m out - drag a "
-                           "different direction, or move the start" % got)
+    if not targets:
+        raise RuntimeError("no points to visit - click the map to add some")
 
-    # Targets replace the ring rather than adding to it. The ring only ever
-    # existed to invent a route shape when there was nothing to go on; once
-    # there are points to visit, THEY are the shape, and overlaying a circle on
-    # top would drag the route away from the places it was told to go.
-    if targets:
-        log("routing through %d target%s" % (len(targets),
-                                             "" if len(targets) == 1 else "s"))
-        chain = [cell(*leg[-1])]
-        for (tx, tz) in targets:
-            chain.append(fp.nearest_free(reach, cell(tx, tz)))
-        chain.append(fp.nearest_free(reach, cell(*start_xz)))
-    else:
-        log("seeding the ring")
-        chain = [cell(*leg[-1])] + ring_after(bake, reach, g, start_xz, heading,
-                                              leg[-1], radius, waypoints, side)
+    log("routing through %d point%s" % (len(targets),
+                                        "" if len(targets) == 1 else "s"))
+    chain = [fp.nearest_free(reach, cell(*start_xz))]
+    for (tx, tz) in targets:
+        chain.append(fp.nearest_free(reach, cell(tx, tz)))
+    chain.append(fp.nearest_free(reach, cell(*start_xz)))
 
     log("routing between waypoints")
     cells = []
@@ -335,10 +277,12 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
             raise RuntimeError("no route from waypoint %d to %d" % (i, i + 1))
         cells.extend(part[:-1])
 
-    xs = [p[0] for p in leg]
-    zs = [p[1] for p in leg]
-    xs += [bake.world_of((c + 0.5) * fx, (r + 0.5) * fy)[0] for r, c in cells]
-    zs += [bake.world_of((c + 0.5) * fx, (r + 0.5) * fy)[1] for r, c in cells]
+    # The course is the routed cells and nothing else. It used to be the
+    # departure leg's world points with the cells appended after them; with
+    # the leg gone there is only one source, and the start is already the
+    # first cell of the chain.
+    xs = [bake.world_of((c + 0.5) * fx, (r + 0.5) * fy)[0] for r, c in cells]
+    zs = [bake.world_of((c + 0.5) * fx, (r + 0.5) * fy)[1] for r, c in cells]
 
     log("smoothing the nominal course")
     x, z, dx, dz, total = fp.smooth_closed(xs, zs, fp.SAMPLE_STEP,
@@ -420,9 +364,10 @@ def plan_from_seed(map_name, start_xz, heading, radius, side, waypoints, targets
         # path cannot be reversed back into the start and targets that made
         # it, so without this the intent behind a route exists nowhere.
         ex.main(out_dir=FOLDER,
-                seed=cp.pack_seed(start=start_xz, heading=heading,
-                                  radius=radius, waypoints=waypoints,
-                                  side=side, targets=targets))
+                # heading, radius, waypoints and side keep their defaults.
+                # The fields stay in the file; nothing puts a value in them.
+                seed=cp.pack_seed(start=start_xz, targets=targets),
+                on_step=on_step, average_n=average_n)
     finally:
         sys.stdout = real_stdout
         sys.argv = argv
@@ -1000,11 +945,9 @@ class Studio:
         self.base = None
         self.photo = None
         self.start = None
-        self.heading = None
         # Metres from the start to where the heading drag was released. The
         # marker is redrawn at that distance so it stays where it was dropped.
-        self.heading_len = None
-        self.drag = None
+
         self.route = None
         self.targets = []
         self.busy = False
@@ -1019,6 +962,49 @@ class Studio:
         # and redrawn from world coordinates after that.
         self.radar_fans = None
         self.radar_key = None
+        # The rolling average of the route, kept SEPARATELY. It is a second
+        # opinion about the same path, not a replacement for it - the flown
+        # one stays exactly as the navigator built it and this sits beside it
+        # to be compared against.
+        self.smooth_buf = None
+        self.smooth_key = None
+        self.smooth_refused = 0
+        # The sample size the CURRENT route was exported with, or None when
+        # that is not known (a route loaded from disk).
+        self.route_avg_n = None
+        self._clear_radar = None
+        self._clear_cb = None
+        self._clear_key = None
+        # The live trace: the navigator itself while it is running, so repaint
+        # can draw its path and its last rays as they happen.
+        self.live = None
+        self.live_stop = False
+        # The flight in progress under Generate: (path, fans, steps), handed
+        # over by the navigator itself. None whenever nothing is flying.
+        self.gen = None
+        self.gen_cancel = False
+        self.gen_was = None
+        # The card search, mid-search. Events only ever get APPENDED by the
+        # worker; the repaint timer reads a prefix. Same rule as everything
+        # else that crosses a thread here.
+        self.cards = None
+        self.cards_running = False
+        self.cards_shown = True
+        # EVERY card, kept apart from the event tail.
+        #
+        # Cards were drawn out of the last 90 events, so a card filed early
+        # had scrolled out of the window long before the search finished and
+        # the ones that passed first time were never on screen at all. The
+        # rays and rings SHOULD fade - they are a moving scan. A card is a
+        # result and stays.
+        self.card_paths = []
+        self.card_ev = []
+        self.card_stop = False
+        # The map's saved path, kept from the moment it loads.
+        self.loaded_route = []
+        self.live_paused = False
+        # The trace-step delay, as a PLAIN NUMBER. See _live_step.
+        self.live_ms = 40.0
         self.view = CANVAS       # side of the square the map is drawn in
         self.ox = self.oy = 0    # where that square sits in the canvas
 
@@ -1091,6 +1077,38 @@ class Studio:
                        lambda e: (self._trace("raw <<ListboxSelect>>"),
                                   self.load_selected()))
 
+        # A PRESS PICKS A MAP. THE MOUSE MOVING AFTERWARDS DOES NOT.
+        #
+        # selectmode is "browse", and Tk binds:
+        #     <B1-Motion>  tk::ListboxMotion %W [%W index @%x,%y]
+        #     <B1-Leave>   tk::ListboxAutoScan %W
+        # Motion moves the selection to whatever row is under the pointer for
+        # as long as the button is down, and every move fires
+        # <<ListboxSelect>> - so it is a LOAD each time. Measured: one click
+        # with the pointer drifting two pixels loaded three maps, and the last
+        # one won. That is "why would it ever change after selecting a map".
+        # AutoScan is the same thing off the bottom edge, repeating every 50 ms
+        # and scrolling as it goes; on a list eight rows tall the edge is very
+        # close to wherever you clicked.
+        #
+        # This is a list you pick ONE name from. There is nothing to drag, no
+        # range to extend, and no reason a click that wobbles should mean
+        # anything but the row it landed on. Widget bindings run BEFORE class
+        # bindings, so "break" here does stop them - unlike a binding on the
+        # root, which arrives too late (see on_space).
+        self.maps.bind("<B1-Motion>", lambda e: "break")
+        self.maps.bind("<B1-Leave>", lambda e: "break")
+
+        # ONE LINE PER NOTCH.
+        #
+        # Tk's own binding is `yview scroll [expr {-(%D/120)*4}] units` - four
+        # lines a notch, half of this eight-row list, which overshoots every
+        # time and puts a different set of rows under the cursor than the one
+        # aimed at.
+        self.maps.bind("<MouseWheel>",
+                       lambda e: (self.maps.yview_scroll(
+                           -1 if e.delta > 0 else 1, "units"), "break")[1])
+
         # TWO pickers, and that is fine.
         #
         # Both are event sources and both do exactly one thing: hand a map NAME
@@ -1136,7 +1154,12 @@ class Studio:
         radar_row = ttk.Frame(f_am)
         radar_row.pack(side="top", fill="x", pady=(3, 0))
 
-        self.show_am = tk.BooleanVar(value=True)
+        # OFF at startup. The photo is for recognising the map while
+        # placing things; the moment the question is "what is the navigator
+        # doing", it is the thing in the way - a 50% wash of daylight over the
+        # rays that are being watched. Tick it when you need to know where you
+        # are, not to work.
+        self.show_am = tk.BooleanVar(value=False)
         ttk.Checkbutton(am_row, text="global_AM", variable=self.show_am,
                         command=self.on_am_toggle).pack(side="left")
         self.am_blend = tk.DoubleVar(value=0.5)
@@ -1146,13 +1169,41 @@ class Studio:
                   command=lambda *_: self.on_am_toggle()).pack(side="left")
         ttk.Label(am_row, text="mask").pack(side="left", padx=(2, 0))
 
-        # What the navigator could SEE along the route it flew. The mask says
-        # where the walls are; this says which of them the radar actually had a
-        # return from, which is the difference between "there was a gap there"
-        # and "it knew there was a gap there".
+        # THE FINISHED IMAGING, AND ONLY WHEN ASKED FOR.
+        #
+        # This is cast along a path that already exists - every fan, all at
+        # once, after the fact. It is not the navigator working; it is a
+        # photograph of a flight that is over. Shown by default it appeared
+        # the moment a map loaded, so what was on screen after a load was a
+        # picture of the LAST path rather than anything happening now, and it
+        # buried the live sweep under thousands of standing rays.
+        #
+        # OFF at startup, off at the start of every generation, and it says so
+        # rather than silently showing nothing when there is no path to cast
+        # along. The real-time scan is drawn by the flight itself and needs no
+        # checkbox.
         self.show_radar = tk.BooleanVar(value=False)
-        ttk.Checkbutton(radar_row, text="Radar scan", variable=self.show_radar,
+        ttk.Checkbutton(radar_row, text="Show Radar Imaging",
+                        variable=self.show_radar,
                         command=self.on_radar_toggle).pack(side="left")
+
+        # THE DASHED LINKS BETWEEN THE POINTS, AND A WAY TO TURN THEM OFF.
+        #
+        # They are the order the points were clicked in, not the route. The
+        # flown path does not follow them and is not meant to - it is pulled
+        # taut by the exporter's shortcut, which straightens 204 points down
+        # to 7 and misses the points by up to 20 m. Two shapes on one map that
+        # disagree by that much read as a bug in the one you are looking at,
+        # so this turns the links off and leaves the path to speak for itself.
+        #
+        # In the same stacked frame as the radar checkbox, NOT beside it: a
+        # wider child here stretches the left column and moves the map list.
+        links_row = ttk.Frame(f_am)
+        links_row.pack(side="top", fill="x", pady=(3, 0))
+        self.show_links = tk.BooleanVar(value=True)
+        ttk.Checkbutton(links_row, text="Point links",
+                        variable=self.show_links,
+                        command=self.repaint).pack(side="left")
 
         # Edit path is the lock on everything below it and on the map clicks
         # that place the start and the points. Off, all of it is greyed.
@@ -1164,13 +1215,24 @@ class Studio:
         for key, label, lo, hi, init in (
                 ("smooth", "Path smoothing", 0, 6, 2),
                 ("agl", "Height over ground (m)", 1, 30, int(nav.AGL)),
-                ("standoff", "Standoff (m)", 0.5, 6, min(6.0, max(0.5, round(nav.BODY_R * 2) / 2.0)))):
+                ("standoff", "Standoff (m)", 0.5, 6, min(6.0, max(0.5, round(nav.BODY_R * 2) / 2.0))),
+                # How long the live trace waits between steps. Zero runs it as
+                # fast as it can, which is a couple of seconds for a whole
+                # route - too quick to watch a single radar sweep. In the same
+                # block as the others so the left column keeps its width.
+                ("trace_ms", "Trace step (ms)", 0, 300, 40),
+                # How many path points go into each average. The path is
+                # 2.0 m per point, so this is 4 m at 2 and 48 m at 24 - the
+                # number that matters is the METRES, and it changes if the
+                # navigator's STEP ever does.
+                ("smooth_n", "Smooth sample size", 2, 24, 4)):
             ttk.Label(left, text=label).grid(row=r, column=0, sticky="w")
             # Standoff moves in half metres; the others are whole numbers.
             v = tk.DoubleVar(value=init) if key == "standoff" else tk.IntVar(value=init)
             self.vars[key] = v
             sc = ttk.Scale(left, from_=lo, to=hi, variable=v, orient="horizontal",
-                           length=200, command=lambda *_: self.refresh_labels())
+                           length=200,
+                           command=lambda *_, kk=key: self.refresh_labels(kk))
             sc.grid(row=r + 1, column=0, sticky="we")
             self.vars[key + "_w"] = sc
             lbl = ttk.Label(left, text=str(init))
@@ -1199,6 +1261,21 @@ class Studio:
         self.save_btn.state(["disabled"])
         r += 1
 
+        # Watch the point-to-point navigator work. Same width as its
+        # neighbours - a wider child here stretches the column and moves the
+        # map list, which is how the picker broke before.
+        self.live_btn = ttk.Button(left, text="Trace live (tangent)",
+                                   command=self.trace_live)
+        self.live_btn.grid(row=r, column=0, sticky="we", pady=(8, 4))
+        self.live_btn.state(["disabled"])
+        r += 1
+
+        self.cards_btn = ttk.Button(left, text="Search cards (live)",
+                                    command=self.cards_button)
+        self.cards_btn.grid(row=r, column=0, sticky="we", pady=(0, 4))
+        self.cards_btn.state(["disabled"])
+        r += 1
+
         # ---- lights: their own panel, RIGHT of the map -------------------
         # Path controls stay left, lights go right. The per-light controls are
         # not here any more: a light opens its editor in its own window, with
@@ -1225,11 +1302,58 @@ class Studio:
             row=rr, column=0, sticky="we", pady=(0, 4))
         rr += 1
 
-        # Notes at the BOTTOM of this panel, anchored there: a spacer row
-        # takes the slack, so the lamp controls stay at the top and the notes
-        # sit under them however tall the window is.
-        right.rowconfigure(rr, weight=1)
+        # WHAT THE NAVIGATOR SAID, IN THE GAP THAT GROWS.
+        #
+        # It has always narrated itself - "ring R=1 m accepted, bearing off by
+        # 0.4 deg", "STUCK at (120, -40), 38 m short" - and every line of it
+        # used to go to log=lambda m: None. The map shows WHERE it went; this
+        # is the only thing that says WHY.
+        #
+        # It sits in the row that was the spacer, so it takes the slack
+        # instead: the lamp buttons stay pinned above it, Notes stays pinned
+        # below, and the box between them is however tall the window allows.
+        # Nothing to recompute on resize - grid does it.
+        #
+        # Fed from the repaint timers on the UI thread. The navigator runs on
+        # a worker and must never touch Tk, so it appends to a plain list and
+        # the timer drains it.
+        ttk.Label(right, text="Navigator", style="Head.TLabel").grid(
+            row=rr, column=0, sticky="w", pady=(10, 2))
         rr += 1
+        self.log_lines = []
+        self._log_at = 0
+        # width in CHARACTERS, and short enough not to be the widest thing in
+        # this column - the Notes block below sets that, and a box wider than
+        # it would push the whole panel out.
+        self.trace_log = tk.Text(right, width=40, height=8, bg=PANEL, fg=FG,
+                                 insertbackground=FG, relief="flat",
+                                 highlightthickness=0, wrap="none",
+                                 font=("Consolas", 8))
+        self.trace_log.grid(row=rr, column=0, sticky="nsew", pady=(0, 6))
+        right.rowconfigure(rr, weight=1)      # <- the slack lives here now
+        rr += 1
+        self.trace_log.insert(
+            "end", "what the navigator decides appears here" + chr(10)
+                   + "while it flies - Generate or Trace live" + chr(10))
+        self.trace_log.configure(state="disabled")
+        self.trace_log.tag_configure("wp", foreground="#7fd4ff")
+        self.trace_log.tag_configure("hit", foreground="#9dffbe")
+        self.trace_log.tag_configure("bad", foreground="#ff8f7a")
+
+        # COPIABLE. It is a debug log; it is worth nothing if it cannot be
+        # pasted somewhere. A disabled Text can still be selected with the
+        # mouse and answers <<Copy>>, but Tk gives it no Control-a, so
+        # select-all is bound here along with a right-click menu.
+        self.trace_log.bind("<Control-a>", self._log_select_all)
+        self.trace_log.bind("<Control-A>", self._log_select_all)
+        self.trace_log.bind("<Button-3>", self._log_menu)
+        self.log_menu = tk.Menu(self.trace_log, tearoff=0)
+        self.log_menu.add_command(label="Copy selection",
+                                  command=lambda: self._log_copy(False))
+        self.log_menu.add_command(label="Copy all",
+                                  command=lambda: self._log_copy(True))
+        self.log_menu.add_separator()
+        self.log_menu.add_command(label="Clear", command=self.clear_log)
         ttk.Separator(right, orient="horizontal").grid(
             row=rr, column=0, sticky="we", pady=(12, 6))
         rr += 1
@@ -1241,7 +1365,7 @@ class Studio:
         # document themselves, this half does not.
         ttk.Label(right, justify="left", style="Note.TLabel", text=(
             "Edit path      unlock the path controls\n"
-            "Left drag      start + heading (first)\n"
+            "Left click     sets the start (first)\n"
             "Left click     add a point\n"
             "Right click    add a point\n"
             "Backspace /    remove the selected LIGHT,\n"
@@ -1267,8 +1391,9 @@ class Studio:
         r += 1
 
         self.status = tk.StringVar(value="pick a map")
-        ttk.Label(left, textvariable=self.status, wraplength=210,
-                  justify="left").grid(row=r, column=0, columnspan=2, sticky="w")
+        self.status_lbl = ttk.Label(left, textvariable=self.status,
+                                    wraplength=210, justify="left")
+        self.status_lbl.grid(row=r, column=0, columnspan=2, sticky="w")
         r += 1
 
         self.canvas = tk.Canvas(root, width=CANVAS, height=CANVAS,
@@ -1276,6 +1401,7 @@ class Studio:
         self.canvas.grid(row=0, column=1, padx=(0, 8), pady=8, sticky="nsew")
         root.columnconfigure(1, weight=1)
         root.rowconfigure(0, weight=1)
+
         root.minsize(560, 420)
         self.canvas.bind("<Configure>", self.on_resize)
         self.canvas.bind("<Button-1>", self.on_press)
@@ -1297,6 +1423,32 @@ class Studio:
         # Same reason as Backspace above: bound on the ROOT so it still fires
         # after a slider has taken focus away from the canvas.
         root.bind("<Escape>", self.on_escape)
+        # SPACE BELONGS TO THE LIVE TRACE AND TO NOTHING ELSE.
+        #
+        # Tk gives a key to the focused widget's CLASS binding before the
+        # toplevel's, and every control on this panel already does something
+        # with space:
+        #
+        #   TButton, TCheckbutton   ttk::button::activate  - presses it. Space
+        #                           after clicking Trace live re-invoked the
+        #                           button, which STOPPED the trace instead of
+        #                           pausing it.
+        #   Listbox                 tk::ListboxBeginSelect %W [%W index active]
+        #                           - selects the ACTIVE row and fires
+        #                           <<ListboxSelect>>. The active row is not the
+        #                           row anyone clicked (activestyle is "none",
+        #                           so it is not even drawn), so space loaded a
+        #                           map nobody picked. That is the map-picking
+        #                           fault all over again, arriving through the
+        #                           keyboard this time.
+        #
+        # Returning "break" from the root binding cannot undo any of that - the
+        # class script has already run by then. The script itself has to be
+        # replaced, which is what bind_class without add= does. Entry and Text
+        # keep theirs: a space typed into the map search has to stay a space.
+        for cls in ("TButton", "TCheckbutton", "TRadiobutton", "Listbox"):
+            root.bind_class(cls, "<space>", self.on_space)
+        root.bind("<space>", self.on_space)
 
         # Everything starts locked and greyed; a map load and Edit path
         # open things up from here.
@@ -1479,8 +1631,13 @@ class Studio:
         n_all = len(self.row_names) + len(self.other_names)
         n_ready = len([n for n in self.row_names + self.other_names
                        if n in self.baked])
-        self.count_lbl.configure(
-            text="%d maps, %d with a height map" % (n_all, n_ready))
+        # SAME TEXT find_maps WRITES. A longer string here is a wider
+        # label, and the label shares its grid column with the map list, which
+        # has no sticky and so re-centres when the column changes width. It
+        # happens to have slack today - measured 0 px of movement - but that
+        # is luck, and the list moving under the cursor after a bake is
+        # exactly the fault this picker keeps having.
+        self.count_lbl.configure(text="%d maps, %d baked" % (n_all, n_ready))
 
     def refill_maps(self):
         self._trace("refill_maps")
@@ -1577,6 +1734,7 @@ class Studio:
             return
         self.load_named(name)
 
+
     def show_without_bake(self, name):
         self._trace("show_without_bake")
         """A map with no height bake: draw its global_AM and offer to make one.
@@ -1591,8 +1749,7 @@ class Studio:
         self.map_name = name
         self.bake = None
         self.am_img = None
-        self.start = self.heading = self.route = None
-        self.heading_len = None
+        self.start = self.route = None
         self.zoom = 1.0
         self.cx = self.cy = 0.0
         self.close_editor(ask=False)
@@ -1677,6 +1834,7 @@ class Studio:
         if messagebox.askyesno("No height map", chr(10).join(lines)):
             self.bake_selected()
 
+
     def load_named(self, name):
         self._trace("load_named", "want=" + repr(name))
         if self.busy or not name:
@@ -1707,8 +1865,7 @@ class Studio:
         # With a height map the canvas draws against the bake itself.
         self.view_grid = self.bake
         self.map_name = name
-        self.start = self.heading = self.route = None
-        self.heading_len = None
+        self.start = self.route = None
         self.am_img = None          # a different map, a different picture
 
         # Show the route this map already has, AND the clicks that made it.
@@ -1736,6 +1893,14 @@ class Studio:
         self.edit_btn.configure(text="Edit path")
 
         self.route, seed, self.lights = existing_plan(name)
+        # THE OLD PATH, KEPT AT LOAD.
+        #
+        # The map's own saved path, straight off disk. It is the one thing
+        # that can always be gone back to, so it is held from the moment the
+        # map opens - not snapshotted later by whoever happens to remember.
+        self.loaded_route = list(self.route) if self.route else []
+        # Off disk: no idea what it was averaged with, so the preview shows.
+        self.route_avg_n = None
         # Just read from the file, so by definition they match it.
         self.lights_dirty = False
         self.refresh_light_ui()
@@ -1746,15 +1911,12 @@ class Studio:
 
         if seed:
             self.start = seed["start"]
-            # Only meaningful with a start to depart from.
-            self.heading = seed["heading"] if seed["start"] else None
             self.targets = list(seed["targets"])
-            # The file still records the ring's radius, waypoint count and turn
-            # direction - cam_path writes all three and older seeds carry real
-            # values - but none of them has a control any more (RING_RADIUS,
-            # RING_WAYPOINTS, RING_SIDE). Read and ignored rather than dropped
-            # from the format, so a seed written by an older Path Studio still
-            # loads.
+            # The file still records the departure heading, the ring's
+            # radius, its waypoint count and its turn direction. None of them
+            # exists in this app any more. Read and ignored rather than
+            # dropped from the format, so a campath written by an older Path
+            # Studio still loads.
             #
             # Setting them was a KeyError the moment their sliders went, and it
             # threw HERE, before render_mask, so selecting any map with a saved
@@ -1845,8 +2007,106 @@ class Studio:
     ''' RADAR OVERLAY '''
 
     def on_radar_toggle(self):
+        """Turn the finished imaging on or off, and refuse it when there is none.
+
+        Casting needs a PATH to cast along. Ticked with no path the overlay
+        simply drew nothing, which looks exactly like a broken checkbox - so
+        it now unticks itself and says why.
+        """
         self.radar_fans = None
+        self.radar_key = None
+        if self.show_radar.get():
+            if self.bake is None or not self.route:
+                self.show_radar.set(False)
+                self.status.set("no radar imaging yet - it is cast along a "
+                                "path, and there is no path here to cast along")
+                return
+            self.status.set("radar imaging: casting the fan along %d points..."
+                            % len(self.route))
         self.repaint()
+
+    def ensure_smooth_buf(self):
+        """Rolling average of the route, wrapping at the seam.
+
+        REVOLVING, because the route is a closed loop: point 0's window has to
+        reach back into the tail or the seam gets a kink exactly where the two
+        ends meet, which is the one place a path is guaranteed to be looked at.
+
+        Cached on the route and the window size, so dragging the slider is a
+        few thousand adds rather than a few thousand adds per repaint.
+        """
+        r = self.route
+        try:
+            n = int(round(float(self.vars["smooth_n"].get())))
+        except Exception:
+            n = 4
+        if not r or len(r) < 3 or n < 2:
+            self.smooth_buf = None
+            self.smooth_key = None
+            return
+
+        # NOTHING TO PREVIEW WHEN THE ROUTE ALREADY IS THE AVERAGE.
+        #
+        # Averaging happens inside the export now, so after a Generate the
+        # pink line IS the averaged path. Averaging it again drew a SECOND
+        # pass and called it the preview - measured 1.87 m away from what had
+        # just been written, which is a picture that disagrees with the file
+        # it claims to describe. The burnt orange is what averaging WOULD do;
+        # once it has been done, there is nothing left to show.
+        if self.route_avg_n is not None and n == self.route_avg_n:
+            self.smooth_buf = None
+            self.smooth_key = None
+            self.smooth_refused = 0
+            return
+        agl = round(float(self.vars["agl"].get()), 3)
+        so = round(float(self.vars["standoff"].get()), 3)
+        key = (len(r), r[0], r[-1], n, agl, so)
+        if self.smooth_buf is not None and self.smooth_key == key:
+            return
+
+        # THE SAME FUNCTION THE EXPORTER USES, with the same collision test.
+        #
+        # A picture that is not what gets written is worse than no picture:
+        # the averaging refuses points that would clip, and if the drawn line
+        # took the ideal average while the file took the refused one, the two
+        # would disagree exactly at the corners that matter.
+        self.smooth_buf, self.smooth_refused = smooth_path.rolling_average(
+            r, n, clear=self.clear_fn(), closed=True)
+        self.smooth_key = key
+
+    def clear_fn(self):
+        """A collision test against the current mask, cached.
+
+        Building the world and a Radar is most of a second, and the averaging
+        wants it on every slider nudge - so it is kept until a slider that
+        changes what counts as an obstacle moves.
+        """
+        agl = round(float(self.vars["agl"].get()), 3)
+        so = round(float(self.vars["standoff"].get()), 3)
+        key = (self.map_name, agl, so)
+        if getattr(self, "_clear_key", None) == key and self._clear_radar:
+            return self._clear_cb
+        saved = (nav.AGL, nav.MARGIN, nav.BLOCK_H, nav.BODY_R)
+        try:
+            nav.AGL = agl
+            nav.MARGIN = min(0.5, nav.AGL * 0.5)
+            nav.BLOCK_H = nav.AGL - nav.MARGIN
+            nav.BODY_R = so
+            raw, plan_m, _d, _p = nav.build_world(self.bake, None)
+            rad = nav.Radar(self.bake, plan_m, raw, self.bake.mx)
+        finally:
+            nav.AGL, nav.MARGIN, nav.BLOCK_H, nav.BODY_R = saved
+
+        def cb(x0, z0, x1, z1):
+            d = math.hypot(x1 - x0, z1 - z0)
+            if d < 1e-6:
+                return True
+            return rad.clear(x0, z0, (x1 - x0) / d, (z1 - z0) / d, d)
+
+        self._clear_radar = rad
+        self._clear_cb = cb
+        self._clear_key = key
+        return cb
 
     def ensure_radar_fans(self):
         """Cast the navigator's fan along the route and cache it.
@@ -2007,14 +2267,40 @@ class Studio:
         # floats, so the visible window does not have to snap to whole texels
         # and the transforms above stay exact at every zoom.
         crop = self.crop_side()
-        im = self.mask_full.resize((self.view, self.view), Image.LANCZOS,
-                                   box=(self.cx, self.cy,
-                                        self.cx + crop, self.cy + crop))
+        # LANCZOS is worth it for a still picture and not for a frame that
+        # will be replaced in 60 ms - it is most of the repaint, and repaint
+        # time is time the navigator is not running.
+        im = self.mask_full.resize(
+            (self.view, self.view),
+            Image.BILINEAR if self.live is not None else Image.LANCZOS,
+            box=(self.cx, self.cy, self.cx + crop, self.cy + crop))
         d = ImageDraw.Draw(im)
 
         # Under everything else: it is context, not the answer. RGBA on an RGB
         # image so hundreds of overlapping rays add up into a wash instead of
         # painting the map out.
+        # The live trace, under everything else. Rays first so the path
+        # reads on top of them.
+        if self.live is not None:
+            dl = ImageDraw.Draw(im, "RGBA")
+            # The LAST FEW SWEEPS, not the whole run.
+            #
+            # ~21 rays a step, so this is about a dozen steps of history: long
+            # enough to read as a scan sweeping ahead, short enough that it
+            # moves. The full run is 5000+ rays and drawing them all at the
+            # brightness needed to see one leaves a solid wash that never
+            # changes - which looked exactly like nothing happening. What has
+            # been decided is kept: that is the path line, below.
+            tries = self.live.tries
+            for t in tries[-260:]:
+                col = tang.COLOUR_LIVE.get((t.layer, t.verdict))
+                if not col:
+                    continue
+                a0 = self.to_view(t.x, t.z)
+                a1 = self.to_view(t.x + math.cos(t.a) * t.r,
+                                  t.z + math.sin(t.a) * t.r)
+                dl.line([a0, a1], fill=col, width=1)
+
         self.ensure_radar_fans()
         if self.show_radar.get() and self.radar_fans:
             # Fades with the same slider as the mask. All the way to the map
@@ -2024,6 +2310,14 @@ class Studio:
             # has to be found and reasoned about separately. With global_AM off
             # there is no blend to ride, so they are simply full.
             fade = float(self.am_blend.get()) if self.show_am.get() else 1.0
+            # A THIRD of that while a trace is running. These fans are what
+            # the SAVED route saw - thousands of rays, standing still - and at
+            # full strength they bury the couple of dozen live ones that are
+            # the whole reason to be watching. The comparison is still there,
+            # it is just no longer shouting over the thing it is a comparison
+            # for. Untick Radar scan to be rid of it entirely.
+            if self.live is not None:
+                fade *= 0.34
             if fade > 0.02:
                 dr = ImageDraw.Draw(im, "RGBA")
                 a_hit = max(1, int(60 * fade))
@@ -2044,19 +2338,324 @@ class Studio:
 
         if self.route:
             pts = [self.to_view(x, z) for (x, z) in self.route]
-            d.line(pts + [pts[0]], fill=(255, 46, 168), width=3, joint="curve")
+            # Dimmed while a trace is running. The saved route and the one
+            # being flown cover the same waypoints, so at full strength the
+            # old path sits directly on the new one and the brighter of the
+            # two is the one that is not being watched. It is still there -
+            # it is the comparison - just no longer the loudest thing.
+            # Dimmed while ANYTHING is building a new one - a trace, a
+            # flight, or a card search. The pink line is the saved path, and
+            # at full strength next to a path being computed it reads as the
+            # live answer when it is the stale one.
+            live = (self.live is not None or self.gen is not None
+                    or self.cards is not None)
+            d.line(pts + [pts[0]],
+                   fill=(120, 30, 85) if live else (255, 46, 168),
+                   width=2 if live else 3, joint="curve")
+
+        # THE LIVE PATH LAST, over the saved one.
+        #
+        # The rays above are context and belong under everything. This is not
+        # context - it is the answer arriving, and it has to be legible
+        # against the magenta route already on screen, which it very largely
+        # overlaps because both are flying the same waypoints. Drawn earlier
+        # it was simply painted out by the old path, so the one thing being
+        # watched was the one thing invisible. Dark casing under a bright
+        # core, so it reads over the magenta and over the map alike.
+        if self.live is not None:
+            pth = self.live.path
+            if len(pth) > 1:
+                vp = [self.to_view(px, pz) for px, pz in pth]
+                # Casing for the whole line first, then each segment in the
+                # colour of the layer that chose it - white where it flew
+                # straight at the target, green where it settled for the
+                # acceptance ring, amber round a blocker, violet where it fell
+                # through to the grid search. The shape says where it went;
+                # the colour says what it was doing.
+                d.line(vp, fill=(20, 12, 6), width=8, joint="curve")
+                mv = getattr(self.live, "moves", [])
+                for i in range(len(vp) - 1):
+                    lay = mv[i] if i < len(mv) else None
+                    d.line([vp[i], vp[i + 1]],
+                           fill=tang.PATH_COLOUR.get(lay, (255, 150, 40)),
+                           width=4)
+                # Where it is NOW - the head of the trace, which is the thing
+                # the eye follows.
+                hx, hy = vp[-1]
+                d.ellipse([hx - 6, hy - 6, hx + 6, hy + 6],
+                          fill=(255, 255, 255), outline=(255, 150, 40), width=2)
+
+        # THE CARD SEARCH, AS IT HAPPENS.
+        #
+        # Rings grow, tangents get tried, anchors land and cards get filed -
+        # and every one of those is a decision the numbers cannot show. Six
+        # of twelve boxes solved is a fact; WHICH ring was too big and which
+        # tangent was blocked is a picture.
+        #
+        # A short tail only. The whole route is thousands of events and drawn
+        # all at once they are a solid wash that never changes, which is what
+        # "I cannot see it happening" looked like the last three times.
+        if self.cards is not None and self.cards_shown:
+            dc = ImageDraw.Draw(im, "RGBA")
+
+            # EVERY CARD, IN SHADES OF GREEN.
+            #
+            # Under the moving scan, because they accumulate - by the end
+            # there are dozens and they are the context the scan is happening
+            # in. Bright green passed the test, dim green was thrown out, and
+            # the shade walks per card so two cards along the same line read
+            # as two lines rather than one slightly thicker one.
+            for ci, (cpth, creached, _why) in enumerate(self.card_paths):
+                if not cpth or len(cpth) < 2:
+                    continue
+                t = ((ci * 0.37) % 1.0)
+                if creached:
+                    # GREEN, not mint. The blue channel was up at 160-220,
+                    # which reads as cyan against a blue-black mask and is
+                    # not what "shades of green" means. Opaque, too - these
+                    # are results, not atmosphere.
+                    col = (110 + int(55 * t), 255,
+                           70 + int(55 * t), 255)
+                    wid = 3
+                else:
+                    col = (40 + int(35 * t), 155 + int(60 * t),
+                           45 + int(35 * t), 235)
+                    wid = 2
+                dc.line([self.to_view(px_, pz_) for px_, pz_ in cpth],
+                        fill=col, width=wid)
+
+            evs = self.card_ev[-90:]
+            for i, (kind, kw) in enumerate(evs):
+                # Older events fade out, so the eye follows the newest.
+                age = (i + 1) / float(len(evs))
+                a = int(30 + 210 * age * age)
+
+                if kind == "ring":
+                    cx, cz, rr = kw["cx"], kw["cz"], kw["r"]
+                    p0 = self.to_view(cx - rr, cz - rr)
+                    p1 = self.to_view(cx + rr, cz + rr)
+                    box = [min(p0[0], p1[0]), min(p0[1], p1[1]),
+                           max(p0[0], p1[0]), max(p0[1], p1[1])]
+                    if box[2] - box[0] > 2:
+                        dc.ellipse(box, outline=(255, 190, 80, a),
+                                   width=2 if kw["clear"] else 1)
+                    for (tx_, tz_) in kw["clear"]:
+                        dc.line([self.to_view(kw["x"], kw["z"]),
+                                 self.to_view(tx_, tz_)],
+                                fill=(255, 235, 140, a), width=1)
+
+                elif kind == "ray":
+                    a0 = self.to_view(kw["x"], kw["z"])
+                    if kw["hit"] is None:
+                        dc.line([a0, self.to_view(kw["tx"], kw["tz"])],
+                                fill=(110, 240, 230, a), width=2)
+                    else:
+                        hx, hz = kw["hit"]
+                        dc.line([a0, self.to_view(hx, hz)],
+                                fill=(255, 90, 70, a), width=2)
+                        vx, vy = self.to_view(hx, hz)
+                        dc.ellipse([vx - 3, vy - 3, vx + 3, vy + 3],
+                                   fill=(255, 120, 90, a))
+
+                elif kind == "took":
+                    cx, cz, rr = kw["cx"], kw["cz"], kw["r"]
+                    p0 = self.to_view(cx - rr, cz - rr)
+                    p1 = self.to_view(cx + rr, cz + rr)
+                    dc.ellipse([min(p0[0], p1[0]), min(p0[1], p1[1]),
+                                max(p0[0], p1[0]), max(p0[1], p1[1])],
+                               outline=(120, 255, 170, 255), width=3)
+
+                elif kind == "anchor":
+                    vx, vy = self.to_view(kw["px"], kw["pz"])
+                    dc.line([self.to_view(kw["x"], kw["z"]), (vx, vy)],
+                            fill=(255, 255, 255, a), width=1)
+                    dc.ellipse([vx - 4, vy - 4, vx + 4, vy + 4],
+                               fill=(255, 255, 255, a))
+
+                # "card" is not drawn here - every card is drawn above,
+                # from card_paths, and drawing it twice made the newest one
+                # look like a different colour from the rest.
+
+            # What has actually been committed, over the top of the search.
+            # Each connected stretch on its own. The breaks BETWEEN them are
+            # the legs nothing could fly, and they are supposed to look like
+            # holes.
+            for seg in (self.cards.get("runs")
+                        or ([self.cards.get("path")] if self.cards.get("path")
+                            else [])):
+                if not seg or len(seg) < 2:
+                    continue
+                vp = [self.to_view(px_, pz_) for px_, pz_ in seg]
+                # A HAIRLINE, and no casing.
+                #
+                # The winning cards ARE this chain, drawn bright green just
+                # above - and a 6 px dark casing with an orange core on top of
+                # them buried every card that passed first time, which is
+                # exactly the complaint. White reads on green, one pixel is
+                # enough to say "this is the chain that was taken", and the
+                # green underneath stays the thing you see.
+                d.line(vp, fill=(255, 255, 255, 220), width=1, joint="curve")
+
+        # THE FLIGHT UNDER GENERATE.
+        #
+        # This is the navigator that actually produces the saved path -
+        # radar_commit - and it DOES sweep: a whole fan of bearings every
+        # step, which is what "the radar scan" has always meant. Until now
+        # none of it was drawn, because the live view was wired only to the
+        # tangent probe on a different button. Watching one navigator while
+        # saving the output of another was the whole confusion.
+        if self.gen is not None:
+            gpath, gfans = self.gen[0], self.gen[1]
+            gevents = self.gen[3] if len(self.gen) > 3 else ()
+            dg = ImageDraw.Draw(im, "RGBA")
+
+            def sweep(entry, alpha_line, alpha_dot, wide):
+                """One radar sweep: the bearings, where they stopped, and the
+                samples taken PAST each stop.
+
+                The same three things radar_commit's own picture draws, in the
+                same colours - amber where a bearing came back short, teal
+                where it ran clear, and the post-hit probes in red when what
+                they found is solid. Reading the live view and the saved
+                picture as one thing only works if they agree.
+                """
+                fx, fz, _hdg, fan, _mode, probes = entry
+                ox, oy = self.to_view(fx, fz)
+                for (a_, rng_) in fan:
+                    hit = rng_ < nav.RADAR_RANGE - 0.5
+                    tip = self.to_view(fx + math.cos(a_) * rng_,
+                                       fz + math.sin(a_) * rng_)
+                    dg.line([ox, oy, tip[0], tip[1]],
+                            fill=(255, 205, 105, alpha_line) if hit
+                            else (110, 240, 230, max(20, alpha_line // 2)),
+                            width=wide)
+                    if hit and alpha_dot:
+                        dg.ellipse([tip[0] - 2, tip[1] - 2,
+                                    tip[0] + 2, tip[1] + 2],
+                                   fill=(255, 225, 150, alpha_dot))
+                # The three samples taken BEYOND each hit - the test for
+                # whether a return is a wall or a hedge. Red when solid.
+                for (_rng, spts, solid) in probes or ():
+                    solid_hit = solid >= nav.SOLID_H
+                    for (sx_, sz_) in spts:
+                        vx, vy = self.to_view(sx_, sz_)
+                        r_ = 2.5 if solid_hit else 1.8
+                        dg.ellipse([vx - r_, vy - r_, vx + r_, vy + r_],
+                                   fill=(255, 45, 45, alpha_dot or 150)
+                                   if solid_hit
+                                   else (255, 165, 105, (alpha_dot or 150) // 2))
+
+            for entry in list(gfans)[-7:]:
+                sweep(entry, 70, 0, 1)
+            if gfans:
+                sweep(gfans[-1], 235, 230, 1)
+
+            # WHAT IT DECIDED, WHERE IT DECIDED IT.
+            #
+            # radar_commit marks its own turning points and these are the same
+            # marks its picture uses: a ring where it entered a trap, a cross
+            # where it was boxed in, a yellow ring where the guard fired, a
+            # dot where it reversed, a dash where it backed up. Live, they are
+            # the difference between watching a line move and watching a
+            # navigator think.
+            for ev in list(gevents)[-60:]:
+                ex_, ez_ = ev[0], ev[1]
+                kind = ev[2]
+                px, py = self.to_view(ex_, ez_)
+                if kind == "enter":
+                    dg.ellipse([px - 6, py - 6, px + 6, py + 6],
+                               outline=(255, 175, 55, 255), width=2)
+                elif kind == "boxed":
+                    dg.line([px - 8, py - 8, px + 8, py + 8],
+                            fill=(255, 70, 70, 255), width=2)
+                    dg.line([px - 8, py + 8, px + 8, py - 8],
+                            fill=(255, 70, 70, 255), width=2)
+                elif kind == "guard":
+                    dg.ellipse([px - 11, py - 11, px + 11, py + 11],
+                               outline=(255, 245, 90, 255), width=2)
+                elif kind == "reverse":
+                    dg.ellipse([px - 4, py - 4, px + 4, py + 4],
+                               fill=(255, 90, 150, 255))
+                elif kind == "backup":
+                    dg.line([px - 5, py, px + 5, py],
+                            fill=(255, 200, 60, 255), width=2)
+            if len(gpath) > 1:
+                vp = [self.to_view(px, pz) for px, pz in list(gpath)]
+                d.line(vp, fill=(20, 12, 6), width=7, joint="curve")
+                d.line(vp, fill=(255, 170, 60), width=3, joint="curve")
+                hx, hy = vp[-1]
+                d.ellipse([hx - 6, hy - 6, hx + 6, hy + 6],
+                          fill=(255, 255, 255), outline=(255, 170, 60), width=2)
+
+        if self.live is not None and self.live.path:
+            # THE RAYS OF THE CURRENT STEP, OVER THE TOP.
+            #
+            # Measured on 19_monastery: 195 of 253 steps cast exactly two
+            # rays - one probe straight at the waypoint and the move it then
+            # committed to. So three quarters of the run has ONE drawn ray,
+            # pointing the same way as the path, one pixel wide, underneath a
+            # four pixel path line drawn on top of it. There was nothing to
+            # see because the only moving thing was the only hidden thing.
+            #
+            # A step is everything since the last committed move, so this is
+            # exactly "what it is looking at, at this moment": one long line
+            # to the waypoint when the way is clear, and the whole ring or
+            # tangent fan when it is not.
+            step = []
+            for t in reversed(self.live.tries[:-1] if self.live.tries else []):
+                if t.verdict == "TAKEN":
+                    break
+                step.append(t)
+            if not step and self.live.tries:
+                step = [self.live.tries[-1]]
+            dn = ImageDraw.Draw(im, "RGBA")
+            for t in step[:400]:
+                if t.verdict == "TAKEN":
+                    continue
+                col = tang.COLOUR_LIVE.get((t.layer, t.verdict))
+                if not col:
+                    continue
+                a0 = self.to_view(t.x, t.z)
+                a1 = self.to_view(t.x + math.cos(t.a) * t.r,
+                                  t.z + math.sin(t.a) * t.r)
+                # Full alpha and two pixels: this is the live one, not the
+                # wash of where it has already been.
+                dn.line([a0, a1], fill=col[:3] + (255,), width=2)
+            for (rx, rz, _wi, how) in self.live.reached:
+                vx, vy = self.to_view(rx, rz)
+                c = (110, 255, 140) if how != "STUCK" else (255, 70, 70)
+                d.line([vx - 8, vy - 8, vx + 8, vy + 8], fill=(20, 12, 6), width=5)
+                d.line([vx - 8, vy + 8, vx + 8, vy - 8], fill=(20, 12, 6), width=5)
+                d.line([vx - 8, vy - 8, vx + 8, vy + 8], fill=c, width=3)
+                d.line([vx - 8, vy + 8, vx + 8, vy - 8], fill=c, width=3)
+
+        # THE AVERAGED PATH, BURNT ORANGE, over the route it came from.
+        #
+        # Drawn after the pink so the comparison reads the right way round:
+        # the flown path underneath, what the averaging would make of it on
+        # top. Nothing else uses this buffer - it is not exported, not saved,
+        # and the campath is untouched by it.
+        self.ensure_smooth_buf()
+        if self.smooth_buf and len(self.smooth_buf) > 2:
+            vb = [self.to_view(px_, pz_) for px_, pz_ in self.smooth_buf]
+            d.line(vb + [vb[0]], fill=(30, 14, 4), width=6, joint="curve")
+            d.line(vb + [vb[0]], fill=(204, 85, 0), width=3, joint="curve")
 
         if self.targets:
             tv = [self.to_view(tx, tz) for (tx, tz) in self.targets]
             seq = ([self.to_view(*self.start)] if self.start else []) + tv
+            links = self.show_links.get()
             # Dash ALONG each link, not by dropping alternate links. The first
             # version skipped every other segment, which reads as the line
             # missing a target rather than as a dashed line.
-            for i in range(len(seq) - 1):
-                dashed(d, seq[i], seq[i + 1], (90, 200, 230))
-            if self.start and len(tv) > 1:
-                # and back to the start, which is where the route actually ends
-                dashed(d, seq[-1], seq[0], (70, 150, 180))
+            # The POINTS always draw; only the links between them go away.
+            # Hiding the points too would leave nothing to click on.
+            if links:
+                for i in range(len(seq) - 1):
+                    dashed(d, seq[i], seq[i + 1], (90, 200, 230))
+                if self.start and len(tv) > 1:
+                    # and back to the start, where the route actually ends
+                    dashed(d, seq[-1], seq[0], (70, 150, 180))
             for i, (tx, ty) in enumerate(tv):
                 d.ellipse([tx - 6, ty - 6, tx + 6, ty + 6],
                           fill=(70, 210, 245), outline=(255, 255, 255))
@@ -2066,27 +2665,6 @@ class Studio:
             px, py = self.to_view(*self.start)
             d.ellipse([px - 7, py - 7, px + 7, py + 7],
                       fill=(80, 255, 130), outline=(255, 255, 255))
-            if self.drag:
-                dv = (self.drag[0] - self.ox, self.drag[1] - self.oy)
-                d.line([(px, py), dv], fill=(80, 255, 130), width=3)
-                d.ellipse([dv[0] - 4, dv[1] - 4, dv[0] + 4, dv[1] + 4],
-                          fill=(255, 255, 255))
-            elif self.heading is not None:
-                # The departure heading, drawn the same way the drag shows it.
-                # In WORLD space and then projected, so it holds its place on
-                # the map through a pan or a zoom rather than only looking
-                # right at one of them.
-                #
-                # At the length it was dragged to. A seed loaded from disk
-                # carries the angle but not the length, so that falls back to
-                # 60 m.
-                hlen = self.heading_len if self.heading_len else 60.0
-                hx = self.start[0] + hlen * math.sin(self.heading)
-                hz = self.start[1] + hlen * math.cos(self.heading)
-                hv = self.to_view(hx, hz)
-                d.line([(px, py), hv], fill=(80, 255, 130), width=3)
-                d.ellipse([hv[0] - 4, hv[1] - 4, hv[0] + 4, hv[1] + 4],
-                          fill=(255, 255, 255))
 
         # Lights last, so they sit above the route and its waypoints - they
         # are the thing being edited when they are on screen at all.
@@ -2130,6 +2708,32 @@ class Studio:
                 sx, sy = self.to_view(*w)
                 d.ellipse([sx - 11, sy - 11, sx + 11, sy + 11],
                           outline=(255, 255, 255))
+
+        # THE KEY, only while a trace is running.
+        #
+        # Four path colours and two ray colours is more than anyone should
+        # have to hold in their head, and a legend in the docs is a legend
+        # nobody has open. It costs six short lines in a corner and it goes
+        # away with the trace.
+        if self.live is not None:
+            keys = (
+                    ("straight at it", tang.PATH_COLOUR["direct"], 4),
+                    ("to the ring", tang.PATH_COLOUR["ring"], 4),
+                    ("round a blocker", tang.PATH_COLOUR["tangent"], 4),
+                    ("grid search", tang.PATH_COLOUR["search"], 4),
+                    ("ray - clear", (90, 200, 255), 2),
+                    ("ray - blocked", (255, 90, 70), 2))
+            # On a panel. Over a map that is half daylight-yellow, white text
+            # on nothing is unreadable exactly where the interesting things
+            # happen.
+            dk = ImageDraw.Draw(im, "RGBA")
+            dk.rectangle([6, 6, 150, 12 + 16 * len(keys)],
+                         fill=(8, 10, 16, 205), outline=(70, 84, 104, 255))
+            ky = 12
+            for label, col, w in keys:
+                dk.line([14, ky + 5, 38, ky + 5], fill=col, width=w)
+                dk.text((46, ky), label, fill=(228, 236, 246, 255))
+                ky += 16
 
         self.photo = ImageTk.PhotoImage(im)
         self.canvas.delete("all")
@@ -2198,6 +2802,97 @@ class Studio:
         self.cy = acy - (e.y - ay) * s
         self.clamp_window()
         self.repaint()
+
+    def frame_on(self, pts, margin=1.35):
+        """Zoom and centre on a set of world points.
+
+        The whole map is 1400 m across and a radar ray is 90 m long, so at
+        zoom 1 the entire scan is a 25 pixel smudge - the reason the live
+        trace looked like nothing was happening even while it ran. Framing
+        the waypoints puts a ray back at a readable length.
+
+        View only. It moves no selection and decides nothing; the path is
+        exactly the same path whether it is watched close up or not.
+        """
+        if self.view_grid is None or not pts:
+            return
+        cs, rs = [], []
+        for (wx, wz) in pts:
+            c, r = self.view_grid.texel_of(wx, wz)
+            cs.append(self.mirror_col(c))
+            rs.append(r)
+        # A square window: the view is square, so fitting the long side fits
+        # both, and a non-square box would only be letterboxed anyway.
+        want = max(max(cs) - min(cs), max(rs) - min(rs)) * margin
+        want = max(want, 40.0)              # never closer than ~28 m across
+        self.zoom = min(max(self.view_grid.w / want, 1.0), MAX_ZOOM)
+        crop = self.crop_side()
+        self.cx = (min(cs) + max(cs)) * 0.5 - crop * 0.5
+        self.cy = (min(rs) + max(rs)) * 0.5 - crop * 0.5
+        self.clamp_window()
+
+    # ----------------------------------------------------------- test lock
+
+    def _every_widget(self):
+        """This window and everything in it."""
+        stack = [self.root]
+        while stack:
+            w = stack.pop()
+            yield w
+            try:
+                stack.extend(w.winfo_children())
+            except Exception:
+                pass
+
+    def set_test_lock(self, on, why=""):
+        """Take the Studio away from the mouse and keyboard, or give it back.
+
+        A test driving the app and a person using it at the same time wreck
+        each other. A stray click lands in the middle of a measured sequence
+        and the result reads as an app bug - that has already happened here
+        more than once, and hours went into "fixing" a picker that was doing
+        exactly what it was told.
+
+        Locked by BINDTAGS. A widget whose tags are one tag nobody has bound
+        to has no bindings at all - not its own, not its class's - which is
+        the same mechanism that took the space key off the map list. It is
+        total and it is exactly reversible: the old tags go back.
+
+        after() callbacks are NOT bindings and keep running, so a trace that
+        is already going carries on; only the human input stops.
+        """
+        if bool(on) == getattr(self, "_locked", False):
+            return
+        if on:
+            self._saved_tags = {}
+            for w in self._every_widget():
+                try:
+                    self._saved_tags[w] = w.bindtags()
+                    w.bindtags(("PS_TEST_LOCK",))
+                except Exception:
+                    pass
+            self._locked = True
+            self.root.title("nuTerra Path Studio - LOCKED, a test has it")
+            try:
+                self.status_lbl.configure(foreground="#ff9a6a")
+            except Exception:
+                pass
+            self.status.set("LOCKED - a test has the Studio, clicks and keys "
+                            "do nothing." + ((" " + why) if why else ""))
+        else:
+            for w, tags in getattr(self, "_saved_tags", {}).items():
+                try:
+                    w.bindtags(tags)
+                except Exception:
+                    pass
+            self._saved_tags = {}
+            self._locked = False
+            self.root.title("nuTerra Path Studio")
+            try:
+                self.status_lbl.configure(foreground="")
+            except Exception:
+                pass
+            self.status.set("unlocked - the Studio is yours again")
 
     def on_wheel(self, e):
         """Zoom about the cursor: the texel under it does not move."""
@@ -2396,8 +3091,20 @@ class Studio:
             self.update_enabled()
 
     def on_escape(self, _e=None):
-        """Drop the selection and leave placement mode - closing the light
-        editor too, after asking if it has edits."""
+        """Cancel a flight if one is in the air; otherwise drop the selection
+        and leave placement mode - closing the light editor too, after asking
+        if it has edits."""
+        if self.cards_running and not self.card_stop:
+            self.card_stop = True
+            self.status.set("stopping the search...")
+            return "break"
+        if self.busy and self.gen_was is not None and not self.gen_cancel:
+            # Only a flag. The navigator is on another thread and stops itself
+            # at its next step, which keeps the unwind inside the code that
+            # knows what it was doing.
+            self.gen_cancel = True
+            self.status.set("cancelling...")
+            return "break"
         if not self.close_editor(ask=True):
             return
         self.add_light = False
@@ -2468,10 +3175,8 @@ class Studio:
             self.add_point(e)
             return
 
+        # A CLICK. That is the whole gesture.
         self.start = self.to_world(e.x, e.y)
-        self.drag = (e.x, e.y)
-        self.heading = None
-        self.heading_len = None
         self.route = None
         # The route just went away, so anything that depends on there being one
         # has to be told. Without this a Save left enabled by an earlier
@@ -2483,16 +3188,11 @@ class Studio:
     def on_drag(self, e):
         if self.busy:
             return
-        # Moving a selection takes precedence over the heading drag - they are
-        # both left-button drags and only one of them can own the gesture.
+        # Dragging only ever moves a selection now. Nothing else owns the
+        # gesture, so nothing has to be arbitrated.
         if self.moving:
             self.move_selection(e)
             self.repaint()
-            return
-        if self.start is None or not self.edit_path:
-            return
-        self.drag = (e.x, e.y)
-        self.repaint()
 
     def on_release(self, e):
         if self.busy:
@@ -2503,27 +3203,8 @@ class Studio:
             self.moving = False
             self.repaint()
             return
-        # Locked, a release must not set a heading either - a plain click on
-        # the locked map gets here with a start on file.
-        if self.start is None or not self.edit_path or self.drag is None:
-            return
-        wx, wz = self.to_world(e.x, e.y)
-        dx, dz = wx - self.start[0], wz - self.start[1]
-        if math.hypot(dx, dz) < 4.0:
-            self.status.set("drag further - the line sets the heading")
-            return
-        self.heading = math.atan2(dx, dz)
-        self.heading_len = math.hypot(dx, dz)
-        # LOCKED. self.drag is canvas pixels and used to be left set after the
-        # release, so the branch that draws it kept winning and the end point
-        # was pinned to the SCREEN - pan or zoom and it slid across the map.
-        # Clearing it hands the drawing to the world-space branch, which now
-        # uses heading_len so the marker stays exactly where it was dropped
-        # instead of snapping to a fixed 60 m.
-        self.drag = None
-        self.status.set("start (%.0f, %.0f) heading %.0f deg. Generate when ready."
-                        % (self.start[0], self.start[1], math.degrees(self.heading)))
-        self.repaint()
+        # Nothing else to finish. A release used to set the heading; the
+        # click already did everything there is to do.
 
     def add_point(self, e):
         """Append a point the route must visit, in click order.
@@ -2667,12 +3348,8 @@ class Studio:
         can_save = (fresh_route or dirty_lights) and not self.busy
         self.save_btn.state(["!disabled" if can_save else "disabled"])
 
-        # The ring is only ever used when there are no points to visit, and
-        # left click places points now, so in practice it never is. Loop radius
-        # is the one ring control left with a slider; the turn direction and the
-        # ring waypoint count are RING_SIDE / RING_WAYPOINTS.
-        # Path smoothing applies to every route, points or ring, so nothing
-        # here is greyed out any more. The ring's radius is RING_RADIUS.
+        # Nothing is greyed out here any more - Path smoothing applies to
+        # every route there is.
         self.ring_lbl.configure(text="")
 
         # The path lock. Everything that can change the path follows
@@ -2680,6 +3357,9 @@ class Studio:
         loaded = self.bake is not None and not self.busy
         unlocked = loaded and self.edit_path
         self.edit_btn.state(["!disabled" if loaded else "disabled"])
+        # Not behind the path lock: tracing changes nothing, it only watches.
+        self.live_btn.state(["!disabled" if loaded else "disabled"])
+        self.cards_btn.state(["!disabled" if loaded else "disabled"])
         for k in ("smooth", "agl", "standoff"):
             self.vars[k + "_w"].state(["!disabled" if unlocked else "disabled"])
         self.clear_btn.state(["!disabled" if unlocked else "disabled"])
@@ -2735,14 +3415,12 @@ class Studio:
             return
 
         if not self.targets:
-            # Backed all the way out: the one thing left to undo is the start
-            # itself, with its heading. Backspace used to stop here and leave
-            # it, so the only way to lose a start was the Clear button.
+            # Backed all the way out: the one thing left to undo is the
+            # start itself. Backspace used to stop here and leave it, so the
+            # only way to lose a start was the Clear button.
             if self.start is None:
                 return
             self.start = None
-            self.heading = None
-            self.drag = None
             self.route = None
             if self.selection and self.selection[0] == "start":
                 self.selection = None
@@ -2782,8 +3460,525 @@ class Studio:
         self.update_enabled()
         self.repaint()
 
+    def on_space(self, _e=None):
+        """Space pauses and resumes the live trace.
+
+        Ignored while a text box has focus, or a space could never be typed
+        into the map search.
+        """
+        w = self.root.focus_get()
+        # A ttk.Combobox IS a ttk.Entry, and this one is readonly - nothing can
+        # be typed into it, so it is not a text box for this purpose and space
+        # should still reach the trace. Without the second test the pause key
+        # was dead for as long as the dropdown held focus, which is from the
+        # moment a map is picked with it.
+        if (isinstance(w, (tk.Entry, ttk.Entry, tk.Text))
+                and not isinstance(w, ttk.Combobox)):
+            return
+        # "break" on EVERY path out. This is bound as a class binding as well
+        # as on the toplevel, and without it the toplevel copy runs second and
+        # toggles the pause straight back off - one press, no effect.
+        if self.live is not None:
+            self.live_paused = not self.live_paused
+            self.status.set("trace PAUSED - space to resume" if self.live_paused
+                            else "tracing...")
+        return "break"
+
+
+    def _live_step(self, _nav):
+        """Called by the navigator after every move, on its own thread.
+
+        Sleeping here is what makes the scan watchable - the repaint timer
+        samples whatever has been appended, so without a wait the whole route
+        appears between two frames. It touches no Tk objects, only two plain
+        flags, which is why it is safe off the UI thread.
+        """
+        while self.live_paused and not self.live_stop:
+            time.sleep(0.05)
+        if self.live_stop:
+            raise tang.Stopped()
+        # NO TK FROM THIS THREAD.
+        #
+        # This read self.vars["trace_ms"].get(). Tcl is single-threaded, so a
+        # call from anywhere but the UI thread is queued and does not return
+        # until the main loop gets round to servicing it - and the main loop
+        # is busy repainting at 40-70 ms a frame. Each step therefore waited
+        # on the repaint that was supposed to be showing it: 25 ms of intended
+        # delay came out as 1.1 SECONDS a step, which is why the scan looked
+        # frozen rather than slow. The navigator itself does all 242 steps in
+        # under a second. The slider is sampled on the UI thread in tick() and
+        # left here as a float.
+        ms = self.live_ms
+        if ms > 0:
+            time.sleep(ms / 1000.0)
+
+    def cards_button(self):
+        """Run a search, stop one, or hide the last one's cards.
+
+        Three states, one button, and the label always says which:
+            nothing drawn      -> "Search cards (live)"  runs it
+            running            -> "Stop search"          stops it
+            cards on the map   -> "Hide cards"           hides them
+        Hidden, it goes back to offering a fresh search - a search takes well
+        under a second, so re-running is cheaper than a fourth state.
+        """
+        if self.cards_running:
+            self.card_stop = True
+            return
+        if self.cards is not None and self.cards_shown and self.card_paths:
+            self.cards_shown = False
+            self.cards_btn.configure(text="Search cards (live)")
+            self.status.set("cards hidden - %d of them" % len(self.card_paths))
+            self.repaint()
+            return
+        self.search_cards()
+
+    def search_cards(self):
+        """Run the box-of-boxes search, drawing every step it takes.
+
+        The numbers say six of twelve boxes solved; only the picture says
+        why the other six were not. Every ring expansion, every tangent, every
+        anchor and every card filed is drawn as it happens, paced by the same
+        Trace step slider.
+        """
+        if self.bake is None or self.busy:
+            return
+        import importlib
+        for mod in (nav, pcd):
+            try:
+                importlib.reload(mod)
+            except Exception as e:
+                self.status.set("reload failed: %s" % e)
+                return
+
+        pts = []
+        if self.start:
+            pts.append(self.start)
+        pts += list(self.targets)
+        if len(pts) < 2 and self.route:
+            step = max(1, len(self.route) // 12)
+            pts = [self.route[i] for i in range(0, len(self.route), step)]
+        if len(pts) < 2:
+            self.status.set("place a start and some points first, or load a route")
+            return
+
+        nav.AGL = float(self.vars["agl"].get())
+        nav.MARGIN = min(0.5, nav.AGL * 0.5)
+        nav.BLOCK_H = nav.AGL - nav.MARGIN
+        nav.BODY_R = float(self.vars["standoff"].get())
+
+        if self.live is not None:
+            self.live_stop = True
+            self.live = None
+        self.show_radar.set(False)
+        self.radar_fans = None
+        self.radar_key = None
+
+        del self.log_lines[:]
+        self._log_at = 0
+        self.trace_log.configure(state="normal")
+        self.trace_log.delete("1.0", "end")
+        self.trace_log.configure(state="disabled")
+
+        self.live_ms = float(self.vars["trace_ms"].get())
+        # Clear at the START, like generate() - so the LAST search stays on
+        # the map until a new one replaces it.
+        self.gen = None
+        self.card_ev = []
+        self.card_paths = []
+        self.cards_shown = True
+        self.card_stop = False
+        self.cards_running = True
+        # What the pink line was showing, so a stopped search can put it
+        # back rather than leaving the map claiming a path nobody chose.
+        self.cards_was = self.route
+        self.cards = {"box": 0, "of": len(pts) - 1, "path": [], "done": False}
+        self.cards_btn.configure(text="Stop search")
+        if self.zoom <= 1.0001:
+            self.frame_on(pts)
+        self.status.set("searching %d boxes - Esc or the button stops it"
+                        % (len(pts) - 1))
+
+        def trace(kind, kw):
+            """On the worker thread. Appends, sleeps, and touches no Tk."""
+            if self.card_stop:
+                raise pcd.Stopped()
+            self.card_ev.append((kind, kw))
+            if kind == "card" and len(self.card_paths) < 4000:
+                self.card_paths.append((kw["points"], kw["reached"],
+                                        kw.get("why", "")))
+            ms = self.live_ms
+            if ms > 0 and kind in ("ring", "ray", "anchor", "card"):
+                time.sleep(ms / 1000.0)
+
+        def work():
+            try:
+                pcd.TRACE = trace
+                world = pcd.World(self.bake)
+                self.log_lines.append("%d objects on the mask" % world.n)
+                runs, report, closed = pcd.run(world, pts,
+                                               on_box=self._card_box)
+                # RUNS, not one path. A leg nobody could fly is a gap, and
+                # joining across it would draw a straight line through the
+                # buildings that beat it.
+                self.cards["runs"] = runs
+                self.cards["path"] = [p for r in runs for p in r]
+                self.cards["closed"] = closed
+            except pcd.Stopped:
+                self.cards["closed"] = False
+            except Exception:
+                self.log_lines.append("search failed: "
+                                      + traceback.format_exc()
+                                      .strip().splitlines()[-1])
+                self.cards["closed"] = False
+            finally:
+                pcd.TRACE = None
+                self.cards["done"] = True
+
+        threading.Thread(target=work, daemon=True).start()
+        self.root.after(60, self._cards_tick)
+
+    def _card_box(self, wi, target, out, best):
+        """One box finished, on the worker thread. Words only."""
+        done = len([c for c in out if c.reached])
+        if best is None:
+            # Counted by reason, not one line per card. Eight cards rejected
+            # for the same thing is one fact, not eight.
+            why = {}
+            for c in out:
+                why[c.why] = why.get(c.why, 0) + 1
+            self.log_lines.append(
+                "box %d: %d cards, none flyable" % (wi, len(out)))
+            for reason, k in sorted(why.items(), key=lambda kv: -kv[1]):
+                self.log_lines.append("  %d x %s" % (k, reason))
+        else:
+            self.log_lines.append(
+                "box %d: %d cards, %d completed -> took %d points, %.0f m (%s)"
+                % (wi, len(out), done, len(best.points) - 1, best.length(),
+                   best.why))
+        if self.cards is not None:
+            self.cards["box"] = wi
+
+    def _cards_tick(self):
+        if not self.cards_running or self.cards is None:
+            return
+        try:
+            self.live_ms = float(self.vars["trace_ms"].get())
+        except Exception:
+            pass
+        self.drain_log()
+        self.repaint()
+        c = self.cards
+        if not c.get("done"):
+            self.status.set("box %d of %d - %d events - Esc stops it"
+                            % (c["box"], c["of"], len(self.card_ev)))
+            self.root.after(60, self._cards_tick)
+            return
+        # DRAIN AGAIN, NOW THAT done IS TRUE.
+        #
+        # The drain above happened BEFORE this check. If the worker finished
+        # in the gap between the two - which it does, at trace step 0 - every
+        # line it appended in that gap had no later tick to collect it and was
+        # simply lost. Measured over three identical runs: 6, 13, 6 lines.
+        # The last drain has to come after the last append is guaranteed, and
+        # done being true is that guarantee.
+        self.drain_log()
+        self.cards_btn.configure(text="Hide cards" if self.card_paths
+                                 else "Search cards (live)")
+        ok = c.get("closed")
+        found = c.get("path") or []
+        n = len(found)
+
+        # THE PINK LINE BECOMES WHAT WAS JUST FOUND.
+        #
+        # It is self.route, and the search never touched it - so the map went
+        # on showing the SAVED path while a new one was being built beside
+        # it, and the answer vanished when the search overlay came down. A
+        # search that finishes and changes nothing on screen has not
+        # finished as far as anyone watching is concerned.
+        #
+        # Not saved, and deliberately: Save publishes what GENERATE wrote,
+        # and these points have not been through the exporter. Displayed,
+        # kept, and restorable.
+        # WHAT IT FOUND IS SHOWN, CLOSED OR NOT.
+        #
+        # This used to adopt the path only when the search closed, and put
+        # the old one back otherwise - so a search that solved six boxes of
+        # twelve changed nothing on screen and looked like it had done
+        # nothing at all. The six boxes it DID solve are the most useful
+        # thing on the map: they are where it got to before the wall, and
+        # the last point is the wall. A partial answer is an answer.
+        #
+        # The previous path only comes back when there is genuinely nothing
+        # to show.
+        if n > 1:
+            self.route = found
+            self.route_saved = False
+            # THE POINTS ARE NOT TOUCHED.
+            #
+            # A version of this replaced self.start and self.targets with the
+            # anchors the search found, so that Generate could fly them and
+            # light up Save. It committed a result the moment it appeared,
+            # over the points that had been clicked by hand, with nothing
+            # asked and nothing to undo from. Finishing is not consent.
+            #
+            # The search SHOWS its answer. Taking it is a separate decision
+            # and needs a separate action.
+        else:
+            self.route = self.cards_was
+        self.cards_was = None
+
+        runs = c.get("runs") or []
+        gaps = max(0, len(runs) - 1)
+        self.status.set("%s  %d points%s over %d boxes, %d events%s"
+                        % ("closed" if ok
+                           else "%d leg%s nothing could fly"
+                                % (gaps, "" if gaps == 1 else "s"),
+                           n,
+                           "" if gaps == 0 else " in %d runs" % len(runs),
+                           c["of"], len(self.card_ev),
+                           " - shown, not saved; your points are untouched"
+                           if n > 1
+                           else " - nothing found, the previous path is back"))
+        self.trace_log.configure(state="normal")
+        self.trace_log.insert("end", chr(10) + ("CLOSED" if ok else "STOPPED")
+                              + ": %d points" % n + chr(10),
+                              "hit" if ok else "bad")
+        self.trace_log.see("end")
+        self.trace_log.configure(state="disabled")
+        # The search stays on the map only while it did NOT close - the
+        # rings and refused cards are the diagnosis then. A search that
+        # closed has produced a path, and the path is the better picture.
+        self.cards_running = False
+        if ok:
+            self.cards = None
+            self.card_paths = []
+            self.cards_btn.configure(text="Search cards (live)")
+        self.update_enabled()
+        self.repaint()
+
+    def trace_live(self):
+        """Run the tangent navigator over the placed points, drawing as it goes.
+
+        Driven from the Tk idle loop in small batches rather than run to
+        completion and drawn afterwards. A navigator that only shows its answer
+        cannot be watched failing, and watching it fail is the whole point -
+        the picture at the end says where it stopped, not what it tried.
+
+        The modules are reloaded first, so a change to the algorithm is picked
+        up without restarting the Studio. Anything built BEFORE a reload keeps
+        its old classes, so bake and radar are rebuilt here rather than reused.
+        """
+        if self.bake is None or self.busy:
+            return
+        if self.live is not None:
+            self.live_stop = True
+            return
+
+        import importlib
+        for mod in (fp, nav, tang):
+            try:
+                importlib.reload(mod)
+            except Exception as e:
+                self.status.set("reload failed: %s" % e)
+                return
+
+        pts = []
+        if self.start:
+            pts.append(self.start)
+        pts += list(self.targets)
+        if len(pts) < 2 and self.route:
+            step = max(1, len(self.route) // 12)
+            pts = [self.route[i] for i in range(0, len(self.route), step)]
+        if len(pts) < 2:
+            self.status.set("place a start and some points first, or load a route")
+            return
+
+        nav.AGL = float(self.vars["agl"].get())
+        nav.MARGIN = min(0.5, nav.AGL * 0.5)
+        nav.BLOCK_H = nav.AGL - nav.MARGIN
+        nav.BODY_R = float(self.vars["standoff"].get())
+
+        raw, plan_m, _dist, _pad = nav.build_world(self.bake, None)
+        radar = nav.Radar(self.bake, plan_m, raw, self.bake.mx)
+
+        # Frame it, unless the view is already somewhere on purpose.
+        #
+        # zoom 1.0 is the whole map, which is what a fresh load leaves and
+        # nobody chooses - so it is safe to read as "no opinion". Any zoom at
+        # all is an opinion and is left exactly alone: yanking a view someone
+        # set is the same class of rudeness as moving their selection.
+        if self.zoom <= 1.0001:
+            self.frame_on(pts)
+
+        # KEEP THE LOG. Appending to a list is all the worker may do; tick
+        # moves it into the widget.
+        del self.log_lines[:]           # in place - see drain_log
+        self._log_at = 0
+        # note(), not log_lines.append - so the ring-by-ring and
+        # bearing-by-bearing chatter is dropped and the waypoints and
+        # arrivals are not buried under it.
+        self.live = tang.TangentNav(self.bake, radar, log=self.note)
+        self.trace_log.configure(state="normal")
+        self.trace_log.delete("1.0", "end")
+        self.trace_log.configure(state="disabled")
+        self.live_stop = False
+        self.live_paused = False
+        self.live_ms = float(self.vars["trace_ms"].get())
+        self.live_btn.configure(text="Stop trace")
+        self.status.set("tracing %d points - space pauses" % len(pts))
+
+        # A generator so the Tk loop stays responsive: the navigator runs in
+        # bursts between repaints instead of blocking the UI for the whole run.
+        state = {"done": False, "ok": False}
+
+        def work():
+            try:
+                state["ok"] = self.live.run(pts, on_step=self._live_step,
+                                            step_every=1)
+            except tang.Stopped:
+                state["ok"] = False
+            except Exception:
+                state["ok"] = False
+            state["done"] = True
+
+        # run() is a straight loop, so step it by running it on a thread and
+        # repainting from what it has appended so far. self.live.path only ever
+        # grows, so reading it from the UI thread is safe enough for a picture.
+        import threading
+        threading.Thread(target=work, daemon=True).start()
+
+        def tick():
+            if self.live is None:
+                return
+            # Sampled here, on the UI thread, so the slider still works mid
+            # trace without the worker ever touching Tk.
+            try:
+                self.live_ms = float(self.vars["trace_ms"].get())
+            except Exception:
+                pass
+            self.drain_log()
+            self.repaint()
+            if not self.live_paused:
+                self.status.set("tracing: %d points, %d rays tried - space pauses"
+                                % (len(self.live.path), len(self.live.tries)))
+            if state["done"] or self.live_stop:
+                self._trace_done(state["ok"])
+                return
+            self.root.after(60, tick)
+
+        self.root.after(60, tick)
+
+    def _log_select_all(self, _e=None):
+        self.trace_log.tag_add("sel", "1.0", "end-1c")
+        return "break"
+
+    def _log_copy(self, everything):
+        try:
+            if everything:
+                text = self.trace_log.get("1.0", "end-1c")
+            else:
+                text = self.trace_log.get("sel.first", "sel.last")
+        except Exception:
+            text = self.trace_log.get("1.0", "end-1c")
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        n = len(text.split(chr(10)))
+        self.status.set("copied %d line%s" % (n, "" if n == 1 else "s"))
+
+    def _log_menu(self, e):
+        try:
+            self.log_menu.tk_popup(e.x_root, e.y_root)
+        finally:
+            self.log_menu.grab_release()
+        return "break"
+
+    def clear_log(self):
+        del self.log_lines[:]
+        self._log_at = 0
+        self.trace_log.configure(state="normal")
+        self.trace_log.delete("1.0", "end")
+        self.trace_log.configure(state="disabled")
+
+    def drain_log(self):
+        """Move whatever the navigator has said into the panel.
+
+        Takes the list away from the worker in one go rather than popping,
+        so a line appended mid-drain is simply picked up next time instead of
+        being lost or double-printed.
+        """
+        # NEVER REBIND THE LIST.
+        #
+        # This was `lines, self.log_lines = self.log_lines, []`, and the
+        # navigator holds `self.log_lines.append` - a method bound to the
+        # ORIGINAL list, captured when the run started. One drain and every
+        # later line went into an orphaned list nobody reads: 4 lines survived
+        # a run that produced sixty. Read by index off a list that is only
+        # ever cleared IN PLACE.
+        n = len(self.log_lines)
+        lines = self.log_lines[self._log_at:n]
+        self._log_at = n
+        if not lines:
+            return
+        self.trace_log.configure(state="normal")
+        for ln in lines:
+            tag = ""
+            if ln.startswith("waypoint"):
+                tag = "wp"
+            elif "reached" in ln:
+                tag = "hit"
+            elif ("STUCK" in ln or "stalled" in ln or "NO ROUTE" in ln
+                  or "failed" in ln or "MAX_STEPS" in ln):
+                tag = "bad"
+            self.trace_log.insert("end", ln + chr(10), tag)
+        # Only follow the tail if the tail is what is being looked at - a
+        # scroll back to read something must not be yanked forward again.
+        if self.trace_log.yview()[1] > 0.995:
+            self.trace_log.see("end")
+        self.trace_log.configure(state="disabled")
+
+    def _trace_done(self, ok):
+        nvg = self.live
+        self.live_btn.configure(text="Trace live (tangent)")
+        if nvg is None:
+            return
+        flown = sum(math.hypot(nvg.path[i + 1][0] - nvg.path[i][0],
+                               nvg.path[i + 1][1] - nvg.path[i][1])
+                    for i in range(len(nvg.path) - 1))
+        by = {}
+        for t in nvg.tries:
+            if t.verdict == "TAKEN":
+                by[t.layer] = by.get(t.layer, 0) + 1
+        # Beside the BAKES, not in cam_paths.
+        # cam_paths is tracked and holds the .campath files that ship
+        # with the work that made them; a trace writes two CSVs every
+        # run, so pointing them there put untracked scratch in a
+        # committed directory on every click. The bake folder is where
+        # the plan CSVs these are compared against already live.
+        stem = os.path.join(nav.FOLDER, (self.map_name or "map") + "_tangent")
+        try:
+            np_ = nvg.export_path_csv(stem + "_path.csv")
+            nt_ = nvg.export_tries_csv(stem + "_tries.csv")
+            wrote = "  wrote %s_path.csv (%d) and _tries.csv (%d)" % (
+                os.path.basename(stem), np_, nt_)
+        except Exception as e:
+            wrote = "  export failed: %s" % e
+        self.status.set("%s  %.0f m, moves %s%s"
+                        % ("closed" if ok else "STOPPED", flown, by, wrote))
+        self.drain_log()
+        self.trace_log.configure(state="normal")
+        self.trace_log.insert("end", chr(10) + "%s: %.0f m over %d points. %s"
+                              % ("CLOSED" if ok else "STOPPED", flown,
+                                 len(nvg.path), by) + chr(10),
+                              "hit" if ok else "bad")
+        self.trace_log.insert("end", wrote.strip() + chr(10))
+        self.trace_log.see("end")
+        self.trace_log.configure(state="disabled")
+        self.live = None
+        self.repaint()
+
     def clear_targets(self):
-        """Clear every point - the targets AND the start with its heading.
+        """Clear every point - the targets AND the start.
 
         The status line always promised "click to place a start again", but
         the start survived the button; only the targets went. Clear means
@@ -2793,8 +3988,6 @@ class Studio:
             return
         self.targets = []
         self.start = None
-        self.heading = None
-        self.drag = None
         self.route = None
         # Whatever was selected is gone now, whichever kind it was.
         if self.selection and self.selection[0] in ("target", "start"):
@@ -2804,14 +3997,47 @@ class Studio:
         self.update_enabled()
         self.repaint()
 
-    def refresh_labels(self):
-        for k in ("smooth", "agl"):
-            self.vars[k + "_lbl"].configure(text=str(self.vars[k].get()))
-        # Snap standoff to 0.5 m steps and show it that way.
-        so = round(float(self.vars["standoff"].get()) * 2.0) / 2.0
-        if abs(so - float(self.vars["standoff"].get())) > 1e-9:
-            self.vars["standoff"].set(so)
-        self.vars["standoff_lbl"].configure(text="%.1f" % so)
+    # Sliders whose value changes what the MASK looks like. Everything else
+    # only changes a number.
+    MASK_SLIDERS = ("agl", "standoff")
+    # Sliders that change the PICTURE but not the mask: a repaint, no
+    # re-render. Without this the averaged path only moved when something
+    # else happened to repaint, which looks like a dead slider.
+    DRAW_SLIDERS = ("smooth", "smooth_n")
+
+    def refresh_labels(self, which=None):
+        """Put every slider's value in its label, and re-render only if asked.
+
+        Driven from the sliders that EXIST, not from a hand-written list. It
+        used to read `for k in ("smooth", "agl")`, so a slider added later
+        had a label that never moved off its starting value - which is
+        exactly what happened to Trace step. A list of names that has to be
+        remembered will eventually not be.
+
+        `which` names the slider that moved. Re-rendering the mask is a
+        LANCZOS pass over 2048 squared, and dragging a timing slider has no
+        business paying for it - only agl and standoff change what the mask
+        shows. None means "something else changed, do it all".
+        """
+        for k, v in list(self.vars.items()):
+            if k.endswith("_lbl") or k.endswith("_w"):
+                continue
+            lbl = self.vars.get(k + "_lbl")
+            if lbl is None:
+                continue
+            if k == "standoff":
+                # Snap to 0.5 m steps and show it that way.
+                so = round(float(v.get()) * 2.0) / 2.0
+                if abs(so - float(v.get())) > 1e-9:
+                    v.set(so)
+                lbl.configure(text="%.1f" % so)
+            else:
+                lbl.configure(text=str(v.get()))
+
+        if which is not None and which not in self.MASK_SLIDERS:
+            if which in self.DRAW_SLIDERS and self.mask_full is not None:
+                self.repaint()
+            return
         if self.mask_full is not None and not self.busy:
             self.render_mask()
 
@@ -2820,14 +4046,147 @@ class Studio:
     def generate(self):
         if self.busy or self.bake is None or not self.edit_path:
             return
-        if self.start is None or self.heading is None:
-            self.status.set("click a start and drag a heading first")
+        if self.start is None:
+            self.status.set("click a start first")
             return
+        if not self.targets:
+            self.status.set("click some points for it to visit")
+            return
+
+        # What to put back if this is abandoned. Generate replaces the route,
+        # and until now there was no way to change your mind - the old one was
+        # gone the moment the new one landed.
+        # A PLAYBACK AND A LIVE FLIGHT DO NOT SHARE THE MAP.
+        #
+        # Trace live re-flies the SAVED waypoints - a playback - and its rays
+        # and its path stayed on screen when Generate was pressed afterwards,
+        # so two different navigators' work was drawn on top of each other
+        # with nothing to say which was which. Dropping self.live stops both
+        # the drawing and the repaint timer; the worker sees live_stop at its
+        # next step and unwinds on its own.
+        if self.live is not None:
+            self.live_stop = True
+            self.live = None
+            self.live_paused = False
+
+        # OFF for every generation. The imaging belongs to the path that was
+        # there before, and leaving thousands of its standing rays on screen
+        # over a flight in progress is the reason the live sweep could not be
+        # seen. Tick it again afterwards to photograph the new one.
+        self.show_radar.set(False)
+        self.radar_fans = None
+        self.radar_key = None
+
+        self.gen_was = (self.route, getattr(self, "pending", None),
+                        getattr(self, "route_saved", False))
+        # CLEAR EVERYTHING, HERE, AT THE START. NOWHERE ELSE.
+        #
+        # A generation used to dump its own data on the way out - _done,
+        # _failed, _generate_cancelled and _gen_tick all set self.gen = None -
+        # so the flight vanished at exactly the moment it was worth looking
+        # at. Clearing belongs at the start of the NEXT run, where it cannot
+        # destroy the thing being examined.
+        self.gen = None
+        self.gen_cancel = False
+        self.cards = None
+        self.cards_running = False
+        self.cards_shown = True
+        self.card_paths = []
+        self.card_ev = []
+        # Same slider as the trace. Read here, on the UI thread, and left as a
+        # plain float - the worker must not touch Tk.
+        try:
+            self.live_ms = float(self.vars["trace_ms"].get())
+        except Exception:
+            self.live_ms = 0.0
+        del self.log_lines[:]
+        self._log_at = 0
+        self.trace_log.configure(state="normal")
+        self.trace_log.delete("1.0", "end")
+        self.trace_log.configure(state="disabled")
+
         self.busy = True
         self.go.state(["disabled"])
         threading.Thread(target=self._run, daemon=True).start()
+        self.root.after(60, self._gen_tick)
+
+    def _gen_step(self, path, fans, steps, events=()):
+        """The navigator, mid-flight, on its own thread.
+
+        Stores references and NOTHING else - no Tk, no copying. path and fans
+        only ever grow, so the repaint timer reads a prefix and never a torn
+        value; copying 6000 steps of path per step would cost more than the
+        flight.
+        """
+        self.gen = (path, fans, steps, events)
+        if self.gen_cancel:
+            raise nav.Cancelled()
+        ms = self.live_ms
+        if ms > 0:
+            time.sleep(ms / 1000.0)
+
+    def _gen_tick(self):
+        """Repaint while a flight is in the air."""
+        if not self.busy or self.gen_was is None:
+            # Do NOT clear self.gen. The flight stays drawn until the next
+            # generation clears it - see generate().
+            self.repaint()
+            return
+        self.drain_log()
+        if self.gen is not None:
+            _p, fans, steps = self.gen[0], self.gen[1], self.gen[2]
+            self.repaint()
+            if not self.gen_cancel:
+                self.status.set("flying: step %d, %d points - Esc cancels"
+                                % (steps, len(_p)))
+        self.root.after(60, self._gen_tick)
+
+    def _generate_cancelled(self):
+        """Escape during a flight. Put back exactly what was there."""
+        # The flight is left drawn - cancelling is not a reason to throw
+        # away what it had done by the time you stopped it. Only the PATH
+        # goes back, which is what Escape means.
+        self.busy = False
+        if self.gen_was is not None:
+            self.route, self.pending, self.route_saved = self.gen_was
+        elif self.loaded_route:
+            self.route = list(self.loaded_route)
+        self.gen_was = None
+        self.go.state(["!disabled"])
+        self.update_enabled()
+        self.repaint()
+        self.status.set("generation cancelled - "
+                        + ("the previous path is back" if self.route
+                           else "there was no previous path"))
+
+    # Lines this deep are probe detail - one per ray, per ring, per bearing
+    # tried. They belong in a CSV, not on screen: at four or five a step they
+    # push the thing you are reading off the top before you have read it.
+    # The navigators already indent that way, so the convention is the filter.
+    LOG_DETAIL_INDENT = 4
+
+    def note(self, msg):
+        """Put one line in the Navigator box, if it is worth a line.
+
+        Appending to a list is all this does, so it is safe from the worker
+        threads; the repaint timers drain it into the widget.
+        """
+        for line in str(msg).rstrip().split(chr(10)):
+            if not line.strip():
+                continue
+            if len(line) - len(line.lstrip(" ")) >= self.LOG_DETAIL_INDENT:
+                continue
+            self.log_lines.append(line.rstrip())
 
     def _log(self, msg):
+        """Progress from the generate pipeline. Worker thread.
+
+        This only ever set the status bar - one line, overwritten by the next
+        one - so a whole generation's account, including everything the
+        exporter prints, was produced and thrown away. The box was empty
+        after a run that had plenty to say.
+        """
+        self.note(msg)
         self.root.after(0, lambda: self.status.set(msg))
 
     def _run(self):
@@ -2844,17 +4203,25 @@ class Studio:
             fp.BODY_RADIUS = nav.BODY_R
 
             csv_path = plan_from_seed(
-                self.map_name, self.start, self.heading,
-                RING_RADIUS, RING_SIDE,
-                RING_WAYPOINTS, list(self.targets), self._log,
-                smooth_passes=int(self.vars["smooth"].get()))
+                self.map_name, self.start, list(self.targets), self._log,
+                smooth_passes=int(self.vars["smooth"].get()),
+                on_step=self._gen_step,
+                # The Smooth sample size slider, applied INSIDE the export so
+                # heading, tilt, bank and speed are all derived from the
+                # averaged positions. What is drawn burnt orange is what
+                # lands in the file.
+                average_n=int(round(float(self.vars["smooth_n"].get()))))
 
             import csv as _csv
             rows = list(_csv.DictReader(open(csv_path)))
             route = [(float(r["x"]), float(r["z"])) for r in rows]
             # The scratch copy Generate just wrote. Save publishes it.
             out = os.path.join(FOLDER, self.map_name + ".campath")
-            self.root.after(0, lambda: self._done(route, len(rows), out))
+            avg_n = int(round(float(self.vars["smooth_n"].get())))
+            self.root.after(0, lambda: self._done(route, len(rows), out, avg_n))
+        except nav.Cancelled:
+            # Not a failure. Asked for, and answered.
+            self.root.after(0, self._generate_cancelled)
         except BaseException:
             # BaseException, not Exception. Anything that escapes this thread
             # leaves the UI stuck disabled with no message, which is the worst
@@ -2863,8 +4230,21 @@ class Studio:
             tb = traceback.format_exc().strip().splitlines()[-1]
             self.root.after(0, lambda: self._failed(tb))
 
-    def _done(self, route, n, out):
+    def _done(self, route, n, out, avg_n=None):
+        # ONE PATH ON SCREEN WHEN IT WORKED.
+        #
+        # The overlay is kept after a FAILURE, because where it got to is the
+        # diagnosis. After a success it is just the raw flown line lying on
+        # top of the smoothed route that replaced it - two paths, and the
+        # brighter one is the one that is not the answer. Keeping data is for
+        # when there is nothing better to look at; here there is.
+        self.gen = None
+        self.cards = None
+        self.live = None
+        self.drain_log()          # _gen_tick has stopped; nothing else will
+        self.gen_was = None
         self.route = route
+        self.route_avg_n = avg_n
         self.route_saved = False
         self.pending = out
         self.busy = False
@@ -2873,14 +4253,72 @@ class Studio:
         self.status.set("wrote %d points to %s" % (n, out))
 
     def _failed(self, msg):
+        """A generation that fell over. KEEP WHAT IT FLEW.
+
+        This dropped self.gen and never repainted, so the flight you had just
+        sat and watched vanished the instant it failed and the map went back
+        to showing the old path - the one moment the picture is worth the
+        most, and it was thrown away. Where it got to before it fell over IS
+        the diagnosis: the last point is the place that beat it.
+
+        Cancelling is different and stays different - Escape means "put it
+        back", and it does.
+        """
+        # DUMP NOTHING. Everything it gathered stays where it is - the
+        # flight, the fans, the log - and the next generation clears it. The
+        # old path stays too: a failure has produced nothing to replace it
+        # with.
+        flown = len(self.gen[0]) if (self.gen and self.gen[0]) else 0
+        self.drain_log()          # whatever it managed to say before it fell
+        self.gen_was = None
         self.busy = False
         self.update_enabled()
-        self.status.set("failed: " + msg)
+        self.repaint()
+        self.status.set("failed: %s%s"
+                        % (msg, ("  -  the %d points it flew are still on the "
+                                 "map" % flown) if flown > 1 else
+                           "  -  it never got as far as flying"))
 
 
 def main():
     root = tk.Tk()
-    Studio(root)
+    studio = Studio(root)
+
+    # A test can ask for the Studio to itself:
+    #     set PS_TEST_LOCK=1   or   python path_studio.py --test-lock
+    # Nothing turns this on by itself. It exists so that when a probe is
+    # driving, the window says so and cannot be typed or clicked into.
+    if os.environ.get("PS_TEST_LOCK") == "1" or "--test-lock" in sys.argv:
+        studio.set_test_lock(True, "started with --test-lock.")
+
+    # OPEN ON A MAP.
+    #
+    #     python path_studio.py            -> START_MAP
+    #     python path_studio.py 04_himmelsdorf
+    #     python path_studio.py --no-map   -> the picker, as before
+    #
+    # PathStudio.exe forwards its own arguments to this script, so the same
+    # name works from the launcher.
+    #
+    # Only if the map already HAS a height map. Loading one that does not
+    # puts the no-height-map dialog on screen before the window has been
+    # looked at, and a modal is a poor way to say good morning.
+    wanted = None
+    if "--no-map" not in sys.argv:
+        plain = [a for a in sys.argv[1:] if not a.startswith("-")]
+        wanted = plain[0] if plain else START_MAP
+
+    if wanted:
+        def open_it():
+            if wanted in getattr(studio, "baked", ()):
+                studio.load_named(wanted)
+            else:
+                studio.status.set("%s has no height map - pick a map, or bake "
+                                  "it" % wanted)
+        # After the window is up, so the load draws into a real canvas rather
+        # than one that has not been sized yet.
+        root.after(0, open_it)
+
     root.mainloop()
 
 

@@ -730,7 +730,17 @@ def load_plan(path):
     return np.array(xs), np.array(zs)
 
 
-def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
+class Cancelled(Exception):
+    """Raised out of an on_step hook to abandon a flight in progress.
+
+    Its own type so that a caller can tell "the operator pressed Escape" from
+    "the navigator fell over", and put the previous route back rather than
+    reporting a failure that never happened.
+    """
+
+
+def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None,
+        on_step=None):
     n = len(nx)
     spacing = float(np.mean(np.hypot(np.diff(nx), np.diff(nz))))
 
@@ -785,6 +795,15 @@ def fly(bake, radar, nx, nz, two_point, record_fans=True, terrace_of=None):
     while steps < MAX_STEPS:
         steps += 1
         force_backup = False   # set when nothing in the fan is flyable at all
+
+        # Called at the TOP of the body, not the bottom: there are `continue`s
+        # further down and a hook that misses those steps reports a flight
+        # that stutters where the navigator did not. path and fans are handed
+        # over by reference - they only ever grow, so a reader on another
+        # thread sees a prefix of the truth and never a torn value. A hook may
+        # raise Cancelled to stop the flight where it stands.
+        if on_step is not None:
+            on_step(path, fans, steps, events)
 
         # --- progress: nearest nominal sample in a forward window only, so the
         # loop cannot be "completed" by drifting backwards or circling a point.

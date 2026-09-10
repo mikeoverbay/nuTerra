@@ -43,7 +43,28 @@ import smooth_path
 # Camera behaviour. These are the numbers worth arguing about.
 # --------------------------------------------------------------------------
 
-SMOOTH = True        # collision-checked shortcut + Chaikin on the flown path
+# OFF. The radar-built path is exported as the navigator flew it.
+#
+# This ran despike -> shortcut -> despike -> Chaikin -> resample over the
+# flown path, and measured on 19_monastery it made everything worse:
+#
+#   SMOOTH=True    197 pts  390 m  worst miss 20.4 m  tightest turn 1.9 m
+#   SMOOTH=False   204 pts  413 m  worst miss  7.6 m  tightest turn 5.7 m
+#
+# The shortcut is greedy string-pulling and it took 204 flown points down to
+# SEVEN - a 413 m loop became a 290 m heptagon, and the clicked waypoints were
+# not among the survivors. Chaikin then put 83 m back by bulging the corners
+# out, and the corners it produced were THREE TIMES SHARPER than the ones the
+# navigator flew. A pass whose job is to smooth a path, tripling its worst
+# curvature, is not earning its place.
+#
+# The 23 m it saved was the only thing it was buying, and it was buying it
+# with the two properties the path exists for: going where it was told, and
+# being flyable. Clearance and clips are identical either way (0.97 m, 0).
+#
+# The code stays, gated, with the numbers above - turning it back on is one
+# word, and anyone who does should re-measure rather than trust this comment.
+SMOOTH = False       # collision-checked shortcut + Chaikin on the flown path
 SMOOTH_REACH = 40    # points a shortcut may span. Bounded, or a loop shortcuts
                      # across its own middle and stops being a loop.
 SMOOTH_ITERS = 2     # Chaikin passes. Each one rounds every corner further,
@@ -278,7 +299,12 @@ def smooth_heading(h, metres, step_m, closed=True):
     return periodic_smooth(u - ramp, metres, step_m, True) + ramp
 
 
-def build(map_name):
+def build(map_name, on_step=None, average_n=0):
+    """on_step is handed straight to the navigator so a caller can watch the
+    flight as it happens. It was added to the fly() calls below without being
+    added HERE, which is a NameError the moment anyone generates - the two
+    calls live in build(), not in main(), and I patched the wrong signature.
+    """
     print("fly")
     bake = nav.Bake(nav.FOLDER, map_name)
     cell_m = bake.mx
@@ -296,8 +322,11 @@ def build(map_name):
         terrace_of, tlevels, worlds, radar, extra, nx, nz = nav.plan_flight(
             bake, nx, nz, two_point=True)
         nav.FLIGHT_Y = None
-        res = nav.fly(bake, radar, nx, nz, two_point=True, record_fans=False,
-                      terrace_of=terrace_of)
+        # record_fans follows the hook: the fans ARE the picture, and
+        # recording them for a run nobody is watching is pure cost.
+        res = nav.fly(bake, radar, nx, nz, two_point=True,
+                      record_fans=(on_step is not None),
+                      terrace_of=terrace_of, on_step=on_step)
         raw = worlds[0][2]
         level = None
         print(f"  {len(tlevels)} terraces at {nav.BODY_R:.0f} m standoff"
@@ -314,7 +343,8 @@ def build(map_name):
             nav.FLIGHT_Y = level
             raw, plan, dist_m, pad = nav.build_world(bake, level)
             radar = nav.Radar(bake, plan, raw, cell_m)
-            res = nav.fly(bake, radar, nx, nz, two_point=True, record_fans=False)
+            res = nav.fly(bake, radar, nx, nz, two_point=True,
+                          record_fans=(on_step is not None), on_step=on_step)
             if res["closed"] or level is None:
                 break
             level += nav.LEVEL_STEP
@@ -328,21 +358,28 @@ def build(map_name):
     print(f"  {len(flown)} points, closed={closed}, "
           f"{res['detours']} detours, {res['reversals']} reversals")
 
+    # HOISTED OUT OF `if SMOOTH:`.
+    #
+    # Both of these lived inside that block, so with SMOOTH off they simply
+    # did not exist - and the averaging pass below, which is outside it and
+    # needs the same collision test, would have died on a NameError the first
+    # time anyone moved the slider off zero. Two helpers used by two passes
+    # belong to the function, not to one of its branches.
+    #
+    # Checked against the SAME dilated mask the navigator flew by, so nothing
+    # downstream can trade the standoff for smoothness.
+    def seg_clear(x0, z0, x1, z1):
+        d = math.hypot(x1 - x0, z1 - z0)
+        if d < 1e-6:
+            return True
+        return radar.clear(x0, z0, (x1 - x0) / d, (z1 - z0) / d, d)
+
+    def plen(p):
+        return sum(math.hypot(p[(i + 1) % len(p)][0] - p[i][0],
+                              p[(i + 1) % len(p)][1] - p[i][1])
+                   for i in range(len(p) if closed else len(p) - 1))
+
     if SMOOTH:
-        # Checked against the SAME dilated mask the navigator flew by, so a
-        # shortcut or a cut corner keeps the standoff rather than trading it for
-        # smoothness.
-        def seg_clear(x0, z0, x1, z1):
-            d = math.hypot(x1 - x0, z1 - z0)
-            if d < 1e-6:
-                return True
-            return radar.clear(x0, z0, (x1 - x0) / d, (z1 - z0) / d, d)
-
-        def plen(p):
-            return sum(math.hypot(p[(i + 1) % len(p)][0] - p[i][0],
-                                  p[(i + 1) % len(p)][1] - p[i][1])
-                       for i in range(len(p) if closed else len(p) - 1))
-
         r0, t0 = smooth_path.curvature_ok(flown, MIN_RADIUS, closed)
         # A second, thinner mask used ONLY for rounding corners. Straights keep
         # the full standoff; a corner may spend down to CORNER_STANDOFF, because
@@ -372,6 +409,26 @@ def build(map_name):
         print(f"  tightest turn {r0:.1f} -> {r1:.1f} m, "
               f"corners under {MIN_RADIUS:.0f} m: {t0} -> {t1}")
         flown = sm
+
+    # THE REVOLVING AVERAGE, HERE, BEFORE ANYTHING IS DERIVED FROM THE PATH.
+    #
+    # Everything below - ground height, heading, tilt, bank, speed, the clip
+    # check - is computed FROM these positions, so the average has to land
+    # before them or the exported file would carry attributes belonging to a
+    # path it no longer describes. This is the same slot the old smoother
+    # used, for the same reason.
+    #
+    # Checked, not blind: an averaged point that cannot be reached from its
+    # neighbours is dropped back to the original. Measured without that check,
+    # a 48 m window put five points inside the obstacle mask.
+    if average_n and average_n >= 2:
+        before = plen(flown)
+        flown, refused = smooth_path.rolling_average(
+            flown, average_n, clear=seg_clear, closed=closed)
+        print(f"  averaged over {average_n} samples "
+              f"({average_n * nav.STEP:.0f} m of path): "
+              f"{before:.0f} -> {plen(flown):.0f} m, {refused} point(s) "
+              f"refused as unsafe and kept as flown")
 
     path = np.asarray(flown, dtype=float)
     x = path[:, 0]
@@ -595,7 +652,7 @@ def draw(bake, raw, pts, out_png):
     im.save(out_png)
 
 
-def main(out_dir=None, seed=None):
+def main(out_dir=None, seed=None, on_step=None, average_n=0):
     """Raises RuntimeError on a bad export, NOT SystemExit.
 
     out_dir overrides where the .campath lands. Path Studio passes a scratch
@@ -612,7 +669,8 @@ def main(out_dir=None, seed=None):
     """
     map_name = sys.argv[1] if len(sys.argv) > 1 else nav.MAP
 
-    bake, raw, res, pts, total, closed, step_m, level, worlds = build(map_name)
+    bake, raw, res, pts, total, closed, step_m, level, worlds = build(
+        map_name, on_step=on_step, average_n=average_n)
 
     out_dir = out_dir or cam_path.campath_dir()
     os.makedirs(out_dir, exist_ok=True)

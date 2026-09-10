@@ -40,8 +40,19 @@ Header - 128 bytes, little endian
    64  int64    created       unix seconds UTC when the file was written
    72  uint32   seed_count    number of seed records, may be 0
    76  uint32   seed_stride   bytes per seed record, 12
-   80  float32  seed_heading  departure heading, radians, same convention as
-                              a point's heading
+   80  float32  -             DEAD. Was seed_heading, the departure angle a
+                              drag used to set. Path Studio has no heading:
+                              a click starts the path and the points decide
+                              the direction. Written as 0.0 and read by
+                              nothing.
+
+                              The four bytes STAY. Every field after this one
+                              sits at a fixed offset - light_count at 96,
+                              the bulb fields at 104 and 108 - so removing
+                              them shifts the lot, and every .campath already
+                              written, plus nuTerra's own reader, is laid out
+                              for the current header. A dead field costs four
+                              bytes; a shifted header costs every file.
    84  float32  seed_radius   loop radius asked for, metres
    88  uint32   seed_points   waypoints asked for around the ring
    92  int32    seed_side     the turn direction verbatim as Path Studio
@@ -276,12 +287,14 @@ SEED_TARGET = 1
 LAYOUT_DOC = __doc__
 
 
-def pack_seed(start=None, heading=0.0, radius=0.0, waypoints=0, side=0,
-              targets=()):
-    """Gather the clicked inputs into the shape write_path wants."""
+def pack_seed(start=None, radius=0.0, waypoints=0, side=0, targets=()):
+    """Gather the clicked inputs into the shape write_path wants.
+
+    No heading. There is no such thing to gather any more - the start is a
+    click, and where the path goes from it is decided by the points.
+    """
     return {
         "start": tuple(start) if start else None,
-        "heading": float(heading),
         "radius": float(radius),
         "waypoints": int(waypoints),
         # Verbatim. See the header note - translating this threw the
@@ -416,7 +429,7 @@ def write_path(path, points, map_name, closed=True, total_len=None,
         HEAD_FMT,
         MAGIC, VERSION, flags, n, STRIDE, float(total_len), name, HEADER_SIZE,
         when, len(rows), SEED_STRIDE,
-        float(seed.get("heading", 0.0)), float(seed.get("radius", 0.0)),
+        0.0, float(seed.get("radius", 0.0)),          # offset 80 is dead
         int(seed.get("waypoints", 0)), int(seed.get("side", 0)),
         len(lights), LIGHT_STRIDE if lights else 0,
         len(bulbs), BULB_STRIDE if bulbs else 0,
@@ -459,7 +472,7 @@ def read_path(path):
         raise ValueError("file is shorter than its header")
 
     (_magic, version, flags, count, stride, total_len, name, header_size,
-     created, seed_count, seed_stride, seed_heading, seed_radius,
+     created, seed_count, seed_stride, _dead80, seed_radius,
      seed_points, seed_side, light_count, light_stride,
      bulb_count, bulb_stride, _res) = struct.unpack(HEAD_FMT, raw[:HEADER_SIZE])
 
@@ -540,7 +553,6 @@ def read_path(path):
             created, datetime.timezone.utc).astimezone().isoformat(" ", "seconds"),
         "seed": {
             "start": start,
-            "heading": seed_heading,
             "radius": seed_radius,
             "waypoints": seed_points,
             "side": seed_side,
@@ -676,8 +688,6 @@ def verify(path, points, seed=None, tol=1e-3):
         for i, (a, b) in enumerate(zip(seed.get("targets", ()), s["targets"])):
             if abs(float(a[0]) - b[0]) > tol or abs(float(a[1]) - b[1]) > tol:
                 return False, f"seed target {i} differs"
-        if abs(s["heading"] - float(seed.get("heading", 0.0))) > tol:
-            return False, "seed heading differs"
         if s["waypoints"] != int(seed.get("waypoints", 0)):
             return False, "seed waypoints differ"
         if s["side"] != int(seed.get("side", 0)):
@@ -714,7 +724,6 @@ def describe(path):
     if sd["start"]:
         lines.append(
             f"  seed  start {sd['start'][0]:.1f}, {sd['start'][1]:.1f}  "
-            f"heading {math.degrees(sd['heading']):.1f} deg  "
             f"{'left' if sd['side'] > 0 else 'right'}  "
             f"radius {sd['radius']:.0f} m  {sd['waypoints']} waypoints")
     else:

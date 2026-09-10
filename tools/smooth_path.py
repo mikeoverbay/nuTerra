@@ -278,6 +278,58 @@ def chaikin(pts, clear, closed=True, iterations=4, corner_clear=None):
     return cur, refused
 
 
+def rolling_average(pts, n, clear=None, closed=True):
+    """Revolving mean of a path, with every averaged point checked.
+
+    REVOLVING: on a closed loop the window wraps, so point 0 averages back
+    into the tail. Without that the seam gets a kink exactly where the two
+    ends meet, which is the one place a loop is guaranteed to be looked at.
+
+    `clear` is the same collision callback the rest of this module takes. An
+    averaged point is only accepted when it can still be reached from both of
+    its neighbours; otherwise the ORIGINAL point is kept. Measured before this
+    existed: a 48 m window on 19_monastery put five points inside the obstacle
+    mask and dropped clearance to 0.00 m - averaging cuts corners, and a
+    corner is exactly where a building is. Pass clear=None for a picture; pass
+    a real one for anything that will be flown.
+
+    Returns (points, refused).
+    """
+    m = len(pts)
+    n = int(n)
+    if m < 3 or n < 2:
+        return list(pts), 0
+    n = min(n, m)
+    half = n // 2
+
+    avg = []
+    for i in range(m):
+        sx = sz = 0.0
+        for k in range(n):
+            j = (i - half + k) % m if closed else min(max(i - half + k, 0), m - 1)
+            sx += pts[j][0]
+            sz += pts[j][1]
+        avg.append((sx / n, sz / n))
+
+    if clear is None:
+        return avg, 0
+
+    # Accept or refuse each point against its FINAL neighbours, walking once.
+    # A point kept because it was refused becomes the neighbour the next one
+    # is tested from, so a run of refusals stays connected to the path rather
+    # than to where the path would have been.
+    out = list(avg)
+    refused = 0
+    for i in range(m):
+        prev = out[(i - 1) % m] if closed or i > 0 else out[0]
+        nxt = pts[(i + 1) % m] if closed or i + 1 < m else pts[-1]
+        if _seg_clear(clear, prev, out[i]) and _seg_clear(clear, out[i], nxt):
+            continue
+        out[i] = pts[i]
+        refused += 1
+    return out, refused
+
+
 def resample(pts, step_m, closed=True):
     """Even spacing along the curve.
 
