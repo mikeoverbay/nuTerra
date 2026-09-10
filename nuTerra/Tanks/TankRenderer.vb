@@ -114,6 +114,20 @@ Public Class MapTanks
                         model = Matrix4.CreateScale(1.0F, 1.0F, -1.0F) * partModel
                     End If
                     GL.UniformMatrix4(shader("u_model"), False, model)
+
+                    ' WHERE THE AO LIVES IS A PROPERTY OF THE MESH.
+                    '
+                    ' viewer.py 15656: mesh.ao_in_diffuse_alpha = has_bones. A
+                    ' skinned mesh - hull, turret, tracks - carries its ambient
+                    ' occlusion in the DIFFUSE ALPHA; a rigid one uses the
+                    ' separate AO map if it has one. Uploading a blanket 0 here
+                    ' meant no AO reached the shader at all: measured at the
+                    ' owner's camera, ao came back median 0.992 over 140k tank
+                    ' pixels, which is the flat plastic look with the cavity
+                    ' shading missing.
+                    GL.Uniform1(shader("ao_in_diffuse_alpha"),
+                                CInt(If(m.layout.offBoneIdx >= 0, 1, 0)))
+
                     Dim mat = part.MaterialFor(m)
                     BindMaterial(mat)
                     m.vao.Bind()
@@ -147,6 +161,8 @@ Public Class MapTanks
         GL.Uniform1(shader("shine_scale"), TANK_AMBIENT)
         GL.Uniform1(shader("apply_normal_map"), CInt(If(TANK_NORMAL_MAP, 1, 0)))
         GL.Uniform1(shader("apply_ao"), CInt(If(TANK_AO, 1, 0)))
+        GL.Uniform1(shader("game_curves"), CInt(If(TANK_GAME_CURVES, 1, 0)))
+        GL.Uniform1(shader("stock_tonemap"), CInt(If(TANK_STOCK_TONEMAP, 1, 0)))
 
         ' THE ENVIRONMENT. Without it metal reflects nothing and the vehicle
         ' reads as plastic - not a figure of speech, it is what the first port
@@ -191,7 +207,8 @@ Public Class MapTanks
         GL.Uniform1(shader("has_armor_color"), 0)
         GL.Uniform1(shader("u_mflash_intensity"), 0.0F)
         GL.Uniform1(shader("alpha_in_normal_red"), 0)
-        GL.Uniform1(shader("ao_in_diffuse_alpha"), 0)
+        ' ao_in_diffuse_alpha is NOT set here - it is per mesh, not per frame,
+        ' and the draw loop uploads it from the mesh's own bone layout.
     End Sub
 
     ''' <summary>

@@ -1038,6 +1038,31 @@ Module modGlobalVars
     ''' as plastic - which is exactly how it looked before this was wired.
     ''' </summary>
     Public TANK_IBL As Boolean = True
+    ''' <summary>
+    ''' Gloss, metal and albedo the way the GAME writes them, from the decode in
+    ''' docs/game_PBS_tank.md, instead of the Tank Exporter's own curves.
+    '''
+    ''' The exporter squares the albedo sample before an sRGB decode and pushes
+    ''' gloss through pow(r/0.8, 7); PBS_tank.fx does neither - it reads albedo
+    ''' linear and writes gloss and metal raw. Both exporter steps cost
+    ''' magnitude, and gloss scales the IBL term and the specular lobe together,
+    ''' so the shader was handing its tonemap an image about an order too dim
+    ''' and the ACES knee lifted the whole tank into a flat bright band.
+    ''' </summary>
+    ''' Default OFF: measured at the owner's camera it was WORSE, not better -
+    ''' 74.6% of the tank above 0.95 luma against 18%, and contrast halved from
+    ''' 0.596 to 0.302. The extra magnitude is real, but it pushes straight past
+    ''' the tonemap's knee. Kept as a switch because the finding stands; what it
+    ''' showed is that the curve, not the input, is the binding constraint.
+    Public TANK_GAME_CURVES As Boolean = False
+    ''' <summary>
+    ''' Narkowicz's published ACES constants instead of mesh.frag's variant,
+    ''' whose e = 0.001 puts the knee at an input near 0.05 while this shader
+    ''' delivers about 0.22. Default ON because it is the only one of the four
+    ''' combinations that is not clipping: 0.7% of the tank above 0.95 luma
+    ''' against 18%, measured at the owner's camera.
+    ''' </summary>
+    Public TANK_STOCK_TONEMAP As Boolean = True
 
     Public LAMP_SHADOW_ENABLED As Boolean = True
 

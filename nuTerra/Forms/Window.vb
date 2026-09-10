@@ -1670,6 +1670,24 @@ try_again:
                         ImGui.Checkbox("Normal map", TANK_NORMAL_MAP)
                         ImGui.Checkbox("AO", TANK_AO)
                         ImGui.Checkbox("Environment (IBL)", TANK_IBL)
+                        ImGui.Checkbox("Game curves", TANK_GAME_CURVES)
+                        ImGui.Checkbox("Stock ACES", TANK_STOCK_TONEMAP)
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Narkowicz's published constants." & vbLf &
+                                             "Off uses mesh.frag's variant, whose" & vbLf &
+                                             "e = 0.001 knees at an input near 0.05" & vbLf &
+                                             "while this shader delivers about 0.22 -" & vbLf &
+                                             "18% of the tank came out at white.")
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Gloss, metal and albedo as PBS_tank.fx" & vbLf &
+                                             "writes them - raw and linear, decoded once." & vbLf &
+                                             "Off uses the Tank Exporter's own curves:" & vbLf &
+                                             "albedo squared before an sRGB decode, and" & vbLf &
+                                             "gloss through pow(r/0.8, 7), which turns a" & vbLf &
+                                             "raw 0.5 into 0.037." & vbLf &
+                                             "See docs/game_PBS_tank.md.")
+                        End If
                         If ImGui.IsItemHovered() Then
                             ImGui.SetTooltip("Irradiance, the raw cube and the BRDF LUT." & vbLf &
                                              "Off, metal reflects nothing and the whole" & vbLf &

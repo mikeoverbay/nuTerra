@@ -94,6 +94,46 @@ uniform int   normal_dxt1;   // g_useNormalPackDXT1. The exporter spells this th
 // one. Every fallback below is the exporter's own value.
 uniform int   tank_shading;
 
+// THE GAME'S CURVES, from docs/game_PBS_tank.md - a decode of PBS_tank.fx
+// itself, not a guess. Three things the exporter does that the game does not,
+// all of which cost MAGNITUDE, which is what the tonemap was starving for:
+//
+//   albedo      the game reads diffuseMap linear, "no in-shader decode (sRGB
+//               comes from the view)". mesh.frag squares the sample AND runs
+//               SRGBtoLINEAR - two decodes, about 3x too dark.
+//   gloss/metal the game writes them "raw and linear - no gamma, no pow, no
+//               sqrt anywhere between the final value and the output".
+//               mesh.frag applies pow(r/0.8, 7) and pow(g/0.5, 5)*1.5. The
+//               first is brutal: a raw gloss of 0.5 comes out 0.037, and gloss
+//               scales BOTH the IBL term and the specular lobe. Measured at the
+//               owner's camera, gloss came back median 0.09 over 140k pixels.
+//   alpha test  the game's source is normalMap (.z packed DXT1, else .x), and
+//               "diffuseMap.a is never read at all".
+//
+// Left as a switch rather than an edit: the exporter's curves are the look the
+// owner tuned by eye in his own viewer, and this is the look the game ships.
+// One checkbox decides, and both are one line from each other.
+uniform int   game_curves;
+
+// WHICH KNEE THE TONEMAP HAS.
+//
+// mesh.frag's ACESFilm is Narkowicz with three constants changed: c 2.43->2.34,
+// d 0.59->0.30, and e 0.14->0.001. That last one moves the knee a long way
+// down - the curve saturates at an input around 0.05, and measured at the
+// owner's camera this shader delivers 0.22, so 18% of the tank came out at
+// white with the paint colour gone. Feeding it MORE (the game's raw gloss and
+// single-decoded albedo) made it 74.6%.
+//
+// Both sets are here because the choice is the owner's, and the four
+// combinations measure like this over 140k tank pixels - mean / blown /
+// contrast, blown being the fraction above 0.95 luma:
+//
+//   exporter curves, e=0.001   0.712 / 18.0% / 0.596   <- what he was shown
+//   game curves,     e=0.001   0.935 / 74.6% / 0.302
+//   exporter curves, e=0.14    0.268 /  0.7% / 0.529
+//   game curves,     e=0.14    0.616 / 23.9% / 0.776   <- most tonal range
+uniform int   stock_tonemap;
+
 uniform int   has_detail_map;
 uniform vec2  detail_tiling;        // g_detailUVTiling.xy (typical 7,7)
 
@@ -304,7 +344,14 @@ vec3 diffuseTerm(PBRInfo pbr)
 // =============================================================================
 vec3 ACESFilm(vec3 x)
 {
-    return clamp((x * (2.51 * x + 0.03)) / (x * (2.34 * x + 0.30) + 0.001), 0.0, 1.0);
+    if (stock_tonemap != 0) {
+        // Narkowicz 2015 as published.
+        return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14),
+                     0.0, 1.0);
+    }
+    // mesh.frag's own variant.
+    return clamp((x * (2.51 * x + 0.03)) / (x * (2.34 * x + 0.30) + 0.001),
+                 0.0, 1.0);
 }
 
 // =============================================================================
@@ -326,7 +373,13 @@ void main()
 
     // Alpha test (threshold in sRGB space, before linearise -- matches WoT).
     // Done BEFORE we touch diff_samp.rgb so the alpha threshold is unchanged.
-    float alpha = (alpha_in_normal_red == 1) ? norm_samp.r : diff_samp.a;
+    float alpha;
+    if (game_curves != 0) {
+        // PBS_tank.fx: g_useNormalPackDXT1 ? normalMap.z : normalMap.x
+        alpha = (normal_dxt1 != 0) ? norm_samp.b : norm_samp.r;
+    } else {
+        alpha = (alpha_in_normal_red == 1) ? norm_samp.r : diff_samp.a;
+    }
     if (alpha_test != 0 && alpha < alpha_ref) discard;
 
     // ---- AM darken: multiply the diffuse sample by itself ---------------------
@@ -334,7 +387,9 @@ void main()
     // mostly intact:  0.2 -> 0.04  (5x darker),  0.5 -> 0.25  (2x darker),
     // 0.9 -> 0.81  (barely changed).  Kept separate from the real sRGB->linear
     // below so it acts as an extra contrast/saturation boost on top of it.
-    diff_samp.rgb *= diff_samp.rgb;
+    // The exporter's extra contrast pass. The game has no equivalent - its
+    // albedo reaches the composite linear, decoded once by the sampler.
+    if (game_curves == 0) diff_samp.rgb *= diff_samp.rgb;
 
     // ---- Damage layer  (PBS_tank_crash.fx) ------------------------------------
     // crash_tile.dds packs THREE GRAYSCALE damage variants into R, G and B.  The
@@ -412,8 +467,14 @@ void main()
     if (has_maps.z != 0) {
         vec3 gmm            = texture(gmmMap, fs_in.TC1).rgb;
         gloss_raw           = gmm.r;
-        perceptualRoughness = clamp(pow(gmm.r / 0.8, 7.0), c_MinRoughness, 1.0);
-        metallic            = clamp(pow(gmm.g / 0.5, 5.0) * 1.5, 0.0, 1.0);
+        if (game_curves != 0) {
+            // Raw, exactly as PBS_tank.fx writes them to its G-buffer.
+            perceptualRoughness = clamp(gmm.r, c_MinRoughness, 1.0);
+            metallic            = clamp(gmm.g, 0.0, 1.0);
+        } else {
+            perceptualRoughness = clamp(pow(gmm.r / 0.8, 7.0), c_MinRoughness, 1.0);
+            metallic            = clamp(pow(gmm.g / 0.5, 5.0) * 1.5, 0.0, 1.0);
+        }
     }
     // Damage suppresses chrome/shine - scuffed dirty surfaces lose metallic and
     // gloss in proportion to the damage coverage.  Without this the crash tile
