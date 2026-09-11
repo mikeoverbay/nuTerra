@@ -1158,6 +1158,16 @@ Module modGlobalVars
     Public TANK_AIM As Boolean = False
 
     ''' <summary>
+    ''' Vehicles a side. Fifteen is a WoT team and the default.
+    '''
+    ''' Two is what a race wants. Thirty tanks tell you whether the fleet
+    ''' behaves; four tell you whether a route was taken, and a still with four
+    ''' hulls in it can be read at a glance where one with thirty cannot. The
+    ''' owner's words: "for test runs to get to to base, use 2 tanks per team".
+    ''' </summary>
+    Public TANK_PER_TEAM As Integer = 2
+
+    ''' <summary>
     ''' Whether the guns run at all. OFF by default.
     '''
     ''' It was on, and the fleet opened fire at load: fireIn is staggered

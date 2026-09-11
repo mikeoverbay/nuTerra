@@ -217,7 +217,10 @@ Public Class MapTanks
             ' TEMPORARY: one vehicle a base, and that vehicle the EBR, while
             ' its wheels are being sorted. Clear TANK_SOLO_TAG to get the full
             ' thirty back - it is loud in the log so it cannot be forgotten.
-            Dim PER_TEAM As Integer = 15
+            ' Clamped rather than trusted: a zero loads nothing and looks like
+            ' a broken roster, and there is no sense asking for more a side
+            ' than the roster holds.
+            Dim PER_TEAM As Integer = Math.Max(1, Math.Min(TANK_PER_TEAM, roster.Length \ 2))
             If TANK_SOLO_TAG <> "" Then
                 Dim solo As Tuple(Of String, String) = Nothing
                 For Each t In roster
@@ -334,11 +337,18 @@ Public Class MapTanks
                 Dim pitch0 = pr0.X + (pr0.Y - pr0.X) * CSng((i * 0.61) Mod 1.0)
 
                 Dim y = get_Y_at_XZ(x, z)
+
+                ' THE ID IS i, NOT k. k is the slot WITHIN a team - i Mod
+                ' PER_TEAM - so k + 1 gave team 1 ids 1..15 and team 2 the same
+                ' 1..15 again: every tank had a twin. Anything keyed on id
+                ' alone answers for the wrong vehicle, and TankDrive seeds its
+                ' RNG with &H7A2B0000 Xor inst.id, so a pair shared a seed and
+                ' made identical choices for ever after.
                 instances.Add(New TankInstance With {
                     .vehicle = v, .position = New Vector3(x, y, z),
                     .headingRad = heading,
                     .team = If(team = 1, TankTeam.Green, TankTeam.Red),
-                    .label = r.Item2, .id = k + 1,
+                    .label = r.Item2, .id = i + 1,
                     .fireIn = 0.21F * i,
                     .shells = magazine_size(v),
                     .turretYaw = yaw0, .gunPitch = pitch0})
@@ -978,6 +988,22 @@ Public Class MapTanks
     Private fleet_report_s As Single
 
     Private Sub advance_shuttle()
+        ' NOT WHILE THE FLEET IS STILL ARRIVING. The load calls ForceRender on
+        ' every progress update so the panel animates, and each of those frames
+        ' used to tick this. shuttle_position draws a hull at its spawn plus
+        ' heading * shuttle_m, so a tank added when the shared distance had
+        ' reached 7 m appeared seven metres from where it was placed, and then
+        ' slid back and forth over its +/-10 m range while the rest loaded.
+        ' Thirty tanks arriving into a moving frame of reference is what reads
+        ' as the fleet flicking about during a load.
+        '
+        ' Zeroed rather than merely paused, or the offset left over from the
+        ' last load is applied to the first frame of this one.
+        If Loading Then
+            shuttle_m = 0.0F
+            Return
+        End If
+
         ' Not SHUTTLE_M: VB is case-insensitive, so that name and the
         ' shuttle_m field below are the SAME identifier.
         Const SHUTTLE_RANGE_M As Single = 10.0F
