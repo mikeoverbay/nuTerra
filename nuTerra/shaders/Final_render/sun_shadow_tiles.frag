@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 #extension GL_ARB_shading_language_include : require
 // The PerView block (invView) in common.h is behind this define, as
 // deferred.frag sets it; without it the block is compiled out and invView
@@ -31,7 +31,20 @@ uniform float tile_texel;    // 1 / tile size
 uniform float tile_pad;      // the overlap, as a fraction of the quadrant
 
 in vec2 texCoord;
-layout(location = 0) out float o_shadow;
+
+// TWO CHANNELS: the factor, and WHICH TILE GAVE IT.
+//
+// R is the shadow factor, exactly as before. G says which of the four tiles
+// this pixel was sampled from, so the deferred pass can tint by it and the
+// four can be SEEN to be in use - the alternative is trusting a mask in a log
+// and a seam nobody can point at.
+//
+// Encoded as (k + 1) / 4, so 0 means "no tile" - lit, out of range, or a tile
+// the frustum does not touch - and the four used values land exactly on 64,
+// 128, 192 and 255 of a byte. Decoding is int(g * 4 + 0.5) - 1.
+layout(location = 0) out vec2 o_shadow;
+
+const float NO_TILE = 0.0;
 
 float tap(int k, vec2 uv, float z)
 {
@@ -55,7 +68,7 @@ void main(void)
     // Outside the depth range or the footprint: lit, as the single map.
     if (sp.z > 1.0 || sp.z < 0.0 ||
         any(lessThan(sp.xy, vec2(0.0))) || any(greaterThan(sp.xy, vec2(1.0)))) {
-        o_shadow = 1.0;
+        o_shadow = vec2(1.0, NO_TILE);
         return;
     }
 
@@ -63,7 +76,7 @@ void main(void)
     ivec2 q = ivec2(greaterThanEqual(sp.xy, vec2(0.5)));
     int k = q.x + 2 * q.y;
     if ((tile_mask & (1 << k)) == 0) {
-        o_shadow = 1.0;
+        o_shadow = vec2(1.0, NO_TILE);
         return;
     }
     vec2 f = sp.xy * 2.0 - vec2(q);                    // 0..1 across the quadrant
@@ -77,5 +90,5 @@ void main(void)
     s += tap(k, uv + vec2( tile_texel, -tile_texel), sp.z);
     s += tap(k, uv + vec2(-tile_texel,  tile_texel), sp.z);
     s += tap(k, uv + vec2( tile_texel,  tile_texel), sp.z);
-    o_shadow = s * 0.25;
+    o_shadow = vec2(s * 0.25, float(k + 1) * 0.25);
 }

@@ -1085,6 +1085,7 @@ Module modRender
             ' The tiles, already resolved this frame by render_sun_shadow_tiles.
             sun_shadow_pre.BindUnit(13)
             GL.Uniform1(deferredShader("has_sun_shadow"), 3)
+            GL.Uniform1(deferredShader("sun_tile_tint"), If(SUN_TILE_TINT, 1, 0))
             GL.Uniform1(deferredShader("shadow_penumbra_lo"), SHADOW_PENUMBRA_LO)
             GL.Uniform1(deferredShader("shadow_penumbra_hi"), SHADOW_PENUMBRA_HI)
         ElseIf map_scene.sun_shadow.ready AndAlso map_scene.sun_shadow.depth_tex IsNot Nothing Then
@@ -1096,9 +1097,11 @@ Module modRender
             If map_scene.sun_shadow.msm_ready AndAlso map_scene.sun_shadow.moment_tex IsNot Nothing Then
                 map_scene.sun_shadow.moment_tex.BindUnit(9)
                 GL.Uniform1(deferredShader("has_sun_shadow"), 2)
+                GL.Uniform1(deferredShader("sun_tile_tint"), 0)
                 GL.Uniform1(deferredShader("msm_moment_bias"), MSM_MOMENT_BIAS)
             Else
                 GL.Uniform1(deferredShader("has_sun_shadow"), 1)
+                GL.Uniform1(deferredShader("sun_tile_tint"), 0)
             End If
 
             ' Shared by both paths, so an A/B compares the filtering only.
@@ -1108,6 +1111,7 @@ Module modRender
             ' Shadows off. The map stays bound above; this is the whole of
             ' switching them off.
             GL.Uniform1(deferredShader("has_sun_shadow"), 0)
+            GL.Uniform1(deferredShader("sun_tile_tint"), 0)
         End If
 
         GL.Uniform1(deferredShader("water_depth"), WATER_DEPTH)
@@ -1236,7 +1240,10 @@ Module modRender
         sun_shadow_pre.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
         sun_shadow_pre.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
         sun_shadow_pre.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
-        sun_shadow_pre.Storage2D(1, SizedInternalFormat.R8, MainFBO.width, MainFBO.height)
+        ' RG8, not R8: red is the shadow factor and green says which of the
+        ' four tiles produced it. One byte a pixel more, and it is what makes
+        ' the tiling visible instead of merely logged.
+        sun_shadow_pre.Storage2D(1, SizedInternalFormat.Rg8, MainFBO.width, MainFBO.height)
         sun_shadow_pre_fbo = GLFramebuffer.Create("SunShadowPreFBO")
         sun_shadow_pre_fbo.Texture(FramebufferAttachment.ColorAttachment0, sun_shadow_pre, 0)
         GL.NamedFramebufferDrawBuffer(sun_shadow_pre_fbo.fbo_id, DrawBufferMode.ColorAttachment0)

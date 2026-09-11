@@ -171,6 +171,78 @@ Public Class MapTrees
         scene.TREES_LOADED = True
         LogThis("Trees: {0} placed, {1} source triangles, {2} draw calls",
                 placed, source_triangles(), parts.Count)
+
+        If TREE_DUMP Then dump_instances_csv(drawable)
+    End Sub
+
+    ''' <summary>
+    ''' Every placement on the map, as CSV, for comparing what the bake READ
+    ''' against what the asset SAYS it is.
+    '''
+    ''' Written because the interesting question - is a bush baking too tall, or
+    ''' a tree too short - cannot be answered from either side alone. The bake
+    ''' knows a height at a position and not which species put it there; this
+    ''' side knows the species and its declared size and nothing about what was
+    ''' rasterised. Joined on world position, the two answer it.
+    '''
+    ''' THE SCALE COLUMN IS THE ONE TO CHECK FIRST. A placement may carry one,
+    ''' and a species' declared height means nothing without it - a 6.43 m olive
+    ''' bush at 1.6x is a 10 m olive bush, which would explain the whole
+    ''' complaint without any shader being at fault. Taken as the length of the
+    ''' matrix's Y basis, which is row 1 under the row-vector convention the
+    ''' rest of the renderer uses.
+    '''
+    ''' Beside the bake, not beside the exe: it is joined against the flight
+    ''' bake's own files and read by the same tools.
+    ''' </summary>
+    Private Sub dump_instances_csv(list As List(Of Species))
+        Try
+            Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "flight")
+            IO.Directory.CreateDirectory(dir)
+            Dim path = IO.Path.Combine(dir, MAP_NAME_NO_PATH & "_trees.csv")
+
+            Dim inv = Globalization.CultureInfo.InvariantCulture
+            Dim sb As New Text.StringBuilder()
+            ' above_pivot_h is appended LAST so anything already reading this by
+            ' column name keeps working. It is the column a join actually wants:
+            ' declared_h is the .srt box from minY to maxY and EVERY species has
+            ' a negative minY - roots or a base plate below the placement pivot,
+            ' 0.03 m on a grapevine and 2.02 m on a tall linden. Comparing a
+            ' bake's top-minus-floor against declared_h therefore under-reads by
+            ' whatever sits below ground. maxY alone is the height above the
+            ' pivot, and the pivot is what the placement puts on the terrain.
+            sb.AppendLine("species,x,z,y,declared_h,scale_x,scale_y,scale_z,has_bark,above_pivot_h")
+            Dim n = 0
+            For Each sp In list
+                Dim nm = IO.Path.GetFileName(If(sp.path, "")).Replace(",", "_")
+                Dim dh = sp.cull_max.Y - sp.cull_min.Y
+
+                ' Bark at LOD0 is what decides whether this species can stamp a
+                ' trunk at all - see MapFlightBake's trunk pass - so it belongs
+                ' next to the height when reading the rows.
+                Dim bark = 0
+                If sp.srt IsNot Nothing AndAlso sp.srt.DrawCalls IsNot Nothing Then
+                    For Each dc In sp.srt.DrawCalls
+                        If dc.Lod = 0 AndAlso dc.Kind = SrtFile.PartKind.Skin Then bark = 1 : Exit For
+                    Next
+                End If
+
+                For Each m In sp.instances
+                    ' Row-vector: rows 0..2 are the basis vectors, row 3 the
+                    ' translation. A basis vector's LENGTH is that axis' scale.
+                    sb.AppendLine(String.Format(inv,
+                        "{0},{1:0.000},{2:0.000},{3:0.000},{4:0.000},{5:0.0000},{6:0.0000},{7:0.0000},{8},{9:0.000}",
+                        nm, m.Row3.X, m.Row3.Z, m.Row3.Y, dh,
+                        m.Row0.Xyz.Length, m.Row1.Xyz.Length, m.Row2.Xyz.Length, bark,
+                        sp.cull_max.Y))
+                    n += 1
+                Next
+            Next
+            IO.File.WriteAllText(path, sb.ToString())
+            LogThis("Trees: wrote {0} placement(s) to {1}", n, path)
+        Catch ex As Exception
+            LogThis("Trees: could not write the instance csv - {0}", ex.Message)
+        End Try
     End Sub
 
     Private Function source_triangles() As Integer
@@ -232,9 +304,27 @@ Public Class MapTrees
             LogThis("Trees decode: {0}", srt_path)
             For Each dc In sp.srt.DrawCalls
                 Dim unique = dc.VertexCount - dc.DuplicateVerts
-                LogThis("  lod {0} kind {1,-9} verts {2,5} unique {3,5} idx {4,6} tex '{5}'",
+                ' HOW THE FOLIAGE FACES, which decides what a TOP-DOWN pass can
+                ' see of it. A leaf card modelled as a vertical plane is edge on
+                ' from above and rasterises almost nothing however generous the
+                ' alpha test is; a card lying flat is fully visible. |ny| near 0
+                ' is a vertical card, near 1 is a flat one. Printed per draw
+                ' call because it is a property of how the species was authored,
+                ' and the olive and the linden bake very differently.
+                Dim ny_sum = 0.0F, ny_vert = 0
+                If dc.Normals IsNot Nothing AndAlso dc.VertexCount > 0 Then
+                    For vi = 0 To dc.VertexCount - 1
+                        Dim ny = Math.Abs(dc.Normals(vi * 3 + 1))
+                        ny_sum += ny
+                        If ny < 0.3F Then ny_vert += 1
+                    Next
+                End If
+                LogThis("  lod {0} kind {1,-9} verts {2,5} unique {3,5} idx {4,6} |ny| {5:0.00} vert {6,3}% tex '{7}'",
                         dc.Lod, dc.Kind.ToString(), dc.VertexCount, unique,
-                        dc.IndexCount, dc.DiffuseTexture)
+                        dc.IndexCount,
+                        If(dc.VertexCount > 0, ny_sum / dc.VertexCount, 0.0F),
+                        If(dc.VertexCount > 0, 100 * ny_vert \ dc.VertexCount, 0),
+                        dc.DiffuseTexture)
             Next
             Console.Out.Flush()
         End If

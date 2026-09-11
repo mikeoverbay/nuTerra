@@ -111,6 +111,11 @@ Module modGlobalVars
     Public VT_BAKE_TRACE As Boolean
     ' Trace every tree species' draw-call classification at load (the part
     ' classifier is heuristic and has misfiled trunks before).
+    ''' <summary>Write every tree placement to a CSV beside the flight bake -
+    ''' species, position, declared height and the placement's scale - so what
+    ''' the bake read can be joined against what the asset says it is.</summary>
+    Public TREE_DUMP As Boolean = False
+
     Public TREES_DECODE_TRACE As Boolean
     ' Multiplier on the authored water-fog inverse depth (BWWa +0x70) -
     ' above 1 the water goes opaque sooner, below 1 it clears up.
@@ -1130,6 +1135,17 @@ Module modGlobalVars
     ''' Set to a roster tag - the item_def file name, e.g.
     ''' F108_Panhard_EBR_105.
     ''' </summary>
+    ''' <summary>
+    ''' Tint the sun shadow by which of the four baked tiles it was sampled
+    ''' from - red, green, blue, yellow for the four quadrants.
+    '''
+    ''' A CHECK, NOT A FEATURE. Whether all four tiles are being drawn from is
+    ''' otherwise a number in a log, and a seam in the wrong place is invisible
+    ''' until something looks subtly wrong at a distance. Only the shadowed part
+    ''' of a pixel is tinted, so the map still reads normally.
+    ''' </summary>
+    Public SUN_TILE_TINT As Boolean = False
+
     Public TANK_SOLO_TAG As String = ""
 
     Public TANK_NAV_DUMP As Boolean = False

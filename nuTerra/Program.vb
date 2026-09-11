@@ -58,6 +58,9 @@ Module Program
             ElseIf a.Equals("navdump", StringComparison.OrdinalIgnoreCase) Then
                 ' Write the tank navigation grid as a PNG when it is built.
                 TANK_NAV_DUMP = True
+            ElseIf a.Equals("treedump", StringComparison.OrdinalIgnoreCase) Then
+                ' Every tree placement to a CSV beside the flight bake.
+                TREE_DUMP = True
             ElseIf a.Equals("treetrace", StringComparison.OrdinalIgnoreCase) Then
                 ' Print every tree species' per draw call verdict at load: LOD,
                 ' part kind, vertex and index counts, and the texture it named.

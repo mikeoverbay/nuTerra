@@ -369,6 +369,12 @@ layout(binding = 8) uniform sampler2DShadow sun_shadow_map;
 // shader does no tile work; see MapSunShadow.TILED.
 layout(binding = 13) uniform sampler2D sun_shadow_pre;
 
+// Tint the shadow by which of the four tiles it was sampled from. A check,
+// not a feature: the tile mask is a number in a log, and this is the only way
+// to see that all four are actually being drawn from and where their seams
+// fall. Off by default; costs one texel fetch when on.
+uniform int sun_tile_tint;
+
 // Moment Shadow Map variant of the same bake - four power moments instead of a
 // comparison sampler. Plain sampler2D, mipmapped and pre-blurred.
 layout(binding = 9) uniform sampler2D sun_moment_map;
@@ -1754,6 +1760,30 @@ void main (void)
     // if flag != 0
     } else {
         outColor = texelFetch(gColor, ivec2(gl_FragCoord), 0) * props.BRIGHTNESS;
+    }
+
+    // ---- which shadow tile did this pixel come from? ------------------
+    //
+    // Applied at the very end so it catches every path through the shader -
+    // terrain, models, the gColor passthroughs - rather than only the one
+    // branch that happened to call baked_sun_shadow.
+    //
+    // Weighted by how SHADOWED the pixel is, because that is what was asked
+    // for: tint the shadow, not the whole frame. A fully lit pixel keeps its
+    // colour, so the map still reads normally and the tint appears exactly
+    // where a tile was actually used.
+    if (sun_tile_tint != 0) {
+        vec2 sp_t = texelFetch(sun_shadow_pre, ivec2(gl_FragCoord.xy), 0).rg;
+        int tile = int(sp_t.g * 4.0 + 0.5) - 1;
+        if (tile >= 0) {
+            const vec3 TILE_COL[4] = vec3[4](
+                vec3(1.0, 0.25, 0.25),   // 0  x0 y0  red
+                vec3(0.25, 1.0, 0.25),   // 1  x1 y0  green
+                vec3(0.35, 0.5, 1.0),    // 2  x0 y1  blue
+                vec3(1.0, 0.9, 0.25));   // 3  x1 y1  yellow
+            float shade = 1.0 - clamp(sp_t.r, 0.0, 1.0);
+            outColor.rgb = mix(outColor.rgb, TILE_COL[tile], shade * 0.75);
+        }
     }
 
     //outColor.a = 1.0;

@@ -1513,6 +1513,37 @@ try_again:
         _controller.PressChar(ChrW(e.Unicode))
     End Sub
 
+    ''' <summary>
+    ''' What the baked sun shadow actually IS, in the panel.
+    '''
+    ''' This used to print sun_shadow.size alone, which since the tiled path
+    ''' landed is the FORWARD map - 8192, the small one kept for the water and
+    ''' the forward passes. True, and misleading: the deferred shadow every
+    ''' pixel is lit by comes from four 16384 tiles, so the panel was reporting
+    ''' a quarter of the resolution actually in use and none of the memory.
+    '''
+    ''' Metres per texel as well as the edge, because that is the number that
+    ''' means something: an edge is only fine relative to the box it covers.
+    ''' Assumes the caller has already checked ready.
+    ''' </summary>
+    Private Sub shadow_size_labels()
+        Dim ss = map_scene.sun_shadow
+        If ss.tiles_ready Then
+            Dim n = MapSunShadow.TILES * MapSunShadow.TILES
+            Dim mib = CLng(ss.tile_edge) * ss.tile_edge * 2L * n \ (1024L * 1024L)
+            ImGui.Text(String.Format("   tiles {0} x {1}x{1}  {2} MiB  {3:0.000} m/texel",
+                                     n, ss.tile_edge, mib,
+                                     (ss.bake_ortho_w / MapSunShadow.TILES) / ss.tile_edge))
+            ImGui.TextDisabled(String.Format("   forward {0}x{0}  {1} MiB  {2:0.000} m/texel",
+                                     ss.size, CLng(ss.size) * ss.size * 2L \ (1024L * 1024L),
+                                     ss.bake_ortho_w / ss.size))
+        Else
+            ImGui.Text(String.Format("   baked {0}x{0}  {1} MiB  {2:0.000} m/texel",
+                                     ss.size, CLng(ss.size) * ss.size * 2L \ (1024L * 1024L),
+                                     ss.bake_ortho_w / ss.size))
+        End If
+    End Sub
+
     Private Sub SubmitUI(viewport As ImGuiViewportPtr)
         If CLEAN_VIEW Then Return
 
@@ -2248,6 +2279,15 @@ try_again:
                 End If
 
                 If ImGui.CollapsingHeader("Shadow Mapping") Then
+                    ' Which of the four baked tiles each shadowed pixel came
+                    ' from. Only meaningful while the tiled path is running.
+                    ImGui.Checkbox("Tint by shadow tile", SUN_TILE_TINT)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Colour the shadow by which of the four" & vbLf &
+                                         "baked tiles it was sampled from:" & vbLf &
+                                         "red x0y0, green x1y0, blue x0y1, yellow x1y1." & vbLf &
+                                         "A check that all four are in use.")
+                    End If
                     ' TWO shadow systems, one box each, and they do not touch.
                     '
                     '   Cascades  - live, re-rendered every FRAME_STEP frames from
@@ -2464,7 +2504,7 @@ try_again:
                     End If
 
                     If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.sun_shadow.ready Then
-                        ImGui.Text(String.Format("   baked {0}x{0}", map_scene.sun_shadow.size))
+                        shadow_size_labels()
                     End If
 
                     If ImGui.Button(If(SHOW_SUN_SHADOW_VIEWER, "Hide shadow map", "View shadow map")) Then
@@ -2548,7 +2588,7 @@ try_again:
                         CommonProperties.HORIZON_STRENGTH = v_hz
                     End If
                     If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.sun_shadow.ready Then
-                        ImGui.Text(String.Format("   baked {0}x{0}", map_scene.sun_shadow.size))
+                        shadow_size_labels()
                     Else
                         ImGui.Text("   no baked sun shadow")
                     End If
