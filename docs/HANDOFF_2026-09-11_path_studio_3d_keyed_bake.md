@@ -489,6 +489,21 @@ disc on the route, not any disc. That needs a zone map cut from the
 camera's mask (`build_world`'s blocked mask, exported for the same
 extractor) and it is the next piece, not built.
 
+**The graph, looked at (19:40).** Connected components of the walked links
+(`zone_graph_pic.py` in the session scratchpad draws it over the mask, one
+colour per component): 251 - one sheet of 6,696 zones (64.8%) covering the
+arena's interior with every ring road, lane and gap connected (the Tank AI
+session's worry that a straight-line link test splits bending corridors
+does not show); 977 and 748 on the west shore (x -487..-334), 223 and 174 on
+the east (x 409..487), all INSIDE the arena and genuinely cut off - the
+closest pair across is 87.5 m of ravine, water on the line and a 5.8 m rock
+wall; 89 inside the monastery walls, a real courtyard; the other 243 are
+pockets between the rock bands and the islands, 1-5 zones each. A first
+reading of the strips as "outside the arena square" was wrong and is
+withdrawn: the straight edge in the picture was the sheet's own edge at the
+rock band, and the base-ring test (nearest disc 1.6 m from the team-1 base)
+shows the frames agree with no mirror. Their offmap rule is right.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
