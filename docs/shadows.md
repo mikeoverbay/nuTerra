@@ -44,6 +44,79 @@ in `deferred.frag`.
   terrain heights, so no model ever influenced near/far.
 - **Re-bake** whenever the sun moves. The result is valid for one sun direction.
 
+### Four tiles, in the sun's projection space
+
+`TILED` (default on) splits the fitted box 2 x 2 in light-space XY and renders
+each quadrant into its own D16 texture of `tile_edge` a side — `TILE_SIZE`
+16384 asked for, stepped down if it will not fit. Each tile overlaps its
+neighbours by `TILE_PAD_TEXELS` (2) of its own texels, so a filter tap at a
+seam still lands inside the tile it belongs to. Four quadrants at a quarter of
+the area each is **four times the texel density** for the same metres.
+
+- **The command array is not repacked, and must not be.** Each tile runs the
+  same three passes over `indirect_shadow_mapping` at offset 0, with the same
+  outland-skipping prefix count — the log shows four identical
+  `drew models (419 of 425 commands, 6 outland skipped)` lines. This is a hard
+  constraint rather than a convenience: `sun_depth_model.vert` reads
+  `bake_kind[gl_DrawIDARB]` for the flight bake's key channel, and that index
+  is only meaningful while the drawn commands keep the positions MapLoader
+  built them in. Selecting tiles by compacting the buffer would shift every
+  index and give each model another model's key — **inside 0..7, so it would
+  pass a range check and simply be wrong about what is where.** Select by
+  sub-range and add the base index, or use a separate buffer; never compact.
+- **VRAM: four 16k tiles are 2 GiB, which is to the byte what one 32768 map
+  costs** at D16. The density is the same too — the win is sharpness per tile,
+  not free memory. `tile_size_fitting` therefore counts *all four together*
+  (`depth_bytes(s) * n >= budget`) against `TILES_VRAM_BUDGET` 0.4 of total and
+  `TILES_FREE_BUDGET` 0.6 of free — deliberately looser than the single map's
+  0.25/0.5, and correct only because it multiplies by `n`. A per-texture guard
+  here would under-count by four. Measured on the 8 GB card: monastery 5393
+  MiB used, mannerheim_line — the map in the budget comment that once reached
+  7842 — peaked at 4871 with 3136 free.
+- **A small single map is still baked**, at `FORWARD_MAP_SIZE` 8192 (128 MiB),
+  and this is not redundancy. `water.frag` projects with the **full box**
+  `sunViewProj`; a tile is a quadrant under a different matrix, so binding one
+  in its place shadows the water against the wrong transform — a silent wrong
+  answer traded for a loud missing one. Everything reading `ready` wants it
+  too. The deferred path still takes the tiles.
+- **A second shader, not a fatter `deferred.frag`.**
+  `Final_render/sun_shadow_tiles.{vert,frag}` runs before the deferred pass:
+  gPosition to world, world into the full box, quadrant from `sp.xy >= 0.5`,
+  local uv through the pad, the same four taps, out to a screen-sized R8
+  (`sun_shadow_pre`, unit 13). `deferred.frag` gains only
+  `has_sun_shadow == 3` — one `texelFetch` and the existing `shape_penumbra`.
+- **On-screen check.** Each tile's world box is tested against the view frustum
+  per frame; `tile_mask` reaches the shader and a pixel on an off-screen tile
+  is lit without a tap. Mask changes log as `sun shadow tiles: N of 4 on
+  screen`. It gates *sampling*, not residency — all four stay allocated.
+
+#### An unbound sampler is undefined behaviour even in a branch nothing takes
+
+Moving the deferred path to tiles briefly stopped baking the single map, and
+every frame then raised thousands of:
+
+> the current GL state uses a sampler that has depth comparisons disabled, with
+> a texture object with a non-depth format, by a shader that samples it with a
+> shadow sampler
+
+10,349 in one monastery load, against 0 before. The cause was **`water.frag`**,
+which declares `sampler2DShadow sun_shadow_map` at binding 3 and is bound from
+`sun_shadow.depth_tex` — Nothing, once the single map stopped being baked. The
+trap is that **GL validates every sampler a program declares, on every draw,
+whether or not the branch that reads it runs**; `deferred.frag` survived only
+because it has a `dummy_shadow()` fallback. When a shadow path is switched off,
+grep every `sampler2DShadow` in the tree, not the one you were thinking about.
+
+#### Open
+
+The tiles have no MSM path (`MSM_SHADOW_ENABLED` is ignored while `TILED`), and
+`DebugDraw` shows nothing in tiled mode.
+
+The depth self-test reads `mean=0.67` against its own `expected~0.5`. This
+**predates the tiles** — the single map read 0.6694 before any of this work and
+0.6727 after, and both use the same near/far — so it is the single map's box
+fit, not the tiling. Unchased.
+
 ### Why it is sampled, not baked into VT pages
 
 It started as a bake into the terrain's virtual-texture pages, and that was
