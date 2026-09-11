@@ -1666,7 +1666,7 @@ try_again:
                     End If
 
                     ImGui.Separator()
-                    ImGui.SliderFloat("Track speed", TANK_SPEED, 0.0, 15.0)
+                    ImGui.SliderFloat("Track speed", TANK_SPEED, 0.0, 2.0)
                     ImGui.SliderFloat("Track UV/m", TANK_TRACK_UV, 0.0, 4.0)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("UV units the band scrolls per metre." & vbLf &

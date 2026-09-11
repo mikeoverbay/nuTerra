@@ -836,6 +836,23 @@ Module modGlobalVars
     '---------------------
     Public WATER_LINE As Single
     '---------------------
+    ''' <summary>
+    ''' Where the game actually starts tanks, from the arena def's
+    ''' gameplayTypes/&lt;mode&gt;/teamSpawnPoints - beside the teamBasePositions
+    ''' nuTerra already reads out of the same file.
+    '''
+    ''' EMPTY ON MOST MAPS. Only 37 of the arena defs carry spawn points, and
+    ''' 19_monastery is not one of them - its def is 2822 bytes and its tag
+    ''' dictionary has teamBasePositions and nothing else. The richer files are
+    ''' the ones with several gameplay modes: karelia, malinovka, himmelsdorf,
+    ''' prohorovka. So a caller must handle empty rather than assume.
+    '''
+    ''' Stored RAW, X not negated, exactly as TEAM_1 is - the negation is the
+    ''' ring's display convention and belongs at the point of use.
+    ''' </summary>
+    Public TEAM_1_SPAWNS As New List(Of Vector3)
+    Public TEAM_2_SPAWNS As New List(Of Vector3)
+
     Public TEAM_1 As Vector3
     Public TEAM_2 As Vector3
     ''' <summary>Fly the camera along the baked path in cam_paths.</summary>
@@ -1067,7 +1084,11 @@ Module modGlobalVars
     ''' and ResMgr.openXML already decodes that packed format; wiring the two
     ''' together is the next step, once the rotation itself is trusted.
     ''' </summary>
-    Public TANK_SPEED As Single = 4.0F
+    ''' 0.5 m/s - crawling, so wheel and tread motion can be compared by eye.
+    ''' Both come off the same track_distance_m accumulator, so this slows them
+    ''' TOGETHER and any drift between them is the sync being wrong rather than
+    ''' the two being sampled at different times.
+    Public TANK_SPEED As Single = 0.5F
     ''' <summary>
     ''' UV units the track band scrolls per metre travelled.
     '''
@@ -1084,7 +1105,11 @@ Module modGlobalVars
     ''' 15 m - the bottom run across the road wheels doubled, plus the wraps -
     ''' which puts one tile at about 0.4 m of travel and the scroll at 38/15.
     ''' The 15 is an estimate; the slider is there because the eye settles it.
-    Public TANK_TRACK_UV As Single = 2.5F
+    ''' 1.0 - a TRIM now, not the conversion. The metres-to-UV factor is
+    ''' measured off each band's own mesh (TankMesh.MeasureUVScale), so the
+    ''' tread advances the distance the wheels rolled on every vehicle rather
+    ''' than on the one this was eyeballed against.
+    Public TANK_TRACK_UV As Single = 1.0F
 
 
     ''' <summary>

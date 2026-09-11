@@ -367,7 +367,20 @@ void main()
 
     // Alpha test (threshold in sRGB space, before linearise -- matches WoT).
     // Done BEFORE we touch diff_samp.rgb so the alpha threshold is unchanged.
-    float alpha = (alpha_in_normal_red == 1) ? norm_samp.r : diff_samp.a;
+    // THE ALPHA TEST READS THE NORMAL MAP, not the diffuse.
+    //
+    // docs/game_PBS_tank.md, under Naming traps, decoded from PBS_tank.fx
+    // itself: "The alpha test reads normalMap, not diffuseMap. Source is
+    // g_useNormalPackDXT1 ? normalMap.z : normalMap.x. diffuseMap.a is never
+    // read at all." The same note records that normalMap.b doubles as the
+    // micro-detail atlas slice index, and in DXT1 pack mode is simultaneously
+    // the alpha-test channel - which is why the channel depends on the mode.
+    //
+    // This shader was testing diff_samp.a with alpha_in_normal_red pinned to
+    // zero by the app, so on every alpha-tested material it was thresholding a
+    // channel the game never looks at. normal_dxt1 is already uploaded per
+    // material from g_useNormalPackDXT1, so the rule needs no new uniform.
+    float alpha = (normal_dxt1 != 0) ? norm_samp.b : norm_samp.r;
     if (alpha_test != 0 && alpha < alpha_ref) discard;
 
     // ---- AM darken: multiply the diffuse sample by itself ---------------------

@@ -57,6 +57,10 @@ Public Class TankMesh
     Public uvMin As Vector2 = New Vector2(Single.MaxValue, Single.MaxValue)
     Public uvMax As Vector2 = New Vector2(Single.MinValue, Single.MinValue)
 
+    ''' <summary>UV units per METRE along the band's running axis, measured
+    ''' from the mesh. 0 when it could not be measured.</summary>
+    Public uvPerMetre As Single
+
     ''' <summary>
     ''' Each bone's hub, taken from the VERTICES IT WEIGHTS rather than from
     ''' the visual's node tree.
@@ -156,6 +160,84 @@ Public Class TankMesh
             boneHubs = hubs
             boneRadii = rmax
         End If
+    End Sub
+
+    ''' <summary>
+    ''' How many UV units the band's running axis covers per metre of surface.
+    '''
+    ''' THE TREAD HAS TO ADVANCE THE DISTANCE THE WHEELS ROLLED. The drive
+    ''' sprocket's teeth sit in the chain's pin slots, so there is no slip to
+    ''' model: whatever angle the sprocket turns, the chain moves theta * R
+    ''' along its loop. TEPY states it the same way - "the chain is locked to
+    ''' the W_D wheels, it can NOT move on those wheels".
+    '''
+    ''' The wheels already turn on theta = -s / R from one distance accumulator,
+    ''' so scrolling the band by that same s IS the sprocket's rolling distance.
+    ''' What was missing is the conversion from metres to UV: that was a slider
+    ''' I set by eye at 2.5, which cannot be right for two vehicles at once -
+    ''' the M53's band spans 38 V over its loop and a longer hull spans more.
+    '''
+    ''' It is measurable. V runs along the loop in proportion to arc length, so
+    ''' an edge's |dV| over its |dPosition| IS units-per-metre. Taken over every
+    ''' triangle edge with a real dV and MEDIANED, because a strip mesh has
+    ''' plenty of edges running across the band rather than along it and those
+    ''' carry almost no dV - a mean would be dragged anywhere by them, a median
+    ''' lands on the population that actually runs lengthwise.
+    ''' </summary>
+    Public Sub MeasureUVScale(vertexBytes As Byte(), indexBytes As Byte())
+        uvPerMetre = 0.0F
+        If layout Is Nothing OrElse layout.offUV0 < 0 OrElse layout.offPos < 0 Then Return
+        If vertexBytes Is Nothing OrElse indexBytes Is Nothing Then Return
+        If vertexCount <= 0 OrElse indexCount < 3 Then Return
+
+        ' Which axis is the run - the one with the greater spread. Same test
+        ' the renderer uses to pick the scroll axis.
+        Dim alongV = (uvMax.Y - uvMin.Y) >= (uvMax.X - uvMin.X)
+
+        Dim isz = If(index32, 4, 2)
+        Dim tris = Math.Min(indexCount \ 3, 20000)
+        Dim vals As New List(Of Single)
+
+        For t = 0 To tris - 1
+            Dim idx(2) As Integer
+            Dim bad = False
+            For k = 0 To 2
+                Dim io_ = (t * 3 + k) * isz
+                If io_ + isz > indexBytes.Length Then bad = True : Exit For
+                idx(k) = If(index32,
+                            CInt(BitConverter.ToUInt32(indexBytes, io_)),
+                            CInt(BitConverter.ToUInt16(indexBytes, io_)))
+                If idx(k) < 0 OrElse idx(k) >= vertexCount Then bad = True : Exit For
+            Next
+            If bad Then Continue For
+
+            For e = 0 To 2
+                Dim a = idx(e), b = idx((e + 1) Mod 3)
+                Dim ao = a * layout.stride, bo = b * layout.stride
+                If ao + layout.stride > vertexBytes.Length Then Continue For
+                If bo + layout.stride > vertexBytes.Length Then Continue For
+
+                Dim av = BitConverter.ToSingle(vertexBytes, ao + layout.offUV0 + If(alongV, 4, 0))
+                Dim bv = BitConverter.ToSingle(vertexBytes, bo + layout.offUV0 + If(alongV, 4, 0))
+                Dim duv = Math.Abs(bv - av)
+                If duv < 0.001F Then Continue For
+
+                Dim dx = BitConverter.ToSingle(vertexBytes, bo + layout.offPos) -
+                         BitConverter.ToSingle(vertexBytes, ao + layout.offPos)
+                Dim dy = BitConverter.ToSingle(vertexBytes, bo + layout.offPos + 4) -
+                         BitConverter.ToSingle(vertexBytes, ao + layout.offPos + 4)
+                Dim dz = BitConverter.ToSingle(vertexBytes, bo + layout.offPos + 8) -
+                         BitConverter.ToSingle(vertexBytes, ao + layout.offPos + 8)
+                Dim dist = CSng(Math.Sqrt(dx * dx + dy * dy + dz * dz))
+                If dist < 0.0005F Then Continue For
+
+                vals.Add(duv / dist)
+            Next
+        Next
+
+        If vals.Count < 16 Then Return
+        vals.Sort()
+        uvPerMetre = vals(vals.Count \ 2)
     End Sub
 
     Public Sub BuildVAO(vertexBytes As Byte(), indexBytes As Byte(), uv2Bytes As Byte())
@@ -310,6 +392,7 @@ Public Module TankPrimitives
             Array.Copy(data, iBody, iSlice, 0, iBytes)
             ' Before the bytes go out of scope - BuildVAO uploads and drops them.
             m.ComputeBoneHubs(vSlice)
+            m.MeasureUVScale(vSlice, iSlice)
             m.BuildVAO(vSlice, iSlice, uv2Bytes)
 
             LogThis("tank:   [{0}] '{1}' stride {2} verts {3} | '{4}' indices {5} groups {6}{7}",

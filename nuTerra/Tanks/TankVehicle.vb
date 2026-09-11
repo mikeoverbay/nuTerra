@@ -143,6 +143,19 @@ Public Class TankVehicle
     ''' <summary>Every material's four maps through the core's DDS loader; the detail map too when named.</summary>
     Private Shared Sub LoadTextures(p As TankPart)
         If p.visual Is Nothing Then Return
+
+        ' WHICH SHADER EACH MESH ASKS FOR, logged per part. The fx name is the
+        ' only place the engine states a mesh's mechanism: the fake tracks are
+        ' PBS_tank_uvtransform_skinned_ao.fx and nothing else about the band
+        ' says it scrolls. Printed with the AM beside it because the pair
+        ' identifies a mesh across the two exporters and the game.
+        For Each m2 In p.meshes
+            Dim mm = p.MaterialFor(m2)
+            If mm IsNot Nothing Then
+                LogThis("tank:   mesh [{0}] fx={1} AM={2}", m2.name,
+                        IO.Path.GetFileName(mm.fx), IO.Path.GetFileName(mm.diffuseMap))
+            End If
+        Next
         For Each rs In p.visual.renderSets
             For Each m In rs.materials
                 m.texDiffuse = Tex(m.diffuseMap)

@@ -1,5 +1,6 @@
 ﻿Imports System.IO
 Imports System.IO.Compression
+Imports System.Xml
 Imports System.Runtime.InteropServices
 Imports System.Text
 Imports OpenTK.Graphics
@@ -873,6 +874,69 @@ Module TerrainBuilder
         TEAM_2.X = team2_pos(0)
         TEAM_2.Y = 0.0
         TEAM_2.Z = team2_pos(1)
+
+        read_spawn_points(arena_xml)
         Return True
     End Function
+
+    ''' <summary>
+    ''' The arena's teamSpawnPoints, if it declares any.
+    '''
+    ''' Sits beside teamBasePositions under gameplayTypes, so it comes out of the
+    ''' file already open. Searched across ALL gameplay modes rather than just
+    ''' ctf: the modes that carry spawn points are exactly the ones a map has
+    ''' beyond ctf - assault, domination - and taking the first mode that
+    ''' declares them is closer to "where does this map start tanks" than
+    ''' insisting on one mode and finding nothing.
+    '''
+    ''' Positions come as two or three numbers. Two is "x z", the shape
+    ''' teamBasePositions uses; three is "x y z". Either way the y is ignored -
+    ''' the terrain decides height, and a stored y would only disagree with it.
+    ''' </summary>
+    Private Sub read_spawn_points(arena_xml As XmlElement)
+        TEAM_1_SPAWNS.Clear()
+        TEAM_2_SPAWNS.Clear()
+        If arena_xml Is Nothing Then Return
+        Try
+            Dim modes = arena_xml.SelectSingleNode("gameplayTypes")
+            If modes Is Nothing Then Return
+            For Each mode As XmlNode In modes.ChildNodes
+                If mode.NodeType <> XmlNodeType.Element Then Continue For
+                Dim sp = mode.SelectSingleNode("teamSpawnPoints")
+                If sp Is Nothing Then Continue For
+                collect_spawns(sp.SelectSingleNode("team1"), TEAM_1_SPAWNS)
+                collect_spawns(sp.SelectSingleNode("team2"), TEAM_2_SPAWNS)
+                If TEAM_1_SPAWNS.Count > 0 OrElse TEAM_2_SPAWNS.Count > 0 Then
+                    LogThis("arena: {0} spawn points from gameplayTypes/{1} - team1 {2}, team2 {3}",
+                            MAP_NAME_NO_PATH, mode.Name,
+                            TEAM_1_SPAWNS.Count, TEAM_2_SPAWNS.Count)
+                    Return
+                End If
+            Next
+            LogThis("arena: {0} declares no teamSpawnPoints - bases only",
+                    MAP_NAME_NO_PATH)
+        Catch ex As Exception
+            LogThis("arena: spawn points not read - {0}", ex.Message)
+        End Try
+    End Sub
+
+    Private Sub collect_spawns(team As XmlNode, into As List(Of Vector3))
+        If team Is Nothing Then Return
+        For Each p As XmlNode In team.ChildNodes
+            If p.NodeType <> XmlNodeType.Element Then Continue For
+            Dim f = p.InnerText.Trim().Split(New Char() {" "c},
+                                             StringSplitOptions.RemoveEmptyEntries)
+            Dim x As Single, z As Single
+            If f.Length = 2 Then
+                If Not Single.TryParse(f(0), x) Then Continue For
+                If Not Single.TryParse(f(1), z) Then Continue For
+            ElseIf f.Length >= 3 Then
+                If Not Single.TryParse(f(0), x) Then Continue For
+                If Not Single.TryParse(f(2), z) Then Continue For
+            Else
+                Continue For
+            End If
+            into.Add(New Vector3(x, 0.0F, z))
+        Next
+    End Sub
 End Module

@@ -50,12 +50,14 @@ Public Class MapTanks
     End Sub
 
     ''' <summary>
-    ''' The test set, parked at base 1 facing +Z.
+    ''' Fifteen tier 10 vehicles at each base, facing each other.
     '''
-    ''' A TABLE rather than one hardcoded vehicle, because the armour colour is
-    ''' a per-NATION value and a single tank can never show whether it is being
-    ''' applied. usa is 82 72 51 and france is 15 36 36 - olive against a dark
-    ''' teal - so the two side by side answer it at a glance.
+    ''' A FULL TEAM rather than a handful, because most of what is still open on
+    ''' the tank pass only shows up in numbers: the armour colour is per NATION
+    ''' and needs several side by side to read as a scheme; the wheel radii and
+    ''' the band UV scale are measured per vehicle and a single tank can only
+    ''' ever confirm the one it was tuned on; and thirty hulls is the first
+    ''' honest look at what the pass costs.
     '''
     ''' Tags are the item_defs file names, which live in scripts.pkg under
     ''' scripts/item_defs/vehicles/&lt;nation&gt;/ - the core's ResMgr indexes that
@@ -67,49 +69,120 @@ Public Class MapTanks
         Try
             shader = New Shader("tank_gbuffer")
 
-            ' nation, tag, metres to the RIGHT of the first, label
-            Dim wanted = {
-                Tuple.Create("usa", "A88_M53_55", 0.0F, "M53/M55"),
-                Tuple.Create("france", "F18_Bat_Chatillon25t", 14.0F, "Bat 25t")
+            ' THE ROSTER IS TIER 10, and it is taken from the package layout
+            ' rather than from a list anyone typed. The game ships vehicle
+            ' assets in vehicles_level_NN packages, so vehicles_level_10*.pkg
+            ' IS the tier 10 roster - 137 asset folders, of which 121 have a
+            ' matching item_def. These 30 are round-robined across the nations
+            ' so neither team is all one country.
+            '
+            ' The two halves of the install spell the nations differently:
+            ' assets use american / british / russian, item_defs use usa / uk /
+            ' ussr. The names below are the item_def spelling, because that is
+            ' what TankVehicle.Load wants.
+            Dim roster = {
+                Tuple.Create("china", "Ch19_121"),
+                Tuple.Create("czech", "Cz04_T50_51"),
+                Tuple.Create("france", "F108_Panhard_EBR_105"),
+                Tuple.Create("germany", "G121_Grille_15_L63"),
+                Tuple.Create("italy", "It08_Progetto_M40_mod_65"),
+                Tuple.Create("japan", "J16_ST_B1"),
+                Tuple.Create("poland", "Pl15_60TP_Lewandowskiego"),
+                Tuple.Create("sweden", "S11_Strv_103B"),
+                Tuple.Create("uk", "GB100_Manticore"),
+                Tuple.Create("usa", "A106_M48A2_120"),
+                Tuple.Create("ussr", "R110_Object_260"),
+                Tuple.Create("china", "Ch22_113"),
+                Tuple.Create("czech", "Cz17_Vz_55"),
+                Tuple.Create("france", "F10_AMX_50B"),
+                Tuple.Create("germany", "G125_Spz_57_Rh"),
+                Tuple.Create("italy", "It15_Rinoceronte"),
+                Tuple.Create("japan", "J20_Type_2605"),
+                Tuple.Create("poland", "Pl15_60TP_Lewandowskiego_CFE_A"),
+                Tuple.Create("sweden", "S16_Kranvagn"),
+                Tuple.Create("uk", "GB114_Vickers_MBT_Mk3"),
+                Tuple.Create("usa", "A116_XM551"),
+                Tuple.Create("ussr", "R119_Object_777C"),
+                Tuple.Create("china", "Ch22_113_Beijing_Opera"),
+                Tuple.Create("czech", "Cz21_Vz_60S"),
+                Tuple.Create("france", "F141_Durendal"),
+                Tuple.Create("germany", "G134_PzKpfw_VII"),
+                Tuple.Create("italy", "It20_Carro_Combattimento_45t"),
+                Tuple.Create("japan", "J35_Ho_Ri_3"),
+                Tuple.Create("poland", "Pl21_CS_63"),
+                Tuple.Create("sweden", "S28_UDES_15_16")
             }
 
-            ' Base 1, the way the ring draws it: X negated, height from the terrain.
-            '
-            ' Then STOOD BACK from it. Parked on the base marker a vehicle sits
-            ' inside the base model and the two intersect; BASE_STANDOFF walks it
-            ' along its own backward axis so both can be looked at.
-            '
-            ' Backward and rightward are derived from the heading rather than
-            ' hard wired to world axes, so they still mean "behind" and "beside"
-            ' if the heading ever stops being zero. At heading 0 back is world
-            ' -Z and right is world +X.
-            Const BASE_STANDOFF As Single = 10.0F
-            Dim heading = 0.0F
-            Dim sh = CSng(Math.Sin(heading)), ch = CSng(Math.Cos(heading))
-            Dim back_x = -sh * BASE_STANDOFF
-            Dim back_z = -ch * BASE_STANDOFF
+            Const PER_TEAM As Integer = 15
+            Const ROW_N As Integer = 5
+            Const SPACING As Single = 14.0F
 
-            For Each w In wanted
-                Dim v = TankVehicle.Load(w.Item1, w.Item2)
+            ' The two lines face each other: team 1 at heading 0 looks down +Z,
+            ' team 2 at PI looks back down -Z, and each block is set BEHIND its
+            ' own marker along its own backward axis. That keeps the base ring
+            ' itself clear and puts the tanks where a match would start them.
+            Dim placed As New List(Of Vector2)
+            Dim from_spawn_count = 0
+
+            For i = 0 To roster.Length - 1
+                Dim r = roster(i)
+                Dim team = If(i < PER_TEAM, 1, 2)
+                Dim k = i Mod PER_TEAM
+
+                Dim v = TankVehicle.Load(r.Item1, r.Item2)
                 If v Is Nothing Then
-                    LogThis("tank: {0}/{1} did not load - skipped", w.Item1, w.Item2)
+                    LogThis("tank: {0}/{1} did not load - skipped", r.Item1, r.Item2)
                     Continue For
                 End If
                 vehicles.Add(v)
 
-                Dim x = -TEAM_1.X + back_x + ch * w.Item3
-                Dim z = TEAM_1.Z + back_z - sh * w.Item3
+                Dim heading = If(team = 1, 0.0F, CSng(Math.PI))
+                Dim spawns = If(team = 1, TEAM_1_SPAWNS, TEAM_2_SPAWNS)
+                Dim marker = If(team = 1, TEAM_1, TEAM_2)
+
+                ' A REAL SPAWN POINT IF THE MAP DECLARES ONE for this slot,
+                ' else a block behind the marker. Most maps - 19_monastery
+                ' among them - declare none at all, and of the 37 that do most
+                ' carry fewer than fifteen, so the block is the normal path for
+                ' a full team rather than an error case.
+                Dim x As Single, z As Single
+                If k < spawns.Count Then
+                    x = -spawns(k).X
+                    z = spawns(k).Z
+                    from_spawn_count += 1
+                Else
+                    ' Five abreast, three deep, centred on the marker. Rows
+                    ' start one SPACING back so nothing lands on the ring.
+                    Dim col = CSng(k Mod ROW_N) - (ROW_N - 1) / 2.0F
+                    Dim row = k \ ROW_N
+                    Dim back = If(team = 1, -1.0F, 1.0F)
+                    x = -marker.X + col * SPACING
+                    z = marker.Z + (row + 1) * SPACING * back
+                End If
+
+                ' Then the rules. The block is a guess at open ground and a
+                ' spawn point is wherever the map put it; neither of them knows
+                ' what is standing there, and tanks already placed count as
+                ' obstacles so the fifteen cannot stack on each other.
+                Dim spot = find_clear_spot(x, z, placed)
+                x = spot.X : z = spot.Y
+                placed.Add(spot)
+
                 ' Height sampled AFTER the move - the ground over there is not
                 ' the ground at the marker, and sampling first buries or floats.
                 Dim y = get_Y_at_XZ(x, z)
                 instances.Add(New TankInstance With {
                     .vehicle = v, .position = New Vector3(x, y, z),
-                    .headingRad = heading, .team = TankTeam.Green,
-                    .label = w.Item4})
-                LogThis("tank: placed {0}/{1} at ({2:0.00}, {3:0.00}, {4:0.00}) armour {5}",
-                        w.Item1, v.tag, x, y, z, armor_text(w.Item1))
+                    .headingRad = heading,
+                    .team = If(team = 1, TankTeam.Green, TankTeam.Red),
+                    .label = r.Item2})
+                LogThis("tank: team {0} slot {1,2} {2}/{3} at ({4:0.0}, {5:0.0}, {6:0.0}) obstacle {7:0.00} m armour {8}",
+                        team, k, r.Item1, v.tag, x, y, z, obstacle_at(x, z),
+                        armor_text(r.Item1))
             Next
 
+            LogThis("tank: {0} of {1} placed - {2} on declared spawn points",
+                    instances.Count, roster.Length, from_spawn_count)
             If instances.Count = 0 Then failed = True
         Catch ex As Exception
             failed = True
@@ -144,11 +217,12 @@ Public Class MapTanks
         upload_shading()
 
         For Each inst In instances
-            upload_lights(inst.position)
+            Dim wp = shuttle_position(inst)
+            upload_lights(wp)
             upload_armor(inst.vehicle.nation)
             Dim world = Matrix4.CreateScale(If(MirrorX, -1.0F, 1.0F), 1.0F, 1.0F) *
                         Matrix4.CreateRotationY(inst.headingRad) *
-                        Matrix4.CreateTranslation(inst.position)
+                        Matrix4.CreateTranslation(wp)
             For Each part In inst.vehicle.parts
                 Dim partModel = Matrix4.CreateTranslation(part.offset) * world
                 For Each m In part.meshes
@@ -190,7 +264,7 @@ Public Class MapTanks
         ' One accumulator for the whole frame, advanced here rather than per
         ' mesh - upload_bones runs once per mesh and would otherwise step the
         ' distance a dozen times a frame.
-        track_distance_m += TANK_SPEED * DELTA_TIME
+        advance_shuttle()
 
         GL.Uniform1(shader("tank_shading"), 1)
         GL.Uniform1(shader("metal_scale"), TANK_LIGHT)
@@ -252,7 +326,10 @@ Public Class MapTanks
         ' with the first one's colour, which is exactly the thing a second tank
         ' was added to check.
         GL.Uniform1(shader("u_mflash_intensity"), 0.0F)
-        GL.Uniform1(shader("alpha_in_normal_red"), 0)
+        ' alpha_in_normal_red is gone: the alpha test's source is decided by
+        ' normal_dxt1 now, which is the game's own rule and is already uploaded
+        ' per material. Pinning this to zero made every alpha-tested material
+        ' threshold diffuseMap.a - a channel PBS_tank.fx never reads.
         GL.Uniform1(shader("ao_in_diffuse_alpha"), 0)
     End Sub
 
@@ -563,19 +640,214 @@ Public Class MapTanks
            mat.fx.IndexOf("uvtransform", StringComparison.OrdinalIgnoreCase) >= 0 Then
             Dim du = m.uvMax.X - m.uvMin.X
             Dim dv = m.uvMax.Y - m.uvMin.Y
-            Dim off = track_distance_m * TANK_TRACK_UV
+            ' NEGATIVE, to match the wheels. They spin on theta = -s / R, and
+            ' the band was scrolling on +s, so the tread ran backwards under
+            ' wheels turning forwards. The two signs are not independent - both
+            ' describe the same track moving the same way - so this is tied to
+            ' the wheel convention rather than being a free choice.
+            ' UV units per metre from the MESH, so the tread advances exactly
+            ' the distance the wheels rolled. TANK_TRACK_UV stays as a trim at
+            ' 1.0 rather than being the whole conversion - it was 2.5 by eye,
+            ' which could only ever be right for the one vehicle it was set on.
+            Dim upm = m.uvPerMetre
+            If upm <= 0.0F Then upm = 2.5F   ' unmeasurable: the old eyeball
+            Dim off = -track_distance_m * upm * TANK_TRACK_UV
             If du >= dv Then sx = off Else sy = off
 
-            If Not logged_uv Then
-                logged_uv = True
-                LogThis("tank: band [{0}] fx={1} uv span u={2:0.00} v={3:0.00} -> scrolling {4}",
-                        m.name, mat.fx, du, dv, If(du >= dv, "U", "V"))
+            ' Keyed on the band's own texture so each VEHICLE reports once - the
+            ' mesh names are identical across tanks.
+            If Not logged_uv.Contains(mat.diffuseMap) Then
+                logged_uv.Add(mat.diffuseMap)
+                LogThis("tank: band {0} uv span u={1:0.00} v={2:0.00} -> {3}, {4:0.00} uv/m",
+                        IO.Path.GetFileName(mat.diffuseMap), du, dv,
+                        If(du >= dv, "U", "V"), upm)
             End If
         End If
         GL.Uniform2(shader("uv_scroll"), sx, sy)
     End Sub
 
-    Private logged_uv As Boolean
+    Private ReadOnly logged_uv As New List(Of String)
+    Private ReadOnly logged_alpha As New List(Of String)
+
+    ''' <summary>
+    ''' Run the tanks SHUTTLE_M forward, then back, forever.
+    '''
+    ''' THE GROUND TRAVEL AND THE ROTATION COME FROM THE SAME NUMBER. Both the
+    ''' hull's displacement and track_distance_m - which the wheels turn on as
+    ''' theta = -s/R and the band scrolls on - are advanced by this one signed
+    ''' step. There is no second integrator to drift against the first, so the
+    ''' tank cannot slip: a metre of ground is a metre of tread by construction
+    ''' rather than by the two being tuned to agree.
+    '''
+    ''' That is also why the step is SIGNED. Reversing at the end of a run has
+    ''' to wind the wheels backwards too; an accumulator that only ever grew
+    ''' would drive the tank home with its tracks still running forwards.
+    ''' </summary>
+    Private Sub advance_shuttle()
+        ' Not SHUTTLE_M: VB is case-insensitive, so that name and the
+        ' shuttle_m field below are the SAME identifier.
+        Const SHUTTLE_RANGE_M As Single = 10.0F
+        Dim step_m = TANK_SPEED * DELTA_TIME * shuttle_dir
+        shuttle_m += step_m
+        track_distance_m += step_m
+        If shuttle_m >= SHUTTLE_RANGE_M Then
+            shuttle_m = SHUTTLE_RANGE_M
+            shuttle_dir = -1.0F
+        ElseIf shuttle_m <= 0.0F Then
+            shuttle_m = 0.0F
+            shuttle_dir = 1.0F
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' Where an instance is this frame: its parked spot, walked forward along
+    ''' its own heading, re-seated on the terrain.
+    '''
+    ''' The height is resampled at the NEW xz every frame. Carrying the parked
+    ''' Y across ten metres of monastery would bury the tank in the rise or
+    ''' float it over the dip - the same reason the 10 m standoff samples after
+    ''' the move rather than before it.
+    ''' </summary>
+    Private Function shuttle_position(inst As TankInstance) As Vector3
+        Dim sh = CSng(Math.Sin(inst.headingRad))
+        Dim ch = CSng(Math.Cos(inst.headingRad))
+        Dim x = inst.position.X + sh * shuttle_m
+        Dim z = inst.position.Z + ch * shuttle_m
+        Return New Vector3(x, get_Y_at_XZ_fast(x, z), z)
+    End Function
+
+    Private Shared shuttle_m As Single
+    Private Shared shuttle_dir As Single = 1.0F
+
+    ''' <summary>How much clear ground a tank needs, metres from its centre.
+    ''' A hull is about 7 m long, so this is half of it plus a margin.</summary>
+    Private Const TANK_CLEAR_R As Single = 4.5F
+
+    ''' <summary>Tallest thing a tank may sit on. The bake's own
+    ''' OBSTACLE_MIN_H is 1.0 m - anything shorter is not counted as an
+    ''' obstacle by the bake either, so matching it keeps one definition of
+    ''' 'blocked' across the app.</summary>
+    Private Const TANK_MAX_OBSTACLE As Single = 1.0F
+
+    ''' <summary>Most the ground may fall across the footprint. A tank on a
+    ''' 2 m step over 9 m is bridging a wall, not standing on a slope.</summary>
+    Private Const TANK_MAX_DROP As Single = 2.0F
+
+    ''' <summary>
+    ''' The tallest obstacle over a tank's footprint, for the log.
+    '''
+    ''' The same reading spot_is_clear vetoes on, printed rather than tested, so
+    ''' a placement line says how close to the limit it landed. Without it a run
+    ''' where nothing moved and a run where the bake was never ready look
+    ''' identical in the log.
+    ''' </summary>
+    Private Function obstacle_at(x As Single, z As Single) As Single
+        Dim b = map_scene.flight_bake
+        If b Is Nothing OrElse Not b.ready Then Return -1.0F   ' no data
+        Dim worst = 0.0F
+        For dz = -1 To 1
+            For dx = -1 To 1
+                Dim sx = x + dx * TANK_CLEAR_R
+                Dim sz = z + dz * TANK_CLEAR_R
+                Dim c = CInt(Math.Floor((sx - b.wx_min) / (b.wx_max - b.wx_min) * MapFlightBake.SIZE))
+                Dim r = CInt(Math.Floor((b.wz_max - sz) / (b.wz_max - b.wz_min) * MapFlightBake.SIZE))
+                If c < 0 OrElse r < 0 OrElse c >= MapFlightBake.SIZE OrElse
+                   r >= MapFlightBake.SIZE Then Continue For
+                Dim i = r * MapFlightBake.SIZE + c
+                Dim h = b.top_m(i) - b.floor_m(i)
+                If h > worst Then worst = h
+            Next
+        Next
+        Return worst
+    End Function
+
+    ''' <summary>
+    ''' Is this spot clear enough to park on?
+    '''
+    ''' Tested against MapFlightBake, which is already built at load and is the
+    ''' same occupancy the camera-flight planner uses to avoid geometry -
+    ''' obstacle height is top_m minus floor_m per texel, models and all. Using
+    ''' it rather than a new collision pass means a tank and a camera agree on
+    ''' what is solid, and there is only one thing to be wrong.
+    '''
+    ''' Sampled over the footprint, not at the centre. A centre-only test puts
+    ''' tanks neatly astride crates and walls: the one texel between them is
+    ''' clear and everything around it is not.
+    ''' </summary>
+    Private Function spot_is_clear(x As Single, z As Single) As Boolean
+        Dim b = map_scene.flight_bake
+        If b Is Nothing OrElse Not b.ready Then Return True   ' no data, no veto
+
+        Dim lo = Single.MaxValue, hi = Single.MinValue
+        For dz = -1 To 1
+            For dx = -1 To 1
+                Dim sx = x + dx * TANK_CLEAR_R
+                Dim sz = z + dz * TANK_CLEAR_R
+                Dim c = CInt(Math.Floor((sx - b.wx_min) / (b.wx_max - b.wx_min) * MapFlightBake.SIZE))
+                Dim r = CInt(Math.Floor((b.wz_max - sz) / (b.wz_max - b.wz_min) * MapFlightBake.SIZE))
+                If c < 0 OrElse r < 0 OrElse c >= MapFlightBake.SIZE OrElse
+                   r >= MapFlightBake.SIZE Then Return False   ' off the map
+                Dim i = r * MapFlightBake.SIZE + c
+                Dim fl = b.floor_m(i)
+                If b.top_m(i) - fl > TANK_MAX_OBSTACLE Then Return False
+                If fl < lo Then lo = fl
+                If fl > hi Then hi = fl
+            Next
+        Next
+        Return (hi - lo) <= TANK_MAX_DROP
+    End Function
+
+    ''' <summary>
+    ''' The wanted spot if it is clear, otherwise the nearest one that is.
+    '''
+    ''' Searched as rings rather than a grid so the FIRST hit is also the
+    ''' closest - a tank ends up beside where it was asked for rather than
+    ''' somewhere arbitrary that happened to be scanned early. Rings step by
+    ''' roughly the footprint so consecutive rings cannot both miss a gap.
+    '''
+    ''' Tanks already placed count as obstacles. Two spawn points can sit
+    ''' closer together than a hull is long, and without this the second tank
+    ''' parks inside the first.
+    '''
+    ''' Falls back to the original spot if nothing within range is clear. A tank
+    ''' standing in a crate is a better failure than one teleported across the
+    ''' map, and the log says which happened.
+    ''' </summary>
+    Private Function find_clear_spot(x As Single, z As Single,
+                                     placed As List(Of Vector2)) As Vector2
+        Const MAX_R As Single = 40.0F
+        Dim step_m = TANK_CLEAR_R * 2.0F
+
+        Dim ring = 0
+        Do
+            Dim rad = ring * step_m
+            Dim n = If(ring = 0, 1, ring * 8)
+            For k = 0 To n - 1
+                Dim a = (k / n) * 2.0 * Math.PI
+                Dim cx = x + CSng(Math.Cos(a)) * rad
+                Dim cz = z + CSng(Math.Sin(a)) * rad
+                If Not spot_is_clear(cx, cz) Then Continue For
+                Dim busy = False
+                For Each p In placed
+                    Dim ddx = p.X - cx, ddz = p.Y - cz
+                    If ddx * ddx + ddz * ddz < (TANK_CLEAR_R * 2.0F) ^ 2 Then
+                        busy = True : Exit For
+                    End If
+                Next
+                If busy Then Continue For
+                If ring > 0 Then
+                    LogThis("tank: spot ({0:0.0}, {1:0.0}) blocked - moved {2:0.0} m",
+                            x, z, rad)
+                End If
+                Return New Vector2(cx, cz)
+            Next
+            ring += 1
+        Loop While ring * step_m <= MAX_R
+
+        LogThis("tank: no clear ground within {0:0} m of ({1:0.0}, {2:0.0}) - placed anyway",
+                MAX_R, x, z)
+        Return New Vector2(x, z)
+    End Function
 
     ''' <summary>Units 0..3: AM, ANM, GMM, AO. A missing map binds nothing and the shader is told.</summary>
     Private Sub BindMaterial(mat As TankMaterial)
@@ -588,6 +860,12 @@ Public Class MapTanks
             GL.Uniform1(shader("alpha_test"), If(mat.alphaTestEnable, 1, 0))
             GL.Uniform1(shader("alpha_ref"), mat.alphaReference / 255.0F)
             GL.Uniform1(shader("normal_dxt1"), If(mat.useNormalPackDXT1, 1, 0))
+            If mat.alphaTestEnable AndAlso Not logged_alpha.Contains(mat.fx) Then
+                logged_alpha.Add(mat.fx)
+                LogThis("tank: alpha test on [{0}] ref {1}/255 source normalMap.{2}",
+                        IO.Path.GetFileName(mat.fx), mat.alphaReference,
+                        If(mat.useNormalPackDXT1, "b", "r"))
+            End If
 
             ' metallicDetailMap, unit 7. The loader already resolves this and
             ' TankMaterial has been carrying texDetail and detailUVTiling the
