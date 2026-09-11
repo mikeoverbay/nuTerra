@@ -51,6 +51,10 @@ Module Program
                 ' them cost seconds and hundreds of megabytes on a map that
                 ' otherwise has nothing to do with them.
                 TANK_AUTOLOAD = True
+            ElseIf a.StartsWith("solo=", StringComparison.OrdinalIgnoreCase) Then
+                ' One vehicle a base instead of thirty, for working on one of
+                ' them: solo=F108_Panhard_EBR_105
+                TANK_SOLO_TAG = a.Substring(5)
             ElseIf a.Equals("navdump", StringComparison.OrdinalIgnoreCase) Then
                 ' Write the tank navigation grid as a PNG when it is built.
                 TANK_NAV_DUMP = True

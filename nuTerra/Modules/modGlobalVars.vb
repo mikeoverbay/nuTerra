@@ -1116,7 +1116,21 @@ Module modGlobalVars
     '''
     ''' Falls back to the shuttle on its own if the grid was never built.
     ''' </summary>
-    Public TANK_AI As Boolean = True
+    ' OFF BY DEFAULT. Driving is the interesting mode and the wrong one to
+    ' land in when what you want is a steady look at the vehicles - tracks,
+    ' recoil, armour, lighting - which is most of the time. The checkbox in
+    ' TANKS! turns it on without a rebuild.
+    Public TANK_AI As Boolean = False
+
+    ''' <summary>
+    ''' Load only this vehicle, one a base, instead of the full thirty.
+    '''
+    ''' For working on ONE tank, where thirty of them is a minute of loading
+    ''' and five gigabytes to look at a wheel. Empty means the whole roster.
+    ''' Set to a roster tag - the item_def file name, e.g.
+    ''' F108_Panhard_EBR_105.
+    ''' </summary>
+    Public TANK_SOLO_TAG As String = ""
 
     Public TANK_NAV_DUMP As Boolean = False
 

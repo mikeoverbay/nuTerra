@@ -1704,6 +1704,20 @@ try_again:
                     Else
                         ImGui.TextDisabled("tanks loaded")
                     End If
+
+                    ' DRIVE THEM, OR JUST MOVE THEM. Off is the old shuttle -
+                    ' every hull sliding a few metres along its own heading off
+                    ' one shared distance, which is the mode to be in when the
+                    ' question is about the vehicles themselves rather than
+                    ' about where they go: tracks, recoil, armour, lighting.
+                    ImGui.Checkbox("Drive (AI)", TANK_AI)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("On: each tank picks somewhere open," & vbLf &
+                                         "turns and drives at it." & vbLf &
+                                         "Off: they shuttle on the spot in base," & vbLf &
+                                         "which is the steadier view for looking" & vbLf &
+                                         "at the tanks themselves.")
+                    End If
                     ImGui.Separator()
                     ' THE TANK LIGHTS ITSELF. It writes GFLAG_UNLIT and the
                     ' resolve passes its pixels through, so nothing here is

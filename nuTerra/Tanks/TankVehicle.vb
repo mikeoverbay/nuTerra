@@ -40,6 +40,30 @@ Public Class TankPart
         Return Nothing
     End Function
 
+    ''' <summary>
+    ''' EVERY material for a mesh, one per primitive group, in group order.
+    '''
+    ''' The link is POSITIONAL and that is not an accident: TankVisual appends
+    ''' materials while walking geometry/primitiveGroup in document order, and
+    ''' the groups come out of the primitives file in the same order, so
+    ''' materials(k) is the material of group k. TankMesh.Group carries no
+    ''' material index of its own - there is nothing in the format to carry -
+    ''' so the two lists agreeing by position is the whole mapping.
+    '''
+    ''' Most meshes have one group and one material and none of this shows. It
+    ''' shows on the EBR, which carries its wheels in the chassis mesh as a
+    ''' second group with a tyre material, and on anything else that packs two
+    ''' surfaces into one section.
+    ''' </summary>
+    Public Function MaterialsFor(m As TankMesh) As List(Of TankMaterial)
+        If visual Is Nothing Then Return Nothing
+        Dim want = If(m.name = "", "vertices", m.name & ".vertices")
+        For Each rs In visual.renderSets
+            If rs.verticesName = want AndAlso rs.materials.Count > 0 Then Return rs.materials
+        Next
+        Return Nothing
+    End Function
+
     Public Function MaterialFor(m As TankMesh) As TankMaterial
         If visual Is Nothing Then Return Nothing
         Dim want = If(m.name = "", "vertices", m.name & ".vertices")

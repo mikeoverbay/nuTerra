@@ -153,7 +153,25 @@ Public Class MapTanks
                 Tuple.Create("sweden", "S28_UDES_15_16")
             }
 
-            Const PER_TEAM As Integer = 15
+            ' TEMPORARY: one vehicle a base, and that vehicle the EBR, while
+            ' its wheels are being sorted. Clear TANK_SOLO_TAG to get the full
+            ' thirty back - it is loud in the log so it cannot be forgotten.
+            Dim PER_TEAM As Integer = 15
+            If TANK_SOLO_TAG <> "" Then
+                Dim solo As Tuple(Of String, String) = Nothing
+                For Each t In roster
+                    If t.Item2 = TANK_SOLO_TAG Then solo = t : Exit For
+                Next
+                If solo IsNot Nothing Then
+                    roster = {solo, solo}
+                    PER_TEAM = 1
+                    LogThis("tank: SOLO MODE - one {0} a base. Clear TANK_SOLO_TAG for the full roster.",
+                            TANK_SOLO_TAG)
+                Else
+                    LogThis("tank: TANK_SOLO_TAG '{0}' is not on the roster - loading all of them",
+                            TANK_SOLO_TAG)
+                End If
+            End If
             Const ROW_N As Integer = 5
             Const SPACING As Single = 14.0F
 
@@ -336,15 +354,40 @@ Public Class MapTanks
                     GL.UniformMatrix4(shader("u_model"), False, model)
                     upload_bones(part, m)
                     upload_recoil(part, m, inst)
-                    Dim mat = part.MaterialFor(m)
-                    upload_uv_scroll(m, mat)
-                    BindMaterial(mat)
+                    Dim fallback = part.MaterialFor(m)
+                    Dim mats = part.MaterialsFor(m)
                     m.vao.Bind()
                     Dim itype = If(m.index32, DrawElementsType.UnsignedInt, DrawElementsType.UnsignedShort)
                     Dim isz = If(m.index32, 4, 2)
-                    For Each g In m.groups
-                        GL.DrawElementsBaseVertex(PrimitiveType.Triangles, g.nPrimitives * 3, itype,
-                                                  New IntPtr(g.startIndex * isz), g.startVertex)
+                    For gi = 0 To m.groups.Count - 1
+                        Dim g = m.groups(gi)
+
+                        ' ONE MATERIAL PER GROUP. Binding the mesh's first
+                        ' material for all of them draws the EBR's tyres with
+                        ' the chassis texture and the tank shader instead of
+                        ' the wheel one. The fallback covers a mesh with more
+                        ' groups than the visual declares materials, which the
+                        ' format allows and nothing on the roster does.
+                        Dim mat = If(mats IsNot Nothing AndAlso gi < mats.Count,
+                                     mats(gi), fallback)
+                        upload_uv_scroll(m, mat)
+                        BindMaterial(mat)
+
+                        ' BASE VERTEX ZERO, and the byte offset only.
+                        '
+                        ' BigWorld primitive-group indices are ABSOLUTE into
+                        ' the section's vertex buffer - they already include
+                        ' startVertex. Measured on the EBR's chassis: group 1
+                        ' has startVertex 4648 and index values 4648..8479, so
+                        ' passing startVertex as the base vertex asked GL for
+                        ' 9296..13127 out of a buffer holding 8480. Nothing
+                        ' rasterised, whatever material was bound. 31 of 31
+                        ' multi-group meshes in the tier 10 packages read the
+                        ' same way, so this silently dropped group 1 of every
+                        ' one of them - the EBR's tyres, the FV217 and XM551
+                        ' hulls - and only the wheels were obvious.
+                        GL.DrawElements(PrimitiveType.Triangles, g.nPrimitives * 3, itype,
+                                        New IntPtr(g.startIndex * isz))
                     Next
                 Next
             Next
