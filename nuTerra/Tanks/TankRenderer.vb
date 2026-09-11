@@ -135,35 +135,37 @@ Public Class MapTanks
                 If zones.ready AndAlso TANK_NAV_DUMP Then
                     zones.Dump()
 
-                    ' EXERCISE THE CATALOGUE while there are no base positions
-                    ' to aim it at. Widest disc to the disc furthest from it is
-                    ' a genuine cross-map problem and it is deterministic, so
-                    ' the machinery is proven against real ground rather than
-                    ' waiting on arena_defs. Under the dump flag only - this is
-                    ' a diagnostic, not the real catalogue.
-                    ' WITHIN ONE COMPONENT. The first attempt aimed at the
-                    ' zone furthest from the widest and found no path, which
-                    ' was honest rather than broken: the furthest ground on a
-                    ' map with two lakes is not reachable from the middle of
-                    ' it. A catalogue between two components can only ever
-                    ' report "no path", which proves nothing about the search.
-                    Dim ncomp = 0
-                    Dim comp = zones.Components(ncomp)
-                    Dim far = -1
-                    Dim far_d = -1.0F
-                    For qi = 1 To zones.zones.Count - 1
-                        If comp(qi) <> comp(0) Then Continue For
-                        Dim qdx = zones.zones(qi).x - zones.zones(0).x
-                        Dim qdz = zones.zones(qi).z - zones.zones(0).z
-                        Dim qd = qdx * qdx + qdz * qdz
-                        If qd > far_d Then far_d = qd : far = qi
-                    Next
-                    If far > 0 Then
-                        Dim cat As New TankRoutes
-                        cat.Build(zones,
-                                  zones.zones(0).x, zones.zones(0).z,
-                                  zones.zones(far).x, zones.zones(far).z,
-                                  "widest -> furthest")
+                    ' THE ACTUAL RACE: each side's route to the OTHER side's
+                    ' base, catalogued once.
+                    '
+                    ' TEAM_1 / TEAM_2 are the ctf base centres and are stored
+                    ' RAW - negate X, take Z straight, the same conversion the
+                    ' spawn placement does forty lines above with
+                    ' -spawns(k).X / spawns(k).Z. Y in the globals is always 0.
+                    '
+                    ' BASE_RINGS_LOADED, not TEAM_1 against zero: it is the
+                    ' return value of the function that fills them, so it is the
+                    ' honest flag, and the markers used to carry across map
+                    ' loads - a map with no ctf bases kept whatever the last one
+                    ' had. Tanks near a base is what tanks near a base looks
+                    ' like, so that never read as wrong on screen.
+                    If map_scene.BASE_RINGS_LOADED Then
+                        Dim b1x = -TEAM_1.X, b1z = TEAM_1.Z
+                        Dim b2x = -TEAM_2.X, b2z = TEAM_2.Z
+
+                        ' Logged in the world frame so it can be held against
+                        ' the arena line the loader prints. Two readings that
+                        ' disagree by exactly a sign are each internally
+                        ' consistent and only a shared number finds it.
+                        LogThis("tank routes: bases, world frame - team1 ({0:0.0}, {1:0.0}) team2 ({2:0.0}, {3:0.0})",
+                                b1x, b1z, b2x, b2z)
+
+                        Dim cat1 As New TankRoutes
+                        cat1.Build(zones, b1x, b1z, b2x, b2z, "team 1 -> team 2 base")
+                        Dim cat2 As New TankRoutes
+                        cat2.Build(zones, b2x, b2z, b1x, b1z, "team 2 -> team 1 base")
+                    Else
+                        LogThis("tank routes: this map declares no ctf bases - no catalogue")
                     End If
                 End If
             Catch ex As Exception
