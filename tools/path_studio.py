@@ -508,6 +508,36 @@ def dashed(d, a, b, fill, on=9.0, off=7.0, width=1):
 # a map light needs, and our fog curve editor.
 
 KIND_NAMES = ("point", "cone", "inverse cone", "dual cowl")
+
+# The keyed bake (2026-09-11): the flight bake carries a kind key per texel,
+# the kind of the tallest thing there, keyed by the folder the model came
+# from. One colour per key, the same on the 2D mask and the 3D boxes, agreed
+# with the nuTerra session that writes the bake. 0 is bare terrain and keeps
+# the map colour. The names come from the bake's meta (kind_<n>=...); these
+# are the fallback.
+BAKE_KIND_RGB = {1: (205, 150, 40), 2: (230, 90, 40), 3: (70, 160, 70),
+                 4: (120, 130, 150), 5: (170, 110, 200), 6: (50, 110, 200),
+                 7: (200, 200, 200)}
+BAKE_KIND_NAMES = {1: "building", 2: "fence / rail", 3: "tree / bush",
+                   4: "rock", 5: "vehicle / prop", 6: "water", 7: "other"}
+
+
+def kind_of_tallest(top, kind, G):
+    """kind sampled down to G cells a side as the kind of the tallest texel
+    in each block - the thing the block max is the height of."""
+    h, w = top.shape
+    if G >= h:
+        return kind
+    fy, fx = h // G, w // G
+    flat = top[:G * fy, :G * fx].reshape(G, fy, G, fx).transpose(0, 2, 1, 3).reshape(G, G, fy * fx)
+    kb = kind[:G * fy, :G * fx].reshape(G, fy, G, fx).transpose(0, 2, 1, 3).reshape(G, G, fy * fx)
+    return np.take_along_axis(kb, flat.argmax(axis=2)[..., None], axis=2)[..., 0]
+
+
+def bake_kind_names(bake):
+    names = dict(BAKE_KIND_NAMES)
+    names.update({k: v for k, v in getattr(bake, "kind_names", {}).items() if k in BAKE_KIND_RGB})
+    return names
 KIND_POINT, KIND_CONE, KIND_INVERSE, KIND_DUAL = 0, 1, 2, 3
 
 LIGHT_DEFAULTS = {"kind": KIND_POINT, "aim": (0.0, -1.0, 0.0), "cone": 0.0,
@@ -1857,7 +1887,14 @@ void main() { o_rgb = v_rgb; }
         else:
             arr = np.asarray(m.resize((G, G), Image.BILINEAR))[:, ::-1]
             col = np.ascontiguousarray(arr[..., :3]).copy()
-        if objc is not None:
+        kind = getattr(b, "kind", None)
+        if objc is not None and kind is not None:
+            # one colour per kind, the kind of the tallest texel in the cell
+            kg = kind_of_tallest(b.top, kind, G)
+            col[objc] = self.OBJ_RGB
+            for k, rgb in BAKE_KIND_RGB.items():
+                col[objc & (kg == k)] = rgb
+        elif objc is not None:
             col[objc] = self.OBJ_RGB
         colf = col.astype(np.float32)
         # Ground only - the boxes keep their colour. A cell at 14 comes up
@@ -3554,6 +3591,14 @@ class Studio:
         img[hard, 0] = (150 + 105 * t[hard]).astype(np.uint8)
         img[hard, 1] = (110 + 90 * t[hard]).astype(np.uint8)
         img[hard, 2] = (20 + 40 * t[hard]).astype(np.uint8)
+        # A keyed bake says WHAT stands there: one flat colour per kind over
+        # the obstacle cells, the amber grade only where the key is 0.
+        kind = getattr(b, "kind", None)
+        if kind is not None:
+            for k, rgb in BAKE_KIND_RGB.items():
+                m = hard & (kind == k)
+                if m.any():
+                    img[m] = rgb
 
         # Kept at bake resolution. Resizing on paint costs a LANCZOS pass and
         # keeps every zoom level sharp; re-deriving the shading each time would
@@ -4082,6 +4127,22 @@ class Studio:
                 dk.line([14, ky + 5, 38, ky + 5], fill=col, width=w)
                 dk.text((46, ky), label, fill=(228, 236, 246, 255))
                 ky += 16
+
+        # The kind legend, bottom left, when the bake is keyed.
+        kind = getattr(self.bake, "kind", None) if self.bake is not None else None
+        if kind is not None:
+            names = bake_kind_names(self.bake)
+            present = [k for k in sorted(BAKE_KIND_RGB) if (kind == k).any()]
+            if present:
+                dk = ImageDraw.Draw(im, "RGBA")
+                ky0 = self.view - 12 - 16 * len(present)
+                dk.rectangle([6, ky0 - 6, 150, self.view - 6],
+                             fill=(8, 10, 16, 205), outline=(70, 84, 104, 255))
+                ky = ky0
+                for k in present:
+                    dk.rectangle([14, ky + 2, 38, ky + 12], fill=BAKE_KIND_RGB[k] + (255,))
+                    dk.text((46, ky), names.get(k, str(k)), fill=(228, 236, 246, 255))
+                    ky += 16
 
         self.photo = ImageTk.PhotoImage(im)
         self.canvas.delete("all")

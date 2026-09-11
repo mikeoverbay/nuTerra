@@ -295,8 +295,7 @@ class Bake:
         self.wz_max = float(meta["wz_max"])
         self.empty = float(meta["empty"])
 
-        self.top = self._r32(os.path.join(folder, map_name + "_top.r32"))
-        self.floor = self._r32(os.path.join(folder, map_name + "_floor.r32"))
+        self._load_layers(folder, map_name, meta)
         self._work_res()
 
         self.no_data = self.floor <= self.empty + 1.0
@@ -337,6 +336,46 @@ class Bake:
         a = np.frombuffer(raw, dtype="<f4")
         return a.reshape(self.h, self.w).copy()
 
+    def _load_layers(self, folder, map_name, meta):
+        """top, floor and kind, in either format the bake has been written in.
+
+        rgba8 (meta says format=rgba8, 2026-09-11): <map>_top.rgba is raw
+        RGBA8 - R the kind key, G the height high byte, B spare, A the low
+        byte - and <map>_floor.r16 raw uint16; both decode as
+        y = height_offset + v / height_scale, 1.5 cm steps over a kilometre
+        at scale 64. Collision does not need more. The kind keys are named
+        in the meta as kind_<n>=<name>, and the KIND_NAMES here are the
+        fallback when it does not say. r32 (before that): float32 metres in
+        <map>_top.r32 / _floor.r32, and no kind.
+        """
+        self.kind_names = {int(k[5:]): v.strip() for k, v in meta.items()
+                           if k.startswith("kind_") and k[5:].isdigit()}
+        if meta.get("format", "r32").strip() == "rgba8":
+            scale = float(meta.get("height_scale", 64.0))
+            off = float(meta.get("height_offset", 0.0))
+            raw = np.fromfile(os.path.join(folder, map_name + "_top.rgba"),
+                              dtype=np.uint8).reshape(self.h, self.w, 4)
+            self.kind = raw[..., 0].copy()
+            self.top = (off + (raw[..., 1].astype(np.uint32) * 256
+                               + raw[..., 3]) / scale).astype(np.float32)
+            del raw
+            f16 = np.fromfile(os.path.join(folder, map_name + "_floor.r16"),
+                              dtype="<u2").reshape(self.h, self.w)
+            self.floor = (off + f16 / scale).astype(np.float32)
+            # an encoded 0 is the clear value: nothing rasterised there
+            self.empty = off
+        else:
+            self.top = self._r32(os.path.join(folder, map_name + "_top.r32"))
+            self.floor = self._r32(os.path.join(folder, map_name + "_floor.r32"))
+            self.kind = None
+
+    def kind_at(self, x, z):
+        """The kind key of the tallest thing at a world point, 0 without a
+        keyed bake."""
+        if self.kind is None:
+            return 0
+        return int(self.sample(self.kind, x, z))
+
     def _work_res(self):
         """Bring any bake down to WORK_RES a side, in place.
 
@@ -359,8 +398,17 @@ class Bake:
             self.top[no_data] = fill
         fy, fx = max(1, self.h // WORK_RES), max(1, self.w // WORK_RES)
         H, W = self.h // fy, self.w // fx
-        self.top = (self.top[:H * fy, :W * fx].reshape(H, fy, W, fx)
-                    .max(axis=(1, 3)).astype(np.float64))
+        blocks = self.top[:H * fy, :W * fx].reshape(H, fy, W, fx)
+        if self.kind is not None:
+            # the kind of the TALLEST texel in each block - what the block
+            # max is the height of
+            flat = blocks.transpose(0, 2, 1, 3).reshape(H, W, fy * fx)
+            am = flat.argmax(axis=2)
+            kb = (self.kind[:H * fy, :W * fx].reshape(H, fy, W, fx)
+                  .transpose(0, 2, 1, 3).reshape(H, W, fy * fx))
+            self.kind = np.take_along_axis(kb, am[..., None], axis=2)[..., 0].copy()
+            del flat, kb
+        self.top = blocks.max(axis=(1, 3)).astype(np.float64)
         self.floor = (self.floor[:H * fy, :W * fx].reshape(H, fy, W, fx)
                       .mean(axis=(1, 3)).astype(np.float64))
         self.w, self.h = W, H
