@@ -1267,7 +1267,18 @@ Module modRender
         End If
 
         ' Remember what was bound, draw into the factor texture, put it back.
+        ' Save what the caller had and put it BACK, rather than leaving a state
+        ' of our own. The caller has already turned the depth test off for the
+        ' deferred quad that follows; this pass once forced it back ON (and the
+        ' mask with it), so the deferred quad ran depth tested under
+        ' DepthFunc(Less) from the decals - it failed on the far half of the
+        ' frame and wrote its own flat depth over the near half, which is what
+        ' the bulb sprites' occlusion test then read: bulbs through walls, and
+        ' the lamp reflections in pooled water gone with the pixels the quad
+        ' no longer shaded.
         Dim prev_fbo = GL.GetInteger(GetPName.DrawFramebufferBinding)
+        Dim prev_depth_test = GL.IsEnabled(EnableCap.DepthTest)
+        Dim prev_depth_mask = GL.GetBoolean(GetPName.DepthWritemask)
         sun_shadow_pre_fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Viewport(0, 0, sun_shadow_pre_w, sun_shadow_pre_h)
         GL.Disable(EnableCap.DepthTest)
@@ -1289,8 +1300,8 @@ Module modRender
         sunShadowTilesShader.StopUse()
         unbind_textures(1 + MapSunShadow.TILES * MapSunShadow.TILES)
 
-        GL.DepthMask(True)
-        GL.Enable(EnableCap.DepthTest)
+        GL.DepthMask(prev_depth_mask)
+        If prev_depth_test Then GL.Enable(EnableCap.DepthTest) Else GL.Disable(EnableCap.DepthTest)
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, prev_fbo)
         GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
         GL_POP_GROUP()
