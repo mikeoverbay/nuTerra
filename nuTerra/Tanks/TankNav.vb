@@ -258,13 +258,23 @@ Public Class TankNav
     ''' centre - a centre-only test parks tanks astride walls, which is the
     ''' same lesson spot_is_clear learned.
     ''' </summary>
+    ''' <param name="radius_m">Half the hull, plus margin.</param>
     Public Function CanStand(x As Single, z As Single, radius_m As Single) As Boolean
         If Not ready Then Return True          ' no data, no veto
         Dim rc = Math.Max(1, CInt(Math.Ceiling(radius_m / cell_m)))
         Dim cx, cz As Integer
         CellOf(x, z, cx, cz)
+
+        ' A DISC, NOT THE SQUARE THAT ENCLOSES IT. Testing the whole block
+        ' demands clear ground all the way to the corners - at a 4.5 m radius
+        ' and a 1.37 m cell that is 7.75 m diagonally, nearly half as far
+        ' again as asked for. The first fleet froze on it: tanks drove until
+        ' they reached somewhere whose corners were not clear and then no
+        ' direction passed.
+        Dim r2 = (radius_m / cell_m) * (radius_m / cell_m)
         For dz = -rc To rc
             For dx = -rc To rc
+                If dx * dx + dz * dz > r2 Then Continue For
                 Dim ax = cx + dx, az = cz + dz
                 If Not InBounds(ax, az) Then Return False
                 If (cell(az * SIZE + ax) And IMPASSABLE) <> 0 Then Return False
@@ -288,10 +298,50 @@ Public Class TankNav
         If Not InBounds(cx, cz) Then Return
         Dim i = cz * SIZE + cx
         If (cell(i) And PINNED) <> 0 Then Return
+        If n_pinned >= PIN_BUDGET Then Return
+
+        ' ONCE IS AN ACCIDENT. The first version pinned on the first wedge and
+        ' laid down 299 cells in one session, then 264 more in the next, and
+        ' the fleet got measurably worse as it "learned" - fewer tanks moving
+        ' each run, because most of those cells were not map errors at all.
+        ' They were one tank that steered itself into a corner it could not
+        ' turn out of, which says nothing about whether the ground is passable.
+        '
+        ' A real disagreement between the map and a hull repeats: every tank
+        ' that tries it gets stuck in the same place. Demanding several
+        ' independent wedges keeps those and throws away the rest.
+        Dim hits = 0
+        suspect.TryGetValue(i, hits)
+        hits += 1
+        suspect(i) = hits
+        If hits < PIN_CONFIRM Then Return
+
         cell(i) = cell(i) Or PINNED
+        suspect.Remove(i)
+        n_pinned += 1
         pins_dirty = True
     End Sub
 
+    ''' <summary>Cells that have stopped a tank, and how often. In memory only:
+    ''' a suspicion that never repeated is not worth carrying into the next
+    ''' session.</summary>
+    Private ReadOnly suspect As New Dictionary(Of Integer, Integer)
+
+    ''' <summary>Independent wedges at one cell before it is believed.</summary>
+    Private Const PIN_CONFIRM As Integer = 3
+
+    ''' <summary>
+    ''' Most cells that may ever be pinned.
+    '''
+    ''' A ceiling rather than a hope. Pins are permanent and persisted, so
+    ''' without one a long-running session degrades in a way that survives a
+    ''' restart and cannot be undone except by deleting the file. 2000 cells is
+    ''' 0.4% of the arena - ample for the places the bake genuinely gets wrong,
+    ''' and nowhere near enough to close a route.
+    ''' </summary>
+    Private Const PIN_BUDGET As Integer = 2000
+
+    Private n_pinned As Integer
     Private pins_dirty As Boolean
 
     ' =========================================================== persistence
@@ -346,6 +396,7 @@ Public Class TankNav
                 cell(i) = cell(i) Or PINNED
                 n += 1
             Next
+            n_pinned = n
             If n > 0 Then LogThis("tank nav: recalled {0} learned pin(s)", n)
         Catch ex As Exception
             LogThis("tank nav: could not read pins - {0}", ex.Message)

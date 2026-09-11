@@ -96,6 +96,15 @@ Public Class TankInstance
     ''' starve itself, and so each shot keeps its own gun's timing.</summary>
     Public ReadOnly shots As New TankShotPool
 
+    ''' <summary>Where this one is going and how fast - see TankDrive.</summary>
+    Public ReadOnly drive As New TankDrive
+
+    ''' <summary>Metres this hull has travelled, ever. The wheels turn and the
+    ''' track band scrolls off it, so it is PER TANK: one shared accumulator
+    ''' made every track on the map scroll at the speed of whichever tank the
+    ''' shuttle happened to be moving.</summary>
+    Public trackDistance As Single
+
     ''' <summary>Shells ready to fire. One for a plain gun; up to clipCount
     ''' for a magazine.</summary>
     Public shells As Integer = 1

@@ -1105,6 +1105,19 @@ Module modGlobalVars
     ''' megabyte a map load and only wanted when the tanks are behaving
     ''' oddly and the question is what they think the map looks like.
     ''' </summary>
+    ''' <summary>
+    ''' Drive the vehicles instead of sliding them.
+    '''
+    ''' On, each tank picks somewhere open on the navigation grid, turns and
+    ''' drives at it, gives way to other hulls and pins what stops it. Off,
+    ''' the old shuttle runs - one shared distance sliding every hull along
+    ''' its own heading, which is the mode to be in when the question is
+    ''' whether a track band scrolls at the rate the hull moves.
+    '''
+    ''' Falls back to the shuttle on its own if the grid was never built.
+    ''' </summary>
+    Public TANK_AI As Boolean = True
+
     Public TANK_NAV_DUMP As Boolean = False
 
     Public TANK_AUTOLOAD As Boolean = False

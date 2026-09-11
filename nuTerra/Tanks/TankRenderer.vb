@@ -316,6 +316,12 @@ Public Class MapTanks
         upload_shading()
 
         For Each inst In instances
+            ' The wheels and the track band read this while the meshes below
+            ' are drawn, and neither call takes an instance - so the tank being
+            ' drawn puts its own distance up first. Without it every track on
+            ' the map scrolls at one tank's speed.
+            track_distance_m = inst.trackDistance
+
             Dim wp = shuttle_position(inst)
             upload_lights(wp)
             upload_armor(inst.vehicle.nation)
@@ -362,7 +368,7 @@ Public Class MapTanks
         ' One accumulator for the whole frame, advanced here rather than per
         ' mesh - upload_bones runs once per mesh and would otherwise step the
         ' distance a dozen times a frame.
-        advance_shuttle()
+        advance_movement()
 
         GL.Uniform1(shader("tank_shading"), 1)
         GL.Uniform1(shader("metal_scale"), TANK_LIGHT)
@@ -781,6 +787,74 @@ Public Class MapTanks
     ''' to wind the wheels backwards too; an accumulator that only ever grew
     ''' would drive the tank home with its tracks still running forwards.
     ''' </summary>
+    ''' <summary>
+    ''' Move the vehicles, by whichever means is switched on.
+    '''
+    ''' THE SHUTTLE IS KEPT, not deleted. It slides every hull along its own
+    ''' heading off ONE shared distance, which is useless as behaviour and
+    ''' exactly right for checking that a track band scrolls at the rate the
+    ''' hull moves - it is the only mode where every tank is guaranteed to be
+    ''' doing the same measurable thing. TANK_AI off returns to it.
+    ''' </summary>
+    Private Sub advance_movement()
+        If TANK_AI AndAlso nav.ready Then
+            For Each inst In instances
+                inst.drive.Advance(inst, nav, instances, ANIM_DELTA)
+            Next
+            report_fleet()
+            ' No reversal to volley on - the guns run on their own cadence and
+            ' on whatever the AI gives them later.
+            advance_guns(False)
+        Else
+            advance_shuttle()
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' What the fleet is doing, every few seconds.
+    '''
+    ''' Thirty vehicles wandering a map cannot be judged from a screenshot -
+    ''' a tank that is stuck and a tank that is waiting for another to pass
+    ''' look identical in one frame. Moving, stuck, goalless and the pin
+    ''' count are the four numbers that separate a fleet that is driving
+    ''' from one that is jammed against a wall it cannot see.
+    ''' </summary>
+    Private Sub report_fleet()
+        fleet_report_s += ANIM_DELTA
+        If fleet_report_s < 5.0F Then Return
+        fleet_report_s = 0.0F
+
+        Dim moving = 0, stuck = 0, goalless = 0
+        Dim total_v = 0.0F, far_m = 0.0F
+        For Each inst In instances
+            Dim d = inst.drive
+            If d.speed > 0.1F Then moving += 1
+            If d.stuckS > TankDriveTune.STUCK_S Then stuck += 1
+            If Not d.hasGoal Then goalless += 1
+            total_v += d.speed
+            far_m = Math.Max(far_m, inst.trackDistance)
+        Next
+
+        Dim pins = 0
+        For i = 0 To nav.cell.Length - 1
+            If (nav.cell(i) And TankNav.PINNED) <> 0 Then pins += 1
+        Next
+
+        LogThis("tank ai: {0}/{1} moving, {2} stuck, {3} without a goal, mean {4:0.0} m/s, furthest {5:0} m, {6} pin(s)",
+                moving, instances.Count, stuck, goalless,
+                total_v / Math.Max(instances.Count, 1), far_m, pins)
+
+        ' HERE, NOT ONLY IN Dispose. Learning that outlives the session was the
+        ' whole point of pinning, and Dispose is not reached when the process
+        ' is killed - which is how this one usually ends, in testing and when
+        ' the owner closes the window on a hung frame alike. Save no-ops unless
+        ' something was actually learned, so this costs nothing most times it
+        ' is called.
+        nav.Save()
+    End Sub
+
+    Private fleet_report_s As Single
+
     Private Sub advance_shuttle()
         ' Not SHUTTLE_M: VB is case-insensitive, so that name and the
         ' shuttle_m field below are the SAME identifier.
@@ -798,6 +872,11 @@ Public Class MapTanks
         Dim step_m = TANK_SPEED * ANIM_DELTA * shuttle_dir
         shuttle_m += step_m
         track_distance_m += step_m
+        ' Every tank shares the one distance in this mode, which is the point
+        ' of it - but Draw reads the per-tank field, so keep them in step.
+        For Each inst In instances
+            inst.trackDistance = track_distance_m
+        Next
 
         Dim reversed = False
         If shuttle_m >= SHUTTLE_RANGE_M Then
@@ -1263,7 +1342,11 @@ Public Class MapTanks
     ''' float it over the dip - the same reason the 10 m standoff samples after
     ''' the move rather than before it.
     ''' </summary>
+    ''' <summary>Where a tank is standing. Under the AI the driver has already
+    ''' put it there and grounded it; under the shuttle it is the parked spot
+    ''' plus the shared slide.</summary>
     Private Function shuttle_position(inst As TankInstance) As Vector3
+        If TANK_AI AndAlso nav.ready Then Return inst.position
         Dim sh = CSng(Math.Sin(inst.headingRad))
         Dim ch = CSng(Math.Cos(inst.headingRad))
         Dim x = inst.position.X + sh * shuttle_m
