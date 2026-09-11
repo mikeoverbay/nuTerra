@@ -1008,6 +1008,383 @@ class AmGrid:
                 (self.wz_max - z) / self.mz - 0.5)
 
 
+# --------------------------------------------------------------------------
+# The 3D view: the bake as a surface, with a depth buffer under every pixel
+# --------------------------------------------------------------------------
+# Software rendered - numpy, no GL - because Tk has no GL surface and the
+# thing being drawn is a heightfield, which a ray march draws exactly: every
+# pixel walks its ray until it dips under the surface, and the distance it
+# did so at IS the z-buffer. That buffer, and the world point behind every
+# pixel, are kept on the view after each full render, because placing
+# anything in this window later means turning a pixel back into a world
+# point - and that is exactly what they are.
+#
+# What is drawn is what the 2D map shows: the TOP layer (terrain plus every
+# object, block-max so a bell tower keeps its height) coloured from the same
+# mask picture the canvas uses, so obstacles are amber here too, shaded by
+# the slope; the route in pink at flight height, the other direction faint,
+# the splits ringed, the points and the lights - each only where the surface
+# does not hide it, by the depth buffer.
+
+class View3D:
+    G = 256              # cells a side the bake is sampled down to for the march
+    FULL = (640, 420)    # render size at rest; a drag renders at half and scales
+    FOV = 60.0           # horizontal, degrees
+    SKY = (11, 13, 18)
+
+    def __init__(self, studio):
+        self.studio = studio
+        top = tk.Toplevel(studio.root)
+        self.top = top
+        top.title("3D view")
+        top.configure(bg=BG)
+        top.resizable(False, False)
+        top.protocol("WM_DELETE_WINDOW", self.close)
+        self.canvas = tk.Canvas(top, width=self.FULL[0], height=self.FULL[1],
+                                bg="#0b0d12", highlightthickness=0)
+        self.canvas.pack()
+        self.info = tk.StringVar(value="")
+        ttk.Label(top, textvariable=self.info, style="Muted.TLabel").pack(
+            anchor="w", padx=6, pady=(2, 4))
+        self.canvas.bind("<Button-1>", self.on_press)
+        self.canvas.bind("<B1-Motion>", self.on_orbit)
+        self.canvas.bind("<ButtonRelease-1>", self.on_release)
+        self.canvas.bind("<Button-2>", self.on_press)
+        self.canvas.bind("<B2-Motion>", self.on_pan)
+        self.canvas.bind("<ButtonRelease-2>", self.on_release)
+        self.canvas.bind("<MouseWheel>", self.on_wheel)
+        self.drag = None
+        self.photo = None
+        self.terrain = None      # (image, depth, hit, camera, full) of the last render
+        self.depth = None        # metres along the ray per pixel, inf = sky (last FULL render)
+        self.hit = None          # world x, y, z behind every pixel, nan = sky (last FULL render)
+        self.cam = None
+        self.H = None
+        self._job = None
+        self.set_bake(render=True)
+
+    # ---- the data -----------------------------------------------------
+
+    def set_bake(self, render=True):
+        b = self.studio.bake
+        self.bake = b
+        if b is None:
+            self.H = None
+            self.info.set("no bake loaded")
+            self.canvas.delete("all")
+            return
+        G = self.G
+        fy, fx = max(1, b.h // G), max(1, b.w // G)
+        # TOP by block MAX - a bell tower keeps its height - the floor by mean.
+        self.H = b.top[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3)).astype(np.float32)
+        self.F = b.floor[:G * fy, :G * fx].reshape(G, fy, G, fx).mean(axis=(1, 3)).astype(np.float32)
+        self.wx_min, self.wx_max = float(b.wx_min), float(b.wx_max)
+        self.wz_min, self.wz_max = float(b.wz_min), float(b.wz_max)
+        self.cs = (self.wx_max - self.wx_min) / G
+        self.hmin, self.hmax = float(self.H.min()), float(self.H.max())
+        # Lambert off the slope, once. Rows run with -z, so d/dz is -gz.
+        gz, gx = np.gradient(self.H, self.cs, self.cs)
+        nx, ny, nz = -gx, np.ones_like(gx), gz
+        nl = np.sqrt(nx * nx + ny * ny + nz * nz)
+        L = np.array([-0.5, 0.75, 0.45])
+        L /= np.linalg.norm(L)
+        self.shade = (0.35 + 0.65 * np.clip((nx * L[0] + ny * L[1] + nz * L[2]) / nl,
+                                            0.0, 1.0)).astype(np.float32)
+        self.set_colours()
+        if self.cam is None:
+            ext = max(self.wx_max - self.wx_min, self.wz_max - self.wz_min)
+            self.cam = {"tx": 0.5 * (self.wx_min + self.wx_max),
+                        "tz": 0.5 * (self.wz_min + self.wz_max),
+                        "yaw": 0.0, "pitch": 50.0, "dist": ext * 0.9}
+        if render:
+            self.invalidate()
+
+    def set_colours(self):
+        """The surface colours, off the same picture the 2D canvas shows.
+        mask_full is mirrored on X for the canvas; the grid here is in bake
+        order, so it is mirrored back."""
+        m = self.studio.mask_full
+        if m is None or self.H is None:
+            self.colours = np.full((self.G, self.G, 3), 90, np.uint8)
+            return
+        arr = np.asarray(m.resize((self.G, self.G), Image.BILINEAR))[:, ::-1]
+        self.colours = np.ascontiguousarray(arr[..., :3])
+
+    def invalidate(self):
+        """Colours or camera changed: the surface has to be marched again."""
+        self.terrain = None
+        self.schedule(full=True)
+
+    # ---- camera -------------------------------------------------------
+
+    def basis(self):
+        """eye, forward, right, up - in the 2D map's frame: screen right is
+        world -X and screen up is world +Z, so yaw 0 pitched straight down
+        matches the canvas."""
+        c = self.cam
+        yaw, pitch = math.radians(c["yaw"]), math.radians(c["pitch"])
+        E = np.array([-1.0, 0.0, 0.0])
+        N = np.array([0.0, 0.0, 1.0])
+        fh = math.cos(yaw) * N + math.sin(yaw) * E
+        right = math.cos(yaw) * E - math.sin(yaw) * N
+        fwd = math.cos(pitch) * fh - math.sin(pitch) * np.array([0.0, 1.0, 0.0])
+        up = np.cross(right, fwd)
+        up /= np.linalg.norm(up)
+        target = np.array([c["tx"], float(self.sample_floor(c["tx"], c["tz"])), c["tz"]])
+        eye = target - fwd * c["dist"]
+        return eye, fwd, right, up, fh
+
+    def sample_floor(self, x, z):
+        col = int(np.clip((x - self.wx_min) / self.cs, 0, self.G - 1))
+        row = int(np.clip((self.wz_max - z) / self.cs, 0, self.G - 1))
+        return self.F[row, col]
+
+    # ---- the march ----------------------------------------------------
+
+    def march(self, W, Hpx):
+        """Every pixel's ray, walked a cell at a time until it dips under the
+        surface, then bisected onto it. Returns the picture, the depth (metres
+        along the ray, inf for sky), the world point per pixel, and the camera
+        the overlays project with."""
+        eye, fwd, right, up, _fh = self.basis()
+        tanf = math.tan(math.radians(self.FOV) * 0.5)
+        xs = (np.arange(W) + 0.5) / W * 2.0 - 1.0
+        ys = 1.0 - (np.arange(Hpx) + 0.5) / Hpx * 2.0
+        px, py = np.meshgrid(xs * tanf, ys * tanf * (Hpx / W))
+        d = (fwd[None, None, :] + px[..., None] * right[None, None, :]
+             + py[..., None] * up[None, None, :]).reshape(-1, 3)
+        d /= np.linalg.norm(d, axis=1)[:, None]
+        n = d.shape[0]
+        G, H, cs = self.G, self.H, self.cs
+
+        # Where each ray enters and leaves the box the map fills, up to the
+        # tallest thing in it - so the walk is bounded by the map, not by a
+        # step count.
+        lo = np.array([self.wx_min, self.hmin - 1.0, self.wz_min])
+        hi = np.array([self.wx_max, self.hmax + 1.0, self.wz_max])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            t1 = (lo - eye) / d
+            t2 = (hi - eye) / d
+        tenter = np.maximum(np.max(np.minimum(t1, t2), axis=1), 0.0)
+        texit = np.min(np.maximum(t1, t2), axis=1)
+        alive = texit > tenter
+        t = tenter.copy()
+        t_prev = t.copy()
+        hit = np.zeros(n, dtype=bool)
+        idx = np.nonzero(alive)[0]
+        steps = int((float(texit[alive].max()) - float(tenter[alive].min())) / cs) + 2 if idx.size else 0
+        for _ in range(steps):
+            if idx.size == 0:
+                break
+            t_prev[idx] = t[idx]
+            t[idx] += cs
+            p = eye[None, :] + d[idx] * t[idx, None]
+            col = ((p[:, 0] - self.wx_min) / cs).astype(np.int64)
+            row = ((self.wz_max - p[:, 2]) / cs).astype(np.int64)
+            inside = (col >= 0) & (col < G) & (row >= 0) & (row < G)
+            h = H[np.clip(row, 0, G - 1), np.clip(col, 0, G - 1)]
+            below = inside & (p[:, 1] <= h)
+            hit[idx[below]] = True
+            idx = idx[~(below | (t[idx] > texit[idx]))]
+
+        # Onto the surface: bisect between the last point above and the first
+        # below, five times - a sixteenth of a cell, and it stops the surface
+        # shimmering as the camera moves.
+        hi_ = np.nonzero(hit)[0]
+        a = t_prev[hi_].copy()
+        b = t[hi_].copy()
+        for _ in range(5):
+            m = 0.5 * (a + b)
+            p = eye[None, :] + d[hi_] * m[:, None]
+            col = np.clip(((p[:, 0] - self.wx_min) / cs).astype(np.int64), 0, G - 1)
+            row = np.clip(((self.wz_max - p[:, 2]) / cs).astype(np.int64), 0, G - 1)
+            below = p[:, 1] <= H[row, col]
+            b = np.where(below, m, b)
+            a = np.where(below, a, m)
+        t[hi_] = b
+
+        depth = np.full(n, np.inf, dtype=np.float32)
+        depth[hi_] = b
+        P = eye[None, :] + d[hi_] * b[:, None]
+        col = np.clip(((P[:, 0] - self.wx_min) / cs).astype(np.int64), 0, G - 1)
+        row = np.clip(((self.wz_max - P[:, 2]) / cs).astype(np.int64), 0, G - 1)
+        img = np.empty((n, 3), dtype=np.uint8)
+        img[:] = self.SKY
+        c = self.colours[row, col].astype(np.float32) * self.shade[row, col][:, None]
+        img[hi_] = np.clip(c, 0, 255).astype(np.uint8)
+        hitxyz = np.full((n, 3), np.nan, dtype=np.float32)
+        hitxyz[hi_] = P
+        return (img.reshape(Hpx, W, 3), depth.reshape(Hpx, W),
+                hitxyz.reshape(Hpx, W, 3), (eye, fwd, right, up, tanf))
+
+    # ---- rendering ----------------------------------------------------
+
+    def schedule(self, full):
+        """One render at a time: a drag asks for previews and only the last
+        one runs; a full render waits for the mouse to settle."""
+        if self._job is not None:
+            self.top.after_cancel(self._job)
+        self._job = self.top.after(30 if not full else 120, lambda: self.render(full))
+
+    def render(self, full=True):
+        self._job = None
+        if self.H is None:
+            return
+        W, Hpx = self.FULL if full else (self.FULL[0] // 2, self.FULL[1] // 2)
+        t0 = time.time()
+        img, depth, hit, cam = self.march(W, Hpx)
+        im = Image.fromarray(img, "RGB")
+        if not full:
+            im = im.resize(self.FULL, Image.NEAREST)
+        self.terrain = (im, depth, hit, cam, full)
+        if full:
+            # Only a full render is worth keeping for picking.
+            self.depth, self.hit = depth, hit
+        self.overlay()
+        c = self.cam
+        self.info.set("yaw %.0f  pitch %.0f  %.0f m out   %s in %.0f ms   -   "
+                      "drag orbits, wheel zooms, middle-drag pans"
+                      % (c["yaw"], c["pitch"], c["dist"],
+                         "full" if full else "preview", (time.time() - t0) * 1000.0))
+
+    def project(self, pts, cam):
+        """World points -> (px, py, distance) at FULL size, or None behind
+        the camera."""
+        eye, fwd, right, up, tanf = cam
+        W, Hpx = self.FULL
+        out = []
+        for (x, y, z) in pts:
+            v = np.array([x, y, z], dtype=float) - eye
+            zc = float(v @ fwd)
+            if zc <= 0.5:
+                out.append(None)
+                continue
+            sx = float(v @ right) / (zc * tanf)
+            sy = float(v @ up) / (zc * tanf)
+            out.append(((sx + 1.0) * 0.5 * W,
+                        (1.0 - sy * (W / Hpx)) * 0.5 * Hpx,
+                        float(np.linalg.norm(v))))
+        return out
+
+    def overlay(self):
+        """The route, the points and the lights over the last surface, each
+        only where the depth buffer says the surface does not hide it."""
+        if self.terrain is None:
+            return
+        im, depth, hit, cam, full = self.terrain
+        im = im.copy()
+        d = ImageDraw.Draw(im)
+        st = self.studio
+        agl = float(st.vars["agl"].get())
+        dh, dw = depth.shape
+        W, Hpx = self.FULL
+
+        def vis(p):
+            if p is None:
+                return False
+            px, py, dist = p
+            i = int(np.clip(px * dw / W, 0, dw - 1))
+            j = int(np.clip(py * dh / Hpx, 0, dh - 1))
+            return dist <= depth[j, i] + max(2.0 * self.cs, 0.02 * dist)
+
+        def fly_y(x, z):
+            return float(self.sample_floor(x, z)) + agl
+
+        def polyline(pts_xz, y_of, fill, width, dash=False):
+            P = self.project([(x, y_of(x, z), z) for (x, z) in pts_xz], cam)
+            n = len(P)
+            for k in range(n):
+                if dash and (k // 2) % 2:
+                    continue
+                a, b = P[k], P[(k + 1) % n]
+                if vis(a) and vis(b):
+                    d.line([a[:2], b[:2]], fill=fill, width=width)
+
+        def dot(x, y, z, r, fill, outline=(255, 255, 255)):
+            p = self.project([(x, y, z)], cam)[0]
+            if vis(p):
+                d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=fill, outline=outline)
+            return p
+
+        if st.route_other and len(st.route_other) > 1:
+            polyline(st.route_other, fly_y, (150, 120, 200), 1, dash=True)
+        if st.route and len(st.route) > 1:
+            polyline(st.route, fly_y, (255, 46, 168), 2)
+        for (mx, mz, dev) in st.diverge:
+            p = self.project([(mx, fly_y(mx, mz), mz)], cam)[0]
+            if vis(p):
+                d.ellipse([p[0] - 10, p[1] - 10, p[0] + 10, p[1] + 10],
+                          outline=(120, 255, 205), width=2)
+                d.text((p[0] + 13, p[1] - 7), "%.0f m" % dev, fill=(150, 255, 215))
+        for i, (tx, tz) in enumerate(st.targets):
+            p = dot(tx, float(self.sample_floor(tx, tz)) + 1.0, tz, 4, (70, 210, 245))
+            if p is not None and vis(p):
+                d.text((p[0] + 6, p[1] - 6), str(i + 1), fill=(190, 240, 255))
+        if st.start:
+            dot(st.start[0], float(self.sample_floor(*st.start)) + 1.0, st.start[1],
+                5, (80, 255, 130))
+        for lt in st.lights:
+            rgb = _hex_rgb(lt["color"])
+            y = float(self.sample_floor(lt["x"], lt["z"])) + float(lt.get("height", 3.0))
+            dot(lt["x"], y, lt["z"], 4, rgb)
+
+        self.photo = ImageTk.PhotoImage(im)
+        self.canvas.delete("all")
+        self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
+
+    # ---- the mouse ----------------------------------------------------
+
+    def on_press(self, e):
+        self.drag = (e.x, e.y)
+
+    def on_orbit(self, e):
+        if self.drag is None or self.cam is None:
+            return
+        dx, dy = e.x - self.drag[0], e.y - self.drag[1]
+        self.drag = (e.x, e.y)
+        self.cam["yaw"] = (self.cam["yaw"] + dx * 0.4) % 360.0
+        self.cam["pitch"] = float(np.clip(self.cam["pitch"] + dy * 0.3, 8.0, 89.0))
+        self.terrain = None
+        self.schedule(full=False)
+
+    def on_pan(self, e):
+        if self.drag is None or self.cam is None:
+            return
+        dx, dy = e.x - self.drag[0], e.y - self.drag[1]
+        self.drag = (e.x, e.y)
+        _eye, _fwd, right, _up, fh = self.basis()
+        k = self.cam["dist"] * 0.0015
+        move = -right * dx * k + fh * dy * k
+        self.cam["tx"] = float(np.clip(self.cam["tx"] + move[0], self.wx_min, self.wx_max))
+        self.cam["tz"] = float(np.clip(self.cam["tz"] + move[2], self.wz_min, self.wz_max))
+        self.terrain = None
+        self.schedule(full=False)
+
+    def on_release(self, _e):
+        self.drag = None
+        if self.terrain is None or not self.terrain[4]:
+            self.schedule(full=True)
+
+    def on_wheel(self, e):
+        if self.cam is None:
+            return
+        self.cam["dist"] = float(np.clip(self.cam["dist"] * (1.15 ** (-e.delta / 120.0)),
+                                         20.0, 6000.0))
+        self.terrain = None
+        self.schedule(full=False)
+        # and the full one once the wheel stops
+        self.top.after(250, lambda: self.schedule(full=True) if self.terrain is None
+                       or not self.terrain[4] else None)
+
+    def close(self):
+        if self._job is not None:
+            self.top.after_cancel(self._job)
+            self._job = None
+        self.studio.show_3d.set(False)
+        self.studio.view3d = None
+        self.top.destroy()
+
+
 class Studio:
     def __init__(self, root):
         self.root = root
@@ -1140,6 +1517,8 @@ class Studio:
         self.route_dir = None
         self.diverge = []
         self.direction_wanted = "auto"
+        # The 3D window, or None. See View3D.
+        self.view3d = None
         self.light_color = "#ffd9a0"    # colour the NEXT light is placed with
         self.bulb_cursor = bulb_cursor()
 
@@ -1274,6 +1653,12 @@ class Studio:
         ttk.Checkbutton(radar_row, text="Show Radar Imaging",
                         variable=self.show_radar,
                         command=self.on_radar_toggle).pack(side="left")
+        # The bake in 3D, in its own window - the height map marched as a
+        # surface with a depth buffer under every pixel, which is what placing
+        # anything in it will need. See View3D.
+        self.show_3d = tk.BooleanVar(value=False)
+        ttk.Checkbutton(radar_row, text="3D view", variable=self.show_3d,
+                        command=self.on_3d_toggle).pack(side="left", padx=(8, 0))
 
         # THE DASHED LINKS BETWEEN THE POINTS, AND A WAY TO TURN THEM OFF.
         #
@@ -1469,6 +1854,9 @@ class Studio:
         # a bare key with nothing on screen to discover it from - the buttons
         # document themselves, this half does not.
         ttk.Label(right, justify="left", style="Note.TLabel", text=(
+            "3D view        the bake as a surface, in\n"
+            "               its own window: drag orbits,\n"
+            "               wheel zooms, middle-drag pans\n"
             "Edit path      unlock the path controls\n"
             "Direction      auto flies the loop both\n"
             "               ways and keeps the better;\n"
@@ -1974,6 +2362,11 @@ class Studio:
         # With a height map the canvas draws against the bake itself.
         self.view_grid = self.bake
         self.map_name = name
+        if self.view3d is not None:
+            # A new map: new surface, and the camera back to its overview.
+            # render_mask below recolours it and renders.
+            self.view3d.cam = None
+            self.view3d.set_bake(render=False)
         self.start = self.route = None
         self.am_img = None          # a different map, a different picture
 
@@ -2284,6 +2677,19 @@ class Studio:
         if self.bake is not None:
             self.render_mask()
 
+    def on_3d_toggle(self):
+        if self.show_3d.get():
+            if self.bake is None:
+                self.show_3d.set(False)
+                self.status.set("the 3D view needs a map with a bake")
+                return
+            if self.view3d is None:
+                self.view3d = View3D(self)
+            else:
+                self.view3d.top.lift()
+        elif self.view3d is not None:
+            self.view3d.close()
+
     def load_am(self):
         """The map's global_AM on the bake grid, cached per map. False if none."""
         if self.am_img is not None:
@@ -2371,6 +2777,10 @@ class Studio:
                    + img.astype(np.float32) * (1.0 - k)).astype(np.uint8)
 
         self.mask_full = Image.fromarray(img[:, ::-1], "RGB")
+        if self.view3d is not None:
+            # Same colours in the window as on the canvas, always.
+            self.view3d.set_colours()
+            self.view3d.invalidate()
         self.repaint()
 
     def repaint(self):
@@ -2869,6 +3279,10 @@ class Studio:
         self.photo = ImageTk.PhotoImage(im)
         self.canvas.delete("all")
         self.canvas.create_image(self.ox, self.oy, anchor="nw", image=self.photo)
+        if self.view3d is not None:
+            # The overlays only - the surface is cached until the camera or
+            # the colours move.
+            self.view3d.overlay()
 
     # ------------------------------------------------------------ transforms
 
