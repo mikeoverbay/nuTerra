@@ -1,47 +1,79 @@
+﻿Imports OpenTK.Mathematics
+
 ''' <summary>
 ''' One gun's recoil cycle: the barrel slams back, holds, and settles home.
 '''
-''' PORTED FROM TEPY's tankExporterPy/gun_recoil.py, which is where this was
-''' worked out - the timings, the shape of the return, and above all the rule
-''' for WHICH vertices move. The history there is worth keeping because every
-''' wrong version of it looked plausible:
-'''
-'''  * Driving the recoil through the BONE PALETTE moved the wrong parts. The
-'''    palette order is not the same on every tank - TEPY measured G78 shipping
-'''    ['G_BlendBone', 'Gun_BlendBone'] and A38 the same two reversed - so any
-'''    rule of the form "bone 1 recoils" is right on one nation and wrong on
-'''    the next. Worse, WoT's naming is the inverse of the intuition: G_* is
-'''    the BARREL and Gun_* is the rigid mount, confirmed there by measuring
-'''    the Z span of the vertices bound to each.
-'''
-'''  * Name-classifying the bones offline fixed the order problem and still
-'''    failed: A100_T49 inverts the convention outright.
-'''
-'''  * A WEIGHTED per-slot rule - every slot referencing a recoil bone
-'''    contributes its own weight - looks the most principled of the lot and is
-'''    wrong for the single largest vertex family in the game. TEPY counted
-'''    815k vertices across 579 tanks shaped (0, 3, ?, ?): mantlet vertices
-'''    with secondary skinning to the recoil bone for a smooth joint. Under the
-'''    weighted rule they slide partway back on every shot, which is exactly
-'''    the "wrong parts move on the gun" symptom.
-'''
-''' What survived all of that is a BYTE TEST ON ONE SLOT:
-'''
-'''     a_bone_idx.x == 3  ->  this vertex recoils, by the full amount
-'''     anything else      ->  it does not move at all
-'''
-''' Binary, not blended. (0, 3, 3, 0) is 100% mantlet even though two slots
-''' name the recoil bone, and (3, 6, 6, 0) is 100% barrel even though two name
-''' the mantlet. The byte is read RAW - it is not divided by three and never
-''' indexes the palette - so the rule cannot care what order a tank declares
-''' its bones in, which is the whole reason it works everywhere.
-'''
-''' The translation is added AFTER the skin, as a plain offset in mesh-local
-''' space, for the same reason: it bypasses the palette entirely.
-'''
-''' THE OTHER HALF, the deform, is not here - see TankRenderer.upload_recoil.
+''' The timings are TEPY's (tankExporterPy/gun_recoil.py). The rule for WHICH
+''' vertices move is not, and the difference is measured rather than argued -
+''' see ClassifyPalette below.
 ''' </summary>
 Public Class TankRecoil
+
+    ''' <summary>
+    ''' Which palette slots are the BARREL, from the bone names.
+    '''
+    ''' THE BYTE IS NOT THE ANSWER, and this is the correction to what shipped
+    ''' first. TEPY's shader tests the raw bone byte against a hardcoded 3 and
+    ''' calls it a WoT-wide convention. Its own corpus table says otherwise:
+    ''' of 1185 guns, byte 3 is the barrel on 613 and byte 0 on 475, with the
+    ''' rest on 6, 9, 12, 15 or 21. It is a coin flip, because the byte is just
+    ''' palette_index * 3 and the two bones are declared in whichever order the
+    ''' artist wrote them:
+    '''
+    '''     [G_BlendBone, Gun_BlendBone]  -> barrel is byte 0
+    '''     [Gun_BlendBone, G_BlendBone]  -> barrel is byte 3
+    '''
+    ''' Half of the thirty on this map are one way and half the other, which is
+    ''' exactly what "some guns move the wrong parts" looks like: on the other
+    ''' half, byte 3 is the rigid MOUNT, so the mantlet slid back and the barrel
+    ''' stayed put.
+    '''
+    ''' The names are stable where the order is not. Across all 1185 guns:
+    ''' G_BlendBone appears on 1158, Gun_BlendBone on 1174, and WoT's naming is
+    ''' the inverse of the intuition - G_* is the BARREL, Gun_* the assembly it
+    ''' slides in. TEPY verified that spatially on the Tiger: G_BlendBone's
+    ''' vertices span Z -5.44..-1.43 and Gun_BlendBone's -1.43..-0.01.
+    '''
+    ''' AND THERE IS NO CLOTH BONE. The category exists in TEPY's classifier and
+    ''' fires on exactly zero tanks - no bone in the corpus is named cloth,
+    ''' fabric or rubber, and a separate scan found no cloth material either:
+    ''' all 1185 guns are one material, PBS_tank_skinned.fx. What the shader
+    ''' comments call the cloth slot is whatever bone is declared third, and in
+    ''' this corpus that is static_joint_BlendBone or Joint_01_BlendBone - a
+    ''' rigid mount. The fabric at the mantlet is not a bone or a material; it
+    ''' is the 1.3% of vertices whose WEIGHT is split between the barrel and a
+    ''' rigid bone, and it stretches for free if the recoil is weighted.
+    ''' </summary>
+    Public Shared Function ClassifyPalette(palette As List(Of String)) As Integer()
+        Dim flags(63) As Integer
+        If palette Is Nothing Then Return flags
+
+        For i = 0 To Math.Min(palette.Count, 64) - 1
+            Dim n = If(palette(i), "").ToLowerInvariant()
+            If n = "" Then Continue For
+
+            ' Mechanisms first, so G_Cover_ and G_Pusher_ never reach the G_
+            ' test below. These carry their own animation in the engine and
+            ' recoiling them is as wrong as recoiling the mount.
+            If n.Contains("cover") OrElse n.Contains("close") OrElse
+               n.Contains("pusher") OrElse n.Contains("ejector") OrElse
+               n.Contains("breech") OrElse n.Contains("loader") OrElse
+               n.Contains("feed") OrElse n.Contains("rotate") OrElse
+               n.Contains("spring") OrElse n.Contains("valve") OrElse
+               n.Contains("cap_") Then Continue For
+
+            ' Rigid mounts. statik is the German spelling and join_ a typo of
+            ' joint - both are real bone names in the corpus, not defensiveness.
+            If n.Contains("static") OrElse n.Contains("statik") OrElse
+               n.Contains("joint") OrElse n.StartsWith("join_") Then Continue For
+
+            ' Gun_ is the assembly, G_ is the barrel. Order matters: Gun_ also
+            ' starts with G, so it has to be rejected first.
+            If n.StartsWith("gun_") Then Continue For
+            If n.StartsWith("g_") Then flags(i) = 1
+        Next
+        Return flags
+    End Function
 
     ''' <summary>How far back the barrel slides. A real 152 mm gun runs 0.6 to
     ''' 0.9 m; TEPY settled on 0.40 m as what reads as a recoil at 60 fps

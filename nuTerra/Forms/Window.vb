@@ -1693,6 +1693,14 @@ try_again:
                                          "Fires at each end of the shuttle run" & vbLf &
                                          "and on the cadence below.")
                     End If
+                    ImGui.Checkbox("Weighted recoil", TANK_RECOIL_WEIGHTED)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("On: each vertex takes the share of the" & vbLf &
+                                         "travel its weights put on the barrel, so" & vbLf &
+                                         "the mantlet cover stretches." & vbLf &
+                                         "Off: all or nothing on the first slot." & vbLf &
+                                         "Same bone classification either way.")
+                    End If
                     ImGui.SliderFloat("Fire every", TANK_FIRE_PERIOD, 0.0, 10.0)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Seconds between shots. 0 fires only at" & vbLf &

@@ -1090,6 +1090,22 @@ Module modGlobalVars
     ''' </summary>
     Public TANK_FIRE_PERIOD As Single = 2.0F
 
+    ''' <summary>
+    ''' Give each vertex the share of the recoil its weights put on the barrel.
+    '''
+    ''' On is the drape: a vertex straddling the barrel and the mount takes the
+    ''' fraction in between, and the mantlet cover stretches rather than either
+    ''' recoiling whole or standing still. That is 1.3% of gun vertices across
+    ''' the corpus and it is the only fabric there is - no gun in WoT has a
+    ''' cloth bone or a cloth material.
+    '''
+    ''' Off is the binary rule - the whole travel if slot x is a barrel bone,
+    ''' nothing otherwise - which is what TEPY's shader does. Both run off the
+    ''' same per-tank bone classification, so the switch compares the two rules
+    ''' and nothing else.
+    ''' </summary>
+    Public TANK_RECOIL_WEIGHTED As Boolean = True
+
     ''' <summary>Draw the ID and condition card over each tank.</summary>
     Public TANK_TAGS As Boolean = True
 

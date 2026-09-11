@@ -822,54 +822,142 @@ Public Class MapTanks
     Private Shared shuttle_dir As Single = 1.0F
 
     ''' <summary>
-    ''' Tell the shader whether this mesh recoils, and by how much.
+    ''' Tell the shader whether this mesh recoils, which of its bones is the
+    ''' barrel, and by how much.
     '''
-    ''' THE GUN PART, AND ONLY WHEN IT IS SKINNED. An unskinned gun has no
-    ''' bone bytes at all, so the byte test in the shader would read whatever
-    ''' the unused attribute defaults to - which is zero, and zero is a real
-    ''' classification, not an absence. -1 turns the branch off outright.
+    ''' THE GUN PART, AND ONLY WHEN IT IS SKINNED. An unskinned gun has no bone
+    ''' bytes at all, so the test in the shader would read whatever the unused
+    ''' attribute defaults to - which is zero, and zero is a real palette slot,
+    ''' not an absence.
     '''
-    ''' +Z IS BACKWARD. The gun is authored pointing down mesh-local -Z, so
-    ''' sliding the barrel into the mantlet is +Z. This survives FlipSkinnedZ
-    ''' without a sign change, and that is worth stating because it looks like
-    ''' it should not: the flip is applied to the model matrix, so it acts on
-    ''' the offset and the geometry together. Reverse the flip and the barrel
-    ''' still goes into the tank.
+    ''' Resolved ONCE per mesh and cached. The palette is a property of the
+    ''' visual, so the answer cannot change between frames, and a per-frame name
+    ''' walk over thirty guns would be thirty string classifications a frame for
+    ''' a constant.
     '''
-    ''' AND THE DEFORM IS NOT HERE, because the thing it deforms with does not
-    ''' exist yet. TEPY gets the mantlet cover to stretch by overriding ONE
-    ''' palette slot - byte 6, palette index 2, which is the cloth slot by WoT
-    ''' convention - with the INVERSE of the gun's pitch matrix. Ordinary
-    ''' weighted skinning then interpolates: a pure barrel vertex (3,3,3,0)
-    ''' skins to identity and pitches with the model matrix; a pure cloth
-    ''' vertex (6,6,6,0) skins to the inverse and the two cancel, so it stays
-    ''' anchored to the mantlet; a blended vertex lands between them and the
-    ''' fabric stretches in proportion to the angle. One matrix, three
-    ''' behaviours, no extra uniform. nuTerra's guns do not pitch - there is no
-    ''' aim - so there is nothing for that to interpolate against and writing
-    ''' it now would be writing an identity. When pitch arrives it is this:
-    ''' bones(2) = inverse of the mesh-local pitch, and the stretch follows.
+    ''' AND THE DEFORM IS NOT A SEPARATE MECHANISM. TEPY delivers the mantlet
+    ''' cover's stretch by overriding one palette slot with the inverse of the
+    ''' gun's PITCH matrix, so weighted skinning interpolates between pitched and
+    ''' anchored. That is a real trick and it is about pitch, which nuTerra's
+    ''' guns do not have. Under RECOIL the same vertices are handled by the
+    ''' weighted share in the shader: a vertex straddling barrel and mount takes
+    ''' the fraction of the travel its weights put on the barrel, which is the
+    ''' drape. When aim arrives, the pitch trick is the other half and goes in
+    ''' upload_bones, not here.
     ''' </summary>
     Private Sub upload_recoil(part As TankPart, m As TankMesh, inst As TankInstance)
-        Dim is_gun = (part.label = "gun") AndAlso m.layout IsNot Nothing AndAlso
-                     m.layout.offBoneIdx >= 0
-        If Not is_gun Then
-            GL.Uniform1(shader("u_recoil_byte"), -1)
+        If part.label <> "gun" OrElse m.layout Is Nothing OrElse
+           m.layout.offBoneIdx < 0 Then
+            GL.Uniform1(shader("u_recoil_on"), 0)
             Return
         End If
-        GL.Uniform1(shader("u_recoil_byte"), RECOIL_BYTE)
-        GL.Uniform3(shader("u_recoil_t"), 0.0F, 0.0F, inst.recoil.offset_m)
+
+        Dim r = resolve_recoil(part, m)
+        If r Is Nothing Then
+            GL.Uniform1(shader("u_recoil_on"), 0)
+            Return
+        End If
+
+        GL.Uniform1(shader("u_recoil_on"), 1)
+        GL.Uniform1(shader("u_recoil_weighted"), If(TANK_RECOIL_WEIGHTED, 1, 0))
+        GL.Uniform1(shader("u_recoil_slot"), 64, r.slots)
+        GL.Uniform3(shader("u_recoil_t"), 0.0F, 0.0F, r.dir * inst.recoil.offset_m)
     End Sub
 
+    ''' <summary>What one gun mesh needs: which slots are barrel, and which way
+    ''' back is.</summary>
+    Private Class RecoilPlan
+        Public slots(63) As Integer
+        Public dir As Single = 1.0F
+    End Class
+
+    Private ReadOnly recoil_plans As New Dictionary(Of TankMesh, RecoilPlan)
+
     ''' <summary>
-    ''' The raw bone byte that marks a barrel vertex, on every tank.
+    ''' Classify this gun's palette once, and work out which way the barrel
+    ''' retracts.
     '''
-    ''' Three, not one. The byte is palette_index * 3 - SC_UBYTE4_REVERSE_
-    ''' PADDED, because the engine binds a flat vec4 array of three rows per
-    ''' bone - so this is palette slot 1. But the shader compares the byte
-    ''' WITHOUT dividing, on purpose: see TankRecoil.
+    ''' THE DIRECTION IS MEASURED, NOT ASSUMED. A fixed axis sign is wrong on
+    ''' half the corpus - the muzzle sits at +Z on some guns and -Z on others,
+    ''' and getting it backwards pushes the barrel further OUT of the mantlet
+    ''' instead of into it, which reads as the gun growing rather than as a
+    ''' sign error. ComputeBoneHubs already leaves a weighted centroid per
+    ''' palette slot, so the barrel bone's own hub says which end it is on:
+    ''' recoil is back toward the origin, so the sign is the opposite of the
+    ''' hub's. Nothing here has to know a convention.
+    '''
+    ''' Where the names give nothing - a palette with no G_ bone at all - the
+    ''' hubs answer that too: the bone whose vertices sit furthest out along Z
+    ''' IS the barrel, whatever it is called. TEPY needed exactly this for
+    ''' A100_T49, which inverts the naming convention outright.
     ''' </summary>
-    Private Const RECOIL_BYTE As Integer = 3
+    Private Function resolve_recoil(part As TankPart, m As TankMesh) As RecoilPlan
+        Dim plan As RecoilPlan = Nothing
+        If recoil_plans.TryGetValue(m, plan) Then Return plan
+
+        plan = New RecoilPlan
+        recoil_plans(m) = plan
+
+        Dim palette = part.PaletteFor(m)
+        plan.slots = TankRecoil.ClassifyPalette(palette)
+
+        ' The barrel is the flagged bone reaching furthest along Z. On a twin
+        ' gun both barrels are flagged and either answers the direction, since
+        ' they point the same way.
+        Dim best = -1
+        Dim bestZ = 0.0F
+        For i = 0 To 63
+            If plan.slots(i) = 0 Then Continue For
+            Dim z = hub_z(m, i)
+            If Single.IsNaN(z) Then Continue For
+            If best < 0 OrElse Math.Abs(z) > Math.Abs(bestZ) Then best = i : bestZ = z
+        Next
+
+        ' No G_ bone in the palette: fall back to geometry alone.
+        If best < 0 Then
+            For i = 0 To 63
+                Dim z = hub_z(m, i)
+                If Single.IsNaN(z) Then Continue For
+                If best < 0 OrElse Math.Abs(z) > Math.Abs(bestZ) Then best = i : bestZ = z
+            Next
+            If best >= 0 Then
+                plan.slots(best) = 1
+                LogThis("tank: gun [{0}] has no G_ bone - slot {1} taken as the barrel on its hub alone (z {2:0.00})",
+                        m.name, best, bestZ)
+            End If
+        End If
+
+        If best < 0 Then
+            recoil_plans(m) = Nothing
+            Return Nothing
+        End If
+
+        plan.dir = If(bestZ >= 0.0F, -1.0F, 1.0F)
+
+        ' Logged once per mesh, because "which bone is the barrel" is the whole
+        ' question and a wrong answer is only visible as the wrong part sliding.
+        Dim names As New List(Of String)
+        If palette IsNot Nothing Then
+            For i = 0 To Math.Min(palette.Count, 64) - 1
+                names.Add(String.Format("{0}{1}", palette(i),
+                                        If(plan.slots(i) <> 0, "*", "")))
+            Next
+        End If
+        LogThis("tank: gun [{0}] barrel slot {1} (byte {2}) hub z {3:0.00}, back is {4}Z  [{5}]",
+                m.name, best, best * 3, bestZ, If(plan.dir < 0, "-", "+"),
+                String.Join(" ", names))
+        Return plan
+    End Function
+
+    ''' <summary>A palette slot's centroid Z, or NaN when nothing is bound to
+    ''' it.</summary>
+    Private Function hub_z(m As TankMesh, slot As Integer) As Single
+        If m.boneHubs Is Nothing OrElse slot < 0 OrElse slot >= m.boneHubs.Length Then
+            Return Single.NaN
+        End If
+        Return m.boneHubs(slot).Z
+    End Function
+
 
     ''' <summary>How much clear ground a tank needs, metres from its centre.
     ''' A hull is about 7 m long, so this is half of it plus a margin.</summary>

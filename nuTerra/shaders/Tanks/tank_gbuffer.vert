@@ -62,25 +62,41 @@ uniform int  u_skinned;
 
 // ---- GUN RECOIL ------------------------------------------------------------
 //
-// THE BYTE IS THE CLASSIFIER, and it is read RAW - not divided by three, never
-// used to index the palette. TEPY arrived here after every palette-based rule
-// failed on some nation or other (see TankRecoil.vb for the full account); the
-// short version is that bone ORDER varies per tank, WoT's names are the
-// inverse of the intuition, and the obvious weighted rule breaks the single
-// largest vertex family in the game.
+// WHICH SLOTS ARE THE BARREL IS A PER-TANK FACT, not a constant. The first
+// version of this tested the raw bone byte against a hardcoded 3, which is
+// what TEPY's shader does and what its comments call a WoT-wide convention.
+// TEPY's own corpus table disagrees: byte 3 is the barrel on 613 of 1185 guns
+// and byte 0 on 475, because the byte is palette_index * 3 and the artist
+// declares [G_BlendBone, Gun_BlendBone] or the reverse as they please. Half
+// the tanks on this map are one way round. On the other half the hardcode slid
+// the rigid MOUNT back and left the barrel standing.
 //
-//     a_bone_idx.x == u_recoil_byte  ->  recoils, by the FULL amount
-//     anything else                  ->  does not move
-//
-// Binary, not blended: (0, 3, 3, 0) is 100% mantlet though two slots name the
-// recoil bone, and (3, 6, 6, 0) is 100% barrel though two name the mantlet.
-// Only slot x decides.
-//
-// -1 disables the branch, which is what every non-gun mesh uploads.
-uniform int  u_recoil_byte;
+// So the app classifies the palette by NAME - G_* is the barrel, Gun_* the
+// assembly it slides in - and hands the answer down as a flag per slot.
+uniform int u_recoil_slot[MAX_TANK_BONES];
 
-// Mesh-local metres, BACKWARD along the barrel. Added after the skin as a
-// plain offset, which is what lets it bypass the palette.
+// WEIGHTED, and that is where the fabric comes from.
+//
+// A vertex takes the share of the recoil that its weights put on barrel bones:
+// all of it for the barrel, none for the mount, and the fraction in between
+// for the vertices that straddle the two. Those are the mantlet cover - 1.3%
+// of gun vertices across the corpus, which TEPY's scan calls stretch verts -
+// and they are the only thing there is. There is no cloth bone in WoT and no
+// cloth material either: all 1185 guns are one material, and the bone the
+// shader comments call the cloth slot is named static_joint or Joint_01. The
+// drape is weight, so weighting the recoil IS the drape.
+//
+// 0 falls back to the binary rule - the whole recoil if slot x is a barrel
+// bone, nothing otherwise - off the same per-tank flags, so the two can be
+// compared without the bone identity changing underneath.
+uniform int u_recoil_weighted;
+
+// 0 disables the branch outright, which is what every non-gun mesh uploads.
+uniform int u_recoil_on;
+
+// Metres along the barrel, sign already resolved by the app from the barrel
+// bone's own position - the muzzle is at +Z on some guns and -Z on others, so
+// a fixed axis sign pushes the barrel OUT on half of them.
 uniform vec3 u_recoil_t;      // 0 = identity skin, exactly as before   // 1: a_normal is 8/8/8 bytes (b/127.5 - 1); 0: a_normal.x carries a packed 11/10/10 (unused so far)
 
 // TWO FRAMES, ON PURPOSE.
@@ -157,8 +173,24 @@ void main(void)
     // AFTER the skin, and only the position. The recoil is a pure slide, so
     // the tangent frame below is the bind frame rotated by the bones and
     // nothing else - shifting a barrel does not turn its surface.
-    if (u_recoil_byte >= 0 && int(a_bone_idx.x) == u_recoil_byte) {
-        p_local += u_recoil_t;
+    if (u_recoil_on != 0) {
+        ivec4 rb = ivec4(a_bone_idx) / 3;
+        rb = clamp(rb, ivec4(0), ivec4(MAX_TANK_BONES - 1));
+        float rsum = a_bone_wt.x + a_bone_wt.y + a_bone_wt.z + a_bone_wt.w;
+        float rw = 0.0;
+        if (u_recoil_weighted != 0) {
+            if (u_recoil_slot[rb.x] != 0) rw += a_bone_wt.x;
+            if (u_recoil_slot[rb.y] != 0) rw += a_bone_wt.y;
+            if (u_recoil_slot[rb.z] != 0) rw += a_bone_wt.z;
+            if (u_recoil_slot[rb.w] != 0) rw += a_bone_wt.w;
+        } else {
+            rw = (u_recoil_slot[rb.x] != 0) ? rsum : 0.0;
+        }
+        // Over the weight SUM, not over 1.0 - the same normalisation the skin
+        // does, and for the same reason: Bigworld's byte weights round down,
+        // so a vertex fully bound to the barrel can total 0.97 and would
+        // otherwise recoil 3% short of the barrel it is welded to.
+        if (rsum > 1e-4) p_local += (rw / rsum) * u_recoil_t;
     }
 
     mat3 skin3 = mat3(skin);
