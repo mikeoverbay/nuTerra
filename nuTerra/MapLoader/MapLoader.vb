@@ -182,6 +182,15 @@ Module MapLoader
             ' tail a pass can stop short of. See MapSunShadow.draw_models.
             Dim shadowInland As New List(Of DrawElementsIndirectCommand)
             Dim shadowOutland As New List(Of DrawElementsIndirectCommand)
+
+            ' WHAT each shadow draw is, parallel to the commands and
+            ' partitioned with them. The flight bake writes this per draw so
+            ' the top map says what stands at a texel, not just how high it
+            ' is. Built here because here is the only place that knows which
+            ' model a draw came from - by the time it is an indirect command
+            ' it is four integers with no name on it.
+            Dim kindInland As New List(Of Byte)
+            Dim kindOutland As New List(Of Byte)
             Dim outland_batches = 0
             Dim outland_instances = 0
             Dim outland_names As New List(Of String)
@@ -245,10 +254,18 @@ Module MapLoader
                                     .count = drawCommands(cmdId).count,
                                     .baseInstance = cmdId
                                 }
+                                Dim bkind = MapFlightBake.KIND_OTHER
+                                Try
+                                    bkind = MapFlightBake.kind_of(
+                                        MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
+                                Catch
+                                End Try
                                 If batch_outland Then
                                     shadowOutland.Add(scmd)
+                                    kindOutland.Add(bkind)
                                 Else
                                     shadowInland.Add(scmd)
+                                    kindInland.Add(bkind)
                                 End If
                                 shadow_cmdId += 1
                             End If
@@ -472,6 +489,8 @@ Module MapLoader
                         shadowInland.Count, shadowOutland.Count, shadowMappingDrawCommands.Length)
                 shadowInland.AddRange(shadowOutland)
                 shadowOutland.Clear()
+                kindInland.AddRange(kindOutland)
+                kindOutland.Clear()
             End If
             shadowInland.CopyTo(shadowMappingDrawCommands, 0)
             shadowOutland.CopyTo(shadowMappingDrawCommands, shadowInland.Count)
@@ -484,6 +503,21 @@ Module MapLoader
                 LogThis("outland: excluded {0}", String.Join(", ", outland_names))
             End If
             report_outland_frames()
+
+            ' The kinds in the SAME order the commands ended up in, so
+            ' gl_DrawID indexes both. Ints rather than bytes: an SSBO of
+            ' bytes needs an extension to index, and 425 ints is nothing.
+            kindInland.AddRange(kindOutland)
+            Dim kindArr(Math.Max(kindInland.Count, 1) - 1) As Integer
+            For ki = 0 To kindInland.Count - 1
+                kindArr(ki) = CInt(kindInland(ki))
+            Next
+            MapFlightBake.kind_map = Nothing
+            map_scene.static_models.shadow_kinds = GLBuffer.Create(
+                BufferTarget.ShaderStorageBuffer, "shadow_kinds")
+            map_scene.static_models.shadow_kinds.Storage(
+                kindArr.Length * 4, kindArr, BufferStorageFlags.None)
+            map_scene.static_models.shadow_kinds.BindBase(12)
 
             map_scene.static_models.indirect_shadow_mapping = GLBuffer.Create(BufferTarget.DrawIndirectBuffer, "indirect_shadow_mapping")
             map_scene.static_models.indirect_shadow_mapping.Storage(

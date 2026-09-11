@@ -64,6 +64,12 @@ Public Class MapFlightBake
 
     Private fbo As GLFramebuffer
     Private depth_tex As GLTexture
+    Private kind_tex As GLTexture
+
+    ''' <summary>What stands at each texel - see kind_of. One byte per texel,
+    ''' the kind of the TOPMOST thing, which the depth test decides for
+    ''' free.</summary>
+    Public kind_b(SIZE * SIZE - 1) As Byte
 
     Public top_m(SIZE * SIZE - 1) As Single
     Public floor_m(SIZE * SIZE - 1) As Single
@@ -79,6 +85,72 @@ Public Class MapFlightBake
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
+
+    ''' <summary>
+    ''' What kind of thing a model is, by the folder it came out of.
+    '''
+    ''' BY FOLDER, because that is the only description the map carries. A
+    ''' model in the render set knows its vertices' name and the directory
+    ''' that held it, and nothing else says whether a mesh is a church or a
+    ''' crate. The owner's framing: mark it by the folder it came out of.
+    '''
+    ''' FIRST HIT WINS, in this order, and the order is doing work: a path
+    ''' like hd_bld_UNI_006_KitCrashFactory carries both bld and crash, and a
+    ''' fence around a house sits under the building's folder. Testing fence
+    ''' before building would call the factory a fence; testing building
+    ''' first would swallow the railings. The order below is the one that
+    ''' puts each of those where it belongs.
+    '''
+    ''' Eight keys at most, agreed with Path Studio, who colours them.
+    ''' </summary>
+    Public Shared Function kind_of(path As String) As Byte
+        If String.IsNullOrEmpty(path) Then Return KIND_OTHER
+        Dim p = path.Replace("\\", "/").ToLowerInvariant()
+
+        If has(p, "fence", "zabor", "ograda", "rail", "hedge",
+               "gate", "wire", "palisade") Then Return KIND_FENCE
+        If has(p, "tree", "bush", "foliage", "vine") Then Return KIND_TREE
+        If has(p, "rock", "stone", "cliff", "boulder") Then Return KIND_ROCK
+        If has(p, "building", "house", "church", "barn", "ruin",
+               "industrial", "_bld_") Then Return KIND_BUILDING
+        If has(p, "vehicle", "wreck", "tank", "car", "truck", "prop",
+               "misc", "barrel", "crate") Then Return KIND_PROP
+        Return KIND_OTHER
+    End Function
+
+    Private Shared Function has(p As String, ParamArray keys() As String) As Boolean
+        For Each k In keys
+            If p.Contains(k) Then Return True
+        Next
+        Return False
+    End Function
+
+    ''' <summary>The keys, and the names that go in the meta so the reading
+    ''' side never has to guess what a number means.</summary>
+    Public Const KIND_TERRAIN As Byte = 0
+    Public Const KIND_BUILDING As Byte = 1
+    Public Const KIND_FENCE As Byte = 2
+    Public Const KIND_TREE As Byte = 3
+    Public Const KIND_ROCK As Byte = 4
+    Public Const KIND_PROP As Byte = 5
+    Public Const KIND_WATER As Byte = 6
+    Public Const KIND_OTHER As Byte = 7
+    Public Shared ReadOnly KIND_NAMES() As String = {
+        "terrain", "building", "fence", "tree", "rock", "prop",
+        "water", "other"}
+
+    ''' <summary>
+    ''' Height encoding for the export: metres to a 16-bit count.
+    '''
+    ''' 64 steps to the metre is 1.5 cm, and 65535 of them is 1024 m of
+    ''' range - far more than any map's span. The offset is a whole number
+    ''' below the map minimum so nothing encodes negative, and it is written
+    ''' into the meta rather than assumed, because a map with a deeper pit
+    ''' than this one would otherwise silently clamp at zero.
+    ''' </summary>
+    Public Const HEIGHT_SCALE As Single = 64.0F
+
+    Public Shared kind_map() As Byte
 
     Public Sub Bake()
         ready = False
@@ -151,11 +223,18 @@ Public Class MapFlightBake
         read_heights(floor_m)
 
         ' top - the ground and everything standing on it
+        '
+        ' The KEY channel is cleared to zero, which is the terrain's own key, so
+        ' a texel nothing stood on reads as ground without the terrain pass
+        ' having to write anything. Only the floor pass above skips the clear -
+        ' it has no key to gather.
         GL.Clear(ClearBufferMask.DepthBufferBit)
+        GL.ClearBuffer(ClearBuffer.Color, 1, {0.0F, 0.0F, 0.0F, 0.0F})
         draw_terrain(vp)
         draw_models(vp)
         draw_trees(vp)
         read_heights(top_m)
+        read_kinds()
 
         GL.Enable(EnableCap.CullFace)
         GL.DepthFunc(DepthFunction.Greater)
@@ -242,6 +321,8 @@ Public Class MapFlightBake
     ''' mirror is repeated here rather than assumed away; getting it wrong puts
     ''' every lake on the opposite side of the map.
     ''' </summary>
+    ''' <summary>Water is raised on the CPU after the draw, so it keys itself
+    ''' here - there is no pass for it to have written from.</summary>
     Private Sub add_water()
         If cBWWa.bodies Is Nothing OrElse cBWWa.bodies.Length = 0 Then
             LogThis("flight bake: no water bodies")
@@ -274,7 +355,10 @@ Public Class MapFlightBake
                         floor_m(i) = y
                         raised += 1
                     End If
-                    If y > top_m(i) Then top_m(i) = y
+                    If y > top_m(i) Then
+                        top_m(i) = y
+                        kind_b(i) = KIND_WATER
+                    End If
                 Next
             Next
             wsum += y
@@ -306,6 +390,18 @@ Public Class MapFlightBake
                 100.0 * blocked / (SIZE * SIZE),
                 100.0 * no_data / (SIZE * SIZE),
                 tallest)
+    End Sub
+
+    ''' <summary>The key channel, flipped the same way the heights are so row
+    ''' 0 is the wz_max edge and the two arrays index alike.</summary>
+    Private Sub read_kinds()
+        Dim d(SIZE * SIZE - 1) As Byte
+        GL.GetTextureImage(kind_tex.texture_id, 0,
+                           OpenGL4.PixelFormat.Red, PixelType.UnsignedByte,
+                           d.Length, d)
+        For r = 0 To SIZE - 1
+            Array.Copy(d, (SIZE - 1 - r) * SIZE, kind_b, r * SIZE, SIZE)
+        Next
     End Sub
 
     Private Sub read_heights(dst() As Single)
@@ -392,9 +488,27 @@ Public Class MapFlightBake
         depth_tex.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
         depth_tex.Storage2D(1, DirectCast(InternalFormat.DepthComponent32f, SizedInternalFormat), SIZE, SIZE)
 
+        ' THE KEY CHANNEL. One byte a texel saying what the topmost thing is,
+        ' written by the same depth pass that decides which thing that is - so
+        ' there is no second pass and no sorting, and the two answers cannot
+        ' disagree about which surface won.
+        kind_tex = GLTexture.Create(TextureTarget.Texture2D, "FlightBakeKind")
+        kind_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        kind_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        kind_tex.Storage2D(1, DirectCast(InternalFormat.R8, SizedInternalFormat), SIZE, SIZE)
+
         fbo = GLFramebuffer.Create("FlightBakeFBO")
         fbo.Texture(FramebufferAttachment.DepthAttachment, depth_tex, 0)
-        GL.NamedFramebufferDrawBuffer(fbo.fbo_id, DrawBufferMode.None)
+        fbo.Texture(FramebufferAttachment.ColorAttachment1, kind_tex, 0)
+
+        ' LOCATION 1, NOT 0. The depth shaders have written the Moment Shadow
+        ' Map's four moments at location 0 since the sun bake needed them, and
+        ' taking that location for the key would have replaced the shadow data
+        ' with a byte. The draw-buffer array is indexed BY OUTPUT LOCATION, so
+        ' naming None first and ColorAttachment1 second sends the moments
+        ' nowhere and the key to the texture above.
+        GL.NamedFramebufferDrawBuffers(fbo.fbo_id, 2,
+            {DrawBuffersEnum.None, DrawBuffersEnum.ColorAttachment1})
         GL.NamedFramebufferReadBuffer(fbo.fbo_id, ReadBufferMode.None)
 
         If Not fbo.IsComplete Then
@@ -408,16 +522,75 @@ Public Class MapFlightBake
             IO.Directory.CreateDirectory(dir)
             Dim stem = IO.Path.Combine(dir, MAP_NAME_NO_PATH)
 
-            write_r32(stem & "_top.r32", top_m)
-            write_r32(stem & "_floor.r32", floor_m)
+            write_top_rgba(stem & "_top.rgba")
+            write_floor_r16(stem & "_floor.r16")
             write_mask_png(stem & "_mask.png")
             write_meta(stem & "_meta.txt")
 
-            LogThis("flight bake: exported {0}_top.r32 / _floor.r32 / _mask.png / _meta.txt to {1}",
+            LogThis("flight bake: exported {0}_top.rgba / _floor.r16 / _mask.png / _meta.txt to {1}",
                     MAP_NAME_NO_PATH, dir)
         Catch ex As Exception
             LogThis("flight bake: export FAILED: {0}", ex.Message)
         End Try
+    End Sub
+
+    ''' <summary>
+    ''' The offset the 16-bit heights are measured from: a whole number below
+    ''' the lowest point on the map.
+    '''
+    ''' WRITTEN INTO THE META rather than agreed as a constant. A map with a
+    ''' deeper pit than this one would otherwise encode negative and clamp
+    ''' silently at zero - a whole quarry reading as flat ground.
+    ''' </summary>
+    Private Function height_offset() As Single
+        Dim lo = Single.MaxValue
+        For i = 0 To floor_m.Length - 1
+            If floor_m(i) < lo Then lo = floor_m(i)
+        Next
+        If lo = Single.MaxValue Then lo = 0.0F
+        Return CSng(Math.Floor(lo) - 10.0F)
+    End Function
+
+    Private Function encode16(y As Single, off As Single) As Integer
+        Dim v = CInt(Math.Round((y - off) * HEIGHT_SCALE))
+        Return Math.Min(Math.Max(v, 0), 65535)
+    End Function
+
+    ''' <summary>
+    ''' The top map: the kind in R and a 16-bit height across G and B.
+    '''
+    ''' THE LOW BYTE IS IN B, NOT ALPHA. The spec came over with it in alpha
+    ''' and B spare; alpha is the one channel something downstream might
+    ''' premultiply, blend or drop on the way through an image tool, and half
+    ''' a height silently becoming 255 is a hill. B was spare anyway, so this
+    ''' costs nothing and removes the whole class of accident. Alpha is left
+    ''' at 255 so the file also opens as a sane picture.
+    ''' </summary>
+    Private Sub write_top_rgba(path As String)
+        Dim off = height_offset()
+        Dim b(top_m.Length * 4 - 1) As Byte
+        For i = 0 To top_m.Length - 1
+            Dim h = encode16(top_m(i), off)
+            Dim o = i * 4
+            b(o) = kind_b(i)
+            b(o + 1) = CByte((h >> 8) And &HFF)
+            b(o + 2) = CByte(h And &HFF)
+            b(o + 3) = 255
+        Next
+        IO.File.WriteAllBytes(path, b)
+    End Sub
+
+    ''' <summary>The floor, same encoding, no kind - the ground is kind 0 by
+    ''' definition and a byte a texel saying so is 67 MB of nothing.</summary>
+    Private Sub write_floor_r16(path As String)
+        Dim off = height_offset()
+        Dim b(floor_m.Length * 2 - 1) As Byte
+        For i = 0 To floor_m.Length - 1
+            Dim h = encode16(floor_m(i), off)
+            b(i * 2) = CByte(h And &HFF)
+            b(i * 2 + 1) = CByte((h >> 8) And &HFF)
+        Next
+        IO.File.WriteAllBytes(path, b)
     End Sub
 
     Private Shared Sub write_r32(path As String, a() As Single)
@@ -479,10 +652,17 @@ Public Class MapFlightBake
         sb.AppendLine(String.Format(inv, "wz_max={0:0.000}", wz_max))
         sb.AppendLine(String.Format(inv, "empty={0:0.000}", eye_y - far_d))
         sb.AppendLine(String.Format(inv, "obstacle_min_h={0:0.000}", OBSTACLE_MIN_H))
+        sb.AppendLine("format=rgba8")
+        sb.AppendLine(String.Format(inv, "height_scale={0:0}", HEIGHT_SCALE))
+        sb.AppendLine(String.Format(inv, "height_offset={0:0}", height_offset()))
+        For k = 0 To KIND_NAMES.Length - 1
+            sb.AppendLine(String.Format("kind_{0}={1}", k, KIND_NAMES(k)))
+        Next
         sb.AppendLine("#")
-        sb.AppendLine("# top.r32   highest surface - terrain, models and trees")
-        sb.AppendLine("# floor.r32 terrain alone")
-        sb.AppendLine("# both are float32 little endian, row major, width*height, in metres")
+        sb.AppendLine("# top.rgba  R = kind key, G = height high byte, B = height low byte,")
+        sb.AppendLine("#           A = 255. height = height_offset + h16 / height_scale")
+        sb.AppendLine("# floor.r16 uint16 little endian, same encoding, terrain alone")
+        sb.AppendLine("# both row major, width*height, row 0 = the wz_max edge")
         sb.AppendLine("# a cell at or below 'empty' means nothing rasterised there")
         sb.AppendLine("#")
         sb.AppendLine("# row 0 is the wz_max edge, rows increase toward wz_min")
@@ -495,6 +675,7 @@ Public Class MapFlightBake
 
     Public Sub Dispose() Implements IDisposable.Dispose
         depth_tex?.Dispose()
+        kind_tex?.Dispose()
         fbo?.Dispose()
         GC.SuppressFinalize(Me)
     End Sub

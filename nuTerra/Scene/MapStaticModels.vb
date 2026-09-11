@@ -208,6 +208,10 @@ Public Class MapStaticModels
     Public indirect_fx As GLBuffer
     Public vertsColour As GLBuffer
     Public indirect_shadow_mapping As GLBuffer
+
+    ''' <summary>One int per shadow draw: what kind of thing it is, for the
+    ''' flight bake's key channel. Indexed by gl_DrawID.</summary>
+    Public shadow_kinds As GLBuffer
     Public lods As GLBuffer
 
     ' For cull-raster only!
@@ -1038,6 +1042,7 @@ Public Class MapStaticModels
         vertsColour?.Dispose()
         indirect_dbl_sided?.Dispose()
         indirect_shadow_mapping?.Dispose()
+        shadow_kinds?.Dispose()
         indirect_lamp?.Dispose()
         lods?.Dispose()
 

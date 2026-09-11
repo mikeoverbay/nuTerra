@@ -27,10 +27,20 @@ uniform int skip_instance_p1;
 
 // Carried solely so the fragment stage can run the cutout test. Same two
 // members, same order, as mDepthWrite_light.vert hands its own fragment stage.
+// One int per shadow draw - what kind of thing it is, for the flight bake's
+// key channel. Indexed by gl_DrawIDARB, because the app built the array in the
+// same order it built the draw commands. Bound at 12 for the whole session, so
+// the sun bake reads it too and throws the answer away.
+layout(binding = 12, std430) readonly buffer BakeKinds
+{
+    int bake_kind[];
+};
+
 out Block
 {
     flat uint material_id;
     vec2 uv;
+    flat uint kind;
 } vs_out;
 
 void main(void)
@@ -52,6 +62,7 @@ void main(void)
     {
         vs_out.material_id = thisDraw.material_id;
         vs_out.uv = vertexTexCoord1;
+        vs_out.kind = uint(bake_kind[gl_DrawIDARB]);
         gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
         return;
     }
@@ -65,6 +76,7 @@ void main(void)
     // matrix above is not.
     vs_out.material_id = thisDraw.material_id;
     vs_out.uv = vertexTexCoord1;
+    vs_out.kind = uint(bake_kind[gl_DrawIDARB]);
 
     gl_Position = sunViewProj * model * vec4(vertexPosition, 1.0);
 }

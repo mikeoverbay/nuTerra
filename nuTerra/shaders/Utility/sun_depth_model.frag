@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
@@ -10,6 +10,7 @@ in Block
 {
     flat uint material_id;
     vec2 uv;
+    flat uint kind;
 } fs_in;
 
 // Four power moments of this fragment's depth, for the Moment Shadow Map path.
@@ -26,6 +27,18 @@ in Block
 // moments of the nearest occluder, which is what MSM wants. Filtering across
 // neighbours happens afterwards, in msm_blur and the mip chain.
 layout(location = 0) out vec4 moments;
+
+// ---- THE FLIGHT BAKE'S KEY CHANNEL -----------------------------------------
+//
+// Written at location 1, NOT 0. Location 0 is the Moment Shadow Map's four
+// moments and has been since the sun bake needed them; taking it would have
+// silently replaced the shadow data with a key byte.
+//
+// The flight bake attaches its key texture at ColorAttachment1 and names it as
+// the SECOND entry of its draw-buffer array, so location 1 lands there and
+// location 0 goes to None. The sun bake names neither, so on that pass both
+// writes are discarded and this costs a few ALU in a once-per-load job.
+layout(location = 1) out vec4 bake_key;
 
 void main(void)
 {
@@ -56,4 +69,9 @@ void main(void)
     float z  = gl_FragCoord.z;
     float z2 = z * z;
     moments = vec4(z, z2, z2 * z, z2 * z2);
+
+    // The key as a byte in red. The depth test has already decided this is the
+    // topmost thing at the texel, so what survives is the kind of whatever is
+    // actually on top - no sorting and no second pass.
+    bake_key = vec4(float(fs_in.kind) / 255.0, 0.0, 0.0, 1.0);
 }

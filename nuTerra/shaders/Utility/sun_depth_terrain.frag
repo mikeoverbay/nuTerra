@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 // Four power moments of this fragment's depth, for the Moment Shadow Map path.
 //
@@ -15,9 +15,25 @@
 // neighbours happens afterwards, in msm_blur and the mip chain.
 layout(location = 0) out vec4 moments;
 
+// ---- THE FLIGHT BAKE'S KEY CHANNEL -----------------------------------------
+//
+// Terrain is kind 0, and it has to SAY SO rather than leave the channel alone.
+//
+// The bake clears the key attachment to zero, which is terrain's own key, so
+// writing nothing here looks like it should be free. It is not: a fragment
+// shader that does not write an output for an ACTIVE draw buffer leaves that
+// value UNDEFINED, not unchanged. On this driver the undefined value came back
+// as the depth the shader had just computed, so three quarters of the map -
+// every texel where bare ground was the topmost thing - carried a height in
+// the key channel instead of a zero, correlated with terrain height at -0.996.
+//
+// The models and trees never showed it because they do write theirs.
+layout(location = 1) out vec4 bake_key;
+
 void main(void)
 {
     float z  = gl_FragCoord.z;
     float z2 = z * z;
     moments = vec4(z, z2, z2 * z, z2 * z2);
+    bake_key = vec4(0.0, 0.0, 0.0, 1.0);
 }
