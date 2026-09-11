@@ -443,6 +443,24 @@ ids, radius order, one-sided links, header counts), the canvas and the 3D
 view. The real file appears in the flight folder once the writer is on
 master and the owner builds.
 
+**The real file, read (18:30):** the Tank AI session's monastery zone map
+through this reader with no warnings but the provenance one (cut 67 min from
+the shared meta's mtime - true, it came from their clone): 10,334 discs,
+64,429 links, 103 islands (1.0%), widest 57.6 m, mean 8.1 m, smallest 4.79 m
+against a 4.5 m hull. Zone 0 at (-112.8, -204.4) is the open field south of
+the walls - the biggest open space on that side - and against the bake only
+0.2% of it stands over 1 m: 14 fence texels and 31 trunk-less tree texels,
+both exempt under the tank rule; zones 1, 2, 5 hold trunk-less foliage
+only. The nearest thing over 1 m to zone 0's centre is 13.3 m away and is
+foliage a tank drives through - the CAMERA's field would cut the same disc
+at 13 m. That one number is the whole case for two masks off one height map.
+CAVEAT: that map was cut from a mask master does not have - their branch
+exempts fence and prop kinds from the tank's height test (the owner: "a
+fence or curb is not going to stop a tank"), 2,028 cells freed on the
+monastery; on master those 14 fence texels block and zone 0 is smaller.
+Their six files (zone map, CSV export, route catalogue, nav frame accessors,
+two gun fixes) wait on the owner's commit.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
