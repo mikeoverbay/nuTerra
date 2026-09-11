@@ -31,6 +31,14 @@ uTerra` and never
   pushes into it, so nothing it does can land here except by a merge the
   owner performs. The "work on master here" rule above governs the two
   sessions in this tree, not that one.
+  EVERY nuTerra instance, whichever tree it was built from, writes its
+  flight bake to `%TEMP%
+uTerralight` (per USER, `MapFlightBake.vb:753`)
+  - the folder the planners read. A second instance silently replaces the
+  bake under the same name with a fresh timestamp; the Tank AI clone
+  redirects its TMP/TEMP to stay out of it. Before trusting a bake, check
+  its write time against the run that made it; provenance keys in the meta
+  (exe, built, written) are requested from the writer.
   The protocol that has held all day: NAME THE FILE before editing anything
   that is not yours, wait for the ack, and measure rather than argue. The
   flight bake's contract lives in `<map>_meta.txt` (kind_mask, outland_bit,
