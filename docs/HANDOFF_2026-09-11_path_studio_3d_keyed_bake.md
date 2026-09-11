@@ -366,6 +366,44 @@ stretches, worst 4.8 m short at (154, 113) under a 7.4 m top - foliage the
 old bake could not see. It needs regenerating in the Studio on this bake
 before it is flown again.
 
+## 12. Model shading: the tank's material on the milk cans (evening)
+
+The owner: "get the Gloss and Metal on the buildings to look like the tanks
+rendering", reference two tin milk cans (`hd_env_EU_040_MilkCans`) on a wood
+table by a stone wall, `cam=-4.2564,5.2212,-0.3624,70.5601,0,48.1163`.
+The 09-08 pass had tried this reference and was reverted. Built this time as
+**Tank material (models)** in the deferred PBR path (`TANK_MAT`, off by
+default, bit-identical off), with the material block of `tank_gbuffer.frag`
+ported and measured with the 09-08 still protocol. Uncommitted at the time
+of writing, pending the owner's eye. Measured negatives worth keeping:
+
+- **The tanks do not go through the resolve.** `tank_gbuffer.frag` lights
+  in linear space under three camera-following lights, ACES, gamma, and
+  writes `GFLAG_UNLIT`; its `gGMF.rg` is a by-product. The tank LOOK is that
+  rig, not its material model.
+- **The Tank Exporter curves black out the cans.** The cans' body carries
+  G 0.45 in the G-buffer; `pow(G/0.5, 5) * 1.5` reads that as 0.79 metal,
+  the diffuse goes, and the tank's `NdotV x gloss` IBL weighting gives a
+  rough metal nothing back: in the wall's shade the body fell 37 -> 11
+  levels (-70%), the wood table -47%. Under three lights the tank rig hides
+  this; one sun does not.
+- **The tank's gloss-gated sun lobe removes the game's sheen.** Gating by
+  raw gloss x 6 x curved gloss is x0.035 on these maps (R ~0.3); the game's
+  GGX low-gloss floor is a broad sheen every sunlit model has. Kept the
+  game's lobe.
+- **The game's decode is the safe reading.** `pow(x, 2.2)` on the bytes:
+  0.45 -> 0.17 metal, energy term `1 - min(m^2 * 3.2, 1)` keeps 91% of the
+  body's diffuse and takes all of the rim's (G 0.83 -> 0.66). Off -> on at
+  the camera: cans -3, wall 0, table -2, ground 0.
+- **The environment is the aluminium lever.** World-space R (x flipped),
+  mip by roughness over 4 levels, split-sum LUT, weighted NdotV x gloss for
+  a dielectric (the tank's - no grazing flare) and full for a metal (the
+  game's specAmbient), cube decoded as the PMREM it is (4x the sRGB read):
+  wall +3, cans +2 at gain 1. Exposed as `Env specular` 0..4.
+
+Controls: `tank_mat`, `gmm_curve` (0 raw / 1 Tank Exporter / 2 game),
+`tank_env`, `env_pmrem` - all persisted per map.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
