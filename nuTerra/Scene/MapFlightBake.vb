@@ -150,6 +150,32 @@ Public Class MapFlightBake
     ''' </summary>
     Public Const HEIGHT_SCALE As Single = 64.0F
 
+    ''' <summary>
+    ''' The key byte carries two things, so read it with these.
+    '''
+    ''' The low three bits are the kind, unchanged and still 0..7. The top bit
+    ''' says a TREE TRUNK stands at this texel, whatever else won the surface
+    ''' above it - see the trunk pass in sun_depth_tree.frag. A reader that
+    ''' does not know about the bit will see keys of 128..135 and fall off the
+    ''' end of its table, so both numbers go in the meta.
+    '''
+    ''' One byte rather than a second channel because the trunk is a yes or no,
+    ''' not a height. A 67 MB plane to carry one bit a texel would be the
+    ''' expensive way to say the same thing.
+    ''' </summary>
+    Public Const KIND_MASK As Byte = &H7
+    Public Const TRUNK_BIT As Byte = &H80
+
+    ''' <summary>
+    ''' Metres from a tree's axis still counted as its trunk.
+    '''
+    ''' Bark is trunk AND limbs on every species in the corpus, so the bark
+    ''' flag alone cannot isolate a trunk and this radius is what does. 0.6 m
+    ''' clears the thickest trunks on the roster while cutting the limbs, which
+    ''' fan out well past it.
+    ''' </summary>
+    Public Shared TRUNK_RADIUS As Single = 0.6F
+
     Public Shared kind_map() As Byte
 
     Public Sub Bake()
@@ -233,6 +259,12 @@ Public Class MapFlightBake
         draw_terrain(vp)
         draw_models(vp)
         draw_trees(vp)
+
+        ' What a GROUND VEHICLE would hit, which is not what the camera hits.
+        ' Runs last and writes only the key channel's top bit, so it cannot
+        ' disturb the heights the two passes above just settled.
+        draw_trunks(vp)
+
         read_heights(top_m)
         read_kinds()
 
@@ -357,7 +389,10 @@ Public Class MapFlightBake
                     End If
                     If y > top_m(i) Then
                         top_m(i) = y
-                        kind_b(i) = KIND_WATER
+                        ' OR, not assign: the trunk bit was stamped by a
+                        ' different pass and water raising the surface here
+                        ' does not mean the trunk stopped existing.
+                        kind_b(i) = CByte(KIND_WATER Or (kind_b(i) And TRUNK_BIT))
                     End If
                 Next
             Next
@@ -478,6 +513,38 @@ Public Class MapFlightBake
     Private Sub draw_trees(vp As Matrix4)
         If Not scene.TREES_LOADED OrElse Not DONT_BLOCK_TREES Then Return
         scene.trees.sun_depth_pass(vp)
+    End Sub
+
+    ''' <summary>
+    ''' Stamp the trunk bit wherever a tree's base stands.
+    '''
+    ''' DEPTH OFF AND LOGIC OP OR, which is the whole trick. A trunk is
+    ''' directly underneath its own canopy and loses every depth test to it, so
+    ''' no ordinary pass can record one - the leaves are always nearer the sky.
+    ''' ORing a bit into the key sidesteps ordering completely: the bit says a
+    ''' trunk is here, and says nothing about what is above it, which is
+    ''' exactly the question a vehicle asks.
+    '''
+    ''' Logic op, not blending - the two are mutually exclusive in GL and OR is
+    ''' what accumulates a flag. The depth MASK goes off as well as the test:
+    ''' with the test off a fragment would otherwise still write depth and
+    ''' quietly flatten the top map to the trunk tops.
+    ''' </summary>
+    Private Sub draw_trunks(vp As Matrix4)
+        If Not scene.TREES_LOADED OrElse Not DONT_BLOCK_TREES Then Return
+
+        GL_PUSH_GROUP("flight_bake_trunks")
+        GL.Disable(EnableCap.DepthTest)
+        GL.DepthMask(False)
+        GL.Enable(EnableCap.ColorLogicOp)
+        GL.LogicOp(LogicOp.Or)
+
+        scene.trees.sun_depth_pass(vp, trunk_only:=True)
+
+        GL.Disable(EnableCap.ColorLogicOp)
+        GL.DepthMask(True)
+        GL.Enable(EnableCap.DepthTest)
+        GL_POP_GROUP()
     End Sub
 
     Private Sub create_target()
@@ -658,6 +725,15 @@ Public Class MapFlightBake
         For k = 0 To KIND_NAMES.Length - 1
             sb.AppendLine(String.Format("kind_{0}={1}", k, KIND_NAMES(k)))
         Next
+        sb.AppendLine(String.Format(inv, "kind_mask={0}", KIND_MASK))
+        sb.AppendLine(String.Format(inv, "trunk_bit={0}", TRUNK_BIT))
+        sb.AppendLine(String.Format(inv, "trunk_radius={0:0.00}", TRUNK_RADIUS))
+        sb.AppendLine("#")
+        sb.AppendLine("# R is TWO fields: kind = R & kind_mask, trunk = R & trunk_bit.")
+        sb.AppendLine("# trunk means a tree trunk stands at this texel whatever is above")
+        sb.AppendLine("# it - the canopy still owns the height. A ground vehicle should")
+        sb.AppendLine("# treat the trunk bit as solid and tree canopy as passable; a")
+        sb.AppendLine("# camera should do the opposite and use the height.")
         sb.AppendLine("#")
         sb.AppendLine("# top.rgba  R = kind key, G = height high byte, B = height low byte,")
         sb.AppendLine("#           A = 255. height = height_offset + h16 / height_scale")

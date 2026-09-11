@@ -1,4 +1,4 @@
-#version 450 core
+﻿#version 450 core
 
 #extension GL_ARB_bindless_texture : require
 #extension GL_ARB_shading_language_include : require
@@ -20,6 +20,16 @@ out Block
     vec2 uv;
     flat uvec2 texHandle;
     flat uint flags;
+    // Horizontal distance from THIS tree's own base, in world metres. The
+    // flight bake's trunk pass needs to tell a trunk from a branch, and the
+    // bark flag cannot: bark is trunk AND limbs on every species. Distance
+    // from the trunk axis is what separates them.
+    //
+    // Measured in WORLD space, not object space. A placement may carry a
+    // scale, and an object-space radius would then mean a different number
+    // of metres on every instance - so a scaled-up oak would keep the trunk
+    // width of a sapling.
+    float trunk_r;
 } vs_out;
 
 void main(void)
@@ -27,6 +37,13 @@ void main(void)
     vs_out.uv = vertexTexCoord;
     vs_out.texHandle = vertexTexHandle;
     vs_out.flags = vertexFlags;
+
+    // Column 3 is the translation: the app builds these row-vector and
+    // uploads untransposed, so what GLSL sees here is the transpose and the
+    // origin lands in [3]. Same convention the gl_Position line below relies
+    // on.
+    vec3 wp = (instanceMatrix * vec4(vertexPosition, 1.0)).xyz;
+    vs_out.trunk_r = length(wp.xz - instanceMatrix[3].xz);
 
     // Straight to the sun's clip space. treeDepth stops at world space because
     // a geometry stage fans it out into the four cascades; there is only one

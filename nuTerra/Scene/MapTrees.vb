@@ -659,7 +659,11 @@ Public Class MapTrees
     ''' directly. The fragment stage still alpha tests against the leaf atlas, so
     ''' what lands in the bake is the outline of the leaves and not of the cards.
     ''' </summary>
-    Public Sub sun_depth_pass(sun_view_proj As Matrix4)
+    ''' <param name="trunk_only">Keep only the column at each tree's base -
+    ''' see sun_depth_tree.frag. False for every shadow pass, which wants the
+    ''' whole tree; true for the flight bake's extra vehicle pass.</param>
+    Public Sub sun_depth_pass(sun_view_proj As Matrix4,
+                              Optional trunk_only As Boolean = False)
         If Not scene.TREES_LOADED OrElse vao Is Nothing Then
             Return
         End If
@@ -668,6 +672,8 @@ Public Class MapTrees
 
         sunDepthTreeShader.Use()
         GL.UniformMatrix4(sunDepthTreeShader("sunViewProj"), False, sun_view_proj)
+        GL.Uniform1(sunDepthTreeShader("u_trunk_only"), If(trunk_only, 1, 0))
+        GL.Uniform1(sunDepthTreeShader("u_trunk_radius"), MapFlightBake.TRUNK_RADIUS)
 
         ' Leaf cards are two sided, and the x mirror reverses winding anyway.
         GL.Disable(EnableCap.CullFace)

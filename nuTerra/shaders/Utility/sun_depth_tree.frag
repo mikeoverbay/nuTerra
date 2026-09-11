@@ -10,6 +10,7 @@ in Block
     vec2 uv;
     flat uvec2 texHandle;
     flat uint flags;
+    float trunk_r;
 } fs_in;
 
 // Moments for the MSM path. Discarded by the pipeline when the bake FBO has no
@@ -30,8 +31,48 @@ layout(location = 0) out vec4 moments;
 layout(location = 1) out vec4 bake_key;
 const float BAKE_KIND_TREE = 3.0 / 255.0;
 
+// ---- THE TRUNK PASS --------------------------------------------------------
+//
+// OFF BY DEFAULT, so the sun cascades and the lamp shadows run exactly as they
+// did - they want the whole tree and get it.
+//
+// The flight bake turns it on for one extra pass to answer a different
+// question: what would a TANK hit. A tank drives under a tree. It does not
+// drive through the trunk, and it does not collide with a branch eight metres
+// up, so the canopy that is right for a camera is wrong for a vehicle.
+//
+// That pass writes the key channel ONLY, with the depth test off and the
+// colour logic op set to OR, because a trunk always loses a depth test to its
+// own canopy - the leaves are directly above it. ORing a bit in sidesteps the
+// ordering entirely: the bit records that a trunk stands at this texel no
+// matter what else won the surface.
+uniform bool u_trunk_only = false;
+uniform float u_trunk_radius = 0.6;
+
+// 0x80. Deliberately above the key's own 0..7 so one byte carries both: the
+// low bits stay the kind and nothing downstream that already reads them has to
+// change, as long as it masks.
+const float BAKE_TRUNK_BIT = 128.0 / 255.0;
+
 void main(void)
 {
+    if (u_trunk_only) {
+        // Bark only, and only the part of it standing close to the tree's own
+        // axis. Leaf cards are not structure; limbs are bark but they are over
+        // a tank's head. What survives both tests is the column at the base.
+        //
+        // Ground cover has no bark part at all - ivy, lavender, roses, the
+        // vines and the bushes are leaf geometry only - so they write nothing
+        // here and vanish from the obstacle set. That is the right answer: a
+        // tank drives through a bush.
+        if ((fs_in.flags & 1u) == 0u || fs_in.trunk_r > u_trunk_radius) {
+            discard;
+        }
+        bake_key = vec4(BAKE_TRUNK_BIT, 0.0, 0.0, 1.0);
+        moments = vec4(0.0);
+        return;
+    }
+
     // Without this a leaf card casts the shadow of a rectangle. The atlas is
     // mostly empty space, so the cutout is what makes the shadow leaf shaped.
     // Bark (flag bit 0) is exempt - trunks are opaque and some species' bark
