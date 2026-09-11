@@ -161,14 +161,15 @@ with ids dense in descending radius and neighbours space-separated,
 symmetric; an empty list is an island. `tools/zones.py` reads it
 (`load_zones(folder, map, bake)` -> `{mask: Zones}`), checks it (ids dense
 and radii descending, links symmetric, `bake_meta_written` against the
-bake's own `written` - a stale zone map warns, never refuses), and Path
-Studio's **Zones** checkbox draws every disc and link over the mask and as
-rings on the ground in 3D, one colour per mask. Path Studio never cuts a
-second zone map; the tank's mask and the camera's are different rules (a
-camera flies over what a tank cannot drive through), so the camera's, when
-wanted, is exported from `radar_commit.build_world`'s blocked mask for the
-same extractor to cut. Both `Bake` classes keep the whole meta as
-`bake.meta` for the provenance check.
+bake's own `written` - a stale zone map warns, never refuses). That is all
+that remains: the discs were tried as a fast accept in the navigator and
+measured worse (the trap probe they replaced is what keeps the camera out of
+pockets), then drawn in the Studio, and the owner tossed both - "if the
+discs do not aid AI or path creation, we can toss them" - so nothing in
+Path Studio reads or draws a zone map; `tools/zones.py` stays as a
+standalone reader of the Tank AI session's file (`python tools/zones.py
+<map>` prints its summary and checks). Both `Bake` classes keep the whole
+meta as `bake.meta`.
 
 ## Step 3 — look-ahead
 

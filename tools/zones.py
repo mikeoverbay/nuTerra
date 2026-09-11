@@ -245,3 +245,11 @@ def load_zones(folder, map_name, bake=None):
         print(z.summary())
         out[mask] = z
     return out
+
+
+if __name__ == "__main__":
+    import sys
+    import radar_commit as nav
+    name = sys.argv[1] if len(sys.argv) > 1 else nav.MAP
+    b = nav.Bake(nav.FOLDER, name)
+    load_zones(nav.FOLDER, name, b)

@@ -507,10 +507,11 @@ shows the frames agree with no mirror. Their offmap rule is right.
 **Verdict (19:50).** The owner: "if the discs do not aid AI or path
 creation, we can toss them." On the camera side they do not, so the
 navigator hook (`set_zones` / `zone_step_ok`, the `Fly by zones` switch) is
-REMOVED; `bearing_ok` is exactly what it was before the experiment. What
-stays: `tools/zones.py` (the reader and its checks) and the Studio's
-**Zones** overlay, because the picture is what verified the Tank AI
-session's graph and it costs nothing. Whether the zone graph earns its
+REMOVED; `bearing_ok` is exactly what it was before the experiment. Then the
+overlay and its checkbox went too, at the owner's word. What stays:
+`tools/zones.py` alone, a standalone reader (`python tools/zones.py <map>`)
+for checking the Tank AI session's file; the pictures in this section came
+from the session scratchpad's `zone_graph_pic.py`. Whether the zone graph earns its
 place for the TANKS - faster or better drives than the grid A*, with a
 number - is that session's to show the owner.
 
