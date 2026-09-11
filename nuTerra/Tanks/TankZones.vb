@@ -324,6 +324,30 @@ Public Class TankZones
     ''' every bit as unreachable. This is the honest measure, and a route
     ''' planner needs it: two zones in different components have no path, and
     ''' asking A* to prove that is a full search of the component every time.
+    '''
+    ''' WHAT THEY TURNED OUT TO BE on 19_monastery, because a count this large
+    ''' looks like a fault and is not one. 251 components, every one real ground
+    ''' rather than an artefact of the link test:
+    '''
+    '''   6,696 (64.8%)  the drivable sheet - and INSIDE it every ring road,
+    '''                  lane and gap reads connected, so the straight-line
+    '''                  link test is not splitting corridors
+    '''   977, 748       the shore below the cliffs, west
+    '''   223, 174, 84   the same, east
+    '''   89             a walled courtyard inside the monastery
+    '''   243 others     pockets between the rock bands, 1-5 zones each
+    '''
+    ''' The shore strips are cut off by a RAVINE, not by a missed link: the
+    ''' closest pair across it is 87.5 m apart, the ground between drops from
+    ''' 3.6 m to -5.7 m, the bake keys water on the line, and there is a 5.8 m
+    ''' rock wall on the far side. Separate ground for a tank, correctly.
+    '''
+    ''' Two things were suspected and both were wrong. A large component count
+    ''' does NOT mean the cover is too sparse - settled by drawing the graph
+    ''' coloured by component over the mask rather than by arithmetic. And none
+    ''' of it lies outside the arena: every disc centre falls within +/-487.4
+    ''' against a boundary at +/-492, so the OFFMAP rule holds. Both were
+    ''' answered by measuring, and both measurements said leave it alone.
     ''' </summary>
     Public Function Components(ByRef count As Integer) As Integer()
         Dim comp(zones.Count - 1) As Integer
