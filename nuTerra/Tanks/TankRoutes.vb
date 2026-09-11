@@ -80,13 +80,31 @@ Public Class TankRoutes
         End If
 
         Dim t0 = Date.UtcNow
-        Dim start = z.ZoneAt(sx, sz)
-        Dim goal = z.ZoneAt(gx, gz)
+
+        ' AIM AT THE DISC, NOT THE MARK. Neither ctf base centre on monastery is
+        ' usable ground - measured off the bake at 0.171 m: team 1 has 3.78 m of
+        ' clearance and team 2 has 2.39 m, which is 4.78 m of width for a 4.5 m
+        ' hull, fourteen centimetres a side. Both texels are plain terrain, so it
+        ' is obstacles a couple of metres away rather than anything built on the
+        ' mark itself.
+        '
+        ' A base centre therefore may not be covered by any disc, and asking for
+        ' a route to an uncovered point returns nothing - which reads as "there
+        ' is no way to the base" when the truth is "you aimed at a spot two
+        ' metres from one". The nearest disc is the honest target: a hull cannot
+        ' stand on the mark anyway, and the ring is 50 m across.
+        Dim start_off = 0.0F, goal_off = 0.0F
+        Dim start = ZoneNear(z, sx, sz, start_off)
+        Dim goal = ZoneNear(z, gx, gz, goal_off)
         If start < 0 OrElse goal < 0 Then
             why_stopped = "an end is not on drivable ground"
-            LogThis("tank routes: {0} - start zone {1}, goal zone {2}; an end is not in any disc",
+            LogThis("tank routes: {0} - start zone {1}, goal zone {2}; an end is in no disc and none is near",
                     label, start, goal)
             Return
+        End If
+        If start_off > 0.0F OrElse goal_off > 0.0F Then
+            LogThis("tank routes: {0} - aimed at the nearest disc: start {1:0.0} m off the mark, goal {2:0.0} m",
+                    label, start_off, goal_off)
         End If
         If start = goal Then
             why_stopped = "start and goal are the same zone"
@@ -164,6 +182,43 @@ Public Class TankRoutes
                     i, routes(i).hops.Length, routes(i).length_m, routes(i).min_r_m)
         Next
     End Sub
+
+    ''' <summary>
+    ''' The disc holding this point, or the nearest one if none does.
+    '''
+    ''' ZoneAt is a single array read and answers -1 off drivable ground. That
+    ''' is the right answer for "where is this hull" and the wrong one for
+    ''' "where am I trying to get to", because a destination is a place on a map
+    ''' rather than a place a tank is standing - a base mark, a spotted
+    ''' position, a waypoint someone clicked. Falling back to the nearest disc
+    ''' turns "no route" into "a route to the closest ground you can actually
+    ''' stand on", and reports how far that was so a silly answer is visible
+    ''' rather than silent.
+    '''
+    ''' The scan is over every disc, which is fine: it runs twice per catalogue
+    ''' and only when the point is not covered.
+    ''' </summary>
+    Private Shared Function ZoneNear(z As TankZones, x As Single, zz As Single,
+                                     ByRef off_m As Single) As Integer
+        off_m = 0.0F
+        Dim direct = z.ZoneAt(x, zz)
+        If direct >= 0 Then Return direct
+
+        Dim best = -1
+        Dim best_d2 = Single.MaxValue
+        For i = 0 To z.zones.Count - 1
+            Dim dx = z.zones(i).x - x
+            Dim dz = z.zones(i).z - zz
+            Dim d2 = dx * dx + dz * dz
+            If d2 < best_d2 Then
+                best_d2 = d2
+                best = i
+            End If
+        Next
+        If best >= 0 Then off_m = CSng(Math.Sqrt(best_d2)) - z.zones(best).r_m
+        If off_m < 0.0F Then off_m = 0.0F
+        Return best
+    End Function
 
     ''' <summary>Centre-to-centre distance between two zones.</summary>
     Private Shared Function Sep(z As TankZones, a As Integer, b As Integer) As Single

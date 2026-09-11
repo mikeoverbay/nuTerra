@@ -36,6 +36,22 @@
 ''' line between the centres and demanding hull clearance the whole way, which
 ''' is the actual question and is cheap against a field already computed.
 '''
+''' IT INHERITS THE GRID'S RESOLUTION, AND THAT ERODES DOORWAYS. TankNav
+''' coarsens the 0.171 m bake to a 1.37 m cell by blocking a cell if ANY texel
+''' in it is blocked - conservative, and right for "may a hull stand here". But
+''' a bottleneck search depends on exactly the narrow LINKS that conservative
+''' coarsening eats. Measured at both resolutions by the nuTerra session: a
+''' 1024 grid coarsened this way finds NO route between the monastery bases at
+''' 8 m clearance, while at full resolution the corridor is 16.06 m wide at its
+''' tightest. 16% of texels clear 8.03 m, so it is not a thin-ridge artefact -
+''' the rooms survive and the doors do not.
+'''
+''' So a route this class FINDS is real, and a route it does NOT find may still
+''' exist: the corridor count is a lower bound. And anything claiming a WIDTH
+''' must be measured on the bake rather than read off a disc radius - the
+''' smallest disc kept here is 4.79 m, so a route reporting "narrowest 4.8 m"
+''' is reporting that floor and not the ground.
+'''
 ''' THE MAP IT INHERITS. A radius field AMPLIFIES an error in the mask rather
 ''' than tolerating one. Per-step collision checking degrades gracefully - a
 ''' tank meets the thing, stops, and pins the cell. A radius check does not:
