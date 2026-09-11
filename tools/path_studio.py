@@ -1668,6 +1668,11 @@ class GLView:
     WALL_MIN = 1.0
     GROUND_LIFT = 62           # the open ground comes off the canvas near black;
                                # lifted to a dark grey so blocks in shade still read
+    SS = 2                     # supersample: the frame and its depth are rendered
+                               # at SS x SS the window - 4x the pixels - into an
+                               # offscreen buffer, then filtered down to the
+                               # window. Edges smooth out, and a pick reads the
+                               # full-resolution depth.
     HIDDEN = False             # a test sets this to open the window unseen
 
     VERT = """#version 330 core
@@ -1728,6 +1733,8 @@ void main() { o_rgb = v_rgb; }
         self.u_psize = GL.glGetUniformLocation(self.prog, "u_psize")
         self.vao, self.vbo, self.ebo = self._make_vao()
         self.ov_vao, self.ov_vbo, _ = self._make_vao(index=False)
+        self.fbo = self.fbo_rgb = self.fbo_depth = None
+        self._make_fbo()
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glEnable(GL.GL_PROGRAM_POINT_SIZE)
         GL.glClearColor(*self.SKY, 1.0)
@@ -1752,6 +1759,32 @@ void main() { o_rgb = v_rgb; }
         GL.glVertexAttribPointer(1, 4, GL.GL_UNSIGNED_BYTE, True, st, ctypes.c_void_p(12))
         GL.glBindVertexArray(0)
         return vao, vbo, ebo
+
+    def _make_fbo(self):
+        """The offscreen target the frame is drawn into, SS times the window
+        each way: a colour renderbuffer and a 24-bit depth renderbuffer.
+        Remade on resize."""
+        if self.fbo is not None:
+            GL.glDeleteFramebuffers(1, [self.fbo])
+            GL.glDeleteRenderbuffers(2, [self.fbo_rgb, self.fbo_depth])
+        w, h = self.W * self.SS, self.H * self.SS
+        self.fbo = GL.glGenFramebuffers(1)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+        self.fbo_rgb = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.fbo_rgb)
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGB8, w, h)
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0,
+                                     GL.GL_RENDERBUFFER, self.fbo_rgb)
+        self.fbo_depth = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.fbo_depth)
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_DEPTH_COMPONENT24, w, h)
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT,
+                                     GL.GL_RENDERBUFFER, self.fbo_depth)
+        ok = GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        if not ok:
+            raise RuntimeError("the supersample framebuffer is incomplete")
+        self.fbo_w, self.fbo_h = w, h
 
     def lift(self):
         pass                   # pygame has no raise; the window is where it is
@@ -2006,7 +2039,9 @@ void main() { o_rgb = v_rgb; }
         if self.overlay_dirty and self.lv is not None:
             self.build_overlays()
         self.mvp = self.matrices()
-        GL.glViewport(0, 0, self.W, self.H)
+        # Into the supersample buffer, at SS times the window each way.
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+        GL.glViewport(0, 0, self.fbo_w, self.fbo_h)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         GL.glUseProgram(self.prog)
         GL.glUniformMatrix4fv(self.u_mvp, 1, True, self.mvp)
@@ -2016,45 +2051,62 @@ void main() { o_rgb = v_rgb; }
             GL.glDrawElements(GL.GL_TRIANGLES, self.n_idx, GL.GL_UNSIGNED_INT, None)
         if self.ov_runs:
             GL.glBindVertexArray(self.ov_vao)
-            GL.glLineWidth(2.0)
+            GL.glLineWidth(2.0 * self.SS)
             for mode, first, count, ps in self.ov_runs:
-                GL.glUniform1f(self.u_psize, ps)
+                GL.glUniform1f(self.u_psize, ps * self.SS)
                 GL.glDrawArrays(mode, first, count)
         GL.glBindVertexArray(0)
+        # Filtered down onto the window - the SS x SS block under each pixel
+        # averaged, which is what smooths the edges.
+        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo)
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, 0)
+        GL.glBlitFramebuffer(0, 0, self.fbo_w, self.fbo_h, 0, 0, self.W, self.H,
+                             GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
         if flip:
             pygame.display.flip()
         self.dirty = False
 
     # ---- picking --------------------------------------------------------
 
-    def unproject(self, px, py, d):
-        """Window pixel (y down) and depth-buffer value -> world point."""
-        ndc = np.array([2.0 * (px + 0.5) / self.W - 1.0, 1.0 - 2.0 * (py + 0.5) / self.H,
+    def unproject(self, fx, fy, d):
+        """A pixel of the supersample buffer (y down) and its depth value ->
+        world point."""
+        ndc = np.array([2.0 * (fx + 0.5) / self.fbo_w - 1.0, 1.0 - 2.0 * (fy + 0.5) / self.fbo_h,
                         2.0 * d - 1.0, 1.0], dtype=np.float64)
         w = np.linalg.inv(self.mvp.astype(np.float64)) @ ndc
         return w[:3] / w[3]
 
     def hit_at(self, px, py):
-        """The exact world point under a window pixel, or None for sky.
-        Redraws without presenting, so the depth read is of this camera."""
+        """The exact world point under a window pixel, or None for sky - read
+        from the supersample depth at the centre of the SS x SS block under
+        the pixel. Redraws without presenting, so the depth is of this
+        camera."""
         if not self.open or self.lv is None:
             return None
         self.draw(flip=False)
-        d = float(GL.glReadPixels(int(px), self.H - 1 - int(py), 1, 1,
+        fx = int(px) * self.SS + self.SS // 2
+        fy = int(py) * self.SS + self.SS // 2
+        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo)
+        d = float(GL.glReadPixels(fx, self.fbo_h - 1 - fy, 1, 1,
                                   GL.GL_DEPTH_COMPONENT, GL.GL_FLOAT)[0][0])
+        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, 0)
         if d >= 1.0:
             return None
-        return tuple(float(v) for v in self.unproject(px, py, d))
+        return tuple(float(v) for v in self.unproject(fx, fy, d))
 
     def read_buffers(self):
-        """depth (H, W) as camera-space distance, inf for sky, and hit
-        (H, W, 3) world points, nan for sky - every pixel at once."""
+        """depth (fbo_h, fbo_w) as camera-space distance, inf for sky, and
+        hit (fbo_h, fbo_w, 3) world points, nan for sky - every pixel of the
+        supersample buffer at once, SS times the window each way."""
         self.draw(flip=False)
-        raw = GL.glReadPixels(0, 0, self.W, self.H, GL.GL_DEPTH_COMPONENT, GL.GL_FLOAT)
-        d = np.frombuffer(raw, dtype=np.float32).reshape(self.H, self.W)[::-1].astype(np.float64)
+        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo)
+        raw = GL.glReadPixels(0, 0, self.fbo_w, self.fbo_h, GL.GL_DEPTH_COMPONENT, GL.GL_FLOAT)
+        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, 0)
+        d = np.frombuffer(raw, dtype=np.float32).reshape(self.fbo_h, self.fbo_w)[::-1].astype(np.float64)
         m = d < 1.0
-        xs = 2.0 * (np.arange(self.W) + 0.5) / self.W - 1.0
-        ys = 1.0 - 2.0 * (np.arange(self.H) + 0.5) / self.H
+        xs = 2.0 * (np.arange(self.fbo_w) + 0.5) / self.fbo_w - 1.0
+        ys = 1.0 - 2.0 * (np.arange(self.fbo_h) + 0.5) / self.fbo_h
         X, Y = np.meshgrid(xs, ys)
         ndc = np.stack([X, Y, 2.0 * d - 1.0, np.ones_like(d)], axis=-1)
         w = ndc @ np.linalg.inv(self.mvp.astype(np.float64)).T
@@ -2077,6 +2129,7 @@ void main() { o_rgb = v_rgb; }
                 return
             elif e.type == pygame.VIDEORESIZE:
                 self.W, self.H = max(64, e.w), max(64, e.h)
+                self._make_fbo()
                 self.dirty = True
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 2):
                 self.drag = e.pos
@@ -2124,6 +2177,10 @@ void main() { o_rgb = v_rgb; }
                 pass
             self._job = None
         try:
+            if self.fbo is not None:
+                GL.glDeleteFramebuffers(1, [self.fbo])
+                GL.glDeleteRenderbuffers(2, [self.fbo_rgb, self.fbo_depth])
+                self.fbo = None
             pygame.display.quit()
         except Exception:
             pass
