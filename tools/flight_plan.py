@@ -49,17 +49,63 @@ TREE_MIN_H = 3.0
 KIND_MIN_H = {KIND_TREE: TREE_MIN_H}
 
 
+# Foliage states, from the bits the bake carries (2026-09-11, agreed with
+# the nuTerra session): a tree-kind BLOB - connected tree-kind cells standing
+# over FLIGHT_BLOCK_H - is a TREE if any cell of it carries the solid bit, a STEM
+# blob if it carries only the raw trunk bit (a rose, a grapevine), and BUSH
+# if it carries neither (wild bush, ivy, a sapling). Judged on the blob, not
+# the cell, because the stamp is a few cells at the base and the canopy
+# around it is what the planner meets. The blob is the honest unit here and
+# also the weak one: foliage bakes as dots, so a bush interleaved with a
+# tree's canopy joins the tree's blob and is treated as tree - the safe
+# side for a camera.
+FOL_NONE, FOL_BUSH, FOL_STEM, FOL_TREE = 0, 1, 2, 3
+
+
+def foliage_state(bake):
+    """One byte per cell: FOL_TREE / FOL_STEM / FOL_BUSH over every tree-kind
+    cell standing over FLIGHT_BLOCK_H, FOL_NONE elsewhere. None when the bake
+    carries no kinds, and every blob is BUSH when it carries no bits."""
+    kind = getattr(bake, "kind", None)
+    if kind is None:
+        return None
+    tree = (kind == KIND_TREE) & (bake.obstacle > FLIGHT_BLOCK_H)
+    state = np.where(tree, FOL_BUSH, FOL_NONE).astype(np.uint8)
+    lab, n = ndimage.label(tree)
+    if n == 0:
+        return state
+    for bit, val in ((getattr(bake, "trunk", None), FOL_STEM),
+                     (getattr(bake, "solid", None), FOL_TREE)):
+        if bit is None:
+            continue
+        has = np.zeros(n + 1, dtype=bool)
+        has[np.unique(lab[bit & tree])] = True
+        has[0] = False
+        state[has[lab]] = val
+    return state
+
+
 def gated_obstacle(bake):
     """bake.obstacle with every kind in KIND_MIN_H zeroed where it stands
     shorter than its minimum - the height field the blocked masks are cut
-    from. Unchanged, and not copied, when the bake carries no kinds."""
+    from - except that a tree-kind blob holding a SOLID stamp is a tree at
+    every height: its low skirt blocks like the rest of it, and only foliage
+    with no solid trunk in its blob is flown over below TREE_MIN_H. Unchanged,
+    and not copied, when the bake carries no kinds."""
     o = bake.obstacle
     kind = getattr(bake, "kind", None)
     if kind is None:
         return o
     o = o.copy()
+    keep = None
+    if getattr(bake, "solid", None) is not None and KIND_TREE in KIND_MIN_H:
+        st = foliage_state(bake)
+        keep = st == FOL_TREE
     for k, h in KIND_MIN_H.items():
-        o[(kind == k) & (o < h)] = 0.0
+        m = (kind == k) & (o < h)
+        if keep is not None and k == KIND_TREE:
+            m &= ~keep
+        o[m] = 0.0
     return o
 
 from scipy.interpolate import splprep, splev
@@ -248,6 +294,17 @@ class Bake:
             # of any distance-from-centre guess.
             obit = int(meta.get("outland_bit", 0))
             self.outland = (key & obit) != 0 if obit else None
+            # The SOLID bit (solid_bit, 32): a trunk stamp whose connected
+            # size cleared the writer's stem threshold (stem_min_m) - bark
+            # thick enough to stop a hull. Bit 7 stays the raw stamp, so a
+            # rose stem or a grapevine is trunk and not solid, and a wild
+            # bush or ivy is neither. The question is not botanical - "does
+            # it stop a hull" - and a trunk-less cypress sapling is rightly
+            # on the drivable side. A bake without the key carries no solid
+            # information: None, never "everything solid".
+            sbit = int(meta.get("solid_bit", 0))
+            self.solid = (key & sbit) != 0 if sbit else None
+            self.stem_min_m = float(meta.get("stem_min_m", 0.0))
             # G is the high byte and B the low; A is 255 so the file still
             # opens as a picture. (The spec said G/A - the writer chose G/B
             # and the file on disk is the authority.)
@@ -265,6 +322,8 @@ class Bake:
             self.kind = None
             self.trunk = None
             self.outland = None
+            self.solid = None
+            self.stem_min_m = 0.0
 
     def kind_at(self, x, z):
         """The kind key of the tallest thing at a world point, 0 without a
@@ -310,6 +369,8 @@ class Bake:
             self.trunk = self.trunk[:H * fy, :W * fx].reshape(H, fy, W, fx).any(axis=(1, 3))
         if getattr(self, "outland", None) is not None:
             self.outland = self.outland[:H * fy, :W * fx].reshape(H, fy, W, fx).any(axis=(1, 3))
+        if getattr(self, "solid", None) is not None:
+            self.solid = self.solid[:H * fy, :W * fx].reshape(H, fy, W, fx).any(axis=(1, 3))
         self.top = blocks.max(axis=(1, 3)).astype(np.float64)
         self.floor = (self.floor[:H * fy, :W * fx].reshape(H, fy, W, fx)
                       .mean(axis=(1, 3)).astype(np.float64))

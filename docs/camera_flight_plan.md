@@ -120,6 +120,32 @@ that field. The canvas mask draws a gated-out cell as low (grey), not hard.
 An old `.r32` bake has no kinds and gates nothing. The table is the place
 to add the next rule.
 
+**Trees, stems and bushes (2026-09-11, agreed with the nuTerra session):**
+the map's tree list carries no tree/bush type and no name or height rule
+sorts them (a `Bush_Wild_5m` stands 5.9 m, a `Cypress_regular_tiny` 2.2 m
+with no bark), so the question is not asked botanically. It is "does it
+stop a hull": the bake's trunk stamp is bark within 0.6 m of the axis, and
+the writer thresholds each stamp's connected size against `stem_min_m`
+(0.25 m - a one-texel stamp at 0.171 m is *unresolved*, not measured thin)
+and sets `solid_bit` (32) on the survivors; `trunk_bit` (128) stays the raw
+stamp. `radar_commit.foliage_state(bake)` classes every tree-kind BLOB
+(connected cells over `BLOCK_H`) as TREE if it holds a solid stamp, STEM if
+only a thin one (rose, grapevine), BUSH if neither (wild bush, ivy, a
+sapling). `gated_obstacle` keeps a TREE blob at every height - its low skirt
+blocks like the rest of it - and gates the other two by `KIND_MIN_H` as
+before. Path Studio paints the three states and the stamp cells over the
+tree colour, with a legend. A bake without `solid_bit` in its meta reads
+`solid = None`: the single tree colour and the height gate, exactly as
+today - never "everything solid" and never "nothing solid".
+
+The blob is the honest unit and the weak one: foliage bakes as dots, so a
+bush interleaved with a tree's canopy joins the tree's blob and is treated as
+tree - the safe side for a camera. What is still costing the planner ground
+is the 2048 downsample taking the block MAX (24% of "tall tree" cells on the
+monastery are lifted by fewer than a quarter of their texels) and
+`CANOPY_H` 3.0 then padding an honest 3.1 m bush as a canopy; both are
+measured in `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` and untouched.
+
 ## Step 3 — look-ahead
 
 March an integer (Bresenham) line from the current position out to a maximum

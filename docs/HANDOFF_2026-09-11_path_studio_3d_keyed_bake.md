@@ -264,3 +264,52 @@ between two trees will not thread.
 
 The kind gate (`81f065cb`): `KIND_MIN_H = {tree: 3.0}` - a tree under 3 m
 is a bush and is flown over; the mask draws it as low grey.
+
+## 11. Trees and bushes: what the data can and cannot say
+
+The owner: "find a way to know if a tree is a tree or a bush, and why some
+bushes show as tall as a tree next to it". Measured on the monastery bake
+(8192, 0.171 m texels), both sessions, no changes at first:
+
+- **The bake tells the truth.** Every SpeedTree is drawn at its real LOD0
+  with the leaf atlas alpha-tested; nine of the map's sixteen trunk-less
+  species are modelled at 3 m or more (`ivy_ground_up_v1` 6.83 m,
+  `Bush_Wild_5m` 5.93 - taller than `Olive_01` at 5.74 with bark). 27% of
+  trunk-less foliage at 3 m+ matches the asset library.
+- **Nothing sorts them botanically.** The tree list is transform, species
+  hash, seed, shadow flags. The trunk stamp is bark within 0.6 m of the
+  axis - misfiles both ways as a species test (a barked 1.9 m rose, a
+  bark-less 2.2 m cypress). Names are no better (`Olive_bush` 6.43 m).
+- **Foliage bakes as dots.** 156,500 tree-kind blobs over 0.5 m, median
+  footprint 0 m2 - a leaf sets a texel only where it covers the centre. A
+  bush beside a tree interleaves with it.
+- **The 2048 downsample lifts.** Block MAX: 194,705 cells read as a >=3 m
+  tree, 24% of them from fewer than a quarter of their 16 texels; 14% have no
+  trunk within 4 m at all. Then `CANOPY_H` 3.0 pads a 3.1 m bush as canopy.
+  Picture at world (323, 94): a trunk-less clump at ~3 m beside two stamped
+  trees.
+
+The owner's call: isolate foliage by type, coloured, so a tank drives
+THROUGH bushes and not through trees. The question is "does it stop a
+hull", and on that exam a bark-less sapling is rightly drivable. The method
+(the nuTerra session's): no species table - threshold each trunk stamp by
+its own connected size. On the monastery: 4,840 components, bimodal - 2,005
+single texels (41% of components, 3.3% of the stamped area) and the real
+trunks at 7-8 texels. `stem_min_m` 0.25 drops exactly the singles, which are
+unresolved rather than measured thin. The writer sets `solid_bit` 32 on
+the survivors, `trunk_bit` 128 stays raw; both named in the meta with the
+threshold.
+
+My half, landed (this commit): readers carry `solid` (block-any through the
+downsample) and `stem_min_m`; `foliage_state` per blob (TREE / STEM /
+BUSH); `gated_obstacle` keeps a TREE blob at every height; the Studio
+paints three states plus the stamp cells, and lists them. Without the key:
+`solid = None`, the old colour and the old gate. Tested on a synthetic
+keyed bake with a tree, a rose and a bush through both readers, the gate,
+the mask and the 3D view. The writer's half is queued behind the tile
+tint work; the halves land in either order.
+
+Not done, and measured above for whoever does it: the block-max lift and the
+canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
+and a `CANOPY_H` above the bush band or tied to the solid bit, are the
+levers - measure the open ground they give back before trusting either.

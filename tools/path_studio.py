@@ -521,6 +521,58 @@ BAKE_KIND_RGB = {1: (205, 150, 40), 2: (230, 90, 40), 3: (70, 160, 70),
 BAKE_KIND_NAMES = {1: "building", 2: "fence / rail", 3: "tree / bush",
                    4: "rock", 5: "vehicle / prop", 6: "water", 7: "other"}
 
+# Foliage in three states when the bake carries the trunk and solid bits
+# (radar_commit.foliage_state): a TREE blob holds a solid stamp and stops a
+# hull; a STEM blob holds only a thin stamp (rose, grapevine); a BUSH blob
+# holds neither and is driven through. The stamp cells themselves are drawn
+# darker over the blob so the base of a tree can be seen in it.
+FOLIAGE_RGB = {3: (70, 160, 70), 2: (150, 170, 60), 1: (165, 210, 115)}
+FOLIAGE_NAMES = {3: "tree (solid trunk)", 2: "thin stem (rose, vine)", 1: "bush / foliage"}
+SOLID_RGB = (34, 90, 40)
+STEM_RGB = (95, 105, 35)
+
+
+def foliage_at(bake, G):
+    """foliage_state brought to G cells a side, the strongest state in each
+    block (tree over stem over bush), with the stamp cells the same way.
+    None when the bake has no kinds."""
+    st = nav.foliage_state(bake)
+    if st is None:
+        return None, None, None
+    h, w = st.shape
+    trunk = getattr(bake, "trunk", None)
+    solid = getattr(bake, "solid", None)
+    if G >= h:
+        return st, trunk, solid
+    fy, fx = h // G, w // G
+    st = st[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3))
+    if trunk is not None:
+        trunk = trunk[:G * fy, :G * fx].reshape(G, fy, G, fx).any(axis=(1, 3))
+    if solid is not None:
+        solid = solid[:G * fy, :G * fx].reshape(G, fy, G, fx).any(axis=(1, 3))
+    return st, trunk, solid
+
+
+def paint_foliage(img, mask, bake, G):
+    """Colour the foliage states over `mask` (cells that are drawn as
+    standing) into img at G a side. Only when the bake has the solid bit -
+    without it the single tree/bush colour stays."""
+    if getattr(bake, "solid", None) is None:
+        return
+    st, trunk, solid = foliage_at(bake, G)
+    if st is None:
+        return
+    for val, rgb in FOLIAGE_RGB.items():
+        m = mask & (st == val)
+        if m.any():
+            img[m] = rgb
+    if trunk is not None:
+        m = mask & trunk & (st != 0)
+        img[m] = STEM_RGB
+    if solid is not None:
+        m = mask & solid & (st != 0)
+        img[m] = SOLID_RGB
+
 
 def kind_of_tallest(top, kind, G):
     """kind sampled down to G cells a side as the kind of the tallest texel
@@ -1894,6 +1946,7 @@ void main() { o_rgb = v_rgb; }
             col[objc] = self.OBJ_RGB
             for k, rgb in BAKE_KIND_RGB.items():
                 col[objc & (kg == k)] = rgb
+            paint_foliage(col, objc & (kg == nav.KIND_TREE), b, G)
         elif objc is not None:
             col[objc] = self.OBJ_RGB
         colf = col.astype(np.float32)
@@ -3602,6 +3655,10 @@ class Studio:
                 m = hard & (kind == k)
                 if m.any():
                     img[m] = rgb
+            # Foliage by state, over the tree colour. On the gated field a
+            # bush under the gate is low (grey) and is not repainted; a tree
+            # blob's skirt now counts as hard and is painted with its blob.
+            paint_foliage(img, hard, b, b.h)
 
         # Kept at bake resolution. Resizing on paint costs a LANCZOS pass and
         # keeps every zoom level sharp; re-deriving the shading each time would
@@ -4135,16 +4192,22 @@ class Studio:
         kind = getattr(self.bake, "kind", None) if self.bake is not None else None
         if kind is not None:
             names = bake_kind_names(self.bake)
-            present = [k for k in sorted(BAKE_KIND_RGB) if (kind == k).any()]
-            if present:
+            rows = [(BAKE_KIND_RGB[k], names.get(k, str(k)))
+                    for k in sorted(BAKE_KIND_RGB) if (kind == k).any()]
+            if getattr(self.bake, "solid", None) is not None:
+                # the tree row becomes the three foliage states, plus the stamps
+                rows = [r for r in rows if r[0] != BAKE_KIND_RGB[nav.KIND_TREE]]
+                rows += [(FOLIAGE_RGB[v], FOLIAGE_NAMES[v]) for v in (3, 2, 1)]
+                rows += [(SOLID_RGB, "solid trunk stamp"), (STEM_RGB, "thin stem stamp")]
+            if rows:
                 dk = ImageDraw.Draw(im, "RGBA")
-                ky0 = self.view - 12 - 16 * len(present)
-                dk.rectangle([6, ky0 - 6, 150, self.view - 6],
+                ky0 = self.view - 12 - 16 * len(rows)
+                dk.rectangle([6, ky0 - 6, 170, self.view - 6],
                              fill=(8, 10, 16, 205), outline=(70, 84, 104, 255))
                 ky = ky0
-                for k in present:
-                    dk.rectangle([14, ky + 2, 38, ky + 12], fill=BAKE_KIND_RGB[k] + (255,))
-                    dk.text((46, ky), names.get(k, str(k)), fill=(228, 236, 246, 255))
+                for rgb, label in rows:
+                    dk.rectangle([14, ky + 2, 38, ky + 12], fill=rgb + (255,))
+                    dk.text((46, ky), label, fill=(228, 236, 246, 255))
                     ky += 16
 
         self.photo = ImageTk.PhotoImage(im)
