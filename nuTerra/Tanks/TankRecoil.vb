@@ -115,13 +115,18 @@ Public Class TankRecoil
     ''' Start a cycle. IGNORED while one is already running, so a trigger held
     ''' down - or two sources both asking on the same frame - fires once rather
     ''' than restarting the stroke and freezing the barrel at full travel.
+    '''
+    ''' Returns whether a shot actually went off, which is what the effects and
+    ''' the ray hang on: a swallowed trigger must not also spawn a muzzle flash
+    ''' and a second round downrange.
     ''' </summary>
-    Public Sub Fire()
-        If phase <> IDLE Then Return
+    Public Function Fire() As Boolean
+        If phase <> IDLE Then Return False
         phase = OUT
         t = 0.0F
         m_offset = 0.0F
-    End Sub
+        Return True
+    End Function
 
     ''' <summary>Advance by dt. Safe every frame whether or not it is firing.</summary>
     Public Sub Update(dt As Single)

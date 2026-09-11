@@ -382,6 +382,16 @@ Module modRender
             draw_lamp_bulbs()
             trace_state("lamp bulbs")
 
+            ' Muzzle flashes and shell bursts, into the same float buffer and
+            ' for the same reason the bulbs are here: the bright pass and blur
+            ' below turn whatever clears the threshold into a halo, so a flash
+            ' written here gets its glare from machinery that already exists
+            ' rather than faking one. gColor is Rgba8 and tonemapped by this
+            ' point - the same flash there would clamp to a flat white lozenge.
+            MainFBO.gDepth.BindUnit(0)
+            map_scene.tanks.fx.Draw()
+            trace_state("tank fx")
+
             ' Glow, built from the accumulated buffer while it is still float.
             ' Must run BEFORE the composite: composite_fx scales the sum back
             ' into range, and after that the over-range energy the glow is made

@@ -52,6 +52,12 @@ Public Class TankMesh
     ''' bone weights nothing, or nothing dominantly.</summary>
     Public boneRadii As Single()
 
+    ''' <summary>The furthest a bone's own vertices reach along Z, signed.
+    ''' On a gun's barrel bone that is the MUZZLE - the one point on the
+    ''' vehicle a shot leaves from, measured rather than guessed at from a
+    ''' bounding box that may be in another frame.</summary>
+    Public boneTipZ As Single()
+
     ''' <summary>UV0 extent, so the track band's running direction can be
     ''' measured instead of assumed.</summary>
     Public uvMin As Vector2 = New Vector2(Single.MaxValue, Single.MaxValue)
@@ -129,6 +135,7 @@ Public Class TankMesh
         ' count would stretch this wheel's rim out to the next one's and make
         ' every radius come out the same - which is what the node-tree lookup was
         ' already doing by falling back to a mean.
+        Dim tips(MAXB - 1) As Single
         Dim hubs(MAXB - 1) As Vector3
         For i = 0 To MAXB - 1
             hubs(i) = If(wsum(i) > 0.0001F, acc(i) / wsum(i),
@@ -149,9 +156,16 @@ Public Class TankMesh
                 Dim dz = pz - hubs(bi).Z
                 Dim rr = CSng(Math.Sqrt(dy * dy + dz * dz))
                 If rr > rmax(bi) Then rmax(bi) = rr
+
+                ' Furthest along Z, keeping the SIGN: a barrel runs one way or
+                ' the other depending on the tank and the muzzle is at whichever
+                ' end is further from the origin.
+                Dim pz2 = pz
+                If Math.Abs(pz2) > Math.Abs(tips(bi)) Then tips(bi) = pz2
             Next
         Next
 
+        boneTipZ = tips
         Dim any = False
         For i = 0 To MAXB - 1
             If wsum(i) > 0.0001F Then any = True

@@ -92,6 +92,11 @@ Public Class TankInstance
 
     ''' <summary>Where the turret and gun are pointing, degrees, and which end
     ''' of their travel each is heading for. Positive pitch is UP.</summary>
+    ''' <summary>Where the vehicle actually is this frame - the parked spot
+    ''' walked along the shuttle. Written by the renderer before anything reads
+    ''' it, because a shot has to test the tank where it is standing now.</summary>
+    Public livePosition As Vector3
+
     Public turretYaw As Single
     Public gunPitch As Single
     Public yawToMax As Boolean = True
@@ -131,6 +136,53 @@ Public Class TankVehicle
     ''' Computed once on first ask: the parts do not move relative to each
     ''' other, so this is a property of the vehicle and not of the frame.
     ''' </summary>
+    ''' <summary>
+    ''' The whole vehicle's box, in its own frame, from the parts' own bounding
+    ''' boxes at their offsets.
+    '''
+    ''' What a shot tests against. The boxes come from the visuals, so this is
+    ''' the box the game uses rather than a measurement of the vertices, and
+    ''' taking them AT THEIR OFFSETS matters for the same reason topY needs it:
+    ''' a turret's box is in turret space and sits metres below the hull until
+    ''' the offset is added.
+    ''' </summary>
+    Public ReadOnly Property boundsMin As Vector3
+        Get
+            ensure_bounds()
+            Return _bbMin
+        End Get
+    End Property
+    Public ReadOnly Property boundsMax As Vector3
+        Get
+            ensure_bounds()
+            Return _bbMax
+        End Get
+    End Property
+    Private _bbMin As Vector3, _bbMax As Vector3
+    Private _bbDone As Boolean
+
+    Private Sub ensure_bounds()
+        If _bbDone Then Return
+        _bbDone = True
+        Dim lo As New Vector3(Single.MaxValue, Single.MaxValue, Single.MaxValue)
+        Dim hi As New Vector3(Single.MinValue, Single.MinValue, Single.MinValue)
+        For Each p In parts
+            If p.visual Is Nothing Then Continue For
+            Dim a = p.offset + p.visual.bbMin
+            Dim b = p.offset + p.visual.bbMax
+            lo = New Vector3(Math.Min(lo.X, a.X), Math.Min(lo.Y, a.Y), Math.Min(lo.Z, a.Z))
+            hi = New Vector3(Math.Max(hi.X, b.X), Math.Max(hi.Y, b.Y), Math.Max(hi.Z, b.Z))
+        Next
+        ' A vehicle whose visuals gave nothing still needs a box a shot can
+        ' miss rather than one that swallows the map.
+        If lo.X > hi.X Then
+            lo = New Vector3(-1.5F, 0.0F, -3.5F)
+            hi = New Vector3(1.5F, 2.5F, 3.5F)
+        End If
+        _bbMin = lo
+        _bbMax = hi
+    End Sub
+
     Public ReadOnly Property topY As Single
         Get
             If _topY = Single.MinValue Then

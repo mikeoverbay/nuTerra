@@ -236,9 +236,7 @@ Public Class MapTanks
             Dim wp = shuttle_position(inst)
             upload_lights(wp)
             upload_armor(inst.vehicle.nation)
-            Dim world = Matrix4.CreateScale(If(MirrorX, -1.0F, 1.0F), 1.0F, 1.0F) *
-                        Matrix4.CreateRotationY(inst.headingRad) *
-                        Matrix4.CreateTranslation(wp)
+            Dim world = world_matrix(inst, wp)
             For Each part In inst.vehicle.parts
                 Dim partModel = part_model(inst, part, world)
                 For Each m In part.meshes
@@ -753,20 +751,28 @@ Public Class MapTanks
     ''' </summary>
     Private Sub advance_guns(reversed As Boolean)
         For Each inst In instances
+            ' WHERE IT IS, before anything asks. The shuttle moves the vehicle
+            ' and both the aim and the shot have to use this frame's position -
+            ' a ray fired from last frame's muzzle leaves the barrel.
+            inst.livePosition = shuttle_position(inst)
             advance_aim(inst)
             inst.recoil.Update(ANIM_DELTA)
             If Not TANK_FIRING Then Continue For
 
-            If reversed Then inst.recoil.Fire()
+            Dim went = False
+            If reversed Then went = inst.recoil.Fire()
 
             If TANK_FIRE_PERIOD > 0.0F Then
                 inst.fireIn -= ANIM_DELTA
                 If inst.fireIn <= 0.0F Then
                     inst.fireIn = TANK_FIRE_PERIOD
-                    inst.recoil.Fire()
+                    If inst.recoil.Fire() Then went = True
                 End If
             End If
+
+            If went Then fire_shot(inst)
         Next
+        fx.Update(ANIM_DELTA)
     End Sub
 
     ''' <summary>
@@ -918,6 +924,16 @@ Public Class MapTanks
         Return Matrix4.CreateTranslation(part.offset) * world
     End Function
 
+    ''' <summary>A vehicle's place in the world. One definition, because the
+    ''' draw and the shot have to agree about where the gun is pointing to the
+    ''' last decimal - a muzzle computed from a second copy of this drifts from
+    ''' the barrel it is supposed to be at the end of.</summary>
+    Private Function world_matrix(inst As TankInstance, wp As Vector3) As Matrix4
+        Return Matrix4.CreateScale(If(MirrorX, -1.0F, 1.0F), 1.0F, 1.0F) *
+               Matrix4.CreateRotationY(inst.headingRad) *
+               Matrix4.CreateTranslation(wp)
+    End Function
+
     Private Function turret_offset(inst As TankInstance) As Vector3
         For Each p In inst.vehicle.parts
             If p.label = "turret" Then Return p.offset
@@ -925,10 +941,83 @@ Public Class MapTanks
         Return Vector3.Zero
     End Function
 
+    ''' <summary>
+    ''' Send one round down the barrel this gun is actually pointing.
+    '''
+    ''' THE MUZZLE IS MEASURED, not offset from the joint by a guessed length.
+    ''' Every gun is a different length and they are not all authored down the
+    ''' same axis, so the two points that define the shot come from the barrel
+    ''' bone's own vertices: its weighted centroid, which is about mid-barrel,
+    ''' and the furthest its vertices reach along Z, which is the muzzle. Both
+    ''' go through the SAME matrix the gun is drawn with - flip, pitch, yaw,
+    ''' hull, heading, mirror - so the ray leaves exactly where the barrel is on
+    ''' screen, and the direction is the difference between them rather than an
+    ''' axis anyone had to pick a sign for.
+    ''' </summary>
+    Private Sub fire_shot(inst As TankInstance)
+        If Not TANK_SHOTS Then Return
+
+        Dim gunPart As TankPart = Nothing
+        For Each p In inst.vehicle.parts
+            If p.label = "gun" Then gunPart = p : Exit For
+        Next
+        If gunPart Is Nothing OrElse gunPart.meshes.Count = 0 Then Return
+
+        For Each m In gunPart.meshes
+            If m.layout Is Nothing OrElse m.layout.offBoneIdx < 0 Then Continue For
+            Dim plan = resolve_recoil(gunPart, m)
+            If plan Is Nothing OrElse plan.barrel < 0 Then Continue For
+            If m.boneHubs Is Nothing OrElse m.boneTipZ Is Nothing Then Continue For
+            If plan.barrel >= m.boneHubs.Length Then Continue For
+
+            Dim hub = m.boneHubs(plan.barrel)
+            If Single.IsNaN(hub.X) Then Continue For
+            Dim tip = m.boneTipZ(plan.barrel)
+
+            Dim world = world_matrix(inst, inst.livePosition)
+            Dim model = part_model(inst, gunPart, world)
+            If FlipSkinnedZ Then model = Matrix4.CreateScale(1.0F, 1.0F, -1.0F) * model
+
+            Dim back = Vector3.TransformPosition(New Vector3(hub.X, hub.Y, hub.Z), model)
+            Dim muzzle = Vector3.TransformPosition(New Vector3(hub.X, hub.Y, tip), model)
+            Dim dir = muzzle - back
+            If dir.LengthSquared < 1.0E-6F Then Continue For
+            dir = Vector3.Normalize(dir)
+
+            Dim hit = TankShots.Cast(muzzle, dir, instances, inst)
+            fx.Shot(muzzle, dir, hit)
+
+            ' THE FIRST FEW IN FULL, then a tally. Thirty guns at a round
+            ' every two seconds is fifteen lines a second forever, which
+            ' buries the load log it shares - but two dozen lines is enough to
+            ' see that the muzzle is on the barrel and the rounds are landing
+            ' on things, and a running count every hundred says whether that
+            ' is still true an hour later.
+            shots_fired += 1
+            shots_by_kind(CInt(hit.kind)) += 1
+            If shots_fired <= 24 Then
+                LogThis("tank: {0} #{1} fired from ({2:0.0}, {3:0.0}, {4:0.0}) pitch {5:0.0} -> {6} at {7:0.0} m{8}",
+                        inst.vehicle.tag, inst.id, muzzle.X, muzzle.Y, muzzle.Z,
+                        inst.gunPitch, hit.kind.ToString(), hit.range,
+                        If(hit.kind = HitKind.Tank AndAlso hit.tank IsNot Nothing,
+                           " (" & hit.tank.vehicle.tag & " #" & hit.tank.id & ")", ""))
+            ElseIf shots_fired Mod 100 = 0 Then
+                LogThis("tank: {0} shots - {1} ground, {2} scenery, {3} tank, {4} away",
+                        shots_fired, shots_by_kind(CInt(HitKind.Ground)),
+                        shots_by_kind(CInt(HitKind.Scenery)),
+                        shots_by_kind(CInt(HitKind.Tank)),
+                        shots_by_kind(CInt(HitKind.NoHit)))
+            End If
+            Return
+        Next
+    End Sub
+
     ''' <summary>Base dwell at the end of a traverse. Staggered per tank on
     ''' top of this, so a line of them does not pause as one.</summary>
     Private Const AIM_HOLD_S As Single = 1.6F
 
+    Private Shared shots_fired As Integer
+    Private Shared shots_by_kind(3) As Integer
     Private Shared demo_t As Single
 
     ''' <summary>
@@ -999,9 +1088,16 @@ Public Class MapTanks
     Private Class RecoilPlan
         Public slots(63) As Integer
         Public dir As Single = 1.0F
+        ''' <summary>The barrel's palette slot. The muzzle is the far end of
+        ''' this bone's own vertices.</summary>
+        Public barrel As Integer = -1
     End Class
 
     Private ReadOnly recoil_plans As New Dictionary(Of TankMesh, RecoilPlan)
+
+    ''' <summary>The muzzle flashes and impacts in flight. Owned here because
+    ''' the shots are fired here; drawn from the FX block, where the glow is.</summary>
+    Public ReadOnly fx As New TankFx
 
     ''' <summary>
     ''' Classify this gun's palette once, and work out which way the barrel
@@ -1063,6 +1159,7 @@ Public Class MapTanks
         End If
 
         plan.dir = If(bestZ >= 0.0F, -1.0F, 1.0F)
+        plan.barrel = best
 
         ' Logged once per mesh, because "which bone is the barrel" is the whole
         ' question and a wrong answer is only visible as the wrong part sliding.
@@ -1262,6 +1359,7 @@ Public Class MapTanks
     Public Sub Dispose() Implements IDisposable.Dispose
         cards?.Dispose()
         cards = Nothing
+        fx.Dispose()
         For Each v In vehicles
             v.Dispose()
         Next

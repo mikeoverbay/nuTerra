@@ -1709,6 +1709,14 @@ try_again:
                                          "Off: all or nothing on the first slot." & vbLf &
                                          "Same bone classification either way.")
                     End If
+                    ImGui.Checkbox("Trace the shots", TANK_SHOTS)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Ray every round against the flight bake" & vbLf &
+                                         "- terrain and scenery together - and the" & vbLf &
+                                         "other tanks' boxes, and burst where it" & vbLf &
+                                         "lands.")
+                    End If
+                    ImGui.SliderFloat("Flash gain", TANK_FX_GAIN, 0.0, 10.0)
                     ImGui.SliderFloat("Fire every", TANK_FIRE_PERIOD, 0.0, 10.0)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Seconds between shots. 0 fires only at" & vbLf &

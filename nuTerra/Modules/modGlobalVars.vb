@@ -1091,6 +1091,20 @@ Module modGlobalVars
     Public TANK_FIRING As Boolean = True
 
     ''' <summary>
+    ''' Trace every shot and light both ends of it.
+    '''
+    ''' The ray runs against MapFlightBake - the same occupancy the tanks were
+    ''' parked against and the camera flight avoids - plus the vehicles' own
+    ''' boxes, which are not in the bake because they move.
+    ''' </summary>
+    Public TANK_SHOTS As Boolean = True
+
+    ''' <summary>How hard the flashes and bursts hit the FX buffer. They land in
+    ''' gFX_HDR before the bright pass, so this is over-range on purpose - the
+    ''' part above the glow threshold is what becomes the halo.</summary>
+    Public TANK_FX_GAIN As Single = 3.0F
+
+    ''' <summary>
     ''' Seconds between shots on the free-running cadence. 0 fires only at
     ''' the ends of the shuttle run.
     '''
