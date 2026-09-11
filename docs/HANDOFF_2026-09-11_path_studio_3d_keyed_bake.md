@@ -223,6 +223,18 @@ Lessons that cost a build each: VB is case blind (`tile_size` collided with
 `TILE_SIZE`); a shader that includes `common.h` gets nothing from the
 PerView block without the define.
 
+**The one that cost a look (`b0f07ce5`):** the tile pass ended with
+`Enable(DepthTest)` + `DepthMask(True)` - a state of its own, not the
+caller's. The caller had turned both OFF for the deferred quad that follows,
+with `DepthFunc(Less)` still set from the decals; the quad sits at window
+depth 0.5 (z=0 in `Ortho_main`'s +-30000 box), so it failed on the far half
+of the frame and wrote a flat 0.5 over the near half. Symptoms the owner
+saw: bulb glow through walls (`lamp_bulb.frag` reads that depth for its own
+occlusion test) and the lamp reflections gone from pooled water (those
+pixels kept stale C2 content). A full-screen pass inserted mid-frame saves
+the depth test and mask it finds and puts them back - never "restores" to a
+state it assumed.
+
 Open: no MSM path for the tiles; `DebugDraw` shows the forward map only; the
 owner had not yet judged the 0.059 m step by eye at the time of writing.
 
