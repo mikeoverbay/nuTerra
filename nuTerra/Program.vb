@@ -55,6 +55,17 @@ Module Program
                 ' One vehicle a base instead of thirty, for working on one of
                 ' them: solo=F108_Panhard_EBR_105
                 TANK_SOLO_TAG = a.Substring(5)
+            ElseIf a.StartsWith("perteam=", StringComparison.OrdinalIgnoreCase) Then
+                ' Vehicles a side: perteam=2 for a route test, 15 for a team.
+                ' A count the roster cannot fill is clamped at the load, not
+                ' here - the roster lives in MapTanks and this runs long before
+                ' it. An unparseable value keeps the default, and the load logs
+                ' the number it actually used, so nothing has to be guessed
+                ' from out here.
+                Dim per_team As Integer
+                If Integer.TryParse(a.Substring(8), per_team) AndAlso per_team > 0 Then
+                    TANK_PER_TEAM = per_team
+                End If
             ElseIf a.Equals("navdump", StringComparison.OrdinalIgnoreCase) Then
                 ' Write the tank navigation grid as a PNG when it is built.
                 TANK_NAV_DUMP = True

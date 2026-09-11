@@ -840,9 +840,26 @@ Module ChunkFunctions
         Dim h As UInt32 = p_rd.ReadUInt32 / 2
         Dim version As UInt32 = p_rd.ReadUInt32
         Dim data(w * h) As Byte
-        p_rd.Read(data, 0, w * h)
+        Dim got = p_rd.Read(data, 0, CInt(w * h))
 
-        Dim stride = 8
+        ' THE BLOCK IS NOT ALWAYS 64 WIDE, which this used to assume twice - a
+        ' hardcoded stride of 8 bytes a row, and a 63-x mirror below.
+        '
+        ' The header gives w = W/4 and h = H/2 for a hole grid of W x H cells,
+        ' one bit each. So a row is W/8 = w/2 bytes, there are H = h*2 rows, and
+        ' rows * stride = w*h - exactly the buffer that was allocated, on every
+        ' map rather than on one size of map.
+        '
+        '   19_monastery   w 16  h 32  ->  64 x 64, stride 8, 512 bytes
+        '   114_czech      w  4  h  8  ->  16 x 16, stride 2,  32 bytes
+        '
+        ' Pilsen's block is a quarter the width, so the old loop walked four
+        ' times past the end of the array and killed the process on the update
+        ' thread - no dialog and no stack in a plain run, only under a debugger.
+        ' At w = 16 the arithmetic below gives stride 8 and a 63-x mirror, so
+        ' the maps that already worked are bit-for-bit unchanged.
+        Dim cells_x = CInt(w) * 4
+        Dim stride = CInt(w) \ 2
         If w = 8 Then ' nothing so return empty hole array
             ps.Dispose()
             ms.Dispose()
@@ -850,10 +867,36 @@ Module ChunkFunctions
 
         End If
         hole_size = h * 2 - 1
+
+        ' HOW MANY ROWS THE BUFFER ACTUALLY HOLDS.
+        '
+        ' The loop below walks h*2 rows of `stride` bytes - 16h in all - out of
+        ' a buffer of w*h, which is only sound when w >= 16. Two sizes were ever
+        ' handled: w = 8, returned above as "no holes", and w = 16, where the
+        ' two happen to match exactly. Anything else walked off the end, and on
+        ' 114_czech it did: an IndexOutOfRangeException on the update thread,
+        ' which kills the process with no dialog and no stack in a plain run -
+        ' only under a debugger does anyone see where it came from.
+        '
+        ' Reading what is there rather than what was assumed. A short block
+        ' leaves the remaining cells at their default of NO hole, which is the
+        ' safe direction: an unpunched hole is solid ground and costs a little
+        ' fill rate, where a punched one that should not be there is a window
+        ' through the terrain.
+        ' Belt and braces now that the stride is derived: with a correct stride
+        ' rows_have and rows_want agree by construction, so this firing at all
+        ' means the header and the payload disagree and the map is telling us
+        ' something we do not understand yet.
+        Dim rows_have = If(stride > 0, got \ stride, 0)
+        Dim rows_want = CInt(h) * 2
+        If rows_have < rows_want Then
+            LogThis("chunk holes: w {0} h {1} read {2} byte(s) = {3} row(s) of {4}, expected {5} - using what is there",
+                    w, h, got, rows_have, stride, rows_want)
+        End If
         'This will be used to punch holes
         'in the map to speed up rendering and allow for sub terrain items.
         'Each bit of each byte is one hole cell, LSB-first, 8 cells per byte.
-        For z1 = 0 To (h * 2) - 1
+        For z1 = 0 To Math.Min(rows_want, rows_have) - 1
             For x1 = 0 To (stride) - 1
                 Dim val = data((z1 * stride) + x1)
                 For q = 0 To 7
@@ -876,7 +919,7 @@ Module ChunkFunctions
                     ' row, and the bit order within each byte is LSB-first -
                     ' MSB-first shatters continuous cliff curves into 8-pixel
                     ' sawtooth.
-                    v.holes(63 - ((x1 * 8) + q), z1) = b
+                    v.holes((cells_x - 1) - ((x1 * 8) + q), z1) = b
                 Next
             Next
         Next

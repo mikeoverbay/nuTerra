@@ -366,6 +366,101 @@ stretches, worst 4.8 m short at (154, 113) under a 7.4 m top - foliage the
 old bake could not see. It needs regenerating in the Studio on this bake
 before it is flown again.
 
+## 12. Model shading: the tank's material on the milk cans (evening)
+
+The owner: "get the Gloss and Metal on the buildings to look like the tanks
+rendering", reference two tin milk cans (`hd_env_EU_040_MilkCans`) on a wood
+table by a stone wall, `cam=-4.2564,5.2212,-0.3624,70.5601,0,48.1163`.
+The 09-08 pass had tried this reference and was reverted. Built this time as
+**Tank material (models)** in the deferred PBR path (`TANK_MAT`, off by
+default, bit-identical off), with the material block of `tank_gbuffer.frag`
+ported and measured with the 09-08 still protocol. The owner: "rendering
+is better" - committed as `48c8b096`. Measured negatives worth keeping:
+
+- **The tanks do not go through the resolve.** `tank_gbuffer.frag` lights
+  in linear space under three camera-following lights, ACES, gamma, and
+  writes `GFLAG_UNLIT`; its `gGMF.rg` is a by-product. The tank LOOK is that
+  rig, not its material model.
+- **The Tank Exporter curves black out the cans.** The cans' body carries
+  G 0.45 in the G-buffer; `pow(G/0.5, 5) * 1.5` reads that as 0.79 metal,
+  the diffuse goes, and the tank's `NdotV x gloss` IBL weighting gives a
+  rough metal nothing back: in the wall's shade the body fell 37 -> 11
+  levels (-70%), the wood table -47%. Under three lights the tank rig hides
+  this; one sun does not.
+- **The tank's gloss-gated sun lobe removes the game's sheen.** Gating by
+  raw gloss x 6 x curved gloss is x0.035 on these maps (R ~0.3); the game's
+  GGX low-gloss floor is a broad sheen every sunlit model has. Kept the
+  game's lobe.
+- **The game's decode is the safe reading.** `pow(x, 2.2)` on the bytes:
+  0.45 -> 0.17 metal, energy term `1 - min(m^2 * 3.2, 1)` keeps 91% of the
+  body's diffuse and takes all of the rim's (G 0.83 -> 0.66). Off -> on at
+  the camera: cans -3, wall 0, table -2, ground 0.
+- **The environment is the aluminium lever.** World-space R (x flipped),
+  mip by roughness over 4 levels, split-sum LUT, weighted NdotV x gloss for
+  a dielectric (the tank's - no grazing flare) and full for a metal (the
+  game's specAmbient), cube decoded as the PMREM it is (4x the sRGB read):
+  wall +3, cans +2 at gain 1. Exposed as `Env specular` 0..4.
+
+Controls: `tank_mat`, `gmm_curve` (0 raw / 1 Tank Exporter / 2 game),
+`tank_env`, `env_pmrem` - all persisted per map.
+
+**Zoning (evening, the owner's idea):** "draw rings and find areas as large
+as we can that the ring fits without hitting something; that whole area is
+safe; no collision checks, only zone radius checks." The Tank AI session
+builds the machinery (distance transform of the free mask, maximal discs
+greedily largest-first, overlap graph, A* on the graph) and Path Studio
+READS its zone map, the way it reads the bake - the owner: "wait for path
+AI to kick out the zone map". The contract asked for: one file per MASK
+beside the bake (tank and camera masks are deliberately separate - a camera
+flies over what a tank cannot drive through), per disc id / centre x z /
+radius / ground y, explicit adjacency, and a header with the mask, its
+rule, the cell size, the bake's `written` time and the count. The camera's
+free mask is `radar_commit.build_world(...)`'s `raw` with the gate applied.
+A radius field amplifies mask holes (one wrongly free cell inflates a disc
+through a wall and the planner PREFERS the wide corridor), which is why
+the canopy-over-rock hole is being fixed in the writer first.
+
+The Tank AI session's extraction rules, which its file is held to and
+which `radar_commit` should match if it ever cuts its own: **half a cell
+back** off every radius (`distance_transform_edt` measures to the blocked
+cell's CENTRE; the cell is solid from half a cell nearer - `sqrt(dt) - 0.5`
+before scaling); **cover fraction 0.6** on the greedy widest-first claim;
+**links walked, not overlapped** (a straight line between centres with full
+clearance the whole way - overlap alone lies in a corridor). The first rule
+applies to `build_world`'s `dist_m` today: the navigator's standoff reads a
+field that is optimistic by 0.34 m at 2048. Not changed - the owner's routes
+are tuned against it - and to be taken out together with a re-measure of the
+shipped route, never slipped in. Their monastery numbers, for shape only
+(tank mask, 4.5 m hull, 1024): 10,334 zones, 64,429 links, widest 57.6 m,
+mean 8.1 m, 103 isolated, 722 ms.
+
+The reader is in: `tools/zones.py` (`Zones`, `load_zones`, `zones_path`),
+`bake.meta` on both Bake classes, the **Zones** checkbox in the Studio
+(discs and walked links over the mask, rings on the ground in 3D, islands
+filled). Tested on a synthetic bake with a synthetic zone file in the exact
+spelling: the three checks, the provenance warning, a broken file (dense
+ids, radius order, one-sided links, header counts), the canvas and the 3D
+view. The real file appears in the flight folder once the writer is on
+master and the owner builds.
+
+**The real file, read (18:30):** the Tank AI session's monastery zone map
+through this reader with no warnings but the provenance one (cut 67 min from
+the shared meta's mtime - true, it came from their clone): 10,334 discs,
+64,429 links, 103 islands (1.0%), widest 57.6 m, mean 8.1 m, smallest 4.79 m
+against a 4.5 m hull. Zone 0 at (-112.8, -204.4) is the open field south of
+the walls - the biggest open space on that side - and against the bake only
+0.2% of it stands over 1 m: 14 fence texels and 31 trunk-less tree texels,
+both exempt under the tank rule; zones 1, 2, 5 hold trunk-less foliage
+only. The nearest thing over 1 m to zone 0's centre is 13.3 m away and is
+foliage a tank drives through - the CAMERA's field would cut the same disc
+at 13 m. That one number is the whole case for two masks off one height map.
+CAVEAT: that map was cut from a mask master does not have - their branch
+exempts fence and prop kinds from the tank's height test (the owner: "a
+fence or curb is not going to stop a tank"), 2,028 cells freed on the
+monastery; on master those 14 fence texels block and zone 0 is smaller.
+Their six files (zone map, CSV export, route catalogue, nav frame accessors,
+two gun fixes) wait on the owner's commit.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the

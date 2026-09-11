@@ -320,6 +320,19 @@ Public Class Window
         '-----------------------------------------------------------------------------------------
         'Check if the game path is set
         If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
+            ' THE SIDECAR FIRST, before troubling anybody. My.Settings lives in
+            ' a store keyed to the EXE'S PATH, so a build that lands in a
+            ' different folder - bind\Debug rather than bin\Debug, or a
+            ' second checkout - reads a user.config that has never seen this
+            ' machine's game folder, and Upgrade() cannot bridge it: that
+            ' searches earlier VERSIONS of one identity, and a different path
+            ' is a different identity. There are 21 such stores on this
+            ' machine. The sidecar is one file in one place that every build
+            ' can find, so the answer is remembered once rather than per exe.
+            adopt_game_path_sidecar()
+        End If
+
+        If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
             MsgBox("Path to game is not set!" + vbCrLf +
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
             m_set_game_path()
@@ -410,20 +423,99 @@ Public Class Window
         fps_timer.Start()
     End Sub
 
+    ''' <summary>
+    ''' Ask for the game folder, and KEEP it.
+    '''
+    ''' Saved here, the instant it is chosen, not on the way out. The exit path
+    ''' only runs on a clean shutdown and this app is force killed often enough
+    ''' - to free the exe for a build - that "saved on exit" means "usually
+    ''' lost". That is the same fault the Flight Recorder's output folder had,
+    ''' and the same fix; see the record_dir block for the longer version. The
+    ''' game path is the most deliberate choice in the app and the most
+    ''' expensive to lose, and it was the one still relying on a polite exit.
+    '''
+    ''' VALIDATED BEFORE IT IS ASSIGNED, which the old order had backwards. It
+    ''' wrote the picked folder into the setting and checked afterwards, so a
+    ''' wrong pick followed by Cancel left an invalid path in memory for a later
+    ''' clean exit to persist - the app then came up pointed at a folder with no
+    ''' res\ in it and no way to tell that it had been told so.
+    '''
+    ''' NOT THE WHOLE STORY. My.Settings lives in a store keyed to the
+    ''' EXECUTABLE'S PATH, so a build that lands in bind\Debug rather than
+    ''' bin\Debug reads a different user.config that has never seen this folder,
+    ''' and Upgrade() cannot rescue it - that searches earlier VERSIONS of the
+    ''' same identity, and a different path is a different identity. Keeping
+    ''' every build in one OutDir is what fixes that, and it is in CLAUDE.md.
+    ''' </summary>
     Private Sub m_set_game_path()
         Dim FolderBrowserDialog1 As New FolderBrowserDialog
 
         'Sets the game path folder
 try_again:
         If FolderBrowserDialog1.ShowDialog = DialogResult.OK Then
-            My.Settings.GamePath = FolderBrowserDialog1.SelectedPath
-            If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
+            Dim picked = FolderBrowserDialog1.SelectedPath
+            If Not Directory.Exists(Path.Combine(picked, "res")) Then
                 MsgBox("Wrong Folder Path!" + vbCrLf +
                        "You need to point at the World_of_Tanks folder!",
                         MsgBoxStyle.Exclamation, "Wrong Path!")
                 GoTo try_again
             End If
+
+            My.Settings.GamePath = picked
+            LogThis("game path set to {0}", picked)
+            Try
+                My.Settings.Save()
+            Catch ex As Exception
+                ' Never let a settings write take the app down.
+                LogThis("could not persist the game path - {0}", ex.Message)
+            End Try
+            write_game_path_sidecar(picked)
         End If
+    End Sub
+
+    ''' <summary>Where the game folder is remembered independently of where the
+    ''' executable happens to live. Not under Temp - this must outlive a cleanup
+    ''' - and not versioned, because there is only ever one answer.</summary>
+    Private Shared Function game_path_sidecar() As String
+        Return IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "nuTerra", "game_path.txt")
+    End Function
+
+    ''' <summary>Remember the folder somewhere every build can find it. Best
+    ''' effort: a failure here costs the next run a prompt, and must never cost
+    ''' this one anything.</summary>
+    Private Shared Sub write_game_path_sidecar(p As String)
+        Try
+            Dim f = game_path_sidecar()
+            IO.Directory.CreateDirectory(IO.Path.GetDirectoryName(f))
+            IO.File.WriteAllText(f, p)
+        Catch ex As Exception
+            LogThis("could not write the game path sidecar - {0}", ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>Take the sidecar's folder if it still holds a game. VALIDATED
+    ''' before it is adopted, so a stale file from a moved or deleted install
+    ''' falls through to the prompt rather than being believed.</summary>
+    Private Shared Sub adopt_game_path_sidecar()
+        Try
+            Dim f = game_path_sidecar()
+            If Not IO.File.Exists(f) Then Return
+            Dim p = IO.File.ReadAllText(f).Trim()
+            If p = "" OrElse Not Directory.Exists(Path.Combine(p, "res")) Then
+                LogThis("game path sidecar names {0}, which has no res\ - ignoring it", p)
+                Return
+            End If
+            My.Settings.GamePath = p
+            Try
+                My.Settings.Save()
+            Catch
+            End Try
+            LogThis("game path adopted from the sidecar: {0}", p)
+        Catch ex As Exception
+            LogThis("could not read the game path sidecar - {0}", ex.Message)
+        End Try
     End Sub
 
     Protected Overrides Sub OnResize(e As ResizeEventArgs)
@@ -577,7 +669,9 @@ try_again:
         End If
 
         If NEED_TO_INVALIDATE_VIEWPORT Then
-            _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
+            ' Same reason as OnMouseWheel: a resize can land before OnLoad has
+            ' built the controller.
+            If _controller IsNot Nothing Then _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
             MainFBO.Initialize(SCR_WIDTH, SCR_HEIGHT)
 
             NEED_TO_INVALIDATE_VIEWPORT = False
@@ -1501,15 +1595,29 @@ try_again:
         MOVE_MOD = False
     End Sub
 
+    ''' <summary>
+    ''' Input arrives BEFORE the UI exists, and used to kill the app.
+    '''
+    ''' _controller is built at the END of OnLoad, after build_shaders and
+    ''' load_assets - seconds of work on a cold package cache - and the window
+    ''' is already up and pumping events for all of it. One scroll of the wheel
+    ''' or one keypress in that gap dereferenced Nothing and took the process
+    ''' down with an unhandled NullReferenceException, which is exactly what an
+    ''' impatient person does while a map loads.
+    '''
+    ''' It is also unreachable-by-design on one path: the SCAN_LIGHTS_OUT branch
+    ''' returns from OnLoad before the controller is ever constructed, so in that
+    ''' mode every scroll was fatal.
+    ''' </summary>
     Protected Overrides Sub OnMouseWheel(e As MouseWheelEventArgs)
         MyBase.OnMouseWheel(e)
-
+        If _controller Is Nothing Then Return
         _controller.MouseScroll(e.Offset)
     End Sub
 
     Protected Overrides Sub OnTextInput(e As TextInputEventArgs)
         MyBase.OnTextInput(e)
-
+        If _controller Is Nothing Then Return
         _controller.PressChar(ChrW(e.Unicode))
     End Sub
 
@@ -1731,6 +1839,22 @@ try_again:
                                              "the bases. A few seconds." & vbLf &
                                              "Launch with the `tanks` argument to" & vbLf &
                                              "skip the click.")
+                        End If
+
+                        ' In this block on purpose, so it is on screen only
+                        ' while it can still take effect. The count is read
+                        ' once, inside the load; there is no reload path, so a
+                        ' slider left up afterwards would read as live and do
+                        ' nothing. The top of the range is half the roster -
+                        ' past that the placement fields the excess on team 1.
+                        ImGui.SliderInt("A side", TANK_PER_TEAM, 1, 15)
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Vehicles a side. 15 is a real team;" & vbLf &
+                                             "2 is a route test." & vbLf &
+                                             "Set it BEFORE the button - it is read" & vbLf &
+                                             "once, when the vehicles are placed." & vbLf &
+                                             "`perteam=N` does the same from the" & vbLf &
+                                             "command line.")
                         End If
                     Else
                         ImGui.TextDisabled("tanks loaded")
@@ -2605,6 +2729,45 @@ try_again:
                     End If
                     ImGui.Text("   GGX + Schlick-Gaussian F + Smith-Schlick Vis")
                     ImGui.Text("   env LUT indexed (alphaRoughness, NdotV)")
+
+                    ' ---- the tank shader's material model on models ---------
+                    ' Needs PBR specular on. Off: the frame is what it was.
+                    If ImGui.Checkbox("Tank material (models)", TANK_MAT) Then
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Light map models with the tank shader's material" & vbLf &
+                                         "model: no diffuse on a metal, its Fresnel, its" & vbLf &
+                                         "gloss-gated lobe, and the sky cube reflected the" & vbLf &
+                                         "way tank_gbuffer.frag reads it. PBR path only." & vbLf &
+                                         "Models only - terrain and trees are untouched.")
+                    End If
+                    If TANK_MAT Then
+                        Dim v_gmm = GMM_CURVE
+                        If ImGui.SliderInt("   GMM decode", v_gmm, 0, 2, If(v_gmm = 0, "raw bytes", If(v_gmm = 1, "Tank Exporter curves", "game (pow 2.2)"))) Then
+                            GMM_CURVE = v_gmm
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("How the gloss/metal bytes are read:" & vbLf &
+                                             "raw - as stored;" & vbLf &
+                                             "Tank Exporter - gloss = pow(R/0.8, 7), metal = pow(G/0.5, 5) x 1.5;" & vbLf &
+                                             "game - pow(x, 2.2) on both, the resolve's own decode." & vbLf &
+                                             "The milk cans' body is G 0.45: 0.79 metal by the curves," & vbLf &
+                                             "0.17 by the game.")
+                        End If
+                        If ImGui.SliderFloat("   Env specular", TANK_ENV, 0.0, 4.0) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Gain on the reflected sky. 1 is the tank's own" & vbLf &
+                                             "weighting; 0 is off.")
+                        End If
+                        If ImGui.Checkbox("   Env cube as PMREM (game decode)", ENV_PMREM) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("The cube on disk is the game's HDR PMREM. On: decode it" & vbLf &
+                                             "as the game does (about 4x the light of the sRGB read)." & vbLf &
+                                             "Off: read it as sRGB, the way the tank shader does.")
+                        End If
+                    End If
 
                     Dim v_spec = CommonProperties.SPECULAR
                     If ImGui.SliderFloat("Spec Level", v_spec, 0.0, 1.0) Then

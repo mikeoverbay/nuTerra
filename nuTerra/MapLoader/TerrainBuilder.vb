@@ -861,8 +861,31 @@ Module TerrainBuilder
 
         set_arena_bb(arena_xml)
 
+        ' CLEARED BEFORE THE READ, not left as they were. These are the only
+        ' two writes to TEAM_1 and TEAM_2 anywhere, and the read below is ctf
+        ' ONLY - a map that declares no ctf gameplay type returns False here
+        ' without touching them, so they kept the LAST ctf map's bases.
+        '
+        ' The rings themselves were never wrong: BASE_RINGS_LOADED takes this
+        ' function's result and draw_base_rings_deferred returns early on it.
+        ' The tank placement is what saw it, because it falls back to the base
+        ' marker for every slot the map declares no spawn point for - and
+        ' 114_czech declares one a side, from domination, so slots 2..15 took
+        ' the marker. Loading it first put them at the origin; loading it after
+        ' a ctf map put them on that map's base, and neither reads as a bug on
+        ' screen because tanks near a base is what tanks near a base looks like.
+        ' Same numbers whatever ran before is worth more here than a plausible
+        ' fallback: a route test whose start depends on load order measures the
+        ' load order.
+        '
+        ' Test BASE_RINGS_LOADED - not TEAM_1 against zero - before trusting
+        ' these for anything.
+        TEAM_1 = Vector3.Zero
+        TEAM_2 = Vector3.Zero
+
         Dim ctf_teamBasePositions_node = arena_xml.SelectSingleNode("gameplayTypes/ctf/teamBasePositions")
         If ctf_teamBasePositions_node Is Nothing Then
+            LogThis("arena: {0} declares no ctf teamBasePositions - no base markers for this map", name)
             Return False
         End If
 
@@ -874,6 +897,14 @@ Module TerrainBuilder
         TEAM_2.X = team2_pos(0)
         TEAM_2.Y = 0.0
         TEAM_2.Z = team2_pos(1)
+
+        ' Logged in the WORLD frame - X negated, Z straight - which is the frame
+        ' every consumer uses and the globals do not hold. Two sessions reading
+        ' the same arena_defs can disagree by exactly that sign and each be
+        ' internally consistent, so the cheapest cross-check is a number on
+        ' screen in the frame the tanks are actually placed in.
+        LogThis("arena: {0} ctf bases, world frame - team1 ({1:0.0}, {2:0.0}), team2 ({3:0.0}, {4:0.0}), 50 m ring",
+                name, -TEAM_1.X, TEAM_1.Z, -TEAM_2.X, TEAM_2.Z)
 
         read_spawn_points(arena_xml)
         Return True

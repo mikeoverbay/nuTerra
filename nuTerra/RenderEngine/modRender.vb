@@ -1137,6 +1137,10 @@ Module modRender
                     CInt(If(USE_SH_AMBIENT AndAlso SH_AMBIENT_LOADED, 1, 0)))
 
         GL.Uniform1(deferredShader("pbr_spec"), CInt(If(PBR_SPEC, 1, 0)))
+        GL.Uniform1(deferredShader("tank_mat"), CInt(If(TANK_MAT, 1, 0)))
+        GL.Uniform1(deferredShader("gmm_curve"), GMM_CURVE)
+        GL.Uniform1(deferredShader("tank_env"), TANK_ENV)
+        GL.Uniform1(deferredShader("env_pmrem"), CInt(If(ENV_PMREM, 1, 0)))
 
         ' The environment cube, drawn as a 1 m box on the look-at point.
         '

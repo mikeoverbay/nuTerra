@@ -814,6 +814,36 @@ Module modGlobalVars
     ''' </summary>
     Public PBR_SPEC As Boolean = False
 
+    ''' <summary>
+    ''' The tank shader's material model on map models, in the PBR path: the
+    ''' Tank Exporter GMM curves, no diffuse on a metal, its Fresnel and its
+    ''' gloss-gated lobe, and the environment read off the sky cube the way
+    ''' tank_gbuffer.frag reads it. Off: not one instruction of it runs.
+    ''' Persisted as tank_mat.
+    ''' </summary>
+    Public TANK_MAT As Boolean = False
+
+    ''' <summary>
+    ''' How a model's gloss/metal bytes are read under TANK_MAT: 0 raw, 1 the
+    ''' Tank Exporter curves (gloss = pow(R / 0.8, 7), metal = min(pow(G / 0.5,
+    ''' 5) * 1.5, 1)), 2 the game's own decode (pow(x, 2.2) on both). Persisted
+    ''' as gmm_curve.
+    ''' </summary>
+    Public GMM_CURVE As Integer = 2
+
+    ''' <summary>
+    ''' Gain on the environment term under TANK_MAT. 1 is the tank's own
+    ''' weighting (NdotV x gloss, times Ambient Level). Persisted as tank_env.
+    ''' </summary>
+    Public TANK_ENV As Single = 1.0F
+
+    ''' <summary>
+    ''' Under TANK_MAT, read the sky cube for the environment term with the
+    ''' game's PMREM decode (rgb^2 * 2^(9a) / 8 - the encoding the file has)
+    ''' rather than as sRGB the way the tank shader does. Persisted as env_pmrem.
+    ''' </summary>
+    Public ENV_PMREM As Boolean = True
+
     Public SH_GRID_CURVE As Single = 1.0F
     Public SH_GRID_FLOOR As Single = 0.0F
 
@@ -1148,6 +1178,21 @@ Module modGlobalVars
 
     Public TANK_SOLO_TAG As String = ""
 
+    ''' <summary>
+    ''' Vehicles a side at the next load. 15 is a real team - what the roster
+    ''' holds and what the tank pass was measured on - and 2 is a route test.
+    '''
+    ''' READ ONCE, inside MapTanks.Load, so it has to be set before the button is
+    ''' pressed. That is why the slider lives next to that button and vanishes
+    ''' with it: the vehicles are placed once and there is no reload path, so a
+    ''' control that stayed on screen afterwards would look live and do nothing.
+    '''
+    ''' Clamped at the load to half the roster. The placement splits the list at
+    ''' PER_TEAM - team = If(i &lt; PER_TEAM, 1, 2) - so 20 against a roster of 30
+    ''' does not field 20 a side, it fields 20 against 10.
+    ''' </summary>
+    Public TANK_PER_TEAM As Integer = 15
+
     Public TANK_NAV_DUMP As Boolean = False
 
     Public TANK_AUTOLOAD As Boolean = False
@@ -1156,16 +1201,6 @@ Module modGlobalVars
     Public TANK_LOAD_NOW As Boolean = False
 
     Public TANK_AIM As Boolean = False
-
-    ''' <summary>
-    ''' Vehicles a side. Fifteen is a WoT team and the default.
-    '''
-    ''' Two is what a race wants. Thirty tanks tell you whether the fleet
-    ''' behaves; four tell you whether a route was taken, and a still with four
-    ''' hulls in it can be read at a glance where one with thirty cannot. The
-    ''' owner's words: "for test runs to get to to base, use 2 tanks per team".
-    ''' </summary>
-    Public TANK_PER_TEAM As Integer = 2
 
     ''' <summary>
     ''' Whether the guns run at all. OFF by default.
