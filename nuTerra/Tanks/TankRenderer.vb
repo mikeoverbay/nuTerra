@@ -247,6 +247,7 @@ Public Class MapTanks
                     .team = If(team = 1, TankTeam.Green, TankTeam.Red),
                     .label = r.Item2, .id = k + 1,
                     .fireIn = 0.21F * i,
+                    .shells = magazine_size(v),
                     .turretYaw = yaw0, .gunPitch = pitch0})
                 LogThis("tank: team {0} slot {1,2} {2}/{3} at ({4:0.0}, {5:0.0}, {6:0.0}) obstacle {7:0.00} m armour {8}",
                         team, k, r.Item1, v.tag, x, y, z, obstacle_at(x, z),
@@ -843,18 +844,26 @@ Public Class MapTanks
             Next
             If Not TANK_FIRING Then Continue For
 
-            Dim went = False
-            If reversed Then went = inst.recoil.Fire()
+            advance_reload(inst)
 
+            ' THE DEF DECIDES THE RATE. The cadence below is a floor on top of
+            ' it, not a substitute for it: a gun that is still reloading cannot
+            ' be made to fire by any trigger, which is the whole point of
+            ' reading reloadTime at all. The 121 fires every 9.4 s because its
+            ' file says so, not every two because a slider does.
+            Dim wants = reversed
             If TANK_FIRE_PERIOD > 0.0F Then
                 inst.fireIn -= ANIM_DELTA
                 If inst.fireIn <= 0.0F Then
                     inst.fireIn = TANK_FIRE_PERIOD
-                    If inst.recoil.Fire() Then went = True
+                    wants = True
                 End If
             End If
 
-            If went Then fire_shot(inst)
+            If wants AndAlso inst.ready AndAlso inst.recoil.Fire() Then
+                spend_shell(inst)
+                fire_shot(inst)
+            End If
         Next
         fx.Update(ANIM_DELTA)
     End Sub
@@ -1132,6 +1141,101 @@ Public Class MapTanks
     Private Const AIM_HOLD_S As Single = 1.6F
 
     Private Shared arrivals_logged As Integer
+    ''' <summary>
+    ''' Bring shells back, at the rate the gun's own file gives.
+    '''
+    ''' Three shapes, and which one applies falls out of what the def
+    ''' carries rather than from any flag - see TankVehicle.magazine. A
+    ''' clip refills whole after one long wait; an autoreloader puts back
+    ''' one shell at a time and charges more for each; a plain gun is the
+    ''' same thing with a magazine of one.
+    ''' </summary>
+    Private Sub advance_reload(inst As TankInstance)
+        Dim v = inst.vehicle
+        inst.sinceShotS += ANIM_DELTA
+
+        ' The cadence inside the magazine, which is a different wait from the
+        ' reload and has to run even while the magazine is full.
+        If inst.shotCoolS > 0.0F Then
+            inst.shotCoolS = Math.Max(0.0F, inst.shotCoolS - ANIM_DELTA)
+        End If
+
+        Dim cap = magazine_size(v)
+        If inst.shells >= cap Then
+            inst.reloadLeftS = 0.0F
+            Return
+        End If
+
+        ' A CLIP RELOADS ONLY WHEN IT IS DRY. Half a magazine is not a gun
+        ' part way through a reload - it is a gun with rounds left, and the
+        ' long wait has not started. Running the timer anyway is what made a
+        ' four-round clip refill itself after its two-second cadence.
+        If v.magazine = MagazineKind.Clip AndAlso inst.shells > 0 Then
+            inst.reloadLeftS = 0.0F
+            Return
+        End If
+
+        If inst.reloadLeftS <= 0.0F Then
+            inst.reloadFullS = next_reload(v, inst.shells)
+            inst.reloadLeftS = inst.reloadFullS
+        End If
+
+        inst.reloadLeftS -= ANIM_DELTA
+        If inst.reloadLeftS > 0.0F Then Return
+
+        inst.reloadLeftS = 0.0F
+        ' A CLIP comes back whole for its one wait; an autoreloader and a
+        ' plain gun gain one shell.
+        If v.magazine = MagazineKind.Clip Then
+            inst.shells = cap
+        Else
+            inst.shells += 1
+        End If
+    End Sub
+
+    ''' <summary>How many shells the magazine holds. A plain gun holds the one
+    ''' in the breech.</summary>
+    Friend Shared Function magazine_size(v As TankVehicle) As Integer
+        Select Case v.magazine
+            Case MagazineKind.AutoReloader
+                Return Math.Max(v.clipCount, v.autoReloadS.Length)
+            Case MagazineKind.Clip
+                Return Math.Max(v.clipCount, 1)
+            Case Else
+                Return 1
+        End Select
+    End Function
+
+    ''' <summary>What the next shell costs. An autoreloader's list is
+    ''' indexed by how many are already in the magazine - putting the first
+    ''' back costs autoReloadS(0) - and clamped, so a list shorter than the
+    ''' magazine still answers. Anything else pays its one reload.</summary>
+    Private Shared Function next_reload(v As TankVehicle, have As Integer) As Single
+        Dim a = If(v.magazine = MagazineKind.AutoReloader, v.autoReloadS, v.reloadS)
+        If a.Length = 0 Then Return 6.0F
+        Dim i = Math.Min(Math.Max(have, 0), a.Length - 1)
+        Return Math.Max(0.05F, a(i))
+    End Function
+
+    ''' <summary>Take a shell, and start the wait the magazine imposes.
+    ''' A clip charges only its intra-clip interval between shells and
+    ''' keeps the long reload for when it runs dry.</summary>
+    Private Sub spend_shell(inst As TankInstance)
+        Dim v = inst.vehicle
+        inst.shells -= 1
+        inst.sinceShotS = 0.0F
+
+        ' The cadence, if this gun has one. A magazine that still has rounds
+        ' in it is held by THIS and not by the reload; a gun that has just
+        ' gone dry is held by both, and the reload is the longer.
+        inst.shotCoolFullS = Math.Max(0.01F, v.clipIntervalS)
+        inst.shotCoolS = If(v.magazine = MagazineKind.OneShot, 0.0F,
+                            inst.shotCoolFullS)
+
+        inst.reloadFullS = next_reload(v, inst.shells)
+        inst.reloadLeftS = inst.reloadFullS
+    End Sub
+
     Private Shared shots_fired As Integer
     Private Shared shots_by_kind(3) As Integer
     Private Shared demo_t As Single

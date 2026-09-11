@@ -1524,7 +1524,7 @@ Module modRender
             pl_pos(k * 4 + 0) = w.X
             pl_pos(k * 4 + 1) = w.Y
             pl_pos(k * 4 + 2) = w.Z
-            pl_pos(k * 4 + 3) = Math.Max(0.5F, sp.outerRadius)
+            pl_pos(k * 4 + 3) = Math.Max(0.5F, sp.outerRadius * TANK_GUN_LIGHT_RADIUS)
 
             pl_col(k * 4 + 0) = col.X
             pl_col(k * 4 + 1) = col.Y

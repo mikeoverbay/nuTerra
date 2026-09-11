@@ -1139,6 +1139,21 @@ Module modGlobalVars
     Public TANK_GUN_LIGHT_LEVEL As Single = 6.0F
 
     ''' <summary>
+    ''' Stretch the flash's life by this much.
+    '''
+    ''' The def gives 0.09 s and that is the truth about a real gun, but at
+    ''' sixty frames it is five frames of light and reads as a flash cube
+    ''' rather than as a gun. The whole envelope stretches - the colour keys
+    ''' with it - so the flash still whitens as it peaks and falls to red.
+    ''' 1.0 is exactly what the file says.
+    ''' </summary>
+    Public TANK_GUN_LIGHT_HOLD As Single = 3.0F
+
+    ''' <summary>Scale on the light's reach. The def's outerRadius is 8 m for a
+    ''' tank gun and 15 for the big ones; this multiplies it.</summary>
+    Public TANK_GUN_LIGHT_RADIUS As Single = 1.0F
+
+    ''' <summary>
     ''' How fast a round flies, metres per second, FOR THE EYE.
     '''
     ''' Not the real muzzle velocity. A tank shell leaves at 700 to 1500 m/s and
@@ -1185,7 +1200,10 @@ Module modGlobalVars
     ''' and the card is built around it in screen pixels, so nothing about the
     ''' camera changes its size. A marker is part of the interface.
     ''' </summary>
-    Public TANK_TAG_PX As Single = 46.0F
+    ''' <summary>Sized to the CARD, not picked flat: the cell grew a row for
+    ''' the gun, and holding the on-screen height while the content got taller
+    ''' would shrink every bar on it by a sixth.</summary>
+    Public TANK_TAG_PX As Single = 56.0F
 
     ''' <summary>
     ''' Sweep the two condition bars so they can be seen working.

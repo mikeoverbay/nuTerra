@@ -78,7 +78,13 @@ Public Class TankShot
         spec = s
         If s IsNot Nothing Then
             flashLifeS = Math.Max(s.endS, 0.02F)
-            lightLifeS = Math.Max(s.durationS, 0.01F)
+            ' HELD LONGER THAN THE FILE SAYS, on purpose. gun_effects.xml gives
+            ' the light 0.09 s, which is honest and reads as a flash cube going
+            ' off - a single frame of white with nothing either side of it. The
+            ' hold stretches the whole envelope, colour keys and all, so the
+            ' flash still whitens as it peaks and falls to red; it just does it
+            ' over long enough to see.
+            lightLifeS = Math.Max(s.durationS, 0.01F) * Math.Max(TANK_GUN_LIGHT_HOLD, 0.1F)
             length = s.flashLength
             thickness = s.flashThickness
         End If

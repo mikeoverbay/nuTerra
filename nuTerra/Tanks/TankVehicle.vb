@@ -1,6 +1,13 @@
 ﻿Imports System.Xml
 Imports OpenTK.Mathematics
 
+''' <summary>How a gun's magazine behaves - see TankVehicle.magazine.</summary>
+Public Enum MagazineKind
+    OneShot = 0
+    Clip = 1
+    AutoReloader = 2
+End Enum
+
 ''' <summary>One part of a vehicle: hull, chassis, turret or gun, with its meshes, visual, textures and local offset.</summary>
 Public Class TankPart
     Implements IDisposable
@@ -89,18 +96,81 @@ Public Class TankInstance
     ''' starve itself, and so each shot keeps its own gun's timing.</summary>
     Public ReadOnly shots As New TankShotPool
 
+    ''' <summary>Shells ready to fire. One for a plain gun; up to clipCount
+    ''' for a magazine.</summary>
+    Public shells As Integer = 1
+
+    ''' <summary>
+    ''' Seconds until the next shell is back IN THE MAGAZINE, and what that
+    ''' wait started from.
+    '''
+    ''' NOT the same clock as shotCoolS below, and keeping them apart is the
+    ''' whole of what makes a magazine gun behave. A clip gun spends four
+    ''' rounds two seconds apart and then waits half a minute; if one timer
+    ''' carried both, the two-second gap between rounds would count as the
+    ''' reload and the magazine would refill after it - a 390 mm autoloader
+    ''' firing continuously.
+    '''
+    ''' reloadFullS is kept rather than recomputed: an autoreloader's next
+    ''' shell costs a different amount from the last one, so a bar that asked
+    ''' the vehicle for its own denominator would rescale halfway through.
+    ''' </summary>
+    Public reloadLeftS As Single
+    Public reloadFullS As Single = 1.0F
+
+    ''' <summary>Seconds until the gun may fire AGAIN - the cadence inside a
+    ''' magazine. Zero on a plain gun, which has nothing between its
+    ''' shots but the reload.</summary>
+    Public shotCoolS As Single
+    Public shotCoolFullS As Single = 1.0F
+
+    ''' <summary>Seconds since this gun last fired - the number on the card
+    ''' while it is reloading.</summary>
+    Public sinceShotS As Single
+
+    ''' <summary>Whether the trigger would do anything: a shell in the
+    ''' magazine AND the gun over its last shot.</summary>
+    Public ReadOnly Property ready As Boolean
+        Get
+            Return shells > 0 AndAlso shotCoolS <= 0.0F
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' How close the gun is to being able to shoot, 0..1, for the bar.
+    '''
+    ''' ONE BAR OFF WHICHEVER CLOCK IS ACTUALLY HOLDING THE GUN. With a
+    ''' shell in the magazine that is the cadence; with none it is the
+    ''' reload. Showing the reload in both cases would leave a clip gun's
+    ''' bar pinned full through the four seconds it cannot fire, and showing
+    ''' the cadence in both would say a dry gun is nearly loaded.
+    ''' </summary>
+    Public ReadOnly Property readyFrac As Single
+        Get
+            If shells > 0 Then
+                If shotCoolS <= 0.0F Then Return 1.0F
+                Return clamp01(1.0F - shotCoolS / Math.Max(shotCoolFullS, 0.001F))
+            End If
+            Return clamp01(1.0F - reloadLeftS / Math.Max(reloadFullS, 0.001F))
+        End Get
+    End Property
+
+    Private Shared Function clamp01(f As Single) As Single
+        Return Math.Min(Math.Max(f, 0.0F), 1.0F)
+    End Function
+
     ''' <summary>Seconds until this gun fires on the free-running cadence.
     ''' Seeded apart per tank so a line of them ripples rather than
     ''' volleying - thirty barrels moving as one reads as a glitch.</summary>
     Public fireIn As Single
 
-    ''' <summary>Where the turret and gun are pointing, degrees, and which end
-    ''' of their travel each is heading for. Positive pitch is UP.</summary>
     ''' <summary>Where the vehicle actually is this frame - the parked spot
     ''' walked along the shuttle. Written by the renderer before anything reads
     ''' it, because a shot has to test the tank where it is standing now.</summary>
     Public livePosition As Vector3
 
+    ''' <summary>Where the turret and gun are pointing, degrees, and which end
+    ''' of their travel each is heading for. Positive pitch is UP.</summary>
     Public turretYaw As Single
     Public gunPitch As Single
     Public yawToMax As Boolean = True
@@ -246,6 +316,61 @@ Public Class TankVehicle
     ''' <summary>The muzzle blast the gun names, from gun_effects.xml.</summary>
     Public blast As BlastSpec
 
+    ''' <summary>Seconds to reload, from the def. The ordinary one-number
+    ''' case; an autoreloader's per-shell list is autoReloadS below.</summary>
+    Public reloadS As Single() = {6.0F}
+
+    ''' <summary>
+    ''' An AUTORELOADER's per-shell refill times, or empty.
+    '''
+    ''' A SEPARATE ELEMENT, NOT A LONGER reloadTime. The Progetto M40 carries
+    ''' BOTH: reloadTime 15.4 for dumping the magazine, and
+    ''' autoreload/reloadTime "10 12 14 16" for putting the first, second,
+    ''' third and fourth shell back one at a time, each costing more than the
+    ''' last. Reading only the gun's own reloadTime finds 15.4, a clip of 4
+    ''' and nothing to say it is an autoreloader - which is a real tank on our
+    ''' roster modelled as the wrong kind of gun.
+    '''
+    ''' A SINGLE VALUE HERE IS STILL AN AUTORELOADER - the Jezevec's is one
+    ''' 6.3, meaning every shell costs the same. So the KIND comes from
+    ''' whether this element existed, never from how many numbers are in it.
+    ''' </summary>
+    Public autoReloadS As Single() = {}
+
+    ''' <summary>Shells in a magazine, and the seconds between them inside it.
+    ''' The def gives the rate in shots per MINUTE, not seconds.</summary>
+    Public clipCount As Integer = 1
+    Public clipIntervalS As Single
+
+    ''' <summary>Same again for a burst gun - several rounds off one trigger,
+    ''' then the ordinary reload.</summary>
+    Public burstCount As Integer = 1
+    Public burstIntervalS As Single
+
+    ''' <summary>Seconds for the sights to settle. Read because it is the
+    ''' other half of a gun's rhythm; nothing gates on it yet.</summary>
+    Public aimingTimeS As Single
+
+    ''' <summary>
+    ''' How the magazine behaves. Three shapes, and the def tells them apart
+    ''' by which elements it carries rather than by any flag:
+    '''   OneShot - one reload between shots.
+    '''   Clip    - clipCount shells at clipIntervalS, then ONE reload
+    '''             refills the whole magazine.
+    '''   Auto    - shells come back one at a time, the k-th costing
+    '''             autoReloadS(k), and whatever is in there may be fired.
+    '''
+    ''' ORDER MATTERS: an autoreloader also has a clip block, so testing
+    ''' clipCount first would call every one of them a clip gun.
+    ''' </summary>
+    Public ReadOnly Property magazine As MagazineKind
+        Get
+            If autoReloadS.Length > 0 Then Return MagazineKind.AutoReloader
+            If clipCount > 1 Then Return MagazineKind.Clip
+            Return MagazineKind.OneShot
+        End Get
+    End Property
+
     ''' <summary>
     ''' Where the game starts the blast: the gun visual's own HP_gunFire node,
     ''' accumulated down the tree, in the VISUAL's frame.
@@ -359,6 +484,7 @@ Public Class TankVehicle
         Dim gunOff = turretOff + v.gunPosition
 
         v.ReadAimLimits(turretEl, gunEl)
+        v.ReadGunTiming(nation, gunEl)
         v.blast = TankBlast.Lookup(TankVisual.TextOf(
             If(gunEl Is Nothing, Nothing, gunEl.SelectSingleNode("effects"))))
 
@@ -397,6 +523,96 @@ Public Class TankVehicle
     ''' GUN rather than the turret - so reading them anywhere but off the
     ''' elements Priciest picked would describe a vehicle we are not drawing.
     ''' </summary>
+    ''' <summary>
+    ''' The gun's rhythm: reload, magazine, burst, aim time.
+    '''
+    ''' FROM THE GUN THE VEHICLE IS CARRYING, which is why it reads off the
+    ''' element Priciest chose rather than searching the file - a turret's
+    ''' other guns reload at their own rates, and the last one in the file is
+    ''' not the one on the tank.
+    '''
+    ''' A value the vehicle file does not override lives in the nation's
+    ''' components/guns.xml under the same gun name - the vehicle entry
+    ''' carries the text "shared" when it inherits. Looked up there when it
+    ''' is missing, so a gun that states nothing locally still gets its own
+    ''' numbers rather than a default.
+    ''' </summary>
+    Private Sub ReadGunTiming(nation As String, gunEl As XmlElement)
+        If gunEl Is Nothing Then Return
+
+        Dim sh As XmlElement = Nothing
+        Dim f = TankVisual.Floats(TankVisual.TextOf(gunEl.SelectSingleNode("reloadTime")))
+        If f Is Nothing OrElse f.Length = 0 Then
+            sh = SharedGun(nation, gunEl.Name)
+            f = TankVisual.Floats(TankVisual.TextOf(
+                If(sh Is Nothing, Nothing, sh.SelectSingleNode("reloadTime"))))
+        End If
+        If f IsNot Nothing AndAlso f.Length > 0 Then reloadS = f
+
+        Dim a = TankVisual.Floats(TankVisual.TextOf(gunEl.SelectSingleNode("aimingTime")))
+        If a Is Nothing OrElse a.Length = 0 Then
+            If sh Is Nothing Then sh = SharedGun(nation, gunEl.Name)
+            a = TankVisual.Floats(TankVisual.TextOf(
+                If(sh Is Nothing, Nothing, sh.SelectSingleNode("aimingTime"))))
+        End If
+        If a IsNot Nothing AndAlso a.Length > 0 Then aimingTimeS = a(0)
+
+        read_magazine(gunEl.SelectSingleNode("clip"), clipCount, clipIntervalS)
+        If clipCount <= 1 Then
+            If sh Is Nothing Then sh = SharedGun(nation, gunEl.Name)
+            read_magazine(If(sh Is Nothing, Nothing, sh.SelectSingleNode("clip")),
+                          clipCount, clipIntervalS)
+        End If
+        read_magazine(gunEl.SelectSingleNode("burst"), burstCount, burstIntervalS)
+
+        ' The autoreloader's own element, under the gun and beside the clip.
+        Dim ar = TankVisual.Floats(TankVisual.TextOf(
+            gunEl.SelectSingleNode("autoreload/reloadTime")))
+        If ar Is Nothing OrElse ar.Length = 0 Then
+            If sh Is Nothing Then sh = SharedGun(nation, gunEl.Name)
+            ar = TankVisual.Floats(TankVisual.TextOf(
+                If(sh Is Nothing, Nothing, sh.SelectSingleNode("autoreload/reloadTime"))))
+        End If
+        If ar IsNot Nothing AndAlso ar.Length > 0 Then autoReloadS = ar
+
+        LogThis("tank:   gun timing: reload {0} s, {1} x{2} @{3:0.0} s, aim {4:0.0} s{5}",
+                String.Join("/", reloadS), magazine.ToString(), clipCount,
+                clipIntervalS, aimingTimeS,
+                If(autoReloadS.Length = 0, "",
+                   " autoreload " & String.Join("/", autoReloadS) & " s"))
+    End Sub
+
+    ''' <summary>A clip or burst block: a count and a rate in shots per
+    ''' MINUTE, turned here into the seconds between shells that everything
+    ''' downstream actually wants.</summary>
+    Private Shared Sub read_magazine(el As XmlNode, ByRef count As Integer,
+                                     ByRef intervalS As Single)
+        If el Is Nothing Then Return
+        Dim c = TankVisual.Floats(TankVisual.TextOf(el.SelectSingleNode("count")))
+        Dim r = TankVisual.Floats(TankVisual.TextOf(el.SelectSingleNode("rate")))
+        If c IsNot Nothing AndAlso c.Length > 0 Then count = CInt(c(0))
+        If r IsNot Nothing AndAlso r.Length > 0 AndAlso r(0) > 0.0F Then
+            intervalS = 60.0F / r(0)
+        End If
+    End Sub
+
+    ''' <summary>The gun's shared entry in the nation's components/guns.xml,
+    ''' or Nothing. Cached per nation - the file is large and every vehicle
+    ''' of a nation asks for it.</summary>
+    Private Shared Function SharedGun(nation As String, name As String) As XmlElement
+        Dim root As XmlElement = Nothing
+        If Not shared_guns.TryGetValue(nation, root) Then
+            Dim entry = ResMgr.Lookup(String.Format(
+                "scripts/item_defs/vehicles/{0}/components/guns.xml", nation))
+            root = If(entry Is Nothing, Nothing, ResMgr.openXML(entry))
+            shared_guns(nation) = root
+        End If
+        If root Is Nothing Then Return Nothing
+        Return TryCast(root.SelectSingleNode("shared/" & name), XmlElement)
+    End Function
+
+    Private Shared ReadOnly shared_guns As New Dictionary(Of String, XmlElement)
+
     Private Sub ReadAimLimits(turretEl As XmlElement, gunEl As XmlElement)
         If gunEl IsNot Nothing Then
             Dim pl = gunEl.SelectSingleNode("pitchLimits")

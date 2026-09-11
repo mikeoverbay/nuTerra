@@ -33,7 +33,7 @@ Public Class TankCards
     ''' two bars beside it, short enough that thirty of them do not wallpaper the
     ''' screen.</summary>
     Public Const CELL_W As Integer = 256
-    Public Const CELL_H As Integer = 80
+    Public Const CELL_H As Integer = 96
     Private Const COLS As Integer = 6
 
     Private shader As Shader
@@ -43,14 +43,23 @@ Public Class TankCards
     Private cells As Integer          ' how many the atlas currently holds
     Private rows As Integer
 
-    ''' <summary>What each cell was last drawn with. A card whose four values
+    ''' <summary>What each cell was last drawn with. A card whose values
     ''' still match is left alone. Named apart from the array it fills because
-    ''' VB is case blind and Baked/baked are one identifier to it.</summary>
+    ''' VB is case blind and Baked/baked are one identifier to it.
+    '''
+    ''' THE TWO GUN FIELDS ARE QUANTISED BEFORE THEY LAND HERE - see Bake.
+    ''' A raw fraction and a raw elapsed time differ every frame, so storing
+    ''' them as they come would make every card permanently dirty and turn a
+    ''' once-in-a-while redraw into thirty bakes a frame.
+    ''' </summary>
     Private Structure CardState
         Public id As Integer
         Public hull As Single
         Public crew As Single
         Public team As Integer
+        Public frac As Single
+        Public waited As Single
+        Public shells As Integer
         Public valid As Boolean
     End Structure
     Private baked() As CardState
@@ -115,7 +124,24 @@ Public Class TankCards
         For i = 0 To instances.Count - 1
             Dim inst = instances(i)
             Dim b = baked(i)
+
+            ' QUANTISED TO WHAT THE CARD CAN ACTUALLY SHOW. The bar is 132 px
+            ' wide, so a change smaller than a px of it is not a change; the
+            ' number is printed to a tenth, so a change smaller than that is
+            ' not one either. On the raw values every gun in the world would
+            ' rebake its card sixty times a second to move nothing.
+            Dim frac = CSng(Math.Floor(inst.readyFrac * BAR_W)) / BAR_W
+
+            ' AND THE CLOCK STOPS WHEN THE GUN IS LOADED. A number counting up
+            ' for as long as a tank sits there is noise, and it is the one
+            ' thing that would keep an otherwise idle card dirty for ever.
+            Dim waited = If(inst.ready, -1.0F,
+                            CSng(Math.Floor(inst.sinceShotS * 10.0F)) / 10.0F)
+
             If b.valid AndAlso b.id = inst.id AndAlso b.team = CInt(inst.team) AndAlso
+               b.shells = inst.shells AndAlso
+               Math.Abs(b.frac - frac) < 0.0005F AndAlso
+               Math.Abs(b.waited - waited) < 0.0005F AndAlso
                Math.Abs(b.hull - inst.hullHp) < 0.004F AndAlso
                Math.Abs(b.crew - inst.crewHp) < 0.004F Then Continue For
 
@@ -136,6 +162,9 @@ Public Class TankCards
             baked(i).hull = inst.hullHp
             baked(i).crew = inst.crewHp
             baked(i).team = CInt(inst.team)
+            baked(i).frac = frac
+            baked(i).waited = waited
+            baked(i).shells = inst.shells
             baked(i).valid = True
         Next
 
@@ -176,9 +205,62 @@ Public Class TankCards
                           New Color4(0.25F, 0.75F, 0.30F, 1.0F))
         draw_color_rectangle(New RectangleF(0, 0, 9, CELL_H), team_col)
 
-        draw_id(inst.id)
-        draw_bar(112, 14, 132, 26, inst.hullHp, hull_colour(inst.hullHp))
-        draw_bar(112, 48, 132, 18, inst.crewHp, New Color4(0.45F, 0.68F, 0.95F, 1.0F))
+        draw_number(inst.id.ToString(), ID_RIGHT, 8.0F, 40.0F, Color4.White)
+        draw_bar(BAR_X, 10, BAR_W, 22, inst.hullHp, hull_colour(inst.hullHp))
+        draw_bar(BAR_X, 38, BAR_W, 14, inst.crewHp, New Color4(0.45F, 0.68F, 0.95F, 1.0F))
+        draw_reload(inst)
+    End Sub
+
+    ''' <summary>Where the right hand column lives. The bars are laid out from
+    ''' these rather than from repeated literals so that widening the card
+    ''' moves the bar and the tick spacing and the pips together.</summary>
+    Private Const BAR_X As Single = 112.0F
+    Private Const BAR_W As Single = 132.0F
+    Private Const ID_RIGHT As Single = 104.0F
+
+    ''' <summary>
+    ''' The gun: how close it is to firing, what is in the magazine, and how
+    ''' long it has been waiting.
+    '''
+    ''' FULL MEANS READY. The bar fills TOWARD the shot rather than draining
+    ''' away from it, so a loaded gun is a full green bar - the reading that
+    ''' survives being one of thirty markers glanced at across a valley.
+    '''
+    ''' IT SHOWS WHICHEVER CLOCK IS ACTUALLY HOLDING THE GUN, which for a
+    ''' magazine part way down is the cadence between rounds and not the
+    ''' reload - see TankInstance.readyFrac. A single bar off the reload alone
+    ''' would sit pinned at full through the seconds a clip gun cannot fire.
+    '''
+    ''' THE PIPS ARE WHAT MAKE THE BAR UNAMBIGUOUS. A clip gun spends four
+    ''' quick rounds and then waits half a minute, and the bar looks the same
+    ''' filling for either wait; the row of shells says which of the two you
+    ''' are watching. Drawn only where there is a magazine to report - on a
+    ''' plain gun it would be one pip that never changed.
+    ''' </summary>
+    Private Sub draw_reload(inst As TankInstance)
+        Dim ready = inst.ready
+        Dim col = If(ready, New Color4(0.45F, 0.80F, 0.40F, 1.0F),
+                            New Color4(0.88F, 0.68F, 0.22F, 1.0F))
+        draw_bar(BAR_X, 58, BAR_W, 14, inst.readyFrac, col)
+
+        Dim cap = MapTanks.magazine_size(inst.vehicle)
+        If cap > 1 Then
+            ' Eight at most. A magazine deeper than that is a Waffentrager's
+            ' and the pips would be a pixel apart; the bar still tells the
+            ' truth, and the count is not what anyone reads at marker size.
+            For k = 0 To Math.Min(cap, 8) - 1
+                draw_color_rectangle(New RectangleF(BAR_X + k * 10.0F, 78.0F, 7.0F, 7.0F),
+                    If(k < inst.shells, New Color4(0.95F, 0.90F, 0.60F, 1.0F),
+                                        New Color4(0.20F, 0.21F, 0.22F, 1.0F)))
+            Next
+        End If
+
+        ' The wait so far, under the ID, and only while there is a wait - see
+        ' the clock note in Bake.
+        If Not ready Then
+            draw_number(inst.sinceShotS.ToString("0.0", Globalization.CultureInfo.InvariantCulture),
+                        ID_RIGHT, 62.0F, 22.0F, New Color4(0.72F, 0.74F, 0.76F, 1.0F))
+        End If
     End Sub
 
     ''' <summary>
@@ -199,11 +281,10 @@ Public Class TankCards
     Private Const STRIP_H As Single = 10.0F
 
     ''' <summary>
-    ''' The ID, right aligned, from the minimap's digit strip.
+    ''' A number, right aligned, from the minimap's digit strip.
     '''
-    ''' mini_numbers.png is the app's only glyph sheet, and ten digits is
-    ''' exactly and only what an ID of 1..15 needs - so no font work and no
-    ''' new shader is involved, just the call the minimap's column labels
+    ''' mini_numbers.png is the app's only glyph sheet - so no font work and
+    ''' no new shader is involved, just the call the minimap's column labels
     ''' already make.
     '''
     ''' THE STRIP RUNS 1234567890, not 0123456789. It was drawn for the
@@ -214,14 +295,19 @@ Public Class TankCards
     '''
     ''' Right aligned on a fixed edge rather than centred, so a 9 and a 15 do
     ''' not shuffle the number sideways between frames as the roster changes.
+    '''
+    ''' A '.' IS A DRAWN SQUARE, NOT A GLYPH. mini_numbers.png is ten digits
+    ''' and nothing else - no point, no slash, no letter - so the elapsed time
+    ''' gets its decimal separator as a two pixel rectangle laid out in the
+    ''' same pass. Formatted invariant at the call site for the same reason:
+    ''' on a European locale "0.0" renders a comma, and a comma has no glyph
+    ''' and no rectangle here either.
     ''' </summary>
-    Private Sub draw_id(id As Integer)
-        If id <= 0 OrElse digits Is Nothing Then Return
-        Dim s = id.ToString()
-        Const GH As Single = 40.0F      ' glyph height on the card
-        Const TRACK As Single = 5.0F    ' space between digits
-        Const RIGHT As Single = 104.0F  ' the fixed right edge
-        Dim y0 = (CELL_H - GH) / 2.0F
+    Private Sub draw_number(s As String, right As Single, y0 As Single,
+                            gh As Single, col As Color4)
+        If String.IsNullOrEmpty(s) OrElse digits Is Nothing Then Return
+        Dim track = gh * 0.125F         ' space between glyphs
+        Dim dot_w = gh * 0.22F          ' the separator's slot
 
         ' Laid out with a PER GLYPH advance rather than a fixed one. A fixed
         ' advance has to be as wide as the widest digit, so every 1 in a two
@@ -232,15 +318,33 @@ Public Class TankCards
         Dim total = 0.0F
         For k = 0 To s.Length - 1
             Dim dd = AscW(s(k)) - AscW("0"c)
-            Dim nn = (dd + 9) Mod 10
-            widths(k) = GH * (INK_HI(nn) - INK_LO(nn) + 4.0F) / STRIP_H
+            If dd < 0 OrElse dd > 9 Then
+                widths(k) = dot_w
+            Else
+                Dim nn = (dd + 9) Mod 10
+                widths(k) = gh * (INK_HI(nn) - INK_LO(nn) + 4.0F) / STRIP_H
+            End If
             total += widths(k)
         Next
-        total += TRACK * (s.Length - 1)
-        Dim pen = RIGHT - total
+        total += track * (s.Length - 1)
+        Dim pen = right - total
+
+        ' THE SEPARATORS FIRST, in their own pass, because they are rectangles
+        ' and the digits are a texture. Doing them in glyph order would mean
+        ' stopping and restarting the text shader in the middle of the run.
+        Dim dot = gh * 0.16F
+        Dim p = pen
+        For k = 0 To s.Length - 1
+            Dim dd = AscW(s(k)) - AscW("0"c)
+            If dd < 0 OrElse dd > 9 Then
+                draw_color_rectangle(New RectangleF(
+                    p + (widths(k) - dot) * 0.5F, y0 + gh - dot, dot, dot), col)
+            End If
+            p += widths(k) + track
+        Next
 
         TextRenderShader.Use()
-        GL.Uniform4(TextRenderShader("color"), Color4.White)
+        GL.Uniform4(TextRenderShader("color"), col)
         GL.UniformMatrix4(TextRenderShader("ProjectionMatrix"), False, PROJECTIONMATRIX)
         GL.Uniform1(TextRenderShader("col_row"), 1)
         GL.Uniform1(TextRenderShader("mask"), 0)
@@ -249,7 +353,10 @@ Public Class TankCards
 
         For k = 0 To s.Length - 1
             Dim d = AscW(s(k)) - AscW("0"c)
-            If d < 0 OrElse d > 9 Then Continue For
+            If d < 0 OrElse d > 9 Then
+                pen += widths(k) + track                ' the separator's slot
+                Continue For
+            End If
             Dim n = (d + 9) Mod 10                      ' 0 is the LAST glyph
 
             ' A pixel of margin either side of the ink, so the window cannot
@@ -261,10 +368,10 @@ Public Class TankCards
 
             ' Each glyph at its OWN width: a 1 is four pixels of ink and an 8
             ' is seven, and stretching both to one box makes the 1 a fat bar.
-            Dim r As New RectangleF(pen, y0, widths(k), GH)
+            Dim r As New RectangleF(pen, y0, widths(k), gh)
             GL.Uniform4(TextRenderShader("rect"), r.Left, -r.Top, r.Right, -r.Bottom)
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-            pen += widths(k) + TRACK
+            pen += widths(k) + track
         Next
 
         TextRenderShader.StopUse()

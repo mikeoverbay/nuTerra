@@ -1811,6 +1811,18 @@ try_again:
                                          "its slots from them.")
                     End If
                     ImGui.SliderFloat("Gun light level", TANK_GUN_LIGHT_LEVEL, 0.0, 30.0)
+                    ImGui.SliderFloat("Gun light radius", TANK_GUN_LIGHT_RADIUS, 0.25, 6.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Scale on the def's outerRadius - 8 m for a" & vbLf &
+                                         "tank gun, 15 for the big ones.")
+                    End If
+                    ImGui.SliderFloat("Gun light hold", TANK_GUN_LIGHT_HOLD, 0.5, 10.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Stretch the flash's life. The def says" & vbLf &
+                                         "0.09 s, which at 60 fps is five frames" & vbLf &
+                                         "and reads as a flash cube." & vbLf &
+                                         "1.0 is exactly what the file says.")
+                    End If
 
                     ImGui.Separator()
                     ImGui.Checkbox("ID markers", TANK_TAGS)
