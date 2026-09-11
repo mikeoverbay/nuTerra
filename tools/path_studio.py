@@ -3584,9 +3584,12 @@ class Studio:
         img[..., 2] = (26 + 84 * gn).astype(np.uint8)
 
         cut = max(0.1, self.vars["agl"].get() - nav.MARGIN)
-        low = (o > 0.4) & (o <= cut)
+        # The kind gate the navigator flies by: a tree under TREE_MIN_H is a
+        # bush and is flown over, so it is drawn as low, not as hard.
+        og = nav.gated_obstacle(b)
+        low = (o > 0.4) & (og <= cut)
         img[low] = (66, 72, 82)
-        hard = o > cut
+        hard = og > cut
         t = np.clip((o - cut) / 20.0, 0, 1)
         img[hard, 0] = (150 + 105 * t[hard]).astype(np.uint8)
         img[hard, 1] = (110 + 90 * t[hard]).astype(np.uint8)

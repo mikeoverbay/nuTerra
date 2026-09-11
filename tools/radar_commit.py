@@ -21,6 +21,11 @@ Two rules are load bearing:
 
 Two more, added 2026-09-09 for the lanes a tank can drive through:
 
+  the kind gate - the bake says what stands at a cell (2026-09-11), and a
+                  kind can have a minimum height before it counts: a tree
+                  under TREE_MIN_H is a bush, flown over. KIND_MIN_H is the
+                  table; gated_obstacle applies it wherever a mask is cut.
+
   the bend      - the far probe of the trap rule is a straight line, and a lane
                   that turns inside FAR_D read as a pocket to it. From the near
                   point a continuation within BEND_MAX is now tried before a
@@ -176,6 +181,31 @@ OBJECT_MIN_H = 2.0   # stands this far over its own ground -> it is an object
 # 2-3 m to the actual leaves. That is what was clipping trees, and no amount of
 # extra radar rays would have found it - the obstacle was not in the data.
 CANOPY_H = 3.0       # over this tall, treat the footprint as under-recorded
+
+# The kind keys the bake carries (MapFlightBake.kind_of; the meta names them)
+# and what each one has to STAND before it blocks. "If it's a green hit, it's
+# a tree - trees don't count unless they are 3 metres": under TREE_MIN_H a
+# tree is a bush and the camera goes over it, whatever BLOCK_H says. A kind
+# not listed blocks at BLOCK_H like everything else. A bake without kinds
+# (an old .r32) gates nothing. This is the one table to grow when another
+# kind earns a rule.
+KIND_TERRAIN, KIND_BUILDING, KIND_FENCE, KIND_TREE, KIND_ROCK, KIND_PROP, KIND_WATER, KIND_OTHER = range(8)
+TREE_MIN_H = 3.0
+KIND_MIN_H = {KIND_TREE: TREE_MIN_H}
+
+
+def gated_obstacle(bake):
+    """bake.obstacle with every kind in KIND_MIN_H zeroed where it stands
+    shorter than its minimum - the height field the blocked masks are cut
+    from. Unchanged, and not copied, when the bake carries no kinds."""
+    o = bake.obstacle
+    kind = getattr(bake, "kind", None)
+    if kind is None:
+        return o
+    o = o.copy()
+    for k, h in KIND_MIN_H.items():
+        o[(kind == k) & (o < h)] = 0.0
+    return o
 CANOPY_CLOSE = 2     # cells of morphological closing, to fill the holes
 CANOPY_PAD = 2       # cells of extra spread, for foliage that missed every centre
 TERRAIN_R = 3.0      # standoff from ground that merely reaches the level
@@ -1534,15 +1564,22 @@ def draw(bake, res, sc, nx, nz, out_png, worlds=None, terrace_of=None):
 def build_world(bake, level):
     """Blocked mask, dilated planning mask and clearance field for one level."""
     cell_m = bake.mx
+    # The obstacle field with the kind gate applied - a bush is not there.
+    obs = gated_obstacle(bake)
     if level is not None:
-        raw = bake.top > (level - MARGIN)
+        # Level flight: the ground itself can reach the level; a gated-out
+        # object cannot, but the ground under it still can.
+        lm = level - MARGIN
+        gated_out = (bake.obstacle > 0.0) & (obs <= 0.0)
+        raw = ((bake.top > lm) & ~gated_out) | (bake.floor > lm)
     else:
-        raw = bake.obstacle > BLOCK_H
+        raw = obs > BLOCK_H
 
     # Give tall things back the footprint the rasteriser lost. Close first to
     # fill the holes inside a canopy, then spread, because closing alone cannot
-    # recover foliage that missed every texel centre it passed over.
-    canopy = (bake.top - bake.floor) > CANOPY_H
+    # recover foliage that missed every texel centre it passed over. On the
+    # gated field, so a bush is not padded into a tree.
+    canopy = obs > CANOPY_H
     if CANOPY_CLOSE > 0:
         canopy = ndimage.binary_closing(canopy, iterations=CANOPY_CLOSE)
     if CANOPY_PAD > 0:

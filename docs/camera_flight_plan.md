@@ -108,9 +108,17 @@ it (the depth shaders emit the kind as colour from a per-draw key, so the
 depth test leaves the topmost kind); `flight_plan.Bake` and
 `radar_commit.Bake` read either format, carry the kind through the 2048
 downsample as the kind of the tallest texel, and offer `kind_at(x, z)`;
-Path Studio colours the mask and the 3D boxes by kind with a legend. The
-navigator does not use the kind yet - a tree could be flown over and a fence
-not, and that is the point of having it.
+Path Studio colours the mask and the 3D boxes by kind with a legend.
+
+**The navigator uses it (2026-09-11):** `KIND_MIN_H` in `radar_commit.py`
+(and the same in `flight_plan.py`) says what a kind must stand before it
+blocks - `{tree: 3.0}` to start: "if it's a green hit, it's a tree; trees
+don't count unless they are 3 metres". `gated_obstacle(bake)` zeroes the
+obstacle field where a kind is under its minimum, and every blocked mask -
+the navigator's world, the canopy padding, the A* cost grid - is cut from
+that field. The canvas mask draws a gated-out cell as low (grey), not hard.
+An old `.r32` bake has no kinds and gates nothing. The table is the place
+to add the next rule.
 
 ## Step 3 — look-ahead
 

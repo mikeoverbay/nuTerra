@@ -37,6 +37,31 @@ SLOPE_TOL = 1.25
 # Bake._work_res.
 WORK_RES = 2048
 
+# The kind keys the bake carries (MapFlightBake.kind_of; the meta names them)
+# and what each one has to STAND before it blocks. "If it's a green hit, it's
+# a tree - trees don't count unless they are 3 metres": under TREE_MIN_H a
+# tree is a bush and the camera goes over it, whatever FLIGHT_BLOCK_H says. A kind
+# not listed blocks at FLIGHT_BLOCK_H like everything else. A bake without kinds
+# (an old .r32) gates nothing. This is the one table to grow when another
+# kind earns a rule.
+KIND_TERRAIN, KIND_BUILDING, KIND_FENCE, KIND_TREE, KIND_ROCK, KIND_PROP, KIND_WATER, KIND_OTHER = range(8)
+TREE_MIN_H = 3.0
+KIND_MIN_H = {KIND_TREE: TREE_MIN_H}
+
+
+def gated_obstacle(bake):
+    """bake.obstacle with every kind in KIND_MIN_H zeroed where it stands
+    shorter than its minimum - the height field the blocked masks are cut
+    from. Unchanged, and not copied, when the bake carries no kinds."""
+    o = bake.obstacle
+    kind = getattr(bake, "kind", None)
+    if kind is None:
+        return o
+    o = o.copy()
+    for k, h in KIND_MIN_H.items():
+        o[(kind == k) & (o < h)] = 0.0
+    return o
+
 from scipy.interpolate import splprep, splev
 from PIL import Image, ImageDraw
 
@@ -313,8 +338,10 @@ def build_cost(bake):
     fx = bake.w // g
 
     # Max-pool rather than average. Averaging a 5x5 m cell hides a lamppost, and
-    # the whole point of the layer is that the lamppost is there.
-    o = bake.obstacle[:g * fy, :g * fx].reshape(g, fy, g, fx).max(axis=(1, 3))
+    # the whole point of the layer is that the lamppost is there. Off the kind
+    # gated field, so the course is not laid round a bush the navigator
+    # would fly over anyway.
+    o = gated_obstacle(bake)[:g * fy, :g * fx].reshape(g, fy, g, fx).max(axis=(1, 3))
 
     cell_m = (bake.wx_max - bake.wx_min) / g
     blocked = o > FLIGHT_BLOCK_H
