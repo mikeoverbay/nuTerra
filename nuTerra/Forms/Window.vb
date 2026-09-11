@@ -535,8 +535,10 @@ try_again:
     ''' screen forever is in the way of the thing it just loaded.
     ''' </summary>
     Private Sub draw_tank_load_panel(viewport As ImGuiViewportPtr)
-        If MapTanks.LoadRows.Count = 0 Then Return
-        If Not (MapTanks.Loading OrElse TANK_SHOW_LOAD) Then Return
+        ' While the load runs, and not otherwise. It reports something that is
+        ' happening; when nothing is happening it is a list in the way of the
+        ' thing it just loaded.
+        If MapTanks.LoadRows.Count = 0 OrElse Not MapTanks.Loading Then Return
 
         Dim line = ImGui.GetTextLineHeightWithSpacing()
         ImGui.SetNextWindowPos(New Numerics.Vector2(
@@ -684,11 +686,17 @@ try_again:
             ' submitted while a map is loading, which is why this was the one
             ' that fired first.
             ImGui.End()
-        ElseIf Not SHOW_MAPS_SCREEN Then
+        ElseIf Not SHOW_MAPS_SCREEN AndAlso Not MapTanks.Loading Then
             ' The menu bar and its panels belong to a loaded map. The map
             ' picker is a full-screen choice of its own and used to have the
             ' bar drawn over the top of it; the loader clears SHOW_MAPS_SCREEN
             ' once a map is picked, and only then does the bar come back.
+            '
+            ' And it stands down while the tanks come in. The load runs from
+            ' inside the menu's own button, so leaving the bar up draws the
+            ' panel that is loading over the top of the progress it is
+            ' reporting - and the button sits there looking pressable while
+            ' nothing can answer it.
             SubmitUI(viewport)
         End If
 
@@ -1696,7 +1704,6 @@ try_again:
                     Else
                         ImGui.TextDisabled("tanks loaded")
                     End If
-                    ImGui.Checkbox("Show load panel", TANK_SHOW_LOAD)
                     ImGui.Separator()
                     ' THE TANK LIGHTS ITSELF. It writes GFLAG_UNLIT and the
                     ' resolve passes its pixels through, so nothing here is

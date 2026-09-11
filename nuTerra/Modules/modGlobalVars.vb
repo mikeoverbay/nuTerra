@@ -1104,10 +1104,6 @@ Module modGlobalVars
     ''' <summary>Set by the button. Cleared once the load has run.</summary>
     Public TANK_LOAD_NOW As Boolean = False
 
-    ''' <summary>Keep the per-vehicle load panel up after the load finishes -
-    ''' otherwise it is only on screen while the bars are filling.</summary>
-    Public TANK_SHOW_LOAD As Boolean = False
-
     Public TANK_AIM As Boolean = False
 
     Public TANK_FIRING As Boolean = True

@@ -139,11 +139,8 @@ Public Class MapTanks
                 Tuple.Create("sweden", "S28_UDES_15_16")
             }
 
-            ' THREE A SIDE while the effects are being looked at. Thirty is the
-            ' load test and it stays one constant away; three is what lets a
-            ' single muzzle be watched without two others going off behind it.
-            Const PER_TEAM As Integer = 3
-            Const ROW_N As Integer = 3
+            Const PER_TEAM As Integer = 15
+            Const ROW_N As Integer = 5
             Const SPACING As Single = 14.0F
 
             ' The two lines face each other: team 1 at heading 0 looks down +Z,
